@@ -84,15 +84,25 @@ def probe() -> dict:
     bwrap = shutil.which("bwrap")
     if not bwrap:
         return {"supported": False, "backend": "Linux 网络隔离", "detail": "请安装 bubblewrap 后再启动应用。", "limitations": []}
+    permission_denied = False
     try:
         result = subprocess.run(
             [bwrap, "--unshare-user", "--unshare-net", "--unshare-pid", "--ro-bind", "/", "/", "--proc", "/proc", "--dev", "/dev", sys.executable, "-c", "import socket; assert {n for _,n in socket.if_nameindex()} == {'lo'}"],
             capture_output=True, timeout=8,
         )
         supported = result.returncode == 0
+        error = result.stderr.decode("utf-8", errors="replace").lower()
+        permission_denied = any(message in error for message in ("operation not permitted", "permission denied"))
     except (OSError, subprocess.TimeoutExpired):
         supported = False
-    return {"supported": supported, "backend": "Linux 独立网络空间", "detail": "应用只能连接本地代理，直连 IPv4 / IPv6 和 UDP 被隔离。" if supported else "系统禁止创建网络隔离空间，应用启动已禁用。", "limitations": ["仅面板启动的实例受保护。", "代理不支持的协议、部分桌面功能可能不可用；连接失败不会直连。"]}
+    detail = "应用只能连接本地代理，直连 IPv4 / IPv6 和 UDP 被隔离。" if supported else "系统禁止创建网络隔离空间，应用启动已禁用。"
+    restriction = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")
+    try:
+        if not supported and permission_denied and restriction.read_text().strip() == "1":
+            detail = "隔离权限被系统拒绝，且 AppArmor 用户命名空间限制已开启。仍可添加应用；受保护启动已禁用。"
+    except OSError:
+        pass
+    return {"supported": supported, "backend": "Linux 独立网络空间", "detail": detail, "limitations": ["仅面板启动的实例受保护。", "代理不支持的协议、部分桌面功能可能不可用；连接失败不会直连。"]}
 
 
 def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str) -> tuple[list[str], dict[str, str]]:

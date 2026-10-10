@@ -143,10 +143,12 @@ class LauncherTests(unittest.TestCase):
             launcher.shutil, "which", side_effect=lambda name: str(firefox) if name == "firefox" else None
         ):
             found = launcher.discover_apps()
-        self.assertEqual(
-            found,
-            [{"label": "Mozilla Firefox", "path": str(firefox), "adapter": "firefox"}],
-        )
+        entry = next(app for app in found if app["path"] == str(firefox.resolve()))
+        self.assertEqual(entry["label"], "Mozilla Firefox")
+        self.assertEqual(entry["adapter"], "firefox")
+        self.assertEqual(entry["args"], [])
+        self.assertEqual(entry["category"], "browser")
+        self.assertIn("fails closed", entry["compatibility"])
 
 
 if __name__ == "__main__":

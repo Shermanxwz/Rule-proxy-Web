@@ -17,7 +17,7 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 1. 解压整个运行包。
 2. 双击 `Start-Windows.cmd`。无需以管理员身份运行。
 3. 在面板导入自己的 YAML，选择节点，启动核心。
-4. 添加应用路径和对应启动方式，点击“启动隔离实例”。
+4. 在“添加已安装应用”中搜索名称，点击“添加”，再点击“启动隔离实例”。程序路径和启动方式自动填写；找不到的应用可展开“手动添加”。
 
 从 GitHub 下载源码时，先双击 `Setup-Windows.cmd`，下载经过固定校验值验证的本地运行组件和 Python 依赖，再双击启动文件。所有文件只安装在项目目录下。
 
@@ -33,6 +33,10 @@ sh start-linux.sh
 ```
 
 发行版未安装 bubblewrap 时，通过发行版的软件管理器安装它。用登录桌面的普通用户启动面板。不要用 sudo 启动浏览器。
+
+应用列表会自动读取本机已安装的应用，支持搜索和一键添加。“重新扫描”会立即重新读取清单。添加只保存启动清单；只有从面板启动并显示“隔离中运行”的实例才受保护，现有窗口不会自动接管。
+
+Ubuntu 的 AppArmor 可能禁止 bubblewrap 创建隔离空间，即使已经安装 bubblewrap。此时面板保留添加功能，但禁止受保护启动。需要由管理员针对隔离程序配置并验证 AppArmor 策略；不要关闭全机 user namespace 限制，也不要用 `--no-sandbox` 绕过浏览器沙箱。[Ubuntu 权限限制说明](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)
 
 面板默认地址：`http://127.0.0.1:8879`。在面板点击停止，会先关闭本工具启动的应用，再停止本工具的核心。退出面板使用 Ctrl+C；Windows 直接关闭终端的清理行为尚未实测。
 

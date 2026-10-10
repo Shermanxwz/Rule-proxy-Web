@@ -117,14 +117,30 @@
           <h2>启动受保护应用</h2>
           </div>
         </div>
-        <button id="launch-all-button" class="button button-primary" type="button" disabled>启动所有待保护应用 <span aria-hidden="true">↗</span></button>
+        <button id="launch-all-button" class="button button-primary" type="button" disabled>启动所有待启动应用 <span aria-hidden="true">↗</span></button>
       </div>
-      <p class="muted apps-intro">勾选表示加入待保护列表，不代表当前已受保护。启动按钮仅在核心运行且隔离能力可用时开放；运行中的实例可在此关闭。</p>
+      <p class="muted apps-intro">已添加的应用显示“待启动”；只有显示“隔离中运行”的实例才受保护。现有已打开的应用不会自动接管。</p>
       <div id="apps-list" class="apps-list" aria-live="polite">
-        <div class="empty-state"><span class="empty-symbol" aria-hidden="true">＋</span><strong>还没有添加应用</strong><span>在下方填写应用路径即可开始。</span></div>
+        <div class="empty-state"><span class="empty-symbol" aria-hidden="true">＋</span><strong>还没有添加应用</strong><span>从下方已安装应用中选择。</span></div>
       </div>
+      <section class="app-discovery" aria-labelledby="discovery-title">
+        <div class="discovery-heading">
+          <div><strong id="discovery-title">添加已安装应用</strong><span id="available-apps-count" class="discovery-count">正在读取应用清单…</span></div>
+          <button id="refresh-apps-button" class="button button-secondary" type="button">重新扫描</button>
+        </div>
+        <div class="discovery-search-row">
+          <label class="sr-only" for="app-search">搜索已安装应用</label>
+          <input id="app-search" class="text-input" type="search" autocomplete="off" placeholder="搜索应用名称…">
+        </div>
+        <div id="available-apps-list" class="available-apps-list" aria-live="polite">
+          <div class="empty-state"><span>正在读取应用清单…</span></div>
+        </div>
+        <p class="discovery-footnote">列表显示系统已识别的应用。搜索可查找完整清单；找不到的应用可展开手动添加。</p>
+      </section>
+      <details id="manual-app-details" class="manual-app-details">
+        <summary>找不到应用？手动添加</summary>
       <div class="add-app-wrap">
-        <div class="add-app-title"><span class="plus-badge" aria-hidden="true">＋</span><div><strong>添加应用</strong><span>保存应用路径与启动方式</span></div></div>
+        <div class="add-app-title"><span class="plus-badge" aria-hidden="true">＋</span><div><strong>手动添加应用</strong><span>自行填写名称、路径和启动方式</span></div></div>
         <div class="add-app-grid">
           <label class="form-control"><span class="field-label">应用名称</span><input id="app-label" class="text-input" type="text" placeholder="例如：工作浏览器" maxlength="80"></label>
           <label class="form-control"><span class="field-label">程序路径</span><input id="app-path" class="text-input" type="text" list="available-app-paths" autocomplete="off" placeholder="可执行程序的路径"><datalist id="available-app-paths"></datalist></label>
@@ -138,6 +154,7 @@
         </div>
         <p class="compatibility-note"><span class="info-icon" aria-hidden="true">i</span><span>此工具不能保证所有软件兼容。只有本机隔离能力报告支持且实例显示“隔离中运行”时才表示保护已启用；不兼容流量将被阻断。</span></p>
       </div>
+      </details>
     </section>
 
     <details id="windows-runtime-settings" class="advanced-settings" hidden>

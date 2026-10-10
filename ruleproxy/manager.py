@@ -157,7 +157,7 @@ class Manager:
     def runtime_path(self):
         return self.settings.get("runtime_path") or str(ROOT / "bin/windows-amd64/wxc-exec.exe")
 
-    def state(self):
+    def state(self, *, refresh_apps=False):
         with self.lock:
             running = bool(self.core and self.core.poll() is None)
             apps = []
@@ -166,7 +166,7 @@ class Manager:
                 alive = bool(owned and owned[0].poll() is None)
                 pending = bool(alive and getattr(owned[1], "failed_process", None) is not None)
                 apps.append({**app, "active": alive and not pending, "cleanup_pending": pending})
-            return {"token": self.token, "platform": "Windows" if sys.platform == "win32" else "Linux" if sys.platform == "linux" else sys.platform, "version": __version__, "imported": bool(self.compiled), "running": running, "error": self.error, "core_path": self.settings["core_path"], "runtime_path": self.settings["runtime_path"], "selected_node": self.compiled.selected_node if self.compiled else "", "nodes": self.compiled.nodes if self.compiled else [], "primary_group": self.compiled.primary_group if self.compiled else "", "apps": apps, "available_apps": discover_apps(), "proxy_url": f"http://127.0.0.1:{self.mixed_port}", "ports": {"mixed": self.mixed_port, "panel": self.panel_port}, "protection": self.protection(), "warnings": self.compiled.warnings if self.compiled else []}
+            return {"token": self.token, "platform": "Windows" if sys.platform == "win32" else "Linux" if sys.platform == "linux" else sys.platform, "version": __version__, "imported": bool(self.compiled), "running": running, "error": self.error, "core_path": self.settings["core_path"], "runtime_path": self.settings["runtime_path"], "selected_node": self.compiled.selected_node if self.compiled else "", "nodes": self.compiled.nodes if self.compiled else [], "primary_group": self.compiled.primary_group if self.compiled else "", "apps": apps, "available_apps": discover_apps(refresh=refresh_apps), "proxy_url": f"http://127.0.0.1:{self.mixed_port}", "ports": {"mixed": self.mixed_port, "panel": self.panel_port}, "protection": self.protection(), "warnings": self.compiled.warnings if self.compiled else []}
 
     def import_yaml(self, source):
         with self.lock:

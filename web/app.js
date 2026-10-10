@@ -11,6 +11,8 @@
     footerVersion: $('footer-version'), start: $('start-button'), stop: $('stop-button'), apps: $('apps-list'),
     launchAll: $('launch-all-button'), appLabel: $('app-label'), appPath: $('app-path'),
     appAdapter: $('app-adapter'), appArgs: $('app-args'), addApp: $('add-app-button'), availablePaths: $('available-app-paths'),
+    appSearch: $('app-search'), refreshApps: $('refresh-apps-button'), availableApps: $('available-apps-list'),
+    availableAppsCount: $('available-apps-count'),
     protectionCard: $('protection-card'), protectionBadge: $('protection-badge'), protectionDetail: $('protection-detail'),
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
     runtimeSettings: $('windows-runtime-settings'), runtimePath: $('runtime-path'), saveRuntime: $('save-runtime-button'),
@@ -18,6 +20,8 @@
   let state = null;
   let busy = false;
   let lastAppsSignature = '';
+  let lastAvailableSignature = '';
+  let refreshingApps = false;
 
   function showError(message, source = 'local') {
     if (message) {
@@ -48,10 +52,13 @@
     ui.start.disabled = busy || !imported || running;
     ui.stop.disabled = busy || !running;
     ui.addApp.disabled = busy || !ready;
+    ui.refreshApps.disabled = busy || refreshingApps || !ready;
+    ui.refreshApps.textContent = refreshingApps ? '正在扫描…' : '重新扫描';
     ui.launchAll.disabled = busy || !running || !protectedBackend || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
     if (ui.saveRuntime) ui.saveRuntime.disabled = busy || !ready || running;
     if (ui.runtimePath) ui.runtimePath.disabled = busy || !ready || running;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app').forEach((control) => { control.disabled = busy; });
+    ui.availableApps.querySelectorAll('.discovery-add').forEach((control) => { control.disabled = busy || control.dataset.added === 'true'; });
     ui.apps.querySelectorAll('.app-action').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
       const canLaunch = app && app.enabled && running && protectedBackend;
@@ -77,7 +84,7 @@
     ui.apps.replaceChildren();
     if (!apps.length) {
       const empty = textElement('div', 'empty-state');
-      empty.append(textElement('span', 'empty-symbol', '＋'), textElement('strong', '', '还没有添加应用'), textElement('span', '', '在下方填写应用路径即可开始。'));
+      empty.append(textElement('span', 'empty-symbol', '＋'), textElement('strong', '', '还没有添加应用'), textElement('span', '', '从已安装应用中选择，或展开手动添加。'));
       ui.apps.append(empty);
       return;
     }
@@ -88,7 +95,7 @@
       enabled.type = 'checkbox';
       enabled.checked = !!app.enabled;
       enabled.disabled = busy;
-      enabled.setAttribute('aria-label', `将 ${app.label || '应用'} 加入待保护列表`);
+      enabled.setAttribute('aria-label', `将 ${app.label || '应用'}加入启动清单`);
       enabled.dataset.appControl = `${app.id}:enabled`;
       enabled.addEventListener('change', () => {
         const requested = enabled.checked;
@@ -101,12 +108,13 @@
 
       const appInfo = textElement('div', 'app-info');
       appInfo.append(textElement('strong', 'app-name', app.label || '未命名应用'));
+      const statusText = app.cleanup_pending ? '清理待完成' : (app.active ? '隔离中运行' : (app.enabled ? '待启动' : '未启用'));
+      const statusClass = app.cleanup_pending ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
+      appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       appInfo.append(textElement('span', 'app-path', app.path || '未设置路径'));
       const adapter = friendlyAdapter(app.adapter);
       const appMeta = textElement('div', 'app-meta');
       appMeta.append(textElement('span', 'app-adapter', adapter));
-      const statusText = app.cleanup_pending ? '清理待完成' : (app.active ? '隔离中运行' : (app.enabled ? '待保护' : '未加入'));
-      const statusClass = app.cleanup_pending ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       const status = textElement('span', `app-status ${statusClass}`, statusText);
       appMeta.append(status);
       const launch = textElement('button', 'button button-launch app-action', app.cleanup_pending ? '关闭守卫' : (app.active ? '关闭实例' : '启动隔离实例 ↗'));
@@ -131,8 +139,72 @@
   }
 
   function friendlyAdapter(adapter) {
-    const names = { chrome: 'Chrome · 独立配置', chromium: '浏览器 · 独立配置', edge: 'Edge · 独立配置', brave: 'Brave · 独立配置', firefox: 'Firefox · 独立配置', env: '代理环境变量隔离', environment: '代理环境变量隔离' };
+    const names = { chrome: '浏览器 / Electron · 独立配置', chromium: '浏览器 / Electron · 独立配置', edge: '浏览器 / Electron · 独立配置', brave: '浏览器 / Electron · 独立配置', firefox: 'Firefox · 独立配置', env: '代理环境变量启动', environment: '代理环境变量启动' };
     return names[adapter] || (adapter ? String(adapter) : '应用启动');
+  }
+
+  function compatibilityHint(adapter) {
+    if (adapter === 'chromium' || adapter === 'chrome' || adapter === 'edge' || adapter === 'brave') return '使用独立配置；已有窗口不会自动接管。';
+    if (adapter === 'firefox') return '使用独立 Firefox 配置；已有窗口不会接管。';
+    if (adapter === 'environment' || adapter === 'env') return '应用若不遵循代理设置，其联网请求会被阻断。';
+    return '需通过本机隔离能力检查后才能启动。';
+  }
+
+  function sameAppPath(left, right) {
+    const normalize = (value) => String(value || '').replaceAll('\\', '/').replace(/\/$/, '');
+    const a = normalize(left);
+    const b = normalize(right);
+    const windows = /windows|win32|win64/i.test(String(state && state.platform || ''));
+    return windows ? a.toLocaleLowerCase() === b.toLocaleLowerCase() : a === b;
+  }
+
+  function renderAvailableApps() {
+    const available = state && Array.isArray(state.available_apps) ? state.available_apps : [];
+    const saved = state && Array.isArray(state.apps) ? state.apps : [];
+    const signature = JSON.stringify({ available, saved: saved.map((app) => [app.path, app.enabled, app.active]) });
+    if (signature === lastAvailableSignature && ui.availableApps.dataset.query === ui.appSearch.value) return;
+    lastAvailableSignature = signature;
+    const query = ui.appSearch.value.trim().toLocaleLowerCase();
+    ui.availableApps.dataset.query = ui.appSearch.value;
+    ui.availableApps.replaceChildren();
+    const matches = available.filter((app) => `${app.label || ''} ${app.path || ''} ${friendlyAdapter(app.adapter)}`.toLocaleLowerCase().includes(query));
+    const limit = query ? 60 : 24;
+    const visible = matches.slice(0, limit);
+    ui.availableAppsCount.textContent = available.length
+      ? (query ? `找到 ${matches.length} 项` : `发现 ${available.length} 项`)
+      : '未发现可添加的应用';
+    if (!visible.length) {
+      const empty = textElement('div', 'discovery-empty', query ? '没有找到匹配的应用。' : '系统暂未发现可添加的应用。');
+      ui.availableApps.append(empty);
+      return;
+    }
+    for (const app of visible) {
+      const row = textElement('article', 'available-app-row');
+      const info = textElement('div', 'available-app-info');
+      info.append(textElement('strong', 'available-app-name', app.label || '未命名应用'));
+      info.append(textElement('span', 'available-app-kind', friendlyAdapter(app.adapter)));
+      info.append(textElement('span', 'available-app-hint', compatibilityHint(app.adapter)));
+      const button = textElement('button', 'button button-secondary discovery-add');
+      button.type = 'button';
+      const alreadyAdded = saved.some((savedApp) => sameAppPath(savedApp.path, app.path));
+      button.dataset.added = String(alreadyAdded);
+      button.disabled = busy || alreadyAdded;
+      button.textContent = alreadyAdded ? '已添加' : '添加';
+      button.setAttribute('aria-label', `${alreadyAdded ? '已添加' : '添加'} ${app.label || '应用'}`);
+      button.addEventListener('click', () => addDiscoveredApp(app));
+      row.append(info, button);
+      ui.availableApps.append(row);
+    }
+    if (matches.length > visible.length) {
+      ui.availableApps.append(textElement('div', 'discovery-more', `仅显示前 ${visible.length} 项，请继续搜索缩小范围。`));
+    }
+  }
+
+  async function addDiscoveredApp(app) {
+    if (busy || !app || !app.path || !app.adapter) return;
+    const label = String(app.label || app.path);
+    const args = Array.isArray(app.args) ? app.args : [];
+    await mutate('/api/apps', { body: { label, path: app.path, adapter: app.adapter, args, enabled: true } });
   }
 
   function render(stateValue) {
@@ -192,13 +264,14 @@
       option.label = app.label || '';
       ui.availablePaths.append(option);
     }
+    renderAvailableApps();
     renderApps();
     renderControls();
   }
 
-  async function readState({ quiet = false } = {}) {
+  async function readState({ quiet = false, refreshApps = false } = {}) {
     try {
-      const response = await fetch('/api/state', { cache: 'no-store' });
+      const response = await fetch(refreshApps ? '/api/state?refresh_apps=1' : '/api/state', { cache: 'no-store' });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || '无法读取本机服务状态。');
       render(result);
@@ -342,6 +415,19 @@
     mutate('/api/launch-enabled', {}, { launchAll: true });
   });
 
+  ui.appSearch.addEventListener('input', renderAvailableApps);
+  ui.refreshApps.addEventListener('click', async () => {
+    if (busy || refreshingApps) return;
+    refreshingApps = true;
+    renderControls();
+    try {
+      await readState({ refreshApps: true });
+    } finally {
+      refreshingApps = false;
+      renderControls();
+    }
+  });
+
   ui.addApp.addEventListener('click', () => {
     const label = ui.appLabel.value.trim();
     const path = ui.appPath.value.trim();
@@ -369,6 +455,6 @@
 
   readState();
   window.setInterval(() => {
-    if (!document.hidden && !busy) readState({ quiet: true });
+    if (!document.hidden && !busy && !refreshingApps) readState({ quiet: true });
   }, 5000);
 })();

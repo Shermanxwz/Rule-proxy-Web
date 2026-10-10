@@ -53,9 +53,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.valid_origin():
             return self.reply(403, {"error": "仅允许从本机面板访问。"})
-        path = urllib.parse.urlsplit(self.path).path
+        url = urllib.parse.urlsplit(self.path)
+        path = url.path
         if path == "/api/state":
-            return self.reply(200, self.server.manager.state())
+            refresh_apps = urllib.parse.parse_qs(url.query).get("refresh_apps") == ["1"]
+            return self.reply(200, self.server.manager.state(refresh_apps=refresh_apps))
         allowed = {"/": "index.html", "/web/index.html": "index.html", "/web/app.js": "app.js", "/web/style.css": "style.css"}
         if path not in allowed:
             return self.reply(404, {"error": "不存在。"})
