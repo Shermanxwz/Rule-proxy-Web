@@ -36,7 +36,7 @@ jobs:
         env:
           # Sandbox tests must run here, not skip.
           RULEPROXY_REQUIRE_ISOLATION: "1"
-        run: python -B -m unittest discover -s tests -v
+        run: python -B .github/run_tests.py
 
   windows:
     name: Windows · Python 3.13
@@ -49,4 +49,4 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Tests, including real shell links
-        run: python -B -m unittest discover -s tests -v
+        run: python -B .github/run_tests.py
