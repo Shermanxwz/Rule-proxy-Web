@@ -144,7 +144,7 @@ def probe() -> dict:
             detail = "Ubuntu AppArmor 限制了隔离权限。请先运行项目中的 Linux AppArmor 准备脚本；受保护启动已禁用。"
     except OSError:
         pass
-    return {"supported": supported, "backend": "Linux 独立网络空间", "detail": detail, "limitations": ["仅面板启动的实例受保护。", "代理不支持的协议、部分桌面功能可能不可用；连接失败不会直连。"]}
+    return {"supported": supported, "backend": "Linux 独立网络空间", "detail": detail, "limitations": ["仅从面板或快捷方式启动的实例受保护。", "代理不支持的协议、部分桌面功能可能不可用；连接失败不会直连。"]}
 
 
 def _xdg_download_dir(home: Path) -> Path:
