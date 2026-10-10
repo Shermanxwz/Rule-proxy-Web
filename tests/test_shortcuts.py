@@ -181,6 +181,16 @@ class WindowsShortcutTests(unittest.TestCase):
         self.assertEqual(created, [Path(link) for link in links])
         self.assertNotIn("[Console]::OutputEncoding =", script)  # throws without a console
 
+    def test_the_error_inside_powershell_clixml_is_extracted(self):
+        stderr = (
+            "#< CLIXML\r\n<Objs Version=\"1.1.0.1\" xmlns=\"http://schemas.microsoft.com/powershell/2004/04\">"
+            "<S S=\"Error\">Exception calling \"Save\" with \"0\" argument(s): &lt;denied&gt;_x000D__x000A_</S>"
+            "<S S=\"Error\">At line:20 char:5_x000D__x000A_</S></Objs>"
+        )
+        self.assertEqual(shortcuts._powershell_error(stderr), 'Exception calling "Save" with "0" argument(s): <denied>')
+        self.assertEqual(shortcuts._powershell_error("plain failure\nmore"), "plain failure")
+        self.assertEqual(shortcuts._powershell_error(None), "")
+
     def test_powershell_failure_is_reported(self):
         with patch("ruleproxy.shortcuts.sys.platform", "win32"), patch("ruleproxy.shortcuts.subprocess.run", return_value=Mock(returncode=1, stdout="", stderr="denied")):
             with self.assertRaisesRegex(ValueError, "无法创建 Windows 快捷方式.*denied"):

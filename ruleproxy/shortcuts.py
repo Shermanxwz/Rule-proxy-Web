@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import html
 import os
 from pathlib import Path
 import re
@@ -171,9 +172,18 @@ def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Pat
     except (binascii.Error, UnicodeDecodeError):
         created = []
     if result.returncode != 0 or not created:
-        reason = next((line.strip() for line in (result.stderr or "").splitlines() if line.strip()), "")
+        reason = _powershell_error(result.stderr)
         raise ValueError("无法创建 Windows 快捷方式。请确认桌面和开始菜单目录可写。" + (f"（{reason[:300]}）" if reason else ""))
     return created
+
+
+def _powershell_error(stderr: str | None) -> str:
+    """The first error line PowerShell wrote. Without a console it writes CLIXML records."""
+    text = stderr or ""
+    if text.lstrip().startswith("#< CLIXML"):
+        records = re.findall(r'<S S="Error">(.*?)</S>', text, re.DOTALL)
+        text = html.unescape(re.sub(r"_x([0-9A-Fa-f]{4})_", lambda match: chr(int(match.group(1), 16)), "".join(records)))
+    return next((line.strip() for line in text.splitlines() if line.strip()), "")
 
 
 def create_shortcut_files(app: dict, *, state_dir: Path, ports: tuple[int, int, int]) -> list[Path]:
