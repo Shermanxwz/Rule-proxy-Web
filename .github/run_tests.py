@@ -28,6 +28,10 @@ def main() -> int:
     for test, trace in result.failures + result.errors:
         # Keep the end of the traceback: it holds the assertion and the failing line.
         print(f"::error title={escape_property(test.id())}::{escape(trace[-3500:])}", flush=True)
+    # Say what ran and what was skipped, so a skipped sandbox test cannot pass unnoticed.
+    summary = f"Ran {result.testsRun} tests, {len(result.failures) + len(result.errors)} failed, {len(result.skipped)} skipped."
+    skipped = "\n".join(f"skipped {test.id()}: {reason}" for test, reason in result.skipped)
+    print(f"::notice title=Test summary::{escape(summary + (chr(10) + skipped if skipped else ''))}", flush=True)
     return 0 if result.wasSuccessful() else 1
 
 
