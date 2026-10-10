@@ -129,6 +129,12 @@ def _report(message: str) -> int:
     title = "RuleProxy 无法启动应用"
     if sys.stderr is not None:
         print(f"{title}：{message}", file=sys.stderr, flush=True)
+    _notify(title, message)
+    return 1
+
+
+def _notify(title: str, message: str) -> None:
+    """Show the failure on the desktop: a shortcut has no console to print to."""
     if sys.platform == "win32":
         try:
             import ctypes
@@ -141,4 +147,3 @@ def _report(message: str) -> int:
             subprocess.run(["notify-send", "-a", "RuleProxy", title, message], capture_output=True, timeout=10, check=False)
         except (OSError, subprocess.SubprocessError):
             pass
-    return 1

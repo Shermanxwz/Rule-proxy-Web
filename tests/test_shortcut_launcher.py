@@ -172,13 +172,13 @@ class DelegationTests(unittest.TestCase):
     def test_the_panel_refusal_reason_is_reported(self):
         self.panel.launch_error = "请先将应用加入待保护列表。"
         err = io.StringIO()
-        with patch.object(shortcut_launcher.shutil, "which", return_value=None), redirect_stderr(err):
+        with patch.object(shortcut_launcher, "_notify"), redirect_stderr(err):
             self.assertEqual(self.run_runner("abc"), 1)
         self.assertIn("请先将应用加入待保护列表", err.getvalue())
 
     def test_an_invalid_id_never_reaches_the_panel(self):
         err = io.StringIO()
-        with patch.object(shortcut_launcher.shutil, "which", return_value=None), redirect_stderr(err):
+        with patch.object(shortcut_launcher, "_notify"), redirect_stderr(err):
             self.assertEqual(self.run_runner("../escape"), 1)
         self.assertEqual(self.panel.posts(), [])
 
@@ -207,7 +207,7 @@ class HostedPanelTests(unittest.TestCase):
             patch("ruleproxy.manager.Manager", self.factory),
             patch.object(shortcut_launcher, "PANEL_IDLE_SECONDS", 0.2),
             patch.object(shortcut_launcher, "_stop_on_signal"),
-            patch.object(shortcut_launcher.shutil, "which", return_value=None),
+            patch.object(shortcut_launcher, "_notify"),
             redirect_stderr(self.err),
         ):
             patcher.__enter__()

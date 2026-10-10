@@ -1,15 +1,52 @@
-name: Check source
+name: Check
+
 on:
+  push:
+  pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  linux:
+    name: Linux · Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
-      - run: python -m pip install -r requirements.txt
-      - run: python -B -m unittest discover -s tests -v
+          python-version: ${{ matrix.python }}
+      - name: Install bubblewrap and load the project's AppArmor policy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap apparmor
+          sudo sh scripts/setup-linux-apparmor.sh
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Tests, with the real network sandbox
+        env:
+          # Sandbox tests must run here, not skip.
+          RULEPROXY_REQUIRE_ISOLATION: "1"
+        run: python -B -m unittest discover -s tests -v
+
+  windows:
+    name: Windows · Python 3.13
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Tests, including real shell links
+        run: python -B -m unittest discover -s tests -v

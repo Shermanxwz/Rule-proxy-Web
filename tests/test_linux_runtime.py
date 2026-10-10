@@ -13,11 +13,19 @@ from unittest.mock import patch
 from ruleproxy.linux_runtime import build_command, downloads_folder, launch, probe, stop
 
 
+def require_isolation(test):
+    """Skip without namespace isolation, unless the run demands it (CI sets RULEPROXY_REQUIRE_ISOLATION=1)."""
+    if probe()["supported"]:
+        return
+    if os.environ.get("RULEPROXY_REQUIRE_ISOLATION") == "1":
+        test.fail("namespace isolation is required for this run but unavailable: " + probe()["detail"])
+    test.skipTest("namespace isolation unavailable")
+
+
 @unittest.skipUnless(sys.platform == "linux", "Linux network namespaces required")
 class LinuxContainmentTests(unittest.TestCase):
     def test_proxy_bridge_and_direct_ipv4_ipv6_dns_udp_children_are_isolated(self):
-        if not probe()["supported"]:
-            self.skipTest("user/network namespaces unavailable")
+        require_isolation(self)
         before_interfaces = socket.if_nameindex()
         before_routes = Path("/proc/net/route").read_bytes()
         host = socket.socket()
@@ -92,8 +100,7 @@ Path('report.json').write_text(json.dumps(report))
         self.assertEqual(Path("/proc/net/route").read_bytes(), before_routes)
 
     def test_stop_sends_sigint_so_the_app_can_flush_its_profile(self):
-        if not probe()["supported"]:
-            self.skipTest("user/network namespaces unavailable")
+        require_isolation(self)
         host = socket.socket()
         host.bind(("127.0.0.1", 0))
         host.listen(4)
@@ -129,8 +136,7 @@ while True:
                 host.close()
 
     def test_the_app_sees_its_downloads_folder_and_no_other_home_files(self):
-        if not probe()["supported"]:
-            self.skipTest("user/network namespaces unavailable")
+        require_isolation(self)
         code = r'''
 import json, os
 from pathlib import Path

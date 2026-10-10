@@ -22,6 +22,15 @@ from ruleproxy.server import PanelServer
 SOURCE = Path(__file__).resolve().parents[1] / "examples/ruleproxy.example.yaml"
 
 
+def require_isolation(test, probe):
+    """Skip without namespace isolation, unless the run demands it (CI sets RULEPROXY_REQUIRE_ISOLATION=1)."""
+    if probe()["supported"]:
+        return
+    if os.environ.get("RULEPROXY_REQUIRE_ISOLATION") == "1":
+        test.fail("namespace isolation is required for this run but unavailable: " + probe()["detail"])
+    test.skipTest("namespace isolation unavailable")
+
+
 class ManagerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -152,8 +161,7 @@ class ManagerTests(unittest.TestCase):
     @unittest.skipUnless(sys.platform == "linux", "Linux launch-owner regression")
     def test_isolation_survives_short_lived_request_thread(self):
         from ruleproxy.linux_runtime import probe
-        if not probe()["supported"]:
-            self.skipTest("namespace isolation unavailable")
+        require_isolation(self, probe)
         executable = Path(self.temp.name) / "app-bin/probe"
         executable.parent.mkdir()
         executable.write_text("#!/usr/bin/python3\nimport time\ntime.sleep(10)\n")

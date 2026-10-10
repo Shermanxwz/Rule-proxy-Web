@@ -28,10 +28,14 @@ _WINDOWS_SHORTCUT_SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
 $shell = New-Object -ComObject WScript.Shell
 $name = $env:RULEPROXY_SHORTCUT_NAME + '.lnk'
-$folders = @(
-    [Environment]::GetFolderPath('Desktop'),
-    (Join-Path ([Environment]::GetFolderPath('Programs')) 'RuleProxy Web')
-)
+if ($env:RULEPROXY_SHORTCUT_FOLDERS) {
+    $folders = @($env:RULEPROXY_SHORTCUT_FOLDERS -split "`n" | Where-Object { $_ })
+} else {
+    $folders = @(
+        [Environment]::GetFolderPath('Desktop'),
+        (Join-Path ([Environment]::GetFolderPath('Programs')) 'RuleProxy Web')
+    )
+}
 foreach ($folder in $folders) {
     New-Item -ItemType Directory -Path $folder -Force | Out-Null
     $path = Join-Path $folder $name
@@ -138,7 +142,8 @@ def _linux_shortcuts(app_id: str, label: str, argv: list[str], icon: str | None)
     return created
 
 
-def _windows_shortcuts(app: dict, label: str, argv: list[str]) -> list[Path]:
+def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Path] | None = None) -> list[Path]:
+    """Create .lnk files on the Desktop and in the Start menu, or in ``folders`` when given."""
     safe = _INVALID_FILE_CHARS_RE.sub(" ", _display_name(label)).strip(" .") or "RuleProxy"
     environment = {
         **os.environ,
@@ -148,6 +153,7 @@ def _windows_shortcuts(app: dict, label: str, argv: list[str]) -> list[Path]:
         "RULEPROXY_SHORTCUT_WORKDIR": str(ROOT),
         "RULEPROXY_SHORTCUT_DESCRIPTION": f"RuleProxy 隔离启动：{label}",
         "RULEPROXY_SHORTCUT_ICON": f"{app['path']},0" if app.get("path") else "",
+        "RULEPROXY_SHORTCUT_FOLDERS": "\n".join(str(folder) for folder in folders or []),
     }
     encoded = base64.b64encode(_WINDOWS_SHORTCUT_SCRIPT.encode("utf-16-le")).decode("ascii")
     try:

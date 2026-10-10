@@ -7,7 +7,9 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
+import subprocess
 
+from ruleproxy import shortcuts
 from ruleproxy.shortcuts import ROOT, create_shortcut_files, remove_shortcut_files, runner_argv
 
 
@@ -167,7 +169,9 @@ class WindowsShortcutTests(unittest.TestCase):
         self.assertIn("WScript.Shell", script)
         env = kwargs["env"]
         self.assertEqual(env["RULEPROXY_SHORTCUT_NAME"], "ChatGPT (RuleProxy)")
-        self.assertEqual(env["RULEPROXY_SHORTCUT_TARGET"], sys.executable)
+        # On Windows the runner prefers pythonw.exe, so compare with what runner_argv chose.
+        self.assertEqual(env["RULEPROXY_SHORTCUT_TARGET"], runner_argv("w-1", Path("C:/RuleProxy State"), (8879, 10809, 19097))[0])
+        self.assertEqual(env["RULEPROXY_SHORTCUT_FOLDERS"], "")
         self.assertIn("--launch-app w-1", env["RULEPROXY_SHORTCUT_ARGUMENTS"])
         self.assertIn("--controller-port 19097", env["RULEPROXY_SHORTCUT_ARGUMENTS"])
         self.assertEqual(env["RULEPROXY_SHORTCUT_ICON"], "C:\\Program Files\\ChatGPT\\ChatGPT.exe,0")
@@ -178,6 +182,39 @@ class WindowsShortcutTests(unittest.TestCase):
         with patch("ruleproxy.shortcuts.sys.platform", "win32"), patch("ruleproxy.shortcuts.subprocess.run", return_value=Mock(returncode=1, stdout="", stderr="denied")):
             with self.assertRaisesRegex(ValueError, "无法创建 Windows 快捷方式"):
                 create_shortcut_files({"id": "w-2", "label": "X", "path": ""}, state_dir=Path("C:/s"), ports=(8879, 10809, 19097))
+
+
+@unittest.skipUnless(sys.platform == "win32", "Windows shell links")
+class RealWindowsShortcutTests(unittest.TestCase):
+    """Creates real .lnk files in a temporary folder and reads them back through WScript.Shell."""
+
+    def read_link(self, link):
+        script = (
+            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+            "$link = (New-Object -ComObject WScript.Shell).CreateShortcut($env:RULEPROXY_TEST_LINK); "
+            "Write-Output $link.TargetPath; Write-Output $link.Arguments; Write-Output $link.WorkingDirectory"
+        )
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+            env={**os.environ, "RULEPROXY_TEST_LINK": str(link)}, capture_output=True, text=True, encoding="utf-8", timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout.splitlines()[:3]
+
+    def test_links_start_the_runner_and_keep_unicode_names(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp) / "links"
+            for label in ("ChatGPT", "工作浏览器"):
+                argv = runner_argv("w-3", Path(temp) / "state dir", (8879, 10809, 19097))
+                created = shortcuts._windows_shortcuts({"id": "w-3", "label": label, "path": sys.executable}, label, argv, folders=[folder])
+                self.assertEqual(created, [folder / f"{label} (RuleProxy).lnk"])
+                self.assertTrue(created[0].is_file())
+                target, arguments, workdir = self.read_link(created[0])
+                self.assertEqual(os.path.normcase(target), os.path.normcase(argv[0]))
+                self.assertEqual(arguments, subprocess.list2cmdline(argv[1:]))
+                self.assertEqual(os.path.normcase(workdir), os.path.normcase(str(ROOT)))
+                remove_shortcut_files({"shortcuts": [str(created[0])]})
+                self.assertFalse(created[0].exists())
 
 
 if __name__ == "__main__":
