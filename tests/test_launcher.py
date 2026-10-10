@@ -65,6 +65,7 @@ class LauncherTests(unittest.TestCase):
         self.assertIn("--proxy-bypass-list=<-loopback>", command)
         self.assertIn("--disable-quic", command)
         self.assertIn("--disable-background-networking", command)
+        self.assertIn("--restore-last-session", command)
         # Chromium warns about --host-resolver-rules as an unsupported switch.
         # Name resolution is enforced by the isolation boundary instead.
         self.assertFalse(

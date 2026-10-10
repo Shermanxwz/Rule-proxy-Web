@@ -68,7 +68,12 @@ class ManagerTests(unittest.TestCase):
         self.manager.active["test"] = (app, resource)
         self.manager.core = core
         events = []
-        with patch("ruleproxy.manager.stop_process", side_effect=lambda proc: events.append(proc)):
+
+        def record(proc):
+            events.append(proc)
+
+        # Linux stops sandboxed apps through linux_runtime.stop; the core still uses stop_process.
+        with patch("ruleproxy.manager.stop_process", side_effect=record), patch("ruleproxy.linux_runtime.stop", side_effect=record):
             self.manager.stop()
         self.assertEqual(events, [app, core])
         resource.close.assert_called_once()
@@ -90,6 +95,25 @@ class ManagerTests(unittest.TestCase):
         finally:
             self.manager.active.clear()
             self.manager.core = None
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux desktop entries")
+    def test_shortcuts_are_recorded_and_removed_with_the_app(self):
+        executable = Path(self.temp.name) / "bin" / "chatgpt"
+        executable.parent.mkdir()
+        executable.write_text("#!/bin/sh\n")
+        executable.chmod(0o755)
+        home = Path(self.temp.name) / "home"
+        home.mkdir()
+        with patch.dict(os.environ, {"XDG_DATA_HOME": str(Path(self.temp.name) / "data"), "HOME": str(home)}):
+            self.manager.add_app({"label": "ChatGPT", "path": str(executable), "adapter": "chromium"})
+            ident = self.manager.settings["apps"][0]["id"]
+            created = self.manager.create_shortcuts(ident)
+            self.assertEqual(len(created), 1)
+            self.assertTrue(Path(created[0]).is_file())
+            self.assertEqual(self.manager.app(ident)["shortcuts"], created)
+            self.manager.change_app(ident, delete=True)
+        self.assertFalse(Path(created[0]).exists())
+        self.assertEqual(self.manager.settings["apps"], [])
 
     @unittest.skipUnless(sys.platform == "linux", "Linux launch-owner regression")
     def test_isolation_survives_short_lived_request_thread(self):
@@ -162,6 +186,53 @@ class LocalServerTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.request("/api/import", {"yaml": "bad"}, **{"X-RuleProxy-Token": self.manager.token})
         self.assertEqual(error.exception.code, 400)
+
+    def app_with_executable(self):
+        executable = Path(self.temp.name) / "bin" / f"chrome-{len(self.manager.settings['apps'])}"
+        executable.parent.mkdir(exist_ok=True)
+        executable.write_text("#!/bin/sh\n")
+        executable.chmod(0o755)
+        self.manager.add_app({"label": "Chrome", "path": str(executable), "adapter": "chromium"})
+        return self.manager.settings["apps"][-1]["id"]
+
+    def test_shortcut_and_data_dir_endpoints_require_the_token(self):
+        ident = self.app_with_executable()
+        for path, payload in ((f"/api/apps/{ident}/shortcut", {}), (f"/api/apps/{ident}/data-dir", {"path": str(self.temp.name), "acknowledged": True})):
+            with self.subTest(path=path), self.assertRaises(urllib.error.HTTPError) as error:
+                self.request(path, payload)
+            self.assertEqual(error.exception.code, 403)
+
+    def test_data_dir_endpoint_needs_acknowledgement_before_it_saves_a_directory(self):
+        ident = self.app_with_executable()
+        # Outside the panel's state directory, which the guard refuses as a profile.
+        outside = tempfile.TemporaryDirectory()
+        self.addCleanup(outside.cleanup)
+        profile = Path(outside.name) / "browser-profile"
+        profile.mkdir()
+        token = {"X-RuleProxy-Token": self.manager.token}
+        with patch.dict(os.environ, {"HOME": str(Path(self.temp.name) / "home")}):
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.request(f"/api/apps/{ident}/data-dir", {"path": str(profile)}, **token)
+            self.assertEqual(error.exception.code, 400)
+            self.assertIn("确认风险", json.loads(error.exception.read())["error"])
+            with self.assertRaises(urllib.error.HTTPError) as missing:
+                self.request(f"/api/apps/{ident}/data-dir", {"acknowledged": True}, **token)
+            self.assertEqual(missing.exception.code, 400)
+            with self.request(f"/api/apps/{ident}/data-dir", {"path": str(profile), "acknowledged": True}, **token) as response:
+                state = json.load(response)
+        app = next(item for item in state["apps"] if item["id"] == ident)
+        self.assertEqual(app["data_dir"], str(profile.resolve()))
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux desktop entries")
+    def test_shortcut_endpoint_writes_the_launcher_file(self):
+        ident = self.app_with_executable()
+        with patch.dict(os.environ, {"XDG_DATA_HOME": str(Path(self.temp.name) / "data"), "HOME": str(Path(self.temp.name) / "home")}):
+            with self.request(f"/api/apps/{ident}/shortcut", {}, **{"X-RuleProxy-Token": self.manager.token}) as response:
+                body = json.load(response)
+        self.assertEqual(len(body["created"]), 1)
+        launcher = Path(body["created"][0])
+        self.assertTrue(launcher.is_file())
+        self.assertIn("--launch-app " + ident, launcher.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

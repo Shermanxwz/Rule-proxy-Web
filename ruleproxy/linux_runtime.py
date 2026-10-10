@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import select
 import shutil
+import signal
 import stat
 import socket
 import subprocess
@@ -21,6 +22,7 @@ import threading
 
 _RULEPROXY_BWRAP = Path("/usr/local/lib/ruleproxy-web/bwrap")
 _RULEPROXY_CHROMIUM_BWRAP = Path("/usr/local/lib/ruleproxy-web/bwrap-chromium")
+_HELPER_PATH = "/run/ruleproxy_helper.py"  # where the namespace helper runs inside the sandbox
 _CHROMIUM_SANDBOX_PATHS = frozenset({
     "/opt/google/chrome/chrome",
     "/opt/microsoft/msedge/msedge",
@@ -143,7 +145,7 @@ def probe() -> dict:
     return {"supported": supported, "backend": "Linux 独立网络空间", "detail": detail, "limitations": ["仅面板启动的实例受保护。", "代理不支持的协议、部分桌面功能可能不可用；连接失败不会直连。"]}
 
 
-def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str) -> tuple[list[str], dict[str, str]]:
+def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str, data_dir: Path | None = None) -> tuple[list[str], dict[str, str]]:
     try:
         executable_path = str(Path(command[0]).resolve(strict=True))
     except (OSError, RuntimeError, IndexError):
@@ -161,7 +163,12 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
             args += ["--ro-bind", system_path, system_path]
     # A private /proc prevents reaching the host's namespace descriptors.
     args += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--tmpfs", "/run", "--tmpfs", "/home", "--dir", "/root"]
-    args += ["--bind", str(profile), str(profile), "--ro-bind", str(helper), "/run/ruleproxy_helper.py", "--ro-bind", bridge_path, "/run/ruleproxy.sock"]
+    args += ["--bind", str(profile), str(profile), "--ro-bind", str(helper), _HELPER_PATH, "--ro-bind", bridge_path, "/run/ruleproxy.sock"]
+    if data_dir is not None:
+        # A chosen (shared) browser profile is bound at its own path. HOME and the
+        # runtime log stay in the panel-owned app directory bound above.
+        shared = Path(data_dir).resolve(strict=True)
+        args += ["--bind", str(shared), str(shared)]
     executable = Path(command[0]).resolve()
     if not any(executable.is_relative_to(Path(p)) for p in ("/usr", "/bin", "/sbin")):
         args += ["--ro-bind", str(executable.parent), str(executable.parent)]
@@ -191,15 +198,15 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
                 private_auth.chmod(0o600)
                 args += ["--ro-bind", str(private_auth), "/run/ruleproxy.Xauthority"]
                 isolated_env["XAUTHORITY"] = "/run/ruleproxy.Xauthority"
-    args += ["--chdir", str(profile), "--", str(python), "/run/ruleproxy_helper.py"]
+    args += ["--chdir", str(profile), "--", str(python), _HELPER_PATH]
     return args, isolated_env
 
 
-def launch(command: list[str], env: dict[str, str], profile: Path, port: int):
+def launch(command: list[str], env: dict[str, str], profile: Path, port: int, data_dir: Path | None = None):
     proxy_bridge = ProxyBridge(port)
     process = None
     try:
-        args, isolated_env = build_command(command, env, profile, proxy_bridge.path)
+        args, isolated_env = build_command(command, env, profile, proxy_bridge.path, data_dir)
         process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, text=True)
         process.stdin.write(json.dumps({"command": command, "env": isolated_env, "port": port}))
         process.stdin.close()
@@ -228,3 +235,47 @@ def launch(command: list[str], env: dict[str, str], profile: Path, port: int):
             process.wait(timeout=3)
         proxy_bridge.close()
         raise
+
+
+def _sandbox_helpers(root_pid: int) -> list[int]:
+    """Find namespace helpers below a bubblewrap process; bubblewrap forks again inside."""
+    children: dict[int, list[int]] = {}
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            ppid = int((entry / "stat").read_text().rsplit(")", 1)[1].split()[1])
+        except (OSError, IndexError, ValueError):
+            continue
+        children.setdefault(ppid, []).append(int(entry.name))
+    helpers, pending = [], list(children.get(root_pid, []))
+    while pending:
+        pid = pending.pop()
+        pending.extend(children.get(pid, []))
+        try:
+            argv = [arg for arg in (Path("/proc") / str(pid) / "cmdline").read_bytes().split(b"\0") if arg]
+        except OSError:
+            continue
+        if len(argv) == 2 and argv[1] == _HELPER_PATH.encode():
+            helpers.append(pid)
+    return helpers
+
+
+def stop(process: subprocess.Popen, timeout: float = 15) -> None:
+    """Stop a sandboxed app so Chromium can finish a normal shutdown and flush its profile.
+
+    bubblewrap does not forward SIGTERM, so stopping it killed the browser mid-run and
+    the cookies from that session were lost. Signal the namespace helper instead: it
+    relays SIGINT, which Chromium treats as a normal exit request.
+    """
+    if process.poll() is None:
+        for pid in _sandbox_helpers(process.pid):
+            try:
+                os.kill(pid, signal.SIGINT)
+            except ProcessLookupError:
+                pass
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)

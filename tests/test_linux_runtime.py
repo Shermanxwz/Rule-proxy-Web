@@ -6,9 +6,10 @@ import socket
 import sys
 import tempfile
 import threading
+import time
 import unittest
 
-from ruleproxy.linux_runtime import launch, probe
+from ruleproxy.linux_runtime import launch, probe, stop
 
 
 @unittest.skipUnless(sys.platform == "linux", "Linux network namespaces required")
@@ -88,6 +89,43 @@ Path('report.json').write_text(json.dumps(report))
         unrelated.close()
         self.assertEqual(socket.if_nameindex(), before_interfaces)
         self.assertEqual(Path("/proc/net/route").read_bytes(), before_routes)
+
+    def test_stop_sends_sigint_so_the_app_can_flush_its_profile(self):
+        if not probe()["supported"]:
+            self.skipTest("user/network namespaces unavailable")
+        host = socket.socket()
+        host.bind(("127.0.0.1", 0))
+        host.listen(4)
+        proxy_port = host.getsockname()[1]
+        code = r'''
+import signal, sys, time
+from pathlib import Path
+def flush(signum, frame):
+    Path("flushed.txt").write_text(signal.Signals(signum).name)
+    sys.exit(0)
+signal.signal(signal.SIGINT, flush)
+print("ready", flush=True)
+while True:
+    time.sleep(0.1)
+'''
+        with tempfile.TemporaryDirectory(prefix="ruleproxy-test-") as temp:
+            profile = Path(temp) / "app"
+            profile.mkdir()
+            env = {k: v for k, v in os.environ.items() if k not in {"DISPLAY", "WAYLAND_DISPLAY"}}
+            process, resource = launch([sys.executable, "-c", code], env, profile, proxy_port)
+            try:
+                log = profile / "runtime.log"
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline and "ready" not in (log.read_text() if log.exists() else ""):
+                    time.sleep(0.05)
+                stop(process)
+                self.assertEqual(process.returncode, 0)
+                self.assertEqual((profile / "flushed.txt").read_text(), "SIGINT")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                resource.close()
+                host.close()
 
 
 if __name__ == "__main__":

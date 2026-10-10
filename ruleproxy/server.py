@@ -114,6 +114,13 @@ class Handler(BaseHTTPRequestHandler):
                 parts = path.split("/")
                 if len(parts) == 4:
                     manager.change_app(parts[3], data.get("enabled"))
+                elif len(parts) == 5 and parts[4] == "shortcut":
+                    created = manager.create_shortcuts(parts[3])
+                    return self.reply(200, {**manager.state(), "created": created})
+                elif len(parts) == 5 and parts[4] == "data-dir":
+                    if "path" not in data:
+                        raise ValueError("请提供 path；留空表示恢复面板私有配置。")
+                    manager.set_app_data_dir(parts[3], data["path"], acknowledged=data.get("acknowledged") is True)
                 elif len(parts) == 5 and parts[4] == "launch":
                     return self.reply(200, manager.launch(parts[3]))
                 elif len(parts) == 5 and parts[4] == "stop":
@@ -137,10 +144,15 @@ def main():
     parser.add_argument("--start-core", action="store_true", help="start the core using the saved YAML on launch")
     parser.add_argument("--state-dir", type=Path, default=state_directory())
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--launch-app", metavar="APP_ID", help="start one saved app from a desktop shortcut, then exit when it closes")
     args = parser.parse_args()
     ports = (args.port, args.proxy_port, args.controller_port)
     if any(not 1025 <= port <= 65535 for port in ports) or len(set(ports)) != len(ports):
         parser.error("Panel, proxy, and controller ports must be 1025–65535 and all different")
+    if args.launch_app:
+        from .shortcut_launcher import run as run_shortcut
+
+        raise SystemExit(run_shortcut(args.launch_app, state_dir=args.state_dir, panel_port=args.port, mixed_port=args.proxy_port, controller_port=args.controller_port))
 
     manager = None
     server = None
