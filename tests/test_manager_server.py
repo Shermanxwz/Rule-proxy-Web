@@ -31,8 +31,16 @@ def require_isolation(test, probe):
     test.skipTest("namespace isolation unavailable")
 
 
+def stub_discovery(test, apps=()):
+    # Unit tests must not scan the machine they run on: on Windows that alone takes seconds.
+    patcher = patch("ruleproxy.manager.discover_apps", return_value=list(apps))
+    patcher.start()
+    test.addCleanup(patcher.stop)
+
+
 class ManagerTests(unittest.TestCase):
     def setUp(self):
+        stub_discovery(self)
         self.temp = tempfile.TemporaryDirectory()
         self.manager = Manager(Path(self.temp.name), 18879)
         self.manager._probe_cache = {"supported": False, "backend": "test", "detail": "blocked", "limitations": []}
@@ -94,6 +102,35 @@ class ManagerTests(unittest.TestCase):
         state = self.manager.state()
         self.assertFalse(state["imported"])
         self.assertIn("请重新导入", state["error"])
+
+    def test_a_slow_app_scan_never_holds_up_a_state_read(self):
+        release = threading.Event()
+
+        def slow_scan(refresh=False):
+            release.wait(10)
+            return [{"label": "Found", "path": "/usr/bin/found", "adapter": "environment", "args": [], "category": "other"}]
+
+        with patch("ruleproxy.manager.discover_apps", side_effect=slow_scan):
+            started = time.monotonic()
+            state = self.manager.state()
+            self.assertLess(time.monotonic() - started, 2)
+            self.assertEqual(state["available_apps"], [])
+            self.assertTrue(state["apps_scanning"])
+            release.set()
+            deadline = time.monotonic() + 5
+            while self.manager.state()["apps_scanning"] and time.monotonic() < deadline:
+                time.sleep(0.05)
+            state = self.manager.state()
+        self.assertFalse(state["apps_scanning"])
+        self.assertEqual([app["label"] for app in state["available_apps"]], ["Found"])
+
+    def test_an_explicit_rescan_waits_and_a_failing_scan_lists_nothing(self):
+        found = [{"label": "Fresh", "path": "/usr/bin/fresh", "adapter": "environment", "args": [], "category": "other"}]
+        with patch("ruleproxy.manager.discover_apps", return_value=found):
+            self.assertEqual(self.manager.state(refresh_apps=True)["available_apps"], found)
+        with patch("ruleproxy.manager.discover_apps", side_effect=PermissionError(13, "denied")):
+            state = self.manager.state(refresh_apps=True)
+        self.assertEqual(state["available_apps"], [])
 
     def test_a_core_that_does_not_answer_gives_a_plain_node_switch_error(self):
         self.manager.import_yaml(SOURCE.read_text())
@@ -191,6 +228,7 @@ class ManagerTests(unittest.TestCase):
 
 class LocalServerTests(unittest.TestCase):
     def setUp(self):
+        stub_discovery(self)
         self.temp = tempfile.TemporaryDirectory()
         self.server = PanelServer(0)
         self.manager = Manager(Path(self.temp.name), self.server.server_port)
@@ -297,6 +335,7 @@ class ServerMainTests(unittest.TestCase):
     """Starting the panel when its port is already in use."""
 
     def setUp(self):
+        stub_discovery(self)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.port = free_port()

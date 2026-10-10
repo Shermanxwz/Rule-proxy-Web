@@ -180,7 +180,8 @@
   function renderAvailableApps() {
     const available = state && Array.isArray(state.available_apps) ? state.available_apps : [];
     const saved = state && Array.isArray(state.apps) ? state.apps : [];
-    const signature = JSON.stringify({ available, saved: saved.map((app) => [app.path, app.enabled, app.active]) });
+    const scanning = !!(state && state.apps_scanning);
+    const signature = JSON.stringify({ available, scanning, saved: saved.map((app) => [app.path, app.enabled, app.active]) });
     if (signature === lastAvailableSignature && ui.availableApps.dataset.query === ui.appSearch.value) return;
     lastAvailableSignature = signature;
     const query = ui.appSearch.value.trim().toLocaleLowerCase();
@@ -191,9 +192,9 @@
     const visible = matches.slice(0, limit);
     ui.availableAppsCount.textContent = available.length
       ? (query ? `找到 ${matches.length} 项` : `发现 ${available.length} 项`)
-      : '未发现可添加的应用';
+      : (scanning ? '正在读取应用清单…' : '未发现可添加的应用');
     if (!visible.length) {
-      const empty = textElement('div', 'discovery-empty', query ? '没有找到匹配的应用。' : '系统暂未发现可添加的应用。');
+      const empty = textElement('div', 'discovery-empty', query ? '没有找到匹配的应用。' : (scanning ? '正在读取应用清单…' : '系统暂未发现可添加的应用。'));
       ui.availableApps.append(empty);
       return;
     }
@@ -296,12 +297,24 @@
     renderControls();
   }
 
+  // While the app list is being scanned in the background, check back soon instead of
+  // waiting for the next regular refresh.
+  let scanTimer = 0;
+  function followScan(scanning) {
+    if (!scanning || scanTimer) return;
+    scanTimer = window.setTimeout(() => {
+      scanTimer = 0;
+      readState({ quiet: true });
+    }, 1500);
+  }
+
   async function readState({ quiet = false, refreshApps = false } = {}) {
     try {
       const response = await fetch(refreshApps ? '/api/state?refresh_apps=1' : '/api/state', { cache: 'no-store' });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || '无法读取本机服务状态。');
       render(result);
+      followScan(result.apps_scanning);
       if (result.error) showError(result.error, 'state');
       else if (!quiet || ui.error.dataset.source === 'state') showError('');
     } catch (error) {

@@ -24,6 +24,8 @@ from .shortcuts import create_shortcut_files, remove_shortcut_files
 
 
 ROOT = Path(__file__).resolve().parent.parent
+# Installed apps are rescanned in the background when the last scan is older than this.
+APP_SCAN_SECONDS = 30.0
 
 
 def close_resource(resource):
@@ -134,6 +136,11 @@ class Manager:
         if self.source:
             self._load_saved_config()
         self._probe_cache = None
+        # Installed-app discovery can take seconds on Windows, so it runs in the background.
+        self._apps_lock = threading.Lock()
+        self._apps: list | None = None
+        self._apps_time = 0.0
+        self._apps_scan: threading.Thread | None = None
         self.closed = threading.Event()
         threading.Thread(target=self._watch, daemon=True).start()
 
@@ -181,13 +188,33 @@ class Manager:
         folder = downloads_folder(self.directory)
         return str(folder[1]) if folder else None
 
-    def state(self, *, refresh_apps=False):
-        # Discovery reads many files: keep it outside the lock, and never let a broken
-        # desktop entry or unreadable directory stop the panel from loading.
+    def _scan_apps(self):
         try:
-            available = discover_apps(refresh=refresh_apps)
+            apps = discover_apps(refresh=True)
         except (OSError, ValueError, UnicodeError):
-            available = []
+            apps = []  # a broken desktop entry or unreadable folder must not break the panel
+        with self._apps_lock:
+            self._apps, self._apps_time = apps, time.monotonic()
+
+    def available_apps(self, *, refresh=False):
+        """Installed apps for the add list, and whether a scan is still running.
+
+        A state read never waits for a slow scan: it gets the last result while a
+        background scan refreshes it. Only an explicit rescan waits.
+        """
+        if refresh:
+            self._scan_apps()
+        with self._apps_lock:
+            stale = self._apps is None or time.monotonic() - self._apps_time > APP_SCAN_SECONDS
+            if stale and (self._apps_scan is None or not self._apps_scan.is_alive()):
+                self._apps_scan = threading.Thread(target=self._scan_apps, name="RuleProxyAppScan", daemon=True)
+                self._apps_scan.start()
+            scanning = self._apps_scan is not None and self._apps_scan.is_alive()
+            return list(self._apps or []), scanning
+
+    def state(self, *, refresh_apps=False):
+        # Both reads below touch the disk, so they stay outside the manager lock.
+        available, scanning = self.available_apps(refresh=refresh_apps)
         files_dir = self.files_dir()
         with self.lock:
             running = bool(self.core and self.core.poll() is None)
@@ -212,6 +239,7 @@ class Manager:
                 "primary_group": compiled.primary_group if compiled else "",
                 "apps": apps,
                 "available_apps": available,
+                "apps_scanning": scanning,
                 "files_dir": files_dir,
                 "proxy_url": f"http://127.0.0.1:{self.mixed_port}",
                 "ports": {"mixed": self.mixed_port, "panel": self.panel_port},
