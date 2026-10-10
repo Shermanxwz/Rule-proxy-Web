@@ -20,6 +20,9 @@ def escape_property(text: str) -> str:
 
 
 def main() -> int:
+    # CI logs are UTF-8; the Windows runner's pipes default to cp1252 and cannot encode Chinese.
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8", errors="replace")
     suite = unittest.TestLoader().discover(str(ROOT / "tests"), top_level_dir=str(ROOT / "tests"))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     for test, trace in result.failures + result.errors:

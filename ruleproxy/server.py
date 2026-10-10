@@ -182,7 +182,18 @@ def _open_running_panel(args, url: str, state: dict) -> None:
         webbrowser.open(url)
 
 
+def _tolerant_console() -> None:
+    """Never crash on a message the console cannot encode (a redirected cp1252 pipe on Windows)."""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
 def main():
+    _tolerant_console()
     parser = argparse.ArgumentParser(description="RuleProxy local web panel")
     parser.add_argument("--port", type=int, default=8879, help="panel HTTP port (default: 8879)")
     parser.add_argument("--proxy-port", type=int, default=10809, help="local Mihomo mixed proxy port (default: 10809)")
