@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+bin/
+vendor/
+*.log
+*.zip
+private/
+state/
+source.yaml
+config.yaml
