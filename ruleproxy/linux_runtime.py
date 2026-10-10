@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import select
 import shutil
 import signal
@@ -23,6 +24,7 @@ import threading
 _RULEPROXY_BWRAP = Path("/usr/local/lib/ruleproxy-web/bwrap")
 _RULEPROXY_CHROMIUM_BWRAP = Path("/usr/local/lib/ruleproxy-web/bwrap-chromium")
 _HELPER_PATH = "/run/ruleproxy_helper.py"  # where the namespace helper runs inside the sandbox
+_USER_DIRS_MARK = "# Written by RuleProxy: downloads go to the shared Downloads folder."
 _CHROMIUM_SANDBOX_PATHS = frozenset({
     "/opt/google/chrome/chrome",
     "/opt/microsoft/msedge/msedge",
@@ -145,7 +147,73 @@ def probe() -> dict:
     return {"supported": supported, "backend": "Linux 独立网络空间", "detail": detail, "limitations": ["仅面板启动的实例受保护。", "代理不支持的协议、部分桌面功能可能不可用；连接失败不会直连。"]}
 
 
-def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str) -> tuple[list[str], dict[str, str]]:
+def _xdg_download_dir(home: Path) -> Path:
+    """The user's Downloads folder as configured in user-dirs.dirs, else ~/Downloads."""
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
+    try:
+        lines = (config_home / "user-dirs.dirs").read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        lines = []
+    for raw in lines:
+        line = raw.strip()
+        if not line.startswith("XDG_DOWNLOAD_DIR="):
+            continue
+        value = line.split("=", 1)[1].strip()
+        if len(value) >= 2 and value[0] == value[-1] == '"':
+            value = re.sub(r"\\(.)", r"\1", value[1:-1])
+            if value == "$HOME":
+                return home
+            if value.startswith("$HOME/"):
+                return home / value[len("$HOME/"):]
+            if value.startswith("/"):
+                return Path(value)
+        break
+    return home / "Downloads"
+
+
+def downloads_folder(state_dir: Path) -> tuple[Path, Path] | None:
+    """The Downloads folder that isolated apps may read and write, as (real folder, path apps see).
+
+    Like a Flatpak browser's default, apps get this one folder and nothing else from the
+    home folder. It must belong to the user, and it may not be the home folder, one of
+    its parents, or anything that overlaps the panel's data. None gives apps no host files.
+    """
+    home = Path.home()
+    target = Path(os.path.abspath(_xdg_download_dir(home)))
+    try:
+        if target == home / "Downloads" and not target.exists():
+            target.mkdir()  # the conventional folder, as a browser would create it
+        source = target.resolve(strict=True)
+        info = source.stat()
+    except OSError:
+        return None
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or not os.access(source, os.R_OK | os.W_OK | os.X_OK):
+        return None
+    state = Path(state_dir).resolve()
+    for protected in (home.resolve(), state):
+        if source == protected or source in protected.parents:
+            return None
+    if state in source.parents:
+        return None
+    return source, target
+
+
+def _point_downloads(profile: Path, target: Path | None) -> None:
+    """Make XDG-aware apps save downloads in the shared folder, or back in the profile."""
+    config = profile / ".config" / "user-dirs.dirs"
+    # Parsers disagree on escapes, so an unusual path is shared without being made the default.
+    if target is not None and not re.search(r'["\\$`\n]', str(target)):
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(f'{_USER_DIRS_MARK}\nXDG_DOWNLOAD_DIR="{target}"\n', encoding="utf-8")
+        return
+    try:
+        if config.read_text(encoding="utf-8").startswith(_USER_DIRS_MARK):
+            config.unlink()  # only ever remove the file written here
+    except (OSError, UnicodeDecodeError):
+        pass
+
+
+def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str, downloads: tuple[Path, Path] | None = None) -> tuple[list[str], dict[str, str]]:
     try:
         executable_path = str(Path(command[0]).resolve(strict=True))
     except (OSError, RuntimeError, IndexError):
@@ -164,6 +232,10 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
     # A private /proc prevents reaching the host's namespace descriptors.
     args += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--tmpfs", "/run", "--tmpfs", "/home", "--dir", "/root"]
     args += ["--bind", str(profile), str(profile), "--ro-bind", str(helper), _HELPER_PATH, "--ro-bind", bridge_path, "/run/ruleproxy.sock"]
+    if downloads is not None:
+        source, target = downloads
+        args += ["--bind", str(source), str(target)]
+    _point_downloads(profile, downloads[1] if downloads is not None else None)
     executable = Path(command[0]).resolve()
     if not any(executable.is_relative_to(Path(p)) for p in ("/usr", "/bin", "/sbin")):
         args += ["--ro-bind", str(executable.parent), str(executable.parent)]
@@ -197,11 +269,11 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
     return args, isolated_env
 
 
-def launch(command: list[str], env: dict[str, str], profile: Path, port: int):
+def launch(command: list[str], env: dict[str, str], profile: Path, port: int, downloads: tuple[Path, Path] | None = None):
     proxy_bridge = ProxyBridge(port)
     process = None
     try:
-        args, isolated_env = build_command(command, env, profile, proxy_bridge.path)
+        args, isolated_env = build_command(command, env, profile, proxy_bridge.path, downloads)
         process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, text=True)
         process.stdin.write(json.dumps({"command": command, "env": isolated_env, "port": port}))
         process.stdin.close()

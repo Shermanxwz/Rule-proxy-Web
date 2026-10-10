@@ -158,7 +158,23 @@ class Manager:
     def runtime_path(self):
         return self.settings.get("runtime_path") or str(ROOT / "bin/windows-amd64/wxc-exec.exe")
 
+    def files_dir(self):
+        """The folder isolated apps can read and write, shown in the panel; None when they get none."""
+        if sys.platform != "linux":
+            return None
+        from .linux_runtime import downloads_folder
+
+        folder = downloads_folder(self.directory)
+        return str(folder[1]) if folder else None
+
     def state(self, *, refresh_apps=False):
+        # Discovery reads many files: keep it outside the lock, and never let a broken
+        # desktop entry or unreadable directory stop the panel from loading.
+        try:
+            available = discover_apps(refresh=refresh_apps)
+        except (OSError, ValueError, UnicodeError):
+            available = []
+        files_dir = self.files_dir()
         with self.lock:
             running = bool(self.core and self.core.poll() is None)
             apps = []
@@ -167,7 +183,27 @@ class Manager:
                 alive = bool(owned and owned[0].poll() is None)
                 pending = bool(alive and getattr(owned[1], "failed_process", None) is not None)
                 apps.append({**app, "active": alive and not pending, "cleanup_pending": pending})
-            return {"token": self.token, "platform": "Windows" if sys.platform == "win32" else "Linux" if sys.platform == "linux" else sys.platform, "version": __version__, "imported": bool(self.compiled), "running": running, "error": self.error, "core_path": self.settings["core_path"], "runtime_path": self.settings["runtime_path"], "selected_node": self.compiled.selected_node if self.compiled else "", "nodes": self.compiled.nodes if self.compiled else [], "primary_group": self.compiled.primary_group if self.compiled else "", "apps": apps, "available_apps": discover_apps(refresh=refresh_apps), "proxy_url": f"http://127.0.0.1:{self.mixed_port}", "ports": {"mixed": self.mixed_port, "panel": self.panel_port}, "protection": self.protection(), "warnings": self.compiled.warnings if self.compiled else []}
+            compiled = self.compiled
+            return {
+                "token": self.token,
+                "platform": "Windows" if sys.platform == "win32" else "Linux" if sys.platform == "linux" else sys.platform,
+                "version": __version__,
+                "imported": bool(compiled),
+                "running": running,
+                "error": self.error,
+                "core_path": self.settings["core_path"],
+                "runtime_path": self.settings["runtime_path"],
+                "selected_node": compiled.selected_node if compiled else "",
+                "nodes": compiled.nodes if compiled else [],
+                "primary_group": compiled.primary_group if compiled else "",
+                "apps": apps,
+                "available_apps": available,
+                "files_dir": files_dir,
+                "proxy_url": f"http://127.0.0.1:{self.mixed_port}",
+                "ports": {"mixed": self.mixed_port, "panel": self.panel_port},
+                "protection": self.protection(),
+                "warnings": compiled.warnings if compiled else [],
+            }
 
     def import_yaml(self, source):
         with self.lock:
@@ -340,8 +376,9 @@ class Manager:
                 app_proxy_port = choose_guest_port(self.mixed_port)
             command, env, _detail = prepare_app(app, app_proxy_port, self.directory / "profiles")
             if sys.platform == "linux":
-                from .linux_runtime import launch
-                process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port).result()
+                from .linux_runtime import downloads_folder, launch
+                downloads = downloads_folder(self.directory)
+                process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port, downloads).result()
             elif sys.platform == "win32":
                 from .windows_runtime import launch
                 try:

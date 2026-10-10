@@ -8,8 +8,9 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
-from ruleproxy.linux_runtime import launch, probe, stop
+from ruleproxy.linux_runtime import build_command, downloads_folder, launch, probe, stop
 
 
 @unittest.skipUnless(sys.platform == "linux", "Linux network namespaces required")
@@ -126,6 +127,128 @@ while True:
                     process.kill()
                 resource.close()
                 host.close()
+
+    def test_the_app_sees_its_downloads_folder_and_no_other_home_files(self):
+        if not probe()["supported"]:
+            self.skipTest("user/network namespaces unavailable")
+        code = r'''
+import json, os
+from pathlib import Path
+downloads = Path(DOWNLOADS)
+(downloads / "saved-in-sandbox.txt").write_text("ok")
+report = {
+    "downloads_readable": (downloads / "from-host.txt").read_text() == "host",
+    "home_file_hidden": not Path(SECRET).exists(),
+    "download_dir_configured": DOWNLOADS in (Path(os.environ["XDG_CONFIG_HOME"]) / "user-dirs.dirs").read_text(),
+}
+Path("report.json").write_text(json.dumps(report))
+'''
+        with tempfile.TemporaryDirectory(prefix="ruleproxy-test-") as temp:
+            home = Path(temp) / "home"
+            downloads = home / "Downloads"
+            downloads.mkdir(parents=True)
+            (downloads / "from-host.txt").write_text("host")
+            secret = home / "Documents" / "private.txt"
+            secret.parent.mkdir()
+            secret.write_text("not for the app")
+            profile = home / ".local/share/ruleproxy-web-safe/profiles/app"
+            profile.mkdir(parents=True)
+            env = {k: v for k, v in os.environ.items() if k not in {"DISPLAY", "WAYLAND_DISPLAY"}}
+            code = code.replace("DOWNLOADS", repr(str(downloads))).replace("SECRET", repr(str(secret)))
+            # The app never uses the proxy here; any unprivileged port works inside its namespace.
+            process, resource = launch([sys.executable, "-c", code], env, profile, 18099, (downloads.resolve(), downloads))
+            try:
+                self.assertEqual(process.wait(timeout=10), 0, (profile / "runtime.log").read_text() if (profile / "runtime.log").exists() else "")
+                report = json.loads((profile / "report.json").read_text())
+                self.assertTrue(all(report.values()), report)
+                self.assertEqual((downloads / "saved-in-sandbox.txt").read_text(), "ok")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                resource.close()
+
+
+@unittest.skipUnless(sys.platform == "linux", "XDG folders are Linux-only here")
+class DownloadsFolderTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.home = Path(self.temp.name) / "home"
+        self.state = self.home / ".local/share/ruleproxy-web-safe"
+        self.state.mkdir(parents=True)
+        environment = patch.dict(os.environ, {"HOME": str(self.home), "XDG_CONFIG_HOME": str(self.home / ".config")})
+        environment.start()
+        self.addCleanup(environment.stop)
+
+    def configure(self, value):
+        config = self.home / ".config" / "user-dirs.dirs"
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(f'# comment\nXDG_DESKTOP_DIR="$HOME/Desktop"\nXDG_DOWNLOAD_DIR="{value}"\n', encoding="utf-8")
+
+    def test_defaults_to_home_downloads_and_creates_it(self):
+        self.assertEqual(downloads_folder(self.state), ((self.home / "Downloads").resolve(), self.home / "Downloads"))
+        self.assertTrue((self.home / "Downloads").is_dir())
+
+    def test_follows_the_configured_folder(self):
+        (self.home / "Incoming").mkdir()
+        self.configure("$HOME/Incoming")
+        self.assertEqual(downloads_folder(self.state)[1], self.home / "Incoming")
+        outside = Path(self.temp.name) / "data" / "dl"
+        outside.mkdir(parents=True)
+        self.configure(str(outside))
+        self.assertEqual(downloads_folder(self.state), (outside.resolve(), outside))
+
+    def test_a_configured_folder_that_is_missing_is_not_created(self):
+        self.configure("$HOME/Nowhere")
+        self.assertIsNone(downloads_folder(self.state))
+        self.assertFalse((self.home / "Nowhere").exists())
+
+    def test_never_shares_home_its_parents_or_panel_data(self):
+        for value in ("$HOME", str(Path(self.temp.name)), "$HOME/.local", "$HOME/.local/share/ruleproxy-web-safe"):
+            with self.subTest(value=value):
+                self.configure(value)
+                self.assertIsNone(downloads_folder(self.state))
+        inside = self.state / "profiles"
+        inside.mkdir()
+        self.configure(str(inside))
+        self.assertIsNone(downloads_folder(self.state))
+
+    def test_a_symlinked_folder_is_shared_at_the_path_apps_know(self):
+        real = Path(self.temp.name) / "disk" / "downloads"
+        real.mkdir(parents=True)
+        self.home.mkdir(exist_ok=True)
+        (self.home / "Downloads").symlink_to(real)
+        self.assertEqual(downloads_folder(self.state), (real.resolve(), self.home / "Downloads"))
+
+    @unittest.skipUnless(hasattr(os, "geteuid") and os.geteuid() == 0, "needs root to hand the folder to another user")
+    def test_a_folder_owned_by_someone_else_is_not_shared(self):
+        (self.home / "Downloads").mkdir(parents=True)
+        os.chown(self.home / "Downloads", 65534, 65534)
+        self.assertIsNone(downloads_folder(self.state))
+
+    def test_the_sandbox_binds_it_and_apps_save_there(self):
+        profile = self.state / "profiles" / "app"
+        profile.mkdir(parents=True)
+        folder = downloads_folder(self.state)
+        with patch("ruleproxy.linux_runtime.bwrap_executable", return_value="/usr/bin/bwrap"):
+            args, _ = build_command([sys.executable], {}, profile, "/tmp/bridge.sock", folder)
+        bind = args.index(str(folder[0]))
+        self.assertEqual(args[bind - 1:bind + 2], ["--bind", str(folder[0]), str(folder[1])])
+        config = (profile / ".config" / "user-dirs.dirs").read_text(encoding="utf-8")
+        self.assertIn(f'XDG_DOWNLOAD_DIR="{folder[1]}"', config)
+        # Without a folder the file written here is removed, so apps fall back to the profile.
+        with patch("ruleproxy.linux_runtime.bwrap_executable", return_value="/usr/bin/bwrap"):
+            args, _ = build_command([sys.executable], {}, profile, "/tmp/bridge.sock", None)
+        self.assertNotIn(str(folder[0]), args)
+        self.assertFalse((profile / ".config" / "user-dirs.dirs").exists())
+
+    def test_a_user_dirs_file_the_app_wrote_is_left_alone(self):
+        profile = self.state / "profiles" / "app"
+        (profile / ".config").mkdir(parents=True)
+        (profile / ".config" / "user-dirs.dirs").write_text('XDG_DOWNLOAD_DIR="$HOME/Mine"\n', encoding="utf-8")
+        with patch("ruleproxy.linux_runtime.bwrap_executable", return_value="/usr/bin/bwrap"):
+            build_command([sys.executable], {}, profile, "/tmp/bridge.sock", None)
+        self.assertIn("Mine", (profile / ".config" / "user-dirs.dirs").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
