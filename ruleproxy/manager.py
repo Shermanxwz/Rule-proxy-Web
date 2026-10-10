@@ -83,7 +83,26 @@ def stop_process(process: subprocess.Popen):
 
 
 class Manager:
-    def __init__(self, directory: Path, panel_port: int):
+    def __init__(
+        self,
+        directory: Path,
+        panel_port: int,
+        *,
+        mixed_port: int = 10809,
+        controller_port: int = 19097,
+    ):
+        ports = {
+            "panel_port": panel_port,
+            "mixed_port": mixed_port,
+            "controller_port": controller_port,
+        }
+        if any(
+            isinstance(port, bool) or not isinstance(port, int) or not 1025 <= port <= 65535
+            for port in ports.values()
+        ):
+            raise ValueError("panel, proxy, and controller ports must be between 1025 and 65535")
+        if len(set(ports.values())) != len(ports):
+            raise ValueError("panel, proxy, and controller ports must be different")
         self.directory = directory.resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
@@ -92,7 +111,8 @@ class Manager:
         self.token = secrets.token_urlsafe(32)
         self.secret = secrets.token_urlsafe(32)
         self.panel_port = panel_port
-        self.mixed_port, self.controller_port = 10809, 19097
+        self.mixed_port = mixed_port
+        self.controller_port = controller_port
         self.core: subprocess.Popen | None = None
         self.core_log = None
         self.error = ""
@@ -203,6 +223,11 @@ class Manager:
             try:
                 for port in (self.mixed_port, self.controller_port):
                     reservation = socket.socket()
+                    if sys.platform == "linux":
+                        # A stopped local core can leave TCP TIME_WAIT sockets.
+                        # Linux reuse permits these, while an active listener
+                        # still makes this reservation fail.
+                        reservation.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     reservation.bind(("127.0.0.1", port))
                     reservations.append(reservation)
             except OSError as exc:
@@ -361,5 +386,7 @@ class Manager:
 
     def close(self):
         self.closed.set()
-        self.stop()
-        self.launch_owner.shutdown(wait=True)
+        try:
+            self.stop()
+        finally:
+            self.launch_owner.shutdown(wait=True)

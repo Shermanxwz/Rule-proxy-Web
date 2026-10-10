@@ -129,25 +129,43 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description="RuleProxy local web panel")
-    parser.add_argument("--port", type=int, default=8879)
+    parser.add_argument("--port", type=int, default=8879, help="panel HTTP port (default: 8879)")
+    parser.add_argument("--proxy-port", type=int, default=10809, help="local Mihomo mixed proxy port (default: 10809)")
+    parser.add_argument("--controller-port", type=int, default=19097, help="local Mihomo controller port (default: 19097)")
+    parser.add_argument("--start-core", action="store_true", help="start the core using the saved YAML on launch")
     parser.add_argument("--state-dir", type=Path, default=state_directory())
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
-    if not 1024 < args.port < 65536 or args.port in (10809, 19097):
-        parser.error("Choose a panel port above 1024, distinct from core ports")
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    server.daemon_threads = True
-    manager = Manager(args.state_dir, args.port)
-    server.manager = manager
-    for name in ("SIGINT", "SIGTERM"):
-        signal.signal(getattr(signal, name), lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
-    url = f"http://127.0.0.1:{args.port}"
-    print("RuleProxy: " + url, flush=True)
-    print("Close this window or press Ctrl+C to stop the panel and its protected applications.", flush=True)
-    if not args.no_browser:
-        webbrowser.open(url)
+    ports = (args.port, args.proxy_port, args.controller_port)
+    if any(not 1025 <= port <= 65535 for port in ports) or len(set(ports)) != len(ports):
+        parser.error("Panel, proxy, and controller ports must be 1025–65535 and all different")
+
+    manager = None
+    server = None
     try:
+        manager = Manager(
+            args.state_dir,
+            args.port,
+            mixed_port=args.proxy_port,
+            controller_port=args.controller_port,
+        )
+        server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+        server.daemon_threads = True
+        server.manager = manager
+        for name in ("SIGINT", "SIGTERM"):
+            signal.signal(getattr(signal, name), lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
+        url = f"http://127.0.0.1:{args.port}"
+        print("RuleProxy: " + url, flush=True)
+        print("Close this window or press Ctrl+C to stop the panel and its protected applications.", flush=True)
+        if args.start_core:
+            manager.start()
+        if not args.no_browser:
+            webbrowser.open(url)
         server.serve_forever(poll_interval=0.2)
     finally:
-        manager.close()
-        server.server_close()
+        try:
+            if manager is not None:
+                manager.close()
+        finally:
+            if server is not None:
+                server.server_close()
