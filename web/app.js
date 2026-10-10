@@ -48,15 +48,15 @@
     ui.start.disabled = busy || !imported || running;
     ui.stop.disabled = busy || !running;
     ui.addApp.disabled = busy || !ready;
-    ui.launchAll.disabled = busy || !running || !protectedBackend || !(state.apps || []).some((app) => app.enabled && !app.active);
+    ui.launchAll.disabled = busy || !running || !protectedBackend || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
     if (ui.saveRuntime) ui.saveRuntime.disabled = busy || !ready || running;
     if (ui.runtimePath) ui.runtimePath.disabled = busy || !ready || running;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app').forEach((control) => { control.disabled = busy; });
     ui.apps.querySelectorAll('.app-action').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
       const canLaunch = app && app.enabled && running && protectedBackend;
-      control.disabled = busy || (!app?.active && !canLaunch);
-      control.title = app?.active ? '关闭此工具启动的隔离实例' : (!running ? '请先启动核心' : (!protectedBackend ? '本机隔离能力不可用，启动已阻断' : (!app?.enabled ? '请先加入待保护列表' : '通过隔离方式启动此应用')));
+      control.disabled = busy || (!(app?.active || app?.cleanup_pending) && !canLaunch);
+      control.title = app?.cleanup_pending ? '关闭上次启动中保留的隔离守卫' : (app?.active ? '关闭此工具启动的隔离实例' : (!running ? '请先启动核心' : (!protectedBackend ? '本机隔离能力不可用，启动已阻断' : (!app?.enabled ? '请先加入待保护列表' : '通过隔离方式启动此应用'))));
     });
   }
 
@@ -105,16 +105,16 @@
       const adapter = friendlyAdapter(app.adapter);
       const appMeta = textElement('div', 'app-meta');
       appMeta.append(textElement('span', 'app-adapter', adapter));
-      const statusText = app.active ? '隔离中运行' : (app.enabled ? '待保护' : '未加入');
-      const statusClass = app.active ? 'is-active' : (app.enabled ? 'is-enabled' : '');
+      const statusText = app.cleanup_pending ? '清理待完成' : (app.active ? '隔离中运行' : (app.enabled ? '待保护' : '未加入'));
+      const statusClass = app.cleanup_pending ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       const status = textElement('span', `app-status ${statusClass}`, statusText);
       appMeta.append(status);
-      const launch = textElement('button', 'button button-launch app-action', app.active ? '关闭实例' : '启动隔离实例 ↗');
+      const launch = textElement('button', 'button button-launch app-action', app.cleanup_pending ? '关闭守卫' : (app.active ? '关闭实例' : '启动隔离实例 ↗'));
       launch.type = 'button';
       launch.dataset.appId = String(app.id);
-      launch.disabled = busy || (app.active ? false : !(app.enabled && state.running && state.protection && state.protection.supported));
-      launch.title = app.active ? '关闭此工具启动的隔离实例' : (!state.running ? '请先启动核心' : (!(state.protection && state.protection.supported) ? '本机隔离能力不可用，启动已阻断' : (!app.enabled ? '请先加入待保护列表' : '通过隔离方式启动此应用')));
-      launch.addEventListener('click', () => app.active ? stopApp(app) : launchApp(app));
+      launch.disabled = busy || ((app.active || app.cleanup_pending) ? false : !(app.enabled && state.running && state.protection && state.protection.supported));
+      launch.title = app.cleanup_pending ? '关闭上次启动中保留的隔离守卫' : (app.active ? '关闭此工具启动的隔离实例' : (!state.running ? '请先启动核心' : (!(state.protection && state.protection.supported) ? '本机隔离能力不可用，启动已阻断' : (!app.enabled ? '请先加入待保护列表' : '通过隔离方式启动此应用'))));
+      launch.addEventListener('click', () => (app.active || app.cleanup_pending) ? stopApp(app) : launchApp(app));
       const remove = textElement('button', 'icon-button remove-app', '×');
       remove.type = 'button';
       remove.setAttribute('aria-label', `移除 ${app.label || '应用'}`);
@@ -279,12 +279,12 @@
   }
 
   function launchApp(app) {
-    if (!state || !state.running || !state.protection || !state.protection.supported || !app.enabled || app.active) return;
+    if (!state || !state.running || !state.protection || !state.protection.supported || !app.enabled || app.active || app.cleanup_pending) return;
     mutate(`/api/apps/${encodeURIComponent(app.id)}/launch`, {}, { launch: app.label || '应用' });
   }
 
   function stopApp(app) {
-    if (!app.active) return;
+    if (!app.active && !app.cleanup_pending) return;
     mutate(`/api/apps/${encodeURIComponent(app.id)}/stop`, {}, { stopped: app.label || '应用' });
   }
 

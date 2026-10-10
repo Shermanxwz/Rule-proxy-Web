@@ -10,7 +10,7 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 ### Windows
 
-要求 Python 3.10+、x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 代理隔离能力。Windows 10 和旧版 Windows 11 的严格模式不可用。系统版本符合最低条件也可能缺少所需更新，面板会检查并拒绝不支持的启动。
+要求 Python 3.10+、x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 全拒绝网络隔离能力。Windows 10 和旧版 Windows 11 的严格模式不可用。系统版本符合最低条件也可能缺少所需更新，面板会检查并拒绝不支持的启动。
 
 官方 MXC 的系统支持表列出 Windows 11 24H2 的 `26100.9278`、25H2 的 `26200.9278` 等更新版本；最终以本机请求级能力检查为准：[系统支持表](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)。
 
@@ -34,7 +34,7 @@ sh start-linux.sh
 
 发行版未安装 bubblewrap 时，通过发行版的软件管理器安装它。用登录桌面的普通用户启动面板。不要用 sudo 启动浏览器。
 
-面板默认地址：`http://127.0.0.1:8879`。关闭启动终端或在面板点击停止，会先关闭本工具启动的应用，再停止本工具的核心。
+面板默认地址：`http://127.0.0.1:8879`。在面板点击停止，会先关闭本工具启动的应用，再停止本工具的核心。退出面板使用 Ctrl+C；Windows 直接关闭终端的清理行为尚未实测。
 
 ## 应用支持范围
 
@@ -55,10 +55,12 @@ Linux 未开放 D-Bus、桌面门户和音频服务，仅按需开放直接的 X
 导入时重建本机入口：
 
 - TUN 关闭；只监听 `127.0.0.1`。
-- 应用入口固定到 `RuleProxySelected`，只能选择实际代理节点。
-- `DIRECT`、`dns-out` 等不会进入可选节点；导入规则中的直连例外不适用于受保护入口。
+- 保留支持的规则匹配条件和顺序；`REJECT` / `REJECT-DROP` 继续阻断。
+- 所有放行规则的目标统一改为 `RuleProxySelected`，只能选择实际代理节点；未匹配的流量也走该节点。
+- `DIRECT`、`dns-out` 等不会进入可选节点；导入规则中的直连例外改为代理。
 - 目的地解析使用经所选节点发送的 DoH。代理服务器自身是域名时，仅节点服务器的引导解析使用系统 DNS；不改变系统 DNS。
 - 导入的监听器、系统网络设置不生效。第一版不导入 `proxy-providers`、`rule-providers`、脚本、插件或本地证书文件引用；不支持时明确报错。
+- 通过中继无法可靠识别原始应用，所以不支持 `PROCESS-*` / `UID` 规则。应用选择由面板的隔离启动完成。
 
 节点名称会显示在面板，服务器、UUID、密码等不会通过状态 API 返回。导入内容只保存在本机。**不要把包含真实节点凭据的 YAML 推到公共仓库。**
 
@@ -66,11 +68,15 @@ Linux 未开放 D-Bus、桌面门户和音频服务，仅按需开放直接的 X
 
 Linux：每次启动创建独立网络和进程命名空间，没有上联网卡。仅通过专用 Unix socket 将隔离内的回环 TCP 入口连接到宿主 Mihomo。应用无法访问宿主 IP 网络；子进程继承隔离。没有 veth、NAT、宿主防火墙变更或全机 TUN。
 
-Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `base-container` 和 identity-less loopback proxy 支持。策略只允许连接指定代理地址/端口，并默认拒绝外部 IPv4/IPv6 出站；不接受 AppContainer 的弱化回退。策略作用于新容器及子进程。生命周期由 MXC / 系统管理；本工具不安装旧版的全机 WFP 断网守卫。
+Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `base-container`。采用 Model 3：外部出站、入站以及宿主回环全部拒绝，没有运行时网络代理例外，也不接受其他隔离层级的回退。应用和代理中继运行在同一容器内，仅容器内部回环可用。中继通过有大小与连接数限制的文件通道交换字节，宿主中继只能连接固定的本机 Mihomo 入口。
+
+真实应用启动前，先用隔离内的测试子进程检查内部代理通道、直连与宿主回环阻断；宿主还会检查无法连入容器监听器。检查失败就拒绝启动，不回退。这个通道不提供任意目的地址、宿主命令执行或系统网络设置接口；吞吐可能低于普通代理。
+
+策略只作用于新容器及子进程。生命周期由 MXC / 系统管理；本工具不安装旧版的全机 WFP 断网守卫。MXC 自带的运行时恢复机制属于该组件的生命周期管理。
 
 正常停止会关闭已核对身份的应用进程，让 MXC 自行完成清理；不会强杀 MXC 守卫进程。若无法确认或完成关闭，保留守卫和核心并显示错误，请自行关闭对应隔离窗口，再重试停止。
 
-参考：[MXC 网络策略](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/networking.md)、[Mihomo 监听器](https://wiki.metacubex.one/en/config/inbound/listeners/)、[Mihomo DNS](https://wiki.metacubex.one/en/config/dns/)。
+参考：[MXC 网络策略](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/networking.md)、[Mihomo 监听器](https://wiki.metacubex.one/en/config/inbound/listeners/)、[Mihomo 规则](https://wiki.metacubex.one/en/config/rules/)、[Mihomo DNS](https://wiki.metacubex.one/en/config/dns/)。
 
 ## 检查与当前验证范围
 
@@ -80,15 +86,7 @@ python3 -B -m unittest discover -s tests -v
 
 已在 Linux 实际检查代理通道、直连 IPv4/IPv6、DNS/UDP、子进程继承隔离，以及主机接口/路由未变；并用固定 Mihomo 校验参考 YAML。Web 导入、启动核心、应用管理、停止流程经过本机检查。
 
-Windows 的策略和拒绝回退逻辑有模拟检查，**尚未在目标 Windows 设备验证应用兼容性、出站阻断及异常退出清理，因此不能称为已实测零泄漏**。随包提供 `scripts/verify-windows.py`，需要在核心运行时于目标 Windows 检查。它不更改全机网络配置；详见脚本说明。
-
-在解压目录打开 PowerShell，保持面板核心运行，然后执行：
-
-```powershell
-py -3 .\scripts\verify-windows.py --runtime .\bin\windows-amd64\wxc-exec.exe --profile .\work\verification --proxy-port 10809
-```
-
-检查通过也不代表任意应用都没有泄漏；直接 TCP 超时可能仅因测试地址不可达。应用兼容性、子进程与实际外部 IPv4/IPv6 阻断仍需要在目标设备确认。
+最新 Windows 文件中继与启动门控、规则目标重写只完成静态审查，未运行更新后的测试套件。**尚未在目标 Windows 设备实测应用兼容性、实际网络阻断及异常退出清理，因此不能称为已实测零泄漏**。启动流程内置必要的运行时检查，但仍不能替代目标设备上的独立抓包与故障检查。首次使用请先选择一个浏览器，确认正常停止及其他普通应用的联网。
 
 本机数据独立于旧版目录：Windows `%LOCALAPPDATA%\RuleProxyWebSafe`；Linux `$XDG_DATA_HOME/ruleproxy-web-safe`（默认 `~/.local/share/ruleproxy-web-safe`）。核心日志为该目录的 `core.log`，Linux 应用错误为对应 `profiles/<id>/runtime.log`。删除项目程序不会留下全机断网规则；删除数据前先正常关闭面板。
 

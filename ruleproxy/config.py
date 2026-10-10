@@ -55,6 +55,49 @@ _BUILTIN_NAMES = frozenset(
         "GLOBAL",
     }
 )
+_RULE_PAYLOAD_COUNTS = {
+    "DOMAIN": 1,
+    "DOMAIN-SUFFIX": 1,
+    "DOMAIN-KEYWORD": 1,
+    "DOMAIN-WILDCARD": 1,
+    "DOMAIN-REGEX": 1,
+    "GEOSITE": 1,
+    "IP-CIDR": 1,
+    "IP-CIDR6": 1,
+    "IP-SUFFIX": 1,
+    "IP-ASN": 1,
+    "GEOIP": 1,
+    "SRC-GEOIP": 1,
+    "SRC-IP-ASN": 1,
+    "SRC-IP-CIDR": 1,
+    "SRC-IP-SUFFIX": 1,
+    "DST-PORT": 1,
+    "SRC-PORT": 1,
+    "IN-PORT": 1,
+    "IN-TYPE": 1,
+    "IN-USER": 1,
+    "IN-NAME": 1,
+    "REMATCH-NAME": 1,
+    "NETWORK": 1,
+    "DSCP": 1,
+    "AND": 1,
+    "OR": 1,
+    "NOT": 1,
+    "MATCH": 0,
+}
+_TARGET_IP_RULES = frozenset({"IP-CIDR", "IP-CIDR6", "IP-SUFFIX", "IP-ASN", "GEOIP"})
+_IDENTITY_RULES = frozenset(
+    {
+        "UID",
+        "PROCESS-PATH",
+        "PROCESS-PATH-WILDCARD",
+        "PROCESS-PATH-REGEX",
+        "PROCESS-NAME",
+        "PROCESS-NAME-WILDCARD",
+        "PROCESS-NAME-REGEX",
+    }
+)
+_RULE_OPTIONS = frozenset({"no-resolve", "src"})
 _GROUP_KEYS = frozenset(
     {
         "name",
@@ -307,6 +350,81 @@ def _validate_rule_set_usage(rules: list[str]) -> None:
         raise ValueError("This config uses unsupported SCRIPT or SUB-RULE rule semantics")
 
 
+def _split_rule_fields(rule: str, index: int) -> list[str]:
+    """Split ordinary rules, keeping commas inside logical-rule parentheses."""
+    first = rule.split(",", 1)[0].strip().upper()
+    if first not in {"AND", "OR", "NOT"}:
+        return [part.strip() for part in rule.split(",")]
+
+    fields: list[str] = []
+    start = 0
+    depth = 0
+    for position, char in enumerate(rule):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth < 0:
+                raise ValueError(f"rule at index {index} has unbalanced parentheses")
+        elif char == "," and depth == 0:
+            fields.append(rule[start:position].strip())
+            start = position + 1
+    if depth != 0:
+        raise ValueError(f"rule at index {index} has unbalanced parentheses")
+    fields.append(rule[start:].strip())
+    return fields
+
+
+def _compile_rules(value: Any) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(rule, str) or not rule.strip() for rule in value):
+        raise ValueError("rules must be a list of non-empty rule strings")
+    _validate_rule_set_usage(value)
+    compiled: list[str] = []
+    has_match = False
+    for index, raw_rule in enumerate(value):
+        fields = _split_rule_fields(raw_rule.strip(), index)
+        if not fields or not fields[0]:
+            raise ValueError(f"rule at index {index} has no rule type")
+        kind = fields[0].upper()
+        if kind in _IDENTITY_RULES:
+            raise ValueError(
+                f"rule at index {index} uses {kind}; process/UID rules cannot identify the app through the local relay"
+            )
+        if kind not in _RULE_PAYLOAD_COUNTS:
+            raise ValueError(f"rule at index {index} uses unsupported rule type {fields[0]!r}")
+        fields[0] = kind
+        payload_count = _RULE_PAYLOAD_COUNTS[kind]
+        action_index = 1 + payload_count
+        if len(fields) <= action_index or any(not field for field in fields):
+            raise ValueError(f"rule at index {index} has an incomplete condition or action")
+        action = fields[action_index]
+        options = fields[action_index + 1 :]
+        if any(option.lower() not in _RULE_OPTIONS for option in options):
+            raise ValueError(f"rule at index {index} has an unsupported or ambiguous trailing option")
+        if len({option.lower() for option in options}) != len(options):
+            raise ValueError(f"rule at index {index} repeats a trailing option")
+        if options and kind not in _TARGET_IP_RULES:
+            raise ValueError(f"rule at index {index} uses an IP-only option on {kind}")
+        if kind in {"AND", "OR", "NOT"}:
+            expression = fields[1]
+            if not expression.startswith("(") or not expression.endswith(")"):
+                raise ValueError(f"rule at index {index} has an invalid logical-rule expression")
+            if re.search(r"\(\s*(?:UID|PROCESS-[A-Z-]+)\s*,", expression, re.IGNORECASE):
+                raise ValueError(
+                    f"rule at index {index} uses a nested process/UID condition; "
+                    "the local relay cannot identify the original app"
+                )
+        if action.upper() in {"REJECT", "REJECT-DROP"}:
+            fields[action_index] = action.upper()
+        else:
+            fields[action_index] = APP_GROUP
+        compiled.append(",".join(fields))
+        has_match = has_match or kind == "MATCH"
+    if not has_match:
+        compiled.append(f"MATCH,{APP_GROUP}")
+    return compiled
+
+
 def compile_config(
     source: str,
     *,
@@ -404,17 +522,16 @@ def compile_config(
         "REJECT",
         "REJECT-DROP",
         "PASS",
+        "PASS-RULE",
         "COMPATIBLE",
+        "GLOBAL",
     }
     for group in groups:
         missing = [ref for ref in group.get("proxies", []) if ref not in allowed_refs]
         if missing:
             raise ValueError(f"proxy group {group['name']!r} references an unavailable proxy or group")
 
-    rules = imported.get("rules", [])
-    if not isinstance(rules, list) or any(not isinstance(rule, str) or not rule.strip() for rule in rules):
-        raise ValueError("rules must be a list of non-empty rule strings")
-    _validate_rule_set_usage(rules)
+    rules = _compile_rules(imported.get("rules", []))
 
     app_group = {
         "name": APP_GROUP,
@@ -422,15 +539,15 @@ def compile_config(
         "proxies": [selected_node, *[node["name"] for node in selectable if node["name"] != selected_node]],
         "default-selected": selected_node,
     }
-    # This listener's explicit proxy field bypasses imported rule actions.
-    # Its group contains only real proxy leaves, never DIRECT/DNS/group names.
+    # The generated selector contains only real proxy leaves. Every imported
+    # forwarding action has been rewritten to this selector; reject actions
+    # remain reject actions.
     listener = {
         "name": APP_LISTENER,
         "type": "mixed",
         "listen": "127.0.0.1",
         "port": mixed_port,
         "udp": False,
-        "proxy": APP_GROUP,
     }
     config: dict[str, Any] = {
         "mixed-port": 0,

@@ -1,7 +1,9 @@
 # Safe starter config. Replace the documentation-only node values with your
 # own subscription nodes before using it. This file contains no real credentials.
-# The panel pins its generated app listener to the selected proxy; it does not
-# support DIRECT exceptions for that app.
+# Imported rule conditions and order are retained for the managed app. Every
+# forwarding action (including DIRECT and PASS) uses the selected proxy;
+# REJECT/REJECT-DROP remain blocked. Process/UID rules are unsupported because
+# the local relay cannot identify the original application process.
 proxies:
   - name: Example-VLESS
     type: vless

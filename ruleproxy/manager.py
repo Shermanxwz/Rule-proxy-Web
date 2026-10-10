@@ -58,7 +58,7 @@ def stop_process(process: subprocess.Popen):
     if process.poll() is not None:
         return
     if os.name == "nt":
-        # Let MXC's console-control cleanup run before the bounded fallback.
+        # This helper stops the owned core; MXC workloads use a separate safe stop.
         try:
             process.send_signal(signal.CTRL_BREAK_EVENT)
             process.wait(timeout=5)
@@ -128,7 +128,8 @@ class Manager:
                 from .linux_runtime import probe
                 self._probe_cache = probe()
             elif sys.platform == "win32":
-                self._probe_cache = {"supported": False, "backend": "Windows 隔离待完善", "detail": "现有 Windows 代理隔离会允许部分入站通信，无法满足绝不直连要求，应用启动已禁用。", "limitations": ["YAML 导入和本地核心管理可用。", "严格应用隔离尚未开放，不会回退为直连启动。"]}
+                from .windows_runtime import probe
+                self._probe_cache = probe(self.runtime_path(), self.mixed_port)
             else:
                 self._probe_cache = {"supported": False, "backend": "不支持的系统", "detail": "当前仅支持 Windows 和 Linux。", "limitations": []}
         return self._probe_cache
@@ -139,7 +140,12 @@ class Manager:
     def state(self):
         with self.lock:
             running = bool(self.core and self.core.poll() is None)
-            apps = [{**app, "active": app["id"] in self.active and self.active[app["id"]][0].poll() is None} for app in self.settings["apps"]]
+            apps = []
+            for app in self.settings["apps"]:
+                owned = self.active.get(app["id"])
+                alive = bool(owned and owned[0].poll() is None)
+                pending = bool(alive and getattr(owned[1], "failed_process", None) is not None)
+                apps.append({**app, "active": alive and not pending, "cleanup_pending": pending})
             return {"token": self.token, "platform": "Windows" if sys.platform == "win32" else "Linux" if sys.platform == "linux" else sys.platform, "version": __version__, "imported": bool(self.compiled), "running": running, "error": self.error, "core_path": self.settings["core_path"], "runtime_path": self.settings["runtime_path"], "selected_node": self.compiled.selected_node if self.compiled else "", "nodes": self.compiled.nodes if self.compiled else [], "primary_group": self.compiled.primary_group if self.compiled else "", "apps": apps, "available_apps": discover_apps(), "proxy_url": f"http://127.0.0.1:{self.mixed_port}", "ports": {"mixed": self.mixed_port, "panel": self.panel_port}, "protection": self.protection(), "warnings": self.compiled.warnings if self.compiled else []}
 
     def import_yaml(self, source):
@@ -284,18 +290,35 @@ class Manager:
             if not self.protection()["supported"]:
                 raise ValueError(self.protection()["detail"])
             if ident in self.active and self.active[ident][0].poll() is None:
+                if getattr(self.active[ident][1], "failed_process", None) is not None:
+                    raise ValueError("上次启动的隔离守卫尚未完成清理，请先点击关闭守卫。")
                 return {"pid": self.active[ident][0].pid, "adapter": app["adapter"], "detail": "这个应用已经在隔离中运行。"}
-            command, env, _detail = prepare_app(app, self.mixed_port, self.directory / "profiles")
+            if ident in self.active:
+                self.stop_app(ident)
             profile = self.directory / "profiles" / ident
+            app_proxy_port = self.mixed_port
+            if sys.platform == "win32":
+                from .windows_runtime import choose_guest_port
+                app_proxy_port = choose_guest_port(self.mixed_port)
+            command, env, _detail = prepare_app(app, app_proxy_port, self.directory / "profiles")
             if sys.platform == "linux":
                 from .linux_runtime import launch
                 process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port).result()
             elif sys.platform == "win32":
                 from .windows_runtime import launch
-                process, resource = launch(command, env, profile, self.mixed_port, self.runtime_path())
+                try:
+                    process, resource = launch(command, env, profile, self.mixed_port, self.runtime_path(), guest_listener_port=app_proxy_port)
+                except Exception as exc:
+                    failed_process = getattr(exc, "process", None)
+                    failed_resource = getattr(exc, "resource", None)
+                    if failed_process is not None and failed_resource is not None:
+                        self.active[ident] = (failed_process, failed_resource)
+                        self.error = "应用未启动；隔离守卫仍在清理中，请关闭该守卫后重试。"
+                    raise
             else:
                 raise ValueError("系统不支持应用隔离。")
             self.active[ident] = (process, resource)
+            self.error = ""
             return {"pid": process.pid, "adapter": app["adapter"], "detail": "仅此隔离实例受保护。不支持的流量阻断，不会直连。"}
 
     def stop_app(self, ident):

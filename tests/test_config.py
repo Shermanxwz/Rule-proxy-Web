@@ -47,7 +47,7 @@ rules:
         self.assertEqual(listener["name"], APP_LISTENER)
         self.assertEqual(listener["type"], "mixed")
         self.assertEqual(listener["listen"], "127.0.0.1")
-        self.assertEqual(listener["proxy"], APP_GROUP)
+        self.assertNotIn("proxy", listener)
         self.assertEqual(listener["port"], 10809)
         self.assertFalse(listener["udp"])
         self.assertEqual(config["mixed-port"], 0)
@@ -57,15 +57,15 @@ rules:
         self.assertEqual(config["external-controller"], "127.0.0.1:19097")
         self.assertEqual(config["secret"], "local-secret")
         self.assertEqual(config["tun"], {"enable": False})
-        # Imported rules/groups may still contain DIRECT, but this listener's
-        # explicit proxy field bypasses them and cannot select those entries.
+        # Imported group definitions remain available, but every route action
+        # goes through the protected selector after rule compilation.
         self.assertEqual(config["proxy-groups"][0]["proxies"], ["Beta", "DIRECT", "Alpha", "dns-out"])
         self.assertEqual(
             config["rules"],
             [
-                "DOMAIN-SUFFIX,amazon.com,DIRECT",
-                "AND,((NETWORK,UDP),(DST-PORT,53)),dns-out",
-                "MATCH,Proxy",
+                f"DOMAIN-SUFFIX,amazon.com,{APP_GROUP}",
+                f"AND,((NETWORK,UDP),(DST-PORT,53)),{APP_GROUP}",
+                f"MATCH,{APP_GROUP}",
             ],
         )
         self.assertEqual(yaml.safe_load(result.text), config)
@@ -153,6 +153,58 @@ listeners:
         source = self.source.replace("MATCH,Proxy", "RULE-SET,geo,Proxy")
         with self.assertRaisesRegex(ValueError, "RULE-SET rules need rule-providers"):
             compile_config(source, secret="s")
+
+    def test_rule_actions_are_rewritten_but_reject_and_no_resolve_are_preserved(self):
+        source = self.source.replace(
+            "  - DOMAIN-SUFFIX,amazon.com,DIRECT\n  - AND,((NETWORK,UDP),(DST-PORT,53)),dns-out\n  - MATCH,Proxy",
+            "  - DOMAIN-SUFFIX,amazon.com,DIRECT\n"
+            "  - IP-CIDR,192.0.2.0/24,Proxy,no-resolve\n"
+            "  - IP-CIDR6,2001:db8::/32,Alpha,no-resolve\n"
+            "  - DOMAIN,blocked.example,REJECT\n"
+            "  - DOMAIN,blocked-too.example,REJECT-DROP\n"
+            "  - DOMAIN,passed.example,PASS\n"
+            "  - MATCH,Proxy",
+        )
+        result = compile_config(source, secret="s")
+        self.assertEqual(
+            result.config["rules"],
+            [
+                f"DOMAIN-SUFFIX,amazon.com,{APP_GROUP}",
+                f"IP-CIDR,192.0.2.0/24,{APP_GROUP},no-resolve",
+                f"IP-CIDR6,2001:db8::/32,{APP_GROUP},no-resolve",
+                "DOMAIN,blocked.example,REJECT",
+                "DOMAIN,blocked-too.example,REJECT-DROP",
+                f"DOMAIN,passed.example,{APP_GROUP}",
+                f"MATCH,{APP_GROUP}",
+            ],
+        )
+
+    def test_missing_match_gets_proxy_match_and_reject_match_stays_blocked(self):
+        source = self.source.replace("  - MATCH,Proxy\n", "")
+        result = compile_config(source, secret="s")
+        self.assertEqual(result.config["rules"][-1], f"MATCH,{APP_GROUP}")
+
+        source = self.source.replace("  - MATCH,Proxy", "  - MATCH,REJECT")
+        result = compile_config(source, secret="s")
+        self.assertEqual(result.config["rules"][-1], "MATCH,REJECT")
+
+    def test_process_identity_and_unparseable_rules_are_rejected(self):
+        for rule in (
+            "PROCESS-NAME,chrome.exe,DIRECT",
+            "PROCESS-PATH,/usr/bin/browser,Proxy",
+            "PROCESS-NAME-REGEX,.*browser.*,Proxy",
+            "UID,1000,DIRECT",
+        ):
+            with self.subTest(rule=rule), self.assertRaisesRegex(ValueError, "cannot identify the app through the local relay"):
+                compile_config(self.source.replace("MATCH,Proxy", rule), secret="s")
+        for rule in (
+            "SOMETHING-NEW,payload,DIRECT",
+            "DOMAIN-SUFFIX,example.com",
+            "IP-CIDR,192.0.2.0/24,DIRECT,unknown-option",
+            "AND,((NETWORK,UDP),(DST-PORT,53),Proxy",
+        ):
+            with self.subTest(rule=rule), self.assertRaises(ValueError):
+                compile_config(self.source.replace("MATCH,Proxy", rule), secret="s")
 
     def test_special_exit_nodes_are_never_selectable(self):
         result = compile_config(self.source, secret="s")
