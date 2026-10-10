@@ -118,6 +118,22 @@ def _app(label: str, path: str | Path, adapter: str, *, args: list[str] | None =
     }
 
 
+def _is_file(path: Path) -> bool:
+    """Path.is_file() that treats an unreadable location as absent instead of raising."""
+    try:
+        return path.is_file()
+    except OSError:
+        return False
+
+
+def _is_dir(path: Path) -> bool:
+    """Path.is_dir() that treats an unreadable location as absent instead of raising."""
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
+
+
 def _resolve_program(program: str) -> Path | None:
     if not program or "\0" in program:
         return None
@@ -132,7 +148,7 @@ def _resolve_program(program: str) -> Path | None:
         if not found:
             return None
         candidate = Path(found).resolve()
-    if not candidate.is_file() or not os.access(candidate, os.X_OK):
+    if not _is_file(candidate) or not os.access(candidate, os.X_OK):
         return None
     if sys.platform.startswith("linux"):
         try:
@@ -172,7 +188,7 @@ def _infer_adapter(label: str, path: Path) -> str:
     # Electron bundles expose app.asar next to their executable. This is a
     # filesystem-only hint; discovery never starts a candidate to inspect it.
     parent = path.parent
-    if any((base / marker).is_file() for base in (parent / "resources", parent.parent / "resources") for marker in ("app.asar", "app/main.js")):
+    if any(_is_file(base / marker) for base in (parent / "resources", parent.parent / "resources") for marker in ("app.asar", "app/main.js")):
         return "chromium"
     return "environment"
 
@@ -237,7 +253,8 @@ def _desktop_exec_args(value: str) -> tuple[list[str], list[str]] | None:
     return tokens, result
 
 
-def _desktop_entry(path: Path) -> tuple[str, str, str, list[str], str] | None:
+def _desktop_fields(path: Path) -> dict[str, str] | None:
+    """The [Desktop Entry] keys of a .desktop file (first value wins), or None if unreadable."""
     fields: dict[str, str] = {}
     in_entry = False
     try:
@@ -252,6 +269,13 @@ def _desktop_entry(path: Path) -> tuple[str, str, str, list[str], str] | None:
             if key not in fields:
                 fields[key] = value
     except OSError:
+        return None
+    return fields
+
+
+def _desktop_entry(path: Path) -> tuple[str, str, str, list[str], str] | None:
+    fields = _desktop_fields(path)
+    if fields is None:
         return None
     if fields.get("Type", "Application") != "Application" or fields.get("Hidden", "false").lower() == "true" or fields.get("NoDisplay", "false").lower() == "true":
         return None
@@ -292,7 +316,7 @@ def _linux_applications_dirs() -> list[Path]:
         except OSError:
             resolved = directory
         key = os.path.normcase(str(resolved))
-        if key not in seen and directory.is_dir():
+        if key not in seen and _is_dir(directory):
             seen.add(key)
             result.append(directory)
     return result
@@ -370,11 +394,47 @@ def _linux_discover() -> list[dict[str, Any]]:
             if "chatgpt" in f"{label} {path}".lower():
                 # Never list a ChatGPT desktop entry pointing to a wrapper;
                 # only the package's actual GUI binary is eligible.
-                preferred_chatgpt = chatgpt.resolve() if chatgpt.exists() else None
+                preferred_chatgpt = chatgpt.resolve() if _is_file(chatgpt) else None
                 if preferred_chatgpt is None or path.resolve() != preferred_chatgpt:
                     continue
             add(label, path, adapter, args=args, categories=categories)
     return found
+
+
+def linux_desktop_icon(app_path: str, label: str) -> str | None:
+    """The icon of the installed desktop entry for an app, so its shortcut looks like the app.
+
+    An entry whose program is the app's own binary wins; otherwise an entry with the
+    same name (a packaged app's entry often runs a wrapper script). RuleProxy's own
+    launchers are skipped. Returns a theme icon name or an existing absolute path.
+    """
+    try:
+        target = Path(app_path).resolve()
+    except (OSError, RuntimeError):
+        return None
+    wanted = label.strip().casefold()
+    by_name = None
+    for directory in _linux_applications_dirs():
+        try:
+            entries = sorted(directory.glob("*.desktop"), key=lambda item: item.name.casefold())
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.name.startswith("ruleproxy-"):
+                continue
+            fields = _desktop_fields(entry)
+            if not fields or fields.get("Type", "Application") != "Application":
+                continue
+            icon = fields.get("Icon", "").strip()
+            if not icon or any(char in icon for char in "\r\n\0") or (icon.startswith("/") and not _is_file(Path(icon))):
+                continue
+            parsed = _desktop_exec_args(fields.get("Exec", "").strip())
+            program = _resolve_program(parsed[0][0]) if parsed else None
+            if program is not None and program == target:
+                return icon
+            if by_name is None and wanted and fields.get("Name", "").strip().casefold() == wanted:
+                by_name = icon
+    return by_name
 
 
 def _win_registry_apps() -> list[tuple[str, Path]]:
@@ -418,7 +478,7 @@ def _win_registry_apps() -> list[tuple[str, Path]]:
                     if '"' in raw_path or "\0" in raw_path:
                         continue
                     path = Path(raw_path)
-                    if path.is_file() and path.suffix.lower() == ".exe" and not _is_excluded_program(path, path.stem):
+                    if _is_file(path) and path.suffix.lower() == ".exe" and not _is_excluded_program(path, path.stem):
                         found.append((path.stem, path))
             finally:
                 winreg.CloseKey(root)
@@ -437,7 +497,7 @@ def _windows_discover() -> list[dict[str, Any]]:
             path = path.resolve(strict=True)
         except (OSError, RuntimeError):
             return
-        if not path.is_file() or path.suffix.lower() != ".exe" or _is_excluded_program(path, label):
+        if not _is_file(path) or path.suffix.lower() != ".exe" or _is_excluded_program(path, label):
             return
         key = os.path.normcase(str(path))
         if key in seen:
@@ -471,26 +531,26 @@ def _windows_discover() -> list[dict[str, Any]]:
 
     scan_roots = [roots[0], roots[1], roots[2] / "Programs"]
     for root in scan_roots:
-        if not root.is_dir():
+        if not _is_dir(root):
             continue
         try:
             children = list(root.iterdir())
         except OSError:
             continue
         for child in children:
-            if not child.is_dir() or child.name.lower() in {"windowsapps", "uninstall", "updates", "update"}:
+            if not _is_dir(child) or child.name.lower() in {"windowsapps", "uninstall", "updates", "update"}:
                 continue
             try:
                 entries = list(child.iterdir())
             except OSError:
                 continue
             for entry in entries:
-                if entry.is_file() and entry.suffix.lower() == ".exe":
+                if _is_file(entry) and entry.suffix.lower() == ".exe":
                     add(child.name, entry)
-                elif entry.is_dir() and entry.name.lower() not in {"uninstall", "updates", "update", "crashpad"}:
+                elif _is_dir(entry) and entry.name.lower() not in {"uninstall", "updates", "update", "crashpad"}:
                     try:
                         for nested in entry.iterdir():
-                            if nested.is_file() and nested.suffix.lower() == ".exe":
+                            if _is_file(nested) and nested.suffix.lower() == ".exe":
                                 add(child.name, nested)
                     except OSError:
                         pass

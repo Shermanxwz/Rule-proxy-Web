@@ -1,5 +1,6 @@
 import os
 import stat
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -153,6 +154,35 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(entry["args"], [])
         self.assertEqual(entry["category"], "browser")
         self.assertIn("fails closed", entry["compatibility"])
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "desktop entries are Linux-only")
+    def test_discovery_skips_locations_it_cannot_read(self):
+        share = self.root / "share" / "applications"
+        share.mkdir(parents=True)
+        tool = self.root / "tool"
+        tool.write_bytes(b"\x7fELF")
+        tool.chmod(0o755)
+        locked = self.root / "unreadable" / "locked"
+        locked.parent.mkdir()
+        locked.write_bytes(b"\x7fELF")
+        locked.chmod(0o755)
+        (share / "tool.desktop").write_text(f"[Desktop Entry]\nType=Application\nName=Readable Tool\nExec={tool}\n", encoding="utf-8")
+        (share / "locked.desktop").write_text(f"[Desktop Entry]\nType=Application\nName=Locked Tool\nExec={locked}\n", encoding="utf-8")
+
+        def denied(real):
+            # Root ignores file modes, so simulate the PermissionError a normal user gets.
+            def check(path, *args, **kwargs):
+                if "unreadable" in str(path):
+                    raise PermissionError(13, "Permission denied", str(path))
+                return real(path, *args, **kwargs)
+            return check
+
+        environment = {"XDG_DATA_HOME": str(self.root / "share"), "XDG_DATA_DIRS": f"{self.root / 'unreadable' / 'share'}:/nonexistent"}
+        with mock.patch.dict(os.environ, environment), mock.patch.object(Path, "is_dir", denied(Path.is_dir)), mock.patch.object(Path, "is_file", denied(Path.is_file)):
+            found = launcher.discover_apps(refresh=True)
+        labels = [app["label"] for app in found]
+        self.assertIn("Readable Tool", labels)
+        self.assertNotIn("Locked Tool", labels)
 
 
 if __name__ == "__main__":

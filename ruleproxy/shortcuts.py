@@ -16,6 +16,8 @@ import subprocess
 import sys
 import uuid
 
+from .launcher import linux_desktop_icon
+
 
 ROOT = Path(__file__).resolve().parent.parent
 _APP_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
@@ -81,13 +83,14 @@ def _desktop_exec(argv: list[str]) -> str:
     return " ".join(parts)
 
 
-def _desktop_entry(app_id: str, label: str, argv: list[str]) -> str:
+def _desktop_entry(app_id: str, label: str, argv: list[str], icon: str | None = None) -> str:
     lines = [
         "[Desktop Entry]",
         "Type=Application",
         "Version=1.0",
         f"Name={_desktop_string(_display_name(label))}",
         f"Comment={_desktop_string('通过 RuleProxy 隔离启动，使用面板中保存的代理和配置')}",
+        *([f"Icon={_desktop_string(icon)}"] if icon else []),
         f"Exec={_desktop_exec(argv)}",
         f"Path={_desktop_string(str(ROOT))}",
         "Terminal=false",
@@ -119,8 +122,8 @@ def _best_effort(command: list[str]) -> None:
         pass
 
 
-def _linux_shortcuts(app_id: str, label: str, argv: list[str]) -> list[Path]:
-    text = _desktop_entry(app_id, label, argv)
+def _linux_shortcuts(app_id: str, label: str, argv: list[str], icon: str | None) -> list[Path]:
+    text = _desktop_entry(app_id, label, argv, icon)
     data_home = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local/share")).expanduser()
     menu = data_home / "applications" / f"ruleproxy-{app_id}.desktop"
     _write_file(menu, text, 0o644)
@@ -169,7 +172,7 @@ def create_shortcut_files(app: dict, *, state_dir: Path, ports: tuple[int, int, 
     label = str(app.get("label") or "应用").strip() or "应用"
     argv = runner_argv(app_id, Path(state_dir), ports)
     if sys.platform.startswith("linux"):
-        return _linux_shortcuts(app_id, label, argv)
+        return _linux_shortcuts(app_id, label, argv, linux_desktop_icon(str(app.get("path") or ""), label))
     if sys.platform == "win32":
         return _windows_shortcuts(app, label, argv)
     raise ValueError("当前系统不支持创建快捷方式。")

@@ -108,6 +108,41 @@ class LinuxShortcutTests(unittest.TestCase):
             with self.subTest(app_id=bad), self.assertRaises(ValueError):
                 create_shortcut_files({"id": bad, "label": "X"}, state_dir=self.data, ports=(8879, 10809, 19097))
 
+    def installed_entry(self, name, exec_line, icon, filename=None):
+        applications = self.data / "applications"
+        applications.mkdir(parents=True, exist_ok=True)
+        entry = applications / (filename or f"{name.lower().replace(' ', '-')}.desktop")
+        entry.write_text(f"[Desktop Entry]\nType=Application\nName={name}\nExec={exec_line}\nIcon={icon}\n", encoding="utf-8")
+
+    def shortcut_text(self, app):
+        with patch.dict(os.environ, {"XDG_DATA_DIRS": str(self.root / "no-system-entries")}):
+            created = create_shortcut_files(app, state_dir=self.data / "state", ports=(8879, 10809, 19097))
+        return created[0].read_text(encoding="utf-8")
+
+    def test_the_shortcut_uses_the_installed_apps_icon(self):
+        # Packaged apps often start through a wrapper script, so the name decides.
+        self.installed_entry("ChatGPT", "/opt/missing/chatgpt-wrapper %U", "chatgpt")
+        text = self.shortcut_text({"id": "gpt-1", "label": "ChatGPT", "path": "/usr/lib/chatgpt/ChatGPT"})
+        self.assertEqual(desktop_value(text, "Icon"), "chatgpt")
+
+    def test_an_entry_running_the_same_program_wins_over_a_name_match(self):
+        program = self.root / "bin" / "app"
+        program.parent.mkdir()
+        program.write_bytes(b"\x7fELF")
+        program.chmod(0o755)
+        icon = self.root / "app.png"
+        icon.write_bytes(b"png")
+        self.installed_entry("Same Label", "/opt/missing/other", "by-name")
+        self.installed_entry("Vendor Name", f"{program} %U", str(icon))
+        text = self.shortcut_text({"id": "app-1", "label": "Same Label", "path": str(program)})
+        self.assertEqual(desktop_value(text, "Icon"), str(icon))
+
+    def test_no_icon_without_a_matching_entry_and_never_from_our_own_launchers(self):
+        self.installed_entry("Thing (RuleProxy)", "/usr/bin/python3", "ours", filename="ruleproxy-old.desktop")
+        self.installed_entry("Thing", "/usr/bin/python3", "/missing/icon.png")
+        text = self.shortcut_text({"id": "thing-1", "label": "Thing", "path": "/usr/bin/thing"})
+        self.assertNotIn("Icon=", text)
+
     def test_removal_deletes_only_files_this_module_names(self):
         app = {"id": "keep-1", "label": "Keep", "path": "/usr/bin/keep"}
         ours = create_shortcut_files(app, state_dir=self.data / "state", ports=(8879, 10809, 19097))[0]
