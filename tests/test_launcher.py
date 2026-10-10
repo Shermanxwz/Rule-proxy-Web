@@ -65,14 +65,16 @@ class LauncherTests(unittest.TestCase):
         self.assertIn("--proxy-bypass-list=<-loopback>", command)
         self.assertIn("--disable-quic", command)
         self.assertIn("--disable-background-networking", command)
-        self.assertIn(
-            "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1", command
+        # Chromium warns about --host-resolver-rules as an unsupported switch.
+        # Name resolution is enforced by the isolation boundary instead.
+        self.assertFalse(
+            any(arg.startswith("--host-resolver-rules") for arg in command), command
         )
         self.assertIn(
             "--force-webrtc-ip-handling-policy=disable_non_proxied_udp", command
         )
         self.assertEqual(env["HTTP_PROXY"], "http://127.0.0.1:8899")
-        self.assertEqual(env["DISPLAY"], os.environ.get("DISPLAY"))
+        self.assertEqual(env.get("DISPLAY"), os.environ.get("DISPLAY"))
         self.assertIn("blocks direct egress", detail)
         self.assertFalse(hasattr(launcher, "launch_app"))
 
@@ -139,6 +141,7 @@ class LauncherTests(unittest.TestCase):
     def test_discover_apps_uses_path_lookup_without_executing(self):
         firefox = self.root / "firefox"
         firefox.write_text("", encoding="utf-8")
+        firefox.chmod(firefox.stat().st_mode | stat.S_IXUSR)
         with mock.patch.object(launcher.sys, "platform", "linux"), mock.patch.object(
             launcher.shutil, "which", side_effect=lambda name: str(firefox) if name == "firefox" else None
         ):

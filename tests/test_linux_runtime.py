@@ -50,13 +50,22 @@ for key, family, address, kind in (
     ("dns_udp", socket.AF_INET, ("192.0.2.1", 53), socket.SOCK_DGRAM),
     ("ipv6_udp", socket.AF_INET6, ("2001:db8::1", 53), socket.SOCK_DGRAM),
 ):
-    s = socket.socket(family, kind); s.settimeout(1)
+    try:
+        s = socket.socket(family, kind)
+    except OSError:
+        report[key] = True  # family unusable here: nothing can leave on it
+        continue
+    s.settimeout(1)
     try:
         if kind == socket.SOCK_DGRAM: s.sendto(b"local-isolation-test", address)
         else: s.connect(address)
         report[key] = False
     except OSError: report[key] = True
     finally: s.close()
+try:
+    socket.getaddrinfo("example.com", 443)
+    report["name_resolution_blocked"] = False
+except OSError: report["name_resolution_blocked"] = True
 child = subprocess.check_output([sys.executable, "-c", "import socket; print([n for _,n in socket.if_nameindex()])"], text=True)
 report["child_isolated"] = child.strip() == "['lo']"
 report["no_host_broker"] = not Path('/run/dbus/system_bus_socket').exists()

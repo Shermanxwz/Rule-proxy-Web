@@ -660,7 +660,10 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str
                 "--proxy-bypass-list=<-loopback>",
                 "--disable-quic",
                 "--disable-background-networking",
-                "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
+                # Name resolution is blocked by the isolation boundary itself
+                # (Linux: the namespace has no uplink; see test_linux_runtime).
+                # --host-resolver-rules is not used: Chromium flags it as an
+                # unsupported command-line switch and shows a warning bar.
                 "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
                 "--no-first-run",
             ]
