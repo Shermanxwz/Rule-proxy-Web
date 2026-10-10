@@ -11,11 +11,49 @@ import os
 from pathlib import Path
 import select
 import shutil
+import stat
 import socket
 import subprocess
 import sys
 import tempfile
 import threading
+
+
+_RULEPROXY_BWRAP = Path("/usr/local/lib/ruleproxy-web/bwrap")
+_RULEPROXY_CHROMIUM_BWRAP = Path("/usr/local/lib/ruleproxy-web/bwrap-chromium")
+_CHROMIUM_SANDBOX_PATHS = frozenset({
+    "/opt/google/chrome/chrome",
+    "/opt/microsoft/msedge/msedge",
+    "/opt/brave.com/brave/brave",
+    "/usr/lib/chromium/chromium",
+    "/usr/lib/chromium-browser/chromium-browser",
+    "/usr/lib/chatgpt/ChatGPT",
+})
+
+
+def _trusted_system_executable(path: Path) -> bool:
+    """Use the dedicated AppArmor target only when the user cannot replace it."""
+    try:
+        resolved = path.resolve(strict=True)
+        if resolved != path or not stat.S_ISREG(path.lstat().st_mode):
+            return False
+        if path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
+            return False
+        for parent in path.parents:
+            info = parent.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+                return False
+        return os.access(path, os.X_OK)
+    except OSError:
+        return False
+
+
+def bwrap_executable(*, chromium_sandbox: bool = False) -> str | None:
+    if chromium_sandbox and _trusted_system_executable(_RULEPROXY_CHROMIUM_BWRAP):
+        return str(_RULEPROXY_CHROMIUM_BWRAP)
+    if _trusted_system_executable(_RULEPROXY_BWRAP):
+        return str(_RULEPROXY_BWRAP)
+    return shutil.which("bwrap")
 
 class ProxyBridge:
     def __init__(self, port: int):
@@ -81,7 +119,7 @@ class ProxyBridge:
 
 
 def probe() -> dict:
-    bwrap = shutil.which("bwrap")
+    bwrap = bwrap_executable()
     if not bwrap:
         return {"supported": False, "backend": "Linux 网络隔离", "detail": "请安装 bubblewrap 后再启动应用。", "limitations": []}
     permission_denied = False
@@ -99,14 +137,19 @@ def probe() -> dict:
     restriction = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")
     try:
         if not supported and permission_denied and restriction.read_text().strip() == "1":
-            detail = "隔离权限被系统拒绝，且 AppArmor 用户命名空间限制已开启。仍可添加应用；受保护启动已禁用。"
+            detail = "Ubuntu AppArmor 限制了隔离权限。请先运行项目中的 Linux AppArmor 准备脚本；受保护启动已禁用。"
     except OSError:
         pass
     return {"supported": supported, "backend": "Linux 独立网络空间", "detail": detail, "limitations": ["仅面板启动的实例受保护。", "代理不支持的协议、部分桌面功能可能不可用；连接失败不会直连。"]}
 
 
 def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str) -> tuple[list[str], dict[str, str]]:
-    bwrap = shutil.which("bwrap")
+    try:
+        executable_path = str(Path(command[0]).resolve(strict=True))
+    except (OSError, RuntimeError, IndexError):
+        executable_path = ""
+    chromium_sandbox = executable_path in _CHROMIUM_SANDBOX_PATHS
+    bwrap = bwrap_executable(chromium_sandbox=chromium_sandbox)
     if not bwrap:
         raise ValueError("bubblewrap is required; direct launch is disabled")
     profile = profile.resolve()

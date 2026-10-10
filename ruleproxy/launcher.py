@@ -30,6 +30,10 @@ _APP_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 # browser options, but the enforced values are appended by this module.
 _CHROMIUM_RESERVED_PREFIXES = (
     "--proxy-",
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-namespace-sandbox",
+    "--disable-seccomp-filter-sandbox",
     "--no-proxy-server",
     "--user-data-dir",
     "--profile-directory",
@@ -644,6 +648,11 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str
     )
 
     if normalized["adapter"] == "chromium":
+        if sys.platform.startswith("linux"):
+            # bubblewrap sets no_new_privs, so Chrome's SUID helper cannot run.
+            # On modern Linux Chrome uses its separate user-namespace sandbox;
+            # only disable the obsolete setuid route, never Chrome's full sandbox.
+            command.append("--disable-setuid-sandbox")
         command.extend(
             [
                 f"--user-data-dir={profile}",

@@ -23,7 +23,15 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 ### Linux
 
-要求 Python 3.10+、bubblewrap，以及可用的用户和网络命名空间。运行包已带核心；源码使用下面的准备步骤：
+要求 Python 3.10+、Ubuntu 软件包提供的 bubblewrap，以及可用的用户和网络命名空间。第一次使用前，在项目目录执行一次：
+
+```sh
+sudo sh scripts/setup-linux-apparmor.sh
+```
+
+该脚本把 Ubuntu 的 bubblewrap 复制到两个项目专用的 root 所有路径，并加载 Ubuntu `bwrap-userns-restrict` 策略的本地配置。普通应用进入拒绝 capabilities 的子策略。已识别的 Chromium 系程序使用单独子策略，允许其嵌套 user namespace 沙箱所需的 `CAP_SYS_ADMIN` 和 `CAP_SYS_CHROOT`；外层网络命名空间已先行建立并丢弃 capabilities，应用网络仍只看得到 loopback。原版 `/usr/bin/bwrap` 和全机 user namespace 开关不变。更新 Ubuntu bubblewrap 软件包后请重新运行脚本。要撤销此专用配置，执行 `sudo sh scripts/remove-linux-apparmor.sh`。
+
+运行包已带核心；源码首次准备使用下面的步骤：
 
 ```sh
 # 在项目目录下；这些步骤不更改网卡配置。
@@ -32,11 +40,11 @@ python3 install_runtime.py --platform linux-amd64
 sh start-linux.sh
 ```
 
-发行版未安装 bubblewrap 时，通过发行版的软件管理器安装它。用登录桌面的普通用户启动面板。不要用 sudo 启动浏览器。
+发行版未安装 bubblewrap 时，通过发行版的软件管理器安装它，再运行上面的准备脚本。随后以登录桌面的普通用户重新打开面板。不要用 sudo 启动面板或浏览器。若状态仍显示隔离不可用，请关闭并重新打开面板，让它重新检查 AppArmor 策略。
 
 应用列表会自动读取本机已安装的应用，支持搜索和一键添加。“重新扫描”会立即重新读取清单。添加只保存启动清单；只有从面板启动并显示“隔离中运行”的实例才受保护，现有窗口不会自动接管。
 
-Ubuntu 的 AppArmor 可能禁止 bubblewrap 创建隔离空间，即使已经安装 bubblewrap。此时面板保留添加功能，但禁止受保护启动。需要由管理员针对隔离程序配置并验证 AppArmor 策略；不要关闭全机 user namespace 限制，也不要用 `--no-sandbox` 绕过浏览器沙箱。[Ubuntu 权限限制说明](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)
+Ubuntu 的 AppArmor 会限制未授权程序使用 user namespace。上面的准备脚本只给 RuleProxy 专用 bwrap 副本加载隔离策略；全机 user namespace 限制保持开启，也不会用 `--no-sandbox` 绕过浏览器沙箱。[Ubuntu 权限限制说明](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)
 
 面板默认地址：`http://127.0.0.1:8879`。在面板点击停止，会先关闭本工具启动的应用，再停止本工具的核心。退出面板使用 Ctrl+C；Windows 直接关闭终端的清理行为尚未实测。
 
@@ -48,7 +56,7 @@ Ubuntu 的 AppArmor 可能禁止 bubblewrap 创建隔离空间，即使已经安
 
 | 启动方式 | 行为 |
 |---|---|
-| Chrome / Edge / Brave | 使用独立浏览器配置、本地 HTTP 代理，禁止 QUIC 和非代理 WebRTC UDP |
+| Chrome / Edge / Brave | 使用独立浏览器配置、本地 HTTP 代理，禁止 QUIC 和非代理 WebRTC UDP；Linux 使用浏览器 user namespace 与 seccomp 沙箱 |
 | Firefox | 使用独立配置、SOCKS5 远端 DNS，关闭预取 |
 | 遵循代理环境变量的应用 | 启动时设置 HTTP(S)/ALL_PROXY；忽略代理的连接会被隔离边界阻断 |
 
@@ -75,6 +83,8 @@ Linux 未开放 D-Bus、桌面门户和音频服务，仅按需开放直接的 X
 ## 隔离设计
 
 Linux：每次启动创建独立网络和进程命名空间，没有上联网卡。仅通过专用 Unix socket 将隔离内的回环 TCP 入口连接到宿主 Mihomo。应用无法访问宿主 IP 网络；子进程继承隔离。没有 veth、NAT、宿主防火墙变更或全机 TUN。
+
+Ubuntu 专用 bwrap 使用官方 `bwrap-userns-restrict` 思路。Chromium 系应用在 Linux 启动时禁用与外层 `no_new_privs` 不兼容的 SUID helper 路径，保留浏览器自己的 user namespace 与 seccomp 沙箱；禁止 `--no-sandbox` 参数。浏览器内部沙箱若不能启动，应用启动失败，不会退回无沙箱模式。
 
 Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `base-container`。采用 Model 3：外部出站、入站以及宿主回环全部拒绝，没有运行时网络代理例外，也不接受其他隔离层级的回退。应用和代理中继运行在同一容器内，仅容器内部回环可用。中继通过有大小与连接数限制的文件通道交换字节，宿主中继只能连接固定的本机 Mihomo 入口。
 
