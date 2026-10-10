@@ -145,7 +145,7 @@ def probe() -> dict:
     return {"supported": supported, "backend": "Linux 独立网络空间", "detail": detail, "limitations": ["仅面板启动的实例受保护。", "代理不支持的协议、部分桌面功能可能不可用；连接失败不会直连。"]}
 
 
-def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str, data_dir: Path | None = None) -> tuple[list[str], dict[str, str]]:
+def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str) -> tuple[list[str], dict[str, str]]:
     try:
         executable_path = str(Path(command[0]).resolve(strict=True))
     except (OSError, RuntimeError, IndexError):
@@ -164,11 +164,6 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
     # A private /proc prevents reaching the host's namespace descriptors.
     args += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--tmpfs", "/run", "--tmpfs", "/home", "--dir", "/root"]
     args += ["--bind", str(profile), str(profile), "--ro-bind", str(helper), _HELPER_PATH, "--ro-bind", bridge_path, "/run/ruleproxy.sock"]
-    if data_dir is not None:
-        # A chosen (shared) browser profile is bound at its own path. HOME and the
-        # runtime log stay in the panel-owned app directory bound above.
-        shared = Path(data_dir).resolve(strict=True)
-        args += ["--bind", str(shared), str(shared)]
     executable = Path(command[0]).resolve()
     if not any(executable.is_relative_to(Path(p)) for p in ("/usr", "/bin", "/sbin")):
         args += ["--ro-bind", str(executable.parent), str(executable.parent)]
@@ -202,11 +197,11 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
     return args, isolated_env
 
 
-def launch(command: list[str], env: dict[str, str], profile: Path, port: int, data_dir: Path | None = None):
+def launch(command: list[str], env: dict[str, str], profile: Path, port: int):
     proxy_bridge = ProxyBridge(port)
     process = None
     try:
-        args, isolated_env = build_command(command, env, profile, proxy_bridge.path, data_dir)
+        args, isolated_env = build_command(command, env, profile, proxy_bridge.path)
         process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, text=True)
         process.stdin.write(json.dumps({"command": command, "env": isolated_env, "port": port}))
         process.stdin.close()

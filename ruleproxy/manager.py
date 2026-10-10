@@ -19,7 +19,7 @@ import uuid
 
 from . import __version__
 from .config import compile_config
-from .launcher import check_shared_profile, discover_apps, prepare_app, shared_data_dir, validate_app, validate_shared_data_dir
+from .launcher import discover_apps, validate_app, prepare_app
 from .shortcuts import create_shortcut_files, remove_shortcut_files
 
 
@@ -307,27 +307,6 @@ class Manager:
                 app["enabled"] = enabled
             self._save()
 
-    def set_app_data_dir(self, ident, value, *, acknowledged=False):
-        """Use a chosen browser profile for an app, or restore the app's own profile when value is empty."""
-        with self.lock:
-            app = self.app(ident)
-            if app is None:
-                raise ValueError("应用不存在。")
-            owned = self.active.get(ident)
-            if owned and owned[0].poll() is None:
-                raise ValueError("请先关闭该应用的隔离实例，再修改配置目录。")
-            if value in (None, ""):
-                app.pop("data_dir", None)
-            else:
-                if acknowledged is not True:
-                    raise ValueError("共用配置目录会让隔离内的浏览器读写这个目录中的登录状态和密码库。请先确认风险后再保存。")
-                path = validate_shared_data_dir(value, self.directory, app.get("adapter"))
-                check_shared_profile(path)
-                if any(other is not app and other.get("data_dir") == str(path) for other in self.settings["apps"]):
-                    raise ValueError("另一个应用已经使用这个配置目录。")
-                app["data_dir"] = str(path)
-            self._save()
-
     def create_shortcuts(self, ident):
         """Write launcher files that start this app headlessly; returns their paths."""
         with self.lock:
@@ -338,14 +317,6 @@ class Manager:
             app["shortcuts"] = [str(path) for path in created]
             self._save()
             return list(app["shortcuts"])
-
-    def _refuse_shared_profile_in_use(self, ident, shared):
-        if shared is None:
-            return
-        for other_id, (other_process, _resource) in self.active.items():
-            other = self.app(other_id)
-            if other_id != ident and other and other.get("data_dir") == str(shared) and other_process.poll() is None:
-                raise ValueError("这个配置目录已被另一个隔离实例使用。请先关闭那个实例。")
 
     def launch(self, ident):
         with self.lock:
@@ -363,8 +334,6 @@ class Manager:
             if ident in self.active:
                 self.stop_app(ident)
             profile = self.directory / "profiles" / ident
-            shared = shared_data_dir(app, self.directory / "profiles")
-            self._refuse_shared_profile_in_use(ident, shared)
             app_proxy_port = self.mixed_port
             if sys.platform == "win32":
                 from .windows_runtime import choose_guest_port
@@ -372,7 +341,7 @@ class Manager:
             command, env, _detail = prepare_app(app, app_proxy_port, self.directory / "profiles")
             if sys.platform == "linux":
                 from .linux_runtime import launch
-                process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port, shared).result()
+                process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port).result()
             elif sys.platform == "win32":
                 from .windows_runtime import launch
                 try:

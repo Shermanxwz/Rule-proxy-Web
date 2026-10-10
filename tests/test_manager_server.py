@@ -195,33 +195,17 @@ class LocalServerTests(unittest.TestCase):
         self.manager.add_app({"label": "Chrome", "path": str(executable), "adapter": "chromium"})
         return self.manager.settings["apps"][-1]["id"]
 
-    def test_shortcut_and_data_dir_endpoints_require_the_token(self):
+    def test_shortcut_endpoint_requires_the_token(self):
         ident = self.app_with_executable()
-        for path, payload in ((f"/api/apps/{ident}/shortcut", {}), (f"/api/apps/{ident}/data-dir", {"path": str(self.temp.name), "acknowledged": True})):
-            with self.subTest(path=path), self.assertRaises(urllib.error.HTTPError) as error:
-                self.request(path, payload)
-            self.assertEqual(error.exception.code, 403)
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.request(f"/api/apps/{ident}/shortcut", {})
+        self.assertEqual(error.exception.code, 403)
 
-    def test_data_dir_endpoint_needs_acknowledgement_before_it_saves_a_directory(self):
+    def test_apps_cannot_be_pointed_at_another_browser_profile(self):
         ident = self.app_with_executable()
-        # Outside the panel's state directory, which the guard refuses as a profile.
-        outside = tempfile.TemporaryDirectory()
-        self.addCleanup(outside.cleanup)
-        profile = Path(outside.name) / "browser-profile"
-        profile.mkdir()
-        token = {"X-RuleProxy-Token": self.manager.token}
-        with patch.dict(os.environ, {"HOME": str(Path(self.temp.name) / "home")}):
-            with self.assertRaises(urllib.error.HTTPError) as error:
-                self.request(f"/api/apps/{ident}/data-dir", {"path": str(profile)}, **token)
-            self.assertEqual(error.exception.code, 400)
-            self.assertIn("确认风险", json.loads(error.exception.read())["error"])
-            with self.assertRaises(urllib.error.HTTPError) as missing:
-                self.request(f"/api/apps/{ident}/data-dir", {"acknowledged": True}, **token)
-            self.assertEqual(missing.exception.code, 400)
-            with self.request(f"/api/apps/{ident}/data-dir", {"path": str(profile), "acknowledged": True}, **token) as response:
-                state = json.load(response)
-        app = next(item for item in state["apps"] if item["id"] == ident)
-        self.assertEqual(app["data_dir"], str(profile.resolve()))
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.request(f"/api/apps/{ident}/data-dir", {"path": str(self.temp.name), "acknowledged": True}, **{"X-RuleProxy-Token": self.manager.token})
+        self.assertEqual(error.exception.code, 404)
 
     @unittest.skipUnless(sys.platform == "linux", "Linux desktop entries")
     def test_shortcut_endpoint_writes_the_launcher_file(self):

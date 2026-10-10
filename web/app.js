@@ -22,8 +22,6 @@
   let lastAppsSignature = '';
   let lastAvailableSignature = '';
   let refreshingApps = false;
-  const openEditors = new Set();
-  const drafts = new Map();
 
   function showError(message, source = 'local') {
     if (message) {
@@ -61,8 +59,7 @@
     if (ui.runtimePath) ui.runtimePath.disabled = busy || !ready || running;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app').forEach((control) => { control.disabled = busy; });
     ui.availableApps.querySelectorAll('.discovery-add').forEach((control) => { control.disabled = busy || control.dataset.added === 'true'; });
-    ui.apps.querySelectorAll('.app-shortcut, .app-profile-toggle').forEach((control) => { control.disabled = busy; });
-    ui.apps.querySelectorAll('.profile-editor').forEach((editor) => { if (editor.refresh) editor.refresh(); });
+    ui.apps.querySelectorAll('.app-shortcut').forEach((control) => { control.disabled = busy; });
     ui.apps.querySelectorAll('.app-action').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
       const canLaunch = app && app.enabled && running && protectedBackend;
@@ -116,7 +113,6 @@
       const statusClass = app.cleanup_pending ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       appInfo.append(textElement('span', 'app-path', app.path || '未设置路径'));
-      appInfo.append(textElement('span', 'app-profile', profileSummary(app)));
       appInfo.append(appTools(app));
       const adapter = friendlyAdapter(app.adapter);
       const appMeta = textElement('div', 'app-meta');
@@ -136,23 +132,12 @@
       remove.disabled = busy;
       remove.addEventListener('click', () => removeApp(app));
       row.append(enabledLabel, appInfo, appMeta, launch, remove);
-      const entry = textElement('div', 'app-entry');
-      entry.append(row);
-      if (canShareProfile(app)) entry.append(profileEditor(app));
-      ui.apps.append(entry);
+      ui.apps.append(row);
     }
     if (activeId) {
       const restored = ui.apps.querySelector(`[data-app-control="${CSS.escape(activeId)}"]`);
       if (restored) restored.focus({ preventScroll: true });
     }
-  }
-
-  function canShareProfile(app) {
-    return app.adapter === 'chromium' && /linux/i.test(String(state && state.platform || ''));
-  }
-
-  function profileSummary(app) {
-    return app.data_dir ? `配置：共用 ${app.data_dir}` : '配置：面板私有（与普通浏览器分开）';
   }
 
   function appTools(app) {
@@ -162,20 +147,6 @@
     shortcut.title = '生成系统启动入口，不打开面板也能启动这个隔离实例';
     shortcut.addEventListener('click', () => createShortcut(app));
     tools.append(shortcut);
-    if (canShareProfile(app)) {
-      const toggle = textElement('button', 'button button-secondary app-profile-toggle', '配置目录');
-      toggle.type = 'button';
-      toggle.title = '选择是否与普通浏览器共用登录状态';
-      toggle.setAttribute('aria-expanded', String(openEditors.has(String(app.id))));
-      toggle.addEventListener('click', () => {
-        const id = String(app.id);
-        const editor = toggle.closest('.app-entry').querySelector('.profile-editor');
-        if (openEditors.has(id)) openEditors.delete(id); else openEditors.add(id);
-        editor.hidden = !openEditors.has(id);
-        toggle.setAttribute('aria-expanded', String(openEditors.has(id)));
-      });
-      tools.append(toggle);
-    }
     return tools;
   }
 
@@ -183,64 +154,6 @@
     mutate(`/api/apps/${encodeURIComponent(app.id)}/shortcut`, { body: {} }, {
       notice: (result) => `快捷方式已创建：${((result && result.created) || []).join('；')}。`,
     });
-  }
-
-  function profileEditor(app) {
-    const id = String(app.id);
-    const editor = textElement('section', 'profile-editor');
-    editor.hidden = !openEditors.has(id);
-    editor.append(textElement('p', 'profile-warning', '共用后，隔离内的浏览器会直接读写这个目录：登录状态、Cookie、历史记录、密码库和扩展数据都会被改动。普通浏览器与隔离实例不应同时使用它。'));
-    editor.append(textElement('p', 'profile-note', '每次启动前，面板会检查：该目录是否仍被浏览器占用；Cookie 与密码是否为 v10 加密。系统密钥环加密（v11）的数据在隔离内无法解密，浏览器可能删除它们，因此会拒绝启动。'));
-    editor.append(textElement('p', 'profile-note', '面板无法读取 root 运行的应用目录。若要沿用其登录状态，请自行复制到当前用户的目录，再把副本路径填在这里；之后两边的数据不会同步。'));
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'text-input';
-    input.autocomplete = 'off';
-    input.spellcheck = false;
-    input.placeholder = '例如 ~/.config/google-chrome';
-    input.value = drafts.has(id) ? drafts.get(id) : (app.data_dir || '');
-    input.setAttribute('aria-label', `${app.label || '应用'} 的配置目录`);
-    const pathField = textElement('label', 'form-control');
-    pathField.append(textElement('span', 'field-label', '配置目录（绝对路径）'), input);
-    const acknowledge = document.createElement('input');
-    acknowledge.type = 'checkbox';
-    const acknowledgeLabel = textElement('label', 'profile-check');
-    acknowledgeLabel.append(acknowledge, textElement('span', '', '我已完全关闭对应的普通浏览器，并理解共用会让隔离内的浏览器读写这个目录'));
-    const save = textElement('button', 'button button-primary', '保存共用目录');
-    save.type = 'button';
-    const restore = textElement('button', 'button button-secondary', '恢复面板私有配置');
-    restore.type = 'button';
-    const actions = textElement('div', 'profile-actions');
-    actions.append(save, restore);
-    editor.refresh = () => {
-      save.disabled = busy || !!app.active || !acknowledge.checked || !input.value.trim();
-      restore.disabled = busy || !!app.active || !app.data_dir;
-      input.disabled = busy || !!app.active;
-      acknowledge.disabled = busy || !!app.active;
-    };
-    input.addEventListener('input', () => { drafts.set(id, input.value); editor.refresh(); });
-    acknowledge.addEventListener('change', () => editor.refresh());
-    save.addEventListener('click', () => {
-      const value = input.value.trim();
-      openEditors.delete(id);
-      drafts.delete(id);
-      mutate(`/api/apps/${encodeURIComponent(app.id)}/data-dir`, { body: { path: value, acknowledged: acknowledge.checked } }, {
-        notice: '共用配置目录已保存。每次启动前都会再次检查它是否可用。',
-      }).then((result) => {
-        if (!result) {
-          openEditors.add(id);
-          drafts.set(id, value);
-        }
-      });
-    });
-    restore.addEventListener('click', () => {
-      openEditors.delete(id);
-      drafts.delete(id);
-      mutate(`/api/apps/${encodeURIComponent(app.id)}/data-dir`, { body: { path: '' } }, { notice: '已恢复为面板私有配置。' });
-    });
-    editor.append(pathField, acknowledgeLabel, actions, textElement('p', 'field-hint', '常见位置：~/.config/google-chrome、~/.config/chromium、~/.config/microsoft-edge、~/.config/BraveSoftware/Brave-Browser。'));
-    editor.refresh();
-    return editor;
   }
 
   function friendlyAdapter(adapter) {

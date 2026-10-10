@@ -117,10 +117,6 @@ class Handler(BaseHTTPRequestHandler):
                 elif len(parts) == 5 and parts[4] == "shortcut":
                     created = manager.create_shortcuts(parts[3])
                     return self.reply(200, {**manager.state(), "created": created})
-                elif len(parts) == 5 and parts[4] == "data-dir":
-                    if "path" not in data:
-                        raise ValueError("请提供 path；留空表示恢复面板私有配置。")
-                    manager.set_app_data_dir(parts[3], data["path"], acknowledged=data.get("acknowledged") is True)
                 elif len(parts) == 5 and parts[4] == "launch":
                     return self.reply(200, manager.launch(parts[3]))
                 elif len(parts) == 5 and parts[4] == "stop":

@@ -138,18 +138,6 @@ h1 { margin: 0; color: #1c2a27; font-size: clamp(26px, 3vw, 34px); line-height: 
 }
 @media (max-width: 640px) { .runtime-setting { grid-template-columns: 1fr; gap: 10px; } }
 
-/* Launcher shortcuts and optional shared browser profiles */
-.app-entry { display: grid; gap: 8px; }
-.app-profile { display: block; margin-top: 4px; overflow: hidden; color: #9aa49f; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+/* Launcher shortcuts */
 .app-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .app-tools .button { min-height: 27px; padding: 0 9px; font-size: 10px; }
-.profile-editor { padding: 14px; border: 1px solid #e3ebe6; border-radius: 11px; background: #fbfdfb; }
-.profile-editor[hidden] { display: none; }
-.profile-editor p { margin: 0 0 8px; color: #6f7d76; font-size: 10px; line-height: 1.6; }
-.profile-editor .profile-warning { color: #a0522d; }
-.profile-editor .form-control { margin-top: 6px; }
-.profile-check { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; color: #52615b; font-size: 10px; line-height: 1.5; }
-.profile-check input { margin: 2px 0 0; }
-.profile-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.profile-actions .button { min-height: 31px; font-size: 10px; }
-.profile-editor .field-hint { margin-top: 8px; }

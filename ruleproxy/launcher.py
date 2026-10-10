@@ -11,8 +11,6 @@ import os
 import re
 import shlex
 import shutil
-import socket
-import sqlite3
 import sys
 import threading
 import time
@@ -619,159 +617,6 @@ def _reject_reserved_args(args: list[str], adapter: str) -> None:
             raise ValueError(f"argument may override strict proxy/profile controls: {arg}")
 
 
-# Shared browser profiles (opt-in, Linux, Chromium-family only). Every check fails
-# closed: when a result is unclear the launch is refused and no file is changed.
-_SHARED_PROFILE_DB_NAMES = frozenset({"Cookies", "Login Data", "Login Data For Account", "Web Data"})
-_SHARED_PROFILE_SECRET_COLUMNS = (
-    ("cookies", "encrypted_value"),
-    ("logins", "password_value"),
-    ("credit_cards", "card_number_encrypted"),
-)
-_SHARED_PROFILE_SKIP_DIRS = frozenset({
-    "Cache", "Code Cache", "GPUCache", "GrShaderCache", "ShaderCache", "Service Worker",
-    "Extensions", "Local Extension Settings", "IndexedDB", "blob_storage", "File System",
-    "Local Storage", "Session Storage", "Storage", "Sessions", "databases", "Sync Data",
-    "shared_proto_db", "Crashpad", "component_crx_cache", "extensions_crx_cache",
-})
-_SHARED_PROFILE_MAX_DEPTH = 3
-
-
-def validate_shared_data_dir(value: Any, state_dir: Path, adapter: str | None) -> Path:
-    """Return the resolved browser profile directory that a sandboxed app may share."""
-    if adapter != "chromium":
-        raise ValueError("只有 Chromium 系浏览器或应用可以共用配置目录。")
-    if not sys.platform.startswith("linux"):
-        raise ValueError("当前仅 Linux 支持共用配置目录。")
-    if not isinstance(value, str) or not value.strip() or "\0" in value or len(value) > 4096:
-        raise ValueError("请填写配置目录的绝对路径。")
-    raw = Path(value.strip()).expanduser()
-    if not raw.is_absolute():
-        raise ValueError("请填写配置目录的绝对路径。")
-    try:
-        path = raw.resolve(strict=True)
-    except (OSError, RuntimeError) as exc:
-        raise ValueError("配置目录不存在。") from exc
-    if not path.is_dir():
-        raise ValueError("配置目录必须是文件夹。")
-    if path.stat().st_uid != os.getuid():
-        raise ValueError("配置目录必须属于当前用户。root 或其他用户的目录请先复制到自己的目录中。")
-    if not os.access(path, os.R_OK | os.W_OK | os.X_OK):
-        raise ValueError("当前用户无法读写该配置目录。")
-    home = Path.home().resolve()
-    state = Path(state_dir).resolve()
-    # Never expose the whole home, a parent of it, or the panel's own data (proxy
-    # configuration and other apps' profiles) to a sandboxed application.
-    if path == home or path in home.parents or path == state or path in state.parents or state in path.parents:
-        raise ValueError("请选择应用自己的配置目录；不能选择家目录、家目录的上级，或面板数据目录。")
-    return path
-
-
-def shared_data_dir(app: dict, profile_dir: Path) -> Path | None:
-    """Return the validated shared profile for an app, or None when it uses its own profile."""
-    value = app.get("data_dir")
-    if value in (None, ""):
-        return None
-    return validate_shared_data_dir(value, Path(profile_dir).parent, app.get("adapter"))
-
-
-def _process_exited(pid_text: str) -> bool:
-    """True only when the process named in a lock has provably exited (a zombie counts as exited)."""
-    if not pid_text.isdigit() or len(pid_text) > 9:
-        return False
-    pid = int(pid_text)
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return True
-    except OSError:
-        return False  # alive, but owned by another user
-    try:
-        with open(f"/proc/{pid}/stat", encoding="ascii", errors="replace") as stat:
-            return stat.read().rsplit(")", 1)[1].split()[0] == "Z"
-    except (OSError, IndexError):
-        return False
-
-
-def _singleton_lock_held(data_dir: Path) -> bool:
-    """True unless Chromium's profile lock is provably stale."""
-    lock = data_dir / "SingletonLock"
-    if not os.path.lexists(lock):
-        return False
-    try:
-        owner = os.readlink(lock)  # Chromium writes "<hostname>-<pid>"
-        socket_link = os.readlink(data_dir / "SingletonSocket")
-    except OSError:
-        return True
-    owner_host, _, owner_pid = owner.rpartition("-")
-    if owner_host != socket.gethostname():
-        return True  # held by another machine that shares this directory, or unreadable
-    target = Path(socket_link)
-    if not target.is_absolute():
-        target = data_dir / target
-    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    try:
-        probe.settimeout(1)
-        probe.connect(str(target))
-    except (FileNotFoundError, ConnectionRefusedError):
-        # Nothing answers. That proves a stale lock only when its owner has exited:
-        # a live browser can hide its socket (a private /tmp, a tmp-file cleaner).
-        return not _process_exited(owner_pid)
-    except OSError:
-        return True
-    finally:
-        probe.close()
-    return True  # a live browser answered on its singleton socket
-
-
-def _walk_error(error: OSError) -> None:
-    raise ValueError("无法读取共用配置目录，已拒绝启动。") from error
-
-
-def _shared_profile_databases(data_dir: Path) -> list[Path]:
-    found: list[Path] = []
-    for root, dirs, files in os.walk(data_dir, onerror=_walk_error):
-        depth = len(Path(root).relative_to(data_dir).parts)
-        dirs[:] = [] if depth >= _SHARED_PROFILE_MAX_DEPTH else [name for name in dirs if name not in _SHARED_PROFILE_SKIP_DIRS]
-        found.extend(Path(root) / name for name in files if name in _SHARED_PROFILE_DB_NAMES)
-    return found
-
-
-def _has_undecryptable_secrets(data_dir: Path) -> bool:
-    """True when a stored secret uses a key the sandbox cannot read (not v10)."""
-    for database in _shared_profile_databases(data_dir):
-        try:
-            connection = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=2)
-        except sqlite3.Error as exc:
-            raise ValueError("无法检查共用配置目录中的登录数据，已拒绝启动。") from exc
-        try:
-            tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-            for table, column in _SHARED_PROFILE_SECRET_COLUMNS:
-                if table not in tables:
-                    continue
-                columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
-                if column not in columns:
-                    continue
-                count = connection.execute(
-                    f"SELECT COUNT(*) FROM {table} WHERE length({column}) > 0 AND substr({column}, 1, 3) != ?",
-                    (b"v10",),
-                ).fetchone()[0]
-                if count:
-                    return True
-        except sqlite3.Error as exc:
-            raise ValueError("无法检查共用配置目录中的登录数据，已拒绝启动。") from exc
-        finally:
-            connection.close()
-    return False
-
-
-def check_shared_profile(data_dir: Path) -> None:
-    """Refuse a shared profile that a live browser holds or that the sandbox would damage."""
-    if _singleton_lock_held(data_dir):
-        raise ValueError("这个配置目录正被普通浏览器使用（包括仍在后台运行的进程）。请完全关闭该浏览器后再启动隔离实例；未修改任何文件。")
-    if _has_undecryptable_secrets(data_dir):
-        raise ValueError("这个配置目录含有只能由原浏览器密钥环解密的 Cookie 或密码（v11 加密）。隔离内无法解密，浏览器可能会删除这些记录，因此已拒绝启动；未修改任何文件。")
-
-
 def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str], dict[str, str], str]:
     """Prepare an app command, child-only environment overrides, and limitations.
 
@@ -782,11 +627,7 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str
     proxy_port = _validate_port(proxy_port)
     _reject_reserved_args(normalized["args"], normalized["adapter"])
     profile = _profile_for_app(profile_dir, app)
-    shared = shared_data_dir(app, profile_dir)
-    if shared is not None:
-        check_shared_profile(shared)
     profile.mkdir(parents=True, exist_ok=True)
-    user_data = shared if shared is not None else profile
     command = [normalized["path"], *normalized["args"]]
     # Keep the caller's GUI/session environment (DISPLAY, WAYLAND_DISPLAY,
     # XDG_RUNTIME_DIR, etc.); the platform runtime must apply its own safe
@@ -814,7 +655,7 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str
             command.append("--disable-setuid-sandbox")
         command.extend(
             [
-                f"--user-data-dir={user_data}",
+                f"--user-data-dir={profile}",
                 f"--proxy-server=http://127.0.0.1:{proxy_port}",
                 "--proxy-bypass-list=<-loopback>",
                 "--disable-quic",
@@ -827,15 +668,12 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str
                 "--no-first-run",
             ]
         )
-        if shared is None:
-            # Chromium deletes session cookies on exit unless the last session is
-            # restored, so restoring keeps logins across relaunches. A shared profile
-            # skips this: it must not reopen the everyday browser's tabs.
-            command.append("--restore-last-session")
+        # Chromium deletes session cookies on exit unless the last session is
+        # restored, so restoring keeps logins across relaunches.
+        command.append("--restore-last-session")
         detail = (
             "Strict runtime mode allows the configured proxy endpoint and blocks direct egress. "
             "Chromium HTTP/S uses the local proxy; unsupported flows fail closed."
-            + (" 使用共用配置目录；请确认该目录的普通浏览器已关闭。" if shared is not None else "")
         )
     elif normalized["adapter"] == "firefox":
         prefs = (
