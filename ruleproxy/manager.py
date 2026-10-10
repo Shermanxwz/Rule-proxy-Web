@@ -128,8 +128,7 @@ class Manager:
                 from .linux_runtime import probe
                 self._probe_cache = probe()
             elif sys.platform == "win32":
-                from .windows_runtime import probe
-                self._probe_cache = probe(self.runtime_path(), self.mixed_port)
+                self._probe_cache = {"supported": False, "backend": "Windows 隔离待完善", "detail": "现有 Windows 代理隔离会允许部分入站通信，无法满足绝不直连要求，应用启动已禁用。", "limitations": ["YAML 导入和本地核心管理可用。", "严格应用隔离尚未开放，不会回退为直连启动。"]}
             else:
                 self._probe_cache = {"supported": False, "backend": "不支持的系统", "detail": "当前仅支持 Windows 和 Linux。", "limitations": []}
         return self._probe_cache
