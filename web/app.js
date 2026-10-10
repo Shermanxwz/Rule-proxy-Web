@@ -16,6 +16,7 @@
     protectionCard: $('protection-card'), protectionBadge: $('protection-badge'), protectionDetail: $('protection-detail'),
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
     runtimeSettings: $('windows-runtime-settings'), runtimePath: $('runtime-path'), saveRuntime: $('save-runtime-button'),
+    hostedNote: $('hosted-note'), filesNote: $('files-note'),
   };
   let state = null;
   let busy = false;
@@ -263,6 +264,11 @@
     ui.ports.textContent = portParts.length ? portParts.join(' · ') : '端口：—';
     ui.version.textContent = state.version ? `版本：${state.version}` : '版本：—';
     ui.footerVersion.textContent = state.version ? `· ${state.version}` : '';
+    ui.hostedNote.hidden = !state.hosted;
+    ui.filesNote.hidden = !state.files_dir;
+    ui.filesNote.textContent = state.files_dir
+      ? `隔离应用可以读写下载文件夹 ${state.files_dir}：下载的文件保存在这里，要上传的文件也请先放到这里。家目录里的其他文件对隔离应用不可见。`
+      : '';
     const protection = state.protection || {};
     ui.protectionCard.className = `protection-card ${protection.supported ? 'is-supported' : 'is-unsupported'}`;
     ui.protectionBadge.textContent = protection.supported ? '隔离能力可用' : '不支持，启动受阻';
@@ -477,7 +483,13 @@
   });
 
   readState();
+  // Refresh every 5 seconds while visible. A background tab still checks in about
+  // twice a minute, which also keeps a panel started by a shortcut from exiting.
+  let hiddenTicks = 0;
   window.setInterval(() => {
-    if (!document.hidden && !busy && !refreshingApps) readState({ quiet: true });
+    if (busy || refreshingApps) return;
+    if (document.hidden && ++hiddenTicks < 6) return;
+    hiddenTicks = 0;
+    readState({ quiet: true });
   }, 5000);
 })();

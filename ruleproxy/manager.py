@@ -375,6 +375,11 @@ class Manager:
                 close_resource(resource)
                 self.active.pop(ident, None)
 
+    def has_active_apps(self):
+        """True while any instance this panel started is still running."""
+        with self.lock:
+            return any(process.poll() is None for process, _resource in self.active.values())
+
     def stop(self):
         with self.lock:
             for ident in list(self.active):

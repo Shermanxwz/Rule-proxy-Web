@@ -1,14 +1,17 @@
-"""Start one saved app from a desktop shortcut without keeping the web panel open.
+"""Start one saved app from a desktop shortcut without opening the web panel.
 
-If a panel answers on its port, the shortcut asks that panel to start the core
-(when needed) and the app, then exits: the panel keeps owning the protected
-instance, exactly as if the button had been pressed there. Otherwise this process
-starts its own core, launches the app, waits until the app closes and then stops
-both, the same lifecycle as ``--start-core``.
+A running panel owns the protected instances. When one answers on the panel port,
+the shortcut asks it to start the core (when needed) and the app, then exits.
+
+Otherwise the shortcut becomes that panel: it serves the web panel on the same
+port without opening a browser, starts the core and the app, and exits once no
+app has run and no panel page has been open for a short while. Later shortcuts
+and the web page use this panel. The port is bound before anything else is
+started, so shortcuts started together end up sharing one panel instead of
+racing for the proxy ports.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import re
 import shutil
@@ -16,15 +19,17 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 import traceback
-import urllib.error
-import urllib.request
+
+from .panel_client import panel_state, post, wait_for_panel
 
 
 _APP_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
-# Local panel calls must not be routed through a system proxy setting.
-_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-_TIMEOUT = 60
+# A hosted panel stays this long after its last app closed, so a quick relaunch reuses it.
+PANEL_IDLE_SECONDS = 10.0
+# How long to wait for a panel that another shortcut is starting on the same port.
+PANEL_START_WAIT_SECONDS = 20.0
 
 
 class LaunchError(RuntimeError):
@@ -35,13 +40,18 @@ def run(app_id: str, *, state_dir: Path, panel_port: int, mixed_port: int, contr
     try:
         if not isinstance(app_id, str) or not _APP_ID_RE.fullmatch(app_id):
             raise LaunchError("快捷方式中的应用 ID 无效，请在面板中重新创建快捷方式。")
-        state = _panel_state(panel_port)
-        if state is not None:
-            _launch_in_panel(panel_port, state, app_id)
-        else:
-            _launch_standalone(app_id, Path(state_dir), panel_port, mixed_port, controller_port)
+        state = panel_state(panel_port)
+        if state is None:
+            server = _bind_panel(panel_port)
+            if server is not None:
+                _host_panel(server, app_id, Path(state_dir), panel_port, mixed_port, controller_port)
+                return 0
+            state = wait_for_panel(panel_port, PANEL_START_WAIT_SECONDS)
+            if state is None:
+                raise LaunchError(f"面板端口 {panel_port} 被其他程序占用。请关闭占用它的程序，或在面板中换用其他端口后重新创建快捷方式。")
+        _launch_in_panel(panel_port, state, app_id)
         return 0
-    except (RuntimeError, ValueError) as exc:  # LaunchError is a RuntimeError; so are the runtime's own refusals
+    except (RuntimeError, ValueError) as exc:  # LaunchError, PanelError and the runtime's own refusals
         return _report(str(exc))
     except OSError as exc:
         return _report(f"系统拒绝了启动请求：{exc.strerror or exc}")
@@ -52,63 +62,54 @@ def run(app_id: str, *, state_dir: Path, panel_port: int, mixed_port: int, contr
         return _report(f"启动失败：{exc}")
 
 
-def _panel_state(port: int) -> dict | None:
-    """The running panel's state (it carries the mutation token), or None when no panel answers."""
-    try:
-        with _OPENER.open(f"http://127.0.0.1:{port}/api/state", timeout=2) as response:
-            state = json.loads(response.read(2 * 1024 * 1024))
-    except (OSError, ValueError):
-        return None
-    if isinstance(state, dict) and isinstance(state.get("token"), str) and "version" in state:
-        return state
-    return None
-
-
-def _post(port: int, token: str, path: str) -> dict:
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{port}{path}",
-        data=b"{}",
-        method="POST",
-        headers={"Content-Type": "application/json", "X-RuleProxy-Token": token},
-    )
-    try:
-        with _OPENER.open(request, timeout=_TIMEOUT) as response:
-            return json.loads(response.read(2 * 1024 * 1024) or b"{}")
-    except urllib.error.HTTPError as exc:
-        try:
-            message = json.loads(exc.read(65536)).get("error")
-        except (OSError, ValueError, AttributeError):
-            message = None
-        raise LaunchError(message or f"面板拒绝了请求（HTTP {exc.code}）。") from exc
-    except OSError as exc:
-        raise LaunchError("无法与正在运行的面板通信，请稍后重试。") from exc
-
-
 def _launch_in_panel(port: int, state: dict, app_id: str) -> None:
     token = state["token"]
     if not state.get("running"):
-        _post(port, token, "/api/start")
-    _post(port, token, f"/api/apps/{app_id}/launch")
+        post(port, token, "/api/start")
+    post(port, token, f"/api/apps/{app_id}/launch")
 
 
-def _launch_standalone(app_id: str, state_dir: Path, panel_port: int, mixed_port: int, controller_port: int) -> None:
+def _bind_panel(port: int):
+    """Claim the panel port, or return None when another process already holds it."""
+    from .server import PanelServer
+
+    try:
+        return PanelServer(port)
+    except OSError:
+        return None
+
+
+def _host_panel(server, app_id: str, state_dir: Path, panel_port: int, mixed_port: int, controller_port: int) -> None:
     from .manager import Manager
 
     stop = threading.Event()
     _stop_on_signal(stop)
-    manager = Manager(state_dir, panel_port, mixed_port=mixed_port, controller_port=controller_port)
+    manager = None
+    serving = None
     try:
+        manager = Manager(state_dir, panel_port, mixed_port=mixed_port, controller_port=controller_port)
         if manager.app(app_id) is None:
             raise LaunchError("这个应用已不在面板的清单中。请在面板中重新添加后再创建快捷方式。")
+        server.manager = manager
+        server.hosted = True
+        serving = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.2}, name="RuleProxyPanel", daemon=True)
+        serving.start()
         manager.start()
         manager.launch(app_id)
-        while not stop.is_set():
-            owned = manager.active.get(app_id)
-            if owned is None or owned[0].poll() is not None:
+        idle_since = None
+        while not stop.wait(0.5):
+            if manager.has_active_apps() or server.viewer_recent():
+                idle_since = None
+            elif idle_since is None:
+                idle_since = time.monotonic()
+            elif time.monotonic() - idle_since >= PANEL_IDLE_SECONDS:
                 break
-            stop.wait(0.5)
     finally:
-        manager.close()
+        if serving is not None:
+            server.shutdown()
+        server.server_close()
+        if manager is not None:
+            manager.close()
 
 
 def _stop_on_signal(stop: threading.Event) -> None:

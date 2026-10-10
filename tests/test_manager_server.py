@@ -1,3 +1,5 @@
+from contextlib import redirect_stdout
+import io
 import json
 from pathlib import Path
 import socket
@@ -10,10 +12,11 @@ import unittest
 from unittest.mock import Mock, patch
 import urllib.error
 import urllib.request
-from http.server import ThreadingHTTPServer
 
+from ruleproxy import server as panel_server
 from ruleproxy.manager import Manager
-from ruleproxy.server import Handler
+from ruleproxy.panel_client import PROBE_HEADER
+from ruleproxy.server import PanelServer
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "examples/ruleproxy.example.yaml"
@@ -148,7 +151,7 @@ class ManagerTests(unittest.TestCase):
 class LocalServerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server = PanelServer(0)
         self.manager = Manager(Path(self.temp.name), self.server.server_port)
         self.manager._probe_cache = {"supported": False, "backend": "test", "detail": "blocked", "limitations": []}
         self.server.manager = self.manager
@@ -172,6 +175,28 @@ class LocalServerTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.request("/api/state", **{"Host": "evil.example"})
         self.assertEqual(error.exception.code, 403)
+
+    def test_state_says_whether_a_shortcut_hosts_the_panel(self):
+        with self.request("/api/state") as response:
+            self.assertFalse(json.load(response)["hosted"])
+        self.server.hosted = True
+        with self.request("/api/state") as response:
+            self.assertTrue(json.load(response)["hosted"])
+
+    def test_only_page_reads_count_as_an_open_panel(self):
+        # Never viewed must hold even right after boot, when the monotonic clock is small.
+        with patch.object(panel_server.time, "monotonic", return_value=5.0):
+            self.assertFalse(self.server.viewer_recent())
+        with self.request("/api/state", **{PROBE_HEADER: "1"}):
+            pass
+        self.assertFalse(self.server.viewer_recent(), "a shortcut's probe is not a viewer")
+        with self.request("/api/state"):
+            pass
+        self.assertTrue(self.server.viewer_recent())
+
+    def test_a_second_panel_cannot_take_the_port(self):
+        with self.assertRaises(OSError):
+            PanelServer(self.server.server_port)
 
     def test_mutation_rejects_missing_token_and_wrong_origin(self):
         for headers in ({}, {"X-RuleProxy-Token": self.manager.token, "Origin": "https://evil.example"}):
@@ -217,6 +242,54 @@ class LocalServerTests(unittest.TestCase):
         launcher = Path(body["created"][0])
         self.assertTrue(launcher.is_file())
         self.assertIn("--launch-app " + ident, launcher.read_text(encoding="utf-8"))
+
+
+def free_port():
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    port = probe.getsockname()[1]
+    probe.close()
+    return port
+
+
+class ServerMainTests(unittest.TestCase):
+    """Starting the panel when its port is already in use."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.port = free_port()
+
+    def main(self, *extra):
+        argv = ["Run-RuleProxy.py", "--port", str(self.port), "--proxy-port", str(free_port()),
+                "--controller-port", str(free_port()), "--state-dir", str(Path(self.temp.name) / "second"), *extra]
+        output = io.StringIO()
+        with patch.object(sys, "argv", argv), patch.object(panel_server.webbrowser, "open") as browser, redirect_stdout(output):
+            panel_server.main()
+        return output.getvalue(), browser
+
+    def test_starting_again_opens_the_running_panel(self):
+        running = PanelServer(self.port)
+        manager = Manager(Path(self.temp.name) / "first", self.port)
+        manager._probe_cache = {"supported": False, "backend": "test", "detail": "blocked", "limitations": []}
+        running.manager = manager
+        threading.Thread(target=running.serve_forever, daemon=True).start()
+        self.addCleanup(manager.close)
+        self.addCleanup(running.server_close)
+        self.addCleanup(running.shutdown)
+        output, browser = self.main()
+        self.assertIn("面板已在运行", output)
+        browser.assert_called_once_with(f"http://127.0.0.1:{self.port}")
+        self.assertFalse((Path(self.temp.name) / "second").exists(), "no second panel state may be created")
+
+    def test_a_port_held_by_another_program_gives_a_clear_message(self):
+        blocker = socket.socket()
+        blocker.bind(("127.0.0.1", self.port))
+        blocker.listen(1)
+        self.addCleanup(blocker.close)
+        with patch.object(panel_server, "wait_for_panel", return_value=None), self.assertRaises(SystemExit) as exit_info:
+            self.main("--no-browser")
+        self.assertIn(f"无法使用面板端口 {self.port}", str(exit_info.exception.code))
 
 
 if __name__ == "__main__":

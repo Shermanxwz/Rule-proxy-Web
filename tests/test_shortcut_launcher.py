@@ -1,25 +1,29 @@
-"""Headless shortcut runner: delegation to a running panel, and the standalone lifecycle."""
+"""Shortcut runner: delegation to a running panel, and the panel it hosts when none runs."""
 import io
 import json
 from pathlib import Path
 import socket
 import tempfile
 import threading
+import time
 import unittest
+import urllib.request
 from contextlib import redirect_stderr
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import Mock, patch
 
 from ruleproxy import shortcut_launcher
+from ruleproxy.panel_client import panel_state
 
 
 class FakePanel:
     """Answers the parts of the panel API that the runner uses, and records each request."""
 
-    def __init__(self, *, running=False, launch_error=None):
+    def __init__(self, *, running=False, launch_error=None, first_reply_delay=0.0):
         self.requests = []
         self.running = running
         self.launch_error = launch_error
+        self.first_reply_delay = first_reply_delay
         panel = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -28,14 +32,21 @@ class FakePanel:
 
             def send_json(self, status, body):
                 data = json.dumps(body).encode("utf-8")
-                self.send_response(status)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
+                try:
+                    self.send_response(status)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # the client gave up waiting for a delayed reply
 
             def do_GET(self):
                 panel.requests.append(("GET", self.path, None, None))
+                if panel.first_reply_delay:
+                    # A panel that is still starting: the first probe gets no timely answer.
+                    delay, panel.first_reply_delay = panel.first_reply_delay, 0.0
+                    time.sleep(delay)
                 if self.path == "/api/state":
                     self.send_json(200, {"token": "secret-token", "version": "0.1.0", "running": panel.running})
                 else:
@@ -57,6 +68,7 @@ class FakePanel:
                 self.send_json(404, {"error": "missing"})
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
         self.port = self.server.server_address[1]
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
@@ -68,12 +80,73 @@ class FakePanel:
         return [(path, token, ctype) for method, path, token, ctype in self.requests if method == "POST"]
 
 
+class FakeManager:
+    """Stands in for Manager inside a hosted panel. Launched apps run until released."""
+
+    token = "hosted-token"
+
+    def __init__(self, *, known=("abc", "def"), start_error=None, launch_error=None):
+        self.known = set(known)
+        self.start_error = start_error
+        self.launch_error = launch_error
+        self.running = False
+        self.launched = []
+        self.released = threading.Event()
+        self.close_calls = 0
+        self.lock = threading.Lock()
+
+    def app(self, ident):
+        return {"id": ident} if ident in self.known else None
+
+    def start(self):
+        if self.start_error:
+            raise ValueError(self.start_error)
+        self.running = True
+
+    def launch(self, ident):
+        if self.launch_error:
+            raise self.launch_error
+        with self.lock:
+            self.launched.append(ident)
+        return {"pid": 1, "adapter": "chromium", "detail": "ok"}
+
+    def has_active_apps(self):
+        return bool(self.launched) and not self.released.is_set()
+
+    def state(self, refresh_apps=False):
+        return {"token": self.token, "version": "test", "running": self.running, "apps": []}
+
+    def close(self):
+        self.close_calls += 1
+
+
 def free_port():
     probe = socket.socket()
     probe.bind(("127.0.0.1", 0))
     port = probe.getsockname()[1]
     probe.close()
     return port
+
+
+def port_is_free(port):
+    probe = socket.socket()
+    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        probe.bind(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
+def wait_until(predicate, timeout=10):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.05)
+    return False
 
 
 class DelegationTests(unittest.TestCase):
@@ -109,72 +182,130 @@ class DelegationTests(unittest.TestCase):
             self.assertEqual(self.run_runner("../escape"), 1)
         self.assertEqual(self.panel.posts(), [])
 
+    def test_waits_for_a_panel_that_is_still_starting(self):
+        # The first probe times out while the port is already taken: the runner must
+        # not start a second core, but wait for that panel and hand it the app.
+        self.panel.first_reply_delay = 2.5
+        factory = Mock()
+        with patch("ruleproxy.manager.Manager", factory):
+            self.assertEqual(self.run_runner("abc"), 0)
+        factory.assert_not_called()
+        self.assertEqual([path for path, _, _ in self.panel.posts()], ["/api/start", "/api/apps/abc/launch"])
 
-class StandaloneTests(unittest.TestCase):
-    def fake_manager(self, *, start_error=None, exit_after=3):
-        manager = Mock()
-        manager.app.return_value = {"id": "abc", "label": "X"}
-        if start_error:
-            manager.start.side_effect = ValueError(start_error)
-        process = Mock()
-        polls = {"count": 0}
 
-        def poll():
-            polls["count"] += 1
-            return 0 if polls["count"] > exit_after else None
+class HostedPanelTests(unittest.TestCase):
+    """No panel answers, so the first shortcut serves the panel itself."""
 
-        process.poll.side_effect = poll
-        manager.active = {"abc": (process, Mock())}
-        return manager
+    def setUp(self):
+        self.state = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.state, ignore_errors=True))
+        self.port = free_port()
+        self.manager = FakeManager()
+        self.factory = Mock(return_value=self.manager)
+        self.err = io.StringIO()
+        for patcher in (
+            patch("ruleproxy.manager.Manager", self.factory),
+            patch.object(shortcut_launcher, "PANEL_IDLE_SECONDS", 0.2),
+            patch.object(shortcut_launcher, "_stop_on_signal"),
+            patch.object(shortcut_launcher.shutil, "which", return_value=None),
+            redirect_stderr(self.err),
+        ):
+            patcher.__enter__()
+            self.addCleanup(patcher.__exit__, None, None, None)
 
-    def run_standalone(self, manager):
-        state = Path(tempfile.mkdtemp())
-        self.addCleanup(lambda: __import__("shutil").rmtree(state, ignore_errors=True))
-        with patch("ruleproxy.manager.Manager", Mock(return_value=manager)), patch.object(shortcut_launcher, "_stop_on_signal"):
-            return shortcut_launcher.run("abc", state_dir=state, panel_port=free_port(), mixed_port=10809, controller_port=19097)
+    def run_runner(self, app_id):
+        return shortcut_launcher.run(app_id, state_dir=self.state, panel_port=self.port, mixed_port=10809, controller_port=19097)
 
-    def test_core_and_app_start_then_everything_closes_when_the_app_exits(self):
-        manager = self.fake_manager()
-        self.assertEqual(self.run_standalone(manager), 0)
-        manager.start.assert_called_once_with()
-        manager.launch.assert_called_once_with("abc")
-        manager.close.assert_called_once_with()
+    def run_in_background(self, app_id):
+        result = {}
+        thread = threading.Thread(target=lambda: result.setdefault("code", self.run_runner(app_id)), daemon=True)
+        thread.start()
+        return thread, result
+
+    def test_hosts_the_panel_and_exits_after_the_last_app_closes(self):
+        thread, result = self.run_in_background("abc")
+        self.assertTrue(wait_until(lambda: self.manager.launched == ["abc"]))
+        state = panel_state(self.port)
+        self.assertIsNotNone(state, "the hosted panel must answer on the panel port")
+        self.assertTrue(state["hosted"])
+        self.assertTrue(self.manager.running)
+        self.manager.released.set()
+        thread.join(10)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(result["code"], 0)
+        self.assertEqual(self.manager.close_calls, 1)
+        self.assertTrue(port_is_free(self.port))
+
+    def test_a_later_shortcut_uses_the_hosted_panel(self):
+        thread, result = self.run_in_background("abc")
+        self.assertTrue(wait_until(lambda: self.manager.launched == ["abc"]))
+        self.assertEqual(self.run_runner("def"), 0)
+        self.assertEqual(self.manager.launched, ["abc", "def"])
+        self.assertEqual(self.factory.call_count, 1)
+        self.manager.released.set()
+        thread.join(10)
+        self.assertEqual(result["code"], 0)
+
+    def test_shortcuts_started_together_share_one_panel(self):
+        threads = [self.run_in_background(app_id) for app_id in ("abc", "def")]
+        self.assertTrue(wait_until(lambda: sorted(self.manager.launched) == ["abc", "def"], timeout=20), self.err.getvalue())
+        self.assertEqual(self.factory.call_count, 1, "only one shortcut may own the core")
+        self.manager.released.set()
+        for thread, result in threads:
+            thread.join(10)
+            self.assertEqual(result.get("code"), 0, self.err.getvalue())
+        self.assertTrue(port_is_free(self.port))
+
+    def test_an_open_panel_page_keeps_the_hosted_panel_alive(self):
+        thread, _ = self.run_in_background("abc")
+        self.assertTrue(wait_until(lambda: self.manager.launched == ["abc"]))
+        with patch("ruleproxy.server.VIEWER_TIMEOUT_SECONDS", 1.5):
+            # A page read (no probe header) marks the panel as being viewed.
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(f"http://127.0.0.1:{self.port}/api/state", timeout=5) as response:
+                self.assertTrue(json.load(response)["hosted"])
+            self.manager.released.set()
+            time.sleep(0.8)
+            self.assertTrue(thread.is_alive(), "the panel must stay while its page is open")
+            thread.join(10)
+        self.assertFalse(thread.is_alive())
+
+    def test_a_port_held_by_another_program_is_reported(self):
+        blocker = socket.socket()
+        blocker.bind(("127.0.0.1", self.port))
+        blocker.listen(1)
+        self.addCleanup(blocker.close)
+        with patch.object(shortcut_launcher, "PANEL_START_WAIT_SECONDS", 0.5):
+            self.assertEqual(self.run_runner("abc"), 1)
+        self.factory.assert_not_called()
+        self.assertIn(f"面板端口 {self.port} 被其他程序占用", self.err.getvalue())
 
     def test_a_start_failure_is_reported_and_still_cleans_up(self):
-        manager = self.fake_manager(start_error="请先导入 YAML。")
-        err = io.StringIO()
-        with redirect_stderr(err), patch.object(shortcut_launcher.shutil, "which", return_value=None):
-            self.assertEqual(self.run_standalone(manager), 1)
-        self.assertIn("请先导入 YAML", err.getvalue())
-        manager.launch.assert_not_called()
-        manager.close.assert_called_once_with()
+        self.manager.start_error = "请先导入 YAML。"
+        self.assertEqual(self.run_runner("abc"), 1)
+        self.assertIn("请先导入 YAML", self.err.getvalue())
+        self.assertEqual(self.manager.launched, [])
+        self.assertEqual(self.manager.close_calls, 1)
+        self.assertTrue(port_is_free(self.port))
 
     def test_a_removed_app_is_reported_without_starting_a_core(self):
-        manager = self.fake_manager()
-        manager.app.return_value = None
-        err = io.StringIO()
-        with redirect_stderr(err), patch.object(shortcut_launcher.shutil, "which", return_value=None):
-            self.assertEqual(self.run_standalone(manager), 1)
-        manager.start.assert_not_called()
-        self.assertIn("已不在面板的清单中", err.getvalue())
+        self.manager.known = set()
+        self.assertEqual(self.run_runner("abc"), 1)
+        self.assertFalse(self.manager.running)
+        self.assertIn("已不在面板的清单中", self.err.getvalue())
+        self.assertTrue(port_is_free(self.port))
 
     def test_a_runtime_refusal_is_reported_and_still_cleans_up(self):
-        manager = self.fake_manager()
-        manager.launch.side_effect = RuntimeError("Windows 运行时拒绝启动")
-        err = io.StringIO()
-        with redirect_stderr(err), patch.object(shortcut_launcher.shutil, "which", return_value=None):
-            self.assertEqual(self.run_standalone(manager), 1)
-        self.assertIn("Windows 运行时拒绝启动", err.getvalue())
-        manager.close.assert_called_once_with()
+        self.manager.launch_error = RuntimeError("Windows 运行时拒绝启动")
+        self.assertEqual(self.run_runner("abc"), 1)
+        self.assertIn("Windows 运行时拒绝启动", self.err.getvalue())
+        self.assertEqual(self.manager.close_calls, 1)
 
     def test_an_unexpected_failure_is_reported_not_silent(self):
-        manager = self.fake_manager()
-        manager.launch.side_effect = KeyError("pid")
-        err = io.StringIO()
-        with redirect_stderr(err), patch.object(shortcut_launcher.shutil, "which", return_value=None):
-            self.assertEqual(self.run_standalone(manager), 1)
-        self.assertIn("启动失败", err.getvalue())
-        manager.close.assert_called_once_with()
+        self.manager.launch_error = KeyError("pid")
+        self.assertEqual(self.run_runner("abc"), 1)
+        self.assertIn("启动失败", self.err.getvalue())
+        self.assertEqual(self.manager.close_calls, 1)
 
 
 if __name__ == "__main__":

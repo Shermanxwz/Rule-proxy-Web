@@ -138,6 +138,10 @@ h1 { margin: 0; color: #1c2a27; font-size: clamp(26px, 3vw, 34px); line-height: 
 }
 @media (max-width: 640px) { .runtime-setting { grid-template-columns: 1fr; gap: 10px; } }
 
+/* Shortcut-hosted panel and file access notes */
+.hosted-note { margin: 8px 0 0; color: #b17b3e; font-size: 11px; line-height: 1.5; }
+.files-note { margin: -7px 0 15px; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+
 /* Launcher shortcuts */
 .app-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .app-tools .button { min-height: 27px; padding: 0 9px; font-size: 10px; }
