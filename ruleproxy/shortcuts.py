@@ -1,7 +1,7 @@
 """Desktop launcher files that start one saved app through the headless runner.
 
 Linux writes Desktop Entry files (applications menu, plus the Desktop folder when
-present). Windows creates .lnk files through WScript.Shell in PowerShell. Both run
+present). Windows creates .lnk files through IShellLinkW, called from PowerShell. Both run
 ``Run-RuleProxy.py --launch-app <id>`` with the panel's ports and state directory
 written in, so the shortcut works even when the web panel is closed.
 """
@@ -25,9 +25,73 @@ ROOT = Path(__file__).resolve().parent.parent
 _APP_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 _PLAIN_EXEC_ARG_RE = re.compile(r"[A-Za-z0-9_./:=,+@-]+\Z")
 _INVALID_FILE_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+# Shell links are written through IShellLinkW. WScript.Shell converts paths to the
+# system code page, so a Chinese name on an English-locale Windows cannot be saved
+# and non-ASCII targets or arguments are corrupted.
+_SHELL_LINK_TYPES = r"""
+using System;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
+
+namespace RuleProxyLinks
+{
+    [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+    public class ShellLink { }
+
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
+    public interface IShellLinkW
+    {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder file, int size, IntPtr findData, int flags);
+        void GetIDList(out IntPtr idList);
+        void SetIDList(IntPtr idList);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder name, int size);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string name);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder directory, int size);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string directory);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder arguments, int size);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string arguments);
+        void GetHotkey(out short hotkey);
+        void SetHotkey(short hotkey);
+        void GetShowCmd(out int showCommand);
+        void SetShowCmd(int showCommand);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder iconPath, int size, out int index);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string iconPath, int index);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string relativePath, int reserved);
+        void Resolve(IntPtr window, int flags);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string file);
+    }
+
+    public static class Links
+    {
+        public static void Create(string path, string target, string arguments, string workingDirectory, string description, string iconPath)
+        {
+            IShellLinkW link = (IShellLinkW)new ShellLink();
+            try
+            {
+                link.SetPath(target);
+                link.SetArguments(arguments ?? "");
+                link.SetWorkingDirectory(workingDirectory ?? "");
+                link.SetDescription(description ?? "");
+                if (!String.IsNullOrEmpty(iconPath))
+                {
+                    link.SetIconLocation(iconPath, 0);
+                }
+                ((IPersistFile)link).Save(path, true);
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(link);
+            }
+        }
+    }
+}
+"""
 _WINDOWS_SHORTCUT_SCRIPT = r"""
 $ErrorActionPreference = 'Stop'
-$shell = New-Object -ComObject WScript.Shell
+Add-Type -TypeDefinition @'
+""" + _SHELL_LINK_TYPES + r"""
+'@
 $name = $env:RULEPROXY_SHORTCUT_NAME + '.lnk'
 if ($env:RULEPROXY_SHORTCUT_FOLDERS) {
     $folders = @($env:RULEPROXY_SHORTCUT_FOLDERS -split "`n" | Where-Object { $_ })
@@ -40,13 +104,8 @@ if ($env:RULEPROXY_SHORTCUT_FOLDERS) {
 foreach ($folder in $folders) {
     New-Item -ItemType Directory -Path $folder -Force | Out-Null
     $path = Join-Path $folder $name
-    $link = $shell.CreateShortcut($path)
-    $link.TargetPath = $env:RULEPROXY_SHORTCUT_TARGET
-    $link.Arguments = $env:RULEPROXY_SHORTCUT_ARGUMENTS
-    $link.WorkingDirectory = $env:RULEPROXY_SHORTCUT_WORKDIR
-    $link.Description = $env:RULEPROXY_SHORTCUT_DESCRIPTION
-    if ($env:RULEPROXY_SHORTCUT_ICON) { $link.IconLocation = $env:RULEPROXY_SHORTCUT_ICON }
-    $link.Save()
+    [RuleProxyLinks.Links]::Create($path, $env:RULEPROXY_SHORTCUT_TARGET, $env:RULEPROXY_SHORTCUT_ARGUMENTS,
+        $env:RULEPROXY_SHORTCUT_WORKDIR, $env:RULEPROXY_SHORTCUT_DESCRIPTION, $env:RULEPROXY_SHORTCUT_ICON)
     # Base64 keeps non-ASCII paths intact whatever the console code page is. Setting
     # [Console]::OutputEncoding instead fails in a process without a console.
     Write-Output ([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($path)))
@@ -155,7 +214,7 @@ def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Pat
         "RULEPROXY_SHORTCUT_ARGUMENTS": subprocess.list2cmdline(argv[1:]),
         "RULEPROXY_SHORTCUT_WORKDIR": str(ROOT),
         "RULEPROXY_SHORTCUT_DESCRIPTION": f"RuleProxy 隔离启动：{label}",
-        "RULEPROXY_SHORTCUT_ICON": f"{app['path']},0" if app.get("path") else "",
+        "RULEPROXY_SHORTCUT_ICON": str(app.get("path") or ""),
         "RULEPROXY_SHORTCUT_FOLDERS": "\n".join(str(folder) for folder in folders or []),
     }
     encoded = base64.b64encode(_WINDOWS_SHORTCUT_SCRIPT.encode("utf-16-le")).decode("ascii")

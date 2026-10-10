@@ -167,7 +167,8 @@ class WindowsShortcutTests(unittest.TestCase):
         command, kwargs = run.call_args.args[0], run.call_args.kwargs
         self.assertEqual(command[0], "powershell.exe")
         script = base64.b64decode(command[command.index("-EncodedCommand") + 1]).decode("utf-16-le")
-        self.assertIn("WScript.Shell", script)
+        self.assertIn("IShellLinkW", script)
+        self.assertNotIn("WScript.Shell", script)  # it cannot save names outside the system code page
         env = kwargs["env"]
         self.assertEqual(env["RULEPROXY_SHORTCUT_NAME"], "ChatGPT (RuleProxy)")
         # On Windows the runner prefers pythonw.exe, so compare with what runner_argv chose.
@@ -175,7 +176,7 @@ class WindowsShortcutTests(unittest.TestCase):
         self.assertEqual(env["RULEPROXY_SHORTCUT_FOLDERS"], "")
         self.assertIn("--launch-app w-1", env["RULEPROXY_SHORTCUT_ARGUMENTS"])
         self.assertIn("--controller-port 19097", env["RULEPROXY_SHORTCUT_ARGUMENTS"])
-        self.assertEqual(env["RULEPROXY_SHORTCUT_ICON"], "C:\\Program Files\\ChatGPT\\ChatGPT.exe,0")
+        self.assertEqual(env["RULEPROXY_SHORTCUT_ICON"], "C:\\Program Files\\ChatGPT\\ChatGPT.exe")
         self.assertEqual(env["RULEPROXY_SHORTCUT_WORKDIR"], str(ROOT))
         # Paths come back Base64-encoded, so non-ASCII folders survive any console code page.
         self.assertEqual(created, [Path(link) for link in links])
@@ -199,26 +200,49 @@ class WindowsShortcutTests(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform == "win32", "Windows shell links")
 class RealWindowsShortcutTests(unittest.TestCase):
-    """Creates real .lnk files in a temporary folder and reads them back through WScript.Shell."""
+    """Creates real .lnk files in a temporary folder and reads them back through IShellLinkW."""
+
+    READER = r"""
+namespace RuleProxyLinksTest
+{
+    public static class LinkReader
+    {
+        public static string[] Read(string path)
+        {
+            var link = (RuleProxyLinks.IShellLinkW)new RuleProxyLinks.ShellLink();
+            ((System.Runtime.InteropServices.ComTypes.IPersistFile)link).Load(path, 0);
+            var target = new System.Text.StringBuilder(32768);
+            link.GetPath(target, target.Capacity, System.IntPtr.Zero, 0);
+            var arguments = new System.Text.StringBuilder(32768);
+            link.GetArguments(arguments, arguments.Capacity);
+            var directory = new System.Text.StringBuilder(32768);
+            link.GetWorkingDirectory(directory, directory.Capacity);
+            return new string[] { target.ToString(), arguments.ToString(), directory.ToString() };
+        }
+    }
+}
+"""
 
     def read_link(self, link):
         script = (
-            "$link = (New-Object -ComObject WScript.Shell).CreateShortcut($env:RULEPROXY_TEST_LINK); "
-            "foreach ($value in @($link.TargetPath, $link.Arguments, $link.WorkingDirectory)) "
+            "$ErrorActionPreference = 'Stop'; Add-Type -TypeDefinition $env:RULEPROXY_TEST_TYPES; "
+            "foreach ($value in [RuleProxyLinksTest.LinkReader]::Read($env:RULEPROXY_TEST_LINK)) "
             "{ Write-Output ([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($value))) }"
         )
         result = subprocess.run(
             ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
-            env={**os.environ, "RULEPROXY_TEST_LINK": str(link)}, capture_output=True, text=True, timeout=120,
+            env={**os.environ, "RULEPROXY_TEST_LINK": str(link), "RULEPROXY_TEST_TYPES": shortcuts._SHELL_LINK_TYPES + self.READER},
+            capture_output=True, text=True, timeout=120,
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 0, shortcuts._powershell_error(result.stderr))
         return [base64.b64decode(line).decode("utf-8") for line in result.stdout.split()][:3]
 
     def test_links_start_the_runner_and_keep_unicode_names(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp) / "links"
             for label in ("ChatGPT", "工作浏览器"):
-                argv = runner_argv("w-3", Path(temp) / "state dir", (8879, 10809, 19097))
+                # A Chinese folder name in the arguments, as under a Chinese user name.
+                argv = runner_argv("w-3", Path(temp) / "状态 state", (8879, 10809, 19097))
                 created = shortcuts._windows_shortcuts({"id": "w-3", "label": label, "path": sys.executable}, label, argv, folders=[folder])
                 self.assertEqual(created, [folder / f"{label} (RuleProxy).lnk"])
                 self.assertTrue(created[0].is_file())
