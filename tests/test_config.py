@@ -78,7 +78,7 @@ rules:
         self.assertEqual(dns["nameserver"], [f"https://1.1.1.1/dns-query#{APP_GROUP}"])
         self.assertEqual(dns["proxy-server-nameserver"], ["system"])
         self.assertEqual(dns["default-nameserver"], ["1.1.1.1"])
-        self.assertTrue(any("only that server's bootstrap" in item for item in result.warnings))
+        self.assertTrue(any("只有解析该服务器地址时使用系统 DNS" in item for item in result.warnings))
 
     def test_imported_dns_is_replaced_without_os_changes(self):
         source = self.source + """
@@ -94,7 +94,7 @@ dns:
         self.assertNotIn("listen", dns)
         self.assertTrue(dns["ipv6"])
         self.assertEqual(dns["nameserver"], [f"https://1.1.1.1/dns-query#{APP_GROUP}"])
-        self.assertTrue(any("Imported DNS settings were replaced" in item for item in result.warnings))
+        self.assertTrue(any("导入的 DNS 设置已替换" in item for item in result.warnings))
 
     def test_imported_global_and_tun_settings_are_ignored(self):
         source = self.source + """
@@ -138,7 +138,7 @@ listeners:
         self.assertEqual(len(result.config["listeners"]), 1)
         self.assertEqual(result.config["listeners"][0]["name"], APP_LISTENER)
         self.assertEqual(result.config["listeners"][0]["listen"], "127.0.0.1")
-        self.assertTrue(any("Imported listeners were discarded" in warning for warning in result.warnings))
+        self.assertTrue(any("导入的监听器已丢弃" in warning for warning in result.warnings))
 
     def test_providers_are_disabled_in_first_version(self):
         cases = (
@@ -146,12 +146,12 @@ listeners:
             "rule-providers:\n  local:\n    type: file\n    path: /tmp/rules.yaml\n",
         )
         for fragment in cases:
-            with self.subTest(fragment=fragment), self.assertRaisesRegex(ValueError, "not supported"):
+            with self.subTest(fragment=fragment), self.assertRaisesRegex(ValueError, "此版本不支持"):
                 compile_config(self.source + fragment, secret="s")
 
     def test_rule_set_requires_disabled_rule_provider_support(self):
         source = self.source.replace("MATCH,Proxy", "RULE-SET,geo,Proxy")
-        with self.assertRaisesRegex(ValueError, "RULE-SET rules need rule-providers"):
+        with self.assertRaisesRegex(ValueError, "RULE-SET 规则需要 rule-providers"):
             compile_config(source, secret="s")
 
     def test_rule_actions_are_rewritten_but_reject_and_no_resolve_are_preserved(self):
@@ -195,7 +195,7 @@ listeners:
             "PROCESS-NAME-REGEX,.*browser.*,Proxy",
             "UID,1000,DIRECT",
         ):
-            with self.subTest(rule=rule), self.assertRaisesRegex(ValueError, "cannot identify the app through the local relay"):
+            with self.subTest(rule=rule), self.assertRaisesRegex(ValueError, "无法识别原始应用"):
                 compile_config(self.source.replace("MATCH,Proxy", rule), secret="s")
         for rule in (
             "SOMETHING-NEW,payload,DIRECT",
@@ -213,17 +213,17 @@ listeners:
         self.assertNotIn("DIRECT", selector["proxies"])
         self.assertNotIn("dns-out", selector["proxies"])
         only_special = "proxies:\n  - {name: direct-out, type: direct}\n  - {name: dns-out, type: dns}\nrules: [MATCH,DIRECT]\n"
-        with self.assertRaisesRegex(ValueError, "at least one supported real proxy node"):
+        with self.assertRaisesRegex(ValueError, "至少需要一个受支持的真实代理节点"):
             compile_config(only_special, secret="s")
-        with self.assertRaisesRegex(ValueError, "selected_node"):
+        with self.assertRaisesRegex(ValueError, "所选节点"):
             compile_config(self.source, secret="s", selected_node="dns-out")
 
     def test_unknown_protocol_and_local_endpoint_are_rejected(self):
         unknown = self.source.replace("type: vless", "type: plugin-exec", 1)
-        with self.assertRaisesRegex(ValueError, "unsupported type"):
+        with self.assertRaisesRegex(ValueError, "不受支持"):
             compile_config(unknown, secret="s")
         local = self.source.replace("alpha.example.test", "127.0.0.1", 1)
-        with self.assertRaisesRegex(ValueError, "private, reserved, or local"):
+        with self.assertRaisesRegex(ValueError, "私有、保留或本地"):
             compile_config(local, secret="s")
 
     def test_official_socks5_protocol_is_accepted(self):
@@ -239,7 +239,7 @@ rules:
         self.assertEqual(result.nodes, [{"name": "Socks-Exit", "type": "socks5"}])
         for alias in ("socks", "shadowsocks"):
             invalid = source.replace("type: socks5", f"type: {alias}")
-            with self.subTest(alias=alias), self.assertRaisesRegex(ValueError, "unsupported type"):
+            with self.subTest(alias=alias), self.assertRaisesRegex(ValueError, "不受支持"):
                 compile_config(invalid, secret="s")
 
     def test_proxy_and_group_names_cannot_shadow_builtin_outbounds(self):
@@ -252,29 +252,29 @@ rules:
     port: 443
     uuid: 00000000-0000-0000-0000-000000000001
 """
-            with self.subTest(proxy=name), self.assertRaisesRegex(ValueError, "built-in"):
+            with self.subTest(proxy=name), self.assertRaisesRegex(ValueError, "内置出口"):
                 compile_config(proxy, secret="s")
 
             group = self.source.replace("name: Proxy", f"name: {name}")
-            with self.subTest(group=name), self.assertRaisesRegex(ValueError, "built-in"):
+            with self.subTest(group=name), self.assertRaisesRegex(ValueError, "内置出口"):
                 compile_config(group, secret="s")
 
         # The name check is case-insensitive so aliases cannot shadow built-ins.
-        with self.assertRaisesRegex(ValueError, "built-in"):
+        with self.assertRaisesRegex(ValueError, "内置出口"):
             compile_config(self.source.replace("name: Alpha", "name: direct"), secret="s")
 
     def test_unvalidated_chains_and_local_socket_controls_are_rejected(self):
         chained = self.source.replace("    tls: true", "    tls: true\n    dialer-proxy: local-hop", 1)
-        with self.assertRaisesRegex(ValueError, "chain setting"):
+        with self.assertRaisesRegex(ValueError, "本地或链式设置"):
             compile_config(chained, secret="s")
         socket = self.source.replace("    tls: true", "    tls: true\n    socket-path: /tmp/outbound.sock", 1)
-        with self.assertRaisesRegex(ValueError, "local/chain setting"):
+        with self.assertRaisesRegex(ValueError, "本地或链式设置"):
             compile_config(socket, secret="s")
         local_path = self.source.replace("    tls: true", "    tls: true\n    path: /etc/private-key", 1)
-        with self.assertRaisesRegex(ValueError, "local/chain setting"):
+        with self.assertRaisesRegex(ValueError, "本地或链式设置"):
             compile_config(local_path, secret="s")
         plugin = self.source.replace("    tls: true", "    tls: true\n    plugin: v2ray-plugin", 1)
-        with self.assertRaisesRegex(ValueError, "local/chain setting"):
+        with self.assertRaisesRegex(ValueError, "本地或链式设置"):
             compile_config(plugin, secret="s")
 
     def test_websocket_path_remains_a_transport_path(self):
@@ -288,9 +288,9 @@ rules:
 
     def test_unsupported_script_and_subrule_features_are_rejected(self):
         for fragment in ("script:\n  code: return true\n", "sub-rules: {}\n", "tunnels: []\n"):
-            with self.subTest(fragment=fragment), self.assertRaisesRegex(ValueError, "unsupported local/script"):
+            with self.subTest(fragment=fragment), self.assertRaisesRegex(ValueError, "不支持的本地或脚本功能"):
                 compile_config(self.source + fragment, secret="s")
-        with self.assertRaisesRegex(ValueError, "SCRIPT or SUB-RULE"):
+        with self.assertRaisesRegex(ValueError, "SCRIPT 或 SUB-RULE"):
             compile_config(self.source.replace("MATCH,Proxy", "SCRIPT,abc,Proxy"), secret="s")
 
     def test_size_ports_and_selection_are_validated(self):
@@ -298,13 +298,13 @@ rules:
             compile_config("x" * (MAX_SOURCE_BYTES + 1), secret="s")
         with self.assertRaisesRegex(ValueError, "differ"):
             compile_config(self.source, mixed_port=12345, controller_port=12345, secret="s")
-        with self.assertRaisesRegex(ValueError, "selected_node"):
+        with self.assertRaisesRegex(ValueError, "所选节点"):
             compile_config(self.source, selected_node="missing", secret="s")
 
     def test_unsafe_yaml_tags_and_alias_cycles_are_rejected(self):
         with self.assertRaises(ValueError):
             compile_config("!!python/object/apply:os.system ['echo nope']", secret="s")
-        with self.assertRaisesRegex(ValueError, "recursive YAML aliases"):
+        with self.assertRaisesRegex(ValueError, "递归引用的 YAML 别名"):
             compile_config("x: &x [*x]\nproxies: []", secret="s")
 
 

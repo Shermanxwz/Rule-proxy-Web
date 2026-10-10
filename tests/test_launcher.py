@@ -131,11 +131,11 @@ class LauncherTests(unittest.TestCase):
         shell.write_text("", encoding="utf-8")
         shell.chmod(shell.stat().st_mode | stat.S_IXUSR)
         selection = self.app_for("environment", path=str(shell))
-        with self.assertRaisesRegex(ValueError, "shell executables"):
+        with self.assertRaisesRegex(ValueError, "命令行解释器"):
             launcher.prepare_app(selection, 8888, self.root / "profiles")
 
     def test_prepare_rejects_unsafe_profile_identifier_and_port(self):
-        with self.assertRaisesRegex(ValueError, "safe id"):
+        with self.assertRaisesRegex(ValueError, "应用 ID 无效"):
             launcher.prepare_app(self.app_for(id="../other"), 8000, self.root)
         with self.assertRaisesRegex(ValueError, "proxy_port"):
             launcher.prepare_app(self.app_for(), 0, self.root)

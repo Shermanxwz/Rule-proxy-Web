@@ -132,13 +132,27 @@ class Manager:
         self.source = (self.directory / "source.yaml").read_text(encoding="utf-8") if (self.directory / "source.yaml").exists() else None
         self.compiled = None
         if self.source:
-            self.compiled = self._compile(self.source)
+            self._load_saved_config()
         self._probe_cache = None
         self.closed = threading.Event()
         threading.Thread(target=self._watch, daemon=True).start()
 
     def _save(self):
         write_private(self.directory / "settings.json", json.dumps(self.settings, ensure_ascii=False, indent=2))
+
+    def _load_saved_config(self):
+        """Compile the saved YAML. One that no longer compiles must not keep the panel from opening."""
+        try:
+            self.compiled = self._compile(self.source)
+            return
+        except ValueError:
+            pass
+        try:
+            # The saved node may have gone; fall back to the first node of the same config.
+            self.compiled = compile_config(self.source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port)
+            self.settings["selected_node"] = self.compiled.selected_node
+        except ValueError as exc:
+            self.error = f"已保存的配置无法使用，请重新导入：{exc}"
 
     def _compile(self, source, selected=None):
         return compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, selected_node=selected if selected is not None else self.settings.get("selected_node"))
@@ -310,7 +324,10 @@ class Manager:
                 raise ValueError("请先导入 YAML。")
             compiled = self._compile(self.source, name)
             if self.core and self.core.poll() is None:
-                self._controller("PUT", "/proxies/" + urllib.parse.quote(compiled.primary_group, safe=""), {"name": name})
+                try:
+                    self._controller("PUT", "/proxies/" + urllib.parse.quote(compiled.primary_group, safe=""), {"name": name})
+                except (OSError, ValueError) as exc:
+                    raise ValueError("切换节点失败：核心没有响应，请稍后重试。") from exc
             self.compiled = compiled
             self.settings["selected_node"] = name
             self._save()

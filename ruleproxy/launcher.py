@@ -605,45 +605,45 @@ def _validate_args(value: Any) -> list[str]:
     if value is None:
         return []
     if not isinstance(value, list) or len(value) > _MAX_ARGS:
-        raise ValueError("args must be a list of at most 64 strings")
+        raise ValueError("启动参数最多 64 个。")
     args: list[str] = []
     total = 0
     for arg in value:
         if not isinstance(arg, str) or "\0" in arg:
-            raise ValueError("each argument must be a string without NUL characters")
+            raise ValueError("启动参数必须是不含空字符的文本。")
         if len(arg) > _MAX_ARG_LENGTH:
-            raise ValueError("an argument exceeds the 4096 character limit")
+            raise ValueError("单个启动参数不能超过 4096 个字符。")
         total += len(arg)
         args.append(arg)
     if total > _MAX_ARGS_TOTAL:
-        raise ValueError("combined arguments exceed the 16384 character limit")
+        raise ValueError("启动参数合计不能超过 16384 个字符。")
     return args
 
 
 def validate_app(data: dict) -> dict[str, Any]:
     """Validate and normalize an executable selection supplied by the user."""
     if not isinstance(data, dict):
-        raise ValueError("application selection must be an object")
+        raise ValueError("应用信息格式无效。")
     label = data.get("label")
     raw_path = data.get("path")
     adapter = data.get("adapter")
     if not isinstance(label, str) or not label.strip() or len(label) > 200:
-        raise ValueError("label must be a non-empty string of at most 200 characters")
+        raise ValueError("应用名称不能为空，且不超过 200 个字符。")
     if not isinstance(raw_path, str) or not raw_path.strip() or "\0" in raw_path:
-        raise ValueError("path must be a non-empty executable file path")
+        raise ValueError("请填写程序路径。")
     if not isinstance(adapter, str) or adapter not in ADAPTERS:
-        raise ValueError("adapter must be chromium, firefox, or environment")
+        raise ValueError("启动方式无效。")
     path = Path(raw_path).expanduser()
     try:
         path = path.resolve(strict=True)
     except (OSError, RuntimeError) as exc:
-        raise ValueError("executable path does not exist") from exc
+        raise ValueError("找不到这个程序。") from exc
     if not path.is_file():
-        raise ValueError("executable path must refer to a file")
+        raise ValueError("程序路径必须指向一个文件。")
     if os.name != "nt" and not os.access(path, os.X_OK):
-        raise ValueError("executable file is not runnable")
+        raise ValueError("这个文件没有执行权限。")
     if path.name.lower() in _SHELL_EXECUTABLES:
-        raise ValueError("shell executables cannot be selected as apps")
+        raise ValueError("不能把命令行解释器（shell）添加为应用。")
     args = _validate_args(data.get("args", []))
     return {"label": label.strip(), "path": str(path), "adapter": adapter, "args": args}
 
@@ -651,7 +651,7 @@ def validate_app(data: dict) -> dict[str, Any]:
 def _profile_for_app(profile_dir: Path, app: dict) -> Path:
     app_id = app.get("id")
     if not isinstance(app_id, str) or not _APP_ID_RE.fullmatch(app_id) or app_id in {".", ".."}:
-        raise ValueError("saved application must have a safe id")
+        raise ValueError("已保存的应用 ID 无效。")
     return Path(profile_dir).expanduser() / app_id
 
 
@@ -665,23 +665,24 @@ def _reject_reserved_args(args: list[str], adapter: str) -> None:
     for arg in args:
         option = arg.split("=", 1)[0].lower()
         if arg == "--":
-            raise ValueError("argument terminator is not allowed")
+            raise ValueError("启动参数不能包含 “--”。")
         if adapter == "chromium" and any(
             option.startswith(prefix)
             if prefix.endswith("-")
             else option == prefix or option.startswith(prefix + "=")
             for prefix in _CHROMIUM_RESERVED_PREFIXES
         ):
-            raise ValueError(f"argument may override strict proxy/profile controls: {arg}")
+            raise ValueError(f"启动参数 {arg} 可能绕过代理或配置隔离，不能使用。")
         if adapter == "firefox" and option in _FIREFOX_RESERVED:
-            raise ValueError(f"argument may override strict proxy/profile controls: {arg}")
+            raise ValueError(f"启动参数 {arg} 可能绕过代理或配置隔离，不能使用。")
 
 
 def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str], dict[str, str], str]:
     """Prepare an app command, child-only environment overrides, and limitations.
 
-    The returned command is only safe when passed to the strict MXC runtime.
-    Direct execution is deliberately not provided here.
+    The returned command is only safe inside the platform's isolation runtime
+    (bubblewrap on Linux, MXC on Windows). Direct execution is deliberately not
+    provided here.
     """
     normalized = validate_app(app)
     proxy_port = _validate_port(proxy_port)

@@ -65,6 +65,37 @@ class ManagerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.manager.select_node("DIRECT")
 
+    def reopen(self):
+        self.manager.close()
+        self.manager = Manager(Path(self.temp.name), 18879)
+        self.manager._probe_cache = {"supported": False, "backend": "test", "detail": "blocked", "limitations": []}
+
+    def test_a_saved_node_that_disappeared_falls_back_to_the_first_node(self):
+        self.manager.import_yaml(SOURCE.read_text())
+        self.manager.settings["selected_node"] = "Gone"
+        self.manager._save()
+        self.reopen()
+        self.assertEqual(self.manager.compiled.selected_node, "Example-VLESS")
+        self.assertEqual(self.manager.error, "")
+
+    def test_a_saved_config_that_no_longer_compiles_still_opens_the_panel(self):
+        self.manager.import_yaml(SOURCE.read_text())
+        (Path(self.temp.name) / "source.yaml").write_text("proxies: []\n", encoding="utf-8")
+        self.reopen()
+        state = self.manager.state()
+        self.assertFalse(state["imported"])
+        self.assertIn("请重新导入", state["error"])
+
+    def test_a_core_that_does_not_answer_gives_a_plain_node_switch_error(self):
+        self.manager.import_yaml(SOURCE.read_text())
+        self.manager.core = Mock(poll=Mock(return_value=None))
+        try:
+            with patch.object(self.manager, "_controller", side_effect=OSError("connection refused")):
+                with self.assertRaisesRegex(ValueError, "切换节点失败"):
+                    self.manager.select_node("Example-VLESS")
+        finally:
+            self.manager.core = None
+
     def test_stop_closes_only_owned_instances_before_core(self):
         app, core = Mock(), Mock()
         resource = Mock()

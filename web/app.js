@@ -16,7 +16,7 @@
     protectionCard: $('protection-card'), protectionBadge: $('protection-badge'), protectionDetail: $('protection-detail'),
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
     runtimeSettings: $('windows-runtime-settings'), runtimePath: $('runtime-path'), saveRuntime: $('save-runtime-button'),
-    hostedNote: $('hosted-note'), filesNote: $('files-note'),
+    hostedNote: $('hosted-note'), filesNote: $('files-note'), configNotes: $('config-notes'), configWarnings: $('config-warnings'),
   };
   let state = null;
   let busy = false;
@@ -264,6 +264,9 @@
     ui.ports.textContent = portParts.length ? portParts.join(' · ') : '端口：—';
     ui.version.textContent = state.version ? `版本：${state.version}` : '版本：—';
     ui.footerVersion.textContent = state.version ? `· ${state.version}` : '';
+    const warnings = Array.isArray(state.warnings) ? state.warnings : [];
+    ui.configWarnings.replaceChildren(...warnings.map((warning) => textElement('li', '', warning)));
+    ui.configNotes.hidden = warnings.length === 0;
     ui.hostedNote.hidden = !state.hosted;
     ui.filesNote.hidden = !state.files_dir;
     ui.filesNote.textContent = state.files_dir
