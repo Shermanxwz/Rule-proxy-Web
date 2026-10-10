@@ -10,7 +10,6 @@ from dataclasses import dataclass
 import ipaddress
 import re
 from typing import Any
-from urllib.parse import urlsplit
 
 import yaml
 
