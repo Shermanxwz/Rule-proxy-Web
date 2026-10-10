@@ -8,6 +8,7 @@ written in, so the shortcut works even when the web panel is closed.
 from __future__ import annotations
 
 import base64
+import binascii
 import os
 from pathlib import Path
 import re
@@ -24,7 +25,6 @@ _APP_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 _PLAIN_EXEC_ARG_RE = re.compile(r"[A-Za-z0-9_./:=,+@-]+\Z")
 _INVALID_FILE_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _WINDOWS_SHORTCUT_SCRIPT = r"""
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'Stop'
 $shell = New-Object -ComObject WScript.Shell
 $name = $env:RULEPROXY_SHORTCUT_NAME + '.lnk'
@@ -46,7 +46,9 @@ foreach ($folder in $folders) {
     $link.Description = $env:RULEPROXY_SHORTCUT_DESCRIPTION
     if ($env:RULEPROXY_SHORTCUT_ICON) { $link.IconLocation = $env:RULEPROXY_SHORTCUT_ICON }
     $link.Save()
-    Write-Output $path
+    # Base64 keeps non-ASCII paths intact whatever the console code page is. Setting
+    # [Console]::OutputEncoding instead fails in a process without a console.
+    Write-Output ([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($path)))
 }
 """
 
@@ -164,9 +166,13 @@ def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Pat
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise ValueError("无法运行 PowerShell 创建 Windows 快捷方式。") from exc
-    created = [Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
+    try:
+        created = [Path(base64.b64decode(line.strip(), validate=True).decode("utf-8")) for line in result.stdout.splitlines() if line.strip()]
+    except (binascii.Error, UnicodeDecodeError):
+        created = []
     if result.returncode != 0 or not created:
-        raise ValueError("无法创建 Windows 快捷方式。请确认桌面和开始菜单目录可写。")
+        reason = next((line.strip() for line in (result.stderr or "").splitlines() if line.strip()), "")
+        raise ValueError("无法创建 Windows 快捷方式。请确认桌面和开始菜单目录可写。" + (f"（{reason[:300]}）" if reason else ""))
     return created
 
 

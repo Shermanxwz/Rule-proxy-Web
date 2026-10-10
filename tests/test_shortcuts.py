@@ -157,7 +157,8 @@ class LinuxShortcutTests(unittest.TestCase):
 
 class WindowsShortcutTests(unittest.TestCase):
     def test_values_reach_powershell_through_the_environment(self):
-        output = "C:\\Users\\me\\Desktop\\ChatGPT (RuleProxy).lnk\nC:\\Users\\me\\Start Menu\\RuleProxy Web\\ChatGPT (RuleProxy).lnk\n"
+        links = ["C:\\Users\\me\\Desktop\\ChatGPT (RuleProxy).lnk", "C:\\Users\\me\\开始菜单\\RuleProxy Web\\ChatGPT (RuleProxy).lnk"]
+        output = "".join(base64.b64encode(link.encode("utf-8")).decode("ascii") + "\n" for link in links)
         with patch("ruleproxy.shortcuts.sys.platform", "win32"), patch("ruleproxy.shortcuts.subprocess.run", return_value=Mock(returncode=0, stdout=output, stderr="")) as run:
             created = create_shortcut_files(
                 {"id": "w-1", "label": "ChatGPT", "path": "C:\\Program Files\\ChatGPT\\ChatGPT.exe"},
@@ -176,11 +177,13 @@ class WindowsShortcutTests(unittest.TestCase):
         self.assertIn("--controller-port 19097", env["RULEPROXY_SHORTCUT_ARGUMENTS"])
         self.assertEqual(env["RULEPROXY_SHORTCUT_ICON"], "C:\\Program Files\\ChatGPT\\ChatGPT.exe,0")
         self.assertEqual(env["RULEPROXY_SHORTCUT_WORKDIR"], str(ROOT))
-        self.assertEqual(len(created), 2)
+        # Paths come back Base64-encoded, so non-ASCII folders survive any console code page.
+        self.assertEqual(created, [Path(link) for link in links])
+        self.assertNotIn("[Console]::OutputEncoding =", script)  # throws without a console
 
     def test_powershell_failure_is_reported(self):
         with patch("ruleproxy.shortcuts.sys.platform", "win32"), patch("ruleproxy.shortcuts.subprocess.run", return_value=Mock(returncode=1, stdout="", stderr="denied")):
-            with self.assertRaisesRegex(ValueError, "无法创建 Windows 快捷方式"):
+            with self.assertRaisesRegex(ValueError, "无法创建 Windows 快捷方式.*denied"):
                 create_shortcut_files({"id": "w-2", "label": "X", "path": ""}, state_dir=Path("C:/s"), ports=(8879, 10809, 19097))
 
 
@@ -190,16 +193,16 @@ class RealWindowsShortcutTests(unittest.TestCase):
 
     def read_link(self, link):
         script = (
-            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
             "$link = (New-Object -ComObject WScript.Shell).CreateShortcut($env:RULEPROXY_TEST_LINK); "
-            "Write-Output $link.TargetPath; Write-Output $link.Arguments; Write-Output $link.WorkingDirectory"
+            "foreach ($value in @($link.TargetPath, $link.Arguments, $link.WorkingDirectory)) "
+            "{ Write-Output ([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($value))) }"
         )
         result = subprocess.run(
             ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
-            env={**os.environ, "RULEPROXY_TEST_LINK": str(link)}, capture_output=True, text=True, encoding="utf-8", timeout=120,
+            env={**os.environ, "RULEPROXY_TEST_LINK": str(link)}, capture_output=True, text=True, timeout=120,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        return result.stdout.splitlines()[:3]
+        return [base64.b64decode(line).decode("utf-8") for line in result.stdout.split()][:3]
 
     def test_links_start_the_runner_and_keep_unicode_names(self):
         with tempfile.TemporaryDirectory() as temp:
