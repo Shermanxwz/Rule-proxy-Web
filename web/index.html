@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>RuleProxy · 本机代理</title>
+  <link rel="stylesheet" href="/web/style.css">
+  <script src="/web/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="RuleProxy 首页">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span>RuleProxy</span>
+      <span class="brand-caption">本机代理</span>
+    </a>
+    <div class="topbar-meta">
+      <span class="local-tag"><span class="local-dot"></span>仅限本机</span>
+      <span id="platform-label" class="platform-label">正在连接…</span>
+    </div>
+  </header>
+
+  <main id="top" class="page-shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">私人代理控制台</p>
+        <h1>让指定应用使用受保护连接</h1>
+        <p class="hero-copy">导入配置、选择节点，再从这里启动需要保护的应用。</p>
+      </div>
+      <div class="status-card" aria-live="polite">
+        <span id="status-indicator" class="status-indicator"></span>
+        <div>
+          <div id="status-title" class="status-title">正在读取状态</div>
+          <div id="status-detail" class="status-detail">连接本机服务中</div>
+        </div>
+      </div>
+    </section>
+
+    <div id="global-error" class="notice error-notice" role="alert" hidden></div>
+
+    <section class="grid-layout">
+      <article class="panel config-panel">
+        <div class="panel-heading">
+          <div class="section-icon icon-config" aria-hidden="true">01</div>
+          <div>
+            <p class="eyebrow">配置</p>
+            <h2>导入 YAML</h2>
+          </div>
+          <span id="config-state" class="pill">尚未导入</span>
+        </div>
+        <p class="muted intro-copy">选择配置文件，或粘贴 YAML。导入只会保存配置；核心需要你手动启动。</p>
+        <label class="file-picker" for="yaml-file">
+          <span class="file-picker-icon" aria-hidden="true">↑</span>
+          <span><strong>选择配置文件</strong><small id="file-name">支持 .yaml / .yml</small></span>
+          <span class="file-picker-action">浏览</span>
+        </label>
+        <input id="yaml-file" type="file" accept=".yaml,.yml,text/yaml,application/yaml" hidden>
+        <label class="field-label" for="yaml-input">或者粘贴 YAML</label>
+        <textarea id="yaml-input" class="yaml-input" spellcheck="false" placeholder="粘贴 Mihomo 配置内容…" aria-label="Mihomo YAML 配置"></textarea>
+        <div class="form-actions">
+          <span class="muted tiny">配置仅提交到本机服务</span>
+          <button id="import-button" class="button button-primary" type="button">导入配置</button>
+        </div>
+        <div class="divider"></div>
+        <label class="field-label" for="core-path">Mihomo 程序路径</label>
+        <div class="inline-field">
+          <input id="core-path" class="text-input" type="text" autocomplete="off" placeholder="自动查找，或输入完整路径">
+          <button id="save-core-button" class="button button-secondary" type="button">保存</button>
+        </div>
+        <p class="field-hint">留空时使用系统可找到的 Mihomo 程序。修改程序路径前需先停止核心。</p>
+      </article>
+
+      <article class="panel control-panel">
+        <div class="panel-heading">
+          <div class="section-icon icon-control" aria-hidden="true">02</div>
+          <div>
+            <p class="eyebrow">连接</p>
+          <h2>选择节点并启动核心</h2>
+          </div>
+        </div>
+        <p class="muted intro-copy">核心运行不代表应用已受保护。应用实例需从下方启动并进入隔离后才会使用代理。</p>
+        <div id="protection-card" class="protection-card" aria-live="polite">
+          <div class="protection-heading"><span class="protection-shield" aria-hidden="true">◆</span><div><strong>流量保护能力</strong><span id="protection-badge" class="protection-badge">正在检查</span></div></div>
+          <p id="protection-detail" class="protection-detail">等待本机服务报告隔离能力。</p>
+          <div id="protection-backend" class="protection-backend"></div>
+          <ul id="protection-limitations" class="protection-limitations" hidden></ul>
+          <p class="protection-note">只有通过此界面启动且显示“隔离中运行”的实例才受保护。已打开的实例需自行关闭；不兼容应用的流量会被阻断，不会切换到弱模式。</p>
+        </div>
+        <label class="field-label" for="node-select">代理节点</label>
+        <div class="inline-field node-field">
+          <select id="node-select" class="text-input" aria-label="选择代理节点" disabled>
+            <option value="">先导入配置</option>
+          </select>
+          <button id="save-node-button" class="button button-secondary" type="button" disabled>选择</button>
+        </div>
+        <p id="node-hint" class="field-hint">可用节点会显示在这里。</p>
+        <div class="connection-card">
+          <div class="connection-topline"><span class="connection-label">本机代理地址</span><span class="local-tag small-tag"><span class="local-dot"></span>本机</span></div>
+          <div id="proxy-address" class="proxy-address">等待配置</div>
+          <div class="connection-foot"><span id="port-summary">端口：—</span><span id="version-label">版本：—</span></div>
+        </div>
+        <div class="start-actions">
+          <button id="start-button" class="button button-start" type="button" disabled><span class="play-icon" aria-hidden="true">▶</span>启动核心</button>
+          <button id="stop-button" class="button button-stop" type="button" disabled>关闭受保护应用并停止</button>
+        </div>
+        <p class="field-hint">只启动本机 Mihomo，不会修改系统代理设置。停止时会关闭此工具启动的受保护应用实例。</p>
+      </article>
+    </section>
+
+    <section class="panel apps-panel">
+      <div class="apps-header">
+        <div class="panel-heading no-margin">
+          <div class="section-icon icon-apps" aria-hidden="true">03</div>
+          <div>
+            <p class="eyebrow">应用</p>
+          <h2>启动受保护应用</h2>
+          </div>
+        </div>
+        <button id="launch-all-button" class="button button-primary" type="button" disabled>启动所有待保护应用 <span aria-hidden="true">↗</span></button>
+      </div>
+      <p class="muted apps-intro">勾选表示加入待保护列表，不代表当前已受保护。启动按钮仅在核心运行且隔离能力可用时开放；运行中的实例可在此关闭。</p>
+      <div id="apps-list" class="apps-list" aria-live="polite">
+        <div class="empty-state"><span class="empty-symbol" aria-hidden="true">＋</span><strong>还没有添加应用</strong><span>在下方填写应用路径即可开始。</span></div>
+      </div>
+      <div class="add-app-wrap">
+        <div class="add-app-title"><span class="plus-badge" aria-hidden="true">＋</span><div><strong>添加应用</strong><span>保存应用路径与启动方式</span></div></div>
+        <div class="add-app-grid">
+          <label class="form-control"><span class="field-label">应用名称</span><input id="app-label" class="text-input" type="text" placeholder="例如：工作浏览器" maxlength="80"></label>
+          <label class="form-control"><span class="field-label">程序路径</span><input id="app-path" class="text-input" type="text" list="available-app-paths" autocomplete="off" placeholder="可执行程序的路径"><datalist id="available-app-paths"></datalist></label>
+          <label class="form-control adapter-control"><span class="field-label">启动方式</span><select id="app-adapter" class="text-input">
+            <option value="chromium">Chrome / Edge / Brave（独立配置）</option>
+            <option value="firefox">Firefox（独立配置）</option>
+            <option value="environment">遵循代理环境变量的应用（不兼容即阻断）</option>
+          </select></label>
+          <label class="form-control args-control"><span class="field-label">启动参数 <span class="optional">选填，每行一个</span></span><textarea id="app-args" class="text-input args-input" rows="1" placeholder="例如：--new-window"></textarea></label>
+          <button id="add-app-button" class="button button-secondary add-button" type="button">添加应用</button>
+        </div>
+        <p class="compatibility-note"><span class="info-icon" aria-hidden="true">i</span><span>此工具不能保证所有软件兼容。只有本机隔离能力报告支持且实例显示“隔离中运行”时才表示保护已启用；不兼容流量将被阻断。</span></p>
+      </div>
+    </section>
+
+    <details id="windows-runtime-settings" class="advanced-settings" hidden>
+      <summary>Windows 高级设置</summary>
+      <div class="runtime-setting">
+        <div><strong>MXC runtime 程序路径</strong><p>仅 Windows 使用。运行时能力检查失败时，受保护应用会被拒绝启动。</p></div>
+        <div class="inline-field"><input id="runtime-path" class="text-input" type="text" autocomplete="off" placeholder="自动查找，或输入完整路径"><button id="save-runtime-button" class="button button-secondary" type="button">保存</button></div>
+      </div>
+    </details>
+
+    <footer class="page-footer"><span>RuleProxy <span id="footer-version"></span></span><span>本机管理 · 不更改系统网络设置</span></footer>
+  </main>
+</body>
+</html>
