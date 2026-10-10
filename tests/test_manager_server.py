@@ -115,8 +115,10 @@ class ManagerTests(unittest.TestCase):
         def record(proc):
             events.append(proc)
 
-        # Linux stops sandboxed apps through linux_runtime.stop; the core still uses stop_process.
-        with patch("ruleproxy.manager.stop_process", side_effect=record), patch("ruleproxy.linux_runtime.stop", side_effect=record):
+        # Apps stop through the platform runtime (linux_runtime.stop or windows_runtime.stop);
+        # the core always uses stop_process.
+        with patch("ruleproxy.manager.stop_process", side_effect=record), patch("ruleproxy.linux_runtime.stop", side_effect=record), \
+                patch("ruleproxy.windows_runtime.stop", side_effect=record):
             self.manager.stop()
         self.assertEqual(events, [app, core])
         resource.close.assert_called_once()
