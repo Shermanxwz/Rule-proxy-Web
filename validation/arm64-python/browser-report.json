@@ -1,0 +1,39 @@
+{
+  "host": {
+    "DisplayVersion": "25H2",
+    "CurrentBuild": "26200",
+    "UBR": 9457,
+    "InstallationType": "Client",
+    "python": "3.13.16",
+    "python_bits": 64,
+    "python_platform": "win-arm64",
+    "native_architecture": "ARM64",
+    "runner_architecture": "ARM64",
+    "ruleproxy": "0.2.1",
+    "elevated": true
+  },
+  "mocked": false,
+  "requests": [],
+  "launches": [
+    {
+      "round": 1,
+      "exit": 3221225477,
+      "rendered": false,
+      "log_tail": "Failed to find real location of C:\\hostedtoolcache\\windows\\Python\\3.13.16\\arm64\\python.exe\n[1011/051501.213:ERROR:third_party\\crashpad\\crashpad\\util\\win\\registration_protocol_win.cc:136] TransactNamedPipe: The pipe has been ended. (0x6D)\r\n[9580:11220:1011/051501.528:ERROR:chrome\\installer\\util\\helper.cc:44] Failed to get path from PathService for key: 112: An attempt was made to reference a token that does not exist. (0x3F0)\r\n[1011/051502.455:ERROR:third_party\\crashpad\\crashpad\\client\\crashpad_client_win.cc:855] crash server failed to launch, no dump captured\r\n[9580:11220:1011/051503.636:ERROR:chrome\\browser\\component_updater\\edge_optimization_guide_models_manifest_installer.cc:264] Edge LLM: catalog update failed: 5\r\n[9580:11220:1011/051503.701:ERROR:chrome\\browser\\component_updater\\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5\r\n[1011/051505.227:ERROR:third_party\\crashpad\\crashpad\\client\\crashpad_client_win.cc:156] crash server failed to launch\r\n"
+    }
+  ],
+  "probe": {
+    "supported": true,
+    "backend": "base-container",
+    "detail": "系统支持指定代理端口的内核网络限制。应用启动前会检查代理通道和实际阻断。",
+    "limitations": [
+      "当前结果表示系统具备隔离能力；实际阻断还需在启动时检查。",
+      "仅从面板或快捷方式启动的实例受保护；启动检查失败就拒绝启动。",
+      "应用使用独立配置，仅允许连接指定本机代理；不支持的网络流量会失败。",
+      "本机代理没有容器身份绑定；本工具保护正常应用的直连行为，不防御同一用户下的恶意代理替换。"
+    ]
+  },
+  "edge": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "version": "154.0.4258.53",
+  "error": "Traceback (most recent call last):\n  File \"C:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_browser_validation.py\", line 89, in main\n    raise RuntimeError('Browser failed to render through the controlled proxy: '+json.dumps(launches[-1]))\nRuntimeError: Browser failed to render through the controlled proxy: {\"round\": 1, \"exit\": 3221225477, \"rendered\": false, \"log_tail\": \"Failed to find real location of C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.13.16\\\\arm64\\\\python.exe\\n[1011/051501.213:ERROR:third_party\\\\crashpad\\\\crashpad\\\\util\\\\win\\\\registration_protocol_win.cc:136] TransactNamedPipe: The pipe has been ended. (0x6D)\\r\\n[9580:11220:1011/051501.528:ERROR:chrome\\\\installer\\\\util\\\\helper.cc:44] Failed to get path from PathService for key: 112: An attempt was made to reference a token that does not exist. (0x3F0)\\r\\n[1011/051502.455:ERROR:third_party\\\\crashpad\\\\crashpad\\\\client\\\\crashpad_client_win.cc:855] crash server failed to launch, no dump captured\\r\\n[9580:11220:1011/051503.636:ERROR:chrome\\\\browser\\\\component_updater\\\\edge_optimization_guide_models_manifest_installer.cc:264] Edge LLM: catalog update failed: 5\\r\\n[9580:11220:1011/051503.701:ERROR:chrome\\\\browser\\\\component_updater\\\\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5\\r\\n[1011/051505.227:ERROR:third_party\\\\crashpad\\\\crashpad\\\\client\\\\crashpad_client_win.cc:156] crash server failed to launch\\r\\n\"}\n"
+}

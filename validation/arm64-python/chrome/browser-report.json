@@ -1,0 +1,39 @@
+{
+  "host": {
+    "DisplayVersion": "25H2",
+    "CurrentBuild": "26200",
+    "UBR": 9457,
+    "InstallationType": "Client",
+    "python": "3.13.16",
+    "python_bits": 64,
+    "python_platform": "win-arm64",
+    "native_architecture": "ARM64",
+    "runner_architecture": "ARM64",
+    "ruleproxy": "0.2.1",
+    "elevated": true
+  },
+  "mocked": false,
+  "requests": [],
+  "launches": [
+    {
+      "round": 1,
+      "exit": 3221225506,
+      "rendered": false,
+      "log_tail": "Failed to find real location of C:\\hostedtoolcache\\windows\\Python\\3.13.16\\arm64\\python.exe\n"
+    }
+  ],
+  "probe": {
+    "supported": true,
+    "backend": "base-container",
+    "detail": "系统支持指定代理端口的内核网络限制。应用启动前会检查代理通道和实际阻断。",
+    "limitations": [
+      "当前结果表示系统具备隔离能力；实际阻断还需在启动时检查。",
+      "仅从面板或快捷方式启动的实例受保护；启动检查失败就拒绝启动。",
+      "应用使用独立配置，仅允许连接指定本机代理；不支持的网络流量会失败。",
+      "本机代理没有容器身份绑定；本工具保护正常应用的直连行为，不防御同一用户下的恶意代理替换。"
+    ]
+  },
+  "edge": "C:\\RuleProxyChrome\\chrome-win64\\chrome.exe",
+  "version": "155.0.8059.39",
+  "error": "Traceback (most recent call last):\n  File \"C:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_browser_validation.py\", line 89, in main\n    raise RuntimeError('Browser failed to render through the controlled proxy: '+json.dumps(launches[-1]))\nRuntimeError: Browser failed to render through the controlled proxy: {\"round\": 1, \"exit\": 3221225506, \"rendered\": false, \"log_tail\": \"Failed to find real location of C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.13.16\\\\arm64\\\\python.exe\\n\"}\n"
+}

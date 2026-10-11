@@ -1,0 +1,334 @@
+{
+  "real_windows": true,
+  "mocked": false,
+  "host": {
+    "DisplayVersion": "25H2",
+    "CurrentBuild": "26200",
+    "UBR": 9457,
+    "InstallationType": "Client",
+    "python": "3.13.16",
+    "python_bits": 64,
+    "python_platform": "win-amd64",
+    "native_architecture": "ARM64",
+    "runner_architecture": "ARM64",
+    "ruleproxy": "0.2.1",
+    "elevated": true
+  },
+  "public_probe": {
+    "supported": true,
+    "backend": "base-container",
+    "detail": "系统支持指定代理端口的内核网络限制。应用启动前会检查代理通道和实际阻断。",
+    "limitations": [
+      "当前结果表示系统具备隔离能力；实际阻断还需在启动时检查。",
+      "仅从面板或快捷方式启动的实例受保护；启动检查失败就拒绝启动。",
+      "应用使用独立配置，仅允许连接指定本机代理；不支持的网络流量会失败。",
+      "本机代理没有容器身份绑定；本工具保护正常应用的直连行为，不防御同一用户下的恶意代理替换。"
+    ]
+  },
+  "host_control": {
+    "python_bits": 64,
+    "self_ipv4": {
+      "ok": true,
+      "value": "self-ok"
+    },
+    "self_ipv6": {
+      "ok": true,
+      "value": "self-ok"
+    },
+    "child_to_parent": {
+      "ok": true,
+      "value": "child-ok"
+    },
+    "proxy_greeting": {
+      "ok": true,
+      "value": "0500"
+    },
+    "proxy_data_roundtrip": {
+      "ok": true,
+      "value": "target-ok"
+    },
+    "other_host_loopback": {
+      "ok": true,
+      "value": "connected"
+    },
+    "direct_ipv4": {
+      "ok": true,
+      "value": "connected"
+    },
+    "direct_ipv6": {
+      "ok": false,
+      "error": "[WinError 10051] A socket operation was attempted to an unreachable network",
+      "winerror": 10051,
+      "errno": 10051
+    },
+    "empty_udp_send": {
+      "ok": true,
+      "value": "sent"
+    }
+  },
+  "current_launch": {
+    "started": true,
+    "guest_status": {
+      "state": "APP_STARTED"
+    },
+    "detail": "指定代理通道及子进程阻断检查已通过；仅此容器实例受保护。",
+    "inside": {
+      "python_bits": 64,
+      "self_ipv4": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "self_ipv6": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "child_to_parent": {
+        "ok": false,
+        "error": "rt socket,sys; s=socket.create_connection(('127.0.0.1',int(sys.argv[1])),timeout=3); print(s.recv(8).decode()); s.close()\n                         ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\hostedtoolcache\\windows\\Python\\3.13.16\\x64\\Lib\\socket.py\", line 868, in create_connection\n    raise exceptions[0]\n  File \"C:\\hostedtoolcache\\windows\\Python\\3.13.16\\x64\\Lib\\socket.py\", line 853, in create_connection\n    sock.connect(sa)\n    ~~~~~~~~~~~~^^^^\nPermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions\n",
+        "winerror": null,
+        "errno": null
+      },
+      "proxy_greeting": {
+        "ok": true,
+        "value": "0500"
+      },
+      "proxy_data_roundtrip": {
+        "ok": true,
+        "value": "target-ok"
+      },
+      "other_host_loopback": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "direct_ipv4": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "direct_ipv6": {
+        "ok": false,
+        "error": "[WinError 10051] A socket operation was attempted to an unreachable network",
+        "winerror": 10051,
+        "errno": 10051
+      },
+      "empty_udp_send": {
+        "ok": true,
+        "value": "sent"
+      },
+      "ungranted_file_read": {
+        "ok": false,
+        "error": "[Errno 13] Permission denied: 'C:\\\\Users\\\\RUNNER~1\\\\AppData\\\\Local\\\\Temp\\\\ruleproxy-native-5sdi9q37\\\\ungranted.txt'",
+        "winerror": null,
+        "errno": 13
+      }
+    },
+    "guard_fixture_received": false,
+    "application_marker": true
+  },
+  "model3": {
+    "policy": {
+      "egress": {
+        "default": "deny"
+      },
+      "ingress": {
+        "default": "deny",
+        "hostLoopback": "deny"
+      }
+    },
+    "executed": true,
+    "probe_exit": 0,
+    "probe": {
+      "tier": "base-container",
+      "needsDaclAugmentation": false,
+      "warnings": [],
+      "probes": {
+        "baseContainerApiPresent": true,
+        "nativeCaptureAvailable": true,
+        "guardedCaptureAvailable": false,
+        "bfscfgPresent": false,
+        "bfsCompiledIn": false,
+        "baseContainerSupportsDenyPaths": true,
+        "baseContainerSupportsEnumeratePaths": false,
+        "baseContainerSupportsIngressHostLoopbackAllow": false,
+        "baseContainerSupportsIdentitylessLoopbackProxy": true,
+        "isolationSessionAvailable": false,
+        "hyperlightAvailable": false,
+        "uiCapabilities": {
+          "canBlockClipboardRead": true,
+          "canBlockClipboardWrite": true,
+          "canBlockInputInjection": true,
+          "canBlockInputMethodChanges": true,
+          "canBlockExternalUiObjects": true,
+          "canBlockGlobalUiNamespace": true,
+          "canBlockDesktopSwitching": true,
+          "canBlockLogoffOrShutdown": true,
+          "canBlockSystemParameterChanges": true,
+          "canBlockDisplaySettingsChanges": true
+        }
+      }
+    },
+    "exit": 0,
+    "mxc_log_tail": "Failed to find real location of C:\\hostedtoolcache\\windows\\Python\\3.13.16\\x64\\python.exe\n",
+    "inside": {
+      "python_bits": 64,
+      "self_ipv4": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "self_ipv6": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "child_to_parent": {
+        "ok": false,
+        "error": "rt socket,sys; s=socket.create_connection(('127.0.0.1',int(sys.argv[1])),timeout=3); print(s.recv(8).decode()); s.close()\n                         ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\hostedtoolcache\\windows\\Python\\3.13.16\\x64\\Lib\\socket.py\", line 868, in create_connection\n    raise exceptions[0]\n  File \"C:\\hostedtoolcache\\windows\\Python\\3.13.16\\x64\\Lib\\socket.py\", line 853, in create_connection\n    sock.connect(sa)\n    ~~~~~~~~~~~~^^^^\nPermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions\n",
+        "winerror": null,
+        "errno": null
+      },
+      "proxy_greeting": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "proxy_data_roundtrip": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "other_host_loopback": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "direct_ipv4": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "direct_ipv6": {
+        "ok": false,
+        "error": "[WinError 10051] A socket operation was attempted to an unreachable network",
+        "winerror": 10051,
+        "errno": 10051
+      },
+      "empty_udp_send": {
+        "ok": true,
+        "value": "sent"
+      }
+    }
+  },
+  "model2": {
+    "policy": {
+      "egress": {
+        "default": "deny"
+      },
+      "ingress": {
+        "default": "allow",
+        "hostLoopback": "allow"
+      }
+    },
+    "executed": true,
+    "probe_exit": 0,
+    "probe": {
+      "tier": "base-container",
+      "needsDaclAugmentation": false,
+      "warnings": [],
+      "probes": {
+        "baseContainerApiPresent": true,
+        "nativeCaptureAvailable": true,
+        "guardedCaptureAvailable": false,
+        "bfscfgPresent": false,
+        "bfsCompiledIn": false,
+        "baseContainerSupportsDenyPaths": true,
+        "baseContainerSupportsEnumeratePaths": false,
+        "baseContainerSupportsIngressHostLoopbackAllow": false,
+        "baseContainerSupportsIdentitylessLoopbackProxy": true,
+        "isolationSessionAvailable": false,
+        "hyperlightAvailable": false,
+        "uiCapabilities": {
+          "canBlockClipboardRead": true,
+          "canBlockClipboardWrite": true,
+          "canBlockInputInjection": true,
+          "canBlockInputMethodChanges": true,
+          "canBlockExternalUiObjects": true,
+          "canBlockGlobalUiNamespace": true,
+          "canBlockDesktopSwitching": true,
+          "canBlockLogoffOrShutdown": true,
+          "canBlockSystemParameterChanges": true,
+          "canBlockDisplaySettingsChanges": true
+        }
+      }
+    },
+    "exit": 0,
+    "mxc_log_tail": "Failed to find real location of C:\\hostedtoolcache\\windows\\Python\\3.13.16\\x64\\python.exe\n",
+    "inside": {
+      "python_bits": 64,
+      "self_ipv4": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "self_ipv6": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "child_to_parent": {
+        "ok": false,
+        "error": "rt socket,sys; s=socket.create_connection(('127.0.0.1',int(sys.argv[1])),timeout=3); print(s.recv(8).decode()); s.close()\n                         ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\hostedtoolcache\\windows\\Python\\3.13.16\\x64\\Lib\\socket.py\", line 868, in create_connection\n    raise exceptions[0]\n  File \"C:\\hostedtoolcache\\windows\\Python\\3.13.16\\x64\\Lib\\socket.py\", line 853, in create_connection\n    sock.connect(sa)\n    ~~~~~~~~~~~~^^^^\nPermissionError: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions\n",
+        "winerror": null,
+        "errno": null
+      },
+      "proxy_greeting": {
+        "ok": true,
+        "value": "0500"
+      },
+      "proxy_data_roundtrip": {
+        "ok": true,
+        "value": "target-ok"
+      },
+      "other_host_loopback": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "direct_ipv4": {
+        "ok": false,
+        "error": "[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+        "winerror": 10013,
+        "errno": 13
+      },
+      "direct_ipv6": {
+        "ok": false,
+        "error": "[WinError 10051] A socket operation was attempted to an unreachable network",
+        "winerror": 10051,
+        "errno": 10051
+      },
+      "empty_udp_send": {
+        "ok": true,
+        "value": "sent"
+      }
+    }
+  },
+  "fixture_connections": 1,
+  "target_connections": 3,
+  "verdict": "launch-and-proxy-verified"
+}

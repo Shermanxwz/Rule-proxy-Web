@@ -1,3 +1,0 @@
-# cmd.exe can miss GOTO labels in batch files with LF-only line endings.
-*.cmd text eol=crlf
-*.sh text eol=lf

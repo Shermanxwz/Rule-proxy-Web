@@ -1,0 +1,35 @@
+{
+  "host": {
+    "DisplayVersion": "25H2",
+    "CurrentBuild": "26200",
+    "UBR": 9457,
+    "InstallationType": "Client",
+    "python": "3.13.16",
+    "python_bits": 64,
+    "python_platform": "win-arm64",
+    "native_architecture": "ARM64",
+    "runner_architecture": "ARM64",
+    "ruleproxy": "0.2.1",
+    "elevated": true
+  },
+  "cases": [
+    {
+      "name": "edge-gui",
+      "ui": "container",
+      "flags": [],
+      "exit": 3221225477,
+      "rendered": false,
+      "requested": true,
+      "log_tail": "[3864:11036:1011/051520.367:ERROR:chrome\\installer\\util\\helper.cc:44] Failed to get path from PathService for key: 112: An attempt was made to reference a token that does not exist. (0x3F0)\n[3864:7656:1011/051522.104:ERROR:chrome\\common\\importer\\edge_chrome_importer_utils_win.cc:37] Unable to get local app data path.\n[3864:11036:1011/051522.109:ERROR:chrome\\browser\\component_updater\\edge_optimization_guide_models_manifest_installer.cc:264] Edge LLM: catalog update failed: 5\n[3864:11036:1011/051522.195:ERROR:chrome\\browser\\component_updater\\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5\n"
+    },
+    {
+      "name": "chrome-gui",
+      "ui": "container",
+      "flags": [],
+      "exit": 3221225506,
+      "rendered": false,
+      "requested": false,
+      "log_tail": ""
+    }
+  ]
+}
