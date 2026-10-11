@@ -10,41 +10,45 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 ### Windows
 
-要求 Python 3.10+、x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 全拒绝网络隔离能力。Windows 10 和旧版 Windows 11 的严格模式不可用。系统版本符合最低条件也可能缺少所需更新，面板会检查并拒绝不支持的启动。
+要求 x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 全拒绝网络隔离能力。Windows 10 和旧版 Windows 11 的严格模式不可用。系统版本符合最低条件也可能缺少所需更新，面板会检查并拒绝不支持的启动。
 
 官方 MXC 的系统支持表列出 Windows 11 24H2 的 `26100.9278`、25H2 的 `26200.9278` 等更新版本；最终以本机请求级能力检查为准：[系统支持表](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)。
 
-1. 解压整个运行包。
-2. 双击 `Start-Windows.cmd`。无需以管理员身份运行。
-3. 在面板导入自己的 YAML，选择节点，启动核心。
-4. 在“添加已安装应用”中搜索名称，点击“添加”，再点击“启动隔离实例”。程序路径和启动方式自动填写；找不到的应用可展开“手动添加”。
+1. 从 [Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases/latest) 下载 `RuleProxy-Web-<版本>-windows-x64.zip`。运行包自带 Python、PyYAML、Mihomo 和 MXC，不需要另外安装。
+2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”。不解除的话，启动面板和点快捷方式时可能每次都弹出安全提示。
+3. 解压到固定位置，双击 `RuleProxy-Web\Start-Windows.cmd`。无需以管理员身份运行。
+4. 在面板导入自己的 YAML，选择节点，启动核心。
+5. 在“添加已安装应用”中搜索名称，点击“添加”，再点击“启动隔离实例”。程序路径和启动方式自动填写；找不到的应用可展开“手动添加”。
 
-从 GitHub 下载源码时，先双击 `Setup-Windows.cmd`，下载经过固定校验值验证的本地运行组件和 Python 依赖，再双击启动文件。所有文件只安装在项目目录下。
+升级时先关闭面板，再把新版本解压到同一位置覆盖。设置和登录状态保存在 `%LOCALAPPDATA%\RuleProxyWebSafe`，快捷方式指向的位置不变，都会保留。
+
+从源码运行需要 Python 3.10+：双击 `Start-Windows.cmd`，第一次会自动运行 `Setup-Windows.cmd`，把 PyYAML 和经过固定校验值验证的运行组件下载到项目目录，不安装到系统。
 
 ### Linux
 
-要求 Python 3.10+、Ubuntu 软件包提供的 bubblewrap，以及可用的用户和网络命名空间。第一次使用前，在项目目录执行一次：
+要求 x86-64、Python 3.10+、bubblewrap，以及可用的用户和网络命名空间。在 Ubuntu 22.04 / 24.04 上（CI 中实测）：
 
 ```sh
-sudo sh scripts/setup-linux-apparmor.sh
-```
-
-该脚本把 Ubuntu 的 bubblewrap 复制到两个项目专用的 root 所有路径，并加载 Ubuntu `bwrap-userns-restrict` 策略的本地配置。普通应用进入拒绝 capabilities 的子策略。已识别的 Chromium 系程序使用单独子策略，允许其嵌套 user namespace 沙箱所需的 `CAP_SYS_ADMIN` 和 `CAP_SYS_CHROOT`；外层网络命名空间已先行建立并丢弃 capabilities，应用网络仍只看得到 loopback。原版 `/usr/bin/bwrap` 和全机 user namespace 开关不变。更新 Ubuntu bubblewrap 软件包后请重新运行脚本。要撤销此专用配置，执行 `sudo sh scripts/remove-linux-apparmor.sh`。
-
-运行包已带核心；源码首次准备使用下面的步骤：
-
-```sh
-# 在项目目录下；这些步骤不更改网卡配置。
-python3 -m pip install --target vendor -r requirements.txt
-python3 install_runtime.py --platform linux-amd64
+sudo apt install -y git
+git clone https://github.com/Shermanxwz/Rule-proxy-Web.git
+cd Rule-proxy-Web
 sh start-linux.sh
 ```
 
-发行版未安装 bubblewrap 时，通过发行版的软件管理器安装它，再运行上面的准备脚本。随后以登录桌面的普通用户重新打开面板。不要用 sudo 启动面板或浏览器。若状态仍显示隔离不可用，请关闭并重新打开面板，让它重新检查 AppArmor 策略。
+请用登录桌面的普通用户运行。面板拒绝以 root 运行：root 下 Chrome 系程序必须关闭浏览器沙箱才能启动，本工具不会这样做。第一次运行时，`start-linux.sh` 会自动执行 `setup-linux.sh`，只在需要时请求 sudo 密码：
+
+- 用 apt 安装缺少的 bubblewrap 和 PyYAML；当前 `python3` 不归 apt 管理时（pyenv、conda 等），改用 pip 把 PyYAML 装进项目的 `vendor` 目录。
+- 系统限制 user namespace 时（Ubuntu 23.10 及以后），加载 RuleProxy 专用的 AppArmor 策略，见下文。
+- 把固定版本的 Mihomo 下载到项目的 `bin` 目录。
+- 检查网络隔离是否可用；不可用时说明原因并停止。
+
+准备过程不更改网卡、DNS、系统代理或路由。之后 `sh start-linux.sh` 直接打开面板。更新时运行 `git pull`，下次启动会自动补齐新版本需要的组件。`sh setup-linux.sh` 也可以单独运行，只补齐缺少的部分；Ubuntu 升级 bubblewrap 软件包后请运行一次，刷新专用副本。没有 apt 的发行版请先用系统的软件管理器安装 bubblewrap 和 PyYAML。
+
+Ubuntu 的 AppArmor 会限制未授权程序使用 user namespace。准备过程调用的 `scripts/setup-linux-apparmor.sh` 把 Ubuntu 的 bubblewrap 复制到两个项目专用的 root 所有路径，并加载 Ubuntu `bwrap-userns-restrict` 策略的本地配置。普通应用进入拒绝 capabilities 的子策略。已识别的 Chromium 系程序使用单独子策略，允许其嵌套 user namespace 沙箱所需的 `CAP_SYS_ADMIN` 和 `CAP_SYS_CHROOT`；外层网络命名空间已先行建立并丢弃 capabilities，应用网络仍只看得到 loopback。原版 `/usr/bin/bwrap` 和全机 user namespace 限制保持不变，也不会用 `--no-sandbox` 绕过浏览器沙箱。要撤销此专用配置，执行 `sudo sh scripts/remove-linux-apparmor.sh`。[Ubuntu 权限限制说明](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)
+
+### 面板
 
 应用列表会自动读取本机已安装的应用，支持搜索和一键添加。“重新扫描”会立即重新读取清单。添加只保存启动清单；只有从面板或快捷方式启动并显示“隔离中运行”的实例才受保护，现有窗口不会自动接管。
-
-Ubuntu 的 AppArmor 会限制未授权程序使用 user namespace。上面的准备脚本只给 RuleProxy 专用 bwrap 副本加载隔离策略；全机 user namespace 限制保持开启，也不会用 `--no-sandbox` 绕过浏览器沙箱。[Ubuntu 权限限制说明](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)
 
 面板默认地址：`http://127.0.0.1:8879`。在面板点击停止，会先关闭本工具启动的应用，再停止本工具的核心。退出面板使用 Ctrl+C；Windows 直接关闭终端的清理行为尚未实测。面板关闭时，它启动的所有应用（包括通过快捷方式交给它的）同样会停止。面板已经在运行时再次启动面板，会直接在浏览器中打开正在运行的那个。
 
@@ -58,7 +62,7 @@ Ubuntu 的 AppArmor 会限制未授权程序使用 user namespace。上面的准
 
 - Linux：在应用菜单生成 `ruleproxy-<id>.desktop`（目录为 `$XDG_DATA_HOME/applications`，默认 `~/.local/share/applications`），沿用原应用的图标；若存在 `~/Desktop`，同时放一份到桌面。
 - Windows：在桌面和“开始菜单 → RuleProxy Web”生成 `.lnk`，图标取自应用程序。
-- 快捷方式运行 `Run-RuleProxy.py --launch-app <id>`，并写入创建时的面板端口、代理端口、控制器端口和状态目录。更改这些设置或移动项目目录后，请在面板中重新创建快捷方式。
+- 快捷方式用启动面板的同一个 Python（Windows 运行包里是包内的 `python\pythonw.exe`）运行 `Run-RuleProxy.py --launch-app <id>`，并写入创建时的面板端口、代理端口、控制器端口和状态目录。更改这些设置或移动项目目录后，请在面板中重新创建快捷方式；在原位置覆盖升级则不需要。
 - 面板正在运行：快捷方式请求面板启动核心（若未启动）和应用，随后退出；隔离实例由面板持有。
 - 面板未运行：快捷方式在后台充当面板（不打开浏览器，地址不变，随时可以打开查看），启动核心和应用。之后点的快捷方式都交给它，同时点多个也只会有一个核心。所有应用都关闭、面板页面也关闭后，它会在约 10 秒后停止核心并退出。
 - 启动失败时会通过系统通知或对话框说明原因。
@@ -122,7 +126,11 @@ Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `
 python3 -B -m unittest discover -s tests -v
 ```
 
-每次推送都会在 GitHub Actions 上运行这些测试。Linux（Python 3.10 与 3.13）先安装 bubblewrap，并用项目脚本加载 AppArmor 策略，沙盒测试必须真实执行、不允许跳过。Windows（Python 3.13）运行全部测试，并真实创建、回读快捷方式，包括中文名称和中文路径。
+每次推送都会在 GitHub Actions 上检查：
+
+- Linux：在 Ubuntu 22.04、24.04 的系统 Python，以及 Python 3.10、3.14 上，按用户的方式运行 `setup-linux.sh`（安装软件包、加载 AppArmor 策略、下载 Mihomo、检查隔离），再运行全部测试，沙盒测试必须真实执行、不允许跳过；最后用 `start-linux.sh` 启动面板，导入参考 YAML，启动并停止核心，再用 Ctrl+C 退出。
+- Windows（Python 3.13）：运行全部测试，并真实创建、回读快捷方式，包括中文名称和中文路径。
+- Windows 运行包：用固定校验的下载构建，解压到含中文和空格的路径，用包内 Python 运行全部测试，再用 `Start-Windows.cmd` 启动面板，导入参考 YAML，启动并停止包内核心。
 
 已在 Linux 实际检查代理通道、直连 IPv4/IPv6、DNS/UDP、子进程继承隔离，以及主机接口/路由未变；并用固定 Mihomo 校验参考 YAML。Web 导入、启动核心、应用管理、停止流程经过本机检查。
 
@@ -132,9 +140,9 @@ python3 -B -m unittest discover -s tests -v
 - 面板未运行时同时点两个快捷方式，只启动一个核心；应用关闭后快捷方式托管的面板自动退出并释放端口。
 - 面板运行时，快捷方式交给面板启动。
 
-Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中实测；从快捷方式实际启动隔离应用依赖 MXC，仍需在 Windows 11 24H2 设备上验证。
+Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中实测；从快捷方式实际启动隔离应用依赖 MXC，仍需在 Windows 11 24H2 设备上验证。运行包测试中，包内 MXC 的能力检查在 GitHub 的 Windows 环境里真实运行：该环境只提供 `appcontainer-dacl`，面板据此拒绝严格隔离，没有回退。
 
-最新 Windows 文件中继与启动门控、规则目标重写只完成静态审查，未运行更新后的测试套件。**尚未在目标 Windows 设备实测应用兼容性、实际网络阻断及异常退出清理，因此不能称为已实测零泄漏**。启动流程内置必要的运行时检查，但仍不能替代目标设备上的独立抓包与故障检查。首次使用请先选择一个浏览器，确认正常停止及其他普通应用的联网。
+Windows 文件中继、启动门控和规则目标重写由单元测试覆盖，每次推送都在 Windows 上运行。**尚未在目标 Windows 设备实测应用兼容性、实际网络阻断及异常退出清理，因此不能称为已实测零泄漏**。启动流程内置必要的运行时检查，但仍不能替代目标设备上的独立抓包与故障检查。首次使用请先选择一个浏览器，确认正常停止及其他普通应用的联网。
 
 本机数据独立于旧版目录：Windows `%LOCALAPPDATA%\RuleProxyWebSafe`；Linux `$XDG_DATA_HOME/ruleproxy-web-safe`（默认 `~/.local/share/ruleproxy-web-safe`）。核心日志为该目录的 `core.log`，Linux 应用错误为对应 `profiles/<id>/runtime.log`。删除项目程序不会留下全机断网规则；删除数据前先正常关闭面板。
 
@@ -142,6 +150,11 @@ Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中�
 
 - Mihomo `v1.19.32`：按官方 GitHub 资源 SHA-256 验证下载。
 - Microsoft MXC `1.0.0`：按 npm 官方包公开 SHA-512 integrity 验证下载。
+- Windows 运行包另带 Python `3.14.8` 嵌入式版（按 python.org 公布的 SHA-256 验证）和 PyYAML `6.0.3`（按 PyPI 公布的 SHA-256 验证）。
 - `install_runtime.py` 只下载和写入项目的 `bin/`，不会执行下载的 Windows 文件或修改系统网络。
 
 组件许可和对应源码参见 `THIRD-PARTY.md`。
+
+## 发布
+
+`main` 上的提交通过全部检查后，CI 把 `ruleproxy/__init__.py` 里的版本发布为 `v<版本>`，附带 Windows 运行包和 `SHA256SUMS.txt`。每个版本只发布一次；要发布新版本，先提高版本号。
