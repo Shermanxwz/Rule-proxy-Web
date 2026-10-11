@@ -1,0 +1,50 @@
+name: Windows native validation
+
+on:
+  push:
+    branches:
+      - codex/windows-native-validation-*
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: ${{ matrix.runner }} / Python ${{ matrix.architecture }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            architecture: x64
+          - runner: windows-11-arm
+            architecture: x64
+          - runner: windows-11-arm
+            architecture: arm64
+          - runner: windows-11-vs2026-arm
+            architecture: x64
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          architecture: ${{ matrix.architecture }}
+      - name: Prepare pinned Windows runtimes
+        run: python -B install_runtime.py --platform windows-amd64 --if-needed
+      - name: Real MXC, real Mihomo, current application launch, and proxy-mode candidate
+        run: python -B .github/windows_native_validation.py --output native-results
+      - name: Preserve evidence, including application failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.runner }}-${{ matrix.architecture }}
+          path: native-results/
+          if-no-files-found: error
+          retention-days: 14
