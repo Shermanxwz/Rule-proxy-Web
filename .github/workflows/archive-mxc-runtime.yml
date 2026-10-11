@@ -1,0 +1,93 @@
+name: Archive qualified MXC proxy dependency
+
+on:
+  push:
+    branches: [codex/windows-proxy-repair-20261011]
+    paths: [.github/workflows/archive-mxc-runtime.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: repair-windows-11-arm-*
+          run-id: 38138494180
+          github-token: ${{ github.token }}
+          path: qualification
+      - name: Require actual client application, denial, and teardown results
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for architecture in ('x64', 'arm64'):
+              folder = Path('qualification') / ('repair-windows-11-arm-' + architecture)
+              report = json.loads((folder / 'report.json').read_text())
+              assert report['real_windows'] is True and report['mocked'] is False
+              assert report['host']['InstallationType'] == 'Client'
+              assert report['host']['native_architecture'] == 'ARM64'
+              assert report['verdict'] == 'launch-and-proxy-verified'
+              assert report['current_launch']['guard_fixture_received'] is False
+              fault = json.loads((folder / 'fault-report.json').read_text())
+              assert fault['verdict'] == 'negative-startup-and-lifecycle-pass'
+              assert fault['bad_proxy']['refused'] is True
+              assert fault['bad_proxy']['app_started'] is False
+              assert {item['mode'] for item in fault['lifecycle']} == {'normal-stop', 'wrapper-crash', 'core-crash'}
+              assert all(item['all_descendants_exited'] and item['unrelated_host_process_alive'] for item in fault['lifecycle'])
+          standard = json.loads((Path('qualification/repair-windows-11-arm-arm64/standard-user/report.json')).read_text())
+          assert standard['host']['elevated'] is False
+          assert standard['verdict'] == 'launch-and-proxy-verified'
+          print('The immutable runtime passed application transport and failure containment. Browser compatibility remains a separate application-release gate.')
+          PY
+      - name: Archive the exact tested bytes as a dependency prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir dependency
+          gh api "repos/$GH_REPO/actions/artifacts/11700067687/zip" > dependency/mxc-proxy-c6f301d-windows-x64.zip
+          python3 - <<'PY'
+          import hashlib, zipfile
+          from pathlib import Path
+          path = Path('dependency/mxc-proxy-c6f301d-windows-x64.zip')
+          assert hashlib.sha256(path.read_bytes()).hexdigest() == '84bcb10b1f7ffd62f8fc8356e94e4c0a42684ce68515b68dfdcce4bb6c0757ef'
+          with zipfile.ZipFile(path) as archive:
+              for name, digest in {
+                  'wxc-exec.exe': 'e7527dfda680608442ecbd06222bf6bccd88e9205d80436d547afb2ca074fab7',
+                  'winhttp-proxy-shim.exe': 'a90c902de8a37782947a9034eca8b4f7b03f154a0381fb57a8f3dc70037340c1',
+              }.items():
+                  assert hashlib.sha256(archive.read(name)).hexdigest() == digest
+              assert b'c6f301d53a1430c4c921a05c57af838f7392348f' in archive.read('SOURCE.txt')
+              assert archive.read('MXC-LICENSE.md')
+          Path('dependency/notes.md').write_text('''This is an immutable proxy-runtime dependency candidate, not a RuleProxy application release or a Microsoft official SDK release.
+
+          Source: microsoft/mxc@c6f301d53a1430c4c921a05c57af838f7392348f; Rust 1.93, upstream Cargo.lock and hardening flags, static CRT, x86_64-pc-windows-msvc, no optional backends.
+
+          Archive SHA-256: 84bcb10b1f7ffd62f8fc8356e94e4c0a42684ce68515b68dfdcce4bb6c0757ef
+
+          Built in https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38134137607 and exercised unchanged in https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38138494180.
+
+          Actual Windows 11 ARM64 and x64-emulated Python application proxy traffic, direct-egress rejection, nonproxy loopback TCP/UDP checks, standard-user transport, invalid proxy rejection, and normal/core/wrapper failure teardown passed. Native x64 Windows 11 and external IPv6 are not qualified. Browser rendering and persistent login have NOT passed; this dependency archive does not qualify those features or approve a production application release.
+
+          The identity-less proxy mapping does not provide full host-loopback identity closure or defend against same-user malicious proxy replacement. The exact qualified executable and archive bytes are retained; rebuilding is supported but bit-for-bit reproducibility is not claimed.
+          ''', encoding='utf-8')
+          PY
+          tag=mxc-proxy-c6f301d-r1
+          if gh release view "$tag" >/dev/null 2>&1; then
+            mkdir existing
+            gh release download "$tag" --pattern mxc-proxy-c6f301d-windows-x64.zip --dir existing
+            cmp dependency/mxc-proxy-c6f301d-windows-x64.zip existing/mxc-proxy-c6f301d-windows-x64.zip
+            echo 'The exact dependency archive already exists; nothing was overwritten.'
+          else
+            gh release create "$tag" dependency/mxc-proxy-c6f301d-windows-x64.zip \
+              --target 4c30535216ed89fc71ba83137ea121d57e3a4b7a \
+              --prerelease --latest=false --title 'MXC pinned proxy-runtime candidate c6f301d-r1' --notes-file dependency/notes.md
+          fi
