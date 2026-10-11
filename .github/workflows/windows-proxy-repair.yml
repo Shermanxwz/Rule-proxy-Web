@@ -62,8 +62,11 @@ jobs:
         run: python -B .github/windows_fault_validation.py --output native-results
       - name: Real Edge rendering and cookie persistence
         run: python -B .github/windows_browser_validation.py --output native-results
+      - name: Diagnose browser compatibility without changing the network policy
+        if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
+        run: python -B .github/windows_browser_experiments.py
       - name: Standard user application and browser acceptance
-        if: matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
+        if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
         run: .github/run_windows_standard_user.ps1 -OutputDirectory native-results/standard-user
       - uses: actions/upload-artifact@v7
         if: always()
