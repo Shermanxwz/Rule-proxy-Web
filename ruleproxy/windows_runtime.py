@@ -486,7 +486,7 @@ def probe(
     """Probe Model 3 BaseContainer availability; this does not run socket checks."""
     limitations = [
         "当前结果表示系统具备隔离能力；实际阻断还需在启动时检查。",
-        "仅面板启动的实例受保护；启动检查失败就拒绝启动。",
+        "仅从面板或快捷方式启动的实例受保护；启动检查失败就拒绝启动。",
         "应用使用独立配置，代理通道吞吐可能低于普通代理。",
     ]
     try:

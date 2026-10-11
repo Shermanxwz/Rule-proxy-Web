@@ -16,6 +16,7 @@
     protectionCard: $('protection-card'), protectionBadge: $('protection-badge'), protectionDetail: $('protection-detail'),
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
     runtimeSettings: $('windows-runtime-settings'), runtimePath: $('runtime-path'), saveRuntime: $('save-runtime-button'),
+    hostedNote: $('hosted-note'), filesNote: $('files-note'), configNotes: $('config-notes'), configWarnings: $('config-warnings'),
   };
   let state = null;
   let busy = false;
@@ -59,6 +60,7 @@
     if (ui.runtimePath) ui.runtimePath.disabled = busy || !ready || running;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app').forEach((control) => { control.disabled = busy; });
     ui.availableApps.querySelectorAll('.discovery-add').forEach((control) => { control.disabled = busy || control.dataset.added === 'true'; });
+    ui.apps.querySelectorAll('.app-shortcut').forEach((control) => { control.disabled = busy; });
     ui.apps.querySelectorAll('.app-action').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
       const canLaunch = app && app.enabled && running && protectedBackend;
@@ -112,6 +114,7 @@
       const statusClass = app.cleanup_pending ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       appInfo.append(textElement('span', 'app-path', app.path || '未设置路径'));
+      appInfo.append(appTools(app));
       const adapter = friendlyAdapter(app.adapter);
       const appMeta = textElement('div', 'app-meta');
       appMeta.append(textElement('span', 'app-adapter', adapter));
@@ -138,6 +141,22 @@
     }
   }
 
+  function appTools(app) {
+    const tools = textElement('div', 'app-tools');
+    const shortcut = textElement('button', 'button button-secondary app-shortcut', '创建快捷方式');
+    shortcut.type = 'button';
+    shortcut.title = '生成系统启动入口，不打开面板也能启动这个隔离实例';
+    shortcut.addEventListener('click', () => createShortcut(app));
+    tools.append(shortcut);
+    return tools;
+  }
+
+  function createShortcut(app) {
+    mutate(`/api/apps/${encodeURIComponent(app.id)}/shortcut`, { body: {} }, {
+      notice: (result) => `快捷方式已创建：${((result && result.created) || []).join('；')}。`,
+    });
+  }
+
   function friendlyAdapter(adapter) {
     const names = { chrome: '浏览器 / Electron · 独立配置', chromium: '浏览器 / Electron · 独立配置', edge: '浏览器 / Electron · 独立配置', brave: '浏览器 / Electron · 独立配置', firefox: 'Firefox · 独立配置', env: '代理环境变量启动', environment: '代理环境变量启动' };
     return names[adapter] || (adapter ? String(adapter) : '应用启动');
@@ -161,7 +180,8 @@
   function renderAvailableApps() {
     const available = state && Array.isArray(state.available_apps) ? state.available_apps : [];
     const saved = state && Array.isArray(state.apps) ? state.apps : [];
-    const signature = JSON.stringify({ available, saved: saved.map((app) => [app.path, app.enabled, app.active]) });
+    const scanning = !!(state && state.apps_scanning);
+    const signature = JSON.stringify({ available, scanning, saved: saved.map((app) => [app.path, app.enabled, app.active]) });
     if (signature === lastAvailableSignature && ui.availableApps.dataset.query === ui.appSearch.value) return;
     lastAvailableSignature = signature;
     const query = ui.appSearch.value.trim().toLocaleLowerCase();
@@ -172,9 +192,9 @@
     const visible = matches.slice(0, limit);
     ui.availableAppsCount.textContent = available.length
       ? (query ? `找到 ${matches.length} 项` : `发现 ${available.length} 项`)
-      : '未发现可添加的应用';
+      : (scanning ? '正在读取应用清单…' : '未发现可添加的应用');
     if (!visible.length) {
-      const empty = textElement('div', 'discovery-empty', query ? '没有找到匹配的应用。' : '系统暂未发现可添加的应用。');
+      const empty = textElement('div', 'discovery-empty', query ? '没有找到匹配的应用。' : (scanning ? '正在读取应用清单…' : '系统暂未发现可添加的应用。'));
       ui.availableApps.append(empty);
       return;
     }
@@ -245,6 +265,14 @@
     ui.ports.textContent = portParts.length ? portParts.join(' · ') : '端口：—';
     ui.version.textContent = state.version ? `版本：${state.version}` : '版本：—';
     ui.footerVersion.textContent = state.version ? `· ${state.version}` : '';
+    const warnings = Array.isArray(state.warnings) ? state.warnings : [];
+    ui.configWarnings.replaceChildren(...warnings.map((warning) => textElement('li', '', warning)));
+    ui.configNotes.hidden = warnings.length === 0;
+    ui.hostedNote.hidden = !state.hosted;
+    ui.filesNote.hidden = !state.files_dir;
+    ui.filesNote.textContent = state.files_dir
+      ? `隔离应用可以读写下载文件夹 ${state.files_dir}：下载的文件保存在这里，要上传的文件也请先放到这里。家目录里的其他文件对隔离应用不可见。`
+      : '';
     const protection = state.protection || {};
     ui.protectionCard.className = `protection-card ${protection.supported ? 'is-supported' : 'is-unsupported'}`;
     ui.protectionBadge.textContent = protection.supported ? '隔离能力可用' : '不支持，启动受阻';
@@ -269,12 +297,24 @@
     renderControls();
   }
 
+  // While the app list is being scanned in the background, check back soon instead of
+  // waiting for the next regular refresh.
+  let scanTimer = 0;
+  function followScan(scanning) {
+    if (!scanning || scanTimer) return;
+    scanTimer = window.setTimeout(() => {
+      scanTimer = 0;
+      readState({ quiet: true });
+    }, 1500);
+  }
+
   async function readState({ quiet = false, refreshApps = false } = {}) {
     try {
       const response = await fetch(refreshApps ? '/api/state?refresh_apps=1' : '/api/state', { cache: 'no-store' });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || '无法读取本机服务状态。');
       render(result);
+      followScan(result.apps_scanning);
       if (result.error) showError(result.error, 'state');
       else if (!quiet || ui.error.dataset.source === 'state') showError('');
     } catch (error) {
@@ -316,6 +356,11 @@
       } else if (options.launchAll) {
         showLaunchResults(result.results || []);
         await readState({ quiet: true });
+      } else if (options.notice) {
+        showError('');
+        if (result && result.token) render(result);
+        else await readState({ quiet: true });
+        setNotice(typeof options.notice === 'function' ? options.notice(result) : options.notice);
       } else {
         if (result && result.token) render(result);
         else await readState({ quiet: true });
@@ -454,7 +499,13 @@
   });
 
   readState();
+  // Refresh every 5 seconds while visible. A background tab still checks in about
+  // twice a minute, which also keeps a panel started by a shortcut from exiting.
+  let hiddenTicks = 0;
   window.setInterval(() => {
-    if (!document.hidden && !busy && !refreshingApps) readState({ quiet: true });
+    if (busy || refreshingApps) return;
+    if (document.hidden && ++hiddenTicks < 6) return;
+    hiddenTicks = 0;
+    readState({ quiet: true });
   }, 5000);
 })();

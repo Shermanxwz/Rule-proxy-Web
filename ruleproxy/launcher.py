@@ -118,6 +118,22 @@ def _app(label: str, path: str | Path, adapter: str, *, args: list[str] | None =
     }
 
 
+def _is_file(path: Path) -> bool:
+    """Path.is_file() that treats an unreadable location as absent instead of raising."""
+    try:
+        return path.is_file()
+    except OSError:
+        return False
+
+
+def _is_dir(path: Path) -> bool:
+    """Path.is_dir() that treats an unreadable location as absent instead of raising."""
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
+
+
 def _resolve_program(program: str) -> Path | None:
     if not program or "\0" in program:
         return None
@@ -132,7 +148,7 @@ def _resolve_program(program: str) -> Path | None:
         if not found:
             return None
         candidate = Path(found).resolve()
-    if not candidate.is_file() or not os.access(candidate, os.X_OK):
+    if not _is_file(candidate) or not os.access(candidate, os.X_OK):
         return None
     if sys.platform.startswith("linux"):
         try:
@@ -172,7 +188,7 @@ def _infer_adapter(label: str, path: Path) -> str:
     # Electron bundles expose app.asar next to their executable. This is a
     # filesystem-only hint; discovery never starts a candidate to inspect it.
     parent = path.parent
-    if any((base / marker).is_file() for base in (parent / "resources", parent.parent / "resources") for marker in ("app.asar", "app/main.js")):
+    if any(_is_file(base / marker) for base in (parent / "resources", parent.parent / "resources") for marker in ("app.asar", "app/main.js")):
         return "chromium"
     return "environment"
 
@@ -237,7 +253,8 @@ def _desktop_exec_args(value: str) -> tuple[list[str], list[str]] | None:
     return tokens, result
 
 
-def _desktop_entry(path: Path) -> tuple[str, str, str, list[str], str] | None:
+def _desktop_fields(path: Path) -> dict[str, str] | None:
+    """The [Desktop Entry] keys of a .desktop file (first value wins), or None if unreadable."""
     fields: dict[str, str] = {}
     in_entry = False
     try:
@@ -252,6 +269,13 @@ def _desktop_entry(path: Path) -> tuple[str, str, str, list[str], str] | None:
             if key not in fields:
                 fields[key] = value
     except OSError:
+        return None
+    return fields
+
+
+def _desktop_entry(path: Path) -> tuple[str, str, str, list[str], str] | None:
+    fields = _desktop_fields(path)
+    if fields is None:
         return None
     if fields.get("Type", "Application") != "Application" or fields.get("Hidden", "false").lower() == "true" or fields.get("NoDisplay", "false").lower() == "true":
         return None
@@ -292,7 +316,7 @@ def _linux_applications_dirs() -> list[Path]:
         except OSError:
             resolved = directory
         key = os.path.normcase(str(resolved))
-        if key not in seen and directory.is_dir():
+        if key not in seen and _is_dir(directory):
             seen.add(key)
             result.append(directory)
     return result
@@ -370,11 +394,47 @@ def _linux_discover() -> list[dict[str, Any]]:
             if "chatgpt" in f"{label} {path}".lower():
                 # Never list a ChatGPT desktop entry pointing to a wrapper;
                 # only the package's actual GUI binary is eligible.
-                preferred_chatgpt = chatgpt.resolve() if chatgpt.exists() else None
+                preferred_chatgpt = chatgpt.resolve() if _is_file(chatgpt) else None
                 if preferred_chatgpt is None or path.resolve() != preferred_chatgpt:
                     continue
             add(label, path, adapter, args=args, categories=categories)
     return found
+
+
+def linux_desktop_icon(app_path: str, label: str) -> str | None:
+    """The icon of the installed desktop entry for an app, so its shortcut looks like the app.
+
+    An entry whose program is the app's own binary wins; otherwise an entry with the
+    same name (a packaged app's entry often runs a wrapper script). RuleProxy's own
+    launchers are skipped. Returns a theme icon name or an existing absolute path.
+    """
+    try:
+        target = Path(app_path).resolve()
+    except (OSError, RuntimeError):
+        return None
+    wanted = label.strip().casefold()
+    by_name = None
+    for directory in _linux_applications_dirs():
+        try:
+            entries = sorted(directory.glob("*.desktop"), key=lambda item: item.name.casefold())
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.name.startswith("ruleproxy-"):
+                continue
+            fields = _desktop_fields(entry)
+            if not fields or fields.get("Type", "Application") != "Application":
+                continue
+            icon = fields.get("Icon", "").strip()
+            if not icon or any(char in icon for char in "\r\n\0") or (icon.startswith("/") and not _is_file(Path(icon))):
+                continue
+            parsed = _desktop_exec_args(fields.get("Exec", "").strip())
+            program = _resolve_program(parsed[0][0]) if parsed else None
+            if program is not None and program == target:
+                return icon
+            if by_name is None and wanted and fields.get("Name", "").strip().casefold() == wanted:
+                by_name = icon
+    return by_name
 
 
 def _win_registry_apps() -> list[tuple[str, Path]]:
@@ -418,7 +478,7 @@ def _win_registry_apps() -> list[tuple[str, Path]]:
                     if '"' in raw_path or "\0" in raw_path:
                         continue
                     path = Path(raw_path)
-                    if path.is_file() and path.suffix.lower() == ".exe" and not _is_excluded_program(path, path.stem):
+                    if _is_file(path) and path.suffix.lower() == ".exe" and not _is_excluded_program(path, path.stem):
                         found.append((path.stem, path))
             finally:
                 winreg.CloseKey(root)
@@ -437,7 +497,7 @@ def _windows_discover() -> list[dict[str, Any]]:
             path = path.resolve(strict=True)
         except (OSError, RuntimeError):
             return
-        if not path.is_file() or path.suffix.lower() != ".exe" or _is_excluded_program(path, label):
+        if not _is_file(path) or path.suffix.lower() != ".exe" or _is_excluded_program(path, label):
             return
         key = os.path.normcase(str(path))
         if key in seen:
@@ -471,26 +531,26 @@ def _windows_discover() -> list[dict[str, Any]]:
 
     scan_roots = [roots[0], roots[1], roots[2] / "Programs"]
     for root in scan_roots:
-        if not root.is_dir():
+        if not _is_dir(root):
             continue
         try:
             children = list(root.iterdir())
         except OSError:
             continue
         for child in children:
-            if not child.is_dir() or child.name.lower() in {"windowsapps", "uninstall", "updates", "update"}:
+            if not _is_dir(child) or child.name.lower() in {"windowsapps", "uninstall", "updates", "update"}:
                 continue
             try:
                 entries = list(child.iterdir())
             except OSError:
                 continue
             for entry in entries:
-                if entry.is_file() and entry.suffix.lower() == ".exe":
+                if _is_file(entry) and entry.suffix.lower() == ".exe":
                     add(child.name, entry)
-                elif entry.is_dir() and entry.name.lower() not in {"uninstall", "updates", "update", "crashpad"}:
+                elif _is_dir(entry) and entry.name.lower() not in {"uninstall", "updates", "update", "crashpad"}:
                     try:
                         for nested in entry.iterdir():
-                            if nested.is_file() and nested.suffix.lower() == ".exe":
+                            if _is_file(nested) and nested.suffix.lower() == ".exe":
                                 add(child.name, nested)
                     except OSError:
                         pass
@@ -545,45 +605,45 @@ def _validate_args(value: Any) -> list[str]:
     if value is None:
         return []
     if not isinstance(value, list) or len(value) > _MAX_ARGS:
-        raise ValueError("args must be a list of at most 64 strings")
+        raise ValueError("启动参数最多 64 个。")
     args: list[str] = []
     total = 0
     for arg in value:
         if not isinstance(arg, str) or "\0" in arg:
-            raise ValueError("each argument must be a string without NUL characters")
+            raise ValueError("启动参数必须是不含空字符的文本。")
         if len(arg) > _MAX_ARG_LENGTH:
-            raise ValueError("an argument exceeds the 4096 character limit")
+            raise ValueError("单个启动参数不能超过 4096 个字符。")
         total += len(arg)
         args.append(arg)
     if total > _MAX_ARGS_TOTAL:
-        raise ValueError("combined arguments exceed the 16384 character limit")
+        raise ValueError("启动参数合计不能超过 16384 个字符。")
     return args
 
 
 def validate_app(data: dict) -> dict[str, Any]:
     """Validate and normalize an executable selection supplied by the user."""
     if not isinstance(data, dict):
-        raise ValueError("application selection must be an object")
+        raise ValueError("应用信息格式无效。")
     label = data.get("label")
     raw_path = data.get("path")
     adapter = data.get("adapter")
     if not isinstance(label, str) or not label.strip() or len(label) > 200:
-        raise ValueError("label must be a non-empty string of at most 200 characters")
+        raise ValueError("应用名称不能为空，且不超过 200 个字符。")
     if not isinstance(raw_path, str) or not raw_path.strip() or "\0" in raw_path:
-        raise ValueError("path must be a non-empty executable file path")
+        raise ValueError("请填写程序路径。")
     if not isinstance(adapter, str) or adapter not in ADAPTERS:
-        raise ValueError("adapter must be chromium, firefox, or environment")
+        raise ValueError("启动方式无效。")
     path = Path(raw_path).expanduser()
     try:
         path = path.resolve(strict=True)
     except (OSError, RuntimeError) as exc:
-        raise ValueError("executable path does not exist") from exc
+        raise ValueError("找不到这个程序。") from exc
     if not path.is_file():
-        raise ValueError("executable path must refer to a file")
+        raise ValueError("程序路径必须指向一个文件。")
     if os.name != "nt" and not os.access(path, os.X_OK):
-        raise ValueError("executable file is not runnable")
+        raise ValueError("这个文件没有执行权限。")
     if path.name.lower() in _SHELL_EXECUTABLES:
-        raise ValueError("shell executables cannot be selected as apps")
+        raise ValueError("不能把命令行解释器（shell）添加为应用。")
     args = _validate_args(data.get("args", []))
     return {"label": label.strip(), "path": str(path), "adapter": adapter, "args": args}
 
@@ -591,7 +651,7 @@ def validate_app(data: dict) -> dict[str, Any]:
 def _profile_for_app(profile_dir: Path, app: dict) -> Path:
     app_id = app.get("id")
     if not isinstance(app_id, str) or not _APP_ID_RE.fullmatch(app_id) or app_id in {".", ".."}:
-        raise ValueError("saved application must have a safe id")
+        raise ValueError("已保存的应用 ID 无效。")
     return Path(profile_dir).expanduser() / app_id
 
 
@@ -605,23 +665,24 @@ def _reject_reserved_args(args: list[str], adapter: str) -> None:
     for arg in args:
         option = arg.split("=", 1)[0].lower()
         if arg == "--":
-            raise ValueError("argument terminator is not allowed")
+            raise ValueError("启动参数不能包含 “--”。")
         if adapter == "chromium" and any(
             option.startswith(prefix)
             if prefix.endswith("-")
             else option == prefix or option.startswith(prefix + "=")
             for prefix in _CHROMIUM_RESERVED_PREFIXES
         ):
-            raise ValueError(f"argument may override strict proxy/profile controls: {arg}")
+            raise ValueError(f"启动参数 {arg} 可能绕过代理或配置隔离，不能使用。")
         if adapter == "firefox" and option in _FIREFOX_RESERVED:
-            raise ValueError(f"argument may override strict proxy/profile controls: {arg}")
+            raise ValueError(f"启动参数 {arg} 可能绕过代理或配置隔离，不能使用。")
 
 
 def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str], dict[str, str], str]:
     """Prepare an app command, child-only environment overrides, and limitations.
 
-    The returned command is only safe when passed to the strict MXC runtime.
-    Direct execution is deliberately not provided here.
+    The returned command is only safe inside the platform's isolation runtime
+    (bubblewrap on Linux, MXC on Windows). Direct execution is deliberately not
+    provided here.
     """
     normalized = validate_app(app)
     proxy_port = _validate_port(proxy_port)
@@ -668,6 +729,9 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str
                 "--no-first-run",
             ]
         )
+        # Chromium deletes session cookies on exit unless the last session is
+        # restored, so restoring keeps logins across relaunches.
+        command.append("--restore-last-session")
         detail = (
             "Strict runtime mode allows the configured proxy endpoint and blocks direct egress. "
             "Chromium HTTP/S uses the local proxy; unsupported flows fail closed."

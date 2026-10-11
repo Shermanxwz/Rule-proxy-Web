@@ -20,9 +20,12 @@ import uuid
 from . import __version__
 from .config import compile_config
 from .launcher import discover_apps, validate_app, prepare_app
+from .shortcuts import create_shortcut_files, remove_shortcut_files
 
 
 ROOT = Path(__file__).resolve().parent.parent
+# Installed apps are rescanned in the background when the last scan is older than this.
+APP_SCAN_SECONDS = 30.0
 
 
 def close_resource(resource):
@@ -131,13 +134,32 @@ class Manager:
         self.source = (self.directory / "source.yaml").read_text(encoding="utf-8") if (self.directory / "source.yaml").exists() else None
         self.compiled = None
         if self.source:
-            self.compiled = self._compile(self.source)
+            self._load_saved_config()
         self._probe_cache = None
+        # Installed-app discovery can take seconds on Windows, so it runs in the background.
+        self._apps_lock = threading.Lock()
+        self._apps: list | None = None
+        self._apps_time = 0.0
+        self._apps_scan: threading.Thread | None = None
         self.closed = threading.Event()
         threading.Thread(target=self._watch, daemon=True).start()
 
     def _save(self):
         write_private(self.directory / "settings.json", json.dumps(self.settings, ensure_ascii=False, indent=2))
+
+    def _load_saved_config(self):
+        """Compile the saved YAML. One that no longer compiles must not keep the panel from opening."""
+        try:
+            self.compiled = self._compile(self.source)
+            return
+        except ValueError:
+            pass
+        try:
+            # The saved node may have gone; fall back to the first node of the same config.
+            self.compiled = compile_config(self.source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port)
+            self.settings["selected_node"] = self.compiled.selected_node
+        except ValueError as exc:
+            self.error = f"已保存的配置无法使用，请重新导入：{exc}"
 
     def _compile(self, source, selected=None):
         return compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, selected_node=selected if selected is not None else self.settings.get("selected_node"))
@@ -157,7 +179,43 @@ class Manager:
     def runtime_path(self):
         return self.settings.get("runtime_path") or str(ROOT / "bin/windows-amd64/wxc-exec.exe")
 
+    def files_dir(self):
+        """The folder isolated apps can read and write, shown in the panel; None when they get none."""
+        if sys.platform != "linux":
+            return None
+        from .linux_runtime import downloads_folder
+
+        folder = downloads_folder(self.directory)
+        return str(folder[1]) if folder else None
+
+    def _scan_apps(self):
+        try:
+            apps = discover_apps(refresh=True)
+        except (OSError, ValueError, UnicodeError):
+            apps = []  # a broken desktop entry or unreadable folder must not break the panel
+        with self._apps_lock:
+            self._apps, self._apps_time = apps, time.monotonic()
+
+    def available_apps(self, *, refresh=False):
+        """Installed apps for the add list, and whether a scan is still running.
+
+        A state read never waits for a slow scan: it gets the last result while a
+        background scan refreshes it. Only an explicit rescan waits.
+        """
+        if refresh:
+            self._scan_apps()
+        with self._apps_lock:
+            stale = self._apps is None or time.monotonic() - self._apps_time > APP_SCAN_SECONDS
+            if stale and (self._apps_scan is None or not self._apps_scan.is_alive()):
+                self._apps_scan = threading.Thread(target=self._scan_apps, name="RuleProxyAppScan", daemon=True)
+                self._apps_scan.start()
+            scanning = self._apps_scan is not None and self._apps_scan.is_alive()
+            return list(self._apps or []), scanning
+
     def state(self, *, refresh_apps=False):
+        # Both reads below touch the disk, so they stay outside the manager lock.
+        available, scanning = self.available_apps(refresh=refresh_apps)
+        files_dir = self.files_dir()
         with self.lock:
             running = bool(self.core and self.core.poll() is None)
             apps = []
@@ -166,7 +224,28 @@ class Manager:
                 alive = bool(owned and owned[0].poll() is None)
                 pending = bool(alive and getattr(owned[1], "failed_process", None) is not None)
                 apps.append({**app, "active": alive and not pending, "cleanup_pending": pending})
-            return {"token": self.token, "platform": "Windows" if sys.platform == "win32" else "Linux" if sys.platform == "linux" else sys.platform, "version": __version__, "imported": bool(self.compiled), "running": running, "error": self.error, "core_path": self.settings["core_path"], "runtime_path": self.settings["runtime_path"], "selected_node": self.compiled.selected_node if self.compiled else "", "nodes": self.compiled.nodes if self.compiled else [], "primary_group": self.compiled.primary_group if self.compiled else "", "apps": apps, "available_apps": discover_apps(refresh=refresh_apps), "proxy_url": f"http://127.0.0.1:{self.mixed_port}", "ports": {"mixed": self.mixed_port, "panel": self.panel_port}, "protection": self.protection(), "warnings": self.compiled.warnings if self.compiled else []}
+            compiled = self.compiled
+            return {
+                "token": self.token,
+                "platform": "Windows" if sys.platform == "win32" else "Linux" if sys.platform == "linux" else sys.platform,
+                "version": __version__,
+                "imported": bool(compiled),
+                "running": running,
+                "error": self.error,
+                "core_path": self.settings["core_path"],
+                "runtime_path": self.settings["runtime_path"],
+                "selected_node": compiled.selected_node if compiled else "",
+                "nodes": compiled.nodes if compiled else [],
+                "primary_group": compiled.primary_group if compiled else "",
+                "apps": apps,
+                "available_apps": available,
+                "apps_scanning": scanning,
+                "files_dir": files_dir,
+                "proxy_url": f"http://127.0.0.1:{self.mixed_port}",
+                "ports": {"mixed": self.mixed_port, "panel": self.panel_port},
+                "protection": self.protection(),
+                "warnings": compiled.warnings if compiled else [],
+            }
 
     def import_yaml(self, source):
         with self.lock:
@@ -273,7 +352,10 @@ class Manager:
                 raise ValueError("请先导入 YAML。")
             compiled = self._compile(self.source, name)
             if self.core and self.core.poll() is None:
-                self._controller("PUT", "/proxies/" + urllib.parse.quote(compiled.primary_group, safe=""), {"name": name})
+                try:
+                    self._controller("PUT", "/proxies/" + urllib.parse.quote(compiled.primary_group, safe=""), {"name": name})
+                except (OSError, ValueError) as exc:
+                    raise ValueError("切换节点失败：核心没有响应，请稍后重试。") from exc
             self.compiled = compiled
             self.settings["selected_node"] = name
             self._save()
@@ -298,12 +380,24 @@ class Manager:
             if delete or enabled is False:
                 self.stop_app(ident)
             if delete:
+                remove_shortcut_files(app)
                 self.settings["apps"].remove(app)
             else:
                 if not isinstance(enabled, bool):
                     raise ValueError("enabled 必须是布尔值。")
                 app["enabled"] = enabled
             self._save()
+
+    def create_shortcuts(self, ident):
+        """Write launcher files that start this app headlessly; returns their paths."""
+        with self.lock:
+            app = self.app(ident)
+            if app is None:
+                raise ValueError("应用不存在。")
+            created = create_shortcut_files(app, state_dir=self.directory, ports=(self.panel_port, self.mixed_port, self.controller_port))
+            app["shortcuts"] = [str(path) for path in created]
+            self._save()
+            return list(app["shortcuts"])
 
     def launch(self, ident):
         with self.lock:
@@ -327,8 +421,9 @@ class Manager:
                 app_proxy_port = choose_guest_port(self.mixed_port)
             command, env, _detail = prepare_app(app, app_proxy_port, self.directory / "profiles")
             if sys.platform == "linux":
-                from .linux_runtime import launch
-                process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port).result()
+                from .linux_runtime import downloads_folder, launch
+                downloads = downloads_folder(self.directory)
+                process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port, downloads).result()
             elif sys.platform == "win32":
                 from .windows_runtime import launch
                 try:
@@ -354,10 +449,18 @@ class Manager:
                 if sys.platform == "win32":
                     from .windows_runtime import stop
                     stop(process)
+                elif sys.platform == "linux":
+                    from .linux_runtime import stop as stop_sandboxed_app
+                    stop_sandboxed_app(process)
                 else:
                     stop_process(process)
                 close_resource(resource)
                 self.active.pop(ident, None)
+
+    def has_active_apps(self):
+        """True while any instance this panel started is still running."""
+        with self.lock:
+            return any(process.poll() is None for process, _resource in self.active.values())
 
     def stop(self):
         with self.lock:

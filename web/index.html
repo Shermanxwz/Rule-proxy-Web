@@ -27,6 +27,7 @@
         <p class="eyebrow">私人代理控制台</p>
         <h1>让指定应用使用受保护连接</h1>
         <p class="hero-copy">导入配置、选择节点，再从这里启动需要保护的应用。</p>
+        <p id="hosted-note" class="hosted-note" hidden>此面板由快捷方式启动：应用和这个页面都关闭后会自动退出。</p>
       </div>
       <div class="status-card" aria-live="polite">
         <span id="status-indicator" class="status-indicator"></span>
@@ -62,6 +63,10 @@
           <span class="muted tiny">配置仅提交到本机服务</span>
           <button id="import-button" class="button button-primary" type="button">导入配置</button>
         </div>
+        <div id="config-notes" class="config-notes" hidden>
+          <strong>导入说明</strong>
+          <ul id="config-warnings"></ul>
+        </div>
         <div class="divider"></div>
         <label class="field-label" for="core-path">Mihomo 程序路径</label>
         <div class="inline-field">
@@ -85,7 +90,7 @@
           <p id="protection-detail" class="protection-detail">等待本机服务报告隔离能力。</p>
           <div id="protection-backend" class="protection-backend"></div>
           <ul id="protection-limitations" class="protection-limitations" hidden></ul>
-          <p class="protection-note">只有通过此界面启动且显示“隔离中运行”的实例才受保护。已打开的实例需自行关闭；不兼容应用的流量会被阻断，不会切换到弱模式。</p>
+          <p class="protection-note">只有从此面板或快捷方式启动、并显示“隔离中运行”的实例才受保护。已打开的实例需自行关闭；不兼容应用的流量会被阻断，不会切换到弱模式。</p>
         </div>
         <label class="field-label" for="node-select">代理节点</label>
         <div class="inline-field node-field">
@@ -120,6 +125,7 @@
         <button id="launch-all-button" class="button button-primary" type="button" disabled>启动所有待启动应用 <span aria-hidden="true">↗</span></button>
       </div>
       <p class="muted apps-intro">已添加的应用显示“待启动”；只有显示“隔离中运行”的实例才受保护。现有已打开的应用不会自动接管。</p>
+      <p id="files-note" class="muted files-note" hidden></p>
       <div id="apps-list" class="apps-list" aria-live="polite">
         <div class="empty-state"><span class="empty-symbol" aria-hidden="true">＋</span><strong>还没有添加应用</strong><span>从下方已安装应用中选择。</span></div>
       </div>

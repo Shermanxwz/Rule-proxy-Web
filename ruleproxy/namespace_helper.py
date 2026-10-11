@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 import select
 import signal
 import socket
@@ -51,8 +50,15 @@ def main() -> int:
     threading.Thread(target=accept, daemon=True).start()
     print("RULEPROXY_NAMESPACE_READY", flush=True)
     child = subprocess.Popen(policy["command"], env=policy["env"], stdin=subprocess.DEVNULL)
-    signal.signal(signal.SIGTERM, lambda *_: child.terminate())
-    signal.signal(signal.SIGINT, lambda *_: child.terminate())
+
+    def ask_child_to_exit(*_: object) -> None:
+        # Chromium skips writing cookies when it is stopped by SIGTERM (a
+        # session-end path). SIGINT is its normal exit request, so relay that.
+        if child.poll() is None:
+            child.send_signal(signal.SIGINT)
+
+    signal.signal(signal.SIGTERM, ask_child_to_exit)
+    signal.signal(signal.SIGINT, ask_child_to_exit)
     return child.wait()
 
 
