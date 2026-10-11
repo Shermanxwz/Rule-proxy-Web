@@ -1,0 +1,135 @@
+{
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38150535361",
+  "commit": "fc46a7a7afc14495396833f0e3f992a971a61baa",
+  "artifact_sha256": "c298a99fba533afc50a19abb4da310fa95e7507a9a5641e44e73a2eb35da805f",
+  "report": {
+    "host": {
+      "DisplayVersion": "25H2",
+      "CurrentBuild": "26200",
+      "UBR": 9457,
+      "InstallationType": "Client",
+      "python": "3.13.16",
+      "python_bits": 64,
+      "python_platform": "win-arm64",
+      "native_architecture": "ARM64",
+      "runner_architecture": "ARM64",
+      "ruleproxy": "0.3.0-rc1",
+      "elevated": true
+    },
+    "mocked": false,
+    "diagnosis_only": true,
+    "cases": [
+      {
+        "name": "chrome-readonly-slash",
+        "mode": "readonly-slash",
+        "tier": "base-container",
+        "exit": 3221225506,
+        "requested": false,
+        "rendered": false,
+        "log_tail": ""
+      },
+      {
+        "name": "chrome-copy-traverse",
+        "mode": "copy-traverse",
+        "tier": "base-container",
+        "exit": 2147483651,
+        "requested": false,
+        "rendered": false,
+        "log_tail": ""
+      },
+      {
+        "name": "firefox-readonly-slash",
+        "mode": "readonly-slash",
+        "tier": "base-container",
+        "exit": 3221225506,
+        "requested": false,
+        "rendered": false,
+        "log_tail": ""
+      },
+      {
+        "name": "firefox-copy-traverse",
+        "mode": "copy-traverse",
+        "tier": "base-container",
+        "exit": 1,
+        "requested": false,
+        "rendered": false,
+        "log_tail": "*** You are running in headless mode.\n"
+      }
+    ],
+    "requests": []
+  },
+  "file_denials_aggregated": [
+    {
+      "process": "chrome.exe",
+      "operation": "CreateFile",
+      "path": "C:\\RuleProxyChrome\\chrome-win64",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Execute/Traverse, Synchronize, Disposition: Open, Options: Directory, Synchronous IO Non-Alert, Attributes: n/a, ShareMode: Read, Write, AllocationSize: n/a",
+      "count": 1
+    },
+    {
+      "process": "chrome.exe",
+      "operation": "RegCreateKey",
+      "path": "HKCU\\",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Query Value, Set Value",
+      "count": 2
+    },
+    {
+      "process": "firefox.exe",
+      "operation": "CreateFile",
+      "path": "C:\\RuleProxyFirefox\\core",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Execute/Traverse, Synchronize, Disposition: Open, Options: Directory, Synchronous IO Non-Alert, Attributes: n/a, ShareMode: Read, Write, AllocationSize: n/a",
+      "count": 1
+    },
+    {
+      "process": "firefox.exe",
+      "operation": "RegCreateKey",
+      "path": "HKCU\\Software\\Mozilla",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Maximum Allowed",
+      "count": 8
+    },
+    {
+      "process": "firefox.exe",
+      "operation": "CreateFile",
+      "path": "C:\\ProgramData",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Read Attributes, Disposition: Open, Options: Open Reparse Point, Attributes: n/a, ShareMode: Read, Write, Delete, AllocationSize: n/a",
+      "count": 3
+    },
+    {
+      "process": "firefox.exe",
+      "operation": "CreateFile",
+      "path": "C:\\Users",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Read Data/List Directory, Synchronize, Disposition: Open, Options: Directory, Synchronous IO Non-Alert, Attributes: n/a, ShareMode: Read, Write, Delete, AllocationSize: n/a",
+      "count": 3
+    },
+    {
+      "process": "firefox.exe",
+      "operation": "RegOpenKey",
+      "path": "HKCU\\SOFTWARE\\Microsoft\\Windows\\DWM",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Query Value",
+      "count": 1
+    },
+    {
+      "process": "firefox.exe",
+      "operation": "CreateFile",
+      "path": "C:\\ProgramData\\Mozilla-1de4eec8-1241-4177-a864-e594e8d1fb38\\UpdateLock-74F928F3B16B4A99",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Generic Read/Write, Disposition: OpenIf, Options: Synchronous IO Non-Alert, Non-Directory File, Disallow Exclusive, Attributes: n/a, ShareMode: Read, Write, Delete, AllocationSize: 0",
+      "count": 1
+    },
+    {
+      "process": "firefox.exe",
+      "operation": "CreateFile",
+      "path": "C:\\",
+      "result": "ACCESS DENIED",
+      "detail": "Desired Access: Read Data/List Directory, Synchronize, Disposition: Open, Options: Directory, Synchronous IO Non-Alert, Attributes: n/a, ShareMode: Read, Write, Delete, AllocationSize: n/a",
+      "count": 87
+    }
+  ]
+}

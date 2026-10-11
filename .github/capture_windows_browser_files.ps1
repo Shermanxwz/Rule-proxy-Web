@@ -27,13 +27,21 @@ if (-not (Test-Path $csv)) { throw 'Process Monitor did not export the captured 
 $env:RULEPROXY_PROCMON_CSV = $csv
 $env:RULEPROXY_PROCMON_OUTPUT = (Join-Path $OutputDirectory 'file-denials.json')
 @'
-import csv, json, os, pathlib
+import collections, csv, json, os, pathlib
 rows = []
+captured = 0
 with open(os.environ['RULEPROXY_PROCMON_CSV'], encoding='utf-8-sig', errors='replace', newline='') as source:
     for row in csv.DictReader(source):
-        if row.get('Process Name', '').lower() in ('chrome.exe', 'firefox.exe') and row.get('Result') == 'ACCESS DENIED':
-            rows.append(row)
+        if row.get('Process Name', '').lower() in ('chrome.exe', 'firefox.exe'):
+            captured += 1
+            if row.get('Result') == 'ACCESS DENIED':
+                rows.append(row)
+if not captured:
+    raise RuntimeError('Process Monitor captured no browser operations')
 pathlib.Path(os.environ['RULEPROXY_PROCMON_OUTPUT']).write_text(json.dumps(rows, indent=2), encoding='utf-8')
-print(json.dumps(rows[-80:], ensure_ascii=True, indent=2))
+unique = collections.Counter((r['Process Name'], r['Operation'], r['Path'], r['Result'], r['Detail']) for r in rows)
+summary = [{'process': k[0], 'operation': k[1], 'path': k[2], 'result': k[3], 'detail': k[4], 'count': v}
+           for k, v in unique.items()]
+print(json.dumps({'captured_browser_operations': captured, 'denials': summary}, ensure_ascii=True, indent=2))
 '@ | python -X utf8 -
 if ($LASTEXITCODE -ne 0) { throw 'Could not retain filtered file denials' }

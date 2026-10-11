@@ -55,7 +55,7 @@ def main() -> int:
     parser.add_argument("--firefox", type=Path, required=True)
     parser.add_argument("--debugger", type=Path)
     parser.add_argument("--cases", nargs="+", choices=("host", "readonly", "writable-copy", "capabilities",
-                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate", "diagnostic-volume-read", "readonly-slash", "copy-traverse", "copy-traverse-debugger", "copy-traverse-volume"),
+                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate", "diagnostic-volume-read", "readonly-slash", "copy-traverse", "copy-traverse-debugger", "copy-traverse-volume", "copy-traverse-logs"),
                         default=["host", "readonly", "installation-parent", "enumerate"])
     args = parser.parse_args()
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
@@ -91,7 +91,9 @@ def main() -> int:
                 browsers["edge"] = edge
                 break
         with tempfile.TemporaryDirectory(prefix="browser-loader-", ignore_cleanup_errors=True) as temporary:
-            folder = Path(temporary)
+            # Windows TEMP may contain an 8.3 alias. Keep browser arguments and
+            # the native filesystem grant on the same canonical path.
+            folder = Path(temporary).resolve()
             proxy = free_port()
             core, core_log = start_core(folder, proxy)
             try:
@@ -128,6 +130,12 @@ def main() -> int:
                          "adapter": "firefox" if firefox else "chromium", "args": browser_args},
                         proxy, folder,
                     )
+                    if mode == "copy-traverse-logs":
+                        if firefox:
+                            env["MOZ_SANDBOX_LOGGING"] = "1"
+                            env["MOZ_LOG"] = "timestamp,sandbox:5,ProcessLaunch:5"
+                        else:
+                            command.extend(["--enable-logging=stderr", "--v=1"])
                     if mode == "mapped-installation":
                         command[0] = str(browser)  # Preserve the mapped path after app validation resolves it.
                     path = output / f"{name}.log"

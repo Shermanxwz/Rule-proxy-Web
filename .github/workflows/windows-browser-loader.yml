@@ -4,6 +4,22 @@ on:
   push:
     branches: [codex/windows-browser-repair-*]
   workflow_dispatch:
+    inputs:
+      cases:
+        description: Synthetic browser controls (diagnosis only)
+        type: choice
+        default: host readonly copy-traverse-logs
+        options:
+          - host readonly copy-traverse-logs
+          - readonly
+          - debugger
+          - copy-traverse-debugger copy-traverse-volume
+          - installation-parent enumerate
+          - mapped-installation readonly-slash
+      trace:
+        description: Capture file access with signed Process Monitor on disposable CI
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,8 +48,18 @@ jobs:
           Get-FileHash "$env:RUNNER_TEMP/firefox.exe" -Algorithm SHA256
           & 7z x "$env:RUNNER_TEMP/firefox.exe" -oC:/RuleProxyFirefox -y
           if ($LASTEXITCODE -ne 0) { throw 'Could not unpack Firefox' }
-      - name: Capture rejected file operations for the synthetic browsers
-        run: .github/capture_windows_browser_files.ps1 -OutputDirectory loader-results -Cases @('copy-traverse-debugger', 'copy-traverse-volume')
+      - name: Run synthetic browser loader controls (diagnosis only)
+        env:
+          RULEPROXY_LOADER_CASES: ${{ inputs.cases || 'host readonly copy-traverse-logs' }}
+          RULEPROXY_LOADER_TRACE: ${{ inputs.trace || false }}
+        run: |
+          $cases = $env:RULEPROXY_LOADER_CASES -split ' '
+          if ($env:RULEPROXY_LOADER_TRACE -eq 'true') {
+            .github/capture_windows_browser_files.ps1 -OutputDirectory loader-results -Cases $cases
+          } else {
+            python -X utf8 -B .github/windows_browser_loader_validation.py --output loader-results --chrome C:/RuleProxyChrome/chrome-win64/chrome.exe --firefox C:/RuleProxyFirefox/core/firefox.exe --debugger 'C:/Program Files (x86)/Windows Kits/10/Debuggers/arm64/cdb.exe' --cases @cases
+            if ($LASTEXITCODE -ne 0) { throw 'Loader diagnosis did not complete' }
+          }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
