@@ -28,7 +28,18 @@ def _atomic_status(directory: Path, nonce: str, state: str, detail: str = "", *,
         json.dump(value, stream, separators=(",", ":"))
         stream.flush()
         os.fsync(stream.fileno())
-    os.replace(temp, path)
+    # A concurrent Windows reader can momentarily deny replacing the existing
+    # status file (Python opens without FILE_SHARE_DELETE). Keep publication
+    # atomic, and retry only the known Windows sharing/access races briefly.
+    deadline = time.monotonic() + 1.0
+    while True:
+        try:
+            os.replace(temp, path)
+            return
+        except OSError as exc:
+            if getattr(exc, "winerror", None) not in (5, 32, 33) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.01)
 
 
 def _read_config(path: Path) -> dict[str, Any]:

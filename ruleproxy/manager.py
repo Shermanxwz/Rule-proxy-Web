@@ -527,7 +527,11 @@ class Manager:
                             if process.returncode:
                                 app = self.app(ident)
                                 label = app["label"] if app else ident
-                                self.error = f"应用 {label} 异常退出（{process.returncode}）。请检查 profiles/{ident}/runtime.log。"
+                                code = str(process.returncode)
+                                if sys.platform == "win32":
+                                    from .windows_runtime import exit_description
+                                    code = exit_description(process.returncode)
+                                self.error = f"应用 {label} 异常退出（{code}）。请检查 profiles/{ident}/runtime.log。"
 
     def close(self):
         self.closed.set()

@@ -174,6 +174,8 @@
   }
 
   function compatibilityHint(adapter) {
+    const windows = /windows|win32|win64/i.test(String(state && state.platform || ''));
+    if (windows && ['chromium', 'chrome', 'edge', 'brave', 'firefox'].includes(adapter)) return '当前候选版未通过 Windows 浏览器验收，可能启动失败。';
     if (adapter === 'chromium' || adapter === 'chrome' || adapter === 'edge' || adapter === 'brave') return '使用独立配置；已有窗口不会自动接管。';
     if (adapter === 'firefox') return '使用独立 Firefox 配置；已有窗口不会接管。';
     if (adapter === 'environment' || adapter === 'env') return '应用若不遵循代理设置，其联网请求会被阻断。';

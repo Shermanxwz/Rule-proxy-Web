@@ -39,7 +39,23 @@
 
 测试仅使用本地受控代理目标与合成 Cookie，不使用真实节点凭据。保留 JSON 报告和每次运行链接；“应用进程创建成功”不能替代“应用数据能经代理往返”。无路由、普通超时、零长度 UDP 发送结果不能替代阻断的证据。
 
-扩大卷根读取权限的诊断方案会让未授权文件可读，且仍未解决浏览器启动，已经撤回；生产策略不开放卷根。诊断中关闭浏览器沙箱也无效，生产启动不采用该参数。
+单独扩大卷根读取权限没有解决浏览器初始化，且会让未授权文件可读，已经撤回；生产策略不开放卷根。诊断中关闭浏览器沙箱也无效，生产启动不采用该参数。
+
+## 启动状态修复与后续定位
+
+本轮增加两项启动状态修复：快速异常退出不能被 `APP_EXITED` 误判为启动成功，缺失退出码和助手崩溃时的旧状态也被拒绝；状态 JSON 的原子替换遇到 Windows 瞬时访问／共享冲突时，仅在一秒内重试。单元回归检查了正常短命令、异常和无效退出码、旧状态、瞬时与持续文件拒绝。
+
+完整运行包复验：[38149946193](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38149946193)。Linux 四种环境、Windows 测试、中文路径运行包、Windows 11 普通应用与故障恢复均通过；最后的浏览器渲染和 Cookie 保持仍失败，发行正确被阻止。
+
+Chrome 和 Firefox 使用官方独立下载的安装文件、私有合成配置及同一受控本机目标，在宿主直接运行均成功获取并渲染测试页；在 BaseContainer 中退出。这一对照与 CDB 加载器记录见 [38148780025](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38148780025)。加载器记录显示 SxS 初始化无法打开浏览器安装目录，早于浏览器主程序运行。
+
+[系统文件访问记录](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38149946214) 确认两个目录的 `CreateFile` 请求 `Execute/Traverse, Synchronize` 被拒绝。修改 UI 设置、额外系统 DLL 读取、安装目录只读／可写、父目录读取、映射盘符和卷根只读，均未独立解决；不能把这个失败等同于代理连接失败。
+
+仅在一次性 CI 主机上，向新建的浏览器临时副本授予应用容器读／执行权限后，退出点发生变化：Chrome 为 `0x80000003`，Firefox 输出 headless 初始化信息后退出 `1`，都未访问测试目标，见 [38150535361](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38150535361)。这只是定位进展，未作为浏览器兼容修复；原始安装目录的 ACL 未修改。
+
+继续检查临时副本并组合卷根读取、注册表读取或调试器后，仍未渲染测试页：[38150804273](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38150804273)。Chrome 在主程序中触发断点；Firefox 调试器观察到首轮访问冲突，正常控制仍退出 `1`。调试器自身退出码 `0` 不表示浏览器正常，实际请求和渲染字段均为 `false`。保留的合成报告与汇总拒绝记录在 [.github/validation/browser-loader-20261011.json](.github/validation/browser-loader-20261011.json)。
+
+当前 CI 主机不支持 `processContainer.filesystem.enumeratePaths`，请求会被明确拒绝。目录遍历与枚举是不同的操作，不能凭这个能力缺失就断定升级系统可解决全部浏览器问题。生产仍使用指定应用目录只读、私有配置可写以及唯一代理策略，不采用诊断中的卷根读取或关闭浏览器沙箱。
 
 ## 使用边界
 
