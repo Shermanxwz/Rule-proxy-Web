@@ -265,7 +265,7 @@ class WindowsRuntimeTests(unittest.TestCase):
         class Fixture:
             endpoints = [{"address": "127.0.0.1", "port": 19002, "protocol": "tcp"},
                          {"address": "127.0.0.1", "port": 19003, "protocol": "udp"}]
-            def __init__(self): self.accepted = threading.Event()
+            def __init__(self, excluded_port): self.accepted = threading.Event()
             def start(self): events.append("fixtures-ready")
             def close(self): events.append("fixtures-closed")
 

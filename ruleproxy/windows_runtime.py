@@ -590,7 +590,7 @@ def launch(
     status_dir = profile / ".ruleproxy-runtime" / nonce
     status_dir.mkdir(parents=True)
     run_dir = tempfile.TemporaryDirectory(prefix="ruleproxy-mxc-run-")
-    fixture = _HostLoopbackFixture()
+    fixture = _HostLoopbackFixture(proxy_port)
     resources = _WindowsRuntimeResources(run_dir, fixture, status_dir)
     process = None
     try:
@@ -721,7 +721,7 @@ def _write_decision(directory: Path, nonce: str, decision: str) -> None:
 class _HostLoopbackFixture:
     """Controlled TCP/UDP receivers; a bypass must never reach any receiver."""
 
-    def __init__(self) -> None:
+    def __init__(self, excluded_port: int) -> None:
         self.accepted = threading.Event()
         self.stop_event = threading.Event()
         self.sockets: list[socket.socket] = []
@@ -735,6 +735,14 @@ class _HostLoopbackFixture:
                         if family == socket.AF_INET6:
                             sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
                         sock.bind((address, 0))
+                        if sock.getsockname()[1] == excluded_port:
+                            sock.close()
+                            sock = socket.socket(family, kind)
+                            if family == socket.AF_INET6:
+                                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+                            sock.bind((address, 0))
+                            if sock.getsockname()[1] == excluded_port:
+                                raise OSError("could not allocate a non-proxy network fixture")
                         if kind == socket.SOCK_STREAM:
                             sock.listen(4)
                         sock.settimeout(0.1)

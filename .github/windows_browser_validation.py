@@ -60,7 +60,7 @@ def main():
                 launches = []
                 for number in (1, 2):
                     url = f'http://127.0.0.1:{server.server_port}/round-{number}'
-                    app = {'id':'edge-acceptance', 'name':'Edge acceptance', 'path':str(edge), 'adapter':'chromium',
+                    app = {'id':'edge-acceptance', 'label':'Edge acceptance', 'path':str(edge), 'adapter':'chromium',
                            'args':['--headless=new', '--disable-gpu', '--dump-dom', url]}
                     command, env, _ = prepare_app(app, proxy, folder / 'profiles')
                     profile = folder / 'profiles' / app['id']
