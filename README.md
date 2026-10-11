@@ -26,7 +26,7 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 ### Linux
 
-要求 x86-64、Python 3.10+、bubblewrap，以及可用的用户和网络命名空间。Ubuntu 上：
+要求 x86-64、Python 3.10+、bubblewrap，以及可用的用户和网络命名空间。在 Ubuntu 22.04 / 24.04 上（CI 中实测）：
 
 ```sh
 sudo apt install -y git
@@ -140,7 +140,7 @@ python3 -B -m unittest discover -s tests -v
 - 面板未运行时同时点两个快捷方式，只启动一个核心；应用关闭后快捷方式托管的面板自动退出并释放端口。
 - 面板运行时，快捷方式交给面板启动。
 
-Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中实测；从快捷方式实际启动隔离应用依赖 MXC，仍需在 Windows 11 24H2 设备上验证。
+Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中实测；从快捷方式实际启动隔离应用依赖 MXC，仍需在 Windows 11 24H2 设备上验证。运行包测试中，包内 MXC 的能力检查在 GitHub 的 Windows 环境里真实运行：该环境只提供 `appcontainer-dacl`，面板据此拒绝严格隔离，没有回退。
 
 Windows 文件中继、启动门控和规则目标重写由单元测试覆盖，每次推送都在 Windows 上运行。**尚未在目标 Windows 设备实测应用兼容性、实际网络阻断及异常退出清理，因此不能称为已实测零泄漏**。启动流程内置必要的运行时检查，但仍不能替代目标设备上的独立抓包与故障检查。首次使用请先选择一个浏览器，确认正常停止及其他普通应用的联网。
 

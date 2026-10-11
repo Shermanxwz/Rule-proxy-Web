@@ -117,9 +117,10 @@ def release_notes(zip_name: str, digest: str) -> str:
 
 升级时先关闭面板，再把新版本解压到同一位置覆盖；设置、登录状态和快捷方式都会保留。
 
-**Linux**（Ubuntu，x86-64）
+**Linux**（Ubuntu 22.04 / 24.04，x86-64）
 
 ```sh
+sudo apt install -y git
 git clone https://github.com/Shermanxwz/Rule-proxy-Web.git
 cd Rule-proxy-Web
 sh start-linux.sh
@@ -138,7 +139,7 @@ sh start-linux.sh
 
 `{zip_name}` 的 SHA-256：`{digest}`
 
-Windows 上的隔离启动还没有在真机上验证。第一次使用请先用浏览器确认能联网、“停止”正常，再用其他应用。
+Windows 上的隔离启动还没有在 Windows 11 真机上验证（GitHub 的 Windows 环境不提供所需的 BaseContainer，面板在那里会拒绝严格隔离）。第一次使用请先用浏览器确认能联网、“停止”正常，再用其他应用。
 """
 
 
