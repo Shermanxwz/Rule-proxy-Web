@@ -23,6 +23,10 @@ MIHOMO = {
 MXC_VERSION = "1.0.0"
 MXC_URL = "https://registry.npmjs.org/@microsoft/mxc-sdk/-/mxc-sdk-1.0.0.tgz"
 MXC_SHA512 = "7aVR+GHVKveIknZmUtkAEFwUBp61qgEmhJRe1ZyKHJ274yWlKWB/ZfDP/u/whfmDyck0wRNKZN49atlF+SZt2Q=="
+# MXC's plm.exe serves only its elevated denial-capture diagnostics, which RuleProxy never
+# requests, and MXC 1.0.0 panics while vetting it when the first folder of its path starts
+# with a non-ASCII character (C:\应用\…). It is not installed (see ruleproxy/windows_runtime.py).
+SKIPPED_MXC_FILES = ("plm.exe",)
 # Written last, so an interrupted download never looks complete.
 MANIFEST = "runtime.json"
 MAX_DOWNLOAD = 160 * 1024 * 1024
@@ -89,7 +93,8 @@ def install(platform: str, root: Path | None = None) -> Path:
                 if not member.isfile():
                     continue
                 item = Path(member.name)
-                if item.parent.as_posix() == "package/bin/x64" and item.suffix in (".exe", ".dll"):
+                if item.parent.as_posix() == "package/bin/x64" and item.suffix in (".exe", ".dll") \
+                        and item.name.lower() not in SKIPPED_MXC_FILES:
                     with archive.extractfile(member) as source:
                         (directory / item.name).write_bytes(source.read())
                 elif member.name == "package/LICENSE.md":
@@ -97,6 +102,8 @@ def install(platform: str, root: Path | None = None) -> Path:
                         (directory / "MXC-LICENSE.md").write_bytes(source.read())
         if not (directory / "wxc-exec.exe").is_file():
             raise ValueError("校验通过的 MXC 包里缺少 wxc-exec.exe。")
+        for name in SKIPPED_MXC_FILES:
+            (directory / name).unlink(missing_ok=True)
     (directory / MANIFEST).write_text(json.dumps(expected(platform), indent=2) + "\n", encoding="utf-8")
     print(f"运行组件已安装到 {directory}（只写入本项目目录）。", flush=True)
     return directory

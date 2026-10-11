@@ -429,6 +429,23 @@ def _check_windows_version(
         )
 
 
+# MXC's plm.exe serves only its elevated denial-capture diagnostics, which this tool
+# never requests. MXC 1.0.0 nevertheless vets plm.exe during every probe and panics when
+# the first folder of its path starts with a non-ASCII character (C:\应用\…), because it
+# slices the path at byte 4. Without plm.exe the probe skips that check.
+UNUSED_RUNTIME_FILES = ("plm.exe",)
+_PATH_PANIC = "is not a char boundary"
+
+
+def retire_unused_runtime_files(directory: Path) -> None:
+    """Remove runtime files this tool never uses that an older package or setup left behind."""
+    for name in UNUSED_RUNTIME_FILES:
+        try:
+            (Path(directory) / name).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def _probe_request(
     runtime_path: str | Path,
     policy: Mapping[str, Any],
@@ -461,6 +478,12 @@ def _probe_request(
             raise UnsupportedRuntimeError(f"MXC support probe failed: {exc}") from exc
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
+        if _PATH_PANIC in detail:
+            raise UnsupportedRuntimeError(
+                "MXC 1.0.0 在顶层文件夹名以中文等非英文字符开头的位置（如 C:\\应用\\…）检查失败，这是 MXC 自身的问题。"
+                "请把 RuleProxy-Web 文件夹移到如 C:\\RuleProxy-Web 的位置，再重新打开面板。"
+                f"原始信息：{detail[:400]}"
+            )
         raise UnsupportedRuntimeError(
             f"MXC support probe exited with status {result.returncode}" + (f": {detail[:600]}" if detail else "")
         )
@@ -473,6 +496,11 @@ def _probe_request(
     if output.get("error") is not None:
         raise UnsupportedRuntimeError(f"MXC rejected the strict request: {output['error']}")
     if output.get("tier") != "base-container":
+        if output["probes"].get("baseContainerApiPresent") is not True:
+            raise UnsupportedRuntimeError(
+                f"系统没有提供 BaseContainer 接口，MXC 只能选择 {output.get('tier')!r}，严格模式不接受。"
+                "需要 Windows 11 24H2（26100.9278 及以后）或 25H2（26200.9278 及以后），请在 Windows 更新中装好最新更新。"
+            )
         raise UnsupportedRuntimeError(
             f"MXC selected {output.get('tier')!r}; strict proxy mode requires base-container"
         )
@@ -516,8 +544,8 @@ def probe(
         return {
             "supported": False,
             "backend": None,
-            "detail": "此设备当前不能启用严格隔离。 " + str(exc),
-            "limitations": limitations,
+            "detail": "此设备当前不能启用严格隔离。" + str(exc),
+            "limitations": [],
         }
 
 

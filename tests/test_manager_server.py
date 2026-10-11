@@ -248,6 +248,25 @@ class IsolationCheckTests(unittest.TestCase):
         self.assertIn("AttributeError", errors.getvalue(), "the traceback is kept for the panel log")
 
 
+    @unittest.skipUnless(sys.platform == "win32", "the bundled MXC runtime is Windows-only")
+    def test_the_bundled_runtime_loses_plm_but_a_runtime_the_user_chose_is_left_alone(self):
+        root = Path(self.temp.name) / "package"
+        bundled = root / "bin" / "windows-amd64"
+        bundled.mkdir(parents=True)
+        (bundled / "plm.exe").write_bytes(b"left by 0.2.0")
+        custom = Path(self.temp.name) / "custom-mxc"
+        custom.mkdir()
+        (custom / "plm.exe").write_bytes(b"theirs")
+        refused = {"supported": False, "backend": None, "detail": "test", "limitations": []}
+        with patch("ruleproxy.manager.ROOT", root), patch("ruleproxy.windows_runtime.probe", return_value=refused) as probe:
+            self.manager._check_isolation()
+            self.assertFalse((bundled / "plm.exe").exists())
+            self.manager.settings["runtime_path"] = str(custom / "wxc-exec.exe")
+            self.manager._check_isolation()
+        self.assertTrue((custom / "plm.exe").exists())
+        self.assertEqual(probe.call_count, 2)
+
+
 class LocalServerTests(unittest.TestCase):
     def setUp(self):
         stub_discovery(self)

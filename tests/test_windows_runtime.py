@@ -157,6 +157,45 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertIn("status 3", str(failure.exception))
         self.assertIn("无法创建容器 — 0x8007 “拒绝”", str(failure.exception))
 
+    def probe_with(self, completed):
+        with mock.patch.object(windows_runtime.subprocess, "run", return_value=completed):
+            with self.assertRaises(windows_runtime.UnsupportedRuntimeError) as failure:
+                windows_runtime._probe_request(
+                    self.runtime,
+                    windows_runtime.build_policy(["browser.exe"], {}, self.profile, 10809),
+                    platform_name="win32",
+                    version=(10, 26100),
+                )
+        return str(failure.exception)
+
+    def test_mxc_crashing_on_a_chinese_top_folder_gets_a_clear_way_out(self):
+        # What MXC 1.0.0 printed on a user's machine with the package in C:\应用.
+        panic = (
+            "thread 'main' (3244) panicked at mxc-sdk\\src\\core\\plm\\trust.rs:396:39:\n"
+            "byte index 4 is not a char boundary; it is inside '应' (bytes 3..6) of "
+            "`C:\\应用\\RuleProxy-Web\\bin\\windows-amd64\\plm.exe`\n"
+        )
+        message = self.probe_with(subprocess.CompletedProcess(args=[], returncode=101, stdout="", stderr=panic))
+        self.assertIn("顶层文件夹名", message)
+        self.assertIn("C:\\RuleProxy-Web", message)
+        self.assertIn("byte index 4", message, "the original message is kept for reference")
+
+    def test_a_missing_base_container_api_names_the_windows_version_needed(self):
+        weak = json.dumps({"tier": "appcontainer-dacl", "error": None, "needsDaclAugmentation": True,
+                           "probes": {"baseContainerApiPresent": False}, "warnings": []})
+        message = self.probe_with(subprocess.CompletedProcess(args=[], returncode=0, stdout=weak, stderr=""))
+        self.assertIn("BaseContainer 接口", message)
+        self.assertIn("26100.9278", message)
+
+    def test_unused_runtime_files_are_retired_and_the_rest_kept(self):
+        runtime = self.root / "bin" / "windows-amd64"
+        runtime.mkdir(parents=True)
+        for name in ("plm.exe", "wxc-exec.exe", "mxc_ffi.dll"):
+            (runtime / name).write_bytes(b"x")
+        windows_runtime.retire_unused_runtime_files(runtime)
+        self.assertEqual(sorted(path.name for path in runtime.iterdir()), ["mxc_ffi.dll", "wxc-exec.exe"])
+        windows_runtime.retire_unused_runtime_files(runtime)  # nothing left to remove is fine
+
     def test_a_failed_probe_without_output_is_still_a_clear_refusal(self):
         # What a crashed output reader leaves behind: no text at all.
         completed = subprocess.CompletedProcess(args=[], returncode=5, stdout=None, stderr=None)
@@ -211,6 +250,7 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertFalse(result["supported"])
         self.assertIsNone(result["backend"])
         self.assertIn("unsupported OS", result["detail"])
+        self.assertEqual(result["limitations"], [], "a refusal does not list what a working setup would do")
 
     def test_launch_probes_runs_only_guest_helper_and_gates_app(self):
         class Proc:
