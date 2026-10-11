@@ -233,8 +233,10 @@ def current_launch(folder: Path, executable: Path, proxy: int, fixture: int, tar
     marker = profile / "application-started.txt"
     script = profile / "application.py"
     output = profile / "application-result.json"
-    script.write_text(PAYLOAD + "\nimport time\nPath(sys.argv[5]).write_text('started',encoding='ascii')\ntime.sleep(60)\n", encoding="ascii")
-    command = [sys.executable, "-I", "-S", str(script), str(output), str(proxy), str(fixture), str(target), str(marker)]
+    ungranted = folder / "ungranted.txt"
+    ungranted.write_text("host-only-synthetic", encoding="ascii")
+    script.write_text(PAYLOAD + "\ncheck('ungranted_file_read', lambda: Path(sys.argv[6]).read_text())\nPath(output).write_text(json.dumps(result),encoding='ascii')\nimport time\nPath(sys.argv[5]).write_text('started',encoding='ascii')\ntime.sleep(60)\n", encoding="ascii")
+    command = [sys.executable, "-I", "-S", str(script), str(output), str(proxy), str(fixture), str(target), str(marker), str(ungranted)]
     result = {"started": False, "guest_status": None}
     observed = threading.Event()
     def record_status():
@@ -301,7 +303,8 @@ def main():
                 inside = report["current_launch"].get("inside", {})
                 works = all(inside.get(key, {}).get("ok") is True for key in ("proxy_greeting", "proxy_data_roundtrip"))
                 denied = all(inside.get(key, {}).get("winerror") == 10013 for key in ("other_host_loopback", "direct_ipv4"))
-                accepted = report["current_launch"]["started"] and works and denied
+                private_file_denied = inside.get("ungranted_file_read", {}).get("winerror") == 5
+                accepted = report["current_launch"]["started"] and works and denied and private_file_denied
                 report["verdict"] = "launch-and-proxy-verified" if accepted else "application-network-qualification-failed"
                 code = 0 if accepted else 1
             else:

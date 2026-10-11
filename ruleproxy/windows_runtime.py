@@ -373,6 +373,13 @@ def build_policy(
         runtime_config.parent.relative_to(profile)
     except ValueError:
         read_only.add(str(runtime_config.parent))
+    # Win32 loaders and path resolvers also query volume-root metadata. A
+    # BaseContainer root grant does not cascade into its descendants; keep
+    # the explicit leaf grants rather than replacing them with a root.
+    for path in (*read_only, str(profile)):
+        drive = PureWindowsPath(path).drive
+        if re.fullmatch(r"[A-Za-z]:", drive):
+            read_only.add(drive + "\\")
     helper_command = [
         str(python_executable),
         "-I",

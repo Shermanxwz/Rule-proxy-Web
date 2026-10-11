@@ -59,7 +59,7 @@ def main():
                             if name in ('capture','native-edge'):
                                 policy['processContainer']['captureDenials']={'mode':'block','outputPath':str((output/(name+'-denials.json')).resolve()),'retainEtl':False}
                             if name=='edge-read':
-                                policy['filesystem']['readonlyPaths']=[os.environ['SYSTEMDRIVE']+'\\']
+                                policy['filesystem']['readonlyPaths'].append(os.environ['SYSTEMDRIVE']+'\\')
                             if name=='registry':
                                 policy['processContainer']['capabilities']=['registryRead','userAccountInformation']
                             if name in ('edge-cdb','chrome-cdb','edge-no-sandbox','edge-read'):
