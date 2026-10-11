@@ -28,6 +28,8 @@ def main():
     report = {'host': host_info(), 'mocked': False}
     nonce = secrets.token_hex(12)
     requests = []
+    report['requests'] = requests
+    report['launches'] = []
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args): pass
         def do_GET(self):
@@ -57,7 +59,7 @@ def main():
             folder = Path(temporary)
             proxy = free_port(); core, log = start_core(folder, proxy)
             try:
-                launches = []
+                launches = report["launches"]
                 for number in (1, 2):
                     url = f'http://127.0.0.1:{server.server_port}/round-{number}'
                     app = {'id':'edge-acceptance', 'label':'Edge acceptance', 'path':str(edge), 'adapter':'chromium',
@@ -74,7 +76,7 @@ def main():
                         launches.append({'round':number, 'exit':exit_code, 'rendered':nonce in text,
                                          'log_tail':text[-4000:]})
                         if exit_code or nonce not in text:
-                            raise RuntimeError('Edge failed to render through the controlled proxy')
+                            raise RuntimeError('Edge failed to render through the controlled proxy: '+json.dumps(launches[-1]))
                     finally:
                         if process is not None: runtime.stop(process)
                         if resource is not None: resource.close()
