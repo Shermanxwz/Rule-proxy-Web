@@ -6,7 +6,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 source_bwrap=/usr/bin/bwrap
 target_dir=/usr/local/lib/ruleproxy-web
 target_bwrap=$target_dir/bwrap

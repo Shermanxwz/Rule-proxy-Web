@@ -344,7 +344,9 @@ class ServerMainTests(unittest.TestCase):
         argv = ["Run-RuleProxy.py", "--port", str(self.port), "--proxy-port", str(free_port()),
                 "--controller-port", str(free_port()), "--state-dir", str(Path(self.temp.name) / "second"), *extra]
         output = io.StringIO()
-        with patch.object(sys, "argv", argv), patch.object(panel_server.webbrowser, "open") as browser, redirect_stdout(output):
+        # These tests are about the port, so they also hold when the suite itself runs as root.
+        with patch.object(sys, "argv", argv), patch.object(panel_server.webbrowser, "open") as browser, \
+                patch.object(panel_server, "_running_as_root", return_value=False), redirect_stdout(output):
             panel_server.main()
         return output.getvalue(), browser
 
@@ -370,6 +372,30 @@ class ServerMainTests(unittest.TestCase):
         with patch.object(panel_server, "wait_for_panel", return_value=None), self.assertRaises(SystemExit) as exit_info:
             self.main("--no-browser")
         self.assertIn(f"无法使用面板端口 {self.port}", str(exit_info.exception.code))
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "the root check applies on Linux")
+    def test_root_is_refused_before_anything_starts(self):
+        argv = ["Run-RuleProxy.py", "--port", str(self.port), "--no-browser", "--state-dir", str(Path(self.temp.name) / "root")]
+        with patch.object(sys, "argv", argv), patch.object(panel_server, "_running_as_root", return_value=True), \
+                self.assertRaises(SystemExit) as exit_info:
+            panel_server.main()
+        self.assertIn("普通用户", str(exit_info.exception.code))
+        self.assertFalse((Path(self.temp.name) / "root").exists(), "no state may be created for root")
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", self.port))  # the panel port was never taken
+
+
+class RootGuardTests(unittest.TestCase):
+    def test_root_on_linux_is_refused_with_the_reason(self):
+        with patch.object(panel_server, "_running_as_root", return_value=True), self.assertRaises(SystemExit) as exit_info:
+            panel_server._refuse_root("linux")
+        self.assertIn("浏览器沙箱", str(exit_info.exception.code))
+
+    def test_a_normal_user_or_another_platform_is_allowed(self):
+        with patch.object(panel_server, "_running_as_root", return_value=False):
+            panel_server._refuse_root("linux")
+        with patch.object(panel_server, "_running_as_root", return_value=True):
+            panel_server._refuse_root("win32")
 
 
 if __name__ == "__main__":

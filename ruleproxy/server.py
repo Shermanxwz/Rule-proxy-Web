@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import os
 import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -182,6 +183,17 @@ def _open_running_panel(args, url: str, state: dict) -> None:
         webbrowser.open(url)
 
 
+def _running_as_root() -> bool:
+    return hasattr(os, "geteuid") and os.geteuid() == 0
+
+
+def _refuse_root(platform: str | None = None) -> None:
+    """Chromium-based apps start as root only with their sandbox disabled, which this tool never does."""
+    platform = sys.platform if platform is None else platform
+    if platform.startswith("linux") and _running_as_root():
+        raise SystemExit("RuleProxy: 请用登录桌面的普通用户运行，不要用 sudo 或 root。root 下 Chrome、ChatGPT 等程序必须关闭浏览器沙箱才能启动，本工具不会这样做。")
+
+
 def _tolerant_console() -> None:
     """Never crash on a message the console cannot encode (a redirected cp1252 pipe on Windows)."""
     for stream in (sys.stdout, sys.stderr):
@@ -206,6 +218,7 @@ def main():
     ports = (args.port, args.proxy_port, args.controller_port)
     if any(not 1025 <= port <= 65535 for port in ports) or len(set(ports)) != len(ports):
         parser.error("Panel, proxy, and controller ports must be 1025–65535 and all different")
+    _refuse_root()
     if args.launch_app:
         from .shortcut_launcher import run as run_shortcut
 
