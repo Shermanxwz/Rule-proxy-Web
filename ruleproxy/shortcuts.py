@@ -113,19 +113,24 @@ foreach ($folder in $folders) {
 """
 
 
-def runner_argv(app_id: str, state_dir: Path, ports: tuple[int, int, int]) -> list[str]:
-    """Command line that starts one saved app headlessly, using the panel's ports and state."""
+def background_argv(state_dir: Path, ports: tuple[int, int, int], *options: str) -> list[str]:
+    """Command line for Run-RuleProxy.py without a console window, on the panel's ports and state."""
     python = sys.executable
     if sys.platform == "win32":
         windowless = Path(python).with_name("pythonw.exe")
         if Path(python).name.lower() == "python.exe" and windowless.is_file():
-            python = str(windowless)  # no console window for a desktop shortcut
+            python = str(windowless)
     panel, mixed, controller = ports
     return [
-        python, str(ROOT / "Run-RuleProxy.py"), "--launch-app", app_id,
+        python, str(ROOT / "Run-RuleProxy.py"), *options,
         "--state-dir", str(state_dir), "--port", str(panel),
         "--proxy-port", str(mixed), "--controller-port", str(controller),
     ]
+
+
+def runner_argv(app_id: str, state_dir: Path, ports: tuple[int, int, int]) -> list[str]:
+    """Command line that starts one saved app headlessly, using the panel's ports and state."""
+    return background_argv(state_dir, ports, "--launch-app", app_id)
 
 
 def _display_name(label: str) -> str:

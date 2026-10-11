@@ -16,6 +16,7 @@ import time
 import urllib.parse
 import webbrowser
 
+from . import __version__
 from .manager import Manager, ROOT, state_directory
 from .panel_client import PROBE_HEADER, PanelError, panel_state, post, wait_for_panel
 
@@ -24,6 +25,8 @@ MAX_REQUEST = 2 * 1024 * 1024 + 65536
 # An open panel page reads the state every few seconds, and at least once a minute
 # from a background tab. A page that has not read it for this long counts as closed.
 VIEWER_TIMEOUT_SECONDS = 150.0
+# panel.log, kept when the panel runs without a console, starts over past this size.
+LOG_LIMIT = 1024 * 1024
 
 
 class PanelServer(ThreadingHTTPServer):
@@ -40,6 +43,8 @@ class PanelServer(ThreadingHTTPServer):
         self.hosted = hosted
         # Monotonic time of the last state read by a panel page; None until a page reads it.
         self.last_view: float | None = None
+        # Set by the page's "quit" button; whoever runs the panel then shuts it down and exits.
+        self.quit_requested = threading.Event()
         super().__init__(("127.0.0.1", port), Handler)
 
     def server_bind(self):
@@ -133,6 +138,14 @@ class Handler(BaseHTTPRequestHandler):
                 manager.save_settings(data)
             elif path == "/api/start":
                 manager.start()
+            elif path == "/api/autostart":
+                manager.set_autostart(data.get("enabled"))
+            elif path == "/api/quit":
+                # Answer first: the page then knows the panel is going away on purpose.
+                self.server.quit_requested.set()
+                self.reply(200, {"quitting": True})
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
             elif path == "/api/stop":
                 manager.stop()
             elif path == "/api/node":
@@ -204,6 +217,29 @@ def _tolerant_console() -> None:
                 pass
 
 
+def _windowless_log(state_dir: Path) -> bool:
+    """Started without a console (pythonw): keep the panel's messages in panel.log in its data folder.
+
+    Returns True when the panel has no console of its own.
+    """
+    if sys.stdout is not None and sys.stderr is not None:
+        return False
+    try:
+        state_dir.mkdir(parents=True, exist_ok=True)
+        path = state_dir / "panel.log"
+        # Start over past the limit, so a panel that always runs in the background cannot grow it without end.
+        mode = "w" if path.is_file() and path.stat().st_size > LOG_LIMIT else "a"
+        stream = open(path, mode, encoding="utf-8", errors="replace", buffering=1)
+    except OSError:
+        return True
+    stream.write(f"--- {time.strftime('%Y-%m-%d %H:%M:%S')} RuleProxy {__version__} ---\n")
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+    return True
+
+
 def main():
     _tolerant_console()
     parser = argparse.ArgumentParser(description="RuleProxy local web panel")
@@ -218,6 +254,20 @@ def main():
     ports = (args.port, args.proxy_port, args.controller_port)
     if any(not 1025 <= port <= 65535 for port in ports) or len(set(ports)) != len(ports):
         parser.error("Panel, proxy, and controller ports must be 1025–65535 and all different")
+    windowless = _windowless_log(args.state_dir)
+    try:
+        _run(args, windowless)
+    except SystemExit as exc:
+        # Without a console nobody would see why the panel did not start.
+        if windowless and isinstance(exc.code, str):
+            from .shortcut_launcher import _notify
+
+            print(exc.code, file=sys.stderr, flush=True)
+            _notify("RuleProxy", exc.code.removeprefix("RuleProxy: "))
+        raise
+
+
+def _run(args, windowless: bool):
     _refuse_root()
     if args.launch_app:
         from .shortcut_launcher import run as run_shortcut
@@ -249,7 +299,12 @@ def main():
         for name in ("SIGINT", "SIGTERM"):
             signal.signal(getattr(signal, name), lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
         print("RuleProxy: " + url, flush=True)
-        print("Close this window or press Ctrl+C to stop the panel and its protected applications.", flush=True)
+        if windowless:
+            print("Running without a window. Use Quit on the panel page to stop the panel and its protected applications.", flush=True)
+        else:
+            print("Press Ctrl+C, or use Quit on the panel page, to stop the panel and its protected applications.", flush=True)
+        # The isolation check can take seconds; start it now so the page does not wait for it.
+        threading.Thread(target=manager.protection, name="RuleProxyIsolationCheck", daemon=True).start()
         if args.start_core:
             try:
                 manager.start()

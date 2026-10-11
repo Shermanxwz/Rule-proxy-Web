@@ -446,10 +446,13 @@ def _probe_request(
     with tempfile.TemporaryDirectory(prefix="ruleproxy-mxc-probe-") as temp:
         config_path = _write_policy(policy, Path(temp))
         try:
+            # MXC writes UTF-8. The default locale decoding (GBK on Chinese Windows) fails on it,
+            # and a failed decode leaves the output empty.
             result = runner(
                 [str(runtime), "--probe", "--config", str(config_path)],
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=PROBE_TIMEOUT_SECONDS,
                 check=False,
                 shell=False,
@@ -457,8 +460,9 @@ def _probe_request(
         except (OSError, subprocess.SubprocessError) as exc:
             raise UnsupportedRuntimeError(f"MXC support probe failed: {exc}") from exc
     if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
         raise UnsupportedRuntimeError(
-            f"MXC support probe exited with status {result.returncode}: {result.stderr.strip()}"
+            f"MXC support probe exited with status {result.returncode}" + (f": {detail[:600]}" if detail else "")
         )
     try:
         output = json.loads(result.stdout)

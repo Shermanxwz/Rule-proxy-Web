@@ -159,9 +159,11 @@ denied(socket.AF_INET6, socket.SOCK_DGRAM,
        udp=True, allow_family_unsupported=True)
 '''
     result = subprocess.run(
-        [sys.executable, "-I", "-S", "-c", script, str(listener_port), str(host_fixture_port)],
+        # UTF-8 on both ends: the locale code page (GBK on Chinese Windows) cannot carry every error message.
+        [sys.executable, "-I", "-S", "-X", "utf8", "-c", script, str(listener_port), str(host_fixture_port)],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=20,
         check=False,
         shell=False,
