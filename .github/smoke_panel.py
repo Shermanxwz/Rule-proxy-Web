@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 import urllib.error
 import urllib.request
 
@@ -78,7 +79,7 @@ def wait_for(check, timeout: float, what: str, process: subprocess.Popen):
     raise SmokeFailure(f"timed out waiting for {what}")
 
 
-def drive(process: subprocess.Popen, panel: int, mixed: int) -> None:
+def drive(process: subprocess.Popen, panel: int, mixed: int) -> str:
     def state():
         try:
             return call(panel, "GET", "/api/state")
@@ -86,8 +87,8 @@ def drive(process: subprocess.Popen, panel: int, mixed: int) -> None:
             return None
 
     current = wait_for(state, 120, "the panel", process)
-    print(f"Panel {current['version']} on {current['platform']} is up.", flush=True)
-    print("Protection: " + json.dumps(current["protection"], ensure_ascii=False), flush=True)
+    protection = json.dumps(current["protection"], ensure_ascii=False)
+    print(f"Panel {current['version']} on {current['platform']} is up. Protection: {protection}", flush=True)
     token = current["token"]
     current = call(panel, "POST", "/api/import", token, {"yaml": EXAMPLE.read_text(encoding="utf-8")})
     if not current["imported"] or not current["nodes"]:
@@ -102,27 +103,44 @@ def drive(process: subprocess.Popen, panel: int, mixed: int) -> None:
         raise SmokeFailure("the core is still running after stop")
     wait_for(lambda: not port_open(mixed), 30, "the core to stop", process)
     print("Core stopped.", flush=True)
+    return f"Panel {current['version']} on {current['platform']}: imported the example, started and stopped the bundled core. Protection: {protection}"
+
+
+def wait_closed(port: int, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while port_open(port):
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.25)
+    return True
 
 
 def stop(process: subprocess.Popen, panel: int) -> None:
-    """Ask the panel to exit as Ctrl+C would; on Windows end the console tree, as closing it would."""
-    if process.poll() is not None:
-        return
+    """Ask the panel to exit as Ctrl+C would; on Windows end the console tree, as closing its window would."""
     if os.name == "nt":
-        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True, check=False)
-        process.wait(30)
+        if process.poll() is None:
+            subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True, check=False)
+            process.wait(30)
+        if not wait_closed(panel, 30):
+            raise SmokeFailure("the panel port is still taken after its console was closed")
         return
-    os.killpg(process.pid, signal.SIGINT)
-    try:
-        code = process.wait(20)
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        raise SmokeFailure("the panel did not exit after Ctrl+C") from None
-    if code != 0:
-        raise SmokeFailure(f"the panel exited with code {code} after Ctrl+C")
-    if port_open(panel):
+    if process.poll() is None:
+        os.killpg(process.pid, signal.SIGINT)
+        try:
+            code = process.wait(20)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            raise SmokeFailure("the panel did not exit after Ctrl+C") from None
+        if code != 0:
+            raise SmokeFailure(f"the panel exited with code {code} after Ctrl+C")
+    if not wait_closed(panel, 10):
         raise SmokeFailure("the panel port is still taken after the panel exited")
     print("Panel exited cleanly on Ctrl+C.", flush=True)
+
+
+def annotate(kind: str, text: str) -> None:
+    text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"::{kind} title=Panel smoke test::{text}", flush=True)
 
 
 def main(argv: list[str]) -> int:
@@ -132,28 +150,33 @@ def main(argv: list[str]) -> int:
         print(__doc__, file=sys.stderr)
         return 2
     panel, mixed, controller = free_ports(3)
-    with tempfile.TemporaryDirectory(prefix="ruleproxy-smoke-") as temp:
+    failure = report = None
+    # The killed panel's files may stay locked for a moment on Windows; leftovers in the temp folder do no harm.
+    with tempfile.TemporaryDirectory(prefix="ruleproxy-smoke-", ignore_cleanup_errors=True) as temp:
         log_path = Path(temp) / "panel.log"
         command = [*argv, "--no-browser", "--port", str(panel), "--proxy-port", str(mixed),
                    "--controller-port", str(controller), "--state-dir", str(Path(temp) / "state")]
         options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
-        with open(log_path, "wb") as log:
-            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, **options)
-            failure = None
-            try:
-                drive(process, panel, mixed)
-            except SmokeFailure as exc:
-                failure = exc
-            finally:
+        try:
+            with open(log_path, "wb") as log:
+                process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, **options)
                 try:
-                    stop(process, panel)
-                except SmokeFailure as exc:
-                    failure = failure or exc
-        output = log_path.read_text(encoding="utf-8", errors="replace")
-    print("--- panel output ---\n" + output.strip() + "\n---", flush=True)
+                    report = drive(process, panel, mixed)
+                except Exception:  # report anything, expected or not, with its traceback
+                    failure = traceback.format_exc()
+                finally:
+                    try:
+                        stop(process, panel)
+                    except Exception:
+                        failure = failure or traceback.format_exc()
+        except Exception:
+            failure = failure or traceback.format_exc()
+        output = log_path.read_text(encoding="utf-8", errors="replace").strip() if log_path.exists() else ""
+    print("--- panel output ---\n" + output + "\n---", flush=True)
     if failure:
-        print(f"::error title=Panel smoke test::{failure}", flush=True)
+        annotate("error", failure[-2500:] + "\n--- panel output ---\n" + output[-1500:])
         return 1
+    annotate("notice", report)
     print("Smoke test passed.", flush=True)
     return 0
 
