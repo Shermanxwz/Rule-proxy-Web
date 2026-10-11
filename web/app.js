@@ -17,9 +17,14 @@
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
     runtimeSettings: $('windows-runtime-settings'), runtimePath: $('runtime-path'), saveRuntime: $('save-runtime-button'),
     hostedNote: $('hosted-note'), filesNote: $('files-note'), configNotes: $('config-notes'), configWarnings: $('config-warnings'),
+    autostartRow: $('autostart-row'), autostart: $('autostart-toggle'), autostartDetail: $('autostart-detail'), quit: $('quit-button'),
   };
+  const AUTOSTART_TEXT = '登录系统后自动启动面板，不打开窗口，也不启动核心；从快捷方式或面板启动应用时再启动核心。';
+  const AUTOSTART_STALE_TEXT = '已有的自动启动设置指向别的位置或端口（例如移动过文件夹）。打开开关即可改为当前面板。';
   let state = null;
   let busy = false;
+  // Set once the panel was quit from this page: nothing is left to talk to.
+  let stopped = false;
   let lastAppsSignature = '';
   let lastAvailableSignature = '';
   let refreshingApps = false;
@@ -41,6 +46,10 @@
   }
 
   function renderControls() {
+    if (stopped) {
+      document.querySelectorAll('button, input, select, textarea').forEach((control) => { control.disabled = true; });
+      return;
+    }
     const ready = !!state;
     const imported = ready && !!state.imported;
     const running = ready && !!state.running;
@@ -58,6 +67,8 @@
     ui.launchAll.disabled = busy || !running || !protectedBackend || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
     if (ui.saveRuntime) ui.saveRuntime.disabled = busy || !ready || running;
     if (ui.runtimePath) ui.runtimePath.disabled = busy || !ready || running;
+    ui.autostart.disabled = busy || !ready;
+    ui.quit.disabled = busy || !ready;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app').forEach((control) => { control.disabled = busy; });
     ui.availableApps.querySelectorAll('.discovery-add').forEach((control) => { control.disabled = busy || control.dataset.added === 'true'; });
     ui.apps.querySelectorAll('.app-shortcut').forEach((control) => { control.disabled = busy; });
@@ -282,6 +293,11 @@
     const limitations = Array.isArray(protection.limitations) ? protection.limitations : [];
     ui.protectionLimitations.hidden = limitations.length === 0;
     for (const limitation of limitations) ui.protectionLimitations.append(textElement('li', '', limitation));
+    const autostart = state.autostart || 'unsupported';
+    ui.autostartRow.hidden = autostart === 'unsupported';
+    ui.autostartRow.classList.toggle('is-stale', autostart === 'stale');
+    ui.autostart.checked = autostart === 'on';
+    ui.autostartDetail.textContent = autostart === 'stale' ? AUTOSTART_STALE_TEXT : AUTOSTART_TEXT;
     const isWindows = /windows|win32|win64/i.test(String(state.platform || ''));
     ui.runtimeSettings.hidden = !isWindows;
     if (isWindows && document.activeElement !== ui.runtimePath) ui.runtimePath.value = state.runtime_path || '';
@@ -309,6 +325,7 @@
   }
 
   async function readState({ quiet = false, refreshApps = false } = {}) {
+    if (stopped) return;
     try {
       const response = await fetch(refreshApps ? '/api/state?refresh_apps=1' : '/api/state', { cache: 'no-store' });
       const result = await response.json();
@@ -356,6 +373,8 @@
       } else if (options.launchAll) {
         showLaunchResults(result.results || []);
         await readState({ quiet: true });
+      } else if (options.quit) {
+        // The panel is shutting down; there is no state left to read.
       } else if (options.notice) {
         showError('');
         if (result && result.token) render(result);
@@ -380,6 +399,7 @@
     ui.error.textContent = message;
     ui.error.hidden = false;
     window.setTimeout(() => {
+      if (stopped) return;  // keep the final "panel has quit" message
       if (ui.error.classList.contains('success-notice')) ui.error.hidden = true;
       ui.error.className = 'notice error-notice';
     }, 5000);
@@ -460,6 +480,31 @@
     mutate('/api/launch-enabled', {}, { launchAll: true });
   });
 
+  ui.autostart.addEventListener('change', async () => {
+    const enabled = ui.autostart.checked;
+    const result = await mutate('/api/autostart', { body: { enabled } }, {
+      notice: enabled ? '已开启：登录后会在后台自动启动面板。' : '已关闭登录后自动启动。',
+    });
+    if (!result && state) render(state);  // put the switch back when the change failed
+  });
+
+  ui.quit.addEventListener('click', async () => {
+    if (busy || !state) return;
+    if (!window.confirm('退出面板会关闭此工具启动的受保护应用，并停止核心。确定退出吗？')) return;
+    const isWindows = /windows|win32|win64/i.test(String(state.platform || ''));
+    if (!await mutate('/api/quit', {}, { quit: true })) return;
+    stopped = true;
+    ui.statusDot.className = 'status-indicator';
+    ui.statusTitle.textContent = '面板已退出';
+    ui.statusDetail.textContent = '可以关闭此页面';
+    ui.error.className = 'notice success-notice';
+    ui.error.textContent = isWindows
+      ? '面板已退出，受保护应用已关闭，核心已停止。需要时双击 Start-Windows.cmd 或应用的快捷方式即可重新打开。'
+      : '面板已退出，受保护应用已关闭，核心已停止。需要时运行 sh start-linux.sh 或点应用的快捷方式即可重新打开。';
+    ui.error.hidden = false;
+    renderControls();
+  });
+
   ui.appSearch.addEventListener('input', renderAvailableApps);
   ui.refreshApps.addEventListener('click', async () => {
     if (busy || refreshingApps) return;
@@ -503,7 +548,7 @@
   // twice a minute, which also keeps a panel started by a shortcut from exiting.
   let hiddenTicks = 0;
   window.setInterval(() => {
-    if (busy || refreshingApps) return;
+    if (stopped || busy || refreshingApps) return;
     if (document.hidden && ++hiddenTicks < 6) return;
     hiddenTicks = 0;
     readState({ quiet: true });

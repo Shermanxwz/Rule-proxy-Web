@@ -98,6 +98,8 @@ def _host_panel(server, app_id: str, state_dir: Path, panel_port: int, mixed_por
         manager.launch(app_id)
         idle_since = None
         while not stop.wait(0.5):
+            if server.quit_requested.is_set():
+                break
             if manager.has_active_apps() or server.viewer_recent():
                 idle_since = None
             elif idle_since is None:

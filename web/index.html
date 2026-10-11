@@ -163,6 +163,24 @@
       </details>
     </section>
 
+    <section class="panel background-panel" aria-labelledby="background-title">
+      <h2 id="background-title" class="sr-only">后台运行</h2>
+      <div id="autostart-row" class="background-row" hidden>
+        <div>
+          <strong>登录后在后台运行</strong>
+          <p id="autostart-detail">登录系统后自动启动面板，不打开窗口，也不启动核心；从快捷方式或面板启动应用时再启动核心。</p>
+        </div>
+        <label class="switch-field"><input id="autostart-toggle" type="checkbox"><span>自动启动</span></label>
+      </div>
+      <div class="background-row">
+        <div>
+          <strong>退出面板</strong>
+          <p>关闭此工具启动的受保护应用，停止核心，然后退出面板。面板在后台运行时，从这里退出。</p>
+        </div>
+        <button id="quit-button" class="button button-secondary" type="button">退出面板</button>
+      </div>
+    </section>
+
     <details id="windows-runtime-settings" class="advanced-settings" hidden>
       <summary>Windows 高级设置</summary>
       <div class="runtime-setting">

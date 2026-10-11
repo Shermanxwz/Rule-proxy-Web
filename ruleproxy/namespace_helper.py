@@ -31,7 +31,7 @@ def bridge(client: socket.socket, endpoint: str) -> None:
 
 
 def main() -> int:
-    policy = json.load(sys.stdin)
+    policy = json.loads(sys.stdin.buffer.read().decode("utf-8"))  # the launcher writes UTF-8 whatever the locale
     # Assert the boundary BEFORE exposing the proxy or executing the workload.
     if {name for _, name in socket.if_nameindex()} != {"lo"}:
         raise RuntimeError("Refusing to launch: this namespace has an uplink")

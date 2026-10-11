@@ -13,11 +13,12 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import urllib.parse
 import urllib.request
 import uuid
 
-from . import __version__
+from . import __version__, autostart
 from .config import compile_config
 from .launcher import discover_apps, validate_app, prepare_app
 from .shortcuts import create_shortcut_files, remove_shortcut_files
@@ -135,6 +136,7 @@ class Manager:
         self.compiled = None
         if self.source:
             self._load_saved_config()
+        self._probe_lock = threading.Lock()
         self._probe_cache = None
         # Installed-app discovery can take seconds on Windows, so it runs in the background.
         self._apps_lock = threading.Lock()
@@ -165,16 +167,45 @@ class Manager:
         return compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, selected_node=selected if selected is not None else self.settings.get("selected_node"))
 
     def protection(self):
-        if self._probe_cache is None:
+        """The isolation check, run once. It can take seconds, so callers hold no other lock."""
+        with self._probe_lock:
+            if self._probe_cache is None:
+                self._probe_cache = self._check_isolation()
+            return self._probe_cache
+
+    def _check_isolation(self):
+        try:
             if sys.platform == "linux":
                 from .linux_runtime import probe
-                self._probe_cache = probe()
-            elif sys.platform == "win32":
+                return probe()
+            if sys.platform == "win32":
                 from .windows_runtime import probe
-                self._probe_cache = probe(self.runtime_path(), self.mixed_port)
+                return probe(self.runtime_path(), self.mixed_port)
+            return {"supported": False, "backend": "不支持的系统", "detail": "当前仅支持 Windows 和 Linux。", "limitations": []}
+        except Exception as exc:  # an unexpected failure means "not protected"; it must not take the panel down
+            traceback.print_exc()
+            return {"supported": False, "backend": None, "detail": f"隔离能力检查出错，受保护启动已禁用：{exc}", "limitations": []}
+
+    def ports(self) -> tuple[int, int, int]:
+        return (self.panel_port, self.mixed_port, self.controller_port)
+
+    def autostart_status(self) -> str:
+        try:
+            return autostart.status(self.directory, self.ports())
+        except OSError:
+            return "off"
+
+    def set_autostart(self, enabled) -> None:
+        """Start this panel, quietly and with its ports and data folder, when the user logs in."""
+        if not isinstance(enabled, bool):
+            raise ValueError("请求无效。")
+        try:
+            if enabled:
+                autostart.enable(self.directory, self.ports())
             else:
-                self._probe_cache = {"supported": False, "backend": "不支持的系统", "detail": "当前仅支持 Windows 和 Linux。", "limitations": []}
-        return self._probe_cache
+                autostart.disable()
+        except OSError as exc:
+            raise ValueError(f"无法更改登录后自动启动：{exc}") from exc
 
     def runtime_path(self):
         return self.settings.get("runtime_path") or str(ROOT / "bin/windows-amd64/wxc-exec.exe")
@@ -216,6 +247,8 @@ class Manager:
         # Both reads below touch the disk, so they stay outside the manager lock.
         available, scanning = self.available_apps(refresh=refresh_apps)
         files_dir = self.files_dir()
+        protection = self.protection()
+        starts_at_login = self.autostart_status()
         with self.lock:
             running = bool(self.core and self.core.poll() is None)
             apps = []
@@ -243,7 +276,8 @@ class Manager:
                 "files_dir": files_dir,
                 "proxy_url": f"http://127.0.0.1:{self.mixed_port}",
                 "ports": {"mixed": self.mixed_port, "panel": self.panel_port},
-                "protection": self.protection(),
+                "protection": protection,
+                "autostart": starts_at_login,
                 "warnings": compiled.warnings if compiled else [],
             }
 

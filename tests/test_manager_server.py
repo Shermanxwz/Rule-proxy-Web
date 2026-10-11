@@ -1,4 +1,4 @@
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 import io
 import json
 from pathlib import Path
@@ -226,6 +226,28 @@ class ManagerTests(unittest.TestCase):
         self.manager.core = None
 
 
+class IsolationCheckTests(unittest.TestCase):
+    def setUp(self):
+        stub_discovery(self)
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.manager = Manager(Path(self.temp.name), 18879)
+        self.addCleanup(self.manager.close)
+
+    @unittest.skipUnless(sys.platform in ("linux", "win32"), "the isolation check runs on Linux and Windows")
+    def test_a_crashing_check_reads_as_unsupported_and_the_state_still_loads(self):
+        failure = AttributeError("'NoneType' object has no attribute 'strip'")
+        with patch("ruleproxy.linux_runtime.probe", side_effect=failure), \
+                patch("ruleproxy.windows_runtime.probe", side_effect=failure), \
+                redirect_stderr(io.StringIO()) as errors:
+            state = self.manager.state()
+            again = self.manager.state()
+        self.assertFalse(state["protection"]["supported"])
+        self.assertIn("隔离能力检查出错", state["protection"]["detail"])
+        self.assertIs(again["protection"], state["protection"], "the result is kept, not re-run on every refresh")
+        self.assertIn("AttributeError", errors.getvalue(), "the traceback is kept for the panel log")
+
+
 class LocalServerTests(unittest.TestCase):
     def setUp(self):
         stub_discovery(self)
@@ -290,6 +312,40 @@ class LocalServerTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.request("/api/import", {"yaml": "bad"}, **{"X-RuleProxy-Token": self.manager.token})
         self.assertEqual(error.exception.code, 400)
+
+    def test_autostart_is_reported_and_set_for_this_panel(self):
+        token = {"X-RuleProxy-Token": self.manager.token}
+        with patch("ruleproxy.autostart.status", return_value="off"):
+            with self.request("/api/state") as response:
+                self.assertEqual(json.load(response)["autostart"], "off")
+        with patch("ruleproxy.autostart.enable") as enable, patch("ruleproxy.autostart.status", return_value="on"):
+            with self.request("/api/autostart", {"enabled": True}, **token) as response:
+                self.assertEqual(json.load(response)["autostart"], "on")
+        enable.assert_called_once_with(self.manager.directory, self.manager.ports())
+        with patch("ruleproxy.autostart.disable") as disable:
+            with self.request("/api/autostart", {"enabled": False}, **token):
+                pass
+        disable.assert_called_once_with()
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.request("/api/autostart", {"enabled": "yes"}, **token)
+        self.assertEqual(error.exception.code, 400)
+
+    def test_quit_answers_then_shuts_the_panel_down(self):
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.request("/api/quit", {})
+        self.assertEqual(error.exception.code, 403, "quitting needs the page's token")
+        with self.request("/api/quit", {}, **{"X-RuleProxy-Token": self.manager.token}) as response:
+            self.assertEqual(json.load(response), {"quitting": True})
+        self.assertTrue(self.server.quit_requested.is_set())
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                urllib.request.urlopen(self.base + "/api/state", timeout=0.5).close()
+            except OSError:
+                break
+            time.sleep(0.1)
+        else:
+            self.fail("the panel kept serving after quit")
 
     def app_with_executable(self):
         executable = Path(self.temp.name) / "bin" / f"chrome-{len(self.manager.settings['apps'])}"
@@ -383,6 +439,57 @@ class ServerMainTests(unittest.TestCase):
         self.assertFalse((Path(self.temp.name) / "root").exists(), "no state may be created for root")
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", self.port))  # the panel port was never taken
+
+
+class WindowlessTests(unittest.TestCase):
+    """pythonw gives the panel no console: messages go to panel.log, and a failed start says why."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.state_dir = Path(self.temp.name) / "state"
+
+    def test_a_console_keeps_its_output(self):
+        self.assertFalse(panel_server._windowless_log(self.state_dir))
+        self.assertFalse(self.state_dir.exists())
+
+    def test_without_a_console_messages_go_to_panel_log(self):
+        with patch.object(sys, "stdout", None), patch.object(sys, "stderr", None):
+            self.assertTrue(panel_server._windowless_log(self.state_dir))
+            stream = sys.stdout
+            self.addCleanup(stream.close)
+            self.assertIs(sys.stderr, stream)
+            print("RuleProxy: http://127.0.0.1:8879", flush=True)
+        text = (self.state_dir / "panel.log").read_text(encoding="utf-8")
+        self.assertIn(f"RuleProxy {panel_server.__version__}", text)
+        self.assertIn("RuleProxy: http://127.0.0.1:8879", text)
+
+    def test_the_log_starts_over_once_it_is_large(self):
+        self.state_dir.mkdir()
+        (self.state_dir / "panel.log").write_text("old line\n" * 20, encoding="utf-8")
+        with patch.object(panel_server, "LOG_LIMIT", 50), patch.object(sys, "stdout", None), patch.object(sys, "stderr", None):
+            panel_server._windowless_log(self.state_dir)
+            self.addCleanup(sys.stdout.close)
+        self.assertNotIn("old line", (self.state_dir / "panel.log").read_text(encoding="utf-8"))
+
+    def test_a_failed_windowless_start_is_shown_to_the_user(self):
+        blocker = socket.socket()
+        blocker.bind(("127.0.0.1", 0))
+        blocker.listen(1)
+        self.addCleanup(blocker.close)
+        port = blocker.getsockname()[1]
+        argv = ["Run-RuleProxy.py", "--port", str(port), "--proxy-port", str(free_port()), "--controller-port", str(free_port()),
+                "--state-dir", str(self.state_dir), "--no-browser"]
+        with patch.object(sys, "argv", argv), patch.object(panel_server, "_windowless_log", return_value=True), \
+                patch.object(panel_server, "_running_as_root", return_value=False), \
+                patch.object(panel_server, "wait_for_panel", return_value=None), \
+                patch("ruleproxy.shortcut_launcher._notify") as notify, redirect_stderr(io.StringIO()), \
+                self.assertRaises(SystemExit):
+            panel_server.main()
+        title, message = notify.call_args.args
+        self.assertEqual(title, "RuleProxy")
+        self.assertIn(f"无法使用面板端口 {port}", message)
+        self.assertFalse(message.startswith("RuleProxy:"))
 
 
 class RootGuardTests(unittest.TestCase):

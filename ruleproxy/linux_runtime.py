@@ -274,7 +274,9 @@ def launch(command: list[str], env: dict[str, str], profile: Path, port: int, do
     process = None
     try:
         args, isolated_env = build_command(command, env, profile, proxy_bridge.path, downloads)
-        process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, text=True)
+        # Apps may print any bytes; a strict decode would stop the drain thread and let the app block on a full pipe.
+        process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+                                   encoding="utf-8", errors="replace")
         process.stdin.write(json.dumps({"command": command, "env": isolated_env, "port": port}))
         process.stdin.close()
         process.stdin = None

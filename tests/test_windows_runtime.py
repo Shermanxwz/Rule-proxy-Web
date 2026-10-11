@@ -2,6 +2,7 @@ import json
 import ctypes
 import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -129,6 +130,45 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(args[:3], [str(self.runtime), "--probe", "--config"])
         self.assertFalse(run.call_args.kwargs["shell"])
         self.assertEqual(run.call_args.kwargs["timeout"], windows_runtime.PROBE_TIMEOUT_SECONDS)
+        # MXC writes UTF-8; the locale code page (GBK on Chinese Windows) must not be used to read it.
+        self.assertEqual((run.call_args.kwargs["encoding"], run.call_args.kwargs["errors"]), ("utf-8", "replace"))
+
+    def test_probe_reads_utf8_output_whatever_the_locale(self):
+        # A stand-in runtime that fails with UTF-8 text no single-byte or GBK decoding reads back intact.
+        script = self.root / "fake_mxc.py"
+        script.write_text(
+            "import sys\n"
+            "sys.stderr.buffer.write('无法创建容器 — 0x8007 “拒绝”'.encode('utf-8'))\n"
+            "sys.exit(3)\n",
+            encoding="utf-8",
+        )
+
+        def runner(args, **options):
+            return subprocess.run([sys.executable, str(script), *args[1:]], **options)
+
+        with self.assertRaises(windows_runtime.UnsupportedRuntimeError) as failure:
+            windows_runtime._probe_request(
+                self.runtime,
+                windows_runtime.build_policy(["browser.exe"], {}, self.profile, 10809),
+                runner=runner,
+                platform_name="win32",
+                version=(10, 26100),
+            )
+        self.assertIn("status 3", str(failure.exception))
+        self.assertIn("无法创建容器 — 0x8007 “拒绝”", str(failure.exception))
+
+    def test_a_failed_probe_without_output_is_still_a_clear_refusal(self):
+        # What a crashed output reader leaves behind: no text at all.
+        completed = subprocess.CompletedProcess(args=[], returncode=5, stdout=None, stderr=None)
+        with mock.patch.object(windows_runtime.subprocess, "run", return_value=completed):
+            with self.assertRaises(windows_runtime.UnsupportedRuntimeError) as failure:
+                windows_runtime._probe_request(
+                    self.runtime,
+                    windows_runtime.build_policy(["browser.exe"], {}, self.profile, 10809),
+                    platform_name="win32",
+                    version=(10, 26100),
+                )
+        self.assertEqual(str(failure.exception), "MXC support probe exited with status 5")
 
     def test_probe_rejects_bad_json_error_weak_tier_and_missing_base_api_fact(self):
         output_cases = [

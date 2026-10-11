@@ -112,7 +112,7 @@ jobs:
           $dest = Join-Path $env:RUNNER_TEMP '测试 目录'
           Expand-Archive $zip -DestinationPath $dest
           $package = Join-Path $dest 'RuleProxy-Web'
-          $allowed = 'bin', 'examples', 'python', 'ruleproxy', 'vendor', 'web', 'LICENSE', 'README.md', 'Run-RuleProxy.py', 'Start-Windows.cmd', 'THIRD-PARTY.md'
+          $allowed = 'bin', 'examples', 'python', 'ruleproxy', 'vendor', 'web', 'CHANGELOG.md', 'LICENSE', 'README.md', 'Run-RuleProxy.py', 'Start-Windows.cmd', 'THIRD-PARTY.md'
           $unexpected = Get-ChildItem $package -Name | Where-Object { $_ -notin $allowed }
           if ($unexpected) { throw "Unexpected files in the package: $unexpected" }
           "PACKAGE=$package" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8

@@ -236,6 +236,22 @@ class HostedPanelTests(unittest.TestCase):
         self.assertEqual(self.manager.close_calls, 1)
         self.assertTrue(port_is_free(self.port))
 
+    def test_quit_on_the_page_ends_a_hosted_panel_while_apps_run(self):
+        thread, result = self.run_in_background("abc")
+        self.assertTrue(wait_until(lambda: self.manager.launched == ["abc"]))
+        self.assertTrue(self.manager.has_active_apps())
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/quit", data=b"{}", method="POST",
+            headers={"Content-Type": "application/json", "X-RuleProxy-Token": FakeManager.token},
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            self.assertEqual(json.load(response), {"quitting": True})
+        thread.join(10)
+        self.assertFalse(thread.is_alive(), "quit must end the hosted panel even with an app still open")
+        self.assertEqual(result["code"], 0)
+        self.assertEqual(self.manager.close_calls, 1, "closing the manager stops the apps and the core")
+        self.assertTrue(port_is_free(self.port))
+
     def test_a_later_shortcut_uses_the_hosted_panel(self):
         thread, result = self.run_in_background("abc")
         self.assertTrue(wait_until(lambda: self.manager.launched == ["abc"]))

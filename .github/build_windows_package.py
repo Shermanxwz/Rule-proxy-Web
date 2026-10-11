@@ -38,7 +38,7 @@ PYYAML_SHA256 = "4a2e8cebe2ff6ab7d1050ecd59c25d4c8bd7e6f400f5f82b96557ac0abafd0a
 
 FOLDER = "RuleProxy-Web"
 # What the Windows panel needs. Linux scripts, tests and the source-checkout installer stay out.
-INCLUDE = ("Run-RuleProxy.py", "Start-Windows.cmd", "README.md", "LICENSE", "THIRD-PARTY.md", "ruleproxy/", "web/", "examples/")
+INCLUDE = ("Run-RuleProxy.py", "Start-Windows.cmd", "README.md", "CHANGELOG.md", "LICENSE", "THIRD-PARTY.md", "ruleproxy/", "web/", "examples/")
 # The embedded Python reads only the paths listed here: its own library, its folder, and the package root.
 PTH_TEXT = f"{PYTHON_STDLIB}\r\n.\r\n..\r\n# RuleProxy: the package root holds ruleproxy/ and Run-RuleProxy.py; site is not imported.\r\n"
 MAX_DOWNLOAD = 64 * 1024 * 1024
@@ -106,16 +106,33 @@ def write_zip(source: Path, path: Path) -> None:
             archive.write(file, f"{FOLDER}/{file.relative_to(source).as_posix()}")
 
 
+def changes() -> str:
+    """This version's entries in CHANGELOG.md; a release without them is refused."""
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    heading = f"## {__version__}\n"
+    if heading not in text:
+        raise SystemExit(f"CHANGELOG.md has no section for {__version__}")
+    section = text.split(heading, 1)[1].split("\n## ", 1)[0].strip()
+    if not section:
+        raise SystemExit(f"The CHANGELOG.md section for {__version__} is empty")
+    return section
+
+
 def release_notes(zip_name: str, digest: str) -> str:
-    return f"""## 安装
+    return f"""## 本版更新
+
+{changes()}
+
+## 安装
 
 **Windows**（x64 Windows 11 24H2 / 25H2，装好最新更新；不需要另外安装 Python）
 
 1. 下载 `{zip_name}`。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”，避免每次启动都弹出安全提示。
-3. 解压到固定位置，双击 `{FOLDER}\\Start-Windows.cmd`。
+3. 解压到固定位置，双击 `{FOLDER}\\Start-Windows.cmd`。浏览器会打开面板，面板在后台运行，没有命令行窗口。
+4. 想要每次登录后自动在后台运行，在面板底部打开“登录后在后台运行”。
 
-升级时先关闭面板，再把新版本解压到同一位置覆盖；设置、登录状态和快捷方式都会保留。
+升级时先在面板点“退出面板”，再把新版本解压到同一位置覆盖；设置、登录状态、快捷方式和登录启动项都会保留。
 
 **Linux**（Ubuntu 22.04 / 24.04，x86-64）
 
