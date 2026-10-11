@@ -62,6 +62,17 @@ jobs:
         run: python -B .github/windows_fault_validation.py --output native-results
       - name: Real Edge rendering and cookie persistence
         run: python -B .github/windows_browser_validation.py --output native-results
+      - name: Prepare official Chrome for Testing as an independent browser
+        if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
+        run: |
+          $url = 'https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.39/win64/chrome-win64.zip'
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP/chrome.zip"
+          Get-FileHash "$env:RUNNER_TEMP/chrome.zip" -Algorithm SHA256
+          Expand-Archive "$env:RUNNER_TEMP/chrome.zip" -DestinationPath C:/RuleProxyChrome
+          'RULEPROXY_TEST_BROWSER=C:/RuleProxyChrome/chrome-win64/chrome.exe' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Qualify independent Chrome browser
+        if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
+        run: python -B .github/windows_browser_validation.py --output native-results/chrome
       - name: Diagnose browser compatibility without changing the network policy
         if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
         run: python -B .github/windows_browser_experiments.py

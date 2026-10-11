@@ -29,7 +29,7 @@ def main():
     server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler)
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
     try:
-        edge=Path(os.environ['ProgramFiles(x86)'])/'Microsoft/Edge/Application/msedge.exe'
+        edge=Path(os.environ['RULEPROXY_TEST_BROWSER']) if os.environ.get('RULEPROXY_TEST_BROWSER') else Path(os.environ['ProgramFiles(x86)'])/'Microsoft/Edge/Application/msedge.exe'
         executable=ROOT/'bin/windows-amd64/wxc-exec.exe'
         with tempfile.TemporaryDirectory(prefix='browser-diagnosis-',ignore_cleanup_errors=True) as temporary:
             folder=Path(temporary);proxy=free_port();core,log=start_core(folder,proxy)

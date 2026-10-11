@@ -49,7 +49,7 @@ def main():
         if not probe['supported']:
             report['verdict'] = 'unsupported-host-refused'; code = 0
             return code
-        candidates = [Path(os.environ.get(key, 'C:/Program Files')) / 'Microsoft/Edge/Application/msedge.exe'
+        candidates = ([Path(os.environ['RULEPROXY_TEST_BROWSER'])] if os.environ.get('RULEPROXY_TEST_BROWSER') else []) + [Path(os.environ.get(key, 'C:/Program Files')) / 'Microsoft/Edge/Application/msedge.exe'
                       for key in ('ProgramFiles(x86)', 'ProgramFiles')]
         edge = next((p for p in candidates if p.is_file()), None)
         if edge is None: raise RuntimeError('Edge is required for the browser acceptance test')
