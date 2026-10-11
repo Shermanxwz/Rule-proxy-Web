@@ -227,7 +227,7 @@ def host_control(folder: Path, proxy: int, fixture: int, target: int):
     return result
 
 
-def current_launch(folder: Path, executable: Path, proxy: int, fixture: int, target: int):
+def current_launch(folder: Path, executable: Path, proxy: int, fixture: int, target: int, core):
     profile = folder / "current-launch"
     profile.mkdir()
     marker = profile / "application-started.txt"
@@ -249,7 +249,7 @@ def current_launch(folder: Path, executable: Path, proxy: int, fixture: int, tar
     watcher.start()
     process = resource = None
     try:
-        process, resource = runtime.launch(command, {"HTTP_PROXY": f"http://127.0.0.1:{proxy}"}, profile, proxy, str(executable))
+        process, resource = runtime.launch(command, {"HTTP_PROXY": f"http://127.0.0.1:{proxy}"}, profile, proxy, str(executable), proxy_process=core)
         deadline = time.monotonic()+25
         while not marker.is_file() and time.monotonic() < deadline and process.poll() is None:
             time.sleep(0.05)
@@ -288,7 +288,7 @@ def main():
             fixture, target = Listener(b"fixture-ok"), Listener(b"target-ok")
             try:
                 report["host_control"] = host_control(folder, proxy, fixture.port, target.port)
-                report["current_launch"] = current_launch(folder, executable, proxy, fixture.port, target.port)
+                report["current_launch"] = current_launch(folder, executable, proxy, fixture.port, target.port, core)
                 for name in ("model3", "model2"):
                     report[name] = raw_case(name, folder, executable, proxy, fixture.port, target.port)
                 report["fixture_connections"] = fixture.accepted
@@ -301,7 +301,9 @@ def main():
                 inside = report["current_launch"].get("inside", {})
                 works = all(inside.get(key, {}).get("ok") is True for key in ("proxy_greeting", "proxy_data_roundtrip"))
                 denied = all(inside.get(key, {}).get("winerror") == 10013 for key in ("other_host_loopback", "direct_ipv4"))
-                code = 0 if report["current_launch"]["started"] and works and denied else 1
+                accepted = report["current_launch"]["started"] and works and denied
+                report["verdict"] = "launch-and-proxy-verified" if accepted else "application-network-qualification-failed"
+                code = 0 if accepted else 1
             else:
                 refused = not report["current_launch"]["application_marker"] and not report["model3"]["executed"]
                 report["verdict"] = "unsupported-host-refused-safely" if refused else "unsafe-launch-on-unsupported-host"

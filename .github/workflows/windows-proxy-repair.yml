@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: windows-proxy-repair-${{ github.ref }}
@@ -14,38 +15,15 @@ concurrency:
 
 jobs:
   runtime:
-    name: Build pinned Microsoft MXC proxy compatibility revision
-    runs-on: windows-2025
-    timeout-minutes: 35
+    name: Reuse the immutable qualification build
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v8
         with:
-          repository: microsoft/mxc
-          ref: c6f301d53a1430c4c921a05c57af838f7392348f
-          path: upstream-mxc
-          persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-      - name: Use upstream's pinned toolchain and public dependency mirror
-        shell: pwsh
-        run: |
-          rustup toolchain install 1.93 --profile minimal
-          rustup target add x86_64-pc-windows-msvc --toolchain 1.93
-          Get-Content upstream-mxc/.azure-pipelines/.cargo/config.public.toml | Add-Content upstream-mxc/.cargo/config.toml
-      - name: Build only the ProcessContainer executor and WinHTTP shim
-        working-directory: upstream-mxc/src
-        run: cargo +1.93 build --locked --release --target x86_64-pc-windows-msvc -p wxc -p wxc_winhttp_proxy_shim
-      - name: Record source and binary integrity
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force qualified-runtime
-          Copy-Item upstream-mxc/src/target/x86_64-pc-windows-msvc/release/wxc-exec.exe qualified-runtime/
-          Copy-Item upstream-mxc/src/target/x86_64-pc-windows-msvc/release/winhttp-proxy-shim.exe qualified-runtime/
-          Copy-Item upstream-mxc/LICENSE.md qualified-runtime/MXC-LICENSE.md
-          'microsoft/mxc c6f301d53a1430c4c921a05c57af838f7392348f; Rust 1.93; Cargo.lock; x86_64-pc-windows-msvc; no optional backends' | Set-Content qualified-runtime/SOURCE.txt
-          Get-FileHash qualified-runtime/*.exe -Algorithm SHA256 | Format-List | Out-File qualified-runtime/SHA256SUMS.txt
+          name: mxc-proxy-runtime-x64
+          run-id: 38134137607
+          github-token: ${{ github.token }}
+          path: qualified-runtime
       - uses: actions/upload-artifact@v7
         with:
           name: mxc-proxy-runtime-x64
@@ -80,6 +58,8 @@ jobs:
           path: bin/windows-amd64
       - name: Test upstream proxy transport and the shipped launch path
         run: python -B .github/windows_native_validation.py --output native-results
+      - name: Real Edge rendering and cookie persistence
+        run: python -B .github/windows_browser_validation.py --output native-results
       - uses: actions/upload-artifact@v7
         if: always()
         with:

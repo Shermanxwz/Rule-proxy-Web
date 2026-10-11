@@ -461,7 +461,7 @@ class Manager:
             elif sys.platform == "win32":
                 from .windows_runtime import launch
                 try:
-                    process, resource = launch(command, env, profile, self.mixed_port, self.runtime_path())
+                    process, resource = launch(command, env, profile, self.mixed_port, self.runtime_path(), proxy_process=self.core)
                 except Exception as exc:
                     failed_process = getattr(exc, "process", None)
                     failed_resource = getattr(exc, "resource", None)
@@ -518,8 +518,12 @@ class Manager:
                         self.error = "代理核心已退出；部分隔离实例未能关闭，请手动关闭其窗口。隔离不会退回直连。"
                 for ident, (process, resource) in list(self.active.items()):
                     if process.poll() is not None:
-                        close_resource(resource)
-                        self.active.pop(ident, None)
+                        try:
+                            close_resource(resource)
+                        except Exception as exc:
+                            self.error = f"隔离资源清理尚未完成，请重试停止：{exc}"
+                        else:
+                            self.active.pop(ident, None)
 
     def close(self):
         self.closed.set()

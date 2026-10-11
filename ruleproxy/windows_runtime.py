@@ -571,6 +571,8 @@ def launch(
     profile: Path,
     proxy_port: int,
     runtime_path: str,
+    *,
+    proxy_process: subprocess.Popen | None = None,
 ) -> tuple[subprocess.Popen, Any]:
     """Start the app only after proxy and controlled bypass checks pass."""
     proxy_port = _validate_proxy_port(proxy_port)
@@ -598,6 +600,8 @@ def launch(
             runtime_config=Path(run_dir.name) / "guest-config.json",
         )
         _probe_request(runtime, policy)
+        if proxy_process is not None:
+            _assert_proxy_owner(proxy_port, proxy_process)
         fixture.start()
         guest_config = {
             "command": command,
@@ -625,6 +629,8 @@ def launch(
         time.sleep(0.2)
         if fixture.accepted.is_set():
             raise UnsupportedRuntimeError("隔离内的测试流量到达了非代理端口，已拒绝启动应用。")
+        if proxy_process is not None:
+            _assert_proxy_owner(proxy_port, proxy_process)
         _write_decision(status_dir, nonce, "approved")
         _wait_for_status(status_dir, nonce, "APP_STARTED", process, 20)
         resources.detail = "指定代理通道及子进程阻断检查已通过；仅此容器实例受保护。"
@@ -648,6 +654,50 @@ def launch(
                     raise exc
         resources.close()
         raise
+
+
+def _assert_proxy_owner(port: int, process: subprocess.Popen) -> None:
+    """Check that the managed, still-live core owns the exact proxy listener."""
+    if process.poll() is not None:
+        raise UnsupportedRuntimeError("代理核心在应用启动前退出了，已拒绝启动。")
+    if os.name != "nt":
+        raise UnsupportedRuntimeError("Windows listener ownership verification is unavailable")
+    api = ctypes.WinDLL("iphlpapi", use_last_error=True).GetExtendedTcpTable
+    api.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD), wintypes.BOOL,
+                    wintypes.ULONG, wintypes.ULONG, wintypes.ULONG]
+    api.restype = wintypes.DWORD
+    size = wintypes.DWORD()
+    error = api(None, ctypes.byref(size), False, socket.AF_INET, 3, 0)  # TCP_TABLE_OWNER_PID_LISTENER
+    if error not in (0, 122) or not 4 <= size.value <= 1024 * 1024:
+        raise UnsupportedRuntimeError(f"无法读取代理监听器的进程归属（{error}）。")
+    for _ in range(3):
+        buffer = ctypes.create_string_buffer(size.value)
+        error = api(buffer, ctypes.byref(size), False, socket.AF_INET, 3, 0)
+        if error == 122 and size.value <= 1024 * 1024:
+            continue
+        if error:
+            raise UnsupportedRuntimeError(f"无法确认代理监听器的进程归属（{error}）。")
+        owners = _tcp_listener_owners(buffer.raw, port)
+        if owners != {int(process.pid)} or process.poll() is not None:
+            raise UnsupportedRuntimeError("指定代理端口不属于面板管理的核心，已拒绝启动。")
+        return
+    raise UnsupportedRuntimeError("监听器状态持续变化，无法安全启动。")
+
+
+def _tcp_listener_owners(raw: bytes, port: int) -> set[int]:
+    import struct
+    if len(raw) < 4:
+        raise UnsupportedRuntimeError("Windows TCP table is truncated")
+    count = struct.unpack_from("<I", raw)[0]
+    if count > (len(raw) - 4) // 24:
+        raise UnsupportedRuntimeError("Windows TCP table has an invalid row count")
+    result = set()
+    for index in range(count):
+        state, address, local_port, _, _, pid = struct.unpack_from("<6I", raw, 4 + 24 * index)
+        # Wildcard listeners are deliberately not accepted as loopback-only.
+        if state == 2 and address == 0x0100007F and socket.ntohs(local_port & 0xFFFF) == port:
+            result.add(pid)
+    return result
 
 
 def _require_proxy_endpoint(command: Sequence[str], env: Mapping[str, str], profile: Path, port: int) -> None:

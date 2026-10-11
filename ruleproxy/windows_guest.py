@@ -166,8 +166,13 @@ def run(config_path: Path) -> int:
         _atomic_status(directory, nonce, "READY")
         if not _wait_for_decision(directory, nonce):
             raise RuntimeError("host did not approve the proxy policy self-check")
+        # MXC supplies the complete Windows default environment (including
+        # SystemRoot, which Winsock providers require). Treat config env as
+        # overrides rather than replacing those defaults with a sparse block.
+        application_env = os.environ.copy()
+        application_env.update(config["env"])
         application = subprocess.Popen(
-            config["command"], cwd=str(profile), env=config["env"],
+            config["command"], cwd=str(profile), env=application_env,
             stdin=subprocess.DEVNULL, shell=False, close_fds=True,
         )
         started = True

@@ -1,6 +1,8 @@
 import json
 import ctypes
 import stat
+import struct
+import socket
 import subprocess
 import sys
 import tempfile
@@ -330,6 +332,14 @@ class WindowsRuntimeTests(unittest.TestCase):
     def test_adapter_must_use_the_same_port_as_the_kernel_policy(self):
         with self.assertRaisesRegex(ValueError, "kernel policy"):
             windows_runtime._require_proxy_endpoint(["browser.exe", "--proxy-server=http://127.0.0.1:19000"], {}, self.profile, 10809)
+
+    def test_listener_identity_requires_exact_address_port_and_pid(self):
+        def row(address, port, pid):
+            return struct.pack("<6I", 2, address, socket.htons(port), 0, 0, pid)
+        table = struct.pack("<I", 3) + row(0x0100007f, 10809, 123) + row(0, 10809, 456) + row(0x0100007f, 10810, 789)
+        self.assertEqual(windows_runtime._tcp_listener_owners(table, 10809), {123})
+        with self.assertRaises(windows_runtime.UnsupportedRuntimeError):
+            windows_runtime._tcp_listener_owners(table[:-1], 10809)
 
     def test_safe_stop_terminates_only_verified_direct_child_then_waits_wrapper(self):
         class Process:
