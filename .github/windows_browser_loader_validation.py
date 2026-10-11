@@ -55,7 +55,7 @@ def main() -> int:
     parser.add_argument("--firefox", type=Path, required=True)
     parser.add_argument("--debugger", type=Path)
     parser.add_argument("--cases", nargs="+", choices=("host", "readonly", "writable-copy", "capabilities",
-                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate", "diagnostic-volume-read"),
+                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate", "diagnostic-volume-read", "readonly-slash", "copy-traverse"),
                         default=["host", "readonly", "installation-parent", "enumerate"])
     args = parser.parse_args()
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
@@ -108,9 +108,16 @@ def main() -> int:
                         drive = next(letter + ":" for letter in "RSPQZY" if not Path(letter + ":\\").exists())
                         subprocess.run(["subst", drive, str(browser.parent)], check=True, timeout=10)
                         browser = Path(drive + "\\" + browser.name)
-                    if mode == "writable-copy":
+                    if mode in ("writable-copy", "copy-traverse"):
                         shutil.copytree(browser.parent, profile / "installation")
                         browser = profile / "installation" / browser.name
+                        if mode == "copy-traverse":
+                            # Grants apply only to a newly created temporary copy,
+                            # never to the original installation or user files.
+                            subprocess.run([
+                                "icacls", str(browser.parent), "/grant",
+                                "*S-1-15-2-1:(OI)(CI)(RX)", "*S-1-15-2-2:(OI)(CI)(RX)", "/T", "/Q",
+                            ], check=True, timeout=90, stdout=subprocess.DEVNULL)
                     url = f"http://127.0.0.1:{server.server_port}/{name}"
                     firefox = browser_name == "firefox"
                     screenshot = profile / "page.png"
@@ -136,6 +143,9 @@ def main() -> int:
                             else:
                                 policy = runtime.build_policy(command, env, profile, proxy)
                                 policy["process"]["commandLine"] = subprocess.list2cmdline(command)
+                                if mode == "readonly-slash":
+                                    policy["filesystem"]["readonlyPaths"] = [p.rstrip("\\") + "\\"
+                                                                            for p in policy["filesystem"]["readonlyPaths"]]
                                 if mode == "capabilities":
                                     policy["processContainer"]["capabilities"] = ["registryRead", "userAccountInformation"]
                                 if mode == "desktop":

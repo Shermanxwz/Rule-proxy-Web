@@ -1,6 +1,9 @@
 # Disposable CI diagnosis: keep only access denials for the synthetic browsers.
-param([string]$OutputDirectory = 'loader-results')
+param([string]$OutputDirectory = 'loader-results', [string[]]$Cases = @('readonly'))
 $ErrorActionPreference = 'Stop'
+if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
+    throw 'Loader diagnosis is restricted to disposable GitHub-hosted Windows runners'
+}
 $root = Join-Path $env:RUNNER_TEMP 'rp-procmon'
 New-Item -ItemType Directory -Force $root | Out-Null
 Invoke-WebRequest 'https://download.sysinternals.com/files/ProcessMonitor.zip' -OutFile "$root/procmon.zip"
@@ -13,7 +16,7 @@ $csv = Join-Path $root 'browser.csv'
 $capture = Start-Process -FilePath $exe -ArgumentList "/AcceptEula /Quiet /Minimized /NoFilter /BackingFile `"$pml`"" -PassThru
 try {
     Start-Sleep -Seconds 2
-    python -X utf8 -B .github/windows_browser_loader_validation.py --output $OutputDirectory --chrome C:/RuleProxyChrome/chrome-win64/chrome.exe --firefox C:/RuleProxyFirefox/core/firefox.exe --cases readonly
+    python -X utf8 -B .github/windows_browser_loader_validation.py --output $OutputDirectory --chrome C:/RuleProxyChrome/chrome-win64/chrome.exe --firefox C:/RuleProxyFirefox/core/firefox.exe --cases @Cases
     if ($LASTEXITCODE -ne 0) { throw 'Loader diagnosis did not complete' }
 } finally {
     Start-Process -FilePath $exe -ArgumentList '/AcceptEula /Quiet /Terminate' -Wait

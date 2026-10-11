@@ -33,7 +33,7 @@ jobs:
           & 7z x "$env:RUNNER_TEMP/firefox.exe" -oC:/RuleProxyFirefox -y
           if ($LASTEXITCODE -ne 0) { throw 'Could not unpack Firefox' }
       - name: Capture rejected file operations for the synthetic browsers
-        run: .github/capture_windows_browser_files.ps1 -OutputDirectory loader-results
+        run: .github/capture_windows_browser_files.ps1 -OutputDirectory loader-results -Cases @('readonly-slash', 'copy-traverse')
       - uses: actions/upload-artifact@v7
         if: always()
         with:
