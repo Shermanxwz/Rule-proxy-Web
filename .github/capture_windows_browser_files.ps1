@@ -16,7 +16,7 @@ $csv = Join-Path $root 'browser.csv'
 $capture = Start-Process -FilePath $exe -ArgumentList "/AcceptEula /Quiet /Minimized /NoFilter /BackingFile `"$pml`"" -PassThru
 try {
     Start-Sleep -Seconds 2
-    python -X utf8 -B .github/windows_browser_loader_validation.py --output $OutputDirectory --chrome C:/RuleProxyChrome/chrome-win64/chrome.exe --firefox C:/RuleProxyFirefox/core/firefox.exe --cases @Cases
+    python -X utf8 -B .github/windows_browser_loader_validation.py --output $OutputDirectory --chrome C:/RuleProxyChrome/chrome-win64/chrome.exe --firefox C:/RuleProxyFirefox/core/firefox.exe --debugger 'C:/Program Files (x86)/Windows Kits/10/Debuggers/arm64/cdb.exe' --cases @Cases
     if ($LASTEXITCODE -ne 0) { throw 'Loader diagnosis did not complete' }
 } finally {
     Start-Process -FilePath $exe -ArgumentList '/AcceptEula /Quiet /Terminate' -Wait

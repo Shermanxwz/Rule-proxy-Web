@@ -55,7 +55,7 @@ def main() -> int:
     parser.add_argument("--firefox", type=Path, required=True)
     parser.add_argument("--debugger", type=Path)
     parser.add_argument("--cases", nargs="+", choices=("host", "readonly", "writable-copy", "capabilities",
-                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate", "diagnostic-volume-read", "readonly-slash", "copy-traverse"),
+                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate", "diagnostic-volume-read", "readonly-slash", "copy-traverse", "copy-traverse-debugger", "copy-traverse-volume"),
                         default=["host", "readonly", "installation-parent", "enumerate"])
     args = parser.parse_args()
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
@@ -108,10 +108,10 @@ def main() -> int:
                         drive = next(letter + ":" for letter in "RSPQZY" if not Path(letter + ":\\").exists())
                         subprocess.run(["subst", drive, str(browser.parent)], check=True, timeout=10)
                         browser = Path(drive + "\\" + browser.name)
-                    if mode in ("writable-copy", "copy-traverse"):
+                    if mode == "writable-copy" or mode.startswith("copy-traverse"):
                         shutil.copytree(browser.parent, profile / "installation")
                         browser = profile / "installation" / browser.name
-                        if mode == "copy-traverse":
+                        if mode.startswith("copy-traverse"):
                             # Grants apply only to a newly created temporary copy,
                             # never to the original installation or user files.
                             subprocess.run([
@@ -167,12 +167,17 @@ def main() -> int:
                                     # read grant exposes unrelated files and MUST
                                     # NOT be copied into the production policy.
                                     policy["filesystem"]["readonlyPaths"].append(browser.anchor)
+                                if mode == "copy-traverse-volume":
+                                    # Test whether parent enumeration is the next
+                                    # blocker. Never use a volume grant in production.
+                                    policy["filesystem"]["readonlyPaths"].append(browser.anchor)
+                                    policy["processContainer"]["capabilities"] = ["registryRead"]
                                 if mode == "enumerate":
                                     granted = {path.casefold() for paths in policy["filesystem"].values() for path in paths}
                                     policy["processContainer"]["filesystem"] = {
                                         "enumeratePaths": [str(parent) for parent in browser.parents
                                                            if str(parent).casefold() not in granted]}
-                                if mode == "debugger":
+                                if mode in ("debugger", "copy-traverse-debugger"):
                                     debugger = args.debugger.resolve(strict=True)
                                     policy["filesystem"]["readonlyPaths"] += [str(debugger.parent), os.environ["SystemRoot"]]
                                     policy["processContainer"]["ui"]["isolation"] = "desktop"
@@ -181,7 +186,7 @@ def main() -> int:
                                 config = profile / "policy.json"
                                 config.write_text(json.dumps(policy), encoding="ascii")
                                 entry["tier"] = runtime._probe_request(executable, policy)["tier"]
-                                if mode == "debugger":
+                                if mode in ("debugger", "copy-traverse-debugger"):
                                     with loader_snaps(browser):
                                         process = subprocess.Popen([str(executable), "--config", str(config)],
                                                                    stdout=stream, stderr=subprocess.STDOUT)
