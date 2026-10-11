@@ -1,6 +1,6 @@
 """Local-only browser loader controls; experimental grants never reach production.
 
-Compare the same verified browser outside and inside PSEC, then change only
+Compare the same browser outside and inside PSEC, then change only
 its installation's read/write permission or documented user capabilities.
 Network policy and the browser's own sandbox remain enabled in every PSEC case.
 """
@@ -54,6 +54,9 @@ def main() -> int:
     parser.add_argument("--chrome", type=Path, required=True)
     parser.add_argument("--firefox", type=Path, required=True)
     parser.add_argument("--debugger", type=Path)
+    parser.add_argument("--cases", nargs="+", choices=("host", "readonly", "writable-copy", "capabilities",
+                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate"),
+                        default=["host", "readonly", "installation-parent", "enumerate"])
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -90,7 +93,7 @@ def main() -> int:
             proxy = free_port()
             core, core_log = start_core(folder, proxy)
             try:
-                cases = [(browser, "mapped-installation") for browser in ("chrome", "firefox")]
+                cases = [(browser, mode) for browser in ("chrome", "firefox") for mode in args.cases]
                 for browser_name, mode in cases:
                     name = f"{browser_name}-{mode}"
                     entry = {"name": name, "mode": mode}
@@ -145,6 +148,13 @@ def main() -> int:
                                     # This root names only the explicitly allowed
                                     # installation, never the host volume root.
                                     policy["filesystem"]["readonlyPaths"].append(drive + "\\")
+                                if mode == "installation-parent":
+                                    policy["filesystem"]["readonlyPaths"].append(str(browser.parent.parent))
+                                if mode == "enumerate":
+                                    granted = {path.casefold() for paths in policy["filesystem"].values() for path in paths}
+                                    policy["processContainer"]["filesystem"] = {
+                                        "enumeratePaths": [str(parent) for parent in browser.parents
+                                                           if str(parent).casefold() not in granted]}
                                 if mode == "debugger":
                                     debugger = args.debugger.resolve(strict=True)
                                     policy["filesystem"]["readonlyPaths"] += [str(debugger.parent), os.environ["SystemRoot"]]
