@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import secrets
 import subprocess
+import struct
 import sys
 import tempfile
 import threading
@@ -62,10 +63,14 @@ def main():
                 launches = report["launches"]
                 for number in (1, 2):
                     url = f'http://127.0.0.1:{server.server_port}/round-{number}'
-                    app = {'id':'edge-acceptance', 'label':'Edge acceptance', 'path':str(edge), 'adapter':'chromium',
-                           'args':['--headless=new', '--disable-gpu', '--dump-dom', url]}
+                    app = {'id':'edge-acceptance', 'label':'Edge acceptance', 'path':str(edge), 'adapter':'firefox' if edge.name.lower()=='firefox.exe' else 'chromium',
+                           'args':['--headless','--screenshot',str((args.output/f'round-{number}.png').resolve()),'--window-size','1280,800',url] if edge.name.lower()=='firefox.exe' else ['--headless=new', '--disable-gpu', '--dump-dom', url]}
                     command, env, _ = prepare_app(app, proxy, folder / 'profiles')
                     profile = folder / 'profiles' / app['id']
+                    # Firefox screenshots must stay inside the only writable profile.
+                    screenshot=profile/f'round-{number}.png'
+                    if app['adapter']=='firefox':
+                        command[command.index('--screenshot')+1]=str(screenshot)
                     process = resource = None
                     try:
                         log_path = profile / "runtime.log"
@@ -73,10 +78,20 @@ def main():
                         process, resource = runtime.launch(command, env, profile, proxy, str(executable), proxy_process=core)
                         exit_code = process.wait(45)
                         text = log_path.read_bytes()[previous_size:].decode('utf-8', errors='replace')
-                        launches.append({'round':number, 'exit':exit_code, 'rendered':nonce in text,
+                        rendered=nonce in text
+                        if app['adapter']=='firefox':
+                            data=screenshot.read_bytes() if screenshot.is_file() else b''
+                            rendered=data[:8]==b'\x89PNG\r\n\x1a\n' and len(data)>1000 and struct.unpack('>II',data[16:24])==(1280,800) and any(r['path']==f'/round-{number}' for r in requests)
+                            if rendered: (args.output/f'round-{number}.png').write_bytes(data)
+                        launches.append({'round':number, 'exit':exit_code, 'rendered':rendered,
                                          'log_tail':text[-4000:]})
-                        if exit_code or nonce not in text:
+                        if exit_code or not rendered:
                             raise RuntimeError('Edge failed to render through the controlled proxy: '+json.dumps(launches[-1]))
+                    except Exception:
+                        if not launches or launches[-1].get('round')!=number:
+                            text=log_path.read_bytes()[previous_size:].decode('utf-8',errors='replace') if log_path.is_file() else ''
+                            launches.append({'round':number,'exit':process.poll() if process is not None else None,'rendered':False,'log_tail':text[-6000:]})
+                        raise
                     finally:
                         if process is not None: runtime.stop(process)
                         if resource is not None: resource.close()
