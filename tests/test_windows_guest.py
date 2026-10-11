@@ -56,4 +56,44 @@ class WindowsGuestTests(unittest.TestCase):
                 self.save()
                 with self.assertRaises(ValueError): guest._read_config(self.path)
 
+    def test_status_publication_survives_a_transient_windows_reader(self):
+        guest._atomic_status(self.directory, 'a'*64, 'READY')
+        real_replace = os.replace
+        denied = PermissionError(13, 'a reader holds the old status file')
+        denied.winerror = 5
+        calls = []
+        def replace(source, destination):
+            calls.append((source, destination))
+            if len(calls) < 3:
+                old = json.loads(destination.read_text())
+                self.assertEqual(old['state'], 'READY')
+                raise denied
+            real_replace(source, destination)
+        with mock.patch.object(guest.os, 'replace', side_effect=replace), mock.patch.object(guest.time, 'sleep'):
+            guest._atomic_status(self.directory, 'a'*64, 'APP_STARTED', started=True)
+        self.assertEqual(len(calls), 3)
+        status = json.loads((self.directory/'guest-status.json').read_text())
+        self.assertEqual(status['state'], 'APP_STARTED')
+        self.assertTrue(status['started'])
+        self.assertFalse((self.directory/'guest-status.tmp').exists())
+
+    def test_persistent_denial_is_bounded_and_does_not_destroy_previous_status(self):
+        guest._atomic_status(self.directory, 'a'*64, 'READY')
+        denied = PermissionError(13, 'persistent denial')
+        denied.winerror = 5
+        with mock.patch.object(guest.os, 'replace', side_effect=denied), mock.patch.object(
+            guest.time, 'monotonic', side_effect=[0, 0, 2]
+        ), mock.patch.object(guest.time, 'sleep'):
+            with self.assertRaises(PermissionError):
+                guest._atomic_status(self.directory, 'a'*64, 'APP_STARTED', started=True)
+        self.assertEqual(json.loads((self.directory/'guest-status.json').read_text())['state'], 'READY')
+
+    def test_unrelated_status_write_error_is_not_retried(self):
+        error = OSError(28, 'disk full')
+        with mock.patch.object(guest.os, 'replace', side_effect=error) as replace, mock.patch.object(guest.time, 'sleep') as sleep:
+            with self.assertRaises(OSError):
+                guest._atomic_status(self.directory, 'a'*64, 'READY')
+        replace.assert_called_once()
+        sleep.assert_not_called()
+
 if __name__=='__main__': unittest.main()

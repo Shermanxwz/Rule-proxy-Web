@@ -32,8 +32,8 @@ jobs:
           Get-FileHash "$env:RUNNER_TEMP/firefox.exe" -Algorithm SHA256
           & 7z x "$env:RUNNER_TEMP/firefox.exe" -oC:/RuleProxyFirefox -y
           if ($LASTEXITCODE -ne 0) { throw 'Could not unpack Firefox' }
-      - name: Test the installation parent and request native enumeration-only access
-        run: python -X utf8 -B .github/windows_browser_loader_validation.py --output loader-results --chrome C:/RuleProxyChrome/chrome-win64/chrome.exe --firefox C:/RuleProxyFirefox/core/firefox.exe --cases installation-parent enumerate
+      - name: Diagnose volume traversal on disposable CI without changing the production policy
+        run: python -X utf8 -B .github/windows_browser_loader_validation.py --output loader-results --chrome C:/RuleProxyChrome/chrome-win64/chrome.exe --firefox C:/RuleProxyFirefox/core/firefox.exe --cases diagnostic-volume-read
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -55,7 +55,7 @@ def main() -> int:
     parser.add_argument("--firefox", type=Path, required=True)
     parser.add_argument("--debugger", type=Path)
     parser.add_argument("--cases", nargs="+", choices=("host", "readonly", "writable-copy", "capabilities",
-                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate"),
+                        "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate", "diagnostic-volume-read"),
                         default=["host", "readonly", "installation-parent", "enumerate"])
     args = parser.parse_args()
     output = args.output.resolve()
@@ -150,6 +150,11 @@ def main() -> int:
                                     policy["filesystem"]["readonlyPaths"].append(drive + "\\")
                                 if mode == "installation-parent":
                                     policy["filesystem"]["readonlyPaths"].append(str(browser.parent.parent))
+                                if mode == "diagnostic-volume-read":
+                                    # Disposable CI diagnosis only. A volume-root
+                                    # read grant exposes unrelated files and MUST
+                                    # NOT be copied into the production policy.
+                                    policy["filesystem"]["readonlyPaths"].append(browser.anchor)
                                 if mode == "enumerate":
                                     granted = {path.casefold() for paths in policy["filesystem"].values() for path in paths}
                                     policy["processContainer"]["filesystem"] = {
