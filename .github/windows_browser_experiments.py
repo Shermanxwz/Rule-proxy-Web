@@ -34,15 +34,19 @@ def main():
         with tempfile.TemporaryDirectory(prefix='browser-diagnosis-',ignore_cleanup_errors=True) as temporary:
             folder=Path(temporary);proxy=free_port();core,log=start_core(folder,proxy)
             try:
-                cases=[('capture','container',[],False),('full-ui','desktop',[],False),
-                       ('registry','container',[],False),('native-edge','container',[],False),
-                       ('edge-full-ui','desktop',[],False)]
+                cases=[('edge-cdb','desktop',[],False),('chrome-cdb','desktop',[],False),
+                       ('edge-no-sandbox','desktop',[],False),('edge-read','desktop',[],False)]
                 for name,ui,flags,windows_files in cases:
                     profile=folder/name;profile.mkdir()
                     browser=(Path(os.environ['ProgramFiles(x86)'])/'Microsoft/Edge/Application/msedge.exe') if 'edge' in name else edge
                     url=f'http://127.0.0.1:{server.server_port}/{name}'
                     command,env,_=prepare_app({'id':name,'label':'Diagnosis','path':str(browser),'adapter':'chromium',
                                              'args':['--headless=new','--disable-gpu','--dump-dom',*flags,url]},proxy,folder)
+                    if name.endswith('no-sandbox'): command.append('--no-sandbox')
+                    if name.endswith('cdb'):
+                        debugger=Path(os.environ['ProgramFiles(x86)'])/'Windows Kits/10/Debuggers'/('arm64' if 'edge' in name else 'x64')/'cdb.exe'
+                        app_directory=browser.parent
+                        command=[str(debugger),'-c','sxe av; g; .ecxr; k; q',*command]
                     path=profile/'output.log';stream=path.open('wb');process=None
                     entry={'name':name,'ui':ui,'flags':flags}
                     try:
@@ -54,13 +58,16 @@ def main():
                             policy['processContainer']['ui']['isolation']=ui
                             if name in ('capture','native-edge'):
                                 policy['processContainer']['captureDenials']={'mode':'block','outputPath':str((output/(name+'-denials.json')).resolve()),'retainEtl':False}
-                            if name=='full-read':
+                            if name=='edge-read':
                                 policy['filesystem']['readonlyPaths']=[os.environ['SYSTEMDRIVE']+'\\']
                             if name=='registry':
                                 policy['processContainer']['capabilities']=['registryRead','userAccountInformation']
-                            if name in ('full-ui','edge-full-ui'):
+                            if name in ('edge-cdb','chrome-cdb','edge-no-sandbox','edge-read'):
                                 policy['ui'].update(clipboard='all',injection=True)
                                 policy['processContainer']['ui'].update(desktopSystemControl=True,systemSettings='all',ime=True)
+                            if name.endswith('cdb'):
+                                policy['filesystem']['readonlyPaths'].append(str(app_directory))
+                                policy['filesystem']['readonlyPaths'].append(str(Path(os.environ['WINDIR'])))
                             config=profile/'policy.json';config.write_text(json.dumps(policy),encoding='ascii')
                             runtime._probe_request(executable,policy)
                             process=subprocess.Popen([str(executable),'--config',str(config)],stdout=stream,stderr=subprocess.STDOUT)
@@ -76,7 +83,7 @@ def main():
                             else:runtime.stop(process)
                         stream.close()
                     text=path.read_text(encoding='utf-8',errors='replace')
-                    entry.update(rendered=nonce in text,requested='/'+name in requests,log_tail=text[-4000:])
+                    entry.update(rendered=nonce in text,requested='/'+name in requests,log_tail=text[-16000:])
                     report['cases'].append(entry)
             finally:core.terminate();core.wait(10);log.close()
     except Exception:report['error']=traceback.format_exc()
