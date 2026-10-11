@@ -114,8 +114,9 @@ jobs:
           $unexpected = Get-ChildItem $package -Name | Where-Object { $_ -notin $allowed }
           if ($unexpected) { throw "Unexpected files in the package: $unexpected" }
           "PACKAGE=$package" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      # -X utf8: the path holds Chinese characters and this pipe is cp1252; the embedded Python ignores PYTHON* variables.
       - name: The package's Python runs on its own
-        run: '& "$env:PACKAGE\python\python.exe" -c "import sys, ruleproxy, yaml; print(sys.version); print(sys.path); print(ruleproxy.__file__); print(yaml.__file__)"'
+        run: '& "$env:PACKAGE\python\python.exe" -X utf8 -c "import sys, ruleproxy, yaml; print(sys.version); print(sys.flags.isolated, sys.path); print(ruleproxy.__file__); print(yaml.__file__, yaml.__with_libyaml__)"'
       - name: Tests with the package's Python and code
         run: '& "$env:PACKAGE\python\python.exe" -B .github\run_tests.py --code "$env:PACKAGE"'
       - name: Start the panel with Start-Windows.cmd and run the bundled core
