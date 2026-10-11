@@ -58,6 +58,8 @@ def main() -> int:
                         "desktop", "windows-dlls", "debugger", "mapped-installation", "installation-parent", "enumerate", "diagnostic-volume-read"),
                         default=["host", "readonly", "installation-parent", "enumerate"])
     args = parser.parse_args()
+    if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
+        parser.error("loader diagnosis is restricted to disposable GitHub-hosted Windows runners")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = {"host": host_info(), "mocked": False, "diagnosis_only": True, "cases": []}
