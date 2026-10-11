@@ -34,12 +34,14 @@ def main():
         with tempfile.TemporaryDirectory(prefix='browser-diagnosis-',ignore_cleanup_errors=True) as temporary:
             folder=Path(temporary);proxy=free_port();core,log=start_core(folder,proxy)
             try:
-                cases=[('capture','container',[],False),('full-read','container',[],False),
-                       ('user-info','container',[],False),('full-ui','desktop',[],False)]
+                cases=[('capture','container',[],False),('full-ui','desktop',[],False),
+                       ('registry','container',[],False),('native-edge','container',[],False),
+                       ('edge-full-ui','desktop',[],False)]
                 for name,ui,flags,windows_files in cases:
                     profile=folder/name;profile.mkdir()
+                    browser=(Path(os.environ['ProgramFiles(x86)'])/'Microsoft/Edge/Application/msedge.exe') if 'edge' in name else edge
                     url=f'http://127.0.0.1:{server.server_port}/{name}'
-                    command,env,_=prepare_app({'id':name,'label':'Diagnosis','path':str(edge),'adapter':'chromium',
+                    command,env,_=prepare_app({'id':name,'label':'Diagnosis','path':str(browser),'adapter':'chromium',
                                              'args':['--headless=new','--disable-gpu','--dump-dom',*flags,url]},proxy,folder)
                     path=profile/'output.log';stream=path.open('wb');process=None
                     entry={'name':name,'ui':ui,'flags':flags}
@@ -50,15 +52,15 @@ def main():
                             policy=runtime.build_policy(command,env,profile,proxy)
                             policy['process']['commandLine']=subprocess.list2cmdline(command)
                             policy['processContainer']['ui']['isolation']=ui
-                            if name=='capture':
-                                policy['processContainer']['captureDenials']={'mode':'block','outputPath':str((output/'browser-denials.json').resolve()),'retainEtl':False}
+                            if name in ('capture','native-edge'):
+                                policy['processContainer']['captureDenials']={'mode':'block','outputPath':str((output/(name+'-denials.json')).resolve()),'retainEtl':False}
                             if name=='full-read':
                                 policy['filesystem']['readonlyPaths']=[os.environ['SYSTEMDRIVE']+'\\']
-                            if name=='user-info':
-                                policy['processContainer']['capabilities']=['userAccountInformation']
-                            if name=='full-ui':
-                                policy['ui'].update(clipboard='all',ime=True,injection=True)
-                                policy['processContainer']['ui'].update(desktopSystemControl=True,systemSettings='all')
+                            if name=='registry':
+                                policy['processContainer']['capabilities']=['registryRead','userAccountInformation']
+                            if name in ('full-ui','edge-full-ui'):
+                                policy['ui'].update(clipboard='all',injection=True)
+                                policy['processContainer']['ui'].update(desktopSystemControl=True,systemSettings='all',ime=True)
                             config=profile/'policy.json';config.write_text(json.dumps(policy),encoding='ascii')
                             runtime._probe_request(executable,policy)
                             process=subprocess.Popen([str(executable),'--config',str(config)],stdout=stream,stderr=subprocess.STDOUT)
@@ -83,6 +85,9 @@ def main():
         (output/'browser-diagnosis.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
         print(json.dumps(report,ensure_ascii=True,indent=2),flush=True)
         for path in output.glob('*denials*.json'):
-            print(path.name, path.read_text(encoding='utf-8',errors='replace')[:18000])
+            print(path.name, path.read_text(encoding='utf-8',errors='replace')[:24000])
+        events=subprocess.run(['powershell','-NoProfile','-Command',
+            "$since=(Get-Date).AddMinutes(-4); foreach($name in @('Application','Microsoft-Windows-CodeIntegrity/Operational')) { Get-WinEvent -FilterHashtable @{LogName=$name; StartTime=$since} -ErrorAction SilentlyContinue | Where-Object { $_.Message -match 'msedge|chrome' } | Select-Object -First 8 -Property Id,Message | ConvertTo-Json -Depth 4 }; Get-ChildItem 'C:/Program Files (x86)/Windows Kits/10/Debuggers' -ErrorAction SilentlyContinue"],capture_output=True,text=True,errors='replace')
+        print(events.stdout)
     return 0 if 'error' not in report else 1
 if __name__=='__main__':raise SystemExit(main())
