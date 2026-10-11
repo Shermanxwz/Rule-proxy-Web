@@ -15,6 +15,7 @@ import socket
 import struct
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import threading
 import time
@@ -99,7 +100,9 @@ check("proxy_data_roundtrip", tunnel)
 check("other_host_loopback", lambda: connect("127.0.0.1", fixture))
 check("direct_ipv4", lambda: connect("1.1.1.1", 443))
 check("direct_ipv6", lambda: connect("2606:4700:4700::1111", 443))
-check("direct_udp", udp)
+# A successful zero-length send is not evidence of packet delivery. This matches
+# the current launch self-check's operation without claiming to prove UDP leakage.
+check("empty_udp_send", udp)
 Path(output).write_text(json.dumps(result), encoding="ascii")
 '''
 
@@ -151,7 +154,8 @@ def host_info():
             try: values[name] = winreg.QueryValueEx(key, name)[0]
             except OSError: values[name] = None
     values.update(python=sys.version.split()[0], python_bits=struct.calcsize("P")*8,
-                  process_architecture=platform.machine(), native_architecture=os.environ.get("PROCESSOR_ARCHITEW6432") or os.environ.get("PROCESSOR_ARCHITECTURE"), ruleproxy=__version__, elevated=bool(ctypes.windll.shell32.IsUserAnAdmin()))
+                  python_platform=sysconfig.get_platform(), native_architecture=platform.machine(),
+                  runner_architecture=os.environ.get("RUNNER_ARCH"), ruleproxy=__version__, elevated=bool(ctypes.windll.shell32.IsUserAnAdmin()))
     return values
 
 
