@@ -7,6 +7,7 @@ Network policy and the browser's own sandbox remain enabled in every PSEC case.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import http.server
 import json
 import os
@@ -27,11 +28,32 @@ from ruleproxy.launcher import prepare_app
 from windows_native_validation import free_port, host_info, start_core
 
 
+@contextmanager
+def loader_snaps(browser: Path):
+    """Enable loader diagnostics only on disposable CI and restore the value."""
+    import winreg
+    path = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options" + "\\" + browser.name
+    with winreg.CreateKeyEx(winreg.HKEY_LOCAL_MACHINE, path, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as key:
+        try:
+            previous = winreg.QueryValueEx(key, "GlobalFlag")
+        except FileNotFoundError:
+            previous = None
+        winreg.SetValueEx(key, "GlobalFlag", 0, winreg.REG_DWORD, 0x200)
+        try:
+            yield
+        finally:
+            if previous is None:
+                winreg.DeleteValue(key, "GlobalFlag")
+            else:
+                winreg.SetValueEx(key, "GlobalFlag", 0, previous[1], previous[0])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--chrome", type=Path, required=True)
     parser.add_argument("--firefox", type=Path, required=True)
+    parser.add_argument("--debugger", type=Path)
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -69,8 +91,9 @@ def main() -> int:
             core, core_log = start_core(folder, proxy)
             try:
                 cases = [(browser, mode) for browser in ("chrome", "firefox")
-                         for mode in ("host", "readonly", "writable-copy", "capabilities")]
-                cases += [("edge", "capabilities")]
+                         for mode in ("host", "desktop", "windows-dlls")]
+                if args.debugger is not None:
+                    cases += [(browser, "debugger") for browser in ("firefox", "chrome")]
                 for browser_name, mode in cases:
                     name = f"{browser_name}-{mode}"
                     entry = {"name": name, "mode": mode}
@@ -106,11 +129,31 @@ def main() -> int:
                                 policy["process"]["commandLine"] = subprocess.list2cmdline(command)
                                 if mode == "capabilities":
                                     policy["processContainer"]["capabilities"] = ["registryRead", "userAccountInformation"]
+                                if mode == "desktop":
+                                    policy["ui"].update(clipboard="all", injection=True)
+                                    policy["processContainer"]["ui"].update(
+                                        isolation="desktop", desktopSystemControl=True, systemSettings="all", ime=True)
+                                if mode == "windows-dlls":
+                                    windows = Path(os.environ["SystemRoot"])
+                                    policy["filesystem"]["readonlyPaths"] += [str(windows / p)
+                                        for p in ("System32", "SysWOW64", "WinSxS", "Fonts") if (windows / p).is_dir()]
+                                if mode == "debugger":
+                                    debugger = args.debugger.resolve(strict=True)
+                                    policy["filesystem"]["readonlyPaths"] += [str(debugger.parent), os.environ["SystemRoot"]]
+                                    policy["processContainer"]["ui"]["isolation"] = "desktop"
+                                    policy["process"]["commandLine"] = subprocess.list2cmdline([
+                                        str(debugger), "-c", "sxe av; sxe 0xc0000022; g; .lastevent; .exr -1; k; q", *command])
                                 config = profile / "policy.json"
                                 config.write_text(json.dumps(policy), encoding="ascii")
                                 entry["tier"] = runtime._probe_request(executable, policy)["tier"]
-                                process = subprocess.Popen([str(executable), "--config", str(config)],
-                                                           stdout=stream, stderr=subprocess.STDOUT)
+                                if mode == "debugger":
+                                    with loader_snaps(browser):
+                                        process = subprocess.Popen([str(executable), "--config", str(config)],
+                                                                   stdout=stream, stderr=subprocess.STDOUT)
+                                        entry["exit"] = process.wait(45)
+                                else:
+                                    process = subprocess.Popen([str(executable), "--config", str(config)],
+                                                               stdout=stream, stderr=subprocess.STDOUT)
                             try:
                                 entry["exit"] = process.wait(35)
                             except subprocess.TimeoutExpired:
@@ -120,7 +163,10 @@ def main() -> int:
                         finally:
                             if process is not None and process.poll() is None:
                                 if mode == "host":
-                                    process.terminate()
+                                    subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+                                    if process.poll() is None:
+                                        process.terminate()
                                     process.wait(10)
                                 else:
                                     runtime.stop(process)
@@ -128,7 +174,7 @@ def main() -> int:
                     entry["requested"] = "/" + name in requests
                     entry["rendered"] = (screenshot.is_file() and screenshot.stat().st_size > 1000
                                          if firefox else nonce in text)
-                    entry["log_tail"] = text[-4000:]
+                    entry["log_tail"] = text[-8000:]
                     if screenshot.is_file():
                         shutil.copyfile(screenshot, output / f"{name}.png")
                     print(json.dumps(entry, ensure_ascii=True), flush=True)
