@@ -1,6 +1,7 @@
-"""Strict MXC 1.0.0 Model 3 integration for Windows proxy launches.
+"""MXC ProcessContainer integration with a single kernel-scoped proxy endpoint.
 
-The selected application runs under an explicit deny-all BaseContainer policy.
+The selected application runs in a BaseContainer with direct egress denied.
+Only the configured loopback proxy is permitted by the PSEC proxy policy.
 This module never installs firewall rules or downloads runtime dependencies;
 the caller supplies the MXC executable path.
 """
@@ -12,6 +13,7 @@ import os
 import re
 import socket
 import shutil
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -255,7 +257,7 @@ def _validate_env(env: Mapping[str, str] | None, proxy_port: int) -> dict[str, s
             raise ValueError(f"invalid environment value for {key}")
         result[key] = value
 
-    # The contained application points at the guest helper's local listener.
+    # The application and kernel policy use the same host proxy endpoint.
     endpoint = f"http://127.0.0.1:{proxy_port}"
     result.update(
         {
@@ -338,16 +340,21 @@ def build_policy(
     command: Sequence[str],
     env: Mapping[str, str] | None,
     profile: Path,
-    guest_listener_port: int,
+    proxy_port: int,
     *,
     python_executable: str | Path | None = None,
     guest_helper: str | Path | None = None,
     runtime_config: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Build an explicit Model 3 deny-all policy around the trusted guest helper."""
+    """Build the PSEC proxy policy around the trusted startup gate.
+
+    Host loopback allow is required by an unpackaged proxy. It is not a
+    general egress allowance: the native proxy policy restricts outgoing
+    sockets to this exact address and port. Never add egress allow rules.
+    """
     command = _validate_command(command)
-    guest_listener_port = _validate_proxy_port(guest_listener_port)
-    environment = _validate_env(env, guest_listener_port)
+    proxy_port = _validate_proxy_port(proxy_port)
+    environment = _validate_env(env, proxy_port)
     profile = Path(profile).expanduser().resolve()
     app_id = _safe_app_id(profile)
     profile.mkdir(parents=True, exist_ok=True)
@@ -397,8 +404,9 @@ def build_policy(
         "processContainer": {"ui": {"isolation": "container"}},
         "network": {
             "egress": {"default": "deny"},
-            "ingress": {"default": "deny", "hostLoopback": "deny"},
+            "ingress": {"default": "allow", "hostLoopback": "allow"},
         },
+        "runtimeConfig": {"networkProxy": f"http://127.0.0.1:{proxy_port}"},
     }
 
 
@@ -508,6 +516,13 @@ def _probe_request(
         raise UnsupportedRuntimeError("MXC did not confirm the BaseContainer API set")
     if output.get("needsDaclAugmentation") is not False:
         raise UnsupportedRuntimeError("MXC probe did not confirm an unaugmented BaseContainer request")
+    if policy.get("runtimeConfig", {}).get("networkProxy"):
+        facts = output["probes"]
+        if not (facts.get("baseContainerSupportsIdentitylessLoopbackProxy") is True
+                or facts.get("baseContainerSupportsIngressHostLoopbackAllow") is True):
+            raise UnsupportedRuntimeError(
+                "运行组件未确认指定回环代理的内核支持。请使用本版本配套的 MXC 组件，并安装最新 Windows 更新。"
+            )
     return output
 
 
@@ -515,11 +530,12 @@ def probe(
     runtime_path: str,
     proxy_port: int = 10809,
 ) -> dict[str, Any]:
-    """Probe Model 3 BaseContainer availability; this does not run socket checks."""
+    """Probe the actual proxy policy, without launching a workload."""
     limitations = [
         "当前结果表示系统具备隔离能力；实际阻断还需在启动时检查。",
         "仅从面板或快捷方式启动的实例受保护；启动检查失败就拒绝启动。",
-        "应用使用独立配置，代理通道吞吐可能低于普通代理。",
+        "应用使用独立配置，仅允许连接指定本机代理；不支持的网络流量会失败。",
+        "本机代理没有容器身份绑定；本工具保护正常应用的直连行为，不防御同一用户下的恶意代理替换。",
     ]
     try:
         _validate_proxy_port(proxy_port)
@@ -530,14 +546,14 @@ def probe(
                 [r"C:\Windows\System32\whoami.exe"],
                 {},
                 profile,
-                49152,
+                proxy_port,
             )
             output = _probe_request(runtime_path, policy)
         warnings = output.get("warnings") or []
         return {
             "supported": True,
             "backend": output.get("tier"),
-            "detail": "系统支持全拒绝网络隔离。应用启动前会检查代理通道及实际阻断。",
+            "detail": "系统支持指定代理端口的内核网络限制。应用启动前会检查代理通道和实际阻断。",
             "limitations": limitations + list(warnings),
         }
     except (ValueError, UnsupportedRuntimeError) as exc:
@@ -555,217 +571,193 @@ def launch(
     profile: Path,
     proxy_port: int,
     runtime_path: str,
-    *,
-    guest_listener_port: int | None = None,
 ) -> tuple[subprocess.Popen, Any]:
-    """Launch the trusted guest helper, gate the app on deny-all self-checks."""
-    host_proxy_port = _validate_proxy_port(proxy_port)
-    guest_listener_port = guest_listener_port or choose_guest_port(host_proxy_port)
-    guest_listener_port = _validate_proxy_port(guest_listener_port)
-    if guest_listener_port == host_proxy_port:
-        raise ValueError("guest listener and host proxy ports must differ")
+    """Start the app only after proxy and controlled bypass checks pass."""
+    proxy_port = _validate_proxy_port(proxy_port)
     command = _validate_command(command)
-    env = _validate_env(env, guest_listener_port)
+    env = _validate_env(env, proxy_port)
     profile = Path(profile).expanduser().resolve()
     _safe_app_id(profile)
-    _require_guest_endpoint(command, env, profile, guest_listener_port)
+    _require_proxy_endpoint(command, env, profile, proxy_port)
     runtime = Path(runtime_path).expanduser().resolve(strict=True)
     helper = Path(__file__).with_name("windows_guest.py").resolve(strict=True)
     python_executable = Path(sys.executable).expanduser().resolve(strict=True)
     profile.mkdir(parents=True, exist_ok=True)
-
-    try:
-        from .file_bridge import FileProxyBridge
-    except ImportError as exc:
-        raise UnsupportedRuntimeError("the strict Windows file bridge is unavailable") from exc
-
-    bridge_dir = profile / ".ruleproxy-bridge"
-    bridge_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    # Unique state prevents a previous launch from approving a new workload.
+    nonce = secrets.token_hex(32)
+    status_dir = profile / ".ruleproxy-runtime" / nonce
+    status_dir.mkdir(parents=True)
     run_dir = tempfile.TemporaryDirectory(prefix="ruleproxy-mxc-run-")
     fixture = _HostLoopbackFixture()
-    bridge = None
+    resources = _WindowsRuntimeResources(run_dir, fixture, status_dir)
     process = None
-    resources = _WindowsRuntimeResources(run_dir, fixture, bridge)
     try:
         policy = build_policy(
-            command,
-            env,
-            profile,
-            guest_listener_port,
-            python_executable=python_executable,
-            guest_helper=helper,
+            command, env, profile, proxy_port,
+            python_executable=python_executable, guest_helper=helper,
             runtime_config=Path(run_dir.name) / "guest-config.json",
         )
         _probe_request(runtime, policy)
-        bridge = FileProxyBridge(host_proxy_port, bridge_dir)
-        resources.bridge = bridge
         fixture.start()
-        app_environment = _profile_environment(env, profile)
         guest_config = {
             "command": command,
-            "env": app_environment,
+            "env": _profile_environment(env, profile),
             "profile": str(profile),
-            "listener_port": guest_listener_port,
-            "bridge_directory": str(bridge.directory),
-            "bridge_nonce": bridge.nonce,
-            "host_fixture_port": fixture.port,
+            "proxy_port": proxy_port,
+            "status_directory": str(status_dir),
+            "nonce": nonce,
+            "fixtures": fixture.endpoints,
         }
-        config_path = Path(run_dir.name) / "guest-config.json"
-        config_path.write_text(json.dumps(guest_config, ensure_ascii=False), encoding="utf-8")
-        runtime_config = _profile_environment(os.environ.copy(), profile)
+        (Path(run_dir.name) / "guest-config.json").write_text(
+            json.dumps(guest_config, ensure_ascii=False), encoding="utf-8"
+        )
+        # Keep the full error locally rather than losing it in a hidden console.
+        resources.log = (profile / "runtime.log").open("ab")
         process = subprocess.Popen(
             [str(runtime), "--config", str(_write_policy(policy, Path(run_dir.name)))],
-            env=runtime_config,
-            shell=False,
+            env=_profile_environment(os.environ.copy(), profile), shell=False,
+            stdout=resources.log, stderr=subprocess.STDOUT,
         )
         resources.process = process
-
-        if not bridge.wait_ready(25):
-            raise UnsupportedRuntimeError(
-                getattr(bridge, "last_error", None) or "contained guest self-check did not become ready"
-            )
-        if _host_can_reach_guest(guest_listener_port):
-            bridge.reject("host-to-guest loopback check was reachable")
-            raise UnsupportedRuntimeError("host unexpectedly reached the contained guest listener")
+        _wait_for_status(status_dir, nonce, "READY", process, 30)
+        # UDP send() can succeed even when WFP drops the datagram. Require that
+        # controlled host receivers observed no packets, not a send() error.
+        time.sleep(0.2)
         if fixture.accepted.is_set():
-            bridge.reject("guest reached a non-proxy host loopback fixture")
-            raise UnsupportedRuntimeError("contained guest unexpectedly reached a host loopback listener")
-        bridge.approve()
-        if not _wait_for_status(bridge.directory, bridge.nonce, "APP_STARTED", process, 20):
-            raise UnsupportedRuntimeError("contained helper did not confirm application startup")
-        resources.detail = (
-            "已在 MXC BaseContainer 全拒绝策略中通过代理桥、直连阻断和回环隔离自检。应用与隔离助手共享此应用的配置目录；应用未支持的代理流量会连接失败。"
-        )
+            raise UnsupportedRuntimeError("隔离内的测试流量到达了非代理端口，已拒绝启动应用。")
+        _write_decision(status_dir, nonce, "approved")
+        _wait_for_status(status_dir, nonce, "APP_STARTED", process, 20)
+        resources.detail = "指定代理通道及子进程阻断检查已通过；仅此容器实例受保护。"
         return process, resources
     except BaseException as exc:
-        if bridge is not None:
-            try:
-                bridge.reject(str(exc)[:512])
-            except Exception:
-                pass
-        if process is None:
-            resources.close()
-        else:
+        try:
+            _write_decision(status_dir, nonce, "rejected")
+        except OSError:
+            pass
+        if process is not None:
             try:
                 process.wait(timeout=12)
             except subprocess.TimeoutExpired:
-                # Keep the wrapper and resources alive so MXC can complete its
-                # normal PSEC teardown; never kill the runtime wrapper here.
-                resources.failed_process = process
-                resources.detail = str(exc)
-                exc.process = process
-                exc.resource = resources
-                raise
-            resources.close()
+                # Stop the verified workload, allowing MXC to perform teardown.
+                try:
+                    stop(process)
+                except Exception:
+                    resources.failed_process = process
+                    resources.detail = str(exc)
+                    exc.process, exc.resource = process, resources
+                    raise exc
+        resources.close()
         raise
 
 
-def choose_guest_port(host_proxy_port: int) -> int:
-    """Return a free, ephemeral loopback port distinct from the host proxy."""
-    host_proxy_port = _validate_proxy_port(host_proxy_port)
-    for _ in range(16):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            sock.bind(("127.0.0.1", 0))
-            port = int(sock.getsockname()[1])
-        finally:
-            sock.close()
-        if port != host_proxy_port:
-            return port
-    raise UnsupportedRuntimeError("could not select a guest listener port")
-
-
-def _require_guest_endpoint(command: Sequence[str], env: Mapping[str, str], profile: Path, port: int) -> None:
+def _require_proxy_endpoint(command: Sequence[str], env: Mapping[str, str], profile: Path, port: int) -> None:
     endpoint = f"http://127.0.0.1:{port}"
-    if not any(value == endpoint for key, value in env.items() if key.upper() in {"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"}):
-        raise ValueError("prepared proxy environment does not point to the guest listener")
     if any(arg.startswith("--proxy-server=") and arg != f"--proxy-server={endpoint}" for arg in command):
-        raise ValueError("prepared Chromium proxy endpoint does not match the guest listener")
-    if any(arg == f"--proxy-server={endpoint}" for arg in command):
-        return
-    user_js = Path(profile) / "user.js"
-    if user_js.is_file():
-        content = user_js.read_text(encoding="utf-8")
-        if f'network.proxy.socks_port", {port});' in content:
-            return
-    if any(key.upper() in {"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"} and value == endpoint for key, value in env.items()):
-        return
-    raise ValueError("prepared app has no proxy adapter targeting the guest listener")
+        raise ValueError("prepared Chromium proxy endpoint does not match the kernel policy")
+    # Firefox persists its adapter in user.js rather than a command flag.
+    if "-profile" in command:
+        user_js = profile / "user.js"
+        if not user_js.is_file() or f'network.proxy.socks_port", {port});' not in user_js.read_text(encoding="utf-8"):
+            raise ValueError("prepared Firefox proxy endpoint does not match the kernel policy")
+
+
+def _write_decision(directory: Path, nonce: str, decision: str) -> None:
+    path = directory / "host-decision.json"
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps({"nonce": nonce, "decision": decision}), encoding="ascii")
+    os.replace(temporary, path)
 
 
 class _HostLoopbackFixture:
+    """Controlled TCP/UDP receivers; a bypass must never reach any receiver."""
+
     def __init__(self) -> None:
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
-        self.sock.bind(("127.0.0.1", 0))
-        self.sock.listen(4)
-        self.sock.settimeout(0.1)
-        self.port = int(self.sock.getsockname()[1])
         self.accepted = threading.Event()
         self.stop_event = threading.Event()
-        self.thread: threading.Thread | None = None
+        self.sockets: list[socket.socket] = []
+        self.threads: list[threading.Thread] = []
+        self.endpoints: list[dict[str, Any]] = []
+        try:
+            for family, address in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+                for kind, protocol in ((socket.SOCK_STREAM, "tcp"), (socket.SOCK_DGRAM, "udp")):
+                    sock = socket.socket(family, kind)
+                    try:
+                        if family == socket.AF_INET6:
+                            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+                        sock.bind((address, 0))
+                        if kind == socket.SOCK_STREAM:
+                            sock.listen(4)
+                        sock.settimeout(0.1)
+                    except OSError:
+                        sock.close()
+                        if family == socket.AF_INET6:
+                            continue
+                        raise
+                    self.sockets.append(sock)
+                    self.endpoints.append({"address": address, "port": sock.getsockname()[1], "protocol": protocol})
+        except BaseException:
+            self.close()
+            raise
 
     def start(self) -> None:
-        def accept_loop() -> None:
+        def receive(sock: socket.socket, protocol: str) -> None:
             while not self.stop_event.is_set():
                 try:
-                    connection, _ = self.sock.accept()
+                    if protocol == "tcp":
+                        connection, _ = sock.accept()
+                        connection.close()
+                    else:
+                        sock.recvfrom(4096)
+                    self.accepted.set()
                 except socket.timeout:
                     continue
                 except OSError:
                     return
-                self.accepted.set()
-                connection.close()
-
-        self.thread = threading.Thread(target=accept_loop, name="RuleProxyLoopbackFixture", daemon=True)
-        self.thread.start()
+        for sock, endpoint in zip(self.sockets, self.endpoints):
+            worker = threading.Thread(target=receive, args=(sock, endpoint["protocol"]), daemon=True)
+            self.threads.append(worker)
+            worker.start()
 
     def close(self) -> None:
         self.stop_event.set()
-        try:
-            self.sock.close()
-        except OSError:
-            pass
-        if self.thread:
-            self.thread.join(timeout=1)
+        for sock in self.sockets:
+            sock.close()
+        for worker in self.threads:
+            worker.join(timeout=1)
 
 
-def _host_can_reach_guest(port: int) -> bool:
-    try:
-        connection = socket.create_connection(("127.0.0.1", port), timeout=0.5)
-    except OSError:
-        return False
-    connection.close()
-    return True
-
-
-def _wait_for_status(directory: Path, nonce: str, state: str, process: Any, timeout: float) -> bool:
-    status = Path(directory) / "guest-status.json"
+def _wait_for_status(directory: Path, nonce: str, state: str, process: Any, timeout: float) -> None:
+    status = directory / "guest-status.json"
     deadline = time.monotonic() + timeout
+    last = ""
     while time.monotonic() < deadline:
-        if process.poll() is not None:
-            return False
         try:
             with status.open("rb") as stream:
-                raw = stream.read(1025)
-            if len(raw) > 1024:
-                return False
+                raw = stream.read(16_385)
+            if len(raw) > 16_384:
+                raise UnsupportedRuntimeError("contained status exceeded its size limit")
             value = json.loads(raw.decode("ascii"))
-            if value.get("nonce") == nonce and value.get("state") == state:
-                return True
-            if value.get("nonce") == nonce and value.get("state") == "FAILED":
-                return False
-        except (OSError, json.JSONDecodeError, AttributeError):
+            if isinstance(value, dict) and value.get("nonce") == nonce:
+                if (value.get("state") == state or
+                        (state == "APP_STARTED" and value.get("state") == "APP_EXITED" and value.get("started") is True)):
+                    return
+                if value.get("state") == "FAILED":
+                    raise UnsupportedRuntimeError("隔离启动检查失败：" + str(value.get("detail", ""))[:1800])
+                last = str(value.get("state", ""))
+        except (OSError, ValueError):
             pass
+        if process.poll() is not None:
+            raise UnsupportedRuntimeError(f"隔离助手提前退出（{process.returncode}）。请检查应用配置目录的 runtime.log。")
         time.sleep(0.05)
-    return False
+    raise UnsupportedRuntimeError(f"隔离助手等待 {state} 超时（最后状态 {last or '未返回'}）。")
 
 
 class _WindowsRuntimeResources:
-    def __init__(self, run_dir: tempfile.TemporaryDirectory[str], fixture: _HostLoopbackFixture, bridge: Any = None) -> None:
+    def __init__(self, run_dir: tempfile.TemporaryDirectory[str], fixture: _HostLoopbackFixture, status_dir: Path) -> None:
         self.run_dir = run_dir
         self.fixture = fixture
-        self.bridge = bridge
+        self.status_dir = status_dir
+        self.log = None
         self.process = None
         self.failed_process = None
         self.detail = ""
@@ -776,24 +768,15 @@ class _WindowsRuntimeResources:
             return
         if self.process is not None and self.process.poll() is None:
             raise SafeStopError("cannot release runtime resources while MXC wrapper is still running")
-        bridge_dir = Path(self.bridge.directory) if self.bridge is not None else None
-        error: Exception | None = None
-        try:
-            if self.bridge is not None:
-                self.bridge.close()
-        except Exception as exc:
-            error = exc
-        if error is not None:
-            # Keep the bridge and its directory available for a later retry.
-            # The temporary policy/config and host fixture are independent and
-            # can be released even if bridge teardown itself failed.
-            self.fixture.close()
-            self.run_dir.cleanup()
-            raise error
-        if bridge_dir is not None:
-            shutil.rmtree(bridge_dir, ignore_errors=True)
         self.fixture.close()
+        if self.log is not None:
+            self.log.close()
         self.run_dir.cleanup()
+        shutil.rmtree(self.status_dir)
+        try:
+            self.status_dir.parent.rmdir()
+        except OSError:
+            pass
         self._closed = True
 
 

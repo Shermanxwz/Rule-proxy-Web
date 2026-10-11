@@ -453,9 +453,6 @@ class Manager:
                 self.stop_app(ident)
             profile = self.directory / "profiles" / ident
             app_proxy_port = self.mixed_port
-            if sys.platform == "win32":
-                from .windows_runtime import choose_guest_port
-                app_proxy_port = choose_guest_port(self.mixed_port)
             command, env, _detail = prepare_app(app, app_proxy_port, self.directory / "profiles")
             if sys.platform == "linux":
                 from .linux_runtime import downloads_folder, launch
@@ -464,7 +461,7 @@ class Manager:
             elif sys.platform == "win32":
                 from .windows_runtime import launch
                 try:
-                    process, resource = launch(command, env, profile, self.mixed_port, self.runtime_path(), guest_listener_port=app_proxy_port)
+                    process, resource = launch(command, env, profile, self.mixed_port, self.runtime_path())
                 except Exception as exc:
                     failed_process = getattr(exc, "process", None)
                     failed_resource = getattr(exc, "resource", None)

@@ -185,9 +185,9 @@ def raw_case(name: str, folder: Path, executable: Path, proxy: int, fixture: int
     command = [sys.executable, "-I", "-S", "-X", "utf8", str(script), str(output), str(proxy), str(fixture), str(target)]
     policy = runtime.build_policy(command, {}, profile, proxy)
     policy["process"]["commandLine"] = subprocess.list2cmdline(command)
-    if name == "model2":
-        policy["network"]["ingress"] = {"default": "allow", "hostLoopback": "allow"}
-        policy["runtimeConfig"] = {"networkProxy": f"http://127.0.0.1:{proxy}"}
+    if name == "model3":
+        policy["network"]["ingress"] = {"default": "deny", "hostLoopback": "deny"}
+        policy.pop("runtimeConfig", None)
     path = profile / "policy.json"
     path.write_text(json.dumps(policy), encoding="ascii")
     result = {"policy": policy["network"], "executed": False}
@@ -227,19 +227,19 @@ def host_control(folder: Path, proxy: int, fixture: int, target: int):
     return result
 
 
-def current_launch(folder: Path, executable: Path, proxy: int):
+def current_launch(folder: Path, executable: Path, proxy: int, fixture: int, target: int):
     profile = folder / "current-launch"
     profile.mkdir()
     marker = profile / "application-started.txt"
     script = profile / "application.py"
-    script.write_text("from pathlib import Path\nimport sys,time\nPath(sys.argv[1]).write_text('started',encoding='ascii')\ntime.sleep(8)\n", encoding="ascii")
-    guest = runtime.choose_guest_port(proxy)
-    command = [sys.executable, "-I", "-S", str(script), str(marker)]
+    output = profile / "application-result.json"
+    script.write_text(PAYLOAD + "\nimport time\nPath(sys.argv[5]).write_text('started',encoding='ascii')\ntime.sleep(60)\n", encoding="ascii")
+    command = [sys.executable, "-I", "-S", str(script), str(output), str(proxy), str(fixture), str(target), str(marker)]
     result = {"started": False, "guest_status": None}
     observed = threading.Event()
     def record_status():
         while not observed.is_set():
-            for path in profile.glob(".ruleproxy-bridge/*/guest-status.json"):
+            for path in profile.glob(".ruleproxy-runtime/*/guest-status.json"):
                 try:
                     value = json.loads(path.read_text(encoding="ascii"))
                     result["guest_status"] = {key:value[key] for key in ("state", "detail") if key in value}
@@ -249,9 +249,14 @@ def current_launch(folder: Path, executable: Path, proxy: int):
     watcher.start()
     process = resource = None
     try:
-        process, resource = runtime.launch(command, {"HTTP_PROXY": f"http://127.0.0.1:{guest}"}, profile, proxy, str(executable), guest_listener_port=guest)
+        process, resource = runtime.launch(command, {"HTTP_PROXY": f"http://127.0.0.1:{proxy}"}, profile, proxy, str(executable))
+        deadline = time.monotonic()+25
+        while not marker.is_file() and time.monotonic() < deadline and process.poll() is None:
+            time.sleep(0.05)
         result["started"] = marker.is_file()
         result["detail"] = resource.detail
+        if output.is_file(): result["inside"] = json.loads(output.read_text(encoding="ascii"))
+        result["guard_fixture_received"] = resource.fixture.accepted.is_set()
     except Exception as exc:
         result.update(error=str(exc), error_type=type(exc).__name__)
         process = getattr(exc, "process", process)
@@ -283,7 +288,7 @@ def main():
             fixture, target = Listener(b"fixture-ok"), Listener(b"target-ok")
             try:
                 report["host_control"] = host_control(folder, proxy, fixture.port, target.port)
-                report["current_launch"] = current_launch(folder, executable, proxy)
+                report["current_launch"] = current_launch(folder, executable, proxy, fixture.port, target.port)
                 for name in ("model3", "model2"):
                     report[name] = raw_case(name, folder, executable, proxy, fixture.port, target.port)
                 report["fixture_connections"] = fixture.accepted
@@ -293,7 +298,10 @@ def main():
                 core.terminate(); core.wait(10); log.close()
             if report["public_probe"]["supported"]:
                 report["verdict"] = "current-launch-working" if report["current_launch"]["started"] else "current-launch-failed-on-supported-host"
-                code = 0 if report["current_launch"]["started"] else 1
+                inside = report["current_launch"].get("inside", {})
+                works = all(inside.get(key, {}).get("ok") is True for key in ("proxy_greeting", "proxy_data_roundtrip"))
+                denied = all(inside.get(key, {}).get("winerror") == 10013 for key in ("other_host_loopback", "direct_ipv4"))
+                code = 0 if report["current_launch"]["started"] and works and denied else 1
             else:
                 refused = not report["current_launch"]["application_marker"] and not report["model3"]["executed"]
                 report["verdict"] = "unsupported-host-refused-safely" if refused else "unsafe-launch-on-unsupported-host"

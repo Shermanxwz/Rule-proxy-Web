@@ -18,7 +18,7 @@ def supported_probe_json():
             "tier": "base-container",
             "needsDaclAugmentation": False,
             "warnings": [],
-            "probes": {"baseContainerApiPresent": True},
+            "probes": {"baseContainerApiPresent": True, "baseContainerSupportsIdentitylessLoopbackProxy": True},
             "error": None,
         }
     )
@@ -34,7 +34,7 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.runtime.chmod(self.runtime.stat().st_mode | stat.S_IXUSR)
         self.profile = self.root / "profiles" / "saved-app-1"
 
-    def test_build_policy_is_exact_model_3_and_starts_guest_helper(self):
+    def test_build_policy_denies_direct_egress_and_allows_only_the_kernel_proxy(self):
         policy = windows_runtime.build_policy(
             [r"C:\Program Files\Browser\browser.exe", "--proxy-server=http://127.0.0.1:19001", "https://example.test"],
             {"HTTP_PROXY": "http://127.0.0.1:19001", "CUSTOM": "ok"},
@@ -43,10 +43,11 @@ class WindowsRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(policy["version"], "1.0.0")
         self.assertEqual(policy["containment"], "processcontainer")
+        self.assertEqual(policy["runtimeConfig"], {"networkProxy": "http://127.0.0.1:19001"})
         self.assertEqual(policy["network"]["egress"], {"default": "deny"})
         self.assertEqual(
             policy["network"]["ingress"],
-            {"default": "deny", "hostLoopback": "deny"},
+            {"default": "allow", "hostLoopback": "allow"},
         )
         self.assertIn(str(self.profile.resolve()), policy["filesystem"]["readwritePaths"])
         readonly = policy["filesystem"]["readonlyPaths"]
@@ -252,72 +253,83 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertIn("unsupported OS", result["detail"])
         self.assertEqual(result["limitations"], [], "a refusal does not list what a working setup would do")
 
-    def test_launch_probes_runs_only_guest_helper_and_gates_app(self):
+    def test_launch_uses_one_proxy_endpoint_and_approves_only_after_checks(self):
         class Proc:
             pid = 987
+            returncode = 0
+            def poll(self): return 0
 
-            def poll(self):
-                return 0
-
-        class Bridge:
-            def __init__(self, host_proxy_port, directory):
-                self.directory = Path(tempfile.mkdtemp(dir=directory))
-                self.nonce = "a" * 64
-                self.last_error = None
-                self.approved = False
-
-            def wait_ready(self, timeout):
-                return True
-
-            def approve(self):
-                self.approved = True
-
-            def reject(self, reason):
-                pass
-
-            def close(self):
-                pass
-
+        events = []
         class Fixture:
-            def __init__(self):
-                self.port = 19002
-                self.accepted = threading.Event()
+            endpoints = [{"address": "127.0.0.1", "port": 19002, "protocol": "tcp"},
+                         {"address": "127.0.0.1", "port": 19003, "protocol": "udp"}]
+            def __init__(self): self.accepted = threading.Event()
+            def start(self): events.append("fixtures-ready")
+            def close(self): events.append("fixtures-closed")
 
-            def start(self):
-                pass
+        def wait(directory, nonce, state, process, timeout):
+            decision = directory / "host-decision.json"
+            if state == "READY":
+                self.assertFalse(decision.exists())
+                events.append("checks-passed")
+            else:
+                self.assertEqual(json.loads(decision.read_text())["decision"], "approved")
+                events.append("application-started")
 
-            def close(self):
-                pass
-
-        command = [r"C:\Program Files\Browser\browser.exe", "--proxy-server=http://127.0.0.1:19001"]
-        env = {"HTTP_PROXY": "http://127.0.0.1:19001"}
+        command = [r"C:\Program Files\Browser\browser.exe", "--proxy-server=http://127.0.0.1:10809"]
         with mock.patch.object(windows_runtime, "_probe_request", return_value=json.loads(supported_probe_json())) as probe, mock.patch.object(
             windows_runtime.subprocess, "Popen", return_value=Proc()
-        ) as popen, mock.patch.object(windows_runtime, "_check_windows_version"), mock.patch(
-            "ruleproxy.file_bridge.FileProxyBridge", Bridge
-        ), mock.patch.object(windows_runtime, "_HostLoopbackFixture", Fixture), mock.patch.object(windows_runtime, "_host_can_reach_guest", return_value=False), mock.patch.object(
-            windows_runtime, "_wait_for_status", return_value=True
+        ) as popen, mock.patch.object(windows_runtime, "_HostLoopbackFixture", Fixture), mock.patch.object(
+            windows_runtime, "_wait_for_status", side_effect=wait
         ):
-            proc, resource = windows_runtime.launch(
-                command,
-                env,
-                self.profile,
-                10809,
-                str(self.runtime),
-                guest_listener_port=19001,
-            )
-        self.addCleanup(resource.close)
-        self.assertEqual(proc.pid, 987)
-        self.assertEqual(probe.call_count, 1)
-        args = popen.call_args.args[0]
-        self.assertEqual(args[:2], [str(self.runtime.resolve()), "--config"])
-        self.assertTrue(Path(args[2]).is_file())
-        policy = json.loads(Path(args[2]).read_text(encoding="utf-8"))
-        self.assertEqual(policy["network"]["egress"]["default"], "deny")
-        self.assertEqual(policy["network"]["ingress"], {"default": "deny", "hostLoopback": "deny"})
-        self.assertNotIn("runtimeConfig", policy)
-        self.assertIn("windows_guest.py", policy["process"]["commandLine"])
-        self.assertFalse(popen.call_args.kwargs["shell"])
+            proc, resource = windows_runtime.launch(command, {}, self.profile, 10809, str(self.runtime))
+        try:
+            self.assertEqual(proc.pid, 987)
+            self.assertEqual(probe.call_count, 1)
+            args = popen.call_args.args[0]
+            self.assertEqual(args[:2], [str(self.runtime.resolve()), "--config"])
+            policy = json.loads(Path(args[2]).read_text(encoding="utf-8"))
+            self.assertEqual(policy["network"]["egress"], {"default": "deny"})
+            self.assertEqual(policy["runtimeConfig"], {"networkProxy": "http://127.0.0.1:10809"})
+            self.assertIn("windows_guest.py", policy["process"]["commandLine"])
+            self.assertFalse(popen.call_args.kwargs["shell"])
+            self.assertEqual(events[:3], ["fixtures-ready", "checks-passed", "application-started"])
+        finally:
+            resource.close()
+        self.assertFalse(resource.status_dir.exists())
+
+    def test_missing_proxy_capability_is_refused_even_when_base_container_exists(self):
+        output = json.loads(supported_probe_json())
+        output["probes"].pop("baseContainerSupportsIdentitylessLoopbackProxy")
+        self.assertIn("未确认", self.probe_with(subprocess.CompletedProcess([], 0, json.dumps(output), "")))
+
+    def test_startup_failure_retains_the_original_contained_error(self):
+        self.profile.mkdir(parents=True)
+        nonce = "a" * 64
+        (self.profile / "guest-status.json").write_text(json.dumps({"nonce": nonce, "state": "FAILED", "detail": "socket: 10013"}))
+        process = mock.Mock()
+        process.poll.return_value = None
+        with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "socket: 10013"):
+            windows_runtime._wait_for_status(self.profile, nonce, "READY", process, .1)
+
+    def test_an_old_nonce_cannot_approve_a_new_launch(self):
+        self.profile.mkdir(parents=True)
+        (self.profile / "guest-status.json").write_text(json.dumps({"nonce": "old", "state": "READY"}))
+        process = mock.Mock()
+        process.poll.return_value = None
+        with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "超时"):
+            windows_runtime._wait_for_status(self.profile, "new", "READY", process, .01)
+
+    def test_completed_short_command_is_still_a_successful_launch(self):
+        self.profile.mkdir(parents=True)
+        (self.profile / "guest-status.json").write_text(json.dumps({"nonce": "x", "state": "APP_EXITED", "started": True}))
+        process = mock.Mock()
+        process.poll.return_value = 0
+        windows_runtime._wait_for_status(self.profile, "x", "APP_STARTED", process, .1)
+
+    def test_adapter_must_use_the_same_port_as_the_kernel_policy(self):
+        with self.assertRaisesRegex(ValueError, "kernel policy"):
+            windows_runtime._require_proxy_endpoint(["browser.exe", "--proxy-server=http://127.0.0.1:19000"], {}, self.profile, 10809)
 
     def test_safe_stop_terminates_only_verified_direct_child_then_waits_wrapper(self):
         class Process:
