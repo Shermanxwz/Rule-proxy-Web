@@ -59,7 +59,8 @@ def _read_config(path: Path) -> dict[str, Any]:
     nonce = value["nonce"]
     if not isinstance(nonce, str) or len(nonce) != 64:
         raise ValueError("guest nonce is invalid")
-    bytes.fromhex(nonce)
+    if len(bytes.fromhex(nonce)) != 32:
+        raise ValueError("guest nonce is invalid")
     fixtures = value["fixtures"]
     if not isinstance(fixtures, list) or not 2 <= len(fixtures) <= 4:
         raise ValueError("network fixtures are invalid")

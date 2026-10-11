@@ -29,7 +29,6 @@ CONTRACT_VERSION = "1.0.0"
 MIN_PROCESS_BUILD = 26100  # Windows 11 24H2; exact support is confirmed by MXC --probe.
 PROBE_TIMEOUT_SECONDS = 20
 _ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
-_ENV_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 
 
 class UnsupportedRuntimeError(RuntimeError):
@@ -251,7 +250,7 @@ def _validate_env(env: Mapping[str, str] | None, proxy_port: int) -> dict[str, s
         raise ValueError("env must be a mapping of names to string values")
     result: dict[str, str] = {}
     for key, value in env.items():
-        if not isinstance(key, str) or not _ENV_KEY_RE.fullmatch(key):
+        if not isinstance(key, str) or not key or "=" in key or "\0" in key:
             raise ValueError(f"invalid environment variable name: {key!r}")
         if not isinstance(value, str) or "\0" in value:
             raise ValueError(f"invalid environment value for {key}")
@@ -830,7 +829,10 @@ class _WindowsRuntimeResources:
         if self.log is not None:
             self.log.close()
         self.run_dir.cleanup()
-        shutil.rmtree(self.status_dir)
+        try:
+            shutil.rmtree(self.status_dir)
+        except FileNotFoundError:
+            pass
         try:
             self.status_dir.parent.rmdir()
         except OSError:

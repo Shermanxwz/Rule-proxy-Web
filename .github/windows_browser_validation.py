@@ -66,9 +66,11 @@ def main():
                     profile = folder / 'profiles' / app['id']
                     process = resource = None
                     try:
+                        log_path = profile / "runtime.log"
+                        previous_size = log_path.stat().st_size if log_path.is_file() else 0
                         process, resource = runtime.launch(command, env, profile, proxy, str(executable), proxy_process=core)
                         exit_code = process.wait(45)
-                        text = (profile / 'runtime.log').read_text(encoding='utf-8', errors='replace')
+                        text = log_path.read_bytes()[previous_size:].decode('utf-8', errors='replace')
                         launches.append({'round':number, 'exit':exit_code, 'rendered':nonce in text,
                                          'log_tail':text[-4000:]})
                         if exit_code or nonce not in text:

@@ -97,6 +97,13 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertIn(r"SYSTEMROOT=C:\Windows", entries)
         self.assertIn(r"PATH=C:\Windows\System32", entries)
 
+    def test_windows_environment_names_allow_standard_parentheses_and_unicode(self):
+        environment = windows_runtime._validate_env({"CommonProgramFiles(x86)": r"C:\Program Files (x86)\Common Files", "目录": "值"}, 10809)
+        self.assertIn("CommonProgramFiles(x86)", environment)
+        self.assertEqual(environment["目录"], "值")
+        for key in ("", "BAD=KEY", "BAD\0KEY"):
+            with self.assertRaises(ValueError): windows_runtime._validate_env({key:"x"}, 10809)
+
     def test_build_policy_rejects_bad_command_profile_or_port(self):
         cases = [
             ([], {}, self.profile, 10809),

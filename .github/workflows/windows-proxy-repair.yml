@@ -58,6 +58,8 @@ jobs:
           path: bin/windows-amd64
       - name: Test upstream proxy transport and the shipped launch path
         run: python -B .github/windows_native_validation.py --output native-results
+      - name: Real failure rejection, descendant teardown, and core/wrapper crashes
+        run: python -B .github/windows_fault_validation.py --output native-results
       - name: Real Edge rendering and cookie persistence
         run: python -B .github/windows_browser_validation.py --output native-results
       - name: Standard user application and browser acceptance
