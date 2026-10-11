@@ -21,14 +21,18 @@ import json, os, socket, subprocess, sys, time
 from pathlib import Path
 profile=Path(sys.argv[1])
 child=subprocess.Popen([sys.executable,'-I','-S','-c','import time; time.sleep(120)'])
-(profile/'started.json').write_text(json.dumps({'app':os.getpid(),'child':child.pid}),encoding='ascii')
+pending=profile/'started.pending'
+pending.write_text(json.dumps({'app':os.getpid(),'child':child.pid}),encoding='ascii')
+os.replace(pending,profile/'started.json')
 while not (profile/'core-dead').is_file(): time.sleep(.05)
 try:
     with socket.create_connection(('1.1.1.1',443),timeout=2): pass
     value={'connected':True}
 except OSError as error:
     value={'connected':False,'winerror':getattr(error,'winerror',None)}
-(profile/'after-core-death.json').write_text(json.dumps(value),encoding='ascii')
+pending=profile/'after-core-death.pending'
+pending.write_text(json.dumps(value),encoding='ascii')
+os.replace(pending,profile/'after-core-death.json')
 time.sleep(120)
 '''
 
