@@ -1,0 +1,43 @@
+name: Windows browser loader controls
+
+on:
+  push:
+    branches: [codex/windows-browser-repair-*]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-loader-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  loader:
+    runs-on: windows-11-arm
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          architecture: arm64
+      - run: python -B install_runtime.py --platform windows-amd64 --if-needed
+      - name: Prepare independent official browsers
+        run: |
+          Invoke-WebRequest 'https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.39/win64/chrome-win64.zip' -OutFile "$env:RUNNER_TEMP/chrome.zip"
+          Get-FileHash "$env:RUNNER_TEMP/chrome.zip" -Algorithm SHA256
+          Expand-Archive "$env:RUNNER_TEMP/chrome.zip" -DestinationPath C:/RuleProxyChrome
+          Invoke-WebRequest 'https://archive.mozilla.org/pub/firefox/releases/157.0.1/win64-aarch64/en-US/Firefox%20Setup%20157.0.1.exe' -OutFile "$env:RUNNER_TEMP/firefox.exe"
+          Get-FileHash "$env:RUNNER_TEMP/firefox.exe" -Algorithm SHA256
+          & 7z x "$env:RUNNER_TEMP/firefox.exe" -oC:/RuleProxyFirefox -y
+          if ($LASTEXITCODE -ne 0) { throw 'Could not unpack Firefox' }
+      - name: Compare host, readonly, writable installation and user capabilities
+        run: python -X utf8 -B .github/windows_browser_loader_validation.py --output loader-results --chrome C:/RuleProxyChrome/chrome-win64/chrome.exe --firefox C:/RuleProxyFirefox/core/firefox.exe
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: browser-loader-controls
+          path: loader-results/
+          if-no-files-found: error
+          retention-days: 30
