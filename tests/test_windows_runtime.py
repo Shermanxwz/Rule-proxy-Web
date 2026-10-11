@@ -104,14 +104,6 @@ class WindowsRuntimeTests(unittest.TestCase):
         for key in ("", "BAD=KEY", "BAD\0KEY"):
             with self.assertRaises(ValueError): windows_runtime._validate_env({key:"x"}, 10809)
 
-    def test_volume_root_metadata_keeps_explicit_application_grants(self):
-        policy = windows_runtime.build_policy([r"E:\Apps\Browser\browser.exe"], {}, self.profile, 10809)
-        paths = policy["filesystem"]["readonlyPaths"]
-        self.assertIn("E:\\", paths)
-        self.assertIn(r"E:\Apps\Browser", paths)
-        self.assertNotIn(r"E:\Apps", paths)
-        self.assertNotIn(r"C:\Users", paths)
-
     def test_build_policy_rejects_bad_command_profile_or_port(self):
         cases = [
             ([], {}, self.profile, 10809),

@@ -34,14 +34,13 @@ def main():
         with tempfile.TemporaryDirectory(prefix='browser-diagnosis-',ignore_cleanup_errors=True) as temporary:
             folder=Path(temporary);proxy=free_port();core,log=start_core(folder,proxy)
             try:
-                cases=[('edge-cdb','desktop',[],False),('chrome-cdb','desktop',[],False),
-                       ('edge-no-sandbox','desktop',[],False),('edge-read','desktop',[],False)]
+                cases=[('edge-gui','container',[],False),('chrome-gui','container',[],False)]
                 for name,ui,flags,windows_files in cases:
                     profile=folder/name;profile.mkdir()
                     browser=(Path(os.environ['ProgramFiles(x86)'])/'Microsoft/Edge/Application/msedge.exe') if 'edge' in name else edge
                     url=f'http://127.0.0.1:{server.server_port}/{name}'
                     command,env,_=prepare_app({'id':name,'label':'Diagnosis','path':str(browser),'adapter':'chromium',
-                                             'args':['--headless=new','--disable-gpu','--dump-dom',*flags,url]},proxy,folder)
+                                             'args':[*flags,url] if name.endswith('gui') else ['--headless=new','--disable-gpu','--dump-dom',*flags,url]},proxy,folder)
                     if name.endswith('no-sandbox'): command.append('--no-sandbox')
                     if name.endswith('cdb'):
                         debugger=Path(os.environ['ProgramFiles(x86)'])/'Windows Kits/10/Debuggers'/('arm64' if 'edge' in name else 'x64')/'cdb.exe'

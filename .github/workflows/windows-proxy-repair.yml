@@ -82,7 +82,7 @@ jobs:
       - name: Prepare official Firefox as an independent adapter
         if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
         run: |
-          $url = 'https://archive.mozilla.org/pub/firefox/releases/157.0.1/win64/en-US/Firefox%20Setup%20157.0.1.exe'
+          $url = 'https://archive.mozilla.org/pub/firefox/releases/157.0.1/win-aarch64/en-US/Firefox%20Setup%20157.0.1.exe'
           Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP/firefox.exe"
           Get-FileHash "$env:RUNNER_TEMP/firefox.exe" -Algorithm SHA256
           & 7z x "$env:RUNNER_TEMP/firefox.exe" -oC:/RuleProxyFirefox -y
