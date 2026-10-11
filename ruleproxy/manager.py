@@ -524,6 +524,10 @@ class Manager:
                             self.error = f"隔离资源清理尚未完成，请重试停止：{exc}"
                         else:
                             self.active.pop(ident, None)
+                            if process.returncode:
+                                app = self.app(ident)
+                                label = app["label"] if app else ident
+                                self.error = f"应用 {label} 异常退出（{process.returncode}）。请检查 profiles/{ident}/runtime.log。"
 
     def close(self):
         self.closed.set()

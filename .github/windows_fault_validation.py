@@ -10,7 +10,7 @@ import tempfile
 import time
 import traceback
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(os.environ.get("RULEPROXY_TEST_ROOT", Path(__file__).resolve().parent.parent)).resolve()
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ruleproxy import windows_runtime as runtime

@@ -99,8 +99,8 @@ jobs:
           python -B - <<'EOF'
           import base64, hashlib, io, pathlib, tarfile
           import install_runtime as runtime
-          data = runtime.fetch(runtime.MXC_URL)
-          assert base64.b64encode(hashlib.sha512(data).digest()).decode() == runtime.MXC_SHA512
+          data = runtime.fetch(runtime.LEGACY_MXC_URL)
+          assert base64.b64encode(hashlib.sha512(data).digest()).decode() == runtime.LEGACY_MXC_SHA512
           with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
               plm = archive.extractfile("package/bin/x64/plm.exe").read()
           folder = pathlib.Path("older-package")
@@ -138,7 +138,7 @@ jobs:
           Expand-Archive $zip -DestinationPath $dest
           $package = Join-Path $dest 'RuleProxy-Web'
           if (Test-Path "$package\bin\windows-amd64\plm.exe") { throw "The package must not ship plm.exe" }
-          $allowed = 'bin', 'examples', 'python', 'ruleproxy', 'vendor', 'web', 'CHANGELOG.md', 'LICENSE', 'README.md', 'Run-RuleProxy.py', 'Start-Windows.cmd', 'THIRD-PARTY.md'
+          $allowed = 'bin', 'examples', 'python', 'ruleproxy', 'vendor', 'web', 'CHANGELOG.md', 'LICENSE', 'README.md', 'Run-RuleProxy.py', 'Start-Windows.cmd', 'THIRD-PARTY.md', 'WINDOWS-VALIDATION.md'
           $unexpected = Get-ChildItem $package -Name | Where-Object { $_ -notin $allowed }
           if ($unexpected) { throw "Unexpected files in the package: $unexpected" }
           "PACKAGE=$package" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -156,9 +156,47 @@ jobs:
       - name: The panel removed the unused plm.exe
         run: if (Test-Path "$env:PACKAGE\bin\windows-amd64\plm.exe") { throw "plm.exe is still in the package" }
 
+  windows-11-package-test:
+    name: Windows 11 package · application acceptance
+    needs: windows-package
+    runs-on: windows-11-arm
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-package
+          path: dist
+      - name: Unpack the qualified package under a Chinese path
+        run: |
+          $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
+          $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw 'Package hash mismatch' }
+          Expand-Archive $zip -DestinationPath 'C:\应用 验收'
+          'RULEPROXY_TEST_ROOT=C:\应用 验收\RuleProxy-Web' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Panel and bundled Mihomo smoke test
+        run: '& "$env:RULEPROXY_TEST_ROOT\python\python.exe" -X utf8 -B .github\smoke_panel.py "$env:RULEPROXY_TEST_ROOT\Start-Windows.cmd"'
+      - name: Actual packaged application data, direct rejection and file boundary
+        run: |
+          & "$env:RULEPROXY_TEST_ROOT\python\python.exe" -X utf8 -B .github\windows_native_validation.py --output package-results
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged application qualification failed' }
+          $report = Get-Content package-results/report.json -Raw | ConvertFrom-Json
+          if ($report.host.InstallationType -ne 'Client' -or $report.verdict -ne 'launch-and-proxy-verified') { throw 'A supported Windows client must actually run the application' }
+      - name: Packaged negative startup and failure containment
+        run: '& "$env:RULEPROXY_TEST_ROOT\python\python.exe" -X utf8 -B .github\windows_fault_validation.py --output package-results'
+      - name: Packaged browser rendering and cookie persistence must pass before release
+        run: '& "$env:RULEPROXY_TEST_ROOT\python\python.exe" -X utf8 -B .github\windows_browser_validation.py --output package-results'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-11-package-acceptance
+          path: package-results/
+          if-no-files-found: error
+          retention-days: 30
+
   release:
     name: Publish the release
-    needs: [linux, linux-system, windows, windows-package-test]
+    needs: [linux, linux-system, windows, windows-package-test, windows-11-package-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
@@ -183,6 +221,8 @@ jobs:
             fi
             gh release delete "$tag" --yes  # an unfinished draft from an interrupted run
           fi
-          gh release create "$tag" dist/RuleProxy-Web-"$version"-windows-x64.zip dist/SHA256SUMS.txt \
+          release_flags=()
+          if [[ "$version" == *-rc* ]]; then release_flags=(--prerelease --latest=false); fi
+          gh release create "$tag" dist/RuleProxy-Web-"$version"-windows-x64.zip dist/SHA256SUMS.txt "${release_flags[@]}" \
             --target "$GITHUB_SHA" --title "RuleProxy Web $version" --notes-file dist/release-notes.md
           echo "::notice title=Release::Published $tag"

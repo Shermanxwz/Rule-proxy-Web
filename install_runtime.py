@@ -1,15 +1,13 @@
-"""Download pinned official runtimes into this project's bin/ directory only."""
+"""Download pinned runtimes into this project's bin/ directory only."""
 from __future__ import annotations
 
 import argparse
-import base64
 import gzip
 import hashlib
 import io
 import json
 from pathlib import Path
 import sys
-import tarfile
 import urllib.request
 import zipfile
 
@@ -20,9 +18,16 @@ MIHOMO = {
     "linux-amd64": ("mihomo-linux-amd64-compatible-v1.19.32.gz", "ba3ce607747a07f948fc35780e108a4a7c7f552a38b9bd4d115f313ebcb89c20"),
     "windows-amd64": ("mihomo-windows-amd64-compatible-v1.19.32.zip", "974a4d7ad69aed27aa2e8f91d61113573c14dadb14562c63e58effabf59816f0"),
 }
-MXC_VERSION = "1.0.0"
-MXC_URL = "https://registry.npmjs.org/@microsoft/mxc-sdk/-/mxc-sdk-1.0.0.tgz"
-MXC_SHA512 = "7aVR+GHVKveIknZmUtkAEFwUBp61qgEmhJRe1ZyKHJ274yWlKWB/ZfDP/u/whfmDyck0wRNKZN49atlF+SZt2Q=="
+MXC_VERSION = "1.0.0+c6f301d.ruleproxy.1"
+MXC_SOURCE_REVISION = "c6f301d53a1430c4c921a05c57af838f7392348f"
+MXC_URL = "https://raw.githubusercontent.com/Shermanxwz/Rule-proxy-Web/139653ceb36e0597050d9a166f9bca6249248f81/mxc-proxy-c6f301d-windows-x64.zip"
+MXC_SHA256 = "84bcb10b1f7ffd62f8fc8356e94e4c0a42684ce68515b68dfdcce4bb6c0757ef"
+MXC_FILES = {
+    "wxc-exec.exe": "e7527dfda680608442ecbd06222bf6bccd88e9205d80436d547afb2ca074fab7",
+    "winhttp-proxy-shim.exe": "a90c902de8a37782947a9034eca8b4f7b03f154a0381fb57a8f3dc70037340c1",
+}
+LEGACY_MXC_URL = "https://registry.npmjs.org/@microsoft/mxc-sdk/-/mxc-sdk-1.0.0.tgz"
+LEGACY_MXC_SHA512 = "7aVR+GHVKveIknZmUtkAEFwUBp61qgEmhJRe1ZyKHJ274yWlKWB/ZfDP/u/whfmDyck0wRNKZN49atlF+SZt2Q=="
 # MXC's plm.exe serves only its elevated denial-capture diagnostics, which RuleProxy never
 # requests, and MXC 1.0.0 panics while vetting it when the first folder of its path starts
 # with a non-ASCII character (C:\应用\…). It is not installed (see ruleproxy/windows_runtime.py).
@@ -50,7 +55,7 @@ def expected(platform: str) -> dict:
 
 
 def _required_files(platform: str) -> tuple[str, ...]:
-    return ("mihomo",) if platform == "linux-amd64" else ("mihomo.exe", "wxc-exec.exe")
+    return ("mihomo",) if platform == "linux-amd64" else ("mihomo.exe", *MXC_FILES)
 
 
 def installed(platform: str, root: Path | None = None) -> bool:
@@ -60,7 +65,14 @@ def installed(platform: str, root: Path | None = None) -> bool:
         record = json.loads((directory / MANIFEST).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
-    return record == expected(platform) and all((directory / name).is_file() for name in _required_files(platform))
+    if record != expected(platform) or not all((directory / name).is_file() for name in _required_files(platform)):
+        return False
+    if platform == "windows-amd64":
+        try:
+            return all(hashlib.sha256((directory / name).read_bytes()).hexdigest() == digest for name, digest in MXC_FILES.items())
+        except OSError:
+            return False
+    return True
 
 
 def install(platform: str, root: Path | None = None) -> Path:
@@ -85,23 +97,30 @@ def install(platform: str, root: Path | None = None) -> Path:
             (directory / "mihomo.exe").write_bytes(archive.read(members[0]))
         print(f"正在下载固定版本的 Microsoft MXC {MXC_VERSION}…", flush=True)
         data = fetch(MXC_URL)
-        actual = base64.b64encode(hashlib.sha512(data).digest()).decode("ascii")
-        if actual != MXC_SHA512:
+        if hashlib.sha256(data).hexdigest() != MXC_SHA256:
             raise ValueError("MXC 校验值不符，已拒绝安装。")
-        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
-            for member in archive.getmembers():
-                if not member.isfile():
-                    continue
-                item = Path(member.name)
-                if item.parent.as_posix() == "package/bin/x64" and item.suffix in (".exe", ".dll") \
-                        and item.name.lower() not in SKIPPED_MXC_FILES:
-                    with archive.extractfile(member) as source:
-                        (directory / item.name).write_bytes(source.read())
-                elif member.name == "package/LICENSE.md":
-                    with archive.extractfile(member) as source:
-                        (directory / "MXC-LICENSE.md").write_bytes(source.read())
-        if not (directory / "wxc-exec.exe").is_file():
-            raise ValueError("校验通过的 MXC 包里缺少 wxc-exec.exe。")
+        # Exact member names and per-file hashes prevent partial or ambiguous
+        # runtime layouts. The immutable Git archive preserves the qualified bytes.
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            names = archive.namelist()
+            allowed = {*MXC_FILES, "MXC-LICENSE.md", "SOURCE.txt", "SHA256SUMS.txt"}
+            if len(names) != len(set(names)) or set(names) != allowed:
+                raise ValueError("MXC 运行组件压缩包内容与固定版本不符。")
+            binaries = {}
+            for name, digest in MXC_FILES.items():
+                if archive.getinfo(name).file_size > 32 * 1024 * 1024:
+                    raise ValueError("MXC 运行组件大小超过上限。")
+                binary = archive.read(name)
+                if hashlib.sha256(binary).hexdigest() != digest:
+                    raise ValueError(f"MXC 组件 {name} 校验值不符。")
+                binaries[name] = binary
+            source = archive.read("SOURCE.txt")
+            if MXC_SOURCE_REVISION.encode("ascii") not in source:
+                raise ValueError("MXC 源码修订记录不符。")
+            for name, binary in binaries.items():
+                (directory / name).write_bytes(binary)
+            (directory / "MXC-LICENSE.md").write_bytes(archive.read("MXC-LICENSE.md"))
+            (directory / "MXC-SOURCE.txt").write_bytes(source)
         for name in SKIPPED_MXC_FILES:
             (directory / name).unlink(missing_ok=True)
     (directory / MANIFEST).write_text(json.dumps(expected(platform), indent=2) + "\n", encoding="utf-8")
@@ -126,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     try:
         install(args.platform)
-    except (OSError, ValueError, EOFError, zipfile.BadZipFile, tarfile.TarError) as exc:
+    except (OSError, ValueError, EOFError, zipfile.BadZipFile) as exc:
         print(f"运行组件下载失败：{exc}", file=sys.stderr, flush=True)
         print("没有更改本项目目录以外的任何内容。请检查网络后重新运行安装。", file=sys.stderr, flush=True)
         return 1

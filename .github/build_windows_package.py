@@ -38,7 +38,7 @@ PYYAML_SHA256 = "4a2e8cebe2ff6ab7d1050ecd59c25d4c8bd7e6f400f5f82b96557ac0abafd0a
 
 FOLDER = "RuleProxy-Web"
 # What the Windows panel needs. Linux scripts, tests and the source-checkout installer stay out.
-INCLUDE = ("Run-RuleProxy.py", "Start-Windows.cmd", "README.md", "CHANGELOG.md", "LICENSE", "THIRD-PARTY.md", "ruleproxy/", "web/", "examples/")
+INCLUDE = ("Run-RuleProxy.py", "Start-Windows.cmd", "README.md", "CHANGELOG.md", "LICENSE", "THIRD-PARTY.md", "WINDOWS-VALIDATION.md", "ruleproxy/", "web/", "examples/")
 # The embedded Python reads only the paths listed here: its own library, its folder, and the package root.
 PTH_TEXT = f"{PYTHON_STDLIB}\r\n.\r\n..\r\n# RuleProxy: the package root holds ruleproxy/ and Run-RuleProxy.py; site is not imported.\r\n"
 MAX_DOWNLOAD = 64 * 1024 * 1024
@@ -152,11 +152,11 @@ sh start-linux.sh
 | Python（嵌入式版） | {PYTHON_VERSION} | python.org 公布的 SHA-256 |
 | PyYAML | {PYYAML_VERSION} | PyPI 公布的 SHA-256 |
 | Mihomo | {install_runtime.MIHOMO_VERSION} | GitHub 发布文件的 SHA-256 |
-| Microsoft MXC | {install_runtime.MXC_VERSION} | npm 公布的 SHA-512 |
+| Microsoft MXC（本项目固定微软源码的构建） | {install_runtime.MXC_VERSION} | 归档及可执行文件的固定 SHA-256 |
 
 `{zip_name}` 的 SHA-256：`{digest}`
 
-Windows 上的隔离启动还没有在 Windows 11 真机上验证（GitHub 的 Windows 环境不提供所需的 BaseContainer，面板在那里会拒绝严格隔离）。第一次使用请先用浏览器确认能联网、“停止”正常，再用其他应用。
+Windows 隔离使用指定代理端口的原生策略。已验证系统、普通用户、浏览器和故障范围见包内 `WINDOWS-VALIDATION.md`。不支持 Windows 10，不保证任意软件兼容；不兼容时拒绝启动，不退回直连。
 """
 
 
