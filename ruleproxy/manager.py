@@ -179,7 +179,10 @@ class Manager:
                 from .linux_runtime import probe
                 return probe()
             if sys.platform == "win32":
-                from .windows_runtime import probe
+                from .windows_runtime import probe, retire_unused_runtime_files
+                if not self.settings.get("runtime_path"):
+                    # Only the bundled runtime; a runtime the user pointed at is left as it is.
+                    retire_unused_runtime_files(Path(self.runtime_path()).parent)
                 return probe(self.runtime_path(), self.mixed_port)
             return {"supported": False, "backend": "不支持的系统", "detail": "当前仅支持 Windows 和 Linux。", "limitations": []}
         except Exception as exc:  # an unexpected failure means "not protected"; it must not take the panel down

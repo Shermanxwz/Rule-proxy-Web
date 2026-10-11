@@ -1,12 +1,16 @@
 """The runtime installer: when runtimes count as installed, and the modes the setup scripts use."""
+import base64
 from contextlib import redirect_stderr, redirect_stdout
+import hashlib
 import io
 import json
 from pathlib import Path
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
 import urllib.error
+import zipfile
 
 try:
     import install_runtime
@@ -78,6 +82,35 @@ class InstallRuntimeTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("校验值不符", errors)
         self.assertFalse(install_runtime.installed("linux-amd64"), "a failed reinstall must not keep the old manifest")
+
+    def test_windows_install_leaves_out_plm_and_removes_an_old_copy(self):
+        mihomo = io.BytesIO()
+        with zipfile.ZipFile(mihomo, "w") as archive:
+            archive.writestr("mihomo-windows-amd64-compatible.exe", b"mihomo")
+        mxc = io.BytesIO()
+        with tarfile.open(fileobj=mxc, mode="w:gz") as archive:
+            for name, data in (("package/bin/x64/wxc-exec.exe", b"exec"), ("package/bin/x64/mxc_ffi.dll", b"ffi"),
+                               ("package/bin/x64/plm.exe", b"plm"), ("package/LICENSE.md", b"license")):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
+        mihomo, mxc = mihomo.getvalue(), mxc.getvalue()
+        directory = self.root / "bin" / "windows-amd64"
+        directory.mkdir(parents=True)
+        (directory / "plm.exe").write_bytes(b"left by an older setup")
+
+        def fetch(url):
+            return mxc if url == install_runtime.MXC_URL else mihomo if url.endswith(".zip") else b"license"
+
+        name = install_runtime.MIHOMO["windows-amd64"][0]
+        with patch.dict(install_runtime.MIHOMO, {"windows-amd64": (name, hashlib.sha256(mihomo).hexdigest())}), \
+                patch.object(install_runtime, "MXC_SHA512", base64.b64encode(hashlib.sha512(mxc).digest()).decode()), \
+                patch.object(install_runtime, "fetch", side_effect=fetch):
+            code, _, errors = self.run_main("--platform", "windows-amd64")
+        self.assertEqual(code, 0, errors)
+        self.assertEqual(sorted(path.name for path in directory.iterdir()),
+                         ["MIHOMO-LICENSE", "MXC-LICENSE.md", "mihomo.exe", "mxc_ffi.dll", "runtime.json", "wxc-exec.exe"])
+        self.assertTrue(install_runtime.installed("windows-amd64"))
 
 
 if __name__ == "__main__":

@@ -96,6 +96,8 @@ def drive(port: int, mixed: int, panel: subprocess.Popen | None) -> tuple[str, s
     current = wait_for(state, 300, "the panel", panel)
     protection = json.dumps(current["protection"], ensure_ascii=False)
     print(f"Panel {current['version']} on {current['platform']} is up. Protection: {protection}", flush=True)
+    if "panicked" in protection or "隔离能力检查出错" in protection:
+        raise SmokeFailure("the isolation check crashed instead of answering: " + protection)
     token = current["token"]
     current = call(port, "POST", "/api/import", token, {"yaml": EXAMPLE.read_text(encoding="utf-8")})
     if not current["imported"] or not current["nodes"]:

@@ -93,6 +93,26 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
+      # 0.2.0 shipped MXC's plm.exe; unpacking a newer package over it leaves it in place.
+      - name: Keep MXC's plm.exe aside, to test that the panel removes one an older package left
+        run: |
+          python -B - <<'EOF'
+          import base64, hashlib, io, pathlib, tarfile
+          import install_runtime as runtime
+          data = runtime.fetch(runtime.MXC_URL)
+          assert base64.b64encode(hashlib.sha512(data).digest()).decode() == runtime.MXC_SHA512
+          with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+              plm = archive.extractfile("package/bin/x64/plm.exe").read()
+          folder = pathlib.Path("older-package")
+          folder.mkdir()
+          (folder / "plm.exe").write_bytes(plm)
+          EOF
+      - uses: actions/upload-artifact@v7
+        with:
+          name: older-package-plm
+          path: older-package/
+          if-no-files-found: error
+          retention-days: 7
 
   windows-package-test:
     name: Windows package · test
@@ -104,14 +124,20 @@ jobs:
         with:
           name: windows-package
           path: dist
-      - name: Unpack, as a user does, into a folder with Chinese characters and a space
+      - uses: actions/download-artifact@v8
+        with:
+          name: older-package-plm
+          path: older-package
+      # A top folder that starts with a Chinese character, as in C:\应用: MXC 1.0.0 mishandles that.
+      - name: Unpack, as a user does, under C:\应用 测试
         run: |
           $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
           $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
           if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "The package does not match SHA256SUMS.txt" }
-          $dest = Join-Path $env:RUNNER_TEMP '测试 目录'
+          $dest = 'C:\应用 测试'
           Expand-Archive $zip -DestinationPath $dest
           $package = Join-Path $dest 'RuleProxy-Web'
+          if (Test-Path "$package\bin\windows-amd64\plm.exe") { throw "The package must not ship plm.exe" }
           $allowed = 'bin', 'examples', 'python', 'ruleproxy', 'vendor', 'web', 'CHANGELOG.md', 'LICENSE', 'README.md', 'Run-RuleProxy.py', 'Start-Windows.cmd', 'THIRD-PARTY.md'
           $unexpected = Get-ChildItem $package -Name | Where-Object { $_ -notin $allowed }
           if ($unexpected) { throw "Unexpected files in the package: $unexpected" }
@@ -121,8 +147,14 @@ jobs:
         run: '& "$env:PACKAGE\python\python.exe" -X utf8 -c "import sys, ruleproxy, yaml; print(sys.version); print(sys.flags.isolated, sys.path); print(ruleproxy.__file__); print(yaml.__file__, yaml.__with_libyaml__)"'
       - name: Tests with the package's Python and code
         run: '& "$env:PACKAGE\python\python.exe" -B .github\run_tests.py --code "$env:PACKAGE"'
+      - name: Put back the plm.exe an older package left, as after unpacking over 0.2.0
+        run: Copy-Item older-package\plm.exe "$env:PACKAGE\bin\windows-amd64\plm.exe"
+      - name: With plm.exe present, MXC 1.0.0 crashes on this path and the panel explains why
+        run: '& "$env:PACKAGE\python\python.exe" -B .github\mxc_path_check.py "$env:PACKAGE"'
       - name: Start the panel with Start-Windows.cmd and run the bundled core
         run: '& "$env:PACKAGE\python\python.exe" -B .github\smoke_panel.py "$env:PACKAGE\Start-Windows.cmd"'
+      - name: The panel removed the unused plm.exe
+        run: if (Test-Path "$env:PACKAGE\bin\windows-amd64\plm.exe") { throw "plm.exe is still in the package" }
 
   release:
     name: Publish the release
