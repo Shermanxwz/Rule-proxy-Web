@@ -331,10 +331,42 @@ class WindowsRuntimeTests(unittest.TestCase):
 
     def test_completed_short_command_is_still_a_successful_launch(self):
         self.profile.mkdir(parents=True)
-        (self.profile / "guest-status.json").write_text(json.dumps({"nonce": "x", "state": "APP_EXITED", "started": True}))
+        (self.profile / "guest-status.json").write_text(json.dumps({"nonce": "x", "state": "APP_EXITED", "started": True, "detail": "0"}))
         process = mock.Mock()
         process.poll.return_value = 0
         windows_runtime._wait_for_status(self.profile, "x", "APP_STARTED", process, .1)
+
+    def test_a_short_command_crash_is_not_reported_as_a_successful_launch(self):
+        self.profile.mkdir(parents=True)
+        for code in (3221225506, -1073741790, 3221225477, 19):
+            with self.subTest(code=code):
+                (self.profile / "guest-status.json").write_text(json.dumps(
+                    {"nonce": "x", "state": "APP_EXITED", "started": True, "detail": str(code)}))
+                process = mock.Mock()
+                process.poll.return_value = None  # MXC may still be cleaning up.
+                with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "启动时异常退出") as error:
+                    windows_runtime._wait_for_status(self.profile, "x", "APP_STARTED", process, .1)
+                self.assertIn(f"0x{code & 0xFFFFFFFF:08X}", str(error.exception))
+
+    def test_a_completed_command_without_an_exit_status_cannot_pass_startup(self):
+        self.profile.mkdir(parents=True)
+        for detail in (None, "", "invalid", True):
+            with self.subTest(detail=detail):
+                (self.profile / "guest-status.json").write_text(json.dumps(
+                    {"nonce": "x", "state": "APP_EXITED", "started": True, "detail": detail}))
+                process = mock.Mock()
+                process.poll.return_value = None
+                with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "退出状态"):
+                    windows_runtime._wait_for_status(self.profile, "x", "APP_STARTED", process, .1)
+
+    def test_a_crashed_wrapper_cannot_confirm_a_stale_started_status(self):
+        self.profile.mkdir(parents=True)
+        (self.profile / "guest-status.json").write_text(json.dumps(
+            {"nonce": "x", "state": "APP_STARTED", "started": True}))
+        process = mock.Mock(returncode=3221225506)
+        process.poll.return_value = process.returncode
+        with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "0xC0000022"):
+            windows_runtime._wait_for_status(self.profile, "x", "APP_STARTED", process, .1)
 
     def test_adapter_must_use_the_same_port_as_the_kernel_policy(self):
         with self.assertRaisesRegex(ValueError, "kernel policy"):

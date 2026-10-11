@@ -90,10 +90,7 @@ def main() -> int:
             proxy = free_port()
             core, core_log = start_core(folder, proxy)
             try:
-                cases = [(browser, mode) for browser in ("chrome", "firefox")
-                         for mode in ("host", "desktop", "windows-dlls")]
-                if args.debugger is not None:
-                    cases += [(browser, "debugger") for browser in ("firefox", "chrome")]
+                cases = [(browser, "mapped-installation") for browser in ("chrome", "firefox")]
                 for browser_name, mode in cases:
                     name = f"{browser_name}-{mode}"
                     entry = {"name": name, "mode": mode}
@@ -101,6 +98,11 @@ def main() -> int:
                     profile = folder / name
                     profile.mkdir()
                     browser = browsers[browser_name]
+                    drive = None
+                    if mode == "mapped-installation":
+                        drive = next(letter + ":" for letter in "RSPQZY" if not Path(letter + ":\\").exists())
+                        subprocess.run(["subst", drive, str(browser.parent)], check=True, timeout=10)
+                        browser = Path(drive + "\\" + browser.name)
                     if mode == "writable-copy":
                         shutil.copytree(browser.parent, profile / "installation")
                         browser = profile / "installation" / browser.name
@@ -114,6 +116,8 @@ def main() -> int:
                          "adapter": "firefox" if firefox else "chromium", "args": browser_args},
                         proxy, folder,
                     )
+                    if mode == "mapped-installation":
+                        command[0] = str(browser)  # Preserve the mapped path after app validation resolves it.
                     path = output / f"{name}.log"
                     process = None
                     with path.open("wb") as stream:
@@ -137,6 +141,10 @@ def main() -> int:
                                     windows = Path(os.environ["SystemRoot"])
                                     policy["filesystem"]["readonlyPaths"] += [str(windows / p)
                                         for p in ("System32", "SysWOW64", "WinSxS", "Fonts") if (windows / p).is_dir()]
+                                if mode == "mapped-installation":
+                                    # This root names only the explicitly allowed
+                                    # installation, never the host volume root.
+                                    policy["filesystem"]["readonlyPaths"].append(drive + "\\")
                                 if mode == "debugger":
                                     debugger = args.debugger.resolve(strict=True)
                                     policy["filesystem"]["readonlyPaths"] += [str(debugger.parent), os.environ["SystemRoot"]]
@@ -170,6 +178,8 @@ def main() -> int:
                                     process.wait(10)
                                 else:
                                     runtime.stop(process)
+                            if drive is not None:
+                                subprocess.run(["subst", drive, "/D"], check=True, timeout=10)
                     text = path.read_text(encoding="utf-8", errors="replace")
                     entry["requested"] = "/" + name in requests
                     entry["rendered"] = (screenshot.is_file() and screenshot.stat().st_size > 1000

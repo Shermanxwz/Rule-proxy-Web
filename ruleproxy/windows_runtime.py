@@ -783,6 +783,18 @@ class _HostLoopbackFixture:
             worker.join(timeout=1)
 
 
+def exit_description(returncode: int) -> str:
+    """Display signed and unsigned Windows exit statuses consistently."""
+    status = returncode & 0xFFFFFFFF
+    reason = {
+        0xC0000022: "系统拒绝应用初始化",
+        0xC0000005: "应用发生访问冲突",
+        0xC0000142: "应用依赖组件初始化失败",
+    }.get(status)
+    detail = f"{returncode} / 0x{status:08X}"
+    return detail + (f"；{reason}" if reason else "")
+
+
 def _wait_for_status(directory: Path, nonce: str, state: str, process: Any, timeout: float) -> None:
     status = directory / "guest-status.json"
     deadline = time.monotonic() + timeout
@@ -795,8 +807,19 @@ def _wait_for_status(directory: Path, nonce: str, state: str, process: Any, time
                 raise UnsupportedRuntimeError("contained status exceeded its size limit")
             value = json.loads(raw.decode("ascii"))
             if isinstance(value, dict) and value.get("nonce") == nonce:
-                if (value.get("state") == state or
-                        (state == "APP_STARTED" and value.get("state") == "APP_EXITED" and value.get("started") is True)):
+                if state == "APP_STARTED" and value.get("state") == "APP_EXITED" and value.get("started") is True:
+                    try:
+                        app_exit = int(str(value.get("detail", "")))
+                    except ValueError:
+                        raise UnsupportedRuntimeError("隔离应用已退出，但没有返回有效的退出状态。") from None
+                    if app_exit:
+                        raise UnsupportedRuntimeError(
+                            "隔离应用在启动时异常退出（" + exit_description(app_exit) + "）。请检查应用配置目录的 runtime.log。")
+                    return
+                if value.get("state") == state:
+                    if state == "APP_STARTED" and process.poll() is not None and process.returncode:
+                        raise UnsupportedRuntimeError(
+                            "隔离应用在启动时异常退出（" + exit_description(process.returncode) + "）。请检查应用配置目录的 runtime.log。")
                     return
                 if value.get("state") == "FAILED":
                     raise UnsupportedRuntimeError("隔离启动检查失败：" + str(value.get("detail", ""))[:1800])
@@ -804,7 +827,7 @@ def _wait_for_status(directory: Path, nonce: str, state: str, process: Any, time
         except (OSError, ValueError):
             pass
         if process.poll() is not None:
-            raise UnsupportedRuntimeError(f"隔离助手提前退出（{process.returncode}）。请检查应用配置目录的 runtime.log。")
+            raise UnsupportedRuntimeError(f"隔离助手提前退出（{exit_description(process.returncode)}）。请检查应用配置目录的 runtime.log。")
         time.sleep(0.05)
     raise UnsupportedRuntimeError(f"隔离助手等待 {state} 超时（最后状态 {last or '未返回'}）。")
 
