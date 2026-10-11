@@ -303,7 +303,8 @@ def main():
                 inside = report["current_launch"].get("inside", {})
                 works = all(inside.get(key, {}).get("ok") is True for key in ("proxy_greeting", "proxy_data_roundtrip"))
                 denied = all(inside.get(key, {}).get("winerror") == 10013 for key in ("other_host_loopback", "direct_ipv4"))
-                private_file_denied = inside.get("ungranted_file_read", {}).get("winerror") == 5
+                file_result = inside.get("ungranted_file_read", {})
+                private_file_denied = file_result.get("ok") is False and (file_result.get("errno") == 13 or file_result.get("winerror") == 5)
                 accepted = report["current_launch"]["started"] and works and denied and private_file_denied
                 report["verdict"] = "launch-and-proxy-verified" if accepted else "application-network-qualification-failed"
                 code = 0 if accepted else 1

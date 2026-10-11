@@ -1,4 +1,4 @@
-"""Real Edge rendering and cookie persistence through the production launcher."""
+"""Real browser rendering and cookie persistence through the production launcher."""
 from __future__ import annotations
 import argparse
 import http.server
@@ -86,7 +86,7 @@ def main():
                         launches.append({'round':number, 'exit':exit_code, 'rendered':rendered,
                                          'log_tail':text[-4000:]})
                         if exit_code or not rendered:
-                            raise RuntimeError('Edge failed to render through the controlled proxy: '+json.dumps(launches[-1]))
+                            raise RuntimeError('Browser failed to render through the controlled proxy: '+json.dumps(launches[-1]))
                     except Exception:
                         if not launches or launches[-1].get('round')!=number:
                             text=log_path.read_bytes()[previous_size:].decode('utf-8',errors='replace') if log_path.is_file() else ''

@@ -80,16 +80,17 @@ jobs:
         if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
         run: .github/run_windows_standard_user.ps1 -OutputDirectory native-results/standard-user
       - name: Prepare official Firefox as an independent adapter
+        id: firefox
         if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
         run: |
-          $url = 'https://archive.mozilla.org/pub/firefox/releases/157.0.1/win-aarch64/en-US/Firefox%20Setup%20157.0.1.exe'
+          $url = 'https://archive.mozilla.org/pub/firefox/releases/157.0.1/win64-aarch64/en-US/Firefox%20Setup%20157.0.1.exe'
           Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP/firefox.exe"
           Get-FileHash "$env:RUNNER_TEMP/firefox.exe" -Algorithm SHA256
           & 7z x "$env:RUNNER_TEMP/firefox.exe" -oC:/RuleProxyFirefox -y
           if ($LASTEXITCODE -ne 0) { throw 'Could not unpack Firefox' }
           'RULEPROXY_TEST_BROWSER=C:/RuleProxyFirefox/core/firefox.exe' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Qualify Firefox rendering and persistent cookies
-        if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64'
+        if: always() && matrix.runner == 'windows-11-arm' && matrix.architecture == 'arm64' && steps.firefox.outcome == 'success'
         run: python -B .github/windows_browser_validation.py --output native-results/firefox
       - uses: actions/upload-artifact@v7
         if: always()
