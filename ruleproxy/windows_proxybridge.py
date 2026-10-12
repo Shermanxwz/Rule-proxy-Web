@@ -32,13 +32,13 @@ class FenceSpec:
     proxy_port: int
 
     def __post_init__(self) -> None:
+        if not isinstance(self.executable, str) or not self.executable or "\x00" in self.executable:
+            raise ValueError("invalid executable path")
         path = PureWindowsPath(self.executable)
         if (
-            not isinstance(self.executable, str)
-            or not self.executable
-            or "\x00" in self.executable
-            or not path.is_absolute()
-            or not path.drive
+            not path.is_absolute()
+            or len(path.drive) != 2
+            or path.drive[1] != ":"
             or not path.name.lower().endswith(".exe")
         ):
             raise ValueError("the protected application must be an absolute Windows .exe path")
@@ -173,9 +173,11 @@ class StrictWindowsSession:
             return
         try:
             self._verify()
-            if self.process is not None and self.process.poll() is None:
+            # Even if the parent has already exited, its children may live on.
+            # ALWAYS obtain affirmative descendant-exit proof before fence release.
+            if self.process is not None:
                 if self.process.terminate_tree_and_verify() is not True:
-                    raise ProtectionError("could not prove all owned processes exited", self)
+                    raise ProtectionError("could not prove all owned processes and descendants exited", self)
             if self.process is not None and self.process.poll() is None:
                 raise ProtectionError("process is still alive; WFP fence retained", self)
             if self.redirector_started:
