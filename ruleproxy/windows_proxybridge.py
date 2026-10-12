@@ -154,9 +154,14 @@ class StrictWindowsSession:
             self.started = True
             return process
         except Exception as exc:
-            # Deliberately never release an installed fence on ambiguous failure.
-            # The app may have been created before a post-spawn verification fault.
-            # Redirector failure is harmless only because the WFP fence persists.
+            # If post-spawn verification fails, try to kill the owned process
+            # immediately. Never assume an unverified WFP guard still protects it.
+            # An uncertain fence is NEVER released automatically.
+            if self.process is not None:
+                try:
+                    self.process.terminate_tree_and_verify()
+                except Exception:
+                    pass
             if self.redirector_started:
                 try:
                     self.redirector.stop()
@@ -172,7 +177,18 @@ class StrictWindowsSession:
             self.closed = True
             return
         try:
-            self._verify()
+            try:
+                self._verify()
+            except Exception:
+                # Filter verification can fail while the app is still alive.
+                # Attempt immediate process-tree termination before surfacing
+                # the fatal safety failure. Fence remains in place for recovery.
+                if self.process is not None:
+                    try:
+                        self.process.terminate_tree_and_verify()
+                    except Exception:
+                        pass
+                raise
             # Even if the parent has already exited, its children may live on.
             # ALWAYS obtain affirmative descendant-exit proof before fence release.
             if self.process is not None:
