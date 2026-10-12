@@ -189,11 +189,13 @@ class StrictWindowsSessionTests(unittest.TestCase):
             self.session.start()
         self.assertNotIn("fence.release", self.events)
 
-    def test_verification_after_spawn_failure_keeps_fence(self):
+    def test_verification_after_spawn_failure_kills_app_and_keeps_fence(self):
         self.fence.fail_verify_at = 3
         with self.assertRaises(ProtectionError):
             self.session.start()
         self.assertEqual(self.spawn_count, 1)
+        self.assertIn("process.terminate_tree", self.events)
+        self.assertFalse(self.process.alive)
         self.assertIsNotNone(self.session.receipt)
         self.assertNotIn("fence.release", self.events)
 
@@ -212,11 +214,13 @@ class StrictWindowsSessionTests(unittest.TestCase):
             self.session.stop()
         self.assertNotIn("fence.release", self.events)
 
-    def test_fence_verification_failure_during_stop_blocks_release(self):
+    def test_fence_verification_failure_during_stop_kills_owned_app_and_blocks_release(self):
         self.session.start()
         self.fence.good = False
         with self.assertRaises(ProtectionError):
             self.session.stop()
+        self.assertIn("process.terminate_tree", self.events)
+        self.assertFalse(self.process.alive)
         self.assertNotIn("fence.release", self.events)
 
     def test_release_failure_keeps_receipt_for_recovery(self):
