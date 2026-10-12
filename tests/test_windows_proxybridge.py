@@ -233,12 +233,20 @@ class StrictWindowsSessionTests(unittest.TestCase):
             self.session.start()
         self.assertEqual(self.spawn_count, 1)
 
-    def test_process_exited_can_cleanup_under_active_fence(self):
+    def test_process_exited_can_cleanup_only_after_descendant_proof(self):
         self.session.start()
         self.process.alive = False
         self.session.stop()
-        self.assertNotIn("process.terminate_tree", self.events)
+        self.assertIn("process.terminate_tree", self.events)
         self.assertIn("fence.release", self.events)
+
+    def test_parent_exited_but_descendant_unverified_keeps_fence(self):
+        self.session.start()
+        self.process.alive = False
+        self.process.can_stop = False
+        with self.assertRaises(ProtectionError):
+            self.session.stop()
+        self.assertNotIn("fence.release", self.events)
 
     def test_bad_proxy_spec_is_rejected(self):
         for host, port in [("0.0.0.0", 10809), ("::1", 10809), ("127.0.0.1", 80), ("127.0.0.1", True)]:
