@@ -340,7 +340,7 @@ static unsigned inspect_endpoint_policy(Engine& e, Policy& p, bool output) {
         const bool permit = i >= 2;
         require(p.owned(f.providerData) && !f.providerKey && same(f.layerKey, *layers[i % 2]) &&
                 same(f.subLayerKey, p.sublayer) && f.flags == FWPM_FILTER_FLAG_PERSISTENT &&
-                f.action.type == (permit ? FWP_ACTION_PERMIT : FWP_ACTION_BLOCK) &&
+                f.action.type == static_cast<FWP_ACTION_TYPE>(permit ? FWP_ACTION_PERMIT : FWP_ACTION_BLOCK) &&
                 f.weight.type == FWP_UINT8 && f.weight.uint8 == (permit ? 15 : 1) &&
                 f.numFilterConditions == (permit ? 5u : 1u) && f.filterCondition,
                 "endpoint-guard-filter-enforcement-properties");

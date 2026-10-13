@@ -143,6 +143,12 @@ jobs:
         runner: [windows-2025, windows-11-arm]
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          architecture: ${{ matrix.runner == 'windows-11-arm' && 'arm64' || 'x64' }}
+      - name: Relay protocol and actual unredirected Winsock metadata rejection
+        run: python -B -m unittest discover -s tests -p test_ale_relay.py -v
       - name: Compile with the pinned Microsoft WDK; do not sign or load
         shell: pwsh
         run: ./scripts/windows/Build-AleRedirect.ps1

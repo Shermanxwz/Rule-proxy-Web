@@ -1,13 +1,18 @@
 // Build-only, unsigned ALE_CONNECT_REDIRECT foundation. Not a product driver.
 // No driver load, test-signing change, global routes or WinDivert exception.
+#pragma warning(push)
+// The published WDK uses anonymous unions and alignment padding in its ABI.
+#pragma warning(disable: 4201 4324)
 #include <ntifs.h>
 #include <initguid.h>
+#include <ndis.h>
 #include <fwpsk.h>
 #include <fwpmk.h>
 #include <ws2def.h>
 #include <ws2ipdef.h>
 #include <wdmsec.h>
 #include "redirect_protocol.h"
+#pragma warning(pop)
 
 C_ASSERT(sizeof(RP_REDIRECT_CONTEXT) == RP_CONTEXT_BYTES);
 C_ASSERT(sizeof(RP_RELAY_CONFIG) == RP_CONFIG_BYTES);
