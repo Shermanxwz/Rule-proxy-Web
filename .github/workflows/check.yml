@@ -133,6 +133,27 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  windows-ale-build:
+    name: ALE redirect driver build only · ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-11-arm]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compile with the pinned Microsoft WDK; do not sign or load
+        shell: pwsh
+        run: ./scripts/windows/Build-AleRedirect.ps1
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ale-redirect-build-${{ matrix.runner }}
+          path: ale-redirect-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
   windows-package:
     name: Windows package · build
     runs-on: ubuntu-24.04
@@ -214,7 +235,7 @@ jobs:
 
   release:
     name: Publish the release
-    needs: [linux, linux-system, windows, windows-package-test, windows-proxybridge-wfp-acceptance, windows-native-wfp-lab]
+    needs: [linux, linux-system, windows, windows-package-test, windows-proxybridge-wfp-acceptance, windows-native-wfp-lab, windows-ale-build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
