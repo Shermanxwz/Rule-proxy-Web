@@ -152,3 +152,4 @@ try {
     if (Test-Path $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue }
 }
 if ($report.error) { exit 1 }
+exit 0

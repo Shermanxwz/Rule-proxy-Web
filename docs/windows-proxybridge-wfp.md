@@ -54,6 +54,15 @@ CONNECTs. Killing the CLI while keeping the block left the probe unable to
 connect. The test uses a Windows kernel and actual WinDivert driver, but a
 virtual machine and no external packet capture; it does not meet physical
 device or full leak acceptance. See [raw run data](validation/windows-vm-run-91.json).
+The expanded [run #93](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38355880088)
+also observed a second executable at a different path but with the same
+basename being redirected through the same SOCKS listener (one CONNECT), even
+while the first path alone had the WFP block. This violates independent
+instance scope. Its [measurements](validation/windows-vm-run-93.json) confirm
+the experiment's firewall rule and newly loaded WinDivert driver were removed
+afterwards. The experimental step itself still exited nonzero because the final
+`sc query` reports the expected "service does not exist"; the next revision
+explicitly exits zero after recording that cleanup result.
 
 The upstream v4.1.1 NSIS installer is unsuitable for direct product deployment:
 it changes machine PATH, installs an automatic LocalSystem service and user

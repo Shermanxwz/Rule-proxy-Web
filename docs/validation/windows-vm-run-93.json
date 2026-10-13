@@ -1,0 +1,65 @@
+{
+  "environment": "GitHub-hosted Windows virtual machine; not a physical device",
+  "os": "Microsoft Windows NT 10.0.26100.0",
+  "installer_sha256": "754f45fb31f3953b9b81005090f9a479f89827adb628cf2c76bc4139f673a152",
+  "extracted_binary_sha256": {
+    "ProxyBridge_CLI.exe": "db8eef11711d0d4dd1ec7ee9780b85594047cf273dc8cf14a2de6721cbc822ad",
+    "WinDivert.dll": "c1e060ee19444a259b2162f8af0f3fe8c4428a1c6f694dce20de194ac8d7d9a2",
+    "ProxyBridgeCore.dll": "59378fc527bb6bc3688ae331ce26ae2a5234432ab7763cc6b8c7f71e909b644c",
+    "WinDivert64.sys": "8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2"
+  },
+  "firewall_profiles": [
+    {
+      "Name": "Domain",
+      "Enabled": 1,
+      "DefaultOutboundAction": 0
+    },
+    {
+      "Name": "Private",
+      "Enabled": 1,
+      "DefaultOutboundAction": 0
+    },
+    {
+      "Name": "Public",
+      "Enabled": 1,
+      "DefaultOutboundAction": 0
+    }
+  ],
+  "baseline_direct_exit": 0,
+  "no_wfp": {
+    "exit": 0,
+    "stdout": "OK",
+    "stderr": null,
+    "socks_connects": 1
+  },
+  "same_name_other": {
+    "exit": 0,
+    "stdout": "OK",
+    "stderr": null,
+    "socks_connects": 1
+  },
+  "with_wfp": {
+    "exit": 7,
+    "stdout": null,
+    "stderr": "curl: (7) Failed to connect to 1.1.1.1 port 80 after 1 ms: Could not connect to server\r\n",
+    "socks_connects": 0
+  },
+  "same_name_other_with_wfp": {
+    "exit": 0,
+    "stdout": "OK",
+    "stderr": null,
+    "socks_connects": 1
+  },
+  "after_cli_kill": {
+    "exit": 7,
+    "stdout": null,
+    "stderr": "curl: (7) Failed to connect to 1.1.1.1 port 80 after 1 ms: Could not connect to server\r\n",
+    "socks_connects": 0
+  },
+  "driver_before": "[SC] EnumQueryServicesStatus:OpenService FAILED 1060:\r\n\r\nThe specified service does not exist as an installed service.\r\n\r\n",
+  "driver_after": "[SC] EnumQueryServicesStatus:OpenService FAILED 1060:\r\n\r\nThe specified service does not exist as an installed service.\r\n\r\n",
+  "status": "measured; inspect evidence, never an acceptance result",
+  "error": null,
+  "firewall_rule_removed": true,
+  "driver_removed": true
+}
