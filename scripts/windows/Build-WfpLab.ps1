@@ -18,7 +18,7 @@ New-Item -ItemType Directory -Path $build | Out-Null
 try {
     # All paths are locally determined and quoted. Compile with static CRT so
     # copied synthetic probes have no deployment/runtime dependency.
-    $line = 'call "' + $vcvars + '" ' + $architecture + ' && cl /nologo /std:c++17 /W4 /WX /EHsc /MT /DUNICODE /D_UNICODE "' + $source + '" /Fe:"' + $output + '" /link fwpuclnt.lib rpcrt4.lib ws2_32.lib uuid.lib'
+    $line = 'call "' + $vcvars + '" ' + $architecture + ' && cl /nologo /std:c++17 /W4 /WX /EHsc /MT /DUNICODE /D_UNICODE "' + $source + '" /Fe:"' + $output + '" /link fwpuclnt.lib rpcrt4.lib ws2_32.lib uuid.lib advapi32.lib'
     Push-Location $build
     try {
         & cmd.exe /d /s /c $line 2>&1 | Tee-Object -FilePath (Join-Path $Evidence 'build.txt')

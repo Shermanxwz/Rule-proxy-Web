@@ -234,6 +234,16 @@ def run(executable: Path, evidence: Path) -> dict:
             return process
 
         try:
+            value = command([str(executable), "token-identity", str(protected)])
+            observations["netonly_token_identity"] = value
+            need(value["exit"] == 0 and value.get("identity_measured") is True
+                 and value.get("child_never_resumed") is True and value.get("child_exited") is True
+                 and value.get("network_credentials_used") is False,
+                 "netonly_token_identity_measured_and_suspended_child_removed")
+            # Record local SID identities separately from LSA authentication
+            # sessions. Even distinct SIDs would still need live WFP matching
+            # and browser/descendant inheritance tests before admission.
+            report["security_findings"]["netonly_gives_distinct_logon_sid"] = value.get("logon_sid_distinct") is True
             with EchoTargets() as targets:
                 group("baseline_ipv4_ipv6_tcp_udp", protected, targets, False)
                 pending = hold("abort-hold", pending_seed, "pending-controller.json", "transaction_pending")

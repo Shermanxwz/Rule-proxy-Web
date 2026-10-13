@@ -1,0 +1,684 @@
+{
+  "source_run": 38359475077,
+  "source_job": 115169995916,
+  "source_commit": "174b32b062c93439aa0536ae93bf1c90796c08f1",
+  "report": {
+    "environment": "GitHub-hosted Windows virtual machine; real kernel, not a physical device",
+    "os": {
+      "caption": "Microsoft Windows Server 2025 Datacenter",
+      "version": "10.0.26100",
+      "build": "26100",
+      "product_type": 3,
+      "os_architecture": "64-bit",
+      "cpu_architecture": 9,
+      "runner_arch": "X64",
+      "image_os": "win25-vs2026",
+      "image_version": "20260925.250.1"
+    },
+    "binary_sha256": "a8cb990eff85b88c54246f27d11e84cf6ee5148dc64e026844a40a0138a9f9e3",
+    "accepted": false,
+    "lab_passed": true,
+    "scope": "executable-path-only",
+    "security_findings": {
+      "unrelated_instance_of_same_executable_unaffected": false,
+      "full_process_tree_contained": false
+    },
+    "checks": {
+      "baseline_ipv4_ipv6_tcp_udp": true,
+      "uncommitted_transaction_rolls_back_on_kill": true,
+      "after_aborted_install_connectivity": true,
+      "persistent_objects_verified_after_controller_kill": true,
+      "blocked_after_controller_kill_ipv4_ipv6_tcp_udp": true,
+      "same_basename_other_path_unaffected": true,
+      "same_path_new_instances_also_blocked": true,
+      "different_path_child_can_connect": true,
+      "child_escape_measured_while_parent_policy_is_active": true,
+      "cleanup_rejects_wrong_application_receipt": true,
+      "independent_owned_canary_installed": true,
+      "primary_objects_removed": true,
+      "other_policy_preserved_by_cleanup": true,
+      "other_policy_still_blocks": true,
+      "after_cleanup_connectivity_restored": true,
+      "cleanup_is_idempotent": true,
+      "all_owned_wfp_objects_absent": true,
+      "global_proxy_dns_routes_firewall_profiles_unchanged": true
+    },
+    "observations": {
+      "baseline_ipv4_ipv6_tcp_udp": {
+        "probes": [
+          {
+            "host": "127.0.0.1",
+            "port": 60322,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 9528
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 58019,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 592
+          },
+          {
+            "host": "::1",
+            "port": 60323,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 1676
+          },
+          {
+            "host": "::1",
+            "port": 58020,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 892
+          }
+        ],
+        "peer_deliveries": 4
+      },
+      "abort-hold": {
+        "transaction_pending": true
+      },
+      "aborted_transaction": {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "executable-path-only",
+        "callout_registered": false
+      },
+      "after_aborted_install_connectivity": {
+        "probes": [
+          {
+            "host": "127.0.0.1",
+            "port": 60322,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 7476
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 58019,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 5144
+          },
+          {
+            "host": "::1",
+            "port": 60323,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 5208
+          },
+          {
+            "host": "::1",
+            "port": 58020,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 7448
+          }
+        ],
+        "peer_deliveries": 4
+      },
+      "hold": {
+        "object_count": 5,
+        "absent": false,
+        "verified": true,
+        "filter_ids": [
+          72599,
+          72600
+        ],
+        "scope": "executable-path-only",
+        "callout_registered": false
+      },
+      "after_controller_kill": {
+        "exit": 0,
+        "object_count": 5,
+        "absent": false,
+        "verified": true,
+        "filter_ids": [
+          72599,
+          72600
+        ],
+        "scope": "executable-path-only",
+        "callout_registered": false
+      },
+      "blocked_after_controller_kill_ipv4_ipv6_tcp_udp": {
+        "probes": [
+          {
+            "host": "127.0.0.1",
+            "port": 60322,
+            "protocol": "tcp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10013,
+            "stage": "connect",
+            "sent_bytes": 0,
+            "process_id": 6952
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 58019,
+            "protocol": "udp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10060,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 1380
+          },
+          {
+            "host": "::1",
+            "port": 60323,
+            "protocol": "tcp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10013,
+            "stage": "connect",
+            "sent_bytes": 0,
+            "process_id": 740
+          },
+          {
+            "host": "::1",
+            "port": 58020,
+            "protocol": "udp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10060,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 4248
+          }
+        ],
+        "peer_deliveries": 0
+      },
+      "same_basename_other_path_unaffected": {
+        "probes": [
+          {
+            "host": "127.0.0.1",
+            "port": 60322,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 8224
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 58019,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 2424
+          },
+          {
+            "host": "::1",
+            "port": 60323,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 2116
+          },
+          {
+            "host": "::1",
+            "port": 58020,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 2304
+          }
+        ],
+        "peer_deliveries": 4
+      },
+      "same_path_new_instances_also_blocked": {
+        "probes": [
+          {
+            "host": "127.0.0.1",
+            "port": 60322,
+            "protocol": "tcp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10013,
+            "stage": "connect",
+            "sent_bytes": 0,
+            "process_id": 5852
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 58019,
+            "protocol": "udp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10060,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 2140
+          },
+          {
+            "host": "::1",
+            "port": 60323,
+            "protocol": "tcp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10013,
+            "stage": "connect",
+            "sent_bytes": 0,
+            "process_id": 3636
+          },
+          {
+            "host": "::1",
+            "port": 58020,
+            "protocol": "udp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10060,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 4008
+          }
+        ],
+        "peer_deliveries": 0
+      },
+      "different_path_child_can_connect": {
+        "probes": [
+          {
+            "host": "127.0.0.1",
+            "port": 60322,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 5708
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 58019,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 4064
+          },
+          {
+            "host": "::1",
+            "port": 60323,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 4760
+          },
+          {
+            "host": "::1",
+            "port": 58020,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 4580
+          }
+        ],
+        "peer_deliveries": 4
+      },
+      "wrong_app_cleanup_refusal": {
+        "exit": 1,
+        "error_code": 13,
+        "stage": "filter-exact-app-id"
+      },
+      "canary_install": {
+        "exit": 0,
+        "object_count": 5,
+        "absent": false,
+        "verified": true,
+        "filter_ids": [
+          72601,
+          72602
+        ],
+        "scope": "executable-path-only",
+        "callout_registered": false
+      },
+      "primary_remove": {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "executable-path-only",
+        "callout_registered": false
+      },
+      "other_policy_still_blocks": {
+        "probes": [
+          {
+            "host": "127.0.0.1",
+            "port": 60322,
+            "protocol": "tcp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10013,
+            "stage": "connect",
+            "sent_bytes": 0,
+            "process_id": 6700
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 58019,
+            "protocol": "udp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10060,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 7756
+          },
+          {
+            "host": "::1",
+            "port": 60323,
+            "protocol": "tcp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10013,
+            "stage": "connect",
+            "sent_bytes": 0,
+            "process_id": 8060
+          },
+          {
+            "host": "::1",
+            "port": 58020,
+            "protocol": "udp",
+            "exit": 2,
+            "connected": false,
+            "wsa_error": 10060,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 6680
+          }
+        ],
+        "peer_deliveries": 0
+      },
+      "after_cleanup_connectivity_restored": {
+        "probes": [
+          {
+            "host": "127.0.0.1",
+            "port": 60322,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 1556
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 58019,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 8304
+          },
+          {
+            "host": "::1",
+            "port": 60323,
+            "protocol": "tcp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 1300
+          },
+          {
+            "host": "::1",
+            "port": 58020,
+            "protocol": "udp",
+            "exit": 0,
+            "connected": true,
+            "wsa_error": 0,
+            "stage": "receive",
+            "sent_bytes": 7,
+            "process_id": 6972
+          }
+        ],
+        "peer_deliveries": 4
+      },
+      "final_cleanup": [
+        {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "executable-path-only",
+          "callout_registered": false
+        },
+        {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "executable-path-only",
+          "callout_registered": false
+        },
+        {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "executable-path-only",
+          "callout_registered": false
+        }
+      ]
+    },
+    "error": null,
+    "unproved": [
+      "transparent redirect",
+      "unique descendant identity",
+      "external IPv6 route and packet capture",
+      "browser login and cookies",
+      "reboot and boot-time enforcement",
+      "signed production callout"
+    ],
+    "system_state_before_sha256": "0e089a9d28a372fc83310ae496c46f580e5775804f6820cdf0ead12251e81ea1",
+    "policy_guids": {
+      "primary": "090b7237-aad2-465d-9369-6b38d2f304a0",
+      "owned_canary": "ade33b99-59cb-4be1-90fe-c47c6eb4a27f",
+      "aborted": "efddb2ed-d48f-4795-bffb-6381048313d8"
+    },
+    "echo_deliveries": [
+      {
+        "host": "127.0.0.1",
+        "port": 60322,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 58019,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 60323,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 58020,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 60322,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 58019,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 60323,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 58020,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 60322,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 58019,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 60323,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 58020,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 60322,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 58019,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 60323,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 58020,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 60322,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 58019,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 60323,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 58020,
+        "protocol": "udp",
+        "bytes": 7
+      }
+    ],
+    "system_state_after_sha256": "0e089a9d28a372fc83310ae496c46f580e5775804f6820cdf0ead12251e81ea1"
+  }
+}

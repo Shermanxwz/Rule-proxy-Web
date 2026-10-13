@@ -14,6 +14,7 @@
 #include <cstring>
 #include <cwchar>
 #include <string>
+#include <vector>
 
 struct Failure { DWORD code; const char* stage; };
 static void checked(DWORD code, const char* stage) {
@@ -43,6 +44,24 @@ template<class T> struct WfpMemory {
     ~WfpMemory() { if (value) FwpmFreeMemory0(reinterpret_cast<void**>(&value)); }
 };
 
+struct NativeHandle {
+    HANDLE value = nullptr;
+    NativeHandle() = default;
+    NativeHandle(const NativeHandle&) = delete;
+    NativeHandle& operator=(const NativeHandle&) = delete;
+    ~NativeHandle() { if (value) CloseHandle(value); }
+};
+
+static std::vector<BYTE> token_information(HANDLE token, TOKEN_INFORMATION_CLASS kind) {
+    DWORD size = 0;
+    GetTokenInformation(token, kind, nullptr, 0, &size);
+    require(GetLastError() == ERROR_INSUFFICIENT_BUFFER && size != 0, "token-information-size");
+    std::vector<BYTE> data(size);
+    if (!GetTokenInformation(token, kind, data.data(), size, &size))
+        throw Failure{GetLastError(), "token-information-read"};
+    return data;
+}
+
 static std::wstring full_path(const wchar_t* path) {
     wchar_t buffer[32768];
     DWORD size = GetFullPathNameW(path, 32768, buffer, nullptr);
@@ -66,6 +85,64 @@ static void lab_scope(const wchar_t* program) {
     DWORD attributes = GetFileAttributesW(path.c_str());
     require(attributes != INVALID_FILE_ATTRIBUTES &&
             !(attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)), "probe-is-ordinary-file");
+}
+
+// New credentials are synthetic, never authenticated or used for network I/O.
+// Query the real suspended child's token, then kill it without resuming it.
+// A new LSA logon session is not assumed to give a distinct WFP-matchable SID.
+static int token_identity(const wchar_t* program) {
+    lab_scope(program);
+    NativeHandle current;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &current.value))
+        throw Failure{GetLastError(), "current-token-open"};
+    auto original_user = token_information(current.value, TokenUser);
+    auto original_logon = token_information(current.value, TokenLogonSid);
+    auto original_statistics = token_information(current.value, TokenStatistics);
+    auto original_groups = reinterpret_cast<const TOKEN_GROUPS*>(original_logon.data());
+    require(original_groups->GroupCount == 1, "current-logon-sid-count");
+
+    const auto application = full_path(program);
+    std::wstring line = L"\"" + application + L"\" identity-idle";
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    // LOGON_NETCREDENTIALS_ONLY creates a new LSA session without account
+    // provisioning or validating these deliberately fictitious credentials.
+    if (!CreateProcessWithLogonW(L"RuleProxyLabSynthetic", L".", L"RuleProxyLab-NotAnAccount-42!",
+                                LOGON_NETCREDENTIALS_ONLY, application.c_str(), line.data(),
+                                CREATE_SUSPENDED | CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process))
+        throw Failure{GetLastError(), "netonly-suspended-process-create"};
+    NativeHandle child, thread, child_token;
+    child.value = process.hProcess;
+    thread.value = process.hThread;
+    try {
+        if (!OpenProcessToken(child.value, TOKEN_QUERY, &child_token.value))
+            throw Failure{GetLastError(), "child-token-open"};
+        auto user = token_information(child_token.value, TokenUser);
+        auto logon = token_information(child_token.value, TokenLogonSid);
+        auto statistics = token_information(child_token.value, TokenStatistics);
+        const auto groups = reinterpret_cast<const TOKEN_GROUPS*>(logon.data());
+        require(groups->GroupCount == 1, "child-logon-sid-count");
+        bool user_same = !!EqualSid(reinterpret_cast<const TOKEN_USER*>(original_user.data())->User.Sid,
+                                   reinterpret_cast<const TOKEN_USER*>(user.data())->User.Sid);
+        bool logon_distinct = !EqualSid(original_groups->Groups[0].Sid, groups->Groups[0].Sid);
+        const auto old_id = reinterpret_cast<const TOKEN_STATISTICS*>(original_statistics.data())->AuthenticationId;
+        const auto new_id = reinterpret_cast<const TOKEN_STATISTICS*>(statistics.data())->AuthenticationId;
+        bool authentication_distinct = old_id.LowPart != new_id.LowPart || old_id.HighPart != new_id.HighPart;
+        if (!TerminateProcess(child.value, 0)) throw Failure{GetLastError(), "suspended-child-terminate"};
+        require(WaitForSingleObject(child.value, 5000) == WAIT_OBJECT_0, "suspended-child-exit-verified");
+        std::printf("{\"identity_measured\":true,\"local_user_sid_unchanged\":%s,"
+                    "\"logon_sid_distinct\":%s,\"authentication_luid_distinct\":%s,"
+                    "\"child_never_resumed\":true,\"child_exited\":true,"
+                    "\"process_id\":%lu,\"network_credentials_used\":false}\n",
+                    user_same ? "true" : "false", logon_distinct ? "true" : "false",
+                    authentication_distinct ? "true" : "false", process.dwProcessId);
+        return 0;
+    } catch (...) {
+        TerminateProcess(child.value, 1);
+        WaitForSingleObject(child.value, 5000);
+        throw;
+    }
 }
 
 struct Policy {
@@ -317,6 +394,8 @@ static int spawn_probe(wchar_t** argv) {
 
 int wmain(int argc, wchar_t** argv) {
     try {
+        if (argc == 3 && std::wcscmp(argv[1], L"token-identity") == 0) return token_identity(argv[2]);
+        if (argc == 2 && std::wcscmp(argv[1], L"identity-idle") == 0) { Sleep(INFINITE); return 0; }
         if (argc == 5 && std::wcscmp(argv[1], L"probe") == 0) return probe(argv[2], argv[3], argv[4]);
         if (argc == 6 && std::wcscmp(argv[1], L"spawn") == 0) return spawn_probe(argv);
         require(argc == 4, "usage-command-guid-synthetic-exe");
