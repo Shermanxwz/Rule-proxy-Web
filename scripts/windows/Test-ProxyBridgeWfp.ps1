@@ -116,6 +116,9 @@ try {
     $report['firewall_rule_removed'] = -not [bool](Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)
     $report.driver_after = (& sc.exe query WinDivert 2>&1 | Out-String)
     $report | ConvertTo-Json -Depth 10 | Set-Content -Path (Join-Path $evidence 'experiment.json') -Encoding utf8
+    # The artifact is the full record. Echo the small, credential-free summary
+    # so an automated reviewer can inspect measurements through CI job logs.
+    Write-Output ($report | ConvertTo-Json -Depth 10)
     if (Test-Path $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue }
 }
 if ($report.error) { exit 1 }

@@ -1,13 +1,14 @@
 """Exercise the SOCKS wire exchange used by the Windows kernel experiment."""
 
 import json
+import runpy
 import socket
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 
-from scripts.windows.proxybridge_witness import _handle
+_handle = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts" / "windows" / "proxybridge_witness.py"))["_handle"]
 
 
 class WitnessTests(unittest.TestCase):
