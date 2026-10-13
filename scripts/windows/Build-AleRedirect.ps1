@@ -53,9 +53,10 @@ try {
     $gs = if (Test-Path (Join-Path $lib 'BufferOverflowFastFailK.lib')) { 'BufferOverflowFastFailK.lib' } elseif (Test-Path (Join-Path $lib 'BufferOverflowK.lib')) { 'BufferOverflowK.lib' } else { throw 'No kernel GS support library is available' }
     $manifest.gs_library = $gs
     $armRuntime = if ($target -eq 'ARM64') {
-        $path = Join-Path $lib 'arm64rt.lib'
-        if (-not (Test-Path $path)) { throw 'The ARM64 WDK kernel runtime library is missing' }
-        'arm64rt.lib'
+        $runtime = @(Get-ChildItem -LiteralPath $packages -Recurse -File -Filter 'arm64rt.lib' | Where-Object { $_.Directory.Name -ieq 'ARM64' })
+        if ($runtime.Count -ne 1) { throw 'The pinned SDK/WDK ARM64 runtime library is missing or ambiguous' }
+        $manifest.arm_runtime_package_path = $runtime[0].FullName.Substring($packages.Length + 1)
+        '"' + $runtime[0].FullName + '"'
     } else { '' }
     $manifest.arm_runtime_library = $armRuntime
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
