@@ -90,10 +90,13 @@ static VOID RpRedirectClassify(const FWPS_INCOMING_VALUES0* values,
     active = RpRelayAlive;
     config = RpConfig;
     KeReleaseSpinLock(&RpLock, irql);
-    // A relay exit invalidates its configuration; a reused numeric PID cannot
-    // revive it. Notify holds the referenced process identity until replacement.
+    // Relay exit invalidates subsequent configuration snapshots. The process
+    // object is referenced until replacement; in-flight/PID-reuse races still
+    // require live driver validation before this foundation is admitted.
     if (!active || metadata->processId == config.processId) goto done;
-    state = FwpsQueryConnectionRedirectState0(metadata->redirectRecords, RpRedirectHandle, &priorContext);
+    state = FWPS_CONNECTION_NOT_REDIRECTED;
+    if (metadata->currentMetadataValues & FWPS_METADATA_FIELD_REDIRECT_RECORD_HANDLE)
+        state = FwpsQueryConnectionRedirectState0(metadata->redirectRecords, RpRedirectHandle, &priorContext);
     if (state == FWPS_CONNECTION_REDIRECTED_BY_SELF || state == FWPS_CONNECTION_PREVIOUSLY_REDIRECTED_BY_SELF) {
         const RP_REDIRECT_CONTEXT* prior = (const RP_REDIRECT_CONTEXT*)priorContext;
         if (prior == NULL || prior->magic != RP_REDIRECT_MAGIC || prior->version != RP_REDIRECT_ABI ||
@@ -105,7 +108,7 @@ static VOID RpRedirectClassify(const FWPS_INCOMING_VALUES0* values,
     }
     // Unknown/other redirectors are refused rather than chaining by assumption.
     if (state != FWPS_CONNECTION_NOT_REDIRECTED) goto done;
-    status = FwpsAcquireClassifyHandle0(classifyContext, 0, &handle);
+    status = FwpsAcquireClassifyHandle0((VOID*)classifyContext, 0, &handle);
     if (!NT_SUCCESS(status)) goto done;
     // AcquireWritableLayerData modifies result; reestablish fail-closed on all
     // failure paths and release the classify handle exactly once.
@@ -145,7 +148,7 @@ static VOID RpRedirectClassify(const FWPS_INCOMING_VALUES0* values,
         destination->sin6_port = RtlUshortByteSwap(config.ipv6Port);
     }
     if (context->destinationPort == 0) goto failed;
-    request->localRedirectTargetPID = (UINT64)config.processId;
+    request->localRedirectTargetPID = (DWORD)config.processId;
     request->localRedirectHandle = RpRedirectHandle;
     request->localRedirectContext = context;
     request->localRedirectContextSize = sizeof(*context);
@@ -176,16 +179,15 @@ static NTSTATUS RpComplete(PIRP irp, NTSTATUS status)
     return status;
 }
 
-static NTSTATUS RpDispatch(PDEVICE_OBJECT device, PIRP irp)
+static NTSTATUS RpDispatchInner(PDEVICE_OBJECT device, PIRP irp)
 {
     PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(irp);
     PEPROCESS process = NULL, previous = NULL;
     RP_RELAY_CONFIG config;
     KIRQL irql;
-    NTSTATUS status;
     UINT32 code;
     UNREFERENCED_PARAMETER(device);
-    if (stack->MajorFunction == IRP_MJ_CREATE || stack->MajorFunction == IRP_MJ_CLOSE)
+    if (stack->MajorFunction == IRP_MJ_CREATE || stack->MajorFunction == IRP_MJ_CLOSE || stack->MajorFunction == IRP_MJ_CLEANUP)
         return RpComplete(irp, STATUS_SUCCESS);
     if (stack->MajorFunction != IRP_MJ_DEVICE_CONTROL || KeGetCurrentIrql() != PASSIVE_LEVEL)
         return RpComplete(irp, STATUS_INVALID_DEVICE_REQUEST);
@@ -201,16 +203,16 @@ static NTSTATUS RpDispatch(PDEVICE_OBJECT device, PIRP irp)
             return RpComplete(irp, STATUS_INVALID_PARAMETER);
         RtlCopyMemory(&config, irp->AssociatedIrp.SystemBuffer, sizeof(config));
         if (config.version != RP_REDIRECT_ABI || config.size != sizeof(config) || config.reserved != 0 ||
-            config.processId == 0 || config.ipv4Port < 1025 || config.ipv6Port < 1025 ||
+            config.processId == 0 || config.processId > MAXULONG || config.ipv4Port < 1025 || config.ipv6Port < 1025 ||
             RtlCompareMemory(config.generation, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) == 16)
             return RpComplete(irp, STATUS_INVALID_PARAMETER);
-        status = PsLookupProcessByProcessId((HANDLE)(ULONG_PTR)config.processId, &process);
-        if (!NT_SUCCESS(status)) return RpComplete(irp, status);
-        status = PsAcquireProcessExitSynchronization(process);
-        if (!NT_SUCCESS(status)) {
-            ObDereferenceObject(process);
-            return RpComplete(irp, status);
-        }
+        // Configuration is issued synchronously by the relay itself. Its
+        // issuing thread cannot finish exiting before this IRP completes;
+        // avoid undocumented process-exit synchronization APIs.
+        process = IoGetRequestorProcess(irp);
+        if (process == NULL || config.processId != (UINT64)(ULONG_PTR)PsGetProcessId(process))
+            return RpComplete(irp, STATUS_ACCESS_DENIED);
+        ObReferenceObject(process);
     } else return RpComplete(irp, STATUS_INVALID_DEVICE_REQUEST);
     KeAcquireSpinLock(&RpLock, &irql);
     previous = RpRelayProcess;
@@ -218,9 +220,17 @@ static NTSTATUS RpDispatch(PDEVICE_OBJECT device, PIRP irp)
     RpConfig = config;
     RpRelayAlive = process != NULL;
     KeReleaseSpinLock(&RpLock, irql);
-    if (process != NULL) PsReleaseProcessExitSynchronization(process);
     if (previous != NULL) ObDereferenceObject(previous);
     return RpComplete(irp, STATUS_SUCCESS);
+}
+
+static NTSTATUS RpDispatch(PDEVICE_OBJECT device, PIRP irp)
+{
+    NTSTATUS status;
+    if (!ExAcquireRundownProtection(&RpRundown)) return RpComplete(irp, STATUS_DEVICE_NOT_READY);
+    status = RpDispatchInner(device, irp);
+    ExReleaseRundownProtection(&RpRundown);
+    return status;
 }
 
 static VOID RpUnload(PDRIVER_OBJECT driver)
