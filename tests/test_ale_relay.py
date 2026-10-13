@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import socket
 import struct
+import subprocess
 import sys
 import threading
 import time
@@ -236,6 +237,86 @@ class AsyncPumpTests(unittest.IsolatedAsyncioTestCase):
         finally:
             listener.close()
             await listener.wait_closed()
+
+
+@unittest.skipUnless(os.name == 'nt', 'actual process references and TCP peer ownership require Windows')
+class NativeCoreOwnershipTests(unittest.TestCase):
+    def created(self, pid):
+        import ctypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+        kernel.OpenProcess.restype = ctypes.c_void_p
+        kernel.GetProcessTimes.argtypes = [ctypes.c_void_p, *([ctypes.POINTER(ctypes.c_ulonglong)] * 4)]
+        kernel.GetProcessTimes.restype = ctypes.c_int
+        kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+        kernel.CloseHandle.restype = ctypes.c_int
+        handle = kernel.OpenProcess(0x101000, False, pid)
+        if not handle:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            times = [ctypes.c_ulonglong() for _ in range(4)]
+            if not kernel.GetProcessTimes(handle, *(ctypes.byref(value) for value in times)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            return times[0].value
+        finally:
+            kernel.CloseHandle(handle)
+
+    def test_actual_tcp_peer_owns_admitted_core_identity(self):
+        core = relay.CoreProcess(os.getpid(), self.created(os.getpid()))
+        try:
+            destination = relay.Destination.parse(context(), GENERATION, SESSIONS)
+            with witness() as (socks_port, records):
+                with relay.socks_connect(destination, socks_port, lambda _: None, verify_peer=core.verify_peer) as peer:
+                    peer.settimeout(2)
+                    peer.sendall(b'owner-pinned')
+                    self.assertEqual(exact(peer, 12), b'owner-pinned')
+                self.assertEqual(records['requests'], [destination.request()])
+        finally:
+            core.close()
+
+    def test_same_pid_with_wrong_creation_time_is_refused(self):
+        with self.assertRaises(relay.Refused):
+            relay.CoreProcess(os.getpid(), self.created(os.getpid()) + 1)
+
+    def test_another_actual_process_cannot_replace_core_at_the_port(self):
+        child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)'],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        core = None
+        try:
+            core = relay.CoreProcess(child.pid, self.created(child.pid))
+            destination = relay.Destination.parse(context(), GENERATION, SESSIONS)
+            with witness() as (socks_port, records):
+                with self.assertRaises(relay.Refused):
+                    relay.socks_connect(destination, socks_port, lambda _: None, verify_peer=core.verify_peer)
+                core.alive()
+                self.assertEqual(records['requests'], [])
+                self.assertEqual(records['deliveries'], [])
+        finally:
+            if core:
+                core.close()
+            child.kill()
+            child.wait(timeout=3)
+
+    def test_dead_held_core_is_refused_before_socks_payload(self):
+        child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)'],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        core = None
+        try:
+            core = relay.CoreProcess(child.pid, self.created(child.pid))
+            child.kill()
+            child.wait(timeout=3)
+            destination = relay.Destination.parse(context(), GENERATION, SESSIONS)
+            with witness() as (socks_port, records):
+                with self.assertRaises(relay.Refused):
+                    relay.socks_connect(destination, socks_port, lambda _: None, verify_peer=core.verify_peer)
+                self.assertEqual(records['requests'], [])
+                self.assertEqual(records['deliveries'], [])
+        finally:
+            if core:
+                core.close()
+            if child.poll() is None:
+                child.kill()
+                child.wait(timeout=3)
 
 
 if __name__ == '__main__':
