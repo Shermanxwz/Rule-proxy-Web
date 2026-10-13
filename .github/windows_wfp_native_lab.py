@@ -138,9 +138,15 @@ class SessionProbe:
         if len(line) >= 1024:
             raise ValueError("net-only probe command exceeds the Win32 API limit")
         mutable_line = ctypes.create_unicode_buffer(line)
+        # A net-only logon does not inherit the caller's environment by
+        # default. Preserve the explicit disposable-runner markers as well as
+        # the same runtime environment used by the ordinary control probes.
+        environment = ctypes.create_unicode_buffer("\0".join(
+            f"{key}={value}" for key, value in sorted(os.environ.items(), key=lambda item: item[0].casefold())
+        ) + "\0\0")
         if not self.advapi.CreateProcessWithLogonW(
             "RuleProxyLabSynthetic", ".", "RuleProxyLab-NotAnAccount-42!", 2,
-            str(program), mutable_line, 0x08000004, None, str(program.parent),
+            str(program), mutable_line, 0x08000404, environment, str(program.parent),
             ctypes.byref(startup), ctypes.byref(self.process),
         ):
             raise ctypes.WinError(ctypes.get_last_error())
