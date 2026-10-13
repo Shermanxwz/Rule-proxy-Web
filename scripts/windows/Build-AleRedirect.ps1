@@ -52,13 +52,19 @@ try {
     # legacy x64 BufferOverflowK name. Keep /GS and its GsDriverEntry wrapper.
     $gs = if (Test-Path (Join-Path $lib 'BufferOverflowFastFailK.lib')) { 'BufferOverflowFastFailK.lib' } elseif (Test-Path (Join-Path $lib 'BufferOverflowK.lib')) { 'BufferOverflowK.lib' } else { throw 'No kernel GS support library is available' }
     $manifest.gs_library = $gs
+    $armRuntime = if ($target -eq 'ARM64') {
+        $path = Join-Path $lib 'arm64rt.lib'
+        if (-not (Test-Path $path)) { throw 'The ARM64 WDK kernel runtime library is missing' }
+        'arm64rt.lib'
+    } else { '' }
+    $manifest.arm_runtime_library = $armRuntime
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
     if (-not $vs) { throw 'Visual C++ build tools are unavailable' }
     $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvarsall.bat'
     $output = Join-Path $Evidence 'ruleproxy-ale-redirect.sys'
     $output = [IO.Path]::GetFullPath($output)
-    $line = 'call "' + $vcvars + '" ' + $compiler + ' && cl /nologo /TC /kernel /W4 /WX /GS /Zl /O2 ' + $defines + ' /DNDIS630=1 /DUNICODE /D_UNICODE /D_WIN32_WINNT=0x0A00 /DNTDDI_VERSION=0x0A00000B /I"' + $km + '" /I"' + $km + '\crt" /I"' + $shared + '" /c "' + $source + '" /Fo:redirect_driver.obj && link /nologo /DRIVER /SUBSYSTEM:NATIVE /ENTRY:GsDriverEntry /INTEGRITYCHECK /RELEASE /NODEFAULTLIB /MACHINE:' + $target + ' /LIBPATH:"' + $lib + '" redirect_driver.obj ntoskrnl.lib fwpkclnt.lib wdmsec.lib ' + $gs + ' /OUT:"' + $output + '"'
+    $line = 'call "' + $vcvars + '" ' + $compiler + ' && cl /nologo /TC /kernel /W4 /WX /GS /Zl /O2 ' + $defines + ' /DNDIS630=1 /DUNICODE /D_UNICODE /D_WIN32_WINNT=0x0A00 /DNTDDI_VERSION=0x0A00000B /I"' + $km + '" /I"' + $km + '\crt" /I"' + $shared + '" /c "' + $source + '" /Fo:redirect_driver.obj && link /nologo /DRIVER /SUBSYSTEM:NATIVE /ENTRY:GsDriverEntry /INTEGRITYCHECK /RELEASE /NODEFAULTLIB /MACHINE:' + $target + ' /LIBPATH:"' + $lib + '" redirect_driver.obj ntoskrnl.lib hal.lib fwpkclnt.lib wdmsec.lib ' + $gs + ' ' + $armRuntime + ' /OUT:"' + $output + '"'
     Push-Location $work
     try {
         & cmd.exe /d /s /c $line 2>&1 | Tee-Object -FilePath (Join-Path $Evidence 'build.txt')
