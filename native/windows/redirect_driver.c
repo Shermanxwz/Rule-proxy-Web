@@ -67,7 +67,7 @@ static VOID RpRedirectClassify(const FWPS_INCOMING_VALUES0* values,
     UINT64 handle = 0;
     NTSTATUS status;
     FWPS_CONNECT_REQUEST0* request = NULL;
-    FWPS_CONNECT_REQUEST0 originalRequest;
+    FWPS_CONNECT_REQUEST0 originalRequest = { 0 };
     RP_REDIRECT_CONTEXT* context = NULL;
     UINT16 family;
     FWP_VALUE0 protocol;

@@ -9,6 +9,23 @@ $defines = if ($target -eq 'ARM64') { '/D_ARM64_=1' } else { '/D_AMD64_=1' }
 $compiler = if ($target -eq 'ARM64') { 'x64_arm64' } else { 'x64' }
 $work = Join-Path $env:RUNNER_TEMP ('ruleproxy-ale-build-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $work | Out-Null
+$source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\native\windows\redirect_driver.c'))
+$header = Join-Path (Split-Path $source) 'redirect_protocol.h'
+$manifest = [ordered]@{
+    source_commit = $env:GITHUB_SHA
+    source_sha256 = (Get-FileHash $source -Algorithm SHA256).Hash.ToLower()
+    header_sha256 = (Get-FileHash $header -Algorithm SHA256).Hash.ToLower()
+    build_script_sha256 = (Get-FileHash $PSCommandPath -Algorithm SHA256).Hash.ToLower()
+    architecture = $target
+    wdk_version = $version
+    packages = @()
+    built = $false
+    loaded = $false
+    live_redirect_tested = $false
+    accepted = $false
+    product_backend_enabled = $false
+    error = $null
+}
 try {
     # Microsoft's version-pinned, repository-signed NuGet WDK and its SDK
     # dependency. Package hashes and signature verification are retained.
@@ -22,6 +39,7 @@ try {
         $receipts += [ordered]@{ name = $archive.Name; sha256 = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash.ToLower() }
     }
     if (-not $receipts.Count) { throw 'No WDK package receipts were preserved' }
+    $manifest.packages = $receipts
     $wdk = Join-Path $packages "Microsoft.Windows.WDK.$target.$version"
     $kmHeader = @(Get-ChildItem -LiteralPath $wdk -Recurse -File -Filter 'ntddk.h')
     $kmLibrary = @(Get-ChildItem -LiteralPath $wdk -Recurse -File -Filter 'ntoskrnl.lib' | Where-Object { $_.Directory.Name -ieq $target })
@@ -34,8 +52,6 @@ try {
     $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
     if (-not $vs) { throw 'Visual C++ build tools are unavailable' }
     $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvarsall.bat'
-    $source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\native\windows\redirect_driver.c'))
-    $header = Join-Path (Split-Path $source) 'redirect_protocol.h'
     $output = Join-Path $Evidence 'ruleproxy-ale-redirect.sys'
     $output = [IO.Path]::GetFullPath($output)
     $line = 'call "' + $vcvars + '" ' + $compiler + ' && cl /nologo /TC /kernel /W4 /WX /GS /Zl /O2 ' + $defines + ' /DNDIS630=1 /DUNICODE /D_UNICODE /D_WIN32_WINNT=0x0A00 /DNTDDI_VERSION=0x0A00000B /I"' + $km + '" /I"' + $km + '\crt" /I"' + $shared + '" /c "' + $source + '" /Fo:redirect_driver.obj && link /nologo /DRIVER /SUBSYSTEM:NATIVE /ENTRY:GsDriverEntry /INTEGRITYCHECK /RELEASE /NODEFAULTLIB /MACHINE:' + $target + ' /LIBPATH:"' + $lib + '" redirect_driver.obj ntoskrnl.lib fwpkclnt.lib wdmsec.lib BufferOverflowK.lib /OUT:"' + $output + '"'
@@ -44,21 +60,15 @@ try {
         & cmd.exe /d /s /c $line 2>&1 | Tee-Object -FilePath (Join-Path $Evidence 'build.txt')
         if ($LASTEXITCODE -ne 0) { throw "ALE redirect driver build failed: $LASTEXITCODE" }
     } finally { Pop-Location }
+    $manifest.built = $true
     $signature = Get-AuthenticodeSignature -LiteralPath $output
-    [ordered]@{
-        source_commit = $env:GITHUB_SHA
-        source_sha256 = (Get-FileHash $source -Algorithm SHA256).Hash.ToLower()
-        header_sha256 = (Get-FileHash $header -Algorithm SHA256).Hash.ToLower()
-        binary_sha256 = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
-        architecture = $target
-        wdk_version = $version
-        packages = $receipts
-        signature_status = $signature.Status.ToString()
-        built = $true
-        loaded = $false
-        live_redirect_tested = $false
-        accepted = $false
-        product_backend_enabled = $false
-    } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Evidence 'build-provenance.json') -Encoding utf8
-} finally { Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue }
+    $manifest.binary_sha256 = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
+    $manifest.signature_status = $signature.Status.ToString()
+} catch {
+    $manifest.error = $_.Exception.Message
+    throw
+} finally {
+    $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Evidence 'build-provenance.json') -Encoding utf8
+    Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+}
 exit 0
