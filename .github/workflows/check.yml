@@ -106,6 +106,33 @@ jobs:
             candidate-evidence/
           if-no-files-found: warn
 
+  windows-native-wfp-lab:
+    name: Native WFP denial lab · ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-11-arm]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          architecture: ${{ matrix.runner == 'windows-11-arm' && 'arm64' || 'x64' }}
+      - name: Compile native Windows SDK/BFE lab (no kernel driver)
+        shell: pwsh
+        run: ./scripts/windows/Build-WfpLab.ps1
+      - name: Real Winsock, persistent filters, killed controllers and exact cleanup
+        run: python -X utf8 -B .github/windows_wfp_native_lab.py "$env:RUNNER_TEMP/ruleproxy-wfp-native-lab.exe"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-wfp-${{ matrix.runner }}
+          path: native-wfp-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
   windows-package:
     name: Windows package · build
     runs-on: ubuntu-24.04
@@ -187,7 +214,7 @@ jobs:
 
   release:
     name: Publish the release
-    needs: [linux, linux-system, windows, windows-package-test, windows-proxybridge-wfp-acceptance]
+    needs: [linux, linux-system, windows, windows-package-test, windows-proxybridge-wfp-acceptance, windows-native-wfp-lab]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:

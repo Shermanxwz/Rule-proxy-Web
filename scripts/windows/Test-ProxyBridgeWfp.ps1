@@ -13,6 +13,7 @@ New-Item -ItemType Directory -Path $evidence -Force | Out-Null
 $report = [ordered]@{
     environment = 'GitHub-hosted Windows virtual machine; not a physical device'
     os = [Environment]::OSVersion.VersionString
+    os_identity = @{}
     installer_sha256 = $null
     extracted_binary_sha256 = @{}
     firewall_profiles = @()
@@ -47,6 +48,16 @@ function Witness-Count {
 }
 
 try {
+    $system = Get-CimInstance Win32_OperatingSystem
+    $report.os_identity = [ordered]@{
+        caption = $system.Caption
+        version = $system.Version
+        build = $system.BuildNumber
+        product_type = $system.ProductType
+        architecture = $system.OSArchitecture
+        image_os = $env:ImageOS
+        image_version = $env:ImageVersion
+    }
     if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) {
         throw 'Pinned ProxyBridge installer hash mismatch; no binary was run'
     }

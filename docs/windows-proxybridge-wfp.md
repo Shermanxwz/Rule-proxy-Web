@@ -45,7 +45,7 @@ redirection and enforcement ordering with an independent guard, unique
 descendant identity, and persistent block semantics. Neither a firewall
 exception nor a watchdog alone satisfies this contract.
 
-This conflict was observed on a Windows 11 26100 GitHub-hosted VM in
+This conflict was observed on a Windows Server 2025 build 26100 GitHub-hosted VM in
 [run #91](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38355503137):
 with no program block, a direct `curl` probe got `OK` via ProxyBridge and the
 SOCKS witness saw one CONNECT. With a Windows Firewall outbound block for the
@@ -70,6 +70,34 @@ group, removes firewall rules by executable, and stops/deletes a WinDivert
 service of the same name. A protected installer must own and verify its exact
 resources and reverse partial installation without deleting third-party state.
 The disposable experiment extracts binaries and does not run these NSIS actions.
+
+## Native persistent-denial experiment
+
+`scripts/windows/wfp_native_lab.cpp` and
+`.github/windows_wfp_native_lab.py` test the independent WFP persistence
+primitive on disposable hosted Windows machines. The controller uses the
+Windows SDK/BFE APIs directly, not Windows Firewall program rules. It commits
+two persistent ALE_AUTH_CONNECT terminating-callout filters for one synthetic
+executable's exact app ID. The callouts have no registered driver, and the
+filters never set `PERMIT_IF_CALLOUT_UNREGISTERED`.
+
+Real Winsock IPv4/IPv6 TCP and UDP loopback probes must first succeed, then
+return `WSAEACCES` with zero peer deliveries after the controller is killed.
+A second executable with the same basename at a different path must remain
+connected. The experiment also kills an uncommitted installation, reads every
+filter property back from BFE, rejects cleanup with the wrong executable,
+preserves a separately owned canary policy, and checks idempotent exact-key
+removal. System proxy, DNS, routes and firewall profile configuration are
+compared by digest. No browser, signed kernel callout, transparent redirect,
+descendant identity, external capture or reboot proof is implied. The lab is
+not included in the product package and does not enable the candidate.
+
+The jobs explicitly distinguish `windows-2025` x64 from `windows-11-arm`
+ARM64. Kernel version `10.0.26100` alone does not identify Windows 11: the
+earlier #91/#93/#95 runner setup logs identify **Windows Server 2025
+Datacenter**. Earlier wording calling those VMs Windows 11 was incorrect;
+the original numeric OS version in the raw JSON is preserved. New evidence
+records the product caption, product type, CPU architecture and runner image.
 
 References: [ProxyBridge v4.1.1 source](https://github.com/InterceptSuite/ProxyBridge/tree/v4.1.1/Windows),
 [WFP ALE filtering](https://learn.microsoft.com/en-us/windows/win32/fwp/ale-layers),
