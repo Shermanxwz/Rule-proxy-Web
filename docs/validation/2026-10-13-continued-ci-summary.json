@@ -1,0 +1,150 @@
+{
+  "source_commit": "4d4940f29c9f54c910ad011cea477a1ed79ad28d",
+  "run": 38363042665,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38363042665",
+  "jobs": [
+    {
+      "id": 115181539238,
+      "name": "Windows package \u00b7 build",
+      "conclusion": "success"
+    },
+    {
+      "id": 115181539506,
+      "name": "Native WFP denial lab \u00b7 windows-2025",
+      "conclusion": "success"
+    },
+    {
+      "id": 115181539515,
+      "name": "Ubuntu 24.04 \u00b7 system Python",
+      "conclusion": "success"
+    },
+    {
+      "id": 115181539520,
+      "name": "Ubuntu 22.04 \u00b7 system Python",
+      "conclusion": "success"
+    },
+    {
+      "id": 115181539610,
+      "name": "Linux \u00b7 Python 3.14",
+      "conclusion": "success"
+    },
+    {
+      "id": 115181539616,
+      "name": "Windows ProxyBridge/WFP \u00b7 acceptance BLOCKED",
+      "conclusion": "failure"
+    },
+    {
+      "id": 115181539628,
+      "name": "Linux \u00b7 Python 3.10",
+      "conclusion": "success"
+    },
+    {
+      "id": 115181539673,
+      "name": "Native WFP denial lab \u00b7 windows-11-arm",
+      "conclusion": "success"
+    },
+    {
+      "id": 115181539987,
+      "name": "Windows \u00b7 Python 3.13",
+      "conclusion": "success"
+    },
+    {
+      "id": 115181741537,
+      "name": "Windows package \u00b7 test",
+      "conclusion": "success"
+    },
+    {
+      "id": 115182537185,
+      "name": "Publish the release",
+      "conclusion": "skipped"
+    }
+  ],
+  "unit_summaries": [
+    {
+      "job": "Ubuntu 24.04 \u00b7 system Python",
+      "id": 115181539515,
+      "conclusion": "success",
+      "summary": [
+        "2026-10-13T07:30:51.3246527Z Ran 144 tests in 26.655s",
+        "2026-10-13T07:30:51.3246870Z OK (skipped=5)"
+      ]
+    },
+    {
+      "job": "Ubuntu 22.04 \u00b7 system Python",
+      "id": 115181539520,
+      "conclusion": "success",
+      "summary": [
+        "2026-10-13T07:30:56.7247055Z Ran 144 tests in 26.766s",
+        "2026-10-13T07:30:56.7247559Z OK (skipped=5)"
+      ]
+    },
+    {
+      "job": "Linux \u00b7 Python 3.14",
+      "id": 115181539610,
+      "conclusion": "success",
+      "summary": [
+        "2026-10-13T07:30:55.5759919Z Ran 144 tests in 26.586s",
+        "2026-10-13T07:30:55.5760219Z OK (skipped=5)"
+      ]
+    },
+    {
+      "job": "Linux \u00b7 Python 3.10",
+      "id": 115181539628,
+      "conclusion": "success",
+      "summary": [
+        "2026-10-13T07:30:54.7163198Z Ran 144 tests in 26.807s",
+        "2026-10-13T07:30:54.7163663Z OK (skipped=5)"
+      ]
+    },
+    {
+      "job": "Windows \u00b7 Python 3.13",
+      "id": 115181539987,
+      "conclusion": "success",
+      "summary": [
+        "2026-10-13T07:31:09.7637898Z Ran 144 tests in 46.915s",
+        "2026-10-13T07:31:09.7638108Z OK (skipped=29)"
+      ]
+    },
+    {
+      "job": "Windows package \u00b7 test",
+      "id": 115181741537,
+      "conclusion": "success",
+      "summary": [
+        "2026-10-13T07:31:45.3843014Z Ran 144 tests in 47.950s",
+        "2026-10-13T07:31:45.3843417Z OK (skipped=36)"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 11795568189,
+      "name": "native-wfp-windows-11-arm",
+      "digest": "sha256:b6826be098686edd9040d84231f87c5a8c29935355103ce27178375a436cde2e",
+      "expired": false
+    },
+    {
+      "id": 11795502677,
+      "name": "older-package-plm",
+      "digest": "sha256:2b08c9949613279cd3c09b29de2c96553f7898f568b70eefca09dd2a3242a711",
+      "expired": false
+    },
+    {
+      "id": 11795323220,
+      "name": "native-wfp-windows-2025",
+      "digest": "sha256:8a4fbef76c645ff228e75fd9e4cc67c041fbfcd366070c887cf7161b05d9b167",
+      "expired": false
+    },
+    {
+      "id": 11795188268,
+      "name": "windows-candidate-gate",
+      "digest": "sha256:f7424a992882d412ae96de773032d7d9ff573898a50261f685b1d4f6dd451184",
+      "expired": false
+    },
+    {
+      "id": 11795133476,
+      "name": "windows-package",
+      "digest": "sha256:7842e936a3f281875cf8b83ba012f6a6ddaa2a925380ffc3cc1849248dd88358",
+      "expired": false
+    }
+  ]
+}

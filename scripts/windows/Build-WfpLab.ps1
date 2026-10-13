@@ -25,6 +25,18 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Native lab build failed: $LASTEXITCODE" }
     }
     finally { Pop-Location }
+    # Preserve the exact measured user-mode bytes beside the JSON reports.
+    # This unsigned lab executable is evidence, never a product installation.
+    Copy-Item -LiteralPath $output -Destination (Join-Path $Evidence 'ruleproxy-wfp-native-lab.exe')
+    [ordered]@{
+        source_commit = $env:GITHUB_SHA
+        source_sha256 = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLower()
+        binary_sha256 = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLower()
+        compiler_architecture = $architecture
+        runner_architecture = $env:RUNNER_ARCH
+        lab_only = $true
+        product_backend_enabled = $false
+    } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Evidence 'build-provenance.json') -Encoding utf8
     Write-Output "Built native WFP lab for $architecture : $output"
 } finally { Remove-Item -LiteralPath $build -Recurse -Force -ErrorAction SilentlyContinue }
 exit 0

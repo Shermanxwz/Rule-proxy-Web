@@ -109,16 +109,80 @@ Datacenter**. Earlier wording calling those VMs Windows 11 was incorrect;
 the original numeric OS version in the raw JSON is preserved. New evidence
 records the product caption, product type, CPU architecture and runner image.
 
+The completed [run #103](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38359475077)
+ran 18 experimental checks on each of these operating systems. Both labs
+passed; production acceptance remained false. Evidence identifies Windows 11
+Enterprise ARM64 build 26200 and Windows Server 2025 Datacenter x64 build
+26100, rather than inferring the product from a kernel version. Both retained
+the same-path overblocking and different-path child escape findings. See the
+[ARM64 report](validation/native-wfp-run-103-windows-11-arm.json) and
+[x64 report](validation/native-wfp-run-103-windows-2025.json).
+
+## Logon-SID alternative under test
+
+The next experiment uses `CreateProcessWithLogonW` with
+`LOGON_NETCREDENTIALS_ONLY`. Its deliberately fictitious credentials are not
+validated, used for external authentication, or saved. No Windows account is
+created. Actual suspended child tokens on both systems in
+[run #105](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38360787646)
+had a distinct logon SID and authentication LUID while retaining the original
+local user SID. That identity observation alone is not an isolation result.
+
+The extended lab installs persistent `ALE_USER_ID` security-descriptor
+conditions for the new logon SID before resuming a synthetic process. The
+controller is killed before IPv4/IPv6 TCP and UDP probes run. It separately
+tests ordinary different-path children, the original user's simultaneous
+instance of the exact same executable, and children that request another
+net-only logon. A change of primary token must not silently count as inherited
+protection. SID text stays in local memory; public observations contain hashes.
+
+Run #107 first exposed a harness failure: the newly logged-on process did not
+inherit `GITHUB_ACTIONS` and `RUNNER_TEMP`, so the different-path child helper
+refused before attempting a connection. It is neither a successful security
+check nor an observed escape. That failed evidence is retained. The launcher
+now explicitly supplies its Unicode environment, and the corrected real
+Windows run is required before interpreting the new child results.
+
+The final [run #111](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38363042665)
+completed 30 experimental checks on each OS. Real no-policy baselines
+confirmed direct, ordinary-child and nested-logon connectivity first. With
+the per-session rules committed and their controller killed, IPv4/IPv6 TCP and
+UDP direct attempts and ordinary different-path children were blocked; an
+ordinary instance of the same executable path remained connected.
+
+The nested net-only child was also blocked. Its actual suspended token had a
+new logon SID and authentication LUID but retained the parent's logon SID as
+an enabled group. Thus the existing parent's security-descriptor condition
+continued to match. Run #109 is retained because the experiment initially
+assumed this child would escape; its failure was an incorrect expectation,
+not a demonstrated leak. The final experiment records either connected or
+blocked outcomes, inspects the token before resume, and keeps arbitrary
+primary-token changes **unproved**. Read the
+[ARM64 measurement](validation/native-wfp-run-111-windows-11-arm.json) and
+[x64 measurement](validation/native-wfp-run-111-windows-2025.json).
+
+All owned experimental WFP objects were removed after their synthetic probes
+exited; system proxy, DNS, routes and firewall profile digests were unchanged.
+The lab also preserves the compiled executable and source/binary hashes in its
+CI evidence artifact. These selectors still do not solve the observed
+WinDivert/ALE ordering conflict or enable the candidate backend. Browser login,
+arbitrary token changes, transparent redirection and recovery still require
+their own live acceptance. A production forwarding and enforcement design must
+address those requirements together, rather than exempting the original
+external connect.
+
 References: [ProxyBridge v4.1.1 source](https://github.com/InterceptSuite/ProxyBridge/tree/v4.1.1/Windows),
 [WFP ALE filtering](https://learn.microsoft.com/en-us/windows/win32/fwp/ale-layers),
 [WinDivert documentation](https://github.com/basil00/WinDivert/wiki/WinDivert-Documentation).
 
 ## Required live acceptance
 
-Run on a dedicated Windows 11 device with a physical network capture point
+Run on a dedicated Windows 11 OS with a network-boundary capture point
 and a separate unprotected control app. Record OS build, tool binary hashes,
 Mihomo selection, WFP filter identities, packet traces, process tree, timestamps,
-and before/after system proxy, DNS, routes, and firewall state. Do not put node
+and before/after system proxy, DNS, routes, and firewall state. Label virtual
+machines and physical devices explicitly; loopback-only probes do not replace
+capture of actual external egress. Do not put node
 credentials or browser cookies in artifacts.
 
 1. Install a signed WFP guard whose persistent rules are bound to the launched
@@ -138,6 +202,7 @@ credentials or browser cookies in artifacts.
    Uninstall only owned rules by identity after every protected descendant has
    exited; demonstrate interrupted install and rollback.
 
-The CI runner can compile and run Windows tests, but it is a virtual machine
-and is not a substitute for this device and capture. Until all checks pass,
+The CI runner can compile and execute actual Windows kernel tests. It is a
+virtual machine, and the current local-only lab supplies no browser or external
+egress evidence. Until all checks pass,
 the candidate status is unsupported and the Draft PR stays unmerged.
