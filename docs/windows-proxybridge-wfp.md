@@ -96,6 +96,12 @@ compared by digest. No browser, signed kernel callout, transparent redirect,
 descendant identity, external capture or reboot proof is implied. The lab is
 not included in the product package and does not enable the candidate.
 
+The expanded experiment also records negative security findings separately
+from lab execution success: new instances at the same executable path are
+blocked, while a protected parent spawning a child at a different path can
+leave the parent's rule scope. Neither result may be treated as an acceptable
+production boundary. A complete native process-tree identity is still required.
+
 The jobs explicitly distinguish `windows-2025` x64 from `windows-11-arm`
 ARM64. Kernel version `10.0.26100` alone does not identify Windows 11: the
 earlier #91/#93/#95 runner setup logs identify **Windows Server 2025

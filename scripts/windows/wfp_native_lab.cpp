@@ -277,14 +277,48 @@ static int probe(const wchar_t* host, const wchar_t* port, const wchar_t* protoc
     if (sock != INVALID_SOCKET) closesocket(sock);
     FreeAddrInfoW(address);
     WSACleanup();
-    std::printf("{\"connected\":%s,\"wsa_error\":%lu,\"stage\":\"%s\",\"sent_bytes\":%d}\n",
-                error ? "false" : "true", error, stage, sent);
+    std::printf("{\"connected\":%s,\"wsa_error\":%lu,\"stage\":\"%s\",\"sent_bytes\":%d,\"process_id\":%lu}\n",
+                error ? "false" : "true", error, stage, sent, GetCurrentProcessId());
     return error ? 2 : 0;
+}
+
+static int spawn_probe(wchar_t** argv) {
+    lab_scope(argv[2]);
+    require(std::wcslen(argv[3]) < 64 && std::wcslen(argv[4]) <= 5,
+            "bounded-numeric-child-destination");
+    require(std::wcsspn(argv[3], L"0123456789abcdefABCDEF:.") == std::wcslen(argv[3]) &&
+            std::wcsspn(argv[4], L"0123456789") == std::wcslen(argv[4]) &&
+            (std::wcscmp(argv[5], L"tcp") == 0 || std::wcscmp(argv[5], L"udp") == 0),
+            "numeric-child-destination-and-protocol");
+    auto child = full_path(argv[2]);
+    std::wstring line = L"\"" + child + L"\" probe " + argv[3] + L" " + argv[4] + L" " + argv[5];
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    startup.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(child.c_str(), line.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
+                        nullptr, nullptr, &startup, &process)) throw Failure{GetLastError(), "child-create"};
+    CloseHandle(process.hThread);
+    DWORD wait = WaitForSingleObject(process.hProcess, 10000), code = 1;
+    if (wait != WAIT_OBJECT_0) {
+        TerminateProcess(process.hProcess, 1);
+        WaitForSingleObject(process.hProcess, 5000);
+        CloseHandle(process.hProcess);
+        throw Failure{ERROR_TIMEOUT, "child-probe-timeout"};
+    }
+    BOOL ok = GetExitCodeProcess(process.hProcess, &code);
+    CloseHandle(process.hProcess);
+    require(!!ok, "child-exit-code");
+    return static_cast<int>(code);
 }
 
 int wmain(int argc, wchar_t** argv) {
     try {
         if (argc == 5 && std::wcscmp(argv[1], L"probe") == 0) return probe(argv[2], argv[3], argv[4]);
+        if (argc == 6 && std::wcscmp(argv[1], L"spawn") == 0) return spawn_probe(argv);
         require(argc == 4, "usage-command-guid-synthetic-exe");
         std::wstring command = argv[1];
         require(command == L"install" || command == L"hold" || command == L"abort-hold" ||

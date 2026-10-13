@@ -166,6 +166,7 @@ def run(executable: Path, evidence: Path) -> dict:
         "environment": "GitHub-hosted Windows virtual machine; real kernel, not a physical device",
         "os": os_identity(), "binary_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
         "accepted": False, "lab_passed": False, "scope": "executable-path-only",
+        "security_findings": {},
         "checks": {}, "observations": {}, "error": None,
         "unproved": ["transparent redirect", "unique descendant identity", "external IPv6 route and packet capture",
                      "browser login and cookies", "reboot and boot-time enforcement", "signed production callout"],
@@ -199,12 +200,13 @@ def run(executable: Path, evidence: Path) -> dict:
             if not condition:
                 raise RuntimeError(f"real Windows lab check failed: {name}")
 
-        def group(label: str, program: Path, targets: EchoTargets, blocked: bool):
+        def group(label: str, program: Path, targets: EchoTargets, blocked: bool, child: Path | None = None):
             results = []
             start = targets.count()
             observations[label] = {"probes": results, "peer_deliveries": None}
             for target in targets.targets:
-                result = command([str(program), "probe", target["host"], str(target["port"]), target["protocol"]])
+                prefix = [str(program), "spawn", str(child)] if child else [str(program), "probe"]
+                result = command([*prefix, target["host"], str(target["port"]), target["protocol"]])
                 results.append({**target, **result})
             time.sleep(0.05)
             delivered = targets.count() - start
@@ -255,6 +257,15 @@ def run(executable: Path, evidence: Path) -> dict:
                      "persistent_objects_verified_after_controller_kill")
                 group("blocked_after_controller_kill_ipv4_ipv6_tcp_udp", protected, targets, True)
                 group("same_basename_other_path_unaffected", control, targets, False)
+
+                # These are deliberately measured negative security findings.
+                # A passing denial lab must never become process-tree admission.
+                group("same_path_new_instances_also_blocked", protected, targets, True)
+                report["security_findings"]["unrelated_instance_of_same_executable_unaffected"] = False
+                group("different_path_child_can_connect", protected, targets, False, child=control)
+                need(native("inspect", seed, protected).get("verified") is True,
+                     "child_escape_measured_while_parent_policy_is_active")
+                report["security_findings"]["full_process_tree_contained"] = False
 
                 wrong = native("remove", seed, control)
                 observations["wrong_app_cleanup_refusal"] = wrong
