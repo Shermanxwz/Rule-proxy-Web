@@ -81,8 +81,12 @@ two persistent ALE_AUTH_CONNECT terminating-callout filters for one synthetic
 executable's exact app ID. The callouts have no registered driver, and the
 filters never set `PERMIT_IF_CALLOUT_UNREGISTERED`.
 
-Real Winsock IPv4/IPv6 TCP and UDP loopback probes must first succeed, then
-return `WSAEACCES` with zero peer deliveries after the controller is killed.
+Real Winsock IPv4/IPv6 TCP and UDP loopback probes must first succeed. After
+the controller is killed, TCP must return `WSAEACCES` and UDP must either
+return `WSAEACCES` or time out at receive with zero peer deliveries while
+the persistent filters remain verified. A UDP send returning success can
+precede a silent ALE discard. Every socket operation is bounded explicitly;
+a disconnected external endpoint or unroutable address is never used as proof.
 A second executable with the same basename at a different path must remain
 connected. The experiment also kills an uncommitted installation, reads every
 filter property back from BFE, rejects cleanup with the wrong executable,

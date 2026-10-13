@@ -205,6 +205,23 @@ static void remove_policy(Engine& e, Policy& p) {
     require(inspect_policy(e, p, true) == 0, "cleanup-not-verified");
 }
 
+static DWORD ready(SOCKET sock, bool write) {
+    fd_set selected{}, failed{};
+    FD_ZERO(&selected); FD_SET(sock, &selected);
+    FD_ZERO(&failed); FD_SET(sock, &failed);
+    timeval limit{3, 0};
+    int result = select(0, write ? nullptr : &selected, write ? &selected : nullptr, &failed, &limit);
+    if (result == SOCKET_ERROR) return static_cast<DWORD>(WSAGetLastError());
+    if (!result) return WSAETIMEDOUT;
+    if (FD_ISSET(sock, &failed)) {
+        int error = 0, length = sizeof(error);
+        if (getsockopt(sock, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&error), &length) == SOCKET_ERROR)
+            return static_cast<DWORD>(WSAGetLastError());
+        return error ? static_cast<DWORD>(error) : WSAECONNABORTED;
+    }
+    return 0;
+}
+
 static int probe(const wchar_t* host, const wchar_t* port, const wchar_t* protocol) {
     bool udp = std::wcscmp(protocol, L"udp") == 0;
     require(udp || std::wcscmp(protocol, L"tcp") == 0, "probe-protocol");
@@ -217,26 +234,51 @@ static int probe(const wchar_t* host, const wchar_t* port, const wchar_t* protoc
     hints.ai_protocol = udp ? IPPROTO_UDP : IPPROTO_TCP;
     int status = GetAddrInfoW(host, port, &hints, &address);
     if (status) { WSACleanup(); throw Failure{static_cast<DWORD>(status), "numeric-probe-address"}; }
-    SOCKET socket = WSASocketW(address->ai_family, hints.ai_socktype, hints.ai_protocol, nullptr, 0, 0);
-    DWORD error = socket == INVALID_SOCKET ? static_cast<DWORD>(WSAGetLastError()) : 0;
+    SOCKET sock = WSASocketW(address->ai_family, hints.ai_socktype, hints.ai_protocol, nullptr, 0, WSA_FLAG_OVERLAPPED);
+    DWORD error = sock == INVALID_SOCKET ? static_cast<DWORD>(WSAGetLastError()) : 0;
+    int sent = 0;
+    const char* stage = "socket";
     if (!error) {
-        DWORD timeout = 3000;
-        setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
-        setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
-        if (connect(socket, address->ai_addr, static_cast<int>(address->ai_addrlen)) == SOCKET_ERROR)
+        // Explicit nonblocking deadlines apply even if an unavailable callout
+        // silently discards UDP. Blocking WSASocket I/O is not a test timeout.
+        u_long nonblocking = 1;
+        if (ioctlsocket(sock, FIONBIO, &nonblocking) == SOCKET_ERROR) error = static_cast<DWORD>(WSAGetLastError());
+        stage = "connect";
+        if (!error && connect(sock, address->ai_addr, static_cast<int>(address->ai_addrlen)) == SOCKET_ERROR) {
             error = static_cast<DWORD>(WSAGetLastError());
-        else if (send(socket, "WFP-LAB", 7, 0) != 7) error = static_cast<DWORD>(WSAGetLastError());
-        else {
+            if (error == WSAEWOULDBLOCK) error = ready(sock, true);
+        }
+        if (!error) {
+            int connect_error = 0, length = sizeof(connect_error);
+            if (getsockopt(sock, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&connect_error), &length) == SOCKET_ERROR)
+                error = static_cast<DWORD>(WSAGetLastError());
+            else error = static_cast<DWORD>(connect_error);
+        }
+        stage = error ? stage : "send";
+        if (!error) {
+            sent = send(sock, "WFP-LAB", 7, 0);
+            if (sent != 7) error = sent == SOCKET_ERROR ? static_cast<DWORD>(WSAGetLastError()) : ERROR_INVALID_DATA;
+        }
+        stage = error ? stage : "receive";
+        if (!error) {
             char reply[7]{};
-            int received = recv(socket, reply, sizeof(reply), udp ? 0 : MSG_WAITALL);
-            if (received != 7 || std::memcmp(reply, "WFP-LAB", 7) != 0)
-                error = received == SOCKET_ERROR ? static_cast<DWORD>(WSAGetLastError()) : ERROR_INVALID_DATA;
+            int total = 0;
+            for (int attempt = 0; attempt < 7 && total < 7 && !error; ++attempt) {
+                error = ready(sock, false);
+                if (error) break;
+                int received = recv(sock, reply + total, 7 - total, 0);
+                if (received <= 0) error = received == SOCKET_ERROR ? static_cast<DWORD>(WSAGetLastError()) : ERROR_INVALID_DATA;
+                else total += received;
+                if (udp) break;
+            }
+            if (!error && (total != 7 || std::memcmp(reply, "WFP-LAB", 7) != 0)) error = ERROR_INVALID_DATA;
         }
     }
-    if (socket != INVALID_SOCKET) closesocket(socket);
+    if (sock != INVALID_SOCKET) closesocket(sock);
     FreeAddrInfoW(address);
     WSACleanup();
-    std::printf("{\"connected\":%s,\"wsa_error\":%lu}\n", error ? "false" : "true", error);
+    std::printf("{\"connected\":%s,\"wsa_error\":%lu,\"stage\":\"%s\",\"sent_bytes\":%d}\n",
+                error ? "false" : "true", error, stage, sent);
     return error ? 2 : 0;
 }
 

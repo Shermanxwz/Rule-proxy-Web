@@ -35,7 +35,7 @@ def command(argv: list[str], timeout: float = 15) -> dict:
 def powershell_json(script: str) -> dict:
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
-        capture_output=True, text=True, encoding="utf-8", timeout=30,
+        capture_output=True, text=True, encoding="utf-8", timeout=55,
     )
     if result.returncode:
         raise RuntimeError(f"read-only Windows metadata query failed: {result.stderr}")
@@ -170,7 +170,11 @@ def run(executable: Path, evidence: Path) -> dict:
         "unproved": ["transparent redirect", "unique descendant identity", "external IPv6 route and packet capture",
                      "browser login and cookies", "reboot and boot-time enforcement", "signed production callout"],
     }
-    before = state_digest()
+    try:
+        before = state_digest()
+    except Exception as exc:
+        before = None
+        report["system_state_before_error"] = f"{type(exc).__name__}: {exc}"
     report["system_state_before_sha256"] = before
     checks, observations = report["checks"], report["observations"]
     with tempfile.TemporaryDirectory(prefix="ruleproxy-wfp-", dir=os.environ["RUNNER_TEMP"]) as folder:
@@ -198,6 +202,7 @@ def run(executable: Path, evidence: Path) -> dict:
         def group(label: str, program: Path, targets: EchoTargets, blocked: bool):
             results = []
             start = targets.count()
+            observations[label] = {"probes": results, "peer_deliveries": None}
             for target in targets.targets:
                 result = command([str(program), "probe", target["host"], str(target["port"]), target["protocol"]])
                 results.append({**target, **result})
@@ -205,8 +210,16 @@ def run(executable: Path, evidence: Path) -> dict:
             delivered = targets.count() - start
             observations[label] = {"probes": results, "peer_deliveries": delivered}
             if blocked:
-                # A timeout/unreachable peer is not accepted as proof of denial.
-                need(all(r.get("wsa_error") == 10013 and r["exit"] == 2 for r in results) and delivered == 0, label)
+                # UDP can be silently discarded at ALE despite a successful
+                # send. Only a bounded receive timeout at a baseline-confirmed
+                # loopback peer, zero deliveries and verified persistent filters
+                # are recorded as a local UDP drop. No external-route claim.
+                def denied(result):
+                    explicit = result.get("wsa_error") == 10013
+                    silent_udp = (result["protocol"] == "udp" and result.get("wsa_error") == 10060
+                                  and result.get("stage") == "receive" and result.get("sent_bytes") == 7)
+                    return result["exit"] == 2 and (explicit or silent_udp)
+                need(all(denied(r) for r in results) and delivered == 0, label)
             else:
                 need(all(r.get("connected") is True and r["exit"] == 0 for r in results) and delivered == 4, label)
 
@@ -268,9 +281,13 @@ def run(executable: Path, evidence: Path) -> dict:
             checks["all_owned_wfp_objects_absent"] = all(value["exit"] == 0 and value.get("absent") is True for value in cleanup)
             if not checks["all_owned_wfp_objects_absent"]:
                 report["error"] = report["error"] or "owned native WFP lab objects remain installed"
-    after = state_digest()
+    try:
+        after = state_digest()
+    except Exception as exc:
+        after = None
+        report["system_state_after_error"] = f"{type(exc).__name__}: {exc}"
     report["system_state_after_sha256"] = after
-    checks["global_proxy_dns_routes_firewall_profiles_unchanged"] = before == after
+    checks["global_proxy_dns_routes_firewall_profiles_unchanged"] = before is not None and after is not None and before == after
     report["lab_passed"] = report["error"] is None and len(checks) >= 15 and all(checks.values())
     return report
 
