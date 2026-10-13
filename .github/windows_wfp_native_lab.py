@@ -9,6 +9,8 @@ receipt is never accepted as proof of a live security boundary.
 from __future__ import annotations
 
 import argparse
+import ctypes
+from ctypes import wintypes
 import hashlib
 import json
 import os
@@ -74,6 +76,127 @@ def state_digest() -> str:
         } | ConvertTo-Json -Depth 8 -Compress
     """)
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+
+
+class SessionProbe:
+    """Real suspended Win32 process with a newly created net-only logon SID.
+
+    Deliberately fictitious credentials are not authenticated or used on the
+    network. SID text stays in local memory, rather than public evidence.
+    """
+
+    def __init__(self, program: Path, argv: list[str], output: Path):
+        class Startup(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("reserved", wintypes.LPWSTR),
+                        ("desktop", wintypes.LPWSTR), ("title", wintypes.LPWSTR),
+                        ("x", wintypes.DWORD), ("y", wintypes.DWORD),
+                        ("xsize", wintypes.DWORD), ("ysize", wintypes.DWORD),
+                        ("xchars", wintypes.DWORD), ("ychars", wintypes.DWORD),
+                        ("fill", wintypes.DWORD), ("flags", wintypes.DWORD),
+                        ("show", wintypes.WORD), ("reserved_size", wintypes.WORD),
+                        ("reserved_data", ctypes.POINTER(ctypes.c_byte)),
+                        ("stdin", wintypes.HANDLE), ("stdout", wintypes.HANDLE), ("stderr", wintypes.HANDLE)]
+
+        class Process(ctypes.Structure):
+            _fields_ = [("process", wintypes.HANDLE), ("thread", wintypes.HANDLE),
+                        ("pid", wintypes.DWORD), ("tid", wintypes.DWORD)]
+
+        class SidAndAttributes(ctypes.Structure):
+            _fields_ = [("sid", wintypes.LPVOID), ("attributes", wintypes.DWORD)]
+
+        class Groups(ctypes.Structure):
+            _fields_ = [("count", wintypes.DWORD), ("group", SidAndAttributes * 1)]
+
+        self.kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        self.advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+        self.kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        self.kernel.CloseHandle.restype = wintypes.BOOL
+        self.kernel.ResumeThread.argtypes = [wintypes.HANDLE]
+        self.kernel.ResumeThread.restype = wintypes.DWORD
+        self.kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        self.kernel.WaitForSingleObject.restype = wintypes.DWORD
+        self.kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        self.kernel.GetExitCodeProcess.restype = wintypes.BOOL
+        self.kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        self.kernel.TerminateProcess.restype = wintypes.BOOL
+        self.kernel.LocalFree.argtypes = [wintypes.HLOCAL]
+        self.kernel.LocalFree.restype = wintypes.HLOCAL
+        self.advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+        self.advapi.OpenProcessToken.restype = wintypes.BOOL
+        self.advapi.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
+                                                  wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+        self.advapi.GetTokenInformation.restype = wintypes.BOOL
+        self.advapi.ConvertSidToStringSidW.argtypes = [wintypes.LPVOID, ctypes.POINTER(wintypes.LPWSTR)]
+        self.advapi.ConvertSidToStringSidW.restype = wintypes.BOOL
+        self.advapi.CreateProcessWithLogonW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR,
+            wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD, wintypes.LPVOID,
+            wintypes.LPCWSTR, ctypes.POINTER(Startup), ctypes.POINTER(Process)]
+        self.advapi.CreateProcessWithLogonW.restype = wintypes.BOOL
+        startup, self.process = Startup(), Process()
+        startup.cb = ctypes.sizeof(startup)
+        line = subprocess.list2cmdline([str(program), *argv])
+        if len(line) >= 1024:
+            raise ValueError("net-only probe command exceeds the Win32 API limit")
+        mutable_line = ctypes.create_unicode_buffer(line)
+        if not self.advapi.CreateProcessWithLogonW(
+            "RuleProxyLabSynthetic", ".", "RuleProxyLab-NotAnAccount-42!", 2,
+            str(program), mutable_line, 0x08000004, None, str(program.parent),
+            ctypes.byref(startup), ctypes.byref(self.process),
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        self.output = output
+        token = wintypes.HANDLE()
+        try:
+            if not self.advapi.OpenProcessToken(self.process.process, 8, ctypes.byref(token)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            size = wintypes.DWORD()
+            self.advapi.GetTokenInformation(token, 28, None, 0, ctypes.byref(size))  # TokenLogonSid
+            if ctypes.get_last_error() != 122 or not size.value:
+                raise RuntimeError("real child token did not expose a logon SID")
+            buffer = ctypes.create_string_buffer(size.value)
+            if not self.advapi.GetTokenInformation(token, 28, buffer, size, ctypes.byref(size)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            groups = ctypes.cast(buffer, ctypes.POINTER(Groups)).contents
+            if groups.count != 1:
+                raise RuntimeError("real child token has an ambiguous logon SID")
+            text_sid = wintypes.LPWSTR()
+            if not self.advapi.ConvertSidToStringSidW(groups.group[0].sid, ctypes.byref(text_sid)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            try:
+                self.sid = text_sid.value
+            finally:
+                self.kernel.LocalFree(ctypes.cast(text_sid, wintypes.HLOCAL))
+        except BaseException:
+            self.close()
+            raise
+        finally:
+            if token:
+                self.kernel.CloseHandle(token)
+
+    def finish(self) -> dict:
+        if self.kernel.ResumeThread(self.process.thread) != 1:
+            raise RuntimeError("suspended probe thread did not have exactly one suspend count")
+        if self.kernel.WaitForSingleObject(self.process.process, 13000) != 0:
+            raise TimeoutError("real net-only probe did not exit within its bounded socket deadline")
+        code = wintypes.DWORD()
+        if not self.kernel.GetExitCodeProcess(self.process.process, ctypes.byref(code)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        data = json.loads(self.output.read_text(encoding="utf-8"))
+        return {"exit": code.value, "root_process_id": self.process.pid,
+                "logon_sid_sha256": hashlib.sha256(self.sid.encode()).hexdigest(), **data}
+
+    def close(self):
+        if self.process.process:
+            if self.kernel.WaitForSingleObject(self.process.process, 0) == 258:
+                if not self.kernel.TerminateProcess(self.process.process, 1):
+                    raise ctypes.WinError(ctypes.get_last_error())
+                if self.kernel.WaitForSingleObject(self.process.process, 5000) != 0:
+                    raise RuntimeError("owned net-only probe did not terminate")
+            self.kernel.CloseHandle(self.process.process)
+            self.process.process = None
+        if self.process.thread:
+            self.kernel.CloseHandle(self.process.thread)
+            self.process.thread = None
 
 
 class EchoTargets:
@@ -190,6 +313,7 @@ def run(executable: Path, evidence: Path) -> dict:
         seed, canary_seed, pending_seed = [str(uuid.uuid4()) for _ in range(3)]
         report["policy_guids"] = {"primary": seed, "owned_canary": canary_seed, "aborted": pending_seed}
         policies = [(seed, protected), (canary_seed, canary), (pending_seed, protected)]
+        session_policies = []
         held: list[subprocess.Popen] = []
 
         def native(operation: str, key: str, target: Path) -> dict:
@@ -232,6 +356,79 @@ def run(executable: Path, evidence: Path) -> dict:
             held.append(process)
             observations[operation] = wait_record(process, output, field)
             return process
+
+        def session_cases(targets: EchoTargets):
+            """Measure logon-SID enforcement and an explicit new-token escape."""
+            cases = [("baseline", "probe-file", False, False),
+                     ("direct", "probe-file", True, True),
+                     ("ordinary_child", "spawn-file", True, True),
+                     ("new_logon_child", "netonly-spawn-file", True, False)]
+            for label, operation, guarded, blocked in cases:
+                samples = []
+                observations["logon_sid_" + label] = samples
+                for index, target in enumerate(targets.targets):
+                    output = root / f"session-{label}-{index}.json"
+                    arguments = [operation]
+                    if operation != "probe-file":
+                        arguments.append(str(control))
+                    arguments.extend([target["host"], str(target["port"]), target["protocol"], str(output)])
+                    session = SessionProbe(protected, arguments, output)
+                    policy_key = str(uuid.uuid4())
+                    sample = {**target, "filter_committed_before_resume": False}
+                    samples.append(sample)
+                    try:
+                        if guarded:
+                            session_policies.append((policy_key, session.sid))
+                            record = evidence / f"session-controller-{label}-{index}.json"
+                            with record.open("wb") as out:
+                                owner = subprocess.Popen([str(executable), "user-hold", policy_key,
+                                                          str(protected), session.sid], stdout=out, stderr=subprocess.STDOUT)
+                            held.append(owner)
+                            wait_record(owner, record, "verified")
+                            sample["filter_committed_before_resume"] = True
+                            owner.kill()
+                            owner.wait(timeout=5)
+                            live = command([str(executable), "user-inspect", policy_key, str(protected), session.sid])
+                            sample["policy_after_controller_kill"] = live
+                            need(live["exit"] == 0 and live.get("verified") is True and live.get("scope") == "logon-sid-only",
+                                 "logon_sid_objects_read_back_after_controller_kill")
+                        start = targets.count()
+                        result = session.finish()
+                        time.sleep(0.05)
+                        delivered = targets.count() - start
+                        sample.update({"probe": result, "peer_deliveries": delivered})
+                        if blocked:
+                            explicit = result.get("wsa_error") == 10013
+                            silent_udp = (target["protocol"] == "udp" and result.get("wsa_error") == 10060
+                                          and result.get("stage") == "receive" and result.get("sent_bytes") == 7)
+                            need(result["exit"] == 2 and (explicit or silent_udp) and delivered == 0,
+                                 "logon_sid_" + label + "_ipv4_ipv6_tcp_udp_blocked")
+                        else:
+                            need(result["exit"] == 0 and result.get("connected") is True and delivered == 1,
+                                 "logon_sid_" + label + "_ipv4_ipv6_tcp_udp_connected")
+                        if operation != "probe-file":
+                            need(result.get("process_id") != result.get("root_process_id"), "logon_sid_child_is_a_real_separate_process")
+                        if guarded:
+                            # The same file under the ordinary runner token
+                            # must retain its confirmed baseline connectivity.
+                            before_control = targets.count()
+                            ordinary = command([str(protected), "probe", target["host"], str(target["port"]), target["protocol"]])
+                            time.sleep(0.05)
+                            sample["same_path_normal_instance"] = ordinary
+                            need(ordinary["exit"] == 0 and ordinary.get("connected") is True
+                                 and targets.count() - before_control == 1,
+                                 "logon_sid_scope_preserves_same_path_normal_instances")
+                    finally:
+                        # Held process handles establish exit before denial
+                        # removal; a PID receipt alone is not sufficient.
+                        session.close()
+                        if guarded:
+                            removed = command([str(executable), "user-remove", policy_key, str(protected), session.sid])
+                            sample["cleanup"] = removed
+                            need(removed["exit"] == 0 and removed.get("absent") is True, "logon_sid_owned_objects_removed_after_probe_exit")
+            report["security_findings"]["logon_sid_scope_contains_ordinary_createprocess_children"] = True
+            report["security_findings"]["logon_sid_scope_contains_token_changing_children"] = False
+            report["security_findings"]["logon_sid_scope_preserves_same_path_normal_instances"] = True
 
         try:
             value = command([str(executable), "token-identity", str(protected)])
@@ -289,6 +486,7 @@ def run(executable: Path, evidence: Path) -> dict:
                 group("other_policy_still_blocks", canary, targets, True)
                 group("after_cleanup_connectivity_restored", protected, targets, False)
                 need(native("remove", seed, protected).get("absent") is True, "cleanup_is_idempotent")
+                session_cases(targets)
                 report["echo_deliveries"] = targets.received
         except Exception as exc:
             report["error"] = f"{type(exc).__name__}: {exc}"
@@ -298,6 +496,8 @@ def run(executable: Path, evidence: Path) -> dict:
                     process.kill()
                     process.wait(timeout=5)
             cleanup = [native("remove", key, target) for key, target in policies]
+            cleanup.extend(command([str(executable), "user-remove", key, str(protected), sid])
+                           for key, sid in session_policies)
             observations["final_cleanup"] = cleanup
             checks["all_owned_wfp_objects_absent"] = all(value["exit"] == 0 and value.get("absent") is True for value in cleanup)
             if not checks["all_owned_wfp_objects_absent"]:

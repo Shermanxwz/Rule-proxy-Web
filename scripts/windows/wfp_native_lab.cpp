@@ -10,6 +10,8 @@
 #include <initguid.h>
 #include <fwpmu.h>
 #include <rpc.h>
+#include <sddl.h>
+#include <io.h>
 #include <cstdio>
 #include <cstring>
 #include <cwchar>
@@ -50,6 +52,10 @@ struct NativeHandle {
     NativeHandle(const NativeHandle&) = delete;
     NativeHandle& operator=(const NativeHandle&) = delete;
     ~NativeHandle() { if (value) CloseHandle(value); }
+};
+struct LocalMemory {
+    HLOCAL value = nullptr;
+    ~LocalMemory() { if (value) LocalFree(value); }
 };
 
 static std::vector<BYTE> token_information(HANDLE token, TOKEN_INFORMATION_CLASS kind) {
@@ -150,7 +156,10 @@ struct Policy {
     unsigned char owner[64]{};
     FWP_BYTE_BLOB ownership{};
     WfpMemory<FWP_BYTE_BLOB> app;
-    Policy(const wchar_t* text, const wchar_t* program) {
+    LocalMemory descriptor;
+    FWP_BYTE_BLOB user_descriptor{};
+    bool session_scope = false;
+    Policy(const wchar_t* text, const wchar_t* program, const wchar_t* logon_sid = nullptr) {
         checked(UuidFromStringW(reinterpret_cast<RPC_WSTR>(const_cast<wchar_t*>(text)), &seed), "policy-guid");
         const GUID zero{};
         require(!same(seed, zero), "nonzero-policy-guid");
@@ -165,11 +174,37 @@ struct Policy {
         ownership = {static_cast<UINT32>(sizeof(mark) + sizeof(seed)), owner};
         auto path = full_path(program);
         checked(FwpmGetAppIdFromFileName0(path.c_str(), &app.value), "app-id");
+        if (logon_sid) {
+            LocalMemory sid;
+            if (!ConvertStringSidToSidW(logon_sid, &sid.value)) throw Failure{GetLastError(), "logon-sid-parse"};
+            SID_IDENTIFIER_AUTHORITY authority = SECURITY_NT_AUTHORITY;
+            require(IsValidSid(sid.value) && *GetSidSubAuthorityCount(sid.value) == 3 &&
+                    std::memcmp(GetSidIdentifierAuthority(sid.value), &authority, sizeof(authority)) == 0 &&
+                    *GetSidSubAuthority(sid.value, 0) == SECURITY_LOGON_IDS_RID, "only-logon-sid-may-be-filtered");
+            NativeHandle current;
+            if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &current.value))
+                throw Failure{GetLastError(), "session-scope-current-token"};
+            auto information = token_information(current.value, TokenLogonSid);
+            const auto groups = reinterpret_cast<const TOKEN_GROUPS*>(information.data());
+            require(groups->GroupCount == 1 && !EqualSid(groups->Groups[0].Sid, sid.value),
+                    "runner-logon-session-must-never-be-filtered");
+            // FWP_ACTRL_MATCH_FILTER is 1 (SDDL CC), not a network permission.
+            // Granting this access makes the SID condition match; the action
+            // remains an unregistered terminating callout's persistent BLOCK.
+            std::wstring sddl = L"D:(A;;CC;;;" + std::wstring(logon_sid) + L")";
+            ULONG size = 0;
+            if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1,
+                                                                      &descriptor.value, &size))
+                throw Failure{GetLastError(), "logon-sid-security-descriptor"};
+            user_descriptor = {size, static_cast<BYTE*>(descriptor.value)};
+            session_scope = true;
+        }
     }
     bool owned(const FWP_BYTE_BLOB& data) const {
         return data.size == ownership.size && data.data &&
                std::memcmp(data.data, ownership.data, data.size) == 0;
     }
+    const FWP_BYTE_BLOB* selector() const { return session_scope ? &user_descriptor : app.value; }
 };
 static const GUID* layers[2] = {&FWPM_LAYER_ALE_AUTH_CONNECT_V4, &FWPM_LAYER_ALE_AUTH_CONNECT_V6};
 
@@ -192,10 +227,11 @@ static void add_policy(Engine& e, Policy& p) {
         call.applicableLayer = *layers[i];
         checked(FwpmCalloutAdd0(e.handle, &call, nullptr, nullptr), "callout-add");
         FWPM_FILTER_CONDITION0 condition{};
-        condition.fieldKey = FWPM_CONDITION_ALE_APP_ID;
+        condition.fieldKey = p.session_scope ? FWPM_CONDITION_ALE_USER_ID : FWPM_CONDITION_ALE_APP_ID;
         condition.matchType = FWP_MATCH_EQUAL;
-        condition.conditionValue.type = FWP_BYTE_BLOB_TYPE;
-        condition.conditionValue.byteBlob = p.app.value;
+        condition.conditionValue.type = p.session_scope ? FWP_SECURITY_DESCRIPTOR_TYPE : FWP_BYTE_BLOB_TYPE;
+        if (p.session_scope) condition.conditionValue.sd = &p.user_descriptor;
+        else condition.conditionValue.byteBlob = p.app.value;
         FWPM_FILTER0 rule{};
         rule.filterKey = p.filter[i];
         rule.displayData.name = sub.displayData.name;
@@ -249,20 +285,24 @@ static unsigned inspect_policy(Engine& e, Policy& p, bool output) {
                     !(f.flags & (FWPM_FILTER_FLAG_PERMIT_IF_CALLOUT_UNREGISTERED | FWPM_FILTER_FLAG_DISABLED)) &&
                     f.numFilterConditions == 1 && f.filterCondition, "filter-enforcement-properties");
             auto& c = f.filterCondition[0];
-            require(same(c.fieldKey, FWPM_CONDITION_ALE_APP_ID) && c.matchType == FWP_MATCH_EQUAL &&
-                    c.conditionValue.type == FWP_BYTE_BLOB_TYPE && c.conditionValue.byteBlob &&
-                    c.conditionValue.byteBlob->size == p.app.value->size &&
-                    std::memcmp(c.conditionValue.byteBlob->data, p.app.value->data, p.app.value->size) == 0,
-                    "filter-exact-app-id");
+            auto wanted_type = p.session_scope ? FWP_SECURITY_DESCRIPTOR_TYPE : FWP_BYTE_BLOB_TYPE;
+            require(same(c.fieldKey, p.session_scope ? FWPM_CONDITION_ALE_USER_ID : FWPM_CONDITION_ALE_APP_ID) &&
+                    c.matchType == FWP_MATCH_EQUAL && c.conditionValue.type == wanted_type,
+                    "filter-identity-condition");
+            const auto selector = p.session_scope ? c.conditionValue.sd : c.conditionValue.byteBlob;
+            require(selector && selector->data && selector->size == p.selector()->size &&
+                    std::memcmp(selector->data, p.selector()->data, p.selector()->size) == 0,
+                    "filter-exact-identity-value");
             ids[i] = f.filterId;
             ++count;
         }
     }
     if (output) {
         std::printf("{\"object_count\":%u,\"absent\":%s,\"verified\":%s,\"filter_ids\":[%llu,%llu],"
-                    "\"scope\":\"executable-path-only\",\"callout_registered\":false}\n",
+                    "\"scope\":\"%s\",\"callout_registered\":false}\n",
                     count, count == 0 ? "true" : "false", count == 5 ? "true" : "false",
-                    static_cast<unsigned long long>(ids[0]), static_cast<unsigned long long>(ids[1]));
+                    static_cast<unsigned long long>(ids[0]), static_cast<unsigned long long>(ids[1]),
+                    p.session_scope ? "logon-sid-only" : "executable-path-only");
         std::fflush(stdout);
     }
     return count;
@@ -392,18 +432,77 @@ static int spawn_probe(wchar_t** argv) {
     return static_cast<int>(code);
 }
 
+static void redirect_output(const wchar_t* path) {
+    FILE* stream = nullptr;
+    checked(static_cast<DWORD>(_wfreopen_s(&stream, path, L"wb", stdout)), "probe-output-file");
+    HANDLE output = reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(stdout)));
+    require(output != INVALID_HANDLE_VALUE, "probe-output-handle");
+    if (!SetHandleInformation(output, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT) ||
+        !SetStdHandle(STD_OUTPUT_HANDLE, output) || !SetStdHandle(STD_ERROR_HANDLE, output))
+        throw Failure{GetLastError(), "inheritable-probe-output"};
+    checked(static_cast<DWORD>(_wfreopen_s(&stream, L"NUL", L"rb", stdin)), "probe-null-input");
+    HANDLE input = reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(stdin)));
+    if (!SetHandleInformation(input, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT) ||
+        !SetStdHandle(STD_INPUT_HANDLE, input)) throw Failure{GetLastError(), "inheritable-probe-input"};
+}
+
+// Deliberately attempt a second net-only logon from a protected session. A
+// different primary logon SID must not be silently treated as an inherited
+// identity. This measures a possible session-boundary escape, not admission.
+static int netonly_spawn(wchar_t** argv) {
+    lab_scope(argv[2]);
+    auto child = full_path(argv[2]);
+    require(std::wcsspn(argv[3], L"0123456789abcdefABCDEF:.") == std::wcslen(argv[3]) &&
+            std::wcslen(argv[3]) < 64 && std::wcslen(argv[4]) <= 5 &&
+            std::wcsspn(argv[4], L"0123456789") == std::wcslen(argv[4]) &&
+            (std::wcscmp(argv[5], L"tcp") == 0 || std::wcscmp(argv[5], L"udp") == 0),
+            "numeric-netonly-child-destination");
+    std::wstring line = L"\"" + child + L"\" probe-file " + argv[3] + L" " + argv[4] + L" " + argv[5] +
+                        L" \"" + full_path(argv[6]) + L"\"";
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessWithLogonW(L"RuleProxyLabSynthetic", L".", L"RuleProxyLab-NotAnAccount-42!",
+                                LOGON_NETCREDENTIALS_ONLY, child.c_str(), line.data(), CREATE_NO_WINDOW,
+                                nullptr, nullptr, &startup, &process))
+        throw Failure{GetLastError(), "nested-netonly-process-create"};
+    NativeHandle handle, thread;
+    handle.value = process.hProcess;
+    thread.value = process.hThread;
+    if (WaitForSingleObject(handle.value, 10000) != WAIT_OBJECT_0) {
+        TerminateProcess(handle.value, 1);
+        WaitForSingleObject(handle.value, 5000);
+        throw Failure{ERROR_TIMEOUT, "nested-netonly-timeout"};
+    }
+    DWORD code = 1;
+    if (!GetExitCodeProcess(handle.value, &code)) throw Failure{GetLastError(), "nested-netonly-exit"};
+    return static_cast<int>(code);
+}
+
 int wmain(int argc, wchar_t** argv) {
     try {
+        if (argc == 6 && std::wcscmp(argv[1], L"probe-file") == 0) {
+            redirect_output(argv[5]); return probe(argv[2], argv[3], argv[4]);
+        }
+        if (argc == 7 && std::wcscmp(argv[1], L"spawn-file") == 0) {
+            redirect_output(argv[6]); return spawn_probe(argv);
+        }
+        if (argc == 7 && std::wcscmp(argv[1], L"netonly-spawn-file") == 0) {
+            return netonly_spawn(argv);
+        }
         if (argc == 3 && std::wcscmp(argv[1], L"token-identity") == 0) return token_identity(argv[2]);
         if (argc == 2 && std::wcscmp(argv[1], L"identity-idle") == 0) { Sleep(INFINITE); return 0; }
         if (argc == 5 && std::wcscmp(argv[1], L"probe") == 0) return probe(argv[2], argv[3], argv[4]);
         if (argc == 6 && std::wcscmp(argv[1], L"spawn") == 0) return spawn_probe(argv);
-        require(argc == 4, "usage-command-guid-synthetic-exe");
+        require(argc == 4 || argc == 5, "usage-command-guid-synthetic-exe-optional-logon-sid");
         std::wstring command = argv[1];
+        bool session_scope = command.rfind(L"user-", 0) == 0;
+        require(session_scope ? argc == 5 : argc == 4, "scope-argument-count");
+        if (session_scope) command = command.substr(5);
         require(command == L"install" || command == L"hold" || command == L"abort-hold" ||
                 command == L"inspect" || command == L"remove", "known-command");
         lab_scope(argv[3]);
-        Policy p(argv[2], argv[3]);
+        Policy p(argv[2], argv[3], session_scope ? argv[4] : nullptr);
         Engine e;
         if (command == L"inspect") { inspect_policy(e, p, true); return 0; }
         if (command == L"remove") { remove_policy(e, p); return 0; }
