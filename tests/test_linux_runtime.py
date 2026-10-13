@@ -1,5 +1,6 @@
 """Live, local-only containment checks. No external packets or user apps."""
 import json
+import errno
 import os
 from pathlib import Path
 import socket
@@ -229,8 +230,24 @@ class DownloadsFolderTests(unittest.TestCase):
     @unittest.skipUnless(hasattr(os, "geteuid") and os.geteuid() == 0, "needs root to hand the folder to another user")
     def test_a_folder_owned_by_someone_else_is_not_shared(self):
         (self.home / "Downloads").mkdir(parents=True)
-        os.chown(self.home / "Downloads", 65534, 65534)
+        try:
+            os.chown(self.home / "Downloads", 65534, 65534)
+        except OSError as exc:
+            if exc.errno not in (errno.EPERM, errno.EACCES, errno.EINVAL, errno.ENOSYS):
+                raise
+            self.skipTest(f"filesystem does not permit assigning another owner: {exc}")
+        self.assertEqual((self.home / "Downloads").stat().st_uid, 65534)
         self.assertIsNone(downloads_folder(self.state))
+
+    def test_owner_mismatch_is_rejected_without_privileged_filesystem_operations(self):
+        folder = self.home / "Downloads"
+        folder.mkdir(parents=True)
+        actual_uid = folder.stat().st_uid
+        self.assertIsNotNone(downloads_folder(self.state))
+        # Portable unit check of the caller-identity comparison. The separate
+        # live chown check above still reports when this host cannot perform it.
+        with patch("ruleproxy.linux_runtime.os.getuid", return_value=actual_uid + 1):
+            self.assertIsNone(downloads_folder(self.state))
 
     def test_the_sandbox_binds_it_and_apps_save_there(self):
         profile = self.state / "profiles" / "app"

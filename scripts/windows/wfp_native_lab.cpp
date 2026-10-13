@@ -75,7 +75,8 @@ struct Policy {
     WfpMemory<FWP_BYTE_BLOB> app;
     Policy(const wchar_t* text, const wchar_t* program) {
         checked(UuidFromStringW(reinterpret_cast<RPC_WSTR>(const_cast<wchar_t*>(text)), &seed), "policy-guid");
-        require(!same(seed, GUID_NULL), "nonzero-policy-guid");
+        const GUID zero{};
+        require(!same(seed, zero), "nonzero-policy-guid");
         sublayer = seed; sublayer.Data4[7] ^= 0x11;
         callout[0] = seed; callout[0].Data4[7] ^= 0x21;
         callout[1] = seed; callout[1].Data4[7] ^= 0x22;
@@ -196,10 +197,10 @@ static void remove_policy(Engine& e, Policy& p) {
     e.begin();
     inspect_policy(e, p, false);
     for (int i = 0; i < 2; ++i)
-        delete_result(FwpmFilterDeleteByKey0(e.handle, &p.filter[i]), FWP_E_FILTER_NOT_FOUND, "filter-delete");
+        delete_result(FwpmFilterDeleteByKey0(e.handle, &p.filter[i]), static_cast<DWORD>(FWP_E_FILTER_NOT_FOUND), "filter-delete");
     for (int i = 0; i < 2; ++i)
-        delete_result(FwpmCalloutDeleteByKey0(e.handle, &p.callout[i]), FWP_E_CALLOUT_NOT_FOUND, "callout-delete");
-    delete_result(FwpmSubLayerDeleteByKey0(e.handle, &p.sublayer), FWP_E_SUBLAYER_NOT_FOUND, "sublayer-delete");
+        delete_result(FwpmCalloutDeleteByKey0(e.handle, &p.callout[i]), static_cast<DWORD>(FWP_E_CALLOUT_NOT_FOUND), "callout-delete");
+    delete_result(FwpmSubLayerDeleteByKey0(e.handle, &p.sublayer), static_cast<DWORD>(FWP_E_SUBLAYER_NOT_FOUND), "sublayer-delete");
     e.commit();
     require(inspect_policy(e, p, true) == 0, "cleanup-not-verified");
 }
