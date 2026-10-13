@@ -90,14 +90,20 @@ jobs:
       - name: Stage and verify pinned ProxyBridge installer, without executing it
         shell: pwsh
         run: ./scripts/windows/Stage-ProxyBridge.ps1
+      - name: Real Windows kernel experiment — extracted WinDivert CLI and per-program WFP block
+        shell: pwsh
+        run: ./scripts/windows/Test-ProxyBridgeWfp.ps1
       # Intentionally red until independent WFP enforcement and live evidence exist.
       - name: Security acceptance gate
+        if: always()
         run: python -B .github/windows_candidate_gate.py candidate-gate.json
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: windows-candidate-gate
-          path: candidate-gate.json
+          path: |
+            candidate-gate.json
+            candidate-evidence/
           if-no-files-found: warn
 
   windows-package:
