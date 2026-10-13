@@ -259,7 +259,10 @@ class IsolationCheckTests(unittest.TestCase):
         (custom / "plm.exe").write_bytes(b"theirs")
         refused = {"supported": False, "backend": None, "detail": "test", "limitations": []}
         with patch("ruleproxy.manager.ROOT", root), patch("ruleproxy.windows_runtime.probe", return_value=refused) as probe:
-            self.manager._check_isolation()
+            result = self.manager._check_isolation()
+            self.assertFalse(result["supported"])
+            self.assertIn("ProxyBridge/WFP 候选后端未启用", result["limitations"][-1])
+            self.assertEqual(refused["limitations"], [], "the MXC probe result is not modified")
             self.assertFalse((bundled / "plm.exe").exists())
             self.manager.settings["runtime_path"] = str(custom / "wxc-exec.exe")
             self.manager._check_isolation()

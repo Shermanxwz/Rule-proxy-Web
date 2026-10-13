@@ -180,10 +180,14 @@ class Manager:
                 return probe()
             if sys.platform == "win32":
                 from .windows_runtime import probe, retire_unused_runtime_files
+                from .proxybridge_candidate import candidate_status
                 if not self.settings.get("runtime_path"):
                     # Only the bundled runtime; a runtime the user pointed at is left as it is.
                     retire_unused_runtime_files(Path(self.runtime_path()).parent)
-                return probe(self.runtime_path(), self.mixed_port)
+                result = probe(self.runtime_path(), self.mixed_port)
+                # Show the candidate's blocked state in the existing Web panel.
+                # Do not treat its data-only profile as a working isolation backend.
+                return {**result, "limitations": [*result.get("limitations", []), candidate_status()["detail"]]}
             return {"supported": False, "backend": "不支持的系统", "detail": "当前仅支持 Windows 和 Linux。", "limitations": []}
         except Exception as exc:  # an unexpected failure means "not protected"; it must not take the panel down
             traceback.print_exc()

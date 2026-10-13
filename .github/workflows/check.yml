@@ -77,6 +77,29 @@ jobs:
       - name: Start-Windows.cmd in a source checkout sets up once, then runs the panel and core
         run: python -B .github\smoke_panel.py "$env:GITHUB_WORKSPACE\Start-Windows.cmd"
 
+  windows-proxybridge-wfp-acceptance:
+    name: Windows ProxyBridge/WFP · acceptance BLOCKED
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Candidate profile unit checks
+        run: python -B -m unittest discover -s tests -p test_proxybridge_candidate.py -v
+      - name: Stage and verify pinned ProxyBridge installer, without executing it
+        shell: pwsh
+        run: ./scripts/windows/Stage-ProxyBridge.ps1
+      # Intentionally red until independent WFP enforcement and live evidence exist.
+      - name: Security acceptance gate
+        run: python -B .github/windows_candidate_gate.py candidate-gate.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-candidate-gate
+          path: candidate-gate.json
+          if-no-files-found: warn
+
   windows-package:
     name: Windows package · build
     runs-on: ubuntu-24.04
@@ -158,7 +181,7 @@ jobs:
 
   release:
     name: Publish the release
-    needs: [linux, linux-system, windows, windows-package-test]
+    needs: [linux, linux-system, windows, windows-package-test, windows-proxybridge-wfp-acceptance]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
