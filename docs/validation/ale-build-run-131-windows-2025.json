@@ -1,0 +1,32 @@
+{
+  "source_commit": "22f43fff88d4ce62457d541bc2882c76ff9ffcc0",
+  "source_sha256": "0b2a5d66d43ebdd442959deb84cd571ddb7846cff7c2096108adfa9b53abe5c5",
+  "header_sha256": "358545b7bc540fdd16994a08bcf6294902813bb6badc61dec3c9640e10fd668c",
+  "build_script_sha256": "e3dee19b717bc369d703a31efd87f938e53cfdaa78f0ebe6a2d2104382e8f080",
+  "architecture": "x64",
+  "wdk_version": "10.0.26100.2454",
+  "packages": [
+    {
+      "name": "Microsoft.Windows.SDK.CPP.10.0.26100.2454.nupkg",
+      "sha256": "e1ada25d24444ac62fd7cb33894d7a7827ec4fa55a22956d0c1e51c2a66f7462"
+    },
+    {
+      "name": "Microsoft.Windows.SDK.CPP.x64.10.0.26100.2454.nupkg",
+      "sha256": "8a5390763fbe8bbcbbeb8e9d1c46b196d36dd8d5c13a6eadc8113ff043bce0a8"
+    },
+    {
+      "name": "Microsoft.Windows.WDK.x64.10.0.26100.2454.nupkg",
+      "sha256": "9c4a31b01583599560e38d206e4401a64423b84d7ae2661dc7222a6b8e419d2b"
+    }
+  ],
+  "built": true,
+  "loaded": false,
+  "live_redirect_tested": false,
+  "accepted": false,
+  "product_backend_enabled": false,
+  "error": null,
+  "gs_library": "BufferOverflowFastFailK.lib",
+  "arm_runtime_library": "",
+  "binary_sha256": "79171f5882f8b4f8720d3d16f1d283d1bf69be2e4e5e88497718555a20f997d2",
+  "signature_status": "NotSigned"
+}

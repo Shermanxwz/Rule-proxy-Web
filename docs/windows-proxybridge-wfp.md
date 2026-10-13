@@ -175,6 +175,19 @@ References: [ProxyBridge v4.1.1 source](https://github.com/InterceptSuite/ProxyB
 [WFP ALE filtering](https://learn.microsoft.com/en-us/windows/win32/fwp/ale-layers),
 [WinDivert documentation](https://github.com/basil00/WinDivert/wiki/WinDivert-Documentation).
 
+## Native ALE redirect / relay foundation
+
+The continuation adds a native ALE redirect source/ABI, a Winsock redirect-record
+relay, held core PID/creation-time/TCP-owner checks and independent redirect-only
+endpoint guard checks. Both unsigned driver builds passed. Each architecture
+passed 38 WFP checks and 16 relay checks. The original WinDivert/ALE conflict is
+not declared solved: the driver has never been signed/loaded, and no positive
+guarded redirect has run. Native inputs stay outside the product package.
+
+See [current validation](validation/2026-10-13-ale-continuation.md) and
+[source contracts](../native/windows/README.md). Production coordination/DNS,
+browser/capture/reboot acceptance and candidate admission remain open.
+
 ## Required live acceptance
 
 Run on a dedicated Windows 11 OS with a network-boundary capture point

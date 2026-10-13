@@ -1,0 +1,2648 @@
+{
+  "environment": "GitHub-hosted Windows virtual machine; real kernel, not a physical device",
+  "os": {
+    "caption": "Microsoft Windows Server 2025 Datacenter",
+    "version": "10.0.26100",
+    "build": "26100",
+    "product_type": 3,
+    "os_architecture": "64-bit",
+    "cpu_architecture": 9,
+    "runner_arch": "X64",
+    "image_os": "win25-vs2026",
+    "image_version": "20260925.250.1"
+  },
+  "binary_sha256": "f6f979040fe66a5fc0e8b2e9515d799eca683c0508eab975779756b3baa47697",
+  "accepted": false,
+  "lab_passed": true,
+  "scope": "experimental app-ID and logon-SID selectors; no production process-tree boundary",
+  "security_findings": {
+    "netonly_gives_distinct_logon_sid": true,
+    "unrelated_instance_of_same_executable_unaffected": false,
+    "full_process_tree_contained": false,
+    "logon_sid_scope_contains_ordinary_createprocess_children": true,
+    "logon_sid_scope_contains_observed_netonly_children": true,
+    "arbitrary_primary_token_changes_contained": null,
+    "logon_sid_scope_preserves_same_path_normal_instances": true,
+    "ordinary_connections_cannot_use_redirect_only_exception": true,
+    "legitimate_redirect_exception_works": "unproved: unsigned driver not loaded"
+  },
+  "checks": {
+    "netonly_token_identity_measured_and_suspended_child_removed": true,
+    "baseline_ipv4_ipv6_tcp_udp": true,
+    "uncommitted_transaction_rolls_back_on_kill": true,
+    "after_aborted_install_connectivity": true,
+    "persistent_objects_verified_after_controller_kill": true,
+    "blocked_after_controller_kill_ipv4_ipv6_tcp_udp": true,
+    "same_basename_other_path_unaffected": true,
+    "same_path_new_instances_also_blocked": true,
+    "different_path_child_can_connect": true,
+    "child_escape_measured_while_parent_policy_is_active": true,
+    "cleanup_rejects_wrong_application_receipt": true,
+    "independent_owned_canary_installed": true,
+    "primary_objects_removed": true,
+    "other_policy_preserved_by_cleanup": true,
+    "other_policy_still_blocks": true,
+    "after_cleanup_connectivity_restored": true,
+    "cleanup_is_idempotent": true,
+    "logon_sid_baseline_ipv4_ipv6_tcp_udp_connected": true,
+    "logon_sid_baseline_ordinary_child_ipv4_ipv6_tcp_udp_connected": true,
+    "logon_sid_child_is_a_real_separate_process": true,
+    "logon_sid_baseline_new_logon_child_ipv4_ipv6_tcp_udp_connected": true,
+    "nested_netonly_child_token_actually_identified_before_resume": true,
+    "logon_sid_objects_read_back_after_controller_kill": true,
+    "logon_sid_direct_ipv4_ipv6_tcp_udp_blocked": true,
+    "logon_sid_scope_preserves_same_path_normal_instances": true,
+    "logon_sid_owned_objects_removed_after_probe_exit": true,
+    "logon_sid_ordinary_child_ipv4_ipv6_tcp_udp_blocked": true,
+    "logon_sid_new_logon_child_ipv4_ipv6_tcp_udp_measured": true,
+    "endpoint_guard_same_port_unguarded_baseline": true,
+    "endpoint_guard_exact_ipv4_ipv6_tcp_udp_listener_baselines": true,
+    "endpoint_guard_static_deny_and_redirect_only_exception_read_back": true,
+    "endpoint_guard_cleanup_rejects_wrong_endpoint": true,
+    "endpoint_guard_normal_same_path_instance_unaffected": true,
+    "endpoint_guard_direct_cannot_forge_redirect_ipv4_ipv6_tcp_udp": true,
+    "endpoint_guard_owned_rules_removed_after_probe_exit": true,
+    "endpoint_guard_ordinary_child_cannot_forge_redirect_ipv4_ipv6_tcp_udp": true,
+    "all_owned_wfp_objects_absent": true,
+    "global_proxy_dns_routes_firewall_profiles_unchanged": true
+  },
+  "observations": {
+    "netonly_token_identity": {
+      "exit": 0,
+      "identity_measured": true,
+      "local_user_sid_unchanged": true,
+      "logon_sid_distinct": true,
+      "authentication_luid_distinct": true,
+      "child_never_resumed": true,
+      "child_exited": true,
+      "process_id": 8976,
+      "network_credentials_used": false
+    },
+    "baseline_ipv4_ipv6_tcp_udp": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 50051,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 4492
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 51565,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 4452
+        },
+        {
+          "host": "::1",
+          "port": 50052,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5676
+        },
+        {
+          "host": "::1",
+          "port": 51566,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5464
+        }
+      ],
+      "peer_deliveries": 4
+    },
+    "abort-hold": {
+      "transaction_pending": true
+    },
+    "aborted_transaction": {
+      "exit": 0,
+      "object_count": 0,
+      "absent": true,
+      "verified": false,
+      "filter_ids": [
+        0,
+        0
+      ],
+      "scope": "executable-path-only",
+      "callout_registered": false
+    },
+    "after_aborted_install_connectivity": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 50051,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3800
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 51565,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8304
+        },
+        {
+          "host": "::1",
+          "port": 50052,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 4748
+        },
+        {
+          "host": "::1",
+          "port": 51566,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5756
+        }
+      ],
+      "peer_deliveries": 4
+    },
+    "hold": {
+      "object_count": 5,
+      "absent": false,
+      "verified": true,
+      "filter_ids": [
+        72781,
+        72782
+      ],
+      "scope": "executable-path-only",
+      "callout_registered": false
+    },
+    "after_controller_kill": {
+      "exit": 0,
+      "object_count": 5,
+      "absent": false,
+      "verified": true,
+      "filter_ids": [
+        72781,
+        72782
+      ],
+      "scope": "executable-path-only",
+      "callout_registered": false
+    },
+    "blocked_after_controller_kill_ipv4_ipv6_tcp_udp": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 50051,
+          "protocol": "tcp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 1072
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 51565,
+          "protocol": "udp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3884
+        },
+        {
+          "host": "::1",
+          "port": 50052,
+          "protocol": "tcp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 8732
+        },
+        {
+          "host": "::1",
+          "port": 51566,
+          "protocol": "udp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8684
+        }
+      ],
+      "peer_deliveries": 0
+    },
+    "same_basename_other_path_unaffected": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 50051,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 716
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 51565,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 7612
+        },
+        {
+          "host": "::1",
+          "port": 50052,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 7100
+        },
+        {
+          "host": "::1",
+          "port": 51566,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5884
+        }
+      ],
+      "peer_deliveries": 4
+    },
+    "same_path_new_instances_also_blocked": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 50051,
+          "protocol": "tcp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 2400
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 51565,
+          "protocol": "udp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 2600
+        },
+        {
+          "host": "::1",
+          "port": 50052,
+          "protocol": "tcp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 1516
+        },
+        {
+          "host": "::1",
+          "port": 51566,
+          "protocol": "udp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 2200
+        }
+      ],
+      "peer_deliveries": 0
+    },
+    "different_path_child_can_connect": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 50051,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 7336
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 51565,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5228
+        },
+        {
+          "host": "::1",
+          "port": 50052,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 784
+        },
+        {
+          "host": "::1",
+          "port": 51566,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3580
+        }
+      ],
+      "peer_deliveries": 4
+    },
+    "wrong_app_cleanup_refusal": {
+      "exit": 1,
+      "error_code": 13,
+      "stage": "filter-exact-identity-value"
+    },
+    "canary_install": {
+      "exit": 0,
+      "object_count": 5,
+      "absent": false,
+      "verified": true,
+      "filter_ids": [
+        72783,
+        72784
+      ],
+      "scope": "executable-path-only",
+      "callout_registered": false
+    },
+    "primary_remove": {
+      "exit": 0,
+      "object_count": 0,
+      "absent": true,
+      "verified": false,
+      "filter_ids": [
+        0,
+        0
+      ],
+      "scope": "executable-path-only",
+      "callout_registered": false
+    },
+    "other_policy_still_blocks": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 50051,
+          "protocol": "tcp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 7784
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 51565,
+          "protocol": "udp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 6196
+        },
+        {
+          "host": "::1",
+          "port": 50052,
+          "protocol": "tcp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 4748
+        },
+        {
+          "host": "::1",
+          "port": 51566,
+          "protocol": "udp",
+          "exit": 2,
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 9008
+        }
+      ],
+      "peer_deliveries": 0
+    },
+    "after_cleanup_connectivity_restored": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 50051,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 608
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 51565,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3820
+        },
+        {
+          "host": "::1",
+          "port": 50052,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8268
+        },
+        {
+          "host": "::1",
+          "port": 51566,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 2920
+        }
+      ],
+      "peer_deliveries": 4
+    },
+    "logon_sid_baseline": [
+      {
+        "host": "127.0.0.1",
+        "port": 50051,
+        "protocol": "tcp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 6244,
+          "logon_sid_sha256": "f7354511dd6788337558c5a6c8ecac95160ee9bf1aaee0733d0ddac5c89ebbd7",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 6244
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 51565,
+        "protocol": "udp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 5096,
+          "logon_sid_sha256": "d8009b0475dcd903b710c311e379d40b4247575c64c5f2ac4502c17ed6d1d16d",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5096
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "::1",
+        "port": 50052,
+        "protocol": "tcp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 1204,
+          "logon_sid_sha256": "1ff745531f82e7253186856daf3b05b65785792a76fa32fad241983c1e50e110",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 1204
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "::1",
+        "port": 51566,
+        "protocol": "udp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 1168,
+          "logon_sid_sha256": "c339bdf99dea9e51c456cbe0d91c0f2c93cf81ae2f8a63cbf4e0a2dba533e310",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 1168
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      }
+    ],
+    "logon_sid_baseline_ordinary_child": [
+      {
+        "host": "127.0.0.1",
+        "port": 50051,
+        "protocol": "tcp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 3392,
+          "logon_sid_sha256": "38133db60a9c1c8b8973af1e9491cfcc515f2b896ea050822bf55620abe42191",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 1032
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 51565,
+        "protocol": "udp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 1472,
+          "logon_sid_sha256": "84ae280d53a5ea4d3199e3ea425b80cb0d9f013fd7758110404b257db71341f5",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 6580
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "::1",
+        "port": 50052,
+        "protocol": "tcp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 7292,
+          "logon_sid_sha256": "83662725f88854917d624743dbb7024b823188db10859a45cd493aa99cb2f43f",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3676
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "::1",
+        "port": 51566,
+        "protocol": "udp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 1028,
+          "logon_sid_sha256": "f165ef931a38805de56c1c9220a13636a9976906a449a11667c4ce0d1bf3d5d1",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3340
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      }
+    ],
+    "logon_sid_baseline_new_logon_child": [
+      {
+        "host": "127.0.0.1",
+        "port": 50051,
+        "protocol": "tcp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 3148,
+          "logon_sid_sha256": "2dcfce3bc0867398846f013ee39e72122221b49fc8c3a231d188c379058c9241",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 4084,
+          "nested_identity": {
+            "identity_measured": true,
+            "child_logon_sid_distinct": true,
+            "parent_logon_sid_present_in_child_groups": true,
+            "parent_logon_sid_enabled_in_child_groups": true,
+            "authentication_luid_distinct": true,
+            "child_identified_before_resume": true
+          }
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 51565,
+        "protocol": "udp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 5456,
+          "logon_sid_sha256": "964c14302dd152bcaba2e23d00179fcea8f9ceeefd609ec39dd792e36e5ad038",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5188,
+          "nested_identity": {
+            "identity_measured": true,
+            "child_logon_sid_distinct": true,
+            "parent_logon_sid_present_in_child_groups": true,
+            "parent_logon_sid_enabled_in_child_groups": true,
+            "authentication_luid_distinct": true,
+            "child_identified_before_resume": true
+          }
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "::1",
+        "port": 50052,
+        "protocol": "tcp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 5032,
+          "logon_sid_sha256": "89be6f809d8d22ba5d1778d321f31cf53a2e68795455418605ebd0bc3dc2d3c7",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8344,
+          "nested_identity": {
+            "identity_measured": true,
+            "child_logon_sid_distinct": true,
+            "parent_logon_sid_present_in_child_groups": true,
+            "parent_logon_sid_enabled_in_child_groups": true,
+            "authentication_luid_distinct": true,
+            "child_identified_before_resume": true
+          }
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      },
+      {
+        "host": "::1",
+        "port": 51566,
+        "protocol": "udp",
+        "filter_committed_before_resume": false,
+        "probe": {
+          "exit": 0,
+          "root_process_id": 1280,
+          "logon_sid_sha256": "1a0bb28b6d0024c7d477fb655b03c261ec4392d57ea3bd8542b5ecfef7bf9843",
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 4748,
+          "nested_identity": {
+            "identity_measured": true,
+            "child_logon_sid_distinct": true,
+            "parent_logon_sid_present_in_child_groups": true,
+            "parent_logon_sid_enabled_in_child_groups": true,
+            "authentication_luid_distinct": true,
+            "child_identified_before_resume": true
+          }
+        },
+        "peer_deliveries": 1,
+        "network_outcome": "connected"
+      }
+    ],
+    "logon_sid_direct": [
+      {
+        "host": "127.0.0.1",
+        "port": 50051,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72785,
+            72786
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 6916,
+          "logon_sid_sha256": "246216e521a73f3bdea269f0061f224dcfa3dfd296a0697f8dbc7ab4e051bf73",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 6916
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 9208
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 51565,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72787,
+            72788
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 6256,
+          "logon_sid_sha256": "cc051b0b38ab8b26f2938dab71cd00e9a2e2c0b9ee366ab5de8fe57bf8cc3fce",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 6256
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 2476
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "::1",
+        "port": 50052,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72789,
+            72790
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 1328,
+          "logon_sid_sha256": "76459601ec39b89704caa3a6a299d75abfaaafb422a8eb5562dfbff5c2284107",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 1328
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 6552
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "::1",
+        "port": 51566,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72791,
+            72792
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 8548,
+          "logon_sid_sha256": "52fc638acbc7a36ece63364165b4cb0b870627905320ddbb74d81fd5d7cd6179",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8548
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8384
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      }
+    ],
+    "logon_sid_ordinary_child": [
+      {
+        "host": "127.0.0.1",
+        "port": 50051,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72793,
+            72794
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 1028,
+          "logon_sid_sha256": "bdd50a20a7189855d377c7394fe678cf2f8ad4d53f55e2cb36d9253b40faa491",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 4496
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 6124
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 51565,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72795,
+            72796
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 1752,
+          "logon_sid_sha256": "6a3d99c0b2b6b4bd0eee604170cbf4c8d0c2fc018c820531e91d96154e4c9d73",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 7784
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5756
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "::1",
+        "port": 50052,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72797,
+            72798
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 3520,
+          "logon_sid_sha256": "75d510c5801a465f0886c61ea105ac04d2c06aaed95519c31b99a4f42b43838f",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 5252
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 7012
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "::1",
+        "port": 51566,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72799,
+            72800
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 9028,
+          "logon_sid_sha256": "2f179082635a58a2163e06e55611e129a139fb214a10d0d48020e21fcf2e8a7f",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 2416
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 4580
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      }
+    ],
+    "logon_sid_new_logon_child": [
+      {
+        "host": "127.0.0.1",
+        "port": 50051,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72801,
+            72802
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 6036,
+          "logon_sid_sha256": "49670816180c8612ead1baf17960ca48405c283efa9ed09cbec026dba598b1f0",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 2968,
+          "nested_identity": {
+            "identity_measured": true,
+            "child_logon_sid_distinct": true,
+            "parent_logon_sid_present_in_child_groups": true,
+            "parent_logon_sid_enabled_in_child_groups": true,
+            "authentication_luid_distinct": true,
+            "child_identified_before_resume": true
+          }
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 948
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 51565,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72803,
+            72804
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 4596,
+          "logon_sid_sha256": "1f11247b7035875feed812fd7d119848d6a00249d440f03f3e9683e60cbda086",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 1300,
+          "nested_identity": {
+            "identity_measured": true,
+            "child_logon_sid_distinct": true,
+            "parent_logon_sid_present_in_child_groups": true,
+            "parent_logon_sid_enabled_in_child_groups": true,
+            "authentication_luid_distinct": true,
+            "child_identified_before_resume": true
+          }
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3616
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "::1",
+        "port": 50052,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72805,
+            72806
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 8344,
+          "logon_sid_sha256": "7c4a34ebd65a83d02e69454e3437044a025e44c410bdec9240703d2f929a38ea",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 5716,
+          "nested_identity": {
+            "identity_measured": true,
+            "child_logon_sid_distinct": true,
+            "parent_logon_sid_present_in_child_groups": true,
+            "parent_logon_sid_enabled_in_child_groups": true,
+            "authentication_luid_distinct": true,
+            "child_identified_before_resume": true
+          }
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 2352
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      },
+      {
+        "host": "::1",
+        "port": 51566,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72807,
+            72808
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 1688,
+          "logon_sid_sha256": "dbf4cc13eb20b56e13fcd3d07706f18aa4751593c9e6c2ce5c6f2a27defe6f35",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3884,
+          "nested_identity": {
+            "identity_measured": true,
+            "child_logon_sid_distinct": true,
+            "parent_logon_sid_present_in_child_groups": true,
+            "parent_logon_sid_enabled_in_child_groups": true,
+            "authentication_luid_distinct": true,
+            "child_identified_before_resume": true
+          }
+        },
+        "peer_deliveries": 0,
+        "network_outcome": "blocked",
+        "same_path_normal_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 1336
+        },
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0
+          ],
+          "scope": "logon-sid-only",
+          "callout_registered": false
+        }
+      }
+    ],
+    "endpoint_guard_same_port_unguarded_baseline": {
+      "probes": [
+        {
+          "host": "127.0.0.1",
+          "port": 59011,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8048
+        },
+        {
+          "host": "127.0.0.1",
+          "port": 59011,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3120
+        },
+        {
+          "host": "::1",
+          "port": 59011,
+          "protocol": "tcp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 856
+        },
+        {
+          "host": "::1",
+          "port": 59011,
+          "protocol": "udp",
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 3516
+        }
+      ],
+      "peer_deliveries": 4
+    },
+    "endpoint_guard_direct": [
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72809,
+            72811,
+            72810,
+            72812
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        },
+        "wrong_endpoint_cleanup": {
+          "exit": 1,
+          "error_code": 13,
+          "stage": "endpoint-guard-redirect-only-tcp-exception"
+        },
+        "ordinary_same_path_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 7968
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 6248,
+          "logon_sid_sha256": "d8a3cc176e10c71ef1ce032c9c8da57a5913ae025e44ca7e73c728908588789d",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 6248
+        },
+        "peer_deliveries": 0,
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        }
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72813,
+            72815,
+            72814,
+            72816
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        },
+        "wrong_endpoint_cleanup": {
+          "exit": 1,
+          "error_code": 13,
+          "stage": "endpoint-guard-redirect-only-tcp-exception"
+        },
+        "ordinary_same_path_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 1484
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 6540,
+          "logon_sid_sha256": "b3c2fbacd01c3bf79773bad0e7d4f9cafe300d167904b7b3238dbe47c5c38299",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 6540
+        },
+        "peer_deliveries": 0,
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        }
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72817,
+            72819,
+            72818,
+            72820
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        },
+        "wrong_endpoint_cleanup": {
+          "exit": 1,
+          "error_code": 13,
+          "stage": "endpoint-guard-redirect-only-tcp-exception"
+        },
+        "ordinary_same_path_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8368
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 5304,
+          "logon_sid_sha256": "621b17109d2ae43e3d783d1b10840d9707937e2977f3ccd765af36efc8f40e0c",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 5304
+        },
+        "peer_deliveries": 0,
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        }
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72821,
+            72823,
+            72822,
+            72824
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        },
+        "wrong_endpoint_cleanup": {
+          "exit": 1,
+          "error_code": 13,
+          "stage": "endpoint-guard-redirect-only-tcp-exception"
+        },
+        "ordinary_same_path_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8272
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 4804,
+          "logon_sid_sha256": "9d10bac437906d038a3106939ef7a8a67ca19cc8804ba2715ec13dead4be6de3",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 4804
+        },
+        "peer_deliveries": 0,
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        }
+      }
+    ],
+    "endpoint_guard_ordinary_child": [
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72825,
+            72827,
+            72826,
+            72828
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        },
+        "wrong_endpoint_cleanup": {
+          "exit": 1,
+          "error_code": 13,
+          "stage": "endpoint-guard-redirect-only-tcp-exception"
+        },
+        "ordinary_same_path_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 8092
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 5624,
+          "logon_sid_sha256": "8bb56b55ffea32acff619c47ac308397b9ee1ef1e08251030d8a4d62973f9c12",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 2960
+        },
+        "peer_deliveries": 0,
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        }
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72829,
+            72831,
+            72830,
+            72832
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        },
+        "wrong_endpoint_cleanup": {
+          "exit": 1,
+          "error_code": 13,
+          "stage": "endpoint-guard-redirect-only-tcp-exception"
+        },
+        "ordinary_same_path_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5688
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 8776,
+          "logon_sid_sha256": "8bfcf4133dfbb3f4f4c22f52d18667fbe74001bbde3385f21ab38f01bc6671e9",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 2396
+        },
+        "peer_deliveries": 0,
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        }
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "tcp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72833,
+            72835,
+            72834,
+            72836
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        },
+        "wrong_endpoint_cleanup": {
+          "exit": 1,
+          "error_code": 13,
+          "stage": "endpoint-guard-redirect-only-tcp-exception"
+        },
+        "ordinary_same_path_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 2376
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 4772,
+          "logon_sid_sha256": "de7bc2e7e76ada98994ccacffbe585b8aa4960bc9c490d181da6ab42e8220421",
+          "connected": false,
+          "wsa_error": 10013,
+          "stage": "connect",
+          "sent_bytes": 0,
+          "process_id": 5964
+        },
+        "peer_deliveries": 0,
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        }
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "udp",
+        "filter_committed_before_resume": true,
+        "policy_after_controller_kill": {
+          "exit": 0,
+          "object_count": 5,
+          "absent": false,
+          "verified": true,
+          "filter_ids": [
+            72837,
+            72839,
+            72838,
+            72840
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        },
+        "wrong_endpoint_cleanup": {
+          "exit": 1,
+          "error_code": 13,
+          "stage": "endpoint-guard-redirect-only-tcp-exception"
+        },
+        "ordinary_same_path_instance": {
+          "exit": 0,
+          "connected": true,
+          "wsa_error": 0,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 1488
+        },
+        "probe": {
+          "exit": 2,
+          "root_process_id": 8228,
+          "logon_sid_sha256": "5b75b670228597e3e5e538a5e4652ce4147bc7a764790938ce9c0a074124509a",
+          "connected": false,
+          "wsa_error": 10060,
+          "stage": "receive",
+          "sent_bytes": 7,
+          "process_id": 5228
+        },
+        "peer_deliveries": 0,
+        "cleanup": {
+          "exit": 0,
+          "object_count": 0,
+          "absent": true,
+          "verified": false,
+          "filter_ids": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "scope": "logon-sid-redirect-only-endpoint",
+          "static_independent_guard": true,
+          "redirected_path_tested": false,
+          "relay_port": 59011
+        }
+      }
+    ],
+    "endpoint_guard_echo_deliveries": [
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 59011,
+        "protocol": "udp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "tcp",
+        "bytes": 7
+      },
+      {
+        "host": "::1",
+        "port": 59011,
+        "protocol": "udp",
+        "bytes": 7
+      }
+    ],
+    "final_cleanup": [
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "executable-path-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "executable-path-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "executable-path-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0
+        ],
+        "scope": "logon-sid-only",
+        "callout_registered": false
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": "logon-sid-redirect-only-endpoint",
+        "static_independent_guard": true,
+        "redirected_path_tested": false,
+        "relay_port": 59011
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": "logon-sid-redirect-only-endpoint",
+        "static_independent_guard": true,
+        "redirected_path_tested": false,
+        "relay_port": 59011
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": "logon-sid-redirect-only-endpoint",
+        "static_independent_guard": true,
+        "redirected_path_tested": false,
+        "relay_port": 59011
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": "logon-sid-redirect-only-endpoint",
+        "static_independent_guard": true,
+        "redirected_path_tested": false,
+        "relay_port": 59011
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": "logon-sid-redirect-only-endpoint",
+        "static_independent_guard": true,
+        "redirected_path_tested": false,
+        "relay_port": 59011
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": "logon-sid-redirect-only-endpoint",
+        "static_independent_guard": true,
+        "redirected_path_tested": false,
+        "relay_port": 59011
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": "logon-sid-redirect-only-endpoint",
+        "static_independent_guard": true,
+        "redirected_path_tested": false,
+        "relay_port": 59011
+      },
+      {
+        "exit": 0,
+        "object_count": 0,
+        "absent": true,
+        "verified": false,
+        "filter_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": "logon-sid-redirect-only-endpoint",
+        "static_independent_guard": true,
+        "redirected_path_tested": false,
+        "relay_port": 59011
+      }
+    ]
+  },
+  "error": null,
+  "unproved": [
+    "transparent redirect",
+    "unique descendant identity",
+    "external IPv6 route and packet capture",
+    "browser login and cookies",
+    "reboot and boot-time enforcement",
+    "signed production callout"
+  ],
+  "system_state_before_sha256": "6c336e9bddf889e0ddc435276fc672d20fb70bbb13eae27b1e7ea74ef40a975a",
+  "policy_guids": {
+    "primary": "2ad4f8db-ec03-4900-b35d-5a23db8b55c3",
+    "owned_canary": "3fb25c6c-9d30-4884-bed9-3e2fed0e8558",
+    "aborted": "1d241ace-390b-478f-b937-d42cc188c7dc"
+  },
+  "echo_deliveries": [
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 50051,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 51565,
+      "protocol": "udp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 50052,
+      "protocol": "tcp",
+      "bytes": 7
+    },
+    {
+      "host": "::1",
+      "port": 51566,
+      "protocol": "udp",
+      "bytes": 7
+    }
+  ],
+  "system_state_after_sha256": "6c336e9bddf889e0ddc435276fc672d20fb70bbb13eae27b1e7ea74ef40a975a"
+}
