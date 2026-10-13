@@ -17,6 +17,11 @@ exist. Do not merge or advertise ProxyBridge/WFP as protected.
 - `scripts/windows/Stage-ProxyBridge.ps1` downloads the v4.1.1 upstream
   installer and checks its release SHA-256. It does not execute the installer.
   Removing `bin/windows-candidate` completely reverses staging.
+- `scripts/windows/Test-ProxyBridgeWfp.ps1` is a disposable Windows CI
+  experiment. It extracts the verified installer without running NSIS, runs
+  the upstream CLI and WinDivert driver, measures a local SOCKS5 witness, adds
+  one program-specific outbound block, and removes its own rule and driver.
+  It is not a product installation path or an admission check.
 - `.github/windows_candidate_gate.py` emits a JSON failure record on Windows
   CI and exits nonzero. The regular Windows and Linux jobs still test the
   existing product independently.
@@ -39,6 +44,23 @@ runs would leave a crash/restart window. A safe implementation needs a proven
 redirection and enforcement ordering with an independent guard, unique
 descendant identity, and persistent block semantics. Neither a firewall
 exception nor a watchdog alone satisfies this contract.
+
+This conflict was observed on a Windows 11 26100 GitHub-hosted VM in
+[run #91](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38355503137):
+with no program block, a direct `curl` probe got `OK` via ProxyBridge and the
+SOCKS witness saw one CONNECT. With a Windows Firewall outbound block for the
+same executable, the probe failed immediately and the witness saw zero
+CONNECTs. Killing the CLI while keeping the block left the probe unable to
+connect. The test uses a Windows kernel and actual WinDivert driver, but a
+virtual machine and no external packet capture; it does not meet physical
+device or full leak acceptance. See [raw run data](validation/windows-vm-run-91.json).
+
+The upstream v4.1.1 NSIS installer is unsuitable for direct product deployment:
+it changes machine PATH, installs an automatic LocalSystem service and user
+group, removes firewall rules by executable, and stops/deletes a WinDivert
+service of the same name. A protected installer must own and verify its exact
+resources and reverse partial installation without deleting third-party state.
+The disposable experiment extracts binaries and does not run these NSIS actions.
 
 References: [ProxyBridge v4.1.1 source](https://github.com/InterceptSuite/ProxyBridge/tree/v4.1.1/Windows),
 [WFP ALE filtering](https://learn.microsoft.com/en-us/windows/win32/fwp/ale-layers),
