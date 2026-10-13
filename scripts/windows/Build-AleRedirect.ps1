@@ -5,6 +5,7 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or -not $env:RUNNER_TEMP) { throw 'Requires 
 New-Item -ItemType Directory -Path $Evidence -Force | Out-Null
 $version = '10.0.26100.2454'
 $target = if ($env:RUNNER_ARCH -eq 'ARM64') { 'ARM64' } else { 'x64' }
+$defines = if ($target -eq 'ARM64') { '/D_ARM64_=1' } else { '/D_AMD64_=1' }
 $compiler = if ($target -eq 'ARM64') { 'x64_arm64' } else { 'x64' }
 $work = Join-Path $env:RUNNER_TEMP ('ruleproxy-ale-build-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $work | Out-Null
@@ -37,7 +38,7 @@ try {
     $header = Join-Path (Split-Path $source) 'redirect_protocol.h'
     $output = Join-Path $Evidence 'ruleproxy-ale-redirect.sys'
     $output = [IO.Path]::GetFullPath($output)
-    $line = 'call "' + $vcvars + '" ' + $compiler + ' && cl /nologo /TC /kernel /W4 /WX /GS /Zl /O2 /D_KERNEL_MODE /DUNICODE /D_UNICODE /D_WIN32_WINNT=0x0A00 /DNTDDI_VERSION=0x0A00000B /I"' + $km + '" /I"' + $km + '\crt" /I"' + $shared + '" /c "' + $source + '" /Fo:redirect_driver.obj && link /nologo /DRIVER /SUBSYSTEM:NATIVE /ENTRY:GsDriverEntry /INTEGRITYCHECK /RELEASE /NODEFAULTLIB /MACHINE:' + $target + ' /LIBPATH:"' + $lib + '" redirect_driver.obj ntoskrnl.lib fwpkclnt.lib wdmsec.lib BufferOverflowK.lib /OUT:"' + $output + '"'
+    $line = 'call "' + $vcvars + '" ' + $compiler + ' && cl /nologo /TC /kernel /W4 /WX /GS /Zl /O2 ' + $defines + ' /DUNICODE /D_UNICODE /D_WIN32_WINNT=0x0A00 /DNTDDI_VERSION=0x0A00000B /I"' + $km + '" /I"' + $km + '\crt" /I"' + $shared + '" /c "' + $source + '" /Fo:redirect_driver.obj && link /nologo /DRIVER /SUBSYSTEM:NATIVE /ENTRY:GsDriverEntry /INTEGRITYCHECK /RELEASE /NODEFAULTLIB /MACHINE:' + $target + ' /LIBPATH:"' + $lib + '" redirect_driver.obj ntoskrnl.lib fwpkclnt.lib wdmsec.lib BufferOverflowK.lib /OUT:"' + $output + '"'
     Push-Location $work
     try {
         & cmd.exe /d /s /c $line 2>&1 | Tee-Object -FilePath (Join-Path $Evidence 'build.txt')

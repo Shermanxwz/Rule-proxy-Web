@@ -152,13 +152,15 @@ static int token_identity(const wchar_t* program) {
 }
 
 struct Policy {
-    GUID seed{}, sublayer{}, callout[2]{}, filter[2]{};
+    GUID seed{}, sublayer{}, callout[2]{}, filter[4]{};
     unsigned char owner[64]{};
     FWP_BYTE_BLOB ownership{};
     WfpMemory<FWP_BYTE_BLOB> app;
     LocalMemory descriptor;
     FWP_BYTE_BLOB user_descriptor{};
     bool session_scope = false;
+    bool endpoint_guard = false;
+    UINT16 relay_port = 0;
     Policy(const wchar_t* text, const wchar_t* program, const wchar_t* logon_sid = nullptr) {
         checked(UuidFromStringW(reinterpret_cast<RPC_WSTR>(const_cast<wchar_t*>(text)), &seed), "policy-guid");
         const GUID zero{};
@@ -168,6 +170,8 @@ struct Policy {
         callout[1] = seed; callout[1].Data4[7] ^= 0x22;
         filter[0] = seed; filter[0].Data4[7] ^= 0x31;
         filter[1] = seed; filter[1].Data4[7] ^= 0x32;
+        filter[2] = seed; filter[2].Data4[7] ^= 0x33;
+        filter[3] = seed; filter[3].Data4[7] ^= 0x34;
         const char mark[] = "RuleProxy-disposable-WFP-lab-v1";
         std::memcpy(owner, mark, sizeof(mark));
         std::memcpy(owner + sizeof(mark), &seed, sizeof(seed));
@@ -208,6 +212,59 @@ struct Policy {
 };
 static const GUID* layers[2] = {&FWPM_LAYER_ALE_AUTH_CONNECT_V4, &FWPM_LAYER_ALE_AUTH_CONNECT_V6};
 
+// Independent static guard template for the future ALE redirector. An ordinary
+// connect to the very same loopback endpoint is not an exception: the engine's
+// IS_CONNECTION_REDIRECTED flag must also be present. No driver is needed to
+// install/test denial, but a compiled driver is not proof of the permitted path.
+static void add_endpoint_filters(Engine& e, Policy& p, const FWPM_SUBLAYER0& sub) {
+    require(p.session_scope && p.relay_port >= 1025, "endpoint-guard-session-and-port");
+    FWP_BYTE_ARRAY16 loopback6{};
+    loopback6.byteArray16[15] = 1;
+    for (int i = 0; i < 2; ++i) {
+        FWPM_FILTER_CONDITION0 conditions[5]{};
+        conditions[0].fieldKey = FWPM_CONDITION_ALE_USER_ID;
+        conditions[0].matchType = FWP_MATCH_EQUAL;
+        conditions[0].conditionValue.type = FWP_SECURITY_DESCRIPTOR_TYPE;
+        conditions[0].conditionValue.sd = &p.user_descriptor;
+        FWPM_FILTER0 f{};
+        f.filterKey = p.filter[i];
+        f.displayData.name = sub.displayData.name;
+        f.flags = FWPM_FILTER_FLAG_PERSISTENT;
+        f.providerData = p.ownership;
+        f.layerKey = *layers[i];
+        f.subLayerKey = p.sublayer;
+        f.weight.type = FWP_UINT8;
+        f.weight.uint8 = 1;
+        f.numFilterConditions = 1;
+        f.filterCondition = conditions;
+        f.action.type = FWP_ACTION_BLOCK;
+        checked(FwpmFilterAdd0(e.handle, &f, nullptr, nullptr), "endpoint-guard-deny-add");
+
+        conditions[1].fieldKey = FWPM_CONDITION_IP_PROTOCOL;
+        conditions[1].matchType = FWP_MATCH_EQUAL;
+        conditions[1].conditionValue.type = FWP_UINT8;
+        conditions[1].conditionValue.uint8 = IPPROTO_TCP;
+        conditions[2].fieldKey = FWPM_CONDITION_IP_REMOTE_ADDRESS;
+        conditions[2].matchType = FWP_MATCH_EQUAL;
+        conditions[2].conditionValue.type = i == 0 ? FWP_UINT32 : FWP_BYTE_ARRAY16_TYPE;
+        if (i == 0) conditions[2].conditionValue.uint32 = 0x7f000001u;
+        else conditions[2].conditionValue.byteArray16 = &loopback6;
+        conditions[3].fieldKey = FWPM_CONDITION_IP_REMOTE_PORT;
+        conditions[3].matchType = FWP_MATCH_EQUAL;
+        conditions[3].conditionValue.type = FWP_UINT16;
+        conditions[3].conditionValue.uint16 = p.relay_port;
+        conditions[4].fieldKey = FWPM_CONDITION_FLAGS;
+        conditions[4].matchType = FWP_MATCH_FLAGS_ALL_SET;
+        conditions[4].conditionValue.type = FWP_UINT32;
+        conditions[4].conditionValue.uint32 = FWP_CONDITION_FLAG_IS_CONNECTION_REDIRECTED | FWP_CONDITION_FLAG_IS_LOOPBACK;
+        f.filterKey = p.filter[i + 2];
+        f.weight.uint8 = 15;
+        f.numFilterConditions = 5;
+        f.action.type = FWP_ACTION_PERMIT; // soft; unrelated firewall providers can still deny.
+        checked(FwpmFilterAdd0(e.handle, &f, nullptr, nullptr), "endpoint-guard-redirect-only-permit-add");
+    }
+}
+
 static void add_policy(Engine& e, Policy& p) {
     FWPM_SUBLAYER0 sub{};
     sub.subLayerKey = p.sublayer;
@@ -218,6 +275,7 @@ static void add_policy(Engine& e, Policy& p) {
     // No service-associated provider: a non-autostart provider can have its
     // filters disabled by BFE at restart. Reboot/boot-time behavior is untested.
     checked(FwpmSubLayerAdd0(e.handle, &sub, nullptr), "sublayer-add");
+    if (p.endpoint_guard) { add_endpoint_filters(e, p, sub); return; }
     for (int i = 0; i < 2; ++i) {
         FWPM_CALLOUT0 call{};
         call.calloutKey = p.callout[i];
@@ -251,7 +309,87 @@ static void add_policy(Engine& e, Policy& p) {
 
 // Validate every existing object before any deletion. A GUID receipt alone
 // does not prove enforcement or ownership; read the objects back from BFE.
+static const FWPM_FILTER_CONDITION0& endpoint_condition(const FWPM_FILTER0& f, const GUID& key) {
+    const FWPM_FILTER_CONDITION0* found = nullptr;
+    for (UINT32 i = 0; i < f.numFilterConditions; ++i) {
+        if (same(f.filterCondition[i].fieldKey, key)) {
+            require(!found, "endpoint-guard-duplicate-condition");
+            found = &f.filterCondition[i];
+        }
+    }
+    require(found != nullptr, "endpoint-guard-required-condition");
+    return *found;
+}
+static unsigned inspect_endpoint_policy(Engine& e, Policy& p, bool output) {
+    unsigned count = 0;
+    UINT64 ids[4]{};
+    WfpMemory<FWPM_SUBLAYER0> sub;
+    DWORD result = FwpmSubLayerGetByKey0(e.handle, &p.sublayer, &sub.value);
+    if (result != FWP_E_SUBLAYER_NOT_FOUND) {
+        checked(result, "endpoint-guard-sublayer-get");
+        require(p.owned(sub.value->providerData) && !sub.value->providerKey &&
+                (sub.value->flags & FWPM_SUBLAYER_FLAG_PERSISTENT), "endpoint-guard-sublayer-ownership");
+        ++count;
+    }
+    for (int i = 0; i < 4; ++i) {
+        WfpMemory<FWPM_FILTER0> rule;
+        result = FwpmFilterGetByKey0(e.handle, &p.filter[i], &rule.value);
+        if (result == FWP_E_FILTER_NOT_FOUND) continue;
+        checked(result, "endpoint-guard-filter-get");
+        const auto& f = *rule.value;
+        const bool permit = i >= 2;
+        require(p.owned(f.providerData) && !f.providerKey && same(f.layerKey, *layers[i % 2]) &&
+                same(f.subLayerKey, p.sublayer) && f.flags == FWPM_FILTER_FLAG_PERSISTENT &&
+                f.action.type == (permit ? FWP_ACTION_PERMIT : FWP_ACTION_BLOCK) &&
+                f.weight.type == FWP_UINT8 && f.weight.uint8 == (permit ? 15 : 1) &&
+                f.numFilterConditions == (permit ? 5u : 1u) && f.filterCondition,
+                "endpoint-guard-filter-enforcement-properties");
+        const auto& user = endpoint_condition(f, FWPM_CONDITION_ALE_USER_ID);
+        require(user.matchType == FWP_MATCH_EQUAL && user.conditionValue.type == FWP_SECURITY_DESCRIPTOR_TYPE &&
+                user.conditionValue.sd && user.conditionValue.sd->data &&
+                user.conditionValue.sd->size == p.user_descriptor.size &&
+                std::memcmp(user.conditionValue.sd->data, p.user_descriptor.data, p.user_descriptor.size) == 0,
+                "endpoint-guard-exact-session-selector");
+        if (permit) {
+            const auto& protocol = endpoint_condition(f, FWPM_CONDITION_IP_PROTOCOL);
+            const auto& address = endpoint_condition(f, FWPM_CONDITION_IP_REMOTE_ADDRESS);
+            const auto& port = endpoint_condition(f, FWPM_CONDITION_IP_REMOTE_PORT);
+            const auto& flags = endpoint_condition(f, FWPM_CONDITION_FLAGS);
+            require(protocol.matchType == FWP_MATCH_EQUAL && protocol.conditionValue.type == FWP_UINT8 &&
+                    protocol.conditionValue.uint8 == IPPROTO_TCP && port.matchType == FWP_MATCH_EQUAL &&
+                    port.conditionValue.type == FWP_UINT16 && port.conditionValue.uint16 == p.relay_port &&
+                    flags.matchType == FWP_MATCH_FLAGS_ALL_SET && flags.conditionValue.type == FWP_UINT32 &&
+                    flags.conditionValue.uint32 == (FWP_CONDITION_FLAG_IS_CONNECTION_REDIRECTED | FWP_CONDITION_FLAG_IS_LOOPBACK),
+                    "endpoint-guard-redirect-only-tcp-exception");
+            require(address.matchType == FWP_MATCH_EQUAL, "endpoint-guard-exact-loopback-match");
+            if (i % 2 == 0)
+                require(address.conditionValue.type == FWP_UINT32 && address.conditionValue.uint32 == 0x7f000001u,
+                        "endpoint-guard-ipv4-loopback");
+            else {
+                FWP_BYTE_ARRAY16 loopback{};
+                loopback.byteArray16[15] = 1;
+                require(address.conditionValue.type == FWP_BYTE_ARRAY16_TYPE && address.conditionValue.byteArray16 &&
+                        std::memcmp(address.conditionValue.byteArray16, &loopback, sizeof(loopback)) == 0,
+                        "endpoint-guard-ipv6-loopback");
+            }
+        }
+        ids[i] = f.filterId;
+        ++count;
+    }
+    if (output) {
+        std::printf("{\"object_count\":%u,\"absent\":%s,\"verified\":%s,"
+                    "\"filter_ids\":[%llu,%llu,%llu,%llu],\"scope\":\"logon-sid-redirect-only-endpoint\","
+                    "\"static_independent_guard\":true,\"redirected_path_tested\":false,\"relay_port\":%u}\n",
+                    count, count == 0 ? "true" : "false", count == 5 ? "true" : "false",
+                    static_cast<unsigned long long>(ids[0]), static_cast<unsigned long long>(ids[1]),
+                    static_cast<unsigned long long>(ids[2]), static_cast<unsigned long long>(ids[3]),
+                    static_cast<unsigned>(p.relay_port));
+        std::fflush(stdout);
+    }
+    return count;
+}
 static unsigned inspect_policy(Engine& e, Policy& p, bool output) {
+    if (p.endpoint_guard) return inspect_endpoint_policy(e, p, output);
     unsigned count = 0;
     UINT64 ids[2]{};
     WfpMemory<FWPM_SUBLAYER0> sub;
@@ -313,10 +451,12 @@ static void delete_result(DWORD code, DWORD absent, const char* stage) {
 static void remove_policy(Engine& e, Policy& p) {
     e.begin();
     inspect_policy(e, p, false);
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < (p.endpoint_guard ? 4 : 2); ++i)
         delete_result(FwpmFilterDeleteByKey0(e.handle, &p.filter[i]), static_cast<DWORD>(FWP_E_FILTER_NOT_FOUND), "filter-delete");
-    for (int i = 0; i < 2; ++i)
-        delete_result(FwpmCalloutDeleteByKey0(e.handle, &p.callout[i]), static_cast<DWORD>(FWP_E_CALLOUT_NOT_FOUND), "callout-delete");
+    if (!p.endpoint_guard) {
+        for (int i = 0; i < 2; ++i)
+            delete_result(FwpmCalloutDeleteByKey0(e.handle, &p.callout[i]), static_cast<DWORD>(FWP_E_CALLOUT_NOT_FOUND), "callout-delete");
+    }
     delete_result(FwpmSubLayerDeleteByKey0(e.handle, &p.sublayer), static_cast<DWORD>(FWP_E_SUBLAYER_NOT_FOUND), "sublayer-delete");
     e.commit();
     require(inspect_policy(e, p, true) == 0, "cleanup-not-verified");
@@ -533,15 +673,24 @@ int wmain(int argc, wchar_t** argv) {
         if (argc == 2 && std::wcscmp(argv[1], L"identity-idle") == 0) { Sleep(INFINITE); return 0; }
         if (argc == 5 && std::wcscmp(argv[1], L"probe") == 0) return probe(argv[2], argv[3], argv[4]);
         if (argc == 6 && std::wcscmp(argv[1], L"spawn") == 0) return spawn_probe(argv);
-        require(argc == 4 || argc == 5, "usage-command-guid-synthetic-exe-optional-logon-sid");
+        require(argc == 4 || argc == 5 || argc == 6, "usage-command-guid-synthetic-exe-optional-logon-sid-and-port");
         std::wstring command = argv[1];
         bool session_scope = command.rfind(L"user-", 0) == 0;
-        require(session_scope ? argc == 5 : argc == 4, "scope-argument-count");
         if (session_scope) command = command.substr(5);
+        bool endpoint_guard = command.rfind(L"guard-", 0) == 0;
+        if (endpoint_guard) command = command.substr(6);
+        require(endpoint_guard ? session_scope && argc == 6 : session_scope ? argc == 5 : argc == 4, "scope-argument-count");
         require(command == L"install" || command == L"hold" || command == L"abort-hold" ||
                 command == L"inspect" || command == L"remove", "known-command");
         lab_scope(argv[3]);
         Policy p(argv[2], argv[3], session_scope ? argv[4] : nullptr);
+        p.endpoint_guard = endpoint_guard;
+        if (endpoint_guard) {
+            wchar_t* end = nullptr;
+            unsigned long port = std::wcstoul(argv[5], &end, 10);
+            require(end && end != argv[5] && !*end && port >= 1025 && port <= 65535, "endpoint-guard-relay-port");
+            p.relay_port = static_cast<UINT16>(port);
+        }
         Engine e;
         if (command == L"inspect") { inspect_policy(e, p, true); return 0; }
         if (command == L"remove") { remove_policy(e, p); return 0; }

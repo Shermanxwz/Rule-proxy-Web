@@ -211,13 +211,14 @@ class SessionProbe:
 class EchoTargets:
     """Four real loopback listeners, with independently recorded deliveries."""
 
-    def __init__(self):
+    def __init__(self, shared_endpoint: bool = False):
         self.sockets: list[socket.socket] = []
         self.threads: list[threading.Thread] = []
         self.targets: list[dict] = []
         self.received: list[dict] = []
         self.lock = threading.Lock()
         self.stopped = threading.Event()
+        self.shared_endpoint = shared_endpoint
 
     def __enter__(self):
         try:
@@ -227,7 +228,7 @@ class EchoTargets:
                     self.sockets.append(server)
                     if family == socket.AF_INET6:
                         server.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
-                    server.bind((host, 0))
+                    server.bind((host, self.targets[0]['port'] if self.shared_endpoint and self.targets else 0))
                     server.settimeout(0.2)
                     if protocol == "tcp":
                         server.listen(8)
@@ -324,6 +325,7 @@ def run(executable: Path, evidence: Path) -> dict:
         report["policy_guids"] = {"primary": seed, "owned_canary": canary_seed, "aborted": pending_seed}
         policies = [(seed, protected), (canary_seed, canary), (pending_seed, protected)]
         session_policies = []
+        guard_policies = []
         held: list[subprocess.Popen] = []
 
         def native(operation: str, key: str, target: Path) -> dict:
@@ -454,6 +456,73 @@ def run(executable: Path, evidence: Path) -> dict:
             report["security_findings"]["arbitrary_primary_token_changes_contained"] = None
             report["security_findings"]["logon_sid_scope_preserves_same_path_normal_instances"] = True
 
+        def endpoint_guard_cases():
+            """Real static BFE rules: direct loopback cannot forge redirect flags."""
+            with EchoTargets(shared_endpoint=True) as endpoints:
+                group('endpoint_guard_same_port_unguarded_baseline', protected, endpoints, False)
+                relay_port = endpoints.targets[0]['port']
+                need(relay_port >= 1025 and all(t['port'] == relay_port for t in endpoints.targets),
+                     'endpoint_guard_exact_ipv4_ipv6_tcp_udp_listener_baselines')
+                for label, operation in [('direct', 'probe-file'), ('ordinary_child', 'spawn-file')]:
+                    samples = []
+                    observations['endpoint_guard_' + label] = samples
+                    for index, target in enumerate(endpoints.targets):
+                        output = root / f'guard-{label}-{index}.json'
+                        arguments = [operation]
+                        if operation == 'spawn-file':
+                            arguments.append(str(control))
+                        arguments.extend([target['host'], str(target['port']), target['protocol'], str(output)])
+                        session = SessionProbe(protected, arguments, output)
+                        key = str(uuid.uuid4())
+                        guard_policies.append((key, session.sid, relay_port))
+                        prefix = [str(executable)]
+                        suffix = [key, str(protected), session.sid, str(relay_port)]
+                        record = evidence / f'guard-controller-{label}-{index}.json'
+                        sample = {**target, 'filter_committed_before_resume': False}
+                        samples.append(sample)
+                        try:
+                            with record.open('wb') as out:
+                                owner = subprocess.Popen([*prefix, 'user-guard-hold', *suffix], stdout=out, stderr=subprocess.STDOUT)
+                            held.append(owner)
+                            wait_record(owner, record, 'verified')
+                            owner.kill()
+                            owner.wait(timeout=5)
+                            live = command([*prefix, 'user-guard-inspect', *suffix])
+                            sample['policy_after_controller_kill'] = live
+                            sample['filter_committed_before_resume'] = live.get('verified') is True
+                            need(live['exit'] == 0 and live.get('verified') is True and live.get('static_independent_guard') is True,
+                                 'endpoint_guard_static_deny_and_redirect_only_exception_read_back')
+                            wrong_port = relay_port + 1 if relay_port < 65535 else relay_port - 1
+                            wrong = command([*prefix, 'user-guard-remove', *suffix[:-1], str(wrong_port)])
+                            sample['wrong_endpoint_cleanup'] = wrong
+                            need(wrong['exit'] != 0 and command([*prefix, 'user-guard-inspect', *suffix]).get('verified') is True,
+                                 'endpoint_guard_cleanup_rejects_wrong_endpoint')
+                            start = endpoints.count()
+                            normal = command([str(protected), 'probe', target['host'], str(target['port']), target['protocol']])
+                            time.sleep(0.05)
+                            sample['ordinary_same_path_instance'] = normal
+                            need(normal['exit'] == 0 and normal.get('connected') is True and endpoints.count() - start == 1,
+                                 'endpoint_guard_normal_same_path_instance_unaffected')
+                            start = endpoints.count()
+                            probe = session.finish()
+                            time.sleep(0.05)
+                            deliveries = endpoints.count() - start
+                            sample.update({'probe': probe, 'peer_deliveries': deliveries})
+                            denied = probe.get('wsa_error') == 10013 or (
+                                target['protocol'] == 'udp' and probe.get('wsa_error') == 10060
+                                and probe.get('stage') == 'receive' and probe.get('sent_bytes') == 7)
+                            need(probe['exit'] == 2 and denied and deliveries == 0,
+                                 'endpoint_guard_' + label + '_cannot_forge_redirect_ipv4_ipv6_tcp_udp')
+                        finally:
+                            session.close()
+                            removed = command([*prefix, 'user-guard-remove', *suffix])
+                            sample['cleanup'] = removed
+                            need(removed['exit'] == 0 and removed.get('absent') is True,
+                                 'endpoint_guard_owned_rules_removed_after_probe_exit')
+                observations['endpoint_guard_echo_deliveries'] = endpoints.received
+                report['security_findings']['ordinary_connections_cannot_use_redirect_only_exception'] = True
+                report['security_findings']['legitimate_redirect_exception_works'] = 'unproved: unsigned driver not loaded'
+
         try:
             value = command([str(executable), "token-identity", str(protected)])
             observations["netonly_token_identity"] = value
@@ -511,6 +580,7 @@ def run(executable: Path, evidence: Path) -> dict:
                 group("after_cleanup_connectivity_restored", protected, targets, False)
                 need(native("remove", seed, protected).get("absent") is True, "cleanup_is_idempotent")
                 session_cases(targets)
+                endpoint_guard_cases()
                 report["echo_deliveries"] = targets.received
         except Exception as exc:
             report["error"] = f"{type(exc).__name__}: {exc}"
@@ -522,6 +592,8 @@ def run(executable: Path, evidence: Path) -> dict:
             cleanup = [native("remove", key, target) for key, target in policies]
             cleanup.extend(command([str(executable), "user-remove", key, str(protected), sid])
                            for key, sid in session_policies)
+            cleanup.extend(command([str(executable), 'user-guard-remove', key, str(protected), sid, str(relay_port)])
+                           for key, sid, relay_port in guard_policies)
             observations["final_cleanup"] = cleanup
             checks["all_owned_wfp_objects_absent"] = all(value["exit"] == 0 and value.get("absent") is True for value in cleanup)
             if not checks["all_owned_wfp_objects_absent"]:
