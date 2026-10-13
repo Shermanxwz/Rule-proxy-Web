@@ -463,20 +463,59 @@ static int netonly_spawn(wchar_t** argv) {
     startup.cb = sizeof(startup);
     PROCESS_INFORMATION process{};
     if (!CreateProcessWithLogonW(L"RuleProxyLabSynthetic", L".", L"RuleProxyLab-NotAnAccount-42!",
-                                LOGON_NETCREDENTIALS_ONLY, child.c_str(), line.data(), CREATE_NO_WINDOW,
+                                LOGON_NETCREDENTIALS_ONLY, child.c_str(), line.data(), CREATE_NO_WINDOW | CREATE_SUSPENDED,
                                 nullptr, nullptr, &startup, &process))
         throw Failure{GetLastError(), "nested-netonly-process-create"};
     NativeHandle handle, thread;
     handle.value = process.hProcess;
     thread.value = process.hThread;
-    if (WaitForSingleObject(handle.value, 10000) != WAIT_OBJECT_0) {
+    try {
+        NativeHandle parent_token, nested_token;
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &parent_token.value) ||
+            !OpenProcessToken(handle.value, TOKEN_QUERY, &nested_token.value))
+            throw Failure{GetLastError(), "nested-token-open"};
+        auto parent_logon = token_information(parent_token.value, TokenLogonSid);
+        auto nested_logon = token_information(nested_token.value, TokenLogonSid);
+        auto parent_statistics = token_information(parent_token.value, TokenStatistics);
+        auto nested_statistics = token_information(nested_token.value, TokenStatistics);
+        auto nested_groups = token_information(nested_token.value, TokenGroups);
+        const auto parent_sid = reinterpret_cast<const TOKEN_GROUPS*>(parent_logon.data());
+        const auto nested_sid = reinterpret_cast<const TOKEN_GROUPS*>(nested_logon.data());
+        const auto groups = reinterpret_cast<const TOKEN_GROUPS*>(nested_groups.data());
+        require(parent_sid->GroupCount == 1 && nested_sid->GroupCount == 1, "nested-logon-sid-count");
+        bool distinct = !EqualSid(parent_sid->Groups[0].Sid, nested_sid->Groups[0].Sid);
+        bool parent_present = false, parent_enabled = false;
+        for (DWORD i = 0; i < groups->GroupCount; ++i) {
+            if (EqualSid(parent_sid->Groups[0].Sid, groups->Groups[i].Sid)) {
+                parent_present = true;
+                parent_enabled = !!(groups->Groups[i].Attributes & SE_GROUP_ENABLED) &&
+                                 !(groups->Groups[i].Attributes & SE_GROUP_USE_FOR_DENY_ONLY);
+            }
+        }
+        const auto old_id = reinterpret_cast<const TOKEN_STATISTICS*>(parent_statistics.data())->AuthenticationId;
+        const auto new_id = reinterpret_cast<const TOKEN_STATISTICS*>(nested_statistics.data())->AuthenticationId;
+        bool authentication_distinct = old_id.LowPart != new_id.LowPart || old_id.HighPart != new_id.HighPart;
+        FILE* metadata = nullptr;
+        auto output = full_path(argv[6]) + L".identity.json";
+        checked(static_cast<DWORD>(_wfopen_s(&metadata, output.c_str(), L"wb")), "nested-identity-output");
+        int wrote = std::fprintf(metadata, "{\"identity_measured\":true,\"child_logon_sid_distinct\":%s,"
+                                "\"parent_logon_sid_present_in_child_groups\":%s,"
+                                "\"parent_logon_sid_enabled_in_child_groups\":%s,"
+                                "\"authentication_luid_distinct\":%s,\"child_identified_before_resume\":true}\n",
+                                distinct ? "true" : "false", parent_present ? "true" : "false",
+                                parent_enabled ? "true" : "false", authentication_distinct ? "true" : "false");
+        int closed = std::fclose(metadata);
+        require(wrote > 0 && closed == 0, "nested-identity-output-complete");
+        require(ResumeThread(thread.value) == 1, "nested-child-resume-count");
+        require(WaitForSingleObject(handle.value, 10000) == WAIT_OBJECT_0, "nested-netonly-timeout");
+        DWORD code = 1;
+        if (!GetExitCodeProcess(handle.value, &code)) throw Failure{GetLastError(), "nested-netonly-exit"};
+        return static_cast<int>(code);
+    } catch (...) {
         TerminateProcess(handle.value, 1);
         WaitForSingleObject(handle.value, 5000);
-        throw Failure{ERROR_TIMEOUT, "nested-netonly-timeout"};
+        throw;
     }
-    DWORD code = 1;
-    if (!GetExitCodeProcess(handle.value, &code)) throw Failure{GetLastError(), "nested-netonly-exit"};
-    return static_cast<int>(code);
 }
 
 int wmain(int argc, wchar_t** argv) {

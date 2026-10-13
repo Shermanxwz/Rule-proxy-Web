@@ -188,6 +188,9 @@ class SessionProbe:
         if not self.kernel.GetExitCodeProcess(self.process.process, ctypes.byref(code)):
             raise ctypes.WinError(ctypes.get_last_error())
         data = json.loads(self.output.read_text(encoding="utf-8"))
+        identity_path = self.output.with_name(self.output.name + ".identity.json")
+        if identity_path.is_file():
+            data["nested_identity"] = json.loads(identity_path.read_text(encoding="utf-8"))
         return {"exit": code.value, "root_process_id": self.process.pid,
                 "logon_sid_sha256": hashlib.sha256(self.sid.encode()).hexdigest(), **data}
 
@@ -294,7 +297,8 @@ def run(executable: Path, evidence: Path) -> dict:
     report = {
         "environment": "GitHub-hosted Windows virtual machine; real kernel, not a physical device",
         "os": os_identity(), "binary_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
-        "accepted": False, "lab_passed": False, "scope": "executable-path-only",
+        "accepted": False, "lab_passed": False,
+        "scope": "experimental app-ID and logon-SID selectors; no production process-tree boundary",
         "security_findings": {},
         "checks": {}, "observations": {}, "error": None,
         "unproved": ["transparent redirect", "unique descendant identity", "external IPv6 route and packet capture",
@@ -366,9 +370,11 @@ def run(executable: Path, evidence: Path) -> dict:
         def session_cases(targets: EchoTargets):
             """Measure logon-SID enforcement and an explicit new-token escape."""
             cases = [("baseline", "probe-file", False, False),
+                     ("baseline_ordinary_child", "spawn-file", False, False),
+                     ("baseline_new_logon_child", "netonly-spawn-file", False, False),
                      ("direct", "probe-file", True, True),
                      ("ordinary_child", "spawn-file", True, True),
-                     ("new_logon_child", "netonly-spawn-file", True, False)]
+                     ("new_logon_child", "netonly-spawn-file", True, None)]
             for label, operation, guarded, blocked in cases:
                 samples = []
                 observations["logon_sid_" + label] = samples
@@ -403,15 +409,24 @@ def run(executable: Path, evidence: Path) -> dict:
                         time.sleep(0.05)
                         delivered = targets.count() - start
                         sample.update({"probe": result, "peer_deliveries": delivered})
-                        if blocked:
-                            explicit = result.get("wsa_error") == 10013
-                            silent_udp = (target["protocol"] == "udp" and result.get("wsa_error") == 10060
-                                          and result.get("stage") == "receive" and result.get("sent_bytes") == 7)
-                            need(result["exit"] == 2 and (explicit or silent_udp) and delivered == 0,
+                        explicit = result.get("wsa_error") == 10013
+                        silent_udp = (target["protocol"] == "udp" and result.get("wsa_error") == 10060
+                                      and result.get("stage") == "receive" and result.get("sent_bytes") == 7)
+                        was_blocked = result["exit"] == 2 and (explicit or silent_udp) and delivered == 0
+                        was_connected = result["exit"] == 0 and result.get("connected") is True and delivered == 1
+                        sample["network_outcome"] = "blocked" if was_blocked else "connected" if was_connected else "inconclusive"
+                        if blocked is None:
+                            need(was_blocked or was_connected, "logon_sid_new_logon_child_ipv4_ipv6_tcp_udp_measured")
+                        elif blocked:
+                            need(was_blocked,
                                  "logon_sid_" + label + "_ipv4_ipv6_tcp_udp_blocked")
                         else:
-                            need(result["exit"] == 0 and result.get("connected") is True and delivered == 1,
+                            need(was_connected,
                                  "logon_sid_" + label + "_ipv4_ipv6_tcp_udp_connected")
+                        if operation == "netonly-spawn-file":
+                            metadata = result.get("nested_identity") or {}
+                            need(metadata.get("identity_measured") is True and metadata.get("child_identified_before_resume") is True,
+                                 "nested_netonly_child_token_actually_identified_before_resume")
                         if operation != "probe-file":
                             need(result.get("process_id") != result.get("root_process_id"), "logon_sid_child_is_a_real_separate_process")
                         if guarded:
@@ -433,7 +448,10 @@ def run(executable: Path, evidence: Path) -> dict:
                             sample["cleanup"] = removed
                             need(removed["exit"] == 0 and removed.get("absent") is True, "logon_sid_owned_objects_removed_after_probe_exit")
             report["security_findings"]["logon_sid_scope_contains_ordinary_createprocess_children"] = True
-            report["security_findings"]["logon_sid_scope_contains_token_changing_children"] = False
+            report["security_findings"]["logon_sid_scope_contains_observed_netonly_children"] = all(
+                sample["network_outcome"] == "blocked" for sample in observations["logon_sid_new_logon_child"]
+            )
+            report["security_findings"]["arbitrary_primary_token_changes_contained"] = None
             report["security_findings"]["logon_sid_scope_preserves_same_path_normal_instances"] = True
 
         try:
