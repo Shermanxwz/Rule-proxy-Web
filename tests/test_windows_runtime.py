@@ -75,9 +75,9 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertIn(r"C:\Program Files\Browser", readonly)
         self.assertTrue(any(path.endswith("ruleproxy") for path in readonly))
         self.assertEqual(policy["process"]["cwd"], str(self.profile.resolve()))
-        self.assertEqual(policy["ui"], {"disable": False})
+        self.assertEqual(policy["ui"], {"disable": False, "clipboard": "all"})
         self.assertEqual(
-            policy["processContainer"]["ui"], {"isolation": "container"}
+            policy["processContainer"]["ui"], {"isolation": "container", "ime": True}
         )
         self.assertIn("-I", policy["process"]["commandLine"])
         self.assertIn("-S", policy["process"]["commandLine"])
@@ -109,7 +109,7 @@ class WindowsRuntimeTests(unittest.TestCase):
                     "ingress": {"default": "deny", "hostLoopback": "deny"},
                 })
                 self.assertNotIn("runtimeConfig", policy)
-                self.assertEqual(policy["processContainer"], {"ui": {"isolation": "container"}})
+                self.assertEqual(policy["processContainer"], {"ui": {"isolation": "container", "ime": True}})
 
     def test_profile_environment_overrides_windows_vars_case_insensitively(self):
         policy = windows_runtime.build_policy(
@@ -396,7 +396,12 @@ class WindowsRuntimeTests(unittest.TestCase):
             "ruleproxy.file_bridge.FileProxyBridge", Bridge
         ), mock.patch.object(windows_runtime, "_HostLoopbackFixture", Fixture), mock.patch.object(windows_runtime, "_host_can_reach_guest", return_value=False), mock.patch.object(
             windows_runtime, "_wait_for_status", return_value=True
-        ), mock.patch.object(windows_runtime, "_read_startup_report", return_value=startup_report()):
+        ), mock.patch.object(windows_runtime, "_read_startup_report", return_value=startup_report()), mock.patch.object(
+            windows_runtime, "_bind_startup_workload"
+        ) as binding, mock.patch.object(windows_runtime, "_host_ipv6_route_probe", return_value={
+            "scope": "fixed_ipv6_tcp_route_probe", "host_ipv6_route_unavailable": True,
+            "code": 10051, "kernel_denial_proven": False,
+        }):
             proc, resource = windows_runtime.launch(
                 command,
                 env,
@@ -422,6 +427,10 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertFalse(popen.call_args.kwargs["shell"])
         config = json.loads((Path(args[2]).parent / "guest-config.json").read_text())
         self.assertEqual(config["schema_version"], 1)
+        self.assertTrue(config["host_ipv6_route_unavailable"])
+        self.assertEqual(config["env"]["RULEPROXY_RUNTIME_CONFIG"], str(Path(args[2]).parent / "guest-config.json"))
+        binding.assert_called_once_with(proc, resource.startup_diagnostics, str(Path(sys.executable).resolve()))
+        self.assertEqual(resource.host_ipv6_observation["code"], 10051)
         self.assertEqual(config["host_udp_ports"], list(resource.udp_fixture.ports))
         self.assertTrue(resource.udp_observation["non_delivery_observed"])
         self.assertFalse(resource.udp_observation["public_udp_proven"])
@@ -429,7 +438,7 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(resource.startup_diagnostics["parent"]["public_udp"]["ipv4_udp"],
                          {"ok": False, "code": "allowed"})
         self.assertTrue((Path(args[2]).parent / "host-approval.json").is_file())
-        self.assertIn(str(Path(args[2]).parent), policy["filesystem"]["readonlyPaths"])
+        self.assertIn(str(Path(args[2]).parent.resolve()), policy["filesystem"]["readonlyPaths"])
 
     def test_safe_stop_terminates_only_verified_direct_child_then_waits_wrapper(self):
         class Process:
@@ -455,11 +464,13 @@ class WindowsRuntimeTests(unittest.TestCase):
                 self.closed = []
 
             def process_creation_time(self, handle):
-                self.parent_handle = handle
+                if handle == 99:
+                    self.parent_handle = handle
                 return 100
 
             def process_alive(self, handle):
-                self.alive_handle = handle
+                if handle == 99:
+                    self.alive_handle = handle
                 return True
 
             def direct_children(self, parent_pid, parent_created):
@@ -504,6 +515,10 @@ class WindowsRuntimeTests(unittest.TestCase):
         stack.enter_context(mock.patch.object(windows_runtime, "_probe_request", return_value=json.loads(supported_probe_json())))
         stack.enter_context(mock.patch("ruleproxy.file_bridge.FileProxyBridge", return_value=bridge))
         stack.enter_context(mock.patch.object(windows_runtime, "_HostLoopbackFixture", return_value=fixture))
+        stack.enter_context(mock.patch.object(windows_runtime, "_host_ipv6_route_probe", return_value={
+            "scope": "fixed_ipv6_tcp_route_probe", "host_ipv6_route_unavailable": False,
+            "code": "timeout", "kernel_denial_proven": False,
+        }))
         popen = stack.enter_context(mock.patch.object(windows_runtime.subprocess, "Popen", return_value=process))
         return bridge, fixture, popen
 
@@ -750,6 +765,301 @@ class WindowsRuntimeTests(unittest.TestCase):
         api._creation_time = mock.Mock(side_effect=[150, 151])
         self.assertEqual(api.direct_children(500, 100), [])
         self.assertEqual(api.kernel32.closed, [102, 101])
+
+
+class OwnedWindowsWorkloadTests(unittest.TestCase):
+    PYTHON = r"C:\RuleProxy\python\python.exe"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        owner = self
+
+        class Process:
+            pid, _handle = 100, 99
+            returncode = None
+            wait_failure = False
+
+            def poll(self):
+                return self.returncode
+
+            def wait(self, timeout=None):
+                if self.wait_failure:
+                    raise subprocess.TimeoutExpired("mxc", timeout)
+                self.returncode = 0
+                for record in owner.records.values():
+                    if not record.get("survivor"):
+                        record["alive"] = False
+                return 0
+
+        class Api:
+            def __init__(self):
+                self.opened, self.closed, self.terminated = [], [], []
+                self.handles = {}
+                self.fail_close = None
+
+            def process_creation_time(self, handle):
+                return 10000 if handle == 99 else self.handles[handle]["created"]
+
+            def process_alive(self, handle):
+                return owner.process.returncode is None if handle == 99 else self.handles[handle]["alive"]
+
+            def process_image(self, handle):
+                return self.handles[handle]["image"]
+
+            def direct_children(self, pid, created):
+                owner.assertEqual((pid, created), (100, 10000))
+                values = []
+                for child_pid, record in owner.records.items():
+                    if record["alive"]:
+                        handle = 1000 + len(self.opened)
+                        self.opened.append(handle)
+                        self.handles[handle] = record
+                        values.append((child_pid, handle))
+                return values
+
+            def terminate(self, handle):
+                self.terminated.append(handle)
+                self.handles[handle]["alive"] = False
+
+            def wait(self, handle, timeout_ms):
+                return not self.handles[handle]["alive"]
+
+            def close(self, handle):
+                if handle == self.fail_close:
+                    raise OSError("close failed")
+                owner.assertNotIn(handle, self.closed, "a HANDLE must be closed exactly once")
+                self.closed.append(handle)
+
+        self.records = {
+            900: {"created": 11000, "image": r"C:\Windows\System32\conhost.exe", "alive": True},
+            123: {"created": 12300, "image": self.PYTHON, "alive": True},
+        }
+        self.process, self.api = Process(), Api()
+
+    def bind(self, report=None):
+        return windows_runtime._bind_startup_workload(self.process, report or startup_report(),
+                                                       self.PYTHON, api=self.api)
+
+    def resource(self):
+        directory = tempfile.TemporaryDirectory(dir=self.root)
+        (Path(directory.name) / "guest-config.json").write_text("kept until all handles exit")
+        bridge = mock.Mock(directory=self.root / "bridge")
+        bridge.directory.mkdir()
+        value = windows_runtime._WindowsRuntimeResources(directory, mock.Mock(), bridge)
+        value.process = self.process
+        self.addCleanup(directory.cleanup)
+        return value
+
+    def test_two_direct_children_bind_exact_generation_and_only_terminate_python(self):
+        state = self.bind()
+        handles = dict(state.children)
+        helper, console = handles[(123, 12300)], handles[(900, 11000)]
+        windows_runtime._stop_with_api(self.process, self.api, timeout=1, poll_interval=0.001)
+        self.assertEqual(self.api.terminated, [helper])
+        self.assertNotIn(console, self.api.terminated)
+        self.assertNotIn(99, self.api.terminated)
+        self.assertTrue(state.closed)
+        self.assertFalse(state.children)
+        self.assertEqual(set(self.api.closed), set(self.api.opened))
+
+    def test_report_pid_generation_parent_or_unknown_image_never_binds(self):
+        for kind in ("pid", "created", "parent", "image"):
+            with self.subTest(kind=kind):
+                report = startup_report()
+                original = self.records[123]["image"]
+                if kind == "pid":
+                    report["parent"]["pid"] = 124
+                    report["child"]["parent_pid"] = 124
+                elif kind == "created":
+                    report["parent"]["process_created"] += 1
+                elif kind == "parent":
+                    report["parent"]["parent_pid"] = 101
+                else:
+                    self.records[123]["image"] = r"C:\Unknown\python.exe"
+                with self.assertRaisesRegex(windows_runtime.SafeStopError, "exact trusted"):
+                    self.bind(report)
+                state = windows_runtime._owned_stop_state(self.process)
+                self.assertIsNone(state.workload)
+                self.assertFalse(state.closed)
+                with self.assertRaisesRegex(windows_runtime.SafeStopError, "no startup-bound"):
+                    windows_runtime._stop_with_api(self.process, self.api, timeout=1, poll_interval=0.001)
+                self.assertFalse(self.api.terminated)
+                self.process.wait()
+                state.release_exited()
+                self.process.returncode = None
+                for record in self.records.values(): record["alive"] = True
+                self.records[123]["image"] = original
+
+    def test_two_same_python_images_are_ambiguous_despite_one_matching_report(self):
+        self.records[900]["image"] = self.PYTHON.upper()
+        with self.assertRaisesRegex(windows_runtime.SafeStopError, "exact trusted"):
+            self.bind()
+        self.assertFalse(self.api.terminated)
+        self.process.wait()
+        windows_runtime._owned_stop_state(self.process).release_exited()
+
+    def test_unknown_owned_child_surviving_wrapper_preserves_resources_then_retry_releases(self):
+        state = self.bind()
+        self.records[900].update(image=r"C:\Unknown\helper.exe", survivor=True)
+        resource = self.resource()
+        with self.assertRaisesRegex(windows_runtime.SafeStopError, "survived SDK"):
+            windows_runtime._stop_with_api(self.process, self.api, timeout=0.01, poll_interval=0.001)
+        self.assertEqual(self.process.returncode, 0)
+        self.assertFalse(state.closed)
+        self.assertTrue(state.children)
+        with self.assertRaisesRegex(windows_runtime.SafeStopError, "remains alive"):
+            resource.close()
+        resource.bridge.close.assert_not_called()
+        self.assertTrue((Path(resource.run_dir.name) / "guest-config.json").exists())
+        self.assertTrue(resource.bridge.directory.exists())
+        self.records[900]["alive"] = False
+        windows_runtime._stop_with_api(self.process, self.api, timeout=1, poll_interval=0.001)
+        resource.close()
+        self.assertTrue(state.closed)
+        self.assertFalse(Path(resource.run_dir.name).exists())
+        self.assertFalse(resource.bridge.directory.exists())
+        self.assertEqual(len(self.api.terminated), 1)
+        self.assertEqual(set(self.api.closed), set(self.api.opened))
+
+    def test_wrapper_teardown_timeout_preserves_target_handle_and_does_not_kill_twice(self):
+        state = self.bind()
+        self.process.wait_failure = True
+        with self.assertRaisesRegex(windows_runtime.SafeStopError, "normal teardown"):
+            windows_runtime._stop_with_api(self.process, self.api, timeout=0.01, poll_interval=0.001)
+        self.assertFalse(state.closed)
+        self.assertIn(state.workload, state.children)
+        self.assertEqual(len(self.api.terminated), 1)
+        self.process.wait_failure = False
+        windows_runtime._stop_with_api(self.process, self.api, timeout=1, poll_interval=0.001)
+        self.assertTrue(state.closed)
+        self.assertEqual(len(self.api.terminated), 1)
+
+    def test_partial_handle_close_failure_is_retryable_after_wrapper_exit(self):
+        state = self.bind()
+        self.process.wait()
+        remaining = state.children[(123, 12300)]
+        self.api.fail_close = remaining
+        with self.assertRaises(OSError):
+            state.release_exited()
+        self.assertEqual(state.children, {(123, 12300): remaining})
+        self.assertFalse(state.closed)
+        self.api.fail_close = None
+        windows_runtime._stop_with_api(self.process, self.api, timeout=1, poll_interval=0.001)
+        self.assertTrue(state.closed)
+        self.assertEqual(set(self.api.closed), set(self.api.opened))
+
+    def test_real_close_api_checks_kernel_boolean_instead_of_claiming_release(self):
+        api = object.__new__(windows_runtime._WinProcessApi)
+        api.kernel32 = mock.Mock()
+        api.kernel32.CloseHandle.return_value = False
+        with mock.patch.object(windows_runtime.ctypes, "get_last_error", return_value=6, create=True), mock.patch.object(
+            windows_runtime.ctypes, "WinError", side_effect=lambda code: OSError(code, "CloseHandle"), create=True
+        ):
+            with self.assertRaises(OSError):
+                api.close(1001)
+        api.kernel32.CloseHandle.assert_called_once_with(1001)
+
+    def test_kernel_terminated_helper_is_not_reopened_by_pid_after_wrapper_exit(self):
+        state = self.bind()
+        self.process.wait()
+        self.api.direct_children = mock.Mock(side_effect=AssertionError("must use held handles"))
+        state.stop(timeout=1)
+        self.api.direct_children.assert_not_called()
+        self.assertTrue(state.closed)
+
+    def test_repeated_stop_after_closed_state_never_queries_released_handles(self):
+        state = self.bind()
+        state.stop(timeout=1)
+        self.api.process_creation_time = mock.Mock(side_effect=AssertionError("released HANDLE query"))
+        self.api.wait = mock.Mock(side_effect=AssertionError("released HANDLE wait"))
+        state.stop(timeout=1)
+        state.release_exited()
+        self.api.wait.assert_not_called()
+
+    def test_unreported_product_console_child_cannot_gain_single_child_kill_authority(self):
+        self.process._ruleproxy_python_executable = self.PYTHON
+        del self.records[123]
+        with self.assertRaisesRegex(windows_runtime.SafeStopError, "not the trusted Python"):
+            windows_runtime._stop_with_api(self.process, self.api, timeout=1, poll_interval=0.001)
+        state = windows_runtime._owned_stop_state(self.process)
+        self.assertFalse(self.api.terminated)
+        self.assertIsNone(state.workload)
+        self.assertTrue(state.children)
+        self.process.wait()
+        state.release_exited()
+
+    def test_product_single_child_fallback_still_requires_exact_python_image(self):
+        self.process._ruleproxy_python_executable = self.PYTHON
+        del self.records[900]
+        windows_runtime._stop_with_api(self.process, self.api, timeout=1, poll_interval=0.001)
+        self.assertEqual(len(self.api.terminated), 1)
+        self.assertTrue(windows_runtime._owned_stop_state(self.process).closed)
+
+    def test_unreported_ambiguous_product_children_are_retained_without_kill_authority(self):
+        self.process._ruleproxy_python_executable = self.PYTHON
+        self.records[900]["survivor"] = True
+        with self.assertRaisesRegex(windows_runtime.SafeStopError, "ambiguous"):
+            windows_runtime._stop_with_api(self.process, self.api, timeout=1, poll_interval=0.001)
+        state = windows_runtime._owned_stop_state(self.process)
+        self.assertIsNone(state.workload)
+        self.assertEqual(len(state.children), 2)
+        self.assertFalse(self.api.closed)
+        self.assertFalse(self.api.terminated)
+        self.process.wait()
+        with self.assertRaises(windows_runtime.SafeStopError):
+            state.release_exited()
+        self.records[900]["alive"] = False
+        state.release_exited()
+        self.assertEqual(set(self.api.closed), set(self.api.opened))
+
+    def test_changed_wrapper_generation_never_terminates_bound_helper(self):
+        state = self.bind()
+        original = self.api.process_creation_time
+        self.api.process_creation_time = lambda handle: 20000 if handle == 99 else original(handle)
+        with self.assertRaisesRegex(windows_runtime.SafeStopError, "identity changed"):
+            state.stop(timeout=1)
+        self.assertFalse(self.api.terminated)
+        self.assertFalse(state.closed)
+        self.process.wait()
+        state.release_exited()
+
+    def test_host_route_fact_requires_actual_windows_10051_without_changing_raw_probes(self):
+        success = mock.MagicMock()
+        success.__enter__.return_value = success
+        with mock.patch.object(windows_runtime.socket, "socket", return_value=success):
+            result = windows_runtime._host_ipv6_route_probe()
+        self.assertFalse(result["host_ipv6_route_unavailable"])
+        self.assertEqual(result["code"], "connected")
+        for code, expected in ((10051, True), (10013, False), (10047, False), (101, False), (None, False)):
+            error = TimeoutError() if code is None else OSError(code, "fixed route diagnostic")
+            if code != 101:
+                error.winerror = code
+            connection = mock.Mock()
+            connection.__enter__ = mock.Mock(return_value=connection)
+            connection.__exit__ = mock.Mock(return_value=False)
+            connection.connect.side_effect = error
+            with self.subTest(code=code), mock.patch.object(windows_runtime.socket, "socket", return_value=connection):
+                result = windows_runtime._host_ipv6_route_probe()
+            self.assertEqual(result["host_ipv6_route_unavailable"], expected)
+            self.assertFalse(result["kernel_denial_proven"])
+            connection.settimeout.assert_called_once_with(1)
+            connection.connect.assert_called_once_with(("2606:4700:4700::1111", 443, 0, 0))
+
+    def test_host_10051_only_permits_matching_guest_unavailable_and_internal_ipv6_denied(self):
+        report = startup_report()
+        for role in ("parent", "child"):
+            report[role]["checks"]["ipv6_tcp"] = {"ok": False, "code": 10051}
+        (self.root / "network-probe.json").write_text(json.dumps(report))
+        with self.assertRaises(windows_runtime.UnsupportedRuntimeError):
+            windows_runtime._read_startup_report(self.root, report["nonce"])
+        actual = windows_runtime._read_startup_report(self.root, report["nonce"], host_ipv6_route_unavailable=True)
+        self.assertEqual(actual["parent"]["checks"]["ipv6_tcp"], {"ok": False, "code": 10051})
+        report["parent"]["checks"]["ipv4_tcp"] = {"ok": False, "code": "allowed"}
+        (self.root / "network-probe.json").write_text(json.dumps(report))
+        with self.assertRaises(windows_runtime.UnsupportedRuntimeError):
+            windows_runtime._read_startup_report(self.root, report["nonce"], host_ipv6_route_unavailable=True)
 
 
 class HostUDPObserverTests(unittest.TestCase):

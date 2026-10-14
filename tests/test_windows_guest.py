@@ -25,6 +25,7 @@ class WindowsGuestTests(unittest.TestCase):
             "env": {}, "profile": str(root), "listener_port": 19001,
             "bridge_directory": str(root), "bridge_nonce": "a" * 64,
             "host_fixture_port": 19002, "schema_version": 1, "host_udp_ports": [19003, 19004],
+            "host_ipv6_route_unavailable": False,
         }
 
     def helper_setup(self, bridge_worker, decision="approved"):
@@ -420,6 +421,39 @@ class WindowsGuestTests(unittest.TestCase):
         report["child"]["parent_pid"] = 999
         with self.assertRaisesRegex(ValueError, "child parent"):
             windows_guest._validate_startup_report(report, "a" * 64)
+
+    def test_unavailable_public_ipv6_needs_trusted_host_and_actual_local_denial(self):
+        report = {"schema_version": 1, "nonce": "a" * 64, "config_readonly": {"ok": True, "code": 5},
+                  "parent": self.startup_report("parent"), "child": self.startup_report("child"),
+                  "aux": {"parent_ipv6_loopback": {"ok": False, "code": 10013}}}
+        for scope in ("parent", "child"):
+            report[scope]["checks"]["ipv6_tcp"] = {"ok": False, "code": 10051}
+        self.assertFalse(windows_guest._startup_checks_passed(report))
+        self.assertTrue(windows_guest._startup_checks_passed(report, host_ipv6_route_unavailable=True))
+        self.assertEqual(report["parent"]["checks"]["ipv6_tcp"], {"ok": False, "code": 10051})
+        for code in ("allowed", "timeout", 10065, 10013):
+            altered = json.loads(json.dumps(report))
+            altered["child"]["checks"]["ipv6_tcp"] = {"ok": False, "code": code}
+            self.assertFalse(windows_guest._startup_checks_passed(altered, host_ipv6_route_unavailable=True))
+        for outcome in ({"ok": True, "code": "ok"}, {"ok": False, "code": 10051}):
+            altered = json.loads(json.dumps(report))
+            altered["aux"]["parent_ipv6_loopback"] = outcome
+            self.assertFalse(windows_guest._startup_checks_passed(altered, host_ipv6_route_unavailable=True))
+        for scope in ("parent", "child"):
+            altered = json.loads(json.dumps(report))
+            altered[scope]["checks"]["ipv4_tcp"] = {"ok": False, "code": "allowed"}
+            self.assertFalse(windows_guest._startup_checks_passed(altered, host_ipv6_route_unavailable=True))
+        report["child"]["checks"]["ipv6_tcp"] = {"ok": True, "code": 10013}
+        self.assertTrue(windows_guest._startup_checks_passed(report, host_ipv6_route_unavailable=True))
+
+    def test_host_ipv6_availability_requires_explicit_boolean_in_readonly_config(self):
+        path = Path(self.temp.name) / "guest-config.json"
+        for value in (None, 0, 1, "true"):
+            path.write_text(json.dumps({**self.config, "host_ipv6_route_unavailable": value}))
+            with self.assertRaisesRegex(ValueError, "boolean"):
+                windows_guest._read_config(path)
+        path.write_text(json.dumps({**self.config, "host_ipv6_route_unavailable": True}))
+        self.assertTrue(windows_guest._read_config(path)["host_ipv6_route_unavailable"])
 
     def test_child_popen_handle_identity_is_checked_before_handle_release(self):
         report = self.startup_report("child")

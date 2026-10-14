@@ -217,6 +217,29 @@ def validate_install_tree(tree: Path) -> str:
     raise RuntimeError("UDF extraction did not produce an official Windows UEFI boot image")
 
 
+def installer_layout(iso: Path) -> dict:
+    """Record actual remastered media size/extents; never alter its ordering."""
+    result = {"bytes": iso.stat().st_size, "filesystem_options": "iso9660_level3_joliet_rockridge",
+              "boot_wim_layout_status": "unavailable", "boot_wim_extents": []}
+    try:
+        command = ["xorriso", "-indev", str(iso), "-find", "/sources/boot.wim", "-exec", "report_lba", "--"]
+        probe = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                               check=False, timeout=30)
+        if probe.returncode != 0 or len(probe.stdout) > 16384:
+            return result
+        for line in probe.stdout.decode("ascii", "strict").splitlines():
+            match = re.fullmatch(r"File data lba:\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'/sources/boot\.wim'", line)
+            if match:
+                extent, lba, blocks, size = map(int, match.groups())
+                result["boot_wim_extents"].append({"extent_index": extent, "lba": lba,
+                    "blocks": blocks, "file_bytes": size, "byte_offset": lba * 2048})
+        if result["boot_wim_extents"]:
+            result["boot_wim_layout_status"] = "reported"
+    except (OSError, UnicodeError, subprocess.TimeoutExpired):
+        pass  # Optional layout facts never substitute for a real boot report.
+    return result
+
+
 class GuestServer(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -952,11 +975,14 @@ def stop_owned(process: subprocess.Popen | None) -> None:
 def run(args) -> dict:
     artifacts = args.artifacts.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
-    summary = {"status": "failed", "full_acceptance_passed": False, "real_node_passed": False,
+    baseline = getattr(args, "baseline_diagnostic", False) is True
+    require_update = not baseline
+    summary = {"status": "failed", "baseline_diagnostic": baseline,
+               "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
                "iso": {"url": ISO_URL, "sha256": ISO_SHA256,
                "download_page": ISO_SOURCE, "hash_source": ISO_HASH_SOURCE, "evaluation_days": 90},
-               "official_update": {"kb": "KB5127648", "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
+               "official_update": {"required": require_update, "kb": "KB5127648", "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
                                    "source": UPDATE_SOURCE, "catalog_update_id": UPDATE_CATALOG_ID}}
     try:
         summary["kvm_api_version"] = require_kvm()
@@ -991,8 +1017,10 @@ def run(args) -> dict:
             if iso.stat().st_size != ISO_BYTES or digest(iso) != ISO_SHA256:
                 raise RuntimeError("Microsoft ISO size/SHA-256 mismatch; guest installation was refused")
             summary["iso"]["verified"] = True
-            updates = work / "official-updates"
-            summary["official_update"]["packages"] = download_updates(updates)
+            updates = None
+            if require_update:
+                updates = work / "official-updates"
+                summary["official_update"]["packages"] = download_updates(updates)
             payload = work / "payload.zip"
             payload_hash = make_payload(package, payload)
             server = GuestServer(payload, artifacts, updates=updates)
@@ -1014,7 +1042,7 @@ def run(args) -> dict:
                 prepare_seed(tree, secrets.token_hex(16) + "Ci!9", {
                     "host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
                     "payload_sha256": payload_hash, "package_sha256": args.package_sha256.lower(),
-                    "require_official_update": True, "update_build": UPDATE_BUILD, "update_ubr": UPDATE_UBR,
+                    "require_official_update": require_update, "update_build": UPDATE_BUILD, "update_ubr": UPDATE_UBR,
                 }, updates=updates)
                 unattended = work / "unattended.iso"
                 subprocess.run(["xorriso", "-as", "mkisofs", "-iso-level", "3", "-J", "-joliet-long", "-R",
@@ -1022,6 +1050,8 @@ def run(args) -> dict:
                                 "-boot-load-size", "8", "-boot-info-table", "-eltorito-alt-boot",
                                 "-e", efi_boot, "-no-emul-boot",
                                 "-o", str(unattended), str(tree)], check=True)
+                summary["remastered_iso"] = installer_layout(unattended)
+                print("Remastered ISO facts: " + json.dumps(summary["remastered_iso"], separators=(",", ":")), flush=True)
                 shutil.rmtree(tree)
                 iso.unlink()
                 disk = work / "windows.qcow2"
@@ -1096,11 +1126,12 @@ def run(args) -> dict:
                     summary["official_update"]["guest"] = server.result.get("official_update")
                     if not capture.log_clean() or capture.collection_error:
                         raise RuntimeError("VM packet capture control or dump/write failed")
-                    verify_result(server.result, require_official_update=True)
-                    summary.update(status="transport_and_package_tests_passed", transport_passed=True,
+                    verify_result(server.result, require_official_update=require_update)
+                    summary.update(status="baseline_transport_and_package_tests_passed" if baseline else "transport_and_package_tests_passed", transport_passed=True,
                                    manager_fixture_passed=True, browser_fixture_passed=True,
                                    ordinary_user=True, native_x64=True, elapsed_seconds=int(time.monotonic() - started))
-                    print("Native x64 PSEC transport, Manager lifecycle, Edge fixture and release package tests passed; real-node acceptance remains separate", flush=True)
+                    scope = "Baseline diagnostic" if baseline else "Officially updated native x64"
+                    print(scope + " PSEC transport, Manager lifecycle, Edge fixture and release package tests passed; full/real-node acceptance remains separate", flush=True)
             finally:
                 # Dispose only this ephemeral test VM and TPM, never a named
                 # host process or a user-owned Windows application.
@@ -1154,11 +1185,15 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--package-sha256", required=True)
     parser.add_argument("--artifacts", required=True, type=Path)
     parser.add_argument("--timeout-seconds", type=int, default=5400)
+    parser.add_argument("--baseline-diagnostic", action="store_true",
+                        help="Diagnose the fixed official ISO baseline; skips only CU staging/requirement, never full acceptance")
     args = parser.parse_args(argv)
     if not 300 <= args.timeout_seconds <= 14400:
         parser.error("--timeout-seconds must be between 300 and 14400")
     result = run(args)
-    return 0 if result["status"] == "transport_and_package_tests_passed" else 1
+    expected = "baseline_transport_and_package_tests_passed" if args.baseline_diagnostic else "transport_and_package_tests_passed"
+    return 0 if (result["status"] == expected and result.get("baseline_diagnostic") is args.baseline_diagnostic
+                 and result.get("official_update", {}).get("required") is (not args.baseline_diagnostic)) else 1
 
 
 if __name__ == "__main__":

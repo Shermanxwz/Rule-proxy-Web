@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      baseline_diagnostic:
+        description: Test the official ISO build without the cumulative update (diagnostic only)
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -317,10 +323,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
       - name: Run a checksum-verified official Windows 11 evaluation guest
+        env:
+          RULEPROXY_VM_BASELINE: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline_diagnostic || false }}
         run: |
           package=$(find "$PWD/dist" -maxdepth 1 -name 'RuleProxy-Web-*-windows-x64.zip' -print -quit)
           digest=$(awk 'NR==1 {print $1}' dist/SHA256SUMS.txt)
-          sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 10800
+          baseline_args=()
+          if [ "$RULEPROXY_VM_BASELINE" = 'true' ]; then baseline_args+=(--baseline-diagnostic); fi
+          sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 10800 "${baseline_args[@]}"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

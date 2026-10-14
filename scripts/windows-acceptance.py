@@ -6,7 +6,9 @@ Examples (use the package's x64 Python when testing a portable package):
   python scripts/windows-acceptance.py --manager-fixture --allow-emulated-x64
   python scripts/windows-acceptance.py --yaml C:\\private\\proxy.yaml
 
-Full acceptance needs a working real proxy node. The YAML, controller token,
+Real-node functionality checks need a working real proxy node. Full security
+acceptance additionally needs separate external UDP and native DNS evidence;
+this script does not produce that evidence. The YAML, controller token,
 and downloaded page contents are never included in the JSON report. No mock
 MXC, DACL fallback, firewall editing, or software VM fallback is used.
 The bundled manifest verifies completeness and file integrity, not origin:
@@ -126,6 +128,15 @@ def write_json(path: Path, value: dict) -> None:
     os.replace(temporary, path)
 
 
+def strict_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise RuntimeError("acceptance report contained a duplicate field")
+        result[key] = value
+    return result
+
+
 def check_url(value: str) -> str:
     parsed = urllib.parse.urlsplit(value)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
@@ -185,15 +196,103 @@ def proxy_https(url: str) -> dict:
         connection.close()
 
 
-def network_checks(host_v4_port: int, host_v6_port: int) -> list[dict]:
-    return [
-        denied(socket.AF_INET, socket.SOCK_STREAM, ("1.1.1.1", 443), "direct_ipv4_tcp"),
-        denied(socket.AF_INET6, socket.SOCK_STREAM, ("2606:4700:4700::1111", 443, 0, 0), "direct_ipv6_tcp"),
-        denied(socket.AF_INET, socket.SOCK_DGRAM, ("1.1.1.1", 53), "direct_ipv4_udp_dns"),
-        denied(socket.AF_INET6, socket.SOCK_DGRAM, ("2606:4700:4700::1111", 53, 0, 0), "direct_ipv6_udp_dns"),
-        denied(socket.AF_INET, socket.SOCK_STREAM, ("127.0.0.1", host_v4_port), "guest_to_host_ipv4"),
-        denied(socket.AF_INET6, socket.SOCK_STREAM, ("::1", host_v6_port, 0, 0), "guest_to_host_ipv6"),
-    ]
+def guest_host_ipv6_unavailable() -> bool:
+    """Read only the runtime-forced config path, never the writable profile."""
+    configured = os.environ.get("RULEPROXY_RUNTIME_CONFIG")
+    if not configured:
+        return False  # No trusted availability fact: keep the strict rule.
+    path = Path(configured)
+    with path.open("rb") as stream:
+        raw = stream.read(128 * 1024 + 1)
+    if not raw or len(raw) > 128 * 1024:
+        raise RuntimeError("runtime readonly config had an invalid size")
+    value = json.loads(raw, object_pairs_hook=strict_json_object)
+    required = {"schema_version", "command", "env", "profile", "listener_port", "bridge_directory",
+                "bridge_nonce", "host_fixture_port", "host_udp_ports", "host_ipv6_route_unavailable"}
+    if (not isinstance(value, dict) or set(value) != required or type(value["schema_version"]) is not int
+            or value["schema_version"] != 1 or type(value["host_ipv6_route_unavailable"]) is not bool
+            or not isinstance(value["bridge_nonce"], str) or not re.fullmatch(r"[0-9a-f]{64}", value["bridge_nonce"])):
+        raise RuntimeError("runtime readonly availability config was invalid")
+    if not isinstance(value["profile"], str) or Path(value["profile"]).resolve() != Path.cwd().resolve():
+        raise RuntimeError("runtime readonly availability config belonged to another profile")
+    try:
+        path.resolve().parent.relative_to(Path(value["profile"]).resolve())
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("runtime availability fact was inside the writable profile")
+    return value["host_ipv6_route_unavailable"]
+
+
+def network_checks(host_v4_port: int, host_v6_port: int, *, host_ipv6_route_unavailable=False) -> list[dict]:
+    # The actual application's local IPv6 TCP check must still return 10013.
+    first = denied(socket.AF_INET, socket.SOCK_STREAM, ("1.1.1.1", 443), "direct_ipv4_tcp")
+    local = [denied(socket.AF_INET, socket.SOCK_STREAM, ("127.0.0.1", host_v4_port), "guest_to_host_ipv4"),
+             denied(socket.AF_INET6, socket.SOCK_STREAM, ("::1", host_v6_port, 0, 0), "guest_to_host_ipv6")]
+    try:
+        ipv6 = denied(socket.AF_INET6, socket.SOCK_STREAM, ("2606:4700:4700::1111", 443, 0, 0), "direct_ipv6_tcp")
+    except RuntimeError as exc:
+        original = exc.__cause__
+        code = (getattr(original, "winerror", None) or original.errno) if isinstance(original, OSError) else None
+        if host_ipv6_route_unavailable is not True or code != 10051:
+            raise
+        ipv6 = {"check": "direct_ipv6_tcp", "status": "unavailable", "socket_error": 10051, "ok": False}
+    return [first, ipv6, *local]
+
+
+def public_udp_diagnostics() -> dict:
+    """Preserve sendto API results without claiming delivery or DNS isolation."""
+    results = {}
+    for name, family, address in (("ipv4_udp", socket.AF_INET, ("1.1.1.1", 53)),
+                                  ("ipv6_udp", socket.AF_INET6, ("2606:4700:4700::1111", 53, 0, 0))):
+        try:
+            with socket.socket(family, socket.SOCK_DGRAM) as sender:
+                sender.settimeout(2)
+                count = sender.sendto(_UDP_PROBE_DATAGRAM, address)
+            code = "allowed" if count == len(_UDP_PROBE_DATAGRAM) else "short_send"
+        except OSError as exc:
+            code = getattr(exc, "winerror", None) or exc.errno
+            if code is None:
+                code = "timeout" if isinstance(exc, TimeoutError) else "io"
+        except Exception:
+            code = "error"
+        results[name] = {"ok": code == 10013, "code": code}
+    return results
+
+
+def startup_evidence(resources) -> dict:
+    """Copy the host's validated startup records before resources are released."""
+    from ruleproxy import windows_guest
+    report = copy.deepcopy(getattr(resources, "startup_diagnostics", None))
+    observed = copy.deepcopy(getattr(resources, "udp_observation", None))
+    route = copy.deepcopy(getattr(resources, "host_ipv6_observation", None))
+    if (not isinstance(route, dict) or set(route) != {"scope", "host_ipv6_route_unavailable", "code", "kernel_denial_proven"}
+            or route["scope"] != "fixed_ipv6_tcp_route_probe" or route["kernel_denial_proven"] is not False
+            or type(route["host_ipv6_route_unavailable"]) is not bool
+            or not ((type(route["code"]) is int and -65536 <= route["code"] <= 65536)
+                    or (type(route["code"]) is str and route["code"] in {"connected", "timeout", "io"}))
+            or (route["host_ipv6_route_unavailable"] and (type(route["code"]) is not int or route["code"] != 10051))):
+        raise RuntimeError("runtime did not retain its actual host IPv6 observation")
+    if not isinstance(report, dict):
+        raise RuntimeError("runtime did not retain its actual startup diagnostic")
+    windows_guest._validate_startup_report(report, report.get("nonce"))
+    if not windows_guest._startup_checks_passed(report, host_ipv6_route_unavailable=route["host_ipv6_route_unavailable"]):
+        raise RuntimeError("runtime did not establish its mandatory startup checks")
+    if (not isinstance(observed, dict) or observed.get("scope") != "fixed_host_loopback_endpoints"
+            or observed.get("non_delivery_observed") is not True
+            or any(observed.get(key) is not False for key in ("kernel_denial_proven", "public_udp_proven", "dns_proven"))
+            or not isinstance(observed.get("observations"), dict)
+            or set(observed["observations"]) != {"ipv4", "ipv6"}):
+        raise RuntimeError("runtime did not retain its scoped host UDP observation")
+    for value in observed["observations"].values():
+        if (not isinstance(value, dict) or set(value) != {"before_received", "after_received", "parent_received", "child_received"}
+                or any(type(count) is not int for count in value.values())
+                or value["before_received"] < 1 or value["after_received"] < 1
+                or value["parent_received"] != 0 or value["child_received"] != 0):
+            raise RuntimeError("runtime host UDP controls or zero counts were incomplete")
+    report["nonce_sha256"] = hashlib.sha256(bytes.fromhex(report.pop("nonce"))).hexdigest()
+    return {"startup_diagnostics": report, "host_udp_observation": observed, "host_ipv6_observation": route,
+            "public_udp_proven": False, "system_dns_proven": False}
 
 
 def fixture_payload(token: str) -> bytes:
@@ -252,15 +351,16 @@ def fixture_roundtrip(token: str, host: str = "ruleproxy-acceptance.invalid") ->
 
 
 def fixture_failure_checks(args) -> dict:
-    checks = network_checks(args.host_v4_port, args.host_v6_port)
+    checks = network_checks(args.host_v4_port, args.host_v6_port,
+                            host_ipv6_route_unavailable=guest_host_ipv6_unavailable())
     try:
         fixture_roundtrip(args.fixture_token, args.fixture_host)
     except (OSError, RuntimeError):
         checks.append({"check": "proxy_fails_after_fixture_loss", "status": "passed"})
     else:
         raise RuntimeError("proxy transport succeeded after its fixed host endpoint closed")
-    return {"role": args.role, "pid": os.getpid(), "parent_pid": os.getppid(),
-            "status": "passed", "checks": checks}
+    return {"role": args.role, "pid": os.getpid(), "parent_pid": os.getppid(), "run_token": args.run_token,
+            "status": "passed", "checks": checks, "public_udp": public_udp_diagnostics()}
 
 
 def guest_main(arguments: list[str]) -> int:
@@ -272,8 +372,11 @@ def guest_main(arguments: list[str]) -> int:
     parser.add_argument("--fixture-host", default="ruleproxy-acceptance.invalid")
     parser.add_argument("--host-v4-port", type=int, required=True)
     parser.add_argument("--host-v6-port", type=int, required=True)
+    parser.add_argument("--run-token", required=True)
     args = parser.parse_args(arguments)
-    report = {"role": args.role, "pid": os.getpid(), "parent_pid": os.getppid()}
+    if not re.fullmatch(r"[0-9a-f]{64}", args.run_token):
+        return 64
+    report = {"role": args.role, "pid": os.getpid(), "parent_pid": os.getppid(), "run_token": args.run_token}
     listeners = []
     child = None
     try:
@@ -282,11 +385,13 @@ def guest_main(arguments: list[str]) -> int:
             listeners.append(listener)
             listener.bind((host, 0))
             listener.listen(4)
-        checks = network_checks(args.host_v4_port, args.host_v6_port)
+        checks = network_checks(args.host_v4_port, args.host_v6_port,
+                                host_ipv6_route_unavailable=guest_host_ipv6_unavailable())
         checks.append(fixture_roundtrip(args.fixture_token, args.fixture_host)
                       if args.fixture_token else proxy_https(args.url))
         report.update(status="passed", checks=checks,
-                      listeners=[int(item.getsockname()[1]) for item in listeners])
+                      listeners=[int(item.getsockname()[1]) for item in listeners],
+                      public_udp=public_udp_diagnostics())
         write_json(Path(f"acceptance-{args.role}.json"), report)
         if args.role == "parent":
             transport_args = (["--fixture-token", args.fixture_token, "--fixture-host", args.fixture_host] if args.fixture_token
@@ -294,7 +399,7 @@ def guest_main(arguments: list[str]) -> int:
             child = subprocess.Popen([sys.executable, "-I", "-S", "-X", "utf8", __file__,
                                       "--guest", "--role", "child", *transport_args,
                                       "--host-v4-port", str(args.host_v4_port),
-                                      "--host-v6-port", str(args.host_v6_port)],
+                                      "--host-v6-port", str(args.host_v6_port), "--run-token", args.run_token],
                                      stdin=subprocess.DEVNULL, shell=False, close_fds=True)
         # Keep both generations and their listeners alive until the product
         # stops their owning PSEC workload. Do not self-clean the test child.
@@ -712,21 +817,56 @@ def ports() -> tuple[int, int, int]:
             reservation.close()
 
 
-def read_guest_reports(profile: Path, wrapper, timeout: float = 90, *, lost: bool = False) -> list[dict]:
+def read_guest_reports(profile: Path, wrapper, timeout: float = 90, *, lost: bool = False, run_token: str,
+                       host_ipv6_route_unavailable=False) -> list[dict]:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         reports = []
         for role in ("parent", "child"):
             try:
                 prefix = "acceptance-lost" if lost else "acceptance"
-                raw = (profile / f"{prefix}-{role}.json").read_bytes()
+                with (profile / f"{prefix}-{role}.json").open("rb") as stream:
+                    raw = stream.read(16 * 1024 + 1)
                 if len(raw) > 16 * 1024:
                     raise RuntimeError("acceptance guest report exceeded its size limit")
-                value = json.loads(raw)
+                value = json.loads(raw, object_pairs_hook=strict_json_object)
             except (OSError, json.JSONDecodeError):
                 continue
-            if value.get("status") != "passed":
-                raise RuntimeError(value.get("error", "acceptance guest checks failed"))
+            if not isinstance(value, dict) or value.get("status") != "passed":
+                raise RuntimeError(value.get("error", "acceptance guest checks failed") if isinstance(value, dict)
+                                   else "acceptance guest report was not an object")
+            expected = {"role", "pid", "parent_pid", "status", "checks", "public_udp", "run_token"}
+            if (set(value) != expected | (set() if lost else {"listeners"}) or value["role"] != role
+                    or value["run_token"] != run_token
+                    or any(type(value[key]) is not int or not 0 < value[key] <= 0xFFFFFFFF for key in ("pid", "parent_pid"))
+                    or not isinstance(value["checks"], list)):
+                raise RuntimeError("acceptance guest report identity or fields were invalid")
+            if not lost and (not isinstance(value["listeners"], list) or len(value["listeners"]) != 2
+                             or any(type(port) is not int or not 1 <= port <= 65535 for port in value["listeners"])):
+                raise RuntimeError("acceptance guest listeners were incomplete")
+            names = [check.get("check") for check in value["checks"] if isinstance(check, dict)]
+            required = {"direct_ipv4_tcp", "guest_to_host_ipv4", "guest_to_host_ipv6"}
+            proxy_names = {"proxy_fails_after_fixture_loss"} if lost else {"real_proxy_https", "fixed_loopback_transport_cross_frame_fin"}
+            if (len(value["checks"]) != 5 or len(names) != 5 or any(type(name) is not str for name in names)
+                    or len(set(names)) != 5 or not required | {"direct_ipv6_tcp"} <= set(names)
+                    or len(set(names) & proxy_names) != 1
+                    or any(check.get("status") != "passed" for check in value["checks"] if check["check"] != "direct_ipv6_tcp")
+                    or any(check.get("socket_error") != 10013 for check in value["checks"] if check["check"] in required)):
+                raise RuntimeError("acceptance guest mandatory checks were incomplete")
+            ipv6 = next(check for check in value["checks"] if check["check"] == "direct_ipv6_tcp")
+            if not (ipv6 == {"check": "direct_ipv6_tcp", "status": "passed", "socket_error": 10013}
+                    or (host_ipv6_route_unavailable is True and ipv6 == {
+                        "check": "direct_ipv6_tcp", "status": "unavailable", "socket_error": 10051, "ok": False})):
+                raise RuntimeError("acceptance guest public IPv6 lacked denial or confirmed unavailability")
+            public = value["public_udp"]
+            if not isinstance(public, dict) or set(public) != {"ipv4_udp", "ipv6_udp"}:
+                raise RuntimeError("acceptance public UDP diagnostic was incomplete")
+            for diagnostic in public.values():
+                if (not isinstance(diagnostic, dict) or set(diagnostic) != {"ok", "code"} or type(diagnostic["ok"]) is not bool
+                        or not ((type(diagnostic["code"]) is int and -65536 <= diagnostic["code"] <= 65536)
+                                or (type(diagnostic["code"]) is str and diagnostic["code"] in {"allowed", "short_send", "timeout", "io", "error"}))
+                        or diagnostic["ok"] != (diagnostic["code"] == 10013)):
+                    raise RuntimeError("acceptance public UDP diagnostic was invalid")
             reports.append(value)
         if len(reports) == 2:
             if reports[1]["parent_pid"] != reports[0]["pid"]:
@@ -768,7 +908,7 @@ class TransportRun:
         command = [sys.executable, "-I", "-S", "-X", "utf8", str(helper), "--guest",
                    "--role", "parent", "--fixture-token", self.fixture.token,
                    "--host-v4-port", str(host_fixtures.sockets[0].getsockname()[1]),
-                   "--host-v6-port", str(host_fixtures.sockets[1].getsockname()[1])]
+                   "--host-v6-port", str(host_fixtures.sockets[1].getsockname()[1]), "--run-token", self.fixture.token]
         env = dict(os.environ, HTTPS_PROXY=f"http://127.0.0.1:{guest_port}")
         try:
             self.wrapper, self.resources = windows_runtime.launch(
@@ -779,9 +919,12 @@ class TransportRun:
             self.resources = getattr(exc, "resource", None)
             raise
         api = windows_runtime._WinProcessApi()
+        startup = startup_evidence(self.resources)
         handles = []
         try:
-            reports = read_guest_reports(self.profile, self.wrapper)
+            host_ipv6_unavailable = startup["host_ipv6_observation"]["host_ipv6_route_unavailable"]
+            reports = read_guest_reports(self.profile, self.wrapper, run_token=self.fixture.token,
+                                         host_ipv6_route_unavailable=host_ipv6_unavailable)
             for report in reports:
                 handle = api.kernel32.OpenProcess(api.PROCESS_ACCESS, False, report["pid"])
                 if not handle:
@@ -798,7 +941,8 @@ class TransportRun:
             self.fixture.close()
             write_json(self.profile / "acceptance-control.json",
                        {"token": self.fixture.token, "state": "fixture_stopped"})
-            lost = read_guest_reports(self.profile, self.wrapper, timeout=45, lost=True)
+            lost = read_guest_reports(self.profile, self.wrapper, timeout=45, lost=True, run_token=self.fixture.token,
+                                      host_ipv6_route_unavailable=host_ipv6_unavailable)
             if not all(api.process_alive(handle) for handle in handles):
                 raise RuntimeError("fixture-loss checks did not run while both application generations were alive")
             if host_fixtures.accepted.is_set():
@@ -810,7 +954,7 @@ class TransportRun:
             self.resources.close()
             return [
                 {"check": "transport_parent_child", "status": "passed",
-                 "host_to_guest_ipv4_ipv6": "denied", "guest_reports": reports},
+                 "host_to_guest_ipv4_ipv6": "denied", "guest_reports": reports, **startup},
                 {"check": "fixture_loss", "status": "passed", "applications_alive_during_check": True,
                  "guest_reports": lost, "manager_watcher_verified": False},
                 {"check": "safe_psec_stop", "status": "passed", "parent_and_child_exited": True},
@@ -842,16 +986,19 @@ def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str,
     shutil.copyfile(__file__, helper)
     transport_args = (["--fixture-token", proxy_fixture.token, "--fixture-host", proxy_fixture.host]
                       if proxy_fixture is not None else ["--url", url])
+    run_token = secrets.token_hex(32)
     app["args"] = ["-I", "-S", "-X", "utf8", str(helper), "--guest", "--role", "parent",
                    *transport_args, "--host-v4-port", str(fixtures.sockets[0].getsockname()[1]),
-                   "--host-v6-port", str(fixtures.sockets[1].getsockname()[1])]
+                   "--host-v6-port", str(fixtures.sockets[1].getsockname()[1]), "--run-token", run_token]
     manager.launch(app["id"])
     wrapper = manager.active[app["id"]][0]
     resources = manager.active[app["id"]][1]
+    startup = startup_evidence(resources)
     handles = []
     api = windows_runtime._WinProcessApi()
     try:
-        reports = read_guest_reports(profile, wrapper)
+        reports = read_guest_reports(profile, wrapper, run_token=run_token,
+                                     host_ipv6_route_unavailable=startup["host_ipv6_observation"]["host_ipv6_route_unavailable"])
         for report in reports:
             handle = api.kernel32.OpenProcess(api.PROCESS_ACCESS, False, report["pid"])
             if not handle:
@@ -895,7 +1042,7 @@ def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str,
                   "status": "passed", "parent_and_child_exited": True,
                   "held_handles_verified": True, "manager_active_removed": True,
                   "runtime_resources_closed": True,
-                  "host_to_guest_ipv4_ipv6": "denied", "guest_reports": reports}
+                  "host_to_guest_ipv4_ipv6": "denied", "guest_reports": reports, **startup}
         if proxy_fixture is not None:
             result.update(manager_owned_core_stopped=True, manager_watcher_exercised=case == "core_loss")
         return result
@@ -920,7 +1067,8 @@ def main(arguments: list[str]) -> int:
     parser.add_argument("--allow-emulated-x64", action="store_true",
                         help="allow x64 Python on ARM64; report explicitly labels emulation")
     args = parser.parse_args(arguments)
-    result = {"status": "failed", "acceptance_passed": False,
+    result = {"status": "failed", "acceptance_passed": False, "full_acceptance_passed": False,
+              "public_udp_proven": False, "system_dns_proven": False,
               "transport_passed": False, "real_node_passed": False,
               "manager_fixture_passed": False, "manager_normal_stop_passed": False,
               "manager_core_loss_passed": False, "checks": []}
@@ -1033,8 +1181,10 @@ def main(arguments: list[str]) -> int:
                               limitations=["Test-only endpoint reload of this script's owned Mihomo core.",
                                            "Fixed local SOCKS bytes only; no real node or HTTPS origin tested."])
             else:
-                result.update(status="passed", acceptance_passed=True, real_node_passed=True,
-                              manager_normal_stop_passed=True, manager_core_loss_passed=True)
+                result.update(status="real_node_functionality_only", real_node_passed=True,
+                              manager_normal_stop_passed=True, manager_core_loss_passed=True,
+                              limitations=["Real proxy HTTPS and lifecycle passed; external UDP and system DNS wire evidence was not collected.",
+                                           "Host-local UDP zero counts do not prove public IPv4/IPv6 or native resolver isolation."])
         code = 0
     except Exception as exc:
         # Exceptions from YAML parsing can contain source lines and credentials.
@@ -1089,7 +1239,7 @@ def main(arguments: list[str]) -> int:
         if result["status"] == "failed":
             # Lifecycle cleanup and the final host snapshot are part of each
             # requested mode, so a late failure must not retain a success flag.
-            for name in ("acceptance_passed", "transport_passed", "real_node_passed",
+            for name in ("acceptance_passed", "full_acceptance_passed", "transport_passed", "real_node_passed",
                          "manager_fixture_passed", "manager_normal_stop_passed",
                          "manager_core_loss_passed"):
                 result[name] = False

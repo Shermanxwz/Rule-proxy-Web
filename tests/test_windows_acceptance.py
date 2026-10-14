@@ -1,5 +1,6 @@
 """Acceptance tooling must identify emulation and verify portable runtimes."""
 import hashlib
+from contextlib import ExitStack
 import importlib.util
 import io
 import json
@@ -8,6 +9,7 @@ from pathlib import Path
 import socket
 import struct
 import subprocess
+import threading
 import sys
 import tempfile
 import time
@@ -203,29 +205,30 @@ class WindowsAcceptanceTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     acceptance.validate_connect_response(response)
 
-    def test_udp_acceptance_and_runtime_use_the_same_fixed_query_and_denial_rule(self):
+    def test_public_udp_api_results_remain_diagnostic_without_short_circuiting_tcp(self):
         from ruleproxy import windows_guest
         self.assertEqual(acceptance._UDP_PROBE_DATAGRAM, windows_guest._UDP_PROBE_DATAGRAM)
-        for family, address in ((socket.AF_INET, ("1.1.1.1", 53)),
-                                (socket.AF_INET6, ("2606:4700:4700::1111", 53, 0, 0))):
-            for outcome in (len(acceptance._UDP_PROBE_DATAGRAM), 0,
-                            len(acceptance._UDP_PROBE_DATAGRAM) - 1,
-                            OSError(10013, "denied"), OSError(10051, "unreachable"), TimeoutError()):
-                with self.subTest(family=family, outcome=str(outcome)), mock.patch("socket.socket") as factory:
-                    connection = factory.return_value.__enter__.return_value
-                    if isinstance(outcome, Exception):
-                        connection.sendto.side_effect = outcome
-                    else:
-                        connection.sendto.return_value = outcome
-                    if isinstance(outcome, OSError) and outcome.errno == 10013:
-                        result = acceptance.denied(family, socket.SOCK_DGRAM, address, "fixed_udp")
-                        self.assertEqual(result, {"check": "fixed_udp", "status": "passed", "socket_error": 10013})
-                    else:
-                        with self.assertRaises(RuntimeError):
-                            acceptance.denied(family, socket.SOCK_DGRAM, address, "fixed_udp")
-                connection.sendto.assert_called_once_with(acceptance._UDP_PROBE_DATAGRAM, address)
-                connection.connect.assert_not_called()
-                factory.assert_called_once_with(family, socket.SOCK_DGRAM)
+        for outcome, expected in ((len(acceptance._UDP_PROBE_DATAGRAM), {"ok": False, "code": "allowed"}),
+                                  (0, {"ok": False, "code": "short_send"}),
+                                  (OSError(10013, "denied"), {"ok": True, "code": 10013}),
+                                  (OSError(10051, "unavailable"), {"ok": False, "code": 10051}),
+                                  (TimeoutError(), {"ok": False, "code": "timeout"})):
+            with self.subTest(code=expected["code"]), mock.patch("socket.socket") as factory:
+                sender = factory.return_value.__enter__.return_value
+                if isinstance(outcome, Exception):
+                    sender.sendto.side_effect = outcome
+                else:
+                    sender.sendto.return_value = outcome
+                self.assertEqual(acceptance.public_udp_diagnostics(), dict(ipv4_udp=expected, ipv6_udp=expected))
+                self.assertEqual(sender.sendto.call_args_list, [
+                    mock.call(acceptance._UDP_PROBE_DATAGRAM, ("1.1.1.1", 53)),
+                    mock.call(acceptance._UDP_PROBE_DATAGRAM, ("2606:4700:4700::1111", 53, 0, 0))])
+                sender.connect.assert_not_called()
+        with mock.patch.object(acceptance, "denied", side_effect=lambda family, kind, addr, name:
+                               {"check": name, "status": "passed", "socket_error": 10013}) as denied:
+            checks = acceptance.network_checks(19001, 19002)
+        self.assertEqual(len(checks), 4)
+        self.assertTrue(all(call.args[1] == socket.SOCK_STREAM for call in denied.call_args_list))
 
     def test_manager_socks_fixture_accepts_only_fixed_destination_and_fin_payload(self):
         fixture = acceptance.FixedSocksFixture()
@@ -285,6 +288,221 @@ class WindowsAcceptanceTests(unittest.TestCase):
         manager.core.poll.return_value = 1
         with self.assertRaises(RuntimeError):
             acceptance.reload_manager_fixture(manager, fixture)
+
+    @staticmethod
+    def startup_resources():
+        from ruleproxy import windows_guest
+        nonce = "a" * 64
+        reports = {}
+        for role, pid, ppid in (("parent", 123, 100), ("child", 456, 123)):
+            proxy = "proxy_self" if role == "parent" else "proxy_parent"
+            reports[role] = {"scope": role, "pid": pid, "parent_pid": ppid, "process_created": pid * 100,
+                             "checks": {proxy: {"ok": True, "code": "ok"},
+                                        **{name: {"ok": True, "code": 10013} for name in windows_guest._MANDATORY_DENY_PROBES}},
+                             "public_udp": {"ipv4_udp": {"ok": False, "code": "allowed"},
+                                            "ipv6_udp": {"ok": False, "code": 10051}},
+                             "local_udp": {family: {"state": "access_denied", "stage": "send", "code": 10013,
+                                                     "sent_bytes": None} for family in ("ipv4", "ipv6")}}
+        return SimpleNamespace(startup_diagnostics={"schema_version": 1, "nonce": nonce, **reports,
+                               "config_readonly": {"ok": True, "code": 5},
+                               "aux": {"parent_ipv6_loopback": {"ok": False, "code": 10013}}},
+                               host_ipv6_observation={"scope": "fixed_ipv6_tcp_route_probe", "host_ipv6_route_unavailable": False,
+                                                      "code": "connected", "kernel_denial_proven": False},
+                               udp_observation={"scope": "fixed_host_loopback_endpoints", "non_delivery_observed": True,
+                               "kernel_denial_proven": False, "public_udp_proven": False, "dns_proven": False,
+                               "observations": {family: {"before_received": 1, "after_received": 1,
+                                                         "parent_received": 0, "child_received": 0}
+                                                for family in ("ipv4", "ipv6")}}, close=mock.Mock())
+
+    def test_startup_evidence_copies_actual_scoped_records_and_refuses_missing_controls(self):
+        resources = self.startup_resources()
+        result = acceptance.startup_evidence(resources)
+        self.assertEqual(result["startup_diagnostics"]["config_readonly"], {"ok": True, "code": 5})
+        self.assertFalse(result["public_udp_proven"])
+        self.assertFalse(result["system_dns_proven"])
+        self.assertNotIn("nonce", result["startup_diagnostics"])
+        self.assertIn("nonce", resources.startup_diagnostics, "copying evidence must not mutate runtime ownership")
+        resources.udp_observation["observations"]["ipv6"]["after_received"] = 0
+        with self.assertRaisesRegex(RuntimeError, "controls"):
+            acceptance.startup_evidence(resources)
+
+    def test_guest_continues_proxy_after_public_udp_accepted_and_route_error(self):
+        proxy = {"check": "fixed_loopback_transport_cross_frame_fin", "status": "passed"}
+        def tcp_checks(_v4, _v6, **kwargs):
+            return [{"check": name, "status": "passed", "socket_error": 10013} for name in
+                    ("direct_ipv4_tcp", "direct_ipv6_tcp", "guest_to_host_ipv4", "guest_to_host_ipv6")]
+        with mock.patch.object(acceptance, "network_checks", side_effect=tcp_checks), \
+                mock.patch.object(acceptance, "guest_host_ipv6_unavailable", return_value=False), \
+                mock.patch.object(acceptance, "fixture_roundtrip", return_value=proxy) as roundtrip, \
+                mock.patch.object(acceptance, "public_udp_diagnostics", return_value={
+                    "ipv4_udp": {"ok": False, "code": "allowed"}, "ipv6_udp": {"ok": False, "code": 10051}}), \
+                mock.patch.object(acceptance, "write_json") as write, \
+                mock.patch.object(acceptance.time, "sleep", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                acceptance.guest_main(["--role", "child", "--fixture-token", "a" * 64,
+                                      "--host-v4-port", "19001", "--host-v6-port", "19002", "--run-token", "b" * 64])
+        roundtrip.assert_called_once()
+        report = write.call_args.args[1]
+        self.assertEqual(report["status"], "passed")
+        self.assertFalse(report["public_udp"]["ipv4_udp"]["ok"])
+        self.assertFalse(report["public_udp"]["ipv6_udp"]["ok"])
+
+    def test_empty_listener_or_stale_report_cannot_claim_both_families_denied(self):
+        wrapper = mock.Mock()
+        wrapper.poll.return_value = None
+        report = {"role": "parent", "pid": 123, "parent_pid": 100, "status": "passed", "run_token": "a" * 64,
+                  "checks": [{"check": name, "status": "passed", "socket_error": 10013} for name in
+                             ("direct_ipv4_tcp", "direct_ipv6_tcp", "guest_to_host_ipv4", "guest_to_host_ipv6")]
+                             + [{"check": "real_proxy_https", "status": "passed"}],
+                  "public_udp": {"ipv4_udp": {"ok": False, "code": "allowed"}, "ipv6_udp": {"ok": False, "code": 10051}},
+                  "listeners": []}
+        acceptance.write_json(self.root / "acceptance-parent.json", report)
+        with self.assertRaisesRegex(RuntimeError, "listeners"):
+            acceptance.read_guest_reports(self.root, wrapper, timeout=0.1, run_token="a" * 64)
+        report["listeners"] = [19001, 19002]
+        acceptance.write_json(self.root / "acceptance-parent.json", report)
+        with self.assertRaisesRegex(RuntimeError, "identity"):
+            acceptance.read_guest_reports(self.root, wrapper, timeout=0.1, run_token="b" * 64)
+
+    def test_mock_https_lifecycle_success_never_promotes_full_security_acceptance(self):
+        from ruleproxy import windows_runtime
+        yaml = self.root / "private.yaml"
+        yaml.write_text("private fixture bytes")
+        report = self.root / "full.json"
+        manager = mock.Mock()
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.object(sys, "platform", "win32"))
+            stack.enter_context(mock.patch.object(acceptance, "host_facts", return_value={
+                "windows_product_type": 1, "windows_build": 26300, "pointer_bits": 64,
+                "python_pe_machine": 0x8664, "native_machine": 0x8664}))
+            stack.enter_context(mock.patch.object(acceptance, "verify_runtime_manifest", return_value={
+                "wxc-exec.exe": "a" * 64, "mihomo.exe": "b" * 64}))
+            stack.enter_context(mock.patch.object(windows_runtime, "probe", return_value={"supported": True}))
+            stack.enter_context(mock.patch.object(acceptance, "network_snapshot", return_value="c" * 64))
+            stack.enter_context(mock.patch.object(acceptance, "HostFixtures"))
+            stack.enter_context(mock.patch("ruleproxy.manager.Manager", return_value=manager))
+            stack.enter_context(mock.patch.object(acceptance, "lifecycle_case", side_effect=lambda _manager, _fixtures, _url, case, **kwargs:
+                                                  {"check": case, "status": "passed"}))
+            stack.enter_context(mock.patch.object(sys, "stdout", new_callable=io.StringIO))
+            self.assertEqual(acceptance.main(["--root", str(acceptance.ROOT), "--yaml", str(yaml), "--report", str(report)]), 0)
+        result = json.loads(report.read_text())
+        self.assertTrue(result["real_node_passed"])
+        self.assertFalse(result["acceptance_passed"])
+        self.assertFalse(result["full_acceptance_passed"])
+        self.assertFalse(result["public_udp_proven"])
+        self.assertFalse(result["system_dns_proven"])
+
+    def browser_module(self):
+        path = SCRIPT.parent.parent / ".github/windows_browser_check.py"
+        spec = importlib.util.spec_from_file_location("ruleproxy_browser_checks_test", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_real_browser_fixture_second_page_cannot_reissue_cookie_and_cleanup_closes_handlers(self):
+        browser = self.browser_module()
+        fixture = browser.BrowserFixture()
+        self.addCleanup(fixture.close)
+        fixture.begin(1)
+        url = f"http://{browser.HOST}/phase/1"
+        status, body, extra = fixture.response("GET", url, "HTTP/1.1", {})
+        self.assertEqual(status, "200 OK")
+        self.assertIn(fixture.nonce.encode(), body)
+        self.assertIn("Set-Cookie:", extra)
+        fixture.begin(2)
+        _, _, extra = fixture.response("GET", f"http://{browser.HOST}/phase/2", "HTTP/1.1", {})
+        self.assertNotIn("Set-Cookie:", extra)
+        fixture.response("GET", f"http://{browser.HOST}/ack/2?nonce={fixture.nonce}", "HTTP/1.1",
+                         {"cookie": f"{browser.COOKIE}={fixture.nonce}"})
+        with self.assertRaisesRegex(RuntimeError, "persistent cookie"):
+            fixture.check(2)
+        connection = socket.create_connection(("127.0.0.1", fixture.port), timeout=1)
+        self.addCleanup(connection.close)
+        connection.sendall(b"GET ")
+        deadline = time.monotonic() + 1
+        while not fixture.handlers and time.monotonic() < deadline:
+            threading.Event().wait(0.005)
+        handlers = list(fixture.handlers)
+        self.assertTrue(handlers)
+        fixture.close()
+        self.assertTrue(all(not worker.is_alive() for worker in handlers))
+
+    def test_mock_browser_run_preserves_actual_runtime_startup_record_without_public_claims(self):
+        from ruleproxy import launcher, windows_runtime
+        browser = self.browser_module()
+        resources = self.startup_resources()
+        wrapper = mock.Mock()
+        wrapper.wait.return_value = 0
+        fixture = mock.Mock(port=19002)
+        owner = browser.BrowserRun(Path("runtime"), Path("msedge.exe"), self.root, fixture)
+        with mock.patch.object(launcher, "prepare_app", return_value=(["msedge.exe"], {}, "")), \
+                mock.patch.object(windows_runtime, "choose_guest_port", return_value=19001), \
+                mock.patch.object(windows_runtime, "launch", return_value=(wrapper, resources)), \
+                mock.patch.object(windows_runtime, "stop"):
+            result = owner.run(1, 90)
+        self.assertEqual(result["startup_diagnostics"]["config_readonly"], {"ok": True, "code": 5})
+        self.assertFalse(result["public_udp_proven"])
+        self.assertFalse(result["system_dns_proven"])
+        self.assertTrue(result["host_udp_observation"]["non_delivery_observed"])
+        resources.close.assert_called_once()
+
+    def test_public_ipv6_no_route_requires_actual_host_fact_and_local_ipv6_access_denial(self):
+        with mock.patch("socket.socket") as factory:
+            sender = factory.return_value.__enter__.return_value
+            sender.connect.side_effect = [OSError(10013, "denied"), OSError(10013, "denied"),
+                                          OSError(10013, "denied"), OSError(10051, "no route")]
+            checks = acceptance.network_checks(19001, 19002, host_ipv6_route_unavailable=True)
+        self.assertEqual(checks[1], {"check": "direct_ipv6_tcp", "status": "unavailable", "socket_error": 10051, "ok": False})
+        self.assertTrue(all(check["socket_error"] == 10013 for check in (checks[0], *checks[2:])))
+        for host_fact, local_code, public_code in ((False, 10013, 10051), (True, 10051, 10051),
+                                                   (True, 10013, 10060), (True, 10013, 10065)):
+            with self.subTest(host_fact=host_fact, local_code=local_code, public_code=public_code), \
+                    mock.patch("socket.socket") as factory:
+                factory.return_value.__enter__.return_value.connect.side_effect = [
+                    OSError(10013, "denied"), OSError(10013, "denied"), OSError(local_code, "local result"),
+                    OSError(public_code, "public result")]
+                with self.assertRaises(RuntimeError):
+                    acceptance.network_checks(19001, 19002, host_ipv6_route_unavailable=host_fact)
+
+    def test_startup_ipv6_unavailable_preserves_raw_false_and_actual_host_observation(self):
+        resources = self.startup_resources()
+        for role in ("parent", "child"):
+            resources.startup_diagnostics[role]["checks"]["ipv6_tcp"] = {"ok": False, "code": 10051}
+        with self.assertRaisesRegex(RuntimeError, "mandatory startup"):
+            acceptance.startup_evidence(resources)
+        resources.host_ipv6_observation.update(host_ipv6_route_unavailable=True, code=10051)
+        result = acceptance.startup_evidence(resources)
+        self.assertEqual(result["startup_diagnostics"]["child"]["checks"]["ipv6_tcp"], {"ok": False, "code": 10051})
+        self.assertTrue(result["host_ipv6_observation"]["host_ipv6_route_unavailable"])
+        self.assertFalse(result["public_udp_proven"])
+        resources.startup_diagnostics["aux"]["parent_ipv6_loopback"] = {"ok": False, "code": 10051}
+        with self.assertRaisesRegex(RuntimeError, "mandatory startup"):
+            acceptance.startup_evidence(resources)
+
+    def test_guest_availability_reads_forced_config_outside_profile_not_writable_claim(self):
+        profile = self.root / "profile"
+        profile.mkdir()
+        directory = self.root / "config"
+        directory.mkdir()
+        config = directory / "guest-config.json"
+        value = {"schema_version": 1, "command": ["fixture"], "env": {}, "profile": str(profile),
+                 "listener_port": 19001, "bridge_directory": str(profile), "bridge_nonce": "a" * 64,
+                 "host_fixture_port": 19002, "host_udp_ports": [19003, 19004], "host_ipv6_route_unavailable": True}
+        config.write_text(json.dumps(value))
+        with mock.patch.object(Path, "cwd", return_value=profile), \
+                mock.patch.dict(os.environ, {"RULEPROXY_RUNTIME_CONFIG": str(config)}):
+            self.assertTrue(acceptance.guest_host_ipv6_unavailable())
+            value["host_ipv6_route_unavailable"] = "true"
+            config.write_text(json.dumps(value))
+            with self.assertRaises(RuntimeError):
+                acceptance.guest_host_ipv6_unavailable()
+        value["host_ipv6_route_unavailable"] = True
+        mutable = profile / "forged.json"
+        mutable.write_text(json.dumps(value))
+        with mock.patch.object(Path, "cwd", return_value=profile), \
+                mock.patch.dict(os.environ, {"RULEPROXY_RUNTIME_CONFIG": str(mutable)}):
+            with self.assertRaisesRegex(RuntimeError, "writable profile"):
+                acceptance.guest_host_ipv6_unavailable()
 
 
 if __name__ == "__main__":

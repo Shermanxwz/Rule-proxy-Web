@@ -85,6 +85,7 @@ def _read_config(path: Path) -> dict[str, Any]:
         "host_fixture_port",
         "schema_version",
         "host_udp_ports",
+        "host_ipv6_route_unavailable",
     }
     if set(value) != required:
         raise ValueError("guest runtime config fields are invalid")
@@ -118,6 +119,8 @@ def _read_config(path: Path) -> dict[str, Any]:
     if not _valid_nonce(nonce):
         raise ValueError("bridge nonce is invalid")
     _validate_udp_ports(value["host_udp_ports"])
+    if type(value["host_ipv6_route_unavailable"]) is not bool:
+        raise ValueError("host IPv6 availability must be a boolean")
     return value
 
 
@@ -467,6 +470,34 @@ def _validate_startup_report(value, nonce):
     return value
 
 
+def _startup_checks_passed(value, *, host_ipv6_route_unavailable=False) -> bool:
+    """Keep unavailable public IPv6 separate from an actual policy denial.
+
+    Only a trusted host's identical fixed TCP observation may account for
+    WSAENETUNREACH. The raw guest result stays unsuccessful. The local IPv6
+    socket must still return WSAEACCES; all other startup checks remain required.
+    """
+    if type(host_ipv6_route_unavailable) is not bool:
+        return False
+    try:
+        _validate_startup_report(value, value.get("nonce"))
+    except (AttributeError, ValueError, TypeError):
+        return False
+    if not value["config_readonly"]["ok"]:
+        return False
+    local_ipv6_denied = value["aux"]["parent_ipv6_loopback"] == {"ok": False, "code": 10013}
+    for scope in (value["parent"], value["child"]):
+        if any(item["state"] == "invalid" for item in scope["local_udp"].values()):
+            return False
+        for name, item in scope["checks"].items():
+            if item["ok"]:
+                continue
+            if not (name == "ipv6_tcp" and item["code"] == 10051
+                    and host_ipv6_route_unavailable and local_ipv6_denied):
+                return False
+    return True
+
+
 def _nested_startup_report(listener_port, host_fixture_port, udp_ports, nonce, *, deadline):
     process = None
     try:
@@ -556,7 +587,8 @@ def _write_probe_report(directory: Path, nonce: str, report: dict[str, Any]) -> 
 
 
 def _child_self_check(listener_port: int, host_fixture_port: int,
-                      directory: Path, nonce: str, udp_ports: list[int], *, config_path: Path) -> dict[str, Any]:
+                      directory: Path, nonce: str, udp_ports: list[int], *, config_path: Path,
+                      host_ipv6_route_unavailable: bool = False) -> dict[str, Any]:
     """Collect trusted startup telemetry; host still owns UDP delivery verdict."""
     import socket
     started = time.monotonic()
@@ -596,10 +628,11 @@ def _child_self_check(listener_port: int, host_fixture_port: int,
     _write_probe_report(directory, nonce, report)
     if not readonly["ok"]:
         raise RuntimeError("config readonly check did not return Windows access denial: " + str(readonly["code"]))
-    if not all(item["ok"] for scope in (parent, child) for item in scope["checks"].values()):
-        raise RuntimeError(_probe_summary(parent, child, auxiliary))
     if any(item["state"] == "invalid" for scope in (parent, child) for item in scope["local_udp"].values()):
         raise RuntimeError("contained local UDP startup attempt was incomplete")
+    if not _startup_checks_passed({"nonce": nonce, **report},
+                                 host_ipv6_route_unavailable=host_ipv6_route_unavailable):
+        raise RuntimeError(_probe_summary(parent, child, auxiliary))
     return report
 
 
@@ -732,7 +765,7 @@ def run(config_path: Path) -> int:
         if not wait_for_bridge_ready(bridge_dir, nonce, _BRIDGE_READY_TIMEOUT):
             raise RuntimeError("contained proxy bridge listener did not become ready")
         _child_self_check(listener_port, config["host_fixture_port"], bridge_dir, nonce, config["host_udp_ports"],
-                          config_path=config_path)
+                          config_path=config_path, host_ipv6_route_unavailable=config["host_ipv6_route_unavailable"])
         if bridge_error or not bridge_thread.is_alive():
             raise RuntimeError("contained file bridge stopped during its network self-check")
         signal_guest_ready(bridge_dir, nonce)

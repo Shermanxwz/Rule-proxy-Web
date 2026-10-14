@@ -42,8 +42,6 @@ def acceptance_helpers():
 class _Handler(socketserver.BaseRequestHandler):
     def handle(self):
         fixture = self.server.fixture
-        with fixture.lock:
-            fixture.connections.add(self.request)
         try:
             self.request.settimeout(15)
             first = self.request.recv(1)
@@ -84,14 +82,29 @@ class _Handler(socketserver.BaseRequestHandler):
             # A browser may abandon speculative connections. Successful page
             # and DOM acknowledgements, rather than connection counts, gate it.
             pass
-        finally:
-            with fixture.lock:
-                fixture.connections.discard(self.request)
 
 
 class _Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
     block_on_close = False
+
+    def process_request(self, request, address):
+        fixture = self.fixture
+        def serve():
+            try:
+                self.process_request_thread(request, address)
+            finally:
+                with fixture.lock:
+                    fixture.connections.discard(request)
+                    fixture.handlers.discard(threading.current_thread())
+        worker = threading.Thread(target=serve, name="RuleProxyBrowserFixtureHandler", daemon=True)
+        with fixture.lock:
+            if fixture.closed.is_set():
+                request.close()
+                return
+            fixture.connections.add(request)
+            fixture.handlers.add(worker)
+        worker.start()
 
 
 class BrowserFixture:
@@ -101,6 +114,8 @@ class BrowserFixture:
         self.nonce = secrets.token_hex(32)
         self.lock = threading.Lock()
         self.connections = set()
+        self.handlers = set()
+        self.closed = threading.Event()
         self.phase = 0
         self.pages = {1: [], 2: []}
         self.acks = {1: [], 2: []}
@@ -158,17 +173,22 @@ class BrowserFixture:
                 raise RuntimeError("persistent cookie was absent on the second private-profile launch")
 
     def close(self):
+        self.closed.set()
         self.server.shutdown()
         self.server.server_close()
         self.worker.join(timeout=2)
         with self.lock:
-            connections = list(self.connections)
+            connections, handlers = list(self.connections), list(self.handlers)
         for connection in connections:
             try:
                 connection.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
             connection.close()
+        for handler in handlers:
+            handler.join(timeout=2)
+        if self.worker.is_alive() or any(handler.is_alive() for handler in handlers):
+            raise RuntimeError("browser fixture retained a live worker after closure")
 
 
 def find_edge(explicit):
@@ -205,6 +225,7 @@ class BrowserRun:
             self.wrapper = getattr(exc, "process", None)
             self.resources = getattr(exc, "resource", None)
             raise
+        startup = acceptance_helpers().startup_evidence(self.resources)
         # Natural headless exit is required before relaunch, so cookie flush
         # is checked without a kill/teardown manufacturing the result.
         code = self.wrapper.wait(timeout=timeout)
@@ -214,7 +235,7 @@ class BrowserRun:
         self.close()
         return {"check": f"real_edge_launch_{phase}", "status": "passed",
                 "dom_nonce_via_page_ack": True, "cookie_request_verified": True,
-                "natural_headless_exit": True, "private_profile_reused": phase == 2}
+                "natural_headless_exit": True, "private_profile_reused": phase == 2, **startup}
 
     def close(self):
         from ruleproxy import windows_runtime
@@ -237,6 +258,7 @@ def main(arguments):
         parser.error("--timeout must be between 10 and 300 seconds")
     helpers = acceptance_helpers()
     result = {"status": "failed", "browser_fixture_passed": False, "acceptance_passed": False,
+              "full_acceptance_passed": False, "public_udp_proven": False, "system_dns_proven": False,
               "real_node_passed": False, "checks": [],
               "limitations": ["Fixed local HTTP bytes only; no external node or HTTPS origin tested.",
                               "Only persistent cookies are in scope; session login and downloads remain unverified.",
@@ -295,7 +317,13 @@ def main(arguments):
                               cleanup_error=type(exc).__name__, recovery_directory=str(directory))
                 code = 1
         if fixture is not None:
-            fixture.close()
+            try:
+                fixture.close()
+            except Exception as exc:
+                safe_cleanup = False
+                result.update(status="failed", browser_fixture_passed=False,
+                              cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+                code = 1
         if before is not None:
             try:
                 after = helpers.network_snapshot()

@@ -175,15 +175,15 @@ Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中�
 python scripts/windows-acceptance.py --probe-only --report windows-11-probe.json
 ```
 
-完整验收需要自己的可用代理 YAML；不要上传真实节点配置。先正常退出其他 RuleProxy 面板，再执行：
+真实代理节点功能检查需要自己的可用代理 YAML；不要上传真实节点配置。先正常退出其他 RuleProxy 面板，再执行：
 
 ```powershell
 python scripts/windows-acceptance.py --yaml C:\private\proxy.yaml --report windows-acceptance.json
 ```
 
-测试运行包时，使用包内的 `python\python.exe` 执行源码中的同一脚本，并指定 `--root` 为解压后的 `RuleProxy-Web` 目录。脚本先核验组件清单和所有文件摘要，再启动测试专用核心和应用；检查父子进程的真实 HTTPS 代理、IPv4/IPv6 TCP 与 UDP DNS 阻断、宿主回环双向阻断、正常停止和核心故障后的进程清理，并比较测试前后的系统代理、DNS 和默认路由。
+测试运行包时，使用包内的 `python\python.exe` 执行源码中的同一脚本，并指定 `--root` 为解压后的 `RuleProxy-Web` 目录。脚本先核验组件清单和所有文件摘要，再启动测试专用核心和应用；检查父子进程的真实 HTTPS 代理、TCP 直连与宿主回环限制、正常停止和核心故障后的进程清理，并比较测试前后的系统代理、DNS 和默认路由。公网 UDP 发送返回值另行记录，不能替代网卡层观测或系统 DNS 证据。
 
-退出码 `0` 表示所请求的检查完成，`1` 表示失败，`3` 表示环境不支持。**能力检查成功仍记录 `acceptance_passed: false`；只有完整模式全部通过才记录 `true`。** ARM 设备上的 x64 模拟运行必须显式使用 `--allow-emulated-x64`，报告会单独标识，不能当作原生 x64 验收。报告不包含 YAML 或下载页面正文。清理失败时保留测试数据目录并报告位置，请正常关闭相关隔离进程后再删除。
+退出码 `0` 表示所请求的功能检查完成，`1` 表示失败，`3` 表示环境不支持。真实节点 HTTPS 和生命周期检查通过时记录 `real_node_passed: true`；**这些检查仍保持 `acceptance_passed: false`、`full_acceptance_passed: false`，没有自动授予公网 UDP / 系统 DNS 的完整安全验收。** ARM 设备上的 x64 模拟运行必须显式使用 `--allow-emulated-x64`，报告会单独标识，不能当作原生 x64 验收。报告不包含 YAML 或下载页面正文。清理失败时保留测试数据目录并报告位置，请正常关闭相关隔离进程后再删除。
 
 不使用真实代理凭据时，可以单独检查真实隔离与文件通道：
 
@@ -193,7 +193,7 @@ python scripts/windows-acceptance.py --manager-fixture --report windows-manager.
 python .github/windows_browser_check.py --report windows-browser.json
 ```
 
-通道检查使用固定本机字节，不解析或转发任意目的地址；检查跨帧数据、双向半关闭、父子进程 IPv4/IPv6 TCP/UDP 阻断、宿主回环双向阻断、测试入口失效及安全停止。Manager 检查通过真实 Mihomo 向固定本机 SOCKS 测试服务传输数据，并分别检查正常停止及核心退出后的父子进程句柄、应用记录和资源清理。仅在测试专用核心中临时替换一个测试节点的地址；生产导入器仍拒绝回环节点。浏览器检查使用真实 Edge 渲染固定 HTTP 页面，并验证两次自然退出之间的持久 Cookie。这些模式分别记录 `transport_passed`、`manager_fixture_passed` 和 `browser_fixture_passed`，始终保持 `acceptance_passed: false`、`real_node_passed: false`；实际 HTTPS 节点、会话登录和下载仍需另行验收。
+通道检查使用固定本机字节，不解析或转发任意目的地址；检查跨帧数据、双向半关闭、父子 TCP 限制、宿主回环、测试入口失效及安全停止，并保存启动时实际的宿主 UDP 对照与接收计数。只有宿主同一固定 IPv6 TCP 目标也返回无路由、隔离内本机 IPv6 实际被拒绝时，公网 IPv6 才记为不可用；不会把 `10051` 记为策略拒绝。Manager 检查通过真实 Mihomo 向固定本机 SOCKS 测试服务传输数据，并分别检查正常停止及核心退出后的父子进程句柄、应用记录和资源清理。仅在测试专用核心中临时替换一个测试节点的地址；生产导入器仍拒绝回环节点。浏览器检查使用真实 Edge 渲染固定 HTTP 页面，并验证两次自然退出之间的持久 Cookie。这些模式分别记录 `transport_passed`、`manager_fixture_passed` 和 `browser_fixture_passed`，始终保持 `acceptance_passed: false`、`real_node_passed: false`；实际 HTTPS 节点、会话登录和下载仍需另行验收。
 
 GitHub 标准 x64 Windows runner 使用 Windows Server，可验证运行包和拒绝启动流程。Windows 11 ARM job 可补充真实内核验证，不能代表原生 x64。原生 x64 job 使用 [.github/windows_vm_test.py](.github/windows_vm_test.py) 在 KVM 中自动安装 [微软官方 90 天评估镜像](https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise)，先验证 [官方校验值](https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file)，然后以非管理员用户测试运行包。不会退回软件 CPU 模拟，也不启用 Windows 远程管理服务；上传的产物仅含报告、日志和最后截图，不含虚拟机磁盘或临时登录密码。硬件虚拟化可用不保证 PSEC 策略可用，结果以对应提交的 CI 和报告为准。
 

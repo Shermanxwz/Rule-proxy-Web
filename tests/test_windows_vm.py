@@ -14,6 +14,7 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
+from types import SimpleNamespace
 from unittest import mock
 
 
@@ -316,7 +317,103 @@ class WindowsVmTests(unittest.TestCase):
         self.assertFalse(result["transport_passed"])
         self.assertFalse(result["manager_fixture_passed"])
         self.assertFalse(result["browser_fixture_passed"])
+        self.assertFalse(result["baseline_diagnostic"])
+        self.assertTrue(result["official_update"]["required"])
         self.assertEqual(json.loads((self.root / "windows-vm-summary.json").read_text()), result)
+
+    def test_baseline_is_explicit_and_cannot_be_promoted_to_default_updated_success(self):
+        arguments = ["--package", str(self.root / "release.zip"), "--package-sha256", "a" * 64,
+                     "--artifacts", str(self.root)]
+        baseline = {"status": "baseline_transport_and_package_tests_passed", "baseline_diagnostic": True,
+                    "official_update": {"required": False}}
+        updated = {"status": "transport_and_package_tests_passed", "baseline_diagnostic": False,
+                   "official_update": {"required": True}}
+        with mock.patch.object(vm, "run", return_value=baseline) as run:
+            self.assertEqual(vm.main(arguments), 1)
+            self.assertFalse(run.call_args.args[0].baseline_diagnostic)
+            self.assertEqual(vm.main(arguments + ["--baseline-diagnostic"]), 0)
+            self.assertTrue(run.call_args.args[0].baseline_diagnostic)
+        with mock.patch.object(vm, "run", return_value=updated):
+            self.assertEqual(vm.main(arguments), 0)
+            self.assertEqual(vm.main(arguments + ["--baseline-diagnostic"]), 1)
+        with mock.patch.object(vm, "run", return_value={**updated, "official_update": {}}):
+            self.assertEqual(vm.main(arguments), 1)
+
+    def test_only_explicit_baseline_skips_update_downloads_and_seed_requirement(self):
+        for baseline in (False, True):
+            with self.subTest(baseline=baseline):
+                import hashlib
+                package = self.root / "package.zip"
+                with zipfile.ZipFile(package, "w") as archive:
+                    for name in ("python/python.exe", "ruleproxy/windows_runtime.py",
+                                 "bin/windows-amd64/wxc-exec.exe", "bin/windows-amd64/runtime.json"):
+                        archive.writestr("RuleProxy-Web/" + name, b"public fixture")
+                work = self.root / ("baseline-work" if baseline else "updated-work")
+                work.mkdir()
+                iso_data = b"public small ISO fixture, never booted"
+                def subprocess_run(command, **_):
+                    if command[0] == "curl":
+                        Path(command[command.index("--output") + 1]).write_bytes(iso_data)
+                server = mock.Mock(server_address=("127.0.0.1", 43210), capability="a" * 64)
+                args = SimpleNamespace(artifacts=self.root, package=package,
+                    package_sha256=vm.digest(package), timeout_seconds=300, baseline_diagnostic=baseline)
+                with mock.patch.object(vm, "require_kvm", return_value=12), \
+                        mock.patch.object(vm.shutil, "which", return_value="fixture-tool"), \
+                        mock.patch.object(vm.shutil, "disk_usage", return_value=SimpleNamespace(free=100 * 1024**3)), \
+                        mock.patch.object(vm.Path, "is_file", return_value=True), \
+                        mock.patch.object(vm.tempfile, "TemporaryDirectory") as directory, \
+                        mock.patch.object(vm, "ISO_BYTES", len(iso_data)), \
+                        mock.patch.object(vm, "ISO_SHA256", hashlib.sha256(iso_data).hexdigest()), \
+                        mock.patch.object(vm.subprocess, "run", side_effect=subprocess_run), \
+                        mock.patch.object(vm, "download_updates", return_value=[]) as download, \
+                        mock.patch.object(vm, "make_payload", return_value="b" * 64), \
+                        mock.patch.object(vm, "GuestServer", return_value=server) as guest_server, \
+                        mock.patch.object(vm, "validate_install_tree", return_value="efi/microsoft/boot/efisys_noprompt.bin"), \
+                        mock.patch.object(vm, "prepare_seed", side_effect=RuntimeError("test stopped before rebuild/boot")) as seed, \
+                        mock.patch("builtins.print"):
+                    directory.return_value.__enter__.return_value = str(work)
+                    result = vm.run(args)
+                self.assertEqual(result["error"], "RuntimeError: test stopped before rebuild/boot")
+                expected_updates = None if baseline else work / "official-updates"
+                self.assertEqual(download.call_count, 0 if baseline else 1)
+                self.assertEqual(guest_server.call_args.kwargs["updates"], expected_updates)
+                self.assertEqual(seed.call_args.kwargs["updates"], expected_updates)
+                self.assertIs(seed.call_args.args[2]["require_official_update"], not baseline)
+                self.assertIs(result["baseline_diagnostic"], baseline)
+                self.assertIs(result["official_update"]["required"], not baseline)
+                self.assertEqual(result["status"], "failed")  # No VM execution simulated.
+                self.assertFalse(result["full_acceptance_passed"])
+                self.assertFalse(result["real_node_passed"])
+                if baseline:
+                    self.assertNotIn("packages", result["official_update"])
+
+    def test_remastered_layout_keeps_only_actual_fixed_boot_wim_extent_facts(self):
+        iso = self.root / "remastered.iso"
+        iso.write_bytes(b"public media fixture")
+        output = (b"File data lba:  0 , 123 , 64 , 131072 , '/sources/boot.wim'\n"
+                  b"File data lba:  0 , 999 , 1 , 40 , '/autounattend.xml'\n"
+                  b"Drive current: private-work/password-token\n")
+        with mock.patch.object(vm.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=output)) as call:
+            result = vm.installer_layout(iso)
+        self.assertEqual(result["bytes"], iso.stat().st_size)
+        self.assertEqual(result["boot_wim_layout_status"], "reported")
+        self.assertEqual(result["boot_wim_extents"], [{"extent_index": 0, "lba": 123, "blocks": 64,
+            "file_bytes": 131072, "byte_offset": 123 * 2048}])
+        self.assertNotIn("password-token", json.dumps(result))
+        self.assertNotIn("autounattend", json.dumps(result))
+        self.assertEqual(call.call_args.args[0][-5:], ["-find", "/sources/boot.wim", "-exec", "report_lba", "--"])
+        self.assertNotIn("sort", " ".join(call.call_args.args[0]))
+        self.assertEqual(call.call_args.kwargs["timeout"], 30)
+
+    def test_missing_layout_output_never_fabricates_an_extent_or_blocks_boot(self):
+        iso = self.root / "remastered.iso"
+        iso.write_bytes(b"public media fixture")
+        for response in (SimpleNamespace(returncode=1, stdout=b""), SimpleNamespace(returncode=0, stdout=b"changed-format")):
+            with self.subTest(response=response), mock.patch.object(vm.subprocess, "run", return_value=response):
+                result = vm.installer_layout(iso)
+            self.assertEqual(result["boot_wim_layout_status"], "unavailable")
+            self.assertEqual(result["boot_wim_extents"], [])
+            self.assertEqual(result["bytes"], iso.stat().st_size)
 
     def test_compatibility_readme_or_partial_udf_tree_cannot_reach_iso_rebuild(self):
         (self.root / "README.TXT").write_bytes(b"This disc uses the UDF file system.")

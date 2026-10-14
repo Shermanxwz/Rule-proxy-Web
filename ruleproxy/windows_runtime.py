@@ -9,6 +9,7 @@ the caller supplies the MXC executable path.
 from __future__ import annotations
 
 import json
+import ntpath
 import os
 import re
 import secrets
@@ -96,6 +97,10 @@ class _WinProcessApi:
             ctypes.POINTER(_FileTime),
         ]
         k.GetProcessTimes.restype = wintypes.BOOL
+        k.QueryFullProcessImageNameW.argtypes = [
+            wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)
+        ]
+        k.QueryFullProcessImageNameW.restype = wintypes.BOOL
         k.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
         k.TerminateProcess.restype = wintypes.BOOL
         k.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
@@ -125,6 +130,15 @@ class _WinProcessApi:
         if result == self.WAIT_OBJECT_0:
             return False
         raise ctypes.WinError(ctypes.get_last_error())
+
+    def process_image(self, handle: int) -> str:
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = wintypes.DWORD(len(buffer))
+        if not self.kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(length)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if not 0 < length.value < len(buffer) or not ntpath.isabs(buffer.value):
+            raise SafeStopError("process image query was incomplete")
+        return buffer.value
 
     def _snapshot_parent_ids(self) -> dict[int, int]:
         snapshot = self.kernel32.CreateToolhelp32Snapshot(self.TH32CS_SNAPPROCESS, 0)
@@ -217,7 +231,8 @@ class _WinProcessApi:
         raise ctypes.WinError(ctypes.get_last_error())
 
     def close(self, handle: int) -> None:
-        self.kernel32.CloseHandle(handle)
+        if not self.kernel32.CloseHandle(handle):
+            raise ctypes.WinError(ctypes.get_last_error())
 
 
 def _validate_proxy_port(proxy_port: int) -> int:
@@ -405,10 +420,11 @@ def build_policy(
             "readonlyPaths": sorted(read_only),
             "readwritePaths": [str(profile)],
         },
-        # MXC 1.0.0 defaults visible UI to disabled. Opt into visible windows
-        # while retaining the ProcessContainer's default handle isolation.
-        "ui": {"disable": False},
-        "processContainer": {"ui": {"isolation": "container"}},
+        # Enable normal clipboard and Chinese input alongside visible windows;
+        # injection, system controls and container handle isolation stay at
+        # their defaults. These input controls grant no network access.
+        "ui": {"disable": False, "clipboard": "all"},
+        "processContainer": {"ui": {"isolation": "container", "ime": True}},
         "network": {
             "egress": {
                 "default": "deny",
@@ -622,8 +638,12 @@ def launch(
         resources.bridge = bridge
         resources.udp_fixture = _HostUDPFixture(bridge.nonce)
         resources.udp_fixture.control_before()
+        resources.host_ipv6_observation = _host_ipv6_route_probe()
+        host_ipv6_unavailable = resources.host_ipv6_observation["host_ipv6_route_unavailable"]
         fixture.start()
+        config_path = Path(run_dir.name) / "guest-config.json"
         app_environment = _profile_environment(env, profile)
+        app_environment["RULEPROXY_RUNTIME_CONFIG"] = str(config_path)
         guest_config = {
             "schema_version": 1,
             "command": command,
@@ -634,8 +654,8 @@ def launch(
             "bridge_nonce": bridge.nonce,
             "host_fixture_port": fixture.port,
             "host_udp_ports": list(resources.udp_fixture.ports),
+            "host_ipv6_route_unavailable": host_ipv6_unavailable,
         }
-        config_path = Path(run_dir.name) / "guest-config.json"
         config_path.write_text(json.dumps(guest_config, ensure_ascii=False), encoding="utf-8")
         runtime_config = _profile_environment(os.environ.copy(), profile)
         process = subprocess.Popen(
@@ -644,6 +664,7 @@ def launch(
             shell=False,
         )
         resources.process = process
+        process._ruleproxy_python_executable = str(python_executable)
 
         # Guest startup includes up to 10 seconds of bridge initialization and
         # a bounded 22-second parent/child check. Preserve its diagnostics even
@@ -658,9 +679,11 @@ def launch(
         if fixture.accepted.is_set():
             bridge.reject("guest reached a non-proxy host loopback fixture")
             raise UnsupportedRuntimeError("contained guest unexpectedly reached a host loopback listener")
-        report = _read_startup_report(bridge.directory, bridge.nonce)
+        report = _read_startup_report(bridge.directory, bridge.nonce,
+                                      host_ipv6_route_unavailable=host_ipv6_unavailable)
         resources.startup_diagnostics = report
         resources.udp_observation = resources.udp_fixture.verify(report)
+        _bind_startup_workload(process, report, str(python_executable))
         _write_host_approval(Path(run_dir.name), bridge.nonce)
         bridge.approve()
         if not _wait_for_status(bridge.directory, bridge.nonce, "APP_STARTED", process, 20):
@@ -769,7 +792,21 @@ class _HostLoopbackFixture:
                 raise SafeStopError("host TCP fixture thread remained alive")
 
 
-def _read_startup_report(directory: Path, nonce: str) -> dict[str, Any]:
+def _host_ipv6_route_probe() -> dict[str, Any]:
+    observation = {"scope": "fixed_ipv6_tcp_route_probe", "host_ipv6_route_unavailable": False,
+                   "code": "connected", "kernel_denial_proven": False}
+    try:
+        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as connection:
+            connection.settimeout(1)
+            connection.connect(("2606:4700:4700::1111", 443, 0, 0))
+    except OSError as exc:
+        winerror = getattr(exc, "winerror", None)
+        observation["host_ipv6_route_unavailable"] = winerror == 10051
+        observation["code"] = winerror or exc.errno or ("timeout" if isinstance(exc, TimeoutError) else "io")
+    return observation
+
+
+def _read_startup_report(directory: Path, nonce: str, *, host_ipv6_route_unavailable: bool = False) -> dict[str, Any]:
     from . import windows_guest
     path = Path(directory) / "network-probe.json"
     try:
@@ -784,7 +821,7 @@ def _read_startup_report(directory: Path, nonce: str) -> dict[str, Any]:
         windows_guest._validate_startup_report(value, nonce)
         if not value["config_readonly"]["ok"]:
             raise ValueError("config readonly check failed")
-        if not all(item["ok"] for scope in (value["parent"], value["child"]) for item in scope["checks"].values()):
+        if not windows_guest._startup_checks_passed(value, host_ipv6_route_unavailable=host_ipv6_route_unavailable):
             raise ValueError("mandatory startup checks failed")
         return value
     except (OSError, ValueError, TypeError, UnicodeError):
@@ -979,6 +1016,7 @@ class _WindowsRuntimeResources:
         self.udp_fixture = None
         self.udp_observation = None
         self.startup_diagnostics = None
+        self.host_ipv6_observation = None
         self.process = None
         self.failed_process = None
         self.detail = ""
@@ -989,6 +1027,9 @@ class _WindowsRuntimeResources:
             return
         if self.process is not None and self.process.poll() is None:
             raise SafeStopError("cannot release runtime resources while MXC wrapper is still running")
+        owned = _owned_stop_state(self.process)
+        if owned is not None:
+            owned.release_exited()
         bridge_dir = Path(self.bridge.directory) if self.bridge is not None else None
         error: Exception | None = None
         try:
@@ -1013,6 +1054,121 @@ class _WindowsRuntimeResources:
         self._closed = True
 
 
+class _OwnedStopState:
+    """Retain creation HANDLEs; only the startup-bound helper may be killed."""
+
+    def __init__(self, process: Any, api: Any, wrapper_created: int) -> None:
+        self.process, self.api = process, api
+        self.wrapper_pid = int(process.pid)
+        self.wrapper_handle = _raw_handle(process._handle)
+        self.wrapper_created = wrapper_created
+        self.children: dict[tuple[int, int], int] = {}
+        self.workload: tuple[int, int] | None = None
+        self.closed = False
+        self.lock = threading.RLock()
+
+    def retain(self, children: list[tuple[int, int]]) -> None:
+        # Even a failed binding keeps all opened ownership HANDLEs until their
+        # kernel exit is proved. Never reopen a PID to recover a lost identity.
+        pending = list(children)
+        try:
+            while pending:
+                pid, handle = pending[0]
+                created = self.api.process_creation_time(handle)
+                if created < self.wrapper_created:
+                    raise SafeStopError("owned child predates its MXC wrapper")
+                key = (pid, created)
+                if key in self.children:
+                    self.api.close(handle)
+                else:
+                    self.children[key] = handle
+                pending.pop(0)
+        finally:
+            # Keep unprocessed HANDLEs too, including a query failure: an
+            # unknown generation can never authorize termination, but must
+            # still reach kernel exit before resources are discarded.
+            for pid, handle in pending:
+                self.children[(pid, -handle)] = handle
+
+    def release_exited(self) -> None:
+        with self.lock:
+            if self.closed:
+                return
+            if self.process.poll() is None:
+                raise SafeStopError("MXC wrapper remains alive; owned process handles were retained")
+            if not all(self.api.wait(handle, 0) for handle in self.children.values()):
+                raise SafeStopError("an owned MXC child remains alive; resources and handles were retained")
+            for key, handle in list(self.children.items()):
+                self.api.close(handle)
+                del self.children[key]
+            self.closed = True
+
+    def stop(self, *, timeout: float, refresh: bool = True) -> None:
+        with self.lock:
+            deadline = time.monotonic() + timeout
+            if self.process.poll() is None:
+                if (int(self.process.pid) != self.wrapper_pid
+                        or _raw_handle(self.process._handle) != self.wrapper_handle
+                        or self.api.process_creation_time(self.wrapper_handle) != self.wrapper_created):
+                    raise SafeStopError("MXC wrapper identity changed; owned process handles were retained")
+                if not self.api.process_alive(self.wrapper_handle):
+                    self.process.wait(timeout=0)
+                else:
+                    if self.workload is None or self.workload not in self.children:
+                        raise SafeStopError("no startup-bound trusted workload; MXC wrapper was left running")
+                    if refresh:
+                        self.retain(self.api.direct_children(self.wrapper_pid, self.wrapper_created))
+                    handle = self.children[self.workload]
+                    if self.api.process_alive(handle):
+                        self.api.terminate(handle)
+                    remaining = max(0.0, deadline - time.monotonic())
+                    if not self.api.wait(handle, int(remaining * 1000)):
+                        raise SafeStopError("trusted MXC workload did not exit; owned process handles were retained")
+                    try:
+                        self.process.wait(timeout=max(0.0, deadline - time.monotonic()))
+                    except subprocess.TimeoutExpired as exc:
+                        raise SafeStopError("MXC wrapper did not complete normal teardown; owned process handles were retained") from exc
+            else:
+                self.process.wait(timeout=0)
+            for handle in self.children.values():
+                if not self.api.wait(handle, int(max(0.0, deadline - time.monotonic()) * 1000)):
+                    raise SafeStopError("an owned MXC child survived SDK teardown; resources and handles were retained")
+            self.release_exited()
+
+
+def _owned_stop_state(process: Any) -> _OwnedStopState | None:
+    value = getattr(process, "_ruleproxy_stop_state", None)
+    return value if isinstance(value, _OwnedStopState) else None
+
+
+def _bind_startup_workload(process: Any, report: Mapping[str, Any], python_executable: str,
+                           *, api: Any = None) -> _OwnedStopState:
+    """Bind one exact Python workload using startup and two kernel snapshots."""
+    from . import windows_guest
+    windows_guest._validate_startup_report(report, report.get("nonce"))
+    api = _WinProcessApi() if api is None else api
+    wrapper_handle = getattr(process, "_handle", None)
+    if wrapper_handle is None or process.poll() is not None:
+        raise SafeStopError("MXC wrapper was not alive for startup identity binding")
+    created = api.process_creation_time(_raw_handle(wrapper_handle))
+    state = _OwnedStopState(process, api, created)
+    process._ruleproxy_stop_state = state
+    state.retain(api.direct_children(state.wrapper_pid, created))
+    parent = report["parent"]
+    key = (parent["pid"], parent["process_created"])
+    expected = ntpath.normcase(ntpath.normpath(python_executable))
+    matches = []
+    for child, handle in state.children.items():
+        if api.process_alive(handle) and ntpath.normcase(ntpath.normpath(api.process_image(handle))) == expected:
+            matches.append(child)
+    if (parent["parent_pid"] != state.wrapper_pid or key not in state.children
+            or matches != [key] or not api.process_alive(state.wrapper_handle)
+            or process.poll() is not None):
+        raise SafeStopError("startup report did not identify one exact trusted Python workload")
+    state.workload = key
+    return state
+
+
 def _stop_with_api(
     process: Any,
     api: Any,
@@ -1021,6 +1177,15 @@ def _stop_with_api(
     poll_interval: float,
 ) -> None:
     """Stop the direct MXC workload and let its wrapper perform teardown."""
+    state = _owned_stop_state(process)
+    if state is not None:
+        try:
+            state.stop(timeout=timeout)
+        except SafeStopError:
+            raise
+        except Exception as exc:
+            raise SafeStopError("owned MXC teardown failed; resources and process handles were retained") from exc
+        return
     if process.poll() is not None:
         process.wait(timeout=0)
         return
@@ -1050,23 +1215,37 @@ def _stop_with_api(
                 f"could not safely enumerate MXC workload child processes; wrapper was left running: {exc}"
             ) from exc
 
+        expected_image = getattr(process, "_ruleproxy_python_executable", None)
+        if children and isinstance(expected_image, str):
+            state = _OwnedStopState(process, api, wrapper_created)
+            process._ruleproxy_stop_state = state
+            try:
+                state.retain(children)
+            except Exception as exc:
+                raise SafeStopError("could not retain owned MXC children; resources and handles were retained") from exc
+
         try:
             wrapper_alive = process.poll() is None and api.process_alive(_raw_handle(wrapper_handle))
         except Exception as exc:
-            for _, handle in children:
-                api.close(handle)
+            if state is None:
+                for _, handle in children:
+                    api.close(handle)
             raise SafeStopError(
                 f"could not verify MXC wrapper is still running; wrapper was left running: {exc}"
             ) from exc
         if not wrapper_alive:
+            if state is not None:
+                state.stop(timeout=max(0.0, deadline - time.monotonic()))
+                return
             for _, handle in children:
                 api.close(handle)
             process.wait(timeout=0)
             return
 
         if len(children) > 1:
-            for _, handle in children:
-                api.close(handle)
+            if state is None:
+                for _, handle in children:
+                    api.close(handle)
             raise SafeStopError(
                 "multiple verified direct children make the MXC workload ambiguous; wrapper was left running"
             )
@@ -1074,30 +1253,25 @@ def _stop_with_api(
             time.sleep(min(poll_interval, remaining))
             continue
 
-        _, child_handle = children[0]
+        # Startup may fail before publishing a report. Preserve the old
+        # conservative single-child fallback; multiple children never acquire
+        # termination authority merely by being observed at stop time.
+        if state is None:
+            state = _OwnedStopState(process, api, wrapper_created)
+            process._ruleproxy_stop_state = state
+            state.retain(children)
         try:
-            api.terminate(child_handle)
-            remaining = max(0.0, deadline - time.monotonic())
-            if not api.wait(child_handle, int(remaining * 1000)):
-                raise SafeStopError(
-                    "MXC workload child did not exit after termination; wrapper was left running"
-                )
+            key = next(iter(state.children))
+            if isinstance(expected_image, str) and (ntpath.normcase(ntpath.normpath(
+                    api.process_image(state.children[key]))) != ntpath.normcase(ntpath.normpath(expected_image))):
+                raise SafeStopError("unreported direct child is not the trusted Python workload; wrapper was left running")
+            state.workload = key
+            state.stop(timeout=max(0.0, deadline - time.monotonic()), refresh=False)
         except SafeStopError:
             raise
         except Exception as exc:
             raise SafeStopError(
-                f"could not terminate or wait for verified MXC workload child; wrapper was left running: {exc}"
-            ) from exc
-        finally:
-            api.close(child_handle)
-
-        remaining = max(0.0, deadline - time.monotonic())
-        try:
-            process.wait(timeout=remaining)
-        except subprocess.TimeoutExpired as exc:
-            raise SafeStopError(
-                "MXC wrapper did not complete its normal teardown after workload exit; "
-                "wrapper was left running"
+                "could not terminate or wait for verified MXC workload; resources and handles were retained"
             ) from exc
         return
 
@@ -1106,11 +1280,13 @@ def stop(process: subprocess.Popen, timeout: float = 15.0) -> None:
     """Stop an MXC-owned workload while leaving cleanup to MXC itself.
 
     MXC v1.0.0 launches the BaseContainer workload with `CreateProcessW` from
-    the runtime process. This terminates only that verified direct child, then
-    waits for MXC's normal wait path to kill any job descendants and close the
+    the runtime process. Startup binds its exact trusted Python helper while
+    retaining any other directly owned process handles. This terminates only
+    that helper, then waits for MXC's normal wait path to kill any job descendants and close the
     Process Security Environment. This function never terminates the runtime
     wrapper. If enumeration, identity checks, or normal teardown fail, it
-    raises `SafeStopError` and leaves the wrapper available for manual recovery.
+    raises `SafeStopError` and retains ownership handles and launch resources
+    for a retry, including when the wrapper already exited.
     """
     if sys.platform != "win32" or os.name != "nt":
         raise SafeStopError("safe MXC stop is available only on Windows")
