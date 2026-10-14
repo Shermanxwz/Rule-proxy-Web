@@ -96,6 +96,61 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertIn(r"SYSTEMROOT=C:\Windows", entries)
         self.assertIn(r"PATH=C:\Windows\System32", entries)
 
+    def test_policy_accepts_real_windows_architecture_and_user_environment_names(self):
+        environment = {
+            "CommonProgramFiles(Arm)": r"C:\Program Files (Arm)\Common Files",
+            "ProgramFiles(Arm)": r"C:\Program Files (Arm)",
+            "CommonProgramFiles(x86)": r"C:\Program Files (x86)\Common Files",
+            "ProgramFiles(x86)": r"C:\Program Files (x86)",
+            "CommonProgramW6432": r"C:\Program Files\Common Files",
+            "ProgramW6432": r"C:\Program Files",
+            "Vendor.Options": "custom",
+            "User setting": "with spaces",
+            "应用设置": "中文 🚀",
+        }
+        policy = windows_runtime.build_policy([r"C:\Apps\browser.exe"], environment, self.profile, 10809)
+        entries = policy["process"]["env"]
+        for key, value in environment.items():
+            with self.subTest(key=key):
+                self.assertIn(f"{key.upper()}={value}", entries)
+        self.assertEqual(policy["network"]["egress"]["default"], "deny")
+
+    def test_environment_entry_injection_is_rejected_before_serializing_policy(self):
+        bad_names = ("", "BAD=KEY", "=C:", "KEY\0OTHER", None, 123)
+        for key in bad_names:
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "variable name"):
+                windows_runtime.build_policy(["browser.exe"], {key: "value"}, self.profile, 10809)
+        for value in ("value\0OTHER=changed", None, 123):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "environment value"):
+                windows_runtime.build_policy(["browser.exe"], {"CUSTOM": value}, self.profile, 10809)
+
+    def test_punctuation_and_policy_looking_values_remain_literal_json_environment_entries(self):
+        name = 'Custom "setting"; (extra)'
+        value = 'value=still-value\r\n"}],"network":{"egress":{"default":"allow"}}'
+        policy = windows_runtime.build_policy(
+            [r"C:\Apps\browser.exe"], {name: value, "http_proxy": "http://unsafe.invalid"}, self.profile, 10809)
+        path = windows_runtime._write_policy(policy, self.root)
+        decoded = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(decoded, policy)
+        self.assertIn(f"{name.upper()}={value}", decoded["process"]["env"])
+        self.assertIn("HTTP_PROXY=http://127.0.0.1:10809", decoded["process"]["env"])
+        self.assertNotIn("HTTP_PROXY=http://unsafe.invalid", decoded["process"]["env"])
+        self.assertEqual(decoded["network"]["egress"]["default"], "deny")
+
+    def test_unencodable_environment_text_is_rejected_without_echoing_the_value(self):
+        for surrogate in ("\ud800", "\udfff"):
+            with self.subTest(surrogate=repr(surrogate)), self.assertRaisesRegex(
+                ValueError, "variable name: not valid Unicode text"
+            ):
+                windows_runtime.build_policy(["browser.exe"], {f"NAME{surrogate}": "ordinary"}, self.profile, 10809)
+            private = f"private credential before {surrogate} and after"
+            with self.subTest(surrogate=repr(surrogate)), self.assertRaisesRegex(
+                ValueError, "environment value.*not valid Unicode text"
+            ) as raised:
+                windows_runtime.build_policy(["browser.exe"], {"PRIVATE": private}, self.profile, 10809)
+            self.assertNotIn("private credential", str(raised.exception))
+            self.assertNotIn(surrogate, str(raised.exception))
+
     def test_build_policy_rejects_bad_command_profile_or_port(self):
         cases = [
             ([], {}, self.profile, 10809),

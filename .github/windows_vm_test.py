@@ -1,6 +1,7 @@
 """Run the release's real Windows x64 tests in an ephemeral KVM guest.
 
-Requires Ubuntu packages: qemu-system-x86 qemu-utils ovmf swtpm xorriso curl.
+Requires Ubuntu packages: qemu-system-x86 qemu-utils ovmf swtpm xorriso curl
+and 7zip (7zz) or p7zip-full (7z), for Microsoft's UDF installation media.
 Run with access to /dev/kvm (sudo on GitHub's Ubuntu runner). No TCG fallback,
 host network changes, prebuilt third-party Windows image or product key.
 Only logs/reports/screenshots enter --artifacts; the answer file, passwords,
@@ -41,6 +42,8 @@ ISO_HASH_SOURCE = ("https://support.microsoft.com/en-us/servicing/os/windows/doc
                    "verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file")
 MIN_FREE_BYTES = 55 * 1024**3
 MAX_RESULT_BYTES = 8 * 1024**2
+MIN_BOOT_IMAGE_BYTES = 64 * 1024**2
+MIN_INSTALL_IMAGE_BYTES = 1024**3
 
 
 def digest(path: Path) -> str:
@@ -111,6 +114,24 @@ def prepare_seed(tree: Path, password: str, configuration: dict) -> None:
         data = (ROOT / ".github" / source).read_text(encoding="utf-8")
         (tree / target).write_text(data, encoding="utf-8-sig")
     write_json(tree / "ruleproxy-vm-config.json", configuration)
+
+
+def validate_install_tree(tree: Path) -> str:
+    """Reject the tiny ISO9660 compatibility tree present on Microsoft UDF media."""
+    for relative, minimum in (("boot/etfsboot.com", 512),
+                              ("sources/boot.wim", MIN_BOOT_IMAGE_BYTES)):
+        path = tree / relative
+        if not path.is_file() or path.stat().st_size < minimum:
+            raise RuntimeError(f"UDF extraction did not produce the complete Windows boot file: {relative}")
+    images = [tree / "sources" / name for name in ("install.wim", "install.esd")]
+    if not any(path.is_file() and path.stat().st_size >= MIN_INSTALL_IMAGE_BYTES for path in images):
+        raise RuntimeError("UDF extraction did not produce a complete Windows install.wim/install.esd")
+    for name in ("efisys_noprompt.bin", "efisys.bin"):
+        relative = f"efi/microsoft/boot/{name}"
+        path = tree / relative
+        if path.is_file() and path.stat().st_size >= 512:
+            return relative
+    raise RuntimeError("UDF extraction did not produce an official Windows UEFI boot image")
 
 
 class GuestServer(ThreadingHTTPServer):
@@ -304,6 +325,9 @@ def run(args) -> dict:
         for name in ("qemu-system-x86_64", "qemu-img", "swtpm", "xorriso", "curl"):
             if not shutil.which(name):
                 raise RuntimeError(f"Missing Ubuntu test dependency: {name}")
+        extractor = shutil.which("7zz") or shutil.which("7z")
+        if extractor is None:
+            raise RuntimeError("Missing UDF extractor: install Ubuntu 7zip or p7zip-full")
         firmware = Path("/usr/share/OVMF")
         code = firmware / "OVMF_CODE_4M.ms.fd"
         variables = firmware / "OVMF_VARS_4M.ms.fd"
@@ -336,7 +360,14 @@ def run(args) -> dict:
                 tree = work / "iso-tree"
                 tree.mkdir()
                 print("Preparing the unattended ISO; the source ISO hash remains recorded", flush=True)
-                subprocess.run(["xorriso", "-osirrox", "on", "-indev", str(iso), "-extract", "/", str(tree)], check=True)
+                # Microsoft's ISO exposes only a README through ISO9660.
+                # Explicit UDF extraction obtains the real boot/install tree;
+                # xorriso is used solely to rebuild the unattended media.
+                subprocess.run([extractor, "x", "-tudf", "-y", f"-o{tree}", str(iso)],
+                               check=True, timeout=900)
+                efi_boot = validate_install_tree(tree)
+                needs_boot_key = efi_boot.endswith("/efisys.bin")
+                summary["installer_boot_image"] = efi_boot
                 prepare_seed(tree, secrets.token_hex(16) + "Ci!9", {
                     "host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
                     "payload_sha256": payload_hash, "package_sha256": args.package_sha256.lower(),
@@ -345,7 +376,7 @@ def run(args) -> dict:
                 subprocess.run(["xorriso", "-as", "mkisofs", "-iso-level", "3", "-J", "-joliet-long", "-R",
                                 "-V", "RULEPROXY_CI", "-b", "boot/etfsboot.com", "-no-emul-boot",
                                 "-boot-load-size", "8", "-boot-info-table", "-eltorito-alt-boot",
-                                "-e", "efi/microsoft/boot/efisys_noprompt.bin", "-no-emul-boot",
+                                "-e", efi_boot, "-no-emul-boot",
                                 "-o", str(unattended), str(tree)], check=True)
                 shutil.rmtree(tree)
                 iso.unlink()
@@ -391,6 +422,15 @@ def run(args) -> dict:
                     if kvm.get("enabled") is not True:
                         raise RuntimeError("QEMU did not enable KVM; software emulation is forbidden")
                     summary["qemu_kvm_enabled"] = True
+                    if needs_boot_key:
+                        # Some official media include only the loader that asks
+                        # for a key. Use that signed image unchanged; press Enter
+                        # only in the initial boot window. Disk bootindex=1 then
+                        # takes precedence on every installation reboot.
+                        for _ in range(8):
+                            qmp.execute("send-key", {"keys": [{"type": "qcode", "data": "ret"}], "hold-time": 100})
+                            time.sleep(2)
+                        summary["initial_boot_key_window_seconds"] = 16
                     started = time.monotonic()
                     deadline = started + args.timeout_seconds
                     while not server.received.wait(30):

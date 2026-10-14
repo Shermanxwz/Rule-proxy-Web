@@ -147,6 +147,28 @@ class WindowsVmTests(unittest.TestCase):
         self.assertFalse(result["browser_fixture_passed"])
         self.assertEqual(json.loads((self.root / "windows-vm-summary.json").read_text()), result)
 
+    def test_compatibility_readme_or_partial_udf_tree_cannot_reach_iso_rebuild(self):
+        (self.root / "README.TXT").write_bytes(b"This disc uses the UDF file system.")
+        with self.assertRaisesRegex(RuntimeError, "Windows boot file"):
+            vm.validate_install_tree(self.root)
+        for relative in ("boot/etfsboot.com", "efi/microsoft/boot/efisys_noprompt.bin", "sources/boot.wim"):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"fixture" * 100)
+        with mock.patch.object(vm, "MIN_BOOT_IMAGE_BYTES", 512), mock.patch.object(vm, "MIN_INSTALL_IMAGE_BYTES", 512):
+            with self.assertRaisesRegex(RuntimeError, "complete Windows install"):
+                vm.validate_install_tree(self.root)
+            (self.root / "sources/install.wim").write_bytes(b"truncated")
+            with self.assertRaisesRegex(RuntimeError, "complete Windows install"):
+                vm.validate_install_tree(self.root)
+            (self.root / "sources/install.wim").write_bytes(b"fixture" * 100)
+            self.assertEqual(vm.validate_install_tree(self.root), "efi/microsoft/boot/efisys_noprompt.bin")
+            (self.root / "efi/microsoft/boot/efisys_noprompt.bin").rename(self.root / "efi/microsoft/boot/efisys.bin")
+            self.assertEqual(vm.validate_install_tree(self.root), "efi/microsoft/boot/efisys.bin")
+            (self.root / "efi/microsoft/boot/efisys.bin").unlink()
+            with self.assertRaisesRegex(RuntimeError, "official Windows UEFI"):
+                vm.validate_install_tree(self.root)
+
 
 if __name__ == "__main__":
     unittest.main()

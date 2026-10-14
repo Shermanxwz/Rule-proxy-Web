@@ -252,7 +252,7 @@ jobs:
       - name: Install the VM tools on the ephemeral runner
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
       - name: Run a checksum-verified official Windows 11 evaluation guest
         run: |
           package=$(find "$PWD/dist" -maxdepth 1 -name 'RuleProxy-Web-*-windows-x64.zip' -print -quit)

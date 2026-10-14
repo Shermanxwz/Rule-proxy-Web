@@ -27,7 +27,6 @@ CONTRACT_VERSION = "1.0.0"
 MIN_PROCESS_BUILD = 26100  # Windows 11 24H2; exact support is confirmed by MXC --probe.
 PROBE_TIMEOUT_SECONDS = 20
 _ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
-_ENV_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 
 
 class UnsupportedRuntimeError(RuntimeError):
@@ -249,10 +248,22 @@ def _validate_env(env: Mapping[str, str] | None, proxy_port: int) -> dict[str, s
         raise ValueError("env must be a mapping of names to string values")
     result: dict[str, str] = {}
     for key, value in env.items():
-        if not isinstance(key, str) or not _ENV_KEY_RE.fullmatch(key):
+        # Win32 names are not shell identifiers: ProgramFiles(x86),
+        # CommonProgramFiles(Arm), spaces and Unicode are valid. The policy
+        # carries separate JSON KEY=VALUE strings, never shell source; only
+        # '=' and NUL can change the environment entry/block boundaries.
+        if not isinstance(key, str) or not key or "=" in key or "\0" in key:
             raise ValueError(f"invalid environment variable name: {key!r}")
+        try:
+            key.encode("utf-8")
+        except UnicodeError:
+            raise ValueError("invalid environment variable name: not valid Unicode text") from None
         if not isinstance(value, str) or "\0" in value:
             raise ValueError(f"invalid environment value for {key}")
+        try:
+            value.encode("utf-8")
+        except UnicodeError:
+            raise ValueError(f"invalid environment value for {key!r}: not valid Unicode text") from None
         result[key] = value
 
     # The contained application points at the guest helper's local listener.
