@@ -35,7 +35,7 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.runtime.chmod(self.runtime.stat().st_mode | stat.S_IXUSR)
         self.profile = self.root / "profiles" / "saved-app-1"
 
-    def test_build_policy_is_exact_model_3_and_starts_guest_helper(self):
+    def test_build_policy_allows_exact_internal_tcp_endpoint_and_starts_guest_helper(self):
         policy = windows_runtime.build_policy(
             [r"C:\Program Files\Browser\browser.exe", "--proxy-server=http://127.0.0.1:19001", "https://example.test"],
             {"HTTP_PROXY": "http://127.0.0.1:19001", "CUSTOM": "ok"},
@@ -45,7 +45,9 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(policy["version"], "1.0.0")
         self.assertEqual(policy["containment"], "processcontainer")
         self.assertEqual(policy["fallback"], {"allowDaclMutation": False})
-        self.assertEqual(policy["network"]["egress"], {"default": "deny"})
+        self.assertEqual(policy["network"]["egress"], {"default": "deny", "allow": [{
+            "to": [{"cidr": "127.0.0.1/32"}], "ports": [{"protocol": "tcp", "port": 19001}],
+        }]})
         self.assertEqual(
             policy["network"]["ingress"],
             {"default": "deny", "hostLoopback": "deny"},
@@ -76,6 +78,20 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertTrue((self.profile / "temp").is_dir())
         self.assertTrue((self.profile / "localappdata").is_dir())
         self.assertTrue(policy["process"]["inheritDefaultEnv"])
+
+    def test_internal_endpoint_allowance_never_adds_other_addresses_ports_protocols_or_proxy_modes(self):
+        for port in (1, 19001, 65535):
+            with self.subTest(port=port):
+                policy = windows_runtime.build_policy([r"C:\Apps\browser.exe"], {}, self.profile, port)
+                self.assertEqual(policy["network"], {
+                    "egress": {"default": "deny", "allow": [{
+                        "to": [{"cidr": "127.0.0.1/32"}],
+                        "ports": [{"protocol": "tcp", "port": port}],
+                    }]},
+                    "ingress": {"default": "deny", "hostLoopback": "deny"},
+                })
+                self.assertNotIn("runtimeConfig", policy)
+                self.assertEqual(policy["processContainer"], {"ui": {"isolation": "container"}})
 
     def test_profile_environment_overrides_windows_vars_case_insensitively(self):
         policy = windows_runtime.build_policy(
@@ -158,6 +174,11 @@ class WindowsRuntimeTests(unittest.TestCase):
             (["browser"], {"BAD=KEY": "x"}, self.profile, 10809),
             (["browser"], {}, self.root / "profiles" / "invalid app id", 10809),
             (["browser"], {}, self.profile, 0),
+            (["browser"], {}, self.profile, True),
+            (["browser"], {}, self.profile, -1),
+            (["browser"], {}, self.profile, 65536),
+            (["browser"], {}, self.profile, 10809.0),
+            (["browser"], {}, self.profile, "10809"),
         ]
         for args in cases:
             with self.subTest(args=args), self.assertRaises(ValueError):
@@ -237,14 +258,15 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertIn("C:\\RuleProxy-Web", message)
         self.assertIn("byte index 4", message, "the original message is kept for reference")
 
-    def test_a_missing_base_container_api_names_the_windows_version_needed(self):
+    def test_a_missing_base_container_api_requires_complete_runtime_probe_not_a_build_number(self):
         weak = json.dumps({"tier": "appcontainer-dacl", "error": None, "needsDaclAugmentation": True,
                            "probes": {"baseContainerApiPresent": False}, "warnings": []})
         message = self.probe_with(subprocess.CompletedProcess(args=[], returncode=0, stdout=weak, stderr=""))
         self.assertIn("BaseContainer 接口", message)
         self.assertIn("MXC 1.0.0", message)
-        self.assertIn("26600+", message)
-        self.assertIn("必须通过运行时探测", message)
+        self.assertNotIn("26600", message)
+        self.assertIn("完整请求的运行时探测", message)
+        self.assertIn("版本或更新编号不能保证支持", message)
 
     def test_unused_runtime_files_are_retired_and_the_rest_kept(self):
         runtime = self.root / "bin" / "windows-amd64"
@@ -373,6 +395,9 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertTrue(Path(args[2]).is_file())
         policy = json.loads(Path(args[2]).read_text(encoding="utf-8"))
         self.assertEqual(policy["network"]["egress"]["default"], "deny")
+        self.assertEqual(policy["network"]["egress"]["allow"], [{
+            "to": [{"cidr": "127.0.0.1/32"}], "ports": [{"protocol": "tcp", "port": 19001}],
+        }])
         self.assertEqual(policy["network"]["ingress"], {"default": "deny", "hostLoopback": "deny"})
         self.assertNotIn("runtimeConfig", policy)
         self.assertIn("windows_guest.py", policy["process"]["commandLine"])

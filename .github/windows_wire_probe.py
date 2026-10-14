@@ -97,8 +97,8 @@ class WireSession:
             raise RuntimeError("private_wire_endpoint_failed") from None
 
     def start(self):
+        self.started = True  # A lost reply cannot prove the host did not start.
         result = self.request("start", {})
-        self.started = True  # Even invalid replies require a finish attempt.
         if result != {"schema_version": 1, "source_mac": SOURCE_MAC}:
             raise RuntimeError("private_wire_start_invalid")
         sources = {}

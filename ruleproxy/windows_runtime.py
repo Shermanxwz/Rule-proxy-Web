@@ -1,6 +1,7 @@
-"""Strict MXC 1.0.0 Model 3 integration for Windows proxy launches.
+"""Strict MXC 1.0.0 BaseContainer integration for Windows proxy launches.
 
-The selected application runs under an explicit deny-all BaseContainer policy.
+The application has one exact internal TCP allowance under deny-default egress,
+with external ingress and host loopback denied.
 This module never installs firewall rules or downloads runtime dependencies;
 the caller supplies the MXC executable path.
 """
@@ -355,7 +356,7 @@ def build_policy(
     guest_helper: str | Path | None = None,
     runtime_config: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Build an explicit Model 3 deny-all policy around the trusted guest helper."""
+    """Allow only the trusted helper's exact internal IPv4 TCP endpoint."""
     command = _validate_command(command)
     guest_listener_port = _validate_proxy_port(guest_listener_port)
     environment = _validate_env(env, guest_listener_port)
@@ -408,7 +409,13 @@ def build_policy(
         "ui": {"disable": False},
         "processContainer": {"ui": {"isolation": "container"}},
         "network": {
-            "egress": {"default": "deny"},
+            "egress": {
+                "default": "deny",
+                "allow": [{
+                    "to": [{"cidr": "127.0.0.1/32"}],
+                    "ports": [{"protocol": "tcp", "port": guest_listener_port}],
+                }],
+            },
             "ingress": {"default": "deny", "hostLoopback": "deny"},
         },
     }
@@ -511,8 +518,8 @@ def _probe_request(
         if output["probes"].get("baseContainerApiPresent") is not True:
             raise UnsupportedRuntimeError(
                 f"系统没有提供 BaseContainer 接口，MXC 只能选择 {output.get('tier')!r}，严格模式不接受。"
-                "MXC 1.0.0 文档将 BaseContainer 列为 Windows 11 25H2+（26600+）能力；"
-                "具体设备仍必须通过运行时探测，Windows 版本或更新编号不能保证支持。"
+                "MXC 1.0.0 对完整请求的运行时探测决定是否支持；"
+                "Windows 版本或更新编号不能保证支持，请安装适用的官方更新后重新探测。"
             )
         raise UnsupportedRuntimeError(
             f"MXC selected {output.get('tier')!r}; strict proxy mode requires base-container"
@@ -528,7 +535,7 @@ def probe(
     runtime_path: str,
     proxy_port: int = 10809,
 ) -> dict[str, Any]:
-    """Probe Model 3 BaseContainer availability; this does not run socket checks."""
+    """Probe the exact BaseContainer policy; this does not run socket checks."""
     limitations = [
         "当前结果表示系统具备隔离能力；实际阻断还需在启动时检查。",
         "仅从面板或快捷方式启动的实例受保护；启动检查失败就拒绝启动。",
@@ -550,7 +557,7 @@ def probe(
         return {
             "supported": True,
             "backend": output.get("tier"),
-            "detail": "系统支持全拒绝网络隔离。应用启动前会检查代理通道及实际阻断。",
+            "detail": "系统支持该网络隔离请求。应用启动前会检查代理通道及实际阻断。",
             "limitations": limitations + list(warnings),
         }
     except (ValueError, UnsupportedRuntimeError) as exc:
@@ -571,7 +578,7 @@ def launch(
     *,
     guest_listener_port: int | None = None,
 ) -> tuple[subprocess.Popen, Any]:
-    """Launch the trusted guest helper, gate the app on deny-all self-checks."""
+    """Launch the trusted helper, gating the app on proxy and denial checks."""
     host_proxy_port = _validate_proxy_port(proxy_port)
     guest_listener_port = guest_listener_port or choose_guest_port(host_proxy_port)
     guest_listener_port = _validate_proxy_port(guest_listener_port)

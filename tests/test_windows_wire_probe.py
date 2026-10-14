@@ -97,6 +97,17 @@ class WindowsWireProbeTests(unittest.TestCase):
         self.assertEqual(str(failure.exception), "private_wire_endpoint_failed")
         self.assertIsNone(failure.exception.__cause__)
 
+    def test_lost_start_reply_still_requires_finish_and_never_assumes_no_host_filter(self):
+        session = self.make_session()
+        with mock.patch.object(session, "request", side_effect=RuntimeError("private_wire_endpoint_failed")):
+            with self.assertRaises(RuntimeError):
+                session.start()
+        self.assertTrue(session.started)
+        with mock.patch.object(session, "request", return_value={"acceptance_passed": False,
+                "kernel_denial_proven": False}) as request:
+            session.finish()
+        self.assertEqual(request.call_args.args[0], "finish")
+
     def test_failed_actor_attestation_is_sent_to_host_and_cannot_be_reset_by_later_success(self):
         session = self.make_session()
         session.started = True

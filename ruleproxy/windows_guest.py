@@ -1,4 +1,4 @@
-"""MXC-contained Windows guest wrapper for deny-all proxy launches.
+"""MXC-contained Windows guest wrapper for strict proxy launches.
 
 The helper starts a localhost TCP bridge and proves its startup path before it
 starts the selected application. The helper's host relay has no network API;
@@ -99,7 +99,7 @@ def _read_config(path: Path) -> dict[str, Any]:
 _CHILD_PROBE_TIMEOUT = 20.0
 _SELF_CHECK_BUDGET = 22.0
 _MAX_PROBE_OUTPUT_BYTES = 8192
-_DENY_PROBES = ("host_loopback", "ipv4_tcp", "ipv6_tcp", "ipv4_udp", "ipv6_udp")
+_DENY_PROBES = ("own_loopback", "host_loopback", "ipv4_tcp", "ipv6_tcp", "ipv4_udp", "ipv6_udp")
 _PROBE_CODES = frozenset({"ok", "allowed", "timeout", "reply", "io", "error", "cleanup", "short_send",
                           "child_timeout", "child_start", "child_exit", "invalid_report"})
 
@@ -213,7 +213,7 @@ def _run_network_probes(scope: str, listener_port: int, host_fixture_port: int) 
     proxy_name = "proxy_self" if scope == "parent" else "proxy_parent"
     checks = {
         proxy_name: _probe(lambda: _proxy_roundtrip(listener_port)),
-        "own_loopback": _probe(_same_process_loopback),
+        "own_loopback": _probe(_same_process_loopback, deny=True),
     }
     for name, family, kind, address in (
         ("host_loopback", socket.AF_INET, socket.SOCK_STREAM, ("127.0.0.1", host_fixture_port)),
@@ -230,14 +230,14 @@ def _run_network_probes(scope: str, listener_port: int, host_fixture_port: int) 
 def _unavailable_child(code: str) -> dict[str, Any]:
     return {"scope": "child", "pid": 0,
             "checks": {name: {"ok": False, "code": code}
-                       for name in ("proxy_parent", "own_loopback", *_DENY_PROBES)}}
+                       for name in ("proxy_parent", *_DENY_PROBES)}}
 
 
 def _validated_child_report(raw: str) -> dict[str, Any]:
     if len(raw.encode("utf-8")) > _MAX_PROBE_OUTPUT_BYTES:
         raise ValueError("oversized network probe response")
     value = json.loads(raw)
-    expected = {"proxy_parent", "own_loopback", *_DENY_PROBES}
+    expected = {"proxy_parent", *_DENY_PROBES}
     if (not isinstance(value, dict) or set(value) != {"scope", "pid", "checks"}
             or value["scope"] != "child" or type(value["pid"]) is not int
             or not 0 < value["pid"] <= 0xFFFFFFFF or not isinstance(value["checks"], dict)
@@ -284,16 +284,16 @@ def _probe_summary(parent: dict[str, Any], child: dict[str, Any],
         return "ok" if value["ok"] else f"fail:{value['code']}"
 
     passed = sum(scope["checks"][name]["ok"] for scope in (parent, child) for name in _DENY_PROBES)
-    positives = (f"parent(self-proxy={outcome(parent, 'proxy_self')},own-loop={outcome(parent, 'own_loopback')}); "
-                 f"child(parent-proxy={outcome(child, 'proxy_parent')},own-loop={outcome(child, 'own_loopback')})")
+    positives = (f"parent(self-proxy={outcome(parent, 'proxy_self')}); "
+                 f"child(parent-proxy={outcome(child, 'proxy_parent')})")
     failures = []
-    labels = dict(zip(_DENY_PROBES, ("host", "4tcp", "6tcp", "4udp", "6udp")))
+    labels = dict(zip(_DENY_PROBES, ("own", "host", "4tcp", "6tcp", "4udp", "6udp")))
     for prefix, scope in (("p", parent), ("c", child)):
         for name in _DENY_PROBES:
             value = scope["checks"][name]
             if not value["ok"]:
                 failures.append(f"{prefix}.{labels[name]}={value['code']}")
-    detail = f"network self-check: {positives}; direct/host deny {passed}/10"
+    detail = f"network self-check: {positives}; direct/host deny {passed}/{2 * len(_DENY_PROBES)}"
     if auxiliary is not None:
         ipv6 = auxiliary["parent_ipv6_loopback"]
         outcome_ipv6 = "ok" if ipv6["ok"] else f"fail:{ipv6['code']}"
@@ -322,7 +322,7 @@ def _child_self_check(listener_port: int, host_fixture_port: int,
     nested = []
     ipv6 = []
     # Independent scopes run concurrently so a denied proxy does not consume
-    # the startup budget needed to collect all ten direct/host denials.
+    # the startup budget needed to collect all twelve required denials.
     worker = threading.Thread(target=lambda: nested.append(_nested_network_report(listener_port, host_fixture_port)),
                               name="ruleproxy-nested-network-probe", daemon=True)
     ipv6_worker = threading.Thread(target=lambda: ipv6.append(_probe(lambda: _same_process_loopback(socket.AF_INET6))),

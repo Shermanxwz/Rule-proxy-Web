@@ -123,14 +123,13 @@ class WindowsGuestTests(unittest.TestCase):
         proxy = "proxy_self" if scope == "parent" else "proxy_parent"
         return {"scope": scope, "pid": 123 if scope == "parent" else 456,
                 "checks": {proxy: {"ok": proxy_ok, "code": "ok" if proxy_ok else 10013},
-                           "own_loopback": {"ok": True, "code": "ok"},
                            **{name: {"ok": True, "code": 10013} for name in windows_guest._DENY_PROBES}}}
 
-    def test_failed_proxy_does_not_suppress_same_pid_or_five_denial_probes(self):
+    def test_failed_proxy_does_not_suppress_same_pid_or_six_denial_probes(self):
         for scope in ("parent", "child"):
             with self.subTest(scope=scope), \
                     mock.patch.object(windows_guest, "_proxy_roundtrip", side_effect=OSError(10013, "localized text")), \
-                    mock.patch.object(windows_guest, "_same_process_loopback") as own, \
+                    mock.patch.object(windows_guest, "_same_process_loopback", side_effect=OSError(10013, "denied")) as own, \
                     mock.patch.object(windows_guest, "_socket_attempt", side_effect=OSError(10013, "localized text")) as direct:
                 report = windows_guest._run_network_probes(scope, 19001, 19002)
             proxy = "proxy_self" if scope == "parent" else "proxy_parent"
@@ -149,9 +148,9 @@ class WindowsGuestTests(unittest.TestCase):
                 windows_guest._child_self_check(19001, 19002, directory, "a" * 64)
         detail = str(raised.exception)
         self.assertLessEqual(len(detail), 600)
-        self.assertIn("parent(self-proxy=fail:10013,own-loop=ok)", detail)
-        self.assertIn("child(parent-proxy=fail:10013,own-loop=ok)", detail)
-        self.assertIn("deny 10/10", detail)
+        self.assertIn("parent(self-proxy=fail:10013)", detail)
+        self.assertIn("child(parent-proxy=fail:10013)", detail)
+        self.assertIn("deny 12/12", detail)
         raw = (directory / "network-probe.json").read_bytes()
         self.assertLessEqual(len(raw), windows_guest._MAX_PROBE_OUTPUT_BYTES)
         report = json.loads(raw)
@@ -171,8 +170,8 @@ class WindowsGuestTests(unittest.TestCase):
         decision.assert_not_called()
         popen.assert_not_called()
         self.assertEqual(status.call_args.args[2], "FAILED")
-        self.assertIn("child(parent-proxy=fail:10013,own-loop=ok)", status.call_args.args[3])
-        self.assertIn("deny 10/10", status.call_args.args[3])
+        self.assertIn("child(parent-proxy=fail:10013)", status.call_args.args[3])
+        self.assertIn("deny 12/12", status.call_args.args[3])
 
     def test_auxiliary_ipv6_success_never_overrides_a_required_proxy_failure(self):
         parent, child = self.probe_report("parent", proxy_ok=False), self.probe_report("child")
@@ -193,7 +192,7 @@ class WindowsGuestTests(unittest.TestCase):
         child["checks"]["ipv6_udp"] = {"ok": False, "code": 10047}
         with mock.patch.object(windows_guest, "_run_network_probes", return_value=parent), \
                 mock.patch.object(windows_guest, "_nested_network_report", return_value=child):
-            with self.assertRaisesRegex(RuntimeError, "deny 9/10.*c.6udp=10047"):
+            with self.assertRaisesRegex(RuntimeError, "deny 11/12.*c.6udp=10047"):
                 windows_guest._child_self_check(19001, 19002)
             child["checks"]["ipv6_udp"] = {"ok": True, "code": 10013}
             result = windows_guest._child_self_check(19001, 19002)
@@ -258,6 +257,31 @@ class WindowsGuestTests(unittest.TestCase):
         windows_guest._same_process_loopback()
         self.assertFalse(any(thread.name == "ruleproxy-own-loopback-probe" and thread.is_alive()
                              for thread in threading.enumerate()))
+
+    def test_real_unrelated_internal_listener_is_a_failure_and_access_denial_is_required(self):
+        self.assertEqual(len(windows_guest._DENY_PROBES), 6)
+        self.assertEqual(len(set(windows_guest._DENY_PROBES)), 6)
+        with mock.patch.object(windows_guest, "_proxy_roundtrip"), \
+                mock.patch.object(windows_guest, "_socket_attempt", side_effect=OSError(10013, "denied")):
+            # The real echo listener and matching reply prove this port is open.
+            # A refused or known-closed port is never used as denial evidence.
+            record = windows_guest._run_network_probes("parent", 19001, 19002)
+            self.assertEqual(record["checks"]["own_loopback"], {"ok": False, "code": "allowed"})
+            with mock.patch.object(windows_guest, "_same_process_loopback", side_effect=OSError(10013, "denied")):
+                denied = windows_guest._run_network_probes("parent", 19001, 19002)
+            self.assertEqual(denied["checks"]["own_loopback"], {"ok": True, "code": 10013})
+        child = self.probe_report("child")
+        child["checks"]["own_loopback"] = {"ok": True, "code": "ok"}
+        with self.assertRaisesRegex(ValueError, "required evidence"):
+            windows_guest._validated_child_report(json.dumps(child))
+
+    def test_unrelated_internal_port_success_rejects_the_startup_gate(self):
+        parent, child = self.probe_report("parent"), self.probe_report("child")
+        child["checks"]["own_loopback"] = {"ok": False, "code": "allowed"}
+        with mock.patch.object(windows_guest, "_run_network_probes", return_value=parent), \
+                mock.patch.object(windows_guest, "_nested_network_report", return_value=child):
+            with self.assertRaisesRegex(RuntimeError, "deny 11/12.*c.own=allowed"):
+                windows_guest._child_self_check(19001, 19002)
 
     def test_nested_output_is_bounded_and_rejects_false_positive_denials(self):
         valid = self.probe_report("child")
