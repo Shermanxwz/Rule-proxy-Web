@@ -203,11 +203,13 @@ def run(config_path: Path) -> int:
         if not wait_for_bridge_ready(bridge_dir, nonce, _BRIDGE_READY_TIMEOUT):
             raise RuntimeError("contained proxy bridge listener did not become ready")
         _child_self_check(listener_port, config["host_fixture_port"])
+        if bridge_error or not bridge_thread.is_alive():
+            raise RuntimeError("contained file bridge stopped during its network self-check")
         signal_guest_ready(bridge_dir, nonce)
 
         decision = wait_for_decision(bridge_dir, nonce, _HOST_DECISION_TIMEOUT)
-        if bridge_error:
-            raise RuntimeError("contained file bridge failed: " + bridge_error[0])
+        if bridge_error or not bridge_thread.is_alive():
+            raise RuntimeError("contained file bridge failed: " + (bridge_error[0] if bridge_error else "bridge stopped"))
         if decision != "approved":
             raise RuntimeError("host did not approve the deny-all runtime self-check")
 

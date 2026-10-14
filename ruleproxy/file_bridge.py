@@ -17,6 +17,7 @@ import mmap
 import os
 from pathlib import Path
 import secrets
+import shutil
 import socket
 import struct
 import tempfile
@@ -218,13 +219,21 @@ class _Ring:
                 os.close(fd)
                 raise BridgeError("invalid bridge ring size")
         self.fd = fd
-        self.map = mmap.mmap(fd, _RING_SIZE, access=mmap.ACCESS_WRITE)
-        if create:
-            self.map[:_HEADER_SIZE] = _HEADER.pack(
-                _MAGIC, _VERSION, nonce_tag, _SLOTS, _SLOT_SIZE, 0, 0
-            ) + bytes(_HEADER_SIZE - _HEADER.size)
-            self.map.flush()
-        self._check_header()
+        try:
+            self.map = mmap.mmap(fd, _RING_SIZE, access=mmap.ACCESS_WRITE)
+            try:
+                if create:
+                    self.map[:_HEADER_SIZE] = _HEADER.pack(
+                        _MAGIC, _VERSION, nonce_tag, _SLOTS, _SLOT_SIZE, 0, 0
+                    ) + bytes(_HEADER_SIZE - _HEADER.size)
+                    self.map.flush()
+                self._check_header()
+            except BaseException:
+                self.map.close()
+                raise
+        except BaseException:
+            os.close(fd)
+            raise
 
     def _lock(self, deadline: float) -> None:
         while True:
@@ -388,9 +397,19 @@ class FileProxyBridge:
         root_info = self.directory.lstat()
         self._root_identity = (root_info.st_dev, root_info.st_ino)
         self._tag = _nonce_tag(self.nonce)
-        _atomic_json(self.directory / "manifest.json", {"version": _VERSION, "nonce": self.nonce})
-        self._to_host = _Ring(self.directory / "guest-to-host.ring", self._tag, create=True)
-        self._to_guest = _Ring(self.directory / "host-to-guest.ring", self._tag, create=True)
+        try:
+            _atomic_json(self.directory / "manifest.json", {"version": _VERSION, "nonce": self.nonce})
+            self._to_host = _Ring(self.directory / "guest-to-host.ring", self._tag, create=True)
+            try:
+                self._to_guest = _Ring(self.directory / "host-to-guest.ring", self._tag, create=True)
+            except BaseException:
+                self._to_host.close()
+                raise
+        except BaseException:
+            # No guest has been launched yet, so partial bridge files can be
+            # removed immediately instead of leaving handles and stale runs.
+            shutil.rmtree(self.directory, ignore_errors=True)
+            raise
         self._stop = threading.Event()
         self._resources_closed = threading.Event()
         self._close_lock = threading.Lock()
@@ -506,9 +525,9 @@ class FileProxyBridge:
                     raise BridgeError("unexpected guest bridge frame")
         except (BridgeError, OSError, TimeoutError) as exc:
             self.last_error = str(exc)
+        finally:
             self._stop.set()
             self._shutdown_streams()
-        finally:
             self._ready.set()
 
     def _on_open(self, stream_id: int) -> None:
@@ -656,17 +675,17 @@ def run_guest_bridge(
     root = Path(directory)
     tag = _validate_directory(root, nonce)
     to_host = _Ring(root / "guest-to-host.ring", tag)
-    to_guest = _Ring(root / "host-to-guest.ring", tag)
+    try:
+        to_guest = _Ring(root / "host-to-guest.ring", tag)
+    except BaseException:
+        to_host.close()
+        raise
     closed = threading.Event()
     threads: set[threading.Thread] = set()
     streams: dict[int, _GuestStream] = {}
     lock = threading.RLock()
     dispatcher_error: list[str] = []
-    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
-    listener.bind(("127.0.0.1", listener_port))
-    listener.listen(_STREAM_LIMIT)
-    listener.settimeout(0.2)
+    listener: socket.socket | None = None
 
     def send(kind: str, stream_id: int, payload: bytes = b"") -> None:
         to_host.put(kind, stream_id, payload, closed)
@@ -782,6 +801,11 @@ def run_guest_bridge(
 
     dispatcher_thread = threading.Thread(target=dispatcher, name="ruleproxy-guest-dispatch", daemon=True)
     try:
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+        listener.bind(("127.0.0.1", listener_port))
+        listener.listen(_STREAM_LIMIT)
+        listener.settimeout(0.2)
         dispatcher_thread.start()
         _atomic_json(root / "bridge-ready.json", {"nonce": nonce, "ready": True})
         send("READY", 0, nonce.encode("ascii"))
@@ -824,15 +848,17 @@ def run_guest_bridge(
         raise
     finally:
         closed.set()
-        try:
-            listener.close()
-        except OSError:
-            pass
+        if listener is not None:
+            try:
+                listener.close()
+            except OSError:
+                pass
         with lock:
             active = list(streams.items())
         for stream_id, stream in active:
             drop(stream_id, stream)
-        dispatcher_thread.join(timeout=2)
+        if dispatcher_thread.ident is not None:
+            dispatcher_thread.join(timeout=2)
         for thread in tuple(threads):
             thread.join(timeout=0.2)
         try:

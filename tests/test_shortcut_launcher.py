@@ -119,6 +119,10 @@ class FakeManager:
     def close(self):
         self.close_calls += 1
 
+    def begin_quit(self):
+        self.released.set()
+        self.running = False
+
 
 def free_port():
     probe = socket.socket()

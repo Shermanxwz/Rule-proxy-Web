@@ -8,14 +8,17 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import shutil
 import sys
 import tarfile
+import tempfile
 import urllib.request
 import zipfile
 
 
 ROOT = Path(__file__).resolve().parent
 MIHOMO_VERSION = "v1.19.32"
+MIHOMO_LICENSE_SHA256 = "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
 MIHOMO = {
     "linux-amd64": ("mihomo-linux-amd64-compatible-v1.19.32.gz", "ba3ce607747a07f948fc35780e108a4a7c7f552a38b9bd4d115f313ebcb89c20"),
     "windows-amd64": ("mihomo-windows-amd64-compatible-v1.19.32.zip", "974a4d7ad69aed27aa2e8f91d61113573c14dadb14562c63e58effabf59816f0"),
@@ -50,7 +53,17 @@ def expected(platform: str) -> dict:
 
 
 def _required_files(platform: str) -> tuple[str, ...]:
-    return ("mihomo",) if platform == "linux-amd64" else ("mihomo.exe", "wxc-exec.exe")
+    if platform == "linux-amd64":
+        return ("mihomo", "MIHOMO-LICENSE")
+    return ("mihomo.exe", "wxc-exec.exe", "mxc_ffi.dll", "MIHOMO-LICENSE", "MXC-LICENSE.md")
+
+
+def _file_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def installed(platform: str, root: Path | None = None) -> bool:
@@ -58,16 +71,32 @@ def installed(platform: str, root: Path | None = None) -> bool:
     directory = (ROOT if root is None else root) / "bin" / platform
     try:
         record = json.loads((directory / MANIFEST).read_text(encoding="utf-8"))
+        if not isinstance(record, dict):
+            return False
+        digests = record.pop("sha256", None)
+        if record != expected(platform) or not isinstance(digests, dict) or not digests:
+            return False
+        if not all(name in digests for name in _required_files(platform)):
+            return False
+        for name, digest in digests.items():
+            # The manifest describes only files alongside it, never other paths.
+            if not isinstance(name, str) or Path(name).name != name or ":" in name or "\\" in name \
+                    or name in (".", "..", MANIFEST) or not isinstance(digest, str):
+                return False
+            path = directory / name
+            if not path.is_file() or not path.stat().st_size or _file_digest(path) != digest:
+                return False
     except (OSError, ValueError):
         return False
-    return record == expected(platform) and all((directory / name).is_file() for name in _required_files(platform))
+    return True
 
 
-def install(platform: str, root: Path | None = None) -> Path:
-    directory = (ROOT if root is None else root) / "bin" / platform
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / MANIFEST).unlink(missing_ok=True)
-    (directory / "MIHOMO-LICENSE").write_bytes(fetch(f"https://raw.githubusercontent.com/MetaCubeX/mihomo/{MIHOMO_VERSION}/LICENSE"))
+def _populate(platform: str, directory: Path) -> None:
+    """Verify and extract downloads into a new, private staging directory."""
+    license_data = fetch(f"https://raw.githubusercontent.com/MetaCubeX/mihomo/{MIHOMO_VERSION}/LICENSE")
+    if hashlib.sha256(license_data).hexdigest() != MIHOMO_LICENSE_SHA256:
+        raise ValueError("Mihomo 许可文件校验值不符，已拒绝安装。")
+    (directory / "MIHOMO-LICENSE").write_bytes(license_data)
     name, digest = MIHOMO[platform]
     print(f"正在下载固定版本的 Mihomo {MIHOMO_VERSION}…", flush=True)
     data = fetch(f"https://github.com/MetaCubeX/mihomo/releases/download/{MIHOMO_VERSION}/{name}")
@@ -100,11 +129,40 @@ def install(platform: str, root: Path | None = None) -> Path:
                 elif member.name == "package/LICENSE.md":
                     with archive.extractfile(member) as source:
                         (directory / "MXC-LICENSE.md").write_bytes(source.read())
-        if not (directory / "wxc-exec.exe").is_file():
-            raise ValueError("校验通过的 MXC 包里缺少 wxc-exec.exe。")
-        for name in SKIPPED_MXC_FILES:
-            (directory / name).unlink(missing_ok=True)
-    (directory / MANIFEST).write_text(json.dumps(expected(platform), indent=2) + "\n", encoding="utf-8")
+    if not all((directory / name).is_file() and (directory / name).stat().st_size
+               for name in _required_files(platform)):
+        raise ValueError("校验通过的运行组件包里缺少必要文件。")
+    record = expected(platform)
+    record["sha256"] = {path.name: _file_digest(path) for path in sorted(directory.iterdir()) if path.is_file()}
+    (directory / MANIFEST).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+
+def install(platform: str, root: Path | None = None) -> Path:
+    directory = (ROOT if root is None else root) / "bin" / platform
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    # Keep the existing runtimes usable until every new component is verified.
+    # Sibling paths stay on the same filesystem, so directory renames are atomic.
+    with tempfile.TemporaryDirectory(prefix=f".{platform}-", dir=directory.parent,
+                                     ignore_cleanup_errors=True) as temporary:
+        staged = Path(temporary) / "new"
+        # Keep the rollback copy outside the auto-cleaned staging folder. If a
+        # competing writer prevents restoration, the previous files survive.
+        backup = directory.parent / f"{Path(temporary).name}-previous"
+        staged.mkdir()
+        _populate(platform, staged)
+        if directory.exists():
+            directory.rename(backup)
+        try:
+            staged.rename(directory)
+        except OSError:
+            if backup.exists():
+                try:
+                    backup.rename(directory)
+                except OSError as exc:
+                    raise OSError(f"无法恢复旧运行组件；原文件保留在 {backup}：{exc}") from exc
+            raise
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
     print(f"运行组件已安装到 {directory}（只写入本项目目录）。", flush=True)
     return directory
 

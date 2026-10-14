@@ -178,6 +178,18 @@ class ManagerTests(unittest.TestCase):
             self.manager.active.clear()
             self.manager.core = None
 
+    def test_quitting_prevents_new_launches_and_a_failed_stop_can_be_retried(self):
+        with patch.object(self.manager, "stop", side_effect=RuntimeError("still cleaning")):
+            with self.assertRaises(RuntimeError):
+                self.manager.begin_quit()
+        self.assertFalse(self.manager.quitting)
+        self.assertFalse(self.manager.closed.is_set())
+        self.manager.begin_quit()
+        with self.assertRaisesRegex(ValueError, "正在退出"):
+            self.manager.start()
+        with self.assertRaisesRegex(ValueError, "正在退出"):
+            self.manager.launch("any-app")
+
     @unittest.skipUnless(sys.platform == "linux", "Linux desktop entries")
     def test_shortcuts_are_recorded_and_removed_with_the_app(self):
         executable = Path(self.temp.name) / "bin" / "chatgpt"
@@ -365,6 +377,16 @@ class LocalServerTests(unittest.TestCase):
             time.sleep(0.1)
         else:
             self.fail("the panel kept serving after quit")
+
+    def test_quit_keeps_the_panel_available_when_safe_cleanup_fails(self):
+        with patch.object(self.manager, "stop", side_effect=RuntimeError("守卫仍在清理，请重试")):
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.request("/api/quit", {}, **{"X-RuleProxy-Token": self.manager.token})
+        self.assertEqual(error.exception.code, 400)
+        self.assertIn("守卫仍在清理", json.load(error.exception)["error"])
+        self.assertFalse(self.server.quit_requested.is_set())
+        with self.request("/api/state") as response:
+            self.assertEqual(response.status, 200)
 
     def app_with_executable(self):
         executable = Path(self.temp.name) / "bin" / f"chrome-{len(self.manager.settings['apps'])}"

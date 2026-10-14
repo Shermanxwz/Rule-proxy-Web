@@ -2,7 +2,7 @@
 
 Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、添加应用，从面板或桌面快捷方式启动受保护实例。
 
-**当前版本 0.2.1。只保护从面板或本工具的快捷方式启动的实例。已打开的普通实例不会自动接管，请先自行关闭。**
+**当前版本 0.2.2。只保护从面板或本工具的快捷方式启动的实例。已打开的普通实例不会自动接管，请先自行关闭。**
 
 选中应用的代理入口强制使用所选节点。无法经过代理的流量阻断，不自动直连。不修改系统代理、网卡 DNS、全机默认路由，不创建系统服务；登录后自动启动只在你于面板中打开时写入当前用户的启动项。
 
@@ -12,7 +12,7 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 要求 x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 全拒绝网络隔离能力。Windows 10 和旧版 Windows 11 的严格模式不可用。系统版本符合最低条件也可能缺少所需更新，面板会检查并拒绝不支持的启动。
 
-官方 MXC 的系统支持表列出 Windows 11 24H2 的 `26100.9278`、25H2 的 `26200.9278` 等更新版本；最终以本机请求级能力检查为准：[系统支持表](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)。
+项目固定的 MXC 1.0.0 官方文档将 BaseContainer 列为 Windows 11 25H2+（内部版本 `26600+`）能力，并要求启用 PSEC 系统契约。MXC 主分支的更新支持表与固定版本不同；版本号达标也不能保证支持，最终必须通过本机针对完整策略的请求级能力检查：[系统支持表](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)。
 
 1. 从 [Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases/latest) 下载 `RuleProxy-Web-<版本>-windows-x64.zip`。运行包自带 Python、PyYAML、Mihomo 和 MXC，不需要另外安装。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”。不解除的话，启动面板和点快捷方式时可能每次都弹出安全提示。
@@ -108,7 +108,7 @@ Linux 未开放 D-Bus、桌面门户和音频服务，仅按需开放直接的 X
 - 导入的监听器、系统网络设置不生效。第一版不导入 `proxy-providers`、`rule-providers`、脚本、插件或本地证书文件引用；不支持时明确报错。
 - 通过中继无法可靠识别原始应用，所以不支持 `PROCESS-*` / `UID` 规则。应用选择由面板的隔离启动完成。
 
-导入后，配置区会列出本次导入的说明，例如哪些设置被忽略、DNS 如何处理。已保存的配置若因版本更新不再可用，面板仍会正常打开，并提示重新导入。
+导入后，配置区会列出本次导入的说明，例如哪些设置被忽略、DNS 如何处理。已保存的配置若损坏、过大或因版本更新不再可用，面板仍会正常打开，并提示重新导入。设置中的无效记录会被忽略并显示说明，首次保存前把原设置另存为数据目录中的 `settings.recovery-<标识>.json`。应用程序暂时不存在时，仍保留其列表记录、配置和登录状态；启动时会检查并说明原因。最多保存 128 个应用。
 
 节点名称会显示在面板，服务器、UUID、密码等不会通过状态 API 返回。导入内容只保存在本机。**不要把包含真实节点凭据的 YAML 推到公共仓库。**
 
@@ -124,7 +124,7 @@ Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `
 
 策略只作用于新容器及子进程。生命周期由 MXC / 系统管理；本工具不安装旧版的全机 WFP 断网守卫。MXC 自带的运行时恢复机制属于该组件的生命周期管理。
 
-正常停止会关闭已核对身份的应用进程，让 MXC 自行完成清理；不会强杀 MXC 守卫进程。若无法确认或完成关闭，保留守卫和核心并显示错误，请自行关闭对应隔离窗口，再重试停止。
+正常停止会关闭已核对身份的应用进程，让 MXC 自行完成清理；不会强杀 MXC 守卫进程。若无法确认或完成关闭，保留守卫和核心并显示错误，请自行关闭对应隔离窗口，再重试停止。“退出面板”也先执行安全停止；失败时保持面板可用，不会丢失守卫的重试清理入口。
 
 参考：[MXC 网络策略](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/networking.md)、[Mihomo 监听器](https://wiki.metacubex.one/en/config/inbound/listeners/)、[Mihomo 规则](https://wiki.metacubex.one/en/config/rules/)、[Mihomo DNS](https://wiki.metacubex.one/en/config/dns/)。
 
@@ -138,7 +138,7 @@ python3 -B -m unittest discover -s tests -v
 
 - Linux：在 Ubuntu 22.04、24.04 的系统 Python，以及 Python 3.10、3.14 上，按用户的方式运行 `setup-linux.sh`（安装软件包、加载 AppArmor 策略、下载 Mihomo、检查隔离），再运行全部测试，沙盒测试必须真实执行、不允许跳过；最后用 `start-linux.sh` 启动面板，导入参考 YAML，启动并停止核心，再用 Ctrl+C 退出。
 - Windows（Python 3.13）：运行全部测试，并真实创建、回读快捷方式和登录启动项，包括中文名称和中文路径；再从源码目录运行 `Start-Windows.cmd`，第一次自动准备组件，然后检查面板和核心。
-- Windows 运行包：用固定校验的下载构建，解压到 `C:\应用 测试`（顶层文件夹名以中文开头，并含空格），用包内 Python 运行全部测试；再用 `Start-Windows.cmd` 以无窗口方式启动面板，导入参考 YAML，启动并停止包内核心，用页面的“退出面板”退出，并检查 `panel.log`。
+- Windows 运行包：用固定校验的下载构建，解压到 `C:\应用 !测试%路径`（顶层文件夹名以中文开头，并含空格、感叹号和百分号），用包内 Python 运行全部测试；再用 `Start-Windows.cmd` 以无窗口方式启动面板，导入参考 YAML，启动并停止包内核心，用页面的“退出面板”退出，并检查 `panel.log`。
 
 已在 Linux 实际检查代理通道、直连 IPv4/IPv6、DNS/UDP、子进程继承隔离，以及主机接口/路由未变；并用固定 Mihomo 校验参考 YAML。Web 导入、启动核心、应用管理、停止流程经过本机检查。
 
@@ -148,18 +148,38 @@ python3 -B -m unittest discover -s tests -v
 - 面板未运行时同时点两个快捷方式，只启动一个核心；应用关闭后快捷方式托管的面板自动退出并释放端口。
 - 面板运行时，快捷方式交给面板启动。
 
-Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中实测；从快捷方式实际启动隔离应用依赖 MXC，仍需在 Windows 11 24H2 设备上验证。运行包测试中，包内 MXC 的能力检查在 GitHub 的 Windows 环境里真实运行：该环境只提供 `appcontainer-dacl`，面板据此拒绝严格隔离，没有回退。
+Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中实测；从快捷方式实际启动隔离应用依赖 MXC，仍需在支持固定版本 BaseContainer 契约的 Windows 11 设备上验证。运行包测试中，包内 MXC 的能力检查在 GitHub 的 Windows 环境里真实运行：该环境只提供 `appcontainer-dacl`，面板据此拒绝严格隔离，没有回退。
 
 Windows 文件中继、启动门控和规则目标重写由单元测试覆盖，每次推送都在 Windows 上运行。**尚未在目标 Windows 设备实测应用兼容性、实际网络阻断及异常退出清理，因此不能称为已实测零泄漏**。启动流程内置必要的运行时检查，但仍不能替代目标设备上的独立抓包与故障检查。首次使用请先选择一个浏览器，确认正常停止及其他普通应用的联网。
 
 本机数据独立于旧版目录：Windows `%LOCALAPPDATA%\RuleProxyWebSafe`；Linux `$XDG_DATA_HOME/ruleproxy-web-safe`（默认 `~/.local/share/ruleproxy-web-safe`）。核心日志为该目录的 `core.log`，Linux 应用错误为对应 `profiles/<id>/runtime.log`。删除项目程序不会留下全机断网规则；删除数据前先正常关闭面板。
+
+## Windows 11 独立验收
+
+源码目录中的 `scripts/windows-acceptance.py` 可在真实 Windows 11 系统或具有真实 Windows 内核的虚拟机中运行。先执行能力检查：
+
+```powershell
+python scripts/windows-acceptance.py --probe-only --report windows-11-probe.json
+```
+
+完整验收需要自己的可用代理 YAML；不要上传真实节点配置。先正常退出其他 RuleProxy 面板，再执行：
+
+```powershell
+python scripts/windows-acceptance.py --yaml C:\private\proxy.yaml --report windows-acceptance.json
+```
+
+测试运行包时，使用包内的 `python\python.exe` 执行源码中的同一脚本，并指定 `--root` 为解压后的 `RuleProxy-Web` 目录。脚本先核验组件清单和所有文件摘要，再启动测试专用核心和应用；检查父子进程的真实 HTTPS 代理、IPv4/IPv6 TCP 与 UDP DNS 阻断、宿主回环双向阻断、正常停止和核心故障后的进程清理，并比较测试前后的系统代理、DNS 和默认路由。
+
+退出码 `0` 表示所请求的检查完成，`1` 表示失败，`3` 表示环境不支持。**能力检查成功仍记录 `acceptance_passed: false`；只有完整模式全部通过才记录 `true`。** ARM 设备上的 x64 模拟运行必须显式使用 `--allow-emulated-x64`，报告会单独标识，不能当作原生 x64 验收。报告不包含 YAML 或下载页面正文。清理失败时保留测试数据目录并报告位置，请正常关闭相关隔离进程后再删除。
+
+GitHub 标准 x64 Windows runner 使用 Windows Server，可验证运行包和拒绝启动流程。新增 Windows 11 ARM job 仅作固定 x64 运行时的能力诊断；Ubuntu job 会实际请求创建 KVM guest，记录是否能继续 Windows 11 虚拟机测试。这两个诊断结果都不等于完整 Windows 验收。VM 仍需有效的 Windows 镜像及测试节点；硬件虚拟化可用也不保证 Windows 的 PSEC 契约可用。
 
 ## 固定运行组件
 
 - Mihomo `v1.19.32`：按官方 GitHub 资源 SHA-256 验证下载。
 - Microsoft MXC `1.0.0`：按 npm 官方包公开 SHA-512 integrity 验证下载。不安装其中的 `plm.exe`：它只用于本工具用不到的诊断功能，而且 MXC 1.0.0 在顶层文件夹名以中文开头的路径（如 `C:\应用\…`）下检查它时会崩溃。
 - Windows 运行包另带 Python `3.14.8` 嵌入式版（按 python.org 公布的 SHA-256 验证）和 PyYAML `6.0.3`（按 PyPI 公布的 SHA-256 验证）。
-- `install_runtime.py` 只下载和写入项目的 `bin/`，不会执行下载的 Windows 文件或修改系统网络。
+- `install_runtime.py` 先在临时目录下载并校验，再替换项目的 `bin/` 组件；替换失败恢复旧安装。完整性检查验证必需 DLL 和所有安装文件的 SHA-256。它不会执行下载的 Windows 文件或修改系统网络。
 
 组件许可和对应源码参见 `THIRD-PARTY.md`。
 

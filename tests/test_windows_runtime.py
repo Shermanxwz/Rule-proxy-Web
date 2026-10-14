@@ -1,5 +1,6 @@
 import json
 import ctypes
+from contextlib import ExitStack
 import stat
 import subprocess
 import sys
@@ -43,6 +44,7 @@ class WindowsRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(policy["version"], "1.0.0")
         self.assertEqual(policy["containment"], "processcontainer")
+        self.assertEqual(policy["fallback"], {"allowDaclMutation": False})
         self.assertEqual(policy["network"]["egress"], {"default": "deny"})
         self.assertEqual(
             policy["network"]["ingress"],
@@ -185,7 +187,9 @@ class WindowsRuntimeTests(unittest.TestCase):
                            "probes": {"baseContainerApiPresent": False}, "warnings": []})
         message = self.probe_with(subprocess.CompletedProcess(args=[], returncode=0, stdout=weak, stderr=""))
         self.assertIn("BaseContainer 接口", message)
-        self.assertIn("26100.9278", message)
+        self.assertIn("MXC 1.0.0", message)
+        self.assertIn("26600+", message)
+        self.assertIn("必须通过运行时探测", message)
 
     def test_unused_runtime_files_are_retired_and_the_rest_kept(self):
         runtime = self.root / "bin" / "windows-amd64"
@@ -378,6 +382,89 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(api.closed, [101])
         self.assertEqual(process.returncode, 0)
         self.assertEqual(len(process.wait_calls), 1)
+
+    def _failed_launch_setup(self, process):
+        bridge = mock.Mock()
+        bridge.directory = self.root / "failed-bridge"
+        bridge.directory.mkdir()
+        bridge.nonce = "a" * 64
+        bridge.last_error = "contained network check failed"
+        bridge.wait_ready.return_value = False
+        fixture = mock.Mock(port=19002, accepted=threading.Event())
+        stack = ExitStack()
+        self.addCleanup(stack.close)
+        stack.enter_context(mock.patch.object(windows_runtime, "_probe_request", return_value=json.loads(supported_probe_json())))
+        stack.enter_context(mock.patch("ruleproxy.file_bridge.FileProxyBridge", return_value=bridge))
+        stack.enter_context(mock.patch.object(windows_runtime, "_HostLoopbackFixture", return_value=fixture))
+        popen = stack.enter_context(mock.patch.object(windows_runtime.subprocess, "Popen", return_value=process))
+        return bridge, fixture, popen
+
+    def _launch_for_failure(self):
+        return windows_runtime.launch(
+            [r"C:\Apps\browser.exe", "--proxy-server=http://127.0.0.1:19001"],
+            {}, self.profile, 10809, str(self.runtime), guest_listener_port=19001,
+        )
+
+    def test_startup_refusal_rejects_guest_and_cleans_after_wrapper_exit(self):
+        process = mock.Mock(pid=900)
+        process.poll.return_value = 70
+        bridge, fixture, popen = self._failed_launch_setup(process)
+        with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "contained network check failed"):
+            self._launch_for_failure()
+        bridge.reject.assert_called_once()
+        bridge.approve.assert_not_called()
+        bridge.close.assert_called_once()
+        fixture.close.assert_called_once()
+        process.wait.assert_called_once_with(timeout=12)
+        process.terminate.assert_not_called()
+        self.assertEqual(popen.call_count, 1)
+        self.assertEqual(popen.call_args.args[0][0], str(self.runtime.resolve()))
+        self.assertFalse(Path(popen.call_args.args[0][2]).exists())
+
+    def test_startup_timeout_preserves_live_wrapper_and_resources_for_retry(self):
+        process = mock.Mock(pid=900)
+        process.poll.return_value = None
+        process.wait.side_effect = subprocess.TimeoutExpired("mxc", 12)
+        bridge, fixture, popen = self._failed_launch_setup(process)
+        with self.assertRaises(windows_runtime.UnsupportedRuntimeError) as failure:
+            self._launch_for_failure()
+        resource = failure.exception.resource
+        self.assertIs(failure.exception.process, process)
+        self.assertIs(resource.failed_process, process)
+        bridge.reject.assert_called_once()
+        bridge.close.assert_not_called()
+        fixture.close.assert_not_called()
+        process.terminate.assert_not_called()
+        process.kill.assert_not_called()
+        self.assertTrue(Path(popen.call_args.args[0][2]).exists())
+        with self.assertRaises(windows_runtime.SafeStopError):
+            resource.close()
+        process.poll.return_value = 70
+        resource.close()
+        bridge.close.assert_called_once()
+        fixture.close.assert_called_once()
+        self.assertFalse(Path(popen.call_args.args[0][2]).exists())
+
+    def test_status_reader_rejects_non_ascii_control_records(self):
+        directory = self.root / "status"
+        directory.mkdir()
+        (directory / "guest-status.json").write_bytes(b'\xff{"state":"APP_STARTED"}')
+        process = mock.Mock()
+        process.poll.return_value = None
+        self.assertFalse(windows_runtime._wait_for_status(directory, "a" * 64, "APP_STARTED", process, 0.01))
+
+    def test_safe_stop_releases_child_handles_if_wrapper_verification_fails(self):
+        process = mock.Mock(pid=500, _handle=99)
+        process.poll.return_value = None
+        api = mock.Mock()
+        api.process_creation_time.return_value = 100
+        api.direct_children.return_value = [(501, 101), (502, 102)]
+        api.process_alive.side_effect = OSError("wrapper handle query failed")
+        with self.assertRaisesRegex(windows_runtime.SafeStopError, "could not verify MXC wrapper"):
+            windows_runtime._stop_with_api(process, api, timeout=1, poll_interval=0.001)
+        self.assertEqual(api.close.call_args_list, [mock.call(101), mock.call(102)])
+        api.terminate.assert_not_called()
+        process.wait.assert_not_called()
 
     def test_safe_stop_refuses_ambiguous_children_without_terminating_any(self):
         class Process:

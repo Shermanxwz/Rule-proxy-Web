@@ -75,7 +75,13 @@ jobs:
       - name: Tests, including real shell links
         run: python -B .github/run_tests.py
       - name: Start-Windows.cmd in a source checkout sets up once, then runs the panel and core
-        run: python -B .github\smoke_panel.py "$env:GITHUB_WORKSPACE\Start-Windows.cmd"
+        run: |
+          $source = 'C:\源码 !测试%路径'
+          New-Item -ItemType Directory -Path $source | Out-Null
+          Copy-Item -Path "$env:GITHUB_WORKSPACE\*" -Destination $source -Recurse
+          python -B .github\smoke_panel.py "$source\Start-Windows.cmd"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B .github\smoke_panel.py "$source\Start-Windows.cmd"
 
   windows-package:
     name: Windows package · build
@@ -85,6 +91,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+      - name: Record actual KVM availability for a future Windows 11 guest
+        run: python -B .github/probe_kvm.py --report windows-vm-host.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-vm-host
+          path: windows-vm-host.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Build the release package from pinned downloads
         run: python -B .github/build_windows_package.py dist
       - uses: actions/upload-artifact@v7
@@ -129,12 +143,12 @@ jobs:
           name: older-package-plm
           path: older-package
       # A top folder that starts with a Chinese character, as in C:\应用: MXC 1.0.0 mishandles that.
-      - name: Unpack, as a user does, under C:\应用 测试
+      - name: Unpack, as a user does, under C:\应用 !测试%路径
         run: |
           $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
           $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
           if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "The package does not match SHA256SUMS.txt" }
-          $dest = 'C:\应用 测试'
+          $dest = 'C:\应用 !测试%路径'
           Expand-Archive $zip -DestinationPath $dest
           $package = Join-Path $dest 'RuleProxy-Web'
           if (Test-Path "$package\bin\windows-amd64\plm.exe") { throw "The package must not ship plm.exe" }
@@ -155,6 +169,39 @@ jobs:
         run: '& "$env:PACKAGE\python\python.exe" -B .github\smoke_panel.py "$env:PACKAGE\Start-Windows.cmd"'
       - name: The panel removed the unused plm.exe
         run: if (Test-Path "$env:PACKAGE\bin\windows-amd64\plm.exe") { throw "plm.exe is still in the package" }
+
+  windows-11-probe:
+    name: Windows 11 ARM · capability diagnostic
+    needs: windows-package
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-package
+          path: dist
+      - name: Probe the fixed x64 runtime on a real Windows 11 kernel
+        run: |
+          $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
+          $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "Package checksum mismatch" }
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\ruleproxy-probe"
+          $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
+          & "$root\python\python.exe" -B scripts\windows-acceptance.py --root "$root" --probe-only --report windows-11-probe.json
+          $probeExit = $LASTEXITCODE
+          if ($probeExit -eq 3) {
+            Write-Output '::notice title=Windows 11 probe::This host cannot service the fixed strict policy. Full acceptance remains pending.'
+            exit 0
+          }
+          if ($probeExit -ne 0) { exit $probeExit }
+          Write-Output '::notice title=Windows 11 probe::Capability probe passed on ARM with the x64 runtime. Full native x64 acceptance remains pending.'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-11-probe
+          path: windows-11-probe.json
+          if-no-files-found: error
+          retention-days: 30
 
   release:
     name: Publish the release

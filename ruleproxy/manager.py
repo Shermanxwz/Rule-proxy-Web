@@ -5,6 +5,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import signal
@@ -19,7 +20,7 @@ import urllib.request
 import uuid
 
 from . import __version__, autostart
-from .config import compile_config
+from .config import MAX_SOURCE_BYTES, compile_config
 from .launcher import discover_apps, validate_app, prepare_app
 from .shortcuts import create_shortcut_files, remove_shortcut_files
 
@@ -27,6 +28,30 @@ from .shortcuts import create_shortcut_files, remove_shortcut_files
 ROOT = Path(__file__).resolve().parent.parent
 # Installed apps are rescanned in the background when the last scan is older than this.
 APP_SCAN_SECONDS = 30.0
+MAX_APPS = 128
+MAX_SETTINGS_BYTES = 32 * 1024 * 1024
+_APP_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
+
+
+def valid_text(value, limit):
+    if not isinstance(value, str) or "\0" in value or len(value) > limit:
+        return False
+    try:
+        value.encode("utf-8")
+    except UnicodeError:
+        return False
+    return True
+
+
+def read_saved_text(path: Path, limit: int):
+    try:
+        with path.open("rb") as source:
+            data = source.read(limit + 1)
+    except FileNotFoundError:
+        return None
+    if len(data) > limit:
+        raise ValueError("saved file exceeds its size limit")
+    return data.decode("utf-8")
 
 
 def close_resource(resource):
@@ -121,18 +146,19 @@ class Manager:
         self.core_log = None
         self.error = ""
         self.active = {}
+        self.quitting = False
         # bwrap --die-with-parent follows the creating THREAD on Linux. HTTP
         # request threads are short lived; all launches must have a stable owner.
         self.launch_owner = ThreadPoolExecutor(max_workers=1, thread_name_prefix="RuleProxyLaunchOwner")
         self.settings = {"core_path": "", "runtime_path": "", "selected_node": None, "apps": []}
-        file = self.directory / "settings.json"
-        if file.exists():
-            data = json.loads(file.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                for key in self.settings:
-                    if key in data:
-                        self.settings[key] = data[key]
-        self.source = (self.directory / "source.yaml").read_text(encoding="utf-8") if (self.directory / "source.yaml").exists() else None
+        self.storage_warnings = []
+        self._settings_need_backup = False
+        self._restore_settings()
+        try:
+            self.source = read_saved_text(self.directory / "source.yaml", MAX_SOURCE_BYTES)
+        except (OSError, ValueError, UnicodeError):
+            self.source = None
+            self.error = "已保存的 YAML 无法读取或过大，请重新导入；原文件仍保留在数据目录中。"
         self.compiled = None
         if self.source:
             self._load_saved_config()
@@ -146,8 +172,82 @@ class Manager:
         self.closed = threading.Event()
         threading.Thread(target=self._watch, daemon=True).start()
 
+    def _restore_settings(self):
+        """Restore bounded records without losing profiles for temporarily missing apps."""
+        invalid = False
+        try:
+            raw = read_saved_text(self.directory / "settings.json", MAX_SETTINGS_BYTES)
+            if raw is None:
+                return
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise ValueError("settings must be an object")
+        except (OSError, ValueError, UnicodeError, RecursionError):
+            data = {}
+            invalid = True
+        for key in ("core_path", "runtime_path", "selected_node"):
+            if key not in data:
+                continue
+            value = data[key]
+            if key == "selected_node" and value is None:
+                continue
+            if valid_text(value, 4096):
+                self.settings[key] = value
+            else:
+                invalid = True
+        records = data.get("apps", [])
+        if not isinstance(records, list):
+            records = []
+            invalid = True
+        ids, paths = set(), set()
+        for record in records[:MAX_APPS]:
+            try:
+                if not isinstance(record, dict):
+                    raise ValueError("app must be an object")
+                ident = record.get("id")
+                enabled = record.get("enabled", True)
+                if not isinstance(ident, str) or not _APP_ID_RE.fullmatch(ident) or not isinstance(enabled, bool):
+                    raise ValueError("invalid app id or enabled state")
+                app = validate_app(record, check_exists=False)
+                path = os.path.normcase(app["path"])
+                if ident in ids or path in paths:
+                    raise ValueError("duplicate app")
+                app.update(id=ident, enabled=enabled)
+                shortcuts = record.get("shortcuts", [])
+                if not isinstance(shortcuts, list) or len(shortcuts) > 4 or any(not valid_text(item, 4096) for item in shortcuts):
+                    invalid = True
+                elif shortcuts:
+                    app["shortcuts"] = shortcuts
+                self.settings["apps"].append(app)
+                ids.add(ident)
+                paths.add(path)
+            except (OSError, ValueError, UnicodeError, RuntimeError):
+                invalid = True
+        if len(records) > MAX_APPS:
+            invalid = True
+        if invalid:
+            self._settings_need_backup = True
+            self.storage_warnings.append("已忽略无法使用的设置或应用记录；原 settings.json 保留，首次保存时会另存备份。")
+
     def _save(self):
-        write_private(self.directory / "settings.json", json.dumps(self.settings, ensure_ascii=False, indent=2))
+        path = self.directory / "settings.json"
+        backup = None
+        if self._settings_need_backup:
+            backup = path.with_name(f"settings.recovery-{uuid.uuid4().hex}.json")
+            try:
+                path.replace(backup)
+            except FileNotFoundError:
+                backup = None
+            self._settings_need_backup = False
+        try:
+            write_private(path, json.dumps(self.settings, ensure_ascii=False, indent=2))
+        except Exception:
+            if backup is not None:
+                backup.replace(path)
+                self._settings_need_backup = True
+            raise
+        if backup is not None:
+            self.storage_warnings = [f"原设置中的无效内容已忽略，原文件备份为 {backup.name}。"]
 
     def _load_saved_config(self):
         """Compile the saved YAML. One that no longer compiles must not keep the panel from opening."""
@@ -281,7 +381,7 @@ class Manager:
                 "ports": {"mixed": self.mixed_port, "panel": self.panel_port},
                 "protection": protection,
                 "autostart": starts_at_login,
-                "warnings": compiled.warnings if compiled else [],
+                "warnings": [*self.storage_warnings, *(compiled.warnings if compiled else [])],
             }
 
     def import_yaml(self, source):
@@ -303,7 +403,7 @@ class Manager:
                 if key not in data:
                     continue
                 value = data[key]
-                if not isinstance(value, str) or "\0" in value or len(value) > 4096:
+                if not valid_text(value, 4096):
                     raise ValueError("程序路径无效。")
                 self.settings[key] = value.strip()
             self._probe_cache = None
@@ -328,6 +428,8 @@ class Manager:
 
     def start(self):
         with self.lock:
+            if self.quitting or self.closed.is_set():
+                raise ValueError("面板正在退出，不能启动核心。")
             if self.core and self.core.poll() is None:
                 return
             if not self.compiled:
@@ -399,8 +501,10 @@ class Manager:
 
     def add_app(self, data):
         with self.lock:
+            if len(self.settings["apps"]) >= MAX_APPS:
+                raise ValueError(f"最多保存 {MAX_APPS} 个应用，请先删除不再使用的应用。")
             normalized = validate_app(data)
-            if any(app["path"] == normalized["path"] for app in self.settings["apps"]):
+            if any(os.path.normcase(app["path"]) == os.path.normcase(normalized["path"]) for app in self.settings["apps"]):
                 raise ValueError("这个应用已在列表中。")
             normalized.update(id=uuid.uuid4().hex, enabled=data.get("enabled", True) is True)
             self.settings["apps"].append(normalized)
@@ -438,6 +542,8 @@ class Manager:
 
     def launch(self, ident):
         with self.lock:
+            if self.quitting or self.closed.is_set():
+                raise ValueError("面板正在退出，不能启动应用。")
             app = self.app(ident)
             if not app or not app["enabled"]:
                 raise ValueError("请先将应用加入待保护列表。")
@@ -509,6 +615,12 @@ class Manager:
             if self.core_log:
                 self.core_log.close()
                 self.core_log = None
+
+    def begin_quit(self):
+        """Stop safely before preventing new launches; failures keep the panel usable."""
+        with self.lock:
+            self.stop()
+            self.quitting = True
 
     def _watch(self):
         while not self.closed.wait(0.5):

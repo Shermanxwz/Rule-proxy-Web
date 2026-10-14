@@ -229,7 +229,14 @@ class DownloadsFolderTests(unittest.TestCase):
     @unittest.skipUnless(hasattr(os, "geteuid") and os.geteuid() == 0, "needs root to hand the folder to another user")
     def test_a_folder_owned_by_someone_else_is_not_shared(self):
         (self.home / "Downloads").mkdir(parents=True)
-        os.chown(self.home / "Downloads", 65534, 65534)
+        try:
+            os.chown(self.home / "Downloads", 65534, 65534)
+        except OSError as exc:
+            # Container root may have no mapping for this UID/GID. The real
+            # ownership fixture cannot be created on that host.
+            if exc.errno not in (1, 22):
+                raise
+            self.skipTest(f"host cannot assign the foreign UID/GID: {exc}")
         self.assertIsNone(downloads_folder(self.state))
 
     def test_the_sandbox_binds_it_and_apps_save_there(self):

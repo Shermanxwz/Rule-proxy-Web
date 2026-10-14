@@ -141,6 +141,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/autostart":
                 manager.set_autostart(data.get("enabled"))
             elif path == "/api/quit":
+                # A failed safe stop must leave the panel available for retry,
+                # with the guard and core still owned by this manager.
+                manager.begin_quit()
                 # Answer first: the page then knows the panel is going away on purpose.
                 self.server.quit_requested.set()
                 self.reply(200, {"quitting": True})

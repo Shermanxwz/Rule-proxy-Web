@@ -103,7 +103,12 @@ def stage(target: Path) -> None:
 def write_zip(source: Path, path: Path) -> None:
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for file in sorted(item for item in source.rglob("*") if item.is_file()):
-            archive.write(file, f"{FOLDER}/{file.relative_to(source).as_posix()}")
+            # Checkout times, extracted download times and host permission bits
+            # must not change the digest of an otherwise identical package.
+            entry = zipfile.ZipInfo(f"{FOLDER}/{file.relative_to(source).as_posix()}", (1980, 1, 1, 0, 0, 0))
+            entry.create_system = 3
+            entry.external_attr = 0o100644 << 16
+            archive.writestr(entry, file.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
 
 
 def changes() -> str:
@@ -125,7 +130,9 @@ def release_notes(zip_name: str, digest: str) -> str:
 
 ## 安装
 
-**Windows**（x64 Windows 11 24H2 / 25H2，装好最新更新；不需要另外安装 Python）
+**Windows**（x64 Windows 11，需要通过完整隔离能力探测；不需要另外安装 Python）
+
+MXC 1.0.0 的官方支持表列出 Windows 11 25H2+、内部版本 26600 或更新版本，并要求对应的隔离接口。版本号达标后仍需面板探测成功，才能使用严格隔离。
 
 1. 下载 `{zip_name}`。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”，避免每次启动都弹出安全提示。
@@ -138,7 +145,7 @@ def release_notes(zip_name: str, digest: str) -> str:
 
 ```sh
 sudo apt install -y git
-git clone https://github.com/Shermanxwz/Rule-proxy-Web.git
+git clone --branch v{__version__} --depth 1 https://github.com/Shermanxwz/Rule-proxy-Web.git
 cd Rule-proxy-Web
 sh start-linux.sh
 ```

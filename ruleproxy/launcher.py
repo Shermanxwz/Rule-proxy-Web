@@ -611,6 +611,10 @@ def _validate_args(value: Any) -> list[str]:
     for arg in value:
         if not isinstance(arg, str) or "\0" in arg:
             raise ValueError("启动参数必须是不含空字符的文本。")
+        try:
+            arg.encode("utf-8")
+        except UnicodeError as exc:
+            raise ValueError("启动参数包含无效的 Unicode 字符。") from exc
         if len(arg) > _MAX_ARG_LENGTH:
             raise ValueError("单个启动参数不能超过 4096 个字符。")
         total += len(arg)
@@ -620,28 +624,38 @@ def _validate_args(value: Any) -> list[str]:
     return args
 
 
-def validate_app(data: dict) -> dict[str, Any]:
+def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
     """Validate and normalize an executable selection supplied by the user."""
     if not isinstance(data, dict):
         raise ValueError("应用信息格式无效。")
     label = data.get("label")
     raw_path = data.get("path")
     adapter = data.get("adapter")
-    if not isinstance(label, str) or not label.strip() or len(label) > 200:
+    if not isinstance(label, str) or not label.strip() or len(label) > 200 or "\0" in label:
         raise ValueError("应用名称不能为空，且不超过 200 个字符。")
-    if not isinstance(raw_path, str) or not raw_path.strip() or "\0" in raw_path:
+    if not isinstance(raw_path, str) or not raw_path.strip() or "\0" in raw_path or len(raw_path) > 4096:
         raise ValueError("请填写程序路径。")
     if not isinstance(adapter, str) or adapter not in ADAPTERS:
         raise ValueError("启动方式无效。")
-    path = Path(raw_path).expanduser()
     try:
-        path = path.resolve(strict=True)
-    except (OSError, RuntimeError) as exc:
-        raise ValueError("找不到这个程序。") from exc
-    if not path.is_file():
-        raise ValueError("程序路径必须指向一个文件。")
-    if os.name != "nt" and not os.access(path, os.X_OK):
-        raise ValueError("这个文件没有执行权限。")
+        label.encode("utf-8")
+        raw_path.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("应用信息包含无效的 Unicode 字符。") from exc
+    path = Path(raw_path).expanduser()
+    if check_exists:
+        try:
+            path = path.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            raise ValueError("找不到这个程序。") from exc
+        if not path.is_file():
+            raise ValueError("程序路径必须指向一个文件。")
+        if os.name != "nt" and not os.access(path, os.X_OK):
+            raise ValueError("这个文件没有执行权限。")
+    elif not path.is_absolute():
+        # Restored records keep temporarily missing programs and their profiles;
+        # they still undergo the full executable check each time they launch.
+        raise ValueError("已保存的程序路径必须是绝对路径。")
     if path.name.lower() in _SHELL_EXECUTABLES:
         raise ValueError("不能把命令行解释器（shell）添加为应用。")
     args = _validate_args(data.get("args", []))

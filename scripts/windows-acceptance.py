@@ -1,0 +1,544 @@
+"""Run real Windows PSEC acceptance, without changing host network settings.
+
+Examples (use the package's x64 Python when testing a portable package):
+  python scripts/windows-acceptance.py --probe-only
+  python scripts/windows-acceptance.py --yaml C:\\private\\proxy.yaml
+
+Full acceptance needs a working real proxy node. The YAML, controller token,
+and downloaded page contents are never included in the JSON report. No mock
+MXC, DACL fallback, firewall editing, or software VM fallback is used.
+The bundled manifest verifies completeness and file integrity, not origin:
+verify the release ZIP against its externally obtained checksum beforehand.
+Exit codes: 0 = requested checks passed, 1 = failed, 3 = unsupported host.
+A successful --probe-only run explicitly does not pass full acceptance.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import http.client
+import ipaddress
+import json
+import os
+from pathlib import Path
+import platform
+import re
+import shutil
+import socket
+import ssl
+import stat
+import struct
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.parse
+
+
+ROOT = Path(__file__).resolve().parent.parent
+RUNTIME_VERSIONS = {"mihomo": "v1.19.32", "mxc": "1.0.0"}
+RUNTIME_REQUIRED_FILES = frozenset({"mihomo.exe", "wxc-exec.exe", "mxc_ffi.dll",
+                                    "MIHOMO-LICENSE", "MXC-LICENSE.md"})
+
+
+def verify_runtime_manifest(root: Path) -> dict[str, str]:
+    """Check a source checkout or portable package without builder imports.
+
+    Version labels and every flat-directory file digest must match the local
+    manifest. An attacker replacing files and their manifest is outside this
+    integrity check; the downloaded ZIP's external checksum establishes origin.
+    """
+    directory = root / "bin" / "windows-amd64"
+    manifest = directory / "runtime.json"
+    with manifest.open("rb") as stream:
+        raw = stream.read(64 * 1024 + 1)
+    if not raw or len(raw) > 64 * 1024:
+        raise ValueError("runtime manifest has an invalid size")
+    record = json.loads(raw.decode("utf-8"))
+    if not isinstance(record, dict) or set(record) != {*RUNTIME_VERSIONS, "sha256"}:
+        raise ValueError("runtime manifest fields are invalid")
+    if any(record[name] != version for name, version in RUNTIME_VERSIONS.items()):
+        raise ValueError("runtime manifest versions do not match this acceptance script")
+    digests = record["sha256"]
+    if not isinstance(digests, dict) or not 1 <= len(digests) <= 64:
+        raise ValueError("runtime manifest digest map is invalid")
+    if not RUNTIME_REQUIRED_FILES.issubset(digests):
+        raise ValueError("runtime manifest omitted required runtime files")
+    for name, digest in digests.items():
+        if (not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", name)
+                or name == "runtime.json" or not isinstance(digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+            raise ValueError("runtime manifest contains an invalid file name or SHA-256")
+    if {item.name for item in directory.iterdir()} != {*digests, "runtime.json"}:
+        raise ValueError("runtime directory contains missing or unlisted entries")
+    for name in (*digests, "runtime.json"):
+        path = directory / name
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or not info.st_size
+                or getattr(info, "st_file_attributes", 0) & 0x400):
+            raise ValueError("runtime files must be nonempty ordinary files without reparse points")
+        if name == "runtime.json":
+            continue
+        actual = hashlib.sha256()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                actual.update(block)
+        if actual.hexdigest() != digests[name]:
+            raise ValueError("runtime file SHA-256 did not match the manifest")
+    return dict(digests)
+
+
+def verify_project_origin(root: Path) -> None:
+    """Refuse a previously imported checkout when --root names another one."""
+    import ruleproxy
+    package = (root / "ruleproxy").resolve(strict=True)
+    if Path(ruleproxy.__file__).resolve(strict=True) != package / "__init__.py":
+        raise ValueError("imported ruleproxy package does not belong to --root")
+    if {Path(item).resolve(strict=True) for item in ruleproxy.__path__} != {package}:
+        raise ValueError("imported ruleproxy package search path does not belong to --root")
+    for name, module in tuple(sys.modules.items()):
+        if name.startswith("ruleproxy.") and getattr(module, "__file__", None):
+            try:
+                Path(module.__file__).resolve(strict=True).relative_to(package)
+            except ValueError as exc:
+                raise ValueError("a loaded ruleproxy module does not belong to --root") from exc
+
+
+def write_json(path: Path, value: dict) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=True, indent=2) + "\n", encoding="ascii")
+    os.replace(temporary, path)
+
+
+def check_url(value: str) -> str:
+    parsed = urllib.parse.urlsplit(value)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("acceptance URL must be an HTTPS URL without credentials")
+    if parsed.port not in (None, 443) or parsed.fragment or any(c in value for c in "\r\n\0"):
+        raise ValueError("acceptance URL must use port 443 without a fragment or control characters")
+    host = parsed.hostname
+    try:
+        if not ipaddress.ip_address(host).is_global:
+            raise ValueError("acceptance URL must have a public destination")
+    except ValueError as exc:
+        if "public destination" in str(exc):
+            raise
+        if "." not in host or host.endswith((".local", ".localhost", ".home.arpa")):
+            raise ValueError("acceptance URL must have a public hostname") from exc
+    return value
+
+
+def denied(family: int, kind: int, address: tuple, name: str) -> dict:
+    try:
+        with socket.socket(family, kind) as connection:
+            connection.settimeout(2)
+            if kind == socket.SOCK_DGRAM:
+                # An empty datagram exercises ALE_AUTH_CONNECT without payload.
+                connection.sendto(b"", address)
+            else:
+                connection.connect(address)
+    except OSError as exc:
+        code = getattr(exc, "winerror", None) or exc.errno
+        if code != 10013:
+            # Unreachable destinations and missing IPv6 are not policy evidence.
+            raise RuntimeError(f"{name}: expected WSAEACCES 10013, got {code}") from exc
+        return {"check": name, "status": "passed", "socket_error": code}
+    raise RuntimeError(f"{name}: direct socket unexpectedly succeeded")
+
+
+def proxy_https(url: str) -> dict:
+    parsed = urllib.parse.urlsplit(check_url(url))
+    proxy = urllib.parse.urlsplit(os.environ["HTTPS_PROXY"])
+    if proxy.scheme != "http" or proxy.hostname != "127.0.0.1" or not proxy.port:
+        raise RuntimeError("application proxy is not the prepared guest loopback endpoint")
+    connection = http.client.HTTPSConnection(proxy.hostname, proxy.port, timeout=25,
+                                              context=ssl.create_default_context())
+    # HTTPSConnection uses CONNECT, then verifies the origin's TLS certificate.
+    connection.set_tunnel(parsed.hostname, 443)
+    try:
+        path = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+        connection.request("GET", path, headers={"Host": parsed.hostname,
+                                                 "Connection": "close"})
+        response = connection.getresponse()
+        body = response.read(1024 * 1024 + 1)
+        if response.status != 200 or not body or len(body) > 1024 * 1024:
+            raise RuntimeError("real proxy HTTPS request did not return a bounded HTTP 200 body")
+        return {"check": "real_proxy_https", "status": "passed", "http_status": 200,
+                "body_bytes": len(body), "body_sha256": hashlib.sha256(body).hexdigest()}
+    finally:
+        connection.close()
+
+
+def guest_main(arguments: list[str]) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--role", choices=("parent", "child"), required=True)
+    parser.add_argument("--url", required=True)
+    parser.add_argument("--host-v4-port", type=int, required=True)
+    parser.add_argument("--host-v6-port", type=int, required=True)
+    args = parser.parse_args(arguments)
+    report = {"role": args.role, "pid": os.getpid(), "parent_pid": os.getppid()}
+    listeners = []
+    child = None
+    try:
+        for family, host in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+            listener = socket.socket(family, socket.SOCK_STREAM)
+            listeners.append(listener)
+            listener.bind((host, 0))
+            listener.listen(4)
+        checks = [
+            denied(socket.AF_INET, socket.SOCK_STREAM, ("1.1.1.1", 443), "direct_ipv4_tcp"),
+            denied(socket.AF_INET6, socket.SOCK_STREAM, ("2606:4700:4700::1111", 443, 0, 0), "direct_ipv6_tcp"),
+            denied(socket.AF_INET, socket.SOCK_DGRAM, ("1.1.1.1", 53), "direct_ipv4_udp_dns"),
+            denied(socket.AF_INET6, socket.SOCK_DGRAM, ("2606:4700:4700::1111", 53, 0, 0), "direct_ipv6_udp_dns"),
+            denied(socket.AF_INET, socket.SOCK_STREAM, ("127.0.0.1", args.host_v4_port), "guest_to_host_ipv4"),
+            denied(socket.AF_INET6, socket.SOCK_STREAM, ("::1", args.host_v6_port, 0, 0), "guest_to_host_ipv6"),
+            proxy_https(args.url),
+        ]
+        report.update(status="passed", checks=checks,
+                      listeners=[int(item.getsockname()[1]) for item in listeners])
+        write_json(Path(f"acceptance-{args.role}.json"), report)
+        if args.role == "parent":
+            child = subprocess.Popen([sys.executable, "-I", "-S", "-X", "utf8", __file__,
+                                      "--guest", "--role", "child", "--url", args.url,
+                                      "--host-v4-port", str(args.host_v4_port),
+                                      "--host-v6-port", str(args.host_v6_port)],
+                                     stdin=subprocess.DEVNULL, shell=False, close_fds=True)
+        # Keep both generations and their listeners alive until the product
+        # stops their owning PSEC workload. Do not self-clean the test child.
+        while True:
+            if child is not None and child.poll() is not None:
+                raise RuntimeError("acceptance descendant exited before lifecycle check")
+            time.sleep(0.2)
+    except Exception as exc:
+        report.update(status="failed", error=f"{type(exc).__name__}: {exc}"[:700])
+        write_json(Path(f"acceptance-{args.role}.json"), report)
+        return 1
+    finally:
+        for listener in listeners:
+            listener.close()
+
+
+def host_facts() -> dict:
+    facts = {"platform": sys.platform, "python_architecture": platform.machine(),
+             "pointer_bits": struct.calcsize("P") * 8}
+    if sys.platform != "win32":
+        return facts
+    import ctypes
+    from ctypes import wintypes
+    current = sys.getwindowsversion()
+    facts.update(windows_build=current.build, windows_product_type=current.product_type)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.IsWow64Process2.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.USHORT),
+                                     ctypes.POINTER(wintypes.USHORT)]
+    kernel.IsWow64Process2.restype = wintypes.BOOL
+    process_machine, native_machine = wintypes.USHORT(), wintypes.USHORT()
+    if not kernel.IsWow64Process2(kernel.GetCurrentProcess(), ctypes.byref(process_machine),
+                                ctypes.byref(native_machine)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    facts.update(process_machine=process_machine.value, native_machine=native_machine.value)
+    facts["acceptance_scope"] = (
+        "native_x64" if native_machine.value == 0x8664
+        else "x64_on_arm_emulation" if process_machine.value == 0x8664
+        else "native_arm64_probe"
+    )
+    return facts
+
+
+def network_snapshot() -> str:
+    # Read stable configuration fields only; leases/lifetimes change naturally.
+    script = r'''
+$ErrorActionPreference = 'Stop'
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$proxy = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
+$dns = @(Get-DnsClientServerAddress | Sort-Object InterfaceIndex,AddressFamily | ForEach-Object {
+    @{index=$_.InterfaceIndex;family=[int]$_.AddressFamily;servers=@($_.ServerAddresses)}
+})
+$routes = @(Get-NetRoute | Where-Object DestinationPrefix -in @('0.0.0.0/0','::/0') |
+    Sort-Object InterfaceIndex,DestinationPrefix,NextHop | ForEach-Object {
+        @{index=$_.InterfaceIndex;prefix=$_.DestinationPrefix;next=$_.NextHop;metric=$_.RouteMetric}
+    })
+@{dns=$dns;routes=$routes;proxy=@{enable=$proxy.ProxyEnable;server=$proxy.ProxyServer;
+override=$proxy.ProxyOverride;pac=$proxy.AutoConfigURL};winhttp=(& netsh winhttp show proxy | Out-String)} |
+ConvertTo-Json -Depth 8 -Compress
+'''
+    result = subprocess.run(["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive",
+                             "-Command", script], capture_output=True, encoding="utf-8",
+                            errors="replace", timeout=25, check=True)
+    value = json.loads(result.stdout.lstrip("\ufeff"))
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+class HostFixtures:
+    def __init__(self) -> None:
+        self.sockets = []
+        self.accepted = threading.Event()
+        self.closed = threading.Event()
+        self.threads = []
+        try:
+            for family, host in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+                listener = socket.socket(family, socket.SOCK_STREAM)
+                self.sockets.append(listener)
+                listener.bind((host, 0))
+                listener.listen(8)
+                listener.settimeout(0.1)
+                # First prove the ordinary host can reach each actual fixture.
+                with socket.create_connection((host, listener.getsockname()[1]), timeout=2):
+                    connection, _ = listener.accept()
+                    connection.close()
+                worker = threading.Thread(target=self._accept, args=(listener,), daemon=True)
+                worker.start()
+                self.threads.append(worker)
+        except BaseException:
+            self.close()
+            raise
+
+    def _accept(self, listener: socket.socket) -> None:
+        while not self.closed.is_set():
+            try:
+                connection, _ = listener.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            self.accepted.set()
+            connection.close()
+
+    def close(self) -> None:
+        self.closed.set()
+        for listener in self.sockets:
+            listener.close()
+        for worker in self.threads:
+            worker.join(timeout=1)
+
+
+def ports() -> tuple[int, int, int]:
+    reservations = []
+    try:
+        for _ in range(3):
+            reservation = socket.socket()
+            reservations.append(reservation)
+            reservation.bind(("127.0.0.1", 0))
+        return tuple(int(item.getsockname()[1]) for item in reservations)
+    finally:
+        for reservation in reservations:
+            reservation.close()
+
+
+def read_guest_reports(profile: Path, wrapper, timeout: float = 90) -> list[dict]:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        reports = []
+        for role in ("parent", "child"):
+            try:
+                raw = (profile / f"acceptance-{role}.json").read_bytes()
+                if len(raw) > 16 * 1024:
+                    raise RuntimeError("acceptance guest report exceeded its size limit")
+                value = json.loads(raw)
+            except (OSError, json.JSONDecodeError):
+                continue
+            if value.get("status") != "passed":
+                raise RuntimeError(value.get("error", "acceptance guest checks failed"))
+            reports.append(value)
+        if len(reports) == 2:
+            if reports[1]["parent_pid"] != reports[0]["pid"]:
+                raise RuntimeError("acceptance reports did not prove a parent/child relationship")
+            return reports
+        if wrapper.poll() is not None:
+            raise RuntimeError("MXC wrapper exited before acceptance guest checks completed")
+        time.sleep(0.1)
+    raise RuntimeError("acceptance parent and child did not finish network checks before timeout")
+
+
+def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str) -> dict:
+    from ruleproxy import windows_runtime
+    manager.add_app({"label": "Windows acceptance", "path": sys.executable,
+                     "adapter": "environment", "args": []})
+    app = manager.settings["apps"][-1]
+    profile = manager.directory / "profiles" / app["id"]
+    profile.mkdir(parents=True)
+    helper = profile / "acceptance_guest.py"
+    shutil.copyfile(__file__, helper)
+    app["args"] = ["-I", "-S", "-X", "utf8", str(helper), "--guest", "--role", "parent",
+                   "--url", url, "--host-v4-port", str(fixtures.sockets[0].getsockname()[1]),
+                   "--host-v6-port", str(fixtures.sockets[1].getsockname()[1])]
+    manager.launch(app["id"])
+    wrapper = manager.active[app["id"]][0]
+    handles = []
+    api = windows_runtime._WinProcessApi()
+    try:
+        reports = read_guest_reports(profile, wrapper)
+        for report in reports:
+            handle = api.kernel32.OpenProcess(api.PROCESS_ACCESS, False, report["pid"])
+            if not handle:
+                raise RuntimeError("could not retain a live acceptance process handle")
+            handles.append(handle)
+            if not api.process_alive(handle):
+                raise RuntimeError("acceptance process exited before its lifecycle check")
+            for host, port in zip(("127.0.0.1", "::1"), report["listeners"]):
+                try:
+                    connection = socket.create_connection((host, port), timeout=1)
+                except OSError:
+                    pass
+                else:
+                    connection.close()
+                    raise RuntimeError("host reached a live contained application listener")
+        if fixtures.accepted.is_set():
+            raise RuntimeError("a contained process reached an ordinary host listener")
+        if case == "normal_stop":
+            manager.stop_app(app["id"])
+        else:
+            # Kill only the private Mihomo instance created by this manager.
+            core = manager.core
+            if core is None or core.poll() is not None:
+                raise RuntimeError("private core was not running before loss test")
+            core.kill()
+            core.wait(timeout=5)
+        wrapper.wait(timeout=25)
+        if not all(api.wait(handle, 5000) for handle in handles):
+            raise RuntimeError("a parent or descendant survived PSEC workload teardown")
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            with manager.lock:
+                if app["id"] not in manager.active:
+                    break
+            time.sleep(0.1)
+        with manager.lock:
+            if app["id"] in manager.active:
+                raise RuntimeError("manager retained a stopped application's resources")
+        manager.change_app(app["id"], delete=True)
+        return {"check": case, "status": "passed", "parent_and_child_exited": True,
+                "host_to_guest_ipv4_ipv6": "denied", "guest_reports": reports}
+    finally:
+        for handle in handles:
+            api.close(handle)
+
+
+def main(arguments: list[str]) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--probe-only", action="store_true")
+    parser.add_argument("--yaml", type=Path, help="private real-node YAML; never copied into the report")
+    parser.add_argument("--node", help="optional selected node name")
+    parser.add_argument("--url", default="https://example.com/", type=check_url)
+    parser.add_argument("--root", type=Path, default=ROOT, help="checkout or extracted package root")
+    parser.add_argument("--report", type=Path, default=Path("windows-acceptance.json"))
+    parser.add_argument("--allow-emulated-x64", action="store_true",
+                        help="allow x64 Python on ARM64; report explicitly labels emulation")
+    args = parser.parse_args(arguments)
+    result = {"status": "failed", "acceptance_passed": False, "checks": []}
+    manager, fixtures, directory, before = None, None, None, None
+    safe_cleanup = True
+    phase = "platform"
+    code = 1
+    try:
+        result["host"] = host_facts()
+        facts = result["host"]
+        if sys.platform != "win32" or facts.get("windows_product_type") != 1 or facts.get("windows_build", 0) < 26100:
+            result.update(status="unsupported", detail="Requires Windows 11 workstation, build 26100+; Server/Linux do not pass Windows 11 acceptance.")
+            return 3
+        root = args.root.resolve(strict=True)
+        sys.path.insert(0, str(root))
+        sys.path.insert(0, str(root / "vendor"))
+        phase = "project_origin"
+        verify_project_origin(root)
+        from ruleproxy import windows_runtime
+        verify_project_origin(root)
+        runtime = root / "bin/windows-amd64/wxc-exec.exe"
+        phase = "pinned_runtimes"
+        digests = verify_runtime_manifest(root)
+        result["runtime_integrity"] = {
+            "versions": dict(RUNTIME_VERSIONS), "verified_file_count": len(digests),
+            "manifest_verified": True,
+            "origin_verification": "Release ZIP external checksum must be verified separately.",
+        }
+        result["runtime_sha256"] = digests["wxc-exec.exe"]
+        result["core_sha256"] = digests["mihomo.exe"]
+        phase = "request_probe"
+        probe = windows_runtime.probe(str(runtime))
+        result["probe"] = probe
+        if not probe["supported"]:
+            result.update(status="unsupported", detail=probe["detail"])
+            return 3
+        if args.probe_only:
+            result.update(status="supported_only", detail="Request probe passed; full socket/proxy/lifecycle acceptance was not run.")
+            return 0
+        if args.yaml is None:
+            raise ValueError("--yaml is required for real proxy acceptance")
+        if facts["pointer_bits"] != 64 or platform.machine().upper() not in ("AMD64", "X86_64"):
+            result.update(status="unsupported", detail="Full acceptance requires the package's x64 Python interpreter.")
+            return 3
+        if facts["native_machine"] != 0x8664 and not (args.allow_emulated_x64 and facts["native_machine"] == 0xAA64):
+            result.update(status="unsupported", detail="Native x64 acceptance requires an x64 host; ARM emulation must be explicitly labeled with --allow-emulated-x64.")
+            return 3
+        phase = "host_network_snapshot"
+        before = network_snapshot()
+        phase = "host_ipv4_ipv6_fixtures"
+        fixtures = HostFixtures()
+        from ruleproxy.manager import Manager
+        directory = Path(tempfile.mkdtemp(prefix="ruleproxy-windows-acceptance-"))
+        panel_port, mixed_port, controller_port = ports()
+        manager = Manager(directory, panel_port, mixed_port=mixed_port, controller_port=controller_port)
+        manager.save_settings({"core_path": str(root / "bin/windows-amd64/mihomo.exe"),
+                               "runtime_path": str(runtime)})
+        phase = "private_yaml_import"
+        # Bound reads before parsing; malformed YAML is never echoed to reports.
+        with args.yaml.open("rb") as stream:
+            source = stream.read(2 * 1024 * 1024 + 1)
+        if len(source) > 2 * 1024 * 1024:
+            raise ValueError("private YAML exceeded the import limit")
+        manager.import_yaml(source.decode("utf-8-sig"))
+        if args.node:
+            manager.select_node(args.node)
+        phase = "core_start"
+        manager.start()
+        for case in ("normal_stop", "core_loss"):
+            phase = case
+            result["checks"].append(lifecycle_case(manager, fixtures, args.url, case))
+        result.update(status="passed", acceptance_passed=True)
+        code = 0
+    except Exception as exc:
+        # Exceptions from YAML parsing can contain source lines and credentials.
+        result.update(status="failed", acceptance_passed=False,
+                      detail=f"Acceptance failed during {phase} ({type(exc).__name__}).")
+    finally:
+        if manager is not None:
+            try:
+                manager.close()
+            except Exception as exc:
+                safe_cleanup = False
+                result.update(status="failed", acceptance_passed=False,
+                              cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+                code = 1
+        if fixtures is not None:
+            fixtures.close()
+        if before is not None:
+            try:
+                after = network_snapshot()
+                unchanged = before == after
+                result["checks"].append({"check": "host_proxy_dns_default_routes_unchanged",
+                                         "status": "passed" if unchanged else "failed",
+                                         "before_sha256": before, "after_sha256": after})
+                if not unchanged:
+                    result.update(status="failed", acceptance_passed=False)
+                    code = 1
+            except Exception as exc:
+                result.update(status="failed", acceptance_passed=False,
+                              host_snapshot_error=type(exc).__name__)
+                code = 1
+        if directory is not None and safe_cleanup:
+            try:
+                shutil.rmtree(directory)
+            except OSError as exc:
+                result.update(status="failed", acceptance_passed=False,
+                              cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+                code = 1
+        write_json(args.report.resolve(), result)
+        print(json.dumps(result, ensure_ascii=True, indent=2), flush=True)
+    return code
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["--guest"]:
+        raise SystemExit(guest_main(sys.argv[2:]))
+    raise SystemExit(main(sys.argv[1:]))

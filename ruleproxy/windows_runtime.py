@@ -380,6 +380,7 @@ def build_policy(
         "$schema": "https://github.com/microsoft/mxc/schemas/stable/mxc-config.schema.1.0.0.json",
         "version": CONTRACT_VERSION,
         "containment": "processcontainer",
+        "fallback": {"allowDaclMutation": False},
         "containerId": f"ruleproxy-{app_id}",
         "process": {
             "commandLine": command_line,
@@ -499,7 +500,8 @@ def _probe_request(
         if output["probes"].get("baseContainerApiPresent") is not True:
             raise UnsupportedRuntimeError(
                 f"系统没有提供 BaseContainer 接口，MXC 只能选择 {output.get('tier')!r}，严格模式不接受。"
-                "需要 Windows 11 24H2（26100.9278 及以后）或 25H2（26200.9278 及以后），请在 Windows 更新中装好最新更新。"
+                "MXC 1.0.0 文档将 BaseContainer 列为 Windows 11 25H2+（26600+）能力；"
+                "具体设备仍必须通过运行时探测，Windows 版本或更新编号不能保证支持。"
             )
         raise UnsupportedRuntimeError(
             f"MXC selected {output.get('tier')!r}; strict proxy mode requires base-container"
@@ -648,14 +650,14 @@ def launch(
         else:
             try:
                 process.wait(timeout=12)
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as wait_error:
                 # Keep the wrapper and resources alive so MXC can complete its
                 # normal PSEC teardown; never kill the runtime wrapper here.
                 resources.failed_process = process
                 resources.detail = str(exc)
                 exc.process = process
                 exc.resource = resources
-                raise
+                raise exc from wait_error
             resources.close()
         raise
 
@@ -755,7 +757,7 @@ def _wait_for_status(directory: Path, nonce: str, state: str, process: Any, time
                 return True
             if value.get("nonce") == nonce and value.get("state") == "FAILED":
                 return False
-        except (OSError, json.JSONDecodeError, AttributeError):
+        except (OSError, UnicodeError, json.JSONDecodeError, AttributeError):
             pass
         time.sleep(0.05)
     return False
@@ -834,7 +836,15 @@ def _stop_with_api(
                 f"could not safely enumerate MXC workload child processes; wrapper was left running: {exc}"
             ) from exc
 
-        if process.poll() is not None or not api.process_alive(_raw_handle(wrapper_handle)):
+        try:
+            wrapper_alive = process.poll() is None and api.process_alive(_raw_handle(wrapper_handle))
+        except Exception as exc:
+            for _, handle in children:
+                api.close(handle)
+            raise SafeStopError(
+                f"could not verify MXC wrapper is still running; wrapper was left running: {exc}"
+            ) from exc
+        if not wrapper_alive:
             for _, handle in children:
                 api.close(handle)
             process.wait(timeout=0)

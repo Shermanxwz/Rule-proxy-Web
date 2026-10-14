@@ -1,14 +1,15 @@
 @echo off
-setlocal
-cd /d "%~dp0"
+setlocal DisableDelayedExpansion
 rem Prepares a source checkout once: PyYAML and the pinned runtimes, written only inside this folder.
 rem The release package needs none of this.
 where py >nul 2>nul || goto no_python
 py -3 -c "import sys; sys.exit(sys.version_info < (3, 10))" >nul 2>nul || goto no_python
-if not exist "vendor\yaml\__init__.py" (
-    py -3 -m pip install --disable-pip-version-check --target vendor -r requirements.txt || goto failed
-)
-py -3 install_runtime.py --platform windows-amd64 --if-needed || goto failed
+if not exist "%~dp0vendor\yaml\__init__.py" goto install_yaml
+py -3 -c "import sys; sys.path.insert(0, sys.argv[1]); import yaml; sys.exit(not hasattr(yaml, 'safe_load'))" "%~dp0vendor" >nul 2>nul && goto runtime
+:install_yaml
+py -3 -m pip install --disable-pip-version-check --upgrade --target "%~dp0vendor" -r "%~dp0requirements.txt" || goto failed
+:runtime
+py -3 "%~dp0install_runtime.py" --platform windows-amd64 --if-needed || goto failed
 echo Setup complete.
 if /i "%~1"=="--no-pause" exit /b 0
 echo Open Start-Windows.cmd to start RuleProxy.
