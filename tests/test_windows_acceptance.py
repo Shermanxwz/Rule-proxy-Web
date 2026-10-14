@@ -384,7 +384,8 @@ class WindowsAcceptanceTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(acceptance, "lifecycle_case", side_effect=lambda _manager, _fixtures, _url, case, **kwargs:
                                                   {"check": case, "status": "passed"}))
             stack.enter_context(mock.patch.object(sys, "stdout", new_callable=io.StringIO))
-            self.assertEqual(acceptance.main(["--root", str(acceptance.ROOT), "--yaml", str(yaml), "--report", str(report)]), 0)
+            loaded_root = Path(windows_runtime.__file__).resolve().parent.parent
+            self.assertEqual(acceptance.main(["--root", str(loaded_root), "--yaml", str(yaml), "--report", str(report)]), 0)
         result = json.loads(report.read_text())
         self.assertTrue(result["real_node_passed"])
         self.assertFalse(result["acceptance_passed"])

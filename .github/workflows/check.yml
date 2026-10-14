@@ -204,9 +204,16 @@ jobs:
           $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
           & "$root\python\python.exe" -X utf8 -B .github\windows_network_experiment.py --root "$root" --allow-emulated-x64 --report windows-network-experiments.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Collect stock Edge UI-policy and actual job-context diagnostics
+        id: edge-ui-experiment
+        if: ${{ !cancelled() && steps.network-experiment.outcome == 'success' }}
+        run: |
+          $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
+          & "$root\python\python.exe" -X utf8 -B .github\windows_edge_policy_experiment.py --root "$root" --allow-emulated-x64 --report windows-edge-ui.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Probe the fixed x64 runtime on a real Windows 11 kernel
         id: psec-probe
-        if: ${{ !cancelled() && steps.network-experiment.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.network-experiment.outcome == 'success' && steps.edge-ui-experiment.outcome == 'success' }}
         run: |
           $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
           $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
@@ -276,13 +283,15 @@ jobs:
       - name: Require actual fixture results before the ARM job can pass
         if: ${{ !cancelled() }}
         run: |
-          foreach ($name in @('windows-network-experiments.json', 'windows-11-probe.json', 'windows-11-transport.json', 'windows-11-manager.json', 'windows-browser.json')) {
+          foreach ($name in @('windows-network-experiments.json', 'windows-edge-ui.json', 'windows-11-probe.json', 'windows-11-transport.json', 'windows-11-manager.json', 'windows-browser.json')) {
             if (-not (Test-Path $name)) { throw "Required Windows result missing: $name" }
             $value = Get-Content $name -Raw | ConvertFrom-Json
             if ($value.cleanup_error -or $value.recovery_directory -or $value.status -eq 'blocked') { throw "Unproven cleanup: $name" }
           }
           $experiment = Get-Content windows-network-experiments.json -Raw | ConvertFrom-Json
           if ($experiment.cleanup_proven -ne $true -or $experiment.status -ne 'experiment_only') { throw 'Experiment collection/cleanup did not complete' }
+          $edge = Get-Content windows-edge-ui.json -Raw | ConvertFrom-Json
+          if ($edge.cleanup_proven -ne $true -or $edge.status -ne 'experiment_only' -or $edge.browser_fixture_passed -ne $false) { throw 'UI diagnostics did not finish without claiming product acceptance' }
           $probe = Get-Content windows-11-probe.json -Raw | ConvertFrom-Json
           $transport = Get-Content windows-11-transport.json -Raw | ConvertFrom-Json
           $manager = Get-Content windows-11-manager.json -Raw | ConvertFrom-Json
@@ -300,6 +309,7 @@ jobs:
             windows-11-manager.json
             windows-browser.json
             windows-network-experiments.json
+            windows-edge-ui.json
           if-no-files-found: error
           retention-days: 30
 

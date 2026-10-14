@@ -72,7 +72,7 @@ MAX_PHASE_RECORD_BYTES = 256 * 1024
 MAX_CAPTURE_REQUEST_BYTES = 128 * 1024
 VM_NIC_MAC = "52:54:00:12:34:56"
 WIRE_VARIANTS = ("model3", "model1_internal_ingress_deny", "model1_internal", "model2_host")
-PHASE_NAMES = ("probe", "transport", "manager", "browser", "package_tests")
+PHASE_NAMES = ("probe", "transport", "manager", "browser", "gui", "package_tests")
 MIN_BOOT_IMAGE_BYTES = 64 * 1024**2
 MIN_INSTALL_IMAGE_BYTES = 1024**3
 
@@ -304,10 +304,10 @@ class GuestHandler(BaseHTTPRequestHandler):
             logs = result.get("logs", {})
             if not isinstance(reports, dict) or not isinstance(logs, dict):
                 raise ValueError("Invalid guest report or logs")
-            for name in ("probe", "transport", "manager", "browser", "experiments"):
+            for name in ("probe", "transport", "manager", "browser", "gui", "experiments", "edge_ui"):
                 if name in reports:
                     write_json(self.server.artifacts / f"windows-{name}.json", reports[name])
-            for name in ("probe", "transport", "manager", "browser", "experiments", "tests", "supervisor", "windows_update"):
+            for name in ("probe", "transport", "manager", "browser", "gui", "experiments", "edge_ui", "tests", "supervisor", "windows_update"):
                 if name in logs:
                     if not isinstance(logs[name], str):
                         raise ValueError("Invalid guest log")
@@ -740,6 +740,21 @@ def verify_phase_report(name: str, report: dict) -> None:
                     raise RuntimeError("Started network variant omitted descendant/resource cleanup proof")
             elif variant.get("process_started") is not False or variant.get("no_process_started") is not True:
                 raise RuntimeError("Network variant did not establish whether a workload was started")
+    elif name == "edge_ui":
+        if (report.get("status") != "experiment_only" or report.get("collection_completed") is not True
+                or report.get("cleanup_proven") is not True
+                or report.get("test_only_ui_override") is not True
+                or any(report.get(key) is not False for key in (
+                    "production_policy_changed", "browser_sandbox_weakened", "browser_fixture_passed",
+                    "gui_fixture_passed", "full_acceptance_passed", "public_udp_proven", "system_dns_proven"))
+                or experiment_has_recovery(report)):
+            raise RuntimeError("UI diagnostics cannot claim product acceptance or hide pending cleanup")
+        variants = report.get("variants")
+        expected = ("container_ime", "handles_ime", "desktop_ime", "container_no_ime", "handles_no_ime", "ui_no_job_limits")
+        if (not isinstance(variants, list) or [v.get("id") for v in variants if isinstance(v, dict)] != list(expected)
+                or any(v.get("cleanup_proven") is not True
+                       or v.get("status") not in ("observed", "budget_not_started") for v in variants)):
+            raise RuntimeError("UI diagnostics omitted bounded independent variant records")
     elif name == "transport":
         if report.get("status") != "transport_only" or report.get("transport_passed") is not True:
             raise RuntimeError("Guest report did not pass the real PSEC transport fixture")
@@ -770,6 +785,29 @@ def verify_phase_report(name: str, report: dict) -> None:
                 raise RuntimeError("Edge fixture omitted live browser/DOM/cookie/exit proof")
         if checks["real_edge_launch_2"].get("private_profile_reused") is not True:
             raise RuntimeError("Edge fixture did not retain the private browser profile")
+    elif name == "gui":
+        if (report.get("status") != "gui_fixture_only" or report.get("gui_fixture_passed") is not True
+                or report.get("cleanup_proven") is not True
+                or report.get("interactive", {}).get("ordinary_interactive") is not True
+                or report.get("browser", {}).get("headless") is not False
+                or report.get("browser", {}).get("sandbox_weakened") is not False
+                or any(report.get(key) is not False for key in (
+                    "full_acceptance_passed", "public_udp_proven", "system_dns_proven"))):
+            raise RuntimeError("Native ordinary-user Edge GUI fixture did not pass")
+        for key in ("real_edge_gui_1", "real_edge_gui_2"):
+            check = checks.get(key, {})
+            if check.get("status") != "passed" or any(check.get(field) is not True for field in (
+                "visible_window_verified", "dom_nonce_via_page_ack", "cookie_request_verified",
+                "wm_close_requested", "natural_helper_wrapper_exit", "held_handles_verified",
+                "descendant_cleanup_proven", "resources_closed")):
+                raise RuntimeError("Edge GUI omitted owned visible-window, page or natural teardown evidence")
+            rects = check.get("visible_window_rects")
+            if (not isinstance(rects, list) or not 1 <= len(rects) <= 16 or any(
+                not isinstance(rect, list) or len(rect) != 4 or any(type(x) is not int for x in rect)
+                or rect[2] <= rect[0] or rect[3] <= rect[1] for rect in rects)):
+                raise RuntimeError("Edge GUI omitted nonempty visible rectangles")
+        if checks["real_edge_gui_2"].get("private_profile_reused") is not True:
+            raise RuntimeError("Edge GUI did not retain its own browser profile")
     else:
         raise RuntimeError("Unknown fixture phase")
 
@@ -783,6 +821,40 @@ def experiment_has_recovery(value) -> bool:
     if isinstance(value, list):
         return any(experiment_has_recovery(item) for item in value)
     return False
+
+
+def experiment_teardown_proven(name: str, report: dict | None) -> bool:
+    """Permit independent diagnostics after a failed, fully closed collection.
+
+    This only establishes whether starting a new container is safe. The real
+    failed phase and report remain unchanged and still fail verify_result.
+    """
+    if (not isinstance(report, dict) or report.get("cleanup_proven") is not True
+            or experiment_has_recovery(report)):
+        return False
+    checks = report.get("checks")
+    if not isinstance(checks, list) or not any(isinstance(check, dict)
+            and check.get("check") == "host_proxy_dns_default_routes_unchanged"
+            and check.get("status") == "passed" for check in checks):
+        return False
+    variants = report.get("variants")
+    if not isinstance(variants, list) or not 1 <= len(variants) <= 16:
+        return False
+    for variant in variants:
+        if not isinstance(variant, dict):
+            return False
+        if name == "experiments":
+            if variant.get("process_started") is True:
+                if any(variant.get(key) is not True for key in ("descendant_cleanup_proven", "resources_closed")):
+                    return False
+            elif variant.get("process_started") is not False or variant.get("no_process_started") is not True:
+                return False
+        elif name == "edge_ui":
+            if variant.get("cleanup_proven") is not True:
+                return False
+        else:
+            return False
+    return True
 
 
 def verify_result(result: dict, *, require_official_update: bool = False) -> None:
@@ -803,6 +875,11 @@ def verify_result(result: dict, *, require_official_update: bool = False) -> Non
         if experiment.get("status") != "passed" or type(experiment.get("exit_code")) is not int or experiment["exit_code"] != 0:
             raise RuntimeError("Guest network experiment collection/cleanup failed")
         verify_phase_report("experiments", result.get("reports", {}).get("experiments"))
+    if "edge_ui_phase" in result or "edge_ui" in result.get("reports", {}):
+        phase = result.get("edge_ui_phase", {})
+        if phase.get("status") != "passed" or type(phase.get("exit_code")) is not int or phase["exit_code"] != 0:
+            raise RuntimeError("Guest UI diagnostic collection/cleanup failed")
+        verify_phase_report("edge_ui", result.get("reports", {}).get("edge_ui"))
     phases = result.get("phases")
     if not isinstance(phases, list) or not all(isinstance(phase, dict) for phase in phases) or [
         phase.get("name") for phase in phases
@@ -904,7 +981,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         result["logs"]["experiments"] = log
         if report is not None:
             result["reports"]["experiments"] = report
-        if record["status"] != "passed":
+        if record.get("timed_out") or not experiment_teardown_proven("experiments", report):
             cleanup_pending = True
             recovery = {"phase": "experiments", "reason": record.get("error", "Experiment cleanup was not proven"),
                         "descendant_cleanup_proven": False}
@@ -913,8 +990,26 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                     if key in report:
                         recovery[key] = str(report[key])[:1024]
             result["recovery_records"].append(recovery)
+    ui_experiment = workspace / ".github/windows_edge_policy_experiment.py"
+    if ui_experiment.is_file() and not cleanup_pending:
+        command = [executable, "-X", "utf8", "-B", str(ui_experiment), "--root", str(root),
+                   "--report", str(directory / "edge_ui.json")]
+        record, report, log = run_guest_phase("edge_ui", command, directory, timeout=min(900, phase_timeout))
+        result["edge_ui_phase"], result["logs"]["edge_ui"] = record, log
+        if report is not None:
+            result["reports"]["edge_ui"] = report
+        if record.get("timed_out") or not experiment_teardown_proven("edge_ui", report):
+            cleanup_pending = True
+            recovery = {"phase": "edge_ui", "reason": record.get("error", "UI diagnostic cleanup was not proven"),
+                        "descendant_cleanup_proven": False}
+            if report is not None:
+                for key in ("cleanup_error", "recovery_directory"):
+                    if key in report:
+                        recovery[key] = str(report[key])[:1024]
+            result["recovery_records"].append(recovery)
     for name in PHASE_NAMES:
-        if name in ("transport", "manager", "browser") and (not probe_passed or cleanup_pending):
+        if ((cleanup_pending and name != "package_tests")
+                or (name in ("transport", "manager", "browser", "gui") and not probe_passed)):
             result["phases"].append({"name": name, "status": "blocked", "exit_code": None,
                                      "error": ("A previous fixture left pending cleanup; recovery state was retained"
                                                if cleanup_pending else
@@ -926,6 +1021,9 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         elif name == "browser":
             command.extend([str(workspace / ".github/windows_browser_check.py"), "--root", str(root),
                             "--report", str(directory / "browser.json")])
+        elif name == "gui":
+            command.extend([str(workspace / ".github/windows_gui_check.py"), "--root", str(root),
+                            "--report", str(directory / "gui.json")])
         else:
             option = {"probe": "--probe-only", "transport": "--transport-fixture", "manager": "--manager-fixture"}[name]
             command.extend([str(acceptance), "--root", str(root), option, "--report", str(directory / f"{name}.json")])
@@ -938,7 +1036,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         # The fixture writes its report after its finally/cleanup path. A
         # missing report or forced termination cannot prove that path ran.
         # Never bypass an earlier recovery directory by using a new fixture.
-        if name in ("transport", "manager", "browser") and record.get("interpreter_started"):
+        if name in ("transport", "manager", "browser", "gui") and record.get("interpreter_started"):
             pending = record.get("timed_out") or report is None or any(
                 key in report for key in ("cleanup_error", "recovery_directory"))
             if pending:
@@ -953,11 +1051,12 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                 result["recovery_records"].append(recovery)
         if name == "probe":
             probe_passed = record["status"] == "passed"
-    if all(phase["status"] == "passed" for phase in result["phases"]):
+    collected = result["phases"] + [result[key] for key in ("experiments_phase", "edge_ui_phase") if key in result]
+    if all(phase["status"] == "passed" for phase in collected):
         result["status"] = "passed"
     else:
         result["error"] = "Guest phases failed or were blocked: " + ", ".join(
-            phase["name"] for phase in result["phases"] if phase["status"] != "passed")
+            phase["name"] for phase in collected if phase["status"] != "passed")
     return result
 
 
@@ -980,6 +1079,7 @@ def run(args) -> dict:
     summary = {"status": "failed", "baseline_diagnostic": baseline,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
+               "gui_fixture_passed": False,
                "iso": {"url": ISO_URL, "sha256": ISO_SHA256,
                "download_page": ISO_SOURCE, "hash_source": ISO_HASH_SOURCE, "evaluation_days": 90},
                "official_update": {"required": require_update, "kb": "KB5127648", "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
@@ -1128,10 +1228,10 @@ def run(args) -> dict:
                         raise RuntimeError("VM packet capture control or dump/write failed")
                     verify_result(server.result, require_official_update=require_update)
                     summary.update(status="baseline_transport_and_package_tests_passed" if baseline else "transport_and_package_tests_passed", transport_passed=True,
-                                   manager_fixture_passed=True, browser_fixture_passed=True,
+                                   manager_fixture_passed=True, browser_fixture_passed=True, gui_fixture_passed=True,
                                    ordinary_user=True, native_x64=True, elapsed_seconds=int(time.monotonic() - started))
                     scope = "Baseline diagnostic" if baseline else "Officially updated native x64"
-                    print(scope + " PSEC transport, Manager lifecycle, Edge fixture and release package tests passed; full/real-node acceptance remains separate", flush=True)
+                    print(scope + " PSEC transport, Manager lifecycle, visible Edge GUI and release package tests passed; full/real-node acceptance remains separate", flush=True)
             finally:
                 # Dispose only this ephemeral test VM and TPM, never a named
                 # host process or a user-owned Windows application.
@@ -1154,13 +1254,14 @@ def run(args) -> dict:
                     summary["wire_evidence"] = capture.result
                     if capture.collection_error:
                         summary.update(status="failed", transport_passed=False, manager_fixture_passed=False,
-                                       browser_fixture_passed=False, error="VM packet capture control or dump/write failed")
+                                       browser_fixture_passed=False, gui_fixture_passed=False,
+                                       error="VM packet capture control or dump/write failed")
                 server.shutdown()
                 server.server_close()
                 http_thread.join(timeout=5)
     except Exception as exc:
         summary.update(status="failed", transport_passed=False, manager_fixture_passed=False,
-                       browser_fixture_passed=False, error=f"{type(exc).__name__}: {exc}")
+                       browser_fixture_passed=False, gui_fixture_passed=False, error=f"{type(exc).__name__}: {exc}")
         print(f"::error title=Windows KVM guest::{type(exc).__name__}: {exc}", flush=True)
     finally:
         write_json(artifacts / "windows-vm-summary.json", summary)

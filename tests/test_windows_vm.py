@@ -66,6 +66,21 @@ class WindowsVmTests(unittest.TestCase):
                                  "private_profile_reused": True}
                                 for name in ("real_edge_launch_1", "real_edge_launch_2")
                             ] + [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}]},
+                "gui": {"status": "gui_fixture_only", "gui_fixture_passed": True, "cleanup_proven": True,
+                        "acceptance_passed": False, "real_node_passed": False,
+                        "full_acceptance_passed": False, "public_udp_proven": False, "system_dns_proven": False,
+                        "interactive": {"ordinary_interactive": True},
+                        "browser": {"headless": False, "sandbox_weakened": False},
+                        "host": {"acceptance_scope": "native_x64", "native_machine": 0x8664,
+                                 "python_pe_machine": 0x8664}, "checks": [
+                            {"check": name, "status": "passed", "visible_window_verified": True,
+                             "visible_window_rects": [[20, 20, 820, 620]], "dom_nonce_via_page_ack": True,
+                             "cookie_request_verified": True, "wm_close_requested": True,
+                             "natural_helper_wrapper_exit": True, "held_handles_verified": True,
+                             "descendant_cleanup_proven": True, "resources_closed": True,
+                             "private_profile_reused": True}
+                            for name in ("real_edge_gui_1", "real_edge_gui_2")
+                        ] + [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}]},
             }, "logs": {"tests": "Ran the release tests; environment-specific skips remain explicit."},
         }
 
@@ -457,6 +472,8 @@ elif Path(__file__).name == 'windows_network_experiment.py':
     name = 'experiments'
 elif Path(__file__).name == 'windows_browser_check.py':
     name = 'browser'
+elif Path(__file__).name == 'windows_gui_check.py':
+    name = 'gui'
 else:
     name = 'probe' if '--probe-only' in sys.argv else ('manager' if '--manager-fixture' in sys.argv else 'transport')
 configuration = json.loads((workspace / 'fixture-control.json').read_text(encoding='utf-8'))[name]
@@ -470,7 +487,8 @@ if 'report' in configuration and not configuration.get('skip_report'):
     Path(sys.argv[sys.argv.index('--report') + 1]).write_text(json.dumps(configuration['report']), encoding='utf-8')
 raise SystemExit(configuration.get('exit_code', 0))
 '''
-        for relative in ("scripts/windows-acceptance.py", ".github/windows_browser_check.py", ".github/run_tests.py"):
+        for relative in ("scripts/windows-acceptance.py", ".github/windows_browser_check.py",
+                         ".github/windows_gui_check.py", ".github/run_tests.py"):
             path = workspace / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(script, encoding="utf-8")
@@ -508,11 +526,26 @@ raise SystemExit(configuration.get('exit_code', 0))
         workspace = self.guest_control_workspace({"experiments": {"report": report, "exit_code": 1}})
         result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
         self.assertEqual((workspace / "executed.txt").read_text().splitlines(),
-                         ["experiments", "probe", "package_tests"])
+                         ["experiments", "package_tests"])
         self.assertEqual(result["recovery_records"][0]["phase"], "experiments")
         self.assertEqual(result["recovery_records"][0]["recovery_directory"], report["recovery_directory"])
-        self.assertTrue(all(result["phases"][i]["status"] == "blocked" for i in (1, 2, 3)))
-        self.assertEqual(result["phases"][4]["status"], "passed")
+        self.assertTrue(all(phase["status"] == "blocked" for phase in result["phases"][:-1]))
+        self.assertEqual(result["phases"][-1]["status"], "passed")
+
+    def test_failed_clean_collection_allows_independent_fixtures_but_still_fails_acceptance(self):
+        report = self.experiment_report()
+        report["status"] = "failed"
+        report["variants"][0]["status"] = "failed"
+        report["variants"][0]["detail"] = "An actor report was incomplete"
+        workspace = self.guest_control_workspace({"experiments": {"report": report, "exit_code": 1}})
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["experiments", *vm.PHASE_NAMES])
+        self.assertEqual(result["experiments_phase"]["status"], "failed")
+        self.assertEqual(result["reports"]["experiments"]["status"], "failed")
+        self.assertEqual(result["recovery_records"], [])
+        self.assertEqual(result["status"], "failed")
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(dict(result, ordinary_user=True))
 
     def test_nested_or_missing_variant_cleanup_cannot_pass_collection(self):
         cases = []
@@ -564,7 +597,7 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertEqual((workspace / "executed.txt").read_text().splitlines(), list(vm.PHASE_NAMES))
         self.assertEqual(result["status"], "failed")
         self.assertEqual([phase["status"] for phase in result["phases"]],
-                         ["passed", "failed", "passed", "passed", "passed"])
+                         ["passed", "failed", "passed", "passed", "passed", "passed"])
         self.assertEqual(result["reports"]["transport"], failed)
         self.assertEqual(result["recovery_records"], [])
         self.assertIn("manager child interpreter ran", result["logs"]["manager"])
@@ -578,7 +611,7 @@ raise SystemExit(configuration.get('exit_code', 0))
         result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
         self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe", "package_tests"])
         self.assertEqual([phase["status"] for phase in result["phases"]],
-                         ["failed", "blocked", "blocked", "blocked", "passed"])
+                         ["failed", "blocked", "blocked", "blocked", "blocked", "passed"])
         self.assertEqual(result["status"], "failed")
 
     def test_pending_cleanup_preserves_recovery_and_blocks_new_containers(self):
@@ -605,7 +638,7 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertTrue(result["phases"][1]["timed_out"])
         self.assertIsNotNone(result["phases"][1]["exit_code"])
         self.assertFalse(result["recovery_records"][0]["descendant_cleanup_proven"])
-        self.assertEqual(result["phases"][4]["status"], "passed")
+        self.assertEqual(result["phases"][-1]["status"], "passed")
 
     def test_stale_report_cannot_pass_and_phase_log_is_bounded(self):
         workspace = self.guest_control_workspace({"transport": {"skip_report": True},
@@ -631,7 +664,7 @@ raise SystemExit(configuration.get('exit_code', 0))
         result = json.loads(report.read_text())
         self.assertNotIn("ordinary_user", result)
         vm.verify_result(dict(result, ordinary_user=True))
-        self.assertEqual(len(result["phases"]), 5)
+        self.assertEqual(len(result["phases"]), len(vm.PHASE_NAMES))
         self.assertEqual(result["recovery_records"], [])
 
 
