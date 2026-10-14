@@ -48,6 +48,15 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertEqual(proxy["network"]["ingress"], {"default": "allow", "hostLoopback": "allow"})
         self.assertNotIn("allow", proxy["network"]["egress"])
 
+    def test_internal_port_candidate_keeps_external_ingress_and_host_loopback_denied(self):
+        policy = experiment.network_policy("model1_internal_ingress_deny", 49123, 10809)
+        self.assertEqual(policy, {"network": {
+            "egress": {"default": "deny", "allow": [{"to": [{"cidr": "127.0.0.1/32"}],
+                       "ports": [{"protocol": "tcp", "port": 49123}]}]},
+            "ingress": {"default": "deny", "hostLoopback": "deny"}}})
+        self.assertLess(experiment.VARIANTS.index("model1_internal_ingress_deny"),
+                        experiment.VARIANTS.index("model1_internal"))
+
     def test_fixed_http_and_socks_fixture_cross_frames_and_keep_both_fin_directions(self):
         fixture = experiment.FixedProxy()
         self.addCleanup(fixture.close)

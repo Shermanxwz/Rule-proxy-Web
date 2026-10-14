@@ -24,9 +24,10 @@ import threading
 import time
 
 ROOT = Path(__file__).resolve().parent.parent
-VARIANTS = ("model3", "model1_internal", "model2_host")
+MODEL1_VARIANTS = ("model1_internal_ingress_deny", "model1_internal")
+VARIANTS = ("model3", *MODEL1_VARIANTS, "model2_host")
 MAX_REPORT_BYTES = 128 * 1024
-ACTOR_WAIT_SECONDS = 65
+ACTOR_WAIT_SECONDS = 45
 MATRIX_PHASE_SECONDS = 440  # Leaves 120s for the final native CIM snapshot.
 DESTINATION = b"ruleproxy-experiment.invalid"
 UDP_CONTROL = b"RuleProxy fixed UDP observer control"
@@ -257,8 +258,8 @@ def network_policy(name, internal_port, proxy_port):
         raise ValueError("Invalid fixed policy variant or port")
     value = {"network": {"egress": {"default": "deny"},
                          "ingress": {"default": "deny", "hostLoopback": "deny"}}}
-    if name == "model1_internal":
-        value["network"]["ingress"]["default"] = "allow"
+    if name in MODEL1_VARIANTS:
+        value["network"]["ingress"]["default"] = "allow" if name == "model1_internal" else "deny"
         value["network"]["egress"]["allow"] = [{"to": [{"cidr": "127.0.0.1/32"}],
                                                     "ports": [{"protocol": "tcp", "port": internal_port}]}]
     elif name == "model2_host":
@@ -534,7 +535,7 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
                 except OSError:
                     host_reached = False
                 result["checks"].append({"check": "host_to_contained_listener", "reachable": host_reached})
-            if name == "model1_internal":
+            if name in MODEL1_VARIANTS:
                 write_json(profile / "actor-control.json", {"state": "stop_bridge"})
                 deadline = time.monotonic() + 8
                 while not (profile / "bridge-stopped.json").is_file():
