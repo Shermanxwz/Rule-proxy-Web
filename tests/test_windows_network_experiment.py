@@ -215,6 +215,62 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertEqual(diagnostic["reported_child_created"], 110)
         self.assertEqual({call.args[0] for call in api.close.call_args_list}, {201, 202})
 
+    def test_verified_system_console_is_accounted_and_its_handle_remains_owned(self):
+        api, runtime, wrapper, reports = self.attestation_fixture([(43, 202), (44, 203)])
+        diagnostic = {}
+        image = {"image_path": r"C:\Windows\System32\conhost.exe", "image_path_truncated": False}
+        signature = {"signature_status": "Valid", "signature_type": "Catalog", "is_os_binary": True,
+                     "publisher": "Microsoft Windows", "signer_thumbprint": "A" * 40, "file_sha256": "b" * 64}
+        with mock.patch.object(experiment, "held_image_diagnostic", return_value=image), \
+                mock.patch.object(experiment, "system_directory", return_value=r"C:\Windows\System32"), \
+                mock.patch.object(experiment, "system_console_signature", return_value=signature) as trust:
+            _, handles = experiment.retain_actor_handles(runtime, wrapper, reports, diagnostic)
+        self.assertEqual(handles, [(42, 201), (43, 202), (44, 203)])
+        api.close.assert_not_called()
+        trust.assert_called_once_with(r"C:\Windows\System32", image)
+        self.assertTrue(diagnostic["attestation_passed"])
+        self.assertEqual(diagnostic["snapshots"][1]["live_count"], 2)
+        helper = diagnostic["snapshots"][1]["accounted_system_helpers"][0]
+        self.assertEqual(helper["pid"], 44)
+        self.assertEqual(helper["signature"], signature)
+
+    def test_multiple_live_helpers_fail_before_any_signature_can_allow_them(self):
+        api, runtime, wrapper, reports = self.attestation_fixture([(43, 202), (44, 203), (45, 204)], created={204: 130})
+        with mock.patch.object(experiment, "system_console_signature") as trust, \
+                self.assertRaisesRegex(RuntimeError, "verified workload descendant"):
+            experiment.retain_actor_handles(runtime, wrapper, reports)
+        trust.assert_not_called()
+        self.assertEqual({call.args[0] for call in api.close.call_args_list}, {201, 202, 203, 204})
+
+    def test_signature_query_uses_system_powershell_modules_and_real_catalog_result(self):
+        image = {"image_path": r"C:\Windows\System32\conhost.exe", "image_path_truncated": False}
+        good = {"signature_status": "Valid", "signature_type": "Catalog", "is_os_binary": True,
+                "publisher": "Microsoft Windows", "signer_thumbprint": "A" * 40, "file_sha256": "b" * 64}
+        completed = SimpleNamespace(returncode=0, stdout=json.dumps(good))
+        with mock.patch.object(experiment.subprocess, "run", return_value=completed) as run:
+            self.assertEqual(experiment.system_console_signature(r"C:\Windows\System32", image), good)
+        command = run.call_args.args[0]
+        self.assertEqual(command[0], r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe")
+        script = experiment.base64.b64decode(command[-1]).decode("utf-16-le")
+        self.assertIn("$PSHOME, 'Modules'", script)
+        self.assertIn("Microsoft.PowerShell.Security\\Get-AuthenticodeSignature -LiteralPath", script)
+        self.assertNotIn("Get-FileHash", script)
+        for key, bad in (("signature_status", "NotTrusted"), ("signature_type", "None"),
+                         ("is_os_binary", False), ("publisher", "Other vendor"), ("signer_thumbprint", "")):
+            with self.subTest(key=key), \
+                    mock.patch.object(experiment.subprocess, "run", return_value=SimpleNamespace(
+                        returncode=0, stdout=json.dumps(dict(good, **{key: bad})))):
+                with self.assertRaisesRegex(RuntimeError, "valid Microsoft OS signature"):
+                    experiment.system_console_signature(r"C:\Windows\System32", image)
+
+    def test_console_basename_outside_system_directory_does_not_run_signature_query(self):
+        for path in (r"C:\untrusted\conhost.exe", r"C:\Windows\System32\conhost.exe:other"):
+            with self.subTest(path=path), mock.patch.object(experiment.subprocess, "run") as run:
+                with self.assertRaisesRegex(RuntimeError, "canonical system console"):
+                    experiment.system_console_signature(r"C:\Windows\System32",
+                        {"image_path": path, "image_path_truncated": False})
+                run.assert_not_called()
+
     def test_nested_recovery_stops_the_matrix_and_keeps_its_directory(self):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}

@@ -10,11 +10,14 @@ created. Only test nonce bytes traverse a fixed loopback source/sink.
 from __future__ import annotations
 
 import argparse
+import base64
 import ctypes
 from ctypes import wintypes
 import importlib.util
 import json
 import os
+import ntpath
+import re
 from pathlib import Path
 import secrets
 import shutil
@@ -417,6 +420,74 @@ def held_image_diagnostic(api, handle):
         return {"image_query_error": type(exc).__name__}
 
 
+def system_directory(api):
+    """Obtain the trusted system directory from Windows, never environment."""
+    query = api.kernel32.GetSystemDirectoryW
+    query.argtypes = [wintypes.LPWSTR, wintypes.UINT]
+    query.restype = wintypes.UINT
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = query(buffer, len(buffer))
+    if not 0 < length < len(buffer) or not ntpath.isabs(buffer.value):
+        raise RuntimeError("Windows did not return a complete system directory")
+    return buffer.value
+
+
+def system_console_signature(directory, image):
+    """Use Windows PowerShell's real embedded/catalog trust verification."""
+    expected = ntpath.join(directory, "conhost.exe")
+    if (image.get("image_path_truncated") is not False or not isinstance(image.get("image_path"), str)
+            or ntpath.normcase(ntpath.normpath(image["image_path"])) != ntpath.normcase(ntpath.normpath(expected))):
+        raise RuntimeError("Extra child was not the canonical system console image")
+    encoded_target = base64.b64encode(expected.encode("utf-8")).decode("ascii")
+    script = r"""
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+if ($PSVersionTable.PSEdition -ne 'Desktop') { throw 'System Windows PowerShell required' }
+foreach ($name in @('Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Utility')) {
+    $manifest = [IO.Path]::Combine($PSHOME, 'Modules', $name, ($name + '.psd1'))
+    Import-Module -Name $manifest -Force -ErrorAction Stop -WarningAction SilentlyContinue
+}
+$target = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('TARGET'))
+$sig = Microsoft.PowerShell.Security\Get-AuthenticodeSignature -LiteralPath $target -ErrorAction Stop
+$publisher = ''
+$thumbprint = ''
+if ($null -ne $sig.SignerCertificate) {
+    $publisher = $sig.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+    $thumbprint = $sig.SignerCertificate.Thumbprint
+}
+$stream = [IO.File]::OpenRead($target)
+$sha = [Security.Cryptography.SHA256]::Create()
+try { $hash = ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+finally { $sha.Dispose(); $stream.Dispose() }
+@{signature_status=[string]$sig.Status; signature_type=[string]$sig.SignatureType;
+  is_os_binary=[bool]$sig.IsOSBinary; publisher=[string]$publisher;
+  signer_thumbprint=[string]$thumbprint; file_sha256=[string]$hash} |
+    Microsoft.PowerShell.Utility\ConvertTo-Json -Compress
+""".replace("TARGET", encoded_target)
+    command = [ntpath.join(directory, "WindowsPowerShell", "v1.0", "powershell.exe"),
+               "-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand",
+               base64.b64encode(script.encode("utf-16-le")).decode("ascii")]
+    completed = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True, timeout=12,
+                               encoding="utf-8", errors="strict", shell=False)
+    if completed.returncode or len(completed.stdout.encode("utf-8")) > 4096:
+        raise RuntimeError("System console signature query did not complete")
+    evidence = json.loads(completed.stdout)
+    fields = {"signature_status", "signature_type", "is_os_binary", "publisher", "signer_thumbprint", "file_sha256"}
+    if (not isinstance(evidence, dict) or set(evidence) != fields
+            or evidence["signature_status"] != "Valid" or evidence["signature_type"] not in {"Authenticode", "Catalog"}
+            or evidence["is_os_binary"] is not True or evidence["publisher"] != "Microsoft Windows"
+            or not isinstance(evidence["signer_thumbprint"], str)
+            or not re.fullmatch(r"[0-9a-fA-F]{40}", evidence["signer_thumbprint"])
+            or not isinstance(evidence["file_sha256"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", evidence["file_sha256"])):
+        error = RuntimeError("System console image lacked a valid Microsoft OS signature")
+        if isinstance(evidence, dict):
+            error.signature_evidence = {key: (value[:200] if isinstance(value, str) else value)
+                for key, value in evidence.items() if key in fields and isinstance(value, (str, bool))}
+        raise error
+    return evidence
+
+
 def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
     api = runtime._WinProcessApi()
     entries = []
@@ -438,14 +509,15 @@ def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
         for pid, handle in candidates:
             created = api.process_creation_time(handle)
             living = api.process_alive(handle)
+            image = held_image_diagnostic(api, handle)
             if len(snapshot["children"]) < 32:
                 snapshot["children"].append({"pid": pid, "process_created": created, "alive": living,
-                                             **held_image_diagnostic(api, handle)})
+                                             **image})
             if created < parent_created:
                 snapshot["failure"] = "child_predates_verified_parent"
                 raise RuntimeError("A child process generation predates its verified parent")
             if living:
-                alive.append((pid, handle, created))
+                alive.append((pid, handle, created, image))
             else:
                 expected_exited = expected_exited or pid == report["pid"]
                 # A completed diagnostic may remain enumerable while Windows
@@ -454,20 +526,35 @@ def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
                 api.close(handle)
                 entries.remove((pid, handle))
         snapshot["live_count"] = len(alive)
-        snapshot["live_pids"] = [pid for pid, _, _ in alive][:32]
-        if len(alive) != 1 or alive[0][0] != report["pid"]:
+        snapshot["live_pids"] = [item[0] for item in alive][:32]
+        actors = [item for item in alive if item[0] == report["pid"]]
+        extras = [item for item in alive if item[0] != report["pid"]]
+        if len(actors) != 1 or (scope == "parent" and extras) or len(extras) > 1:
             snapshot["failure"] = ("reported_process_exited" if expected_exited else
                 "unexpected_live_children" if len(alive) > 1 else
                 "reported_process_absent_from_verified_snapshot")
             detail = ("MXC's unique verified workload" if scope == "parent" else
                       "the verified workload descendant")
             raise RuntimeError(f"Reported {scope} was not {detail}; live PIDs={snapshot['live_pids']}")
-        _, _, created = alive[0]
+        _, _, created, _ = actors[0]
         if type(report.get("process_created")) is not int or report["process_created"] != created:
             snapshot["failure"] = "reported_process_generation_mismatch"
             raise RuntimeError(f"Reported {scope} process generation did not match its held HANDLE")
+        if extras:
+            pid, _handle, created, image = extras[0]
+            try:
+                signature = system_console_signature(system_directory(api), image)
+            except Exception as exc:
+                snapshot["failure"] = "unexpected_live_children"
+                snapshot["helper_verification_error"] = type(exc).__name__
+                if hasattr(exc, "signature_evidence"):
+                    snapshot["helper_signature"] = exc.signature_evidence
+                raise RuntimeError("Extra process was not a verified workload descendant system helper") from exc
+            snapshot["accounted_system_helpers"] = [{"pid": pid, "process_created": created,
+                "image_path": image["image_path"], "held_handle_generation_verified": True,
+                "signature": signature}]
         snapshot["held_handle_generation_verified"] = True
-        return alive[0][0], alive[0][1]
+        return actors[0][0], actors[0][1]
 
     try:
         parent_created = api.process_creation_time(runtime._raw_handle(wrapper._handle))
@@ -606,7 +693,8 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
                     raise RuntimeError("No retained actor handles were available to prove descendant teardown")
                 result["descendant_cleanup_proven"] = True
                 result["checks"].append({"check": "safe_guardian_teardown", "status": "passed",
-                                          "held_handles_verified": bool(handles), "parent_and_child_exited": bool(handles)})
+                                          "held_handles_verified": bool(handles), "parent_and_child_exited": bool(handles),
+                                          "retained_process_count": len(handles), "all_retained_processes_exited": True})
             if bridge is not None:
                 bridge.close()
                 with bridge._state_lock:
