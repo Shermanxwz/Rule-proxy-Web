@@ -3,6 +3,7 @@
 Examples (use the package's x64 Python when testing a portable package):
   python scripts/windows-acceptance.py --probe-only
   python scripts/windows-acceptance.py --transport-fixture --allow-emulated-x64
+  python scripts/windows-acceptance.py --manager-fixture --allow-emulated-x64
   python scripts/windows-acceptance.py --yaml C:\\private\\proxy.yaml
 
 Full acceptance needs a working real proxy node. The YAML, controller token,
@@ -12,12 +13,15 @@ The bundled manifest verifies completeness and file integrity, not origin:
 verify the release ZIP against its externally obtained checksum beforehand.
 --transport-fixture exercises real PSEC with a fixed loopback byte fixture; it
 does not verify a real proxy node, HTTPS origin, or Manager core-loss watcher.
+--manager-fixture adds real Mihomo/Manager stop and core-loss checks, overriding
+only this test's owned-core SOCKS endpoint through the official reload API.
 Exit codes: 0 = requested checks passed, 1 = failed, 3 = unsupported host.
 A successful --probe-only run explicitly does not pass full acceptance.
 """
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import http.client
 import ipaddress
@@ -193,23 +197,39 @@ def fixture_payload(token: str) -> bytes:
     return token.encode("ascii") + b":" + bytes(index % 251 for index in range(65573))
 
 
-def fixture_roundtrip(token: str) -> dict:
+def fixture_destination(token: str) -> str:
+    if not re.fullmatch(r"[0-9a-f]{64}", token):
+        raise ValueError("invalid transport fixture token")
+    return f"m{token[:30]}.ruleproxy-acceptance.invalid"
+
+
+def validate_connect_response(response: bytes) -> None:
+    """Accept a bounded HTTP CONNECT 200, independent of its reason phrase."""
+    if len(response) > 4096 or not response.endswith(b"\r\n\r\n"):
+        raise RuntimeError("CONNECT response headers were incomplete or exceeded their limit")
+    status_line = response.split(b"\r\n", 1)[0].split(b" ", 2)
+    if len(status_line) < 2 or status_line[0] not in (b"HTTP/1.0", b"HTTP/1.1") or status_line[1] != b"200":
+        raise RuntimeError("fixed loopback transport did not acknowledge CONNECT with HTTP 200")
+
+
+def fixture_roundtrip(token: str, host: str = "ruleproxy-acceptance.invalid") -> dict:
     proxy = urllib.parse.urlsplit(os.environ["HTTPS_PROXY"])
     if proxy.scheme != "http" or proxy.hostname != "127.0.0.1" or not proxy.port:
         raise RuntimeError("transport proxy is not the prepared guest loopback endpoint")
     payload = fixture_payload(token)
+    if host not in ("ruleproxy-acceptance.invalid", fixture_destination(token)):
+        raise ValueError("transport destination is not the fixed fixture hostname")
     with socket.create_connection((proxy.hostname, proxy.port), timeout=5) as connection:
         connection.settimeout(20)
-        connection.sendall(("CONNECT ruleproxy-acceptance.invalid:443 HTTP/1.1\r\n"
+        connection.sendall((f"CONNECT {host}:443 HTTP/1.1\r\n"
                             f"X-RuleProxy-Fixture: {token}\r\n\r\n").encode("ascii"))
         response = bytearray()
-        while not response.endswith(b"\r\n\r\n") and len(response) <= 1024:
+        while not response.endswith(b"\r\n\r\n") and len(response) <= 4096:
             part = connection.recv(1)
             if not part:
                 break
             response.extend(part)
-        if bytes(response) != b"HTTP/1.1 200 Connection Established\r\n\r\n":
-            raise RuntimeError("fixed loopback fixture did not acknowledge CONNECT bytes")
+        validate_connect_response(bytes(response))
         connection.sendall(payload)
         connection.shutdown(socket.SHUT_WR)
         echoed = bytearray()
@@ -228,7 +248,7 @@ def fixture_roundtrip(token: str) -> dict:
 def fixture_failure_checks(args) -> dict:
     checks = network_checks(args.host_v4_port, args.host_v6_port)
     try:
-        fixture_roundtrip(args.fixture_token)
+        fixture_roundtrip(args.fixture_token, args.fixture_host)
     except (OSError, RuntimeError):
         checks.append({"check": "proxy_fails_after_fixture_loss", "status": "passed"})
     else:
@@ -243,6 +263,7 @@ def guest_main(arguments: list[str]) -> int:
     transport = parser.add_mutually_exclusive_group(required=True)
     transport.add_argument("--url")
     transport.add_argument("--fixture-token")
+    parser.add_argument("--fixture-host", default="ruleproxy-acceptance.invalid")
     parser.add_argument("--host-v4-port", type=int, required=True)
     parser.add_argument("--host-v6-port", type=int, required=True)
     args = parser.parse_args(arguments)
@@ -256,12 +277,13 @@ def guest_main(arguments: list[str]) -> int:
             listener.bind((host, 0))
             listener.listen(4)
         checks = network_checks(args.host_v4_port, args.host_v6_port)
-        checks.append(fixture_roundtrip(args.fixture_token) if args.fixture_token else proxy_https(args.url))
+        checks.append(fixture_roundtrip(args.fixture_token, args.fixture_host)
+                      if args.fixture_token else proxy_https(args.url))
         report.update(status="passed", checks=checks,
                       listeners=[int(item.getsockname()[1]) for item in listeners])
         write_json(Path(f"acceptance-{args.role}.json"), report)
         if args.role == "parent":
-            transport_args = (["--fixture-token", args.fixture_token] if args.fixture_token
+            transport_args = (["--fixture-token", args.fixture_token, "--fixture-host", args.fixture_host] if args.fixture_token
                               else ["--url", args.url])
             child = subprocess.Popen([sys.executable, "-I", "-S", "-X", "utf8", __file__,
                                       "--guest", "--role", "child", *transport_args,
@@ -591,6 +613,86 @@ class FixedTransportFixture:
             worker.join(timeout=2)
 
 
+class FixedSocksFixture(FixedTransportFixture):
+    """One named SOCKS destination, backed entirely by local fixture bytes."""
+
+    @property
+    def host(self) -> str:
+        return fixture_destination(self.token)
+
+    def _handle(self, connection: socket.socket) -> None:
+        try:
+            connection.settimeout(20)
+            version, count = self._read_exact(connection, 2)
+            methods = self._read_exact(connection, count)
+            if version != 5 or not count or b"\0" not in methods:
+                raise RuntimeError("manager fixture received an unsupported SOCKS greeting")
+            connection.sendall(b"\x05\0")
+            if self._read_exact(connection, 4) != b"\x05\x01\0\x03":
+                raise RuntimeError("manager fixture accepts only its fixed named SOCKS CONNECT")
+            host = self._read_exact(connection, self._read_exact(connection, 1)[0])
+            port = int.from_bytes(self._read_exact(connection, 2), "big")
+            if host != self.host.encode("ascii") or port != 443:
+                raise RuntimeError("manager fixture rejected an unrelated SOCKS destination")
+            connection.sendall(b"\x05\0\0\x01\x7f\0\0\x01\0\0")
+            expected = fixture_payload(self.token)
+            payload = bytearray()
+            while len(payload) <= len(expected):
+                part = connection.recv(16384)
+                if not part:
+                    break
+                payload.extend(part)
+            if bytes(payload) != expected:
+                raise RuntimeError("manager fixture payload or client FIN was invalid")
+            connection.sendall(expected[::-1])
+            connection.shutdown(socket.SHUT_WR)
+            with self.lock:
+                self.roundtrips += 1
+        except Exception as exc:
+            if not self.closed.is_set():
+                with self.lock:
+                    self.errors.append(f"{type(exc).__name__}: {exc}"[:300])
+        finally:
+            connection.close()
+            with self.lock:
+                self.connections.discard(connection)
+
+
+def manager_fixture_source(fixture: FixedSocksFixture) -> str:
+    return ("proxies:\n"
+            f"  - {{name: manager-fixture, type: socks5, server: upstream.ruleproxy.invalid, port: {fixture.port}, udp: false}}\n"
+            'rules: ["MATCH,DIRECT"]\n')
+
+
+def reload_manager_fixture(manager, fixture: FixedSocksFixture) -> dict:
+    """Override only our own core endpoint, after the normal importer/start.
+
+    This never edits the product compiler, saved YAML, or runtime policy. The
+    fixed local endpoint replaces exactly one compiled SOCKS server through
+    Mihomo's official controller payload reload, solely for this test mode.
+    """
+    import yaml
+    if manager.core is None or manager.core.poll() is not None:
+        raise RuntimeError("manager fixture reload requires its privately owned running core")
+    original = copy.deepcopy(manager.compiled.config)
+    if (len(original.get("proxies", [])) != 1
+            or original["proxies"][0].get("type") != "socks5"
+            or original["proxies"][0].get("server") != "upstream.ruleproxy.invalid"
+            or original["proxies"][0].get("port") != fixture.port):
+        raise RuntimeError("manager fixture compiled configuration was not the controlled single SOCKS node")
+    overridden = copy.deepcopy(original)
+    overridden["proxies"][0]["server"] = "127.0.0.1"
+    reverted = copy.deepcopy(overridden)
+    reverted["proxies"][0]["server"] = "upstream.ruleproxy.invalid"
+    if reverted != original or manager.compiled.config != original:
+        raise RuntimeError("manager fixture override changed more than its owned-core node endpoint")
+    manager._controller("PUT", "/configs?force=true",
+                        {"payload": yaml.safe_dump(overridden, sort_keys=False)})
+    return {"test_only_endpoint_override": True,
+            "override_scope": "Owned Mihomo controller payload: sole SOCKS server changed to loopback.",
+            "compiled_configuration_unchanged": True}
+
+
 def ports() -> tuple[int, int, int]:
     reservations = []
     try:
@@ -722,7 +824,8 @@ class TransportRun:
             self.fixture.close()
 
 
-def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str) -> dict:
+def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str,
+                   *, proxy_fixture: FixedSocksFixture | None = None) -> dict:
     from ruleproxy import windows_runtime
     manager.add_app({"label": "Windows acceptance", "path": sys.executable,
                      "adapter": "environment", "args": []})
@@ -731,11 +834,14 @@ def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str) -> dict
     profile.mkdir(parents=True)
     helper = profile / "acceptance_guest.py"
     shutil.copyfile(__file__, helper)
+    transport_args = (["--fixture-token", proxy_fixture.token, "--fixture-host", proxy_fixture.host]
+                      if proxy_fixture is not None else ["--url", url])
     app["args"] = ["-I", "-S", "-X", "utf8", str(helper), "--guest", "--role", "parent",
-                   "--url", url, "--host-v4-port", str(fixtures.sockets[0].getsockname()[1]),
+                   *transport_args, "--host-v4-port", str(fixtures.sockets[0].getsockname()[1]),
                    "--host-v6-port", str(fixtures.sockets[1].getsockname()[1])]
     manager.launch(app["id"])
     wrapper = manager.active[app["id"]][0]
+    resources = manager.active[app["id"]][1]
     handles = []
     api = windows_runtime._WinProcessApi()
     try:
@@ -751,7 +857,10 @@ def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str) -> dict
         if fixtures.accepted.is_set():
             raise RuntimeError("a contained process reached an ordinary host listener")
         if case == "normal_stop":
-            manager.stop_app(app["id"])
+            if proxy_fixture is not None:
+                manager.stop()
+            else:
+                manager.stop_app(app["id"])
         else:
             # Kill only the private Mihomo instance created by this manager.
             core = manager.core
@@ -771,9 +880,19 @@ def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str) -> dict
         with manager.lock:
             if app["id"] in manager.active:
                 raise RuntimeError("manager retained a stopped application's resources")
+            if proxy_fixture is not None and (manager.core is not None or manager.core_log is not None):
+                raise RuntimeError("manager fixture retained its stopped core or log")
+        if not getattr(resources, "_closed", False):
+            raise RuntimeError("manager did not finish releasing the Windows runtime resources")
         manager.change_app(app["id"], delete=True)
-        return {"check": case, "status": "passed", "parent_and_child_exited": True,
-                "host_to_guest_ipv4_ipv6": "denied", "guest_reports": reports}
+        result = {"check": f"manager_{case}" if proxy_fixture is not None else case,
+                  "status": "passed", "parent_and_child_exited": True,
+                  "held_handles_verified": True, "manager_active_removed": True,
+                  "runtime_resources_closed": True,
+                  "host_to_guest_ipv4_ipv6": "denied", "guest_reports": reports}
+        if proxy_fixture is not None:
+            result.update(manager_owned_core_stopped=True, manager_watcher_exercised=case == "core_loss")
+        return result
     finally:
         for handle in handles:
             api.close(handle)
@@ -785,6 +904,8 @@ def main(arguments: list[str]) -> int:
     modes.add_argument("--probe-only", action="store_true")
     modes.add_argument("--transport-fixture", action="store_true",
                        help="real PSEC and local file transport; no real node or HTTPS origin claim")
+    modes.add_argument("--manager-fixture", action="store_true",
+                       help="real PSEC/Mihomo/Manager lifecycle with test-only fixed SOCKS endpoint reload")
     parser.add_argument("--yaml", type=Path, help="private real-node YAML; never copied into the report")
     parser.add_argument("--node", help="optional selected node name")
     parser.add_argument("--url", default="https://example.com/", type=check_url)
@@ -794,9 +915,12 @@ def main(arguments: list[str]) -> int:
                         help="allow x64 Python on ARM64; report explicitly labels emulation")
     args = parser.parse_args(arguments)
     result = {"status": "failed", "acceptance_passed": False,
-              "transport_passed": False, "real_node_passed": False, "checks": []}
+              "transport_passed": False, "real_node_passed": False,
+              "manager_fixture_passed": False, "manager_normal_stop_passed": False,
+              "manager_core_loss_passed": False, "checks": []}
     manager, fixtures, directory, before = None, None, None, None
     transport_owner = None
+    proxy_fixture = None
     safe_cleanup = True
     phase = "platform"
     code = 1
@@ -832,7 +956,7 @@ def main(arguments: list[str]) -> int:
         if args.probe_only:
             result.update(status="supported_only", detail="Request probe passed; full socket/proxy/lifecycle acceptance was not run.")
             return 0
-        if args.yaml is None and not args.transport_fixture:
+        if args.yaml is None and not (args.transport_fixture or args.manager_fixture):
             raise ValueError("--yaml is required for real proxy acceptance")
         if facts["pointer_bits"] != 64 or facts["python_pe_machine"] != 0x8664:
             result.update(status="unsupported", detail="Full acceptance requires the package's x64 Python interpreter.")
@@ -852,35 +976,65 @@ def main(arguments: list[str]) -> int:
             result.update(status="transport_only", transport_passed=True,
                           manager_core_loss_passed=False,
                           limitations=["Fixed loopback bytes only; no real proxy node or HTTPS origin tested.",
-                                       "PSEC safe stop tested; Manager core-loss watcher requires --yaml mode."])
+                                       "PSEC safe stop tested; Manager core-loss watcher requires --manager-fixture or --yaml mode."])
         else:
             from ruleproxy.manager import Manager
             panel_port, mixed_port, controller_port = ports()
             manager = Manager(directory, panel_port, mixed_port=mixed_port, controller_port=controller_port)
             manager.save_settings({"core_path": str(root / "bin/windows-amd64/mihomo.exe"),
                                    "runtime_path": str(runtime)})
-            phase = "private_yaml_import"
-            # Bound reads before parsing; malformed YAML is never echoed to reports.
-            with args.yaml.open("rb") as stream:
-                source = stream.read(2 * 1024 * 1024 + 1)
-            if len(source) > 2 * 1024 * 1024:
-                raise ValueError("private YAML exceeded the import limit")
-            manager.import_yaml(source.decode("utf-8-sig"))
-            if args.node:
-                manager.select_node(args.node)
-            phase = "core_start"
-            manager.start()
+            if args.manager_fixture:
+                from ruleproxy.config import compile_config
+                phase = "manager_fixture_import"
+                proxy_fixture = FixedSocksFixture()
+                source = manager_fixture_source(proxy_fixture)
+                try:
+                    compile_config(source.replace("upstream.ruleproxy.invalid", "127.0.0.1"),
+                                   secret="manager-fixture-import-guard")
+                except ValueError:
+                    result["production_importer_rejects_loopback"] = True
+                else:
+                    raise RuntimeError("production importer unexpectedly permitted a loopback node")
+                manager.import_yaml(source)
+            else:
+                phase = "private_yaml_import"
+                # Bound reads before parsing; malformed YAML is never echoed to reports.
+                with args.yaml.open("rb") as stream:
+                    source = stream.read(2 * 1024 * 1024 + 1)
+                if len(source) > 2 * 1024 * 1024:
+                    raise ValueError("private YAML exceeded the import limit")
+                manager.import_yaml(source.decode("utf-8-sig"))
+                if args.node:
+                    manager.select_node(args.node)
+                phase = "core_start"
+                manager.start()
             for case in ("normal_stop", "core_loss"):
-                phase = case
-                result["checks"].append(lifecycle_case(manager, fixtures, args.url, case))
-            result.update(status="passed", acceptance_passed=True, real_node_passed=True,
-                          manager_core_loss_passed=True)
+                if proxy_fixture is not None:
+                    phase = "manager_fixture_core_start"
+                    manager.start()
+                    phase = "manager_fixture_endpoint_reload"
+                    result.update(reload_manager_fixture(manager, proxy_fixture))
+                phase = f"manager_{case}" if proxy_fixture is not None else case
+                result["checks"].append(lifecycle_case(manager, fixtures, args.url, case,
+                                                       proxy_fixture=proxy_fixture))
+            if proxy_fixture is not None:
+                with proxy_fixture.lock:
+                    if proxy_fixture.errors or proxy_fixture.roundtrips != 4:
+                        raise RuntimeError("manager fixture did not complete both generations in both lifecycle cases")
+                result.update(status="manager_fixture_only", manager_fixture_passed=True,
+                              manager_normal_stop_passed=True, manager_core_loss_passed=True,
+                              transport_passed=True,
+                              limitations=["Test-only endpoint reload of this script's owned Mihomo core.",
+                                           "Fixed local SOCKS bytes only; no real node or HTTPS origin tested."])
+            else:
+                result.update(status="passed", acceptance_passed=True, real_node_passed=True,
+                              manager_normal_stop_passed=True, manager_core_loss_passed=True)
         code = 0
     except Exception as exc:
         # Exceptions from YAML parsing can contain source lines and credentials.
         result.update(status="failed", acceptance_passed=False,
                       detail=f"Acceptance failed during {phase} ({type(exc).__name__}).")
-        if args.transport_fixture:
+        if args.transport_fixture or args.manager_fixture:
             # This mode never imports private YAML, so retain its socket/PSEC
             # diagnostics for CI without hiding an actionable failure reason.
             result["failure_detail"] = str(exc)[:700]
@@ -903,6 +1057,8 @@ def main(arguments: list[str]) -> int:
                 code = 1
         if fixtures is not None:
             fixtures.close()
+        if proxy_fixture is not None:
+            proxy_fixture.close()
         if before is not None:
             try:
                 after = network_snapshot()
@@ -924,6 +1080,13 @@ def main(arguments: list[str]) -> int:
                 result.update(status="failed", acceptance_passed=False,
                               cleanup_error=type(exc).__name__, recovery_directory=str(directory))
                 code = 1
+        if result["status"] == "failed":
+            # Lifecycle cleanup and the final host snapshot are part of each
+            # requested mode, so a late failure must not retain a success flag.
+            for name in ("acceptance_passed", "transport_passed", "real_node_passed",
+                         "manager_fixture_passed", "manager_normal_stop_passed",
+                         "manager_core_loss_passed"):
+                result[name] = False
         write_json(args.report.resolve(), result)
         print(json.dumps(result, ensure_ascii=True, indent=2), flush=True)
     return code

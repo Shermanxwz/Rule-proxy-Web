@@ -42,6 +42,8 @@ ISO_HASH_SOURCE = ("https://support.microsoft.com/en-us/servicing/os/windows/doc
                    "verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file")
 MIN_FREE_BYTES = 55 * 1024**3
 MAX_RESULT_BYTES = 8 * 1024**2
+MAX_PHASE_RECORD_BYTES = 256 * 1024
+PHASE_NAMES = ("probe", "transport", "manager", "browser", "package_tests")
 MIN_BOOT_IMAGE_BYTES = 64 * 1024**2
 MIN_INSTALL_IMAGE_BYTES = 1024**3
 
@@ -181,10 +183,10 @@ class GuestHandler(BaseHTTPRequestHandler):
             logs = result.get("logs", {})
             if not isinstance(reports, dict) or not isinstance(logs, dict):
                 raise ValueError("Invalid guest report or logs")
-            for name in ("probe", "transport", "browser"):
+            for name in ("probe", "transport", "manager", "browser"):
                 if name in reports:
                     write_json(self.server.artifacts / f"windows-{name}.json", reports[name])
-            for name in ("probe", "transport", "browser", "tests"):
+            for name in ("probe", "transport", "manager", "browser", "tests", "supervisor"):
                 if name in logs:
                     if not isinstance(logs[name], str):
                         raise ValueError("Invalid guest log")
@@ -258,45 +260,198 @@ def screenshot(qmp: Qmp, temporary: Path, output: Path) -> None:
     output.write_bytes(png)
 
 
+def verify_phase_report(name: str, report: dict) -> None:
+    if not isinstance(report, dict):
+        raise RuntimeError(f"{name} returned an invalid report")
+    if any(report.get(key) is not False for key in ("acceptance_passed", "real_node_passed")):
+        raise RuntimeError("Credential-free fixtures cannot claim real-node/full acceptance")
+    if "cleanup_error" in report or "recovery_directory" in report:
+        raise RuntimeError(f"{name} left pending cleanup or recovery state")
+    host = report.get("host", {})
+    if not isinstance(host, dict) or host.get("acceptance_scope") != "native_x64" or any(
+        type(host.get(key)) is not int or host[key] != 0x8664 for key in ("native_machine", "python_pe_machine")
+    ):
+        raise RuntimeError(f"{name} fixture did not prove native x64 execution")
+    if name == "probe":
+        if report.get("status") != "supported_only" or report.get("probe", {}).get("supported") is not True:
+            raise RuntimeError("Guest probe report did not prove strict policy support")
+        if report.get("transport_passed") is not False:
+            raise RuntimeError("Probe report claimed a transport test it did not run")
+        return
+    entries = report.get("checks", [])
+    if not isinstance(entries, list) or not all(isinstance(check, dict) for check in entries):
+        raise RuntimeError(f"{name} returned invalid check evidence")
+    checks = {check.get("check"): check for check in entries}
+    if checks.get("host_proxy_dns_default_routes_unchanged", {}).get("status") != "passed":
+        raise RuntimeError(f"{name} fixture did not preserve host network settings")
+    if name == "transport":
+        if report.get("status") != "transport_only" or report.get("transport_passed") is not True:
+            raise RuntimeError("Guest report did not pass the real PSEC transport fixture")
+        if report.get("manager_core_loss_passed") is not False:
+            raise RuntimeError("Transport report claimed a Manager test it did not run")
+        if not all(checks.get(key, {}).get("status") == "passed" for key in (
+            "transport_parent_child", "fixture_loss", "safe_psec_stop")):
+            raise RuntimeError("Transport report omitted a required isolation/lifecycle check")
+    elif name == "manager":
+        if report.get("status") != "manager_fixture_only" or any(report.get(key) is not True for key in (
+            "manager_fixture_passed", "manager_normal_stop_passed", "manager_core_loss_passed", "test_only_endpoint_override")):
+            raise RuntimeError("Manager report did not pass both owned-core fixture lifecycle cases")
+        for key in ("manager_normal_stop", "manager_core_loss"):
+            check = checks.get(key, {})
+            if check.get("status") != "passed" or any(check.get(field) is not True for field in (
+                "parent_and_child_exited", "held_handles_verified", "manager_active_removed", "runtime_resources_closed",
+                "manager_owned_core_stopped")):
+                raise RuntimeError("Manager fixture omitted held-handle or resource teardown proof")
+        if checks["manager_core_loss"].get("manager_watcher_exercised") is not True:
+            raise RuntimeError("Manager core-loss fixture did not exercise the production watcher")
+    elif name == "browser":
+        if report.get("status") != "browser_fixture_only" or report.get("browser_fixture_passed") is not True:
+            raise RuntimeError("Native Windows Edge fixture did not pass")
+        for key in ("real_edge_launch_1", "real_edge_launch_2"):
+            check = checks.get(key, {})
+            if check.get("status") != "passed" or any(check.get(field) is not True for field in (
+                "dom_nonce_via_page_ack", "cookie_request_verified", "natural_headless_exit")):
+                raise RuntimeError("Edge fixture omitted live browser/DOM/cookie/exit proof")
+        if checks["real_edge_launch_2"].get("private_profile_reused") is not True:
+            raise RuntimeError("Edge fixture did not retain the private browser profile")
+    else:
+        raise RuntimeError("Unknown fixture phase")
+
+
 def verify_result(result: dict) -> None:
     if result.get("status") != "passed" or result.get("ordinary_user") is not True:
         raise RuntimeError(f"Guest tests failed: {result.get('error', 'missing ordinary-user proof')}")
     phases = result.get("phases")
-    if not isinstance(phases, list) or [phase.get("name") for phase in phases] != ["probe", "transport", "browser", "package_tests"]:
+    if not isinstance(phases, list) or not all(isinstance(phase, dict) for phase in phases) or [
+        phase.get("name") for phase in phases
+    ] != list(PHASE_NAMES):
         raise RuntimeError("Guest did not complete each required test phase")
-    if any(phase.get("exit_code") != 0 for phase in phases):
-        raise RuntimeError("A guest test phase returned a failure exit code")
-    reports = result.get("reports", {})
-    probe, transport, browser = reports.get("probe", {}), reports.get("transport", {}), reports.get("browser", {})
-    if probe.get("status") != "supported_only" or probe.get("probe", {}).get("supported") is not True:
-        raise RuntimeError("Guest probe report did not prove strict policy support")
-    if transport.get("status") != "transport_only" or transport.get("transport_passed") is not True:
-        raise RuntimeError("Guest report did not pass the real PSEC transport fixture")
-    if transport.get("host", {}).get("acceptance_scope") != "native_x64":
-        raise RuntimeError("Transport did not prove native x64 execution")
-    if any(report.get(key) is not False for report in (probe, transport, browser)
-           for key in ("acceptance_passed", "real_node_passed")):
-        raise RuntimeError("Credential-free fixtures cannot claim real-node/full acceptance")
-    if probe.get("transport_passed") is not False or transport.get("manager_core_loss_passed") is not False:
-        raise RuntimeError("Reports claimed an acceptance phase this VM run did not exercise")
-    checks = {check.get("check"): check.get("status") for check in transport.get("checks", [])}
-    required = {"transport_parent_child", "fixture_loss", "safe_psec_stop", "host_proxy_dns_default_routes_unchanged"}
-    if not all(checks.get(name) == "passed" for name in required):
-        raise RuntimeError("Transport report omitted a required isolation/lifecycle/network check")
-    if browser.get("status") != "browser_fixture_only" or browser.get("browser_fixture_passed") is not True:
-        raise RuntimeError("Native Windows Edge fixture did not pass")
-    if browser.get("host", {}).get("acceptance_scope") != "native_x64":
-        raise RuntimeError("Edge fixture did not prove native x64 execution")
-    browser_checks = {check.get("check"): check for check in browser.get("checks", [])}
-    for name in ("real_edge_launch_1", "real_edge_launch_2"):
-        check = browser_checks.get(name, {})
-        if check.get("status") != "passed" or any(check.get(key) is not True for key in (
-            "dom_nonce_via_page_ack", "cookie_request_verified", "natural_headless_exit")):
-            raise RuntimeError("Edge fixture omitted live browser/DOM/cookie/exit proof")
-    if browser_checks["real_edge_launch_2"].get("private_profile_reused") is not True:
-        raise RuntimeError("Edge fixture did not retain the private browser profile")
-    if browser_checks.get("host_proxy_dns_default_routes_unchanged", {}).get("status") != "passed":
-        raise RuntimeError("Edge fixture did not preserve host network settings")
+    if any(phase.get("status") != "passed" or type(phase.get("exit_code")) is not int
+           or phase["exit_code"] != 0 for phase in phases):
+        raise RuntimeError("A guest test phase failed or was blocked")
+    for name in PHASE_NAMES[:-1]:
+        verify_phase_report(name, result.get("reports", {}).get(name))
+
+
+def read_bounded_log(path: Path) -> str:
+    with path.open("rb") as stream:
+        raw = stream.read(MAX_PHASE_RECORD_BYTES + 1)
+    clipped = len(raw) > MAX_PHASE_RECORD_BYTES
+    text = raw[:MAX_PHASE_RECORD_BYTES].decode("utf-8", "replace")
+    return text + ("\n[phase log truncated at its size limit]\n" if clipped else "")
+
+
+def run_guest_phase(name: str, command: list[str], directory: Path, *, timeout: float) -> tuple[dict, dict | None, str]:
+    record = {"name": name, "status": "failed", "exit_code": None}
+    report, process = None, None
+    log = directory / f"{name}.log"
+    report_path = directory / f"{name}.json"
+    started = time.monotonic()
+    try:
+        # A fresh interpreter must produce its own report; a previous run's
+        # zero-exit JSON can never prove the current invocation succeeded.
+        report_path.unlink(missing_ok=True)
+        with log.open("wb") as output:
+            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=output,
+                                       stderr=subprocess.STDOUT, shell=False)
+            record["interpreter_started"] = True
+            try:
+                record["exit_code"] = process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                # Only this held test-interpreter process is terminated.
+                # Descendant cleanup is unproven on timeout; keep that explicit
+                # and further PSEC fixtures must wait for cleanup.
+                record.update(timed_out=True, descendant_cleanup_proven=False)
+                process.kill()
+                record["exit_code"] = process.wait(timeout=10)
+                raise RuntimeError(f"{name} exceeded its {timeout:g}s budget; test interpreter stopped")
+    except Exception as exc:
+        record["error"] = f"{type(exc).__name__}: {exc}"[:700]
+    try:
+        if name != "package_tests" and record.get("interpreter_started"):
+            with report_path.open("rb") as source:
+                raw = source.read(MAX_PHASE_RECORD_BYTES + 1)
+            if len(raw) > MAX_PHASE_RECORD_BYTES:
+                raise RuntimeError(f"{name} report exceeded its size limit")
+            value = json.loads(raw.decode("utf-8-sig"))
+            if not isinstance(value, dict):
+                raise RuntimeError(f"{name} returned an invalid report")
+            report = value
+        if "error" in record:
+            raise RuntimeError(record["error"])
+        if record["exit_code"] != 0:
+            raise RuntimeError(f"{name} exited with status {record['exit_code']}")
+        if report is not None:
+            verify_phase_report(name, report)
+        record["status"] = "passed"
+    except Exception as exc:
+        record.setdefault("error", f"{type(exc).__name__}: {exc}"[:700])
+    finally:
+        record["elapsed_seconds"] = round(time.monotonic() - started, 1)
+    try:
+        text = read_bounded_log(log)
+    except OSError as exc:
+        text = f"Could not read {name} log ({type(exc).__name__})."
+        record.update(status="failed")
+        record.setdefault("error", text)
+    return record, report, text
+
+
+def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: str | None = None,
+                     phase_timeout: float = 900) -> dict:
+    """Collect independent real-test failures without promoting partial success."""
+    directory.mkdir(parents=True, exist_ok=True)
+    executable = python or sys.executable
+    acceptance = workspace / "scripts/windows-acceptance.py"
+    result = {"status": "failed", "phases": [], "reports": {}, "logs": {}, "recovery_records": []}
+    probe_passed = False
+    cleanup_pending = False
+    for name in PHASE_NAMES:
+        if name in ("transport", "manager", "browser") and (not probe_passed or cleanup_pending):
+            result["phases"].append({"name": name, "status": "blocked", "exit_code": None,
+                                     "error": ("A previous fixture left pending cleanup; recovery state was retained"
+                                               if cleanup_pending else
+                                               "Strict policy probe did not pass; dependent fixture was not run")})
+            continue
+        command = [executable, "-X", "utf8", "-B"]
+        if name == "package_tests":
+            command.extend([str(workspace / ".github/run_tests.py"), "--code", str(root)])
+        elif name == "browser":
+            command.extend([str(workspace / ".github/windows_browser_check.py"), "--root", str(root),
+                            "--report", str(directory / "browser.json")])
+        else:
+            option = {"probe": "--probe-only", "transport": "--transport-fixture", "manager": "--manager-fixture"}[name]
+            command.extend([str(acceptance), "--root", str(root), option, "--report", str(directory / f"{name}.json")])
+        record, report, log = run_guest_phase(name, command, directory,
+                                             timeout=min(90, phase_timeout) if name == "probe" else phase_timeout)
+        result["phases"].append(record)
+        result["logs"]["tests" if name == "package_tests" else name] = log
+        if report is not None:
+            result["reports"][name] = report
+        # The fixture writes its report after its finally/cleanup path. A
+        # missing report or forced termination cannot prove that path ran.
+        # Never bypass an earlier recovery directory by using a new fixture.
+        if name in ("transport", "manager", "browser") and record.get("interpreter_started"):
+            pending = record.get("timed_out") or report is None or any(
+                key in report for key in ("cleanup_error", "recovery_directory"))
+            if pending:
+                cleanup_pending = True
+                recovery = {"phase": name, "reason": record.get("error", "Fixture cleanup remained pending"),
+                            "descendant_cleanup_proven": False}
+                if report is not None:
+                    for key in ("cleanup_error", "recovery_directory"):
+                        if key in report:
+                            recovery[key] = str(report[key])[:1024]
+                            record[key] = recovery[key]
+                result["recovery_records"].append(recovery)
+        if name == "probe":
+            probe_passed = record["status"] == "passed"
+    if all(phase["status"] == "passed" for phase in result["phases"]):
+        result["status"] = "passed"
+    else:
+        result["error"] = "Guest phases failed or were blocked: " + ", ".join(
+            phase["name"] for phase in result["phases"] if phase["status"] != "passed")
+    return result
 
 
 def stop_owned(process: subprocess.Popen | None) -> None:
@@ -314,7 +469,7 @@ def run(args) -> dict:
     artifacts = args.artifacts.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
     summary = {"status": "failed", "full_acceptance_passed": False, "real_node_passed": False,
-               "transport_passed": False, "browser_fixture_passed": False,
+               "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
                "iso": {"url": ISO_URL, "sha256": ISO_SHA256,
                "download_page": ISO_SOURCE, "hash_source": ISO_HASH_SOURCE, "evaluation_days": 90}}
     try:
@@ -445,10 +600,13 @@ def run(args) -> dict:
                             screenshot(qmp, work / "screen.ppm", artifacts / "last-screen.png")
                         except (OSError, ValueError, RuntimeError):
                             pass  # A screenshot never substitutes for the guest report.
+                    summary["phase_results"] = server.result.get("phases", [])
+                    summary["recovery_records"] = server.result.get("recovery_records", [])
                     verify_result(server.result)
-                    summary.update(status="transport_and_package_tests_passed", transport_passed=True, browser_fixture_passed=True,
+                    summary.update(status="transport_and_package_tests_passed", transport_passed=True,
+                                   manager_fixture_passed=True, browser_fixture_passed=True,
                                    ordinary_user=True, native_x64=True, elapsed_seconds=int(time.monotonic() - started))
-                    print("Native x64 PSEC transport, Edge fixture and release package tests passed; real-node acceptance remains separate", flush=True)
+                    print("Native x64 PSEC transport, Manager lifecycle, Edge fixture and release package tests passed; real-node acceptance remains separate", flush=True)
             finally:
                 # Dispose only this ephemeral test VM and TPM, never a named
                 # host process or a user-owned Windows application.
@@ -466,7 +624,8 @@ def run(args) -> dict:
                 server.server_close()
                 http_thread.join(timeout=5)
     except Exception as exc:
-        summary.update(status="failed", transport_passed=False, browser_fixture_passed=False, error=f"{type(exc).__name__}: {exc}")
+        summary.update(status="failed", transport_passed=False, manager_fixture_passed=False,
+                       browser_fixture_passed=False, error=f"{type(exc).__name__}: {exc}")
         print(f"::error title=Windows KVM guest::{type(exc).__name__}: {exc}", flush=True)
     finally:
         write_json(artifacts / "windows-vm-summary.json", summary)
@@ -474,6 +633,16 @@ def run(args) -> dict:
 
 
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["--guest-phases"]:
+        parser = argparse.ArgumentParser(description="Collect independent tests inside the ordinary-user Windows VM")
+        parser.add_argument("--root", required=True, type=Path)
+        parser.add_argument("--workspace", required=True, type=Path)
+        parser.add_argument("--report", required=True, type=Path)
+        args = parser.parse_args(argv[1:])
+        result = run_guest_phases(args.root.resolve(), args.workspace.resolve(), args.report.resolve().parent)
+        write_json(args.report, result)
+        print(json.dumps({"status": result["status"], "phases": result["phases"]}, ensure_ascii=True), flush=True)
+        return 0 if result["status"] == "passed" else 1
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--package", required=True, type=Path)
     parser.add_argument("--package-sha256", required=True)

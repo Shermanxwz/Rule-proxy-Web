@@ -633,7 +633,10 @@ def launch(
         )
         resources.process = process
 
-        if not bridge.wait_ready(25):
+        # Guest startup includes up to 10 seconds of bridge initialization and
+        # a bounded 22-second parent/child check. Preserve its diagnostics even
+        # when ordinary socket timeouts, rather than immediate denials, occur.
+        if not bridge.wait_ready(45):
             raise UnsupportedRuntimeError(
                 getattr(bridge, "last_error", None) or "contained guest self-check did not become ready"
             )

@@ -2,7 +2,7 @@
 
 Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、添加应用，从面板或桌面快捷方式启动受保护实例。
 
-**当前版本 0.2.2。只保护从面板或本工具的快捷方式启动的实例。已打开的普通实例不会自动接管，请先自行关闭。**
+**当前开发版本 0.2.2，Windows 验收尚未通过。只保护从面板或本工具的快捷方式启动的实例。已打开的普通实例不会自动接管，请先自行关闭。**
 
 选中应用的代理入口强制使用所选节点。无法经过代理的流量阻断，不自动直连。不修改系统代理、网卡 DNS、全机默认路由，不创建系统服务；登录后自动启动只在你于面板中打开时写入当前用户的启动项。
 
@@ -13,6 +13,8 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 要求 x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 全拒绝网络隔离能力。Windows 10 和旧版 Windows 11 的严格模式不可用。系统版本符合最低条件也可能缺少所需更新，面板会检查并拒绝不支持的启动。
 
 项目固定的 MXC 1.0.0 官方文档将 BaseContainer 列为 Windows 11 25H2+（内部版本 `26600+`）能力，并要求启用 PSEC 系统契约。MXC 主分支的更新支持表与固定版本不同；版本号达标也不能保证支持，最终必须通过本机针对完整策略的请求级能力检查：[系统支持表](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)。
+
+当前开发分支已在真实 Windows 11 原生 x64（26300）及 ARM（26200）上运行严格策略：请求级检查通过，但隔离子进程连接容器内代理端口被系统拒绝（`WinError 10013`），应用因此拒绝启动。尚未解决这一阻塞，不能将 0.2.2 作为 Windows 可用版本发布；详细证据见下方验证范围。
 
 1. 从 [Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases/latest) 下载 `RuleProxy-Web-<版本>-windows-x64.zip`。运行包自带 Python、PyYAML、Mihomo 和 MXC，不需要另外安装。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”。不解除的话，启动面板和点快捷方式时可能每次都弹出安全提示。
@@ -118,7 +120,7 @@ Linux：每次启动创建独立网络和进程命名空间，没有上联网卡
 
 Ubuntu 专用 bwrap 使用官方 `bwrap-userns-restrict` 思路。Chromium 系应用在 Linux 启动时禁用与外层 `no_new_privs` 不兼容的 SUID helper 路径，保留浏览器自己的 user namespace 与 seccomp 沙箱；禁止 `--no-sandbox` 参数。浏览器内部沙箱若不能启动，应用启动失败，不会退回无沙箱模式。
 
-Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `base-container`。采用 Model 3：外部出站、入站以及宿主回环全部拒绝，没有运行时网络代理例外，也不接受其他隔离层级的回退。应用和代理中继运行在同一容器内，仅容器内部回环可用。中继通过有大小与连接数限制的文件通道交换字节，宿主中继只能连接固定的本机 Mihomo 入口。
+Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `base-container`。采用 Model 3：外部出站、入站以及宿主回环全部拒绝，没有运行时网络代理例外，也不接受其他隔离层级的回退。设计要求应用与代理中继在同一容器内通过内部回环通信，但当前实测系统拒绝了这一连接，尚未满足启动条件。中继通过有大小与连接数限制的文件通道交换字节，宿主中继只能连接固定的本机 Mihomo 入口。
 
 真实应用启动前，先用隔离内的测试子进程检查内部代理通道、直连与宿主回环阻断；宿主还会检查无法连入容器监听器。检查失败就拒绝启动，不回退。这个通道不提供任意目的地址、宿主命令执行或系统网络设置接口；吞吐可能低于普通代理。
 
@@ -139,9 +141,9 @@ python3 -B -m unittest discover -s tests -v
 - Linux：在 Ubuntu 22.04、24.04 的系统 Python，以及 Python 3.10、3.14 上，按用户的方式运行 `setup-linux.sh`（安装软件包、加载 AppArmor 策略、下载 Mihomo、检查隔离），再运行全部测试，沙盒测试必须真实执行、不允许跳过；最后用 `start-linux.sh` 启动面板，导入参考 YAML，启动并停止核心，再用 Ctrl+C 退出。
 - Windows（Python 3.13）：运行全部测试，并真实创建、回读快捷方式和登录启动项，包括中文名称和中文路径；再从源码目录运行 `Start-Windows.cmd`，第一次自动准备组件，然后检查面板和核心。
 - Windows 运行包：用固定校验的下载构建，解压到 `C:\应用 !测试%路径`（顶层文件夹名以中文开头，并含空格、感叹号和百分号），用包内 Python 运行全部测试；再用 `Start-Windows.cmd` 以无窗口方式启动面板，导入参考 YAML，启动并停止包内核心，用页面的“退出面板”退出，并检查 `panel.log`。
-- Windows 11 ARM：探测固定 x64 MXC 的完整策略，在支持时运行真实 PSEC 文件通道、父子进程阻断和停止检查，再用真实 Edge 检查页面渲染、私有配置复用及持久 Cookie。报告明确标注 x64 模拟运行和本地测试数据范围。
+- Windows 11 ARM：探测固定 x64 MXC 的完整策略，在支持时分别运行真实 PSEC 文件通道、真实 Manager/Mihomo 生命周期和 Edge 检查。单项失败后继续收集其他独立检查的报告，任务仍判失败。报告明确标注 x64 模拟运行和本地测试数据范围。
 
-PR 和 `main` 另在 Ubuntu KVM 中安装经官方 SHA-256 校验的 Windows 11 Enterprise Evaluation x64 镜像，用普通用户运行上述通道、Edge 及运行包测试。无 KVM、系统不支持策略或任一必要检查失败，都会阻止通过；发布依赖该原生 x64 检查。
+PR 和 `main` 另在 Ubuntu KVM 中安装经官方 SHA-256 校验的 Windows 11 Enterprise Evaluation x64 镜像，用普通用户运行上述通道、Manager/Mihomo、Edge 及运行包测试。无 KVM、系统不支持策略或任一必要检查失败，都会阻止通过；发布依赖该原生 x64 检查。
 
 已在 Linux 实际检查代理通道、直连 IPv4/IPv6、DNS/UDP、子进程继承隔离，以及主机接口/路由未变；并用固定 Mihomo 校验参考 YAML。Web 导入、启动核心、应用管理、停止流程经过本机检查。
 
@@ -151,9 +153,11 @@ PR 和 `main` 另在 Ubuntu KVM 中安装经官方 SHA-256 校验的 Windows 11 
 - 面板未运行时同时点两个快捷方式，只启动一个核心；应用关闭后快捷方式托管的面板自动退出并释放端口。
 - 面板运行时，快捷方式交给面板启动。
 
-Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中实测；从快捷方式实际启动隔离应用依赖 MXC，仍需在支持固定版本 BaseContainer 契约的 Windows 11 设备上验证。运行包测试中，包内 MXC 的能力检查在 GitHub 的 Windows 环境里真实运行：该环境只提供 `appcontainer-dacl`，面板据此拒绝严格隔离，没有回退。
+Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中实测；从快捷方式实际启动隔离应用依赖 MXC，仍需在支持固定版本 BaseContainer 契约的 Windows 11 设备上验证。标准 x64 Windows Server runner 只提供 `appcontainer-dacl`，面板据此拒绝严格隔离，没有回退。
 
-Windows 文件中继、启动门控和规则目标重写由单元测试覆盖，每次推送都在 Windows 上运行。**尚未在目标 Windows 设备实测应用兼容性、实际网络阻断及异常退出清理，因此不能称为已实测零泄漏**。启动流程内置必要的运行时检查，但仍不能替代目标设备上的独立抓包与故障检查。首次使用请先选择一个浏览器，确认正常停止及其他普通应用的联网。
+2026-10-14 的 [真实 Windows 检查](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38590783322) 对应提交 `cc67b0080d6ba30683fc31c58ed31847bdf4bd6e`：四个 Linux 任务、Windows 源码及运行包任务通过；Windows 11 ARM 26200 与原生 x64 26300 的 BaseContainer 请求级检查均通过，但隔离子进程连接容器内代理端口均报 `WinError 10013`。原生 x64 使用校验后的微软官方评估镜像及普通用户，排除了仅 ARM 仿真的解释。两种环境的测试前后宿主代理、DNS、默认路由摘要相同。校验过的报告副本与来源摘要保存在 [verification/windows-2026-10-14](verification/windows-2026-10-14/source.json)。
+
+上述通道检查在代理连接处提前失败，后续直连阻断、浏览器、真实节点与生命周期验收未完成，不能据此宣称通过。文件中继、启动门控和规则目标重写虽有单元测试覆盖，**Windows 应用兼容性、实际网络阻断及异常退出清理仍未通过完整实测，不能称为已封存或已实测零泄漏**。请求级能力可用也不代表内部代理通道可用；实际自检失败始终拒绝启动。
 
 本机数据独立于旧版目录：Windows `%LOCALAPPDATA%\RuleProxyWebSafe`；Linux `$XDG_DATA_HOME/ruleproxy-web-safe`（默认 `~/.local/share/ruleproxy-web-safe`）。核心日志为该目录的 `core.log`，Linux 应用错误为对应 `profiles/<id>/runtime.log`。删除项目程序不会留下全机断网规则；删除数据前先正常关闭面板。
 
@@ -179,10 +183,11 @@ python scripts/windows-acceptance.py --yaml C:\private\proxy.yaml --report windo
 
 ```powershell
 python scripts/windows-acceptance.py --transport-fixture --report windows-transport.json
+python scripts/windows-acceptance.py --manager-fixture --report windows-manager.json
 python .github/windows_browser_check.py --report windows-browser.json
 ```
 
-通道检查使用固定本机字节，不解析或转发任意目的地址；检查跨帧数据、双向半关闭、父子进程 IPv4/IPv6 TCP/UDP 阻断、宿主回环双向阻断、测试入口失效及安全停止。浏览器检查使用真实 Edge 渲染固定 HTTP 页面，并验证两次自然退出之间的持久 Cookie。它们分别记录 `transport_passed` 和 `browser_fixture_passed`，始终保持 `acceptance_passed: false`、`real_node_passed: false`；实际 HTTPS 节点、会话登录和下载仍需另行验收。
+通道检查使用固定本机字节，不解析或转发任意目的地址；检查跨帧数据、双向半关闭、父子进程 IPv4/IPv6 TCP/UDP 阻断、宿主回环双向阻断、测试入口失效及安全停止。Manager 检查通过真实 Mihomo 向固定本机 SOCKS 测试服务传输数据，并分别检查正常停止及核心退出后的父子进程句柄、应用记录和资源清理。仅在测试专用核心中临时替换一个测试节点的地址；生产导入器仍拒绝回环节点。浏览器检查使用真实 Edge 渲染固定 HTTP 页面，并验证两次自然退出之间的持久 Cookie。这些模式分别记录 `transport_passed`、`manager_fixture_passed` 和 `browser_fixture_passed`，始终保持 `acceptance_passed: false`、`real_node_passed: false`；实际 HTTPS 节点、会话登录和下载仍需另行验收。
 
 GitHub 标准 x64 Windows runner 使用 Windows Server，可验证运行包和拒绝启动流程。Windows 11 ARM job 可补充真实内核验证，不能代表原生 x64。原生 x64 job 使用 [.github/windows_vm_test.py](.github/windows_vm_test.py) 在 KVM 中自动安装 [微软官方 90 天评估镜像](https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise)，先验证 [官方校验值](https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file)，然后以非管理员用户测试运行包。不会退回软件 CPU 模拟，也不启用 Windows 远程管理服务；上传的产物仅含报告、日志和最后截图，不含虚拟机磁盘或临时登录密码。硬件虚拟化可用不保证 PSEC 策略可用，结果以对应提交的 CI 和报告为准。
 

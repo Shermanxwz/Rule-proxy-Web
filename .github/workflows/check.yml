@@ -189,6 +189,7 @@ jobs:
           name: windows-package
           path: dist
       - name: Probe the fixed x64 runtime on a real Windows 11 kernel
+        id: psec-probe
         run: |
           $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
           $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
@@ -204,6 +205,7 @@ jobs:
           if ($probeExit -ne 0) { exit $probeExit }
           Write-Output '::notice title=Windows 11 probe::Capability probe passed on ARM with the x64 runtime. Full native x64 acceptance remains pending.'
       - name: Validate real PSEC transport, parent and child blocking, and safe stop
+        if: ${{ !cancelled() && steps.psec-probe.outcome == 'success' }}
         run: |
           $probe = Get-Content windows-11-probe.json -Raw | ConvertFrom-Json
           if (-not $probe.probe.supported) {
@@ -213,7 +215,28 @@ jobs:
           $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
           & "$root\python\python.exe" -X utf8 -B scripts\windows-acceptance.py --root "$root" --transport-fixture --allow-emulated-x64 --report windows-11-transport.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Validate the real Manager and Mihomo, normal stop, and core-loss cleanup
+        if: ${{ !cancelled() && steps.psec-probe.outcome == 'success' }}
+        run: |
+          $probe = Get-Content windows-11-probe.json -Raw | ConvertFrom-Json
+          if (-not $probe.probe.supported) {
+            Write-Output '::notice title=PSEC manager::Unavailable on this runner; no manager acceptance claimed.'
+            exit 0
+          }
+          $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
+          if (-not (Test-Path windows-11-transport.json)) {
+            @{ status = 'blocked'; manager_fixture_passed = $false; acceptance_passed = $false; real_node_passed = $false; detail = 'Transport returned no cleanup report; no new container was launched.' } | ConvertTo-Json | Set-Content windows-11-manager.json -Encoding utf8
+            exit 1
+          }
+          $previous = Get-Content windows-11-transport.json -Raw | ConvertFrom-Json
+          if ($previous.cleanup_error -or $previous.recovery_directory) {
+            @{ status = 'blocked'; manager_fixture_passed = $false; acceptance_passed = $false; real_node_passed = $false; detail = 'Previous fixture retained cleanup resources; no new container was launched.' } | ConvertTo-Json | Set-Content windows-11-manager.json -Encoding utf8
+            exit 1
+          }
+          & "$root\python\python.exe" -X utf8 -B scripts\windows-acceptance.py --root "$root" --manager-fixture --allow-emulated-x64 --report windows-11-manager.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Render a real Edge page and retain private-profile cookies in PSEC
+        if: ${{ !cancelled() && steps.psec-probe.outcome == 'success' }}
         run: |
           $probe = Get-Content windows-11-probe.json -Raw | ConvertFrom-Json
           if (-not $probe.probe.supported) {
@@ -221,6 +244,17 @@ jobs:
             exit 0
           }
           $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
+          foreach ($name in @('windows-11-transport.json', 'windows-11-manager.json')) {
+            if (-not (Test-Path $name)) {
+              @{ status = 'blocked'; browser_fixture_passed = $false; acceptance_passed = $false; real_node_passed = $false; detail = 'A previous fixture returned no cleanup report; no new container was launched.' } | ConvertTo-Json | Set-Content windows-browser.json -Encoding utf8
+              exit 1
+            }
+            $previous = Get-Content $name -Raw | ConvertFrom-Json
+            if ($previous.cleanup_error -or $previous.recovery_directory -or $previous.status -eq 'blocked') {
+              @{ status = 'blocked'; browser_fixture_passed = $false; acceptance_passed = $false; real_node_passed = $false; detail = 'Previous fixture retained cleanup resources; no new container was launched.' } | ConvertTo-Json | Set-Content windows-browser.json -Encoding utf8
+              exit 1
+            }
+          }
           & "$root\python\python.exe" -X utf8 -B .github\windows_browser_check.py --root "$root" --allow-emulated-x64 --report windows-browser.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
@@ -230,6 +264,7 @@ jobs:
           path: |
             windows-11-probe.json
             windows-11-transport.json
+            windows-11-manager.json
             windows-browser.json
           if-no-files-found: error
           retention-days: 30

@@ -1,0 +1,22 @@
+{
+  "status": "failed",
+  "ordinary_user": true,
+  "user": "RULEPROXY-VM\\RuleProxyCI",
+  "os": {
+    "Caption": "Microsoft Windows 11 Enterprise Evaluation",
+    "Version": "10.0.26300",
+    "BuildNumber": "26300",
+    "OSArchitecture": "64-bit"
+  },
+  "phases": [
+    {
+      "exit_code": 0,
+      "name": "probe"
+    },
+    {
+      "exit_code": 1,
+      "name": "transport"
+    }
+  ],
+  "error": "Real Windows acceptance phase failed: transport, exit 1"
+}

@@ -192,6 +192,76 @@ class WindowsAcceptanceTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 acceptance.fixture_roundtrip(fixture.token)
 
+    def test_connect_response_accepts_mihomo_reason_phrase_but_requires_bounded_200(self):
+        for response in (b"HTTP/1.1 200 Connection Established\r\n\r\n",
+                         b"HTTP/1.1 200 Connection established\r\n\r\n",
+                         b"HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n"):
+            acceptance.validate_connect_response(response)
+        for response in (b"HTTP/1.1 502 Bad Gateway\r\n\r\n", b"HTTP/2 200 OK\r\n\r\n",
+                         b"HTTP/1.1 200 OK\r\n", b"HTTP/1.1 200 OK\r\nX: " + b"x" * 4096 + b"\r\n\r\n"):
+            with self.subTest(response=response[:32]):
+                with self.assertRaises(RuntimeError):
+                    acceptance.validate_connect_response(response)
+
+    def test_manager_socks_fixture_accepts_only_fixed_destination_and_fin_payload(self):
+        fixture = acceptance.FixedSocksFixture()
+        self.addCleanup(fixture.close)
+        payload = acceptance.fixture_payload(fixture.token)
+        with socket.create_connection(("127.0.0.1", fixture.port), timeout=3) as connection:
+            connection.settimeout(3)
+            connection.sendall(b"\x05\x01\0")
+            self.assertEqual(fixture._read_exact(connection, 2), b"\x05\0")
+            host = fixture.host.encode("ascii")
+            connection.sendall(b"\x05\x01\0\x03" + bytes([len(host)]) + host + struct.pack("!H", 443))
+            self.assertEqual(fixture._read_exact(connection, 10), b"\x05\0\0\x01\x7f\0\0\x01\0\0")
+            connection.sendall(payload)
+            connection.shutdown(socket.SHUT_WR)
+            echoed = bytearray()
+            while True:
+                part = connection.recv(16384)
+                if not part:
+                    break
+                echoed.extend(part)
+            self.assertEqual(bytes(echoed), payload[::-1])
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline and fixture.roundtrips != 1:
+            time.sleep(0.01)
+        self.assertEqual(fixture.roundtrips, 1)
+        self.assertEqual(fixture.errors, [])
+        with socket.create_connection(("127.0.0.1", fixture.port), timeout=3) as connection:
+            connection.settimeout(3)
+            connection.sendall(b"\x05\x01\0")
+            self.assertEqual(fixture._read_exact(connection, 2), b"\x05\0")
+            wrong = b"unrelated.example"
+            connection.sendall(b"\x05\x01\0\x03" + bytes([len(wrong)]) + wrong + struct.pack("!H", 443))
+            self.assertEqual(connection.recv(1), b"")
+        self.assertEqual(fixture.roundtrips, 1)
+
+    def test_manager_override_changes_only_owned_core_endpoint_and_preserves_import_guard(self):
+        import yaml
+        from ruleproxy.config import compile_config
+        fixture = acceptance.FixedSocksFixture()
+        self.addCleanup(fixture.close)
+        source = acceptance.manager_fixture_source(fixture)
+        compiled = compile_config(source, secret="test-controller-token")
+        original = json.loads(json.dumps(compiled.config))
+        manager = SimpleNamespace(core=mock.Mock(), compiled=compiled, _controller=mock.Mock())
+        manager.core.poll.return_value = None
+        metadata = acceptance.reload_manager_fixture(manager, fixture)
+        self.assertTrue(metadata["test_only_endpoint_override"])
+        self.assertEqual(manager.compiled.config, original)
+        call = manager._controller.call_args
+        self.assertEqual(call.args[:2], ("PUT", "/configs?force=true"))
+        actual = yaml.safe_load(call.args[2]["payload"])
+        self.assertEqual(actual["proxies"][0]["server"], "127.0.0.1")
+        actual["proxies"][0]["server"] = "upstream.ruleproxy.invalid"
+        self.assertEqual(actual, original)
+        with self.assertRaises(ValueError):
+            compile_config(source.replace("upstream.ruleproxy.invalid", "127.0.0.1"), secret="test-token")
+        manager.core.poll.return_value = 1
+        with self.assertRaises(RuntimeError):
+            acceptance.reload_manager_fixture(manager, fixture)
+
 
 if __name__ == "__main__":
     unittest.main()

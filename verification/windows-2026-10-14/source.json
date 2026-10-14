@@ -1,0 +1,55 @@
+{
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "cc67b0080d6ba30683fc31c58ed31847bdf4bd6e",
+  "workflow_run": 38590783322,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38590783322",
+  "recorded_at_utc": "2026-10-14T16:08:47+00:00",
+  "status": "blocked",
+  "full_acceptance_passed": false,
+  "release_published": false,
+  "artifact_archives": [
+    {
+      "id": 11908721356,
+      "name": "windows-11-x64-validation",
+      "sha256": "4fa1c5b27d01b97dcd6526c061b3e215af0bf6c3bb50a01ceee713383cb38250",
+      "checksum_verified_before_extract": true
+    },
+    {
+      "id": 11907347554,
+      "name": "windows-11-probe",
+      "sha256": "651037aed7a40e2aeae41b3f2d126264f02d7c4f0980f6e40b38306cd82b956b",
+      "checksum_verified_before_extract": true
+    }
+  ],
+  "passing_jobs": [
+    "Linux Python 3.10",
+    "Linux Python 3.14",
+    "Ubuntu 22.04 system Python",
+    "Ubuntu 24.04 system Python",
+    "Windows Python 3.13",
+    "Windows package build",
+    "Windows package test"
+  ],
+  "first_failure": {
+    "operation": "nested child connect to guest proxy listener",
+    "socket_address_scope": "container guest loopback",
+    "winsock_error": 10013,
+    "both_native_x64_and_arm_emulation": true
+  },
+  "limitations": [
+    "Capability probes passed, but transport acceptance failed.",
+    "External TCP/UDP denial assertions were not reached in this run.",
+    "Browser, Manager/core-loss, and real-node acceptance were not reached in this run.",
+    "These reports do not establish whether same-PID loopback works.",
+    "AppContainer fallback, hostLoopback allow, proxy peer exemptions, and global host network changes were not used."
+  ],
+  "evidence_files": [
+    "native-x64-probe.json",
+    "native-x64-transport.json",
+    "native-x64-vm-summary.json",
+    "arm-probe.json",
+    "arm-transport.json",
+    "native-x64-session.json"
+  ],
+  "report_copy_format": "JSON values copied from verified artifacts and reformatted as UTF-8; session copy excludes duplicate reports/logs."
+}

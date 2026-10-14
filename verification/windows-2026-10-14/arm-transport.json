@@ -1,0 +1,48 @@
+{
+  "status": "failed",
+  "acceptance_passed": false,
+  "transport_passed": false,
+  "real_node_passed": false,
+  "checks": [
+    {
+      "check": "host_proxy_dns_default_routes_unchanged",
+      "status": "passed",
+      "before_sha256": "36773d9589e8847dcab6bbae28dc1d261702b6e9d420fac839dcb0cb76ba88ac",
+      "after_sha256": "36773d9589e8847dcab6bbae28dc1d261702b6e9d420fac839dcb0cb76ba88ac"
+    }
+  ],
+  "host": {
+    "platform": "win32",
+    "python_architecture": "ARM64",
+    "pointer_bits": 64,
+    "windows_build": 26200,
+    "windows_product_type": 1,
+    "process_machine": 0,
+    "native_machine": 43620,
+    "python_pe_machine": 34404,
+    "acceptance_scope": "x64_on_arm_emulation"
+  },
+  "runtime_integrity": {
+    "versions": {
+      "mihomo": "v1.19.32",
+      "mxc": "1.0.0"
+    },
+    "verified_file_count": 13,
+    "manifest_verified": true,
+    "origin_verification": "Release ZIP external checksum must be verified separately."
+  },
+  "runtime_sha256": "8a6d1db4dd1846981127d9014741be18b094d07be967765dff6754bda1d40259",
+  "core_sha256": "04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314",
+  "probe": {
+    "supported": true,
+    "backend": "base-container",
+    "detail": "系统支持全拒绝网络隔离。应用启动前会检查代理通道及实际阻断。",
+    "limitations": [
+      "当前结果表示系统具备隔离能力；实际阻断还需在启动时检查。",
+      "仅从面板或快捷方式启动的实例受保护；启动检查失败就拒绝启动。",
+      "应用使用独立配置，代理通道吞吐可能低于普通代理。"
+    ]
+  },
+  "detail": "Acceptance failed during transport_fixture (UnsupportedRuntimeError).",
+  "failure_detail": "Failed to find real location of C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe\nTraceback (most recent call last):\n  File \"<string>\", line 33, in <module>\n    with socket.create_connection((\"127.0.0.1\", guest_port), timeout=3) as sock:\n         ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"socket.py\", line 874, in create_connection\n  File \"socket.py\", line 859, in create_connection\nPermissionError: [WinError 10013] An attempt was made to access a socket in a w"
+}

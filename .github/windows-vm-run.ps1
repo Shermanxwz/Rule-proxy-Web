@@ -6,7 +6,7 @@ $utf8 = New-Object Text.UTF8Encoding($false)
 $configuration = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'ruleproxy-vm-config.json') -Raw | ConvertFrom-Json
 $result = @{ status = 'failed'; ordinary_user = $false; phases = @(); reports = @{}; logs = @{} }
 
-function Invoke-LocalProgram([string] $Executable, [string[]] $Arguments, [string] $Log) {
+function Invoke-LocalProgram([string] $Executable, [string[]] $Arguments, [string] $Log, [int] $TimeoutSeconds) {
     $start = New-Object Diagnostics.ProcessStartInfo
     $start.FileName = $Executable
     $start.Arguments = ($Arguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' }) -join ' '
@@ -22,16 +22,13 @@ function Invoke-LocalProgram([string] $Executable, [string[]] $Arguments, [strin
         if (-not $process.Start()) { throw 'Could not create the project test process' }
         $stdout = $process.StandardOutput.ReadToEndAsync()
         $stderr = $process.StandardError.ReadToEndAsync()
-        if (-not $process.WaitForExit(900000)) {
-            # Kill only the test interpreter retained by this Process object.
-            # Any contained descendants remain in the disposable VM; the
-            # timeout is a hard failure, and no subsequent phase will start.
-            try {
-                $process.Kill()
-                $process.WaitForExit(10000) | Out-Null
-            } finally {
-                throw 'Project test process exceeded 15 minutes; its owned interpreter was stopped'
-            }
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            # The supervisor bounds each real test separately. This outer
+            # budget handles supervisor failure; only its held process is
+            # stopped, and the disposable VM is then shut down.
+            $process.Kill()
+            if (-not $process.WaitForExit(10000)) { throw 'Timed-out supervisor did not exit after termination' }
+            throw 'Guest phase supervisor exceeded its total budget; its owned interpreter was stopped'
         }
         $text = $stdout.Result + "`r`nSTDERR:`r`n" + $stderr.Result
         [IO.File]::WriteAllText($Log, $text, $utf8)
@@ -77,32 +74,27 @@ try {
     Expand-Archive -LiteralPath $packageZip -DestinationPath $packageDirectory -Force
     $package = Join-Path $packageDirectory 'RuleProxy-Web'
     $python = Join-Path $package 'python\python.exe'
-    $acceptance = Join-Path $workspace 'scripts\windows-acceptance.py'
-    foreach ($phase in @('probe', 'transport')) {
-        $report = Join-Path $PSScriptRoot ($phase + '.json')
-        $log = Join-Path $PSScriptRoot ($phase + '.log')
-        $option = if ($phase -eq 'probe') { '--probe-only' } else { '--transport-fixture' }
-        $code = Invoke-LocalProgram $python @('-X', 'utf8', '-B', $acceptance, '--root', $package, $option, '--report', $report) $log
-        $result.phases += @{ name = $phase; exit_code = $code }
-        $result.logs[$phase] = [IO.File]::ReadAllText($log)
-        if (Test-Path -LiteralPath $report) { $result.reports[$phase] = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json }
-        if ($code -ne 0) { throw ('Real Windows acceptance phase failed: ' + $phase + ', exit ' + $code) }
+    $supervisor = Join-Path $workspace '.github\windows_vm_test.py'
+    $report = Join-Path $PSScriptRoot 'guest-phases.json'
+    $log = Join-Path $PSScriptRoot 'supervisor.log'
+    if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report -Force }
+    $code = Invoke-LocalProgram $python @('-X', 'utf8', '-B', $supervisor, '--guest-phases', '--root', $package, '--workspace', $workspace, '--report', $report) $log 4200
+    if (-not (Test-Path -LiteralPath $report)) { throw 'Guest supervisor returned no report' }
+    if ((Get-Item -LiteralPath $report).Length -gt 4194304) { throw 'Guest supervisor report exceeded its size limit' }
+    $collected = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+    # Load failed reports too. A completed strict probe allows independent
+    # fixtures, while retained cleanup errors block new contained launches.
+    $result.phases = @($collected.phases)
+    $result.recovery_records = @($collected.recovery_records)
+    foreach ($property in $collected.reports.PSObject.Properties) { $result.reports[$property.Name] = $property.Value }
+    foreach ($property in $collected.logs.PSObject.Properties) { $result.logs[$property.Name] = $property.Value }
+    $result.logs['supervisor'] = [IO.File]::ReadAllText($log)
+    if ($code -eq 0 -and $collected.status -eq 'passed') {
+        $result.status = 'passed'
+    } else {
+        $result.error = [string] $collected.error
+        if (-not $result.error) { $result.error = 'Guest phase supervisor failed, exit ' + $code }
     }
-    $browser = Join-Path $workspace '.github\windows_browser_check.py'
-    $report = Join-Path $PSScriptRoot 'browser.json'
-    $log = Join-Path $PSScriptRoot 'browser.log'
-    $code = Invoke-LocalProgram $python @('-X', 'utf8', '-B', $browser, '--root', $package, '--report', $report) $log
-    $result.phases += @{ name = 'browser'; exit_code = $code }
-    $result.logs['browser'] = [IO.File]::ReadAllText($log)
-    if (Test-Path -LiteralPath $report) { $result.reports['browser'] = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json }
-    if ($code -ne 0) { throw ('Native Windows Edge fixture failed, exit ' + $code) }
-    $runner = Join-Path $workspace '.github\run_tests.py'
-    $log = Join-Path $PSScriptRoot 'tests.log'
-    $code = Invoke-LocalProgram $python @('-X', 'utf8', '-B', $runner, '--code', $package) $log
-    $result.phases += @{ name = 'package_tests'; exit_code = $code }
-    $result.logs['tests'] = [IO.File]::ReadAllText($log)
-    if ($code -ne 0) { throw 'Release package unit/integration tests failed' }
-    $result.status = 'passed'
 } catch {
     $result.status = 'failed'
     $result.error = $_.Exception.Message

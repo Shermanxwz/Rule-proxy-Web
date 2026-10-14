@@ -27,19 +27,34 @@ class WindowsVmTests(unittest.TestCase):
     def passed_result(self):
         return {
             "status": "passed", "ordinary_user": True,
-            "phases": [{"name": name, "exit_code": 0} for name in ("probe", "transport", "browser", "package_tests")],
+            "phases": [{"name": name, "status": "passed", "exit_code": 0} for name in vm.PHASE_NAMES],
             "reports": {
                 "probe": {"status": "supported_only", "probe": {"supported": True},
-                          "acceptance_passed": False, "real_node_passed": False, "transport_passed": False},
+                          "host": {"acceptance_scope": "native_x64", "native_machine": 0x8664,
+                                   "python_pe_machine": 0x8664}, "acceptance_passed": False,
+                          "real_node_passed": False, "transport_passed": False},
                 "transport": {"status": "transport_only", "transport_passed": True,
                               "acceptance_passed": False, "real_node_passed": False, "manager_core_loss_passed": False,
-                              "host": {"acceptance_scope": "native_x64"}, "checks": [
+                              "host": {"acceptance_scope": "native_x64", "native_machine": 0x8664,
+                                       "python_pe_machine": 0x8664}, "checks": [
                                   {"check": name, "status": "passed"} for name in (
                                       "transport_parent_child", "fixture_loss", "safe_psec_stop",
                                       "host_proxy_dns_default_routes_unchanged")]},
+                "manager": {"status": "manager_fixture_only", "manager_fixture_passed": True,
+                            "manager_normal_stop_passed": True, "manager_core_loss_passed": True,
+                            "test_only_endpoint_override": True, "acceptance_passed": False,
+                            "real_node_passed": False, "host": {"acceptance_scope": "native_x64",
+                                                                  "native_machine": 0x8664, "python_pe_machine": 0x8664},
+                            "checks": [{"check": name, "status": "passed", "parent_and_child_exited": True,
+                                        "held_handles_verified": True, "manager_active_removed": True,
+                                        "runtime_resources_closed": True, "manager_owned_core_stopped": True,
+                                        "manager_watcher_exercised": True}
+                                       for name in ("manager_normal_stop", "manager_core_loss")]
+                                      + [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}]},
                 "browser": {"status": "browser_fixture_only", "browser_fixture_passed": True,
                             "acceptance_passed": False, "real_node_passed": False,
-                            "host": {"acceptance_scope": "native_x64"}, "checks": [
+                            "host": {"acceptance_scope": "native_x64", "native_machine": 0x8664,
+                                     "python_pe_machine": 0x8664}, "checks": [
                                 {"check": name, "status": "passed", "dom_nonce_via_page_ack": True,
                                  "cookie_request_verified": True, "natural_headless_exit": True,
                                  "private_profile_reused": True}
@@ -69,10 +84,34 @@ class WindowsVmTests(unittest.TestCase):
         bad["reports"]["transport"]["real_node_passed"] = True
         cases.append(bad)
         bad = self.passed_result()
-        bad["phases"][3]["exit_code"] = 1
+        bad["phases"][4]["exit_code"] = 1
         cases.append(bad)
         bad = self.passed_result()
         bad["reports"]["browser"]["checks"][1]["private_profile_reused"] = False
+        cases.append(bad)
+        bad = self.passed_result()
+        bad["reports"]["manager"]["checks"][1]["manager_watcher_exercised"] = False
+        cases.append(bad)
+        bad = self.passed_result()
+        bad["reports"]["manager"]["test_only_endpoint_override"] = False
+        cases.append(bad)
+        bad = self.passed_result()
+        bad["reports"]["manager"]["checks"][0]["held_handles_verified"] = False
+        cases.append(bad)
+        bad = self.passed_result()
+        bad["reports"]["manager"]["checks"][0]["manager_owned_core_stopped"] = False
+        cases.append(bad)
+        bad = self.passed_result()
+        bad["reports"]["probe"]["host"]["acceptance_scope"] = "emulated_x64_on_arm64"
+        cases.append(bad)
+        bad = self.passed_result()
+        bad["reports"]["manager"]["cleanup_error"] = "OSError"
+        cases.append(bad)
+        bad = self.passed_result()
+        bad["phases"][1]["status"] = "blocked"
+        cases.append(bad)
+        bad = self.passed_result()
+        bad["reports"]["manager"]["host"]["native_machine"] = 0xAA64
         cases.append(bad)
         for result in cases:
             with self.subTest(result=result), self.assertRaises(RuntimeError):
@@ -131,6 +170,7 @@ class WindowsVmTests(unittest.TestCase):
         self.assertTrue(server.received.wait(2))
         vm.verify_result(server.result)
         self.assertEqual(json.loads((self.root / "windows-transport.json").read_text()), result["reports"]["transport"])
+        self.assertEqual(json.loads((self.root / "windows-manager.json").read_text()), result["reports"]["manager"])
         self.assertEqual((self.root / "guest-tests.log").read_text(), result["logs"]["tests"])
 
     def test_unavailable_kvm_refuses_download_and_records_failed_acceptance(self):
@@ -144,6 +184,7 @@ class WindowsVmTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertFalse(result["full_acceptance_passed"])
         self.assertFalse(result["transport_passed"])
+        self.assertFalse(result["manager_fixture_passed"])
         self.assertFalse(result["browser_fixture_passed"])
         self.assertEqual(json.loads((self.root / "windows-vm-summary.json").read_text()), result)
 
@@ -168,6 +209,119 @@ class WindowsVmTests(unittest.TestCase):
             (self.root / "efi/microsoft/boot/efisys.bin").unlink()
             with self.assertRaisesRegex(RuntimeError, "official Windows UEFI"):
                 vm.validate_install_tree(self.root)
+
+    def guest_control_workspace(self, overrides=None):
+        """Real child interpreters test orchestration; they do not simulate PSEC proof."""
+        workspace = self.root / "workspace"
+        control = {name: {"report": report} for name, report in self.passed_result()["reports"].items()}
+        control["package_tests"] = {}
+        for name, changes in (overrides or {}).items():
+            control[name].update(changes)
+        workspace.mkdir()
+        (workspace / "fixture-control.json").write_text(json.dumps(control), encoding="utf-8")
+        script = '''import json, sys, time
+from pathlib import Path
+workspace = Path(__file__).resolve().parent.parent
+if Path(__file__).name == 'run_tests.py':
+    name = 'package_tests'
+elif Path(__file__).name == 'windows_browser_check.py':
+    name = 'browser'
+else:
+    name = 'probe' if '--probe-only' in sys.argv else ('manager' if '--manager-fixture' in sys.argv else 'transport')
+configuration = json.loads((workspace / 'fixture-control.json').read_text(encoding='utf-8'))[name]
+with (workspace / 'executed.txt').open('a', encoding='utf-8') as output:
+    output.write(name + '\\n')
+print(name + ' child interpreter ran', flush=True)
+if configuration.get('log_bytes'):
+    print('x' * configuration['log_bytes'], flush=True)
+time.sleep(configuration.get('delay', 0))
+if 'report' in configuration and not configuration.get('skip_report'):
+    Path(sys.argv[sys.argv.index('--report') + 1]).write_text(json.dumps(configuration['report']), encoding='utf-8')
+raise SystemExit(configuration.get('exit_code', 0))
+'''
+        for relative in ("scripts/windows-acceptance.py", ".github/windows_browser_check.py", ".github/run_tests.py"):
+            path = workspace / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(script, encoding="utf-8")
+        return workspace
+
+    def test_failed_transport_collects_manager_browser_and_package_results(self):
+        failed = {"status": "failed", "acceptance_passed": False, "real_node_passed": False,
+                  "failure_detail": "contained listener rejected the socket"}
+        workspace = self.guest_control_workspace({"transport": {"exit_code": 1, "report": failed}})
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), list(vm.PHASE_NAMES))
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual([phase["status"] for phase in result["phases"]],
+                         ["passed", "failed", "passed", "passed", "passed"])
+        self.assertEqual(result["reports"]["transport"], failed)
+        self.assertEqual(result["recovery_records"], [])
+        self.assertIn("manager child interpreter ran", result["logs"]["manager"])
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(dict(result, ordinary_user=True))
+
+    def test_failed_probe_blocks_contained_fixtures_but_runs_package_tests(self):
+        workspace = self.guest_control_workspace({"probe": {"exit_code": 3, "report": {
+            "status": "unsupported", "probe": {"supported": False}, "acceptance_passed": False,
+            "real_node_passed": False, "transport_passed": False}}})
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe", "package_tests"])
+        self.assertEqual([phase["status"] for phase in result["phases"]],
+                         ["failed", "blocked", "blocked", "blocked", "passed"])
+        self.assertEqual(result["status"], "failed")
+
+    def test_pending_cleanup_preserves_recovery_and_blocks_new_containers(self):
+        recovery = self.root / "retained-guard"
+        recovery.mkdir()
+        marker = recovery / "guard.json"
+        marker.write_text("Retained recovery metadata")
+        failed = {"status": "failed", "acceptance_passed": False, "real_node_passed": False,
+                  "cleanup_error": "ChildIdentityUnproven", "recovery_directory": str(recovery)}
+        workspace = self.guest_control_workspace({"transport": {"exit_code": 1, "report": failed}})
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe", "transport", "package_tests"])
+        self.assertEqual(result["phases"][2]["status"], "blocked")
+        self.assertEqual(result["phases"][3]["status"], "blocked")
+        self.assertEqual(result["recovery_records"][0]["recovery_directory"], str(recovery))
+        self.assertEqual(result["recovery_records"][0]["cleanup_error"], "ChildIdentityUnproven")
+        self.assertFalse(result["recovery_records"][0]["descendant_cleanup_proven"])
+        self.assertEqual(marker.read_text(), "Retained recovery metadata")
+
+    def test_timeout_blocks_new_containers_and_keeps_unit_test_independent(self):
+        workspace = self.guest_control_workspace({"transport": {"delay": 20}})
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports", phase_timeout=3)
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe", "transport", "package_tests"])
+        self.assertTrue(result["phases"][1]["timed_out"])
+        self.assertIsNotNone(result["phases"][1]["exit_code"])
+        self.assertFalse(result["recovery_records"][0]["descendant_cleanup_proven"])
+        self.assertEqual(result["phases"][4]["status"], "passed")
+
+    def test_stale_report_cannot_pass_and_phase_log_is_bounded(self):
+        workspace = self.guest_control_workspace({"transport": {"skip_report": True},
+                                                  "package_tests": {"log_bytes": vm.MAX_PHASE_RECORD_BYTES + 100}})
+        reports = self.root / "reports"
+        reports.mkdir()
+        (reports / "transport.json").write_text(json.dumps(self.passed_result()["reports"]["transport"]))
+        result = vm.run_guest_phases(self.root / "release", workspace, reports)
+        self.assertEqual(result["phases"][1]["status"], "failed")
+        self.assertNotIn("transport", result["reports"])
+        self.assertFalse((reports / "transport.json").exists())
+        self.assertEqual(result["phases"][2]["status"], "blocked")
+        self.assertIn("truncated", result["logs"]["tests"])
+        self.assertLess(len(result["logs"]["tests"]), vm.MAX_PHASE_RECORD_BYTES + 100)
+
+    def test_guest_cli_emits_all_phase_results_without_claiming_user_proof(self):
+        workspace = self.guest_control_workspace()
+        report = self.root / "reports/guest-phases.json"
+        with mock.patch("builtins.print"):
+            code = vm.main(["--guest-phases", "--root", str(self.root / "release"),
+                            "--workspace", str(workspace), "--report", str(report)])
+        self.assertEqual(code, 0)
+        result = json.loads(report.read_text())
+        self.assertNotIn("ordinary_user", result)
+        vm.verify_result(dict(result, ordinary_user=True))
+        self.assertEqual(len(result["phases"]), 5)
+        self.assertEqual(result["recovery_records"], [])
 
 
 if __name__ == "__main__":

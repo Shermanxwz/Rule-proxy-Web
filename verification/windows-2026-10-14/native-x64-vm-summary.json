@@ -1,0 +1,21 @@
+{
+  "status": "failed",
+  "full_acceptance_passed": false,
+  "real_node_passed": false,
+  "transport_passed": false,
+  "browser_fixture_passed": false,
+  "iso": {
+    "url": "https://software-static.download.prss.microsoft.com/dbazure/26300.9457.260913-1737.26h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_en-us.iso",
+    "sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+    "download_page": "https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise",
+    "hash_source": "https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file",
+    "evaluation_days": 90,
+    "verified": true
+  },
+  "kvm_api_version": 12,
+  "package_sha256": "bbc46e4531fdeead0458fd09bdc0ed0d068d50d2d96990a218fe193bccc919d7",
+  "free_disk_bytes_before": 91678793728,
+  "installer_boot_image": "efi/microsoft/boot/efisys_noprompt.bin",
+  "qemu_kvm_enabled": true,
+  "error": "RuntimeError: Guest tests failed: Real Windows acceptance phase failed: transport, exit 1"
+}

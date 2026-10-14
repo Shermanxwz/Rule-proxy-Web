@@ -1,9 +1,13 @@
+import json
+import socket
+import subprocess
 import sys
 import tempfile
 import threading
 import unittest
 from contextlib import ExitStack
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from ruleproxy import file_bridge, windows_guest
@@ -112,6 +116,123 @@ class WindowsGuestTests(unittest.TestCase):
         decision.side_effect = approve
         self.assertEqual(windows_guest.run(Path("config")), 70)
         popen.assert_not_called()
+
+    @staticmethod
+    def probe_report(scope, *, proxy_ok=True):
+        proxy = "proxy_self" if scope == "parent" else "proxy_parent"
+        return {"scope": scope, "pid": 123 if scope == "parent" else 456,
+                "checks": {proxy: {"ok": proxy_ok, "code": "ok" if proxy_ok else 10013},
+                           "own_loopback": {"ok": True, "code": "ok"},
+                           **{name: {"ok": True, "code": 10013} for name in windows_guest._DENY_PROBES}}}
+
+    def test_failed_proxy_does_not_suppress_same_pid_or_five_denial_probes(self):
+        for scope in ("parent", "child"):
+            with self.subTest(scope=scope), \
+                    mock.patch.object(windows_guest, "_proxy_roundtrip", side_effect=OSError(10013, "localized text")), \
+                    mock.patch.object(windows_guest, "_same_process_loopback") as own, \
+                    mock.patch.object(windows_guest, "_socket_attempt", side_effect=OSError(10013, "localized text")) as direct:
+                report = windows_guest._run_network_probes(scope, 19001, 19002)
+            proxy = "proxy_self" if scope == "parent" else "proxy_parent"
+            self.assertEqual(report["checks"][proxy], {"ok": False, "code": 10013})
+            self.assertTrue(report["checks"]["own_loopback"]["ok"])
+            own.assert_called_once()
+            self.assertEqual(direct.call_count, 5)
+            self.assertTrue(all(report["checks"][name]["ok"] for name in windows_guest._DENY_PROBES))
+
+    def test_parent_and_child_results_are_persisted_before_any_failure_rejects(self):
+        parent, child = self.probe_report("parent", proxy_ok=False), self.probe_report("child", proxy_ok=False)
+        directory = Path(self.temp.name)
+        with mock.patch.object(windows_guest, "_run_network_probes", return_value=parent), \
+                mock.patch.object(windows_guest, "_nested_network_report", return_value=child):
+            with self.assertRaises(RuntimeError) as raised:
+                windows_guest._child_self_check(19001, 19002, directory, "a" * 64)
+        detail = str(raised.exception)
+        self.assertLessEqual(len(detail), 600)
+        self.assertIn("parent(self-proxy=fail:10013,own-loop=ok)", detail)
+        self.assertIn("child(parent-proxy=fail:10013,own-loop=ok)", detail)
+        self.assertIn("deny 10/10", detail)
+        raw = (directory / "network-probe.json").read_bytes()
+        self.assertLessEqual(len(raw), windows_guest._MAX_PROBE_OUTPUT_BYTES)
+        report = json.loads(raw)
+        self.assertEqual(set(report), {"nonce", "parent", "child", "aux"})
+        self.assertEqual(report["parent"], parent)
+        self.assertEqual(report["child"], child)
+
+    def test_aggregated_loopback_failure_never_signals_ready_or_starts_application(self):
+        actual_check = windows_guest._child_self_check
+        parent, child = self.probe_report("parent"), self.probe_report("child", proxy_ok=False)
+        status, check, ready, decision, popen = self.helper_setup(self.running_bridge)
+        check.side_effect = actual_check
+        with mock.patch.object(windows_guest, "_run_network_probes", return_value=parent), \
+                mock.patch.object(windows_guest, "_nested_network_report", return_value=child):
+            self.assertEqual(windows_guest.run(Path("config")), 70)
+        ready.assert_not_called()
+        decision.assert_not_called()
+        popen.assert_not_called()
+        self.assertEqual(status.call_args.args[2], "FAILED")
+        self.assertIn("child(parent-proxy=fail:10013,own-loop=ok)", status.call_args.args[3])
+        self.assertIn("deny 10/10", status.call_args.args[3])
+
+    def test_auxiliary_ipv6_success_never_overrides_a_required_proxy_failure(self):
+        parent, child = self.probe_report("parent", proxy_ok=False), self.probe_report("child")
+        directory = Path(self.temp.name)
+        with mock.patch.object(windows_guest, "_run_network_probes", return_value=parent), \
+                mock.patch.object(windows_guest, "_nested_network_report", return_value=child), \
+                mock.patch.object(windows_guest, "_same_process_loopback") as own:
+            with self.assertRaisesRegex(RuntimeError, "self-proxy=fail:10013.*parent-ipv6-loop=ok"):
+                windows_guest._child_self_check(19001, 19002, directory, "a" * 64)
+        own.assert_called_once_with(socket.AF_INET6)
+        report = json.loads((directory / "network-probe.json").read_bytes())
+        self.assertEqual(report["aux"], {"parent_ipv6_loopback": {"ok": True, "code": "ok"}})
+        self.assertFalse(report["parent"]["checks"]["proxy_self"]["ok"])
+        self.assertEqual(len(report["parent"]["checks"]) + len(report["child"]["checks"]), 14)
+
+    def test_all_fourteen_checks_must_pass_before_gate_returns(self):
+        parent, child = self.probe_report("parent"), self.probe_report("child")
+        child["checks"]["ipv6_udp"] = {"ok": False, "code": 10047}
+        with mock.patch.object(windows_guest, "_run_network_probes", return_value=parent), \
+                mock.patch.object(windows_guest, "_nested_network_report", return_value=child):
+            with self.assertRaisesRegex(RuntimeError, "deny 9/10.*c.6udp=10047"):
+                windows_guest._child_self_check(19001, 19002)
+            child["checks"]["ipv6_udp"] = {"ok": True, "code": 10013}
+            result = windows_guest._child_self_check(19001, 19002)
+        self.assertEqual(len(result["parent"]["checks"]) + len(result["child"]["checks"]), 14)
+
+    def test_allowed_direct_and_route_errors_are_never_policy_denial_evidence(self):
+        self.assertEqual(windows_guest._probe(lambda: None, deny=True), {"ok": False, "code": "allowed"})
+        for code in (10047, 10051, 10060):
+            with self.subTest(code=code):
+                def route_error():
+                    raise OSError(code, "must not appear in diagnostics")
+                self.assertEqual(windows_guest._probe(route_error, deny=True), {"ok": False, "code": code})
+
+    def test_own_process_listener_roundtrip_closes_its_probe_thread(self):
+        windows_guest._same_process_loopback()
+        self.assertFalse(any(thread.name == "ruleproxy-own-loopback-probe" and thread.is_alive()
+                             for thread in threading.enumerate()))
+
+    def test_nested_output_is_bounded_and_rejects_false_positive_denials(self):
+        valid = self.probe_report("child")
+        self.assertEqual(windows_guest._validated_child_report(json.dumps(valid)), valid)
+        valid["checks"]["ipv4_tcp"] = {"ok": True, "code": "allowed"}
+        with self.assertRaises(ValueError):
+            windows_guest._validated_child_report(json.dumps(valid))
+        for output in ("localized traceback with private path", "x" * (windows_guest._MAX_PROBE_OUTPUT_BYTES + 1)):
+            with self.subTest(output_length=len(output)), \
+                    mock.patch.object(windows_guest.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=output)):
+                child = windows_guest._nested_network_report(19001, 19002)
+                self.assertTrue(all(item == {"ok": False, "code": "invalid_report"}
+                                    for item in child["checks"].values()))
+
+    def test_child_timeout_is_short_structured_failure_without_locale_traceback(self):
+        with mock.patch.object(windows_guest.subprocess, "run", side_effect=subprocess.TimeoutExpired(
+                ["command with private path"], 20, stderr="localized traceback")):
+            child = windows_guest._nested_network_report(19001, 19002)
+        summary = windows_guest._probe_summary(self.probe_report("parent"), child)
+        self.assertIn("child_timeout", summary)
+        self.assertNotIn("private", summary)
+        self.assertNotIn("localized", summary)
+        self.assertLessEqual(len(summary), 600)
 
 
 if __name__ == "__main__":
