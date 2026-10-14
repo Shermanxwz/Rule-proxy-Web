@@ -203,6 +203,30 @@ class WindowsAcceptanceTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     acceptance.validate_connect_response(response)
 
+    def test_udp_acceptance_and_runtime_use_the_same_fixed_query_and_denial_rule(self):
+        from ruleproxy import windows_guest
+        self.assertEqual(acceptance._UDP_PROBE_DATAGRAM, windows_guest._UDP_PROBE_DATAGRAM)
+        for family, address in ((socket.AF_INET, ("1.1.1.1", 53)),
+                                (socket.AF_INET6, ("2606:4700:4700::1111", 53, 0, 0))):
+            for outcome in (len(acceptance._UDP_PROBE_DATAGRAM), 0,
+                            len(acceptance._UDP_PROBE_DATAGRAM) - 1,
+                            OSError(10013, "denied"), OSError(10051, "unreachable"), TimeoutError()):
+                with self.subTest(family=family, outcome=str(outcome)), mock.patch("socket.socket") as factory:
+                    connection = factory.return_value.__enter__.return_value
+                    if isinstance(outcome, Exception):
+                        connection.sendto.side_effect = outcome
+                    else:
+                        connection.sendto.return_value = outcome
+                    if isinstance(outcome, OSError) and outcome.errno == 10013:
+                        result = acceptance.denied(family, socket.SOCK_DGRAM, address, "fixed_udp")
+                        self.assertEqual(result, {"check": "fixed_udp", "status": "passed", "socket_error": 10013})
+                    else:
+                        with self.assertRaises(RuntimeError):
+                            acceptance.denied(family, socket.SOCK_DGRAM, address, "fixed_udp")
+                connection.sendto.assert_called_once_with(acceptance._UDP_PROBE_DATAGRAM, address)
+                connection.connect.assert_not_called()
+                factory.assert_called_once_with(family, socket.SOCK_DGRAM)
+
     def test_manager_socks_fixture_accepts_only_fixed_destination_and_fin_payload(self):
         fixture = acceptance.FixedSocksFixture()
         self.addCleanup(fixture.close)

@@ -100,6 +100,11 @@ def make_payload(package: Path, destination: Path) -> str:
             for path in sorted((ROOT / folder).rglob("*")):
                 if path.is_file() and path.suffix in (".py", ".xml", ".ps1") and "__pycache__" not in path.parts:
                     archive.write(path, path.relative_to(ROOT).as_posix())
+        # Manager/server tests import this public example as source data.
+        # Include the exact fixture instead of adding arbitrary YAML files or
+        # checkout product code alongside the separately verified release.
+        relative = "examples/ruleproxy.example.yaml"
+        archive.write(ROOT / relative, relative)
     return digest(destination)
 
 

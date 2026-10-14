@@ -14,7 +14,7 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 项目固定的 MXC 1.0.0 官方文档将 BaseContainer 列为 Windows 11 25H2+（内部版本 `26600+`）能力，并要求启用 PSEC 系统契约。MXC 主分支的更新支持表与固定版本不同；版本号达标也不能保证支持，最终必须通过本机针对完整策略的请求级能力检查：[系统支持表](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)。
 
-当前开发分支已在真实 Windows 11 原生 x64（26300）及 ARM（26200）上运行严格策略：请求级检查通过，但隔离子进程连接容器内代理端口被系统拒绝（`WinError 10013`），应用因此拒绝启动。尚未解决这一阻塞，不能将 0.2.2 作为 Windows 可用版本发布；详细证据见下方验证范围。
+当前开发分支已在真实 Windows 11 原生 x64（26300）及 ARM（26200）上运行严格策略：请求级检查通过，但父子两代的同进程 IPv4 回环、子进程到父进程代理入口，以及父进程 IPv6 回环检查均被系统拒绝（`WinError 10013`），应用因此拒绝启动。尚未解决这一阻塞，不能将 0.2.2 作为 Windows 可用版本发布；见 [2026-10-15 实测证据](verification/windows-2026-10-15/source.json)。
 
 1. 从 [Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases/latest) 下载 `RuleProxy-Web-<版本>-windows-x64.zip`。运行包自带 Python、PyYAML、Mihomo 和 MXC，不需要另外安装。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”。不解除的话，启动面板和点快捷方式时可能每次都弹出安全提示。
@@ -122,7 +122,7 @@ Ubuntu 专用 bwrap 使用官方 `bwrap-userns-restrict` 思路。Chromium 系�
 
 Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `base-container`。采用 Model 3：外部出站、入站以及宿主回环全部拒绝，没有运行时网络代理例外，也不接受其他隔离层级的回退。设计要求应用与代理中继在同一容器内通过内部回环通信，但当前实测系统拒绝了这一连接，尚未满足启动条件。中继通过有大小与连接数限制的文件通道交换字节，宿主中继只能连接固定的本机 Mihomo 入口。
 
-真实应用启动前，先用隔离内的测试子进程检查内部代理通道、直连与宿主回环阻断；宿主还会检查无法连入容器监听器。检查失败就拒绝启动，不回退。这个通道不提供任意目的地址、宿主命令执行或系统网络设置接口；吞吐可能低于普通代理。
+真实应用启动前，隔离内的父子进程分别检查内部代理通道、直连与宿主回环阻断；宿主还会检查无法连入容器监听器。检查失败就拒绝启动，不回退。这个通道不提供任意目的地址、宿主命令执行或系统网络设置接口；吞吐可能低于普通代理。
 
 策略只作用于新容器及子进程。生命周期由 MXC / 系统管理；本工具不安装旧版的全机 WFP 断网守卫。MXC 自带的运行时恢复机制属于该组件的生命周期管理。
 
@@ -157,7 +157,11 @@ Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中�
 
 2026-10-14 的 [真实 Windows 检查](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38590783322) 对应提交 `cc67b0080d6ba30683fc31c58ed31847bdf4bd6e`：四个 Linux 任务、Windows 源码及运行包任务通过；Windows 11 ARM 26200 与原生 x64 26300 的 BaseContainer 请求级检查均通过，但隔离子进程连接容器内代理端口均报 `WinError 10013`。原生 x64 使用校验后的微软官方评估镜像及普通用户，排除了仅 ARM 仿真的解释。两种环境的测试前后宿主代理、DNS、默认路由摘要相同。校验过的报告副本与来源摘要保存在 [verification/windows-2026-10-14](verification/windows-2026-10-14/source.json)。
 
-上述通道检查在代理连接处提前失败，后续直连阻断、浏览器、真实节点与生命周期验收未完成，不能据此宣称通过。文件中继、启动门控和规则目标重写虽有单元测试覆盖，**Windows 应用兼容性、实际网络阻断及异常退出清理仍未通过完整实测，不能称为已封存或已实测零泄漏**。请求级能力可用也不代表内部代理通道可用；实际自检失败始终拒绝启动。
+2026-10-15 的 [独立诊断检查](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38597150240) 对应提交 `431e15d18ed5c750b547bdaa25c6c4070eb97b92`：ARM 26200 的 x64 模拟运行和普通用户下的原生 x64 26300 均通过能力检查，但父子两代的同进程 IPv4 回环、子进程到父进程代理入口及父进程 IPv6 回环均返回 `10013`。十项外部与宿主阻断检查独立执行，ARM 有 4 项、原生 x64 有 6 项取得明确拒绝证据。空 UDP 的 `sendto` 成功未证明数据包到达或泄漏，也不能作为阻断成功证据；ARM 的 IPv6 路由错误 `10051` 同样不能代替策略拒绝。两种系统的宿主代理、DNS、默认路由摘要保持一致，没有清理或恢复错误。九份原始报告与普通用户会话摘要保存在 [verification/windows-2026-10-15](verification/windows-2026-10-15/source.json)。
+
+该轮通道、Manager/Mihomo 和浏览器检查分别尝试后，均在应用启动前被同一自检拒绝。原生 VM 的运行包单元测试执行 215 项，出现 9 个错误、44 项跳过；9 个错误均因 VM 测试载荷漏带 `examples/ruleproxy.example.yaml`，不能归为产品回归。补齐载荷的效果以修复提交对应的 CI 为准。当前固定 MXC 1.0.0 契约中未发现保持出站、入站及宿主回环全部拒绝的内部 TCP 回环开关；未测试的更高 Windows 构建不能作为可用性依据，也不能据此断言所有 Windows 版本均不可行。
+
+文件中继、启动门控和规则目标重写虽有单元测试覆盖，**Windows 应用兼容性、实际网络阻断及异常退出清理仍未通过完整实测，不能称为已封存或已实测零泄漏**。请求级能力可用也不代表内部代理通道可用；实际自检失败始终拒绝启动。
 
 本机数据独立于旧版目录：Windows `%LOCALAPPDATA%\RuleProxyWebSafe`；Linux `$XDG_DATA_HOME/ruleproxy-web-safe`（默认 `~/.local/share/ruleproxy-web-safe`）。核心日志为该目录的 `core.log`，Linux 应用错误为对应 `profiles/<id>/runtime.log`。删除项目程序不会留下全机断网规则；删除数据前先正常关闭面板。
 

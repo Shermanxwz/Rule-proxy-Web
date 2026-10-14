@@ -21,6 +21,11 @@ _MAX_CONFIG_BYTES = 128 * 1024
 _MAX_COMMAND_ARGS = 128
 _MAX_COMMAND_TEXT = 16_384
 _SOCKET_CHECK_TIMEOUT = 1.5
+# Fixed DNS query: ruleproxy.invalid IN A, recursion disabled, no user data.
+_UDP_PROBE_DATAGRAM = (
+    b"\x52\x50\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+    b"\x09ruleproxy\x07invalid\x00\x00\x01\x00\x01"
+)
 _BRIDGE_READY_TIMEOUT = 10.0
 _HOST_DECISION_TIMEOUT = 45.0
 
@@ -95,7 +100,7 @@ _CHILD_PROBE_TIMEOUT = 20.0
 _SELF_CHECK_BUDGET = 22.0
 _MAX_PROBE_OUTPUT_BYTES = 8192
 _DENY_PROBES = ("host_loopback", "ipv4_tcp", "ipv6_tcp", "ipv4_udp", "ipv6_udp")
-_PROBE_CODES = frozenset({"ok", "allowed", "timeout", "reply", "io", "error", "cleanup",
+_PROBE_CODES = frozenset({"ok", "allowed", "timeout", "reply", "io", "error", "cleanup", "short_send",
                           "child_timeout", "child_start", "child_exit", "invalid_report"})
 
 
@@ -193,8 +198,9 @@ def _socket_attempt(family: int, kind: int, address: tuple) -> None:
     with socket.socket(family, kind) as connection:
         connection.settimeout(_SOCKET_CHECK_TIMEOUT)
         if kind == socket.SOCK_DGRAM:
-            # Exercise ALE_AUTH_CONNECT with an empty UDP datagram.
-            connection.sendto(b"", address)
+            # Attempt a complete nonempty datagram; only WSAEACCES proves denial.
+            if connection.sendto(_UDP_PROBE_DATAGRAM, address) != len(_UDP_PROBE_DATAGRAM):
+                raise _ProbeFailure("short_send")
         else:
             # TCP connect transmits SYN setup only, never application payload.
             connection.connect(address)

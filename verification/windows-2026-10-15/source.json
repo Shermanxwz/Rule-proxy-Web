@@ -1,0 +1,190 @@
+{
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "431e15d18ed5c750b547bdaa25c6c4070eb97b92",
+  "workflow_run": 38597150240,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38597150240",
+  "recorded_at_utc": "2026-10-14T16:53:37+00:00",
+  "status": "blocked",
+  "full_acceptance_passed": false,
+  "real_node_passed": false,
+  "release_published": false,
+  "artifact_archives": [
+    {
+      "id": 11912625478,
+      "name": "windows-11-probe",
+      "sha256": "e65e51820136b0a1d6b49bcc49d2fc788490fabeb1427e647f42f61ba15cd610",
+      "checksum_verified_before_copy": true
+    },
+    {
+      "id": 11913218509,
+      "name": "windows-11-x64-validation",
+      "sha256": "92122128696445fc17c276b396d80fc594cb361ce8fe470bb2b9e5c1b1d59c0f",
+      "checksum_verified_before_copy": true
+    }
+  ],
+  "tested_package": {
+    "name": "RuleProxy-Web-0.2.2-windows-x64.zip",
+    "sha256": "9793dd8ad7d23be364b7f65509845722c2b8f57bc15d5eabb2016499edb2d086",
+    "bytes": 48112786,
+    "checksum_verified": true,
+    "matches_ci_build": true,
+    "scope": "Package built for commit 431e15d; later documentation rebuilds have different hashes."
+  },
+  "observed_results": {
+    "arm": {
+      "windows_build": 26200,
+      "execution_scope": "x64_on_arm_emulation",
+      "probe_supported": true,
+      "probe_backend": "base-container",
+      "parent_ipv4_self_proxy": 10013,
+      "parent_ipv4_own_loopback": 10013,
+      "child_ipv4_parent_proxy": 10013,
+      "child_ipv4_own_loopback": 10013,
+      "parent_ipv6_own_loopback": 10013,
+      "direct_and_host_denials_passed": 4,
+      "direct_and_host_denials_required": 10,
+      "ipv6_tcp_udp": 10051,
+      "ipv4_zero_length_udp_call": "returned_success; packet_delivery_not_established"
+    },
+    "native_x64": {
+      "windows_build": 26300,
+      "execution_scope": "native_x64",
+      "ordinary_user": true,
+      "probe_supported": true,
+      "probe_backend": "base-container",
+      "parent_ipv4_self_proxy": 10013,
+      "parent_ipv4_own_loopback": 10013,
+      "child_ipv4_parent_proxy": 10013,
+      "child_ipv4_own_loopback": 10013,
+      "parent_ipv6_own_loopback": 10013,
+      "direct_and_host_denials_passed": 6,
+      "direct_and_host_denials_required": 10,
+      "ipv4_and_ipv6_zero_length_udp_calls": "returned_success; packet_delivery_not_established",
+      "kvm_enabled": true,
+      "official_iso_checksum_verified": true
+    },
+    "transport_manager_browser": "independently attempted; all rejected before application startup by the same network self-check",
+    "host_proxy_dns_default_routes_unchanged": true,
+    "cleanup_or_recovery_errors_observed": false,
+    "recovery_records": []
+  },
+  "vm_package_unit_tests": {
+    "tests": 215,
+    "errors": 9,
+    "skipped": 44,
+    "cause": "VM test payload omitted examples/ruleproxy.example.yaml",
+    "errors_establish_product_regression": false,
+    "suite_passed": false,
+    "payload_fix_and_ci_rerun_required": true
+  },
+  "strict_source_analysis": {
+    "mxc_version": "1.0.0",
+    "tag_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "container_local_tcp_switch_exposed": false,
+    "compatible_validated_alternative_found": false,
+    "untested_higher_windows_build_claimed_supported": false
+  },
+  "limitations": [
+    "Passing request probes did not establish a usable contained TCP proxy channel.",
+    "Own-PID and parent/child IPv4 loopback, plus parent IPv6 own-loopback, were refused with WSAEACCES 10013 on these two builds.",
+    "The ten external/host denial checks ran independently. Successful empty UDP sendto calls do not establish packet delivery or leakage; ordinary routing errors do not establish policy denial.",
+    "Host-to-guest loopback checks were not reached because guest startup failed.",
+    "Real application compatibility, Edge rendering/cookies, Manager descendant stop/core-loss acceptance, real proxy nodes, HTTPS origins, login sessions, and downloads were not validated.",
+    "No AppContainer/DACL fallback, host-loopback allowance, runtime proxy peer exemption, or global host network mutation was introduced.",
+    "No compliant container-local TCP switch was found in the fixed MXC 1.0.0 public contract/source; behavior on untested higher Windows builds is not established.",
+    "The nine VM package-suite errors came from an omitted test fixture; they cannot be classified as product regressions, and the corrected harness must be rerun."
+  ],
+  "evidence_files": [
+    {
+      "name": "arm-probe.json",
+      "sha256": "1895984e320930236e0752b653293e86f1d6f84955c19a7dbdf63b37b4fbfc6f",
+      "bytes": 1922,
+      "artifact_id": 11912625478,
+      "source_member": "windows-11-probe.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "arm-transport.json",
+      "sha256": "62fad31b29199f21b34d3f47523755a40999eae4f1b0c6e0a0d56011a7f28656",
+      "bytes": 2486,
+      "artifact_id": 11912625478,
+      "source_member": "windows-11-transport.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "arm-manager.json",
+      "sha256": "583f616e3ed6b125690198e28f4b237d8b0473d5e46b8df04ce65585e6e12623",
+      "bytes": 2718,
+      "artifact_id": 11912625478,
+      "source_member": "windows-11-manager.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "arm-browser.json",
+      "sha256": "522a7352ece7da14a1e1d93471f24b49dadbd137002213843a354863142b6db4",
+      "bytes": 2290,
+      "artifact_id": 11912625478,
+      "source_member": "windows-browser.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-probe.json",
+      "sha256": "0df5d497c0a42955e32ab13a7a80ad0629ad1b1a48c935d83151b6c7dc90a5ea",
+      "bytes": 1869,
+      "artifact_id": 11913218509,
+      "source_member": "windows-probe.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-transport.json",
+      "sha256": "2d5fd491c5c3d52407c6dbb8bad1ab5f7d0f5c239b91aa7414202a1f296a7c68",
+      "bytes": 2403,
+      "artifact_id": 11913218509,
+      "source_member": "windows-transport.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-manager.json",
+      "sha256": "c54d9e4350ec498a3076c4c4b10207833355f5921cd84276844cb2ff432a0c4e",
+      "bytes": 2631,
+      "artifact_id": 11913218509,
+      "source_member": "windows-manager.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-browser.json",
+      "sha256": "970a3d8e7b77d75adc840ea4a6bffec65efd686035a2b90f39fee08943d238e9",
+      "bytes": 2208,
+      "artifact_id": 11913218509,
+      "source_member": "windows-browser.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-vm-summary.json",
+      "sha256": "68b030fc218a1b3687d65d403a1d76cfffc187c5dcef83d8010659f4afb8354e",
+      "bytes": 2206,
+      "artifact_id": 11913218509,
+      "source_member": "windows-vm-summary.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-session.json",
+      "sha256": "7220fbf6b49f98b692b5cf3503f420ae190f7160068aa318c303286168e4085d",
+      "bytes": 1309,
+      "artifact_id": 11913218509,
+      "source_member": "guest-result.json",
+      "source_sha256": "04c0e0c8d9c93d473d8262f350183493f820013448bd089e9c8b3859645ba672",
+      "copy_format": "whitelist summary only: status, ordinary_user, user, os, phases, recovery_records; reports and logs excluded"
+    }
+  ],
+  "report_copy_format": "Nine original report JSON files are copied byte-for-byte; guest-result uses the documented whitelist summary.",
+  "excluded_from_archive": [
+    "raw guest-result reports/logs",
+    "test logs",
+    "screenshots",
+    "artifact ZIP files",
+    "VM media/disks",
+    "temporary credentials",
+    "signed download URLs"
+  ]
+}

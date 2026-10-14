@@ -49,6 +49,12 @@ RUNTIME_VERSIONS = {"mihomo": "v1.19.32", "mxc": "1.0.0"}
 RUNTIME_REQUIRED_FILES = frozenset({"mihomo.exe", "wxc-exec.exe", "mxc_ffi.dll",
                                     "MIHOMO-LICENSE", "MXC-LICENSE.md"})
 NETWORK_SNAPSHOT_TIMEOUT = 120
+# Kept standalone for the profile's -I -S child; tested against windows_guest.
+# Fixed DNS query: ruleproxy.invalid IN A, recursion disabled, no user data.
+_UDP_PROBE_DATAGRAM = (
+    b"\x52\x50\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+    b"\x09ruleproxy\x07invalid\x00\x00\x01\x00\x01"
+)
 
 
 def verify_runtime_manifest(root: Path) -> dict[str, str]:
@@ -143,8 +149,8 @@ def denied(family: int, kind: int, address: tuple, name: str) -> dict:
         with socket.socket(family, kind) as connection:
             connection.settimeout(2)
             if kind == socket.SOCK_DGRAM:
-                # An empty datagram exercises ALE_AUTH_CONNECT without payload.
-                connection.sendto(b"", address)
+                if connection.sendto(_UDP_PROBE_DATAGRAM, address) != len(_UDP_PROBE_DATAGRAM):
+                    raise RuntimeError(f"{name}: UDP probe did not send its complete fixed datagram")
             else:
                 connection.connect(address)
     except OSError as exc:

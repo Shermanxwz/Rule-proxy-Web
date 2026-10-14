@@ -143,6 +143,27 @@ class WindowsVmTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             vm.verify_package(path, vm.digest(path))
 
+    def test_payload_contains_public_source_fixture_and_preserves_release_code_origin(self):
+        package = self.root / "release.zip"
+        with zipfile.ZipFile(package, "w") as archive:
+            archive.writestr("RuleProxy-Web/ruleproxy/__init__.py", "release-only product code")
+        payload = self.root / "payload.zip"
+        self.assertEqual(vm.make_payload(package, payload), vm.digest(payload))
+        with zipfile.ZipFile(payload) as archive:
+            names = set(archive.namelist())
+            self.assertEqual(archive.read("package.zip"), package.read_bytes())
+            self.assertEqual(archive.read("examples/ruleproxy.example.yaml"),
+                             (ROOT / "examples/ruleproxy.example.yaml").read_bytes())
+            self.assertTrue({"tests/test_manager_server.py", "scripts/windows-acceptance.py",
+                             ".github/run_tests.py", ".github/windows_vm_test.py",
+                             ".github/windows_browser_check.py", ".github/build_windows_package.py",
+                             ".github/windows-vm-run.ps1", ".github/windows-vm-setup.ps1",
+                             ".github/windows-vm-unattend.xml"} <= names)
+            self.assertEqual({name for name in names if name.endswith((".yaml", ".yml"))},
+                             {"examples/ruleproxy.example.yaml"})
+            self.assertFalse(any(name.startswith(("ruleproxy/", "vendor/", "RuleProxy-Web/")) for name in names))
+            self.assertNotIn("Run-RuleProxy.py", names)
+
     def test_local_result_endpoint_requires_its_nonce_and_preserves_guest_reports(self):
         payload = self.root / "payload.zip"
         payload.write_bytes(b"public test payload")

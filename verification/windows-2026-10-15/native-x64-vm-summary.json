@@ -1,0 +1,64 @@
+{
+  "status": "failed",
+  "full_acceptance_passed": false,
+  "real_node_passed": false,
+  "transport_passed": false,
+  "manager_fixture_passed": false,
+  "browser_fixture_passed": false,
+  "iso": {
+    "url": "https://software-static.download.prss.microsoft.com/dbazure/26300.9457.260913-1737.26h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_en-us.iso",
+    "sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+    "download_page": "https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise",
+    "hash_source": "https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file",
+    "evaluation_days": 90,
+    "verified": true
+  },
+  "kvm_api_version": 12,
+  "package_sha256": "9793dd8ad7d23be364b7f65509845722c2b8f57bc15d5eabb2016499edb2d086",
+  "free_disk_bytes_before": 91678687232,
+  "installer_boot_image": "efi/microsoft/boot/efisys_noprompt.bin",
+  "qemu_kvm_enabled": true,
+  "phase_results": [
+    {
+      "name": "probe",
+      "status": "passed",
+      "exit_code": 0,
+      "interpreter_started": true,
+      "elapsed_seconds": 1.5
+    },
+    {
+      "name": "transport",
+      "status": "failed",
+      "exit_code": 1,
+      "interpreter_started": true,
+      "error": "RuntimeError: transport exited with status 1",
+      "elapsed_seconds": 18.2
+    },
+    {
+      "name": "manager",
+      "status": "failed",
+      "exit_code": 1,
+      "interpreter_started": true,
+      "error": "RuntimeError: manager exited with status 1",
+      "elapsed_seconds": 21.9
+    },
+    {
+      "name": "browser",
+      "status": "failed",
+      "exit_code": 1,
+      "interpreter_started": true,
+      "error": "RuntimeError: browser exited with status 1",
+      "elapsed_seconds": 15.3
+    },
+    {
+      "name": "package_tests",
+      "status": "failed",
+      "exit_code": 1,
+      "interpreter_started": true,
+      "error": "RuntimeError: package_tests exited with status 1",
+      "elapsed_seconds": 72.1
+    }
+  ],
+  "recovery_records": [],
+  "error": "RuntimeError: Guest tests failed: Guest phases failed or were blocked: transport, manager, browser, package_tests"
+}

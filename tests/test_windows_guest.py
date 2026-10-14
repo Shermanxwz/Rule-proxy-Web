@@ -1,5 +1,6 @@
 import json
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -205,6 +206,53 @@ class WindowsGuestTests(unittest.TestCase):
                 def route_error():
                     raise OSError(code, "must not appear in diagnostics")
                 self.assertEqual(windows_guest._probe(route_error, deny=True), {"ok": False, "code": code})
+
+    def test_udp_probe_reaches_a_real_listener_as_one_fixed_dns_query(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.settimeout(2)
+            result = windows_guest._probe(
+                lambda: windows_guest._socket_attempt(socket.AF_INET, socket.SOCK_DGRAM,
+                                                      listener.getsockname()), deny=True)
+            packet, _peer = listener.recvfrom(512)
+        self.assertEqual(result, {"ok": False, "code": "allowed"})
+        self.assertEqual(len(packet), 35)
+        self.assertEqual(struct.unpack("!6H", packet[:12]), (0x5250, 0, 1, 0, 0, 0))
+        labels, offset = [], 12
+        while packet[offset]:
+            length = packet[offset]
+            labels.append(packet[offset + 1:offset + 1 + length])
+            offset += length + 1
+        self.assertEqual(labels, [b"ruleproxy", b"invalid"])
+        self.assertEqual(struct.unpack("!HH", packet[offset + 1:]), (1, 1))
+
+    def test_udp_probe_requires_full_datagram_and_only_access_denial_passes(self):
+        cases = (
+            (len(windows_guest._UDP_PROBE_DATAGRAM), {"ok": False, "code": "allowed"}),
+            (0, {"ok": False, "code": "short_send"}),
+            (len(windows_guest._UDP_PROBE_DATAGRAM) - 1, {"ok": False, "code": "short_send"}),
+            (OSError(10013, "denied"), {"ok": True, "code": 10013}),
+            (OSError(10051, "unreachable"), {"ok": False, "code": 10051}),
+            (TimeoutError(), {"ok": False, "code": "timeout"}),
+        )
+        for family, address in ((socket.AF_INET, ("1.1.1.1", 53)),
+                                (socket.AF_INET6, ("2606:4700:4700::1111", 53, 0, 0))):
+            for outcome, expected in cases:
+                with self.subTest(family=family, expected=expected), mock.patch("socket.socket") as factory:
+                    connection = factory.return_value.__enter__.return_value
+                    if isinstance(outcome, Exception):
+                        connection.sendto.side_effect = outcome
+                    else:
+                        connection.sendto.return_value = outcome
+                    result = windows_guest._probe(
+                        lambda: windows_guest._socket_attempt(family, socket.SOCK_DGRAM, address), deny=True)
+                self.assertEqual(result, expected)
+                connection.sendto.assert_called_once_with(windows_guest._UDP_PROBE_DATAGRAM, address)
+                connection.connect.assert_not_called()
+                factory.assert_called_once_with(family, socket.SOCK_DGRAM)
+        child = self.probe_report("child")
+        child["checks"]["ipv4_udp"] = {"ok": False, "code": "short_send"}
+        self.assertEqual(windows_guest._validated_child_report(json.dumps(child)), child)
 
     def test_own_process_listener_roundtrip_closes_its_probe_thread(self):
         windows_guest._same_process_loopback()
