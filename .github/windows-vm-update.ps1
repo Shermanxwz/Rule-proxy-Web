@@ -40,6 +40,20 @@ function Test-UpdateFilename($Name) {
             $Name -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]*\.msu$' -and -not $Name.Contains('..'))
 }
 
+function Get-UpdateSHA256($Path) {
+    # Streaming .NET hashing also works in Windows PowerShell 5 launched from
+    # PS7, where inherited module paths can hide the FileHash script cmdlet.
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = $null
+    try {
+        $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+        return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '')
+    } finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+        $algorithm.Dispose()
+    }
+}
+
 function Read-UpdateManifest($Directory) {
     $null = Assert-UpdateFile $Directory -Directory
     $path = Join-Path $Directory 'update-manifest.json'
@@ -72,7 +86,7 @@ function Read-UpdateManifest($Directory) {
         $seen[$key] = $true
         $packagePath = Join-Path $packageDirectory $package.filename
         $null = Assert-UpdateFile $packagePath
-        $actual = (Get-FileHash -LiteralPath $packagePath -Algorithm SHA256).Hash
+        $actual = Get-UpdateSHA256 $packagePath
         if ($actual -cne $package.sha256.ToUpperInvariant()) { throw 'update_package_hash_mismatch' }
     }
     if (-not $seen.ContainsKey($manifest.target_package.ToLowerInvariant())) { throw 'update_target_not_verified' }
@@ -223,6 +237,10 @@ function Invoke-RuleProxyCIUpdate {
         $state.status, $state.completed, $state.reboot_required = 'failed', $false, $false
         $message = $_.Exception.Message
         $state.error = if ($message -cmatch '^update_[A-Za-z0-9_]+$') { $message } else { 'update_worker_error' }
+        $detail = ($message -replace '[\x00-\x1f\x7f]', ' ')
+        $state.error_detail = $detail.Substring(0, [Math]::Min(400, $detail.Length))
+        $state.error_type = $_.Exception.GetType().Name
+        $state.error_line = [int]$_.InvocationInfo.ScriptLineNumber
         if ($trustedDirectory) {
             try { Remove-UpdateTask; $state.task_unregistered = $true } catch { }
             try { Write-UpdateState $state } catch { }

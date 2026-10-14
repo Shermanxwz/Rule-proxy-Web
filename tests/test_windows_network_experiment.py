@@ -143,7 +143,66 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         runtime = SimpleNamespace(_WinProcessApi=lambda: api, _raw_handle=lambda value: value)
         wrapper = SimpleNamespace(pid=40, _handle=101)
         with self.assertRaisesRegex(RuntimeError, "verified workload descendant"):
-            experiment.retain_actor_handles(runtime, wrapper, [{"pid": 42}, {"pid": 43}])
+            experiment.retain_actor_handles(runtime, wrapper,
+                                            [{"pid": 42, "process_created": 100},
+                                             {"pid": 43, "process_created": 100}])
+        self.assertEqual({call.args[0] for call in api.close.call_args_list}, {201, 202})
+
+    def attestation_fixture(self, children, *, living=None, created=None):
+        api = mock.Mock()
+        times = {101: 90, 201: 100, 202: 110, 203: 120}
+        times.update(created or {})
+        api.process_creation_time.side_effect = times.__getitem__
+        api.direct_children.side_effect = [[(42, 201)], children]
+        api.process_alive.side_effect = lambda handle: (living or {}).get(handle, True)
+        runtime = SimpleNamespace(_WinProcessApi=lambda: api, _raw_handle=lambda value: value)
+        wrapper = SimpleNamespace(pid=40, _handle=101)
+        reports = [{"pid": 42, "process_created": 100}, {"pid": 43, "process_created": 110}]
+        return api, runtime, wrapper, reports
+
+    def test_completed_pipe_helper_is_excluded_only_by_its_signaled_held_handle(self):
+        api, runtime, wrapper, reports = self.attestation_fixture(
+            [(43, 202), (10368, 203)], living={203: False})
+        diagnostic = {}
+        held_api, handles = experiment.retain_actor_handles(runtime, wrapper, reports, diagnostic)
+        self.assertIs(held_api, api)
+        self.assertEqual(handles, [(42, 201), (43, 202)])
+        api.close.assert_called_once_with(203)
+        self.assertTrue(diagnostic["attestation_passed"])
+        child = diagnostic["snapshots"][1]
+        self.assertEqual(child["returned_pids"], [43, 10368])
+        self.assertEqual(child["live_pids"], [43])
+        self.assertTrue(child["held_handle_generation_verified"])
+        self.assertEqual(child["children"][1], {"pid": 10368, "process_created": 120, "alive": False})
+
+    def test_extra_living_child_is_rejected_and_all_owned_handles_are_closed(self):
+        api, runtime, wrapper, reports = self.attestation_fixture([(43, 202), (44, 203)])
+        diagnostic = {}
+        with self.assertRaisesRegex(RuntimeError, "verified workload descendant"):
+            experiment.retain_actor_handles(runtime, wrapper, reports, diagnostic)
+        self.assertFalse(diagnostic["attestation_passed"])
+        self.assertEqual(diagnostic["snapshots"][1]["failure"], "unexpected_live_children")
+        self.assertEqual(diagnostic["snapshots"][1]["live_pids"], [43, 44])
+        self.assertEqual({call.args[0] for call in api.close.call_args_list}, {201, 202, 203})
+
+    def test_reported_child_that_exited_is_distinguished_from_an_extra_process(self):
+        api, runtime, wrapper, reports = self.attestation_fixture([(43, 202)], living={202: False})
+        diagnostic = {}
+        with self.assertRaisesRegex(RuntimeError, "verified workload descendant"):
+            experiment.retain_actor_handles(runtime, wrapper, reports, diagnostic)
+        self.assertEqual(diagnostic["snapshots"][1]["failure"], "reported_process_exited")
+        self.assertFalse(diagnostic["attestation_passed"])
+        self.assertEqual({call.args[0] for call in api.close.call_args_list}, {201, 202})
+        self.assertEqual(api.close.call_count, 2)
+
+    def test_reused_report_pid_with_a_new_process_generation_is_rejected(self):
+        api, runtime, wrapper, reports = self.attestation_fixture([(43, 202)], created={202: 111})
+        diagnostic = {}
+        with self.assertRaisesRegex(RuntimeError, "generation did not match"):
+            experiment.retain_actor_handles(runtime, wrapper, reports, diagnostic)
+        self.assertEqual(diagnostic["snapshots"][1]["failure"], "reported_process_generation_mismatch")
+        self.assertEqual(diagnostic["snapshots"][1]["children"][0]["process_created"], 111)
+        self.assertEqual(diagnostic["reported_child_created"], 110)
         self.assertEqual({call.args[0] for call in api.close.call_args_list}, {201, 202})
 
     def test_nested_recovery_stops_the_matrix_and_keeps_its_directory(self):

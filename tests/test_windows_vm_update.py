@@ -39,12 +39,13 @@ class WindowsVMUpdateManifestTests(unittest.TestCase):
                          'target_package': filename,
                          'packages': [{'filename': filename, 'sha256': hashlib.sha256(data).hexdigest()}]}
 
-    def validate(self, expected):
+    def validate(self, expected, *, hide_hash_cmdlet=False):
         (self.directory / 'update-manifest.json').write_text(json.dumps(self.manifest), encoding='utf-8')
         quote = lambda value: "'" + str(value).replace("'", "''") + "'"
         runner = self.directory / 'validate.ps1'
         # Dot sourcing only defines helpers: the SYSTEM entry point is guarded.
-        runner.write_text("$ErrorActionPreference='Stop'\n. " + quote(SCRIPT) +
+        prelude = "function Get-FileHash { throw 'hash_cmdlet_unavailable' }\n" if hide_hash_cmdlet else ''
+        runner.write_text("$ErrorActionPreference='Stop'\n. " + quote(SCRIPT) + '\n' + prelude +
                           "\ntry { $null = Read-UpdateManifest " + quote(self.directory) +
                           "; Write-Output 'valid' } catch { Write-Output $_.Exception.Message }\n", encoding='utf-8-sig')
         result = subprocess.run([POWERSHELL, '-NoProfile', '-NonInteractive', '-File', str(runner)],
@@ -53,7 +54,7 @@ class WindowsVMUpdateManifestTests(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), expected)
 
     def test_real_validator_accepts_exact_target_and_all_verified_packages(self):
-        self.validate('valid')
+        self.validate('valid', hide_hash_cmdlet=True)
 
     def test_real_validator_rejects_tampered_package(self):
         self.manifest['packages'][0]['sha256'] = '0' * 64

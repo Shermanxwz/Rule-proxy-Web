@@ -284,10 +284,15 @@ def import_project(root):
 
 
 def collect_actor_checks(config, role):
-    _, guest, _ = import_project(Path(config["root"]))
+    runtime, guest, _ = import_project(Path(config["root"]))
     port = config["endpoint_port"]
     record = guest._run_network_probes(role, port, config["host_tcp_ports"][0])
     record.update(parent_pid=os.getppid(), phase="initial")
+    api = runtime._WinProcessApi()
+    api.kernel32.GetCurrentProcess.argtypes = []
+    api.kernel32.GetCurrentProcess.restype = runtime.wintypes.HANDLE
+    record["process_created"] = api.process_creation_time(
+        runtime._raw_handle(api.kernel32.GetCurrentProcess()))
     for protocol in ("http", "socks"):
         record["checks"]["proxy_" + protocol] = guest._probe(
             lambda protocol=protocol: proxy_roundtrip(port, config["token"], protocol))
@@ -391,27 +396,69 @@ def wait_actor_reports(profile, wrapper, phase, *, timeout=ACTOR_WAIT_SECONDS):
     raise TimeoutError("Experimental actor reports timed out")
 
 
-def retain_actor_handles(runtime, wrapper, reports):
+def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
     api = runtime._WinProcessApi()
     entries = []
+    diagnostics = diagnostics if diagnostics is not None else {}
+    diagnostics.update(attestation_passed=False, wrapper_pid=wrapper.pid,
+                       reported_parent_pid=reports[0]["pid"], reported_child_pid=reports[1]["pid"],
+                       reported_parent_created=reports[0].get("process_created"),
+                       reported_child_created=reports[1].get("process_created"), snapshots=[])
+
+    def live_children(parent_pid, parent_created, report, scope):
+        candidates = api.direct_children(parent_pid, parent_created)
+        entries.extend(candidates)
+        snapshot = {"scope": scope, "parent_pid": parent_pid, "parent_created": parent_created,
+                    "returned_count": len(candidates), "returned_pids": [pid for pid, _ in candidates][:32],
+                    "diagnostics_truncated": len(candidates) > 32, "children": []}
+        diagnostics["snapshots"].append(snapshot)
+        alive = []
+        expected_exited = False
+        for pid, handle in candidates:
+            created = api.process_creation_time(handle)
+            living = api.process_alive(handle)
+            if len(snapshot["children"]) < 32:
+                snapshot["children"].append({"pid": pid, "process_created": created, "alive": living})
+            if created < parent_created:
+                snapshot["failure"] = "child_predates_verified_parent"
+                raise RuntimeError("A child process generation predates its verified parent")
+            if living:
+                alive.append((pid, handle, created))
+            else:
+                expected_exited = expected_exited or pid == report["pid"]
+                # A completed diagnostic may remain enumerable while Windows
+                # retains its process object. Only this held signaled HANDLE
+                # permits excluding it from the unique-live-child check.
+                api.close(handle)
+                entries.remove((pid, handle))
+        snapshot["live_count"] = len(alive)
+        snapshot["live_pids"] = [pid for pid, _, _ in alive][:32]
+        if len(alive) != 1 or alive[0][0] != report["pid"]:
+            snapshot["failure"] = ("reported_process_exited" if expected_exited else
+                "unexpected_live_children" if len(alive) > 1 else
+                "reported_process_absent_from_verified_snapshot")
+            detail = ("MXC's unique verified workload" if scope == "parent" else
+                      "the verified workload descendant")
+            raise RuntimeError(f"Reported {scope} was not {detail}; live PIDs={snapshot['live_pids']}")
+        _, _, created = alive[0]
+        if type(report.get("process_created")) is not int or report["process_created"] != created:
+            snapshot["failure"] = "reported_process_generation_mismatch"
+            raise RuntimeError(f"Reported {scope} process generation did not match its held HANDLE")
+        snapshot["held_handle_generation_verified"] = True
+        return alive[0][0], alive[0][1]
+
     try:
         parent_created = api.process_creation_time(runtime._raw_handle(wrapper._handle))
-        parents = api.direct_children(wrapper.pid, parent_created)
-        if len(parents) != 1 or parents[0][0] != reports[0]["pid"]:
-            for _, handle in parents:
-                api.close(handle)
-            raise RuntimeError("Reported parent was not MXC's unique verified workload")
-        entries.extend(parents)
-        child_entries = api.direct_children(parents[0][0], api.process_creation_time(parents[0][1]))
-        if len(child_entries) != 1 or child_entries[0][0] != reports[1]["pid"]:
-            for _, handle in child_entries:
-                api.close(handle)
-            raise RuntimeError("Reported child was not the verified workload descendant")
-        entries.extend(child_entries)
+        diagnostics["wrapper_created"] = parent_created
+        parent_pid, parent_handle = live_children(wrapper.pid, parent_created, reports[0], "parent")
+        live_children(parent_pid, api.process_creation_time(parent_handle), reports[1], "child")
         if not all(api.process_alive(handle) for _, handle in entries):
+            diagnostics["failure"] = "retained_actor_exited_after_verification"
             raise RuntimeError("A retained actor was no longer alive")
+        diagnostics["attestation_passed"] = True
         return api, entries
-    except BaseException:
+    except BaseException as exc:
+        diagnostics["error"] = f"{type(exc).__name__}: {exc}"[:700]
         for _, handle in entries:
             api.close(handle)
         raise
@@ -478,7 +525,8 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
             result.update(process_started=True, no_process_started=False, descendant_cleanup_proven=False)
             reports = wait_actor_reports(profile, wrapper, "initial", timeout=actor_budget)
             result["actors"] = reports
-            api, handles = retain_actor_handles(runtime, wrapper, reports)
+            result["actor_attestation"] = {}
+            api, handles = retain_actor_handles(runtime, wrapper, reports, result["actor_attestation"])
             if name != "model2_host":
                 try:
                     with socket.create_connection(("127.0.0.1", endpoint), timeout=1):
