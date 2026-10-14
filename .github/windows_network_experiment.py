@@ -288,6 +288,14 @@ def load_wire_helpers(path):
     return module
 
 
+def load_dns_session():
+    path = ROOT / ".github/windows_dns_session.py"
+    spec = importlib.util.spec_from_file_location("ruleproxy_experiment_dns_session", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def import_project(root):
     sys.path.insert(0, str(root))
     from ruleproxy import windows_runtime, windows_guest, file_bridge
@@ -320,6 +328,11 @@ def collect_actor_checks(config, role):
     if config.get("wire_probes"):
         wire = load_wire_helpers(config["wire_script"])
         record["wire_execution"] = wire.send_probes(config["wire_probes"], role)
+    if config.get("native_dns"):
+        native = config["native_dns"]
+        session = load_wire_helpers(native["session_script"])
+        record["native_dns"] = session.collect_calls(native, role,
+            Path(native["directory"]) / role, native["deadline"])
     return record
 
 
@@ -594,7 +607,7 @@ def pending_recovery(value):
     return False
 
 
-def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None):
+def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None, dns=None):
     profile.mkdir()
     result = {"name": name, "status": "not_run", "process_started": False,
               "no_process_started": True, "checks": []}
@@ -620,6 +633,8 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
                   "host_udp_ports": [sock.getsockname()[1] for sock in udp.sockets], "pipe_script": str(pipe_script)}
         if wire is not None:
             config.update(wire_probes=wire.for_variant(name), wire_script=str(ROOT / ".github/windows_wire_probe.py"))
+        if dns is not None:
+            config["native_dns"] = dns.actor_config(profile)
         if bridge is not None:
             config.update(bridge_directory=str(bridge.directory), bridge_nonce=bridge.nonce)
         write_json(config_path, config)
@@ -638,6 +653,11 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
         actor_budget = min(ACTOR_WAIT_SECONDS, deadline - time.monotonic() - 50)
         if actor_budget < 5:
             raise TimeoutError("Matrix budget cannot safely start another contained actor")
+        if dns is not None:
+            # One Windows monotonic clock is shared across these processes.
+            # Leave two seconds to publish/read both actors' bounded reports.
+            config["native_dns"]["deadline"] = time.monotonic() + actor_budget - 2
+            write_json(config_path, config)
         policy_file = profile / "policy.json"
         write_json(policy_file, policy)
         with (profile / "actor.log").open("wb") as output:
@@ -753,7 +773,7 @@ def main(arguments):
     result = {"status": "failed", "full_acceptance_passed": False, "acceptance_passed": False,
               "real_node_passed": False, "product_provider_changed": False, "cleanup_proven": False,
               "variants": [], "checks": []}
-    directory = fixtures = udp = wire = None
+    directory = fixtures = udp = wire = dns = None
     safe = True
     code = 1
     before = None
@@ -778,18 +798,34 @@ def main(arguments):
         if args.vm_config is not None:
             wire = load_wire_helpers(ROOT / ".github/windows_wire_probe.py").WireSession(args.vm_config, VARIANTS)
             wire.start()
+            if host.get("native_machine") == 0x8664:
+                dns = load_dns_session().DnsSession(directory / "native-dns-controls", phase_deadline)
         for name in VARIANTS:
             if phase_deadline - time.monotonic() < 30:
                 raise TimeoutError("Matrix budget was exhausted before the next experiment")
             if wire is not None:
                 wire.control(name, "outside_before")
+            preferred_dns = dns is not None and name == "model1_internal_ingress_deny"
+            if preferred_dns:
+                control = dns.control("outside_before", phase_deadline - 130)
+                result["native_dns_controls"] = dns.controls
+                if pending_recovery(control):
+                    safe = False
+                    result.update(cleanup_error="NativeDnsControlCleanupUnproven", recovery_directory=str(directory))
+                    break
             variant = run_variant(name, directory / name, root, runtime, helpers, fixtures, udp, pipe_script,
-                                  deadline=phase_deadline, **({"wire": wire} if wire is not None else {}))
+                                  deadline=phase_deadline, **({"wire": wire} if wire is not None else {}),
+                                  **({"dns": dns} if preferred_dns else {}))
             result["variants"].append(variant)
             if wire is not None:
                 wire.actors(variant)
-                wire.control(name, "outside_after")
-            if pending_recovery(variant):
+                if preferred_dns:
+                    dns.actors(variant)
+                    if not pending_recovery(variant) and dns.safe:
+                        dns.control("outside_after", phase_deadline - 50)
+                if not pending_recovery(variant) and (dns is None or dns.safe):
+                    wire.control(name, "outside_after")
+            if pending_recovery(variant) or (dns is not None and not dns.safe):
                 safe = False
                 result.update(cleanup_error=variant.get("cleanup_error", "NestedRecoveryPending"),
                               recovery_directory=str(directory))
@@ -801,6 +837,15 @@ def main(arguments):
     except Exception as exc:
         result["detail"] = f"{type(exc).__name__}: {exc}"[:700]
     finally:
+        if dns is not None:
+            if wire is not None:
+                wire.dns_observation = dns.finish_payload()
+            recovery = dns.close()
+            if recovery:
+                safe = False
+                result.update(status="failed", cleanup_error=recovery["cleanup_error"],
+                              recovery_directory=str(directory), cleanup_proven=False)
+                code = 1
         if wire is not None:
             try:
                 result["wire_observation"] = wire.finish()

@@ -10,11 +10,11 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 ### Windows
 
-要求 x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 全拒绝网络隔离能力。Windows 10 和旧版 Windows 11 的严格模式不可用。系统版本符合最低条件也可能缺少所需更新，面板会检查并拒绝不支持的启动。
+要求 x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 网络策略。Windows 10 和缺少所需接口的 Windows 11 不可用；面板会检查完整请求，并在不支持时拒绝启动。
 
-项目固定的 MXC 1.0.0 官方文档将 BaseContainer 列为 Windows 11 25H2+（内部版本 `26600+`）能力，并要求启用 PSEC 系统契约。MXC 主分支的更新支持表与固定版本不同；版本号达标也不能保证支持，最终必须通过本机针对完整策略的请求级能力检查：[系统支持表](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)。
+使用固定的 Microsoft MXC 1.0.0；最终以本机对完整策略的能力检查和实际启动检查为准，Windows 版本或更新编号不能单独保证支持。[官方系统支持说明](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)
 
-当前开发分支已在真实 Windows 11 原生 x64（26300）及 ARM（26200）上运行严格策略：请求级检查通过，但父子两代的同进程 IPv4 回环、子进程到父进程代理入口，以及父进程 IPv6 回环检查均被系统拒绝（`WinError 10013`），应用因此拒绝启动。尚未解决这一阻塞，不能将 0.2.2 作为 Windows 可用版本发布；见 [2026-10-15 实测证据](verification/windows-2026-10-15/source.json)。
+原有全拒绝策略曾阻断容器内代理连接。2026-10-15 的真实 Windows 11 ARM 实验已证明：只允许固定内部 TCP 代理端口，可让父子进程使用 HTTP / SOCKS，同时继续拒绝宿主回环和外部入站；宿主接管相同端口后仍无法访问。原生 x64、公网 UDP、系统 DNS 和真实应用完整验收仍在进行，0.2.2 尚不能作为 Windows 可用版本发布。[固定端口实验来源](verification/windows-2026-10-15/8c963b0/source.json)
 
 1. 从 [Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases/latest) 下载 `RuleProxy-Web-<版本>-windows-x64.zip`。运行包自带 Python、PyYAML、Mihomo 和 MXC，不需要另外安装。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”。不解除的话，启动面板和点快捷方式时可能每次都弹出安全提示。
@@ -120,7 +120,7 @@ Linux：每次启动创建独立网络和进程命名空间，没有上联网卡
 
 Ubuntu 专用 bwrap 使用官方 `bwrap-userns-restrict` 思路。Chromium 系应用在 Linux 启动时禁用与外层 `no_new_privs` 不兼容的 SUID helper 路径，保留浏览器自己的 user namespace 与 seccomp 沙箱；禁止 `--no-sandbox` 参数。浏览器内部沙箱若不能启动，应用启动失败，不会退回无沙箱模式。
 
-Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `base-container`。采用 Model 3：外部出站、入站以及宿主回环全部拒绝，没有运行时网络代理例外，也不接受其他隔离层级的回退。设计要求应用与代理中继在同一容器内通过内部回环通信，但当前实测系统拒绝了这一连接，尚未满足启动条件。中继通过有大小与连接数限制的文件通道交换字节，宿主中继只能连接固定的本机 Mihomo 入口。
+Windows：使用固定版本 Microsoft MXC 1.0.0，请求级检查必须返回 `base-container`。默认拒绝出站，仅允许 `127.0.0.1/32` 上本次启动的内部 TCP 代理端口；继续拒绝外部入站和宿主回环，不接受其它隔离层级的回退。应用与中继位于同一容器；中继通过有大小与连接数限制的文件通道交换字节，宿主中继只能连接固定的本机 Mihomo 入口。该改动仍使用原有 MXC / BaseContainer 体系。
 
 真实应用启动前，隔离内的父子进程分别检查内部代理通道、直连与宿主回环阻断；宿主还会检查无法连入容器监听器。检查失败就拒绝启动，不回退。这个通道不提供任意目的地址、宿主命令执行或系统网络设置接口；吞吐可能低于普通代理。
 
@@ -159,7 +159,7 @@ Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中�
 
 2026-10-15 的 [独立诊断检查](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38597150240) 对应提交 `431e15d18ed5c750b547bdaa25c6c4070eb97b92`：ARM 26200 的 x64 模拟运行和普通用户下的原生 x64 26300 均通过能力检查，但父子两代的同进程 IPv4 回环、子进程到父进程代理入口及父进程 IPv6 回环均返回 `10013`。十项外部与宿主阻断检查独立执行，ARM 有 4 项、原生 x64 有 6 项取得明确拒绝证据。空 UDP 的 `sendto` 成功未证明数据包到达或泄漏，也不能作为阻断成功证据；ARM 的 IPv6 路由错误 `10051` 同样不能代替策略拒绝。两种系统的宿主代理、DNS、默认路由摘要保持一致，没有清理或恢复错误。九份原始报告与普通用户会话摘要保存在 [verification/windows-2026-10-15](verification/windows-2026-10-15/source.json)。
 
-该轮通道、Manager/Mihomo 和浏览器检查分别尝试后，均在应用启动前被同一自检拒绝。原生 VM 的运行包单元测试执行 215 项，出现 9 个错误、44 项跳过；9 个错误均因 VM 测试载荷漏带 `examples/ruleproxy.example.yaml`，不能归为产品回归。补齐载荷的效果以修复提交对应的 CI 为准。当前固定 MXC 1.0.0 契约中未发现保持出站、入站及宿主回环全部拒绝的内部 TCP 回环开关；未测试的更高 Windows 构建不能作为可用性依据，也不能据此断言所有 Windows 版本均不可行。
+该轮通道、Manager/Mihomo 和浏览器检查分别尝试后，均在应用启动前被同一自检拒绝。原生 VM 的运行包单元测试执行 215 项，出现 9 个错误、44 项跳过；9 个错误均因 VM 测试载荷漏带 `examples/ruleproxy.example.yaml`，不能归为产品回归。补齐载荷的效果以修复提交对应的 CI 为准。该轮仅检查原 Model 3 全拒绝策略，没有检查后来已证明可用的精确内部端口允许规则，不能据此否定原 MXC 体系。
 
 提交 `959827f2135e83ecee07094e98bba06ab89e38db` 的 [再次检查](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38603037216) 已消除原生 VM 漏带 YAML 的 9 个错误。非空的固定 DNS 测试报文未改变网络门禁结果：内部 TCP 回环仍返回 `10013`，UDP 发送成功仍不证明到达或泄漏。原生运行包执行 219 项测试，出现 1 个错误、44 项跳过；剩余错误是未授权 POST 期望返回 `403`，客户端却收到连接中断。该问题的修复效果以对应提交的 CI 为准。[原始报告与来源](verification/windows-2026-10-15/959827f/source.json) 保留了该次失败和验证范围。
 

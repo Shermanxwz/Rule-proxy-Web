@@ -346,6 +346,9 @@ class WireCaptureController:
         spec = importlib.util.spec_from_file_location("ruleproxy_vm_packet_evidence", ROOT / ".github/windows_packet_evidence.py")
         self.packet = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.packet)
+        spec = importlib.util.spec_from_file_location("ruleproxy_vm_dns_evidence", ROOT / ".github/windows_dns_packet_evidence.py")
+        self.dns_packet = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.dns_packet)
 
     def incomplete(self, reason):
         return {"schema_version": 1, "status": "incomplete", "acceptance_passed": False,
@@ -400,46 +403,162 @@ class WireCaptureController:
             return False
 
     def execution_groups(self, value):
-        groups = {variant + "." + family: False for variant in WIRE_VARIANTS for family in ("ipv4", "ipv6")}
-        if set(value) != {"manifest", "execution", "actor_execution_attested"} or value["actor_execution_attested"] is not True:
-            return groups
         probes = value["manifest"]["probes"]
+        groups = {p["group"]: False for p in probes}
+        base_keys = {"manifest", "execution", "actor_execution_attested"}
+        version = value.get("execution_schema_version", 1)
+        if (type(version) is not int or version not in (1, 2)
+                or set(value) - {"dns"} != (base_keys if version == 1 else base_keys | {"execution_schema_version"})
+                or value["actor_execution_attested"] is not True
+                or len(probes) != (32 if version == 1 else 64)):
+            return groups
         execution = value["execution"]
-        if (len(probes) != 32 or not all(p["source_mac"].lower() == VM_NIC_MAC for p in probes)
-                or sum(p["family"] == "ipv4" for p in probes) != 16
-                or sum(p["family"] == "ipv6" for p in probes) != 16
-                or not isinstance(execution, list) or len(execution) > 32):
+        if not isinstance(execution, list) or len(execution) > len(probes):
             return groups
         expected = {p["id"]: p["role"] for p in probes}
         seen = {}
+        fields = {"id", "role", "attempted", "bind_succeeded", "api_accepted", "errno"}
+        booleans = {"attempted", "bind_succeeded", "api_accepted"}
+        if version == 2:
+            fields |= {"bind_attempted", "send_attempted"}
+            booleans |= {"bind_attempted", "send_attempted"}
         for item in execution:
-            if (not isinstance(item, dict) or set(item) != {"id", "role", "attempted", "bind_succeeded", "api_accepted", "errno"}
+            if (not isinstance(item, dict) or set(item) != fields
                     or not isinstance(item["id"], str) or item["id"] in seen
-                    or expected.get(item["id"]) != item["role"]
-                    or any(type(item[key]) is not bool for key in ("attempted", "bind_succeeded", "api_accepted"))
+                    or item["id"] not in expected or expected[item["id"]] != item["role"]
+                    or any(type(item[key]) is not bool for key in booleans)
                     or (item["errno"] is not None and type(item["errno"]) is not int)):
                 return groups
+            if version == 2:
+                unbound = item["id"].split(".")[1].endswith("_unbound")
+                if ((unbound and (item["bind_attempted"] or item["bind_succeeded"]))
+                        or (not unbound and item["bind_succeeded"] and not item["bind_attempted"])
+                        or (not unbound and item["send_attempted"] and not item["bind_succeeded"])
+                        or (item["api_accepted"] and (not item["send_attempted"] or item["errno"] is not None))
+                        or (not item["attempted"] and any(item[key] for key in booleans - {"attempted"}))):
+                    return groups
             seen[item["id"]] = item
         for group in groups:
             rows = [seen.get(p["id"]) for p in probes if p["group"] == group]
-            groups[group] = len(rows) == 4 and all(row is not None and row["attempted"] and row["bind_succeeded"] for row in rows)
+            if version == 1:
+                # The old sender recorded success after bind and then either
+                # the full send return or its OSError. Invalid marker/setup
+                # (-1) and a missing result cannot imply a send was reached.
+                groups[group] = len(rows) == 4 and all(row is not None and row["attempted"]
+                    and row["bind_succeeded"] and ((row["api_accepted"] and row["errno"] is None)
+                    or (not row["api_accepted"] and type(row["errno"]) is int and row["errno"] != -1)) for row in rows)
+            else:
+                groups[group] = len(rows) == 4 and all(row is not None and row["attempted"] and row["send_attempted"]
+                    and (not row["bind_attempted"] if group.endswith("_unbound") else row["bind_succeeded"])
+                    and row["errno"] != -1 for row in rows)
         return groups
 
     def fixed_manifest(self, manifest):
         if not isinstance(manifest, dict) or set(manifest) != {"schema_version", "probes"}:
             raise ValueError("capture_manifest_schema")
         self.packet.prepare_manifest(manifest)
-        expected = {f"{variant}.{family}.{role}" for variant in WIRE_VARIANTS
-                    for family in ("ipv4", "ipv6") for role in self.packet.ROLES}
         probes = manifest["probes"]
-        if len(probes) != 32 or {p["id"] for p in probes} != expected:
+        suffixes = ("",) if len(probes) == 32 else ("", "_unbound")
+        fixed_groups = {variant + "." + family + suffix for variant in WIRE_VARIANTS
+                        for family in ("ipv4", "ipv6") for suffix in suffixes}
+        expected = {group + "." + role for group in fixed_groups for role in self.packet.ROLES}
+        if len(probes) not in (32, 64) or {p["id"] for p in probes} != expected:
             raise ValueError("capture_manifest_fixed_probes")
+        if any(len({p["source_ip"] for p in probes if p["family"] == family}) != 1
+               for family in ("ipv4", "ipv6")):
+            raise ValueError("capture_manifest_fixed_route_source")
         for probe in probes:
             if (probe["id"] != probe["group"] + "." + probe["role"]
-                    or probe["group"] not in {variant + "." + probe["family"] for variant in WIRE_VARIANTS}
+                    or probe["group"] not in {variant + "." + probe["family"] + suffix
+                                              for variant in WIRE_VARIANTS for suffix in suffixes}
                     or probe["source_mac"].lower() != VM_NIC_MAC or probe["port"] != 53
                     or probe["destination"] != {"ipv4": "1.1.1.1", "ipv6": "2606:4700:4700::1111"}[probe["family"]]):
                 raise ValueError("capture_manifest_fixed_tuple")
+
+    def fixed_dns_manifest(self, manifest):
+        self.dns_packet.prepare_manifest(manifest)
+        preferred = "model1_internal_ingress_deny"
+        expected = {f"{preferred}.{api}.{role}" for api in self.dns_packet.APIS for role in self.dns_packet.ROLES}
+        probes = manifest["probes"]
+        if len(probes) != 12 or {p["id"] for p in probes} != expected:
+            raise ValueError("capture_dns_fixed_probes")
+        nonces = set()
+        for probe in probes:
+            group = preferred + "." + probe["api"]
+            if (probe["group"] != group or probe["id"] != group + "." + probe["role"]
+                    or (probe["api"] == "getaddrinfo" and "query_type" in probe)
+                    or (probe["api"] != "getaddrinfo" and probe.get("query_type") != (1 if probe["api"] == "dns_a" else 28))):
+                raise ValueError("capture_dns_fixed_api_scope")
+            nonces.add(probe["qname"].lower().split(".")[0])
+        if len(nonces) != 1:
+            raise ValueError("capture_dns_fixed_nonce")
+
+    def dns_execution_groups(self, value):
+        probes = value["manifest"]["probes"]
+        groups = {p["group"]: False for p in probes}
+        if (set(value) != {"manifest", "execution", "actor_execution_attested"}
+                or value["actor_execution_attested"] is not True
+                or not isinstance(value["execution"], list) or len(value["execution"]) > 12):
+            return groups
+        expected = {p["id"]: p for p in probes}
+        seen = {}
+        for row in value["execution"]:
+            if (not isinstance(row, dict) or not isinstance(row.get("id"), str)
+                    or row["id"] not in expected or row["id"] in seen
+                    or row.get("role") != expected[row["id"]]["role"]):
+                return groups
+            probe = expected[row["id"]]
+            valid = (row.get("api") == probe["api"] and row.get("requested_role") == probe["role"]
+                and isinstance(row.get("qname"), str)
+                and row["qname"].lower().removesuffix(".") == probe["qname"].lower().removesuffix(".")
+                and row.get("outcome") == "returned"
+                and all(row.get(key) is True for key in ("attempted", "entry_lease_published", "api_returned",
+                    "native_completion_proven", "worker_cleanup_proven", "worker_exit_verified", "worker_handle_closed",
+                    "records_released", "default_system_server_list"))
+                and all(row.get(key) is False for key in ("server_list_override", "dns_blocked_proven", "acceptance_passed"))
+                and all(type(row.get(key)) is int and 0 < row[key] <= limit
+                    for key, limit in (("pid", 0xFFFFFFFF), ("ppid", 0xFFFFFFFF), ("process_created", 0xFFFFFFFFFFFFFFFF)))
+                and type(row.get("worker_exit_code")) is int
+                and type(row.get("return_code")) is int and row["return_code"] not in (87, 123, 998, 10022, 9506)
+                and type(row.get("query_options")) is int
+                and row["query_options"] == (0 if probe["api"] == "getaddrinfo" else 0x108)
+                and not any(key in row for key in ("error", "setup_error", "cleanup_error", "cleanup_errors",
+                    "recovery_directory", "operation_pending", "no_process_started")))
+            if probe["api"] != "getaddrinfo":
+                valid &= (type(row.get("query_status")) is int
+                          and row["query_status"] not in (87, 123, 998, 10022, 9506))
+            seen[row["id"]] = valid
+        for group in groups:
+            groups[group] = all(seen.get(p["id"]) is True for p in probes if p["group"] == group)
+        return groups
+
+    def native_dns(self, value):
+        incomplete = {"schema_version": 1, "status": "incomplete", "scope": self.dns_packet.SCOPE,
+            "acceptance_passed": False, "kernel_denial_proven": False, "execution_proven": False,
+            "absence_observed": False, "contained_questions_absent": None, "capture_flushed": not self.active,
+            "error": "capture_native_dns_invalid_or_incomplete"}
+        try:
+            if not isinstance(value, dict) or "manifest" not in value:
+                return incomplete
+            self.fixed_dns_manifest(value["manifest"])
+            # No QNAME, PID, route address, private path or raw API record
+            # enters the artifact. Fixed group IDs and counts are sanitized.
+            result = self.dns_packet.analyze_capture(self.pcap, value["manifest"])
+            proof = self.dns_execution_groups(value)
+            for group in result["groups"]:
+                group["execution_proven"] = proof[group["id"]]
+                group["absence_observed"] = group["execution_proven"] and group["contained_questions_absent"] is True
+                if not group["execution_proven"]:
+                    group["contained_questions_absent"] = None
+            proven = all(proof.values())
+            result.update(execution_proven=proven, actor_execution_attested=value.get("actor_execution_attested") is True,
+                          packet_analysis_complete=result["status"] == "complete", capture_flushed=not self.active)
+            if not proven:
+                result.update(status="incomplete", absence_observed=False, contained_questions_absent=None,
+                              error="capture_native_dns_execution_incomplete")
+            return result
+        except Exception:
+            return incomplete
 
     def finish(self, value):
         with self.lock:
@@ -467,6 +586,8 @@ class WireCaptureController:
                 if not proven:
                     result.update(status="incomplete", absence_observed=False, contained_markers_absent=None,
                                   error="capture_sender_execution_incomplete")
+                if "dns" in value:
+                    result["native_dns"] = self.native_dns(value["dns"])
                 if not self.log_clean():
                     self.collection_error = True
                     result = self.incomplete("capture_qemu_log_error")

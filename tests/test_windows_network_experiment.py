@@ -323,6 +323,122 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertFalse(value["acceptance_passed"])
         self.assertFalse(value["real_node_passed"])
 
+    def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False):
+        helpers = mock.Mock()
+        helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
+        helpers.host_facts.return_value = {"native_machine": 0x8664, "python_pe_machine": 0x8664,
+                                          "acceptance_scope": "native_x64"}
+        if arm:
+            helpers.host_facts.return_value.update(native_machine=0xAA64, acceptance_scope="x64_on_arm_emulation")
+        helpers.network_snapshot.return_value = "unchanged"
+        helpers.HostFixtures.return_value = mock.Mock(threads=[])
+        wire = mock.Mock()
+        wire.finish.return_value = {"acceptance_passed": False, "kernel_denial_proven": False}
+        dns = mock.Mock(safe=True, controls=[])
+        dns.control.return_value = {"calls": [], "cleanup_proven": True}
+        dns.finish_payload.return_value = {"manifest": "private-fixed-manifest", "execution": [],
+                                           "actor_execution_attested": False}
+        dns.close.return_value = None
+        retained = self.directory / "private-work"
+        retained.mkdir()
+        self.addCleanup(shutil.rmtree, retained, True)
+        if fail_control:
+            dns.control.return_value = {"cleanup_proven": False, "cleanup_error": "NativeWorkerAlive",
+                                       "recovery_directory": str(retained)}
+
+        def variant(name, *_args, **kwargs):
+            result = {"name": name, "status": "observed", "process_started": True,
+                      "descendant_cleanup_proven": True, "resources_closed": True}
+            if name == "model1_internal_ingress_deny" and fail_actor:
+                result["actors"] = [{"scope": "parent", "native_dns": {"cleanup_proven": False,
+                    "cleanup_error": "NativeWorkerAlive", "recovery_directory": str(retained)}}]
+            return result
+
+        report = self.directory / "native-report.json"
+        with mock.patch.object(experiment, "load_helpers", return_value=helpers), \
+                mock.patch.object(experiment, "import_project", return_value=(mock.Mock(), None, None)), \
+                mock.patch.object(experiment, "DatagramObservers"), \
+                mock.patch.object(experiment.tempfile, "mkdtemp", return_value=str(retained)), \
+                mock.patch.object(experiment, "load_wire_helpers", return_value=SimpleNamespace(WireSession=lambda *args: wire)), \
+                mock.patch.object(experiment, "load_dns_session", return_value=SimpleNamespace(DnsSession=lambda *args: dns)), \
+                mock.patch.object(experiment, "run_variant", side_effect=variant) as launch, \
+                mock.patch("builtins.print"):
+            arguments = ["--root", str(self.directory), "--report", str(report),
+                         "--vm-config", str(self.directory / "private-config.json")]
+            if arm:
+                arguments.append("--allow-emulated-x64")
+            code = experiment.main(arguments)
+        return code, json.loads(report.read_text()), wire, dns, launch, retained
+
+    def test_native_dns_only_couples_to_preferred_variant_and_finish_payload_stays_separate(self):
+        code, result, wire, dns, launch, _ = self.native_dns_main_fixture()
+        self.assertEqual(code, 0)
+        self.assertEqual(launch.call_count, 4)
+        self.assertEqual([call.args[0] for call in dns.control.call_args_list], ["outside_before", "outside_after"])
+        for call in launch.call_args_list:
+            self.assertEqual("dns" in call.kwargs, call.args[0] == "model1_internal_ingress_deny")
+        wire.start.assert_called_once()
+        wire.finish.assert_called_once()
+        self.assertEqual(wire.dns_observation, dns.finish_payload.return_value)
+        self.assertTrue(result["cleanup_proven"])
+        self.assertFalse(result["acceptance_passed"])
+
+    def test_dns_control_cleanup_failure_blocks_preferred_and_all_next_contained_launches(self):
+        code, result, wire, dns, launch, retained = self.native_dns_main_fixture(fail_control=True)
+        self.assertEqual(code, 1)
+        self.assertEqual([call.args[0] for call in launch.call_args_list], ["model3"])
+        self.assertEqual(dns.control.call_count, 1)
+        wire.finish.assert_called_once()
+        self.assertFalse(result["cleanup_proven"])
+        self.assertTrue(retained.exists())
+
+    def test_actor_dns_recovery_prevents_after_query_and_new_policy_but_capture_finishes(self):
+        code, result, wire, dns, launch, retained = self.native_dns_main_fixture(fail_actor=True)
+        self.assertEqual(code, 1)
+        self.assertEqual([call.args[0] for call in launch.call_args_list], ["model3", "model1_internal_ingress_deny"])
+        self.assertEqual(dns.control.call_count, 1)
+        self.assertNotIn(mock.call("model1_internal_ingress_deny", "outside_after"), wire.control.call_args_list)
+        wire.finish.assert_called_once()
+        self.assertFalse(result["cleanup_proven"])
+        self.assertTrue(retained.exists())
+
+    def test_arm_experiments_keep_their_existing_scope_without_native_dns_queries(self):
+        code, result, wire, dns, launch, _ = self.native_dns_main_fixture(arm=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(launch.call_count, 4)
+        dns.control.assert_not_called()
+        dns.close.assert_not_called()
+        self.assertTrue(all("dns" not in call.kwargs for call in launch.call_args_list))
+        self.assertNotIn("native_dns_controls", result)
+        self.assertNotIn("dns_observation", wire.__dict__)
+
+    def test_actor_native_dns_collects_directly_in_its_owned_role_directory(self):
+        guest = mock.Mock()
+        guest._run_network_probes.return_value = {"scope": "parent", "pid": 1234, "checks": {}}
+        guest._probe.return_value = {"ok": True, "code": None}
+        runtime = mock.Mock(wintypes=SimpleNamespace(HANDLE=int))
+        runtime._raw_handle.return_value = 101
+        runtime._WinProcessApi.return_value.process_creation_time.return_value = 123456
+        native = mock.Mock()
+        observation = {"status": "incomplete", "calls": [], "cleanup_proven": True,
+                       "acceptance_passed": False, "dns_blocked_proven": False}
+        native.collect_calls.return_value = observation
+        config = {"root": str(self.directory), "endpoint_port": 12345,
+                  "host_tcp_ports": [23456, 34567], "host_udp_ports": [45678, 56789], "token": "fixed",
+                  "native_dns": {"session_script": str(self.directory / "session.py"),
+                                 "directory": str(self.directory / "role-workers"), "deadline": 1000,
+                                 "nonce": "a" * 32, "script": "fixed-native.py"}}
+        with mock.patch.object(experiment, "import_project", return_value=(runtime, guest, None)), \
+                mock.patch.object(experiment, "load_wire_helpers", return_value=native), \
+                mock.patch.object(experiment.subprocess, "run") as outer_timeout:
+            result = experiment.collect_actor_checks(config, "parent")
+        native.collect_calls.assert_called_once_with(config["native_dns"], "parent",
+            self.directory / "role-workers/parent", 1000)
+        outer_timeout.assert_not_called()
+        self.assertEqual(result["native_dns"], observation)
+        self.assertEqual(experiment.ACTOR_WAIT_SECONDS, 45)
+        self.assertEqual(experiment.MATRIX_PHASE_SECONDS, 440)
+
 
 if __name__ == "__main__":
     unittest.main()

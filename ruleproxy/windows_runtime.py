@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import socket
 import shutil
 import subprocess
@@ -619,9 +620,12 @@ def launch(
         _probe_request(runtime, policy)
         bridge = FileProxyBridge(host_proxy_port, bridge_dir)
         resources.bridge = bridge
+        resources.udp_fixture = _HostUDPFixture(bridge.nonce)
+        resources.udp_fixture.control_before()
         fixture.start()
         app_environment = _profile_environment(env, profile)
         guest_config = {
+            "schema_version": 1,
             "command": command,
             "env": app_environment,
             "profile": str(profile),
@@ -629,6 +633,7 @@ def launch(
             "bridge_directory": str(bridge.directory),
             "bridge_nonce": bridge.nonce,
             "host_fixture_port": fixture.port,
+            "host_udp_ports": list(resources.udp_fixture.ports),
         }
         config_path = Path(run_dir.name) / "guest-config.json"
         config_path.write_text(json.dumps(guest_config, ensure_ascii=False), encoding="utf-8")
@@ -653,11 +658,15 @@ def launch(
         if fixture.accepted.is_set():
             bridge.reject("guest reached a non-proxy host loopback fixture")
             raise UnsupportedRuntimeError("contained guest unexpectedly reached a host loopback listener")
+        report = _read_startup_report(bridge.directory, bridge.nonce)
+        resources.startup_diagnostics = report
+        resources.udp_observation = resources.udp_fixture.verify(report)
+        _write_host_approval(Path(run_dir.name), bridge.nonce)
         bridge.approve()
         if not _wait_for_status(bridge.directory, bridge.nonce, "APP_STARTED", process, 20):
             raise UnsupportedRuntimeError("contained helper did not confirm application startup")
         resources.detail = (
-            "已在 MXC BaseContainer 全拒绝策略中通过代理桥、直连阻断和回环隔离自检。应用与隔离助手共享此应用的配置目录；应用未支持的代理流量会连接失败。"
+            "已通过代理入口和本机隔离启动检查，使用独立应用配置。"
         )
         return process, resources
     except BaseException as exc:
@@ -666,9 +675,7 @@ def launch(
                 bridge.reject(str(exc)[:512])
             except Exception:
                 pass
-        if process is None:
-            resources.close()
-        else:
+        if process is not None:
             try:
                 process.wait(timeout=12)
             except subprocess.TimeoutExpired as wait_error:
@@ -679,7 +686,14 @@ def launch(
                 exc.process = process
                 exc.resource = resources
                 raise exc from wait_error
+        try:
             resources.close()
+        except Exception as cleanup_error:
+            resources.failed_process = process
+            resources.detail = str(exc)
+            cleanup_error.process = process
+            cleanup_error.resource = resources
+            raise cleanup_error from exc
         raise
 
 
@@ -751,6 +765,179 @@ class _HostLoopbackFixture:
             pass
         if self.thread:
             self.thread.join(timeout=1)
+            if self.thread.is_alive():
+                raise SafeStopError("host TCP fixture thread remained alive")
+
+
+def _read_startup_report(directory: Path, nonce: str) -> dict[str, Any]:
+    from . import windows_guest
+    path = Path(directory) / "network-probe.json"
+    try:
+        attrs = path.lstat()
+        if path.is_symlink() or getattr(attrs, "st_file_attributes", 0) & 0x400:
+            raise ValueError("startup report is a reparse point")
+        with path.open("rb") as stream:
+            raw = stream.read(windows_guest._MAX_PROBE_OUTPUT_BYTES + 1)
+        if not raw or len(raw) > windows_guest._MAX_PROBE_OUTPUT_BYTES:
+            raise ValueError("startup report size is invalid")
+        value = json.loads(raw.decode("ascii"), object_pairs_hook=windows_guest._json_object)
+        windows_guest._validate_startup_report(value, nonce)
+        if not value["config_readonly"]["ok"]:
+            raise ValueError("config readonly check failed")
+        if not all(item["ok"] for scope in (value["parent"], value["child"]) for item in scope["checks"].values()):
+            raise ValueError("mandatory startup checks failed")
+        return value
+    except (OSError, ValueError, TypeError, UnicodeError):
+        raise UnsupportedRuntimeError("contained startup report was invalid or incomplete") from None
+
+
+def _write_host_approval(directory: Path, nonce: str) -> None:
+    # This directory is mounted read-only in the PSEC policy. The app profile
+    # and its bridge files are writable, so they cannot alone authorize launch.
+    path = directory / "host-approval.json"
+    temporary = path.with_name(path.name + ".host-tmp")
+    with temporary.open("w", encoding="ascii", newline="") as stream:
+        json.dump({"schema_version": 1, "nonce": nonce, "state": "APPROVED"}, stream, separators=(",", ":"))
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+class _HostUDPFixture:
+    """Authoritative observation of two fixed host-local endpoints, no relay."""
+
+    CONTROL_TIMEOUT = 0.75
+    SETTLE_SECONDS = 0.2
+
+    def __init__(self, nonce: str) -> None:
+        from . import windows_guest
+        if not windows_guest._valid_nonce(nonce):
+            raise ValueError("invalid UDP fixture nonce")
+        self.nonce = nonce
+        self.sockets: list[socket.socket] = []
+        self.threads: list[threading.Thread] = []
+        self.closed = threading.Event()
+        self.lock = threading.Lock()
+        self.errors: list[str] = []
+        self.unknown = 0
+        self.counts = {(family, role): 0 for family in ("ipv4", "ipv6")
+                       for role in ("before", "parent", "child", "after")}
+        self.controls = {(family, role): threading.Event() for family in ("ipv4", "ipv6") for role in ("before", "after")}
+        self.markers = {}
+        self._before_complete = False
+        self._verified = False
+        control_secret = secrets.token_bytes(32)
+        try:
+            for family, address_family, host in (("ipv4", socket.AF_INET, "127.0.0.1"),
+                                                 ("ipv6", socket.AF_INET6, "::1")):
+                markers = {role: windows_guest._local_udp_marker(nonce, role, family) for role in ("parent", "child")}
+                markers.update({role: b"RuleProxy-control-v1\0" + control_secret + family.encode("ascii") + role.encode("ascii")
+                                for role in ("before", "after")})
+                self.markers[family] = markers
+                sock = socket.socket(address_family, socket.SOCK_DGRAM)
+                self.sockets.append(sock)
+                if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+                if address_family == socket.AF_INET6:
+                    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+                sock.bind((host, 0))
+                sock.settimeout(0.05)
+                thread = threading.Thread(target=self._observe, args=(family, sock),
+                                          name="RuleProxyUDP-" + family, daemon=True)
+                self.threads.append(thread)
+                thread.start()
+            self.ports = tuple(int(sock.getsockname()[1]) for sock in self.sockets)
+        except BaseException:
+            self.close()
+            raise
+
+    def _observe(self, family, sock):
+        while not self.closed.is_set():
+            try:
+                packet, _peer = sock.recvfrom(513)
+            except socket.timeout:
+                continue
+            except OSError:
+                if not self.closed.is_set():
+                    with self.lock:
+                        self.errors.append("receive_error")
+                return
+            role = next((name for name, marker in self.markers[family].items() if packet == marker), None)
+            with self.lock:
+                if role is None:
+                    self.unknown += 1
+                else:
+                    self.counts[family, role] += 1
+                    if role in {"before", "after"}:
+                        self.controls[family, role].set()
+
+    def _control(self, role):
+        if self.closed.is_set() or any(not thread.is_alive() for thread in self.threads):
+            raise UnsupportedRuntimeError("host UDP observer was not live")
+        deadline = time.monotonic() + self.CONTROL_TIMEOUT
+        for family, sock in zip(("ipv4", "ipv6"), self.sockets):
+            host = "127.0.0.1" if family == "ipv4" else "::1"
+            with socket.socket(sock.family, socket.SOCK_DGRAM) as sender:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise UnsupportedRuntimeError("host UDP positive control timed out")
+                sender.settimeout(remaining)
+                sender.bind((host, 0))
+                marker = self.markers[family][role]
+                if sender.sendto(marker, sock.getsockname()) != len(marker):
+                    raise UnsupportedRuntimeError("host UDP positive control was incomplete")
+        for family in ("ipv4", "ipv6"):
+            if not self.controls[family, role].wait(max(0, deadline - time.monotonic())):
+                raise UnsupportedRuntimeError("host UDP positive control was not received")
+
+    def control_before(self):
+        if self._before_complete:
+            raise UnsupportedRuntimeError("host UDP control was repeated")
+        self._control("before")
+        self._before_complete = True
+
+    def verify(self, report):
+        from . import windows_guest
+        if not self._before_complete or self._verified:
+            raise UnsupportedRuntimeError("host UDP observation ordering was invalid")
+        windows_guest._validate_startup_report(report, self.nonce)
+        if any(item["state"] == "invalid" for role in ("parent", "child") for item in report[role]["local_udp"].values()):
+            raise UnsupportedRuntimeError("contained local UDP attempt was incomplete")
+        self._control("after")
+        if self.closed.wait(self.SETTLE_SECONDS):
+            raise UnsupportedRuntimeError("host UDP observer closed before its verdict")
+        with self.lock:
+            if self.errors or self.unknown or any(not thread.is_alive() for thread in self.threads):
+                raise UnsupportedRuntimeError("host UDP observation was unhealthy or contaminated")
+            if any(self.counts[family, role] < 1 for family in ("ipv4", "ipv6") for role in ("before", "after")):
+                raise UnsupportedRuntimeError("host UDP positive controls were incomplete")
+            if any(self.counts[family, role] for family in ("ipv4", "ipv6") for role in ("parent", "child")):
+                raise UnsupportedRuntimeError("contained UDP probe reached a fixed host endpoint")
+            observations = {family: {"before_received": self.counts[family, "before"],
+                                      "after_received": self.counts[family, "after"],
+                                      "parent_received": self.counts[family, "parent"],
+                                      "child_received": self.counts[family, "child"]}
+                            for family in ("ipv4", "ipv6")}
+        self._verified = True
+        return {"scope": "fixed_host_loopback_endpoints", "non_delivery_observed": True,
+                "kernel_denial_proven": False, "public_udp_proven": False, "dns_proven": False,
+                "observations": observations}
+
+    def close(self):
+        self.closed.set()
+        failures = []
+        for sock in self.sockets:
+            try:
+                sock.close()
+            except OSError:
+                failures.append("socket_close")
+        for thread in self.threads:
+            if thread.ident is not None:
+                thread.join(0.5)
+                if thread.is_alive():
+                    failures.append("thread_alive")
+        if failures:
+            raise SafeStopError("host UDP fixture cleanup was not completed")
 
 
 def _host_can_reach_guest(port: int) -> bool:
@@ -789,6 +976,9 @@ class _WindowsRuntimeResources:
         self.run_dir = run_dir
         self.fixture = fixture
         self.bridge = bridge
+        self.udp_fixture = None
+        self.udp_observation = None
+        self.startup_diagnostics = None
         self.process = None
         self.failed_process = None
         self.detail = ""
@@ -806,17 +996,20 @@ class _WindowsRuntimeResources:
                 self.bridge.close()
         except Exception as exc:
             error = exc
+        # Close all independent resources even if one fails. Preserve bridge
+        # files whenever any teardown is incomplete so a retry has evidence.
+        for fixture in (self.fixture, self.udp_fixture):
+            if fixture is not None:
+                try:
+                    fixture.close()
+                except Exception as exc:
+                    if error is None:
+                        error = exc
+        self.run_dir.cleanup()
         if error is not None:
-            # Keep the bridge and its directory available for a later retry.
-            # The temporary policy/config and host fixture are independent and
-            # can be released even if bridge teardown itself failed.
-            self.fixture.close()
-            self.run_dir.cleanup()
             raise error
         if bridge_dir is not None:
             shutil.rmtree(bridge_dir, ignore_errors=True)
-        self.fixture.close()
-        self.run_dir.cleanup()
         self._closed = True
 
 

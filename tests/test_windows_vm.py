@@ -540,6 +540,14 @@ raise SystemExit(configuration.get('exit_code', 0))
 
 class WindowsWireCaptureTests(unittest.TestCase):
     """Actual private HTTP requests and constructed PCAPs; no PSEC claim."""
+
+    @staticmethod
+    def dns_message(name, query_type=1):
+        labels = name.rstrip(".").split(".")
+        return (struct.pack("!6H", 123, 0, 1, 0, 0, 0)
+            + b"".join(bytes([len(label)]) + label.encode("ascii") for label in labels)
+            + b"\0" + struct.pack("!HH", query_type, 1))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -552,6 +560,7 @@ class WindowsWireCaptureTests(unittest.TestCase):
             # Windows source tests exercise the real format parser. Private
             # POSIX file ownership is separately required on the Linux host.
             self.controller.packet.analyze_capture = lambda path, value: self.controller.packet.analyze_bytes(path.read_bytes(), value)
+            self.controller.dns_packet.analyze_capture = lambda path, value: self.controller.dns_packet.analyze_bytes(path.read_bytes(), value)
         probes = []
         for variant in vm.WIRE_VARIANTS:
             for family in ("ipv4", "ipv6"):
@@ -561,15 +570,58 @@ class WindowsWireCaptureTests(unittest.TestCase):
                         "family": family, "protocol": "udp", "source_mac": vm.VM_NIC_MAC,
                         "source_ip": "10.0.2.15" if family == "ipv4" else "fec0::15",
                         "destination": "1.1.1.1" if family == "ipv4" else "2606:4700:4700::1111",
-                        "port": 53, "payload_hex": ("fixed-marker-" + str(len(probes))).encode().hex()})
+                        "port": 53, "payload_hex": self.dns_message("wire-" + str(len(probes)) + ".invalid").hex()})
         self.manifest = {"schema_version": 1, "probes": probes}
         self.execution = [{"id": p["id"], "role": p["role"], "attempted": True, "bind_succeeded": True,
                            "api_accepted": True, "errno": None} for p in probes]
+        self.execution_schema_version = None
 
-    def capture(self):
+    def dual_mode(self):
+        bound = self.manifest["probes"]
+        unbound = []
+        for p in bound:
+            group = p["group"] + "_unbound"
+            unbound.append({**p, "id": group + "." + p["role"], "group": group,
+                           "payload_hex": self.dns_message("unbound-" + str(len(unbound)) + ".invalid").hex()})
+        self.manifest["probes"] = bound + unbound
+        self.execution = [{"id": p["id"], "role": p["role"], "attempted": True,
+            "bind_attempted": not p["group"].endswith("_unbound"),
+            "bind_succeeded": not p["group"].endswith("_unbound"),
+            "send_attempted": True, "api_accepted": True, "errno": None} for p in self.manifest["probes"]]
+        self.execution_schema_version = 2
+
+    def dns_observation(self):
+        preferred, nonce = "model1_internal_ingress_deny", "b" * 32
+        probes, execution = [], []
+        for api in ("getaddrinfo", "dns_a", "dns_aaaa"):
+            for role in self.controller.packet.ROLES:
+                group = preferred + "." + api
+                name = f"{nonce}.{api.replace('_', '-')}.{role.replace('_', '-')}.ruleproxy-ci.example.com."
+                probe = {"id": group + "." + role, "group": group, "role": role, "api": api, "qname": name}
+                if api != "getaddrinfo":
+                    probe["query_type"] = 1 if api == "dns_a" else 28
+                probes.append(probe)
+                execution.append({"id": probe["id"], "role": role, "api": api, "qname": name,
+                    "requested_role": role, "pid": 2000 + len(probes), "ppid": 1000,
+                    "process_created": 100000 + len(probes), "worker_exit_code": 0,
+                    "outcome": "returned",
+                    "attempted": True, "api_returned": True, "native_completion_proven": True,
+                    "entry_lease_published": True, "worker_cleanup_proven": True,
+                    "worker_exit_verified": True, "worker_handle_closed": True, "records_released": True,
+                    "default_system_server_list": True, "server_list_override": False,
+                    "dns_blocked_proven": False, "acceptance_passed": False,
+                    "return_code": 11001 if api == "getaddrinfo" else 9003,
+                    "query_options": 0 if api == "getaddrinfo" else 0x108})
+                if api != "getaddrinfo":
+                    execution[-1]["query_status"] = 9003
+        return {"manifest": {"schema_version": 1, "source_mac": vm.VM_NIC_MAC, "probes": probes},
+                "execution": execution, "actor_execution_attested": True}
+
+    def capture(self, additional=()):
         packets = []
-        for role in ("outside_before", "outside_after"):
-            for p in self.manifest["probes"]:
+        for role in self.controller.packet.ROLES:
+            controls = self.manifest["probes"] if role in ("outside_before", "outside_after") else []
+            for p in controls + list(additional):
                 if p["role"] != role:
                     continue
                 source = ipaddress.ip_address(p["source_ip"]).packed
@@ -588,9 +640,162 @@ class WindowsWireCaptureTests(unittest.TestCase):
             data += struct.pack("<IIII", 1000 + index, 0, len(packet), len(packet)) + packet
         self.controller.pcap.write_bytes(data)
 
-    def finish(self, execution=None):
-        return self.controller.finish({"manifest": self.manifest,
-            "execution": self.execution if execution is None else execution, "actor_execution_attested": True})
+    def finish(self, execution=None, dns=None):
+        value = {"manifest": self.manifest,
+            "execution": self.execution if execution is None else execution, "actor_execution_attested": True}
+        if self.execution_schema_version is not None:
+            value["execution_schema_version"] = self.execution_schema_version
+        if dns is not None:
+            value["dns"] = dns
+        return self.controller.finish(value)
+
+    def dns_capture_probes(self, observation):
+        return [{**p, "family": "ipv4", "source_ip": "10.0.2.15", "destination": "10.0.2.3",
+            "payload_hex": self.dns_message(p["qname"], p.get("query_type", 1)).hex()}
+            for p in observation["manifest"]["probes"] if p["role"] in ("outside_before", "outside_after")]
+
+    def test_dual_mode_sixty_four_rows_require_actual_mode_specific_send_attempts(self):
+        self.dual_mode()
+        self.controller.start({}); self.capture()
+        result = self.finish()
+        self.assertTrue(result["execution_proven"])
+        self.assertTrue(result["absence_observed"])
+        self.assertEqual(len(result["groups"]), 16)
+        self.assertEqual(len(result["counts"]), 64)
+        self.assertFalse(result["kernel_denial_proven"])
+        self.assertFalse(result["acceptance_passed"])
+        self.assertTrue(all(group["execution_proven"] for group in result["groups"]))
+
+    def test_unbound_send_not_attempted_and_bound_bind_denied_leave_own_groups_unknown(self):
+        self.dual_mode()
+        for row in self.execution:
+            if row["id"] in ("model3.ipv4_unbound.parent", "model1_internal.ipv6.child"):
+                row.update(send_attempted=False, bind_succeeded=False, api_accepted=False, errno=10013)
+        self.controller.start({}); self.capture()
+        result = self.finish()
+        groups = {x["id"]: x for x in result["groups"]}
+        for key in ("model3.ipv4_unbound", "model1_internal.ipv6"):
+            self.assertFalse(groups[key]["execution_proven"])
+            self.assertFalse(groups[key]["absence_observed"])
+            self.assertIsNone(groups[key]["contained_markers_absent"])
+        self.assertTrue(groups["model3.ipv4"]["absence_observed"])
+        self.assertTrue(groups["model1_internal.ipv6_unbound"]["absence_observed"])
+        self.assertFalse(result["absence_observed"])
+
+    def test_dual_schema_and_legacy_rows_cannot_be_mixed_to_invent_send_evidence(self):
+        self.dual_mode()
+        self.execution_schema_version = None
+        self.controller.start({}); self.capture()
+        result = self.finish()
+        self.assertTrue(all(not x["execution_proven"] for x in result["groups"]))
+        self.assertFalse(result["absence_observed"])
+
+    def test_new_send_fields_cannot_be_smuggled_into_legacy_thirty_two_rows(self):
+        for row in self.execution:
+            row.update(bind_attempted=True, send_attempted=True)
+        self.controller.start({}); self.capture()
+        result = self.finish()
+        self.assertTrue(all(not x["execution_proven"] for x in result["groups"]))
+        self.assertFalse(result["absence_observed"])
+
+    def test_v2_header_cannot_turn_legacy_thirty_two_rows_into_dual_mode_evidence(self):
+        self.execution_schema_version = 2
+        self.controller.start({}); self.capture()
+        result = self.finish()
+        self.assertTrue(all(not x["execution_proven"] for x in result["groups"]))
+        self.assertFalse(result["absence_observed"])
+
+    def test_unbound_actual_source_drift_remains_unknown_instead_of_a_false_zero(self):
+        self.dual_mode()
+        probe = next(p for p in self.manifest["probes"] if p["id"] == "model3.ipv4_unbound.parent")
+        self.controller.start({}); self.capture([{**probe, "source_ip": "10.0.2.99"}])
+        result = self.finish()
+        self.assertTrue(result["execution_proven"])
+        self.assertFalse(result["absence_observed"])
+        self.assertIsNone(result["contained_markers_absent"])
+        self.assertEqual(result["unknown_reasons"]["probe_marker_unexpected_source_ip"], 1)
+        self.assertTrue(all(group["contained_markers_absent"] is None for group in result["groups"]))
+
+    def test_unbound_bind_success_is_rejected_instead_of_relabelled_as_an_unbound_send(self):
+        self.dual_mode()
+        next(row for row in self.execution if "_unbound" in row["id"]).update(bind_attempted=True, bind_succeeded=True)
+        self.controller.start({}); self.capture()
+        result = self.finish()
+        self.assertFalse(result["absence_observed"])
+        self.assertTrue(all(not x["execution_proven"] for x in result["groups"]))
+
+    def test_legacy_marker_setup_error_after_bind_does_not_prove_send_attempt(self):
+        self.execution[1].update(api_accepted=False, errno=-1)
+        self.controller.start({}); self.capture()
+        result = self.finish()
+        self.assertFalse(result["groups"][0]["execution_proven"])
+        self.assertIsNone(result["groups"][0]["contained_markers_absent"])
+        self.assertTrue(result["groups"][1]["absence_observed"])
+
+    def test_optional_native_dns_is_sanitized_and_does_not_promote_to_kernel_denial(self):
+        self.dual_mode()
+        dns = self.dns_observation()
+        self.controller.start({}); self.capture(self.dns_capture_probes(dns))
+        result = self.finish(dns=dns)
+        self.assertTrue(result["absence_observed"])
+        native = result["native_dns"]
+        self.assertEqual(native["status"], "complete")
+        self.assertTrue(native["execution_proven"])
+        self.assertTrue(native["absence_observed"])
+        self.assertFalse(native["kernel_denial_proven"])
+        self.assertFalse(native["acceptance_passed"])
+        self.assertEqual(len(native["groups"]), 3)
+        self.assertEqual(len(native["counts"]), 12)
+        serialized = json.dumps(result)
+        self.assertNotIn(dns["manifest"]["probes"][0]["qname"], serialized)
+        self.assertNotIn('"pid":', serialized)
+        self.assertNotIn("10.0.2.3", serialized)
+
+    def test_dns_deadline_invalid_request_or_unattested_actor_never_closes_zero_dns(self):
+        dns = self.dns_observation()
+        dns["execution"][1].update(outcome="deadline", api_returned=False, native_completion_proven=False)
+        dns["execution"][5]["return_code"] = 87
+        self.controller.start({}); self.capture(self.dns_capture_probes(dns))
+        result = self.finish(dns=dns)
+        self.assertTrue(result["absence_observed"])
+        native = result["native_dns"]
+        self.assertEqual(native["status"], "incomplete")
+        self.assertFalse(native["absence_observed"])
+        self.assertIsNone(native["contained_questions_absent"])
+        groups = {x["api"]: x for x in native["groups"]}
+        self.assertIsNone(groups["getaddrinfo"]["contained_questions_absent"])
+        self.assertIsNone(groups["dns_a"]["contained_questions_absent"])
+        self.assertTrue(groups["dns_aaaa"]["absence_observed"])
+        dns["actor_execution_attested"] = False
+        self.assertFalse(any(self.controller.dns_execution_groups(dns).values()))
+
+    def test_actual_contained_dns_question_is_reported_without_discarding_raw_udp_evidence(self):
+        dns = self.dns_observation()
+        parent = next(p for p in dns["manifest"]["probes"] if p["api"] == "getaddrinfo" and p["role"] == "parent")
+        packet = {**parent, "family": "ipv4", "source_ip": "10.0.2.15", "destination": "10.0.2.3",
+                  "payload_hex": self.dns_message(parent["qname"]).hex()}
+        self.controller.start({}); self.capture(self.dns_capture_probes(dns) + [packet])
+        result = self.finish(dns=dns)
+        self.assertTrue(result["absence_observed"])
+        native = result["native_dns"]
+        self.assertTrue(native["execution_proven"])
+        self.assertFalse(native["absence_observed"])
+        self.assertFalse(native["contained_questions_absent"])
+        self.assertEqual(next(row["count"] for row in native["counts"] if row["id"] == parent["id"]), 1)
+        self.assertFalse(native["kernel_denial_proven"])
+
+    def test_arbitrary_dns_ids_or_query_scope_cannot_enter_artifacts(self):
+        dns = self.dns_observation()
+        dns["manifest"]["probes"][0]["id"] = "private-secret-value"
+        self.controller.start({}); self.capture()
+        result = self.finish(dns=dns)
+        self.assertTrue(result["absence_observed"])
+        self.assertFalse(result["native_dns"]["absence_observed"])
+        self.assertNotIn("private-secret-value", json.dumps(result))
+        dns = self.dns_observation()
+        dns["manifest"]["probes"][0]["query_type"] = 1
+        with self.assertRaises(ValueError):
+            self.controller.fixed_dns_manifest(dns["manifest"])
 
     def test_real_http_routes_allow_only_one_fixed_capture_and_return_sanitized_evidence(self):
         payload = self.root / "payload.zip"; payload.write_bytes(b"payload")

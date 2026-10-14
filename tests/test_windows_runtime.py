@@ -1,5 +1,7 @@
 import json
 import ctypes
+import socket
+import time
 from contextlib import ExitStack
 import stat
 import subprocess
@@ -10,7 +12,23 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ruleproxy import windows_runtime
+from ruleproxy import windows_runtime, windows_guest
+
+
+def startup_report(nonce="a" * 64):
+    scopes = {}
+    for role, pid, parent_pid in (("parent", 123, 100), ("child", 456, 123)):
+        proxy = "proxy_self" if role == "parent" else "proxy_parent"
+        scopes[role] = {"scope": role, "pid": pid, "parent_pid": parent_pid, "process_created": pid * 100,
+                        "checks": {proxy: {"ok": True, "code": "ok"},
+                                   **{name: {"ok": True, "code": 10013} for name in windows_guest._MANDATORY_DENY_PROBES}},
+                        "public_udp": {"ipv4_udp": {"ok": False, "code": "allowed"},
+                                       "ipv6_udp": {"ok": False, "code": 10051}},
+                        "local_udp": {family: {"state": "accepted_full", "stage": "complete", "code": None,
+                                               "sent_bytes": len(windows_guest._local_udp_marker(nonce, role, family))}
+                                      for family in ("ipv4", "ipv6")}}
+    return {"schema_version": 1, "nonce": nonce, "config_readonly": {"ok": True, "code": 5}, **scopes,
+            "aux": {"parent_ipv6_loopback": {"ok": False, "code": 10013}}}
 
 
 def supported_probe_json():
@@ -378,7 +396,7 @@ class WindowsRuntimeTests(unittest.TestCase):
             "ruleproxy.file_bridge.FileProxyBridge", Bridge
         ), mock.patch.object(windows_runtime, "_HostLoopbackFixture", Fixture), mock.patch.object(windows_runtime, "_host_can_reach_guest", return_value=False), mock.patch.object(
             windows_runtime, "_wait_for_status", return_value=True
-        ):
+        ), mock.patch.object(windows_runtime, "_read_startup_report", return_value=startup_report()):
             proc, resource = windows_runtime.launch(
                 command,
                 env,
@@ -402,6 +420,16 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertNotIn("runtimeConfig", policy)
         self.assertIn("windows_guest.py", policy["process"]["commandLine"])
         self.assertFalse(popen.call_args.kwargs["shell"])
+        config = json.loads((Path(args[2]).parent / "guest-config.json").read_text())
+        self.assertEqual(config["schema_version"], 1)
+        self.assertEqual(config["host_udp_ports"], list(resource.udp_fixture.ports))
+        self.assertTrue(resource.udp_observation["non_delivery_observed"])
+        self.assertFalse(resource.udp_observation["public_udp_proven"])
+        self.assertFalse(resource.udp_observation["dns_proven"])
+        self.assertEqual(resource.startup_diagnostics["parent"]["public_udp"]["ipv4_udp"],
+                         {"ok": False, "code": "allowed"})
+        self.assertTrue((Path(args[2]).parent / "host-approval.json").is_file())
+        self.assertIn(str(Path(args[2]).parent), policy["filesystem"]["readonlyPaths"])
 
     def test_safe_stop_terminates_only_verified_direct_child_then_waits_wrapper(self):
         class Process:
@@ -533,6 +561,65 @@ class WindowsRuntimeTests(unittest.TestCase):
         process.poll.return_value = None
         self.assertFalse(windows_runtime._wait_for_status(directory, "a" * 64, "APP_STARTED", process, 0.01))
 
+    def test_fixture_cleanup_error_preserves_resource_for_retry_without_killing_wrapper(self):
+        process = mock.Mock(pid=900)
+        process.poll.return_value = 70
+        bridge, fixture, _ = self._failed_launch_setup(process)
+        fixture.close.side_effect = windows_runtime.SafeStopError("fixture cleanup failed")
+        with self.assertRaises(windows_runtime.SafeStopError) as raised:
+            self._launch_for_failure()
+        resource = raised.exception.resource
+        self.assertIs(raised.exception.process, process)
+        self.assertIs(resource.failed_process, process)
+        self.assertTrue(resource.udp_fixture.closed.is_set())
+        self.assertTrue(all(not thread.is_alive() for thread in resource.udp_fixture.threads))
+        self.assertTrue(bridge.directory.exists())
+        process.kill.assert_not_called()
+        process.terminate.assert_not_called()
+        fixture.close.side_effect = None
+        resource.close()
+        self.assertFalse(bridge.directory.exists())
+
+    def test_live_udp_observer_received_marker_blocks_host_approval(self):
+        process = mock.Mock(pid=900)
+        process.poll.return_value = 70
+        bridge, _, _ = self._failed_launch_setup(process)
+        bridge.wait_ready.return_value = True
+        def ready(_timeout):
+            # Use the concrete config handed to this exact wrapper launch.
+            policy_path = Path(process._test_policy_path)
+            config = json.loads((policy_path.parent / "guest-config.json").read_text())
+            for role in ("parent", "child"):
+                for family, kind, host, port in zip(("ipv4", "ipv6"), (socket.AF_INET, socket.AF_INET6),
+                                                   ("127.0.0.1", "::1"), config["host_udp_ports"]):
+                    with socket.socket(kind, socket.SOCK_DGRAM) as sender:
+                        marker = windows_guest._local_udp_marker(config["bridge_nonce"], role, family)
+                        self.assertEqual(sender.sendto(marker, (host, port)), len(marker))
+            (bridge.directory / "network-probe.json").write_text(json.dumps(startup_report(bridge.nonce)))
+            return True
+        bridge.wait_ready.side_effect = ready
+        def launch_wrapper(args, **kwargs):
+            process._test_policy_path = args[2]
+            return process
+        windows_runtime.subprocess.Popen.side_effect = launch_wrapper
+        with mock.patch.object(windows_runtime, "_host_can_reach_guest", return_value=False):
+            with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "reached a fixed host endpoint"):
+                self._launch_for_failure()
+        bridge.approve.assert_not_called()
+        bridge.reject.assert_called_once()
+        process.kill.assert_not_called()
+
+    def test_invalid_or_missing_udp_report_never_approves_even_when_guest_ready(self):
+        process = mock.Mock(pid=900)
+        process.poll.return_value = 70
+        bridge, _, _ = self._failed_launch_setup(process)
+        bridge.wait_ready.return_value = True
+        with mock.patch.object(windows_runtime, "_host_can_reach_guest", return_value=False):
+            with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "report was invalid or incomplete"):
+                self._launch_for_failure()
+        bridge.approve.assert_not_called()
+        bridge.reject.assert_called_once()
+
     def test_safe_stop_releases_child_handles_if_wrapper_verification_fails(self):
         process = mock.Mock(pid=500, _handle=99)
         process.poll.return_value = None
@@ -663,6 +750,74 @@ class WindowsRuntimeTests(unittest.TestCase):
         api._creation_time = mock.Mock(side_effect=[150, 151])
         self.assertEqual(api.direct_children(500, 100), [])
         self.assertEqual(api.kernel32.closed, [102, 101])
+
+
+class HostUDPObserverTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = windows_runtime._HostUDPFixture("a" * 64)
+        self.addCleanup(self.fixture.close)
+        self.fixture.control_before()
+
+    def test_real_before_after_controls_validate_only_fixed_endpoint_absence(self):
+        result = self.fixture.verify(startup_report())
+        self.assertTrue(result["non_delivery_observed"])
+        self.assertFalse(result["kernel_denial_proven"])
+        self.assertFalse(result["public_udp_proven"])
+        self.assertFalse(result["dns_proven"])
+        for family in ("ipv4", "ipv6"):
+            self.assertGreaterEqual(result["observations"][family]["before_received"], 1)
+            self.assertGreaterEqual(result["observations"][family]["after_received"], 1)
+            self.assertEqual(result["observations"][family]["parent_received"], 0)
+            self.assertEqual(result["observations"][family]["child_received"], 0)
+        # The private host controls are not one of the guest's role markers.
+        for family in ("ipv4", "ipv6"):
+            self.assertNotIn(self.fixture.markers[family]["before"],
+                             [windows_guest._local_udp_marker("a" * 64, role, family) for role in ("parent", "child")])
+
+    def test_real_uncontained_parent_child_sends_are_received_and_rejected(self):
+        report = startup_report()
+        for role in ("parent", "child"):
+            for family, port in zip(("ipv4", "ipv6"), self.fixture.ports):
+                report[role]["local_udp"][family] = windows_guest._local_udp_attempt(
+                    role, family, port, "a" * 64, deadline=time.monotonic() + 1)
+        with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "reached a fixed host endpoint"):
+            self.fixture.verify(report)
+        for family in ("ipv4", "ipv6"):
+            self.assertEqual(self.fixture.counts[family, "parent"], 1)
+            self.assertEqual(self.fixture.counts[family, "child"], 1)
+            self.assertGreaterEqual(self.fixture.counts[family, "after"], 1)
+
+    def test_dead_receiver_or_missing_after_control_is_not_zero_delivery_proof(self):
+        self.fixture.sockets[1].close()
+        self.fixture.threads[1].join(1)
+        with self.assertRaises(windows_runtime.UnsupportedRuntimeError):
+            self.fixture.verify(startup_report())
+        self.assertFalse(self.fixture._verified)
+
+    def test_stale_session_marker_contaminates_instead_of_silently_passing(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
+            sender.sendto(windows_guest._local_udp_marker("b" * 64, "parent", "ipv4"),
+                          ("127.0.0.1", self.fixture.ports[0]))
+        with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "contaminated"):
+            self.fixture.verify(startup_report())
+
+    def test_guest_cannot_supply_host_control_counts_or_override_observer_verdict(self):
+        report = startup_report()
+        report["observer_counts"] = {"parent": 0, "child": 0, "before": 1, "after": 1}
+        with self.assertRaises(ValueError):
+            self.fixture.verify(report)
+        self.assertFalse(self.fixture._verified)
+
+    def test_after_control_counts_are_required_even_if_control_wait_returns(self):
+        with mock.patch.object(self.fixture, "_control"):
+            with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "controls were incomplete"):
+                self.fixture.verify(startup_report())
+
+    def test_close_finishes_real_observer_threads_and_is_idempotent(self):
+        self.fixture.close()
+        self.assertTrue(all(not thread.is_alive() for thread in self.fixture.threads))
+        self.assertTrue(all(sock.fileno() == -1 for sock in self.fixture.sockets))
+        self.fixture.close()
 
 
 if __name__ == "__main__":

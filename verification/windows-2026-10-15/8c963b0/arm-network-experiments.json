@@ -1,0 +1,1262 @@
+{
+  "status": "experiment_only",
+  "full_acceptance_passed": false,
+  "acceptance_passed": false,
+  "real_node_passed": false,
+  "product_provider_changed": false,
+  "cleanup_proven": true,
+  "variants": [
+    {
+      "name": "model3",
+      "status": "observed",
+      "process_started": true,
+      "no_process_started": false,
+      "checks": [
+        {
+          "check": "host_to_contained_listener",
+          "reachable": false
+        },
+        {
+          "check": "safe_guardian_teardown",
+          "status": "passed",
+          "held_handles_verified": true,
+          "parent_and_child_exited": true,
+          "retained_process_count": 3,
+          "all_retained_processes_exited": true
+        }
+      ],
+      "policy": {
+        "$schema": "https://github.com/microsoft/mxc/schemas/stable/mxc-config.schema.1.0.0.json",
+        "version": "1.0.0",
+        "containment": "processcontainer",
+        "fallback": {
+          "allowDaclMutation": false
+        },
+        "containerId": "ruleproxy-model3",
+        "process": {
+          "commandLine": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe -I -S -X utf8 C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\experiment_actor.py --actor C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\actor-config.json --role parent",
+          "cwd": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3",
+          "env": [
+            "ALL_PROXY=http://127.0.0.1:60635",
+            "APPDATA=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\appdata",
+            "HOME=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\home",
+            "HOMEDRIVE=C:",
+            "HOMEPATH=\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\home",
+            "HTTPS_PROXY=http://127.0.0.1:60635",
+            "HTTP_PROXY=http://127.0.0.1:60635",
+            "LOCALAPPDATA=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\localappdata",
+            "NO_PROXY=",
+            "TEMP=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\temp",
+            "TMP=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\temp",
+            "USERPROFILE=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3\\home"
+          ],
+          "inheritDefaultEnv": true,
+          "timeout": 100000
+        },
+        "filesystem": {
+          "readonlyPaths": [
+            "C:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\ruleproxy"
+          ],
+          "readwritePaths": [
+            "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model3"
+          ]
+        },
+        "ui": {
+          "disable": false
+        },
+        "processContainer": {
+          "ui": {
+            "isolation": "container"
+          }
+        },
+        "network": {
+          "egress": {
+            "default": "deny"
+          },
+          "ingress": {
+            "default": "deny",
+            "hostLoopback": "deny"
+          }
+        }
+      },
+      "probe": {
+        "tier": "base-container",
+        "needsDaclAugmentation": false,
+        "warnings": [],
+        "probes": {
+          "baseContainerApiPresent": true,
+          "nativeCaptureAvailable": true,
+          "guardedCaptureAvailable": false,
+          "bfscfgPresent": false,
+          "bfsCompiledIn": false,
+          "baseContainerSupportsDenyPaths": true,
+          "baseContainerSupportsEnumeratePaths": false,
+          "baseContainerSupportsIngressHostLoopbackAllow": false,
+          "isolationSessionAvailable": false,
+          "hyperlightAvailable": false,
+          "uiCapabilities": {
+            "canBlockClipboardRead": true,
+            "canBlockClipboardWrite": true,
+            "canBlockInputInjection": true,
+            "canBlockInputMethodChanges": true,
+            "canBlockExternalUiObjects": true,
+            "canBlockGlobalUiNamespace": true,
+            "canBlockDesktopSwitching": true,
+            "canBlockLogoffOrShutdown": true,
+            "canBlockSystemParameterChanges": true,
+            "canBlockDisplaySettingsChanges": true
+          }
+        }
+      },
+      "descendant_cleanup_proven": true,
+      "actors": [
+        {
+          "scope": "parent",
+          "pid": 2900,
+          "checks": {
+            "proxy_self": {
+              "ok": false,
+              "code": 10013
+            },
+            "own_loopback": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": false,
+              "code": 10051
+            },
+            "ipv4_udp": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "ipv6_udp": {
+              "ok": false,
+              "code": 10051
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_udp_ipv4": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "host_udp_ipv6": {
+              "ok": false,
+              "code": "allowed"
+            }
+          },
+          "parent_pid": 2692,
+          "phase": "initial",
+          "process_created": 134364872336833461,
+          "ipc": {
+            "status": "ipc_probe_only",
+            "ipc_passed": true,
+            "acceptance_passed": false,
+            "default_dacl": true,
+            "network_policy_changed": false,
+            "cleanup_proven": true,
+            "cleanup_errors": [],
+            "elapsed_seconds": 0.208,
+            "checks": [
+              {
+                "scope": "self",
+                "passed": true,
+                "pid": 7336,
+                "ppid": 2900,
+                "operation": "",
+                "winerror": 0,
+                "cleanup_proven": true,
+                "client": {
+                  "scope": "self",
+                  "passed": true,
+                  "pid": 7336,
+                  "ppid": 2900,
+                  "operation": "",
+                  "winerror": 0,
+                  "cleanup_proven": true
+                }
+              },
+              {
+                "scope": "child",
+                "passed": true,
+                "pid": 7336,
+                "ppid": 2900,
+                "operation": "",
+                "winerror": 0,
+                "cleanup_proven": true,
+                "client": {
+                  "scope": "child",
+                  "passed": true,
+                  "pid": 4552,
+                  "ppid": 7336,
+                  "operation": "",
+                  "winerror": 0,
+                  "cleanup_proven": true
+                }
+              }
+            ]
+          },
+          "ipc_exit_code": 0
+        },
+        {
+          "scope": "child",
+          "pid": 6524,
+          "checks": {
+            "proxy_parent": {
+              "ok": false,
+              "code": 10013
+            },
+            "own_loopback": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": false,
+              "code": 10051
+            },
+            "ipv4_udp": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "ipv6_udp": {
+              "ok": false,
+              "code": 10051
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_udp_ipv4": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "host_udp_ipv6": {
+              "ok": false,
+              "code": "allowed"
+            }
+          },
+          "parent_pid": 2900,
+          "phase": "initial",
+          "process_created": 134364872340766290
+        }
+      ],
+      "actor_attestation": {
+        "attestation_passed": true,
+        "wrapper_pid": 2692,
+        "reported_parent_pid": 2900,
+        "reported_child_pid": 6524,
+        "reported_parent_created": 134364872336833461,
+        "reported_child_created": 134364872340766290,
+        "snapshots": [
+          {
+            "scope": "parent",
+            "parent_pid": 2692,
+            "parent_created": 134364872335743512,
+            "returned_count": 1,
+            "returned_pids": [
+              2900
+            ],
+            "diagnostics_truncated": false,
+            "children": [
+              {
+                "pid": 2900,
+                "process_created": 134364872336833461,
+                "alive": true,
+                "image_path": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe",
+                "image_path_truncated": false
+              }
+            ],
+            "live_count": 1,
+            "live_pids": [
+              2900
+            ],
+            "held_handle_generation_verified": true
+          },
+          {
+            "scope": "child",
+            "parent_pid": 2900,
+            "parent_created": 134364872336833461,
+            "returned_count": 2,
+            "returned_pids": [
+              4012,
+              6524
+            ],
+            "diagnostics_truncated": false,
+            "children": [
+              {
+                "pid": 4012,
+                "process_created": 134364872337010390,
+                "alive": true,
+                "image_path": "C:\\Windows\\System32\\conhost.exe",
+                "image_path_truncated": false
+              },
+              {
+                "pid": 6524,
+                "process_created": 134364872340766290,
+                "alive": true,
+                "image_path": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe",
+                "image_path_truncated": false
+              }
+            ],
+            "live_count": 2,
+            "live_pids": [
+              4012,
+              6524
+            ],
+            "accounted_system_helpers": [
+              {
+                "pid": 4012,
+                "process_created": 134364872337010390,
+                "image_path": "C:\\Windows\\System32\\conhost.exe",
+                "held_handle_generation_verified": true,
+                "signature": {
+                  "file_sha256": "8fa26faaef8dd0bbff34fd8d5d3ef09fffab7b535b60ba28f9938a8747109ddd",
+                  "signer_thumbprint": "DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443",
+                  "publisher": "Microsoft Windows",
+                  "is_os_binary": true,
+                  "signature_status": "Valid",
+                  "signature_type": "Catalog"
+                }
+              }
+            ],
+            "held_handle_generation_verified": true
+          }
+        ],
+        "wrapper_created": 134364872335743512
+      },
+      "proxy_roundtrips": 0,
+      "fixed_proxy_errors": [],
+      "transport_roundtrip_observed": false,
+      "resources_closed": true,
+      "log": "Failed to find real location of C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe\nFailed to find real location of C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe\n",
+      "host_tcp_connection_received": false,
+      "host_udp_datagrams_received": [
+        0,
+        0
+      ],
+      "host_udp_observer_positive_controls": [
+        {
+          "family": "ipv4",
+          "received": true
+        },
+        {
+          "family": "ipv6",
+          "received": true
+        }
+      ]
+    },
+    {
+      "name": "model1_internal_ingress_deny",
+      "status": "observed",
+      "process_started": true,
+      "no_process_started": false,
+      "checks": [
+        {
+          "check": "host_to_contained_listener",
+          "reachable": false
+        },
+        {
+          "check": "host_same_port_takeover",
+          "host_listener_verified": true,
+          "contained_connection_received": false
+        },
+        {
+          "check": "safe_guardian_teardown",
+          "status": "passed",
+          "held_handles_verified": true,
+          "parent_and_child_exited": true,
+          "retained_process_count": 3,
+          "all_retained_processes_exited": true
+        }
+      ],
+      "policy": {
+        "$schema": "https://github.com/microsoft/mxc/schemas/stable/mxc-config.schema.1.0.0.json",
+        "version": "1.0.0",
+        "containment": "processcontainer",
+        "fallback": {
+          "allowDaclMutation": false
+        },
+        "containerId": "ruleproxy-model1_internal_ingress_deny",
+        "process": {
+          "commandLine": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe -I -S -X utf8 C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\experiment_actor.py --actor C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\actor-config.json --role parent",
+          "cwd": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny",
+          "env": [
+            "ALL_PROXY=http://127.0.0.1:60662",
+            "APPDATA=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\appdata",
+            "HOME=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\home",
+            "HOMEDRIVE=C:",
+            "HOMEPATH=\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\home",
+            "HTTPS_PROXY=http://127.0.0.1:60662",
+            "HTTP_PROXY=http://127.0.0.1:60662",
+            "LOCALAPPDATA=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\localappdata",
+            "NO_PROXY=",
+            "TEMP=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\temp",
+            "TMP=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\temp",
+            "USERPROFILE=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny\\home"
+          ],
+          "inheritDefaultEnv": true,
+          "timeout": 100000
+        },
+        "filesystem": {
+          "readonlyPaths": [
+            "C:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\ruleproxy"
+          ],
+          "readwritePaths": [
+            "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal_ingress_deny"
+          ]
+        },
+        "ui": {
+          "disable": false
+        },
+        "processContainer": {
+          "ui": {
+            "isolation": "container"
+          }
+        },
+        "network": {
+          "egress": {
+            "default": "deny",
+            "allow": [
+              {
+                "to": [
+                  {
+                    "cidr": "127.0.0.1/32"
+                  }
+                ],
+                "ports": [
+                  {
+                    "protocol": "tcp",
+                    "port": 60662
+                  }
+                ]
+              }
+            ]
+          },
+          "ingress": {
+            "default": "deny",
+            "hostLoopback": "deny"
+          }
+        }
+      },
+      "probe": {
+        "tier": "base-container",
+        "needsDaclAugmentation": false,
+        "warnings": [],
+        "probes": {
+          "baseContainerApiPresent": true,
+          "nativeCaptureAvailable": true,
+          "guardedCaptureAvailable": false,
+          "bfscfgPresent": false,
+          "bfsCompiledIn": false,
+          "baseContainerSupportsDenyPaths": true,
+          "baseContainerSupportsEnumeratePaths": false,
+          "baseContainerSupportsIngressHostLoopbackAllow": false,
+          "isolationSessionAvailable": false,
+          "hyperlightAvailable": false,
+          "uiCapabilities": {
+            "canBlockClipboardRead": true,
+            "canBlockClipboardWrite": true,
+            "canBlockInputInjection": true,
+            "canBlockInputMethodChanges": true,
+            "canBlockExternalUiObjects": true,
+            "canBlockGlobalUiNamespace": true,
+            "canBlockDesktopSwitching": true,
+            "canBlockLogoffOrShutdown": true,
+            "canBlockSystemParameterChanges": true,
+            "canBlockDisplaySettingsChanges": true
+          }
+        }
+      },
+      "descendant_cleanup_proven": true,
+      "actors": [
+        {
+          "scope": "parent",
+          "pid": 8864,
+          "checks": {
+            "proxy_self": {
+              "ok": true,
+              "code": "ok"
+            },
+            "own_loopback": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": false,
+              "code": 10051
+            },
+            "ipv4_udp": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "ipv6_udp": {
+              "ok": false,
+              "code": 10051
+            },
+            "proxy_http": {
+              "ok": true,
+              "code": "ok"
+            },
+            "proxy_socks": {
+              "ok": true,
+              "code": "ok"
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_udp_ipv4": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "host_udp_ipv6": {
+              "ok": false,
+              "code": "allowed"
+            }
+          },
+          "parent_pid": 3120,
+          "phase": "initial",
+          "process_created": 134364872370542260
+        },
+        {
+          "scope": "child",
+          "pid": 8888,
+          "checks": {
+            "proxy_parent": {
+              "ok": true,
+              "code": "ok"
+            },
+            "own_loopback": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": false,
+              "code": 10051
+            },
+            "ipv4_udp": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "ipv6_udp": {
+              "ok": false,
+              "code": 10051
+            },
+            "proxy_http": {
+              "ok": true,
+              "code": "ok"
+            },
+            "proxy_socks": {
+              "ok": true,
+              "code": "ok"
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_udp_ipv4": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "host_udp_ipv6": {
+              "ok": false,
+              "code": "allowed"
+            }
+          },
+          "parent_pid": 8864,
+          "phase": "initial",
+          "process_created": 134364872374460829
+        }
+      ],
+      "actor_attestation": {
+        "attestation_passed": true,
+        "wrapper_pid": 3120,
+        "reported_parent_pid": 8864,
+        "reported_child_pid": 8888,
+        "reported_parent_created": 134364872370542260,
+        "reported_child_created": 134364872374460829,
+        "snapshots": [
+          {
+            "scope": "parent",
+            "parent_pid": 3120,
+            "parent_created": 134364872369892447,
+            "returned_count": 1,
+            "returned_pids": [
+              8864
+            ],
+            "diagnostics_truncated": false,
+            "children": [
+              {
+                "pid": 8864,
+                "process_created": 134364872370542260,
+                "alive": true,
+                "image_path": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe",
+                "image_path_truncated": false
+              }
+            ],
+            "live_count": 1,
+            "live_pids": [
+              8864
+            ],
+            "held_handle_generation_verified": true
+          },
+          {
+            "scope": "child",
+            "parent_pid": 8864,
+            "parent_created": 134364872370542260,
+            "returned_count": 2,
+            "returned_pids": [
+              6504,
+              8888
+            ],
+            "diagnostics_truncated": false,
+            "children": [
+              {
+                "pid": 6504,
+                "process_created": 134364872370694563,
+                "alive": true,
+                "image_path": "C:\\Windows\\System32\\conhost.exe",
+                "image_path_truncated": false
+              },
+              {
+                "pid": 8888,
+                "process_created": 134364872374460829,
+                "alive": true,
+                "image_path": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe",
+                "image_path_truncated": false
+              }
+            ],
+            "live_count": 2,
+            "live_pids": [
+              6504,
+              8888
+            ],
+            "accounted_system_helpers": [
+              {
+                "pid": 6504,
+                "process_created": 134364872370694563,
+                "image_path": "C:\\Windows\\System32\\conhost.exe",
+                "held_handle_generation_verified": true,
+                "signature": {
+                  "file_sha256": "8fa26faaef8dd0bbff34fd8d5d3ef09fffab7b535b60ba28f9938a8747109ddd",
+                  "signer_thumbprint": "DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443",
+                  "publisher": "Microsoft Windows",
+                  "is_os_binary": true,
+                  "signature_status": "Valid",
+                  "signature_type": "Catalog"
+                }
+              }
+            ],
+            "held_handle_generation_verified": true
+          }
+        ],
+        "wrapper_created": 134364872369892447
+      },
+      "replacement_actors": [
+        {
+          "scope": "parent",
+          "phase": "replacement",
+          "pid": 8864,
+          "parent_pid": 3120,
+          "checks": {
+            "host_same_port": {
+              "ok": false,
+              "code": "timeout"
+            }
+          }
+        },
+        {
+          "scope": "child",
+          "phase": "replacement",
+          "pid": 8888,
+          "parent_pid": 8864,
+          "checks": {
+            "host_same_port": {
+              "ok": false,
+              "code": "timeout"
+            }
+          }
+        }
+      ],
+      "proxy_roundtrips": 4,
+      "fixed_proxy_errors": [],
+      "transport_roundtrip_observed": true,
+      "resources_closed": true,
+      "log": "Failed to find real location of C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe\nFailed to find real location of C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe\n",
+      "host_tcp_connection_received": false,
+      "host_udp_datagrams_received": [
+        0,
+        0
+      ],
+      "host_udp_observer_positive_controls": [
+        {
+          "family": "ipv4",
+          "received": true
+        },
+        {
+          "family": "ipv6",
+          "received": true
+        }
+      ]
+    },
+    {
+      "name": "model1_internal",
+      "status": "observed",
+      "process_started": true,
+      "no_process_started": false,
+      "checks": [
+        {
+          "check": "host_to_contained_listener",
+          "reachable": false
+        },
+        {
+          "check": "host_same_port_takeover",
+          "host_listener_verified": true,
+          "contained_connection_received": false
+        },
+        {
+          "check": "safe_guardian_teardown",
+          "status": "passed",
+          "held_handles_verified": true,
+          "parent_and_child_exited": true,
+          "retained_process_count": 3,
+          "all_retained_processes_exited": true
+        }
+      ],
+      "policy": {
+        "$schema": "https://github.com/microsoft/mxc/schemas/stable/mxc-config.schema.1.0.0.json",
+        "version": "1.0.0",
+        "containment": "processcontainer",
+        "fallback": {
+          "allowDaclMutation": false
+        },
+        "containerId": "ruleproxy-model1_internal",
+        "process": {
+          "commandLine": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe -I -S -X utf8 C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\experiment_actor.py --actor C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\actor-config.json --role parent",
+          "cwd": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal",
+          "env": [
+            "ALL_PROXY=http://127.0.0.1:60705",
+            "APPDATA=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\appdata",
+            "HOME=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\home",
+            "HOMEDRIVE=C:",
+            "HOMEPATH=\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\home",
+            "HTTPS_PROXY=http://127.0.0.1:60705",
+            "HTTP_PROXY=http://127.0.0.1:60705",
+            "LOCALAPPDATA=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\localappdata",
+            "NO_PROXY=",
+            "TEMP=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\temp",
+            "TMP=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\temp",
+            "USERPROFILE=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal\\home"
+          ],
+          "inheritDefaultEnv": true,
+          "timeout": 100000
+        },
+        "filesystem": {
+          "readonlyPaths": [
+            "C:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\ruleproxy"
+          ],
+          "readwritePaths": [
+            "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model1_internal"
+          ]
+        },
+        "ui": {
+          "disable": false
+        },
+        "processContainer": {
+          "ui": {
+            "isolation": "container"
+          }
+        },
+        "network": {
+          "egress": {
+            "default": "deny",
+            "allow": [
+              {
+                "to": [
+                  {
+                    "cidr": "127.0.0.1/32"
+                  }
+                ],
+                "ports": [
+                  {
+                    "protocol": "tcp",
+                    "port": 60705
+                  }
+                ]
+              }
+            ]
+          },
+          "ingress": {
+            "default": "allow",
+            "hostLoopback": "deny"
+          }
+        }
+      },
+      "probe": {
+        "tier": "base-container",
+        "needsDaclAugmentation": false,
+        "warnings": [],
+        "probes": {
+          "baseContainerApiPresent": true,
+          "nativeCaptureAvailable": true,
+          "guardedCaptureAvailable": false,
+          "bfscfgPresent": false,
+          "bfsCompiledIn": false,
+          "baseContainerSupportsDenyPaths": true,
+          "baseContainerSupportsEnumeratePaths": false,
+          "baseContainerSupportsIngressHostLoopbackAllow": false,
+          "isolationSessionAvailable": false,
+          "hyperlightAvailable": false,
+          "uiCapabilities": {
+            "canBlockClipboardRead": true,
+            "canBlockClipboardWrite": true,
+            "canBlockInputInjection": true,
+            "canBlockInputMethodChanges": true,
+            "canBlockExternalUiObjects": true,
+            "canBlockGlobalUiNamespace": true,
+            "canBlockDesktopSwitching": true,
+            "canBlockLogoffOrShutdown": true,
+            "canBlockSystemParameterChanges": true,
+            "canBlockDisplaySettingsChanges": true
+          }
+        }
+      },
+      "descendant_cleanup_proven": true,
+      "actors": [
+        {
+          "scope": "parent",
+          "pid": 8804,
+          "checks": {
+            "proxy_self": {
+              "ok": true,
+              "code": "ok"
+            },
+            "own_loopback": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": false,
+              "code": 10051
+            },
+            "ipv4_udp": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "ipv6_udp": {
+              "ok": false,
+              "code": 10051
+            },
+            "proxy_http": {
+              "ok": true,
+              "code": "ok"
+            },
+            "proxy_socks": {
+              "ok": true,
+              "code": "ok"
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_udp_ipv4": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "host_udp_ipv6": {
+              "ok": false,
+              "code": "allowed"
+            }
+          },
+          "parent_pid": 5792,
+          "phase": "initial",
+          "process_created": 134364872422802111
+        },
+        {
+          "scope": "child",
+          "pid": 4016,
+          "checks": {
+            "proxy_parent": {
+              "ok": true,
+              "code": "ok"
+            },
+            "own_loopback": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": false,
+              "code": 10051
+            },
+            "ipv4_udp": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "ipv6_udp": {
+              "ok": false,
+              "code": 10051
+            },
+            "proxy_http": {
+              "ok": true,
+              "code": "ok"
+            },
+            "proxy_socks": {
+              "ok": true,
+              "code": "ok"
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_udp_ipv4": {
+              "ok": false,
+              "code": "allowed"
+            },
+            "host_udp_ipv6": {
+              "ok": false,
+              "code": "allowed"
+            }
+          },
+          "parent_pid": 8804,
+          "phase": "initial",
+          "process_created": 134364872426696984
+        }
+      ],
+      "actor_attestation": {
+        "attestation_passed": true,
+        "wrapper_pid": 5792,
+        "reported_parent_pid": 8804,
+        "reported_child_pid": 4016,
+        "reported_parent_created": 134364872422802111,
+        "reported_child_created": 134364872426696984,
+        "snapshots": [
+          {
+            "scope": "parent",
+            "parent_pid": 5792,
+            "parent_created": 134364872422169273,
+            "returned_count": 1,
+            "returned_pids": [
+              8804
+            ],
+            "diagnostics_truncated": false,
+            "children": [
+              {
+                "pid": 8804,
+                "process_created": 134364872422802111,
+                "alive": true,
+                "image_path": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe",
+                "image_path_truncated": false
+              }
+            ],
+            "live_count": 1,
+            "live_pids": [
+              8804
+            ],
+            "held_handle_generation_verified": true
+          },
+          {
+            "scope": "child",
+            "parent_pid": 8804,
+            "parent_created": 134364872422802111,
+            "returned_count": 2,
+            "returned_pids": [
+              8136,
+              4016
+            ],
+            "diagnostics_truncated": false,
+            "children": [
+              {
+                "pid": 8136,
+                "process_created": 134364872422955184,
+                "alive": true,
+                "image_path": "C:\\Windows\\System32\\conhost.exe",
+                "image_path_truncated": false
+              },
+              {
+                "pid": 4016,
+                "process_created": 134364872426696984,
+                "alive": true,
+                "image_path": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe",
+                "image_path_truncated": false
+              }
+            ],
+            "live_count": 2,
+            "live_pids": [
+              8136,
+              4016
+            ],
+            "accounted_system_helpers": [
+              {
+                "pid": 8136,
+                "process_created": 134364872422955184,
+                "image_path": "C:\\Windows\\System32\\conhost.exe",
+                "held_handle_generation_verified": true,
+                "signature": {
+                  "file_sha256": "8fa26faaef8dd0bbff34fd8d5d3ef09fffab7b535b60ba28f9938a8747109ddd",
+                  "signer_thumbprint": "DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443",
+                  "publisher": "Microsoft Windows",
+                  "is_os_binary": true,
+                  "signature_status": "Valid",
+                  "signature_type": "Catalog"
+                }
+              }
+            ],
+            "held_handle_generation_verified": true
+          }
+        ],
+        "wrapper_created": 134364872422169273
+      },
+      "replacement_actors": [
+        {
+          "scope": "parent",
+          "phase": "replacement",
+          "pid": 8804,
+          "parent_pid": 5792,
+          "checks": {
+            "host_same_port": {
+              "ok": false,
+              "code": "timeout"
+            }
+          }
+        },
+        {
+          "scope": "child",
+          "phase": "replacement",
+          "pid": 4016,
+          "parent_pid": 8804,
+          "checks": {
+            "host_same_port": {
+              "ok": false,
+              "code": "timeout"
+            }
+          }
+        }
+      ],
+      "proxy_roundtrips": 4,
+      "fixed_proxy_errors": [],
+      "transport_roundtrip_observed": true,
+      "resources_closed": true,
+      "log": "Failed to find real location of C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe\nFailed to find real location of C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe\n",
+      "host_tcp_connection_received": false,
+      "host_udp_datagrams_received": [
+        0,
+        0
+      ],
+      "host_udp_observer_positive_controls": [
+        {
+          "family": "ipv4",
+          "received": true
+        },
+        {
+          "family": "ipv6",
+          "received": true
+        }
+      ]
+    },
+    {
+      "name": "model2_host",
+      "status": "unsupported",
+      "process_started": false,
+      "no_process_started": true,
+      "checks": [],
+      "policy": {
+        "$schema": "https://github.com/microsoft/mxc/schemas/stable/mxc-config.schema.1.0.0.json",
+        "version": "1.0.0",
+        "containment": "processcontainer",
+        "fallback": {
+          "allowDaclMutation": false
+        },
+        "containerId": "ruleproxy-model2_host",
+        "process": {
+          "commandLine": "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python\\python.exe -I -S -X utf8 C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\experiment_actor.py --actor C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\actor-config.json --role parent",
+          "cwd": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host",
+          "env": [
+            "ALL_PROXY=http://127.0.0.1:60739",
+            "APPDATA=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\appdata",
+            "HOME=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\home",
+            "HOMEDRIVE=C:",
+            "HOMEPATH=\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\home",
+            "HTTPS_PROXY=http://127.0.0.1:60739",
+            "HTTP_PROXY=http://127.0.0.1:60739",
+            "LOCALAPPDATA=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\localappdata",
+            "NO_PROXY=",
+            "TEMP=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\temp",
+            "TMP=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\temp",
+            "USERPROFILE=C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host\\home"
+          ],
+          "inheritDefaultEnv": true,
+          "timeout": 100000
+        },
+        "filesystem": {
+          "readonlyPaths": [
+            "C:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\python",
+            "C:\\a\\_temp\\ruleproxy-probe\\RuleProxy-Web\\ruleproxy"
+          ],
+          "readwritePaths": [
+            "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\ruleproxy-network-experiment-kdjyt71u\\model2_host"
+          ]
+        },
+        "ui": {
+          "disable": false
+        },
+        "processContainer": {
+          "ui": {
+            "isolation": "container"
+          }
+        },
+        "network": {
+          "egress": {
+            "default": "deny"
+          },
+          "ingress": {
+            "default": "allow",
+            "hostLoopback": "allow"
+          }
+        },
+        "runtimeConfig": {
+          "networkProxy": "http://127.0.0.1:60739"
+        }
+      },
+      "detail": "MXC rejected the strict request: network.ingress.hostLoopback='allow' is not supported by this version of Windows; host-loopback ingress requires native ProcessContainer support",
+      "resources_closed": true,
+      "host_tcp_connection_received": false,
+      "host_udp_datagrams_received": [
+        0,
+        0
+      ],
+      "host_udp_observer_positive_controls": [
+        {
+          "family": "ipv4",
+          "received": true
+        },
+        {
+          "family": "ipv6",
+          "received": true
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "check": "host_proxy_dns_default_routes_unchanged",
+      "status": "passed",
+      "before_sha256": "36773d9589e8847dcab6bbae28dc1d261702b6e9d420fac839dcb0cb76ba88ac",
+      "after_sha256": "36773d9589e8847dcab6bbae28dc1d261702b6e9d420fac839dcb0cb76ba88ac"
+    }
+  ],
+  "runtime_integrity": {
+    "verified_file_count": 13
+  },
+  "host": {
+    "platform": "win32",
+    "python_architecture": "ARM64",
+    "pointer_bits": 64,
+    "windows_build": 26200,
+    "windows_product_type": 1,
+    "process_machine": 0,
+    "native_machine": 43620,
+    "python_pe_machine": 34404,
+    "acceptance_scope": "x64_on_arm_emulation"
+  }
+}

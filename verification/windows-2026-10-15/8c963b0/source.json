@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "head_sha": "8c963b0a955bcc2fddde24e32a01d40985cd2db4",
+  "run_id": 38640987470,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38640987470",
+  "artifact_id": 11930123498,
+  "artifact_zip_sha256": "ec5c3dcdbf2e33c4a7acd7076e7746ca74cb73cb8742376cb8867c82d160f57d",
+  "reports": [
+    {
+      "path": "arm-network-experiments.json",
+      "bytes": 41895,
+      "sha256": "5a08e059d9aa9dd9acf0edc82079aa113ce3310a23f5452f107eb60b4e64a657"
+    }
+  ],
+  "scope": "x64_on_arm_emulation",
+  "full_acceptance_passed": false,
+  "real_node_passed": false,
+  "findings": {
+    "internal_ipv4_exact_tcp_proxy_parent_and_child_roundtrips": true,
+    "host_same_port_takeover_denied": true,
+    "external_ingress_policy": "deny",
+    "host_loopback_policy": "deny",
+    "host_udp_observer_received_counts": [
+      0,
+      0
+    ],
+    "all_held_processes_exited": true
+  },
+  "limitations": [
+    "ARM execution does not prove native x64 compatibility.",
+    "Successful UDP send API calls do not prove delivery or denial.",
+    "Host observer absence is limited to its fixed loopback endpoints.",
+    "Public UDP, native system DNS, actual application and real-node acceptance remain unverified.",
+    "This experiment does not replace required product acceptance phases."
+  ]
+}
