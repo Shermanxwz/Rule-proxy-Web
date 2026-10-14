@@ -22,6 +22,10 @@ from .panel_client import PROBE_HEADER, PanelError, panel_state, post, wait_for_
 
 
 MAX_REQUEST = 2 * 1024 * 1024 + 65536
+# A rejected upload may still be arriving when its response is sent. Give those
+# bytes a short, fixed opportunity to drain before the socket is fully closed.
+REJECT_DRAIN_SECONDS = 0.2
+REJECT_DRAIN_BYTES = 64 * 1024
 # An open panel page reads the state every few seconds, and at least once a minute
 # from a background tab. A page that has not read it for this long counts as closed.
 VIEWER_TIMEOUT_SECONDS = 150.0
@@ -63,12 +67,37 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
 
+    def finish(self):
+        try:
+            if getattr(self, "_drain_on_close", False):
+                self.wfile.flush()
+                self.connection.shutdown(socket.SHUT_WR)
+                deadline = time.monotonic() + REJECT_DRAIN_SECONDS
+                remaining = REJECT_DRAIN_BYTES
+                while remaining:
+                    timeout = deadline - time.monotonic()
+                    if timeout <= 0:
+                        break
+                    self.connection.settimeout(timeout)
+                    # The header reader may have buffered part of the upload.
+                    chunk = self.rfile.read1(min(16 * 1024, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+        except OSError:
+            # A client can close, reset or stop uploading; never send a second reply.
+            pass
+        finally:
+            super().finish()
+
     def reply(self, status, body, content_type="application/json; charset=utf-8"):
         if isinstance(body, (dict, list)):
             body = json.dumps(body, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        if getattr(self, "_drain_on_close", False):
+            self.send_header("Connection", "close")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
@@ -115,6 +144,8 @@ class Handler(BaseHTTPRequestHandler):
         self.mutate()
 
     def mutate(self):
+        self._drain_on_close = True
+        self.close_connection = True
         if not self.valid_origin(mutation=True):
             return self.reply(403, {"error": "请求来源或面板凭据无效，请刷新面板。"})
         try:
@@ -123,7 +154,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(413, {"error": "请求内容过大。"})
             if length and self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
                 return self.reply(415, {"error": "请求必须是 JSON。"})
-            data = json.loads(self.rfile.read(length) or b"{}")
+            body = self.rfile.read(length)
+            self._drain_on_close = False
+            data = json.loads(body or b"{}")
             if not isinstance(data, dict):
                 raise ValueError("请求必须是对象。")
             path = urllib.parse.urlsplit(self.path).path

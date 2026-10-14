@@ -1,0 +1,192 @@
+{
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "959827f2135e83ecee07094e98bba06ab89e38db",
+  "workflow_run": 38603037216,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38603037216",
+  "recorded_at_utc": "2026-10-14T17:48:28.989608+00:00",
+  "status": "blocked",
+  "full_acceptance_passed": false,
+  "real_node_passed": false,
+  "artifact_archives": [
+    {
+      "id": 11914112638,
+      "name": "windows-11-probe",
+      "sha256": "eadfd886bc62871cd36859240cca095651e24c57d347b3c84f572b2436be6c52",
+      "checksum_verified": true
+    },
+    {
+      "id": 11915871867,
+      "name": "windows-11-x64-validation",
+      "sha256": "5212763eb821cf4f0f3b845000ac24dd5f52aee98c064b7eedea573bc012e3c1",
+      "checksum_verified": true
+    }
+  ],
+  "tested_package": {
+    "name": "RuleProxy-Web-0.2.2-windows-x64.zip",
+    "sha256": "5954ff5517294713587f5f1a77492ac9450d465dae7a0ea26085863a18f4968c",
+    "bytes": 48113406,
+    "matches_ci_build": true
+  },
+  "ordinary_ci": {
+    "linux_jobs": 4,
+    "linux_each": {
+      "tests": 219,
+      "failed": 0,
+      "skipped": 5
+    },
+    "windows_source": {
+      "tests": 219,
+      "failed": 0,
+      "skipped": 28
+    },
+    "windows_standard_package": {
+      "tests": 219,
+      "failed": 0,
+      "skipped": 44
+    },
+    "package_build_success": true
+  },
+  "native_package_suite": {
+    "tests": 219,
+    "errors": 1,
+    "skipped": 44,
+    "missing_example_errors": 0,
+    "example_payload_fix_confirmed": true,
+    "failed_test": "test_manager_server.LocalServerTests.test_shortcut_endpoint_requires_the_token",
+    "expected_response": 403,
+    "observed_error": "ConnectionAbortedError WinError10053 before response status line",
+    "unread_body_close_race": "source/RFC-supported inference; no TCP packet capture establishes cause",
+    "new_fix_requires_validation": true
+  },
+  "network_diagnostics": {
+    "udp_probe": "Fixed nonempty 35-byte ruleproxy.invalid IN A DNS query; complete send length required",
+    "arm": {
+      "windows_build": 26200,
+      "scope": "x64_on_arm_emulation",
+      "parent_ipv4_self_proxy": 10013,
+      "parent_ipv4_own_loopback": 10013,
+      "child_ipv4_parent_proxy": 10013,
+      "child_ipv4_own_loopback": 10013,
+      "parent_ipv6_own_loopback": 10013,
+      "direct_and_host_denials_passed": 4,
+      "direct_and_host_denials_required": 10,
+      "ipv6_tcp_udp": 10051,
+      "ipv4_udp": "full send succeeded; packet delivery not established"
+    },
+    "native": {
+      "windows_build": 26300,
+      "scope": "native_x64",
+      "ordinary_user": true,
+      "parent_ipv4_self_proxy": 10013,
+      "parent_ipv4_own_loopback": 10013,
+      "child_ipv4_parent_proxy": 10013,
+      "child_ipv4_own_loopback": 10013,
+      "parent_ipv6_own_loopback": 10013,
+      "direct_and_host_denials_passed": 6,
+      "direct_and_host_denials_required": 10,
+      "ipv4_and_ipv6_udp": "full send succeeded; packet delivery not established"
+    }
+  },
+  "host_proxy_dns_default_routes_unchanged": true,
+  "cleanup_or_recovery_errors_observed": false,
+  "recovery_records": [],
+  "limitations": [
+    "All independent transport, Manager, and browser phases refused application startup at the strict self-check.",
+    "Passing capability probes did not establish an internal TCP proxy channel.",
+    "UDP API success is neither packet-delivery/leakage proof nor explicit policy denial; route errors do not establish denial.",
+    "Host-to-guest ingress, real application behavior, Manager descendant lifecycle, Edge cookies, real nodes, HTTPS, login sessions and downloads were not validated.",
+    "Nine previous missing-YAML errors were eliminated; one independent HTTP refusal transport error still requires correction and native validation.",
+    "Strict fixed MXC 1.0.0 three-deny contract remains unchanged; higher untested Windows builds are not claimed supported."
+  ],
+  "evidence_files": [
+    {
+      "name": "arm-probe.json",
+      "sha256": "1895984e320930236e0752b653293e86f1d6f84955c19a7dbdf63b37b4fbfc6f",
+      "bytes": 1922,
+      "artifact_id": 11914112638,
+      "source_member": "windows-11-probe.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "arm-transport.json",
+      "sha256": "62fad31b29199f21b34d3f47523755a40999eae4f1b0c6e0a0d56011a7f28656",
+      "bytes": 2486,
+      "artifact_id": 11914112638,
+      "source_member": "windows-11-transport.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "arm-manager.json",
+      "sha256": "583f616e3ed6b125690198e28f4b237d8b0473d5e46b8df04ce65585e6e12623",
+      "bytes": 2718,
+      "artifact_id": 11914112638,
+      "source_member": "windows-11-manager.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "arm-browser.json",
+      "sha256": "522a7352ece7da14a1e1d93471f24b49dadbd137002213843a354863142b6db4",
+      "bytes": 2290,
+      "artifact_id": 11914112638,
+      "source_member": "windows-browser.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-probe.json",
+      "sha256": "0df5d497c0a42955e32ab13a7a80ad0629ad1b1a48c935d83151b6c7dc90a5ea",
+      "bytes": 1869,
+      "artifact_id": 11915871867,
+      "source_member": "windows-probe.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-transport.json",
+      "sha256": "d480de497469f873799266bb2cd867c6b1a0d68040e9d1fb473086b1e8d952a9",
+      "bytes": 2403,
+      "artifact_id": 11915871867,
+      "source_member": "windows-transport.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-manager.json",
+      "sha256": "e2baf81af688bde9280ffdc5d483b54c74dc3b51404590b074e477a3661c6e42",
+      "bytes": 2631,
+      "artifact_id": 11915871867,
+      "source_member": "windows-manager.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-browser.json",
+      "sha256": "970a3d8e7b77d75adc840ea4a6bffec65efd686035a2b90f39fee08943d238e9",
+      "bytes": 2208,
+      "artifact_id": 11915871867,
+      "source_member": "windows-browser.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-vm-summary.json",
+      "sha256": "92f467c8a9254af330322ba20e804be56e6ff75017fba3f8055485ba13e24267",
+      "bytes": 2206,
+      "artifact_id": 11915871867,
+      "source_member": "windows-vm-summary.json",
+      "copy_format": "byte-for-byte original JSON"
+    },
+    {
+      "name": "native-x64-session.json",
+      "sha256": "943d6a0f6e3a88c389988ed9c58ea96482e3099935318b62508810ae16d05885",
+      "bytes": 1309,
+      "artifact_id": 11915871867,
+      "source_member": "guest-result.json",
+      "source_sha256": "5fb8f734c272ba409707a9f9ab12f09530b79e2505a8a1132e6725d62527906d",
+      "copy_format": "whitelist session summary; reports/logs omitted"
+    }
+  ],
+  "excluded_from_archive": [
+    "raw guest-result logs/reports",
+    "logs",
+    "screenshots",
+    "VM media/disks",
+    "temporary credentials",
+    "signed URLs"
+  ]
+}

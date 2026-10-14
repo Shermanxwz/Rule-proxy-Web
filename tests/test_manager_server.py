@@ -1,4 +1,5 @@
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+import http.client
 import io
 import json
 from pathlib import Path
@@ -300,6 +301,192 @@ class LocalServerTests(unittest.TestCase):
         headers.setdefault("Content-Type", "application/json")
         request = urllib.request.Request(self.base + path, data=json.dumps(payload).encode() if payload is not None else None, headers=headers)
         return urllib.request.urlopen(request, timeout=5)
+
+    def header_only_mutation(self, **headers):
+        request_headers = {
+            "Host": f"127.0.0.1:{self.server.server_port}",
+            "Content-Type": "application/json",
+            "Content-Length": "2",
+            **headers,
+        }
+        client = socket.create_connection(self.server.server_address, timeout=5)
+        wire = "POST /api/import HTTP/1.1\r\n" + "".join(
+            f"{name}: {value}\r\n" for name, value in request_headers.items()
+        ) + "\r\n"
+        client.sendall(wire.encode("ascii"))
+        return client
+
+    def read_raw_reply(self, client):
+        with http.client.HTTPResponse(client) as response:
+            response.begin()
+            body = response.read()
+            self.assertEqual(len(body), int(response.getheader("Content-Length")))
+            return response.status, response.getheader("Connection"), json.loads(body)
+
+    @contextmanager
+    def observe_finished_request(self):
+        # Keep the sockets and buffered reader real, while observing how much
+        # rejected data was discarded and when the handler finished closing.
+        finished = threading.Event()
+        result = {"bytes": 0, "elapsed": None}
+        setup = panel_server.Handler.setup
+        finish = panel_server.Handler.finish
+
+        class ObservedReader:
+            def __init__(self, reader):
+                self.reader = reader
+
+            def __getattr__(self, name):
+                return getattr(self.reader, name)
+
+            def read1(self, size):
+                data = self.reader.read1(size)
+                result["bytes"] += len(data)
+                return data
+
+        def observed_setup(handler):
+            setup(handler)
+            handler.rfile = ObservedReader(handler.rfile)
+
+        def observed_finish(handler):
+            started = time.monotonic()
+            try:
+                finish(handler)
+            finally:
+                result["elapsed"] = time.monotonic() - started
+                finished.set()
+
+        with patch.object(panel_server.Handler, "setup", observed_setup), \
+                patch.object(panel_server.Handler, "finish", observed_finish):
+            yield result, finished
+
+    def assert_panel_available(self):
+        with self.request("/api/state") as response:
+            self.assertEqual(response.status, 200)
+
+    def test_rejected_headers_answer_before_the_body_and_discard_late_requests(self):
+        cases = (
+            {},
+            {"X-RuleProxy-Token": "wrong-token"},
+            {"X-RuleProxy-Token": self.manager.token, "Origin": "https://evil.example"},
+            {"X-RuleProxy-Token": self.manager.token, "Sec-Fetch-Site": "cross-site"},
+            {"X-RuleProxy-Token": self.manager.token, "Host": "evil.example"},
+        )
+        # Even a second request containing the real token must only be discarded.
+        late = b"{}" + (
+            f"POST /api/import HTTP/1.1\r\nHost: 127.0.0.1:{self.server.server_port}\r\n"
+            f"X-RuleProxy-Token: {self.manager.token}\r\nContent-Length: 2\r\n\r\n{{}}"
+        ).encode("ascii")
+        with patch.object(self.manager, "import_yaml") as imported:
+            for headers in cases:
+                with self.subTest(headers=headers):
+                    with self.observe_finished_request() as (result, finished):
+                        with self.header_only_mutation(**headers) as client:
+                            status, connection, body = self.read_raw_reply(client)
+                            self.assertEqual(status, 403)
+                            self.assertEqual(connection, "close")
+                            self.assertIn("error", body)
+                            client.sendall(late)
+                            client.shutdown(socket.SHUT_WR)
+                            self.assertEqual(client.recv(1), b"")
+                            self.assertTrue(finished.wait(3), "rejected handler did not close")
+                            self.assertEqual(result["bytes"], len(late))
+                    imported.assert_not_called()
+        self.assert_panel_available()
+
+    def test_size_type_and_length_rejections_discard_without_parsing_or_mutating(self):
+        cases = (
+            ({"Content-Length": str(panel_server.MAX_REQUEST + 1)}, 413),
+            ({"Content-Length": "-1"}, 413),
+            ({"Content-Type": "text/plain"}, 415),
+            ({"Content-Length": "not-a-number"}, 400),
+        )
+        with patch.object(self.manager, "import_yaml") as imported:
+            for headers, expected in cases:
+                with self.subTest(headers=headers):
+                    with self.observe_finished_request() as (result, finished):
+                        with self.header_only_mutation(**{"X-RuleProxy-Token": self.manager.token, **headers}) as client:
+                            status, connection, body = self.read_raw_reply(client)
+                            self.assertEqual(status, expected)
+                            self.assertEqual(connection, "close")
+                            self.assertIn("error", body)
+                            # This invalid JSON must not replace the header-level error.
+                            client.sendall(b"!}")
+                            client.shutdown(socket.SHUT_WR)
+                            self.assertEqual(client.recv(1), b"")
+                            self.assertTrue(finished.wait(3), "rejected handler did not close")
+                            self.assertEqual(result["bytes"], 2)
+                    imported.assert_not_called()
+        self.assert_panel_available()
+
+    def test_an_upload_that_never_arrives_has_a_fixed_close_budget(self):
+        with self.observe_finished_request() as (result, finished):
+            with self.header_only_mutation(**{"Content-Length": "1000000000000"}) as client:
+                self.assertEqual(self.read_raw_reply(client)[0], 403)
+                self.assertTrue(finished.wait(2), "missing upload kept the handler alive")
+                self.assertLess(result["elapsed"], 0.8)
+                self.assertEqual(result["bytes"], 0)
+        self.assert_panel_available()
+
+    def test_continuous_upload_does_not_refresh_the_close_deadline(self):
+        with self.observe_finished_request() as (result, finished):
+            with self.header_only_mutation(**{"Content-Length": "1000000000000"}) as client:
+                self.assertEqual(self.read_raw_reply(client)[0], 403)
+                def trickle():
+                    end = time.monotonic() + 1.2
+                    while time.monotonic() < end:
+                        try:
+                            client.sendall(b"x")
+                        except OSError:
+                            return
+                        time.sleep(0.025)
+
+                writer = threading.Thread(target=trickle, daemon=True)
+                writer.start()
+                try:
+                    self.assertTrue(finished.wait(2), "continuous upload kept the handler alive")
+                    self.assertLess(result["elapsed"], 0.8)
+                    self.assertGreater(result["bytes"], 0)
+                    self.assertLess(result["bytes"], panel_server.REJECT_DRAIN_BYTES)
+                finally:
+                    client.close()
+                    writer.join(2)
+                self.assertFalse(writer.is_alive())
+        self.assert_panel_available()
+
+    def test_rejected_upload_stops_at_a_fixed_byte_cap(self):
+        with self.observe_finished_request() as (result, finished):
+            with self.header_only_mutation(**{
+                "Content-Length": "1000000000000", "X-RuleProxy-Token": self.manager.token,
+            }) as client:
+                self.assertEqual(self.read_raw_reply(client)[0], 413)
+                try:
+                    client.sendall(b"x" * (panel_server.REJECT_DRAIN_BYTES * 2))
+                except OSError:
+                    # A reset after the fixed cap is an allowed bounded close.
+                    pass
+                self.assertTrue(finished.wait(2), "oversized upload kept the handler alive")
+                self.assertEqual(result["bytes"], panel_server.REJECT_DRAIN_BYTES)
+                self.assertLess(result["elapsed"], 0.8)
+        self.assert_panel_available()
+
+    def test_a_consumed_body_does_not_enter_the_rejected_upload_drain(self):
+        with patch.object(self.manager, "import_yaml") as imported:
+            with self.observe_finished_request() as (result, finished):
+                with self.request("/api/import", {"yaml": "test"}, **{"X-RuleProxy-Token": self.manager.token}) as response:
+                    self.assertEqual(response.status, 200)
+                self.assertTrue(finished.wait(2))
+                self.assertEqual(result["bytes"], 0)
+            imported.assert_called_once_with("test")
+        with self.observe_finished_request() as (result, finished):
+            with self.header_only_mutation(**{
+                "Content-Length": "2", "X-RuleProxy-Token": self.manager.token,
+            }) as client:
+                client.sendall(b"!}")
+                self.assertEqual(self.read_raw_reply(client)[0], 400)
+                self.assertTrue(finished.wait(2))
+                self.assertEqual(result["bytes"], 0)
+        self.assert_panel_available()
 
     def test_state_and_static_are_available_only_to_local_host(self):
         with self.request("/api/state") as response:

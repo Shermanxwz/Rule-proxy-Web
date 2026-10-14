@@ -161,6 +161,8 @@ Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中�
 
 该轮通道、Manager/Mihomo 和浏览器检查分别尝试后，均在应用启动前被同一自检拒绝。原生 VM 的运行包单元测试执行 215 项，出现 9 个错误、44 项跳过；9 个错误均因 VM 测试载荷漏带 `examples/ruleproxy.example.yaml`，不能归为产品回归。补齐载荷的效果以修复提交对应的 CI 为准。当前固定 MXC 1.0.0 契约中未发现保持出站、入站及宿主回环全部拒绝的内部 TCP 回环开关；未测试的更高 Windows 构建不能作为可用性依据，也不能据此断言所有 Windows 版本均不可行。
 
+提交 `959827f2135e83ecee07094e98bba06ab89e38db` 的 [再次检查](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38603037216) 已消除原生 VM 漏带 YAML 的 9 个错误。非空的固定 DNS 测试报文未改变网络门禁结果：内部 TCP 回环仍返回 `10013`，UDP 发送成功仍不证明到达或泄漏。原生运行包执行 219 项测试，出现 1 个错误、44 项跳过；剩余错误是未授权 POST 期望返回 `403`，客户端却收到连接中断。该问题的修复效果以对应提交的 CI 为准。[原始报告与来源](verification/windows-2026-10-15/959827f/source.json) 保留了该次失败和验证范围。
+
 文件中继、启动门控和规则目标重写虽有单元测试覆盖，**Windows 应用兼容性、实际网络阻断及异常退出清理仍未通过完整实测，不能称为已封存或已实测零泄漏**。请求级能力可用也不代表内部代理通道可用；实际自检失败始终拒绝启动。
 
 本机数据独立于旧版目录：Windows `%LOCALAPPDATA%\RuleProxyWebSafe`；Linux `$XDG_DATA_HOME/ruleproxy-web-safe`（默认 `~/.local/share/ruleproxy-web-safe`）。核心日志为该目录的 `core.log`，Linux 应用错误为对应 `profiles/<id>/runtime.log`。删除项目程序不会留下全机断网规则；删除数据前先正常关闭面板。

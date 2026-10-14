@@ -1,0 +1,51 @@
+{
+  "status": "failed",
+  "acceptance_passed": false,
+  "transport_passed": false,
+  "real_node_passed": false,
+  "manager_fixture_passed": false,
+  "manager_normal_stop_passed": false,
+  "manager_core_loss_passed": false,
+  "checks": [
+    {
+      "check": "host_proxy_dns_default_routes_unchanged",
+      "status": "passed",
+      "before_sha256": "6debfeb34e1f7b3964acca541afa0ed72fc300ee86f37f487f773908cd63d5a2",
+      "after_sha256": "6debfeb34e1f7b3964acca541afa0ed72fc300ee86f37f487f773908cd63d5a2"
+    }
+  ],
+  "host": {
+    "platform": "win32",
+    "python_architecture": "AMD64",
+    "pointer_bits": 64,
+    "windows_build": 26300,
+    "windows_product_type": 1,
+    "process_machine": 0,
+    "native_machine": 34404,
+    "python_pe_machine": 34404,
+    "acceptance_scope": "native_x64"
+  },
+  "runtime_integrity": {
+    "versions": {
+      "mihomo": "v1.19.32",
+      "mxc": "1.0.0"
+    },
+    "verified_file_count": 13,
+    "manifest_verified": true,
+    "origin_verification": "Release ZIP external checksum must be verified separately."
+  },
+  "runtime_sha256": "8a6d1db4dd1846981127d9014741be18b094d07be967765dff6754bda1d40259",
+  "core_sha256": "04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314",
+  "probe": {
+    "supported": true,
+    "backend": "base-container",
+    "detail": "\u7cfb\u7edf\u652f\u6301\u5168\u62d2\u7edd\u7f51\u7edc\u9694\u79bb\u3002\u5e94\u7528\u542f\u52a8\u524d\u4f1a\u68c0\u67e5\u4ee3\u7406\u901a\u9053\u53ca\u5b9e\u9645\u963b\u65ad\u3002",
+    "limitations": [
+      "\u5f53\u524d\u7ed3\u679c\u8868\u793a\u7cfb\u7edf\u5177\u5907\u9694\u79bb\u80fd\u529b\uff1b\u5b9e\u9645\u963b\u65ad\u8fd8\u9700\u5728\u542f\u52a8\u65f6\u68c0\u67e5\u3002",
+      "\u4ec5\u4ece\u9762\u677f\u6216\u5feb\u6377\u65b9\u5f0f\u542f\u52a8\u7684\u5b9e\u4f8b\u53d7\u4fdd\u62a4\uff1b\u542f\u52a8\u68c0\u67e5\u5931\u8d25\u5c31\u62d2\u7edd\u542f\u52a8\u3002",
+      "\u5e94\u7528\u4f7f\u7528\u72ec\u7acb\u914d\u7f6e\uff0c\u4ee3\u7406\u901a\u9053\u541e\u5410\u53ef\u80fd\u4f4e\u4e8e\u666e\u901a\u4ee3\u7406\u3002"
+    ]
+  },
+  "detail": "Acceptance failed during transport_fixture (UnsupportedRuntimeError).",
+  "failure_detail": "network self-check: parent(self-proxy=fail:10013,own-loop=fail:10013); child(parent-proxy=fail:10013,own-loop=fail:10013); direct/host deny 6/10; parent-ipv6-loop=fail:10013; failures p.4udp=allowed,p.6udp=allowed,c.4udp=allowed,c.6udp=allowed"
+}
