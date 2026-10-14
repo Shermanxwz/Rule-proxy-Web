@@ -129,6 +129,52 @@ class WindowsVmTests(unittest.TestCase):
             self.assertTrue((self.root / name).read_bytes().startswith(b"\xef\xbb\xbf"))
         self.assertNotIn("@PASSWORD@", (self.root / "autounattend.xml").read_text())
 
+    def test_update_downloads_and_seed_require_external_bytes_and_hashes(self):
+        import hashlib
+        records = [{"filename": "checkpoint.msu", "url": "https://example.invalid/checkpoint.msu",
+                    "sha256": hashlib.sha256(b"checkpoint").hexdigest(), "bytes": 10},
+                   {"filename": "target.msu", "url": "https://example.invalid/target.msu",
+                    "sha256": hashlib.sha256(b"target").hexdigest(), "bytes": 6}]
+        data = {"checkpoint.msu": b"checkpoint", "target.msu": b"target"}
+
+        def download(command, **_):
+            path = Path(command[command.index("--output") + 1])
+            path.write_bytes(data[path.name])
+
+        updates = self.root / "updates"
+        with mock.patch.object(vm, "UPDATE_PACKAGES", records), mock.patch.object(vm.subprocess, "run", side_effect=download), mock.patch("builtins.print"):
+            verified = vm.download_updates(updates)
+            self.assertTrue(all(item["verified"] for item in verified))
+            tree = self.root / "seed"
+            tree.mkdir()
+            vm.prepare_seed(tree, "TestPasswordCi!9", {}, updates=updates)
+            self.assertEqual((tree / "ruleproxy-updates/packages/target.msu").read_bytes(), b"target")
+            self.assertEqual(json.loads((tree / "ruleproxy-updates/update-manifest.json").read_text())["target_package"], "target.msu")
+            self.assertTrue((tree / "ruleproxy-updates/windows-vm-update.ps1").read_bytes().startswith(b"\xef\xbb\xbf"))
+            data["target.msu"] = b"broken"
+            with self.assertRaisesRegex(RuntimeError, "size/SHA-256"):
+                vm.download_updates(self.root / "bad-download")
+            (updates / "target.msu").write_bytes(b"broken")
+            other = self.root / "bad-seed"
+            other.mkdir()
+            with self.assertRaisesRegex(RuntimeError, "changed before seed"):
+                vm.prepare_seed(other, "TestPasswordCi!9", {}, updates=updates)
+
+    def test_base_build_without_update_revision_cannot_pass_updated_vm_acceptance(self):
+        result = self.passed_result()
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result, require_official_update=True)
+        result["official_update"] = {"status": "completed", "completed": True, "packages_verified": True,
+                                     "task_unregistered": True,
+                                     "actual_build": vm.UPDATE_BUILD, "actual_ubr": vm.UPDATE_UBR - 1}
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result, require_official_update=True)
+        result["official_update"]["actual_ubr"] = vm.UPDATE_UBR
+        vm.verify_result(result, require_official_update=True)
+        result["official_update"]["packages_verified"] = False
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result, require_official_update=True)
+
     def test_external_checksum_and_safe_zip_members_are_required(self):
         path = self.root / "release.zip"
         with zipfile.ZipFile(path, "w") as archive:
@@ -237,6 +283,8 @@ class WindowsVmTests(unittest.TestCase):
         control = {name: {"report": report} for name, report in self.passed_result()["reports"].items()}
         control["package_tests"] = {}
         for name, changes in (overrides or {}).items():
+            if name == "experiments":
+                control[name] = {}
             control[name].update(changes)
         workspace.mkdir()
         (workspace / "fixture-control.json").write_text(json.dumps(control), encoding="utf-8")
@@ -245,6 +293,8 @@ from pathlib import Path
 workspace = Path(__file__).resolve().parent.parent
 if Path(__file__).name == 'run_tests.py':
     name = 'package_tests'
+elif Path(__file__).name == 'windows_network_experiment.py':
+    name = 'experiments'
 elif Path(__file__).name == 'windows_browser_check.py':
     name = 'browser'
 else:
@@ -264,7 +314,87 @@ raise SystemExit(configuration.get('exit_code', 0))
             path = workspace / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(script, encoding="utf-8")
+        if "experiments" in (overrides or {}):
+            (workspace / ".github/windows_network_experiment.py").write_text(script, encoding="utf-8")
         return workspace
+
+    def experiment_report(self):
+        return {"status": "experiment_only", "full_acceptance_passed": False,
+                "acceptance_passed": False, "real_node_passed": False,
+                "host": {"acceptance_scope": "native_x64", "native_machine": 0x8664,
+                         "python_pe_machine": 0x8664},
+                "cleanup_proven": True,
+                "variants": [{"name": "deny_all", "status": "transport_unavailable", "process_started": True,
+                              "descendant_cleanup_proven": True, "resources_closed": True}],
+                "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}]}
+
+    def test_collected_experiment_cannot_replace_failed_required_product_phase(self):
+        workspace = self.guest_control_workspace({
+            "experiments": {"report": self.experiment_report()},
+            "transport": {"exit_code": 1, "report": {"status": "failed", "acceptance_passed": False,
+                                                        "real_node_passed": False}}})
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
+        self.assertEqual(result["experiments_phase"]["status"], "passed")
+        self.assertEqual(result["reports"]["experiments"], self.experiment_report())
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["experiments", *vm.PHASE_NAMES])
+        self.assertEqual(result["status"], "failed")
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(dict(result, ordinary_user=True))
+
+    def test_unproven_experiment_cleanup_blocks_contained_product_fixtures(self):
+        report = self.experiment_report()
+        report["cleanup_error"] = "UnverifiedGuardTeardown"
+        report["recovery_directory"] = str(self.root / "retained")
+        workspace = self.guest_control_workspace({"experiments": {"report": report, "exit_code": 1}})
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(),
+                         ["experiments", "probe", "package_tests"])
+        self.assertEqual(result["recovery_records"][0]["phase"], "experiments")
+        self.assertEqual(result["recovery_records"][0]["recovery_directory"], report["recovery_directory"])
+        self.assertTrue(all(result["phases"][i]["status"] == "blocked" for i in (1, 2, 3)))
+        self.assertEqual(result["phases"][4]["status"], "passed")
+
+    def test_nested_or_missing_variant_cleanup_cannot_pass_collection(self):
+        cases = []
+        report = self.experiment_report()
+        report["variants"][0]["actor"] = {"cleanup_error": "Unproven"}
+        cases.append(report)
+        report = self.experiment_report()
+        report["variants"][0]["actor"] = {"ipc": {"cleanup_proven": False, "cleanup_errors": []}}
+        cases.append(report)
+        report = self.experiment_report()
+        report["variants"][0]["actor"] = {"ipc": {"cleanup_proven": True, "cleanup_errors": [{"operation": "CloseHandle"}]}}
+        cases.append(report)
+        report = self.experiment_report()
+        report["variants"][0]["descendant_cleanup_proven"] = False
+        cases.append(report)
+        report = self.experiment_report()
+        del report["variants"][0]["process_started"]
+        cases.append(report)
+        report = self.experiment_report()
+        del report["cleanup_proven"]
+        cases.append(report)
+        report = self.experiment_report()
+        report["variants"] = [{"name": "unsupported", "process_started": False}]
+        cases.append(report)
+        for report in cases:
+            with self.subTest(report=report), self.assertRaises(RuntimeError):
+                vm.verify_phase_report("experiments", report)
+        report = self.experiment_report()
+        report["variants"] = [{"name": "unsupported", "process_started": False, "no_process_started": True}]
+        vm.verify_phase_report("experiments", report)
+
+    def test_host_verification_cannot_ignore_failed_experiment_or_recovery(self):
+        result = self.passed_result()
+        result["experiments_phase"] = {"status": "failed", "exit_code": 1}
+        result["reports"]["experiments"] = self.experiment_report()
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
+        result["experiments_phase"] = {"status": "passed", "exit_code": 0}
+        vm.verify_result(result)
+        result["recovery_records"] = [{"phase": "experiments", "descendant_cleanup_proven": False}]
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
 
     def test_failed_transport_collects_manager_browser_and_package_results(self):
         failed = {"status": "failed", "acceptance_passed": False, "real_node_passed": False,

@@ -47,6 +47,30 @@ try {
     $result.ordinary_user = $true
     $result.user = $identity.Name
     $result.os = (Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber, OSArchitecture)
+    if ($configuration.require_official_update) {
+        $statePath = 'C:\RuleProxyCIUpdates\update-state.json'
+        $updateDeadline = [DateTime]::UtcNow.AddMinutes(55)
+        do {
+            if (Test-Path -LiteralPath $statePath) {
+                if ((Get-Item -LiteralPath $statePath).Length -gt 65536) { throw 'Windows update state exceeded its size limit' }
+                $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+                if ($state.status -eq 'failed') {
+                    $result.official_update = $state
+                    throw ('Official update failed: ' + [string] $state.error)
+                }
+                if ($state.status -eq 'completed' -and $state.completed -eq $true) {
+                    $actual = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+                    if ([int] $actual.CurrentBuildNumber -ne [int] $configuration.update_build -or [int] $actual.UBR -lt [int] $configuration.update_ubr -or [int] $state.actual_build -ne [int] $configuration.update_build -or [int] $state.actual_ubr -lt [int] $configuration.update_ubr -or $state.packages_verified -ne $true -or $state.task_unregistered -ne $true) {
+                        throw 'Official update state did not match the running Windows build/revision'
+                    }
+                    $result.official_update = $state
+                    break
+                }
+            }
+            if ([DateTime]::UtcNow -ge $updateDeadline) { throw 'Official cumulative update did not complete before the ordinary-user test deadline' }
+            Start-Sleep -Seconds 5
+        } while ($true)
+    }
     $url = $configuration.host_url
     $deadline = [DateTime]::UtcNow.AddMinutes(5)
     $payload = Join-Path $PSScriptRoot 'payload.zip'
@@ -78,13 +102,14 @@ try {
     $report = Join-Path $PSScriptRoot 'guest-phases.json'
     $log = Join-Path $PSScriptRoot 'supervisor.log'
     if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report -Force }
-    $code = Invoke-LocalProgram $python @('-X', 'utf8', '-B', $supervisor, '--guest-phases', '--root', $package, '--workspace', $workspace, '--report', $report) $log 4200
+    $code = Invoke-LocalProgram $python @('-X', 'utf8', '-B', $supervisor, '--guest-phases', '--root', $package, '--workspace', $workspace, '--report', $report) $log 4800
     if (-not (Test-Path -LiteralPath $report)) { throw 'Guest supervisor returned no report' }
     if ((Get-Item -LiteralPath $report).Length -gt 4194304) { throw 'Guest supervisor report exceeded its size limit' }
     $collected = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
     # Load failed reports too. A completed strict probe allows independent
     # fixtures, while retained cleanup errors block new contained launches.
     $result.phases = @($collected.phases)
+    if ($collected.experiments_phase) { $result.experiments_phase = $collected.experiments_phase }
     $result.recovery_records = @($collected.recovery_records)
     foreach ($property in $collected.reports.PSObject.Properties) { $result.reports[$property.Name] = $property.Value }
     foreach ($property in $collected.logs.PSObject.Properties) { $result.logs[$property.Name] = $property.Value }
@@ -99,6 +124,19 @@ try {
     $result.status = 'failed'
     $result.error = $_.Exception.Message
 } finally {
+    $updateLog = 'C:\RuleProxyCIUpdates\dism.log'
+    if (Test-Path -LiteralPath $updateLog) {
+        try {
+            $stream = [IO.File]::Open($updateLog, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+            try {
+                $length = [int] [Math]::Min($stream.Length, 131072)
+                [void] $stream.Seek(-$length, [IO.SeekOrigin]::End)
+                $buffer = New-Object byte[] $length
+                $count = $stream.Read($buffer, 0, $length)
+                $result.logs['windows_update'] = [Text.Encoding]::UTF8.GetString($buffer, 0, $count)
+            } finally { $stream.Dispose() }
+        } catch { $result.logs['windows_update'] = 'Could not read the bounded update log.' }
+    }
     $body = $result | ConvertTo-Json -Depth 40 -Compress
     [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'guest-result.json'), $body, $utf8)
     $delivered = $false

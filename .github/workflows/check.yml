@@ -188,13 +188,23 @@ jobs:
         with:
           name: windows-package
           path: dist
-      - name: Probe the fixed x64 runtime on a real Windows 11 kernel
-        id: psec-probe
+      - name: Collect independent lightweight network-policy experiments
+        id: network-experiment
         run: |
           $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
           $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
           if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "Package checksum mismatch" }
           Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\ruleproxy-probe"
+          $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
+          & "$root\python\python.exe" -X utf8 -B .github\windows_network_experiment.py --root "$root" --allow-emulated-x64 --report windows-network-experiments.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Probe the fixed x64 runtime on a real Windows 11 kernel
+        id: psec-probe
+        if: ${{ !cancelled() && steps.network-experiment.outcome == 'success' }}
+        run: |
+          $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
+          $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "Package checksum mismatch" }
           $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
           & "$root\python\python.exe" -X utf8 -B scripts\windows-acceptance.py --root "$root" --probe-only --report windows-11-probe.json
           $probeExit = $LASTEXITCODE
@@ -257,6 +267,23 @@ jobs:
           }
           & "$root\python\python.exe" -X utf8 -B .github\windows_browser_check.py --root "$root" --allow-emulated-x64 --report windows-browser.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Require actual fixture results before the ARM job can pass
+        if: ${{ !cancelled() }}
+        run: |
+          foreach ($name in @('windows-network-experiments.json', 'windows-11-probe.json', 'windows-11-transport.json', 'windows-11-manager.json', 'windows-browser.json')) {
+            if (-not (Test-Path $name)) { throw "Required Windows result missing: $name" }
+            $value = Get-Content $name -Raw | ConvertFrom-Json
+            if ($value.cleanup_error -or $value.recovery_directory -or $value.status -eq 'blocked') { throw "Unproven cleanup: $name" }
+          }
+          $experiment = Get-Content windows-network-experiments.json -Raw | ConvertFrom-Json
+          if ($experiment.cleanup_proven -ne $true -or $experiment.status -ne 'experiment_only') { throw 'Experiment collection/cleanup did not complete' }
+          $probe = Get-Content windows-11-probe.json -Raw | ConvertFrom-Json
+          $transport = Get-Content windows-11-transport.json -Raw | ConvertFrom-Json
+          $manager = Get-Content windows-11-manager.json -Raw | ConvertFrom-Json
+          $browser = Get-Content windows-browser.json -Raw | ConvertFrom-Json
+          if (-not $probe.probe.supported -or -not $transport.transport_passed -or -not $manager.manager_fixture_passed -or -not $manager.manager_normal_stop_passed -or -not $manager.manager_core_loss_passed -or -not $browser.browser_fixture_passed) {
+            throw 'Windows ARM capability or a required real fixture remains unverified'
+          }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -266,6 +293,7 @@ jobs:
             windows-11-transport.json
             windows-11-manager.json
             windows-browser.json
+            windows-network-experiments.json
           if-no-files-found: error
           retention-days: 30
 
@@ -274,7 +302,7 @@ jobs:
     needs: windows-package
     if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -292,7 +320,7 @@ jobs:
         run: |
           package=$(find "$PWD/dist" -maxdepth 1 -name 'RuleProxy-Web-*-windows-x64.zip' -print -quit)
           digest=$(awk 'NR==1 {print $1}' dist/SHA256SUMS.txt)
-          sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 5400
+          sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 10800
       - uses: actions/upload-artifact@v7
         if: always()
         with:

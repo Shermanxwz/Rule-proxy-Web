@@ -40,6 +40,30 @@ ISO_BYTES = 8_225_329_152
 ISO_SOURCE = "https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise"
 ISO_HASH_SOURCE = ("https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/"
                    "verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file")
+UPDATE_BUILD = 26300
+UPDATE_UBR = 9711
+UPDATE_SOURCE = ("https://support.microsoft.com/en-us/servicing/os/windows-11/2026/10/"
+                 "kb5127648-windows-11-24h2-25h2-26h2-security-update")
+UPDATE_CATALOG_ID = "3aa52c0d-45db-47a4-be28-4b0042c5ac78"
+# SHA-256 values come from Microsoft's Catalog DownloadDialog metadata, not
+# from a locally downloaded package. Checkpoint and target share one MSU-only
+# directory so Windows servicing can discover the required dependency.
+UPDATE_PACKAGES = (
+    {"filename": "windows11.0-kb5043080-x64_953449672073f8fb99badb4cc6d5d7849b9c83e8.msu",
+     "seed_filename": "windows11.0-kb5043080-x64.msu",
+     "url": "https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/"
+            "d8b7f92b-bd35-4b4c-96e5-46ce984b31e0/public/"
+            "windows11.0-kb5043080-x64_953449672073f8fb99badb4cc6d5d7849b9c83e8.msu",
+     "sha256": "819632610a101af11c72907fb13ff05b5fb4222c0e263ee9a03bcc1d1d5f26a4",
+     "bytes": 533_761_740},
+    {"filename": "windows11.0-kb5127648-x64_2b88d2d308adc938fcd4d2876a68ee0b2a3c4c09.msu",
+     "seed_filename": "windows11.0-kb5127648-x64.msu",
+     "url": "https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/"
+            "4225b261-8248-43e5-a808-34f3faafe3f6/public/"
+            "windows11.0-kb5127648-x64_2b88d2d308adc938fcd4d2876a68ee0b2a3c4c09.msu",
+     "sha256": "8a1067c763121953876e2e0dcbf5e2c5832545a44ef6baba362938287e05fcfb",
+     "bytes": 4_775_050_195},
+)
 MIN_FREE_BYTES = 55 * 1024**3
 MAX_RESULT_BYTES = 8 * 1024**2
 MAX_PHASE_RECORD_BYTES = 256 * 1024
@@ -108,7 +132,7 @@ def make_payload(package: Path, destination: Path) -> str:
     return digest(destination)
 
 
-def prepare_seed(tree: Path, password: str, configuration: dict) -> None:
+def prepare_seed(tree: Path, password: str, configuration: dict, *, updates: Path | None = None) -> None:
     template = (ROOT / ".github/windows-vm-unattend.xml").read_text(encoding="utf-8")
     # The generated password is alphanumeric plus a fixed complexity suffix,
     # so it has no XML markup, quotes, newlines or shell interpolation.
@@ -121,6 +145,40 @@ def prepare_seed(tree: Path, password: str, configuration: dict) -> None:
         data = (ROOT / ".github" / source).read_text(encoding="utf-8")
         (tree / target).write_text(data, encoding="utf-8-sig")
     write_json(tree / "ruleproxy-vm-config.json", configuration)
+    if updates is not None:
+        directory = tree / "ruleproxy-updates"
+        directory.mkdir()
+        packages = directory / "packages"
+        packages.mkdir()
+        for item in UPDATE_PACKAGES:
+            source = updates / item["filename"]
+            if source.stat().st_size != item["bytes"] or digest(source) != item["sha256"]:
+                raise RuntimeError("Official Windows update changed before seed creation")
+            # Keep names within Windows' ordinary Joliet limit on the seed
+            # DVD. MSU content, signature and externally verified hash persist.
+            shutil.copyfile(source, packages / item.get("seed_filename", item["filename"]))
+        write_json(directory / "update-manifest.json", {
+            "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
+            "target_package": UPDATE_PACKAGES[-1].get("seed_filename", UPDATE_PACKAGES[-1]["filename"]),
+            "packages": [{"filename": item.get("seed_filename", item["filename"]), "sha256": item["sha256"]} for item in UPDATE_PACKAGES],
+        })
+        source = (ROOT / ".github/windows-vm-update.ps1").read_text(encoding="utf-8")
+        (directory / "windows-vm-update.ps1").write_text(source, encoding="utf-8-sig")
+
+
+def download_updates(directory: Path) -> list[dict]:
+    directory.mkdir()
+    verified = []
+    for item in UPDATE_PACKAGES:
+        path = directory / item["filename"]
+        print(f"Downloading Microsoft Catalog update: {item['filename']}", flush=True)
+        subprocess.run(["curl", "--fail", "--location", "--silent", "--show-error", "--retry", "5",
+                        "--retry-all-errors", "--connect-timeout", "30", "--max-time", "1800", "--proto", "=https",
+                        "--proto-redir", "=https", "--output", str(path), item["url"]], check=True, timeout=1800)
+        if path.stat().st_size != item["bytes"] or digest(path) != item["sha256"]:
+            raise RuntimeError("Microsoft Catalog update size/SHA-256 mismatch; servicing was refused")
+        verified.append(dict(item, verified=True))
+    return verified
 
 
 def validate_install_tree(tree: Path) -> str:
@@ -188,10 +246,10 @@ class GuestHandler(BaseHTTPRequestHandler):
             logs = result.get("logs", {})
             if not isinstance(reports, dict) or not isinstance(logs, dict):
                 raise ValueError("Invalid guest report or logs")
-            for name in ("probe", "transport", "manager", "browser"):
+            for name in ("probe", "transport", "manager", "browser", "experiments"):
                 if name in reports:
                     write_json(self.server.artifacts / f"windows-{name}.json", reports[name])
-            for name in ("probe", "transport", "manager", "browser", "tests", "supervisor"):
+            for name in ("probe", "transport", "manager", "browser", "experiments", "tests", "supervisor", "windows_update"):
                 if name in logs:
                     if not isinstance(logs[name], str):
                         raise ValueError("Invalid guest log")
@@ -289,7 +347,21 @@ def verify_phase_report(name: str, report: dict) -> None:
     checks = {check.get("check"): check for check in entries}
     if checks.get("host_proxy_dns_default_routes_unchanged", {}).get("status") != "passed":
         raise RuntimeError(f"{name} fixture did not preserve host network settings")
-    if name == "transport":
+    if name == "experiments":
+        if report.get("status") != "experiment_only" or report.get("full_acceptance_passed") is not False:
+            raise RuntimeError("Network experiments cannot claim product acceptance")
+        variants = report.get("variants")
+        if not isinstance(variants, list) or not 1 <= len(variants) <= 16 or not all(isinstance(item, dict) for item in variants):
+            raise RuntimeError("Network experiment report omitted its independent variant results")
+        if report.get("cleanup_proven") is not True or experiment_has_recovery(variants):
+            raise RuntimeError("Network experiment cleanup was not proven")
+        for variant in variants:
+            if variant.get("process_started") is True:
+                if any(variant.get(key) is not True for key in ("descendant_cleanup_proven", "resources_closed")):
+                    raise RuntimeError("Started network variant omitted descendant/resource cleanup proof")
+            elif variant.get("process_started") is not False or variant.get("no_process_started") is not True:
+                raise RuntimeError("Network variant did not establish whether a workload was started")
+    elif name == "transport":
         if report.get("status") != "transport_only" or report.get("transport_passed") is not True:
             raise RuntimeError("Guest report did not pass the real PSEC transport fixture")
         if report.get("manager_core_loss_passed") is not False:
@@ -323,9 +395,35 @@ def verify_phase_report(name: str, report: dict) -> None:
         raise RuntimeError("Unknown fixture phase")
 
 
-def verify_result(result: dict) -> None:
+def experiment_has_recovery(value) -> bool:
+    """Recovery nested in one variant cannot be hidden by an aggregate success."""
+    if isinstance(value, dict):
+        return (any(key in value for key in ("cleanup_error", "recovery_directory"))
+                or value.get("cleanup_proven") is False or bool(value.get("cleanup_errors"))) or any(
+            experiment_has_recovery(item) for item in value.values())
+    if isinstance(value, list):
+        return any(experiment_has_recovery(item) for item in value)
+    return False
+
+
+def verify_result(result: dict, *, require_official_update: bool = False) -> None:
     if result.get("status") != "passed" or result.get("ordinary_user") is not True:
         raise RuntimeError(f"Guest tests failed: {result.get('error', 'missing ordinary-user proof')}")
+    if require_official_update:
+        update = result.get("official_update", {})
+        if (update.get("status") != "completed" or update.get("completed") is not True
+                or update.get("packages_verified") is not True or update.get("task_unregistered") is not True
+                or type(update.get("actual_build")) is not int
+                or update["actual_build"] != UPDATE_BUILD or type(update.get("actual_ubr")) is not int
+                or update["actual_ubr"] < UPDATE_UBR):
+            raise RuntimeError("Guest did not prove the pinned official cumulative update was installed")
+    if result.get("recovery_records", []) != []:
+        raise RuntimeError("Guest retained unproven cleanup or recovery records")
+    if "experiments_phase" in result or "experiments" in result.get("reports", {}):
+        experiment = result.get("experiments_phase", {})
+        if experiment.get("status") != "passed" or type(experiment.get("exit_code")) is not int or experiment["exit_code"] != 0:
+            raise RuntimeError("Guest network experiment collection/cleanup failed")
+        verify_phase_report("experiments", result.get("reports", {}).get("experiments"))
     phases = result.get("phases")
     if not isinstance(phases, list) or not all(isinstance(phase, dict) for phase in phases) or [
         phase.get("name") for phase in phases
@@ -411,6 +509,28 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     result = {"status": "failed", "phases": [], "reports": {}, "logs": {}, "recovery_records": []}
     probe_passed = False
     cleanup_pending = False
+    # This optional source-only experiment precedes the product fixtures. Its
+    # policy variants never replace a required phase or grant release status.
+    # Incomplete experiment teardown prevents every later contained launch.
+    experiment = workspace / ".github/windows_network_experiment.py"
+    if experiment.is_file():
+        record, report, log = run_guest_phase(
+            "experiments", [executable, "-X", "utf8", "-B", str(experiment),
+                            "--root", str(root), "--report", str(directory / "experiments.json")],
+            directory, timeout=min(600, phase_timeout))
+        result["experiments_phase"] = record
+        result["logs"]["experiments"] = log
+        if report is not None:
+            result["reports"]["experiments"] = report
+        if record["status"] != "passed":
+            cleanup_pending = True
+            recovery = {"phase": "experiments", "reason": record.get("error", "Experiment cleanup was not proven"),
+                        "descendant_cleanup_proven": False}
+            if report is not None:
+                for key in ("cleanup_error", "recovery_directory"):
+                    if key in report:
+                        recovery[key] = str(report[key])[:1024]
+            result["recovery_records"].append(recovery)
     for name in PHASE_NAMES:
         if name in ("transport", "manager", "browser") and (not probe_passed or cleanup_pending):
             result["phases"].append({"name": name, "status": "blocked", "exit_code": None,
@@ -476,7 +596,9 @@ def run(args) -> dict:
     summary = {"status": "failed", "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
                "iso": {"url": ISO_URL, "sha256": ISO_SHA256,
-               "download_page": ISO_SOURCE, "hash_source": ISO_HASH_SOURCE, "evaluation_days": 90}}
+               "download_page": ISO_SOURCE, "hash_source": ISO_HASH_SOURCE, "evaluation_days": 90},
+               "official_update": {"kb": "KB5127648", "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
+                                   "source": UPDATE_SOURCE, "catalog_update_id": UPDATE_CATALOG_ID}}
     try:
         summary["kvm_api_version"] = require_kvm()
         package = args.package.resolve(strict=True)
@@ -510,6 +632,8 @@ def run(args) -> dict:
             if iso.stat().st_size != ISO_BYTES or digest(iso) != ISO_SHA256:
                 raise RuntimeError("Microsoft ISO size/SHA-256 mismatch; guest installation was refused")
             summary["iso"]["verified"] = True
+            updates = work / "official-updates"
+            summary["official_update"]["packages"] = download_updates(updates)
             payload = work / "payload.zip"
             payload_hash = make_payload(package, payload)
             server = GuestServer(payload, artifacts)
@@ -531,7 +655,8 @@ def run(args) -> dict:
                 prepare_seed(tree, secrets.token_hex(16) + "Ci!9", {
                     "host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
                     "payload_sha256": payload_hash, "package_sha256": args.package_sha256.lower(),
-                })
+                    "require_official_update": True, "update_build": UPDATE_BUILD, "update_ubr": UPDATE_UBR,
+                }, updates=updates)
                 unattended = work / "unattended.iso"
                 subprocess.run(["xorriso", "-as", "mkisofs", "-iso-level", "3", "-J", "-joliet-long", "-R",
                                 "-V", "RULEPROXY_CI", "-b", "boot/etfsboot.com", "-no-emul-boot",
@@ -539,6 +664,7 @@ def run(args) -> dict:
                                 "-e", efi_boot, "-no-emul-boot",
                                 "-o", str(unattended), str(tree)], check=True)
                 shutil.rmtree(tree)
+                shutil.rmtree(updates)
                 iso.unlink()
                 disk = work / "windows.qcow2"
                 subprocess.run(["qemu-img", "create", "-f", "qcow2", str(disk), "80G"], check=True)
@@ -607,7 +733,8 @@ def run(args) -> dict:
                             pass  # A screenshot never substitutes for the guest report.
                     summary["phase_results"] = server.result.get("phases", [])
                     summary["recovery_records"] = server.result.get("recovery_records", [])
-                    verify_result(server.result)
+                    summary["official_update"]["guest"] = server.result.get("official_update")
+                    verify_result(server.result, require_official_update=True)
                     summary.update(status="transport_and_package_tests_passed", transport_passed=True,
                                    manager_fixture_passed=True, browser_fixture_passed=True,
                                    ordinary_user=True, native_x64=True, elapsed_seconds=int(time.monotonic() - started))

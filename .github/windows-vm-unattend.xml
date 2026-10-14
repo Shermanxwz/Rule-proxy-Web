@@ -60,7 +60,7 @@
         <Password><Value>@PASSWORD@</Value><PlainText>true</PlainText></Password>
       </LocalAccount></LocalAccounts></UserAccounts>
       <AutoLogon><Username>RuleProxyCI</Username><Domain>RULEPROXY-VM</Domain>
-        <Enabled>true</Enabled><LogonCount>1</LogonCount>
+        <Enabled>true</Enabled><LogonCount>3</LogonCount>
         <Password><Value>@PASSWORD@</Value><PlainText>true</PlainText></Password></AutoLogon>
     </component>
   </settings>
