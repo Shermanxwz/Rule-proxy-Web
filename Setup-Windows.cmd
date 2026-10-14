@@ -7,9 +7,9 @@ py -3 -c "import sys; sys.exit(sys.version_info < (3, 10))" >nul 2>nul || goto n
 if not exist "%~dp0vendor\yaml\__init__.py" goto install_yaml
 py -3 -c "import sys; sys.path.insert(0, sys.argv[1]); import yaml; sys.exit(not hasattr(yaml, 'safe_load'))" "%~dp0vendor" >nul 2>nul && goto runtime
 :install_yaml
-py -3 -m pip install --disable-pip-version-check --upgrade --target "%~dp0vendor" -r "%~dp0requirements.txt" || goto failed
+py -3 -X utf8 -m pip install --disable-pip-version-check --upgrade --target "%~dp0vendor" -r "%~dp0requirements.txt" || goto failed
 :runtime
-py -3 "%~dp0install_runtime.py" --platform windows-amd64 --if-needed || goto failed
+py -3 -X utf8 "%~dp0install_runtime.py" --platform windows-amd64 --if-needed || goto failed
 echo Setup complete.
 if /i "%~1"=="--no-pause" exit /b 0
 echo Open Start-Windows.cmd to start RuleProxy.

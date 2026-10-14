@@ -2,6 +2,7 @@
 
 Examples (use the package's x64 Python when testing a portable package):
   python scripts/windows-acceptance.py --probe-only
+  python scripts/windows-acceptance.py --transport-fixture --allow-emulated-x64
   python scripts/windows-acceptance.py --yaml C:\\private\\proxy.yaml
 
 Full acceptance needs a working real proxy node. The YAML, controller token,
@@ -9,6 +10,8 @@ and downloaded page contents are never included in the JSON report. No mock
 MXC, DACL fallback, firewall editing, or software VM fallback is used.
 The bundled manifest verifies completeness and file integrity, not origin:
 verify the release ZIP against its externally obtained checksum beforehand.
+--transport-fixture exercises real PSEC with a fixed loopback byte fixture; it
+does not verify a real proxy node, HTTPS origin, or Manager core-loss watcher.
 Exit codes: 0 = requested checks passed, 1 = failed, 3 = unsupported host.
 A successful --probe-only run explicitly does not pass full acceptance.
 """
@@ -23,6 +26,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import secrets
 import shutil
 import socket
 import ssl
@@ -170,10 +174,74 @@ def proxy_https(url: str) -> dict:
         connection.close()
 
 
+def network_checks(host_v4_port: int, host_v6_port: int) -> list[dict]:
+    return [
+        denied(socket.AF_INET, socket.SOCK_STREAM, ("1.1.1.1", 443), "direct_ipv4_tcp"),
+        denied(socket.AF_INET6, socket.SOCK_STREAM, ("2606:4700:4700::1111", 443, 0, 0), "direct_ipv6_tcp"),
+        denied(socket.AF_INET, socket.SOCK_DGRAM, ("1.1.1.1", 53), "direct_ipv4_udp_dns"),
+        denied(socket.AF_INET6, socket.SOCK_DGRAM, ("2606:4700:4700::1111", 53, 0, 0), "direct_ipv6_udp_dns"),
+        denied(socket.AF_INET, socket.SOCK_STREAM, ("127.0.0.1", host_v4_port), "guest_to_host_ipv4"),
+        denied(socket.AF_INET6, socket.SOCK_STREAM, ("::1", host_v6_port, 0, 0), "guest_to_host_ipv6"),
+    ]
+
+
+def fixture_payload(token: str) -> bytes:
+    if not re.fullmatch(r"[0-9a-f]{64}", token):
+        raise ValueError("invalid transport fixture token")
+    # More than four production 16 KiB frames, with a recognizable per-run tag.
+    return token.encode("ascii") + b":" + bytes(index % 251 for index in range(65573))
+
+
+def fixture_roundtrip(token: str) -> dict:
+    proxy = urllib.parse.urlsplit(os.environ["HTTPS_PROXY"])
+    if proxy.scheme != "http" or proxy.hostname != "127.0.0.1" or not proxy.port:
+        raise RuntimeError("transport proxy is not the prepared guest loopback endpoint")
+    payload = fixture_payload(token)
+    with socket.create_connection((proxy.hostname, proxy.port), timeout=5) as connection:
+        connection.settimeout(20)
+        connection.sendall(("CONNECT ruleproxy-acceptance.invalid:443 HTTP/1.1\r\n"
+                            f"X-RuleProxy-Fixture: {token}\r\n\r\n").encode("ascii"))
+        response = bytearray()
+        while not response.endswith(b"\r\n\r\n") and len(response) <= 1024:
+            part = connection.recv(1)
+            if not part:
+                break
+            response.extend(part)
+        if bytes(response) != b"HTTP/1.1 200 Connection Established\r\n\r\n":
+            raise RuntimeError("fixed loopback fixture did not acknowledge CONNECT bytes")
+        connection.sendall(payload)
+        connection.shutdown(socket.SHUT_WR)
+        echoed = bytearray()
+        while len(echoed) <= len(payload):
+            part = connection.recv(16384)
+            if not part:
+                break
+            echoed.extend(part)
+        if bytes(echoed) != payload[::-1]:
+            raise RuntimeError("cross-frame payload or bidirectional FIN did not survive the file bridge")
+    return {"check": "fixed_loopback_transport_cross_frame_fin", "status": "passed",
+            "payload_bytes_each_direction": len(payload), "bidirectional_fin": True,
+            "real_node_passed": False, "https_origin_verified": False}
+
+
+def fixture_failure_checks(args) -> dict:
+    checks = network_checks(args.host_v4_port, args.host_v6_port)
+    try:
+        fixture_roundtrip(args.fixture_token)
+    except (OSError, RuntimeError):
+        checks.append({"check": "proxy_fails_after_fixture_loss", "status": "passed"})
+    else:
+        raise RuntimeError("proxy transport succeeded after its fixed host endpoint closed")
+    return {"role": args.role, "pid": os.getpid(), "parent_pid": os.getppid(),
+            "status": "passed", "checks": checks}
+
+
 def guest_main(arguments: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--role", choices=("parent", "child"), required=True)
-    parser.add_argument("--url", required=True)
+    transport = parser.add_mutually_exclusive_group(required=True)
+    transport.add_argument("--url")
+    transport.add_argument("--fixture-token")
     parser.add_argument("--host-v4-port", type=int, required=True)
     parser.add_argument("--host-v6-port", type=int, required=True)
     args = parser.parse_args(arguments)
@@ -186,29 +254,40 @@ def guest_main(arguments: list[str]) -> int:
             listeners.append(listener)
             listener.bind((host, 0))
             listener.listen(4)
-        checks = [
-            denied(socket.AF_INET, socket.SOCK_STREAM, ("1.1.1.1", 443), "direct_ipv4_tcp"),
-            denied(socket.AF_INET6, socket.SOCK_STREAM, ("2606:4700:4700::1111", 443, 0, 0), "direct_ipv6_tcp"),
-            denied(socket.AF_INET, socket.SOCK_DGRAM, ("1.1.1.1", 53), "direct_ipv4_udp_dns"),
-            denied(socket.AF_INET6, socket.SOCK_DGRAM, ("2606:4700:4700::1111", 53, 0, 0), "direct_ipv6_udp_dns"),
-            denied(socket.AF_INET, socket.SOCK_STREAM, ("127.0.0.1", args.host_v4_port), "guest_to_host_ipv4"),
-            denied(socket.AF_INET6, socket.SOCK_STREAM, ("::1", args.host_v6_port, 0, 0), "guest_to_host_ipv6"),
-            proxy_https(args.url),
-        ]
+        checks = network_checks(args.host_v4_port, args.host_v6_port)
+        checks.append(fixture_roundtrip(args.fixture_token) if args.fixture_token else proxy_https(args.url))
         report.update(status="passed", checks=checks,
                       listeners=[int(item.getsockname()[1]) for item in listeners])
         write_json(Path(f"acceptance-{args.role}.json"), report)
         if args.role == "parent":
+            transport_args = (["--fixture-token", args.fixture_token] if args.fixture_token
+                              else ["--url", args.url])
             child = subprocess.Popen([sys.executable, "-I", "-S", "-X", "utf8", __file__,
-                                      "--guest", "--role", "child", "--url", args.url,
+                                      "--guest", "--role", "child", *transport_args,
                                       "--host-v4-port", str(args.host_v4_port),
                                       "--host-v6-port", str(args.host_v6_port)],
                                      stdin=subprocess.DEVNULL, shell=False, close_fds=True)
         # Keep both generations and their listeners alive until the product
         # stops their owning PSEC workload. Do not self-clean the test child.
+        loss_checked = False
         while True:
             if child is not None and child.poll() is not None:
                 raise RuntimeError("acceptance descendant exited before lifecycle check")
+            if args.fixture_token and not loss_checked:
+                try:
+                    raw = Path("acceptance-control.json").read_bytes()
+                    if len(raw) > 1024:
+                        raise RuntimeError("transport control record exceeded its size limit")
+                    control = json.loads(raw)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    control = None
+                if control == {"token": args.fixture_token, "state": "fixture_stopped"}:
+                    try:
+                        lost = fixture_failure_checks(args)
+                    except Exception as exc:
+                        lost = {"role": args.role, "status": "failed", "error": str(exc)[:700]}
+                    write_json(Path(f"acceptance-lost-{args.role}.json"), lost)
+                    loss_checked = True
             time.sleep(0.2)
     except Exception as exc:
         report.update(status="failed", error=f"{type(exc).__name__}: {exc}"[:700])
@@ -217,6 +296,37 @@ def guest_main(arguments: list[str]) -> int:
     finally:
         for listener in listeners:
             listener.close()
+
+
+def executable_machine(path: Path) -> int:
+    """Read the executable's PE COFF architecture, including x64-on-ARM.
+
+    IsWow64Process2 can report processMachine=UNKNOWN for translated x64 Python
+    on Windows ARM64. The executable's own Machine field remains authoritative
+    for which Python binary the acceptance run is actually exercising.
+    """
+    with path.open("rb") as stream:
+        dos = stream.read(64)
+        if len(dos) != 64 or dos[:2] != b"MZ":
+            raise ValueError("Python executable does not have a DOS/PE header")
+        offset = struct.unpack_from("<I", dos, 60)[0]
+        if not 64 <= offset <= 16 * 1024 * 1024:
+            raise ValueError("Python executable has an invalid PE header offset")
+        stream.seek(offset)
+        coff = stream.read(6)
+    if len(coff) != 6 or coff[:4] != b"PE\0\0":
+        raise ValueError("Python executable has an invalid PE signature")
+    return struct.unpack_from("<H", coff, 4)[0]
+
+
+def acceptance_scope(native_machine: int, python_machine: int) -> str:
+    if native_machine == 0x8664 and python_machine == 0x8664:
+        return "native_x64"
+    if native_machine == 0xAA64 and python_machine == 0x8664:
+        return "x64_on_arm_emulation"
+    if native_machine == 0xAA64 and python_machine == 0xAA64:
+        return "native_arm64_probe"
+    return "other_windows_architecture"
 
 
 def host_facts() -> dict:
@@ -237,12 +347,10 @@ def host_facts() -> dict:
     if not kernel.IsWow64Process2(kernel.GetCurrentProcess(), ctypes.byref(process_machine),
                                 ctypes.byref(native_machine)):
         raise ctypes.WinError(ctypes.get_last_error())
-    facts.update(process_machine=process_machine.value, native_machine=native_machine.value)
-    facts["acceptance_scope"] = (
-        "native_x64" if native_machine.value == 0x8664
-        else "x64_on_arm_emulation" if process_machine.value == 0x8664
-        else "native_arm64_probe"
-    )
+    python_machine = executable_machine(Path(sys.executable))
+    facts.update(process_machine=process_machine.value, native_machine=native_machine.value,
+                 python_pe_machine=python_machine)
+    facts["acceptance_scope"] = acceptance_scope(native_machine.value, python_machine)
     return facts
 
 
@@ -313,6 +421,117 @@ class HostFixtures:
             worker.join(timeout=1)
 
 
+class FixedTransportFixture:
+    """Local bytes only: no DNS, destination connections, or forwarding API."""
+
+    def __init__(self) -> None:
+        self.token = secrets.token_hex(32)
+        self.closed = threading.Event()
+        self.lock = threading.Lock()
+        self.connections = set()
+        self.workers = []
+        self.errors = []
+        self.roundtrips = 0
+        self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self.listener.bind(("127.0.0.1", 0))
+            self.listener.listen(16)
+            self.listener.settimeout(0.1)
+        except BaseException:
+            self.listener.close()
+            raise
+        self.port = int(self.listener.getsockname()[1])
+        self.acceptor = threading.Thread(target=self._accept, daemon=True)
+        self.acceptor.start()
+
+    @staticmethod
+    def _read_exact(connection: socket.socket, length: int) -> bytes:
+        result = bytearray()
+        while len(result) < length:
+            part = connection.recv(length - len(result))
+            if not part:
+                raise RuntimeError("transport fixture request ended early")
+            result.extend(part)
+        return bytes(result)
+
+    def _accept(self) -> None:
+        while not self.closed.is_set():
+            try:
+                connection, _ = self.listener.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            with self.lock:
+                if self.closed.is_set():
+                    connection.close()
+                    return
+                self.connections.add(connection)
+                worker = threading.Thread(target=self._handle, args=(connection,), daemon=True)
+                self.workers.append(worker)
+            worker.start()
+
+    def _handle(self, connection: socket.socket) -> None:
+        try:
+            connection.settimeout(20)
+            first = self._read_exact(connection, 1)
+            if first == b"\x05":
+                count = self._read_exact(connection, 1)[0]
+                methods = self._read_exact(connection, count)
+                if not count or b"\0" not in methods:
+                    raise RuntimeError("transport fixture received an unsupported SOCKS greeting")
+                connection.sendall(b"\x05\0")
+                # Production startup asks only for SOCKS5 method negotiation.
+                # Reject any CONNECT/destination command: this is not a proxy.
+                if connection.recv(1):
+                    raise RuntimeError("transport fixture never accepts SOCKS destination requests")
+                return
+            request = bytearray(first)
+            while not request.endswith(b"\r\n\r\n") and len(request) <= 1024:
+                request.extend(self._read_exact(connection, 1))
+            expected = ("CONNECT ruleproxy-acceptance.invalid:443 HTTP/1.1\r\n"
+                        f"X-RuleProxy-Fixture: {self.token}\r\n\r\n").encode("ascii")
+            if bytes(request) != expected:
+                raise RuntimeError("transport fixture accepts only its fixed CONNECT byte request")
+            connection.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+            expected_payload = fixture_payload(self.token)
+            payload = bytearray()
+            while len(payload) <= len(expected_payload):
+                part = connection.recv(16384)
+                if not part:
+                    break
+                payload.extend(part)
+            if bytes(payload) != expected_payload:
+                raise RuntimeError("transport fixture payload or guest-to-host FIN was invalid")
+            connection.sendall(expected_payload[::-1])
+            connection.shutdown(socket.SHUT_WR)
+            with self.lock:
+                self.roundtrips += 1
+        except Exception as exc:
+            if not self.closed.is_set():
+                with self.lock:
+                    self.errors.append(f"{type(exc).__name__}: {exc}"[:300])
+        finally:
+            connection.close()
+            with self.lock:
+                self.connections.discard(connection)
+
+    def close(self) -> None:
+        self.closed.set()
+        self.listener.close()
+        self.acceptor.join(timeout=2)
+        with self.lock:
+            connections, workers = list(self.connections), list(self.workers)
+        for connection in connections:
+            try:
+                connection.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            connection.close()
+        for worker in workers:
+            worker.join(timeout=2)
+
+
 def ports() -> tuple[int, int, int]:
     reservations = []
     try:
@@ -326,13 +545,14 @@ def ports() -> tuple[int, int, int]:
             reservation.close()
 
 
-def read_guest_reports(profile: Path, wrapper, timeout: float = 90) -> list[dict]:
+def read_guest_reports(profile: Path, wrapper, timeout: float = 90, *, lost: bool = False) -> list[dict]:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         reports = []
         for role in ("parent", "child"):
             try:
-                raw = (profile / f"acceptance-{role}.json").read_bytes()
+                prefix = "acceptance-lost" if lost else "acceptance"
+                raw = (profile / f"{prefix}-{role}.json").read_bytes()
                 if len(raw) > 16 * 1024:
                     raise RuntimeError("acceptance guest report exceeded its size limit")
                 value = json.loads(raw)
@@ -349,6 +569,98 @@ def read_guest_reports(profile: Path, wrapper, timeout: float = 90) -> list[dict
             raise RuntimeError("MXC wrapper exited before acceptance guest checks completed")
         time.sleep(0.1)
     raise RuntimeError("acceptance parent and child did not finish network checks before timeout")
+
+
+def assert_host_cannot_reach_guest(reports: list[dict]) -> None:
+    for report in reports:
+        for host, port in zip(("127.0.0.1", "::1"), report["listeners"]):
+            try:
+                connection = socket.create_connection((host, port), timeout=1)
+            except OSError:
+                pass
+            else:
+                connection.close()
+                raise RuntimeError("host reached a live contained application listener")
+
+
+class TransportRun:
+    """Own the actual production runtime while testing the local transport."""
+
+    def __init__(self, profile: Path) -> None:
+        self.profile = profile
+        self.wrapper = None
+        self.resources = None
+        self.fixture = FixedTransportFixture()
+
+    def run(self, runtime: Path, host_fixtures: HostFixtures) -> list[dict]:
+        from ruleproxy import windows_runtime
+        self.profile.mkdir(parents=True)
+        helper = self.profile / "acceptance_guest.py"
+        shutil.copyfile(__file__, helper)
+        guest_port = windows_runtime.choose_guest_port(self.fixture.port)
+        command = [sys.executable, "-I", "-S", "-X", "utf8", str(helper), "--guest",
+                   "--role", "parent", "--fixture-token", self.fixture.token,
+                   "--host-v4-port", str(host_fixtures.sockets[0].getsockname()[1]),
+                   "--host-v6-port", str(host_fixtures.sockets[1].getsockname()[1])]
+        env = dict(os.environ, HTTPS_PROXY=f"http://127.0.0.1:{guest_port}")
+        try:
+            self.wrapper, self.resources = windows_runtime.launch(
+                command, env, self.profile, self.fixture.port, str(runtime),
+                guest_listener_port=guest_port)
+        except BaseException as exc:
+            self.wrapper = getattr(exc, "process", None)
+            self.resources = getattr(exc, "resource", None)
+            raise
+        api = windows_runtime._WinProcessApi()
+        handles = []
+        try:
+            reports = read_guest_reports(self.profile, self.wrapper)
+            for report in reports:
+                handle = api.kernel32.OpenProcess(api.PROCESS_ACCESS, False, report["pid"])
+                if not handle:
+                    raise RuntimeError("could not retain a live transport acceptance process handle")
+                handles.append(handle)
+                if not api.process_alive(handle):
+                    raise RuntimeError("transport acceptance process exited before fixture loss")
+            assert_host_cannot_reach_guest(reports)
+            with self.fixture.lock:
+                if self.fixture.errors or self.fixture.roundtrips != 2:
+                    raise RuntimeError("fixed transport fixture did not complete both generation roundtrips")
+            if host_fixtures.accepted.is_set():
+                raise RuntimeError("a contained transport process reached an ordinary host listener")
+            self.fixture.close()
+            write_json(self.profile / "acceptance-control.json",
+                       {"token": self.fixture.token, "state": "fixture_stopped"})
+            lost = read_guest_reports(self.profile, self.wrapper, timeout=45, lost=True)
+            if not all(api.process_alive(handle) for handle in handles):
+                raise RuntimeError("fixture-loss checks did not run while both application generations were alive")
+            if host_fixtures.accepted.is_set():
+                raise RuntimeError("a contained process reached a host listener after fixture loss")
+            windows_runtime.stop(self.wrapper)
+            self.wrapper.wait(timeout=25)
+            if not all(api.wait(handle, 5000) for handle in handles):
+                raise RuntimeError("a transport acceptance process survived PSEC teardown")
+            self.resources.close()
+            return [
+                {"check": "transport_parent_child", "status": "passed",
+                 "host_to_guest_ipv4_ipv6": "denied", "guest_reports": reports},
+                {"check": "fixture_loss", "status": "passed", "applications_alive_during_check": True,
+                 "guest_reports": lost, "manager_watcher_verified": False},
+                {"check": "safe_psec_stop", "status": "passed", "parent_and_child_exited": True},
+            ]
+        finally:
+            for handle in handles:
+                api.close(handle)
+
+    def close(self) -> None:
+        from ruleproxy import windows_runtime
+        try:
+            if self.wrapper is not None and self.wrapper.poll() is None:
+                windows_runtime.stop(self.wrapper)
+            if self.resources is not None:
+                self.resources.close()
+        finally:
+            self.fixture.close()
 
 
 def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str) -> dict:
@@ -376,14 +688,7 @@ def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str) -> dict
             handles.append(handle)
             if not api.process_alive(handle):
                 raise RuntimeError("acceptance process exited before its lifecycle check")
-            for host, port in zip(("127.0.0.1", "::1"), report["listeners"]):
-                try:
-                    connection = socket.create_connection((host, port), timeout=1)
-                except OSError:
-                    pass
-                else:
-                    connection.close()
-                    raise RuntimeError("host reached a live contained application listener")
+        assert_host_cannot_reach_guest(reports)
         if fixtures.accepted.is_set():
             raise RuntimeError("a contained process reached an ordinary host listener")
         if case == "normal_stop":
@@ -417,7 +722,10 @@ def lifecycle_case(manager, fixtures: HostFixtures, url: str, case: str) -> dict
 
 def main(arguments: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--probe-only", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--probe-only", action="store_true")
+    modes.add_argument("--transport-fixture", action="store_true",
+                       help="real PSEC and local file transport; no real node or HTTPS origin claim")
     parser.add_argument("--yaml", type=Path, help="private real-node YAML; never copied into the report")
     parser.add_argument("--node", help="optional selected node name")
     parser.add_argument("--url", default="https://example.com/", type=check_url)
@@ -426,8 +734,10 @@ def main(arguments: list[str]) -> int:
     parser.add_argument("--allow-emulated-x64", action="store_true",
                         help="allow x64 Python on ARM64; report explicitly labels emulation")
     args = parser.parse_args(arguments)
-    result = {"status": "failed", "acceptance_passed": False, "checks": []}
+    result = {"status": "failed", "acceptance_passed": False,
+              "transport_passed": False, "real_node_passed": False, "checks": []}
     manager, fixtures, directory, before = None, None, None, None
+    transport_owner = None
     safe_cleanup = True
     phase = "platform"
     code = 1
@@ -463,9 +773,9 @@ def main(arguments: list[str]) -> int:
         if args.probe_only:
             result.update(status="supported_only", detail="Request probe passed; full socket/proxy/lifecycle acceptance was not run.")
             return 0
-        if args.yaml is None:
+        if args.yaml is None and not args.transport_fixture:
             raise ValueError("--yaml is required for real proxy acceptance")
-        if facts["pointer_bits"] != 64 or platform.machine().upper() not in ("AMD64", "X86_64"):
+        if facts["pointer_bits"] != 64 or facts["python_pe_machine"] != 0x8664:
             result.update(status="unsupported", detail="Full acceptance requires the package's x64 Python interpreter.")
             return 3
         if facts["native_machine"] != 0x8664 and not (args.allow_emulated_x64 and facts["native_machine"] == 0xAA64):
@@ -475,33 +785,55 @@ def main(arguments: list[str]) -> int:
         before = network_snapshot()
         phase = "host_ipv4_ipv6_fixtures"
         fixtures = HostFixtures()
-        from ruleproxy.manager import Manager
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-windows-acceptance-"))
-        panel_port, mixed_port, controller_port = ports()
-        manager = Manager(directory, panel_port, mixed_port=mixed_port, controller_port=controller_port)
-        manager.save_settings({"core_path": str(root / "bin/windows-amd64/mihomo.exe"),
-                               "runtime_path": str(runtime)})
-        phase = "private_yaml_import"
-        # Bound reads before parsing; malformed YAML is never echoed to reports.
-        with args.yaml.open("rb") as stream:
-            source = stream.read(2 * 1024 * 1024 + 1)
-        if len(source) > 2 * 1024 * 1024:
-            raise ValueError("private YAML exceeded the import limit")
-        manager.import_yaml(source.decode("utf-8-sig"))
-        if args.node:
-            manager.select_node(args.node)
-        phase = "core_start"
-        manager.start()
-        for case in ("normal_stop", "core_loss"):
-            phase = case
-            result["checks"].append(lifecycle_case(manager, fixtures, args.url, case))
-        result.update(status="passed", acceptance_passed=True)
+        if args.transport_fixture:
+            phase = "transport_fixture"
+            transport_owner = TransportRun(directory / "profiles" / "transport")
+            result["checks"].extend(transport_owner.run(runtime, fixtures))
+            result.update(status="transport_only", transport_passed=True,
+                          manager_core_loss_passed=False,
+                          limitations=["Fixed loopback bytes only; no real proxy node or HTTPS origin tested.",
+                                       "PSEC safe stop tested; Manager core-loss watcher requires --yaml mode."])
+        else:
+            from ruleproxy.manager import Manager
+            panel_port, mixed_port, controller_port = ports()
+            manager = Manager(directory, panel_port, mixed_port=mixed_port, controller_port=controller_port)
+            manager.save_settings({"core_path": str(root / "bin/windows-amd64/mihomo.exe"),
+                                   "runtime_path": str(runtime)})
+            phase = "private_yaml_import"
+            # Bound reads before parsing; malformed YAML is never echoed to reports.
+            with args.yaml.open("rb") as stream:
+                source = stream.read(2 * 1024 * 1024 + 1)
+            if len(source) > 2 * 1024 * 1024:
+                raise ValueError("private YAML exceeded the import limit")
+            manager.import_yaml(source.decode("utf-8-sig"))
+            if args.node:
+                manager.select_node(args.node)
+            phase = "core_start"
+            manager.start()
+            for case in ("normal_stop", "core_loss"):
+                phase = case
+                result["checks"].append(lifecycle_case(manager, fixtures, args.url, case))
+            result.update(status="passed", acceptance_passed=True, real_node_passed=True,
+                          manager_core_loss_passed=True)
         code = 0
     except Exception as exc:
         # Exceptions from YAML parsing can contain source lines and credentials.
         result.update(status="failed", acceptance_passed=False,
                       detail=f"Acceptance failed during {phase} ({type(exc).__name__}).")
+        if args.transport_fixture:
+            # This mode never imports private YAML, so retain its socket/PSEC
+            # diagnostics for CI without hiding an actionable failure reason.
+            result["failure_detail"] = str(exc)[:700]
     finally:
+        if transport_owner is not None:
+            try:
+                transport_owner.close()
+            except Exception as exc:
+                safe_cleanup = False
+                result.update(status="failed", acceptance_passed=False, transport_passed=False,
+                              cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+                code = 1
         if manager is not None:
             try:
                 manager.close()

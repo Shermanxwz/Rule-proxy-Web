@@ -195,11 +195,23 @@ jobs:
           }
           if ($probeExit -ne 0) { exit $probeExit }
           Write-Output '::notice title=Windows 11 probe::Capability probe passed on ARM with the x64 runtime. Full native x64 acceptance remains pending.'
+      - name: Validate real PSEC transport, parent and child blocking, and safe stop
+        run: |
+          $probe = Get-Content windows-11-probe.json -Raw | ConvertFrom-Json
+          if (-not $probe.probe.supported) {
+            Write-Output '::notice title=PSEC transport::Unavailable on this runner; no transport acceptance claimed.'
+            exit 0
+          }
+          $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
+          & "$root\python\python.exe" -B scripts\windows-acceptance.py --root "$root" --transport-fixture --allow-emulated-x64 --report windows-11-transport.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: windows-11-probe
-          path: windows-11-probe.json
+          path: |
+            windows-11-probe.json
+            windows-11-transport.json
           if-no-files-found: error
           retention-days: 30
 
