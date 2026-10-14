@@ -133,7 +133,7 @@ def _populate(platform: str, directory: Path) -> None:
                for name in _required_files(platform)):
         raise ValueError("校验通过的运行组件包里缺少必要文件。")
     record = expected(platform)
-    record["sha256"] = {path.name: _file_digest(path) for path in sorted(directory.iterdir()) if path.is_file()}
+    record["sha256"] = {path.name: _file_digest(path) for path in sorted(directory.iterdir(), key=lambda item: item.name) if path.is_file()}
     (directory / MANIFEST).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
 

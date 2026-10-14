@@ -92,7 +92,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Record actual KVM availability for a future Windows 11 guest
-        run: python -B .github/probe_kvm.py --report windows-vm-host.json
+        run: sudo "$(command -v python)" -B .github/probe_kvm.py --report windows-vm-host.json
       - uses: actions/upload-artifact@v7
         with:
           name: windows-vm-host

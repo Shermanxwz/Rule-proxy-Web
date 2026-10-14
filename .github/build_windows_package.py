@@ -102,7 +102,8 @@ def stage(target: Path) -> None:
 
 def write_zip(source: Path, path: Path) -> None:
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for file in sorted(item for item in source.rglob("*") if item.is_file()):
+        for file in sorted((item for item in source.rglob("*") if item.is_file()),
+                           key=lambda item: item.relative_to(source).as_posix()):
             # Checkout times, extracted download times and host permission bits
             # must not change the digest of an otherwise identical package.
             entry = zipfile.ZipInfo(f"{FOLDER}/{file.relative_to(source).as_posix()}", (1980, 1, 1, 0, 0, 0))
