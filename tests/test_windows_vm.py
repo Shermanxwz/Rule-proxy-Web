@@ -1,9 +1,14 @@
 """Host-side VM controls cannot turn a skipped fixture into Windows acceptance."""
 import importlib.util
+import ipaddress
+import http.client
 import json
+import os
 from pathlib import Path
 import tempfile
 import threading
+import struct
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -147,9 +152,16 @@ class WindowsVmTests(unittest.TestCase):
             self.assertTrue(all(item["verified"] for item in verified))
             tree = self.root / "seed"
             tree.mkdir()
-            vm.prepare_seed(tree, "TestPasswordCi!9", {}, updates=updates)
-            self.assertEqual((tree / "ruleproxy-updates/packages/target.msu").read_bytes(), b"target")
-            self.assertEqual(json.loads((tree / "ruleproxy-updates/update-manifest.json").read_text())["target_package"], "target.msu")
+            base = "http://10.0.2.2:12345/" + "a" * 64
+            vm.prepare_seed(tree, "TestPasswordCi!9", {"host_url": base}, updates=updates)
+            self.assertEqual(list((tree / "ruleproxy-updates/packages").iterdir()), [])
+            self.assertEqual(list(tree.rglob("*.msu")), [])
+            manifest = json.loads((tree / "ruleproxy-updates/update-manifest.json").read_text())
+            self.assertEqual(manifest["target_package"], "target.msu")
+            self.assertEqual(manifest["packages"], [
+                {"filename": item["filename"], "sha256": item["sha256"], "bytes": item["bytes"],
+                 "url": base + "/updates/" + item["filename"]} for item in records])
+            self.assertEqual((updates / "target.msu").read_bytes(), b"target")
             self.assertTrue((tree / "ruleproxy-updates/windows-vm-update.ps1").read_bytes().startswith(b"\xef\xbb\xbf"))
             data["target.msu"] = b"broken"
             with self.assertRaisesRegex(RuntimeError, "size/SHA-256"):
@@ -159,6 +171,57 @@ class WindowsVmTests(unittest.TestCase):
             other.mkdir()
             with self.assertRaisesRegex(RuntimeError, "changed before seed"):
                 vm.prepare_seed(other, "TestPasswordCi!9", {}, updates=updates)
+
+    def test_private_update_routes_require_capability_and_exact_fixed_short_filename(self):
+        import hashlib
+        data = b"bounded deterministic MSU fixture"
+        records = [{"filename": "catalog-original-hash.msu", "seed_filename": "target.msu",
+                    "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}]
+        updates = self.root / "updates"
+        updates.mkdir()
+        source = updates / records[0]["filename"]
+        source.write_bytes(data)
+        payload = self.root / "payload.zip"
+        payload.write_bytes(b"payload")
+        with mock.patch.object(vm, "UPDATE_PACKAGES", records):
+            server = vm.GuestServer(payload, self.root, updates=updates)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+
+        def cleanup():
+            server.shutdown()
+            server.server_close()
+            worker.join(2)
+
+        self.addCleanup(cleanup)
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        route = "/" + server.capability + "/updates/"
+        for path in ("/wrong/updates/target.msu", route + records[0]["filename"],
+                     route + "missing.msu", route + "../payload.zip",
+                     route + "%2e%2e/payload.zip", route + "target.msu?other=1"):
+            with self.subTest(path=path), self.assertRaises(urllib.error.HTTPError) as failure:
+                urllib.request.urlopen(base + path, timeout=2)
+            self.assertEqual(failure.exception.code, 404)
+        with urllib.request.urlopen(base + route + "target.msu", timeout=2) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers["Content-Length"], str(len(data)))
+            self.assertEqual(response.read(), data)
+        source.write_bytes(b"truncated")
+        with self.assertRaises(urllib.error.HTTPError) as failure:
+            urllib.request.urlopen(base + route + "target.msu", timeout=2)
+        self.assertEqual(failure.exception.code, 503)
+
+    def test_private_update_server_refuses_same_size_bytes_with_wrong_external_hash(self):
+        import hashlib
+        updates = self.root / "updates"
+        updates.mkdir()
+        data = b"verified MSU bytes"
+        records = [{"filename": "target.msu", "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}]
+        (updates / "target.msu").write_bytes(b"x" * len(data))
+        payload = self.root / "payload.zip"
+        payload.write_bytes(b"payload")
+        with mock.patch.object(vm, "UPDATE_PACKAGES", records), self.assertRaisesRegex(RuntimeError, "changed before seed"):
+            vm.GuestServer(payload, self.root, updates=updates)
 
     def test_base_build_without_update_revision_cannot_pass_updated_vm_acceptance(self):
         result = self.passed_result()
@@ -473,6 +536,231 @@ raise SystemExit(configuration.get('exit_code', 0))
         vm.verify_result(dict(result, ordinary_user=True))
         self.assertEqual(len(result["phases"]), 5)
         self.assertEqual(result["recovery_records"], [])
+
+
+class WindowsWireCaptureTests(unittest.TestCase):
+    """Actual private HTTP requests and constructed PCAPs; no PSEC claim."""
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.log = self.root / "qemu.log"
+        self.log.write_bytes(b"")
+        self.qmp = mock.Mock()
+        self.controller = vm.WireCaptureController(self.qmp, self.root, self.root, self.log)
+        if os.name != "posix":
+            # Windows source tests exercise the real format parser. Private
+            # POSIX file ownership is separately required on the Linux host.
+            self.controller.packet.analyze_capture = lambda path, value: self.controller.packet.analyze_bytes(path.read_bytes(), value)
+        probes = []
+        for variant in vm.WIRE_VARIANTS:
+            for family in ("ipv4", "ipv6"):
+                for role in self.controller.packet.ROLES:
+                    group = variant + "." + family
+                    probes.append({"id": group + "." + role, "group": group, "role": role,
+                        "family": family, "protocol": "udp", "source_mac": vm.VM_NIC_MAC,
+                        "source_ip": "10.0.2.15" if family == "ipv4" else "fec0::15",
+                        "destination": "1.1.1.1" if family == "ipv4" else "2606:4700:4700::1111",
+                        "port": 53, "payload_hex": ("fixed-marker-" + str(len(probes))).encode().hex()})
+        self.manifest = {"schema_version": 1, "probes": probes}
+        self.execution = [{"id": p["id"], "role": p["role"], "attempted": True, "bind_succeeded": True,
+                           "api_accepted": True, "errno": None} for p in probes]
+
+    def capture(self):
+        packets = []
+        for role in ("outside_before", "outside_after"):
+            for p in self.manifest["probes"]:
+                if p["role"] != role:
+                    continue
+                source = ipaddress.ip_address(p["source_ip"]).packed
+                destination = ipaddress.ip_address(p["destination"]).packed
+                marker = bytes.fromhex(p["payload_hex"])
+                udp = struct.pack("!HHHH", 45123, 53, len(marker) + 8, 0) + marker
+                if p["family"] == "ipv4":
+                    header = struct.pack("!BBHHHBBH4s4s", 0x45, 0, len(udp) + 20, 1, 0, 64, 17, 0, source, destination)
+                    ethertype = 0x0800
+                else:
+                    header = struct.pack("!IHBB16s16s", 6 << 28, len(udp), 17, 64, source, destination)
+                    ethertype = 0x86dd
+                packets.append(b"\0" * 6 + bytes.fromhex(vm.VM_NIC_MAC.replace(":", "")) + struct.pack("!H", ethertype) + header + udp)
+        data = struct.pack("<IHHiiII", 0xa1b2c3d4, 2, 4, 0, 0, 65536, 1)
+        for index, packet in enumerate(packets):
+            data += struct.pack("<IIII", 1000 + index, 0, len(packet), len(packet)) + packet
+        self.controller.pcap.write_bytes(data)
+
+    def finish(self, execution=None):
+        return self.controller.finish({"manifest": self.manifest,
+            "execution": self.execution if execution is None else execution, "actor_execution_attested": True})
+
+    def test_real_http_routes_allow_only_one_fixed_capture_and_return_sanitized_evidence(self):
+        payload = self.root / "payload.zip"; payload.write_bytes(b"payload")
+        server = vm.GuestServer(payload, self.root, capture=self.controller)
+        worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), worker.join(2)))
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+
+        def post(path, value):
+            request = urllib.request.Request(base + path, data=json.dumps(value).encode(), headers={"Content-Type": "application/json"})
+            return urllib.request.urlopen(request, timeout=3)
+
+        unauthorized = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=3)
+        unauthorized.putrequest("POST", "/wrong/capture/start")
+        unauthorized.putheader("Content-Length", "2")
+        unauthorized.endheaders()
+        self.assertEqual(unauthorized.getresponse().status, 404)
+        unauthorized.close()
+        route = "/" + server.capability + "/capture/"
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            post(route + "start", {"file": "/unowned", "netdev": "other"})
+        self.assertEqual(error.exception.code, 409)
+        self.qmp.execute.assert_not_called()
+        with post(route + "start", {}) as response:
+            self.assertEqual(json.load(response), {"schema_version": 1, "source_mac": vm.VM_NIC_MAC})
+        if os.name == "posix":
+            self.assertEqual(self.controller.pcap.stat().st_mode & 0o777, 0o600)
+        self.qmp.execute.assert_called_once_with("object-add", {"qom-type": "filter-dump", "id": "ruleproxy_wire",
+            "netdev": "vmnet", "file": str(self.controller.pcap)})
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            post(route + "start", {})
+        self.assertEqual(error.exception.code, 409)
+        self.capture()
+        with post(route + "finish", {"manifest": self.manifest, "execution": self.execution, "actor_execution_attested": True}) as response:
+            result = json.load(response)
+        self.assertTrue(result["absence_observed"])
+        self.assertTrue(result["execution_proven"])
+        self.assertFalse(result["kernel_denial_proven"])
+        self.assertFalse(result["acceptance_passed"])
+        serialized = json.dumps(result)
+        for private in (server.capability, str(self.root), "1.1.1.1", self.manifest["probes"][0]["payload_hex"]):
+            self.assertNotIn(private, serialized)
+        self.assertFalse(self.controller.active)
+        self.qmp.execute.assert_called_with("object-del", {"id": "ruleproxy_wire"})
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            post(route + "finish", {})
+        self.assertEqual(error.exception.code, 409)
+
+    def test_unsupported_group_stays_unknown_without_discarding_executed_model1_groups(self):
+        self.controller.start({}); self.capture()
+        partial = [row for row in self.execution if not (row["id"].startswith("model2_host.") and row["role"] in ("parent", "child"))]
+        result = self.finish(partial)
+        self.assertEqual(result["status"], "incomplete")
+        self.assertFalse(result["absence_observed"])
+        groups = {g["id"]: g for g in result["groups"]}
+        for family in ("ipv4", "ipv6"):
+            self.assertTrue(groups["model1_internal_ingress_deny." + family]["absence_observed"])
+            self.assertFalse(groups["model2_host." + family]["execution_proven"])
+            self.assertIsNone(groups["model2_host." + family]["contained_markers_absent"])
+        self.assertEqual(len(result["counts"]), 32)
+
+    def test_missing_bind_or_attestation_cannot_turn_zero_markers_into_absence(self):
+        self.controller.start({}); self.capture()
+        self.execution[1]["bind_succeeded"] = False
+        result = self.finish()
+        self.assertFalse(result["absence_observed"])
+        self.assertFalse(result["groups"][0]["absence_observed"])
+        self.assertTrue(result["groups"][1]["absence_observed"])
+
+    def test_unattested_sender_claims_never_prove_any_group_absence(self):
+        self.controller.start({}); self.capture()
+        result = self.controller.finish({"manifest": self.manifest, "execution": self.execution,
+                                         "actor_execution_attested": False})
+        self.assertFalse(result["execution_proven"])
+        self.assertTrue(all(not group["absence_observed"] and group["contained_markers_absent"] is None
+                            for group in result["groups"]))
+
+    def test_malformed_manifest_flushes_and_missing_finish_is_closed_by_owned_filter_only(self):
+        self.controller.start({})
+        result = self.controller.finish({"manifest": {"schema_version": 1, "probes": []}})
+        self.assertEqual(result["status"], "incomplete")
+        self.assertTrue(result["capture_flushed"])
+        self.assertFalse(self.controller.active)
+        self.assertEqual([call.args[0] for call in self.qmp.execute.call_args_list], ["object-add", "object-del"])
+        with self.assertRaises(RuntimeError):
+            self.controller.start({})
+
+    def test_oversized_finish_body_flushes_active_capture(self):
+        payload = self.root / "payload.zip"; payload.write_bytes(b"payload")
+        server = vm.GuestServer(payload, self.root, capture=self.controller)
+        worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), worker.join(2)))
+        self.controller.start({})
+        connection = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=3)
+        connection.putrequest("POST", "/" + server.capability + "/capture/finish")
+        connection.putheader("Content-Length", str(vm.MAX_CAPTURE_REQUEST_BYTES + 1))
+        connection.endheaders()  # Rejection must precede reading an upload.
+        response = connection.getresponse()
+        self.assertEqual(response.status, 400)
+        response.read()
+        connection.close()
+        self.assertFalse(self.controller.active)
+        self.assertFalse(self.controller.result["absence_observed"])
+
+    def test_missing_finish_closes_only_the_owned_filter_once(self):
+        self.controller.start({}); self.capture()
+        self.controller.close()
+        self.controller.close()
+        self.assertFalse(self.controller.active)
+        self.assertFalse(self.controller.result["absence_observed"])
+        self.assertEqual([call.args[0] for call in self.qmp.execute.call_args_list], ["object-add", "object-del"])
+
+    def test_late_dump_write_failure_invalidates_saved_evidence(self):
+        self.controller.start({}); self.capture()
+        self.assertTrue(self.finish()["absence_observed"])
+        self.log.write_text("qemu: filter-dump: error writing packet dump\n")
+        self.controller.close()
+        self.assertTrue(self.controller.collection_error)
+        self.assertFalse(self.controller.result["absence_observed"])
+        self.assertEqual(json.loads((self.root / "windows-wire-evidence.json").read_text())["status"], "incomplete")
+
+    def test_flush_error_retains_active_state_for_final_cleanup_and_never_claims_absence(self):
+        self.controller.start({}); self.capture()
+        self.qmp.execute.side_effect = RuntimeError("private path MUST_NOT_EXPORT")
+        result = self.finish()
+        self.assertFalse(result["capture_flushed"])
+        self.assertTrue(self.controller.active)
+        self.assertNotIn("MUST_NOT_EXPORT", json.dumps(result))
+        self.qmp.execute.side_effect = None
+        self.controller.close()
+        self.assertFalse(self.controller.active)
+        self.assertTrue(self.controller.collection_error)
+
+    def test_qmp_parallel_commands_cannot_consume_each_others_response(self):
+        connection = object.__new__(vm.Qmp)
+        connection.lock = threading.RLock()
+
+        class File:
+            request = None
+            def write(self, data):
+                self.request = json.loads(data)["execute"]
+                time.sleep(0.015)
+            def flush(self):
+                pass
+            def readline(self):
+                return json.dumps({"return": self.request}).encode()
+
+        connection.file = File()
+        answers = {}
+        workers = [threading.Thread(target=lambda name=name: answers.update({name: connection.execute(name)}))
+                   for name in ("capture", "screenshot")]
+        for worker in workers: worker.start()
+        for worker in workers: worker.join(2)
+        self.assertEqual(answers, {"capture": "capture", "screenshot": "screenshot"})
+
+    def test_private_vm_configuration_is_passed_only_to_network_experiment(self):
+        workspace = self.root / "workspace"
+        (workspace / ".github").mkdir(parents=True)
+        (workspace / ".github/windows_network_experiment.py").write_text("# fixture")
+        config = self.root / "private-config.json"
+        calls = []
+
+        def phase(name, command, *args, **kwargs):
+            calls.append((name, command))
+            return {"name": name, "status": "passed", "exit_code": 0}, None, ""
+
+        with mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            vm.run_guest_phases(self.root, workspace, self.root / "reports", vm_config=config)
+        self.assertEqual(calls[0][1][-2:], ["--vm-config", str(config)])
+        self.assertTrue(all("--vm-config" not in command for _, command in calls[1:]))
 
 
 if __name__ == "__main__":

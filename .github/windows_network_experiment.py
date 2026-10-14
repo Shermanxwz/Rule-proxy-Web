@@ -281,6 +281,13 @@ def load_helpers():
     return module
 
 
+def load_wire_helpers(path):
+    spec = importlib.util.spec_from_file_location("ruleproxy_private_wire_helpers", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def import_project(root):
     sys.path.insert(0, str(root))
     from ruleproxy import windows_runtime, windows_guest, file_bridge
@@ -310,6 +317,9 @@ def collect_actor_checks(config, role):
         record["checks"][f"host_udp_ipv{4 if index == 0 else 6}"] = guest._probe(
             lambda family=family, host=host, index=index: guest._socket_attempt(
                 family, socket.SOCK_DGRAM, (host, config["host_udp_ports"][index])), deny=True)
+    if config.get("wire_probes"):
+        wire = load_wire_helpers(config["wire_script"])
+        record["wire_execution"] = wire.send_probes(config["wire_probes"], role)
     return record
 
 
@@ -584,7 +594,7 @@ def pending_recovery(value):
     return False
 
 
-def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None):
+def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None):
     profile.mkdir()
     result = {"name": name, "status": "not_run", "process_started": False,
               "no_process_started": True, "checks": []}
@@ -608,6 +618,8 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
         config = {"variant": name, "root": str(root), "endpoint_port": endpoint, "token": proxy.token,
                   "host_tcp_ports": [sock.getsockname()[1] for sock in host_fixtures.sockets],
                   "host_udp_ports": [sock.getsockname()[1] for sock in udp.sockets], "pipe_script": str(pipe_script)}
+        if wire is not None:
+            config.update(wire_probes=wire.for_variant(name), wire_script=str(ROOT / ".github/windows_wire_probe.py"))
         if bridge is not None:
             config.update(bridge_directory=str(bridge.directory), bridge_nonce=bridge.nonce)
         write_json(config_path, config)
@@ -735,12 +747,13 @@ def main(arguments):
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--allow-emulated-x64", action="store_true")
+    parser.add_argument("--vm-config", type=Path)
     args = parser.parse_args(arguments)
     args.report.resolve().parent.mkdir(parents=True, exist_ok=True)
     result = {"status": "failed", "full_acceptance_passed": False, "acceptance_passed": False,
               "real_node_passed": False, "product_provider_changed": False, "cleanup_proven": False,
               "variants": [], "checks": []}
-    directory = fixtures = udp = None
+    directory = fixtures = udp = wire = None
     safe = True
     code = 1
     before = None
@@ -762,12 +775,20 @@ def main(arguments):
         before = helpers.network_snapshot()
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-network-experiment-"))
         fixtures, udp = helpers.HostFixtures(), DatagramObservers()
+        if args.vm_config is not None:
+            wire = load_wire_helpers(ROOT / ".github/windows_wire_probe.py").WireSession(args.vm_config, VARIANTS)
+            wire.start()
         for name in VARIANTS:
             if phase_deadline - time.monotonic() < 30:
                 raise TimeoutError("Matrix budget was exhausted before the next experiment")
+            if wire is not None:
+                wire.control(name, "outside_before")
             variant = run_variant(name, directory / name, root, runtime, helpers, fixtures, udp, pipe_script,
-                                  deadline=phase_deadline)
+                                  deadline=phase_deadline, **({"wire": wire} if wire is not None else {}))
             result["variants"].append(variant)
+            if wire is not None:
+                wire.actors(variant)
+                wire.control(name, "outside_after")
             if pending_recovery(variant):
                 safe = False
                 result.update(cleanup_error=variant.get("cleanup_error", "NestedRecoveryPending"),
@@ -780,6 +801,12 @@ def main(arguments):
     except Exception as exc:
         result["detail"] = f"{type(exc).__name__}: {exc}"[:700]
     finally:
+        if wire is not None:
+            try:
+                result["wire_observation"] = wire.finish()
+            except Exception as exc:
+                result.update(status="failed", wire_error=type(exc).__name__)
+                code = 1
         if safe:
             try:
                 if udp is not None:

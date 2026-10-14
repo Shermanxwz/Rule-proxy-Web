@@ -13,10 +13,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import importlib.util
 import json
 import os
 from pathlib import Path
 import platform
+import re
 import secrets
 import shutil
 import socket
@@ -67,6 +69,9 @@ UPDATE_PACKAGES = (
 MIN_FREE_BYTES = 55 * 1024**3
 MAX_RESULT_BYTES = 8 * 1024**2
 MAX_PHASE_RECORD_BYTES = 256 * 1024
+MAX_CAPTURE_REQUEST_BYTES = 128 * 1024
+VM_NIC_MAC = "52:54:00:12:34:56"
+WIRE_VARIANTS = ("model3", "model1_internal_ingress_deny", "model1_internal", "model2_host")
 PHASE_NAMES = ("probe", "transport", "manager", "browser", "package_tests")
 MIN_BOOT_IMAGE_BYTES = 64 * 1024**2
 MIN_INSTALL_IMAGE_BYTES = 1024**3
@@ -148,22 +153,35 @@ def prepare_seed(tree: Path, password: str, configuration: dict, *, updates: Pat
     if updates is not None:
         directory = tree / "ruleproxy-updates"
         directory.mkdir()
-        packages = directory / "packages"
-        packages.mkdir()
-        for item in UPDATE_PACKAGES:
-            source = updates / item["filename"]
-            if source.stat().st_size != item["bytes"] or digest(source) != item["sha256"]:
-                raise RuntimeError("Official Windows update changed before seed creation")
-            # Keep names within Windows' ordinary Joliet limit on the seed
-            # DVD. MSU content, signature and externally verified hash persist.
-            shutil.copyfile(source, packages / item.get("seed_filename", item["filename"]))
+        (directory / "packages").mkdir()
+        verified = verified_update_files(updates)
+        # Keep the large MSUs off the boot DVD. Windows downloads them through
+        # the same private capability route as the separately verified payload.
+        base = configuration["host_url"]
         write_json(directory / "update-manifest.json", {
             "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
             "target_package": UPDATE_PACKAGES[-1].get("seed_filename", UPDATE_PACKAGES[-1]["filename"]),
-            "packages": [{"filename": item.get("seed_filename", item["filename"]), "sha256": item["sha256"]} for item in UPDATE_PACKAGES],
+            "packages": [{"filename": filename, "sha256": item["sha256"], "bytes": item["bytes"],
+                          "url": f"{base}/updates/{filename}"} for filename, (_, item) in verified.items()],
         })
         source = (ROOT / ".github/windows-vm-update.ps1").read_text(encoding="utf-8")
         (directory / "windows-vm-update.ps1").write_text(source, encoding="utf-8-sig")
+
+
+def verified_update_files(directory: Path) -> dict[str, tuple[Path, dict]]:
+    """Map only the fixed, externally verified packages to their short names."""
+    files = {}
+    for item in UPDATE_PACKAGES:
+        filename = item.get("seed_filename", item["filename"])
+        if (Path(item["filename"]).name != item["filename"] or Path(filename).name != filename
+                or "/" in filename or "\\" in filename or ".." in filename
+                or not filename.endswith(".msu") or filename in files):
+            raise RuntimeError("Invalid fixed Windows update filename")
+        source = directory / item["filename"]
+        if not source.is_file() or source.stat().st_size != item["bytes"] or digest(source) != item["sha256"]:
+            raise RuntimeError("Official Windows update changed before seed creation or private serving")
+        files[filename] = (source, item)
+    return files
 
 
 def download_updates(directory: Path) -> list[dict]:
@@ -202,10 +220,12 @@ def validate_install_tree(tree: Path) -> str:
 class GuestServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, payload: Path, artifacts: Path):
+    def __init__(self, payload: Path, artifacts: Path, *, updates: Path | None = None, capture=None):
         self.payload = payload
         self.artifacts = artifacts
         self.capability = secrets.token_hex(32)
+        self.updates = verified_update_files(updates) if updates is not None else {}
+        self.capture = capture
         self.received = threading.Event()
         self.result = None
         super().__init__(("127.0.0.1", 0), GuestHandler)
@@ -216,17 +236,32 @@ class GuestHandler(BaseHTTPRequestHandler):
         pass  # Never put the private capability URL into a CI log.
 
     def do_GET(self):
-        if self.path != f"/{self.server.capability}/payload.zip":
-            self.send_error(404)
+        if self.path == f"/{self.server.capability}/payload.zip":
+            path, size, content_type = self.server.payload, self.server.payload.stat().st_size, "application/zip"
+        else:
+            update = next((value for name, value in self.server.updates.items()
+                           if self.path == f"/{self.server.capability}/updates/{name}"), None)
+            if update is None:
+                self.send_error(404)
+                return
+            path, item = update
+            size, content_type = item["bytes"], "application/octet-stream"
+        # Reject a removed or truncated host file before announcing its size.
+        # The SYSTEM downloader separately verifies the entire MSU's SHA-256.
+        if not path.is_file() or path.stat().st_size != size:
+            self.send_error(503)
             return
         self.send_response(200)
-        self.send_header("Content-Type", "application/zip")
-        self.send_header("Content-Length", str(self.server.payload.stat().st_size))
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(size))
         self.end_headers()
-        with self.server.payload.open("rb") as source:
+        with path.open("rb") as source:
             shutil.copyfileobj(source, self.wfile)
 
     def do_POST(self):
+        if self.path in (f"/{self.server.capability}/capture/start", f"/{self.server.capability}/capture/finish"):
+            self.capture_post()
+            return
         if self.path != f"/{self.server.capability}/result":
             self.send_error(404)
             return
@@ -264,8 +299,203 @@ class GuestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
+    def capture_post(self):
+        controller = self.server.capture
+        if controller is None:
+            self.send_error(409, "capture_not_ready")
+            return
+        finishing = self.path.endswith("/finish")
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= MAX_CAPTURE_REQUEST_BYTES:
+                raise ValueError("capture_request_size")
+            self.connection.settimeout(10)
+            raw = self.rfile.read(size)
+            if len(raw) != size:
+                raise ValueError("capture_request_incomplete")
+            value = json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeError, OSError):
+            if finishing:
+                controller.abort("capture_request_invalid")
+            self.send_error(400, "capture_request_invalid")
+            return
+        try:
+            result = controller.finish(value) if finishing else controller.start(value)
+        except RuntimeError:
+            self.send_error(409, "capture_state_or_control_failed")
+            return
+        body = json.dumps(result, ensure_ascii=True, separators=(",", ":")).encode("ascii")
+        if len(body) > MAX_CAPTURE_REQUEST_BYTES:
+            self.send_error(500, "capture_summary_size")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class WireCaptureController:
+    """Own one fixed QMP filter; raw packets and manifests stay in private work."""
+    def __init__(self, qmp, work: Path, artifacts: Path, qemu_log: Path):
+        self.qmp, self.artifacts, self.qemu_log = qmp, artifacts, qemu_log
+        self.pcap, self.manifest = work / "wire-private.pcap", work / "wire-private-manifest.json"
+        self.lock = threading.RLock()
+        self.state, self.active, self.result = "idle", False, None
+        self.collection_error = False
+        spec = importlib.util.spec_from_file_location("ruleproxy_vm_packet_evidence", ROOT / ".github/windows_packet_evidence.py")
+        self.packet = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.packet)
+
+    def incomplete(self, reason):
+        return {"schema_version": 1, "status": "incomplete", "acceptance_passed": False,
+                "kernel_denial_proven": False, "execution_proven": False, "absence_observed": False,
+                "contained_markers_absent": None, "capture_flushed": not self.active, "error": reason}
+
+    def record(self, value):
+        if len(json.dumps(value, ensure_ascii=True).encode("ascii")) > MAX_CAPTURE_REQUEST_BYTES:
+            value = self.incomplete("capture_summary_size")
+        self.result = value
+        write_json(self.artifacts / "windows-wire-evidence.json", value)
+        return value
+
+    def start(self, value):
+        with self.lock:
+            if self.state != "idle" or not isinstance(value, dict) or value:
+                raise RuntimeError("capture_start_state")
+            self.state = "starting"
+            try:
+                fd = os.open(self.pcap, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                os.close(fd)
+                self.active = True
+                self.qmp.execute("object-add", {"qom-type": "filter-dump", "id": "ruleproxy_wire",
+                                              "netdev": "vmnet", "file": str(self.pcap)})
+            except Exception:
+                self.collection_error = True
+                self.record(self.incomplete("capture_filter_start_failed"))
+                raise RuntimeError("capture_filter_start_failed") from None
+            self.state = "active"
+            return {"schema_version": 1, "source_mac": VM_NIC_MAC}
+
+    def flush(self):
+        if self.active:
+            try:
+                self.qmp.execute("object-del", {"id": "ruleproxy_wire"})
+            except Exception:
+                self.collection_error = True
+                raise RuntimeError("capture_filter_flush_failed") from None
+            self.active = False
+
+    def log_clean(self):
+        try:
+            with self.qemu_log.open("rb") as source:
+                raw = source.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                return False
+            text = raw.decode("utf-8", "replace")
+            failure = r"(?:error|fail(?:ed|ure)?|cannot|unable|could not)"
+            dump = r"(?:filter[- ]?dump|ruleproxy_wire|dump|writ(?:e|ing))"
+            return not re.search(r"(?im)^.*(?:" + dump + r".*?" + failure + "|" + failure + r".*?" + dump + r").*$", text)
+        except OSError:
+            return False
+
+    def execution_groups(self, value):
+        groups = {variant + "." + family: False for variant in WIRE_VARIANTS for family in ("ipv4", "ipv6")}
+        if set(value) != {"manifest", "execution", "actor_execution_attested"} or value["actor_execution_attested"] is not True:
+            return groups
+        probes = value["manifest"]["probes"]
+        execution = value["execution"]
+        if (len(probes) != 32 or not all(p["source_mac"].lower() == VM_NIC_MAC for p in probes)
+                or sum(p["family"] == "ipv4" for p in probes) != 16
+                or sum(p["family"] == "ipv6" for p in probes) != 16
+                or not isinstance(execution, list) or len(execution) > 32):
+            return groups
+        expected = {p["id"]: p["role"] for p in probes}
+        seen = {}
+        for item in execution:
+            if (not isinstance(item, dict) or set(item) != {"id", "role", "attempted", "bind_succeeded", "api_accepted", "errno"}
+                    or not isinstance(item["id"], str) or item["id"] in seen
+                    or expected.get(item["id"]) != item["role"]
+                    or any(type(item[key]) is not bool for key in ("attempted", "bind_succeeded", "api_accepted"))
+                    or (item["errno"] is not None and type(item["errno"]) is not int)):
+                return groups
+            seen[item["id"]] = item
+        for group in groups:
+            rows = [seen.get(p["id"]) for p in probes if p["group"] == group]
+            groups[group] = len(rows) == 4 and all(row is not None and row["attempted"] and row["bind_succeeded"] for row in rows)
+        return groups
+
+    def fixed_manifest(self, manifest):
+        if not isinstance(manifest, dict) or set(manifest) != {"schema_version", "probes"}:
+            raise ValueError("capture_manifest_schema")
+        self.packet.prepare_manifest(manifest)
+        expected = {f"{variant}.{family}.{role}" for variant in WIRE_VARIANTS
+                    for family in ("ipv4", "ipv6") for role in self.packet.ROLES}
+        probes = manifest["probes"]
+        if len(probes) != 32 or {p["id"] for p in probes} != expected:
+            raise ValueError("capture_manifest_fixed_probes")
+        for probe in probes:
+            if (probe["id"] != probe["group"] + "." + probe["role"]
+                    or probe["group"] not in {variant + "." + probe["family"] for variant in WIRE_VARIANTS}
+                    or probe["source_mac"].lower() != VM_NIC_MAC or probe["port"] != 53
+                    or probe["destination"] != {"ipv4": "1.1.1.1", "ipv6": "2606:4700:4700::1111"}[probe["family"]]):
+                raise ValueError("capture_manifest_fixed_tuple")
+
+    def finish(self, value):
+        with self.lock:
+            if self.state != "active":
+                raise RuntimeError("capture_finish_state")
+            self.state = "finished"
+            try:
+                self.flush()
+                if not isinstance(value, dict) or "manifest" not in value:
+                    raise ValueError("capture_finish_schema")
+                # Parser validates bounded markers/groups. Only its sanitized
+                # counters leave this private directory.
+                self.fixed_manifest(value["manifest"])
+                write_json(self.manifest, value["manifest"])
+                result = self.packet.analyze_capture(self.pcap, value["manifest"])
+                group_proof = self.execution_groups(value)
+                proven = all(group_proof.values())
+                for group in result.get("groups", []):
+                    group["execution_proven"] = group_proof[group["id"]]
+                    group["absence_observed"] = group["execution_proven"] and group["contained_markers_absent"] is True
+                    if not group["execution_proven"]:
+                        group["contained_markers_absent"] = None
+                result.update(execution_proven=proven, actor_execution_attested=value.get("actor_execution_attested") is True,
+                              packet_analysis_complete=result["status"] == "complete", capture_flushed=True)
+                if not proven:
+                    result.update(status="incomplete", absence_observed=False, contained_markers_absent=None,
+                                  error="capture_sender_execution_incomplete")
+                if not self.log_clean():
+                    self.collection_error = True
+                    result = self.incomplete("capture_qemu_log_error")
+                return self.record(result)
+            except Exception:
+                return self.record(self.incomplete("capture_analysis_or_flush_failed"))
+
+    def abort(self, reason="capture_not_finished"):
+        with self.lock:
+            if self.state in ("idle", "finished") and not self.active:
+                return
+            self.state = "finished"
+            try:
+                self.flush()
+            except RuntimeError:
+                reason = "capture_filter_flush_failed"
+            self.record(self.incomplete(reason))
+
+    def close(self):
+        with self.lock:
+            self.abort()
+            if not self.log_clean():
+                self.collection_error = True
+                self.record(self.incomplete("capture_qemu_log_error"))
+
+
 class Qmp:
     def __init__(self, path: Path):
+        self.lock = threading.RLock()
         self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.socket.settimeout(10)
         try:
@@ -279,6 +509,10 @@ class Qmp:
             raise
 
     def execute(self, command: str, arguments: dict | None = None):
+        with self.lock:
+            return self._execute(command, arguments)
+
+    def _execute(self, command: str, arguments: dict | None = None):
         request = {"execute": command}
         if arguments:
             request["arguments"] = arguments
@@ -295,9 +529,10 @@ class Qmp:
                 return response["return"]
 
     def close(self):
-        if getattr(self, "file", None) is not None:
-            self.file.close()
-        self.socket.close()
+        with self.lock:
+            if getattr(self, "file", None) is not None:
+                self.file.close()
+            self.socket.close()
 
 
 def screenshot(qmp: Qmp, temporary: Path, output: Path) -> None:
@@ -501,7 +736,7 @@ def run_guest_phase(name: str, command: list[str], directory: Path, *, timeout: 
 
 
 def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: str | None = None,
-                     phase_timeout: float = 900) -> dict:
+                     phase_timeout: float = 900, vm_config: Path | None = None) -> dict:
     """Collect independent real-test failures without promoting partial success."""
     directory.mkdir(parents=True, exist_ok=True)
     executable = python or sys.executable
@@ -514,9 +749,12 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     # Incomplete experiment teardown prevents every later contained launch.
     experiment = workspace / ".github/windows_network_experiment.py"
     if experiment.is_file():
+        command = [executable, "-X", "utf8", "-B", str(experiment),
+                   "--root", str(root), "--report", str(directory / "experiments.json")]
+        if vm_config is not None:
+            command.extend(["--vm-config", str(vm_config)])
         record, report, log = run_guest_phase(
-            "experiments", [executable, "-X", "utf8", "-B", str(experiment),
-                            "--root", str(root), "--report", str(directory / "experiments.json")],
+            "experiments", command,
             directory, timeout=min(600, phase_timeout))
         result["experiments_phase"] = record
         result["logs"]["experiments"] = log
@@ -636,10 +874,10 @@ def run(args) -> dict:
             summary["official_update"]["packages"] = download_updates(updates)
             payload = work / "payload.zip"
             payload_hash = make_payload(package, payload)
-            server = GuestServer(payload, artifacts)
+            server = GuestServer(payload, artifacts, updates=updates)
             http_thread = threading.Thread(target=server.serve_forever, daemon=True)
             http_thread.start()
-            qemu, tpm, qmp = None, None, None
+            qemu, tpm, qmp, capture = None, None, None, None
             try:
                 tree = work / "iso-tree"
                 tree.mkdir()
@@ -664,7 +902,6 @@ def run(args) -> dict:
                                 "-e", efi_boot, "-no-emul-boot",
                                 "-o", str(unattended), str(tree)], check=True)
                 shutil.rmtree(tree)
-                shutil.rmtree(updates)
                 iso.unlink()
                 disk = work / "windows.qcow2"
                 subprocess.run(["qemu-img", "create", "-f", "qcow2", str(disk), "80G"], check=True)
@@ -690,7 +927,7 @@ def run(args) -> dict:
                                "-device", "ide-hd,drive=system,bus=ide.0,bootindex=1",
                                "-drive", f"if=none,id=install,file={unattended},media=cdrom,readonly=on",
                                "-device", "ide-cd,drive=install,bus=ide.1,bootindex=2",
-                               "-netdev", "user,id=vmnet", "-device", "e1000,netdev=vmnet",
+                               "-netdev", "user,id=vmnet", "-device", f"e1000,netdev=vmnet,mac={VM_NIC_MAC}",
                                "-chardev", f"socket,id=tpm,path={tpm_socket}", "-tpmdev", "emulator,id=tpmdev,chardev=tpm",
                                "-device", "tpm-tis,tpmdev=tpmdev", "-device", "qemu-xhci", "-device", "usb-tablet",
                                "-vga", "std", "-display", "none", "-serial", f"file:{artifacts / 'serial.log'}",
@@ -708,6 +945,8 @@ def run(args) -> dict:
                     if kvm.get("enabled") is not True:
                         raise RuntimeError("QEMU did not enable KVM; software emulation is forbidden")
                     summary["qemu_kvm_enabled"] = True
+                    capture = WireCaptureController(qmp, work, artifacts, artifacts / "qemu.log")
+                    server.capture = capture
                     if needs_boot_key:
                         # Some official media include only the loader that asks
                         # for a key. Use that signed image unchanged; press Enter
@@ -734,6 +973,8 @@ def run(args) -> dict:
                     summary["phase_results"] = server.result.get("phases", [])
                     summary["recovery_records"] = server.result.get("recovery_records", [])
                     summary["official_update"]["guest"] = server.result.get("official_update")
+                    if not capture.log_clean() or capture.collection_error:
+                        raise RuntimeError("VM packet capture control or dump/write failed")
                     verify_result(server.result, require_official_update=True)
                     summary.update(status="transport_and_package_tests_passed", transport_passed=True,
                                    manager_fixture_passed=True, browser_fixture_passed=True,
@@ -742,6 +983,8 @@ def run(args) -> dict:
             finally:
                 # Dispose only this ephemeral test VM and TPM, never a named
                 # host process or a user-owned Windows application.
+                if capture is not None:
+                    capture.close()
                 if qmp is not None:
                     if qemu is not None and qemu.poll() is None:
                         try:
@@ -752,6 +995,14 @@ def run(args) -> dict:
                     qmp.close()
                 stop_owned(qemu)
                 stop_owned(tpm)
+                if capture is not None:
+                    # A delayed QEMU dump/write error invalidates an earlier
+                    # packet summary and cannot leave a successful VM result.
+                    capture.close()
+                    summary["wire_evidence"] = capture.result
+                    if capture.collection_error:
+                        summary.update(status="failed", transport_passed=False, manager_fixture_passed=False,
+                                       browser_fixture_passed=False, error="VM packet capture control or dump/write failed")
                 server.shutdown()
                 server.server_close()
                 http_thread.join(timeout=5)
@@ -770,8 +1021,10 @@ def main(argv: list[str]) -> int:
         parser.add_argument("--root", required=True, type=Path)
         parser.add_argument("--workspace", required=True, type=Path)
         parser.add_argument("--report", required=True, type=Path)
+        parser.add_argument("--vm-config", type=Path)
         args = parser.parse_args(argv[1:])
-        result = run_guest_phases(args.root.resolve(), args.workspace.resolve(), args.report.resolve().parent)
+        result = run_guest_phases(args.root.resolve(), args.workspace.resolve(), args.report.resolve().parent,
+                                  vm_config=args.vm_config)
         write_json(args.report, result)
         print(json.dumps({"status": result["status"], "phases": result["phases"]}, ensure_ascii=True), flush=True)
         return 0 if result["status"] == "passed" else 1

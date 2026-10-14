@@ -73,8 +73,60 @@ class FileBridgeTests(unittest.TestCase):
             worker.join(4)
 
         self.addCleanup(cleanup)
-        self.assertTrue(file_bridge.wait_for_bridge_ready(bridge.directory, bridge.nonce, 3))
+        # The listener marker precedes READY frame publication and the final
+        # BRIDGE_READY status. Wait for both before simulating the self-check,
+        # so the guest cannot overwrite our GUEST_READY with its initial state.
+        deadline = time.monotonic() + 3
+        while True:
+            self.assertEqual(errors, [], "guest startup failed")
+            self.assertTrue(worker.is_alive(), "guest exited before startup completed")
+            status = file_bridge._read_json(bridge.directory / "guest-status.json")
+            if status is not None:
+                self.assertEqual(status.get("nonce"), bridge.nonce)
+                self.assertEqual(status.get("state"), "BRIDGE_READY", "guest startup failed")
+                self.assertTrue(file_bridge.wait_for_bridge_ready(bridge.directory, bridge.nonce, 0))
+                break
+            remaining = deadline - time.monotonic()
+            self.assertGreater(remaining, 0, "guest startup did not complete within 3 seconds")
+            stop.wait(min(0.01, remaining))
         return port, worker, errors
+
+    def test_guest_fixture_waits_for_complete_startup_before_simulating_self_check(self):
+        bridge = file_bridge.FileProxyBridge(10809, self.root)
+        self.addCleanup(bridge.close)
+        marker_published, finish_startup, completed = threading.Event(), threading.Event(), threading.Event()
+        results, errors = [], []
+
+        def delayed_guest(_port, directory, nonce, stop):
+            file_bridge._atomic_json(directory / "bridge-ready.json", {"nonce": nonce, "ready": True})
+            marker_published.set()
+            if not finish_startup.wait(3):
+                raise TimeoutError("test startup was not released")
+            file_bridge._atomic_json(directory / "guest-status.json", {"nonce": nonce, "state": "BRIDGE_READY"})
+            stop.wait(3)
+
+        def start_fixture():
+            try:
+                results.append(self.make_guest(bridge))
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                completed.set()
+
+        with mock.patch.object(file_bridge, "run_guest_bridge", side_effect=delayed_guest):
+            worker = threading.Thread(target=start_fixture, daemon=True)
+            worker.start()
+            try:
+                self.assertTrue(marker_published.wait(1))
+                self.assertFalse(completed.wait(0.05), "a bound listener must not complete startup")
+            finally:
+                finish_startup.set()
+                worker.join(3)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 1)
+        file_bridge.signal_guest_ready(bridge.directory, bridge.nonce)
+        bridge.approve()
 
     def receive(self, connection, size):
         response = bytearray()

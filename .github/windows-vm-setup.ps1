@@ -21,7 +21,7 @@ if (Test-Path -LiteralPath $updateSource) {
     # avoids resolving an account that does not exist yet in this private VM.
     $triggers = @((New-ScheduledTaskTrigger -AtStartup), (New-ScheduledTaskTrigger -AtLogOn))
     $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-    $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 55) -StartWhenAvailable -MultipleInstances IgnoreNew
+    $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 85) -StartWhenAvailable -MultipleInstances IgnoreNew
     Register-ScheduledTask -TaskName 'RuleProxyCI-InstallOfficialUpdate' -Action $action -Trigger $triggers -Principal $principal -Settings $settings -Force | Out-Null
 }
 & icacls.exe $destination /grant '*S-1-5-32-545:(OI)(CI)M' /T | Out-Null

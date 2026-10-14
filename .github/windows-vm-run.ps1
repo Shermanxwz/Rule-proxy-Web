@@ -49,7 +49,7 @@ try {
     $result.os = (Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber, OSArchitecture)
     if ($configuration.require_official_update) {
         $statePath = 'C:\RuleProxyCIUpdates\update-state.json'
-        $updateDeadline = [DateTime]::UtcNow.AddMinutes(55)
+        $updateDeadline = [DateTime]::UtcNow.AddMinutes(90)
         do {
             if (Test-Path -LiteralPath $statePath) {
                 if ((Get-Item -LiteralPath $statePath).Length -gt 65536) { throw 'Windows update state exceeded its size limit' }
@@ -102,7 +102,8 @@ try {
     $report = Join-Path $PSScriptRoot 'guest-phases.json'
     $log = Join-Path $PSScriptRoot 'supervisor.log'
     if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report -Force }
-    $code = Invoke-LocalProgram $python @('-X', 'utf8', '-B', $supervisor, '--guest-phases', '--root', $package, '--workspace', $workspace, '--report', $report) $log 4800
+    $configurationPath = Join-Path $PSScriptRoot 'ruleproxy-vm-config.json'
+    $code = Invoke-LocalProgram $python @('-X', 'utf8', '-B', $supervisor, '--guest-phases', '--root', $package, '--workspace', $workspace, '--vm-config', $configurationPath, '--report', $report) $log 4800
     if (-not (Test-Path -LiteralPath $report)) { throw 'Guest supervisor returned no report' }
     if ((Get-Item -LiteralPath $report).Length -gt 4194304) { throw 'Guest supervisor report exceeded its size limit' }
     $collected = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json

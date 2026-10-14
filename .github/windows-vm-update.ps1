@@ -54,7 +54,7 @@ function Get-UpdateSHA256($Path) {
     }
 }
 
-function Read-UpdateManifest($Directory) {
+function Read-UpdateManifestDefinition($Directory) {
     $null = Assert-UpdateFile $Directory -Directory
     $path = Join-Path $Directory 'update-manifest.json'
     $item = Assert-UpdateFile $path
@@ -72,8 +72,6 @@ function Read-UpdateManifest($Directory) {
     $packages = @($manifest.packages)
     if ($packages.Count -lt 1 -or $packages.Count -gt 8) { throw 'update_invalid_package_count' }
     $seen = @{}
-    $packageDirectory = Join-Path $Directory 'packages'
-    $null = Assert-UpdateFile $packageDirectory -Directory
     foreach ($package in $packages) {
         $fields = @($package.PSObject.Properties.Name)
         if ('filename' -notin $fields -or 'sha256' -notin $fields -or
@@ -84,17 +82,149 @@ function Read-UpdateManifest($Directory) {
         $key = $package.filename.ToLowerInvariant()
         if ($seen.ContainsKey($key)) { throw 'update_duplicate_filename' }
         $seen[$key] = $true
+    }
+    if (-not $seen.ContainsKey($manifest.target_package.ToLowerInvariant())) { throw 'update_target_not_verified' }
+    return $manifest
+}
+
+function Read-UpdateManifest($Directory) {
+    $manifest = Read-UpdateManifestDefinition $Directory
+    $packageDirectory = Join-Path $Directory 'packages'
+    $null = Assert-UpdateFile $packageDirectory -Directory
+    $seen = @{}
+    foreach ($package in @($manifest.packages)) {
+        $seen[$package.filename.ToLowerInvariant()] = $true
         $packagePath = Join-Path $packageDirectory $package.filename
-        $null = Assert-UpdateFile $packagePath
+        $item = Assert-UpdateFile $packagePath
+        if ('bytes' -in @($package.PSObject.Properties.Name) -and $item.Length -ne $package.bytes) {
+            throw 'update_package_size_mismatch'
+        }
         $actual = Get-UpdateSHA256 $packagePath
         if ($actual -cne $package.sha256.ToUpperInvariant()) { throw 'update_package_hash_mismatch' }
     }
-    if (-not $seen.ContainsKey($manifest.target_package.ToLowerInvariant())) { throw 'update_target_not_verified' }
     foreach ($item in @(Get-ChildItem -LiteralPath $packageDirectory -Force)) {
         if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
             -not $seen.ContainsKey($item.Name.ToLowerInvariant())) { throw 'update_unlisted_package' }
     }
     return $manifest
+}
+
+function Assert-UpdateDownloadEntry($Entry) {
+    $names = @($Entry.PSObject.Properties.Name)
+    if ('bytes' -notin $names -or 'url' -notin $names -or
+        -not ($Entry.bytes -is [int] -or $Entry.bytes -is [long]) -or
+        $Entry.bytes -le 0 -or $Entry.bytes -gt (5L * 1024 * 1024 * 1024) -or
+        $Entry.url -isnot [string] -or $Entry.url.Length -gt 4096) { throw 'update_invalid_download_entry' }
+    $pattern = '^http://10\.0\.2\.2:[0-9]{1,5}/[0-9a-f]{64}/updates/' + [regex]::Escape($Entry.filename) + '$'
+    if ($Entry.url -cnotmatch $pattern) { throw 'update_download_endpoint_rejected' }
+    $uri = [Uri]::new($Entry.url)
+    if ($uri.Port -lt 1 -or $uri.Port -gt 65535 -or $uri.Host -cne '10.0.2.2' -or
+        $uri.Scheme -cne 'http' -or $uri.UserInfo -or $uri.Query -or $uri.Fragment) {
+        throw 'update_download_endpoint_rejected'
+    }
+}
+
+function New-UpdateHttpRequest($Url) {
+    return [Net.HttpWebRequest]::Create($Url)
+}
+
+function Save-UpdatePackage($Entry, $Directory, $Clock) {
+    Assert-UpdateDownloadEntry $Entry
+    $destination = Join-Path (Join-Path $Directory 'packages') $Entry.filename
+    if (Test-Path -LiteralPath $destination) {
+        Assert-ProtectedUpdatePath $destination
+        $item = Assert-UpdateFile $destination
+        if ($item.Length -eq $Entry.bytes -and (Get-UpdateSHA256 $destination) -ceq $Entry.sha256.ToUpperInvariant()) {
+            return $false
+        }
+        throw 'update_existing_package_mismatch'
+    }
+    $temporary = Join-Path $Directory ('stage-' + [Guid]::NewGuid().ToString('N') + '.part')
+    $request = $response = $inputStream = $outputStream = $algorithm = $null
+    $created = $false
+    try {
+        $remaining = 25 * 60 * 1000 - $Clock.ElapsedMilliseconds
+        if ($remaining -le 0) { throw 'update_download_deadline' }
+        $request = New-UpdateHttpRequest $Entry.url
+        $request.Proxy = $null
+        $request.AllowAutoRedirect = $false
+        $request.UseDefaultCredentials = $false
+        $request.AutomaticDecompression = [Net.DecompressionMethods]::None
+        $request.KeepAlive = $false
+        $request.Timeout = [int][Math]::Min(30000, $remaining)
+        $request.ReadWriteTimeout = 30000
+        $response = $request.GetResponse()
+        if ([int]$response.StatusCode -ne 200 -or $response.ContentLength -ne $Entry.bytes) {
+            throw 'update_download_length_or_status_mismatch'
+        }
+        $inputStream = $response.GetResponseStream()
+        $outputStream = [IO.File]::Open($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        $created = $true
+        $null = Assert-UpdateFile $temporary
+        $algorithm = [Security.Cryptography.SHA256]::Create()
+        $buffer = [byte[]]::new(65536)
+        $total = 0L
+        while ($true) {
+            $remaining = 25 * 60 * 1000 - $Clock.ElapsedMilliseconds
+            if ($remaining -le 0) { throw 'update_download_deadline' }
+            $read = $inputStream.ReadAsync($buffer, 0, $buffer.Length)
+            try { $completed = $read.Wait([int][Math]::Min(30000, $remaining)) } catch {
+                if ($read.IsCompleted) { $read.Dispose() }
+                throw 'update_download_read_failed'
+            }
+            if (-not $completed) {
+                $request.Abort()
+                try { $null = $read.Wait(5000) } catch { }
+                if (-not $read.IsCompleted) { throw 'update_download_cleanup_unproven' }
+                $read.Dispose()
+                throw 'update_download_timeout'
+            }
+            $count = $read.Result
+            $read.Dispose()
+            if ($count -eq 0) { break }
+            $total += $count
+            if ($total -gt $Entry.bytes) { throw 'update_download_overrun' }
+            $outputStream.Write($buffer, 0, $count)
+            $null = $algorithm.TransformBlock($buffer, 0, $count, $buffer, 0)
+        }
+        if ($total -ne $Entry.bytes) { throw 'update_download_ended_early' }
+        $null = $algorithm.TransformFinalBlock([byte[]]::new(0), 0, 0)
+        $actual = [BitConverter]::ToString($algorithm.Hash).Replace('-', '')
+        if ($actual -cne $Entry.sha256.ToUpperInvariant()) { throw 'update_download_hash_mismatch' }
+        $outputStream.Flush($true)
+        $outputStream.Dispose(); $outputStream = $null
+        Assert-ProtectedUpdatePath $temporary
+        [IO.File]::Move($temporary, $destination)
+        $created = $false
+        return $true
+    } finally {
+        if ($null -ne $request) { $request.Abort() }
+        foreach ($resource in @($inputStream, $outputStream, $response, $algorithm)) {
+            if ($null -ne $resource) { $resource.Dispose() }
+        }
+        if ($created -and (Test-Path -LiteralPath $temporary)) {
+            $null = Assert-UpdateFile $temporary
+            Remove-Item -LiteralPath $temporary -Force
+        }
+    }
+}
+
+function Stage-UpdatePackages($Manifest, $Directory, $State) {
+    $packageDirectory = Join-Path $Directory 'packages'
+    if (-not (Test-Path -LiteralPath $packageDirectory)) { $null = [IO.Directory]::CreateDirectory($packageDirectory) }
+    Assert-ProtectedUpdatePath $packageDirectory -Directory
+    # Validate the whole download list before the first request or file write.
+    foreach ($entry in @($Manifest.packages)) { Assert-UpdateDownloadEntry $entry }
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $State.phase = 'staging_official_MSU'
+    $State.downloaded_package_count = 0
+    $State.staged_package_count = 0
+    Write-UpdateState $State
+    foreach ($entry in @($Manifest.packages)) {
+        if (Save-UpdatePackage $entry $Directory $clock) { $State.downloaded_package_count++ }
+        $State.staged_package_count++
+        Write-UpdateState $State
+    }
 }
 
 function Get-UpdateOS {
@@ -137,13 +267,8 @@ function Invoke-RuleProxyCIUpdate {
         $trustedDirectory = $true
         Assert-ProtectedUpdatePath (Join-Path $script:UpdateDirectory 'windows-vm-update.ps1')
         Assert-ProtectedUpdatePath (Join-Path $script:UpdateDirectory 'update-manifest.json')
-        $manifest = Read-UpdateManifest $script:UpdateDirectory
+        $manifest = Read-UpdateManifestDefinition $script:UpdateDirectory
         $packageDirectory = Join-Path $script:UpdateDirectory 'packages'
-        Assert-ProtectedUpdatePath $packageDirectory -Directory
-        foreach ($package in @($manifest.packages)) {
-            Assert-ProtectedUpdatePath (Join-Path $packageDirectory $package.filename)
-        }
-        $state.packages_verified = $true
         $statePath = Join-Path $script:UpdateDirectory 'update-state.json'
         if (Test-Path -LiteralPath $statePath) {
             Assert-ProtectedUpdatePath $statePath
@@ -175,6 +300,12 @@ function Invoke-RuleProxyCIUpdate {
             if ([DateTime]::UtcNow -ge $setupDeadline) { throw 'update_windows_setup_timeout' }
             Start-Sleep -Seconds 5
         } while ($true)
+        Stage-UpdatePackages $manifest $script:UpdateDirectory $state
+        $manifest = Read-UpdateManifest $script:UpdateDirectory
+        foreach ($package in @($manifest.packages)) {
+            Assert-ProtectedUpdatePath (Join-Path $packageDirectory $package.filename)
+        }
+        $state.packages_verified = $true
         $state.phase = 'verifying'
         $os = Get-UpdateOS
         $state.actual_build, $state.actual_ubr = $os.build, $os.ubr
@@ -237,7 +368,7 @@ function Invoke-RuleProxyCIUpdate {
         $state.status, $state.completed, $state.reboot_required = 'failed', $false, $false
         $message = $_.Exception.Message
         $state.error = if ($message -cmatch '^update_[A-Za-z0-9_]+$') { $message } else { 'update_worker_error' }
-        $detail = ($message -replace '[\x00-\x1f\x7f]', ' ')
+        $detail = ($message -replace '(?i)\bhttps?://[^\s]+', '[redacted-url]' -replace '(?i)[0-9a-f]{64}', '[redacted-token]' -replace '[\x00-\x1f\x7f]', ' ')
         $state.error_detail = $detail.Substring(0, [Math]::Min(400, $detail.Length))
         $state.error_type = $_.Exception.GetType().Name
         $state.error_line = [int]$_.InvocationInfo.ScriptLineNumber
