@@ -182,7 +182,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertEqual(child["returned_pids"], [43, 10368])
         self.assertEqual(child["live_pids"], [43])
         self.assertTrue(child["held_handle_generation_verified"])
-        self.assertEqual(child["children"][1], {"pid": 10368, "process_created": 120, "alive": False})
+        self.assertEqual({key: child["children"][1][key] for key in ("pid", "process_created", "alive")},
+                         {"pid": 10368, "process_created": 120, "alive": False})
 
     def test_extra_living_child_is_rejected_and_all_owned_handles_are_closed(self):
         api, runtime, wrapper, reports = self.attestation_fixture([(43, 202), (44, 203)])

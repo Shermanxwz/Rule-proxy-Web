@@ -10,6 +10,8 @@ created. Only test nonce bytes traverse a fixed loopback source/sink.
 from __future__ import annotations
 
 import argparse
+import ctypes
+from ctypes import wintypes
 import importlib.util
 import json
 import os
@@ -397,6 +399,24 @@ def wait_actor_reports(profile, wrapper, phase, *, timeout=ACTOR_WAIT_SECONDS):
     raise TimeoutError("Experimental actor reports timed out")
 
 
+def held_image_diagnostic(api, handle):
+    """Read one owned process HANDLE's image; this never authorizes a peer."""
+    try:
+        query = api.kernel32.QueryFullProcessImageNameW
+        query.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+        query.restype = wintypes.BOOL
+        capacity = 32768
+        path = ctypes.create_unicode_buffer(capacity)
+        size = wintypes.DWORD(capacity)
+        if not query(handle, 0, path, ctypes.byref(size)):
+            return {"image_query_winerror": int(ctypes.get_last_error())}
+        if not 0 < size.value < capacity or not path.value:
+            return {"image_query_error": "invalid_length"}
+        return {"image_path": path.value[:2048], "image_path_truncated": len(path.value) > 2048}
+    except (AttributeError, OSError, TypeError) as exc:
+        return {"image_query_error": type(exc).__name__}
+
+
 def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
     api = runtime._WinProcessApi()
     entries = []
@@ -419,7 +439,8 @@ def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
             created = api.process_creation_time(handle)
             living = api.process_alive(handle)
             if len(snapshot["children"]) < 32:
-                snapshot["children"].append({"pid": pid, "process_created": created, "alive": living})
+                snapshot["children"].append({"pid": pid, "process_created": created, "alive": living,
+                                             **held_image_diagnostic(api, handle)})
             if created < parent_created:
                 snapshot["failure"] = "child_predates_verified_parent"
                 raise RuntimeError("A child process generation predates its verified parent")
