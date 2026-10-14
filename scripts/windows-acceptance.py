@@ -44,6 +44,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RUNTIME_VERSIONS = {"mihomo": "v1.19.32", "mxc": "1.0.0"}
 RUNTIME_REQUIRED_FILES = frozenset({"mihomo.exe", "wxc-exec.exe", "mxc_ffi.dll",
                                     "MIHOMO-LICENSE", "MXC-LICENSE.md"})
+NETWORK_SNAPSHOT_TIMEOUT = 120
 
 
 def verify_runtime_manifest(root: Path) -> dict[str, str]:
@@ -308,14 +309,14 @@ def executable_machine(path: Path) -> int:
     with path.open("rb") as stream:
         dos = stream.read(64)
         if len(dos) != 64 or dos[:2] != b"MZ":
-            raise ValueError("Python executable does not have a DOS/PE header")
+            raise ValueError("executable does not have a DOS/PE header")
         offset = struct.unpack_from("<I", dos, 60)[0]
         if not 64 <= offset <= 16 * 1024 * 1024:
-            raise ValueError("Python executable has an invalid PE header offset")
+            raise ValueError("executable has an invalid PE header offset")
         stream.seek(offset)
         coff = stream.read(6)
     if len(coff) != 6 or coff[:4] != b"PE\0\0":
-        raise ValueError("Python executable has an invalid PE signature")
+        raise ValueError("executable has an invalid PE signature")
     return struct.unpack_from("<H", coff, 4)[0]
 
 
@@ -354,27 +355,85 @@ def host_facts() -> dict:
     return facts
 
 
+def select_powershell(native_machine: int) -> tuple[Path, int]:
+    """Prefer a native system interpreter over an emulated PATH executable."""
+    system_root = os.environ.get("SystemRoot") or os.environ.get("WINDIR")
+    if not system_root:
+        raise RuntimeError("Windows system directory is unavailable for the network snapshot")
+    root = Path(system_root)
+    native_types = {native_machine}
+    if native_machine == 0xAA64:
+        native_types.update((0xA641, 0xA64E))  # ARM64EC / ARM64X system binaries.
+    found = []
+    for folder in ("Sysnative", "System32"):
+        candidate = root / folder / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        if candidate.is_file():
+            machine = executable_machine(candidate)
+            if machine in native_types:
+                return candidate, machine
+            found.append((candidate, machine))
+    if found:
+        # Older images may ship only an emulated Windows PowerShell. Keep the
+        # system-owned executable and explicitly record its architecture.
+        return found[0]
+    raise RuntimeError("system Windows PowerShell is unavailable for the network snapshot")
+
+
+def snapshot_stage(output) -> str:
+    """Extract only our fixed stage markers, never arbitrary process output."""
+    if isinstance(output, bytes):
+        output = output.decode("utf-8", "replace")
+    stages = re.findall(r"^RULEPROXY_SNAPSHOT_STAGE=(proxy|dns|routes|winhttp|serialize)\r?$",
+                        output or "", re.MULTILINE)
+    return stages[-1] if stages else "startup"
+
+
 def network_snapshot() -> str:
     # Read stable configuration fields only; leases/lifetimes change naturally.
     script = r'''
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+[Console]::Error.WriteLine('RULEPROXY_SNAPSHOT_STAGE=proxy')
 $proxy = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
+[Console]::Error.WriteLine('RULEPROXY_SNAPSHOT_STAGE=dns')
 $dns = @(Get-DnsClientServerAddress | Sort-Object InterfaceIndex,AddressFamily | ForEach-Object {
     @{index=$_.InterfaceIndex;family=[int]$_.AddressFamily;servers=@($_.ServerAddresses)}
 })
+[Console]::Error.WriteLine('RULEPROXY_SNAPSHOT_STAGE=routes')
 $routes = @(Get-NetRoute | Where-Object DestinationPrefix -in @('0.0.0.0/0','::/0') |
     Sort-Object InterfaceIndex,DestinationPrefix,NextHop | ForEach-Object {
         @{index=$_.InterfaceIndex;prefix=$_.DestinationPrefix;next=$_.NextHop;metric=$_.RouteMetric}
     })
+[Console]::Error.WriteLine('RULEPROXY_SNAPSHOT_STAGE=winhttp')
+$winhttp = (& (Join-Path $env:SystemRoot 'System32\netsh.exe') winhttp show proxy | Out-String)
+if ($LASTEXITCODE -ne 0) { throw 'WinHTTP proxy query failed.' }
+[Console]::Error.WriteLine('RULEPROXY_SNAPSHOT_STAGE=serialize')
 @{dns=$dns;routes=$routes;proxy=@{enable=$proxy.ProxyEnable;server=$proxy.ProxyServer;
-override=$proxy.ProxyOverride;pac=$proxy.AutoConfigURL};winhttp=(& netsh winhttp show proxy | Out-String)} |
+override=$proxy.ProxyOverride;pac=$proxy.AutoConfigURL};winhttp=$winhttp} |
 ConvertTo-Json -Depth 8 -Compress
 '''
-    result = subprocess.run(["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive",
-                             "-Command", script], capture_output=True, encoding="utf-8",
-                            errors="replace", timeout=25, check=True)
+    native_machine = host_facts()["native_machine"]
+    executable, machine = select_powershell(native_machine)
+    started = time.monotonic()
+    print(f"[Windows acceptance] host network snapshot started; PowerShell PE machine "
+          f"0x{machine:04x}, budget {NETWORK_SNAPSHOT_TIMEOUT}s", file=sys.stderr, flush=True)
+    try:
+        result = subprocess.run([str(executable), "-NoLogo", "-NoProfile", "-NonInteractive",
+                                 "-Command", script], capture_output=True, encoding="utf-8",
+                                errors="replace", timeout=NETWORK_SNAPSHOT_TIMEOUT, check=True)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Host network snapshot exceeded {NETWORK_SNAPSHOT_TIMEOUT}s "
+                           f"during {snapshot_stage(exc.stderr)}; acceptance cannot continue.") from None
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"Host network snapshot failed during {snapshot_stage(exc.stderr)} "
+                           f"(PowerShell exit {exc.returncode}); acceptance cannot continue.") from None
     value = json.loads(result.stdout.lstrip("\ufeff"))
+    if (not isinstance(value, dict) or set(value) != {"dns", "routes", "proxy", "winhttp"}
+            or not isinstance(value["dns"], list) or not isinstance(value["routes"], list)
+            or not isinstance(value["proxy"], dict) or not isinstance(value["winhttp"], str)):
+        raise RuntimeError("host network snapshot returned an incomplete configuration record")
+    print(f"[Windows acceptance] host network snapshot completed in "
+          f"{time.monotonic() - started:.1f}s", file=sys.stderr, flush=True)
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 

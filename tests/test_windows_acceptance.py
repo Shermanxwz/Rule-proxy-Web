@@ -1,11 +1,13 @@
 """Acceptance tooling must identify emulation and verify portable runtimes."""
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import socket
 import struct
+import subprocess
 import sys
 import tempfile
 import time
@@ -29,11 +31,12 @@ class WindowsAcceptanceTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
 
-    def executable(self, machine):
+    def executable(self, machine, path=None):
         header = bytearray(64)
         header[:2] = b"MZ"
         struct.pack_into("<I", header, 60, 64)
-        path = self.root / "python.exe"
+        path = path or self.root / "python.exe"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(header + b"PE\0\0" + struct.pack("<H", machine))
         return path
 
@@ -66,6 +69,58 @@ class WindowsAcceptanceTests(unittest.TestCase):
                 path.write_bytes(data)
                 with self.assertRaises(ValueError):
                     acceptance.executable_machine(path)
+
+    def test_snapshot_prefers_native_system_powershell_on_arm(self):
+        emulated = self.executable(0x8664, self.root / "Sysnative/WindowsPowerShell/v1.0/powershell.exe")
+        native = self.executable(0xAA64, self.root / "System32/WindowsPowerShell/v1.0/powershell.exe")
+        with mock.patch.dict(os.environ, {"SystemRoot": str(self.root)}):
+            self.assertEqual(acceptance.select_powershell(0xAA64), (native, 0xAA64))
+            native.unlink()
+            self.assertEqual(acceptance.select_powershell(0xAA64), (emulated, 0x8664))
+            emulated.unlink()
+            with self.assertRaises(RuntimeError):
+                acceptance.select_powershell(0xAA64)
+
+    def test_snapshot_has_cold_cim_budget_and_never_logs_configuration(self):
+        record = {"dns": [], "routes": [], "proxy": {"server": "private-proxy-password"}, "winhttp": "private-config"}
+        powershell = self.root / "powershell.exe"
+        with mock.patch.object(acceptance, "host_facts", return_value={"native_machine": 0xAA64}), \
+                mock.patch.object(acceptance, "select_powershell", return_value=(powershell, 0xAA64)), \
+                mock.patch.object(acceptance.subprocess, "run", return_value=SimpleNamespace(
+                    stdout=json.dumps(record), stderr="RULEPROXY_SNAPSHOT_STAGE=serialize\n")) as run, \
+                mock.patch.object(sys, "stderr", new_callable=io.StringIO) as logged:
+            digest = acceptance.network_snapshot()
+            self.assertEqual(len(digest), 64)
+            self.assertEqual(run.call_args.kwargs["timeout"], 120)
+            self.assertEqual(run.call_args.args[0][0], str(powershell))
+            self.assertIn("snapshot completed", logged.getvalue())
+            self.assertNotIn("private-proxy-password", logged.getvalue())
+            self.assertNotIn("private-config", logged.getvalue())
+
+    def test_snapshot_timeout_and_failure_keep_fixed_stage_without_raw_output(self):
+        output = b"RULEPROXY_SNAPSHOT_STAGE=dns\nprivate password must not be echoed\n"
+        errors = (
+            subprocess.TimeoutExpired(["private command"], 120, stderr=output),
+            subprocess.CalledProcessError(1, ["private command"], stderr=output),
+        )
+        for error in errors:
+            with self.subTest(error=type(error).__name__), \
+                    mock.patch.object(acceptance, "host_facts", return_value={"native_machine": 0xAA64}), \
+                    mock.patch.object(acceptance, "select_powershell", return_value=(Path("powershell.exe"), 0xAA64)), \
+                    mock.patch.object(acceptance.subprocess, "run", side_effect=error), \
+                    mock.patch.object(sys, "stderr", new_callable=io.StringIO):
+                with self.assertRaises(RuntimeError) as raised:
+                    acceptance.network_snapshot()
+                self.assertIn("during dns", str(raised.exception))
+                self.assertNotIn("private", str(raised.exception))
+
+    def test_snapshot_rejects_an_empty_json_value_instead_of_claiming_a_hash(self):
+        with mock.patch.object(acceptance, "host_facts", return_value={"native_machine": 0x8664}), \
+                mock.patch.object(acceptance, "select_powershell", return_value=(Path("powershell.exe"), 0x8664)), \
+                mock.patch.object(acceptance.subprocess, "run", return_value=SimpleNamespace(stdout="null", stderr="")), \
+                mock.patch.object(sys, "stderr", new_callable=io.StringIO):
+            with self.assertRaises(RuntimeError):
+                acceptance.network_snapshot()
 
     def manifest(self):
         directory = self.root / "bin" / "windows-amd64"

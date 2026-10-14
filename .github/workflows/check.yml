@@ -72,6 +72,14 @@ jobs:
           python-version: "3.13"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
+      - name: Validate unattended guest PowerShell scripts
+        run: |
+          Get-ChildItem .github\windows-vm-*.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors) { throw ($errors | Out-String) }
+          }
       - name: Tests, including real shell links
         run: python -B .github/run_tests.py
       - name: Start-Windows.cmd in a source checkout sets up once, then runs the panel and core
@@ -171,7 +179,7 @@ jobs:
         run: if (Test-Path "$env:PACKAGE\bin\windows-amd64\plm.exe") { throw "plm.exe is still in the package" }
 
   windows-11-probe:
-    name: Windows 11 ARM · capability diagnostic
+    name: Windows 11 ARM · real PSEC fixtures
     needs: windows-package
     runs-on: windows-11-arm
     steps:
@@ -187,7 +195,7 @@ jobs:
           if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "Package checksum mismatch" }
           Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\ruleproxy-probe"
           $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
-          & "$root\python\python.exe" -B scripts\windows-acceptance.py --root "$root" --probe-only --report windows-11-probe.json
+          & "$root\python\python.exe" -X utf8 -B scripts\windows-acceptance.py --root "$root" --probe-only --report windows-11-probe.json
           $probeExit = $LASTEXITCODE
           if ($probeExit -eq 3) {
             Write-Output '::notice title=Windows 11 probe::This host cannot service the fixed strict policy. Full acceptance remains pending.'
@@ -203,7 +211,17 @@ jobs:
             exit 0
           }
           $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
-          & "$root\python\python.exe" -B scripts\windows-acceptance.py --root "$root" --transport-fixture --allow-emulated-x64 --report windows-11-transport.json
+          & "$root\python\python.exe" -X utf8 -B scripts\windows-acceptance.py --root "$root" --transport-fixture --allow-emulated-x64 --report windows-11-transport.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Render a real Edge page and retain private-profile cookies in PSEC
+        run: |
+          $probe = Get-Content windows-11-probe.json -Raw | ConvertFrom-Json
+          if (-not $probe.probe.supported) {
+            Write-Output '::notice title=PSEC browser::Unavailable on this runner; no browser acceptance claimed.'
+            exit 0
+          }
+          $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
+          & "$root\python\python.exe" -X utf8 -B .github\windows_browser_check.py --root "$root" --allow-emulated-x64 --report windows-browser.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
         if: always()
@@ -212,12 +230,45 @@ jobs:
           path: |
             windows-11-probe.json
             windows-11-transport.json
+            windows-browser.json
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-11-x64:
+    name: Windows 11 x64 · real KVM guest
+    needs: windows-package
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-package
+          path: dist
+      - name: Install the VM tools on the ephemeral runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl
+      - name: Run a checksum-verified official Windows 11 evaluation guest
+        run: |
+          package=$(find "$PWD/dist" -maxdepth 1 -name 'RuleProxy-Web-*-windows-x64.zip' -print -quit)
+          digest=$(awk 'NR==1 {print $1}' dist/SHA256SUMS.txt)
+          sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 5400
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-11-x64-validation
+          path: windows-vm-artifacts/
           if-no-files-found: error
           retention-days: 30
 
   release:
     name: Publish the release
-    needs: [linux, linux-system, windows, windows-package-test]
+    needs: [linux, linux-system, windows, windows-package-test, windows-11-x64]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:

@@ -2,8 +2,11 @@
 
 import os
 import socket
+import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -197,6 +200,100 @@ class FileBridgeTests(unittest.TestCase):
         with self.assertRaises(file_bridge.BridgeError):
             bridge.approve()
         self.assertFalse((bridge.directory / "host-control.json").exists())
+
+    def test_valid_frame_survives_lock_contention_longer_than_the_queue_poll(self):
+        path = self.root / "ring"
+        writer = file_bridge._Ring(path, b"a" * 16, create=True)
+        self.addCleanup(writer.close)
+        reader = file_bridge._Ring(path, b"a" * 16)
+        self.addCleanup(reader.close)
+        writer.put("DATA", 1, b"valid queued frame", threading.Event())
+        entered, finished = threading.Event(), threading.Event()
+        result, errors = [], []
+
+        def read():
+            entered.set()
+            try:
+                result.append(reader.get(threading.Event(), timeout=0.02))
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                finished.set()
+
+        writer._lock(time.monotonic() + 1)
+        worker = threading.Thread(target=read, daemon=True)
+        try:
+            worker.start()
+            self.assertTrue(entered.wait(1))
+            self.assertFalse(finished.wait(0.1), "queue polling must not expire a valid file-lock wait")
+        finally:
+            writer._unlock()
+            worker.join(3)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(result, [("DATA", 1, b"valid queued frame")])
+
+    def test_stuck_file_lock_still_fails_closed_with_its_own_budget(self):
+        path = self.root / "ring"
+        writer = file_bridge._Ring(path, b"a" * 16, create=True)
+        self.addCleanup(writer.close)
+        reader = file_bridge._Ring(path, b"a" * 16)
+        self.addCleanup(reader.close)
+        finished, errors = threading.Event(), []
+
+        def read():
+            try:
+                reader.get(threading.Event(), timeout=10)
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                finished.set()
+
+        writer._lock(time.monotonic() + 1)
+        worker = threading.Thread(target=read, daemon=True)
+        try:
+            with mock.patch.object(file_bridge, "_FILE_LOCK_SECONDS", 0.05):
+                worker.start()
+                self.assertTrue(finished.wait(1), "a stuck lock must not wait for the queue timeout")
+        finally:
+            writer._unlock()
+            worker.join(3)
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], TimeoutError)
+
+    def test_shared_ring_frames_cross_processes_and_wrap_without_per_frame_disk_flush(self):
+        path = self.root / "ring"
+        reader = file_bridge._Ring(path, b"a" * 16, create=True)
+        self.addCleanup(reader.close)
+        script = r'''
+from pathlib import Path
+import struct, sys, threading
+sys.path.insert(0, sys.argv[1])
+from ruleproxy.file_bridge import _Ring
+writer = _Ring(Path(sys.argv[2]), b"a" * 16)
+try:
+    for index in range(256):
+        writer.put("DATA", 1, struct.pack("!I", index) * 4096, threading.Event())
+    writer.put("FIN", 1, b"", threading.Event())
+finally:
+    writer.close()
+'''
+        code_root = Path(file_bridge.__file__).resolve().parent.parent
+        child = subprocess.Popen([sys.executable, "-I", "-S", "-c", script, str(code_root), str(path)],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            for index in range(256):
+                item = reader.get(threading.Event(), timeout=3)
+                self.assertIsNotNone(item)
+                self.assertEqual(item, ("DATA", 1, index.to_bytes(4, "big") * 4096))
+            self.assertEqual(reader.get(threading.Event(), timeout=3), ("FIN", 1, b""))
+            output, errors = child.communicate(timeout=10)
+            self.assertEqual(child.returncode, 0, errors.decode("utf-8", "replace"))
+            self.assertEqual(output, b"")
+        finally:
+            if child.poll() is None:
+                child.kill()  # This test helper is an ordinary Python peer, never MXC.
+                child.communicate(timeout=5)
 
 
 if __name__ == "__main__":

@@ -139,6 +139,9 @@ python3 -B -m unittest discover -s tests -v
 - Linux：在 Ubuntu 22.04、24.04 的系统 Python，以及 Python 3.10、3.14 上，按用户的方式运行 `setup-linux.sh`（安装软件包、加载 AppArmor 策略、下载 Mihomo、检查隔离），再运行全部测试，沙盒测试必须真实执行、不允许跳过；最后用 `start-linux.sh` 启动面板，导入参考 YAML，启动并停止核心，再用 Ctrl+C 退出。
 - Windows（Python 3.13）：运行全部测试，并真实创建、回读快捷方式和登录启动项，包括中文名称和中文路径；再从源码目录运行 `Start-Windows.cmd`，第一次自动准备组件，然后检查面板和核心。
 - Windows 运行包：用固定校验的下载构建，解压到 `C:\应用 !测试%路径`（顶层文件夹名以中文开头，并含空格、感叹号和百分号），用包内 Python 运行全部测试；再用 `Start-Windows.cmd` 以无窗口方式启动面板，导入参考 YAML，启动并停止包内核心，用页面的“退出面板”退出，并检查 `panel.log`。
+- Windows 11 ARM：探测固定 x64 MXC 的完整策略，在支持时运行真实 PSEC 文件通道、父子进程阻断和停止检查，再用真实 Edge 检查页面渲染、私有配置复用及持久 Cookie。报告明确标注 x64 模拟运行和本地测试数据范围。
+
+PR 和 `main` 另在 Ubuntu KVM 中安装经官方 SHA-256 校验的 Windows 11 Enterprise Evaluation x64 镜像，用普通用户运行上述通道、Edge 及运行包测试。无 KVM、系统不支持策略或任一必要检查失败，都会阻止通过；发布依赖该原生 x64 检查。
 
 已在 Linux 实际检查代理通道、直连 IPv4/IPv6、DNS/UDP、子进程继承隔离，以及主机接口/路由未变；并用固定 Mihomo 校验参考 YAML。Web 导入、启动核心、应用管理、停止流程经过本机检查。
 
@@ -172,7 +175,16 @@ python scripts/windows-acceptance.py --yaml C:\private\proxy.yaml --report windo
 
 退出码 `0` 表示所请求的检查完成，`1` 表示失败，`3` 表示环境不支持。**能力检查成功仍记录 `acceptance_passed: false`；只有完整模式全部通过才记录 `true`。** ARM 设备上的 x64 模拟运行必须显式使用 `--allow-emulated-x64`，报告会单独标识，不能当作原生 x64 验收。报告不包含 YAML 或下载页面正文。清理失败时保留测试数据目录并报告位置，请正常关闭相关隔离进程后再删除。
 
-GitHub 标准 x64 Windows runner 使用 Windows Server，可验证运行包和拒绝启动流程。新增 Windows 11 ARM job 仅作固定 x64 运行时的能力诊断；Ubuntu job 会实际请求创建 KVM guest，记录是否能继续 Windows 11 虚拟机测试。这两个诊断结果都不等于完整 Windows 验收。VM 仍需有效的 Windows 镜像及测试节点；硬件虚拟化可用也不保证 Windows 的 PSEC 契约可用。
+不使用真实代理凭据时，可以单独检查真实隔离与文件通道：
+
+```powershell
+python scripts/windows-acceptance.py --transport-fixture --report windows-transport.json
+python .github/windows_browser_check.py --report windows-browser.json
+```
+
+通道检查使用固定本机字节，不解析或转发任意目的地址；检查跨帧数据、双向半关闭、父子进程 IPv4/IPv6 TCP/UDP 阻断、宿主回环双向阻断、测试入口失效及安全停止。浏览器检查使用真实 Edge 渲染固定 HTTP 页面，并验证两次自然退出之间的持久 Cookie。它们分别记录 `transport_passed` 和 `browser_fixture_passed`，始终保持 `acceptance_passed: false`、`real_node_passed: false`；实际 HTTPS 节点、会话登录和下载仍需另行验收。
+
+GitHub 标准 x64 Windows runner 使用 Windows Server，可验证运行包和拒绝启动流程。Windows 11 ARM job 可补充真实内核验证，不能代表原生 x64。原生 x64 job 使用 [.github/windows_vm_test.py](.github/windows_vm_test.py) 在 KVM 中自动安装 [微软官方 90 天评估镜像](https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise)，先验证 [官方校验值](https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file)，然后以非管理员用户测试运行包。不会退回软件 CPU 模拟，也不启用 Windows 远程管理服务；上传的产物仅含报告、日志和最后截图，不含虚拟机磁盘或临时登录密码。硬件虚拟化可用不保证 PSEC 策略可用，结果以对应提交的 CI 和报告为准。
 
 ## 固定运行组件
 

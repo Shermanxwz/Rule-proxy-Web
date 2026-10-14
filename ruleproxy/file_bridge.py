@@ -315,7 +315,9 @@ class _Ring:
                     self.map[:_HEADER.size] = _HEADER.pack(
                         _MAGIC, _VERSION, self.nonce_tag, _SLOTS, _SLOT_SIZE, seq, tail
                     )
-                    self.map.flush()
+                    # Both peers map this same file with ACCESS_WRITE. Shared
+                    # views see each other's writes under the OS lock; flushing
+                    # the whole ring to disk per frame is not an IPC barrier.
                     return
             finally:
                 self._unlock()
@@ -325,9 +327,13 @@ class _Ring:
         raise BridgeError("bridge stopped while writing")
 
     def get(self, stop: threading.Event, timeout: float = 0.2) -> tuple[str, int, bytes] | None:
+        """Poll an empty queue; contention uses the separate file-lock budget."""
         deadline = time.monotonic() + timeout
         while not stop.is_set():
-            self._lock(min(deadline, time.monotonic() + _FILE_LOCK_SECONDS))
+            # A producer can be descheduled while holding this lock. The short
+            # empty-queue polling interval must not classify valid contention
+            # as transport failure and tear down every active TCP stream.
+            self._lock(time.monotonic() + _FILE_LOCK_SECONDS)
             try:
                 head, tail = self._check_header()
                 if head > tail:
@@ -348,7 +354,6 @@ class _Ring:
                     self.map[:_HEADER.size] = _HEADER.pack(
                         _MAGIC, _VERSION, self.nonce_tag, _SLOTS, _SLOT_SIZE, head, tail + 1
                     )
-                    self.map.flush()
                     return kind, stream_id, payload
             finally:
                 self._unlock()
