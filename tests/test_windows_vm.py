@@ -731,6 +731,96 @@ raise SystemExit(configuration.get('exit_code', 0))
                          ["failed", "blocked", "blocked", "blocked", "blocked", "passed"])
         self.assertEqual(result["status"], "failed")
 
+    def test_gui_diagnostic_only_runs_strict_probe_then_packaged_gui_and_marks_every_omission(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "gui-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True}), encoding="utf-8")
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "gui-reports",
+                                     vm_config=config)
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe", "gui"])
+        self.assertEqual([phase["name"] for phase in result["phases"]], list(vm.PHASE_NAMES))
+        self.assertEqual([phase["status"] for phase in result["phases"]],
+                         ["passed", "skipped", "skipped", "skipped", "passed", "skipped"])
+        gui_command = next(line for line in result["logs"]["gui"].splitlines() if "child interpreter ran" in line)
+        self.assertIn("gui child interpreter ran", gui_command)
+        self.assertTrue(result["gui_diagnostic_only"])
+        self.assertTrue(result["source_diagnostic_only"])
+        self.assertFalse(result["full_acceptance_passed"])
+        self.assertFalse(result["product_acceptance_passed"])
+        self.assertTrue(result["reports"]["gui"]["gui_fixture_passed"])
+        with self.assertRaisesRegex(RuntimeError, "cannot qualify product acceptance"):
+            vm.verify_result(dict(result, status="passed", ordinary_user=True,
+                                  phases=[{"name": name, "status": "passed", "exit_code": 0}
+                                          for name in vm.PHASE_NAMES]))
+
+    def test_gui_diagnostic_only_probe_failure_blocks_gui_and_never_runs_package_tests(self):
+        workspace = self.guest_control_workspace({"probe": {"exit_code": 3, "report": {
+            "status": "unsupported", "probe": {"supported": False}, "acceptance_passed": False,
+            "real_node_passed": False, "transport_passed": False}}})
+        config = self.root / "gui-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True}), encoding="utf-8")
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "gui-reports",
+                                     vm_config=config)
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe"])
+        self.assertEqual(result["phases"][0]["status"], "failed")
+        self.assertEqual(result["phases"][4]["status"], "blocked")
+        self.assertEqual(result["phases"][5]["status"], "skipped")
+
+    def test_gui_diagnostic_only_retains_unproven_gui_cleanup_and_component_report(self):
+        report = copy.deepcopy(self.passed_result()["reports"]["gui"])
+        report["cleanup_error"] = "OwnedWindowStillRunning"
+        report["recovery_directory"] = str(self.root / "retained-gui-recovery")
+        workspace = self.guest_control_workspace({"gui": {"report": report, "exit_code": 1}})
+        config = self.root / "gui-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True}), encoding="utf-8")
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "gui-reports",
+                                     vm_config=config)
+        self.assertEqual(result["reports"]["gui"], report)
+        self.assertEqual(result["recovery_records"][0]["phase"], "gui")
+        self.assertFalse(result["recovery_records"][0]["descendant_cleanup_proven"])
+        self.assertEqual(result["recovery_records"][0]["cleanup_error"], "OwnedWindowStillRunning")
+        self.assertEqual(result["phases"][4]["status"], "failed")
+        self.assertEqual(result["phases"][5]["status"], "skipped")
+
+    def test_gui_diagnostic_configuration_requires_a_real_boolean_and_rejects_partial_verify(self):
+        config = self.root / "gui-vm-config.json"
+        for value in (1, "true", None):
+            config.write_text(json.dumps({"gui_diagnostic_only": value}), encoding="utf-8")
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                vm.guest_gui_diagnostic_only(config)
+        config.write_text(json.dumps({"gui_diagnostic_only": True,
+                                      "test_psec_executor_diagnostic": True}), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            vm.guest_gui_diagnostic_only(config)
+        with self.assertRaisesRegex(RuntimeError, "cannot qualify product acceptance"):
+            vm.verify_result(self.passed_result(), gui_diagnostic_only=True)
+
+    def test_invalid_gui_config_fails_before_launching_any_guest_phase(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "invalid-vm-config.json"
+        config.write_text('{"gui_diagnostic_only": true, "gui_diagnostic_only": false}', encoding="utf-8")
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "invalid-reports",
+                                     vm_config=config)
+        self.assertFalse((workspace / "executed.txt").exists())
+        self.assertEqual(result["gui_diagnostic_configuration_error"], "invalid_private_configuration")
+        self.assertTrue(all(phase["status"] == "blocked" for phase in result["phases"]))
+        self.assertEqual(result["status"], "failed")
+
+    def test_gui_diagnostic_cli_is_manual_opt_in_and_rejects_source_executor_pair(self):
+        arguments = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                     "--artifacts", str(self.root / "artifacts"), "--gui-diagnostic-only"]
+        summary = {"status": "transport_and_package_tests_passed", "baseline_diagnostic": False,
+                   "network_boundary_passed": True, "official_update": {"required": True}}
+        with mock.patch.object(vm, "run", return_value=summary) as run, mock.patch("sys.stderr"):
+            self.assertEqual(vm.main(arguments), 1)
+            self.assertTrue(run.call_args.args[0].gui_diagnostic_only)
+        with mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+            with self.assertRaises(SystemExit) as failure:
+                vm.main(arguments + ["--test-psec-executor", str(self.root / "executor.exe"),
+                                     "--test-psec-manifest", str(self.root / "manifest.json")])
+            self.assertEqual(failure.exception.code, 2)
+            run.assert_not_called()
+
     def test_pending_cleanup_preserves_recovery_and_blocks_new_containers(self):
         recovery = self.root / "retained-guard"
         recovery.mkdir()
@@ -1624,7 +1714,15 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         option = trigger['workflow_dispatch']['inputs']['capability_executor_diagnostic']
         self.assertEqual(option, {'description': option['description'], 'required': False,
                                   'type': 'boolean', 'default': False})
+        gui_option = trigger['workflow_dispatch']['inputs']['gui_diagnostic_only']
+        self.assertEqual(gui_option, {'description': gui_option['description'], 'required': False,
+                                      'type': 'boolean', 'default': False})
         job = workflow['jobs']['windows-11-x64']
+        validation = next(step for step in job['steps'] if step.get('name') == 'Validate mutually exclusive GUI and source-executor diagnostics')
+        self.assertIn("github.event_name == 'workflow_dispatch'", validation['if'])
+        run_step = next(step for step in job['steps'] if step.get('name') == 'Run a checksum-verified official Windows 11 evaluation guest')
+        self.assertIn('inputs.gui_diagnostic_only', run_step['env']['RULEPROXY_VM_GUI_DIAGNOSTIC'])
+        self.assertIn('--gui-diagnostic-only', run_step['run'])
         step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
         self.assertEqual(step['uses'], 'actions/download-artifact@v8')
         self.assertEqual(step['with']['run-id'], 38660663692)
