@@ -219,6 +219,7 @@ try {
         if ($collected.PSObject.Properties.Name -contains $name) { $result[$name] = $collected.$name }
     }
     if ($collected.PSObject.Properties.Name -contains 'chromium_gui_control') { $result.chromium_gui_control = $collected.chromium_gui_control }
+    if ($collected.PSObject.Properties.Name -contains 'test_psec_executor') { $result.test_psec_executor = $collected.test_psec_executor }
     if ($collected.experiments_phase) { $result.experiments_phase = $collected.experiments_phase }
     if ($collected.edge_ui_phase) { $result.edge_ui_phase = $collected.edge_ui_phase }
     if ($collected.outside_edge_phase) { $result.outside_edge_phase = $collected.outside_edge_phase }

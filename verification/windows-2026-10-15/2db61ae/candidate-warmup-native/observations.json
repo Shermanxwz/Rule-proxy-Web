@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "source_commit": "2db61ae3d1dbaf6c67e2f3be44a83052643d8b9b",
+  "status": "diagnostic_only",
+  "acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "candidate_precapture_probe": {
+    "status": "probe_passed",
+    "scope": "source_only_strict_policy_probe",
+    "warmup_before_capture": true,
+    "acceptance_passed": false,
+    "executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+    "backend_confirmation": {
+      "tier": "base-container",
+      "base_container_api_present": true,
+      "needs_dacl_augmentation": false
+    }
+  },
+  "preferred_policy": {
+    "name": "model1_internal_ingress_deny",
+    "proxy_roundtrips": 4,
+    "transport_roundtrip_observed": true,
+    "resources_closed": true,
+    "descendant_cleanup_proven": true
+  },
+  "raw_udp": {
+    "selected_groups": [
+      {
+        "id": "model1_internal_ingress_deny.ipv4",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv4_unbound",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv6",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv6_unbound",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      }
+    ],
+    "overall_status": "incomplete",
+    "unknown_records": 0
+  },
+  "native_dns": {
+    "original_parser_status": "incomplete",
+    "contained_question_count": 0,
+    "unknown_records": 15,
+    "unknown_reasons": {
+      "opaque_dns_tcp_control_only": 15
+    },
+    "execution_proven": true,
+    "actor_execution_attested": true,
+    "positive_controls_complete": true,
+    "control_windows_ordered": true,
+    "packet_analysis_complete": false,
+    "capture_flushed": true
+  },
+  "signature_prewarm": {
+    "warmup_completed_before_capture_request": true,
+    "cache_hits": 1,
+    "inside_capture_revalidations": 0,
+    "capture_contaminated": false
+  },
+  "cleanup_proven": true,
+  "host_network_unchanged": true,
+  "limitations": [
+    "Only the preferred policy executed; unselected UDP variants remain incomplete.",
+    "The original DNS report remains incomplete because 15 validated zero-application-payload TCP frames were conservatively classified unknown.",
+    "No encrypted application payload unknowns were recorded, but the original capture is not archived for a separate parser replay.",
+    "By the fixed parser code path, those empty TCP frames cannot themselves carry a DNS question; this is a packet-scope inference, not a rewritten complete report or global kernel proof.",
+    "This baseline source-executor diagnostic does not qualify product acceptance or updated Windows support."
+  ]
+}

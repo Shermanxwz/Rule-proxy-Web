@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "source_commit": "2db61ae3d1dbaf6c67e2f3be44a83052643d8b9b",
+  "status": "diagnostic_only",
+  "acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "browser": {
+    "version": "154.0.8037.92",
+    "archive_sha256": "b897ef3601c947ac0620c784556dec719ac602b0159ce105927acf645ee0f598",
+    "entry_sha256": "f0b204ce7239e221f84c4030cd38e4b688ad05320acc8373da166f548bf57eb5",
+    "verified_component_count": 3,
+    "source_diagnostic_only": true,
+    "product_browser_replaced": false
+  },
+  "outside_context": {
+    "schema": 1,
+    "windows": true,
+    "environment": {
+      "localappdata_present": true,
+      "appdata_present": true,
+      "userprofile_present": true
+    },
+    "shgetfolderpath": {
+      "hresult_u32": 0,
+      "success": true,
+      "path_present": true
+    },
+    "shgetknownfolderpath": {
+      "hresult_u32": 0,
+      "success": true,
+      "path_present": true,
+      "free_attempted": true,
+      "free_success": true,
+      "free_error": 0
+    },
+    "process_token": {
+      "open_success": true,
+      "open_error": 0,
+      "token_type_success": true,
+      "token_type": 1,
+      "token_type_error": 0,
+      "app_container_query_success": true,
+      "app_container": false,
+      "app_container_error": 0,
+      "close_attempted": true,
+      "close_success": true,
+      "close_error": 0
+    },
+    "thread_token": {
+      "open_success": false,
+      "open_error": 1008,
+      "token_type_success": false,
+      "token_type": 0,
+      "token_type_error": 1008,
+      "app_container_query_success": false,
+      "app_container": false,
+      "app_container_error": 1008,
+      "close_attempted": false,
+      "close_success": false,
+      "close_error": 0
+    }
+  },
+  "contained_context": {
+    "scope": "production_psec_builder_context_app",
+    "facts": {
+      "environment": {
+        "appdata_present": true,
+        "localappdata_present": true,
+        "userprofile_present": true
+      },
+      "process_token": {
+        "app_container": true,
+        "app_container_error": 0,
+        "app_container_query_success": true,
+        "close_attempted": true,
+        "close_error": 0,
+        "close_success": true,
+        "open_error": 0,
+        "open_success": true,
+        "token_type": 1,
+        "token_type_error": 0,
+        "token_type_success": true
+      },
+      "schema": 1,
+      "shgetfolderpath": {
+        "hresult_u32": 2147942403,
+        "path_present": false,
+        "success": false
+      },
+      "shgetknownfolderpath": {
+        "free_attempted": false,
+        "free_error": 0,
+        "free_success": false,
+        "hresult_u32": 2147942403,
+        "path_present": false,
+        "success": false
+      },
+      "thread_token": {
+        "app_container": false,
+        "app_container_error": 1008,
+        "app_container_query_success": false,
+        "close_attempted": false,
+        "close_error": 0,
+        "close_success": false,
+        "open_error": 1008,
+        "open_success": false,
+        "token_type": 0,
+        "token_type_error": 1008,
+        "token_type_success": false
+      },
+      "windows": true
+    },
+    "natural_wrapper_exit": true,
+    "descendant_cleanup_proven": true,
+    "runtime_resources_closed": true,
+    "acceptance_passed": false
+  },
+  "gui": {
+    "fixture_passed": false,
+    "failure_stage": "real_chromium_control_gui_1",
+    "wrapper_exit": {
+      "status": "observed",
+      "exit_code": 70,
+      "exit_code_hex": "0x00000046"
+    },
+    "held_browser_process_count": 0,
+    "page_request_count": 0,
+    "dom_ack_count": 0,
+    "visible_window_count": 0
+  },
+  "outer_job_cleanup_proven": true,
+  "cleanup_proven": true,
+  "host_network_unchanged": true,
+  "limitations": [
+    "The contained context probe uses the production PSEC builder with a separate helper application; it is not the browser process.",
+    "Contained LocalAppData queries returned 0x80070003 (path not found); this does not establish a missing process token.",
+    "Wrapper exit 70 may be a helper failure or application return; no retained guest status distinguishes them.",
+    "No visible Chrome window or page acknowledgement was observed; this is not product acceptance."
+  ]
+}

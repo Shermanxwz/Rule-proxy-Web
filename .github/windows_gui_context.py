@@ -201,6 +201,39 @@ class WindowsApi:
                 "free_attempted": bool(pointer), "free_success": free_success,
                 "free_error": free_error}
 
+    def known_folder_location(self) -> Path:
+        """Return the LocalAppData path for internal policy construction only."""
+        folder = GUID.parse(FOLDERID_LOCAL_APPDATA)
+        output = ctypes.c_wchar_p()
+        pointer = None
+        path_value = None
+        free_error = None
+        try:
+            result = self.shell.SHGetKnownFolderPath(ctypes.byref(folder), 0, None,
+                                                      ctypes.byref(output))
+            pointer = ctypes.cast(output, ctypes.c_void_p).value
+            code, success = self._hresult_result(result)
+            if not success or not pointer:
+                raise OSError(code, "LocalAppData known-folder query failed")
+            path_value = ctypes.wstring_at(pointer)
+        finally:
+            if pointer:
+                try:
+                    self.ole.CoTaskMemFree(ctypes.c_void_p(pointer))
+                except Exception as exc:
+                    free_error = exc
+        if free_error is not None:
+            raise OSError("LocalAppData known-folder memory could not be released") from free_error
+        if not isinstance(path_value, str) or not path_value:
+            raise OSError("LocalAppData known-folder path was empty")
+        path = Path(path_value)
+        if not path.is_absolute() or not path.is_dir():
+            raise OSError("LocalAppData known-folder directory is unavailable")
+        resolved = path.resolve(strict=True)
+        if resolved == Path(resolved.anchor):
+            raise OSError("LocalAppData resolved to a filesystem root")
+        return resolved
+
     def _query_token_value(self, token, info_class: int) -> dict:
         value, returned = ctypes.c_uint32(), ctypes.c_uint32()
         try:
@@ -266,6 +299,20 @@ class WindowsApi:
 
     def thread_token(self) -> dict:
         return self._token_snapshot(True)
+
+
+def resolve_local_appdata_path(api=None) -> Path:
+    """Resolve a real LocalAppData directory without adding it to probe reports."""
+    api = WindowsApi() if api is None else api
+    method = getattr(api, "known_folder_location", None)
+    if method is None:
+        raise OSError("LocalAppData location query is unavailable")
+    path = method()
+    if not isinstance(path, Path) or not path.is_absolute() or not path.is_dir():
+        raise OSError("LocalAppData location is not an existing absolute directory")
+    if path.resolve(strict=True) == Path(path.anchor):
+        raise OSError("LocalAppData location must not be a filesystem root")
+    return path.resolve(strict=True)
 
 
 def _safe_call(api, name: str, default: dict) -> dict:

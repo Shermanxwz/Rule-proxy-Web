@@ -14,9 +14,9 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 使用固定的 Microsoft MXC 1.0.0；最终以本机对完整策略的能力检查和实际启动检查为准，Windows 版本或更新编号不能单独保证支持。[官方系统支持说明](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)
 
-原有全拒绝策略曾阻断容器内代理连接。2026-10-15 的真实 Windows 11 ARM 实验已证明：只允许固定内部 TCP 代理端口，可让父子进程使用 HTTP / SOCKS，同时继续拒绝宿主回环和外部入站；宿主接管相同端口后仍无法访问。原生 x64、公网 UDP、系统 DNS 和真实应用完整验收仍在进行，0.2.2 尚不能作为 Windows 可用版本发布。[固定端口实验来源](verification/windows-2026-10-15/8c963b0/source.json)
+原有全拒绝策略曾阻断容器内代理连接。2026-10-15 的原生 x64 基线系统对照使用单独校验的 SDK 候选：只允许固定内部 TCP 代理端口，父子进程 HTTP / SOCKS 共完成 4 次往返，所选公网 UDP 探针未出网，清理与宿主网络检查通过。三种原生 DNS API 均完成，容器内测试域名查询计数为 0；原报告仍因 15 个无应用数据的 TCP 控制包标为不完整，不能改称完整产品验收。候选未替换产品 SDK，更新后系统和真实应用验收仍在进行。[原生网络对照摘要](verification/windows-2026-10-15/2db61ae/candidate-warmup-native/observations.json)
 
-2026-10-15 的原生 x64 GUI-only 诊断使用原版 MXC：严格隔离探测通过，GUI 在首阶段 `tree_child_open` 因 WinError 5 失败；失败时的候选进程未能完成身份核验。诊断于约 29 秒提前结束，后续阶段均跳过，清理通过，因此这次结果不能判断正常 GUI 是否可运行，也没有形成产品验收。[GUI-only 证据](verification/windows-2026-10-15/61c8c28/gui-only-native/source.json)
+原生 x64 Chrome 对照使用原版 MXC，未出现可见窗口或页面确认。独立的容器内助手能读取进程令牌，但两种 LocalAppData 目录查询均返回 `0x80070003`（路径不存在），同一用户在容器外查询成功。包装进程退出码为 70，未保留足以区分助手异常与应用返回值的状态；清理通过。这表明目录查询和应用启动仍有兼容性问题，尚未证明框架无法修复。[GUI 对照摘要](verification/windows-2026-10-15/2db61ae/chromium-control-native/observations.json)
 
 2026-10-15 的原生 x64 官方更新后运行已到 Windows 11 build 26300/UBR 9711，两个更新包校验通过并完成重启；产品仍使用原版 SDK。严格探测和外部无头对照通过，但产品 transport、Manager、browser 与 GUI 启动自检均因 WinError 10013 等网络检查失败；GUI 结果不证明系统 GUI 不兼容。首选网络实验虽完成采集和清理，代理往返为 0。原生 DNS 抓包分析完整、未知记录为 0，但仍观察到父子进程共 8 个 nonce 查询；因此不构成产品验收。[官方更新后证据摘要](verification/windows-2026-10-15/7235c03/official-native/observations.json)
 

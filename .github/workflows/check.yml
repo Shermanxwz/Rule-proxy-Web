@@ -11,12 +11,12 @@ on:
         type: boolean
         default: false
       capability_executor_diagnostic:
-        description: Use the fixed G source-only executor for native network and source UI diagnostics (never product acceptance)
+        description: Use the fixed G source-only executor for native diagnostics (never product acceptance)
         required: false
         type: boolean
         default: false
       gui_diagnostic_only:
-        description: Run only the strict policy probe and the packaged product GUI diagnostic; never product acceptance
+        description: Run only the strict policy probe and GUI diagnostic; never product acceptance
         required: false
         type: boolean
         default: false
@@ -380,16 +380,16 @@ jobs:
           SINGLETON_DIAGNOSTIC: ${{ inputs.singleton_port_range_diagnostic }}
           PSEC_1_1_DIAGNOSTIC: ${{ inputs.psec_1_1_diagnostic }}
         run: |
-          if [ "$GUI_DIAGNOSTIC" = 'true' ] && [ "$CAPABILITY_DIAGNOSTIC" = 'true' ]; then
-            echo 'GUI diagnostic-only uses the packaged product SDK and cannot be combined with a source executor.' >&2
+          if [ "$GUI_DIAGNOSTIC" = 'true' ] && [ "$CAPABILITY_DIAGNOSTIC" = 'true' ] && [ "$CHROMIUM_CONTROL" != 'true' ]; then
+            echo 'GUI source-executor diagnostic requires the pinned Chromium control.' >&2
             exit 2
           fi
           if [ "$GUI_DIAGNOSTIC" = 'true' ] && [ "$NETWORK_DIAGNOSTIC" = 'true' ]; then
             echo 'GUI and network diagnostic-only modes are mutually exclusive.' >&2
             exit 2
           fi
-          if [ "$CHROMIUM_CONTROL" = 'true' ] && { [ "$GUI_DIAGNOSTIC" != 'true' ] || [ "$NETWORK_DIAGNOSTIC" = 'true' ] || [ "$CAPABILITY_DIAGNOSTIC" = 'true' ]; }; then
-            echo 'Chromium control requires original-SDK GUI-only diagnostic mode.' >&2
+          if [ "$CHROMIUM_CONTROL" = 'true' ] && { [ "$GUI_DIAGNOSTIC" != 'true' ] || [ "$NETWORK_DIAGNOSTIC" = 'true' ]; }; then
+            echo 'Chromium control requires GUI-only diagnostic mode.' >&2
             exit 2
           fi
           if [ "$SINGLETON_DIAGNOSTIC" = 'true' ] && { [ "$NETWORK_DIAGNOSTIC" != 'true' ] || [ "$CAPABILITY_DIAGNOSTIC" = 'true' ]; }; then

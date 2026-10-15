@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import struct
 import subprocess
@@ -51,6 +52,72 @@ class WindowsGuestTests(unittest.TestCase):
     @staticmethod
     def running_bridge(_port, _directory, _nonce, stop):
         stop.wait(4)
+
+    @staticmethod
+    def sharing_error(winerror=32):
+        error = PermissionError(13, "sharing violation")
+        error.winerror = winerror
+        return error
+
+    def test_atomic_status_uses_bounded_windows_sharing_retry_and_preserves_status_fields(self):
+        path = Path(self.temp.name) / "guest-status.json"
+        real_replace = os.replace
+        attempts = []
+
+        def replace_once(source, destination):
+            attempts.append((source, destination))
+            if len(attempts) == 1:
+                raise self.sharing_error(32)
+            return real_replace(source, destination)
+
+        with mock.patch.object(file_bridge.os, "name", "nt"), \
+                mock.patch.object(file_bridge.time, "sleep"), \
+                mock.patch.object(file_bridge.os, "replace", side_effect=replace_once):
+            windows_guest._atomic_status(path.parent, "a" * 64, "APP_EXITED", "0")
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(json.loads(path.read_text(encoding="ascii")),
+                         {"nonce": "a" * 64, "state": "APP_EXITED", "detail": "0"})
+
+    def test_persistent_status_replace_conflict_keeps_prior_record_and_cleans_temp(self):
+        path = Path(self.temp.name) / "guest-status.json"
+        prior = {"nonce": "a" * 64, "state": "APP_STARTED"}
+        path.write_text(json.dumps(prior), encoding="ascii")
+        error = self.sharing_error(33)
+        attempts = []
+
+        def always_conflict(_source, _destination):
+            attempts.append(True)
+            raise error
+
+        with mock.patch.object(file_bridge.os, "name", "nt"), \
+                mock.patch.object(file_bridge.time, "sleep") as sleep, \
+                mock.patch.object(file_bridge.os, "replace", side_effect=always_conflict):
+            with self.assertRaises(PermissionError) as raised:
+                windows_guest._atomic_status(path.parent, "b" * 64, "APP_EXITED", "0")
+        self.assertIs(raised.exception, error)
+        self.assertEqual(len(attempts), len(file_bridge._SHARING_RETRY_DELAYS) + 1)
+        self.assertEqual(sleep.call_count, len(file_bridge._SHARING_RETRY_DELAYS))
+        self.assertEqual(json.loads(path.read_text(encoding="ascii")), prior)
+        self.assertEqual(list(path.parent.glob(path.name + ".tmp-*")), [])
+
+    def test_nonwindows_status_replace_conflict_is_not_retried(self):
+        path = Path(self.temp.name) / "guest-status.json"
+        error = self.sharing_error(32)
+        attempts = []
+
+        def conflict(_source, _destination):
+            attempts.append(True)
+            raise error
+
+        with mock.patch.object(file_bridge.os, "name", "posix"), \
+                mock.patch.object(file_bridge.time, "sleep") as sleep, \
+                mock.patch.object(file_bridge.os, "replace", side_effect=conflict):
+            with self.assertRaises(PermissionError) as raised:
+                windows_guest._atomic_status(path.parent, "a" * 64, "FAILED", "failure")
+        self.assertIs(raised.exception, error)
+        self.assertEqual(len(attempts), 1)
+        sleep.assert_not_called()
+        self.assertEqual(list(path.parent.glob(path.name + ".tmp-*")), [])
 
     def test_application_starts_only_after_live_bridge_self_check_and_approval(self):
         status, check, ready, decision, popen = self.helper_setup(self.running_bridge)

@@ -190,10 +190,9 @@ def frame_questions(frame):
         if tcp_header < 20 or start + tcp_header > end:
             return [], "opaque_dns_tcp_or_https"
         if port in (53, 853, 443) and start + tcp_header == end:
-            # Retain an unknown verdict for this conservative collector, but
-            # distinguish empty TCP control packets from encrypted payloads.
-            # This is format evidence, never process attribution or DNS denial.
-            return [], "opaque_dns_tcp_control_only"
+            # A complete IP/TCP frame with no application bytes cannot carry a
+            # DNS question. Count it separately; this is not process attribution.
+            return [], "empty_tcp_payload"
         return [], "opaque_dns_tcp_or_https" if port in (53, 853, 443) or not port else None
     if match is None:
         return [], None
@@ -217,7 +216,7 @@ def analyze_stream(stream, manifest):
     major, minor, _zone, _accuracy, snaplen, linktype = struct.unpack(endian + "HHiiII", header[4:])
     if (major, minor) != (2, 4) or linktype != 1 or not 14 <= snaplen <= _packet.MAX_FRAME_BYTES:
         raise EvidenceError("unsupported_capture_header")
-    records, unknown = 0, {}
+    records, unknown, empty_tcp_payload_frames = 0, {}, 0
     while True:
         record = reader.read(16, allow_eof=True)
         if record is None:
@@ -229,7 +228,9 @@ def analyze_stream(stream, manifest):
         if fraction >= fraction_limit or captured != original or not 14 <= captured <= snaplen:
             raise EvidenceError("truncated_or_invalid_capture_packet")
         questions, reason = frame_questions(reader.read(captured))
-        if reason:
+        if reason == "empty_tcp_payload":
+            empty_tcp_payload_frames += 1
+        elif reason:
             unknown[reason] = unknown.get(reason, 0) + 1
         for name, query_type, query_class in questions:
             for probe in probes:
@@ -263,6 +264,7 @@ def analyze_stream(stream, manifest):
         "acceptance_passed": False, "kernel_denial_proven": False, "capture_format_complete": True,
         "capture_sha256": reader.digest.hexdigest(), "capture_bytes": reader.total,
         "manifest_sha256": manifest_hash, "packet_records": records,
+        "empty_tcp_payload_frames": empty_tcp_payload_frames,
         "unknown_records": sum(unknown.values()), "unknown_reasons": unknown,
         "contained_questions_absent": absent if complete else None, "absence_observed": complete and absent,
         "groups": results, "counts": [{"id": p["id"], "group": p["group"], "role": p["role"],
@@ -299,7 +301,8 @@ def main(arguments=None):
     except (EvidenceError, ValueError, OSError):
         result = {"schema_version": 1, "status": "incomplete", "scope": SCOPE,
             "acceptance_passed": False, "kernel_denial_proven": False, "absence_observed": False,
-            "contained_questions_absent": None, "error": "dns_capture_or_manifest_invalid"}
+            "contained_questions_absent": None, "empty_tcp_payload_frames": 0,
+            "error": "dns_capture_or_manifest_invalid"}
         code = 1
     pending = None
     try:

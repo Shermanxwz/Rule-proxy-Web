@@ -883,6 +883,68 @@ raise SystemExit(configuration.get('exit_code', 0))
             b"pinned control executable").hexdigest())
         self.assertFalse(result["product_acceptance_passed"])
 
+    def test_chromium_gui_control_uses_verified_source_executor_only_for_gui_command(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "gui-chromium-source-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True,
+            "chromium_gui_control_diagnostic": True, "chromium_gui_control_archive_sha256": "d" * 64,
+            "test_psec_executor_diagnostic": True, "test_psec_executor_sha256": "e" * 64,
+            "test_psec_original_runtime_sha256": "f" * 64}), encoding="utf-8")
+        chrome_exe = self.root / "chrome.exe"
+        chrome_exe.write_bytes(b"pinned Chrome for Testing fixture")
+        helper = SimpleNamespace(ARCHIVE_SHA256="d" * 64, VERSION="154.0.8037.92", PLATFORM="win64",
+                                 extract_archive=mock.Mock(return_value=chrome_exe))
+        executor, manifest = workspace / "test-psec-executor/wxc-exec.exe", workspace / "test-psec-executor/build-manifest.json"
+        metadata = {"executor_sha256": "e" * 64, "source_only_executor_changed": True,
+                    "default_product_runtime_replaced": False, "acceptance_passed": False,
+                    "real_node_passed": False, "kernel_denial_proven": False}
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            report = {"status": "supported_only"} if name == "probe" else {"gui_fixture_passed": True}
+            return {"name": name, "status": "passed", "exit_code": 0}, report, "child ran"
+        with mock.patch.object(vm, "load_chromium_control_helper", return_value=helper), \
+                mock.patch.object(vm, "guest_test_executor", return_value=(executor, manifest, metadata)) as verify, \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "gui-reports",
+                                         vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "gui"])
+        self.assertNotIn("--test-psec-executor", calls[0][1])
+        self.assertIn("--test-psec-executor", calls[1][1])
+        self.assertEqual(calls[1][1][calls[1][1].index("--test-psec-executor") + 1], str(executor))
+        self.assertEqual(calls[1][1][calls[1][1].index("--test-psec-manifest") + 1], str(manifest))
+        verify.assert_called_once_with(self.root / "release", workspace, config)
+        self.assertEqual(result["execution_mode"], "source_executor_diagnostic")
+        self.assertEqual(result["test_psec_executor"], metadata)
+        self.assertFalse(result["product_runtime_replaced"])
+        self.assertTrue(result["source_diagnostic_only"])
+        self.assertFalse(result["product_acceptance_passed"])
+
+    def test_chromium_source_executor_validation_failure_blocks_gui_launch(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "gui-chromium-source-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True,
+            "chromium_gui_control_diagnostic": True, "chromium_gui_control_archive_sha256": "d" * 64,
+            "test_psec_executor_diagnostic": True}), encoding="utf-8")
+        chrome_exe = self.root / "chrome.exe"
+        chrome_exe.write_bytes(b"pinned Chrome for Testing fixture")
+        helper = SimpleNamespace(ARCHIVE_SHA256="d" * 64, VERSION="154.0.8037.92", PLATFORM="win64",
+                                 extract_archive=mock.Mock(return_value=chrome_exe))
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append(name)
+            return {"name": name, "status": "passed", "exit_code": 0}, {"status": "supported_only"}, ""
+        with mock.patch.object(vm, "load_chromium_control_helper", return_value=helper), \
+                mock.patch.object(vm, "guest_test_executor", side_effect=ValueError("invalid source manifest")), \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "gui-reports",
+                                         vm_config=config)
+        self.assertEqual(calls, ["probe"])
+        self.assertEqual(result["executor_validation_error"], "ValueError")
+        self.assertEqual(result["phases"][4]["reason"], "executor_validation_failed")
+        self.assertFalse(result["product_runtime_replaced"])
+        self.assertFalse(result["product_acceptance_passed"])
+
     def test_gui_diagnostic_chromium_failure_blocks_before_gui_launch(self):
         workspace = self.guest_control_workspace()
         config = self.root / "gui-chromium-vm-config.json"
@@ -952,7 +1014,6 @@ raise SystemExit(configuration.get('exit_code', 0))
             {"chromium_gui_control_diagnostic": True, "chromium_gui_control_archive_sha256": "d" * 64},
             {**valid, "chromium_gui_control_diagnostic": 1},
             {**valid, "network_diagnostic_only": True},
-            {**valid, "test_psec_executor_diagnostic": True},
             {**valid, "chromium_gui_control_archive_sha256": "not-a-digest"},
             {"gui_diagnostic_only": True, "chromium_gui_control_archive_sha256": "d" * 64},
         ]
@@ -960,6 +1021,8 @@ raise SystemExit(configuration.get('exit_code', 0))
             config.write_text(json.dumps(value), encoding="utf-8")
             with self.subTest(value=value), self.assertRaises(ValueError):
                 vm.guest_diagnostic_options(config)
+        config.write_text(json.dumps({**valid, "test_psec_executor_diagnostic": True}), encoding="utf-8")
+        self.assertTrue(vm.guest_diagnostic_options(config)[0])
 
     def test_network_diagnostic_only_runs_probe_then_preferred_experiment_and_never_accepts(self):
         workspace = self.guest_control_workspace({"experiments": {"report": {
@@ -1203,7 +1266,7 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertTrue(all(phase["status"] == "blocked" for phase in result["phases"]))
         self.assertEqual(result["status"], "failed")
 
-    def test_gui_diagnostic_cli_is_manual_opt_in_and_rejects_source_executor_pair(self):
+    def test_gui_diagnostic_cli_requires_chromium_control_for_source_executor(self):
         arguments = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
                      "--artifacts", str(self.root / "artifacts"), "--gui-diagnostic-only"]
         summary = {"status": "transport_and_package_tests_passed", "baseline_diagnostic": False,
@@ -1217,20 +1280,25 @@ raise SystemExit(configuration.get('exit_code', 0))
                                      "--test-psec-manifest", str(self.root / "manifest.json")])
             self.assertEqual(failure.exception.code, 2)
             run.assert_not_called()
+        with mock.patch.object(vm, "run", return_value=summary) as run:
+            self.assertEqual(vm.main(arguments + ["--chromium-gui-control", "--test-psec-executor",
+                                                   str(self.root / "executor.exe"), "--test-psec-manifest",
+                                                   str(self.root / "manifest.json")]), 1)
+            self.assertTrue(run.call_args.args[0].chromium_gui_control)
+            self.assertTrue(run.call_args.args[0].gui_diagnostic_only)
 
-    def test_chromium_control_cli_requires_gui_only_original_sdk(self):
+    def test_chromium_control_cli_requires_gui_only_and_allows_source_executor(self):
         base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
                 "--artifacts", str(self.root / "artifacts"), "--chromium-gui-control"]
-        for extra in ([], ["--gui-diagnostic-only", "--network-diagnostic-only"],
-                      ["--gui-diagnostic-only", "--test-psec-executor", "candidate.exe",
-                       "--test-psec-manifest", "candidate.json"]):
+        for extra in ([], ["--gui-diagnostic-only", "--network-diagnostic-only"]):
             with self.subTest(extra=extra), mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
                 with self.assertRaises(SystemExit) as failure:
                     vm.main(base + extra)
                 self.assertEqual(failure.exception.code, 2)
                 run.assert_not_called()
         with mock.patch.object(vm, "run", return_value=self.passed_result()) as run:
-            self.assertEqual(vm.main(base + ["--gui-diagnostic-only"]), 1)
+            self.assertEqual(vm.main(base + ["--gui-diagnostic-only", "--test-psec-executor", "candidate.exe",
+                                             "--test-psec-manifest", "candidate.json"]), 1)
             self.assertTrue(run.call_args.args[0].chromium_gui_control)
 
     def test_pending_cleanup_preserves_recovery_and_blocks_new_containers(self):
@@ -2145,6 +2213,8 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertIn('--chromium-gui-control', run_step['run'])
         self.assertIn('CHROMIUM_CONTROL', validation['env'])
         self.assertIn('CHROMIUM_CONTROL', validation['run'])
+        self.assertIn('CAPABILITY_DIAGNOSTIC', validation['run'])
+        self.assertIn('[ "$CHROMIUM_CONTROL" != \'true\' ]', validation['run'])
         self.assertIn('inputs.network_diagnostic_only', run_step['env']['RULEPROXY_VM_NETWORK_DIAGNOSTIC'])
         self.assertIn('--network-diagnostic-only', run_step['run'])
         singleton_option = trigger['workflow_dispatch']['inputs']['singleton_port_range_diagnostic']
@@ -2159,6 +2229,8 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertIn('inputs.psec_1_1_diagnostic', run_step['env']['RULEPROXY_VM_PSEC_1_1_DIAGNOSTIC'])
         self.assertIn('--psec-1-1-diagnostic', run_step['run'])
         self.assertIn('PSEC_1_1_DIAGNOSTIC', validation['run'])
+        guest_runner = (ROOT / '.github/windows-vm-run.ps1').read_text(encoding='utf-8')
+        self.assertIn("$result.test_psec_executor = $collected.test_psec_executor", guest_runner)
         step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
         self.assertEqual(step['uses'], 'actions/download-artifact@v8')
         self.assertEqual(step['with']['run-id'], 38660663692)

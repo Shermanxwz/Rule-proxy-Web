@@ -50,6 +50,7 @@ _STREAM_LIMIT = 64
 _CONNECT_TIMEOUT = 5.0
 _IO_TIMEOUT = 1.0
 _CONTROL_MAX = 1024
+_GUEST_STATUS_MAX = 8192
 _SHARING_RETRY_DELAYS = (0.01, 0.025, 0.05, 0.075, 0.1)
 _WINDOWS_SHARING_ERRORS = {5, 32, 33}
 
@@ -100,10 +101,10 @@ def _nonce_tag(nonce: str) -> bytes:
     return hashlib.sha256(raw).digest()[:16]
 
 
-def _atomic_json(path: Path, value: dict[str, Any]) -> None:
+def _atomic_json_limited(path: Path, value: dict[str, Any], limit: int, message: str) -> None:
     payload = json.dumps(value, separators=(",", ":"), ensure_ascii=True).encode("ascii")
-    if len(payload) > _CONTROL_MAX:
-        raise BridgeError("bridge control record is too large")
+    if len(payload) > limit:
+        raise BridgeError(message)
     temp = path.with_name(path.name + ".tmp-" + secrets.token_hex(6))
     try:
         with temp.open("xb") as stream:
@@ -116,6 +117,15 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
             temp.unlink()
         except FileNotFoundError:
             pass
+
+
+def _atomic_json(path: Path, value: dict[str, Any]) -> None:
+    _atomic_json_limited(path, value, _CONTROL_MAX, "bridge control record is too large")
+
+
+def write_guest_status(path: Path, value: dict[str, Any]) -> None:
+    """Atomically publish the contained app's bounded status with sharing retries."""
+    _atomic_json_limited(path, value, _GUEST_STATUS_MAX, "guest status record is too large")
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:

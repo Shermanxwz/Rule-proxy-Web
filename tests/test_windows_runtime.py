@@ -37,7 +37,7 @@ def supported_probe_json():
             "tier": "base-container",
             "needsDaclAugmentation": False,
             "warnings": [],
-            "probes": {"baseContainerApiPresent": True},
+            "probes": {"baseContainerApiPresent": True, "baseContainerSupportsEnumeratePaths": True},
             "error": None,
         }
     )
@@ -110,6 +110,48 @@ class WindowsRuntimeTests(unittest.TestCase):
                 })
                 self.assertNotIn("runtimeConfig", policy)
                 self.assertEqual(policy["processContainer"], {"ui": {"isolation": "container", "ime": True}})
+
+    def test_exact_enumeration_candidate_changes_only_requested_directory_query_scope(self):
+        local = self.root / "host-local-appdata"
+        local.mkdir()
+        normal = windows_runtime.build_policy([r"C:\Apps\browser.exe"], {}, self.profile, 19001)
+        candidate = windows_runtime.build_policy([r"C:\Apps\browser.exe"], {}, self.profile, 19001,
+                                                   enumerate_path=local)
+        self.assertEqual(candidate["processContainer"], {
+            "ui": {"isolation": "container", "ime": True},
+            "filesystem": {"enumeratePaths": [str(local.resolve())]},
+        })
+        self.assertEqual(candidate["network"], normal["network"])
+        self.assertEqual(candidate["filesystem"]["readwritePaths"], normal["filesystem"]["readwritePaths"])
+        self.assertEqual(candidate["filesystem"]["readonlyPaths"], normal["filesystem"]["readonlyPaths"])
+        self.assertNotIn("enumeratePaths", normal["processContainer"])
+
+    def test_enumeration_candidate_rejects_missing_relative_symlink_and_root_paths(self):
+        local = self.root / "local"
+        local.mkdir()
+        link = self.root / "local-link"
+        try:
+            link.symlink_to(local, target_is_directory=True)
+        except OSError:
+            link = None
+        invalid = ["relative", self.root / "missing", Path(self.root.anchor)]
+        if link is not None:
+            invalid.append(link)
+        for path in invalid:
+            with self.subTest(path=str(path)), self.assertRaises(ValueError):
+                windows_runtime.build_policy([r"C:\Apps\browser.exe"], {}, self.profile, 19001,
+                                               enumerate_path=path)
+
+    def test_enumeration_candidate_requires_explicit_kernel_capability_fact(self):
+        local = self.root / "local"
+        local.mkdir()
+        path = windows_runtime._validate_enumerate_path(local)
+        for response in ({}, {"probes": {}}, {"probes": {"baseContainerSupportsEnumeratePaths": False}},
+                         {"probes": {"baseContainerSupportsEnumeratePaths": 1}}):
+            with self.subTest(response=response), self.assertRaises(windows_runtime.UnsupportedRuntimeError):
+                windows_runtime._require_enumerate_path_support(response, path)
+        windows_runtime._require_enumerate_path_support(
+            {"probes": {"baseContainerSupportsEnumeratePaths": True}}, path)
 
     def test_profile_environment_overrides_windows_vars_case_insensitively(self):
         policy = windows_runtime.build_policy(
@@ -390,6 +432,8 @@ class WindowsRuntimeTests(unittest.TestCase):
 
         command = [r"C:\Program Files\Browser\browser.exe", "--proxy-server=http://127.0.0.1:19001"]
         env = {"HTTP_PROXY": "http://127.0.0.1:19001"}
+        local_appdata = self.root / "real-local-appdata"
+        local_appdata.mkdir()
         with mock.patch.object(windows_runtime, "_probe_request", return_value=json.loads(supported_probe_json())) as probe, mock.patch.object(
             windows_runtime.subprocess, "Popen", return_value=Proc()
         ) as popen, mock.patch.object(windows_runtime, "_check_windows_version"), mock.patch(
@@ -409,6 +453,7 @@ class WindowsRuntimeTests(unittest.TestCase):
                 10809,
                 str(self.runtime),
                 guest_listener_port=19001,
+                enumerate_path=local_appdata,
             )
         self.addCleanup(resource.close)
         self.assertEqual(proc.pid, 987)
@@ -417,6 +462,10 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(args[:2], [str(self.runtime.resolve()), "--config"])
         self.assertTrue(Path(args[2]).is_file())
         policy = json.loads(Path(args[2]).read_text(encoding="utf-8"))
+        self.assertEqual(probe.call_args.args[1]["processContainer"]["filesystem"]["enumeratePaths"],
+                         [str(local_appdata.resolve())])
+        self.assertEqual(policy["processContainer"]["filesystem"]["enumeratePaths"],
+                         [str(local_appdata.resolve())])
         self.assertEqual(policy["network"]["egress"]["default"], "deny")
         self.assertEqual(policy["network"]["egress"]["allow"], [{
             "to": [{"cidr": "127.0.0.1/32"}], "ports": [{"protocol": "tcp", "port": 19001}],
@@ -440,6 +489,24 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertTrue((Path(args[2]).parent / "host-approval.json").is_file())
         self.assertIn(str(Path(args[2]).parent.resolve()), policy["filesystem"]["readonlyPaths"])
 
+    def test_bounded_guest_status_keeps_only_nonce_matched_state_and_numeric_exit_or_category(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bridge = mock.Mock(directory=root, nonce="a" * 64)
+            resources = windows_runtime._WindowsRuntimeResources(mock.Mock(), mock.Mock(), bridge)
+            status = root / "guest-status.json"
+            status.write_text(json.dumps({"nonce": "a" * 64, "state": "APP_EXITED", "detail": "259"}))
+            self.assertEqual(resources.bounded_guest_status(), {
+                "status": "observed", "state": "APP_EXITED", "app_exit": 259,
+            })
+            status.write_text(json.dumps({"nonce": "a" * 64, "state": "FAILED",
+                                         "detail": "private path and secret nonce"}))
+            facts = resources.bounded_guest_status()
+            self.assertEqual(facts, {"status": "observed", "state": "FAILED",
+                                     "detail_error_category": "guest_failed"})
+            self.assertNotIn("private", json.dumps(facts))
+            status.write_text(json.dumps({"nonce": "b" * 64, "state": "APP_EXITED", "detail": "0"}))
+            self.assertEqual(resources.bounded_guest_status(), {"status": "unmatched"})
     def test_safe_stop_terminates_only_verified_direct_child_then_waits_wrapper(self):
         class Process:
             pid = 500

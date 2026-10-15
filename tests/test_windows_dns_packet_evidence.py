@@ -98,7 +98,7 @@ class WindowsDnsPacketEvidenceTests(unittest.TestCase):
         value = manifest()
         before, after = controls(value)
         parent = value["probes"][1]
-        opaque = [frame(parent, protocol=6, payload=struct.pack("!HH", 45123, port) + b"\0" * 8 + b"\x50\0" + b"\0" * 6) for port in (53, 853, 443)]
+        opaque = [frame(parent, protocol=6, payload=struct.pack("!HH", 45123, port) + b"\0" * 8 + b"\x50\0" + b"\0" * 6 + b"opaque") for port in (53, 853, 443)]
         opaque += [frame(parent, port=port) for port in (443, 853)]
         opaque += [frame(parent, fragment=0x2000), frame(parent, fragment=1, protocol=6, payload=b"\0" * 20),
                    frame(parent, family="ipv6", extension=0), frame(parent, protocol=41)]
@@ -116,21 +116,55 @@ class WindowsDnsPacketEvidenceTests(unittest.TestCase):
             self.assertEqual(result["status"], "incomplete")
             self.assertFalse(result["absence_observed"])
 
-    def test_empty_tcp_controls_remain_unknown_and_payload_is_separately_reported(self):
+    def test_valid_empty_tcp_control_frames_are_counted_but_not_dns_unknown(self):
         value = manifest()
         before, after = controls(value)
         for family in ("ipv4", "ipv6"):
             for port in (53, 853, 443):
-                header = struct.pack("!HH", 45123, port) + b"\0" * 8 + b"\x50\x02" + b"\0" * 6
-                for payload, reason in ((header, "opaque_dns_tcp_control_only"),
-                        (header + b"encrypted data", "opaque_dns_tcp_or_https")):
-                    with self.subTest(family=family, port=port, reason=reason):
-                        packet = frame(value["probes"][1], family=family, protocol=6, payload=payload)
+                for flags in (0x02, 0x10, 0x11):  # SYN, ACK, FIN+ACK with no app data.
+                    tcp = struct.pack("!HHIIHHHH", 45123, port, 1, 0, (5 << 12) | flags,
+                                      65535, 0, 0)
+                    with self.subTest(family=family, port=port, flags=flags):
+                        packet = frame(value["probes"][1], family=family, protocol=6, payload=tcp)
                         result = dns.analyze_bytes(wire.pcap([before, packet, after]), value)
-                        self.assertEqual(result["unknown_reasons"], {reason: 1})
-                        self.assertEqual(result["status"], "incomplete")
-                        self.assertFalse(result["absence_observed"])
+                        self.assertEqual(result["unknown_reasons"], {})
+                        self.assertEqual(result["unknown_records"], 0)
+                        self.assertEqual(result["empty_tcp_payload_frames"], 1)
+                        self.assertEqual(result["status"], "complete")
+                        self.assertTrue(result["absence_observed"])
                         self.assertFalse(result["kernel_denial_proven"])
+
+    def test_nonempty_tcp_payload_is_unknown_and_empty_counter_does_not_hide_it(self):
+        value = manifest()
+        before, after = controls(value)
+        tcp = struct.pack("!HHIIHHHH", 45123, 53, 1, 0, (5 << 12) | 0x10, 65535, 0, 0) + b"opaque"
+        result = dns.analyze_bytes(wire.pcap([before, frame(value["probes"][1], protocol=6, payload=tcp), after]), value)
+        self.assertEqual(result["unknown_reasons"], {"opaque_dns_tcp_or_https": 1})
+        self.assertEqual(result["unknown_records"], 1)
+        self.assertEqual(result["empty_tcp_payload_frames"], 0)
+        self.assertEqual(result["status"], "incomplete")
+        self.assertFalse(result["absence_observed"])
+
+    def test_invalid_tcp_lengths_fragments_and_ipv6_extensions_are_not_exempted(self):
+        value = manifest()
+        before, after = controls(value)
+        parent = value["probes"][1]
+        short_tcp = struct.pack("!HHIIHHHH", 45123, 53, 1, 0, (4 << 12) | 0x10, 65535, 0, 0)
+        invalid_offset = frame(parent, protocol=6, payload=short_tcp)
+        fragmented_v4 = frame(parent, protocol=6, fragment=0x2000,
+            payload=struct.pack("!HHIIHHHH", 45123, 53, 1, 0, (5 << 12) | 0x10, 65535, 0, 0))
+        extension_v6 = frame(parent, family="ipv6", protocol=6, extension=0,
+            payload=struct.pack("!HHIIHHHH", 45123, 53, 1, 0, (5 << 12) | 0x10, 65535, 0, 0))
+        for packet in (invalid_offset, fragmented_v4, extension_v6):
+            with self.subTest(packet_sha=__import__("hashlib").sha256(packet).hexdigest()):
+                result = dns.analyze_bytes(wire.pcap([before, packet, after]), value)
+                self.assertEqual(result["empty_tcp_payload_frames"], 0)
+                self.assertEqual(result["unknown_records"], 1)
+                self.assertFalse(result["absence_observed"])
+        truncated = frame(parent, protocol=6,
+            payload=struct.pack("!HHIIHHHH", 45123, 53, 1, 0, (5 << 12) | 0x10, 65535, 0, 0))[:-1]
+        with self.assertRaises(dns.EvidenceError):
+            dns.analyze_bytes(wire.pcap([before, truncated, after]), value)
 
     def test_unrelated_payload_response_and_other_source_mac_do_not_match_questions(self):
         value = manifest()

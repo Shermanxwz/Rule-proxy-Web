@@ -111,6 +111,23 @@ class AbiFixture:
 
 
 class WindowsGuiContextTests(unittest.TestCase):
+    def test_internal_known_folder_resolver_requires_real_directory_without_reporting_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "private-local-appdata"
+            root.mkdir()
+            class FakeLocation:
+                def known_folder_location(self):
+                    return root
+            resolved = context.resolve_local_appdata_path(FakeLocation())
+            self.assertEqual(resolved, root.resolve())
+            facts = context.query_context(api=FakeLocation(), environ={})
+            self.assertNotIn(str(root), json.dumps(facts))
+            class InvalidLocation:
+                def known_folder_location(self):
+                    return root / "missing"
+            with self.assertRaises(OSError):
+                context.resolve_local_appdata_path(InvalidLocation())
+
     def test_abi_bindings_use_fixed_width_types_and_writable_output_pointers(self):
         fixture = AbiFixture()
         self.assertEqual(fixture.shell.SHGetFolderPathW.restype, ctypes.c_int32)
@@ -313,6 +330,8 @@ class WindowsGuiContextTests(unittest.TestCase):
         self.assertEqual(process["token_type"], 1)  # TokenPrimary
         self.assertTrue(process["close_attempted"])
         self.assertTrue(process["close_success"])
+        location = context.resolve_local_appdata_path(api)
+        self.assertTrue(location.is_absolute() and location.is_dir())
 
 
 if __name__ == "__main__":

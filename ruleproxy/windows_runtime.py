@@ -372,6 +372,7 @@ def build_policy(
     python_executable: str | Path | None = None,
     guest_helper: str | Path | None = None,
     runtime_config: str | Path | None = None,
+    enumerate_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Allow only the trusted helper's exact internal IPv4 TCP endpoint."""
     command = _validate_command(command)
@@ -385,6 +386,7 @@ def build_policy(
     guest_helper = Path(guest_helper or Path(__file__).with_name("windows_guest.py")).resolve()
     runtime_config = Path(runtime_config or profile / ".ruleproxy-runtime.json").resolve()
     app_executable_dir = _exe_parent(command[0])
+    enumerate_path = _validate_enumerate_path(enumerate_path)
     python_base = Path(getattr(sys, "base_prefix", python_executable.parent)).resolve()
     read_only = {
         str(python_executable.parent),
@@ -405,6 +407,9 @@ def build_policy(
         str(runtime_config),
     ]
     command_line = subprocess.list2cmdline(helper_command)
+    process_container = {"ui": {"isolation": "container", "ime": True}}
+    if enumerate_path is not None:
+        process_container["filesystem"] = {"enumeratePaths": [str(enumerate_path)]}
     return {
         "$schema": "https://github.com/microsoft/mxc/schemas/stable/mxc-config.schema.1.0.0.json",
         "version": CONTRACT_VERSION,
@@ -425,7 +430,7 @@ def build_policy(
         # injection, system controls and container handle isolation stay at
         # their defaults. These input controls grant no network access.
         "ui": {"disable": False, "clipboard": "all"},
-        "processContainer": {"ui": {"isolation": "container", "ime": True}},
+        "processContainer": process_container,
         "network": {
             "egress": {
                 "default": "deny",
@@ -437,6 +442,34 @@ def build_policy(
             "ingress": {"default": "deny", "hostLoopback": "deny"},
         },
     }
+
+
+def _validate_enumerate_path(value: str | Path | None) -> Path | None:
+    """Validate the one source-diagnostic directory query grant."""
+    if value is None:
+        return None
+    try:
+        supplied = Path(value)
+        if not supplied.is_absolute() or "\0" in str(supplied):
+            raise ValueError("enumeration path must be absolute")
+        if supplied.is_symlink():
+            raise ValueError("enumeration path must not be a symbolic link")
+        resolved = supplied.resolve(strict=True)
+        if not resolved.is_dir() or resolved == Path(resolved.anchor):
+            raise ValueError("enumeration path must be an existing non-root directory")
+        return resolved
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("enumeration path must be an existing non-root directory") from exc
+
+
+def _require_enumerate_path_support(probe_output: Mapping[str, Any], requested: Path | None) -> None:
+    if requested is None:
+        return
+    probes = probe_output.get("probes") if isinstance(probe_output, Mapping) else None
+    if not isinstance(probes, Mapping) or probes.get("baseContainerSupportsEnumeratePaths") is not True:
+        raise UnsupportedRuntimeError(
+            "MXC did not confirm BaseContainer filesystem enumeratePaths support"
+        )
 
 
 def _write_policy(policy: Mapping[str, Any], directory: Path) -> Path:
@@ -595,6 +628,7 @@ def launch(
     runtime_path: str,
     *,
     guest_listener_port: int | None = None,
+    enumerate_path: str | Path | None = None,
 ) -> tuple[subprocess.Popen, Any]:
     """Launch the trusted helper, gating the app on proxy and denial checks."""
     host_proxy_port = _validate_proxy_port(proxy_port)
@@ -608,6 +642,7 @@ def launch(
     _safe_app_id(profile)
     _require_guest_endpoint(command, env, profile, guest_listener_port)
     runtime = Path(runtime_path).expanduser().resolve(strict=True)
+    enumerate_path = _validate_enumerate_path(enumerate_path)
     helper = Path(__file__).with_name("windows_guest.py").resolve(strict=True)
     python_executable = Path(sys.executable).expanduser().resolve(strict=True)
     profile.mkdir(parents=True, exist_ok=True)
@@ -633,8 +668,12 @@ def launch(
             python_executable=python_executable,
             guest_helper=helper,
             runtime_config=Path(run_dir.name) / "guest-config.json",
+            enumerate_path=enumerate_path,
         )
-        _probe_request(runtime, policy)
+        # This request-scoped MXC probe confirms that BaseContainer accepts
+        # the exact directory-enumeration grant before any wrapper is started.
+        probe_output = _probe_request(runtime, policy)
+        _require_enumerate_path_support(probe_output, enumerate_path)
         bridge = FileProxyBridge(host_proxy_port, bridge_dir)
         resources.bridge = bridge
         resources.udp_fixture = _HostUDPFixture(bridge.nonce)
@@ -1053,6 +1092,38 @@ class _WindowsRuntimeResources:
         if bridge_dir is not None:
             shutil.rmtree(bridge_dir, ignore_errors=True)
         self._closed = True
+
+    def bounded_guest_status(self) -> dict[str, Any]:
+        """Retain only nonce-bound state and numeric app exit/error categories."""
+        bridge = self.bridge
+        if bridge is None:
+            return {"status": "unavailable"}
+        try:
+            path = Path(bridge.directory) / "guest-status.json"
+            with path.open("rb") as stream:
+                raw = stream.read(8193)
+            if not raw or len(raw) > 8192:
+                return {"status": "invalid"}
+            value = json.loads(raw.decode("ascii"))
+            if (not isinstance(value, dict) or value.get("nonce") != bridge.nonce
+                    or value.get("state") not in {"GUEST_READY", "APP_STARTED", "APP_EXITED", "FAILED", "REJECTED"}):
+                return {"status": "unmatched"}
+            state = value["state"]
+            result: dict[str, Any] = {"status": "observed", "state": state}
+            detail = value.get("detail")
+            if state == "APP_EXITED":
+                if isinstance(detail, str) and re.fullmatch(r"-?[0-9]{1,10}", detail):
+                    result["app_exit"] = int(detail)
+                else:
+                    result["app_exit"] = None
+                    result["detail_error_category"] = "invalid_app_exit"
+            elif state == "FAILED":
+                result["detail_error_category"] = "guest_failed"
+            return result
+        except FileNotFoundError:
+            return {"status": "missing"}
+        except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError, AttributeError):
+            return {"status": "invalid"}
 
 
 class _OwnedStopState:

@@ -288,6 +288,30 @@ def error_facts(error, fallback_stage="unknown"):
     return facts
 
 
+def bounded_guest_status(resources):
+    """Project nonce-validated runtime status into a fixed scalar report shape."""
+    try:
+        value = resources.bounded_guest_status()
+        if not isinstance(value, dict) or value.get("status") not in {
+                "observed", "missing", "unmatched", "invalid", "unavailable"}:
+            return {"status": "invalid"}
+        result = {"status": value["status"]}
+        state = value.get("state")
+        if state in {"GUEST_READY", "APP_STARTED", "APP_EXITED", "FAILED", "REJECTED"}:
+            result["state"] = state
+        exit_code = value.get("app_exit")
+        if type(exit_code) is int and -(2**31) <= exit_code <= 0xffffffff:
+            result["app_exit"] = exit_code
+        category = value.get("detail_error_category")
+        if category in {"invalid_app_exit", "guest_failed"}:
+            result["detail_error_category"] = category
+        if result["status"] == "observed" and "state" not in result:
+            return {"status": "invalid"}
+        return result
+    except Exception:
+        return {"status": "unavailable"}
+
+
 def _diagnostic_call(stage, function, *args, **kwargs):
     if stage not in _DIAGNOSTIC_STAGES:
         raise ValueError("unregistered GUI diagnostic stage")
@@ -834,6 +858,13 @@ def failure_auxiliary(owner, *, windows=None):
             "visible_window_count": len(visible), "visible_window_observed": bool(visible)}
     except Exception as error:
         result["visible_owned_windows"] = {"status": "incomplete", "failure": error_facts(error, "failure_owned_windows")}
+    try:
+        resources = owner.resources
+        if resources is None:
+            raise RuntimeError("runtime guest-status owner was unavailable")
+        result["guest_status"] = bounded_guest_status(resources)
+    except Exception as error:
+        result["guest_status"] = {"status": "incomplete", "failure": error_facts(error, "failure_guest_status")}
     return result
 
 
@@ -886,13 +917,16 @@ def interactive_facts():
 
 class GuiRun:
     def __init__(self, runtime, edge, profile_root, fixture, helpers, browser_module, job=None,
-                 application_kind="stock_edge"):
+                 application_kind="stock_edge", enumerate_path=None):
         self.runtime, self.edge, self.profile_root = runtime, edge, profile_root
         self.fixture, self.helpers, self.browser_module = fixture, helpers, browser_module
         self.job = job
         if application_kind not in ("stock_edge", "chrome_for_testing_control"):
             raise ValueError("unsupported GUI application kind")
         self.application_kind = application_kind
+        self.enumerate_path = enumerate_path
+        if enumerate_path is not None and application_kind != "chrome_for_testing_control":
+            raise ValueError("LocalAppData enumeration is limited to the pinned Chromium control")
         self.wrapper = self.resources = self.tree = None
         self.cleanup_proven = True
 
@@ -911,7 +945,7 @@ class GuiRun:
         self.cleanup_proven = False
         try:
             self.wrapper, self.resources = windows_runtime.launch(command, {}, profile, self.fixture.port,
-                str(self.runtime), guest_listener_port=guest_port)
+                str(self.runtime), guest_listener_port=guest_port, enumerate_path=self.enumerate_path)
         except BaseException as error:
             self.wrapper, self.resources = getattr(error, "process", None), getattr(error, "resource", None)
             raise
@@ -937,10 +971,12 @@ class GuiRun:
         code = self.wrapper.wait(timeout=10)
         if code != 0:
             raise RuntimeError("owned context probe did not exit naturally with status zero")
+        status_facts = bounded_guest_status(self.resources)
         self.close()
         return {"scope": "production_psec_builder_context_app", "facts": facts,
                 "natural_wrapper_exit": True, "descendant_cleanup_proven": True,
-                "runtime_resources_closed": True, "acceptance_passed": False}
+                "runtime_resources_closed": True, "guest_status": status_facts,
+                "acceptance_passed": False}
 
     def run(self, phase):
         from ruleproxy import launcher, windows_runtime
@@ -960,7 +996,7 @@ class GuiRun:
         try:
             self.wrapper, self.resources = _diagnostic_call("runtime_launch", windows_runtime.launch,
                 command, environment, self.profile_root / "gui", self.fixture.port,
-                str(self.runtime), guest_listener_port=guest_port)
+                str(self.runtime), guest_listener_port=guest_port, enumerate_path=self.enumerate_path)
         except BaseException as exc:
             self.wrapper = getattr(exc, "process", None)
             self.resources = getattr(exc, "resource", None)
@@ -1012,6 +1048,7 @@ class GuiRun:
         _diagnostic_call("fixture_ack", self.fixture.check, phase)
         count, peak = len(self.tree.entries), self.tree.peak_handles
         unqueryable_count = len(self.tree.unqueryable_candidates)
+        guest_status = bounded_guest_status(self.resources)
         self.close()
         check_prefix = ("real_chromium_control_gui" if self.application_kind == "chrome_for_testing_control"
                         else "real_edge_gui")
@@ -1024,6 +1061,7 @@ class GuiRun:
                 "resources_closed": True, "held_descendant_count": count, "peak_query_handles": peak,
                 "outer_job_controller_only": self.job.active_processes() == 1,
                 "unqueryable_process_candidate_count": unqueryable_count,
+                "guest_status": guest_status,
                 "query_handle_scope": "gui_query_handles_and_borrowed_wrapper_only",
                 "startup_seconds": round(startup_seconds, 3), "gui_budget_seconds": GUI_BUDGET_SECONDS,
                 **startup}
@@ -1079,16 +1117,25 @@ def main(arguments):
     parser.add_argument("--browser", type=Path, help="actual Microsoft Edge msedge.exe")
     parser.add_argument("--chromium-control-root", type=Path,
                         help="source-only pinned Chrome for Testing control; never replaces the product browser")
+    parser.add_argument("--test-psec-executor", type=Path,
+                        help="fixed source-only PSEC control executor; valid only with Chrome for Testing")
+    parser.add_argument("--test-psec-manifest", type=Path,
+                        help="build manifest for the fixed source-only PSEC control executor")
     parser.add_argument("--report", type=Path, default=Path("windows-gui.json"))
     args = parser.parse_args(arguments)
     if args.browser is not None and args.chromium_control_root is not None:
         parser.error("explicit Edge and the pinned Chromium control are mutually exclusive")
+    if (args.test_psec_executor is None) != (args.test_psec_manifest is None):
+        parser.error("--test-psec-executor and --test-psec-manifest must be provided together")
+    if args.test_psec_executor is not None and args.chromium_control_root is None:
+        parser.error("the source-only PSEC executor is restricted to the pinned Chromium control")
     browser_module = browser_helpers()
     helpers = browser_module.acceptance_helpers()
     result = initial_result()
     if args.chromium_control_root is not None:
         result.update(chromium_gui_control_diagnostic=True, source_diagnostic_only=True,
                       product_browser_replaced=False)
+    enumerate_path = None
     directory = fixture = owner = before = job = None
     safe_cleanup, code, phase = True, 1, "platform"
     try:
@@ -1109,12 +1156,39 @@ def main(arguments):
         from ruleproxy import windows_runtime
         digests = helpers.verify_runtime_manifest(root)
         result["runtime_integrity"] = {"manifest_verified": True, "file_count": len(digests)}
-        runtime = root / "bin/windows-amd64/wxc-exec.exe"
+        product_runtime = root / "bin/windows-amd64/wxc-exec.exe"
+        runtime = product_runtime
         phase = "request_probe"
-        result["probe"] = windows_runtime.probe(str(runtime))
+        result["probe"] = windows_runtime.probe(str(product_runtime))
         if not result["probe"]["supported"]:
             result.update(status="unsupported", detail=result["probe"]["detail"])
             return 3
+        test_executor_metadata = None
+        if args.test_psec_executor is not None:
+            phase = "test_psec_executor_integrity"
+            verifier_path = ROOT / ".github/windows_vm_test.py"
+            spec = importlib.util.spec_from_file_location("ruleproxy_gui_fixed_executor_verifier", verifier_path)
+            if spec is None or spec.loader is None:
+                raise RuntimeError("fixed PSEC executor verifier is unavailable")
+            verifier = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(verifier)
+            runtime, test_executor_metadata = verifier.verify_executor_bundle(
+                root, ROOT, args.test_psec_executor, args.test_psec_manifest,
+                digests.get("wxc-exec.exe"))
+            result["test_psec_executor"] = test_executor_metadata
+            result["selected_runtime"] = {
+                "sha256": test_executor_metadata["executor_sha256"],
+                "upstream_commit": test_executor_metadata["upstream_commit"],
+                "patch_sha256": test_executor_metadata["patch_sha256"],
+                "product_runtime_replaced": False,
+                "acceptance_passed": False,
+            }
+        if args.chromium_control_root is not None:
+            result["source_policy_variant"] = "exact_localappdata_enumerate_paths"
+            result["directory_query_list_permission_changed"] = True
+            result["product_acceptance_passed"] = False
+        if test_executor_metadata is not None:
+            result["product_runtime_replaced"] = False
         if args.chromium_control_root is not None:
             phase = "chromium_control_integrity"
             edge, result["chromium_control"] = chromium_control_browser(args.chromium_control_root)
@@ -1142,6 +1216,8 @@ def main(arguments):
         if args.chromium_control_root is not None:
             phase = "gui_context_probe"
             result["outside_gui_context"] = context_helpers().query_context()
+            enumerate_path = context_helpers().resolve_local_appdata_path()
+            owner.enumerate_path = enumerate_path
             result["contained_gui_context"] = owner.collect_context()
         for number in (1, 2):
             phase = (f"real_chromium_control_gui_{number}" if owner.application_kind == "chrome_for_testing_control"
@@ -1150,7 +1226,13 @@ def main(arguments):
         result.update(status="gui_fixture_only", gui_fixture_passed=True)
         code = 0
     except Exception as exc:
-        result.update(status="failed", detail=f"GUI check failed during {phase} ({type(exc).__name__}): {str(exc)[:400]}")
+        if args.chromium_control_root is not None:
+            # The source-only request contains the host's real LocalAppData
+            # path. Keep exception text out of that report entirely.
+            detail = f"GUI check failed during {phase} ({type(exc).__name__})."
+        else:
+            detail = f"GUI check failed during {phase} ({type(exc).__name__}): {str(exc)[:400]}"
+        result.update(status="failed", detail=detail)
         result["failure"] = error_facts(exc, phase)
         if owner is not None:
             result["failure_owner_state"] = owner_facts(owner)

@@ -59,12 +59,11 @@ def _atomic_status(directory: Path, nonce: str, state: str, detail: str = "") ->
     value = {"nonce": nonce, "state": state}
     if detail:
         value["detail"] = detail[:700]
-    temp = path.with_name(path.name + ".guest-tmp")
-    with temp.open("w", encoding="ascii", newline="") as stream:
-        json.dump(value, stream, separators=(",", ":"))
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temp, path)
+    if __package__:
+        from .file_bridge import write_guest_status
+    else:
+        from file_bridge import write_guest_status
+    write_guest_status(path, value)
 
 
 def _read_config(path: Path) -> dict[str, Any]:

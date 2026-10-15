@@ -264,12 +264,13 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
         if any(type(flag) is not bool for flag in (
                 enabled, network, singleton, chromium_control, psec_1_1, executor_enabled)):
             raise ValueError
-        if (enabled and (executor_enabled or network)) or (singleton and (not network or executor_enabled)):
+        if ((enabled and network) or (enabled and executor_enabled and not chromium_control)
+                or (singleton and (not network or executor_enabled))):
             raise ValueError
         if psec_1_1 and (not network or singleton or enabled or chromium_control):
             raise ValueError
         if chromium_control:
-            if (not enabled or network or executor_enabled or not isinstance(chromium_sha256, str)
+            if (not enabled or network or not isinstance(chromium_sha256, str)
                     or not re.fullmatch(r"[0-9a-f]{64}", chromium_sha256)):
                 raise ValueError
         elif chromium_sha256 is not None:
@@ -1327,6 +1328,21 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                                      "reason": "gui_diagnostic_only"})
         chromium_control_root = None
         chromium_control_ready = not chromium_control
+        gui_executor_args = []
+        gui_executor_ready = True
+        if probe_passed and chromium_control:
+            try:
+                diagnostic = guest_test_executor(root, workspace, vm_config)
+                if diagnostic is not None:
+                    executor, manifest, metadata = diagnostic
+                    gui_executor_args = ["--test-psec-executor", str(executor),
+                                         "--test-psec-manifest", str(manifest)]
+                    result.update(execution_mode="source_executor_diagnostic", test_psec_executor=metadata,
+                                  product_runtime_replaced=False, source_diagnostic_only=True)
+            except Exception as exc:
+                result["executor_validation_error"] = type(exc).__name__
+                result["error"] = "Source executor validation failed; GUI process was not launched"
+                gui_executor_ready = False
         if probe_passed and chromium_control:
             try:
                 helper = load_chromium_control_helper(workspace)
@@ -1345,11 +1361,12 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                     "status": "failed", "error_type": type(exc).__name__, "archive_sha256": chromium_sha256,
                 }
                 result["error"] = "Pinned Chromium control was unavailable; GUI process was not launched"
-        if probe_passed and chromium_control_ready:
+        if probe_passed and chromium_control_ready and gui_executor_ready:
             gui_command = [executable, "-X", "utf8", "-B", str(workspace / ".github/windows_gui_check.py"),
                            "--root", str(root), "--report", str(directory / "gui.json")]
             if chromium_control_root is not None:
                 gui_command.extend(["--chromium-control-root", str(chromium_control_root)])
+            gui_command.extend(gui_executor_args)
             gui, report, log = run_guest_phase("gui", gui_command, directory, timeout=phase_timeout)
             result["phases"].append(gui)
             result["logs"]["gui"] = log
@@ -1369,6 +1386,9 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         elif not probe_passed:
             result["phases"].append({"name": "gui", "status": "blocked", "exit_code": None,
                                      "reason": "strict_policy_probe_failed"})
+        elif not gui_executor_ready:
+            result["phases"].append({"name": "gui", "status": "blocked", "exit_code": None,
+                                     "reason": "executor_validation_failed"})
         else:
             result["phases"].append({"name": "gui", "status": "blocked", "exit_code": None,
                                      "reason": "pinned_chromium_control_unavailable"})
@@ -1620,8 +1640,10 @@ def run(args) -> dict:
                "official_update": {"required": require_update, "kb": "KB5127648", "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
                                    "source": UPDATE_SOURCE, "catalog_update_id": UPDATE_CATALOG_ID}}
     try:
-        if chromium_gui_control_diagnostic and (not gui_diagnostic_only or network_diagnostic_only or diagnostic_mode):
-            raise ValueError("Chromium GUI control requires GUI-only diagnostic mode with the original SDK")
+        if gui_diagnostic_only and diagnostic_mode and not chromium_gui_control_diagnostic:
+            raise ValueError("GUI source executor diagnostics require the pinned Chromium control")
+        if chromium_gui_control_diagnostic and (not gui_diagnostic_only or network_diagnostic_only):
+            raise ValueError("Chromium GUI control requires GUI-only diagnostic mode")
         if psec_1_1_diagnostic and (not network_diagnostic_only or singleton_port_range_diagnostic):
             raise ValueError("PSEC 1.1 diagnostic requires network-only mode and a single diagnostic axis")
         summary["kvm_api_version"] = require_kvm()
@@ -1807,7 +1829,8 @@ def run(args) -> dict:
                         summary["chromium_gui_control_guest"] = server.result["chromium_gui_control"]
                     summary["official_update"]["guest"] = server.result.get("official_update")
                     if diagnostic_mode:
-                        report = server.result.get("reports", {}).get("experiments", {})
+                        report = (server.result if gui_diagnostic_only else
+                                  server.result.get("reports", {}).get("experiments", {}))
                         summary["diagnostic_executor_attested"] = (
                             report.get("test_psec_executor") == summary["test_psec_executor"])
                     if not capture.log_clean() or capture.collection_error:
@@ -1904,13 +1927,13 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     if (args.test_psec_executor is None) != (args.test_psec_manifest is None):
         parser.error("--test-psec-executor and --test-psec-manifest must be provided together")
-    if args.gui_diagnostic_only and args.test_psec_executor is not None:
-        parser.error("--gui-diagnostic-only uses the packaged product SDK and cannot be combined with a source executor")
+    if (args.gui_diagnostic_only and args.test_psec_executor is not None
+            and not args.chromium_gui_control):
+        parser.error("GUI source executor diagnostics require --chromium-gui-control")
     if args.gui_diagnostic_only and args.network_diagnostic_only:
         parser.error("GUI and network diagnostic-only modes are mutually exclusive")
-    if args.chromium_gui_control and (not args.gui_diagnostic_only or args.network_diagnostic_only
-                                      or args.test_psec_executor is not None):
-        parser.error("Chromium GUI control requires GUI-only diagnostic mode with the original SDK")
+    if args.chromium_gui_control and (not args.gui_diagnostic_only or args.network_diagnostic_only):
+        parser.error("Chromium GUI control requires GUI-only diagnostic mode")
     if args.singleton_port_range_diagnostic and (not args.network_diagnostic_only or args.test_psec_executor is not None):
         parser.error("Singleton port encoding requires network diagnostic-only with the original SDK")
     if args.psec_1_1_diagnostic and (not args.network_diagnostic_only or args.singleton_port_range_diagnostic):

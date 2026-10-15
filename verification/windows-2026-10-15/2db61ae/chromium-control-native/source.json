@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "2db61ae3d1dbaf6c67e2f3be44a83052643d8b9b",
+  "commit_tree": "1631126b677c545069d5db72938938855c8c6211",
+  "workflow_run": 38687899054,
+  "native_job": 116267445283,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38687899054",
+  "artifact_id": 11951847274,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "09ab7ecd0ac80d18353e34a164f179480b415a62f90e79e6998c2e8f3864b2f0",
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "source_member": "windows-vm-summary.json",
+      "bytes": 3689,
+      "sha256": "87c839610671fe18e2c747f114dae8caef735d2a00e2c93b49f75b8bc0a09f28",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "guest-result.json",
+      "source_member": "guest-result.json",
+      "bytes": 24693,
+      "sha256": "9da1245da7b3e8a40282bc2e1c8fecb292eb622a614c83fff3976bab79777c23",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-gui.json",
+      "source_member": "windows-gui.json",
+      "bytes": 6920,
+      "sha256": "cac221cfed0bcd1300e67fea84f04c0c935dbc090bae6008856f8df0ef8fc918",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-probe.json",
+      "source_member": "windows-probe.json",
+      "bytes": 1964,
+      "sha256": "af7334a9ffce027f4cf4962208d4aa0894a68857a45aa1e3c7f1a18b826cf422",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    }
+  ],
+  "tested_package_sha256": "59c5b2d98e0e548286e56f186f9fa198cc173cffda4f74201d96cfdc7d98855a",
+  "status": "failed",
+  "full_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "execution": {
+    "source_diagnostic_only": true,
+    "baseline_diagnostic": true,
+    "native_x64": true,
+    "windows_build": 26300,
+    "ordinary_user": true,
+    "execution_mode": "original_sdk"
+  },
+  "excluded_from_archive": [
+    "raw logs, packet captures and screenshots",
+    "process identifiers, creation times, temporary paths and DNS nonces",
+    "VM media, credentials and capability URLs"
+  ]
+}

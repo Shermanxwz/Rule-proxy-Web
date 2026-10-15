@@ -778,6 +778,7 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
         helpers.startup_evidence.return_value = {"startup_checks_verified": True}
         browser = mock.Mock(HOST="ruleproxy-browser-fixture.invalid")
         wrapper, resources, tree, windows = mock.Mock(), mock.Mock(), mock.Mock(), mock.Mock()
+        resources.bounded_guest_status.return_value = {"status": "observed", "state": "APP_EXITED", "app_exit": 0}
         wrapper.poll.side_effect = [None, 0]
         tree.entries, tree.peak_handles = {30: {}}, 4
         tree.unqueryable_candidates = set()
@@ -816,11 +817,16 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
             fixture, helpers, browser, job = mock.Mock(), mock.Mock(), mock.Mock(), mock.Mock()
             job.active_processes.side_effect = [1, 2]
             fixture.port = 10809
+            local_appdata = root / "local-appdata"
+            local_appdata.mkdir()
             helpers.startup_evidence.return_value = {"startup_diagnostics": {"parent": {"pid": 20}}}
             wrapper, resources, tree = mock.Mock(), mock.Mock(), mock.Mock()
+            resources.bounded_guest_status.return_value = {"status": "observed", "state": "APP_EXITED", "app_exit": 0}
             wrapper.wait.return_value = 0
             events = []
+            launch_arguments = {}
             def launch(command, *_args, **_kwargs):
+                launch_arguments.update(_kwargs)
                 report = Path(command[command.index("--report") + 1])
                 report.write_text(json.dumps({"schema": 1, "windows": True, "environment": {"localappdata_present": True}}))
                 events.append("launch")
@@ -834,7 +840,8 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
                 events.append("natural_exit")
                 return 0
             wrapper.wait.side_effect = wait
-            owner = gui.GuiRun("runtime", self.edge, root, fixture, helpers, browser, job)
+            owner = gui.GuiRun("runtime", self.edge, root, fixture, helpers, browser, job,
+                               application_kind="chrome_for_testing_control", enumerate_path=local_appdata)
             with mock.patch.object(windows_runtime, "launch", side_effect=launch), \
                     mock.patch.object(windows_runtime, "choose_guest_port", return_value=34567), \
                     mock.patch.object(gui, "ProcessApi"), mock.patch.object(gui, "OwnedTree", return_value=tree), \
@@ -843,6 +850,8 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
             self.assertEqual(events, ["launch", "attest", "natural_exit", "cleanup"])
             self.assertTrue(facts["descendant_cleanup_proven"])
             self.assertFalse(facts["acceptance_passed"])
+            self.assertEqual(facts["guest_status"]["app_exit"], 0)
+            self.assertEqual(launch_arguments["enumerate_path"], local_appdata)
 
     def test_context_report_rejects_strings_duplicates_and_oversize(self):
         with tempfile.TemporaryDirectory() as temporary:
