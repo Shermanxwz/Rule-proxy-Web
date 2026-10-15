@@ -16,20 +16,38 @@
     ]
   },
   "windows_11": {
-    "status": "pending",
+    "status": "unverified",
     "run_id": 38792652549,
     "previous_attempt_status": "failed_bootstrap_without_product_report",
     "product_execution_confirmed": false,
     "source_commit": "e9eca229d9301a563e804a651718cb90cad98551",
-    "previous_attempt_run_id": 38788166642
+    "previous_attempt_run_id": 38788166642,
+    "attempt_status": "cancelled_at_budget_without_guest_or_product_report",
+    "product_runtime_failure_proven": false,
+    "last_retained_screen": "Installing Windows 11; 32% complete",
+    "cancel_requested_utc": "2026-10-15T20:02:11Z",
+    "completed_utc": "2026-10-15T20:03:14Z",
+    "additional_native_vm_runs_started": 0,
+    "remaining_qualification": "Windows 11 installation and ordinary-user product acceptance"
   },
   "real_internet_exit_ip_verified": false,
   "linux_equivalent_isolation": false,
   "public_binary_release_eligible": false,
   "cross_platform_ci": {
     "status": "passed",
-    "run_id": 38792664704,
+    "run_id": 38796992440,
     "jobs_passed": 8,
-    "source_commit": "e9eca229d9301a563e804a651718cb90cad98551"
+    "source_commit": "f86d9c96bed39f7f8d6382d9b7c1d5fff65d3ae4",
+    "branch": "main"
+  },
+  "branch_consolidation": {
+    "status": "completed",
+    "local_heads": 1,
+    "remote_heads": 1,
+    "retained_branch": "main",
+    "previous_local_heads": 39,
+    "previous_remote_heads": 53,
+    "historical_worktree_heads_preserved": 28,
+    "private_dirty_worktree_archive_verified": true
   }
 }

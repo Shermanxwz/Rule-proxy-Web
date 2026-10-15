@@ -21,10 +21,20 @@
     "payload_files_verified": 353,
     "archive_sha256": "0ab67d216e76094a2974709e8cd767c9e27781ae5169b64bdcdd39340b373b2a"
   },
-  "branch_cleanup_status": "main_only_via_atomic_compare_and_swap",
+  "branch_cleanup_status": "main_only_completed",
   "retained_branch": "main",
   "main_before_consolidation": "67a0ebf168803925e45419e5154d39bf7311a1da",
   "remote_ref_transaction": "Fast-forward main and delete every other remote branch atomically, with an exact beforeOid for every ref.",
   "all_worktree_heads_preserved": 28,
-  "native_windows_11_qualification": "Pending run 38792652549; the qualified Server product and archived histories are consolidated independently."
+  "native_windows_11_qualification": "Unverified after bounded run 38792652549 was cancelled without a guest product report. Last retained screen: Windows 11 installation at 32%. No further native VM experiments started.",
+  "heads_after_cleanup": {
+    "local": 1,
+    "remote": 1,
+    "retained": "main"
+  },
+  "complete_main_bundle": {
+    "commit": "f86d9c96bed39f7f8d6382d9b7c1d5fff65d3ae4",
+    "sha256": "4448998be6de0756da483f7613907edad38a958f5faccf11f3c78cbe8316725c",
+    "verified": true
+  }
 }

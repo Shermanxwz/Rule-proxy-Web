@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "status": "inconclusive_native_product_qualification_budget_cancelled",
+  "stop_reason": "The controller cancelled the run at its approximately 45-minute total waiting limit. No additional native VM run was started after this bounded cancellation.",
+  "last_retained_screen": {
+    "text": "Installing Windows 11; 32% complete",
+    "interpretation": "The retained sample shows operating-system installation, before the product UI or qualification suite. Its capture may precede cancellation."
+  },
+  "retained_serial_log": "UEFI boot attempts and launch of the installation DVD only. No product or PowerShell bootstrap output.",
+  "guest_result_present": false,
+  "native_summary_present": false,
+  "product_report_present": false,
+  "bootstrap_phase_or_log_present": false,
+  "product_execution_confirmed": false,
+  "product_failure_proven": false,
+  "windows_11_product_verified": false,
+  "limits": "No assertion that product execution never began, or that Windows installation itself irrecoverably failed, can be made from a sampled screen and missing report. ISO/KVM verification and the exact final guest phase cannot be independently re-established from this four-file artifact.",
+  "next_action": "Stopped at the agreed budget; retain evidence and leave native qualification unresolved."
+}

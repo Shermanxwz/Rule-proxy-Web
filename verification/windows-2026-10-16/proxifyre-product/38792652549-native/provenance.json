@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "run_id": 38792652549,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38792652549",
+  "source_commit": "e9eca229d9301a563e804a651718cb90cad98551",
+  "source_commit_evidence": "same-run archived Server provenance",
+  "qualification_scope": "Native Windows 11 final personal offline ZIP; cancelled before any guest product report was received",
+  "artifact_id": 12003771387,
+  "github_artifact_digest": "sha256:4f2107298c1044e030c354b4786af69c9f5fc97bdd6cf28cbfa2c46fe481d893",
+  "normalized_download_zip_sha256": "4f2107298c1044e030c354b4786af69c9f5fc97bdd6cf28cbfa2c46fe481d893",
+  "download_bytes": 6960,
+  "artifact_digest_verified": true,
+  "archive_extraction": "Validated relative POSIX paths, no traversal, backslash, drive prefix, symlink, or expanded payload above 8MiB; extracted under /tmp before review.",
+  "artifact_members": [
+    {
+      "name": "last-screen.png",
+      "bytes": 11002,
+      "zip_modified_time": [
+        2026,
+        10,
+        15,
+        20,
+        2,
+        42
+      ]
+    },
+    {
+      "name": "qemu.log",
+      "bytes": 0,
+      "zip_modified_time": [
+        2026,
+        10,
+        15,
+        19,
+        20,
+        8
+      ]
+    },
+    {
+      "name": "serial.log",
+      "bytes": 431,
+      "zip_modified_time": [
+        2026,
+        10,
+        15,
+        19,
+        20,
+        10
+      ]
+    },
+    {
+      "name": "swtpm.log",
+      "bytes": 0,
+      "zip_modified_time": [
+        2026,
+        10,
+        15,
+        19,
+        20,
+        8
+      ]
+    }
+  ],
+  "preserved_files": {
+    "last-screen.png": {
+      "bytes": 11002,
+      "sha256": "867d086cae18d645b14e1018356827483be4b915cee6221b4e2ccee4ff678744"
+    },
+    "qemu.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "serial.log": {
+      "bytes": 431,
+      "sha256": "e3f0fb80ad51063024e0dfe316101d8cc91e8309d594fcbcd6a08cafc3ee2b3f"
+    },
+    "swtpm.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "workflow_conclusion": "cancelled",
+  "cancellation_evidence_source": "Root controller reported GitHub completed/cancelled after its budget cancellation request.",
+  "cancel_requested_utc": "2026-10-15T20:02:11Z",
+  "completed_utc": "2026-10-15T20:03:14Z",
+  "package_sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
+  "package_identity_source": "same-run archived Server provenance; no native guest report independently confirms package execution",
+  "status": "cancelled_at_budget_without_guest_or_product_report",
+  "native_product_passed": false,
+  "product_execution_confirmed": false,
+  "product_runtime_failure_proven": false
+}
