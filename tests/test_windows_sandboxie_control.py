@@ -226,6 +226,10 @@ class WindowsSandboxieControlTests(unittest.TestCase):
         self.assertEqual(summary["child_native_dns_calls"], 1)
         self.assertEqual(summary["parent_native_dns"]["calls"][0]["qname"], "secret nonce")
         self.assertEqual(summary["child_native_dns"]["calls"][0]["qname"], "secret")
+        self.assertEqual(summary["proxy_http_observation"], {
+            "ok": True, "error_type": None, "errno": None, "winerror": None})
+        self.assertEqual(summary["proxy_socks_observation"], {
+            "ok": True, "error_type": None, "errno": None, "winerror": None})
         self.assertFalse(summary["direct_tcp_connected"])
         self.assertIs(summary["udp_send_observations"]["udp4"], False)
         self.assertEqual(summary["udp_tuple_observations"]["udp4"], {
@@ -238,6 +242,41 @@ class WindowsSandboxieControlTests(unittest.TestCase):
         self.assertFalse(summary["udp_tuple_observations"]["udp6"]["metadata_complete"])
         self.assertEqual(summary["child"]["udp_tuple_observations"]["udp4"]["payload_hex"],
                          ("RPWFREE:" + "a" * 32 + ":outside_before").encode().hex())
+
+    def test_worker_summary_preserves_bounded_parent_child_proxy_failures(self):
+        secret = "SensitiveFailure https://private.example/path?token=secret"
+        record = {
+            "schema_version": 1, "role": "parent",
+            "proxy_http": {"ok": False, "error_type": "ConnectionRefusedError",
+                           "errno": 111, "winerror": 10061, "error": secret},
+            "proxy_socks": {"ok": False, "error_type": secret,
+                            "errno": 2 ** 80, "winerror": "not-a-number", "error": secret},
+            "direct_tcp": {"connected": False},
+            "native_dns": {"calls": []},
+            "child": {"role": "child",
+                      "proxy_http": {"ok": False, "error_type": "gaierror",
+                                     "errno": 11001, "winerror": 11001},
+                      "proxy_socks": {"ok": True, "error_type": "OSError",
+                                      "errno": 10061, "winerror": 10061},
+                      "direct_tcp": {"connected": False},
+                      "native_dns": {"calls": []}},
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "report.json"
+            path.write_text(json.dumps(record), encoding="ascii")
+            summary = control._bounded_worker_summary(path)
+        self.assertFalse(summary["proxy_http_ok"])
+        self.assertFalse(summary["proxy_socks_ok"])
+        self.assertEqual(summary["proxy_http_observation"], {
+            "ok": False, "error_type": "ConnectionRefusedError", "errno": 111,
+            "winerror": 10061})
+        self.assertEqual(summary["proxy_socks_observation"], {
+            "ok": False, "error_type": None, "errno": None, "winerror": None})
+        self.assertEqual(summary["child"]["proxy_http_observation"], {
+            "ok": False, "error_type": "gaierror", "errno": 11001, "winerror": 11001})
+        self.assertEqual(summary["child"]["proxy_socks_observation"], {
+            "ok": True, "error_type": None, "errno": None, "winerror": None})
+        self.assertNotIn(secret, json.dumps(summary))
 
     def test_native_dns_helper_status_and_cleanup_are_preserved_as_bounded_facts(self):
         record = {"schema_version": 1, "role": "parent", "proxy_http": {},

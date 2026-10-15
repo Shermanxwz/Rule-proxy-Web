@@ -597,6 +597,29 @@ def _bounded_worker_summary(path: Path):
     child_dns = child.get("native_dns", {}).get("calls", [])
     if type(parent_dns) is not list or type(child_dns) is not list:
         raise ValueError("fixed worker DNS summary malformed")
+    socket_error_types = {
+        "OSError", "TimeoutError", "ConnectionError", "ConnectionRefusedError",
+        "ConnectionResetError", "ConnectionAbortedError", "BrokenPipeError",
+        "gaierror", "EOFError", "ValueError", "KeyError", "IndexError",
+    }
+    def socket_facts(record, key):
+        raw = record.get(key)
+        if type(raw) is not dict:
+            raw = {}
+        ok = raw.get("ok") is True
+        error_type = raw.get("error_type")
+        def error_number(name):
+            number = raw.get(name)
+            if type(number) is int and 0 <= number <= 0xFFFFFFFF:
+                return number
+            return None
+        # A successful observation has no failure facts, even if an input
+        # report contains contradictory or untrusted fields.
+        return {"ok": ok,
+                "error_type": (error_type if not ok and type(error_type) is str
+                               and error_type in socket_error_types else None),
+                "errno": error_number("errno") if not ok else None,
+                "winerror": error_number("winerror") if not ok else None}
     def dns_facts(record):
         item = record.get("native_dns")
         if type(item) is not dict:
@@ -645,9 +668,13 @@ def _bounded_worker_summary(path: Path):
                 "metadata_complete": item.get("metadata_complete") is True,
             }
         return output
+    parent_http = socket_facts(value, "proxy_http")
+    parent_socks = socket_facts(value, "proxy_socks")
+    child_http = socket_facts(child, "proxy_http")
+    child_socks = socket_facts(child, "proxy_socks")
     return {"worker_report_observed": True,
-            "proxy_http_ok": value.get("proxy_http", {}).get("ok") is True,
-            "proxy_socks_ok": value.get("proxy_socks", {}).get("ok") is True,
+            "proxy_http_ok": parent_http["ok"], "proxy_socks_ok": parent_socks["ok"],
+            "proxy_http_observation": parent_http, "proxy_socks_observation": parent_socks,
             "direct_tcp_connected": value.get("direct_tcp", {}).get("connected") is True,
             "parent_native_dns_calls": len(parent_dns), "child_native_dns_calls": len(child_dns),
             "parent_native_dns": dns_facts(value),
@@ -655,8 +682,9 @@ def _bounded_worker_summary(path: Path):
             "udp_send_observations": {key: value.get(key, {}).get("send_ok")
                                       for key in ("udp4", "udp6", "public_udp4", "public_udp6")},
             "udp_tuple_observations": udp_tuples(value),
-            "child": {"proxy_http_ok": child.get("proxy_http", {}).get("ok") is True,
-                      "proxy_socks_ok": child.get("proxy_socks", {}).get("ok") is True,
+            "child": {"proxy_http_ok": child_http["ok"], "proxy_socks_ok": child_socks["ok"],
+                      "proxy_http_observation": child_http,
+                      "proxy_socks_observation": child_socks,
                       "direct_tcp_connected": child.get("direct_tcp", {}).get("connected") is True,
                       "udp_send_observations": {key: child.get(key, {}).get("send_ok")
                                                 for key in ("udp4", "udp6", "public_udp4", "public_udp6")},
