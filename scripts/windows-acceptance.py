@@ -48,16 +48,6 @@ import urllib.parse
 
 
 ROOT = Path(__file__).resolve().parent.parent
-_PINS_SPEC = importlib.util.spec_from_file_location(
-    "ruleproxy_windows_runtime_pins", ROOT / "ruleproxy" / "windows_runtime_pins.py")
-if _PINS_SPEC is None or _PINS_SPEC.loader is None:
-    raise RuntimeError("fixed Windows runtime pins module is unavailable")
-_PINS = importlib.util.module_from_spec(_PINS_SPEC)
-_PINS_SPEC.loader.exec_module(_PINS)
-MXC_G_EXECUTOR_SHA256 = _PINS.MXC_G_EXECUTOR_SHA256
-MXC_G_LICENSE_SHA256 = _PINS.MXC_G_LICENSE_SHA256
-
-RUNTIME_VERSIONS = _PINS.expected_windows_record()
 RUNTIME_REQUIRED_FILES = frozenset({"mihomo.exe", "wxc-exec.exe", "mxc_ffi.dll",
                                     "MIHOMO-LICENSE", "MXC-LICENSE.md"})
 NETWORK_SNAPSHOT_TIMEOUT = 120
@@ -69,6 +59,50 @@ _UDP_PROBE_DATAGRAM = (
 )
 
 
+def _load_runtime_pins():
+    """Load checkout pins only when host-side verification actually needs them.
+
+    The script is also copied into an isolated profile and started with -I -S
+    for its stdlib-only guest role. That copy deliberately has no ruleproxy
+    package, so importing the host-only pin module at script startup breaks it.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "ruleproxy_windows_runtime_pins", ROOT / "ruleproxy" / "windows_runtime_pins.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("fixed Windows runtime pins module is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except OSError as exc:
+        raise RuntimeError("fixed Windows runtime pins module is unavailable") from exc
+    return module
+
+
+def _initialize_runtime_pins():
+    names = ("MXC_G_EXECUTOR_SHA256", "MXC_G_LICENSE_SHA256", "RUNTIME_VERSIONS")
+    missing = [name for name in names if name not in globals()]
+    if not missing:
+        return
+    pins = _load_runtime_pins()
+    values = {
+        "MXC_G_EXECUTOR_SHA256": pins.MXC_G_EXECUTOR_SHA256,
+        "MXC_G_LICENSE_SHA256": pins.MXC_G_LICENSE_SHA256,
+        "RUNTIME_VERSIONS": pins.expected_windows_record(),
+    }
+    # Preserve explicit test overrides while filling any unset host constants.
+    for name in missing:
+        globals()[name] = values[name]
+
+
+def __getattr__(name):
+    # Preserve the module's existing host/test API while keeping guest startup
+    # independent of checkout-only files and ambient import paths.
+    if name in {"MXC_G_EXECUTOR_SHA256", "MXC_G_LICENSE_SHA256", "RUNTIME_VERSIONS"}:
+        _initialize_runtime_pins()
+        return globals()[name]
+    raise AttributeError(name)
+
+
 def verify_runtime_manifest(root: Path) -> dict[str, str]:
     """Check a source checkout or portable package without builder imports.
 
@@ -76,6 +110,7 @@ def verify_runtime_manifest(root: Path) -> dict[str, str]:
     manifest. An attacker replacing files and their manifest is outside this
     integrity check; the downloaded ZIP's external checksum establishes origin.
     """
+    _initialize_runtime_pins()
     directory = root / "bin" / "windows-amd64"
     manifest = directory / "runtime.json"
     with manifest.open("rb") as stream:

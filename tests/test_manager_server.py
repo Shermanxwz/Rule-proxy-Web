@@ -251,8 +251,14 @@ class IsolationCheckTests(unittest.TestCase):
     @unittest.skipUnless(sys.platform in ("linux", "win32"), "the isolation check runs on Linux and Windows")
     def test_a_crashing_check_reads_as_unsupported_and_the_state_still_loads(self):
         failure = AttributeError("'NoneType' object has no attribute 'strip'")
-        with patch("ruleproxy.linux_runtime.probe", side_effect=failure), \
+        candidate = Path(self.temp.name) / "pinned-g.exe"
+        payload = b"pinned G executor fixture"
+        candidate.write_bytes(payload)
+        self.manager.settings["runtime_path"] = str(candidate)
+        with patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", hashlib.sha256(payload).hexdigest()), \
+                patch("ruleproxy.manager.sys.platform", "win32"), \
                 patch("ruleproxy.windows_runtime.probe", side_effect=failure), \
+                patch.object(self.manager, "autostart_status", return_value="off"), \
                 redirect_stderr(io.StringIO()) as errors:
             state = self.manager.state()
             again = self.manager.state()

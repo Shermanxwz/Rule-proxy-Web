@@ -49,6 +49,59 @@ class WindowsAcceptanceTests(unittest.TestCase):
             self.assertNotIn("ModuleNotFoundError", probe_result.stderr)
             self.assertEqual(probe_result.returncode, 3, probe_result.stderr)
 
+    def test_copied_guest_starts_under_isolated_stdlib_python_without_checkout_pins(self):
+        with tempfile.TemporaryDirectory(prefix="acceptance-guest-copy-") as temporary:
+            root = Path(temporary)
+            copied_script = root / "acceptance_guest.py"
+            copied_script.write_bytes(SCRIPT.read_bytes())
+            self.assertFalse((root / "ruleproxy").exists())
+            result = subprocess.run(
+                [sys.executable, "-I", "-S", "-X", "utf8", str(copied_script), "--guest",
+                 "--role", "child", "--fixture-token", "a" * 64,
+                 "--host-v4-port", "1", "--host-v6-port", "1", "--run-token", "invalid"],
+                cwd=root, capture_output=True, text=True, timeout=10)
+            # The malformed token is rejected by guest_main before network
+            # probes; reaching its return code proves module startup did not
+            # try to import pins from a missing repository tree.
+            self.assertEqual(result.returncode, 64, result.stderr)
+            self.assertNotIn("fixed Windows runtime pins module is unavailable", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
+    def test_fresh_isolated_host_manifest_check_loads_strict_pins(self):
+        root = self.root
+        runtime_dir = root / "bin" / "windows-amd64"
+        runtime_dir.mkdir(parents=True)
+        record = dict(acceptance.RUNTIME_VERSIONS)
+        record["sha256"] = {name: "0" * 64 for name in acceptance.RUNTIME_REQUIRED_FILES}
+        (runtime_dir / "runtime.json").write_text(json.dumps(record), encoding="utf-8")
+        check_code = """import runpy, sys
+from pathlib import Path
+verify = runpy.run_path(sys.argv[1])["verify_runtime_manifest"]
+try:
+    verify(Path(sys.argv[2]))
+except Exception as exc:
+    print(type(exc).__name__ + ": " + str(exc))
+"""
+        result = subprocess.run(
+            [sys.executable, "-I", "-S", "-c", check_code, str(SCRIPT.resolve()), str(root)],
+            cwd=root, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ValueError: runtime manifest does not identify the fixed G executor and license", result.stdout)
+        self.assertNotIn("NameError", result.stdout)
+
+        with tempfile.TemporaryDirectory(prefix="acceptance-host-no-pins-") as temporary:
+            copied_root = Path(temporary)
+            copied_script = copied_root / "scripts" / "windows-acceptance.py"
+            copied_script.parent.mkdir()
+            copied_script.write_bytes(SCRIPT.read_bytes())
+            missing_pin_check = subprocess.run(
+                [sys.executable, "-I", "-S", "-c", check_code,
+                 str(copied_script), str(root)], cwd=copied_root,
+                capture_output=True, text=True, timeout=10)
+            self.assertEqual(missing_pin_check.returncode, 0, missing_pin_check.stderr)
+            self.assertIn("RuntimeError: fixed Windows runtime pins module is unavailable", missing_pin_check.stdout)
+            self.assertNotIn("NameError", missing_pin_check.stdout)
+
     def executable(self, machine, path=None):
         header = bytearray(64)
         header[:2] = b"MZ"
