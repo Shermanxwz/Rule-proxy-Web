@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "backend": "sandboxie",
+  "scope": "Windows Server 2025 build 26100.33438 diagnostic only",
+  "source_commit": "959512ea6fa9b3117fd4dde40b23427414deb8d0",
+  "workflow_run": 38754475398,
+  "diagnostic_report_collected": true,
+  "ordinary_user": true,
+  "cleanup_proven": true,
+  "windows_11_verified": false,
+  "product_acceptance_passed": false,
+  "simple_deployment_accepted": false,
+  "dns_wire_privacy_proven": false,
+  "box_proxy_observations": {
+    "RuleProxyDnsIpc": {
+      "parent_http": false,
+      "parent_socks": false,
+      "child_http": true,
+      "child_socks": true
+    },
+    "RuleProxyNet": {
+      "parent_http": true,
+      "parent_socks": true,
+      "child_http": true,
+      "child_socks": true
+    }
+  },
+  "repetition_consistency": "Earlier 29e4da3 run succeeded in both boxes; current DNS-IPC parent HTTP/SOCKS false, cause unresolved.",
+  "raw_unconnected_udp_status": "complete",
+  "raw_unconnected_udp_outside_controls_positive": true,
+  "raw_unconnected_udp_receiver_counts": {
+    "ipv4": {
+      "RuleProxyDnsIpc": 0,
+      "RuleProxyNet": 0
+    },
+    "ipv6": {
+      "RuleProxyDnsIpc": 0,
+      "RuleProxyNet": 0
+    }
+  },
+  "deployment_facts": {
+    "schema_version": 1,
+    "backend": "sandboxie",
+    "scope": "disposable_server_after_probe_cleanup",
+    "service_name": "SbieSvc",
+    "installed_directory_bytes": 76926133,
+    "installed_file_count": 73,
+    "service_working_set_bytes": 11149312,
+    "service_private_memory_bytes": 3162112,
+    "service_state": "Running",
+    "service_start_mode": "Auto",
+    "includes_kernel_driver_memory": false,
+    "includes_mihomo_or_application_memory": false,
+    "product_deployment_accepted": false,
+    "diagnostic_only": true
+  }
+}

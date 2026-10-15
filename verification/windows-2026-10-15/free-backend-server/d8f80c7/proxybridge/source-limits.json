@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "backend": "proxybridge",
+  "source_release": "v4.1.1",
+  "source_commit": "1825f4cbdc3d24bc54fa3def4bce2947f97a18fe",
+  "status": "source_review_only",
+  "diagnostic_only": true,
+  "product_acceptance_passed": false,
+  "scope_assumption": "A selected application should have all of its network traffic handled by the proxy or denied when proxying is unavailable, while unrelated host traffic remains unaffected, as in the requested Linux per-application behavior.",
+  "observed_in_the_server_run": [
+    "HTTP and SOCKS requests from the selected synthetic image succeeded through the configured proxy.",
+    "Nonce- and role-tagged UDP4 and UDP6 loopback packets from selected parent and same-image child were received directly by the local fixture during the selected stage.",
+    "The run was Windows Server 2025, not Windows 11; it did not test a different-executable descendant or GUI."
+  ],
+  "additional_requirements_if_matching_that_scope": [
+    {
+      "topic": "Different-executable descendants",
+      "source_fact": "Packet classification resolves a connection PID to one process image name, then matches rules by that name. Rules contain process-name patterns; the inspected path has no parent/descendant identity inheritance. Unmatched traffic defaults to DIRECT.",
+      "consequence": "A child with a different executable image will not inherit the selected parent's rule from the mechanism inspected. A product would need to track and install rules for the whole launched process tree, or use another grouping primitive. Static user-maintained executable lists would not cover arbitrary dynamic children.",
+      "implementation_location": "Could be added to the existing privileged service/control path; no separate privileged component is proven necessary for name tracking, but new process-tree lifecycle logic is required.",
+      "certainty": "Source-established behavior; different-executable descendant behavior was not tested in the native run."
+    },
+    {
+      "topic": "Unknown process identity and unmatched traffic",
+      "source_fact": "When PID resolution returns zero or image-name lookup fails, IPv4/IPv6 classification returns DIRECT. The rule matcher also returns DIRECT when no specific or wildcard rule matches.",
+      "consequence": "The inspected backend has fail-open paths. A selected-application guarantee needs a way to retain selected-process attribution through those cases and deny unresolved selected traffic. A global wildcard deny would also affect unrelated host traffic unless scope is safely constrained.",
+      "certainty": "Explicit in source; frequency and reachability on the target OS are unmeasured."
+    },
+    {
+      "topic": "Engine or service exit",
+      "source_fact": "ProxyBridge_Stop marks the engine stopped and shuts down/closes its WinDivert capture handle. The service invokes the engine stop path when the client disconnects. The inspected source contains no independent persistent deny gate that remains after the capture engine/service exits.",
+      "consequence": "The design does not establish fail-closed behavior for selected-app traffic after engine/service loss. Guaranteeing that condition requires an enforcement layer that remains active independently and can deny selected traffic while the proxy is unavailable; this is beyond the current one-shot capture engine and likely needs a persistent privileged service/filter or OS firewall policy.",
+      "certainty": "The absence of a separate fail-closed gate is source-established; exact packet behavior under every crash mode was not measured."
+    },
+    {
+      "topic": "System DNS broker attribution",
+      "source_fact": "The engine classifies captured packets from socket/connection owner PID and image name. The inspected DNS code snoops DNS traffic for hostname cache use; it does not show a caller-token or originating-application identity being propagated through the Windows DNS Client service.",
+      "consequence": "Per-application rules cannot be assumed to govern DNS queries issued through a system resolver broker using the caller's identity. A guarantee needs explicit caller-to-query correlation or controlled per-app DNS handling, and wire capture must verify the resulting traffic. Broadly proxying/blocking all resolver traffic could change unrelated host DNS behavior.",
+      "certainty": "No caller-attribution mechanism found in inspected source; actual resolver path and leakage remain unproven by this source review."
+    }
+  ],
+  "sources": [
+    {
+      "title": "ProxyBridge v4.1.1 process-rule classification and DIRECT fallbacks",
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/pb_rules.c#L739-L777"
+    },
+    {
+      "title": "ProxyBridge v4.1.1 image-name rule matching and unmatched DIRECT default",
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/pb_rules.c#L534-L635"
+    },
+    {
+      "title": "ProxyBridge v4.1.1 service disconnect cleanup",
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/service/pb_service.c#L257-L274"
+    },
+    {
+      "title": "ProxyBridge v4.1.1 capture start and engine stop",
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/ProxyBridge.c#L1153-L1235"
+    },
+    {
+      "title": "ProxyBridge v4.1.1 WinDivert shutdown in Stop",
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/ProxyBridge.c#L1340-L1363"
+    },
+    {
+      "title": "ProxyBridge v4.1.1 TCP socket PID mapping",
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/pb_sockmap.c#L25-L60"
+    },
+    {
+      "title": "This run's safe result assessment",
+      "url": "verification/windows-2026-10-15/free-backend-server/d8f80c7/proxybridge/assessment.json"
+    },
+    {
+      "title": "ProxyBridge v4.1.1 DNS cache and resolver-cache flush are for domain-rule hostname association",
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/pb_dns.c#L3-L4"
+    },
+    {
+      "title": "ProxyBridge v4.1.1 process PID lookup uses TCP/UDP connection ownership and process image lookup",
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/pb_process.c#L233-L267"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "source_commit": "270efb6b74b6fe3d735c67a5a80adaa5b607cf5b",
+  "workflow_run": 38747378926,
+  "artifact_id": 11978658448,
+  "artifact_sha256": "a8593a069c11a8ed726fee6d119e8c305a6341f8006a9be8ebafa63957f8bff2",
+  "members": [
+    {
+      "file": "install-report.json",
+      "bytes": 724,
+      "sha256": "0fca1369a56f3a9040057c6c1adbe53f454652102236d6542eb4ed65d2c4ff4a"
+    },
+    {
+      "file": "probe-report.json",
+      "bytes": 715,
+      "sha256": "cec3fa1eee1c46afc233150c050b7552f22859aee549a58a73a03fa17e2eb14a"
+    },
+    {
+      "file": "server-probe-state.json",
+      "bytes": 292,
+      "sha256": "22cd920e91e6bf682ae9a25b5e350160172f52e6958cf14d803e5ca31ec3b314"
+    }
+  ],
+  "os_scope": "Windows Server 2025; not a Windows 11 native acceptance result",
+  "product_acceptance_passed": false
+}

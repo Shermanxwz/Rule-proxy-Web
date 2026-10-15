@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b",
+  "artifacts": [
+    {
+      "mode": "singleton",
+      "branch": "codex/windows-tcp-singleton-evaluation-20261015",
+      "workflow_run": 38722534377,
+      "native_job": 116381184433,
+      "artifact_id": 11970558023,
+      "artifact_name": "windows-11-x64-validation",
+      "artifact_zip_bytes": 54348,
+      "artifact_zip_sha256": "9372ab2b1c1c8c82aa4961075d6ea6d5e4bcc40580410037bd7f559d4e293b03",
+      "evidence_files": [
+        {
+          "source_member": "windows-experiments.json",
+          "bytes": 76381,
+          "sha256": "e43f5c88d50bbae994c5bf6ed809c3bfe2d84ba2176600ce99b9f756ac6eaf1e",
+          "copy_format": "digest only; raw reports retained in verified artifact"
+        },
+        {
+          "source_member": "windows-wire-evidence.json",
+          "bytes": 25987,
+          "sha256": "efd68028eb37c8b3556ac171fa5e3316aa9a0c6549953a1ef35e2eeab3ca23d2",
+          "copy_format": "digest only; raw reports retained in verified artifact"
+        },
+        {
+          "source_member": "windows-vm-summary.json",
+          "bytes": 35490,
+          "sha256": "4949fd05e25396fa2f64451e14661e8f4697a08d8abbbf1b7ac3dc45e9561ccf",
+          "copy_format": "digest only; raw reports retained in verified artifact"
+        },
+        {
+          "source_member": "guest-result.json",
+          "bytes": 234570,
+          "sha256": "697ba2aae4a51479dd7f99ce03a2c879035d19d541f38baac695cfb7203a7939",
+          "copy_format": "digest only; raw reports retained in verified artifact"
+        }
+      ]
+    },
+    {
+      "mode": "loopback",
+      "branch": "codex/windows-tcp-loopback-evaluation-20261015",
+      "workflow_run": 38722545675,
+      "native_job": 116381250991,
+      "artifact_id": 11971010135,
+      "artifact_name": "windows-11-x64-validation",
+      "artifact_zip_bytes": 54078,
+      "artifact_zip_sha256": "658e8783c6073a03c93a549fef6641f322bff8d010492e4ed84482eef2a069de",
+      "evidence_files": [
+        {
+          "source_member": "windows-experiments.json",
+          "bytes": 76349,
+          "sha256": "4fa8c953e536a4d3467c65f493582de8797499bfb492484672db28e87f5ba163",
+          "copy_format": "digest only; raw reports retained in verified artifact"
+        },
+        {
+          "source_member": "windows-wire-evidence.json",
+          "bytes": 26034,
+          "sha256": "3fd41483ed5ff0daa89ae1d7028704b80cc9a9454dbc68809a1dd2e64ef56db8",
+          "copy_format": "digest only; raw reports retained in verified artifact"
+        },
+        {
+          "source_member": "windows-vm-summary.json",
+          "bytes": 34950,
+          "sha256": "b998fb0464adf8693607bf7440cd355349e26b26ddcc2992b2c22131ccc12480",
+          "copy_format": "digest only; raw reports retained in verified artifact"
+        },
+        {
+          "source_member": "guest-result.json",
+          "bytes": 234802,
+          "sha256": "23308a3caaddd69f554911b5681d44cf26d4233681335640fdaba27d855798d5",
+          "copy_format": "digest only; raw reports retained in verified artifact"
+        }
+      ]
+    }
+  ]
+}

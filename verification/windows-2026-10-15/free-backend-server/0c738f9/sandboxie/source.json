@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "source_commit": "0c738f99054043f89c78693e0f9183b3e0839ba5",
+  "workflow_run": 38750815259,
+  "artifact_id": 11981346434,
+  "artifact_sha256": "0758cc39e7693f32c32afc64d62bcfc60c812130f345b46dc7e6be45e60746bf",
+  "artifact_bytes": 5708,
+  "members": [
+    {
+      "path": "install-report.json",
+      "bytes": 1185,
+      "sha256": "e2678586003f79fce48868afbad3b6a4ad77273be568c7db507f9e9d918ed232"
+    },
+    {
+      "path": "probe-report.json",
+      "bytes": 23057,
+      "sha256": "09048d1f8ceea6e3213b1f0b815af36a3cf77b7fb39f7cca569b73e93d200e01"
+    },
+    {
+      "path": "server-probe-state.json",
+      "bytes": 294,
+      "sha256": "ae272d8ebb4d3de5de6c63b5ddcbc87eb4caa73d834f2f786f49e4fa2791c103"
+    }
+  ],
+  "product_acceptance_passed": false
+}

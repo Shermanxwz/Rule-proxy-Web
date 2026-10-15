@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "backend": "sandboxie",
+  "source_commit": "29e4da31e1375146049db3858d318893c1939a69",
+  "workflow_run": 38752386917,
+  "os_scope": "Windows Server 2025 build 26100.33438",
+  "ordinary_user": true,
+  "network_policy_controlled": true,
+  "unselected_network_unaffected": true,
+  "proxy_down_fail_closed_tcp": true,
+  "native_dns_execution_complete": true,
+  "native_dns_observations_scope": "Both boxes each completed the three native APIs in a real parent and its real child, with distinct per-box nonces. No on-wire DNS conclusion is available in this Server run.",
+  "ordinary_user_policy_update": "persistent_service_fallback with exact driver readback",
+  "loopback_udp_scope": "Receiver total is four per family, consistent with the four outside-before/outside-after workers; selected UDP connect calls were rejected before sendto. Unconnected sendto requires separate observation.",
+  "gui_status": "not_tested_noninteractive",
+  "cleanup_proven": true,
+  "dns_wire_privacy_proven": false,
+  "windows_11_verified": false,
+  "product_acceptance_passed": false,
+  "deployment_simple_accepted": false
+}

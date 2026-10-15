@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "status": "evaluation_closed_neither_stock_candidate_eligible",
+  "started_at_utc": "2026-10-15T12:49:22Z",
+  "product_adoption": false,
+  "product_acceptance_passed": false,
+  "hard_requirements": {
+    "license_fee": 0,
+    "deployment_simple": true,
+    "daily_launch_elevation": false,
+    "manual_per_application_network_configuration": false,
+    "linux_effect_preserved": true
+  },
+  "required_observations": [
+    "Verified signed drivers install automatically with bounded one-time elevation and recorded reboot/relogin needs.",
+    "Ordinary-user launched selected app and descendants use the assigned Mihomo proxy.",
+    "Direct IPv4/IPv6/TCP/UDP and native resolver egress are contained, including stopped proxy and malformed configuration.",
+    "Unselected applications retain working connectivity without system proxy/DNS/default-route changes.",
+    "Visible GUI application works, preserves private profile across relaunches, and closes with owned processes/resources cleaned.",
+    "Measure installed runtime components separately from test-only browser/Python/Windows VM media."
+  ],
+  "candidates": {
+    "sandboxie": {
+      "free_features_only": true,
+      "release": "v1.18.5",
+      "status": "excluded_long_term_usage_constraints",
+      "paid_proxy_injection": false,
+      "paid_dns_filtering": false,
+      "first_pass_gui_scope": "native probe implements visible window plus script beacon and two real launches with persistent cookie; Windows 11 result pending",
+      "source_commit": "29e4da31e1375146049db3858d318893c1939a69",
+      "install_smoke": {
+        "os": "Windows Server 2025",
+        "driver_signature": "Valid",
+        "service_state": "running",
+        "config_written": true,
+        "installer_exit_code": 0,
+        "reboot_required": false,
+        "daily_user_probe_tested": false
+      },
+      "invalidated_native_runs": [
+        {
+          "run": 38740600893,
+          "source_commit": "121b55cb225767410dd9c555949f8ef951e6778d",
+          "reason": "shared harness generated empty protected file DACL, proven on disposable Server control; cancelled before valid result"
+        }
+      ],
+      "server_workflow_run": 38752386917,
+      "server_network_observations": {
+        "ordinary_user": true,
+        "proxy_http_socks_parent_child_both_boxes": true,
+        "direct_tcp_blocked_parent_child": true,
+        "proxy_down_fail_closed_tcp": true,
+        "unselected_tcp_unaffected": true,
+        "cleanup_proven": true,
+        "ordinary_user_policy_update": "persistent Sandboxie service API; verified driver readback",
+        "native_dns_subprobe": "real parent and real child completed all three APIs in both boxes; helper exit 0 and cleanup true",
+        "dns_wire_privacy_proven": false,
+        "gui_tested": false,
+        "windows_11_verified": false,
+        "raw_unconnected_loopback_udp4_denied_with_positive_controls": true,
+        "raw_unconnected_loopback_udp6_denied_with_positive_controls": true,
+        "native_dns_execution_complete": true,
+        "proxy_repetition_consistency": {
+          "earlier_run": 38752386917,
+          "earlier_all_parent_child_http_socks": true,
+          "latest_run": 38754475398,
+          "latest_dns_ipc_parent_http_socks": false,
+          "latest_dns_ipc_child_http_socks": true,
+          "latest_base_parent_child_http_socks": true,
+          "cause": "unresolved; boolean projection does not establish a Winsock error or mechanism failure",
+          "bounded_error_followup_run": 38757512843,
+          "bounded_error_followup_all_parent_child_http_socks": true
+        },
+        "no_resident_sandman_proven": false,
+        "latest_proxy_http_socks_parent_child_both_boxes": true
+      },
+      "native_workflow_run": 38752405380,
+      "native_job": 116482387844,
+      "latest_server_workflow_run": 38757512843,
+      "deployment_resource_snapshot": {
+        "schema_version": 1,
+        "backend": "sandboxie",
+        "scope": "disposable_server_after_probe_cleanup",
+        "service_name": "SbieSvc",
+        "installed_directory_bytes": 76926133,
+        "installed_file_count": 73,
+        "service_working_set_bytes": 11149312,
+        "service_private_memory_bytes": 3162112,
+        "service_state": "Running",
+        "service_start_mode": "Auto",
+        "includes_kernel_driver_memory": false,
+        "includes_mihomo_or_application_memory": false,
+        "product_deployment_accepted": false,
+        "diagnostic_only": true
+      },
+      "licensing_scope": {
+        "official_plus_noncommercial_usage_permitted": true,
+        "official_plus_commercial_usage_requires_business_certificate": true,
+        "no_certificate_used_in_probe": true,
+        "unqualified_free_deployment_accepted": false,
+        "pinned_license": "https://github.com/sandboxie-plus/Sandboxie/blob/abd4c240031cfb46666daa74ca47ed4e48b561e4/LICENSE.Plus"
+      },
+      "long_term_launch_friction": {
+        "source_observed": true,
+        "runtime_aged_install_tested": false,
+        "start_exe_reminder_possible_after_install_age_days": 40,
+        "unattended_long_term_flow_accepted": false,
+        "classic_alternative": "official Free Classic also has support reminder and WFP support is listed unavailable; not accepted as direct free replacement"
+      },
+      "bounded_error_followup": {
+        "source_commit": "09c872986ee3af3dc9ef06e661b3514eab86dea0",
+        "server_workflow_run": 38757512843,
+        "status": "completed_all_parent_child_proxy_success_prior_failure_not_reproduced",
+        "reason": "Intermediate Server run38754475398 had DNS-IPC parent HTTP/SOCKS false but old projection omitted errno; follow-up added observations without changing network behavior.",
+        "native_runs_restarted": false
+      },
+      "exclusion_authority": "User: 存在长期使用限制的可以直接排除",
+      "long_term_friction_requirement_passed": false,
+      "native_cancellation": {
+        "requested": true,
+        "reason": "User excludes long-term usage limits; official free distribution is ineligible regardless of remaining VM observations.",
+        "framework_failure_observed": false,
+        "confirmed": true,
+        "job_conclusion": "cancelled"
+      }
+    },
+    "proxybridge": {
+      "release": "v4.1.1",
+      "status": "stock_backend_not_eligible_network_boundary_gaps",
+      "first_pass_gui_scope": "not_tested; functional forwarding and network boundary first",
+      "source_commit": "d8f80c75a4f8522737ece40bcc2fd43c13cafd76",
+      "install_smoke": {
+        "os": "Windows Server 2025",
+        "driver_signature": "Valid",
+        "service_state": "running",
+        "installer_exit_code": 0,
+        "metadata_reader": "checks32and64bitviews",
+        "daily_user_probe_tested": false
+      },
+      "invalidated_native_runs": [
+        {
+          "run": 38740623963,
+          "reason": "registry view reader prerequisite defect"
+        },
+        {
+          "run": 38741181674,
+          "reason": "false requirement for new group in old token despite direct SID pipe ACL"
+        },
+        {
+          "run": 38742086315,
+          "source_commit": "a27f138e31b0f989948fe8b05c6073ecf0cf4e60",
+          "reason": "shared harness generated empty protected file DACL, proven on disposable Server control; cancelled before valid result"
+        }
+      ],
+      "server_workflow_run": 38749885268,
+      "native_workflow_run": 38750735792,
+      "native_job": 116476541415,
+      "server_network_observations": {
+        "ordinary_user": true,
+        "service_pipe_authenticated": true,
+        "per_launch_elevation_requested": false,
+        "selected_http_socks_parent_child": true,
+        "direct_tcp_receiver_increment_during_selected": 0,
+        "local_udp4_selected_parent_child_received": true,
+        "local_udp6_selected_parent_child_received": true,
+        "local_udp_still_received_after_proxy_stop": true,
+        "dns_native_api_calls_completed": true,
+        "dns_wire_privacy_proven": false,
+        "public_udp_ipv4_wire_delivery_proven": false,
+        "public_ipv6_control": "unavailable route: Windows error 10051",
+        "cleanup_proven": true,
+        "gui_tested": false,
+        "windows_11_verified": false
+      },
+      "source_scope_limit": "Rules match each socket owner image/path, not inherited ancestry; same-image child success cannot qualify different-image descendants.",
+      "latest_server_workflow_run": 38754490024,
+      "deployment_resource_snapshot": {
+        "schema_version": 1,
+        "backend": "proxybridge",
+        "scope": "disposable_server_after_probe_cleanup",
+        "service_name": "ProxyBridgeSvc",
+        "installed_directory_bytes": 1614870,
+        "installed_file_count": 7,
+        "service_working_set_bytes": 7307264,
+        "service_private_memory_bytes": 1703936,
+        "service_state": "Running",
+        "service_start_mode": "Auto",
+        "includes_kernel_driver_memory": false,
+        "includes_mihomo_or_application_memory": false,
+        "product_deployment_accepted": false,
+        "diagnostic_only": true
+      },
+      "native_cancellation": {
+        "requested": true,
+        "reason": "Repeated selected UDP boundary failure and source-level absence of general descendant inheritance already disqualify stock route. Further native results cannot establish missing ancestry semantics.",
+        "windows_11_failure_observed": false,
+        "confirmed": true,
+        "job_conclusion": "cancelled"
+      }
+    }
+  },
+  "local_validation": {
+    "focused_tests": 39,
+    "real_mihomo_fixture_tests": 1,
+    "powershell_parser": "passed",
+    "real_official_payload_preflight": {
+      "sandboxie_files": 348,
+      "proxybridge_files": 348,
+      "manifest_bytes_approx": 101600,
+      "windows_execution_proven": false
+    }
+  },
+  "limits": [
+    "Test host edition is Windows 11 Enterprise Evaluation, not the user actual Windows 11 Pro machine.",
+    "A collected diagnostic report or successful installer is not end-to-end product acceptance.",
+    "Intermediate Sandboxie repeat (38754475398) lost DNS-IPC-box parent HTTP/SOCKS success; the earlier successful run cannot establish stable proxy usability.",
+    "Official Plus has noncommercial-use license scope and source-observed aged-install launch reminders; unqualified free and frictionless long-term deployment is not accepted.",
+    "Both valid native runs were cancelled after candidate requirements disqualified the originals; cancellation is not a Windows 11 framework failure or success.",
+    "Stock ProxyBridge gaps do not prove no repaired/custom implementation could ever work. No replacement architecture is adopted by this assessment.",
+    "Latest bounded-error Server follow-up succeeded in both Sandboxie boxes; the earlier DNS-IPC parent-only failure remains unexplained, not reproduced, and cannot be assigned an error code.",
+    "The offline PCAP analyzer uses a POSIX-only protected-copy path; cross-platform metadata tests remain separate from POSIX parser integration tests."
+  ],
+  "latest_source_commit": "09c872986ee3af3dc9ef06e661b3514eab86dea0",
+  "test_harness_faults": [
+    "Initial native run failed before ISO download because /dev/kvm required sudo.",
+    "PowerShell 7 module paths inherited by Windows PowerShell 5 prevented Security cmdlet autoload; both actual installed driver signatures were Valid.",
+    "64-bit Python metadata reader looked in the wrong registry view for the 32-bit NSIS uninstall record.",
+    "Resolved and observed on disposable Server: recursive icacls OI/CI grants left files with an empty DACL; typed per-file/per-directory ACL helper permitted ordinary Python execution and both backend workers."
+  ],
+  "updated_at_utc": "2026-10-15T15:12:40.425919+00:00",
+  "initial_invalidated_native_run": {
+    "workflow_run": 38737590482,
+    "source_commit": "295b44fa179bac14724435011be42b2049a6bd51",
+    "failure": "KVM_permission_before_guest",
+    "framework_observed": false
+  },
+  "server_quick_probe": {
+    "os": "Windows Server 2025",
+    "latest_workflow_run": 38750815259,
+    "source_commit": "0c738f99054043f89c78693e0f9183b3e0839ba5",
+    "status": "completed_functional_sandboxie_tcp_with_incomplete_independent_dns_child_probe",
+    "prior_runs": [
+      {
+        "run": 38743682384,
+        "result": "pre_backend_launch_exception",
+        "error": "StandardOutputEncoding redirection failure"
+      },
+      {
+        "run": 38744061258,
+        "result": "pre_backend_launch_exception",
+        "error": "Access is denied; failing sub-operation not yet identified"
+      }
+    ],
+    "framework_network_observed": true,
+    "windows_11_acceptance": false
+  },
+  "deployment_assessment": {
+    "status": "not_accepted_pending_observation",
+    "required_user_flow": [
+      "one setup entry point",
+      "bounded one-time administrator authorization",
+      "no manual WFP or per-app proxy configuration",
+      "daily selected-app launch without UAC",
+      "preserve private profiles on relaunch",
+      "ordinary uninstall with cleanup"
+    ],
+    "source_only_proxybridge_expectation": {
+      "installer": "one elevated NSIS installer creates auto-start service and installs signed driver",
+      "daily_control": "ordinary-user local named pipe",
+      "fresh_user": "fresh logon may be needed after group authorization"
+    },
+    "measured_daily_launch": false,
+    "measured_profile_persistence": false,
+    "measured_host_settings_baseline": false,
+    "ordinary_user_backend_control_observed": true,
+    "ordinary_user_backend_control_scope": "Disposable Server ordinary-user API operation only; no daily UAC was requested. Product installer/GUI flow remains unbuilt and unaccepted."
+  }
+}

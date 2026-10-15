@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "backend": "Sandboxie Plus",
+  "source_version": "v1.18.5",
+  "scope": "Pinned source/documentation review only; does not attest to the in-progress Windows 11 VM runs or all Windows versions/architectures.",
+  "findings": {
+    "descendant_and_image_scope": {
+      "source_supported": "The driver associates WFP state with individually tracked sandbox process IDs and loads NetworkAccess rules using each process image. Ordinary children launched within a box are expected to be tracked under that box; a different image remains subject to the box's broad default-deny rule unless a more specific rule changes the match. This does not cover an out-of-box helper/service or a process deliberately launched outside the box.",
+      "not_proven": "Source does not substitute for observing the tested browser's descendants, their box membership, and actual network outcomes. Do not infer a guarantee for every process-launch path.",
+      "sources": [
+        "https://github.com/sandboxie-plus/Sandboxie/blob/v1.18.5/Sandboxie/core/drv/wfp.c",
+        "https://github.com/sandboxie-plus/Sandboxie/blob/v1.18.5/Sandboxie/core/drv/process.c",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/NetworkAccess.md"
+      ]
+    },
+    "network_policy": {
+      "source_supported": "WFP evaluates the box's NetworkAccess rules at IPv4/IPv6 ALE_AUTH_CONNECT and ALE_AUTH_RECV_ACCEPT. BlockLocalLoop is a separate gate: when enabled, loopback is blocked before ordinary NetworkAccess rules; when disabled, loopback still passes through NetworkAccess. A broad applicable Block plus a narrowly constrained Allow is therefore the source-level shape for default-deny with a loopback proxy exception.",
+      "limits": "A rule set with no matching rule permits traffic. WFP arbitration and other installed filters also affect effective behavior. The documentation does not guarantee every raw/ICMPv6 path or every WFP failure mode. This review does not establish that LAN inbound is blocked.",
+      "sources": [
+        "https://github.com/sandboxie-plus/Sandboxie/blob/v1.18.5/Sandboxie/core/drv/wfp.c",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/NetworkAccess.md",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/PlusContent/WFPSupport.md"
+      ]
+    },
+    "driver_service_lifecycle": {
+      "source_supported": "With WFP enabled, failure to initialize a tracked process's WFP state causes process setup to fail; failure to load a process's rules sets its WFP state to blanket internet block. SbieSvc is the documented service-side authority for Start.exe box termination requests.",
+      "limits": "These paths do not establish fail-closed behavior after arbitrary driver unload/crash, service loss, OS/network-filter failure, or all third-party WFP arbitration. The test must report driver/service state, launch outcomes, process cleanup, and network negatives as observations. Installation and driver/service setup require machine-level administration; the source does not imply a no-admin deployment.",
+      "sources": [
+        "https://github.com/sandboxie-plus/Sandboxie/blob/v1.18.5/Sandboxie/core/drv/process.c",
+        "https://github.com/sandboxie-plus/Sandboxie/blob/v1.18.5/Sandboxie/core/drv/wfp.c",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/PlusContent/WFPSupport.md",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/StartCommandLine.md"
+      ]
+    },
+    "dns_resolver_ipc": {
+      "source_supported": "The pinned driver has a built-in OpenIpcPath exception for the exact NT object name \\RPC Control\\DNSResolver. ClosedIpcPath is the supported mechanism to deny IPC objects and can override a default direct-access exception. This makes an exact DNSResolver IPC block a supported free diagnostic candidate.",
+      "limits": "Blocking that object is not proof that all getaddrinfo/DNS paths are blocked, nor that Windows DNS Client cannot use another IPC or transport. Only measured native API calls plus wire-level before/inside/after controls can establish what happened on the tested OS. A UI/network policy declaration alone is not DNS leak proof.",
+      "sources": [
+        "https://github.com/sandboxie-plus/Sandboxie/blob/v1.18.5/Sandboxie/core/drv/ipc.c",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/ResourceAccessSettings.md",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/SandboxHierarchy.md",
+        "https://github.com/sandboxie-plus/Sandboxie/blob/master/Sandboxie/install/Templates.ini"
+      ]
+    },
+    "persistent_configuration": {
+      "source_supported": "SbieIni.exe is documented as the command-line configuration utility; Start.exe /reload loads Sandboxie.ini into the active driver. A resident SandMan UI is not documented as a prerequisite for those operations.",
+      "limits": "This does not promise that every user's configuration is writable or unprotected, or that an ordinary-user update will succeed on every installation. Service/config permissions, update readback, effective driver policy, and persistence across restart must be observed. Dynamic /drv changes and persistent-file changes are distinct paths.",
+      "sources": [
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/SandboxieIni.md",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/StartCommandLine.md",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/SBIEDLLAPI.md"
+      ]
+    }
+  }
+}

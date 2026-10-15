@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "backend": "proxybridge",
+  "scope": "Windows Server 2025 build 26100.33438 diagnostic only",
+  "source_commit": "959512ea6fa9b3117fd4dde40b23427414deb8d0",
+  "workflow_run": 38754490024,
+  "diagnostic_report_collected": true,
+  "ordinary_user": true,
+  "cleanup_proven": true,
+  "windows_11_verified": false,
+  "product_acceptance_passed": false,
+  "simple_deployment_accepted": false,
+  "dns_wire_privacy_proven": false,
+  "selected_loopback_udp4_and_udp6_received": true,
+  "selected_loopback_udp_received_after_mihomo_stop": true,
+  "linux_network_boundary_contract_satisfied": false,
+  "deployment_facts": {
+    "schema_version": 1,
+    "backend": "proxybridge",
+    "scope": "disposable_server_after_probe_cleanup",
+    "service_name": "ProxyBridgeSvc",
+    "installed_directory_bytes": 1614870,
+    "installed_file_count": 7,
+    "service_working_set_bytes": 7307264,
+    "service_private_memory_bytes": 1703936,
+    "service_state": "Running",
+    "service_start_mode": "Auto",
+    "includes_kernel_driver_memory": false,
+    "includes_mihomo_or_application_memory": false,
+    "product_deployment_accepted": false,
+    "diagnostic_only": true
+  }
+}

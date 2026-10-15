@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "assessment_at_utc": "2026-10-15T12:43:51.592173+00:00",
+  "status": "target_controls_completed_proxy_not_restored_alternatives_authorized_for_testing",
+  "architecture": "Microsoft MXC ProcessContainer BaseContainer with FileProxyBridge",
+  "architecture_changed": false,
+  "target": {
+    "edition": "Windows 11 Pro",
+    "release": "25H2",
+    "build": 26200,
+    "ubr": 9711,
+    "native_lab_edition": "Enterprise Evaluation",
+    "actual_user_device_tested": false,
+    "user_architecture_confirmed": true,
+    "user_architecture": "x64",
+    "user_processor": "12th Gen Intel Core i5-12600KF",
+    "user_architecture_evidence": "User-supplied processor screenshot; actual device execution remains untested.",
+    "native_lab_architecture": "x64"
+  },
+  "current_implementation_deliverable": false,
+  "architecture_impossibility_established": false,
+  "compatibility_assessment": {
+    "requested_scope": "The user stated the project should be usable across Windows 11.",
+    "all_windows_11_versions_supported_by_existing_backend": false,
+    "reason": "The existing backend requires an available BaseContainer/PSEC OS contract. The project rejects builds before 26100 and rejects AppContainer fallback; Microsoft documents newer servicing floors for Process Isolation.",
+    "official_process_isolation_support_floors": {
+      "24H2": "26100.9278",
+      "25H2": "26200.9278",
+      "26H2": "26300.9550",
+      "26H1": "28000.2804"
+    },
+    "official_support_reference": "https://github.com/microsoft/mxc/blob/main/docs/backends/process-container/os-version-support.md",
+    "official_introduction_reference": "https://support.microsoft.com/en-us/servicing/os/windows-11/2026/08/kb5120998-windows-11-24h2-25h2-update",
+    "current_target_above_documented_floor": true,
+    "target_impossibility_proven_by_compatibility_floor": false,
+    "scope_limit": "A minimum supported version is a compatibility restriction; being above it does not prove the exact product policy, networking or GUI operation works. A failed universality requirement must not be represented as proof that the current user device cannot work."
+  },
+  "user_direction": "Evaluate the existing architecture first; stop and discuss a replacement only after establishing that this architecture cannot meet the requirements.",
+  "core_outcomes": [
+    "Selected applications use their assigned proxy node through the local panel.",
+    "YAML import remains available on Windows and Linux.",
+    "Unselected applications retain working connectivity.",
+    "Visible applications start, remain usable, and stop with owned resources cleaned up."
+  ],
+  "existing_product_guarantees": [
+    "Advertised network isolation and DNS protections must not be silently removed.",
+    "A passing capability probe alone does not establish usable networking or GUI compatibility."
+  ],
+  "fixed_sdk_contract_review": {
+    "sdk_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "standard_sdk_model1": "A nonempty egress allow list causes the SDK to add internetClient even when caller capabilities are empty; PSEC receives explicit endpoint WFP policy. Ingress deny does not add privateNetworkClientServer.",
+    "product_G_difference": "The fixed project G patch removes that automatic internetClient capability only under narrowly checked policy guards. Effective empty capabilities in G/G3 are not the standard SDK Model-1 capability selection.",
+    "intra_container_loopback_contract": "Fixed SDK documentation describes same-sandbox private loopback as usable and outside outbound IP/CIDR and host-to-container ingress policy. This is a documented expectation, not proof that the current target OS implements the tested policy successfully.",
+    "target_tcp_10013_root_cause_established": false,
+    "supported_contract_proves_architecture_impossible": false,
+    "capability_source": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/network_policy_helpers.rs",
+    "network_contract_source": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/docs/containment-configuration/0.8.0/networking/networking.md",
+    "related_upstream_report": "https://github.com/microsoft/mxc/issues/1261",
+    "upstream_report_scope": "A third-party report on MXC 0.8.0 and Windows build 26200 describes internal-loopback blocking and a broad 127.0.0.1 allow workaround. It does not prove the fixed project's capability-null policy, exact UBR 9711, DNS protection or GUI operation."
+  },
+  "lightweight_experience_review": {
+    "source": "ruleproxy/file_bridge.py",
+    "bridge_ring_count": 2,
+    "bytes_per_ring": 1051008,
+    "slots_per_direction": 64,
+    "max_payload_bytes_per_frame": 16384,
+    "max_concurrent_streams": 64,
+    "empty_ring_poll_interval_seconds": 0.01,
+    "payload_persistence": "Memory-mapped rings flush at initialization; payload frames do not individually flush or fsync. Control/status JSON uses atomic replacement and fsync.",
+    "bounds_prove_user_invisible_performance": false,
+    "isolated_latency_throughput_cpu_measurements_available": false,
+    "functional_transfer_evidence": "Existing tests exercise multi-frame transfer and bidirectional half-close; these establish function, not user-perceived performance.",
+    "physical_bridge_directory_removal_individually_verified": false,
+    "cleanup_limit": "Sockets, workers and ring handles have bounded close paths. Bridge directory deletion is attempted with ignored rmtree errors; logical resource cleanup does not independently prove physical deletion."
+  },
+  "desktop_application_contract_review": {
+    "product_ui_disable": false,
+    "product_ui_isolation": "container",
+    "product_ime_enabled": true,
+    "product_clipboard": "all",
+    "source_review": "The product allows Win32k calls and own-window creation. SDK Job UI defaults still restrict cross-job window handles, global atoms, simulated input, desktop control and system settings.",
+    "arbitrary_desktop_application_compatibility_guaranteed": false,
+    "visible_browser_operation_validated_on_target": false,
+    "evidence_limit": "GUI-enabled configuration does not prove Chromium/Electron or every traditional desktop application works; the target GUI fixture has not reached browser launch.",
+    "primary_reference": "https://learn.microsoft.com/en-us/windows/win32/secauthz/createprocessinsandbox"
+  },
+  "valid_evidence": [
+    {
+      "source": "ebb3c1c/default-network-native/source.json",
+      "scope": "ordinary-user native x64 26200.9711; original G, no added enumeration control",
+      "proxy_roundtrips": 0,
+      "tcp_winerror": 10013,
+      "selected_dns_capture_complete": true,
+      "selected_dns_unknown_records": 0,
+      "selected_contained_dns_questions": 0,
+      "selected_udp_groups_complete": 4,
+      "overall_udp_complete": false,
+      "cleanup_proven": true,
+      "host_network_unchanged": true
+    },
+    {
+      "source": "a963b7a/private-network-control-native/source.json",
+      "scope": "ordinary-user native x64 26200.9711; unadopted G2 private-network-capability control",
+      "proxy_roundtrips": 0,
+      "tcp_winerror": 10013,
+      "selected_contained_dns_questions": 8,
+      "adopted": false
+    },
+    {
+      "source": "9fdb6f4/standard-profile-gui-native/source.json",
+      "scope": "ordinary-user native x64 26200.9711; corrected profile, original G and pinned visible Chromium control",
+      "contained_context_report_observed": false,
+      "browser_launch_observed": false,
+      "wrapper_creation_observed": null,
+      "failure_stage": "gui_context_probe",
+      "failure_class": "UnsupportedRuntimeError",
+      "exact_launch_failure_cause_observed": false,
+      "cleanup_proven": true
+    },
+    {
+      "source": "2db61ae/candidate-warmup-native/source.json",
+      "scope": "different Windows baseline; not target-version proof",
+      "windows_build": 26300,
+      "baseline_diagnostic": true,
+      "proxy_roundtrips": 4,
+      "dns_capture_complete": false,
+      "dns_unknown_records": 15,
+      "contained_dns_questions": 0,
+      "product_acceptance_passed": false
+    }
+  ],
+  "invalid_or_nonconclusive_runs": [
+    {
+      "source": "0d6c44c/product-native/source.json",
+      "reason": "The evaluation payload omitted the host runtime-pins module. Experiments launched zero variants and contained application phases were blocked.",
+      "framework_failure_proven": false
+    },
+    {
+      "workflow_runs": [
+        38718462056,
+        38718478327,
+        38712875683,
+        38711101693
+      ],
+      "status": "cancelled_by_agent_after_missing_payload_module_was_identified",
+      "framework_failure_proven": false
+    },
+    {
+      "sources": [
+        "f0ef034/knownfolder-control-native/source.json",
+        "f48239a/gui-control-native/source.json"
+      ],
+      "reason": "No completed guest phase results before VM timeout.",
+      "framework_failure_proven": false
+    }
+  ],
+  "current_target_controls": {
+    "source_commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b",
+    "executor_sha256": "b5290bf91f6d4b8715fff7323dbbb8437a7b8573d348cfb6195e4c49a040d705",
+    "source_only": true,
+    "product_runtime_replaced": false,
+    "payload_pins_omission_corrected": true,
+    "preflight_review": "Both corrected source-only controls completed the native target network experiments. Neither restored proxy transfer; the completed diagnostic phase is not product acceptance.",
+    "controls": [
+      {
+        "mode": "singleton",
+        "workflow_run": 38722534377,
+        "native_job": 116381184433,
+        "policy": "127.0.0.1/32 TCP with equal start and end port",
+        "status": "completed_proxy_failed",
+        "native_artifact_available": true,
+        "experimental_outcome_observed": true,
+        "proxy_roundtrips": 0,
+        "tcp_winerror": 10013,
+        "dns_capture_status": "complete",
+        "dns_unknown_records": 0
+      },
+      {
+        "mode": "loopback",
+        "workflow_run": 38722545675,
+        "native_job": 116381250991,
+        "policy": "127.0.0.1/32 TCP without port restriction",
+        "status": "completed_proxy_failed",
+        "native_artifact_available": true,
+        "experimental_outcome_observed": true,
+        "proxy_roundtrips": 0,
+        "tcp_winerror": 10013,
+        "dns_capture_status": "incomplete",
+        "dns_unknown_records": 1
+      }
+    ],
+    "shared_policy": "empty caller capabilities; egress default deny; ingress default deny; host loopback deny; no SDK proxy or extra peer; automatic internetClient removed under fixed guards"
+  },
+  "decision_requirements": [
+    "Use observed target-version results from a functioning harness; do not count installation, payload or unrelated test failures as framework failures.",
+    "If a control restores the required proxy path, validate visible application operation and teardown using that same executor and policy before declaring feasibility.",
+    "If the controls still fail, assess whether the SDK/API contract provides a supported path that preserves the agreed product behavior before declaring this architecture unable to meet it.",
+    "ARM or headless-browser failures alone do not establish failure of the user-requested visible native-x64 workflow.",
+    "Do not use elapsed development time, unit-test totals, or an unsupported policy as proof that the whole architecture is impossible."
+  ],
+  "assessment_summary": {
+    "universal_windows_11_compatibility": "Existing sole BaseContainer backend cannot cover every Windows 11 installation because of OS contract and servicing floors.",
+    "current_user_target": "Not deliverable. Corrected singleton and unrestricted-loopback TCP controls both ran on 26200.9711 and produced zero proxy transfers with parent/child TCP10013. Architecture impossibility is not established.",
+    "lightweight_experience": "Resource growth is bounded; user-invisible performance is not measured.",
+    "implementation_action": "Assessment only; no replacement backend adopted and no release published."
+  },
+  "latest_native_status_check_at_utc": "2026-10-15T12:43:51.592173+00:00",
+  "engineering_recommendation": {
+    "decision": "Stop extending BaseContainer as the sole Windows product backend and discuss a broadly compatible implementation with the user.",
+    "basis": "The user requested Windows 11-wide usability. A backend requiring newer OS contracts and servicing floors cannot cover every Windows 11 installation by itself.",
+    "not_evidence_of_target_impossibility": "Both controls now completed and failed to restore the proxy path. These failures do not prove every supported use of the architecture is impossible.",
+    "implementation_change_authorized_or_performed": false,
+    "new_diagnostic_runs_started_this_turn": false,
+    "already_running_diagnostics": "Both G3 native controls completed; no further exploratory MXC policy runs are planned.",
+    "next_scope": "User authorized testing both free Sandboxie/WFP and InterceptSuite ProxyBridge/WinDivert with deployment simplicity as a hard gate. Neither is adopted."
+  }
+}

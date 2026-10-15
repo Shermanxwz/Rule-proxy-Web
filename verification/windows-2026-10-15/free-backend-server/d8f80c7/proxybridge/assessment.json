@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "backend": "proxybridge",
+  "run_commit": "d8f80c75",
+  "phase": "server_network_probe_assessment",
+  "status": "diagnostic_completed",
+  "diagnostic_only": true,
+  "product_acceptance_passed": false,
+  "release_eligible": false,
+  "target_identity": {
+    "windows_build": 26100,
+    "windows_ubr": 33438,
+    "windows_11_verified": false,
+    "windows_server_network_diagnostic": true,
+    "ordinary_user": true,
+    "is_elevated": false,
+    "is_administrator": false
+  },
+  "scope": {
+    "selected_rule_protocol": "TCP+UDP",
+    "selected_image": "free-probe.exe",
+    "same_image_child_only": true,
+    "gui_status": "not_tested_noninteractive",
+    "host_proxy_dns_route_settings_modified": false,
+    "cleanup_proven": true
+  },
+  "observations": {
+    "proxy_http_and_socks": {
+      "outside_before_parent_and_child_ok": true,
+      "selected_parent_and_child_ok": true,
+      "selected_after_proxy_stopped_winerror": 10061
+    },
+    "direct_tcp": {
+      "selected_parent_and_child_connected": true,
+      "selected_parent_and_child_fixed_fixture_response": false,
+      "direct_connection_counter_before_selected": 2,
+      "direct_connection_counter_after_selected": 2,
+      "unselected_child_fixed_fixture_response": true,
+      "interpretation": "Selected direct TCP did not produce a fixture connection; connect success without the fixed response is not proof of direct fixture access."
+    },
+    "loopback_udp": {
+      "outside_before_parent_child_packets_per_family": 2,
+      "after_selected_parent_child_packets_per_family": 4,
+      "selected_parent_marker_received_udp4": true,
+      "selected_child_marker_received_udp4": true,
+      "selected_parent_marker_received_udp6": true,
+      "selected_child_marker_received_udp6": true,
+      "selected_udp_tuple_metadata_complete": true,
+      "after_proxy_stopped_child_packets_per_family": 3,
+      "after_proxy_stopped_child_marker_received_udp4": true,
+      "after_proxy_stopped_child_marker_received_udp6": true,
+      "interpretation": "Receiver counters increased from the outside-before baseline during selected parent/child requests. The fixture reported nonce- and role-specific UDP marker bytes with complete loopback source/destination tuple metadata, so this is positive evidence that selected UDP reached the local receiver. HTTP/SOCKS success does not make the UDP result pass."
+    },
+    "public_udp": {
+      "ipv4_send_call_succeeded": true,
+      "ipv4_wire_delivery_proven": false,
+      "ipv6_attempt_failed_winerror": 10051,
+      "ipv6_wire_delivery_proven": false,
+      "interpretation": "Local send-call facts alone do not prove public-network delivery; no external packet-capture conclusion is made here."
+    },
+    "native_dns": {
+      "outside_before_calls_complete": true,
+      "selected_parent_child_calls_complete": true,
+      "outside_after_calls_complete": true,
+      "all_reports_mark_wire_privacy_proven_false": true,
+      "interpretation": "Native API outcomes are recorded, but this report does not establish on-wire DNS privacy or leakage."
+    },
+    "marker_contamination": {
+      "nonce_and_role_specific_udp_payloads": true,
+      "outside_before_baseline_separate": true,
+      "selected_parent_child_counts_separate": true,
+      "selected_udp_observation_explained_by_unselected_packets": false,
+      "assessment": "The selected-stage increment is distinguished from outside-before traffic by receiver role counts and exact per-role marker metadata; it is not attributable solely to later unselected traffic."
+    }
+  },
+  "conclusion": "The selected ProxyBridge rule successfully proxied the tested HTTP and SOCKS requests, and the direct-TCP fixture did not record selected connections. However, selected parent and child UDP markers were received by the loopback fixture during the selected stage, demonstrating a local UDP boundary failure for this diagnostic rule. This is a Server 2025 network diagnostic, not a Windows 11 result, GUI test, product acceptance, or public-wire capture proof."
+}

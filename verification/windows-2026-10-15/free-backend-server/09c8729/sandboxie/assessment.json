@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "scope": "Windows Server 2025 build 26100.33438 diagnostic only",
+  "workflow_run": 38757512843,
+  "network_policy_controlled": true,
+  "latest_all_parent_child_http_socks": true,
+  "prior_dns_ipc_parent_failure_reproduced": false,
+  "prior_failure_reason": "Not captured in previous run; not reproduced with bounded error observations. Do not infer cause.",
+  "windows_11_verified": false,
+  "dns_wire_privacy_proven": false,
+  "product_acceptance_passed": false,
+  "long_term_friction_requirement_satisfied": false,
+  "candidate_excluded_due_to_long_term_usage_constraints": true
+}

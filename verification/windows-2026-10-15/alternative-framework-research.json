@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "researched_at_utc": "2026-10-15T11:58:27Z",
+  "scope": "Research followed by user-authorized disposable testing of the two free candidates; no replacement adopted in the product.",
+  "baseline_sources": [
+    "ruleproxy/linux_runtime.py",
+    "ruleproxy/launcher.py",
+    "README.md"
+  ],
+  "linux_effect_to_preserve": [
+    "Panel and shortcuts launch selected native applications with persistent private profiles.",
+    "The app and descendants are confined to a loopback-only network namespace, with a brokered local proxy path.",
+    "Unsupported direct IPv4/IPv6/UDP and ordinary DNS egress have no namespace uplink.",
+    "Unselected applications keep their network access; no system proxy, adapter DNS or default-route changes.",
+    "YAML/node selection stays with the existing Mihomo integration."
+  ],
+  "important_distinction": "Per-application forwarding does not by itself establish the existing containment and failure-blocking guarantees. Driver/service installation is a deployment cost; runtime CPU/memory and developer effort must be assessed separately.",
+  "candidates": [
+    {
+      "name": "Sandboxie Plus + WFP + Mihomo",
+      "category": "Application sandbox plus per-sandbox network rules",
+      "recommendation": "First bounded evaluation candidate for preserving private application state, tracked descendants and kernel-enforced proxy-only network policy. This is an engineering recommendation, not validated feasibility.",
+      "documented": [
+        "WFP callouts apply sandbox rules to tracked processes at IPv4/IPv6 ALE connect/accept layers.",
+        "NetworkAccess unmatched traffic is allowed unless an applicable broad block is configured.",
+        "WFP is available in the free edition. Proxy injection and DNS filtering require advanced paid features.",
+        "Proxy injection supports SOCKS5 TCP CONNECT, not HTTP proxies or UDP relay.",
+        "Valid selected proxy failures do not retry the destination directly, but invalid proxy configuration can disable proxying; independent WFP restrictions are needed.",
+        "NetworkProxyResolveHostnames is not enabled in standard builds; proxy injection is not a remote-DNS guarantee."
+      ],
+      "required_validation": [
+        "Actual browser and child process operation.",
+        "Native DNS capture and prevention independent of proxy forwarding.",
+        "IPv4/IPv6/TCP/UDP direct-connection denial.",
+        "Proxy/configuration/service failure behavior and unchanged networking for unselected applications."
+      ],
+      "deployment": "Administrator installation of kernel driver and service; fee depends on features used. Actual experience and performance unmeasured for this project.",
+      "sources": [
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/PlusContent/WFPSupport.md",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/PlusContent/ProxySupport.md",
+        "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/FeatureComparison.md"
+      ]
+    },
+    {
+      "name": "InterceptSuite/ProxyBridge",
+      "category": "WinDivert packet interception and transparent proxy relay",
+      "windows_release_inspected": "v4.1.1",
+      "commit_inspected": "1825f4cbdc3d24bc54fa3def4bce2947f97a18fe",
+      "published_at": "2026-10-12T14:47:01Z",
+      "recommendation": "Possible forwarding component; stock behavior is insufficient as the existing Linux-equivalent containment boundary.",
+      "documented_or_source_observed": [
+        "TCP/UDP and IPv4/IPv6 forwarding, HTTP/SOCKS proxy support.",
+        "Version 4.1 uses privileged engine service and ordinary-user GUI after installer setup.",
+        "Rules return DIRECT when owner PID/name is unresolved or proxy configuration is absent/invalid.",
+        "A UDP PROXY rule using an HTTP proxy returns DIRECT.",
+        "DNS domain forwarding uses a snooped IP-to-domain answer cache; forwarding a domain does not prove the initial local DNS request was prevented.",
+        "Rules match executable names/paths; automatic isolated process-tree identity is not established."
+      ],
+      "license": "MIT for project; WinDivert is a separate licensed dependency.",
+      "sources": [
+        "https://github.com/InterceptSuite/ProxyBridge/releases/tag/v4.1.1",
+        "https://github.com/InterceptSuite/ProxyBridge/releases/tag/v4.1.0",
+        "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/pb_rules.c",
+        "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/pb_dns.c",
+        "https://proxybridge.interceptsuite.com/docs/configuration-windows/"
+      ]
+    },
+    {
+      "name": "ProxiFyre + Windows Packet Filter",
+      "category": "NDIS transparent SOCKS5 forwarding",
+      "recommendation": "Useful existing per-app forwarding comparison; not a stock containment replacement.",
+      "documented": [
+        "TCP/UDP and IPv4/IPv6; app name/path rules and Windows service.",
+        "Fragmented IPv6 datagrams are passed directly, a documented bypass.",
+        "Limited unelevated mode uses best-effort attribution and unidentified-owner traffic remains direct.",
+        "Installer adds program-specific TCP/UDP inbound firewall rules.",
+        "Administrator-installed driver/service and third-party dependencies."
+      ],
+      "license": "Project AGPLv3; Windows Packet Filter licensing is separate. Redistribution requires review of the applicable vendor terms.",
+      "sources": [
+        "https://github.com/wiresock/proxifyre",
+        "https://github.com/wiresock/proxifyre/blob/main/docs/installer.md",
+        "https://www.ntkernel.com/windows-packet-filter/licensing/"
+      ]
+    },
+    {
+      "name": "Proxifier / NetDetour",
+      "category": "Commercial per-application TCP proxy clients",
+      "recommendation": "Useful ready-made user-experience comparison; not open-source embeddable containment.",
+      "documented": [
+        "Per-application TCP rules and remote name resolution.",
+        "Unsupported UDP must be blocked separately to avoid bypass; NetDetour explicitly documents a browser UDP-block rule.",
+        "NetDetour has an experimental WFP mode and configuration CLI; Proxifier offers standard and more limited portable editions."
+      ],
+      "unproven": [
+        "Equivalent process-tree isolation, crash-blocking behavior, and broad application/native DNS containment in this project."
+      ],
+      "sources": [
+        "https://www.proxifier.com/features.html",
+        "https://www.proxifier.com/docs/win-v4/dns.html",
+        "https://www.proxifier.com/docs/win-v4/editions.html",
+        "https://www.proxycap.com/",
+        "https://www.netdetour.com/support/kb/configuring-HTTP-3-to-work-through-a-TCP-proxy/",
+        "https://www.netdetour.com/support/kb/what-is-wfp-mode-and-how-to-enable-it/"
+      ]
+    },
+    {
+      "name": "Custom WFP callout / commercial NetFilter SDK",
+      "category": "Kernel connection filtering and redirection with user-mode relay",
+      "recommendation": "Longer-term control over product semantics; highest development, signing and compatibility burden. Runtime overhead is not established by development complexity.",
+      "documented": [
+        "Microsoft supports ALE connection/bind redirection through callout drivers.",
+        "TCP and UDP have distinct redirect/relay handling.",
+        "Default denial, process identity/lifetime, DNS handling, service-failure behavior, installation and rollback remain product responsibilities."
+      ],
+      "sources": [
+        "https://learn.microsoft.com/en-us/windows-hardware/drivers/network/using-bind-or-connect-redirection",
+        "https://learn.microsoft.com/en-us/windows-hardware/drivers/dashboard/driver-signing-offerings",
+        "https://netfiltersdk.com/help/nfsdk_wfp/",
+        "https://netfiltersdk.com/help/nfsdk_wfp/ref_NF_RULE.html"
+      ]
+    },
+    {
+      "name": "Classic AppContainer/LPAC + Job + broker",
+      "category": "Older native Windows containment APIs",
+      "recommendation": "A plausible research alternative to PSEC, but not a proven shortcut. Need actual same-container loopback, DNS and desktop compatibility checks.",
+      "sources": [
+        "https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer",
+        "https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/troubleshooting-uwp-firewall"
+      ]
+    }
+  ],
+  "lower_priority_routes": [
+    {
+      "name": "Whole-host TUN via Mihomo/sing-box",
+      "reason": "Common auto-route/DNS modes change host routing or DNS handling, which conflicts with the current no-host-network-reconfiguration goal.",
+      "source": "https://sing-box.sagernet.org/configuration/inbound/tun/"
+    },
+    {
+      "name": "Windows Sandbox/full VM",
+      "reason": "Separate guest desktop/kernel and application installation/state changes; Sandbox is disposable and unavailable on Home. Different product experience.",
+      "source": "https://learn.microsoft.com/en-us/windows/security/application-security/application-isolation/windows-sandbox/"
+    },
+    {
+      "name": "WSL2/WSLg",
+      "reason": "Runs Linux GUI applications; invoking a Windows executable does not confine that Windows process inside the Linux network namespace.",
+      "sources": [
+        "https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps",
+        "https://learn.microsoft.com/en-us/windows/dev-environment/wsl-interop"
+      ]
+    }
+  ],
+  "cross_cutting_dns_risk": {
+    "finding": "Ordinary Windows name resolution can be performed by the DNS Client service, so packet attribution to the originating app cannot be assumed. Sending a hostname onward to SOCKS is not proof that an initial local lookup was prevented.",
+    "source": "https://learn.microsoft.com/en-us/windows-server/networking/dns/queries-lookups"
+  },
+  "preference_pending": "One-time administrator deployment preference remains unanswered. User has authorized disposable testing, with final deployment simplicity mandatory.",
+  "implementation_changed": false,
+  "actual_project_validation_of_any_candidate": false,
+  "recommended_next_step": "Actually run both free candidates and compare observed network guarantees and deployment steps before adoption.",
+  "updated_at_utc": "2026-10-15T12:13:18Z",
+  "user_budget_requirement": {
+    "mandatory": "Free implementation; no required paid software, paid certificates or commercial SDK licenses.",
+    "administrator_installation_preference": "Disposable test installation authorized; final deployment UX must remain simple and is not preaccepted."
+  },
+  "free_only_shortlist": [
+    {
+      "name": "Sandboxie free base features + free WFP + existing application proxy adapters + Mihomo",
+      "status": "First bounded validation candidate only. Do not depend on paid Proxy Injection, DNS Filtering or paid box modes.",
+      "dns_evidence": "Official Templates.ini includes a default OpenIpcPath for the DNSResolver RPC object. Closing that exact IPC object is a source-grounded free diagnostic candidate, not a verified comprehensive DNS policy. BlockDNS template only denies direct UDP/53.",
+      "source": "https://github.com/sandboxie-plus/Sandboxie/blob/master/Sandboxie/install/Templates.ini",
+      "requirements_unproven": [
+        "Native DNS confinement and remote proxy resolution.",
+        "Visible application and descendant compatibility.",
+        "Direct IPv4/IPv6/TCP/UDP denial and stopped/invalid proxy behavior.",
+        "Unselected application networking unaffected."
+      ]
+    },
+    {
+      "name": "ProxyBridge + official prebuilt signed WinDivert + Mihomo",
+      "status": "Zero-license-fee forwarding candidate; requires observed direct-routing gaps to be addressed before containment equivalence can be claimed.",
+      "license": "MIT project plus separately applicable LGPLv3/GPLv2 WinDivert obligations. No paid custom-driver signing is assumed when using unmodified official signed driver binaries.",
+      "source": "https://github.com/basil00/WinDivert/wiki/WinDivert-Documentation"
+    },
+    {
+      "name": "ProxiFyre + Windows Packet Filter personal/non-commercial edition",
+      "status": "Free for the vendor-declared personal/academic/noncommercial/evaluation scope, with documented bypass limitations; do not assume the free driver has unrestricted redistribution rights.",
+      "source": "https://www.ntkernel.com/windows-packet-filter/licensing/"
+    }
+  ],
+  "excluded_under_free_requirement": [
+    "Proxifier paid license",
+    "NetDetour paid license",
+    "NetFilter commercial SDK",
+    "Required Sandboxie paid Proxy Injection or DNS Filtering features",
+    "Any implementation that requires purchasing a custom-driver signing/distribution service"
+  ],
+  "user_test_authorization": {
+    "candidates": [
+      "free Sandboxie + free WFP + existing app proxy adapters + Mihomo",
+      "InterceptSuite/ProxyBridge + WinDivert + Mihomo"
+    ],
+    "hard_requirement": "Final deployment must be simple",
+    "production_adoption_authorized": false
+  },
+  "snapshot_status": "historical_research_superseded_by_actual_candidate_evaluation",
+  "superseded_by": "free-backend-evaluation.json"
+}

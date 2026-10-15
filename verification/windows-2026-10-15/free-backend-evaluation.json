@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "evaluated_at_utc": "2026-10-15T15:13:17.262089+00:00",
+  "scope": "Free official Windows backend candidates; evidence collection and eligibility assessment, not product integration or release",
+  "decision": "neither_stock_candidate_eligible",
+  "selected_backend": null,
+  "user_constraints": [
+    "permanent free use without long-term usage constraints",
+    "lightweight",
+    "simple deployment",
+    "daily app use with minimal interaction",
+    "Linux-equivalent application and descendant network containment"
+  ],
+  "candidates": {
+    "sandboxie": {
+      "disposition": "excluded_by_user_long_term_usage_constraint",
+      "official_release": "Sandboxie Plus 1.18.5",
+      "runtime_observation_scope": "Windows Server 2025, ordinary user, signed driver",
+      "observed_strengths": [
+        "Parent and real-child HTTP/SOCKS succeeded in earlier and latest follow-up runs.",
+        "Direct TCP denied; proxy stop did not restore direct TCP.",
+        "Unconnected loopback UDP4/UDP6 rejected in both boxes with outside positive controls.",
+        "Ordinary-user persistent-service exact-port policy update read back correctly."
+      ],
+      "unresolved": [
+        "One intermediate DNS-IPC parent proxy failure not reproduced; original error unavailable.",
+        "DNS wire privacy not verified.",
+        "Visible GUI and profile persistence not verified on native Windows 11.",
+        "Simple final product installer and daily launcher integration not accepted."
+      ],
+      "exclusion_evidence": [
+        "Free Start launch path has source-observed aged-install support reminders.",
+        "Plus commercial use has a business-certificate restriction.",
+        "Official Free Classic replacement also has support reminders and lists no free WFP support."
+      ],
+      "no_paid_proxy_injection_or_dns_filtering_used": true
+    },
+    "proxybridge": {
+      "disposition": "stock_route_fails_required_boundary",
+      "official_release": "ProxyBridge 4.1.1",
+      "runtime_observation_scope": "Windows Server 2025, ordinary user, signed driver",
+      "observed_strengths": [
+        "Parent and same-image child TCP forwarded through assigned Mihomo proxy.",
+        "Ordinary user controlled stock service without per-launch elevation."
+      ],
+      "disqualifying_observations": [
+        "Selected parent and child loopback UDP4/UDP6 reached the fixed receivers, twice.",
+        "Selected UDP still reached the fixed receivers after owned Mihomo stopped."
+      ],
+      "source_scope_gaps": [
+        "Stock rules match socket-owner process image/path; general different-executable descendants are not automatically inherited.",
+        "No independent persistent deny boundary when interception stops."
+      ],
+      "limits": [
+        "Server UDP evidence is not a completed Windows 11 wire experiment.",
+        "Public IPv6 outside control had no route.",
+        "TCP connect alone was not counted as a direct leak; fixed direct receiver delta was zero.",
+        "This does not prove a future patched implementation cannot work."
+      ]
+    }
+  },
+  "native_windows_11": {
+    "proxybridge_run": 38750735792,
+    "sandboxie_run": 38752405380,
+    "cancellation_requested": true,
+    "cancellation_reason": "Requirements already disqualify stock candidates; avoid further long native experiments.",
+    "passed": false,
+    "failed": false,
+    "scope": "Both native jobs confirmed cancelled; requirements-based cancellation is neither Windows 11 pass nor framework failure.",
+    "cancellation_confirmed": true
+  },
+  "deployment_comparison": "free-backend-trial.json",
+  "distribution_limits": "free-backend-sandboxie-distribution-limits.json",
+  "source_and_raw_reports": "free-backend-server/",
+  "main_branch_changed": false,
+  "production_backend_changed": false,
+  "replacement_architecture_adopted": false,
+  "release_eligible": false,
+  "next_step": "Discuss a permanently free and lightweight replacement or an explicitly scoped repair of the free ProxyBridge route before product architecture changes."
+}

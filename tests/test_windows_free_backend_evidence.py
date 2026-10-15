@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import test_windows_dns_packet_evidence as dns_test
 import test_windows_packet_evidence as wire
@@ -14,6 +15,8 @@ spec = importlib.util.spec_from_file_location(
     "ruleproxy_free_backend_evidence_test", ROOT / ".github/windows_free_backend_evidence.py")
 evidence = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(evidence)
+
+PRIVATE_CAPTURE_SUPPORTED = os.name == "posix" and hasattr(os, "O_NOFOLLOW")
 
 
 def call_rows(nonce, role, backend="sandboxie"):
@@ -122,7 +125,18 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
             manifest, execution = evidence.prepare_dns_evidence(backend, probe)
             self.assertEqual(len(manifest["probes"]), count)
             self.assertEqual(execution["status"], "complete")
+            encoded = json.dumps(execution)
+            for item in manifest["probes"]:
+                self.assertNotIn(item["qname"], encoded)
+                self.assertNotIn(item["qname"].split(".")[0], encoded)
+
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
+    def test_parser_integration_reports_complete_wire_scope_without_product_claims(self):
+        for backend in ("sandboxie", "proxybridge"):
+            guest, _ = make_guest(backend)
+            probe, _ = evidence._probe_report(guest, backend)
             result = evidence.analyze(backend, guest, self._pcap_for(backend, probe))
+            manifest, _ = evidence.prepare_dns_evidence(backend, probe)
             encoded = json.dumps(result)
             for item in manifest["probes"]:
                 self.assertNotIn(item["qname"], encoded)
@@ -159,6 +173,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
         os.chmod(temporary.name, 0o644)  # analyzer must safely copy CI artifacts
         return Path(temporary.name)
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_wire_zero_plus_completed_exact_api_records_is_not_kernel_or_product_proof(self):
         for backend in ("sandboxie", "proxybridge"):
             guest, _ = make_guest(backend)
@@ -172,6 +187,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
             self.assertFalse(result["dns"]["kernel_denial_proven"])
             self.assertFalse(result["product_acceptance_passed"])
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_contained_exact_nonce_query_is_reported_positive(self):
         guest, _ = make_guest("proxybridge")
         probe, _ = evidence._probe_report(guest, "proxybridge")
@@ -181,6 +197,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
         self.assertEqual(result["dns"]["classification"], "contained_nonce_dns_questions_observed")
         self.assertFalse(result["dns"]["acceptance_passed"])
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_missing_exact_call_or_failed_guest_keeps_wire_observation_incomplete(self):
         guest, _ = make_guest("proxybridge")
         probe = guest["reports"]["probe"]
@@ -220,6 +237,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
         timeout = evidence._call_execution(call, {}, False, "child", "observed")
         self.assertFalse(timeout["execution_proven"])
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_udp_socket_send_success_never_becomes_wire_evidence(self):
         guest, _ = make_guest("sandboxie")
         probe = guest["reports"]["probe"]
@@ -230,6 +248,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
         self.assertTrue(result["udp_wire"]["socket_send_observations"][0]["send_ok"])
         self.assertFalse(result["udp_wire"]["socket_send_observations"][0]["wire_proven"])
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_exact_udp_wire_controls_and_api_attempts_are_required_for_scoped_absence(self):
         for backend in ("sandboxie", "proxybridge"):
             guest, _ = make_guest(backend)
@@ -247,6 +266,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
                 self.assertTrue(family["api_roles"]["parent"]["attempted"])
                 self.assertTrue(family["api_roles"]["child"]["metadata_complete"])
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_selected_packet_is_positive_even_when_api_send_metadata_is_incomplete(self):
         guest, _ = make_guest("proxybridge")
         probe, _ = evidence._probe_report(guest, "proxybridge")
@@ -264,6 +284,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
         self.assertTrue(parent4["selected_marker_observed"])
         self.assertFalse(parent4["api_attempts_and_metadata_complete"])
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_proxybridge_child_marker_is_not_attributed_across_unselected_phase(self):
         guest, _ = make_guest("proxybridge")
         probe, _ = evidence._probe_report(guest, "proxybridge")
@@ -284,6 +305,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
         self.assertEqual(udp4["classification"], "child_marker_observed_but_phase_ambiguous")
         self.assertFalse(udp4["wire_absence_observed"])
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_missing_ipv6_control_and_unknown_exact_tuple_packets_keep_scope_incomplete(self):
         guest, _ = make_guest("sandboxie")
         probe, _ = evidence._probe_report(guest, "sandboxie")
@@ -311,6 +333,7 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
         self.assertEqual(ipv4_result["parser_status"], "incomplete")
         self.assertGreater(ipv4_result["unknown_records"], 0)
 
+    @unittest.skipUnless(PRIVATE_CAPTURE_SUPPORTED, "Private PCAP copies require POSIX O_NOFOLLOW")
     def test_capture_symlink_rejected_before_private_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "target.pcap"
@@ -319,6 +342,12 @@ class WindowsFreeBackendEvidenceTests(unittest.TestCase):
             link.symlink_to(target)
             with self.assertRaisesRegex(ValueError, "capture_symlink_rejected"):
                 evidence._secure_private_copy(link)
+
+    def test_unsupported_platform_rejects_capture_copy_before_opening_input(self):
+        source = Path("does-not-need-to-exist.pcap")
+        with mock.patch.object(evidence.os, "name", "nt"):
+            with self.assertRaisesRegex(ValueError, "private_capture_copy_unavailable"):
+                evidence._secure_private_copy(source)
 
 
 if __name__ == "__main__":

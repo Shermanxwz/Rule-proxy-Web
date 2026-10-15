@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "source_commit": "09c872986ee3af3dc9ef06e661b3514eab86dea0",
+  "workflow_run": 38757512843,
+  "job": 116499748988,
+  "artifact_id": 11984276843,
+  "artifact_sha256": "6af4e5105fe091a5191c648c74db47948a3d11d140e7bfacbfff773d7d1ea110",
+  "artifact_bytes": 6519,
+  "artifact_digest_verified": true,
+  "observations_artifact_id": 11984137047,
+  "observations_artifact_sha256": "ce0229596a4945d1415ce6d31d13252570587ae607698e37fbfbe917e8176d44",
+  "observations_artifact_digest_verified": true,
+  "raw_json_sha256": {
+    "server-probe-state.json": "40362864d34fa6bfea26ddbab7cdfef76d7aa245afcf0dee48e98f797954f627",
+    "deployment-facts.json": "9dc98eefb5e46f9dc297b638773348b80d8fa18495503d96ff2b9225123badcf",
+    "install-report.json": "e2678586003f79fce48868afbad3b6a4ad77273be568c7db507f9e9d918ed232",
+    "probe-report.json": "640bb279ed58e97ba49a845e4a1433cefe85f94c80129bdbab2151c2dc2e5095"
+  }
+}

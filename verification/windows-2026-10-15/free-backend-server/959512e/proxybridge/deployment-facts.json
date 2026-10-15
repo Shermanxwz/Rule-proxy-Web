@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "backend": "proxybridge",
+  "scope": "disposable_server_after_probe_cleanup",
+  "service_name": "ProxyBridgeSvc",
+  "installed_directory_bytes": 1614870,
+  "installed_file_count": 7,
+  "service_working_set_bytes": 7307264,
+  "service_private_memory_bytes": 1703936,
+  "service_state": "Running",
+  "service_start_mode": "Auto",
+  "includes_kernel_driver_memory": false,
+  "includes_mihomo_or_application_memory": false,
+  "product_deployment_accepted": false,
+  "diagnostic_only": true
+}

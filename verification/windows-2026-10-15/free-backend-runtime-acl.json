@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "source_commit": "08ec2a8741dea9ea17681aabba0a06725d019b89",
+  "workflow_run": 38745717406,
+  "artifact_id": 11978666338,
+  "artifact_sha256": "3b4c0f26f54c0bd8c047df67afe7747ce3df94e5ea056ceb92da642a09d16bd2",
+  "artifact_size": 3061,
+  "backend_network_experiment_reached": false,
+  "fault": "recursive directory-inheritance grants left trusted files with an empty protected DACL",
+  "observations": [
+    {
+      "stage": "before_acl",
+      "redirect": false,
+      "python_started": true,
+      "exit_code": 0,
+      "python_file_dacl": "AI(A;ID;0x1301bf;;;AU)(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)",
+      "file_read_error": null,
+      "native_error_codes": []
+    },
+    {
+      "stage": "before_acl",
+      "redirect": true,
+      "python_started": true,
+      "exit_code": 0,
+      "python_file_dacl": "AI(A;ID;0x1301bf;;;AU)(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)",
+      "file_read_error": null,
+      "native_error_codes": []
+    },
+    {
+      "stage": "after_acl",
+      "redirect": false,
+      "python_started": false,
+      "exit_code": null,
+      "python_file_dacl": "PAI",
+      "file_read_error": "System.UnauthorizedAccessException",
+      "native_error_codes": [
+        5
+      ]
+    },
+    {
+      "stage": "after_acl",
+      "redirect": true,
+      "python_started": false,
+      "exit_code": null,
+      "python_file_dacl": "PAI",
+      "file_read_error": "System.UnauthorizedAccessException",
+      "native_error_codes": [
+        5
+      ]
+    }
+  ],
+  "product_acceptance_passed": false
+}

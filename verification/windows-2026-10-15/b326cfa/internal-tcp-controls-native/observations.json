@@ -1,0 +1,355 @@
+{
+  "schema_version": 1,
+  "source_commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b",
+  "status": "both_internal_tcp_controls_failed_to_restore_proxy",
+  "controls": [
+    {
+      "mode": "singleton",
+      "workflow_run": 38722534377,
+      "native_job": 116381184433,
+      "target": {
+        "build": 26200,
+        "ubr": 9711,
+        "architecture": "native_x64",
+        "ordinary_user": true,
+        "edition": "Enterprise Evaluation"
+      },
+      "executor_sha256": "b5290bf91f6d4b8715fff7323dbbb8437a7b8573d348cfb6195e4c49a040d705",
+      "diagnostic_executor_attested": true,
+      "network_policy": {
+        "egress": {
+          "default": "deny",
+          "allow": [
+            {
+              "to": [
+                {
+                  "cidr": "127.0.0.1/32"
+                }
+              ],
+              "ports": [
+                {
+                  "protocol": "tcp",
+                  "port": 49570,
+                  "endPort": 49570
+                }
+              ]
+            }
+          ]
+        },
+        "ingress": {
+          "default": "deny",
+          "hostLoopback": "deny"
+        }
+      },
+      "experiment_phase": {
+        "name": "experiments",
+        "status": "passed",
+        "exit_code": 0,
+        "interpreter_started": true,
+        "elapsed_seconds": 18.9
+      },
+      "process_started": true,
+      "proxy_roundtrips": 0,
+      "transport_roundtrip_observed": false,
+      "proxy_checks": [
+        {
+          "scope": "parent",
+          "checks": {
+            "proxy_self": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            }
+          }
+        },
+        {
+          "scope": "child",
+          "checks": {
+            "proxy_parent": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            }
+          }
+        }
+      ],
+      "cleanup_proven": true,
+      "descendant_cleanup_proven": true,
+      "resources_closed": true,
+      "host_network_unchanged": true,
+      "dns_capture": {
+        "status": "complete",
+        "execution_proven": true,
+        "unknown_records": 0,
+        "unknown_reasons": {},
+        "contained_question_count": 0,
+        "contained_questions_absent": true,
+        "groups": [
+          {
+            "id": "model1_internal_ingress_deny.getaddrinfo",
+            "api": "getaddrinfo",
+            "query_type": null,
+            "positive_controls_complete": true,
+            "control_window_ordered": true,
+            "contained_questions_absent": true,
+            "absence_observed": true,
+            "execution_proven": true
+          },
+          {
+            "id": "model1_internal_ingress_deny.dns_a",
+            "api": "dns_a",
+            "query_type": 1,
+            "positive_controls_complete": true,
+            "control_window_ordered": true,
+            "contained_questions_absent": true,
+            "absence_observed": true,
+            "execution_proven": true
+          },
+          {
+            "id": "model1_internal_ingress_deny.dns_aaaa",
+            "api": "dns_aaaa",
+            "query_type": 28,
+            "positive_controls_complete": true,
+            "control_window_ordered": true,
+            "contained_questions_absent": true,
+            "absence_observed": true,
+            "execution_proven": true
+          }
+        ]
+      },
+      "selected_udp_groups": [
+        {
+          "id": "model1_internal_ingress_deny.ipv4",
+          "positive_controls_complete": true,
+          "control_window_ordered": true,
+          "contained_markers_absent": true,
+          "execution_proven": true,
+          "absence_observed": true
+        },
+        {
+          "id": "model1_internal_ingress_deny.ipv4_unbound",
+          "positive_controls_complete": true,
+          "control_window_ordered": true,
+          "contained_markers_absent": true,
+          "execution_proven": true,
+          "absence_observed": true
+        },
+        {
+          "id": "model1_internal_ingress_deny.ipv6",
+          "positive_controls_complete": true,
+          "control_window_ordered": true,
+          "contained_markers_absent": true,
+          "execution_proven": true,
+          "absence_observed": true
+        },
+        {
+          "id": "model1_internal_ingress_deny.ipv6_unbound",
+          "positive_controls_complete": true,
+          "control_window_ordered": true,
+          "contained_markers_absent": true,
+          "execution_proven": true,
+          "absence_observed": true
+        }
+      ],
+      "ci_exit_error": "RuntimeError: Network diagnostic-only report cannot qualify product acceptance",
+      "product_acceptance_passed": false,
+      "limitations": [
+        "Network-only source-executor diagnostic; no visible application, Manager or real-node acceptance was run.",
+        "DNS and UDP observations apply only to the selected probes and capture scope.",
+        "A completed diagnostic process is distinct from a successful proxy transfer."
+      ]
+    },
+    {
+      "mode": "loopback",
+      "workflow_run": 38722545675,
+      "native_job": 116381250991,
+      "target": {
+        "build": 26200,
+        "ubr": 9711,
+        "architecture": "native_x64",
+        "ordinary_user": true,
+        "edition": "Enterprise Evaluation"
+      },
+      "executor_sha256": "b5290bf91f6d4b8715fff7323dbbb8437a7b8573d348cfb6195e4c49a040d705",
+      "diagnostic_executor_attested": true,
+      "network_policy": {
+        "egress": {
+          "default": "deny",
+          "allow": [
+            {
+              "to": [
+                {
+                  "cidr": "127.0.0.1/32"
+                }
+              ],
+              "ports": [
+                {
+                  "protocol": "tcp"
+                }
+              ]
+            }
+          ]
+        },
+        "ingress": {
+          "default": "deny",
+          "hostLoopback": "deny"
+        }
+      },
+      "experiment_phase": {
+        "name": "experiments",
+        "status": "passed",
+        "exit_code": 0,
+        "interpreter_started": true,
+        "elapsed_seconds": 19.6
+      },
+      "process_started": true,
+      "proxy_roundtrips": 0,
+      "transport_roundtrip_observed": false,
+      "proxy_checks": [
+        {
+          "scope": "parent",
+          "checks": {
+            "proxy_self": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            }
+          }
+        },
+        {
+          "scope": "child",
+          "checks": {
+            "proxy_parent": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            }
+          }
+        }
+      ],
+      "cleanup_proven": true,
+      "descendant_cleanup_proven": true,
+      "resources_closed": true,
+      "host_network_unchanged": true,
+      "dns_capture": {
+        "status": "incomplete",
+        "execution_proven": true,
+        "unknown_records": 1,
+        "unknown_reasons": {
+          "opaque_dns_tcp_or_https": 1
+        },
+        "contained_question_count": 0,
+        "contained_questions_absent": null,
+        "groups": [
+          {
+            "id": "model1_internal_ingress_deny.getaddrinfo",
+            "api": "getaddrinfo",
+            "query_type": null,
+            "positive_controls_complete": true,
+            "control_window_ordered": true,
+            "contained_questions_absent": null,
+            "absence_observed": false,
+            "execution_proven": true
+          },
+          {
+            "id": "model1_internal_ingress_deny.dns_a",
+            "api": "dns_a",
+            "query_type": 1,
+            "positive_controls_complete": true,
+            "control_window_ordered": true,
+            "contained_questions_absent": null,
+            "absence_observed": false,
+            "execution_proven": true
+          },
+          {
+            "id": "model1_internal_ingress_deny.dns_aaaa",
+            "api": "dns_aaaa",
+            "query_type": 28,
+            "positive_controls_complete": true,
+            "control_window_ordered": true,
+            "contained_questions_absent": null,
+            "absence_observed": false,
+            "execution_proven": true
+          }
+        ]
+      },
+      "selected_udp_groups": [
+        {
+          "id": "model1_internal_ingress_deny.ipv4",
+          "positive_controls_complete": true,
+          "control_window_ordered": true,
+          "contained_markers_absent": true,
+          "execution_proven": true,
+          "absence_observed": true
+        },
+        {
+          "id": "model1_internal_ingress_deny.ipv4_unbound",
+          "positive_controls_complete": true,
+          "control_window_ordered": true,
+          "contained_markers_absent": true,
+          "execution_proven": true,
+          "absence_observed": true
+        },
+        {
+          "id": "model1_internal_ingress_deny.ipv6",
+          "positive_controls_complete": true,
+          "control_window_ordered": true,
+          "contained_markers_absent": true,
+          "execution_proven": true,
+          "absence_observed": true
+        },
+        {
+          "id": "model1_internal_ingress_deny.ipv6_unbound",
+          "positive_controls_complete": true,
+          "control_window_ordered": true,
+          "contained_markers_absent": true,
+          "execution_proven": true,
+          "absence_observed": true
+        }
+      ],
+      "ci_exit_error": "RuntimeError: Network diagnostic-only report cannot qualify product acceptance",
+      "product_acceptance_passed": false,
+      "limitations": [
+        "Network-only source-executor diagnostic; no visible application, Manager or real-node acceptance was run.",
+        "DNS and UDP observations apply only to the selected probes and capture scope.",
+        "A completed diagnostic process is distinct from a successful proxy transfer."
+      ]
+    }
+  ],
+  "engineering_decision": {
+    "stop_additional_exploratory_BaseContainer_policy_runs": true,
+    "current_windows_backend_deliverable": false,
+    "architecture_impossibility_established": false,
+    "next_action": "Evaluate a replacement Windows backend with a minimal end-to-end prototype before migration. Preserve reusable application and Linux work.",
+    "replacement_implemented": false,
+    "new_diagnostic_runs_started": false
+  }
+}

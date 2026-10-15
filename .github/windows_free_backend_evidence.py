@@ -2,7 +2,8 @@
 
 This is an offline observation tool. It reports nonce DNS questions on the
 captured VM NIC and API/worker metadata; it does not prove kernel enforcement
-or product acceptance.
+or product acceptance. Private PCAP copying requires POSIX O_NOFOLLOW; on
+other platforms capture analysis is rejected rather than weakening file checks.
 """
 from __future__ import annotations
 

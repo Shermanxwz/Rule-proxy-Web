@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "scope": "Pinned Sandboxie v1.18.5 source and official documentation audit; no aged-install or Classic binary execution proof",
+  "plus": {
+    "source_commit": "abd4c240031cfb46666daa74ca47ed4e48b561e4",
+    "noncommercial_usage_permitted": true,
+    "commercial_usage_business_certificate_required": true,
+    "original_unmodified_free_redistribution_permitted": true,
+    "commercial_free_deployment_accepted": false,
+    "license_url": "https://github.com/sandboxie-plus/Sandboxie/blob/abd4c240031cfb46666daa74ca47ed4e48b561e4/LICENSE.Plus"
+  },
+  "classic": {
+    "version": "5.73.5",
+    "license": "GPLv3",
+    "official_asset_url": "https://github.com/sandboxie-plus/Sandboxie/releases/download/v1.18.5/Sandboxie-Classic-x64-v5.73.5.exe",
+    "asset_bytes": 3141560,
+    "download_sha256": "56d40a3a44b9f9986d98f9c62acd624f39e3cb965ffbd3461b3773da152e1f13",
+    "runtime_tested": false,
+    "authenticode_chain_verified": false,
+    "official_free_wfp_support": false,
+    "license_url": "https://github.com/sandboxie-plus/Sandboxie/blob/abd4c240031cfb46666daa74ca47ed4e48b561e4/LICENSE.Classic",
+    "direct_free_replacement_accepted": false
+  },
+  "shared_start_path": {
+    "source_observed": true,
+    "requires_resident_sandman_to_show_reminder": false,
+    "normal_start_calls_DoAboutDialog": true,
+    "default_reminder_possible_after_install_age_days": 40,
+    "probabilistic_aged_launch_check": true,
+    "can_cancel_launch": true,
+    "runtime_observed_after_40_days": false,
+    "source_urls": [
+      "https://github.com/sandboxie-plus/Sandboxie/blob/abd4c240031cfb46666daa74ca47ed4e48b561e4/Sandboxie/apps/start/start.cpp",
+      "https://github.com/sandboxie-plus/Sandboxie/blob/abd4c240031cfb46666daa74ca47ed4e48b561e4/Sandboxie/apps/start/aboutdlg.cpp"
+    ]
+  },
+  "official_feature_matrix": "https://github.com/sandboxie-plus/sandboxie-docs/blob/main/docs/Content/FeatureComparison.md",
+  "limits": [
+    "GPL core and Plus custom-license distribution are separate scopes.",
+    "Free redistribution is not equivalent to commercial usage authorization.",
+    "Shared source mechanisms do not prove unsupported Free Classic WFP binary behavior.",
+    "Tested official signed bytes are not equivalent to modified forum binaries."
+  ],
+  "product_acceptance_passed": false,
+  "direct_core_launcher_review": {
+    "source_export_exists": true,
+    "name": "SbieDll_RunSandboxed",
+    "documented_public_api": false,
+    "third_party_caller_tested_on_windows": false,
+    "core_binary_modified": false,
+    "stability_guaranteed": false,
+    "same_start_about_dialog_path": false,
+    "honors_Start_AlertBeforeStart": false,
+    "product_integration_accepted": false,
+    "source_urls": [
+      "https://github.com/sandboxie-plus/Sandboxie/blob/abd4c240031cfb466daa74ca47ed4e48b561e4/Sandboxie/core/dll/sbiedll.h",
+      "https://github.com/sandboxie-plus/Sandboxie/blob/abd4c240031cfb466daa74ca47ed4e48b561e4/Sandboxie/core/dll/callsvc.c",
+      "https://sandboxie-plus.github.io/sandboxie-docs/Content/SBIEDLLAPI.html",
+      "https://sandboxie-plus.github.io/sandboxie-docs/Content/AlertBeforeStart.html"
+    ]
+  }
+}

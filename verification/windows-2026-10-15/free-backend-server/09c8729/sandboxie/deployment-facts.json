@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "backend": "sandboxie",
+  "scope": "disposable_server_after_probe_cleanup",
+  "service_name": "SbieSvc",
+  "installed_directory_bytes": 76926133,
+  "installed_file_count": 73,
+  "service_working_set_bytes": 11161600,
+  "service_private_memory_bytes": 3174400,
+  "service_state": "Running",
+  "service_start_mode": "Auto",
+  "includes_kernel_driver_memory": false,
+  "includes_mihomo_or_application_memory": false,
+  "product_deployment_accepted": false,
+  "diagnostic_only": true
+}
