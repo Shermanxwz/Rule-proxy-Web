@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 from ctypes import wintypes
+from contextlib import nullcontext
 import hashlib
 import importlib.util
 import ipaddress
@@ -89,7 +90,7 @@ def http_attempt(spec, token):
     return row
 
 
-def dns_attempt(spec, token):
+def dns_attempt(spec, token, existing_socket=None):
     name = token + "." + spec["nonce"] + ".ruleproxy-ci.example.com"
     transaction = secrets.randbelow(65536)
     query = struct.pack("!HHHHHH", transaction, 0x0100, 1, 0, 0, 0)
@@ -97,12 +98,15 @@ def dns_attempt(spec, token):
     query += b"\x00\x00\x01\x00\x01"
     family = socket.AF_INET6 if spec.get("family") == "ipv6" else socket.AF_INET
     row = {"token": token, "protocol": "udp", "family": spec.get("family", "ipv4"),
-           "connected_udp": bool(spec.get("connected_udp"))}
+           "connected_udp": bool(spec.get("connected_udp")),
+           "destination_port": spec.get("destination_port", 53),
+           "same_bound_socket_reused": existing_socket is not None}
     started = time.perf_counter()
     try:
-        with socket.socket(family, socket.SOCK_DGRAM) as sender:
+        with (nullcontext(existing_socket) if existing_socket is not None else
+              socket.socket(family, socket.SOCK_DGRAM)) as sender:
             sender.settimeout(5)
-            endpoint = (spec["target"], 53)
+            endpoint = (spec["target"], spec.get("destination_port", 53))
             if spec.get("connected_udp"):
                 sender.connect(endpoint)
                 sender.send(query)
@@ -154,10 +158,18 @@ def actor(spec_path, result_path):
               "explicit_proxy_used": False, "role": spec["role"], "children": []}
     if os.name == "nt":
         result["is_elevated"] = bool(ctypes.windll.shell32.IsUserAnAdmin())
-    for index in range(spec.get("count", 1)):
-        token = spec["token"] + "-" + str(index)
-        result["rows"].append(native_curl_attempt(spec, token) if spec.get("native_curl") else
-            dns_attempt(spec, token) if spec.get("protocol") == "udp" else http_attempt(spec, token))
+    if spec.get("udp_ports"):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
+            sender.bind(("0.0.0.0", 0))
+            for index in range(spec.get("count", 1)):
+                for port in spec["udp_ports"]:
+                    token = spec["token"] + "-p" + str(port) + "-" + str(index)
+                    result["rows"].append(dns_attempt(dict(spec, destination_port=port), token, sender))
+    else:
+        for index in range(spec.get("count", 1)):
+            token = spec["token"] + "-" + str(index)
+            result["rows"].append(native_curl_attempt(spec, token) if spec.get("native_curl") else
+                dns_attempt(spec, token) if spec.get("protocol") == "udp" else http_attempt(spec, token))
     for child in spec.get("children", []):
         child_spec = dict(spec, role=child["role"], token=spec["token"] + "-" + child["role"],
                           count=1, children=[])
@@ -334,13 +346,15 @@ def main(argv=None):
         actor_directory.mkdir(exist_ok=True)
 
         def phase(label, role="app_a", count=1, protocol="tcp", family="ipv4", children=False,
-                  expected_node="A", connected_udp=False, use_native_curl=False):
+                  expected_node="A", connected_udp=False, use_native_curl=False, udp_ports=None):
             token = secrets.token_hex(8)
             spec = {"nonce": fixture.nonce, "token": token, "role": role, "count": count,
                     "target": fixture.target_ipv6 if family == "ipv6" else fixture.target_ipv4,
                     "protocol": protocol, "family": family, "connected_udp": connected_udp}
             if use_native_curl:
                 spec["native_curl"] = str(native_curl)
+            if udp_ports:
+                spec["udp_ports"] = list(udp_ports)
             if children:
                 spec["children"] = [{"role": "same_image", "exe": str(executables[role])},
                                     {"role": "different_image", "exe": str(executables["child_other"])}]
@@ -364,13 +378,14 @@ def main(argv=None):
                      "matching_receiver_transactions": transactions, "receiver_node_counts": receiver_counts}
             value["marker_responses"] = sum(row.get("controlled_proxy_response") is True and
                                             row.get("node") == expected_node for row in rows)
-            value["attempts"] = count
+            value["attempts"] = count * len(udp_ports) if udp_ports else count
             value["direct_response_count"] = sum(bool(not row.get("controlled_proxy_response") and
                 (row.get("connected") or row.get("response_received"))) for row in rows)
             report["phases"].append(value)
             write_json(report_path, report)
             print(json.dumps({"phase": label, "marker_responses": value["marker_responses"],
-                              "attempts": count, "direct_responses": value["direct_response_count"]}), flush=True)
+                              "attempts": value["attempts"],
+                              "direct_responses": value["direct_response_count"]}), flush=True)
             return value
 
         phase("unselected_before", "unselected", count=2, expected_node=None)
@@ -382,6 +397,9 @@ def main(argv=None):
         phase("selected_children", children=True)
         phase("selected_udp_sendto", count=3, protocol="udp")
         phase("selected_udp_connected", count=3, protocol="udp", connected_udp=True)
+        phase("selected_udp_port_pair", count=3, protocol="udp", udp_ports=(53, 39017))
+        phase("selected_udp_port_pair_connected", count=3, protocol="udp", connected_udp=True,
+              udp_ports=(53, 39017))
         baseline6 = phase("unselected_ipv6", "unselected", family="ipv6", expected_node=None)
         if baseline6["direct_response_count"]:
             phase("selected_ipv6_tcp", family="ipv6", count=3)
@@ -441,11 +459,22 @@ def main(argv=None):
                 report["fixture_cleanup_error"] = error_facts(exc)
         try:
             report["settings_after"] = settings()
-            report["settings_unchanged"] = report.get("settings_before") == report["settings_after"]
+            report["settings_verified"] = all(isinstance(report.get(stage), dict) and
+                all(key in report[stage] for key in ("dns", "default_routes", "winhttp"))
+                for stage in ("settings_before", "settings_after"))
+            report["settings_unchanged"] = (report["settings_before"] == report["settings_after"]
+                if report["settings_verified"] else None)
         except Exception as exc:
             report["settings_read_error"] = error_facts(exc)
         write_json(report_path, report)
-    return 0 if report["status"] == "diagnostic_completed" else 1
+    print(json.dumps({key: report.get(key) for key in (
+        "backend", "status", "core_tcp_routing_observed", "ordinary_actor_elevation_verified",
+        "unselected_direct_positive_controls", "child_routing", "ipv6_runtime_verdict",
+        "settings_unchanged")}), flush=True)
+    return 0 if (report["status"] == "diagnostic_completed" and
+                 report.get("core_tcp_routing_observed") is True and
+                 report.get("ordinary_actor_elevation_verified") is True and
+                 report.get("unselected_direct_positive_controls") is True) else 1
 
 
 if __name__ == "__main__":

@@ -139,6 +139,10 @@ class Fixture:
         if not isinstance(target_host, str) or not target_host or len(target_host) > 253:
             raise ValueError("invalid controlled target hostname")
         self.target_host, self.http_port, self.dns_port = target_host, 80, 53
+        # The non-DNS destination port separates general UDP redirection from
+        # backends that deliberately bypass UDP/53. Both carry the same fixed
+        # synthetic DNS payload; the transaction retains the actual port.
+        self.dns_ports = (53, 39017)
         self.nonce = secrets.token_hex(16)
         self.ports = {}
         for node in NODES:
@@ -290,7 +294,7 @@ class Fixture:
                 peer = sender
                 try:
                     host, port, query = _udp_address(packet)
-                    if host not in (self.dns_target_ipv4, self.dns_target_ipv6) or port != self.dns_port:
+                    if host not in (self.dns_target_ipv4, self.dns_target_ipv6) or port not in self.dns_ports:
                         raise ValueError("UDP target outside fixed DNS stub")
                     response, qname, query_type, answer_ip = _dns_response(query, node)
                     if self.nonce not in qname.split("."):
@@ -334,6 +338,41 @@ class Fixture:
             return (f"X-RuleProxy-Node: {node}\r\n".encode() in response
                     and f"X-RuleProxy-Nonce: {self.nonce}\r\n".encode() in response)
 
+    def _health_udp(self, node, destination_port):
+        if destination_port not in self.dns_ports:
+            raise ValueError("UDP health target outside fixed DNS stub")
+        with socket.create_connection(("127.0.0.1", self.ports[node]), timeout=2) as control:
+            control.settimeout(2)
+            control.sendall(b"\x05\x01\x00")
+            if _exact(control, 2) != b"\x05\x00":
+                return False
+            control.sendall(b"\x05\x03\x00" + _encode_address("0.0.0.0", 0))
+            if _exact(control, 3) != b"\x05\x00\x00":
+                return False
+            relay_host, relay_port = _address(control)
+            relay_address = ipaddress.ip_address(relay_host)
+            if relay_address.is_unspecified:
+                relay_host = "127.0.0.1" if relay_address.version == 4 else "::1"
+            elif not relay_address.is_loopback:
+                return False
+            if not 1 <= relay_port <= 65535:
+                return False
+            qname = f"health.{self.nonce}.ruleproxy-ci.example.com"
+            question = b"".join(bytes([len(label)]) + label.encode("ascii")
+                                for label in qname.split(".")) + b"\x00" + struct.pack("!HH", 1, 1)
+            identifier = secrets.randbits(16)
+            query = struct.pack("!6H", identifier, 0x0100, 1, 0, 0, 0) + question
+            family = socket.AF_INET if relay_address.version == 4 else socket.AF_INET6
+            with socket.socket(family, socket.SOCK_DGRAM) as sender:
+                sender.settimeout(2)
+                sender.connect((relay_host, relay_port))
+                sender.send(b"\x00\x00\x00" + _encode_address(
+                    self.dns_target_ipv4, destination_port) + query)
+                host, port, response = _udp_address(sender.recv(8192))
+            expected, _, _, _ = _dns_response(query, node)
+            return (host == self.dns_target_ipv4 and port == destination_port
+                    and response == expected)
+
     def start_proxy(self):
         if self._closed or len(self._listeners) != 2:
             raise RuntimeError("fixture upstreams are unavailable")
@@ -350,15 +389,22 @@ class Fixture:
             while time.monotonic() < deadline:
                 if self.process.poll() is not None:
                     raise RuntimeError("owned Mihomo exited before readiness")
-                readiness = {}
+                readiness, checks = {}, {}
                 for node in NODES:
-                    try:
-                        readiness[node] = self._health(node)
-                    except (OSError, EOFError, ValueError):
-                        readiness[node] = False
+                    checks[node] = {}
+                    for name, probe in (("tcp_http", lambda: self._health(node)),
+                                        *((f"udp_{port}", lambda port=port: self._health_udp(node, port))
+                                          for port in self.dns_ports)):
+                        try:
+                            checks[node][name] = probe()
+                        except (OSError, EOFError, ValueError):
+                            checks[node][name] = False
+                    readiness[node] = all(checks[node].values())
+                self.readiness = {"explicit_proxy_health_only": True, "transparent_evidence": False,
+                                  "nodes": readiness, "checks": checks,
+                                  "udp_destination_ports": list(self.dns_ports),
+                                  "proxy_generation": self._generation}
                 if all(readiness.values()):
-                    self.readiness = {"explicit_proxy_health_only": True, "transparent_evidence": False,
-                                      "nodes": readiness, "proxy_generation": self._generation}
                     return {"started": True, "pid": self.process.pid, "readiness": self.readiness}
                 time.sleep(.1)
             raise TimeoutError("owned A/B Mihomo readiness timeout")
@@ -400,7 +446,8 @@ class Fixture:
                 "target_ipv4": self.target_ipv4, "target_ipv6": self.target_ipv6,
                 "target_host": self.target_host, "http_port": self.http_port,
                 "dns_target_ipv4": self.dns_target_ipv4, "dns_target_ipv6": self.dns_target_ipv6,
-                "dns_port": self.dns_port, "origin_kind": "controlled_synthetic_stub",
+                "dns_port": self.dns_port, "dns_ports": list(self.dns_ports),
+                "origin_kind": "controlled_synthetic_stub",
                 "http_internet_forwarded": False, "dns_internet_forwarded": False,
                 "real_exit_ip_observed": False, "tun_enabled": False,
                 "host_proxy_dns_routes_modified": False, "explicit_health": self.readiness,
