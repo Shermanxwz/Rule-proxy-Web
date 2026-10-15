@@ -1,0 +1,900 @@
+{
+  "schema_version": 1,
+  "derived_from": "guest-result.json",
+  "source_sha256": "0d08f8c5582a5e9ff93062d23431a454699620e17fc8e94cb8ca539c7c6d11ba",
+  "json_pointers": [
+    "/reports/product/ordinary_suite/phases",
+    "/reports/product/receiver_final"
+  ],
+  "method": "Recomputed independently from exact per-attempt target or DNS qname, shared nonce, actor role, controlled origin, response protocol/completion, expected node and absence at the other node. Health transactions excluded. Direct controls require actual socket response plus absence from controlled receivers. Ordinary/non-explicit actor flags checked. No completion inferred beyond the reported phase list.",
+  "completed_phase_count": 16,
+  "all_completed_phases_verified": true,
+  "selected_actor_responses_verified": 21,
+  "direct_positive_controls_verified": 10,
+  "phases": [
+    {
+      "label": "unselected_before",
+      "token": "783c16bc65051267",
+      "expected_node": null,
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "783c16bc65051267-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/783c16bc65051267-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        },
+        {
+          "token": "783c16bc65051267-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/783c16bc65051267-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "selected_raw_tcp",
+      "token": "c61afc069f6d4e08",
+      "expected_node": "A",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "c61afc069f6d4e08-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/c61afc069f6d4e08-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            10
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "c61afc069f6d4e08-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/c61afc069f6d4e08-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            12
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 10,
+          "elapsed_seconds": 22.317879,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/c61afc069f6d4e08-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 12,
+          "elapsed_seconds": 22.328188,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/c61afc069f6d4e08-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "same_path_second_instance",
+      "token": "93f43ec08d0b2031",
+      "expected_node": "A",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "93f43ec08d0b2031-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/93f43ec08d0b2031-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            14
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "93f43ec08d0b2031-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/93f43ec08d0b2031-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            16
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 14,
+          "elapsed_seconds": 22.745028,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/93f43ec08d0b2031-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 16,
+          "elapsed_seconds": 22.750514,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/93f43ec08d0b2031-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "selected_udp_39017",
+      "token": "0d089303890328e4",
+      "expected_node": "A",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "0d089303890328e4-p39017-0",
+          "exact_receiver_target": "0d089303890328e4-p39017-0.e4acce8ccaa07cd015099b41b755a1f1.ruleproxy-ci.example.com.",
+          "protocol": "udp_dns",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            17
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "0d089303890328e4-p39017-1",
+          "exact_receiver_target": "0d089303890328e4-p39017-1.e4acce8ccaa07cd015099b41b755a1f1.ruleproxy-ci.example.com.",
+          "protocol": "udp_dns",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            18
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 17,
+          "elapsed_seconds": 23.204081,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "udp_dns",
+          "destination": "1.1.1.1",
+          "destination_port": 39017,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "qname": "0d089303890328e4-p39017-0.e4acce8ccaa07cd015099b41b755a1f1.ruleproxy-ci.example.com.",
+          "query_type": 1,
+          "answer_ip": "198.51.100.101",
+          "evidence_role": "actor"
+        },
+        {
+          "sequence": 18,
+          "elapsed_seconds": 23.205458,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "udp_dns",
+          "destination": "1.1.1.1",
+          "destination_port": 39017,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "qname": "0d089303890328e4-p39017-1.e4acce8ccaa07cd015099b41b755a1f1.ruleproxy-ci.example.com.",
+          "query_type": 1,
+          "answer_ip": "198.51.100.101",
+          "evidence_role": "actor"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "selected_udp_connected_39017",
+      "token": "f53b67467bef5984",
+      "expected_node": "A",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "f53b67467bef5984-p39017-0",
+          "exact_receiver_target": "f53b67467bef5984-p39017-0.e4acce8ccaa07cd015099b41b755a1f1.ruleproxy-ci.example.com.",
+          "protocol": "udp_dns",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            19
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "f53b67467bef5984-p39017-1",
+          "exact_receiver_target": "f53b67467bef5984-p39017-1.e4acce8ccaa07cd015099b41b755a1f1.ruleproxy-ci.example.com.",
+          "protocol": "udp_dns",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            20
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 19,
+          "elapsed_seconds": 23.56525,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "udp_dns",
+          "destination": "1.1.1.1",
+          "destination_port": 39017,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "qname": "f53b67467bef5984-p39017-0.e4acce8ccaa07cd015099b41b755a1f1.ruleproxy-ci.example.com.",
+          "query_type": 1,
+          "answer_ip": "198.51.100.101",
+          "evidence_role": "actor"
+        },
+        {
+          "sequence": 20,
+          "elapsed_seconds": 23.566374,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "udp_dns",
+          "destination": "1.1.1.1",
+          "destination_port": 39017,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "qname": "f53b67467bef5984-p39017-1.e4acce8ccaa07cd015099b41b755a1f1.ruleproxy-ci.example.com.",
+          "query_type": 1,
+          "answer_ip": "198.51.100.101",
+          "evidence_role": "actor"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "different_helper_before",
+      "token": "ee1ea0eef706b429",
+      "expected_node": null,
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "ee1ea0eef706b429-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/ee1ea0eef706b429-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        },
+        {
+          "token": "ee1ea0eef706b429-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/ee1ea0eef706b429-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "explicit_helper_after",
+      "token": "8732606bb5a6bc5c",
+      "expected_node": "A",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "8732606bb5a6bc5c-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/8732606bb5a6bc5c-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            22
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "8732606bb5a6bc5c-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/8732606bb5a6bc5c-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 1,
+            "B": 0
+          },
+          "matching_receiver_sequences": [
+            24
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 22,
+          "elapsed_seconds": 29.13028,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/8732606bb5a6bc5c-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 24,
+          "elapsed_seconds": 29.135107,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/8732606bb5a6bc5c-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "selected_node_b",
+      "token": "bee4f40ac085377e",
+      "expected_node": "B",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "bee4f40ac085377e-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/bee4f40ac085377e-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            26
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "bee4f40ac085377e-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/bee4f40ac085377e-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            28
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 26,
+          "elapsed_seconds": 29.500575,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/bee4f40ac085377e-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 28,
+          "elapsed_seconds": 29.507538,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/bee4f40ac085377e-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "related_helper_node_b",
+      "token": "2e55cf2cec23f8a9",
+      "expected_node": "B",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "2e55cf2cec23f8a9-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/2e55cf2cec23f8a9-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            30
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "2e55cf2cec23f8a9-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/2e55cf2cec23f8a9-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            32
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 30,
+          "elapsed_seconds": 29.852234,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/2e55cf2cec23f8a9-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 32,
+          "elapsed_seconds": 29.861411,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/2e55cf2cec23f8a9-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "unselected_with_rules",
+      "token": "f36ae0d806daf6e4",
+      "expected_node": null,
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "f36ae0d806daf6e4-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/f36ae0d806daf6e4-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        },
+        {
+          "token": "f36ae0d806daf6e4-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/f36ae0d806daf6e4-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "disabled_path_direct",
+      "token": "3eba9c3956f160f4",
+      "expected_node": null,
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "3eba9c3956f160f4-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/3eba9c3956f160f4-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        },
+        {
+          "token": "3eba9c3956f160f4-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/3eba9c3956f160f4-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "disabled_helper_direct",
+      "token": "4cce63e6b25091b4",
+      "expected_node": null,
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "4cce63e6b25091b4-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/4cce63e6b25091b4-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        },
+        {
+          "token": "4cce63e6b25091b4-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/4cce63e6b25091b4-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 0
+          },
+          "matching_receiver_sequences": [],
+          "direct_response_positive_control": true,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "reenabled_path_proxy",
+      "token": "f54b7c6b9ce48e03",
+      "expected_node": "B",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "f54b7c6b9ce48e03-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/f54b7c6b9ce48e03-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            34
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "f54b7c6b9ce48e03-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/f54b7c6b9ce48e03-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            36
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 34,
+          "elapsed_seconds": 36.044321,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/f54b7c6b9ce48e03-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 36,
+          "elapsed_seconds": 36.052625,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/f54b7c6b9ce48e03-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "reenabled_helper_proxy",
+      "token": "bd83f0d248616a2d",
+      "expected_node": "B",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "bd83f0d248616a2d-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/bd83f0d248616a2d-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            38
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "bd83f0d248616a2d-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/bd83f0d248616a2d-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            40
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 38,
+          "elapsed_seconds": 36.386396,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/bd83f0d248616a2d-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 40,
+          "elapsed_seconds": 36.395902,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/bd83f0d248616a2d-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "restart_saved_node",
+      "token": "2acc78f0b5ad002a",
+      "expected_node": "B",
+      "attempts": 2,
+      "rows": [
+        {
+          "token": "2acc78f0b5ad002a-0",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/2acc78f0b5ad002a-0",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            42
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        },
+        {
+          "token": "2acc78f0b5ad002a-1",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/2acc78f0b5ad002a-1",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            44
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 42,
+          "elapsed_seconds": 78.360512,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/2acc78f0b5ad002a-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 44,
+          "elapsed_seconds": 78.370962,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/2acc78f0b5ad002a-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "real_edge_headless",
+      "token": "55fd4128b6c51a31",
+      "expected_node": "B",
+      "attempts": 1,
+      "rows": [
+        {
+          "token": "55fd4128b6c51a31",
+          "exact_receiver_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/55fd4128b6c51a31",
+          "protocol": "tcp_http_response",
+          "receiver_node_counts": {
+            "A": 0,
+            "B": 1
+          },
+          "matching_receiver_sequences": [
+            46
+          ],
+          "direct_response_positive_control": false,
+          "passed": true
+        }
+      ],
+      "matching_receiver_transactions": [
+        {
+          "sequence": 46,
+          "elapsed_seconds": 85.032159,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+          "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/55fd4128b6c51a31",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "overall_suite_passed": false
+}

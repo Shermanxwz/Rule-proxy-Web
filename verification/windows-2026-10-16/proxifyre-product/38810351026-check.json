@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "workflow": "Check",
+  "run_id": 38810351026,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38810351026",
+  "source_commit": "0486d0a77cbcad57d1496bbbcea70911323e9783",
+  "branch": "main",
+  "status": "passed",
+  "jobs_passed": 8,
+  "windows_units": {
+    "python_versions": [
+      "3.10",
+      "3.14"
+    ],
+    "tests_per_job": 1016,
+    "failures_per_job": 0,
+    "platform_skips_per_job": 47,
+    "real_powershell_installation_rollback_fault_injection": "passed in both jobs",
+    "powershell_deployment_and_vm_scripts_parse": "passed in both jobs",
+    "background_entry_inherited_output_behavior": "passed in both jobs",
+    "real_windows_atomic_report_sharing_and_bounded_failure": "passed in both jobs"
+  },
+  "linux": {
+    "real_network_namespace_jobs": 4,
+    "ubuntu_system_python": [
+      "22.04",
+      "24.04"
+    ],
+    "custom_python_versions": [
+      "3.10",
+      "3.14"
+    ],
+    "ordinary_panel_and_core_smoke": "passed in all four jobs",
+    "additional_unit_jobs": 2
+  },
+  "scope": "Cross-platform tests and Linux smoke verification. This record does not establish Windows 11 product or visible desktop qualification."
+}

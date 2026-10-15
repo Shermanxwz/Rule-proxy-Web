@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "claim": "visible browser response independently observed",
+  "visible_browser_response_independently_observed": true,
+  "observation_scope": "Independent host QMP screenshot and exact-token receiver response. Corroboration outside the 16 formally completed phases; not a completed strict GUI test.",
+  "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+  "token": "d32abf855943fada",
+  "expected_node": "B",
+  "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/d32abf855943fada",
+  "host_screenshot": {
+    "file": "screenshots/vm-01200s.png",
+    "sha256": "7cbceee767f7d21f768667a3111cd521cf951826f9e45fa09c1501b06750aeec",
+    "dimensions": [
+      1280,
+      800
+    ],
+    "source": "Original QMP screenshot from artifact; independent of guest GDI/window-enumeration report.",
+    "visual_inspection": "A visible Microsoft Edge window has the matching target in its address bar and displays JSON with node B, the exact nonce and request_target, and controlled_synthetic_stub."
+  },
+  "matching_receiver_transactions": [
+    {
+      "sequence": 47,
+      "elapsed_seconds": 96.338899,
+      "proxy_generation": 1,
+      "node": "B",
+      "protocol": "tcp_http",
+      "destination": "1.1.1.1",
+      "destination_port": 80,
+      "origin_kind": "controlled_synthetic_stub",
+      "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+      "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/d32abf855943fada",
+      "evidence_role": "actor",
+      "response_complete": false
+    },
+    {
+      "sequence": 48,
+      "elapsed_seconds": 96.338994,
+      "proxy_generation": 1,
+      "node": "B",
+      "protocol": "tcp_http_response",
+      "destination": "1.1.1.1",
+      "destination_port": 80,
+      "origin_kind": "controlled_synthetic_stub",
+      "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+      "request_target": "/ruleproxy-compare/e4acce8ccaa07cd015099b41b755a1f1/d32abf855943fada",
+      "evidence_role": "actor",
+      "response_complete": true
+    }
+  ],
+  "completed_nonhealth_actor_response_count": 1,
+  "other_node_response_count": 0,
+  "guest_browser_observation": {
+    "pid": 7308,
+    "actual_image_path": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "is_elevated": false,
+    "session_id": 2,
+    "requested_args": [
+      "--new-window",
+      "--window-size=1000,700",
+      "[URL REDACTED]"
+    ],
+    "explicit_proxy_configuration": false,
+    "sandbox_disabled": false,
+    "real_node_verified": false,
+    "login_cookies_verified": false
+  },
+  "formal_visible_phase_appended": false,
+  "formal_failure": "visible_window(process.pid) did not satisfy its predicate within 45 seconds. The reason for that detection/ownership mismatch is not established here.",
+  "strict_gui_qualification_passed": false,
+  "native_suite_passed": false,
+  "real_internet_exit_ip_verified": false,
+  "real_node_or_login_cookie_verified": false,
+  "limitation": "Does not replace missing formal window ownership/PNG/Job-stop checks, Start-Windows.cmd acceptance, or formal uninstall/fresh-reinstall qualification."
+}

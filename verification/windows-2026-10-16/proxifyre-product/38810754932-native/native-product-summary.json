@@ -1,0 +1,542 @@
+{
+  "schema_version": 2,
+  "status": "failed",
+  "scope": "native Windows 11 x64 final offline product",
+  "native_windows_11_product_passed": false,
+  "real_exit_ip_verified": false,
+  "gui_verified": false,
+  "linux_equivalent_isolation": false,
+  "iso": {
+    "url": "https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26200.6584.250915-1905.25h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_en-us.iso",
+    "sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+    "bytes": 7092807680,
+    "verified": true
+  },
+  "cumulative_update_required": false,
+  "update_scope": "The selected proxy backend does not require the former MXC build contract.",
+  "vm_configuration": {
+    "machine": "q35,accel=kvm,smm=on",
+    "vcpu": 4,
+    "ram_mib": 6144,
+    "disk_controller": "q35 built-in AHCI/SATA (ide-hd on ide.0)",
+    "disk_virtual_gib": 80,
+    "installer_dynamic_update": false,
+    "secure_boot": true,
+    "tpm": "2.0"
+  },
+  "elapsed_total_seconds": 1736.61,
+  "phase": "finished",
+  "phases": [
+    {
+      "phase": "host_preflight",
+      "unix_time": 1792100066.0040977
+    },
+    {
+      "phase": "host_resources_recorded",
+      "unix_time": 1792100066.021159
+    },
+    {
+      "phase": "official_iso_download",
+      "unix_time": 1792100066.1591337
+    },
+    {
+      "phase": "official_iso_verified",
+      "unix_time": 1792100513.8998308
+    },
+    {
+      "phase": "official_iso_extract",
+      "unix_time": 1792100515.7478983
+    },
+    {
+      "phase": "unattended_iso_build",
+      "unix_time": 1792100528.6886683
+    },
+    {
+      "phase": "unattended_iso_verified",
+      "unix_time": 1792100545.4256713
+    },
+    {
+      "phase": "vm_start",
+      "unix_time": 1792100547.4357157
+    },
+    {
+      "phase": "vm_kvm_confirmed",
+      "unix_time": 1792100548.7932768
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100548.7937837
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100548.807863
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100578.8346171
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100608.8734393
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100638.905086
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100668.9400456
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100698.9734678
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100729.003037
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100759.036701
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100789.0750124
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100819.1038275
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100849.1359587
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100879.169845
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100909.1961632
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100939.22206
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100969.2528079
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792100999.2931862
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101029.3233528
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101059.3553655
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101089.382075
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101119.4136856
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101149.4468796
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101179.5054865
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101209.5729337
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101239.6274695
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101269.6882806
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101299.7509758
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101329.8118362
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101359.8907843
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101389.9581845
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101420.014405
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101450.1009076
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101480.183032
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101510.2650013
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101540.3729045
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101570.4602354
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101600.5863209
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101630.6765895
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101660.7522485
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101690.834363
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101720.9123442
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101750.9482358
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792101781.0359867
+    },
+    {
+      "phase": "guest_result_received",
+      "unix_time": 1792101799.854108
+    },
+    {
+      "phase": "cleanup",
+      "unix_time": 1792101799.855294
+    },
+    {
+      "phase": "finished",
+      "unix_time": 1792101802.6158924
+    }
+  ],
+  "kvm_api_version": 12,
+  "host_preflight": {
+    "architecture": "x86_64",
+    "kernel": "6.17.0-1022-azure",
+    "cpu_count": 4,
+    "disk_free_bytes": 91656597504,
+    "cgroup_membership": "0::/system.slice/hosted-compute-agent.service",
+    "cpu_affinity_count": 4,
+    "cpu_max": "max 100000",
+    "cpu_stat": "usage_usec 19019655\nuser_usec 14754917\nsystem_usec 4264737\nnice_usec 2590000\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0",
+    "memory_max": "max",
+    "memory_current": "1108746240",
+    "cpu_pressure": "some avg10=0.59 avg60=0.45 avg300=0.48 total=2809515\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0",
+    "io_pressure": "some avg10=4.38 avg60=1.60 avg300=1.12 total=5984134\nfull avg10=4.38 avg60=1.56 avg300=1.05 total=5669048",
+    "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0",
+    "cpu_times": "cpu  3015 261 1666 66574 1498 0 48 0 0 0",
+    "MemTotal": 16765374464,
+    "MemAvailable": 15527616512,
+    "SwapTotal": 3221221376,
+    "SwapFree": 3221221376,
+    "effective_cpu_count": 4
+  },
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "qemu_version": "QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)",
+  "remastered_iso": {
+    "bytes": 7089045504,
+    "filesystem_options": "iso9660_level3_joliet_rockridge",
+    "boot_wim_layout_status": "reported",
+    "boot_wim_extents": [
+      {
+        "extent_index": 0,
+        "lba": 28517,
+        "blocks": 289623,
+        "file_bytes": 593147852,
+        "byte_offset": 58402816
+      }
+    ]
+  },
+  "qemu_kvm_enabled": true,
+  "actual_guest_vcpus": [
+    {
+      "index": 0,
+      "host_thread_id": 4226
+    },
+    {
+      "index": 1,
+      "host_thread_id": 4227
+    },
+    {
+      "index": 2,
+      "host_thread_id": 4228
+    },
+    {
+      "index": 3,
+      "host_thread_id": 4229
+    }
+  ],
+  "latest_vm_sample": {
+    "unix_time": 1792101780.948753,
+    "host": {
+      "architecture": "x86_64",
+      "kernel": "6.17.0-1022-azure",
+      "cpu_count": 4,
+      "disk_free_bytes": 67447816192,
+      "cgroup_membership": "0::/system.slice/hosted-compute-agent.service",
+      "cpu_affinity_count": 4,
+      "cpu_max": "max 100000",
+      "cpu_stat": "usage_usec 3272669935\nuser_usec 2699550812\nsystem_usec 573119123\nnice_usec 2590000\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0",
+      "memory_max": "max",
+      "memory_current": "14800125952",
+      "cpu_pressure": "some avg10=0.55 avg60=2.64 avg300=8.20 total=119706407\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0",
+      "io_pressure": "some avg10=0.00 avg60=0.05 avg300=0.45 total=41033742\nfull avg10=0.00 avg60=0.00 avg300=0.13 total=35094509",
+      "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=774816\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=711715",
+      "cpu_times": "cpu  268363 261 58158 414610 9299 0 851 0 250006 0",
+      "MemTotal": 16765374464,
+      "MemAvailable": 9158471680,
+      "SwapTotal": 3221221376,
+      "SwapFree": 3221180416,
+      "effective_cpu_count": 4
+    },
+    "qemu_exit_code": null,
+    "qemu_cpu_seconds": 3212.39,
+    "qemu_threads": 45,
+    "qemu_rss_bytes": 6523768832,
+    "qemu_io": {
+      "rchar": 28173701535,
+      "wchar": 39781073480,
+      "syscr": 4134940,
+      "syscw": 5116972,
+      "read_bytes": 10173681664,
+      "write_bytes": 42219646976,
+      "cancelled_write_bytes": 0
+    },
+    "disk_allocated_bytes": 17048850432,
+    "disk_file_bytes": 18275434496,
+    "qmp_status": {
+      "running": true,
+      "status": "running",
+      "singlestep": false
+    },
+    "blockstats": [
+      {
+        "device": "pflash0",
+        "stats": {
+          "unmap_operations": 0,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 0,
+          "wr_highest_offset": 0,
+          "wr_total_time_ns": 0,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 0,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 0,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 0,
+          "wr_operations": 0,
+          "unmap_bytes": 0,
+          "rd_merged": 0,
+          "rd_bytes": 0,
+          "unmap_total_time_ns": 0,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 0,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      },
+      {
+        "device": "pflash1",
+        "stats": {
+          "unmap_operations": 0,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 0,
+          "wr_highest_offset": 73728,
+          "wr_total_time_ns": 0,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 0,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 0,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 0,
+          "wr_operations": 0,
+          "unmap_bytes": 0,
+          "rd_merged": 0,
+          "rd_bytes": 0,
+          "unmap_total_time_ns": 0,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 0,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      },
+      {
+        "device": "system",
+        "stats": {
+          "unmap_operations": 77237,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 35579094938,
+          "wr_highest_offset": 85899345920,
+          "wr_total_time_ns": 341240960121,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 38401863168,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 145356185797,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 24986,
+          "wr_operations": 669472,
+          "unmap_bytes": 117386649600,
+          "rd_merged": 0,
+          "rd_bytes": 25906201088,
+          "unmap_total_time_ns": 5293540115,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "idle_time_ns": 21293074,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 470260,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      },
+      {
+        "device": "install",
+        "stats": {
+          "unmap_operations": 0,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 0,
+          "wr_highest_offset": 0,
+          "wr_total_time_ns": 0,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 0,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 22501615593,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 0,
+          "wr_operations": 0,
+          "unmap_bytes": 0,
+          "rd_merged": 0,
+          "rd_bytes": 7724902400,
+          "unmap_total_time_ns": 0,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "idle_time_ns": 408344540990,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 350480,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      },
+      {
+        "device": "sd0",
+        "stats": {
+          "unmap_operations": 0,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 0,
+          "wr_highest_offset": 0,
+          "wr_total_time_ns": 0,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 0,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 0,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 0,
+          "wr_operations": 0,
+          "unmap_bytes": 0,
+          "rd_merged": 0,
+          "rd_bytes": 0,
+          "unmap_total_time_ns": 0,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 0,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      }
+    ],
+    "vm_elapsed_seconds": 1232,
+    "screen_sha256": "a87db4232973e6a6ef93a7025914e5211599dccf16b2045529fd60615c827bfa"
+  },
+  "failure_phase": "guest_result_received",
+  "error": "RuntimeError: Native Windows 11 installed product evidence is incomplete",
+  "product_execution_confirmed": true,
+  "phase_before_cleanup": "guest_result_received"
+}

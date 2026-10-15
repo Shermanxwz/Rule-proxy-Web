@@ -26,7 +26,7 @@
   "main_before_consolidation": "67a0ebf168803925e45419e5154d39bf7311a1da",
   "remote_ref_transaction": "Fast-forward main and delete every other remote branch atomically, with an exact beforeOid for every ref.",
   "all_worktree_heads_preserved": 28,
-  "native_windows_11_qualification": "Unverified after bounded run 38792652549 was cancelled without a guest product report. Last retained screen: Windows 11 installation at 32%. No further native VM experiments started.",
+  "native_windows_11_qualification": "At the initial branch-consolidation checkpoint: Unverified after bounded run 38792652549 was cancelled without a guest product report. Last retained screen: Windows 11 installation at 32%. No further native VM experiments started.",
   "heads_after_cleanup": {
     "local": 1,
     "remote": 1,
@@ -36,5 +36,14 @@
     "commit": "f86d9c96bed39f7f8d6382d9b7c1d5fff65d3ae4",
     "sha256": "4448998be6de0756da483f7613907edad38a958f5faccf11f3c78cbe8316725c",
     "verified": true
+  },
+  "authorized_follow_up": {
+    "status_record": "current-status.json",
+    "last_native_run_id": 38810754932,
+    "tested_source_commit": "0486d0a77cbcad57d1496bbbcea70911323e9783",
+    "long_running_native_validation": "stopped_after_targeted_bounded_follow_up",
+    "full_native_qualification_passed": false,
+    "core_traffic_and_visible_browser_observations_preserved": true,
+    "final_main_bundle": "A complete post-archive main bundle and digest manifest are retained privately; the earlier bundle record is historical and unchanged."
   }
 }

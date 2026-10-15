@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "status": "native_product_behavior_observed_but_complete_qualification_incomplete",
+  "native_os": {
+    "actual_os": {
+      "major": 10,
+      "minor": 0,
+      "build": 26200,
+      "platform": 2,
+      "product_type": 1,
+      "architecture": "AMD64"
+    },
+    "ubr": 6584
+  },
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "confirmed": {
+    "setup_and_reinstall_exit_codes": [
+      0,
+      0
+    ],
+    "manifest_files_verified": 108,
+    "source_matches_bundle_count": 10,
+    "ordinary_launcher": {
+      "method": "WTSQueryUserToken+CreateProcessAsUserW",
+      "caller_sid": "S-1-5-18",
+      "expected_actor_sid": "S-1-5-21-2806157045-3466253362-3192774445-1000",
+      "actual_actor_sid_verified": true,
+      "session_id": 2
+    },
+    "interactive_session_id": 2,
+    "ordinary_checks_observed_passed": 40,
+    "completed_phases_reverified": 16,
+    "selected_actor_responses_verified": 21,
+    "direct_positive_controls_verified": 10,
+    "local_headless_checks_and_independent_headless_response_observed": true,
+    "visible_browser_response_independently_observed": true
+  },
+  "failure": {
+    "stage": "visible_window(process.pid)",
+    "timeout_seconds": 45,
+    "exception": "TimeoutError",
+    "reported_error": "bounded product condition timed out",
+    "original_traceback_in": "guest-result.json /reports/product/ordinary_suite/traceback",
+    "interpretation": "The strict window predicate timed out. Independent host screenshot and completed B response confirm visible browsing activity, but do not prove missing ownership/cleanup predicates or explain the detection mismatch."
+  },
+  "not_completed": [
+    "formal real_edge_visible phase and all strict GUI conditions",
+    "Start-Windows.cmd acceptance",
+    "formal uninstall/preserve-state/fresh-reinstall acceptance"
+  ],
+  "claims_preserved_as_failed": {
+    "ordinary_suite_status": "failed",
+    "product_report_status": "failed_or_incomplete",
+    "native_summary_status": "failed",
+    "gui_verified": false,
+    "windows_11_verified": false,
+    "headless_browser_verified_global_flag": false
+  },
+  "overall_native_qualification_passed": false,
+  "strict_gui_qualification_passed": false,
+  "public_binary_release_eligible": false,
+  "real_internet_exit_ip_verified": false,
+  "evidence_limits": "Original files and failed reports are unchanged. Recomputed completed phases and independently observed visible response are partial evidence, not a replacement overall pass. No new test, run, product change or root-cause assertion is made."
+}

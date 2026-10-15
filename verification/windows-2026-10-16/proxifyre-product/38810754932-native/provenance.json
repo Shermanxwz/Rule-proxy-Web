@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "run_id": 38810754932,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38810754932",
+  "source_commit": "0486d0a77cbcad57d1496bbbcea70911323e9783",
+  "qualification_scope": "Native Windows 11 candidate ZIP; substantial product behavior observed but strict visible-window suite incomplete",
+  "artifact_id": 12009294254,
+  "github_artifact_digest": "sha256:ba83f9e11a78dc4339a6e993d89670a67ef9534dd7a3c979b3afd568c7182096",
+  "normalized_download_zip_sha256": "ba83f9e11a78dc4339a6e993d89670a67ef9534dd7a3c979b3afd568c7182096",
+  "download_bytes": 2336991,
+  "artifact_digest_verified": true,
+  "original_artifact_file_bytes_preserved": true,
+  "preserved_files": {
+    "guest-result.json": {
+      "bytes": 74568,
+      "sha256": "0d08f8c5582a5e9ff93062d23431a454699620e17fc8e94cb8ca539c7c6d11ba"
+    },
+    "guest-supervisor.log": {
+      "bytes": 1360,
+      "sha256": "444b39cfe501a9ff638312e9ae780ccbf5ad8d1bb5923011a96e9fc8d56fc594"
+    },
+    "guest-tests.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "host-preflight.txt": {
+      "bytes": 3951,
+      "sha256": "a9a9f57a1ba492ee917a1cc9551dbb6a23fcb5aa6a75131e22e1f18585351ba5"
+    },
+    "last-screen.png": {
+      "bytes": 1047962,
+      "sha256": "a87db4232973e6a6ef93a7025914e5211599dccf16b2045529fd60615c827bfa"
+    },
+    "native-product-summary.json": {
+      "bytes": 16936,
+      "sha256": "198a215b649f311c03c6f5ae6496d5da95bae434b0b8e34de8f8a71c3619bcf3"
+    },
+    "qemu.log": {
+      "bytes": 111,
+      "sha256": "63b330102fa446af66e55e5405abc38aeae2572df9b86b65d44035106f35d988"
+    },
+    "screenshots/vm-00000s.png": {
+      "bytes": 1592,
+      "sha256": "b36bf5bf2903666d944c8a69abac63a0a07e20c88b3f9237180b439e4c83d072"
+    },
+    "screenshots/vm-00300s.png": {
+      "bytes": 11022,
+      "sha256": "ca842ca22f228bc90a7119deb6373abaf97b39d2f4bd8d9efcd91601b13ce0a8"
+    },
+    "screenshots/vm-00600s.png": {
+      "bytes": 4518,
+      "sha256": "eceeed1173091afde0aa00f32546181a8b5ea70a913a58938bdff694d21a018a"
+    },
+    "screenshots/vm-00900s.png": {
+      "bytes": 1042685,
+      "sha256": "4fba77beeaf396b51b124ef8e8c1405f6d7870fd567c7281748ccb52fa4f30f6"
+    },
+    "screenshots/vm-01200s.png": {
+      "bytes": 208262,
+      "sha256": "7cbceee767f7d21f768667a3111cd521cf951826f9e45fa09c1501b06750aeec"
+    },
+    "serial.log": {
+      "bytes": 1583,
+      "sha256": "b1c53bacae6f697c24e7f569d871ddd2218f78a7f75c8418325d62153b54a54b"
+    },
+    "swtpm.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "vm-samples.jsonl": {
+      "bytes": 245067,
+      "sha256": "2ffb7174b89e8b4733fda04df3c5ba55dbcd27011c98f6e6640ffcb408788257"
+    }
+  },
+  "derived_files": {
+    "product-report.derived.json": {
+      "bytes": 62128,
+      "sha256": "c0dbb17db76a91cc3a8a9eb340da6bafaf7a1c362b63c700d1f926b683e92de5",
+      "derived_from": "guest-result.json",
+      "source_sha256": "0d08f8c5582a5e9ff93062d23431a454699620e17fc8e94cb8ca539c7c6d11ba",
+      "original_independently_uploaded_file": false
+    },
+    "completed-phase-receiver-evidence.derived.json": {
+      "bytes": 29748,
+      "sha256": "6c61b356025f083262366194ffe0ced8ebbecc865512d01bbc87d6354d157969",
+      "derived_from": "guest-result.json",
+      "source_sha256": "0d08f8c5582a5e9ff93062d23431a454699620e17fc8e94cb8ca539c7c6d11ba",
+      "original_independently_uploaded_file": false
+    },
+    "visible-browser-corroboration.derived.json": {
+      "bytes": 3109,
+      "sha256": "7c42629ec5ba0c857ea155ee7a752aaf5b706842debbedd28f2d87c92eec2cfb",
+      "derived_from": "guest-result.json",
+      "source_sha256": "0d08f8c5582a5e9ff93062d23431a454699620e17fc8e94cb8ca539c7c6d11ba",
+      "original_independently_uploaded_file": false
+    }
+  },
+  "derived_product_report_note": "Parsed guest-result.json /reports/product and reserialized. Not an independently uploaded original product-report.json.",
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "elapsed_total_seconds": 1736.61,
+  "status": "failed_or_incomplete_visible_window_predicate_timeout",
+  "product_execution_confirmed": true,
+  "ordinary_checks_observed_passed": 40,
+  "independently_verified_completed_phases": 16,
+  "selected_actor_responses_verified": 21,
+  "direct_positive_controls": 10,
+  "visible_browser_response_independently_observed": true,
+  "native_product_passed": false,
+  "strict_gui_qualification_passed": false,
+  "product_release_eligible": false
+}

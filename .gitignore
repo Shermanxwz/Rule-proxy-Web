@@ -4,6 +4,7 @@ __pycache__/
 bin/
 vendor/
 *.log
+!verification/windows-2026-10-16/proxifyre-product/**/*.log
 *.zip
 private/
 state/

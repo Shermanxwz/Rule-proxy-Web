@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "run_id": 38804291266,
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "conclusion": "Incomplete Server qualification. Partial successful observations do not establish overall product qualification.",
+  "observed_report": {
+    "status": "failed_or_incomplete",
+    "error": "Ordinary product suite exceeded 15 minutes",
+    "ordinary_suite_status": "running",
+    "ordinary_checks_recorded": 37,
+    "ordinary_checks_all_true": true,
+    "start_cmd_report_field_present": false,
+    "start_cmd_result": null,
+    "install_and_reinstall": true,
+    "source_matches_bundle_all_true": true,
+    "last_recorded_check": "browser_png_created",
+    "headless_browser_local_checks_passed": false,
+    "overall_headless_browser_verified": false
+  },
+  "completed_phase_receiver_crosscheck": {
+    "method": "Read-only recomputation using receiver_evidence(suite.phases, receiver_final); original report unchanged. Actor markers are compared against separately recorded controlled-receiver transactions.",
+    "phase_count": 15,
+    "all_completed_phases_passed": true,
+    "selected_actor_attempts": 20,
+    "direct_positive_control_attempts": 10,
+    "phases": [
+      {
+        "label": "unselected_before",
+        "token": "e6a0701bf60dca9b",
+        "expected_node": null,
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "selected_raw_tcp",
+        "token": "11bb550858662d5e",
+        "expected_node": "A",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 2,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "same_path_second_instance",
+        "token": "f145c454f2ac0b41",
+        "expected_node": "A",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 2,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "selected_udp_39017",
+        "token": "adc0f37dbe37f3b7",
+        "expected_node": "A",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 2,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "selected_udp_connected_39017",
+        "token": "2c5fda966932b353",
+        "expected_node": "A",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 2,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "different_helper_before",
+        "token": "766dbb08123c3ca6",
+        "expected_node": null,
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "explicit_helper_after",
+        "token": "ece3b7adf542e8bc",
+        "expected_node": "A",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 2,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "selected_node_b",
+        "token": "1bdf0361468ce4a7",
+        "expected_node": "B",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 2
+        },
+        "passed": true
+      },
+      {
+        "label": "related_helper_node_b",
+        "token": "a951f9fc73b18e6a",
+        "expected_node": "B",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 2
+        },
+        "passed": true
+      },
+      {
+        "label": "unselected_with_rules",
+        "token": "752ba6b8d061cd8e",
+        "expected_node": null,
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "disabled_path_direct",
+        "token": "9ac578fdc6f06272",
+        "expected_node": null,
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "disabled_helper_direct",
+        "token": "1a3ae958cd191529",
+        "expected_node": null,
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 0
+        },
+        "passed": true
+      },
+      {
+        "label": "reenabled_path_proxy",
+        "token": "221ed65df0a29a6f",
+        "expected_node": "B",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 2
+        },
+        "passed": true
+      },
+      {
+        "label": "reenabled_helper_proxy",
+        "token": "1b015d1444b52538",
+        "expected_node": "B",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 2
+        },
+        "passed": true
+      },
+      {
+        "label": "restart_saved_node",
+        "token": "4cb1de0f1b447ac0",
+        "expected_node": "B",
+        "attempts": 2,
+        "receiver_node_counts": {
+          "A": 0,
+          "B": 2
+        },
+        "passed": true
+      }
+    ]
+  },
+  "harness_wait_assessment": {
+    "classification": "Consistent with inherited output PIPE wait at the production Start-Windows.cmd qualification step; not proven by a captured process stack.",
+    "mechanism_verified": true,
+    "mechanism_evidence": [
+      "The old start_cmd_phase uses subprocess.run(capture_output=True, timeout=30) around CMD, which starts a persistent background pythonw panel.",
+      "Pinned CPython 3.14.8 subprocess.run kills the direct process on timeout, then calls communicate() without a timeout on Windows to collect captured output. A descendant retaining the PIPE write end can keep this wait open.",
+      "The replacement run_background_entry writes stdout/stderr to a controlled file with stdin=DEVNULL. Its local behavior test executes a short-lived parent and a still-running descendant retaining output, and verifies prompt parent completion."
+    ],
+    "primary_source": "https://github.com/python/cpython/blob/v3.14.8/Lib/subprocess.py#L497-L514",
+    "现场一致性": "All 37 recorded checks were true, including related_paths toggles and node B checks and the headless PNG check; the suite remained running and had no start_cmd result. This observation is consistent with the new entry step waiting before its first result assignment.",
+    "process_stack_captured": false,
+    "product_runtime_failure_proven": false,
+    "next_qualification": "Server-only run 38806421682 uses source ef91795 with the harness-only output-file remedy; assess its report independently."
+  },
+  "not_established": [
+    "Overall Server product qualification for this ZIP",
+    "Successful production Start-Windows.cmd completion",
+    "This run did not reach successful uninstall/reinstall qualification",
+    "Windows 11 qualification or visible GUI qualification",
+    "Real Internet exit IP, disconnected installation, login persistence, downloads, or Linux-equivalent isolation"
+  ],
+  "original_report_modified": false
+}

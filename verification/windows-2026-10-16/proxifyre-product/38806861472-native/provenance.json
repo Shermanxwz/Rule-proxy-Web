@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "run_id": 38806861472,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38806861472",
+  "source_commit": "ef91795aab7fc4be0582dcb92cb9275659f02f87",
+  "qualification_scope": "Native Windows 11 final candidate ZIP; installation and WTS ordinary session reached, suite stopped before product panel or transparent application traffic",
+  "artifact_id": 12008181689,
+  "github_artifact_digest": "sha256:cf09090a3dd86f74e1ed5af0fdef9a686b8df5721f867d4c7a2ce32f104479e6",
+  "normalized_download_zip_sha256": "cf09090a3dd86f74e1ed5af0fdef9a686b8df5721f867d4c7a2ce32f104479e6",
+  "download_bytes": 586396,
+  "artifact_digest_verified": true,
+  "original_artifact_file_bytes_preserved": true,
+  "preserved_files": {
+    "guest-result.json": {
+      "bytes": 24965,
+      "sha256": "1eccd35e2b9052c681c261c65af2872392bbf84f1a65fd22ef0ac991a2fa8131"
+    },
+    "guest-tests.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "guest-supervisor.log": {
+      "bytes": 1360,
+      "sha256": "065250a432f42fdf514919070dbdd4f70edb14d585c5b749057d78f35aeef82d"
+    },
+    "host-preflight.txt": {
+      "bytes": 3874,
+      "sha256": "a2a6fb39e9ed07ee050483399953d3daac519627240387b60374feec8f2a3023"
+    },
+    "last-screen.png": {
+      "bytes": 282131,
+      "sha256": "dfde1902486473cff1c800c27a10e8eb5d0cd8c70a2d291e3748a83d93282414"
+    },
+    "native-product-summary.json": {
+      "bytes": 15849,
+      "sha256": "3302ebd0a3c171c2c290378975e7d0a69eaa87ca8c791c310e578ff8ba3fac0a"
+    },
+    "qemu.log": {
+      "bytes": 111,
+      "sha256": "a9142e04a0a0e30b2f96da7d89e5cdef1c27f563f8d28ab3faeb597514ed0ca9"
+    },
+    "screenshots/vm-00000s.png": {
+      "bytes": 1592,
+      "sha256": "b36bf5bf2903666d944c8a69abac63a0a07e20c88b3f9237180b439e4c83d072"
+    },
+    "screenshots/vm-00300s.png": {
+      "bytes": 10987,
+      "sha256": "84648c512c9bad131344ef46c924288c0ab829a1d7f5b700a753d2a1c05f0772"
+    },
+    "screenshots/vm-00600s.png": {
+      "bytes": 4525,
+      "sha256": "a18928a305136715397443c0ecef11ff4a5048a8bde0079cd5dc434982bad1ce"
+    },
+    "screenshots/vm-00900s.png": {
+      "bytes": 277308,
+      "sha256": "53e592e417ff8b679c33b88edc1bface00161a33134a0c5b030dec09008566f5"
+    },
+    "serial.log": {
+      "bytes": 1583,
+      "sha256": "9ada0b285c5b6492513b1198f9aea6100989fc752fe8b33588e7c39315a28074"
+    },
+    "swtpm.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "vm-samples.jsonl": {
+      "bytes": 186752,
+      "sha256": "3394009db6f8c159c169a772b52f0af0f1851678b158cec1c45183c0b2cb4eb8"
+    }
+  },
+  "derived_files": {
+    "product-report.derived.json": {
+      "sha256": "a528305b4d4c931616c1ab489063be5f87637f6356a2aeeccd86235c412903a0",
+      "bytes": 17841,
+      "derived_from": "guest-result.json",
+      "source_sha256": "1eccd35e2b9052c681c261c65af2872392bbf84f1a65fd22ef0ac991a2fa8131",
+      "json_pointer": "/reports/product",
+      "transformation": "JSON object parsed and serialized as UTF-8 with indentation; semantically equal to embedded object. Not an independently uploaded original product-report.json."
+    }
+  },
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "elapsed_total_seconds": 1244.0,
+  "status": "failed_harness_suite_report_replace_after_native_install_and_ordinary_session_success",
+  "native_product_passed": false,
+  "product_execution_confirmed": true,
+  "transparent_application_traffic_verified": false,
+  "gui_qualification_passed": false,
+  "product_runtime_failure_proven": false,
+  "error_root_cause_determined": false
+}

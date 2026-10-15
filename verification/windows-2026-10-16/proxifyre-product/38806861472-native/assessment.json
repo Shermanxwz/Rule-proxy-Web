@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "status": "native_qualification_incomplete_harness_report_replace_error",
+  "observed_native_os": {
+    "build": 26200,
+    "ubr": 6584,
+    "product_type": 1,
+    "architecture": "AMD64"
+  },
+  "installation": {
+    "first_setup_exit": 0,
+    "reinstall_exit": 0,
+    "install_and_reinstall_check": true,
+    "package_manifest_verified": true,
+    "manifest_files_verified": 108,
+    "source_matches_bundle_verified": 10,
+    "installed_service_observation": "RuleProxyControl Running (Auto/LocalSystem); ProxiFyreService Stopped (Manual/LocalSystem). This is setup state, not application forwarding evidence."
+  },
+  "ordinary_session": {
+    "method": "WTSQueryUserToken+CreateProcessAsUserW",
+    "owner_sid_matches": true,
+    "outer_actor_session_id": 2,
+    "launcher_session_id": 2,
+    "suite_interactive_session_id": 2,
+    "suite_is_elevated": false,
+    "suite_checks_observed": {
+      "suite_ordinary": true,
+      "suite_interactive_session": true
+    }
+  },
+  "failure": {
+    "component": "acceptance harness ordinary-suite report writer",
+    "operation": "os.replace(user-suite.json.tmp, user-suite.json)",
+    "winerror": 5,
+    "exception_type": "PermissionError",
+    "reported_error": "[WinError 5] Access is denied: 'C:\\\\RuleProxyProduct\\\\actors\\\\user-suite.json.tmp' -> 'C:\\\\RuleProxyProduct\\\\actors\\\\user-suite.json'",
+    "context": "First suite checkpoint created its result. The next checkpoint failed replacing it; final failure details were returned in the guest result.",
+    "underlying_cause": "Not established by this artifact. Sharing/FILE_SHARE_DELETE race versus ACL is under separate investigation; neither is asserted here."
+  },
+  "unreached_qualification": {
+    "product_web_panel": true,
+    "panel_managed_core": true,
+    "transparent_application_traffic": true,
+    "node_switching": true,
+    "visible_browser": true,
+    "complete_lifecycle": true
+  },
+  "receiver_evidence": {
+    "record_count": 8,
+    "all_records_explicit_fixture_health_only": true,
+    "application_qualification_phases": [],
+    "interpretation": "Explicit fixture health checks are not transparent product application traffic and do not grant qualification."
+  },
+  "outcome_limits": {
+    "product_installation_succeeded": true,
+    "ordinary_interactive_session_launch_succeeded": true,
+    "product_execution_confirmed": true,
+    "transparent_application_traffic_verified": false,
+    "windows_11_product_verified": false,
+    "gui_verified": false,
+    "overall_product_passed": false,
+    "product_runtime_failure_proven": false
+  },
+  "cleanup_reported": {
+    "user_cleanup_confirmed": true,
+    "host_summary_final_phase": "finished"
+  },
+  "screenshot_scope": "Preserved desktop and four stage screenshots show VM state only. No verified visible-browser product screenshot is present.",
+  "next_action": "Preserve all evidence. Diagnose the bounded harness report replacement error before resuming remaining qualification; do not infer full product failure or grant GUI/native pass."
+}

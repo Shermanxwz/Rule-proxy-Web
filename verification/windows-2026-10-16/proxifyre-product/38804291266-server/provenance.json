@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "run_id": 38804291266,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38804291266",
+  "source_commit": "a37e33a226aff7d90153dc1b7e4c12454df77d37",
+  "qualification_scope": "Windows Server 2025 candidate personal offline ZIP; suite incomplete",
+  "artifact_id": 12006303205,
+  "github_artifact_digest": "sha256:d5a5513781b5343e58bf4b7666f49991d25aa669e4fa9c83bc67bf24386777f0",
+  "normalized_download_zip_sha256": "d5a5513781b5343e58bf4b7666f49991d25aa669e4fa9c83bc67bf24386777f0",
+  "product_report_sha256": "40eff6b57a710be2d358df3c4e4a1b078818774b69f06a45aaf9f1bc69824c28",
+  "original_report_bytes_preserved": true,
+  "status": "failed_or_incomplete",
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "ordinary_checks_observed_passed": 37,
+  "completed_receiver_phases_observed": 15,
+  "overall_qualification_passed": false,
+  "windows_11_verified_by_this_run": false,
+  "public_binary_release_eligible": false
+}

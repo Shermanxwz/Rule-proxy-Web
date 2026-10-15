@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "status": "inconclusive_native_product_qualification_cancelled_for_shared_harness_fix",
+  "cancellation_reason": "Controller stopped the older native run after the same-source Server acceptance exposed a confirmed PIPE inheritance wait; the replacement acceptance script uses file output. This native cancellation was preventive, not a resource timeout or a demonstrated native product failure.",
+  "harness_summary_status": "cancelled",
+  "harness_summary_final_phase": "finished",
+  "cancellation_signal": "SIGINT",
+  "elapsed_total_seconds": 1091.1,
+  "observed_vm_sample_count": 29,
+  "observed_vm_seconds": [
+    0,
+    841
+  ],
+  "last_screen": {
+    "text": "Just a moment...",
+    "interpretation": "Windows OOBE/startup screen; no product UI is visible. A retained screen is a sample, not proof that later activity never occurred."
+  },
+  "iso_hash_verified": true,
+  "kvm_api_version": 12,
+  "qmp_kvm_enabled": true,
+  "actual_guest_vcpu_count": 4,
+  "resource_observations": {
+    "effective_host_cpu_counts": [
+      4
+    ],
+    "minimum_sampled_mem_available_bytes": 9118658560,
+    "minimum_sampled_disk_free_bytes": 72628740096,
+    "sampled_qmp_states": [
+      "running"
+    ],
+    "last_qemu_cpu_seconds": 2164.06,
+    "last_system_block_failed_operations": {
+      "failed_zone_append_operations": 0,
+      "failed_wr_operations": 0,
+      "failed_rd_operations": 0,
+      "failed_unmap_operations": 0,
+      "failed_flush_operations": 0
+    },
+    "interpretation": "Recorded CPU/memory/disk preflight passed and sampled resources did not breach its guards. These counters do not establish a performance cause, exclude every bottleneck, or reconstruct resources in older runs."
+  },
+  "cancellation_observability": {
+    "summary_survived": true,
+    "samples_survived": true,
+    "last_screen_survived": true,
+    "stage_screenshots_preserved": 3,
+    "cleanup_returned_to_finished": true,
+    "qemu_shutdown_warning_preserved": "QEMU reported a TPM shutdown warning during termination; raw qemu.log retained without inferring product behavior."
+  },
+  "guest_result_present": false,
+  "product_report_present": false,
+  "product_execution_confirmed": false,
+  "product_failure_proven": false,
+  "shared_script_defect_observed_in_this_native_guest": false,
+  "windows_11_product_verified": false,
+  "next_run": {
+    "run_id": 38806861472,
+    "source_commit": "ef91795aab7fc4be0582dcb92cb9275659f02f87",
+    "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+    "role": "Current continuation reported by root; no outcome asserted here."
+  }
+}

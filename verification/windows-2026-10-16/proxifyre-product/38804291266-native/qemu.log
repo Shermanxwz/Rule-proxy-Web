@@ -1,0 +1,2 @@
+qemu-system-x86_64: terminating on signal 15 from pid 4034 (/opt/hostedtoolcache/Python/3.14.8/x64/bin/python)
+qemu-system-x86_64: tpm-emulator: Could not cleanly shutdown the TPM: Invalid argument

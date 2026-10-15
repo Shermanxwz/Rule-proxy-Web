@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "run_id": 38804291266,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38804291266",
+  "source_commit": "a37e33a226aff7d90153dc1b7e4c12454df77d37",
+  "source_commit_evidence": "same-run Server provenance",
+  "qualification_scope": "Native Windows 11 final candidate ZIP; explicitly cancelled to replace a confirmed shared acceptance-script waiting defect",
+  "artifact_id": 12007275233,
+  "github_artifact_digest": "sha256:5031188de8e208399c5ae3e97ea7a664127ff037ae30f5536dc2cd9ab46785cd",
+  "normalized_download_zip_sha256": "5031188de8e208399c5ae3e97ea7a664127ff037ae30f5536dc2cd9ab46785cd",
+  "download_bytes": 31799,
+  "artifact_digest_verified": true,
+  "original_artifact_file_bytes_preserved": true,
+  "preserved_files": {
+    "last-screen.png": {
+      "bytes": 5304,
+      "sha256": "8ea83d6844adaab4a2f5ab5d34cff3212fdb33b1f0862e1914381527496437eb"
+    },
+    "native-product-summary.json": {
+      "bytes": 15473,
+      "sha256": "404440a4d6eb347f7b0f3aeb2ee5674251301a3ef685dc592599719c145f5e86"
+    },
+    "host-preflight.txt": {
+      "bytes": 3724,
+      "sha256": "a9224adbf93b39677bafc382d32c41bf8abeea905ec8afa1e209792b02947bc2"
+    },
+    "qemu.log": {
+      "bytes": 198,
+      "sha256": "83a192adc232e7ab493237f5333c10e5f6483e775fced35f1363aff02503b5e5"
+    },
+    "screenshots/vm-00000s.png": {
+      "bytes": 1592,
+      "sha256": "b36bf5bf2903666d944c8a69abac63a0a07e20c88b3f9237180b439e4c83d072"
+    },
+    "screenshots/vm-00300s.png": {
+      "bytes": 11078,
+      "sha256": "f7b76ec130999a9bcebb6cf3317a058afab263ff19ee785ec68d35ede5d2b4b8"
+    },
+    "screenshots/vm-00600s.png": {
+      "bytes": 6052,
+      "sha256": "da5235dcc7c6d72bde063a8130b9006455fda89d9c382df70060ed1fb22e2dd6"
+    },
+    "serial.log": {
+      "bytes": 1199,
+      "sha256": "19edcd8f13b548c99c68beceb7fd2bc66fa0778bba91996f747c400f9b4c8a3b"
+    },
+    "swtpm.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "vm-samples.jsonl": {
+      "bytes": 168938,
+      "sha256": "182d394ea9e2860e546922b343ca872e15f320e55606d9d41bbd00b082e12d0a"
+    }
+  },
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "status": "cancelled_for_shared_acceptance_script_fix_before_native_guest_report",
+  "workflow_cancellation_reason_source": "Root controller: Server exposed a CPython Windows PIPE inheritance wait in common acceptance script; fixed in ef91795. Native cancelled preventively, not after an observed native manifestation.",
+  "replacement_acceptance_commit": "ef91795aab7fc4be0582dcb92cb9275659f02f87",
+  "replacement_native_run_id": 38806861472,
+  "elapsed_total_seconds": 1091.1,
+  "native_product_passed": false,
+  "product_execution_confirmed": false,
+  "native_product_runtime_failure_proven": false,
+  "cancelled_at_resource_budget": false
+}

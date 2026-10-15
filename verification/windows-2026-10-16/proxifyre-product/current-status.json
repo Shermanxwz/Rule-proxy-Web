@@ -1,44 +1,133 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "product_version": "0.3.0",
-  "package_sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "delivery_status": "personal_offline_candidate_not_fully_native_qualified",
+  "tested_source_commit": "0486d0a77cbcad57d1496bbbcea70911323e9783",
   "windows_server_2025": {
     "status": "passed",
-    "run_id": 38792652549,
-    "source_commit": "e9eca229d9301a563e804a651718cb90cad98551",
-    "ordinary_checks": 33,
-    "independent_traffic_phases": 13,
+    "run_id": 38810754932,
+    "source_commit": "0486d0a77cbcad57d1496bbbcea70911323e9783",
+    "ordinary_checks": 41,
+    "independent_traffic_phases": 17,
     "headless_edge": true,
     "visible_gui_verified": false,
+    "production_start_cmd_ordinary_verified": true,
+    "related_paths_verified": true,
     "successful_run_ids": [
-      38789494925,
-      38792652549
+      38806421682,
+      38806861472,
+      38810754932
     ]
   },
   "windows_11": {
-    "status": "unverified",
-    "run_id": 38792652549,
-    "previous_attempt_status": "failed_bootstrap_without_product_report",
-    "product_execution_confirmed": false,
-    "source_commit": "e9eca229d9301a563e804a651718cb90cad98551",
-    "previous_attempt_run_id": 38788166642,
-    "attempt_status": "cancelled_at_budget_without_guest_or_product_report",
+    "status": "partial_core_checks_passed_full_automated_suite_failed",
+    "run_id": 38810754932,
+    "source_commit": "0486d0a77cbcad57d1496bbbcea70911323e9783",
+    "product_execution_confirmed": true,
+    "actual_os": {
+      "ubr": 6584,
+      "native_architecture": "AMD64",
+      "build": 26200,
+      "product_type": "WinNT"
+    },
+    "install_and_reinstall": true,
+    "installer_exit_codes": [
+      0,
+      0
+    ],
+    "ordinary_launcher": {
+      "method": "WTSQueryUserToken+CreateProcessAsUserW",
+      "caller_sid": "S-1-5-18",
+      "expected_actor_sid": "S-1-5-21-2806157045-3466253362-3192774445-1000",
+      "actual_actor_sid_verified": true,
+      "session_id": 2
+    },
+    "ordinary_checks_passed": 40,
+    "completed_traffic_phases": 16,
+    "headless_local_checks_passed": true,
+    "full_native_qualification_passed": false,
+    "strict_visible_gui_verification_passed": false,
+    "attempt_status": "visible_window_recognition_timed_out_after_core_and_headless_checks",
+    "failure_does_not_establish_browser_invisibility": true,
+    "visible_browser_observation": {
+      "type": "independent_host_screen_and_receiver_observation",
+      "screenshot": "38810754932-native/screenshots/vm-01200s.png",
+      "node": "B",
+      "nonce": "e4acce8ccaa07cd015099b41b755a1f1",
+      "token": "d32abf855943fada",
+      "window_owner_and_foreground_predicates_not_established": true,
+      "not_a_replacement_for_full_automated_qualification": true,
+      "receiver_response_independently_verified": true,
+      "corroboration_record": "38810754932-native/visible-browser-corroboration.derived.json"
+    },
+    "native_start_cmd_flow_completed": false,
+    "native_successful_path_uninstall_reinstall_flow_completed": false,
+    "bootstrap_user_cleanup_confirmed": true,
     "product_runtime_failure_proven": false,
-    "last_retained_screen": "Installing Windows 11; 32% complete",
-    "cancel_requested_utc": "2026-10-15T20:02:11Z",
-    "completed_utc": "2026-10-15T20:03:14Z",
-    "additional_native_vm_runs_started": 0,
-    "remaining_qualification": "Windows 11 installation and ordinary-user product acceptance"
+    "further_long_running_native_runs_started": 0,
+    "validation_decision": "Stop bounded long-running experiments; retain the failed full-suite status and the scoped positive evidence.",
+    "independently_recomputed_traffic_phases": 16,
+    "selected_actor_responses_verified": 21,
+    "direct_actor_positive_controls": 10
   },
+  "previous_package_qualifications": [
+    {
+      "package_sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
+      "windows_server_2025": {
+        "status": "passed",
+        "run_id": 38792652549,
+        "source_commit": "e9eca229d9301a563e804a651718cb90cad98551",
+        "ordinary_checks": 33,
+        "independent_traffic_phases": 13,
+        "headless_edge": true,
+        "visible_gui_verified": false,
+        "successful_run_ids": [
+          38789494925,
+          38792652549
+        ]
+      },
+      "superseded_personal_candidate_privately_retained": true
+    }
+  ],
+  "native_attempt_history": [
+    {
+      "run_id": 38788166642,
+      "status": "failed_bootstrap_without_product_report"
+    },
+    {
+      "run_id": 38792652549,
+      "status": "cancelled_at_budget_during_windows_installation"
+    },
+    {
+      "run_id": 38804291266,
+      "status": "cancelled_to_replace_shared_launcher_pipe_wait_defect"
+    },
+    {
+      "run_id": 38806861472,
+      "status": "installation_and_user_session_passed_report_replace_failed"
+    },
+    {
+      "run_id": 38810754932,
+      "status": "core_and_headless_checks_passed_expected_window_recognition_timed_out"
+    }
+  ],
   "real_internet_exit_ip_verified": false,
+  "disconnected_installation_verified": false,
+  "browser_login_cookie_persistence_verified": false,
+  "browser_downloads_verified": false,
   "linux_equivalent_isolation": false,
   "public_binary_release_eligible": false,
   "cross_platform_ci": {
     "status": "passed",
-    "run_id": 38796992440,
+    "run_id": 38810351026,
     "jobs_passed": 8,
-    "source_commit": "f86d9c96bed39f7f8d6382d9b7c1d5fff65d3ae4",
-    "branch": "main"
+    "source_commit": "0486d0a77cbcad57d1496bbbcea70911323e9783",
+    "branch": "main",
+    "windows_tests_per_job": 1016,
+    "windows_platform_skips_per_job": 47,
+    "real_windows_installer_rollback_fault_injection_passed": true,
+    "real_windows_atomic_report_lock_release_and_bounded_failure_passed": true
   },
   "branch_consolidation": {
     "status": "completed",
@@ -49,5 +138,11 @@
     "previous_remote_heads": 53,
     "historical_worktree_heads_preserved": 28,
     "private_dirty_worktree_archive_verified": true
+  },
+  "evidence_storage": {
+    "original_bytes_preserved": true,
+    "git_newline_conversion_disabled_for_verification": true,
+    "curated_raw_logs_included": true,
+    "failed_original_reports_are_not_rewritten_as_passed": true
   }
 }

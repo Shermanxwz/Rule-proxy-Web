@@ -1,0 +1,20 @@
+2026-10-16T04:18:26.1987606Z protected_bootstrap_ready
+2026-10-16T04:18:29.3134604Z system_task_registered
+
+{"phase":"configuration_read_before","utc":"2026-10-15T21:22:03.0952629Z"}
+{"phase":"configuration_read_after","utc":"2026-10-15T21:22:13.7945126Z"}
+{"phase":"caller_identity_ready","utc":"2026-10-15T21:22:15.1833955Z"}
+{"phase":"module_facts_ready","utc":"2026-10-15T21:22:15.3968746Z"}
+{"phase":"payload_download_before","utc":"2026-10-15T21:22:15.5413211Z"}
+{"phase":"payload_download_after","utc":"2026-10-15T21:22:31.7684488Z"}
+{"phase":"payload_hash_verified","utc":"2026-10-15T21:22:32.2896582Z"}
+{"phase":"payload_extracted","utc":"2026-10-15T21:22:42.8932382Z"}
+{"phase":"actor_source_acl_ready","utc":"2026-10-15T21:22:46.4339901Z"}
+{"phase":"package_hash_verified","utc":"2026-10-15T21:22:46.8633384Z"}
+{"phase":"bootstrap_python_ready","utc":"2026-10-15T21:22:52.0410762Z"}
+{"phase":"ordinary_account_ready","utc":"2026-10-15T21:22:52.0482163Z"}
+{"phase":"product_controller_before","utc":"2026-10-15T21:22:52.0482163Z"}
+{"phase":"product_controller_after","utc":"2026-10-15T21:24:49.7809157Z"}
+{"phase":"cleanup_before","utc":"2026-10-15T21:24:50.0276375Z"}
+{"phase":"ordinary_account_cleanup_before","utc":"2026-10-15T21:24:50.0430862Z"}
+{"phase":"ordinary_account_cleanup_after","utc":"2026-10-15T21:25:00.3539707Z"}
