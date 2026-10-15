@@ -49,7 +49,7 @@ class FreeBackendAssetsTests(unittest.TestCase):
                         self.assertEqual(raw.count(safe_name), 2)
                         archive.write_bytes(raw.replace(safe_name, name.encode("ascii")))
                 with zipfile.ZipFile(archive) as source:
-                    self.assertEqual(source.namelist(), list(names))
+                    self.assertEqual([member.orig_filename for member in source.infolist()], list(names))
                 output = root / "output"
                 with self.assertRaises(ValueError):
                     assets.extract(archive, output)

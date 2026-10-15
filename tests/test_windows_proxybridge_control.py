@@ -273,6 +273,81 @@ class ServiceProtocolTests(unittest.TestCase):
         self.assertEqual(client._evt.value, ctypes.c_void_p(-1).value)
         self.assertEqual(client._ctl.value, ctypes.c_void_p(-1).value)
 
+    def test_service_call_polls_pipe_before_read_and_times_out_boundedly(self):
+        class FakeKernel:
+            def __init__(self, available):
+                self.available = list(available)
+                self.read_calls = 0
+
+            def WriteFile(self, _handle, _request, size, written, _overlapped):
+                ctypes.cast(written, ctypes.POINTER(ctypes.c_ulong))[0] = size
+                return 1
+
+            def PeekNamedPipe(self, _handle, _buffer, _size, _read, available, _left):
+                ctypes.cast(available, ctypes.POINTER(ctypes.c_ulong))[0] = self.available.pop(0)
+                return 1
+
+            def ReadFile(self, _handle, response, _size, read, _overlapped):
+                self.read_calls += 1
+                ctypes.memmove(response, (7).to_bytes(4, "little"), 4)
+                ctypes.cast(read, ctypes.POINTER(ctypes.c_ulong))[0] = 4
+                return 1
+
+        client = object.__new__(control._ServiceClient)
+        client._kernel = FakeKernel([0, 4])
+        client._ctl = ctypes.c_void_p(1)
+        with mock.patch.object(control.time, "sleep"):
+            self.assertEqual(client.call(b"req"), 7)
+        self.assertEqual(client._kernel.read_calls, 1)
+
+        client._kernel = FakeKernel([0, 0, 0])
+        ticks = iter((10.0, 10.0, 10.1, 25.1))
+        with mock.patch.object(control.time, "monotonic", side_effect=lambda: next(ticks)), \
+             mock.patch.object(control.time, "sleep"):
+            with self.assertRaises(TimeoutError):
+                client.call(b"req")
+        self.assertEqual(client._kernel.read_calls, 0)
+
+    def test_event_reader_uses_polling_and_stops_without_blocking_read(self):
+        class FakeKernel:
+            def PeekNamedPipe(self, *_args):
+                return 1
+
+        client = object.__new__(control._ServiceClient)
+        client._kernel = FakeKernel()
+        client._evt = ctypes.c_void_p(1)
+        client._event_stop = __import__("threading").Event()
+        client._event_reader_stopped = False
+        client._event_thread = __import__("threading").Thread(target=client._drain_events, daemon=True)
+        client._event_thread.start()
+        client._event_stop.set()
+        client._event_thread.join(timeout=1)
+        self.assertFalse(client._event_thread.is_alive())
+        self.assertTrue(client._event_reader_stopped)
+
+    def test_probe_persists_failed_stage_and_bounded_error_fact(self):
+        class FakeClient:
+            def __init__(self, stage_callback=None):
+                self._stage_callback = stage_callback
+                self.event_reader_stopped = True
+
+            def connect(self):
+                raise OSError(5, "private message must not be serialized")
+
+            def close(self):
+                return None
+
+        with tempfile.TemporaryDirectory() as directory:
+            artifacts = Path(directory)
+            with mock.patch.object(control, "_ServiceClient", FakeClient):
+                with self.assertRaises(OSError):
+                    control._run_service_probe(artifacts, artifacts / "bundle")
+            progress = json.loads((artifacts / "probe-progress.json").read_text(encoding="utf-8"))
+        self.assertEqual(progress["status"], "error")
+        self.assertEqual(progress["stage"], "service_connect")
+        self.assertEqual(progress["error_type"], "OSError")
+        self.assertNotIn("private message", str(progress))
+
     def test_native_dns_control_projection_keeps_scope_and_controls_private(self):
         nonce = "a" * 32
         qname = f"{nonce}.dns-a.outside-before.ruleproxy-ci.example.com."

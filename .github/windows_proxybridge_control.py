@@ -40,6 +40,8 @@ BUNDLE_FILES = ({
 },)
 MAX_REPORT_BYTES = 128 * 1024
 MAX_FIXTURE_BYTES = 16 * 1024
+CONTROL_REPLY_TIMEOUT_SECONDS = 15.0
+PIPE_POLL_INTERVAL_SECONDS = 0.05
 PROTOCOL_VERSION = 1
 PIPE_CTL = r"\\.\pipe\ProxyBridgeCtl"
 PBOP_HELLO = 1
@@ -567,24 +569,46 @@ def _ordinary_user_facts() -> dict:
 
 def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
     """Perform authenticated service-protocol and bounded socket checks."""
-    client = _ServiceClient()
+    progress_path = artifacts / "probe-progress.json"
+    current_stage = "probe_initializing"
+
+    def progress(stage: str, *, status: str = "running", exc: BaseException | None = None) -> None:
+        nonlocal current_stage
+        current_stage = stage
+        item = {"schema_version": 1, "backend": BACKEND, "phase": "probe",
+                "status": status, "stage": stage}
+        if exc is not None:
+            item["error_type"] = type(exc).__name__
+            winerror = getattr(exc, "winerror", None)
+            if type(winerror) is int and 0 <= winerror <= 0xFFFFFFFF:
+                item["error_winerror"] = winerror
+        _write_report(progress_path, item)
+
+    progress(current_stage)
+    client = _ServiceClient(stage_callback=progress)
     fixture_obj = None
     engine_started = False
     engine_stopped = False
     fixture_closed = False
     facts = None
+    failure = None
+    failure_stage = None
     try:
+        progress("service_connect")
         client.connect()
+        progress("fixture_setup")
         module = _fixture_module(bundle)
         fixture_obj = module.Fixture(mihomo_path=bundle / "mihomo" / "mihomo.exe",
                                      directory=artifacts / "fixture")
         fixture_obj.__enter__()
         fixture = validate_fixture_spec(fixture_obj.spec)
         spec_path = fixture_obj.write_spec()
+        progress("add_proxy")
         proxy_id = client.add_proxy(fixture["proxy_host"], fixture["proxy_port"])
         if not proxy_id:
             raise RuntimeError("Service rejected the local SOCKS proxy configuration")
         # Preserve an explicit local SOCKS endpoint bypass to avoid recursive routing.
+        progress("add_rules")
         bypass = client.add_rule("free-probe.exe", proxy_id, hosts="127.0.0.1",
                                  ports=str(fixture["proxy_port"]), action=1)
         if not bypass:
@@ -594,11 +618,14 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
             raise RuntimeError("Service rejected the diagnostic application rule")
         if not client.set_localhost_via_proxy(True):
             raise RuntimeError("Service rejected local-origin routing")
+        progress("native_dns_outside_before")
         dns_before = _run_native_dns_control(bundle, artifacts, fixture["nonce"], "outside_before")
+        progress("outside_wire_before")
         outside_before = _run_fixture_worker(bundle, spec_path, artifacts, role="parent",
                                              selected=False, nonce=fixture["nonce"],
                                              wire_role="outside_before", fixture=fixture)
         after_outside_before = _safe_snapshot(fixture_obj.snapshot())
+        progress("engine_start")
         started = client.start()
         if not started:
             raise RuntimeError("Service did not start the packet engine")
@@ -606,23 +633,31 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
         # Network requests are executed by isolated child interpreters so their process
         # image matches the selected rule. Results contain only booleans and counts.
         before_selected = _safe_snapshot(fixture_obj.snapshot())
+        progress("selected_application")
         selected = _run_fixture_worker(bundle, spec_path, artifacts, role="parent", selected=True,
                                        nonce=fixture["nonce"], fixture=fixture)
         after_selected = _safe_snapshot(fixture_obj.snapshot())
+        progress("unselected_application")
         unselected = _run_fixture_worker(bundle, spec_path, artifacts, role="child", selected=False,
                                          nonce=fixture["nonce"], fixture=fixture)
         counts = _safe_snapshot(fixture_obj.snapshot())
+        progress("proxy_stop")
         proxy_stop = fixture_obj.stop_proxy()
+        progress("selected_after_proxy_stop")
         after_proxy_stop = _run_fixture_worker(bundle, spec_path, artifacts,
                                                role="child", selected=True, nonce=fixture["nonce"],
                                                fixture=fixture)
         after_selected_proxy_down = _safe_snapshot(fixture_obj.snapshot())
+        progress("engine_stop")
         engine_stopped = client.stop()
+        progress("outside_wire_after")
         outside_after = _run_fixture_worker(bundle, spec_path, artifacts, role="parent",
                                             selected=False, nonce=fixture["nonce"],
                                             wire_role="outside_after", fixture=fixture)
         after_outside_after = _safe_snapshot(fixture_obj.snapshot())
+        progress("native_dns_outside_after")
         dns_after = _run_native_dns_control(bundle, artifacts, fixture["nonce"], "outside_after")
+        progress("ordinary_user_stop_check")
         service_stop_denied = _ordinary_user_stop_service_denied()
         facts = {"service_pipe_authenticated": True, "engine_started": True,
                  "ordinary_user_started_engine": True,
@@ -645,7 +680,20 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
                  "proxy_stop": {"owned_process_started": proxy_stop.get("owned_process_started") is True,
                                 "exited": proxy_stop.get("exited") is True},
                  "after_proxy_stop": after_proxy_stop}
+    except BaseException as exc:
+        failure = exc
+        failure_stage = current_stage
+        try:
+            progress(current_stage, status="error", exc=exc)
+        except BaseException:
+            pass
+        raise
     finally:
+        try:
+            progress("cleanup", status="running",
+                     exc=failure)
+        except BaseException:
+            pass
         if engine_started and not engine_stopped:
             try:
                 engine_stopped = client.stop()
@@ -658,17 +706,24 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
             except Exception:
                 fixture_closed = False
         client.close()
+        try:
+            progress("complete" if facts is not None else failure_stage or current_stage,
+                     status="completed" if facts is not None else "error" if failure else "incomplete",
+                     exc=failure)
+        except BaseException:
+            pass
     if facts is None:
         raise RuntimeError("Probe did not produce observations")
     facts["cleanup"] = bool(engine_stopped and fixture_closed)
     facts["controller_cleanup_proven"] = facts["cleanup"]
+    facts["event_reader_stopped"] = client.event_reader_stopped
     facts["host_proxy_dns_route_settings_modified"] = False
     return facts
 
 
 class _ServiceClient:
     """Minimal bounded client for the upstream PB_PROTO_VERSION=1 GUI pipe API."""
-    def __init__(self):
+    def __init__(self, stage_callback=None):
         self._kernel = ctypes.WinDLL("kernel32", use_last_error=True)
         self._kernel.CreateFileW.restype = ctypes.c_void_p
         self._kernel.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_ulong, ctypes.c_ulong,
@@ -684,12 +739,27 @@ class _ServiceClient:
         self._kernel.ReadFile.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong,
                                           ctypes.POINTER(ctypes.c_ulong), ctypes.c_void_p]
         self._kernel.ReadFile.restype = ctypes.c_int
+        self._kernel.PeekNamedPipe.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong,
+                                               ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong),
+                                               ctypes.c_void_p]
+        self._kernel.PeekNamedPipe.restype = ctypes.c_int
         self._kernel.CloseHandle.argtypes = [ctypes.c_void_p]
         self._kernel.CloseHandle.restype = ctypes.c_int
         self._ctl = ctypes.c_void_p(-1)
         self._evt = ctypes.c_void_p(-1)
         self._event_stop = threading.Event()
         self._event_thread = None
+        self._stage_callback = stage_callback
+        self._event_reader_stopped = True
+
+    @property
+    def event_reader_stopped(self) -> bool:
+        return self._event_reader_stopped and (
+            self._event_thread is None or not self._event_thread.is_alive())
+
+    def _stage(self, value: str) -> None:
+        if self._stage_callback is not None:
+            self._stage_callback(value)
 
     def _open(self, name: str, access: int):
         handle = self._kernel.CreateFileW(name, access, 0, None, 3, 0, None)
@@ -708,6 +778,7 @@ class _ServiceClient:
                 raise ctypes.WinError(ctypes.get_last_error())
             self._event_thread = threading.Thread(target=self._drain_events, daemon=True)
             self._event_thread.start()
+            self._stage("service_hello")
             response = self.call(encode_u32(PBOP_HELLO))
             if response != PROTOCOL_VERSION:
                 raise RuntimeError("ProxyBridge service protocol version mismatch")
@@ -725,27 +796,44 @@ class _ServiceClient:
         response = ctypes.create_string_buffer(64)
         if not self._kernel.WriteFile(self._ctl, request, len(request), ctypes.byref(written), None):
             raise ctypes.WinError(ctypes.get_last_error())
-        if written.value != len(request) or not self._kernel.ReadFile(self._ctl, response,
-                                                                      len(response), ctypes.byref(read), None):
+        if written.value != len(request):
+            raise RuntimeError("ProxyBridge service accepted a partial request")
+        deadline = time.monotonic() + CONTROL_REPLY_TIMEOUT_SECONDS
+        while True:
+            available = ctypes.c_ulong()
+            if not self._kernel.PeekNamedPipe(self._ctl, None, 0, None,
+                                              ctypes.byref(available), None):
+                raise ctypes.WinError(ctypes.get_last_error())
+            if available.value:
+                break
+            if time.monotonic() >= deadline:
+                raise TimeoutError("ProxyBridge service response deadline expired")
+            time.sleep(PIPE_POLL_INTERVAL_SECONDS)
+        if not self._kernel.ReadFile(self._ctl, response, len(response), ctypes.byref(read), None):
             raise ctypes.WinError(ctypes.get_last_error())
         if read.value < 4:
             raise RuntimeError("ProxyBridge service returned a truncated response")
         return int.from_bytes(response.raw[:4], "little")
 
     def add_proxy(self, host: str, port: int) -> int:
+        self._stage("add_proxy")
         return self.call(add_proxy_request(host, port))
 
     def add_rule(self, image: str, proxy_id: int, *, hosts="*", ports="*", action=0) -> int:
+        self._stage("add_rule")
         return self.call(add_rule_request(image, proxy_id, hosts=hosts, ports=ports, action=action))
 
     def set_localhost_via_proxy(self, value: bool) -> bool:
+        self._stage("set_localhost_routing")
         self.call(encode_u32(PBOP_SET_LOCALHOST) + encode_u32(int(value)))
         return True
 
     def start(self) -> bool:
+        self._stage("engine_start")
         return bool(self.call(encode_u32(PBOP_START)))
 
     def stop(self) -> bool:
+        self._stage("engine_stop")
         return bool(self.call(encode_u32(PBOP_STOP)))
 
     def close(self):
@@ -757,13 +845,22 @@ class _ServiceClient:
                 self._kernel.CloseHandle(handle)
         if self._event_thread is not None:
             self._event_thread.join(timeout=2)
+            self._event_reader_stopped = not self._event_thread.is_alive()
 
     def _drain_events(self):
         while not self._event_stop.is_set():
+            available = ctypes.c_ulong()
+            if not self._kernel.PeekNamedPipe(self._evt, None, 0, None,
+                                              ctypes.byref(available), None):
+                break
+            if not available.value:
+                self._event_stop.wait(PIPE_POLL_INTERVAL_SECONDS)
+                continue
             data = ctypes.create_string_buffer(64 * 1024)
             read = ctypes.c_ulong()
             if not self._kernel.ReadFile(self._evt, data, len(data), ctypes.byref(read), None):
                 break
+        self._event_reader_stopped = True
 
 
 def _fixture_module(bundle: Path):

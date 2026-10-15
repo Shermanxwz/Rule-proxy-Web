@@ -113,12 +113,13 @@ class WindowsSandboxieControlTests(unittest.TestCase):
         self.assertIn("[GlobalSettings]\r\nNetworkEnableWFP=y", config)
         base = config.split(f"[{control.BOX_BASE}]\r\n", 1)[1].split(f"\r\n[{control.BOX_DNS}]", 1)[0]
         dns = config.split(f"[{control.BOX_DNS}]\r\n", 1)[1]
-        base_lines = [line for line in base.splitlines() if line.startswith(("Enabled=", "AllowNetworkAccess=",
+        base_lines = [line for line in base.splitlines() if line.startswith(("Enabled=", "AllowNetworkAccess=", "BlockLocalLoop=",
                      "NetworkAccess=", "OpenFilePath=", "ReadFilePath="))]
-        dns_lines = [line for line in dns.splitlines() if line.startswith(("Enabled=", "AllowNetworkAccess=",
+        dns_lines = [line for line in dns.splitlines() if line.startswith(("Enabled=", "AllowNetworkAccess=", "BlockLocalLoop=",
                      "NetworkAccess=", "OpenFilePath=", "ReadFilePath="))]
         self.assertEqual(base_lines, dns_lines)
         self.assertIn("NetworkAccess=*,Block", base_lines)
+        self.assertIn("BlockLocalLoop=n", base_lines)
         self.assertNotIn("NetworkAccess=*,Allow", base_lines)
         self.assertIn(r"ClosedIpcPath=\RPC Control\DNSResolver", config)
         self.assertNotIn("NetworkDnsFilter", config)
@@ -242,16 +243,70 @@ class WindowsSandboxieControlTests(unittest.TestCase):
             root = Path(temp)
             (root / "SbieIni.exe").write_bytes(b"not executed")
             (root / "Start.exe").write_bytes(b"not executed")
-            outputs = [mock.Mock(returncode=0), mock.Mock(returncode=0)]
+            outputs = [mock.Mock(returncode=0, stdout=b""), mock.Mock(returncode=0, stdout=b"")]
+            outputs.extend([
+                mock.Mock(returncode=0, stdout=b"NetworkEnableWFP=y\r\n"),
+                mock.Mock(returncode=0, stdout=b"AllowNetworkAccess=y\r\n"),
+                mock.Mock(returncode=0, stdout=b"BlockLocalLoop=n\r\n"),
+                mock.Mock(returncode=0, stdout=("NetworkAccess=*,Block\r\n"
+                    "NetworkAccess=*,Allow;Address=127.0.0.1;Port=18080;Protocol=TCP\r\n").encode("ascii")),
+            ])
             with mock.patch.object(control, "_run", side_effect=outputs) as run:
-                control._add_proxy_allow(root, control.BOX_BASE, 18080)
+                facts = control._add_proxy_allow(root, control.BOX_BASE, 18080)
             first = run.call_args_list[0].args[0]
             self.assertEqual(first[-2:], ["NetworkAccess",
                 "*,Allow;Address=127.0.0.1;Port=18080;Protocol=TCP"])
             self.assertIn("/drv", first)
             self.assertEqual(run.call_args_list[1].args[0][-1], "/reload")
+            self.assertEqual(run.call_args_list[2].args[0][1:4],
+                             ["query", "/drv", "GlobalSettings"])
+            self.assertTrue(facts["verified"])
+            self.assertFalse(facts["block_local_loop_enabled"])
             with self.assertRaises(ValueError):
                 control._add_proxy_allow(root, control.BOX_BASE, 0)
+
+    def test_proxy_allow_readback_fails_if_active_exact_allow_is_absent(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "SbieIni.exe").write_bytes(b"not executed")
+            (root / "Start.exe").write_bytes(b"not executed")
+            outputs = [mock.Mock(returncode=0, stdout=b"") for _ in range(2)]
+            outputs.extend([
+                mock.Mock(returncode=0, stdout=b"y\n"),
+                mock.Mock(returncode=0, stdout=b"y\n"),
+                mock.Mock(returncode=0, stdout=b"n\n"),
+                mock.Mock(returncode=0, stdout=b"*,Block\n"),
+            ])
+            with mock.patch.object(control, "_run", side_effect=outputs):
+                facts = control._add_proxy_allow(root, control.BOX_BASE, 18080)
+            self.assertTrue(facts["readback_complete"])
+            self.assertTrue(facts["default_deny_present"])
+            self.assertFalse(facts["exact_proxy_allow_present"])
+            self.assertFalse(facts["verified"])
+
+    def test_boxed_dns_nonzero_exit_keeps_valid_report_and_fails_execution_fact(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            start, python, probe = root / "Start.exe", root / "python.exe", root / "dns.py"
+            for path in (start, python, probe):
+                path.write_bytes(b"test")
+            def execute(_start, _box, argv, *args, **kwargs):
+                report = Path(argv[argv.index("--report") + 1])
+                report.write_text(json.dumps({
+                    "status": "native_dns_probe_only", "calls": [{"api": "getaddrinfo"}],
+                    "cleanup_proven": True, "dns_blocked_proven": False, "wire_observed": False,
+                }), encoding="ascii")
+                return mock.Mock(returncode=7, stdout=b"")
+            with mock.patch.object(control, "_run_box", side_effect=execute):
+                records = control._run_dns_box(start, python, probe, "a" * 32,
+                                               root, control.BOX_DNS)
+            self.assertEqual(set(records), {"parent", "child"})
+            for record in records.values():
+                self.assertTrue(record["report_observed"])
+                self.assertEqual(record["helper_exit_code"], 7)
+                self.assertFalse(record["helper_exit_success"])
+                self.assertEqual(record["call_count"], 1)
+                self.assertTrue(record["worker_cleanup_proven"])
 
     def test_failure_report_never_contains_exception_message_or_acceptance(self):
         with tempfile.TemporaryDirectory() as temp:

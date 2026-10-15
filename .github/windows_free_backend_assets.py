@@ -92,7 +92,8 @@ def extract(source, target):
             path = PurePosixPath(member.filename)
             mode = member.external_attr >> 16
             if (path.is_absolute() or ".." in path.parts or ":" in member.filename
-                    or "\\" in member.filename or member.filename in seen or stat.S_ISLNK(mode)):
+                    or "\\" in member.orig_filename or member.orig_filename != member.filename
+                    or member.filename in seen or stat.S_ISLNK(mode)):
                 raise ValueError("unsafe or duplicate archive member")
             seen.add(member.filename)
             total += member.file_size

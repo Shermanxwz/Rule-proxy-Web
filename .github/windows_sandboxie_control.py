@@ -338,7 +338,7 @@ def _config_text(proxy_port: int):
         raise ValueError("invalid private proxy endpoint")
     bundle = r"C:\RuleProxyCI\bundle"
     artifacts = r"C:\RuleProxyCI\artifacts"
-    common = ["Enabled=y", "AllowNetworkAccess=y", "NetworkAccess=*,Block",
+    common = ["Enabled=y", "AllowNetworkAccess=y", "BlockLocalLoop=n", "NetworkAccess=*,Block",
               f"OpenFilePath={artifacts}",
               f"ReadFilePath={bundle}\\python", f"ReadFilePath={bundle}\\scripts",
               f"ReadFilePath={bundle}\\chromium\\chrome-win64"]
@@ -394,7 +394,7 @@ def _append_test_config(path: Path):
 
 
 def _add_proxy_allow(install_root: Path, box: str, port: int):
-    """Append one runtime-selected exact endpoint through the service API."""
+    """Append and read back one exact endpoint from the active driver config."""
     if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError("invalid exact proxy port")
     sbie_ini = install_root / "SbieIni.exe"
@@ -402,11 +402,53 @@ def _add_proxy_allow(install_root: Path, box: str, port: int):
         raise FileNotFoundError("Sandboxie configuration utility is unavailable")
     rule = f"*,Allow;Address=127.0.0.1;Port={port};Protocol=TCP"
     completed = _run([str(sbie_ini), "append", "/drv", box, "NetworkAccess", rule], 30)
+    result = {"append_exit_code": int(completed.returncode), "reload_exit_code": None,
+              "global_wfp_enabled": False, "allow_network_access_enabled": False,
+              "block_local_loop_enabled": None, "default_deny_present": False,
+              "exact_proxy_allow_present": False, "readback_complete": False,
+              "verified": False}
     if completed.returncode != 0:
-        raise RuntimeError("Sandboxie service rejected the exact proxy endpoint rule")
+        return result
     reloaded = _run([str(install_root / "Start.exe"), "/reload"], 30)
     if reloaded.returncode != 0:
-        raise RuntimeError("Sandboxie failed to reload the exact endpoint rule")
+        result["reload_exit_code"] = int(reloaded.returncode)
+        return result
+    result["reload_exit_code"] = int(reloaded.returncode)
+
+    def query(section, setting):
+        response = _run([str(sbie_ini), "query", "/drv", section, setting], 30)
+        if response.returncode != 0 or len(response.stdout) > 16384:
+            return None
+        try:
+            text = response.stdout.decode("ascii", "strict").strip()
+            values = []
+            for line in text.splitlines():
+                line = line.strip()
+                match = re.fullmatch(re.escape(setting) + r"\s*=\s*(.*)", line, re.IGNORECASE)
+                values.append(match.group(1).strip() if match else line)
+            return values or None
+        except (UnicodeDecodeError, OSError, subprocess.SubprocessError):
+            return None
+
+    wfp = query("GlobalSettings", "NetworkEnableWFP")
+    access = query(box, "AllowNetworkAccess")
+    loopback = query(box, "BlockLocalLoop")
+    rules = query(box, "NetworkAccess")
+    result["readback_complete"] = all(type(value) is list for value in (wfp, access, loopback, rules))
+    if result["readback_complete"]:
+        result.update(global_wfp_enabled=len(wfp) == 1 and wfp[0].casefold() == "y",
+                      allow_network_access_enabled=len(access) == 1 and access[0].casefold() == "y",
+                      block_local_loop_enabled=(len(loopback) == 1 and loopback[0].casefold() == "y"
+                                                if loopback else None),
+                      default_deny_present=any(value.casefold() == "*,block" for value in rules),
+                      exact_proxy_allow_present=sum(value.casefold() == rule.casefold()
+                                                    for value in rules) == 1)
+        result["verified"] = bool(result["global_wfp_enabled"]
+                                  and result["allow_network_access_enabled"]
+                                  and result["block_local_loop_enabled"] is False
+                                  and result["default_deny_present"]
+                                  and result["exact_proxy_allow_present"])
+    return result
 
 
 def install(bundle: Path, manifest: Path, report: Path, user: str, sid: str):
@@ -634,14 +676,28 @@ def _run_dns_box(start: Path, python: Path, dns_probe: Path, nonce: str,
         argv = [str(python), "-I", "-S", "-X", "utf8", str(dns_probe),
                 "--nonce", nonce, "--role", role, "--report", str(report_path)]
         completed = _run_box(start, box, argv, 90, env=env)
-        if completed.returncode not in (0, 3):
-            raise RuntimeError("boxed native DNS probe exited unsuccessfully")
-        value = _json_read(report_path)
+        try:
+            value = _json_read(report_path)
+        except (OSError, ValueError):
+            records[role] = {"report_observed": False, "probe_status": None,
+                             "helper_exit_code": int(completed.returncode),
+                             "helper_exit_success": completed.returncode == 0,
+                             "call_count": 0, "calls": [], "worker_cleanup_proven": False,
+                             "dns_blocked_proven": False, "wire_observed": None}
+            continue
         calls = value.get("calls")
         if type(calls) is not list:
-            raise ValueError("boxed native DNS probe report malformed")
-        records[role] = {"report_observed": True, "probe_status": value.get("status"),
+            records[role] = {"report_observed": True, "probe_status": None,
+                             "helper_exit_code": int(completed.returncode),
+                             "helper_exit_success": completed.returncode == 0,
+                             "call_count": 0, "calls": [], "worker_cleanup_proven": False,
+                             "dns_blocked_proven": False, "wire_observed": None}
+            continue
+        status = value.get("status")
+        records[role] = {"report_observed": True,
+                         "probe_status": status if type(status) is str and len(status) <= 64 else None,
                          "helper_exit_code": int(completed.returncode),
+                         "helper_exit_success": completed.returncode == 0,
                          "call_count": len(calls), "calls": _dns_call_facts(calls),
                          "worker_cleanup_proven": value.get("cleanup_proven") is True,
                          "dns_blocked_proven": value.get("dns_blocked_proven") is True,
@@ -906,15 +962,20 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
         result["dns_nonces"] = dns_nonces
         # Install the same dynamic, single-host/single-TCP-port exception in
         # both boxes. This ordinary-user /drv update is itself a simplicity gate.
-        _add_proxy_allow(install_root, BOX_BASE, spec["proxy_port"])
-        _add_proxy_allow(install_root, BOX_DNS, spec["proxy_port"])
+        policy_updates = {}
+        policy_updates[BOX_BASE] = _add_proxy_allow(install_root, BOX_BASE, spec["proxy_port"])
+        policy_updates[BOX_DNS] = _add_proxy_allow(install_root, BOX_DNS, spec["proxy_port"])
         result["runtime_policy_update"] = {
             "method": "SbieIni append /drv exact endpoint",
-            "ordinary_user_update_succeeded": True,
+            "ordinary_user_update_succeeded": all(row.get("verified") is True
+                                                   for row in policy_updates.values()),
             "exact_proxy_host": spec["proxy_host"],
             "exact_proxy_port": spec["proxy_port"],
             "other_ports_permitted": False,
+            "driver_config_readback": policy_updates,
         }
+        if not all(row.get("verified") is True for row in policy_updates.values()):
+            raise RuntimeError("Sandboxie driver config readback did not confirm the fixed policy")
         env = os.environ.copy()
         env["TEMP"] = str(artifacts)
         env["TMP"] = str(artifacts)
@@ -992,7 +1053,13 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
             and result["outside_after"]["direct_tcp_connected"])
         result["dns_network_denial_proven"] = False
         result["diagnostic_observed"] = True
-        phase_complete = True
+        phase_complete = all(
+            type(box_records) is dict and all(
+                type(record) is dict and record.get("report_observed") is True
+                and record.get("helper_exit_success") is True
+                for record in box_records.values())
+            for box_records in result["native_dns"].values())
+        result["native_dns_execution_complete"] = phase_complete
     except BaseException as exc:
         result["status"] = "failed"
         result["failure_type"] = type(exc).__name__[:64]
@@ -1021,6 +1088,8 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
         # This status means the diagnostic ran and cleaned up. It never means
         # product acceptance or successful network containment.
         result["status"] = "passed"
+    else:
+        result["status"] = "failed"
     result["acceptance_passed"] = False
     result["product_acceptance"] = False
     result["product_acceptance_passed"] = False
