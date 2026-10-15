@@ -321,7 +321,7 @@ def _authenticode(path: Path):
     return {"status": status if status in {"Valid", "NotSigned", "HashMismatch", "NotTrusted", "UnknownError"} else "UnknownError",
             "subject_present": bool(subject),
             "thumbprint_valid": bool(re.fullmatch(r"[0-9A-Fa-f]{40,64}", thumbprint)),
-            "version": version[:64]}
+            "version": version[:64], "raw_status": str(status)[:64]}
 
 
 def _config_text(proxy_port: int):
@@ -433,7 +433,9 @@ def install(bundle: Path, manifest: Path, report: Path, user: str, sid: str):
     driver = root / "SbieDrv.sys"
     signature = _authenticode(driver)
     if signature["status"] != "Valid":
-        raise RuntimeError("installed Sandboxie driver signature is not valid")
+        exc = RuntimeError("installed Sandboxie driver signature is not valid")
+        exc.driver_signature = signature
+        raise exc
     service = _service_facts()
     if not service["exists"]:
         raise RuntimeError("Sandboxie service is missing after installation")
@@ -967,6 +969,7 @@ def main(argv=None):
         failure = {"schema_version": 1, "backend": BACKEND, "phase": args.phase,
                    "status": "failed", "failure_type": type(exc).__name__[:64],
                    "failure_frames": _failure_frames(exc),
+                   "driver_signature": getattr(exc, "driver_signature", None),
                    "acceptance_passed": False, "product_acceptance": False,
                    "source_diagnostic_only": True, "diagnostic_only": True,
                    "product_acceptance_passed": False, "release_eligible": False,

@@ -102,6 +102,25 @@ jobs:
           $driverBody = ConvertTo-Json -InputObject $driverFacts -Depth 5 -Compress
           [IO.File]::WriteAllText("$root\install-smoke-drivers.json", $driverBody)
           Write-Output $driverBody
+          # Compare the exact built-in Windows PowerShell result used by Python
+          # with the hosted shell, including public fixed-file signature facts.
+          $signatureDebug = @'
+          import importlib.util, os, pathlib, subprocess
+          backend=os.environ["BACKEND"]
+          path=pathlib.Path("C:/RuleProxyCI/bundle/scripts/windows_"+backend+"_control.py")
+          spec=importlib.util.spec_from_file_location("diagnostic",path)
+          module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+          original=subprocess.run
+          def captured(*args,**kwargs):
+              result=original(*args,**kwargs)
+              print("signature_debug_stdout",repr(result.stdout)[:8192])
+              print("signature_debug_stderr",repr(result.stderr)[:8192])
+              return result
+          subprocess.run=captured
+          if backend=="sandboxie": print("signature_debug_result",module._authenticode(module._install_root()/"SbieDrv.sys"))
+          else: print("signature_debug_result",module._driver_signature_facts())
+          '@
+          $signatureDebug | python -
           if (Test-Path -LiteralPath "$root\install-smoke.json") { Get-Content -LiteralPath "$root\install-smoke.json" -Raw | Write-Output }
           if ($installExit -ne 0) { throw 'Fixed installer smoke failed' }
           $report = Get-Content "$root\install-smoke.json" -Raw | ConvertFrom-Json

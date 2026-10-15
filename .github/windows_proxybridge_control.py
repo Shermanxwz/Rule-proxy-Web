@@ -331,7 +331,10 @@ def normalize_driver_signature_values(values) -> dict:
             raise RuntimeError("Installed driver identity was malformed")
         if status not in ("Valid", "NotSigned", "HashMismatch", "NotTrusted", "UnknownError"):
             status = "UnknownError"
-        drivers.append({"name": name, "signature_status": status})
+        row = {"name": name, "signature_status": status}
+        if value.get("status") != status:
+            row["raw_status"] = str(value.get("status"))[:64]
+        drivers.append(row)
     return {"status": "Valid" if all(d["signature_status"] == "Valid" for d in drivers)
             else "Invalid", "count": len(drivers), "drivers": drivers}
 
@@ -407,7 +410,8 @@ def main(argv: list[str] | None = None) -> int:
         _write_report(args.report, {"schema_version": 1, "backend": BACKEND,
                                     "phase": args.phase, "status": "error",
                                     "source_diagnostic_only": True, "release_eligible": False,
-                                    "error_type": type(exc).__name__, "failure_frames": _failure_frames(exc)})
+                                    "error_type": type(exc).__name__, "failure_frames": _failure_frames(exc),
+                                    "driver_signature": getattr(exc, "driver_signature", None)})
         return 1
 
 
@@ -430,7 +434,9 @@ def install_phase(args: argparse.Namespace) -> int:
         raise RuntimeError("Silent installer failed")
     driver_signature = _driver_signature_facts()
     if driver_signature["status"] != "Valid":
-        raise ValueError("Installed WinDivert driver signature is not valid")
+        exc = ValueError("Installed WinDivert driver signature is not valid")
+        exc.driver_signature = driver_signature
+        raise exc
     member = _add_local_group_sid("ProxyBridge Users", target_sid)
     installed_version = _installed_display_version()
     service_install = _service_install_facts()
