@@ -217,6 +217,7 @@ try {
     $result.phases = @($collected.phases)
     if ($collected.experiments_phase) { $result.experiments_phase = $collected.experiments_phase }
     if ($collected.edge_ui_phase) { $result.edge_ui_phase = $collected.edge_ui_phase }
+    if ($collected.outside_edge_phase) { $result.outside_edge_phase = $collected.outside_edge_phase }
     $result.recovery_records = @($collected.recovery_records)
     foreach ($property in $collected.reports.PSObject.Properties) { $result.reports[$property.Name] = $property.Value }
     foreach ($property in $collected.logs.PSObject.Properties) { $result.logs[$property.Name] = $property.Value }

@@ -32,7 +32,8 @@ READER_TIMEOUT_SECONDS = 12
 _RECOVERY_READERS = []
 _STAGES = frozenset({"identity_source", "identity_handle", "identity_pid", "identity_creation",
     "identity_image", "identity_recheck", "identity_validate", "window_validate", "event_api_bind",
-    "event_query", "event_next", "event_render", "event_close", "event_xml", "reader_start",
+    "event_query", "event_next", "event_render", "event_render_size", "event_render_result",
+    "event_render_xml", "event_close", "event_xml", "reader_start",
     "reader_wait", "reader_stop", "reader_handle_close", "reader_report"})
 _NS = "{http://schemas.microsoft.com/win/2004/08/events/event}"
 
@@ -183,6 +184,7 @@ def event_window(identity, started_utc=None, ended_utc=None):
 def initial_result():
     return {"schema_version": 1, "status": "incomplete", "scope": EVENT_SCOPE,
             "collector_re_attested_identity": False, "events": [], "wer_reports": [],
+            "render_observations": [],
             "reader_cleanup_proven": True, "acceptance_passed": False, "full_acceptance_passed": False,
             "real_node_passed": False, "browser_sandbox_weakened": False, "host_configuration_changed": False,
             "limitations": ["Only matching Application Error 1000 and its ReportId-linked WER 1001 are read.",
@@ -300,10 +302,12 @@ def event_query(identity, start, end, report_ids=()):
 
 
 class EventLogApi:
-    def __init__(self):
-        if os.name != "nt":
+    def __init__(self, api=None, last_error=None, error_factory=None):
+        if api is None and os.name != "nt":
             raise OSError("Windows event APIs are required")
-        self.api = ctypes.WinDLL("wevtapi", use_last_error=True)
+        self.api = ctypes.WinDLL("wevtapi", use_last_error=True) if api is None else api
+        self.last_error = ctypes.get_last_error if last_error is None else last_error
+        self.error_factory = ctypes.WinError if error_factory is None else error_factory
         handle, dword = ctypes.c_void_p, ctypes.c_uint32
         self.api.EvtQuery.argtypes, self.api.EvtQuery.restype = [handle, ctypes.c_wchar_p, ctypes.c_wchar_p, dword], handle
         self.api.EvtNext.argtypes = [handle, dword, ctypes.POINTER(handle), dword, dword, ctypes.POINTER(dword)]
@@ -312,12 +316,13 @@ class EventLogApi:
         self.api.EvtRender.restype = ctypes.c_int32
         self.api.EvtClose.argtypes, self.api.EvtClose.restype = [handle], ctypes.c_int32
         self.handles = []
+        self.render_observations = []
         self.stage = "event_api_bind"
 
     def _close(self, handle):
         self.stage = "event_close"
         if not self.api.EvtClose(handle):
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise self.error_factory(self.last_error())
         self.handles.remove(handle)
 
     def close(self):
@@ -334,17 +339,17 @@ class EventLogApi:
         self.stage = "event_query"
         query = self.api.EvtQuery(None, "Application", expression, 1 | 0x200)
         if not query:
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise self.error_factory(self.last_error())
         self.handles.append(query)
         records = []
         while True:
             self.stage = "event_next"
             events, returned = (ctypes.c_void_p * 1)(), ctypes.c_uint32()
             if not self.api.EvtNext(query, 1, events, 1000, 0, ctypes.byref(returned)):
-                error = ctypes.get_last_error()
+                error = self.last_error()
                 if error == 259:  # ERROR_NO_MORE_ITEMS, never a timeout success.
                     break
-                raise ctypes.WinError(error)
+                raise self.error_factory(error)
             event = events[0]
             if event:
                 self.handles.append(event)
@@ -352,20 +357,54 @@ class EventLogApi:
                 raise ValueError("event API returned an invalid handle count")
             if len(records) >= MAX_EVENTS:
                 raise ValueError("event record limit exceeded")
-            self.stage = "event_render"
-            used, count = ctypes.c_uint32(), ctypes.c_uint32()
-            okay = self.api.EvtRender(None, event, 1, 0, None, ctypes.byref(used), ctypes.byref(count))
-            if okay or ctypes.get_last_error() != 122 or not 0 < used.value <= MAX_XML_BYTES or used.value % 2:
-                raise ValueError("event render size could not be bounded")
-            value = ctypes.create_unicode_buffer(used.value // 2)
-            if not self.api.EvtRender(None, event, 1, ctypes.sizeof(value), value, ctypes.byref(used), ctypes.byref(count)):
-                raise ctypes.WinError(ctypes.get_last_error())
-            if used.value > ctypes.sizeof(value) or count.value != 0:
-                raise ValueError("event renderer returned an invalid XML size or property count")
-            records.append(value.value)
+            records.append(self.render_event_xml(event))
             self._close(event)
         self._close(query)
         return records
+
+    def render_event_xml(self, event):
+        """Follow EvtRender's byte-count probe/allocation flow, without raw output."""
+        self.stage = "event_render_size"
+        used, count = ctypes.c_uint32(), ctypes.c_uint32()
+        facts = {"render_flags": 1, "probe_okay": None, "probe_last_error": None,
+                 "required_bytes": None, "probe_property_count": None, "render_okay": None,
+                 "render_last_error": None, "used_bytes": None, "capacity_bytes": None,
+                 "property_count": None, "utf16_complete": False, "xml_complete": False}
+        self.render_observations.append(facts)
+        okay = bool(self.api.EvtRender(None, event, 1, 0, None, ctypes.byref(used), ctypes.byref(count)))
+        error = None if okay else int(self.last_error())
+        facts.update(probe_okay=okay, probe_last_error=error,
+                     required_bytes=int(used.value), probe_property_count=int(count.value))
+        if okay or error != 122 or not 0 < used.value <= MAX_XML_BYTES or used.value % 2:
+            raise ValueError("event render size could not be bounded")
+        # EvtRender BufferSize/BufferUsed are bytes, including the UTF-16 NUL.
+        # This equals the official malloc(requiredBytes) example and does not
+        # depend on Python's host wchar element size.
+        value = ctypes.create_string_buffer(used.value)
+        capacity = ctypes.sizeof(value)
+        facts["capacity_bytes"] = capacity
+        self.stage = "event_render_result"
+        okay = bool(self.api.EvtRender(None, event, 1, capacity, value, ctypes.byref(used), ctypes.byref(count)))
+        error = None if okay else int(self.last_error())
+        facts.update(render_okay=okay, render_last_error=error,
+                     used_bytes=int(used.value), property_count=int(count.value))
+        if not okay:
+            raise self.error_factory(error)
+        # The documented PropertyCount is zero outside EventValues. Preserve
+        # that contract; telemetry distinguishes it from any size failure.
+        if not 0 < used.value <= capacity or used.value % 2 or count.value != 0:
+            raise ValueError("event renderer returned an invalid XML size or property count")
+        self.stage = "event_render_xml"
+        raw = value.raw[:used.value]
+        if not raw.endswith(b"\0\0"):
+            raise ValueError("rendered event XML was not terminated")
+        xml = raw[:-2].decode("utf-16-le", errors="strict")
+        if "\0" in xml:
+            raise ValueError("rendered event XML contained an embedded terminator")
+        facts["utf16_complete"] = True
+        _event(xml)  # Complete XML + namespace/shape before retaining a record.
+        facts["xml_complete"] = True
+        return xml
 
 
 def _read_events(identity, start, end):
@@ -385,6 +424,8 @@ def _read_events(identity, start, end):
         result["failure"] = failure_facts(error, reader.stage if reader is not None else "event_api_bind")
     finally:
         if reader is not None:
+            # Numeric/boolean API facts only. XML stays private to this worker.
+            result["render_observations"] = reader.render_observations[:MAX_EVENTS]
             try:
                 reader.close()
             except Exception as error:

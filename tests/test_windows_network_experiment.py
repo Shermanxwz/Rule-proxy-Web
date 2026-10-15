@@ -14,6 +14,7 @@ import unittest
 from unittest import mock
 
 from ruleproxy.file_bridge import FileProxyBridge, run_guest_bridge
+from ruleproxy import windows_runtime
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -224,6 +225,64 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         wrapper = SimpleNamespace(pid=40, _handle=101)
         reports = [{"pid": 42, "process_created": 100}, {"pid": 43, "process_created": 110}]
         return api, runtime, wrapper, reports
+
+    def test_native_open_failure_identifies_first_open_or_reopen_without_changing_access(self):
+        for reopen in (False, True):
+            with self.subTest(reopen=reopen):
+                api = object.__new__(windows_runtime._WinProcessApi)
+                kernel = mock.Mock()
+                kernel.OpenProcess.side_effect = [201, 0] if reopen else [0]
+                kernel.CloseHandle.return_value = 1
+                api.kernel32 = kernel
+                api._snapshot_parent_ids = mock.Mock(side_effect=[{42: 40}, {42: 40}])
+                api._creation_time = mock.Mock(return_value=100)
+                api.process_creation_time = mock.Mock(return_value=90)
+                runtime = SimpleNamespace(_WinProcessApi=lambda: api, _raw_handle=lambda value: value)
+                error = PermissionError(13, "fixed test denial")
+                error.winerror = 5
+                diagnostic = {}
+                with mock.patch.object(experiment.ctypes, "get_last_error", return_value=5, create=True), \
+                        mock.patch.object(experiment.ctypes, "set_last_error", create=True) as restore, \
+                        mock.patch.object(experiment.ctypes, "WinError", return_value=error, create=True), \
+                        self.assertRaises(PermissionError) as raised:
+                    experiment.retain_actor_handles(runtime, SimpleNamespace(pid=40, _handle=101),
+                        [{"pid": 42, "process_created": 100}, {"pid": 43, "process_created": 110}], diagnostic)
+                self.assertIs(raised.exception, error)
+                failure = diagnostic["native_api_failure"]
+                self.assertEqual(failure, {"operation": "OpenProcess", "scope": "parent", "parent_pid": 40,
+                    "target_pid": 42, "desired_access": 0x101001,
+                    "open_phase": "reopen" if reopen else "first_open", "succeeded": False,
+                    "errno": None, "winerror": 5})
+                self.assertEqual(diagnostic["snapshots"][0]["status"], "failed")
+                self.assertEqual(diagnostic["snapshots"][0]["winerror"], 5)
+                self.assertFalse(diagnostic["attestation_passed"])
+                self.assertTrue(all(call.args == (0x101001, False, 42)
+                                    for call in kernel.OpenProcess.call_args_list))
+                self.assertEqual(kernel.CloseHandle.call_args_list, [mock.call(201)] if reopen else [])
+                kernel.TerminateProcess.assert_not_called()
+                restore.assert_called_with(5)
+
+    def test_observer_preserves_function_signatures_results_and_bounded_failure_facts(self):
+        kernel, diagnostic = mock.Mock(), {}
+        kernel.WaitForSingleObject.return_value = 258
+        error_state = [0]
+        observer = experiment._ProcessApiObservation(kernel, diagnostic,
+            get_error=lambda: error_state[0], set_error=lambda value: error_state.__setitem__(0, value))
+        observer.handles[101] = (40, 0x101001)
+        observer.context("child", 42)
+        observer.WaitForSingleObject.argtypes = [int, int]
+        self.assertEqual(kernel.WaitForSingleObject.argtypes, [int, int])
+        for _ in range(80):
+            self.assertEqual(observer.WaitForSingleObject(101, 0), 258)
+        kernel.OpenProcess.return_value = 0
+        error_state[0] = 5
+        self.assertEqual(observer.OpenProcess(0x101001, False, 43), 0)
+        self.assertEqual(error_state[0], 5)
+        self.assertEqual(len(diagnostic["native_api_calls"]), 64)
+        self.assertTrue(diagnostic["native_api_calls_truncated"])
+        self.assertEqual(diagnostic["native_api_failure"]["target_pid"], 43)
+        self.assertNotIn("handle", json.dumps(diagnostic))
+        self.assertNotIn("image", json.dumps(diagnostic))
 
     def test_completed_pipe_helper_is_excluded_only_by_its_signaled_held_handle(self):
         api, runtime, wrapper, reports = self.attestation_fixture(
@@ -469,7 +528,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertFalse(value["real_node_passed"])
 
     def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False,
-                                explicit_dns=False, wire_enabled=True, test_executor=False):
+                                explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
         helpers.host_facts.return_value = {"native_machine": 0x8664, "python_pe_machine": 0x8664,
@@ -480,6 +539,14 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         helpers.network_snapshot.return_value = "unchanged"
         helpers.HostFixtures.return_value = mock.Mock(threads=[])
         wire = mock.Mock()
+        wire.execution = []
+        wire.for_variant.side_effect = lambda name: [
+            {"id": f"{name}.{family}.{role}", "role": role}
+            for family in ("ipv4", "ipv4_unbound", "ipv6", "ipv6_unbound")
+            for role in ("outside_before", "parent", "child", "outside_after")]
+        def wire_session(_configuration, variants):
+            wire.requested_variants = tuple(variants)
+            return wire
         wire.finish.return_value = {"acceptance_passed": False, "kernel_denial_proven": False}
         dns = mock.Mock(safe=True, controls=[])
         dns.control.return_value = {"calls": [], "cleanup_proven": True}
@@ -506,7 +573,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 mock.patch.object(experiment, "import_project", return_value=(mock.Mock(), None, None)), \
                 mock.patch.object(experiment, "DatagramObservers"), \
                 mock.patch.object(experiment.tempfile, "mkdtemp", return_value=str(retained)), \
-                mock.patch.object(experiment, "load_wire_helpers", return_value=SimpleNamespace(WireSession=lambda *args: wire)), \
+                mock.patch.object(experiment, "load_wire_helpers", return_value=SimpleNamespace(WireSession=wire_session)), \
                 mock.patch.object(experiment, "load_dns_session", return_value=SimpleNamespace(DnsSession=lambda *args: dns)), \
                 mock.patch.object(experiment, "run_variant", side_effect=variant) as launch, \
                 mock.patch("builtins.print"):
@@ -516,6 +583,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 arguments.append("--allow-emulated-x64")
             if explicit_dns:
                 arguments.append("--collect-native-dns")
+            if preferred_only:
+                arguments.append("--preferred-policy-only")
             if test_executor:
                 executor, manifest, _ = self.executor_build_fixture()
                 helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": "b" * 64}
@@ -535,6 +604,50 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertEqual(wire.dns_observation, dns.finish_payload.return_value)
         self.assertTrue(result["cleanup_proven"])
         self.assertFalse(result["acceptance_passed"])
+        self.assertEqual(result["policy_selection"], "all_fixed")
+        self.assertEqual(result["selected_variants"], list(experiment.VARIANTS))
+        self.assertEqual(result["unselected_variants"], [])
+        self.assertEqual(wire.execution, [])
+
+    def test_preferred_only_never_launches_unselected_policies_and_preserves_full_wire_manifest(self):
+        code, result, wire, dns, launch, _ = self.native_dns_main_fixture(preferred_only=True)
+        preferred = experiment.PREFERRED_VARIANT
+        self.assertEqual(code, 0)
+        self.assertEqual(result["status"], "experiment_only")
+        self.assertEqual([call.args[0] for call in launch.call_args_list], [preferred])
+        self.assertEqual(wire.requested_variants, experiment.VARIANTS)
+        self.assertEqual(result["policy_selection"], "preferred_only")
+        self.assertEqual(result["selected_variants"], [preferred])
+        self.assertEqual(result["unselected_variants"], [{"name": name, "status": "unselected",
+            "process_started": False, "no_process_started": True}
+            for name in experiment.VARIANTS if name != preferred])
+        self.assertEqual(wire.control.call_args_list,
+                         [mock.call(preferred, "outside_before"), mock.call(preferred, "outside_after")])
+        self.assertEqual(dns.control.call_args_list,
+                         [mock.call("outside_before", mock.ANY), mock.call("outside_after", mock.ANY)])
+        self.assertEqual(len(wire.execution), 48)
+        self.assertEqual(len({row["id"] for row in wire.execution}), 48)
+        self.assertTrue(all(not row[key] for row in wire.execution for key in
+            ("attempted", "bind_attempted", "bind_succeeded", "send_attempted", "api_accepted")))
+        self.assertTrue(all(not row["id"].startswith(preferred + ".") for row in wire.execution))
+        self.assertTrue(result["cleanup_proven"])
+        self.assertFalse(result["acceptance_passed"])
+
+    def test_preferred_only_cleanup_failure_still_prevents_launch_or_after_controls(self):
+        for fail_control in (True, False):
+            with self.subTest(fail_control=fail_control):
+                code, result, wire, dns, launch, retained = self.native_dns_main_fixture(
+                    preferred_only=True, fail_control=fail_control, fail_actor=not fail_control)
+                self.assertEqual(code, 1)
+                self.assertEqual(launch.call_count, 0 if fail_control else 1)
+                self.assertEqual(dns.control.call_count, 1)
+                self.assertEqual(wire.control.call_args_list,
+                                 [mock.call(experiment.PREFERRED_VARIANT, "outside_before")])
+                wire.finish.assert_called_once()
+                self.assertFalse(result["cleanup_proven"])
+                self.assertTrue(retained.exists())
+                # The next subcase uses a new owned private work directory.
+                shutil.rmtree(retained)
 
     def test_dns_control_cleanup_failure_blocks_preferred_and_all_next_contained_launches(self):
         code, result, wire, dns, launch, retained = self.native_dns_main_fixture(fail_control=True)

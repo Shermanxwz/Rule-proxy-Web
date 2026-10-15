@@ -312,6 +312,9 @@ class WindowsVmTests(unittest.TestCase):
         with urllib.request.urlopen(base + "/" + server.capability + "/payload.zip") as response:
             self.assertEqual(response.read(), payload.read_bytes())
         result = self.passed_result()
+        result['outside_edge_phase'] = {'status': 'passed', 'exit_code': 0}
+        result['reports']['outside_edge'] = self.outside_edge_report()
+        result['logs']['outside_edge'] = 'Independent outside health control completed.'
         request = urllib.request.Request(base + "/" + server.capability + "/result",
                                          data=json.dumps(result).encode(), headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(request) as response:
@@ -320,6 +323,8 @@ class WindowsVmTests(unittest.TestCase):
         vm.verify_result(server.result)
         self.assertEqual(json.loads((self.root / "windows-transport.json").read_text()), result["reports"]["transport"])
         self.assertEqual(json.loads((self.root / "windows-manager.json").read_text()), result["reports"]["manager"])
+        self.assertEqual(json.loads((self.root / "windows-outside_edge.json").read_text()), result['reports']['outside_edge'])
+        self.assertEqual((self.root / 'guest-outside_edge.log').read_text(), result['logs']['outside_edge'])
         self.assertEqual((self.root / "guest-tests.log").read_text(), result["logs"]["tests"])
 
     def test_unavailable_kvm_refuses_download_and_records_failed_acceptance(self):
@@ -461,7 +466,7 @@ class WindowsVmTests(unittest.TestCase):
         control = {name: {"report": report} for name, report in self.passed_result()["reports"].items()}
         control["package_tests"] = {}
         for name, changes in (overrides or {}).items():
-            if name == "experiments":
+            if name in ("experiments", "outside_edge", "edge_ui"):
                 control[name] = {}
             control[name].update(changes)
         workspace.mkdir()
@@ -473,6 +478,10 @@ if Path(__file__).name == 'run_tests.py':
     name = 'package_tests'
 elif Path(__file__).name == 'windows_network_experiment.py':
     name = 'experiments'
+elif Path(__file__).name == 'windows_edge_outside_control.py':
+    name = 'outside_edge'
+elif Path(__file__).name == 'windows_edge_policy_experiment.py':
+    name = 'edge_ui'
 elif Path(__file__).name == 'windows_browser_check.py':
     name = 'browser'
 elif Path(__file__).name == 'windows_gui_check.py':
@@ -497,7 +506,112 @@ raise SystemExit(configuration.get('exit_code', 0))
             path.write_text(script, encoding="utf-8")
         if "experiments" in (overrides or {}):
             (workspace / ".github/windows_network_experiment.py").write_text(script, encoding="utf-8")
+        if "outside_edge" in (overrides or {}):
+            (workspace / ".github/windows_edge_outside_control.py").write_text(script, encoding="utf-8")
+        if "edge_ui" in (overrides or {}):
+            (workspace / ".github/windows_edge_policy_experiment.py").write_text(script, encoding="utf-8")
         return workspace
+
+    def outside_edge_report(self):
+        return {'schema_version': 1, 'status': 'outside_control_only', 'scope': vm.OUTSIDE_EDGE_SCOPE,
+            'outside_psec': True, 'outside_headless_control_passed': True, 'cleanup_proven': True,
+            'ordinary_user': True, 'host_network_unchanged': True,
+            'host': copy.deepcopy(self.passed_result()['reports']['probe']['host']),
+            **{key: False for key in vm.OUTSIDE_EDGE_FALSE_FLAGS},
+            'checks': [{'phase': phase, 'edge_exit_code': 0, 'edge_exit_hex': '0x00000000',
+                'command_template_sha256': hashlib.sha256(str(phase).encode()).hexdigest(),
+                'assigned_before_resume': True, 'natural_root_and_job_exit': True,
+                'dom_nonce_via_page_ack': True, 'cookie_request_verified': True,
+                'private_profile_reused': phase == 2, 'owned_job_cleanup_proven': True} for phase in (1, 2)]}
+
+    def test_outside_edge_runs_before_capture_source_and_cannot_replace_product_browser(self):
+        workspace = self.guest_control_workspace({'outside_edge': {'report': self.outside_edge_report()},
+                                                 'experiments': {'report': self.experiment_report()}})
+        result = vm.run_guest_phases(self.root / 'release', workspace, self.root / 'reports')
+        self.assertEqual((workspace / 'executed.txt').read_text().splitlines(),
+                         ['outside_edge', 'experiments', *vm.PHASE_NAMES])
+        self.assertEqual([phase['name'] for phase in result['phases']], list(vm.PHASE_NAMES))
+        self.assertEqual(result['outside_edge_phase']['status'], 'passed')
+        self.assertIn('outside_edge child interpreter ran', result['logs']['outside_edge'])
+        vm.verify_result(dict(result, ordinary_user=True))
+        result['reports']['browser']['browser_fixture_passed'] = False
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(dict(result, ordinary_user=True))
+
+    def test_failed_outside_health_with_proven_teardown_collects_later_fixtures_but_stays_failed(self):
+        report = self.outside_edge_report()
+        report.update(status='failed', outside_headless_control_passed=False, checks=[], host_network_unchanged=None)
+        workspace = self.guest_control_workspace({'outside_edge': {'report': report, 'exit_code': 1},
+                                                 'experiments': {'report': self.experiment_report()}})
+        result = vm.run_guest_phases(self.root / 'release', workspace, self.root / 'reports')
+        self.assertEqual((workspace / 'executed.txt').read_text().splitlines(),
+                         ['outside_edge', 'experiments', *vm.PHASE_NAMES])
+        self.assertEqual(result['outside_edge_phase']['status'], 'failed')
+        self.assertEqual(result['recovery_records'], [])
+        self.assertEqual(result['reports']['outside_edge'], report)
+        self.assertEqual(result['status'], 'failed')
+
+    def test_unproven_outside_cleanup_blocks_every_later_process_except_package_units(self):
+        report = self.outside_edge_report()
+        report.update(status='failed', outside_headless_control_passed=False, cleanup_proven=False,
+                      recovery_retained=True)
+        workspace = self.guest_control_workspace({'outside_edge': {'report': report, 'exit_code': 1},
+            'experiments': {'report': self.experiment_report()}, 'edge_ui': {}})
+        result = vm.run_guest_phases(self.root / 'release', workspace, self.root / 'reports')
+        self.assertEqual((workspace / 'executed.txt').read_text().splitlines(), ['outside_edge', 'package_tests'])
+        self.assertEqual(result['recovery_records'][0]['phase'], 'outside_edge')
+        self.assertFalse(result['recovery_records'][0]['descendant_cleanup_proven'])
+        self.assertTrue(all(phase['status'] == 'blocked' for phase in result['phases'][:-1]))
+        self.assertEqual(result['phases'][-1]['status'], 'passed')
+
+    def test_outside_control_success_requires_live_two_launch_cookie_and_job_evidence(self):
+        vm.verify_phase_report('outside_edge', self.outside_edge_report())
+        cases = []
+        for key, value in (('schema_version', True), ('scope', 'product'), ('outside_psec', False),
+                           ('host_network_unchanged', None), ('ordinary_user', False), ('cleanup_proven', False),
+                           ('outside_headless_control_passed', False), ('recovery_retained', True)):
+            report = self.outside_edge_report(); report[key] = value; cases.append(report)
+        for key in vm.OUTSIDE_EDGE_FALSE_FLAGS:
+            report = self.outside_edge_report(); report[key] = True; cases.append(report)
+            report = self.outside_edge_report(); del report[key]; cases.append(report)
+        for key, value in (('phase', 1), ('edge_exit_code', False), ('edge_exit_hex', '0x00000001'),
+                           ('private_profile_reused', False), ('command_template_sha256', 'not-a-hash'),
+                           ('natural_root_and_job_exit', False), ('owned_job_cleanup_proven', False),
+                           ('cookie_request_verified', False), ('assigned_before_resume', False)):
+            report = self.outside_edge_report(); report['checks'][1][key] = value; cases.append(report)
+        report = self.outside_edge_report(); report['checks'].pop(); cases.append(report)
+        for report in cases:
+            with self.subTest(report=report), self.assertRaises(RuntimeError):
+                vm.verify_phase_report('outside_edge', report)
+
+    def test_outside_record_and_report_are_both_required_without_promoting_old_payloads(self):
+        vm.verify_result(self.passed_result())  # A previous payload has no outside helper or report.
+        result = self.passed_result()
+        result['outside_edge_phase'] = {'status': 'passed', 'exit_code': 0}
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
+        result['reports']['outside_edge'] = self.outside_edge_report()
+        vm.verify_result(result)
+        del result['outside_edge_phase']
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
+
+    def test_outside_timeout_or_missing_report_cannot_use_reported_cleanup_to_start_psec(self):
+        workspace = self.root / 'workspace'
+        (workspace / '.github').mkdir(parents=True)
+        (workspace / '.github/windows_edge_outside_control.py').write_text('# control')
+        (workspace / '.github/windows_network_experiment.py').write_text('# no new PSEC')
+        for timed_out, report in ((True, self.outside_edge_report()), (False, None)):
+            calls = []
+            def phase(name, command, *_, **options):
+                calls.append((name, command, options))
+                return {'name': name, 'status': 'failed', 'exit_code': 1, 'timed_out': timed_out}, report, ''
+            with self.subTest(timed_out=timed_out), mock.patch.object(vm, 'run_guest_phase', side_effect=phase):
+                result = vm.run_guest_phases(self.root, workspace, self.root / ('timeout' if timed_out else 'missing'))
+            self.assertEqual([name for name, _, _ in calls], ['outside_edge', 'package_tests'])
+            self.assertEqual(calls[0][1][-2:], ['--timeout', '45'])
+            self.assertEqual(calls[0][2]['timeout'], 420)
+            self.assertEqual(result['status'], 'failed')
 
     def experiment_report(self):
         return {"status": "experiment_only", "full_acceptance_passed": False,
@@ -1271,7 +1385,9 @@ class WindowsWireCaptureTests(unittest.TestCase):
         with mock.patch.object(vm, "run_guest_phase", side_effect=phase):
             vm.run_guest_phases(self.root, workspace, self.root / "reports", vm_config=config)
         self.assertEqual(calls[0][1][-2:], ["--vm-config", str(config)])
+        self.assertIn("--preferred-policy-only", calls[0][1])
         self.assertTrue(all("--vm-config" not in command for _, command in calls[1:]))
+        self.assertTrue(all("--preferred-policy-only" not in command for _, command in calls[1:]))
 
 
 class WindowsDiagnosticExecutorTests(unittest.TestCase):
@@ -1449,6 +1565,7 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertEqual([name for name, _ in calls], ['experiments', 'edge_ui', *vm.PHASE_NAMES])
         for name, command in calls:
             self.assertIs('--test-psec-executor' in command, name in ('experiments', 'edge_ui'))
+            self.assertIs('--preferred-policy-only' in command, name == 'experiments')
             if name in ('experiments', 'edge_ui'):
                 index = command.index('--test-psec-executor')
                 self.assertEqual(command[index + 1], str(workspace / vm.TEST_EXECUTOR_DIRECTORY / 'wxc-exec.exe'))
@@ -1502,7 +1619,7 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
 
     def test_workflow_custom_download_is_manual_and_fixed_to_the_actual_g_artifact(self):
         import yaml
-        workflow = yaml.safe_load((ROOT / '.github/workflows/check.yml').read_text())
+        workflow = yaml.safe_load((ROOT / '.github/workflows/check.yml').read_text(encoding="utf-8"))
         trigger = workflow.get('on', workflow.get(True))
         option = trigger['workflow_dispatch']['inputs']['capability_executor_diagnostic']
         self.assertEqual(option, {'description': option['description'], 'required': False,

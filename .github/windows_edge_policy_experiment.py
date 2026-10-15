@@ -542,6 +542,7 @@ def initial_result():
                             "UI isolation/IME presets are diagnostic requests, not a product policy change.",
                             "Zero UI limits are a requested diagnostic configuration, not an observed job restriction mask.",
                             "Actual job observations belong to the test app wrapper before Edge launches, not Edge's own nested job.",
+                            "MXC 1.0.0 writes UI restrictions into PSEC; its separate teardown job mask does not expose those restrictions.",
                             "The five narrower presets retain other UI limits and cannot rule out Chromium nested-job conflicts.",
                             "API startup/cleanup bounds are preserved; cases without a full remaining budget are not started."]}
 

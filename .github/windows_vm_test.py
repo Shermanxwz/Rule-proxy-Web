@@ -78,6 +78,9 @@ MIN_INSTALL_IMAGE_BYTES = 1024**3
 TEST_EXECUTOR_DIRECTORY = "test-psec-executor"
 TEST_EXECUTOR_FILES = ("wxc-exec.exe", "build-manifest.json", "MXC-LICENSE.md")
 TEST_EXECUTOR_LICENSE_SHA256 = "d9a1b1e30d633d5732ea18e3cba9538d293ebc53e1a9e4e96ab739e0c5c4f1cb"
+OUTSIDE_EDGE_SCOPE = "ordinary_windows_stock_edge_fixed_http_health"
+OUTSIDE_EDGE_FALSE_FLAGS = ("acceptance_passed", "full_acceptance_passed", "real_node_passed",
+                           "browser_fixture_passed", "browser_sandbox_weakened", "public_udp_proven", "system_dns_proven")
 
 
 def digest(path: Path) -> str:
@@ -409,10 +412,10 @@ class GuestHandler(BaseHTTPRequestHandler):
             logs = result.get("logs", {})
             if not isinstance(reports, dict) or not isinstance(logs, dict):
                 raise ValueError("Invalid guest report or logs")
-            for name in ("probe", "transport", "manager", "browser", "gui", "experiments", "edge_ui"):
+            for name in ("probe", "transport", "manager", "browser", "gui", "outside_edge", "experiments", "edge_ui"):
                 if name in reports:
                     write_json(self.server.artifacts / f"windows-{name}.json", reports[name])
-            for name in ("probe", "transport", "manager", "browser", "gui", "experiments", "edge_ui", "tests", "supervisor", "windows_update"):
+            for name in ("probe", "transport", "manager", "browser", "gui", "outside_edge", "experiments", "edge_ui", "tests", "supervisor", "windows_update"):
                 if name in logs:
                     if not isinstance(logs[name], str):
                         raise ValueError("Invalid guest log")
@@ -825,6 +828,26 @@ def verify_phase_report(name: str, report: dict) -> None:
         if report.get("transport_passed") is not False:
             raise RuntimeError("Probe report claimed a transport test it did not run")
         return
+    if name == "outside_edge":
+        if (not outside_edge_teardown_proven(report) or report.get("status") != "outside_control_only"
+                or report.get("outside_headless_control_passed") is not True
+                or report.get("ordinary_user") is not True or report.get("host_network_unchanged") is not True):
+            raise RuntimeError("Outside Edge health control did not pass its separate scope")
+        checks = report.get("checks")
+        if not isinstance(checks, list) or len(checks) != 2:
+            raise RuntimeError("Outside Edge control omitted its two independent launches")
+        for phase, check in enumerate(checks, 1):
+            if (not isinstance(check, dict) or type(check.get("phase")) is not int or check["phase"] != phase
+                    or type(check.get("edge_exit_code")) is not int or check["edge_exit_code"] != 0
+                    or check.get("edge_exit_hex") != "0x00000000"
+                    or not isinstance(check.get("command_template_sha256"), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", check["command_template_sha256"])
+                    or check.get("private_profile_reused") is not (phase == 2)
+                    or any(check.get(key) is not True for key in (
+                        "assigned_before_resume", "natural_root_and_job_exit", "dom_nonce_via_page_ack",
+                        "cookie_request_verified", "owned_job_cleanup_proven"))):
+                raise RuntimeError("Outside Edge control omitted nonce, cookie, natural exit or owned-job cleanup proof")
+        return
     entries = report.get("checks", [])
     if not isinstance(entries, list) or not all(isinstance(check, dict) for check in entries):
         raise RuntimeError(f"{name} returned invalid check evidence")
@@ -928,6 +951,19 @@ def experiment_has_recovery(value) -> bool:
     return False
 
 
+def outside_edge_teardown_proven(report: dict | None) -> bool:
+    """A failed health check may be closed safely; its failure remains recorded."""
+    return (isinstance(report, dict) and type(report.get("schema_version")) is int
+            and report["schema_version"] == 1 and report.get("scope") == OUTSIDE_EDGE_SCOPE
+            and report.get("outside_psec") is True and report.get("cleanup_proven") is True
+            and report.get("status") in ("outside_control_only", "failed", "unsupported")
+            and type(report.get("outside_headless_control_passed")) is bool
+            and report["outside_headless_control_passed"] is (report["status"] == "outside_control_only")
+            and all(report.get(key) is False for key in OUTSIDE_EDGE_FALSE_FLAGS)
+            and not any(key in report for key in ("recovery_retained", "cleanup_failure", "fixture_cleanup_failure"))
+            and not experiment_has_recovery(report))
+
+
 def experiment_teardown_proven(name: str, report: dict | None) -> bool:
     """Permit independent diagnostics after a failed, fully closed collection.
 
@@ -975,6 +1011,11 @@ def verify_result(result: dict, *, require_official_update: bool = False) -> Non
             raise RuntimeError("Guest did not prove the pinned official cumulative update was installed")
     if result.get("recovery_records", []) != []:
         raise RuntimeError("Guest retained unproven cleanup or recovery records")
+    if "outside_edge_phase" in result or "outside_edge" in result.get("reports", {}):
+        phase = result.get("outside_edge_phase", {})
+        if phase.get("status") != "passed" or type(phase.get("exit_code")) is not int or phase["exit_code"] != 0:
+            raise RuntimeError("Guest outside Edge health control failed")
+        verify_phase_report("outside_edge", result.get("reports", {}).get("outside_edge"))
     if "experiments_phase" in result or "experiments" in result.get("reports", {}):
         experiment = result.get("experiments_phase", {})
         if experiment.get("status") != "passed" or type(experiment.get("exit_code")) is not int or experiment["exit_code"] != 0:
@@ -1168,6 +1209,23 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     result = {"status": "failed", "phases": [], "reports": {}, "logs": {}, "recovery_records": []}
     probe_passed = False
     cleanup_pending = False
+    outside = workspace / ".github/windows_edge_outside_control.py"
+    if outside.is_file():
+        # Finish the ordinary-browser positive control before the network
+        # experiment opens its private NIC capture window.
+        command = [executable, "-X", "utf8", "-B", str(outside), "--root", str(root),
+                   "--report", str(directory / "outside_edge.json"), "--timeout", "45"]
+        record, report, log = run_guest_phase("outside_edge", command, directory, timeout=min(420, phase_timeout))
+        result["outside_edge_phase"], result["logs"]["outside_edge"] = record, log
+        if report is not None:
+            result["reports"]["outside_edge"] = report
+        if record.get("timed_out") or not outside_edge_teardown_proven(report):
+            cleanup_pending = True
+            recovery = {"phase": "outside_edge", "reason": record.get("error", "Outside Edge cleanup was not proven"),
+                        "descendant_cleanup_proven": False}
+            if report is not None and "recovery_directory" in report:
+                recovery["recovery_directory"] = str(report["recovery_directory"])[:1024]
+            result["recovery_records"].append(recovery)
     diagnostic_arguments = []
     result["execution_mode"] = "original_sdk"
     try:
@@ -1188,7 +1246,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     experiment = workspace / ".github/windows_network_experiment.py"
     if experiment.is_file() and not cleanup_pending:
         command = [executable, "-X", "utf8", "-B", str(experiment),
-                   "--root", str(root), "--report", str(directory / "experiments.json")]
+                   "--root", str(root), "--report", str(directory / "experiments.json"), "--preferred-policy-only"]
         if vm_config is not None:
             command.extend(["--vm-config", str(vm_config)])
         command.extend(diagnostic_arguments)
@@ -1270,7 +1328,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                 result["recovery_records"].append(recovery)
         if name == "probe":
             probe_passed = record["status"] == "passed"
-    collected = result["phases"] + [result[key] for key in ("experiments_phase", "edge_ui_phase") if key in result]
+    collected = result["phases"] + [result[key] for key in ("outside_edge_phase", "experiments_phase", "edge_ui_phase") if key in result]
     if all(phase["status"] == "passed" for phase in collected):
         result["status"] = "passed"
     else:

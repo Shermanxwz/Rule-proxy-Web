@@ -1,5 +1,6 @@
 """Exact-generation event correlation; fixtures are not real crash evidence."""
 import copy
+import ctypes
 import datetime as dt
 import hashlib
 import importlib.util
@@ -125,6 +126,109 @@ class EdgeCrashEvidenceTests(unittest.TestCase):
         api.image.return_value = self.edge
         return api
 
+    def event_reader(self, *, raw=None, probe_okay=False, probe_error=122, required_bytes=None,
+                     render_okay=True, render_error=5, used_bytes=None, property_count=0):
+        raw = (self.event(fields={"IntegratorReportId": ""}).encode("utf-16-le") + b"\0\0") if raw is None else raw
+        api = mock.Mock()
+        state = {"error": 0, "returned": False}
+        api.EvtQuery.return_value = 101
+        api.EvtClose.return_value = True
+        def next_event(query, count, events, timeout, flags, returned):
+            if state["returned"]:
+                state["error"] = 259
+                return False
+            self.assertEqual((query, count, timeout, flags), (101, 1, 1000, 0))
+            events[0], returned._obj.value = 102, 1
+            state["returned"] = True
+            return True
+        def render(context, event, flags, capacity, buffer, used, count):
+            self.assertEqual((context, event, flags), (None, 102, 1))
+            if buffer is None:
+                self.assertEqual(capacity, 0)
+                used._obj.value = len(raw) if required_bytes is None else required_bytes
+                count._obj.value = 0
+                state["error"] = probe_error
+                return probe_okay
+            self.assertEqual(capacity, ctypes.sizeof(buffer))
+            if len(raw) <= capacity:
+                ctypes.memmove(buffer, raw, len(raw))
+            used._obj.value = len(raw) if used_bytes is None else used_bytes
+            count._obj.value = property_count
+            state["error"] = render_error
+            return render_okay
+        def error_factory(code):
+            error = OSError(code, "PRIVATE_RENDER_MESSAGE", "PRIVATE_RENDER_PATH")
+            error.winerror = code
+            return error
+        api.EvtNext.side_effect, api.EvtRender.side_effect = next_event, render
+        return crash.EventLogApi(api, lambda: state["error"], error_factory), api
+
+    def test_xml_render_uses_exact_utf16_byte_capacity_and_sanitizes_both_api_calls(self):
+        reader, api = self.event_reader()
+        with mock.patch.object(crash, "EventLogApi", return_value=reader):
+            result = crash._read_events(self.identity, self.start, self.end)
+        self.assertEqual(result["status"], "crash_evidence_observed")
+        self.assertTrue(result["reader_cleanup_proven"])
+        self.assertEqual(reader.handles, [])
+        self.assertEqual(api.EvtClose.call_args_list, [mock.call(102), mock.call(101)])
+        facts = result["render_observations"][0]
+        self.assertFalse(facts["probe_okay"])
+        self.assertEqual(facts["probe_last_error"], 122)
+        self.assertEqual(facts["required_bytes"], facts["capacity_bytes"])
+        self.assertEqual(facts["used_bytes"], facts["capacity_bytes"])
+        self.assertTrue(facts["render_okay"])
+        self.assertEqual(facts["property_count"], 0)
+        self.assertTrue(facts["utf16_complete"])
+        self.assertTrue(facts["xml_complete"])
+        self.assertTrue(all(value is None or type(value) in (int, bool) for value in facts.values()))
+        self.assertNotIn("PRIVATE", json.dumps(result))
+        self.assertNotIn("EventData", json.dumps(result))
+
+    def test_render_probe_errors_report_size_stage_and_cannot_return_an_event(self):
+        for change in ({"probe_okay": True}, {"probe_error": 5}, {"required_bytes": 0},
+                       {"required_bytes": 3}, {"required_bytes": crash.MAX_XML_BYTES + 2}):
+            with self.subTest(change=change):
+                reader, api = self.event_reader(**change)
+                with mock.patch.object(crash, "EventLogApi", return_value=reader):
+                    result = crash._read_events(self.identity, self.start, self.end)
+                self.assertEqual(result["status"], "incomplete")
+                self.assertEqual(result["failure"]["stage"], "event_render_size")
+                self.assertEqual(result["events"], [])
+                self.assertEqual(api.EvtRender.call_count, 1)
+                self.assertIsNone(result["render_observations"][0]["render_okay"])
+                self.assertEqual(reader.handles, [])
+
+    def test_render_result_rejects_nonzero_xml_property_count_and_invalid_byte_counts(self):
+        for change in ({"property_count": 17}, {"render_okay": False}, {"used_bytes": 0},
+                       {"used_bytes": 3}, {"used_bytes": crash.MAX_XML_BYTES + 2}):
+            with self.subTest(change=change):
+                reader, api = self.event_reader(**change)
+                with mock.patch.object(crash, "EventLogApi", return_value=reader):
+                    result = crash._read_events(self.identity, self.start, self.end)
+                self.assertEqual(result["status"], "incomplete")
+                self.assertEqual(result["failure"]["stage"], "event_render_result")
+                self.assertEqual(result["events"], [])
+                facts = result["render_observations"][0]
+                self.assertEqual(facts["property_count"], change.get("property_count", 0))
+                self.assertFalse(facts["utf16_complete"])
+                self.assertFalse(facts["xml_complete"])
+                self.assertEqual(api.EvtRender.call_count, 2)
+                self.assertEqual(reader.handles, [])
+                self.assertNotIn("PRIVATE_RENDER", json.dumps(result))
+
+    def test_rendered_bytes_require_one_complete_terminated_utf16_xml_document(self):
+        xml = self.event(fields={"IntegratorReportId": ""})
+        for raw in (xml.encode("utf-16-le"), (xml + "\0private").encode("utf-16-le") + b"\0\0",
+                    (xml + "extra").encode("utf-16-le") + b"\0\0", b"\x00\xd8\0\0"):
+            with self.subTest(raw_size=len(raw)):
+                reader, _ = self.event_reader(raw=raw)
+                with mock.patch.object(crash, "EventLogApi", return_value=reader):
+                    result = crash._read_events(self.identity, self.start, self.end)
+                self.assertEqual(result["status"], "incomplete")
+                self.assertEqual(result["failure"]["stage"], "event_render_xml")
+                self.assertFalse(result["render_observations"][0]["xml_complete"])
+                self.assertEqual(reader.handles, [])
+
     def test_capture_borrows_actual_handle_and_rechecks_generation_without_wait_kill_or_close(self):
         process = mock.Mock(pid=1234, _handle=5678)
         api = self.fake_process_api()
@@ -215,6 +319,7 @@ class EdgeCrashEvidenceTests(unittest.TestCase):
             self.assertTrue(result["reader_cleanup_proven"])
             self.assertEqual(result["status"], "not_observed", result.get("failure"))
             self.assertEqual(result["events"], [])
+            self.assertEqual(result["render_observations"], [], "An empty query is not event-render ABI evidence")
         finally:
             if process.poll() is None:
                 process.wait(timeout=5)

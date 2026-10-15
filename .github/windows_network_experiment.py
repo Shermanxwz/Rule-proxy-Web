@@ -3,6 +3,7 @@
 CLI: package-python windows_network_experiment.py --root PACKAGE --report FILE
      [--allow-emulated-x64]
      [--test-psec-executor EXE --test-psec-manifest JSON] [--collect-native-dns]
+     [--preferred-policy-only]
 Exit 0 means bounded experimental observations were collected, including
 unsupported policies and failed socket checks. Exit 1 means the experiment or
 safe teardown failed. No real node, global network setting or firewall rule is
@@ -34,6 +35,7 @@ import time
 ROOT = Path(__file__).resolve().parent.parent
 MODEL1_VARIANTS = ("model1_internal_ingress_deny", "model1_internal")
 VARIANTS = ("model3", *MODEL1_VARIANTS, "model2_host")
+PREFERRED_VARIANT = "model1_internal_ingress_deny"
 MAX_REPORT_BYTES = 128 * 1024
 ACTOR_WAIT_SECONDS = 45
 MATRIX_PHASE_SECONDS = 440  # Leaves 120s for the final native CIM snapshot.
@@ -616,6 +618,109 @@ finally { $sha.Dispose(); $stream.Dispose() }
     return evidence
 
 
+class _ObservedProcessCall:
+    def __init__(self, observer, name, function):
+        object.__setattr__(self, "observer", observer)
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "function", function)
+
+    def __getattr__(self, name):
+        return getattr(self.function, name)
+
+    def __setattr__(self, name, value):
+        setattr(self.function, name, value)
+
+    def __call__(self, *arguments):
+        return self.observer.invoke(self.name, self.function, arguments)
+
+
+class _ProcessApiObservation:
+    """Observe one private API instance without changing its calls or rights.
+
+    In particular, failed OpenProcess calls retain the original last-error for
+    the runtime's WinError. No handle values or unrelated snapshot PIDs are
+    serialized. The production guardian constructs its own unmodified API.
+    """
+
+    OPERATIONS = frozenset({"CreateToolhelp32Snapshot", "Process32FirstW", "Process32NextW",
+        "OpenProcess", "GetProcessTimes", "QueryFullProcessImageNameW", "WaitForSingleObject", "CloseHandle"})
+
+    def __init__(self, kernel, diagnostics, *, get_error=None, set_error=None):
+        self.kernel, self.diagnostics = kernel, diagnostics
+        self.get_error = get_error or getattr(ctypes, "get_last_error", lambda: 0)
+        self.set_error = set_error or getattr(ctypes, "set_last_error", lambda _value: None)
+        self.scope, self.parent_pid = "wrapper", None
+        self.open_counts, self.handles, self.functions = {}, {}, {}
+        diagnostics["native_api_calls"] = []
+        diagnostics["native_api_calls_truncated"] = False
+
+    @staticmethod
+    def number(value):
+        value = getattr(value, "value", value)
+        return value if type(value) is int and 0 <= value <= 0xffffffffffffffff else None
+
+    def context(self, scope, parent_pid):
+        self.scope, self.parent_pid = scope, parent_pid
+        self.open_counts = {}
+
+    def __getattr__(self, name):
+        function = getattr(self.kernel, name)
+        if name not in self.OPERATIONS:
+            return function
+        if name not in self.functions:
+            self.functions[name] = _ObservedProcessCall(self, name, function)
+        return self.functions[name]
+
+    def invoke(self, name, function, arguments):
+        pid, access, phase = None, None, None
+        if name == "OpenProcess":
+            access, pid = self.number(arguments[0]), self.number(arguments[2])
+            count = self.open_counts.get(pid, 0) + 1
+            self.open_counts[pid] = count
+            phase = "first_open" if count == 1 else "reopen"
+        elif name not in {"CreateToolhelp32Snapshot", "Process32FirstW", "Process32NextW"}:
+            pid, access = self.handles.get(self.number(arguments[0]), (None, None))
+        raised = None
+        try:
+            result = function(*arguments)
+        except BaseException as exc:
+            raised = exc
+            raise
+        finally:
+            error = self.get_error()
+            if raised is not None:
+                succeeded = False
+            elif name == "WaitForSingleObject":
+                succeeded = result in (0, 258)
+            elif name == "CreateToolhelp32Snapshot":
+                succeeded = self.number(result) not in (None, ctypes.c_void_p(-1).value)
+            else:
+                succeeded = bool(result)
+            # Normal end-of-enumeration and successful enumeration steps add
+            # no diagnostic value and would enumerate unrelated host PIDs.
+            record = name not in {"Process32FirstW", "Process32NextW"} or (
+                not succeeded and not (name == "Process32NextW" and error in (0, 18)))
+            if record:
+                fact = {"operation": name, "scope": self.scope, "parent_pid": self.parent_pid,
+                    "target_pid": pid, "desired_access": access, "open_phase": phase,
+                    "succeeded": succeeded, "errno": getattr(raised, "errno", None),
+                    "winerror": (getattr(raised, "winerror", None) or error) if not succeeded else None}
+                calls = self.diagnostics["native_api_calls"]
+                if len(calls) < 64:
+                    calls.append(fact)
+                else:
+                    self.diagnostics["native_api_calls_truncated"] = True
+                if not succeeded and "native_api_failure" not in self.diagnostics:
+                    self.diagnostics["native_api_failure"] = fact.copy()
+            if raised is None and succeeded:
+                if name == "OpenProcess":
+                    self.handles[self.number(result)] = (pid, access)
+                elif name == "CloseHandle":
+                    self.handles.pop(self.number(arguments[0]), None)
+            self.set_error(error)
+        return result
+
+
 def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
     api = runtime._WinProcessApi()
     entries = []
@@ -624,14 +729,26 @@ def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
                        reported_parent_pid=reports[0]["pid"], reported_child_pid=reports[1]["pid"],
                        reported_parent_created=reports[0].get("process_created"),
                        reported_child_created=reports[1].get("process_created"), snapshots=[])
+    observed = _ProcessApiObservation(api.kernel32, diagnostics)
+    api.kernel32 = observed
+    observed.handles[runtime._raw_handle(wrapper._handle)] = (wrapper.pid, None)
+    observed.context("wrapper", wrapper.pid)
 
     def live_children(parent_pid, parent_created, report, scope):
-        candidates = api.direct_children(parent_pid, parent_created)
-        entries.extend(candidates)
         snapshot = {"scope": scope, "parent_pid": parent_pid, "parent_created": parent_created,
-                    "returned_count": len(candidates), "returned_pids": [pid for pid, _ in candidates][:32],
-                    "diagnostics_truncated": len(candidates) > 32, "children": []}
+                    "status": "querying", "children": []}
         diagnostics["snapshots"].append(snapshot)
+        observed.context(scope, parent_pid)
+        try:
+            candidates = api.direct_children(parent_pid, parent_created)
+        except BaseException as exc:
+            snapshot.update(status="failed", error_type=type(exc).__name__,
+                            errno=getattr(exc, "errno", None), winerror=getattr(exc, "winerror", None))
+            raise
+        entries.extend(candidates)
+        snapshot.update(status="returned", returned_count=len(candidates),
+                        returned_pids=[pid for pid, _ in candidates][:32],
+                        diagnostics_truncated=len(candidates) > 32)
         alive = []
         expected_exited = False
         for pid, handle in candidates:
@@ -697,7 +814,12 @@ def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
     except BaseException as exc:
         diagnostics["error"] = f"{type(exc).__name__}: {exc}"[:700]
         for _, handle in entries:
-            api.close(handle)
+            try:
+                api.close(handle)
+            except Exception as close_error:
+                diagnostics.setdefault("cleanup_errors", []).append({"operation": "CloseHandle",
+                    "error_type": type(close_error).__name__, "errno": getattr(close_error, "errno", None),
+                    "winerror": getattr(close_error, "winerror", None)})
         raise
 
 
@@ -869,6 +991,14 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
     return result
 
 
+def record_unselected_wire_probes(wire, unselected):
+    """Keep the complete fixed manifest with explicit non-execution facts."""
+    for name in unselected:
+        wire.execution.extend({"id": probe["id"], "role": probe["role"], "attempted": False,
+            "bind_attempted": False, "bind_succeeded": False, "send_attempted": False,
+            "api_accepted": False, "errno": None} for probe in wire.for_variant(name))
+
+
 def main(arguments):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, type=Path)
@@ -878,11 +1008,19 @@ def main(arguments):
     parser.add_argument("--test-psec-executor", type=Path)
     parser.add_argument("--test-psec-manifest", type=Path)
     parser.add_argument("--collect-native-dns", action="store_true")
+    parser.add_argument("--preferred-policy-only", action="store_true",
+                        help="Observe only the fixed production-policy candidate; keep other policies unselected")
     args = parser.parse_args(arguments)
+    selected = (PREFERRED_VARIANT,) if args.preferred_policy_only else VARIANTS
+    unselected = tuple(name for name in VARIANTS if name not in selected)
     args.report.resolve().parent.mkdir(parents=True, exist_ok=True)
     result = {"status": "failed", "full_acceptance_passed": False, "acceptance_passed": False,
               "real_node_passed": False, "product_provider_changed": False, "cleanup_proven": False,
-              "variants": [], "checks": []}
+              "variants": [], "checks": [],
+              "policy_selection": "preferred_only" if args.preferred_policy_only else "all_fixed",
+              "selected_variants": list(selected),
+              "unselected_variants": [{"name": name, "status": "unselected", "process_started": False,
+                                       "no_process_started": True} for name in unselected]}
     directory = fixtures = udp = wire = dns = None
     safe = True
     code = 1
@@ -919,18 +1057,19 @@ def main(arguments):
         if args.vm_config is not None:
             wire = load_wire_helpers(ROOT / ".github/windows_wire_probe.py").WireSession(args.vm_config, VARIANTS)
             wire.start()
+            record_unselected_wire_probes(wire, unselected)
         if args.collect_native_dns or (wire is not None and host.get("native_machine") == 0x8664):
             dns = load_dns_session().DnsSession(directory / "native-dns-controls", phase_deadline)
             result["native_dns_scope"] = {"host_acceptance_scope": host.get("acceptance_scope"),
                 "explicitly_requested": args.collect_native_dns, "wire_capture_available": wire is not None,
                 "wire_observed": None if wire is not None else False,
                 "default_system_server_list": True, "kernel_denial_proven": False, "acceptance_passed": False}
-        for name in VARIANTS:
+        for name in selected:
             if phase_deadline - time.monotonic() < 30:
                 raise TimeoutError("Matrix budget was exhausted before the next experiment")
             if wire is not None:
                 wire.control(name, "outside_before")
-            preferred_dns = dns is not None and name == "model1_internal_ingress_deny"
+            preferred_dns = dns is not None and name == PREFERRED_VARIANT
             if preferred_dns:
                 control = dns.control("outside_before", phase_deadline - 130)
                 result["native_dns_controls"] = dns.controls
@@ -957,7 +1096,7 @@ def main(arguments):
                 result.update(cleanup_error=variant.get("cleanup_error", "NestedRecoveryPending"),
                               recovery_directory=str(directory))
                 break
-        if safe and len(result["variants"]) == len(VARIANTS) and all(
+        if safe and len(result["variants"]) == len(selected) and all(
             variant["status"] in ("observed", "unsupported") for variant in result["variants"]
         ):
             result["status"], code = "experiment_only", 0
