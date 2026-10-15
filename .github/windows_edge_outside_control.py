@@ -185,21 +185,26 @@ class OwnedJobProcess:
     def close(self):
         self.cleanup_proven = False
         self.stage = "job_cleanup"
+        deadline = time.monotonic() + 5
         if self.process is not None and not self.assigned and not self.api.wait(self.process, 0):
             self.api.terminate_suspended(self.process)
             self.forced_teardown = True
-            if not self.api.wait(self.process, 2000):
+            remaining = int(max(0.0, deadline - time.monotonic()) * 1000)
+            if not self.api.wait(self.process, min(2000, remaining)):
                 raise RuntimeError("unassigned suspended process exit was not proven")
         if self.job is not None and self.api.active(self.job):
             self.api.terminate_job(self.job)
             self.forced_teardown = True
-            deadline = time.monotonic() + 5
             while self.api.active(self.job):
                 if time.monotonic() >= deadline:
                     raise RuntimeError("owned job retained an active process")
                 time.sleep(0.05)
-        if self.process is not None and not self.api.wait(self.process, 0):
-            raise RuntimeError("owned root process exit was not proven")
+        if self.process is not None:
+            # Job accounting can reach zero just before the kernel root HANDLE
+            # becomes signaled. Both are required within the SAME total budget.
+            remaining = int(max(0.0, deadline - time.monotonic()) * 1000)
+            if not self.api.wait(self.process, remaining):
+                raise RuntimeError("owned root process exit was not proven")
         # Clear only successfully closed handles, preserving failed ones for
         # explicit retry. The empty job stays owned until all close checks pass.
         for field in ("thread", "process", "job"):

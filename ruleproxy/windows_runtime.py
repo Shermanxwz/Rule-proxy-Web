@@ -164,8 +164,9 @@ class _WinProcessApi:
     def direct_children(self, parent_pid: int, parent_created: int) -> list[tuple[int, int]]:
         # A process ID from one Toolhelp snapshot is not sufficient: the child
         # can exit and its PID can be reused before OpenProcess. Re-enumerate
-        # after opening candidate handles, then reopen and compare creation
-        # times so the held terminate handle is for the currently listed child.
+        # after holding query-only candidate handles, then reopen with stop
+        # access and compare creation times. A stale PPID from an older process
+        # must be excluded before requesting its termination permission.
         first = self._snapshot_parent_ids()
         candidates: dict[int, tuple[int, int]] = {}
         verified: list[tuple[int, int]] = []
@@ -174,7 +175,7 @@ class _WinProcessApi:
             for pid, reported_parent in first.items():
                 if pid == parent_pid or reported_parent != parent_pid:
                     continue
-                handle = self.kernel32.OpenProcess(self.PROCESS_ACCESS, False, pid)
+                handle = self.kernel32.OpenProcess(self.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
                 if not handle:
                     raise ctypes.WinError(ctypes.get_last_error())
                 try:

@@ -250,14 +250,16 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 self.assertIs(raised.exception, error)
                 failure = diagnostic["native_api_failure"]
                 self.assertEqual(failure, {"operation": "OpenProcess", "scope": "parent", "parent_pid": 40,
-                    "target_pid": 42, "desired_access": 0x101001,
+                    "target_pid": 42, "desired_access": 0x101001 if reopen else 0x1000,
                     "open_phase": "reopen" if reopen else "first_open", "succeeded": False,
                     "errno": None, "winerror": 5})
                 self.assertEqual(diagnostic["snapshots"][0]["status"], "failed")
                 self.assertEqual(diagnostic["snapshots"][0]["winerror"], 5)
                 self.assertFalse(diagnostic["attestation_passed"])
-                self.assertTrue(all(call.args == (0x101001, False, 42)
-                                    for call in kernel.OpenProcess.call_args_list))
+                expected_calls = [mock.call(0x1000, False, 42)]
+                if reopen:
+                    expected_calls.append(mock.call(0x101001, False, 42))
+                self.assertEqual(kernel.OpenProcess.call_args_list, expected_calls)
                 self.assertEqual(kernel.CloseHandle.call_args_list, [mock.call(201)] if reopen else [])
                 kernel.TerminateProcess.assert_not_called()
                 restore.assert_called_with(5)

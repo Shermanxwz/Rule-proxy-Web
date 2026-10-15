@@ -367,15 +367,19 @@ class EventLogApi:
         self.stage = "event_render_size"
         used, count = ctypes.c_uint32(), ctypes.c_uint32()
         facts = {"render_flags": 1, "probe_okay": None, "probe_last_error": None,
-                 "required_bytes": None, "probe_property_count": None, "render_okay": None,
+                 "required_bytes": None, "probe_property_count": None,
+                 "probe_property_count_documentation_mismatch": None, "render_okay": None,
                  "render_last_error": None, "used_bytes": None, "capacity_bytes": None,
-                 "property_count": None, "utf16_complete": False, "xml_complete": False}
+                 "property_count": None, "property_count_documentation_mismatch": None,
+                 "utf16_complete": False, "xml_complete": False}
         self.render_observations.append(facts)
         okay = bool(self.api.EvtRender(None, event, 1, 0, None, ctypes.byref(used), ctypes.byref(count)))
         error = None if okay else int(self.last_error())
         facts.update(probe_okay=okay, probe_last_error=error,
-                     required_bytes=int(used.value), probe_property_count=int(count.value))
-        if okay or error != 122 or not 0 < used.value <= MAX_XML_BYTES or used.value % 2:
+                     required_bytes=int(used.value), probe_property_count=int(count.value),
+                     probe_property_count_documentation_mismatch=count.value != 0)
+        if (okay or error != 122 or not 0 < used.value <= MAX_XML_BYTES
+                or used.value % 2 or count.value not in (0, 1)):
             raise ValueError("event render size could not be bounded")
         # EvtRender BufferSize/BufferUsed are bytes, including the UTF-16 NUL.
         # This equals the official malloc(requiredBytes) example and does not
@@ -387,12 +391,17 @@ class EventLogApi:
         okay = bool(self.api.EvtRender(None, event, 1, capacity, value, ctypes.byref(used), ctypes.byref(count)))
         error = None if okay else int(self.last_error())
         facts.update(render_okay=okay, render_last_error=error,
-                     used_bytes=int(used.value), property_count=int(count.value))
+                     used_bytes=int(used.value), property_count=int(count.value),
+                     property_count_documentation_mismatch=count.value != 0)
         if not okay:
             raise self.error_factory(error)
-        # The documented PropertyCount is zero outside EventValues. Preserve
-        # that contract; telemetry distinguishes it from any size failure.
-        if not 0 < used.value <= capacity or used.value % 2 or count.value != 0:
+        # Microsoft documents zero outside EventValues, but real XML-only ARM
+        # run 38666464325 returned one for both the size probe and XML render.
+        # Accept only these two observed counts with fixed flags=1. The count
+        # never selects a value-array parser or attests an event: byte bounds,
+        # strict UTF-16/full XML, then exact generation/image correlation do.
+        # https://learn.microsoft.com/windows/win32/api/winevt/nf-winevt-evtrender
+        if not 0 < used.value <= capacity or used.value % 2 or count.value not in (0, 1):
             raise ValueError("event renderer returned an invalid XML size or property count")
         self.stage = "event_render_xml"
         raw = value.raw[:used.value]

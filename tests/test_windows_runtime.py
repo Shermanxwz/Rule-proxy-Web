@@ -718,6 +718,69 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(windows_runtime._raw_handle(321), 321)
         self.assertEqual(windows_runtime._raw_handle(ctypes.c_void_p(321)), 321)
 
+    def test_toolhelp_excludes_older_foreign_child_before_requesting_denied_termination_access(self):
+        api = object.__new__(windows_runtime._WinProcessApi)
+        requested, closed = [], []
+
+        class Kernel:
+            def OpenProcess(self, access, inherit, pid):
+                requested.append((pid, access))
+                # The old process is queryable but denies termination access.
+                return 0 if access & api.PROCESS_TERMINATE else 101
+
+            def CloseHandle(self, handle):
+                closed.append(handle)
+                return True
+
+        api.kernel32 = Kernel()
+        api._snapshot_parent_ids = mock.Mock(side_effect=[{501: 500}, {501: 500}])
+        api._creation_time = mock.Mock(return_value=50)
+        self.assertEqual(api.direct_children(500, 100), [])
+        self.assertEqual(requested, [(501, api.PROCESS_QUERY_LIMITED_INFORMATION)])
+        self.assertEqual(api._creation_time.call_count, 1)
+        self.assertEqual(closed, [101])
+
+    def assert_toolhelp_permission_rejection_keeps_wrapper(self, denied_access):
+        api = object.__new__(windows_runtime._WinProcessApi)
+        requested, closed = [], []
+        kernel = mock.Mock()
+
+        def open_process(access, inherit, pid):
+            requested.append((pid, access))
+            return 0 if access == denied_access else 101
+
+        kernel.OpenProcess.side_effect = open_process
+        kernel.CloseHandle.side_effect = lambda handle: closed.append(handle) or True
+        api.kernel32 = kernel
+        api._snapshot_parent_ids = mock.Mock(side_effect=[{501: 500}, {501: 500}])
+        api._creation_time = mock.Mock(side_effect=lambda handle: 100 if handle == 99 else 150)
+        process = mock.Mock(pid=500, _handle=99)
+        process.poll.return_value = None
+        error = PermissionError(13, "simulated process access denial")
+        error.winerror = 5
+        with mock.patch.object(ctypes, "WinError", return_value=error, create=True), \
+                mock.patch.object(ctypes, "get_last_error", return_value=5, create=True):
+            with self.assertRaises(windows_runtime.SafeStopError) as raised:
+                windows_runtime._stop_with_api(process, api, timeout=1, poll_interval=0.001)
+        self.assertIs(raised.exception.__cause__, error)
+        process.terminate.assert_not_called()
+        process.kill.assert_not_called()
+        process.wait.assert_not_called()
+        kernel.TerminateProcess.assert_not_called()
+        return requested, closed
+
+    def test_toolhelp_query_denial_remains_strict_and_never_terminates_wrapper(self):
+        access = windows_runtime._WinProcessApi.PROCESS_QUERY_LIMITED_INFORMATION
+        requested, closed = self.assert_toolhelp_permission_rejection_keeps_wrapper(access)
+        self.assertEqual(requested, [(501, access)])
+        self.assertEqual(closed, [])
+
+    def test_toolhelp_second_snapshot_termination_denial_keeps_wrapper_and_closes_query_handle(self):
+        api = windows_runtime._WinProcessApi
+        requested, closed = self.assert_toolhelp_permission_rejection_keeps_wrapper(api.PROCESS_ACCESS)
+        self.assertEqual(requested, [(501, api.PROCESS_QUERY_LIMITED_INFORMATION), (501, api.PROCESS_ACCESS)])
+        self.assertEqual(closed, [101])
+
     def test_toolhelp_revalidation_rejects_pid_reuse(self):
         api = object.__new__(windows_runtime._WinProcessApi)
 

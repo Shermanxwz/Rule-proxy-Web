@@ -170,6 +170,50 @@ class OwnedJobTests(unittest.TestCase):
         owner.close()
         self.assertTrue(owner.cleanup_proven)
 
+    def test_zero_active_processes_still_waits_for_later_kernel_root_signal_within_cleanup_budget(self):
+        owner, api = self.start(FakeApi(natural=False))
+        # Model TerminateJobObject's observed ordering: accounting is empty,
+        # but a zero-duration root wait has not yet observed kernel exit.
+        def terminate_job(job):
+            api.call("terminate_job", job)
+            api.active_count = 0
+            self.assertFalse(api.wait(20, 0))
+
+        def wait(process, milliseconds):
+            api.call("wait", process, milliseconds)
+            if milliseconds == 0:
+                return False
+            self.assertGreater(milliseconds, 0)
+            self.assertLessEqual(milliseconds, 5000)
+            self.assertEqual(api.active_count, 0)
+            api.exited = True
+            return True
+
+        api.wait = wait
+        api.terminate_job = terminate_job
+        with mock.patch.object(control.time, "monotonic", side_effect=[0, 1]):
+            owner.close()
+        self.assertIn(("wait", 20, 4000), api.calls)
+        self.assertTrue(owner.cleanup_proven)
+        self.assertTrue(owner.forced_teardown)
+
+    def test_zero_active_processes_with_root_wait_timeout_retains_owner_without_closing_handles(self):
+        owner, api = self.start(FakeApi(natural=False))
+        api.active_count = 0
+        # A real WaitForSingleObject timeout is a failed kernel exit proof even
+        # though Job accounting is already zero; no handle may be released.
+        with mock.patch.object(control.time, "monotonic", side_effect=[0, 1]):
+            with self.assertRaises(RuntimeError):
+                owner.close()
+        self.assertIn(("wait", 20, 4000), api.calls)
+        self.assertFalse(owner.cleanup_proven)
+        self.assertEqual((owner.process, owner.job), (20, 10))
+        self.assertNotIn(("close_20", 20), api.calls)
+        self.assertNotIn(("close_10", 10), api.calls)
+        api.exited = True
+        owner.close()
+        self.assertTrue(owner.cleanup_proven)
+
     def test_limit_failure_creates_no_process_and_still_closes_its_owned_job(self):
         api = FakeApi()
         api.fail["limits"] = 1
