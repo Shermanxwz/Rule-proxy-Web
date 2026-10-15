@@ -16,6 +16,8 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 原有全拒绝策略曾阻断容器内代理连接。2026-10-15 的原生 x64 基线系统对照使用单独校验的 SDK 候选：只允许固定内部 TCP 代理端口，父子进程 HTTP / SOCKS 共完成 4 次往返，所选公网 UDP 探针未出网，清理与宿主网络检查通过。三种原生 DNS API 均完成，容器内测试域名查询计数为 0；原报告仍因 15 个无应用数据的 TCP 控制包标为不完整，不能改称完整产品验收。候选未替换产品 SDK，更新后系统和真实应用验收仍在进行。[原生网络对照摘要](verification/windows-2026-10-15/2db61ae/candidate-warmup-native/observations.json)
 
+同一 SDK 候选在官方更新后的 26300.9711 系统中显式请求目录枚举能力。原生 DNS 三种 API、父子进程身份和前后对照均完成；抓包分析完整、未知记录及容器内 nonce 查询均为 0。但代理 TCP 仍全部返回 10013、往返数为 0，因此这一结果只支持所测 DNS 路径的无外发观测，不能视为代理功能或产品验收通过，也不能替代用户 26200.9711 系统的验证。[更新后候选对照摘要](verification/windows-2026-10-15/b4b6c38/psec11-network-native/observations.json)
+
 原生 x64 Chrome 对照使用原版 MXC，未出现可见窗口或页面确认。独立的容器内助手能读取进程令牌，但两种 LocalAppData 目录查询均返回 `0x80070003`（路径不存在），同一用户在容器外查询成功。包装进程退出码为 70，未保留足以区分助手异常与应用返回值的状态；清理通过。这表明目录查询和应用启动仍有兼容性问题，尚未证明框架无法修复。[GUI 对照摘要](verification/windows-2026-10-15/2db61ae/chromium-control-native/observations.json)
 
 2026-10-15 的原生 x64 官方更新后运行已到 Windows 11 build 26300/UBR 9711，两个更新包校验通过并完成重启；产品仍使用原版 SDK。严格探测和外部无头对照通过，但产品 transport、Manager、browser 与 GUI 启动自检均因 WinError 10013 等网络检查失败；GUI 结果不证明系统 GUI 不兼容。首选网络实验虽完成采集和清理，代理往返为 0。原生 DNS 抓包分析完整、未知记录为 0，但仍观察到父子进程共 8 个 nonce 查询；因此不构成产品验收。[官方更新后证据摘要](verification/windows-2026-10-15/7235c03/official-native/observations.json)

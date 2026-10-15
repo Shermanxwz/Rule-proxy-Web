@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "03bff4bdadcb47beb5876c0ff80e3d35927991a8",
+  "commit_tree": "8f5dec9724ac2f69c91b137161bd6a92b039a5ae",
+  "workflow_run": 38699568831,
+  "native_build_job": 116304191443,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38699568831",
+  "artifact_id": 11955886443,
+  "artifact_name": "mxc-ingress-control-executor",
+  "artifact_sha256": "00242546c0cb6e08c362463a906bb97265c5800318f06d675be16759f6dd5d53",
+  "build_manifest": {
+    "schema_version": 1,
+    "status": "built",
+    "upstream_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "executor_sha256": "b1f74625ed4009e09a725c4425607330a37614743e32928499164693262e7555",
+    "patch": {
+      "name": "private_network_ingress_control_without_automatic_internet_client",
+      "source_diagnostic_only": true,
+      "release_eligible": false,
+      "exact_internal_tcp_only": true,
+      "caller_capabilities_must_be_empty": true,
+      "network_table_unchanged": true,
+      "host_loopback_must_remain_deny": true,
+      "ingress_default_allow_or_deny": true,
+      "automatic_internet_client_removed": true,
+      "private_network_capability_preserved": true,
+      "capabilities_null": false
+    },
+    "original_file_sha256": "a03b8889d8d92fe854f46d56c702360403c6889e79b48b42f8b2535b66189491",
+    "patch_sha256": "c39ef13da834b330deb028a7a273ad154cbdd07ee5c60c917e9382cf25557a62",
+    "patched_file_sha256": "4c6915b28b6e09a35508001f70087499ececc4861ba5e2b896c5dd122c5f3759",
+    "toolchain": "1.93",
+    "target": "x86_64-pc-windows-msvc"
+  },
+  "license_sha256": "d9a1b1e30d633d5732ea18e3cba9538d293ebc53e1a9e4e96ab739e0c5c4f1cb",
+  "source_diagnostic_only": true,
+  "product_runtime_replaced": false,
+  "native_socket_or_dns_acceptance_passed": false,
+  "notes": [
+    "Built with fixed Microsoft MXC 1.0.0 source and Rust 1.93 for native x64.",
+    "The capability change alone does not prove any runtime TCP or DNS result.",
+    "Only the explicit source diagnostic selector accepts this artifact."
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "source_commit": "b4b6c38559927d7aa97b62d269380fb6e6c3c7d7",
+  "status": "diagnostic_only",
+  "acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "official_update": {
+    "completed": true,
+    "actual_build": 26300,
+    "actual_ubr": 9711,
+    "packages_verified": true,
+    "reboot_count": 1,
+    "task_unregistered": true
+  },
+  "candidate_precapture_probe": {
+    "status": "probe_passed",
+    "scope": "source_only_strict_policy_probe",
+    "warmup_before_capture": true,
+    "acceptance_passed": false,
+    "executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+    "psec_1_1_diagnostic_requested": true,
+    "request_mechanism": "filesystem_enumerate_paths",
+    "kernel_contract_version_confirmed": false,
+    "backend_confirmation": {
+      "tier": "base-container",
+      "base_container_api_present": true,
+      "needs_dacl_augmentation": false
+    },
+    "feature_supported": true
+  },
+  "variants": [
+    {
+      "name": "model3",
+      "status": "observed",
+      "proxy_roundtrips": 0,
+      "transport_roundtrip_observed": false,
+      "descendant_cleanup_proven": true,
+      "resources_closed": true,
+      "psec_1_1_diagnostic": {
+        "requested": true,
+        "request_mechanism": "filesystem_enumerate_paths",
+        "kernel_contract_version_confirmed": false,
+        "acceptance_passed": false,
+        "feature_supported": true
+      }
+    },
+    {
+      "name": "model1_internal_ingress_deny",
+      "status": "observed",
+      "proxy_roundtrips": 0,
+      "transport_roundtrip_observed": false,
+      "descendant_cleanup_proven": true,
+      "resources_closed": true,
+      "psec_1_1_diagnostic": {
+        "requested": true,
+        "request_mechanism": "filesystem_enumerate_paths",
+        "kernel_contract_version_confirmed": false,
+        "acceptance_passed": false,
+        "feature_supported": true
+      }
+    }
+  ],
+  "raw_udp": {
+    "selected_groups": [
+      {
+        "id": "model3.ipv4",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model3.ipv4_unbound",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model3.ipv6",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model3.ipv6_unbound",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv4",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv4_unbound",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv6",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv6_unbound",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      }
+    ],
+    "unknown_records": 0,
+    "overall_status": "incomplete"
+  },
+  "native_dns": {
+    "status": "complete",
+    "unknown_records": 0,
+    "unknown_reasons": {},
+    "execution_proven": true,
+    "actor_execution_attested": true,
+    "contained_questions_absent": true,
+    "capture_format_complete": true,
+    "packet_analysis_complete": true,
+    "capture_flushed": true
+  },
+  "contained_dns_question_count": 0,
+  "dns_control_groups": [
+    {
+      "id": "model1_internal_ingress_deny.getaddrinfo",
+      "api": "getaddrinfo",
+      "query_type": null,
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_questions_absent": true,
+      "absence_observed": true,
+      "execution_proven": true
+    },
+    {
+      "id": "model1_internal_ingress_deny.dns_a",
+      "api": "dns_a",
+      "query_type": 1,
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_questions_absent": true,
+      "absence_observed": true,
+      "execution_proven": true
+    },
+    {
+      "id": "model1_internal_ingress_deny.dns_aaaa",
+      "api": "dns_aaaa",
+      "query_type": 28,
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_questions_absent": true,
+      "absence_observed": true,
+      "execution_proven": true
+    }
+  ],
+  "cleanup_proven": true,
+  "host_network_unchanged": true,
+  "limitations": [
+    "The selected preferred policy still failed all proxy roundtrips; DNS absence alone does not make the proxy functional.",
+    "Model3 is the deliberate deny-all negative control; its failed transport is expected.",
+    "The enumeratePaths support probe succeeded; the kernel contract version was not directly measured.",
+    "The capture covers the test VM default resolver configuration and fresh nonce questions, not all DNS configurations or a global kernel proof.",
+    "This is build 26300.9711, not the user target 26200.9711; it does not substitute for target-system acceptance."
+  ]
+}

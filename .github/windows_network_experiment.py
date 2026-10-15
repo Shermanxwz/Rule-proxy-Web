@@ -49,6 +49,21 @@ PSEC_PATCHED_SOURCE_SHA256 = "3809ab6269efaaf89011364c3f3355465ad11c7f5545f0a4f3
 PSEC_TEST_PATCH = {"name": "exact_internal_tcp_without_automatic_internet_client",
                    "capabilities_null": True, "network_table_unchanged": True,
                    "exact_internal_tcp_only": True, "caller_capabilities_must_be_empty": True}
+PSEC_TEST_INGRESS_PATCH = {
+    "name": "private_network_ingress_control_without_automatic_internet_client",
+    "source_diagnostic_only": True,
+    "release_eligible": False,
+    "exact_internal_tcp_only": True,
+    "caller_capabilities_must_be_empty": True,
+    "network_table_unchanged": True,
+    "host_loopback_must_remain_deny": True,
+    "ingress_default_allow_or_deny": True,
+    "automatic_internet_client_removed": True,
+    "private_network_capability_preserved": True,
+    "capabilities_null": False,
+}
+PSEC_INGRESS_PATCH_SHA256 = "c39ef13da834b330deb028a7a273ad154cbdd07ee5c60c917e9382cf25557a62"
+PSEC_INGRESS_PATCHED_SOURCE_SHA256 = "4c6915b28b6e09a35508001f70087499ececc4861ba5e2b896c5dd122c5f3759"
 _CONSOLE_RECOVERY_OWNERS = []
 
 
@@ -79,12 +94,20 @@ def test_executor_file(path):
         raise ValueError("Test executor input file is unavailable") from exc
 
 
-def verify_test_executor(root, executor, manifest, original_sha256):
+def verify_test_executor(root, executor, manifest, original_sha256, *, ingress_controls_diagnostic=False):
     """An explicit CI build artifact, never a replacement for product runtime.
 
     A matching local manifest proves integrity; the invoking workflow's pinned
     source and artifact checksum establish its source and build provenance.
     """
+    if type(ingress_controls_diagnostic) is not bool:
+        raise ValueError("Test executor diagnostic selector must be boolean")
+    expected_patch = PSEC_TEST_INGRESS_PATCH if ingress_controls_diagnostic else PSEC_TEST_PATCH
+    expected_patch_sha = PSEC_INGRESS_PATCH_SHA256 if ingress_controls_diagnostic else PSEC_PATCH_SHA256
+    expected_patched_sha = PSEC_INGRESS_PATCHED_SOURCE_SHA256 if ingress_controls_diagnostic else PSEC_PATCHED_SOURCE_SHA256
+    if ingress_controls_diagnostic and (not re.fullmatch(r"[0-9a-f]{64}", expected_patch_sha)
+            or not re.fullmatch(r"[0-9a-f]{64}", expected_patched_sha)):
+        raise ValueError("The fixed ingress-control executor source pins are unavailable")
     root = Path(root).resolve(strict=True)
     if not root.is_dir():
         raise ValueError("Product root must be an existing directory")
@@ -106,13 +129,13 @@ def verify_test_executor(root, executor, manifest, original_sha256):
             or value["status"] != "built" or value["upstream_commit"] != PSEC_UPSTREAM_COMMIT
             or not isinstance(value["executor_sha256"], str)
             or not re.fullmatch(r"[0-9a-f]{64}", value["executor_sha256"])
-            or not isinstance(value["patch"], dict) or set(value["patch"]) != set(PSEC_TEST_PATCH)
+            or not isinstance(value["patch"], dict) or set(value["patch"]) != set(expected_patch)
             or any(type(value["patch"][key]) is not type(expected) or value["patch"][key] != expected
-                   for key, expected in PSEC_TEST_PATCH.items())):
+                   for key, expected in expected_patch.items())):
         raise ValueError("Test executor manifest did not describe the fixed source-only capability experiment")
     if (value["original_file_sha256"] != PSEC_ORIGINAL_SOURCE_SHA256
-            or value["patch_sha256"] != PSEC_PATCH_SHA256
-            or value["patched_file_sha256"] != PSEC_PATCHED_SOURCE_SHA256
+            or value["patch_sha256"] != expected_patch_sha
+            or value["patched_file_sha256"] != expected_patched_sha
             or value["toolchain"] != "1.93" or value["target"] != "x86_64-pc-windows-msvc"):
         raise ValueError("Test executor manifest provenance did not match the fixed build")
     digest = hashlib.sha256()
@@ -123,7 +146,8 @@ def verify_test_executor(root, executor, manifest, original_sha256):
         raise ValueError("Test executor SHA-256 did not match its build manifest")
     return executor, {**value, "source_only_executor_changed": True,
         "original_runtime_sha256": original_sha256, "default_product_runtime_replaced": False,
-        "capability_scope": "empty caller capabilities and one exact internal TCP allow only",
+        "capability_scope": ("empty caller capabilities; one exact internal TCP allow; automatic internetClient removed; privateNetworkClientServer preserved"
+            if ingress_controls_diagnostic else "empty caller capabilities and one exact internal TCP allow only"),
         "origin_verification": "Pinned build workflow and external artifact checksum are required.",
         "acceptance_passed": False, "real_node_passed": False, "kernel_denial_proven": False}
 
@@ -348,15 +372,21 @@ def proxy_roundtrip(port, token, protocol):
             raise RuntimeError("Fixture reverse payload or FIN was invalid")
 
 
-def network_policy(name, internal_port, proxy_port, *, singleton_port_range=False):
+def network_policy(name, internal_port, proxy_port, *, singleton_port_range=False,
+                   ingress_default_allow_control=False):
     if name not in VARIANTS or any(type(port) is not int or not 1 <= port <= 65535 for port in (internal_port, proxy_port)):
         raise ValueError("Invalid fixed policy variant or port")
     if type(singleton_port_range) is not bool:
         raise ValueError("Invalid diagnostic port encoding")
+    if type(ingress_default_allow_control) is not bool or (
+            ingress_default_allow_control and (name != PREFERRED_VARIANT or singleton_port_range)):
+        raise ValueError("Invalid single-factor ingress diagnostic policy")
     value = {"network": {"egress": {"default": "deny"},
                          "ingress": {"default": "deny", "hostLoopback": "deny"}}}
     if name in MODEL1_VARIANTS:
         value["network"]["ingress"]["default"] = "allow" if name == "model1_internal" else "deny"
+        if ingress_default_allow_control:
+            value["network"]["ingress"]["default"] = "allow"
         port_rule = {"protocol": "tcp", "port": internal_port}
         if singleton_port_range:
             port_rule["endPort"] = internal_port
@@ -1007,12 +1037,18 @@ def pending_recovery(value):
 
 
 def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None, dns=None,
-                executor=None, console_trust=None, singleton_port_range=False, psec_1_1_diagnostic=False):
+                executor=None, console_trust=None, singleton_port_range=False, psec_1_1_diagnostic=False,
+                ingress_default_allow_control=False):
     if singleton_port_range and executor is not None:
         raise ValueError("Singleton-range diagnostic cannot be combined with a custom test executor")
     profile.mkdir()
     result = {"name": name, "status": "not_run", "process_started": False,
               "no_process_started": True, "checks": []}
+    if ingress_default_allow_control:
+        result.update(source_policy_variant="private_network_capability_control",
+                      ingress_control={"default": "allow", "hostLoopback": "deny"},
+                      production_policy_unchanged=True, acceptance_passed=False,
+                      full_acceptance_passed=False, real_node_passed=False)
     proxy = bridge = wrapper = api = None
     handles, safe = [], True
     udp_before = list(udp.received)
@@ -1046,7 +1082,8 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
         policy["process"]["commandLine"] = subprocess.list2cmdline(command)
         policy["process"]["timeout"] = 100000
         policy["filesystem"]["readonlyPaths"] = sorted(set(policy["filesystem"]["readonlyPaths"]) | {str(root), str(pipe_script.parent)})
-        policy.update(network_policy(name, endpoint, proxy.port, singleton_port_range=singleton_port_range))
+        policy.update(network_policy(name, endpoint, proxy.port, singleton_port_range=singleton_port_range,
+                                     ingress_default_allow_control=ingress_default_allow_control))
         if psec_1_1_diagnostic:
             add_psec_1_1_diagnostic_path(policy, profile)
             result["psec_1_1_diagnostic"] = {"requested": True,
@@ -1209,11 +1246,17 @@ def add_psec_1_1_diagnostic_path(policy, profile):
     container_fs["enumeratePaths"] = [str(child)]
 
 
-def pre_capture_candidate_probe(runtime, executor, metadata, directory, *, psec_1_1_diagnostic=False):
+def pre_capture_candidate_probe(runtime, executor, metadata, directory, *, psec_1_1_diagnostic=False,
+                                ingress_default_allow_control=False):
     """Warm the explicitly selected source-only executor outside any wire capture."""
-    record = {"status": "failed", "scope": "source_only_strict_policy_probe",
+    record = {"status": "failed", "scope": ("source_only_private_network_ingress_control_probe"
+            if ingress_default_allow_control else "source_only_strict_policy_probe"),
               "warmup_before_capture": True, "acceptance_passed": False,
               "executor_sha256": metadata.get("executor_sha256") if isinstance(metadata, dict) else None}
+    if ingress_default_allow_control:
+        record.update(source_policy_variant="private_network_capability_control",
+                      ingress_control={"default": "allow", "hostLoopback": "deny"},
+                      production_policy_unchanged=True)
     if psec_1_1_diagnostic:
         record.update(psec_1_1_diagnostic_requested=True, request_mechanism="filesystem_enumerate_paths",
                       kernel_contract_version_confirmed=False)
@@ -1223,7 +1266,8 @@ def pre_capture_candidate_probe(runtime, executor, metadata, directory, *, psec_
         port = runtime.choose_guest_port(1)
         harmless_command = [sys.executable, "-I", "-S", "-c", "pass"]
         policy = runtime.build_policy(harmless_command, {}, profile, port)
-        policy.update(network_policy(PREFERRED_VARIANT, port, port))
+        policy.update(network_policy(PREFERRED_VARIANT, port, port,
+                                     ingress_default_allow_control=ingress_default_allow_control))
         if psec_1_1_diagnostic:
             add_psec_1_1_diagnostic_path(policy, profile)
         observed = runtime._probe_request(str(executor), policy)
@@ -1262,28 +1306,46 @@ def main(arguments):
                         help="Diagnostic-only: request the BaseContainer enumerate-path contract selector")
     parser.add_argument("--singleton-port-range", action="store_true",
                         help="Diagnostic-only: encode the MODEL1 TCP port as equal port/endPort bounds")
+    parser.add_argument("--ingress-controls-diagnostic", action="store_true",
+                        help="Source-only G2 control: set ingress.default=allow and keep hostLoopback=deny")
     args = parser.parse_args(arguments)
-    selected = (("model3", PREFERRED_VARIANT) if args.psec_1_1_diagnostic and args.preferred_policy_only
-                else ((PREFERRED_VARIANT,) if args.preferred_policy_only else VARIANTS))
+    ingress_cli_invalid = args.ingress_controls_diagnostic and (
+            args.test_psec_executor is None or args.test_psec_manifest is None
+            or not args.preferred_policy_only or not args.psec_1_1_diagnostic
+            or args.singleton_port_range or not args.collect_native_dns)
+    selected = ((PREFERRED_VARIANT,) if args.ingress_controls_diagnostic else
+                (("model3", PREFERRED_VARIANT) if args.psec_1_1_diagnostic and args.preferred_policy_only
+                 else ((PREFERRED_VARIANT,) if args.preferred_policy_only else VARIANTS)))
     unselected = tuple(name for name in VARIANTS if name not in selected)
     args.report.resolve().parent.mkdir(parents=True, exist_ok=True)
     result = {"status": "failed", "full_acceptance_passed": False, "acceptance_passed": False,
               "real_node_passed": False, "product_provider_changed": False, "cleanup_proven": False,
               "diagnostic_port_encoding": "singleton_range" if args.singleton_port_range else "single_port",
               "variants": [], "checks": [],
-              "policy_selection": ("psec_1_1_diagnostic_pair" if args.psec_1_1_diagnostic and args.preferred_policy_only
-                                   else ("preferred_only" if args.preferred_policy_only else "all_fixed")),
+              "policy_selection": ("private_network_ingress_control" if args.ingress_controls_diagnostic else
+                                   ("psec_1_1_diagnostic_pair" if args.psec_1_1_diagnostic and args.preferred_policy_only
+                                    else ("preferred_only" if args.preferred_policy_only else "all_fixed"))),
               "psec_1_1_diagnostic_requested": args.psec_1_1_diagnostic,
               "psec_1_1_kernel_contract_confirmed": False,
+              "ingress_controls_diagnostic_requested": args.ingress_controls_diagnostic,
               "selected_variants": list(selected),
               "unselected_variants": [{"name": name, "status": "unselected", "process_started": False,
                                        "no_process_started": True} for name in unselected]}
+    if args.ingress_controls_diagnostic:
+        result.update(source_policy_variant="private_network_capability_control",
+                      ingress_control={"default": "allow", "hostLoopback": "deny"},
+                      production_policy_unchanged=True, full_acceptance_passed=False,
+                      acceptance_passed=False, real_node_passed=False)
     directory = fixtures = udp = wire = dns = console_trust = None
     safe = True
     code = 1
     before = None
     phase_deadline = time.monotonic() + MATRIX_PHASE_SECONDS
     try:
+        if ingress_cli_invalid:
+            raise ValueError("--ingress-controls-diagnostic requires paired test executor/manifest, "
+                             "--preferred-policy-only, --psec-1-1-diagnostic, and --collect-native-dns; "
+                             "it cannot use --singleton-port-range")
         if args.singleton_port_range and (args.test_psec_executor is not None or args.test_psec_manifest is not None):
             raise ValueError("Singleton-range diagnostic cannot be combined with a custom test executor")
         helpers = load_helpers()
@@ -1297,7 +1359,8 @@ def main(arguments):
         executor = None
         if args.test_psec_executor is not None:
             executor, result["test_psec_executor"] = verify_test_executor(root, args.test_psec_executor,
-                args.test_psec_manifest, digests.get("wxc-exec.exe"))
+                args.test_psec_manifest, digests.get("wxc-exec.exe"),
+                ingress_controls_diagnostic=args.ingress_controls_diagnostic)
         result["host"] = helpers.host_facts()
         host = result["host"]
         if host.get("python_pe_machine") != 0x8664 or (host.get("native_machine") != 0x8664 and not (
@@ -1316,10 +1379,12 @@ def main(arguments):
             try:
                 result["candidate_precapture_probe"] = pre_capture_candidate_probe(runtime, executor,
                     result.get("test_psec_executor"), directory,
-                    psec_1_1_diagnostic=args.psec_1_1_diagnostic)
+                    psec_1_1_diagnostic=args.psec_1_1_diagnostic,
+                    ingress_default_allow_control=args.ingress_controls_diagnostic)
             except Exception as exc:
                 result["candidate_precapture_probe"] = getattr(exc, "candidate_precapture_probe", {
-                    "status": "failed", "scope": "source_only_strict_policy_probe",
+                    "status": "failed", "scope": ("source_only_private_network_ingress_control_probe"
+                        if args.ingress_controls_diagnostic else "source_only_strict_policy_probe"),
                     "warmup_before_capture": True, "acceptance_passed": False,
                     "failure_type": type(exc).__name__[:64]})
                 raise
@@ -1359,7 +1424,14 @@ def main(arguments):
                                   **({"console_trust": console_trust} if console_trust is not None else {}),
                                   **({"executor": executor} if executor is not None else {}),
                                   **({"singleton_port_range": True} if args.singleton_port_range else {}),
-                                  **({"psec_1_1_diagnostic": True} if args.psec_1_1_diagnostic else {}))
+                                  **({"psec_1_1_diagnostic": True} if args.psec_1_1_diagnostic else {}),
+                                  **({"ingress_default_allow_control": True}
+                                     if args.ingress_controls_diagnostic else {}))
+            if args.ingress_controls_diagnostic:
+                variant.update(source_policy_variant="private_network_capability_control",
+                               ingress_control={"default": "allow", "hostLoopback": "deny"},
+                               production_policy_unchanged=True, acceptance_passed=False,
+                               full_acceptance_passed=False, real_node_passed=False)
             result["variants"].append(variant)
             if wire is not None:
                 wire.actors(variant)

@@ -166,23 +166,26 @@ def package_executor_sha256(package: Path) -> str:
 
 
 def verify_executor_bundle(root: Path, workspace: Path, executor: Path, manifest: Path,
-                           original_sha256: str):
+                           original_sha256: str, *, ingress_controls_diagnostic: bool = False):
     module = network_executor_verifier(workspace)
-    executor, metadata = module.verify_test_executor(root, executor, manifest, original_sha256)
+    options = {"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}
+    executor, metadata = module.verify_test_executor(root, executor, manifest, original_sha256, **options)
     license_path = module.test_executor_file(manifest.parent / "MXC-LICENSE.md")
     if digest(license_path) != TEST_EXECUTOR_LICENSE_SHA256:
         raise ValueError("Diagnostic executor license did not match the fixed upstream release")
     return executor, metadata
 
 
-def stage_test_executor(directory: Path, executor: Path, manifest: Path, original_sha256: str):
-    executor, metadata = verify_executor_bundle(ROOT, ROOT, executor, manifest, original_sha256)
+def stage_test_executor(directory: Path, executor: Path, manifest: Path, original_sha256: str,
+                        *, ingress_controls_diagnostic: bool = False):
+    options = {"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}
+    executor, metadata = verify_executor_bundle(ROOT, ROOT, executor, manifest, original_sha256, **options)
     directory.mkdir()  # Never reuse a prior bundle or put it in the product ZIP.
     for source, name in ((executor, "wxc-exec.exe"), (manifest, "build-manifest.json"),
                          (manifest.parent / "MXC-LICENSE.md", "MXC-LICENSE.md")):
         shutil.copyfile(source, directory / name)
     _, staged = verify_executor_bundle(ROOT, ROOT, directory / "wxc-exec.exe",
-                                      directory / "build-manifest.json", original_sha256)
+                                      directory / "build-manifest.json", original_sha256, **options)
     if staged != metadata:
         raise ValueError("Diagnostic executor provenance changed during staging")
     return metadata
@@ -208,7 +211,8 @@ def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
         # echo its contents in validation errors or the public report.
         config = json.loads(raw, object_pairs_hook=unique_fields)
         enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
-        if type(enabled) is not bool:
+        ingress_controls = config.get("ingress_controls_diagnostic", False) if isinstance(config, dict) else None
+        if type(enabled) is not bool or type(ingress_controls) is not bool or (ingress_controls and not enabled):
             raise ValueError
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic executor configuration is invalid") from exc
@@ -223,7 +227,8 @@ def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
         raise ValueError("Guest product executor differs from the host-verified release")
     directory = workspace / TEST_EXECUTOR_DIRECTORY
     executor, metadata = verify_executor_bundle(root, workspace, directory / "wxc-exec.exe",
-                                                directory / "build-manifest.json", original)
+                                                directory / "build-manifest.json", original,
+                                                **({"ingress_controls_diagnostic": True} if ingress_controls else {}))
     if metadata["executor_sha256"] != expected:
         raise ValueError("Guest diagnostic executor differs from the host-verified artifact")
     return executor, directory / "build-manifest.json", metadata
@@ -239,10 +244,10 @@ def load_chromium_control_helper(root: Path = ROOT):
     return module
 
 
-def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None, bool]:
+def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None, bool, bool]:
     """Read mutually exclusive source diagnostic phase selections safely."""
     if vm_config is None:
-        return False, False, False, False, None, False
+        return False, False, False, False, None, False, False
     def unique_fields(pairs):
         value = {}
         for key, item in pairs:
@@ -261,15 +266,19 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
         singleton = config.get("singleton_port_range_diagnostic", False) if isinstance(config, dict) else None
         chromium_control = config.get("chromium_gui_control_diagnostic", False) if isinstance(config, dict) else None
         psec_1_1 = config.get("psec_1_1_diagnostic", False) if isinstance(config, dict) else None
+        ingress_controls = config.get("ingress_controls_diagnostic", False) if isinstance(config, dict) else None
         executor_enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
         chromium_sha256 = config.get("chromium_gui_control_archive_sha256") if isinstance(config, dict) else None
         if any(type(flag) is not bool for flag in (
-                enabled, network, singleton, chromium_control, psec_1_1, executor_enabled)):
+                enabled, network, singleton, chromium_control, psec_1_1, executor_enabled, ingress_controls)):
             raise ValueError
         if ((enabled and network) or (enabled and executor_enabled and not chromium_control)
                 or (singleton and (not network or executor_enabled))):
             raise ValueError
         if psec_1_1 and (not network or singleton or enabled or chromium_control):
+            raise ValueError
+        if ingress_controls and (not network or not psec_1_1 or not executor_enabled
+                                 or singleton or enabled or chromium_control):
             raise ValueError
         if chromium_control:
             if (not enabled or network or not isinstance(chromium_sha256, str)
@@ -277,7 +286,7 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
                 raise ValueError
         elif chromium_sha256 is not None:
             raise ValueError
-        return enabled, network, singleton, chromium_control, chromium_sha256, psec_1_1
+        return enabled, network, singleton, chromium_control, chromium_sha256, psec_1_1, ingress_controls
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic configuration is invalid") from exc
 
@@ -1090,7 +1099,8 @@ def verify_result(result: dict, *, require_official_update: bool = False,
                   gui_diagnostic_only: bool = False, network_diagnostic_only: bool = False) -> None:
     if gui_diagnostic_only or result.get("gui_diagnostic_only") is True:
         raise RuntimeError("GUI diagnostic-only report cannot qualify product acceptance")
-    if network_diagnostic_only or result.get("network_diagnostic_only") is True:
+    if (network_diagnostic_only or result.get("network_diagnostic_only") is True
+            or result.get("ingress_controls_diagnostic") is True):
         raise RuntimeError("Network diagnostic-only report cannot qualify product acceptance")
     if result.get("status") != "passed" or result.get("ordinary_user") is not True:
         raise RuntimeError(f"Guest tests failed: {result.get('error', 'missing ordinary-user proof')}")
@@ -1303,7 +1313,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     probe_passed = False
     cleanup_pending = False
     try:
-        gui_only, network_only, singleton, chromium_control, chromium_sha256, psec_1_1 = guest_diagnostic_options(vm_config)
+        gui_only, network_only, singleton, chromium_control, chromium_sha256, psec_1_1, ingress_controls = guest_diagnostic_options(vm_config)
     except ValueError:
         result["diagnostic_configuration_error"] = "invalid_private_configuration"
         result["error"] = "Private diagnostic configuration could not be verified"
@@ -1403,6 +1413,8 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         result.update(network_diagnostic_only=True, source_diagnostic_only=True,
                       singleton_port_range_diagnostic=singleton,
                       psec_1_1_diagnostic=psec_1_1,
+                      ingress_controls_diagnostic=ingress_controls,
+                      source_policy_variant=("private_network_capability_control" if ingress_controls else "unchanged"),
                       full_acceptance_passed=False, product_acceptance_passed=False,
                       acceptance_passed=False, real_node_passed=False,
                       execution_mode="original_sdk", product_runtime_replaced=False)
@@ -1456,6 +1468,8 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
             command.append("--singleton-port-range")
         if psec_1_1:
             command.append("--psec-1-1-diagnostic")
+        if ingress_controls:
+            command.extend(["--ingress-controls-diagnostic", "--collect-native-dns"])
         record, report, log = run_guest_phase("experiments", command, directory,
                                               timeout=min(600, phase_timeout))
         result["experiments_phase"] = record
@@ -1623,6 +1637,7 @@ def run(args) -> dict:
     network_diagnostic_only = getattr(args, "network_diagnostic_only", False) is True
     singleton_port_range_diagnostic = getattr(args, "singleton_port_range_diagnostic", False) is True
     psec_1_1_diagnostic = getattr(args, "psec_1_1_diagnostic", False) is True
+    ingress_controls_diagnostic = getattr(args, "ingress_controls_diagnostic", False) is True
     require_update = not baseline
     summary = {"status": "failed", "baseline_diagnostic": baseline,
                "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "original_sdk",
@@ -1632,6 +1647,8 @@ def run(args) -> dict:
                "network_diagnostic_only": network_diagnostic_only,
                "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
                "psec_1_1_diagnostic": psec_1_1_diagnostic,
+               "ingress_controls_diagnostic": ingress_controls_diagnostic,
+               "source_policy_variant": ("private_network_capability_control" if ingress_controls_diagnostic else "unchanged"),
                "source_diagnostic_only": gui_diagnostic_only or chromium_gui_control_diagnostic or network_diagnostic_only or singleton_port_range_diagnostic or psec_1_1_diagnostic or diagnostic_mode,
                "product_acceptance_passed": False,
                "full_acceptance_passed": False, "real_node_passed": False,
@@ -1648,6 +1665,10 @@ def run(args) -> dict:
             raise ValueError("Chromium GUI control requires GUI-only diagnostic mode")
         if psec_1_1_diagnostic and (not network_diagnostic_only or singleton_port_range_diagnostic):
             raise ValueError("PSEC 1.1 diagnostic requires network-only mode and a single diagnostic axis")
+        if ingress_controls_diagnostic and (not network_diagnostic_only or not psec_1_1_diagnostic
+                or not diagnostic_mode or singleton_port_range_diagnostic or gui_diagnostic_only
+                or chromium_gui_control_diagnostic):
+            raise ValueError("Ingress capability control requires source-only PSEC 1.1 network diagnostics")
         summary["kvm_api_version"] = require_kvm()
         package = args.package.resolve(strict=True)
         verify_package(package, args.package_sha256.lower())
@@ -1658,7 +1679,8 @@ def run(args) -> dict:
                 raise ValueError("Test PSEC executor and manifest must be provided together")
             original_sha256 = package_executor_sha256(package)
             _, summary["test_psec_executor"] = verify_executor_bundle(
-                ROOT, ROOT, custom_executor, custom_manifest, original_sha256)
+                ROOT, ROOT, custom_executor, custom_manifest, original_sha256,
+                **({"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}))
             summary["diagnostic_network_boundary"] = {"status": "not_collected", "product_acceptance_passed": False}
             summary["diagnostic_executor_attested"] = False
         for name in ("qemu-system-x86_64", "qemu-img", "swtpm", "xorriso", "curl"):
@@ -1683,7 +1705,8 @@ def run(args) -> dict:
             executor_bundle = None
             if diagnostic_mode:
                 executor_bundle = work / TEST_EXECUTOR_DIRECTORY
-                staged = stage_test_executor(executor_bundle, custom_executor, custom_manifest, original_sha256)
+                staged = stage_test_executor(executor_bundle, custom_executor, custom_manifest, original_sha256,
+                    **({"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}))
                 if staged != summary["test_psec_executor"]:
                     raise ValueError("Diagnostic executor changed after host validation")
             iso = work / "official.iso"
@@ -1742,6 +1765,7 @@ def run(args) -> dict:
                     "network_diagnostic_only": network_diagnostic_only,
                     "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
                     "psec_1_1_diagnostic": psec_1_1_diagnostic,
+                    "ingress_controls_diagnostic": ingress_controls_diagnostic,
                     **({"chromium_gui_control_archive_sha256": chromium_control_sha256}
                        if chromium_control_sha256 is not None else {}),
                     **({"test_psec_executor_sha256": summary["test_psec_executor"]["executor_sha256"],
@@ -1923,6 +1947,8 @@ def main(argv: list[str]) -> int:
                         help="Encode the same single TCP port as an inclusive singleton range in network diagnostics")
     parser.add_argument("--psec-1-1-diagnostic", action="store_true",
                         help="Run the preferred network experiment with PSEC 1.1 in diagnostic-only mode")
+    parser.add_argument("--ingress-controls-diagnostic", action="store_true",
+                        help="Source-only private-network capability control; never product acceptance")
     parser.add_argument("--test-psec-executor", type=Path,
                         help="Source-only diagnostic executor; never replaces product bin or grants release success")
     parser.add_argument("--test-psec-manifest", type=Path)
@@ -1940,6 +1966,10 @@ def main(argv: list[str]) -> int:
         parser.error("Singleton port encoding requires network diagnostic-only with the original SDK")
     if args.psec_1_1_diagnostic and (not args.network_diagnostic_only or args.singleton_port_range_diagnostic):
         parser.error("PSEC 1.1 diagnostic requires network-only mode and cannot combine with singleton port encoding")
+    if args.ingress_controls_diagnostic and (not args.network_diagnostic_only or not args.psec_1_1_diagnostic
+            or args.test_psec_executor is None or args.singleton_port_range_diagnostic
+            or args.gui_diagnostic_only or args.chromium_gui_control):
+        parser.error("Ingress capability control requires source-only PSEC 1.1 network diagnostics")
     if not 300 <= args.timeout_seconds <= 14400:
         parser.error("--timeout-seconds must be between 300 and 14400")
     result = run(args)

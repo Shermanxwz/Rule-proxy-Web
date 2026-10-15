@@ -61,6 +61,21 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertLess(experiment.VARIANTS.index("model1_internal_ingress_deny"),
                         experiment.VARIANTS.index("model1_internal"))
 
+    def test_ingress_control_changes_only_default_ingress_and_keeps_host_loopback_denied(self):
+        baseline = experiment.network_policy(experiment.PREFERRED_VARIANT, 49123, 10809)
+        control = experiment.network_policy(experiment.PREFERRED_VARIANT, 49123, 10809,
+                                            ingress_default_allow_control=True)
+        self.assertEqual(control["network"]["ingress"], {"default": "allow", "hostLoopback": "deny"})
+        self.assertEqual(control["network"]["egress"], baseline["network"]["egress"])
+        self.assertNotIn("runtimeConfig", control)
+        self.assertEqual(baseline["network"]["ingress"], {"default": "deny", "hostLoopback": "deny"})
+        with self.assertRaises(ValueError):
+            experiment.network_policy("model1_internal", 49123, 10809,
+                                       ingress_default_allow_control=True)
+        with self.assertRaises(ValueError):
+            experiment.network_policy(experiment.PREFERRED_VARIANT, 49123, 10809,
+                                      singleton_port_range=True, ingress_default_allow_control=True)
+
     def test_singleton_range_option_changes_only_port_encoding_for_model1(self):
         for name in experiment.MODEL1_VARIANTS:
             with self.subTest(name=name):
@@ -611,7 +626,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             experiment.write_json(report, {"log": "x" * experiment.MAX_REPORT_BYTES})
 
-    def executor_build_fixture(self):
+    def executor_build_fixture(self, *, ingress_control=False):
         directory = self.directory / "source-build"
         directory.mkdir()
         executor = directory / "wxc-exec.exe"
@@ -619,13 +634,77 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         manifest = directory / "build-manifest.json"
         value = {"schema_version": 1, "status": "built", "upstream_commit": experiment.PSEC_UPSTREAM_COMMIT,
                  "executor_sha256": hashlib.sha256(executor.read_bytes()).hexdigest(),
-                 "patch": copy.deepcopy(experiment.PSEC_TEST_PATCH),
+                 "patch": copy.deepcopy(experiment.PSEC_TEST_INGRESS_PATCH if ingress_control
+                                         else experiment.PSEC_TEST_PATCH),
                  "original_file_sha256": experiment.PSEC_ORIGINAL_SOURCE_SHA256,
-                 "patch_sha256": experiment.PSEC_PATCH_SHA256,
-                 "patched_file_sha256": experiment.PSEC_PATCHED_SOURCE_SHA256,
+                 "patch_sha256": (experiment.PSEC_INGRESS_PATCH_SHA256 if ingress_control
+                                  else experiment.PSEC_PATCH_SHA256),
+                 "patched_file_sha256": (experiment.PSEC_INGRESS_PATCHED_SOURCE_SHA256 if ingress_control
+                                         else experiment.PSEC_PATCHED_SOURCE_SHA256),
                  "toolchain": "1.93", "target": "x86_64-pc-windows-msvc"}
         manifest.write_text(json.dumps(value))
         return executor, manifest, value
+
+    def test_g2_executor_manifest_is_selected_only_for_explicit_ingress_diagnostic(self):
+        executor, manifest, _ = self.executor_build_fixture(ingress_control=True)
+        original_sha = "b" * 64
+        selected, facts = experiment.verify_test_executor(self.directory, executor, manifest, original_sha,
+                                                           ingress_controls_diagnostic=True)
+        self.assertEqual(selected, executor.resolve())
+        self.assertEqual(facts["patch"], experiment.PSEC_TEST_INGRESS_PATCH)
+        self.assertFalse(facts["patch"]["capabilities_null"])
+        self.assertFalse(facts["default_product_runtime_replaced"])
+        self.assertFalse(facts["acceptance_passed"])
+        with self.assertRaisesRegex(ValueError, "fixed source-only capability experiment"):
+            experiment.verify_test_executor(self.directory, executor, manifest, original_sha)
+
+    def test_ingress_diagnostic_rejects_missing_or_conflicting_selectors_before_setup(self):
+        invalid_args = (
+            ["--ingress-controls-diagnostic"],
+            ["--ingress-controls-diagnostic", "--preferred-policy-only", "--psec-1-1-diagnostic",
+             "--collect-native-dns"],
+        )
+        for index, extra in enumerate(invalid_args):
+            report = self.directory / f"invalid-ingress-{index}.json"
+            with mock.patch.object(experiment, "load_helpers") as setup, \
+                    mock.patch.object(experiment, "run_variant") as launch, mock.patch("builtins.print"):
+                code = experiment.main(["--root", str(self.directory), "--report", str(report), *extra])
+            result = json.loads(report.read_text())
+            self.assertEqual(code, 1)
+            self.assertIn("ingress-controls-diagnostic requires", result["detail"])
+            self.assertFalse(result["acceptance_passed"])
+            setup.assert_not_called()
+            launch.assert_not_called()
+
+    def test_valid_ingress_diagnostic_runs_only_named_control_with_dns_and_false_acceptance(self):
+        code, result, wire, dns, launch, _ = self.native_dns_main_fixture(
+            explicit_dns=True, test_executor=True, preferred_only=True, psec_1_1_diagnostic=True,
+            ingress_controls_diagnostic=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(result["selected_variants"], [experiment.PREFERRED_VARIANT])
+        self.assertEqual([call.args[0] for call in launch.call_args_list], [experiment.PREFERRED_VARIANT])
+        self.assertTrue(launch.call_args.kwargs["ingress_default_allow_control"])
+        self.assertEqual([call.args[0] for call in dns.control.call_args_list], ["outside_before", "outside_after"])
+        dns.actors.assert_called_once()
+        self.assertEqual(result["source_policy_variant"], "private_network_capability_control")
+        self.assertEqual(result["ingress_control"], {"default": "allow", "hostLoopback": "deny"})
+        self.assertTrue(result["production_policy_unchanged"])
+        self.assertTrue(result["variants"][0]["production_policy_unchanged"])
+        self.assertEqual(result["variants"][0]["source_policy_variant"], "private_network_capability_control")
+        self.assertFalse(result["full_acceptance_passed"])
+        self.assertFalse(result["acceptance_passed"])
+        self.assertFalse(result["real_node_passed"])
+        self.assertEqual(result["test_psec_executor"]["patch"], experiment.PSEC_TEST_INGRESS_PATCH)
+        _, probe_policy = wire.runtime._probe_request.call_args.args
+        self.assertEqual(probe_policy["network"]["ingress"], {"default": "allow", "hostLoopback": "deny"})
+        self.assertEqual(probe_policy["network"]["egress"], experiment.network_policy(
+            experiment.PREFERRED_VARIANT, 23456, 23456)["network"]["egress"])
+
+    def test_old_g_manifest_cannot_be_selected_as_ingress_diagnostic(self):
+        executor, manifest, _ = self.executor_build_fixture()
+        with self.assertRaisesRegex(ValueError, "fixed source-only capability experiment"):
+            experiment.verify_test_executor(self.directory, executor, manifest, "b" * 64,
+                                            ingress_controls_diagnostic=True)
 
     def test_source_executor_hash_and_fixed_patch_are_verified_without_replacing_runtime(self):
         executor, manifest, value = self.executor_build_fixture()
@@ -733,7 +812,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                                 explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False,
                                 singleton_port_range=False, trust_contaminated=False, warmup_failure=False, trust_close_failure=False,
                                 dns_payload=None, candidate_probe_failure=False, psec_1_1_diagnostic=False,
-                                enumerate_paths_supported=True):
+                                enumerate_paths_supported=True, ingress_controls_diagnostic=False):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
         helpers.host_facts.return_value = {"native_machine": 0x8664, "python_pe_machine": 0x8664,
@@ -803,8 +882,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
             return result
 
         original_executor_verifier = experiment.verify_test_executor
-        def verify_executor(*args):
-            value = original_executor_verifier(*args)
+        def verify_executor(*args, **kwargs):
+            value = original_executor_verifier(*args, **kwargs)
             wire.sequence.append("candidate_verified")
             return value
 
@@ -831,8 +910,10 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 arguments.append("--singleton-port-range")
             if psec_1_1_diagnostic:
                 arguments.append("--psec-1-1-diagnostic")
+            if ingress_controls_diagnostic:
+                arguments.append("--ingress-controls-diagnostic")
             if test_executor:
-                executor, manifest, _ = self.executor_build_fixture()
+                executor, manifest, _ = self.executor_build_fixture(ingress_control=ingress_controls_diagnostic)
                 helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": "b" * 64}
                 arguments.extend(["--test-psec-executor", str(executor), "--test-psec-manifest", str(manifest)])
             code = experiment.main(arguments)

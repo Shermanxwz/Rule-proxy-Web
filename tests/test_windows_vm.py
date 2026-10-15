@@ -1161,6 +1161,55 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertEqual(result["execution_mode"], "source_executor_diagnostic")
         self.assertFalse(result["product_acceptance_passed"])
 
+    def test_ingress_control_rejects_missing_source_selector_or_conflicting_modes_before_launch(self):
+        valid = {"network_diagnostic_only": True, "psec_1_1_diagnostic": True,
+                 "test_psec_executor_diagnostic": True, "ingress_controls_diagnostic": True}
+        config = self.root / "ingress-control-config.json"
+        workspace = self.guest_control_workspace()
+        invalid = [{**valid, key: False} for key in (
+            "network_diagnostic_only", "psec_1_1_diagnostic", "test_psec_executor_diagnostic")]
+        invalid += [{**valid, key: True} for key in (
+            "gui_diagnostic_only", "chromium_gui_control_diagnostic", "singleton_port_range_diagnostic")]
+        invalid += [{**valid, "ingress_controls_diagnostic": value} for value in (1, "true", None)]
+        for value in invalid:
+            config.write_text(json.dumps(value))
+            with self.subTest(value=value), mock.patch.object(vm, "run_guest_phase") as phase:
+                result = vm.run_guest_phases(self.root / "release", workspace,
+                                             self.root / "reports", vm_config=config)
+                phase.assert_not_called()
+            self.assertEqual(result["diagnostic_configuration_error"], "invalid_private_configuration")
+        config.write_text(json.dumps(valid))
+        self.assertTrue(vm.guest_diagnostic_options(config)[6])
+        with self.assertRaisesRegex(RuntimeError, "cannot qualify product acceptance"):
+            vm.verify_result({**self.passed_result(), "ingress_controls_diagnostic": True})
+
+    def test_ingress_capability_control_reaches_only_network_experiment_and_cannot_accept(self):
+        workspace = self.guest_control_workspace({"experiments": {}})
+        config = self.root / "ingress-control-config.json"
+        config.write_text(json.dumps({"network_diagnostic_only": True, "psec_1_1_diagnostic": True,
+            "test_psec_executor_diagnostic": True, "ingress_controls_diagnostic": True}))
+        clean = {"cleanup_proven": True,
+                 "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}],
+                 "variants": [{"process_started": True, "descendant_cleanup_proven": True,
+                               "resources_closed": True}]}
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            return {"name": name, "status": "passed", "exit_code": 0}, \
+                {"status": "supported_only"} if name == "probe" else copy.deepcopy(clean), ""
+        bundle = (workspace / "candidate.exe", workspace / "candidate.json", {"sha256": "host-verified"})
+        with mock.patch.object(vm, "guest_test_executor", return_value=bundle), \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports", vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "experiments"])
+        self.assertIn("--ingress-controls-diagnostic", calls[1][1])
+        self.assertIn("--psec-1-1-diagnostic", calls[1][1])
+        self.assertTrue(result["ingress_controls_diagnostic"])
+        self.assertEqual(result["source_policy_variant"], "private_network_capability_control")
+        self.assertFalse(result["product_acceptance_passed"])
+        self.assertFalse(result["full_acceptance_passed"])
+        self.assertFalse(result["product_runtime_replaced"])
+
     def test_psec_1_1_cli_is_network_only_diagnostic_and_allows_source_candidate(self):
         base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
                 "--artifacts", str(self.root / "artifacts"), "--psec-1-1-diagnostic"]
