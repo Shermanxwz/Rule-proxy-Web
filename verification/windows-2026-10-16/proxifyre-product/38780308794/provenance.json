@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "run_id": 38780308794,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38780308794",
+  "source_commit": "61d0c5bd9443d2fed235d3ccb502fa3ba476eb3a",
+  "artifact_id": 11996650010,
+  "github_artifact_digest": "sha256:d41f1a395b1319a9aef7a5675bdc12bc4bf3de0f8045a29f14a36ee6c3a18a95",
+  "normalized_download_zip_sha256": "d41f1a395b1319a9aef7a5675bdc12bc4bf3de0f8045a29f14a36ee6c3a18a95",
+  "status": "installer_staging_permissions_failed",
+  "source_against_bundle_identity_passed": true,
+  "driver_or_engine_routing_tests_started": false,
+  "architecture_failure_proven": false,
+  "root_cause_status": "under_investigation; staging ACL failure, finally cleanup exception obscures original location",
+  "cross_platform_check_run_id": 38780308840,
+  "cross_platform_check_all_eight_jobs_passed": true
+}

@@ -80,17 +80,38 @@ $stage = Join-Path $env:ProgramFiles ('.RuleProxy-Web-staging-' + [guid]::NewGui
 $backup = Join-Path $env:ProgramFiles '.RuleProxy-Web-previous'
 $swapped = $false
 $oldRootMoved = $false
+$setupFailed = $false
+$setupPhase = 'preflight'
+$activePackageFile = $null
+$script:AclActivePath = $null
 
 function Protect-Tree([string]$Path) {
-    if ((Get-Item -LiteralPath $Path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse deployment directory rejected' }
-    if ((Get-Item -LiteralPath $Path -Force).PSIsContainer) {
-        & icacls.exe $Path /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)(F)' '*S-1-5-32-544:(OI)(CI)(F)' '*S-1-5-32-545:(OI)(CI)(RX)' /T /Q | Out-Null
-    } else {
-        & icacls.exe $Path /inheritance:r /grant:r '*S-1-5-18:(F)' '*S-1-5-32-544:(F)' '*S-1-5-32-545:(RX)' /Q | Out-Null
+    # Construct owner and the complete protected DACL in memory, then persist
+    # them together. Do not remove a child's inherited grants in a separate
+    # operation before its explicit administrator grants have been installed.
+    $pending = New-Object 'System.Collections.Generic.Stack[string]'
+    $pending.Push($Path)
+    while ($pending.Count -gt 0) {
+        $current = $pending.Pop()
+        $script:AclActivePath = $current
+        $item = Get-Item -LiteralPath $current -Force
+        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse deployment object rejected' }
+        if ($item.PSIsContainer) {
+            $security = New-Object Security.AccessControl.DirectorySecurity
+            $sddl = 'O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;GRGX;;;BU)'
+        } else {
+            $security = New-Object Security.AccessControl.FileSecurity
+            $sddl = 'O:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGX;;;BU)'
+        }
+        $security.SetSecurityDescriptorSddlForm($sddl)
+        Set-Acl -LiteralPath $current -AclObject $security -ErrorAction Stop
+        if ($item.PSIsContainer) {
+            # Enumerate one level at a time; a junction is checked before it
+            # can be traversed. No source or unrelated directory is changed.
+            foreach ($child in Get-ChildItem -LiteralPath $current -Force) { $pending.Push($child.FullName) }
+        }
     }
-    if ($LASTEXITCODE -ne 0) { throw 'Cannot protect deployment ACL' }
-    & icacls.exe $Path /setowner '*S-1-5-32-544' /T /Q | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw 'Cannot set trusted deployment ownership' }
+    $script:AclActivePath = $null
 }
 function Assert-Protected([string]$Path) {
     $item = Get-Item -LiteralPath $Path -Force
@@ -105,7 +126,8 @@ function Assert-Protected([string]$Path) {
 }
 function Write-State([string]$Phase, [bool]$PfOwned) {
     $value = [ordered]@{schema_version=1; owner_sid=$OwnerSid; root=$root; proxifyre_root=$pfRoot;
-        proxifyre_owned=$PfOwned; phase=$Phase; reboot_required=($Phase -eq 'reboot_required')}
+        proxifyre_owned=$PfOwned; phase=$Phase; reboot_required=($Phase -eq 'reboot_required');
+        diagnostic_phase=$setupPhase; staging_path=$stage}
     $temp = $statePath + '.tmp'
     [IO.File]::WriteAllText($temp, ($value|ConvertTo-Json -Compress), $utf8)
     Move-Item -LiteralPath $temp -Destination $statePath -Force
@@ -125,6 +147,44 @@ function Invoke-Installer([string]$File, [string]$Arguments, [string]$Label) {
 function Assert-Signature([string]$Path) {
     $signature = Get-AuthenticodeSignature -LiteralPath $Path
     if ($signature.Status -ne 'Valid') { throw ('Third-party signature invalid: ' + (Split-Path -Leaf $Path)) }
+}
+function Write-SetupDiagnostic($Failure) {
+    try {
+        if (-not (Test-Path -LiteralPath $logRoot -PathType Container)) { return }
+        $facts = [ordered]@{schema_version=1; utc=[DateTime]::UtcNow.ToString('o');
+            phase=$setupPhase; active_package_file=$activePackageFile; acl_active_path=$script:AclActivePath;
+            staging_path=$stage; token_user_sid=$identity.User.Value; token_owner_sid=$identity.Owner.Value;
+            token_is_admin=$isAdmin; error=$null; paths=@()}
+        if ($Failure) {
+            $facts.error = [ordered]@{message=$Failure.Exception.Message; type=$Failure.Exception.GetType().FullName;
+                hresult=('0x{0:X8}' -f ($Failure.Exception.HResult -band 0xFFFFFFFFL));
+                position=$Failure.InvocationInfo.PositionMessage; script_stack=$Failure.ScriptStackTrace}
+        }
+        $facts.token_groups = @(& whoami.exe /groups /fo csv /nh 2>&1)
+        $facts.token_privileges = @(& whoami.exe /priv /fo csv /nh 2>&1)
+        foreach ($path in (@($stage, $script:AclActivePath, (Join-Path $stage 'CHANGELOG.md'), (Join-Path $stage 'bin\windows-amd64\MIHOMO-LICENSE')) | Where-Object { $_ } | Select-Object -Unique)) {
+            $entry = [ordered]@{path=$path}
+            try {
+                $item = Get-Item -LiteralPath $path -Force
+                $acl = Get-Acl -LiteralPath $path
+                $entry.attributes = [string]$item.Attributes
+                $entry.owner_sid = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+                $entry.protected_dacl = $acl.AreAccessRulesProtected
+                $entry.sddl = $acl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::All)
+                $entry.aces = @($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]) | ForEach-Object {
+                    [ordered]@{sid=$_.IdentityReference.Value; rights=[string]$_.FileSystemRights;
+                        type=[string]$_.AccessControlType; inherited=$_.IsInherited;
+                        inheritance=[string]$_.InheritanceFlags; propagation=[string]$_.PropagationFlags}
+                })
+                $entry.icacls_verify = (@(& icacls.exe $path /verify /C 2>&1) | Out-String)
+                $entry.icacls_exit = $LASTEXITCODE
+            } catch { $entry.read_error = $_.Exception.Message }
+            $facts.paths += $entry
+        }
+        $diagnosticName = if ($Failure) { 'setup-acl-facts.json' } else { 'setup-acl-before.json' }
+        $diagnostic = Join-Path $logRoot $diagnosticName
+        [IO.File]::WriteAllText($diagnostic,($facts | ConvertTo-Json -Depth 9),$utf8)
+    } catch { Write-Warning ('Could not save setup diagnostics: ' + $_.Exception.Message) }
 }
 
 if (Test-Path -LiteralPath $stateRoot) { Assert-Protected $stateRoot }
@@ -168,10 +228,13 @@ try {
     $manifestBytes = [IO.File]::ReadAllBytes($manifestPath)
     $manifest = [Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
     if ($manifest.schema_version -ne 1 -or $manifest.platform -ne 'windows-amd64' -or $manifest.backend -ne 'proxifyre') { throw 'Invalid offline package manifest' }
+    $setupPhase = 'stage_create'
     New-Item -ItemType Directory -Path $stage | Out-Null
     Protect-Tree $stage
+    $setupPhase = 'stage_copy'
     foreach ($entry in $manifest.files.PSObject.Properties) {
         $name = [string]$entry.Name
+        $activePackageFile = $name
         if ($name -eq 'package-manifest.json') { throw 'The package manifest cannot hash itself' }
         if ($name -match '(^/|\\|:|(^|/)\.\.?(/|$))' -or $entry.Value -notmatch '^[a-f0-9]{64}$') { throw 'Unsafe package manifest entry' }
         $from = Join-Path $SourceRoot $name.Replace('/','\')
@@ -186,14 +249,19 @@ try {
     # Retain the exact parsed manifest for offline repair from this installation.
     # deployment.json hashes it; the package manifest cannot hash itself.
     [IO.File]::WriteAllBytes((Join-Path $stage 'package-manifest.json'), $manifestBytes)
+    $activePackageFile = $null
     foreach ($required in @('python\python.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) { throw ('Required product file missing: ' + $required) }
     }
+    $setupPhase = 'stage_protect'
+    Write-SetupDiagnostic $null
     Protect-Tree $stage
+    $setupPhase = 'dependencies'
     $net = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full'
     if ([int]$net.Release -lt 461808) { throw '.NET Framework 4.7.2 or later is required' }
     Write-State 'dependencies' $pfOwned
     foreach ($key in @('vc_redist','ndis_msi','proxifyre_msi')) {
+        $setupPhase = 'dependency_' + $key
         $asset = $manifest.installers.$key
         $path = Join-Path $stage ('installers\' + $asset.name)
         if ((Get-Item -LiteralPath $path).Length -ne [long]$asset.size -or
@@ -256,6 +324,7 @@ try {
     $deployment = [ordered]@{schema_version=1; owner_sid=$OwnerSid; root=$root; proxifyre_root=$pfRoot;
         service_name=$serviceName; pipe_name=('RuleProxyControl-v1-' + $sidHash); files=$files; proxifyre_files=$pfFiles}
     [IO.File]::WriteAllText((Join-Path $stage 'deployment.json'), ($deployment|ConvertTo-Json -Depth 6), $utf8)
+    $setupPhase = 'program_swap'
     if (Test-Path -LiteralPath $root) {
         # Close only the owner's old private panel/core before replacing files.
         # Selected applications have external executable paths and are retained.
@@ -271,6 +340,7 @@ try {
     Move-Item -LiteralPath $stage -Destination $root
     $swapped = $true
     Protect-Tree $root
+    $setupPhase = 'control_service_start'
     $existingService = Get-CimInstance Win32_Service -Filter "Name='RuleProxyControl'"
     if ($existingService -and $existingService.PathName -ne $serviceCommand) { throw 'Refuse a non-owned control service' }
     if (-not $existingService) {
@@ -279,20 +349,39 @@ try {
     Start-Service -Name $serviceName
     (Get-Service -Name $serviceName).WaitForStatus('Running',[TimeSpan]::FromSeconds(30))
     Write-State 'completed' $true
+    $setupPhase = 'completed'
     if ($oldRootMoved) { Remove-Item -LiteralPath $backup -Recurse -Force }
     Write-Host 'RuleProxy installed. Start-Windows.cmd opens the ordinary-user Web panel.'
 } catch {
-    if ($swapped) {
-        $control = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-        if ($control) { try { Stop-Service -Name $serviceName -ErrorAction Stop } catch {} }
-        if ($oldRootMoved) {
-            Remove-Item -LiteralPath $root -Recurse -Force
-            Move-Item -LiteralPath $backup -Destination $root
-            try { Start-Service -Name $serviceName } catch {}
+    $originalFailure = $_
+    $setupFailed = $true
+    Write-SetupDiagnostic $originalFailure
+    [Console]::Error.WriteLine(('Original setup failure in phase {0}; staging path {1}: {2}' -f $setupPhase,$stage,$originalFailure.Exception.Message))
+    try {
+        if ($swapped) {
+            $control = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($control) { try { Stop-Service -Name $serviceName -ErrorAction Stop } catch {} }
+            if ($oldRootMoved) {
+                Remove-Item -LiteralPath $root -Recurse -Force
+                Move-Item -LiteralPath $backup -Destination $root
+                try { Start-Service -Name $serviceName } catch {}
+            }
+        }
+    } catch { Write-Warning ('Program rollback incomplete: ' + $_.Exception.Message) }
+    try { Write-State 'failed' $pfOwned } catch {}
+    throw $originalFailure
+} finally {
+    if (Test-Path -LiteralPath $stage) {
+        if ($setupFailed) {
+            Write-Warning ('Protected staging retained for diagnosis: ' + $stage)
+        } else {
+            try {
+                # Only this invocation's GUID directory is eligible for cleanup.
+                Assert-Protected $stage
+                Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop
+            } catch {
+                Write-Warning ('Staging cleanup incomplete; retained at ' + $stage + ': ' + $_.Exception.Message)
+            }
         }
     }
-    try { Write-State 'failed' $pfOwned } catch {}
-    throw
-} finally {
-    if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 }

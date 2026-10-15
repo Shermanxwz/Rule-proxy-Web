@@ -3,7 +3,10 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -17,6 +20,58 @@ SPEC.loader.exec_module(installer)
 
 
 class WindowsOfflineDeploymentTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == 'nt', 'requires native Windows ACL APIs')
+    def test_windows_protect_tree_keeps_admin_access_and_users_read_only(self):
+        # Execute the actual installer function without the installer entrypoint.
+        # This reproduces copying children under a protected parent, then
+        # protecting the populated tree, including a read-only payload file.
+        script = r"""
+$ErrorActionPreference = 'Stop'
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 77 }
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($env:RULEPROXY_SETUP_TEST_SCRIPT,[ref]$tokens,[ref]$errors)
+if ($errors.Count) { throw 'Installer PowerShell parse failed' }
+$definition = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Protect-Tree'},$true)
+if (-not $definition) { throw 'Installer ACL function missing' }
+Invoke-Expression $definition.Extent.Text
+$root = $env:RULEPROXY_SETUP_TEST_ROOT
+New-Item -ItemType Directory -Path $root | Out-Null
+Protect-Tree $root
+New-Item -ItemType Directory -Path (Join-Path $root 'bin\windows-amd64') -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path $root 'CHANGELOG.md'),'checked payload')
+$license = Join-Path $root 'bin\windows-amd64\MIHOMO-LICENSE'
+[IO.File]::WriteAllText($license,'checked license')
+[IO.File]::SetAttributes($license,[IO.FileAttributes]::ReadOnly)
+Protect-Tree $root
+Protect-Tree $root
+foreach ($item in @((Get-Item -LiteralPath $root)) + @(Get-ChildItem -LiteralPath $root -Recurse -Force)) {
+    $acl = Get-Acl -LiteralPath $item.FullName
+    if (-not $acl.AreAccessRulesProtected -or $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne 'S-1-5-32-544') { throw 'ACL owner or inheritance incorrect' }
+    foreach ($ace in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
+        if ($ace.AccessControlType -eq 'Allow' -and $ace.IdentityReference.Value -notin @('S-1-5-18','S-1-5-32-544') -and (([long]$ace.FileSystemRights -band 0x500D0156) -ne 0)) { throw 'Non-admin write grant found' }
+    }
+}
+if ([IO.File]::ReadAllText((Join-Path $root 'CHANGELOG.md')) -ne 'checked payload') { throw 'Admin read failed' }
+[IO.File]::WriteAllText((Join-Path $root 'CHANGELOG.md'),'admin can still write')
+Remove-Item -LiteralPath $root -Recurse -Force
+if (Test-Path -LiteralPath $root) { throw 'Admin cleanup failed' }
+"""
+        temporary = Path(tempfile.mkdtemp(prefix='ruleproxy-acl-'))
+        try:
+            source = Path(__file__).resolve().parent.parent / 'scripts/windows-setup.ps1'
+            runner = temporary / 'check.ps1'
+            runner.write_text(script, encoding='ascii')
+            environment = dict(os.environ, RULEPROXY_SETUP_TEST_SCRIPT=str(source),
+                               RULEPROXY_SETUP_TEST_ROOT=str(temporary / 'protected'))
+            result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                                     '-File', str(runner)], env=environment, text=True, capture_output=True, timeout=45)
+            if result.returncode == 77:
+                self.skipTest('native ACL owner test requires an elevated administrator token')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        finally:
+            shutil.rmtree(temporary, ignore_errors=True)
+
     def test_owned_proxifyre_residue_can_be_removed_after_msi_for_fresh_reinstall(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'ProxiFyre'
