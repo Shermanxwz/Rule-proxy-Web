@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "product_version": "0.3.0",
+  "package_sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
+  "windows_server_2025": {
+    "status": "passed",
+    "run_id": 38789494925,
+    "source_commit": "970fb350191e13786dfb62cbef2ed8cd1031c887",
+    "ordinary_checks": 33,
+    "independent_traffic_phases": 13,
+    "headless_edge": true,
+    "visible_gui_verified": false
+  },
+  "windows_11": {
+    "status": "pending",
+    "run_id": 38788166642
+  },
+  "real_internet_exit_ip_verified": false,
+  "linux_equivalent_isolation": false,
+  "public_binary_release_eligible": false
+}

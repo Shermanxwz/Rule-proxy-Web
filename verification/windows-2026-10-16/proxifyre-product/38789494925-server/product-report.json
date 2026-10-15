@@ -1,0 +1,1819 @@
+{
+  "schema_version": 1,
+  "status": "passed_server_product_qualification",
+  "qualification_scope": "Windows installed product from final offline ZIP; see actual_os",
+  "windows_11_verified": false,
+  "gui_verified": false,
+  "product_release_eligible": false,
+  "headless_browser_verified": true,
+  "checks": {
+    "install_and_reinstall": true,
+    "uninstall_preserves_user_state_and_shared_driver": true,
+    "uninstall_then_fresh_reinstall": true
+  },
+  "installations": [
+    {
+      "returncode": 0,
+      "stdout": "RuleProxy installed. Start-Windows.cmd opens the ordinary-user Web panel.\n",
+      "stderr": ""
+    },
+    {
+      "returncode": 0,
+      "stdout": "RuleProxy installed. Start-Windows.cmd opens the ordinary-user Web panel.\n",
+      "stderr": ""
+    }
+  ],
+  "actions": [
+    {
+      "op": "kill_core",
+      "returncode": 0,
+      "stdout": "ok\r\n",
+      "stderr": ""
+    },
+    {
+      "op": "stop_broker",
+      "returncode": 0,
+      "stdout": "ok\r\n",
+      "stderr": ""
+    },
+    {
+      "op": "start_broker",
+      "returncode": 0,
+      "stdout": "ok\r\n",
+      "stderr": ""
+    },
+    {
+      "op": "capture_core",
+      "returncode": 0,
+      "stdout": "5580\r\n",
+      "stderr": ""
+    },
+    {
+      "op": "wait_engine_stopped",
+      "returncode": 0,
+      "stdout": "ok\r\n",
+      "stderr": ""
+    },
+    {
+      "op": "wait_core_stopped",
+      "returncode": 0,
+      "stdout": "ok\r\n",
+      "stderr": ""
+    }
+  ],
+  "actual_os": {
+    "major": 10,
+    "minor": 0,
+    "build": 26100,
+    "platform": 2,
+    "product_type": 3,
+    "architecture": "AMD64"
+  },
+  "package": {
+    "zip": "RuleProxy-Web-0.3.0-windows-x64-personal.zip",
+    "sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
+    "manifest_verified": true,
+    "files_verified": 108,
+    "product_version": "0.3.0"
+  },
+  "source_matches_bundle": {
+    "manager.py": true,
+    "server.py": true,
+    "launcher.py": true,
+    "windows_proxy_service.py": true,
+    "windows_proxy_policy.py": true,
+    "windows_proxy_client.py": true,
+    "windows_proxy_runtime.py": true,
+    "windows_proxy_pins.py": true,
+    "windows_app_process.py": true,
+    "windows_core_process.py": true
+  },
+  "installed_deployment": {
+    "schema_version": 1,
+    "owner_sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+    "root": "C:\\Program Files\\RuleProxy-Web",
+    "proxifyre_root": "C:\\Program Files\\ProxiFyre",
+    "service_name": "RuleProxyControl",
+    "pipe_name": "RuleProxyControl-v1-cfd464c68139acbd"
+  },
+  "installed_file_hashes": {
+    "manager.py": "9b0d8966332873951f8d6c170e399fa745d1f31e5cd8e8e6d17d75b99e495e86",
+    "server.py": "41b465068142f40b75426f4bc500e498997102a25a1e40c5eba7d8ee60dc3909",
+    "launcher.py": "9d9d02027240e535f07b10591e4e2634e9730333bc14af431a35ddeea1966d38",
+    "windows_proxy_service.py": "4ed9bc434e2d851e58f34133d7cc59e24d46a19def938f01f50c65b2d9ea37c3",
+    "windows_proxy_policy.py": "f2371f4e131eeea7b6450083e30915ee81390bebde7a921fde5e485a03f1d1f2",
+    "windows_proxy_client.py": "46ecba075a9a938afe01ad95e111708c67f6414c6cce747692ea2527b415a05f",
+    "windows_proxy_runtime.py": "e0b1c6a4d221f69966bf540ab60aa540fcf4f80c51671a796e09008262378d92",
+    "windows_proxy_pins.py": "8a4ee29a76bfd3b6e2d2d59d3c4c78c3976ee88f804c40cbb66edaeea74b79b6",
+    "windows_app_process.py": "c95b2dd0a48ac0a054b63fbdf4c3af50fc24f975673e2643b976c4c635ed013c",
+    "windows_core_process.py": "147e22681d872e81213da1b7837f3a5a83e31a824a2db18173ae958d5effc95a"
+  },
+  "installed_services": {
+    "returncode": 0,
+    "stdout": "[{\"Name\":\"ProxiFyreService\",\"State\":\"Stopped\",\"StartMode\":\"Manual\",\"StartName\":\"LocalSystem\",\"PathName\":\"\\\"C:\\\\Program Files\\\\ProxiFyre\\\\ProxiFyre.exe\\\"\"},{\"Name\":\"RuleProxyControl\",\"State\":\"Running\",\"StartMode\":\"Auto\",\"StartName\":\"LocalSystem\",\"PathName\":\"\\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\python\\\\python.exe\\\" -I -S \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\ruleproxy\\\\windows_proxy_service.py\\\" --service\"}]\r\n",
+    "stderr": ""
+  },
+  "shared_dependencies_before": {
+    "returncode": 0,
+    "stdout": "{\"driver_sha256\":\"8623A9C34531CF73DE4286AD518B84AF03A331C78959769A1CA38723E3258984\",\"driver_signature\":\"Valid\",\"vc_installed\":1,\"vc_version\":\"v14.51.36247.00\"}\r\n",
+    "stderr": ""
+  },
+  "installed_firewall_rules": {
+    "returncode": 0,
+    "stdout": "[{\"Name\":\"{6A0824C0-062E-469C-BA0E-563668DE4337}\",\"DisplayName\":\"ProxiFyre (TCP-In)\",\"Enabled\":1,\"Direction\":1,\"Action\":2},{\"Name\":\"{7854DBB6-A422-4077-B678-4BB0A6244DAF}\",\"DisplayName\":\"ProxiFyre (UDP-In)\",\"Enabled\":1,\"Direction\":1,\"Action\":2}]\r\n",
+    "stderr": ""
+  },
+  "fixture": {
+    "schema_version": 1,
+    "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+    "listener_ports": {
+      "A": 58976,
+      "B": 58977
+    },
+    "target_ipv4": "1.1.1.1",
+    "target_ipv6": "2606:4700:4700::1111",
+    "target_host": "example.com",
+    "http_port": 80,
+    "dns_target_ipv4": "1.1.1.1",
+    "dns_target_ipv6": "2606:4700:4700::1111",
+    "dns_port": 53,
+    "dns_ports": [
+      53,
+      39017
+    ],
+    "origin_kind": "controlled_synthetic_stub",
+    "http_internet_forwarded": false,
+    "dns_internet_forwarded": false,
+    "real_exit_ip_observed": false,
+    "tun_enabled": false,
+    "host_proxy_dns_routes_modified": false,
+    "explicit_health": {
+      "explicit_proxy_health_only": true,
+      "transparent_evidence": false,
+      "nodes": {
+        "A": true,
+        "B": true
+      },
+      "checks": {
+        "A": {
+          "tcp_http": true,
+          "udp_53": true,
+          "udp_39017": true
+        },
+        "B": {
+          "tcp_http": true,
+          "udp_53": true,
+          "udp_39017": true
+        }
+      },
+      "udp_destination_ports": [
+        53,
+        39017
+      ],
+      "proxy_generation": 1
+    },
+    "ipv6_external_reachability": "unverified_by_fixture",
+    "synthetic_dns_answers": {
+      "A": "198.51.100.101",
+      "B": "198.51.100.102"
+    },
+    "product_acceptance_passed": false
+  },
+  "fixture_health_core_stopped": {
+    "owned_process_started": true,
+    "exited": true,
+    "exit_code": 1
+  },
+  "fixture_dns": {
+    "hostname": "node-ee4b89fc01a699720e43248ab0ee8d86.127.0.0.1.sslip.io",
+    "resolved_ipv4": [
+      "127.0.0.1"
+    ],
+    "expected_ipv4": "127.0.0.1",
+    "third_party_dns_test_dependency": "sslip.io",
+    "production_dependency": false,
+    "hosts_modified": false,
+    "hosts_before_sha256": "7f8647216edbafe0219345583583d1a86800919f2cfb3238fda51cf8cf2463d9"
+  },
+  "ordinary_launcher": {
+    "method": "CreateProcessWithLogonW",
+    "caller_sid": "S-1-5-21-4239583824-265399229-1323058055-500",
+    "expected_actor_sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+    "actual_actor_sid_verified": true
+  },
+  "ordinary_suite": {
+    "schema_version": 1,
+    "status": "passed",
+    "checks": {
+      "suite_ordinary": true,
+      "installed_package_loaded": true,
+      "panel_ordinary": true,
+      "broker_available": true,
+      "unselected_before": true,
+      "selected_raw_tcp": true,
+      "same_path_second_instance": true,
+      "selected_udp_39017": true,
+      "selected_udp_connected_39017": true,
+      "different_helper_before": true,
+      "explicit_helper_after": true,
+      "selected_node_b": true,
+      "unselected_with_rules": true,
+      "disabled_path_direct": true,
+      "reenabled_path_proxy": true,
+      "holder_ordinary": true,
+      "stop_closes_owned_job": true,
+      "kill_core_admin_action": true,
+      "core_loss_closes_owned_job": true,
+      "stop_broker_admin_action": true,
+      "service_failure_does_not_launch_app": true,
+      "restart_broker_admin_action": true,
+      "capture_core_before_crash": true,
+      "panel_crash_closes_owned_job": true,
+      "panel_crash_stops_engine": true,
+      "panel_crash_closes_owned_core": true,
+      "saved_state_preserved": true,
+      "restart_saved_node": true,
+      "system_edge_available": true,
+      "browser_ordinary": true,
+      "browser_system_image": true,
+      "browser_natural_exit": true,
+      "browser_png_created": true
+    },
+    "phases": [
+      {
+        "label": "unselected_before",
+        "token": "4937a2cbbc3740fa",
+        "expected_node": null,
+        "actor": {
+          "pid": 8764,
+          "exe": "C:\\RuleProxyProduct\\runtime\\outside.exe",
+          "rows": [
+            {
+              "token": "4937a2cbbc3740fa-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 408,
+              "http_status": "HTTP/1.1 403 Forbidden",
+              "node": null,
+              "marker_nonce_valid": false,
+              "marker_token_valid": false,
+              "controlled_proxy_response": false,
+              "elapsed_ms": 37.034
+            },
+            {
+              "token": "4937a2cbbc3740fa-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 408,
+              "http_status": "HTTP/1.1 403 Forbidden",
+              "node": null,
+              "marker_nonce_valid": false,
+              "marker_token_valid": false,
+              "controlled_proxy_response": false,
+              "elapsed_ms": 32.247
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "unselected_before",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "selected_raw_tcp",
+        "token": "7f207ffc705bd313",
+        "expected_node": "A",
+        "actor": {
+          "pid": 1732,
+          "exe": "C:\\RuleProxyProduct\\runtime\\selected.exe",
+          "rows": [
+            {
+              "token": "7f207ffc705bd313-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "A",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 42.345
+            },
+            {
+              "token": "7f207ffc705bd313-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "A",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 2.099
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "selected_raw_tcp",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "same_path_second_instance",
+        "token": "3ccb98aa6c4dcb73",
+        "expected_node": "A",
+        "actor": {
+          "pid": 7808,
+          "exe": "C:\\RuleProxyProduct\\runtime\\selected.exe",
+          "rows": [
+            {
+              "token": "3ccb98aa6c4dcb73-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "A",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 3.431
+            },
+            {
+              "token": "3ccb98aa6c4dcb73-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "A",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 2.076
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "same_path_second_instance",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "selected_udp_39017",
+        "token": "e8863eecaa2415a9",
+        "expected_node": "A",
+        "actor": {
+          "pid": 6968,
+          "exe": "C:\\RuleProxyProduct\\runtime\\selected.exe",
+          "rows": [
+            {
+              "token": "e8863eecaa2415a9-p39017-0",
+              "protocol": "udp",
+              "family": "ipv4",
+              "connected_udp": false,
+              "destination_port": 39017,
+              "same_bound_socket_reused": true,
+              "response_received": true,
+              "response_bytes": 117,
+              "node": "A",
+              "controlled_proxy_response": true,
+              "elapsed_ms": 3.667
+            },
+            {
+              "token": "e8863eecaa2415a9-p39017-1",
+              "protocol": "udp",
+              "family": "ipv4",
+              "connected_udp": false,
+              "destination_port": 39017,
+              "same_bound_socket_reused": true,
+              "response_received": true,
+              "response_bytes": 117,
+              "node": "A",
+              "controlled_proxy_response": true,
+              "elapsed_ms": 0.385
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "selected_udp_39017",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "selected_udp_connected_39017",
+        "token": "32bb53c029543f94",
+        "expected_node": "A",
+        "actor": {
+          "pid": 4700,
+          "exe": "C:\\RuleProxyProduct\\runtime\\selected.exe",
+          "rows": [
+            {
+              "token": "32bb53c029543f94-p39017-0",
+              "protocol": "udp",
+              "family": "ipv4",
+              "connected_udp": true,
+              "destination_port": 39017,
+              "same_bound_socket_reused": true,
+              "response_received": true,
+              "response_bytes": 117,
+              "node": "A",
+              "controlled_proxy_response": true,
+              "elapsed_ms": 27.803
+            },
+            {
+              "token": "32bb53c029543f94-p39017-1",
+              "protocol": "udp",
+              "family": "ipv4",
+              "connected_udp": true,
+              "destination_port": 39017,
+              "same_bound_socket_reused": true,
+              "response_received": true,
+              "response_bytes": 117,
+              "node": "A",
+              "controlled_proxy_response": true,
+              "elapsed_ms": 0.402
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "selected_udp_connected_39017",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "different_helper_before",
+        "token": "a2d5bd40758c0479",
+        "expected_node": null,
+        "actor": {
+          "pid": 5100,
+          "exe": "C:\\RuleProxyProduct\\runtime\\helper.exe",
+          "rows": [
+            {
+              "token": "a2d5bd40758c0479-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 408,
+              "http_status": "HTTP/1.1 403 Forbidden",
+              "node": null,
+              "marker_nonce_valid": false,
+              "marker_token_valid": false,
+              "controlled_proxy_response": false,
+              "elapsed_ms": 25.824
+            },
+            {
+              "token": "a2d5bd40758c0479-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 408,
+              "http_status": "HTTP/1.1 403 Forbidden",
+              "node": null,
+              "marker_nonce_valid": false,
+              "marker_token_valid": false,
+              "controlled_proxy_response": false,
+              "elapsed_ms": 27.164
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "different_helper_before",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "explicit_helper_after",
+        "token": "94f64cc9a0d669b9",
+        "expected_node": "A",
+        "actor": {
+          "pid": 9040,
+          "exe": "C:\\RuleProxyProduct\\runtime\\helper.exe",
+          "rows": [
+            {
+              "token": "94f64cc9a0d669b9-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "A",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 4.995
+            },
+            {
+              "token": "94f64cc9a0d669b9-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "A",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 3.2
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "explicit_helper_after",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "selected_node_b",
+        "token": "e9c125b051e1e8c0",
+        "expected_node": "B",
+        "actor": {
+          "pid": 1884,
+          "exe": "C:\\RuleProxyProduct\\runtime\\selected.exe",
+          "rows": [
+            {
+              "token": "e9c125b051e1e8c0-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "B",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 4.846
+            },
+            {
+              "token": "e9c125b051e1e8c0-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "B",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 3.209
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "selected_node_b",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "unselected_with_rules",
+        "token": "8f9cd1a2b1e9ede4",
+        "expected_node": null,
+        "actor": {
+          "pid": 2416,
+          "exe": "C:\\RuleProxyProduct\\runtime\\outside.exe",
+          "rows": [
+            {
+              "token": "8f9cd1a2b1e9ede4-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 408,
+              "http_status": "HTTP/1.1 403 Forbidden",
+              "node": null,
+              "marker_nonce_valid": false,
+              "marker_token_valid": false,
+              "controlled_proxy_response": false,
+              "elapsed_ms": 38.474
+            },
+            {
+              "token": "8f9cd1a2b1e9ede4-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 408,
+              "http_status": "HTTP/1.1 403 Forbidden",
+              "node": null,
+              "marker_nonce_valid": false,
+              "marker_token_valid": false,
+              "controlled_proxy_response": false,
+              "elapsed_ms": 39.226
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "unselected_with_rules",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "disabled_path_direct",
+        "token": "3101860ad75f1502",
+        "expected_node": null,
+        "actor": {
+          "pid": 3096,
+          "exe": "C:\\RuleProxyProduct\\runtime\\selected.exe",
+          "rows": [
+            {
+              "token": "3101860ad75f1502-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 408,
+              "http_status": "HTTP/1.1 403 Forbidden",
+              "node": null,
+              "marker_nonce_valid": false,
+              "marker_token_valid": false,
+              "controlled_proxy_response": false,
+              "elapsed_ms": 49.113
+            },
+            {
+              "token": "3101860ad75f1502-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 408,
+              "http_status": "HTTP/1.1 403 Forbidden",
+              "node": null,
+              "marker_nonce_valid": false,
+              "marker_token_valid": false,
+              "controlled_proxy_response": false,
+              "elapsed_ms": 23.678
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "disabled_path_direct",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "reenabled_path_proxy",
+        "token": "460b0fa2db9ed0d4",
+        "expected_node": "B",
+        "actor": {
+          "pid": 1468,
+          "exe": "C:\\RuleProxyProduct\\runtime\\selected.exe",
+          "rows": [
+            {
+              "token": "460b0fa2db9ed0d4-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "B",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 5.59
+            },
+            {
+              "token": "460b0fa2db9ed0d4-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "B",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 3.791
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "reenabled_path_proxy",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "restart_saved_node",
+        "token": "920b7a1632a0dcc3",
+        "expected_node": "B",
+        "actor": {
+          "pid": 564,
+          "exe": "C:\\RuleProxyProduct\\runtime\\selected.exe",
+          "rows": [
+            {
+              "token": "920b7a1632a0dcc3-0",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "B",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 184.71
+            },
+            {
+              "token": "920b7a1632a0dcc3-1",
+              "protocol": "tcp",
+              "family": "ipv4",
+              "connected": true,
+              "response_bytes": 399,
+              "http_status": "HTTP/1.1 200 OK",
+              "node": "B",
+              "marker_nonce_valid": true,
+              "marker_token_valid": true,
+              "controlled_proxy_response": true,
+              "elapsed_ms": 3.05
+            }
+          ],
+          "explicit_proxy_used": false,
+          "role": "restart_saved_node",
+          "children": [],
+          "is_elevated": false
+        }
+      },
+      {
+        "label": "real_edge_headless",
+        "token": "f132c85a91d7df98",
+        "expected_node": "B",
+        "actor": {
+          "pid": 8256,
+          "is_elevated": false,
+          "rows": [
+            {
+              "token": "f132c85a91d7df98",
+              "protocol": "tcp",
+              "application": "Microsoft Edge headless",
+              "response_marker_verification": "independent_receiver_required"
+            }
+          ]
+        }
+      }
+    ],
+    "is_elevated": false,
+    "panel_runs_ordinary": true,
+    "windows_11_verified": false,
+    "gui_verified": false,
+    "real_exit_ip_verified": false,
+    "headless_browser_local_checks_passed": true,
+    "system_dns_leak_prevention_tested": false,
+    "loaded_package": "C:\\Program Files\\RuleProxy-Web\\ruleproxy\\__init__.py",
+    "loaded_manager_sha256": "9b0d8966332873951f8d6c170e399fa745d1f31e5cd8e8e6d17d75b99e495e86",
+    "panel_pid": 8832,
+    "panel_is_elevated": false,
+    "browser": {
+      "kind": "Microsoft Edge headless",
+      "required": true,
+      "checked_paths": [
+        "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+        "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"
+      ],
+      "visible_gui_verified": false,
+      "real_node_verified": false,
+      "login_cookies_verified": false,
+      "pid": 8256,
+      "executable": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "executable_sha256": "d366716ba3cd2cc67d92d9b712b129fea4c8df769961d1e04b037ce034780ad0",
+      "actual_image_path": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "is_elevated": false,
+      "requested_args": [
+        "--headless=new",
+        "--disable-gpu",
+        "--screenshot=C:\\RuleProxyProduct\\actors\\edge-page.png",
+        "http://1.1.1.1/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/f132c85a91d7df98"
+      ],
+      "explicit_proxy_configuration": false,
+      "sandbox_disabled": false,
+      "screenshot": "C:\\RuleProxyProduct\\actors\\edge-page.png",
+      "screenshot_sha256": "95f74bd174a5e4300d3c7b7722284cc48cf761806e321aa294aa7eb88830eddd",
+      "screenshot_bytes": 8279,
+      "dimensions": [
+        756,
+        488
+      ],
+      "exit_code": 0
+    },
+    "user_state_hashes": {
+      "settings.json": "5d58863028680152243ea839a15b16f50516a236c07ff74583a569fafde6264d",
+      "source.yaml": "4646ce7aef6435df46909f52c15aec93309ef683b5b299b55007295bb9136b79"
+    }
+  },
+  "ordinary_process": {
+    "exit_code": 0,
+    "exit_code_hex": "0x00000000",
+    "stdio_tail": "ordinary bootstrap executable: C:\\Program Files\\RuleProxy-Web\\python\\python.exe\r\n",
+    "suite_result_exists": true
+  },
+  "receiver_final": {
+    "schema_version": 1,
+    "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+    "transactions": [
+      {
+        "sequence": 1,
+        "elapsed_seconds": 0.543155,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/health/ee4b89fc01a699720e43248ab0ee8d86/A",
+        "evidence_role": "health",
+        "response_complete": false
+      },
+      {
+        "sequence": 2,
+        "elapsed_seconds": 0.543198,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/health/ee4b89fc01a699720e43248ab0ee8d86/A",
+        "evidence_role": "health",
+        "response_complete": true
+      },
+      {
+        "sequence": 3,
+        "elapsed_seconds": 0.637173,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 53,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "qname": "health.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.101",
+        "evidence_role": "health"
+      },
+      {
+        "sequence": 4,
+        "elapsed_seconds": 0.639885,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 39017,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "qname": "health.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.101",
+        "evidence_role": "health"
+      },
+      {
+        "sequence": 5,
+        "elapsed_seconds": 0.641403,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/health/ee4b89fc01a699720e43248ab0ee8d86/B",
+        "evidence_role": "health",
+        "response_complete": false
+      },
+      {
+        "sequence": 6,
+        "elapsed_seconds": 0.641436,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/health/ee4b89fc01a699720e43248ab0ee8d86/B",
+        "evidence_role": "health",
+        "response_complete": true
+      },
+      {
+        "sequence": 7,
+        "elapsed_seconds": 0.642884,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 53,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "qname": "health.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.102",
+        "evidence_role": "health"
+      },
+      {
+        "sequence": 8,
+        "elapsed_seconds": 0.644233,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 39017,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "qname": "health.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.102",
+        "evidence_role": "health"
+      },
+      {
+        "sequence": 9,
+        "elapsed_seconds": 36.291831,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/7f207ffc705bd313-0",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 10,
+        "elapsed_seconds": 36.291868,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/7f207ffc705bd313-0",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 11,
+        "elapsed_seconds": 36.294142,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/7f207ffc705bd313-1",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 12,
+        "elapsed_seconds": 36.294173,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/7f207ffc705bd313-1",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 13,
+        "elapsed_seconds": 36.506373,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/3ccb98aa6c4dcb73-0",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 14,
+        "elapsed_seconds": 36.50641,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/3ccb98aa6c4dcb73-0",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 15,
+        "elapsed_seconds": 36.508539,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/3ccb98aa6c4dcb73-1",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 16,
+        "elapsed_seconds": 36.508571,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/3ccb98aa6c4dcb73-1",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 17,
+        "elapsed_seconds": 36.663431,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 39017,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "qname": "e8863eecaa2415a9-p39017-0.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.101",
+        "evidence_role": "actor"
+      },
+      {
+        "sequence": 18,
+        "elapsed_seconds": 36.663889,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 39017,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "qname": "e8863eecaa2415a9-p39017-1.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.101",
+        "evidence_role": "actor"
+      },
+      {
+        "sequence": 19,
+        "elapsed_seconds": 36.84814,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 39017,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "qname": "32bb53c029543f94-p39017-0.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.101",
+        "evidence_role": "actor"
+      },
+      {
+        "sequence": 20,
+        "elapsed_seconds": 36.84864,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 39017,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "qname": "32bb53c029543f94-p39017-1.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.101",
+        "evidence_role": "actor"
+      },
+      {
+        "sequence": 21,
+        "elapsed_seconds": 39.645059,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/94f64cc9a0d669b9-0",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 22,
+        "elapsed_seconds": 39.645095,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/94f64cc9a0d669b9-0",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 23,
+        "elapsed_seconds": 39.648305,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/94f64cc9a0d669b9-1",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 24,
+        "elapsed_seconds": 39.648333,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/94f64cc9a0d669b9-1",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 25,
+        "elapsed_seconds": 39.946873,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/e9c125b051e1e8c0-0",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 26,
+        "elapsed_seconds": 39.946909,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/e9c125b051e1e8c0-0",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 27,
+        "elapsed_seconds": 39.950148,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/e9c125b051e1e8c0-1",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 28,
+        "elapsed_seconds": 39.950176,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/e9c125b051e1e8c0-1",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 29,
+        "elapsed_seconds": 45.509067,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/460b0fa2db9ed0d4-0",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 30,
+        "elapsed_seconds": 45.509104,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/460b0fa2db9ed0d4-0",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 31,
+        "elapsed_seconds": 45.512924,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/460b0fa2db9ed0d4-1",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 32,
+        "elapsed_seconds": 45.512953,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/460b0fa2db9ed0d4-1",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 33,
+        "elapsed_seconds": 61.201521,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/920b7a1632a0dcc3-0",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 34,
+        "elapsed_seconds": 61.201559,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/920b7a1632a0dcc3-0",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 35,
+        "elapsed_seconds": 61.204796,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/920b7a1632a0dcc3-1",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 36,
+        "elapsed_seconds": 61.204826,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/920b7a1632a0dcc3-1",
+        "evidence_role": "actor",
+        "response_complete": true
+      },
+      {
+        "sequence": 37,
+        "elapsed_seconds": 73.473062,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/f132c85a91d7df98",
+        "evidence_role": "actor",
+        "response_complete": false
+      },
+      {
+        "sequence": 38,
+        "elapsed_seconds": 73.473134,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+        "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/f132c85a91d7df98",
+        "evidence_role": "actor",
+        "response_complete": true
+      }
+    ],
+    "transaction_count": 38,
+    "dropped_transactions": 0,
+    "errors": [
+      "ConnectionResetError",
+      "ConnectionResetError",
+      "ConnectionResetError",
+      "ConnectionResetError",
+      "ConnectionResetError",
+      "ConnectionResetError",
+      "ValueError",
+      "ValueError"
+    ],
+    "counts": {
+      "A": {
+        "tcp_http": 6,
+        "tcp_http_response": 6,
+        "udp_dns": 4
+      },
+      "B": {
+        "tcp_http": 7,
+        "tcp_http_response": 7,
+        "udp_dns": 0
+      }
+    }
+  },
+  "receiver_phase_evidence": [
+    {
+      "label": "unselected_before",
+      "token": "4937a2cbbc3740fa",
+      "expected_node": null,
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "selected_raw_tcp",
+      "token": "7f207ffc705bd313",
+      "expected_node": "A",
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 10,
+          "elapsed_seconds": 36.291868,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/7f207ffc705bd313-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 12,
+          "elapsed_seconds": 36.294173,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/7f207ffc705bd313-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "same_path_second_instance",
+      "token": "3ccb98aa6c4dcb73",
+      "expected_node": "A",
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 14,
+          "elapsed_seconds": 36.50641,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/3ccb98aa6c4dcb73-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 16,
+          "elapsed_seconds": 36.508571,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/3ccb98aa6c4dcb73-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "selected_udp_39017",
+      "token": "e8863eecaa2415a9",
+      "expected_node": "A",
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 17,
+          "elapsed_seconds": 36.663431,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "udp_dns",
+          "destination": "1.1.1.1",
+          "destination_port": 39017,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "qname": "e8863eecaa2415a9-p39017-0.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+          "query_type": 1,
+          "answer_ip": "198.51.100.101",
+          "evidence_role": "actor"
+        },
+        {
+          "sequence": 18,
+          "elapsed_seconds": 36.663889,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "udp_dns",
+          "destination": "1.1.1.1",
+          "destination_port": 39017,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "qname": "e8863eecaa2415a9-p39017-1.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+          "query_type": 1,
+          "answer_ip": "198.51.100.101",
+          "evidence_role": "actor"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "selected_udp_connected_39017",
+      "token": "32bb53c029543f94",
+      "expected_node": "A",
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 19,
+          "elapsed_seconds": 36.84814,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "udp_dns",
+          "destination": "1.1.1.1",
+          "destination_port": 39017,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "qname": "32bb53c029543f94-p39017-0.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+          "query_type": 1,
+          "answer_ip": "198.51.100.101",
+          "evidence_role": "actor"
+        },
+        {
+          "sequence": 20,
+          "elapsed_seconds": 36.84864,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "udp_dns",
+          "destination": "1.1.1.1",
+          "destination_port": 39017,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "qname": "32bb53c029543f94-p39017-1.ee4b89fc01a699720e43248ab0ee8d86.ruleproxy-ci.example.com.",
+          "query_type": 1,
+          "answer_ip": "198.51.100.101",
+          "evidence_role": "actor"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "different_helper_before",
+      "token": "a2d5bd40758c0479",
+      "expected_node": null,
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "explicit_helper_after",
+      "token": "94f64cc9a0d669b9",
+      "expected_node": "A",
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 22,
+          "elapsed_seconds": 39.645095,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/94f64cc9a0d669b9-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 24,
+          "elapsed_seconds": 39.648333,
+          "proxy_generation": 1,
+          "node": "A",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/94f64cc9a0d669b9-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "selected_node_b",
+      "token": "e9c125b051e1e8c0",
+      "expected_node": "B",
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 26,
+          "elapsed_seconds": 39.946909,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/e9c125b051e1e8c0-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 28,
+          "elapsed_seconds": 39.950176,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/e9c125b051e1e8c0-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "unselected_with_rules",
+      "token": "8f9cd1a2b1e9ede4",
+      "expected_node": null,
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "disabled_path_direct",
+      "token": "3101860ad75f1502",
+      "expected_node": null,
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "matching_receiver_transactions": [],
+      "passed": true
+    },
+    {
+      "label": "reenabled_path_proxy",
+      "token": "460b0fa2db9ed0d4",
+      "expected_node": "B",
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 30,
+          "elapsed_seconds": 45.509104,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/460b0fa2db9ed0d4-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 32,
+          "elapsed_seconds": 45.512953,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/460b0fa2db9ed0d4-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "restart_saved_node",
+      "token": "920b7a1632a0dcc3",
+      "expected_node": "B",
+      "attempts": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 34,
+          "elapsed_seconds": 61.201559,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/920b7a1632a0dcc3-0",
+          "evidence_role": "actor",
+          "response_complete": true
+        },
+        {
+          "sequence": 36,
+          "elapsed_seconds": 61.204826,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/920b7a1632a0dcc3-1",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "label": "real_edge_headless",
+      "token": "f132c85a91d7df98",
+      "expected_node": "B",
+      "attempts": 1,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 1
+      },
+      "matching_receiver_transactions": [
+        {
+          "sequence": 38,
+          "elapsed_seconds": 73.473134,
+          "proxy_generation": 1,
+          "node": "B",
+          "protocol": "tcp_http_response",
+          "destination": "1.1.1.1",
+          "destination_port": 80,
+          "origin_kind": "controlled_synthetic_stub",
+          "nonce": "ee4b89fc01a699720e43248ab0ee8d86",
+          "request_target": "/ruleproxy-compare/ee4b89fc01a699720e43248ab0ee8d86/f132c85a91d7df98",
+          "evidence_role": "actor",
+          "response_complete": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "uninstall": {
+    "returncode": 0,
+    "stdout": "Uninstalled owned services and program files. User data, shared NDIS and VC runtime are retained.\n",
+    "stderr": ""
+  },
+  "uninstall_inspection": {
+    "returncode": 0,
+    "stdout": "{\"control\":0,\"engine\":0,\"driver\":1,\"firewall\":0}\r\n",
+    "stderr": ""
+  },
+  "shared_dependencies_after": {
+    "returncode": 0,
+    "stdout": "{\"driver_sha256\":\"8623A9C34531CF73DE4286AD518B84AF03A331C78959769A1CA38723E3258984\",\"driver_signature\":\"Valid\",\"vc_installed\":1,\"vc_version\":\"v14.51.36247.00\"}\r\n",
+    "stderr": ""
+  },
+  "post_uninstall_reinstall": {
+    "returncode": 0,
+    "stdout": "RuleProxy installed. Start-Windows.cmd opens the ordinary-user Web panel.\n",
+    "stderr": ""
+  },
+  "post_reinstall_uninstall": {
+    "returncode": 0,
+    "stdout": "Uninstalled owned services and program files. User data, shared NDIS and VC runtime are retained.\n",
+    "stderr": ""
+  },
+  "hosts_modified": false,
+  "hosts_restored": true,
+  "hosts_restored_sha256": "7f8647216edbafe0219345583583d1a86800919f2cfb3238fda51cf8cf2463d9",
+  "diagnostics": {
+    "returncode": 0,
+    "stdout": "{\"services\":[],\"events\":[{\"TimeCreated\":\"\\/Date(1792090687437)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090686611)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792090686319)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  RuleProxy Web Control\\r\\nService File Name:  \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\python\\\\python.exe\\\" -I -S \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\ruleproxy\\\\windows_proxy_service.py\\\" --service\\r\\nService Type:  user mode service\\r\\nService Start Type:  auto start\\r\\nService Account:  LocalSystem\"},{\"TimeCreated\":\"\\/Date(1792090684888)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  ProxiFyre Service\\r\\nService File Name:  \\\"C:\\\\Program Files\\\\ProxiFyre\\\\ProxiFyre.exe\\\"\\r\\nService Type:  user mode service\\r\\nService Start Type:  demand start\\r\\nService Account:  LocalSystem\"},{\"TimeCreated\":\"\\/Date(1792090676219)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090674720)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090657666)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792090657269)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090655284)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792090652603)\\/\",\"Id\":7036,\"Message\":\"The Delivery Optimization service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090650883)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090647906)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792090647265)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792090646183)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090645288)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090642310)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792090641704)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090640682)\\/\",\"Id\":7036,\"Message\":\"The WaaSMedicSvc service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792090639712)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792090639239)\\/\",\"Id\":7036,\"Message\":\"The ProxiFyre Service service entered the stopped state.\"}]}\r\n",
+    "stderr": ""
+  }
+}

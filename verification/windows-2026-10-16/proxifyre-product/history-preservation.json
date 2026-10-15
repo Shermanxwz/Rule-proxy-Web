@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "purpose": "Preserve committed experimental histories as additional parents without merging their source trees into the selected product implementation.",
+  "first_parent": "970fb350191e13786dfb62cbef2ed8cd1031c887",
+  "historical_parent_tips": [
+    "139653ceb36e0597050d9a166f9bca6249248f81",
+    "3145990bfedd2e9d3d06a98fc3061a2222cb998f",
+    "f360524755039476aeddf070e6368cd7042868ad",
+    "1740e6765710905278f3118ff7c8ac5bcacc75a5",
+    "adc4e146cdafcf7b931ebf73d793874913033262",
+    "c2ccadbf4afcef3602bae75bc7a741e5d48d2614"
+  ],
+  "covered_heads_before_cleanup": {
+    "local": 39,
+    "remote": 53
+  },
+  "private_dirty_backup": {
+    "historical_worktrees": 27,
+    "working_files": 128,
+    "index_blob_versions": 90,
+    "payload_files_verified": 353,
+    "archive_sha256": "0ab67d216e76094a2974709e8cd767c9e27781ae5169b64bdcdd39340b373b2a"
+  },
+  "branch_cleanup_status": "pending final native qualification"
+}
