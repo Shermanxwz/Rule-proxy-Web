@@ -43,7 +43,7 @@ class WindowsVMUpdateManifestTests(unittest.TestCase):
         data = b'public deterministic test MSU bytes; never installed'
         filename = 'windows11.0-kb5127648-x64_fixture.msu'
         (self.directory / 'packages' / filename).write_bytes(data)
-        self.manifest = {'target_build': 26300, 'target_ubr': 9711,
+        self.manifest = {'target_build': 26200, 'target_ubr': 9711,
                          'target_package': filename,
                          'packages': [{'filename': filename, 'sha256': hashlib.sha256(data).hexdigest()}]}
 
@@ -83,7 +83,7 @@ class WindowsVMUpdateManifestTests(unittest.TestCase):
         self.validate('update_duplicate_filename')
 
     def test_real_validator_rejects_different_OS_target(self):
-        self.manifest['target_build'] = 26200
+        self.manifest['target_build'] = 26300
         self.validate('update_manifest_unexpected_target')
 
     def test_real_validator_rejects_unlisted_MSU_before_servicing_can_discover_it(self):
