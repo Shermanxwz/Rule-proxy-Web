@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "source_commit": "3440e2ed253e61c99bc202a412382ad39ab01753",
+  "status": "diagnostic_only",
+  "acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "source_executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+  "preferred_policy": {
+    "name": "model1_internal_ingress_deny",
+    "proxy_roundtrips": 4,
+    "transport_roundtrip_observed": true,
+    "resources_closed": true,
+    "descendant_cleanup_proven": true
+  },
+  "raw_udp": {
+    "selected_groups": [
+      {
+        "id": "model1_internal_ingress_deny.ipv4",
+        "positive_controls_complete": true,
+        "contained_markers_absent": true,
+        "execution_proven": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv4_unbound",
+        "positive_controls_complete": true,
+        "contained_markers_absent": true,
+        "execution_proven": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv6",
+        "positive_controls_complete": true,
+        "contained_markers_absent": true,
+        "execution_proven": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv6_unbound",
+        "positive_controls_complete": true,
+        "contained_markers_absent": true,
+        "execution_proven": true
+      }
+    ],
+    "overall_status": "incomplete",
+    "unknown_records": 0,
+    "packet_analysis_complete": false,
+    "unselected_variants": 3
+  },
+  "native_dns": {
+    "status": "incomplete",
+    "contained_question_count": 0,
+    "unknown_records": 74,
+    "unknown_reasons": {
+      "opaque_dns_tcp_control_only": 37,
+      "opaque_dns_tcp_or_https": 37
+    },
+    "actor_execution_attested": true,
+    "execution_proven": false,
+    "packet_analysis_complete": false,
+    "child_getaddrinfo_tool_failure": {
+      "error_type": "PermissionError",
+      "stage": "entry_lease_open",
+      "errno": 13,
+      "winerror": null,
+      "api_returned": false,
+      "worker_cleanup_proven": true
+    }
+  },
+  "signature_prewarm": {
+    "before_capture": true,
+    "cache_hits": 1,
+    "inside_capture_revalidations": 0,
+    "capture_contaminated": false
+  },
+  "cleanup_proven": true,
+  "host_network_unchanged": true,
+  "limitations": [
+    "Only the preferred policy was executed; unselected UDP matrix variants remain incomplete.",
+    "Zero matched contained DNS questions is not a denial proof with opaque capture records and an uncompleted child API probe.",
+    "The source-only executor is separate from the original product runtime, and this run cannot qualify product acceptance."
+  ]
+}

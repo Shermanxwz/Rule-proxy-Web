@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "source_commit": "dcbf106c2a2af0867b774601b4bfcd4558d00993",
+  "status": "infrastructure_timeout",
+  "guest_phases_collected": false,
+  "product_acceptance_passed": false,
+  "reason": "Windows unattended installation/test exceeded the host timeout without returning a guest report.",
+  "interpretation": "This run provides no product GUI or network result and does not establish that the MXC framework cannot work."
+}

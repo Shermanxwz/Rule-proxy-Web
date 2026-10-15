@@ -1,0 +1,61 @@
+{
+  "artifact_id": 11949624238,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "dde80ce461b24458f400f4c72b342b42fb9a595ec28738f5f99d271576081710",
+  "commit": "8359e71c818d0cead9dd2eb0d7664a9c471c7c6c",
+  "evidence_files": [
+    {
+      "bytes": 3058,
+      "copy_format": "original JSON; digest only, source artifact retained locally",
+      "name": "windows-vm-summary.json",
+      "sha256": "794c657fafbbf22734e26668f2694ae4e56efebc20e21681ea215e1a997fcd1d",
+      "source_member": "windows-vm-summary.json"
+    },
+    {
+      "bytes": 16719,
+      "copy_format": "original JSON; digest only, source artifact retained locally",
+      "name": "guest-result.json",
+      "sha256": "dfc78c0be3b2e25a6b2f4110f25963f435e99966496bf901da878e10fba6c2b3",
+      "source_member": "guest-result.json"
+    },
+    {
+      "bytes": 3391,
+      "copy_format": "original JSON; digest only, source artifact retained locally",
+      "name": "windows-gui.json",
+      "sha256": "94b340ab8b3d0801a42f301332a82015ef1640d5ebfa2a8962277384a4de9897",
+      "source_member": "windows-gui.json"
+    }
+  ],
+  "excluded_from_archive": [
+    "screenshots, VM disks and media",
+    "raw guest logs, process identifiers, creation times and temporary paths",
+    "capability URLs and raw network payloads"
+  ],
+  "execution": {
+    "mode": "original_sdk",
+    "product_runtime_replaced": false,
+    "source_diagnostic_only": true,
+    "gui_diagnostic_only": true
+  },
+  "full_acceptance_passed": false,
+  "native_job": 116251606495,
+  "native_job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38682870856/job/116251606495",
+  "real_node_passed": false,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "schema_version": 1,
+  "status": "failed",
+  "system": {
+    "baseline_diagnostic": true,
+    "native_x64": true,
+    "ordinary_user": true,
+    "windows_build": 26300
+  },
+  "tested_package": {
+    "matches_ci_build": true,
+    "name": "RuleProxy-Web-0.2.2-windows-x64.zip",
+    "sha256": "8f8c5ec5865fd7a294fa049f99da068ce13bd2cdb75a084ec2077fb4b09adc1a"
+  },
+  "workflow_run": 38682870856,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38682870856",
+  "commit_tree": "b5dba6d7885c76112b898ce8afe4d9f52abf4b9a"
+}

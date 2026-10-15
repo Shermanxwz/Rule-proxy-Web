@@ -29,8 +29,9 @@ MAX_HANDLES = 64
 GUI_BUDGET_SECONDS = 90
 _RECOVERY_OWNERS = []  # Failed cleanup keeps the actual handles, not just PIDs.
 _DIAGNOSTIC_STAGES = frozenset({
-    "unknown", "platform", "runtime_integrity", "request_probe", "host_network_snapshot",
-    "real_edge_gui_1", "real_edge_gui_2", "image_path_canonicalize", "process_api_bind",
+    "unknown", "platform", "runtime_integrity", "request_probe", "host_network_snapshot", "chromium_control_integrity", "gui_context_probe",
+    "real_edge_gui_1", "real_edge_gui_2", "real_chromium_control_gui_1", "real_chromium_control_gui_2",
+    "image_path_canonicalize", "process_api_bind",
     "tree_root_identity", "tree_held_pid_query", "tree_held_creation_query",
     "tree_snapshot_first", "tree_snapshot_second", "tree_child_open", "tree_child_pid_query",
     "tree_child_creation_query", "tree_child_alive_query", "tree_parent_alive_query",
@@ -327,6 +328,47 @@ def browser_helpers():
     return module
 
 
+def chromium_control_browser(root):
+    path = ROOT / ".github/windows_chromium_control.py"
+    spec = importlib.util.spec_from_file_location("ruleproxy_gui_chromium_control", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.staged_browser(root)
+
+
+def context_helpers():
+    path = ROOT / ".github/windows_gui_context.py"
+    spec = importlib.util.spec_from_file_location("ruleproxy_gui_context", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def read_context_report(path):
+    with path.open("rb") as stream:
+        raw = stream.read(8193)
+    if not raw or len(raw) > 8192:
+        raise RuntimeError("GUI context report exceeded its bound")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate context field")
+            value[key] = item
+        return value
+    value = json.loads(raw, object_pairs_hook=unique)
+    def scalars(item, depth=0):
+        if isinstance(item, dict):
+            return depth < 4 and len(item) <= 24 and all(isinstance(k, str) and k.isascii()
+                and k.replace("_", "").isalnum() and len(k) <= 64 and scalars(v, depth + 1)
+                for k, v in item.items())
+        return type(item) is bool or (type(item) is int and 0 <= item <= 0xffffffff)
+    if (not isinstance(value, dict) or type(value.get("schema")) is not int or value["schema"] != 1 or value.get("windows") is not True
+            or not scalars(value)):
+        raise RuntimeError("GUI context report contained invalid or non-scalar facts")
+    return value
+
+
 def image_key(path):
     value = os.fspath(path)
     if not ntpath.isabs(value):
@@ -348,6 +390,8 @@ class ProcessApi:
         self.filetime = windows_runtime._FileTime
         self.kernel.GetProcessId.argtypes = [wintypes.HANDLE]
         self.kernel.GetProcessId.restype = wintypes.DWORD
+        self.kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        self.kernel.GetExitCodeProcess.restype = wintypes.BOOL
 
     def open(self, pid):
         handle = self.kernel.OpenProcess(self.PROCESS_ACCESS, False, pid)
@@ -381,6 +425,12 @@ class ProcessApi:
 
     def wait(self, handle, milliseconds):
         return self.api.wait(handle, milliseconds)
+
+    def exit_code(self, handle):
+        code = wintypes.DWORD()
+        if not self.kernel.GetExitCodeProcess(handle, ctypes.byref(code)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return int(code.value)
 
     def image(self, handle):
         return self.api.process_image(handle)
@@ -579,6 +629,21 @@ class OwnedTree:
             return None
         return entry
 
+    def exited_edge_exit_codes(self):
+        """Read bounded exit facts from already-held, identity-checked Edge handles."""
+        codes = []
+        for entry in list(self.entries.values())[:MAX_HANDLES - 1]:
+            if entry.get("image") != self.edge:
+                continue
+            self._identity(entry)
+            if not _diagnostic_call("tree_exit_query", self.api.wait, entry["handle"], 0):
+                continue
+            code = _diagnostic_call("tree_exit_query", self.api.exit_code, entry["handle"])
+            if type(code) is not int or not 0 <= code <= 0xffffffff:
+                raise RuntimeError("held Edge process exit code was outside DWORD range")
+            codes.append(f"0x{code:08x}")
+        return codes
+
     def verify_startup_helper(self, parent):
         entry = self.entries.get(parent.get("pid")) if isinstance(parent, dict) else None
         if entry is None or entry["ppid"] != self.wrapper.pid \
@@ -720,6 +785,24 @@ def owned_windows(tree, windows, *, allowed_pids=None):
 def failure_auxiliary(owner, *, windows=None):
     """Counts only; never repair tracking failure or open another process HANDLE."""
     result = {"scope": "already_held_gui_failure_observations", "diagnostic_only": True}
+    wrapper = getattr(owner, "wrapper", None)
+    try:
+        if wrapper is None:
+            raise RuntimeError("borrowed wrapper handle was unavailable")
+        wrapper_code = wrapper.poll()
+        result["wrapper_exit"] = {"status": "running" if wrapper_code is None else "observed",
+            "exit_code": None if wrapper_code is None else wrapper_code & 0xffffffff,
+            "exit_code_hex": None if wrapper_code is None else f"0x{wrapper_code & 0xffffffff:08x}"}
+    except Exception as error:
+        result["wrapper_exit"] = {"status": "unknown", "failure": error_facts(error, "wrapper_poll")}
+    try:
+        tree = owner.tree
+        if tree is None or tree.closed:
+            raise RuntimeError("held process generations were unavailable")
+        codes = tree.exited_edge_exit_codes()
+        result["held_browser_exit_codes"] = {"status": "observed", "count": len(codes), "codes": codes}
+    except Exception as error:
+        result["held_browser_exit_codes"] = {"status": "incomplete", "failure": error_facts(error, "tree_exit_query")}
     try:
         fixture = owner.fixture
         if not fixture.lock.acquire(timeout=0.1):
@@ -747,7 +830,7 @@ def failure_auxiliary(owner, *, windows=None):
         if allowed:
             windows = _diagnostic_call("window_api_bind", WindowApi) if windows is None else windows
             visible = owned_windows(tree, windows, allowed_pids=allowed)
-        result["visible_owned_windows"] = {"status": "observed", "held_edge_generation_count": len(allowed),
+        result["visible_owned_windows"] = {"status": "observed", "held_browser_generation_count": len(allowed),
             "visible_window_count": len(visible), "visible_window_observed": bool(visible)}
     except Exception as error:
         result["visible_owned_windows"] = {"status": "incomplete", "failure": error_facts(error, "failure_owned_windows")}
@@ -802,12 +885,62 @@ def interactive_facts():
 
 
 class GuiRun:
-    def __init__(self, runtime, edge, profile_root, fixture, helpers, browser_module, job=None):
+    def __init__(self, runtime, edge, profile_root, fixture, helpers, browser_module, job=None,
+                 application_kind="stock_edge"):
         self.runtime, self.edge, self.profile_root = runtime, edge, profile_root
         self.fixture, self.helpers, self.browser_module = fixture, helpers, browser_module
         self.job = job
+        if application_kind not in ("stock_edge", "chrome_for_testing_control"):
+            raise ValueError("unsupported GUI application kind")
+        self.application_kind = application_kind
         self.wrapper = self.resources = self.tree = None
         self.cleanup_proven = True
+
+    def collect_context(self):
+        """Observe the same PSEC context with an owned, held stdlib-only app."""
+        from ruleproxy import windows_runtime
+        if self.job is None or self.job.active_processes() != 1:
+            raise RuntimeError("context probe requires a controller-only outer Job")
+        profile = self.profile_root / "context"
+        profile.mkdir(parents=True)
+        script, report, release = (profile / name for name in ("context.py", "context.json", "release"))
+        shutil.copyfile(ROOT / ".github/windows_gui_context.py", script)
+        guest_port = windows_runtime.choose_guest_port(self.fixture.port)
+        command = [sys.executable, "-I", "-S", str(script), "--probe", "--report", str(report),
+                   "--release-file", str(release)]
+        self.cleanup_proven = False
+        try:
+            self.wrapper, self.resources = windows_runtime.launch(command, {}, profile, self.fixture.port,
+                str(self.runtime), guest_listener_port=guest_port)
+        except BaseException as error:
+            self.wrapper, self.resources = getattr(error, "process", None), getattr(error, "resource", None)
+            raise
+        if self.job.active_processes() < 2:
+            raise RuntimeError("owned context probe was absent from outer Job accounting")
+        self.tree = OwnedTree(ProcessApi(), self.wrapper, self.edge, self.job)
+        self.tree.refresh()
+        startup = self.helpers.startup_evidence(self.resources)
+        self.tree.verify_startup_helper(startup.get("startup_diagnostics", {}).get("parent"))
+        deadline = time.monotonic() + 10
+        while not report.is_file():
+            if self.wrapper.poll() is not None or time.monotonic() >= deadline:
+                raise RuntimeError("owned context probe exited or timed out before its report")
+            self.tree.refresh()
+            time.sleep(0.02)
+        facts = read_context_report(report)
+        temporary_release = release.with_name("release.tmp")
+        with temporary_release.open("xb") as stream:
+            stream.write(b"release\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_release, release)
+        code = self.wrapper.wait(timeout=10)
+        if code != 0:
+            raise RuntimeError("owned context probe did not exit naturally with status zero")
+        self.close()
+        return {"scope": "production_psec_builder_context_app", "facts": facts,
+                "natural_wrapper_exit": True, "descendant_cleanup_proven": True,
+                "runtime_resources_closed": True, "acceptance_passed": False}
 
     def run(self, phase):
         from ruleproxy import launcher, windows_runtime
@@ -880,7 +1013,9 @@ class GuiRun:
         count, peak = len(self.tree.entries), self.tree.peak_handles
         unqueryable_count = len(self.tree.unqueryable_candidates)
         self.close()
-        return {"check": f"real_edge_gui_{phase}", "status": "passed",
+        check_prefix = ("real_chromium_control_gui" if self.application_kind == "chrome_for_testing_control"
+                        else "real_edge_gui")
+        return {"check": f"{check_prefix}_{phase}", "status": "passed",
                 "visible_window_verified": True, "visible_window_rects": rects,
                 "dom_nonce_via_page_ack": True, "cookie_request_verified": True,
                 "private_profile_reused": phase == 2, "wm_close_requested": True,
@@ -942,11 +1077,18 @@ def main(arguments):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--browser", type=Path, help="actual Microsoft Edge msedge.exe")
+    parser.add_argument("--chromium-control-root", type=Path,
+                        help="source-only pinned Chrome for Testing control; never replaces the product browser")
     parser.add_argument("--report", type=Path, default=Path("windows-gui.json"))
     args = parser.parse_args(arguments)
+    if args.browser is not None and args.chromium_control_root is not None:
+        parser.error("explicit Edge and the pinned Chromium control are mutually exclusive")
     browser_module = browser_helpers()
     helpers = browser_module.acceptance_helpers()
     result = initial_result()
+    if args.chromium_control_root is not None:
+        result.update(chromium_gui_control_diagnostic=True, source_diagnostic_only=True,
+                      product_browser_replaced=False)
     directory = fixture = owner = before = job = None
     safe_cleanup, code, phase = True, 1, "platform"
     try:
@@ -973,10 +1115,15 @@ def main(arguments):
         if not result["probe"]["supported"]:
             result.update(status="unsupported", detail=result["probe"]["detail"])
             return 3
-        edge = browser_module.find_edge(args.browser)
+        if args.chromium_control_root is not None:
+            phase = "chromium_control_integrity"
+            edge, result["chromium_control"] = chromium_control_browser(args.chromium_control_root)
+        else:
+            edge = browser_module.find_edge(args.browser)
         result["browser"] = {"launcher_pe_machine": helpers.executable_machine(edge),
                              "launcher_execution_scope": "native_x64", "headless": False,
                              "sandbox_weakened": False}
+        result["browser"]["application"] = "chrome_for_testing_control" if args.chromium_control_root is not None else "stock_edge"
         if result["browser"]["launcher_pe_machine"] != 0x8664:
             raise RuntimeError("GUI requires the native x64 stock Edge entry point")
         phase = "host_network_snapshot"
@@ -989,9 +1136,16 @@ def main(arguments):
             raise
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-gui-"))
         fixture = browser_module.BrowserFixture()
-        owner = GuiRun(runtime, edge, directory / "profiles", fixture, helpers, browser_module, job)
+        application_kind = ("chrome_for_testing_control" if args.chromium_control_root is not None else "stock_edge")
+        owner = GuiRun(runtime, edge, directory / "profiles", fixture, helpers, browser_module, job,
+                       application_kind=application_kind)
+        if args.chromium_control_root is not None:
+            phase = "gui_context_probe"
+            result["outside_gui_context"] = context_helpers().query_context()
+            result["contained_gui_context"] = owner.collect_context()
         for number in (1, 2):
-            phase = f"real_edge_gui_{number}"
+            phase = (f"real_chromium_control_gui_{number}" if owner.application_kind == "chrome_for_testing_control"
+                     else f"real_edge_gui_{number}")
             result["checks"].append(owner.run(number))
         result.update(status="gui_fixture_only", gui_fixture_passed=True)
         code = 0

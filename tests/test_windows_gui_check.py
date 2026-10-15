@@ -1,4 +1,5 @@
 """Verify owned GUI identity and cleanup contracts without claiming PSEC success."""
+import ctypes
 import importlib.util
 import json
 import ntpath
@@ -42,6 +43,9 @@ class FakeProcessApi:
     def wait(self, handle, milliseconds):
         self.waited.append((handle, milliseconds))
         return not self.alive(handle)
+
+    def exit_code(self, handle):
+        return self.info[handle].get("exit_code", 0)
 
     def image(self, handle):
         return self.info[handle]["image"]
@@ -145,6 +149,15 @@ class GuiCheckTests(unittest.TestCase):
         api = FakeProcessApi(edge=str(self.edge), helper=str(self.helper), wrapper=str(self.wrapper))
         wrapper = mock.Mock(pid=10, _handle=100)
         return gui.OwnedTree(api, wrapper, self.edge), api
+
+    def test_process_api_binds_exit_code_with_pointer_safe_win32_prototype(self):
+        from ruleproxy import windows_runtime
+        api = mock.Mock()
+        with mock.patch.object(windows_runtime, "_WinProcessApi", return_value=api):
+            gui.ProcessApi()
+        self.assertEqual(api.kernel32.GetExitCodeProcess.argtypes,
+                         [gui.wintypes.HANDLE, ctypes.POINTER(gui.wintypes.DWORD)])
+        self.assertIs(api.kernel32.GetExitCodeProcess.restype, gui.wintypes.BOOL)
 
     def test_outer_job_fails_closed_on_membership_liveness_accounting_and_close(self):
         api = FakeJobApi()
@@ -657,7 +670,7 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
         self.assertEqual(facts["fixture"], {"status": "observed", "phase": 1,
             "page_request_count": 2, "dom_ack_count": 1, "counts_capped": False})
         self.assertEqual(facts["visible_owned_windows"], {"status": "observed",
-            "held_edge_generation_count": 1, "visible_window_count": 1, "visible_window_observed": True})
+            "held_browser_generation_count": 1, "visible_window_count": 1, "visible_window_observed": True})
         geometry.assert_called_once_with(800)
         self.assertEqual(windows.posted, [])
         self.assertNotIn("nonce", json.dumps(facts))
@@ -678,6 +691,39 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
         self.assertEqual(facts["fixture"]["dom_ack_count"], 0)
         enumerate_windows.assert_not_called()
         self.assertEqual(windows.posted, [])
+
+    def test_failure_auxiliary_reports_wrapper_and_only_signaled_held_browser_exit_codes(self):
+        tree, api = self.tree()
+        tree.refresh()
+        api.info[300].update(alive=False, exit_code=0x101000)
+        wrapper = mock.Mock()
+        wrapper.poll.return_value = 0x101000
+        fixture = SimpleNamespace(lock=threading.Lock(), phase=1,
+            pages={1: [], 2: []}, acks={1: [], 2: []})
+        owner = SimpleNamespace(tree=tree, wrapper=wrapper, fixture=fixture)
+        with mock.patch.object(api, "open", side_effect=AssertionError("must not reopen PIDs")):
+            facts = gui.failure_auxiliary(owner, windows=FakeWindows())
+        self.assertEqual(facts["wrapper_exit"], {"status": "observed", "exit_code": 0x101000,
+                                                  "exit_code_hex": "0x00101000"})
+        self.assertEqual(facts["held_browser_exit_codes"], {"status": "observed", "count": 1,
+                                                        "codes": ["0x00101000"]})
+        self.assertEqual(api.closed, [])
+
+    def test_failure_auxiliary_exit_query_errors_are_bounded_and_do_not_replace_failure(self):
+        tree, api = self.tree()
+        tree.refresh()
+        api.info[300]["alive"] = False
+        api.exit_code = mock.Mock(side_effect=OSError("private diagnostic detail"))
+        wrapper = mock.Mock()
+        wrapper.poll.side_effect = OSError("private poll detail")
+        owner = SimpleNamespace(tree=tree, wrapper=wrapper, fixture=SimpleNamespace(
+            lock=threading.Lock(), phase=1, pages={1: [], 2: []}, acks={1: [], 2: []}))
+        facts = gui.failure_auxiliary(owner)
+        self.assertEqual(facts["wrapper_exit"]["status"], "unknown")
+        self.assertEqual(facts["held_browser_exit_codes"]["status"], "incomplete")
+        rendered = json.dumps(facts)
+        self.assertNotIn("private diagnostic detail", rendered)
+        self.assertNotIn("private poll detail", rendered)
 
     def test_partial_handle_close_failure_preserves_remaining_handles(self):
         tree, api = self.tree()
@@ -763,6 +809,51 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
         fixture.check.assert_any_call(2)
         wrapper.kill.assert_not_called()
 
+    def test_context_probe_attests_held_helper_before_release_and_cleanup(self):
+        from ruleproxy import windows_runtime
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fixture, helpers, browser, job = mock.Mock(), mock.Mock(), mock.Mock(), mock.Mock()
+            job.active_processes.side_effect = [1, 2]
+            fixture.port = 10809
+            helpers.startup_evidence.return_value = {"startup_diagnostics": {"parent": {"pid": 20}}}
+            wrapper, resources, tree = mock.Mock(), mock.Mock(), mock.Mock()
+            wrapper.wait.return_value = 0
+            events = []
+            def launch(command, *_args, **_kwargs):
+                report = Path(command[command.index("--report") + 1])
+                report.write_text(json.dumps({"schema": 1, "windows": True, "environment": {"localappdata_present": True}}))
+                events.append("launch")
+                return wrapper, resources
+            def verify(_facts):
+                self.assertFalse((root / "context/release").exists())
+                events.append("attest")
+            tree.verify_startup_helper.side_effect = verify
+            def wait(*_args, **_kwargs):
+                self.assertEqual((root / "context/release").read_bytes(), b"release\n")
+                events.append("natural_exit")
+                return 0
+            wrapper.wait.side_effect = wait
+            owner = gui.GuiRun("runtime", self.edge, root, fixture, helpers, browser, job)
+            with mock.patch.object(windows_runtime, "launch", side_effect=launch), \
+                    mock.patch.object(windows_runtime, "choose_guest_port", return_value=34567), \
+                    mock.patch.object(gui, "ProcessApi"), mock.patch.object(gui, "OwnedTree", return_value=tree), \
+                    mock.patch.object(owner, "close", side_effect=lambda: events.append("cleanup")):
+                facts = owner.collect_context()
+            self.assertEqual(events, ["launch", "attest", "natural_exit", "cleanup"])
+            self.assertTrue(facts["descendant_cleanup_proven"])
+            self.assertFalse(facts["acceptance_passed"])
+
+    def test_context_report_rejects_strings_duplicates_and_oversize(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "context.json"
+            for raw in ('{"schema":1,"windows":true,"path":"private"}',
+                        '{"schema":1,"schema":1,"windows":true}',
+                        '{"schema":true,"windows":true}', 'x' * 8193):
+                path.write_text(raw)
+                with self.subTest(raw=raw[:32]), self.assertRaises((ValueError, RuntimeError)):
+                    gui.read_context_report(path)
+
     def test_summary_never_promotes_http_gui_to_full_public_network_or_real_node(self):
         result = gui.initial_result()
         for key in ("gui_fixture_passed", "acceptance_passed", "full_acceptance_passed", "real_node_passed",
@@ -803,8 +894,6 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
                         mock.patch.object(gui.tempfile, "mkdtemp", return_value=str(profile)), \
                         mock.patch.object(gui, "GuiRun", return_value=owner), \
                         mock.patch.object(gui, "GuiJob", return_value=gui.GuiJob(FakeJobApi())), \
-                        mock.patch.object(gui, "failure_auxiliary", return_value={"diagnostic_only": True,
-                            "visible_owned_windows": {"status": "observed", "visible_window_observed": True}}) as auxiliary, \
                         mock.patch.object(gui.shutil, "rmtree") as remove, mock.patch("builtins.print"):
                     self.assertEqual(gui.main(["--root", str(root), "--report", str(report)]), 1)
                 value = json.loads(report.read_text())
@@ -814,8 +903,8 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
                 self.assertFalse(value["gui_fixture_passed"])
                 self.assertEqual(value["failure"], {"stage": "wrapper_poll", "error_type": "TimeoutError",
                                                     "errno": None, "winerror": None})
-                auxiliary.assert_called_once_with(owner)
-                self.assertTrue(value["failure_auxiliary"]["visible_owned_windows"]["visible_window_observed"])
+                self.assertEqual(value["failure_auxiliary"]["wrapper_exit"]["status"], "unknown")
+                self.assertEqual(value["failure_auxiliary"]["held_browser_exit_codes"]["status"], "incomplete")
                 self.assertEqual(value["cleanup_failure"]["stage"], "owner_cleanup")
                 self.assertEqual(value["cleanup_failure"]["error_type"], "RuntimeError")
                 self.assertEqual(value["failure_owner_state"]["pending_query_handles"], 1)
@@ -858,6 +947,7 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
                     if rect is not None:
                         self.assertGreater(rect[2] - rect[0], 0)
             self.assertEqual(process.wait(timeout=5), 0)
+            self.assertEqual(api.exit_code(process._handle), 0)
             tree.refresh()
             self.assertTrue(tree.all_exited())
             tree.close_exited()

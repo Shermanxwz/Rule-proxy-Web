@@ -249,6 +249,8 @@ def collect_call(nonce, role, api, directory, identity):
         record.update(pid=process.pid, ppid=os.getpid(), process_created=created)
         start = time.monotonic()
         lease = None
+        last_lease_open_error = None
+        lease_access_retries = 0
         while time.monotonic() - start < STARTUP_SECONDS:
             try:
                 stage = "read_entry_lease"
@@ -260,9 +262,28 @@ def collect_call(nonce, role, api, directory, identity):
                 if process.poll() is not None:
                     break
                 time.sleep(0.01)
+            except PermissionError as exc:
+                # On Windows, a short-lived scanner/indexer open can deny the
+                # just-published atomic lease. Retry only that bounded read;
+                # preserve the final exact error if access remains denied.
+                facts = error_facts(exc, "entry_lease_open")
+                if (facts["error_stage"] != "entry_lease_open"
+                        or (facts["errno"] != 13 and facts["winerror"] not in (5, 32, 33))):
+                    raise
+                if process.poll() is not None:
+                    raise
+                last_lease_open_error = exc
+                lease_access_retries += 1
+                time.sleep(0.01)
         if lease is None:
+            if last_lease_open_error is not None:
+                if lease_access_retries > 0:
+                    record["entry_lease_access_retries"] = min(lease_access_retries, int(STARTUP_SECONDS / 0.01) + 1)
+                raise last_lease_open_error
             stage = "entry_lease_missing"
             raise RuntimeError("native entry lease missing")
+        if lease_access_retries:
+            record["entry_lease_access_retries"] = min(lease_access_retries, int(STARTUP_SECONDS / 0.01) + 1)
         stage = "validate_entry_timestamp"
         stamp = lease.get("monotonic")
         if (lease.get("state") != "native_call_prepared" or type(stamp) not in (int, float)

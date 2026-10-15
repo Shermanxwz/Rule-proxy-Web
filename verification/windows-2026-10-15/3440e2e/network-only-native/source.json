@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "3440e2ed253e61c99bc202a412382ad39ab01753",
+  "commit_tree": "ba57bb9f61fa82ebb5db3e7710cf8ee1173a8499",
+  "workflow_run": 38684396313,
+  "native_job": 116256287874,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38684396313",
+  "artifact_id": 11950327112,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "ea2410c6c94a4d8e4d9e3afc768b87343d185ec6f8a24dd2331555983061f22f",
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "source_member": "windows-vm-summary.json",
+      "bytes": 32435,
+      "sha256": "173f1e5011e9a8f209b48c0b741171663b0bc5bee4c2143d45c1db912493804a",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "guest-result.json",
+      "source_member": "guest-result.json",
+      "bytes": 90591,
+      "sha256": "730d451db36003be55b3f6ada2a227d06da156437a41d0495ffe151e9de14334",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-experiments.json",
+      "source_member": "windows-experiments.json",
+      "bytes": 73375,
+      "sha256": "c879acfca1b302769fc1d0a8b4c7f5359d928736c19ffd4dc1bf8ceb54a865f3",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-wire-evidence.json",
+      "source_member": "windows-wire-evidence.json",
+      "bytes": 26102,
+      "sha256": "764924bdefdca8ed908d00bdaa7c31a2e5bed0374d5d34843a0c6796d9283784",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    }
+  ],
+  "tested_package_sha256": "8f8c5ec5865fd7a294fa049f99da068ce13bd2cdb75a084ec2077fb4b09adc1a",
+  "status": "failed",
+  "full_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "execution": {
+    "source_diagnostic_only": true,
+    "network_diagnostic_only": true,
+    "baseline_diagnostic": true,
+    "native_x64": true,
+    "windows_build": 26300,
+    "ordinary_user": true
+  },
+  "excluded_from_archive": [
+    "raw logs, packet captures and screenshots",
+    "process identifiers, creation times, temporary paths and DNS nonces",
+    "VM media, credentials and capability URLs"
+  ]
+}

@@ -709,7 +709,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
     def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False,
                                 explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False,
                                 singleton_port_range=False, trust_contaminated=False, warmup_failure=False, trust_close_failure=False,
-                                dns_payload=None):
+                                dns_payload=None, candidate_probe_failure=False):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
         helpers.host_facts.return_value = {"native_machine": 0x8664, "python_pe_machine": 0x8664,
@@ -750,6 +750,15 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         dns.finish_payload.return_value = (dns_payload if dns_payload is not None else
             {"manifest": "private-fixed-manifest", "execution": [], "actor_execution_attested": False})
         dns.close.return_value = None
+        runtime = mock.Mock()
+        runtime.choose_guest_port.return_value = 23456
+        runtime.build_policy.return_value = {"network": {"egress": {"default": "deny"},
+            "ingress": {"default": "deny", "hostLoopback": "deny"}}}
+        runtime._probe_request.side_effect = (RuntimeError("private candidate path") if candidate_probe_failure else
+            lambda executor, policy: (wire.sequence.append("candidate_probe") or {
+                "tier": "base-container", "probes": {"baseContainerApiPresent": True},
+                "needsDaclAugmentation": False}))
+        wire.runtime = runtime
         retained = self.directory / "private-work"
         retained.mkdir()
         self.addCleanup(shutil.rmtree, retained, True)
@@ -758,6 +767,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                                        "recovery_directory": str(retained)}
 
         def variant(name, *_args, **kwargs):
+            wire.sequence.append("actor_start")
             result = {"name": name, "status": "observed", "process_started": True,
                       "descendant_cleanup_proven": True, "resources_closed": True}
             if name == "model1_internal_ingress_deny" and fail_actor:
@@ -765,9 +775,16 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                     "cleanup_error": "NativeWorkerAlive", "recovery_directory": str(retained)}}]
             return result
 
+        original_executor_verifier = experiment.verify_test_executor
+        def verify_executor(*args):
+            value = original_executor_verifier(*args)
+            wire.sequence.append("candidate_verified")
+            return value
+
         report = self.directory / "native-report.json"
         with mock.patch.object(experiment, "load_helpers", return_value=helpers), \
-                mock.patch.object(experiment, "import_project", return_value=(mock.Mock(), None, None)), \
+                mock.patch.object(experiment, "verify_test_executor", side_effect=verify_executor), \
+                mock.patch.object(experiment, "import_project", return_value=(runtime, None, None)), \
                 mock.patch.object(experiment, "DatagramObservers"), \
                 mock.patch.object(experiment.tempfile, "mkdtemp", return_value=str(retained)), \
                 mock.patch.object(experiment, "load_wire_helpers", return_value=SimpleNamespace(WireSession=wire_session)), \
@@ -796,7 +813,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         code, result, wire, _, launch, _ = self.native_dns_main_fixture(preferred_only=True)
         self.assertEqual(code, 0)
         self.assertEqual(wire.sequence, ['signature_prepare', 'before_capture', 'capture_start',
-                                         'capture_finish', 'signature_file_close'])
+                                         'actor_start', 'capture_finish', 'signature_file_close'])
         self.assertTrue(result['system_console_signature_preflight']['warmup_completed_before_capture_request'])
         self.assertTrue(result['system_console_signature_preflight']['cleanup_proven'])
         self.assertIs(launch.call_args.kwargs['console_trust'], wire.console_trust)
@@ -966,8 +983,47 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertEqual(result["runtime_integrity"]["verified_file_count"], 1)
         self.assertEqual(result["test_psec_executor"]["original_runtime_sha256"], "b" * 64)
         self.assertEqual(result["test_psec_executor"]["patch"], experiment.PSEC_TEST_PATCH)
+        warmup = result["candidate_precapture_probe"]
+        self.assertEqual(warmup["status"], "probe_passed")
+        self.assertEqual(warmup["scope"], "source_only_strict_policy_probe")
+        self.assertTrue(warmup["warmup_before_capture"])
+        self.assertEqual(warmup["executor_sha256"], result["test_psec_executor"]["executor_sha256"])
+        self.assertEqual(warmup["backend_confirmation"], {"tier": "base-container",
+            "base_container_api_present": True, "needs_dacl_augmentation": False})
+        self.assertFalse(warmup["acceptance_passed"])
+        self.assertLess(wire.sequence.index("candidate_verified"), wire.sequence.index("candidate_probe"))
+        self.assertLess(wire.sequence.index("candidate_probe"), wire.sequence.index("capture_start"))
+        self.assertLess(wire.sequence.index("capture_start"), wire.sequence.index("actor_start"))
+        wire.runtime._probe_request.assert_called_once()
+        called_executor, called_policy = wire.runtime._probe_request.call_args.args
+        self.assertEqual(called_executor, str((self.directory / "source-build/wxc-exec.exe").resolve()))
+        self.assertEqual(called_policy["network"], {"egress": {"default": "deny", "allow": [
+            {"to": [{"cidr": "127.0.0.1/32"}], "ports": [{"protocol": "tcp", "port": 23456}]}]},
+            "ingress": {"default": "deny", "hostLoopback": "deny"}})
         self.assertFalse(result["product_provider_changed"])
         self.assertFalse(result["full_acceptance_passed"])
+
+    def test_candidate_precapture_probe_failure_blocks_capture_and_all_variants(self):
+        code, result, wire, dns, launch, _ = self.native_dns_main_fixture(
+            test_executor=True, candidate_probe_failure=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["candidate_precapture_probe"]["status"], "failed")
+        self.assertTrue(result["candidate_precapture_probe"]["warmup_before_capture"])
+        self.assertFalse(result["candidate_precapture_probe"]["acceptance_passed"])
+        self.assertNotIn("private candidate path", json.dumps(result))
+        self.assertNotIn("candidate_probe", wire.sequence)
+        wire.start.assert_not_called()
+        wire.finish.assert_not_called()
+        dns.control.assert_not_called()
+        launch.assert_not_called()
+
+    def test_stock_executor_path_does_not_add_candidate_prewarm(self):
+        code, result, wire, _, _, _ = self.native_dns_main_fixture(preferred_only=True)
+        self.assertEqual(code, 0)
+        self.assertNotIn("candidate_precapture_probe", result)
+        self.assertNotIn("candidate_probe", wire.sequence)
+        wire.runtime._probe_request.assert_not_called()
 
     def test_actor_native_dns_collects_directly_in_its_owned_role_directory(self):
         guest = mock.Mock()

@@ -152,6 +152,7 @@ class NativeDnsProbeTests(unittest.TestCase):
 
     def test_entry_lease_open_failure_records_exact_stage_and_numeric_error_only(self):
         process, identity, lease, result = self.worker_records()
+        process.poll.return_value = 1  # No live writer remains, so retry cannot help.
         with mock.patch.object(probe.subprocess, "Popen", return_value=process), \
                 mock.patch.object(Path, "open", side_effect=self.permission_error()):
             report = probe.collect_call(self.nonce, "parent", "getaddrinfo", self.root / "lease-failure", identity)
@@ -162,6 +163,22 @@ class NativeDnsProbeTests(unittest.TestCase):
         self.assertNotIn("entry_lease_published", report)
         for private in ("private command", "credential", "private-path"):
             self.assertNotIn(private, json.dumps(report))
+
+    def test_transient_entry_lease_access_denial_retries_without_weakening_identity_checks(self):
+        process, identity, lease, result = self.worker_records()
+        denial = self.permission_error()
+        denial._ruleproxy_dns_stage = "entry_lease_open"
+        with mock.patch.object(probe.subprocess, "Popen", return_value=process), \
+                mock.patch.object(probe, "read_json", side_effect=[denial, lease, result]) as read:
+            report = probe.collect_call(self.nonce, "parent", "getaddrinfo", self.root / "lease-retry", identity)
+        self.assertEqual(report["outcome"], "returned")
+        self.assertTrue(report["entry_lease_published"])
+        self.assertEqual(report["entry_lease_access_retries"], 1)
+        self.assertEqual(read.call_count, 3)
+        self.assertEqual(report["pid"], process.pid)
+        self.assertEqual(report["process_created"], 120)
+        self.assertEqual(report["qname"], probe.qname(self.nonce, "parent", "getaddrinfo"))
+        self.assertTrue(report["worker_cleanup_proven"])
 
     def test_record_replace_failure_retains_specific_operation_without_serializing_path(self):
         with mock.patch.object(probe.os, "replace", side_effect=self.permission_error()):

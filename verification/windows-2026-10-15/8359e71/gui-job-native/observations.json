@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "source_commit": "8359e71c818d0cead9dd2eb0d7664a9c471c7c6c",
+  "status": "failed",
+  "full_acceptance_passed": false,
+  "product_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "gui_diagnostic_only": true,
+  "ordinary_interactive_desktop": true,
+  "probe_status": "passed",
+  "gui": {
+    "fixture_passed": false,
+    "failure_stage": "real_edge_gui_1",
+    "failure_type": "RuntimeError",
+    "wrapper_exited_before_visible_acknowledged_window": true,
+    "wrapper_exit_code": "not_collected",
+    "page_requests": 0,
+    "dom_acknowledgements": 0,
+    "visible_owned_windows": 0,
+    "outer_job_cleanup_proven": true,
+    "cleanup_proven": true
+  },
+  "host_proxy_dns_default_routes_unchanged": true,
+  "recovery_record_count": 0,
+  "limitations": [
+    "GUI diagnostic-only mode skips transport, Manager, headless browser and package tests and is always non-release.",
+    "The observed early wrapper exit is distinct from the GUI test interpreter exit code; the exact wrapper return code was not recorded.",
+    "The outer Job proves controlled descendant cleanup in this run; it does not prove a working application GUI.",
+    "Logs include an Edge Local AppData lookup failure and Crashpad failure; these observations do not establish the cause of the early exit."
+  ]
+}

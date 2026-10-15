@@ -372,6 +372,94 @@ class UiPolicyTests(unittest.TestCase):
             self.assertEqual(result["status"], "budget_not_started")
             load.assert_not_called()
 
+    def test_optional_gui_owns_controller_job_through_natural_owner_cleanup(self):
+        events = []
+        policy = baseline()
+        runtime_api = SimpleNamespace(build_policy=lambda *args, **kwargs: copy.deepcopy(policy), launch=mock.Mock())
+        runtime_path = Path("owned-runtime.exe")
+        fixture = mock.Mock()
+        fixture.close.side_effect = lambda: events.append("fixture_close")
+        browser_module = SimpleNamespace(BrowserFixture=mock.Mock(return_value=fixture))
+        job = mock.Mock()
+        job.close.side_effect = lambda: events.append("job_close")
+        owner_jobs = []
+
+        class FakeGui:
+            @staticmethod
+            def interactive_facts():
+                return {"ordinary_interactive": True}
+
+            @staticmethod
+            def GuiJob():
+                events.append("job_create_assign")
+                return job
+
+            class GuiRun:
+                def __init__(self, *args):
+                    events.append("owner_construct")
+                    self.job = args[-1]
+                    owner_jobs.append(self.job)
+
+                def run(self, phase):
+                    runtime_api.build_policy([r"C:\\Edge\\msedge.exe"])
+                    return {"status": "gui_fixture_only"}
+
+                def close(self):
+                    events.append("owner_close")
+
+        with mock.patch.object(ui, "source_module", return_value=FakeGui), \
+                mock.patch.object(ui.tempfile, "mkdtemp", return_value="/tmp/unused-gui-fixture"), \
+                mock.patch.object(ui, "add_job_context", side_effect=lambda result, override: result.update(
+                    edge_crash_evidence={"reader_cleanup_proven": True})), \
+                mock.patch.object(ui.shutil, "rmtree", side_effect=lambda path: events.append("directory_remove")):
+            result = ui.optional_gui([{"id": "handles_ime", "single_launch_fixture_passed": True}],
+                {"native_machine": 0x8664, "python_pe_machine": 0x8664}, runtime_api, runtime_path,
+                r"C:\\Edge\\msedge.exe", browser_module, mock.Mock(), time.monotonic() + 600)
+        self.assertEqual(result["cleanup_proven"], True)
+        self.assertTrue(result["single_visible_gui_observed"], result)
+        self.assertEqual(events, ["job_create_assign", "owner_construct", "owner_close", "job_close",
+                                  "fixture_close", "directory_remove"])
+        self.assertEqual(owner_jobs, [job])
+        fixture.close.assert_called_once_with()
+
+    def test_optional_gui_job_cleanup_failure_retains_fixture_and_profile(self):
+        fixture = mock.Mock()
+        browser_module = SimpleNamespace(BrowserFixture=mock.Mock(return_value=fixture))
+        recovery_job = mock.Mock()
+        recovery_job.close.side_effect = RuntimeError("descendants remain")
+        failure = RuntimeError("controller verification failed")
+        failure._gui_job_owner = recovery_job
+
+        class FakeGui:
+            @staticmethod
+            def interactive_facts():
+                return {"ordinary_interactive": True}
+
+            @staticmethod
+            def GuiJob():
+                raise failure
+
+        retained_count = len(ui._RECOVERY_OWNERS)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / "retained"
+            directory.mkdir()
+            try:
+                with mock.patch.object(ui, "source_module", return_value=FakeGui), \
+                        mock.patch.object(ui.tempfile, "mkdtemp", return_value=str(directory)), \
+                        mock.patch.object(ui.shutil, "rmtree") as remove:
+                    result = ui.optional_gui([{"id": "handles_ime", "single_launch_fixture_passed": True}],
+                        {"native_machine": 0x8664, "python_pe_machine": 0x8664}, object(), object(),
+                        r"C:\\Edge\\msedge.exe", browser_module, mock.Mock(), time.monotonic() + 600)
+                self.assertFalse(result["cleanup_proven"])
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["recovery_directory"], str(directory))
+                fixture.close.assert_not_called()
+                remove.assert_not_called()
+                self.assertIs(ui._RECOVERY_OWNERS[-1][1], fixture)
+                self.assertIs(ui._RECOVERY_OWNERS[-1][3], recovery_job)
+            finally:
+                del ui._RECOVERY_OWNERS[retained_count:]
+
     def main_fixture(self, root):
         browser = mock.Mock()
         helpers = browser.acceptance_helpers.return_value

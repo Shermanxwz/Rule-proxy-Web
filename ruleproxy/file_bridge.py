@@ -50,6 +50,8 @@ _STREAM_LIMIT = 64
 _CONNECT_TIMEOUT = 5.0
 _IO_TIMEOUT = 1.0
 _CONTROL_MAX = 1024
+_SHARING_RETRY_DELAYS = (0.01, 0.025, 0.05, 0.075, 0.1)
+_WINDOWS_SHARING_ERRORS = {5, 32, 33}
 
 _TYPES = {
     "READY": 1,
@@ -74,6 +76,18 @@ class BridgeError(RuntimeError):
     """Raised when the bounded bridge protocol cannot continue safely."""
 
 
+def _retry_windows_sharing(operation):
+    """Retry only brief Windows sharing/access conflicts on one file operation."""
+    for retry in range(len(_SHARING_RETRY_DELAYS) + 1):
+        try:
+            return operation()
+        except OSError as exc:
+            if (os.name != "nt" or getattr(exc, "winerror", None) not in _WINDOWS_SHARING_ERRORS
+                    or retry == len(_SHARING_RETRY_DELAYS)):
+                raise
+            time.sleep(_SHARING_RETRY_DELAYS[retry])
+
+
 def _nonce_tag(nonce: str) -> bytes:
     if not isinstance(nonce, str) or len(nonce) != 64:
         raise BridgeError("invalid bridge nonce")
@@ -96,7 +110,7 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temp, path)
+        _retry_windows_sharing(lambda: os.replace(temp, path))
     finally:
         try:
             temp.unlink()
@@ -106,7 +120,8 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
 
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
-        with path.open("rb") as stream:
+        stream = _retry_windows_sharing(lambda: path.open("rb"))
+        with stream:
             raw = stream.read(_CONTROL_MAX + 1)
     except FileNotFoundError:
         return None

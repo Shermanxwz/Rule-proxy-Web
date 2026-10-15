@@ -90,6 +90,30 @@ class WindowsVmTests(unittest.TestCase):
     def test_complete_native_transport_report_is_accepted_without_claiming_real_nodes(self):
         vm.verify_result(self.passed_result())
 
+    def test_gui_verifier_selects_chromium_names_only_for_explicit_source_control_report(self):
+        result = self.passed_result()
+        report = result["reports"]["gui"]
+        report.update(chromium_gui_control_diagnostic=True, source_diagnostic_only=True,
+                      product_browser_replaced=False)
+        report["browser"]["application"] = "chrome_for_testing_control"
+        for check in report["checks"][:2]:
+            check["check"] = check["check"].replace("real_edge_gui", "real_chromium_control_gui")
+        vm.verify_result(result)
+
+        # Chrome-labelled checks cannot satisfy an Edge/default report.
+        del report["chromium_gui_control_diagnostic"]
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
+
+    def test_chrome_control_marker_cannot_pass_with_edge_check_names(self):
+        result = self.passed_result()
+        report = result["reports"]["gui"]
+        report.update(chromium_gui_control_diagnostic=True, source_diagnostic_only=True,
+                      product_browser_replaced=False)
+        report["browser"]["application"] = "chrome_for_testing_control"
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
+
     def test_zero_exit_does_not_replace_required_guest_evidence(self):
         cases = []
         bad = self.passed_result()
@@ -285,6 +309,7 @@ class WindowsVmTests(unittest.TestCase):
             self.assertTrue({"tests/test_manager_server.py", "scripts/windows-acceptance.py",
                              ".github/run_tests.py", ".github/windows_vm_test.py",
                              ".github/windows_browser_check.py", ".github/build_windows_package.py",
+                             ".github/windows_chromium_control.py",
                              ".github/windows-vm-run.ps1", ".github/windows-vm-setup.ps1",
                              ".github/workflows/check.yml",
                              ".github/windows-vm-unattend.xml"} <= names)
@@ -294,6 +319,23 @@ class WindowsVmTests(unittest.TestCase):
                              {"examples/ruleproxy.example.yaml", ".github/workflows/check.yml"})
             self.assertFalse(any(name.startswith(("ruleproxy/", "vendor/", "RuleProxy-Web/")) for name in names))
             self.assertNotIn("Run-RuleProxy.py", names)
+
+    def test_payload_adds_pinned_chromium_control_outside_product_zip(self):
+        package = self.root / "release.zip"
+        package.write_bytes(b"product package bytes")
+        control = self.root / "chromium-control.zip"
+        control.write_bytes(b"pinned archive fixture")
+        payload = self.root / "payload.zip"
+        helper = SimpleNamespace(ARCHIVE_SHA256="a" * 64, _check_archive=mock.Mock(return_value="a" * 64))
+        with mock.patch.object(vm, "load_chromium_control_helper", return_value=helper):
+            vm.make_payload(package, payload, chromium_control_archive=control)
+        helper._check_archive.assert_called_once_with(control)
+        with zipfile.ZipFile(payload) as archive:
+            self.assertEqual(archive.read("package.zip"), package.read_bytes())
+            self.assertEqual(archive.read(vm.CHROMIUM_CONTROL_ARCHIVE_MEMBER), control.read_bytes())
+            self.assertEqual(archive.getinfo(vm.CHROMIUM_CONTROL_ARCHIVE_MEMBER).compress_type,
+                             zipfile.ZIP_STORED)
+            self.assertNotIn("chromium-control/chrome.exe", archive.namelist())
 
     def test_local_result_endpoint_requires_its_nonce_and_preserves_guest_reports(self):
         payload = self.root / "payload.zip"
@@ -412,6 +454,57 @@ class WindowsVmTests(unittest.TestCase):
                 self.assertFalse(result["real_node_passed"])
                 if baseline:
                     self.assertNotIn("packages", result["official_update"])
+
+    def test_host_fetches_and_seeds_chromium_only_for_explicit_gui_control(self):
+        package = self.root / "package.zip"
+        with zipfile.ZipFile(package, "w") as archive:
+            for name in ("python/python.exe", "ruleproxy/windows_runtime.py",
+                         "bin/windows-amd64/wxc-exec.exe", "bin/windows-amd64/runtime.json"):
+                archive.writestr("RuleProxy-Web/" + name, b"fixture")
+        work = self.root / "chromium-work"
+        work.mkdir()
+        iso_data = b"public small ISO fixture, never booted"
+
+        def subprocess_run(command, **_):
+            if command[0] == "curl":
+                Path(command[command.index("--output") + 1]).write_bytes(iso_data)
+
+        def fetch_archive(path):
+            path.write_bytes(b"pinned chromium archive")
+            return "c" * 64
+
+        helper = SimpleNamespace(ARCHIVE_SHA256="c" * 64, VERSION="154.0.8037.92", PLATFORM="win64",
+                                 fetch_archive=mock.Mock(side_effect=fetch_archive))
+        server = mock.Mock(server_address=("127.0.0.1", 43210), capability="a" * 64)
+        args = SimpleNamespace(artifacts=self.root, package=package, package_sha256=vm.digest(package),
+                               timeout_seconds=300, baseline_diagnostic=True, gui_diagnostic_only=True,
+                               chromium_gui_control=True)
+        with mock.patch.object(vm, "require_kvm", return_value=12), \
+                mock.patch.object(vm.shutil, "which", return_value="fixture-tool"), \
+                mock.patch.object(vm.shutil, "disk_usage", return_value=SimpleNamespace(free=100 * 1024**3)), \
+                mock.patch.object(vm.Path, "is_file", return_value=True), \
+                mock.patch.object(vm.tempfile, "TemporaryDirectory") as directory, \
+                mock.patch.object(vm, "ISO_BYTES", len(iso_data)), \
+                mock.patch.object(vm, "ISO_SHA256", hashlib.sha256(iso_data).hexdigest()), \
+                mock.patch.object(vm.subprocess, "run", side_effect=subprocess_run), \
+                mock.patch.object(vm, "load_chromium_control_helper", return_value=helper), \
+                mock.patch.object(vm, "make_payload", return_value="b" * 64) as make_payload, \
+                mock.patch.object(vm, "GuestServer", return_value=server), \
+                mock.patch.object(vm, "validate_install_tree", return_value="efi/microsoft/boot/efisys_noprompt.bin"), \
+                mock.patch.object(vm, "prepare_seed", side_effect=RuntimeError("stop before boot")) as seed, \
+                mock.patch("builtins.print"):
+            directory.return_value.__enter__.return_value = str(work)
+            result = vm.run(args)
+        self.assertEqual(result["error"], "RuntimeError: stop before boot")
+        helper.fetch_archive.assert_called_once_with(work / vm.CHROMIUM_CONTROL_ARCHIVE_MEMBER)
+        make_payload.assert_called_once_with(package, work / "payload.zip", test_executor_bundle=None,
+                                             chromium_control_archive=work / vm.CHROMIUM_CONTROL_ARCHIVE_MEMBER)
+        config = seed.call_args.args[2]
+        self.assertTrue(config["gui_diagnostic_only"])
+        self.assertTrue(config["chromium_gui_control_diagnostic"])
+        self.assertEqual(config["chromium_gui_control_archive_sha256"], "c" * 64)
+        self.assertEqual(result["chromium_gui_control"]["archive_sha256"], "c" * 64)
+        self.assertFalse(result["full_acceptance_passed"])
 
     def test_remastered_layout_keeps_only_actual_fixed_boot_wim_extent_facts(self):
         iso = self.root / "remastered.iso"
@@ -756,6 +849,57 @@ raise SystemExit(configuration.get('exit_code', 0))
                                   phases=[{"name": name, "status": "passed", "exit_code": 0}
                                           for name in vm.PHASE_NAMES]))
 
+    def test_gui_diagnostic_stages_pinned_chromium_and_passes_only_control_root(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "gui-chromium-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True,
+                                      "chromium_gui_control_diagnostic": True,
+                                      "chromium_gui_control_archive_sha256": "d" * 64}), encoding="utf-8")
+        staged_exe = self.root / "private-chrome" / "chrome-win64" / "chrome.exe"
+        staged_exe.parent.mkdir(parents=True)
+        staged_exe.write_bytes(b"pinned control executable")
+        def extract(archive, destination):
+            self.assertEqual(archive, workspace / vm.CHROMIUM_CONTROL_ARCHIVE_MEMBER)
+            self.assertEqual(destination, self.root / "gui-reports" / "chromium-control")
+            return staged_exe
+        helper = SimpleNamespace(ARCHIVE_SHA256="d" * 64, VERSION="154.0.8037.92", PLATFORM="win64",
+                                 extract_archive=extract)
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            return {"name": name, "status": "passed", "exit_code": 0}, \
+                {"status": "supported_only"} if name == "probe" else {"gui_fixture_passed": True}, "child ran"
+        with mock.patch.object(vm, "load_chromium_control_helper", return_value=helper), \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "gui-reports",
+                                         vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "gui"])
+        gui_command = calls[1][1]
+        self.assertIn("--chromium-control-root", gui_command)
+        self.assertEqual(gui_command[gui_command.index("--chromium-control-root") + 1],
+                         str(self.root / "gui-reports" / "chromium-control"))
+        self.assertEqual(result["chromium_gui_control"]["status"], "ready")
+        self.assertEqual(result["chromium_gui_control"]["chrome_exe_sha256"], hashlib.sha256(
+            b"pinned control executable").hexdigest())
+        self.assertFalse(result["product_acceptance_passed"])
+
+    def test_gui_diagnostic_chromium_failure_blocks_before_gui_launch(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "gui-chromium-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True,
+                                      "chromium_gui_control_diagnostic": True,
+                                      "chromium_gui_control_archive_sha256": "d" * 64}), encoding="utf-8")
+        helper = SimpleNamespace(ARCHIVE_SHA256="d" * 64, VERSION="154.0.8037.92", PLATFORM="win64",
+                                 extract_archive=mock.Mock(side_effect=ValueError("invalid archive")))
+        with mock.patch.object(vm, "load_chromium_control_helper", return_value=helper):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "gui-reports",
+                                         vm_config=config)
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe"])
+        self.assertEqual(result["phases"][4]["status"], "blocked")
+        self.assertEqual(result["phases"][4]["reason"], "pinned_chromium_control_unavailable")
+        self.assertEqual(result["chromium_gui_control"]["error_type"], "ValueError")
+        self.assertFalse(result["product_acceptance_passed"])
+
     def test_gui_diagnostic_only_probe_failure_blocks_gui_and_never_runs_package_tests(self):
         workspace = self.guest_control_workspace({"probe": {"exit_code": 3, "report": {
             "status": "unsupported", "probe": {"supported": False}, "acceptance_passed": False,
@@ -797,6 +941,25 @@ raise SystemExit(configuration.get('exit_code', 0))
             vm.guest_gui_diagnostic_only(config)
         with self.assertRaisesRegex(RuntimeError, "cannot qualify product acceptance"):
             vm.verify_result(self.passed_result(), gui_diagnostic_only=True)
+
+    def test_chromium_gui_control_config_requires_manual_gui_only_and_fixed_hash_shape(self):
+        config = self.root / "gui-chromium-vm-config.json"
+        valid = {"gui_diagnostic_only": True, "chromium_gui_control_diagnostic": True,
+                 "chromium_gui_control_archive_sha256": "d" * 64}
+        config.write_text(json.dumps(valid), encoding="utf-8")
+        self.assertTrue(vm.guest_diagnostic_options(config)[3])
+        invalid = [
+            {"chromium_gui_control_diagnostic": True, "chromium_gui_control_archive_sha256": "d" * 64},
+            {**valid, "chromium_gui_control_diagnostic": 1},
+            {**valid, "network_diagnostic_only": True},
+            {**valid, "test_psec_executor_diagnostic": True},
+            {**valid, "chromium_gui_control_archive_sha256": "not-a-digest"},
+            {"gui_diagnostic_only": True, "chromium_gui_control_archive_sha256": "d" * 64},
+        ]
+        for value in invalid:
+            config.write_text(json.dumps(value), encoding="utf-8")
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                vm.guest_diagnostic_options(config)
 
     def test_network_diagnostic_only_runs_probe_then_preferred_experiment_and_never_accepts(self):
         workspace = self.guest_control_workspace({"experiments": {"report": {
@@ -993,6 +1156,21 @@ raise SystemExit(configuration.get('exit_code', 0))
                                      "--test-psec-manifest", str(self.root / "manifest.json")])
             self.assertEqual(failure.exception.code, 2)
             run.assert_not_called()
+
+    def test_chromium_control_cli_requires_gui_only_original_sdk(self):
+        base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                "--artifacts", str(self.root / "artifacts"), "--chromium-gui-control"]
+        for extra in ([], ["--gui-diagnostic-only", "--network-diagnostic-only"],
+                      ["--gui-diagnostic-only", "--test-psec-executor", "candidate.exe",
+                       "--test-psec-manifest", "candidate.json"]):
+            with self.subTest(extra=extra), mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+                with self.assertRaises(SystemExit) as failure:
+                    vm.main(base + extra)
+                self.assertEqual(failure.exception.code, 2)
+                run.assert_not_called()
+        with mock.patch.object(vm, "run", return_value=self.passed_result()) as run:
+            self.assertEqual(vm.main(base + ["--gui-diagnostic-only"]), 1)
+            self.assertTrue(run.call_args.args[0].chromium_gui_control)
 
     def test_pending_cleanup_preserves_recovery_and_blocks_new_containers(self):
         recovery = self.root / "retained-guard"
@@ -1890,6 +2068,9 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         gui_option = trigger['workflow_dispatch']['inputs']['gui_diagnostic_only']
         self.assertEqual(gui_option, {'description': gui_option['description'], 'required': False,
                                       'type': 'boolean', 'default': False})
+        chromium_option = trigger['workflow_dispatch']['inputs']['chromium_gui_control_diagnostic']
+        self.assertEqual(chromium_option, {'description': chromium_option['description'], 'required': False,
+                                           'type': 'boolean', 'default': False})
         job = workflow['jobs']['windows-11-x64']
         network_option = trigger['workflow_dispatch']['inputs']['network_diagnostic_only']
         self.assertEqual(network_option, {'description': network_option['description'], 'required': False,
@@ -1899,6 +2080,10 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         run_step = next(step for step in job['steps'] if step.get('name') == 'Run a checksum-verified official Windows 11 evaluation guest')
         self.assertIn('inputs.gui_diagnostic_only', run_step['env']['RULEPROXY_VM_GUI_DIAGNOSTIC'])
         self.assertIn('--gui-diagnostic-only', run_step['run'])
+        self.assertIn('inputs.chromium_gui_control_diagnostic', run_step['env']['RULEPROXY_VM_CHROMIUM_CONTROL'])
+        self.assertIn('--chromium-gui-control', run_step['run'])
+        self.assertIn('CHROMIUM_CONTROL', validation['env'])
+        self.assertIn('CHROMIUM_CONTROL', validation['run'])
         self.assertIn('inputs.network_diagnostic_only', run_step['env']['RULEPROXY_VM_NETWORK_DIAGNOSTIC'])
         self.assertIn('--network-diagnostic-only', run_step['run'])
         singleton_option = trigger['workflow_dispatch']['inputs']['singleton_port_range_diagnostic']

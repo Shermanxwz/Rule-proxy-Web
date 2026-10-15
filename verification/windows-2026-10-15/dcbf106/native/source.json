@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "dcbf106c2a2af0867b774601b4bfcd4558d00993",
+  "workflow_run": 38669978025,
+  "native_job": 116211118358,
+  "artifact_id": 11950196774,
+  "artifact_sha256": "ec25612a3cddaf6da7b12d696ac1ea45c5e55d343f361dcb6972610d4ab02642",
+  "evidence_files": [
+    {
+      "source_member": "windows-vm-summary.json",
+      "bytes": 3717,
+      "sha256": "e137fbe6eaa79e283d2693f53073c4239bdaf9bea336662e28397f0ae1bf7ac5"
+    }
+  ],
+  "status": "failed",
+  "full_acceptance_passed": false
+}

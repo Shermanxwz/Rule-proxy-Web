@@ -52,6 +52,129 @@ class FileBridgeTests(unittest.TestCase):
         self.addCleanup(bridge.close)
         return bridge, finished, errors
 
+    @staticmethod
+    def sharing_error(winerror=32):
+        error = PermissionError(13, "sharing violation")
+        error.winerror = winerror
+        return error
+
+    def test_control_read_retries_only_bounded_windows_sharing_errors(self):
+        path = self.root / "guest-status.json"
+        file_bridge._atomic_json(path, {"nonce": "a" * 64, "state": "GUEST_READY"})
+        real_open = Path.open
+        calls = []
+
+        def open_once_with_conflict(candidate, *args, **kwargs):
+            if candidate == path and not calls:
+                calls.append("conflict")
+                raise self.sharing_error(32)
+            calls.append("open")
+            return real_open(candidate, *args, **kwargs)
+
+        with mock.patch.object(file_bridge.os, "name", "nt"), \
+                mock.patch.object(file_bridge.time, "sleep"), \
+                mock.patch.object(Path, "open", autospec=True, side_effect=open_once_with_conflict):
+            value = file_bridge._read_json(path)
+        self.assertEqual(value, {"nonce": "a" * 64, "state": "GUEST_READY"})
+        self.assertEqual(calls, ["conflict", "open"])
+
+    def test_atomic_control_replace_retries_windows_sharing_error(self):
+        path = self.root / "guest-status.json"
+        real_replace = os.replace
+        calls = []
+
+        def replace_once_with_conflict(source, destination):
+            calls.append((source, destination))
+            if len(calls) == 1:
+                raise self.sharing_error(33)
+            return real_replace(source, destination)
+
+        with mock.patch.object(file_bridge.os, "name", "nt"), \
+                mock.patch.object(file_bridge.time, "sleep"), \
+                mock.patch.object(file_bridge.os, "replace", side_effect=replace_once_with_conflict):
+            file_bridge._atomic_json(path, {"state": "GUEST_READY"})
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(file_bridge._read_json(path), {"state": "GUEST_READY"})
+
+    def test_persistent_windows_sharing_error_reraises_after_bounded_retries(self):
+        path = self.root / "guest-status.json"
+        error = self.sharing_error(5)
+        calls = []
+
+        def always_conflict(_path, *_args, **_kwargs):
+            calls.append(True)
+            raise error
+
+        with mock.patch.object(file_bridge.os, "name", "nt"), \
+                mock.patch.object(file_bridge.time, "sleep") as sleep, \
+                mock.patch.object(Path, "open", autospec=True, side_effect=always_conflict):
+            with self.assertRaises(PermissionError) as raised:
+                file_bridge._read_json(path)
+        self.assertIs(raised.exception, error)
+        self.assertEqual(len(calls), len(file_bridge._SHARING_RETRY_DELAYS) + 1)
+        self.assertEqual(sleep.call_count, len(file_bridge._SHARING_RETRY_DELAYS))
+
+    def test_nonsharing_and_nonwindows_errors_are_not_retried(self):
+        path = self.root / "guest-status.json"
+        error = PermissionError(13, "access denied")
+        error.winerror = 5
+        calls = []
+
+        def denied(*_args, **_kwargs):
+            calls.append(True)
+            raise error
+
+        with mock.patch.object(file_bridge.os, "name", "posix"), \
+                mock.patch.object(file_bridge.time, "sleep") as sleep, \
+                mock.patch.object(Path, "open", autospec=True, side_effect=denied):
+            with self.assertRaises(PermissionError) as raised:
+                file_bridge._read_json(path)
+        self.assertIs(raised.exception, error)
+        self.assertEqual(len(calls), 1)
+        sleep.assert_not_called()
+
+    def test_windows_nonsharing_error_is_not_retried(self):
+        path = self.root / "guest-status.json"
+        error = OSError(22, "invalid parameter")
+        error.winerror = 87
+        calls = []
+
+        def invalid(*_args, **_kwargs):
+            calls.append(True)
+            raise error
+
+        with mock.patch.object(file_bridge.os, "name", "nt"), \
+                mock.patch.object(file_bridge.time, "sleep") as sleep, \
+                mock.patch.object(Path, "open", autospec=True, side_effect=invalid):
+            with self.assertRaises(OSError) as raised:
+                file_bridge._read_json(path)
+        self.assertIs(raised.exception, error)
+        self.assertEqual(len(calls), 1)
+        sleep.assert_not_called()
+
+    def test_persistent_replace_conflict_keeps_old_status_and_removes_temp_file(self):
+        path = self.root / "guest-status.json"
+        old_value = {"state": "BRIDGE_READY", "nonce": "a" * 64}
+        file_bridge._atomic_json(path, old_value)
+        error = self.sharing_error(32)
+        calls = []
+
+        def always_conflict(source, destination):
+            calls.append((source, destination))
+            raise error
+
+        with mock.patch.object(file_bridge.os, "name", "nt"), \
+                mock.patch.object(file_bridge.time, "sleep"), \
+                mock.patch.object(file_bridge.os, "replace", side_effect=always_conflict):
+            with self.assertRaises(PermissionError) as raised:
+                file_bridge._atomic_json(path, {"state": "GUEST_READY", "nonce": "b" * 64})
+        self.assertIs(raised.exception, error)
+        self.assertEqual(len(calls), len(file_bridge._SHARING_RETRY_DELAYS) + 1)
+        self.assertTrue(all(source.parent == self.root and destination == path
+                            for source, destination in calls))
+        self.assertEqual(file_bridge._read_json(path), old_value)
+        self.assertEqual(list(self.root.glob(path.name + ".tmp-*")), [])
+
     def make_guest(self, bridge):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
             candidate.bind(("127.0.0.1", 0))

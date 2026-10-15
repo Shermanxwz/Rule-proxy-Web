@@ -1174,6 +1174,35 @@ def record_unselected_wire_probes(wire, unselected):
             "api_accepted": False, "errno": None} for probe in wire.for_variant(name))
 
 
+def pre_capture_candidate_probe(runtime, executor, metadata, directory):
+    """Warm the explicitly selected source-only executor outside any wire capture."""
+    record = {"status": "failed", "scope": "source_only_strict_policy_probe",
+              "warmup_before_capture": True, "acceptance_passed": False,
+              "executor_sha256": metadata.get("executor_sha256") if isinstance(metadata, dict) else None}
+    try:
+        profile = directory / "candidate-prewarm"
+        profile.mkdir()
+        port = runtime.choose_guest_port(1)
+        harmless_command = [sys.executable, "-I", "-S", "-c", "pass"]
+        policy = runtime.build_policy(harmless_command, {}, profile, port)
+        policy.update(network_policy(PREFERRED_VARIANT, port, port))
+        observed = runtime._probe_request(str(executor), policy)
+        probes = observed.get("probes") if isinstance(observed, dict) else None
+        if (not isinstance(observed, dict) or observed.get("tier") != "base-container"
+                or not isinstance(probes, dict) or probes.get("baseContainerApiPresent") is not True
+                or observed.get("needsDaclAugmentation") is not False):
+            raise RuntimeError("strict backend confirmation was incomplete")
+        record.update(status="probe_passed", backend_confirmation={
+            "tier": "base-container", "base_container_api_present": True,
+            "needs_dacl_augmentation": False})
+    except Exception as exc:
+        record["failure_type"] = type(exc).__name__[:64]
+        error = RuntimeError("Source-only candidate pre-capture strict probe failed")
+        error.candidate_precapture_probe = record
+        raise error from None
+    return record
+
+
 def main(arguments):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, type=Path)
@@ -1233,6 +1262,16 @@ def main(arguments):
             raise RuntimeError("Named-pipe experiment script is missing")
         before = helpers.network_snapshot()
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-network-experiment-"))
+        if executor is not None:
+            try:
+                result["candidate_precapture_probe"] = pre_capture_candidate_probe(runtime, executor,
+                    result.get("test_psec_executor"), directory)
+            except Exception as exc:
+                result["candidate_precapture_probe"] = getattr(exc, "candidate_precapture_probe", {
+                    "status": "failed", "scope": "source_only_strict_policy_probe",
+                    "warmup_before_capture": True, "acceptance_passed": False,
+                    "failure_type": type(exc).__name__[:64]})
+                raise
         fixtures, udp = helpers.HostFixtures(), DatagramObservers()
         if args.vm_config is not None:
             # Trust verification may retrieve certificate/catalog data. Keep

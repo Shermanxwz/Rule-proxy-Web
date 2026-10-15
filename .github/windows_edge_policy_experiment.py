@@ -484,13 +484,18 @@ def optional_gui(variants, facts, runtime_module, runtime, edge, browser_module,
         return result
     result.update(status="observed", variant=chosen[0], requested=requested_ui(chosen),
                   requests=[], interactive=interactive, cleanup_proven=False)
-    directory = fixture = owner = None
+    directory = fixture = owner = job = None
     safe = True
     override = None
     try:
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-edge-ui-gui-"))
         fixture = browser_module.BrowserFixture()
-        owner = gui.GuiRun(runtime, edge, directory / "profiles", fixture, helpers, browser_module)
+        try:
+            job = gui.GuiJob()
+        except Exception as exc:
+            job = getattr(exc, "_gui_job_owner", None)
+            raise
+        owner = gui.GuiRun(runtime, edge, directory / "profiles", fixture, helpers, browser_module, job)
         override = UIOverride(runtime_module, chosen, result["requests"], observe_jobs=True)
         with override:
             result["check"] = owner.run(1)
@@ -502,13 +507,24 @@ def optional_gui(variants, facts, runtime_module, runtime, edge, browser_module,
         if isinstance(exc, (DiagnosticError, TypeError, KeyError, AttributeError, ImportError)):
             result.update(status="failed", tool_error=True)
     finally:
-        for item in (owner, fixture):
-            if item is not None:
-                try:
-                    item.close()
-                except Exception as exc:
-                    safe = False
-                    result.update(cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+        if owner is not None:
+            try:
+                owner.close()
+            except Exception as exc:
+                safe = False
+                result.update(cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+        if safe and job is not None:
+            try:
+                job.close()
+            except Exception as exc:
+                safe = False
+                result.update(cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+        if safe and fixture is not None:
+            try:
+                fixture.close()
+            except Exception as exc:
+                safe = False
+                result.update(cleanup_error=type(exc).__name__, recovery_directory=str(directory))
         if override is not None:
             try:
                 add_job_context(result, override)
@@ -526,7 +542,7 @@ def optional_gui(variants, facts, runtime_module, runtime, edge, browser_module,
         result["cleanup_proven"] = safe
         if not safe:
             result.update(status="failed", single_visible_gui_observed=False)
-            _RECOVERY_OWNERS.append((owner, fixture, directory))
+            _RECOVERY_OWNERS.append((owner, fixture, directory, job))
     return result
 
 

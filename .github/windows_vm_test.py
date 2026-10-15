@@ -78,6 +78,7 @@ MIN_INSTALL_IMAGE_BYTES = 1024**3
 TEST_EXECUTOR_DIRECTORY = "test-psec-executor"
 TEST_EXECUTOR_FILES = ("wxc-exec.exe", "build-manifest.json", "MXC-LICENSE.md")
 TEST_EXECUTOR_LICENSE_SHA256 = "d9a1b1e30d633d5732ea18e3cba9538d293ebc53e1a9e4e96ab739e0c5c4f1cb"
+CHROMIUM_CONTROL_ARCHIVE_MEMBER = "chromium-control.zip"
 OUTSIDE_EDGE_SCOPE = "ordinary_windows_stock_edge_fixed_http_health"
 OUTSIDE_EDGE_FALSE_FLAGS = ("acceptance_passed", "full_acceptance_passed", "real_node_passed",
                            "browser_fixture_passed", "browser_sandbox_weakened", "public_udp_proven", "system_dns_proven")
@@ -226,10 +227,20 @@ def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
     return executor, directory / "build-manifest.json", metadata
 
 
-def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool]:
+def load_chromium_control_helper(root: Path = ROOT):
+    path = root / ".github/windows_chromium_control.py"
+    spec = importlib.util.spec_from_file_location("ruleproxy_windows_chromium_control", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Pinned Chromium control helper is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None]:
     """Read mutually exclusive source diagnostic phase selections safely."""
     if vm_config is None:
-        return False, False, False
+        return False, False, False, False, None
     def unique_fields(pairs):
         value = {}
         for key, item in pairs:
@@ -246,12 +257,20 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool]:
         enabled = config.get("gui_diagnostic_only", False) if isinstance(config, dict) else None
         network = config.get("network_diagnostic_only", False) if isinstance(config, dict) else None
         singleton = config.get("singleton_port_range_diagnostic", False) if isinstance(config, dict) else None
+        chromium_control = config.get("chromium_gui_control_diagnostic", False) if isinstance(config, dict) else None
         executor_enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
-        if any(type(flag) is not bool for flag in (enabled, network, singleton, executor_enabled)):
+        chromium_sha256 = config.get("chromium_gui_control_archive_sha256") if isinstance(config, dict) else None
+        if any(type(flag) is not bool for flag in (enabled, network, singleton, chromium_control, executor_enabled)):
             raise ValueError
         if (enabled and (executor_enabled or network)) or (singleton and (not network or executor_enabled)):
             raise ValueError
-        return enabled, network, singleton
+        if chromium_control:
+            if (not enabled or network or executor_enabled or not isinstance(chromium_sha256, str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", chromium_sha256)):
+                raise ValueError
+        elif chromium_sha256 is not None:
+            raise ValueError
+        return enabled, network, singleton, chromium_control, chromium_sha256
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic configuration is invalid") from exc
 
@@ -268,8 +287,13 @@ def guest_network_diagnostic_only(vm_config: Path | None) -> bool:
     return guest_diagnostic_modes(vm_config)[1]
 
 
-def make_payload(package: Path, destination: Path, *, test_executor_bundle: Path | None = None) -> str:
+def make_payload(package: Path, destination: Path, *, test_executor_bundle: Path | None = None,
+                 chromium_control_archive: Path | None = None) -> str:
     """Ship source tests separately, preserving the release's code origin."""
+    if chromium_control_archive is not None:
+        helper = load_chromium_control_helper(ROOT)
+        if helper._check_archive(chromium_control_archive) != helper.ARCHIVE_SHA256:
+            raise RuntimeError("Pinned Chromium control archive changed before payload creation")
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.write(package, "package.zip")
         for folder in ("tests", "scripts", ".github"):
@@ -288,6 +312,9 @@ def make_payload(package: Path, destination: Path, *, test_executor_bundle: Path
         if test_executor_bundle is not None:
             for name in TEST_EXECUTOR_FILES:
                 archive.write(test_executor_bundle / name, f"{TEST_EXECUTOR_DIRECTORY}/{name}")
+        if chromium_control_archive is not None:
+            archive.write(chromium_control_archive, CHROMIUM_CONTROL_ARCHIVE_MEMBER,
+                          compress_type=zipfile.ZIP_STORED)
     return digest(destination)
 
 
@@ -960,28 +987,36 @@ def verify_phase_report(name: str, report: dict) -> None:
         if checks["real_edge_launch_2"].get("private_profile_reused") is not True:
             raise RuntimeError("Edge fixture did not retain the private browser profile")
     elif name == "gui":
+        browser = report.get("browser", {})
+        chrome_control = (report.get("chromium_gui_control_diagnostic") is True
+                          and report.get("source_diagnostic_only") is True
+                          and isinstance(browser, dict)
+                          and browser.get("application") == "chrome_for_testing_control"
+                          and report.get("product_browser_replaced") is False)
+        check_prefix = "real_chromium_control_gui" if chrome_control else "real_edge_gui"
         if (report.get("status") != "gui_fixture_only" or report.get("gui_fixture_passed") is not True
                 or report.get("cleanup_proven") is not True
                 or report.get("interactive", {}).get("ordinary_interactive") is not True
-                or report.get("browser", {}).get("headless") is not False
-                or report.get("browser", {}).get("sandbox_weakened") is not False
+                or not isinstance(browser, dict)
+                or browser.get("headless") is not False
+                or browser.get("sandbox_weakened") is not False
                 or any(report.get(key) is not False for key in (
                     "full_acceptance_passed", "public_udp_proven", "system_dns_proven"))):
             raise RuntimeError("Native ordinary-user Edge GUI fixture did not pass")
-        for key in ("real_edge_gui_1", "real_edge_gui_2"):
+        for key in (f"{check_prefix}_1", f"{check_prefix}_2"):
             check = checks.get(key, {})
             if check.get("status") != "passed" or any(check.get(field) is not True for field in (
                 "visible_window_verified", "dom_nonce_via_page_ack", "cookie_request_verified",
                 "wm_close_requested", "natural_helper_wrapper_exit", "held_handles_verified",
                 "descendant_cleanup_proven", "resources_closed")):
-                raise RuntimeError("Edge GUI omitted owned visible-window, page or natural teardown evidence")
+                raise RuntimeError("GUI omitted owned visible-window, page or natural teardown evidence")
             rects = check.get("visible_window_rects")
             if (not isinstance(rects, list) or not 1 <= len(rects) <= 16 or any(
                 not isinstance(rect, list) or len(rect) != 4 or any(type(x) is not int for x in rect)
                 or rect[2] <= rect[0] or rect[3] <= rect[1] for rect in rects)):
-                raise RuntimeError("Edge GUI omitted nonempty visible rectangles")
-        if checks["real_edge_gui_2"].get("private_profile_reused") is not True:
-            raise RuntimeError("Edge GUI did not retain its own browser profile")
+                raise RuntimeError("GUI omitted nonempty visible rectangles")
+        if checks[f"{check_prefix}_2"].get("private_profile_reused") is not True:
+            raise RuntimeError("GUI did not retain its own browser profile")
     else:
         raise RuntimeError("Unknown fixture phase")
 
@@ -1261,7 +1296,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     probe_passed = False
     cleanup_pending = False
     try:
-        gui_only, network_only, singleton = guest_diagnostic_options(vm_config)
+        gui_only, network_only, singleton, chromium_control, chromium_sha256 = guest_diagnostic_options(vm_config)
     except ValueError:
         result["diagnostic_configuration_error"] = "invalid_private_configuration"
         result["error"] = "Private diagnostic configuration could not be verified"
@@ -1272,6 +1307,8 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         result.update(gui_diagnostic_only=True, source_diagnostic_only=True,
                       full_acceptance_passed=False, product_acceptance_passed=False,
                       execution_mode="original_sdk", product_runtime_replaced=False)
+        if chromium_control:
+            result["chromium_gui_control_diagnostic"] = True
         probe_command = [executable, "-X", "utf8", "-B", str(acceptance), "--root", str(root),
                          "--probe-only", "--report", str(directory / "probe.json")]
         probe, report, log = run_guest_phase("probe", probe_command, directory,
@@ -1284,9 +1321,31 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         for name in ("transport", "manager", "browser"):
             result["phases"].append({"name": name, "status": "skipped", "exit_code": None,
                                      "reason": "gui_diagnostic_only"})
-        if probe_passed:
+        chromium_control_root = None
+        chromium_control_ready = not chromium_control
+        if probe_passed and chromium_control:
+            try:
+                helper = load_chromium_control_helper(workspace)
+                if chromium_sha256 != helper.ARCHIVE_SHA256:
+                    raise ValueError("Pinned Chromium archive digest did not match the private seed")
+                chromium_control_root = directory / "chromium-control"
+                chrome_exe = helper.extract_archive(workspace / CHROMIUM_CONTROL_ARCHIVE_MEMBER,
+                                                    chromium_control_root)
+                result["chromium_gui_control"] = {
+                    "status": "ready", "version": helper.VERSION, "platform": helper.PLATFORM,
+                    "archive_sha256": helper.ARCHIVE_SHA256, "chrome_exe_sha256": digest(chrome_exe),
+                }
+                chromium_control_ready = True
+            except Exception as exc:
+                result["chromium_gui_control"] = {
+                    "status": "failed", "error_type": type(exc).__name__, "archive_sha256": chromium_sha256,
+                }
+                result["error"] = "Pinned Chromium control was unavailable; GUI process was not launched"
+        if probe_passed and chromium_control_ready:
             gui_command = [executable, "-X", "utf8", "-B", str(workspace / ".github/windows_gui_check.py"),
                            "--root", str(root), "--report", str(directory / "gui.json")]
+            if chromium_control_root is not None:
+                gui_command.extend(["--chromium-control-root", str(chromium_control_root)])
             gui, report, log = run_guest_phase("gui", gui_command, directory, timeout=phase_timeout)
             result["phases"].append(gui)
             result["logs"]["gui"] = log
@@ -1303,9 +1362,12 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                             recovery[key] = str(report[key])[:1024]
                             gui[key] = recovery[key]
                 result["recovery_records"].append(recovery)
-        else:
+        elif not probe_passed:
             result["phases"].append({"name": "gui", "status": "blocked", "exit_code": None,
                                      "reason": "strict_policy_probe_failed"})
+        else:
+            result["phases"].append({"name": "gui", "status": "blocked", "exit_code": None,
+                                     "reason": "pinned_chromium_control_unavailable"})
         result["phases"].append({"name": "package_tests", "status": "skipped", "exit_code": None,
                                  "reason": "gui_diagnostic_only"})
         result["status"] = "failed"
@@ -1528,6 +1590,7 @@ def run(args) -> dict:
     custom_manifest = getattr(args, "test_psec_manifest", None)
     diagnostic_mode = custom_executor is not None or custom_manifest is not None
     gui_diagnostic_only = getattr(args, "gui_diagnostic_only", False) is True
+    chromium_gui_control_diagnostic = getattr(args, "chromium_gui_control", False) is True
     network_diagnostic_only = getattr(args, "network_diagnostic_only", False) is True
     singleton_port_range_diagnostic = getattr(args, "singleton_port_range_diagnostic", False) is True
     require_update = not baseline
@@ -1535,9 +1598,10 @@ def run(args) -> dict:
                "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "original_sdk",
                "product_runtime_replaced": False,
                "gui_diagnostic_only": gui_diagnostic_only,
+               "chromium_gui_control_diagnostic": chromium_gui_control_diagnostic,
                "network_diagnostic_only": network_diagnostic_only,
                "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
-               "source_diagnostic_only": gui_diagnostic_only or network_diagnostic_only or singleton_port_range_diagnostic or diagnostic_mode,
+               "source_diagnostic_only": gui_diagnostic_only or chromium_gui_control_diagnostic or network_diagnostic_only or singleton_port_range_diagnostic or diagnostic_mode,
                "product_acceptance_passed": False,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
@@ -1547,6 +1611,8 @@ def run(args) -> dict:
                "official_update": {"required": require_update, "kb": "KB5127648", "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
                                    "source": UPDATE_SOURCE, "catalog_update_id": UPDATE_CATALOG_ID}}
     try:
+        if chromium_gui_control_diagnostic and (not gui_diagnostic_only or network_diagnostic_only or diagnostic_mode):
+            raise ValueError("Chromium GUI control requires GUI-only diagnostic mode with the original SDK")
         summary["kvm_api_version"] = require_kvm()
         package = args.package.resolve(strict=True)
         verify_package(package, args.package_sha256.lower())
@@ -1598,8 +1664,23 @@ def run(args) -> dict:
             if require_update:
                 updates = work / "official-updates"
                 summary["official_update"]["packages"] = download_updates(updates)
+            chromium_control_archive = None
+            chromium_control_sha256 = None
+            if chromium_gui_control_diagnostic:
+                control_helper = load_chromium_control_helper(ROOT)
+                chromium_control_archive = work / CHROMIUM_CONTROL_ARCHIVE_MEMBER
+                chromium_control_sha256 = control_helper.fetch_archive(chromium_control_archive)
+                if chromium_control_sha256 != control_helper.ARCHIVE_SHA256:
+                    raise RuntimeError("Pinned Chromium control archive digest mismatch")
+                summary["chromium_gui_control"] = {
+                    "status": "downloaded", "version": control_helper.VERSION,
+                    "platform": control_helper.PLATFORM, "archive_sha256": chromium_control_sha256,
+                }
             payload = work / "payload.zip"
-            payload_hash = make_payload(package, payload, test_executor_bundle=executor_bundle)
+            payload_options = {"test_executor_bundle": executor_bundle}
+            if chromium_control_archive is not None:
+                payload_options["chromium_control_archive"] = chromium_control_archive
+            payload_hash = make_payload(package, payload, **payload_options)
             server = GuestServer(payload, artifacts, updates=updates)
             http_thread = threading.Thread(target=server.serve_forever, daemon=True)
             http_thread.start()
@@ -1622,8 +1703,11 @@ def run(args) -> dict:
                     "require_official_update": require_update, "update_build": UPDATE_BUILD, "update_ubr": UPDATE_UBR,
                     "test_psec_executor_diagnostic": diagnostic_mode,
                     "gui_diagnostic_only": gui_diagnostic_only,
+                    "chromium_gui_control_diagnostic": chromium_gui_control_diagnostic,
                     "network_diagnostic_only": network_diagnostic_only,
                     "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
+                    **({"chromium_gui_control_archive_sha256": chromium_control_sha256}
+                       if chromium_control_sha256 is not None else {}),
                     **({"test_psec_executor_sha256": summary["test_psec_executor"]["executor_sha256"],
                         "test_psec_original_runtime_sha256": original_sha256}
                        if diagnostic_mode else {}),
@@ -1707,6 +1791,8 @@ def run(args) -> dict:
                             pass  # A screenshot never substitutes for the guest report.
                     summary["phase_results"] = server.result.get("phases", [])
                     summary["recovery_records"] = server.result.get("recovery_records", [])
+                    if "chromium_gui_control" in server.result:
+                        summary["chromium_gui_control_guest"] = server.result["chromium_gui_control"]
                     summary["official_update"]["guest"] = server.result.get("official_update")
                     if diagnostic_mode:
                         report = server.result.get("reports", {}).get("experiments", {})
@@ -1792,6 +1878,8 @@ def main(argv: list[str]) -> int:
                         help="Diagnose the fixed official ISO baseline; skips only CU staging/requirement, never full acceptance")
     parser.add_argument("--gui-diagnostic-only", action="store_true",
                         help="Run only the strict probe and packaged product GUI diagnostic; never qualifies acceptance")
+    parser.add_argument("--chromium-gui-control", action="store_true",
+                        help="Use the pinned Chrome for Testing control only in original-SDK GUI diagnostic mode")
     parser.add_argument("--network-diagnostic-only", action="store_true",
                         help="Run only the strict probe and preferred-policy network experiment; never qualifies acceptance")
     parser.add_argument("--singleton-port-range-diagnostic", action="store_true",
@@ -1806,12 +1894,16 @@ def main(argv: list[str]) -> int:
         parser.error("--gui-diagnostic-only uses the packaged product SDK and cannot be combined with a source executor")
     if args.gui_diagnostic_only and args.network_diagnostic_only:
         parser.error("GUI and network diagnostic-only modes are mutually exclusive")
+    if args.chromium_gui_control and (not args.gui_diagnostic_only or args.network_diagnostic_only
+                                      or args.test_psec_executor is not None):
+        parser.error("Chromium GUI control requires GUI-only diagnostic mode with the original SDK")
     if args.singleton_port_range_diagnostic and (not args.network_diagnostic_only or args.test_psec_executor is not None):
         parser.error("Singleton port encoding requires network diagnostic-only with the original SDK")
     if not 300 <= args.timeout_seconds <= 14400:
         parser.error("--timeout-seconds must be between 300 and 14400")
     result = run(args)
-    if args.test_psec_executor is not None or args.gui_diagnostic_only or args.network_diagnostic_only:
+    if (args.test_psec_executor is not None or args.gui_diagnostic_only or args.chromium_gui_control
+            or args.network_diagnostic_only):
         return 1  # Partial diagnostics never qualify product acceptance.
     expected = "baseline_transport_and_package_tests_passed" if args.baseline_diagnostic else "transport_and_package_tests_passed"
     return 0 if (result["status"] == expected and result.get("baseline_diagnostic") is args.baseline_diagnostic
