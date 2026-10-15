@@ -1,5 +1,6 @@
 """Check diagnostic source/build provenance; never claim native network success."""
 import hashlib
+import difflib
 import importlib.util
 import json
 import os
@@ -24,6 +25,15 @@ def fixture_source():
             "pub(super) fn build_psec_v1_security_environment_spec(\n"
             "    request: &ExecutionRequest,\n"
             ") -> Vec<u8> {\n" + builder.ANCHOR + "    original_network_and_filesystem_tables();\n}\n").encode()
+
+
+def fixture_patch(raw, insertion):
+    text = raw.decode("utf-8")
+    patched = text.replace(builder.ANCHOR, builder.ANCHOR + insertion, 1).encode("utf-8")
+    diff = "".join(difflib.unified_diff(
+        text.splitlines(keepends=True), patched.decode("utf-8").splitlines(keepends=True),
+        fromfile="a/" + builder.TARGET_FILE, tofile="b/" + builder.TARGET_FILE)).encode("utf-8")
+    return patched, hashlib.sha256(diff).hexdigest()
 
 
 def pe_bytes(machine=0x8664):
@@ -70,16 +80,22 @@ class CapabilityProbeBuilderTests(unittest.TestCase):
             return b""
         raise AssertionError("unexpected diagnostic command")
 
-    def prepare(self, *, diagnostic_ingress_controls=False):
-        with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
-            candidate, patch_digest = builder.patch_bytes(
-                self.original, diagnostic_ingress_controls=diagnostic_ingress_controls)
+    def prepare(self, *, diagnostic_ingress_controls=False, diagnostic_internal_tcp_policy=False):
+        if diagnostic_internal_tcp_policy:
+            candidate, patch_digest = fixture_patch(self.original, builder.G3_INSERTION)
+        else:
+            with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
+                candidate, patch_digest = builder.patch_bytes(
+                    self.original, diagnostic_ingress_controls=diagnostic_ingress_controls)
         with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()), \
                 mock.patch.object(builder, "G2_PATCH_SHA256", patch_digest), \
                 mock.patch.object(builder, "G2_PATCHED_SOURCE_SHA256", hashlib.sha256(candidate).hexdigest()), \
+                mock.patch.object(builder, "G3_PATCH_SHA256", patch_digest), \
+                mock.patch.object(builder, "G3_PATCHED_SOURCE_SHA256", hashlib.sha256(candidate).hexdigest()), \
                 mock.patch.object(builder, "run", side_effect=self.source_commands):
             return builder.prepare_source(
-                self.source, diagnostic_ingress_controls=diagnostic_ingress_controls)
+                self.source, diagnostic_ingress_controls=diagnostic_ingress_controls,
+                diagnostic_internal_tcp_policy=diagnostic_internal_tcp_policy)
 
     def test_one_exact_insertion_preserves_every_original_byte_and_has_stable_diff_provenance(self):
         with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
@@ -115,6 +131,81 @@ class CapabilityProbeBuilderTests(unittest.TestCase):
 """),
             builder.INSERTION,
         )
+
+    def test_g3_only_expands_the_internal_tcp_port_shape_guard(self):
+        with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
+            original_g, _ = builder.patch_bytes(self.original)
+            g2, _ = builder.patch_bytes(self.original, diagnostic_ingress_controls=True)
+        expected_g3, expected_digest = fixture_patch(self.original, builder.G3_INSERTION)
+        with mock.patch.object(builder, "G3_PATCH_SHA256", expected_digest), \
+                mock.patch.object(builder, "G3_PATCHED_SOURCE_SHA256", hashlib.sha256(expected_g3).hexdigest()), \
+                mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
+            g3, g3_digest = builder.patch_bytes(
+                self.original, diagnostic_internal_tcp_policy=True)
+        self.assertEqual(g3.replace(builder.G3_INSERTION.encode(), b"", 1), self.original)
+        self.assertEqual(g3.count(builder.G3_INSERTION.encode()), 1)
+        self.assertNotEqual(g3, original_g)
+        self.assertNotEqual(g3, g2)
+        self.assertIn("ingress.default == NetworkAction::Deny", builder.G3_INSERTION)
+        self.assertIn("ingress.host_loopback == NetworkAction::Deny", builder.G3_INSERTION)
+        self.assertIn("egress.allow[0].ports[0].protocol == NetworkProtocol::Tcp", builder.G3_INSERTION)
+        for shape in (
+                "(Some(port), None) => port > 0",
+                "(Some(port), Some(end_port)) => port > 0 && end_port == port",
+                "(None, None) => true",
+                "_ => false"):
+            self.assertIn(shape, builder.G3_INSERTION)
+        self.assertEqual(
+            builder.G3_INSERTION.replace(builder.G3_PORT_SHAPES, builder.G3_PORT_GUARD),
+            builder.INSERTION)
+        self.assertRegex(g3_digest, r"^[0-9a-f]{64}$")
+
+    def test_g3_manifest_is_source_only_and_reports_the_fixed_patch_identity(self):
+        _, manifest = self.prepare(diagnostic_internal_tcp_policy=True)
+        self.assertEqual(manifest["patch"], builder.G3_PATCH_INFO)
+        self.assertTrue(manifest["patch"]["source_diagnostic_only"])
+        self.assertFalse(manifest["patch"]["release_eligible"])
+        self.assertTrue(manifest["patch"]["capabilities_null"])
+        self.assertTrue(manifest["patch"]["internal_loopback_tcp_only"])
+        self.assertFalse(manifest["patch"]["private_network_capability_added"])
+        self.assertNotIn("exact_internal_tcp_only", manifest["patch"])
+        self.assertNotIn("private_network_capability_preserved", manifest["patch"])
+        self.assertEqual(manifest["patch"]["allowed_port_shapes"],
+                         ["single_port", "singleton_range", "all_tcp_ports"])
+        _, fixture_digest = fixture_patch(self.original, builder.G3_INSERTION)
+        self.assertEqual(manifest["patch_sha256"], fixture_digest)
+        self.assertEqual(builder.G3_PATCH_SHA256,
+                         "dc8ffcd29290a5b7ad00b139ab362b9d5e81e389294be461599f449739ab4758")
+        self.assertEqual(builder.G3_PATCHED_SOURCE_SHA256,
+                         "06370982bb204675d2f59c8aeff24b81bb42d4fea22902efecfefa6f771edc19")
+        self.assertEqual(manifest["patched_file_sha256"], builder.sha256(self.target.read_bytes()))
+
+    def test_g3_fixed_patch_pin_mismatch_fails_before_writing_source(self):
+        with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()), \
+                mock.patch.object(builder, "G3_PATCH_SHA256", "0" * 64), \
+                mock.patch.object(builder, "run", side_effect=self.source_commands), \
+                self.assertRaisesRegex(ValueError, "G3 patch bytes"):
+            builder.prepare_source(self.source, diagnostic_internal_tcp_policy=True)
+        self.assertEqual(self.target.read_bytes(), self.original)
+
+    def test_g3_fixed_patched_source_pin_mismatch_fails_before_writing_source(self):
+        _, patch_digest = fixture_patch(self.original, builder.G3_INSERTION)
+        with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()), \
+                mock.patch.object(builder, "G3_PATCH_SHA256", patch_digest), \
+                mock.patch.object(builder, "G3_PATCHED_SOURCE_SHA256", "0" * 64), \
+                mock.patch.object(builder, "run", side_effect=self.source_commands), \
+                self.assertRaisesRegex(ValueError, "G3 patch bytes"):
+            builder.prepare_source(self.source, diagnostic_internal_tcp_policy=True)
+        self.assertEqual(self.target.read_bytes(), self.original)
+
+    def test_g2_and_g3_selectors_are_strict_and_mutually_exclusive(self):
+        with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
+            for kwargs in ({"diagnostic_ingress_controls": 1},
+                           {"diagnostic_internal_tcp_policy": "yes"},
+                           {"diagnostic_ingress_controls": True,
+                            "diagnostic_internal_tcp_policy": True}):
+                with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                    builder.patch_bytes(self.original, **kwargs)
 
     def test_g2_prepare_manifest_is_separately_named_and_does_not_claim_capabilities_null(self):
         source, manifest = self.prepare(diagnostic_ingress_controls=True)

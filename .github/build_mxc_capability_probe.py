@@ -6,7 +6,9 @@ Use --source CHECKOUT --output DIAGNOSTIC_DIR; Windows builds native x64 wxc.
 The default diagnostic clears only automatically added internetClient for one
 exact internal TCP shape with empty caller capabilities. The explicit
 --diagnostic-ingress-controls variant allows ingress.default allow while
-keeping hostLoopback denied and retains privateNetworkClientServer.
+keeping hostLoopback denied and retaining privateNetworkClientServer. The separate
+--diagnostic-internal-tcp-policy variant permits only three internal TCP port
+shapes while retaining the default denied ingress policy.
 Actual sockets/DNS remain unverified until a real PSEC run. The product's bin
 and policy are untouched.
 """
@@ -81,6 +83,31 @@ G2_INSERTION = INSERTION.replace(
 )
 if G2_INSERTION == INSERTION:
     raise RuntimeError("the explicit G2 ingress guard replacement is not unique")
+G3_PORT_GUARD = """                && egress.allow[0].ports[0].port.is_some_and(|port| port > 0)
+                && egress.allow[0].ports[0].end_port.is_none()"""
+G3_PORT_SHAPES = """                && (match (egress.allow[0].ports[0].port, egress.allow[0].ports[0].end_port) {
+                    (Some(port), None) => port > 0,
+                    (Some(port), Some(end_port)) => port > 0 && end_port == port,
+                    (None, None) => true,
+                    _ => false,
+                })"""
+G3_INSERTION = INSERTION.replace(G3_PORT_GUARD, G3_PORT_SHAPES)
+if G3_INSERTION == INSERTION:
+    raise RuntimeError("the explicit G3 internal TCP port guard replacement is not unique")
+G3_PATCH_INFO = {
+    "name": "internal_tcp_port_shapes_without_automatic_internet_client",
+    "source_diagnostic_only": True,
+    "release_eligible": False,
+    "network_table_unchanged": True,
+    "internal_loopback_tcp_only": True,
+    "allowed_port_shapes": ["single_port", "singleton_range", "all_tcp_ports"],
+    "caller_capabilities_must_be_empty": True,
+    "ingress_default_must_remain_deny": True,
+    "host_loopback_must_remain_deny": True,
+    "automatic_internet_client_removed": True,
+    "private_network_capability_added": False,
+    "capabilities_null": True,
+}
 G2_PATCH_INFO = {
     "name": "private_network_ingress_control_without_automatic_internet_client",
     "source_diagnostic_only": True,
@@ -96,6 +123,8 @@ G2_PATCH_INFO = {
 }
 G2_PATCH_SHA256 = "c39ef13da834b330deb028a7a273ad154cbdd07ee5c60c917e9382cf25557a62"
 G2_PATCHED_SOURCE_SHA256 = "4c6915b28b6e09a35508001f70087499ececc4861ba5e2b896c5dd122c5f3759"
+G3_PATCH_SHA256 = "dc8ffcd29290a5b7ad00b139ab362b9d5e81e389294be461599f449739ab4758"
+G3_PATCHED_SOURCE_SHA256 = "06370982bb204675d2f59c8aeff24b81bb42d4fea22902efecfefa6f771edc19"
 
 
 def sha256(raw):
@@ -201,22 +230,29 @@ def permitted_destination(path):
     raise ValueError("a diagnostic cannot write into the product runtime directory")
 
 
-def patch_bytes(raw, *, diagnostic_ingress_controls=False):
-    if type(diagnostic_ingress_controls) is not bool:
-        raise ValueError("the G2 diagnostic selector must be a boolean")
+def patch_bytes(raw, *, diagnostic_ingress_controls=False, diagnostic_internal_tcp_policy=False):
+    if type(diagnostic_ingress_controls) is not bool or type(diagnostic_internal_tcp_policy) is not bool:
+        raise ValueError("diagnostic selectors must be booleans")
+    if diagnostic_ingress_controls and diagnostic_internal_tcp_policy:
+        raise ValueError("G2 ingress and G3 internal TCP diagnostics are mutually exclusive")
     if sha256(raw) != ORIGINAL_SHA256:
         raise ValueError("the upstream helper file does not match the fixed release SHA256")
     text = raw.decode("utf-8")
     if text.count(ANCHOR) != 1 or text.count("pub(super) fn build_psec_v1_security_environment_spec(") != 1:
         raise ValueError("the fixed capabilities patch anchor is not unique")
-    insertion = G2_INSERTION if diagnostic_ingress_controls else INSERTION
+    insertion = (G2_INSERTION if diagnostic_ingress_controls else
+                 G3_INSERTION if diagnostic_internal_tcp_policy else INSERTION)
     patched = text.replace(ANCHOR, ANCHOR + insertion, 1).encode("utf-8")
     diff = "".join(difflib.unified_diff(text.splitlines(keepends=True), patched.decode("utf-8").splitlines(keepends=True),
                                      fromfile="a/" + TARGET_FILE, tofile="b/" + TARGET_FILE)).encode("utf-8")
-    return patched, sha256(diff)
+    patch_digest = sha256(diff)
+    if diagnostic_internal_tcp_policy and (
+            patch_digest != G3_PATCH_SHA256 or sha256(patched) != G3_PATCHED_SOURCE_SHA256):
+        raise ValueError("the G3 patch bytes do not match their fixed diagnostic SHA256 pins")
+    return patched, patch_digest
 
 
-def prepare_source(source, *, diagnostic_ingress_controls=False):
+def prepare_source(source, *, diagnostic_ingress_controls=False, diagnostic_internal_tcp_policy=False):
     source = Path(source).resolve(strict=True)
     if run(["git", "rev-parse", "HEAD"], cwd=source).decode("ascii").strip() != UPSTREAM_COMMIT:
         raise ValueError("the source checkout is not the exact Microsoft MXC 1.0.0 commit")
@@ -231,14 +267,16 @@ def prepare_source(source, *, diagnostic_ingress_controls=False):
     toolchain = (source / "src/rust-toolchain.toml").read_text(encoding="utf-8")
     if not re.search(r'^channel\s*=\s*"1\.93"\s*$', toolchain, re.MULTILINE):
         raise ValueError("the upstream Rust 1.93 pin changed")
-    patched, patch_digest = patch_bytes(raw, diagnostic_ingress_controls=diagnostic_ingress_controls)
+    patched, patch_digest = patch_bytes(raw, diagnostic_ingress_controls=diagnostic_ingress_controls,
+                                        diagnostic_internal_tcp_policy=diagnostic_internal_tcp_policy)
     if diagnostic_ingress_controls and (
             patch_digest != G2_PATCH_SHA256 or sha256(patched) != G2_PATCHED_SOURCE_SHA256):
         raise ValueError("the G2 patch bytes do not match their fixed diagnostic SHA256 pins")
     target.write_bytes(patched)
     if target.read_bytes() != patched:
         raise RuntimeError("the diagnostic patch was not written exactly")
-    patch_info = G2_PATCH_INFO if diagnostic_ingress_controls else PATCH_INFO
+    patch_info = (G2_PATCH_INFO if diagnostic_ingress_controls else
+                  G3_PATCH_INFO if diagnostic_internal_tcp_policy else PATCH_INFO)
     return source, {"schema_version": 1, "status": "prepared_only", "upstream_commit": UPSTREAM_COMMIT,
                     "executor_sha256": None, "patch": dict(patch_info), "original_file_sha256": ORIGINAL_SHA256,
                     "patch_sha256": patch_digest, "patched_file_sha256": sha256(patched),
@@ -304,6 +342,8 @@ def main(arguments=None):
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--diagnostic-ingress-controls", action="store_true",
                         help="build source-only G2 accepting explicit ingress action combinations")
+    parser.add_argument("--diagnostic-internal-tcp-policy", action="store_true",
+                        help="build source-only G3 for the three guarded internal TCP port shapes")
     args = parser.parse_args(arguments)
     try:
         if not args.prepare_only and os.name != "nt":
@@ -312,8 +352,9 @@ def main(arguments=None):
         output.mkdir(parents=True, exist_ok=True)
         if any((output / name).exists() for name in ("build-manifest.json", "wxc-exec.exe", "MXC-LICENSE.md")):
             raise ValueError("the diagnostic output must not contain stale artifacts")
-        source, manifest = prepare_source(args.source,
-                                          diagnostic_ingress_controls=args.diagnostic_ingress_controls)
+        source, manifest = prepare_source(
+            args.source, diagnostic_ingress_controls=args.diagnostic_ingress_controls,
+            diagnostic_internal_tcp_policy=args.diagnostic_internal_tcp_policy)
         if not args.prepare_only:
             build(source, output, manifest)
         temporary = output / "build-manifest.json.tmp"

@@ -1,6 +1,13 @@
 name: PSEC capability diagnostic
 
 on:
+  workflow_dispatch:
+    inputs:
+      diagnostic_internal_tcp_policy:
+        description: Build source-only G3 internal TCP policy controls; never product acceptance
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
       - 'codex/windows-capability-*'
@@ -39,10 +46,23 @@ jobs:
           rustup toolchain install 1.93 --profile minimal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build only the diagnostic native executor
-        run: python -X utf8 -B .github\build_mxc_capability_probe.py --source mxc-source --output mxc-capability
+        shell: pwsh
+        run: |
+          $arguments = @('--source', 'mxc-source', '--output', 'mxc-capability')
+          if ('${{ inputs.diagnostic_internal_tcp_policy }}' -eq 'true') { $arguments += '--diagnostic-internal-tcp-policy' }
+          python -X utf8 -B .github\build_mxc_capability_probe.py @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
+        if: github.event_name != 'workflow_dispatch' || !inputs.diagnostic_internal_tcp_policy
         with:
           name: mxc-capability-executor
+          path: mxc-capability/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch' && inputs.diagnostic_internal_tcp_policy
+        with:
+          name: mxc-internal-tcp-policy-executor
           path: mxc-capability/
           if-no-files-found: error
           retention-days: 14
@@ -50,6 +70,7 @@ jobs:
   arm-observation:
     name: Observe proxy sockets and native DNS with the diagnostic PSEC executor
     needs: executor
+    if: github.event_name != 'workflow_dispatch' || !inputs.diagnostic_internal_tcp_policy
     runs-on: windows-11-arm
     timeout-minutes: 25
     steps:
