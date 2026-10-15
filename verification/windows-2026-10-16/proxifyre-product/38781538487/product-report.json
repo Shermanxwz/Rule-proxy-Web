@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "status": "failed_or_incomplete",
+  "qualification_scope": "Windows Server 2025 final offline ZIP",
+  "windows_11_verified": false,
+  "gui_verified": false,
+  "product_release_eligible": false,
+  "checks": {},
+  "installations": [
+    {
+      "returncode": 1,
+      "stdout": "WARNING: Protected staging retained for diagnosis: C:\\Program \r\nFiles\\.RuleProxy-Web-staging-27ff5c12d1f44a1baa51e81428f56456\n",
+      "stderr": "Original setup failure in phase dependency_proxifyre_msi; staging path C:\\Program Files\\.RuleProxy-Web-staging-27ff5c12d1f44a1baa51e81428f56456: Installer failed: proxifyre_msi exit 1603\r\nInstaller failed: proxifyre_msi exit 1603\r\nAt C:\\RuleProxyProduct\\bundle\\RuleProxy-Web\\scripts\\windows-setup.ps1:144 char:24\r\n+ ... de -ne 0) { throw ('Installer failed: ' + $Label + ' exit ' + $code)  ...\r\n+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : OperationStopped: (Installer faile...e_msi exit 1603:String) [], RuntimeException\r\n    + FullyQualifiedErrorId : Installer failed: proxifyre_msi exit 1603\r\n \r\n"
+    }
+  ],
+  "actions": [],
+  "actual_os": {
+    "major": 10,
+    "minor": 0,
+    "build": 26100,
+    "platform": 2,
+    "product_type": 3,
+    "architecture": "AMD64"
+  },
+  "package": {
+    "zip": "RuleProxy-Web-0.3.0-windows-x64-personal.zip",
+    "sha256": "e53e760c0057db319d16d398b298616b63b93875e7c7670f536de3af104becf4",
+    "manifest_verified": true,
+    "files_verified": 105,
+    "product_version": "0.3.0"
+  },
+  "source_matches_bundle": {
+    "manager.py": true,
+    "server.py": true,
+    "launcher.py": true,
+    "windows_proxy_service.py": true,
+    "windows_proxy_policy.py": true,
+    "windows_proxy_client.py": true,
+    "windows_proxy_runtime.py": true,
+    "windows_proxy_pins.py": true,
+    "windows_app_process.py": true,
+    "windows_core_process.py": true
+  },
+  "error": "Product installation failed; see captured PowerShell and SCM diagnostics",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_proxifyre_product_acceptance.py\", line 515, in controller\n    raise RuntimeError(\"Product installation failed; see captured PowerShell and SCM diagnostics\")\nRuntimeError: Product installation failed; see captured PowerShell and SCM diagnostics\n",
+  "diagnostics": {
+    "returncode": 0,
+    "stdout": "{\"services\":[],\"events\":[{\"TimeCreated\":\"\\/Date(1792087075364)\\/\",\"Id\":7036,\"Message\":\"The TCP/IP NetBIOS Helper service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087073819)\\/\",\"Id\":7036,\"Message\":\"The TCP/IP NetBIOS Helper service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792087073817)\\/\",\"Id\":7042,\"Message\":\"The TCP/IP NetBIOS Helper service was successfully sent a stop control.\\r\\n\\r\\n The reason specified was: 0x40030011 [Operating System: Network Connectivity (Planned)]\\r\\n\\r\\n Comment: None\"},{\"TimeCreated\":\"\\/Date(1792087073607)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  WinpkFilter LightWeight Filter\\r\\nService File Name:  \\\\SystemRoot\\\\system32\\\\DRIVERS\\\\ndisrd.sys\\r\\nService Type:  kernel mode driver\\r\\nService Start Type:  system start\\r\\nService Account:  \"},{\"TimeCreated\":\"\\/Date(1792087071793)\\/\",\"Id\":7036,\"Message\":\"The Device Install Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087070926)\\/\",\"Id\":7036,\"Message\":\"The Portable Device Enumerator Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792087068568)\\/\",\"Id\":7036,\"Message\":\"The Windows Installer service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087064729)\\/\",\"Id\":7036,\"Message\":\"The Software Protection service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792087053540)\\/\",\"Id\":7036,\"Message\":\"The Device Install Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792087045601)\\/\",\"Id\":7036,\"Message\":\"The Background Intelligent Transfer Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792087045529)\\/\",\"Id\":7040,\"Message\":\"The start type of the Background Intelligent Transfer Service service was changed from auto start to demand start.\"},{\"TimeCreated\":\"\\/Date(1792087037558)\\/\",\"Id\":7036,\"Message\":\"The Clipboard User Service_116f16 service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087037174)\\/\",\"Id\":7036,\"Message\":\"The Update Orchestrator Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087037142)\\/\",\"Id\":7036,\"Message\":\"The WaaSMedicSvc service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087036803)\\/\",\"Id\":7036,\"Message\":\"The User Access Logging Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087034595)\\/\",\"Id\":7036,\"Message\":\"The Software Protection service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087034474)\\/\",\"Id\":7036,\"Message\":\"The Distributed Transaction Coordinator service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087034200)\\/\",\"Id\":7036,\"Message\":\"The Inventory and Compatibility Appraisal service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087034080)\\/\",\"Id\":7036,\"Message\":\"The Program Compatibility Assistant Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792087034070)\\/\",\"Id\":7000,\"Message\":\"The Microsoft Edge Update Service (edgeupdate) service failed to start due to the following error: \\r\\nThe system cannot find the file specified.\"}]}\r\n",
+    "stderr": ""
+  }
+}

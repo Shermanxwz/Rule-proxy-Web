@@ -103,9 +103,11 @@ def stage(target: Path, *, asset_cache: Path | None = None, **legacy_options) ->
         raise ValueError('Windows product runtime failed verification')
     installers = target / 'installers'
     installers.mkdir()
-    for key in ('vc_redist', 'ndis_msi', 'proxifyre_msi'):
+    for key in ('vc_redist', 'ndis_msi', 'proxifyre_msi', 'proxifyre_setup'):
         asset = pins.ASSETS[key]
         (installers / asset['name']).write_bytes(download(asset['url'], asset['sha256']))
+    layout = pins.validate_burn_layout(installers)
+    (installers / 'offline-layout.json').write_text(json.dumps(layout, sort_keys=True, indent=2) + '\n', encoding='utf-8')
     licenses = target / 'licenses'
     licenses.mkdir()
     for key in ('proxifyre_license', 'ndisapi_license'):
@@ -121,7 +123,7 @@ def stage(target: Path, *, asset_cache: Path | None = None, **legacy_options) ->
     manifest = {'schema_version': 1, 'platform': 'windows-amd64', 'version': __version__,
                 'backend': 'proxifyre', 'personal_use_only': True,
                 'public_binary_release_eligible': False, 'files': files,
-                'installers': {key: pins.ASSETS[key] for key in ('vc_redist', 'ndis_msi', 'proxifyre_msi')}}
+                'installers': {key: pins.ASSETS[key] for key in ('vc_redist', 'ndis_msi', 'proxifyre_msi', 'proxifyre_setup')}}
     (target / 'package-manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n', encoding='utf-8')
 
 

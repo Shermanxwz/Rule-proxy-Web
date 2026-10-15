@@ -16,6 +16,7 @@ import platform
 from pathlib import Path, PurePosixPath
 import secrets
 import shutil
+import struct
 import subprocess
 import sys
 import time
@@ -38,6 +39,18 @@ def write(path, value):
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def png_dimensions(path):
+    with Path(path).open("rb") as stream:
+        header = stream.read(33)
+    if (len(header) != 33 or header[:8] != b"\x89PNG\r\n\x1a\n"
+            or header[8:16] != b"\x00\x00\x00\rIHDR"):
+        raise ValueError("Browser screenshot has no complete PNG IHDR")
+    width, height = struct.unpack("!II", header[16:24])
+    if not 1 <= width <= 16384 or not 1 <= height <= 16384:
+        raise ValueError("Browser screenshot dimensions are invalid")
+    return width, height
 
 
 def module(path, name):
@@ -267,7 +280,7 @@ def alive(pid):
         kernel.CloseHandle(handle)
 
 
-def process_elevated(pid):
+def process_elevated(pid, *, handle=None):
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     api = ctypes.WinDLL("advapi32", use_last_error=True)
     kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
@@ -276,7 +289,7 @@ def process_elevated(pid):
     api.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
     api.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
                                        wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
-    process, token = kernel.OpenProcess(0x1000, False, pid), wintypes.HANDLE()
+    process, token = handle or kernel.OpenProcess(0x1000, False, pid), wintypes.HANDLE()
     if not process:
         raise ctypes.WinError(ctypes.get_last_error())
     try:
@@ -289,7 +302,34 @@ def process_elevated(pid):
     finally:
         if token:
             kernel.CloseHandle(token)
-        kernel.CloseHandle(process)
+        if handle is None:
+            kernel.CloseHandle(process)
+
+
+def observe_process(pid):
+    """Retain the actual process object through a short browser lifetime."""
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD,
+        wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+    handle = kernel.OpenProcess(0x1000 | 0x100000, False, pid)
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    process = UserProcess(handle, pid, kernel)
+    try:
+        process.is_elevated = process_elevated(pid, handle=handle)
+        buffer, size = ctypes.create_unicode_buffer(32768), wintypes.DWORD(32768)
+        if not kernel.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        process.image_path = buffer.value
+        return process
+    except Exception:
+        process.close()
+        raise
 
 
 def hold(report, child=False):
@@ -309,6 +349,7 @@ def ordinary_suite(spec_path, result_path):
     result = {"schema_version": 1, "status": "running", "checks": {}, "phases": [],
               "is_elevated": bool(ctypes.windll.shell32.IsUserAnAdmin()), "panel_runs_ordinary": True,
               "windows_11_verified": False, "gui_verified": False, "real_exit_ip_verified": False,
+              "headless_browser_local_checks_passed": False,
               "system_dns_leak_prevention_tested": False}
     panel = None
     token = None
@@ -382,6 +423,43 @@ def ordinary_suite(spec_path, result_path):
         holder = wait_for(lambda: json.loads(report.read_text()) if report.is_file() else None)
         check("holder_ordinary", holder.get("is_elevated") is False and holder["pid"] == value["pid"])
         return holder
+    def browser_phase():
+        candidates = [Path(os.environ.get(name, r"C:\Program Files")) /
+                      "Microsoft/Edge/Application/msedge.exe" for name in ("ProgramFiles(x86)", "ProgramFiles")]
+        browser = next((path for path in candidates if path.is_file()), None)
+        result["browser"] = {"kind": "Microsoft Edge headless", "required": True,
+                             "checked_paths": [str(path) for path in candidates], "visible_gui_verified": False,
+                             "real_node_verified": False, "login_cookies_verified": False}
+        check("system_edge_available", browser is not None)
+        ident = secrets.token_hex(8)
+        screenshot = LAB / "actors/edge-page.png"
+        screenshot.unlink(missing_ok=True)
+        arguments = ["--headless=new", "--disable-gpu", "--screenshot=" + str(screenshot),
+            "http://1.1.1.1/ruleproxy-compare/" + spec["nonce"] + "/" + ident]
+        state = api("/api/apps", {"label": "Real Microsoft Edge headless", "path": str(browser),
+                                  "adapter": "chromium", "args": arguments})
+        app = next(app for app in state["apps"] if os.path.normcase(app["path"]) == os.path.normcase(str(browser)))
+        launched = api("/api/apps/" + app["id"] + "/launch", {})
+        process = observe_process(launched["pid"])
+        try:
+            result["browser"].update(pid=process.pid, executable=str(browser), executable_sha256=digest(browser),
+                actual_image_path=process.image_path, is_elevated=process.is_elevated,
+                requested_args=arguments, explicit_proxy_configuration=False, sandbox_disabled=False)
+            check("browser_ordinary", process.is_elevated is False)
+            check("browser_system_image", os.path.normcase(process.image_path) == os.path.normcase(str(browser)))
+            wait_for(lambda: process.poll() is not None, timeout=60)
+            check("browser_natural_exit", process.poll() == 0)
+            dimensions = png_dimensions(screenshot)
+            result["browser"].update(screenshot=str(screenshot), screenshot_sha256=digest(screenshot),
+                screenshot_bytes=screenshot.stat().st_size, dimensions=list(dimensions), exit_code=process.poll())
+            check("browser_png_created", screenshot.stat().st_size > 33)
+            result["phases"].append({"label": "real_edge_headless", "token": ident, "expected_node": "B",
+                "actor": {"pid": process.pid, "is_elevated": process.is_elevated, "rows": [
+                    {"token": ident, "protocol": "tcp", "application": "Microsoft Edge headless",
+                     "response_marker_verification": "independent_receiver_required"}]}})
+            result["headless_browser_local_checks_passed"] = True
+        finally:
+            process.close()
     try:
         check("suite_ordinary", result["is_elevated"] is False)
         sys.path.insert(0, str(INSTALLED))
@@ -448,6 +526,7 @@ def ordinary_suite(spec_path, result_path):
         check("saved_state_preserved", state["imported"] and len(state["apps"]) == 2)
         api("/api/start", {})
         phase("restart_saved_node", node="B")
+        browser_phase()
         api("/api/stop", {})
         api("/api/quit", {})
         panel.wait(timeout=10)
@@ -472,6 +551,7 @@ def controller(package_dir, output):
     output.mkdir(parents=True, exist_ok=True)
     report = {"schema_version": 1, "status": "running", "qualification_scope": "Windows Server 2025 final offline ZIP",
         "windows_11_verified": False, "gui_verified": False, "product_release_eligible": False,
+        "headless_browser_verified": False,
         "checks": {}, "installations": [], "actions": []}
     report_path = output / "product-report.json"
     hosts_path = Path(os.environ["SystemRoot"]) / "System32/drivers/etc/hosts"
@@ -595,6 +675,10 @@ def controller(package_dir, output):
         report["receiver_phase_evidence"] = receiver_evidence(report["ordinary_suite"]["phases"], report["receiver_final"])
         if not report["receiver_phase_evidence"] or not all(row["passed"] for row in report["receiver_phase_evidence"]):
             raise RuntimeError("Transparent actor markers lack matching independent receiver evidence")
+        if (report["ordinary_suite"].get("headless_browser_local_checks_passed") is not True or not any(
+                row["label"] == "real_edge_headless" and row["passed"] for row in report["receiver_phase_evidence"])):
+            raise RuntimeError("Required real browser lacks PNG/token/independent receiver evidence")
+        report["headless_browser_verified"] = True
         report["uninstall"] = execute_script(INSTALLED / "scripts/windows-uninstall.ps1", owner)
         if report["uninstall"]["returncode"]:
             raise RuntimeError("Product uninstall failed or requested an unverified reboot")

@@ -1,12 +1,15 @@
 # Personal Windows 11 x64 deployment. All installer inputs are local after staging.
 [CmdletBinding()]
 param(
-    [string]$SourceRoot = (Split-Path -Parent $PSScriptRoot),
+    [string]$SourceRoot = [IO.Path]::GetDirectoryName($PSScriptRoot),
     [string]$OwnerSid,
     [switch]$Elevated,
     [switch]$NoLaunch
 )
 $ErrorActionPreference = 'Stop'
+$env:PSModulePath = [IO.Path]::Combine($PSHOME,'Modules')
+Import-Module -Name Microsoft.PowerShell.Security -ErrorAction Stop
+Import-Module -Name Microsoft.PowerShell.Management -ErrorAction Stop
 $utf8 = New-Object Text.UTF8Encoding($false)
 $SourceRoot = [IO.Path]::GetFullPath($SourceRoot).TrimEnd('\')
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -133,20 +136,66 @@ function Write-State([string]$Phase, [bool]$PfOwned) {
     Move-Item -LiteralPath $temp -Destination $statePath -Force
     Protect-Tree $statePath
 }
-function Invoke-Installer([string]$File, [string]$Arguments, [string]$Label) {
+function Invoke-Installer([string]$File, [string]$Arguments, [string]$Label, [switch]$OfficialBurn) {
     $process = Start-Process -FilePath $File -ArgumentList $Arguments -Wait:$false -PassThru
     if (-not $process.WaitForExit(240000)) {
         & taskkill.exe /PID $process.Id /T /F | Out-Null
         throw ('Installer exceeded bound: ' + $Label)
     }
     $code = $process.ExitCode
-    if ($code -in @(1641,3010)) { return 3010 }
+    if ($code -in @(1641,3010) -or ($OfficialBurn -and $code -eq 3017)) { return 3010 }
     if ($code -ne 0) { throw ('Installer failed: ' + $Label + ' exit ' + $code) }
     return 0
 }
 function Assert-Signature([string]$Path) {
     $signature = Get-AuthenticodeSignature -LiteralPath $Path
     if ($signature.Status -ne 'Valid') { throw ('Third-party signature invalid: ' + (Split-Path -Leaf $Path)) }
+}
+function Get-VisualCppRuntime {
+    # Match ProxiFyre 2.6.4 Bundle.wxs, including its native UCRT check.
+    # Registration alone is not evidence that the required DLLs are usable.
+    $directory = Join-Path $env:SystemRoot 'System32'
+    $minimum = [ordered]@{'ucrtbase.dll'='10.0.10240.0'; 'msvcp140.dll'='14.44.35211.0';
+        'msvcp140_atomic_wait.dll'='14.44.35211.0'; 'vcruntime140.dll'='14.44.35211.0'; 'vcruntime140_1.dll'='14.44.35211.0'}
+    $files = @()
+    $complete = $true
+    foreach ($name in $minimum.Keys) {
+        $path = Join-Path $directory $name
+        $file = [ordered]@{name=$name; path=$path; minimum=$minimum[$name]; version=$null; compatible=$false}
+        try {
+            $versionInfo = (Get-Item -LiteralPath $path -Force -ErrorAction Stop).VersionInfo
+            $version = [version]('{0}.{1}.{2}.{3}' -f $versionInfo.FileMajorPart,$versionInfo.FileMinorPart,$versionInfo.FileBuildPart,$versionInfo.FilePrivatePart)
+            $file.version = $version.ToString()
+            $file.compatible = $version -ge [version]$minimum[$name]
+            $file.sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+        } catch { $file.error = $_.Exception.Message }
+        if (-not $file.compatible) { $complete = $false }
+        $files += $file
+    }
+    $registrations = @()
+    $registered = $false
+    foreach ($view in @([Microsoft.Win32.RegistryView]::Registry32,[Microsoft.Win32.RegistryView]::Registry64)) {
+        $base = $null; $key = $null
+        $record = [ordered]@{view=[string]$view; installed=$null; version=$null; compatible=$false}
+        try {
+            $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine,$view)
+            $key = $base.OpenSubKey('SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64',$false)
+            if ($key) {
+                $record.installed = $key.GetValue('Installed')
+                $record.version = [string]$key.GetValue('Version')
+                $record.major = $key.GetValue('Major'); $record.minor = $key.GetValue('Minor'); $record.build = $key.GetValue('Bld')
+                # Official Burn registration detection uses the 32-bit view.
+                $record.compatible = $record.installed -eq 1 -and (
+                    $record.major -gt 14 -or ($record.major -eq 14 -and (
+                    $record.minor -gt 44 -or ($record.minor -eq 44 -and $record.build -ge 35211))))
+                if ($view -eq [Microsoft.Win32.RegistryView]::Registry32) { $registered = $record.compatible }
+            }
+        } catch { $record.error = $_.Exception.Message }
+        finally { if ($key) { $key.Dispose() }; if ($base) { $base.Dispose() } }
+        $registrations += $record
+    }
+    return [pscustomobject]@{files_compatible=$complete; registration_compatible=$registered;
+        native_directory=$directory; files=$files; registrations=$registrations}
 }
 function Write-SetupDiagnostic($Failure) {
     try {
@@ -198,9 +247,16 @@ if (Test-Path -LiteralPath $statePath) {
     if ($oldState.schema_version -ne 1 -or $oldState.owner_sid -ne $OwnerSid -or
         $oldState.root -ne $root -or $oldState.proxifyre_root -ne $pfRoot) { throw 'Existing deployment belongs to another owner or location' }
     $pfOwned = $oldState.proxifyre_owned -eq $true
+    if ($oldState.phase -eq 'uninstall_reboot_required') {
+        Write-Host ('Uninstall is pending. Restart Windows, then rerun ' + (Join-Path $root 'scripts\windows-uninstall.ps1') + ' to finish before installing again.')
+        exit 3010
+    }
 }
 $pfService = Get-Service -Name ProxiFyreService -ErrorAction SilentlyContinue
-if (($null -ne $pfService -or (Test-Path -LiteralPath $pfRoot)) -and -not $pfOwned) { throw 'Refuse to take over an existing ProxiFyre deployment' }
+$bundleCode = '{0E6374A5-1B73-4710-80EA-43784F0BC546}'
+$bundleRegistered = (Test-Path -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + $bundleCode)) -or
+    (Test-Path -LiteralPath ('HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\' + $bundleCode))
+if (($null -ne $pfService -or (Test-Path -LiteralPath $pfRoot) -or $bundleRegistered) -and -not $pfOwned) { throw 'Refuse to take over an existing ProxiFyre deployment' }
 if ((Test-Path -LiteralPath $root) -and -not (Test-Path -LiteralPath (Join-Path $root 'deployment.json'))) { throw 'Unowned RuleProxy installation directory exists' }
 if (Test-Path -LiteralPath $backup) {
     Assert-Protected $backup
@@ -260,46 +316,43 @@ try {
     $net = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full'
     if ([int]$net.Release -lt 461808) { throw '.NET Framework 4.7.2 or later is required' }
     Write-State 'dependencies' $pfOwned
-    foreach ($key in @('vc_redist','ndis_msi','proxifyre_msi')) {
-        $setupPhase = 'dependency_' + $key
+    # The original fixed Burn engine owns the prerequisite decisions and MSI
+    # chain. All external SourcePath payloads are local, hash-verified siblings.
+    foreach ($key in @('vc_redist','ndis_msi','proxifyre_msi','proxifyre_setup')) {
         $asset = $manifest.installers.$key
         $path = Join-Path $stage ('installers\' + $asset.name)
         if ((Get-Item -LiteralPath $path).Length -ne [long]$asset.size -or
             (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $asset.sha256) { throw 'Installer pin mismatch' }
-        if ($key -ne 'proxifyre_msi') { Assert-Signature $path }
-        $skip = $false
-        if ($key -eq 'vc_redist') {
-            $runtime = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction SilentlyContinue
-            if ($runtime -and $runtime.Installed -eq 1 -and [version]$runtime.Version.TrimStart('v') -ge [version]'14.44.35211.0') { $skip = $true }
-        }
-        if ($key -eq 'ndis_msi') {
-            $driver = Join-Path $env:SystemRoot 'System32\drivers\ndisrd.sys'
-            if ((Get-Service NDISRD -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath $driver)) {
-                Assert-Signature $driver
-                $driverVersion = [version](Get-Item -LiteralPath $driver).VersionInfo.FileVersion
-                if ($driverVersion -ge [version]'3.6.1.0' -and $driverVersion -lt [version]'4.0.0.0') { $skip = $true }
-                else { throw 'An incompatible shared NDIS driver is installed; refusing replacement' }
-            }
-        }
-        if (-not $skip) {
-            if ($key -eq 'proxifyre_msi') {
-                $control = Get-CimInstance Win32_Service -Filter "Name='RuleProxyControl'"
-                if ($control -and $control.PathName -ne $serviceCommand) { throw 'Unexpected control service executable' }
-                if ($control) { Stop-Service -Name $serviceName -ErrorAction Stop }
-                if (Get-Service ProxiFyreService -ErrorAction SilentlyContinue) { Stop-Service ProxiFyreService -ErrorAction Stop }
-                # Record ownership intent before MSI can create the service, so
-                # a power loss between installation and result persistence can resume.
-                $pfOwned = $true
-                Write-State 'installing_proxifyre_msi' $pfOwned
-            }
-            $log = Join-Path $logRoot ($key + '.log')
-            if ($key -eq 'vc_redist') { $code = Invoke-Installer $path ('/install /quiet /norestart /log "' + $log + '"') $key }
-            else { $code = Invoke-Installer (Join-Path $env:SystemRoot 'System32\msiexec.exe') ('/i "' + $path + '" /qn /norestart /L*v "' + $log + '"') $key }
-            if ($key -eq 'proxifyre_msi') { $pfOwned = $true }
-            if ($code -eq 3010) { Write-State 'reboot_required' $pfOwned; exit 3010 }
-            Write-State ('installed_' + $key) $pfOwned
-        }
+        if ($key -in @('vc_redist','ndis_msi')) { Assert-Signature $path }
     }
+    $setupPhase = 'official_burn_layout_validate'
+    $validationCode = "import sys; from pathlib import Path; from ruleproxy.windows_proxy_pins import validate_burn_layout; validate_burn_layout(Path(sys.argv[1]))"
+    & (Join-Path $stage 'python\python.exe') -I -S -c $validationCode (Join-Path $stage 'installers')
+    if ($LASTEXITCODE -ne 0) { throw 'Official Burn external payload layout verification failed' }
+    $runtime = Get-VisualCppRuntime
+    [IO.File]::WriteAllText((Join-Path $logRoot 'vc-runtime-before.json'),($runtime | ConvertTo-Json -Depth 7),$utf8)
+    $driver = Join-Path $env:SystemRoot 'System32\drivers\ndisrd.sys'
+    if ((Get-Service NDISRD -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath $driver)) {
+        Assert-Signature $driver
+        $driverVersion = [version](Get-Item -LiteralPath $driver).VersionInfo.FileVersion
+        if ($driverVersion -lt [version]'3.6.1.0' -or $driverVersion -ge [version]'4.0.0.0') { throw 'An incompatible shared NDIS driver is installed; refusing replacement' }
+    }
+    $control = Get-CimInstance Win32_Service -Filter "Name='RuleProxyControl'"
+    if ($control -and $control.PathName -ne $serviceCommand) { throw 'Unexpected control service executable' }
+    if ($control) { Stop-Service -Name $serviceName -ErrorAction Stop }
+    if (Get-Service ProxiFyreService -ErrorAction SilentlyContinue) { Stop-Service ProxiFyreService -ErrorAction Stop }
+    $setupPhase = 'official_burn_install'
+    $pfOwned = $true
+    Write-State 'installing_proxifyre_bundle' $pfOwned
+    $bundle = Join-Path $stage ('installers\' + $manifest.installers.proxifyre_setup.name)
+    $burnAction = if ($bundleRegistered) { '/repair' } else { '/install' }
+    $log = Join-Path $logRoot 'official-setup.log'
+    $code = Invoke-Installer $bundle ($burnAction + ' /quiet /norestart /log "' + $log + '"') 'official ProxiFyre setup' -OfficialBurn
+    if ($code -eq 3010) { Write-State 'reboot_required' $pfOwned; exit 3010 }
+    $runtime = Get-VisualCppRuntime
+    [IO.File]::WriteAllText((Join-Path $logRoot 'vc-runtime-after.json'),($runtime | ConvertTo-Json -Depth 7),$utf8)
+    if (-not $runtime.files_compatible) { throw 'The native VC/UCRT file set remains incomplete after official setup success; inspect vc-runtime-after.json' }
+    Write-State 'installed_proxifyre_bundle' $pfOwned
     Assert-Signature (Join-Path $env:SystemRoot 'System32\drivers\ndisrd.sys')
     $config = Join-Path $pfRoot 'app-config.json'
     if (-not (Test-Path -LiteralPath $config)) {

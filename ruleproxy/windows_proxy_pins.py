@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import urllib.request
+import xml.etree.ElementTree as ET
 
 PROXIFYRE_VERSION = "2.6.4"
 MIHOMO_VERSION = "v1.19.32"
@@ -18,8 +19,13 @@ PYTHON_PTH = "python314._pth"
 PYTHON_STDLIB = "python314.zip"
 PTH_TEXT = "python314.zip\r\n.\r\n..\r\n..\\vendor\r\n"
 PYYAML_VERSION = "6.0.3"
+BURN_REGISTRATION = "{0E6374A5-1B73-4710-80EA-43784F0BC546}"
+BURN_MANIFEST_SHA256 = "86416f33dd60003c7a580bdf48f6d6dcdf10c963b04866af3175fecd69b1ab87"
 
 ASSETS = {
+    "proxifyre_setup": {"name": "ProxiFyre-2.6.4-win-x64-setup.exe", "size": 2889730,
+        "url": "https://github.com/wiresock/proxifyre/releases/download/v2.6.4/ProxiFyre-2.6.4-win-x64-setup.exe",
+        "sha256": "afaf3ac8a2069f9653adb1b4a63b31d1edd8aa109ccdc367cf0d4462e78f5027"},
     "proxifyre_msi": {"name": "ProxiFyre-2.6.4-win-x64.msi", "size": 1802240,
         "url": "https://github.com/wiresock/proxifyre/releases/download/v2.6.4/ProxiFyre-2.6.4-win-x64.msi",
         "sha256": "ef64b295485cd16ad3e41a6b7d56e7ab46da2093ff64389edc17545157777de1"},
@@ -48,6 +54,42 @@ ASSETS = {
         "url": "https://raw.githubusercontent.com/wiresock/ndisapi/v3.6.2/LICENSE",
         "sha256": "b12f4cfcce43cef59100cf8c4eaf67ae5246c9a047e00f6059655f6694030efe"},
 }
+
+
+def validate_burn_layout(installers: Path, *, manifest: bytes | None = None) -> dict:
+    """Verify the flat local-source layout against the pinned official manifest.
+
+    XML is the unmodified UX CAB member 0 extracted once from the fixed official
+    setup using 7z. Its hash binds the reviewed source metadata; the full setup
+    executable is independently SHA-256 pinned. No Windows executable runs
+    while building on Linux.
+    """
+    if manifest is None:
+        manifest = Path(__file__).with_name('windows_proxy_burn_manifest.xml').read_bytes()
+    if hashlib.sha256(manifest).hexdigest() != BURN_MANIFEST_SHA256:
+        raise ValueError('Official Burn manifest changed')
+    root = ET.fromstring(manifest)
+    namespace = {'b': 'http://wixtoolset.org/schemas/v4/2008/Burn'}
+    external = root.findall("b:Payload[@Packaging='external']", namespace)
+    expected = {'VisualCppRuntime': 'vc_redist', 'WindowsPacketFilter': 'ndis_msi'}
+    if {node.get('Id') for node in external} != set(expected) or len(external) != 2:
+        raise ValueError('Unexpected official Burn external payload')
+    records = {}
+    for node in external:
+        asset = ASSETS[expected[node.get('Id')]]
+        if (node.get('FilePath') != asset['name'] or node.get('SourcePath') != asset['name']
+                or node.get('FileSize') != str(asset['size']) or node.get('DownloadUrl') != asset['url']):
+            raise ValueError('Official Burn payload identity differs from fixed asset')
+        data = (Path(installers) / asset['name']).read_bytes()
+        if (len(data) != asset['size'] or hashlib.sha256(data).hexdigest() != asset['sha256']
+                or hashlib.sha512(data).hexdigest().upper() != node.get('Hash')):
+            raise ValueError('Official Burn local payload failed digest verification')
+        records[node.get('Id')] = dict(node.attrib)
+    registration = root.find('b:Registration', namespace)
+    if registration is None or registration.get('Code') != BURN_REGISTRATION:
+        raise ValueError('Official Burn registration changed')
+    return {'schema_version': 1, 'bundle_code': BURN_REGISTRATION,
+            'manifest_sha256': BURN_MANIFEST_SHA256, 'external_payloads': records}
 
 
 def pipe_name(owner_sid: str) -> str:

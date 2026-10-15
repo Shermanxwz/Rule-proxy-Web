@@ -118,7 +118,8 @@ class WindowsPackageTests(unittest.TestCase):
             (path / "mihomo.exe").write_bytes(b"mihomo")
         with tempfile.TemporaryDirectory() as directory, patch.object(builder, "download", side_effect=fake_download), \
                 patch.object(builder.install_runtime, "install_windows_proxy", side_effect=runtime), \
-                patch.object(builder.install_runtime, "installed_windows_proxy", return_value=True):
+                patch.object(builder.install_runtime, "installed_windows_proxy", return_value=True), \
+                patch.object(builder.pins, "validate_burn_layout", return_value={"fixture": True}):
             target = Path(directory) / "package"
             builder.stage(target)
             manifest = json.loads((target / "package-manifest.json").read_text())

@@ -1,6 +1,9 @@
 [CmdletBinding()]
 param([switch]$Elevated, [string]$OwnerSid)
 $ErrorActionPreference = 'Stop'
+$env:PSModulePath = [IO.Path]::Combine($PSHOME,'Modules')
+Import-Module -Name Microsoft.PowerShell.Security -ErrorAction Stop
+Import-Module -Name Microsoft.PowerShell.Management -ErrorAction Stop
 $root = Join-Path $env:ProgramFiles 'RuleProxy-Web'
 $pfRoot = Join-Path $env:ProgramFiles 'ProxiFyre'
 $statePath = Join-Path $env:ProgramData 'RuleProxy-Web\install-state.json'
@@ -32,6 +35,13 @@ if ($state.schema_version -ne 1 -or $state.owner_sid -ne $OwnerSid -or $state.ro
     $state.proxifyre_root -ne $pfRoot -or $state.proxifyre_owned -ne $true -or
     $deployment.schema_version -ne 1 -or $deployment.owner_sid -ne $OwnerSid -or
     $deployment.root -ne $root -or $deployment.proxifyre_root -ne $pfRoot) { throw 'Refuse a deployment not owned by this installation' }
+if ($state.phase -eq 'uninstall_reboot_required' -and $state.reboot_boot_marker) {
+    $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToUniversalTime().ToString('o')
+    if ($boot -eq $state.reboot_boot_marker) {
+        Write-Host 'Restart Windows, then rerun this uninstall script to finish.'
+        exit 3010
+    }
+}
 function Get-OwnedProxiFyreRemovalPlan {
     # Fixed code in the protected interpreter; no user-supplied command or module.
     $code = "import json,sys; from pathlib import Path; from ruleproxy.windows_proxy_pins import proxifyre_removal_plan; m=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8')); print(json.dumps(proxifyre_removal_plan(Path(sys.argv[2]),m['proxifyre_files'])))"
@@ -58,13 +68,26 @@ if ($pfService) {
     Stop-Service ProxiFyreService -ErrorAction Stop
     (Get-Service ProxiFyreService).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(30))
 }
-$msi = Join-Path $root 'installers\ProxiFyre-2.6.4-win-x64.msi'
-if ((Get-FileHash -LiteralPath $msi -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'ef64b295485cd16ad3e41a6b7d56e7ab46da2093ff64389edc17545157777de1') { throw 'Fixed uninstall MSI failed verification' }
-$log = Join-Path $env:ProgramData 'RuleProxy-Web\uninstall.log'
-$process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\msiexec.exe') -ArgumentList ('/x "' + $msi + '" /qn /norestart /L*v "' + $log + '"') -PassThru
+$bundle = Join-Path $root 'installers\ProxiFyre-2.6.4-win-x64-setup.exe'
+if ((Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'afaf3ac8a2069f9653adb1b4a63b31d1edd8aa109ccdc367cf0d4462e78f5027') { throw 'Fixed official uninstall setup failed verification' }
+$log = Join-Path $env:ProgramData 'RuleProxy-Web\uninstall-burn.log'
+# Burn unregisters its own ARP entry; permanent shared VC/NDIS are retained.
+$process = Start-Process -FilePath $bundle -ArgumentList ('/uninstall /quiet /norestart /log "' + $log + '"') -PassThru
 if (-not $process.WaitForExit(240000)) { & taskkill.exe /PID $process.Id /T /F | Out-Null; throw 'ProxiFyre uninstall exceeded bound' }
-if ($process.ExitCode -notin @(0,1641,3010,1605)) { throw ('ProxiFyre uninstall failed: ' + $process.ExitCode) }
-$reboot = $process.ExitCode -in @(1641,3010)
+if ($process.ExitCode -notin @(0,1641,3010,3017,1605)) { throw ('ProxiFyre uninstall failed: ' + $process.ExitCode) }
+$reboot = $process.ExitCode -in @(1641,3010,3017)
+if ($reboot) {
+    # Keep both the ownership record and the installed cleanup tools until a
+    # reboot has completed pending service/DLL deletion. Never mark complete.
+    $state.phase = 'uninstall_reboot_required'
+    $state.proxifyre_owned = $true
+    $state.reboot_required = $true
+    $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToUniversalTime().ToString('o')
+    $state | Add-Member -NotePropertyName reboot_boot_marker -NotePropertyValue $boot -Force
+    [IO.File]::WriteAllText($statePath,($state|ConvertTo-Json -Compress),(New-Object Text.UTF8Encoding($false)))
+    Write-Host 'Uninstall requires a restart. Program files and ownership are retained; rerun this script after restarting Windows.'
+    exit 3010
+}
 if (Get-Service ProxiFyreService -ErrorAction SilentlyContinue) {
     throw 'ProxiFyre service still exists after MSI uninstall; restart Windows and retry uninstall'
 }

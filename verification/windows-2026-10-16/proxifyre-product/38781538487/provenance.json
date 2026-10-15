@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "run_id": 38781538487,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38781538487",
+  "source_commit": "f85e7772c8032be12a745849102ddb1f7a695486",
+  "artifact_id": 11995119828,
+  "github_artifact_digest": "sha256:ba06a26ef7cc6bb7d82df32c3c0e3977a78efe81c01b694fc6ec92c0acb1809a",
+  "normalized_download_zip_sha256": "ba06a26ef7cc6bb7d82df32c3c0e3977a78efe81c01b694fc6ec92c0acb1809a",
+  "status": "standalone_msi_ucrt_appsearch_failed",
+  "source_against_bundle_identity_passed": true,
+  "staging_acl_passed": true,
+  "ndis_driver_installation_passed": true,
+  "vc_four_compatible_flags_found": true,
+  "ucrt_base_compatible_found": false,
+  "driver_or_engine_routing_tests_started": false,
+  "architecture_failure_proven": false,
+  "root_cause_status": "MSI LaunchConditions lacks UCRT_BASE_COMPATIBLE; four VC flags passed. Exact native DLL/AppSearch mismatch not proven. Next installation uses unchanged official Burn setup and its supported local payload layout.",
+  "cross_platform_check_run_id": 38781538472,
+  "cross_platform_check": {
+    "linux_jobs_passed": 6,
+    "windows_jobs_failed": 2,
+    "windows_failure": "One native ACL regression test could not autoload Microsoft.PowerShell.Security in the Windows PowerShell subprocess; product installation itself passed protected staging."
+  }
+}

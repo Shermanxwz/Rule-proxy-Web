@@ -11,7 +11,7 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 要求 Windows 11 x64。此版本没有完成 ARM64、x86 或 Windows Server 产品认证；系统需保留正常的驱动签名验证与 .NET Framework 4.7.2 以上组件。
 
 1. 取得本次个人离线包 `RuleProxy-Web-0.3.0-windows-x64-personal.zip`，核对随包提供的 `SHA256SUMS.txt`，解压。
-2. 从日常登录账户双击 `Setup-Windows.cmd`，允许一次 UAC 安装。包内已包含固定版本的 Python、PyYAML、Mihomo、ProxiFyre MSI、NDIS 驱动 MSI 和 VC 运行库，完整离线包的安装不需要临时联网下载。
+2. 从日常登录账户双击 `Setup-Windows.cmd`，允许一次 UAC 安装。包内已包含固定版本的 Python、PyYAML、Mihomo、ProxiFyre MSI、NDIS 驱动 MSI 和 VC 运行库，完整离线包使用原版官方 Setup 与按其 Burn manifest 精确命名的本地 VC/NDIS 载荷；无需临时下载的实际断网验收仍待完成。
 3. 如果安装返回 `3010`，先重启，再从同一离线包运行 `Setup-Windows.cmd` 续装。
 4. 安装成功后，以同一用户正常打开 `Start-Windows.cmd`；不要选择“以管理员身份运行”。面板默认地址为 `http://127.0.0.1:8879`。
 5. 在 Web 面板导入自己的 YAML，选择真实代理节点，添加应用并启用其代理开关，再启动核心和应用。

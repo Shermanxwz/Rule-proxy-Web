@@ -20,6 +20,35 @@ SPEC.loader.exec_module(installer)
 
 
 class WindowsOfflineDeploymentTests(unittest.TestCase):
+    def test_official_burn_layout_requires_exact_local_payload_bytes(self):
+        import xml.etree.ElementTree as ET
+        namespace = 'http://wixtoolset.org/schemas/v4/2008/Burn'
+        root = ET.Element('{' + namespace + '}BurnManifest')
+        assets = {}
+        payloads = {'VisualCppRuntime': ('vc_redist', b'Microsoft VC payload'),
+                    'WindowsPacketFilter': ('ndis_msi', b'official driver payload')}
+        for name, (key, data) in payloads.items():
+            filename = key + '.bin'
+            assets[key] = {'name': filename, 'size': len(data), 'url': 'https://example.invalid/' + filename,
+                           'sha256': hashlib.sha256(data).hexdigest()}
+            ET.SubElement(root, '{' + namespace + '}Payload', Id=name, FilePath=filename, SourcePath=filename,
+                          FileSize=str(len(data)), DownloadUrl=assets[key]['url'], Packaging='external',
+                          Hash=hashlib.sha512(data).hexdigest().upper())
+        ET.SubElement(root, '{' + namespace + '}Registration', Code=pins.BURN_REGISTRATION)
+        manifest = ET.tostring(root)
+        with tempfile.TemporaryDirectory() as directory, patch.object(pins, 'ASSETS', assets), \
+                patch.object(pins, 'BURN_MANIFEST_SHA256', hashlib.sha256(manifest).hexdigest()):
+            target = Path(directory)
+            for name, (key, data) in payloads.items():
+                (target / assets[key]['name']).write_bytes(data)
+            result = pins.validate_burn_layout(target, manifest=manifest)
+            self.assertEqual(set(result['external_payloads']), set(payloads))
+            (target / assets['vc_redist']['name']).write_bytes(b'altered')
+            with self.assertRaisesRegex(ValueError, 'digest'):
+                pins.validate_burn_layout(target, manifest=manifest)
+            with self.assertRaisesRegex(ValueError, 'manifest changed'):
+                pins.validate_burn_layout(target, manifest=manifest + b' ')
+
     @unittest.skipUnless(os.name == 'nt', 'requires native Windows ACL APIs')
     def test_windows_protect_tree_keeps_admin_access_and_users_read_only(self):
         # Execute the actual installer function without the installer entrypoint.
@@ -27,6 +56,11 @@ class WindowsOfflineDeploymentTests(unittest.TestCase):
         # protecting the populated tree, including a read-only payload file.
         script = r"""
 $ErrorActionPreference = 'Stop'
+# A pwsh 7 caller can export its incompatible PSModulePath to this WinPS 5.1
+# child. Load only the native host's shipped modules, with explicit errors.
+$env:PSModulePath = Join-Path $PSHOME 'Modules'
+Import-Module -Name Microsoft.PowerShell.Security -ErrorAction Stop
+Import-Module -Name Microsoft.PowerShell.Management -ErrorAction Stop
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 77 }
 $tokens = $null; $errors = $null
@@ -56,15 +90,32 @@ if ([IO.File]::ReadAllText((Join-Path $root 'CHANGELOG.md')) -ne 'checked payloa
 [IO.File]::WriteAllText((Join-Path $root 'CHANGELOG.md'),'admin can still write')
 Remove-Item -LiteralPath $root -Recurse -Force
 if (Test-Path -LiteralPath $root) { throw 'Admin cleanup failed' }
+# Execute the real installer exit handling with a process double: only the
+# official Burn chain may map ERROR_FAIL_REBOOT_REQUIRED to a pending reboot.
+$invoke = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-Installer'},$true)
+Invoke-Expression $invoke.Extent.Text
+function Start-Process {
+    param([string]$FilePath,[string]$ArgumentList,[switch]$Wait,[switch]$PassThru)
+    $process = [pscustomobject]@{ExitCode=3017}
+    $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { param($timeout) return $true }
+    return $process
+}
+if ((Invoke-Installer 'unused.exe' '' 'official test' -OfficialBurn) -ne 3010) { throw 'Burn reboot mapping failed' }
+$rejected = $false
+try { Invoke-Installer 'unused.exe' '' 'ordinary installer' | Out-Null }
+catch { $rejected = $_.Exception.Message -match 'exit 3017' }
+if (-not $rejected) { throw 'Non-Burn 3017 was incorrectly accepted' }
 """
         temporary = Path(tempfile.mkdtemp(prefix='ruleproxy-acl-'))
         try:
             source = Path(__file__).resolve().parent.parent / 'scripts/windows-setup.ps1'
             runner = temporary / 'check.ps1'
             runner.write_text(script, encoding='ascii')
-            environment = dict(os.environ, RULEPROXY_SETUP_TEST_SCRIPT=str(source),
+            environment = {key: value for key, value in os.environ.items() if key.casefold() != 'psmodulepath'}
+            environment.update(RULEPROXY_SETUP_TEST_SCRIPT=str(source),
                                RULEPROXY_SETUP_TEST_ROOT=str(temporary / 'protected'))
-            result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            powershell = Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+            result = subprocess.run([str(powershell), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
                                      '-File', str(runner)], env=environment, text=True, capture_output=True, timeout=45)
             if result.returncode == 77:
                 self.skipTest('native ACL owner test requires an elevated administrator token')
