@@ -40,12 +40,26 @@ LAB = Path(r"C:\RuleProxyProduct")
 INSTALLED = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "RuleProxy-Web"
 
 
-def write(path, value):
+def write(path, value, *, replace_timeout=2.0):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(value, ensure_ascii=True, indent=2) + "\n", encoding="ascii")
-    os.replace(temporary, path)
+    deadline = time.monotonic() + replace_timeout
+    while True:
+        try:
+            os.replace(temporary, path)
+            return
+        except OSError as exc:
+            # A controller/diagnostic reader can briefly deny delete sharing.
+            # Retain atomic publication and surface persistent permissions or
+            # locks after a short deadline; unrelated errors are never retried.
+            if os.name != "nt" or getattr(exc, "winerror", None) not in {5, 32, 33}:
+                raise
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(.02, remaining))
 
 
 def digest(path):

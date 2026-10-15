@@ -1,12 +1,16 @@
 """Guard evidence boundaries and final artifact verification before native CI."""
 import hashlib
+import ctypes
+import errno
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import struct
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
@@ -65,6 +69,110 @@ class ProductArtifactTests(unittest.TestCase):
             self.package(directory, manifest_path="../outside.txt")
             with self.assertRaisesRegex(ValueError, "Unsafe manifest"):
                 acceptance.unpack_package(directory, directory / "unpacked")
+
+
+class AtomicReportTests(unittest.TestCase):
+    def test_report_creation_and_replacement_publish_complete_json(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "actors/report.json"
+            acceptance.write(path, {"status": "running"})
+            self.assertEqual(json.loads(path.read_text()), {"status": "running"})
+            final = {"status": "passed", "checks": {"ordinary": True}, "payload": "x" * 8192}
+            acceptance.write(path, final)
+            self.assertEqual(json.loads(path.read_text()), final)
+            self.assertFalse(path.with_suffix(".json.tmp").exists())
+
+    def test_unrelated_replace_error_is_not_retried_and_preserves_original(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "report.json"
+            acceptance.write(path, {"status": "original"})
+            original = path.read_bytes()
+            error = OSError(errno.EIO, "unrelated storage error")
+            with mock.patch.object(acceptance.os, "replace", side_effect=error) as replace, \
+                    mock.patch.object(acceptance.time, "sleep") as sleep:
+                with self.assertRaises(OSError) as caught:
+                    acceptance.write(path, {"status": "new"})
+                self.assertIs(caught.exception, error)
+                replace.assert_called_once()
+                sleep.assert_not_called()
+            self.assertEqual(path.read_bytes(), original)
+
+    @staticmethod
+    def reader_without_delete_sharing(path):
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32,
+                                      ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+        kernel.CreateFileW.restype = ctypes.c_void_p
+        kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+        kernel.CloseHandle.restype = ctypes.c_int
+        # READ|WRITE sharing intentionally omits FILE_SHARE_DELETE, matching
+        # the relevant Windows reader/atomic-rename conflict without an ACL edit.
+        handle = kernel.CreateFileW(str(path), 0x80000000, 3, None, 3, 0x80, None)
+        if handle == ctypes.c_void_p(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return kernel, handle
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows file-sharing semantics")
+    def test_windows_report_replace_retries_real_reader_conflict_until_release(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "report.json"
+            acceptance.write(path, {"status": "old"})
+            kernel, handle = self.reader_without_delete_sharing(path)
+            conflict, errors = threading.Event(), []
+            real_replace = os.replace
+            final = {"status": "complete", "checks": {"ordinary": True}, "payload": "x" * 8192}
+            def replace(*args):
+                try:
+                    return real_replace(*args)
+                except OSError as exc:
+                    if getattr(exc, "winerror", None) in {5, 32, 33}:
+                        conflict.set()
+                    raise
+            def publish():
+                try:
+                    acceptance.write(path, final)
+                except BaseException as exc:
+                    errors.append(exc)
+            worker = threading.Thread(target=publish, daemon=True)
+            try:
+                with mock.patch.object(acceptance.os, "replace", side_effect=replace) as observed:
+                    worker.start()
+                    self.assertTrue(conflict.wait(1), "held Windows read handle did not exercise replace conflict")
+                    self.assertTrue(kernel.CloseHandle(handle))
+                    handle = None
+                    worker.join(3)
+                    self.assertFalse(worker.is_alive(), "replacement exceeded its bounded retry")
+                    self.assertFalse(errors, repr(errors))
+                    self.assertGreaterEqual(observed.call_count, 2)
+                self.assertEqual(json.loads(path.read_text()), final)
+                self.assertFalse(path.with_suffix(".json.tmp").exists())
+            finally:
+                if handle is not None:
+                    kernel.CloseHandle(handle)
+                if worker.ident is not None:
+                    worker.join(3)
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows file-sharing semantics")
+    def test_windows_persistent_reader_lock_expires_without_changing_original(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "report.json"
+            acceptance.write(path, {"status": "old"})
+            original = path.read_bytes()
+            kernel, handle = self.reader_without_delete_sharing(path)
+            real_replace = os.replace
+            try:
+                started = time.monotonic()
+                with mock.patch.object(acceptance.os, "replace", wraps=real_replace) as observed:
+                    with self.assertRaises(OSError) as caught:
+                        acceptance.write(path, {"status": "new"}, replace_timeout=.12)
+                    self.assertIn(caught.exception.winerror, {5, 32, 33})
+                    self.assertGreaterEqual(observed.call_count, 2)
+                self.assertLess(time.monotonic() - started, 2)
+                self.assertEqual(path.read_bytes(), original)
+            finally:
+                kernel.CloseHandle(handle)
+            acceptance.write(path, {"status": "after release"})
+            self.assertEqual(json.loads(path.read_text()), {"status": "after release"})
 
 
 class BackgroundEntryTests(unittest.TestCase):
