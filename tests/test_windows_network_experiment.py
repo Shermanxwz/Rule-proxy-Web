@@ -26,7 +26,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.directory = Path(self.temporary.name)
+        self.directory = Path(self.temporary.name).resolve(strict=True)
 
     def test_fixed_model1_rule_cannot_open_other_addresses_ports_or_protocols(self):
         policy = experiment.network_policy("model1_internal", 49123, 10809)
@@ -586,7 +586,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         code, result, wire, dns, launch, _ = self.native_dns_main_fixture(test_executor=True)
         self.assertEqual(code, 0)
         for call in launch.call_args_list:
-            self.assertEqual(call.kwargs["executor"], self.directory / "source-build/wxc-exec.exe")
+            self.assertEqual(call.kwargs["executor"], (self.directory / "source-build/wxc-exec.exe").resolve(strict=True))
         self.assertEqual(result["runtime_integrity"]["verified_file_count"], 1)
         self.assertEqual(result["test_psec_executor"]["original_runtime_sha256"], "b" * 64)
         self.assertEqual(result["test_psec_executor"]["patch"], experiment.PSEC_TEST_PATCH)

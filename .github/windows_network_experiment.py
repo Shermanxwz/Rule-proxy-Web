@@ -81,6 +81,9 @@ def verify_test_executor(root, executor, manifest, original_sha256):
     A matching local manifest proves integrity; the invoking workflow's pinned
     source and artifact checksum establish its source and build provenance.
     """
+    root = Path(root).resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("Product root must be an existing directory")
     executor, manifest = test_executor_file(executor), test_executor_file(manifest)
     if (executor.is_relative_to(root / "bin") or manifest.is_relative_to(root / "bin")
             or executor.suffix.casefold() != ".exe" or executor == manifest):

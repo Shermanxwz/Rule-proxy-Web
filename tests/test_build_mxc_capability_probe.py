@@ -39,7 +39,7 @@ class CapabilityProbeBuilderTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.base = Path(temporary.name)
+        self.base = Path(temporary.name).resolve()
         self.source = self.base / "source"
         self.target = self.source / builder.TARGET_FILE
         self.target.parent.mkdir(parents=True)

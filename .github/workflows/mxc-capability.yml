@@ -39,7 +39,7 @@ jobs:
           rustup toolchain install 1.93 --profile minimal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build only the diagnostic native executor
-        run: python -B .github\build_mxc_capability_probe.py --source mxc-source --output mxc-capability
+        run: python -X utf8 -B .github\build_mxc_capability_probe.py --source mxc-source --output mxc-capability
       - uses: actions/upload-artifact@v7
         with:
           name: mxc-capability-executor
@@ -63,7 +63,7 @@ jobs:
           path: mxc-capability
       - name: Prepare an independent package with its original verified runtimes
         run: |
-          python -B .github\build_windows_package.py dist
+          python -X utf8 -B .github\build_windows_package.py dist
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
           $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
