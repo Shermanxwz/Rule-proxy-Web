@@ -212,7 +212,10 @@ def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
         config = json.loads(raw, object_pairs_hook=unique_fields)
         enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
         ingress_controls = config.get("ingress_controls_diagnostic", False) if isinstance(config, dict) else None
-        if type(enabled) is not bool or type(ingress_controls) is not bool or (ingress_controls and not enabled):
+        standard_profile = config.get("standard_profile_layout_control", False) if isinstance(config, dict) else None
+        if (type(enabled) is not bool or type(ingress_controls) is not bool
+                or type(standard_profile) is not bool or (ingress_controls and not enabled)
+                or (standard_profile and ingress_controls)):
             raise ValueError
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic executor configuration is invalid") from exc
@@ -244,10 +247,10 @@ def load_chromium_control_helper(root: Path = ROOT):
     return module
 
 
-def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None, bool, bool]:
+def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None, bool, bool, bool]:
     """Read mutually exclusive source diagnostic phase selections safely."""
     if vm_config is None:
-        return False, False, False, False, None, False, False
+        return False, False, False, False, None, False, False, False
     def unique_fields(pairs):
         value = {}
         for key, item in pairs:
@@ -267,10 +270,12 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
         chromium_control = config.get("chromium_gui_control_diagnostic", False) if isinstance(config, dict) else None
         psec_1_1 = config.get("psec_1_1_diagnostic", False) if isinstance(config, dict) else None
         ingress_controls = config.get("ingress_controls_diagnostic", False) if isinstance(config, dict) else None
+        standard_profile = config.get("standard_profile_layout_control", False) if isinstance(config, dict) else None
         executor_enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
         chromium_sha256 = config.get("chromium_gui_control_archive_sha256") if isinstance(config, dict) else None
         if any(type(flag) is not bool for flag in (
-                enabled, network, singleton, chromium_control, psec_1_1, executor_enabled, ingress_controls)):
+                enabled, network, singleton, chromium_control, psec_1_1, executor_enabled,
+                ingress_controls, standard_profile)):
             raise ValueError
         if ((enabled and network) or (enabled and executor_enabled and not chromium_control)
                 or (singleton and (not network or executor_enabled))):
@@ -283,13 +288,17 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
                        and not psec_1_1 and not singleton)
         if ingress_controls and not (network_ingress or gui_ingress):
             raise ValueError
+        if standard_profile and (not enabled or not chromium_control or network or singleton
+                                 or psec_1_1 or ingress_controls):
+            raise ValueError
         if chromium_control:
             if (not enabled or network or not isinstance(chromium_sha256, str)
                     or not re.fullmatch(r"[0-9a-f]{64}", chromium_sha256)):
                 raise ValueError
         elif chromium_sha256 is not None:
             raise ValueError
-        return enabled, network, singleton, chromium_control, chromium_sha256, psec_1_1, ingress_controls
+        return (enabled, network, singleton, chromium_control, chromium_sha256,
+                psec_1_1, ingress_controls, standard_profile)
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic configuration is invalid") from exc
 
@@ -1316,7 +1325,8 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     probe_passed = False
     cleanup_pending = False
     try:
-        gui_only, network_only, singleton, chromium_control, chromium_sha256, psec_1_1, ingress_controls = guest_diagnostic_options(vm_config)
+        (gui_only, network_only, singleton, chromium_control, chromium_sha256,
+         psec_1_1, ingress_controls, standard_profile) = guest_diagnostic_options(vm_config)
     except ValueError:
         result["diagnostic_configuration_error"] = "invalid_private_configuration"
         result["error"] = "Private diagnostic configuration could not be verified"
@@ -1330,6 +1340,10 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         if ingress_controls:
             result.update(ingress_controls_diagnostic=True,
                           source_policy_variant="private_network_and_localappdata_control")
+        if standard_profile:
+            result.update(standard_profile_layout_control=True,
+                          source_policy_variant="standard_profile_layout_without_extra_directory_grants",
+                          additional_directory_grants=False, directory_query_list_permission_changed=False)
         if chromium_control:
             result["chromium_gui_control_diagnostic"] = True
         probe_command = [executable, "-X", "utf8", "-B", str(acceptance), "--root", str(root),
@@ -1384,6 +1398,8 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                            "--root", str(root), "--report", str(directory / "gui.json")]
             if ingress_controls:
                 gui_command.append("--ingress-controls-diagnostic")
+            if standard_profile:
+                gui_command.append("--standard-profile-layout-control")
             if chromium_control_root is not None:
                 gui_command.extend(["--chromium-control-root", str(chromium_control_root)])
             gui_command.extend(gui_executor_args)
@@ -1646,6 +1662,7 @@ def run(args) -> dict:
     singleton_port_range_diagnostic = getattr(args, "singleton_port_range_diagnostic", False) is True
     psec_1_1_diagnostic = getattr(args, "psec_1_1_diagnostic", False) is True
     ingress_controls_diagnostic = getattr(args, "ingress_controls_diagnostic", False) is True
+    standard_profile_layout_control = getattr(args, "standard_profile_layout_control", False) is True
     require_update = not baseline
     summary = {"status": "failed", "baseline_diagnostic": baseline,
                "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "original_sdk",
@@ -1656,10 +1673,16 @@ def run(args) -> dict:
                "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
                "psec_1_1_diagnostic": psec_1_1_diagnostic,
                "ingress_controls_diagnostic": ingress_controls_diagnostic,
-               "source_policy_variant": (("private_network_and_localappdata_control" if gui_diagnostic_only
+               "standard_profile_layout_control": standard_profile_layout_control,
+               "source_policy_variant": ("standard_profile_layout_without_extra_directory_grants"
+                                         if standard_profile_layout_control else
+                                         (("private_network_and_localappdata_control" if gui_diagnostic_only
                                            else "private_network_capability_control")
-                                          if ingress_controls_diagnostic else "unchanged"),
-               "source_diagnostic_only": gui_diagnostic_only or chromium_gui_control_diagnostic or network_diagnostic_only or singleton_port_range_diagnostic or psec_1_1_diagnostic or diagnostic_mode,
+                                          if ingress_controls_diagnostic else "unchanged")),
+               **({"additional_directory_grants": False,
+                   "directory_query_list_permission_changed": False}
+                  if standard_profile_layout_control else {}),
+               "source_diagnostic_only": gui_diagnostic_only or chromium_gui_control_diagnostic or network_diagnostic_only or singleton_port_range_diagnostic or psec_1_1_diagnostic or diagnostic_mode or standard_profile_layout_control,
                "product_acceptance_passed": False,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
@@ -1681,6 +1704,12 @@ def run(args) -> dict:
         gui_ingress = (gui_diagnostic_only and chromium_gui_control_diagnostic and diagnostic_mode
                        and not network_diagnostic_only and not psec_1_1_diagnostic
                        and not singleton_port_range_diagnostic)
+        standard_profile_gui = (standard_profile_layout_control and gui_diagnostic_only
+                                and chromium_gui_control_diagnostic and not network_diagnostic_only
+                                and not singleton_port_range_diagnostic and not psec_1_1_diagnostic
+                                and not ingress_controls_diagnostic)
+        if standard_profile_layout_control and not standard_profile_gui:
+            raise ValueError("Standard profile layout control requires GUI-only CfT diagnostics without G2")
         if ingress_controls_diagnostic and not (network_ingress or gui_ingress):
             raise ValueError("Ingress control requires one supported source-only G2 diagnostic mode")
         summary["kvm_api_version"] = require_kvm()
@@ -1780,6 +1809,7 @@ def run(args) -> dict:
                     "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
                     "psec_1_1_diagnostic": psec_1_1_diagnostic,
                     "ingress_controls_diagnostic": ingress_controls_diagnostic,
+                    "standard_profile_layout_control": standard_profile_layout_control,
                     **({"chromium_gui_control_archive_sha256": chromium_control_sha256}
                        if chromium_control_sha256 is not None else {}),
                     **({"test_psec_executor_sha256": summary["test_psec_executor"]["executor_sha256"],
@@ -1867,6 +1897,13 @@ def run(args) -> dict:
                     summary["recovery_records"] = server.result.get("recovery_records", [])
                     if "chromium_gui_control" in server.result:
                         summary["chromium_gui_control_guest"] = server.result["chromium_gui_control"]
+                    if standard_profile_layout_control:
+                        summary["standard_profile_layout_control_guest"] = {
+                            "source_policy_variant": server.result.get("source_policy_variant"),
+                            "additional_directory_grants": server.result.get("additional_directory_grants"),
+                            "directory_query_list_permission_changed": server.result.get("directory_query_list_permission_changed"),
+                            "acceptance_passed": False,
+                        }
                     summary["official_update"]["guest"] = server.result.get("official_update")
                     if diagnostic_mode:
                         report = (server.result if gui_diagnostic_only else
@@ -1955,6 +1992,8 @@ def main(argv: list[str]) -> int:
                         help="Run only the strict probe and packaged product GUI diagnostic; never qualifies acceptance")
     parser.add_argument("--chromium-gui-control", action="store_true",
                         help="Use the pinned Chrome for Testing control only in source-only GUI diagnostic mode")
+    parser.add_argument("--standard-profile-layout-control", action="store_true",
+                        help="Use ordinary profile layout with CfT; makes no extra directory enumeration grant")
     parser.add_argument("--network-diagnostic-only", action="store_true",
                         help="Run only the strict probe and preferred-policy network experiment; never qualifies acceptance")
     parser.add_argument("--singleton-port-range-diagnostic", action="store_true",
@@ -1976,6 +2015,10 @@ def main(argv: list[str]) -> int:
         parser.error("GUI and network diagnostic-only modes are mutually exclusive")
     if args.chromium_gui_control and (not args.gui_diagnostic_only or args.network_diagnostic_only):
         parser.error("Chromium GUI control requires GUI-only diagnostic mode")
+    if args.standard_profile_layout_control and (not args.gui_diagnostic_only or not args.chromium_gui_control
+            or args.network_diagnostic_only or args.psec_1_1_diagnostic or args.singleton_port_range_diagnostic
+            or args.ingress_controls_diagnostic):
+        parser.error("Standard profile layout control requires GUI-only CfT and cannot combine with G2/network axes")
     if args.singleton_port_range_diagnostic and (not args.network_diagnostic_only or args.test_psec_executor is not None):
         parser.error("Singleton port encoding requires network diagnostic-only with the original SDK")
     if args.psec_1_1_diagnostic and (not args.network_diagnostic_only or args.singleton_port_range_diagnostic):
@@ -1994,6 +2037,7 @@ def main(argv: list[str]) -> int:
         parser.error("--timeout-seconds must be between 300 and 14400")
     result = run(args)
     if (args.test_psec_executor is not None or args.gui_diagnostic_only or args.chromium_gui_control
+            or args.standard_profile_layout_control
             or args.network_diagnostic_only or args.psec_1_1_diagnostic):
         return 1  # Partial diagnostics never qualify product acceptance.
     expected = "baseline_transport_and_package_tests_passed" if args.baseline_diagnostic else "transport_and_package_tests_passed"

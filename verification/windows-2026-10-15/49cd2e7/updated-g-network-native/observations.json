@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "source_commit": "49cd2e7ca7eb20e60b723af7a9c01ee6ba2535db",
+  "status": "infrastructure_timeout",
+  "acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "iso_checksum_verified": true,
+  "official_update_packages_checksum_verified": true,
+  "guest_result_received": false,
+  "psec_execution_observed": false,
+  "runtime_observation_available": false,
+  "last_screen": {
+    "stage": "Windows installation",
+    "displayed_percent_complete": 54,
+    "visually_inspected": true
+  },
+  "limitations": [
+    "The three-hour unattended install/test deadline expired before a guest result was received.",
+    "The last screenshot showed Windows installation at 54 percent; it does not establish the cause or that progress had stopped.",
+    "There is no completed update or MXC/PSEC runtime observation, so this run cannot establish whether the candidate works on the updated OS."
+  ]
+}

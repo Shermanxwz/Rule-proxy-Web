@@ -918,7 +918,7 @@ def interactive_facts():
 class GuiRun:
     def __init__(self, runtime, edge, profile_root, fixture, helpers, browser_module, job=None,
                  application_kind="stock_edge", enumerate_path=None,
-                 ingress_default_allow_control=False):
+                 ingress_default_allow_control=False, standard_profile_layout_control=False):
         self.runtime, self.edge, self.profile_root = runtime, edge, profile_root
         self.fixture, self.helpers, self.browser_module = fixture, helpers, browser_module
         self.job = job
@@ -933,6 +933,15 @@ class GuiRun:
         if ingress_default_allow_control and application_kind != "chrome_for_testing_control":
             raise ValueError("ingress default control is limited to the pinned Chromium control")
         self.ingress_default_allow_control = ingress_default_allow_control
+        if type(standard_profile_layout_control) is not bool:
+            raise ValueError("standard profile layout selector must be a strict boolean")
+        if standard_profile_layout_control and application_kind != "chrome_for_testing_control":
+            raise ValueError("standard profile layout control is limited to the pinned Chromium control")
+        if standard_profile_layout_control and ingress_default_allow_control:
+            raise ValueError("standard profile layout control cannot combine with G2 ingress control")
+        if standard_profile_layout_control and enumerate_path is not None:
+            raise ValueError("standard profile layout control cannot add directory enumeration grants")
+        self.standard_profile_layout_control = standard_profile_layout_control
         self.wrapper = self.resources = self.tree = None
         self.cleanup_proven = True
 
@@ -980,15 +989,23 @@ class GuiRun:
             raise RuntimeError("owned context probe did not exit naturally with status zero")
         status_facts = bounded_guest_status(self.resources)
         self.close()
-        return {"scope": "production_psec_builder_context_app", "facts": facts,
-                "natural_wrapper_exit": True, "descendant_cleanup_proven": True,
-                "runtime_resources_closed": True, "guest_status": status_facts,
-                "acceptance_passed": False,
-                **({"source_policy_variant": "private_network_and_localappdata_control",
-                   "product_runtime_unchanged": True, "full_acceptance_passed": False,
-                   "all_acceptance_passed": False, "capabilities_null": False,
-                   "private_network_capability_preserved": True}
-                   if self.ingress_default_allow_control else {})}
+        report = {"scope": "production_psec_builder_context_app", "facts": facts,
+                  "natural_wrapper_exit": True, "descendant_cleanup_proven": True,
+                  "runtime_resources_closed": True, "guest_status": status_facts,
+                  "acceptance_passed": False}
+        if self.ingress_default_allow_control:
+            report.update(source_policy_variant="private_network_and_localappdata_control",
+                          product_runtime_unchanged=True, full_acceptance_passed=False,
+                          all_acceptance_passed=False, capabilities_null=False,
+                          private_network_capability_preserved=True)
+        if self.standard_profile_layout_control:
+            report.update(source_policy_variant="standard_profile_layout_without_extra_directory_grants",
+                          additional_directory_grants=False,
+                          directory_query_list_permission_changed=False,
+                          standard_profile_layout_control=True,
+                          product_runtime_unchanged=True, full_acceptance_passed=False,
+                          all_acceptance_passed=False)
+        return report
 
     def run(self, phase):
         from ruleproxy import launcher, windows_runtime
@@ -1082,6 +1099,13 @@ class GuiRun:
                    "all_acceptance_passed": False, "capabilities_null": False,
                    "private_network_capability_preserved": True}
                    if self.ingress_default_allow_control else {}),
+                **({"source_policy_variant": "standard_profile_layout_without_extra_directory_grants",
+                    "additional_directory_grants": False,
+                    "directory_query_list_permission_changed": False,
+                    "standard_profile_layout_control": True,
+                    "product_runtime_unchanged": True, "full_acceptance_passed": False,
+                    "all_acceptance_passed": False, "acceptance_passed": False}
+                   if self.standard_profile_layout_control else {}),
                 **startup}
 
     def close(self):
@@ -1141,6 +1165,8 @@ def main(arguments):
                         help="build manifest for the fixed source-only PSEC control executor")
     parser.add_argument("--ingress-controls-diagnostic", action="store_true",
                         help="combine the fixed G2 private-network control with the LocalAppData GUI control")
+    parser.add_argument("--standard-profile-layout-control", action="store_true",
+                        help="use the pinned CfT GUI without a LocalAppData enumeration grant")
     parser.add_argument("--report", type=Path, default=Path("windows-gui.json"))
     args = parser.parse_args(arguments)
     if args.browser is not None and args.chromium_control_root is not None:
@@ -1152,6 +1178,9 @@ def main(arguments):
     if args.ingress_controls_diagnostic and (args.chromium_control_root is None
             or args.test_psec_executor is None or args.test_psec_manifest is None):
         parser.error("--ingress-controls-diagnostic requires the Chromium control root and paired G2 executor/manifest")
+    if args.standard_profile_layout_control and (args.chromium_control_root is None
+            or args.ingress_controls_diagnostic):
+        parser.error("--standard-profile-layout-control requires CfT and cannot combine with G2 ingress control")
     browser_module = browser_helpers()
     helpers = browser_module.acceptance_helpers()
     result = initial_result()
@@ -1164,6 +1193,14 @@ def main(arguments):
                       product_runtime_unchanged=True, product_acceptance_passed=False,
                       all_acceptance_passed=False, capabilities_null=False,
                       private_network_capability_preserved=True)
+    if args.standard_profile_layout_control:
+        result.update(standard_profile_layout_control=True,
+                      source_policy_variant="standard_profile_layout_without_extra_directory_grants",
+                      additional_directory_grants=False,
+                      directory_query_list_permission_changed=False,
+                      source_diagnostic_only=True, product_runtime_unchanged=True,
+                      product_acceptance_passed=False, full_acceptance_passed=False,
+                      all_acceptance_passed=False)
     enumerate_path = None
     directory = fixture = owner = before = job = None
     safe_cleanup, code, phase = True, 1, "platform"
@@ -1214,9 +1251,13 @@ def main(arguments):
                 "acceptance_passed": False,
             }
         if args.chromium_control_root is not None:
-            if not args.ingress_controls_diagnostic:
+            if args.standard_profile_layout_control:
+                result["source_policy_variant"] = "standard_profile_layout_without_extra_directory_grants"
+                result["directory_query_list_permission_changed"] = False
+            elif not args.ingress_controls_diagnostic:
                 result["source_policy_variant"] = "exact_localappdata_enumerate_paths"
-            result["directory_query_list_permission_changed"] = True
+            if not args.standard_profile_layout_control:
+                result["directory_query_list_permission_changed"] = True
             result["product_acceptance_passed"] = False
         if test_executor_metadata is not None:
             result["product_runtime_replaced"] = False
@@ -1244,12 +1285,16 @@ def main(arguments):
         application_kind = ("chrome_for_testing_control" if args.chromium_control_root is not None else "stock_edge")
         owner = GuiRun(runtime, edge, directory / "profiles", fixture, helpers, browser_module, job,
                        application_kind=application_kind,
-                       ingress_default_allow_control=args.ingress_controls_diagnostic)
+                       ingress_default_allow_control=args.ingress_controls_diagnostic,
+                       standard_profile_layout_control=args.standard_profile_layout_control)
         if args.chromium_control_root is not None:
             phase = "gui_context_probe"
             result["outside_gui_context"] = context_helpers().query_context()
-            enumerate_path = context_helpers().resolve_local_appdata_path()
-            owner.enumerate_path = enumerate_path
+            if not args.standard_profile_layout_control:
+                enumerate_path = context_helpers().resolve_local_appdata_path()
+                owner.enumerate_path = enumerate_path
+            else:
+                owner.enumerate_path = None
             result["contained_gui_context"] = owner.collect_context()
         for number in (1, 2):
             phase = (f"real_chromium_control_gui_{number}" if owner.application_kind == "chrome_for_testing_control"

@@ -20,6 +20,8 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 原生 x64 Chrome 对照使用原版 MXC，未出现可见窗口或页面确认。独立的容器内助手能读取进程令牌，但两种 LocalAppData 目录查询均返回 `0x80070003`（路径不存在），同一用户在容器外查询成功。包装进程退出码为 70，未保留足以区分助手异常与应用返回值的状态；清理通过。这表明目录查询和应用启动仍有兼容性问题，尚未证明框架无法修复。[GUI 对照摘要](verification/windows-2026-10-15/2db61ae/chromium-control-native/observations.json)
 
+后续独立对照在 Windows 11 26200.9457 和 Windows Server 2025 中确认：旧的配置目录布局在容器外同样使上述两种 API 返回 `0x80070003`；保持环境变量不变，仅补齐 `USERPROFILE\AppData\Local` 和 `Roaming` 即恢复成功。现已在应用私有配置目录中补齐这两个目录，保留已有数据与权限；这修复了已复现的目录问题，容器内真实 GUI 验证仍待完成。[目录对照报告与来源](verification/windows-2026-10-15/ebb3c1c/profile-context-control/source.json)
+
 2026-10-15 的原生 x64 官方更新后运行已到 Windows 11 build 26300/UBR 9711，两个更新包校验通过并完成重启；产品仍使用原版 SDK。严格探测和外部无头对照通过，但产品 transport、Manager、browser 与 GUI 启动自检均因 WinError 10013 等网络检查失败；GUI 结果不证明系统 GUI 不兼容。首选网络实验虽完成采集和清理，代理往返为 0。原生 DNS 抓包分析完整、未知记录为 0，但仍观察到父子进程共 8 个 nonce 查询；因此不构成产品验收。[官方更新后证据摘要](verification/windows-2026-10-15/7235c03/official-native/observations.json)
 
 1. 从 [Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases/latest) 下载 `RuleProxy-Web-<版本>-windows-x64.zip`。运行包自带 Python、PyYAML、Mihomo 和 MXC，不需要另外安装。

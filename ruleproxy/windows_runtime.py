@@ -14,6 +14,7 @@ import os
 import re
 import secrets
 import socket
+import stat
 import shutil
 import subprocess
 import sys
@@ -336,8 +337,24 @@ def _profile_environment(env: Mapping[str, str], profile: Path) -> dict[str, str
     roaming = profile / "appdata"
     temp = profile / "temp"
     home = profile / "home"
+    # Win32's default LocalAppData Known Folder resolves under USERPROFILE\AppData\Local.
+    # Keep the redirected environment directories above intact, while ensuring
+    # that the standard Known Folder tree also exists within this private profile.
+    known_local = home / "AppData" / "Local"
+    known_roaming = home / "AppData" / "Roaming"
     for directory in (local, roaming, temp, home):
         directory.mkdir(parents=True, exist_ok=True)
+    # A previous contained process can change its writable profile. Do not
+    # follow a junction or symlink while creating the new standard children.
+    for directory in (home, home / "AppData", known_local, known_roaming):
+        try:
+            info = directory.lstat()
+        except FileNotFoundError:
+            directory.mkdir()
+            info = directory.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or getattr(info, "st_file_attributes", 0) & 0x400):
+            raise ValueError("profile Known Folder parents must be ordinary directories")
 
     replacements = {
         "APPDATA": str(roaming),

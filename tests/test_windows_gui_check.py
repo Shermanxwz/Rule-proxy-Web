@@ -144,6 +144,80 @@ class GuiCheckTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "limited to the pinned Chromium"):
             gui.GuiRun(None, None, None, None, None, None, ingress_default_allow_control=True)
 
+    def test_standard_profile_layout_selector_is_strict_and_excludes_g2(self):
+        with self.assertRaisesRegex(ValueError, "strict boolean"):
+            gui.GuiRun(None, None, None, None, None, None,
+                       application_kind="chrome_for_testing_control", standard_profile_layout_control=1)
+        with self.assertRaisesRegex(ValueError, "limited to the pinned Chromium"):
+            gui.GuiRun(None, None, None, None, None, None, standard_profile_layout_control=True)
+        with self.assertRaisesRegex(ValueError, "cannot combine with G2"):
+            gui.GuiRun(None, None, None, None, None, None,
+                       application_kind="chrome_for_testing_control", ingress_default_allow_control=True,
+                       standard_profile_layout_control=True)
+
+    def test_standard_profile_cli_skips_localappdata_resolution_and_never_claims_acceptance(self):
+        from ruleproxy import windows_runtime
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = root / "reports" / "gui.json"
+            profile = root / "profile"
+            profile.mkdir()
+            helpers = mock.Mock()
+            helpers.host_facts.return_value = {"windows_product_type": 1, "native_machine": 0x8664,
+                                               "python_pe_machine": 0x8664}
+            helpers.executable_machine.return_value = 0x8664
+            helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": "a" * 64}
+            helpers.network_snapshot.return_value = {"proxy": "unchanged"}
+            helpers.write_json.side_effect = lambda path, value: Path(path).write_text(json.dumps(value))
+            browser = mock.Mock()
+            browser.acceptance_helpers.return_value = helpers
+            owner = mock.Mock()
+            owner.collect_context.return_value = {"acceptance_passed": False}
+            owner.run.side_effect = [{"check": "real_chromium_control_gui_1", "status": "passed"},
+                                     {"check": "real_chromium_control_gui_2", "status": "passed"}]
+
+            class Context:
+                query_context = staticmethod(mock.Mock(return_value={"outside": True}))
+                resolve_local_appdata_path = staticmethod(mock.Mock(side_effect=AssertionError(
+                    "standard profile mode must not resolve LocalAppData for a grant")))
+
+            args = ["--root", str(root), "--report", str(report), "--chromium-control-root", str(root / "cft"),
+                    "--standard-profile-layout-control"]
+            with mock.patch.object(gui, "browser_helpers", return_value=browser), \
+                    mock.patch.object(gui.sys, "platform", "win32"), \
+                    mock.patch.object(gui, "interactive_facts", return_value={"ordinary_interactive": True}), \
+                    mock.patch.object(gui, "chromium_control_browser", return_value=(self.edge, {"verified": True})), \
+                    mock.patch.object(gui, "context_helpers", return_value=Context), \
+                    mock.patch.object(windows_runtime, "probe", return_value={"supported": True}), \
+                    mock.patch.object(gui, "GuiRun", return_value=owner) as run_factory, \
+                    mock.patch.object(gui, "GuiJob", return_value=mock.Mock(close=mock.Mock())), \
+                    mock.patch.object(gui.tempfile, "mkdtemp", return_value=str(profile)), \
+                    mock.patch("builtins.print"):
+                code = gui.main(args)
+            value = json.loads(report.read_text())
+            self.assertEqual(code, 0, value)
+            Context.query_context.assert_called_once()
+            Context.resolve_local_appdata_path.assert_not_called()
+            self.assertTrue(value["standard_profile_layout_control"])
+            self.assertEqual(value["source_policy_variant"],
+                             "standard_profile_layout_without_extra_directory_grants")
+            self.assertFalse(value["additional_directory_grants"])
+            self.assertFalse(value["directory_query_list_permission_changed"])
+            self.assertFalse(value["acceptance_passed"])
+            self.assertFalse(value["full_acceptance_passed"])
+            self.assertFalse(value["all_acceptance_passed"])
+            self.assertEqual(run_factory.call_args.kwargs["standard_profile_layout_control"], True)
+            self.assertNotIn("enumerate_path", run_factory.call_args.kwargs)
+            self.assertEqual(owner.run.call_count, 2)
+
+    def test_standard_profile_cli_rejects_missing_cft_and_g2_combination(self):
+        for extra in ([], ["--ingress-controls-diagnostic", "--test-psec-executor", "G2.exe",
+                           "--test-psec-manifest", "manifest.json"]):
+            with self.subTest(extra=extra), mock.patch("builtins.print"):
+                with self.assertRaises(SystemExit) as failure:
+                    gui.main(["--standard-profile-layout-control", *extra])
+                self.assertEqual(failure.exception.code, 2)
+
     def test_ingress_cli_requires_chromium_control_and_paired_g2_bundle(self):
         base = ["--ingress-controls-diagnostic"]
         for extra in ([], ["--chromium-control-root", str(self.directory)],

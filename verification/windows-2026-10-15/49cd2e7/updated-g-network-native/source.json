@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "49cd2e7ca7eb20e60b723af7a9c01ee6ba2535db",
+  "commit_tree": "3023017cbe49689da9decbc5781c3151e41d890a",
+  "workflow_run": 38685243075,
+  "native_job": 116259045683,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38685243075",
+  "artifact_id": 11957741653,
+  "artifact_sha256": "dc08760f2e826a965f107800b5ac7f2e26da76b1cd301c8fcbb6974e11b4e8b7",
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "bytes": 4913,
+      "sha256": "08ab307f17552d8ef47fb6984110f9cf29d5591588f126ecf57f6f1ad46b3ebd"
+    },
+    {
+      "name": "last-screen.png",
+      "bytes": 11089,
+      "sha256": "11556aa28d45fe85d97d4e3e04b2b3147f97772151f55b818bf7dbbc16748456"
+    },
+    {
+      "name": "qemu.log",
+      "bytes": 111,
+      "sha256": "b7614b44c66aba54e02c8e5eb70f317c078290cb3e8f95560cbf278dd2a3c2fa"
+    },
+    {
+      "name": "serial.log",
+      "bytes": 431,
+      "sha256": "e3f0fb80ad51063024e0dfe316101d8cc91e8309d594fcbcd6a08cafc3ee2b3f"
+    },
+    {
+      "name": "swtpm.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "status": "infrastructure_timeout",
+  "acceptance_passed": false,
+  "excluded_from_archive": [
+    "raw logs and screenshots",
+    "VM media, credentials and capability URLs"
+  ]
+}

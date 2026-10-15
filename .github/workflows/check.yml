@@ -25,6 +25,11 @@ on:
         required: false
         type: boolean
         default: false
+      standard_profile_layout_control:
+        description: Test the pinned CfT GUI with ordinary profile layout and no extra directory enumeration grant
+        required: false
+        type: boolean
+        default: false
       network_diagnostic_only:
         description: Run only the strict policy probe and preferred-policy network experiment; never product acceptance
         required: false
@@ -385,6 +390,7 @@ jobs:
           SINGLETON_DIAGNOSTIC: ${{ inputs.singleton_port_range_diagnostic }}
           PSEC_1_1_DIAGNOSTIC: ${{ inputs.psec_1_1_diagnostic }}
           INGRESS_CONTROLS: ${{ inputs.ingress_controls_diagnostic }}
+          STANDARD_PROFILE_CONTROL: ${{ inputs.standard_profile_layout_control }}
         run: |
           if [ "$GUI_DIAGNOSTIC" = 'true' ] && [ "$CAPABILITY_DIAGNOSTIC" = 'true' ] && [ "$CHROMIUM_CONTROL" != 'true' ]; then
             echo 'GUI source-executor diagnostic requires the pinned Chromium control.' >&2
@@ -396,6 +402,10 @@ jobs:
           fi
           if [ "$CHROMIUM_CONTROL" = 'true' ] && { [ "$GUI_DIAGNOSTIC" != 'true' ] || [ "$NETWORK_DIAGNOSTIC" = 'true' ]; }; then
             echo 'Chromium control requires GUI-only diagnostic mode.' >&2
+            exit 2
+          fi
+          if [ "$STANDARD_PROFILE_CONTROL" = 'true' ] && { [ "$GUI_DIAGNOSTIC" != 'true' ] || [ "$CHROMIUM_CONTROL" != 'true' ] || [ "$NETWORK_DIAGNOSTIC" = 'true' ] || [ "$PSEC_1_1_DIAGNOSTIC" = 'true' ] || [ "$SINGLETON_DIAGNOSTIC" = 'true' ] || [ "$INGRESS_CONTROLS" = 'true' ]; }; then
+            echo 'Standard profile layout control requires CfT GUI-only mode and cannot combine with G2 or network axes.' >&2
             exit 2
           fi
           if [ "$SINGLETON_DIAGNOSTIC" = 'true' ] && { [ "$NETWORK_DIAGNOSTIC" != 'true' ] || [ "$CAPABILITY_DIAGNOSTIC" = 'true' ]; }; then
@@ -444,6 +454,7 @@ jobs:
           RULEPROXY_VM_TEST_EXECUTOR: ${{ github.event_name == 'workflow_dispatch' && inputs.capability_executor_diagnostic || false }}
           RULEPROXY_VM_GUI_DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.gui_diagnostic_only || false }}
           RULEPROXY_VM_CHROMIUM_CONTROL: ${{ github.event_name == 'workflow_dispatch' && inputs.chromium_gui_control_diagnostic || false }}
+          RULEPROXY_VM_STANDARD_PROFILE_CONTROL: ${{ github.event_name == 'workflow_dispatch' && inputs.standard_profile_layout_control || false }}
           RULEPROXY_VM_NETWORK_DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.network_diagnostic_only || false }}
           RULEPROXY_VM_SINGLETON_DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.singleton_port_range_diagnostic || false }}
           RULEPROXY_VM_PSEC_1_1_DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.psec_1_1_diagnostic || false }}
@@ -460,6 +471,7 @@ jobs:
           gui_args=()
           if [ "$RULEPROXY_VM_GUI_DIAGNOSTIC" = 'true' ]; then gui_args+=(--gui-diagnostic-only); fi
           if [ "$RULEPROXY_VM_CHROMIUM_CONTROL" = 'true' ]; then gui_args+=(--chromium-gui-control); fi
+          if [ "$RULEPROXY_VM_STANDARD_PROFILE_CONTROL" = 'true' ]; then gui_args+=(--standard-profile-layout-control); fi
           if [ "$RULEPROXY_VM_INGRESS_CONTROLS" = 'true' ] && [ "$RULEPROXY_VM_GUI_DIAGNOSTIC" = 'true' ]; then gui_args+=(--ingress-controls-diagnostic); fi
           network_args=()
           if [ "$RULEPROXY_VM_NETWORK_DIAGNOSTIC" = 'true' ]; then network_args+=(--network-diagnostic-only); fi

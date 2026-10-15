@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85",
+  "commit_tree": "de08b6f91b828927a1a997b6ebea5c9822015fc4",
+  "workflow_run": 38704282203,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38704282203",
+  "artifacts": [
+    {
+      "label": "windows-11-arm",
+      "artifact_id": 11957936463,
+      "artifact_zip_sha256": "d1f190f186e94749adefc29a0054046e4eb00c3c19e1c40095a544aa2ab09a6b",
+      "report_sha256": "e874c128e1716b711e6653c98a2e25839620d63314a849e0f1058bf4fed46f2e",
+      "report_bytes": 5254,
+      "host_windows_build": 26200,
+      "host_windows_ubr": 9457,
+      "host_windows_product_type": 1
+    },
+    {
+      "label": "windows-2025",
+      "artifact_id": 11957134011,
+      "artifact_zip_sha256": "efdde4bcf095d4b30c0205cd277824d8558afc58de15dce5550ce6d01e5a99a2",
+      "report_sha256": "43aa34268758000185119f9a437d7f826233442caa3e86fe30c66f80627abfdf",
+      "report_bytes": 5255,
+      "host_windows_build": 26100,
+      "host_windows_ubr": 33438,
+      "host_windows_product_type": 3
+    }
+  ],
+  "diagnostic_only": true,
+  "acceptance_passed": false,
+  "observations": [
+    "Outside containment, the existing flat profile environment reproduced 0x80070003 for both Windows Known Folder APIs.",
+    "With the same relocated environment, adding USERPROFILE/AppData/Local and Roaming restored successful flags=0 queries.",
+    "Reports contain only fixed case labels, numeric API results and booleans; no user paths or token identifiers."
+  ],
+  "limitations": [
+    "This is an outside-container Win32 directory control, not a PSEC or GUI application acceptance result.",
+    "The Windows 11 control ran on an ARM host with build 26200.9457, not the user target 26200.9711."
+  ]
+}

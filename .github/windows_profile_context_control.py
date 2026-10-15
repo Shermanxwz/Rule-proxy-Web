@@ -103,10 +103,18 @@ def _case_environment(case: str, parent: Path) -> dict[str, str]:
     profile = parent / "relocated-profile"
     profile.mkdir(exist_ok=True)
     environment = windows_runtime._profile_environment(environment, profile)
+    if case == "relocated_flat_profile":
+        # Retain the legacy missing-directory negative control after the
+        # production environment builder has been corrected. These are empty
+        # directories in this harness's fresh, owned temporary profile.
+        home = Path(environment["USERPROFILE"])
+        for child in (home / "AppData" / "Local", home / "AppData" / "Roaming"):
+            if child.exists():
+                child.rmdir()
     if case == "relocated_with_standard_appdata":
         home = Path(environment["USERPROFILE"])
-        (home / "AppData" / "Local").mkdir(parents=True)
-        (home / "AppData" / "Roaming").mkdir(parents=True)
+        (home / "AppData" / "Local").mkdir(parents=True, exist_ok=True)
+        (home / "AppData" / "Roaming").mkdir(parents=True, exist_ok=True)
     return environment
 
 

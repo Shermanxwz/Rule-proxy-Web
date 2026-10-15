@@ -482,7 +482,7 @@ class WindowsVmTests(unittest.TestCase):
         server = mock.Mock(server_address=("127.0.0.1", 43210), capability="a" * 64)
         args = SimpleNamespace(artifacts=self.root, package=package, package_sha256=vm.digest(package),
                                timeout_seconds=300, baseline_diagnostic=True, gui_diagnostic_only=True,
-                               chromium_gui_control=True)
+                               chromium_gui_control=True, standard_profile_layout_control=True)
         with mock.patch.object(vm, "require_kvm", return_value=12), \
                 mock.patch.object(vm.shutil, "which", return_value="fixture-tool"), \
                 mock.patch.object(vm.shutil, "disk_usage", return_value=SimpleNamespace(free=100 * 1024**3)), \
@@ -506,6 +506,7 @@ class WindowsVmTests(unittest.TestCase):
         config = seed.call_args.args[2]
         self.assertTrue(config["gui_diagnostic_only"])
         self.assertTrue(config["chromium_gui_control_diagnostic"])
+        self.assertTrue(config["standard_profile_layout_control"])
         self.assertEqual(config["chromium_gui_control_archive_sha256"], "c" * 64)
         self.assertEqual(result["chromium_gui_control"]["archive_sha256"], "c" * 64)
         self.assertFalse(result["full_acceptance_passed"])
@@ -1066,6 +1067,60 @@ raise SystemExit(configuration.get('exit_code', 0))
         config.write_text(json.dumps({**valid, "test_psec_executor_diagnostic": True}), encoding="utf-8")
         self.assertTrue(vm.guest_diagnostic_options(config)[0])
 
+    def test_standard_profile_layout_control_requires_gui_cft_and_rejects_g2_or_network_axes(self):
+        config = self.root / "standard-profile-vm-config.json"
+        valid = {"gui_diagnostic_only": True, "chromium_gui_control_diagnostic": True,
+                 "chromium_gui_control_archive_sha256": "d" * 64,
+                 "standard_profile_layout_control": True}
+        config.write_text(json.dumps(valid), encoding="utf-8")
+        self.assertTrue(vm.guest_diagnostic_options(config)[7])
+        for invalid in (
+                {**valid, "standard_profile_layout_control": 1},
+                {**valid, "standard_profile_layout_control": "true"},
+                {**valid, "chromium_gui_control_diagnostic": False},
+                {**valid, "ingress_controls_diagnostic": True,
+                 "test_psec_executor_diagnostic": True},
+                {**valid, "network_diagnostic_only": True},
+                {**valid, "psec_1_1_diagnostic": True},
+                {**valid, "singleton_port_range_diagnostic": True},
+        ):
+            config.write_text(json.dumps(invalid), encoding="utf-8")
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                vm.guest_diagnostic_options(config)
+
+    def test_standard_profile_layout_guest_gui_keeps_cft_but_adds_no_enum_axis(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "standard-profile-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True,
+            "chromium_gui_control_diagnostic": True,
+            "chromium_gui_control_archive_sha256": "d" * 64,
+            "standard_profile_layout_control": True}), encoding="utf-8")
+        chrome_exe = self.root / "standard-profile-chrome.exe"
+        chrome_exe.write_bytes(b"pinned CfT fixture")
+        helper = SimpleNamespace(ARCHIVE_SHA256="d" * 64, VERSION="154.0.8037.92", PLATFORM="win64",
+                                 extract_archive=mock.Mock(return_value=chrome_exe))
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            return {"name": name, "status": "passed", "exit_code": 0}, \
+                {"status": "supported_only"} if name == "probe" else {"gui_fixture_passed": True}, "child ran"
+        with mock.patch.object(vm, "load_chromium_control_helper", return_value=helper), \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace,
+                                         self.root / "standard-profile-reports", vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "gui"])
+        command = calls[1][1]
+        self.assertIn("--chromium-control-root", command)
+        self.assertIn("--standard-profile-layout-control", command)
+        self.assertNotIn("--ingress-controls-diagnostic", command)
+        self.assertTrue(result["standard_profile_layout_control"])
+        self.assertEqual(result["source_policy_variant"],
+                         "standard_profile_layout_without_extra_directory_grants")
+        self.assertFalse(result["additional_directory_grants"])
+        self.assertFalse(result["directory_query_list_permission_changed"])
+        self.assertFalse(result["full_acceptance_passed"])
+        self.assertFalse(result["product_acceptance_passed"])
+
     def test_network_diagnostic_only_runs_probe_then_preferred_experiment_and_never_accepts(self):
         workspace = self.guest_control_workspace({"experiments": {"report": {
             "cleanup_proven": True, "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}],
@@ -1416,6 +1471,25 @@ raise SystemExit(configuration.get('exit_code', 0))
             self.assertEqual(vm.main(base + ["--gui-diagnostic-only", "--test-psec-executor", "candidate.exe",
                                              "--test-psec-manifest", "candidate.json"]), 1)
             self.assertTrue(run.call_args.args[0].chromium_gui_control)
+
+    def test_standard_profile_layout_cli_requires_cft_gui_and_rejects_g2_network_axes(self):
+        base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                "--artifacts", str(self.root / "artifacts"), "--standard-profile-layout-control"]
+        for extra in ([], ["--chromium-gui-control"], ["--gui-diagnostic-only"],
+                      ["--gui-diagnostic-only", "--chromium-gui-control", "--ingress-controls-diagnostic",
+                       "--test-psec-executor", "candidate.exe", "--test-psec-manifest", "candidate.json"],
+                      ["--gui-diagnostic-only", "--chromium-gui-control", "--network-diagnostic-only"],
+                      ["--gui-diagnostic-only", "--chromium-gui-control", "--psec-1-1-diagnostic"],
+                      ["--gui-diagnostic-only", "--chromium-gui-control", "--singleton-port-range-diagnostic"]):
+            with self.subTest(extra=extra), mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+                with self.assertRaises(SystemExit) as failure:
+                    vm.main(base + extra)
+                self.assertEqual(failure.exception.code, 2)
+                run.assert_not_called()
+        valid = base + ["--gui-diagnostic-only", "--chromium-gui-control"]
+        with mock.patch.object(vm, "run", return_value=self.passed_result()) as run:
+            self.assertEqual(vm.main(valid), 1)
+            self.assertTrue(run.call_args.args[0].standard_profile_layout_control)
 
     def test_pending_cleanup_preserves_recovery_and_blocks_new_containers(self):
         recovery = self.root / "retained-guard"
@@ -2316,6 +2390,10 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         chromium_option = trigger['workflow_dispatch']['inputs']['chromium_gui_control_diagnostic']
         self.assertEqual(chromium_option, {'description': chromium_option['description'], 'required': False,
                                            'type': 'boolean', 'default': False})
+        standard_profile_option = trigger['workflow_dispatch']['inputs']['standard_profile_layout_control']
+        self.assertEqual(standard_profile_option,
+                         {'description': standard_profile_option['description'], 'required': False,
+                          'type': 'boolean', 'default': False})
         job = workflow['jobs']['windows-11-x64']
         network_option = trigger['workflow_dispatch']['inputs']['network_diagnostic_only']
         self.assertEqual(network_option, {'description': network_option['description'], 'required': False,
@@ -2331,6 +2409,10 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertIn('CHROMIUM_CONTROL', validation['run'])
         self.assertIn('CAPABILITY_DIAGNOSTIC', validation['run'])
         self.assertIn('[ "$CHROMIUM_CONTROL" != \'true\' ]', validation['run'])
+        self.assertIn('STANDARD_PROFILE_CONTROL', validation['env'])
+        self.assertIn('inputs.standard_profile_layout_control', run_step['env']['RULEPROXY_VM_STANDARD_PROFILE_CONTROL'])
+        self.assertIn('--standard-profile-layout-control', run_step['run'])
+        self.assertIn('cannot combine with G2', validation['run'])
         self.assertIn('inputs.network_diagnostic_only', run_step['env']['RULEPROXY_VM_NETWORK_DIAGNOSTIC'])
         self.assertIn('--network-diagnostic-only', run_step['run'])
         singleton_option = trigger['workflow_dispatch']['inputs']['singleton_port_range_diagnostic']
@@ -2353,6 +2435,8 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         guest_runner = (ROOT / '.github/windows-vm-run.ps1').read_text(encoding='utf-8')
         self.assertIn("$result.test_psec_executor = $collected.test_psec_executor", guest_runner)
         self.assertIn("'ingress_controls_diagnostic'", guest_runner)
+        self.assertIn("'standard_profile_layout_control'", guest_runner)
+        self.assertIn("'additional_directory_grants'", guest_runner)
         step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
         self.assertEqual(step['uses'], 'actions/download-artifact@v8')
         self.assertEqual(step['with']['run-id'], 38660663692)

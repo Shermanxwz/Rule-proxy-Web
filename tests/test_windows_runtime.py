@@ -1,5 +1,6 @@
 import json
 import ctypes
+import os
 import socket
 import time
 from contextlib import ExitStack
@@ -198,6 +199,80 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertIn(f"LOCALAPPDATA={self.profile.resolve() / 'localappdata'}", entries)
         self.assertIn(r"SYSTEMROOT=C:\Windows", entries)
         self.assertIn(r"PATH=C:\Windows\System32", entries)
+
+    def test_profile_environment_creates_known_folder_tree_without_moving_existing_profile_data(self):
+        profile = self.root / "isolated-profile"
+        environment = windows_runtime._profile_environment({"PATH": "preserve-me"}, profile)
+        home = Path(environment["USERPROFILE"])
+        expected_local = home / "AppData" / "Local"
+        expected_roaming = home / "AppData" / "Roaming"
+        self.assertTrue(expected_local.is_dir())
+        self.assertTrue(expected_roaming.is_dir())
+        self.assertEqual(Path(environment["LOCALAPPDATA"]), profile / "localappdata")
+        self.assertEqual(Path(environment["APPDATA"]), profile / "appdata")
+        self.assertEqual(environment["PATH"], "preserve-me")
+        for path in (expected_local, expected_roaming, Path(environment["LOCALAPPDATA"]),
+                     Path(environment["APPDATA"])):
+            self.assertTrue(path.resolve().is_relative_to(profile.resolve()))
+
+        local_marker = Path(environment["LOCALAPPDATA"]) / "existing-cache.bin"
+        roaming_marker = Path(environment["APPDATA"]) / "existing-settings.json"
+        known_marker = expected_local / "existing-known-folder-file.bin"
+        for marker in (local_marker, roaming_marker, known_marker):
+            marker.write_bytes(b"keep")
+        repeated = windows_runtime._profile_environment(environment, profile)
+        self.assertEqual(repeated["LOCALAPPDATA"], environment["LOCALAPPDATA"])
+        self.assertEqual(repeated["APPDATA"], environment["APPDATA"])
+        self.assertEqual(repeated["USERPROFILE"], environment["USERPROFILE"])
+        for marker in (local_marker, roaming_marker, known_marker):
+            self.assertEqual(marker.read_bytes(), b"keep")
+
+    @unittest.skipUnless(os.name == "nt", "native Windows Known Folder regression")
+    def test_profile_environment_known_folders_resolve_in_fresh_windows_process(self):
+        profile = self.root / "windows-known-folder-profile"
+        environment = windows_runtime._profile_environment(os.environ, profile)
+        github_dir = Path(__file__).resolve().parent.parent / ".github"
+        child = "\n".join((
+            "import json, ntpath, os, sys",
+            f"sys.path.insert(0, {str(github_dir)!r})",
+            "from windows_gui_context import WindowsApi",
+            "api = WindowsApi()",
+            "folder = api.get_folder_path()",
+            "known = api.get_known_folder_path()",
+            "expected = os.path.join(os.environ['USERPROFILE'], 'AppData', 'Local')",
+            "try:",
+            "    actual = api.known_folder_location()",
+            "    matches = os.path.samefile(actual, expected)",
+            "except Exception:",
+            "    matches = False",
+            "print(json.dumps({'folder': folder, 'known': known, 'matches_standard_userprofile_path': matches}, separators=(',', ':'))) ",
+        ))
+        completed = subprocess.run([sys.executable, "-I", "-S", "-c", child], env=environment,
+                                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL, timeout=30, check=False)
+        self.assertEqual(completed.returncode, 0)
+        self.assertLessEqual(len(completed.stdout), 8192)
+        result = json.loads(completed.stdout.decode("utf-8"))
+        self.assertTrue(result["folder"]["success"], result)
+        self.assertTrue(result["folder"]["path_present"], result)
+        self.assertTrue(result["known"]["success"], result)
+        self.assertTrue(result["known"]["path_present"], result)
+        if result["known"]["free_attempted"]:
+            self.assertTrue(result["known"]["free_success"], result)
+        self.assertTrue(result["matches_standard_userprofile_path"], result)
+
+    def test_standard_known_folder_creation_does_not_follow_existing_profile_symlink(self):
+        profile = self.root / "redirected-profile"
+        profile.mkdir()
+        outside = self.root / "outside-profile"
+        outside.mkdir()
+        try:
+            (profile / "home").symlink_to(outside, target_is_directory=True)
+        except OSError:
+            self.skipTest("host cannot create the owned symlink fixture")
+        with self.assertRaisesRegex(ValueError, "ordinary directories"):
+            windows_runtime._profile_environment({}, profile)
+        self.assertFalse((outside / "AppData").exists())
 
     def test_policy_accepts_real_windows_architecture_and_user_environment_names(self):
         environment = {
