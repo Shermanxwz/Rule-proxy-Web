@@ -1,0 +1,63 @@
+name: Bounded ProxiFyre and Clew comparison
+
+on:
+  push:
+    branches:
+      - 'codex/windows-proxy-compare-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    name: Windows Server · ${{ matrix.backend }} · no TUN
+    runs-on: windows-2025
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [proxifyre, clew]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Run bounded ordinary application comparison
+        shell: pwsh
+        env:
+          BACKEND: ${{ matrix.backend }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = 'C:\RuleProxyCompare'
+          if (Test-Path $root) { throw 'Disposable comparison root already exists' }
+          New-Item -ItemType Directory -Path "$root\actors" -Force | Out-Null
+          & icacls.exe $root /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)(F)' '*S-1-5-32-544:(OI)(CI)(F)' '*S-1-5-32-545:(OI)(CI)(RX)' | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot protect comparison root' }
+          & icacls.exe "$root\actors" /grant '*S-1-5-32-545:(OI)(CI)(M)' | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot grant actor report access' }
+          $account = 'RuleProxyCompare'
+          $passwordText = [guid]::NewGuid().ToString('N') + 'Q7!'
+          $password = ConvertTo-SecureString $passwordText -AsPlainText -Force
+          New-LocalUser -Name $account -Password $password -PasswordNeverExpires | Out-Null
+          $users = Get-LocalGroup -SID 'S-1-5-32-545'
+          Add-LocalGroupMember -Group $users.Name -Member $account
+          $env:RULEPROXY_TEST_USER = $account
+          $env:RULEPROXY_TEST_PASSWORD = $passwordText
+          try {
+            python -B .github/windows_proxy_compare.py --backend "$env:BACKEND" --output "$PWD\windows-proxy-compare-results"
+            $probeExit = $LASTEXITCODE
+          } finally {
+            Remove-Item Env:RULEPROXY_TEST_PASSWORD -ErrorAction SilentlyContinue
+            Remove-Item Env:RULEPROXY_TEST_USER -ErrorAction SilentlyContinue
+            Remove-LocalUser -Name $account -ErrorAction SilentlyContinue
+          }
+          if ($probeExit -ne 0) { throw 'Comparison incomplete; inspect diagnostic artifact' }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-proxy-compare-${{ matrix.backend }}
+          path: windows-proxy-compare-results/
+          if-no-files-found: warn
+          retention-days: 14
