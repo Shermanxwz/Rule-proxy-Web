@@ -32,6 +32,24 @@ def fixture_spec():
 
 
 class WindowsSandboxieControlTests(unittest.TestCase):
+    def test_box_worker_specs_keep_dns_nonces_separate_from_fixture_spec(self):
+        spec = fixture_spec()
+        module = mock.Mock()
+        def write_json(path, value):
+            Path(path).write_text(json.dumps(value), encoding="ascii")
+        module.write_json.side_effect = write_json
+        with tempfile.TemporaryDirectory() as temp:
+            paths = control._write_box_worker_specs(module, spec, Path(temp), {
+                control.BOX_BASE: "b" * 32, control.BOX_DNS: "a" * 32})
+            base = json.loads(paths[control.BOX_BASE].read_text(encoding="ascii"))
+            dns = json.loads(paths[control.BOX_DNS].read_text(encoding="ascii"))
+        self.assertEqual(base["native_dns_nonce"], "b" * 32)
+        self.assertEqual(dns["native_dns_nonce"], "a" * 32)
+        self.assertEqual(base["nonce"], spec["nonce"])
+        self.assertEqual(dns["nonce"], spec["nonce"])
+        self.assertNotIn("native_dns_nonce", spec)
+        self.assertNotEqual(base["native_dns_nonce"], dns["native_dns_nonce"])
+
     def test_installer_pin_is_fixed_and_no_authenticode_signer_is_assumed(self):
         self.assertEqual(control.RELEASE, "v1.18.5")
         self.assertEqual(control.INSTALLER_SIZE, 24_856_520)
@@ -175,7 +193,7 @@ class WindowsSandboxieControlTests(unittest.TestCase):
             with self.subTest(update=update), self.assertRaises(ValueError):
                 control._validate_fixture(bad)
 
-    def test_worker_summary_is_scalar_and_drops_nonce_pid_and_error_text(self):
+    def test_worker_summary_keeps_bounded_dns_calls_without_process_identifiers(self):
         record = {
             "schema_version": 1, "role": "parent", "pid": 900, "parent_pid": 800,
             "proxy_http": {"ok": True, "error_type": "OSError"},
@@ -203,10 +221,11 @@ class WindowsSandboxieControlTests(unittest.TestCase):
             path.write_text(json.dumps(record), encoding="ascii")
             summary = control._bounded_worker_summary(path)
         serialized = json.dumps(summary)
-        self.assertNotIn("secret", serialized)
         self.assertNotIn("pid", serialized)
         self.assertEqual(summary["parent_native_dns_calls"], 1)
         self.assertEqual(summary["child_native_dns_calls"], 1)
+        self.assertEqual(summary["parent_native_dns"]["calls"][0]["qname"], "secret nonce")
+        self.assertEqual(summary["child_native_dns"]["calls"][0]["qname"], "secret")
         self.assertFalse(summary["direct_tcp_connected"])
         self.assertIs(summary["udp_send_observations"]["udp4"], False)
         self.assertEqual(summary["udp_tuple_observations"]["udp4"], {
@@ -234,9 +253,12 @@ class WindowsSandboxieControlTests(unittest.TestCase):
             summary = control._bounded_worker_summary(path)
         self.assertEqual(summary["parent_native_dns"], {
             "status": "observed", "helper_status": "completed", "helper_exit_code": 3,
-            "cleanup_proven": True, "call_count": 1})
+            "probe_status": "completed", "helper_exit_success": False,
+            "report_observed": True, "cleanup_proven": True, "worker_cleanup_proven": True,
+            "dns_blocked_proven": False, "wire_observed": None, "call_count": 1,
+            "calls": [{"qname": "private.nonce", "outcome": "blocked"}]})
         self.assertEqual(summary["child_native_dns"]["status"], "not_requested")
-        self.assertNotIn("private.nonce", json.dumps(summary))
+        self.assertEqual(summary["parent_native_dns"]["calls"][0]["qname"], "private.nonce")
 
     def test_proxy_allow_updates_only_exact_endpoint_and_refreshes_configuration(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -323,6 +345,44 @@ class WindowsSandboxieControlTests(unittest.TestCase):
                 self.assertFalse(record["helper_exit_success"])
                 self.assertEqual(record["call_count"], 1)
                 self.assertTrue(record["worker_cleanup_proven"])
+
+    def test_gui_control_launches_twice_with_one_fresh_profile_and_requires_persistent_cookie(self):
+        class FakeFixture:
+            calls = 0
+            def gui_evidence(self):
+                self.calls += 1
+                first = self.calls >= 2
+                second = self.calls >= 5
+                return {"first_beacon_observed": first, "first_cookie_seen": first,
+                        "second_beacon_observed": second, "second_cookie_valid": second,
+                        "cookie_max_age_seconds": 86400}
+        class FakeProcess:
+            def poll(self):
+                return None
+            def wait(self, timeout=None):
+                return 0
+        origin = "http://ruleproxy-fixture.invalid:18081/" + "a" * 32
+        with tempfile.TemporaryDirectory() as temp:
+            with mock.patch.dict(control.os.environ, {"LOCALAPPDATA": temp}), \
+                 mock.patch.object(control.subprocess, "Popen", side_effect=[FakeProcess(), FakeProcess()]) as popen, \
+                 mock.patch.object(control, "_chrome_windows", return_value=[(1, 2)]), \
+                 mock.patch.object(control, "_close_chrome_windows", return_value=1), \
+                 mock.patch.object(control, "_box_is_empty", return_value=True):
+                result = control._run_gui(Path("Start.exe"), Path("chrome.exe"), control.BOX_BASE,
+                                          origin, "127.0.0.1", 18080, FakeFixture())
+            self.assertEqual(popen.call_count, 2)
+            first_args = popen.call_args_list[0].args[0]
+            second_args = popen.call_args_list[1].args[0]
+            first_profile = next(arg for arg in first_args if arg.startswith("--user-data-dir="))
+            second_profile = next(arg for arg in second_args if arg.startswith("--user-data-dir="))
+            self.assertEqual(first_profile, second_profile)
+            self.assertTrue(first_args[-1].endswith("/first"))
+            self.assertTrue(second_args[-1].endswith("/second"))
+            self.assertTrue(result["first_launch"]["natural_wrapper_exit"])
+            self.assertEqual(result["first_launch"]["wrapper_exit_code"], 0)
+            self.assertTrue(result["profile_persistence_proven"])
+            self.assertTrue(result["dom_script_execution_proven"])
+            self.assertEqual(result["cookie_max_age_seconds"], 86400)
 
     def test_failure_report_never_contains_exception_message_or_acceptance(self):
         with tempfile.TemporaryDirectory() as temp:

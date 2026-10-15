@@ -16,6 +16,34 @@ SPEC.loader.exec_module(fixture)
 
 
 class FreeBackendFixtureTests(unittest.TestCase):
+    def test_gui_pages_set_one_day_httponly_cookie_and_second_beacon_checks_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            control = fixture.Fixture(Path(directory) / "mihomo.exe", Path(directory) / "fixture")
+            nonce = control.spec["nonce"]
+            prefix = f"/gui/{nonce}/"
+            status, headers, first = control.gui_response(prefix + "first", None)
+            self.assertEqual(status, 200)
+            self.assertEqual(headers["Set-Cookie"],
+                             f"RuleProxyGuiSession={nonce}; Max-Age=86400; HttpOnly; SameSite=Lax; Path={prefix}")
+            self.assertIn(b"RuleProxy GUI FIRST", first)
+            self.assertIn((prefix + "beacon?stage=first").encode("ascii"), first)
+            _, _, response = control.gui_response(prefix + "beacon?stage=first",
+                                                 f"RuleProxyGuiSession={nonce}")
+            self.assertEqual(response, b"ok")
+            status, headers, second = control.gui_response(prefix + "second", None)
+            self.assertEqual(status, 200)
+            self.assertNotIn("Set-Cookie", headers)
+            self.assertIn(b"RuleProxy GUI SECOND", second)
+            _, _, response = control.gui_response(prefix + "beacon?stage=second",
+                                                 f"RuleProxyGuiSession={nonce}")
+            self.assertEqual(response, b"ok")
+            evidence = control.gui_evidence()
+            self.assertTrue(evidence["first_beacon_observed"])
+            self.assertTrue(evidence["first_cookie_seen"])
+            self.assertTrue(evidence["second_beacon_observed"])
+            self.assertTrue(evidence["second_cookie_valid"])
+            self.assertEqual(evidence["cookie_max_age_seconds"], 86400)
+
     def test_udp_probe_records_complete_bounded_tuple_and_exact_payload(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as receiver:
             receiver.bind(("127.0.0.1", 0))
@@ -59,6 +87,41 @@ class FreeBackendFixtureTests(unittest.TestCase):
         self.assertTrue(all(role == "outside_after" for _, role in roles))
         self.assertEqual(len(roles), 4)
         self.assertEqual(value["native_dns"]["status"], "not_requested")
+
+    def test_nested_worker_receives_its_box_specific_dns_nonce(self):
+        def fake_child(args, **_kwargs):
+            child_spec = json.loads(Path(args[args.index("--spec") + 1]).read_text(encoding="ascii"))
+            self.assertEqual(child_spec["native_dns_nonce"], "b" * 32)
+            Path(args[args.index("--report") + 1]).write_text(
+                '{"schema_version":1,"role":"child"}', encoding="ascii")
+            return mock.Mock(returncode=0)
+        with tempfile.TemporaryDirectory() as temp:
+            report = Path(temp) / "parent.json"
+            spec = {"nonce": "a" * 32, "native_dns_nonce": "b" * 32}
+            with mock.patch.object(fixture, "http_probe", return_value={"ok": False}), \
+                 mock.patch.object(fixture, "direct_probe", return_value={"connected": False}), \
+                 mock.patch.object(fixture, "udp_probe", return_value={"attempted": True, "send_ok": False}), \
+                 mock.patch.object(fixture, "native_dns_probe", return_value={"status": "observed", "calls": []}), \
+                 mock.patch.object(fixture.subprocess, "run", side_effect=fake_child):
+                fixture.worker(spec, "parent", report)
+
+    def test_native_dns_probe_uses_box_nonce_and_unique_report_name(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "native-dns-bbbbbbbb-parent.json"
+            def run(argv, **_kwargs):
+                self.assertEqual(argv[argv.index("--nonce") + 1], "b" * 32)
+                self.assertEqual(Path(argv[argv.index("--report") + 1]), output)
+                output.write_text(json.dumps({"status": "native_dns_probe_only",
+                    "cleanup_proven": True, "calls": [{"api": "getaddrinfo", "qname": "b" * 32}]}),
+                    encoding="utf-8")
+                return mock.Mock(returncode=0)
+            with mock.patch.object(fixture, "__file__", str(Path(fixture.__file__).parent / "windows_free_backend_fixture.py")), \
+                 mock.patch.object(fixture.subprocess, "run", side_effect=run):
+                facts = fixture.native_dns_probe({"nonce": "a" * 32,
+                                                  "native_dns_nonce": "b" * 32}, "parent", temp)
+        self.assertEqual(facts["status"], "observed")
+        self.assertTrue(facts["cleanup_proven"])
+        self.assertEqual(facts["calls"][0]["qname"], "b" * 32)
 
     @unittest.skipUnless(os.environ.get("RULEPROXY_TEST_MIHOMO"), "Requires explicitly selected real fixture Mihomo")
     def test_real_mihomo_domain_http_socks_receiver_controls_and_core_loss(self):

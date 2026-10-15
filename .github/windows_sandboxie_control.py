@@ -542,10 +542,14 @@ def _validate_fixture(value):
                 "origin_url", "http_origin_host", "http_origin_port", "blocked_tcp_host", "blocked_tcp_port",
                 "udp4_host", "udp4_port", "udp6_host", "udp6_port", "public_udp4_host", "public_udp6_host",
                 "public_udp_port"}
-    if type(value) is not dict or set(value) != required or value.get("schema_version") != 1:
+    if (type(value) is not dict or set(value) - (required | {"native_dns_nonce"})
+            or not required.issubset(value) or value.get("schema_version") != 1):
         raise ValueError("fixture spec schema mismatch")
     if type(value["nonce"]) is not str or not re.fullmatch(r"[0-9a-f]{32}", value["nonce"]):
         raise ValueError("fixture nonce is invalid")
+    if "native_dns_nonce" in value and (type(value["native_dns_nonce"]) is not str
+            or not re.fullmatch(r"[0-9a-f]{32}", value["native_dns_nonce"])):
+        raise ValueError("native DNS nonce is invalid")
     if value["proxy_host"] != "127.0.0.1" or value["http_origin_host"] != "127.0.0.1":
         raise ValueError("fixture endpoints must use the fixed local IPv4 listener")
     for key in ("proxy_port", "origin_port", "http_origin_port", "blocked_tcp_port", "udp4_port", "public_udp_port"):
@@ -598,15 +602,22 @@ def _bounded_worker_summary(path: Path):
         if type(item) is not dict:
             return {"status": "unavailable", "helper_status": None,
                     "helper_exit_code": None, "cleanup_proven": False,
-                    "call_count": 0}
+                    "worker_cleanup_proven": False, "call_count": 0, "calls": []}
         status = item.get("status")
         helper_status = item.get("helper_status")
         exit_code = item.get("exit_code")
+        raw_calls = item.get("calls")
+        calls = _dns_call_facts(raw_calls) if type(raw_calls) is list else []
+        cleanup = item.get("cleanup_proven") is True
         return {"status": status if status in ("observed", "unavailable", "not_requested") else "unknown",
                 "helper_status": helper_status if type(helper_status) is str and len(helper_status) <= 64 else None,
                 "helper_exit_code": exit_code if type(exit_code) is int and -2147483648 <= exit_code <= 2147483647 else None,
-                "cleanup_proven": item.get("cleanup_proven") is True,
-                "call_count": len(item.get("calls", [])) if type(item.get("calls")) is list else 0}
+                "probe_status": helper_status if type(helper_status) is str and len(helper_status) <= 64 else None,
+                "helper_exit_success": exit_code == 0,
+                "report_observed": status == "observed" and type(raw_calls) is list,
+                "cleanup_proven": cleanup, "worker_cleanup_proven": cleanup,
+                "dns_blocked_proven": False, "wire_observed": None,
+                "call_count": len(calls), "calls": calls}
     def udp_tuples(record):
         output = {}
         for key in ("udp4", "udp6", "public_udp4", "public_udp6"):
@@ -657,14 +668,25 @@ def _run_worker(start: Path, python: Path, worker: Path, spec_path: Path,
     report_path = artifacts / f"{label}.json"
     argv = [str(python), "-I", "-S", "-X", "utf8", str(worker), "--worker", "--spec",
             str(spec_path), "--report", str(report_path), "--role", "parent"]
-    if box == BOX_BASE:
-        argv.append("--skip-native-dns")
     completed = _run_box(start, box, argv, timeout, env=env)
     if completed.returncode != 0:
         raise RuntimeError(f"boxed fixed worker failed for {label}")
     summary = _bounded_worker_summary(report_path)
     summary["worker_exit_code"] = int(completed.returncode)
     return summary
+
+
+def _write_box_worker_specs(fixture_module, spec, artifacts: Path, dns_nonces):
+    """Write immutable per-box worker specs with independently attributable DNS markers."""
+    paths = {}
+    for box, nonce in dns_nonces.items():
+        worker_spec = dict(spec)
+        worker_spec["native_dns_nonce"] = nonce
+        name = "base-worker-spec.json" if box == BOX_BASE else "dns-worker-spec.json"
+        path = artifacts / name
+        fixture_module.write_json(path, worker_spec)
+        paths[box] = path
+    return paths
 
 
 def _run_outside_worker(python: Path, worker: Path, spec_path: Path,
@@ -776,7 +798,7 @@ def _window_facts(image_name: str):
     return {"visible_top_level_window_count": min(len(found), 4096), "visible_window_observed": bool(found)}
 
 
-def _chrome_windows(path: Path):
+def _chrome_windows(path: Path, title_prefix=None):
     from ctypes import wintypes
     user32 = ctypes.WinDLL("user32", use_last_error=True)
     user32.EnumWindows.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
@@ -785,6 +807,10 @@ def _chrome_windows(path: Path):
     user32.IsWindowVisible.restype = wintypes.BOOL
     user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
     user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+    user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
+    user32.GetWindowTextLengthW.restype = ctypes.c_int32
+    user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int32]
+    user32.GetWindowTextW.restype = ctypes.c_int32
     found = []
     callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     @callback_type
@@ -795,6 +821,15 @@ def _chrome_windows(path: Path):
             if pid.value:
                 image = _process_image(int(pid.value))
                 if image and os.path.normcase(os.path.abspath(image)) == os.path.normcase(os.path.abspath(path)):
+                    if title_prefix is not None:
+                        length = user32.GetWindowTextLengthW(hwnd)
+                        if length <= 0 or length > 1024:
+                            return True
+                        title = ctypes.create_unicode_buffer(length + 1)
+                        if not user32.GetWindowTextW(hwnd, title, len(title)):
+                            return True
+                        if not title.value.startswith(title_prefix):
+                            return True
                     found.append((int(hwnd), int(pid.value)))
         return True
     if not user32.EnumWindows(visit, 0):
@@ -839,53 +874,112 @@ def _close_chrome_windows(windows):
     return closed
 
 
+def _box_is_empty(start: Path, box: str):
+    """Require all sandboxed browser processes to have exited before relaunch."""
+    completed = _run([str(start), f"/box:{box}", "/listpids"], 15)
+    if completed.returncode != 0 or len(completed.stdout) > 8192:
+        return False
+    try:
+        lines = [int(line.strip()) for line in completed.stdout.decode("ascii", "strict").splitlines()
+                 if line.strip()]
+    except (ValueError, UnicodeError):
+        return False
+    return bool(lines) and lines == [0]
+
+
 def _run_gui(start: Path, chrome: Path, box: str, origin_url: str,
              proxy_host: str, proxy_port: int, fixture):
-    before = fixture.snapshot().get("origin_requests", 0)
     profile = os.environ.get("LOCALAPPDATA")
     if not profile:
         raise RuntimeError("interactive user profile path is unavailable")
-    profile_dir = Path(profile) / "RuleProxyFreeBackend" / box
-    argv = [str(start), f"/box:{box}", "/wait", str(chrome), "--new-window", "--no-first-run",
-            "--no-default-browser-check", "--disable-background-networking",
-            f"--user-data-dir={profile_dir}", f"--proxy-server=http://{proxy_host}:{proxy_port}",
-            "--proxy-bypass-list=<-loopback>", origin_url]
-    wrapper = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL, shell=False,
-                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    import secrets
+    nonce = origin_url.rsplit("/", 1)[-1]
+    if not re.fullmatch(r"[0-9a-f]{32}", nonce):
+        raise ValueError("GUI fixture URL did not carry a fixed nonce")
+    base_url = origin_url.rsplit("/", 1)[0]
+    gui_root = f"{base_url}/gui/{nonce}"
+    profile_dir = Path(profile) / "RuleProxyFreeBackend" / box / secrets.token_hex(16)
+    wrapper = None
+
+    def launch_page(stage):
+        nonlocal wrapper
+        title = "RuleProxy GUI FIRST" if stage == "first" else "RuleProxy GUI SECOND"
+        stage_url = f"{gui_root}/{stage}"
+        argv = [str(start), f"/box:{box}", "/wait", str(chrome), "--new-window", "--no-first-run",
+                "--no-default-browser-check", "--disable-background-networking",
+                f"--user-data-dir={profile_dir}", f"--proxy-server=http://{proxy_host}:{proxy_port}",
+                "--proxy-bypass-list=<-loopback>", stage_url]
+        before = fixture.gui_evidence()
+        wrapper = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, shell=False,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        try:
+            windows = []
+            deadline = time.monotonic() + 45
+            while time.monotonic() < deadline:
+                windows = _chrome_windows(chrome, title)
+                evidence = fixture.gui_evidence()
+                beacon_ok = evidence[stage + "_beacon_observed"] and evidence[stage + "_cookie_seen"] if stage == "first" else (
+                    evidence["second_beacon_observed"] and evidence["second_cookie_valid"])
+                if windows and beacon_ok:
+                    break
+                if wrapper.poll() is not None:
+                    raise RuntimeError("boxed Chromium exited before GUI title and beacon were observed")
+                time.sleep(.2)
+            evidence = fixture.gui_evidence()
+            beacon_ok = evidence[stage + "_beacon_observed"] and evidence[stage + "_cookie_seen"] if stage == "first" else (
+                evidence["second_beacon_observed"] and evidence["second_cookie_valid"])
+            if not windows or not beacon_ok:
+                raise TimeoutError("visible Chromium did not execute the fixed GUI page script")
+            closed = _close_chrome_windows(windows)
+            if not closed:
+                raise RuntimeError("visible Chromium window could not be closed")
+            code = wrapper.wait(timeout=20)
+            wrapper = None
+            if code != 0:
+                raise RuntimeError("boxed Chromium did not exit successfully")
+            return {"visible_window_observed": True, "js_title_observed": True,
+                    "beacon_observed": evidence[stage + "_beacon_observed"],
+                    "cookie_seen": (evidence["first_cookie_seen"] if stage == "first"
+                                    else evidence["second_cookie_valid"]),
+                    "closed_verified_chrome_window_count": closed,
+                    "natural_wrapper_exit": True, "wrapper_exit_code": int(code)}
+        finally:
+            if wrapper is not None:
+                if wrapper.poll() is None:
+                    _close_chrome_windows(_chrome_windows(chrome, title))
+                    try:
+                        wrapper.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        _run([str(start), f"/box:{box}", "/terminate"], 30)
+                        try:
+                            wrapper.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            wrapper.kill()
+                            wrapper.wait(timeout=5)
+                wrapper = None
+
     try:
-        windows = []
-        deadline = time.monotonic() + 45
-        while time.monotonic() < deadline:
-            windows = _chrome_windows(chrome)
-            if windows and fixture.snapshot().get("origin_requests", 0) > before:
-                break
-            if wrapper.poll() is not None:
-                raise RuntimeError("boxed Chromium exited before visible fixture load")
-            time.sleep(.2)
-        if not windows or fixture.snapshot().get("origin_requests", 0) <= before:
-            raise TimeoutError("visible Chromium did not load the fixed proxy fixture")
-        closed = _close_chrome_windows(windows)
-        if not closed:
-            raise RuntimeError("visible Chromium window could not be closed")
-        code = wrapper.wait(timeout=20)
-        if code != 0:
-            raise RuntimeError("boxed Chromium did not exit successfully")
-        return {"visible_window_observed": True, "fixture_request_observed": True,
-                "dom_content_verified": False, "closed_verified_chrome_window_count": closed,
-                "natural_wrapper_exit": True, "wrapper_exit_code": int(code)}
+        first = launch_page("first")
+        empty_after_first = _box_is_empty(start, box)
+        if not empty_after_first:
+            raise RuntimeError("Sandboxie still has processes after the first Chromium exit")
+        second = launch_page("second")
+        persistence = bool(first["cookie_seen"] and second["cookie_seen"]
+                           and first["natural_wrapper_exit"] and first["wrapper_exit_code"] == 0
+                           and empty_after_first)
+        script_execution = bool(first["js_title_observed"] and first["beacon_observed"]
+                                and second["js_title_observed"] and second["beacon_observed"])
+        return {"first_launch": first, "second_launch": second,
+                "cookie_max_age_seconds": 86400,
+                "profile_persistence_proven": persistence,
+                "dom_script_execution_proven": script_execution,
+                "sandbox_empty_after_first_exit": empty_after_first,
+                "natural_wrapper_exit": first["natural_wrapper_exit"] and second["natural_wrapper_exit"],
+                "fresh_profile_per_probe": True, "profile_retained_until_vm_disposal": True}
     finally:
-        if wrapper.poll() is None:
-            _close_chrome_windows(_chrome_windows(chrome))
-            try:
-                wrapper.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                _run([str(start), f"/box:{box}", "/terminate"], 30)
-                try:
-                    wrapper.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    wrapper.kill()
-                    wrapper.wait(timeout=5)
+        if wrapper is not None and wrapper.poll() is None:
+            _run([str(start), f"/box:{box}", "/terminate"], 30)
 
 
 def _box_cleanup(start: Path, box: str):
@@ -976,10 +1070,14 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
     try:
         fixture_obj = fixture_module.Fixture(mihomo_path=mihomo, directory=artifacts / "fixture")
         fixture_obj.__enter__()
+        import secrets
         spec_path = fixture_obj.write_spec()
         spec = _validate_fixture(_json_read(spec_path))
-        import secrets
         dns_nonces = {BOX_BASE: secrets.token_hex(16), BOX_DNS: spec["nonce"]}
+        # Keep the HTTP/GUI fixture spec immutable. Each sandbox gets its own
+        # worker spec so native-DNS markers from one box cannot be attributed
+        # to the other box's queries.
+        worker_spec_paths = _write_box_worker_specs(fixture_module, spec, artifacts, dns_nonces)
         result["fixture_nonce"] = spec["nonce"]
         result["dns_nonces"] = dns_nonces
         # Install the same dynamic, single-host/single-TCP-port exception in
@@ -1007,15 +1105,17 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
             python, dns_probe, spec["nonce"], artifacts, "outside_before")
         result["outside_base_dns_before"] = _run_dns_outside(
             python, dns_probe, dns_nonces[BOX_BASE], artifacts, "outside_before")
-        summaries[BOX_BASE] = _run_worker(start, python, worker, spec_path, artifacts, BOX_BASE,
+        summaries[BOX_BASE] = _run_worker(start, python, worker, worker_spec_paths[BOX_BASE], artifacts, BOX_BASE,
                                           "boxed-network", timeout=150, env=env)
-        summaries[BOX_DNS] = _run_worker(start, python, worker, spec_path, artifacts, BOX_DNS,
+        summaries[BOX_DNS] = _run_worker(start, python, worker, worker_spec_paths[BOX_DNS], artifacts, BOX_DNS,
                                          "boxed-dns-ipc", timeout=150, env=env)
         # Persist useful network evidence before optional GUI work can fail.
         result["boxes"] = summaries
         result["native_dns"] = {
-            BOX_BASE: _run_dns_box(start, python, dns_probe, dns_nonces[BOX_BASE], artifacts, BOX_BASE, env=env),
-            BOX_DNS: _run_dns_box(start, python, dns_probe, spec["nonce"], artifacts, BOX_DNS, env=env),
+            BOX_BASE: {"parent": summaries[BOX_BASE]["parent_native_dns"],
+                       "child": summaries[BOX_BASE]["child_native_dns"]},
+            BOX_DNS: {"parent": summaries[BOX_DNS]["parent_native_dns"],
+                      "child": summaries[BOX_DNS]["child_native_dns"]},
         }
         if include_gui:
             result["gui"] = _run_gui(start, chrome, BOX_BASE, spec["origin_url"],
@@ -1079,6 +1179,8 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
             type(box_records) is dict and all(
                 type(record) is dict and record.get("report_observed") is True
                 and record.get("helper_exit_success") is True
+                and record.get("cleanup_proven") is True
+                and record.get("call_count") == 3
                 for record in box_records.values())
             for box_records in result["native_dns"].values())
         result["native_dns_execution_complete"] = phase_complete

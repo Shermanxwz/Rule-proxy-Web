@@ -18,6 +18,7 @@ import subprocess
 import sys
 import threading
 import time
+from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -67,7 +68,10 @@ class Fixture:
         self.listeners = []
         self.connections = set()
         self.counts = dict(proxy_requests=0, origin_requests=0, direct_connections=0,
-                           udp4_received=0, udp6_received=0, udp4_by_role={}, udp6_by_role={}, errors=[])
+                           udp4_received=0, udp6_received=0, udp4_by_role={}, udp6_by_role={}, errors=[],
+                           gui_first_page_requests=0, gui_second_page_requests=0,
+                           gui_first_beacon_requests=0, gui_second_beacon_requests=0,
+                           gui_first_cookie_valid=0, gui_second_cookie_valid=0)
         self.spec = {"schema_version": 1, "nonce": secrets.token_hex(16),
                      "proxy_host": "127.0.0.1", "origin_host": "ruleproxy-fixture.invalid",
                      "http_origin_host": "127.0.0.1", "blocked_tcp_host": "127.0.0.1",
@@ -84,6 +88,55 @@ class Fixture:
     def _increment(self, key):
         with self.lock:
             self.counts[key] += 1
+
+    def gui_response(self, request_path, cookie_header):
+        """Return one bounded GUI fixture response, or None for other paths."""
+        parsed = urlsplit(request_path)
+        nonce = self.spec["nonce"]
+        prefix = f"/gui/{nonce}/"
+        expected_cookie = f"RuleProxyGuiSession={nonce}"
+        if parsed.path in (prefix + "first", prefix + "second"):
+            stage = parsed.path[len(prefix):]
+            key = "gui_first_page_requests" if stage == "first" else "gui_second_page_requests"
+            with self.lock:
+                self.counts["origin_requests"] += 1
+                self.counts[key] += 1
+            title = "RuleProxy GUI FIRST" if stage == "first" else "RuleProxy GUI SECOND"
+            beacon = prefix + "beacon?stage=" + stage
+            script = ("document.title=" + json.dumps(title) + ";"
+                      "fetch(" + json.dumps(beacon) + ",{credentials:'same-origin',cache:'no-store'})"
+                      ".then(r=>r.text()).then(t=>document.body.dataset.beacon=t);")
+            content = ("<!doctype html><html><head><title>loading</title></head>"
+                       "<body id=proof><script>" + script + "</script></body></html>").encode("ascii")
+            headers = {"Content-Type": "text/html; charset=ascii", "Cache-Control": "no-store"}
+            if stage == "first":
+                headers["Set-Cookie"] = (expected_cookie + "; Max-Age=86400; HttpOnly; "
+                                         "SameSite=Lax; Path=" + prefix)
+            return 200, headers, content
+        if parsed.path == prefix + "beacon":
+            stage_values = parse_qs(parsed.query).get("stage", [])
+            if len(stage_values) != 1 or stage_values[0] not in ("first", "second"):
+                return 400, {"Content-Type": "text/plain"}, b"invalid"
+            stage = stage_values[0]
+            valid_cookie = type(cookie_header) is str and expected_cookie in [
+                value.strip() for value in cookie_header.split(";")]
+            with self.lock:
+                self.counts["origin_requests"] += 1
+                self.counts["gui_" + stage + "_beacon_requests"] += 1
+                if valid_cookie:
+                    self.counts["gui_" + stage + "_cookie_valid"] += 1
+            return 200, {"Content-Type": "text/plain", "Cache-Control": "no-store"}, b"ok"
+        return None
+
+    def gui_evidence(self):
+        counts = self.snapshot()
+        return {
+            "first_beacon_observed": counts["gui_first_beacon_requests"] > 0,
+            "first_cookie_seen": counts["gui_first_cookie_valid"] > 0,
+            "second_beacon_observed": counts["gui_second_beacon_requests"] > 0,
+            "second_cookie_valid": counts["gui_second_cookie_valid"] > 0,
+            "cookie_max_age_seconds": 86400,
+        }
 
     def _listen(self, family=socket.AF_INET, kind=socket.SOCK_STREAM):
         listener = socket.socket(family, kind)
@@ -116,7 +169,17 @@ class Fixture:
 
             def do_GET(self):
                 if self.path.split("?", 1)[0] != "/" + fixture.spec["nonce"]:
-                    self.send_error(404)
+                    gui = fixture.gui_response(self.path, self.headers.get("Cookie"))
+                    if gui is None:
+                        self.send_error(404)
+                        return
+                    status, headers, content = gui
+                    self.send_response(status)
+                    for name, value in headers.items():
+                        self.send_header(name, value)
+                    self.send_header("Content-Length", str(len(content)))
+                    self.end_headers()
+                    self.wfile.write(content)
                     return
                 fixture._increment("origin_requests")
                 content = ("<!doctype html><title>RuleProxy free backend control</title>"
@@ -386,9 +449,13 @@ def udp_probe(spec, label, role):
 
 def native_dns_probe(spec, role, directory):
     path = Path(__file__).with_name("windows_native_dns_probe.py")
-    report = Path(directory) / ("native-dns-" + role + ".json")
+    nonce = spec.get("native_dns_nonce", spec["nonce"])
+    if type(nonce) is not str or len(nonce) != 32 or any(char not in "0123456789abcdef" for char in nonce):
+        return {"status": "unavailable", "calls": [], "wire_privacy_proven": False,
+                "error_type": "InvalidNonce"}
+    report = Path(directory) / ("native-dns-" + nonce[:8] + "-" + role + ".json")
     try:
-        result = subprocess.run([sys.executable, "-I", "-S", str(path), "--nonce", spec["nonce"],
+        result = subprocess.run([sys.executable, "-I", "-S", str(path), "--nonce", nonce,
                                  "--role", role, "--report", str(report)],
                                 capture_output=True, timeout=45)
         value = json.loads(report.read_text(encoding="utf-8"))
@@ -399,6 +466,10 @@ def native_dns_probe(spec, role, directory):
                 "wire_privacy_proven": False}
     except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         return {"status": "unavailable", "calls": [], "wire_privacy_proven": False, **error_facts(exc)}
+
+
+def _native_dns_nonce(spec):
+    return spec.get("native_dns_nonce", spec["nonce"])
 
 
 def worker(spec, role, report, *, collect_native_dns=True, wire_role=None):
@@ -449,7 +520,10 @@ def main(argv=None):
         parser.error("fixed spec too large")
     spec = json.loads(args.spec.read_text(encoding="ascii"))
     if (spec.get("schema_version") != 1 or len(spec.get("nonce", "")) != 32
-            or any(char not in "0123456789abcdef" for char in spec["nonce"])):
+            or any(char not in "0123456789abcdef" for char in spec["nonce"])
+            or ("native_dns_nonce" in spec and (type(spec["native_dns_nonce"]) is not str
+                or len(spec["native_dns_nonce"]) != 32
+                or any(char not in "0123456789abcdef" for char in spec["native_dns_nonce"])) )):
         parser.error("invalid fixed spec")
     worker(spec, args.role, args.report, collect_native_dns=not args.skip_native_dns,
            wire_role=args.wire_role)
