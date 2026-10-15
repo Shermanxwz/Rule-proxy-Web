@@ -82,8 +82,14 @@ try {
     $installerArgs = @('-B', $control, '--phase', 'install', '--bundle', $bundleRoot,
         '--manifest', $manifest, '--report', $installReport,
         '--probe-user', 'RuleProxyCI', '--probe-user-sid', $sid)
-    & $python @installerArgs *> $installLog
-    $installExit = $LASTEXITCODE
+    $installerProcess = Start-Process -FilePath $python -ArgumentList $installerArgs -PassThru `
+        -RedirectStandardOutput $installLog -RedirectStandardError (Join-Path $results 'install.stderr.log')
+    if (-not $installerProcess.WaitForExit(600000)) {
+        $installerProcess.Kill()
+        $installerProcess.WaitForExit()
+        throw 'installer_phase_timeout'
+    }
+    $installExit = $installerProcess.ExitCode
     if ($installExit -ne 0 -or -not (Test-Path -LiteralPath $installReport -PathType Leaf)) {
         Write-State 'failed' 'installer_phase_failed'
         throw 'backend_installer_phase_failed'
@@ -158,7 +164,7 @@ try {
     }
     throw
 } finally {
-    foreach ($name in @('install.log', 'probe-report.json',
+    foreach ($name in @('install.log', 'install.stderr.log', 'probe-report.json',
                         'probe.stdout.log', 'probe.stderr.log')) {
         $source = Join-Path $results $name
         if (Test-Path -LiteralPath $source -PathType Leaf) {
