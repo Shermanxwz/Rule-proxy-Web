@@ -1,5 +1,6 @@
 """Verify owned GUI identity and cleanup contracts without claiming PSEC success."""
 import ctypes
+import importlib.machinery
 import importlib.util
 import json
 import ntpath
@@ -9,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import traceback
 import unittest
 from unittest import mock
 from types import SimpleNamespace
@@ -134,6 +136,112 @@ class GuiCheckTests(unittest.TestCase):
                 windows = PureWindowsPath(r"C:\RuleProxyFixture", *local.relative_to(self.directory).parts)
                 self.local_images[ntpath.normcase(str(windows))] = local
                 setattr(self, name, windows)
+
+    def test_ingress_control_selector_is_strict_and_confined_to_chromium_control(self):
+        with self.assertRaisesRegex(ValueError, "strict boolean"):
+            gui.GuiRun(None, None, None, None, None, None,
+                       application_kind="chrome_for_testing_control", ingress_default_allow_control=1)
+        with self.assertRaisesRegex(ValueError, "limited to the pinned Chromium"):
+            gui.GuiRun(None, None, None, None, None, None, ingress_default_allow_control=True)
+
+    def test_ingress_cli_requires_chromium_control_and_paired_g2_bundle(self):
+        base = ["--ingress-controls-diagnostic"]
+        for extra in ([], ["--chromium-control-root", str(self.directory)],
+                      ["--test-psec-executor", str(self.directory / "wxc-exec.exe"),
+                       "--test-psec-manifest", str(self.directory / "manifest.json")]):
+            with self.subTest(extra=extra), mock.patch("builtins.print"):
+                with self.assertRaises(SystemExit) as raised:
+                    gui.main([*base, *extra])
+                self.assertEqual(raised.exception.code, 2)
+
+    def test_g2_gui_mode_verifies_g2_bundle_and_never_claims_product_acceptance(self):
+        from ruleproxy import windows_runtime
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = root / "reports" / "gui.json"
+            local_appdata = root / "LocalAppData"
+            local_appdata.mkdir()
+            private_profile = root / "private-profile"
+            private_profile.mkdir()
+            helpers = mock.Mock()
+            helpers.host_facts.return_value = {"windows_product_type": 1, "native_machine": 0x8664,
+                                               "python_pe_machine": 0x8664}
+            helpers.executable_machine.return_value = 0x8664
+            helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": "a" * 64}
+            helpers.network_snapshot.return_value = {"proxy": "unchanged"}
+            helpers.write_json.side_effect = lambda path, value: Path(path).write_text(json.dumps(value))
+            browser = mock.Mock()
+            browser.acceptance_helpers.return_value = helpers
+            owner = mock.Mock()
+            owner.collect_context.return_value = {"acceptance_passed": False}
+            owner.run.side_effect = [{"check": "real_chromium_control_gui_1", "status": "passed"},
+                                     {"check": "real_chromium_control_gui_2", "status": "passed"}]
+            control_metadata = {"executor_sha256": "b" * 64, "upstream_commit": "fixed", "patch_sha256": "c" * 64,
+                                "patch": {"capabilities_null": False,
+                                          "private_network_capability_preserved": True}}
+            verify_executor = mock.Mock(return_value=(root / "G2.exe", control_metadata))
+
+            original_spec = importlib.util.spec_from_file_location
+
+            def load_spec(name, location, *args, **kwargs):
+                if Path(location).name == "windows_vm_test.py":
+                    source_spec = original_spec(name, str(location), *args, **kwargs)
+
+                    class Loader:
+                        def create_module(self, spec):
+                            return None
+
+                        def exec_module(self, module):
+                            source_spec.loader.exec_module(module)
+                            module.verify_executor_bundle = verify_executor
+
+                    spec = importlib.machinery.ModuleSpec(name, Loader(), origin=str(location))
+                    spec.has_location = True
+                    return spec
+                return original_spec(name, str(location), *args, **kwargs)
+
+            class Context:
+                @staticmethod
+                def query_context():
+                    return {"outside": True}
+
+                @staticmethod
+                def resolve_local_appdata_path():
+                    return local_appdata
+
+            args = ["--root", str(root), "--report", str(report), "--chromium-control-root", str(root / "cft"),
+                    "--test-psec-executor", str(root / "G2.exe"), "--test-psec-manifest", str(root / "G2.json"),
+                    "--ingress-controls-diagnostic"]
+            with mock.patch.object(gui, "browser_helpers", return_value=browser), \
+                    mock.patch.object(gui.sys, "platform", "win32"), \
+                    mock.patch.object(gui, "interactive_facts", return_value={"ordinary_interactive": True}), \
+                    mock.patch.object(gui, "chromium_control_browser", return_value=(self.edge, {"verified": True})), \
+                    mock.patch.object(gui, "context_helpers", return_value=Context), \
+                    mock.patch.object(gui.importlib.util, "spec_from_file_location", side_effect=load_spec), \
+                    mock.patch.object(windows_runtime, "probe", return_value={"supported": True}), \
+                    mock.patch.object(gui, "GuiRun", return_value=owner) as run_factory, \
+                    mock.patch.object(gui, "GuiJob", return_value=mock.Mock(close=mock.Mock())), \
+                    mock.patch.object(gui.tempfile, "mkdtemp", return_value=str(private_profile)), \
+                    mock.patch.object(gui, "error_facts", side_effect=lambda exc, stage: {"stage": stage,
+                        "error_type": type(exc).__name__, "message": str(exc),
+                        "trace": "".join(traceback.format_exception(exc))}), \
+                    mock.patch("builtins.print"):
+                code = gui.main(args)
+            value = json.loads(report.read_text())
+            self.assertEqual(code, 0, value)
+            verify_executor.assert_called_once()
+            self.assertTrue(verify_executor.call_args.kwargs["ingress_controls_diagnostic"])
+            self.assertEqual(value["source_policy_variant"], "private_network_and_localappdata_control")
+            self.assertTrue(value["product_runtime_unchanged"])
+            self.assertFalse(value["acceptance_passed"])
+            self.assertFalse(value["full_acceptance_passed"])
+            self.assertFalse(value["all_acceptance_passed"])
+            self.assertFalse(value["capabilities_null"])
+            self.assertTrue(value["private_network_capability_preserved"])
+            self.assertFalse(value["test_psec_executor"]["patch"]["capabilities_null"])
+            self.assertFalse(value["browser"]["sandbox_weakened"])
+            self.assertEqual(run_factory.call_args.kwargs["ingress_default_allow_control"], True)
+            self.assertEqual(owner.run.call_count, 2)
 
     def local_fixture_path(self, value):
         key = ntpath.normcase(ntpath.normpath(os.fspath(value)))
@@ -788,7 +896,7 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
         with tempfile.TemporaryDirectory() as temporary, \
                 mock.patch.object(launcher, "prepare_app", return_value=([str(self.edge)], {}, {})) as prepare, \
                 mock.patch.object(windows_runtime, "choose_guest_port", return_value=34567), \
-                mock.patch.object(windows_runtime, "launch", return_value=(wrapper, resources)), \
+                mock.patch.object(windows_runtime, "launch", return_value=(wrapper, resources)) as runtime_launch, \
                 mock.patch.object(windows_runtime, "stop") as stop, \
                 mock.patch.object(gui, "ProcessApi"), mock.patch.object(gui, "OwnedTree", return_value=tree), \
                 mock.patch.object(gui, "WindowApi", return_value=windows), \
@@ -796,7 +904,11 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
                 mock.patch.object(gui, "close_owned_window") as close:
             run_job_api = FakeJobApi()
             run_job_api.active_values = [1, 2, 1]
-            owner = gui.GuiRun("runtime", self.edge, Path(temporary), fixture, helpers, browser, gui.GuiJob(run_job_api))
+            local_appdata = Path(temporary) / "local-appdata"
+            local_appdata.mkdir()
+            owner = gui.GuiRun("runtime", self.edge, Path(temporary), fixture, helpers, browser, gui.GuiJob(run_job_api),
+                               application_kind="chrome_for_testing_control", enumerate_path=local_appdata,
+                               ingress_default_allow_control=True)
             check = owner.run(2)
         args = prepare.call_args.args[0]["args"]
         self.assertIn("--new-window", args)
@@ -807,6 +919,13 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
         self.assertTrue(check["private_profile_reused"])
         self.assertEqual(check["gui_budget_seconds"], 90)
         self.assertTrue(check["resources_closed"])
+        self.assertEqual(check["source_policy_variant"], "private_network_and_localappdata_control")
+        self.assertTrue(check["product_runtime_unchanged"])
+        self.assertFalse(check["all_acceptance_passed"])
+        self.assertFalse(check["capabilities_null"])
+        self.assertTrue(check["private_network_capability_preserved"])
+        self.assertTrue(runtime_launch.call_args.kwargs["ingress_default_allow_control"])
+        self.assertEqual(runtime_launch.call_args.kwargs["enumerate_path"], local_appdata)
         fixture.check.assert_any_call(2)
         wrapper.kill.assert_not_called()
 
@@ -841,7 +960,8 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
                 return 0
             wrapper.wait.side_effect = wait
             owner = gui.GuiRun("runtime", self.edge, root, fixture, helpers, browser, job,
-                               application_kind="chrome_for_testing_control", enumerate_path=local_appdata)
+                               application_kind="chrome_for_testing_control", enumerate_path=local_appdata,
+                               ingress_default_allow_control=True)
             with mock.patch.object(windows_runtime, "launch", side_effect=launch), \
                     mock.patch.object(windows_runtime, "choose_guest_port", return_value=34567), \
                     mock.patch.object(gui, "ProcessApi"), mock.patch.object(gui, "OwnedTree", return_value=tree), \
@@ -852,6 +972,12 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
             self.assertFalse(facts["acceptance_passed"])
             self.assertEqual(facts["guest_status"]["app_exit"], 0)
             self.assertEqual(launch_arguments["enumerate_path"], local_appdata)
+            self.assertTrue(launch_arguments["ingress_default_allow_control"])
+            self.assertEqual(facts["source_policy_variant"], "private_network_and_localappdata_control")
+            self.assertTrue(facts["product_runtime_unchanged"])
+            self.assertFalse(facts["all_acceptance_passed"])
+            self.assertFalse(facts["capabilities_null"])
+            self.assertTrue(facts["private_network_capability_preserved"])
 
     def test_context_report_rejects_strings_duplicates_and_oversize(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -917,7 +917,8 @@ def interactive_facts():
 
 class GuiRun:
     def __init__(self, runtime, edge, profile_root, fixture, helpers, browser_module, job=None,
-                 application_kind="stock_edge", enumerate_path=None):
+                 application_kind="stock_edge", enumerate_path=None,
+                 ingress_default_allow_control=False):
         self.runtime, self.edge, self.profile_root = runtime, edge, profile_root
         self.fixture, self.helpers, self.browser_module = fixture, helpers, browser_module
         self.job = job
@@ -927,6 +928,11 @@ class GuiRun:
         self.enumerate_path = enumerate_path
         if enumerate_path is not None and application_kind != "chrome_for_testing_control":
             raise ValueError("LocalAppData enumeration is limited to the pinned Chromium control")
+        if type(ingress_default_allow_control) is not bool:
+            raise ValueError("ingress default control selector must be a strict boolean")
+        if ingress_default_allow_control and application_kind != "chrome_for_testing_control":
+            raise ValueError("ingress default control is limited to the pinned Chromium control")
+        self.ingress_default_allow_control = ingress_default_allow_control
         self.wrapper = self.resources = self.tree = None
         self.cleanup_proven = True
 
@@ -945,7 +951,8 @@ class GuiRun:
         self.cleanup_proven = False
         try:
             self.wrapper, self.resources = windows_runtime.launch(command, {}, profile, self.fixture.port,
-                str(self.runtime), guest_listener_port=guest_port, enumerate_path=self.enumerate_path)
+                str(self.runtime), guest_listener_port=guest_port, enumerate_path=self.enumerate_path,
+                ingress_default_allow_control=self.ingress_default_allow_control)
         except BaseException as error:
             self.wrapper, self.resources = getattr(error, "process", None), getattr(error, "resource", None)
             raise
@@ -976,7 +983,12 @@ class GuiRun:
         return {"scope": "production_psec_builder_context_app", "facts": facts,
                 "natural_wrapper_exit": True, "descendant_cleanup_proven": True,
                 "runtime_resources_closed": True, "guest_status": status_facts,
-                "acceptance_passed": False}
+                "acceptance_passed": False,
+                **({"source_policy_variant": "private_network_and_localappdata_control",
+                   "product_runtime_unchanged": True, "full_acceptance_passed": False,
+                   "all_acceptance_passed": False, "capabilities_null": False,
+                   "private_network_capability_preserved": True}
+                   if self.ingress_default_allow_control else {})}
 
     def run(self, phase):
         from ruleproxy import launcher, windows_runtime
@@ -996,7 +1008,8 @@ class GuiRun:
         try:
             self.wrapper, self.resources = _diagnostic_call("runtime_launch", windows_runtime.launch,
                 command, environment, self.profile_root / "gui", self.fixture.port,
-                str(self.runtime), guest_listener_port=guest_port, enumerate_path=self.enumerate_path)
+                str(self.runtime), guest_listener_port=guest_port, enumerate_path=self.enumerate_path,
+                ingress_default_allow_control=self.ingress_default_allow_control)
         except BaseException as exc:
             self.wrapper = getattr(exc, "process", None)
             self.resources = getattr(exc, "resource", None)
@@ -1064,6 +1077,11 @@ class GuiRun:
                 "guest_status": guest_status,
                 "query_handle_scope": "gui_query_handles_and_borrowed_wrapper_only",
                 "startup_seconds": round(startup_seconds, 3), "gui_budget_seconds": GUI_BUDGET_SECONDS,
+                **({"source_policy_variant": "private_network_and_localappdata_control",
+                   "product_runtime_unchanged": True, "full_acceptance_passed": False,
+                   "all_acceptance_passed": False, "capabilities_null": False,
+                   "private_network_capability_preserved": True}
+                   if self.ingress_default_allow_control else {}),
                 **startup}
 
     def close(self):
@@ -1121,6 +1139,8 @@ def main(arguments):
                         help="fixed source-only PSEC control executor; valid only with Chrome for Testing")
     parser.add_argument("--test-psec-manifest", type=Path,
                         help="build manifest for the fixed source-only PSEC control executor")
+    parser.add_argument("--ingress-controls-diagnostic", action="store_true",
+                        help="combine the fixed G2 private-network control with the LocalAppData GUI control")
     parser.add_argument("--report", type=Path, default=Path("windows-gui.json"))
     args = parser.parse_args(arguments)
     if args.browser is not None and args.chromium_control_root is not None:
@@ -1129,12 +1149,21 @@ def main(arguments):
         parser.error("--test-psec-executor and --test-psec-manifest must be provided together")
     if args.test_psec_executor is not None and args.chromium_control_root is None:
         parser.error("the source-only PSEC executor is restricted to the pinned Chromium control")
+    if args.ingress_controls_diagnostic and (args.chromium_control_root is None
+            or args.test_psec_executor is None or args.test_psec_manifest is None):
+        parser.error("--ingress-controls-diagnostic requires the Chromium control root and paired G2 executor/manifest")
     browser_module = browser_helpers()
     helpers = browser_module.acceptance_helpers()
     result = initial_result()
     if args.chromium_control_root is not None:
         result.update(chromium_gui_control_diagnostic=True, source_diagnostic_only=True,
                       product_browser_replaced=False)
+    if args.ingress_controls_diagnostic:
+        result.update(ingress_controls_diagnostic=True,
+                      source_policy_variant="private_network_and_localappdata_control",
+                      product_runtime_unchanged=True, product_acceptance_passed=False,
+                      all_acceptance_passed=False, capabilities_null=False,
+                      private_network_capability_preserved=True)
     enumerate_path = None
     directory = fixture = owner = before = job = None
     safe_cleanup, code, phase = True, 1, "platform"
@@ -1174,7 +1203,8 @@ def main(arguments):
             spec.loader.exec_module(verifier)
             runtime, test_executor_metadata = verifier.verify_executor_bundle(
                 root, ROOT, args.test_psec_executor, args.test_psec_manifest,
-                digests.get("wxc-exec.exe"))
+                digests.get("wxc-exec.exe"),
+                **({"ingress_controls_diagnostic": True} if args.ingress_controls_diagnostic else {}))
             result["test_psec_executor"] = test_executor_metadata
             result["selected_runtime"] = {
                 "sha256": test_executor_metadata["executor_sha256"],
@@ -1184,7 +1214,8 @@ def main(arguments):
                 "acceptance_passed": False,
             }
         if args.chromium_control_root is not None:
-            result["source_policy_variant"] = "exact_localappdata_enumerate_paths"
+            if not args.ingress_controls_diagnostic:
+                result["source_policy_variant"] = "exact_localappdata_enumerate_paths"
             result["directory_query_list_permission_changed"] = True
             result["product_acceptance_passed"] = False
         if test_executor_metadata is not None:
@@ -1212,7 +1243,8 @@ def main(arguments):
         fixture = browser_module.BrowserFixture()
         application_kind = ("chrome_for_testing_control" if args.chromium_control_root is not None else "stock_edge")
         owner = GuiRun(runtime, edge, directory / "profiles", fixture, helpers, browser_module, job,
-                       application_kind=application_kind)
+                       application_kind=application_kind,
+                       ingress_default_allow_control=args.ingress_controls_diagnostic)
         if args.chromium_control_root is not None:
             phase = "gui_context_probe"
             result["outside_gui_context"] = context_helpers().query_context()

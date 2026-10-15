@@ -924,6 +924,44 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertTrue(result["source_diagnostic_only"])
         self.assertFalse(result["product_acceptance_passed"])
 
+    def test_g2_ingress_control_runs_only_source_gui_with_cft_and_cannot_accept(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "gui-g2-vm-config.json"
+        config.write_text(json.dumps({"gui_diagnostic_only": True,
+            "chromium_gui_control_diagnostic": True, "chromium_gui_control_archive_sha256": "d" * 64,
+            "test_psec_executor_diagnostic": True, "test_psec_executor_sha256": "e" * 64,
+            "test_psec_original_runtime_sha256": "f" * 64, "ingress_controls_diagnostic": True}),
+            encoding="utf-8")
+        chrome_exe = self.root / "g2-chrome.exe"
+        chrome_exe.write_bytes(b"fixed CfT fixture")
+        helper = SimpleNamespace(ARCHIVE_SHA256="d" * 64, VERSION="154.0.8037.92", PLATFORM="win64",
+                                 extract_archive=mock.Mock(return_value=chrome_exe))
+        executor, manifest = workspace / "test-psec-executor/wxc-exec.exe", workspace / "test-psec-executor/build-manifest.json"
+        metadata = {"executor_sha256": "e" * 64, "source_only_executor_changed": True,
+                    "default_product_runtime_replaced": False, "acceptance_passed": False}
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            report = {"status": "supported_only"} if name == "probe" else {"gui_fixture_passed": True}
+            return {"name": name, "status": "passed", "exit_code": 0}, report, "child ran"
+        with mock.patch.object(vm, "load_chromium_control_helper", return_value=helper), \
+                mock.patch.object(vm, "guest_test_executor", return_value=(executor, manifest, metadata)), \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "gui-g2-reports",
+                                         vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "gui"])
+        self.assertIn("--ingress-controls-diagnostic", calls[1][1])
+        self.assertIn("--chromium-control-root", calls[1][1])
+        self.assertIn("--test-psec-executor", calls[1][1])
+        self.assertTrue(result["ingress_controls_diagnostic"])
+        self.assertEqual(result["source_policy_variant"], "private_network_and_localappdata_control")
+        self.assertTrue(result["source_diagnostic_only"])
+        self.assertFalse(result["product_runtime_replaced"])
+        self.assertFalse(result["full_acceptance_passed"])
+        self.assertFalse(result["product_acceptance_passed"])
+        with self.assertRaisesRegex(RuntimeError, "cannot qualify product acceptance"):
+            vm.verify_result({**self.passed_result(), **result, "status": "passed", "ordinary_user": True})
+
     def test_chromium_source_executor_validation_failure_blocks_gui_launch(self):
         workspace = self.guest_control_workspace()
         config = self.root / "gui-chromium-source-vm-config.json"
@@ -1224,6 +1262,31 @@ raise SystemExit(configuration.get('exit_code', 0))
                                              str(self.root / "candidate.exe"), "--test-psec-manifest",
                                              str(self.root / "candidate.json")]), 1)
             self.assertTrue(run.call_args.args[0].psec_1_1_diagnostic)
+
+    def test_ingress_g2_cli_accepts_only_network_or_gui_pairings(self):
+        base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                "--artifacts", str(self.root / "artifacts"), "--ingress-controls-diagnostic",
+                "--test-psec-executor", str(self.root / "candidate.exe"),
+                "--test-psec-manifest", str(self.root / "candidate.json")]
+        valid_gui = base + ["--gui-diagnostic-only", "--chromium-gui-control"]
+        with mock.patch.object(vm, "run", return_value=self.passed_result()) as run:
+            self.assertEqual(vm.main(valid_gui), 1)
+            self.assertTrue(run.call_args.args[0].ingress_controls_diagnostic)
+            self.assertTrue(run.call_args.args[0].chromium_gui_control)
+        invalid = [
+            ["--gui-diagnostic-only"],
+            ["--gui-diagnostic-only", "--chromium-gui-control", "--psec-1-1-diagnostic"],
+            ["--gui-diagnostic-only", "--chromium-gui-control", "--network-diagnostic-only"],
+            ["--gui-diagnostic-only", "--chromium-gui-control", "--singleton-port-range-diagnostic"],
+            ["--network-diagnostic-only"],
+            ["--network-diagnostic-only", "--psec-1-1-diagnostic", "--gui-diagnostic-only"],
+        ]
+        for extra in invalid:
+            with self.subTest(extra=extra), mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+                with self.assertRaises(SystemExit) as failure:
+                    vm.main(base + extra)
+                self.assertEqual(failure.exception.code, 2)
+                run.assert_not_called()
 
     def test_singleton_cli_requires_original_sdk_network_mode_and_never_accepts(self):
         base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
@@ -2282,8 +2345,14 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertIn('inputs.psec_1_1_diagnostic', run_step['env']['RULEPROXY_VM_PSEC_1_1_DIAGNOSTIC'])
         self.assertIn('--psec-1-1-diagnostic', run_step['run'])
         self.assertIn('PSEC_1_1_DIAGNOSTIC', validation['run'])
+        self.assertIn('G2 GUI+CfT', validation['run'])
+        self.assertIn('gui_args+=(--ingress-controls-diagnostic)', run_step['run'])
+        g2_step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-ingress-control-executor')
+        self.assertEqual(g2_step['with']['run-id'], 38699568831)
+        self.assertIn('inputs.ingress_controls_diagnostic', g2_step['if'])
         guest_runner = (ROOT / '.github/windows-vm-run.ps1').read_text(encoding='utf-8')
         self.assertIn("$result.test_psec_executor = $collected.test_psec_executor", guest_runner)
+        self.assertIn("'ingress_controls_diagnostic'", guest_runner)
         step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
         self.assertEqual(step['uses'], 'actions/download-artifact@v8')
         self.assertEqual(step['with']['run-id'], 38660663692)

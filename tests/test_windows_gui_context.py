@@ -37,10 +37,13 @@ class FakeLibrary:
 
 class AbiFixture:
     def __init__(self, *, folder_hr=0, known_hr=0, open_thread=True,
-                 close_success=True, app_container=1):
+                 close_success=True, app_container=1, known_path="C:\\private\\localappdata",
+                 free_raises=False):
         self.calls = []
         self.folder_hr = folder_hr
         self.known_hr = known_hr
+        self.known_path = known_path
+        self.free_raises = free_raises
         self.open_thread = open_thread
         self.close_success = close_success
         self.app_container = app_container
@@ -91,7 +94,7 @@ class AbiFixture:
         def known_folder(guid_ptr, flags, token, output):
             guid = ctypes.cast(guid_ptr, ctypes.POINTER(context.GUID)).contents
             self.calls.append(("known_folder", guid.Data1, flags, token))
-            self.known_buffer = ctypes.create_unicode_buffer("C:\\private\\localappdata")
+            self.known_buffer = ctypes.create_unicode_buffer(self.known_path)
             ctypes.cast(output, ctypes.POINTER(ctypes.c_wchar_p))[0] = ctypes.cast(
                 self.known_buffer, ctypes.c_wchar_p
             )
@@ -99,6 +102,8 @@ class AbiFixture:
 
         def free(pointer):
             self.calls.append(("free", pointer.value))
+            if self.free_raises:
+                raise OSError(87, "private free failure text")
 
         kernel = FakeLibrary(GetCurrentProcess=lambda: 0x111,
                              GetCurrentThread=lambda: 0x222, CloseHandle=close)
@@ -156,6 +161,37 @@ class WindowsGuiContextTests(unittest.TestCase):
         self.assertFalse(known["success"])
         self.assertTrue(known["free_attempted"])
         self.assertTrue(known["free_success"])
+
+    def test_dont_verify_query_is_separate_matches_environment_and_frees_allocation(self):
+        fixture = AbiFixture(known_path="c:/PRIVATE/LocalAppData")
+        report = context.query_context(fixture.api, {"LOCALAPPDATA": "C:\\private\\localappdata"})
+        baseline = report["shgetknownfolderpath"]
+        diagnostic = report["shgetknownfolderpath_without_verify"]
+        self.assertEqual(baseline["success"], True)
+        self.assertTrue(diagnostic["success"] and diagnostic["path_present"])
+        self.assertTrue(diagnostic["localappdata_environment_present"])
+        self.assertTrue(diagnostic["path_matches_localappdata_environment"])
+        calls = [call for call in fixture.calls if call[0] == "known_folder"]
+        self.assertEqual([call[2] for call in calls], [0, 0x4000])
+        self.assertEqual([call[3] for call in calls], [None, None])
+        self.assertEqual(len([call for call in fixture.calls if call[0] == "free"]), 2)
+        encoded = json.dumps(report, sort_keys=True).lower()
+        self.assertNotIn("private", encoded)
+        self.assertNotIn("c:", encoded)
+
+    def test_dont_verify_missing_environment_and_free_failure_are_scalar_and_closed(self):
+        fixture = AbiFixture(known_hr=-2147467259, free_raises=True)
+        report = context.query_context(fixture.api, {"LOCALAPPDATA": ""})
+        diagnostic = report["shgetknownfolderpath_without_verify"]
+        self.assertFalse(diagnostic["success"])
+        self.assertFalse(diagnostic["path_present"])
+        self.assertTrue(diagnostic["free_attempted"])
+        self.assertFalse(diagnostic["free_success"])
+        self.assertEqual(diagnostic["free_error"], 87)
+        self.assertTrue(diagnostic["localappdata_environment_present"])
+        self.assertFalse(diagnostic["path_matches_localappdata_environment"])
+        self.assertFalse(context.query_context(AbiFixture().api, {})[
+            "shgetknownfolderpath_without_verify"]["localappdata_environment_present"])
 
     def test_thread_token_no_token_is_reported_as_1008_without_a_handle_close(self):
         fixture = AbiFixture(open_thread=False)

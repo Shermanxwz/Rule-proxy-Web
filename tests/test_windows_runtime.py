@@ -126,6 +126,33 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(candidate["filesystem"]["readonlyPaths"], normal["filesystem"]["readonlyPaths"])
         self.assertNotIn("enumeratePaths", normal["processContainer"])
 
+    def test_ingress_control_changes_only_default_ingress_while_retaining_localappdata_and_exact_egress(self):
+        local = self.root / "host-local-appdata"
+        local.mkdir()
+        baseline = windows_runtime.build_policy([r"C:\Apps\browser.exe"], {}, self.profile, 19001,
+                                                enumerate_path=local)
+        candidate = windows_runtime.build_policy([r"C:\Apps\browser.exe"], {}, self.profile, 19001,
+                                                  enumerate_path=local,
+                                                  ingress_default_allow_control=True)
+        self.assertEqual(candidate["network"]["ingress"], {"default": "allow", "hostLoopback": "deny"})
+        self.assertEqual(candidate["network"]["egress"], baseline["network"]["egress"])
+        self.assertEqual(candidate["processContainer"], baseline["processContainer"])
+        self.assertEqual(candidate["filesystem"], baseline["filesystem"])
+        self.assertNotIn("runtimeConfig", candidate)
+        self.assertEqual(baseline["network"]["ingress"], {"default": "deny", "hostLoopback": "deny"})
+
+    def test_ingress_control_requires_strict_boolean_and_exact_enumeration_scope(self):
+        local = self.root / "host-local-appdata"
+        local.mkdir()
+        for value in (1, "true", None):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                windows_runtime.build_policy([r"C:\Apps\browser.exe"], {}, self.profile, 19001,
+                                              enumerate_path=local,
+                                              ingress_default_allow_control=value)
+        with self.assertRaisesRegex(ValueError, "requires the pinned LocalAppData"):
+            windows_runtime.build_policy([r"C:\Apps\browser.exe"], {}, self.profile, 19001,
+                                          ingress_default_allow_control=True)
+
     def test_enumeration_candidate_rejects_missing_relative_symlink_and_root_paths(self):
         local = self.root / "local"
         local.mkdir()
@@ -454,6 +481,7 @@ class WindowsRuntimeTests(unittest.TestCase):
                 str(self.runtime),
                 guest_listener_port=19001,
                 enumerate_path=local_appdata,
+                ingress_default_allow_control=True,
             )
         self.addCleanup(resource.close)
         self.assertEqual(proc.pid, 987)
@@ -470,7 +498,7 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(policy["network"]["egress"]["allow"], [{
             "to": [{"cidr": "127.0.0.1/32"}], "ports": [{"protocol": "tcp", "port": 19001}],
         }])
-        self.assertEqual(policy["network"]["ingress"], {"default": "deny", "hostLoopback": "deny"})
+        self.assertEqual(policy["network"]["ingress"], {"default": "allow", "hostLoopback": "deny"})
         self.assertNotIn("runtimeConfig", policy)
         self.assertIn("windows_guest.py", policy["process"]["commandLine"])
         self.assertFalse(popen.call_args.kwargs["shell"])

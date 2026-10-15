@@ -373,9 +373,12 @@ def build_policy(
     guest_helper: str | Path | None = None,
     runtime_config: str | Path | None = None,
     enumerate_path: str | Path | None = None,
+    ingress_default_allow_control: bool = False,
 ) -> dict[str, Any]:
     """Allow only the trusted helper's exact internal IPv4 TCP endpoint."""
     command = _validate_command(command)
+    if type(ingress_default_allow_control) is not bool:
+        raise ValueError("ingress_default_allow_control must be a strict boolean")
     guest_listener_port = _validate_proxy_port(guest_listener_port)
     environment = _validate_env(env, guest_listener_port)
     profile = Path(profile).expanduser().resolve()
@@ -387,6 +390,8 @@ def build_policy(
     runtime_config = Path(runtime_config or profile / ".ruleproxy-runtime.json").resolve()
     app_executable_dir = _exe_parent(command[0])
     enumerate_path = _validate_enumerate_path(enumerate_path)
+    if ingress_default_allow_control and enumerate_path is None:
+        raise ValueError("ingress default allow control requires the pinned LocalAppData enumerate path")
     python_base = Path(getattr(sys, "base_prefix", python_executable.parent)).resolve()
     read_only = {
         str(python_executable.parent),
@@ -439,7 +444,8 @@ def build_policy(
                     "ports": [{"protocol": "tcp", "port": guest_listener_port}],
                 }],
             },
-            "ingress": {"default": "deny", "hostLoopback": "deny"},
+            "ingress": {"default": "allow" if ingress_default_allow_control else "deny",
+                        "hostLoopback": "deny"},
         },
     }
 
@@ -629,8 +635,11 @@ def launch(
     *,
     guest_listener_port: int | None = None,
     enumerate_path: str | Path | None = None,
+    ingress_default_allow_control: bool = False,
 ) -> tuple[subprocess.Popen, Any]:
     """Launch the trusted helper, gating the app on proxy and denial checks."""
+    if type(ingress_default_allow_control) is not bool:
+        raise ValueError("ingress_default_allow_control must be a strict boolean")
     host_proxy_port = _validate_proxy_port(proxy_port)
     guest_listener_port = guest_listener_port or choose_guest_port(host_proxy_port)
     guest_listener_port = _validate_proxy_port(guest_listener_port)
@@ -643,6 +652,8 @@ def launch(
     _require_guest_endpoint(command, env, profile, guest_listener_port)
     runtime = Path(runtime_path).expanduser().resolve(strict=True)
     enumerate_path = _validate_enumerate_path(enumerate_path)
+    if ingress_default_allow_control and enumerate_path is None:
+        raise ValueError("ingress default allow control requires the pinned LocalAppData enumerate path")
     helper = Path(__file__).with_name("windows_guest.py").resolve(strict=True)
     python_executable = Path(sys.executable).expanduser().resolve(strict=True)
     profile.mkdir(parents=True, exist_ok=True)
@@ -669,6 +680,7 @@ def launch(
             guest_helper=helper,
             runtime_config=Path(run_dir.name) / "guest-config.json",
             enumerate_path=enumerate_path,
+            ingress_default_allow_control=ingress_default_allow_control,
         )
         # This request-scoped MXC probe confirms that BaseContainer accepts
         # the exact directory-enumeration grant before any wrapper is started.

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import json
+import ntpath
 import os
 from pathlib import Path
 import stat
@@ -14,6 +15,7 @@ import uuid
 
 CSIDL_LOCAL_APPDATA = 0x001C
 FOLDERID_LOCAL_APPDATA = "F1B32785-6FBA-4FCF-9D55-7B8E7F157091"
+KF_FLAG_DONT_VERIFY = 0x4000
 TOKEN_QUERY = 0x0008
 OPEN_THREAD_TOKEN_AS_SELF = 1
 TOKEN_TYPE_CLASS = 8
@@ -201,6 +203,43 @@ class WindowsApi:
                 "free_attempted": bool(pointer), "free_success": free_success,
                 "free_error": free_error}
 
+    def get_known_folder_path_without_verify(self, localappdata: str | None,
+                                             environment_present: bool) -> dict:
+        """Read-only comparison query using KF_FLAG_DONT_VERIFY; never creates the folder."""
+        folder = GUID.parse(FOLDERID_LOCAL_APPDATA)
+        output = ctypes.c_wchar_p()
+        code, success, path_present = 1, False, False
+        pointer = None
+        free_success, free_error = False, 0
+        matches = False
+        try:
+            result = self.shell.SHGetKnownFolderPath(ctypes.byref(folder), KF_FLAG_DONT_VERIFY, None,
+                                                      ctypes.byref(output))
+            code, success = self._hresult_result(result)
+            pointer = ctypes.cast(output, ctypes.c_void_p).value
+            value = ctypes.wstring_at(pointer) if pointer else ""
+            path_present = bool(success and value)
+            if path_present and isinstance(localappdata, str) and localappdata:
+                matches = ntpath.normcase(ntpath.normpath(value)) == ntpath.normcase(
+                    ntpath.normpath(localappdata)
+                )
+        except Exception as exc:
+            code = _failure_code(exc)
+            success, path_present, matches = False, False, False
+            pointer = ctypes.cast(output, ctypes.c_void_p).value
+        finally:
+            if pointer:
+                try:
+                    self.ole.CoTaskMemFree(ctypes.c_void_p(pointer))
+                    free_success = True
+                except Exception as exc:
+                    free_error = _failure_code(exc)
+        return {"hresult_u32": code, "success": success, "path_present": path_present,
+                "free_attempted": bool(pointer), "free_success": free_success,
+                "free_error": free_error,
+                "localappdata_environment_present": bool(environment_present),
+                "path_matches_localappdata_environment": matches}
+
     def known_folder_location(self) -> Path:
         """Return the LocalAppData path for internal policy construction only."""
         folder = GUID.parse(FOLDERID_LOCAL_APPDATA)
@@ -335,6 +374,18 @@ def _safe_call(api, name: str, default: dict) -> dict:
         }
 
 
+def _safe_call_with_args(api, name: str, args: tuple, default: dict) -> dict:
+    try:
+        value = getattr(api, name)(*args)
+        if not isinstance(value, dict):
+            return default
+        return {key: value.get(key, fallback)
+                if type(value.get(key, fallback)) is type(fallback) else fallback
+                for key, fallback in default.items()}
+    except Exception as exc:
+        return {**default, "error": _failure_code(exc)}
+
+
 def query_context(api=None, environ=None) -> dict:
     """Return bounded facts only; no path, SID, token, or exception text is retained."""
     env = os.environ if environ is None else environ
@@ -353,6 +404,11 @@ def query_context(api=None, environ=None) -> dict:
                     "shgetknownfolderpath": {"hresult_u32": code, "success": False,
                                              "path_present": False, "free_attempted": False,
                                              "free_success": False, "free_error": 0},
+                    "shgetknownfolderpath_without_verify": {
+                        "hresult_u32": code, "success": False, "path_present": False,
+                        "free_attempted": False, "free_success": False, "free_error": 0,
+                        "localappdata_environment_present": "LOCALAPPDATA" in env,
+                        "path_matches_localappdata_environment": False},
                     "process_token": _empty_token(code), "thread_token": _empty_token(code)}
     return {
         "schema": REPORT_SCHEMA,
@@ -364,6 +420,13 @@ def query_context(api=None, environ=None) -> dict:
                                             {"hresult_u32": 0, "success": False,
                                              "path_present": False, "free_attempted": False,
                                              "free_success": False, "free_error": 0}),
+        "shgetknownfolderpath_without_verify": _safe_call_with_args(
+            api, "get_known_folder_path_without_verify",
+            (env.get("LOCALAPPDATA"), "LOCALAPPDATA" in env),
+            {"hresult_u32": 0, "success": False, "path_present": False,
+             "free_attempted": False, "free_success": False, "free_error": 0,
+             "localappdata_environment_present": "LOCALAPPDATA" in env,
+             "path_matches_localappdata_environment": False}),
         "process_token": _safe_call(api, "process_token", _empty_token(0)),
         "thread_token": _safe_call(api, "thread_token", _empty_token(0)),
     }

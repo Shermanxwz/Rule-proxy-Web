@@ -41,7 +41,7 @@ on:
         type: boolean
         default: false
       ingress_controls_diagnostic:
-        description: Compare the private-network capability with G2 in source-only network diagnostics
+        description: Use G2 for source-only private-network capability or Chromium GUI diagnostics
         required: false
         type: boolean
         default: false
@@ -406,9 +406,15 @@ jobs:
             echo 'PSEC 1.1 diagnostic requires network-only mode and cannot combine with singleton port encoding.' >&2
             exit 2
           fi
-          if [ "$INGRESS_CONTROLS" = 'true' ] && { [ "$NETWORK_DIAGNOSTIC" != 'true' ] || [ "$PSEC_1_1_DIAGNOSTIC" != 'true' ] || [ "$CAPABILITY_DIAGNOSTIC" != 'true' ] || [ "$GUI_DIAGNOSTIC" = 'true' ] || [ "$CHROMIUM_CONTROL" = 'true' ] || [ "$SINGLETON_DIAGNOSTIC" = 'true' ]; }; then
-            echo 'Ingress capability control requires G2 source-only PSEC 1.1 network diagnostics.' >&2
-            exit 2
+          if [ "$INGRESS_CONTROLS" = 'true' ]; then
+            network_g2=false
+            gui_g2=false
+            if [ "$NETWORK_DIAGNOSTIC" = 'true' ] && [ "$PSEC_1_1_DIAGNOSTIC" = 'true' ] && [ "$GUI_DIAGNOSTIC" != 'true' ] && [ "$CHROMIUM_CONTROL" != 'true' ] && [ "$SINGLETON_DIAGNOSTIC" != 'true' ]; then network_g2=true; fi
+            if [ "$GUI_DIAGNOSTIC" = 'true' ] && [ "$CHROMIUM_CONTROL" = 'true' ] && [ "$NETWORK_DIAGNOSTIC" != 'true' ] && [ "$PSEC_1_1_DIAGNOSTIC" != 'true' ] && [ "$SINGLETON_DIAGNOSTIC" != 'true' ]; then gui_g2=true; fi
+            if [ "$CAPABILITY_DIAGNOSTIC" != 'true' ] || { [ "$network_g2" != 'true' ] && [ "$gui_g2" != 'true' ]; }; then
+              echo 'Ingress control requires either G2 network+PSEC 1.1 or G2 GUI+CfT diagnostics.' >&2
+              exit 2
+            fi
           fi
       - name: Download only the fixed G source-only diagnostic executor
         if: github.event_name == 'workflow_dispatch' && inputs.capability_executor_diagnostic && !inputs.ingress_controls_diagnostic
@@ -454,11 +460,12 @@ jobs:
           gui_args=()
           if [ "$RULEPROXY_VM_GUI_DIAGNOSTIC" = 'true' ]; then gui_args+=(--gui-diagnostic-only); fi
           if [ "$RULEPROXY_VM_CHROMIUM_CONTROL" = 'true' ]; then gui_args+=(--chromium-gui-control); fi
+          if [ "$RULEPROXY_VM_INGRESS_CONTROLS" = 'true' ] && [ "$RULEPROXY_VM_GUI_DIAGNOSTIC" = 'true' ]; then gui_args+=(--ingress-controls-diagnostic); fi
           network_args=()
           if [ "$RULEPROXY_VM_NETWORK_DIAGNOSTIC" = 'true' ]; then network_args+=(--network-diagnostic-only); fi
           if [ "$RULEPROXY_VM_SINGLETON_DIAGNOSTIC" = 'true' ]; then network_args+=(--singleton-port-range-diagnostic); fi
           if [ "$RULEPROXY_VM_PSEC_1_1_DIAGNOSTIC" = 'true' ]; then network_args+=(--psec-1-1-diagnostic); fi
-          if [ "$RULEPROXY_VM_INGRESS_CONTROLS" = 'true' ]; then network_args+=(--ingress-controls-diagnostic); fi
+          if [ "$RULEPROXY_VM_INGRESS_CONTROLS" = 'true' ] && [ "$RULEPROXY_VM_NETWORK_DIAGNOSTIC" = 'true' ]; then network_args+=(--ingress-controls-diagnostic); fi
           sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 10800 "${baseline_args[@]}" "${executor_args[@]}" "${gui_args[@]}" "${network_args[@]}"
       - uses: actions/upload-artifact@v7
         if: always()

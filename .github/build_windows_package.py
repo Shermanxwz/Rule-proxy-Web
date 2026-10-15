@@ -133,7 +133,7 @@ def release_notes(zip_name: str, digest: str) -> str:
 
 **Windows**（x64 Windows 11，需要通过完整隔离能力探测；不需要另外安装 Python）
 
-MXC 1.0.0 的官方支持表列出 Windows 11 25H2+、内部版本 26600 或更新版本，并要求对应的隔离接口。版本号达标后仍需面板探测成功，才能使用严格隔离。
+微软当前支持表列出 Windows 11 25H2 从 26200.9278 起支持进程隔离。仍需面板的完整能力检查和实际启动检查通过，才能使用严格隔离；版本号不能单独保证所需功能可用。见[官方系统支持说明](https://github.com/microsoft/mxc/blob/main/docs/backends/process-container/os-version-support.md)。
 
 1. 下载 `{zip_name}`。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”，避免每次启动都弹出安全提示。
@@ -164,7 +164,7 @@ sh start-linux.sh
 
 `{zip_name}` 的 SHA-256：`{digest}`
 
-Windows 上的隔离启动还没有在 Windows 11 真机上验证（GitHub 的 Windows 环境不提供所需的 BaseContainer，面板在那里会拒绝严格隔离）。第一次使用请先用浏览器确认能联网、“停止”正常，再用其他应用。
+Windows 完整验收尚未通过。已有真实 Windows 11 组件检查，实际结果与限制见项目说明；当前开发版本不能称为已封存或已验证零泄漏。
 """
 
 
