@@ -38,7 +38,18 @@ class FreeBackendAssetsTests(unittest.TestCase):
                 archive = root / "input.zip"
                 with zipfile.ZipFile(archive, "w") as target:
                     for name in names:
-                        target.writestr(name, b"content")
+                        target.writestr(name.replace("\\", "/"), b"content")
+                # Windows normalizes backslashes passed to writestr. Patch the
+                # equal-length local/central names so this case really carries
+                # an unsafe raw ZIP member on every host.
+                for name in names:
+                    if "\\" in name:
+                        raw = archive.read_bytes()
+                        safe_name = name.replace("\\", "/").encode("ascii")
+                        self.assertEqual(raw.count(safe_name), 2)
+                        archive.write_bytes(raw.replace(safe_name, name.encode("ascii")))
+                with zipfile.ZipFile(archive) as source:
+                    self.assertEqual(source.namelist(), list(names))
                 output = root / "output"
                 with self.assertRaises(ValueError):
                     assets.extract(archive, output)
