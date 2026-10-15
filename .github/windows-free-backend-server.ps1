@@ -19,6 +19,52 @@ $installReport = Join-Path $root 'install-report.json'
 $installLog = Join-Path $results 'install.log'
 $statePath = Join-Path $OutputDirectory 'server-probe-state.json'
 $utf8 = New-Object Text.UTF8Encoding($false)
+$runtimeDiagnostics = New-Object Collections.Generic.List[object]
+
+function Test-PythonLaunch([string]$Stage, [bool]$Redirect) {
+    $row = [ordered]@{ stage = $Stage; redirect = $Redirect; started = $false; paths = @() }
+    foreach ($path in @($root, $bundleRoot, (Split-Path $python), $python, $results)) {
+        $item = Get-Item -LiteralPath $path -Force
+        $row.paths += @{ path = $path; attributes = [string]$item.Attributes;
+            sddl = (Get-Acl -LiteralPath $path).Sddl }
+    }
+    $row.python_size = (Get-Item -LiteralPath $python).Length
+    $row.python_sha256 = (Get-FileHash -LiteralPath $python -Algorithm SHA256).Hash.ToLowerInvariant()
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo.FileName = $python
+    $process.StartInfo.Arguments = '--version'
+    $process.StartInfo.WorkingDirectory = $root
+    $process.StartInfo.UseShellExecute = $false
+    $process.StartInfo.RedirectStandardOutput = $Redirect
+    $process.StartInfo.RedirectStandardError = $Redirect
+    try {
+        $row.started = $process.Start()
+        if (-not $process.WaitForExit(15000)) {
+            $process.Kill()
+            $process.WaitForExit()
+            $row.timeout = $true
+        } else {
+            $row.exit_code = $process.ExitCode
+        }
+        if ($Redirect) {
+            $row.stdout = $process.StandardOutput.ReadToEnd().Trim()
+            $row.stderr = $process.StandardError.ReadToEnd().Trim()
+        }
+    } catch {
+        $row.errors = @()
+        $exception = $_.Exception
+        while ($null -ne $exception) {
+            $row.errors += @{ type = $exception.GetType().FullName; hresult = $exception.HResult;
+                native_error = $exception.NativeErrorCode; message = $exception.Message.Substring(0, [Math]::Min(800, $exception.Message.Length)) }
+            $exception = $exception.InnerException
+        }
+    } finally {
+        $process.Dispose()
+        $runtimeDiagnostics.Add($row)
+        [IO.File]::WriteAllText((Join-Path $OutputDirectory 'runtime-launch-diagnostics.json'),
+            (ConvertTo-Json -InputObject $runtimeDiagnostics.ToArray() -Depth 10), $utf8)
+    }
+}
 
 function Write-State([string]$Status, [string]$Code) {
     $value = [ordered]@{ schema_version = 1; backend = $Backend; status = $Status;
@@ -65,6 +111,8 @@ try {
         throw 'fixed_bundle_or_server_probe_helper_missing'
     }
     Copy-Item -LiteralPath $probeSource -Destination $probe
+    Test-PythonLaunch 'before_acl' $false
+    Test-PythonLaunch 'before_acl' $true
 
     if (Get-LocalUser -Name 'RuleProxyCI' -ErrorAction SilentlyContinue) { throw 'probe_account_already_exists' }
     $passwordText = ([guid]::NewGuid().ToString('N') + 'Q7!')
@@ -79,6 +127,8 @@ try {
     if ($sid -notin $users) { throw 'probe_account_not_standard_user' }
 
     Protect-Directories
+    Test-PythonLaunch 'after_acl' $false
+    Test-PythonLaunch 'after_acl' $true
     $installerArgs = @('-B', $control, '--phase', 'install', '--bundle', $bundleRoot,
         '--manifest', $manifest, '--report', $installReport,
         '--probe-user', 'RuleProxyCI', '--probe-user-sid', $sid)
