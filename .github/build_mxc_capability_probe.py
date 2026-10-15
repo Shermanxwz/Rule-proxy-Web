@@ -3,9 +3,12 @@
 The caller supplies a clean checkout at the exact Microsoft release commit.
 Use --source CHECKOUT --output DIAGNOSTIC_DIR; Windows builds native x64 wxc.
 --prepare-only works on other hosts and never produces a runnable manifest.
-The diagnostic clears only automatically added internetClient for one exact
-internal TCP shape with empty caller capabilities. Actual sockets/DNS remain
-unverified until a real PSEC run. The product's bin and policy are untouched.
+The default diagnostic clears only automatically added internetClient for one
+exact internal TCP shape with empty caller capabilities. The explicit
+--diagnostic-ingress-controls variant allows ingress.default allow while
+keeping hostLoopback denied and retains privateNetworkClientServer.
+Actual sockets/DNS remain unverified until a real PSEC run. The product's bin
+and policy are untouched.
 """
 from __future__ import annotations
 
@@ -63,6 +66,36 @@ INSERTION = """    // RuleProxy diagnostic only: the native endpoint table remai
 PATCH_INFO = {"name": "exact_internal_tcp_without_automatic_internet_client", "capabilities_null": True,
               "network_table_unchanged": True, "exact_internal_tcp_only": True,
               "caller_capabilities_must_be_empty": True}
+# Separate source-only variant. It permits either explicit ingress default
+# while keeping host-loopback denied and every other G guard unchanged.
+G2_INSERTION = INSERTION.replace(
+    """        && policy.network_ingress.as_ref().is_some_and(|ingress| {
+            ingress.default == NetworkAction::Deny
+                && ingress.host_loopback == NetworkAction::Deny
+        })
+""",
+    """        && policy.network_ingress.as_ref().is_some_and(|ingress| {
+            ingress.host_loopback == NetworkAction::Deny
+        })
+""",
+)
+if G2_INSERTION == INSERTION:
+    raise RuntimeError("the explicit G2 ingress guard replacement is not unique")
+G2_PATCH_INFO = {
+    "name": "private_network_ingress_control_without_automatic_internet_client",
+    "source_diagnostic_only": True,
+    "release_eligible": False,
+    "exact_internal_tcp_only": True,
+    "caller_capabilities_must_be_empty": True,
+    "network_table_unchanged": True,
+    "host_loopback_must_remain_deny": True,
+    "ingress_default_allow_or_deny": True,
+    "automatic_internet_client_removed": True,
+    "private_network_capability_preserved": True,
+    "capabilities_null": False,
+}
+G2_PATCH_SHA256 = "c39ef13da834b330deb028a7a273ad154cbdd07ee5c60c917e9382cf25557a62"
+G2_PATCHED_SOURCE_SHA256 = "4c6915b28b6e09a35508001f70087499ececc4861ba5e2b896c5dd122c5f3759"
 
 
 def sha256(raw):
@@ -168,19 +201,22 @@ def permitted_destination(path):
     raise ValueError("a diagnostic cannot write into the product runtime directory")
 
 
-def patch_bytes(raw):
+def patch_bytes(raw, *, diagnostic_ingress_controls=False):
+    if type(diagnostic_ingress_controls) is not bool:
+        raise ValueError("the G2 diagnostic selector must be a boolean")
     if sha256(raw) != ORIGINAL_SHA256:
         raise ValueError("the upstream helper file does not match the fixed release SHA256")
     text = raw.decode("utf-8")
     if text.count(ANCHOR) != 1 or text.count("pub(super) fn build_psec_v1_security_environment_spec(") != 1:
         raise ValueError("the fixed capabilities patch anchor is not unique")
-    patched = text.replace(ANCHOR, ANCHOR + INSERTION, 1).encode("utf-8")
+    insertion = G2_INSERTION if diagnostic_ingress_controls else INSERTION
+    patched = text.replace(ANCHOR, ANCHOR + insertion, 1).encode("utf-8")
     diff = "".join(difflib.unified_diff(text.splitlines(keepends=True), patched.decode("utf-8").splitlines(keepends=True),
                                      fromfile="a/" + TARGET_FILE, tofile="b/" + TARGET_FILE)).encode("utf-8")
     return patched, sha256(diff)
 
 
-def prepare_source(source):
+def prepare_source(source, *, diagnostic_ingress_controls=False):
     source = Path(source).resolve(strict=True)
     if run(["git", "rev-parse", "HEAD"], cwd=source).decode("ascii").strip() != UPSTREAM_COMMIT:
         raise ValueError("the source checkout is not the exact Microsoft MXC 1.0.0 commit")
@@ -195,12 +231,16 @@ def prepare_source(source):
     toolchain = (source / "src/rust-toolchain.toml").read_text(encoding="utf-8")
     if not re.search(r'^channel\s*=\s*"1\.93"\s*$', toolchain, re.MULTILINE):
         raise ValueError("the upstream Rust 1.93 pin changed")
-    patched, patch_digest = patch_bytes(raw)
+    patched, patch_digest = patch_bytes(raw, diagnostic_ingress_controls=diagnostic_ingress_controls)
+    if diagnostic_ingress_controls and (
+            patch_digest != G2_PATCH_SHA256 or sha256(patched) != G2_PATCHED_SOURCE_SHA256):
+        raise ValueError("the G2 patch bytes do not match their fixed diagnostic SHA256 pins")
     target.write_bytes(patched)
     if target.read_bytes() != patched:
         raise RuntimeError("the diagnostic patch was not written exactly")
+    patch_info = G2_PATCH_INFO if diagnostic_ingress_controls else PATCH_INFO
     return source, {"schema_version": 1, "status": "prepared_only", "upstream_commit": UPSTREAM_COMMIT,
-                    "executor_sha256": None, "patch": dict(PATCH_INFO), "original_file_sha256": ORIGINAL_SHA256,
+                    "executor_sha256": None, "patch": dict(patch_info), "original_file_sha256": ORIGINAL_SHA256,
                     "patch_sha256": patch_digest, "patched_file_sha256": sha256(patched),
                     "toolchain": TOOLCHAIN, "target": BUILD_TARGET}
 
@@ -262,6 +302,8 @@ def main(arguments=None):
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--diagnostic-ingress-controls", action="store_true",
+                        help="build source-only G2 accepting explicit ingress action combinations")
     args = parser.parse_args(arguments)
     try:
         if not args.prepare_only and os.name != "nt":
@@ -270,7 +312,8 @@ def main(arguments=None):
         output.mkdir(parents=True, exist_ok=True)
         if any((output / name).exists() for name in ("build-manifest.json", "wxc-exec.exe", "MXC-LICENSE.md")):
             raise ValueError("the diagnostic output must not contain stale artifacts")
-        source, manifest = prepare_source(args.source)
+        source, manifest = prepare_source(args.source,
+                                          diagnostic_ingress_controls=args.diagnostic_ingress_controls)
         if not args.prepare_only:
             build(source, output, manifest)
         temporary = output / "build-manifest.json.tmp"

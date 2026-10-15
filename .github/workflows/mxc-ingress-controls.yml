@@ -1,0 +1,45 @@
+name: PSEC private network capability control
+
+on:
+  push:
+    branches:
+      - 'codex/windows-ingress-builder-*'
+    paths:
+      - '.github/build_mxc_capability_probe.py'
+      - '.github/workflows/mxc-ingress-controls.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psec-ingress-control-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  executor:
+    name: Build the fixed source-only private network capability control
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: microsoft/mxc
+          ref: 7bf210247986cb73b1b314df60c2f1109c479c0b
+          path: mxc-source
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Use the fixed upstream Rust toolchain
+        run: |
+          rustup toolchain install 1.93 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build the separate diagnostic executor
+        run: python -X utf8 -B .github\build_mxc_capability_probe.py --source mxc-source --output mxc-ingress-control --diagnostic-ingress-controls
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mxc-ingress-control-executor
+          path: mxc-ingress-control/
+          if-no-files-found: error
+          retention-days: 14

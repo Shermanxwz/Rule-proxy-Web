@@ -70,10 +70,16 @@ class CapabilityProbeBuilderTests(unittest.TestCase):
             return b""
         raise AssertionError("unexpected diagnostic command")
 
-    def prepare(self):
+    def prepare(self, *, diagnostic_ingress_controls=False):
+        with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
+            candidate, patch_digest = builder.patch_bytes(
+                self.original, diagnostic_ingress_controls=diagnostic_ingress_controls)
         with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()), \
+                mock.patch.object(builder, "G2_PATCH_SHA256", patch_digest), \
+                mock.patch.object(builder, "G2_PATCHED_SOURCE_SHA256", hashlib.sha256(candidate).hexdigest()), \
                 mock.patch.object(builder, "run", side_effect=self.source_commands):
-            return builder.prepare_source(self.source)
+            return builder.prepare_source(
+                self.source, diagnostic_ingress_controls=diagnostic_ingress_controls)
 
     def test_one_exact_insertion_preserves_every_original_byte_and_has_stable_diff_provenance(self):
         with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
@@ -81,9 +87,55 @@ class CapabilityProbeBuilderTests(unittest.TestCase):
             self.assertEqual(changed.replace(builder.INSERTION.encode(), b"", 1), self.original)
             self.assertEqual(changed.count(builder.INSERTION.encode()), 1)
             self.assertEqual(builder.patch_bytes(self.original), (changed, digest))
-            self.assertEqual(len(digest), 64)
+            self.assertEqual(digest, "52a9c073721ba17b340e93e07464b3ab39cc63737e2e5cd1d07cd798538446ed")
             with self.assertRaisesRegex(ValueError, "fixed release SHA256"):
                 builder.patch_bytes(changed)
+
+    def test_g2_only_expands_ingress_default_guard_and_keeps_host_loopback_denied(self):
+        with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()):
+            old_g, old_digest = builder.patch_bytes(self.original)
+            g2, g2_digest = builder.patch_bytes(self.original, diagnostic_ingress_controls=True)
+        self.assertEqual(old_digest, "52a9c073721ba17b340e93e07464b3ab39cc63737e2e5cd1d07cd798538446ed")
+        self.assertEqual(g2_digest, "501080002b2828f725118e14afe47ea7d123a56ac6f8e74964838dda7fa81c9c")
+        self.assertEqual(old_g.replace(builder.INSERTION.encode(), b"", 1), self.original)
+        self.assertEqual(g2.replace(builder.G2_INSERTION.encode(), b"", 1), self.original)
+        self.assertNotEqual(old_g, g2)
+        self.assertIn("ingress.host_loopback == NetworkAction::Deny", builder.G2_INSERTION)
+        self.assertNotIn("ingress.default ==", builder.G2_INSERTION)
+        # Only ingress.default is broadened; hostLoopback and all other guards
+        # remain byte-identical to G.
+        self.assertEqual(
+            builder.G2_INSERTION.replace("""        && policy.network_ingress.as_ref().is_some_and(|ingress| {
+            ingress.host_loopback == NetworkAction::Deny
+        })
+""", """        && policy.network_ingress.as_ref().is_some_and(|ingress| {
+            ingress.default == NetworkAction::Deny
+                && ingress.host_loopback == NetworkAction::Deny
+        })
+"""),
+            builder.INSERTION,
+        )
+
+    def test_g2_prepare_manifest_is_separately_named_and_does_not_claim_capabilities_null(self):
+        source, manifest = self.prepare(diagnostic_ingress_controls=True)
+        self.assertEqual(source, self.source)
+        self.assertEqual(manifest["patch"], builder.G2_PATCH_INFO)
+        self.assertEqual(manifest["patch"]["name"], "private_network_ingress_control_without_automatic_internet_client")
+        self.assertFalse(manifest["patch"]["capabilities_null"])
+        self.assertTrue(manifest["patch"]["host_loopback_must_remain_deny"])
+        self.assertTrue(manifest["patch"]["private_network_capability_preserved"])
+        self.assertEqual(manifest["patch_sha256"], "501080002b2828f725118e14afe47ea7d123a56ac6f8e74964838dda7fa81c9c")
+        self.assertEqual(manifest["patched_file_sha256"], hashlib.sha256(self.target.read_bytes()).hexdigest())
+        self.assertEqual(manifest["status"], "prepared_only")
+        self.assertIsNone(manifest["executor_sha256"])
+
+    def test_g2_fixed_patch_pin_mismatch_fails_before_writing_source(self):
+        with mock.patch.object(builder, "ORIGINAL_SHA256", hashlib.sha256(self.original).hexdigest()), \
+                mock.patch.object(builder, "G2_PATCH_SHA256", "0" * 64), \
+                mock.patch.object(builder, "run", side_effect=self.source_commands), \
+                self.assertRaisesRegex(ValueError, "fixed diagnostic SHA256 pins"):
+            builder.prepare_source(self.source, diagnostic_ingress_controls=True)
+        self.assertEqual(self.target.read_bytes(), self.original)
 
     def test_wrong_release_file_or_non_unique_anchor_is_never_patched(self):
         with self.assertRaisesRegex(ValueError, "fixed release SHA256"):
