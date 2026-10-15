@@ -1,0 +1,133 @@
+{
+  "full_acceptance_passed": false,
+  "limitations": [
+    "The UDP observation is limited to the fixed probes and their controls; it does not prove public UDP denial or complete product network acceptance.",
+    "The source-only executor was used for the network experiment and did not replace the packaged product runtime.",
+    "Native DNS capture retained 81 unclassified records (46 opaque DNS TCP controls and 35 opaque DNS TCP or HTTPS); DNS absence was not established.",
+    "The API-level DNS return codes do not establish packet-level denial. NXDOMAIN is not denial proof.",
+    "The model2 host-policy contained sender was not attested, so that policy row is incomplete.",
+    "Browser and GUI fixtures failed; GUI cleanup remained unproven and a recovery record was retained.",
+    "The package test phase failed; no real-node or full product acceptance was established."
+  ],
+  "native_dns_capture": {
+    "api_return_codes": {
+      "DnsQueryEx_A_AAAA": "5 for parent and child; 9501 for outside controls",
+      "getaddrinfo": "11001 for parent, child and outside controls"
+    },
+    "api_return_codes_are_not_packet_denial_proof": true,
+    "capture_status": "incomplete",
+    "contained_question_absence_observed": false,
+    "control_windows_ordered": true,
+    "groups": [
+      {
+        "api": "getaddrinfo",
+        "child_records": 0,
+        "contained_question_absence_observed": false,
+        "control_window_ordered": true,
+        "outside_after_records": 2,
+        "outside_before_records": 2,
+        "parent_records": 0,
+        "query_type": null
+      },
+      {
+        "api": "dns_a",
+        "child_records": 0,
+        "contained_question_absence_observed": false,
+        "control_window_ordered": true,
+        "outside_after_records": 1,
+        "outside_before_records": 1,
+        "parent_records": 0,
+        "query_type": 1
+      },
+      {
+        "api": "dns_aaaa",
+        "child_records": 0,
+        "contained_question_absence_observed": false,
+        "control_window_ordered": true,
+        "outside_after_records": 1,
+        "outside_before_records": 1,
+        "parent_records": 0,
+        "query_type": 28
+      }
+    ],
+    "kernel_denial_proven": false,
+    "packet_analysis_complete": false,
+    "scope": "default_test_vm_resolver_configuration_observed",
+    "system_dns_proven": false,
+    "unknown_record_categories": {
+      "opaque_dns_tcp_control_only": 46,
+      "opaque_dns_tcp_or_https": 35
+    },
+    "unknown_records": 81
+  },
+  "preferred_policy_udp_capture": {
+    "all_four_control_windows_ordered": true,
+    "all_four_probe_executions_attested": true,
+    "capture_packet_records": 404,
+    "capture_status": "incomplete",
+    "groups": [
+      {
+        "child_packets": 0,
+        "contained_marker_absence_observed": true,
+        "control_window_ordered": true,
+        "execution_proven": true,
+        "outside_after_packets": 1,
+        "outside_before_packets": 1,
+        "parent_packets": 0,
+        "probe": "ipv4"
+      },
+      {
+        "child_packets": 0,
+        "contained_marker_absence_observed": true,
+        "control_window_ordered": true,
+        "execution_proven": true,
+        "outside_after_packets": 1,
+        "outside_before_packets": 1,
+        "parent_packets": 0,
+        "probe": "ipv4_unbound"
+      },
+      {
+        "child_packets": 0,
+        "contained_marker_absence_observed": true,
+        "control_window_ordered": true,
+        "execution_proven": true,
+        "outside_after_packets": 1,
+        "outside_before_packets": 1,
+        "parent_packets": 0,
+        "probe": "ipv6"
+      },
+      {
+        "child_packets": 0,
+        "contained_marker_absence_observed": true,
+        "control_window_ordered": true,
+        "execution_proven": true,
+        "outside_after_packets": 1,
+        "outside_before_packets": 1,
+        "parent_packets": 0,
+        "probe": "ipv6_unbound"
+      }
+    ],
+    "kernel_denial_proven": false,
+    "model2_host_policy": "outside controls were present, but contained sender execution was not proven",
+    "policy": "model1_internal_ingress_deny",
+    "public_udp_proven": false,
+    "scope": "captured_qemu_vm_nic_egress"
+  },
+  "product_acceptance_passed": false,
+  "product_phases": {
+    "browser_fixture": "failed",
+    "gui_cleanup_error_type": "RuntimeError",
+    "gui_cleanup_proven": false,
+    "gui_fixture": "failed",
+    "manager_fixture": "passed",
+    "package_tests": "failed",
+    "real_node_passed": false,
+    "recovery_retained": true,
+    "strict_probe": "passed",
+    "transport_fixture": "passed"
+  },
+  "product_runtime_replaced": false,
+  "schema_version": 1,
+  "source_commit": "3824903af234b27fcb7097fee31a617188a1de2b",
+  "status": "failed"
+}

@@ -1,0 +1,39 @@
+{
+  "full_acceptance_passed": false,
+  "limitations": [
+    "DISM returned 3010 after verifying and applying the two staged packages, but the required reboot did not complete.",
+    "The VM remained on build 26300 UBR 9457, below target UBR 9711; the official update is not considered complete.",
+    "No product transport, Manager, browser, GUI, package or network-capture phases ran in this job.",
+    "This failed update run makes no product acceptance or release claim."
+  ],
+  "official_update": {
+    "actual_ubr": 9457,
+    "all_packages_verified": true,
+    "build": 26300,
+    "package": "KB5127648",
+    "phase_at_failure": "reboot_pending",
+    "reboot_count": 1,
+    "restart_completed": false,
+    "restart_failure": "Windows refused shutdown while other users were logged on",
+    "scheduled_task_unregistered": true,
+    "servicing_exit_code": 3010,
+    "servicing_reported_reboot_required": true,
+    "target_ubr": 9711,
+    "target_ubr_reached": false,
+    "update_completed": false,
+    "verified_package_count": 2
+  },
+  "product_acceptance_passed": false,
+  "product_phases": {
+    "browser_fixture_passed": false,
+    "gui_fixture_passed": false,
+    "manager_fixture_passed": false,
+    "phases_run": 0,
+    "reason_not_run": "The required official cumulative update failed before product phases began.",
+    "transport_fixture_passed": false,
+    "wire_capture_collected": false
+  },
+  "schema_version": 1,
+  "source_commit": "0904d2d14eb10d28b16d5be82bbc7e2309485b6c",
+  "status": "failed"
+}
