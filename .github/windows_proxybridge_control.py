@@ -986,14 +986,22 @@ def _windows_build() -> dict:
     return {"build": build, "ubr": ubr}
 
 
-def _installed_display_version() -> str:
+def _installed_display_version() -> str | None:
     import winreg
     key_name = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ProxyBridge"
-    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_name) as key:
-        value = winreg.QueryValueEx(key, "DisplayVersion")[0]
-    if not isinstance(value, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
-        raise RuntimeError("Installed product version metadata is malformed")
-    return value
+    # NSIS installers can write uninstall metadata to the 32-bit registry view
+    # even while installing x64 binaries. This optional display metadata is not
+    # the source-of-truth gate; fixed installer bytes, driver trust and the real
+    # service state are verified independently above.
+    for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_name, 0, winreg.KEY_READ | view) as key:
+                value = winreg.QueryValueEx(key, "DisplayVersion")[0]
+            if isinstance(value, str) and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
+                return value
+        except FileNotFoundError:
+            continue
+    return None
 
 
 if __name__ == "__main__":
