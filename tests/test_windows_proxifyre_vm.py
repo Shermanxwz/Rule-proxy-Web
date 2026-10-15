@@ -1,7 +1,10 @@
 """Native qualification must prove client OS, package identity and ordinary actors."""
 import importlib.util
+import json
+import os
 from pathlib import Path
 import stat
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -159,10 +162,72 @@ class NativeCleanupTests(unittest.TestCase):
     def test_bootstrap_does_not_repeat_reports_or_export_private_url_logs(self):
         script = (ROOT / ".github/windows-proxifyre-vm-run.ps1").read_text()
         self.assertLess(script.index("FileMode]::CreateNew"), script.index("Unregister-ScheduledTask"))
-        self.assertNotIn("$result.logs.supervisor", script)
+        self.assertGreater(script.index("Unregister-ScheduledTask"), script.index("$submitted = $true"))
+        self.assertIn("$result.logs.supervisor = (Read-DiagnosticTail", script)
         self.assertIn("$request.Timeout = 15000", script)
         self.assertIn("$result.user_cleanup_confirmed", script)
         self.assertIn("Remove-Item Env:RULEPROXY_TEST_PASSWORD", script)
+        self.assertIn("error_type='BootstrapIncomplete'", script)
+        self.assertIn("$result.failure_phase = $result.phase", script)
+        self.assertLess(script.index("$result.failure_phase = $result.phase"), script.index("Write-BootstrapStep 'cleanup_before'"))
+        self.assertLess(script.index("'bootstrap-result.json'"), script.index("'/result'"))
+
+    def test_native_bootstrap_uses_fixed_windows_powershell_and_system_modules(self):
+        script = (ROOT / ".github/windows-proxifyre-vm-setup.ps1").read_text()
+        self.assertIn("System32\\WindowsPowerShell\\v1.0\\powershell.exe", script)
+        self.assertIn("-Execute $powershell", script)
+        self.assertIn("-NoProfile -NonInteractive", script)
+        self.assertIn("System32\\WindowsPowerShell\\v1.0\\Modules", script)
+
+    @unittest.skipUnless(os.name == "nt", "requires actual Windows PowerShell")
+    def test_native_diagnostics_redact_secrets_and_read_powershell_utf16_logs(self):
+        # Execute only the diagnostic functions found by the actual PS parser;
+        # never invoke account/service/VM bootstrap actions during a unit test.
+        command = r'''
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($env:RULEPROXY_NATIVE_SCRIPT, [ref]$tokens, [ref]$errors)
+if ($errors.Count -ne 0) { throw 'Bootstrap PowerShell syntax error' }
+foreach ($name in @('Protect-DiagnosticText', 'Read-DiagnosticTail', 'Add-BootstrapError', 'Write-BootstrapStep')) {
+    $definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
+    if ($null -eq $definition) { throw 'Missing diagnostic function' }
+    . ([scriptblock]::Create($definition.Extent.Text))
+}
+$script:passwordText = 'SyntheticSecretQ7!'
+$script:configuration = [pscustomobject]@{host_url='http://10.0.2.2:12345/private-capability'}
+$script:root = $env:RULEPROXY_NATIVE_TEST_ROOT
+$script:utf8 = [Text.UTF8Encoding]::new($false)
+$script:result = @{steps=@(); errors=@(); phase='start'}
+$path = Join-Path $script:root 'utf16.log'
+[IO.File]::WriteAllText($path, ('prefix ' * 30000) + ' SyntheticSecretQ7! http://10.0.2.2:12345/private-capability/result', [Text.Encoding]::Unicode)
+$tail = Read-DiagnosticTail $path
+Write-BootstrapStep 'product_controller_before'
+$script:result.failure_phase = $script:result.phase
+try { throw 'SyntheticSecretQ7! http://10.0.2.2:12345/private-capability/result' }
+catch { [void](Add-BootstrapError $script:result.phase $_) }
+Write-BootstrapStep 'cleanup_before'
+$value = @{tail=$tail; detail='https://example.invalid/path/"quoted"'; result=$script:result} | ConvertTo-Json -Depth 12 -Compress
+Protect-DiagnosticText $value
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            environment = dict(os.environ, RULEPROXY_NATIVE_SCRIPT=str(ROOT / ".github/windows-proxifyre-vm-run.ps1"),
+                               RULEPROXY_NATIVE_TEST_ROOT=directory)
+            powershell = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+            environment["PSModulePath"] = str(powershell.parent / "Modules")
+            completed = subprocess.run([str(powershell), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command],
+                                       env=environment, capture_output=True, text=True, timeout=30)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            data = json.loads(completed.stdout)
+            self.assertNotIn("SyntheticSecretQ7!", completed.stdout)
+            self.assertNotIn("private-capability", completed.stdout)
+            self.assertNotIn("http://", completed.stdout)
+            self.assertNotIn("https://", completed.stdout)
+            self.assertIn("[PASSWORD REDACTED]", data["tail"])
+            self.assertNotIn("\x00", data["tail"])
+            self.assertLessEqual(len(data["tail"]), 65536)
+            self.assertEqual(data["result"]["failure_phase"], "product_controller_before")
+            self.assertEqual(data["result"]["phase"], "cleanup_before")
+            self.assertEqual(data["result"]["errors"][0]["phase"], "product_controller_before")
 
 
 if __name__ == "__main__":

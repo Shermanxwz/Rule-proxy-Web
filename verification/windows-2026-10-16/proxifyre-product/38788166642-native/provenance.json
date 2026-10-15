@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "run_id": 38788166642,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38788166642",
+  "source_commit": "99a8c8e0a0f3e9ca100e23c1bd75515d68de91cd",
+  "qualification_scope": "Native Windows 11 final personal offline ZIP bootstrap",
+  "artifact_id": 11999038306,
+  "github_artifact_digest": "sha256:f3a2d8e549d817c62e650e7f4938ef74da86be9519b05819565e7bf976c23d8d",
+  "normalized_download_zip_sha256": "f3a2d8e549d817c62e650e7f4938ef74da86be9519b05819565e7bf976c23d8d",
+  "package_sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
+  "status": "failed_bootstrap_without_product_report",
+  "native_product_passed": false,
+  "product_execution_confirmed": false,
+  "bootstrap_failure_origin_determined": false,
+  "observed_result": "Guest returned a failed result with empty reports/logs and no catch fields. No product outcome can be inferred.",
+  "follow_up": "Bounded rerun with phase markers and sanitized bootstrap logs; no product runtime changes from this result."
+}

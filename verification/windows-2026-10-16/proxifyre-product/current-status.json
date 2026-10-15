@@ -13,7 +13,9 @@
   },
   "windows_11": {
     "status": "pending",
-    "run_id": 38788166642
+    "run_id": 38788166642,
+    "previous_attempt_status": "failed_bootstrap_without_product_report",
+    "product_execution_confirmed": false
   },
   "real_internet_exit_ip_verified": false,
   "linux_equivalent_isolation": false,

@@ -149,10 +149,21 @@ def changes() -> str:
 
 def release_notes(zip_name: str, digest: str, **_legacy) -> str:
     return (f'Windows x64 personal offline candidate: {zip_name}\nSHA-256: {digest}\n\n'
-            'Windows 11 x64. Extract and open Setup-Windows.cmd once; installation requests administrator '
-            'approval. The panel and selected applications run as the installing ordinary user. '
+            'Target: Windows 11 x64; native Windows 11 qualification remains pending. '
+            'Server 2025 qualification passed for the ZIP recorded in the '
+            '[verification status](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/'
+            'verification/windows-2026-10-16/proxifyre-product/current-status.json); '
+            'compare its package SHA-256 with this ZIP before applying that result. '
+            'Visible GUI, real Internet exit IP and disconnected installation remain unverified.\n\n'
+            'Extract and open Setup-Windows.cmd once; installation requests administrator approval. '
+            'If setup returns 3010, restart Windows and repeat setup. '
+            'After installation, open Start-Windows.cmd as the same ordinary user without Run as administrator. '
+            'The panel and selected applications run as that user. '
             'Import your own YAML through the Web panel. No user configuration or node credential is included.\n'
             'Backend: ProxiFyre 2.6.4 + Mihomo 1.19.32, no TUN. Dependencies are included for offline setup. '
+            'Path rules also affect other matching instances; UDP 53 and system DNS can go direct, '
+            'IPv6 is not fully verified, and engine failure can restore direct access. '
+            'See the included README.md for routing and fault boundaries. '
             'This package does not promise Linux-equivalent isolation or publish a public binary release.\n')
 
 

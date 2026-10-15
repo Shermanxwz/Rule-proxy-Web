@@ -6,7 +6,7 @@ Windows 0.3.0 使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，不启用 TUN。正式�
 - `windows-uninstall.ps1`：从已安装位置运行，必要时请求 UAC。只处理归属已确认的安装及指向它的用户快捷方式/启动项；保留用户数据、共享 NDIS 驱动和 VC 运行库。调用示例见 [README](../README.md#windows-更新与卸载)。
 - `setup-linux-apparmor.sh` / `remove-linux-apparmor.sh`：Linux 专用 bubblewrap 副本和 AppArmor 策略的安装/撤销；由 Linux 准备入口按需使用，不属于 Windows 安装流程。
 
-新的 Windows 产品验收入口为 `.github/windows_proxifyre_product_acceptance.py`。它应针对构建完成的实际 ZIP 检查安装、普通用户运行、控制服务身份、透明转发、重复安装、卸载与清理；当前最终包及 Windows 11 产品验收尚未完成。候选引擎 TCP/UDP 对照不能代替这个验收，也不能推导公网、DNS、IPv6 或故障隔离已经通过。
+新的 Windows 产品验收入口为 `.github/windows_proxifyre_product_acceptance.py`。Windows Server 2025 的最终 ZIP 验收已通过：运行 `38789494925` 完成安装、重复安装、普通用户运行、服务身份、卸载与重新安装，以及 33 项普通用户检查、13 个独立流量阶段和 Edge 无头检查。通过范围仅适用于[验收记录](../verification/windows-2026-10-16/proxifyre-product/current-status.json)所列 SHA-256 的 ZIP。Windows 11 原生产品验收仍待完成；可见 GUI、真实公网出口、实际断网安装和 DNS/IPv6 隔离也未因此得到验证。候选引擎对照与 Server 结果不能替代这些待验项目。
 
 `scripts/windows-acceptance.py`、`.github/windows_browser_check.py` 与原 MXC/PSEC 专用流程保留作历史复现。它们针对旧隔离体系，不是 0.3.0 的支持探测或安装入口；历史运行方式与结果见 [旧产品说明](../verification/windows-2026-10-15/mxc-0.2.2-readme.md)。
 

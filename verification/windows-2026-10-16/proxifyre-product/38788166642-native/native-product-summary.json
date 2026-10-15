@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "scope": "native Windows 11 x64 final offline product",
+  "native_windows_11_product_passed": false,
+  "real_exit_ip_verified": false,
+  "gui_verified": false,
+  "linux_equivalent_isolation": false,
+  "iso": {
+    "url": "https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26200.6584.250915-1905.25h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_en-us.iso",
+    "sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+    "bytes": 7092807680,
+    "verified": true
+  },
+  "cumulative_update_required": false,
+  "update_scope": "The selected proxy backend does not require the former MXC build contract.",
+  "kvm_api_version": 12,
+  "package_sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
+  "remastered_iso": {
+    "bytes": 7089031168,
+    "filesystem_options": "iso9660_level3_joliet_rockridge",
+    "boot_wim_layout_status": "reported",
+    "boot_wim_extents": [
+      {
+        "extent_index": 0,
+        "lba": 28510,
+        "blocks": 289623,
+        "file_bytes": 593147852,
+        "byte_offset": 58388480
+      }
+    ]
+  },
+  "qemu_kvm_enabled": true,
+  "error": "RuntimeError: Native Windows product report must be an object"
+}
