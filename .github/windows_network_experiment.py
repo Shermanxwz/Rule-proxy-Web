@@ -1246,13 +1246,21 @@ def add_psec_1_1_diagnostic_path(policy, profile):
     container_fs["enumeratePaths"] = [str(child)]
 
 
-def pre_capture_candidate_probe(runtime, executor, metadata, directory, *, psec_1_1_diagnostic=False,
-                                ingress_default_allow_control=False):
-    """Warm the explicitly selected source-only executor outside any wire capture."""
-    record = {"status": "failed", "scope": ("source_only_private_network_ingress_control_probe"
-            if ingress_default_allow_control else "source_only_strict_policy_probe"),
+def pre_capture_executor_probe(runtime, executor, metadata, directory, *, executor_selection,
+                               psec_1_1_diagnostic=False, ingress_default_allow_control=False):
+    """Warm the selected verified executor with the strict preferred policy before capture."""
+    if executor_selection not in ("product_default", "source_candidate"):
+        raise ValueError("Unknown pre-capture executor selection")
+    executor_sha256 = metadata.get("executor_sha256") if isinstance(metadata, dict) else None
+    if not isinstance(executor_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", executor_sha256):
+        raise ValueError("Selected executor integrity facts are unavailable")
+    record = {"status": "failed",
+              "scope": ("source_only_private_network_ingress_control_probe" if ingress_default_allow_control
+                        else "source_only_strict_policy_probe" if executor_selection == "source_candidate"
+                        else "product_default_strict_policy_probe"),
+              "executor_selection": executor_selection,
               "warmup_before_capture": True, "acceptance_passed": False,
-              "executor_sha256": metadata.get("executor_sha256") if isinstance(metadata, dict) else None}
+              "executor_sha256": executor_sha256, "product_runtime_replaced": False}
     if ingress_default_allow_control:
         record.update(source_policy_variant="private_network_capability_control",
                       ingress_control={"default": "allow", "hostLoopback": "deny"},
@@ -1261,7 +1269,8 @@ def pre_capture_candidate_probe(runtime, executor, metadata, directory, *, psec_
         record.update(psec_1_1_diagnostic_requested=True, request_mechanism="filesystem_enumerate_paths",
                       kernel_contract_version_confirmed=False)
     try:
-        profile = directory / "candidate-prewarm"
+        profile = directory / ("candidate-prewarm" if executor_selection == "source_candidate"
+                               else "product-prewarm")
         profile.mkdir()
         port = runtime.choose_guest_port(1)
         harmless_command = [sys.executable, "-I", "-S", "-c", "pass"]
@@ -1285,8 +1294,10 @@ def pre_capture_candidate_probe(runtime, executor, metadata, directory, *, psec_
             record["feature_supported"] = True
     except Exception as exc:
         record["failure_type"] = type(exc).__name__[:64]
-        error = RuntimeError("Source-only candidate pre-capture strict probe failed")
-        error.candidate_precapture_probe = record
+        error = RuntimeError("Selected executor pre-capture strict probe failed")
+        error.selected_executor_precapture_probe = record
+        if executor_selection == "source_candidate":
+            error.candidate_precapture_probe = record
         raise error from None
     return record
 
@@ -1357,10 +1368,26 @@ def main(arguments):
         digests = helpers.verify_runtime_manifest(root)
         result["runtime_integrity"] = {"verified_file_count": len(digests)}
         executor = None
+        selected_executor_path = root / "bin/windows-amd64/wxc-exec.exe"
+        selected_executor_metadata = None
+        executor_selection = "product_default"
         if args.test_psec_executor is not None:
             executor, result["test_psec_executor"] = verify_test_executor(root, args.test_psec_executor,
                 args.test_psec_manifest, digests.get("wxc-exec.exe"),
                 ingress_controls_diagnostic=args.ingress_controls_diagnostic)
+            selected_executor_path = executor
+            selected_executor_metadata = result["test_psec_executor"]
+            executor_selection = "source_candidate"
+        else:
+            product_executor_sha256 = digests.get("wxc-exec.exe")
+            if not isinstance(product_executor_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", product_executor_sha256):
+                raise RuntimeError("Verified product runtime omitted the selected executor digest")
+            selected_executor_metadata = {"executor_sha256": product_executor_sha256,
+                                          "product_runtime_replaced": False}
+        result["selected_executor"] = {"selection": executor_selection,
+                                       "executor_sha256": selected_executor_metadata["executor_sha256"],
+                                       "product_runtime_replaced": False,
+                                       "acceptance_passed": False}
         result["host"] = helpers.host_facts()
         host = result["host"]
         if host.get("python_pe_machine") != 0x8664 or (host.get("native_machine") != 0x8664 and not (
@@ -1375,19 +1402,29 @@ def main(arguments):
             raise RuntimeError("Named-pipe experiment script is missing")
         before = helpers.network_snapshot()
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-network-experiment-"))
-        if executor is not None:
-            try:
-                result["candidate_precapture_probe"] = pre_capture_candidate_probe(runtime, executor,
-                    result.get("test_psec_executor"), directory,
-                    psec_1_1_diagnostic=args.psec_1_1_diagnostic,
-                    ingress_default_allow_control=args.ingress_controls_diagnostic)
-            except Exception as exc:
-                result["candidate_precapture_probe"] = getattr(exc, "candidate_precapture_probe", {
-                    "status": "failed", "scope": ("source_only_private_network_ingress_control_probe"
-                        if args.ingress_controls_diagnostic else "source_only_strict_policy_probe"),
+        try:
+            result["selected_executor_precapture_probe"] = pre_capture_executor_probe(
+                runtime, selected_executor_path, selected_executor_metadata, directory,
+                executor_selection=executor_selection,
+                psec_1_1_diagnostic=args.psec_1_1_diagnostic,
+                ingress_default_allow_control=args.ingress_controls_diagnostic)
+            if executor_selection == "source_candidate":
+                # Preserve the established candidate-specific result field for existing consumers.
+                result["candidate_precapture_probe"] = result["selected_executor_precapture_probe"]
+        except Exception as exc:
+            record = getattr(exc, "selected_executor_precapture_probe", None)
+            if not isinstance(record, dict):
+                record = {"status": "failed", "scope": ("source_only_private_network_ingress_control_probe"
+                    if args.ingress_controls_diagnostic else "source_only_strict_policy_probe"
+                    if executor_selection == "source_candidate" else "product_default_strict_policy_probe"),
+                    "executor_selection": executor_selection,
                     "warmup_before_capture": True, "acceptance_passed": False,
-                    "failure_type": type(exc).__name__[:64]})
-                raise
+                    "executor_sha256": selected_executor_metadata.get("executor_sha256"),
+                    "product_runtime_replaced": False, "failure_type": type(exc).__name__[:64]}
+            result["selected_executor_precapture_probe"] = record
+            if executor_selection == "source_candidate":
+                result["candidate_precapture_probe"] = record
+            raise
         fixtures, udp = helpers.HostFixtures(), DatagramObservers()
         if args.vm_config is not None:
             # Trust verification may retrieve certificate/catalog data. Keep

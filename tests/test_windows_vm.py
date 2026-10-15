@@ -2161,12 +2161,21 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         runtime = self.product / 'bin/windows-amd64'
         runtime.mkdir(parents=True)
         self.verifier = vm.network_executor_verifier(ROOT)
+        from ruleproxy import windows_runtime_pins
         helpers = self.verifier.load_helpers()
         hashes = {}
         for name in helpers.RUNTIME_REQUIRED_FILES:
             path = runtime / name
             path.write_bytes(('original product ' + name).encode())
             hashes[name] = vm.digest(path)
+        for field, value in (("MXC_G_EXECUTOR_SHA256", hashes['wxc-exec.exe']),
+                             ("MXC_G_LICENSE_SHA256", hashes['MXC-LICENSE.md'])):
+            pin = mock.patch.object(windows_runtime_pins, field, value)
+            pin.start()
+            self.addCleanup(pin.stop)
+            setattr(helpers, field, value)
+        helpers.RUNTIME_VERSIONS = windows_runtime_pins.expected_windows_record()
+        self.runtime_versions = copy.deepcopy(helpers.RUNTIME_VERSIONS)
         (runtime / 'runtime.json').write_text(json.dumps({**helpers.RUNTIME_VERSIONS, 'sha256': hashes}))
         self.original = hashes['wxc-exec.exe']
         self.package = self.base / 'product.zip'
@@ -2201,6 +2210,16 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
             path = workspace / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, path)
+        # The isolated acceptance helper now imports its pinned runtime identity
+        # from the workspace. Mirror the synthetic package pins in this fixture
+        # so the guest-side verifier authenticates the same product bytes.
+        pins = workspace / 'ruleproxy/windows_runtime_pins.py'
+        pins.parent.mkdir(parents=True, exist_ok=True)
+        pins.write_text(
+            f"MXC_G_EXECUTOR_SHA256 = {self.original!r}\n"
+            f"MXC_G_LICENSE_SHA256 = {vm.digest(self.product / 'bin/windows-amd64/MXC-LICENSE.md')!r}\n"
+            f"def expected_windows_record():\n    return {self.runtime_versions!r}\n",
+            encoding='utf-8')
         (workspace / '.github/windows_edge_policy_experiment.py').write_text('# not executed in routing test')
         vm.stage_test_executor(workspace / vm.TEST_EXECUTOR_DIRECTORY, self.executor, self.manifest, self.original)
         config = self.base / 'vm-config.json'

@@ -12,9 +12,11 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 要求 x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 网络策略。Windows 10 和缺少所需接口的 Windows 11 不可用；面板会检查完整请求，并在不支持时拒绝启动。
 
-使用固定的 Microsoft MXC 1.0.0。微软当前支持表列出 Windows 11 25H2 从 26200.9278 起支持进程隔离；完整策略还要以本机能力检查和实际启动检查为准，版本号不能单独保证所需功能全部可用。[官方系统支持说明](https://github.com/microsoft/mxc/blob/main/docs/backends/process-container/os-version-support.md)
+当前收尾分支使用基于 Microsoft MXC 1.0.0 的固定 G 构建，保留 BaseContainer 和文件中继体系；仅在既定内部 TCP 策略下移除 SDK 自动附加的 InternetClient 能力。构建来源、补丁、运行文件和许可均固定校验，原生产品验收仍在进行，尚未封存。[固定构建身份](ruleproxy/windows_runtime_pins.py)
 
-原有全拒绝策略曾阻断容器内代理连接。2026-10-15 的原生 x64 基线系统对照使用单独校验的 SDK 候选：只允许固定内部 TCP 代理端口，父子进程 HTTP / SOCKS 共完成 4 次往返，所选公网 UDP 探针未出网，清理与宿主网络检查通过。三种原生 DNS API 均完成，容器内测试域名查询计数为 0；原报告仍因 15 个无应用数据的 TCP 控制包标为不完整，不能改称完整产品验收。候选未替换产品 SDK，更新后系统和真实应用验收仍在进行。[原生网络对照摘要](verification/windows-2026-10-15/2db61ae/candidate-warmup-native/observations.json)
+微软当前支持表列出 Windows 11 25H2 从 26200.9278 起支持进程隔离；完整策略还要以本机能力检查和实际启动检查为准，版本号不能单独保证所需功能全部可用。[官方系统支持说明](https://github.com/microsoft/mxc/blob/main/docs/backends/process-container/os-version-support.md)
+
+原有全拒绝策略曾阻断容器内代理连接。2026-10-15 的原生 x64 基线系统对照使用单独校验的 SDK 候选：只允许固定内部 TCP 代理端口，父子进程 HTTP / SOCKS 共完成 4 次往返，所选公网 UDP 探针未出网，清理与宿主网络检查通过。三种原生 DNS API 均完成，容器内测试域名查询计数为 0；原报告仍因 15 个无应用数据的 TCP 控制包标为不完整，不能改称完整产品验收。该次对照没有替换产品 SDK，更新后系统和真实应用验收仍在进行。[原生网络对照摘要](verification/windows-2026-10-15/2db61ae/candidate-warmup-native/observations.json)
 
 同一 SDK 候选在官方更新后的 26300.9711 系统中显式请求目录枚举能力。原生 DNS 三种 API、父子进程身份和前后对照均完成；抓包分析完整、未知记录及容器内 nonce 查询均为 0。但代理 TCP 仍全部返回 10013、往返数为 0，因此这一结果只支持所测 DNS 路径的无外发观测，不能视为代理功能或产品验收通过，也不能替代用户 26200.9711 系统的验证。[更新后候选对照摘要](verification/windows-2026-10-15/b4b6c38/psec11-network-native/observations.json)
 
@@ -217,7 +219,7 @@ GitHub 标准 x64 Windows runner 使用 Windows Server，可验证运行包和�
 ## 固定运行组件
 
 - Mihomo `v1.19.32`：按官方 GitHub 资源 SHA-256 验证下载。
-- Microsoft MXC `1.0.0`：按 npm 官方包公开 SHA-512 integrity 验证下载。不安装其中的 `plm.exe`：它只用于本工具用不到的诊断功能，而且 MXC 1.0.0 在顶层文件夹名以中文开头的路径（如 `C:\应用\…`）下检查它时会崩溃。
+- Microsoft MXC `1.0.0`：按 npm 官方包公开 SHA-512 integrity 校验辅助组件；执行器使用固定 G 构建，并独立校验 bundle、构建来源、文件和许可。不安装其中的 `plm.exe`：它只用于本工具用不到的诊断功能，而且 MXC 1.0.0 在顶层文件夹名以中文开头的路径（如 `C:\应用\…`）下检查它时会崩溃。当前候选的 G bundle 尚未发布到稳定下载地址；CI 使用校验后的固定构建产物，普通源码首次安装仍待补齐该发布步骤。
 - Windows 运行包另带 Python `3.14.8` 嵌入式版（按 python.org 公布的 SHA-256 验证）和 PyYAML `6.0.3`（按 PyPI 公布的 SHA-256 验证）。
 - `install_runtime.py` 先在临时目录下载并校验，再替换项目的 `bin/` 组件；替换失败恢复旧安装。完整性检查验证必需 DLL 和所有安装文件的 SHA-256。它不会执行下载的 Windows 文件或修改系统网络。
 

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "source_commit": "27829a3e26f669b597897d53d9d257f57b7ed72d",
+  "status": "infrastructure_timeout",
+  "acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "summary_status": "failed",
+  "timeout_type": "TimeoutError",
+  "timeout_message": "Windows unattended install/test timed out",
+  "last_screen_observation": "black frame",
+  "official_update": {
+    "required": true,
+    "guest_completion_observed": false,
+    "actual_build": null,
+    "actual_ubr": null
+  },
+  "limitation": "No guest or completed-update evidence was produced; timeout cannot establish the installation phase or any MXC/framework behavior.",
+  "guest_report_received": false,
+  "update_completion_observed": false
+}

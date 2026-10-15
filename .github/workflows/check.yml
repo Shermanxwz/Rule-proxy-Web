@@ -59,6 +59,84 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pinned-mxc-g-bundle:
+    name: Verify fixed G artifact and assemble deterministic bundle
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Download the fixed successful G build artifact
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: 11938733475
+          run-id: 38660663692
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          path: g-source-download
+          skip-decompress: true
+          digest-mismatch: error
+      - name: Verify the artifact ZIP and assemble the pinned G bundle
+        run: |
+          python -B - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path, PurePosixPath
+          import stat
+          import zipfile
+          import install_runtime
+
+          downloads = [path for path in Path('g-source-download').iterdir() if path.is_file()]
+          if len(downloads) != 1:
+              raise SystemExit('Expected one raw artifact archive')
+          archive_path = downloads[0]
+          if hashlib.sha256(archive_path.read_bytes()).hexdigest() != '8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036':
+              raise SystemExit('Fixed G build artifact ZIP digest mismatch')
+          required = {'build-manifest.json', 'wxc-exec.exe', 'MXC-LICENSE.md'}
+          source = Path('g-source')
+          source.mkdir()
+          with zipfile.ZipFile(archive_path) as artifact:
+              selected = {}
+              for info in artifact.infolist():
+                  name = PurePosixPath(info.filename)
+                  if name.is_absolute() or '..' in name.parts or ':' in info.filename or '\\' in info.filename:
+                      raise SystemExit('Unsafe member in pinned G build artifact')
+                  if info.is_dir():
+                      continue
+                  mode = (info.external_attr >> 16) & 0xFFFF
+                  if stat.S_ISLNK(mode):
+                      raise SystemExit('Symlink in pinned G build artifact')
+                  leaf = name.name
+                  if leaf in required:
+                      if leaf in selected:
+                          raise SystemExit('Duplicate fixed G build artifact member')
+                      selected[leaf] = info
+              if set(selected) != required:
+                  raise SystemExit('Pinned G build artifact is missing required members')
+              for leaf, info in selected.items():
+                  (source / leaf).write_bytes(artifact.read(info))
+
+          bundle = Path('mxc-g-bundle.zip')
+          digest = install_runtime.build_g_bundle(source, bundle)
+          if digest != install_runtime.MXC_G_BUNDLE_SHA256:
+              raise SystemExit('Deterministic G bundle SHA-256 mismatch')
+          extracted = Path('verified-g-bundle')
+          extracted.mkdir()
+          install_runtime._extract_g_bundle(bundle.read_bytes(), extracted)
+          if hashlib.sha256((extracted / 'wxc-exec.exe').read_bytes()).hexdigest() != install_runtime.MXC_G_EXECUTOR_SHA256:
+              raise SystemExit('Bundled G executor SHA-256 mismatch')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: fixed-mxc-g-bundle
+          path: mxc-g-bundle.zip
+          if-no-files-found: error
+          retention-days: 7
+
   linux:
     name: Linux · Python ${{ matrix.python }}
     runs-on: ubuntu-24.04
@@ -110,7 +188,10 @@ jobs:
 
   windows:
     name: Windows · Python 3.13
+    needs: pinned-mxc-g-bundle
     runs-on: windows-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -118,6 +199,26 @@ jobs:
           python-version: "3.13"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixed-mxc-g-bundle
+          path: g-bundle
+      - name: Verify the fixed bundle and select it for source-checkout runtime setup
+        run: |
+          @'
+          import hashlib
+          from pathlib import Path
+          import install_runtime
+
+          bundle = Path('g-bundle/mxc-g-bundle.zip').resolve(strict=True)
+          data = install_runtime._g_bundle_bytes(bundle, allow_env_cache=False)
+          extracted = Path('g-bundle/verified')
+          extracted.mkdir()
+          install_runtime._extract_g_bundle(data, extracted)
+          assert hashlib.sha256((extracted / 'wxc-exec.exe').read_bytes()).hexdigest() == install_runtime.MXC_G_EXECUTOR_SHA256
+          print(f'Verified pinned G bundle {hashlib.sha256(data).hexdigest()}')
+          '@ | python -B -
+          "RULEPROXY_PINNED_G_BUNDLE=$((Resolve-Path g-bundle\mxc-g-bundle.zip).Path)" >> $env:GITHUB_ENV
       - name: Validate unattended guest PowerShell scripts
         run: |
           Get-ChildItem .github\windows-vm-*.ps1 | ForEach-Object {
@@ -139,7 +240,10 @@ jobs:
 
   windows-package:
     name: Windows package · build
+    needs: pinned-mxc-g-bundle
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -153,8 +257,27 @@ jobs:
           path: windows-vm-host.json
           if-no-files-found: error
           retention-days: 7
-      - name: Build the release package from pinned downloads
-        run: python -B .github/build_windows_package.py dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixed-mxc-g-bundle
+          path: g-bundle
+      - name: Verify the fixed G bundle for package construction
+        run: |
+          python -B - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import install_runtime
+
+          bundle = Path('g-bundle/mxc-g-bundle.zip').resolve(strict=True)
+          data = install_runtime._g_bundle_bytes(bundle, allow_env_cache=False)
+          extracted = Path('g-bundle/verified')
+          extracted.mkdir()
+          install_runtime._extract_g_bundle(data, extracted)
+          if hashlib.sha256((extracted / 'wxc-exec.exe').read_bytes()).hexdigest() != install_runtime.MXC_G_EXECUTOR_SHA256:
+              raise SystemExit('Pinned G executor digest mismatch')
+          PY
+      - name: Build the release package with the fixed G bundle
+        run: python -B .github/build_windows_package.py dist --mxc-g-bundle "$PWD/g-bundle/mxc-g-bundle.zip"
       - uses: actions/upload-artifact@v7
         with:
           name: windows-package

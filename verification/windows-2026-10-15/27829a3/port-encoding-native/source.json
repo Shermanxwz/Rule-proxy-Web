@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "27829a3e26f669b597897d53d9d257f57b7ed72d",
+  "commit_tree": "2c63ec1f072f95ab6a57e704a93ad596af156bc1",
+  "workflow_run": 38686297044,
+  "native_job": 116262320247,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38686297044",
+  "artifact_id": 11958301851,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "63ef3ac545fea9057b3c45a1dfafdfa3b2c1d161459ab9a941f3dcf1c26e3096",
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "bytes": 3233,
+      "sha256": "e92261d4a44294c0b6ffa82de6c2ad1a7cf459bbaec3eeea7b0d941bd7fb9559",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "last-screen.png",
+      "bytes": 3057,
+      "sha256": "05713dbacb00cfa92e8cad1581147b0f1349f6ee14c97d122440aff36011bd53",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "qemu.log",
+      "bytes": 111,
+      "sha256": "db81818683d322a0e2a5dec415ce7ca8630f74fa4373e22decc3c12705ca84d6",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "serial.log",
+      "bytes": 2351,
+      "sha256": "98ca428ecbd0d2ff46460a07e9a1d013a226b3ab0653d4020d6c255df6014eaf",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "swtpm.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "copy_format": "digest only; raw artifact retained locally"
+    }
+  ],
+  "tested_package_sha256": "900abf3db1bc029010e88b5c27809c56599ed0bdb895e626fe31c2cb5fdf500f",
+  "status": "infrastructure_timeout",
+  "full_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "execution": {
+    "source_diagnostic_only": true,
+    "network_diagnostic_only": true,
+    "singleton_port_range_diagnostic": true,
+    "execution_mode": "original_sdk",
+    "official_update_required": true,
+    "guest_report_available": false
+  },
+  "excluded_from_archive": [
+    "raw logs, screenshots, guest report contents",
+    "private paths, process identifiers, DNS nonces",
+    "VM media, credentials and capability URLs"
+  ]
+}

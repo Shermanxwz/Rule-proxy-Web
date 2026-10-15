@@ -26,6 +26,7 @@ import argparse
 import copy
 import hashlib
 import http.client
+import importlib.util
 import ipaddress
 import json
 import os
@@ -47,7 +48,16 @@ import urllib.parse
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RUNTIME_VERSIONS = {"mihomo": "v1.19.32", "mxc": "1.0.0"}
+_PINS_SPEC = importlib.util.spec_from_file_location(
+    "ruleproxy_windows_runtime_pins", ROOT / "ruleproxy" / "windows_runtime_pins.py")
+if _PINS_SPEC is None or _PINS_SPEC.loader is None:
+    raise RuntimeError("fixed Windows runtime pins module is unavailable")
+_PINS = importlib.util.module_from_spec(_PINS_SPEC)
+_PINS_SPEC.loader.exec_module(_PINS)
+MXC_G_EXECUTOR_SHA256 = _PINS.MXC_G_EXECUTOR_SHA256
+MXC_G_LICENSE_SHA256 = _PINS.MXC_G_LICENSE_SHA256
+
+RUNTIME_VERSIONS = _PINS.expected_windows_record()
 RUNTIME_REQUIRED_FILES = frozenset({"mihomo.exe", "wxc-exec.exe", "mxc_ffi.dll",
                                     "MIHOMO-LICENSE", "MXC-LICENSE.md"})
 NETWORK_SNAPSHOT_TIMEOUT = 120
@@ -82,6 +92,9 @@ def verify_runtime_manifest(root: Path) -> dict[str, str]:
         raise ValueError("runtime manifest digest map is invalid")
     if not RUNTIME_REQUIRED_FILES.issubset(digests):
         raise ValueError("runtime manifest omitted required runtime files")
+    if (digests.get("wxc-exec.exe") != MXC_G_EXECUTOR_SHA256
+            or digests.get("MXC-LICENSE.md") != MXC_G_LICENSE_SHA256):
+        raise ValueError("runtime manifest does not identify the fixed G executor and license")
     for name, digest in digests.items():
         if (not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", name)
                 or name == "runtime.json" or not isinstance(digest, str)

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "f48239ae818fa81d3f0663833826b83f37136861",
+  "commit_tree": "e1183bcf910baa1adeeff953fe3a0ef4555e5372",
+  "workflow_run": 38694937889,
+  "native_job": 116289849876,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889",
+  "artifact_id": 11958012781,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "132fd8797edc12b5e6a6cedeaab85fac1d72a18ce7b83e7f4221e58c7b950882",
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "bytes": 34661,
+      "sha256": "f05d6bc01615062fd4ec8b27383886041b66eaceda568dc09b3c49270ce64d48",
+      "source_member": "windows-vm-summary.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "guest-result.json",
+      "bytes": 262319,
+      "sha256": "8b54440d90e2e3d459266e84c7d8a4de71c0bea8d61e26086a5be243233fe1ff",
+      "source_member": "guest-result.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "windows-experiments.json",
+      "bytes": 103823,
+      "sha256": "11c5901458ade82ddcc395b3110b15be8edb7d3728c0e3b4183b01e9553f9b6f",
+      "source_member": "windows-experiments.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "windows-wire-evidence.json",
+      "bytes": 25971,
+      "sha256": "3238e2b0c70bd446935285d650910f28ee6cd330162a87004a97ede8bbf0cb15",
+      "source_member": "windows-wire-evidence.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    }
+  ],
+  "tested_package_sha256": "040edfc7ed22487970ce8d456e83dd18492d280de3cd33d032b96ca2eb58c72b",
+  "status": "failed",
+  "full_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "execution": {
+    "source_diagnostic_only": true,
+    "network_diagnostic_only": true,
+    "psec_1_1_diagnostic": true,
+    "execution_mode": "source_executor_diagnostic",
+    "native_x64": true,
+    "actual_build": 26200,
+    "actual_ubr": 9711
+  },
+  "excluded_from_archive": [
+    "raw logs, packet captures and screenshots",
+    "raw policy and process identifiers",
+    "temporary paths, DNS names/nonces",
+    "VM media, credentials and capability URLs"
+  ]
+}

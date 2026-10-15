@@ -75,7 +75,7 @@ def project_files() -> list[str]:
     return files
 
 
-def stage(target: Path) -> None:
+def stage(target: Path, *, mxc_g_bundle: Path | None = None, mxc_g: bool = True) -> None:
     for name in project_files():
         data = (ROOT / name).read_bytes()
         if name.endswith(".cmd"):
@@ -95,8 +95,11 @@ def stage(target: Path) -> None:
     print(f"PyYAML {PYYAML_VERSION}", flush=True)
     safe_extract(download(PYYAML_URL, PYYAML_SHA256), target / "vendor")
 
-    install_runtime.install("windows-amd64", target)
-    if not install_runtime.installed("windows-amd64", target):
+    g_selected = mxc_g or mxc_g_bundle is not None
+    variant = "g-patched" if g_selected else "stock"
+    install_runtime.install("windows-amd64", target, mxc_variant=variant,
+        g_bundle_path=mxc_g_bundle, variant_explicit=g_selected, allow_env_bundle_cache=False)
+    if not install_runtime.installed("windows-amd64", target, mxc_variant=variant):
         raise SystemExit("The Windows runtimes are incomplete")
 
 
@@ -124,7 +127,13 @@ def changes() -> str:
     return section
 
 
-def release_notes(zip_name: str, digest: str) -> str:
+def release_notes(zip_name: str, digest: str, *, mxc_variant: str = "stock") -> str:
+    mxc_description = (f"Microsoft MXC {install_runtime.MXC_VERSION}，npm SHA-512；G-patched executor，"
+        f"source commit `{install_runtime.MXC_G_BUILD_MANIFEST['upstream_commit']}`，patch SHA-256 "
+        f"`{install_runtime.MXC_G_BUILD_MANIFEST['patch_sha256']}`，bundle SHA-256 "
+        f"`{install_runtime.MXC_G_BUNDLE_SHA256}`"
+        if mxc_variant == "g-patched" else
+        f"Microsoft MXC {install_runtime.MXC_VERSION}，npm 公布的 SHA-512")
     return f"""## 本版更新
 
 {changes()}
@@ -160,7 +169,7 @@ sh start-linux.sh
 | Python（嵌入式版） | {PYTHON_VERSION} | python.org 公布的 SHA-256 |
 | PyYAML | {PYYAML_VERSION} | PyPI 公布的 SHA-256 |
 | Mihomo | {install_runtime.MIHOMO_VERSION} | GitHub 发布文件的 SHA-256 |
-| Microsoft MXC | {install_runtime.MXC_VERSION} | npm 公布的 SHA-512 |
+| Microsoft MXC | {install_runtime.MXC_VERSION} | {mxc_description} |
 
 `{zip_name}` 的 SHA-256：`{digest}`
 
@@ -169,19 +178,23 @@ Windows 完整验收尚未通过。已有真实 Windows 11 组件检查，实际
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 1:
-        print(__doc__, file=sys.stderr)
-        return 2
-    output = Path(argv[0]).resolve()
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output_dir", type=Path)
+    parser.add_argument("--mxc-g-bundle", type=Path, help=argparse.SUPPRESS)
+    args = parser.parse_args(argv)
+    output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     zip_name = f"RuleProxy-Web-{__version__}-windows-x64.zip"
+    selected_variant = "g-patched"
     with tempfile.TemporaryDirectory(prefix="ruleproxy-package-") as temp:
         staged = Path(temp) / FOLDER
-        stage(staged)
+        stage(staged, mxc_g_bundle=args.mxc_g_bundle)
         write_zip(staged, output / zip_name)
     digest = hashlib.sha256((output / zip_name).read_bytes()).hexdigest()
     (output / "SHA256SUMS.txt").write_text(f"{digest}  {zip_name}\n", encoding="utf-8")
-    (output / "release-notes.md").write_text(release_notes(zip_name, digest), encoding="utf-8")
+    (output / "release-notes.md").write_text(release_notes(zip_name, digest,
+        mxc_variant=selected_variant), encoding="utf-8")
     print(f"Built {output / zip_name} ({(output / zip_name).stat().st_size // (1024 * 1024)} MB), SHA-256 {digest}", flush=True)
     return 0
 

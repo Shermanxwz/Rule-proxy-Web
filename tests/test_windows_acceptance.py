@@ -33,6 +33,22 @@ class WindowsAcceptanceTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
 
+    def test_cli_runs_outside_project_root_without_importing_checkout(self):
+        script = SCRIPT.resolve()
+        with tempfile.TemporaryDirectory(prefix="acceptance-outside-cwd-") as temporary:
+            help_result = subprocess.run(
+                [sys.executable, str(script), "--help"], cwd=temporary,
+                capture_output=True, text=True, timeout=10)
+            self.assertEqual(help_result.returncode, 0, help_result.stderr)
+            self.assertIn("--probe-only", help_result.stdout)
+
+            probe_result = subprocess.run(
+                [sys.executable, str(script), "--probe-only", "--report",
+                 str(Path(temporary) / "probe-report.json")], cwd=temporary,
+                capture_output=True, text=True, timeout=15)
+            self.assertNotIn("ModuleNotFoundError", probe_result.stderr)
+            self.assertEqual(probe_result.returncode, 3, probe_result.stderr)
+
     def executable(self, machine, path=None):
         header = bytearray(64)
         header[:2] = b"MZ"
@@ -129,6 +145,13 @@ class WindowsAcceptanceTests(unittest.TestCase):
         directory.mkdir(parents=True)
         files = {name: ("fixture " + name).encode() for name in acceptance.RUNTIME_REQUIRED_FILES}
         files["additional.dll"] = b"additional runtime dependency"
+        pins = (
+            mock.patch.object(acceptance, "MXC_G_EXECUTOR_SHA256", hashlib.sha256(files["wxc-exec.exe"]).hexdigest()),
+            mock.patch.object(acceptance, "MXC_G_LICENSE_SHA256", hashlib.sha256(files["MXC-LICENSE.md"]).hexdigest()),
+        )
+        for pin in pins:
+            pin.start()
+            self.addCleanup(pin.stop)
         for name, data in files.items():
             (directory / name).write_bytes(data)
         record = dict(acceptance.RUNTIME_VERSIONS)
@@ -143,6 +166,15 @@ class WindowsAcceptanceTests(unittest.TestCase):
         self.assertEqual(acceptance.verify_runtime_manifest(self.root), record["sha256"])
         (directory / "additional.dll").write_bytes(b"tampered dependency")
         with self.assertRaises(ValueError):
+            acceptance.verify_runtime_manifest(self.root)
+
+    def test_portable_manifest_cannot_repin_a_replaced_g_executor(self):
+        directory, manifest, record = self.manifest()
+        replacement = b"replacement executor with a self-consistent local manifest"
+        (directory / "wxc-exec.exe").write_bytes(replacement)
+        record["sha256"]["wxc-exec.exe"] = hashlib.sha256(replacement).hexdigest()
+        manifest.write_text(json.dumps(record), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "fixed G executor"):
             acceptance.verify_runtime_manifest(self.root)
 
     def test_missing_executable_unlisted_file_versions_and_path_traversal_fail(self):

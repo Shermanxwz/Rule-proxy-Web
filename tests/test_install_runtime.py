@@ -4,13 +4,14 @@ from contextlib import redirect_stderr, redirect_stdout
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 import urllib.error
-import zipfile
 
 try:
     import install_runtime
@@ -43,6 +44,43 @@ class InstallRuntimeTests(unittest.TestCase):
         with redirect_stdout(output), redirect_stderr(errors):
             code = install_runtime.main(list(argv))
         return code, output.getvalue(), errors.getvalue()
+
+    def g_bundle_fixture(self):
+        from contextlib import ExitStack
+        stack = ExitStack()
+        executor = bytearray(512)
+        executor[:2] = b"MZ"
+        executor[0x3c:0x40] = (64).to_bytes(4, "little")
+        executor[64:68] = b"PE\0\0"
+        executor[68:70] = (0x8664).to_bytes(2, "little")
+        executor = bytes(executor)
+        license_bytes = b"fixed MIT license fixture"
+        manifest = json.loads(json.dumps(install_runtime.MXC_G_BUILD_MANIFEST))
+        executor_hash = hashlib.sha256(executor).hexdigest()
+        license_hash = hashlib.sha256(license_bytes).hexdigest()
+        manifest["executor_sha256"] = executor_hash
+        names = ("build-manifest.json", "wxc-exec.exe", "MXC-LICENSE.md")
+        members = {names[0]: (json.dumps(manifest, indent=2) + "\n").encode(),
+                   names[1]: executor, names[2]: license_bytes}
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
+            for name in names:
+                info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+                info.create_system = 3
+                info.compress_type = zipfile.ZIP_STORED
+                info.external_attr = 0o100644 << 16
+                archive.writestr(info, members[name])
+        bundle = output.getvalue()
+        stack.enter_context(patch.object(install_runtime, "MXC_G_BUILD_MANIFEST", manifest))
+        stack.enter_context(patch.object(install_runtime, "MXC_G_EXECUTOR_SHA256", executor_hash))
+        stack.enter_context(patch.object(install_runtime, "MXC_G_LICENSE_SHA256", license_hash))
+        stack.enter_context(patch.object(install_runtime, "MXC_G_BUNDLE_SHA256", hashlib.sha256(bundle).hexdigest()))
+        source = self.root / "g-build"
+        source.mkdir()
+        for name, data in members.items():
+            (source / name).write_bytes(data)
+        bundle_path = self.root / "g-bundle.zip"
+        return stack, source, bundle_path, bundle, executor, license_bytes
 
     def test_a_complete_install_is_recognised(self):
         self.place("linux-amd64", install_runtime._required_files("linux-amd64"), install_runtime.expected("linux-amd64"))
@@ -201,13 +239,118 @@ class InstallRuntimeTests(unittest.TestCase):
                 patch.object(install_runtime, "MIHOMO_LICENSE_SHA256", hashlib.sha256(b"license").hexdigest()), \
                 patch.object(install_runtime, "MXC_SHA512", base64.b64encode(hashlib.sha512(mxc).digest()).decode()), \
                 patch.object(install_runtime, "fetch", side_effect=fetch):
-            code, _, errors = self.run_main("--platform", "windows-amd64")
+            code, _, errors = self.run_main("--platform", "windows-amd64", "--mxc-stock")
         self.assertEqual(code, 0, errors)
         self.assertEqual(sorted(path.name for path in directory.iterdir()),
                          ["MIHOMO-LICENSE", "MXC-LICENSE.md", "mihomo.exe", "mxc_ffi.dll", "runtime.json", "wxc-exec.exe"])
-        self.assertTrue(install_runtime.installed("windows-amd64"))
+        self.assertTrue(install_runtime.installed("windows-amd64", mxc_variant="stock"))
         (directory / "mxc_ffi.dll").write_bytes(b"truncated")
         self.assertFalse(install_runtime.installed("windows-amd64"))
+
+    def test_fixed_g_bundle_build_is_byte_reproducible_and_provenance_checked(self):
+        stack, source, bundle_path, bundle, executor, license_bytes = self.g_bundle_fixture()
+        with stack:
+            digest = install_runtime.build_g_bundle(source, bundle_path)
+            self.assertEqual(digest, hashlib.sha256(bundle).hexdigest())
+            self.assertEqual(bundle_path.read_bytes(), bundle)
+            extracted = self.root / "extracted"
+            extracted.mkdir()
+            install_runtime._extract_g_bundle(bundle, extracted)
+            self.assertEqual((extracted / "wxc-exec.exe").read_bytes(), executor)
+            self.assertEqual((extracted / "MXC-LICENSE.md").read_bytes(), license_bytes)
+            (source / "wxc-exec.exe").write_bytes(executor + b"tampered")
+            with self.assertRaisesRegex(ValueError, "provenance or digest"):
+                install_runtime.build_g_bundle(source, bundle_path)
+
+    def test_source_installer_fetches_only_the_fixed_g_asset_url(self):
+        stack, source, bundle_path, bundle, _, _ = self.g_bundle_fixture()
+        with stack:
+            install_runtime.build_g_bundle(source, bundle_path)
+            with patch.object(install_runtime, "fetch", return_value=bundle) as fetch:
+                self.assertEqual(install_runtime._g_bundle_bytes(), bundle)
+            fetch.assert_called_once_with(install_runtime.MXC_G_BUNDLE_URL)
+            with patch.object(install_runtime, "fetch", return_value=b"not the pinned artifact"):
+                with self.assertRaisesRegex(ValueError, "bundle digest"):
+                    install_runtime._g_bundle_bytes()
+
+    def test_default_if_needed_upgrades_stock_and_never_replaces_g_with_stock(self):
+        stack, source, bundle_path, bundle, executor, license_bytes = self.g_bundle_fixture()
+        with stack:
+            install_runtime.build_g_bundle(source, bundle_path)
+            mihomo = io.BytesIO()
+            with zipfile.ZipFile(mihomo, "w") as archive:
+                archive.writestr("mihomo-windows-amd64-compatible.exe", b"mihomo")
+            mxc = io.BytesIO()
+            with tarfile.open(fileobj=mxc, mode="w:gz") as archive:
+                for name, data in (("package/bin/x64/wxc-exec.exe", b"stock executor"),
+                                   ("package/bin/x64/mxc_ffi.dll", b"ffi"),
+                                   ("package/LICENSE.md", b"npm license")):
+                    info = tarfile.TarInfo(name); info.size = len(data)
+                    archive.addfile(info, io.BytesIO(data))
+            mihomo, mxc = mihomo.getvalue(), mxc.getvalue()
+
+            def fetch(url):
+                if url == install_runtime.MXC_URL:
+                    return mxc
+                if url.endswith(".zip"):
+                    return mihomo
+                return b"mihomo license"
+
+            name = install_runtime.MIHOMO["windows-amd64"][0]
+            with patch.dict(install_runtime.MIHOMO,
+                            {"windows-amd64": (name, hashlib.sha256(mihomo).hexdigest())}), \
+                    patch.object(install_runtime, "MIHOMO_LICENSE_SHA256", hashlib.sha256(b"mihomo license").hexdigest()), \
+                    patch.object(install_runtime, "MXC_SHA512", base64.b64encode(hashlib.sha512(mxc).digest()).decode()), \
+                    patch.object(install_runtime, "fetch", side_effect=fetch):
+                stock_directory = install_runtime.install("windows-amd64", self.root,
+                    mxc_variant="stock", variant_explicit=True)
+                self.assertTrue(install_runtime.installed("windows-amd64", self.root, "stock"))
+                code, _, errors = self.run_main("--if-needed", "--platform", "windows-amd64",
+                                                 "--mxc-g-bundle", str(bundle_path))
+                self.assertEqual(code, 0, errors)
+                directory = self.root / "bin" / "windows-amd64"
+                self.assertTrue(install_runtime.installed("windows-amd64", self.root, "g-patched"))
+                self.assertFalse(install_runtime.installed("windows-amd64", self.root, "stock"))
+                self.assertEqual((directory / "wxc-exec.exe").read_bytes(), executor)
+                self.assertEqual((directory / "mxc_ffi.dll").read_bytes(), b"ffi")
+                self.assertEqual((directory / "MXC-LICENSE.md").read_bytes(), license_bytes)
+                # The normal default does not replace G with stock.
+                code, _, errors = self.run_main("--if-needed", "--platform", "windows-amd64")
+                self.assertEqual(code, 0, errors)
+                self.assertTrue(install_runtime.installed("windows-amd64", self.root, "g-patched"))
+
+    def test_default_check_targets_g_and_stock_is_only_accepted_when_explicit(self):
+        self.assertEqual(install_runtime.expected("windows-amd64")["mxc"]["executor_variant"], "g-patched")
+        stock = self.place("windows-amd64", install_runtime._required_files("windows-amd64"),
+                           install_runtime.expected("windows-amd64", "stock"))
+        # A stock record is valid as stock but cannot satisfy the default G check.
+        record = json.loads((stock / install_runtime.MANIFEST).read_text())
+        self.assertTrue(install_runtime.installed("windows-amd64", self.root, "stock"))
+        self.assertFalse(install_runtime.installed("windows-amd64", self.root))
+        self.assertEqual(self.run_main("--check", "--platform", "windows-amd64")[0], 1)
+        self.assertEqual(self.run_main("--check", "--platform", "windows-amd64", "--mxc-stock")[0], 0)
+
+    def test_source_bundle_cache_is_digest_pinned_and_never_accepts_arbitrary_bytes(self):
+        stack, _source, bundle_path, bundle, *_ = self.g_bundle_fixture()
+        with stack:
+            bundle_path.write_bytes(bundle)
+            with patch.dict(os.environ, {"RULEPROXY_PINNED_G_BUNDLE": str(bundle_path)}), \
+                    patch.object(install_runtime, "fetch") as fetch:
+                self.assertEqual(install_runtime._g_bundle_bytes(), bundle)
+            fetch.assert_not_called()
+            bundle_path.write_bytes(b"untrusted bytes")
+            with patch.dict(os.environ, {"RULEPROXY_PINNED_G_BUNDLE": str(bundle_path)}):
+                with self.assertRaisesRegex(ValueError, "bundle digest"):
+                    install_runtime._g_bundle_bytes()
+
+    def test_changed_runtime_variant_manifest_is_not_accepted_as_either_variant(self):
+        directory = self.place("windows-amd64", install_runtime._required_files("windows-amd64"),
+                               install_runtime.expected("windows-amd64"))
+        record = json.loads((directory / install_runtime.MANIFEST).read_text())
+        record["mxc"] = {"version": install_runtime.MXC_VERSION, "executor_variant": "unknown"}
+        (directory / install_runtime.MANIFEST).write_text(json.dumps(record))
+        self.assertFalse(install_runtime.installed("windows-amd64", self.root, "stock"))
+        self.assertFalse(install_runtime.installed("windows-amd64", self.root, "g-patched"))
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ Source checkouts do not commit runtime binaries or private configurations. The W
 | Component | Version | License | Corresponding source |
 |---|---|---|---|
 | Mihomo | v1.19.32 | GPL-3.0 | [Source and license](https://github.com/MetaCubeX/mihomo/tree/v1.19.32) · [Source archive](https://github.com/MetaCubeX/mihomo/archive/refs/tags/v1.19.32.tar.gz) |
-| Microsoft MXC (all executables except `plm.exe`) | 1.0.0 | MIT | [Source and license](https://github.com/microsoft/mxc/tree/v1.0.0) |
+| Microsoft MXC (all executables except `plm.exe`) | 1.0.0 | MIT | [Source and license](https://github.com/microsoft/mxc/tree/v1.0.0). This candidate pins its `g-patched` executor to upstream commit `7bf210247986cb73b1b314df60c2f1109c479c0b`, the exact patch SHA-256 in `runtime.json`, and bundle SHA-256 `89a9390d9db7f65c82c52ac8c545bff88d6e7577998bea9e5ab93d86f2be90a0`; the included provenance records original/patched source hashes and Rust target. Native product acceptance remains pending. |
 | Python, Windows embeddable package (Windows release package only) | 3.14.8 | PSF License Agreement, with the notices for its bundled libraries | [Source](https://www.python.org/downloads/release/python-3148/); license in `python/LICENSE.txt` |
 | PyYAML | 6.0.3 in the Windows release package; on Linux, the system package or the version pip installs into `vendor/` | MIT | [Source and license](https://github.com/yaml/pyyaml/tree/6.0.3); license in the `vendor/pyyaml-*.dist-info` folder |
 | Ubuntu `bwrap-userns-restrict` AppArmor profiles | 4.0.1 (Ubuntu 24.04) | GPL-2+ | Adapted from the Ubuntu `apparmor-profiles` source package; path-scoped files in `apparmor/`; license included. |

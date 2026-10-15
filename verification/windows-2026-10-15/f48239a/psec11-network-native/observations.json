@@ -1,0 +1,363 @@
+{
+  "schema_version": 1,
+  "source_commit": "f48239ae818fa81d3f0663833826b83f37136861",
+  "status": "diagnostic_only",
+  "acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "official_update": {
+    "completed": true,
+    "actual_build": 26200,
+    "actual_ubr": 9711,
+    "packages_verified": true,
+    "staged_package_count": 2,
+    "reboot_count": 1,
+    "task_unregistered": true
+  },
+  "source_executor": {
+    "status": "built",
+    "upstream_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+    "original_runtime_sha256": "8a6d1db4dd1846981127d9014741be18b094d07be967765dff6754bda1d40259",
+    "patch": {
+      "name": "exact_internal_tcp_without_automatic_internet_client",
+      "capabilities_null": true,
+      "network_table_unchanged": true,
+      "exact_internal_tcp_only": true,
+      "caller_capabilities_must_be_empty": true
+    },
+    "patch_sha256": "3b0c5e616e3575d5be0ec3f34abd9ba6dd8f213eb097e836ab80c7a60dda112a",
+    "default_product_runtime_replaced": false,
+    "acceptance_passed": false
+  },
+  "candidate_precapture_probe": {
+    "status": "probe_passed",
+    "warmup_before_capture": true,
+    "psec_1_1_diagnostic_requested": true,
+    "enumerate_paths_feature_supported": true,
+    "kernel_contract_version_confirmed": false,
+    "acceptance_passed": false
+  },
+  "selected_variants": [
+    {
+      "name": "model3",
+      "status": "observed",
+      "proxy_roundtrips": 0,
+      "transport_roundtrip_observed": false,
+      "psec_1_1_feature_supported": true,
+      "actors": [
+        {
+          "scope": "parent",
+          "tcp": {
+            "proxy_self": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            },
+            "own_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            }
+          },
+          "native_dns_calls": []
+        },
+        {
+          "scope": "child",
+          "tcp": {
+            "proxy_parent": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            },
+            "own_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            }
+          },
+          "native_dns_calls": []
+        }
+      ],
+      "descendant_cleanup_proven": true,
+      "resources_closed": true
+    },
+    {
+      "name": "model1_internal_ingress_deny",
+      "status": "observed",
+      "proxy_roundtrips": 0,
+      "transport_roundtrip_observed": false,
+      "psec_1_1_feature_supported": true,
+      "actors": [
+        {
+          "scope": "parent",
+          "tcp": {
+            "proxy_self": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            },
+            "own_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            }
+          },
+          "native_dns_calls": [
+            {
+              "api": "getaddrinfo",
+              "outcome": "returned",
+              "return_code": 11001
+            },
+            {
+              "api": "dns_a",
+              "outcome": "returned",
+              "return_code": 5
+            },
+            {
+              "api": "dns_aaaa",
+              "outcome": "returned",
+              "return_code": 5
+            }
+          ]
+        },
+        {
+          "scope": "child",
+          "tcp": {
+            "proxy_parent": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_http": {
+              "ok": false,
+              "code": 10013
+            },
+            "proxy_socks": {
+              "ok": false,
+              "code": 10013
+            },
+            "own_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "host_loopback": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv4_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "ipv6_tcp": {
+              "ok": true,
+              "code": 10013
+            },
+            "own_loopback_ipv6": {
+              "ok": false,
+              "code": 10013
+            },
+            "host_loopback_ipv6": {
+              "ok": true,
+              "code": 10013
+            }
+          },
+          "native_dns_calls": [
+            {
+              "api": "getaddrinfo",
+              "outcome": "returned",
+              "return_code": 11001
+            },
+            {
+              "api": "dns_a",
+              "outcome": "returned",
+              "return_code": 5
+            },
+            {
+              "api": "dns_aaaa",
+              "outcome": "returned",
+              "return_code": 5
+            }
+          ]
+        }
+      ],
+      "descendant_cleanup_proven": true,
+      "resources_closed": true
+    }
+  ],
+  "tcp_observation": "The contained proxy/self-loopback TCP probes had zero successful connection checks; reported errors were WinError 10013.",
+  "native_dns": {
+    "status": "complete",
+    "unknown_records": 0,
+    "execution_proven": true,
+    "actor_execution_attested": true,
+    "capture_format_complete": true,
+    "packet_analysis_complete": true,
+    "capture_flushed": true,
+    "contained_questions_absent": true,
+    "groups": [
+      {
+        "id": "model1_internal_ingress_deny.getaddrinfo",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_questions_absent": true,
+        "absence_observed": true,
+        "execution_proven": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_a",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_questions_absent": true,
+        "absence_observed": true,
+        "execution_proven": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_aaaa",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_questions_absent": true,
+        "absence_observed": true,
+        "execution_proven": true
+      }
+    ],
+    "contained_actor_calls": {
+      "parent_and_child_each_attempted": [
+        "getaddrinfo",
+        "dns_a",
+        "dns_aaaa"
+      ],
+      "observed_return_codes": {
+        "getaddrinfo": 11001,
+        "dns_a": 5,
+        "dns_aaaa": 5
+      }
+    },
+    "interpretation": "Complete capture/controls reported no contained nonce questions; DNS query return codes are observations, not a general kernel-denial claim."
+  },
+  "udp_capture": {
+    "overall_status": "incomplete",
+    "unknown_records": 0,
+    "preferred_variant": "model1_internal_ingress_deny",
+    "preferred_variant_groups": [
+      {
+        "id": "model1_internal_ingress_deny.ipv4",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv4_unbound",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv6",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.ipv6_unbound",
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_markers_absent": true,
+        "execution_proven": true,
+        "absence_observed": true
+      }
+    ],
+    "overall_capture_format_complete": true,
+    "overall_execution_proven": false,
+    "limitation": "The overall wire report is incomplete because other fixed variant groups were unselected; only the listed preferred-variant groups are individually complete."
+  },
+  "cleanup_proven": true,
+  "host_network_unchanged": true,
+  "limitations": [
+    "Network diagnostic report is non-acceptance and overall failed.",
+    "PSEC 1.1 selector support was observed; kernel contract version was not confirmed.",
+    "UDP wire evidence is incomplete overall; do not generalize listed groups to unselected variants."
+  ]
+}
