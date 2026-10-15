@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "85f26fb8f0bea06b1ee5e1c1765a1123a5f663ba",
+  "commit_tree": "965d106a0795b3d0e9b24e2308ac82025167c9a9",
+  "workflow_run": 38717111262,
+  "native_build_job": 116362399015,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38717111262",
+  "artifact_id": 11963865149,
+  "artifact_name": "mxc-internal-tcp-policy-executor",
+  "artifact_sha256": "cdd267e499d85645df1395fb14054a13bfbc80d06ae50bce75a6cfa81fd2f67a",
+  "artifact_bytes": 2059377,
+  "build_manifest": {
+    "schema_version": 1,
+    "status": "built",
+    "upstream_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "executor_sha256": "b5290bf91f6d4b8715fff7323dbbb8437a7b8573d348cfb6195e4c49a040d705",
+    "patch": {
+      "name": "internal_tcp_port_shapes_without_automatic_internet_client",
+      "source_diagnostic_only": true,
+      "release_eligible": false,
+      "network_table_unchanged": true,
+      "internal_loopback_tcp_only": true,
+      "allowed_port_shapes": [
+        "single_port",
+        "singleton_range",
+        "all_tcp_ports"
+      ],
+      "caller_capabilities_must_be_empty": true,
+      "ingress_default_must_remain_deny": true,
+      "host_loopback_must_remain_deny": true,
+      "automatic_internet_client_removed": true,
+      "private_network_capability_added": false,
+      "capabilities_null": true
+    },
+    "original_file_sha256": "a03b8889d8d92fe854f46d56c702360403c6889e79b48b42f8b2535b66189491",
+    "patch_sha256": "dc8ffcd29290a5b7ad00b139ab362b9d5e81e389294be461599f449739ab4758",
+    "patched_file_sha256": "06370982bb204675d2f59c8aeff24b81bb42d4fea22902efecfefa6f771edc19",
+    "toolchain": "1.93",
+    "target": "x86_64-pc-windows-msvc"
+  },
+  "files": [
+    {
+      "name": "MXC-LICENSE.md",
+      "bytes": 1140,
+      "sha256": "d9a1b1e30d633d5732ea18e3cba9538d293ebc53e1a9e4e96ab739e0c5c4f1cb"
+    },
+    {
+      "name": "build-manifest.json",
+      "bytes": 1165,
+      "sha256": "779e74deacff07706ade06c0747f2154e63d1ad2c2183aff864889129700bef8"
+    },
+    {
+      "name": "wxc-exec.exe",
+      "bytes": 5680128,
+      "sha256": "b5290bf91f6d4b8715fff7323dbbb8437a7b8573d348cfb6195e4c49a040d705"
+    }
+  ],
+  "source_diagnostic_only": true,
+  "product_runtime_replaced": false,
+  "native_socket_or_dns_acceptance_passed": false,
+  "notes": [
+    "Built from fixed Microsoft MXC 1.0.0 source with Rust 1.93 for native x64.",
+    "The changed guard permits one exact port, an equivalent singleton range, or all TCP ports under 127.0.0.1/32; every other original G condition remains.",
+    "This build result proves no runtime TCP, DNS, GUI or host-isolation behavior.",
+    "Only the explicit source diagnostic selector accepts this artifact."
+  ]
+}

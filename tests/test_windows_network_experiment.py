@@ -90,6 +90,33 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
             self.assertEqual(experiment.network_policy(name, 49123, 10809, singleton_port_range=True),
                              experiment.network_policy(name, 49123, 10809))
 
+    def test_g3_internal_tcp_encodings_change_only_the_port_selector(self):
+        baseline = experiment.network_policy(experiment.PREFERRED_VARIANT, 49123, 10809)
+        singleton = experiment.network_policy(experiment.PREFERRED_VARIANT, 49123, 10809,
+                                              internal_tcp_policy="singleton")
+        loopback = experiment.network_policy(experiment.PREFERRED_VARIANT, 49123, 10809,
+                                             internal_tcp_policy="loopback")
+        self.assertEqual(singleton["network"]["egress"]["allow"][0], {
+            "to": [{"cidr": "127.0.0.1/32"}],
+            "ports": [{"protocol": "tcp", "port": 49123, "endPort": 49123}]})
+        self.assertEqual(loopback["network"]["egress"]["allow"][0], {
+            "to": [{"cidr": "127.0.0.1/32"}], "ports": [{"protocol": "tcp"}]})
+        for candidate in (singleton, loopback):
+            self.assertEqual(candidate["network"]["egress"]["default"], "deny")
+            self.assertEqual(candidate["network"]["ingress"],
+                             {"default": "deny", "hostLoopback": "deny"})
+            self.assertNotIn("capabilities", candidate)
+        singleton["network"]["egress"]["allow"][0]["ports"][0].pop("endPort")
+        self.assertEqual(singleton, baseline)
+        with self.assertRaises(ValueError):
+            experiment.network_policy("model1_internal", 49123, 10809, internal_tcp_policy="loopback")
+        with self.assertRaises(ValueError):
+            experiment.network_policy(experiment.PREFERRED_VARIANT, 49123, 10809,
+                                     internal_tcp_policy="loopback", ingress_default_allow_control=True)
+        with self.assertRaises(ValueError):
+            experiment.network_policy(experiment.PREFERRED_VARIANT, 49123, 10809,
+                                     internal_tcp_policy="loopback", singleton_port_range=True)
+
     def test_psec_1_1_diagnostic_adds_only_owned_nested_enumeration_path(self):
         profile = self.directory / "profile"
         profile.mkdir()
@@ -631,20 +658,23 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             experiment.write_json(report, {"log": "x" * experiment.MAX_REPORT_BYTES})
 
-    def executor_build_fixture(self, *, ingress_control=False):
+    def executor_build_fixture(self, *, ingress_control=False, internal_tcp_policy=None):
         directory = self.directory / "source-build"
-        directory.mkdir()
+        directory.mkdir(exist_ok=True)
         executor = directory / "wxc-exec.exe"
         executor.write_bytes(b"fixed source-only executor artifact")
         manifest = directory / "build-manifest.json"
         value = {"schema_version": 1, "status": "built", "upstream_commit": experiment.PSEC_UPSTREAM_COMMIT,
                  "executor_sha256": hashlib.sha256(executor.read_bytes()).hexdigest(),
-                 "patch": copy.deepcopy(experiment.PSEC_TEST_INGRESS_PATCH if ingress_control
+                 "patch": copy.deepcopy(experiment.G3_PATCH_INFO if internal_tcp_policy is not None else
+                                         experiment.PSEC_TEST_INGRESS_PATCH if ingress_control
                                          else experiment.PSEC_TEST_PATCH),
                  "original_file_sha256": experiment.PSEC_ORIGINAL_SOURCE_SHA256,
-                 "patch_sha256": (experiment.PSEC_INGRESS_PATCH_SHA256 if ingress_control
+                 "patch_sha256": (experiment.G3_PATCH_SHA256 if internal_tcp_policy is not None else
+                                  experiment.PSEC_INGRESS_PATCH_SHA256 if ingress_control
                                   else experiment.PSEC_PATCH_SHA256),
-                 "patched_file_sha256": (experiment.PSEC_INGRESS_PATCHED_SOURCE_SHA256 if ingress_control
+                 "patched_file_sha256": (experiment.G3_PATCHED_SOURCE_SHA256 if internal_tcp_policy is not None else
+                                         experiment.PSEC_INGRESS_PATCHED_SOURCE_SHA256 if ingress_control
                                          else experiment.PSEC_PATCHED_SOURCE_SHA256),
                  "toolchain": "1.93", "target": "x86_64-pc-windows-msvc"}
         manifest.write_text(json.dumps(value))
@@ -663,6 +693,32 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "fixed source-only capability experiment"):
             experiment.verify_test_executor(self.directory, executor, manifest, original_sha)
 
+    def test_g3_executor_manifest_is_selected_only_for_explicit_internal_policy_mode(self):
+        builder_spec = importlib.util.spec_from_file_location(
+            "ruleproxy_g3_builder_pins", ROOT / ".github/build_mxc_capability_probe.py")
+        builder = importlib.util.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        self.assertEqual(experiment.G3_PATCH_INFO, builder.G3_PATCH_INFO)
+        self.assertEqual(experiment.G3_PATCH_SHA256, builder.G3_PATCH_SHA256)
+        self.assertEqual(experiment.G3_PATCHED_SOURCE_SHA256, builder.G3_PATCHED_SOURCE_SHA256)
+        executor, manifest, _ = self.executor_build_fixture(internal_tcp_policy="loopback")
+        selected, facts = experiment.verify_test_executor(
+            self.directory, executor, manifest, "b" * 64,
+            diagnostic_internal_tcp_policy="loopback")
+        self.assertEqual(selected, executor.resolve())
+        self.assertEqual(facts["patch"], experiment.G3_PATCH_INFO)
+        self.assertEqual(facts["diagnostic_internal_tcp_policy"], "loopback")
+        self.assertEqual(facts["network_scope"], "all TCP destinations under 127.0.0.1/32")
+        self.assertTrue(facts["production_policy_unchanged"])
+        self.assertFalse(facts["default_product_runtime_replaced"])
+        self.assertFalse(facts["release_eligible"])
+        with self.assertRaisesRegex(ValueError, "fixed source-only capability experiment"):
+            experiment.verify_test_executor(self.directory, executor, manifest, "b" * 64)
+        with self.assertRaises(ValueError):
+            experiment.verify_test_executor(self.directory, executor, manifest, "b" * 64,
+                                             ingress_controls_diagnostic=True,
+                                             diagnostic_internal_tcp_policy="loopback")
+
     def test_ingress_diagnostic_rejects_missing_or_conflicting_selectors_before_setup(self):
         invalid_args = (
             ["--ingress-controls-diagnostic"],
@@ -677,6 +733,28 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
             result = json.loads(report.read_text())
             self.assertEqual(code, 1)
             self.assertIn("ingress-controls-diagnostic requires", result["detail"])
+            self.assertFalse(result["acceptance_passed"])
+            setup.assert_not_called()
+            launch.assert_not_called()
+
+    def test_g3_diagnostic_rejects_missing_or_conflicting_selectors_before_setup(self):
+        invalid_args = (
+            ["--internal-tcp-policy-diagnostic", "loopback"],
+            ["--internal-tcp-policy-diagnostic", "singleton", "--preferred-policy-only",
+             "--test-psec-executor", str(self.directory / "candidate.exe"),
+             "--test-psec-manifest", str(self.directory / "manifest.json"), "--singleton-port-range"],
+            ["--internal-tcp-policy-diagnostic", "loopback", "--preferred-policy-only",
+             "--test-psec-executor", str(self.directory / "candidate.exe"),
+             "--test-psec-manifest", str(self.directory / "manifest.json"), "--ingress-controls-diagnostic"],
+        )
+        for index, extra in enumerate(invalid_args):
+            report = self.directory / f"invalid-g3-{index}.json"
+            with mock.patch.object(experiment, "load_helpers") as setup, \
+                    mock.patch.object(experiment, "run_variant") as launch, mock.patch("builtins.print"):
+                code = experiment.main(["--root", str(self.directory), "--report", str(report), *extra])
+            result = json.loads(report.read_text())
+            self.assertEqual(code, 1)
+            self.assertIn("internal-tcp-policy-diagnostic requires", result["detail"])
             self.assertFalse(result["acceptance_passed"])
             setup.assert_not_called()
             launch.assert_not_called()
@@ -704,6 +782,35 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertEqual(probe_policy["network"]["ingress"], {"default": "allow", "hostLoopback": "deny"})
         self.assertEqual(probe_policy["network"]["egress"], experiment.network_policy(
             experiment.PREFERRED_VARIANT, 23456, 23456)["network"]["egress"])
+
+    def test_g3_internal_tcp_controls_prewarm_and_single_variant_with_false_acceptance(self):
+        for mode in ("singleton", "loopback"):
+            with self.subTest(mode=mode):
+                code, result, wire, _, launch, _ = self.native_dns_main_fixture(
+                    test_executor=True, preferred_only=True, internal_tcp_policy=mode)
+                self.assertEqual(code, 0)
+                self.assertEqual(result["selected_variants"], [experiment.PREFERRED_VARIANT])
+                self.assertEqual(result["policy_selection"], f"internal_tcp_{mode}_control")
+                self.assertEqual(result["diagnostic_port_encoding"],
+                                 "singleton_range" if mode == "singleton" else "all_tcp_loopback_ports")
+                self.assertEqual(result["source_policy_variant"], f"internal_tcp_{mode}_control")
+                self.assertEqual(result["internal_tcp_policy_diagnostic"], mode)
+                self.assertTrue(result["source_diagnostic_only"])
+                self.assertTrue(result["production_policy_unchanged"])
+                self.assertFalse(result["product_runtime_replaced"])
+                self.assertFalse(result["full_acceptance_passed"])
+                self.assertFalse(result["acceptance_passed"])
+                self.assertFalse(result["real_node_passed"])
+                self.assertEqual(result["test_psec_executor"]["diagnostic_internal_tcp_policy"], mode)
+                self.assertEqual([call.args[0] for call in launch.call_args_list],
+                                 [experiment.PREFERRED_VARIANT])
+                self.assertEqual(launch.call_args.kwargs["internal_tcp_policy"], mode)
+                self.assertEqual(result["candidate_precapture_probe"]["internal_tcp_policy_diagnostic"], mode)
+                _, prewarm = wire.runtime._probe_request.call_args.args
+                self.assertEqual(prewarm["network"], experiment.network_policy(
+                    experiment.PREFERRED_VARIANT, 23456, 23456, internal_tcp_policy=mode)["network"])
+                self.assertEqual(result["variants"][0]["source_policy_variant"], f"internal_tcp_{mode}_control")
+                self.assertFalse(result["variants"][0]["acceptance_passed"])
 
     def test_old_g_manifest_cannot_be_selected_as_ingress_diagnostic(self):
         executor, manifest, _ = self.executor_build_fixture()
@@ -817,7 +924,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                                 explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False,
                                 singleton_port_range=False, trust_contaminated=False, warmup_failure=False, trust_close_failure=False,
                                 dns_payload=None, candidate_probe_failure=False, psec_1_1_diagnostic=False,
-                                enumerate_paths_supported=True, ingress_controls_diagnostic=False):
+                                enumerate_paths_supported=True, ingress_controls_diagnostic=False,
+                                internal_tcp_policy=None):
         helpers = mock.Mock()
         product_executor = self.directory / "bin/windows-amd64/wxc-exec.exe"
         product_executor.parent.mkdir(parents=True, exist_ok=True)
@@ -921,8 +1029,11 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 arguments.append("--psec-1-1-diagnostic")
             if ingress_controls_diagnostic:
                 arguments.append("--ingress-controls-diagnostic")
+            if internal_tcp_policy is not None:
+                arguments.extend(["--internal-tcp-policy-diagnostic", internal_tcp_policy])
             if test_executor:
-                executor, manifest, _ = self.executor_build_fixture(ingress_control=ingress_controls_diagnostic)
+                executor, manifest, _ = self.executor_build_fixture(
+                    ingress_control=ingress_controls_diagnostic, internal_tcp_policy=internal_tcp_policy)
                 helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": "b" * 64}
                 arguments.extend(["--test-psec-executor", str(executor), "--test-psec-manifest", str(manifest)])
             code = experiment.main(arguments)

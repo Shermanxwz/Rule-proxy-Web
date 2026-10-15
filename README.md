@@ -26,6 +26,10 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 2026-10-15 的原生 x64 官方更新后运行已到 Windows 11 build 26300/UBR 9711，两个更新包校验通过并完成重启；产品仍使用原版 SDK。严格探测和外部无头对照通过，但产品 transport、Manager、browser 与 GUI 启动自检均因 WinError 10013 等网络检查失败；GUI 结果不证明系统 GUI 不兼容。首选网络实验虽完成采集和清理，代理往返为 0。原生 DNS 抓包分析完整、未知记录为 0，但仍观察到父子进程共 8 个 nonce 查询；因此不构成产品验收。[官方更新后证据摘要](verification/windows-2026-10-15/7235c03/official-native/observations.json)
 
+目标版本 26200.9711 的独立对照也已完成：普通用户使用原始 G 候选、不额外请求目录枚举能力，内部代理 TCP 仍全部报 `10013`、往返数为 0。所选三种原生 DNS API 的抓包完整、未知记录及容器内 nonce 查询均为 0；四组所选 UDP 对照单独完整，整份 UDP 报告仍因未选中的变体而不完整。清理与宿主网络检查通过，但这次失败不能构成产品验收。[目标版本默认策略对照](verification/windows-2026-10-15/ebb3c1c/default-network-native/observations.json)
+
+保留私有网络能力的 G2 对照未被采用：同为 26200.9711，代理 TCP 没有恢复，完整 DNS 捕获还记录到 8 个容器内 nonce 查询外发。当前产品未增加这项能力。[G2 对照及限制](verification/windows-2026-10-15/a963b7a/private-network-control-native/observations.json)
+
 1. 从 [Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases/latest) 下载 `RuleProxy-Web-<版本>-windows-x64.zip`。运行包自带 Python、PyYAML、Mihomo 和 MXC，不需要另外安装。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”。不解除的话，启动面板和点快捷方式时可能每次都弹出安全提示。
 3. 解压到固定位置，双击 `RuleProxy-Web\Start-Windows.cmd`。浏览器会打开面板；面板在后台运行，没有命令行窗口。无需以管理员身份运行。

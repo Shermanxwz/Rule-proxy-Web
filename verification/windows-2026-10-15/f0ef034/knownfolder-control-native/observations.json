@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "source_commit": "f0ef0344707b9910c40b1840cf823d50a9a5f3eb",
+  "status": "unattended_install_test_timeout",
+  "acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "product_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "failure": {
+    "category": "infrastructure_or_unattended_guest_timeout",
+    "stage": "Windows unattended install/test did not return a guest result before timeout",
+    "guest_result_received": false,
+    "last_screen_observation": "black screen"
+  },
+  "target_update": {
+    "kb": "KB5127648",
+    "target_build": 26300,
+    "target_ubr": 9711,
+    "target_architecture": "x64",
+    "downloaded_package_count": 2,
+    "package_checksums_verified": true,
+    "installation_completion_observed": false,
+    "actual_guest_build": null,
+    "actual_guest_ubr": null
+  },
+  "runtime": {
+    "product_executor_sha256": "8a6d1db4dd1846981127d9014741be18b094d07be967765dff6754bda1d40259",
+    "reported_test_executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+    "product_runtime_replaced": false,
+    "diagnostic_executor_attested": false,
+    "identity_scope": "declared original runtime and verified diagnostic build; no completed guest execution attestation"
+  },
+  "gui": {
+    "gui_diagnostic_requested": true,
+    "chromium_control_requested": true,
+    "gui_phase_result_available": false,
+    "browser_launch_observed": false
+  },
+  "limitations": [
+    "The artifact records a workflow timeout; it does not establish the cause or that Windows installation had stalled.",
+    "The update target packages were checksum-verified, but installation and the resulting Windows version were not observed.",
+    "No GUI phase result was produced; the black last-screen image is not a browser failure result.",
+    "No product acceptance or cleanup result was observed."
+  ]
+}

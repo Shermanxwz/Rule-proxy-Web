@@ -166,9 +166,12 @@ def package_executor_sha256(package: Path) -> str:
 
 
 def verify_executor_bundle(root: Path, workspace: Path, executor: Path, manifest: Path,
-                           original_sha256: str, *, ingress_controls_diagnostic: bool = False):
+                           original_sha256: str, *, ingress_controls_diagnostic: bool = False,
+                           diagnostic_internal_tcp_policy: str | None = None):
     module = network_executor_verifier(workspace)
     options = {"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}
+    if diagnostic_internal_tcp_policy is not None:
+        options["diagnostic_internal_tcp_policy"] = diagnostic_internal_tcp_policy
     executor, metadata = module.verify_test_executor(root, executor, manifest, original_sha256, **options)
     license_path = module.test_executor_file(manifest.parent / "MXC-LICENSE.md")
     if digest(license_path) != TEST_EXECUTOR_LICENSE_SHA256:
@@ -177,8 +180,11 @@ def verify_executor_bundle(root: Path, workspace: Path, executor: Path, manifest
 
 
 def stage_test_executor(directory: Path, executor: Path, manifest: Path, original_sha256: str,
-                        *, ingress_controls_diagnostic: bool = False):
+                        *, ingress_controls_diagnostic: bool = False,
+                        diagnostic_internal_tcp_policy: str | None = None):
     options = {"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}
+    if diagnostic_internal_tcp_policy is not None:
+        options["diagnostic_internal_tcp_policy"] = diagnostic_internal_tcp_policy
     executor, metadata = verify_executor_bundle(ROOT, ROOT, executor, manifest, original_sha256, **options)
     directory.mkdir()  # Never reuse a prior bundle or put it in the product ZIP.
     for source, name in ((executor, "wxc-exec.exe"), (manifest, "build-manifest.json"),
@@ -213,9 +219,13 @@ def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
         enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
         ingress_controls = config.get("ingress_controls_diagnostic", False) if isinstance(config, dict) else None
         standard_profile = config.get("standard_profile_layout_control", False) if isinstance(config, dict) else None
+        internal_tcp_policy = config.get("internal_tcp_policy_diagnostic", "none") if isinstance(config, dict) else None
         if (type(enabled) is not bool or type(ingress_controls) is not bool
                 or type(standard_profile) is not bool or (ingress_controls and not enabled)
-                or (standard_profile and ingress_controls)):
+                or (standard_profile and ingress_controls)
+                or type(internal_tcp_policy) is not str
+                or internal_tcp_policy not in ("none", "singleton", "loopback")
+                or (internal_tcp_policy != "none" and (not enabled or ingress_controls or standard_profile))):
             raise ValueError
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic executor configuration is invalid") from exc
@@ -231,7 +241,9 @@ def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
     directory = workspace / TEST_EXECUTOR_DIRECTORY
     executor, metadata = verify_executor_bundle(root, workspace, directory / "wxc-exec.exe",
                                                 directory / "build-manifest.json", original,
-                                                **({"ingress_controls_diagnostic": True} if ingress_controls else {}))
+                                                **({"ingress_controls_diagnostic": True} if ingress_controls else {}),
+                                                **({"diagnostic_internal_tcp_policy": internal_tcp_policy}
+                                                   if internal_tcp_policy != "none" else {}))
     if metadata["executor_sha256"] != expected:
         raise ValueError("Guest diagnostic executor differs from the host-verified artifact")
     return executor, directory / "build-manifest.json", metadata
@@ -247,10 +259,10 @@ def load_chromium_control_helper(root: Path = ROOT):
     return module
 
 
-def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None, bool, bool, bool]:
+def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None, bool, bool, bool, str]:
     """Read mutually exclusive source diagnostic phase selections safely."""
     if vm_config is None:
-        return False, False, False, False, None, False, False, False
+        return False, False, False, False, None, False, False, False, "none"
     def unique_fields(pairs):
         value = {}
         for key, item in pairs:
@@ -271,11 +283,14 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
         psec_1_1 = config.get("psec_1_1_diagnostic", False) if isinstance(config, dict) else None
         ingress_controls = config.get("ingress_controls_diagnostic", False) if isinstance(config, dict) else None
         standard_profile = config.get("standard_profile_layout_control", False) if isinstance(config, dict) else None
+        internal_tcp_policy = config.get("internal_tcp_policy_diagnostic", "none") if isinstance(config, dict) else None
         executor_enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
         chromium_sha256 = config.get("chromium_gui_control_archive_sha256") if isinstance(config, dict) else None
         if any(type(flag) is not bool for flag in (
                 enabled, network, singleton, chromium_control, psec_1_1, executor_enabled,
                 ingress_controls, standard_profile)):
+            raise ValueError
+        if type(internal_tcp_policy) is not str or internal_tcp_policy not in ("none", "singleton", "loopback"):
             raise ValueError
         if ((enabled and network) or (enabled and executor_enabled and not chromium_control)
                 or (singleton and (not network or executor_enabled))):
@@ -291,6 +306,9 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
         if standard_profile and (not enabled or not chromium_control or network or singleton
                                  or psec_1_1 or ingress_controls):
             raise ValueError
+        if internal_tcp_policy != "none" and (not network or not executor_enabled or enabled
+                or chromium_control or singleton or ingress_controls):
+            raise ValueError
         if chromium_control:
             if (not enabled or network or not isinstance(chromium_sha256, str)
                     or not re.fullmatch(r"[0-9a-f]{64}", chromium_sha256)):
@@ -298,7 +316,7 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
         elif chromium_sha256 is not None:
             raise ValueError
         return (enabled, network, singleton, chromium_control, chromium_sha256,
-                psec_1_1, ingress_controls, standard_profile)
+                psec_1_1, ingress_controls, standard_profile, internal_tcp_policy)
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic configuration is invalid") from exc
 
@@ -1049,6 +1067,89 @@ def verify_phase_report(name: str, report: dict) -> None:
         raise RuntimeError("Unknown fixture phase")
 
 
+def verify_internal_tcp_policy_report(report: dict, mode: str, executor_metadata: dict) -> None:
+    """Bind the guest's source-only experiment to the host-pinned G3 mode/scope."""
+    scope = ("127.0.0.1/32 TCP with the selected exact port" if mode == "singleton"
+             else "all TCP destinations under 127.0.0.1/32" if mode == "loopback" else None)
+    executor = report.get("test_psec_executor") if isinstance(report, dict) else None
+    selected = report.get("selected_executor") if isinstance(report, dict) else None
+    precapture = report.get("selected_executor_precapture_probe") if isinstance(report, dict) else None
+    variants = report.get("variants") if isinstance(report, dict) else None
+    variant = variants[0] if isinstance(variants, list) and len(variants) == 1 else None
+    policy = variant.get("policy") if isinstance(variant, dict) else None
+    network = policy.get("network") if isinstance(policy, dict) else None
+    ingress = network.get("ingress") if isinstance(network, dict) else None
+    egress = network.get("egress") if isinstance(network, dict) else None
+    allow = egress.get("allow") if isinstance(egress, dict) else None
+    rule = allow[0] if isinstance(allow, list) and len(allow) == 1 else None
+    ports = rule.get("ports") if isinstance(rule, dict) else None
+    port_rule = ports[0] if isinstance(ports, list) and len(ports) == 1 else None
+    valid_port_shape = False
+    if isinstance(rule, dict) and isinstance(port_rule, dict):
+        valid_port_shape = (set(port_rule) == {"protocol", "port", "endPort"}
+                            and port_rule.get("protocol") == "tcp"
+                            and (type(port_rule.get("port")) is int and 1 <= port_rule["port"] <= 65535
+                                 and type(port_rule.get("endPort")) is int
+                                 and port_rule["endPort"] == port_rule["port"])
+                            if mode == "singleton" else
+                            port_rule == {"protocol": "tcp"})
+    if (scope is None or not isinstance(executor_metadata, dict) or not isinstance(executor, dict)
+            or not isinstance(selected, dict)
+            or executor_metadata.get("diagnostic_internal_tcp_policy") != mode
+            or executor_metadata.get("network_scope") != scope
+            or executor_metadata.get("source_diagnostic_only") is not True
+            or executor_metadata.get("release_eligible") is not False
+            or executor_metadata.get("default_product_runtime_replaced") is not False
+            or report.get("internal_tcp_policy_diagnostic") != mode
+            or report.get("internal_tcp_policy_diagnostic_requested") != mode
+            or report.get("source_policy_variant") != f"internal_tcp_{mode}_control"
+            or report.get("policy_selection") != f"internal_tcp_{mode}_control"
+            or report.get("selected_variants") != ["model1_internal_ingress_deny"]
+            or report.get("diagnostic_port_encoding") != ("singleton_range" if mode == "singleton"
+                                                            else "all_tcp_loopback_ports")
+            or report.get("source_diagnostic_only") is not True
+            or report.get("production_policy_unchanged") is not True
+            or report.get("product_runtime_replaced") is not False
+            or report.get("full_acceptance_passed") is not False
+            or report.get("acceptance_passed") is not False
+            or report.get("real_node_passed") is not False
+            or selected.get("selection") != "source_candidate"
+            or selected.get("executor_sha256") != executor_metadata.get("executor_sha256")
+            or selected.get("product_runtime_replaced") is not False
+            or executor.get("executor_sha256") != executor_metadata.get("executor_sha256")
+            or executor.get("diagnostic_internal_tcp_policy") != mode
+            or executor.get("network_scope") != scope
+            or executor.get("source_diagnostic_only") is not True
+            or executor.get("release_eligible") is not False
+            or executor.get("default_product_runtime_replaced") is not False
+            or not isinstance(precapture, dict) or precapture.get("status") != "probe_passed"
+            or precapture.get("scope") != "source_only_internal_tcp_policy_control_probe"
+            or precapture.get("executor_selection") != "source_candidate"
+            or precapture.get("executor_sha256") != executor_metadata.get("executor_sha256")
+            or precapture.get("source_policy_variant") != f"internal_tcp_{mode}_control"
+            or precapture.get("internal_tcp_policy_diagnostic") != mode
+            or precapture.get("production_policy_unchanged") is not True
+            or precapture.get("warmup_before_capture") is not True
+            or report.get("candidate_precapture_probe") != precapture
+            or not isinstance(precapture.get("backend_confirmation"), dict)
+            or precapture["backend_confirmation"].get("tier") != "base-container"
+            or precapture["backend_confirmation"].get("needs_dacl_augmentation") is not False
+            or not isinstance(variants, list) or len(variants) != 1 or not isinstance(variant, dict)
+            or variant.get("name") != "model1_internal_ingress_deny"
+            or variant.get("internal_tcp_policy_diagnostic") != mode
+            or variant.get("source_policy_variant") != f"internal_tcp_{mode}_control"
+            or variant.get("production_policy_unchanged") is not True
+            or not isinstance(policy, dict) or policy.get("capabilities") not in (None, [])
+            or not isinstance(network, dict) or set(network) != {"ingress", "egress"}
+            or ingress != {"default": "deny", "hostLoopback": "deny"}
+            or not isinstance(egress, dict) or egress.get("default") != "deny"
+            or set(egress) != {"default", "allow"}
+            or not isinstance(rule, dict) or set(rule) != {"to", "ports"}
+            or rule.get("to") != [{"cidr": "127.0.0.1/32"}]
+            or not valid_port_shape):
+        raise RuntimeError("Guest G3 report did not attest the requested source-only internal TCP policy scope")
+
+
 def experiment_has_recovery(value) -> bool:
     """Recovery nested in one variant cannot be hidden by an aggregate success."""
     if isinstance(value, dict):
@@ -1344,9 +1445,11 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     cleanup_pending = False
     try:
         (gui_only, network_only, singleton, chromium_control, chromium_sha256,
-         psec_1_1, ingress_controls, standard_profile) = guest_diagnostic_options(vm_config)
+         psec_1_1, ingress_controls, standard_profile, internal_tcp_policy) = guest_diagnostic_options(vm_config)
     except ValueError:
         result["diagnostic_configuration_error"] = "invalid_private_configuration"
+        result.update(source_diagnostic_only=True, full_acceptance_passed=False,
+                      product_acceptance_passed=False, product_runtime_replaced=False)
         result["error"] = "Private diagnostic configuration could not be verified"
         result["phases"] = [{"name": name, "status": "blocked", "exit_code": None,
                              "reason": "invalid_private_configuration"} for name in PHASE_NAMES]
@@ -1362,6 +1465,11 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
             result.update(standard_profile_layout_control=True,
                           source_policy_variant="standard_profile_layout_without_extra_directory_grants",
                           additional_directory_grants=False, directory_query_list_permission_changed=False)
+        if internal_tcp_policy != "none":
+            result.update(internal_tcp_policy_diagnostic=internal_tcp_policy,
+                          source_policy_variant=f"internal_tcp_{internal_tcp_policy}_control",
+                          source_diagnostic_only=True, full_acceptance_passed=False,
+                          product_acceptance_passed=False, product_runtime_replaced=False)
         if chromium_control:
             result["chromium_gui_control_diagnostic"] = True
         probe_command = [executable, "-X", "utf8", "-B", str(acceptance), "--root", str(root),
@@ -1508,6 +1616,12 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         command.extend(diagnostic_arguments)
         if singleton:
             command.append("--singleton-port-range")
+        if internal_tcp_policy != "none":
+            command.extend(["--internal-tcp-policy-diagnostic", internal_tcp_policy])
+            result.update(internal_tcp_policy_diagnostic=internal_tcp_policy,
+                          source_policy_variant=f"internal_tcp_{internal_tcp_policy}_control",
+                          product_runtime_replaced=False, source_diagnostic_only=True,
+                          product_acceptance_passed=False, full_acceptance_passed=False)
         if psec_1_1:
             command.append("--psec-1-1-diagnostic")
         if ingress_controls:
@@ -1683,6 +1797,11 @@ def run(args) -> dict:
     psec_1_1_diagnostic = getattr(args, "psec_1_1_diagnostic", False) is True
     ingress_controls_diagnostic = getattr(args, "ingress_controls_diagnostic", False) is True
     standard_profile_layout_control = getattr(args, "standard_profile_layout_control", False) is True
+    internal_tcp_policy_diagnostic = getattr(args, "internal_tcp_policy_diagnostic", None)
+    if internal_tcp_policy_diagnostic is None:
+        internal_tcp_policy_diagnostic = "none"
+    elif internal_tcp_policy_diagnostic not in ("singleton", "loopback"):
+        internal_tcp_policy_diagnostic = "invalid"
     require_update = not baseline
     summary = {"status": "failed", "baseline_diagnostic": baseline,
                "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "packaged_product_runtime",
@@ -1693,16 +1812,19 @@ def run(args) -> dict:
                "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
                "psec_1_1_diagnostic": psec_1_1_diagnostic,
                "ingress_controls_diagnostic": ingress_controls_diagnostic,
+               "internal_tcp_policy_diagnostic": internal_tcp_policy_diagnostic,
                "standard_profile_layout_control": standard_profile_layout_control,
                "source_policy_variant": ("standard_profile_layout_without_extra_directory_grants"
                                          if standard_profile_layout_control else
+                                         f"internal_tcp_{internal_tcp_policy_diagnostic}_control"
+                                         if internal_tcp_policy_diagnostic not in ("none", "invalid") else
                                          (("private_network_and_localappdata_control" if gui_diagnostic_only
                                            else "private_network_capability_control")
                                           if ingress_controls_diagnostic else "unchanged")),
                **({"additional_directory_grants": False,
                    "directory_query_list_permission_changed": False}
                   if standard_profile_layout_control else {}),
-               "source_diagnostic_only": gui_diagnostic_only or chromium_gui_control_diagnostic or network_diagnostic_only or singleton_port_range_diagnostic or psec_1_1_diagnostic or diagnostic_mode or standard_profile_layout_control,
+               "source_diagnostic_only": gui_diagnostic_only or chromium_gui_control_diagnostic or network_diagnostic_only or singleton_port_range_diagnostic or psec_1_1_diagnostic or diagnostic_mode or standard_profile_layout_control or internal_tcp_policy_diagnostic != "none",
                "product_acceptance_passed": False,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
@@ -1718,6 +1840,13 @@ def run(args) -> dict:
             raise ValueError("Chromium GUI control requires GUI-only diagnostic mode")
         if psec_1_1_diagnostic and (not network_diagnostic_only or singleton_port_range_diagnostic):
             raise ValueError("PSEC 1.1 diagnostic requires network-only mode and a single diagnostic axis")
+        if internal_tcp_policy_diagnostic == "invalid":
+            raise ValueError("Internal TCP policy diagnostic must be none, singleton, or loopback")
+        if internal_tcp_policy_diagnostic != "none" and (
+                not diagnostic_mode or not network_diagnostic_only or gui_diagnostic_only
+                or chromium_gui_control_diagnostic or ingress_controls_diagnostic
+                or singleton_port_range_diagnostic):
+            raise ValueError("Internal TCP policy control requires the source-only network diagnostic and G3 executor")
         network_ingress = (network_diagnostic_only and psec_1_1_diagnostic and diagnostic_mode
                            and not singleton_port_range_diagnostic and not gui_diagnostic_only
                            and not chromium_gui_control_diagnostic)
@@ -1743,7 +1872,9 @@ def run(args) -> dict:
             original_sha256 = package_executor_sha256(package)
             _, summary["test_psec_executor"] = verify_executor_bundle(
                 ROOT, ROOT, custom_executor, custom_manifest, original_sha256,
-                **({"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}))
+                **({"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}),
+                **({"diagnostic_internal_tcp_policy": internal_tcp_policy_diagnostic}
+                   if internal_tcp_policy_diagnostic != "none" else {}))
             summary["diagnostic_network_boundary"] = {"status": "not_collected", "product_acceptance_passed": False}
             summary["diagnostic_executor_attested"] = False
         for name in ("qemu-system-x86_64", "qemu-img", "swtpm", "xorriso", "curl"):
@@ -1769,7 +1900,9 @@ def run(args) -> dict:
             if diagnostic_mode:
                 executor_bundle = work / TEST_EXECUTOR_DIRECTORY
                 staged = stage_test_executor(executor_bundle, custom_executor, custom_manifest, original_sha256,
-                    **({"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}))
+                    **({"ingress_controls_diagnostic": True} if ingress_controls_diagnostic else {}),
+                    **({"diagnostic_internal_tcp_policy": internal_tcp_policy_diagnostic}
+                       if internal_tcp_policy_diagnostic != "none" else {}))
                 if staged != summary["test_psec_executor"]:
                     raise ValueError("Diagnostic executor changed after host validation")
             iso = work / "official.iso"
@@ -1830,6 +1963,7 @@ def run(args) -> dict:
                     "psec_1_1_diagnostic": psec_1_1_diagnostic,
                     "ingress_controls_diagnostic": ingress_controls_diagnostic,
                     "standard_profile_layout_control": standard_profile_layout_control,
+                    "internal_tcp_policy_diagnostic": internal_tcp_policy_diagnostic,
                     **({"chromium_gui_control_archive_sha256": chromium_control_sha256}
                        if chromium_control_sha256 is not None else {}),
                     **({"test_psec_executor_sha256": summary["test_psec_executor"]["executor_sha256"],
@@ -1930,6 +2064,10 @@ def run(args) -> dict:
                                   server.result.get("reports", {}).get("experiments", {}))
                         summary["diagnostic_executor_attested"] = (
                             report.get("test_psec_executor") == summary["test_psec_executor"])
+                    if internal_tcp_policy_diagnostic != "none":
+                        report = server.result.get("reports", {}).get("experiments", {})
+                        verify_internal_tcp_policy_report(report, internal_tcp_policy_diagnostic,
+                                                          summary.get("test_psec_executor"))
                     if not capture.log_clean() or capture.collection_error:
                         raise RuntimeError("VM packet capture control or dump/write failed")
                     verify_result(server.result, require_official_update=require_update,
@@ -2022,6 +2160,8 @@ def main(argv: list[str]) -> int:
                         help="Run the preferred network experiment with PSEC 1.1 in diagnostic-only mode")
     parser.add_argument("--ingress-controls-diagnostic", action="store_true",
                         help="Source-only G2 private-network capability or GUI control; never product acceptance")
+    parser.add_argument("--internal-tcp-policy-diagnostic", choices=("singleton", "loopback"),
+                        help="Run a source-only G3 internal TCP policy comparison; never product acceptance")
     parser.add_argument("--test-psec-executor", type=Path,
                         help="Source-only diagnostic executor; never replaces product bin or grants release success")
     parser.add_argument("--test-psec-manifest", type=Path)
@@ -2043,6 +2183,11 @@ def main(argv: list[str]) -> int:
         parser.error("Singleton port encoding requires network diagnostic-only with the original SDK")
     if args.psec_1_1_diagnostic and (not args.network_diagnostic_only or args.singleton_port_range_diagnostic):
         parser.error("PSEC 1.1 diagnostic requires network-only mode and cannot combine with singleton port encoding")
+    if args.internal_tcp_policy_diagnostic is not None and (
+            not args.network_diagnostic_only or args.test_psec_executor is None
+            or args.gui_diagnostic_only or args.chromium_gui_control or args.ingress_controls_diagnostic
+            or args.singleton_port_range_diagnostic):
+        parser.error("Internal TCP policy control requires source-only G3 network diagnostic mode")
     network_ingress = (args.network_diagnostic_only and args.psec_1_1_diagnostic
                        and args.test_psec_executor is not None
                        and not args.singleton_port_range_diagnostic
@@ -2058,7 +2203,8 @@ def main(argv: list[str]) -> int:
     result = run(args)
     if (args.test_psec_executor is not None or args.gui_diagnostic_only or args.chromium_gui_control
             or args.standard_profile_layout_control
-            or args.network_diagnostic_only or args.psec_1_1_diagnostic):
+            or args.network_diagnostic_only or args.psec_1_1_diagnostic
+            or args.internal_tcp_policy_diagnostic is not None):
         return 1  # Partial diagnostics never qualify product acceptance.
     expected = "baseline_transport_and_package_tests_passed" if args.baseline_diagnostic else "transport_and_package_tests_passed"
     return 0 if (result["status"] == expected and result.get("baseline_diagnostic") is args.baseline_diagnostic

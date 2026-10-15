@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "source_commit": "874fd86c2225bb68cfe3027d059399d252acb555",
+  "scope": "component recovery diagnostics on ARM64 using x64-on-ARM emulation",
+  "status": "partial_component_results",
+  "product_acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "runtime_variant": "g-patched",
+  "runtime_executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+  "host": {
+    "windows_build": 26200,
+    "windows_ubr": null,
+    "ubr_observed": false,
+    "architecture": "ARM64",
+    "acceptance_scope": "x64_on_arm_emulation",
+    "ordinary_user_status": "not_reported"
+  },
+  "transport": {
+    "status": "transport_only",
+    "transport_passed": true,
+    "checks": {
+      "transport_parent_child": true,
+      "fixture_loss": true,
+      "safe_psec_stop": true,
+      "host_proxy_dns_default_routes_unchanged": true
+    },
+    "acceptance_passed": false
+  },
+  "manager_fixture": {
+    "status": "manager_fixture_only",
+    "manager_fixture_passed": true,
+    "normal_stop_passed": true,
+    "core_loss_passed": true,
+    "transport_passed": true,
+    "host_proxy_dns_default_routes_unchanged": true,
+    "production_importer_rejects_loopback": true,
+    "compiled_configuration_unchanged": true,
+    "acceptance_passed": false
+  },
+  "headless_browser": {
+    "status": "failed",
+    "browser_fixture_passed": false,
+    "failure_phase": "real_edge_launch_1",
+    "wrapper_exit_code": 3221225477,
+    "status_access_violation": true,
+    "natural_headless_exit": false,
+    "cleanup_proven": true,
+    "owned_workload_cleanup_proven": true,
+    "resources_closed": true,
+    "fixture_workers_closed": true,
+    "private_profile_removed": true,
+    "host_network_unchanged": true
+  },
+  "limitations": [
+    "These component checks do not establish product acceptance or overall support on ARM64.",
+    "The browser diagnostic was headless and failed; it provides no interactive GUI proof or GUI compatibility guarantee.",
+    "The report OS build is 26200; UBR is not recorded in these component reports and is left unknown.",
+    "The reports do not record whether the process ran as an ordinary user.",
+    "This is x64-on-ARM emulation evidence, not native x64 evidence.",
+    "No LAN inbound behavior was tested."
+  ]
+}

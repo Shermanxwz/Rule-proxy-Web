@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "source_commit": "a963b7ac8b998aedc4cab5351caf1e24e7574b57",
+  "status": "diagnostic_only_failed",
+  "acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "real_node_passed": false,
+  "transport_passed": false,
+  "product_runtime_replaced": false,
+  "g2_adopted_as_product_runtime": false,
+  "production_policy_unchanged": true,
+  "host_network_unchanged": true,
+  "official_update": {
+    "completed": true,
+    "packages_verified": true,
+    "staged_package_count": 2,
+    "reboot_count": 1,
+    "actual_build": 26200,
+    "actual_ubr": 9711
+  },
+  "candidate_executor": {
+    "sha256": "b1f74625ed4009e09a725c4425607330a37614743e32928499164693262e7555",
+    "source_diagnostic_only": true,
+    "release_eligible": false,
+    "private_network_capability_preserved": true,
+    "capabilities_null": false,
+    "network_table_unchanged": true,
+    "exact_internal_tcp_only": true,
+    "caller_capabilities_must_be_empty": true,
+    "automatic_internet_client_removed": true,
+    "policy_control": {
+      "ingress_default": "allow",
+      "host_loopback": "deny"
+    }
+  },
+  "precapture_probe": {
+    "status": "probe_passed",
+    "warmup_before_capture": true,
+    "enumerate_paths_feature_supported": true,
+    "psec_1_1_diagnostic_requested": true,
+    "kernel_contract_version_confirmed": false,
+    "acceptance_passed": false
+  },
+  "network_experiment": {
+    "status": "failed",
+    "source_policy_variant": "private_network_capability_control",
+    "selected_policy_count": 1,
+    "selected_model_label": "model1_internal_ingress_deny",
+    "effective_ingress": {
+      "default": "allow",
+      "hostLoopback": "deny"
+    },
+    "proxy_tcp_roundtrips": 0,
+    "proxy_tcp_checks": {
+      "parent": {
+        "result": "failed",
+        "winerror": 10013
+      },
+      "child": {
+        "result": "failed",
+        "winerror": 10013
+      }
+    },
+    "transport_roundtrip_observed": false,
+    "cleanup_proven": true,
+    "acceptance_passed": false
+  },
+  "native_dns": {
+    "status": "complete_capture_with_contained_queries_observed",
+    "scope": "default_test_vm_resolver_configuration",
+    "capture_format_complete": true,
+    "packet_records": 129,
+    "unknown_records": 0,
+    "all_positive_controls_complete_and_ordered": true,
+    "all_api_groups_execution_proven": true,
+    "contained_questions_absent": false,
+    "contained_query_count": 8,
+    "contained_query_counts_by_actor": {
+      "parent": {
+        "getaddrinfo": 2,
+        "dns_a": 1,
+        "dns_aaaa": 1
+      },
+      "child": {
+        "getaddrinfo": 2,
+        "dns_a": 1,
+        "dns_aaaa": 1
+      }
+    },
+    "observed_api_return_codes": {
+      "getaddrinfo": 11001,
+      "dns_a": 9501,
+      "dns_aaaa": 9501
+    },
+    "kernel_denial_proven": false,
+    "acceptance_passed": false
+  },
+  "udp_capture": {
+    "overall_status": "incomplete",
+    "unknown_records": 0,
+    "overall_execution_proven": false,
+    "overall_packet_analysis_complete": false,
+    "preferred_policy_groups_individually_complete": 4,
+    "preferred_groups_positive_controls_and_ordering_complete": true,
+    "preferred_groups_contained_markers_absent": true,
+    "limitation": "Other fixed variant groups were unselected; the complete UDP boundary is not established."
+  },
+  "cleanup_proven": true,
+  "limitations": [
+    "G2 was a source-only diagnostic executor and was not adopted by the product.",
+    "The diagnostic failed: proxy TCP had zero roundtrips and contained native DNS queries were observed.",
+    "PSEC 1.1 feature support was observed, but its kernel contract version was not confirmed.",
+    "Overall UDP evidence is incomplete.",
+    "LAN inbound behavior was not tested; no claim about LAN isolation is made."
+  ]
+}

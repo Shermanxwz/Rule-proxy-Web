@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "f0ef0344707b9910c40b1840cf823d50a9a5f3eb",
+  "commit_tree": "edc5e8b8da1f45c888a6a60e07c9ee818007b14f",
+  "workflow_run": 38692518809,
+  "artifact_id": 11961971247,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_zip_bytes": 3739,
+  "artifact_zip_sha256": "d61c641f93ae8e4b09eae1306cc1585d6eb398e175d34ddf5dbc06962d01271a",
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38692518809",
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "bytes": 5239,
+      "sha256": "0e77f5659b52a537c159339cd2bf6ba69b9b40642e275f45681adbb85134db3f",
+      "copy_format": "sanitized scalar summary only; raw artifact retained under ignored dist"
+    },
+    {
+      "name": "last-screen.png",
+      "bytes": 3057,
+      "sha256": "05713dbacb00cfa92e8cad1581147b0f1349f6ee14c97d122440aff36011bd53",
+      "copy_format": "digest only; image excluded from public archive"
+    }
+  ],
+  "tested_package_sha256": "db778ab6df2f404f5dc5f69c5f06b1d1701e7d7ba236ba07a22a7b3e93f80f70",
+  "status": "infrastructure_timeout",
+  "source_diagnostic_only": true,
+  "product_runtime_replaced": false,
+  "execution_mode": "source_executor_diagnostic",
+  "gui_diagnostic_only_requested": true,
+  "chromium_gui_control_requested": true,
+  "diagnostic_executor_attested": false,
+  "excluded_from_archive": [
+    "raw logs",
+    "screenshots",
+    "temporary paths",
+    "PIDs/SIDs",
+    "DNS names/nonces",
+    "VM media, credentials and temporary capability URLs"
+  ]
+}

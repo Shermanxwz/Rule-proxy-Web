@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "874fd86c2225bb68cfe3027d059399d252acb555",
+  "commit_tree": "a431435c4120af022616a5f415e94dca0ac00279",
+  "workflow_run": 38712875683,
+  "native_job": 116349212969,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38712875683",
+  "artifact_id": 11961283910,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "65d67c627a828e144b4f2f593d18dd2371b9302683737cb5678ec985d8d7e31b",
+  "evidence_files": [
+    {
+      "name": "windows-11-transport.json",
+      "bytes": 13633,
+      "sha256": "817272b2aab5f90cdcf27451a14c97dd4c8b6ba1142047e695282f0f87443e80",
+      "copy_format": "digest only; raw artifact retained outside archive"
+    },
+    {
+      "name": "windows-11-manager.json",
+      "bytes": 18680,
+      "sha256": "2a589d18900a758ac34a0f758deb0c9c640372f3e31ba0f36426ea46e6d00e3d",
+      "copy_format": "digest only; raw artifact retained outside archive"
+    },
+    {
+      "name": "windows-browser.json",
+      "bytes": 2722,
+      "sha256": "156a5e68d4f9b2928816942c111b2e422ded00ad196248c26a1f030e4b585b40",
+      "copy_format": "digest only; raw artifact retained outside archive"
+    }
+  ],
+  "status": "component_diagnostics_only",
+  "product_acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "environment": {
+    "platform": "Windows",
+    "windows_build": 26200,
+    "windows_ubr": null,
+    "windows_ubr_observed": false,
+    "host_architecture": "ARM64",
+    "python_architecture": "ARM64",
+    "acceptance_scope": "x64_on_arm_emulation",
+    "ordinary_user_status": "not_reported"
+  },
+  "runtime_identity": {
+    "mxc_version": "1.0.0",
+    "mxc_executor_variant": "g-patched",
+    "mxc_executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+    "mxc_bundle_sha256": "89a9390d9db7f65c82c52ac8c545bff88d6e7577998bea9e5ab93d86f2be90a0",
+    "mihomo_version": "v1.19.32",
+    "core_sha256": "04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314",
+    "runtime_manifest_verified": true
+  },
+  "excluded_from_archive": [
+    "raw logs and screenshots",
+    "raw process identifiers",
+    "temporary paths and user data",
+    "VM media, credentials and capability URLs"
+  ]
+}

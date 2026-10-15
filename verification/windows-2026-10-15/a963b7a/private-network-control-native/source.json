@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "a963b7ac8b998aedc4cab5351caf1e24e7574b57",
+  "commit_tree": "f989d22632452d1144d73752b0ce074a12b454b9",
+  "workflow_run": 38700536713,
+  "native_job": 116308149380,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38700536713",
+  "artifact_id": 11961076178,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "ec2a2ac0a9a6ad9a3735d897036363a733b02e848ac1b8b8faaf967a037bba77",
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "bytes": 34518,
+      "sha256": "dbe6c814410bf55fd93546524389874c5a8b75d505e58863c5ab011a27c55e25",
+      "copy_format": "digest only; raw artifact retained outside archive"
+    },
+    {
+      "name": "guest-result.json",
+      "bytes": 230673,
+      "sha256": "dd9db7a639cd8f0e2a1b96fe225eaf0a0029801e24e724b311347549b476d84d",
+      "copy_format": "digest only; raw artifact retained outside archive"
+    },
+    {
+      "name": "windows-experiments.json",
+      "bytes": 75474,
+      "sha256": "150d624bb84bdb371c26e8b09bada78b5aad4d3d42b6ffc512da2f61eee411a6",
+      "copy_format": "digest only; raw artifact retained outside archive"
+    },
+    {
+      "name": "windows-wire-evidence.json",
+      "bytes": 25995,
+      "sha256": "fbd13e3637df1037624f54043bfb0bf200c7e3256d57d4db69010603af9656ff",
+      "copy_format": "digest only; raw artifact retained outside archive"
+    },
+    {
+      "name": "windows-probe.json",
+      "bytes": 1964,
+      "sha256": "8af215f153a41dcbbbac53266bf82b27e2fbd5bd9bc74969d792b187c2880604",
+      "copy_format": "digest only; raw artifact retained outside archive"
+    }
+  ],
+  "tested_package_sha256": "8f561bd95134c7a6d65ae27a822e0d38bf554e256462ddc89dec69a67832abc4",
+  "status": "diagnostic_failed",
+  "product_acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "execution": {
+    "source_diagnostic_only": true,
+    "network_diagnostic_only": true,
+    "ingress_controls_diagnostic": true,
+    "psec_1_1_diagnostic": true,
+    "execution_mode": "source_executor_diagnostic",
+    "native_x64": true,
+    "actual_build": 26200,
+    "actual_ubr": 9711
+  },
+  "source_executor": {
+    "upstream_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "executor_sha256": "b1f74625ed4009e09a725c4425607330a37614743e32928499164693262e7555",
+    "original_runtime_sha256": "8a6d1db4dd1846981127d9014741be18b094d07be967765dff6754bda1d40259",
+    "original_file_sha256": "a03b8889d8d92fe854f46d56c702360403c6889e79b48b42f8b2535b66189491",
+    "patch_sha256": "c39ef13da834b330deb028a7a273ad154cbdd07ee5c60c917e9382cf25557a62",
+    "patched_file_sha256": "4c6915b28b6e09a35508001f70087499ececc4861ba5e2b896c5dd122c5f3759",
+    "target": "x86_64-pc-windows-msvc",
+    "toolchain": "1.93"
+  },
+  "official_update": {
+    "completed": true,
+    "packages_verified": true,
+    "staged_package_count": 2,
+    "reboot_count": 1,
+    "actual_build": 26200,
+    "actual_ubr": 9711
+  },
+  "excluded_from_archive": [
+    "raw logs, packet captures and screenshots",
+    "raw policy and process identifiers",
+    "temporary paths, DNS names/nonces",
+    "VM media, credentials and capability URLs"
+  ]
+}

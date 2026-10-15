@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85",
+  "commit_tree": "de08b6f91b828927a1a997b6ebea5c9822015fc4",
+  "workflow_run": 38704850050,
+  "native_job": 116322430072,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38704850050",
+  "artifact_id": 11962027925,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "d02a20bc8ee2c3af629950a227d52434f9ca769602fab2fa567d07adbd16653e",
+  "artifact_bytes": 51500,
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "bytes": 34758,
+      "sha256": "0f1d4d8720809ce7bbe3763b616b165bcf4030618526e7144156031f5cee61fa",
+      "source_member": "windows-vm-summary.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "guest-result.json",
+      "bytes": 228357,
+      "sha256": "8568c1e05fd1a5f4a284be5eea1bf9758bb0d9701f1172b4e281c01d332dc036",
+      "source_member": "guest-result.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "windows-experiments.json",
+      "bytes": 73752,
+      "sha256": "4493814587ec724e6bc6485cfc8bb0989132afb9daad5139ab20067e126be35b",
+      "source_member": "windows-experiments.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "windows-wire-evidence.json",
+      "bytes": 25987,
+      "sha256": "bb3f08e4f54cdcd0977488b4e74aefdcce1c453137099ff408d71773c87242f9",
+      "source_member": "windows-wire-evidence.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    },
+    {
+      "name": "windows-probe.json",
+      "bytes": 1964,
+      "sha256": "8af215f153a41dcbbbac53266bf82b27e2fbd5bd9bc74969d792b187c2880604",
+      "source_member": "windows-probe.json",
+      "copy_format": "digest only; raw artifact retained locally"
+    }
+  ],
+  "tested_package_sha256": "6c19b7d901aa0d8c130bded5052a58ed1eb2b50a623a8aac9bd2e904f8a31dd4",
+  "status": "diagnostic_failed",
+  "product_acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "execution": {
+    "execution_mode": "source_executor_diagnostic",
+    "source_diagnostic_only": true,
+    "network_diagnostic_only": true,
+    "native_x64": true,
+    "ordinary_user": true,
+    "actual_build": 26200,
+    "actual_ubr": 9711,
+    "psec_1_1_diagnostic": false,
+    "singleton_port_range_diagnostic": false
+  },
+  "product_runtime": {
+    "executor_sha256": "8a6d1db4dd1846981127d9014741be18b094d07be967765dff6754bda1d40259",
+    "variant": "stock",
+    "replaced": false
+  },
+  "source_executor": {
+    "status": "built",
+    "upstream_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+    "patch_sha256": "3b0c5e616e3575d5be0ec3f34abd9ba6dd8f213eb097e836ab80c7a60dda112a",
+    "patch_name": "exact_internal_tcp_without_automatic_internet_client",
+    "source_diagnostic_only": true,
+    "acceptance_passed": false
+  },
+  "excluded_from_archive": [
+    "raw logs, packet captures and screenshots",
+    "raw process identifiers, creation times and nonce-bound names",
+    "temporary paths, user data and VM media",
+    "credentials and capability URLs"
+  ]
+}

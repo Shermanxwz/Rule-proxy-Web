@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "source_commit": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85",
+  "status": "diagnostic_only_failed",
+  "product_acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "real_node_passed": false,
+  "transport_passed": false,
+  "product_runtime_replaced": false,
+  "production_policy_unchanged": true,
+  "official_update": {
+    "completed": true,
+    "packages_verified": true,
+    "staged_package_count": 2,
+    "reboot_count": 1,
+    "actual_build": 26200,
+    "actual_ubr": 9711,
+    "task_unregistered": true
+  },
+  "host": {
+    "native_x64": true,
+    "ordinary_user": true
+  },
+  "runtime_identity": {
+    "stock_product_executor_sha256": "8a6d1db4dd1846981127d9014741be18b094d07be967765dff6754bda1d40259",
+    "source_test_executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+    "source_test_executor_is_product_runtime": false,
+    "source_executor_acceptance_passed": false
+  },
+  "probe": {
+    "status": "supported_only",
+    "base_container_supported": true,
+    "acceptance_passed": false
+  },
+  "policy": {
+    "source_policy_variant": "unchanged",
+    "selected_model": "model1_internal_ingress_deny",
+    "egress_default": "deny",
+    "egress_allow_scope": "one exact internal loopback TCP endpoint",
+    "ingress_default": "deny",
+    "host_loopback": "deny",
+    "caller_capabilities": null,
+    "psec_1_1_or_enumerate_paths_control": false,
+    "singleton_port_range_diagnostic": false
+  },
+  "network_experiment": {
+    "status": "observed",
+    "proxy_roundtrips": 0,
+    "transport_roundtrip_observed": false,
+    "tcp": {
+      "parent_proxy_self_http_socks": {
+        "result": "all failed",
+        "winerror": 10013
+      },
+      "child_proxy_parent_http_socks": {
+        "result": "all failed",
+        "winerror": 10013
+      }
+    },
+    "parent_and_child_cleanup_proven": true,
+    "runtime_resources_closed": true,
+    "acceptance_passed": false
+  },
+  "native_dns": {
+    "scope": "native_x64_using_default_system_server_list",
+    "api_execution": "each of parent and child attempted getaddrinfo, DnsQueryA and DnsQueryAAAA with nonce-bound names",
+    "api_return_codes_by_role": {
+      "parent": {
+        "getaddrinfo": 11001,
+        "dns_a": 5,
+        "dns_aaaa": 5
+      },
+      "child": {
+        "getaddrinfo": 11001,
+        "dns_a": 5,
+        "dns_aaaa": 5
+      }
+    },
+    "capture_status": "complete_for_selected_native_dns_groups",
+    "packet_records": 117,
+    "unknown_records": 0,
+    "capture_flushed": true,
+    "positive_controls_complete_and_ordered": true,
+    "api_groups_execution_proven": ["getaddrinfo", "dns_a", "dns_aaaa"],
+    "contained_nonce_questions_observed": 0,
+    "contained_questions_absent_in_selected_groups": true,
+    "before_after_controls": {
+      "execution_and_cleanup_proven": true,
+      "control_windows_ordered": true,
+      "each_control_return_codes": {
+        "getaddrinfo": 11001,
+        "dns_a": 9501,
+        "dns_aaaa": 9501
+      }
+    },
+    "kernel_denial_proven": false,
+    "acceptance_passed": false
+  },
+  "udp_capture": {
+    "capture_format_complete": true,
+    "capture_flushed": true,
+    "packet_records": 117,
+    "unknown_records": 0,
+    "overall_report_status": "incomplete",
+    "selected_policy_groups": [
+      "ipv4",
+      "ipv4_unbound",
+      "ipv6",
+      "ipv6_unbound"
+    ],
+    "selected_groups_controls_ordered_and_complete": true,
+    "selected_groups_contained_markers_absent": true,
+    "unselected_policy_groups_sender_execution_proven": false,
+    "overall_execution_proven": false,
+    "acceptance_passed": false
+  },
+  "host_and_cleanup": {
+    "host_proxy_dns_default_routes_unchanged": true,
+    "experiment_cleanup_proven": true,
+    "fixture_cleanup_proven": true,
+    "recovery_records": 0
+  },
+  "limitations": [
+    "The product runtime stayed stock; the G executor was a source-only test candidate.",
+    "The selected internal proxy TCP connections failed with WinError 10013; no transport success was observed.",
+    "Native DNS APIs returned the recorded results, while the selected complete capture contained no nonce queries. This is capture-scope evidence, not proof of a general kernel DNS denial.",
+    "UDP evidence is complete only for the four selected Model1 groups; the whole report is incomplete because other variant senders were not executed.",
+    "No PSEC 1.1/enumerate-paths control, LAN inbound test, Manager fixture, browser fixture or GUI test was run."
+  ]
+}

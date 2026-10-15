@@ -1129,6 +1129,26 @@ raise SystemExit(configuration.get('exit_code', 0))
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 vm.guest_diagnostic_options(config)
 
+    def test_internal_tcp_policy_guest_mode_is_exact_enum_and_network_executor_only(self):
+        config = self.root / "internal-tcp-policy-options.json"
+        valid = {"network_diagnostic_only": True, "test_psec_executor_diagnostic": True,
+                 "internal_tcp_policy_diagnostic": "singleton", "psec_1_1_diagnostic": True}
+        config.write_text(json.dumps(valid), encoding="utf-8")
+        self.assertEqual(vm.guest_diagnostic_options(config)[8], "singleton")
+        for invalid in (
+                {**valid, "internal_tcp_policy_diagnostic": True},
+                {**valid, "internal_tcp_policy_diagnostic": "all"},
+                {**valid, "network_diagnostic_only": False},
+                {**valid, "test_psec_executor_diagnostic": False},
+                {**valid, "gui_diagnostic_only": True},
+                {**valid, "chromium_gui_control_diagnostic": True},
+                {**valid, "singleton_port_range_diagnostic": True},
+                {**valid, "ingress_controls_diagnostic": True},
+        ):
+            config.write_text(json.dumps(invalid), encoding="utf-8")
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                vm.guest_diagnostic_options(config)
+
     def test_standard_profile_layout_guest_gui_keeps_cft_but_adds_no_enum_axis(self):
         workspace = self.guest_control_workspace()
         config = self.root / "standard-profile-vm-config.json"
@@ -1210,6 +1230,168 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe"])
         self.assertEqual(result["experiments_phase"]["status"], "blocked")
         self.assertEqual(result["status"], "failed")
+
+    def test_g3_internal_tcp_policy_is_strictly_network_source_only_and_never_accepts(self):
+        workspace = self.guest_control_workspace({"experiments": {}})
+        config = self.root / "internal-tcp-policy-vm-config.json"
+        valid = {"network_diagnostic_only": True, "test_psec_executor_diagnostic": True,
+                 "internal_tcp_policy_diagnostic": "loopback"}
+        config.write_text(json.dumps(valid), encoding="utf-8")
+        clean = {"cleanup_proven": True,
+                 "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}],
+                 "variants": [{"process_started": True, "descendant_cleanup_proven": True,
+                               "resources_closed": True}]}
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            return {"name": name, "status": "passed", "exit_code": 0}, \
+                {"status": "supported_only"} if name == "probe" else copy.deepcopy(clean), ""
+        metadata = {"diagnostic_internal_tcp_policy": "loopback",
+                    "network_scope": "all TCP destinations under 127.0.0.1/32",
+                    "source_diagnostic_only": True, "release_eligible": False,
+                    "default_product_runtime_replaced": False}
+        bundle = (workspace / "candidate.exe", workspace / "candidate.json", metadata)
+        with mock.patch.object(vm, "guest_test_executor", return_value=bundle), \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "g3-reports",
+                                         vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "experiments"])
+        command = calls[1][1]
+        index = command.index("--internal-tcp-policy-diagnostic")
+        self.assertEqual(command[index + 1], "loopback")
+        self.assertIn("--test-psec-executor", command)
+        self.assertIn("--preferred-policy-only", command)
+        self.assertTrue(result["source_diagnostic_only"])
+        self.assertEqual(result["internal_tcp_policy_diagnostic"], "loopback")
+        self.assertEqual(result["source_policy_variant"], "internal_tcp_loopback_control")
+        self.assertFalse(result["product_acceptance_passed"])
+        self.assertFalse(result["full_acceptance_passed"])
+        self.assertFalse(result["product_runtime_replaced"])
+
+    def test_g3_private_config_rejects_wrong_modes_and_axes_before_processes(self):
+        config = self.root / "internal-tcp-policy-invalid.json"
+        workspace = self.guest_control_workspace()
+        base = {"network_diagnostic_only": True, "test_psec_executor_diagnostic": True,
+                "internal_tcp_policy_diagnostic": "singleton"}
+        invalid = [
+            {**base, "internal_tcp_policy_diagnostic": "other"},
+            {**base, "internal_tcp_policy_diagnostic": True},
+            {**base, "network_diagnostic_only": False},
+            {**base, "test_psec_executor_diagnostic": False},
+            {**base, "gui_diagnostic_only": True},
+            {**base, "ingress_controls_diagnostic": True},
+            {**base, "singleton_port_range_diagnostic": True},
+        ]
+        for value in invalid:
+            config.write_text(json.dumps(value), encoding="utf-8")
+            with self.subTest(value=value), mock.patch.object(vm, "run_guest_phase") as phase:
+                result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports",
+                                             vm_config=config)
+                phase.assert_not_called()
+            self.assertEqual(result["diagnostic_configuration_error"], "invalid_private_configuration")
+
+    def test_g3_cli_requires_network_and_candidate_and_rejects_other_control_axes(self):
+        base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                "--artifacts", str(self.root / "artifacts"), "--internal-tcp-policy-diagnostic", "singleton"]
+        executor = ["--test-psec-executor", "candidate.exe", "--test-psec-manifest", "candidate.json"]
+        with mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+            with self.assertRaises(SystemExit) as failure:
+                vm.main(base + ["--network-diagnostic-only"] + executor + ["--ingress-controls-diagnostic"])
+            self.assertEqual(failure.exception.code, 2)
+            run.assert_not_called()
+        with mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+            with self.assertRaises(SystemExit) as failure:
+                vm.main(base + ["--network-diagnostic-only"])
+            self.assertEqual(failure.exception.code, 2)
+            run.assert_not_called()
+        with mock.patch.object(vm, "run", return_value=self.passed_result()) as run:
+            self.assertEqual(vm.main(base + ["--network-diagnostic-only"] + executor
+                                     + ["--psec-1-1-diagnostic"]), 1)
+            self.assertEqual(run.call_args.args[0].internal_tcp_policy_diagnostic, "singleton")
+
+    def test_unset_internal_policy_cli_defaults_to_none_for_normal_runtime(self):
+        base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                "--artifacts", str(self.root / "artifacts")]
+        with mock.patch.object(vm, "run", return_value=self.passed_result()) as run:
+            vm.main(base)
+            self.assertIsNone(run.call_args.args[0].internal_tcp_policy_diagnostic)
+        for args in (SimpleNamespace(artifacts=self.root / "run-none"),
+                     SimpleNamespace(artifacts=self.root / "run-absent")):
+            if hasattr(args, "internal_tcp_policy_diagnostic"):
+                args.internal_tcp_policy_diagnostic = None
+            with mock.patch.object(vm, "require_kvm", side_effect=RuntimeError("stop before VM setup")):
+                result = vm.run(args)
+            self.assertEqual(result["internal_tcp_policy_diagnostic"], "none")
+            self.assertFalse(result["source_diagnostic_only"])
+
+    def test_g3_host_report_attestation_requires_mode_scope_and_source_candidate_digest(self):
+        network_module = vm.network_executor_verifier(ROOT)
+
+        def report_for(mode):
+            scope = ("127.0.0.1/32 TCP with the selected exact port" if mode == "singleton"
+                     else "all TCP destinations under 127.0.0.1/32")
+            metadata = {"executor_sha256": "a" * 64, "diagnostic_internal_tcp_policy": mode,
+                        "network_scope": scope, "source_diagnostic_only": True,
+                        "release_eligible": False, "default_product_runtime_replaced": False}
+            policy = network_module.network_policy(network_module.PREFERRED_VARIANT, 43871, 42111,
+                                                   internal_tcp_policy=mode)
+            report = {"internal_tcp_policy_diagnostic": mode,
+                      "internal_tcp_policy_diagnostic_requested": mode,
+                      "source_policy_variant": f"internal_tcp_{mode}_control",
+                      "policy_selection": f"internal_tcp_{mode}_control",
+                      "selected_variants": [network_module.PREFERRED_VARIANT],
+                      "diagnostic_port_encoding": "singleton_range" if mode == "singleton" else "all_tcp_loopback_ports",
+                      "source_diagnostic_only": True, "production_policy_unchanged": True,
+                      "product_runtime_replaced": False, "full_acceptance_passed": False,
+                      "acceptance_passed": False, "real_node_passed": False,
+                      "selected_executor": {"selection": "source_candidate", "executor_sha256": "a" * 64,
+                                            "product_runtime_replaced": False},
+                      "test_psec_executor": {**metadata, "executor_sha256": "a" * 64},
+                      "selected_executor_precapture_probe": {
+                          "status": "probe_passed", "scope": "source_only_internal_tcp_policy_control_probe",
+                          "executor_selection": "source_candidate", "executor_sha256": "a" * 64,
+                          "source_policy_variant": f"internal_tcp_{mode}_control",
+                          "internal_tcp_policy_diagnostic": mode, "production_policy_unchanged": True,
+                          "warmup_before_capture": True,
+                          "backend_confirmation": {"tier": "base-container", "needs_dacl_augmentation": False}},
+                      "variants": [{"name": network_module.PREFERRED_VARIANT,
+                                    "internal_tcp_policy_diagnostic": mode,
+                                    "source_policy_variant": f"internal_tcp_{mode}_control",
+                                    "production_policy_unchanged": True, "policy": policy}]}
+            report["candidate_precapture_probe"] = copy.deepcopy(report["selected_executor_precapture_probe"])
+            return metadata, report
+
+        for mode in ("singleton", "loopback"):
+            metadata, report = report_for(mode)
+            vm.verify_internal_tcp_policy_report(report, mode, metadata)
+        for key, value in (("internal_tcp_policy_diagnostic", "singleton"),
+                           ("production_policy_unchanged", False),
+                           ("source_diagnostic_only", False)):
+            invalid = copy.deepcopy(report_for("loopback")[1])
+            invalid[key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, "did not attest"):
+                vm.verify_internal_tcp_policy_report(invalid, "loopback", report_for("loopback")[0])
+        metadata, report = report_for("loopback")
+        invalid = copy.deepcopy(report)
+        invalid["test_psec_executor"]["executor_sha256"] = "b" * 64
+        with self.assertRaisesRegex(RuntimeError, "did not attest"):
+            vm.verify_internal_tcp_policy_report(invalid, "loopback", metadata)
+        invalid = copy.deepcopy(report)
+        invalid["variants"][0]["policy"]["network"]["ingress"]["hostLoopback"] = "allow"
+        with self.assertRaisesRegex(RuntimeError, "did not attest"):
+            vm.verify_internal_tcp_policy_report(invalid, "loopback", metadata)
+        invalid = copy.deepcopy(report)
+        invalid["variants"][0]["policy"]["network"]["egress"]["allow"][0]["to"].append({"cidr": "10.0.0.0/8"})
+        with self.assertRaisesRegex(RuntimeError, "did not attest"):
+            vm.verify_internal_tcp_policy_report(invalid, "loopback", metadata)
+        invalid = copy.deepcopy(report)
+        invalid["variants"][0]["policy"]["capabilities"] = ["internetClient"]
+        with self.assertRaisesRegex(RuntimeError, "did not attest"):
+            vm.verify_internal_tcp_policy_report(invalid, "loopback", metadata)
+        metadata, invalid = report_for("singleton")
+        invalid["variants"][0]["policy"]["network"]["egress"]["allow"][0]["ports"][0]["unexpected"] = True
+        with self.assertRaisesRegex(RuntimeError, "did not attest"):
+            vm.verify_internal_tcp_policy_report(invalid, "singleton", metadata)
 
     def test_singleton_encoding_is_forwarded_only_in_original_sdk_network_diagnostics(self):
         workspace = self.guest_control_workspace({"experiments": {}})
@@ -2488,6 +2670,14 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertIn('--psec-1-1-diagnostic', run_step['run'])
         self.assertIn('PSEC_1_1_DIAGNOSTIC', validation['run'])
         self.assertIn('G2 GUI+CfT', validation['run'])
+        internal_option = trigger['workflow_dispatch']['inputs']['internal_tcp_policy_diagnostic']
+        self.assertEqual(internal_option['type'], 'choice')
+        self.assertEqual(internal_option['options'], ['none', 'singleton', 'loopback'])
+        self.assertEqual(internal_option['default'], 'none')
+        self.assertIn('inputs.internal_tcp_policy_diagnostic', run_step['env']['RULEPROXY_VM_INTERNAL_TCP_POLICY'])
+        self.assertIn('--internal-tcp-policy-diagnostic', run_step['run'])
+        self.assertIn('INTERNAL_TCP_POLICY', validation['env'])
+        self.assertIn('G3', validation['run'])
         self.assertIn('gui_args+=(--ingress-controls-diagnostic)', run_step['run'])
         g2_step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-ingress-control-executor')
         self.assertEqual(g2_step['with']['run-id'], 38699568831)
@@ -2495,6 +2685,7 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         guest_runner = (ROOT / '.github/windows-vm-run.ps1').read_text(encoding='utf-8')
         self.assertIn("$result.test_psec_executor = $collected.test_psec_executor", guest_runner)
         self.assertIn("'ingress_controls_diagnostic'", guest_runner)
+        self.assertIn("'internal_tcp_policy_diagnostic'", guest_runner)
         self.assertIn("'standard_profile_layout_control'", guest_runner)
         self.assertIn("'additional_directory_grants'", guest_runner)
         step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
@@ -2505,6 +2696,25 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertIn('inputs.capability_executor_diagnostic', step['if'])
         self.assertEqual(job['permissions']['actions'], 'read')
         self.assertEqual(workflow['jobs']['release']['if'], "github.event_name == 'push' && github.ref == 'refs/heads/main'")
+
+    def test_g3_producer_is_manual_boolean_build_and_keeps_existing_g_artifact_path(self):
+        import yaml
+        producer = yaml.safe_load((ROOT / '.github/workflows/mxc-capability.yml').read_text(encoding='utf-8'))
+        trigger = producer.get('on', producer.get(True))
+        option = trigger['workflow_dispatch']['inputs']['diagnostic_internal_tcp_policy']
+        self.assertEqual(option, {'description': option['description'], 'required': False,
+                                  'type': 'boolean', 'default': False})
+        build = next(step for step in producer['jobs']['executor']['steps']
+                     if step.get('name') == 'Build only the diagnostic native executor')
+        self.assertIn('--diagnostic-internal-tcp-policy', build['run'])
+        uploads = [step for step in producer['jobs']['executor']['steps'] if step.get('uses') == 'actions/upload-artifact@v7']
+        self.assertEqual(len(uploads), 2)
+        self.assertIn("!inputs.diagnostic_internal_tcp_policy", uploads[0]['if'])
+        self.assertIn("inputs.diagnostic_internal_tcp_policy", uploads[1]['if'])
+        self.assertEqual(uploads[1]['with']['name'], 'mxc-internal-tcp-policy-executor')
+        self.assertIn("!inputs.diagnostic_internal_tcp_policy", producer['jobs']['arm-observation']['if'])
+        guest_runner = (ROOT / '.github/windows-vm-run.ps1').read_text(encoding='utf-8')
+        self.assertIn("'internal_tcp_policy_diagnostic'", guest_runner)
 
 
 if __name__ == "__main__":

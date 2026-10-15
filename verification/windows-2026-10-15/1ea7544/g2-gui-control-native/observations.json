@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "source_commit": "1ea7544c445253b0d0aaa80b6290f7c5b2c28522",
+  "status": "diagnostic_only",
+  "acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "official_update": {
+    "completed": true,
+    "actual_build": 26200,
+    "actual_ubr": 9711,
+    "packages_verified": true,
+    "staged_package_count": 2,
+    "reboot_count": 1,
+    "task_unregistered": true
+  },
+  "source_executor": {
+    "status": "built",
+    "executor_sha256": "b1f74625ed4009e09a725c4425607330a37614743e32928499164693262e7555",
+    "patch_sha256": "c39ef13da834b330deb028a7a273ad154cbdd07ee5c60c917e9382cf25557a62",
+    "patch": {
+      "capabilities_null": false,
+      "automatic_internet_client_removed": true,
+      "private_network_capability_preserved": true,
+      "exact_internal_tcp_only": true,
+      "network_table_unchanged": true,
+      "caller_capabilities_must_be_empty": true,
+      "host_loopback_must_remain_deny": true
+    },
+    "acceptance_passed": false
+  },
+  "candidate_probe": {
+    "status": "supported_only",
+    "base_container_probe_supported": true,
+    "acceptance_passed": false
+  },
+  "gui_diagnostic": {
+    "status": "failed",
+    "source_diagnostic_only": true,
+    "chromium_gui_control_diagnostic": true,
+    "ingress_controls_diagnostic": true,
+    "source_policy_variant": "private_network_and_localappdata_control",
+    "product_browser_replaced": false,
+    "product_runtime_replaced": false,
+    "failure_stage": "gui_context_probe",
+    "failure_class": "UnsupportedRuntimeError",
+    "outside_context_query": {
+      "ordinary_interactive_desktop": true,
+      "environment_variables_present": true,
+      "shgetfolderpath_success": true,
+      "shgetknownfolderpath_flags_zero_success": true,
+      "shgetknownfolderpath_without_verify_success": true,
+      "known_folder_allocations_freed": true,
+      "without_verify_path_matches_localappdata_environment": true,
+      "process_token_is_app_container": false
+    },
+    "contained_context_report_produced": false,
+    "context_wrapper_retained": false,
+    "context_runtime_resources_retained": false,
+    "context_tree_initialized": false,
+    "browser_launch_observed": false,
+    "browser_fixture_passed": false,
+    "cleanup_proven": true,
+    "outer_job_cleanup_proven": true,
+    "host_proxy_dns_default_routes_unchanged": true,
+    "interpretation": "Failure occurred in the context-probe phase before a contained context report or browser launch was observed. The ordinary outside-context KnownFolder results succeeded. This run does not establish GUI compatibility or a KnownFolder failure cause."
+  },
+  "network_boundary": {
+    "status": "incomplete",
+    "network_boundary_passed": false,
+    "reason": "Captured VM NIC egress evidence was not flushed and attested."
+  },
+  "limitations": [
+    "The source executor is an unadopted diagnostic and preserves privateNetworkClientServer; capabilities_null is false.",
+    "LAN inbound behavior was not tested.",
+    "No contained GUI context report or Chromium launch was observed; the early failure does not establish GUI incompatibility.",
+    "Host-side proxy, DNS and default-route snapshot check passed; this is not a complete network-boundary proof.",
+    "Transport, Manager, browser fixture and package-test phases were skipped; no product acceptance passed."
+  ]
+}
