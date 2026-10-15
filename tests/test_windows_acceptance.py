@@ -485,6 +485,11 @@ class WindowsAcceptanceTests(unittest.TestCase):
         self.assertFalse(result["public_udp_proven"])
         self.assertFalse(result["system_dns_proven"])
         self.assertTrue(result["host_udp_observation"]["non_delivery_observed"])
+        self.assertTrue(result["wrapper_exit_observed"])
+        self.assertEqual(result["wrapper_exit_code"], 0)
+        self.assertTrue(result["natural_headless_exit"])
+        self.assertTrue(result["owned_workload_cleanup_proven"])
+        self.assertTrue(result["resources_closed"])
         resources.close.assert_called_once()
 
     def test_public_ipv6_no_route_requires_actual_host_fact_and_local_ipv6_access_denial(self):

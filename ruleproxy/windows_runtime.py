@@ -9,6 +9,7 @@ the caller supplies the MXC executable path.
 from __future__ import annotations
 
 import json
+import hashlib
 import ntpath
 import os
 import re
@@ -31,6 +32,76 @@ CONTRACT_VERSION = "1.0.0"
 MIN_PROCESS_BUILD = 26100  # Windows 11 24H2; exact support is confirmed by MXC --probe.
 PROBE_TIMEOUT_SECONDS = 20
 _ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
+_PRODUCT_EXECUTOR_MAX_BYTES = 32 * 1024 * 1024
+
+
+def verify_product_executor_identity(runtime_path: str | os.PathLike[str]) -> Path:
+    """Accept only the pinned product G executor, including byte-identical copies.
+
+    This check is intentionally separate from ``launch``: source diagnostics may
+    exercise other pinned executors, while the shipped Manager must always use G.
+    """
+    from .windows_runtime_pins import MXC_G_EXECUTOR_SHA256
+
+    path = Path(runtime_path)
+
+    def file_identity(info: os.stat_result) -> tuple[int, int, int, int]:
+        return (
+            int(info.st_dev),
+            int(info.st_ino),
+            int(info.st_size),
+            int(getattr(info, "st_mtime_ns", info.st_mtime * 1_000_000_000)),
+        )
+
+    try:
+        info = path.lstat()
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+            raise UnsupportedRuntimeError("MXC 程序必须是普通文件，不能是链接或重解析点。")
+        attributes = getattr(info, "st_file_attributes", 0)
+        if attributes & 0x400:  # FILE_ATTRIBUTE_REPARSE_POINT
+            raise UnsupportedRuntimeError("MXC 程序不能是重解析点。")
+        initial_identity = file_identity(info)
+        if info.st_size <= 0 or info.st_size > _PRODUCT_EXECUTOR_MAX_BYTES:
+            raise UnsupportedRuntimeError("MXC 程序大小异常，已拒绝启动。")
+        digest = hashlib.sha256()
+        total = 0
+        with path.open("rb") as source:
+            opened = os.fstat(source.fileno())
+            if not stat.S_ISREG(opened.st_mode) or file_identity(opened) != initial_identity:
+                raise UnsupportedRuntimeError("MXC 程序在检查期间发生变化，已拒绝启动。")
+            while True:
+                chunk = source.read(min(1024 * 1024, _PRODUCT_EXECUTOR_MAX_BYTES + 1 - total))
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > _PRODUCT_EXECUTOR_MAX_BYTES:
+                    raise UnsupportedRuntimeError("MXC 程序大小异常，已拒绝启动。")
+                digest.update(chunk)
+            after = os.fstat(source.fileno())
+        if total != info.st_size or file_identity(after) != initial_identity:
+            raise UnsupportedRuntimeError("MXC 程序在检查期间发生变化，已拒绝启动。")
+        current = path.lstat()
+        if (
+            not stat.S_ISREG(current.st_mode)
+            or getattr(current, "st_file_attributes", 0) & 0x400
+            or file_identity(current) != initial_identity
+        ):
+            raise UnsupportedRuntimeError("MXC 程序在检查期间发生变化，已拒绝启动。")
+        if digest.hexdigest() != MXC_G_EXECUTOR_SHA256:
+            raise UnsupportedRuntimeError(
+                "所选 MXC 版本不是本工具支持的固定版本。请清空自定义路径以使用内置版本；"
+                "源码目录运行 Setup-Windows.cmd 更新运行组件，运行包请重新解压更新。"
+            )
+        # Pass the exact absolute pathname that was checked. A relative command
+        # could otherwise be resolved through PATH or the working directory.
+        return path.resolve(strict=True)
+    except UnsupportedRuntimeError:
+        raise
+    except OSError as exc:
+        raise UnsupportedRuntimeError(
+            "找不到可用的 MXC 运行组件。请清空自定义路径以使用内置版本；"
+            "源码目录运行 Setup-Windows.cmd 更新运行组件，运行包请重新解压更新。"
+        ) from exc
 
 
 class UnsupportedRuntimeError(RuntimeError):

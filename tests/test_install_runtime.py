@@ -267,11 +267,60 @@ class InstallRuntimeTests(unittest.TestCase):
         with stack:
             install_runtime.build_g_bundle(source, bundle_path)
             with patch.object(install_runtime, "fetch", return_value=bundle) as fetch:
-                self.assertEqual(install_runtime._g_bundle_bytes(), bundle)
+                self.assertEqual(install_runtime._g_bundle_bytes(allow_env_cache=False), bundle)
             fetch.assert_called_once_with(install_runtime.MXC_G_BUNDLE_URL)
-            with patch.object(install_runtime, "fetch", return_value=b"not the pinned artifact"):
+            with patch.object(install_runtime, "fetch", return_value=b"not the pinned artifact") as bad_fetch:
                 with self.assertRaisesRegex(ValueError, "bundle digest"):
-                    install_runtime._g_bundle_bytes()
+                    install_runtime._g_bundle_bytes(allow_env_cache=False)
+            bad_fetch.assert_called_once_with(install_runtime.MXC_G_BUNDLE_URL)
+
+    def test_release_bundle_fetch_accepts_only_fixed_fully_verified_asset(self):
+        stack, _source, _bundle_path, bundle, executor, license_bytes = self.g_bundle_fixture()
+        with stack:
+            response = io.BytesIO(bundle)
+            response.__enter__ = lambda: response
+            response.__exit__ = lambda *_args: None
+            opener = unittest.mock.Mock(return_value=response)
+            self.assertEqual(install_runtime.fetch_g_bundle_release(opener=opener), bundle)
+            request, = opener.call_args.args
+            self.assertEqual(request.full_url, install_runtime.MXC_G_BUNDLE_URL)
+            self.assertEqual(opener.call_args.kwargs, {"timeout": 30})
+
+            bad_response = io.BytesIO(b"wrong asset bytes")
+            bad_response.__enter__ = lambda: bad_response
+            bad_response.__exit__ = lambda *_args: None
+            with self.assertRaisesRegex(ValueError, "bundle digest"):
+                install_runtime.fetch_g_bundle_release(opener=lambda *_a, **_k: bad_response)
+
+            corrupt = b"not a zip"
+            with patch.object(install_runtime, "MXC_G_BUNDLE_SHA256", hashlib.sha256(corrupt).hexdigest()):
+                malformed_response = io.BytesIO(corrupt)
+                malformed_response.__enter__ = lambda: malformed_response
+                malformed_response.__exit__ = lambda *_args: None
+                with self.assertRaisesRegex(ValueError, "invalid"):
+                    install_runtime.fetch_g_bundle_release(
+                        opener=lambda *_a, **_k: malformed_response)
+
+    def test_release_bundle_fallback_signal_is_only_http_404(self):
+        error_404 = urllib.error.HTTPError(install_runtime.MXC_G_BUNDLE_URL, 404, "not published", {}, None)
+        with self.assertRaises(install_runtime.GBundleNotPublished):
+            install_runtime.fetch_g_bundle_release(opener=lambda *_a, **_k: (_ for _ in ()).throw(error_404))
+        for status in (403, 429, 500):
+            error = urllib.error.HTTPError(install_runtime.MXC_G_BUNDLE_URL, status, "transient", {}, None)
+            with self.subTest(status=status), self.assertRaisesRegex(ValueError, f"HTTP {status}"):
+                install_runtime.fetch_g_bundle_release(
+                    opener=lambda *_a, _error=error, **_k: (_ for _ in ()).throw(_error))
+        with self.assertRaises(urllib.error.URLError):
+            install_runtime.fetch_g_bundle_release(
+                opener=lambda *_a, **_k: (_ for _ in ()).throw(urllib.error.URLError("offline")))
+
+    def test_release_bundle_fetch_enforces_size_bound_before_fallback_or_acceptance(self):
+        with patch.object(install_runtime, "MAX_G_BUNDLE_DOWNLOAD", 4):
+            response = io.BytesIO(b"12345")
+            response.__enter__ = lambda: response
+            response.__exit__ = lambda *_args: None
+            with self.assertRaisesRegex(ValueError, "size limit"):
+                install_runtime.fetch_g_bundle_release(opener=lambda *_a, **_k: response)
 
     def test_default_if_needed_upgrades_stock_and_never_replaces_g_with_stock(self):
         stack, source, bundle_path, bundle, executor, license_bytes = self.g_bundle_fixture()

@@ -1073,6 +1073,24 @@ def outside_edge_teardown_proven(report: dict | None) -> bool:
             and not experiment_has_recovery(report))
 
 
+def browser_teardown_proven(report: dict | None) -> bool:
+    """Require explicit contained-browser, fixture-worker and profile teardown facts."""
+    if (not isinstance(report, dict) or report.get("cleanup_proven") is not True
+            or report.get("owned_workload_cleanup_proven") is not True
+            or report.get("resources_closed") is not True
+            or report.get("fixture_workers_closed") is not True
+            or report.get("private_profile_removed") is not True
+            or report.get("host_network_unchanged") is not True
+            or any(key in report for key in ("cleanup_error", "fixture_cleanup_error", "recovery_directory"))):
+        return False
+    checks = report.get("checks")
+    if not isinstance(checks, list):
+        return False
+    snapshots = [check for check in checks if isinstance(check, dict)
+                 and check.get("check") == "host_proxy_dns_default_routes_unchanged"]
+    return len(snapshots) == 1 and snapshots[0].get("status") == "passed"
+
+
 def experiment_teardown_proven(name: str, report: dict | None) -> bool:
     """Permit independent diagnostics after a failed, fully closed collection.
 
@@ -1336,7 +1354,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     if gui_only:
         result.update(gui_diagnostic_only=True, source_diagnostic_only=True,
                       full_acceptance_passed=False, product_acceptance_passed=False,
-                      execution_mode="original_sdk", product_runtime_replaced=False)
+                      execution_mode="packaged_product_runtime", product_runtime_replaced=False)
         if ingress_controls:
             result.update(ingress_controls_diagnostic=True,
                           source_policy_variant="private_network_and_localappdata_control")
@@ -1441,7 +1459,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                       source_policy_variant=("private_network_capability_control" if ingress_controls else "unchanged"),
                       full_acceptance_passed=False, product_acceptance_passed=False,
                       acceptance_passed=False, real_node_passed=False,
-                      execution_mode="original_sdk", product_runtime_replaced=False)
+                      execution_mode="packaged_product_runtime", product_runtime_replaced=False)
         probe_command = [executable, "-X", "utf8", "-B", str(acceptance), "--root", str(root),
                          "--probe-only", "--report", str(directory / "probe.json")]
         probe, report, log = run_guest_phase("probe", probe_command, directory,
@@ -1528,7 +1546,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                 recovery["recovery_directory"] = str(report["recovery_directory"])[:1024]
             result["recovery_records"].append(recovery)
     diagnostic_arguments = []
-    result["execution_mode"] = "original_sdk"
+    result["execution_mode"] = "packaged_product_runtime"
     try:
         diagnostic = guest_test_executor(root, workspace, vm_config)
         if diagnostic is not None:
@@ -1616,13 +1634,15 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         # Never bypass an earlier recovery directory by using a new fixture.
         if name in ("transport", "manager", "browser", "gui") and record.get("interpreter_started"):
             pending = record.get("timed_out") or report is None or any(
-                key in report for key in ("cleanup_error", "recovery_directory"))
+                key in report for key in ("cleanup_error", "fixture_cleanup_error", "recovery_directory"))
+            if name == "browser" and not browser_teardown_proven(report):
+                pending = True
             if pending:
                 cleanup_pending = True
                 recovery = {"phase": name, "reason": record.get("error", "Fixture cleanup remained pending"),
                             "descendant_cleanup_proven": False}
                 if report is not None:
-                    for key in ("cleanup_error", "recovery_directory"):
+                    for key in ("cleanup_error", "fixture_cleanup_error", "recovery_directory"):
                         if key in report:
                             recovery[key] = str(report[key])[:1024]
                             record[key] = recovery[key]
@@ -1665,7 +1685,7 @@ def run(args) -> dict:
     standard_profile_layout_control = getattr(args, "standard_profile_layout_control", False) is True
     require_update = not baseline
     summary = {"status": "failed", "baseline_diagnostic": baseline,
-               "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "original_sdk",
+               "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "packaged_product_runtime",
                "product_runtime_replaced": False,
                "gui_diagnostic_only": gui_diagnostic_only,
                "chromium_gui_control_diagnostic": chromium_gui_control_diagnostic,
@@ -1945,7 +1965,7 @@ def run(args) -> dict:
                     summary["wire_evidence"] = capture.result
                     summary["wire_evidence_executor"] = (
                         "source_only_test_executor" if summary.get("diagnostic_executor_attested") is True
-                        else "unverified_diagnostic_execution") if diagnostic_mode else "original_sdk"
+                        else "unverified_diagnostic_execution") if diagnostic_mode else "packaged_product_runtime"
                     if diagnostic_mode:
                         summary["diagnostic_network_boundary"] = diagnostic_network_boundary(
                             capture.result, executor_attested=summary.get("diagnostic_executor_attested") is True,

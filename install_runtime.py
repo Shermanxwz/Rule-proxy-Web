@@ -13,6 +13,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -43,6 +44,32 @@ SKIPPED_MXC_FILES = ("plm.exe",)
 # Written last, so an interrupted download never looks complete.
 MANIFEST = "runtime.json"
 MAX_DOWNLOAD = 160 * 1024 * 1024
+MAX_G_BUNDLE_DOWNLOAD = 32 * 1024 * 1024
+
+
+class GBundleNotPublished(FileNotFoundError):
+    """The fixed release tag exists but its bundle asset is not published yet."""
+
+
+def fetch_g_bundle_release(*, opener=None) -> bytes:
+    """Fetch and fully validate the fixed G asset; only HTTP 404 means bootstrap-needed."""
+    if opener is None:
+        opener = urllib.request.urlopen
+    request = urllib.request.Request(MXC_G_BUNDLE_URL, headers={"User-Agent": "RuleProxyWeb/0.2.2"})
+    try:
+        with opener(request, timeout=30) as response:
+            data = response.read(MAX_G_BUNDLE_DOWNLOAD + 1)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise GBundleNotPublished("Pinned G bundle asset has not been published") from None
+        raise ValueError(f"Pinned G bundle download failed with HTTP {exc.code}") from None
+    if len(data) > MAX_G_BUNDLE_DOWNLOAD:
+        raise ValueError("Pinned G bundle download exceeds its size limit")
+    if hashlib.sha256(data).hexdigest() != MXC_G_BUNDLE_SHA256:
+        raise ValueError("Pinned G runtime bundle digest mismatch")
+    with tempfile.TemporaryDirectory(prefix="ruleproxy-g-bundle-check-") as temporary:
+        _extract_g_bundle(data, Path(temporary))
+    return data
 
 
 def fetch(url: str) -> bytes:

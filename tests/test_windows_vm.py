@@ -62,10 +62,16 @@ class WindowsVmTests(unittest.TestCase):
                                       + [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}]},
                 "browser": {"status": "browser_fixture_only", "browser_fixture_passed": True,
                             "acceptance_passed": False, "real_node_passed": False,
+                            "cleanup_proven": True, "owned_workload_cleanup_proven": True,
+                            "resources_closed": True,
+                            "fixture_workers_closed": True, "private_profile_removed": True,
+                            "host_network_unchanged": True,
                             "host": {"acceptance_scope": "native_x64", "native_machine": 0x8664,
                                      "python_pe_machine": 0x8664}, "checks": [
                                 {"check": name, "status": "passed", "dom_nonce_via_page_ack": True,
                                  "cookie_request_verified": True, "natural_headless_exit": True,
+                                 "wrapper_exit_observed": True, "wrapper_exit_code": 0,
+                                 "owned_workload_cleanup_proven": True, "resources_closed": True,
                                  "private_profile_reused": True}
                                 for name in ("real_edge_launch_1", "real_edge_launch_2")
                             ] + [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}]},
@@ -89,6 +95,41 @@ class WindowsVmTests(unittest.TestCase):
 
     def test_complete_native_transport_report_is_accepted_without_claiming_real_nodes(self):
         vm.verify_result(self.passed_result())
+
+    def test_browser_cleanup_predicate_requires_all_explicit_facts_even_for_failed_headless_result(self):
+        report = copy.deepcopy(self.passed_result()["reports"]["browser"])
+        report.update(status="failed", browser_fixture_passed=False)
+        self.assertTrue(vm.browser_teardown_proven(report))
+        for key in ("cleanup_proven", "owned_workload_cleanup_proven", "resources_closed", "fixture_workers_closed",
+                    "private_profile_removed", "host_network_unchanged"):
+            bad = copy.deepcopy(report)
+            bad[key] = False
+            with self.subTest(key=key):
+                self.assertFalse(vm.browser_teardown_proven(bad))
+            missing = copy.deepcopy(report)
+            del missing[key]
+            with self.subTest(missing=key):
+                self.assertFalse(vm.browser_teardown_proven(missing))
+        bad = copy.deepcopy(report)
+        bad["checks"][-1]["status"] = "failed"
+        self.assertFalse(vm.browser_teardown_proven(bad))
+        for status in ("passed", "failed"):
+            duplicate = copy.deepcopy(report)
+            duplicate["checks"].append({"check": "host_proxy_dns_default_routes_unchanged", "status": status})
+            with self.subTest(duplicate_snapshot=status):
+                self.assertFalse(vm.browser_teardown_proven(duplicate))
+
+    def test_browser_missing_cleanup_facts_block_gui_after_preserving_report(self):
+        report = copy.deepcopy(self.passed_result()["reports"]["browser"])
+        report["fixture_workers_closed"] = False
+        workspace = self.guest_control_workspace({"browser": {"report": report}})
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports")
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(),
+                         ["probe", "transport", "manager", "browser", "package_tests"])
+        self.assertEqual(result["reports"]["browser"], report)
+        self.assertEqual(result["recovery_records"][0]["phase"], "browser")
+        self.assertEqual(next(item for item in result["phases"] if item["name"] == "gui")["status"], "blocked")
+        self.assertEqual(result["status"], "failed")
 
     def test_gui_verifier_selects_chromium_names_only_for_explicit_source_control_report(self):
         result = self.passed_result()
@@ -1190,7 +1231,7 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertIn("--singleton-port-range", calls[1][1])
         self.assertNotIn("--test-psec-executor", calls[1][1])
         self.assertTrue(result["singleton_port_range_diagnostic"])
-        self.assertEqual(result["execution_mode"], "original_sdk")
+        self.assertEqual(result["execution_mode"], "packaged_product_runtime")
         self.assertEqual(result["status"], "failed")
         self.assertFalse(result["product_acceptance_passed"])
 

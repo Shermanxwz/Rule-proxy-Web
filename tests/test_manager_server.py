@@ -1,6 +1,7 @@
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 import http.client
 import io
+import hashlib
 import json
 from pathlib import Path
 import socket
@@ -271,13 +272,60 @@ class IsolationCheckTests(unittest.TestCase):
         custom.mkdir()
         (custom / "plm.exe").write_bytes(b"theirs")
         refused = {"supported": False, "backend": None, "detail": "test", "limitations": []}
-        with patch("ruleproxy.manager.ROOT", root), patch("ruleproxy.windows_runtime.probe", return_value=refused) as probe:
+        with patch("ruleproxy.manager.ROOT", root), patch("ruleproxy.windows_runtime.verify_product_executor_identity", side_effect=lambda path: Path(path)), patch("ruleproxy.windows_runtime.probe", return_value=refused) as probe:
             self.manager._check_isolation()
             self.assertFalse((bundled / "plm.exe").exists())
             self.manager.settings["runtime_path"] = str(custom / "wxc-exec.exe")
             self.manager._check_isolation()
         self.assertTrue((custom / "plm.exe").exists())
         self.assertEqual(probe.call_count, 2)
+
+    def test_windows_capability_probe_rejects_stock_even_if_mxc_probe_says_supported(self):
+        candidate = Path(self.temp.name) / "stock.exe"
+        candidate.write_bytes(b"stock MXC")
+        self.manager.settings["runtime_path"] = str(candidate)
+        supported = {"supported": True, "backend": "MXC", "detail": "supported", "limitations": []}
+        with patch("ruleproxy.manager.sys.platform", "win32"), \
+                patch("ruleproxy.windows_runtime.probe", return_value=supported) as probe:
+            result = self.manager._check_isolation()
+        self.assertFalse(result["supported"])
+        self.assertIn("固定版本", result["detail"])
+        probe.assert_not_called()
+
+    def test_cached_windows_support_does_not_allow_replaced_runtime_to_launch(self):
+        candidate = Path(self.temp.name) / "runtime.exe"
+        payload = b"pinned G executor fixture"
+        candidate.write_bytes(payload)
+        self.manager.settings["runtime_path"] = str(candidate)
+        self.manager.settings["apps"] = [{"id": "browser", "enabled": True, "adapter": "environment"}]
+        self.manager.core = Mock(poll=Mock(return_value=None))
+        self.manager._probe_cache = {"supported": True, "backend": "MXC", "detail": "supported", "limitations": []}
+        candidate.write_bytes(b"replaced after successful probe")
+        with patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", hashlib.sha256(payload).hexdigest()), \
+                patch("ruleproxy.manager.sys.platform", "win32"), \
+                patch("ruleproxy.windows_runtime.choose_guest_port", return_value=19001), \
+                patch("ruleproxy.manager.prepare_app", return_value=(["browser.exe"], {}, "")), \
+                patch("ruleproxy.windows_runtime.launch") as launch:
+            with self.assertRaisesRegex(ValueError, "固定版本"):
+                self.manager.launch("browser")
+        self.manager.core = None
+        launch.assert_not_called()
+
+    def test_windows_probe_accepts_byte_identical_custom_copy_and_linux_skips_g_check(self):
+        candidate = Path(self.temp.name) / "custom-g.exe"
+        payload = b"pinned G executor fixture"
+        candidate.write_bytes(payload)
+        supported = {"supported": True, "backend": "MXC", "detail": "supported", "limitations": []}
+        with patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", hashlib.sha256(payload).hexdigest()), \
+                patch("ruleproxy.manager.sys.platform", "win32"), \
+                patch("ruleproxy.windows_runtime.probe", return_value=supported) as probe:
+            self.manager.settings["runtime_path"] = str(candidate)
+            self.assertTrue(self.manager._check_isolation()["supported"])
+        probe.assert_called_once_with(str(candidate.resolve(strict=True)), self.manager.mixed_port)
+        with patch("ruleproxy.manager.sys.platform", "linux"), \
+                patch("ruleproxy.linux_runtime.probe", return_value=supported), \
+                patch("ruleproxy.windows_runtime.verify_product_executor_identity", side_effect=AssertionError("Windows verifier called")):
+            self.assertTrue(self.manager._check_isolation()["supported"])
 
 
 class LocalServerTests(unittest.TestCase):

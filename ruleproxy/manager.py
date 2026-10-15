@@ -279,11 +279,20 @@ class Manager:
                 from .linux_runtime import probe
                 return probe()
             if sys.platform == "win32":
-                from .windows_runtime import probe, retire_unused_runtime_files
+                from .windows_runtime import (
+                    UnsupportedRuntimeError,
+                    probe,
+                    retire_unused_runtime_files,
+                    verify_product_executor_identity,
+                )
                 if not self.settings.get("runtime_path"):
                     # Only the bundled runtime; a runtime the user pointed at is left as it is.
                     retire_unused_runtime_files(Path(self.runtime_path()).parent)
-                return probe(self.runtime_path(), self.mixed_port)
+                try:
+                    runtime_path = verify_product_executor_identity(self.runtime_path())
+                except UnsupportedRuntimeError as exc:
+                    return {"supported": False, "backend": "MXC", "detail": str(exc), "limitations": []}
+                return probe(str(runtime_path), self.mixed_port)
             return {"supported": False, "backend": "不支持的系统", "detail": "当前仅支持 Windows 和 Linux。", "limitations": []}
         except Exception as exc:  # an unexpected failure means "not protected"; it must not take the panel down
             traceback.print_exc()
@@ -568,9 +577,16 @@ class Manager:
                 downloads = downloads_folder(self.directory)
                 process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port, downloads).result()
             elif sys.platform == "win32":
-                from .windows_runtime import launch
+                from .windows_runtime import UnsupportedRuntimeError, launch, verify_product_executor_identity
                 try:
-                    process, resource = launch(command, env, profile, self.mixed_port, self.runtime_path(), guest_listener_port=app_proxy_port)
+                    # Re-check after the cached capability probe: settings or the
+                    # executable may have changed since that probe completed.
+                    try:
+                        runtime_path = verify_product_executor_identity(self.runtime_path())
+                    except UnsupportedRuntimeError as exc:
+                        self._probe_cache = {"supported": False, "backend": "MXC", "detail": str(exc), "limitations": []}
+                        raise ValueError(str(exc)) from exc
+                    process, resource = launch(command, env, profile, self.mixed_port, str(runtime_path), guest_listener_port=app_proxy_port)
                 except Exception as exc:
                     failed_process = getattr(exc, "process", None)
                     failed_resource = getattr(exc, "resource", None)

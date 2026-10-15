@@ -11,7 +11,7 @@ DEFAULT_MXC_VARIANT = "g-patched"
 
 MXC_G_BUNDLE_URL = (
     "https://github.com/Shermanxwz/Rule-proxy-Web/releases/download/"
-    "mxc-g-runtime-2026-10-15/mxc-g-runtime-bundle.zip"
+    "v0.2.2/mxc-g-runtime-bundle.zip"
 )
 MXC_G_BUNDLE_SHA256 = "89a9390d9db7f65c82c52ac8c545bff88d6e7577998bea9e5ab93d86f2be90a0"
 MXC_G_EXECUTOR_SHA256 = "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7"

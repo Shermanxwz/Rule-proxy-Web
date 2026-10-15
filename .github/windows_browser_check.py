@@ -29,6 +29,7 @@ import urllib.parse
 ROOT = Path(__file__).resolve().parent.parent
 HOST = "ruleproxy-browser-fixture.invalid"
 COOKIE = "ruleproxy_browser_fixture"
+_RECOVERY_OWNERS = []
 
 
 def acceptance_helpers():
@@ -208,9 +209,25 @@ class BrowserRun:
     def __init__(self, runtime, browser, profile_root, fixture):
         self.runtime, self.browser, self.profile_root, self.fixture = runtime, browser, profile_root, fixture
         self.wrapper = self.resources = None
+        self.attempts = []
+        self.current_attempt = None
+        self._launch_attempted = False
+        self._launch_failed_cleanly = False
+        self._owned_workload_cleanup_proven = False
+        self._resources_closed = False
 
     def run(self, phase, timeout):
         from ruleproxy import launcher, windows_runtime
+        attempt = {"check": f"real_edge_launch_{phase}", "status": "failed",
+                   "wrapper_process_started": False, "wrapper_exit_observed": False,
+                   "wrapper_exit_code": None, "natural_headless_exit": False,
+                   "owned_workload_cleanup_proven": False, "resources_closed": False}
+        self.current_attempt = attempt
+        self.attempts.append(attempt)
+        self._launch_attempted = False
+        self._launch_failed_cleanly = False
+        self._owned_workload_cleanup_proven = False
+        self._resources_closed = False
         self.fixture.begin(phase)
         guest_port = windows_runtime.choose_guest_port(self.fixture.port)
         app = {"id": "browser", "label": "Real Edge fixture", "path": str(self.browser),
@@ -221,6 +238,7 @@ class BrowserRun:
         # handler and natural-exit callback. This source-only capture fixture
         # checks a Max-Age cookie, so it does not require restoring old tabs.
         command = [argument for argument in command if argument != "--restore-last-session"]
+        self._launch_attempted = True
         try:
             self.wrapper, self.resources = windows_runtime.launch(
                 command, environment, self.profile_root / "browser", self.fixture.port,
@@ -228,26 +246,131 @@ class BrowserRun:
         except BaseException as exc:
             self.wrapper = getattr(exc, "process", None)
             self.resources = getattr(exc, "resource", None)
+            attempt["wrapper_process_started"] = self.wrapper is not None
+            # launch() closes its own resources before re-raising unless it
+            # attaches a live process/resource for the caller to retain.
+            self._launch_failed_cleanly = self.wrapper is None and self.resources is None
             raise
+        attempt["wrapper_process_started"] = True
         startup = acceptance_helpers().startup_evidence(self.resources)
         # Natural headless exit is required before relaunch, so cookie flush
         # is checked without a kill/teardown manufacturing the result.
         code = self.wrapper.wait(timeout=timeout)
+        attempt.update(wrapper_exit_observed=True, wrapper_exit_code=code,
+                       natural_headless_exit=(code == 0))
         if code:
             raise RuntimeError(f"real Edge/MXC workload exited with status {code}")
         self.fixture.check(phase)
         self.close()
-        return {"check": f"real_edge_launch_{phase}", "status": "passed",
-                "dom_nonce_via_page_ack": True, "cookie_request_verified": True,
-                "natural_headless_exit": True, "private_profile_reused": phase == 2, **startup}
+        attempt.update(status="passed", dom_nonce_via_page_ack=True, cookie_request_verified=True,
+                       private_profile_reused=phase == 2, **startup)
+        return attempt
 
     def close(self):
         from ruleproxy import windows_runtime
         if self.wrapper is not None:
             windows_runtime.stop(self.wrapper)
+            self._owned_workload_cleanup_proven = True
+            if self.current_attempt is not None:
+                self.current_attempt["owned_workload_cleanup_proven"] = True
         if self.resources is not None:
             self.resources.close()
+            self._resources_closed = True
+            if self.current_attempt is not None:
+                self.current_attempt["resources_closed"] = True
         self.wrapper = self.resources = None
+        if self.current_attempt is not None and not self._launch_attempted:
+            self._owned_workload_cleanup_proven = True
+            self._resources_closed = True
+            self.current_attempt["owned_workload_cleanup_proven"] = True
+            self.current_attempt["resources_closed"] = True
+        if self.current_attempt is not None and self._launch_failed_cleanly:
+            self._owned_workload_cleanup_proven = True
+            self._resources_closed = True
+            self.current_attempt["owned_workload_cleanup_proven"] = True
+            self.current_attempt["resources_closed"] = True
+        return self.cleanup_facts()
+
+    def cleanup_facts(self):
+        if self.current_attempt is None:
+            return {"owned_workload_cleanup_proven": self._owned_workload_cleanup_proven,
+                    "resources_closed": self._resources_closed}
+        return {key: self.current_attempt.get(key) is True for key in (
+            "owned_workload_cleanup_proven", "resources_closed")}
+
+
+def fixture_workers_closed(fixture):
+    if fixture is None:
+        return True
+    try:
+        workers = [fixture.worker, *list(fixture.handlers)]
+        return (fixture.closed.is_set() and not fixture.worker.is_alive()
+                and all(not worker.is_alive() for worker in workers))
+    except Exception:
+        return False
+
+
+def finalize_cleanup(result, owner, fixture, directory, before, network_snapshot):
+    """Close owned resources and record explicit teardown facts without guessing."""
+    owner_closed = owner is None
+    resources_closed = owner is None
+    fixture_closed = fixture is None
+    safe_to_remove_profile = True
+    if owner is not None:
+        try:
+            owner.close()
+            facts = owner.cleanup_facts()
+            owner_closed = facts.get("owned_workload_cleanup_proven") is True
+            resources_closed = facts.get("resources_closed") is True
+            if not owner_closed or not resources_closed:
+                raise RuntimeError("browser owner did not prove workload and resource cleanup")
+        except Exception as exc:
+            safe_to_remove_profile = False
+            result.update(cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+            try:
+                facts = owner.cleanup_facts()
+                owner_closed = facts.get("owned_workload_cleanup_proven") is True
+                resources_closed = facts.get("resources_closed") is True
+            except Exception:
+                owner_closed = resources_closed = False
+    if fixture is not None:
+        try:
+            fixture.close()
+            fixture_closed = fixture_workers_closed(fixture)
+            if not fixture_closed:
+                raise RuntimeError("browser fixture worker remained live")
+        except Exception as exc:
+            safe_to_remove_profile = False
+            result.update(fixture_cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+            fixture_closed = False
+    host_unchanged = None
+    if before is not None:
+        try:
+            host_unchanged = before == network_snapshot()
+        except Exception as exc:
+            host_unchanged = None
+            result["host_snapshot_error"] = type(exc).__name__
+    result["host_network_unchanged"] = host_unchanged
+    result["checks"].append({"check": "host_proxy_dns_default_routes_unchanged",
+                             "status": "passed" if host_unchanged is True else "failed"})
+    profile_removed = directory is None
+    if directory is not None and safe_to_remove_profile:
+        try:
+            shutil.rmtree(directory)
+            profile_removed = not directory.exists()
+            if not profile_removed:
+                raise RuntimeError("private browser profile remained after removal")
+        except Exception as exc:
+            result.update(cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+            profile_removed = False
+    result["owned_workload_cleanup_proven"] = owner_closed
+    result["resources_closed"] = resources_closed
+    result["fixture_workers_closed"] = fixture_closed
+    result["private_profile_removed"] = profile_removed
+    result["cleanup_proven"] = owner_closed and resources_closed and fixture_closed and profile_removed
+    if not result["cleanup_proven"]:
+        _RECOVERY_OWNERS.append((owner, fixture, directory))
+    return result["cleanup_proven"]
 
 
 def main(arguments):
@@ -263,12 +386,14 @@ def main(arguments):
     helpers = acceptance_helpers()
     result = {"status": "failed", "browser_fixture_passed": False, "acceptance_passed": False,
               "full_acceptance_passed": False, "public_udp_proven": False, "system_dns_proven": False,
-              "real_node_passed": False, "checks": [],
+              "real_node_passed": False, "checks": [], "cleanup_proven": False,
+              "owned_workload_cleanup_proven": False, "resources_closed": False,
+              "fixture_workers_closed": False,
+              "private_profile_removed": False, "host_network_unchanged": None,
               "limitations": ["Fixed local HTTP bytes only; no external node or HTTPS origin tested.",
                               "Only persistent cookies are in scope; session login and downloads remain unverified.",
                               "DOM is verified by its page acknowledgement; dumped stdout is not compared."]}
     fixture = owner = directory = before = None
-    safe_cleanup = True
     code, phase = 1, "platform"
     try:
         facts = helpers.host_facts()
@@ -311,43 +436,19 @@ def main(arguments):
         code = 0
     except Exception as exc:
         result.update(status="failed", detail=f"Browser check failed during {phase} ({type(exc).__name__}): {str(exc)[:400]}")
+        if owner is not None and owner.current_attempt is not None:
+            owner.current_attempt["failure_type"] = type(exc).__name__
     finally:
+        finalize_cleanup(result, owner, fixture, directory, before,
+                         helpers.network_snapshot if helpers is not None else None)
         if owner is not None:
-            try:
-                owner.close()
-            except Exception as exc:
-                safe_cleanup = False
-                result.update(status="failed", browser_fixture_passed=False,
-                              cleanup_error=type(exc).__name__, recovery_directory=str(directory))
-                code = 1
-        if fixture is not None:
-            try:
-                fixture.close()
-            except Exception as exc:
-                safe_cleanup = False
-                result.update(status="failed", browser_fixture_passed=False,
-                              cleanup_error=type(exc).__name__, recovery_directory=str(directory))
-                code = 1
-        if before is not None:
-            try:
-                after = helpers.network_snapshot()
-                unchanged = before == after
-                result["checks"].append({"check": "host_proxy_dns_default_routes_unchanged",
-                                         "status": "passed" if unchanged else "failed"})
-                if not unchanged:
-                    result.update(status="failed", browser_fixture_passed=False)
-                    code = 1
-            except Exception as exc:
-                result.update(status="failed", browser_fixture_passed=False,
-                              host_snapshot_error=type(exc).__name__)
-                code = 1
-        if directory is not None and safe_cleanup:
-            try:
-                shutil.rmtree(directory)
-            except OSError as exc:
-                result.update(status="failed", browser_fixture_passed=False,
-                              cleanup_error=type(exc).__name__, recovery_directory=str(directory))
-                code = 1
+            for attempt in owner.attempts:
+                if not any(item is attempt for item in result["checks"]):
+                    result["checks"].append(attempt)
+        if (result["cleanup_proven"] is not True
+                or (before is not None and result["host_network_unchanged"] is not True)):
+            result.update(status="failed", browser_fixture_passed=False)
+            code = 1
         args.report.resolve().parent.mkdir(parents=True, exist_ok=True)
         helpers.write_json(args.report.resolve(), result)
         print(json.dumps(result, ensure_ascii=True, indent=2), flush=True)

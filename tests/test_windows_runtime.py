@@ -1,5 +1,6 @@
 import json
 import ctypes
+import hashlib
 import os
 import socket
 import time
@@ -53,6 +54,90 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.runtime.write_text("", encoding="utf-8")
         self.runtime.chmod(self.runtime.stat().st_mode | stat.S_IXUSR)
         self.profile = self.root / "profiles" / "saved-app-1"
+
+    def test_product_executor_verifier_accepts_only_pinned_regular_files(self):
+        payload = b"pinned G executor fixture"
+        expected = hashlib.sha256(payload).hexdigest()
+        with mock.patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", expected):
+            self.runtime.write_bytes(payload)
+            self.assertEqual(
+                windows_runtime.verify_product_executor_identity(self.runtime),
+                self.runtime.resolve(strict=True),
+            )
+            with self.assertRaises(windows_runtime.UnsupportedRuntimeError):
+                windows_runtime.verify_product_executor_identity(self.root / "missing.exe")
+            link = self.root / "linked.exe"
+            try:
+                link.symlink_to(self.runtime)
+            except (OSError, NotImplementedError):
+                pass
+            else:
+                with self.assertRaises(windows_runtime.UnsupportedRuntimeError):
+                    windows_runtime.verify_product_executor_identity(link)
+
+            self.runtime.write_bytes(b"stock or modified executor")
+            with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "固定版本"):
+                windows_runtime.verify_product_executor_identity(self.runtime)
+
+    def test_product_executor_verifier_rejects_reparse_attributes(self):
+        payload = b"pinned G executor fixture"
+        self.runtime.write_bytes(payload)
+        fake_info = mock.Mock(st_mode=stat.S_IFREG | 0o600, st_size=len(payload), st_file_attributes=0x400)
+        with mock.patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", hashlib.sha256(payload).hexdigest()), \
+                mock.patch.object(Path, "lstat", return_value=fake_info):
+            with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "重解析点"):
+                windows_runtime.verify_product_executor_identity(self.runtime)
+
+    def test_product_executor_verifier_enforces_a_reasonable_size_bound(self):
+        self.runtime.write_bytes(b"0123456789")
+        with mock.patch("ruleproxy.windows_runtime._PRODUCT_EXECUTOR_MAX_BYTES", 8):
+            with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "大小异常"):
+                windows_runtime.verify_product_executor_identity(self.runtime)
+
+    def test_product_executor_verifier_rejects_same_size_change_during_read(self):
+        payload = b"pinned G executor fixture"
+        replacement = b"modified G executor bytes"
+        self.assertEqual(len(payload), len(replacement))
+        self.runtime.write_bytes(payload)
+        expected = hashlib.sha256(payload).hexdigest()
+        real_open = Path.open
+
+        class ChangingReader:
+            def __init__(self, stream):
+                self.stream = stream
+                self.changed = False
+
+            def __enter__(self):
+                self.stream.__enter__()
+                return self
+
+            def __exit__(self, *args):
+                return self.stream.__exit__(*args)
+
+            def fileno(self):
+                return self.stream.fileno()
+
+            def read(self, size=-1):
+                data = self.stream.read(size)
+                if data and not self.changed:
+                    self.changed = True
+                    with real_open(self.path, "wb") as changed_file:
+                        changed_file.write(replacement)
+                    os.utime(self.path, ns=(2_000_000_000, 4_000_000_000))
+                return data
+
+        def open_with_change(path, *args, **kwargs):
+            stream = real_open(path, *args, **kwargs)
+            if path == self.runtime:
+                reader = ChangingReader(stream)
+                reader.path = self.runtime
+                return reader
+            return stream
+
+        with mock.patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", expected), \
+                mock.patch.object(Path, "open", open_with_change):
+            with self.assertRaisesRegex(windows_runtime.UnsupportedRuntimeError, "检查期间发生变化"):
+                windows_runtime.verify_product_executor_identity(self.runtime)
 
     def test_build_policy_allows_exact_internal_tcp_endpoint_and_starts_guest_helper(self):
         policy = windows_runtime.build_policy(
