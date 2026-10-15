@@ -678,7 +678,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
 
     def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False,
                                 explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False,
-                                trust_contaminated=False, warmup_failure=False, trust_close_failure=False):
+                                trust_contaminated=False, warmup_failure=False, trust_close_failure=False,
+                                dns_payload=None):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
         helpers.host_facts.return_value = {"native_machine": 0x8664, "python_pe_machine": 0x8664,
@@ -716,8 +717,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
             trust.close.side_effect = RuntimeError('public fixture handle close failed')
         dns = mock.Mock(safe=True, controls=[])
         dns.control.return_value = {"calls": [], "cleanup_proven": True}
-        dns.finish_payload.return_value = {"manifest": "private-fixed-manifest", "execution": [],
-                                           "actor_execution_attested": False}
+        dns.finish_payload.return_value = (dns_payload if dns_payload is not None else
+            {"manifest": "private-fixed-manifest", "execution": [], "actor_execution_attested": False})
         dns.close.return_value = None
         retained = self.directory / "private-work"
         retained.mkdir()
@@ -783,6 +784,26 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertEqual(result['status'], 'failed')
         self.assertIs(wire.attested, False)
         self.assertTrue(result['system_console_signature_preflight']['capture_contaminated'])
+
+    def test_contaminated_console_binding_revokes_already_attested_dns_but_preserves_observation_rows(self):
+        # Use the real session/finish contract, without invoking any OS resolver.
+        session = experiment.load_dns_session().DnsSession(self.directory / "dns-contract", time.monotonic() + 100)
+        session.attested = True
+        session.execution = [{"id": probe["id"], "role": probe["role"], "api": probe["api"],
+                              "api_returned": True, "observed_call_count": 1}
+                             for probe in session.manifest["probes"]]
+        original = session.finish_payload()
+        self.assertTrue(original["actor_execution_attested"])
+        self.assertEqual(len(original["execution"]), 12)
+        code, result, wire, _, _, _ = self.native_dns_main_fixture(trust_contaminated=True, dns_payload=original)
+        self.assertEqual(code, 1)
+        self.assertEqual(result["status"], "failed")
+        self.assertIs(wire.attested, False)
+        self.assertIs(wire.dns_observation["actor_execution_attested"], False)
+        self.assertIs(wire.dns_observation["manifest"], original["manifest"])
+        self.assertIs(wire.dns_observation["execution"], original["execution"])
+        self.assertEqual(sum(row["observed_call_count"] for row in wire.dns_observation["execution"]), 12)
+        self.assertTrue(original["actor_execution_attested"])  # Historical session data was not rewritten.
 
     def test_console_trust_handle_close_error_retains_recovery_and_cannot_report_success(self):
         code, result, wire, _, _, retained = self.native_dns_main_fixture(trust_close_failure=True)

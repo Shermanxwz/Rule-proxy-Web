@@ -342,6 +342,54 @@ class WindowsVMUpdateDiagnosticTests(unittest.TestCase):
         self.assertEqual(json.loads(state.read_text()), {'status': 'installing', 'completed': False})
         self.assertFalse((self.directory / 'update-state.json.tmp').exists())
 
+    def test_real_state_publication_creates_then_atomically_replaces_progress_and_failure(self):
+        # On Windows this suite selects Desktop powershell.exe before pwsh:
+        # exercise the real CLR File.Replace overload, not a mocked file API.
+        output = self.run_helpers(
+            "function Assert-ProtectedUpdatePath($Path,[switch]$Directory,[switch]$ProtectedDacl) { $null=Assert-UpdateFile $Path -Directory:$Directory }\n"
+            "$path=Join-Path $script:UpdateDirectory 'update-state.json'\n"
+            "$snapshots=@()\n"
+            "Write-UpdateState @{status='installing';completed=$false;phase='starting';downloaded_package_count=0}\n"
+            "$snapshots+=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json\n"
+            "Write-UpdateState @{status='installing';completed=$false;phase='staging_official_MSU';downloaded_package_count=1}\n"
+            "$snapshots+=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json\n"
+            "Write-UpdateState @{status='failed';completed=$false;phase='staging_official_MSU';downloaded_package_count=1;error='update_fixture_failure'}\n"
+            "$snapshots+=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json\n"
+            "ConvertTo-Json -InputObject @($snapshots) -Depth 8\n", worker=True)
+        snapshots = json.loads(output)
+        self.assertEqual(snapshots, [
+            {'status': 'installing', 'completed': False, 'phase': 'starting', 'downloaded_package_count': 0},
+            {'status': 'installing', 'completed': False, 'phase': 'staging_official_MSU', 'downloaded_package_count': 1},
+            {'status': 'failed', 'completed': False, 'phase': 'staging_official_MSU', 'downloaded_package_count': 1,
+             'error': 'update_fixture_failure'},
+        ])
+        self.assertEqual(json.loads((self.directory / 'update-state.json').read_text()), snapshots[-1])
+        self.assertFalse((self.directory / 'update-state.json.tmp').exists())
+        self.assertEqual(sorted(path.name for path in self.directory.glob('update-state*')), ['update-state.json'])
+
+    def test_real_publication_io_failure_preserves_old_state_logs_fixed_event_and_can_publish_failure(self):
+        output = self.run_helpers(
+            "function Assert-ProtectedUpdatePath($Path,[switch]$Directory,[switch]$ProtectedDacl) { $null=Assert-UpdateFile $Path -Directory:$Directory }\n"
+            "$path=Join-Path $script:UpdateDirectory 'update-state.json'\n"
+            "Write-UpdateState @{status='installing';completed=$false}\n"
+            "$temporary=Join-Path $script:UpdateDirectory 'update-state.json.tmp'\n"
+            "$held=[IO.File]::Open($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)\n"
+            "$failureType=$null\n"
+            "try {\n"
+            "  try { Write-UpdateState @{status='completed';completed=$true} } catch { $failureType=$_.Exception.GetBaseException().GetType().Name }\n"
+            "  $afterFailure=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json\n"
+            "} finally { $held.Dispose() }\n"
+            "Write-UpdateState @{status='failed';completed=$false;error='update_fixture_io_failure'}\n"
+            "$final=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json\n"
+            "$events=@(Get-Content -LiteralPath (Join-Path $script:UpdateDirectory 'update-worker.log') | ForEach-Object { ($_ -split 'event=')[-1] })\n"
+            "ConvertTo-Json -Depth 8 -InputObject @{failure_type=$failureType;after_failure=$afterFailure;final=$final;events=$events}\n", worker=True)
+        facts = json.loads(output)
+        self.assertEqual(facts['failure_type'], 'IOException')
+        self.assertEqual(facts['after_failure'], {'status': 'installing', 'completed': False})
+        self.assertEqual(facts['final'], {'status': 'failed', 'completed': False, 'error': 'update_fixture_io_failure'})
+        self.assertEqual(facts['events'], ['state_installing', 'state_completed', 'state_publish_failed', 'state_failed'])
+        self.assertFalse((self.directory / 'update-state.json.tmp').exists())
+
     def test_all_three_real_powershell_scripts_parse_without_running_vm_entrypoints(self):
         quote = lambda value: "'" + str(value).replace("'", "''") + "'"
         paths = ','.join(quote(path) for path in (SCRIPT, RUN_SCRIPT, SETUP_SCRIPT))

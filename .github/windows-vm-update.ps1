@@ -246,20 +246,30 @@ function Write-UpdateWorkerEvent([string]$Event) {
 }
 
 function Write-UpdateState($State) {
-    $path = Join-Path $script:UpdateDirectory 'update-state.json'
-    $temporary = Join-Path $script:UpdateDirectory 'update-state.json.tmp'
-    foreach ($existing in @($path, $temporary)) {
-        if (Test-Path -LiteralPath $existing) { Assert-ProtectedUpdatePath $existing }
-    }
-    $raw = ConvertTo-Json -InputObject $State -Depth 8
-    if ([Text.Encoding]::UTF8.GetByteCount($raw) -gt 65536) { throw 'update_state_oversized' }
-    # Finish diagnostic I/O before publishing a completed state.
-    Write-UpdateWorkerEvent ('state_' + $State.status)
-    [IO.File]::WriteAllText($temporary, $raw, [Text.UTF8Encoding]::new($false))
-    if (Test-Path -LiteralPath $path) {
-        [IO.File]::Replace($temporary, $path, $null)
-    } else {
-        [IO.File]::Move($temporary, $path)
+    try {
+        $path = Join-Path $script:UpdateDirectory 'update-state.json'
+        $temporary = Join-Path $script:UpdateDirectory 'update-state.json.tmp'
+        foreach ($existing in @($path, $temporary)) {
+            if (Test-Path -LiteralPath $existing) { Assert-ProtectedUpdatePath $existing }
+        }
+        $raw = ConvertTo-Json -InputObject $State -Depth 8
+        if ([Text.Encoding]::UTF8.GetByteCount($raw) -gt 65536) { throw 'update_state_oversized' }
+        # Finish diagnostic I/O before publishing a completed state.
+        Write-UpdateWorkerEvent ('state_' + $State.status)
+        [IO.File]::WriteAllText($temporary, $raw, [Text.UTF8Encoding]::new($false))
+        if (Test-Path -LiteralPath $path) {
+            # PowerShell converts ordinary $null to an empty string for this
+            # overload. File.Replace requires a genuine null backup path.
+            [IO.File]::Replace($temporary, $path, [System.Management.Automation.Language.NullString]::Value)
+        } else {
+            [IO.File]::Move($temporary, $path)
+        }
+    } catch {
+        $publicationError = $_
+        # Only write through the protected logger. Preserve the original failure
+        # even if that logger is unavailable; never publish a false success.
+        try { Write-UpdateWorkerEvent 'state_publish_failed' } catch { }
+        throw $publicationError
     }
 }
 

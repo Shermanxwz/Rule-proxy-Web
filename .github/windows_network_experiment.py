@@ -1279,7 +1279,12 @@ def main(arguments):
     finally:
         if dns is not None:
             if wire is not None:
-                wire.dns_observation = dns.finish_payload()
+                payload = dns.finish_payload()
+                if console_trust is not None and console_trust.contaminated:
+                    # Preserve packet/API counters, but revoke the same actor
+                    # identity claim for both raw UDP and optional DNS groups.
+                    payload = {**payload, "actor_execution_attested": False}
+                wire.dns_observation = payload
             recovery = dns.close()
             if recovery:
                 safe = False
