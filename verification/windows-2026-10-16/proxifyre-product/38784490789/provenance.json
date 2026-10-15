@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "run_id": 38784490789,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38784490789",
+  "source_commit": "57bc7c4e91c1d65f941646627d373d31b33841d9",
+  "artifact_id": 11997541101,
+  "github_artifact_digest": "sha256:02e9a6b459902d2bee82bfbca5c859837a9b6ef8bebe0f11e5cc913fc28501ed",
+  "normalized_download_zip_sha256": "02e9a6b459902d2bee82bfbca5c859837a9b6ef8bebe0f11e5cc913fc28501ed",
+  "status": "control_service_query_config_failed",
+  "official_burn_installation_passed": true,
+  "staging_acl_passed": true,
+  "source_against_bundle_identity_passed": true,
+  "driver_or_engine_routing_tests_started": false,
+  "architecture_failure_proven": false,
+  "observed_error": {
+    "context": "ServiceControl.verify.QueryServiceConfigW",
+    "winerror": 1783
+  },
+  "identified_api_contract_violation": "QueryServiceConfigW was called with 65536 bytes; Microsoft documents an 8192-byte maximum. Fix and native rerun required to establish successful service startup.",
+  "official_reference": "https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-queryserviceconfigw",
+  "cross_platform_check_run_id": 38784491035,
+  "cross_platform_check_all_eight_jobs_passed": true
+}

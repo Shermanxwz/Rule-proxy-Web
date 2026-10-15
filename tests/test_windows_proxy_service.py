@@ -137,6 +137,25 @@ class BrokerTests(unittest.TestCase):
         self.assertFalse(result["strict_isolation"])
 
 
+class ServiceConfigurationTests(unittest.TestCase):
+    def test_scm_configuration_query_never_exceeds_native_eight_kib_limit(self):
+        class QueryObserved(Exception):
+            pass
+        control = object.__new__(service.ServiceControl)
+        control.api = mock.Mock()
+        control._open = mock.Mock(return_value=19)
+        def query(_handle, buffer, length, _needed):
+            self.assertLessEqual(length, 8192)
+            self.assertEqual(length, len(buffer))
+            self.assertGreater(length, 0)
+            raise QueryObserved()
+        control.api.QueryServiceConfigW.side_effect = query
+        with mock.patch.object(service, "_dll", return_value=mock.Mock()), self.assertRaises(QueryObserved):
+            control.verify({"root": str(Path.cwd()), "proxifyre_root": str(Path.cwd() / "engine")})
+        control.api.QueryServiceConfigW.assert_called_once()
+        control.api.CloseServiceHandle.assert_called_once_with(19)
+
+
 class ServiceDiagnosticTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

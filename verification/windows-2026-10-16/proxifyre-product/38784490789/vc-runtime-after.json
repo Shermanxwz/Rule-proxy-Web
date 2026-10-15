@@ -1,0 +1,67 @@
+{
+  "files_compatible": true,
+  "registration_compatible": true,
+  "native_directory": "C:\\Windows\\System32",
+  "files": [
+    {
+      "name": "ucrtbase.dll",
+      "path": "C:\\Windows\\System32\\ucrtbase.dll",
+      "minimum": "10.0.10240.0",
+      "version": "10.0.26100.33438",
+      "compatible": true,
+      "sha256": "2db258f5adb1e8fd08ef95c0340f131fd2e0b6d1bf55bd67bdf7f6aac9e9e091"
+    },
+    {
+      "name": "msvcp140.dll",
+      "path": "C:\\Windows\\System32\\msvcp140.dll",
+      "minimum": "14.44.35211.0",
+      "version": "14.51.36247.0",
+      "compatible": true,
+      "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca"
+    },
+    {
+      "name": "msvcp140_atomic_wait.dll",
+      "path": "C:\\Windows\\System32\\msvcp140_atomic_wait.dll",
+      "minimum": "14.44.35211.0",
+      "version": "14.51.36247.0",
+      "compatible": true,
+      "sha256": "3d0cbfaa1bf3eecf5a3f4491d2960ee803cb994f30292c6adc4a07c498f60e2b"
+    },
+    {
+      "name": "vcruntime140.dll",
+      "path": "C:\\Windows\\System32\\vcruntime140.dll",
+      "minimum": "14.44.35211.0",
+      "version": "14.51.36247.0",
+      "compatible": true,
+      "sha256": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7"
+    },
+    {
+      "name": "vcruntime140_1.dll",
+      "path": "C:\\Windows\\System32\\vcruntime140_1.dll",
+      "minimum": "14.44.35211.0",
+      "version": "14.51.36247.0",
+      "compatible": true,
+      "sha256": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e"
+    }
+  ],
+  "registrations": [
+    {
+      "view": "Registry32",
+      "installed": 1,
+      "version": "v14.51.36247.00",
+      "compatible": true,
+      "major": 14,
+      "minor": 51,
+      "build": 36247
+    },
+    {
+      "view": "Registry64",
+      "installed": 1,
+      "version": "v14.51.36247.00",
+      "compatible": true,
+      "major": 14,
+      "minor": 51,
+      "build": 36247
+    }
+  ]
+}

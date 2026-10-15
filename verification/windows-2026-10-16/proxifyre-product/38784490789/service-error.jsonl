@@ -1,0 +1,1 @@
+{"time_utc": "2026-10-15T18:19:51.726562+00:00", "context": "service_main", "exceptions": [{"type": "OSError", "traceback": [{"file": "windows_proxy_service.py", "line": 674, "function": "main"}, {"file": "windows_proxy_service.py", "line": 288, "function": "verify"}], "errno": 22, "winerror": 1783}]}

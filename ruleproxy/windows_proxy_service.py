@@ -283,7 +283,9 @@ class ServiceControl:
         for name, command in expected.items():
             service = self._open(name, 1)
             try:
-                buffer, needed = ctypes.create_string_buffer(65536), wintypes.DWORD()
+                # QueryServiceConfigW accepts at most 8 KiB, including the
+                # fixed structure and all strings (larger cbBufSize is invalid).
+                buffer, needed = ctypes.create_string_buffer(8192), wintypes.DWORD()
                 if not self.api.QueryServiceConfigW(service, buffer, len(buffer), ctypes.byref(needed)):
                     raise ctypes.WinError(ctypes.get_last_error())
                 config = ctypes.cast(buffer, ctypes.POINTER(Config)).contents
@@ -591,12 +593,18 @@ def serve(broker, stopping):
                 stopping.set()
     watcher = threading.Thread(target=monitor, daemon=True)
     watcher.start()
+    handle = None
     try:
+        # Keep the FIRST_PIPE_INSTANCE handle for the service lifetime. A
+        # disconnected client's old handle may outlive its ACK; recreating the
+        # named pipe then would fail FIRST_PIPE_INSTANCE with access denied.
+        handle = api.kernel.CreateNamedPipeW(name, 3 | 0x40000000 | 0x80000,
+            4 | 2 | 8, 1, policy.MAX_MESSAGE, policy.MAX_MESSAGE, 0, ctypes.byref(attributes))
+        if handle == ctypes.c_void_p(-1).value:
+            error = ctypes.get_last_error()
+            handle = None
+            raise ctypes.WinError(error)
         while not stopping.is_set():
-            handle = api.kernel.CreateNamedPipeW(name, 3 | 0x40000000 | 0x80000,
-                4 | 2 | 8, 1, policy.MAX_MESSAGE, policy.MAX_MESSAGE, 0, ctypes.byref(attributes))
-            if handle == ctypes.c_void_p(-1).value:
-                raise ctypes.WinError(ctypes.get_last_error())
             try:
                 request = {}
                 try:
@@ -619,7 +627,6 @@ def serve(broker, stopping):
                 pass
             finally:
                 api.kernel.DisconnectNamedPipe(handle)
-                api.kernel.CloseHandle(handle)
     finally:
         stopping.set()
         watcher.join(timeout=2)
@@ -628,6 +635,8 @@ def serve(broker, stopping):
                 if broker.panel is not None:
                     broker.stop()
         finally:
+            if handle is not None:
+                api.kernel.CloseHandle(handle)
             api.kernel.LocalFree(descriptor)
     if watchdog_errors:
         raise RuntimeError("Service watchdog failed") from watchdog_errors[0]

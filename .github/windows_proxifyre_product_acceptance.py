@@ -201,10 +201,6 @@ def launch_user(command, username, password, expected_sid):
         _fields_ = [("process", wintypes.HANDLE), ("thread", wintypes.HANDLE),
                     ("pid", wintypes.DWORD), ("tid", wintypes.DWORD)]
     api, kernel = ctypes.WinDLL("advapi32", use_last_error=True), ctypes.WinDLL("kernel32", use_last_error=True)
-    api.CreateProcessWithLogonW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR,
-        wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD, wintypes.LPVOID,
-        wintypes.LPCWSTR, ctypes.POINTER(Startup), ctypes.POINTER(Info)]
-    api.CreateProcessWithLogonW.restype = wintypes.BOOL
     kernel.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
     kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
@@ -220,32 +216,30 @@ def launch_user(command, username, password, expected_sid):
     startup, info = Startup(), Info()
     startup.cb = ctypes.sizeof(startup)
     text = ctypes.create_unicode_buffer(subprocess.list2cmdline([str(item) for item in command]))
-    if caller_sid == "S-1-5-18":
-        # LocalSystem has no logon SID and cannot use WithLogonW. Authenticate
-        # the same ordinary account and launch its primary token with a profile.
-        # https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-createprocesswithtokenw
-        api.LogonUserW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR,
-                                  wintypes.DWORD, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
-        api.CreateProcessWithTokenW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPCWSTR,
-            wintypes.LPWSTR, wintypes.DWORD, wintypes.LPVOID, wintypes.LPCWSTR,
-            ctypes.POINTER(Startup), ctypes.POINTER(Info)]
-        token = wintypes.HANDLE()
-        if not api.LogonUserW(username, ".", password, 2, 0, ctypes.byref(token)):
+    # Both elevated administrator and SYSTEM controllers use the authenticated
+    # ordinary token. WithTokenW grants access to the inherited station/desktop
+    # when lpDesktop is NULL; WithLogonW requires the caller to grant it itself.
+    # The controller needs SeImpersonatePrivilege. No visible GUI is promised.
+    # https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-createprocesswithtokenw
+    api.LogonUserW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR,
+                              wintypes.DWORD, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    api.LogonUserW.restype = wintypes.BOOL
+    api.CreateProcessWithTokenW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPCWSTR,
+        wintypes.LPWSTR, wintypes.DWORD, wintypes.LPVOID, wintypes.LPCWSTR,
+        ctypes.POINTER(Startup), ctypes.POINTER(Info)]
+    api.CreateProcessWithTokenW.restype = wintypes.BOOL
+    token = wintypes.HANDLE()
+    if not api.LogonUserW(username, ".", password, 2, 0, ctypes.byref(token)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        if token_user_sid(api, kernel, token) != expected_sid:
+            raise RuntimeError("Authenticated actor SID does not match the installation owner")
+        if not api.CreateProcessWithTokenW(token, 1, str(command[0]), text, 0x08000000, None,
+                                          str(LAB), ctypes.byref(startup), ctypes.byref(info)):
             raise ctypes.WinError(ctypes.get_last_error())
-        try:
-            if token_user_sid(api, kernel, token) != expected_sid:
-                raise RuntimeError("Authenticated actor SID does not match the installation owner")
-            if not api.CreateProcessWithTokenW(token, 1, str(command[0]), text, 0x08000000, None,
-                                              str(LAB), ctypes.byref(startup), ctypes.byref(info)):
-                raise ctypes.WinError(ctypes.get_last_error())
-        finally:
-            kernel.CloseHandle(token)
-        method = "LogonUserW+CreateProcessWithTokenW"
-    else:
-        if not api.CreateProcessWithLogonW(username, ".", password, 1, str(command[0]), text,
-                                          0x08000000, None, str(LAB), ctypes.byref(startup), ctypes.byref(info)):
-            raise ctypes.WinError(ctypes.get_last_error())
-        method = "CreateProcessWithLogonW"
+    finally:
+        kernel.CloseHandle(token)
+    method = "LogonUserW+CreateProcessWithTokenW"
     actual = wintypes.HANDLE()
     try:
         if not api.OpenProcessToken(info.process, 8, ctypes.byref(actual)):
@@ -549,7 +543,7 @@ def ordinary_suite(spec_path, result_path):
 def controller(package_dir, output):
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
-    report = {"schema_version": 1, "status": "running", "qualification_scope": "Windows Server 2025 final offline ZIP",
+    report = {"schema_version": 1, "status": "running", "qualification_scope": "Windows installed product from final offline ZIP; see actual_os",
         "windows_11_verified": False, "gui_verified": False, "product_release_eligible": False,
         "headless_browser_verified": False,
         "checks": {}, "installations": [], "actions": []}
@@ -705,7 +699,12 @@ def controller(package_dir, output):
         if report["post_reinstall_uninstall"]["returncode"] or INSTALLED.exists():
             raise RuntimeError("Repeated uninstall after fresh reinstall failed")
         report["checks"]["uninstall_then_fresh_reinstall"] = True
-        report["status"] = "passed_server_product_qualification"
+        client_windows = (report["actual_os"]["product_type"] == 1
+                          and report["actual_os"]["build"] >= 22000
+                          and report["actual_os"]["architecture"] == "AMD64")
+        report["windows_11_verified"] = client_windows
+        report["status"] = ("passed_windows_11_product_qualification" if client_windows
+                            else "passed_server_product_qualification")
     except Exception as exc:
         report.update(status="failed_or_incomplete", error=str(exc), traceback=traceback.format_exc()[-16000:])
     finally:
@@ -721,6 +720,7 @@ def controller(package_dir, output):
                 fixture.close()
             except Exception as exc:
                 report["fixture_cleanup_error"] = str(exc)
+                report["status"] = "failed_or_incomplete"
         if hosts_before is not None:
             try:
                 hosts_path.write_bytes(hosts_before)
@@ -741,7 +741,7 @@ def controller(package_dir, output):
             except OSError as exc:
                 report.setdefault("artifact_copy_errors", []).append(str(exc))
         checkpoint()
-    return 0 if report["status"] == "passed_server_product_qualification" and report.get("hosts_restored") else 1
+    return 0 if report["status"] in {"passed_server_product_qualification", "passed_windows_11_product_qualification"} and report.get("hosts_restored") else 1
 
 
 def main():

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "status": "failed_or_incomplete",
+  "qualification_scope": "Windows Server 2025 final offline ZIP",
+  "windows_11_verified": false,
+  "gui_verified": false,
+  "product_release_eligible": false,
+  "headless_browser_verified": false,
+  "checks": {},
+  "installations": [
+    {
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Original setup failure in phase control_service_start; staging path C:\\Program Files\\.RuleProxy-Web-staging-df7c20e075cd410ebe98c9848eece2b9: Failed to start service 'RuleProxy Web Control (RuleProxyControl)'.\r\nStart-Service : Failed to start service 'RuleProxy Web Control (RuleProxyControl)'.\r\nAt C:\\RuleProxyProduct\\bundle\\RuleProxy-Web\\scripts\\windows-setup.ps1:402 char:5\r\n+     Start-Service -Name $serviceName\r\n+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : OpenError: (System.ServiceProcess.ServiceController:ServiceController) [Start-Service],  \r\n   ServiceCommandException\r\n    + FullyQualifiedErrorId : StartServiceFailed,Microsoft.PowerShell.Commands.StartServiceCommand\r\n \r\n"
+    }
+  ],
+  "actions": [],
+  "actual_os": {
+    "major": 10,
+    "minor": 0,
+    "build": 26100,
+    "platform": 2,
+    "product_type": 3,
+    "architecture": "AMD64"
+  },
+  "package": {
+    "zip": "RuleProxy-Web-0.3.0-windows-x64-personal.zip",
+    "sha256": "2a9ba271a3b3e1bbc5d61b791f895a84dae93731eb518810bb5b4642662e4835",
+    "manifest_verified": true,
+    "files_verified": 108,
+    "product_version": "0.3.0"
+  },
+  "source_matches_bundle": {
+    "manager.py": true,
+    "server.py": true,
+    "launcher.py": true,
+    "windows_proxy_service.py": true,
+    "windows_proxy_policy.py": true,
+    "windows_proxy_client.py": true,
+    "windows_proxy_runtime.py": true,
+    "windows_proxy_pins.py": true,
+    "windows_app_process.py": true,
+    "windows_core_process.py": true
+  },
+  "error": "Product installation failed; see captured PowerShell and SCM diagnostics",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_proxifyre_product_acceptance.py\", line 595, in controller\n    raise RuntimeError(\"Product installation failed; see captured PowerShell and SCM diagnostics\")\nRuntimeError: Product installation failed; see captured PowerShell and SCM diagnostics\n",
+  "diagnostics": {
+    "returncode": 0,
+    "stdout": "{\"services\":[{\"Name\":\"ProxiFyreService\",\"State\":\"Stopped\",\"ExitCode\":1077,\"PathName\":\"\\\"C:\\\\Program Files\\\\ProxiFyre\\\\ProxiFyre.exe\\\"\"},{\"Name\":\"RuleProxyControl\",\"State\":\"Stopped\",\"ExitCode\":1064,\"PathName\":\"\\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\python\\\\python.exe\\\" -I -S \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\ruleproxy\\\\windows_proxy_service.py\\\" --service\"}],\"events\":[{\"TimeCreated\":\"\\/Date(1792088391726)\\/\",\"Id\":7023,\"Message\":\"The RuleProxy Web Control service terminated with the following error: \\r\\nAn exception occurred in the service when handling the control request.\"},{\"TimeCreated\":\"\\/Date(1792088391726)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792088391363)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  RuleProxy Web Control\\r\\nService File Name:  \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\python\\\\python.exe\\\" -I -S \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\ruleproxy\\\\windows_proxy_service.py\\\" --service\\r\\nService Type:  user mode service\\r\\nService Start Type:  auto start\\r\\nService Account:  LocalSystem\"},{\"TimeCreated\":\"\\/Date(1792088390139)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  ProxiFyre Service\\r\\nService File Name:  \\\"C:\\\\Program Files\\\\ProxiFyre\\\\ProxiFyre.exe\\\"\\r\\nService Type:  user mode service\\r\\nService Start Type:  demand start\\r\\nService Account:  LocalSystem\"},{\"TimeCreated\":\"\\/Date(1792088390137)\\/\",\"Id\":7036,\"Message\":\"The TCP/IP NetBIOS Helper service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792088390018)\\/\",\"Id\":7036,\"Message\":\"The Portable Device Enumerator Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792088389054)\\/\",\"Id\":7036,\"Message\":\"The TCP/IP NetBIOS Helper service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792088389022)\\/\",\"Id\":7042,\"Message\":\"The TCP/IP NetBIOS Helper service was successfully sent a stop control.\\r\\n\\r\\n The reason specified was: 0x40030011 [Operating System: Network Connectivity (Planned)]\\r\\n\\r\\n Comment: None\"},{\"TimeCreated\":\"\\/Date(1792088388719)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  WinpkFilter LightWeight Filter\\r\\nService File Name:  \\\\SystemRoot\\\\system32\\\\DRIVERS\\\\ndisrd.sys\\r\\nService Type:  kernel mode driver\\r\\nService Start Type:  system start\\r\\nService Account:  \"},{\"TimeCreated\":\"\\/Date(1792088386671)\\/\",\"Id\":7036,\"Message\":\"The Device Install Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792088385789)\\/\",\"Id\":7036,\"Message\":\"The Device Install Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792088382224)\\/\",\"Id\":7036,\"Message\":\"The Windows Installer service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792088375587)\\/\",\"Id\":7036,\"Message\":\"The Background Intelligent Transfer Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792088375494)\\/\",\"Id\":7040,\"Message\":\"The start type of the Background Intelligent Transfer Service service was changed from auto start to demand start.\"},{\"TimeCreated\":\"\\/Date(1792088368956)\\/\",\"Id\":7036,\"Message\":\"The Clipboard User Service_d7c91 service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792088368572)\\/\",\"Id\":7036,\"Message\":\"The Update Orchestrator Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792088368546)\\/\",\"Id\":7036,\"Message\":\"The WaaSMedicSvc service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792088364968)\\/\",\"Id\":7036,\"Message\":\"The User Access Logging Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792088362913)\\/\",\"Id\":7036,\"Message\":\"The Software Protection service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792088362788)\\/\",\"Id\":7036,\"Message\":\"The Distributed Transaction Coordinator service entered the running state.\"}]}\r\n",
+    "stderr": ""
+  }
+}

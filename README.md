@@ -2,7 +2,7 @@
 
 本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。Windows 通过 ProxiFyre 按程序路径透明转发；Linux 继续使用网络命名空间隔离。
 
-**当前开发版本 0.3.0。Windows 已切换为 ProxiFyre 2.6.4 + Mihomo 1.19.32，不使用 TUN。新的受保护服务、最终离线包与 Windows 11 产品验收尚待完成，暂不宣称已经封存或开箱验证通过。**
+**版本 0.3.0。Windows 使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，不使用 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
 
 Windows 的目标是让自定义应用走所选代理节点。它不能提供 Linux 同等的 DNS、子进程和故障隔离；具体边界见下文。Linux 功能保持原有实现。
 
@@ -42,7 +42,7 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 | 范围 | 当前行为与限制 |
 |---|---|
-| TCP / 一般 UDP | 配置为经本机 Mihomo SOCKS 转发；UDP 还依赖所选节点及其协议支持。最终产品流量仍待验收 |
+| TCP / 一般 UDP | 配置为经本机 Mihomo SOCKS 转发；UDP 还依赖所选节点及其协议支持。实际通过范围以对应 ZIP 的产品验收报告为准 |
 | UDP 53 | ProxiFyre 2.6.4 源码直接放行该端口；不提供 DNS 防泄漏保证 |
 | 系统 DNS | 系统解析服务代发的查询无法可靠按原始应用归因，不由本工具全面接管 |
 | IPv6 | 配置启用，但尚无本项目完整原生实证；上游明确允许 IPv6 分片直通，不能保证没有直连 |

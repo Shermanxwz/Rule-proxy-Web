@@ -5,6 +5,7 @@ import ctypes
 from ctypes import wintypes
 import json
 import os
+import time
 import uuid
 
 from .windows_proxy_policy import MAX_MESSAGE, SERVICE_NAME, ProxyError
@@ -50,6 +51,35 @@ class Client:
             raise ProxyError("invalid_deployment", "控制管道名称无效。")
         self.pipe = "\\\\.\\pipe\\" + pipe
 
+    def _open_pipe(self, api, timeout=45):
+        """Retry only connection acquisition, before any request is sent."""
+        from .windows_proxy_service import ServiceControl
+        kernel = api.kernel
+        deadline = time.monotonic() + timeout
+        last_error = 2
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ProxyError("backend_unavailable", "等待 Windows 代理控制管道超时。错误码：" + str(last_error))
+            # No pipe instances makes WaitNamedPipe fail immediately, ignoring
+            # its timeout. Slice busy waits and use one overall deadline.
+            if kernel.WaitNamedPipeW(self.pipe, max(1, min(250, int(remaining * 1000)))):
+                handle = kernel.CreateFileW(self.pipe, 0xC0000000, 0, None, 3, 0x40000000, None)
+                if handle != ctypes.c_void_p(-1).value:
+                    return handle
+                last_error = ctypes.get_last_error()
+            else:
+                last_error = ctypes.get_last_error()
+            if last_error not in {2, 3, 121, 231}:
+                raise ProxyError("backend_unavailable", "无法打开 Windows 代理控制管道。错误码：" + str(last_error))
+            try:
+                status = ServiceControl().status(SERVICE_NAME)
+            except OSError as exc:
+                raise ProxyError("backend_unavailable", "Windows 代理控制服务不可用，请运行安装或修复。") from exc
+            if status["state"] not in {2, 4}:  # START_PENDING or RUNNING
+                raise ProxyError("backend_unavailable", "Windows 代理控制服务未运行，请运行安装或修复。")
+            time.sleep(min(.05, max(0, deadline - time.monotonic())))
+
     def request(self, operation: str, **fields) -> dict:
         if os.name != "nt":
             raise ProxyError("unsupported_platform", "Windows 后端仅适用于 Windows。")
@@ -68,13 +98,7 @@ class Client:
         kernel.SetNamedPipeHandleState.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD),
                                                   wintypes.LPVOID, wintypes.LPVOID]
         kernel.GetNamedPipeServerProcessId.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.ULONG)]
-        if not kernel.WaitNamedPipeW(self.pipe, 45000):
-            error = ctypes.get_last_error()
-            raise ProxyError("setup_required" if error in (2, 3) else "backend_unavailable",
-                             "Windows 代理控制服务不可用，请运行安装或修复。错误码：" + str(error))
-        handle = kernel.CreateFileW(self.pipe, 0xC0000000, 0, None, 3, 0x40000000, None)
-        if handle == ctypes.c_void_p(-1).value:
-            raise ProxyError("backend_unavailable", "无法打开 Windows 代理控制管道。")
+        handle = self._open_pipe(api)
         try:
             server_pid = wintypes.ULONG()
             if not kernel.GetNamedPipeServerProcessId(handle, ctypes.byref(server_pid)):

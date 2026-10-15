@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "official_setup_log_sha256": "ebfc00ecfdb478848bf40a0db591bd9fd10de11b082c4027180d5e4562bd95ab",
+  "external_payloads_acquired_from_local_siblings": true,
+  "download_acquisition_log_entries": [],
+  "apply_succeeded_without_restart": true,
+  "actual_network_disconnected_tested": false,
+  "evidence_lines": [
+    "[2530:0384][2026-10-15T18:19:41]i338: Acquiring package: VisualCppRuntime, payload: VisualCppRuntime, copy from: C:\\Program Files\\.RuleProxy-Web-staging-df7c20e075cd410ebe98c9848eece2b9\\installers\\VC_redist.x64.exe",
+    "[2530:0384][2026-10-15T18:19:41]i338: Acquiring package: WindowsPacketFilter, payload: WindowsPacketFilter, copy from: C:\\Program Files\\.RuleProxy-Web-staging-df7c20e075cd410ebe98c9848eece2b9\\installers\\Windows.Packet.Filter.3.6.2.1.x64.msi",
+    "[2530:204C][2026-10-15T18:19:50]i399: Apply complete, result: 0x0, restart: None, ba requested restart:  No"
+  ]
+}
