@@ -1,0 +1,88 @@
+{
+  "additional_directory_grants": false,
+  "contained_gui_context": {
+    "reason": "PSEC context-app launch failed before the context report was returned",
+    "status": "not_observed"
+  },
+  "directory_query_list_permission_changed": false,
+  "full_acceptance_passed": false,
+  "gui": {
+    "browser_control": "chrome_for_testing_control",
+    "browser_exit_observation": "incomplete",
+    "cleanup_proven": true,
+    "detail": "Contained context-app launch failed with UnsupportedRuntimeError; report suppresses path details.",
+    "dom_cookie_fixture_observed": false,
+    "failure_error_facts_type": "Exception",
+    "failure_stage": "gui_context_probe",
+    "failure_type": "UnsupportedRuntimeError",
+    "gui_fixture_passed": false,
+    "headless": false,
+    "natural_browser_exit_observed": false,
+    "outer_job_cleanup_proven": true,
+    "owned_tree_initialized": false,
+    "owned_wrapper_handle_retained": false,
+    "owned_wrapper_pid_attested": false,
+    "sandbox_weakened": false,
+    "status": "failed",
+    "visible_window_observation": "incomplete",
+    "wrapper_creation_observation": "unknown_not_attested",
+    "wrapper_exit_observation": "unknown",
+    "wrapper_start_analysis": "Failure occurred while GuiRun.collect_context called windows_runtime.launch. The sanitized artifact has no traceback or bridge diagnostic. The source can raise before Popen or after starting the wrapper; missing retained handle/PID does not distinguish these cases."
+  },
+  "official_update": {
+    "actual_build": 26200,
+    "actual_ubr": 9711,
+    "completed": true,
+    "dism_exit_code": 3010,
+    "ordinary_user": true,
+    "packages_verified": true,
+    "reboot_count": 1,
+    "staged_package_count": 2,
+    "status": "completed",
+    "target_build": 26200,
+    "target_ubr": 9711,
+    "task_unregistered": true
+  },
+  "outside_gui_context": {
+    "environment_presence": {
+      "appdata_present": true,
+      "localappdata_present": true,
+      "userprofile_present": true
+    },
+    "process_token_is_app_container": false,
+    "scope": "host process; not contained PSEC context",
+    "shgetfolderpath_flags0": {
+      "hresult_u32": 0,
+      "path_present": true,
+      "success": true
+    },
+    "shgetknownfolderpath_dont_verify": {
+      "free_success": true,
+      "hresult_u32": 0,
+      "localappdata_environment_present": true,
+      "path_matches_localappdata_environment": true,
+      "path_present": true,
+      "success": true
+    },
+    "shgetknownfolderpath_flags0": {
+      "free_attempted": true,
+      "free_error": 0,
+      "free_success": true,
+      "hresult_u32": 0,
+      "path_present": true,
+      "success": true
+    },
+    "thread_token_open_error": 1008
+  },
+  "product_acceptance_passed": false,
+  "schema_version": 1,
+  "scope_limitations": [
+    "Known-folder results are outside the contained process; the contained context report was not produced.",
+    "The GUI phase did not reach browser launch, visible-window checks, DOM/cookie fixture checks or natural browser exit.",
+    "This source-only control does not establish product acceptance or a successful GUI."
+  ],
+  "source_commit": "9fdb6f4974f8c800095ded70b5579b4156f1da7b",
+  "source_policy_variant": "standard_profile_layout_without_extra_directory_grants",
+  "standard_profile_layout_control": true,
+  "status": "failed"
+}

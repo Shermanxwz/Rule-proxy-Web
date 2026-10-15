@@ -799,6 +799,99 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(popen.call_args.args[0][0], str(self.runtime.resolve()))
         self.assertFalse(Path(popen.call_args.args[0][2]).exists())
 
+    def _write_safe_guest_status(self, bridge, state="FAILED"):
+        status = Path(bridge.directory) / "guest-status.json"
+        status.write_text(json.dumps({
+            "nonce": bridge.nonce,
+            "state": state,
+            "detail": "private path and nonce must not escape",
+        }), encoding="ascii")
+        return status
+
+    def test_launch_failure_facts_cover_probe_and_uncertain_spawn(self):
+        # A failed request probe happens before any wrapper spawn attempt.
+        with mock.patch.object(windows_runtime, "_probe_request",
+                               side_effect=windows_runtime.UnsupportedRuntimeError("probe refused")):
+            with self.assertRaises(windows_runtime.UnsupportedRuntimeError) as probe_error:
+                self._launch_for_failure()
+        facts = probe_error.exception._ruleproxy_launch_facts
+        self.assertEqual(facts["phase"], "probe_request")
+        self.assertIs(facts["wrapper_process_started"], False)
+        self.assertFalse(facts["wrapper_exit_observed"])
+        self.assertTrue(facts["cleanup_proven"])
+        self.assertTrue(facts["resources_closed"])
+
+        # Once Popen raises, Python cannot prove whether the OS created a process.
+        bridge, fixture, _ = self._failed_launch_setup(None)
+        with mock.patch.object(windows_runtime.subprocess, "Popen",
+                               side_effect=OSError("spawn refused")):
+            with self.assertRaises(OSError) as spawn_error:
+                self._launch_for_failure()
+        facts = spawn_error.exception._ruleproxy_launch_facts
+        self.assertEqual(facts["phase"], "wrapper_spawn")
+        self.assertIsNone(facts["wrapper_process_started"])
+        self.assertFalse(facts["wrapper_exit_observed"])
+        self.assertTrue(facts["cleanup_proven"])
+        self.assertTrue(facts["resources_closed"])
+        bridge.close.assert_called_once()
+        fixture.close.assert_called_once()
+
+    def test_launch_failure_facts_capture_guest_status_before_successful_cleanup(self):
+        process = mock.Mock(pid=900)
+        process.poll.return_value = 70
+        process.returncode = 70
+        bridge, fixture, _ = self._failed_launch_setup(process)
+        status = self._write_safe_guest_status(bridge)
+        bridge.close.side_effect = status.unlink
+        with self.assertRaises(windows_runtime.UnsupportedRuntimeError) as failure:
+            self._launch_for_failure()
+
+        facts = failure.exception._ruleproxy_launch_facts
+        self.assertEqual(facts["phase"], "bridge_ready")
+        self.assertIs(facts["wrapper_process_started"], True)
+        self.assertTrue(facts["wrapper_exit_observed"])
+        self.assertEqual(facts["wrapper_exit_code"], 70)
+        self.assertEqual(facts["guest_status"], {
+            "status": "observed", "state": "FAILED", "detail_error_category": "guest_failed",
+        })
+        self.assertTrue(facts["cleanup_proven"])
+        self.assertTrue(facts["resources_closed"])
+        self.assertFalse(status.exists())
+        self.assertNotIn("private", json.dumps(facts))
+        self.assertNotIn(bridge.nonce, json.dumps(facts))
+        self.assertFalse(hasattr(failure.exception, "resource"), "closed resources must not be attached")
+        self.assertFalse(hasattr(failure.exception, "process"), "exited wrapper is not retained as an owner")
+        bridge.close.assert_called_once()
+        fixture.close.assert_called_once()
+
+    def test_guest_status_reader_failure_does_not_mask_launch_error_or_skip_cleanup(self):
+        process = mock.Mock(pid=900)
+        process.poll.return_value = 70
+        process.returncode = 70
+        bridge, fixture, _ = self._failed_launch_setup(process)
+        with mock.patch.object(
+            windows_runtime._WindowsRuntimeResources,
+            "bounded_guest_status",
+            side_effect=RuntimeError("status reader failed"),
+        ):
+            with self.assertRaisesRegex(
+                windows_runtime.UnsupportedRuntimeError, "contained network check failed"
+            ) as failure:
+                self._launch_for_failure()
+
+        facts = failure.exception._ruleproxy_launch_facts
+        self.assertEqual(facts["phase"], "bridge_ready")
+        self.assertIs(facts["wrapper_process_started"], True)
+        self.assertTrue(facts["wrapper_exit_observed"])
+        self.assertEqual(facts["wrapper_exit_code"], 70)
+        self.assertEqual(facts["guest_status"], {"status": "unavailable"})
+        self.assertTrue(facts["cleanup_proven"])
+        self.assertTrue(facts["resources_closed"])
+        bridge.close.assert_called_once()
+        fixture.close.assert_called_once()
+        self.assertFalse(hasattr(failure.exception, "resource"))
+        self.assertFalse(hasattr(failure.exception, "process"))
+
     def test_startup_timeout_preserves_live_wrapper_and_resources_for_retry(self):
         process = mock.Mock(pid=900)
         process.poll.return_value = None
@@ -809,6 +902,14 @@ class WindowsRuntimeTests(unittest.TestCase):
         resource = failure.exception.resource
         self.assertIs(failure.exception.process, process)
         self.assertIs(resource.failed_process, process)
+        facts = failure.exception._ruleproxy_launch_facts
+        self.assertEqual(facts["phase"], "bridge_ready")
+        self.assertIs(facts["wrapper_process_started"], True)
+        self.assertFalse(facts["wrapper_exit_observed"])
+        self.assertIsNone(facts["wrapper_exit_code"])
+        self.assertFalse(facts["cleanup_proven"])
+        self.assertFalse(facts["resources_closed"])
+        self.assertEqual(facts["guest_status"]["status"], "missing")
         bridge.reject.assert_called_once()
         bridge.close.assert_not_called()
         fixture.close.assert_not_called()
@@ -834,6 +935,7 @@ class WindowsRuntimeTests(unittest.TestCase):
     def test_fixture_cleanup_error_preserves_resource_for_retry_without_killing_wrapper(self):
         process = mock.Mock(pid=900)
         process.poll.return_value = 70
+        process.returncode = 70
         bridge, fixture, _ = self._failed_launch_setup(process)
         fixture.close.side_effect = windows_runtime.SafeStopError("fixture cleanup failed")
         with self.assertRaises(windows_runtime.SafeStopError) as raised:
@@ -841,6 +943,14 @@ class WindowsRuntimeTests(unittest.TestCase):
         resource = raised.exception.resource
         self.assertIs(raised.exception.process, process)
         self.assertIs(resource.failed_process, process)
+        facts = raised.exception._ruleproxy_launch_facts
+        self.assertEqual(facts["phase"], "bridge_ready")
+        self.assertIs(facts["wrapper_process_started"], True)
+        self.assertTrue(facts["wrapper_exit_observed"])
+        self.assertEqual(facts["wrapper_exit_code"], 70)
+        self.assertEqual(facts["guest_status"]["status"], "missing")
+        self.assertFalse(facts["cleanup_proven"])
+        self.assertFalse(facts["resources_closed"])
         self.assertTrue(resource.udp_fixture.closed.is_set())
         self.assertTrue(all(not thread.is_alive() for thread in resource.udp_fixture.threads))
         self.assertTrue(bridge.directory.exists())

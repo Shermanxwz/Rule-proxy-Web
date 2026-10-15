@@ -662,6 +662,98 @@ print(json.dumps({{"nested_accounting": True, "controller_only": controller_only
         with self.assertRaisesRegex(ValueError, "unregistered"):
             gui._diagnostic_call("private path", lambda: None)
 
+    def test_runtime_launch_failure_facts_are_validated_and_projected_without_private_fields(self):
+        from ruleproxy.windows_runtime import UnsupportedRuntimeError
+        error = UnsupportedRuntimeError("private path, nonce, and raw bridge detail")
+        error._ruleproxy_launch_facts = {
+            "schema_version": 1, "phase": "bridge_ready",
+            "wrapper_process_started": True, "wrapper_exit_observed": True,
+            "wrapper_exit_code": 70,
+            "guest_status": {"status": "observed", "state": "FAILED",
+                             "detail_error_category": "guest_failed", "path": "C:\\Private\\user",
+                             "nonce": "secret"},
+            "cleanup_proven": True, "resources_closed": True,
+        }
+        facts = gui.error_facts(error, "gui_context_probe")
+        self.assertEqual(facts["error_type"], "UnsupportedRuntimeError")
+        self.assertEqual(facts["ruleproxy_launch"], {
+            "schema_version": 1, "phase": "bridge_ready",
+            "wrapper_process_started": True, "wrapper_exit_observed": True,
+            "wrapper_exit_code": 70,
+            "guest_status": {"status": "observed", "state": "FAILED",
+                             "detail_error_category": "guest_failed"},
+            "cleanup_proven": True, "resources_closed": True,
+        })
+        self.assertNotIn("private", json.dumps(facts).lower())
+        self.assertNotIn("secret", json.dumps(facts).lower())
+
+    def test_runtime_launch_failure_facts_preserve_unknown_process_state_and_cleanup_facts(self):
+        from ruleproxy.windows_runtime import UnsupportedRuntimeError
+        error = UnsupportedRuntimeError("safe closed after pre-Popen failure")
+        error._ruleproxy_launch_facts = {
+            "schema_version": 1, "phase": "probe_request",
+            "wrapper_process_started": False, "wrapper_exit_observed": False,
+            "wrapper_exit_code": None, "guest_status": {"status": "unavailable"},
+            "cleanup_proven": True, "resources_closed": True,
+        }
+        facts = gui.error_facts(error)
+        self.assertEqual(facts["error_type"], "UnsupportedRuntimeError")
+        self.assertIs(facts["ruleproxy_launch"]["wrapper_process_started"], False)
+        self.assertTrue(facts["ruleproxy_launch"]["cleanup_proven"])
+        self.assertTrue(facts["ruleproxy_launch"]["resources_closed"])
+
+        error._ruleproxy_launch_facts["wrapper_process_started"] = None
+        facts = gui.error_facts(error)
+        self.assertIsNone(facts["ruleproxy_launch"]["wrapper_process_started"])
+
+    def test_runtime_launch_failure_facts_accept_bounded_unknown_phase_and_unavailable_exit_code(self):
+        from ruleproxy.windows_runtime import UnsupportedRuntimeError
+        error = UnsupportedRuntimeError("failure")
+        error._ruleproxy_launch_facts = {
+            "schema_version": 1, "phase": "unknown",
+            "wrapper_process_started": None, "wrapper_exit_observed": True,
+            "wrapper_exit_code": None, "guest_status": {"status": "unavailable"},
+            "cleanup_proven": None, "resources_closed": None,
+        }
+        facts = gui.error_facts(error)["ruleproxy_launch"]
+        self.assertEqual(facts["phase"], "unknown")
+        self.assertTrue(facts["wrapper_exit_observed"])
+        self.assertIsNone(facts["wrapper_exit_code"])
+
+    def test_runtime_launch_failure_facts_reject_malformed_schema_and_phase(self):
+        from ruleproxy.windows_runtime import UnsupportedRuntimeError
+        valid = {"schema_version": 1, "phase": "bridge_ready",
+                 "wrapper_process_started": None, "wrapper_exit_observed": False,
+                 "wrapper_exit_code": None, "guest_status": {"status": "missing"},
+                 "cleanup_proven": None, "resources_closed": None}
+        invalid = []
+        for key, value in (("schema_version", True), ("phase", "C:\\Private\\file"),
+                           ("wrapper_process_started", "false"), ("wrapper_exit_observed", 1),
+                           ("wrapper_exit_code", True), ("guest_status", {"status": "raw", "detail": "private"}),
+                           ("guest_status", {"status": []}),
+                           ("cleanup_proven", 1), ("resources_closed", "yes")):
+            malformed = dict(valid)
+            malformed[key] = value
+            invalid.append(malformed)
+        extra = dict(valid, nonce="private")
+        invalid.append(extra)
+        for malformed in invalid:
+            with self.subTest(malformed=tuple(malformed.items())):
+                error = UnsupportedRuntimeError("untrusted exception detail")
+                error._ruleproxy_launch_facts = malformed
+                facts = gui.error_facts(error)
+                self.assertNotIn("ruleproxy_launch", facts)
+                self.assertNotIn("private", json.dumps(facts).lower())
+
+    def test_unsupported_runtime_error_type_is_reported_without_message_text(self):
+        from ruleproxy.windows_runtime import UnsupportedRuntimeError
+        error = UnsupportedRuntimeError("C:\\Private\\profile with secret nonce")
+        facts = gui.error_facts(error, "gui_context_probe")
+        self.assertEqual(facts["error_type"], "UnsupportedRuntimeError")
+        self.assertEqual(facts["stage"], "gui_context_probe")
+        self.assertNotIn("Private", json.dumps(facts))
+        self.assertNotIn("nonce", json.dumps(facts).lower())
+
     @unittest.skipIf(os.name == "nt", "Windows already exercises its real strict Path.resolve in every fake-lineage test")
     def test_windows_canonicalization_branch_requires_real_files_and_keeps_foreign_images_distinct(self):
         # Translate simulated absolute Win32 names to the real POSIX fixture

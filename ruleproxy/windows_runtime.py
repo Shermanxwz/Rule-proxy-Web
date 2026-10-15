@@ -758,6 +758,8 @@ def launch(
     bridge = None
     process = None
     resources = _WindowsRuntimeResources(run_dir, fixture, bridge)
+    phase = "probe_request"
+    wrapper_process_started: bool | None = False
     try:
         policy = build_policy(
             command,
@@ -774,9 +776,11 @@ def launch(
         # the exact directory-enumeration grant before any wrapper is started.
         probe_output = _probe_request(runtime, policy)
         _require_enumerate_path_support(probe_output, enumerate_path)
+        phase = "bridge_setup"
         bridge = FileProxyBridge(host_proxy_port, bridge_dir)
         resources.bridge = bridge
         resources.udp_fixture = _HostUDPFixture(bridge.nonce)
+        phase = "host_controls"
         resources.udp_fixture.control_before()
         resources.host_ipv6_observation = _host_ipv6_route_probe()
         host_ipv6_unavailable = resources.host_ipv6_observation["host_ipv6_route_unavailable"]
@@ -798,34 +802,43 @@ def launch(
         }
         config_path.write_text(json.dumps(guest_config, ensure_ascii=False), encoding="utf-8")
         runtime_config = _profile_environment(os.environ.copy(), profile)
+        phase = "wrapper_spawn"
+        wrapper_process_started = None
         process = subprocess.Popen(
             [str(runtime), "--config", str(_write_policy(policy, Path(run_dir.name)))],
             env=runtime_config,
             shell=False,
         )
         resources.process = process
+        wrapper_process_started = True
         process._ruleproxy_python_executable = str(python_executable)
 
         # Guest startup includes up to 10 seconds of bridge initialization and
         # a bounded 22-second parent/child check. Preserve its diagnostics even
         # when ordinary socket timeouts, rather than immediate denials, occur.
+        phase = "bridge_ready"
         if not bridge.wait_ready(45):
             raise UnsupportedRuntimeError(
                 getattr(bridge, "last_error", None) or "contained guest self-check did not become ready"
             )
+        phase = "host_tcp_check"
         if _host_can_reach_guest(guest_listener_port):
             bridge.reject("host-to-guest loopback check was reachable")
             raise UnsupportedRuntimeError("host unexpectedly reached the contained guest listener")
         if fixture.accepted.is_set():
             bridge.reject("guest reached a non-proxy host loopback fixture")
             raise UnsupportedRuntimeError("contained guest unexpectedly reached a host loopback listener")
+        phase = "startup_report"
         report = _read_startup_report(bridge.directory, bridge.nonce,
                                       host_ipv6_route_unavailable=host_ipv6_unavailable)
         resources.startup_diagnostics = report
+        phase = "udp_check"
         resources.udp_observation = resources.udp_fixture.verify(report)
+        phase = "bind_workload"
         _bind_startup_workload(process, report, str(python_executable))
         _write_host_approval(Path(run_dir.name), bridge.nonce)
         bridge.approve()
+        phase = "app_started"
         if not _wait_for_status(bridge.directory, bridge.nonce, "APP_STARTED", process, 20):
             raise UnsupportedRuntimeError("contained helper did not confirm application startup")
         resources.detail = (
@@ -848,7 +861,13 @@ def launch(
                 resources.detail = str(exc)
                 exc.process = process
                 exc.resource = resources
+                _attach_launch_failure_facts(
+                    exc, phase=phase, wrapper_process_started=wrapper_process_started,
+                    process=process, guest_status=_safe_bounded_guest_status(resources),
+                    cleanup_proven=False, resources_closed=False,
+                )
                 raise exc from wait_error
+        guest_status = _safe_bounded_guest_status(resources)
         try:
             resources.close()
         except Exception as cleanup_error:
@@ -856,8 +875,76 @@ def launch(
             resources.detail = str(exc)
             cleanup_error.process = process
             cleanup_error.resource = resources
+            _attach_launch_failure_facts(
+                cleanup_error, phase=phase, wrapper_process_started=wrapper_process_started,
+                process=process, guest_status=guest_status,
+                cleanup_proven=False, resources_closed=bool(resources._closed),
+            )
             raise cleanup_error from exc
+        _attach_launch_failure_facts(
+            exc, phase=phase, wrapper_process_started=wrapper_process_started,
+            process=process, guest_status=guest_status,
+            cleanup_proven=True, resources_closed=True,
+        )
         raise
+
+
+_LAUNCH_FAILURE_PHASES = frozenset({
+    "probe_request", "bridge_setup", "host_controls", "wrapper_spawn", "bridge_ready",
+    "host_tcp_check", "startup_report", "udp_check", "bind_workload", "app_started",
+})
+
+
+def _safe_bounded_guest_status(resources: Any) -> dict[str, Any]:
+    """Collect optional status facts without risking launch cleanup or errors."""
+    try:
+        value = resources.bounded_guest_status()
+        if isinstance(value, dict):
+            return value
+    except Exception:
+        pass
+    return {"status": "unavailable"}
+
+
+def _attach_launch_failure_facts(
+    error: BaseException,
+    *,
+    phase: str,
+    wrapper_process_started: bool | None,
+    process: Any,
+    guest_status: dict[str, Any] | None = None,
+    cleanup_proven: bool | None,
+    resources_closed: bool | None,
+) -> None:
+    """Attach bounded scalar facts without replacing the original error or owner."""
+    if phase not in _LAUNCH_FAILURE_PHASES:
+        phase = "unknown"
+    exit_observed = False
+    exit_code = None
+    if process is not None:
+        try:
+            exit_observed = process.poll() is not None
+            if exit_observed:
+                code = process.returncode
+                if (isinstance(code, int) and not isinstance(code, bool)
+                        and -(1 << 31) <= code <= 0xFFFFFFFF):
+                    exit_code = code
+        except Exception:
+            exit_observed = False
+    facts = {
+        "schema_version": 1,
+        "phase": phase,
+        "wrapper_process_started": wrapper_process_started,
+        "wrapper_exit_observed": exit_observed,
+        "wrapper_exit_code": exit_code,
+        "guest_status": guest_status if isinstance(guest_status, dict) else {"status": "unavailable"},
+        "cleanup_proven": cleanup_proven,
+        "resources_closed": resources_closed,
+    }
+    try:
+        error._ruleproxy_launch_facts = facts
+    except Exception:
+        pass
 
 
 def choose_guest_port(host_proxy_port: int) -> int:

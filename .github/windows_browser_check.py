@@ -30,6 +30,68 @@ ROOT = Path(__file__).resolve().parent.parent
 HOST = "ruleproxy-browser-fixture.invalid"
 COOKIE = "ruleproxy_browser_fixture"
 _RECOVERY_OWNERS = []
+_RULEPROXY_LAUNCH_PHASES = frozenset({
+    "unknown",
+    "probe_request", "bridge_setup", "host_controls", "wrapper_spawn", "bridge_ready",
+    "host_tcp_check", "startup_report", "udp_check", "bind_workload", "app_started",
+})
+
+
+def validated_launch_failure_facts(error):
+    """Keep only the fixed, finite launch facts attached by windows_runtime."""
+    raw = getattr(error, "_ruleproxy_launch_facts", None)
+    required = {"schema_version", "phase", "wrapper_process_started", "wrapper_exit_observed",
+                "wrapper_exit_code", "guest_status", "cleanup_proven", "resources_closed"}
+    if type(raw) is not dict or set(raw) != required:
+        return None
+    if (type(raw["schema_version"]) is not int or raw["schema_version"] != 1
+            or type(raw["phase"]) is not str or raw["phase"] not in _RULEPROXY_LAUNCH_PHASES
+            or (raw["wrapper_process_started"] is not None
+                and type(raw["wrapper_process_started"]) is not bool)
+            or type(raw["wrapper_exit_observed"]) is not bool
+            or (raw["wrapper_exit_code"] is not None and
+                (type(raw["wrapper_exit_code"]) is not int
+                 or not -(2**31) <= raw["wrapper_exit_code"] <= 0xffffffff))
+            or (raw["cleanup_proven"] is not None and type(raw["cleanup_proven"]) is not bool)
+            or (raw["resources_closed"] is not None and type(raw["resources_closed"]) is not bool)):
+        return None
+    guest = raw["guest_status"]
+    if (type(guest) is not dict or type(guest.get("status")) is not str
+            or guest["status"] not in {"observed", "missing", "unmatched", "invalid", "unavailable"}):
+        return None
+    safe_guest = {"status": guest["status"]}
+    state = guest.get("state")
+    if state is not None:
+        if type(state) is not str or state not in {
+                "GUEST_READY", "APP_STARTED", "APP_EXITED", "FAILED", "REJECTED"}:
+            return None
+        safe_guest["state"] = state
+    if safe_guest["status"] == "observed" and "state" not in safe_guest:
+        return None
+    app_exit = guest.get("app_exit")
+    if app_exit is not None:
+        if type(app_exit) is not int or not -(2**31) <= app_exit <= 0xffffffff:
+            return None
+        safe_guest["app_exit"] = app_exit
+    error_category = guest.get("detail_error_category")
+    if error_category is not None:
+        if type(error_category) is not str or error_category not in {"invalid_app_exit", "guest_failed"}:
+            return None
+        safe_guest["detail_error_category"] = error_category
+    return {"schema_version": 1, "phase": raw["phase"],
+            "wrapper_process_started": raw["wrapper_process_started"],
+            "wrapper_exit_observed": raw["wrapper_exit_observed"],
+            "wrapper_exit_code": raw["wrapper_exit_code"],
+            "guest_status": safe_guest,
+            "cleanup_proven": raw["cleanup_proven"],
+            "resources_closed": raw["resources_closed"]}
+
+
+def safe_failure_type(error):
+    name = type(error).__name__
+    return name if name in {"PermissionError", "FileNotFoundError", "OSError", "RuntimeError",
+                            "TimeoutError", "ValueError", "TypeError", "AttributeError",
+                            "NotImplementedError", "UnsupportedRuntimeError"} else "Exception"
 
 
 def acceptance_helpers():
@@ -239,6 +301,8 @@ class BrowserRun:
         # checks a Max-Age cookie, so it does not require restoring old tabs.
         command = [argument for argument in command if argument != "--restore-last-session"]
         self._launch_attempted = True
+        attempt["wrapper_process_started"] = None
+        attempt["wrapper_exit_observed"] = None
         try:
             self.wrapper, self.resources = windows_runtime.launch(
                 command, environment, self.profile_root / "browser", self.fixture.port,
@@ -246,9 +310,20 @@ class BrowserRun:
         except BaseException as exc:
             self.wrapper = getattr(exc, "process", None)
             self.resources = getattr(exc, "resource", None)
-            attempt["wrapper_process_started"] = self.wrapper is not None
-            # launch() closes its own resources before re-raising unless it
-            # attaches a live process/resource for the caller to retain.
+            launch_facts = validated_launch_failure_facts(exc)
+            if self.wrapper is not None and launch_facts is not None \
+                    and launch_facts["wrapper_process_started"] is not True:
+                launch_facts = None
+            attempt["wrapper_process_started"] = (True if self.wrapper is not None else
+                launch_facts["wrapper_process_started"] if launch_facts is not None else None)
+            if launch_facts is not None:
+                attempt["wrapper_exit_observed"] = launch_facts["wrapper_exit_observed"]
+                attempt["wrapper_exit_code"] = launch_facts["wrapper_exit_code"]
+                attempt["ruleproxy_launch"] = launch_facts
+            else:
+                attempt["wrapper_exit_observed"] = None
+            # A missing owner reference alone cannot distinguish pre-Popen
+            # failure from a wrapper that launch() closed before re-raising.
             self._launch_failed_cleanly = self.wrapper is None and self.resources is None
             raise
         attempt["wrapper_process_started"] = True
@@ -437,7 +512,7 @@ def main(arguments):
     except Exception as exc:
         result.update(status="failed", detail=f"Browser check failed during {phase} ({type(exc).__name__}): {str(exc)[:400]}")
         if owner is not None and owner.current_attempt is not None:
-            owner.current_attempt["failure_type"] = type(exc).__name__
+            owner.current_attempt["failure_type"] = safe_failure_type(exc)
     finally:
         finalize_cleanup(result, owner, fixture, directory, before,
                          helpers.network_snapshot if helpers is not None else None)

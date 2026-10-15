@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "source_commit": "f48239ae818fa81d3f0663833826b83f37136861",
+  "status": "diagnostic_incomplete_timeout",
+  "acceptance_passed": false,
+  "full_acceptance_passed": false,
+  "product_acceptance_passed": false,
+  "product_runtime_replaced": false,
+  "execution": {
+    "selected_modes": {
+      "gui_diagnostic_only": true,
+      "chromium_gui_control_diagnostic": true,
+      "network_diagnostic_only": false,
+      "psec_1_1_diagnostic": false
+    },
+    "source_diagnostic_only": true,
+    "executor_attested": false,
+    "timeout_error_type": "TimeoutError"
+  },
+  "official_update": {
+    "required": true,
+    "target_build": 26200,
+    "target_ubr": 9711,
+    "packages_verified": true,
+    "staged_package_count": 2,
+    "guest_update_completed": null,
+    "actual_build": null,
+    "actual_ubr": null,
+    "reboot_count": null
+  },
+  "visible_desktop": {
+    "captured": true,
+    "watermark_build": 26100,
+    "browser_window_or_page_visible_at_last_capture": false,
+    "interpretation": "Windows desktop/Start menu is visible; no GUI page is shown."
+  },
+  "ordinary_user_verified": null,
+  "known_folder_context_report": null,
+  "additional_enumerate_paths_control_report": null,
+  "gui_phase": {
+    "report_available": false,
+    "window_ownership_verified": null,
+    "page_acknowledged": null,
+    "wrapper_ownership_or_exit_verified": null,
+    "failure_stage": null,
+    "cleanup_proven": null
+  },
+  "host_network_unchanged": null,
+  "limitations": [
+    "Only the VM summary was present; there were no guest phase reports.",
+    "The two target update packages were verified, but guest update completion and reboot were not reported.",
+    "The screenshot shows build 26100, not verified target build 26200.9711.",
+    "No browser window/page, GUI phase, wrapper ownership, or cleanup outcome can be inferred from this artifact."
+  ]
+}

@@ -112,17 +112,83 @@ class WindowsBrowserCheckTests(unittest.TestCase):
         wrapper, resources = mock.Mock(), mock.Mock()
         failure = RuntimeError("startup failed after wrapper launch")
         failure.process, failure.resource = wrapper, resources
+        failure._ruleproxy_launch_facts = {
+            "schema_version": 1, "phase": "bridge_ready",
+            "wrapper_process_started": True, "wrapper_exit_observed": False,
+            "wrapper_exit_code": None, "guest_status": {"status": "unavailable"},
+            "cleanup_proven": False, "resources_closed": False,
+        }
         with mock.patch.object(windows_runtime, "choose_guest_port", return_value=19001), \
                 mock.patch.object(launcher, "prepare_app", return_value=([], {}, "")), \
                 mock.patch.object(windows_runtime, "launch", side_effect=failure):
             with self.assertRaisesRegex(RuntimeError, "startup failed"):
                 owner.run(1, 90)
         self.assertTrue(owner.current_attempt["wrapper_process_started"])
+        self.assertEqual(owner.current_attempt["ruleproxy_launch"]["phase"], "bridge_ready")
+        self.assertFalse(owner.current_attempt["ruleproxy_launch"]["cleanup_proven"])
+        self.assertFalse(owner.current_attempt["ruleproxy_launch"]["resources_closed"])
         self.assertNotIn("process_started", owner.current_attempt)
         self.assertIs(owner.wrapper, wrapper)
         self.assertIs(owner.resources, resources)
         self.assertFalse(owner.cleanup_facts()["owned_workload_cleanup_proven"])
         self.assertFalse(owner.cleanup_facts()["resources_closed"])
+
+    def test_safe_closed_launch_exception_uses_runtime_process_start_and_exit_facts(self):
+        from ruleproxy import launcher, windows_runtime
+        fixture = mock.Mock(port=19002)
+        owner = browser.BrowserRun("runtime", "edge", self.directory, fixture)
+        failure = windows_runtime.UnsupportedRuntimeError("diagnostic details are not reported")
+        failure._ruleproxy_launch_facts = {
+            "schema_version": 1, "phase": "bridge_ready",
+            "wrapper_process_started": True, "wrapper_exit_observed": True,
+            "wrapper_exit_code": 70,
+            "guest_status": {"status": "observed", "state": "APP_EXITED", "app_exit": 1,
+                             "private_path": "C:\\Private"},
+            "cleanup_proven": True, "resources_closed": True,
+        }
+        with mock.patch.object(windows_runtime, "choose_guest_port", return_value=19001), \
+                mock.patch.object(launcher, "prepare_app", return_value=([], {}, "")), \
+                mock.patch.object(windows_runtime, "launch", side_effect=failure):
+            with self.assertRaises(windows_runtime.UnsupportedRuntimeError):
+                owner.run(1, 90)
+        attempt = owner.current_attempt
+        self.assertTrue(attempt["wrapper_process_started"])
+        self.assertTrue(attempt["wrapper_exit_observed"])
+        self.assertEqual(attempt["wrapper_exit_code"], 70)
+        self.assertEqual(attempt["ruleproxy_launch"]["guest_status"], {
+            "status": "observed", "state": "APP_EXITED", "app_exit": 1})
+        self.assertNotIn("private", str(attempt).lower())
+        self.assertTrue(owner._launch_failed_cleanly)
+
+    def test_launch_exception_with_missing_or_malformed_facts_keeps_process_start_unknown(self):
+        from ruleproxy import launcher, windows_runtime
+        malformed = {"schema_version": 1, "phase": "bridge_ready",
+                "wrapper_process_started": False, "wrapper_exit_observed": False,
+                "wrapper_exit_code": None, "guest_status": {"status": []},
+                "cleanup_proven": True, "resources_closed": True}
+        for launch_facts in (None, {"schema_version": 1, "phase": "C:\\Private",
+                "wrapper_process_started": False, "wrapper_exit_observed": False,
+                "wrapper_exit_code": None, "guest_status": {"status": "missing"},
+                "cleanup_proven": True, "resources_closed": True}, malformed):
+            with self.subTest(has_facts=launch_facts is not None):
+                fixture = mock.Mock(port=19002)
+                owner = browser.BrowserRun("runtime", "edge", self.directory, fixture)
+                failure = RuntimeError("startup failed; no process reference attached")
+                if launch_facts is not None:
+                    failure._ruleproxy_launch_facts = launch_facts
+                with mock.patch.object(windows_runtime, "choose_guest_port", return_value=19001), \
+                        mock.patch.object(launcher, "prepare_app", return_value=([], {}, "")), \
+                        mock.patch.object(windows_runtime, "launch", side_effect=failure):
+                    with self.assertRaisesRegex(RuntimeError, "startup failed"):
+                        owner.run(1, 90)
+                self.assertIsNone(owner.current_attempt["wrapper_process_started"])
+                self.assertIsNone(owner.current_attempt["wrapper_exit_observed"])
+                self.assertNotIn("ruleproxy_launch", owner.current_attempt)
+
+    def test_browser_failure_type_is_limited_to_finite_names(self):
+        self.assertEqual(browser.safe_failure_type(RuntimeError("private")), "RuntimeError")
+        CustomFailure = type("CustomFailureWithPrivatePath", (Exception,), {})
+        self.assertEqual(browser.safe_failure_type(CustomFailure("private")), "Exception")
 
     def test_fixture_close_failure_or_live_handler_retains_profile(self):
         for fixture in (_Fixture(fail=True), _Fixture(live_worker=True)):

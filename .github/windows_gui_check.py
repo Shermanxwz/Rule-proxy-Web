@@ -50,6 +50,11 @@ _DIAGNOSTIC_STAGES = frozenset({
     "job_create", "job_configure", "job_assign", "job_controller_verify", "job_accounting",
     "job_close", "tree_unqueryable_job_proof",
 })
+_RULEPROXY_LAUNCH_PHASES = frozenset({
+    "unknown",
+    "probe_request", "bridge_setup", "host_controls", "wrapper_spawn", "bridge_ready",
+    "host_tcp_check", "startup_report", "udp_check", "bind_workload", "app_started",
+})
 
 
 class _JobBasicLimitInformation(ctypes.Structure):
@@ -232,6 +237,57 @@ class GuiJob:
         self.closed = True
 
 
+def _validated_ruleproxy_launch_facts(error):
+    """Project only the finite runtime launch-failure evidence schema."""
+    raw = getattr(error, "_ruleproxy_launch_facts", None)
+    required = {"schema_version", "phase", "wrapper_process_started", "wrapper_exit_observed",
+                "wrapper_exit_code", "guest_status", "cleanup_proven", "resources_closed"}
+    if type(raw) is not dict or set(raw) != required:
+        return None
+    if (type(raw["schema_version"]) is not int or raw["schema_version"] != 1
+            or type(raw["phase"]) is not str or raw["phase"] not in _RULEPROXY_LAUNCH_PHASES
+            or (raw["wrapper_process_started"] is not None
+                and type(raw["wrapper_process_started"]) is not bool)
+            or type(raw["wrapper_exit_observed"]) is not bool
+            or (raw["wrapper_exit_code"] is not None and
+                (type(raw["wrapper_exit_code"]) is not int
+                 or not -(2**31) <= raw["wrapper_exit_code"] <= 0xffffffff))
+            or (raw["cleanup_proven"] is not None and type(raw["cleanup_proven"]) is not bool)
+            or (raw["resources_closed"] is not None and type(raw["resources_closed"]) is not bool)):
+        return None
+    guest = raw["guest_status"]
+    allowed_status = {"observed", "missing", "unmatched", "invalid", "unavailable"}
+    if (type(guest) is not dict or type(guest.get("status")) is not str
+            or guest["status"] not in allowed_status):
+        return None
+    safe_guest = {"status": guest["status"]}
+    state = guest.get("state")
+    allowed_states = {"GUEST_READY", "APP_STARTED", "APP_EXITED", "FAILED", "REJECTED"}
+    if state is not None:
+        if type(state) is not str or state not in allowed_states:
+            return None
+        safe_guest["state"] = state
+    if guest["status"] == "observed" and "state" not in safe_guest:
+        return None
+    app_exit = guest.get("app_exit")
+    if app_exit is not None:
+        if type(app_exit) is not int or not -(2**31) <= app_exit <= 0xffffffff:
+            return None
+        safe_guest["app_exit"] = app_exit
+    error_category = guest.get("detail_error_category")
+    if error_category is not None:
+        if type(error_category) is not str or error_category not in {"invalid_app_exit", "guest_failed"}:
+            return None
+        safe_guest["detail_error_category"] = error_category
+    return {"schema_version": 1, "phase": raw["phase"],
+            "wrapper_process_started": raw["wrapper_process_started"],
+            "wrapper_exit_observed": raw["wrapper_exit_observed"],
+            "wrapper_exit_code": raw["wrapper_exit_code"],
+            "guest_status": safe_guest,
+            "cleanup_proven": raw["cleanup_proven"],
+            "resources_closed": raw["resources_closed"]}
+
+
 def error_facts(error, fallback_stage="unknown"):
     """Finite operation names and integer codes; never filenames or traceback text."""
     stage = getattr(error, "_gui_diagnostic_stage", fallback_stage)
@@ -240,12 +296,15 @@ def error_facts(error, fallback_stage="unknown"):
     name = type(error).__name__
     if name not in {"PermissionError", "FileNotFoundError", "OSError", "RuntimeError",
                     "TimeoutError", "ValueError", "TypeError", "AttributeError",
-                    "NotImplementedError"}:
+                    "NotImplementedError", "UnsupportedRuntimeError"}:
         name = "Exception"
     facts = {"stage": stage, "error_type": name}
     for key in ("errno", "winerror"):
         value = getattr(error, key, None)
         facts[key] = value if type(value) is int and 0 <= value <= 0xffffffff else None
+    launch_facts = _validated_ruleproxy_launch_facts(error)
+    if launch_facts is not None:
+        facts["ruleproxy_launch"] = launch_facts
     context = getattr(error, "_gui_process_open_context", None)
     if isinstance(context, dict) and context.get("operation") == "OpenProcess":
         facts["operation"] = "OpenProcess"

@@ -55,6 +55,7 @@
     },
     "contained_context_report_produced": false,
     "context_wrapper_retained": false,
+    "context_wrapper_creation": "unknown_not_attested",
     "context_runtime_resources_retained": false,
     "context_tree_initialized": false,
     "browser_launch_observed": false,
@@ -73,6 +74,7 @@
     "The source executor is an unadopted diagnostic and preserves privateNetworkClientServer; capabilities_null is false.",
     "LAN inbound behavior was not tested.",
     "No contained GUI context report or Chromium launch was observed; the early failure does not establish GUI incompatibility.",
+    "Missing retained wrapper handles do not distinguish failure before Popen from a wrapper started and safely cleaned up before the launch error was returned.",
     "Host-side proxy, DNS and default-route snapshot check passed; this is not a complete network-boundary proof.",
     "Transport, Manager, browser fixture and package-test phases were skipped; no product acceptance passed."
   ]
