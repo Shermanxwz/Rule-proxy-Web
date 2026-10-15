@@ -276,6 +276,10 @@ def make_payload(package: Path, destination: Path, *, test_executor_bundle: Path
         # checkout product code alongside the separately verified release.
         relative = "examples/ruleproxy.example.yaml"
         archive.write(ROOT / relative, relative)
+        # The packaged source tests inspect the manual CI workflow contract.
+        # Ship only that public workflow input, never runner secrets/state.
+        relative = ".github/workflows/check.yml"
+        archive.write(ROOT / relative, relative)
         if test_executor_bundle is not None:
             for name in TEST_EXECUTOR_FILES:
                 archive.write(test_executor_bundle / name, f"{TEST_EXECUTOR_DIRECTORY}/{name}")

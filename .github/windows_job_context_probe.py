@@ -367,7 +367,8 @@ def main(arguments=None):
                 code = context.get("is_process_in_job_error")
             if "error" in context or code is not None:
                 print(json.dumps({"stage": "query_job", "errno": None, "winerror": code,
-                    "class": context.get("error", "Win32ApiFailure")}, ensure_ascii=True, separators=(",", ":")), flush=True)
+                    "class": context.get("error", "Win32ApiFailure")}, ensure_ascii=True, separators=(",", ":")),
+                    file=sys.stderr, flush=True)
         report = {"schema_version": 1, "nonce": value["nonce"], "scope": SCOPE,
             "pid": os.getpid(), "parent_pid": os.getppid(), "job_context": context,
             "edge_launched": False, "edge_exit_code": None, "edge_exit_code_hex": None, "edge_launch_error": None,

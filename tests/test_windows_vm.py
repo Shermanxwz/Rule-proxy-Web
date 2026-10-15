@@ -286,9 +286,12 @@ class WindowsVmTests(unittest.TestCase):
                              ".github/run_tests.py", ".github/windows_vm_test.py",
                              ".github/windows_browser_check.py", ".github/build_windows_package.py",
                              ".github/windows-vm-run.ps1", ".github/windows-vm-setup.ps1",
+                             ".github/workflows/check.yml",
                              ".github/windows-vm-unattend.xml"} <= names)
+            self.assertEqual(archive.read(".github/workflows/check.yml"),
+                             (ROOT / ".github/workflows/check.yml").read_bytes())
             self.assertEqual({name for name in names if name.endswith((".yaml", ".yml"))},
-                             {"examples/ruleproxy.example.yaml"})
+                             {"examples/ruleproxy.example.yaml", ".github/workflows/check.yml"})
             self.assertFalse(any(name.startswith(("ruleproxy/", "vendor/", "RuleProxy-Web/")) for name in names))
             self.assertNotIn("Run-RuleProxy.py", names)
 

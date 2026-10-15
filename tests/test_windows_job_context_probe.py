@@ -295,11 +295,17 @@ class WindowsJobContextTests(unittest.TestCase):
     def test_initial_report_publication_failure_is_not_an_edge_crash(self):
         self.command_file.write_text(json.dumps(self.config))
         output = io.StringIO()
+        diagnostics = io.StringIO()
         with mock.patch.object(probe, "write_report", side_effect=self.permission_error()), \
-                mock.patch.object(probe.subprocess, "Popen") as launch, contextlib.redirect_stdout(output):
+                mock.patch.object(probe, "query_job_context", return_value={"status": "incomplete",
+                    "error": "Win32ApiFailure"}), \
+                mock.patch.object(probe.subprocess, "Popen") as launch, \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(diagnostics):
             code = probe.main(["--command", str(self.command_file), "--report", str(self.report)])
         self.assertEqual(code, 1)
         self.assert_failure_output(output.getvalue(), "publish_initial")
+        self.assertEqual(json.loads(diagnostics.getvalue()), {"stage": "query_job", "errno": None,
+                                                              "winerror": None, "class": "Win32ApiFailure"})
         launch.assert_not_called()
 
     def test_wrapper_publishes_context_before_running_edge_naturally_and_preserves_dword_crash(self):

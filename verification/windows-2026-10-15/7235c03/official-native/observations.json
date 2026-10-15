@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "source_commit": "7235c032342ac7f39d32ca88b0483f7c5b30b829",
+  "execution": {
+    "mode": "original_sdk",
+    "product_runtime_replaced": false,
+    "native_x64": true,
+    "windows_build": 26300,
+    "actual_ubr": 9711,
+    "official_update_completed": true
+  },
+  "official_update": {
+    "package_count": 2,
+    "all_packages_verified": true,
+    "servicing_exit_code": 3010,
+    "reboot_count": 1,
+    "target_ubr_reached": true,
+    "scheduled_task_unregistered": true
+  },
+  "phases": {
+    "probe": "passed",
+    "transport": "failed",
+    "manager": "failed",
+    "browser": "failed",
+    "gui": "failed",
+    "package_tests": "failed"
+  },
+  "product_acceptance_passed": false,
+  "network_self_check": {
+    "parent_self_proxy": "failed_winerror_10013",
+    "child_parent_proxy": "failed_winerror_10013",
+    "direct_and_host_denials": "8/8",
+    "parent_ipv6_loopback": "failed_winerror_10013",
+    "host_proxy_dns_default_routes_unchanged": true
+  },
+  "gui": {
+    "status": "failed",
+    "failure_stage": "runtime_launch",
+    "cleanup_proven": true,
+    "interpretation": "Startup network self-check failed; this run does not establish GUI incompatibility."
+  },
+  "preferred_network_experiment": {
+    "status": "experiment_only",
+    "variant": "model1_internal_ingress_deny",
+    "variant_status": "observed",
+    "transport_roundtrip_observed": false,
+    "parent_and_child_proxy_checks": "failed_winerror_10013",
+    "cleanup_proven": true,
+    "host_network_unchanged": true,
+    "proxy_roundtrips": 0
+  },
+  "native_dns": {
+    "status": "complete",
+    "unknown_records": 0,
+    "contained_parent_child_nonce_queries_observed": 8,
+    "breakdown": {
+      "getaddrinfo": {
+        "parent": 2,
+        "child": 2
+      },
+      "A": {
+        "parent": 1,
+        "child": 1
+      },
+      "AAAA": {
+        "parent": 1,
+        "child": 1
+      }
+    },
+    "kernel_denial_proven": false,
+    "acceptance_passed": false
+  },
+  "wire_observation": {
+    "status": "incomplete",
+    "unknown_records": 0,
+    "packet_analysis_complete": false,
+    "kernel_denial_proven": false
+  },
+  "outside_headless_control": {
+    "status": "passed",
+    "cleanup_proven": true
+  },
+  "cleanup_proven": true,
+  "limitations": [
+    "The experiment being observed and cleaned up does not mean its proxy transport succeeded.",
+    "The product GUI stopped at runtime startup network checks; this does not prove Windows GUI incompatibility.",
+    "This run did not pass the required product acceptance checks."
+  ]
+}

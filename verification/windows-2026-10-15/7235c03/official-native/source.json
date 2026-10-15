@@ -1,0 +1,121 @@
+{
+  "artifact_id": 11949157609,
+  "artifact_name": "windows-11-x64-validation",
+  "artifact_sha256": "6f5adc4a1b3fd7c47e4b6170dee824193e56bd1006762ec40dc5cca845cecf63",
+  "commit": "7235c032342ac7f39d32ca88b0483f7c5b30b829",
+  "commit_tree": "41147bfec58c4481997cf0a3479646b1d1c197c0",
+  "evidence_files": [
+    {
+      "name": "windows-vm-summary.json",
+      "source_member": "windows-vm-summary.json",
+      "bytes": 32444,
+      "sha256": "8bcb81acf587b648e099cafa3704167a74ae0de62bb2d5248fc297529507953f",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "guest-result.json",
+      "source_member": "guest-result.json",
+      "bytes": 439030,
+      "sha256": "bc56f58a5216b47116de2ea204088fffd402da70fb84e378e9cb1aab8e2feb06",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-probe.json",
+      "source_member": "windows-probe.json",
+      "bytes": 1964,
+      "sha256": "af7334a9ffce027f4cf4962208d4aa0894a68857a45aa1e3c7f1a18b826cf422",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-transport.json",
+      "source_member": "windows-transport.json",
+      "bytes": 2387,
+      "sha256": "8d72050e49d230770d5d0a9b4220179282b4fbbdd9fdfb4e010558a16a87bad8",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-manager.json",
+      "source_member": "windows-manager.json",
+      "bytes": 2615,
+      "sha256": "e3b30cee9fc9877e3c820a6dc473e2849e4db4af2b7f72a83f4abe2289733327",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-browser.json",
+      "source_member": "windows-browser.json",
+      "bytes": 2192,
+      "sha256": "0b6a96278c7a7294b78bc956dbb975e9ecefebe99bfd402f9d057f278f32dfef",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-gui.json",
+      "source_member": "windows-gui.json",
+      "bytes": 2991,
+      "sha256": "396ac4a3ff7212e89a11f32306cb8bae6b7afc69524451541f4cbbfa2ef82ddd",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-experiments.json",
+      "source_member": "windows-experiments.json",
+      "bytes": 71783,
+      "sha256": "764b109cd4b4a6a007c31b65cfb9ec1cf327e99078b9f3d3416d2fb92ac71c92",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-wire-evidence.json",
+      "source_member": "windows-wire-evidence.json",
+      "bytes": 25960,
+      "sha256": "821f2d4c20d3232e7b4d0639ede04241de09936b31924a2f89dafbfbdc653feb",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-outside_edge.json",
+      "source_member": "windows-outside_edge.json",
+      "bytes": 2396,
+      "sha256": "2ae60ca90f1f1a04d22351e70ebc82b0411ecaff448378e3a19a09d4b19411be",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    },
+    {
+      "name": "windows-edge_ui.json",
+      "source_member": "windows-edge_ui.json",
+      "bytes": 20815,
+      "sha256": "1794012026c178efd4911f44283676f521b15249efce9b25a0247603686ee530",
+      "copy_format": "original JSON; digest only, source artifact retained locally"
+    }
+  ],
+  "excluded_from_archive": [
+    "raw guest logs, screenshots, VM disks and media",
+    "temporary credentials and temporary paths",
+    "process identifiers, FILETIMEs, nonces and raw DNS names",
+    "signed package URLs and raw servicing logs",
+    "raw packet captures"
+  ],
+  "full_acceptance_passed": false,
+  "native_job": 116233878505,
+  "native_job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716/job/116233878505",
+  "product_runtime_replaced": false,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "schema_version": 1,
+  "status": "failed",
+  "system": {
+    "baseline_diagnostic": false,
+    "cumulative_update": "KB5127648",
+    "native_x64": true,
+    "ordinary_user": true,
+    "windows_build": 26300,
+    "target_ubr": 9711,
+    "actual_ubr": 9711,
+    "official_update_completed": true,
+    "verified_package_count": 2,
+    "servicing_exit_code": 3010,
+    "reboot_count": 1,
+    "scheduled_task_unregistered": true
+  },
+  "tested_package": {
+    "matches_ci_build": true,
+    "name": "RuleProxy-Web-0.2.2-windows-x64.zip",
+    "sha256": "658e94ee9529fc328fe63211bad6952e04d83f90849b9e8c364b4266e9b45fe3"
+  },
+  "workflow_run": 38677202716,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716"
+}
