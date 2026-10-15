@@ -484,7 +484,7 @@ def probe_phase(args: argparse.Namespace) -> int:
         raise ValueError("Install evidence does not authorize the ordinary-user probe")
     ordinary_user = _ordinary_user_facts()
     if (not ordinary_user["non_admin"] or not ordinary_user["not_system"]
-            or ordinary_user["is_administrator"] or not ordinary_user["proxybridge_group_member"]):
+            or ordinary_user["is_administrator"]):
         return _write_unavailable(args.report, "probe", "probe_must_run_as_non_admin_user")
     args.artifacts.mkdir(parents=True, exist_ok=True)
     # The real probe uses the v4.1.1 named-pipe API, not the elevated CLI.  It will
@@ -501,7 +501,9 @@ def probe_phase(args: argparse.Namespace) -> int:
               "product_acceptance_passed": False, "ordinary_user": True,
               "is_elevated": False, "is_administrator": False,
               "windows_build": build["build"], "windows_ubr": build["ubr"],
-              "service_protocol_version": PROTOCOL_VERSION, "proxybridge_group_member": True,
+              "service_protocol_version": PROTOCOL_VERSION,
+              "proxybridge_group_member": ordinary_user["proxybridge_group_member"],
+              "authorization_verified_by": "actual_authenticated_service_pipe",
               "initial_install_reboot_required": install.get("reboot_required") is True,
               "cleanup": cleanup, "cleanup_proven": cleanup is True,
               "observations": observations}
@@ -597,14 +599,17 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
         engine_started = True
         # Network requests are executed by isolated child interpreters so their process
         # image matches the selected rule. Results contain only booleans and counts.
+        before_selected = _safe_snapshot(fixture_obj.snapshot())
         selected = _run_fixture_worker(bundle, spec_path, artifacts, role="parent", selected=True,
                                        nonce=fixture["nonce"])
+        after_selected = _safe_snapshot(fixture_obj.snapshot())
         unselected = _run_fixture_worker(bundle, spec_path, artifacts, role="child", selected=False,
                                          nonce=fixture["nonce"])
         counts = _safe_snapshot(fixture_obj.snapshot())
         proxy_stop = fixture_obj.stop_proxy()
         after_proxy_stop = _run_fixture_worker(bundle, spec_path, artifacts,
                                                role="child", selected=True, nonce=fixture["nonce"])
+        after_selected_proxy_down = _safe_snapshot(fixture_obj.snapshot())
         dns_after = _run_native_dns_control(bundle, artifacts, fixture["nonce"], "outside_after")
         engine_stopped = client.stop()
         service_stop_denied = _ordinary_user_stop_service_denied()
@@ -619,6 +624,9 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
                  "fixture_nonce": fixture["nonce"],
                  "browser_gui": {"status": "not_tested"},
                  "fixture_counts_before_stop": counts,
+                 "fixture_counts_before_selected": before_selected,
+                 "fixture_counts_after_selected": after_selected,
+                 "fixture_counts_after_selected_proxy_down": after_selected_proxy_down,
                  "proxy_stop": {"owned_process_started": proxy_stop.get("owned_process_started") is True,
                                 "exited": proxy_stop.get("exited") is True},
                  "after_proxy_stop": after_proxy_stop}
@@ -801,7 +809,7 @@ def _safe_worker_report(report: dict, *, nonce: str | None = None) -> dict:
     allowed = {
         "proxy_http": {"ok", "error_type", "winerror"},
         "proxy_socks": {"ok", "error_type", "winerror"},
-        "direct_tcp": {"connected", "error_type", "winerror"},
+        "direct_tcp": {"connected", "fixed_response", "error_type", "winerror"},
         "udp4": {"attempted", "send_ok", "error_type", "winerror"},
         "udp6": {"attempted", "send_ok", "error_type", "winerror"},
         "public_udp4": {"attempted", "send_ok", "error_type", "winerror"},
