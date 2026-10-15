@@ -123,6 +123,7 @@ except Exception as exc:
         with mock.patch.object(sys, "platform", "win32"), \
                 mock.patch.object(sys, "getwindowsversion", create=True,
                                   return_value=SimpleNamespace(build=26200, product_type=1)), \
+                mock.patch.object(acceptance.platform, "machine", return_value="ARM64"), \
                 mock.patch.object(sys, "executable", str(executable)), \
                 mock.patch("ctypes.WinDLL", create=True, return_value=kernel):
             facts = acceptance.host_facts()

@@ -89,7 +89,14 @@ class WindowsPackageTests(unittest.TestCase):
             body = io.BytesIO()
             with zipfile.ZipFile(body, "w") as archive:
                 for name in names:
-                    archive.writestr(name, b"x")
+                    # Windows ZipInfo normalizes backslashes in its constructor.
+                    # Assign after construction so the on-disk member is truly
+                    # malformed; the reader retains those bytes as orig_filename.
+                    entry = zipfile.ZipInfo("placeholder")
+                    entry.filename = entry.orig_filename = name
+                    archive.writestr(entry, b"x")
+            with zipfile.ZipFile(body) as archive:
+                self.assertEqual(tuple(item.orig_filename for item in archive.infolist()), names)
             with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
                 builder.safe_extract(body.getvalue(), Path(directory))
 

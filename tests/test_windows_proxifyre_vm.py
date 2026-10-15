@@ -83,7 +83,13 @@ class NativePackageTests(unittest.TestCase):
             for name in ("python/python.exe", "package-manifest.json", "ruleproxy/windows_proxy_service.py", "scripts/windows-setup.ps1"):
                 archive.writestr("RuleProxy-Web/" + name, b"fixture")
             if extra is not None:
-                archive.writestr(extra, b"malicious")
+                # ZipInfo normalizes os.sep in its constructor on Windows.
+                # Assign afterwards so the archive contains the malicious raw
+                # spelling rather than a harmless normalized substitute.
+                entry = zipfile.ZipInfo()
+                entry.filename = extra
+                entry.orig_filename = extra
+                archive.writestr(entry, b"malicious")
         return vm.media.digest(self.package)
 
     def test_hash_tampering_rejected_before_payload_creation(self):
@@ -97,6 +103,8 @@ class NativePackageTests(unittest.TestCase):
         for name in ("RuleProxy-Web/../escape", "C:/escape", "/escape", "RuleProxy-Web\\escape",
                      "other-root/escape", "RuleProxy-Web/PYTHON/PYTHON.EXE"):
             digest = self.package_with(name)
+            with zipfile.ZipFile(self.package) as archive:
+                self.assertIn(name, [entry.orig_filename for entry in archive.infolist()])
             with self.subTest(name=name), self.assertRaises(ValueError):
                 vm.verify_package(self.package, digest)
         self.package_with()
@@ -107,6 +115,23 @@ class NativePackageTests(unittest.TestCase):
             archive.writestr(link, "../escape")
         with self.assertRaises(ValueError):
             vm.verify_package(self.package, vm.media.digest(self.package))
+
+    def test_raw_backslash_fixture_survives_windows_zipinfo_normalization(self):
+        original_init = zipfile.ZipInfo.__init__
+
+        def windows_init(entry, filename="NoName", date_time=(1980, 1, 1, 0, 0, 0)):
+            original_init(entry, filename, date_time)
+            entry.filename = entry.filename.replace("\\", "/")
+
+        name = "RuleProxy-Web\\escape"
+        with mock.patch.object(zipfile.ZipInfo, "__init__", windows_init):
+            digest = self.package_with(name)
+            with zipfile.ZipFile(self.package) as archive:
+                entry = archive.infolist()[-1]
+                self.assertEqual(entry.orig_filename, name)
+                self.assertNotEqual(entry.filename, entry.orig_filename)
+            with self.assertRaises(ValueError):
+                vm.verify_package(self.package, digest)
 
 
 class NativeCleanupTests(unittest.TestCase):

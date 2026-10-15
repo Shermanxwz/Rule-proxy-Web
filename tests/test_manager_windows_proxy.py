@@ -31,6 +31,9 @@ class WindowsManagerTests(unittest.TestCase):
     def tearDown(self):
         self.manager.active.clear()
         self.manager.core = None
+        # Injected backend failures belong to the test, not Manager.close in
+        # addCleanup after the simulated platform restores to native Windows.
+        self.backend.reset_mock(side_effect=True)
 
     def test_policy_covers_related_images_without_launching_them(self):
         self.use_core()

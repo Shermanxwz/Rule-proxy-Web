@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "status": "failed_or_incomplete",
+  "qualification_scope": "Windows Server 2025 final offline ZIP",
+  "windows_11_verified": false,
+  "gui_verified": false,
+  "product_release_eligible": false,
+  "checks": {},
+  "installations": [],
+  "actions": [],
+  "actual_os": {
+    "major": 10,
+    "minor": 0,
+    "build": 26100,
+    "platform": 2,
+    "product_type": 3,
+    "architecture": "AMD64"
+  },
+  "package": {
+    "zip": "RuleProxy-Web-0.3.0-windows-x64-personal.zip",
+    "sha256": "0b84325177156004025a73c82d34b23dfeb091489b21031cd920820309721322",
+    "manifest_verified": true,
+    "files_verified": 105,
+    "product_version": "0.3.0"
+  },
+  "source_matches_bundle": {
+    "manager.py": false,
+    "server.py": false,
+    "launcher.py": false,
+    "windows_proxy_service.py": false,
+    "windows_proxy_policy.py": false,
+    "windows_proxy_client.py": false,
+    "windows_proxy_runtime.py": false,
+    "windows_proxy_pins.py": false,
+    "windows_app_process.py": false,
+    "windows_core_process.py": false
+  },
+  "error": "Source and final package implementations differ",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_proxifyre_product_acceptance.py\", line 506, in controller\n    raise RuntimeError(\"Source and final package implementations differ\")\nRuntimeError: Source and final package implementations differ\n",
+  "diagnostics": {
+    "returncode": 0,
+    "stdout": "{\"services\":[],\"events\":[{\"TimeCreated\":\"\\/Date(1792086087849)\\/\",\"Id\":7036,\"Message\":\"The Volume Shadow Copy service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792086035825)\\/\",\"Id\":7036,\"Message\":\"The WaaSMedicSvc service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792086010013)\\/\",\"Id\":7036,\"Message\":\"The Client License Service (ClipSVC) service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792086009993)\\/\",\"Id\":7036,\"Message\":\"The AppX Deployment Service (AppXSVC) service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792085980938)\\/\",\"Id\":7036,\"Message\":\"The Declared Configuration(DC) service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085977681)\\/\",\"Id\":7036,\"Message\":\"The Windows Security Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792085975106)\\/\",\"Id\":7036,\"Message\":\"The WaaSMedicSvc service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792085907802)\\/\",\"Id\":7036,\"Message\":\"The Microsoft Software Shadow Copy Provider service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792085907604)\\/\",\"Id\":7036,\"Message\":\"The AppX Deployment Service (AppXSVC) service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085907583)\\/\",\"Id\":7036,\"Message\":\"The Volume Shadow Copy service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792085860935)\\/\",\"Id\":7036,\"Message\":\"The Declared Configuration(DC) service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792085846392)\\/\",\"Id\":7036,\"Message\":\"The Remote Registry service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085787759)\\/\",\"Id\":7036,\"Message\":\"The Microsoft Passport Container service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085734938)\\/\",\"Id\":7036,\"Message\":\"The Microsoft Account Sign-in Assistant service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085685184)\\/\",\"Id\":7036,\"Message\":\"The Background Intelligent Transfer Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085685128)\\/\",\"Id\":7040,\"Message\":\"The start type of the Background Intelligent Transfer Service service was changed from auto start to demand start.\"},{\"TimeCreated\":\"\\/Date(1792085681985)\\/\",\"Id\":7036,\"Message\":\"The Windows Modules Installer service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085611242)\\/\",\"Id\":7036,\"Message\":\"The Client License Service (ClipSVC) service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085610410)\\/\",\"Id\":7036,\"Message\":\"The WaaSMedicSvc service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792085601804)\\/\",\"Id\":7036,\"Message\":\"The Software Protection service entered the stopped state.\"}]}\r\n",
+    "stderr": ""
+  }
+}

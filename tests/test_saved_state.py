@@ -1,6 +1,7 @@
 """Persisted state failures must not prevent opening or silently lose recovery data."""
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -80,7 +81,10 @@ class SavedStateTests(unittest.TestCase):
                self.record(id="second", path=first["path"]), first]
         self.save({"apps": [first, *bad], "core_path": [], "runtime_path": 1, "selected_node": {}})
         manager = self.open_panel()
-        self.assertEqual(manager.state()["apps"], [{**first, "active": False, "cleanup_pending": False}])
+        expected = {**first, "active": False, "cleanup_pending": False}
+        if sys.platform == "win32":
+            expected["routed"] = False
+        self.assertEqual(manager.state()["apps"], [expected])
         self.assertEqual(manager.settings["core_path"], "")
         self.assertEqual(manager.settings["runtime_path"], "")
         self.assertIsNone(manager.settings["selected_node"])

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "run_id": 38779222770,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38779222770",
+  "source_commit": "8f967ff551f82007a1025559bb2b1eff3ad50626",
+  "environment": "Windows Server 2025 x64 26100",
+  "artifact_id": 11995675476,
+  "github_artifact_digest": "sha256:c89e4bbf91ba3b8602d08cc819c26042b135a7a9e440b4ab05decbde9e1a189f",
+  "normalized_download_zip_sha256": "c89e4bbf91ba3b8602d08cc819c26042b135a7a9e440b4ab05decbde9e1a189f",
+  "stage": "source_against_built_package_identity_gate",
+  "status": "failed_before_installation",
+  "root_cause": "Windows checkout converted Python sources to CRLF; Linux package retained LF. All ten exact source hashes mismatched. No installer, driver, service or transparent application test ran.",
+  "correction": "Repository gitattributes pins text to LF and cmd to CRLF, preserving exact source identity across platforms without relaxing verification.",
+  "architecture_failure_proven": false,
+  "windows_11_verified": false
+}

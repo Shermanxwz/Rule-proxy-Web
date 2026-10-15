@@ -145,23 +145,26 @@ class ManagerTests(unittest.TestCase):
             self.manager.core = None
 
     def test_stop_closes_only_owned_instances_before_core(self):
-        app, core = Mock(), Mock()
-        resource = Mock()
-        self.manager.active["test"] = (app, resource)
-        self.manager.core = core
-        events = []
-
-        def record(proc):
-            events.append(proc)
-
-        # Apps stop through the platform runtime (linux_runtime.stop or windows_runtime.stop);
-        # the core always uses stop_process.
-        with patch("ruleproxy.manager.stop_process", side_effect=record), patch("ruleproxy.linux_runtime.stop", side_effect=record), \
-                patch("ruleproxy.windows_runtime.stop", side_effect=record):
-            self.manager.stop()
-        self.assertEqual(events, [app, core])
-        resource.close.assert_called_once()
-        self.assertIsNone(self.manager.core)
+        for platform in ("linux", "win32", "darwin"):
+            with self.subTest(platform=platform):
+                app, core, resource = Mock(), Mock(), Mock()
+                self.manager.active["test"] = (app, resource)
+                self.manager.core = core
+                events = []
+                app.terminate.side_effect = lambda: events.append(app)
+                # Windows owns the application's Job through its process
+                # object; Linux uses its sandbox runtime. Core stop is shared.
+                with patch("ruleproxy.manager.sys.platform", platform), \
+                        patch("ruleproxy.manager.stop_process", side_effect=events.append), \
+                        patch("ruleproxy.linux_runtime.stop", side_effect=events.append):
+                    self.manager.stop()
+                self.assertEqual(events, [app, core])
+                resource.close.assert_called_once()
+                self.assertIsNone(self.manager.core)
+                self.assertNotIn("test", self.manager.active)
+                if platform == "win32":
+                    app.terminate.assert_called_once_with()
+                    app.wait.assert_called_once_with(timeout=10)
 
     def test_windows_stop_failure_retains_guard_and_core(self):
         app, core, resource = Mock(), Mock(), Mock()
@@ -595,7 +598,8 @@ class LocalServerTests(unittest.TestCase):
             self.assertEqual(response.status, 200)
 
     def app_with_executable(self):
-        executable = Path(self.temp.name) / "bin" / f"chrome-{len(self.manager.settings['apps'])}"
+        suffix = ".exe" if sys.platform == "win32" else ""
+        executable = Path(self.temp.name) / "bin" / f"chrome-{len(self.manager.settings['apps'])}{suffix}"
         executable.parent.mkdir(exist_ok=True)
         executable.write_text("#!/bin/sh\n")
         executable.chmod(0o755)

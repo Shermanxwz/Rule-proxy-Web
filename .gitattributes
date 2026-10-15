@@ -1,3 +1,6 @@
-# cmd.exe can miss GOTO labels in batch files with LF-only line endings.
+# Keep source identities and archived evidence identical across build hosts.
+* text=auto eol=lf
 *.cmd text eol=crlf
-*.sh text eol=lf
+*.zip binary
+*.png binary
+*.ico binary

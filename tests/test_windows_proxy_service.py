@@ -129,8 +129,9 @@ class BrokerTests(unittest.TestCase):
             self.broker.handle(request, 222, self.sid)
 
     def test_source_runtime_reports_setup_without_fallback(self):
+        runtime = Runtime(self.root)
         with mock.patch("ruleproxy.windows_proxy_runtime.os.name", "posix"):
-            result = Runtime(self.root).probe()
+            result = runtime.probe()
         self.assertFalse(result["supported"])
         self.assertEqual(result["state"], "setup_required")
         self.assertFalse(result["strict_isolation"])

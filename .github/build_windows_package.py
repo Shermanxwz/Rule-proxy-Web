@@ -127,7 +127,10 @@ def stage(target: Path, *, asset_cache: Path | None = None, **legacy_options) ->
 
 def write_zip(source: Path, path: Path) -> None:
     with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for file in sorted(item for item in source.rglob('*') if item.is_file()):
+        # Path ordering is case-insensitive on Windows. Archive ordering uses
+        # the same POSIX relative strings on every build host.
+        for file in sorted((item for item in source.rglob('*') if item.is_file()),
+                           key=lambda item: item.relative_to(source).as_posix()):
             entry = zipfile.ZipInfo(f'{FOLDER}/{file.relative_to(source).as_posix()}', (1980, 1, 1, 0, 0, 0))
             entry.create_system = 3
             entry.external_attr = 0o100644 << 16
