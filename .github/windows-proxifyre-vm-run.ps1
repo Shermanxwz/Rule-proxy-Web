@@ -6,7 +6,9 @@ $configuration = $null
 $password = $null
 $passwordText = $null
 $userCreated = $false
-$userName = 'RuleProxyNative'
+$userName = 'RuleProxyCI'
+$actorSession = $null
+$ownerSid = $null
 $utf8 = New-Object Text.UTF8Encoding($false)
 $result = @{schema_version=2; status='failed'; reports=@{}; logs=@{}; steps=@(); errors=@();
     phase='initializing'; try_completed=$false; catch_entered=$false;
@@ -63,11 +65,57 @@ function Read-DiagnosticTail([string]$Path) {
     } finally { $stream.Dispose() }
 }
 
+# OOBE/defaultuser0 logons must not claim or report the product run. The actual
+# fixture user owns the active console and Explorer before the SYSTEM task starts.
+if ([IO.File]::Exists((Join-Path $root 'started'))) { exit 0 }
+try {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class RuleProxyConsoleSession {
+    [DllImport("kernel32.dll")] public static extern uint WTSGetActiveConsoleSessionId();
+    [DllImport("wtsapi32.dll", SetLastError=true)] public static extern bool WTSLogoffSession(IntPtr server, uint session, bool wait);
+    [DllImport("wtsapi32.dll", SetLastError=true)] static extern bool WTSQuerySessionInformationW(IntPtr server, uint session, int kind, out IntPtr value, out uint count);
+    [DllImport("wtsapi32.dll")] static extern void WTSFreeMemory(IntPtr value);
+    public static string User(uint session) {
+        IntPtr value; uint count;
+        if (!WTSQuerySessionInformationW(IntPtr.Zero, session, 5, out value, out count)) return null;
+        try { return Marshal.PtrToStringUni(value); } finally { WTSFreeMemory(value); }
+    }
+}
+'@
+    $gateDeadline = [DateTime]::UtcNow.AddSeconds(90)
+    do {
+        $user = Get-LocalUser -Name $userName -ErrorAction SilentlyContinue
+        $session = [RuleProxyConsoleSession]::WTSGetActiveConsoleSessionId()
+        if ($user -and $session -gt 0 -and $session -lt [uint32]::MaxValue -and
+            [RuleProxyConsoleSession]::User($session) -eq $userName) {
+            foreach ($desktop in @(Get-CimInstance Win32_Process -Filter ("Name='explorer.exe' AND SessionId=" + $session))) {
+                $desktopOwner = Invoke-CimMethod -InputObject $desktop -MethodName GetOwnerSid
+                if ($desktopOwner.Sid -eq $user.SID.Value) {
+                    $actorSession = [int]$session
+                    $ownerSid = $user.SID.Value
+                    break
+                }
+            }
+        }
+        if ($null -ne $actorSession) { break }
+        Start-Sleep -Seconds 2
+    } while ([DateTime]::UtcNow -lt $gateDeadline)
+} catch {
+    [IO.File]::AppendAllText((Join-Path $root 'bootstrap.log'), 'interactive_gate_failed:' + $_.Exception.GetType().FullName + [Environment]::NewLine)
+    exit 0
+}
+if ($null -eq $actorSession) { exit 0 }
+$result.actor_session_id = [int]$actorSession
+$result.actor_sid = $ownerSid
+
 # Claim before any reporting finally. A duplicate logon must not replace a result.
 try {
     $claim = [IO.File]::Open((Join-Path $root 'started'), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
     $claim.Dispose()
 } catch [IO.IOException] { exit 0 }
+$userCreated = $true # Exact local fixture SID was verified before claiming.
 try {
     Write-BootstrapStep 'configuration_read_before'
     $configuration = [IO.File]::ReadAllText((Join-Path $root 'ruleproxy-vm-config.json')) | ConvertFrom-Json
@@ -106,17 +154,12 @@ try {
     $python = Join-Path $stage 'RuleProxy-Web\python\python.exe'
     if (-not (Test-Path -LiteralPath $python)) { throw 'Native VM bootstrap Python missing' }
     Write-BootstrapStep 'bootstrap_python_ready'
-    $passwordText = [guid]::NewGuid().ToString('N') + 'Q7!'
-    $password = ConvertTo-SecureString $passwordText -AsPlainText -Force
-    Write-BootstrapStep 'ordinary_account_create_before'
-    $user = New-LocalUser -Name $userName -Password $password -PasswordNeverExpires
-    $userCreated = $true
-    $result.actor_sid = $user.SID.Value
-    Write-BootstrapStep 'ordinary_account_created'
-    Add-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-545').Name -Member $userName
+    # The account/profile already belongs to the VM's real interactive logon.
+    # WTS authenticates that token; the controller never needs its password.
     $env:RULEPROXY_TEST_USER = $userName
-    $env:RULEPROXY_TEST_PASSWORD = $passwordText
-    $env:RULEPROXY_TEST_SID = $user.SID.Value
+    $env:RULEPROXY_TEST_PASSWORD = 'WTS-token-no-password-used'
+    $env:RULEPROXY_TEST_SID = $ownerSid
+    $env:RULEPROXY_TEST_INTERACTIVE_SESSION = [string]$actorSession
     Write-BootstrapStep 'ordinary_account_ready'
     $evidence = Join-Path $workspace 'evidence'
     $log = Join-Path $root 'qualification.log'
@@ -153,7 +196,43 @@ try {
             $result.reports.product = [IO.File]::ReadAllText($reportPath) | ConvertFrom-Json
         }
         Write-BootstrapStep 'ordinary_account_cleanup_before'
-        if ($userCreated) { Remove-LocalUser -Name $userName -ErrorAction Stop }
+        if ($userCreated) {
+            $currentUser = Get-LocalUser -Name $userName -ErrorAction Stop
+            if ($currentUser.SID.Value -ne $ownerSid) { throw 'Fixture account SID changed; cleanup refused' }
+            $installed = Join-Path $env:ProgramFiles 'RuleProxy-Web'
+            $deploymentFile = Join-Path $installed 'deployment.json'
+            if (Test-Path -LiteralPath $deploymentFile) {
+                $deployment = [IO.File]::ReadAllText($deploymentFile) | ConvertFrom-Json
+                if ($deployment.owner_sid -ne $ownerSid) { throw 'Product owner changed; cleanup refused' }
+                $uninstall = Join-Path $installed 'scripts\windows-uninstall.ps1'
+                $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $uninstall + '" -Elevated -OwnerSid ' + $ownerSid
+                $cleanupProcess = Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList $arguments -PassThru
+                try {
+                    if (-not $cleanupProcess.WaitForExit(240000)) {
+                        & taskkill.exe /PID $cleanupProcess.Id /T /F | Out-Null
+                        throw 'Owned product cleanup exceeded bound'
+                    }
+                    if ($cleanupProcess.ExitCode -ne 0) { throw 'Owned product cleanup incomplete or needs reboot' }
+                } finally { $cleanupProcess.Dispose() }
+            }
+            $winlogon = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+            $auto = Get-ItemProperty -LiteralPath $winlogon
+            if ($auto.AutoAdminLogon -eq '1' -and $auto.DefaultUserName -ne $userName) { throw 'AutoLogon owner changed; cleanup refused' }
+            if ($auto.DefaultUserName -eq $userName) {
+                if ($auto.DefaultDomainName -and $auto.DefaultDomainName -notin @('.', $env:COMPUTERNAME)) { throw 'AutoLogon domain changed; cleanup refused' }
+                Set-ItemProperty -LiteralPath $winlogon -Name AutoAdminLogon -Value '0'
+                Remove-ItemProperty -LiteralPath $winlogon -Name DefaultPassword -ErrorAction SilentlyContinue
+            }
+            if ([RuleProxyConsoleSession]::User([uint32]$actorSession) -eq $userName) {
+                if (-not [RuleProxyConsoleSession]::WTSLogoffSession([IntPtr]::Zero, [uint32]$actorSession, $false)) { throw 'Fixture session logoff failed' }
+                $logoffDeadline = [DateTime]::UtcNow.AddSeconds(30)
+                while ([RuleProxyConsoleSession]::User([uint32]$actorSession) -eq $userName) {
+                    if ([DateTime]::UtcNow -gt $logoffDeadline) { throw 'Fixture session logoff exceeded bound' }
+                    Start-Sleep -Milliseconds 200
+                }
+            }
+            Remove-LocalUser -Name $userName -ErrorAction Stop
+        }
         $result.user_cleanup_confirmed = $null -eq (Get-LocalUser -Name $userName -ErrorAction SilentlyContinue)
         Write-BootstrapStep 'ordinary_account_cleanup_after'
     } catch { [void](Add-BootstrapError 'cleanup' $_) } finally {
@@ -166,6 +245,7 @@ try {
         Remove-Item Env:RULEPROXY_TEST_PASSWORD -ErrorAction SilentlyContinue
         Remove-Item Env:RULEPROXY_TEST_USER -ErrorAction SilentlyContinue
         Remove-Item Env:RULEPROXY_TEST_SID -ErrorAction SilentlyContinue
+        Remove-Item Env:RULEPROXY_TEST_INTERACTIVE_SESSION -ErrorAction SilentlyContinue
         Write-BootstrapStep 'report_ready'
         $body = Protect-DiagnosticText ($result | ConvertTo-Json -Depth 70 -Compress)
         try { [IO.File]::WriteAllText((Join-Path $root 'bootstrap-result.json'), $body, $utf8) }

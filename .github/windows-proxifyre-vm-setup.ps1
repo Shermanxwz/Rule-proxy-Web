@@ -14,6 +14,11 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ruleproxy-vm-config.json') -Des
 $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $action = New-ScheduledTaskAction -Execute $powershell -Argument '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File C:\RuleProxyProductBootstrap\ruleproxy-vm-run.ps1'
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 40) -MultipleInstances IgnoreNew
+# Queue the real user logon if an earlier OOBE gate is still waiting. The
+# runner's atomic claim prevents queued triggers from repeating a claimed run.
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 40) -MultipleInstances Queue
+# Specialize runs before OOBE creates RuleProxyCI, so the task cannot resolve
+# that account yet. The runner verifies its active console SID and Explorer
+# before its atomic claim; unrelated/OOBE logons do not claim or post a result.
 Register-ScheduledTask -TaskName 'RuleProxyProduct-Qualification' -Action $action -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal $principal -Settings $settings -Force | Out-Null
 [IO.File]::AppendAllText($setupLog, [DateTime]::UtcNow.ToString('o') + ' system_task_registered' + [Environment]::NewLine)

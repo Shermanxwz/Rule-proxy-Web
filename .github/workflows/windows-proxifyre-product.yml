@@ -94,7 +94,16 @@ jobs:
           path: windows-product-package
       - name: Prepare space on the disposable hosted runner
         run: |
-          available=$(df -B1 --output=avail . | tail -n 1)
+          mkdir -p windows-native-product-results
+          {
+            date -u
+            uname -a
+            lscpu
+            free -b
+            df -B1 /tmp .
+            cat /sys/fs/cgroup/cpu.max /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.current 2>/dev/null || true
+          } > windows-native-product-results/host-preflight.txt
+          available=$(df -B1 --output=avail /tmp | tail -n 1)
           if [ "$available" -lt 59055800320 ]; then
             sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet /usr/local/share/chromium /usr/local/share/powershell/Modules
             sudo docker system prune --all --force --volumes || true
@@ -106,15 +115,10 @@ jobs:
           sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
       - name: Qualify the installed product on the official client Windows kernel
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess, sys
-          folder = Path('windows-product-package')
-          expected, name = (folder / 'SHA256SUMS.txt').read_text().split()
-          subprocess.run(['sudo', sys.executable, '-B', '.github/windows_proxifyre_vm.py',
-              '--package', str(folder / name), '--package-sha256', expected,
-              '--artifacts', 'windows-native-product-results', '--timeout-seconds', '2700'], check=True)
-          PY
+          read -r expected name < windows-product-package/SHA256SUMS.txt
+          exec timeout --signal=TERM --kill-after=20s 45m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
+            --package "windows-product-package/$name" --package-sha256 "$expected" \
+            --artifacts windows-native-product-results --timeout-seconds 2700
       - uses: actions/upload-artifact@v7
         if: always()
         with:

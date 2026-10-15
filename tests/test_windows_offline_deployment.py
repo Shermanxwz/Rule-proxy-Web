@@ -123,6 +123,110 @@ if (-not $rejected) { throw 'Non-Burn 3017 was incorrectly accepted' }
         finally:
             shutil.rmtree(temporary, ignore_errors=True)
 
+    def test_installer_failure_handler_always_attempts_program_rollback(self):
+        source = (Path(__file__).resolve().parent.parent / 'scripts/windows-setup.ps1').read_text()
+        handler = source.split('} catch {\n    $originalFailure = $_', 1)[1]
+        self.assertIn('Restore-ProgramInstallation', handler)
+        self.assertIn('throw $originalFailure', handler)
+        self.assertNotIn('if ($swapped)', handler)
+
+    @unittest.skipUnless(os.name == 'nt', 'requires native Windows PowerShell fault injection')
+    def test_windows_failed_program_swap_restores_old_root_without_deleting_foreign_target(self):
+        # Run the actual rollback function AND outer catch from the installer.
+        # Only service operations and the new-directory rename are fault doubles;
+        # directory moves, hashes, protected ACLs, recovery and deletion are real.
+        script = r"""
+$ErrorActionPreference = 'Stop'
+$env:PSModulePath = Join-Path $PSHOME 'Modules'
+Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
+Import-Module Microsoft.PowerShell.Management -ErrorAction Stop
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 77 }
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($env:RULEPROXY_SETUP_TEST_SCRIPT,[ref]$tokens,[ref]$errors)
+if ($errors.Count) { throw 'Installer PowerShell parse failed' }
+foreach ($name in @('Protect-Tree','Assert-Protected','Restore-ProgramInstallation')) {
+    $definition = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
+    if (-not $definition) { throw ('Missing installer function: ' + $name) }
+    Invoke-Expression $definition.Extent.Text
+}
+$main = $ast.Find({param($node) $node -is [Management.Automation.Language.TryStatementAst] -and $node.Body.Extent.Text.Contains('$manifestBytes = [IO.File]::ReadAllBytes($manifestPath)')},$true)
+if (-not $main) { throw 'Installer outer failure handler missing' }
+$failureBody = @'
+try {
+    if ($case -ne 'first') {
+        Move-Item -LiteralPath $root -Destination $backup
+        $oldRootMoved = $true
+    }
+    if ($case -eq 'foreign') {
+        New-Item -ItemType Directory -Path $root | Out-Null
+        [IO.File]::WriteAllText((Join-Path $root 'foreign.txt'),'leave this alone')
+    }
+    Move-Item -LiteralPath $stage -Destination $root
+    $swapped = $true
+    throw [IO.IOException]::new('injected failure after swap')
+} catch
+'@ + $main.CatchClauses[0].Body.Extent.Text
+function Get-Service { param([string]$Name,[string]$ErrorAction) return [pscustomobject]@{Name=$Name} }
+function Stop-Service { param([string]$Name,[string]$ErrorAction) $script:stops++ }
+function Start-Service { param([string]$Name,[string]$ErrorAction) $script:starts++ }
+function Write-SetupDiagnostic { param($Failure) }
+function Write-State { param([string]$Phase,[bool]$PfOwned) }
+function Move-Item {
+    param([string]$LiteralPath,[string]$Destination,[string]$ErrorAction)
+    if ($LiteralPath -eq $stage -and $case -in @('rename','foreign')) {
+        throw [IO.IOException]::new('injected stage rename failure')
+    }
+    Microsoft.PowerShell.Management\Move-Item @PSBoundParameters
+}
+foreach ($case in @('rename','after','foreign','first')) {
+    $directory = Join-Path $env:RULEPROXY_SETUP_TEST_ROOT $case
+    $root = Join-Path $directory 'installed'; $stage = Join-Path $directory 'stage'; $backup = Join-Path $directory 'previous'
+    $serviceName = 'RuleProxyControl'; $restoreControlService = $case -ne 'first'
+    $swapped = $false; $oldRootMoved = $false; $pfOwned = $true; $setupPhase = 'program_swap'
+    $script:starts = 0; $script:stops = 0
+    New-Item -ItemType Directory -Path $stage -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $directory 'user-state.txt'),'keep user state')
+    [IO.File]::WriteAllText((Join-Path $stage 'deployment.json'),'new deployment')
+    [IO.File]::WriteAllText((Join-Path $stage 'new.txt'),'new code')
+    Protect-Tree $stage
+    $newDeploymentHash = (Get-FileHash -LiteralPath (Join-Path $stage 'deployment.json') -Algorithm SHA256).Hash
+    if ($case -ne 'first') {
+        New-Item -ItemType Directory -Path $root | Out-Null
+        [IO.File]::WriteAllText((Join-Path $root 'deployment.json'),'old deployment')
+        [IO.File]::WriteAllText((Join-Path $root 'old.txt'),'old code')
+        Protect-Tree $root
+        $oldDeploymentHash = (Get-FileHash -LiteralPath (Join-Path $root 'deployment.json') -Algorithm SHA256).Hash
+    }
+    $observed = $null
+    try { & ([scriptblock]::Create($failureBody)) } catch { $observed = $_.Exception.Message }
+    if ($observed -notmatch '^injected (stage rename failure|failure after swap)$') { throw ('Original failure was masked: ' + $observed) }
+    if ([IO.File]::ReadAllText((Join-Path $directory 'user-state.txt')) -ne 'keep user state') { throw 'User state changed' }
+    if ($case -in @('rename','after')) {
+        if ([IO.File]::ReadAllText((Join-Path $root 'old.txt')) -ne 'old code' -or (Test-Path $backup)) { throw 'Old installation was not immediately restored' }
+        if ($script:starts -ne 1 -or $script:stops -ne 1) { throw 'Original service was not restarted' }
+    } elseif ($case -eq 'foreign') {
+        if ([IO.File]::ReadAllText((Join-Path $root 'foreign.txt')) -ne 'leave this alone' -or -not (Test-Path (Join-Path $backup 'old.txt'))) { throw 'Foreign target or retained backup changed' }
+        if ($script:starts -ne 0 -or $script:stops -ne 0) { throw 'Foreign target was adopted' }
+    } else {
+        if ([IO.File]::ReadAllText((Join-Path $root 'new.txt')) -ne 'new code' -or $script:starts -ne 0 -or $script:stops -ne 1) { throw 'First-install repair files or service state were lost' }
+    }
+}
+"""
+        with tempfile.TemporaryDirectory(prefix='ruleproxy-swap-') as directory:
+            root = Path(directory)
+            runner = root / 'check.ps1'
+            runner.write_text(script, encoding='ascii')
+            environment = {key: value for key, value in os.environ.items() if key.casefold() != 'psmodulepath'}
+            environment.update(RULEPROXY_SETUP_TEST_SCRIPT=str(Path(__file__).resolve().parent.parent / 'scripts/windows-setup.ps1'),
+                               RULEPROXY_SETUP_TEST_ROOT=str(root / 'cases'))
+            powershell = Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+            result = subprocess.run([str(powershell), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                                     '-File', str(runner)], env=environment, text=True, capture_output=True, timeout=45)
+            if result.returncode == 77:
+                self.skipTest('native rollback ACL test requires an elevated administrator token')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_owned_proxifyre_residue_can_be_removed_after_msi_for_fresh_reinstall(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'ProxiFyre'

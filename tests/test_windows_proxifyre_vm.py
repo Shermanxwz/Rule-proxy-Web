@@ -1,14 +1,22 @@
 """Native qualification must prove client OS, package identity and ordinary actors."""
 import importlib.util
+import base64
+import binascii
+import hashlib
 import json
 import os
 from pathlib import Path
 import stat
+import struct
+import signal
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 import zipfile
+import zlib
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,20 +25,97 @@ vm = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(vm)
 
 
+def minimal_png(width=1, height=1):
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", binascii.crc32(kind + data) & 0xFFFFFFFF)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(b"\0\x11\x22\x33\xff")) + chunk(b"IEND", b""))
+
+
 def successful_result():
-    return {"status": "passed", "exit_code": 0, "user_cleanup_confirmed": True,
+    screenshot = minimal_png()
+    return {"status": "passed", "exit_code": 0, "user_cleanup_confirmed": True, "actor_session_id": 1,
         "os": {"product_type": "WinNT", "native_architecture": "AMD64", "build": 26200},
         "reports": {"product": {"status": "passed_server_product_qualification", "hosts_restored": True,
+            "gui_verified": True,
+            "ordinary_launcher": {"method": "WTSQueryUserToken+CreateProcessAsUserW", "session_id": 1},
             "actual_os": {"major": 10, "build": 26200, "product_type": 1, "architecture": "AMD64"},
             "checks": {"install_and_reinstall": True, "uninstall_preserves_user_state_and_shared_driver": True},
             "source_matches_bundle": {name: True for name in vm.SOURCE_IDENTITIES},
             "package": {"manifest_verified": True, "sha256": "a" * 64},
-            "receiver_phase_evidence": [{"passed": True}],
+            "receiver_phase_evidence": [{"label": "real_edge_visible", "passed": True}],
             "ordinary_suite": {"status": "passed", "is_elevated": False, "panel_is_elevated": False,
-                "checks": {name: True for name in ("suite_ordinary", "panel_ordinary", "installed_package_loaded", "holder_ordinary")}}}}}
+                "interactive_session_id": 1, "visible_gui_local_checks_passed": True,
+                "browser_visible": {"screenshot_png_base64": base64.b64encode(screenshot).decode("ascii"),
+                                    "screenshot_sha256": hashlib.sha256(screenshot).hexdigest()},
+                "checks": {name: True for name in vm.VISIBLE_GUI_CHECKS | {
+                    "suite_ordinary", "panel_ordinary", "installed_package_loaded", "holder_ordinary"}}}}}}
 
 
 class NativeProductEvidenceTests(unittest.TestCase):
+    def test_native_pass_requires_the_same_positive_interactive_session_at_every_layer(self):
+        cases = [("outer", "actor_session_id", value) for value in (None, 0, -1, True, "1", 2)]
+        cases += [("launcher", "session_id", value) for value in (None, 0, True, "1", 2)]
+        cases += [("suite", "interactive_session_id", value) for value in (None, 0, True, "1", 2)]
+        cases += [("launcher", "method", "LogonUserW+CreateProcessWithTokenW")]
+        for scope, key, value in cases:
+            with self.subTest(scope=scope, key=key, value=value):
+                result = successful_result()
+                report = result["reports"]["product"]
+                target = result if scope == "outer" else report["ordinary_launcher"] if scope == "launcher" else report["ordinary_suite"]
+                target[key] = value
+                with self.assertRaises(RuntimeError):
+                    vm.verify_result(result)
+
+    def test_visible_checks_flags_and_independent_receiver_phase_are_mandatory(self):
+        for check in vm.VISIBLE_GUI_CHECKS:
+            result = successful_result()
+            result["reports"]["product"]["ordinary_suite"]["checks"].pop(check)
+            with self.subTest(check=check), self.assertRaises(RuntimeError):
+                vm.verify_result(result)
+        for scope, field in (("report", "gui_verified"), ("suite", "visible_gui_local_checks_passed")):
+            result = successful_result()
+            report = result["reports"]["product"]
+            (report if scope == "report" else report["ordinary_suite"])[field] = False
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                vm.verify_result(result)
+        result = successful_result()
+        result["reports"]["product"]["receiver_phase_evidence"][0]["label"] = "real_edge_headless"
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
+
+    def test_visible_screenshot_valid_png_decodes_but_tampering_and_invalid_headers_fail(self):
+        result = successful_result()
+        report = result["reports"]["product"]
+        self.assertEqual(vm.visible_screenshot_bytes(report), minimal_png())
+        browser = report["ordinary_suite"]["browser_visible"]
+        browser["screenshot_sha256"] = "0" * 64
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
+        for raw in (b"not a PNG", minimal_png()[:-1], minimal_png(width=0),
+                    minimal_png()[:29] + b"bad!" + minimal_png()[33:]):
+            result = successful_result()
+            browser = result["reports"]["product"]["ordinary_suite"]["browser_visible"]
+            browser.update(screenshot_png_base64=base64.b64encode(raw).decode("ascii"),
+                           screenshot_sha256=hashlib.sha256(raw).hexdigest())
+            with self.subTest(raw=raw[:20]), self.assertRaises(RuntimeError):
+                vm.verify_result(result)
+        result = successful_result()
+        result["reports"]["product"]["ordinary_suite"]["browser_visible"]["screenshot_png_base64"] += "\n"
+        with self.assertRaises(RuntimeError):
+            vm.verify_result(result)
+
+    def test_visible_screenshot_is_required_and_total_result_size_is_bounded(self):
+        for field in ("screenshot_png_base64", "screenshot_sha256"):
+            result = successful_result()
+            result["reports"]["product"]["ordinary_suite"]["browser_visible"].pop(field)
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                vm.verify_result(result)
+        result = successful_result()
+        result["padding"] = "x" * vm.MAX_GUEST_RESULT_BYTES
+        with self.assertRaisesRegex(RuntimeError, "8 MiB"):
+            vm.verify_result(result)
+
     def test_controller_generic_status_needs_actual_windows_11_and_identity(self):
         result = successful_result()
         self.assertIs(vm.verify_result(result, package_sha256="a" * 64), result["reports"]["product"])
@@ -138,6 +223,99 @@ class NativePackageTests(unittest.TestCase):
 
 
 class NativeCleanupTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "POSIX runner cancellation")
+    def test_real_sigint_and_sigterm_leave_a_complete_cancelled_summary(self):
+        for number in (signal.SIGINT, signal.SIGTERM):
+            with self.subTest(signal=number), tempfile.TemporaryDirectory() as directory:
+                code = f'''
+import argparse, importlib.util, pathlib, sys, time
+spec = importlib.util.spec_from_file_location('native_vm_signal_test', {str(ROOT / '.github/windows_proxifyre_vm.py')!r})
+vm = importlib.util.module_from_spec(spec); spec.loader.exec_module(vm)
+folder = pathlib.Path({directory!r})
+def blocked_preflight():
+    (folder / 'ready').write_text('ready')
+    time.sleep(60)
+vm.media.require_kvm = blocked_preflight
+with vm.cancellation_signals():
+    result = vm.run(argparse.Namespace(artifacts=folder, timeout_seconds=2700))
+sys.exit(0 if result['status'] == 'cancelled' else 1)
+'''
+                process = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                try:
+                    deadline = time.monotonic() + 10
+                    while not (Path(directory) / "ready").exists():
+                        if process.poll() is not None or time.monotonic() > deadline:
+                            self.fail("Cancellation fixture did not enter its interruptible preflight")
+                        time.sleep(.02)
+                    process.send_signal(number)
+                    stdout, stderr = process.communicate(timeout=10)
+                    self.assertEqual(process.returncode, 0, stderr.decode(errors="replace"))
+                    summary = json.loads((Path(directory) / "native-product-summary.json").read_text())
+                    self.assertEqual(summary["status"], "cancelled")
+                    self.assertEqual(summary["phase"], "finished")
+                    self.assertEqual(summary["cancellation_signal"], signal.Signals(number).name)
+                    self.assertIs(summary["native_windows_11_product_passed"], False)
+                finally:
+                    if process.poll() is None:
+                        process.kill()
+                        process.communicate(timeout=5)
+
+    def test_cancellation_persists_summary_before_cleanup_without_inventing_product_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = mock.Mock(artifacts=Path(directory), timeout_seconds=2700)
+            with mock.patch.object(vm.media, "require_kvm", side_effect=vm.QualificationInterrupted(signal.SIGTERM)), \
+                    mock.patch.object(vm, "cleanup_owned", return_value=[]) as cleanup:
+                result = vm.run(args)
+            saved = json.loads((Path(directory) / "native-product-summary.json").read_text())
+            self.assertEqual(result, saved)
+            self.assertEqual(saved["status"], "cancelled")
+            self.assertEqual(saved["cancellation_signal"], "SIGTERM")
+            self.assertIs(saved["product_execution_confirmed"], False)
+            self.assertIs(saved["native_windows_11_product_passed"], False)
+            self.assertNotIn("error", saved)
+            self.assertIn("cleanup", [row["phase"] for row in saved["phases"]])
+            cleanup.assert_called_once()
+
+    def test_underprovisioned_host_fails_before_download_and_retains_resource_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = mock.Mock(artifacts=Path(directory), timeout_seconds=2700)
+            facts = {"effective_cpu_count": 2, "MemAvailable": 7 * 1024**3}
+            with mock.patch.object(vm.media, "require_kvm", return_value=12), \
+                    mock.patch.object(vm, "host_resources", return_value=facts), \
+                    mock.patch.object(vm.subprocess, "run") as command, mock.patch("builtins.print"):
+                saved = vm.run(args)
+            self.assertEqual(saved["status"], "failed")
+            self.assertEqual(saved["failure_phase"], "host_resources_recorded")
+            self.assertEqual(saved["host_preflight"], facts)
+            command.assert_not_called()
+        vm.check_host_resources({"effective_cpu_count": 4, "MemAvailable": 8 * 1024**3})
+        with self.assertRaises(RuntimeError):
+            vm.check_host_resources({"effective_cpu_count": 4, "MemAvailable": 12 * 1024**3,
+                                     "cgroup_memory_available": 7 * 1024**3})
+
+    def test_signal_handlers_are_restored_and_second_signal_cannot_interrupt_cleanup(self):
+        handlers = {}
+        def install(number, handler):
+            previous = handlers.get(number, signal.SIG_DFL)
+            handlers[number] = handler
+            return previous
+        with mock.patch.object(vm.signal, "signal", side_effect=install):
+            with self.assertRaises(vm.QualificationInterrupted):
+                with vm.cancellation_signals():
+                    handlers[signal.SIGTERM](signal.SIGTERM, None)
+        self.assertEqual(handlers, {signal.SIGINT: signal.SIG_DFL, signal.SIGTERM: signal.SIG_DFL})
+
+    def test_qmp_samples_export_counters_without_private_disk_paths(self):
+        qmp = mock.Mock()
+        qmp.execute.side_effect = [{"running": True, "status": "running"},
+            [{"device": "system", "filename": "private-configuration.iso",
+              "stats": {"rd_bytes": 123, "wr_bytes": 456, "secret": "private-capability"}}]]
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(vm, "host_resources", return_value={}):
+            sample = vm.vm_sample(Path(directory), None, qmp)
+        self.assertEqual(sample["blockstats"][0]["stats"], {"rd_bytes": 123, "wr_bytes": 456})
+        self.assertTrue(sample["qmp_status"]["running"])
+        self.assertNotIn("private", json.dumps(sample))
+
     def test_owned_processes_stop_before_secret_directory_is_deleted(self):
         calls = []
         qemu, tpm = mock.Mock(), mock.Mock()

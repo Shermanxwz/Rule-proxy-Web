@@ -217,7 +217,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, TypeError, OSError, RuntimeError) as exc:
             self.reply(400, {"error": str(exc)})
         except Exception:
-            self.reply(500, {"error": "操作未完成；应用不会退回直连。请查看面板运行终端。"})
+            self.reply(500, {"error": "操作未完成。启动失败时不会启动应用；运行中发生故障时不保证阻止直连。请查看本机 panel.log 或运行终端。"})
 
 
 def _open_running_panel(args, url: str, state: dict) -> None:

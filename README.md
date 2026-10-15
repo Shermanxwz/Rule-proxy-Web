@@ -8,7 +8,7 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 ## Windows 开始使用
 
-要求 Windows 11 x64。此版本没有完成 ARM64、x86 或 Windows Server 产品认证；系统需保留正常的驱动签名验证与 .NET Framework 4.7.2 以上组件。
+目标系统为 Windows 11 x64；ARM64、x86 未验证，Windows Server 仅作为自动化对照环境。系统需保留正常的驱动签名验证与 .NET Framework 4.7.2 以上组件。
 
 1. 取得本次个人离线包 `RuleProxy-Web-0.3.0-windows-x64-personal.zip`，核对随包提供的 `SHA256SUMS.txt`，解压。
 2. 从日常登录账户双击 `Setup-Windows.cmd`，允许一次 UAC 安装。包内已包含固定版本的 Python、PyYAML、Mihomo、ProxiFyre MSI、NDIS 驱动 MSI 和 VC 运行库，完整离线包使用原版官方 Setup 与按其 Burn manifest 精确命名的本地 VC/NDIS 载荷；无需临时下载的实际断网验收仍待完成。
@@ -129,7 +129,7 @@ python3 -B .github/build_windows_package.py /tmp/ruleproxy-personal-package --as
 
 构建器只收集程序文件，拒绝在非空暂存目录中混入旧文件；固定资产下载后校验 SHA-256，生成含逐文件摘要的 `package-manifest.json`。包中包含 ProxiFyre AGPL 许可及依赖说明。完整依赖与来源见 [THIRD-PARTY.md](THIRD-PARTY.md)，资产固定在 [windows_proxy_pins.py](ruleproxy/windows_proxy_pins.py)。Linux 保留自己的安装和测试流程。
 
-0.3.0 的 Python 代码、打包与固定资产检查已可本地执行。新的产品验收入口为 `.github/windows_proxifyre_product_acceptance.py`，必须针对最终 ZIP 检查普通用户权限、安装/重复安装/卸载、服务身份、透明流量及异常清理；Windows 11 本机、真实节点、浏览器登录和下载仍需对应证据。
+常规 CI 检查 Linux 隔离、面板启动和跨平台单元测试。产品验收入口 `.github/windows_proxifyre_product_acceptance.py` 针对实际 ZIP 检查安装、重复安装、卸载后重装、普通用户权限、服务身份、Web 导入、相关程序路径、节点切换、生产启动入口和异常清理。Windows Server 对照与 Windows 11 原生验收分别记录；可见窗口、真实互联网出口、浏览器登录和下载也分别标识。请以[当前验收状态](verification/windows-2026-10-16/proxifyre-product/current-status.json)中与 ZIP SHA-256 相同的证据为准，脚本存在不代表相应项目已经通过。
 
 之前的 Windows Server 候选比较（包括运行 `38770720406`）仅证明其报告实际完成的候选路径，不代表这个最终产品包已通过。旧 MXC/PSEC 脚本与报告保留供历史复现，不是当前 Windows 默认入口；旧产品说明见 [0.2.2 历史文档](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-15/mxc-0.2.2-readme.md)。
 

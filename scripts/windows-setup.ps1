@@ -83,6 +83,9 @@ $stage = Join-Path $env:ProgramFiles ('.RuleProxy-Web-staging-' + [guid]::NewGui
 $backup = Join-Path $env:ProgramFiles '.RuleProxy-Web-previous'
 $swapped = $false
 $oldRootMoved = $false
+$newDeploymentHash = $null
+$oldDeploymentHash = $null
+$restoreControlService = $false
 $setupFailed = $false
 $setupPhase = 'preflight'
 $activePackageFile = $null
@@ -135,6 +138,37 @@ function Write-State([string]$Phase, [bool]$PfOwned) {
     [IO.File]::WriteAllText($temp, ($value|ConvertTo-Json -Compress), $utf8)
     Move-Item -LiteralPath $temp -Destination $statePath -Force
     Protect-Tree $statePath
+}
+function Restore-ProgramInstallation {
+    if (-not ($swapped -or $oldRootMoved)) { return }
+    if ($oldRootMoved) {
+        Assert-Protected $backup
+        $previous = Join-Path $backup 'deployment.json'
+        Assert-Protected $previous
+        if ((Get-FileHash -LiteralPath $previous -Algorithm SHA256).Hash -ne $oldDeploymentHash) {
+            throw 'Previous installation changed; rollback refused'
+        }
+    }
+    $rootExists = Test-Path -LiteralPath $root
+    if ($rootExists) {
+        # A failed rename must never cause deletion of a newly appeared target.
+        if (-not $swapped) { throw 'Installation target appeared during rollback; previous directory retained' }
+        Assert-Protected $root
+        $current = Join-Path $root 'deployment.json'
+        Assert-Protected $current
+        if ((Get-FileHash -LiteralPath $current -Algorithm SHA256).Hash -ne $newDeploymentHash) {
+            throw 'Current installation changed; rollback refused'
+        }
+    }
+    $control = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($control) { Stop-Service -Name $serviceName -ErrorAction Stop }
+    if ($oldRootMoved) {
+        if ($rootExists) { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction Stop }
+        Move-Item -LiteralPath $backup -Destination $root -ErrorAction Stop
+        if ($restoreControlService) { Start-Service -Name $serviceName -ErrorAction Stop }
+    }
+    # First-install failures retain their owned program files for repair and
+    # uninstall. User state lives outside these program directories.
 }
 function Invoke-Installer([string]$File, [string]$Arguments, [string]$Label, [switch]$OfficialBurn) {
     $process = Start-Process -FilePath $File -ArgumentList $Arguments -Wait:$false -PassThru
@@ -339,6 +373,7 @@ try {
     }
     $control = Get-CimInstance Win32_Service -Filter "Name='RuleProxyControl'"
     if ($control -and $control.PathName -ne $serviceCommand) { throw 'Unexpected control service executable' }
+    $restoreControlService = $null -ne $control
     if ($control) { Stop-Service -Name $serviceName -ErrorAction Stop }
     if (Get-Service ProxiFyreService -ErrorAction SilentlyContinue) { Stop-Service ProxiFyreService -ErrorAction Stop }
     $setupPhase = 'official_burn_install'
@@ -377,6 +412,7 @@ try {
     $deployment = [ordered]@{schema_version=1; owner_sid=$OwnerSid; root=$root; proxifyre_root=$pfRoot;
         service_name=$serviceName; pipe_name=('RuleProxyControl-v1-' + $sidHash); files=$files; proxifyre_files=$pfFiles}
     [IO.File]::WriteAllText((Join-Path $stage 'deployment.json'), ($deployment|ConvertTo-Json -Depth 6), $utf8)
+    $newDeploymentHash = (Get-FileHash -LiteralPath (Join-Path $stage 'deployment.json') -Algorithm SHA256).Hash
     $setupPhase = 'program_swap'
     if (Test-Path -LiteralPath $root) {
         # Close only the owner's old private panel/core before replacing files.
@@ -387,6 +423,7 @@ try {
                 if ($processOwner.Sid -eq $OwnerSid) { Stop-Process -Id $ownedProcess.ProcessId -Force -ErrorAction Stop }
             }
         }
+        $oldDeploymentHash = (Get-FileHash -LiteralPath (Join-Path $root 'deployment.json') -Algorithm SHA256).Hash
         Move-Item -LiteralPath $root -Destination $backup
         $oldRootMoved = $true
     }
@@ -411,15 +448,7 @@ try {
     Write-SetupDiagnostic $originalFailure
     [Console]::Error.WriteLine(('Original setup failure in phase {0}; staging path {1}: {2}' -f $setupPhase,$stage,$originalFailure.Exception.Message))
     try {
-        if ($swapped) {
-            $control = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-            if ($control) { try { Stop-Service -Name $serviceName -ErrorAction Stop } catch {} }
-            if ($oldRootMoved) {
-                Remove-Item -LiteralPath $root -Recurse -Force
-                Move-Item -LiteralPath $backup -Destination $root
-                try { Start-Service -Name $serviceName } catch {}
-            }
-        }
+        Restore-ProgramInstallation
     } catch { Write-Warning ('Program rollback incomplete: ' + $_.Exception.Message) }
     try { Write-State 'failed' $pfOwned } catch {}
     throw $originalFailure

@@ -1,6 +1,6 @@
 """Exercise the installed offline Windows product in a disposable VM.
 
-This is Server product qualification, never a Windows 11 or real-exit-IP claim.
+The actual OS and independent evidence determine each qualification claim.
 Ordinary actors use destination sockets; fixture SOCKS handshakes are health only.
 """
 from __future__ import annotations
@@ -16,6 +16,7 @@ if __name__ == "__main__" and "--ordinary-suite" in sys.argv:
     print("ordinary bootstrap executable: " + sys.executable, flush=True)
 
 import argparse
+import base64
 import ctypes
 from ctypes import wintypes
 import hashlib
@@ -163,6 +164,8 @@ def receiver_evidence(phases, snapshot):
 class UserProcess:
     def __init__(self, handle, pid, kernel):
         self.handle, self.pid, self.kernel = handle, pid, kernel
+        kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        kernel.TerminateProcess.restype = wintypes.BOOL
 
     def poll(self):
         code = wintypes.DWORD()
@@ -172,7 +175,18 @@ class UserProcess:
 
     def terminate(self):
         if self.poll() is None:
-            self.kernel.TerminateProcess(self.handle, 125)
+            if not self.kernel.TerminateProcess(self.handle, 125):
+                raise ctypes.WinError(ctypes.get_last_error())
+
+    def wait(self, timeout=None):
+        self.kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        self.kernel.WaitForSingleObject.restype = wintypes.DWORD
+        status = self.kernel.WaitForSingleObject(self.handle, 0xFFFFFFFF if timeout is None else int(timeout * 1000))
+        if status == 258:
+            raise subprocess.TimeoutExpired("retained Windows test process", timeout)
+        if status != 0:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return self.poll()
 
     def close(self):
         self.kernel.CloseHandle(self.handle)
@@ -217,6 +231,11 @@ def token_user_sid(api, kernel, token):
 
 
 def launch_user(command, username, password, expected_sid):
+    interactive = os.environ.get("RULEPROXY_TEST_INTERACTIVE_SESSION")
+    if interactive is not None:
+        helper = module(Path(__file__).with_name("windows_product_interactive_user.py"),
+                        "product_interactive_user")
+        return helper.launch_user(command, expected_sid, int(interactive), LAB)
     class Startup(ctypes.Structure):
         _fields_ = [("cb", wintypes.DWORD), ("reserved", wintypes.LPWSTR), ("desktop", wintypes.LPWSTR),
             ("title", wintypes.LPWSTR), *[(name, wintypes.DWORD) for name in
@@ -343,7 +362,7 @@ def observe_process(pid):
     kernel.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD,
         wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
-    handle = kernel.OpenProcess(0x1000 | 0x100000, False, pid)
+    handle = kernel.OpenProcess(0x1000 | 0x100000 | 1, False, pid)
     if not handle:
         raise ctypes.WinError(ctypes.get_last_error())
     process = UserProcess(handle, pid, kernel)
@@ -371,6 +390,98 @@ def hold(report, child=False):
         time.sleep(1)
 
 
+def session_id(pid):
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.ProcessIdToSessionId.argtypes = [wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    kernel.ProcessIdToSessionId.restype = wintypes.BOOL
+    value = wintypes.DWORD()
+    if not kernel.ProcessIdToSessionId(pid, ctypes.byref(value)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return value.value
+
+
+def listener_pid(port):
+    """Resolve the loopback panel through the unprivileged TCP owner table."""
+    api = ctypes.WinDLL("iphlpapi", use_last_error=True)
+    api.GetExtendedTcpTable.argtypes = [wintypes.LPVOID, ctypes.POINTER(wintypes.DWORD),
+                                       wintypes.BOOL, wintypes.ULONG, ctypes.c_int, wintypes.ULONG]
+    api.GetExtendedTcpTable.restype = wintypes.DWORD
+    size = wintypes.DWORD()
+    for _ in range(3):
+        buffer = ctypes.create_string_buffer(size.value) if size.value else None
+        status = api.GetExtendedTcpTable(buffer, ctypes.byref(size), False, socket.AF_INET, 3, 0)
+        if status == 122:
+            if not 4 <= size.value <= 2 * 1024**2:
+                raise RuntimeError("TCP owner table exceeded the test bound")
+            continue
+        if status or buffer is None or size.value < 4:
+            raise OSError(status, "Cannot inspect the loopback panel owner")
+        count = struct.unpack_from("<I", buffer)[0]
+        if count * 24 + 4 > min(size.value, len(buffer)):
+            raise RuntimeError("Malformed Windows TCP owner table")
+        rows = [struct.unpack_from("<IIIIII", buffer, 4 + index * 24) for index in range(count)]
+        matches = [row[5] for row in rows if row[0] == 2 and row[1] == 0x0100007F
+                   and socket.ntohs(row[2] & 0xFFFF) == port and row[5] > 0]
+        if len(matches) != 1:
+            raise RuntimeError("No unique ordinary loopback panel owner")
+        return matches[0]
+    raise RuntimeError("Windows TCP owner table kept changing")
+
+
+def visible_window(pid):
+    """Find and foreground only a visible top-level window of the owned actor."""
+    user = ctypes.WinDLL("user32", use_last_error=True)
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user.EnumWindows.argtypes = [callback_type, wintypes.LPARAM]
+    user.IsWindowVisible.argtypes = [wintypes.HWND]
+    user.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    user.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+    user.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    user.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    user.SetForegroundWindow.argtypes = [wintypes.HWND]
+    user.GetForegroundWindow.restype = wintypes.HWND
+    found = []
+    @callback_type
+    def visit(window, _):
+        owner, rectangle = wintypes.DWORD(), wintypes.RECT()
+        user.GetWindowThreadProcessId(window, ctypes.byref(owner))
+        if owner.value == pid and user.IsWindowVisible(window) and user.GetWindowRect(window, ctypes.byref(rectangle)):
+            if rectangle.right - rectangle.left >= 64 and rectangle.bottom - rectangle.top >= 64:
+                title = ctypes.create_unicode_buffer(2048)
+                user.GetWindowTextW(window, title, len(title))
+                found.append((window, title.value))
+        return True
+    user.EnumWindows(visit, 0)
+    for window, title in found:
+        user.ShowWindow(window, 9)
+        user.SetForegroundWindow(window)
+        if user.GetForegroundWindow() == window:
+            return {"hwnd": int(window), "pid": pid, "title": title, "visible": True, "foreground": True}
+    return None
+
+
+def capture_visible_desktop(path):
+    """Capture the disposable ordinary user's desktop using built-in GDI APIs."""
+    observation = powershell(r"""
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+$bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+$bitmap = New-Object Drawing.Bitmap($bounds.Width, $bounds.Height)
+$graphics = [Drawing.Graphics]::FromImage($bitmap)
+try {
+    $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+    $bitmap.Save($env:RULEPROXY_VISIBLE_SCREENSHOT, [Drawing.Imaging.ImageFormat]::Png)
+} finally { $graphics.Dispose(); $bitmap.Dispose() }
+""", env={"RULEPROXY_VISIBLE_SCREENSHOT": str(path)})
+    if observation["returncode"]:
+        raise RuntimeError("Ordinary desktop screenshot failed: " + observation["stderr"])
+    if not 33 < path.stat().st_size <= 2 * 1024**2:
+        raise RuntimeError("Ordinary desktop screenshot exceeds its evidence bound")
+    return {"screenshot_sha256": digest(path), "screenshot_bytes": path.stat().st_size,
+            "dimensions": list(png_dimensions(path)),
+            "screenshot_png_base64": base64.b64encode(path.read_bytes()).decode("ascii")}
+
+
 def ordinary_suite(spec_path, result_path):
     spec = json.loads(Path(spec_path).read_text(encoding="ascii"))
     result = {"schema_version": 1, "status": "running", "checks": {}, "phases": [],
@@ -383,12 +494,12 @@ def ordinary_suite(spec_path, result_path):
     port = spec["panel_port"]
     url = f"http://127.0.0.1:{port}"
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    def api(path="/api/state", body=None, *, expected=200):
+    def api(path="/api/state", body=None, *, expected=200, method=None):
         data = None if body is None else json.dumps(body, ensure_ascii=True).encode("ascii")
         headers = {"Content-Type": "application/json", "Origin": url}
         if token:
             headers["X-RuleProxy-Token"] = token
-        request = urllib.request.Request(url + path, data=data, headers=headers)
+        request = urllib.request.Request(url + path, data=data, headers=headers, method=method)
         try:
             with opener.open(request, timeout=50) as response:
                 status, raw = response.status, response.read(2 * 1024**2)
@@ -403,10 +514,10 @@ def ordinary_suite(spec_path, result_path):
         write(result_path, result)
         if not value:
             raise RuntimeError("Product check failed: " + name)
-    def action(operation):
+    def action(operation, **fields):
         request_id = secrets.token_hex(8)
         reply = LAB / "actors/admin-reply.json"
-        write(LAB / "actors/admin-request.json", {"id": request_id, "op": operation,
+        write(LAB / "actors/admin-request.json", {"id": request_id, "op": operation, **fields,
                                                    "panel_pid": panel.pid if panel else None})
         return wait_for(lambda: json.loads(reply.read_text(encoding="ascii"))
                         if reply.is_file() and json.loads(reply.read_text(encoding="ascii")).get("id") == request_id else None)
@@ -487,8 +598,80 @@ def ordinary_suite(spec_path, result_path):
             result["headless_browser_local_checks_passed"] = True
         finally:
             process.close()
+    def visible_browser_phase():
+        browser = Path(result["browser"]["executable"])
+        previous = next(app for app in api()["apps"] if os.path.normcase(app["path"]) == os.path.normcase(str(browser)))
+        api("/api/apps/" + previous["id"], method="DELETE")
+        ident = secrets.token_hex(8)
+        arguments = ["--new-window", "--window-size=1000,700",
+                     "http://1.1.1.1/ruleproxy-compare/" + spec["nonce"] + "/" + ident]
+        state = api("/api/apps", {"label": "Real Microsoft Edge visible", "path": str(browser),
+                                 "adapter": "chromium", "args": arguments})
+        app = next(app for app in state["apps"] if os.path.normcase(app["path"]) == os.path.normcase(str(browser)))
+        launched = api("/api/apps/" + app["id"] + "/launch", {})
+        process = observe_process(launched["pid"])
+        result["browser_visible"] = {"pid": process.pid, "actual_image_path": process.image_path,
+            "is_elevated": process.is_elevated, "session_id": session_id(process.pid),
+            "requested_args": arguments, "explicit_proxy_configuration": False, "sandbox_disabled": False,
+            "real_node_verified": False, "login_cookies_verified": False}
+        try:
+            check("visible_browser_ordinary", process.is_elevated is False and
+                  result["browser_visible"]["session_id"] == spec["interactive_session_id"])
+            check("visible_browser_system_image", os.path.normcase(process.image_path) == os.path.normcase(str(browser)))
+            window = wait_for(lambda: visible_window(process.pid), timeout=45)
+            result["browser_visible"]["window"] = window
+            check("visible_browser_window", window["visible"] and window["foreground"])
+            check("visible_browser_response", action("wait_visible_receiver", token=ident)["ok"])
+            time.sleep(1)
+            screenshot = LAB / "actors/visible-edge.png"
+            result["browser_visible"].update(capture_visible_desktop(screenshot))
+            check("visible_browser_png_created", result["browser_visible"]["screenshot_bytes"] > 33)
+            result["phases"].append({"label": "real_edge_visible", "token": ident, "expected_node": "B",
+                "actor": {"pid": process.pid, "is_elevated": process.is_elevated, "rows": [
+                    {"token": ident, "protocol": "tcp", "application": "Microsoft Edge visible",
+                     "response_marker_verification": "independent_receiver_required"}]}})
+            api("/api/apps/" + app["id"] + "/stop", {})
+            check("visible_browser_job_stop", wait_for(lambda: process.poll() is not None))
+            result["visible_gui_local_checks_passed"] = True
+            result["gui_verified"] = True
+        finally:
+            process.close()
+    def start_cmd_phase():
+        nonlocal token
+        command = [str(INSTALLED / "Start-Windows.cmd"), "--no-browser", "--state-dir",
+                   str(LAB / "actors/user-state"), "--port", str(port), "--proxy-port", str(spec["proxy_port"]),
+                   "--controller-port", str(spec["controller_port"])]
+        shell = subprocess.list2cmdline([os.environ["COMSPEC"], "/d", "/s", "/c"])
+        execution = subprocess.run(shell + ' "' + subprocess.list2cmdline(command) + '"', cwd=INSTALLED,
+                                   capture_output=True, timeout=30)
+        result["start_cmd"] = {"returncode": execution.returncode, "arguments": command,
+                               "stderr": execution.stderr[-4096:].decode("utf-8", errors="replace")}
+        check("start_cmd_returned_success", execution.returncode == 0)
+        state = wait_for(lambda: api(), timeout=45)
+        token = state["token"]
+        entry_panel = observe_process(listener_pid(port))
+        try:
+            result["start_cmd"].update(pid=entry_panel.pid, image_path=entry_panel.image_path,
+                                      is_elevated=entry_panel.is_elevated)
+            check("start_cmd_panel_ordinary", entry_panel.is_elevated is False and
+                  os.path.normcase(entry_panel.image_path) == os.path.normcase(str(INSTALLED / "python/pythonw.exe")))
+            check("start_cmd_preserves_import", state["imported"])
+            api("/api/start", {})
+            phase("start_cmd_saved_node", node="B")
+            api("/api/stop", {})
+            api("/api/quit", {})
+            entry_panel.wait(timeout=10)
+        finally:
+            if entry_panel.poll() is None:
+                entry_panel.terminate()
+                entry_panel.wait(timeout=10)
+            entry_panel.close()
     try:
         check("suite_ordinary", result["is_elevated"] is False)
+        if spec.get("visible_gui_required"):
+            result["interactive_session_id"] = session_id(os.getpid())
+            check("suite_interactive_session", result["interactive_session_id"] == spec["interactive_session_id"]
+                  and result["interactive_session_id"] > 0)
         sys.path.insert(0, str(INSTALLED))
         import ruleproxy
         result["loaded_package"] = str(Path(ruleproxy.__file__).resolve())
@@ -503,8 +686,9 @@ def ordinary_suite(spec_path, result_path):
         check("broker_available", state["protection"]["supported"])
         phase("unselected_before", exe="outside", node=None)
         api("/api/import", {"yaml": spec["yaml"]})
-        api("/api/apps", {"label": "Raw socket selected application", "path": str(LAB / "runtime/selected.exe"),
-            "adapter": "environment", "args": [str(Path(__file__).resolve()), "--hold", str(LAB / "actors/holder.json")]})
+        selected = {"label": "Raw socket selected application", "path": str(LAB / "runtime/selected.exe"),
+            "adapter": "environment", "args": [str(Path(__file__).resolve()), "--hold", str(LAB / "actors/holder.json")]}
+        api("/api/apps", selected)
         state = api()
         selected_id = state["apps"][0]["id"]
         api("/api/start", {})
@@ -513,16 +697,22 @@ def ordinary_suite(spec_path, result_path):
         phase("selected_udp_39017", protocol="udp")
         phase("selected_udp_connected_39017", protocol="udp", connected=True)
         phase("different_helper_before", exe="helper", node=None)
-        api("/api/apps", {"label": "Explicit related helper", "path": str(LAB / "runtime/helper.exe"),
-                           "adapter": "environment", "args": []})
+        api("/api/apps/" + selected_id, method="DELETE")
+        selected["related_paths"] = [str(LAB / "runtime/helper.exe")]
+        state = api("/api/apps", selected)
+        selected_id = state["apps"][0]["id"]
+        check("related_paths_saved", state["apps"][0].get("related_paths") == selected["related_paths"])
         phase("explicit_helper_after", exe="helper")
         api("/api/node", {"name": "B"})
         phase("selected_node_b", node="B")
+        phase("related_helper_node_b", exe="helper", node="B")
         phase("unselected_with_rules", exe="outside", node=None)
         api("/api/apps/" + selected_id, {"enabled": False})
         phase("disabled_path_direct", node=None)
+        phase("disabled_helper_direct", exe="helper", node=None)
         api("/api/apps/" + selected_id, {"enabled": True})
         phase("reenabled_path_proxy", node="B")
+        phase("reenabled_helper_proxy", exe="helper", node="B")
         holder = launch_holder(selected_id)
         api("/api/stop", {})
         check("stop_closes_owned_job", wait_for(lambda: not alive(holder["pid"]) and not alive(holder["child_pid"])))
@@ -550,13 +740,17 @@ def ordinary_suite(spec_path, result_path):
         panel = start_panel()
         state = api()
         token = state["token"]
-        check("saved_state_preserved", state["imported"] and len(state["apps"]) == 2)
+        check("saved_state_preserved", state["imported"] and len(state["apps"]) == 1 and
+              state["apps"][0].get("related_paths") == selected["related_paths"])
         api("/api/start", {})
         phase("restart_saved_node", node="B")
         browser_phase()
+        if spec.get("visible_gui_required"):
+            visible_browser_phase()
         api("/api/stop", {})
         api("/api/quit", {})
         panel.wait(timeout=10)
+        start_cmd_phase()
         result["user_state_hashes"] = {name: digest(LAB / "actors/user-state" / name)
                                         for name in ("settings.json", "source.yaml")}
         result["status"] = "passed"
@@ -587,6 +781,8 @@ def controller(package_dir, output):
     username = os.environ.pop("RULEPROXY_TEST_USER")
     password = os.environ.pop("RULEPROXY_TEST_PASSWORD")
     owner = os.environ.pop("RULEPROXY_TEST_SID")
+    interactive = os.environ.get("RULEPROXY_TEST_INTERACTIVE_SESSION")
+    interactive_session = int(interactive) if interactive is not None else None
     def checkpoint():
         write(report_path, report)
     try:
@@ -596,6 +792,9 @@ def controller(package_dir, output):
         report["actual_os"] = {"major": version.major, "minor": version.minor,
             "build": version.build, "platform": version.platform, "product_type": version.product_type,
             "architecture": platform.machine()}
+        if interactive_session is not None and (interactive_session <= 0 or version.product_type != 1
+                                                or platform.machine() != "AMD64"):
+            raise RuntimeError("Interactive product qualification requires a Windows client x64 desktop")
         if LAB.exists():
             raise RuntimeError("Disposable product lab already exists")
         (LAB / "actors").mkdir(parents=True)
@@ -662,6 +861,8 @@ def controller(package_dir, output):
         proxies = [{"name": node, "type": "socks5", "server": hostname,
                     "port": fixture._listeners[node].getsockname()[1], "udp": True} for node in ("A", "B")]
         spec = {"nonce": fixture.nonce, "panel_port": 28879, "proxy_port": 20809, "controller_port": 29097,
+                "visible_gui_required": interactive_session is not None,
+                "interactive_session_id": interactive_session,
                 "yaml": json.dumps({"proxies": proxies, "proxy-groups": [{"name": "Select", "type": "select", "proxies": ["A", "B"]}],
                                      "rules": ["MATCH,Select"]})}
         spec_path, user_result = LAB / "suite-spec.json", LAB / "actors/user-suite.json"
@@ -670,6 +871,8 @@ def controller(package_dir, output):
                                "--ordinary-suite", spec_path, "--result", user_result], username, password, owner)
         report["ordinary_launcher"] = {"method": process.launch_method, "caller_sid": process.caller_sid,
                                         "expected_actor_sid": owner, "actual_actor_sid_verified": True}
+        if interactive_session is not None:
+            report["ordinary_launcher"]["session_id"] = process.session_id
         deadline = time.monotonic() + 900
         last_action = None
         captured_core = None
@@ -685,10 +888,21 @@ def controller(package_dir, output):
                         "capture_core": "$p=@(Get-CimInstance Win32_Process -Filter \"Name='mihomo.exe'\"|Where-Object {$_.ParentProcessId -eq [int]$env:RULEPROXY_PRODUCT_PANEL}); if($p.Count -ne 1){throw 'No unique owned product core'}; $p[0].ProcessId",
                         "wait_core_stopped": "$p=Get-Process -Id ([int]$env:RULEPROXY_PRODUCT_CORE) -ErrorAction SilentlyContinue; if($p){if(-not $p.WaitForExit(20000)){throw 'Owned core survived panel crash'}}; 'ok'",
                         "kill_core": "$p=@(Get-CimInstance Win32_Process -Filter \"Name='mihomo.exe'\"|Where-Object {$_.ParentProcessId -eq [int]$env:RULEPROXY_PRODUCT_PANEL}); if($p.Count -ne 1){throw 'No unique owned product core'}; Stop-Process -Id $p[0].ProcessId -Force; 'ok'"}
-                    if operation not in actions:
+                    if operation == "wait_visible_receiver":
+                        marker = request.get("token", "")
+                        if not isinstance(marker, str) or len(marker) != 16 or any(
+                                char not in "0123456789abcdef" for char in marker):
+                            raise RuntimeError("Invalid visible-browser actor marker")
+                        phase = {"label": "real_edge_visible", "token": marker,
+                                 "expected_node": "B", "actor": {"rows": [{}]}}
+                        evidence = wait_for(lambda: next((row for row in receiver_evidence(
+                            [phase], fixture.snapshot()) if row["passed"]), None), timeout=20)
+                        observation = {"returncode": 0, "stdout": json.dumps(evidence), "stderr": ""}
+                    elif operation not in actions:
                         raise RuntimeError("Invalid bounded administrator test operation")
-                    observation = powershell(actions[operation], env={"RULEPROXY_PRODUCT_PANEL": str(request["panel_pid"]),
-                                                                      "RULEPROXY_PRODUCT_CORE": str(captured_core or 0)})
+                    else:
+                        observation = powershell(actions[operation], env={"RULEPROXY_PRODUCT_PANEL": str(request["panel_pid"]),
+                                                                          "RULEPROXY_PRODUCT_CORE": str(captured_core or 0)})
                     if operation == "capture_core" and observation["returncode"] == 0:
                         captured_core = int(observation["stdout"].strip())
                     if operation == "wait_core_stopped" and captured_core is None:
@@ -719,6 +933,13 @@ def controller(package_dir, output):
                 row["label"] == "real_edge_headless" and row["passed"] for row in report["receiver_phase_evidence"])):
             raise RuntimeError("Required real browser lacks PNG/token/independent receiver evidence")
         report["headless_browser_verified"] = True
+        if interactive_session is not None:
+            if (report["ordinary_suite"].get("visible_gui_local_checks_passed") is not True
+                    or report["ordinary_suite"].get("interactive_session_id") != interactive_session
+                    or not any(row["label"] == "real_edge_visible" and row["passed"]
+                               for row in report["receiver_phase_evidence"])):
+                raise RuntimeError("Required interactive browser lacks visible-window/receiver evidence")
+            report["gui_verified"] = True
         report["uninstall"] = execute_script(INSTALLED / "scripts/windows-uninstall.ps1", owner)
         if report["uninstall"]["returncode"]:
             raise RuntimeError("Product uninstall failed or requested an unverified reboot")
