@@ -86,6 +86,22 @@ jobs:
           $control = "$root\bundle\scripts\windows_$($env:BACKEND)_control.py"
           python -B $control --phase install --bundle "$root\bundle" --manifest "$root\bundle\manifest.json" --report "$root\install-smoke.json" --probe-user RuleProxyCI --probe-user-sid $sid
           $installExit = $LASTEXITCODE
+          $driverFacts = @()
+          foreach ($folder in @('C:\Program Files\Sandboxie-Plus', 'C:\Program Files\ProxyBridge')) {
+            if (Test-Path -LiteralPath $folder) {
+              Get-ChildItem -LiteralPath $folder -Filter '*.sys' -File -Recurse | Select-Object -First 8 | ForEach-Object {
+                $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName
+                $driverFacts += [ordered]@{ file = $_.Name; size = $_.Length;
+                  sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant();
+                  status = [string]$signature.Status; message = [string]$signature.StatusMessage;
+                  signer = [string]$signature.SignerCertificate.Subject;
+                  thumbprint = [string]$signature.SignerCertificate.Thumbprint }
+              }
+            }
+          }
+          $driverBody = ConvertTo-Json -InputObject $driverFacts -Depth 5 -Compress
+          [IO.File]::WriteAllText("$root\install-smoke-drivers.json", $driverBody)
+          Write-Output $driverBody
           if (Test-Path -LiteralPath "$root\install-smoke.json") { Get-Content -LiteralPath "$root\install-smoke.json" -Raw | Write-Output }
           if ($installExit -ne 0) { throw 'Fixed installer smoke failed' }
           $report = Get-Content "$root\install-smoke.json" -Raw | ConvertFrom-Json
@@ -97,7 +113,7 @@ jobs:
         if: always()
         with:
           name: free-backend-install-smoke-${{ matrix.backend }}
-          path: C:\RuleProxyCI\install-smoke.json
+          path: C:\RuleProxyCI\install-smoke*.json
           if-no-files-found: warn
           retention-days: 7
 
