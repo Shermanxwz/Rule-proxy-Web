@@ -4,20 +4,32 @@
   "package_sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
   "windows_server_2025": {
     "status": "passed",
-    "run_id": 38789494925,
-    "source_commit": "970fb350191e13786dfb62cbef2ed8cd1031c887",
+    "run_id": 38792652549,
+    "source_commit": "e9eca229d9301a563e804a651718cb90cad98551",
     "ordinary_checks": 33,
     "independent_traffic_phases": 13,
     "headless_edge": true,
-    "visible_gui_verified": false
+    "visible_gui_verified": false,
+    "successful_run_ids": [
+      38789494925,
+      38792652549
+    ]
   },
   "windows_11": {
     "status": "pending",
-    "run_id": 38788166642,
+    "run_id": 38792652549,
     "previous_attempt_status": "failed_bootstrap_without_product_report",
-    "product_execution_confirmed": false
+    "product_execution_confirmed": false,
+    "source_commit": "e9eca229d9301a563e804a651718cb90cad98551",
+    "previous_attempt_run_id": 38788166642
   },
   "real_internet_exit_ip_verified": false,
   "linux_equivalent_isolation": false,
-  "public_binary_release_eligible": false
+  "public_binary_release_eligible": false,
+  "cross_platform_ci": {
+    "status": "passed",
+    "run_id": 38792664704,
+    "jobs_passed": 8,
+    "source_commit": "e9eca229d9301a563e804a651718cb90cad98551"
+  }
 }

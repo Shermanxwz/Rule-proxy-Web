@@ -21,5 +21,10 @@
     "payload_files_verified": 353,
     "archive_sha256": "0ab67d216e76094a2974709e8cd767c9e27781ae5169b64bdcdd39340b373b2a"
   },
-  "branch_cleanup_status": "pending final native qualification"
+  "branch_cleanup_status": "main_only_via_atomic_compare_and_swap",
+  "retained_branch": "main",
+  "main_before_consolidation": "67a0ebf168803925e45419e5154d39bf7311a1da",
+  "remote_ref_transaction": "Fast-forward main and delete every other remote branch atomically, with an exact beforeOid for every ref.",
+  "all_worktree_heads_preserved": 28,
+  "native_windows_11_qualification": "Pending run 38792652549; the qualified Server product and archived histories are consolidated independently."
 }
