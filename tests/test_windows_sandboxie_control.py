@@ -243,25 +243,28 @@ class WindowsSandboxieControlTests(unittest.TestCase):
             root = Path(temp)
             (root / "SbieIni.exe").write_bytes(b"not executed")
             (root / "Start.exe").write_bytes(b"not executed")
-            outputs = [mock.Mock(returncode=0, stdout=b""), mock.Mock(returncode=0, stdout=b"")]
-            outputs.extend([
-                mock.Mock(returncode=0, stdout=b"NetworkEnableWFP=y\r\n"),
-                mock.Mock(returncode=0, stdout=b"AllowNetworkAccess=y\r\n"),
-                mock.Mock(returncode=0, stdout=b"BlockLocalLoop=n\r\n"),
-                mock.Mock(returncode=0, stdout=("NetworkAccess=*,Block\r\n"
-                    "NetworkAccess=*,Allow;Address=127.0.0.1;Port=18080;Protocol=TCP\r\n").encode("ascii")),
-            ])
+            baseline = [mock.Mock(returncode=0, stdout=value) for value in
+                        (b"y\n", b"y\n", b"n\n", b"*,Block\n")]
+            active = [mock.Mock(returncode=0, stdout=value) for value in
+                      (b"y\n", b"y\n", b"n\n",
+                       ("*,Block\n*,Allow;Address=127.0.0.1;Port=18080;Protocol=TCP\n").encode("ascii"))]
+            outputs = [mock.Mock(returncode=0, stdout=b"")] + baseline
+            outputs += [mock.Mock(returncode=0, stdout=b""), mock.Mock(returncode=0, stdout=b"")] + active
             with mock.patch.object(control, "_run", side_effect=outputs) as run:
                 facts = control._add_proxy_allow(root, control.BOX_BASE, 18080)
             first = run.call_args_list[0].args[0]
             self.assertEqual(first[-2:], ["NetworkAccess",
                 "*,Allow;Address=127.0.0.1;Port=18080;Protocol=TCP"])
             self.assertIn("/drv", first)
-            self.assertEqual(run.call_args_list[1].args[0][-1], "/reload")
-            self.assertEqual(run.call_args_list[2].args[0][1:4],
+            self.assertEqual(run.call_args_list[1].args[0][1:4],
                              ["query", "/drv", "GlobalSettings"])
+            self.assertEqual(run.call_args_list[5].args[0][-2:], ["NetworkAccess",
+                "*,Allow;Address=127.0.0.1;Port=18080;Protocol=TCP"])
+            self.assertNotIn("/drv", run.call_args_list[5].args[0])
+            self.assertEqual(run.call_args_list[6].args[0][-1], "/reload")
+            self.assertEqual(facts["method"], "persistent_service_fallback")
             self.assertTrue(facts["verified"])
-            self.assertFalse(facts["block_local_loop_enabled"])
+            self.assertTrue(facts["initial_readback"]["safe_fallback_baseline"])
             with self.assertRaises(ValueError):
                 control._add_proxy_allow(root, control.BOX_BASE, 0)
 
@@ -270,19 +273,32 @@ class WindowsSandboxieControlTests(unittest.TestCase):
             root = Path(temp)
             (root / "SbieIni.exe").write_bytes(b"not executed")
             (root / "Start.exe").write_bytes(b"not executed")
-            outputs = [mock.Mock(returncode=0, stdout=b"") for _ in range(2)]
-            outputs.extend([
-                mock.Mock(returncode=0, stdout=b"y\n"),
-                mock.Mock(returncode=0, stdout=b"y\n"),
-                mock.Mock(returncode=0, stdout=b"n\n"),
-                mock.Mock(returncode=0, stdout=b"*,Block\n"),
-            ])
+            outputs = [mock.Mock(returncode=0, stdout=b"")]
+            outputs.extend(mock.Mock(returncode=0, stdout=value) for value in
+                           (b"n\n", b"y\n", b"n\n", b"*,Block\n"))
             with mock.patch.object(control, "_run", side_effect=outputs):
                 facts = control._add_proxy_allow(root, control.BOX_BASE, 18080)
-            self.assertTrue(facts["readback_complete"])
-            self.assertTrue(facts["default_deny_present"])
-            self.assertFalse(facts["exact_proxy_allow_present"])
+            self.assertTrue(facts["initial_readback"]["readback_complete"])
+            self.assertFalse(facts["initial_readback"]["global_wfp_enabled"])
+            self.assertFalse(facts["initial_readback"]["safe_fallback_baseline"])
             self.assertFalse(facts["verified"])
+            self.assertIsNone(facts["persistent_append_exit_code"])
+
+    def test_proxy_allow_keeps_successful_driver_update_without_reloading_ini(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "SbieIni.exe").write_bytes(b"not executed")
+            (root / "Start.exe").write_bytes(b"not executed")
+            outputs = [mock.Mock(returncode=0, stdout=b"")]
+            outputs.extend(mock.Mock(returncode=0, stdout=value) for value in
+                           (b"y\n", b"y\n", b"n\n",
+                            b"*,Block\n*,Allow;Address=127.0.0.1;Port=18080;Protocol=TCP\n"))
+            with mock.patch.object(control, "_run", side_effect=outputs) as run:
+                facts = control._add_proxy_allow(root, control.BOX_BASE, 18080)
+            self.assertEqual(facts["method"], "driver_memory")
+            self.assertTrue(facts["verified"])
+            self.assertEqual(run.call_count, 5)
+            self.assertTrue(all("/reload" not in call.args[0] for call in run.call_args_list))
 
     def test_boxed_dns_nonzero_exit_keeps_valid_report_and_fails_execution_fact(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -394,26 +394,21 @@ def _append_test_config(path: Path):
 
 
 def _add_proxy_allow(install_root: Path, box: str, port: int):
-    """Append and read back one exact endpoint from the active driver config."""
+    """Append one endpoint and verify active driver state before any reload.
+
+    The /drv path changes the active in-memory config. Reloading from the INI
+    immediately afterward can discard that change, so persistence fallback is
+    attempted only when readback is otherwise safe and shows this rule absent.
+    """
     if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError("invalid exact proxy port")
     sbie_ini = install_root / "SbieIni.exe"
     if not sbie_ini.is_file():
         raise FileNotFoundError("Sandboxie configuration utility is unavailable")
     rule = f"*,Allow;Address=127.0.0.1;Port={port};Protocol=TCP"
-    completed = _run([str(sbie_ini), "append", "/drv", box, "NetworkAccess", rule], 30)
-    result = {"append_exit_code": int(completed.returncode), "reload_exit_code": None,
-              "global_wfp_enabled": False, "allow_network_access_enabled": False,
-              "block_local_loop_enabled": None, "default_deny_present": False,
-              "exact_proxy_allow_present": False, "readback_complete": False,
-              "verified": False}
-    if completed.returncode != 0:
-        return result
-    reloaded = _run([str(install_root / "Start.exe"), "/reload"], 30)
-    if reloaded.returncode != 0:
-        result["reload_exit_code"] = int(reloaded.returncode)
-        return result
-    result["reload_exit_code"] = int(reloaded.returncode)
+    result = {"method": "driver_memory", "driver_append_exit_code": None,
+              "persistent_append_exit_code": None, "reload_exit_code": None,
+              "initial_readback": None, "final_readback": None, "verified": False}
 
     def query(section, setting):
         response = _run([str(sbie_ini), "query", "/drv", section, setting], 30)
@@ -430,24 +425,51 @@ def _add_proxy_allow(install_root: Path, box: str, port: int):
         except (UnicodeDecodeError, OSError, subprocess.SubprocessError):
             return None
 
-    wfp = query("GlobalSettings", "NetworkEnableWFP")
-    access = query(box, "AllowNetworkAccess")
-    loopback = query(box, "BlockLocalLoop")
-    rules = query(box, "NetworkAccess")
-    result["readback_complete"] = all(type(value) is list for value in (wfp, access, loopback, rules))
-    if result["readback_complete"]:
-        result.update(global_wfp_enabled=len(wfp) == 1 and wfp[0].casefold() == "y",
-                      allow_network_access_enabled=len(access) == 1 and access[0].casefold() == "y",
-                      block_local_loop_enabled=(len(loopback) == 1 and loopback[0].casefold() == "y"
-                                                if loopback else None),
-                      default_deny_present=any(value.casefold() == "*,block" for value in rules),
-                      exact_proxy_allow_present=sum(value.casefold() == rule.casefold()
-                                                    for value in rules) == 1)
-        result["verified"] = bool(result["global_wfp_enabled"]
-                                  and result["allow_network_access_enabled"]
-                                  and result["block_local_loop_enabled"] is False
-                                  and result["default_deny_present"]
-                                  and result["exact_proxy_allow_present"])
+    def snapshot():
+        wfp = query("GlobalSettings", "NetworkEnableWFP")
+        access = query(box, "AllowNetworkAccess")
+        loopback = query(box, "BlockLocalLoop")
+        rules = query(box, "NetworkAccess")
+        complete = all(type(value) is list and value for value in (wfp, access, loopback, rules))
+        facts = {"readback_complete": complete,
+                 "global_wfp_enabled": len(wfp) == 1 and wfp[0].casefold() == "y" if wfp else False,
+                 "allow_network_access_enabled": len(access) == 1 and access[0].casefold() == "y" if access else False,
+                 "block_local_loop_disabled": len(loopback) == 1 and loopback[0].casefold() == "n" if loopback else False,
+                 "default_deny_present": any(value.casefold() == "*,block" for value in rules) if rules else False,
+                 "exact_proxy_allow_count": sum(value.casefold() == rule.casefold() for value in rules) if rules else 0,
+                 "network_rule_count": len(rules) if rules else 0}
+        facts["safe_fallback_baseline"] = bool(
+            complete and facts["global_wfp_enabled"] and facts["allow_network_access_enabled"]
+            and facts["block_local_loop_disabled"] and facts["default_deny_present"]
+            and facts["exact_proxy_allow_count"] == 0 and facts["network_rule_count"] == 1)
+        facts["verified"] = bool(
+            complete and facts["global_wfp_enabled"] and facts["allow_network_access_enabled"]
+            and facts["block_local_loop_disabled"] and facts["default_deny_present"]
+            and facts["exact_proxy_allow_count"] == 1)
+        return facts
+
+    completed = _run([str(sbie_ini), "append", "/drv", box, "NetworkAccess", rule], 30)
+    result["driver_append_exit_code"] = int(completed.returncode)
+    result["initial_readback"] = snapshot()
+    if result["initial_readback"]["verified"]:
+        result["verified"] = True
+        return result
+    # Do not retry through the persistent service API if any baseline gate is
+    # wrong, the query failed, or a duplicate/other rule is already present.
+    if not result["initial_readback"]["safe_fallback_baseline"]:
+        return result
+
+    result["method"] = "persistent_service_fallback"
+    persisted = _run([str(sbie_ini), "append", box, "NetworkAccess", rule], 30)
+    result["persistent_append_exit_code"] = int(persisted.returncode)
+    if persisted.returncode != 0:
+        return result
+    reloaded = _run([str(install_root / "Start.exe"), "/reload"], 30)
+    result["reload_exit_code"] = int(reloaded.returncode)
+    if reloaded.returncode != 0:
+        return result
+    result["final_readback"] = snapshot()
+    result["verified"] = result["final_readback"]["verified"] is True
     return result
 
 
@@ -966,7 +988,7 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
         policy_updates[BOX_BASE] = _add_proxy_allow(install_root, BOX_BASE, spec["proxy_port"])
         policy_updates[BOX_DNS] = _add_proxy_allow(install_root, BOX_DNS, spec["proxy_port"])
         result["runtime_policy_update"] = {
-            "method": "SbieIni append /drv exact endpoint",
+            "method_by_box": {box: row.get("method") for box, row in policy_updates.items()},
             "ordinary_user_update_succeeded": all(row.get("verified") is True
                                                    for row in policy_updates.values()),
             "exact_proxy_host": spec["proxy_host"],
