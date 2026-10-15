@@ -1048,6 +1048,67 @@ raise SystemExit(configuration.get('exit_code', 0))
             self.assertEqual(result["diagnostic_configuration_error"], "invalid_private_configuration")
             self.assertTrue(all(p["status"] == "blocked" for p in result["phases"]))
 
+    def test_psec_1_1_requires_network_only_and_rejects_conflicting_diagnostic_axes(self):
+        config = self.root / "psec-vm-config.json"
+        workspace = self.guest_control_workspace()
+        for value in (
+                {"psec_1_1_diagnostic": True},
+                {"network_diagnostic_only": True, "psec_1_1_diagnostic": True,
+                 "singleton_port_range_diagnostic": True},
+                {"network_diagnostic_only": True, "psec_1_1_diagnostic": 1},
+                {"network_diagnostic_only": True, "psec_1_1_diagnostic": True,
+                 "gui_diagnostic_only": True}):
+            config.write_text(json.dumps(value))
+            with self.subTest(value=value), mock.patch.object(vm, "run_guest_phase") as phase:
+                result = vm.run_guest_phases(self.root / "release", workspace,
+                                             self.root / "reports", vm_config=config)
+                phase.assert_not_called()
+            self.assertEqual(result["diagnostic_configuration_error"], "invalid_private_configuration")
+
+    def test_psec_1_1_is_forwarded_alongside_valid_source_candidate_only_as_nonrelease_diagnostic(self):
+        workspace = self.guest_control_workspace({"experiments": {}})
+        config = self.root / "psec-vm-config.json"
+        config.write_text(json.dumps({"network_diagnostic_only": True, "psec_1_1_diagnostic": True,
+                                      "test_psec_executor_diagnostic": True}), encoding="utf-8")
+        clean = {"cleanup_proven": True,
+                 "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}],
+                 "variants": [{"process_started": True, "descendant_cleanup_proven": True,
+                               "resources_closed": True}]}
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            return {"name": name, "status": "passed", "exit_code": 0}, \
+                {"status": "supported_only"} if name == "probe" else copy.deepcopy(clean), ""
+        bundle = (workspace / "candidate.exe", workspace / "candidate.json", {"sha256": "host-verified"})
+        with mock.patch.object(vm, "guest_test_executor", return_value=bundle), \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports", vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "experiments"])
+        command = calls[1][1]
+        self.assertIn("--psec-1-1-diagnostic", command)
+        self.assertIn("--preferred-policy-only", command)
+        self.assertIn("--test-psec-executor", command)
+        self.assertNotIn("--singleton-port-range", command)
+        self.assertTrue(result["psec_1_1_diagnostic"])
+        self.assertTrue(result["source_diagnostic_only"])
+        self.assertEqual(result["execution_mode"], "source_executor_diagnostic")
+        self.assertFalse(result["product_acceptance_passed"])
+
+    def test_psec_1_1_cli_is_network_only_diagnostic_and_allows_source_candidate(self):
+        base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                "--artifacts", str(self.root / "artifacts"), "--psec-1-1-diagnostic"]
+        for extra in ([], ["--network-diagnostic-only", "--singleton-port-range-diagnostic"]):
+            with self.subTest(extra=extra), mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+                with self.assertRaises(SystemExit) as failure:
+                    vm.main(base + extra)
+                self.assertEqual(failure.exception.code, 2)
+                run.assert_not_called()
+        with mock.patch.object(vm, "run", return_value=self.passed_result()) as run:
+            self.assertEqual(vm.main(base + ["--network-diagnostic-only", "--test-psec-executor",
+                                             str(self.root / "candidate.exe"), "--test-psec-manifest",
+                                             str(self.root / "candidate.json")]), 1)
+            self.assertTrue(run.call_args.args[0].psec_1_1_diagnostic)
+
     def test_singleton_cli_requires_original_sdk_network_mode_and_never_accepts(self):
         base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
                 "--artifacts", str(self.root / "artifacts"), "--singleton-port-range-diagnostic"]
@@ -2092,6 +2153,12 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertIn('inputs.singleton_port_range_diagnostic', run_step['env']['RULEPROXY_VM_SINGLETON_DIAGNOSTIC'])
         self.assertIn('--singleton-port-range-diagnostic', run_step['run'])
         self.assertIn('SINGLETON_DIAGNOSTIC', validation['run'])
+        psec_option = trigger['workflow_dispatch']['inputs']['psec_1_1_diagnostic']
+        self.assertEqual(psec_option, {'description': psec_option['description'], 'required': False,
+                                       'type': 'boolean', 'default': False})
+        self.assertIn('inputs.psec_1_1_diagnostic', run_step['env']['RULEPROXY_VM_PSEC_1_1_DIAGNOSTIC'])
+        self.assertIn('--psec-1-1-diagnostic', run_step['run'])
+        self.assertIn('PSEC_1_1_DIAGNOSTIC', validation['run'])
         step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
         self.assertEqual(step['uses'], 'actions/download-artifact@v8')
         self.assertEqual(step['with']['run-id'], 38660663692)

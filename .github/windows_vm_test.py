@@ -237,10 +237,10 @@ def load_chromium_control_helper(root: Path = ROOT):
     return module
 
 
-def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None]:
+def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, bool, str | None, bool]:
     """Read mutually exclusive source diagnostic phase selections safely."""
     if vm_config is None:
-        return False, False, False, False, None
+        return False, False, False, False, None, False
     def unique_fields(pairs):
         value = {}
         for key, item in pairs:
@@ -258,11 +258,15 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
         network = config.get("network_diagnostic_only", False) if isinstance(config, dict) else None
         singleton = config.get("singleton_port_range_diagnostic", False) if isinstance(config, dict) else None
         chromium_control = config.get("chromium_gui_control_diagnostic", False) if isinstance(config, dict) else None
+        psec_1_1 = config.get("psec_1_1_diagnostic", False) if isinstance(config, dict) else None
         executor_enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
         chromium_sha256 = config.get("chromium_gui_control_archive_sha256") if isinstance(config, dict) else None
-        if any(type(flag) is not bool for flag in (enabled, network, singleton, chromium_control, executor_enabled)):
+        if any(type(flag) is not bool for flag in (
+                enabled, network, singleton, chromium_control, psec_1_1, executor_enabled)):
             raise ValueError
         if (enabled and (executor_enabled or network)) or (singleton and (not network or executor_enabled)):
+            raise ValueError
+        if psec_1_1 and (not network or singleton or enabled or chromium_control):
             raise ValueError
         if chromium_control:
             if (not enabled or network or executor_enabled or not isinstance(chromium_sha256, str)
@@ -270,7 +274,7 @@ def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool, 
                 raise ValueError
         elif chromium_sha256 is not None:
             raise ValueError
-        return enabled, network, singleton, chromium_control, chromium_sha256
+        return enabled, network, singleton, chromium_control, chromium_sha256, psec_1_1
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic configuration is invalid") from exc
 
@@ -1296,7 +1300,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     probe_passed = False
     cleanup_pending = False
     try:
-        gui_only, network_only, singleton, chromium_control, chromium_sha256 = guest_diagnostic_options(vm_config)
+        gui_only, network_only, singleton, chromium_control, chromium_sha256, psec_1_1 = guest_diagnostic_options(vm_config)
     except ValueError:
         result["diagnostic_configuration_error"] = "invalid_private_configuration"
         result["error"] = "Private diagnostic configuration could not be verified"
@@ -1376,6 +1380,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     if network_only:
         result.update(network_diagnostic_only=True, source_diagnostic_only=True,
                       singleton_port_range_diagnostic=singleton,
+                      psec_1_1_diagnostic=psec_1_1,
                       full_acceptance_passed=False, product_acceptance_passed=False,
                       acceptance_passed=False, real_node_passed=False,
                       execution_mode="original_sdk", product_runtime_replaced=False)
@@ -1427,6 +1432,8 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         command.extend(diagnostic_arguments)
         if singleton:
             command.append("--singleton-port-range")
+        if psec_1_1:
+            command.append("--psec-1-1-diagnostic")
         record, report, log = run_guest_phase("experiments", command, directory,
                                               timeout=min(600, phase_timeout))
         result["experiments_phase"] = record
@@ -1593,6 +1600,7 @@ def run(args) -> dict:
     chromium_gui_control_diagnostic = getattr(args, "chromium_gui_control", False) is True
     network_diagnostic_only = getattr(args, "network_diagnostic_only", False) is True
     singleton_port_range_diagnostic = getattr(args, "singleton_port_range_diagnostic", False) is True
+    psec_1_1_diagnostic = getattr(args, "psec_1_1_diagnostic", False) is True
     require_update = not baseline
     summary = {"status": "failed", "baseline_diagnostic": baseline,
                "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "original_sdk",
@@ -1601,7 +1609,8 @@ def run(args) -> dict:
                "chromium_gui_control_diagnostic": chromium_gui_control_diagnostic,
                "network_diagnostic_only": network_diagnostic_only,
                "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
-               "source_diagnostic_only": gui_diagnostic_only or chromium_gui_control_diagnostic or network_diagnostic_only or singleton_port_range_diagnostic or diagnostic_mode,
+               "psec_1_1_diagnostic": psec_1_1_diagnostic,
+               "source_diagnostic_only": gui_diagnostic_only or chromium_gui_control_diagnostic or network_diagnostic_only or singleton_port_range_diagnostic or psec_1_1_diagnostic or diagnostic_mode,
                "product_acceptance_passed": False,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
@@ -1613,6 +1622,8 @@ def run(args) -> dict:
     try:
         if chromium_gui_control_diagnostic and (not gui_diagnostic_only or network_diagnostic_only or diagnostic_mode):
             raise ValueError("Chromium GUI control requires GUI-only diagnostic mode with the original SDK")
+        if psec_1_1_diagnostic and (not network_diagnostic_only or singleton_port_range_diagnostic):
+            raise ValueError("PSEC 1.1 diagnostic requires network-only mode and a single diagnostic axis")
         summary["kvm_api_version"] = require_kvm()
         package = args.package.resolve(strict=True)
         verify_package(package, args.package_sha256.lower())
@@ -1706,6 +1717,7 @@ def run(args) -> dict:
                     "chromium_gui_control_diagnostic": chromium_gui_control_diagnostic,
                     "network_diagnostic_only": network_diagnostic_only,
                     "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
+                    "psec_1_1_diagnostic": psec_1_1_diagnostic,
                     **({"chromium_gui_control_archive_sha256": chromium_control_sha256}
                        if chromium_control_sha256 is not None else {}),
                     **({"test_psec_executor_sha256": summary["test_psec_executor"]["executor_sha256"],
@@ -1884,6 +1896,8 @@ def main(argv: list[str]) -> int:
                         help="Run only the strict probe and preferred-policy network experiment; never qualifies acceptance")
     parser.add_argument("--singleton-port-range-diagnostic", action="store_true",
                         help="Encode the same single TCP port as an inclusive singleton range in network diagnostics")
+    parser.add_argument("--psec-1-1-diagnostic", action="store_true",
+                        help="Run the preferred network experiment with PSEC 1.1 in diagnostic-only mode")
     parser.add_argument("--test-psec-executor", type=Path,
                         help="Source-only diagnostic executor; never replaces product bin or grants release success")
     parser.add_argument("--test-psec-manifest", type=Path)
@@ -1899,11 +1913,13 @@ def main(argv: list[str]) -> int:
         parser.error("Chromium GUI control requires GUI-only diagnostic mode with the original SDK")
     if args.singleton_port_range_diagnostic and (not args.network_diagnostic_only or args.test_psec_executor is not None):
         parser.error("Singleton port encoding requires network diagnostic-only with the original SDK")
+    if args.psec_1_1_diagnostic and (not args.network_diagnostic_only or args.singleton_port_range_diagnostic):
+        parser.error("PSEC 1.1 diagnostic requires network-only mode and cannot combine with singleton port encoding")
     if not 300 <= args.timeout_seconds <= 14400:
         parser.error("--timeout-seconds must be between 300 and 14400")
     result = run(args)
     if (args.test_psec_executor is not None or args.gui_diagnostic_only or args.chromium_gui_control
-            or args.network_diagnostic_only):
+            or args.network_diagnostic_only or args.psec_1_1_diagnostic):
         return 1  # Partial diagnostics never qualify product acceptance.
     expected = "baseline_transport_and_package_tests_passed" if args.baseline_diagnostic else "transport_and_package_tests_passed"
     return 0 if (result["status"] == expected and result.get("baseline_diagnostic") is args.baseline_diagnostic

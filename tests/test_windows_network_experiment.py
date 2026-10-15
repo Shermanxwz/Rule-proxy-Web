@@ -75,6 +75,29 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
             self.assertEqual(experiment.network_policy(name, 49123, 10809, singleton_port_range=True),
                              experiment.network_policy(name, 49123, 10809))
 
+    def test_psec_1_1_diagnostic_adds_only_owned_nested_enumeration_path(self):
+        profile = self.directory / "profile"
+        profile.mkdir()
+        policy = {"filesystem": {"readwritePaths": [str(profile)], "readonlyPaths": [str(self.directory)]},
+                  **experiment.network_policy("model3", 49123, 10809)}
+        original_network = copy.deepcopy(policy["network"])
+        experiment.add_psec_1_1_diagnostic_path(policy, profile)
+        paths = policy["processContainer"]["filesystem"]["enumeratePaths"]
+        self.assertEqual(len(paths), 1)
+        child = Path(paths[0])
+        self.assertEqual(child.parent, profile)
+        self.assertEqual(list(child.iterdir()), [])
+        self.assertEqual(policy["network"], original_network)
+        self.assertEqual(policy["filesystem"]["readwritePaths"], [str(profile)])
+        self.assertEqual(policy["filesystem"]["readonlyPaths"], [str(self.directory)])
+
+    def test_psec_1_1_diagnostic_requires_exact_existing_rw_profile(self):
+        profile = self.directory / "profile"
+        profile.mkdir()
+        with self.assertRaisesRegex(RuntimeError, "exact read-write"):
+            experiment.add_psec_1_1_diagnostic_path({"filesystem": {"readwritePaths": []}}, profile)
+        self.assertFalse((profile / ".psec-enumerate-path-diagnostic").exists())
+
     def test_fixed_http_and_socks_fixture_cross_frames_and_keep_both_fin_directions(self):
         fixture = experiment.FixedProxy()
         self.addCleanup(fixture.close)
@@ -709,7 +732,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
     def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False,
                                 explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False,
                                 singleton_port_range=False, trust_contaminated=False, warmup_failure=False, trust_close_failure=False,
-                                dns_payload=None, candidate_probe_failure=False):
+                                dns_payload=None, candidate_probe_failure=False, psec_1_1_diagnostic=False,
+                                enumerate_paths_supported=True):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
         helpers.host_facts.return_value = {"native_machine": 0x8664, "python_pe_machine": 0x8664,
@@ -752,11 +776,14 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         dns.close.return_value = None
         runtime = mock.Mock()
         runtime.choose_guest_port.return_value = 23456
-        runtime.build_policy.return_value = {"network": {"egress": {"default": "deny"},
-            "ingress": {"default": "deny", "hostLoopback": "deny"}}}
+        runtime.build_policy.side_effect = lambda _command, _capabilities, profile, _port: {
+            "filesystem": {"readwritePaths": [str(profile)], "readonlyPaths": []},
+            "network": {"egress": {"default": "deny"},
+                        "ingress": {"default": "deny", "hostLoopback": "deny"}}}
         runtime._probe_request.side_effect = (RuntimeError("private candidate path") if candidate_probe_failure else
             lambda executor, policy: (wire.sequence.append("candidate_probe") or {
-                "tier": "base-container", "probes": {"baseContainerApiPresent": True},
+                "tier": "base-container", "probes": {"baseContainerApiPresent": True,
+                    "baseContainerSupportsEnumeratePaths": enumerate_paths_supported},
                 "needsDaclAugmentation": False}))
         wire.runtime = runtime
         retained = self.directory / "private-work"
@@ -802,6 +829,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 arguments.append("--preferred-policy-only")
             if singleton_port_range:
                 arguments.append("--singleton-port-range")
+            if psec_1_1_diagnostic:
+                arguments.append("--psec-1-1-diagnostic")
             if test_executor:
                 executor, manifest, _ = self.executor_build_fixture()
                 helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": "b" * 64}
@@ -825,6 +854,48 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertEqual(result["diagnostic_port_encoding"], "singleton_range")
         self.assertFalse(result["acceptance_passed"])
         self.assertTrue(launch.call_args.kwargs["singleton_port_range"])
+
+    def test_psec_1_1_preferred_only_selects_model3_and_preferred_with_no_acceptance_claim(self):
+        code, result, wire, dns, launch, _ = self.native_dns_main_fixture(
+            preferred_only=True, psec_1_1_diagnostic=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(result["selected_variants"], ["model3", experiment.PREFERRED_VARIANT])
+        self.assertEqual([call.args[0] for call in launch.call_args_list], result["selected_variants"])
+        self.assertTrue(all(call.kwargs["psec_1_1_diagnostic"] for call in launch.call_args_list))
+        self.assertEqual(["dns" in call.kwargs for call in launch.call_args_list], [False, True])
+        self.assertEqual(wire.requested_variants, experiment.VARIANTS)
+        self.assertTrue(result["psec_1_1_diagnostic_requested"])
+        self.assertFalse(result["psec_1_1_kernel_contract_confirmed"])
+        self.assertFalse(result["acceptance_passed"])
+        self.assertFalse(result["full_acceptance_passed"])
+
+    def test_psec_1_1_candidate_prewarm_requests_feature_before_capture(self):
+        code, result, wire, _, launch, _ = self.native_dns_main_fixture(
+            preferred_only=True, test_executor=True, psec_1_1_diagnostic=True)
+        self.assertEqual(code, 0)
+        warmup = result["candidate_precapture_probe"]
+        self.assertTrue(warmup["psec_1_1_diagnostic_requested"])
+        self.assertTrue(warmup["feature_supported"])
+        self.assertFalse(warmup["kernel_contract_version_confirmed"])
+        self.assertLess(wire.sequence.index("candidate_probe"), wire.sequence.index("capture_start"))
+        _, policy = wire.runtime._probe_request.call_args.args
+        path = Path(policy["processContainer"]["filesystem"]["enumeratePaths"][0])
+        self.assertEqual(path.parent.name, "candidate-prewarm")
+        self.assertFalse(path.exists())  # The private prewarm tree was cleaned after capture teardown.
+        self.assertEqual(policy["network"], experiment.network_policy(
+            experiment.PREFERRED_VARIANT, 23456, 23456)["network"])
+        self.assertEqual(launch.call_count, 2)
+
+    def test_psec_1_1_candidate_feature_false_blocks_capture_and_actors(self):
+        code, result, wire, _, launch, _ = self.native_dns_main_fixture(
+            preferred_only=True, test_executor=True, psec_1_1_diagnostic=True,
+            enumerate_paths_supported=False)
+        self.assertEqual(code, 1)
+        self.assertEqual(result["candidate_precapture_probe"]["status"], "failed")
+        self.assertFalse(result["candidate_precapture_probe"]["acceptance_passed"])
+        self.assertFalse(result["candidate_precapture_probe"].get("feature_supported", False))
+        wire.start.assert_not_called()
+        launch.assert_not_called()
 
     def test_failed_trust_preparation_starts_neither_capture_nor_actor_and_closes_owned_cache(self):
         code, result, wire, _, launch, _ = self.native_dns_main_fixture(warmup_failure=True)

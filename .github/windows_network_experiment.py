@@ -1007,7 +1007,7 @@ def pending_recovery(value):
 
 
 def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None, dns=None,
-                executor=None, console_trust=None, singleton_port_range=False):
+                executor=None, console_trust=None, singleton_port_range=False, psec_1_1_diagnostic=False):
     if singleton_port_range and executor is not None:
         raise ValueError("Singleton-range diagnostic cannot be combined with a custom test executor")
     profile.mkdir()
@@ -1047,12 +1047,24 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
         policy["process"]["timeout"] = 100000
         policy["filesystem"]["readonlyPaths"] = sorted(set(policy["filesystem"]["readonlyPaths"]) | {str(root), str(pipe_script.parent)})
         policy.update(network_policy(name, endpoint, proxy.port, singleton_port_range=singleton_port_range))
+        if psec_1_1_diagnostic:
+            add_psec_1_1_diagnostic_path(policy, profile)
+            result["psec_1_1_diagnostic"] = {"requested": True,
+                "request_mechanism": "filesystem_enumerate_paths", "kernel_contract_version_confirmed": False,
+                "acceptance_passed": False}
         result["policy"] = policy
         try:
             result["probe"] = runtime._probe_request(str(executor), policy)
         except runtime.UnsupportedRuntimeError as exc:
-            result.update(status="unsupported", detail=str(exc)[:700])
+            result.update(status="failed" if psec_1_1_diagnostic else "unsupported", detail=str(exc)[:700])
             return result
+        if psec_1_1_diagnostic:
+            probes = result["probe"].get("probes") if isinstance(result["probe"], dict) else None
+            if not isinstance(probes, dict) or probes.get("baseContainerSupportsEnumeratePaths") is not True:
+                result.update(status="failed", detail="PSEC 1.1 diagnostic feature support was not confirmed")
+                result["psec_1_1_diagnostic"]["feature_supported"] = False
+                return result
+            result["psec_1_1_diagnostic"]["feature_supported"] = True
         actor_budget = min(ACTOR_WAIT_SECONDS, deadline - time.monotonic() - 50)
         if actor_budget < 5:
             raise TimeoutError("Matrix budget cannot safely start another contained actor")
@@ -1174,11 +1186,37 @@ def record_unselected_wire_probes(wire, unselected):
             "api_accepted": False, "errno": None} for probe in wire.for_variant(name))
 
 
-def pre_capture_candidate_probe(runtime, executor, metadata, directory):
+def add_psec_1_1_diagnostic_path(policy, profile):
+    """Request the SDK's 1.1 enumerate-path feature without broadening access."""
+    profile = Path(profile).resolve(strict=True)
+    filesystem = policy.get("filesystem")
+    readwrite = filesystem.get("readwritePaths") if isinstance(filesystem, dict) else None
+    if not isinstance(readwrite, list):
+        raise RuntimeError("PSEC 1.1 diagnostic requires a verified writable profile")
+    profile_text = str(profile)
+    if profile_text not in readwrite:
+        raise RuntimeError("PSEC 1.1 diagnostic profile is not an exact read-write grant")
+    child = profile / ".psec-enumerate-path-diagnostic"
+    child.mkdir()
+    if any(child.iterdir()):
+        raise RuntimeError("PSEC 1.1 diagnostic directory must be empty")
+    process_container = policy.setdefault("processContainer", {})
+    if not isinstance(process_container, dict):
+        raise RuntimeError("PSEC 1.1 diagnostic process container is malformed")
+    container_fs = process_container.setdefault("filesystem", {})
+    if not isinstance(container_fs, dict) or container_fs.get("enumeratePaths"):
+        raise RuntimeError("PSEC 1.1 diagnostic filesystem request is ambiguous")
+    container_fs["enumeratePaths"] = [str(child)]
+
+
+def pre_capture_candidate_probe(runtime, executor, metadata, directory, *, psec_1_1_diagnostic=False):
     """Warm the explicitly selected source-only executor outside any wire capture."""
     record = {"status": "failed", "scope": "source_only_strict_policy_probe",
               "warmup_before_capture": True, "acceptance_passed": False,
               "executor_sha256": metadata.get("executor_sha256") if isinstance(metadata, dict) else None}
+    if psec_1_1_diagnostic:
+        record.update(psec_1_1_diagnostic_requested=True, request_mechanism="filesystem_enumerate_paths",
+                      kernel_contract_version_confirmed=False)
     try:
         profile = directory / "candidate-prewarm"
         profile.mkdir()
@@ -1186,15 +1224,21 @@ def pre_capture_candidate_probe(runtime, executor, metadata, directory):
         harmless_command = [sys.executable, "-I", "-S", "-c", "pass"]
         policy = runtime.build_policy(harmless_command, {}, profile, port)
         policy.update(network_policy(PREFERRED_VARIANT, port, port))
+        if psec_1_1_diagnostic:
+            add_psec_1_1_diagnostic_path(policy, profile)
         observed = runtime._probe_request(str(executor), policy)
         probes = observed.get("probes") if isinstance(observed, dict) else None
         if (not isinstance(observed, dict) or observed.get("tier") != "base-container"
                 or not isinstance(probes, dict) or probes.get("baseContainerApiPresent") is not True
                 or observed.get("needsDaclAugmentation") is not False):
             raise RuntimeError("strict backend confirmation was incomplete")
+        if psec_1_1_diagnostic and probes.get("baseContainerSupportsEnumeratePaths") is not True:
+            raise RuntimeError("PSEC 1.1 diagnostic feature support was not confirmed")
         record.update(status="probe_passed", backend_confirmation={
             "tier": "base-container", "base_container_api_present": True,
             "needs_dacl_augmentation": False})
+        if psec_1_1_diagnostic:
+            record["feature_supported"] = True
     except Exception as exc:
         record["failure_type"] = type(exc).__name__[:64]
         error = RuntimeError("Source-only candidate pre-capture strict probe failed")
@@ -1214,17 +1258,23 @@ def main(arguments):
     parser.add_argument("--collect-native-dns", action="store_true")
     parser.add_argument("--preferred-policy-only", action="store_true",
                         help="Observe only the fixed production-policy candidate; keep other policies unselected")
+    parser.add_argument("--psec-1-1-diagnostic", action="store_true",
+                        help="Diagnostic-only: request the BaseContainer enumerate-path contract selector")
     parser.add_argument("--singleton-port-range", action="store_true",
                         help="Diagnostic-only: encode the MODEL1 TCP port as equal port/endPort bounds")
     args = parser.parse_args(arguments)
-    selected = (PREFERRED_VARIANT,) if args.preferred_policy_only else VARIANTS
+    selected = (("model3", PREFERRED_VARIANT) if args.psec_1_1_diagnostic and args.preferred_policy_only
+                else ((PREFERRED_VARIANT,) if args.preferred_policy_only else VARIANTS))
     unselected = tuple(name for name in VARIANTS if name not in selected)
     args.report.resolve().parent.mkdir(parents=True, exist_ok=True)
     result = {"status": "failed", "full_acceptance_passed": False, "acceptance_passed": False,
               "real_node_passed": False, "product_provider_changed": False, "cleanup_proven": False,
               "diagnostic_port_encoding": "singleton_range" if args.singleton_port_range else "single_port",
               "variants": [], "checks": [],
-              "policy_selection": "preferred_only" if args.preferred_policy_only else "all_fixed",
+              "policy_selection": ("psec_1_1_diagnostic_pair" if args.psec_1_1_diagnostic and args.preferred_policy_only
+                                   else ("preferred_only" if args.preferred_policy_only else "all_fixed")),
+              "psec_1_1_diagnostic_requested": args.psec_1_1_diagnostic,
+              "psec_1_1_kernel_contract_confirmed": False,
               "selected_variants": list(selected),
               "unselected_variants": [{"name": name, "status": "unselected", "process_started": False,
                                        "no_process_started": True} for name in unselected]}
@@ -1265,7 +1315,8 @@ def main(arguments):
         if executor is not None:
             try:
                 result["candidate_precapture_probe"] = pre_capture_candidate_probe(runtime, executor,
-                    result.get("test_psec_executor"), directory)
+                    result.get("test_psec_executor"), directory,
+                    psec_1_1_diagnostic=args.psec_1_1_diagnostic)
             except Exception as exc:
                 result["candidate_precapture_probe"] = getattr(exc, "candidate_precapture_probe", {
                     "status": "failed", "scope": "source_only_strict_policy_probe",
@@ -1307,7 +1358,8 @@ def main(arguments):
                                   **({"dns": dns} if preferred_dns else {}),
                                   **({"console_trust": console_trust} if console_trust is not None else {}),
                                   **({"executor": executor} if executor is not None else {}),
-                                  **({"singleton_port_range": True} if args.singleton_port_range else {}))
+                                  **({"singleton_port_range": True} if args.singleton_port_range else {}),
+                                  **({"psec_1_1_diagnostic": True} if args.psec_1_1_diagnostic else {}))
             result["variants"].append(variant)
             if wire is not None:
                 wire.actors(variant)

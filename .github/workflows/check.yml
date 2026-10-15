@@ -35,6 +35,11 @@ on:
         required: false
         type: boolean
         default: false
+      psec_1_1_diagnostic:
+        description: Run the preferred network experiment with PSEC 1.1 in diagnostic-only mode
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -373,6 +378,7 @@ jobs:
           NETWORK_DIAGNOSTIC: ${{ inputs.network_diagnostic_only }}
           CAPABILITY_DIAGNOSTIC: ${{ inputs.capability_executor_diagnostic }}
           SINGLETON_DIAGNOSTIC: ${{ inputs.singleton_port_range_diagnostic }}
+          PSEC_1_1_DIAGNOSTIC: ${{ inputs.psec_1_1_diagnostic }}
         run: |
           if [ "$GUI_DIAGNOSTIC" = 'true' ] && [ "$CAPABILITY_DIAGNOSTIC" = 'true' ]; then
             echo 'GUI diagnostic-only uses the packaged product SDK and cannot be combined with a source executor.' >&2
@@ -388,6 +394,10 @@ jobs:
           fi
           if [ "$SINGLETON_DIAGNOSTIC" = 'true' ] && { [ "$NETWORK_DIAGNOSTIC" != 'true' ] || [ "$CAPABILITY_DIAGNOSTIC" = 'true' ]; }; then
             echo 'Singleton port encoding requires network diagnostic-only with the original SDK.' >&2
+            exit 2
+          fi
+          if [ "$PSEC_1_1_DIAGNOSTIC" = 'true' ] && { [ "$NETWORK_DIAGNOSTIC" != 'true' ] || [ "$SINGLETON_DIAGNOSTIC" = 'true' ]; }; then
+            echo 'PSEC 1.1 diagnostic requires network-only mode and cannot combine with singleton port encoding.' >&2
             exit 2
           fi
       - name: Download only the fixed G source-only diagnostic executor
@@ -411,6 +421,7 @@ jobs:
           RULEPROXY_VM_CHROMIUM_CONTROL: ${{ github.event_name == 'workflow_dispatch' && inputs.chromium_gui_control_diagnostic || false }}
           RULEPROXY_VM_NETWORK_DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.network_diagnostic_only || false }}
           RULEPROXY_VM_SINGLETON_DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.singleton_port_range_diagnostic || false }}
+          RULEPROXY_VM_PSEC_1_1_DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.psec_1_1_diagnostic || false }}
         run: |
           package=$(find "$PWD/dist" -maxdepth 1 -name 'RuleProxy-Web-*-windows-x64.zip' -print -quit)
           digest=$(awk 'NR==1 {print $1}' dist/SHA256SUMS.txt)
@@ -426,6 +437,7 @@ jobs:
           network_args=()
           if [ "$RULEPROXY_VM_NETWORK_DIAGNOSTIC" = 'true' ]; then network_args+=(--network-diagnostic-only); fi
           if [ "$RULEPROXY_VM_SINGLETON_DIAGNOSTIC" = 'true' ]; then network_args+=(--singleton-port-range-diagnostic); fi
+          if [ "$RULEPROXY_VM_PSEC_1_1_DIAGNOSTIC" = 'true' ]; then network_args+=(--psec-1-1-diagnostic); fi
           sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 10800 "${baseline_args[@]}" "${executor_args[@]}" "${gui_args[@]}" "${network_args[@]}"
       - uses: actions/upload-artifact@v7
         if: always()
