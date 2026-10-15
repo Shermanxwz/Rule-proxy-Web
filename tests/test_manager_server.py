@@ -164,13 +164,13 @@ class ManagerTests(unittest.TestCase):
         self.assertIsNone(self.manager.core)
 
     def test_windows_stop_failure_retains_guard_and_core(self):
-        from ruleproxy.windows_runtime import SafeStopError
         app, core, resource = Mock(), Mock(), Mock()
         self.manager.active["test"] = (app, resource)
         self.manager.core = core
         try:
-            with patch("ruleproxy.manager.sys.platform", "win32"), patch("ruleproxy.windows_runtime.stop", side_effect=SafeStopError("close the isolated window")), patch("ruleproxy.manager.stop_process") as stop_process:
-                with self.assertRaises(SafeStopError):
+            app.terminate.side_effect = OSError("close the owned process")
+            with patch("ruleproxy.manager.sys.platform", "win32"), patch("ruleproxy.manager.stop_process") as stop_process:
+                with self.assertRaises(OSError):
                     self.manager.stop()
                 stop_process.assert_not_called()
             self.assertIs(self.manager.core, core)
@@ -248,89 +248,54 @@ class IsolationCheckTests(unittest.TestCase):
         self.manager = Manager(Path(self.temp.name), 18879)
         self.addCleanup(self.manager.close)
 
-    @unittest.skipUnless(sys.platform in ("linux", "win32"), "the isolation check runs on Linux and Windows")
     def test_a_crashing_check_reads_as_unsupported_and_the_state_still_loads(self):
-        failure = AttributeError("'NoneType' object has no attribute 'strip'")
-        candidate = Path(self.temp.name) / "pinned-g.exe"
-        payload = b"pinned G executor fixture"
-        candidate.write_bytes(payload)
-        self.manager.settings["runtime_path"] = str(candidate)
-        with patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", hashlib.sha256(payload).hexdigest()), \
-                patch("ruleproxy.manager.sys.platform", "win32"), \
-                patch("ruleproxy.windows_runtime.probe", side_effect=failure), \
+        backend = Mock()
+        backend.probe.side_effect = AttributeError("broken backend")
+        self.manager._windows_backend = backend
+        with patch("ruleproxy.manager.sys.platform", "win32"), \
                 patch.object(self.manager, "autostart_status", return_value="off"), \
                 redirect_stderr(io.StringIO()) as errors:
             state = self.manager.state()
-            again = self.manager.state()
         self.assertFalse(state["protection"]["supported"])
         self.assertIn("隔离能力检查出错", state["protection"]["detail"])
-        self.assertIs(again["protection"], state["protection"], "the result is kept, not re-run on every refresh")
-        self.assertIn("AttributeError", errors.getvalue(), "the traceback is kept for the panel log")
+        self.assertIn("AttributeError", errors.getvalue())
 
-
-    @unittest.skipUnless(sys.platform == "win32", "the bundled MXC runtime is Windows-only")
-    def test_the_bundled_runtime_loses_plm_but_a_runtime_the_user_chose_is_left_alone(self):
-        root = Path(self.temp.name) / "package"
-        bundled = root / "bin" / "windows-amd64"
-        bundled.mkdir(parents=True)
-        (bundled / "plm.exe").write_bytes(b"left by 0.2.0")
-        custom = Path(self.temp.name) / "custom-mxc"
-        custom.mkdir()
-        (custom / "plm.exe").write_bytes(b"theirs")
-        refused = {"supported": False, "backend": None, "detail": "test", "limitations": []}
-        with patch("ruleproxy.manager.ROOT", root), patch("ruleproxy.windows_runtime.verify_product_executor_identity", side_effect=lambda path: Path(path)), patch("ruleproxy.windows_runtime.probe", return_value=refused) as probe:
-            self.manager._check_isolation()
-            self.assertFalse((bundled / "plm.exe").exists())
-            self.manager.settings["runtime_path"] = str(custom / "wxc-exec.exe")
-            self.manager._check_isolation()
-        self.assertTrue((custom / "plm.exe").exists())
-        self.assertEqual(probe.call_count, 2)
-
-    def test_windows_capability_probe_rejects_stock_even_if_mxc_probe_says_supported(self):
-        candidate = Path(self.temp.name) / "stock.exe"
-        candidate.write_bytes(b"stock MXC")
-        self.manager.settings["runtime_path"] = str(candidate)
-        supported = {"supported": True, "backend": "MXC", "detail": "supported", "limitations": []}
+    def test_windows_probe_refreshes_service_health_and_ignores_legacy_runtime_setting(self):
+        backend = Mock()
+        backend.probe.side_effect = [
+            {"supported": True, "backend": "ProxiFyre + Mihomo"},
+            {"supported": False, "detail": "service stopped"},
+        ]
+        self.manager._windows_backend = backend
+        self.manager.settings["runtime_path"] = "old-mxc.exe"
         with patch("ruleproxy.manager.sys.platform", "win32"), \
-                patch("ruleproxy.windows_runtime.probe", return_value=supported) as probe:
-            result = self.manager._check_isolation()
-        self.assertFalse(result["supported"])
-        self.assertIn("固定版本", result["detail"])
-        probe.assert_not_called()
+                patch("ruleproxy.windows_runtime.probe", side_effect=AssertionError("retired backend called")):
+            self.assertTrue(self.manager.protection()["supported"])
+            self.assertFalse(self.manager.protection()["supported"])
+        self.assertEqual(backend.probe.call_count, 2)
 
-    def test_cached_windows_support_does_not_allow_replaced_runtime_to_launch(self):
-        candidate = Path(self.temp.name) / "runtime.exe"
-        payload = b"pinned G executor fixture"
-        candidate.write_bytes(payload)
-        self.manager.settings["runtime_path"] = str(candidate)
-        self.manager.settings["apps"] = [{"id": "browser", "enabled": True, "adapter": "environment"}]
-        self.manager.core = Mock(poll=Mock(return_value=None))
-        self.manager._probe_cache = {"supported": True, "backend": "MXC", "detail": "supported", "limitations": []}
-        candidate.write_bytes(b"replaced after successful probe")
-        with patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", hashlib.sha256(payload).hexdigest()), \
-                patch("ruleproxy.manager.sys.platform", "win32"), \
-                patch("ruleproxy.windows_runtime.choose_guest_port", return_value=19001), \
-                patch("ruleproxy.manager.prepare_app", return_value=(["browser.exe"], {}, "")), \
-                patch("ruleproxy.windows_runtime.launch") as launch:
-            with self.assertRaisesRegex(ValueError, "固定版本"):
-                self.manager.launch("browser")
-        self.manager.core = None
-        launch.assert_not_called()
+    def test_windows_start_is_refused_before_core_spawn_if_backend_is_unavailable(self):
+        self.manager.import_yaml(SOURCE.read_text())
+        backend = Mock()
+        backend.probe.return_value = {"supported": False, "detail": "run Setup-Windows.cmd"}
+        self.manager._windows_backend = backend
+        with patch("ruleproxy.manager.sys.platform", "win32"), patch("ruleproxy.manager.subprocess.Popen") as spawn:
+            with self.assertRaisesRegex(ValueError, "Setup-Windows"):
+                self.manager.start()
+        spawn.assert_not_called()
 
-    def test_windows_probe_accepts_byte_identical_custom_copy_and_linux_skips_g_check(self):
-        candidate = Path(self.temp.name) / "custom-g.exe"
-        payload = b"pinned G executor fixture"
-        candidate.write_bytes(payload)
-        supported = {"supported": True, "backend": "MXC", "detail": "supported", "limitations": []}
-        with patch("ruleproxy.windows_runtime_pins.MXC_G_EXECUTOR_SHA256", hashlib.sha256(payload).hexdigest()), \
-                patch("ruleproxy.manager.sys.platform", "win32"), \
-                patch("ruleproxy.windows_runtime.probe", return_value=supported) as probe:
-            self.manager.settings["runtime_path"] = str(candidate)
-            self.assertTrue(self.manager._check_isolation()["supported"])
-        probe.assert_called_once_with(str(candidate.resolve(strict=True)), self.manager.mixed_port)
+    def test_windows_configuration_enables_socks_udp_without_tun(self):
+        with patch("ruleproxy.manager.sys.platform", "win32"):
+            self.manager.import_yaml(SOURCE.read_text())
+        self.assertTrue(self.manager.compiled.config["listeners"][0]["udp"])
+        self.assertFalse(self.manager.compiled.config["tun"]["enable"])
+        self.assertIsNone(self.manager.core)
+
+    def test_linux_keeps_its_independent_isolation_backend(self):
+        supported = {"supported": True, "backend": "bubblewrap"}
         with patch("ruleproxy.manager.sys.platform", "linux"), \
                 patch("ruleproxy.linux_runtime.probe", return_value=supported), \
-                patch("ruleproxy.windows_runtime.verify_product_executor_identity", side_effect=AssertionError("Windows verifier called")):
+                patch.object(self.manager, "windows_backend", side_effect=AssertionError("Windows backend called")):
             self.assertTrue(self.manager._check_isolation()["supported"])
 
 

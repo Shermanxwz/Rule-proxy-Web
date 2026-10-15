@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import copy
 from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
@@ -87,15 +88,15 @@ def stop_process(process: subprocess.Popen):
     if process.poll() is not None:
         return
     if os.name == "nt":
-        # This helper stops the owned core; MXC workloads use a separate safe stop.
+        # Popen retains the owned core's kernel handle. Never kill by image name
+        # or re-open a PID after it might have been recycled.
         try:
             process.send_signal(signal.CTRL_BREAK_EVENT)
             process.wait(timeout=5)
             return
         except (OSError, subprocess.TimeoutExpired):
             pass
-        # The PID belongs to the subprocess we created, never a name-wide kill.
-        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True, timeout=10)
+        process.terminate()
     else:
         try:
             os.killpg(process.pid, signal.SIGTERM)
@@ -144,8 +145,11 @@ class Manager:
         self.controller_port = controller_port
         self.core: subprocess.Popen | None = None
         self.core_log = None
+        self._core_job = None
         self.error = ""
         self.active = {}
+        self._windows_backend = None
+        self._windows_paths = []
         self.quitting = False
         # bwrap --die-with-parent follows the creating THREAD on Linux. HTTP
         # request threads are short lived; all launches must have a stable owner.
@@ -258,17 +262,69 @@ class Manager:
             pass
         try:
             # The saved node may have gone; fall back to the first node of the same config.
-            self.compiled = compile_config(self.source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port)
+            self.compiled = compile_config(self.source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, allow_udp=sys.platform == "win32")
             self.settings["selected_node"] = self.compiled.selected_node
         except ValueError as exc:
             self.error = f"已保存的配置无法使用，请重新导入：{exc}"
 
     def _compile(self, source, selected=None):
-        return compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, selected_node=selected if selected is not None else self.settings.get("selected_node"))
+        return compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, selected_node=selected if selected is not None else self.settings.get("selected_node"), allow_udp=sys.platform == "win32")
+
+    def windows_backend(self):
+        if self._windows_backend is None:
+            from .windows_proxy_runtime import Runtime
+            self._windows_backend = Runtime(ROOT)
+        return self._windows_backend
+
+    def _selected_windows_paths(self):
+        paths, seen = [], set()
+        for app in self.settings["apps"]:
+            if not app["enabled"]:
+                continue
+            for path in [app["path"], *app.get("related_paths", [])]:
+                key = path.replace("/", "\\").casefold()
+                if key not in seen:
+                    seen.add(key)
+                    paths.append(path)
+        if len(paths) > 128:
+            raise ValueError("启用的程序与相关程序合计不能超过 128 个路径。")
+        return paths
+
+    def _sync_windows_policy(self):
+        if sys.platform != "win32" or not self.core or self.core.poll() is not None:
+            return
+        paths = self._selected_windows_paths()
+        backend = self.windows_backend()
+        if paths:
+            backend.apply(paths, self.mixed_port, self.core.pid)
+        else:
+            backend.stop()
+        self._windows_paths = paths
+        self._probe_cache = None
+
+    def _save_app_changes(self, previous):
+        try:
+            if sys.platform == "win32":
+                from .windows_proxy_policy import normalize_paths
+                paths = self._selected_windows_paths()
+                if paths:
+                    normalize_paths(paths, root=str(ROOT))
+            self._sync_windows_policy()
+            self._save()
+        except Exception:
+            self.settings["apps"] = previous
+            try:
+                self._sync_windows_policy()
+            except Exception:
+                self.error = "应用规则更新失败，旧规则也未能恢复；请停止核心后重试。"
+                self.stop()
+            raise
 
     def protection(self):
         """The isolation check, run once. It can take seconds, so callers hold no other lock."""
         with self._probe_lock:
+            if sys.platform == "win32":
+                return self._check_isolation()
             if self._probe_cache is None:
                 self._probe_cache = self._check_isolation()
             return self._probe_cache
@@ -279,20 +335,7 @@ class Manager:
                 from .linux_runtime import probe
                 return probe()
             if sys.platform == "win32":
-                from .windows_runtime import (
-                    UnsupportedRuntimeError,
-                    probe,
-                    retire_unused_runtime_files,
-                    verify_product_executor_identity,
-                )
-                if not self.settings.get("runtime_path"):
-                    # Only the bundled runtime; a runtime the user pointed at is left as it is.
-                    retire_unused_runtime_files(Path(self.runtime_path()).parent)
-                try:
-                    runtime_path = verify_product_executor_identity(self.runtime_path())
-                except UnsupportedRuntimeError as exc:
-                    return {"supported": False, "backend": "MXC", "detail": str(exc), "limitations": []}
-                return probe(str(runtime_path), self.mixed_port)
+                return self.windows_backend().probe()
             return {"supported": False, "backend": "不支持的系统", "detail": "当前仅支持 Windows 和 Linux。", "limitations": []}
         except Exception as exc:  # an unexpected failure means "not protected"; it must not take the panel down
             traceback.print_exc()
@@ -368,7 +411,10 @@ class Manager:
                 owned = self.active.get(app["id"])
                 alive = bool(owned and owned[0].poll() is None)
                 pending = bool(alive and getattr(owned[1], "failed_process", None) is not None)
-                apps.append({**app, "active": alive and not pending, "cleanup_pending": pending})
+                record = {**app, "active": alive and not pending, "cleanup_pending": pending}
+                if sys.platform == "win32":
+                    record["routed"] = running and app["enabled"] and bool(self._windows_paths)
+                apps.append(record)
             compiled = self.compiled
             return {
                 "token": self.token,
@@ -377,8 +423,8 @@ class Manager:
                 "imported": bool(compiled),
                 "running": running,
                 "error": self.error,
-                "core_path": self.settings["core_path"],
-                "runtime_path": self.settings["runtime_path"],
+                "core_path": self.settings["core_path"] if sys.platform != "win32" else "",
+                "runtime_path": self.settings["runtime_path"] if sys.platform != "win32" else "",
                 "selected_node": compiled.selected_node if compiled else "",
                 "nodes": compiled.nodes if compiled else [],
                 "primary_group": compiled.primary_group if compiled else "",
@@ -397,7 +443,7 @@ class Manager:
         with self.lock:
             if self.core and self.core.poll() is None:
                 raise ValueError("请先停止代理，再导入新配置。")
-            compiled = compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port)
+            compiled = compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, allow_udp=sys.platform == "win32")
             write_private(self.directory / "source.yaml", source)
             self.source, self.compiled = source, compiled
             self.settings["selected_node"] = compiled.selected_node
@@ -414,14 +460,16 @@ class Manager:
                 value = data[key]
                 if not valid_text(value, 4096):
                     raise ValueError("程序路径无效。")
+                if sys.platform == "win32" and value.strip():
+                    raise ValueError("Windows 使用安装包固定的 Mihomo 与 ProxiFyre 组件，请运行 Setup-Windows.cmd 安装或修复。")
                 self.settings[key] = value.strip()
             self._probe_cache = None
             self._save()
 
     def core_path(self):
-        supplied = self.settings["core_path"]
-        bundled = ROOT / "bin" / ("windows-amd64/mihomo.exe" if os.name == "nt" else "linux-amd64/mihomo")
-        path = Path(supplied or (str(bundled) if bundled.is_file() else shutil.which("mihomo") or ""))
+        supplied = self.settings["core_path"] if sys.platform != "win32" else ""
+        bundled = ROOT / "bin" / ("windows-amd64/mihomo.exe" if sys.platform == "win32" else "linux-amd64/mihomo")
+        path = bundled if sys.platform == "win32" else Path(supplied or (str(bundled) if bundled.is_file() else shutil.which("mihomo") or ""))
         if not path.is_file():
             raise ValueError("找不到 Mihomo。请先安装运行组件，或填写程序路径。")
         if os.name != "nt" and not os.access(path, os.X_OK):
@@ -443,6 +491,10 @@ class Manager:
                 return
             if not self.compiled:
                 raise ValueError("请先导入 YAML。")
+            if sys.platform == "win32":
+                capability = self.protection()
+                if not capability["supported"]:
+                    raise ValueError(capability["detail"])
             self.compiled = self._compile(self.source)
             core = self.core_path()
             # Refuse occupied ports before spawning. No existing process is stopped.
@@ -474,20 +526,33 @@ class Manager:
                     raise ValueError("Mihomo 配置校验未通过，应用未启动。详情保存在本机 core.log。")
                 options = {"start_new_session": True} if os.name != "nt" else {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
                 self.core = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=self.core_log, stderr=subprocess.STDOUT, **options)
+                if sys.platform == "win32":
+                    from .windows_core_process import CoreJob
+                    self._core_job = CoreJob(self.core)
                 for _ in range(50):
                     if self.core.poll() is not None:
                         break
                     try:
                         self._controller("GET", "/version")
-                        self.error = ""
-                        return
                     except Exception:
                         time.sleep(0.1)
+                        continue
+                    self._sync_windows_policy()
+                    self.error = ""
+                    return
                 raise ValueError("Mihomo 未能启动；未启动任何应用。请查看本机 core.log。")
             except Exception:
+                if sys.platform == "win32" and self._windows_backend is not None:
+                    try:
+                        self._windows_backend.stop()
+                    except Exception:
+                        traceback.print_exc()
+                    self._windows_paths = []
                 if self.core:
                     stop_process(self.core)
                     self.core = None
+                close_resource(self._core_job)
+                self._core_job = None
                 self.core_log.close()
                 self.core_log = None
                 raise
@@ -516,8 +581,9 @@ class Manager:
             if any(os.path.normcase(app["path"]) == os.path.normcase(normalized["path"]) for app in self.settings["apps"]):
                 raise ValueError("这个应用已在列表中。")
             normalized.update(id=uuid.uuid4().hex, enabled=data.get("enabled", True) is True)
+            previous = copy.deepcopy(self.settings["apps"])
             self.settings["apps"].append(normalized)
-            self._save()
+            self._save_app_changes(previous)
 
     def app(self, ident):
         return next((app for app in self.settings["apps"] if app["id"] == ident), None)
@@ -527,16 +593,20 @@ class Manager:
             app = self.app(ident)
             if app is None:
                 raise ValueError("应用不存在。")
+            if not delete and not isinstance(enabled, bool):
+                raise ValueError("enabled 必须是布尔值。")
+            previous = copy.deepcopy(self.settings["apps"])
             if delete or enabled is False:
                 self.stop_app(ident)
             if delete:
-                remove_shortcut_files(app)
                 self.settings["apps"].remove(app)
             else:
                 if not isinstance(enabled, bool):
                     raise ValueError("enabled 必须是布尔值。")
                 app["enabled"] = enabled
-            self._save()
+            self._save_app_changes(previous)
+            if delete:
+                remove_shortcut_files(app)
 
     def create_shortcuts(self, ident):
         """Write launcher files that start this app headlessly; returns their paths."""
@@ -563,42 +633,26 @@ class Manager:
             if ident in self.active and self.active[ident][0].poll() is None:
                 if getattr(self.active[ident][1], "failed_process", None) is not None:
                     raise ValueError("上次启动的隔离守卫尚未完成清理，请先点击关闭守卫。")
-                return {"pid": self.active[ident][0].pid, "adapter": app["adapter"], "detail": "这个应用已经在隔离中运行。"}
+                return {"pid": self.active[ident][0].pid, "adapter": app["adapter"], "detail": "这个应用已经在运行。" if sys.platform == "win32" else "这个应用已经在隔离中运行。"}
             if ident in self.active:
                 self.stop_app(ident)
             profile = self.directory / "profiles" / ident
-            app_proxy_port = self.mixed_port
-            if sys.platform == "win32":
-                from .windows_runtime import choose_guest_port
-                app_proxy_port = choose_guest_port(self.mixed_port)
-            command, env, _detail = prepare_app(app, app_proxy_port, self.directory / "profiles")
+            command, env, _detail = prepare_app(app, self.mixed_port, self.directory / "profiles", **({"transparent": True} if sys.platform == "win32" else {}))
             if sys.platform == "linux":
                 from .linux_runtime import downloads_folder, launch
                 downloads = downloads_folder(self.directory)
                 process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port, downloads).result()
             elif sys.platform == "win32":
-                from .windows_runtime import UnsupportedRuntimeError, launch, verify_product_executor_identity
-                try:
-                    # Re-check after the cached capability probe: settings or the
-                    # executable may have changed since that probe completed.
-                    try:
-                        runtime_path = verify_product_executor_identity(self.runtime_path())
-                    except UnsupportedRuntimeError as exc:
-                        self._probe_cache = {"supported": False, "backend": "MXC", "detail": str(exc), "limitations": []}
-                        raise ValueError(str(exc)) from exc
-                    process, resource = launch(command, env, profile, self.mixed_port, str(runtime_path), guest_listener_port=app_proxy_port)
-                except Exception as exc:
-                    failed_process = getattr(exc, "process", None)
-                    failed_resource = getattr(exc, "resource", None)
-                    if failed_process is not None and failed_resource is not None:
-                        self.active[ident] = (failed_process, failed_resource)
-                        self.error = "应用未启动；隔离守卫仍在清理中，请关闭该守卫后重试。"
-                    raise
+                from .windows_app_process import launch
+                self._sync_windows_policy()
+                process = launch(command, env)
+                resource = None
             else:
                 raise ValueError("系统不支持应用隔离。")
             self.active[ident] = (process, resource)
             self.error = ""
-            return {"pid": process.pid, "adapter": app["adapter"], "detail": "仅此隔离实例受保护。不支持的流量阻断，不会直连。"}
+            detail = "程序路径代理已启用；同路径实例也会受影响，DNS 与故障后直连仍有限制。" if sys.platform == "win32" else "仅此隔离实例受保护。不支持的流量阻断，不会直连。"
+            return {"pid": process.pid, "adapter": app["adapter"], "detail": detail}
 
     def stop_app(self, ident):
         with self.lock:
@@ -606,8 +660,8 @@ class Manager:
             if owned:
                 process, resource = owned
                 if sys.platform == "win32":
-                    from .windows_runtime import stop
-                    stop(process)
+                    process.terminate()
+                    process.wait(timeout=10)
                 elif sys.platform == "linux":
                     from .linux_runtime import stop as stop_sandboxed_app
                     stop_sandboxed_app(process)
@@ -625,9 +679,14 @@ class Manager:
         with self.lock:
             for ident in list(self.active):
                 self.stop_app(ident)
+            if sys.platform == "win32" and self._windows_backend is not None:
+                self._windows_backend.stop()
+                self._windows_paths = []
             if self.core:
                 stop_process(self.core)
                 self.core = None
+            close_resource(self._core_job)
+            self._core_job = None
             if self.core_log:
                 self.core_log.close()
                 self.core_log = None
@@ -646,7 +705,19 @@ class Manager:
                     try:
                         self.stop()
                     except Exception:
-                        self.error = "代理核心已退出；部分隔离实例未能关闭，请手动关闭其窗口。隔离不会退回直连。"
+                        self.error = "代理核心已退出；部分应用未能关闭，请手动关闭其窗口。" if sys.platform == "win32" else "代理核心已退出；部分隔离实例未能关闭，请手动关闭其窗口。隔离不会退回直连。"
+                if sys.platform == "win32" and self._windows_paths and self.core:
+                    try:
+                        status = self.windows_backend().snapshot()
+                        if status.get("state") not in {"running", "active"}:
+                            self.error = "ProxiFyre 已停止，正在关闭此面板启动的应用。其他同路径实例可能恢复直连。"
+                            self.stop()
+                    except Exception:
+                        self.error = "Windows 代理服务失去响应，正在关闭此面板启动的应用。其他同路径实例可能恢复直连。"
+                        try:
+                            self.stop()
+                        except Exception:
+                            traceback.print_exc()
                 for ident, (process, resource) in list(self.active.items()):
                     if process.poll() is not None:
                         close_resource(resource)

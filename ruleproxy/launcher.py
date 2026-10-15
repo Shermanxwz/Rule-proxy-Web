@@ -659,7 +659,35 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
     if path.name.lower() in _SHELL_EXECUTABLES:
         raise ValueError("不能把命令行解释器（shell）添加为应用。")
     args = _validate_args(data.get("args", []))
-    return {"label": label.strip(), "path": str(path), "adapter": adapter, "args": args}
+    result = {"label": label.strip(), "path": str(path), "adapter": adapter, "args": args}
+    related = data.get("related_paths", [])
+    if not isinstance(related, list) or len(related) > 16:
+        raise ValueError("相关程序路径最多填写 16 个。")
+    helpers = []
+    seen = {os.path.normcase(str(path))}
+    for raw in related:
+        if not isinstance(raw, str) or not raw.strip() or len(raw) > 4096 or "\0" in raw:
+            raise ValueError("相关程序路径无效。")
+        try:
+            raw.encode("utf-8")
+            helper = Path(raw).expanduser()
+            if not helper.is_absolute():
+                raise ValueError("相关程序路径必须是绝对路径。")
+            if check_exists:
+                helper = helper.resolve(strict=True)
+                if not helper.is_file():
+                    raise ValueError("相关程序路径必须指向文件。")
+        except (OSError, RuntimeError, UnicodeError) as exc:
+            raise ValueError("找不到相关程序。") from exc
+        if helper.name.lower() in _SHELL_EXECUTABLES:
+            raise ValueError("不能把命令行解释器（shell）添加为相关程序。")
+        key = os.path.normcase(str(helper))
+        if key not in seen:
+            seen.add(key)
+            helpers.append(str(helper))
+    if helpers:
+        result["related_paths"] = helpers
+    return result
 
 
 def _profile_for_app(profile_dir: Path, app: dict) -> Path:
@@ -691,12 +719,12 @@ def _reject_reserved_args(args: list[str], adapter: str) -> None:
             raise ValueError(f"启动参数 {arg} 可能绕过代理或配置隔离，不能使用。")
 
 
-def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str], dict[str, str], str]:
+def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: bool = False) -> tuple[list[str], dict[str, str], str]:
     """Prepare an app command, child-only environment overrides, and limitations.
 
     The returned command is only safe inside the platform's isolation runtime
-    (bubblewrap on Linux, MXC on Windows). Direct execution is deliberately not
-    provided here.
+    (bubblewrap on Linux). Windows transparent routing is applied by the
+    privileged broker before the ordinary process is resumed.
     """
     normalized = validate_app(app)
     proxy_port = _validate_port(proxy_port)
@@ -708,6 +736,18 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path) -> tuple[list[str
     # XDG_RUNTIME_DIR, etc.); the platform runtime must apply its own safe
     # environment allowlist when entering isolation.
     env: dict[str, str] = os.environ.copy()
+    if transparent:
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "FTP_PROXY"):
+            env.pop(name, None)
+            env.pop(name.lower(), None)
+        if normalized["adapter"] == "chromium":
+            command.extend([f"--user-data-dir={profile}", "--no-first-run", "--restore-last-session"])
+        elif normalized["adapter"] == "firefox":
+            # user.js belongs to this launcher. Clear the explicit proxy mode
+            # from profiles created by the retired Windows runtime.
+            (profile / "user.js").write_text('user_pref("network.proxy.type", 0);\n', encoding="utf-8")
+            command.extend(["-no-remote", "-profile", str(profile)])
+        return command, env, "按程序路径透明转发；同路径实例也受规则影响，不能保证 DNS 隔离。"
     proxy = f"http://127.0.0.1:{proxy_port}"
     env.update(
         {

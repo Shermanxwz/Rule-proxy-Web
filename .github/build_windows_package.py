@@ -1,203 +1,178 @@
-"""Build the Windows release package: the panel, its pinned runtimes, PyYAML and a private Python.
-
-Usage: python build_windows_package.py OUTPUT_DIR
-
-Every download is checked against a pinned hash before use (Mihomo and MXC
-through install_runtime.py). The zip unpacks to a single RuleProxy-Web folder,
-so a newer version unpacked over an older one keeps the desktop shortcuts
-working. The output folder also receives SHA256SUMS.txt and release-notes.md.
-"""
+"""Build the personal Windows x64 offline package from pinned official inputs."""
 from __future__ import annotations
 
+import argparse
 import hashlib
 import io
+import json
 from pathlib import Path, PurePosixPath
-import subprocess
+import stat
 import sys
 import tempfile
-import urllib.request
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+import install_runtime
+from ruleproxy import __version__
+from ruleproxy import windows_proxy_pins as pins
 
-import install_runtime  # noqa: E402
-from ruleproxy import __version__  # noqa: E402
-
-# python.org publishes this SHA-256 in its release file listing for 3.14.8.
-PYTHON_VERSION = "3.14.8"
-PYTHON_URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-embed-amd64.zip"
-PYTHON_SHA256 = "a93abe456ab01bd96d7a085b3cdb6566b3063f4241360d114142fbdb07f0a310"
-PYTHON_PTH = "python314._pth"
-PYTHON_STDLIB = "python314.zip"
-# The PyPI wheel for that Python. Its compiled speedup is optional; the panel uses the pure-Python safe loader.
-PYYAML_VERSION = "6.0.3"
-PYYAML_URL = ("https://files.pythonhosted.org/packages/23/20/bb6982b26a40bb43951265ba29d4c246ef0ff59c9fdcdf0ed04e0687de4d/"
-              "pyyaml-6.0.3-cp314-cp314-win_amd64.whl")
-PYYAML_SHA256 = "4a2e8cebe2ff6ab7d1050ecd59c25d4c8bd7e6f400f5f82b96557ac0abafd0ac"
-
-FOLDER = "RuleProxy-Web"
-# What the Windows panel needs. Linux scripts, tests and the source-checkout installer stay out.
-INCLUDE = ("Run-RuleProxy.py", "Start-Windows.cmd", "README.md", "CHANGELOG.md", "LICENSE", "THIRD-PARTY.md", "ruleproxy/", "web/", "examples/")
-# The embedded Python reads only the paths listed here: its own library, its folder, and the package root.
-PTH_TEXT = f"{PYTHON_STDLIB}\r\n.\r\n..\r\n# RuleProxy: the package root holds ruleproxy/ and Run-RuleProxy.py; site is not imported.\r\n"
-MAX_DOWNLOAD = 64 * 1024 * 1024
+PYTHON_VERSION = pins.PYTHON_VERSION
+PYTHON_URL = pins.ASSETS['python']['url']
+PYTHON_SHA256 = pins.ASSETS['python']['sha256']
+PYTHON_PTH = pins.PYTHON_PTH
+PYTHON_STDLIB = pins.PYTHON_STDLIB
+PYYAML_VERSION = pins.PYYAML_VERSION
+PYYAML_URL = pins.ASSETS['pyyaml']['url']
+PYYAML_SHA256 = pins.ASSETS['pyyaml']['sha256']
+PTH_TEXT = pins.PTH_TEXT
+FOLDER = pins.INSTALL_FOLDER
+INCLUDE = ('Run-RuleProxy.py', 'Start-Windows.cmd', 'Setup-Windows.cmd',
+           'README.md', 'CHANGELOG.md', 'LICENSE', 'THIRD-PARTY.md', 'ruleproxy/', 'web/',
+           'scripts/windows-setup.ps1', 'scripts/windows-uninstall.ps1')
+MAX_DOWNLOAD = 64 * 1024**2
+ASSET_CACHE = None
 
 
 def download(url: str, sha256: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": f"RuleProxyWeb/{__version__} package build"})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        data = response.read(MAX_DOWNLOAD + 1)
-    if len(data) > MAX_DOWNLOAD:
-        raise SystemExit(f"{url} is larger than expected")
-    actual = hashlib.sha256(data).hexdigest()
-    if actual != sha256:
-        raise SystemExit(f"Checksum mismatch for {url}: expected {sha256}, got {actual}")
-    return data
+    matches = [asset for asset in pins.ASSETS.values() if asset['url'] == url]
+    asset = dict(matches[0]) if matches else {'name': url.rsplit('/', 1)[-1], 'url': url, 'sha256': sha256}
+    if asset['sha256'] != sha256:
+        raise ValueError('Conflicting asset pin')
+    return pins.fetch_asset(asset, ASSET_CACHE)
 
 
 def safe_extract(data: bytes, target: Path) -> None:
+    total, seen = 0, set()
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        for member in archive.infolist():
-            name = PurePosixPath(member.filename)
-            if name.is_absolute() or ".." in name.parts or ":" in member.filename or "\\" in member.filename:
-                raise SystemExit(f"Refusing unsafe archive path {member.filename!r}")
+        for item in archive.infolist():
+            name = PurePosixPath(item.filename)
+            if (name.is_absolute() or '..' in name.parts or ':' in item.filename
+                    or '\\' in item.filename or item.orig_filename != item.filename
+                    or item.filename.casefold() in seen or stat.S_ISLNK(item.external_attr >> 16)):
+                raise ValueError('Unsafe or duplicate archive path')
+            seen.add(item.filename.casefold())
+            total += item.file_size
+            if item.file_size > MAX_DOWNLOAD or total > 192 * 1024**2:
+                raise ValueError('Expanded archive exceeds bound')
         archive.extractall(target)
 
 
 def project_files() -> list[str]:
-    listed = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, check=True, capture_output=True).stdout.decode("utf-8")
-    files = sorted(name for name in listed.split("\0") if name and any(
-        name == item or (item.endswith("/") and name.startswith(item)) for item in INCLUDE))
-    missing = [item for item in INCLUDE if not any(name == item or name.startswith(item) for name in files)]
-    if missing:
-        raise SystemExit(f"Package inputs missing from the checkout: {missing}")
-    return files
+    # Only program roots are eligible. Source/user YAML, profiles, credentials,
+    # CI fixtures and existing runtime/state directories are never copied.
+    files = []
+    for item in INCLUDE:
+        path = ROOT / item
+        if not path.exists() or path.is_symlink():
+            raise ValueError('Required package source is missing: ' + item)
+        candidates = path.rglob('*') if path.is_dir() else [path]
+        for candidate in candidates:
+            relative = candidate.relative_to(ROOT)
+            if (candidate.is_file() and not candidate.is_symlink()
+                    and '__pycache__' not in relative.parts
+                    and not any(part.startswith('.') for part in relative.parts)
+                    and candidate.suffix.lower() not in ('.pyc', '.yaml', '.yml', '.sqlite', '.db')):
+                files.append(relative.as_posix())
+    return sorted(set(files))
 
 
-def stage(target: Path, *, mxc_g_bundle: Path | None = None, mxc_g: bool = True) -> None:
+def stage(target: Path, *, asset_cache: Path | None = None, **legacy_options) -> None:
+    if legacy_options:
+        raise ValueError('MXC is not part of the Windows product package')
+    if target.exists() and (target.is_symlink() or not target.is_dir() or any(target.iterdir())):
+        raise ValueError('Offline package staging requires an empty directory')
+    global ASSET_CACHE
+    ASSET_CACHE = Path(asset_cache) if asset_cache is not None else None
+    target.mkdir(parents=True, exist_ok=True)
     for name in project_files():
         data = (ROOT / name).read_bytes()
-        if name.endswith(".cmd"):
-            # cmd.exe needs CRLF to find GOTO labels reliably, whatever the checkout used.
-            data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
-        path = target / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
-
-    print(f"Python {PYTHON_VERSION} (embeddable, amd64)", flush=True)
-    python = target / "python"
-    safe_extract(download(PYTHON_URL, PYTHON_SHA256), python)
-    if not all((python / name).is_file() for name in (PYTHON_PTH, PYTHON_STDLIB, "python.exe", "pythonw.exe", "LICENSE.txt")):
-        raise SystemExit("The embeddable Python layout changed; review PYTHON_PTH before packaging")
-    (python / PYTHON_PTH).write_text(PTH_TEXT, encoding="ascii", newline="")
-
-    print(f"PyYAML {PYYAML_VERSION}", flush=True)
-    safe_extract(download(PYYAML_URL, PYYAML_SHA256), target / "vendor")
-
-    g_selected = mxc_g or mxc_g_bundle is not None
-    variant = "g-patched" if g_selected else "stock"
-    install_runtime.install("windows-amd64", target, mxc_variant=variant,
-        g_bundle_path=mxc_g_bundle, variant_explicit=g_selected, allow_env_bundle_cache=False)
-    if not install_runtime.installed("windows-amd64", target, mxc_variant=variant):
-        raise SystemExit("The Windows runtimes are incomplete")
+        if name.endswith('.cmd'):
+            data = data.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+        destination = target / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
+    safe_extract(download(PYTHON_URL, PYTHON_SHA256), target / 'python')
+    if not all((target / 'python' / name).is_file() for name in
+               (PYTHON_PTH, PYTHON_STDLIB, 'python.exe', 'pythonw.exe', 'LICENSE.txt')):
+        raise ValueError('Fixed embedded Python layout changed')
+    (target / 'python' / PYTHON_PTH).write_text(PTH_TEXT, encoding='ascii', newline='')
+    safe_extract(download(PYYAML_URL, PYYAML_SHA256), target / 'vendor')
+    install_runtime.install_windows_proxy(target, cache=ASSET_CACHE)
+    if not install_runtime.installed_windows_proxy(target):
+        raise ValueError('Windows product runtime failed verification')
+    installers = target / 'installers'
+    installers.mkdir()
+    for key in ('vc_redist', 'ndis_msi', 'proxifyre_msi'):
+        asset = pins.ASSETS[key]
+        (installers / asset['name']).write_bytes(download(asset['url'], asset['sha256']))
+    licenses = target / 'licenses'
+    licenses.mkdir()
+    for key in ('proxifyre_license', 'ndisapi_license'):
+        asset = pins.ASSETS[key]
+        (licenses / asset['name']).write_bytes(download(asset['url'], asset['sha256']))
+    (licenses / 'WINDOWS-DEPENDENCIES.txt').write_text(
+        'Personal offline deployment only. ProxiFyre: AGPL-3.0. Windows Packet Filter is a separate '
+        'product, free for personal use: https://www.ntkernel.com/windows-packet-filter/licensing/\n'
+        'Microsoft Visual C++ Redistributable is provided unchanged with its Microsoft license. '
+        'Public redistribution requires independent license review.\n', encoding='utf-8')
+    files = {path.relative_to(target).as_posix(): pins.digest(path)
+             for path in sorted(target.rglob('*')) if path.is_file()}
+    manifest = {'schema_version': 1, 'platform': 'windows-amd64', 'version': __version__,
+                'backend': 'proxifyre', 'personal_use_only': True,
+                'public_binary_release_eligible': False, 'files': files,
+                'installers': {key: pins.ASSETS[key] for key in ('vc_redist', 'ndis_msi', 'proxifyre_msi')}}
+    (target / 'package-manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n', encoding='utf-8')
 
 
 def write_zip(source: Path, path: Path) -> None:
-    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for file in sorted((item for item in source.rglob("*") if item.is_file()),
-                           key=lambda item: item.relative_to(source).as_posix()):
-            # Checkout times, extracted download times and host permission bits
-            # must not change the digest of an otherwise identical package.
-            entry = zipfile.ZipInfo(f"{FOLDER}/{file.relative_to(source).as_posix()}", (1980, 1, 1, 0, 0, 0))
+    with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        for file in sorted(item for item in source.rglob('*') if item.is_file()):
+            entry = zipfile.ZipInfo(f'{FOLDER}/{file.relative_to(source).as_posix()}', (1980, 1, 1, 0, 0, 0))
             entry.create_system = 3
             entry.external_attr = 0o100644 << 16
             archive.writestr(entry, file.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
 
 
 def changes() -> str:
-    """This version's entries in CHANGELOG.md; a release without them is refused."""
-    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    heading = f"## {__version__}\n"
+    text = (ROOT / 'CHANGELOG.md').read_text(encoding='utf-8')
+    heading = f'## {__version__}\n'
     if heading not in text:
-        raise SystemExit(f"CHANGELOG.md has no section for {__version__}")
-    section = text.split(heading, 1)[1].split("\n## ", 1)[0].strip()
-    if not section:
-        raise SystemExit(f"The CHANGELOG.md section for {__version__} is empty")
-    return section
+        raise ValueError('Current version has no changelog entry')
+    return text.split(heading, 1)[1].split('\n## ', 1)[0].strip()
 
 
-def release_notes(zip_name: str, digest: str, *, mxc_variant: str = "stock") -> str:
-    mxc_description = (f"Microsoft MXC {install_runtime.MXC_VERSION}，npm SHA-512；G-patched executor，"
-        f"source commit `{install_runtime.MXC_G_BUILD_MANIFEST['upstream_commit']}`，patch SHA-256 "
-        f"`{install_runtime.MXC_G_BUILD_MANIFEST['patch_sha256']}`，bundle SHA-256 "
-        f"`{install_runtime.MXC_G_BUNDLE_SHA256}`"
-        if mxc_variant == "g-patched" else
-        f"Microsoft MXC {install_runtime.MXC_VERSION}，npm 公布的 SHA-512")
-    return f"""## 本版更新
-
-{changes()}
-
-## 安装
-
-**Windows**（x64 Windows 11，需要通过完整隔离能力探测；不需要另外安装 Python）
-
-微软当前支持表列出 Windows 11 25H2 从 26200.9278 起支持进程隔离。仍需面板的完整能力检查和实际启动检查通过，才能使用严格隔离；版本号不能单独保证所需功能可用。见[官方系统支持说明](https://github.com/microsoft/mxc/blob/main/docs/backends/process-container/os-version-support.md)。
-
-1. 下载 `{zip_name}`。
-2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”，避免每次启动都弹出安全提示。
-3. 解压到固定位置，双击 `{FOLDER}\\Start-Windows.cmd`。浏览器会打开面板，面板在后台运行，没有命令行窗口。
-4. 想要每次登录后自动在后台运行，在面板底部打开“登录后在后台运行”。
-
-升级时先在面板点“退出面板”，再把新版本解压到同一位置覆盖；设置、登录状态、快捷方式和登录启动项都会保留。
-
-**Linux**（Ubuntu 22.04 / 24.04，x86-64）
-
-```sh
-sudo apt install -y git
-git clone --branch v{__version__} --depth 1 https://github.com/Shermanxwz/Rule-proxy-Web.git
-cd Rule-proxy-Web
-sh start-linux.sh
-```
-
-第一次运行会安装 bubblewrap 和 PyYAML、在需要时加载 AppArmor 策略（会请求 sudo 密码），并下载固定版本的 Mihomo，之后直接打开面板。请用登录桌面的普通用户运行。
-
-## Windows 包内的组件
-
-| 组件 | 版本 | 下载校验 |
-|---|---|---|
-| Python（嵌入式版） | {PYTHON_VERSION} | python.org 公布的 SHA-256 |
-| PyYAML | {PYYAML_VERSION} | PyPI 公布的 SHA-256 |
-| Mihomo | {install_runtime.MIHOMO_VERSION} | GitHub 发布文件的 SHA-256 |
-| Microsoft MXC | {install_runtime.MXC_VERSION} | {mxc_description} |
-
-`{zip_name}` 的 SHA-256：`{digest}`
-
-Windows 完整验收尚未通过。已有真实 Windows 11 组件检查，实际结果与限制见项目说明；当前开发版本不能称为已封存或已验证零泄漏。
-"""
+def release_notes(zip_name: str, digest: str, **_legacy) -> str:
+    return (f'Windows x64 personal offline candidate: {zip_name}\nSHA-256: {digest}\n\n'
+            'Windows 11 x64. Extract and open Setup-Windows.cmd once; installation requests administrator '
+            'approval. The panel and selected applications run as the installing ordinary user. '
+            'Import your own YAML through the Web panel. No user configuration or node credential is included.\n'
+            'Backend: ProxiFyre 2.6.4 + Mihomo 1.19.32, no TUN. Dependencies are included for offline setup. '
+            'This package does not promise Linux-equivalent isolation or publish a public binary release.\n')
 
 
 def main(argv: list[str]) -> int:
-    import argparse
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output_dir", type=Path)
-    parser.add_argument("--mxc-g-bundle", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument('output_dir', type=Path)
+    parser.add_argument('--stage-only', action='store_true')
+    parser.add_argument('--asset-cache', type=Path)
     args = parser.parse_args(argv)
     output = args.output_dir.resolve()
+    if args.stage_only:
+        stage(output, asset_cache=args.asset_cache)
+        return 0
     output.mkdir(parents=True, exist_ok=True)
-    zip_name = f"RuleProxy-Web-{__version__}-windows-x64.zip"
-    selected_variant = "g-patched"
-    with tempfile.TemporaryDirectory(prefix="ruleproxy-package-") as temp:
-        staged = Path(temp) / FOLDER
-        stage(staged, mxc_g_bundle=args.mxc_g_bundle)
-        write_zip(staged, output / zip_name)
-    digest = hashlib.sha256((output / zip_name).read_bytes()).hexdigest()
-    (output / "SHA256SUMS.txt").write_text(f"{digest}  {zip_name}\n", encoding="utf-8")
-    (output / "release-notes.md").write_text(release_notes(zip_name, digest,
-        mxc_variant=selected_variant), encoding="utf-8")
-    print(f"Built {output / zip_name} ({(output / zip_name).stat().st_size // (1024 * 1024)} MB), SHA-256 {digest}", flush=True)
+    name = f'RuleProxy-Web-{__version__}-windows-x64-personal.zip'
+    with tempfile.TemporaryDirectory(prefix='ruleproxy-offline-') as directory:
+        source = Path(directory) / FOLDER
+        stage(source, asset_cache=args.asset_cache)
+        write_zip(source, output / name)
+    digest = pins.digest(output / name)
+    (output / 'SHA256SUMS.txt').write_text(f'{digest}  {name}\n', encoding='ascii')
+    (output / 'release-notes.md').write_text(release_notes(name, digest), encoding='utf-8')
+    print(f'Built {output / name}: SHA-256 {digest}', flush=True)
     return 0
 
 
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+if __name__ == '__main__':
+    raise SystemExit(main(sys.argv[1:]))

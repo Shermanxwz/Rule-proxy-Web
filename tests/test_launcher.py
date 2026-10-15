@@ -55,6 +55,32 @@ class LauncherTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     launcher.validate_app(selection)
 
+    def test_transparent_launch_has_no_native_proxy_configuration(self):
+        with mock.patch.dict(os.environ, {"HTTP_PROXY": "http://unrelated:1", "all_proxy": "socks5://unrelated:2"}):
+            command, env, _ = launcher.prepare_app(self.app_for(), 8899, self.root / "profiles", transparent=True)
+        self.assertFalse(any(arg.startswith("--proxy") for arg in command))
+        self.assertNotIn("--disable-quic", command)
+        self.assertNotIn("HTTP_PROXY", env)
+        self.assertNotIn("all_proxy", env)
+        self.assertTrue(any(arg.startswith("--user-data-dir=") for arg in command))
+
+    def test_transparent_firefox_clears_legacy_profile_proxy_mode(self):
+        app = self.app_for("firefox")
+        launcher.prepare_app(app, 8899, self.root / "profiles")
+        profile = self.root / "profiles" / app["id"]
+        self.assertIn('network.proxy.type", 1', (profile / "user.js").read_text())
+        command, env, _ = launcher.prepare_app(app, 8899, self.root / "profiles", transparent=True)
+        self.assertEqual((profile / "user.js").read_text(), 'user_pref("network.proxy.type", 0);\n')
+        self.assertIn("-no-remote", command)
+
+    def test_related_paths_are_validated_deduplicated_and_not_launched(self):
+        helper = self.root / "helper"
+        helper.write_text("")
+        normalized = launcher.validate_app(self.app_for(related_paths=[str(helper), str(helper)]))
+        self.assertEqual(normalized["related_paths"], [str(helper.resolve())])
+        with self.assertRaises(ValueError):
+            launcher.validate_app(self.app_for(related_paths=["relative-helper"]))
+
     def test_prepare_chromium_uses_profile_proxy_and_webrtc_restrictions(self):
         command, env, detail = launcher.prepare_app(
             self.app_for(args=["https://example.test"]), 8899, self.root / "profiles"

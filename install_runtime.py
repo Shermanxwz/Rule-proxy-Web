@@ -18,6 +18,7 @@ import urllib.request
 import zipfile
 
 from ruleproxy import windows_runtime_pins as runtime_pins
+from ruleproxy import windows_proxy_pins as proxy_pins
 
 
 ROOT = Path(__file__).resolve().parent
@@ -347,6 +348,56 @@ def install(platform: str, root: Path | None = None, *, mxc_variant: str | None 
     return directory
 
 
+def installed_windows_proxy(root: Path | None = None) -> bool:
+    """Check the product runtime; legacy MXC helpers remain diagnostic-only."""
+    directory = (ROOT if root is None else Path(root)) / "bin/windows-amd64"
+    try:
+        record = json.loads((directory / MANIFEST).read_text(encoding="utf-8"))
+        hashes = record.pop("sha256")
+        return (record == proxy_pins.expected_runtime_record()
+                and set(hashes) == {"mihomo.exe", "MIHOMO-LICENSE"}
+                and all((directory / name).is_file() and not (directory / name).is_symlink()
+                        and _file_digest(directory / name) == value for name, value in hashes.items()))
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def install_windows_proxy(root: Path | None = None, *, cache: Path | None = None) -> Path:
+    """Stage Mihomo only; the elevated installer separately installs ProxiFyre."""
+    directory = (ROOT if root is None else Path(root)) / "bin/windows-amd64"
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    data = proxy_pins.fetch_asset(proxy_pins.ASSETS["mihomo"], cache)
+    license_data = proxy_pins.fetch_asset(proxy_pins.ASSETS["mihomo_license"], cache)
+    with tempfile.TemporaryDirectory(prefix=".windows-proxy-", dir=directory.parent) as temp:
+        staged = Path(temp) / "new"
+        staged.mkdir()
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            members = [entry for entry in archive.infolist() if not entry.is_dir()
+                       and entry.filename.endswith(".exe")]
+            if len(members) != 1 or members[0].file_size > MAX_DOWNLOAD:
+                raise ValueError("Pinned Mihomo executable layout changed")
+            (staged / "mihomo.exe").write_bytes(archive.read(members[0]))
+        (staged / "MIHOMO-LICENSE").write_bytes(license_data)
+        record = proxy_pins.expected_runtime_record()
+        record["sha256"] = {name: _file_digest(staged / name)
+                            for name in ("mihomo.exe", "MIHOMO-LICENSE")}
+        (staged / MANIFEST).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        backup = directory.with_name(".windows-amd64-proxy-previous")
+        if backup.exists():
+            raise ValueError("An earlier interrupted runtime replacement requires recovery")
+        if directory.exists():
+            directory.rename(backup)
+        try:
+            staged.rename(directory)
+        except OSError:
+            if backup.exists():
+                backup.rename(directory)
+            raise
+        if backup.exists():
+            shutil.rmtree(backup)
+    return directory
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if stream is not None and hasattr(stream, "reconfigure"):
@@ -361,6 +412,17 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--if-needed", action="store_true", help="skip the download when the pinned runtimes are already installed")
     mode.add_argument("--check", action="store_true", help="download nothing; exit 0 only when the pinned runtimes are installed")
     args = parser.parse_args(argv)
+    if args.platform == "windows-amd64" and not (args.mxc_g or args.mxc_g_bundle or args.mxc_stock):
+        if args.check:
+            return 0 if installed_windows_proxy() else 1
+        if args.if_needed and installed_windows_proxy():
+            return 0
+        try:
+            install_windows_proxy()
+        except (OSError, ValueError, zipfile.BadZipFile) as exc:
+            print(f"Windows 运行组件准备失败：{exc}", file=sys.stderr, flush=True)
+            return 1
+        return 0
     selected_variant = ("stock" if args.platform != "windows-amd64" or args.mxc_stock else
                         "g-patched" if args.mxc_g or args.mxc_g_bundle is not None else DEFAULT_MXC_VARIANT)
     variant_explicit = args.mxc_g or args.mxc_g_bundle is not None or args.mxc_stock

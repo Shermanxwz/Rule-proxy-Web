@@ -364,7 +364,7 @@ class InstallRuntimeTests(unittest.TestCase):
                 self.assertEqual((directory / "mxc_ffi.dll").read_bytes(), b"ffi")
                 self.assertEqual((directory / "MXC-LICENSE.md").read_bytes(), license_bytes)
                 # The normal default does not replace G with stock.
-                code, _, errors = self.run_main("--if-needed", "--platform", "windows-amd64")
+                code, _, errors = self.run_main("--if-needed", "--platform", "windows-amd64", "--mxc-g")
                 self.assertEqual(code, 0, errors)
                 self.assertTrue(install_runtime.installed("windows-amd64", self.root, "g-patched"))
 

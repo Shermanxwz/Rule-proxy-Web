@@ -1,0 +1,110 @@
+name: Windows ProxiFyre product qualification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/windows-proxifyre-product-*'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - run: python -m pip install -r requirements.txt
+      - name: Build the final offline ZIP
+        run: python -B .github/build_windows_package.py windows-product-package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-proxifyre-product-package
+          path: windows-product-package/
+          if-no-files-found: error
+          retention-days: 7
+
+  server-product:
+    name: Final ZIP · Server 2025 · ordinary user
+    needs: package
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-proxifyre-product-package
+          path: windows-product-package
+      - name: Exercise installed product as a new ordinary user
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $name = 'RuleProxyProduct'
+          $text = [guid]::NewGuid().ToString('N') + 'Q7!'
+          $password = ConvertTo-SecureString $text -AsPlainText -Force
+          $user = New-LocalUser -Name $name -Password $password -PasswordNeverExpires
+          Add-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-545').Name -Member $name
+          $env:RULEPROXY_TEST_USER = $name
+          $env:RULEPROXY_TEST_PASSWORD = $text
+          $env:RULEPROXY_TEST_SID = $user.SID.Value
+          try {
+            python -B .github/windows_proxifyre_product_acceptance.py --package-dir windows-product-package --output windows-product-results
+            $result = $LASTEXITCODE
+          } finally {
+            Remove-Item Env:RULEPROXY_TEST_PASSWORD -ErrorAction SilentlyContinue
+            Remove-Item Env:RULEPROXY_TEST_USER -ErrorAction SilentlyContinue
+            Remove-Item Env:RULEPROXY_TEST_SID -ErrorAction SilentlyContinue
+            Remove-LocalUser -Name $name -ErrorAction SilentlyContinue
+          }
+          if ($result -ne 0) { throw 'Product qualification failed or requires reboot; inspect artifacts' }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-proxifyre-server-product-evidence
+          path: windows-product-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  native-windows-11:
+    name: Final ZIP · Windows 11 x64 · native KVM
+    needs: [package, server-product]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-proxifyre-product-package
+          path: windows-product-package
+      - name: Prepare disposable native VM tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+      - name: Qualify the installed product on the official client Windows kernel
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess, sys
+          folder = Path('windows-product-package')
+          expected, name = (folder / 'SHA256SUMS.txt').read_text().split()
+          subprocess.run(['sudo', sys.executable, '-B', '.github/windows_proxifyre_vm.py',
+              '--package', str(folder / name), '--package-sha256', expected,
+              '--artifacts', 'windows-native-product-results', '--timeout-seconds', '2700'], check=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-proxifyre-native-product-evidence
+          path: windows-native-product-results/
+          if-no-files-found: warn
+          retention-days: 14

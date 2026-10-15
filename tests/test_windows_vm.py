@@ -2659,7 +2659,7 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
 
     def test_workflow_custom_download_is_manual_and_fixed_to_the_actual_g_artifact(self):
         import yaml
-        workflow = yaml.safe_load((ROOT / '.github/workflows/check.yml').read_text(encoding="utf-8"))
+        workflow = yaml.safe_load((ROOT / '.github/legacy/check-mxc.yml').read_text(encoding="utf-8"))
         trigger = workflow.get('on', workflow.get(True))
         option = trigger['workflow_dispatch']['inputs']['capability_executor_diagnostic']
         self.assertEqual(option, {'description': option['description'], 'required': False,

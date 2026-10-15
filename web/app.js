@@ -15,7 +15,7 @@
     availableAppsCount: $('available-apps-count'),
     protectionCard: $('protection-card'), protectionBadge: $('protection-badge'), protectionDetail: $('protection-detail'),
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
-    runtimeSettings: $('windows-runtime-settings'), runtimePath: $('runtime-path'), saveRuntime: $('save-runtime-button'),
+    coreSettings: $('core-path-settings'), relatedField: $('related-paths-field'), relatedPaths: $('app-related-paths'),
     hostedNote: $('hosted-note'), filesNote: $('files-note'), configNotes: $('config-notes'), configWarnings: $('config-warnings'),
     autostartRow: $('autostart-row'), autostart: $('autostart-toggle'), autostartDetail: $('autostart-detail'), quit: $('quit-button'),
   };
@@ -28,6 +28,7 @@
   let lastAppsSignature = '';
   let lastAvailableSignature = '';
   let refreshingApps = false;
+  const isWindows = () => /windows|win32|win64/i.test(String(state && state.platform || ''));
 
   function showError(message, source = 'local') {
     if (message) {
@@ -65,8 +66,6 @@
     ui.refreshApps.disabled = busy || refreshingApps || !ready;
     ui.refreshApps.textContent = refreshingApps ? '正在扫描…' : '重新扫描';
     ui.launchAll.disabled = busy || !running || !protectedBackend || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
-    if (ui.saveRuntime) ui.saveRuntime.disabled = busy || !ready || running;
-    if (ui.runtimePath) ui.runtimePath.disabled = busy || !ready || running;
     ui.autostart.disabled = busy || !ready;
     ui.quit.disabled = busy || !ready;
     ui.apps.querySelectorAll('.app-toggle input, .remove-app').forEach((control) => { control.disabled = busy; });
@@ -76,7 +75,7 @@
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
       const canLaunch = app && app.enabled && running && protectedBackend;
       control.disabled = busy || (!(app?.active || app?.cleanup_pending) && !canLaunch);
-      control.title = app?.cleanup_pending ? '关闭上次启动中保留的隔离守卫' : (app?.active ? '关闭此工具启动的隔离实例' : (!running ? '请先启动核心' : (!protectedBackend ? '本机隔离能力不可用，启动已阻断' : (!app?.enabled ? '请先加入待保护列表' : '通过隔离方式启动此应用'))));
+      control.title = app?.active ? '关闭此工具启动的实例' : (!running ? '请先启动核心' : (!protectedBackend ? '本机代理能力不可用' : '启动此应用'));
     });
   }
 
@@ -121,21 +120,22 @@
 
       const appInfo = textElement('div', 'app-info');
       appInfo.append(textElement('strong', 'app-name', app.label || '未命名应用'));
-      const statusText = app.cleanup_pending ? '清理待完成' : (app.active ? '隔离中运行' : (app.enabled ? '待启动' : '未启用'));
+      const statusText = app.cleanup_pending ? '清理待完成' : (app.active ? (isWindows() ? '代理中运行' : '隔离中运行') : (app.routed ? '路径代理已启用' : (app.enabled ? '待启动' : '未启用')));
       const statusClass = app.cleanup_pending ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       appInfo.append(textElement('span', 'app-path', app.path || '未设置路径'));
+      if (app.related_paths?.length) appInfo.append(textElement('span', 'app-path', `相关程序：${app.related_paths.join('；')}`));
       appInfo.append(appTools(app));
       const adapter = friendlyAdapter(app.adapter);
       const appMeta = textElement('div', 'app-meta');
       appMeta.append(textElement('span', 'app-adapter', adapter));
       const status = textElement('span', `app-status ${statusClass}`, statusText);
       appMeta.append(status);
-      const launch = textElement('button', 'button button-launch app-action', app.cleanup_pending ? '关闭守卫' : (app.active ? '关闭实例' : '启动隔离实例 ↗'));
+      const launch = textElement('button', 'button button-launch app-action', app.cleanup_pending ? '关闭守卫' : (app.active ? '关闭实例' : (isWindows() ? '启动应用 ↗' : '启动隔离实例 ↗')));
       launch.type = 'button';
       launch.dataset.appId = String(app.id);
       launch.disabled = busy || ((app.active || app.cleanup_pending) ? false : !(app.enabled && state.running && state.protection && state.protection.supported));
-      launch.title = app.cleanup_pending ? '关闭上次启动中保留的隔离守卫' : (app.active ? '关闭此工具启动的隔离实例' : (!state.running ? '请先启动核心' : (!(state.protection && state.protection.supported) ? '本机隔离能力不可用，启动已阻断' : (!app.enabled ? '请先加入待保护列表' : '通过隔离方式启动此应用'))));
+      launch.title = app.active ? '关闭此工具启动的实例' : '启动此应用';
       launch.addEventListener('click', () => (app.active || app.cleanup_pending) ? stopApp(app) : launchApp(app));
       const remove = textElement('button', 'icon-button remove-app', '×');
       remove.type = 'button';
@@ -156,7 +156,7 @@
     const tools = textElement('div', 'app-tools');
     const shortcut = textElement('button', 'button button-secondary app-shortcut', '创建快捷方式');
     shortcut.type = 'button';
-    shortcut.title = '生成系统启动入口，不打开面板也能启动这个隔离实例';
+    shortcut.title = '生成系统启动入口，不打开面板也能启动这个应用';
     shortcut.addEventListener('click', () => createShortcut(app));
     tools.append(shortcut);
     return tools;
@@ -169,11 +169,13 @@
   }
 
   function friendlyAdapter(adapter) {
+    if (isWindows() && (adapter === 'environment' || adapter === 'env')) return '普通应用 · 按路径透明代理';
     const names = { chrome: '浏览器 / Electron · 独立配置', chromium: '浏览器 / Electron · 独立配置', edge: '浏览器 / Electron · 独立配置', brave: '浏览器 / Electron · 独立配置', firefox: 'Firefox · 独立配置', env: '代理环境变量启动', environment: '代理环境变量启动' };
     return names[adapter] || (adapter ? String(adapter) : '应用启动');
   }
 
   function compatibilityHint(adapter) {
+    if (isWindows()) return '按完整程序路径接管；不同 exe 的联网子进程需作为相关程序显式添加。';
     if (adapter === 'chromium' || adapter === 'chrome' || adapter === 'edge' || adapter === 'brave') return '使用独立配置；已有窗口不会自动接管。';
     if (adapter === 'firefox') return '使用独立 Firefox 配置；已有窗口不会接管。';
     if (adapter === 'environment' || adapter === 'env') return '应用若不遵循代理设置，其联网请求会被阻断。';
@@ -286,9 +288,9 @@
       : '';
     const protection = state.protection || {};
     ui.protectionCard.className = `protection-card ${protection.supported ? 'is-supported' : 'is-unsupported'}`;
-    ui.protectionBadge.textContent = protection.supported ? '隔离能力可用' : '不支持，启动受阻';
+    ui.protectionBadge.textContent = protection.supported ? (isWindows() ? '应用代理可用' : '隔离能力可用') : '不可用，启动受阻';
     ui.protectionDetail.textContent = protection.detail || (protection.supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。');
-    ui.protectionBackend.textContent = protection.backend ? `隔离后端：${protection.backend}` : '';
+    ui.protectionBackend.textContent = protection.backend ? `运行后端：${protection.backend}` : '';
     ui.protectionLimitations.replaceChildren();
     const limitations = Array.isArray(protection.limitations) ? protection.limitations : [];
     ui.protectionLimitations.hidden = limitations.length === 0;
@@ -298,9 +300,16 @@
     ui.autostartRow.classList.toggle('is-stale', autostart === 'stale');
     ui.autostart.checked = autostart === 'on';
     ui.autostartDetail.textContent = autostart === 'stale' ? AUTOSTART_STALE_TEXT : AUTOSTART_TEXT;
-    const isWindows = /windows|win32|win64/i.test(String(state.platform || ''));
-    ui.runtimeSettings.hidden = !isWindows;
-    if (isWindows && document.activeElement !== ui.runtimePath) ui.runtimePath.value = state.runtime_path || '';
+    ui.coreSettings.hidden = isWindows();
+    ui.relatedField.hidden = !isWindows();
+    const ordinaryOption = ui.appAdapter.querySelector('option[value="environment"]');
+    if (ordinaryOption) ordinaryOption.textContent = isWindows() ? '普通应用（按程序路径透明代理）' : '遵循代理环境变量的应用（不兼容即阻断）';
+    if (isWindows()) {
+      $('connection-intro').textContent = '启动核心后，启用清单中的程序路径交给 ProxiFyre 转发；也可以从下方启动独立应用实例。';
+      $('protection-note').textContent = '同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';
+      $('apps-intro').textContent = '打开开关即加入代理清单；核心运行时规则自动生效。不同 exe 的联网子进程需填写相关程序路径。';
+      $('compatibility-note').textContent = 'Windows 按程序路径转发 TCP 与可支持的 UDP，不提供 Linux 同等的隔离。UDP 53、系统 DNS、IPv6 分片及代理引擎故障后直连仍有限制。';
+    }
     ui.availablePaths.replaceChildren();
     for (const app of (Array.isArray(state.available_apps) ? state.available_apps : [])) {
       const option = document.createElement('option');
@@ -464,12 +473,10 @@
 
   function settingsBody() {
     const body = { core_path: ui.core.value.trim() };
-    if (/windows|win32|win64/i.test(String(state && state.platform || ''))) body.runtime_path = ui.runtimePath.value.trim();
     return body;
   }
 
   ui.saveCore.addEventListener('click', () => mutate('/api/settings', { body: settingsBody() }));
-  ui.saveRuntime.addEventListener('click', () => mutate('/api/settings', { body: settingsBody() }));
   ui.saveNode.addEventListener('click', () => {
     if (ui.node.value) mutate('/api/node', { body: { name: ui.node.value } });
   });
@@ -527,11 +534,13 @@
       return;
     }
     const args = ui.appArgs.value.split(/\r?\n/).map((arg) => arg.trim()).filter(Boolean);
-    mutate('/api/apps', { body: { label, path, adapter: ui.appAdapter.value, args, enabled: true } }).then((result) => {
+    const related_paths = isWindows() ? ui.relatedPaths.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean) : [];
+    mutate('/api/apps', { body: { label, path, adapter: ui.appAdapter.value, args, related_paths, enabled: true } }).then((result) => {
       if (!result) return;
       ui.appLabel.value = '';
       ui.appPath.value = '';
       ui.appArgs.value = '';
+      ui.relatedPaths.value = '';
       ui.appLabel.focus();
     });
   });

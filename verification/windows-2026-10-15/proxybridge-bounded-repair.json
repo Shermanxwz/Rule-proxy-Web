@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "started_at_utc": "2026-10-15T15:34:03+00:00",
+  "stopped_at_utc": "2026-10-15T15:39:17.169781+00:00",
+  "elapsed_seconds": 314,
+  "hard_time_limit_minutes": 45,
+  "status": "stopped_at_supported_interface_and_failure_boundary_gate",
+  "decision": "Do not continue a local ProxyBridge repair as the complete Windows containment backend under the current requirements.",
+  "scope": "Bounded supported-interface review and an isolated diagnostic draft; not an executed patched Windows prototype.",
+  "baseline_commit": "dbc3420",
+  "reviewed_proxybridge_commit": "1825f4cbdc3d24bc54fa3def4bce2947f97a18fe",
+  "reviewed_windivert_release": "v2.2.2",
+  "reviewed_driver_source_sha256": "9a60247278651cfad743a33b5cf055a6f6fbf6e9aedd4c36c0164dd794eb7439",
+  "user_stop_condition": "Stop rather than repeating many hours of exploratory implementation when no bounded repair path satisfies selected-instance containment and failure blocking.",
+  "mandatory_gates": [
+    {
+      "name": "Transparent TCP and UDP",
+      "status": "not_retested",
+      "finding": "The prior HTTP/SOCKS probes explicitly connect to the bypassed local Mihomo port. Transparent application TCP remains unproven. Local UDP bypass was observed previously, but its exact cause remains unproven."
+    },
+    {
+      "name": "Instance and descendant attribution",
+      "status": "no_supported_complete_local_repair_identified",
+      "finding": "NETWORK supports packet modification but has no PID metadata. FLOW supplies PID but cannot block. SOCKET supplies PID and can block, but cannot modify or re-inject events. Job membership alone does not install network policy. Image/path-wide denial would affect unselected instances of the same application."
+    },
+    {
+      "name": "Engine/service loss and DNS",
+      "status": "stopped_before_runtime_attempt",
+      "finding": "WinDivert uses per-handle dynamic WFP sessions. Cleanup reinjects queued non-sniff packets that have not timed out; destruction uninstalls callouts and closes the WFP engine. The original ProxyBridge disconnect path stops the capture engine. No independently surviving per-instance denial layer or system-DNS caller attribution was established."
+    }
+  ],
+  "rejected_shortcuts": [
+    "PID or descendant polling alone does not establish enforcement before a new child first sends.",
+    "Dropping all unattributed host traffic can affect unselected applications.",
+    "A persistent WFP application-path filter does not distinguish selected and unselected instances of the same executable.",
+    "A restart watchdog does not establish blocking throughout the failure interval.",
+    "Job kill-on-close does not document an atomic ordering that blocks network before all network filter handles are closed.",
+    "Keeping a WinDivert handle in another user-mode process merely introduces another lifetime dependency; no general persistent per-instance guarantee is proven."
+  ],
+  "isolated_diagnostic_draft": {
+    "directory": "/tmp/ruleproxy-pb-bounded-prototype-20261015",
+    "patch": "/tmp/ruleproxy-pb-bounded-prototype-20261015-unmerged.patch",
+    "patch_sha256": "349840df7a37c9cc8e8aeec8cc5ea11174ff34c8b0e65c6fd45c52aef6e53ef6",
+    "merged_into_project": false,
+    "new_probe_semantics_tested": false,
+    "capability": "Draft adds a true direct-destination TCP probe and per-case UDP lifecycle observations. It does not implement the missing containment layer."
+  },
+  "new_server_runs_started": 0,
+  "new_native_windows_runs_started": 0,
+  "drivers_installed_this_attempt": false,
+  "production_backend_changed": false,
+  "linux_implementation_changed": false,
+  "replacement_architecture_adopted": false,
+  "release_eligible": false,
+  "runtime_repair_failure_proven": false,
+  "universal_architecture_impossibility_established": false,
+  "next_step": "Stop this repair attempt and discuss a different Windows backend design. Do not start more policy variations or long VM tests without a concrete independent instance-identity and failure-blocking design.",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/basil00/WinDivert/master/doc/windivert.html",
+      "scope": "Layer capability matrix: NETWORK has no PID; FLOW observation only; SOCKET has PID/block but no event injection."
+    },
+    {
+      "url": "https://github.com/basil00/WinDivert/blob/v2.2.2/sys/windivert.c#L1548-L1551",
+      "scope": "Dynamic WFP session."
+    },
+    {
+      "url": "https://github.com/basil00/WinDivert/blob/v2.2.2/sys/windivert.c#L1999-L2014",
+      "scope": "Queued packet reinjection on handle cleanup."
+    },
+    {
+      "url": "https://github.com/basil00/WinDivert/blob/v2.2.2/sys/windivert.c#L2106-L2109",
+      "scope": "Callout uninstall and WFP engine closure."
+    },
+    {
+      "url": "https://github.com/InterceptSuite/ProxyBridge/blob/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe/Windows/src/service/pb_service.c#L269-L274",
+      "scope": "Client disconnect stops and unloads engine."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/fwp/object-management",
+      "scope": "Dynamic objects end with session; persistent object lifetime alone does not supply per-instance identity."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/fwp/filtering-condition-identifiers-",
+      "scope": "User and application path conditions require appropriate scope; no direct general PID condition for these management filters."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects",
+      "scope": "Job membership and kill-on-close do not constitute an independently surviving network denial policy."
+    }
+  ]
+}

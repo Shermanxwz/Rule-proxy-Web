@@ -52,42 +52,78 @@ class WindowsPackageTests(unittest.TestCase):
         builder = self.builder()
         self.assertIn("ruleproxy/windows_runtime_pins.py", builder.project_files())
 
-    def test_g_package_option_passes_only_the_pinned_variant_selection_to_installer(self):
+    def test_product_package_rejects_mxc_diagnostic_options(self):
         builder = self.builder()
-        with tempfile.TemporaryDirectory(prefix="ruleproxy-stage-test-") as temporary:
-            target = Path(temporary) / "package"
-            def extract(_data, destination):
-                destination.mkdir(parents=True, exist_ok=True)
-                if destination.name == "python":
-                    for name in (builder.PYTHON_PTH, builder.PYTHON_STDLIB, "python.exe", "pythonw.exe", "LICENSE.txt"):
-                        (destination / name).write_bytes(b"fixture")
-            with patch.object(builder, "project_files", return_value=[]), \
-                    patch.object(builder, "download", return_value=b"pinned bytes"), \
-                    patch.object(builder, "safe_extract", side_effect=extract), \
-                    patch.object(builder.install_runtime, "install") as install, \
-                    patch.object(builder.install_runtime, "installed", return_value=True):
-                builder.stage(target, mxc_g_bundle=Path(temporary) / "fixed-g.zip")
-            install.assert_called_once_with("windows-amd64", target, mxc_variant="g-patched",
-                g_bundle_path=Path(temporary) / "fixed-g.zip", variant_explicit=True,
-                allow_env_bundle_cache=False)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "MXC"):
+                builder.stage(Path(directory), mxc_g_bundle=Path(directory) / "g.zip")
 
-    def test_portable_package_defaults_to_fixed_g_bundle_without_external_cache(self):
+    def test_product_inputs_include_setup_broker_and_no_user_yaml(self):
         builder = self.builder()
-        with tempfile.TemporaryDirectory(prefix="ruleproxy-stage-test-") as temporary:
-            target = Path(temporary) / "package"
-            def extract(_data, destination):
-                destination.mkdir(parents=True, exist_ok=True)
-                if destination.name == "python":
-                    for name in (builder.PYTHON_PTH, builder.PYTHON_STDLIB, "python.exe", "pythonw.exe", "LICENSE.txt"):
-                        (destination / name).write_bytes(b"fixture")
-            with patch.object(builder, "project_files", return_value=[]), \
-                    patch.object(builder, "download", return_value=b"pinned bytes"), \
-                    patch.object(builder, "safe_extract", side_effect=extract), \
-                    patch.object(builder.install_runtime, "install") as install, \
-                    patch.object(builder.install_runtime, "installed", return_value=True):
+        files = builder.project_files()
+        self.assertIn("Setup-Windows.cmd", files)
+        self.assertIn("scripts/windows-setup.ps1", files)
+        self.assertIn("scripts/windows-uninstall.ps1", files)
+        self.assertIn("ruleproxy/windows_proxy_pins.py", files)
+        self.assertIn("ruleproxy/windows_proxy_service.py", files)
+        self.assertIn("ruleproxy/windows_proxy_policy.py", files)
+        self.assertIn("ruleproxy/windows_proxy_runtime.py", files)
+        self.assertFalse(any(name.endswith((".yaml", ".yml")) for name in files))
+        self.assertFalse(any(name.startswith(("verification/", ".github/", "data/")) for name in files))
+
+    def test_staging_refuses_existing_user_configuration_without_reading_it(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            configuration = target / "private.yaml"
+            configuration.write_text("user credential", encoding="utf-8")
+            with patch.object(builder, "download") as network, self.assertRaisesRegex(ValueError, "empty directory"):
                 builder.stage(target)
-            install.assert_called_once_with("windows-amd64", target, mxc_variant="g-patched",
-                g_bundle_path=None, variant_explicit=True, allow_env_bundle_cache=False)
+            network.assert_not_called()
+            self.assertEqual(configuration.read_text(encoding="utf-8"), "user credential")
+
+    def test_archive_extraction_rejects_traversal_and_duplicate_case_paths(self):
+        import io
+        builder = self.builder()
+        for names in (("../outside",), ("Code.py", "code.py"), ("C:/escape",), ("a\\b",)):
+            body = io.BytesIO()
+            with zipfile.ZipFile(body, "w") as archive:
+                for name in names:
+                    archive.writestr(name, b"x")
+            with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
+                builder.safe_extract(body.getvalue(), Path(directory))
+
+    def test_default_stage_has_offline_installers_and_complete_hash_manifest(self):
+        import io, json, hashlib
+        builder = self.builder()
+        python = io.BytesIO()
+        with zipfile.ZipFile(python, "w") as archive:
+            for name in (builder.PYTHON_PTH, builder.PYTHON_STDLIB, "python.exe", "pythonw.exe", "LICENSE.txt"):
+                archive.writestr(name, b"fixture")
+        yaml = io.BytesIO()
+        with zipfile.ZipFile(yaml, "w") as archive:
+            archive.writestr("yaml/__init__.py", b"# fixture")
+        def fake_download(url, _digest):
+            return python.getvalue() if url == builder.PYTHON_URL else yaml.getvalue() if url == builder.PYYAML_URL else b"fixed-asset"
+        def runtime(target, **_kwargs):
+            path = target / "bin/windows-amd64"
+            path.mkdir(parents=True)
+            (path / "mihomo.exe").write_bytes(b"mihomo")
+        with tempfile.TemporaryDirectory() as directory, patch.object(builder, "download", side_effect=fake_download), \
+                patch.object(builder.install_runtime, "install_windows_proxy", side_effect=runtime), \
+                patch.object(builder.install_runtime, "installed_windows_proxy", return_value=True):
+            target = Path(directory) / "package"
+            builder.stage(target)
+            manifest = json.loads((target / "package-manifest.json").read_text())
+            self.assertEqual(manifest["backend"], "proxifyre")
+            self.assertFalse(manifest["public_binary_release_eligible"])
+            for name, digest in manifest["files"].items():
+                self.assertEqual(hashlib.sha256((target / name).read_bytes()).hexdigest(), digest)
+            for asset in builder.pins.ASSETS.values():
+                if asset["name"].endswith((".msi", ".exe")):
+                    self.assertTrue((target / "installers" / asset["name"]).is_file())
+            self.assertFalse(list(target.rglob("wxc-exec.exe")))
+            self.assertFalse(list(target.rglob("*.yaml")))
 
 
 if __name__ == "__main__":

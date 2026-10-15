@@ -10,4 +10,7 @@ state/
 source.yaml
 config.yaml
 dist/
+.windows-cache/
+windows-product-package/
+windows-product-results/
 /.cweb-uploads/

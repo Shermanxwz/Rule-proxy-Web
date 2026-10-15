@@ -430,9 +430,12 @@ def compile_config(
     controller_port: int = 19097,
     secret: str,
     selected_node: str | None = None,
+    allow_udp: bool = False,
 ) -> CompiledConfig:
     """Compile an imported config for one explicitly proxied app listener."""
     mixed_port = _port(mixed_port, "mixed_port")
+    if not isinstance(allow_udp, bool):
+        raise ValueError("allow_udp must be a boolean")
     controller_port = _port(controller_port, "controller_port")
     if mixed_port == controller_port:
         raise ValueError("mixed_port must differ from controller_port")
@@ -545,7 +548,7 @@ def compile_config(
         "type": "mixed",
         "listen": "127.0.0.1",
         "port": mixed_port,
-        "udp": False,
+        "udp": allow_udp,
     }
     config: dict[str, Any] = {
         "mixed-port": 0,

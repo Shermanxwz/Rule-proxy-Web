@@ -40,7 +40,7 @@
       "official_release": "ProxyBridge 4.1.1",
       "runtime_observation_scope": "Windows Server 2025, ordinary user, signed driver",
       "observed_strengths": [
-        "Parent and same-image child TCP forwarded through assigned Mihomo proxy.",
+        "Parent and same-image child completed explicit HTTP/SOCKS probes to the bypassed local Mihomo port. This is not independent evidence of transparent application TCP redirection.",
         "Ordinary user controlled stock service without per-launch elevation."
       ],
       "disqualifying_observations": [
@@ -56,7 +56,9 @@
         "Public IPv6 outside control had no route.",
         "TCP connect alone was not counted as a direct leak; fixed direct receiver delta was zero.",
         "This does not prove a future patched implementation cannot work."
-      ]
+      ],
+      "transparent_application_tcp_verified": false,
+      "bounded_repair_review": "proxybridge-bounded-repair.json"
     }
   },
   "native_windows_11": {
@@ -76,5 +78,5 @@
   "production_backend_changed": false,
   "replacement_architecture_adopted": false,
   "release_eligible": false,
-  "next_step": "Discuss a permanently free and lightweight replacement or an explicitly scoped repair of the free ProxyBridge route before product architecture changes."
+  "next_step": "The bounded ProxyBridge local-repair attempt stopped at the identity and persistent failure-blocking gate; discuss a different Windows backend design before further implementation or long CI runs."
 }

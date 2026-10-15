@@ -68,12 +68,14 @@
           <ul id="config-warnings"></ul>
         </div>
         <div class="divider"></div>
+        <div id="core-path-settings">
         <label class="field-label" for="core-path">Mihomo 程序路径</label>
         <div class="inline-field">
           <input id="core-path" class="text-input" type="text" autocomplete="off" placeholder="自动查找，或输入完整路径">
           <button id="save-core-button" class="button button-secondary" type="button">保存</button>
         </div>
         <p class="field-hint">留空时使用系统可找到的 Mihomo 程序。修改程序路径前需先停止核心。</p>
+        </div>
       </article>
 
       <article class="panel control-panel">
@@ -84,13 +86,13 @@
           <h2>选择节点并启动核心</h2>
           </div>
         </div>
-        <p class="muted intro-copy">核心运行不代表应用已受保护。应用实例需从下方启动并进入隔离后才会使用代理。</p>
+        <p id="connection-intro" class="muted intro-copy">核心运行不代表应用已受保护。应用实例需从下方启动并进入隔离后才会使用代理。</p>
         <div id="protection-card" class="protection-card" aria-live="polite">
           <div class="protection-heading"><span class="protection-shield" aria-hidden="true">◆</span><div><strong>流量保护能力</strong><span id="protection-badge" class="protection-badge">正在检查</span></div></div>
           <p id="protection-detail" class="protection-detail">等待本机服务报告隔离能力。</p>
           <div id="protection-backend" class="protection-backend"></div>
           <ul id="protection-limitations" class="protection-limitations" hidden></ul>
-          <p class="protection-note">只有从此面板或快捷方式启动、并显示“隔离中运行”的实例才受保护。已打开的实例需自行关闭；不兼容应用的流量会被阻断，不会切换到弱模式。</p>
+          <p id="protection-note" class="protection-note">只有从此面板或快捷方式启动、并显示“隔离中运行”的实例才受保护。已打开的实例需自行关闭；不兼容应用的流量会被阻断，不会切换到弱模式。</p>
         </div>
         <label class="field-label" for="node-select">代理节点</label>
         <div class="inline-field node-field">
@@ -124,7 +126,7 @@
         </div>
         <button id="launch-all-button" class="button button-primary" type="button" disabled>启动所有待启动应用 <span aria-hidden="true">↗</span></button>
       </div>
-      <p class="muted apps-intro">已添加的应用显示“待启动”；只有显示“隔离中运行”的实例才受保护。现有已打开的应用不会自动接管。</p>
+      <p id="apps-intro" class="muted apps-intro">已添加的应用显示“待启动”；只有显示“隔离中运行”的实例才受保护。现有已打开的应用不会自动接管。</p>
       <p id="files-note" class="muted files-note" hidden></p>
       <div id="apps-list" class="apps-list" aria-live="polite">
         <div class="empty-state"><span class="empty-symbol" aria-hidden="true">＋</span><strong>还没有添加应用</strong><span>从下方已安装应用中选择。</span></div>
@@ -156,9 +158,10 @@
             <option value="environment">遵循代理环境变量的应用（不兼容即阻断）</option>
           </select></label>
           <label class="form-control args-control"><span class="field-label">启动参数 <span class="optional">选填，每行一个</span></span><textarea id="app-args" class="text-input args-input" rows="1" placeholder="例如：--new-window"></textarea></label>
+          <label id="related-paths-field" class="form-control args-control" hidden><span class="field-label">相关程序路径 <span class="optional">选填，每行一个 exe，最多 16 个</span></span><textarea id="app-related-paths" class="text-input args-input" rows="2" placeholder="填入应用联网子进程的完整 exe 路径；不会单独启动这些程序"></textarea></label>
           <button id="add-app-button" class="button button-secondary add-button" type="button">添加应用</button>
         </div>
-        <p class="compatibility-note"><span class="info-icon" aria-hidden="true">i</span><span>此工具不能保证所有软件兼容。只有本机隔离能力报告支持且实例显示“隔离中运行”时才表示保护已启用；不兼容流量将被阻断。</span></p>
+        <p class="compatibility-note"><span class="info-icon" aria-hidden="true">i</span><span id="compatibility-note">此工具不能保证所有软件兼容。只有本机隔离能力报告支持且实例显示“隔离中运行”时才表示保护已启用；不兼容流量将被阻断。</span></p>
       </div>
       </details>
     </section>
@@ -181,15 +184,7 @@
       </div>
     </section>
 
-    <details id="windows-runtime-settings" class="advanced-settings" hidden>
-      <summary>Windows 高级设置</summary>
-      <div class="runtime-setting">
-        <div><strong>MXC 运行组件路径</strong><p>仅接受本项目固定版本；留空使用内置版本。版本不符时请清空自定义路径；源码目录运行 Setup-Windows.cmd 更新，运行包请重新解压更新。</p></div>
-        <div class="inline-field"><input id="runtime-path" class="text-input" type="text" autocomplete="off" placeholder="自动查找，或输入完整路径"><button id="save-runtime-button" class="button button-secondary" type="button">保存</button></div>
-      </div>
-    </details>
-
-    <footer class="page-footer"><span>RuleProxy <span id="footer-version"></span></span><span>本机管理 · 不更改系统网络设置</span></footer>
+    <footer class="page-footer"><span>RuleProxy <span id="footer-version"></span></span><span>本机管理 · 自选应用与节点</span></footer>
   </main>
 </body>
 </html>

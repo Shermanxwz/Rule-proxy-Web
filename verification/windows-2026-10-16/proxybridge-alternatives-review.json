@@ -1,0 +1,274 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-10-15T17:24:24.897097+00:00",
+  "scope": "独立只读研究；复核仓库原始证据并实时查阅官方发布、源码和文档。没有启动新 Windows 实验、CI、安装驱动或更换已选产品后端。",
+  "constraints": {
+    "personal_use": true,
+    "preserve": [
+      "Web 面板自定义 YAML 导入",
+      "任选本地 exe",
+      "任选 Mihomo 节点",
+      "普通原生应用无需内置代理设置"
+    ],
+    "excluded": [
+      "Mihomo TUN",
+      "把代理环境变量或显式 SOCKS 连接算成透明接管",
+      "自研或自签新内核驱动",
+      "无门槛追加数小时试错"
+    ],
+    "historical_preference": "永久免费、无长期使用提醒、轻量和一键部署；付费候选仅作对照，不能自动视为获准购买。"
+  },
+  "conclusion": {
+    "decision": "继续当前 ProxiFyre 2.6.4＋Mihomo 1.19.32 产品化；ProxyBridge 保留有期限的备选，不立即切主线。",
+    "reason": "ProxyBridge 源码具备透明 TCP/UDP/IPv6 和精确路径规则，服务也可被普通用户控制，因此在已放宽的按程序代理要求下有实现可能。但项目没有它的原始 socket 透明 TCP 成功证据；旧 UDP 绕过尚未解释。ProxiFyre 已有同一测试框架内透明 TCP 与非 53 UDP 的实证。",
+    "better_than_proxifyre": "尚不能认定。ProxyBridge 精确路径、MIT 用户态代码和服务控制有优势；DNS、UDP 稳定性、异名子进程和故障拒绝没有已验证优势。没有公平性能结果。",
+    "linux_namespace_parity": "未找到同时满足永久免费、轻量、任意宿主原生 Win32 GUI、无需应用代理设置、完整进程树＋DNS/UDP＋服务死亡不直连的一键现成替代。不是理论不可行证明。"
+  },
+  "historical_evidence": [
+    {
+      "file": "verification/windows-2026-10-15/proxybridge-bounded-repair.json",
+      "fact": "当时因严格实例身份及故障拒绝门槛而停止的是受支持接口审查，并未执行修复后的 Windows 原型。不得说成修复原型已实测失败；放宽为路径级代理后也不得机械沿用旧 No-Go。"
+    },
+    {
+      "file": "verification/windows-2026-10-15/free-backend-evaluation.json",
+      "fact": "ProxyBridge 4.1.1＋WinDivert＋Mihomo 在 Server 2025 普通用户运行过。父子 TCP 成功项显式连接绕过的本机 HTTP/SOCKS 端口，不是独立透明接管证明。loopback UDP4/UDP6 到达直接接收器，Mihomo 停止后仍到达。Windows 11 长测取消不代表通过或框架失败。"
+    },
+    {
+      "file": ".github/windows_proxybridge_control.py",
+      "fact": "旧测试不仅保留本机 SOCKS 防递归直连规则，也明确调用 set_localhost_via_proxy(True)。因此不能仅用默认关闭 localhost proxy 解释已观察的 UDP 绕过。"
+    },
+    {
+      "file": "verification/windows-2026-10-15/free-backend-server/959512e/proxybridge/install-report.json",
+      "fact": "官方安装包 Authenticode 有效、已安装 WinDivert64 驱动签名 Valid；管理员静默安装成功，服务存在，普通用户认证 IPC 成功。reboot_required 字段由新增组成员 bool(member) 得出，不能视为实测驱动必须重启。"
+    },
+    {
+      "file": "verification/windows-2026-10-16/proxy-compare/comparison-summary.json",
+      "fact": "ProxiFyre 与 Clew 各有 28/28 透明 TCP、3/3 原生 curl、5/5 切换到 B 成功。ProxiFyre UDP 39017 为 6/6 经代理，UDP53 为 12/12 直达；同 exe 子进程成功、异 exe 未自动继承。Clew 异 exe 子进程成功，UDP53 10 经代理/2 直达。二者引擎停止后选中应用可直达。"
+    },
+    {
+      "file": "verification/windows-2026-10-16/proxy-compare/comparison-summary.json",
+      "fact": "上述对照是 Server 2025 普通 actor、管理员控制台引擎、受控合成 upstream；不是 Windows 11 可见 GUI、真实互联网出口或普通用户控制产品服务的最终验收。IPv6 外部正对照不可达，二者无 IPv6 原生通过结论。"
+    }
+  ],
+  "proxybridge_current": {
+    "official_repository": "https://github.com/InterceptSuite/ProxyBridge",
+    "latest_windows_release": {
+      "tag": "v4.1.1",
+      "commit": "1825f4cbdc3d24bc54fa3def4bce2947f97a18fe",
+      "published_at": "2026-10-12T14:47:01Z",
+      "source": "https://github.com/InterceptSuite/ProxyBridge/releases/tag/v4.1.1",
+      "metadata_url": "https://api.github.com/repos/InterceptSuite/ProxyBridge/releases/tags/v4.1.1"
+    },
+    "current_master": {
+      "commit": "d697164b836f0d3f897128774d3cb72e54770e74",
+      "committer_date": "2026-10-14T12:53:49Z",
+      "commits_after_windows_release": 27,
+      "changed_windows_files": 0,
+      "fact": "GitHub releases/latest 返回 v4.0.0_Beta_Linux，不能当成更新的 Windows 发布。",
+      "sources": [
+        "https://api.github.com/repos/InterceptSuite/ProxyBridge/releases/latest",
+        "https://api.github.com/repos/InterceptSuite/ProxyBridge/compare/1825f4cbdc3d24bc54fa3def4bce2947f97a18fe...d697164b836f0d3f897128774d3cb72e54770e74"
+      ]
+    },
+    "capability_matrix": [
+      {
+        "item": "透明 TCP",
+        "documented_or_code": "NETWORK 抓包后改投本机 TCP relay，relay 发 SOCKS5 CONNECT 到 Mihomo；原始 connect 目标不需变成 SOCKS 地址。",
+        "project_runtime": "未证明；旧显式 HTTP/SOCKS 成功不能补齐。",
+        "source": "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/src/pb_relay.c#L640-L697"
+      },
+      {
+        "item": "UDP",
+        "documented_or_code": "有 SOCKS5 UDP ASSOCIATE 与 IPv4/IPv6 relay；HTTP proxy 类型遇到 UDP 的 PROXY 规则会改成 DIRECT。必须配置本机 Mihomo SOCKS5 且节点支持 UDP。",
+        "project_runtime": "旧 localhost UDP 绕过；非回环 UDP 透明往返未完成公平新对照。",
+        "source": "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/src/pb_rules.c#L737-L784"
+      },
+      {
+        "item": "DNS53",
+        "documented_or_code": "抓取 UDP53 响应用于域名缓存，可将缓存域名交给 SOCKS；未发现 UDP53 专门强制直连排除，但系统 DNS 由服务代查询时不再是应用 exe 的归属。域名嗅探与 SOCKS 远端解析不是系统 DNS 防泄漏保证。",
+        "project_runtime": "没有调用者级 DNS 防泄漏通过结果。",
+        "source": "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/src/pb_dns.c#L272-L289"
+      },
+      {
+        "item": "IPv6",
+        "documented_or_code": "存在 IPv6 TCP/UDP 捕获、规则与 SOCKS 目标编码；IPv6 multicast/link-local/site-local 等显式直通。",
+        "project_runtime": "外部 IPv6 正对照没有路由；旧 loopback UDP6 曾直达，不能宣称 IPv6 完整验收。",
+        "source": "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/src/ProxyBridge.c#L194-L370"
+      },
+      {
+        "item": "路径/实例/子进程",
+        "documented_or_code": "match_process_pattern() 对带路径分隔符的无通配字符串做大小写不敏感整串比较；无路径仅比较 basename。规则没有指定启动实例的 PID 选择语义，没有异名后代自动继承。",
+        "project_runtime": "同 image 规则会覆盖同 image 新连接；父子关系本身不产生网络规则。",
+        "source": "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/src/pb_rules.c#L329-L358"
+      },
+      {
+        "item": "故障",
+        "documented_or_code": "已选且已成功归属的 TCP relay 遇上游连接/握手失败会关闭连接，不是主动直连回退；但 PID 查不到、进程名读取失败或代理配置不存在会 DIRECT。服务控制连接断开会 Stop 并卸载引擎，失去拦截后应用可能直连。",
+        "project_runtime": "不提供 Linux 式独立持久拒绝边界。",
+        "sources": [
+          "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/src/pb_rules.c#L737-L784",
+          "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/src/service/pb_service.c#L269-L274"
+        ]
+      }
+    ],
+    "one_click": {
+      "feasible": "可封装官方管理员安装＋固定认证 IPC adapter＋Mihomo，Web YAML 和节点逻辑继续复用；不需要 TUN 或目标应用内置代理。此处是集成可行性推断，不是现成交付。",
+      "elevation": "v4.1.1 服务负责特权，官方 GUI 日常无需 UAC。标签源码 CLI 仍执行 is_admin() 并直接加载引擎；不能把 CLI＋profile 当现成免提权后端，应复用此前验证过的认证服务协议。",
+      "reboot": "官方 WinDivert 通常自动加载；服务安装源码给安装者记录 SID 以立即访问，新加其他账号的组成员身份需要重新登录。不承诺绝对零重启；现有报告的 reboot_required 来自组令牌处理。",
+      "uninstall": "需管理员；官方脚本停止/删除 ProxyBridgeSvc、组和授权注册表、WinDivert 服务、文件及 PATH。若客户端持有文件可需后续清理；安装/卸载脚本含公共 WinDivert 服务名及按进程名关闭逻辑，封装应先识别已有使用者和冲突，不能覆盖用户其他部署。",
+      "sources": [
+        "https://github.com/InterceptSuite/ProxyBridge/releases/tag/v4.1.1",
+        "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/cli/main.c#L925-L930",
+        "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/installer/ProxyBridge.nsi",
+        "https://github.com/InterceptSuite/ProxyBridge/blob/v4.1.1/Windows/src/service/pb_service.c#L30-L34"
+      ]
+    },
+    "performance": "旧报告空闲服务工作集约 7.3MB，ProxiFyre 新对照约45.5MB，但负载、进程树、时点均不同；不据此声称更快或更省总资源。",
+    "source_integrity_rechecked": [
+      {
+        "file": "Windows/src/pb_rules.c",
+        "sha256": "b860743a6ecf6f6d6e81a51b5f9ccb808a6fbbdeda6e6e727adc9546f98b238f"
+      },
+      {
+        "file": "Windows/cli/main.c",
+        "sha256": "a0d58eac1e8fb31aba06c1dde8d6a338b426591ca06274cda605c5c2d59d59ee"
+      },
+      {
+        "file": "Windows/installer/ProxyBridge.nsi",
+        "sha256": "3beed53c6c3f0049d3da731793a3317ed44d398d5dac3788d934e17fc87a782e"
+      },
+      {
+        "file": "Windows/src/service/pb_service.c",
+        "sha256": "39f43394bbf220e4c09a45ff1f45a7e3a39d0dac1a6cabaca943fd7d43516fcd"
+      }
+    ]
+  },
+  "proxifyre_path_matching_correction": {
+    "fact": "2.6.4 中 appNames 只要包含 / 或反斜杠，完整绝对 exe 路径仍走 process.path_name.find(app) != npos。没有支持的正则、首尾锚定或 exactPath 字段。无分隔符应用名才有文件名锚定逻辑。",
+    "example": "配置 C:\\Apps\\foo.exe 也会包含匹配 C:\\Apps\\foo.exe2.exe 或 C:\\Apps\\foo.exe.backup\\helper.exe。实际完整路径显著缩小误匹配，但不是等值保证。",
+    "source": "https://github.com/wiresock/proxifyre/blob/v2.6.4/netlib/src/proxy/process_routing_policy.h#L172-L174",
+    "official_doc": "https://github.com/wiresock/proxifyre/blob/v2.6.4/docs/configuration.md#application-matching-and-rule-order",
+    "fetched_source_sha256": "6aa9e7dc770643dfefcd98c598a5f0f3f82debef9810b2d2816f99db98efa200",
+    "product_code_changed": false
+  },
+  "alternatives": [
+    {
+      "name": "Proxifier Standard 4.14＋Mihomo",
+      "facts": "成熟产品的签名 WFP callout，官方支持静默安装、普通用户运行、XML profile 和 silent-load，TCP IPv6 与远端域名解析；可把 Web 配置转换为 profile。官方当前 v4 网络规格只承诺 outgoing TCP，不是 UDP 代理替代；31 天试用后需付费。",
+      "assessment": "若允许付费且以 TCP 为主，可作低开发成本备选；不能声称免费、全 UDP 或 Linux 隔离等价。服务故障、实例及异名后代仍须实测。",
+      "sources": [
+        "https://www.proxifier.com/features.html",
+        "https://www.proxifier.com/docs/win-v4/install.html",
+        "https://www.proxifier.com/docs/win-v4/profiles.html",
+        "https://www.proxifier.com/"
+      ]
+    },
+    {
+      "name": "ProxyCap 当前后继 NetDetour 1.16",
+      "facts": "ProxyCap 官方首页已转向 NetDetour。NetDetour 有 XML/NPSX 和 npsxutil ApplySettings、MSI /quiet、USEWFP=1 与普通配置权限开关。官方明确仅 TCP，HTTP/3 UDP 可能绕过，需要先 Block UDP；WFP 模式仍标 experimental。30 天后付费。",
+      "assessment": "不是免费全协议更优后端；也不能把旧 ProxyCap 的 UDP 能力直接转写到当前 NetDetour。",
+      "sources": [
+        "https://www.proxycap.com/",
+        "https://www.netdetour.com/download/",
+        "https://www.netdetour.com/support/kb/configuring-HTTP-3-to-work-through-a-TCP-proxy/",
+        "https://www.netdetour.com/support/kb/what-is-wfp-mode-and-how-to-enable-it/",
+        "https://www.netdetour.com/support/kb/npsxutil-command-line-tool/",
+        "https://www.netdetour.com/support/kb/configurable-installer-properties/"
+      ]
+    },
+    {
+      "name": "NetFilter SDK / SocksRedirector / Netch",
+      "facts": "有实际 WFP TCP/UDP 重定向 SDK，但官方 demo 存在连接/UDP socket 数量限制；当前 Standard/Full 驱动文档和订购页明确提供的驱动需自行签名。SocksRedirector 是其示例包装，开源包装不解除底层限制。Netch 官方当前无可用 release 列表且 README 写准备2.0、清理1.0；不能用随机旧驱动宣称已完成现代系统签名与不限量验收。",
+      "assessment": "SDK 路线有能力基础，但重开授权/签名/版本适配工程，不符合现在不自研驱动和快速收尾；不优先。",
+      "sources": [
+        "https://www.netfiltersdk.com/download.html",
+        "https://netfiltersdk.com/buy_now.html",
+        "https://netfiltersdk.com/help/nfsdk_wfp/installation.html",
+        "https://github.com/dyhkwong/SocksRedirector",
+        "https://github.com/netchx/netch"
+      ]
+    },
+    {
+      "name": "Sandboxie Plus 支持证书＋Advanced 网络功能",
+      "facts": "已有 per-sandbox WFP、进程树/文件隔离；官方代理注入只描述受支持 Winsock TCP，DNS过滤与注入受证书/Advanced gate。免费长期提醒在项目已排除。",
+      "assessment": "结构上更接近 Linux 的独立 box 与进程树，但需改变免费要求，也不是任意 UDP 全覆盖；不自动重启已被用户排除路线。",
+      "sources": [
+        "https://sandboxie-plus.com/plus-features/",
+        "https://sandboxie-plus.com/feature-comparison/"
+      ]
+    },
+    {
+      "name": "AppContainer/LPAC＋Job＋持久 WFP",
+      "facts": "官方存在独立应用 SID、网络 capability 和访问控制；可为明确身份建立持续拒绝。但这些原语不会把任意 Winsock TCP/UDP 连接自动转成 SOCKS。单加 Job 没有网络规则，路径规则不是实例 SID，继续仍需要成熟重定向后端和逐应用 GUI/COM/文件兼容验证。",
+      "assessment": "可作为未来隔离增强研究，不是当前可直接替换的完整一键产品；没有完成透明链路前不投入迁移。",
+      "sources": [
+        "https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation",
+        "https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer",
+        "https://learn.microsoft.com/en-us/windows/win32/fwp/application-layer-enforcement--ale-",
+        "https://learn.microsoft.com/en-us/windows/win32/fwp/object-management"
+      ]
+    },
+    {
+      "name": "Windows network compartment 单独使用",
+      "facts": "SetCurrentThreadCompartmentId 官方写明 Reserved for future use. Do not use；不是支持的任意 GUI 进程 netns 启动接口。",
+      "assessment": "不以未受支持接口重开原生隔离路线。",
+      "source": "https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-setcurrentthreadcompartmentid"
+    },
+    {
+      "name": "Windows Sandbox / 独立 Windows VM",
+      "facts": "Hypervisor 独立内核和网络更接近隔离目标，能运行 Windows GUI；Sandbox 默认最大4GB、默认交换机与联网、关闭丢弃状态，不包含宿主已安装软件，Home 不支持，当前不支持多实例并行。",
+      "assessment": "隔离强度更高，但要在 guest 部署应用并设计 guest 出口，无法保持任意宿主已安装 exe 原地、轻量、日常无感的同一体验；为新的产品范围。",
+      "sources": [
+        "https://learn.microsoft.com/en-us/windows/security/application-security/application-isolation/windows-sandbox/",
+        "https://learn.microsoft.com/en-us/windows/security/application-security/application-isolation/windows-sandbox/windows-sandbox-configure-using-wsb-file"
+      ]
+    },
+    {
+      "name": "WSL2＋WSLg＋既有 Linux 后端",
+      "facts": "WSLg 官方提供 Linux X11/Wayland GUI；可真正复用 Linux namespace 策略，但它运行 Linux 应用。",
+      "assessment": "不满足任意原生 Windows exe 要求。Wine 是额外兼容层，不能默认为宿主原生应用替代。",
+      "source": "https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps"
+    },
+    {
+      "name": "proxinject / 其他 WinDivert 包装",
+      "facts": "proxinject 有 PID/路径/exec/子进程注入，Apache-2.0，但最新发布仍 2022-12-09 的 v0.5.0-pre；审阅 hook 列表覆盖 connect/WSAConnect/ConnectEx/CreateProcess，SOCKS实现仅 CONNECT，未发现 UDP ASSOCIATE。wfp-divert 虽名称含 WFP，实际仍基于 WinDivert。",
+      "assessment": "用户态 hook 与同类 WinDivert 包装没有证明更强的持久隔离或现代任意 GUI 兼容；不据项目名字声称有成熟独立 WFP 后端。",
+      "sources": [
+        "https://github.com/PragmaTwice/proxinject",
+        "https://github.com/PragmaTwice/proxinject/releases/tag/v0.5.0-pre",
+        "https://github.com/PragmaTwice/proxinject/blob/b4b29ee8b0d26efe234e141f42f2703ad376dda2/src/injectee/hook.hpp",
+        "https://github.com/PragmaTwice/proxinject/blob/b4b29ee8b0d26efe234e141f42f2703ad376dda2/src/injectee/socks5.hpp",
+        "https://github.com/okatodev/wfp-divert"
+      ]
+    }
+  ],
+  "bounded_next_gate": {
+    "run_started": false,
+    "when_to_consider_proxybridge": "只有 ProxiFyre 产品验收出现具体不可接受故障，或精确路径是必须且不能接受包含语义，才用既有短测 fixture 复验 ProxyBridge；当前不分散产品化主线。",
+    "budget": "一次准备充分的短实验，执行阶段20分钟内、最多一次同轮环境修正；不启动数小时原生VM试错，不自研驱动。",
+    "mandatory_pass": [
+      "普通未提权原始 socket 应用向非回环目标发唯一标记，两个不同 exe 各获代理响应",
+      "Mihomo A/B 节点选择均正确，显式 SOCKS 仅为 fixture health",
+      "未选 exe 与相似但不相等路径保持独立直连正对照",
+      "普通用户控制官方服务，无逐次 UAC；停止与卸载只清理本轮拥有资源"
+    ],
+    "separate_observations": [
+      "UDP53 与39017 分开；loopback 与非loopback 分开",
+      "系统 DNS broker、原始 UDP、浏览器 DoH 分开，不把一种代理往返等同完整防泄漏",
+      "IPv6 必须先有外部直连正对照，再判透明代理；异名后代显式添加路径或如实显示不继承",
+      "Mihomo 停止和引擎停止分别观察，不把关闭应用的 watchdog 当内核 fail-closed"
+    ],
+    "stop": [
+      "核心透明 TCP/A-B/未选正对照不能在一次有效短测通过，则停止切换；不追加策略排列组合",
+      "若必须启用全机 TUN、要求应用原生代理或自研签名驱动，超出当前要求直接停止",
+      "若仅特定非核心能力不通过，记录边界并按用户当前放宽要求决定，不谎称严格隔离，也不为追求Linux完全对等无限研发"
+    ]
+  },
+  "actions": {
+    "new_native_runs": 0,
+    "ci_triggered": false,
+    "drivers_installed": false,
+    "product_files_modified": false,
+    "only_new_repository_file": "verification/windows-2026-10-16/proxybridge-alternatives-review.json"
+  }
+}
