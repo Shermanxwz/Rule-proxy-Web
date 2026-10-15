@@ -24,7 +24,11 @@ class WindowsVMUpdateSourceTests(unittest.TestCase):
         self.assertIn("RuleProxyCI-InstallOfficialUpdate", source)
         self.assertNotIn('/IgnoreCheck', source)
         self.assertNotIn('/Unsigned', source)
-        self.assertNotIn('Restart-Computer -Force', source)
+        self.assertEqual(source.count('Restart-Computer'), 1)
+        self.assertIn("Restart-Computer -Force -ErrorAction Stop", source)
+        self.assertIn("$state.phase = 'reboot_pending'", source)
+        self.assertIn('$state.reboot_count++', source)
+        self.assertIn("Write-UpdateWorkerEvent 'reboot_requested'", source)
         for command in ('Set-Net', 'New-NetFirewallRule', 'Set-DnsClient', 'Stop-Process', 'taskkill'):
             self.assertNotIn(command, source)
 

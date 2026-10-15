@@ -389,9 +389,10 @@ function Invoke-RuleProxyCIUpdate {
         $state.reboot_required = $true
         $state.reboot_count++
         Write-UpdateState $state
-        # This is the disposable test VM. Graceful restart, no process kill.
+        # Force-close logged-in session apps only on this disposable test VM;
+        # this completes the verified update without touching product systems.
         Write-UpdateWorkerEvent 'reboot_requested'
-        Restart-Computer -ErrorAction Stop
+        Restart-Computer -Force -ErrorAction Stop
         return 0
     } catch {
         $state.status, $state.completed, $state.reboot_required = 'failed', $false, $false
