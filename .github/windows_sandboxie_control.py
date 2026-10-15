@@ -35,7 +35,7 @@ CHROME_CONTROL_SHA256 = {
 }
 INSTALL_TIMEOUT = 600
 COMMAND_TIMEOUT = 120
-MAX_REPORT_BYTES = 32 * 1024
+MAX_REPORT_BYTES = 128 * 1024
 MAX_INPUT_BYTES = 8 * 1024 * 1024
 MAX_BUNDLE_FILE_BYTES = 512 * 1024 * 1024
 BOX_BASE = "RuleProxyNet"
@@ -75,6 +75,15 @@ def _json_write(path: Path, value):
         os.replace(temp, path)
     finally:
         temp.unlink(missing_ok=True)
+
+
+def _powershell_env(base=None):
+    # A pwsh 7 caller exports module paths incompatible with Windows PowerShell.
+    # These probes use only the built-in Windows modules.
+    env = dict(os.environ if base is None else base)
+    env["PSModulePath"] = str(Path(env.get("SystemRoot", r"C:\Windows")) /
+                              "System32/WindowsPowerShell/v1.0/Modules")
+    return env
 
 
 def _failure_frames(exc):
@@ -306,7 +315,7 @@ def _authenticode(path: Path):
               "ConvertTo-Json -Compress")
     completed = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, timeout=30, check=False, shell=False,
-                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), env=_powershell_env())
     if completed.returncode != 0 or len(completed.stdout) > 8192:
         raise RuntimeError("installed file signature query failed")
     value = json.loads(completed.stdout.decode("utf-8-sig"))
@@ -344,6 +353,8 @@ def _config_text(proxy_port: int):
 
 
 def _run(argv, timeout=COMMAND_TIMEOUT, *, capture=True, env=None):
+    if argv and Path(argv[0]).name.lower() == "powershell.exe":
+        env = _powershell_env(env)
     return subprocess.run(argv, stdin=subprocess.DEVNULL,
                           stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
                           stderr=subprocess.DEVNULL, timeout=timeout, check=False, shell=False,
@@ -366,10 +377,16 @@ def _append_test_config(path: Path):
     if backup.exists():
         raise ValueError("Sandboxie configuration backup already exists")
     backup.write_bytes(original)
-    additions = _config_text(None).encode("ascii")
+    encoding = "utf-16-le" if original.startswith(b"\xff\xfe") else "utf-8"
+    if original.startswith(b"\xfe\xff"):
+        encoding = "utf-16-be"
+    text = original.decode(encoding if encoding.startswith("utf-16") else "latin-1") if original else ""
+    if f"[{BOX_BASE}]" in text or f"[{BOX_DNS}]" in text:
+        raise ValueError("Sandboxie test sections already exist")
+    additions = _config_text(None).encode(encoding)
     with path.open("ab") as stream:
-        if original and not original.endswith((b"\n", b"\r")):
-            stream.write(b"\r\n")
+        if original and not text.endswith(("\n", "\r")):
+            stream.write("\r\n".encode(encoding))
         stream.write(additions)
         stream.flush()
         os.fsync(stream.fileno())
@@ -531,6 +548,8 @@ def _run_worker(start: Path, python: Path, worker: Path, spec_path: Path,
     report_path = artifacts / f"{label}.json"
     argv = [str(python), "-I", "-S", "-X", "utf8", str(worker), "--worker", "--spec",
             str(spec_path), "--report", str(report_path), "--role", "parent"]
+    if box == BOX_BASE:
+        argv.append("--skip-native-dns")
     completed = _run_box(start, box, argv, timeout, env=env)
     if completed.returncode != 0:
         raise RuntimeError(f"boxed fixed worker failed for {label}")
@@ -543,12 +562,21 @@ def _run_outside_worker(python: Path, worker: Path, spec_path: Path,
                         artifacts: Path, label: str, *, env=None):
     report_path = artifacts / f"{label}.json"
     completed = _run([str(python), "-I", "-S", "-X", "utf8", str(worker), "--worker", "--spec",
-                      str(spec_path), "--report", str(report_path), "--role", "parent"], 120, env=env)
+                      str(spec_path), "--report", str(report_path), "--role", "parent", "--skip-native-dns"], 120, env=env)
     if completed.returncode != 0:
         raise RuntimeError(f"outside fixed worker failed for {label}")
     summary = _bounded_worker_summary(report_path)
     summary["worker_exit_code"] = int(completed.returncode)
     return summary
+
+
+def _dns_call_facts(calls):
+    fields = ("api", "qname", "requested_role", "api_returned", "entry_observed",
+              "worker_started", "worker_record_observed", "cleanup_proven", "return_code",
+              "timed_out", "worker_exit_observed", "worker_exit_code", "api_entry_observed")
+    return [{key: item[key] for key in fields if key in item and
+             (item[key] is None or type(item[key]) in (str, bool, int))}
+            for item in calls[:3] if isinstance(item, dict)]
 
 
 def _run_dns_box(start: Path, python: Path, dns_probe: Path, nonce: str,
@@ -566,7 +594,8 @@ def _run_dns_box(start: Path, python: Path, dns_probe: Path, nonce: str,
         if type(calls) is not list:
             raise ValueError("boxed native DNS probe report malformed")
         records[role] = {"report_observed": True, "probe_status": value.get("status"),
-                         "call_count": len(calls), "worker_cleanup_proven": value.get("cleanup_proven") is True,
+                         "call_count": len(calls), "calls": _dns_call_facts(calls),
+                         "worker_cleanup_proven": value.get("cleanup_proven") is True,
                          "dns_blocked_proven": value.get("dns_blocked_proven") is True,
                          "wire_observed": value.get("wire_observed")}
     return records
@@ -574,7 +603,7 @@ def _run_dns_box(start: Path, python: Path, dns_probe: Path, nonce: str,
 
 def _run_dns_outside(python: Path, dns_probe: Path, nonce: str,
                      artifacts: Path, role: str):
-    report_path = artifacts / f"dns-{role}.json"
+    report_path = artifacts / f"dns-{nonce[:8]}-{role}.json"
     completed = _run([str(python), "-I", "-S", "-X", "utf8", str(dns_probe),
                       "--nonce", nonce, "--role", role, "--report", str(report_path)], 90)
     if completed.returncode not in (0, 3):
@@ -584,7 +613,8 @@ def _run_dns_outside(python: Path, dns_probe: Path, nonce: str,
     if type(calls) is not list:
         raise ValueError("outside native DNS probe report malformed")
     return {"report_observed": True, "probe_status": value.get("status"),
-            "call_count": len(calls), "worker_cleanup_proven": value.get("cleanup_proven") is True,
+            "call_count": len(calls), "calls": _dns_call_facts(calls),
+                         "worker_cleanup_proven": value.get("cleanup_proven") is True,
             "dns_blocked_proven": value.get("dns_blocked_proven") is True,
             "wire_observed": value.get("wire_observed")}
 
@@ -818,6 +848,10 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
         fixture_obj.__enter__()
         spec_path = fixture_obj.write_spec()
         spec = _validate_fixture(_json_read(spec_path))
+        import secrets
+        dns_nonces = {BOX_BASE: secrets.token_hex(16), BOX_DNS: spec["nonce"]}
+        result["fixture_nonce"] = spec["nonce"]
+        result["dns_nonces"] = dns_nonces
         # Install the same dynamic, single-host/single-TCP-port exception in
         # both boxes. This ordinary-user /drv update is itself a simplicity gate.
         _add_proxy_allow(install_root, BOX_BASE, spec["proxy_port"])
@@ -836,12 +870,14 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
                                                         "outside-before", env=env)
         result["outside_native_dns_before"] = _run_dns_outside(
             python, dns_probe, spec["nonce"], artifacts, "outside_before")
+        result["outside_base_dns_before"] = _run_dns_outside(
+            python, dns_probe, dns_nonces[BOX_BASE], artifacts, "outside_before")
         summaries[BOX_BASE] = _run_worker(start, python, worker, spec_path, artifacts, BOX_BASE,
                                           "boxed-network", timeout=150, env=env)
         summaries[BOX_DNS] = _run_worker(start, python, worker, spec_path, artifacts, BOX_DNS,
                                          "boxed-dns-ipc", timeout=150, env=env)
         result["native_dns"] = {
-            BOX_BASE: _run_dns_box(start, python, dns_probe, spec["nonce"], artifacts, BOX_BASE, env=env),
+            BOX_BASE: _run_dns_box(start, python, dns_probe, dns_nonces[BOX_BASE], artifacts, BOX_BASE, env=env),
             BOX_DNS: _run_dns_box(start, python, dns_probe, spec["nonce"], artifacts, BOX_DNS, env=env),
         }
         result["gui"] = _run_gui(start, chrome, BOX_BASE, spec["origin_url"],
@@ -858,7 +894,7 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
         failure_report = artifacts / "proxy-failure.json"
         failed = _run_box(start, BOX_BASE,
             [str(python), "-I", "-S", "-X", "utf8", str(worker), "--worker", "--spec",
-             str(failure_spec_path), "--report", str(failure_report), "--role", "parent"], 150, env=env)
+             str(failure_spec_path), "--report", str(failure_report), "--role", "parent", "--skip-native-dns"], 150, env=env)
         if failed.returncode != 0:
             raise RuntimeError("proxy-down fail-closed worker failed before observations")
         failed_value = _bounded_worker_summary(failure_report)
@@ -880,6 +916,8 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
                                                        "outside-after", env=env)
         result["outside_native_dns_after"] = _run_dns_outside(
             python, dns_probe, spec["nonce"], artifacts, "outside_after")
+        result["outside_base_dns_after"] = _run_dns_outside(
+            python, dns_probe, dns_nonces[BOX_BASE], artifacts, "outside_after")
         snapshot = fixture_obj.snapshot()
         result["fixture_observations"] = {
             key: int(snapshot.get(key, 0)) for key in

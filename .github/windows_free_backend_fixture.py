@@ -378,21 +378,28 @@ def native_dns_probe(spec, role, directory):
         return {"status": "unavailable", "calls": [], "wire_privacy_proven": False, **error_facts(exc)}
 
 
-def worker(spec, role, report):
+def worker(spec, role, report, *, collect_native_dns=True):
     result = {"schema_version": 1, "role": role, "parent_pid": os.getpid(),
               "proxy_http": http_probe(spec), "proxy_socks": http_probe(spec, socks=True),
               "direct_tcp": direct_probe(spec), "acceptance_passed": False}
     for label in ("udp4", "udp6", "public_udp4", "public_udp6"):
         result[label] = udp_probe(spec, label, role)
-    result["native_dns"] = native_dns_probe(spec, role, Path(report).parent)
+    if collect_native_dns:
+        result["native_dns"] = native_dns_probe(spec, role, Path(report).parent)
+    else:
+        result["native_dns"] = {"status": "not_requested", "calls": [],
+                                "wire_privacy_proven": False}
     if role == "parent":
         child_report = Path(report).with_name("child-" + Path(report).name)
         spec_path = Path(report).with_name("worker-spec.json")
         write_json(spec_path, spec)
         try:
-            child = subprocess.run([sys.executable, "-I", "-S", str(Path(__file__).resolve()),
-                                    "--worker", "--spec", str(spec_path), "--report", str(child_report),
-                                    "--role", "child"], capture_output=True, timeout=60)
+            child_args = [sys.executable, "-I", "-S", str(Path(__file__).resolve()),
+                          "--worker", "--spec", str(spec_path), "--report", str(child_report),
+                          "--role", "child"]
+            if not collect_native_dns:
+                child_args.append("--skip-native-dns")
+            child = subprocess.run(child_args, capture_output=True, timeout=60)
             result["child"] = json.loads(child_report.read_text(encoding="ascii"))
             result["child_exit_code"] = child.returncode
         except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
@@ -407,6 +414,7 @@ def main(argv=None):
     parser.add_argument("--spec", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--role", choices=("parent", "child"), required=True)
+    parser.add_argument("--skip-native-dns", action="store_true")
     args = parser.parse_args(argv)
     if args.spec.stat().st_size > 16384:
         parser.error("fixed spec too large")
@@ -414,7 +422,7 @@ def main(argv=None):
     if (spec.get("schema_version") != 1 or len(spec.get("nonce", "")) != 32
             or any(char not in "0123456789abcdef" for char in spec["nonce"])):
         parser.error("invalid fixed spec")
-    worker(spec, args.role, args.report)
+    worker(spec, args.role, args.report, collect_native_dns=not args.skip_native_dns)
     return 0  # Observations are not an acceptance verdict.
 
 

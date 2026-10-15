@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -122,6 +123,21 @@ class WindowsSandboxieControlTests(unittest.TestCase):
         self.assertIn(r"ClosedIpcPath=\RPC Control\DNSResolver", config)
         self.assertNotIn("NetworkDnsFilter", config)
         self.assertNotIn("ProxyInjection", config)
+
+    def test_existing_unicode_ini_keeps_its_encoding_and_network_rules_are_readable(self):
+        for encoding, bom in (("utf-16-le", b"\xff\xfe"), ("utf-16-be", b"\xfe\xff")):
+            with self.subTest(encoding=encoding), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                target = root / "Sandboxie.ini"
+                original = bom + "[GlobalSettings]\r\n# existing configuration\r\n".encode(encoding)
+                target.write_bytes(original)
+                with mock.patch.dict(os.environ, {"ProgramData": str(root / "programdata")}):
+                    control._append_test_config(target)
+                output = target.read_bytes()
+                self.assertTrue(output.startswith(original))
+                decoded = output[len(bom):].decode(encoding)
+                self.assertIn("NetworkEnableWFP=y", decoded)
+                self.assertIn("NetworkAccess=*,Block", decoded)
 
     def test_dynamic_endpoint_rule_is_single_loopback_tcp_port(self):
         config = control._config_text(19452)

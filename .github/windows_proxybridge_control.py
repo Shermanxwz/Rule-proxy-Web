@@ -87,6 +87,15 @@ def _strict_object(pairs):
     return value
 
 
+def _powershell_env(base=None):
+    # A pwsh 7 caller exports module paths incompatible with Windows PowerShell.
+    # These probes use only the built-in Windows modules.
+    env = dict(os.environ if base is None else base)
+    env["PSModulePath"] = str(Path(env.get("SystemRoot", r"C:\Windows")) /
+                              "System32/WindowsPowerShell/v1.0/Modules")
+    return env
+
+
 def _failure_frames(exc):
     frames = []
     current = exc.__traceback__
@@ -281,7 +290,7 @@ def _authenticode(installer: Path) -> dict:
         raise RuntimeError("PowerShell is required to inspect the installer signature")
     script = "$p='" + str(installer).replace("'", "''") + "'; $s=Get-AuthenticodeSignature -LiteralPath $p; [ordered]@{status=[string]$s.Status; subject=[string]$s.SignerCertificate.Subject; thumbprint=[string]$s.SignerCertificate.Thumbprint}|ConvertTo-Json -Compress"
     result = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-Command", script],
-                            capture_output=True, text=True, timeout=20, check=False)
+                            capture_output=True, text=True, timeout=20, check=False, env=_powershell_env())
     if result.returncode != 0:
         raise RuntimeError("Authenticode signature inspection failed")
     try:
@@ -308,7 +317,7 @@ def _driver_signature_facts() -> dict:
               "if(Test-Path -LiteralPath $p -PathType Leaf){$status=[string](Get-AuthenticodeSignature -LiteralPath $p).Status}}}; "
               "ConvertTo-Json -InputObject ([ordered]@{name='WinDivert64';status=$status}) -Compress")
     result = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-Command", script],
-                            capture_output=True, text=True, timeout=30, check=False)
+                            capture_output=True, text=True, timeout=30, check=False, env=_powershell_env())
     if result.returncode != 0:
         raise RuntimeError("Installed driver signature inspection failed")
     try:
@@ -349,7 +358,7 @@ def _service_install_facts() -> dict:
               "else{[ordered]@{exists=$true;state=[string]$s.State;start_type=[string]$s.StartMode}}; "
               "ConvertTo-Json -InputObject $v -Compress")
     result = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-Command", script],
-                            capture_output=True, text=True, timeout=20, check=False)
+                            capture_output=True, text=True, timeout=20, check=False, env=_powershell_env())
     if result.returncode != 0:
         raise RuntimeError("Service installation inspection failed")
     try:
@@ -756,6 +765,8 @@ def _run_fixture_worker(bundle: Path, spec_path: Path, artifacts: Path,
     report = artifacts / (("selected-" if selected else "unselected-") + role + ".json")
     command = [str(executable), "-I", "-S", str(worker), "--worker", "--spec",
                str(spec_path), "--report", str(report), "--role", role]
+    if not selected:
+        command.append("--skip-native-dns")
     result = subprocess.run(command, timeout=120, capture_output=True, check=False,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if result.returncode != 0 or not report.is_file():
