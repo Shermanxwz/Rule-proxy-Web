@@ -28,8 +28,10 @@ function Test-PythonLaunch([string]$Stage, [bool]$Redirect) {
         $row.paths += @{ path = $path; attributes = [string]$item.Attributes;
             sddl = (Get-Acl -LiteralPath $path).Sddl }
     }
-    $row.python_size = (Get-Item -LiteralPath $python).Length
-    $row.python_sha256 = (Get-FileHash -LiteralPath $python -Algorithm SHA256).Hash.ToLowerInvariant()
+    $row.identity_sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $row.groups = @([Security.Principal.WindowsIdentity]::GetCurrent().Groups | ForEach-Object { $_.Value })
+    [IO.File]::WriteAllText((Join-Path $OutputDirectory ('runtime-acl-' + $Stage + '.json')),
+        (ConvertTo-Json -InputObject $row -Depth 10), $utf8)
     $process = New-Object Diagnostics.Process
     $process.StartInfo.FileName = $python
     $process.StartInfo.Arguments = '--version'
@@ -38,6 +40,9 @@ function Test-PythonLaunch([string]$Stage, [bool]$Redirect) {
     $process.StartInfo.RedirectStandardOutput = $Redirect
     $process.StartInfo.RedirectStandardError = $Redirect
     try {
+        $row.python_size = (Get-Item -LiteralPath $python).Length
+        try { $row.python_sha256 = (Get-FileHash -LiteralPath $python -Algorithm SHA256).Hash.ToLowerInvariant() }
+        catch { $row.file_read_error = $_.Exception.GetType().FullName }
         $row.started = $process.Start()
         if (-not $process.WaitForExit(15000)) {
             $process.Kill()
@@ -78,7 +83,8 @@ function Write-State([string]$Status, [string]$Code) {
 
 function Protect-Directories {
     New-Item -ItemType Directory -Path $results, $artifacts -Force | Out-Null
-    $null = & icacls.exe $root /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /T /C
+    & icacls.exe $root /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /T /C |
+        Select-Object -Last 4 | Write-Host
     if ($LASTEXITCODE -ne 0) { throw 'trusted_root_acl_failed' }
     foreach ($directory in @($results, $artifacts)) {
         $null = & icacls.exe $directory /grant '*S-1-5-32-545:(OI)(CI)M' /T /C
