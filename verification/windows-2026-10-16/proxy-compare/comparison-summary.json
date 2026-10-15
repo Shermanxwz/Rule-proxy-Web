@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "scope": "bounded disposable Windows Server 2025 x64 functional comparison",
+  "personal_use": true,
+  "tun_enabled": false,
+  "versions": {
+    "clew": "v0.10.0",
+    "proxifyre": "v2.6.4",
+    "mihomo": "v1.19.32"
+  },
+  "source_commit": "6546348fa80211ba274e8591b60448de71e66324",
+  "workflow_run_id": 38770720406,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38770720406",
+  "backends": {
+    "proxifyre": {
+      "core_tcp": {
+        "attempts": 28,
+        "proxy_responses": 28,
+        "passed": true
+      },
+      "native_curl": {
+        "attempts": 3,
+        "proxy_responses": 3
+      },
+      "switch_to_b": {
+        "attempts": 5,
+        "proxy_responses": 5
+      },
+      "child_routing": {
+        "same_image": {
+          "attempts": 1,
+          "proxy_marker_responses": 1,
+          "is_elevated": false,
+          "error": null
+        },
+        "different_image": {
+          "attempts": 1,
+          "proxy_marker_responses": 0,
+          "is_elevated": false,
+          "error": null
+        }
+      },
+      "udp_by_destination_port": {
+        "53": {
+          "attempts": 12,
+          "proxy_responses": 0,
+          "direct_responses": 12
+        },
+        "39017": {
+          "attempts": 6,
+          "proxy_responses": 6,
+          "direct_responses": 0
+        }
+      },
+      "ordinary_actor_elevation_verified": true,
+      "unselected_direct_positive_controls": true,
+      "fixture_health": {
+        "explicit_proxy_health_only": true,
+        "transparent_evidence": false,
+        "nodes": {
+          "A": true,
+          "B": true
+        },
+        "checks": {
+          "A": {
+            "tcp_http": true,
+            "udp_53": true,
+            "udp_39017": true
+          },
+          "B": {
+            "tcp_http": true,
+            "udp_53": true,
+            "udp_39017": true
+          }
+        },
+        "udp_destination_ports": [
+          53,
+          39017
+        ],
+        "proxy_generation": 1
+      },
+      "settings_verified": true,
+      "settings_unchanged": true,
+      "fixture_cleanup_completed": true,
+      "backend_stop": {
+        "stopped": true,
+        "owned_pid": 4228,
+        "exit_code": 3221225786,
+        "graceful_console_stop": true,
+        "driver_left_installed_in_disposable_runner": true
+      },
+      "process_tree_resource_snapshot": {
+        "process_count": 1,
+        "working_set_bytes": 45543424,
+        "private_bytes": 45711360,
+        "cpu_seconds": 0.40625,
+        "includes_driver_memory": false,
+        "includes_mihomo": false
+      },
+      "controlled_tcp_median_ms": 15.294,
+      "mihomo_down": {
+        "selected_direct_responses": 0,
+        "unselected_direct_responses": 1,
+        "attempts_each": 1
+      },
+      "backend_stopped_selected_direct_responses": 1
+    },
+    "clew": {
+      "core_tcp": {
+        "attempts": 28,
+        "proxy_responses": 28,
+        "passed": true
+      },
+      "native_curl": {
+        "attempts": 3,
+        "proxy_responses": 3
+      },
+      "switch_to_b": {
+        "attempts": 5,
+        "proxy_responses": 5
+      },
+      "child_routing": {
+        "same_image": {
+          "attempts": 1,
+          "proxy_marker_responses": 1,
+          "is_elevated": false,
+          "error": null
+        },
+        "different_image": {
+          "attempts": 1,
+          "proxy_marker_responses": 1,
+          "is_elevated": false,
+          "error": null
+        }
+      },
+      "udp_by_destination_port": {
+        "53": {
+          "attempts": 12,
+          "proxy_responses": 10,
+          "direct_responses": 2
+        },
+        "39017": {
+          "attempts": 6,
+          "proxy_responses": 6,
+          "direct_responses": 0
+        }
+      },
+      "ordinary_actor_elevation_verified": true,
+      "unselected_direct_positive_controls": true,
+      "fixture_health": {
+        "explicit_proxy_health_only": true,
+        "transparent_evidence": false,
+        "nodes": {
+          "A": true,
+          "B": true
+        },
+        "checks": {
+          "A": {
+            "tcp_http": true,
+            "udp_53": true,
+            "udp_39017": true
+          },
+          "B": {
+            "tcp_http": true,
+            "udp_53": true,
+            "udp_39017": true
+          }
+        },
+        "udp_destination_ports": [
+          53,
+          39017
+        ],
+        "proxy_generation": 1
+      },
+      "settings_verified": true,
+      "settings_unchanged": true,
+      "fixture_cleanup_completed": true,
+      "backend_stop": {
+        "exited": true,
+        "api_closed": true,
+        "forced": false,
+        "graceful_exit_command_windows": 4,
+        "errors": [],
+        "cleanup_proven": true,
+        "program_scoped_firewall_cleanup": {
+          "remaining_count": 0,
+          "owned_rule_count": 2,
+          "cleanup_proven": true
+        },
+        "global_dns_change_requested": false,
+        "driver_uninstalled": false
+      },
+      "process_tree_resource_snapshot": {
+        "process_count": 1,
+        "working_set_bytes": 31862784,
+        "private_bytes": 18558976,
+        "cpu_seconds": 0.28125,
+        "includes_driver_memory": false,
+        "includes_mihomo": false
+      },
+      "controlled_tcp_median_ms": 14.6325,
+      "mihomo_down": {
+        "selected_direct_responses": 0,
+        "unselected_direct_responses": 1,
+        "attempts_each": 1
+      },
+      "backend_stopped_selected_direct_responses": 1
+    }
+  },
+  "limitations": [
+    "Windows 11 native desktop and target GUI application compatibility were not tested",
+    "IPv6 runtime positive controls were unreachable; neither backend receives an IPv6 runtime pass",
+    "Proxy upstreams are controlled synthetic HTTP and DNS responders; no real Internet proxy exit IP was measured",
+    "Raw application DNS UDP probes do not validate the Windows system DNS broker or comprehensive DNS privacy",
+    "Failure-mode probes have one request each, not a persistent selective fail-closed guarantee",
+    "No product backend or existing Web panel implementation has been switched by this trial"
+  ],
+  "recommendation": {
+    "functional_project_fit": "Clew offers working HTTP control and dynamic child-tree inheritance, making it the stronger panel-integration candidate within its IPv4 and fail-direct limits",
+    "fallback": "ProxiFyre is a working alternative for executable-wide rules and offers documented IPv6 support, which remains unverified here",
+    "not_a_universal_winner": true,
+    "speed_winner": "not established; synthetic one-run request medians are too close and do not measure real-node performance",
+    "durability": "Clew emitted one startup configuration rename access-denied message; later API updates worked in memory, but restart persistence was not tested"
+  },
+  "prior_trials": [
+    {
+      "run_id": 38768351452,
+      "scope": "initial harness",
+      "issues": [
+        "Clew signature helper inherited incompatible PowerShell module search path",
+        "ProxiFyre runtime reached IPv6 negative control then summary bool/None arithmetic failed"
+      ]
+    },
+    {
+      "run_id": 38769129526,
+      "scope": "first complete functional comparison",
+      "observations": [
+        "ProxiFyre core TCP and node selection passed",
+        "Clew rules matched but relay accepted zero connections without explicit inbound authorization"
+      ],
+      "status_note": "Workflow diagnostic completion was not a product acceptance pass"
+    },
+    {
+      "run_id": 38770295256,
+      "scope": "UDP port distinction plus intended inbound control",
+      "observations": [
+        "ProxiFyre core TCP and non-DNS UDP passed",
+        "Clew inbound-control helper failed before actor stage due PowerShell JSON array handling"
+      ]
+    },
+    {
+      "run_id": 38770720406,
+      "scope": "final comparable run with valid scoped inbound control and all six fixture health checks",
+      "both_core_tcp_passed": true
+    }
+  ]
+}

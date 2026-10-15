@@ -1,0 +1,36 @@
+{
+  "workflow_run_id": 38770720406,
+  "source_commit": "6546348fa80211ba274e8591b60448de71e66324",
+  "artifact_id": 11991301938,
+  "github_original_artifact_digest": "sha256:fac35ab16cc487fb96bf4f29506dfc5781e27d164c02b713e26d89afb5788b61",
+  "github_artifact_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38770720406/artifacts/11991301938",
+  "downloaded_archive_sha256": "fac35ab16cc487fb96bf4f29506dfc5781e27d164c02b713e26d89afb5788b61",
+  "downloaded_archive_hash_scope": "SHA256 of MCP-returned archive bytes; kept separate from GitHub original artifact digest",
+  "raw_comparison_report_sha256": "88669d7ee7eb512f2c28e0f6a630331464094d306ce3c67e444ddcf53e2a2f77",
+  "raw_comparison_report_bytes": 1387252,
+  "observations_sha256": "a1c9b95a0185076b43f6748d43ee7cb7f93d5ca7195bc03a99ad5351a10c3231",
+  "observations_bytes": 87576,
+  "normalization": "Parsed raw JSON, removed only duplicated receiver_before/receiver_after phase snapshots, and serialized compactly. Per-phase matching receiver transactions and complete receiver_final are retained.",
+  "retained_files": [
+    {
+      "path": "observations.json",
+      "bytes": 87576,
+      "sha256": "a1c9b95a0185076b43f6748d43ee7cb7f93d5ca7195bc03a99ad5351a10c3231"
+    },
+    {
+      "path": "proxifyre-engine-1.log",
+      "bytes": 1726,
+      "sha256": "4391e72395973b31882f40287dd4b6ad6b3eb84867b9c6a069eb4c32044cc296"
+    },
+    {
+      "path": "proxifyre-engine-2.log",
+      "bytes": 1952,
+      "sha256": "5456968d3366c4a880e3b403a171ec0b226e200ddb424693503571295c1c2b02"
+    },
+    {
+      "path": "proxifyre-prepare.json",
+      "bytes": 3265,
+      "sha256": "20e865c46eb36724f4bc737eb3942819ccb60575fd3d7b447031df70ea464564"
+    }
+  ]
+}

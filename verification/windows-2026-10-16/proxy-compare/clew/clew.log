@@ -1,0 +1,288 @@
+2026-10-15 16:39:16.885207 [I] === Clew 0.10.0 (three-layer refactor) ===
+2026-10-15 16:39:16.885524 [I] Running with administrator privileges
+2026-10-15 16:39:16.892904 [I] [api] serving static files from C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64/frontend/dist
+2026-10-15 16:39:16.893445 [I] Migrated proxy config: 1 groups created
+2026-10-15 16:39:16.894942 [E] Failed to rename C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json.tmp -> C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json: Access is denied.
+2026-10-15 16:39:16.895157 [I] Config loaded from C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:16.895275 [I] io_context with 2 worker threads
+2026-10-15 16:39:16.895285 [I] Loaded 0 auto rules
+2026-10-15 16:39:16.895286 [I] Proxy groups synced: 1 groups
+2026-10-15 16:39:16.895885 [I] [ACCEPTOR] Listening on port 52643
+2026-10-15 16:39:16.896025 [I] Acceptor listening on port 52643
+2026-10-15 16:39:16.896519 [I] [SYN-PARK] enabled: watchdog=20ms pool=256
+2026-10-15 16:39:16.898703 [I] Icon cache initialized (GDI+ OK, PNG encoder found)
+2026-10-15 16:39:16.898710 [I] Launching WebView2 GUI...
+2026-10-15 16:39:16.898861 [I] WebView2 runtime version: 154.0.4258.62
+2026-10-15 16:39:16.908454 [I] WebView window created (1200x800, frameless, tray-only)
+2026-10-15 16:39:16.908551 [I] [api] HTTP API server listening on 127.0.0.1:18080
+2026-10-15 16:39:17.012995 [I] HTTP API: http://127.0.0.1:18080/
+2026-10-15 16:39:17.013007 [I] [TreeMgr] Starting (ETW+capture_state, no NtQuery)...
+2026-10-15 16:39:17.013336 [I] [etw] consumer started (provider=Microsoft-Windows-Kernel-Process, filter={1,2,15})
+2026-10-15 16:39:17.014181 [I] [etw] CAPTURE_STATE issued
+2026-10-15 16:39:17.014364 [I] Initial auto-rule scan complete
+2026-10-15 16:39:17.020513 [I] [WD-SOCKET] Opened (SNIFF+RECV_ONLY, IOCP=true, parking=true)
+2026-10-15 16:39:17.020521 [I] WinDivert SOCKET layer started
+2026-10-15 16:39:17.024405 [I] [WD-NETWORK] Opened (Reflection, filter: outbound and tcp and !loopback)
+2026-10-15 16:39:17.024432 [I] [SYN-PARK] injector started: watchdog=20ms pool=256 ttl=10ms
+2026-10-15 16:39:17.024499 [I] [WD-NETWORK] 2 worker threads started
+2026-10-15 16:39:17.024500 [I] WinDivert NETWORK layer started (2 workers)
+2026-10-15 16:39:17.027417 [I] [WD-SOCKET-UDP] Opened (SNIFF+RECV_ONLY, IOCP=true)
+2026-10-15 16:39:17.027425 [I] WinDivert UDP SOCKET layer started
+2026-10-15 16:39:17.028158 [I] [WD-NET-UDP] Opened (filter: udp and outbound and !loopback)
+2026-10-15 16:39:17.028212 [I] [WD-NET-UDP] 2 workers started
+2026-10-15 16:39:17.028212 [I] WinDivert UDP NETWORK layer started
+2026-10-15 16:39:17.028299 [I] [UDP-RELAY] Listening on port 19999
+2026-10-15 16:39:17.028324 [I] UDP Relay started on port 19999
+2026-10-15 16:39:17.028324 [I] Clew is ready.
+2026-10-15 16:39:17.386032 [I] [api] GET /api/stats -> 200 (84us)
+2026-10-15 16:39:17.431888 [I] [api] GET /api/config -> 200 (8us)
+2026-10-15 16:39:20.025329 [I] Config saved to C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:20.025670 [I] Proxy groups synced: 2 groups
+2026-10-15 16:39:20.025681 [I] [api] POST /api/proxy-groups -> 200 (1021us)
+2026-10-15 16:39:20.080233 [I] Config saved to C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:20.080625 [I] Proxy groups synced: 3 groups
+2026-10-15 16:39:20.080634 [I] [api] POST /api/proxy-groups -> 200 (938us)
+2026-10-15 16:39:20.127415 [I] Config saved to C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:20.127827 [I] Proxy groups synced: 3 groups
+2026-10-15 16:39:20.127834 [I] [api] POST /api/auto-rules -> 200 (992us)
+2026-10-15 16:39:20.175175 [I] Config saved to C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:20.175585 [I] Proxy groups synced: 3 groups
+2026-10-15 16:39:20.175592 [I] [api] POST /api/auto-rules -> 200 (984us)
+2026-10-15 16:39:20.209780 [I] Config saved to C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:20.210183 [I] Proxy groups synced: 3 groups
+2026-10-15 16:39:20.210190 [I] [api] POST /api/auto-rules -> 200 (944us)
+2026-10-15 16:39:20.243114 [I] [api] GET /api/auto-rules -> 200 (73us)
+2026-10-15 16:39:20.299002 [I] [api] GET /api/stats -> 200 (55us)
+2026-10-15 16:39:22.029028 [I] [TreeMgr] Rundown grace: 2 orphans flushed to root
+2026-10-15 16:39:43.926533 [I] [TreeMgr] Sync-resolved PID=5188 name='ruleproxy_unselected.exe' chain=1 proxied=false in 119us
+2026-10-15 16:39:44.313190 [I] [RULE] Auto-matched PID=4948 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:44.313193 [I] [TreeMgr] Auto-matched: PID=4948 PSN=590 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:44.313194 [I] [TreeMgr] Sync-resolved PID=4948 name='ruleproxy_app_a.exe' chain=1 proxied=true in 121us
+2026-10-15 16:39:44.314097 [I] [RELAY] OK port=52666 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.333762 [I] [RELAY] OK port=52669 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.335232 [I] [RELAY] OK port=52672 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.336653 [I] [RELAY] OK port=52675 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.337926 [I] [RELAY] OK port=52678 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.349140 [I] [RELAY] OK port=52681 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.350502 [I] [RELAY] OK port=52684 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.365202 [I] [RELAY] OK port=52687 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.366534 [I] [RELAY] OK port=52690 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.380784 [I] [RELAY] OK port=52693 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.579087 [I] [RULE] Auto-matched PID=9980 (ruleproxy_app_b.exe) \xE2\x86\x92 rule 'ruleproxy_compare_1' group=1
+2026-10-15 16:39:44.579089 [I] [TreeMgr] Auto-matched: PID=9980 PSN=592 rule='ruleproxy_compare_1' group=1
+2026-10-15 16:39:44.579091 [I] [TreeMgr] Sync-resolved PID=9980 name='ruleproxy_app_b.exe' chain=1 proxied=true in 110us
+2026-10-15 16:39:44.579737 [I] [RELAY] OK port=52696 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.601645 [I] [RELAY] OK port=52699 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.617456 [I] [RELAY] OK port=52702 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.618760 [I] [RELAY] OK port=52705 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.620023 [I] [RELAY] OK port=52708 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.682324 [I] [RULE] Tree-inherited PID=4968 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:44.682325 [I] [TreeMgr] Auto-matched: PID=4968 PSN=591 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:44.860729 [I] [RULE] Auto-matched PID=6320 (curl.exe) \xE2\x86\x92 rule 'ruleproxy_compare_2' group=1
+2026-10-15 16:39:44.860730 [I] [TreeMgr] Auto-matched: PID=6320 PSN=596 rule='ruleproxy_compare_2' group=1
+2026-10-15 16:39:44.860732 [I] [TreeMgr] Sync-resolved PID=6320 name='curl.exe' chain=2 proxied=true in 138us
+2026-10-15 16:39:44.861384 [I] [RELAY] OK port=52711 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.870495 [I] [RULE] Auto-matched PID=2752 (curl.exe) \xE2\x86\x92 rule 'ruleproxy_compare_2' group=1
+2026-10-15 16:39:44.870496 [I] [TreeMgr] Auto-matched: PID=2752 PSN=597 rule='ruleproxy_compare_2' group=1
+2026-10-15 16:39:44.870497 [I] [TreeMgr] Sync-resolved PID=2752 name='curl.exe' chain=1 proxied=true in 85us
+2026-10-15 16:39:44.871018 [I] [RELAY] OK port=52714 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:44.879175 [I] [RULE] Auto-matched PID=3692 (curl.exe) \xE2\x86\x92 rule 'ruleproxy_compare_2' group=1
+2026-10-15 16:39:44.879176 [I] [TreeMgr] Auto-matched: PID=3692 PSN=598 rule='ruleproxy_compare_2' group=1
+2026-10-15 16:39:44.879177 [I] [TreeMgr] Sync-resolved PID=3692 name='curl.exe' chain=1 proxied=true in 85us
+2026-10-15 16:39:44.879664 [I] [RELAY] OK port=52717 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:45.122861 [I] [RULE] Auto-matched PID=6492 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.122863 [I] [TreeMgr] Auto-matched: PID=6492 PSN=599 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.122865 [I] [TreeMgr] Sync-resolved PID=6492 name='ruleproxy_app_a.exe' chain=1 proxied=true in 124us
+2026-10-15 16:39:45.123567 [I] [RELAY] OK port=52720 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:45.326786 [I] [RULE] Auto-matched PID=6300 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.326788 [I] [TreeMgr] Auto-matched: PID=6300 PSN=601 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.326789 [I] [TreeMgr] Sync-resolved PID=6300 name='ruleproxy_app_a.exe' chain=1 proxied=true in 114us
+2026-10-15 16:39:45.327647 [I] [RELAY] OK port=52723 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:45.523488 [I] [RULE] Auto-matched PID=3880 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.523490 [I] [TreeMgr] Auto-matched: PID=3880 PSN=603 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.523492 [I] [TreeMgr] Sync-resolved PID=3880 name='ruleproxy_app_a.exe' chain=1 proxied=true in 138us
+2026-10-15 16:39:45.524143 [I] [RELAY] OK port=52726 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:45.682872 [I] [RULE] Tree-inherited PID=10032 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_1' group=1
+2026-10-15 16:39:45.682874 [I] [TreeMgr] Auto-matched: PID=10032 PSN=593 rule='ruleproxy_compare_1' group=1
+2026-10-15 16:39:45.682888 [I] [RULE] Tree-inherited PID=4560 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.682889 [I] [TreeMgr] Auto-matched: PID=4560 PSN=600 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.682893 [I] [RULE] Tree-inherited PID=3872 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.682893 [I] [TreeMgr] Auto-matched: PID=3872 PSN=602 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.682911 [I] [RULE] Tree-inherited PID=2324 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.682911 [I] [TreeMgr] Auto-matched: PID=2324 PSN=604 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.739635 [I] [RULE] Auto-matched PID=2444 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.739637 [I] [TreeMgr] Auto-matched: PID=2444 PSN=605 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.739639 [I] [TreeMgr] Sync-resolved PID=2444 name='ruleproxy_app_a.exe' chain=1 proxied=true in 116us
+2026-10-15 16:39:45.740284 [I] [RELAY] OK port=52729 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:45.961184 [I] [RULE] Auto-matched PID=2332 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.961186 [I] [TreeMgr] Auto-matched: PID=2332 PSN=607 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:45.961187 [I] [TreeMgr] Sync-resolved PID=2332 name='ruleproxy_app_a.exe' chain=1 proxied=true in 130us
+2026-10-15 16:39:45.961835 [I] [RELAY] OK port=52732 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:46.157411 [I] [RULE] Auto-matched PID=6164 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.157413 [I] [TreeMgr] Auto-matched: PID=6164 PSN=609 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.157414 [I] [TreeMgr] Sync-resolved PID=6164 name='ruleproxy_app_a.exe' chain=1 proxied=true in 131us
+2026-10-15 16:39:46.158105 [I] [RELAY] OK port=52735 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:46.269166 [I] [RULE] Auto-matched PID=1904 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.269167 [I] [TreeMgr] Auto-matched: PID=1904 PSN=611 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.269168 [I] [TreeMgr] Sync-resolved PID=1904 name='ruleproxy_app_a.exe' chain=1 proxied=true in 108us
+2026-10-15 16:39:46.269795 [I] [RELAY] OK port=52738 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:46.407052 [I] [RULE] Tree-inherited PID=9208 (ruleproxy_child_other.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.407056 [I] [TreeMgr] Auto-matched: PID=9208 PSN=612 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.407057 [I] [TreeMgr] Sync-resolved PID=9208 name='ruleproxy_child_other.exe' chain=1 proxied=true in 110us
+2026-10-15 16:39:46.407762 [I] [RELAY] OK port=52741 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:46.614735 [I] [RULE] Auto-matched PID=8908 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.614736 [I] [TreeMgr] Auto-matched: PID=8908 PSN=613 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.614738 [I] [TreeMgr] Sync-resolved PID=8908 name='ruleproxy_app_a.exe' chain=1 proxied=true in 117us
+2026-10-15 16:39:46.646892 [I] [SOCKS5-UDP] Session established: local=0.0.0.0:59814 relay=127.0.0.1:52622
+2026-10-15 16:39:46.646906 [I] [SOCKS5-MGR] Session created for port=59813 group=1 (total=1)
+2026-10-15 16:39:46.646943 [I] [UDP-RELAY] Downstream started for port=59813
+2026-10-15 16:39:46.647047 [I] [SOCKS5-UDP] async_send 104 bytes from local:59814 -> 127.0.0.1:52622
+2026-10-15 16:39:46.647049 [I] [UDP-RELAY] UP app_port=59813 dst_port=53 104 bytes sent=true
+2026-10-15 16:39:46.648318 [I] [UDP-RELAY] DOWN port=59813 110 bytes
+2026-10-15 16:39:46.648995 [I] [SOCKS5-UDP] Session established: local=0.0.0.0:59818 relay=127.0.0.1:52622
+2026-10-15 16:39:46.649003 [I] [SOCKS5-MGR] Session created for port=59817 group=1 (total=2)
+2026-10-15 16:39:46.649013 [I] [UDP-RELAY] Downstream started for port=59817
+2026-10-15 16:39:46.649101 [I] [SOCKS5-UDP] async_send 104 bytes from local:59818 -> 127.0.0.1:52622
+2026-10-15 16:39:46.649103 [I] [UDP-RELAY] UP app_port=59817 dst_port=53 104 bytes sent=true
+2026-10-15 16:39:46.649934 [I] [UDP-RELAY] DOWN port=59817 110 bytes
+2026-10-15 16:39:46.694903 [I] [RULE] Tree-inherited PID=5260 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.694904 [I] [TreeMgr] Auto-matched: PID=5260 PSN=606 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.694906 [I] [RULE] Tree-inherited PID=8944 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.694906 [I] [TreeMgr] Auto-matched: PID=8944 PSN=608 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.694921 [I] [RULE] Tree-inherited PID=4304 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.694922 [I] [TreeMgr] Auto-matched: PID=4304 PSN=610 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.846990 [I] [RULE] Auto-matched PID=2020 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.846992 [I] [TreeMgr] Auto-matched: PID=2020 PSN=615 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:46.846993 [I] [TreeMgr] Sync-resolved PID=2020 name='ruleproxy_app_a.exe' chain=1 proxied=true in 111us
+2026-10-15 16:39:46.847634 [I] [SOCKS5-UDP] Session established: local=0.0.0.0:59822 relay=127.0.0.1:52622
+2026-10-15 16:39:46.847649 [I] [SOCKS5-MGR] Session created for port=59821 group=1 (total=3)
+2026-10-15 16:39:46.847660 [I] [UDP-RELAY] Downstream started for port=59821
+2026-10-15 16:39:46.847762 [I] [SOCKS5-UDP] async_send 104 bytes from local:59822 -> 127.0.0.1:52622
+2026-10-15 16:39:46.847764 [I] [UDP-RELAY] UP app_port=59821 dst_port=53 104 bytes sent=true
+2026-10-15 16:39:46.849172 [I] [UDP-RELAY] DOWN port=59821 110 bytes
+2026-10-15 16:39:46.849992 [I] [SOCKS5-UDP] Session established: local=0.0.0.0:59826 relay=127.0.0.1:52622
+2026-10-15 16:39:46.850002 [I] [SOCKS5-MGR] Session created for port=59825 group=1 (total=4)
+2026-10-15 16:39:46.850010 [I] [UDP-RELAY] Downstream started for port=59825
+2026-10-15 16:39:46.850120 [I] [SOCKS5-UDP] async_send 104 bytes from local:59826 -> 127.0.0.1:52622
+2026-10-15 16:39:46.850122 [I] [UDP-RELAY] UP app_port=59825 dst_port=53 104 bytes sent=true
+2026-10-15 16:39:46.851039 [I] [UDP-RELAY] DOWN port=59825 110 bytes
+2026-10-15 16:39:46.851643 [I] [SOCKS5-UDP] Session established: local=0.0.0.0:59830 relay=127.0.0.1:52622
+2026-10-15 16:39:46.851650 [I] [SOCKS5-MGR] Session created for port=59829 group=1 (total=5)
+2026-10-15 16:39:46.851657 [I] [UDP-RELAY] Downstream started for port=59829
+2026-10-15 16:39:46.851742 [I] [SOCKS5-UDP] async_send 104 bytes from local:59830 -> 127.0.0.1:52622
+2026-10-15 16:39:46.851743 [I] [UDP-RELAY] UP app_port=59829 dst_port=53 104 bytes sent=true
+2026-10-15 16:39:46.852583 [I] [UDP-RELAY] DOWN port=59829 110 bytes
+2026-10-15 16:39:47.034372 [I] [RULE] Auto-matched PID=4152 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:47.034374 [I] [TreeMgr] Auto-matched: PID=4152 PSN=617 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:47.034375 [I] [TreeMgr] Sync-resolved PID=4152 name='ruleproxy_app_a.exe' chain=1 proxied=true in 156us
+2026-10-15 16:39:47.080310 [I] [SOCKS5-UDP] Session established: local=0.0.0.0:59834 relay=127.0.0.1:52622
+2026-10-15 16:39:47.080327 [I] [SOCKS5-MGR] Session created for port=59833 group=1 (total=6)
+2026-10-15 16:39:47.080365 [I] [UDP-RELAY] Downstream started for port=59833
+2026-10-15 16:39:47.080465 [I] [SOCKS5-UDP] async_send 111 bytes from local:59834 -> 127.0.0.1:52622
+2026-10-15 16:39:47.080467 [I] [UDP-RELAY] UP app_port=59833 dst_port=39017 111 bytes sent=true
+2026-10-15 16:39:47.081818 [I] [UDP-RELAY] DOWN port=59833 117 bytes
+2026-10-15 16:39:47.081991 [I] [SOCKS5-UDP] async_send 108 bytes from local:59834 -> 127.0.0.1:52622
+2026-10-15 16:39:47.081992 [I] [UDP-RELAY] UP app_port=59833 dst_port=53 108 bytes sent=true
+2026-10-15 16:39:47.082148 [I] [UDP-RELAY] DOWN port=59833 114 bytes
+2026-10-15 16:39:47.082299 [I] [SOCKS5-UDP] async_send 111 bytes from local:59834 -> 127.0.0.1:52622
+2026-10-15 16:39:47.082300 [I] [UDP-RELAY] UP app_port=59833 dst_port=39017 111 bytes sent=true
+2026-10-15 16:39:47.082436 [I] [UDP-RELAY] DOWN port=59833 117 bytes
+2026-10-15 16:39:47.082576 [I] [SOCKS5-UDP] async_send 108 bytes from local:59834 -> 127.0.0.1:52622
+2026-10-15 16:39:47.082577 [I] [UDP-RELAY] UP app_port=59833 dst_port=53 108 bytes sent=true
+2026-10-15 16:39:47.082707 [I] [UDP-RELAY] DOWN port=59833 114 bytes
+2026-10-15 16:39:47.082829 [I] [SOCKS5-UDP] async_send 111 bytes from local:59834 -> 127.0.0.1:52622
+2026-10-15 16:39:47.082829 [I] [UDP-RELAY] UP app_port=59833 dst_port=39017 111 bytes sent=true
+2026-10-15 16:39:47.082949 [I] [UDP-RELAY] DOWN port=59833 117 bytes
+2026-10-15 16:39:47.283399 [I] [RULE] Auto-matched PID=9812 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=1
+2026-10-15 16:39:47.283401 [I] [TreeMgr] Auto-matched: PID=9812 PSN=619 rule='ruleproxy_compare_0' group=1
+2026-10-15 16:39:47.283403 [I] [TreeMgr] Sync-resolved PID=9812 name='ruleproxy_app_a.exe' chain=1 proxied=true in 129us
+2026-10-15 16:39:47.284124 [I] [SOCKS5-UDP] Session established: local=0.0.0.0:59838 relay=127.0.0.1:52622
+2026-10-15 16:39:47.284142 [I] [SOCKS5-MGR] Session created for port=59837 group=1 (total=7)
+2026-10-15 16:39:47.284158 [I] [UDP-RELAY] Downstream started for port=59837
+2026-10-15 16:39:47.284267 [I] [SOCKS5-UDP] async_send 108 bytes from local:59838 -> 127.0.0.1:52622
+2026-10-15 16:39:47.284268 [I] [UDP-RELAY] UP app_port=59837 dst_port=53 108 bytes sent=true
+2026-10-15 16:39:47.285501 [I] [UDP-RELAY] DOWN port=59837 114 bytes
+2026-10-15 16:39:47.285729 [I] [SOCKS5-UDP] async_send 111 bytes from local:59838 -> 127.0.0.1:52622
+2026-10-15 16:39:47.285731 [I] [UDP-RELAY] UP app_port=59837 dst_port=39017 111 bytes sent=true
+2026-10-15 16:39:47.285903 [I] [UDP-RELAY] DOWN port=59837 117 bytes
+2026-10-15 16:39:47.286066 [I] [SOCKS5-UDP] async_send 108 bytes from local:59838 -> 127.0.0.1:52622
+2026-10-15 16:39:47.286067 [I] [UDP-RELAY] UP app_port=59837 dst_port=53 108 bytes sent=true
+2026-10-15 16:39:47.286196 [I] [UDP-RELAY] DOWN port=59837 114 bytes
+2026-10-15 16:39:47.286337 [I] [SOCKS5-UDP] async_send 111 bytes from local:59838 -> 127.0.0.1:52622
+2026-10-15 16:39:47.286338 [I] [UDP-RELAY] UP app_port=59837 dst_port=39017 111 bytes sent=true
+2026-10-15 16:39:47.286456 [I] [UDP-RELAY] DOWN port=59837 117 bytes
+2026-10-15 16:39:47.286606 [I] [SOCKS5-UDP] async_send 108 bytes from local:59838 -> 127.0.0.1:52622
+2026-10-15 16:39:47.286606 [I] [UDP-RELAY] UP app_port=59837 dst_port=53 108 bytes sent=true
+2026-10-15 16:39:47.286705 [I] [UDP-RELAY] DOWN port=59837 114 bytes
+2026-10-15 16:39:47.286829 [I] [SOCKS5-UDP] async_send 111 bytes from local:59838 -> 127.0.0.1:52622
+2026-10-15 16:39:47.286829 [I] [UDP-RELAY] UP app_port=59837 dst_port=39017 111 bytes sent=true
+2026-10-15 16:39:47.286923 [I] [UDP-RELAY] DOWN port=59837 117 bytes
+2026-10-15 16:39:47.563764 [I] Config saved to C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:47.563900 [I] [RULE] 'ruleproxy_compare_0': 4 processes matched
+2026-10-15 16:39:47.564147 [I] Proxy groups synced: 3 groups
+2026-10-15 16:39:47.564154 [I] [api] PUT /api/auto-rules/ruleproxy_compare_0 -> 200 (1064us)
+2026-10-15 16:39:47.609036 [I] Config saved to C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:47.609118 [I] [RULE] 'ruleproxy_compare_0': 4 processes matched
+2026-10-15 16:39:47.609357 [I] Proxy groups synced: 3 groups
+2026-10-15 16:39:47.609363 [I] [api] PUT /api/auto-rules/ruleproxy_compare_1 -> 200 (921us)
+2026-10-15 16:39:47.654991 [I] Config saved to C:\RuleProxyCompare\backend\clew-v0.10.0-windows-x64\ruleproxy-compare.json
+2026-10-15 16:39:47.655068 [I] [RULE] 'ruleproxy_compare_0': 4 processes matched
+2026-10-15 16:39:47.655313 [I] Proxy groups synced: 3 groups
+2026-10-15 16:39:47.655319 [I] [api] PUT /api/auto-rules/ruleproxy_compare_2 -> 200 (921us)
+2026-10-15 16:39:47.702059 [I] [api] GET /api/auto-rules -> 200 (102us)
+2026-10-15 16:39:47.702329 [I] [RULE] Tree-inherited PID=2016 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.702330 [I] [TreeMgr] Auto-matched: PID=2016 PSN=614 rule='ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.702376 [I] [RULE] Tree-inherited PID=2360 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.702376 [I] [TreeMgr] Auto-matched: PID=2360 PSN=616 rule='ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.702377 [I] [RULE] Tree-inherited PID=2168 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.702377 [I] [TreeMgr] Auto-matched: PID=2168 PSN=618 rule='ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.702378 [I] [RULE] Tree-inherited PID=1296 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.702378 [I] [TreeMgr] Auto-matched: PID=1296 PSN=620 rule='ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.838569 [I] [RULE] Auto-matched PID=3028 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.838571 [I] [TreeMgr] Auto-matched: PID=3028 PSN=623 rule='ruleproxy_compare_0' group=2
+2026-10-15 16:39:47.838572 [I] [TreeMgr] Sync-resolved PID=3028 name='ruleproxy_app_a.exe' chain=1 proxied=true in 126us
+2026-10-15 16:39:47.839289 [I] [RELAY] OK port=52763 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:47.851342 [I] [RELAY] OK port=52766 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:47.873274 [I] [RELAY] OK port=52769 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:47.889218 [I] [RELAY] OK port=52772 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:47.905777 [I] [RELAY] OK port=52775 -> 1.1.1.1:80 (proxy connect=0ms, socks5=0ms)
+2026-10-15 16:39:48.102630 [I] [TreeMgr] Sync-resolved PID=3084 name='ruleproxy_unselected.exe' chain=1 proxied=false in 93us
+2026-10-15 16:39:48.245685 [W] [SOCKS5-UDP] TCP control connection lost
+2026-10-15 16:39:48.246220 [W] [SOCKS5-UDP] TCP control connection lost
+2026-10-15 16:39:48.246340 [W] [SOCKS5-UDP] TCP control connection lost
+2026-10-15 16:39:48.246550 [W] [SOCKS5-UDP] TCP control connection lost
+2026-10-15 16:39:48.246753 [W] [SOCKS5-UDP] TCP control connection lost
+2026-10-15 16:39:48.246852 [W] [SOCKS5-UDP] TCP control connection lost
+2026-10-15 16:39:48.247048 [W] [SOCKS5-UDP] TCP control connection lost
+2026-10-15 16:39:48.384560 [I] [RULE] Auto-matched PID=4380 (ruleproxy_app_a.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=2
+2026-10-15 16:39:48.384561 [I] [TreeMgr] Auto-matched: PID=4380 PSN=627 rule='ruleproxy_compare_0' group=2
+2026-10-15 16:39:48.384563 [I] [TreeMgr] Sync-resolved PID=4380 name='ruleproxy_app_a.exe' chain=1 proxied=true in 127us
+2026-10-15 16:39:48.707418 [I] [RULE] Tree-inherited PID=3812 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=2
+2026-10-15 16:39:48.707419 [I] [TreeMgr] Auto-matched: PID=3812 PSN=624 rule='ruleproxy_compare_0' group=2
+2026-10-15 16:39:50.388938 [W] [RELAY] FAIL port=52780 -> 1.1.1.1:80 error: No connection could be made because the target machine actively refused it.
+2026-10-15 16:39:50.762888 [I] [RULE] Tree-inherited PID=3384 (conhost.exe) \xE2\x86\x92 rule 'ruleproxy_compare_0' group=2
+2026-10-15 16:39:50.762889 [I] [TreeMgr] Auto-matched: PID=3384 PSN=628 rule='ruleproxy_compare_0' group=2
+2026-10-15 16:39:54.594292 [I] [TreeMgr] Sync-resolved PID=8592 name='ruleproxy_unselected.exe' chain=1 proxied=false in 200us
+2026-10-15 16:39:54.709080 [I] [api] GET /api/stats -> 200 (67us)
+2026-10-15 16:39:55.097409 [I] Shutting down...
+2026-10-15 16:39:55.097580 [I] [UDP-RELAY] Downstream ended for port=59837
+2026-10-15 16:39:55.097638 [I] [UDP-RELAY] Downstream ended for port=59829
+2026-10-15 16:39:55.097701 [I] [UDP-RELAY] Downstream ended for port=59821
+2026-10-15 16:39:55.097808 [I] [UDP-RELAY] Downstream ended for port=59813
+2026-10-15 16:39:55.097908 [I] [UDP-RELAY] Downstream ended for port=59833
+2026-10-15 16:39:55.097952 [I] [UDP-RELAY] Downstream ended for port=59825
+2026-10-15 16:39:55.098014 [I] [UDP-RELAY] Downstream ended for port=59817
+2026-10-15 16:39:55.098034 [I] [SOCKS5-MGR] Stopped, all sessions closed
+2026-10-15 16:39:55.098100 [I] [UDP-RELAY] Stopped (up=16, down=16, injected=16)
+2026-10-15 16:39:55.098271 [I] [WD-NET-UDP] Closed (reflected=16, passed=5)
+2026-10-15 16:39:55.099914 [I] [WD-SOCKET-UDP] Closed (events=44, matches=8)
+2026-10-15 16:39:55.099915 [I] UDP layers closed
+2026-10-15 16:39:55.100442 [I] [WD-SOCKET] Closed (connect=111 close=416 proxied=32 self=0 echo=23 late=0)
+2026-10-15 16:39:55.100502 [I] [SYN-PARK] injector stopped: parked=30 decision=30 watchdog=0 drain=0 ttl_stale=0 dup=0 cas_lost=1 exhausted=0 gen_mismatch=0 peak=1 park_us_max=158
+2026-10-15 16:39:55.100615 [I] [WD-NETWORK] Closed
+2026-10-15 16:39:55.100616 [I] WinDivert layers closed
+2026-10-15 16:39:55.100645 [I] [ACCEPTOR] Stopped (accepted 32 connections)
+2026-10-15 16:39:55.104345 [I] [api] HTTP API server stopped
+2026-10-15 16:39:55.104349 [I] io_context stopped, 2 workers joined
+2026-10-15 16:39:55.105064 [I] [etw] consumer stopped
+2026-10-15 16:39:55.105065 [I] [TreeMgr] Stopped

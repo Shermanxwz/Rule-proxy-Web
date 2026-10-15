@@ -1,0 +1,99 @@
+{
+  "backend": "clew",
+  "release": "v0.10.0",
+  "asset_url": "https://github.com/ymonster/clew-proxy/releases/download/v0.10.0/clew-v0.10.0-windows-x64.zip",
+  "asset_sha256": "f1691d410269b432a03b4cbc5a251be161d0864f1420fe2722269e13b9c5e35d",
+  "dns_proxy_enabled": false,
+  "mihomo_tun_enabled": false,
+  "api_host": "127.0.0.1",
+  "api_port": 18080,
+  "transparent_traffic_proven": false,
+  "source_limits": [
+    "loopback excluded by backend",
+    "SYN watchdog may release undecided flow direct",
+    "backend exit does not retain isolation"
+  ],
+  "prepared": true,
+  "archive_size": 2937630,
+  "executable_sha256": "e70d0ad70d5b53d5ac3abfd91b424937b04ea72a93439b96b7707d460b4e3ac2",
+  "driver_sha256": "8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2",
+  "driver_signature": {
+    "status": "Valid",
+    "subject": "CN=\u6210\u90fd\u5bc6\u601d\u542c\u79d1\u6280\u6709\u9650\u516c\u53f8, O=\u6210\u90fd\u5bc6\u601d\u542c\u79d1\u6280\u6709\u9650\u516c\u53f8, S=\u56db\u5ddd\u7701, C=CN, OID.2.5.4.15=Private Organization, OID.1.3.6.1.4.1.311.60.2.1.3=CN, SERIALNUMBER=91510107MA7E8Y2876"
+  },
+  "started": true,
+  "owned_pid": 1408,
+  "running": false,
+  "configuration_durability_warning": true,
+  "program_scoped_firewall": {
+    "before": {
+      "existing_count": 0
+    },
+    "installed": {
+      "rules": [
+        {
+          "Name": "RuleProxyCompare-Clew-872-1792082357432668100-TCP",
+          "Enabled": 1,
+          "Direction": 1,
+          "Action": 2,
+          "Profile": 0
+        },
+        {
+          "Name": "RuleProxyCompare-Clew-872-1792082357432668100-UDP",
+          "Enabled": 1,
+          "Direction": 1,
+          "Action": 2,
+          "Profile": 0
+        }
+      ],
+      "application_filters": [
+        {
+          "Program": "C:\\RuleProxyCompare\\backend\\clew-v0.10.0-windows-x64\\clew.exe"
+        },
+        {
+          "Program": "C:\\RuleProxyCompare\\backend\\clew-v0.10.0-windows-x64\\clew.exe"
+        }
+      ],
+      "port_filters": [
+        {
+          "Protocol": "TCP",
+          "LocalPort": "52643"
+        },
+        {
+          "Protocol": "UDP",
+          "LocalPort": "19999"
+        }
+      ]
+    },
+    "program": "C:\\RuleProxyCompare\\backend\\clew-v0.10.0-windows-x64\\clew.exe",
+    "relay_tcp_port": 52643,
+    "relay_udp_port": 19999,
+    "reason": "bounded inbound reflection compatibility control",
+    "root_cause_proven": false,
+    "global_policy_changed": false
+  },
+  "api_ready": true,
+  "interception_layers_started": true,
+  "proxy_groups": {
+    "A": 1,
+    "B": 2
+  },
+  "selected_group": "B",
+  "selected_application_count": 3,
+  "rule_count": 3,
+  "stop": {
+    "exited": true,
+    "api_closed": true,
+    "forced": false,
+    "graceful_exit_command_windows": 4,
+    "errors": [],
+    "cleanup_proven": true,
+    "program_scoped_firewall_cleanup": {
+      "remaining_count": 0,
+      "owned_rule_count": 2,
+      "cleanup_proven": true
+    },
+    "global_dns_change_requested": false,
+    "driver_uninstalled": false
+  }
+}

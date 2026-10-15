@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"status\":\"Valid\",\"subject\":\"CN=\u6210\u90fd\u5bc6\u601d\u542c\u79d1\u6280\u6709\u9650\u516c\u53f8, O=\u6210\u90fd\u5bc6\u601d\u542c\u79d1\u6280\u6709\u9650\u516c\u53f8, S=\u56db\u5ddd\u7701, C=CN, OID.2.5.4.15=Private Organization, OID.1.3.6.1.4.1.311.60.2.1.3=CN, SERIALNUMBER=91510107MA7E8Y2876\"}\r\n",
+  "stderr": ""
+}

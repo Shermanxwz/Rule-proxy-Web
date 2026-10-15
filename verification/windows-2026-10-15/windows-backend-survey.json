@@ -1,0 +1,127 @@
+{
+  "survey_date": "2026-10-15",
+  "status": "research_only_no_backend_adopted",
+  "requirements_revision": {
+    "latest_user_constraint_date": "2026-10-16",
+    "explicitly_excluded": [
+      "Mihomo TUN",
+      "Requiring target applications to use their own native proxy settings"
+    ],
+    "mandatory": [
+      "Preserve the existing Web panel for adding custom native Windows application paths and assigning proxy nodes",
+      "Do not require target applications to support native proxy settings"
+    ],
+    "preferred": [
+      "Linux-like process-tree isolation, DNS and UDP coverage, and protection against direct fallback",
+      "Free long-term operation without usage limits or reminder dialogs",
+      "Simple deployment and minimal effect on unselected applications"
+    ],
+    "latest_user_relaxation": "Windows may retain custom application proxy routing as the core requirement, with other isolation properties implemented on a best-effort basis. Lack of strict Linux parity must not veto every functional candidate.",
+    "personal_use_confirmed": true
+  },
+  "candidates": [
+    {
+      "name": "Mihomo TUN plus existing Web panel",
+      "position": "Excluded by the user's explicit 2026-10-16 instruction; retained only as historical research",
+      "documented_capabilities": [
+        "Transparent traffic capture through TUN without native proxy configuration in target applications",
+        "PROCESS-PATH and PROCESS-NAME routing rules can select a proxy or group; unmatched traffic can use DIRECT"
+      ],
+      "integration_inference": "Translate panel application paths and node selections into Mihomo routing rules and groups. This integration has not been implemented or accepted by this survey.",
+      "limitations": [
+        "auto-route changes host routing; unselected DIRECT traffic can still pass through the core",
+        "Executable matching does not itself distinguish separate launch instances or automatically inherit policy across different child executables",
+        "A selected UDP flow may continue to later rules when its outbound lacks UDP support; explicit rejection rules and real traffic verification are needed",
+        "Not evidence of Linux-equivalent per-instance isolation or persistent selective fail-closed protection"
+      ],
+      "sources": [
+        "https://wiki.metacubex.one/config/inbound/tun/",
+        "https://wiki.metacubex.one/config/rules/",
+        "https://wiki.metacubex.one/config/general/#find-process-mode"
+      ]
+    },
+    {
+      "name": "Clew plus Mihomo",
+      "position": "Preferred for ready PID/tree APIs and clearer open-source distribution terms; protocol coverage is weaker than ProxiFyre. Not adopted or accepted by project runtime tests.",
+      "verified_latest_release": "v0.10.0",
+      "release_published_at": "2026-09-07T04:01:13Z",
+      "documented_capabilities": [
+        "Executable path, command-line and PID controls, dynamic child-tree following, IPv4 TCP and UDP SOCKS5 forwarding, multiple proxy groups",
+        "HTTP API for hijack PIDs, automatic rules and proxy groups",
+        "MIT application code; bundled WinDivert uses LGPLv3"
+      ],
+      "integration_inference": "Keep the project panel and use Clew API rules and proxy groups against local Mihomo SOCKS endpoints. Administrative lifecycle, local API security and project compatibility still require review and tests.",
+      "limitations": [
+        "Source review on 2026-10-16: TCP and UDP NETWORK workers only request an IPv4 header from WinDivertHelperParsePacket and reinject unchanged when it is absent. IPv6 traffic therefore passes directly in these paths; this is code-derived evidence, not a runtime result.",
+        "Uses WinDivert, so it does not independently remove the isolation limitations identified in the earlier ProxyBridge design gate",
+        "Release v0.10.0 documents a first-SYN parking watchdog that deliberately releases DIRECT after 20 ms without a decision",
+        "Optional DNS forwarding is disabled by default and changes all active IPv4 adapter DNS settings when enabled; restoration after forced termination occurs on a later launch",
+        "Runs elevated; existing autostart uses a highest-privilege scheduled task",
+        "Upstream release reports exit-IP correctness checks; no project runtime acceptance has been performed"
+      ],
+      "sources": [
+        "https://github.com/ymonster/clew-proxy",
+        "https://raw.githubusercontent.com/ymonster/clew-proxy/main/docs/ARCHITECTURE.md",
+        "https://github.com/ymonster/clew-proxy/releases/tag/v0.10.0",
+        "https://raw.githubusercontent.com/ymonster/clew-proxy/main/LICENSE",
+        "https://github.com/ymonster/clew-proxy/blob/main/src/core/windivert_network.hpp#L179-L189",
+        "https://github.com/ymonster/clew-proxy/blob/main/src/udp/windivert_network_udp.hpp#L113-L125"
+      ]
+    },
+    {
+      "name": "ProxiFyre plus Mihomo",
+      "position": "Preferred initial functional validation for the user's relaxed per-application routing core when executable-wide rules suffice and driver licensing fits the deployment; not a stability or runtime acceptance claim",
+      "documented_capabilities": [
+        "Per-executable TCP and UDP forwarding over IPv4 and IPv6 to configurable SOCKS5 endpoints",
+        "JSON configuration and Windows service deployment"
+      ],
+      "limitations": [
+        "Application AGPL licensing does not cover the separately licensed Windows Packet Filter driver",
+        "Driver is free for personal and academic use; commercial redistribution requires separate licensing",
+        "Executable rules do not establish launch-instance identity or automatic child-tree inheritance",
+        "Rule changes require an engine or service restart",
+        "Fragmented IPv6 datagrams are passed through directly according to upstream documentation",
+        "No demonstrated persistent selective fail-closed protection"
+      ],
+      "sources": [
+        "https://github.com/wiresock/proxifyre",
+        "https://github.com/wiresock/proxifyre/blob/main/docs/configuration.md",
+        "https://www.ntkernel.com/windows-packet-filter/licensing/"
+      ]
+    }
+  ],
+  "comparison_update_2026_10_16": {
+    "reason_for_ranking_revision": "Earlier Clew-first advice emphasized API and child-tree integration. Newly verified IPv6 pass-through weakens its fit for the user's core requirement that selected applications actually use the proxy.",
+    "recommendation": "Prefer testing ProxiFyre plus Mihomo for the relaxed custom-application routing core if personal/academic use or suitable driver distribution rights apply. Prefer Clew only when PID/tree controls and distribution terms outweigh its explicitly accepted IPv4 and fail-direct limitations.",
+    "web_panel": "Both can retain the existing Web panel. ProxiFyre would need a backend adapter that writes JSON and manages the service; Clew offers HTTP CRUD APIs. Neither project integration has been built by this research.",
+    "stability_evidence": "No project side-by-side runtime comparison or benchmark exists; do not claim either is proven more stable or faster."
+  },
+  "other_routes_reviewed": {
+    "Sandboxie": "A custom launcher may avoid official Start UI reminders, but stock transparent proxy injection and DNS filtering have certificate gates; free WFP allow/block rules alone do not transparently proxy arbitrary applications.",
+    "AppContainer_LPAC_Job": "Available identity and isolation primitives, not a ready transparent proxy backend for arbitrary GUI applications; would reopen compatibility and relay engineering.",
+    "Windows_containers_and_compartments": "No identified lightweight supported drop-in equivalent for arbitrary interactive native GUI applications.",
+    "NetFilterSDK_wrappers": "Netch, SocksRedirector and related wrappers do not by themselves establish unrestricted free signed-driver licensing.",
+    "DLL_hooks_and_unreleased_drivers": "Coverage, compatibility or deployment evidence insufficient to outrank the functional candidates."
+  },
+  "recommended_validation_scope": [
+    "Choose one functional candidate and time-box the initial proof rather than restarting open-ended isolation engineering",
+    "Use ordinary applications with native proxy settings disabled, sending unique markers to an independent receiver",
+    "Verify actual node A and node B exits, at least two different selected application paths, and an unselected direct-connection control",
+    "Check relevant child processes and TCP/UDP/DNS separately; record unsupported behavior explicitly",
+    "Do not count an explicit connection to the local SOCKS or HTTP proxy port as proof of transparent interception",
+    "Stop and reassess if basic transparent routing cannot be demonstrated within the agreed time box"
+  ],
+  "actions_this_survey": {
+    "drivers_installed": false,
+    "ci_runs_started": false,
+    "product_code_changed": false,
+    "runtime_acceptance_claimed": false
+  },
+  "runtime_followup_2026_10_16": {
+    "summary": "../windows-2026-10-16/proxy-compare/comparison-summary.json",
+    "both_core_tcp_passed": true,
+    "licensing": "User confirms personal use; commercial redistribution is not a candidate-selection gate",
+    "no_product_backend_adopted": true,
+    "ranking": "Clew better matches panel and dynamic-child controls; ProxiFyre remains validated executable-wide alternative. IPv6 and fail-direct limitations remain explicit."
+  }
+}

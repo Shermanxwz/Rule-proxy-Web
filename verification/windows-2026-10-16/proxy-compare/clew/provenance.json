@@ -1,0 +1,51 @@
+{
+  "workflow_run_id": 38770720406,
+  "source_commit": "6546348fa80211ba274e8591b60448de71e66324",
+  "artifact_id": 11992135654,
+  "github_original_artifact_digest": "sha256:39fdb46b5050adeb9f0939dd0306440e6ae86b8d9ce2f9976936d2850b5a98a7",
+  "github_artifact_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38770720406/artifacts/11992135654",
+  "downloaded_archive_sha256": "39fdb46b5050adeb9f0939dd0306440e6ae86b8d9ce2f9976936d2850b5a98a7",
+  "downloaded_archive_hash_scope": "SHA256 of MCP-returned archive bytes; kept separate from GitHub original artifact digest",
+  "raw_comparison_report_sha256": "8fb14b813b9cf9aaa4313fe4190d25ebbb4023315927cbbaa485a7ecbedfc824",
+  "raw_comparison_report_bytes": 1522557,
+  "observations_sha256": "2e1441052c34f014e0ae8524e3b378596ab6e4a7517d15cc3f36af3435cc350b",
+  "observations_bytes": 96669,
+  "normalization": "Parsed raw JSON, removed only duplicated receiver_before/receiver_after phase snapshots, and serialized compactly. Per-phase matching receiver transactions and complete receiver_final are retained.",
+  "retained_files": [
+    {
+      "path": "clew-adapter.json",
+      "bytes": 3123,
+      "sha256": "68a8861af098fecc80d1ddd69d4ac434441a702cca8f2db56a3a5ab42b46f2a6"
+    },
+    {
+      "path": "clew-driver-signature.json",
+      "bytes": 370,
+      "sha256": "c4b71b3c99354915890cbca7c4bc13cc6f12ca61bb623d8c96a99be3b6472535"
+    },
+    {
+      "path": "clew-firewall-after.json",
+      "bytes": 86,
+      "sha256": "00ed56809042b66921e443519cead3fbf47f22f2c257619ae42ffe10cc8a8f33"
+    },
+    {
+      "path": "clew-firewall-before.json",
+      "bytes": 85,
+      "sha256": "f360e0f3fb604d8b5968f0c80d28453dbbf26e0d56e9e05cebb8b74221bbc641"
+    },
+    {
+      "path": "clew-firewall-installed.json",
+      "bytes": 643,
+      "sha256": "9f5f835af2d67f023924a255d01a0dd96b639ee08a8cdee8ffc0274f779b0ab8"
+    },
+    {
+      "path": "clew.log",
+      "bytes": 27906,
+      "sha256": "8f5caf53014b3e6b5459a221d5f7a56fc14d67a8c2dda26408a695862b2a3ed2"
+    },
+    {
+      "path": "observations.json",
+      "bytes": 96669,
+      "sha256": "2e1441052c34f014e0ae8524e3b378596ab6e4a7517d15cc3f36af3435cc350b"
+    }
+  ]
+}

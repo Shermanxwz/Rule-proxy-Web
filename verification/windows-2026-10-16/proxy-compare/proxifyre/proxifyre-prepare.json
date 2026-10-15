@@ -1,0 +1,88 @@
+{
+  "assets": {
+    "payload": {
+      "name": "ProxiFyre-v2.6.4-x64.zip",
+      "sha256": "c7da1dc5fdf9aaa7828fbf5c2076c4f612cba7889dcac2e3d06dc2e1dee4c3df",
+      "size": 1868618,
+      "url": "https://github.com/wiresock/proxifyre/releases/download/v2.6.4/ProxiFyre-v2.6.4-x64.zip"
+    },
+    "setup": {
+      "name": "ProxiFyre-2.6.4-win-x64-setup.exe",
+      "sha256": "afaf3ac8a2069f9653adb1b4a63b31d1edd8aa109ccdc367cf0d4462e78f5027",
+      "size": 2889730,
+      "url": "https://github.com/wiresock/proxifyre/releases/download/v2.6.4/ProxiFyre-2.6.4-win-x64-setup.exe"
+    }
+  },
+  "backend": "proxifyre",
+  "child_process_inheritance": "not_implemented_explicit_exe_paths_only",
+  "deployment": {
+    "driver_exists": true,
+    "driver_signature": "Valid",
+    "driver_state": "Running",
+    "service_exists": true,
+    "service_state": "Stopped"
+  },
+  "diagnostic_only": true,
+  "engine_mode": "owned_administrator_console",
+  "first_party_authenticode": "unsigned_by_upstream_design_sha256_pinned",
+  "installer_adds_program_scoped_inbound_firewall_rules": true,
+  "installer_exit_code": 0,
+  "installer_registers_manual_service": true,
+  "payload": {
+    "matches_fixed_release_zip": true,
+    "modules": [
+      {
+        "file": "ProxiFyre.exe",
+        "sha256": "beb7ff5b5283f872c610a6c70abfa9a5949f09c50fc766298776e5798a48ccfc"
+      },
+      {
+        "file": "ProxiFyreUI.exe",
+        "sha256": "0d5aa2de96abcb6bbffe749a121f71ac5fbf5da38471a217613d5050044d22eb"
+      },
+      {
+        "file": "ProxiFyreUI.Managed.dll",
+        "sha256": "8daf9921ece8fa65162588218ee6fa95a26ff9fa79dded3c66fb8d650b0f7445"
+      },
+      {
+        "file": "ProxiFyre.Configuration.dll",
+        "sha256": "ba9979f02fe6f87d062f149b1a5d6a30ac43830ac7f823e0ce46b22be0145696"
+      },
+      {
+        "file": "socksify.dll",
+        "sha256": "71478688111d0d976697db65bd37ed3c17504310562abefc4a1158a871bf4b8e"
+      },
+      {
+        "file": "Newtonsoft.Json.dll",
+        "sha256": "e1e27af7b07eeedf5ce71a9255f0422816a6fc5849a483c6714e1b472044fa9d"
+      },
+      {
+        "file": "NLog.dll",
+        "sha256": "4b1d3cf9f1f3c4a6ead141243069162172e9ef48ba1a9bf4f7ccd618b8194b5c"
+      },
+      {
+        "file": "Topshelf.dll",
+        "sha256": "bd70a5832124e36840452ff46e442efa0a09a4ceba842aea72c79b2d322d7fe8"
+      }
+    ]
+  },
+  "prerequisites_verified_by_upstream_installer": {
+    "visual_cpp_runtime": {
+      "sha256": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b",
+      "size": 25635768,
+      "url": "https://download.visualstudio.microsoft.com/download/pr/0b44c2d1-8944-4834-a01a-c9a225f8088a/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe",
+      "version": "14.44.35211.0"
+    },
+    "windows_packet_filter": {
+      "sha256": "9c388c0b7f189f7fa98720bae2caecf7d64f30910838b80b438ecf8956b8502c",
+      "size": 819200,
+      "url": "https://github.com/wiresock/ndisapi/releases/download/v3.6.2/Windows.Packet.Filter.3.6.2.1.x64.msi",
+      "version": "3.6.2.1"
+    }
+  },
+  "product_acceptance_passed": false,
+  "service_used_for_test": false,
+  "source_url": "https://github.com/wiresock/proxifyre/releases/tag/v2.6.4",
+  "status": "prepared",
+  "tun_enabled": false,
+  "version": "2.6.4"
+}

@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"rules\":[{\"Name\":\"RuleProxyCompare-Clew-872-1792082357432668100-TCP\",\"Enabled\":1,\"Direction\":1,\"Action\":2,\"Profile\":0},{\"Name\":\"RuleProxyCompare-Clew-872-1792082357432668100-UDP\",\"Enabled\":1,\"Direction\":1,\"Action\":2,\"Profile\":0}],\"application_filters\":[{\"Program\":\"C:\\\\RuleProxyCompare\\\\backend\\\\clew-v0.10.0-windows-x64\\\\clew.exe\"},{\"Program\":\"C:\\\\RuleProxyCompare\\\\backend\\\\clew-v0.10.0-windows-x64\\\\clew.exe\"}],\"port_filters\":[{\"Protocol\":\"TCP\",\"LocalPort\":\"52643\"},{\"Protocol\":\"UDP\",\"LocalPort\":\"19999\"}]}\r\n",
+  "stderr": ""
+}

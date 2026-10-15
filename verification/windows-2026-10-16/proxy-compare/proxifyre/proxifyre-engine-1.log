@@ -1,0 +1,11 @@
+2026-10-15 16:39:40.4635|INFO|ProxiFyre.ProxiFyreService|Successfully associated C:\RuleProxyCompare\runtime\ruleproxy_app_a.exe to 127.0.0.1:62140 SOCKS5 proxy with protocols TCP, UDP and address families IPv4, IPv6!
+2026-10-15 16:39:40.4934|INFO|ProxiFyre.ProxiFyreService|Successfully associated C:\RuleProxyCompare\runtime\ruleproxy_app_b.exe to 127.0.0.1:62140 SOCKS5 proxy with protocols TCP, UDP and address families IPv4, IPv6!
+2026-10-15 16:39:40.4934|INFO|ProxiFyre.ProxiFyreService|Successfully associated C:\Windows\System32\curl.exe to 127.0.0.1:62140 SOCKS5 proxy with protocols TCP, UDP and address families IPv4, IPv6!
+2026-10-15 16:39:40.5015|INFO|ProxiFyre.ProxiFyreService|ProxiFyre Service is running...
+2026-10-15 16:39:41.4592|INFO|ProxiFyre.ProxiFyreService|[info] Creating SOCKS5 Local Router instance...
+2026-10-15 16:39:41.4869|INFO|ProxiFyre.ProxiFyreService|[info] SOCKS5 Local Router instance successfully created.
+2026-10-15 16:39:41.4869|INFO|ProxiFyre.ProxiFyreService|[info] [class proxy::socks_local_router] Local IPv4 TCP proxy for 127.0.0.1:62140 is listening port: 62158
+2026-10-15 16:39:41.4869|INFO|ProxiFyre.ProxiFyreService|[info] [class proxy::socks_local_router] Local IPv4 UDP proxy for 127.0.0.1:62140 is listening port: 54681
+2026-10-15 16:39:41.4869|INFO|ProxiFyre.ProxiFyreService|[info] [class proxy::socks_local_router] Local IPv6 TCP proxy for 127.0.0.1:62140 is listening port: 62159
+2026-10-15 16:39:41.4869|INFO|ProxiFyre.ProxiFyreService|[info] [class proxy::socks_local_router] Local IPv6 UDP proxy for 127.0.0.1:62140 is listening port: 54682
+2026-10-15 16:39:41.4869|INFO|ProxiFyre.ProxiFyreService|[info] SOCKS5 Local Router instance started successfully.
