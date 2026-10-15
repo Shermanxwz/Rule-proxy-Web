@@ -5,7 +5,9 @@ import io
 import json
 from pathlib import Path
 import struct
+import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 import zipfile
@@ -63,6 +65,49 @@ class ProductArtifactTests(unittest.TestCase):
             self.package(directory, manifest_path="../outside.txt")
             with self.assertRaisesRegex(ValueError, "Unsafe manifest"):
                 acceptance.unpack_package(directory, directory / "unpacked")
+
+
+class BackgroundEntryTests(unittest.TestCase):
+    def test_short_lived_launcher_returns_while_descendant_retains_output(self):
+        with tempfile.TemporaryDirectory(prefix="ruleproxy-background-entry-") as temporary:
+            root = Path(temporary)
+            ready, release, finished = (root / name for name in ("ready", "release", "finished"))
+            child = (
+                "import os,sys,time; from pathlib import Path\n"
+                f"ready,release,finished=map(Path,{[str(ready), str(release), str(finished)]!r})\n"
+                "print('descendant holds output', flush=True)\n"
+                "ready.write_text('ready')\n"
+                "deadline=time.monotonic()+10\n"
+                "while not release.exists() and time.monotonic()<deadline: time.sleep(.02)\n"
+                "for fd in (1,2):\n"
+                " try: os.close(fd)\n"
+                " except OSError: pass\n"
+                "finished.write_text('finished')\n"
+                "os._exit(0)\n"
+            )
+            parent = (
+                "import os,subprocess,sys,time; from pathlib import Path\n"
+                f"subprocess.Popen([sys.executable,'-c',{child!r}],close_fds=False)\n"
+                f"ready=Path({str(ready)!r})\n"
+                "deadline=time.monotonic()+5\n"
+                "while not ready.exists() and time.monotonic()<deadline: time.sleep(.02)\n"
+                "print('launcher exiting',flush=True)\n"
+                "os._exit(0 if ready.exists() else 2)\n"
+            )
+            log = root / "entry.log"
+            try:
+                result = acceptance.run_background_entry([sys.executable, "-c", parent],
+                                                        cwd=root, log_path=log, timeout=3)
+                self.assertEqual(result.returncode, 0)
+                self.assertTrue(ready.exists())
+                self.assertFalse(finished.exists(), "launcher waited for background output EOF")
+                self.assertIn("descendant holds output", log.read_text())
+                self.assertIn("launcher exiting", log.read_text())
+            finally:
+                release.write_text("release")
+                deadline = time.monotonic() + 5
+                while ready.exists() and not finished.exists() and time.monotonic() < deadline:
+                    time.sleep(.02)
 
 
 class ReceiverEvidenceTests(unittest.TestCase):

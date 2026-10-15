@@ -97,6 +97,15 @@ def powershell(body, *, env=None, timeout=45):
             "stderr": result.stderr[-65536:].decode("utf-8-sig", errors="replace")}
 
 
+def run_background_entry(command, *, cwd, log_path, timeout=30):
+    # A background descendant can retain its launcher's stdout/stderr handles.
+    # A file needs no EOF collection; PIPE capture can outlive the timeout on
+    # Windows while subprocess.run drains inherited handles after killing cmd.
+    with Path(log_path).open("wb") as output:
+        return subprocess.run(command, cwd=cwd, stdin=subprocess.DEVNULL,
+                              stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
+
+
 def execute_script(script, owner_sid, source=None):
     env = {"RULEPROXY_PRODUCT_SCRIPT": str(script), "RULEPROXY_PRODUCT_SID": owner_sid}
     tail = " -SourceRoot $env:RULEPROXY_PRODUCT_SOURCE -NoLaunch" if source else ""
@@ -642,10 +651,14 @@ def ordinary_suite(spec_path, result_path):
                    str(LAB / "actors/user-state"), "--port", str(port), "--proxy-port", str(spec["proxy_port"]),
                    "--controller-port", str(spec["controller_port"])]
         shell = subprocess.list2cmdline([os.environ["COMSPEC"], "/d", "/s", "/c"])
-        execution = subprocess.run(shell + ' "' + subprocess.list2cmdline(command) + '"', cwd=INSTALLED,
-                                   capture_output=True, timeout=30)
+        entry_log = LAB / "actors/start-cmd-stdio.log"
+        execution = run_background_entry(shell + ' "' + subprocess.list2cmdline(command) + '"',
+                                         cwd=INSTALLED, log_path=entry_log, timeout=30)
+        with entry_log.open("rb") as output:
+            output.seek(max(0, entry_log.stat().st_size - 4096))
+            entry_output = output.read(4096).decode("utf-8", errors="replace")
         result["start_cmd"] = {"returncode": execution.returncode, "arguments": command,
-                               "stderr": execution.stderr[-4096:].decode("utf-8", errors="replace")}
+                               "stdio_log": str(entry_log), "stdio_tail": entry_output}
         check("start_cmd_returned_success", execution.returncode == 0)
         state = wait_for(lambda: api(), timeout=45)
         token = state["token"]

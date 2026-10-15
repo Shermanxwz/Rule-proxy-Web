@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "run_id": 38804291266,
+  "source_commit": "a37e33a226aff7d90153dc1b7e4c12454df77d37",
+  "branch": "main",
+  "artifact_id": 12005087578,
+  "artifact_sha256": "dca96b1e6efa72cadf8dc008a738428750cde26240a65a043d595663b2260bbb",
+  "downloaded_artifact_sha256_verified": true,
+  "package_name": "RuleProxy-Web-0.3.0-windows-x64-personal.zip",
+  "package_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "package_bytes": 64672299,
+  "manifest_files": 108,
+  "manifest_hashes_verified": true,
+  "product_source_files": 36,
+  "all_product_sources_match_local_checkout": true,
+  "matches_independent_local_build": true,
+  "user_yaml_included": false,
+  "personal_use_only": true,
+  "public_binary_release_eligible": false,
+  "scope": "Package identity and reproducibility only; see the separate Server and native client reports for runtime qualification."
+}

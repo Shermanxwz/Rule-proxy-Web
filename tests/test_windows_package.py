@@ -52,6 +52,23 @@ class WindowsPackageTests(unittest.TestCase):
         builder = self.builder()
         self.assertIn("ruleproxy/windows_runtime_pins.py", builder.project_files())
 
+    def test_release_notes_bind_qualification_to_matching_evidence(self):
+        builder = self.builder()
+        notes = builder.release_notes("personal.zip", "a" * 64)
+        self.assertIn("SHA-256: " + "a" * 64, notes)
+        self.assertIn("Server 2025, native Windows 11 and visible GUI qualification", notes)
+        self.assertIn("same ZIP SHA-256", notes)
+        self.assertIn("current-status.json", notes)
+        self.assertIn("A successful build does not establish qualification", notes)
+        self.assertNotIn("qualification passed", notes)
+        self.assertNotIn("qualification remains pending", notes)
+        self.assertIn("Start-Windows.cmd as the same ordinary user", notes)
+        self.assertIn("3010, restart Windows and repeat setup", notes)
+        self.assertIn("Import your own YAML through the Web panel", notes)
+        self.assertIn("UDP 53 and system DNS can go direct", notes)
+        self.assertIn("engine failure can restore direct access", notes)
+        self.assertNotIn(".github/build_windows_package.py", builder.project_files())
+
     def test_product_package_rejects_mxc_diagnostic_options(self):
         builder = self.builder()
         with tempfile.TemporaryDirectory() as directory:
