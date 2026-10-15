@@ -77,6 +77,19 @@ def _json_write(path: Path, value):
         temp.unlink(missing_ok=True)
 
 
+def _failure_frames(exc):
+    frames = []
+    current = exc.__traceback__
+    while current is not None:
+        code = current.tb_frame.f_code
+        filename = Path(code.co_filename).name
+        if filename in ("windows_sandboxie_control.py", "windows_proxybridge_control.py",
+                        "windows_free_backend_fixture.py", "windows_native_dns_probe.py"):
+            frames.append({"file": filename, "function": code.co_name[:80], "line": current.tb_lineno})
+        current = current.tb_next
+    return frames[-8:]
+
+
 def _sha256(path: Path):
     digest = hashlib.sha256()
     size = 0
@@ -886,6 +899,7 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
     except BaseException as exc:
         result["status"] = "failed"
         result["failure_type"] = type(exc).__name__[:64]
+        result["failure_frames"] = _failure_frames(exc)
     finally:
         if fixture_obj is not None:
             try:
@@ -952,6 +966,7 @@ def main(argv=None):
         # Error types are bounded diagnostics; never serialize arbitrary exception text.
         failure = {"schema_version": 1, "backend": BACKEND, "phase": args.phase,
                    "status": "failed", "failure_type": type(exc).__name__[:64],
+                   "failure_frames": _failure_frames(exc),
                    "acceptance_passed": False, "product_acceptance": False,
                    "source_diagnostic_only": True, "diagnostic_only": True,
                    "product_acceptance_passed": False, "release_eligible": False,

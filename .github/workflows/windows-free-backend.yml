@@ -140,7 +140,7 @@ jobs:
         run: |
           mkdir -p windows-free-backend-artifacts free-backend/extracted
           python -B -c 'import zipfile; zipfile.ZipFile("free-backend/free-backend-bundle.zip").extractall("free-backend/extracted")'
-          python -B .github/windows_free_backend_vm.py --backend "$BACKEND" --bundle "$PWD/free-backend/free-backend-bundle.zip" --manifest "$PWD/free-backend/extracted/manifest.json" --artifacts "$PWD/windows-free-backend-artifacts" --timeout-seconds 10800
+          sudo "$(command -v python)" -B .github/windows_free_backend_vm.py --backend "$BACKEND" --bundle "$PWD/free-backend/free-backend-bundle.zip" --manifest "$PWD/free-backend/extracted/manifest.json" --artifacts "$PWD/windows-free-backend-artifacts" --timeout-seconds 10800
       - uses: actions/upload-artifact@v7
         if: always()
         with:

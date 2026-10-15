@@ -87,6 +87,19 @@ def _strict_object(pairs):
     return value
 
 
+def _failure_frames(exc):
+    frames = []
+    current = exc.__traceback__
+    while current is not None:
+        code = current.tb_frame.f_code
+        filename = Path(code.co_filename).name
+        if filename in ("windows_sandboxie_control.py", "windows_proxybridge_control.py",
+                        "windows_free_backend_fixture.py", "windows_native_dns_probe.py"):
+            frames.append({"file": filename, "function": code.co_name[:80], "line": current.tb_lineno})
+        current = current.tb_next
+    return frames[-8:]
+
+
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as stream:
@@ -394,7 +407,7 @@ def main(argv: list[str] | None = None) -> int:
         _write_report(args.report, {"schema_version": 1, "backend": BACKEND,
                                     "phase": args.phase, "status": "error",
                                     "source_diagnostic_only": True, "release_eligible": False,
-                                    "error_type": type(exc).__name__})
+                                    "error_type": type(exc).__name__, "failure_frames": _failure_frames(exc)})
         return 1
 
 
