@@ -239,6 +239,40 @@ class ServiceProtocolTests(unittest.TestCase):
             self.assertTrue(control._current_token_has_sid(b"sid"))
         self.assertIsNone(fake.args[0])
 
+    def test_event_pipe_requests_state_change_access_and_closes_handles_on_setup_failure(self):
+        class FakeKernel:
+            def __init__(self):
+                self.opened = []
+                self.closed = []
+
+            def CreateFileW(self, path, access, *_args):
+                self.opened.append((path, access))
+                return 100 + len(self.opened)
+
+            def SetNamedPipeHandleState(self, *_args):
+                return 0
+
+            def CloseHandle(self, handle):
+                self.closed.append(handle.value)
+                return 1
+
+        client = object.__new__(control._ServiceClient)
+        kernel = FakeKernel()
+        client._kernel = kernel
+        client._ctl = ctypes.c_void_p(-1)
+        client._evt = ctypes.c_void_p(-1)
+        client._event_stop = __import__("threading").Event()
+        client._event_thread = None
+        with mock.patch.object(control.ctypes, "WinError", side_effect=lambda code: OSError(code), create=True), \
+             mock.patch.object(control.ctypes, "get_last_error", return_value=5, create=True):
+            with self.assertRaises(OSError):
+                client.connect()
+        self.assertEqual(kernel.opened[1][1], 0x80000000 | control.FILE_WRITE_ATTRIBUTES)
+        self.assertEqual(kernel.closed, [102, 101])
+        self.assertTrue(client._event_stop.is_set())
+        self.assertEqual(client._evt.value, ctypes.c_void_p(-1).value)
+        self.assertEqual(client._ctl.value, ctypes.c_void_p(-1).value)
+
     def test_native_dns_control_projection_keeps_scope_and_controls_private(self):
         nonce = "a" * 32
         qname = f"{nonce}.dns-a.outside-before.ruleproxy-ci.example.com."

@@ -64,6 +64,8 @@ class FreeBackendFixtureTests(unittest.TestCase):
     def test_real_mihomo_domain_http_socks_receiver_controls_and_core_loss(self):
         with tempfile.TemporaryDirectory() as directory:
             with fixture.Fixture(Path(os.environ["RULEPROXY_TEST_MIHOMO"]), Path(directory)) as control:
+                baseline = control.snapshot()
+                self.assertTrue(control.readiness["http"] and control.readiness["socks"])
                 self.assertTrue(fixture.http_probe(control.spec)["ok"])
                 self.assertTrue(fixture.http_probe(control.spec, socks=True)["ok"])
                 self.assertTrue(fixture.direct_probe(control.spec)["connected"])
@@ -72,8 +74,8 @@ class FreeBackendFixtureTests(unittest.TestCase):
                 while control.snapshot()["udp4_received"] == 0 and time.monotonic() < deadline:
                     time.sleep(.01)
                 counts = control.snapshot()
-                self.assertEqual(counts["proxy_requests"], 2)
-                self.assertEqual(counts["origin_requests"], 2)
+                self.assertEqual(counts["proxy_requests"] - baseline["proxy_requests"], 2)
+                self.assertEqual(counts["origin_requests"] - baseline["origin_requests"], 2)
                 self.assertEqual(counts["direct_connections"], 1)
                 self.assertEqual(counts["udp4_by_role"], {"outside_before": 1})
                 self.assertEqual(counts["errors"], [])

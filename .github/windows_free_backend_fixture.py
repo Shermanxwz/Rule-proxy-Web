@@ -170,11 +170,13 @@ class Fixture:
         while time.monotonic() < deadline:
             if self.process.poll() is not None:
                 raise RuntimeError("owned Mihomo exited before control readiness")
-            try:
-                with socket.create_connection(("127.0.0.1", self.spec["proxy_port"]), timeout=.3):
-                    return self
-            except OSError:
-                time.sleep(.1)
+            # A listening port alone does not prove the core and its upstream
+            # are ready. Verify the exact HTTP and SOCKS fixture before actors.
+            if http_probe(self.spec).get("ok") and http_probe(self.spec, socks=True).get("ok"):
+                self.readiness = {"http": True, "socks": True, "snapshot": self.snapshot()}
+                write_json(self.directory / "readiness.json", self.readiness)
+                return self
+            time.sleep(.1)
         raise TimeoutError("owned Mihomo readiness timeout")
 
     def _accept(self, listener, handler):

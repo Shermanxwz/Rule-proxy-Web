@@ -48,6 +48,7 @@ PBOP_ADD_RULE = 6
 PBOP_SET_LOCALHOST = 13
 PBOP_START = 16
 PBOP_STOP = 17
+FILE_WRITE_ATTRIBUTES = 0x0100
 
 
 def _json_bytes(value: object) -> bytes:
@@ -697,16 +698,26 @@ class _ServiceClient:
         return ctypes.c_void_p(handle)
 
     def connect(self):
-        self._ctl = self._open(PIPE_CTL, 0xC0000000)
-        self._evt = self._open(r"\\.\pipe\ProxyBridgeEvt", 0x80000000)
-        mode = ctypes.c_ulong(2)
-        if not self._kernel.SetNamedPipeHandleState(self._evt, ctypes.byref(mode), None, None):
-            raise ctypes.WinError(ctypes.get_last_error())
-        self._event_thread = threading.Thread(target=self._drain_events, daemon=True)
-        self._event_thread.start()
-        response = self.call(encode_u32(PBOP_HELLO))
-        if response != PROTOCOL_VERSION:
-            raise RuntimeError("ProxyBridge service protocol version mismatch")
+        try:
+            self._ctl = self._open(PIPE_CTL, 0xC0000000)
+            # SetNamedPipeHandleState requires FILE_WRITE_ATTRIBUTES even though
+            # this event pipe is receive-only for the client.
+            self._evt = self._open(r"\\.\pipe\ProxyBridgeEvt", 0x80000000 | FILE_WRITE_ATTRIBUTES)
+            mode = ctypes.c_ulong(2)
+            if not self._kernel.SetNamedPipeHandleState(self._evt, ctypes.byref(mode), None, None):
+                raise ctypes.WinError(ctypes.get_last_error())
+            self._event_thread = threading.Thread(target=self._drain_events, daemon=True)
+            self._event_thread.start()
+            response = self.call(encode_u32(PBOP_HELLO))
+            if response != PROTOCOL_VERSION:
+                raise RuntimeError("ProxyBridge service protocol version mismatch")
+        except BaseException:
+            # Do not leave either pipe open if setup fails partway through.
+            try:
+                self.close()
+            except BaseException:
+                pass
+            raise
 
     def call(self, request: bytes) -> int:
         written = ctypes.c_ulong()
@@ -739,8 +750,10 @@ class _ServiceClient:
 
     def close(self):
         self._event_stop.set()
-        for handle in (self._evt, self._ctl):
+        for attr in ("_evt", "_ctl"):
+            handle = getattr(self, attr, None)
             if handle and handle.value not in (None, ctypes.c_void_p(-1).value):
+                setattr(self, attr, ctypes.c_void_p(-1))
                 self._kernel.CloseHandle(handle)
         if self._event_thread is not None:
             self._event_thread.join(timeout=2)
