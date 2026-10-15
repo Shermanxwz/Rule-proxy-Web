@@ -10,6 +10,7 @@ import argparse
 import ctypes
 import hashlib
 import importlib.util
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -557,8 +558,8 @@ def _ordinary_user_facts() -> dict:
         admins = _lookup_account_sid("BUILTIN\\Administrators")
         group = _lookup_account_sid("ProxyBridge Users")
         return {"non_admin": not bool(info.TokenIsElevated), "not_system": not is_system,
-                "is_administrator": _token_has_sid(token, admins),
-                "proxybridge_group_member": _token_has_sid(token, group)}
+                "is_administrator": _current_token_has_sid(admins),
+                "proxybridge_group_member": _current_token_has_sid(group)}
     finally:
         ctypes.windll.kernel32.CloseHandle(token)
 
@@ -593,6 +594,10 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
         if not client.set_localhost_via_proxy(True):
             raise RuntimeError("Service rejected local-origin routing")
         dns_before = _run_native_dns_control(bundle, artifacts, fixture["nonce"], "outside_before")
+        outside_before = _run_fixture_worker(bundle, spec_path, artifacts, role="parent",
+                                             selected=False, nonce=fixture["nonce"],
+                                             wire_role="outside_before", fixture=fixture)
+        after_outside_before = _safe_snapshot(fixture_obj.snapshot())
         started = client.start()
         if not started:
             raise RuntimeError("Service did not start the packet engine")
@@ -601,17 +606,22 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
         # image matches the selected rule. Results contain only booleans and counts.
         before_selected = _safe_snapshot(fixture_obj.snapshot())
         selected = _run_fixture_worker(bundle, spec_path, artifacts, role="parent", selected=True,
-                                       nonce=fixture["nonce"])
+                                       nonce=fixture["nonce"], fixture=fixture)
         after_selected = _safe_snapshot(fixture_obj.snapshot())
         unselected = _run_fixture_worker(bundle, spec_path, artifacts, role="child", selected=False,
-                                         nonce=fixture["nonce"])
+                                         nonce=fixture["nonce"], fixture=fixture)
         counts = _safe_snapshot(fixture_obj.snapshot())
         proxy_stop = fixture_obj.stop_proxy()
         after_proxy_stop = _run_fixture_worker(bundle, spec_path, artifacts,
-                                               role="child", selected=True, nonce=fixture["nonce"])
+                                               role="child", selected=True, nonce=fixture["nonce"],
+                                               fixture=fixture)
         after_selected_proxy_down = _safe_snapshot(fixture_obj.snapshot())
-        dns_after = _run_native_dns_control(bundle, artifacts, fixture["nonce"], "outside_after")
         engine_stopped = client.stop()
+        outside_after = _run_fixture_worker(bundle, spec_path, artifacts, role="parent",
+                                            selected=False, nonce=fixture["nonce"],
+                                            wire_role="outside_after", fixture=fixture)
+        after_outside_after = _safe_snapshot(fixture_obj.snapshot())
+        dns_after = _run_native_dns_control(bundle, artifacts, fixture["nonce"], "outside_after")
         service_stop_denied = _ordinary_user_stop_service_denied()
         facts = {"service_pipe_authenticated": True, "engine_started": True,
                  "ordinary_user_started_engine": True,
@@ -621,12 +631,16 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
                  "selected_parent_and_child": selected, "unselected_network": unselected,
                  "native_dns_outside_before": dns_before,
                  "native_dns_outside_after": dns_after,
+                 "outside_wire_before": outside_before,
+                 "outside_wire_after": outside_after,
                  "fixture_nonce": fixture["nonce"],
                  "browser_gui": {"status": "not_tested"},
                  "fixture_counts_before_stop": counts,
                  "fixture_counts_before_selected": before_selected,
+                 "fixture_counts_after_outside_before": after_outside_before,
                  "fixture_counts_after_selected": after_selected,
                  "fixture_counts_after_selected_proxy_down": after_selected_proxy_down,
+                 "fixture_counts_after_outside_after": after_outside_after,
                  "proxy_stop": {"owned_process_started": proxy_stop.get("owned_process_started") is True,
                                 "exited": proxy_stop.get("exited") is True},
                  "after_proxy_stop": after_proxy_stop}
@@ -646,6 +660,7 @@ def _run_service_probe(artifacts: Path, bundle: Path) -> dict:
     if facts is None:
         raise RuntimeError("Probe did not produce observations")
     facts["cleanup"] = bool(engine_stopped and fixture_closed)
+    facts["controller_cleanup_proven"] = facts["cleanup"]
     facts["host_proxy_dns_route_settings_modified"] = False
     return facts
 
@@ -753,7 +768,12 @@ def _fixture_module(bundle: Path):
 
 
 def _run_fixture_worker(bundle: Path, spec_path: Path, artifacts: Path,
-                        *, role: str, selected: bool, nonce: str) -> dict:
+                        *, role: str, selected: bool, nonce: str,
+                        wire_role: str | None = None, fixture: dict | None = None) -> dict:
+    if role not in ("parent", "child"):
+        raise ValueError("Fixture worker role is outside the fixed scope")
+    if wire_role not in (None, "outside_before", "outside_after"):
+        raise ValueError("Fixture wire role is outside the fixed scope")
     py_dir = bundle / "python"
     python = py_dir / "python.exe"
     worker = next((candidate for candidate in (bundle / "scripts" / "windows_free_backend_fixture.py",
@@ -775,14 +795,18 @@ def _run_fixture_worker(bundle: Path, spec_path: Path, artifacts: Path,
                str(spec_path), "--report", str(report), "--role", role]
     if not selected:
         command.append("--skip-native-dns")
+    if wire_role is not None:
+        command.extend(("--wire-role", wire_role))
     result = subprocess.run(command, timeout=120, capture_output=True, check=False,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if result.returncode != 0 or not report.is_file():
-        return {"status": "failed", "exit_code": result.returncode}
+        return {"status": "failed", "controller_exit_code": result.returncode}
     raw = _read_json(report, MAX_REPORT_BYTES)
     if raw.get("schema_version") != 1 or raw.get("role") != role:
         raise RuntimeError("Fixture worker report schema mismatch")
-    return _safe_worker_report(raw, nonce=nonce)
+    safe = _safe_worker_report(raw, nonce=nonce, wire_role=wire_role, fixture=fixture)
+    safe["controller_exit_code"] = result.returncode
+    return safe
 
 
 def _run_native_dns_control(bundle: Path, artifacts: Path, nonce: str, role: str) -> dict:
@@ -805,7 +829,8 @@ def _run_native_dns_control(bundle: Path, artifacts: Path, nonce: str, role: str
     return _safe_native_dns_control(raw, result.returncode, nonce=nonce, role=role)
 
 
-def _safe_worker_report(report: dict, *, nonce: str | None = None) -> dict:
+def _safe_worker_report(report: dict, *, nonce: str | None = None,
+                        wire_role: str | None = None, fixture: dict | None = None) -> dict:
     allowed = {
         "proxy_http": {"ok", "error_type", "winerror"},
         "proxy_socks": {"ok", "error_type", "winerror"},
@@ -831,18 +856,100 @@ def _safe_worker_report(report: dict, *, nonce: str | None = None) -> dict:
             elif key != "error_type" and type(value) is bool:
                 clean[key] = value
         result[name] = clean
+    for name in ("udp4", "udp6", "public_udp4", "public_udp6"):
+        item = report.get(name)
+        if isinstance(item, dict):
+            result[name] = _safe_udp_observation(item, name, nonce=nonce,
+                                                  role=wire_role or result["role"], fixture=fixture)
     dns = report.get("native_dns")
     if isinstance(dns, dict):
         calls = dns.get("calls")
         role = report.get("role")
         safe_calls = _safe_dns_calls(calls, nonce=nonce, role=role) if isinstance(calls, list) else []
-        result["native_dns"] = {"status": dns.get("status") if dns.get("status") in
-                                 ("observed", "unavailable") else "unknown",
-                                 "calls_count": len(safe_calls), "calls": safe_calls,
-                                 "wire_privacy_proven": dns.get("wire_privacy_proven") is True}
+        result["native_dns"] = {
+            "status": dns.get("status") if dns.get("status") in ("observed", "unavailable") else "unknown",
+            "helper_status": dns.get("helper_status") if dns.get("helper_status") in
+                             ("native_dns_probe_only", "unsupported", "failed") else "unknown",
+            "exit_code": _bounded_exit_code(dns.get("exit_code")),
+            "cleanup_proven": dns.get("cleanup_proven") is True,
+            "calls_count": len(safe_calls), "calls": safe_calls,
+            "wire_privacy_proven": dns.get("wire_privacy_proven") is True}
     child = report.get("child")
     if isinstance(child, dict):
-        result["child"] = _safe_worker_report(child, nonce=nonce)
+        child_role = wire_role if wire_role is not None else None
+        result["child"] = _safe_worker_report(child, nonce=nonce, wire_role=child_role,
+                                                fixture=fixture)
+    return result
+
+
+def _bounded_exit_code(value):
+    return value if type(value) is int and -255 <= value <= 255 else None
+
+
+def _safe_udp_observation(item: dict, name: str, *, nonce: str | None,
+                          role: str, fixture: dict | None) -> dict:
+    """Keep only the fixed UDP tuple and exact nonce-bound wire marker."""
+    allowed_roles = ("parent", "child", "outside_before", "outside_after")
+    if role not in allowed_roles:
+        role = "unknown"
+    result = {}
+    for key in ("attempted", "send_ok", "denial_proven"):
+        if type(item.get(key)) is bool:
+            result[key] = item[key]
+    error_type = item.get("error_type")
+    if isinstance(error_type, str):
+        result["error_type"] = error_type if error_type in (
+            "TimeoutError", "ConnectionError", "OSError", "socket.timeout", "gaierror") else "other"
+    winerror = item.get("winerror")
+    if type(winerror) is int and -2147483648 <= winerror <= 2147483647:
+        result["winerror"] = winerror
+    err_no = item.get("errno")
+    if type(err_no) is int and -2147483648 <= err_no <= 2147483647:
+        result["errno"] = err_no
+    family = item.get("family")
+    expected_family = "ipv6" if name.endswith("6") else "ipv4"
+    result["source_ip"] = None
+    if family == expected_family:
+        result["family"] = family
+    try:
+        dest = ipaddress.ip_address(item.get("dest_ip"))
+        source = ipaddress.ip_address(item.get("source_ip")) if isinstance(item.get("source_ip"), str) else None
+    except (TypeError, ValueError):
+        dest = source = None
+    dest_ok = source_ok = False
+    if dest is not None and dest.version == (6 if expected_family == "ipv6" else 4):
+        expected_dest = fixture.get(name + "_host") if isinstance(fixture, dict) else None
+        try:
+            dest_ok = isinstance(expected_dest, str) and str(dest) == str(ipaddress.ip_address(expected_dest))
+        except ValueError:
+            dest_ok = False
+        if dest_ok:
+            result["dest_ip"] = str(dest)
+    dest_port = item.get("dest_port")
+    expected_port = None
+    if isinstance(fixture, dict):
+        expected_port = fixture.get("public_udp_port") if name.startswith("public_") else fixture.get(name + "_port")
+    if type(dest_port) is int and 1 <= dest_port <= 65535 and dest_port == expected_port:
+        result["dest_port"] = dest_port
+    if source is not None and source.version == (6 if expected_family == "ipv6" else 4) and not source.is_unspecified:
+        result["source_ip"] = str(source)
+        source_ok = True
+    source_observed = item.get("source_ip_observed") is True and source_ok
+    result["source_ip_observed"] = source_observed
+    expected_payload = None
+    if isinstance(nonce, str) and re.fullmatch(r"[0-9a-f]{32}", nonce) and role in allowed_roles:
+        expected_payload = ("RPWFREE:" + nonce + ":" + role).encode("ascii").hex()
+    payload = item.get("payload_hex")
+    if isinstance(payload, str) and expected_payload is not None and payload.lower() == expected_payload:
+        result["payload_hex"] = expected_payload
+    timeout = item.get("timeout_ms")
+    if type(timeout) is int and 1 <= timeout <= 60_000:
+        result["timeout_ms"] = timeout
+    result["metadata_complete"] = bool(
+        item.get("metadata_complete") is True and result.get("family") == expected_family
+        and dest_ok and type(dest_port) is int and dest_port == expected_port
+        and source_ok and source_observed and payload == expected_payload
+        and type(timeout) is int and 1 <= timeout <= 60_000)
     return result
 
 
@@ -855,7 +962,8 @@ def _safe_snapshot(snapshot: dict) -> dict:
         value = snapshot.get(key)
         if isinstance(value, dict):
             result[key] = {role: n for role, n in value.items()
-                           if role in ("parent", "child") and type(n) is int and 0 <= n <= 1_000_000}
+                           if role in ("parent", "child", "outside_before", "outside_after")
+                           and type(n) is int and 0 <= n <= 1_000_000}
     return result
 
 
@@ -906,7 +1014,8 @@ def _safe_native_dns_control(report: dict, exit_code: int | None, *, nonce: str,
     calls = report.get("calls")
     safe_calls = _safe_dns_calls(calls, nonce=nonce, role=role) if isinstance(calls, list) else []
     status = report.get("status")
-    return {"status": status if status in ("native_dns_probe_only", "unsupported", "failed") else "unknown",
+    safe_status = status if status in ("native_dns_probe_only", "unsupported", "failed") else "unknown"
+    return {"status": safe_status, "helper_status": safe_status,
             "nonce": nonce, "requested_role": role,
             "calls_count": len(safe_calls), "calls": safe_calls,
             "cleanup_proven": report.get("cleanup_proven") is True,
@@ -915,7 +1024,7 @@ def _safe_native_dns_control(report: dict, exit_code: int | None, *, nonce: str,
             "server_list_override": (report.get("server_list_override")
                                      if type(report.get("server_list_override")) is bool else None),
             "acceptance_passed": report.get("acceptance_passed") is True,
-            "exit_code": exit_code if type(exit_code) is int and -255 <= exit_code <= 255 else None}
+            "exit_code": _bounded_exit_code(exit_code)}
 
 
 def _safe_boolean_result(value) -> dict:
@@ -973,14 +1082,15 @@ def _lookup_account_sid(name: str) -> bytes:
     return sid.raw[:sid_len.value]
 
 
-def _token_has_sid(token, sid_bytes: bytes) -> bool:
+def _current_token_has_sid(sid_bytes: bytes) -> bool:
+    """Check the caller's effective token (NULL lets Windows duplicate a primary token)."""
     advapi = ctypes.WinDLL("advapi32", use_last_error=True)
     advapi.CheckTokenMembership.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
                                              ctypes.POINTER(ctypes.c_int)]
     advapi.CheckTokenMembership.restype = ctypes.c_int
     sid = ctypes.create_string_buffer(sid_bytes)
     member = ctypes.c_int()
-    if not advapi.CheckTokenMembership(token, sid, ctypes.byref(member)):
+    if not advapi.CheckTokenMembership(None, sid, ctypes.byref(member)):
         raise ctypes.WinError(ctypes.get_last_error())
     return bool(member.value)
 

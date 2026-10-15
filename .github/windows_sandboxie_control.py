@@ -529,18 +529,63 @@ def _bounded_worker_summary(path: Path):
     child_dns = child.get("native_dns", {}).get("calls", [])
     if type(parent_dns) is not list or type(child_dns) is not list:
         raise ValueError("fixed worker DNS summary malformed")
+    def dns_facts(record):
+        item = record.get("native_dns")
+        if type(item) is not dict:
+            return {"status": "unavailable", "helper_status": None,
+                    "helper_exit_code": None, "cleanup_proven": False,
+                    "call_count": 0}
+        status = item.get("status")
+        helper_status = item.get("helper_status")
+        exit_code = item.get("exit_code")
+        return {"status": status if status in ("observed", "unavailable", "not_requested") else "unknown",
+                "helper_status": helper_status if type(helper_status) is str and len(helper_status) <= 64 else None,
+                "helper_exit_code": exit_code if type(exit_code) is int and -2147483648 <= exit_code <= 2147483647 else None,
+                "cleanup_proven": item.get("cleanup_proven") is True,
+                "call_count": len(item.get("calls", [])) if type(item.get("calls")) is list else 0}
+    def udp_tuples(record):
+        output = {}
+        for key in ("udp4", "udp6", "public_udp4", "public_udp6"):
+            item = record.get(key)
+            if type(item) is not dict:
+                output[key] = None
+                continue
+            family = item.get("family")
+            dest_ip = item.get("dest_ip")
+            dest_port = item.get("dest_port")
+            source_ip = item.get("source_ip")
+            payload_hex = item.get("payload_hex")
+            output[key] = {
+                "attempted": item.get("attempted") is True,
+                "send_ok": item.get("send_ok") is True,
+                "family": family if family in ("ipv4", "ipv6") else None,
+                "dest_ip": dest_ip if type(dest_ip) is str and len(dest_ip) <= 64 else None,
+                "dest_port": dest_port if type(dest_port) is int and 0 < dest_port <= 65535 else None,
+                "source_ip": source_ip if type(source_ip) is str and len(source_ip) <= 64 else None,
+                "source_ip_observed": item.get("source_ip_observed") is True,
+                "payload_hex": (payload_hex if type(payload_hex) is str and len(payload_hex) <= 256
+                                and all(char in "0123456789abcdef" for char in payload_hex) else None),
+                "timeout_ms": (item.get("timeout_ms") if type(item.get("timeout_ms")) is int
+                               and 0 < item.get("timeout_ms") <= 10000 else None),
+                "metadata_complete": item.get("metadata_complete") is True,
+            }
+        return output
     return {"worker_report_observed": True,
             "proxy_http_ok": value.get("proxy_http", {}).get("ok") is True,
             "proxy_socks_ok": value.get("proxy_socks", {}).get("ok") is True,
             "direct_tcp_connected": value.get("direct_tcp", {}).get("connected") is True,
             "parent_native_dns_calls": len(parent_dns), "child_native_dns_calls": len(child_dns),
+            "parent_native_dns": dns_facts(value),
+            "child_native_dns": dns_facts(child),
             "udp_send_observations": {key: value.get(key, {}).get("send_ok")
                                       for key in ("udp4", "udp6", "public_udp4", "public_udp6")},
+            "udp_tuple_observations": udp_tuples(value),
             "child": {"proxy_http_ok": child.get("proxy_http", {}).get("ok") is True,
                       "proxy_socks_ok": child.get("proxy_socks", {}).get("ok") is True,
                       "direct_tcp_connected": child.get("direct_tcp", {}).get("connected") is True,
                       "udp_send_observations": {key: child.get(key, {}).get("send_ok")
-                                                for key in ("udp4", "udp6", "public_udp4", "public_udp6")}}}
+                                                for key in ("udp4", "udp6", "public_udp4", "public_udp6")},
+                      "udp_tuple_observations": udp_tuples(child)}}
 
 
 def _run_worker(start: Path, python: Path, worker: Path, spec_path: Path,
@@ -559,10 +604,11 @@ def _run_worker(start: Path, python: Path, worker: Path, spec_path: Path,
 
 
 def _run_outside_worker(python: Path, worker: Path, spec_path: Path,
-                        artifacts: Path, label: str, *, env=None):
+                        artifacts: Path, label: str, *, wire_role: str, env=None):
     report_path = artifacts / f"{label}.json"
     completed = _run([str(python), "-I", "-S", "-X", "utf8", str(worker), "--worker", "--spec",
-                      str(spec_path), "--report", str(report_path), "--role", "parent", "--skip-native-dns"], 120, env=env)
+                      str(spec_path), "--report", str(report_path), "--role", "parent",
+                      "--skip-native-dns", "--wire-role", wire_role], 120, env=env)
     if completed.returncode != 0:
         raise RuntimeError(f"outside fixed worker failed for {label}")
     summary = _bounded_worker_summary(report_path)
@@ -595,6 +641,7 @@ def _run_dns_box(start: Path, python: Path, dns_probe: Path, nonce: str,
         if type(calls) is not list:
             raise ValueError("boxed native DNS probe report malformed")
         records[role] = {"report_observed": True, "probe_status": value.get("status"),
+                         "helper_exit_code": int(completed.returncode),
                          "call_count": len(calls), "calls": _dns_call_facts(calls),
                          "worker_cleanup_proven": value.get("cleanup_proven") is True,
                          "dns_blocked_proven": value.get("dns_blocked_proven") is True,
@@ -614,6 +661,7 @@ def _run_dns_outside(python: Path, dns_probe: Path, nonce: str,
     if type(calls) is not list:
         raise ValueError("outside native DNS probe report malformed")
     return {"report_observed": True, "probe_status": value.get("status"),
+            "helper_exit_code": int(completed.returncode),
             "call_count": len(calls), "calls": _dns_call_facts(calls),
                          "worker_cleanup_proven": value.get("cleanup_proven") is True,
             "dns_blocked_proven": value.get("dns_blocked_proven") is True,
@@ -786,8 +834,11 @@ def _report_base(phase):
 
 
 def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
-          artifacts: Path):
+          artifacts: Path, *, include_gui: bool = True):
     result = _report_base("probe")
+    if type(include_gui) is not bool:
+        raise ValueError("include_gui must be a boolean")
+    result["gui"] = {"status": "not_started" if include_gui else "not_tested_noninteractive"}
     identity = _win_identity()
     result.update(identity, **_os_facts())
     if not identity["ordinary_user"]:
@@ -868,7 +919,7 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
         env["TEMP"] = str(artifacts)
         env["TMP"] = str(artifacts)
         result["outside_before"] = _run_outside_worker(python, worker, spec_path, artifacts,
-                                                        "outside-before", env=env)
+                                                        "outside-before", wire_role="outside_before", env=env)
         result["outside_native_dns_before"] = _run_dns_outside(
             python, dns_probe, spec["nonce"], artifacts, "outside_before")
         result["outside_base_dns_before"] = _run_dns_outside(
@@ -877,12 +928,17 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
                                           "boxed-network", timeout=150, env=env)
         summaries[BOX_DNS] = _run_worker(start, python, worker, spec_path, artifacts, BOX_DNS,
                                          "boxed-dns-ipc", timeout=150, env=env)
+        # Persist useful network evidence before optional GUI work can fail.
+        result["boxes"] = summaries
         result["native_dns"] = {
             BOX_BASE: _run_dns_box(start, python, dns_probe, dns_nonces[BOX_BASE], artifacts, BOX_BASE, env=env),
             BOX_DNS: _run_dns_box(start, python, dns_probe, spec["nonce"], artifacts, BOX_DNS, env=env),
         }
-        result["gui"] = _run_gui(start, chrome, BOX_BASE, spec["origin_url"],
-                                 spec["proxy_host"], spec["proxy_port"], fixture_obj)
+        if include_gui:
+            result["gui"] = _run_gui(start, chrome, BOX_BASE, spec["origin_url"],
+                                     spec["proxy_host"], spec["proxy_port"], fixture_obj)
+        else:
+            result["gui"] = {"status": "not_tested_noninteractive"}
         stop = fixture_obj.stop_proxy()
         if stop.get("exited") is not True:
             raise RuntimeError("owned Mihomo proxy did not stop for fail-closed control")
@@ -914,7 +970,7 @@ def probe(bundle: Path, manifest: Path, report: Path, install_report: Path,
                                      and failed_value["child"]["direct_tcp_connected"] is False),
         }
         result["outside_after"] = _run_outside_worker(python, worker, spec_path, artifacts,
-                                                       "outside-after", env=env)
+                                                       "outside-after", wire_role="outside_after", env=env)
         result["outside_native_dns_after"] = _run_dns_outside(
             python, dns_probe, spec["nonce"], artifacts, "outside_after")
         result["outside_base_dns_after"] = _run_dns_outside(

@@ -179,14 +179,23 @@ class WindowsSandboxieControlTests(unittest.TestCase):
             "schema_version": 1, "role": "parent", "pid": 900, "parent_pid": 800,
             "proxy_http": {"ok": True, "error_type": "OSError"},
             "proxy_socks": {"ok": True}, "direct_tcp": {"connected": False},
-            "udp4": {"send_ok": False, "winerror": 10013},
+            "udp4": {"send_ok": False, "winerror": 10013, "attempted": True,
+                     "family": "ipv4", "dest_ip": "127.0.0.1", "dest_port": 18083,
+                     "source_ip": "127.0.0.1", "source_ip_observed": True,
+                     "payload_hex": ("RPWFREE:" + "a" * 32 + ":parent").encode().hex(),
+                     "metadata_complete": True, "timeout_ms": 2000},
             "udp6": {"send_ok": True}, "public_udp4": {"send_ok": False},
             "public_udp6": {"send_ok": False},
             "native_dns": {"calls": [{"qname": "secret nonce", "outcome": "returned"}]},
             "child": {"role": "child", "pid": 901,
                       "proxy_http": {"ok": True}, "proxy_socks": {"ok": True},
                       "direct_tcp": {"connected": False},
-                      "native_dns": {"calls": [{"qname": "secret"}]}},
+                      "udp4": {"send_ok": True, "attempted": True, "family": "ipv4",
+                               "dest_ip": "127.0.0.1", "dest_port": 18083,
+                               "source_ip": "127.0.0.1", "source_ip_observed": True,
+                               "payload_hex": ("RPWFREE:" + "a" * 32 + ":outside_before").encode().hex(),
+                               "metadata_complete": True, "timeout_ms": 2000},
+                      "native_dns": {"calls": [{"qname": "secret"}]}}
         }
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "report.json"
@@ -199,6 +208,34 @@ class WindowsSandboxieControlTests(unittest.TestCase):
         self.assertEqual(summary["child_native_dns_calls"], 1)
         self.assertFalse(summary["direct_tcp_connected"])
         self.assertIs(summary["udp_send_observations"]["udp4"], False)
+        self.assertEqual(summary["udp_tuple_observations"]["udp4"], {
+            "attempted": True, "send_ok": False, "family": "ipv4",
+            "dest_ip": "127.0.0.1", "dest_port": 18083,
+            "source_ip": "127.0.0.1", "source_ip_observed": True,
+            "payload_hex": ("RPWFREE:" + "a" * 32 + ":parent").encode().hex(),
+            "timeout_ms": 2000, "metadata_complete": True})
+        self.assertIsNone(summary["udp_tuple_observations"]["udp6"]["source_ip"])
+        self.assertFalse(summary["udp_tuple_observations"]["udp6"]["metadata_complete"])
+        self.assertEqual(summary["child"]["udp_tuple_observations"]["udp4"]["payload_hex"],
+                         ("RPWFREE:" + "a" * 32 + ":outside_before").encode().hex())
+
+    def test_native_dns_helper_status_and_cleanup_are_preserved_as_bounded_facts(self):
+        record = {"schema_version": 1, "role": "parent", "proxy_http": {},
+                  "proxy_socks": {}, "direct_tcp": {},
+                  "native_dns": {"status": "observed", "exit_code": 3,
+                                 "helper_status": "completed", "cleanup_proven": True,
+                                 "calls": [{"qname": "private.nonce", "outcome": "blocked"}]},
+                  "child": {"role": "child", "proxy_http": {}, "proxy_socks": {},
+                            "direct_tcp": {}, "native_dns": {"status": "not_requested", "calls": []}}}
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "report.json"
+            path.write_text(json.dumps(record), encoding="ascii")
+            summary = control._bounded_worker_summary(path)
+        self.assertEqual(summary["parent_native_dns"], {
+            "status": "observed", "helper_status": "completed", "helper_exit_code": 3,
+            "cleanup_proven": True, "call_count": 1})
+        self.assertEqual(summary["child_native_dns"]["status"], "not_requested")
+        self.assertNotIn("private.nonce", json.dumps(summary))
 
     def test_proxy_allow_updates_only_exact_endpoint_and_refreshes_configuration(self):
         with tempfile.TemporaryDirectory() as temp:

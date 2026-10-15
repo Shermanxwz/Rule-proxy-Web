@@ -7,6 +7,7 @@ evidence. This helper neither installs components nor grants product acceptance.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -348,17 +349,37 @@ def direct_probe(spec):
 
 def udp_probe(spec, label, role):
     family = socket.AF_INET6 if label.endswith("6") else socket.AF_INET
+    family_name = "ipv6" if family == socket.AF_INET6 else "ipv4"
     port = spec["public_udp_port"] if label.startswith("public_") else spec[label + "_port"]
+    destination = spec[label + "_host"]
+    fields = {"family": family_name, "dest_ip": destination, "dest_port": port,
+              "source_ip": None, "source_ip_observed": False, "payload_hex": None,
+              "metadata_complete": False, "denial_proven": False, "timeout_ms": 2000}
     if port is None:
-        return {"attempted": False, "send_ok": False, "reason": "outside_ipv6_fixture_unavailable"}
+        return {"attempted": False, "send_ok": False, "reason": "outside_ipv6_fixture_unavailable",
+                **fields}
+    payload = ("RPWFREE:" + spec["nonce"] + ":" + role).encode("ascii")
     try:
         with socket.socket(family, socket.SOCK_DGRAM) as connection:
             connection.settimeout(2)
-            payload = ("RPWFREE:" + spec["nonce"] + ":" + role).encode("ascii")
-            count = connection.sendto(payload, (spec[label + "_host"], port))
-            return {"attempted": True, "send_ok": count == len(payload), "denial_proven": False}
+            address = (destination, port, 0, 0) if family == socket.AF_INET6 else (destination, port)
+            connection.connect(address)
+            source_ip = connection.getsockname()[0]
+            try:
+                parsed_source = ipaddress.ip_address(source_ip.split("%", 1)[0])
+                if not parsed_source.is_unspecified:
+                    fields["source_ip"] = source_ip
+                    fields["source_ip_observed"] = True
+            except ValueError:
+                pass
+            # Keep the original fixed datagram and sendto call. UDP connect
+            # only selects the route/source address for the observation.
+            fields["payload_hex"] = payload.hex()
+            count = connection.sendto(payload, address)
+            fields["metadata_complete"] = fields["source_ip_observed"]
+            return {"attempted": True, "send_ok": count == len(payload), **fields}
     except OSError as exc:
-        return {"attempted": True, "send_ok": False, "denial_proven": False, **error_facts(exc)}
+        return {"attempted": True, "send_ok": False, **fields, **error_facts(exc)}
 
 
 def native_dns_probe(spec, role, directory):
@@ -378,12 +399,15 @@ def native_dns_probe(spec, role, directory):
         return {"status": "unavailable", "calls": [], "wire_privacy_proven": False, **error_facts(exc)}
 
 
-def worker(spec, role, report, *, collect_native_dns=True):
+def worker(spec, role, report, *, collect_native_dns=True, wire_role=None):
+    if wire_role not in (None, "outside_before", "outside_after"):
+        raise ValueError("invalid wire marker role")
+    marker_role = wire_role or role
     result = {"schema_version": 1, "role": role, "parent_pid": os.getpid(),
               "proxy_http": http_probe(spec), "proxy_socks": http_probe(spec, socks=True),
               "direct_tcp": direct_probe(spec), "acceptance_passed": False}
     for label in ("udp4", "udp6", "public_udp4", "public_udp6"):
-        result[label] = udp_probe(spec, label, role)
+        result[label] = udp_probe(spec, label, marker_role)
     if collect_native_dns:
         result["native_dns"] = native_dns_probe(spec, role, Path(report).parent)
     else:
@@ -399,6 +423,8 @@ def worker(spec, role, report, *, collect_native_dns=True):
                           "--role", "child"]
             if not collect_native_dns:
                 child_args.append("--skip-native-dns")
+            if wire_role is not None:
+                child_args.extend(("--wire-role", wire_role))
             child = subprocess.run(child_args, capture_output=True, timeout=60)
             result["child"] = json.loads(child_report.read_text(encoding="ascii"))
             result["child_exit_code"] = child.returncode
@@ -415,6 +441,7 @@ def main(argv=None):
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--role", choices=("parent", "child"), required=True)
     parser.add_argument("--skip-native-dns", action="store_true")
+    parser.add_argument("--wire-role", choices=("outside_before", "outside_after"))
     args = parser.parse_args(argv)
     if args.spec.stat().st_size > 16384:
         parser.error("fixed spec too large")
@@ -422,7 +449,8 @@ def main(argv=None):
     if (spec.get("schema_version") != 1 or len(spec.get("nonce", "")) != 32
             or any(char not in "0123456789abcdef" for char in spec["nonce"])):
         parser.error("invalid fixed spec")
-    worker(spec, args.role, args.report, collect_native_dns=not args.skip_native_dns)
+    worker(spec, args.role, args.report, collect_native_dns=not args.skip_native_dns,
+           wire_role=args.wire_role)
     return 0  # Observations are not an acceptance verdict.
 
 

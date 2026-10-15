@@ -81,7 +81,7 @@ class ServerProbeTests(unittest.TestCase):
         self.assertTrue(result["diagnostic_only"])
         self.assertFalse(result["product_acceptance_passed"])
         self.assertFalse(result["windows_11_verified"])
-        self.assertEqual(result["gui_status"], "not_tested")
+        self.assertEqual(result["gui_status"], "not_tested_noninteractive")
         self.assertEqual(json.loads(self.report.read_text()), result)
 
     def test_proxybridge_rejects_admin_before_manifest_or_probe(self):
@@ -108,18 +108,19 @@ class ServerProbeTests(unittest.TestCase):
     def test_sandboxie_delegates_to_native_control_and_preserves_server_identity(self):
         class Control:
             @staticmethod
-            def probe(bundle, manifest, report, install_report, artifacts):
+            def probe(bundle, manifest, report, install_report, artifacts, *, include_gui=True):
+                self.assertFalse(include_gui)
                 self.assertEqual((bundle, manifest, report, install_report, artifacts), probe_paths)
                 return {"status": "passed", "ordinary_user": True, "is_elevated": False,
                         "is_administrator": False, "windows_build": 26100, "windows_ubr": 1000,
-                        "cleanup_proven": True, "gui": {"visible": None}}
+                        "cleanup_proven": True, "gui": {"status": "not_tested_noninteractive"}}
 
         probe_paths = (self.bundle, self.manifest, self.report, self.install, self.artifacts)
         result = self.run_with_paths("sandboxie", Control)
         self.assertEqual(result["status"], "diagnostic_completed")
         self.assertEqual(result["windows_build"], 26100)
         self.assertFalse(result["windows_11_verified"])
-        self.assertEqual(result["gui_status"], "not_tested")
+        self.assertEqual(result["gui_status"], "not_tested_noninteractive")
         self.assertFalse(result["product_acceptance_passed"])
 
     def test_rejects_unknown_backend(self):

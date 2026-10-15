@@ -59,7 +59,7 @@ def _base(backend: str, status: str) -> dict:
             "status": status, "diagnostic_only": True, "source_diagnostic_only": True,
             "product_acceptance_passed": False, "release_eligible": False,
             "windows_server_network_diagnostic": True, "windows_11_verified": False,
-            "gui_status": "not_tested"}
+            "gui_status": "not_tested_noninteractive"}
 
 
 def run(backend: str, *, bundle: Path = BUNDLE, artifacts: Path = ARTIFACTS,
@@ -93,7 +93,8 @@ def run(backend: str, *, bundle: Path = BUNDLE, artifacts: Path = ARTIFACTS,
     else:
         # The existing Sandboxie probe owns its GUI/network/cleanup measurements.
         # It performs its own ordinary-token, manifest, bundle and install checks.
-        returned = module.probe(bundle, manifest, report, install_report, artifacts)
+        returned = module.probe(bundle, manifest, report, install_report, artifacts,
+                                include_gui=False)
         if not isinstance(returned, dict):
             raise TypeError("Sandboxie probe returned no structured report")
         value.update(status="diagnostic_completed" if returned.get("status") == "passed"
@@ -103,6 +104,9 @@ def run(backend: str, *, bundle: Path = BUNDLE, artifacts: Path = ARTIFACTS,
                      is_administrator=returned.get("is_administrator"),
                      windows_build=returned.get("windows_build"),
                      windows_ubr=returned.get("windows_ubr"),
+                     gui_status=(returned.get("gui", {}).get("status")
+                                 if type(returned.get("gui")) is dict
+                                 else "not_tested_noninteractive"),
                      cleanup_proven=returned.get("cleanup_proven") is True,
                      backend_report=returned)
     _write_json(report, value)
@@ -118,6 +122,11 @@ def main(argv=None) -> int:
     except Exception as exc:
         value = _base(args.backend, "failed")
         value["failure_type"] = type(exc).__name__[:64]
+        errno = getattr(exc, "errno", None)
+        winerror = getattr(exc, "winerror", None)
+        value["error_errno"] = errno if type(errno) is int and -2147483648 <= errno <= 2147483647 else None
+        value["error_winerror"] = (winerror if type(winerror) is int
+                                   and -2147483648 <= winerror <= 2147483647 else None)
         frames = []
         current = exc.__traceback__
         while current is not None:

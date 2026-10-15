@@ -50,8 +50,13 @@ jobs:
         if: always()
         with:
           name: windows-server-free-backend-${{ matrix.backend }}
-          path: |
-            windows-free-backend-server-results/
-            C:\RuleProxyCI\artifacts\
+          path: windows-free-backend-server-results/
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-server-free-backend-${{ matrix.backend }}-observations
+          path: C:\RuleProxyCI\artifacts\
           if-no-files-found: warn
           retention-days: 14
