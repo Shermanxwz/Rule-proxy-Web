@@ -13,6 +13,11 @@ on:
         options:
           - sandboxie
           - proxybridge
+      run_native:
+        description: Also run the full native Windows 11 guest after building
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -80,7 +85,9 @@ jobs:
           if ($sid -notin $users) { Add-LocalGroupMember -Group Users -Member RuleProxyCI }
           $control = "$root\bundle\scripts\windows_$($env:BACKEND)_control.py"
           python -B $control --phase install --bundle "$root\bundle" --manifest "$root\bundle\manifest.json" --report "$root\install-smoke.json" --probe-user RuleProxyCI --probe-user-sid $sid
-          if ($LASTEXITCODE -ne 0) { throw 'Fixed installer smoke failed' }
+          $installExit = $LASTEXITCODE
+          if (Test-Path -LiteralPath "$root\install-smoke.json") { Get-Content -LiteralPath "$root\install-smoke.json" -Raw | Write-Output }
+          if ($installExit -ne 0) { throw 'Fixed installer smoke failed' }
           $report = Get-Content "$root\install-smoke.json" -Raw | ConvertFrom-Json
           if ($report.schema_version -ne 1 -or $report.backend -ne $env:BACKEND -or $report.status -ne 'passed' -or
               $report.phase -ne 'install' -or $report.ordinary_user -ne $false -or
@@ -90,12 +97,13 @@ jobs:
         if: always()
         with:
           name: free-backend-install-smoke-${{ matrix.backend }}
-          path: install-smoke.json
+          path: C:\RuleProxyCI\install-smoke.json
           if-no-files-found: warn
           retention-days: 7
 
   native-windows-11-x64:
     name: Native Windows 11 x64 · ordinary-user probe · ${{ matrix.backend }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_native }}
     needs: [build-fixed-backend-bundle]
     runs-on: ubuntu-24.04
     timeout-minutes: 240
