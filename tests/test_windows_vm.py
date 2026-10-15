@@ -272,7 +272,11 @@ class WindowsVmTests(unittest.TestCase):
             vm.verify_result(result, require_official_update=True)
         result["official_update"] = {"status": "completed", "completed": True, "packages_verified": True,
                                      "task_unregistered": True,
-                                     "actual_build": vm.UPDATE_BUILD, "actual_ubr": vm.UPDATE_UBR - 1}
+                                     "actual_build": 26300, "actual_ubr": vm.UPDATE_UBR}
+        with self.assertRaisesRegex(RuntimeError, "pinned official cumulative update"):
+            vm.verify_result(result, require_official_update=True)
+        result["official_update"]["actual_build"] = vm.UPDATE_BUILD
+        result["official_update"]["actual_ubr"] = vm.UPDATE_UBR - 1
         with self.assertRaises(RuntimeError):
             vm.verify_result(result, require_official_update=True)
         result["official_update"]["actual_ubr"] = vm.UPDATE_UBR

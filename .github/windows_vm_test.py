@@ -35,18 +35,20 @@ import zlib
 
 ROOT = Path(__file__).resolve().parent.parent
 ISO_URL = ("https://software-static.download.prss.microsoft.com/dbazure/"
-           "26300.9457.260913-1737.26h2_ge_release_svc_refresh_"
+           "888969d5-f34g-4e03-ac9d-1f9786c66749/"
+           "26200.6584.250915-1905.25h2_ge_release_svc_refresh_"
            "CLIENTENTERPRISEEVAL_OEMRET_x64FRE_en-us.iso")
-ISO_SHA256 = "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38"
-ISO_BYTES = 8_225_329_152
-ISO_SOURCE = "https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise"
-ISO_HASH_SOURCE = ("https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/"
-                   "verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file")
-UPDATE_BUILD = 26300
+ISO_SHA256 = "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9"
+ISO_BYTES = 7_092_807_680
+# This is the original 25H2 evaluation media (build 26200.6584); the guest
+# must still install and verify the separately pinned cumulative update below.
+ISO_SOURCE = ISO_URL
+ISO_HASH_SOURCE = "https://aka.ms/Win11-Hash-PDF"
+UPDATE_BUILD = 26200
 UPDATE_UBR = 9711
 UPDATE_SOURCE = ("https://support.microsoft.com/en-us/servicing/os/windows-11/2026/10/"
                  "kb5127648-windows-11-24h2-25h2-26h2-security-update")
-UPDATE_CATALOG_ID = "3aa52c0d-45db-47a4-be28-4b0042c5ac78"
+UPDATE_CATALOG_ID = "b9a50e37-4f50-4f50-bc24-9e7b1e1d4b70"
 # SHA-256 values come from Microsoft's Catalog DownloadDialog metadata, not
 # from a locally downloaded package. Checkpoint and target share one MSU-only
 # directory so Windows servicing can discover the required dependency.

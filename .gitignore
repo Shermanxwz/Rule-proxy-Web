@@ -10,3 +10,4 @@ state/
 source.yaml
 config.yaml
 dist/
+/.cweb-uploads/

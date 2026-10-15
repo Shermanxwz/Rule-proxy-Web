@@ -64,7 +64,7 @@ function Read-UpdateManifestDefinition($Directory) {
     foreach ($required in @('target_build', 'target_ubr', 'packages', 'target_package')) {
         if ($required -notin $names) { throw 'update_manifest_missing_field' }
     }
-    if ($manifest.target_build -ne 26300 -or $manifest.target_ubr -ne 9711 -or
+    if ($manifest.target_build -ne 26200 -or $manifest.target_ubr -ne 9711 -or
         $manifest.target_build -is [string] -or $manifest.target_ubr -is [string]) {
         throw 'update_manifest_unexpected_target'
     }
@@ -280,7 +280,7 @@ function Remove-UpdateTask {
 
 function Invoke-RuleProxyCIUpdate {
     $state = @{ schema_version = 1; status = 'installing'; completed = $false;
-        target_build = 26300; target_ubr = 9711; actual_build = 0; actual_ubr = 0;
+        target_build = 26200; target_ubr = 9711; actual_build = 0; actual_ubr = 0;
         attempts = 0; reboot_count = 0; reboot_required = $false; packages_verified = $false;
         task_unregistered = $false;
         servicing_signature_verification = 'Windows servicing verifies MSU catalog signatures' }
@@ -302,7 +302,7 @@ function Invoke-RuleProxyCIUpdate {
             if ($item.Length -gt 65536) { throw 'update_state_oversized' }
             $previous = [IO.File]::ReadAllText($statePath, [Text.Encoding]::UTF8) | ConvertFrom-Json
             $previousNames = @($previous.PSObject.Properties.Name)
-            if ($previous.schema_version -ne 1 -or $previous.target_build -ne 26300 -or $previous.target_ubr -ne 9711 -or
+            if ($previous.schema_version -ne 1 -or $previous.target_build -ne 26200 -or $previous.target_ubr -ne 9711 -or
                 $previous.attempts -is [string] -or $previous.reboot_count -is [string] -or
                 $previous.attempts -lt 0 -or $previous.attempts -gt 2 -or
                 $previous.reboot_count -lt 0 -or $previous.reboot_count -gt 2) { throw 'update_invalid_prior_state' }
@@ -335,7 +335,7 @@ function Invoke-RuleProxyCIUpdate {
         $state.phase = 'verifying'
         $os = Get-UpdateOS
         $state.actual_build, $state.actual_ubr = $os.build, $os.ubr
-        if ($os.build -ne 26300) { throw 'update_wrong_OS_build' }
+        if ($os.build -ne 26200) { throw 'update_wrong_OS_build' }
         if ($state.attempts -gt 0 -and $state.ContainsKey('dism_exit_code') -and
             $state.dism_exit_code -in @(0, 3010) -and $os.ubr -ge 9711) {
             $state.status, $state.completed, $state.reboot_required = 'completed', $true, $false
@@ -377,7 +377,7 @@ function Invoke-RuleProxyCIUpdate {
         if ($state.dism_exit_code -notin @(0, 3010)) { throw 'update_DISM_failed' }
         $os = Get-UpdateOS
         $state.actual_build, $state.actual_ubr = $os.build, $os.ubr
-        if ($os.build -ne 26300) { throw 'update_wrong_OS_build' }
+        if ($os.build -ne 26200) { throw 'update_wrong_OS_build' }
         if ($state.dism_exit_code -eq 0 -and $os.ubr -ge 9711) {
             $state.status, $state.completed, $state.reboot_required = 'completed', $true, $false
             Remove-UpdateTask

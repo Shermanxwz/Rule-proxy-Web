@@ -12,7 +12,7 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 要求 x64 Windows 11，以及系统实际支持 Microsoft MXC 的 BaseContainer 网络策略。Windows 10 和缺少所需接口的 Windows 11 不可用；面板会检查完整请求，并在不支持时拒绝启动。
 
-使用固定的 Microsoft MXC 1.0.0；最终以本机对完整策略的能力检查和实际启动检查为准，Windows 版本或更新编号不能单独保证支持。[官方系统支持说明](https://github.com/microsoft/mxc/blob/v1.0.0/docs/backends/process-container/os-version-support.md)
+使用固定的 Microsoft MXC 1.0.0。微软当前支持表列出 Windows 11 25H2 从 26200.9278 起支持进程隔离；完整策略还要以本机能力检查和实际启动检查为准，版本号不能单独保证所需功能全部可用。[官方系统支持说明](https://github.com/microsoft/mxc/blob/main/docs/backends/process-container/os-version-support.md)
 
 原有全拒绝策略曾阻断容器内代理连接。2026-10-15 的原生 x64 基线系统对照使用单独校验的 SDK 候选：只允许固定内部 TCP 代理端口，父子进程 HTTP / SOCKS 共完成 4 次往返，所选公网 UDP 探针未出网，清理与宿主网络检查通过。三种原生 DNS API 均完成，容器内测试域名查询计数为 0；原报告仍因 15 个无应用数据的 TCP 控制包标为不完整，不能改称完整产品验收。候选未替换产品 SDK，更新后系统和真实应用验收仍在进行。[原生网络对照摘要](verification/windows-2026-10-15/2db61ae/candidate-warmup-native/observations.json)
 
