@@ -211,11 +211,11 @@ class Adapter:
             raise RuntimeError("Cannot identify exact Clew relay ports for inbound authorization")
         unique = str(os.getpid()) + "-" + str(time.time_ns())
         names = ["RuleProxyCompare-Clew-" + unique + "-" + protocol for protocol in ("TCP", "UDP")]
-        values = {"RULEPROXY_CLEW_FW_NAMES": json.dumps(names),
+        values = {"RULEPROXY_CLEW_FW_TCP_NAME": names[0], "RULEPROXY_CLEW_FW_UDP_NAME": names[1],
                   "RULEPROXY_CLEW_FW_EXE": str(self.exe),
                   "RULEPROXY_CLEW_FW_TCP": tcp[0], "RULEPROXY_CLEW_FW_UDP": udp[0]}
         before = self._firewall_command(
-            "$names=@($env:RULEPROXY_CLEW_FW_NAMES|ConvertFrom-Json); "
+            "$names=@($env:RULEPROXY_CLEW_FW_TCP_NAME,$env:RULEPROXY_CLEW_FW_UDP_NAME); "
             "$r=@(Get-NetFirewallRule -Name $names -ErrorAction SilentlyContinue); "
             "[ordered]@{existing_count=$r.Count}|ConvertTo-Json -Compress", values,
             "clew-firewall-before.json")
@@ -223,11 +223,11 @@ class Adapter:
             raise RuntimeError("Refuse existing diagnostic firewall rule names")
         self._firewall_names = names  # Include partial install in exception cleanup.
         created = self._firewall_command(
-            "$names=@($env:RULEPROXY_CLEW_FW_NAMES|ConvertFrom-Json); "
-            "New-NetFirewallRule -Name $names[0] -DisplayName $names[0] -Direction Inbound "
+            "$names=@($env:RULEPROXY_CLEW_FW_TCP_NAME,$env:RULEPROXY_CLEW_FW_UDP_NAME); "
+            "New-NetFirewallRule -Name ([string]$names[0]) -DisplayName ([string]$names[0]) -Direction Inbound "
             "-Action Allow -Enabled True -Profile Any -Program $env:RULEPROXY_CLEW_FW_EXE "
             "-Protocol TCP -LocalPort ([int]$env:RULEPROXY_CLEW_FW_TCP) -EdgeTraversalPolicy Block|Out-Null; "
-            "New-NetFirewallRule -Name $names[1] -DisplayName $names[1] -Direction Inbound "
+            "New-NetFirewallRule -Name ([string]$names[1]) -DisplayName ([string]$names[1]) -Direction Inbound "
             "-Action Allow -Enabled True -Profile Any -Program $env:RULEPROXY_CLEW_FW_EXE "
             "-Protocol UDP -LocalPort ([int]$env:RULEPROXY_CLEW_FW_UDP) -EdgeTraversalPolicy Block|Out-Null; "
             "$r=@(Get-NetFirewallRule -Name $names); "
@@ -246,9 +246,10 @@ class Adapter:
     def _remove_reflected_inbound(self) -> dict:
         if not self._firewall_names:
             return {"owned_rule_count": 0, "remaining_count": 0, "cleanup_proven": True}
-        values = {"RULEPROXY_CLEW_FW_NAMES": json.dumps(self._firewall_names)}
+        values = {"RULEPROXY_CLEW_FW_TCP_NAME": self._firewall_names[0],
+                  "RULEPROXY_CLEW_FW_UDP_NAME": self._firewall_names[1]}
         after = self._firewall_command(
-            "$names=@($env:RULEPROXY_CLEW_FW_NAMES|ConvertFrom-Json); "
+            "$names=@($env:RULEPROXY_CLEW_FW_TCP_NAME,$env:RULEPROXY_CLEW_FW_UDP_NAME); "
             "Get-NetFirewallRule -Name $names -ErrorAction SilentlyContinue "
             "|Remove-NetFirewallRule; "
             "$r=@(Get-NetFirewallRule -Name $names -ErrorAction SilentlyContinue); "
