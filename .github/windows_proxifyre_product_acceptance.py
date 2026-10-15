@@ -26,6 +26,7 @@ import platform
 from pathlib import Path, PurePosixPath
 import secrets
 import shutil
+import socket
 import struct
 import subprocess
 import time
@@ -645,11 +646,19 @@ def controller(package_dir, output):
         # The health-only core is separate from the product. Keep its receiver
         # listeners, but release the executable before product uninstall.
         report["fixture_health_core_stopped"] = fixture.stop_proxy()
-        hostname = "node-" + fixture.nonce + ".example.com"
         hosts_before = hosts_path.read_bytes()
-        hosts_path.write_bytes(hosts_before + ("\r\n127.0.0.1 " + hostname + "\r\n").encode("ascii"))
-        report["fixture_hosts_mapping"] = {"hostname": hostname, "address": "127.0.0.1",
-                                            "before_sha256": hashlib.sha256(hosts_before).hexdigest()}
+        # Production deliberately ignores system hosts. Use a real DNS name
+        # for these local synthetic upstreams, without changing product policy.
+        hostname = "node-" + fixture.nonce + ".127.0.0.1.sslip.io"
+        addresses = sorted({row[4][0] for row in socket.getaddrinfo(
+            hostname, None, socket.AF_INET, socket.SOCK_STREAM)})
+        report["fixture_dns"] = {"hostname": hostname, "resolved_ipv4": addresses,
+            "expected_ipv4": "127.0.0.1", "third_party_dns_test_dependency": "sslip.io",
+            "production_dependency": False, "hosts_modified": False,
+            "hosts_before_sha256": hashlib.sha256(hosts_before).hexdigest()}
+        checkpoint()
+        if addresses != ["127.0.0.1"]:
+            raise RuntimeError("Synthetic fixture DNS did not resolve exclusively to 127.0.0.1")
         proxies = [{"name": node, "type": "socks5", "server": hostname,
                     "port": fixture._listeners[node].getsockname()[1], "udp": True} for node in ("A", "B")]
         spec = {"nonce": fixture.nonce, "panel_port": 28879, "proxy_port": 20809, "controller_port": 29097,
@@ -760,7 +769,9 @@ def controller(package_dir, output):
                 report["status"] = "failed_or_incomplete"
         if hosts_before is not None:
             try:
-                hosts_path.write_bytes(hosts_before)
+                # No hosts changes were made. Preserve the existing byte/hash
+                # evidence without rewriting a host setting for this fixture.
+                report["hosts_modified"] = False
                 report["hosts_restored"] = hosts_path.read_bytes() == hosts_before
                 report["hosts_restored_sha256"] = digest(hosts_path)
             except Exception as exc:

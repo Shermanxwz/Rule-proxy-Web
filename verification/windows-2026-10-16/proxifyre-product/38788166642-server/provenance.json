@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "run_id": 38788166642,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38788166642",
+  "source_commit": "99a8c8e0a0f3e9ca100e23c1bd75515d68de91cd",
+  "qualification_scope": "Server product subjob only; native Windows 11 task is independent",
+  "artifact_id": 11999005402,
+  "github_artifact_digest": "sha256:a3a9ffc157abd12ccb43c03e30a39fc6fc461432dfa529b097558a82e6d54c4e",
+  "normalized_download_zip_sha256": "a3a9ffc157abd12ccb43c03e30a39fc6fc461432dfa529b097558a82e6d54c4e",
+  "status": "fixture_upstream_hostname_not_resolved",
+  "installation_and_reinstallation_passed": true,
+  "control_service_startup_passed": true,
+  "ordinary_suite_and_panel_started": true,
+  "installed_package_and_broker_available": true,
+  "unselected_direct_positive_control_passed": true,
+  "selected_connection_observed_at_mihomo": true,
+  "end_to_end_selected_proxy_response_passed": false,
+  "architecture_failure_proven": false,
+  "root_cause": "The synthetic upstream hostname existed only in hosts, while the unchanged production compiler sets use-hosts and use-system-hosts false. Mihomo logged dns resolve failed for that hostname. Test fixture must use actual DNS without weakening compiler policy."
+}

@@ -2,6 +2,11 @@ name: Windows ProxiFyre product qualification
 
 on:
   workflow_dispatch:
+    inputs:
+      native_windows_11:
+        description: Run the complete native Windows 11 qualification
+        type: boolean
+        default: true
   push:
     branches:
       - 'codex/windows-proxifyre-product-*'
@@ -75,6 +80,7 @@ jobs:
   native-windows-11:
     name: Final ZIP · Windows 11 x64 · native KVM
     needs: package
+    if: github.event_name == 'workflow_dispatch' && inputs.native_windows_11
     runs-on: ubuntu-24.04
     timeout-minutes: 85
     steps:
