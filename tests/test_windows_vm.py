@@ -497,7 +497,7 @@ class WindowsVmTests(unittest.TestCase):
             result = vm.run(args)
         self.assertEqual(result["error"], "RuntimeError: stop before boot")
         helper.fetch_archive.assert_called_once_with(work / vm.CHROMIUM_CONTROL_ARCHIVE_MEMBER)
-        make_payload.assert_called_once_with(package, work / "payload.zip", test_executor_bundle=None,
+        make_payload.assert_called_once_with(package.resolve(strict=True), work / "payload.zip", test_executor_bundle=None,
                                              chromium_control_archive=work / vm.CHROMIUM_CONTROL_ARCHIVE_MEMBER)
         config = seed.call_args.args[2]
         self.assertTrue(config["gui_diagnostic_only"])

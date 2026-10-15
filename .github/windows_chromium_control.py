@@ -134,9 +134,16 @@ def fetch_archive(path: str | os.PathLike[str]) -> str:
 
 
 def _validate_name(info: zipfile.ZipInfo) -> tuple[str, bool]:
-    name = info.filename
+    # ZipInfo.filename is normalized for the host OS (backslashes are changed
+    # to slashes and NUL terminates it). Inspect its raw archive spelling first
+    # so Windows cannot erase evidence of a hostile member name.
+    name = getattr(info, "orig_filename", info.filename)
+    if not isinstance(name, str):
+        raise ControlArchiveError("archive contains an invalid member path")
     if not name or "\x00" in name or "\\" in name or ":" in name:
         raise ControlArchiveError("archive contains an invalid member path")
+    if name != info.filename:
+        raise ControlArchiveError("archive contains a noncanonical member path")
     is_dir = name.endswith("/")
     raw = name[:-1] if is_dir else name
     if any(part in ("", ".", "..") for part in raw.split("/")):

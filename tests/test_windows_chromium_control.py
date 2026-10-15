@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import stat
 import struct
@@ -51,6 +52,24 @@ def make_archive(path: Path, *, exe: bytes | None = None, manifest: bytes | None
             bundle.writestr(name, data)
     data = stream.getvalue()
     path.write_bytes(data)
+    return data
+
+
+def make_archive_with_raw_name(path: Path, raw_name: str) -> bytes:
+    """Serialize a name after ZipInfo construction to bypass host path cleanup."""
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr(control.EXPECTED_EXE, pe_image())
+        bundle.writestr(control.EXPECTED_MANIFEST, assembly_manifest())
+        info = zipfile.ZipInfo("safe-placeholder")
+        info.filename = raw_name
+        bundle.writestr(info, b"unsafe name payload")
+    data = stream.getvalue()
+    path.write_bytes(data)
+    with zipfile.ZipFile(path) as bundle:
+        names = [member.orig_filename for member in bundle.infolist()]
+    if raw_name not in names:
+        raise AssertionError("test ZIP did not preserve the unsafe raw member name")
     return data
 
 
@@ -177,7 +196,7 @@ class ChromiumControlTests(unittest.TestCase):
         with self.patch_archive_facts(payload), mock.patch.object(control, "CONTROL_FILE_SHA256", pins):
             control.extract_archive(archive, target)
             executable, facts = control.staged_browser(target)
-            self.assertEqual(executable, target / control.EXPECTED_EXE)
+            self.assertTrue(os.path.samefile(executable, target / control.EXPECTED_EXE))
             self.assertEqual(facts["verified_component_count"], 3)
             self.assertTrue(facts["source_diagnostic_only"])
             (target / "chrome-win64/chrome.dll").write_bytes(b"changed")
@@ -210,9 +229,17 @@ class ChromiumControlTests(unittest.TestCase):
 
     def test_extract_rejects_windows_path_escape_and_casefold_duplicates(self):
         archive = self.root / "archive.zip"
+        for unsafe_name in ("chrome-win64\\escape.txt", "chrome-win64\\..\\escaped.txt", "chrome-win64/unsafe\x00.txt"):
+            with self.subTest(unsafe_name=repr(unsafe_name)):
+                payload = make_archive_with_raw_name(archive, unsafe_name)
+                with self.patch_archive_facts(payload), self.assertRaises(control.ControlArchiveError):
+                    control.extract_archive(archive, self.root / "staged")
+
         payload = make_archive(archive, exe=pe_image(), manifest=assembly_manifest(),
-                               extra=(("chrome-win64\\escape.txt", b"x"),))
-        with self.patch_archive_facts(payload), self.assertRaises(control.ControlArchiveError):
+                               extra=(("chrome-win64/Chrome.exe", b"shadow"),))
+        with self.patch_archive_facts(payload), self.assertRaisesRegex(
+            control.ControlArchiveError, "duplicate or case-colliding"
+        ):
             control.extract_archive(archive, self.root / "staged")
 
     def test_extract_rejects_symlink_members(self):
@@ -229,12 +256,6 @@ class ChromiumControlTests(unittest.TestCase):
         archive.write_bytes(payload)
         with self.patch_archive_facts(payload), self.assertRaisesRegex(
             control.ControlArchiveError, "link or special file"
-        ):
-            control.extract_archive(archive, self.root / "staged")
-        payload = make_archive(archive, exe=pe_image(), manifest=assembly_manifest(),
-                               extra=(("chrome-win64/Chrome.exe", b"shadow"),))
-        with self.patch_archive_facts(payload), self.assertRaisesRegex(
-            control.ControlArchiveError, "duplicate or case-colliding"
         ):
             control.extract_archive(archive, self.root / "staged")
 
