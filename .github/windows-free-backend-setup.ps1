@@ -39,10 +39,6 @@ if (-not (Test-Path -LiteralPath (Join-Path $bundleRoot 'manifest.json') -PathTy
 }
 New-Item -ItemType Directory -Path 'C:\RuleProxyCI\artifacts' -Force | Out-Null
 New-Item -ItemType Directory -Path 'C:\RuleProxyCI\results' -Force | Out-Null
-$null = & icacls.exe $bundleRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /T
-if ($LASTEXITCODE -ne 0) { throw 'Could not protect fixed backend bundle from ordinary-user modification' }
-$null = & icacls.exe 'C:\RuleProxyCI\artifacts' /grant '*S-1-5-32-545:(OI)(CI)M' /T
-if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the private probe artifact directory' }
 
 $installWorker = Join-Path $PSScriptRoot 'windows-free-backend-install.ps1'
 Copy-Item -LiteralPath $installWorker -Destination 'C:\RuleProxyCI\windows-free-backend-install.ps1' -Force
@@ -53,12 +49,10 @@ Copy-Item -LiteralPath $installWorker -Destination 'C:\RuleProxyCI\windows-free-
 Remove-Item -LiteralPath $payloadRoot -Recurse -Force
 Remove-Item -LiteralPath $payload -Force
 $root = 'C:\RuleProxyCI'
-$null = & icacls.exe $root /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /T /C
-if ($LASTEXITCODE -ne 0) { throw 'Could not protect SYSTEM backend scripts and state from ordinary-user modification' }
-foreach ($writable in @((Join-Path $root 'artifacts'), (Join-Path $root 'results'))) {
-    $null = & icacls.exe $writable /grant '*S-1-5-32-545:(OI)(CI)M' /T /C
-    if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the bounded ordinary-user output directories' }
-}
+. (Join-Path $PSScriptRoot 'windows-free-backend-acl.ps1')
+Protect-FreeBackendTree -Root $root
+# Verify trusted code remains readable after protecting the SYSTEM boundary.
+$null = Get-FileHash -LiteralPath (Join-Path $bundleRoot 'python\python.exe') -Algorithm SHA256
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\RuleProxyCI\windows-free-backend-install.ps1'
 $triggers = @((New-ScheduledTaskTrigger -AtStartup), (New-ScheduledTaskTrigger -AtLogOn))
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest

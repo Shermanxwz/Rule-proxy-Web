@@ -354,6 +354,9 @@ def run(args) -> dict:
             (tree / "windows-free-backend-install.ps1").write_text(
                 (ROOT / ".github/windows-free-backend-install.ps1").read_text(encoding="utf-8"),
                 encoding="utf-8-sig")
+            (tree / "windows-free-backend-acl.ps1").write_text(
+                (ROOT / ".github/windows-free-backend-acl.ps1").read_text(encoding="utf-8"),
+                encoding="utf-8-sig")
             unattended = work / "unattended.iso"
             subprocess.run(["xorriso", "-as", "mkisofs", "-iso-level", "3", "-J", "-joliet-long", "-R",
                             "-V", "RULEPROXY_FREE", "-b", "boot/etfsboot.com", "-no-emul-boot",

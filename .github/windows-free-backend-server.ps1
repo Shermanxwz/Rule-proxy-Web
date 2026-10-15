@@ -82,14 +82,8 @@ function Write-State([string]$Status, [string]$Code) {
 }
 
 function Protect-Directories {
-    New-Item -ItemType Directory -Path $results, $artifacts -Force | Out-Null
-    & icacls.exe $root /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /T /C |
-        Select-Object -Last 4 | Write-Host
-    if ($LASTEXITCODE -ne 0) { throw 'trusted_root_acl_failed' }
-    foreach ($directory in @($results, $artifacts)) {
-        $null = & icacls.exe $directory /grant '*S-1-5-32-545:(OI)(CI)M' /T /C
-        if ($LASTEXITCODE -ne 0) { throw 'output_acl_failed' }
-    }
+    . (Join-Path $PSScriptRoot 'windows-free-backend-acl.ps1')
+    Protect-FreeBackendTree -Root $root
 }
 
 $createdUser = $false
