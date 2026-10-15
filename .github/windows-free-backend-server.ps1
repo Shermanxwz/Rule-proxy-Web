@@ -86,6 +86,39 @@ function Protect-Directories {
     Protect-FreeBackendTree -Root $root
 }
 
+function Write-DeploymentFacts {
+    $serviceName = if ($Backend -eq 'sandboxie') { 'SbieSvc' } else { 'ProxyBridgeSvc' }
+    $folderName = if ($Backend -eq 'sandboxie') { 'Sandboxie-Plus' } else { 'ProxyBridge' }
+    $installRoot = Join-Path $env:ProgramFiles $folderName
+    $facts = [ordered]@{ schema_version = 1; backend = $Backend;
+        scope = 'disposable_server_after_probe_cleanup'; service_name = $serviceName;
+        installed_directory_bytes = $null; installed_file_count = $null;
+        service_working_set_bytes = $null; service_private_memory_bytes = $null;
+        service_state = $null; service_start_mode = $null;
+        includes_kernel_driver_memory = $false; includes_mihomo_or_application_memory = $false;
+        product_deployment_accepted = $false; diagnostic_only = $true }
+    try {
+        if (Test-Path -LiteralPath $installRoot -PathType Container) {
+            $files = @(Get-ChildItem -LiteralPath $installRoot -File -Recurse -Force |
+                Where-Object { ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0 })
+            $facts.installed_directory_bytes = [long](($files | Measure-Object -Property Length -Sum).Sum)
+            $facts.installed_file_count = $files.Count
+        }
+        $service = Get-CimInstance Win32_Service -Filter ("Name='" + $serviceName + "'")
+        if ($null -ne $service) {
+            $facts.service_state = [string]$service.State
+            $facts.service_start_mode = [string]$service.StartMode
+            if ($service.ProcessId -gt 0) {
+                $serviceProcess = Get-Process -Id $service.ProcessId
+                $facts.service_working_set_bytes = [long]$serviceProcess.WorkingSet64
+                $facts.service_private_memory_bytes = [long]$serviceProcess.PrivateMemorySize64
+            }
+        }
+    } catch { $facts.measurement_error_type = $_.Exception.GetType().Name }
+    [IO.File]::WriteAllText((Join-Path $OutputDirectory 'deployment-facts.json'),
+        (ConvertTo-Json -InputObject $facts -Depth 4), $utf8)
+}
+
 $createdUser = $false
 $script:newLogonSatisfiesGroupRefresh = $false
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
@@ -224,6 +257,7 @@ try {
     if (Test-Path -LiteralPath $installReport -PathType Leaf) {
         try { Copy-Item -LiteralPath $installReport -Destination $OutputDirectory -Force } catch { }
     }
+    try { Write-DeploymentFacts } catch { }
     # Reports/state are uploaded by the workflow even on failure. Do not emit
     # credentials or arbitrary exception text to Actions logs.
     $passwordText = $null
