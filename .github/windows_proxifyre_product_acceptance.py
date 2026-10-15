@@ -5,6 +5,16 @@ Ordinary actors use destination sockets; fixture SOCKS handshakes are health onl
 """
 from __future__ import annotations
 
+import sys
+
+# Capture import/argument/bootstrap failures in the original ordinary process,
+# before importing modules which could fail or loading its test specification.
+if __name__ == "__main__" and "--ordinary-suite" in sys.argv:
+    _ordinary_stdio = open(r"C:\RuleProxyProduct\actors\ordinary-stdio.log", "a",
+                           encoding="utf-8", buffering=1)
+    sys.stdout = sys.stderr = _ordinary_stdio
+    print("ordinary bootstrap executable: " + sys.executable, flush=True)
+
 import argparse
 import ctypes
 from ctypes import wintypes
@@ -18,7 +28,6 @@ import secrets
 import shutil
 import struct
 import subprocess
-import sys
 import time
 import traceback
 import urllib.error
@@ -166,6 +175,22 @@ class UserProcess:
 
     def close(self):
         self.kernel.CloseHandle(self.handle)
+
+
+def ordinary_exit_evidence(process, stdio_path):
+    """Capture bounded diagnostics without masking a missing suite result."""
+    code = process.poll()
+    facts = {"exit_code": code,
+             "exit_code_hex": None if code is None else f"0x{code & 0xFFFFFFFF:08X}",
+             "stdio_tail": None}
+    try:
+        with Path(stdio_path).open("rb") as source:
+            source.seek(0, 2)
+            source.seek(max(0, source.tell() - 65536))
+            facts["stdio_tail"] = source.read(65536).decode("utf-8", errors="replace")
+    except OSError as exc:
+        facts["stdio_read_error"] = {"type": type(exc).__name__, "errno": exc.errno}
+    return facts
 
 
 def token_user_sid(api, kernel, token):
@@ -662,6 +687,11 @@ def controller(package_dir, output):
         if process.poll() is None:
             process.terminate()
             raise TimeoutError("Ordinary product suite exceeded 15 minutes")
+        report["ordinary_process"] = ordinary_exit_evidence(process, LAB / "actors/ordinary-stdio.log")
+        report["ordinary_process"]["suite_result_exists"] = user_result.is_file()
+        if not report["ordinary_process"]["suite_result_exists"]:
+            report["ordinary_process"]["failure_stage"] = "exited_before_suite_result"
+        checkpoint()
         report["ordinary_suite"] = json.loads(user_result.read_text(encoding="ascii"))
         report["receiver_final"] = fixture.snapshot()
         if process.poll() != 0 or report["ordinary_suite"]["status"] != "passed":

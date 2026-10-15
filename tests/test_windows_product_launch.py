@@ -1,6 +1,8 @@
 """The disposable controller uses one authenticated ordinary-user launch path."""
 import importlib.util
+import io
 from pathlib import Path
+import tempfile
 import unittest
 from unittest import mock
 
@@ -12,6 +14,50 @@ SPEC.loader.exec_module(acceptance)
 
 
 class OrdinaryLaunchTests(unittest.TestCase):
+    def test_exit_diagnostics_preserve_windows_crash_code_and_only_last_64k(self):
+        process = mock.Mock()
+        process.poll.return_value = 0xC0000142
+
+        class BoundedStream(io.BytesIO):
+            def read(self, size=-1):
+                self_test.assertEqual(size, 65536)
+                return super().read(size)
+
+        self_test = self
+        stream = BoundedStream(b"discarded prefix" + b"x" * 65535 + b"\xff")
+        with mock.patch.object(Path, "open", return_value=stream):
+            facts = acceptance.ordinary_exit_evidence(process, Path("stdio.log"))
+        self.assertEqual(facts["exit_code"], 3221225794)
+        self.assertEqual(facts["exit_code_hex"], "0xC0000142")
+        self.assertEqual(facts["stdio_tail"], "x" * 65535 + "\ufffd")
+
+    def test_zero_exit_without_stdio_is_diagnostic_evidence_not_a_pass(self):
+        process = mock.Mock()
+        process.poll.return_value = 0
+        with tempfile.TemporaryDirectory() as temporary:
+            facts = acceptance.ordinary_exit_evidence(process, Path(temporary) / "missing.log")
+        self.assertEqual(facts["exit_code"], 0)
+        self.assertEqual(facts["exit_code_hex"], "0x00000000")
+        self.assertIsNone(facts["stdio_tail"])
+        self.assertEqual(facts["stdio_read_error"]["type"], "FileNotFoundError")
+        self.assertNotIn("status", facts)
+
+    def test_ordinary_stdio_is_opened_before_optional_module_imports(self):
+        prefix = SCRIPT.read_text(encoding="utf-8").split("import argparse", 1)[0]
+        output = io.StringIO()
+        with mock.patch.object(acceptance.sys, "argv", ["acceptance.py", "--ordinary-suite", "suite.json"]), \
+                mock.patch.object(acceptance.sys, "stdout"), \
+                mock.patch.object(acceptance.sys, "stderr"), \
+                mock.patch("builtins.open", return_value=output) as opened:
+            exec(compile(prefix, str(SCRIPT), "exec"), {"__name__": "__main__"})
+            self.assertIs(acceptance.sys.stdout, output)
+            self.assertIs(acceptance.sys.stderr, output)
+            print("import diagnostics captured")
+        opened.assert_called_once_with(r"C:\RuleProxyProduct\actors\ordinary-stdio.log", "a",
+                                       encoding="utf-8", buffering=1)
+        self.assertEqual(output.getvalue(), "ordinary bootstrap executable: " + acceptance.sys.executable
+                         + "\nimport diagnostics captured\n")
+
     def test_system_and_administrator_use_authenticated_token_profile_and_close_handles(self):
         owner = "S-1-5-21-1-2-3-1000"
         for caller_sid in ("S-1-5-18", "S-1-5-21-1-2-3-500"):

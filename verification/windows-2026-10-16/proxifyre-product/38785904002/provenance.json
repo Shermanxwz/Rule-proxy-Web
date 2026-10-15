@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "run_id": 38785904002,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38785904002",
+  "source_commit": "b2ae7f6c554b7135c80ad2fb8f6625f836f39c52",
+  "artifact_id": 11997747376,
+  "github_artifact_digest": "sha256:87da1eca8819ae0a89f3230b31632ff398dd68427eaedcb0f30caaf8cdc9d2ed",
+  "normalized_download_zip_sha256": "87da1eca8819ae0a89f3230b31632ff398dd68427eaedcb0f30caaf8cdc9d2ed",
+  "status": "ordinary_actor_exited_without_report",
+  "installation_and_reinstallation_passed": true,
+  "control_service_startup_passed": true,
+  "source_and_installed_package_identity_passed": true,
+  "ordinary_actor_token_sid_verified": true,
+  "transparent_product_routing_tests_started": false,
+  "architecture_failure_proven": false,
+  "remaining_failure": "Ordinary actor exited before creating user-suite.json; its exit code/stdout were not recorded. Next run adds early actor stderr and exit diagnostics before drawing a product or environment conclusion.",
+  "cross_platform_check_run_id": 38785904019,
+  "cross_platform_check_all_eight_jobs_passed": true
+}
