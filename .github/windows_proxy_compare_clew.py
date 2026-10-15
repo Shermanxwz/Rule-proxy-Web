@@ -55,17 +55,27 @@ def _port_open() -> bool:
         return False
 
 
-def _signature(path: Path) -> dict:
+def _signature(path: Path, diagnostics: Path | None = None) -> dict:
     # Use an environment value, never interpolate an executable path as code.
     env = dict(os.environ, RULEPROXY_CLEW_DRIVER=str(path))
+    # A pwsh 7 coordinator can export its own module path. Windows PowerShell
+    # must load the inbox Security module used by Get-AuthenticodeSignature.
+    env["PSModulePath"] = str(Path(env.get("SystemRoot", r"C:\Windows")) /
+                              "System32/WindowsPowerShell/v1.0/Modules")
     command = ("$ErrorActionPreference='Stop'; "
                "$s=Get-AuthenticodeSignature -LiteralPath $env:RULEPROXY_CLEW_DRIVER; "
                "[ordered]@{status=[string]$s.Status; "
                "subject=[string]$s.SignerCertificate.Subject} | ConvertTo-Json -Compress")
     result = subprocess.run(["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive",
                              "-Command", command], env=env, capture_output=True, timeout=20)
+    observed = {"returncode": result.returncode,
+                "stdout": result.stdout[:16384].decode("utf-8-sig", errors="replace"),
+                "stderr": result.stderr[:16384].decode("utf-8-sig", errors="replace")}
+    if diagnostics is not None:
+        _write_json(diagnostics, observed)
     if result.returncode:
-        raise RuntimeError("Clew bundled driver signature inspection failed")
+        raise RuntimeError("Clew bundled driver signature inspection failed: "
+                           + json.dumps(observed, ensure_ascii=True))
     value = json.loads(result.stdout.decode("utf-8-sig"))
     if value.get("status") != "Valid":
         raise RuntimeError("Clew bundled WinDivert driver signature is not valid")
@@ -179,7 +189,8 @@ class Adapter:
             raise ValueError("Invalid fixed proxy ports or empty selected applications")
         if _port_open():
             raise RuntimeError("Refuse to attach to a pre-existing Clew API on port 18080")
-        self._facts["driver_signature"] = _signature(self.root / "WinDivert64.sys")
+        self._facts["driver_signature"] = _signature(
+            self.root / "WinDivert64.sys", self.artifacts / "clew-driver-signature.json")
         if (self.root / "clew.log").exists():
             raise RuntimeError("Refuse stale Clew runtime directory")
         initial = {"version": 2, "default_proxy": {"type": "socks5", "host": "127.0.0.1",

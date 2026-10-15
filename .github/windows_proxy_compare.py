@@ -122,6 +122,32 @@ def dns_attempt(spec, token):
     return row
 
 
+def native_curl_attempt(spec, token):
+    started = time.perf_counter()
+    path = "/ruleproxy-compare/" + spec["nonce"] + "/" + token
+    row = {"token": token, "protocol": "tcp", "family": "ipv4", "application": "Windows inbox curl"}
+    try:
+        result = subprocess.run([spec["native_curl"], "--noproxy", "*", "--max-time", "6",
+            "--silent", "--show-error", "--include", "--http1.1", "--header", "Host: example.com",
+            "http://" + spec["target"] + path], capture_output=True, timeout=10)
+        head, _, body = result.stdout.partition(b"\r\n\r\n")
+        headers = {}
+        for line in head.split(b"\r\n")[1:]:
+            key, separator, value = line.partition(b":")
+            if separator:
+                headers[key.decode("ascii", "replace").lower()] = value.decode("ascii", "replace").strip()
+        row.update(exit_code=result.returncode, connected=bool(result.stdout),
+                   response_bytes=len(result.stdout), node=headers.get("x-ruleproxy-node"),
+                   marker_nonce_valid=headers.get("x-ruleproxy-nonce") == spec["nonce"],
+                   marker_token_valid=token.encode("ascii") in body)
+        row["controlled_proxy_response"] = bool(row["node"] in ("A", "B") and
+            row["marker_nonce_valid"] and row["marker_token_valid"] and result.returncode == 0)
+    except Exception as exc:
+        row.update(connected=False, controlled_proxy_response=False, error=error_facts(exc))
+    row["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 3)
+    return row
+
+
 def actor(spec_path, result_path):
     spec = json.loads(Path(spec_path).read_text(encoding="ascii"))
     result = {"pid": os.getpid(), "exe": str(Path(sys.executable).resolve()), "rows": [],
@@ -130,8 +156,8 @@ def actor(spec_path, result_path):
         result["is_elevated"] = bool(ctypes.windll.shell32.IsUserAnAdmin())
     for index in range(spec.get("count", 1)):
         token = spec["token"] + "-" + str(index)
-        result["rows"].append(dns_attempt(spec, token) if spec.get("protocol") == "udp"
-                              else http_attempt(spec, token))
+        result["rows"].append(native_curl_attempt(spec, token) if spec.get("native_curl") else
+            dns_attempt(spec, token) if spec.get("protocol") == "udp" else http_attempt(spec, token))
     for child in spec.get("children", []):
         child_spec = dict(spec, role=child["role"], token=spec["token"] + "-" + child["role"],
                           count=1, children=[])
@@ -299,17 +325,22 @@ def main(argv=None):
         fixture = fixture_module.Fixture(mihomo, args.output / "fixture")
         fixture.__enter__()
         report["fixture"] = fixture.facts()
+        native_curl = Path(os.environ["SystemRoot"]) / "System32/curl.exe"
+        if not native_curl.is_file():
+            raise RuntimeError("Windows inbox curl is unavailable")
         report["backend_start"] = adapter.start(fixture.ports,
-                                                 [str(executables["app_a"]), str(executables["app_b"])], "A")
+            [str(executables["app_a"]), str(executables["app_b"]), str(native_curl)], "A")
         actor_directory = ROOT / "actors"
         actor_directory.mkdir(exist_ok=True)
 
         def phase(label, role="app_a", count=1, protocol="tcp", family="ipv4", children=False,
-                  expected_node="A", connected_udp=False):
+                  expected_node="A", connected_udp=False, use_native_curl=False):
             token = secrets.token_hex(8)
             spec = {"nonce": fixture.nonce, "token": token, "role": role, "count": count,
                     "target": fixture.target_ipv6 if family == "ipv6" else fixture.target_ipv4,
                     "protocol": protocol, "family": family, "connected_udp": connected_udp}
+            if use_native_curl:
+                spec["native_curl"] = str(native_curl)
             if children:
                 spec["children"] = [{"role": "same_image", "exe": str(executables[role])},
                                     {"role": "different_image", "exe": str(executables["child_other"])}]
@@ -334,8 +365,8 @@ def main(argv=None):
             value["marker_responses"] = sum(row.get("controlled_proxy_response") is True and
                                             row.get("node") == expected_node for row in rows)
             value["attempts"] = count
-            value["direct_response_count"] = sum(not row.get("controlled_proxy_response") and
-                (row.get("connected") or row.get("response_received")) for row in rows)
+            value["direct_response_count"] = sum(bool(not row.get("controlled_proxy_response") and
+                (row.get("connected") or row.get("response_received"))) for row in rows)
             report["phases"].append(value)
             write_json(report_path, report)
             print(json.dumps({"phase": label, "marker_responses": value["marker_responses"],
@@ -345,6 +376,7 @@ def main(argv=None):
         phase("unselected_before", "unselected", count=2, expected_node=None)
         phase("selected_app_a_tcp", count=10)
         phase("selected_app_b_tcp", "app_b", count=5)
+        phase("selected_native_curl", "unselected", count=3, use_native_curl=True)
         for index in range(5):
             phase("fresh_process_" + str(index), count=1)
         phase("selected_children", children=True)
@@ -370,7 +402,7 @@ def main(argv=None):
         phase("backend_stopped_selected", count=1, expected_node=None)
         report["receiver_final"] = fixture.snapshot()
         report["status"] = "diagnostic_completed"
-        required = ("selected_app_a_tcp", "selected_app_b_tcp", "selected_node_b", *(
+        required = ("selected_app_a_tcp", "selected_app_b_tcp", "selected_native_curl", "selected_node_b", *(
             "fresh_process_" + str(index) for index in range(5)))
         report["core_tcp_routing_observed"] = all(
             row["marker_responses"] == row["attempts"] and
