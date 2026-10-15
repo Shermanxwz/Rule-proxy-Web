@@ -1,0 +1,57 @@
+name: Windows Server ordinary-user backend probe
+
+on:
+  push:
+    branches:
+      - 'codex/windows-server-probe-*'
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: Pinned backend to test on the disposable Windows Server runner
+        required: true
+        type: choice
+        options:
+          - sandboxie
+          - proxybridge
+
+permissions:
+  contents: read
+
+jobs:
+  server-ordinary-user-probe:
+    name: Windows Server · ${{ matrix.backend }}
+    runs-on: windows-2025
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.backend)) || fromJSON('["sandboxie","proxybridge"]') }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Build independently pinned backend bundle
+        shell: pwsh
+        env:
+          BACKEND: ${{ matrix.backend }}
+        run: python -B .github/windows_free_backend_assets.py --backend "$env:BACKEND" --output "$env:RUNNER_TEMP\free-backend-bundle.zip"
+      - name: Run elevated install and bounded ordinary-user probe
+        shell: pwsh
+        env:
+          BACKEND: ${{ matrix.backend }}
+        run: >-
+          .github/windows-free-backend-server.ps1
+          -Backend "$env:BACKEND"
+          -BundleZip "$env:RUNNER_TEMP\free-backend-bundle.zip"
+          -OutputDirectory "$PWD\windows-free-backend-server-results"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-server-free-backend-${{ matrix.backend }}
+          path: |
+            windows-free-backend-server-results/
+            C:\RuleProxyCI\artifacts\
+          if-no-files-found: warn
+          retention-days: 14

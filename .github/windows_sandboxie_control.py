@@ -571,9 +571,10 @@ def _run_outside_worker(python: Path, worker: Path, spec_path: Path,
 
 
 def _dns_call_facts(calls):
-    fields = ("api", "qname", "requested_role", "api_returned", "entry_observed",
-              "worker_started", "worker_record_observed", "cleanup_proven", "return_code",
-              "timed_out", "worker_exit_observed", "worker_exit_code", "api_entry_observed")
+    fields = ("api", "qname", "requested_role", "api_returned", "entry_lease_published",
+              "worker_cleanup_proven", "native_completion_proven", "operation_pending",
+              "outcome", "worker_exit_verified", "worker_exit_code", "error", "error_stage",
+              "controller_error", "controller_error_stage", "errno", "winerror")
     return [{key: item[key] for key in fields if key in item and
              (item[key] is None or type(item[key]) in (str, bool, int))}
             for item in calls[:3] if isinstance(item, dict)]
