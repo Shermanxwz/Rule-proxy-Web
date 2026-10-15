@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "source_commit": "0d6c44c684a38a36a58a9d35db4a8806ecaf151e",
+  "status": "failed_before_contained_product_fixtures",
+  "target": {
+    "windows": "Windows 11 Enterprise Evaluation",
+    "build": 26200,
+    "ubr": 9711,
+    "ordinary_user": true
+  },
+  "official_update": {
+    "completed": true,
+    "target_build": 26200,
+    "target_ubr": 9711,
+    "actual_build": 26200,
+    "actual_ubr": 9711,
+    "dism_exit_code": 3010,
+    "packages_verified": true,
+    "staged_package_count": 2,
+    "reboot_count": 1,
+    "task_unregistered": true
+  },
+  "runtime_selection": {
+    "mode": "original_sdk",
+    "packaged_default_g_bundle": true,
+    "test_executor_override": false,
+    "identity_scope": "declared packaged default; no contained executor launch observed"
+  },
+  "package_tests": {
+    "status": "failed",
+    "exit_code": 1,
+    "test_count": 742,
+    "errors": 11,
+    "skipped": 62,
+    "relevant_failures": [
+      "Host acceptance and diagnostic-executor tests could not load ruleproxy/windows_runtime_pins.py from the staged payload",
+      "test_file_bridge.FileBridgeTests.test_real_bridge_roundtrip_crosses_frames_and_preserves_half_close encountered a real PermissionError reading guest-status.json; the underlying cause was not recorded"
+    ]
+  },
+  "phase_results": {
+    "outside_edge": {
+      "status": "failed",
+      "scope": "ordinary_windows_stock_edge_fixed_http_health",
+      "failure_stage": "platform",
+      "error_type": "FileNotFoundError",
+      "errno": 2,
+      "checks_run": 0,
+      "outside_headless_control_passed": false,
+      "cleanup_proven": true
+    },
+    "experiments": {
+      "status": "failed",
+      "failure": "FileNotFoundError importing ruleproxy/windows_runtime_pins.py",
+      "variants_started": 0,
+      "cleanup_proven": true
+    },
+    "contained_probe_transport_manager_browser_gui": {
+      "status": "blocked",
+      "reason": "An earlier experiments phase retained a pending-cleanup record; contained phases were blocked. This was not attributed to the file-bridge unit-test error.",
+      "browser_or_gui_observed": false
+    }
+  },
+  "product_acceptance_passed": false,
+  "interpretation": "The missing copied runtime-pins module prevented the package tests and platform checks from starting. Later contained phases were blocked by retained cleanup state. This artifact contains no product GUI/browser startup outcome, no Edge outside-health result, and no G network TCP/DNS/UDP measurement; it does not establish a framework limitation.",
+  "limitations": [
+    "The outside Edge headless check ran zero checks and cannot diagnose Edge itself.",
+    "No contained GUI window, page, cookie, or browser natural-exit evidence was collected.",
+    "The experiment launched zero policy variants, so TCP/DNS/UDP policy behavior is unobserved.",
+    "The copied-guest import regression was also present in this source, but blocked transport and Manager phases never exercised it in this run."
+  ]
+}

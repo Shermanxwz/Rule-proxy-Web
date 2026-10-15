@@ -8,6 +8,8 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
 import threading
 import struct
@@ -362,8 +364,44 @@ class WindowsVmTests(unittest.TestCase):
                              (ROOT / ".github/workflows/check.yml").read_bytes())
             self.assertEqual({name for name in names if name.endswith((".yaml", ".yml"))},
                              {"examples/ruleproxy.example.yaml", ".github/workflows/check.yml"})
-            self.assertFalse(any(name.startswith(("ruleproxy/", "vendor/", "RuleProxy-Web/")) for name in names))
+            self.assertEqual({name for name in names if name.startswith("ruleproxy/")},
+                             {"ruleproxy/windows_runtime_pins.py"})
+            self.assertNotIn("ruleproxy/__init__.py", names)
+            self.assertFalse(any(name.startswith(("vendor/", "RuleProxy-Web/")) for name in names))
             self.assertNotIn("Run-RuleProxy.py", names)
+
+    def test_payload_acceptance_host_pins_load_in_fresh_isolated_process(self):
+        package = self.root / "release.zip"
+        with zipfile.ZipFile(package, "w") as archive:
+            archive.writestr("RuleProxy-Web/ruleproxy/__init__.py", "release-only product code")
+        payload = self.root / "payload.zip"
+        vm.make_payload(package, payload)
+        extracted = self.root / "extracted"
+        extracted.mkdir()
+        with zipfile.ZipFile(payload) as archive:
+            names = set(archive.namelist())
+            self.assertIn("ruleproxy/windows_runtime_pins.py", names)
+            self.assertNotIn("ruleproxy/__init__.py", names)
+            self.assertEqual({name for name in names if name.startswith("ruleproxy/")},
+                             {"ruleproxy/windows_runtime_pins.py"})
+            archive.extractall(extracted)
+        code = (
+            "import importlib.util,json,sys; "
+            "p=sys.argv[1]; s=importlib.util.spec_from_file_location('acceptance',p); "
+            "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+            "m._initialize_runtime_pins(); "
+            "print(json.dumps({'pins_loaded': bool(m.MXC_G_EXECUTOR_SHA256 and "
+            "m.MXC_G_LICENSE_SHA256 and m.RUNTIME_VERSIONS), "
+            "'isolated_stdlib_only': 'site' not in sys.modules, "
+            "'product_package_not_imported': 'ruleproxy' not in sys.modules}))"
+        )
+        acceptance = extracted / "scripts/windows-acceptance.py"
+        result = subprocess.run([sys.executable, "-I", "-S", "-c", code, str(acceptance)],
+                                cwd=self.root, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout),
+                         {"pins_loaded": True, "isolated_stdlib_only": True,
+                          "product_package_not_imported": True})
 
     def test_payload_adds_pinned_chromium_control_outside_product_zip(self):
         package = self.root / "release.zip"

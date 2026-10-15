@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "0d6c44c684a38a36a58a9d35db4a8806ecaf151e",
+  "tree": "f3557f7e6fdc044dc204b0f704d6958487ac7317",
+  "branch": "codex/windows-g-product-validation-20261015",
+  "workflow_run": 38708582939,
+  "artifact_id": 11964473150,
+  "artifact_zip_bytes": 74589,
+  "artifact_zip_sha256": "3a18a079db1bc6a4c143bf4293d4aad0ea73a1d4399a335bd4639d6b65f7d57d",
+  "evidence_files": [
+    {
+      "source_member": "guest-result.json",
+      "bytes": 331472,
+      "sha256": "99cc643078f345a6e2039b46d0e6d98a17d59cdf63d7cffccae0096ed931c06a",
+      "copy_format": "digest only; raw reports retained in verified artifact"
+    },
+    {
+      "source_member": "windows-vm-summary.json",
+      "bytes": 5461,
+      "sha256": "f0860497f6054df53c4e8ad7ca741ad6256faf430c8359a0d961c82d642869a2",
+      "copy_format": "digest only; raw reports retained in verified artifact"
+    },
+    {
+      "source_member": "windows-outside_edge.json",
+      "bytes": 1187,
+      "sha256": "dae0070e1da7b42f45c34e6234d99d5c6a285884f8c06845ca6f080d8f6465c1",
+      "copy_format": "digest only; raw reports retained in verified artifact"
+    },
+    {
+      "source_member": "windows-experiments.json",
+      "bytes": 1088,
+      "sha256": "e1a35b5071e224e41420bcd27a898faa96fb90cce7ecd163ff02e314a2665bf5",
+      "copy_format": "digest only; raw reports retained in verified artifact"
+    }
+  ],
+  "execution_mode": "original_sdk",
+  "status": "failed",
+  "full_acceptance_passed": false,
+  "artifact_name": "windows-11-x64-validation",
+  "native_job": 116334910337
+}

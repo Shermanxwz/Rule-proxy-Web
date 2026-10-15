@@ -346,6 +346,12 @@ def make_payload(package: Path, destination: Path, *, test_executor_bundle: Path
             for path in sorted((ROOT / folder).rglob("*")):
                 if path.is_file() and path.suffix in (".py", ".xml", ".ps1") and "__pycache__" not in path.parts:
                     archive.write(path, path.relative_to(ROOT).as_posix())
+        # Host-side acceptance imports this single pinned identity file from
+        # the source checkout. Copy only that module; the guest's isolated
+        # profile must not acquire the product Python package or shadow the
+        # separately verified release ZIP.
+        relative = "ruleproxy/windows_runtime_pins.py"
+        archive.write(ROOT / relative, relative)
         # Manager/server tests import this public example as source data.
         # Include the exact fixture instead of adding arbitrary YAML files or
         # checkout product code alongside the separately verified release.
