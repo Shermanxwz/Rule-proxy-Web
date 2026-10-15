@@ -22,7 +22,7 @@ class WindowsJobContextTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.edge = self.root / "msedge.exe"
         self.edge.write_bytes(b"Not executed by mocked unit tests")
         self.command_file, self.report = self.root / "edge-command.json", self.root / "job-context.json"
@@ -214,10 +214,22 @@ class WindowsJobContextTests(unittest.TestCase):
         self.assertEqual(kernel.CloseHandle.call_count, 4)
         self.assertEqual(identities.handles, [])
 
-    def test_reparse_directory_and_failed_opened_name_are_never_accepted_or_retried(self):
-        for attributes, opened, expected in ((0x410, True, "validate_profile_attributes"),
-                                             (0x10, False, "validate_profile_opened_name")):
-            kernel = self.path_kernel(attributes=attributes, opened=opened)
+    def test_held_directory_identity_needs_no_opened_name_query_and_keeps_object_checks(self):
+        kernel = self.path_kernel(opened=False)
+        kernel.GetFinalPathNameByHandleW.side_effect = self.permission_error()
+        identities = self.path_identities(kernel)
+        with mock.patch.object(probe, "use_windows_path_identities", return_value=True), \
+                mock.patch.object(probe, "WindowsPathIdentities", return_value=identities):
+            self.assertEqual(probe.validate_configuration(self.config, self.command_file, self.report), self.config["command"])
+        kernel.GetFinalPathNameByHandleW.assert_not_called()
+        self.assertEqual(identities.handles, [])
+        for attributes, identity_fail, expected in ((0x410, False, "validate_profile_attributes"),
+                                                   (0, False, "validate_profile_attributes"),
+                                                   (0x10, True, "validate_profile_identity")):
+            kernel = self.path_kernel(attributes=attributes, opened=False)
+            if identity_fail:
+                original = kernel.GetFileInformationByHandleEx.side_effect
+                kernel.GetFileInformationByHandleEx.side_effect = lambda handle, kind, target, count: 0 if kind == 18 else original(handle, kind, target, count)
             identities = self.path_identities(kernel)
             with self.subTest(stage=expected), mock.patch.object(probe, "use_windows_path_identities", return_value=True), \
                     mock.patch.object(probe, "WindowsPathIdentities", return_value=identities):
@@ -225,9 +237,9 @@ class WindowsJobContextTests(unittest.TestCase):
                     probe.validate_configuration(self.config, self.command_file, self.report)
             facts = probe.failure_facts(observed.exception, "validate_profile_resolve")
             self.assertEqual(facts["stage"], expected)
-            if not opened:
+            if identity_fail:
                 self.assertEqual((facts["class"], facts["errno"], facts["winerror"]), ("PermissionError", 13, 5))
-                self.assertEqual(kernel.GetFinalPathNameByHandleW.call_count, 1)
+            kernel.GetFinalPathNameByHandleW.assert_not_called()
             self.assertEqual(kernel.CreateFileW.call_count, 1)
             self.assertEqual(kernel.CloseHandle.call_count, 1)
             self.assertEqual(identities.handles, [])
@@ -273,6 +285,7 @@ class WindowsJobContextTests(unittest.TestCase):
             return original(path, *args, **kwargs)
         output = io.StringIO()
         with mock.patch.object(Path, "resolve", autospec=True, side_effect=resolve), \
+                mock.patch.object(probe, "use_windows_path_identities", return_value=False), \
                 mock.patch.object(probe.subprocess, "Popen") as launch, contextlib.redirect_stdout(output):
             code = probe.main(["--command", str(self.command_file), "--report", str(self.report)])
         self.assertEqual(code, 1)
@@ -313,10 +326,49 @@ class WindowsJobContextTests(unittest.TestCase):
         self.assertEqual(actual["edge_exit_code_hex"], "0xC0000005")
         self.assertEqual(actual["scope"], probe.SCOPE)
         self.assertFalse(actual["acceptance_passed"])
+        self.assertEqual(actual["edge_identity"], probe.incomplete_edge_identity(source_unavailable=True))
         process.wait.assert_called_once_with()
         process.kill.assert_not_called(); process.terminate.assert_not_called()
         for private in (str(self.root), "--proxy-server", "ruleproxy-browser-fixture.invalid"):
             self.assertNotIn(private, self.report.read_text())
+
+    def test_adjacent_source_capture_receives_only_actual_popen_and_original_image(self):
+        identity = {"status": "observed", "scope": "borrowed_popen_edge_process_handle", "pid": 102,
+                    "process_created": 134365000000000001, "image_sha256": "b" * 64,
+                    "held_handle_verified": True, "error": None}
+        process, helper = mock.Mock(), mock.Mock()
+        helper.capture_held_edge_identity.return_value = identity
+        helper.validate_identity.side_effect = lambda value: value
+        spec = mock.Mock()
+        with mock.patch.object(probe.importlib.util, "spec_from_file_location", return_value=spec) as lookup, \
+                mock.patch.object(probe.importlib.util, "module_from_spec", return_value=helper):
+            self.assertIs(probe.capture_edge_identity(process, self.edge), identity)
+        self.assertEqual(lookup.call_args.args[1], Path(probe.__file__).with_name("ruleproxy-edge-crash-evidence.py"))
+        spec.loader.exec_module.assert_called_once_with(helper)
+        helper.capture_held_edge_identity.assert_called_once_with(process, self.edge)
+        process.kill.assert_not_called()
+        process.terminate.assert_not_called()
+        process.wait.assert_not_called()
+
+    def test_identity_diagnostics_do_not_replace_actual_natural_edge_crash_or_weaken_command(self):
+        self.command_file.write_text(json.dumps(self.config))
+        process = mock.Mock()
+        process.wait.return_value = 0xC0000005
+        identity = probe.incomplete_edge_identity()
+        identity["error"].update(stage="identity_image", error_type="PermissionError", errno=13, winerror=5)
+        windows = SimpleNamespace(name="nt", getpid=os.getpid, getppid=os.getppid, replace=os.replace, fsync=os.fsync)
+        with mock.patch.object(probe, "os", windows), mock.patch.object(probe, "query_job_context", return_value={}), \
+                mock.patch.object(probe, "capture_edge_identity", return_value=identity) as capture, \
+                mock.patch.object(probe.subprocess, "Popen", return_value=process) as launch:
+            result = probe.main(["--command", str(self.command_file), "--report", str(self.report)])
+        self.assertEqual(result & 0xffffffff, 0xC0000005)
+        actual = json.loads(self.report.read_text())
+        self.assertEqual(actual["edge_identity"], identity)
+        self.assertEqual(actual["edge_exit_code"], 0xC0000005)
+        capture.assert_called_once_with(process, self.config["command"][0])
+        self.assertEqual(launch.call_args.args[0], self.config["command"])
+        process.wait.assert_called_once_with()
+        process.kill.assert_not_called()
 
     def test_high_windows_codes_use_equivalent_signed_systemexit(self):
         for raw in (0, 1, 0x7FFFFFFF, 0x80000000, 0xC0000005, 0xFFFFFFFF, -1073741819):
@@ -337,8 +389,8 @@ class WindowsJobContextTests(unittest.TestCase):
             self.assertIs(type(result["query_ui_restrictions_error"]), int)
         print("Outside current-job ABI observation only: " + json.dumps(result, separators=(",", ":")))
 
-    @unittest.skipUnless(os.name == "nt", "Real outside Windows opened-path ABI only, not PSEC evidence")
-    def test_actual_windows_directory_identity_and_opened_name_are_outside_only(self):
+    @unittest.skipUnless(os.name == "nt", "Real outside Windows held-file-id ABI only, not PSEC evidence")
+    def test_actual_windows_directory_held_identity_is_outside_only(self):
         with probe.WindowsPathIdentities() as identities:
             first = identities.identity(self.root, "validate_profile")
             second = identities.identity(self.root / ".", "validate_config_parent")
@@ -346,7 +398,7 @@ class WindowsJobContextTests(unittest.TestCase):
             self.assertEqual(len(first[1]), 16)
             self.assertTrue(any(first[1]))
         self.assertEqual(identities.handles, [])
-        print("Outside opened-path ABI only: read_attributes/shared_open/nonreparse/held_identity/close verified")
+        print("Outside file-id ABI only: read_attributes/shared_open/nonreparse/held_identity/close verified")
 
 
 if __name__ == "__main__":

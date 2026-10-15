@@ -189,6 +189,11 @@ def frame_questions(frame):
         tcp_header = (frame[start + 12] >> 4) * 4
         if tcp_header < 20 or start + tcp_header > end:
             return [], "opaque_dns_tcp_or_https"
+        if port in (53, 853, 443) and start + tcp_header == end:
+            # Retain an unknown verdict for this conservative collector, but
+            # distinguish empty TCP control packets from encrypted payloads.
+            # This is format evidence, never process attribution or DNS denial.
+            return [], "opaque_dns_tcp_control_only"
         return [], "opaque_dns_tcp_or_https" if port in (53, 853, 443) or not port else None
     if match is None:
         return [], None

@@ -1,9 +1,12 @@
 """Observe stock Edge with fixed test-only PSEC UI presets, without product changes.
 
 Use package x64 Python: --root PACKAGE --report edge-ui.json [--allow-emulated-x64].
+An optional paired --test-psec-executor/--test-psec-manifest selects only a
+verified source diagnostic executor; the installed product remains unchanged.
 Each preset uses a fresh private profile and one existing BrowserRun phase 1.
 The shared 600-second scheduling budget reserves the existing startup bounds,
 45 seconds for natural headless exit, safe cleanup, and the final host snapshot.
+An exact-generation crash reader has a separate 14-second owned-process reserve.
 Unstarted cases are explicit. A completed collection can contain only failures;
 exit 0 and experiment_only never establish browser or full acceptance.
 """
@@ -11,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import datetime as dt
 import hashlib
 import importlib.util
 import json
@@ -39,6 +43,7 @@ LIMIT_SECONDS = 600
 STARTUP_RESERVE = 110  # Existing probe20 + bridge45 + app20 + failure12 + controls.
 BROWSER_TIMEOUT = 45
 CLEANUP_RESERVE = 25  # Existing production stop15 plus local fixture/resource closure.
+CRASH_READER_RESERVE = 14  # Bounded event reader12 plus its owned stop/wait2.
 FINAL_RESERVE = 125  # Existing read-only network snapshot120 plus report publication.
 _RECOVERY_OWNERS = []
 JOB_FAILURE_STAGES = frozenset({"read_config", "validate_schema", "validate_profile_exists", "validate_profile_resolve",
@@ -94,6 +99,7 @@ class UIOverride:
         self.job_stdout = []
         self.original_edge_command = self.wrapped_command = None
         self.job_source_sha256 = None
+        self.crash_source_sha256 = None
 
     def __enter__(self):
         self.original = self.runtime.build_policy
@@ -134,6 +140,7 @@ class UIOverride:
                                   "non_variant_policy_sha256": policy_digest(baseline),
                                   "workload_wrapped_for_job_observation": self.wrapped_command is not None,
                                   "job_observer_source_sha256": self.job_source_sha256,
+                                  "edge_crash_observer_source_sha256": self.crash_source_sha256,
                                   "all_other_policy_fields_unchanged": True})
             return policy
         self.replacement = build
@@ -156,6 +163,12 @@ class UIOverride:
                 self.job_source_sha256 = hashlib.sha256(raw).hexdigest()
                 with script.open("xb") as stream:
                     stream.write(raw)
+                crash_source = ROOT / ".github/windows_edge_crash_evidence.py"
+                if crash_source.is_file():
+                    crash_raw = crash_source.read_bytes()
+                    self.crash_source_sha256 = hashlib.sha256(crash_raw).hexdigest()
+                    with (profile / "ruleproxy-edge-crash-evidence.py").open("xb") as stream:
+                        stream.write(crash_raw)
                 with config.open("x", encoding="utf-8") as stream:
                     json.dump({"schema_version": 1, "nonce": nonce, "command": list(command),
                                "proxy_port": port, "profile": str(profile)}, stream, ensure_ascii=True)
@@ -205,7 +218,7 @@ class UIOverride:
 
 
 def budget_available(deadline, browser_seconds=BROWSER_TIMEOUT):
-    return deadline - time.monotonic() >= STARTUP_RESERVE + browser_seconds + CLEANUP_RESERVE + FINAL_RESERVE
+    return deadline - time.monotonic() >= STARTUP_RESERVE + browser_seconds + CLEANUP_RESERVE + CRASH_READER_RESERVE + FINAL_RESERVE
 
 
 def requested_ui(variant):
@@ -235,7 +248,7 @@ def job_context_observations(override):
             value = json.loads(raw.decode("ascii"), object_pairs_hook=unique)
             fields = {"schema_version", "nonce", "scope", "pid", "parent_pid", "job_context", "edge_launched",
                       "edge_exit_code", "edge_exit_code_hex", "edge_launch_error", "acceptance_passed", "browser_sandbox_weakened"}
-            if not isinstance(value, dict) or set(value) != fields or type(value["schema_version"]) is not int \
+            if not isinstance(value, dict) or set(value) not in (fields, fields | {"edge_identity"}) or type(value["schema_version"]) is not int \
                     or value["schema_version"] != 1 or value["nonce"] != nonce \
                     or value["scope"] != "actual_test_app_wrapper_innermost_job" \
                     or any(type(value[key]) is not int or value[key] <= 0 for key in ("pid", "parent_pid")) \
@@ -265,6 +278,8 @@ def job_context_observations(override):
                     or (value["edge_launch_error"] is not None and (type(value["edge_launch_error"]) is not str
                                                                     or len(value["edge_launch_error"]) > 1000)):
                 raise DiagnosticError("job context Edge exit fields are invalid")
+            if "edge_identity" in value:
+                source_module("windows_edge_crash_evidence").validate_identity(value["edge_identity"])
             value = dict(value)
             value.pop("nonce")
             values.append({"published": True, "nonce_sha256": hashlib.sha256(bytes.fromhex(nonce)).hexdigest(),
@@ -316,9 +331,29 @@ def add_job_context(observation, override):
                  and entry["reported_context"]["job_context"]["status"] == "observed"]
     observation["actual_job_ui_limits_verified"] = bool(completed)
     observation["app_wrapper_zero_ui_limits_observed"] = any(entry["ui_restrictions"] == 0 for entry in completed)
+    observation["edge_crash_evidence"] = collect_edge_crash_evidence(values)
     if observation.get("process_started") is True and values and any(entry.get("published") is not True for entry in values):
         observation.update(status="failed", tool_error=True, job_context_error="ObserverReportMissing",
                            single_launch_fixture_passed=False)
+
+
+def collect_edge_crash_evidence(values):
+    identities = [entry["reported_context"].get("edge_identity") for entry in values if entry.get("published") is True]
+    observed = [identity for identity in identities if isinstance(identity, dict) and identity.get("status") == "observed"]
+    if not observed:
+        return {"status": "incomplete", "reason": "nonce_bound_edge_generation_unavailable",
+                "reader_cleanup_proven": True, "acceptance_passed": False}
+    if len(observed) != 1:
+        raise DiagnosticError("one owned Edge generation is required for the crash observer")
+    collector = source_module("windows_edge_crash_evidence")
+    identity = observed[0]
+    collector.validate_identity(identity)
+    start = dt.datetime(1601, 1, 1, tzinfo=dt.timezone.utc) + dt.timedelta(microseconds=identity["process_created"] // 10)
+    result = collector.collect_crash_events(identity, start, dt.datetime.now(dt.timezone.utc))
+    if result.get("reader_cleanup_proven") is not True:
+        # Keep the module's retained reader handles alive for a safe retry.
+        _RECOVERY_OWNERS.append(collector)
+    return result
 
 
 def skipped_variant(variant):
@@ -402,6 +437,9 @@ def run_variant(variant, runtime_module, runtime, edge, browser_module, deadline
         if override is not None:
             try:
                 add_job_context(observation, override)
+                if observation["edge_crash_evidence"].get("reader_cleanup_proven") is not True:
+                    safe = False
+                    observation.update(cleanup_error="CrashReaderCleanupUnproven", recovery_directory=str(directory))
             except Exception as exc:
                 observation.update(status="failed", tool_error=True, job_context_error=type(exc).__name__)
         if directory is not None and safe:
@@ -474,6 +512,9 @@ def optional_gui(variants, facts, runtime_module, runtime, edge, browser_module,
         if override is not None:
             try:
                 add_job_context(result, override)
+                if result["edge_crash_evidence"].get("reader_cleanup_proven") is not True:
+                    safe = False
+                    result.update(cleanup_error="CrashReaderCleanupUnproven", recovery_directory=str(directory))
             except Exception as exc:
                 result.update(status="failed", tool_error=True, job_context_error=type(exc).__name__)
         if directory is not None and safe:
@@ -494,6 +535,7 @@ def initial_result():
             "acceptance_passed": False, "full_acceptance_passed": False, "real_node_passed": False,
             "public_udp_proven": False, "system_dns_proven": False, "variants": [], "checks": [],
             "test_only_ui_override": True, "production_policy_changed": False,
+            "source_only_executor_changed": False, "default_product_runtime_replaced": False,
             "workload_wrapped_for_job_observation": True,
             "browser_sandbox_weakened": False, "budget_seconds": LIMIT_SECONDS,
             "limitations": ["Single-launch fixed HTTP fixture only; cookie persistence is not tested.",
@@ -504,11 +546,22 @@ def initial_result():
                             "API startup/cleanup bounds are preserved; cases without a full remaining budget are not started."]}
 
 
+def diagnostic_runtime(root, digests, executor=None, manifest=None):
+    if (executor is None) != (manifest is None):
+        raise ValueError("Test executor and manifest must be supplied together")
+    if executor is None:
+        return root / "bin/windows-amd64/wxc-exec.exe", None
+    verifier = source_module("windows_network_experiment")
+    return verifier.verify_test_executor(root, executor, manifest, digests.get("wxc-exec.exe"))
+
+
 def main(arguments):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--report", type=Path, default=Path("windows-edge-ui.json"))
     parser.add_argument("--allow-emulated-x64", action="store_true")
+    parser.add_argument("--test-psec-executor", type=Path)
+    parser.add_argument("--test-psec-manifest", type=Path)
     args = parser.parse_args(arguments)
     started = time.monotonic()
     deadline = started + LIMIT_SECONDS
@@ -532,7 +585,10 @@ def main(arguments):
         from ruleproxy import windows_runtime
         digests = helpers.verify_runtime_manifest(root)
         result["runtime_integrity"] = {"manifest_verified": True, "file_count": len(digests)}
-        runtime = root / "bin/windows-amd64/wxc-exec.exe"
+        runtime, test_executor = diagnostic_runtime(root, digests, args.test_psec_executor, args.test_psec_manifest)
+        if test_executor is not None:
+            result.update(test_psec_executor=test_executor, source_only_executor_changed=True)
+            result["limitations"].append("Source executor observations do not validate the installed product runtime.")
         edge = browser_module.find_edge(None)
         machine = helpers.executable_machine(edge)
         result["browser"] = {"launcher_pe_machine": machine,

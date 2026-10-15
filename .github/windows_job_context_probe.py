@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import importlib.util
 import json
 import ntpath
 import os
@@ -78,9 +79,6 @@ class WindowsPathIdentities:
         self.kernel.GetFileInformationByHandleEx.argtypes = [ctypes.c_void_p, ctypes.c_int32,
                                                            ctypes.c_void_p, ctypes.c_uint32]
         self.kernel.GetFileInformationByHandleEx.restype = ctypes.c_int32
-        self.kernel.GetFinalPathNameByHandleW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p,
-                                                        ctypes.c_uint32, ctypes.c_uint32]
-        self.kernel.GetFinalPathNameByHandleW.restype = ctypes.c_uint32
         self.kernel.CloseHandle.argtypes, self.kernel.CloseHandle.restype = [ctypes.c_void_p], ctypes.c_int32
 
     def __enter__(self):
@@ -123,15 +121,8 @@ class WindowsPathIdentities:
                 raise self.error_factory(self.last_error())
             if not any(info.file_id):
                 raise ValueError("owned path identity was not available")
-            operation = role + "_opened_name"
-            buffer = ctypes.create_unicode_buffer(32768)
-            # FILE_NAME_OPENED | VOLUME_NAME_DOS. Success is required, with no
-            # normalized-name fallback or error-5 permission exception.
-            count = self.kernel.GetFinalPathNameByHandleW(handle, buffer, len(buffer), 8)
-            if not count:
-                raise self.error_factory(self.last_error())
-            if count >= len(buffer) or not ntpath.isabs(buffer.value):
-                raise ValueError("owned opened-path observation exceeded its bound or was not absolute")
+            # Equality is the held volume/FileId128 pair, with reparse and
+            # object kind checked above. No Mount Manager/name query is needed.
             return info.volume, bytes(info.file_id)
         except Exception as exc:
             exc._job_context_stage = operation
@@ -328,6 +319,32 @@ def signed_exit_code(value):
     return unsigned if unsigned < 0x80000000 else unsigned - 0x100000000
 
 
+def incomplete_edge_identity(*, source_unavailable=False):
+    return {"status": "incomplete", "scope": "borrowed_popen_edge_process_handle", "pid": None,
+        "process_created": None, "image_sha256": None, "held_handle_verified": False,
+        "error": {"stage": "identity_source" if source_unavailable else "identity_handle",
+                  "error_type": "SourceUnavailable" if source_unavailable else "RuntimeError",
+                  "errno": None, "winerror": None}}
+
+
+def capture_edge_identity(process, expected_edge):
+    """Load only our adjacent copied source helper, never sys.path or Eventlog."""
+    try:
+        source = Path(__file__).with_name("ruleproxy-edge-crash-evidence.py")
+        if not source.is_absolute():
+            return incomplete_edge_identity(source_unavailable=True)
+        spec = importlib.util.spec_from_file_location("ruleproxy_contained_edge_generation", source)
+        if spec is None or spec.loader is None:
+            return incomplete_edge_identity(source_unavailable=True)
+        helper = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        return helper.validate_identity(helper.capture_held_edge_identity(process, expected_edge))
+    except Exception:
+        # Identity diagnostics must not replace the actual Edge/Job outcome.
+        # No foreign PID is reopened and the borrowed Popen HANDLE is untouched.
+        return incomplete_edge_identity(source_unavailable=True)
+
+
 def main(arguments=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--command", required=True, type=Path)
@@ -354,6 +371,7 @@ def main(arguments=None):
         report = {"schema_version": 1, "nonce": value["nonce"], "scope": SCOPE,
             "pid": os.getpid(), "parent_pid": os.getppid(), "job_context": context,
             "edge_launched": False, "edge_exit_code": None, "edge_exit_code_hex": None, "edge_launch_error": None,
+            "edge_identity": incomplete_edge_identity(),
             "acceptance_passed": False, "browser_sandbox_weakened": False}
         stage = "publish_initial"
         write_report(args.report, report)
@@ -366,6 +384,7 @@ def main(arguments=None):
         stage = "launch"
         process = subprocess.Popen(command, shell=False, stdin=subprocess.DEVNULL, close_fds=True)
         report["edge_launched"] = True
+        report["edge_identity"] = capture_edge_identity(process, command[0])
         stage = "publish_started"
         write_report(args.report, report)
         stage = "wait"

@@ -10,6 +10,11 @@ on:
         required: false
         type: boolean
         default: false
+      capability_executor_diagnostic:
+        description: Use the fixed G source-only executor for native network and source UI diagnostics (never product acceptance)
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -328,6 +333,9 @@ jobs:
     if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 240
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -337,6 +345,15 @@ jobs:
         with:
           name: windows-package
           path: dist
+      - name: Download only the fixed G source-only diagnostic executor
+        if: github.event_name == 'workflow_dispatch' && inputs.capability_executor_diagnostic
+        uses: actions/download-artifact@v8
+        with:
+          name: mxc-capability-executor
+          run-id: 38660663692
+          github-token: ${{ github.token }}
+          path: mxc-capability
+          digest-mismatch: error
       - name: Install the VM tools on the ephemeral runner
         run: |
           sudo apt-get update
@@ -344,12 +361,17 @@ jobs:
       - name: Run a checksum-verified official Windows 11 evaluation guest
         env:
           RULEPROXY_VM_BASELINE: ${{ github.event_name == 'workflow_dispatch' && inputs.baseline_diagnostic || false }}
+          RULEPROXY_VM_TEST_EXECUTOR: ${{ github.event_name == 'workflow_dispatch' && inputs.capability_executor_diagnostic || false }}
         run: |
           package=$(find "$PWD/dist" -maxdepth 1 -name 'RuleProxy-Web-*-windows-x64.zip' -print -quit)
           digest=$(awk 'NR==1 {print $1}' dist/SHA256SUMS.txt)
           baseline_args=()
           if [ "$RULEPROXY_VM_BASELINE" = 'true' ]; then baseline_args+=(--baseline-diagnostic); fi
-          sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 10800 "${baseline_args[@]}"
+          executor_args=()
+          if [ "$RULEPROXY_VM_TEST_EXECUTOR" = 'true' ]; then
+            executor_args+=(--test-psec-executor "$PWD/mxc-capability/wxc-exec.exe" --test-psec-manifest "$PWD/mxc-capability/build-manifest.json")
+          fi
+          sudo "$(command -v python)" -B .github/windows_vm_test.py --package "$package" --package-sha256 "$digest" --artifacts "$PWD/windows-vm-artifacts" --timeout-seconds 10800 "${baseline_args[@]}" "${executor_args[@]}"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

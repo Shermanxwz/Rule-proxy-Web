@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "3bafddf334a4c781fe43b86d2875cadfb2fb94d4",
+  "workflow_run_id": 38660663692,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38660663692",
+  "build_job_id": 116180861140,
+  "observation_job_id": 116181982506,
+  "artifact_id": 11938549400,
+  "artifact_archive_sha256": "c2e3b6365f071b0ab893238fea154cc34dd56e34743789cfb91f46db901eb429",
+  "raw_report_sha256": "5f613295c633c6793503d9a541f40785956f65dd59b41467fdf807f1aeded961",
+  "curated_report_sha256": "aee6f2d76fb30622854f6e1b267da9d97203756d85278f45f390eab6eff76715",
+  "executor_artifact_id": 11938733475,
+  "executor_artifact_archive_sha256": "8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036",
+  "curation": "Only preferred policy API/transport and corresponding outside controls; nonce DNS names become SHA-256; policy paths, environment and raw logs omitted.",
+  "product_acceptance": false
+}

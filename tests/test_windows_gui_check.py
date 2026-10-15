@@ -1,13 +1,15 @@
 """Verify owned GUI identity and cleanup contracts without claiming PSEC success."""
 import importlib.util
 import json
+import ntpath
 import os
-from pathlib import Path, PosixPath
+from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
 import tempfile
 import unittest
 from unittest import mock
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -81,6 +83,26 @@ class GuiCheckTests(unittest.TestCase):
         for image in (self.edge, self.foreign_edge, self.helper, self.wrapper):
             image.parent.mkdir(parents=True, exist_ok=True)
             image.write_bytes(b"public fake image path fixture; never executed")
+        self.local_images = {}
+        if os.name != "nt":
+            # Fake Win32 image queries must return Windows-absolute names.
+            # ntpath.isabs('/tmp/...') correctly became False in Python 3.13.
+            # Keep real local files for the separate strict-resolve adapter.
+            for name in ("edge", "foreign_edge", "helper", "wrapper"):
+                local = getattr(self, name)
+                windows = PureWindowsPath(r"C:\RuleProxyFixture", *local.relative_to(self.directory).parts)
+                self.local_images[ntpath.normcase(str(windows))] = local
+                setattr(self, name, windows)
+
+    def local_fixture_path(self, value):
+        key = ntpath.normcase(ntpath.normpath(os.fspath(value)))
+        local = self.local_images.get(key, self.directory / "missing.exe")
+        def resolve(*, strict):
+            # Use real filesystem existence/strict resolution, then represent
+            # its canonical result in the simulated Win32 image namespace.
+            relative = local.resolve(strict=strict).relative_to(self.directory)
+            return PureWindowsPath(r"C:\RuleProxyFixture", *relative.parts)
+        return SimpleNamespace(resolve=resolve)
 
     def tree(self):
         api = FakeProcessApi(edge=str(self.edge), helper=str(self.helper), wrapper=str(self.wrapper))
@@ -167,10 +189,10 @@ class GuiCheckTests(unittest.TestCase):
 
     @unittest.skipIf(os.name == "nt", "Windows already exercises its real strict Path.resolve in every fake-lineage test")
     def test_windows_canonicalization_branch_requires_real_files_and_keeps_foreign_images_distinct(self):
-        # Execute the production Windows branch with real POSIX test files.
-        # Only its Path constructor is platform-adapted; strict resolution and
-        # the actual image_key function are never mocked or weakened.
-        with mock.patch.object(gui.os, "name", "nt"), mock.patch.object(gui, "Path", PosixPath):
+        # Translate simulated absolute Win32 names to the real POSIX fixture
+        # files. Keep the actual image_key guard and strict existence checks.
+        with mock.patch.object(gui.os, "name", "nt"), \
+                mock.patch.object(gui, "Path", side_effect=self.local_fixture_path):
             alias = self.edge.parent / ".." / "Application" / self.edge.name
             self.assertEqual(gui.image_key(self.edge), gui.image_key(alias))
             with self.assertRaises(FileNotFoundError):

@@ -1,5 +1,6 @@
 """UI diagnostic ownership and policy equality; no live Edge/PSEC claim."""
 import copy
+import datetime as dt
 import importlib.util
 import json
 from pathlib import Path
@@ -382,6 +383,102 @@ class UiPolicyTests(unittest.TestCase):
         helpers.network_snapshot.return_value = {"unchanged": True}
         helpers.write_json.side_effect = lambda path, value: path.write_text(json.dumps(value))
         return browser, helpers
+
+    def test_executor_selection_preserves_default_and_rejects_unpaired_inputs(self):
+        root = Path("owned-package")
+        with mock.patch.object(ui, "source_module") as load:
+            self.assertEqual(ui.diagnostic_runtime(root, {}), (root / "bin/windows-amd64/wxc-exec.exe", None))
+            for executor, manifest in ((Path("candidate.exe"), None), (None, Path("manifest.json"))):
+                with self.assertRaises(ValueError):
+                    ui.diagnostic_runtime(root, {}, executor, manifest)
+            load.assert_not_called()
+
+    def test_crash_reader_requires_one_published_nonce_bound_observed_generation(self):
+        with mock.patch.object(ui, "source_module") as load:
+            for values in ([], [{"published": False}], [{"published": True, "reported_context": {}}],
+                    [{"published": True, "reported_context": {"edge_identity": {"status": "incomplete"}}}]):
+                self.assertEqual(ui.collect_edge_crash_evidence(values)["reason"], "nonce_bound_edge_generation_unavailable")
+            load.assert_not_called()
+            identity = {"status": "observed"}
+            with self.assertRaises(ui.DiagnosticError):
+                ui.collect_edge_crash_evidence([{"published": True, "reported_context": {"edge_identity": identity}}] * 2)
+            load.assert_not_called()
+
+    def test_crash_reader_uses_exact_filetime_and_retains_unclosed_owned_reader(self):
+        identity = {"status": "observed", "process_created": 134101234567890120, "pid": 123}
+        values = [{"published": True, "reported_context": {"edge_identity": identity}}]
+        collector = mock.Mock()
+        evidence = {"status": "incomplete", "reader_cleanup_proven": False, "acceptance_passed": False}
+        collector.collect_crash_events.return_value = evidence
+        before = list(ui._RECOVERY_OWNERS)
+        try:
+            with mock.patch.object(ui, "source_module", return_value=collector):
+                self.assertIs(ui.collect_edge_crash_evidence(values), evidence)
+            collector.validate_identity.assert_called_once_with(identity)
+            call = collector.collect_crash_events.call_args
+            self.assertIs(call.args[0], identity)
+            expected = dt.datetime(1601, 1, 1, tzinfo=dt.timezone.utc) + dt.timedelta(microseconds=identity["process_created"] // 10)
+            self.assertEqual(call.args[1], expected)
+            self.assertEqual(call.args[2].tzinfo, dt.timezone.utc)
+            self.assertIs(ui._RECOVERY_OWNERS[-1], collector)
+        finally:
+            ui._RECOVERY_OWNERS[:] = before
+
+    def test_invalid_edge_identity_is_rejected_before_reading_events(self):
+        values = [{"published": True, "reported_context": {"edge_identity": {"status": "observed", "process_created": 1}}}]
+        collector = mock.Mock()
+        collector.validate_identity.side_effect = ValueError("wrong generation")
+        with mock.patch.object(ui, "source_module", return_value=collector), self.assertRaises(ValueError):
+            ui.collect_edge_crash_evidence(values)
+        collector.collect_crash_events.assert_not_called()
+
+    def test_verified_candidate_reaches_only_diagnostic_variants_and_stays_separate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report, executor, manifest = (root / name for name in ("report.json", "candidate.exe", "manifest.json"))
+            browser, helpers = self.main_fixture(root)
+            original_digest = "a" * 64
+            helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": original_digest}
+            verifier = mock.Mock()
+            metadata = {"source_only_executor_changed": True, "default_product_runtime_replaced": False,
+                        "original_runtime_sha256": original_digest, "acceptance_passed": False}
+            verifier.verify_test_executor.return_value = (executor, metadata)
+            entries = [{"id": variant[0], "status": "observed", "cleanup_proven": True,
+                        "single_launch_fixture_passed": False, "requests": [{}]} for variant in ui.VARIANTS]
+            def source(name):
+                return verifier if name == "windows_network_experiment" else browser
+            with mock.patch.object(ui.sys, "platform", "win32"), \
+                    mock.patch.object(ui, "source_module", side_effect=source), \
+                    mock.patch.object(ui, "run_variant", side_effect=entries) as run, mock.patch("builtins.print"):
+                self.assertEqual(ui.main(["--root", str(root), "--report", str(report),
+                    "--test-psec-executor", str(executor), "--test-psec-manifest", str(manifest)]), 0)
+            verifier.verify_test_executor.assert_called_once_with(root.resolve(), executor, manifest, original_digest)
+            self.assertEqual(run.call_count, len(ui.VARIANTS))
+            self.assertTrue(all(call.args[2] == executor for call in run.call_args_list))
+            value = json.loads(report.read_text())
+            self.assertTrue(value["source_only_executor_changed"])
+            self.assertEqual(value["test_psec_executor"], metadata)
+            for key in ("default_product_runtime_replaced", "production_policy_changed", "browser_fixture_passed",
+                        "gui_fixture_passed", "acceptance_passed", "full_acceptance_passed", "real_node_passed"):
+                self.assertIs(value[key], False)
+
+    def test_rejected_candidate_cannot_launch_edge_or_get_a_success_status(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = root / "report.json"
+            browser, _ = self.main_fixture(root)
+            verifier = mock.Mock()
+            verifier.verify_test_executor.side_effect = ValueError("manifest rejected")
+            with mock.patch.object(ui.sys, "platform", "win32"), \
+                    mock.patch.object(ui, "source_module", side_effect=lambda name:
+                        verifier if name == "windows_network_experiment" else browser), \
+                    mock.patch.object(ui, "run_variant") as run, mock.patch("builtins.print"):
+                self.assertEqual(ui.main(["--root", str(root), "--report", str(report),
+                    "--test-psec-executor", str(root / "candidate.exe"),
+                    "--test-psec-manifest", str(root / "manifest.json")]), 1)
+            run.assert_not_called()
+            browser.find_edge.assert_not_called()
+            self.assertEqual(json.loads(report.read_text())["status"], "failed")
 
     def test_all_browser_failures_still_collect_and_never_promote_acceptance(self):
         with tempfile.TemporaryDirectory() as temporary:

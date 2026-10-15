@@ -116,6 +116,22 @@ class WindowsDnsPacketEvidenceTests(unittest.TestCase):
             self.assertEqual(result["status"], "incomplete")
             self.assertFalse(result["absence_observed"])
 
+    def test_empty_tcp_controls_remain_unknown_and_payload_is_separately_reported(self):
+        value = manifest()
+        before, after = controls(value)
+        for family in ("ipv4", "ipv6"):
+            for port in (53, 853, 443):
+                header = struct.pack("!HH", 45123, port) + b"\0" * 8 + b"\x50\x02" + b"\0" * 6
+                for payload, reason in ((header, "opaque_dns_tcp_control_only"),
+                        (header + b"encrypted data", "opaque_dns_tcp_or_https")):
+                    with self.subTest(family=family, port=port, reason=reason):
+                        packet = frame(value["probes"][1], family=family, protocol=6, payload=payload)
+                        result = dns.analyze_bytes(wire.pcap([before, packet, after]), value)
+                        self.assertEqual(result["unknown_reasons"], {reason: 1})
+                        self.assertEqual(result["status"], "incomplete")
+                        self.assertFalse(result["absence_observed"])
+                        self.assertFalse(result["kernel_denial_proven"])
+
     def test_unrelated_payload_response_and_other_source_mac_do_not_match_questions(self):
         value = manifest()
         before, after = controls(value)

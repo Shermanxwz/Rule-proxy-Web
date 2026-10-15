@@ -7,6 +7,7 @@ import http.client
 import json
 import os
 from pathlib import Path
+import shutil
 import tempfile
 import threading
 import struct
@@ -1260,6 +1261,7 @@ class WindowsWireCaptureTests(unittest.TestCase):
         (workspace / ".github").mkdir(parents=True)
         (workspace / ".github/windows_network_experiment.py").write_text("# fixture")
         config = self.root / "private-config.json"
+        config.write_text('{}', encoding='ascii')
         calls = []
 
         def phase(name, command, *args, **kwargs):
@@ -1270,6 +1272,250 @@ class WindowsWireCaptureTests(unittest.TestCase):
             vm.run_guest_phases(self.root, workspace, self.root / "reports", vm_config=config)
         self.assertEqual(calls[0][1][-2:], ["--vm-config", str(config)])
         self.assertTrue(all("--vm-config" not in command for _, command in calls[1:]))
+
+
+class WindowsDiagnosticExecutorTests(unittest.TestCase):
+    """Synthetic build bytes check routing/integrity, never claim native PSEC."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name).resolve()
+        self.product = self.base / 'product'
+        runtime = self.product / 'bin/windows-amd64'
+        runtime.mkdir(parents=True)
+        self.verifier = vm.network_executor_verifier(ROOT)
+        helpers = self.verifier.load_helpers()
+        hashes = {}
+        for name in helpers.RUNTIME_REQUIRED_FILES:
+            path = runtime / name
+            path.write_bytes(('original product ' + name).encode())
+            hashes[name] = vm.digest(path)
+        (runtime / 'runtime.json').write_text(json.dumps({**helpers.RUNTIME_VERSIONS, 'sha256': hashes}))
+        self.original = hashes['wxc-exec.exe']
+        self.package = self.base / 'product.zip'
+        with zipfile.ZipFile(self.package, 'w') as archive:
+            for path in runtime.iterdir():
+                archive.write(path, 'RuleProxy-Web/bin/windows-amd64/' + path.name)
+            archive.writestr('RuleProxy-Web/python/python.exe', b'public fixture python')
+            archive.writestr('RuleProxy-Web/ruleproxy/windows_runtime.py', '# public fixture')
+        self.bundle = self.base / 'downloaded'
+        self.bundle.mkdir()
+        self.executor = self.bundle / 'wxc-exec.exe'
+        self.executor.write_bytes(b'public synthetic diagnostic executor, not runnable')
+        self.manifest = self.bundle / 'build-manifest.json'
+        self.value = {'schema_version': 1, 'status': 'built',
+            'upstream_commit': self.verifier.PSEC_UPSTREAM_COMMIT,
+            'executor_sha256': vm.digest(self.executor), 'patch': self.verifier.PSEC_TEST_PATCH,
+            'original_file_sha256': self.verifier.PSEC_ORIGINAL_SOURCE_SHA256,
+            'patch_sha256': self.verifier.PSEC_PATCH_SHA256,
+            'patched_file_sha256': self.verifier.PSEC_PATCHED_SOURCE_SHA256,
+            'toolchain': '1.93', 'target': 'x86_64-pc-windows-msvc'}
+        self.manifest.write_text(json.dumps(self.value))
+        license_path = self.bundle / 'MXC-LICENSE.md'
+        license_path.write_bytes(b'public test MIT license fixture')
+        self.license_digest = vm.digest(license_path)
+        patch = mock.patch.object(vm, 'TEST_EXECUTOR_LICENSE_SHA256', self.license_digest)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def workspace(self):
+        workspace = self.base / 'workspace'
+        for relative in ('.github/windows_network_experiment.py', 'scripts/windows-acceptance.py'):
+            path = workspace / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / relative, path)
+        (workspace / '.github/windows_edge_policy_experiment.py').write_text('# not executed in routing test')
+        vm.stage_test_executor(workspace / vm.TEST_EXECUTOR_DIRECTORY, self.executor, self.manifest, self.original)
+        config = self.base / 'vm-config.json'
+        config.write_text(json.dumps({'test_psec_executor_diagnostic': True,
+            'test_psec_executor_sha256': self.value['executor_sha256'],
+            'test_psec_original_runtime_sha256': self.original, 'host_url': 'http://private.invalid/SECRET'}))
+        return workspace, config
+
+    def test_product_digest_is_bound_to_actual_release_bytes_before_diagnostic_use(self):
+        vm.verify_package(self.package, vm.digest(self.package))
+        self.assertEqual(vm.package_executor_sha256(self.package), self.original)
+        altered = self.base / 'tampered-product.zip'
+        with zipfile.ZipFile(self.package) as source, zipfile.ZipFile(altered, 'w') as target:
+            for entry in source.infolist():
+                raw = source.read(entry)
+                if entry.filename.endswith('/wxc-exec.exe'):
+                    raw += b'tampered'
+                target.writestr(entry.filename, raw)
+        with self.assertRaisesRegex(ValueError, 'Original release executor'):
+            vm.package_executor_sha256(altered)
+
+    def test_staged_payload_preserves_product_zip_and_only_adds_separate_bundle(self):
+        staged = self.base / 'staged'
+        metadata = vm.stage_test_executor(staged, self.executor, self.manifest, self.original)
+        self.assertEqual(metadata['original_runtime_sha256'], self.original)
+        self.assertFalse(metadata['default_product_runtime_replaced'])
+        self.assertFalse(metadata['acceptance_passed'])
+        payload = self.base / 'payload.zip'
+        vm.make_payload(self.package, payload, test_executor_bundle=staged)
+        with zipfile.ZipFile(payload) as archive:
+            self.assertEqual(archive.read('package.zip'), self.package.read_bytes())
+            members = {name for name in archive.namelist() if name.startswith(vm.TEST_EXECUTOR_DIRECTORY + '/')}
+            self.assertEqual(members, {vm.TEST_EXECUTOR_DIRECTORY + '/' + name for name in vm.TEST_EXECUTOR_FILES})
+            self.assertEqual(archive.read(vm.TEST_EXECUTOR_DIRECTORY + '/wxc-exec.exe'), self.executor.read_bytes())
+            self.assertFalse(any(name.startswith('bin/') for name in archive.namelist()))
+        with self.assertRaises(FileExistsError):
+            vm.stage_test_executor(staged, self.executor, self.manifest, self.original)
+
+    def test_bad_hash_provenance_license_and_product_directory_are_refused(self):
+        for field, value in (('upstream_commit', 'a' * 40), ('patch_sha256', 'b' * 64),
+                             ('toolchain', '1.93.0'), ('executor_sha256', '0' * 64)):
+            with self.subTest(field=field):
+                self.manifest.write_text(json.dumps({**self.value, field: value}))
+                with self.assertRaises(ValueError):
+                    vm.verify_executor_bundle(self.product, ROOT, self.executor, self.manifest, self.original)
+        self.manifest.write_text(json.dumps(self.value))
+        (self.bundle / 'MXC-LICENSE.md').write_bytes(b'changed license')
+        with self.assertRaisesRegex(ValueError, 'license'):
+            vm.verify_executor_bundle(self.product, ROOT, self.executor, self.manifest, self.original)
+        with self.assertRaisesRegex(ValueError, 'separate'):
+            vm.verify_executor_bundle(self.product, ROOT, self.product / 'bin/windows-amd64/wxc-exec.exe',
+                                      self.manifest, self.original)
+
+    def test_invalid_custom_build_is_refused_before_downloading_or_starting_vm(self):
+        self.manifest.write_text(json.dumps({**self.value, 'toolchain': 'unverified'}))
+        args = SimpleNamespace(artifacts=self.base / 'artifacts', package=self.package,
+            package_sha256=vm.digest(self.package), timeout_seconds=300, baseline_diagnostic=False,
+            test_psec_executor=self.executor, test_psec_manifest=self.manifest)
+        with mock.patch.object(vm, 'require_kvm', return_value=12), \
+                mock.patch.object(vm.subprocess, 'run') as command, mock.patch('builtins.print'):
+            result = vm.run(args)
+        command.assert_not_called()
+        self.assertEqual(result['execution_mode'], 'source_executor_diagnostic')
+        self.assertEqual(result['status'], 'failed')
+        self.assertFalse(result['network_boundary_passed'])
+        self.assertFalse(result['product_runtime_replaced'])
+
+    def test_custom_seed_selects_verified_payload_without_skipping_default_cu(self):
+        work = self.base / 'private-work'
+        work.mkdir()
+        iso = b'public tiny ISO test fixture, never booted'
+        def command(arguments, **_):
+            if arguments[0] == 'curl':
+                Path(arguments[arguments.index('--output') + 1]).write_bytes(iso)
+        server = mock.Mock(server_address=('127.0.0.1', 43210), capability='a' * 64)
+        args = SimpleNamespace(artifacts=self.base / 'artifacts', package=self.package,
+            package_sha256=vm.digest(self.package), timeout_seconds=300, baseline_diagnostic=False,
+            test_psec_executor=self.executor, test_psec_manifest=self.manifest)
+        with mock.patch.object(vm, 'require_kvm', return_value=12), \
+                mock.patch.object(vm.shutil, 'which', return_value='fixture-tool'), \
+                mock.patch.object(vm.shutil, 'disk_usage', return_value=SimpleNamespace(free=100 * 1024**3)), \
+                mock.patch.object(vm.Path, 'is_file', return_value=True), \
+                mock.patch.object(vm.tempfile, 'TemporaryDirectory') as directory, \
+                mock.patch.object(vm, 'ISO_BYTES', len(iso)), \
+                mock.patch.object(vm, 'ISO_SHA256', hashlib.sha256(iso).hexdigest()), \
+                mock.patch.object(vm.subprocess, 'run', side_effect=command), \
+                mock.patch.object(vm, 'download_updates', return_value=[]) as updates, \
+                mock.patch.object(vm, 'GuestServer', return_value=server), \
+                mock.patch.object(vm, 'validate_install_tree', return_value='efi/microsoft/boot/efisys_noprompt.bin'), \
+                mock.patch.object(vm, 'prepare_seed', side_effect=RuntimeError('stop before boot')) as seed, \
+                mock.patch('builtins.print'):
+            directory.return_value.__enter__.return_value = str(work)
+            result = vm.run(args)
+        updates.assert_called_once_with(work / 'official-updates')
+        config = seed.call_args.args[2]
+        self.assertTrue(config['require_official_update'])
+        self.assertTrue(config['test_psec_executor_diagnostic'])
+        self.assertEqual(config['test_psec_executor_sha256'], self.value['executor_sha256'])
+        self.assertEqual(config['test_psec_original_runtime_sha256'], self.original)
+        with zipfile.ZipFile(work / 'payload.zip') as archive:
+            self.assertEqual(archive.read('package.zip'), self.package.read_bytes())
+            self.assertEqual(archive.read(vm.TEST_EXECUTOR_DIRECTORY + '/build-manifest.json'), self.manifest.read_bytes())
+            self.assertEqual(archive.read(vm.TEST_EXECUTOR_DIRECTORY + '/MXC-LICENSE.md'), (self.bundle / 'MXC-LICENSE.md').read_bytes())
+        self.assertEqual(result['status'], 'failed')
+        self.assertFalse(result['network_boundary_passed'])
+        self.assertEqual(result['diagnostic_network_boundary']['status'], 'not_collected')
+
+    def test_guest_reverifies_bundle_and_routes_pair_only_to_source_diagnostics(self):
+        workspace, config = self.workspace()
+        calls = []
+        clean = {'cleanup_proven': True, 'checks': [
+            {'check': 'host_proxy_dns_default_routes_unchanged', 'status': 'passed'}],
+            'variants': [{'process_started': True, 'descendant_cleanup_proven': True,
+                          'resources_closed': True, 'cleanup_proven': True}]}
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            return {'name': name, 'status': 'passed', 'exit_code': 0}, copy.deepcopy(clean), ''
+        with mock.patch.object(vm, 'run_guest_phase', side_effect=phase):
+            result = vm.run_guest_phases(self.product, workspace, self.base / 'reports', vm_config=config)
+        self.assertEqual(result['execution_mode'], 'source_executor_diagnostic')
+        self.assertFalse(result['product_runtime_replaced'])
+        self.assertEqual([name for name, _ in calls], ['experiments', 'edge_ui', *vm.PHASE_NAMES])
+        for name, command in calls:
+            self.assertIs('--test-psec-executor' in command, name in ('experiments', 'edge_ui'))
+            if name in ('experiments', 'edge_ui'):
+                index = command.index('--test-psec-executor')
+                self.assertEqual(command[index + 1], str(workspace / vm.TEST_EXECUTOR_DIRECTORY / 'wxc-exec.exe'))
+        (workspace / vm.TEST_EXECUTOR_DIRECTORY / 'wxc-exec.exe').write_bytes(b'replaced in guest')
+        calls.clear()
+        with mock.patch.object(vm, 'run_guest_phase', side_effect=phase):
+            failed = vm.run_guest_phases(self.product, workspace, self.base / 'tampered-reports', vm_config=config)
+        self.assertEqual([name for name, _ in calls], ['package_tests'])
+        self.assertEqual(failed['status'], 'failed')
+        self.assertIn('executor_validation_error', failed)
+        self.assertNotIn('SECRET', json.dumps(failed))
+
+    def test_guest_cannot_select_custom_executor_by_untrusted_path_or_truthy_flag(self):
+        workspace, config = self.workspace()
+        value = json.loads(config.read_text())
+        for replacement in ('true', 1, None):
+            config.write_text(json.dumps({**value, 'test_psec_executor_diagnostic': replacement}))
+            with self.subTest(flag=replacement), self.assertRaises(ValueError):
+                vm.guest_test_executor(self.product, workspace, config)
+        config.write_text(json.dumps({**value, 'test_psec_executor_sha256': 'f' * 64}))
+        with self.assertRaisesRegex(ValueError, 'host-verified'):
+            vm.guest_test_executor(self.product, workspace, config)
+        config.write_text('{"test_psec_executor_diagnostic":false,"test_psec_executor_diagnostic":true}')
+        with self.assertRaises(ValueError):
+            vm.guest_test_executor(self.product, workspace, config)
+        config.write_text('{}')
+        self.assertIsNone(vm.guest_test_executor(self.product, workspace, config))
+
+    def test_custom_wire_pass_never_returns_original_product_release_success(self):
+        evidence = WindowsNetworkBoundaryTests().evidence()
+        verdict = vm.diagnostic_network_boundary(evidence, executor_attested=True)
+        self.assertEqual(verdict['status'], 'passed')
+        self.assertEqual(verdict['executor_scope'], 'source_only_test_executor')
+        self.assertFalse(verdict['product_acceptance_passed'])
+        self.assertFalse(verdict['full_acceptance_passed'])
+        self.assertEqual(vm.diagnostic_network_boundary(evidence, executor_attested=False)['status'], 'failed')
+        self.assertEqual(vm.diagnostic_network_boundary(evidence, executor_attested=True, collection_failed=True)['status'], 'failed')
+        evidence['native_dns']['counts'][1]['count'] = 1
+        self.assertEqual(vm.diagnostic_network_boundary(evidence, executor_attested=True)['status'], 'failed')
+        arguments = ['--package', str(self.package), '--package-sha256', vm.digest(self.package),
+                     '--artifacts', str(self.base), '--test-psec-executor', str(self.executor)]
+        with mock.patch.object(vm, 'run') as run, mock.patch('sys.stderr'):
+            with self.assertRaises(SystemExit) as failure:
+                vm.main(arguments)
+            self.assertEqual(failure.exception.code, 2)
+            run.assert_not_called()
+        misleading_green = {'status': 'transport_and_package_tests_passed', 'baseline_diagnostic': False,
+                            'network_boundary_passed': True, 'official_update': {'required': True}}
+        with mock.patch.object(vm, 'run', return_value=misleading_green):
+            self.assertEqual(vm.main(arguments + ['--test-psec-manifest', str(self.manifest)]), 1)
+
+    def test_workflow_custom_download_is_manual_and_fixed_to_the_actual_g_artifact(self):
+        import yaml
+        workflow = yaml.safe_load((ROOT / '.github/workflows/check.yml').read_text())
+        trigger = workflow.get('on', workflow.get(True))
+        option = trigger['workflow_dispatch']['inputs']['capability_executor_diagnostic']
+        self.assertEqual(option, {'description': option['description'], 'required': False,
+                                  'type': 'boolean', 'default': False})
+        job = workflow['jobs']['windows-11-x64']
+        step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
+        self.assertEqual(step['uses'], 'actions/download-artifact@v8')
+        self.assertEqual(step['with']['run-id'], 38660663692)
+        self.assertEqual(step['with']['digest-mismatch'], 'error')
+        self.assertIn("github.event_name == 'workflow_dispatch'", step['if'])
+        self.assertIn('inputs.capability_executor_diagnostic', step['if'])
+        self.assertEqual(job['permissions']['actions'], 'read')
+        self.assertEqual(workflow['jobs']['release']['if'], "github.event_name == 'push' && github.ref == 'refs/heads/main'")
 
 
 if __name__ == "__main__":

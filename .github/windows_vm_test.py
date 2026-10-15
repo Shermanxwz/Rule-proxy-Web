@@ -75,6 +75,9 @@ WIRE_VARIANTS = ("model3", "model1_internal_ingress_deny", "model1_internal", "m
 PHASE_NAMES = ("probe", "transport", "manager", "browser", "gui", "package_tests")
 MIN_BOOT_IMAGE_BYTES = 64 * 1024**2
 MIN_INSTALL_IMAGE_BYTES = 1024**3
+TEST_EXECUTOR_DIRECTORY = "test-psec-executor"
+TEST_EXECUTOR_FILES = ("wxc-exec.exe", "build-manifest.json", "MXC-LICENSE.md")
+TEST_EXECUTOR_LICENSE_SHA256 = "d9a1b1e30d633d5732ea18e3cba9538d293ebc53e1a9e4e96ab739e0c5c4f1cb"
 
 
 def digest(path: Path) -> str:
@@ -121,7 +124,106 @@ def verify_package(path: Path, expected: str) -> None:
                 raise ValueError("Release ZIP contains an unsafe member")
 
 
-def make_payload(package: Path, destination: Path) -> str:
+def network_executor_verifier(workspace: Path):
+    """Use the same source-only verifier on the host and in the guest."""
+    path = workspace / ".github/windows_network_experiment.py"
+    spec = importlib.util.spec_from_file_location("ruleproxy_vm_test_executor_verifier", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def package_executor_sha256(package: Path) -> str:
+    """Bind the diagnostic to the original executor in the verified release ZIP."""
+    prefix = "RuleProxy-Web/bin/windows-amd64/"
+    with zipfile.ZipFile(package) as archive:
+        for name in ("runtime.json", "wxc-exec.exe"):
+            if archive.namelist().count(prefix + name) != 1:
+                raise ValueError("Release ZIP must contain one original executor and manifest")
+        with archive.open(prefix + "runtime.json") as stream:
+            raw = stream.read(64 * 1024 + 1)
+        if not raw or len(raw) > 64 * 1024:
+            raise ValueError("Original runtime manifest exceeded its size limit")
+        module = network_executor_verifier(ROOT)
+        value = json.loads(raw, object_pairs_hook=module.strict_json_object)
+        hashes = value.get("sha256") if isinstance(value, dict) else None
+        expected = hashes.get("wxc-exec.exe") if isinstance(hashes, dict) else None
+        if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise ValueError("Original executor digest is missing from the release manifest")
+        checksum = hashlib.sha256()
+        with archive.open(prefix + "wxc-exec.exe") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                checksum.update(block)
+        if checksum.hexdigest() != expected:
+            raise ValueError("Original release executor did not match its runtime manifest")
+    return expected
+
+
+def verify_executor_bundle(root: Path, workspace: Path, executor: Path, manifest: Path,
+                           original_sha256: str):
+    module = network_executor_verifier(workspace)
+    executor, metadata = module.verify_test_executor(root, executor, manifest, original_sha256)
+    license_path = module.test_executor_file(manifest.parent / "MXC-LICENSE.md")
+    if digest(license_path) != TEST_EXECUTOR_LICENSE_SHA256:
+        raise ValueError("Diagnostic executor license did not match the fixed upstream release")
+    return executor, metadata
+
+
+def stage_test_executor(directory: Path, executor: Path, manifest: Path, original_sha256: str):
+    executor, metadata = verify_executor_bundle(ROOT, ROOT, executor, manifest, original_sha256)
+    directory.mkdir()  # Never reuse a prior bundle or put it in the product ZIP.
+    for source, name in ((executor, "wxc-exec.exe"), (manifest, "build-manifest.json"),
+                         (manifest.parent / "MXC-LICENSE.md", "MXC-LICENSE.md")):
+        shutil.copyfile(source, directory / name)
+    _, staged = verify_executor_bundle(ROOT, ROOT, directory / "wxc-exec.exe",
+                                      directory / "build-manifest.json", original_sha256)
+    if staged != metadata:
+        raise ValueError("Diagnostic executor provenance changed during staging")
+    return metadata
+
+
+def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
+    """A fixed payload location and protected VM config select diagnostic mode."""
+    if vm_config is None:
+        return None
+    def unique_fields(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("Duplicate VM configuration field")
+            value[key] = item
+        return value
+    try:
+        with vm_config.open("rb") as stream:
+            raw = stream.read(128 * 1024 + 1)
+        if not raw or len(raw) > 128 * 1024:
+            raise ValueError
+        # Configuration may also contain the private HTTP capability. Never
+        # echo its contents in validation errors or the public report.
+        config = json.loads(raw, object_pairs_hook=unique_fields)
+        enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
+        if type(enabled) is not bool:
+            raise ValueError
+    except (OSError, ValueError, TypeError) as exc:
+        raise ValueError("Private VM diagnostic executor configuration is invalid") from exc
+    if not enabled:
+        return None
+    expected = config.get("test_psec_executor_sha256")
+    if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+        raise ValueError("Private VM diagnostic executor digest is invalid")
+    module = network_executor_verifier(workspace)
+    original = module.load_helpers().verify_runtime_manifest(root).get("wxc-exec.exe")
+    if original != config.get("test_psec_original_runtime_sha256"):
+        raise ValueError("Guest product executor differs from the host-verified release")
+    directory = workspace / TEST_EXECUTOR_DIRECTORY
+    executor, metadata = verify_executor_bundle(root, workspace, directory / "wxc-exec.exe",
+                                                directory / "build-manifest.json", original)
+    if metadata["executor_sha256"] != expected:
+        raise ValueError("Guest diagnostic executor differs from the host-verified artifact")
+    return executor, directory / "build-manifest.json", metadata
+
+
+def make_payload(package: Path, destination: Path, *, test_executor_bundle: Path | None = None) -> str:
     """Ship source tests separately, preserving the release's code origin."""
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.write(package, "package.zip")
@@ -134,6 +236,9 @@ def make_payload(package: Path, destination: Path) -> str:
         # checkout product code alongside the separately verified release.
         relative = "examples/ruleproxy.example.yaml"
         archive.write(ROOT / relative, relative)
+        if test_executor_bundle is not None:
+            for name in TEST_EXECUTOR_FILES:
+                archive.write(test_executor_bundle / name, f"{TEST_EXECUTOR_DIRECTORY}/{name}")
     return digest(destination)
 
 
@@ -976,6 +1081,20 @@ def verify_network_boundary(value):
             "kernel_denial_proven": False, "full_acceptance_passed": False, "real_node_passed": False}
 
 
+def diagnostic_network_boundary(value, *, executor_attested: bool, collection_failed: bool = False):
+    """Keep custom-executor wire results separate even when product UI fails."""
+    try:
+        if executor_attested is not True:
+            raise RuntimeError("Source experiment did not report the host-verified diagnostic executor")
+        if collection_failed:
+            raise RuntimeError("VM packet capture control or dump/write failed")
+        result = verify_network_boundary(value)
+    except (RuntimeError, ValueError, TypeError) as exc:
+        result = {"status": "failed", "error": str(exc)[:700],
+                  "kernel_denial_proven": False, "full_acceptance_passed": False, "real_node_passed": False}
+    return {**result, "executor_scope": "source_only_test_executor", "product_acceptance_passed": False}
+
+
 def read_bounded_log(path: Path) -> str:
     with path.open("rb") as stream:
         raw = stream.read(MAX_PHASE_RECORD_BYTES + 1)
@@ -1049,15 +1168,30 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     result = {"status": "failed", "phases": [], "reports": {}, "logs": {}, "recovery_records": []}
     probe_passed = False
     cleanup_pending = False
+    diagnostic_arguments = []
+    result["execution_mode"] = "original_sdk"
+    try:
+        diagnostic = guest_test_executor(root, workspace, vm_config)
+        if diagnostic is not None:
+            executor, manifest, metadata = diagnostic
+            diagnostic_arguments = ["--test-psec-executor", str(executor), "--test-psec-manifest", str(manifest)]
+            result.update(execution_mode="source_executor_diagnostic", test_psec_executor=metadata,
+                          product_runtime_replaced=False, product_network_boundary_passed=False)
+    except Exception as exc:
+        # A bad custom bundle cannot fall back to the product executor and
+        # masquerade as a completed custom comparison. Unit tests still run.
+        cleanup_pending = True
+        result["executor_validation_error"] = type(exc).__name__
     # This optional source-only experiment precedes the product fixtures. Its
     # policy variants never replace a required phase or grant release status.
     # Incomplete experiment teardown prevents every later contained launch.
     experiment = workspace / ".github/windows_network_experiment.py"
-    if experiment.is_file():
+    if experiment.is_file() and not cleanup_pending:
         command = [executable, "-X", "utf8", "-B", str(experiment),
                    "--root", str(root), "--report", str(directory / "experiments.json")]
         if vm_config is not None:
             command.extend(["--vm-config", str(vm_config)])
+        command.extend(diagnostic_arguments)
         record, report, log = run_guest_phase(
             "experiments", command,
             directory, timeout=min(600, phase_timeout))
@@ -1078,6 +1212,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     if ui_experiment.is_file() and not cleanup_pending:
         command = [executable, "-X", "utf8", "-B", str(ui_experiment), "--root", str(root),
                    "--report", str(directory / "edge_ui.json")]
+        command.extend(diagnostic_arguments)
         record, report, log = run_guest_phase("edge_ui", command, directory, timeout=min(900, phase_timeout))
         result["edge_ui_phase"], result["logs"]["edge_ui"] = record, log
         if report is not None:
@@ -1159,8 +1294,13 @@ def run(args) -> dict:
     artifacts = args.artifacts.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
     baseline = getattr(args, "baseline_diagnostic", False) is True
+    custom_executor = getattr(args, "test_psec_executor", None)
+    custom_manifest = getattr(args, "test_psec_manifest", None)
+    diagnostic_mode = custom_executor is not None or custom_manifest is not None
     require_update = not baseline
     summary = {"status": "failed", "baseline_diagnostic": baseline,
+               "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "original_sdk",
+               "product_runtime_replaced": False,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
                "gui_fixture_passed": False, "network_boundary_passed": False,
@@ -1173,6 +1313,15 @@ def run(args) -> dict:
         package = args.package.resolve(strict=True)
         verify_package(package, args.package_sha256.lower())
         summary["package_sha256"] = args.package_sha256.lower()
+        original_sha256 = None
+        if diagnostic_mode:
+            if custom_executor is None or custom_manifest is None:
+                raise ValueError("Test PSEC executor and manifest must be provided together")
+            original_sha256 = package_executor_sha256(package)
+            _, summary["test_psec_executor"] = verify_executor_bundle(
+                ROOT, ROOT, custom_executor, custom_manifest, original_sha256)
+            summary["diagnostic_network_boundary"] = {"status": "not_collected", "product_acceptance_passed": False}
+            summary["diagnostic_executor_attested"] = False
         for name in ("qemu-system-x86_64", "qemu-img", "swtpm", "xorriso", "curl"):
             if not shutil.which(name):
                 raise RuntimeError(f"Missing Ubuntu test dependency: {name}")
@@ -1192,6 +1341,12 @@ def run(args) -> dict:
             summary["free_disk_bytes_before"] = free
             if free < MIN_FREE_BYTES:
                 raise RuntimeError("Windows ISO/install needs at least 55 GiB free; no host files were removed")
+            executor_bundle = None
+            if diagnostic_mode:
+                executor_bundle = work / TEST_EXECUTOR_DIRECTORY
+                staged = stage_test_executor(executor_bundle, custom_executor, custom_manifest, original_sha256)
+                if staged != summary["test_psec_executor"]:
+                    raise ValueError("Diagnostic executor changed after host validation")
             iso = work / "official.iso"
             print("Downloading the fixed Microsoft Enterprise Evaluation ISO", flush=True)
             subprocess.run(["curl", "--fail", "--location", "--retry", "5", "--retry-all-errors",
@@ -1206,7 +1361,7 @@ def run(args) -> dict:
                 updates = work / "official-updates"
                 summary["official_update"]["packages"] = download_updates(updates)
             payload = work / "payload.zip"
-            payload_hash = make_payload(package, payload)
+            payload_hash = make_payload(package, payload, test_executor_bundle=executor_bundle)
             server = GuestServer(payload, artifacts, updates=updates)
             http_thread = threading.Thread(target=server.serve_forever, daemon=True)
             http_thread.start()
@@ -1227,6 +1382,10 @@ def run(args) -> dict:
                     "host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
                     "payload_sha256": payload_hash, "package_sha256": args.package_sha256.lower(),
                     "require_official_update": require_update, "update_build": UPDATE_BUILD, "update_ubr": UPDATE_UBR,
+                    "test_psec_executor_diagnostic": diagnostic_mode,
+                    **({"test_psec_executor_sha256": summary["test_psec_executor"]["executor_sha256"],
+                        "test_psec_original_runtime_sha256": original_sha256}
+                       if diagnostic_mode else {}),
                 }, updates=updates)
                 unattended = work / "unattended.iso"
                 subprocess.run(["xorriso", "-as", "mkisofs", "-iso-level", "3", "-J", "-joliet-long", "-R",
@@ -1308,9 +1467,15 @@ def run(args) -> dict:
                     summary["phase_results"] = server.result.get("phases", [])
                     summary["recovery_records"] = server.result.get("recovery_records", [])
                     summary["official_update"]["guest"] = server.result.get("official_update")
+                    if diagnostic_mode:
+                        report = server.result.get("reports", {}).get("experiments", {})
+                        summary["diagnostic_executor_attested"] = (
+                            report.get("test_psec_executor") == summary["test_psec_executor"])
                     if not capture.log_clean() or capture.collection_error:
                         raise RuntimeError("VM packet capture control or dump/write failed")
                     verify_result(server.result, require_official_update=require_update)
+                    if diagnostic_mode:
+                        raise RuntimeError("Source executor diagnostics cannot qualify the original product network boundary")
                     summary["network_boundary"] = verify_network_boundary(capture.result)
                     summary.update(status="baseline_transport_and_package_tests_passed" if baseline else "transport_and_package_tests_passed", transport_passed=True,
                                    manager_fixture_passed=True, browser_fixture_passed=True, gui_fixture_passed=True, network_boundary_passed=True,
@@ -1337,6 +1502,13 @@ def run(args) -> dict:
                     # packet summary and cannot leave a successful VM result.
                     capture.close()
                     summary["wire_evidence"] = capture.result
+                    summary["wire_evidence_executor"] = (
+                        "source_only_test_executor" if summary.get("diagnostic_executor_attested") is True
+                        else "unverified_diagnostic_execution") if diagnostic_mode else "original_sdk"
+                    if diagnostic_mode:
+                        summary["diagnostic_network_boundary"] = diagnostic_network_boundary(
+                            capture.result, executor_attested=summary.get("diagnostic_executor_attested") is True,
+                            collection_failed=bool(capture.collection_error))
                     if capture.collection_error:
                         summary.pop("network_boundary", None)
                         summary.update(status="failed", transport_passed=False, manager_fixture_passed=False,
@@ -1375,10 +1547,17 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--timeout-seconds", type=int, default=5400)
     parser.add_argument("--baseline-diagnostic", action="store_true",
                         help="Diagnose the fixed official ISO baseline; skips only CU staging/requirement, never full acceptance")
+    parser.add_argument("--test-psec-executor", type=Path,
+                        help="Source-only diagnostic executor; never replaces product bin or grants release success")
+    parser.add_argument("--test-psec-manifest", type=Path)
     args = parser.parse_args(argv)
+    if (args.test_psec_executor is None) != (args.test_psec_manifest is None):
+        parser.error("--test-psec-executor and --test-psec-manifest must be provided together")
     if not 300 <= args.timeout_seconds <= 14400:
         parser.error("--timeout-seconds must be between 300 and 14400")
     result = run(args)
+    if args.test_psec_executor is not None:
+        return 1  # Diagnostic wire evidence is never the original product's release evidence.
     expected = "baseline_transport_and_package_tests_passed" if args.baseline_diagnostic else "transport_and_package_tests_passed"
     return 0 if (result["status"] == expected and result.get("baseline_diagnostic") is args.baseline_diagnostic
                  and result.get("network_boundary_passed") is True
