@@ -795,6 +795,124 @@ raise SystemExit(configuration.get('exit_code', 0))
         with self.assertRaisesRegex(RuntimeError, "cannot qualify product acceptance"):
             vm.verify_result(self.passed_result(), gui_diagnostic_only=True)
 
+    def test_network_diagnostic_only_runs_probe_then_preferred_experiment_and_never_accepts(self):
+        workspace = self.guest_control_workspace({"experiments": {"report": {
+            "cleanup_proven": True, "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}],
+            "variants": [{"process_started": True, "descendant_cleanup_proven": True,
+                          "resources_closed": True}]}}})
+        config = self.root / "network-vm-config.json"
+        config.write_text(json.dumps({"network_diagnostic_only": True}), encoding="utf-8")
+        calls = []
+        clean_report = {"cleanup_proven": True,
+                        "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}],
+                        "variants": [{"process_started": True, "descendant_cleanup_proven": True,
+                                      "resources_closed": True}]}
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            report = {"status": "supported_only"} if name == "probe" else copy.deepcopy(clean_report)
+            return {"name": name, "status": "passed", "exit_code": 0}, report, ""
+        with mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "network-reports",
+                                         vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "experiments"])
+        experiment_command = calls[1][1]
+        self.assertIn("--preferred-policy-only", experiment_command)
+        self.assertIn("--vm-config", experiment_command)
+        self.assertTrue(result["network_diagnostic_only"])
+        self.assertTrue(result["source_diagnostic_only"])
+        self.assertFalse(result["full_acceptance_passed"])
+        self.assertFalse(result["product_acceptance_passed"])
+        self.assertFalse(result["acceptance_passed"])
+        self.assertFalse(result["real_node_passed"])
+        self.assertEqual(result["outside_edge_phase"]["status"], "skipped")
+        self.assertEqual(result["edge_ui_phase"]["status"], "skipped")
+        self.assertEqual(result["reports"]["experiments"]["variants"][0]["process_started"], True)
+        with self.assertRaisesRegex(RuntimeError, "cannot qualify product acceptance"):
+            vm.verify_result(dict(result, status="passed", ordinary_user=True))
+        with self.assertRaisesRegex(RuntimeError, "cannot qualify product acceptance"):
+            vm.verify_result(self.passed_result(), network_diagnostic_only=True)
+
+    def test_network_diagnostic_probe_failure_blocks_experiment_and_skips_every_other_phase(self):
+        workspace = self.guest_control_workspace({
+            "probe": {"exit_code": 3, "report": {"status": "unsupported", "probe": {"supported": False}}},
+            "experiments": {"report": {"cleanup_proven": True}}})
+        config = self.root / "network-vm-config.json"
+        config.write_text(json.dumps({"network_diagnostic_only": True}), encoding="utf-8")
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "network-reports",
+                                     vm_config=config)
+        self.assertEqual((workspace / "executed.txt").read_text().splitlines(), ["probe"])
+        self.assertEqual(result["experiments_phase"]["status"], "blocked")
+        self.assertEqual(result["status"], "failed")
+
+    def test_network_diagnostic_retains_failed_experiment_and_cleanup_recovery(self):
+        report = {"cleanup_proven": False, "cleanup_error": "retained", "recovery_directory": "private",
+                  "checks": [], "variants": []}
+        workspace = self.guest_control_workspace({"experiments": {"report": report, "exit_code": 1}})
+        config = self.root / "network-vm-config.json"
+        config.write_text(json.dumps({"network_diagnostic_only": True}), encoding="utf-8")
+        result = vm.run_guest_phases(self.root / "release", workspace, self.root / "network-reports",
+                                     vm_config=config)
+        self.assertEqual(result["reports"]["experiments"], report)
+        self.assertEqual(result["recovery_records"][0]["phase"], "experiments")
+        self.assertFalse(result["recovery_records"][0]["descendant_cleanup_proven"])
+        self.assertFalse(result["product_acceptance_passed"])
+
+    def test_network_diagnostic_config_allows_executor_but_rejects_gui_and_invalid_values(self):
+        config = self.root / "network-vm-config.json"
+        config.write_text(json.dumps({"network_diagnostic_only": True,
+                                      "test_psec_executor_diagnostic": True}), encoding="utf-8")
+        self.assertEqual(vm.guest_diagnostic_modes(config), (False, True))
+        config.write_text(json.dumps({"network_diagnostic_only": True, "gui_diagnostic_only": True}),
+                          encoding="utf-8")
+        with self.assertRaises(ValueError):
+            vm.guest_diagnostic_modes(config)
+        config.write_text(json.dumps({"network_diagnostic_only": 1}), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            vm.guest_diagnostic_modes(config)
+
+    def test_network_diagnostic_passes_only_host_validated_executor_pair_to_experiment(self):
+        workspace = self.guest_control_workspace({"experiments": {}})
+        config = self.root / "network-vm-config.json"
+        config.write_text(json.dumps({"network_diagnostic_only": True,
+                                      "test_psec_executor_diagnostic": True}), encoding="utf-8")
+        clean = {"cleanup_proven": True,
+                 "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}],
+                 "variants": [{"process_started": True, "descendant_cleanup_proven": True,
+                               "resources_closed": True}]}
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            return {"name": name, "status": "passed", "exit_code": 0}, \
+                {"status": "supported_only"} if name == "probe" else copy.deepcopy(clean), ""
+        bundle = (workspace / "custom.exe", workspace / "custom.json", {"sha256": "host-verified"})
+        with mock.patch.object(vm, "guest_test_executor", return_value=bundle), \
+                mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports", vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "experiments"])
+        command = calls[1][1]
+        self.assertEqual(command[command.index("--test-psec-executor") + 1], str(bundle[0]))
+        self.assertEqual(command[command.index("--test-psec-manifest") + 1], str(bundle[1]))
+        self.assertEqual(result["execution_mode"], "source_executor_diagnostic")
+        self.assertFalse(result["product_runtime_replaced"])
+
+    def test_network_diagnostic_cli_is_manual_and_mutually_exclusive_with_gui(self):
+        arguments = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                     "--artifacts", str(self.root / "artifacts"), "--network-diagnostic-only"]
+        summary = {"status": "transport_and_package_tests_passed", "baseline_diagnostic": False,
+                   "network_boundary_passed": True, "official_update": {"required": True}}
+        with mock.patch.object(vm, "run", return_value=summary) as run, mock.patch("sys.stderr"):
+            self.assertEqual(vm.main(arguments), 1)
+            self.assertTrue(run.call_args.args[0].network_diagnostic_only)
+        with mock.patch.object(vm, "run", return_value=summary) as run, mock.patch("sys.stderr"):
+            self.assertEqual(vm.main(arguments + ["--test-psec-executor", str(self.root / "executor.exe"),
+                                                  "--test-psec-manifest", str(self.root / "manifest.json")]), 1)
+            self.assertTrue(run.call_args.args[0].network_diagnostic_only)
+        with mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+            with self.assertRaises(SystemExit) as failure:
+                vm.main(arguments + ["--gui-diagnostic-only"])
+            self.assertEqual(failure.exception.code, 2)
+            run.assert_not_called()
+
     def test_invalid_gui_config_fails_before_launching_any_guest_phase(self):
         workspace = self.guest_control_workspace()
         config = self.root / "invalid-vm-config.json"
@@ -802,7 +920,7 @@ raise SystemExit(configuration.get('exit_code', 0))
         result = vm.run_guest_phases(self.root / "release", workspace, self.root / "invalid-reports",
                                      vm_config=config)
         self.assertFalse((workspace / "executed.txt").exists())
-        self.assertEqual(result["gui_diagnostic_configuration_error"], "invalid_private_configuration")
+        self.assertEqual(result["diagnostic_configuration_error"], "invalid_private_configuration")
         self.assertTrue(all(phase["status"] == "blocked" for phase in result["phases"]))
         self.assertEqual(result["status"], "failed")
 
@@ -1718,11 +1836,16 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertEqual(gui_option, {'description': gui_option['description'], 'required': False,
                                       'type': 'boolean', 'default': False})
         job = workflow['jobs']['windows-11-x64']
-        validation = next(step for step in job['steps'] if step.get('name') == 'Validate mutually exclusive GUI and source-executor diagnostics')
+        network_option = trigger['workflow_dispatch']['inputs']['network_diagnostic_only']
+        self.assertEqual(network_option, {'description': network_option['description'], 'required': False,
+                                          'type': 'boolean', 'default': False})
+        validation = next(step for step in job['steps'] if step.get('name') == 'Validate mutually exclusive diagnostic modes')
         self.assertIn("github.event_name == 'workflow_dispatch'", validation['if'])
         run_step = next(step for step in job['steps'] if step.get('name') == 'Run a checksum-verified official Windows 11 evaluation guest')
         self.assertIn('inputs.gui_diagnostic_only', run_step['env']['RULEPROXY_VM_GUI_DIAGNOSTIC'])
         self.assertIn('--gui-diagnostic-only', run_step['run'])
+        self.assertIn('inputs.network_diagnostic_only', run_step['env']['RULEPROXY_VM_NETWORK_DIAGNOSTIC'])
+        self.assertIn('--network-diagnostic-only', run_step['run'])
         step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
         self.assertEqual(step['uses'], 'actions/download-artifact@v8')
         self.assertEqual(step['with']['run-id'], 38660663692)

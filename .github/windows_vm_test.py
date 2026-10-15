@@ -226,10 +226,10 @@ def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
     return executor, directory / "build-manifest.json", metadata
 
 
-def guest_gui_diagnostic_only(vm_config: Path | None) -> bool:
-    """Read the opt-in GUI-only selection from the generated private VM config."""
+def guest_diagnostic_modes(vm_config: Path | None) -> tuple[bool, bool]:
+    """Read mutually exclusive source diagnostic phase selections safely."""
     if vm_config is None:
-        return False
+        return False, False
     def unique_fields(pairs):
         value = {}
         for key, item in pairs:
@@ -244,14 +244,23 @@ def guest_gui_diagnostic_only(vm_config: Path | None) -> bool:
             raise ValueError
         config = json.loads(raw, object_pairs_hook=unique_fields)
         enabled = config.get("gui_diagnostic_only", False) if isinstance(config, dict) else None
+        network = config.get("network_diagnostic_only", False) if isinstance(config, dict) else None
         executor_enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
-        if type(enabled) is not bool or type(executor_enabled) is not bool:
+        if type(enabled) is not bool or type(network) is not bool or type(executor_enabled) is not bool:
             raise ValueError
-        if enabled and executor_enabled:
+        if (enabled and (executor_enabled or network)):
             raise ValueError
-        return enabled
+        return enabled, network
     except (OSError, ValueError, TypeError) as exc:
-        raise ValueError("Private VM GUI diagnostic configuration is invalid") from exc
+        raise ValueError("Private VM diagnostic configuration is invalid") from exc
+
+
+def guest_gui_diagnostic_only(vm_config: Path | None) -> bool:
+    return guest_diagnostic_modes(vm_config)[0]
+
+
+def guest_network_diagnostic_only(vm_config: Path | None) -> bool:
+    return guest_diagnostic_modes(vm_config)[1]
 
 
 def make_payload(package: Path, destination: Path, *, test_executor_bundle: Path | None = None) -> str:
@@ -1027,9 +1036,11 @@ def experiment_teardown_proven(name: str, report: dict | None) -> bool:
 
 
 def verify_result(result: dict, *, require_official_update: bool = False,
-                  gui_diagnostic_only: bool = False) -> None:
+                  gui_diagnostic_only: bool = False, network_diagnostic_only: bool = False) -> None:
     if gui_diagnostic_only or result.get("gui_diagnostic_only") is True:
         raise RuntimeError("GUI diagnostic-only report cannot qualify product acceptance")
+    if network_diagnostic_only or result.get("network_diagnostic_only") is True:
+        raise RuntimeError("Network diagnostic-only report cannot qualify product acceptance")
     if result.get("status") != "passed" or result.get("ordinary_user") is not True:
         raise RuntimeError(f"Guest tests failed: {result.get('error', 'missing ordinary-user proof')}")
     if require_official_update:
@@ -1241,10 +1252,10 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     probe_passed = False
     cleanup_pending = False
     try:
-        gui_only = guest_gui_diagnostic_only(vm_config)
+        gui_only, network_only = guest_diagnostic_modes(vm_config)
     except ValueError:
-        result["gui_diagnostic_configuration_error"] = "invalid_private_configuration"
-        result["error"] = "Private GUI diagnostic configuration could not be verified"
+        result["diagnostic_configuration_error"] = "invalid_private_configuration"
+        result["error"] = "Private diagnostic configuration could not be verified"
         result["phases"] = [{"name": name, "status": "blocked", "exit_code": None,
                              "reason": "invalid_private_configuration"} for name in PHASE_NAMES]
         return result
@@ -1290,6 +1301,73 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                                  "reason": "gui_diagnostic_only"})
         result["status"] = "failed"
         result["error"] = "GUI diagnostic-only does not complete product acceptance"
+        return result
+    if network_only:
+        result.update(network_diagnostic_only=True, source_diagnostic_only=True,
+                      full_acceptance_passed=False, product_acceptance_passed=False,
+                      acceptance_passed=False, real_node_passed=False,
+                      execution_mode="original_sdk", product_runtime_replaced=False)
+        probe_command = [executable, "-X", "utf8", "-B", str(acceptance), "--root", str(root),
+                         "--probe-only", "--report", str(directory / "probe.json")]
+        probe, report, log = run_guest_phase("probe", probe_command, directory,
+                                             timeout=min(90, phase_timeout))
+        result["phases"].append(probe)
+        result["logs"]["probe"] = log
+        if report is not None:
+            result["reports"]["probe"] = report
+        probe_passed = probe.get("status") == "passed" and probe.get("exit_code") == 0
+        for name in ("outside_edge", "edge_ui"):
+            result[f"{name}_phase"] = {"name": name, "status": "skipped", "exit_code": None,
+                                       "reason": "network_diagnostic_only"}
+        for name in ("transport", "manager", "browser", "gui", "package_tests"):
+            result["phases"].append({"name": name,
+                "status": "blocked" if name in ("transport", "manager") and not probe_passed else "skipped",
+                "exit_code": None, "reason": "network_diagnostic_only" if probe_passed
+                    else "strict_policy_probe_failed"})
+        if not probe_passed:
+            result["experiments_phase"] = {"name": "experiments", "status": "blocked", "exit_code": None,
+                                            "reason": "strict_policy_probe_failed"}
+            result["error"] = "Strict policy probe failed; network experiment was not run"
+            return result
+        diagnostic_arguments = []
+        try:
+            diagnostic = guest_test_executor(root, workspace, vm_config)
+            if diagnostic is not None:
+                executor, manifest, metadata = diagnostic
+                diagnostic_arguments = ["--test-psec-executor", str(executor), "--test-psec-manifest", str(manifest)]
+                result.update(execution_mode="source_executor_diagnostic", test_psec_executor=metadata,
+                              product_runtime_replaced=False)
+        except Exception as exc:
+            result["executor_validation_error"] = type(exc).__name__
+            result["experiments_phase"] = {"name": "experiments", "status": "blocked", "exit_code": None,
+                                            "reason": "executor_validation_failed"}
+            result["error"] = "Source executor validation failed; network experiment was not run"
+            return result
+        experiment = workspace / ".github/windows_network_experiment.py"
+        if not experiment.is_file():
+            result["experiments_phase"] = {"name": "experiments", "status": "blocked", "exit_code": None,
+                                            "reason": "network_experiment_missing"}
+            result["error"] = "Network experiment source was unavailable"
+            return result
+        command = [executable, "-X", "utf8", "-B", str(experiment), "--root", str(root),
+                   "--report", str(directory / "experiments.json"), "--preferred-policy-only",
+                   "--vm-config", str(vm_config)]
+        command.extend(diagnostic_arguments)
+        record, report, log = run_guest_phase("experiments", command, directory,
+                                              timeout=min(600, phase_timeout))
+        result["experiments_phase"] = record
+        result["logs"]["experiments"] = log
+        if report is not None:
+            result["reports"]["experiments"] = report
+        if record.get("timed_out") or not experiment_teardown_proven("experiments", report):
+            recovery = {"phase": "experiments", "reason": record.get("error", "Experiment cleanup was not proven"),
+                        "descendant_cleanup_proven": False}
+            if report is not None:
+                for key in ("cleanup_error", "recovery_directory"):
+                    if key in report:
+                        recovery[key] = str(report[key])[:1024]
+            result["recovery_records"].append(recovery)
+        result["error"] = "Network diagnostic-only does not complete product acceptance"
         return result
     outside = workspace / ".github/windows_edge_outside_control.py"
     if outside.is_file():
@@ -1438,12 +1516,14 @@ def run(args) -> dict:
     custom_manifest = getattr(args, "test_psec_manifest", None)
     diagnostic_mode = custom_executor is not None or custom_manifest is not None
     gui_diagnostic_only = getattr(args, "gui_diagnostic_only", False) is True
+    network_diagnostic_only = getattr(args, "network_diagnostic_only", False) is True
     require_update = not baseline
     summary = {"status": "failed", "baseline_diagnostic": baseline,
                "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "original_sdk",
                "product_runtime_replaced": False,
                "gui_diagnostic_only": gui_diagnostic_only,
-               "source_diagnostic_only": gui_diagnostic_only or diagnostic_mode,
+               "network_diagnostic_only": network_diagnostic_only,
+               "source_diagnostic_only": gui_diagnostic_only or network_diagnostic_only or diagnostic_mode,
                "product_acceptance_passed": False,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
@@ -1528,6 +1608,7 @@ def run(args) -> dict:
                     "require_official_update": require_update, "update_build": UPDATE_BUILD, "update_ubr": UPDATE_UBR,
                     "test_psec_executor_diagnostic": diagnostic_mode,
                     "gui_diagnostic_only": gui_diagnostic_only,
+                    "network_diagnostic_only": network_diagnostic_only,
                     **({"test_psec_executor_sha256": summary["test_psec_executor"]["executor_sha256"],
                         "test_psec_original_runtime_sha256": original_sha256}
                        if diagnostic_mode else {}),
@@ -1619,7 +1700,8 @@ def run(args) -> dict:
                     if not capture.log_clean() or capture.collection_error:
                         raise RuntimeError("VM packet capture control or dump/write failed")
                     verify_result(server.result, require_official_update=require_update,
-                                  gui_diagnostic_only=gui_diagnostic_only)
+                                  gui_diagnostic_only=gui_diagnostic_only,
+                                  network_diagnostic_only=network_diagnostic_only)
                     if diagnostic_mode:
                         raise RuntimeError("Source executor diagnostics cannot qualify the original product network boundary")
                     summary["network_boundary"] = verify_network_boundary(capture.result)
@@ -1695,6 +1777,8 @@ def main(argv: list[str]) -> int:
                         help="Diagnose the fixed official ISO baseline; skips only CU staging/requirement, never full acceptance")
     parser.add_argument("--gui-diagnostic-only", action="store_true",
                         help="Run only the strict probe and packaged product GUI diagnostic; never qualifies acceptance")
+    parser.add_argument("--network-diagnostic-only", action="store_true",
+                        help="Run only the strict probe and preferred-policy network experiment; never qualifies acceptance")
     parser.add_argument("--test-psec-executor", type=Path,
                         help="Source-only diagnostic executor; never replaces product bin or grants release success")
     parser.add_argument("--test-psec-manifest", type=Path)
@@ -1703,10 +1787,12 @@ def main(argv: list[str]) -> int:
         parser.error("--test-psec-executor and --test-psec-manifest must be provided together")
     if args.gui_diagnostic_only and args.test_psec_executor is not None:
         parser.error("--gui-diagnostic-only uses the packaged product SDK and cannot be combined with a source executor")
+    if args.gui_diagnostic_only and args.network_diagnostic_only:
+        parser.error("GUI and network diagnostic-only modes are mutually exclusive")
     if not 300 <= args.timeout_seconds <= 14400:
         parser.error("--timeout-seconds must be between 300 and 14400")
     result = run(args)
-    if args.test_psec_executor is not None or args.gui_diagnostic_only:
+    if args.test_psec_executor is not None or args.gui_diagnostic_only or args.network_diagnostic_only:
         return 1  # Partial diagnostics never qualify product acceptance.
     expected = "baseline_transport_and_package_tests_passed" if args.baseline_diagnostic else "transport_and_package_tests_passed"
     return 0 if (result["status"] == expected and result.get("baseline_diagnostic") is args.baseline_diagnostic
