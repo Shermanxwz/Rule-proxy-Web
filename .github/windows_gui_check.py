@@ -46,7 +46,189 @@ _DIAGNOSTIC_STAGES = frozenset({
     "tree_diagnostic_query_open", "tree_diagnostic_pid_query", "tree_diagnostic_creation_query",
     "tree_diagnostic_image_query", "tree_diagnostic_snapshot_second", "tree_diagnostic_parent_identity",
     "tree_diagnostic_handle_close",
+    "job_create", "job_configure", "job_assign", "job_controller_verify", "job_accounting",
+    "job_close", "tree_unqueryable_job_proof",
 })
+
+
+class _JobBasicLimitInformation(ctypes.Structure):
+    _fields_ = [("PerProcessUserTimeLimit", ctypes.c_longlong), ("PerJobUserTimeLimit", ctypes.c_longlong),
+                ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
+                ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
+                ("SchedulingClass", wintypes.DWORD)]
+
+
+class _IoCounters(ctypes.Structure):
+    _fields_ = [(name, ctypes.c_ulonglong) for name in
+                ("ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+                 "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+
+
+class _ExtendedLimitInformation(ctypes.Structure):
+    _fields_ = [("BasicLimitInformation", _JobBasicLimitInformation), ("IoInfo", _IoCounters),
+                ("ProcessMemoryLimit", ctypes.c_size_t), ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t), ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+
+class _JobBasicAccountingInformation(ctypes.Structure):
+    _fields_ = [("TotalUserTime", ctypes.c_longlong), ("TotalKernelTime", ctypes.c_longlong),
+                ("ThisPeriodTotalUserTime", ctypes.c_longlong),
+                ("ThisPeriodTotalKernelTime", ctypes.c_longlong), ("TotalPageFaultCount", wintypes.DWORD),
+                ("TotalProcesses", wintypes.DWORD), ("ActiveProcesses", wintypes.DWORD),
+                ("TotalTerminatedProcesses", wintypes.DWORD)]
+
+
+class WinJobApi:
+    """Minimal non-terminating Job Object API for aggregate descendant accounting."""
+    def __init__(self):
+        if os.name != "nt":
+            raise OSError("Windows Job Objects are required")
+        self.kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        k = self.kernel
+        k.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+        k.CreateJobObjectW.restype = wintypes.HANDLE
+        k.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        k.SetInformationJobObject.restype = wintypes.BOOL
+        k.QueryInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
+                                                wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+        k.QueryInformationJobObject.restype = wintypes.BOOL
+        k.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        k.AssignProcessToJobObject.restype = wintypes.BOOL
+        k.IsProcessInJob.argtypes = [wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
+        k.IsProcessInJob.restype = wintypes.BOOL
+        k.GetCurrentProcess.restype = wintypes.HANDLE
+        k.GetCurrentProcessId.restype = wintypes.DWORD
+        k.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        k.GetExitCodeProcess.restype = wintypes.BOOL
+        k.CloseHandle.argtypes = [wintypes.HANDLE]
+        k.CloseHandle.restype = wintypes.BOOL
+
+    @staticmethod
+    def _check(value):
+        if not value:
+            raise ctypes.WinError(ctypes.get_last_error())
+
+    def create(self):
+        handle = self.kernel.CreateJobObjectW(None, None)
+        if not handle:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return int(handle)
+
+    def configure(self, handle):
+        info = _ExtendedLimitInformation()
+        self._check(self.kernel.SetInformationJobObject(handle, 9, ctypes.byref(info), ctypes.sizeof(info)))
+        readback = _ExtendedLimitInformation()
+        self._check(self.kernel.QueryInformationJobObject(handle, 9, ctypes.byref(readback),
+                                                           ctypes.sizeof(readback), None))
+        if readback.BasicLimitInformation.LimitFlags != 0:
+            raise RuntimeError("outer Job has unexpected limit flags")
+        ui = wintypes.DWORD()
+        self._check(self.kernel.QueryInformationJobObject(handle, 4, ctypes.byref(ui), ctypes.sizeof(ui), None))
+        if ui.value != 0:
+            raise RuntimeError("outer Job has unexpected UI restrictions")
+        return readback.BasicLimitInformation.LimitFlags
+
+    def assign_current(self, handle):
+        self._check(self.kernel.AssignProcessToJobObject(handle, self.kernel.GetCurrentProcess()))
+
+    def controller(self):
+        process = self.kernel.GetCurrentProcess()
+        pid, code = int(self.kernel.GetCurrentProcessId()), wintypes.DWORD()
+        self._check(self.kernel.GetExitCodeProcess(process, ctypes.byref(code)))
+        return pid, code.value == 259
+
+    def member(self, handle):
+        answer = wintypes.BOOL()
+        self._check(self.kernel.IsProcessInJob(self.kernel.GetCurrentProcess(), handle, ctypes.byref(answer)))
+        return bool(answer.value)
+
+    def active(self, handle):
+        info = _JobBasicAccountingInformation()
+        self._check(self.kernel.QueryInformationJobObject(handle, 1, ctypes.byref(info), ctypes.sizeof(info), None))
+        return int(info.ActiveProcesses)
+
+    def close(self, handle):
+        self._check(self.kernel.CloseHandle(handle))
+
+
+class GuiJob:
+    """Own the controller and all descendants with count-only cleanup proof."""
+    def __init__(self, api=None):
+        self.api = api or _diagnostic_call("job_create", WinJobApi)
+        self.handle = _diagnostic_call("job_create", self.api.create)
+        self.closed = False
+        self.unqueryable_candidates = set()
+        self.controller_pid = None
+        self.assigned = False
+        assigned = False
+        try:
+            flags = _diagnostic_call("job_configure", self.api.configure, self.handle)
+            if flags != 0:
+                raise RuntimeError("outer Job must have zero limit flags")
+            _diagnostic_call("job_assign", self.api.assign_current, self.handle)
+            assigned = True
+            self.assigned = True
+            self.verify_controller()
+        except Exception as error:
+            # Keep an assigned Job alive for diagnosis; only an unassigned
+            # handle is safe to close after setup failure.
+            if assigned:
+                _RECOVERY_OWNERS.append(self)
+            else:
+                try:
+                    self.api.close(self.handle)
+                    self.closed = True
+                except Exception:
+                    _RECOVERY_OWNERS.append(self)
+            if not self.closed:
+                error._gui_job_owner = self
+            raise
+
+    def verify_controller(self):
+        if self.closed:
+            raise RuntimeError("outer Job is closed")
+        pid, alive = _diagnostic_call("job_controller_verify", self.api.controller)
+        if type(pid) is not int or pid <= 0:
+            raise RuntimeError("GUI controller identity is unavailable")
+        if self.controller_pid is None:
+            self.controller_pid = pid
+        if pid != self.controller_pid or not alive or not _diagnostic_call("job_controller_verify", self.api.member, self.handle):
+            raise RuntimeError("GUI controller is not live in its outer Job")
+
+    def active_processes(self):
+        self.verify_controller()
+        count = _diagnostic_call("job_accounting", self.api.active, self.handle)
+        self.verify_controller()
+        if type(count) is not int or count < 1:
+            raise RuntimeError("outer Job accounting returned an invalid process count")
+        return count
+
+    def record_unqueryable(self, key):
+        if self.active_processes() <= 1:
+            raise RuntimeError("outer Job has no additional controlled workload to account for")
+        if len(self.unqueryable_candidates) >= MAX_HANDLES:
+            raise RuntimeError("unqueryable candidate accounting limit exceeded")
+        self.unqueryable_candidates.add(key)
+
+    def wait_controller_only(self, deadline):
+        while time.monotonic() < deadline:
+            if self.active_processes() == 1:
+                return True
+            time.sleep(0.05)
+        return self.active_processes() == 1
+
+    def close(self):
+        if self.closed:
+            return
+        if not self.assigned:
+            _diagnostic_call("job_close", self.api.close, self.handle)
+            self.closed = True
+            return
+        if self.active_processes() != 1:
+            raise RuntimeError("outer Job still contains descendant processes")
+        _diagnostic_call("job_close", self.api.close, self.handle)
+        self.closed = True
 
 
 def error_facts(error, fallback_stage="unknown"):
@@ -225,13 +407,15 @@ class _DiagnosticQueryOwner:
 class OwnedTree:
     """Attest a new wrapper subtree using held generations and two snapshots.
 
-    The wrapper HANDLE is borrowed from Popen. Every descendant query HANDLE
-    remains held through teardown, including helpers with other image paths.
+    The wrapper HANDLE is borrowed from Popen. Every attested descendant
+    process HANDLE remains held through teardown, including helpers with other image paths.
     A foreign PID is never opened just because it owns a desktop window.
     """
 
-    def __init__(self, api, wrapper, edge):
+    def __init__(self, api, wrapper, edge, job=None):
         self.api, self.wrapper = api, wrapper
+        self.job = job
+        self.unqueryable_candidates = set()
         self.edge = image_key(edge)
         self.root_handle = int(wrapper._handle)
         if _diagnostic_call("tree_root_identity", api.pid, self.root_handle) != wrapper.pid \
@@ -323,6 +507,8 @@ class OwnedTree:
                 if pid == self.wrapper.pid or ppid not in parents or pid in self.entries:
                     continue
                 parent = parents[ppid]
+                if (pid, ppid, parent["created"]) in self.unqueryable_candidates:
+                    continue
                 self._identity(parent)
                 if 1 + len(self.entries) + len(self.pending) + len(self.diagnostic_query_owners) >= MAX_HANDLES:
                     raise RuntimeError("owned process query handle limit exceeded")
@@ -335,7 +521,19 @@ class OwnedTree:
                         "parent_pid": ppid, "parent_creation_filetime": parent["created"],
                         "requested_access": ProcessApi.PROCESS_ACCESS}
                     if getattr(error, "winerror", None) == 5:
-                        error._gui_query_only_diagnostic = self._query_failure_candidate(pid, ppid, parent)
+                        diagnostic = self._query_failure_candidate(pid, ppid, parent)
+                        error._gui_query_only_diagnostic = diagnostic
+                        query_denied = (diagnostic.get("status") == "incomplete"
+                            and diagnostic.get("opened") is False
+                            and diagnostic.get("handle_closed") is True
+                            and diagnostic.get("failure", {}).get("stage") == "tree_diagnostic_query_open"
+                            and diagnostic.get("failure", {}).get("winerror") == 5)
+                        if self.job is not None and diagnostic.get("handle_closed") is True and (
+                                diagnostic.get("status") == "observed" or query_denied):
+                            self.job.record_unqueryable((pid, ppid, parent["created"]))
+                            self.unqueryable_candidates.add((pid, ppid, parent["created"]))
+                            added = True
+                            continue
                     raise
                 self.pending.append(handle)
                 self.peak_handles = max(self.peak_handles, 1 + len(self.entries) + len(self.pending))
@@ -392,9 +590,10 @@ class OwnedTree:
             raise RuntimeError("startup helper exited before GUI attestation")
 
     def all_exited(self):
-        return not _diagnostic_call("tree_exit_query", self.api.alive, self.root_handle) and all(
+        known_gone = not _diagnostic_call("tree_exit_query", self.api.alive, self.root_handle) and all(
             not _diagnostic_call("tree_exit_query", self.api.alive, entry["handle"]) for entry in self.entries.values()
         ) and all(not _diagnostic_call("tree_exit_query", self.api.alive, handle) for handle in self.pending)
+        return known_gone and (self.job is None or self.job.active_processes() == 1)
 
     def close_exited(self, timeout=5):
         if self.closed:
@@ -411,6 +610,8 @@ class OwnedTree:
             remaining = int(max(0.0, deadline - time.monotonic()) * 1000)
             if not _diagnostic_call("tree_exit_wait", self.api.wait, handle, remaining):
                 raise RuntimeError("owned query handles still include a live process")
+        if self.job is not None and not self.job.wait_controller_only(deadline):
+            raise RuntimeError("outer Job accounting still includes descendants")
         for pid, entry in list(self.entries.items()):
             _diagnostic_call("tree_query_handle_close", self.api.close, entry["handle"])
             del self.entries[pid]
@@ -601,14 +802,19 @@ def interactive_facts():
 
 
 class GuiRun:
-    def __init__(self, runtime, edge, profile_root, fixture, helpers, browser_module):
+    def __init__(self, runtime, edge, profile_root, fixture, helpers, browser_module, job=None):
         self.runtime, self.edge, self.profile_root = runtime, edge, profile_root
         self.fixture, self.helpers, self.browser_module = fixture, helpers, browser_module
+        self.job = job
         self.wrapper = self.resources = self.tree = None
         self.cleanup_proven = True
 
     def run(self, phase):
         from ruleproxy import launcher, windows_runtime
+        if self.job is None:
+            raise RuntimeError("GUI run requires an outer Job Object")
+        if self.job.active_processes() != 1:
+            raise RuntimeError("outer Job is not controller-only before GUI launch")
         _diagnostic_call("fixture_begin", self.fixture.begin, phase)
         guest_port = windows_runtime.choose_guest_port(self.fixture.port)
         app = {"id": "gui", "label": "Visible Edge HTTP fixture", "path": str(self.edge),
@@ -626,10 +832,12 @@ class GuiRun:
             self.wrapper = getattr(exc, "process", None)
             self.resources = getattr(exc, "resource", None)
             raise
+        if self.job.active_processes() < 2:
+            raise RuntimeError("launched GUI workload is absent from outer Job accounting")
         startup_seconds = time.monotonic() - startup_started
         startup = _diagnostic_call("startup_evidence", self.helpers.startup_evidence, self.resources)
         deadline = time.monotonic() + GUI_BUDGET_SECONDS
-        self.tree = _diagnostic_call("tree_construct", OwnedTree, ProcessApi(), self.wrapper, self.edge)
+        self.tree = _diagnostic_call("tree_construct", OwnedTree, ProcessApi(), self.wrapper, self.edge, self.job)
         _diagnostic_call("tree_refresh", self.tree.refresh)
         _diagnostic_call("tree_startup_helper_verify", self.tree.verify_startup_helper,
                          startup.get("startup_diagnostics", {}).get("parent"))
@@ -670,6 +878,7 @@ class GuiRun:
             raise RuntimeError("no attested owned WM_CLOSE request was posted")
         _diagnostic_call("fixture_ack", self.fixture.check, phase)
         count, peak = len(self.tree.entries), self.tree.peak_handles
+        unqueryable_count = len(self.tree.unqueryable_candidates)
         self.close()
         return {"check": f"real_edge_gui_{phase}", "status": "passed",
                 "visible_window_verified": True, "visible_window_rects": rects,
@@ -678,6 +887,8 @@ class GuiRun:
                 "wm_close_window_count": len(posted), "natural_helper_wrapper_exit": True,
                 "held_handles_verified": True, "descendant_cleanup_proven": True,
                 "resources_closed": True, "held_descendant_count": count, "peak_query_handles": peak,
+                "outer_job_controller_only": self.job.active_processes() == 1,
+                "unqueryable_process_candidate_count": unqueryable_count,
                 "query_handle_scope": "gui_query_handles_and_borrowed_wrapper_only",
                 "startup_seconds": round(startup_seconds, 3), "gui_budget_seconds": GUI_BUDGET_SECONDS,
                 **startup}
@@ -698,10 +909,21 @@ class GuiRun:
         if self.tree is not None and not self.tree.closed:
             _diagnostic_call("tree_refresh", self.tree.refresh)  # Include a last child born during graceful shutdown.
             _diagnostic_call("tree_close_exited", self.tree.close_exited)
+        elif self.job is not None:
+            deadline = time.monotonic() + 5
+            if self.wrapper is not None:
+                try:
+                    _diagnostic_call("tree_exit_wait", self.wrapper.wait, max(0.0, deadline - time.monotonic()))
+                except subprocess.TimeoutExpired as error:
+                    raise RuntimeError("wrapper remained live without a held owned tree") from error
+            if not self.job.wait_controller_only(deadline):
+                raise RuntimeError("outer Job accounting still includes descendants without an owned tree")
         if self.resources is not None:
             _diagnostic_call("runtime_resources_close", self.resources.close)
         if self.wrapper is not None and hasattr(self.wrapper._handle, "Close"):
             _diagnostic_call("wrapper_handle_close", self.wrapper._handle.Close)
+        if self.job is not None and self.job.active_processes() != 1:
+            raise RuntimeError("outer Job descendants remained after runtime resources closed")
         self.wrapper = self.resources = self.tree = None
         self.cleanup_proven = True
 
@@ -725,7 +947,7 @@ def main(arguments):
     browser_module = browser_helpers()
     helpers = browser_module.acceptance_helpers()
     result = initial_result()
-    directory = fixture = owner = before = None
+    directory = fixture = owner = before = job = None
     safe_cleanup, code, phase = True, 1, "platform"
     try:
         facts = helpers.host_facts()
@@ -759,9 +981,15 @@ def main(arguments):
             raise RuntimeError("GUI requires the native x64 stock Edge entry point")
         phase = "host_network_snapshot"
         before = helpers.network_snapshot()
+        phase = "job_create"
+        try:
+            job = GuiJob()
+        except Exception as error:
+            job = getattr(error, "_gui_job_owner", None)
+            raise
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-gui-"))
         fixture = browser_module.BrowserFixture()
-        owner = GuiRun(runtime, edge, directory / "profiles", fixture, helpers, browser_module)
+        owner = GuiRun(runtime, edge, directory / "profiles", fixture, helpers, browser_module, job)
         for number in (1, 2):
             phase = f"real_edge_gui_{number}"
             result["checks"].append(owner.run(number))
@@ -772,8 +1000,7 @@ def main(arguments):
         result["failure"] = error_facts(exc, phase)
         if owner is not None:
             result["failure_owner_state"] = owner_facts(owner)
-            if result["failure"]["stage"] == "tree_child_open":
-                result["failure_auxiliary"] = failure_auxiliary(owner)
+            result["failure_auxiliary"] = failure_auxiliary(owner)
     finally:
         if owner is not None:
             try:
@@ -785,6 +1012,16 @@ def main(arguments):
                               recovery_directory=str(directory))
                 result["cleanup_failure"] = error_facts(exc, "owner_cleanup")
                 result["cleanup_owner_state"] = owner_facts(owner)
+                code = 1
+        if job is not None:
+            try:
+                job.close()
+                result["outer_job_cleanup_proven"] = True
+            except Exception as exc:
+                safe_cleanup = False
+                _RECOVERY_OWNERS.append(job)
+                result.update(status="failed", gui_fixture_passed=False, cleanup_error=type(exc).__name__)
+                result["job_cleanup_failure"] = error_facts(exc, "job_close")
                 code = 1
         if fixture is not None:
             try:

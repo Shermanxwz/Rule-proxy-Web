@@ -16,6 +16,8 @@ Windows / Linux 本机 Web 面板：导入 Mihomo YAML、选择代理节点、�
 
 原有全拒绝策略曾阻断容器内代理连接。2026-10-15 的真实 Windows 11 ARM 实验已证明：只允许固定内部 TCP 代理端口，可让父子进程使用 HTTP / SOCKS，同时继续拒绝宿主回环和外部入站；宿主接管相同端口后仍无法访问。原生 x64、公网 UDP、系统 DNS 和真实应用完整验收仍在进行，0.2.2 尚不能作为 Windows 可用版本发布。[固定端口实验来源](verification/windows-2026-10-15/8c963b0/source.json)
 
+2026-10-15 的原生 x64 GUI-only 诊断使用原版 MXC：严格隔离探测通过，GUI 在首阶段 `tree_child_open` 因 WinError 5 失败；失败时的候选进程未能完成身份核验。诊断于约 29 秒提前结束，后续阶段均跳过，清理通过，因此这次结果不能判断正常 GUI 是否可运行，也没有形成产品验收。[GUI-only 证据](verification/windows-2026-10-15/61c8c28/gui-only-native/source.json)
+
 1. 从 [Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases/latest) 下载 `RuleProxy-Web-<版本>-windows-x64.zip`。运行包自带 Python、PyYAML、Mihomo 和 MXC，不需要另外安装。
 2. 右键 zip →“属性”→ 勾选“解除锁定”→“确定”。不解除的话，启动面板和点快捷方式时可能每次都弹出安全提示。
 3. 解压到固定位置，双击 `RuleProxy-Web\Start-Windows.cmd`。浏览器会打开面板；面板在后台运行，没有命令行窗口。无需以管理员身份运行。

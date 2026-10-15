@@ -84,6 +84,30 @@ class FakeWindows:
         self.posted.append(hwnd)
 
 
+class FakeJobApi:
+    def __init__(self):
+        self.count = 1
+        self.live = True
+        self.member_value = True
+        self.fail_active = False
+        self.fail_close = False
+        self.closed = []
+        self.active_values = []
+
+    def create(self): return 900
+    def configure(self, handle): return 0
+    def assign_current(self, handle): pass
+    def controller(self): return (77, self.live)
+    def member(self, handle): return self.member_value
+    def active(self, handle):
+        if self.fail_active: raise OSError("accounting unavailable")
+        if self.active_values: return self.active_values.pop(0)
+        return self.count
+    def close(self, handle):
+        if self.fail_close: raise OSError("close unavailable")
+        self.closed.append(handle)
+
+
 class GuiCheckTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="ruleproxy-gui-unit-")
@@ -121,6 +145,147 @@ class GuiCheckTests(unittest.TestCase):
         api = FakeProcessApi(edge=str(self.edge), helper=str(self.helper), wrapper=str(self.wrapper))
         wrapper = mock.Mock(pid=10, _handle=100)
         return gui.OwnedTree(api, wrapper, self.edge), api
+
+    def test_outer_job_fails_closed_on_membership_liveness_accounting_and_close(self):
+        api = FakeJobApi()
+        job = gui.GuiJob(api)
+        api.member_value = False
+        with self.assertRaisesRegex(RuntimeError, "not live"):
+            job.active_processes()
+        api.member_value, api.live = True, False
+        with self.assertRaisesRegex(RuntimeError, "not live"):
+            job.active_processes()
+        api.live = True
+        api.fail_active = True
+        with self.assertRaises(OSError):
+            job.active_processes()
+        api.fail_active = False
+        api.count = 2
+        with self.assertRaisesRegex(RuntimeError, "descendant processes"):
+            job.close()
+        api.count = 1
+        api.fail_close = True
+        with self.assertRaises(OSError):
+            job.close()
+        self.assertFalse(job.closed)
+        self.assertEqual(api.closed, [])
+        self.assertFalse(hasattr(gui.WinJobApi, "terminate"))
+
+    def test_assigned_job_setup_failure_remains_available_for_cleanup(self):
+        api = FakeJobApi()
+        api.member_value = False
+        before = len(gui._RECOVERY_OWNERS)
+        with self.assertRaisesRegex(RuntimeError, "not live") as raised:
+            gui.GuiJob(api)
+        owner = raised.exception._gui_job_owner
+        self.assertIs(gui._RECOVERY_OWNERS[-1], owner)
+        self.assertTrue(owner.assigned)
+        self.assertEqual(owner.handle, 900)
+        self.assertEqual(len(gui._RECOVERY_OWNERS), before + 1)
+        del gui._RECOVERY_OWNERS[before:]
+
+    def test_unqueryable_access_denied_candidate_uses_only_outer_job_count(self):
+        tree, api = self.tree()
+        job_api = FakeJobApi()
+        job_api.count = 2
+        tree.job = gui.GuiJob(job_api)
+        with mock.patch.object(api, "open", side_effect=self.access_denied()), \
+                mock.patch.object(api, "open_query", side_effect=self.access_denied()):
+            tree.refresh()
+        self.assertEqual(len(tree.unqueryable_candidates), 1)
+        self.assertEqual(tree.entries, {})
+        self.assertEqual(tree.pending, [])
+        self.assertEqual(job_api.count, 2)
+        windows = FakeWindows()
+        windows.values, windows.pids = [(801, 20)], {801: 20}
+        windows.rects = {801: [0, 0, 500, 400]}
+        self.assertEqual(gui.owned_windows(tree, windows), [])
+        api.info[100]["alive"] = False
+        api.info[200]["alive"] = False
+        api.info[300]["alive"] = False
+        job_api.count = 1
+        self.assertTrue(tree.all_exited())
+        self.assertEqual(len(tree.unqueryable_candidates), 1)
+
+    def test_unqueryable_access_denied_candidate_rejected_without_outer_job_proof(self):
+        tree, api = self.tree()
+        with mock.patch.object(api, "open", side_effect=self.access_denied()), \
+                mock.patch.object(api, "open_query", side_effect=self.access_denied()), self.assertRaises(PermissionError):
+            tree.refresh()
+
+    def test_incomplete_query_only_diagnostic_other_than_win5_fails_closed(self):
+        tree, api = self.tree()
+        tree.job = gui.GuiJob(FakeJobApi())
+        with mock.patch.object(api, "open", side_effect=self.access_denied()), \
+                mock.patch.object(api, "open_query", side_effect=OSError("non-access failure")), \
+                self.assertRaises(PermissionError):
+            tree.refresh()
+        self.assertEqual(tree.unqueryable_candidates, set())
+
+    def test_outer_job_proof_precedes_any_owned_handle_or_resource_release(self):
+        from ruleproxy import windows_runtime
+        tree, api = self.tree()
+        job_api = FakeJobApi()
+        job_api.count = 2
+        tree.job = gui.GuiJob(job_api)
+        for value in api.info.values():
+            value["alive"] = False
+        api.parent_map = {10: 1}
+        owner = gui.GuiRun(None, None, None, None, None, None, tree.job)
+        owner.tree, owner.wrapper, owner.resources = tree, tree.wrapper, mock.Mock()
+        job_api.fail_active = True
+        with mock.patch.object(windows_runtime, "stop"), self.assertRaises(OSError):
+            owner.close()
+        self.assertFalse(tree.closed)
+        self.assertEqual(api.closed, [])
+        owner.resources.close.assert_not_called()
+        job_api.fail_active = False
+        with mock.patch.object(windows_runtime, "stop"), self.assertRaisesRegex(RuntimeError, "outer Job accounting"):
+            owner.close()
+        self.assertFalse(tree.closed)
+        self.assertEqual(api.closed, [])
+        owner.resources.close.assert_not_called()
+        self.assertTrue(owner.wrapper is tree.wrapper)
+        job_api.count = 1
+        with mock.patch.object(windows_runtime, "stop"):
+            owner.close()
+        self.assertTrue(owner.cleanup_proven)
+
+    def test_windows_nested_job_aggregate_accounting_abi(self):
+        module_path = str(ROOT / ".github/windows_gui_check.py")
+        child_code = "import sys;print('ready', flush=True);sys.stdin.read(1)"
+        compile(child_code, "<windows-job-abi-grandchild>", "exec")
+        code = f'''import importlib.util, json, subprocess, sys, time
+s = importlib.util.spec_from_file_location("gui", {module_path!r})
+m = importlib.util.module_from_spec(s)
+s.loader.exec_module(m)
+outer = m.GuiJob()
+inner = m.GuiJob()
+child = {child_code!r}
+p = subprocess.Popen([sys.executable, "-c", child], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+assert p.stdout.readline().strip() == "ready"
+outer_count = outer.active_processes()
+inner_count = inner.active_processes()
+assert outer_count >= 2 and inner_count >= 2
+p.stdin.write("x")
+p.stdin.flush()
+p.wait(timeout=10)
+deadline = time.monotonic() + 5
+while time.monotonic() < deadline and (outer.active_processes() != 1 or inner.active_processes() != 1):
+    time.sleep(0.05)
+controller_only = outer.active_processes() == 1 and inner.active_processes() == 1
+inner.close()
+outer.close()
+print(json.dumps({{"nested_accounting": True, "controller_only": controller_only}}))
+'''
+        compile(code, "<windows-job-abi-child>", "exec")
+        if os.name != "nt":
+            self.skipTest("Windows Job Object ABI")
+        completed = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30)
+        self.assertEqual(completed.returncode, 0, completed.stderr[-1000:])
+        facts = json.loads(completed.stdout.strip().splitlines()[-1])
+        self.assertTrue(facts["nested_accounting"])
+        self.assertTrue(facts["controller_only"])
 
     def access_denied(self):
         error = PermissionError(13, "private error text", "C:\\User Secret\\private.exe")
@@ -569,6 +734,7 @@ class GuiCheckTests(unittest.TestCase):
         wrapper, resources, tree, windows = mock.Mock(), mock.Mock(), mock.Mock(), mock.Mock()
         wrapper.poll.side_effect = [None, 0]
         tree.entries, tree.peak_handles = {30: {}}, 4
+        tree.unqueryable_candidates = set()
         tree.closed = False
         tree.all_exited.return_value = True
         value = {"hwnd": 800, "pid": 30, "created": 120, "rect": [0, 0, 600, 500]}
@@ -581,7 +747,9 @@ class GuiCheckTests(unittest.TestCase):
                 mock.patch.object(gui, "WindowApi", return_value=windows), \
                 mock.patch.object(gui, "owned_windows", return_value=[value]), \
                 mock.patch.object(gui, "close_owned_window") as close:
-            owner = gui.GuiRun("runtime", self.edge, Path(temporary), fixture, helpers, browser)
+            run_job_api = FakeJobApi()
+            run_job_api.active_values = [1, 2, 1]
+            owner = gui.GuiRun("runtime", self.edge, Path(temporary), fixture, helpers, browser, gui.GuiJob(run_job_api))
             check = owner.run(2)
         args = prepare.call_args.args[0]["args"]
         self.assertIn("--new-window", args)
@@ -619,8 +787,8 @@ class GuiCheckTests(unittest.TestCase):
             browser.acceptance_helpers.return_value = helpers
             browser.find_edge.return_value = self.edge
             owner = mock.Mock()
-            error = self.access_denied()
-            error._gui_diagnostic_stage = "tree_child_open"
+            error = TimeoutError("GUI budget expired")
+            error._gui_diagnostic_stage = "wrapper_poll"
             owner.run.side_effect = error
             owner.close.side_effect = RuntimeError("owned process remains alive")
             owner.wrapper = mock.Mock(pid=10)
@@ -634,6 +802,7 @@ class GuiCheckTests(unittest.TestCase):
                         mock.patch.object(windows_runtime, "probe", return_value={"supported": True}), \
                         mock.patch.object(gui.tempfile, "mkdtemp", return_value=str(profile)), \
                         mock.patch.object(gui, "GuiRun", return_value=owner), \
+                        mock.patch.object(gui, "GuiJob", return_value=gui.GuiJob(FakeJobApi())), \
                         mock.patch.object(gui, "failure_auxiliary", return_value={"diagnostic_only": True,
                             "visible_owned_windows": {"status": "observed", "visible_window_observed": True}}) as auxiliary, \
                         mock.patch.object(gui.shutil, "rmtree") as remove, mock.patch("builtins.print"):
@@ -643,8 +812,8 @@ class GuiCheckTests(unittest.TestCase):
                 self.assertIs(value["cleanup_proven"], False)
                 self.assertEqual(value["recovery_directory"], str(profile))
                 self.assertFalse(value["gui_fixture_passed"])
-                self.assertEqual(value["failure"], {"stage": "tree_child_open", "error_type": "PermissionError",
-                                                    "errno": 13, "winerror": 5})
+                self.assertEqual(value["failure"], {"stage": "wrapper_poll", "error_type": "TimeoutError",
+                                                    "errno": None, "winerror": None})
                 auxiliary.assert_called_once_with(owner)
                 self.assertTrue(value["failure_auxiliary"]["visible_owned_windows"]["visible_window_observed"])
                 self.assertEqual(value["cleanup_failure"]["stage"], "owner_cleanup")

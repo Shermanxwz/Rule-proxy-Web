@@ -1,0 +1,56 @@
+{
+  "full_acceptance_passed": false,
+  "limitations": [
+    "This source-only GUI diagnostic is always non-release and does not complete product acceptance.",
+    "The GUI attempt stopped in the first phase at tree_child_open; failure-time candidate identity was not attested, so the denied opens do not establish a verified renderer or a definitive DACL cause.",
+    "The failure-time auxiliary observations were collected before normal fixture progress; they do not establish normal GUI behavior.",
+    "Transport, Manager, browser and package-test phases were skipped by GUI diagnostic-only mode."
+  ],
+  "product_acceptance_passed": false,
+  "product_phases": {
+    "cleanup_proven": true,
+    "gui_diagnostic_only": true,
+    "gui_elapsed_seconds": 29.0,
+    "gui_failure": {
+      "error_type": "PermissionError",
+      "stage": "tree_child_open",
+      "winerror": 5
+    },
+    "gui_fixture_passed": false,
+    "manager_fixture": "skipped",
+    "browser_fixture": "skipped",
+    "package_tests": "skipped",
+    "transport_fixture": "skipped"
+  },
+  "probe": {
+    "backend": "base-container",
+    "elapsed_seconds": 1.3,
+    "status": "passed"
+  },
+  "failure_time_access_attempts": [
+    {
+      "mask": "0x101000",
+      "operation": "OpenProcess",
+      "winerror": 5
+    },
+    {
+      "mask": "0x1000",
+      "operation": "OpenProcess",
+      "winerror": 5
+    }
+  ],
+  "failure_time_auxiliary": {
+    "dom_acknowledgements": 0,
+    "held_edge_generation_count": 5,
+    "page_requests": 0,
+    "phase": 1,
+    "visible_owned_windows": 0
+  },
+  "host_proxy_dns_default_routes_unchanged": true,
+  "ordinary_interactive_desktop": true,
+  "product_runtime_replaced": false,
+  "recovery_records": [],
+  "schema_version": 1,
+  "source_commit": "61c8c282bc4161551fcc2f43022d996784028ad6",
+  "status": "failed"
+}
