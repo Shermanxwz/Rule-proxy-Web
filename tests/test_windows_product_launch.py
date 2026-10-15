@@ -58,9 +58,9 @@ class OrdinaryLaunchTests(unittest.TestCase):
         self.assertEqual(output.getvalue(), "ordinary bootstrap executable: " + acceptance.sys.executable
                          + "\nimport diagnostics captured\n")
 
-    def test_system_and_administrator_use_authenticated_token_profile_and_close_handles(self):
+    def test_system_token_and_server_logon_defaults_preserve_identity_and_handles(self):
         owner = "S-1-5-21-1-2-3-1000"
-        for caller_sid in ("S-1-5-18", "S-1-5-21-1-2-3-500"):
+        for caller_sid, token_path in (("S-1-5-18", True), ("S-1-5-21-1-2-3-500", False)):
             with self.subTest(caller_sid=caller_sid):
                 api, kernel = mock.Mock(), mock.Mock()
                 closed, launches = [], []
@@ -91,22 +91,36 @@ class OrdinaryLaunchTests(unittest.TestCase):
                     information._obj.pid = 456
                     return True
 
+                def create_with_logon(_username, _domain, _password, flags, application,
+                                      command, creation, environment, directory, startup, information):
+                    # The same profile/desktop/environment and output-handle
+                    # contract is retained for the old successful Server API.
+                    return create(acceptance.wintypes.HANDLE(201), flags, application, command,
+                                  creation, environment, directory, startup, information)
+
                 api.OpenProcessToken.side_effect = open_token
                 api.LogonUserW.side_effect = logon
                 api.CreateProcessWithTokenW.side_effect = create
-                api.CreateProcessWithLogonW.side_effect = AssertionError("wrong desktop-permission API")
+                api.CreateProcessWithLogonW.side_effect = create_with_logon
+                identities = (caller_sid, owner, owner) if token_path else (caller_sid, owner)
                 with mock.patch.object(acceptance.ctypes, "WinDLL", create=True,
                                        side_effect=lambda name, **_kwargs: api if name == "advapi32" else kernel), \
-                        mock.patch.object(acceptance, "token_user_sid", side_effect=(caller_sid, owner, owner)):
+                        mock.patch.object(acceptance, "token_user_sid", side_effect=identities):
                     process = acceptance.launch_user([r"C:\RuleProxy\python.exe", "suite.py"],
                                                      "ordinary-test-user", "fixture-secret", owner)
                 self.assertEqual(process.caller_sid, caller_sid)
-                self.assertEqual(process.launch_method, "LogonUserW+CreateProcessWithTokenW")
+                self.assertEqual(process.launch_method, "LogonUserW+CreateProcessWithTokenW" if token_path
+                                 else "CreateProcessWithLogonW")
                 self.assertEqual(process.handle, process_handle)
                 self.assertEqual(process.pid, 456)
                 self.assertEqual(len(launches), 1)
-                api.CreateProcessWithLogonW.assert_not_called()
-                self.assertEqual(closed, [101, 201, 102, thread_handle])
+                if token_path:
+                    api.CreateProcessWithLogonW.assert_not_called()
+                else:
+                    api.CreateProcessWithTokenW.assert_not_called()
+                    api.LogonUserW.assert_not_called()
+                self.assertEqual(closed, [101, 201, 102, thread_handle] if token_path
+                                 else [101, 102, thread_handle])
                 process.close()
                 self.assertEqual(closed[-1], process_handle)
 

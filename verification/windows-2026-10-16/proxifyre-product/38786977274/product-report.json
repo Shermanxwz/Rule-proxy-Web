@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "status": "failed_or_incomplete",
+  "qualification_scope": "Windows installed product from final offline ZIP; see actual_os",
+  "windows_11_verified": false,
+  "gui_verified": false,
+  "product_release_eligible": false,
+  "headless_browser_verified": false,
+  "checks": {
+    "install_and_reinstall": true
+  },
+  "installations": [
+    {
+      "returncode": 0,
+      "stdout": "RuleProxy installed. Start-Windows.cmd opens the ordinary-user Web panel.\n",
+      "stderr": ""
+    },
+    {
+      "returncode": 0,
+      "stdout": "RuleProxy installed. Start-Windows.cmd opens the ordinary-user Web panel.\n",
+      "stderr": ""
+    }
+  ],
+  "actions": [],
+  "actual_os": {
+    "major": 10,
+    "minor": 0,
+    "build": 26100,
+    "platform": 2,
+    "product_type": 3,
+    "architecture": "AMD64"
+  },
+  "package": {
+    "zip": "RuleProxy-Web-0.3.0-windows-x64-personal.zip",
+    "sha256": "f8bf2ef1cfd3bcc1b6fa43a9e01ef2af5146ac68828b6e29dbb505ddb74fff80",
+    "manifest_verified": true,
+    "files_verified": 108,
+    "product_version": "0.3.0"
+  },
+  "source_matches_bundle": {
+    "manager.py": true,
+    "server.py": true,
+    "launcher.py": true,
+    "windows_proxy_service.py": true,
+    "windows_proxy_policy.py": true,
+    "windows_proxy_client.py": true,
+    "windows_proxy_runtime.py": true,
+    "windows_proxy_pins.py": true,
+    "windows_app_process.py": true,
+    "windows_core_process.py": true
+  },
+  "installed_deployment": {
+    "schema_version": 1,
+    "owner_sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+    "root": "C:\\Program Files\\RuleProxy-Web",
+    "proxifyre_root": "C:\\Program Files\\ProxiFyre",
+    "service_name": "RuleProxyControl",
+    "pipe_name": "RuleProxyControl-v1-cfd464c68139acbd"
+  },
+  "installed_file_hashes": {
+    "manager.py": "9b0d8966332873951f8d6c170e399fa745d1f31e5cd8e8e6d17d75b99e495e86",
+    "server.py": "41b465068142f40b75426f4bc500e498997102a25a1e40c5eba7d8ee60dc3909",
+    "launcher.py": "9d9d02027240e535f07b10591e4e2634e9730333bc14af431a35ddeea1966d38",
+    "windows_proxy_service.py": "4ed9bc434e2d851e58f34133d7cc59e24d46a19def938f01f50c65b2d9ea37c3",
+    "windows_proxy_policy.py": "f2371f4e131eeea7b6450083e30915ee81390bebde7a921fde5e485a03f1d1f2",
+    "windows_proxy_client.py": "46ecba075a9a938afe01ad95e111708c67f6414c6cce747692ea2527b415a05f",
+    "windows_proxy_runtime.py": "e0b1c6a4d221f69966bf540ab60aa540fcf4f80c51671a796e09008262378d92",
+    "windows_proxy_pins.py": "8a4ee29a76bfd3b6e2d2d59d3c4c78c3976ee88f804c40cbb66edaeea74b79b6",
+    "windows_app_process.py": "c95b2dd0a48ac0a054b63fbdf4c3af50fc24f975673e2643b976c4c635ed013c",
+    "windows_core_process.py": "147e22681d872e81213da1b7837f3a5a83e31a824a2db18173ae958d5effc95a"
+  },
+  "installed_services": {
+    "returncode": 0,
+    "stdout": "[{\"Name\":\"ProxiFyreService\",\"State\":\"Stopped\",\"StartMode\":\"Manual\",\"StartName\":\"LocalSystem\",\"PathName\":\"\\\"C:\\\\Program Files\\\\ProxiFyre\\\\ProxiFyre.exe\\\"\"},{\"Name\":\"RuleProxyControl\",\"State\":\"Running\",\"StartMode\":\"Auto\",\"StartName\":\"LocalSystem\",\"PathName\":\"\\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\python\\\\python.exe\\\" -I -S \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\ruleproxy\\\\windows_proxy_service.py\\\" --service\"}]\r\n",
+    "stderr": ""
+  },
+  "shared_dependencies_before": {
+    "returncode": 0,
+    "stdout": "{\"driver_sha256\":\"8623A9C34531CF73DE4286AD518B84AF03A331C78959769A1CA38723E3258984\",\"driver_signature\":\"Valid\",\"vc_installed\":1,\"vc_version\":\"v14.51.36247.00\"}\r\n",
+    "stderr": ""
+  },
+  "installed_firewall_rules": {
+    "returncode": 0,
+    "stdout": "[{\"Name\":\"{D3907BC1-2800-43EC-8562-9DD337FD873C}\",\"DisplayName\":\"ProxiFyre (UDP-In)\",\"Enabled\":1,\"Direction\":1,\"Action\":2},{\"Name\":\"{FC8B5301-1422-41BB-A74A-3E8888A660EC}\",\"DisplayName\":\"ProxiFyre (TCP-In)\",\"Enabled\":1,\"Direction\":1,\"Action\":2}]\r\n",
+    "stderr": ""
+  },
+  "fixture": {
+    "schema_version": 1,
+    "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+    "listener_ports": {
+      "A": 50243,
+      "B": 50244
+    },
+    "target_ipv4": "1.1.1.1",
+    "target_ipv6": "2606:4700:4700::1111",
+    "target_host": "example.com",
+    "http_port": 80,
+    "dns_target_ipv4": "1.1.1.1",
+    "dns_target_ipv6": "2606:4700:4700::1111",
+    "dns_port": 53,
+    "dns_ports": [
+      53,
+      39017
+    ],
+    "origin_kind": "controlled_synthetic_stub",
+    "http_internet_forwarded": false,
+    "dns_internet_forwarded": false,
+    "real_exit_ip_observed": false,
+    "tun_enabled": false,
+    "host_proxy_dns_routes_modified": false,
+    "explicit_health": {
+      "explicit_proxy_health_only": true,
+      "transparent_evidence": false,
+      "nodes": {
+        "A": true,
+        "B": true
+      },
+      "checks": {
+        "A": {
+          "tcp_http": true,
+          "udp_53": true,
+          "udp_39017": true
+        },
+        "B": {
+          "tcp_http": true,
+          "udp_53": true,
+          "udp_39017": true
+        }
+      },
+      "udp_destination_ports": [
+        53,
+        39017
+      ],
+      "proxy_generation": 1
+    },
+    "ipv6_external_reachability": "unverified_by_fixture",
+    "synthetic_dns_answers": {
+      "A": "198.51.100.101",
+      "B": "198.51.100.102"
+    },
+    "product_acceptance_passed": false
+  },
+  "fixture_health_core_stopped": {
+    "owned_process_started": true,
+    "exited": true,
+    "exit_code": 1
+  },
+  "fixture_hosts_mapping": {
+    "hostname": "node-9f32411a4d64e96439a2d7f111f21ad7.example.com",
+    "address": "127.0.0.1",
+    "before_sha256": "a2c89d566e2c22a41c79f6cf4df3649fbd39fa1159ea328286f31ee4c90a617e"
+  },
+  "ordinary_launcher": {
+    "method": "LogonUserW+CreateProcessWithTokenW",
+    "caller_sid": "S-1-5-21-4239583824-265399229-1323058055-500",
+    "expected_actor_sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+    "actual_actor_sid_verified": true
+  },
+  "ordinary_process": {
+    "exit_code": 1,
+    "exit_code_hex": "0x00000001",
+    "stdio_tail": "ordinary bootstrap executable: C:\\Program Files\\RuleProxy-Web\\python\\python.exe\r\nTraceback (most recent call last):\r\n  File \"C:\\RuleProxyProduct\\acceptance.py\", line 19, in <module>\r\n    import ctypes\r\n  File \"ctypes\\__init__.py\", line 10, in <module>\r\nImportError: DLL load failed while importing _ctypes: A dynamic link library (DLL) initialization routine failed.\r\n",
+    "suite_result_exists": false,
+    "failure_stage": "exited_before_suite_result"
+  },
+  "error": "[Errno 2] No such file or directory: 'C:\\\\RuleProxyProduct\\\\actors\\\\user-suite.json'",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_proxifyre_product_acceptance.py\", line 695, in controller\n    report[\"ordinary_suite\"] = json.loads(user_result.read_text(encoding=\"ascii\"))\n                                          ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^\n  File \"C:\\hostedtoolcache\\windows\\Python\\3.14.8\\x64\\Lib\\pathlib\\__init__.py\", line 787, in read_text\n    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:\n         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\hostedtoolcache\\windows\\Python\\3.14.8\\x64\\Lib\\pathlib\\__init__.py\", line 771, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\RuleProxyProduct\\\\actors\\\\user-suite.json'\n",
+  "receiver_final": {
+    "schema_version": 1,
+    "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+    "transactions": [
+      {
+        "sequence": 1,
+        "elapsed_seconds": 0.551798,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+        "request_target": "/health/9f32411a4d64e96439a2d7f111f21ad7/A",
+        "evidence_role": "health",
+        "response_complete": false
+      },
+      {
+        "sequence": 2,
+        "elapsed_seconds": 0.551872,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+        "request_target": "/health/9f32411a4d64e96439a2d7f111f21ad7/A",
+        "evidence_role": "health",
+        "response_complete": true
+      },
+      {
+        "sequence": 3,
+        "elapsed_seconds": 0.558361,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 53,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+        "qname": "health.9f32411a4d64e96439a2d7f111f21ad7.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.101",
+        "evidence_role": "health"
+      },
+      {
+        "sequence": 4,
+        "elapsed_seconds": 0.560536,
+        "proxy_generation": 1,
+        "node": "A",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 39017,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+        "qname": "health.9f32411a4d64e96439a2d7f111f21ad7.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.101",
+        "evidence_role": "health"
+      },
+      {
+        "sequence": 5,
+        "elapsed_seconds": 0.562024,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+        "request_target": "/health/9f32411a4d64e96439a2d7f111f21ad7/B",
+        "evidence_role": "health",
+        "response_complete": false
+      },
+      {
+        "sequence": 6,
+        "elapsed_seconds": 0.562068,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "tcp_http_response",
+        "destination": "1.1.1.1",
+        "destination_port": 80,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+        "request_target": "/health/9f32411a4d64e96439a2d7f111f21ad7/B",
+        "evidence_role": "health",
+        "response_complete": true
+      },
+      {
+        "sequence": 7,
+        "elapsed_seconds": 0.564186,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 53,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+        "qname": "health.9f32411a4d64e96439a2d7f111f21ad7.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.102",
+        "evidence_role": "health"
+      },
+      {
+        "sequence": 8,
+        "elapsed_seconds": 0.566243,
+        "proxy_generation": 1,
+        "node": "B",
+        "protocol": "udp_dns",
+        "destination": "1.1.1.1",
+        "destination_port": 39017,
+        "origin_kind": "controlled_synthetic_stub",
+        "nonce": "9f32411a4d64e96439a2d7f111f21ad7",
+        "qname": "health.9f32411a4d64e96439a2d7f111f21ad7.ruleproxy-ci.example.com.",
+        "query_type": 1,
+        "answer_ip": "198.51.100.102",
+        "evidence_role": "health"
+      }
+    ],
+    "transaction_count": 8,
+    "dropped_transactions": 0,
+    "errors": [
+      "ConnectionResetError",
+      "ConnectionResetError",
+      "ConnectionResetError",
+      "ConnectionResetError"
+    ],
+    "counts": {
+      "A": {
+        "tcp_http": 0,
+        "tcp_http_response": 0,
+        "udp_dns": 0
+      },
+      "B": {
+        "tcp_http": 0,
+        "tcp_http_response": 0,
+        "udp_dns": 0
+      }
+    }
+  },
+  "hosts_restored": true,
+  "hosts_restored_sha256": "a2c89d566e2c22a41c79f6cf4df3649fbd39fa1159ea328286f31ee4c90a617e",
+  "diagnostics": {
+    "returncode": 0,
+    "stdout": "{\"services\":[{\"Name\":\"ProxiFyreService\",\"State\":\"Stopped\",\"ExitCode\":1077,\"PathName\":\"\\\"C:\\\\Program Files\\\\ProxiFyre\\\\ProxiFyre.exe\\\"\"},{\"Name\":\"RuleProxyControl\",\"State\":\"Running\",\"ExitCode\":0,\"PathName\":\"\\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\python\\\\python.exe\\\" -I -S \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\ruleproxy\\\\windows_proxy_service.py\\\" --service\"}],\"events\":[{\"TimeCreated\":\"\\/Date(1792089471335)\\/\",\"Id\":7036,\"Message\":\"The Portable Device Enumerator Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792089457177)\\/\",\"Id\":7036,\"Message\":\"The Secondary Logon service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089453116)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089450949)\\/\",\"Id\":7036,\"Message\":\"The Background Intelligent Transfer Service service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792089450882)\\/\",\"Id\":7040,\"Message\":\"The start type of the Background Intelligent Transfer Service service was changed from auto start to demand start.\"},{\"TimeCreated\":\"\\/Date(1792089449661)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792089445943)\\/\",\"Id\":7036,\"Message\":\"The RuleProxy Web Control service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089445572)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  RuleProxy Web Control\\r\\nService File Name:  \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\python\\\\python.exe\\\" -I -S \\\"C:\\\\Program Files\\\\RuleProxy-Web\\\\ruleproxy\\\\windows_proxy_service.py\\\" --service\\r\\nService Type:  user mode service\\r\\nService Start Type:  auto start\\r\\nService Account:  LocalSystem\"},{\"TimeCreated\":\"\\/Date(1792089444768)\\/\",\"Id\":7036,\"Message\":\"The TCP/IP NetBIOS Helper service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089444510)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  ProxiFyre Service\\r\\nService File Name:  \\\"C:\\\\Program Files\\\\ProxiFyre\\\\ProxiFyre.exe\\\"\\r\\nService Type:  user mode service\\r\\nService Start Type:  demand start\\r\\nService Account:  LocalSystem\"},{\"TimeCreated\":\"\\/Date(1792089443583)\\/\",\"Id\":7036,\"Message\":\"The TCP/IP NetBIOS Helper service entered the stopped state.\"},{\"TimeCreated\":\"\\/Date(1792089443571)\\/\",\"Id\":7042,\"Message\":\"The TCP/IP NetBIOS Helper service was successfully sent a stop control.\\r\\n\\r\\n The reason specified was: 0x40030011 [Operating System: Network Connectivity (Planned)]\\r\\n\\r\\n Comment: None\"},{\"TimeCreated\":\"\\/Date(1792089443325)\\/\",\"Id\":7045,\"Message\":\"A service was installed in the system.\\r\\n\\r\\nService Name:  WinpkFilter LightWeight Filter\\r\\nService File Name:  \\\\SystemRoot\\\\system32\\\\DRIVERS\\\\ndisrd.sys\\r\\nService Type:  kernel mode driver\\r\\nService Start Type:  system start\\r\\nService Account:  \"},{\"TimeCreated\":\"\\/Date(1792089442472)\\/\",\"Id\":7036,\"Message\":\"The Clipboard User Service_feca4 service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089441854)\\/\",\"Id\":7036,\"Message\":\"The Update Orchestrator Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089441825)\\/\",\"Id\":7036,\"Message\":\"The WaaSMedicSvc service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089440959)\\/\",\"Id\":7036,\"Message\":\"The User Access Logging Service service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089440562)\\/\",\"Id\":7036,\"Message\":\"The Windows Installer service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089438783)\\/\",\"Id\":7036,\"Message\":\"The Software Protection service entered the running state.\"},{\"TimeCreated\":\"\\/Date(1792089438644)\\/\",\"Id\":7036,\"Message\":\"The Distributed Transaction Coordinator service entered the running state.\"}]}\r\n",
+    "stderr": ""
+  }
+}

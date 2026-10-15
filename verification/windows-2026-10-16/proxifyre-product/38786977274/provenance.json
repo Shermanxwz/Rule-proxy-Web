@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "run_id": 38786977274,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38786977274",
+  "source_commit": "52e51cde946bd2615f46207964ddf9f90003ca87",
+  "artifact_id": 11997724088,
+  "github_artifact_digest": "sha256:3847b64ad33e3ff2bb4b03ac1bbff3753a6e5a8ec017421a6e73f0f811a10fc6",
+  "normalized_download_zip_sha256": "3847b64ad33e3ff2bb4b03ac1bbff3753a6e5a8ec017421a6e73f0f811a10fc6",
+  "status": "ordinary_actor_ctypes_initialization_failed",
+  "installation_and_reinstallation_passed": true,
+  "control_service_startup_passed": true,
+  "ordinary_python_started": true,
+  "ordinary_python_exit_code": 1,
+  "observed_failure": "ImportError: DLL load failed while importing _ctypes: A dynamic link library (DLL) initialization routine failed.",
+  "transparent_product_routing_tests_started": false,
+  "architecture_failure_proven": false,
+  "next_bounded_comparison": "Restore the previously successful non-SYSTEM CreateProcessWithLogonW path, retaining startup and exit diagnostics. Qualify target Windows 11 independently of Server infrastructure.",
+  "cross_platform_check_run_id": 38786977317,
+  "cross_platform_check_all_eight_jobs_passed": true
+}

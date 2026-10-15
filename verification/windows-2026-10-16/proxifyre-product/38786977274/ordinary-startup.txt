@@ -1,0 +1,6 @@
+ordinary bootstrap executable: C:\Program Files\RuleProxy-Web\python\python.exe
+Traceback (most recent call last):
+  File "C:\RuleProxyProduct\acceptance.py", line 19, in <module>
+    import ctypes
+  File "ctypes\__init__.py", line 10, in <module>
+ImportError: DLL load failed while importing _ctypes: A dynamic link library (DLL) initialization routine failed.
