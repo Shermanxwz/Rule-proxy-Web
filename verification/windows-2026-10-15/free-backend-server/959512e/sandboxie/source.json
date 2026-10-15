@@ -27,5 +27,12 @@
       "sha256": "6ad538dffdcffe42027ecc1feb0c86e9f493d8a2d6a47314bfd2274edb42ceb0"
     }
   ],
-  "product_acceptance_passed": false
+  "product_acceptance_passed": false,
+  "artifact_member_hash_scope": "Original ZIP member bytes before UTF-8 BOM removal and newline normalization in the text archive.",
+  "archived_json_sha256": {
+    "install-report.json": "e2678586003f79fce48868afbad3b6a4ad77273be568c7db507f9e9d918ed232",
+    "probe-report.json": "4b785ad94ff0d7859bd98e1ddea698b7e3177cf133ec1c1c54a623965e24989a",
+    "server-probe-state.json": "40362864d34fa6bfea26ddbab7cdfef76d7aa245afcf0dee48e98f797954f627",
+    "deployment-facts.json": "fd716f114afe1859f2033153fae991d7632637f4eebc6a929f769c38cc040925"
+  }
 }

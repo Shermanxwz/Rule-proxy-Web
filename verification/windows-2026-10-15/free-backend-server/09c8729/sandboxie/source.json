@@ -15,5 +15,12 @@
     "deployment-facts.json": "9dc98eefb5e46f9dc297b638773348b80d8fa18495503d96ff2b9225123badcf",
     "install-report.json": "e2678586003f79fce48868afbad3b6a4ad77273be568c7db507f9e9d918ed232",
     "probe-report.json": "640bb279ed58e97ba49a845e4a1433cefe85f94c80129bdbab2151c2dc2e5095"
+  },
+  "artifact_member_hash_scope": "Original ZIP member bytes before UTF-8 BOM removal and newline normalization in the text archive.",
+  "archived_json_sha256": {
+    "server-probe-state.json": "40362864d34fa6bfea26ddbab7cdfef76d7aa245afcf0dee48e98f797954f627",
+    "deployment-facts.json": "942a1da883ed7c5729be32e8c4c1e194b90d25112efc66d15e282feb23724d51",
+    "install-report.json": "e2678586003f79fce48868afbad3b6a4ad77273be568c7db507f9e9d918ed232",
+    "probe-report.json": "640bb279ed58e97ba49a845e4a1433cefe85f94c80129bdbab2151c2dc2e5095"
   }
 }
