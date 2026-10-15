@@ -2,6 +2,7 @@
 
 CLI: package-python windows_network_experiment.py --root PACKAGE --report FILE
      [--allow-emulated-x64]
+     [--test-psec-executor EXE --test-psec-manifest JSON] [--collect-native-dns]
 Exit 0 means bounded experimental observations were collected, including
 unsupported policies and failed socket checks. Exit 1 means the experiment or
 safe teardown failed. No real node, global network setting or firewall rule is
@@ -13,6 +14,7 @@ import argparse
 import base64
 import ctypes
 from ctypes import wintypes
+import hashlib
 import importlib.util
 import json
 import os
@@ -22,6 +24,7 @@ from pathlib import Path
 import secrets
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -36,6 +39,86 @@ ACTOR_WAIT_SECONDS = 45
 MATRIX_PHASE_SECONDS = 440  # Leaves 120s for the final native CIM snapshot.
 DESTINATION = b"ruleproxy-experiment.invalid"
 UDP_CONTROL = b"RuleProxy fixed UDP observer control"
+PSEC_UPSTREAM_COMMIT = "7bf210247986cb73b1b314df60c2f1109c479c0b"
+PSEC_ORIGINAL_SOURCE_SHA256 = "a03b8889d8d92fe854f46d56c702360403c6889e79b48b42f8b2535b66189491"
+PSEC_PATCH_SHA256 = "3b0c5e616e3575d5be0ec3f34abd9ba6dd8f213eb097e836ab80c7a60dda112a"
+PSEC_PATCHED_SOURCE_SHA256 = "3809ab6269efaaf89011364c3f3355465ad11c7f5545f0a4f301181743bf926e"
+PSEC_TEST_PATCH = {"name": "exact_internal_tcp_without_automatic_internet_client",
+                   "capabilities_null": True, "network_table_unchanged": True,
+                   "exact_internal_tcp_only": True, "caller_capabilities_must_be_empty": True}
+
+
+def strict_json_object(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("Duplicate test executor manifest field")
+        value[key] = item
+    return value
+
+
+def test_executor_file(path):
+    if not path.is_absolute():
+        raise ValueError("Test executor inputs must be absolute ordinary files")
+    try:
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or not info.st_size
+                or path.is_symlink() or getattr(info, "st_file_attributes", 0) & 0x400):
+            raise ValueError("Test executor inputs must be nonempty ordinary files without reparse points")
+        for parent in path.parents:
+            attributes = parent.lstat()
+            if (not stat.S_ISDIR(attributes.st_mode) or parent.is_symlink()
+                    or getattr(attributes, "st_file_attributes", 0) & 0x400):
+                raise ValueError("Test executor input directories must not be reparse points")
+        return path.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError("Test executor input file is unavailable") from exc
+
+
+def verify_test_executor(root, executor, manifest, original_sha256):
+    """An explicit CI build artifact, never a replacement for product runtime.
+
+    A matching local manifest proves integrity; the invoking workflow's pinned
+    source and artifact checksum establish its source and build provenance.
+    """
+    executor, manifest = test_executor_file(executor), test_executor_file(manifest)
+    if (executor.is_relative_to(root / "bin") or manifest.is_relative_to(root / "bin")
+            or executor.suffix.casefold() != ".exe" or executor == manifest):
+        raise ValueError("Test executor must be separate from the product runtime directory")
+    if not isinstance(original_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", original_sha256):
+        raise ValueError("Original product executor integrity was not verified")
+    with manifest.open("rb") as stream:
+        raw = stream.read(MAX_REPORT_BYTES + 1)
+    if not raw or len(raw) > MAX_REPORT_BYTES:
+        raise ValueError("Test executor manifest exceeded its size limit")
+    value = json.loads(raw, object_pairs_hook=strict_json_object)
+    required = {"schema_version", "status", "upstream_commit", "executor_sha256", "patch",
+                "original_file_sha256", "patch_sha256", "patched_file_sha256", "toolchain", "target"}
+    if (not isinstance(value, dict) or set(value) != required
+            or type(value["schema_version"]) is not int or value["schema_version"] != 1
+            or value["status"] != "built" or value["upstream_commit"] != PSEC_UPSTREAM_COMMIT
+            or not isinstance(value["executor_sha256"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", value["executor_sha256"])
+            or not isinstance(value["patch"], dict) or set(value["patch"]) != set(PSEC_TEST_PATCH)
+            or any(type(value["patch"][key]) is not type(expected) or value["patch"][key] != expected
+                   for key, expected in PSEC_TEST_PATCH.items())):
+        raise ValueError("Test executor manifest did not describe the fixed source-only capability experiment")
+    if (value["original_file_sha256"] != PSEC_ORIGINAL_SOURCE_SHA256
+            or value["patch_sha256"] != PSEC_PATCH_SHA256
+            or value["patched_file_sha256"] != PSEC_PATCHED_SOURCE_SHA256
+            or value["toolchain"] != "1.93" or value["target"] != "x86_64-pc-windows-msvc"):
+        raise ValueError("Test executor manifest provenance did not match the fixed build")
+    digest = hashlib.sha256()
+    with executor.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    if digest.hexdigest() != value["executor_sha256"]:
+        raise ValueError("Test executor SHA-256 did not match its build manifest")
+    return executor, {**value, "source_only_executor_changed": True,
+        "original_runtime_sha256": original_sha256, "default_product_runtime_replaced": False,
+        "capability_scope": "empty caller capabilities and one exact internal TCP allow only",
+        "origin_verification": "Pinned build workflow and external artifact checksum are required.",
+        "acceptance_passed": False, "real_node_passed": False, "kernel_denial_proven": False}
 
 
 def write_json(path, value, *, limit=MAX_REPORT_BYTES):
@@ -378,15 +461,21 @@ def actor(config_path, role):
         write_json(profile / f"actor-{role}-initial.json", record)
         deadline = time.monotonic() + 85
         replaced = False
+        bridge_stop_reported = False
         while time.monotonic() < deadline:
             try:
                 control = read_json(profile / "actor-control.json")
             except FileNotFoundError:
                 control = {}
-            if control.get("state") == "stop_bridge" and role == "parent" and bridge_thread is not None:
+            if control.get("state") == "stop_bridge" and role == "parent" and bridge_thread is not None \
+                    and not bridge_stop_reported:
                 stop.set()
                 bridge_thread.join(5)
                 write_json(profile / "bridge-stopped.json", {"stopped": not bridge_thread.is_alive()})
+                # This persistent control is an instruction, not a request to
+                # republish the same file every poll. On Windows replacing a
+                # JSON file while the host reads it can fail with WinError 5.
+                bridge_stop_reported = True
             if control.get("state") == "host_replaced" and not replaced:
                 check = guest._probe(lambda: guest._socket_attempt(socket.AF_INET, socket.SOCK_STREAM,
                                      ("127.0.0.1", config["endpoint_port"])), deny=True)
@@ -403,24 +492,37 @@ def actor(config_path, role):
         # retains its process HANDLE and uses the production safe guardian.
 
 
+def read_actor_reports(profile, phase):
+    records = []
+    for role in ("parent", "child"):
+        try:
+            value = read_json(profile / f"actor-{role}-{phase}.json")
+        except (FileNotFoundError, json.JSONDecodeError):
+            break
+        if value.get("scope") != role or value.get("phase") != phase or type(value.get("pid")) is not int or value["pid"] <= 0:
+            raise RuntimeError("Invalid actor identity report")
+        records.append(value)
+    if len(records) == 2 and records[1].get("parent_pid") != records[0]["pid"]:
+        raise RuntimeError("Actor report did not prove parent/child relationship")
+    return records
+
+
 def wait_actor_reports(profile, wrapper, phase, *, timeout=ACTOR_WAIT_SECONDS):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        records = []
-        for role in ("parent", "child"):
-            try:
-                value = read_json(profile / f"actor-{role}-{phase}.json")
-            except (FileNotFoundError, json.JSONDecodeError):
-                break
-            if value.get("scope") != role or value.get("phase") != phase or type(value.get("pid")) is not int or value["pid"] <= 0:
-                raise RuntimeError("Invalid actor identity report")
-            records.append(value)
+        records = read_actor_reports(profile, phase)
+        code = wrapper.poll()
+        if code is not None:
+            # A final atomic publication can occur between the first read and
+            # observing process exit. Read once more, without waiting for or
+            # manufacturing a report after the workload has stopped.
+            records = read_actor_reports(profile, phase)
+            if code != 0:
+                raise RuntimeError(f"MXC exited with status {code} before independent actor reports were accepted")
+            if len(records) != 2:
+                raise RuntimeError("MXC exited before independent actor reports completed")
         if len(records) == 2:
-            if records[1].get("parent_pid") != records[0]["pid"]:
-                raise RuntimeError("Actor report did not prove parent/child relationship")
             return records
-        if wrapper.poll() is not None:
-            raise RuntimeError("MXC exited before independent actor reports completed")
         time.sleep(0.05)
     raise TimeoutError("Experimental actor reports timed out")
 
@@ -607,7 +709,8 @@ def pending_recovery(value):
     return False
 
 
-def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None, dns=None):
+def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None, dns=None,
+                executor=None):
     profile.mkdir()
     result = {"name": name, "status": "not_run", "process_started": False,
               "no_process_started": True, "checks": []}
@@ -616,6 +719,7 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
     udp_before = list(udp.received)
     host_fixtures.accepted.clear()
     deadline = deadline or time.monotonic() + 115
+    executor = executor if executor is not None else root / "bin/windows-amd64/wxc-exec.exe"
     try:
         proxy = FixedProxy()
         # Confirm fixture health through both real protocols before containment.
@@ -646,7 +750,7 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
         policy.update(network_policy(name, endpoint, proxy.port))
         result["policy"] = policy
         try:
-            result["probe"] = runtime._probe_request(str(root / "bin/windows-amd64/wxc-exec.exe"), policy)
+            result["probe"] = runtime._probe_request(str(executor), policy)
         except runtime.UnsupportedRuntimeError as exc:
             result.update(status="unsupported", detail=str(exc)[:700])
             return result
@@ -661,7 +765,7 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
         policy_file = profile / "policy.json"
         write_json(policy_file, policy)
         with (profile / "actor.log").open("wb") as output:
-            wrapper = subprocess.Popen([str(root / "bin/windows-amd64/wxc-exec.exe"), "--config", str(policy_file)],
+            wrapper = subprocess.Popen([str(executor), "--config", str(policy_file)],
                 stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, shell=False)
             result.update(process_started=True, no_process_started=False, descendant_cleanup_proven=False)
             reports = wait_actor_reports(profile, wrapper, "initial", timeout=actor_budget)
@@ -768,6 +872,9 @@ def main(arguments):
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--allow-emulated-x64", action="store_true")
     parser.add_argument("--vm-config", type=Path)
+    parser.add_argument("--test-psec-executor", type=Path)
+    parser.add_argument("--test-psec-manifest", type=Path)
+    parser.add_argument("--collect-native-dns", action="store_true")
     args = parser.parse_args(arguments)
     args.report.resolve().parent.mkdir(parents=True, exist_ok=True)
     result = {"status": "failed", "full_acceptance_passed": False, "acceptance_passed": False,
@@ -780,15 +887,26 @@ def main(arguments):
     phase_deadline = time.monotonic() + MATRIX_PHASE_SECONDS
     try:
         helpers = load_helpers()
+        if (args.test_psec_executor is None) != (args.test_psec_manifest is None):
+            raise ValueError("Test PSEC executor and manifest must be provided together")
         root = args.root.resolve(strict=True)
         runtime, _, _ = import_project(root)
         helpers.verify_project_origin(root)
-        result["runtime_integrity"] = {"verified_file_count": len(helpers.verify_runtime_manifest(root))}
+        digests = helpers.verify_runtime_manifest(root)
+        result["runtime_integrity"] = {"verified_file_count": len(digests)}
+        executor = None
+        if args.test_psec_executor is not None:
+            executor, result["test_psec_executor"] = verify_test_executor(root, args.test_psec_executor,
+                args.test_psec_manifest, digests.get("wxc-exec.exe"))
         result["host"] = helpers.host_facts()
         host = result["host"]
         if host.get("python_pe_machine") != 0x8664 or (host.get("native_machine") != 0x8664 and not (
             args.allow_emulated_x64 and host.get("native_machine") == 0xAA64)):
             raise RuntimeError("Native x64 Windows or explicitly allowed x64-on-ARM execution is required")
+        if args.collect_native_dns and (host.get("platform") != "win32"
+                or host.get("windows_product_type") != 1
+                or type(host.get("windows_build")) is not int or host["windows_build"] < 22000):
+            raise RuntimeError("Explicit native DNS diagnostics require an observed Windows 11 client")
         pipe_script = ROOT / ".github/windows_named_pipe_probe.py"
         if not pipe_script.is_file():
             raise RuntimeError("Named-pipe experiment script is missing")
@@ -798,8 +916,12 @@ def main(arguments):
         if args.vm_config is not None:
             wire = load_wire_helpers(ROOT / ".github/windows_wire_probe.py").WireSession(args.vm_config, VARIANTS)
             wire.start()
-            if host.get("native_machine") == 0x8664:
-                dns = load_dns_session().DnsSession(directory / "native-dns-controls", phase_deadline)
+        if args.collect_native_dns or (wire is not None and host.get("native_machine") == 0x8664):
+            dns = load_dns_session().DnsSession(directory / "native-dns-controls", phase_deadline)
+            result["native_dns_scope"] = {"host_acceptance_scope": host.get("acceptance_scope"),
+                "explicitly_requested": args.collect_native_dns, "wire_capture_available": wire is not None,
+                "wire_observed": None if wire is not None else False,
+                "default_system_server_list": True, "kernel_denial_proven": False, "acceptance_passed": False}
         for name in VARIANTS:
             if phase_deadline - time.monotonic() < 30:
                 raise TimeoutError("Matrix budget was exhausted before the next experiment")
@@ -815,14 +937,16 @@ def main(arguments):
                     break
             variant = run_variant(name, directory / name, root, runtime, helpers, fixtures, udp, pipe_script,
                                   deadline=phase_deadline, **({"wire": wire} if wire is not None else {}),
-                                  **({"dns": dns} if preferred_dns else {}))
+                                  **({"dns": dns} if preferred_dns else {}),
+                                  **({"executor": executor} if executor is not None else {}))
             result["variants"].append(variant)
             if wire is not None:
                 wire.actors(variant)
-                if preferred_dns:
-                    dns.actors(variant)
-                    if not pending_recovery(variant) and dns.safe:
-                        dns.control("outside_after", phase_deadline - 50)
+            if preferred_dns:
+                dns.actors(variant)
+                if not pending_recovery(variant) and dns.safe:
+                    dns.control("outside_after", phase_deadline - 50)
+            if wire is not None:
                 if not pending_recovery(variant) and (dns is None or dns.safe):
                     wire.control(name, "outside_after")
             if pending_recovery(variant) or (dns is not None and not dns.safe):

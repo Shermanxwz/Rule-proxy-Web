@@ -12,6 +12,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / '.github/windows-vm-update.ps1'
+RUN_SCRIPT = ROOT / '.github/windows-vm-run.ps1'
+SETUP_SCRIPT = ROOT / '.github/windows-vm-setup.ps1'
 POWERSHELL = shutil.which('powershell.exe') or shutil.which('pwsh')
 
 
@@ -168,6 +170,7 @@ class WindowsVMUpdateDownloadTests(unittest.TestCase):
         path.write_bytes(self.data)
         self.assertEqual(self.stage(), 'saved=False')
         self.assertEqual(self.requests, [])
+
         self.assertEqual(path.read_bytes(), self.data)
 
     def test_existing_unverified_file_is_preserved_and_never_serviced(self):
@@ -204,3 +207,146 @@ class WindowsVMUpdateDownloadTests(unittest.TestCase):
         self.entry['bytes'] = 5 * 1024 * 1024 * 1024 + 1
         self.assertEqual(self.stage(), 'update_invalid_download_entry')
         self.assertEqual(self.requests, [])
+
+
+
+@unittest.skipUnless(POWERSHELL, 'PowerShell is required for the real diagnostic helpers')
+class WindowsVMUpdateDiagnosticTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.directory = Path(self.temporary.name)
+
+    def run_helpers(self, body, *, worker=False):
+        quote = lambda value: "'" + str(value).replace("'", "''") + "'"
+        # Load only function ASTs from the ordinary runner, never its startup,
+        # servicing or shutdown entry points. The worker supports dot sourcing.
+        if worker:
+            prelude = '. ' + quote(SCRIPT) + '\n$script:UpdateDirectory=' + quote(self.directory) + '\n'
+        else:
+            prelude = ('$tokens=$null; $errors=$null\n'
+                       '$ast=[Management.Automation.Language.Parser]::ParseFile(' + quote(RUN_SCRIPT) +
+                       ',[ref]$tokens,[ref]$errors)\n'
+                       'if($errors.Count){throw "parse_failed"}\n'
+                       '$ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]},$false) | '
+                       'ForEach-Object {Invoke-Expression $_.Extent.Text}\n')
+        runner = self.directory / 'diagnostics.ps1'
+        runner.write_text("$ErrorActionPreference='Stop'\n" + prelude + body, encoding='utf-8-sig')
+        completed = subprocess.run([POWERSHELL, '-NoProfile', '-NonInteractive', '-File', str(runner)],
+                                   capture_output=True, text=True, timeout=30, check=False)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        return completed.stdout.strip()
+
+    def test_last_state_whitelist_keeps_real_failure_progress_without_urls_or_capabilities(self):
+        cap = 'a' * 64
+        state = {'schema_version': 1, 'status': 'installing', 'phase': 'staging_official_MSU',
+                 'actual_build': '26300', 'completed': 'true', 'staged_package_count': 1,
+                 'error_detail': f'failed http://10.0.2.2:45678/{cap}/updates/target.msu {cap}',
+                 'manifest': {'url': 'http://private.invalid/secret'}, 'raw_url': 'http://private.invalid/secret'}
+        (self.directory / 'state.json').write_text(json.dumps(state), encoding='utf-8')
+        value = json.loads(self.run_helpers(
+            "$state=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'state.json') -Raw | ConvertFrom-Json\n"
+            'ConvertTo-UpdateDiagnosticState $state | ConvertTo-Json -Compress\n'))
+        self.assertEqual(value['status'], 'installing')
+        self.assertEqual(value['staged_package_count'], 1)
+        self.assertNotIn('actual_build', value)
+        self.assertNotIn('completed', value)
+        self.assertNotIn('manifest', value)
+        self.assertNotIn('raw_url', value)
+        self.assertNotIn(cap, json.dumps(value))
+        self.assertNotIn('http://', json.dumps(value))
+
+    def test_actual_log_tail_is_bounded_and_redacts_public_transport_url_and_capability(self):
+        cap = 'b' * 64
+        (self.directory / 'dism.log').write_bytes(b'OLD' * 80000 +
+            f'\nlatest http://10.0.2.2:1234/{cap}/updates/target.msu token={cap}\nEND'.encode())
+        value = json.loads(self.run_helpers(
+            "$path=Join-Path $PSScriptRoot 'dism.log'\n$fact=Get-UpdateFileFact $path\n"
+            "$text=Read-UpdateDiagnosticLog $path $fact\n@{fact=$fact;text=$text} | ConvertTo-Json -Compress\n"))
+        self.assertEqual(value['fact']['bytes_read'], 131072)
+        self.assertEqual(value['fact']['read_status'], 'read')
+        self.assertTrue(value['text'].endswith('END'))
+        self.assertNotIn(cap, value['text'])
+        self.assertNotIn('http://', value['text'])
+        self.assertLessEqual(len(value['text']), 131072)
+
+    def test_actual_utf16_dism_log_remains_readable(self):
+        (self.directory / 'dism.log').write_text('DISM servicing started\r\nError 5\r\n', encoding='utf-16')
+        value = json.loads(self.run_helpers(
+            "$path=Join-Path $PSScriptRoot 'dism.log'\n$fact=Get-UpdateFileFact $path\n"
+            "$text=Read-UpdateDiagnosticLog $path $fact\n@{fact=$fact;text=$text} | ConvertTo-Json -Compress\n"))
+        self.assertIn('DISM servicing started', value['text'])
+        self.assertNotIn('\x00', value['text'])
+        self.assertEqual(value['fact']['read_status'], 'read')
+
+    def test_actual_missing_file_is_explicit_and_not_an_empty_successful_log(self):
+        value = json.loads(self.run_helpers(
+            "Get-UpdateFileFact (Join-Path $PSScriptRoot 'missing.log') | ConvertTo-Json -Compress\n"))
+        self.assertEqual(value['status'], 'missing')
+        self.assertIs(value['exists'], False)
+        self.assertIsInstance(value['error_code'], int)
+
+    def diagnostic_task(self, body):
+        return json.loads(self.run_helpers(
+            "function Join-Path($Path,$ChildPath) { return ($Path + '/' + $ChildPath) }\n"
+            "function Get-UpdateFileFact($Path,[switch]$Directory) { return @{status='missing';exists=$false} }\n"
+            "function Get-ItemProperty { return [pscustomobject]@{CurrentBuildNumber='26300';UBR=9457} }\n" + body +
+            "$result=@{logs=@{}}\nGet-RuleProxyCIUpdateDiagnostics $result\n$result | ConvertTo-Json -Depth 8 -Compress\n"))
+
+    def test_task_access_denied_and_no_logs_still_produce_read_only_facts(self):
+        value = self.diagnostic_task(
+            "function Get-ScheduledTask { throw [UnauthorizedAccessException]::new('http://private.invalid/secret') }\n")
+        facts = value['windows_update_diagnostics']
+        self.assertEqual(facts['task']['status'], 'unavailable')
+        self.assertEqual(facts['task']['error_type'], 'UnauthorizedAccessException')
+        self.assertIsInstance(facts['task']['error_code'], int)
+        self.assertEqual(facts['os'], {'build': 26300, 'ubr': 9457})
+        self.assertEqual(facts['files']['dism']['status'], 'missing')
+        self.assertNotIn('http://', json.dumps(value))
+
+    def test_task_result_is_recorded_and_null_is_never_cast_to_successful_zero(self):
+        base = "function Get-ScheduledTask { return [pscustomobject]@{State='Ready'} }\n"
+        value = self.diagnostic_task(base +
+            "function Get-ScheduledTaskInfo { return [pscustomobject]@{LastRunTime=[DateTime]'2026-10-15T00:00:00Z';LastTaskResult=[uint32]2147942402} }\n")
+        task = value['windows_update_diagnostics']['task']
+        self.assertEqual(task['status'], 'observed')
+        self.assertEqual(task['last_task_result'], 2147942402)
+        value = self.diagnostic_task(base +
+            "function Get-ScheduledTaskInfo { return [pscustomobject]@{LastRunTime=[DateTime]'2026-10-15T00:00:00Z';LastTaskResult=$null} }\n")
+        self.assertEqual(value['windows_update_diagnostics']['task']['status'], 'unavailable')
+        self.assertNotIn('last_task_result', value['windows_update_diagnostics']['task'])
+
+    def test_worker_log_checks_protection_before_any_write_and_accepts_only_fixed_event_ids(self):
+        output = self.run_helpers(
+            "function Assert-ProtectedUpdatePath { throw 'blocked_acl' }\n"
+            "try { Write-UpdateWorkerEvent 'worker_started' } catch { Write-Output $_.Exception.Message }\n", worker=True)
+        self.assertEqual(output, 'blocked_acl')
+        self.assertFalse((self.directory / 'update-worker.log').exists())
+        output = self.run_helpers(
+            "function Assert-ProtectedUpdatePath($Path,[switch]$Directory,[switch]$ProtectedDacl) { $null=Assert-UpdateFile $Path -Directory:$Directory }\n"
+            "Write-UpdateWorkerEvent 'worker_started'\nWrite-UpdateWorkerEvent 'dism_starting'\n"
+            "try { Write-UpdateWorkerEvent 'http://private.invalid/secret' } catch { Write-Output $_.Exception.Message }\n", worker=True)
+        self.assertEqual(output, 'update_invalid_log_event')
+        lines = (self.directory / 'update-worker.log').read_text().splitlines()
+        self.assertEqual(len(lines), 2)
+        self.assertTrue(lines[0].endswith('event=worker_started'))
+        self.assertTrue(lines[1].endswith('event=dism_starting'))
+
+    def test_logging_failure_cannot_publish_a_completed_state(self):
+        state = self.directory / 'update-state.json'
+        state.write_text('{"status":"installing","completed":false}')
+        output = self.run_helpers(
+            "function Assert-ProtectedUpdatePath {}\nfunction Write-UpdateWorkerEvent { throw 'log_failed' }\n"
+            "try { Write-UpdateState @{status='completed';completed=$true} } catch { Write-Output $_.Exception.Message }\n", worker=True)
+        self.assertEqual(output, 'log_failed')
+        self.assertEqual(json.loads(state.read_text()), {'status': 'installing', 'completed': False})
+        self.assertFalse((self.directory / 'update-state.json.tmp').exists())
+
+    def test_all_three_real_powershell_scripts_parse_without_running_vm_entrypoints(self):
+        quote = lambda value: "'" + str(value).replace("'", "''") + "'"
+        paths = ','.join(quote(path) for path in (SCRIPT, RUN_SCRIPT, SETUP_SCRIPT))
+        output = self.run_helpers(
+            'foreach($path in @(' + paths + ')) {$tokens=$null;$errors=$null;'
+            '$null=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors);'
+            'if($errors.Count){throw "script_parse_failed"}}\nWrite-Output "parsed"\n')
+        self.assertEqual(output, 'parsed')

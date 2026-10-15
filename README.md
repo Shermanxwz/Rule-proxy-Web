@@ -165,6 +165,10 @@ Windows 快捷方式文件的创建已在 GitHub Actions 的 Windows 环境中�
 
 文件中继、启动门控和规则目标重写虽有单元测试覆盖，**Windows 应用兼容性、实际网络阻断及异常退出清理仍未通过完整实测，不能称为已封存或已实测零泄漏**。请求级能力可用也不代表内部代理通道可用；实际自检失败始终拒绝启动。
 
+最新的原体系验证已经找到可用的内部代理规则：提交 `12acab89` 的真实 Windows 11 ARM 检查通过了父子代理通道、Manager 正常停止和核心故障清理。原生 x64 26300 基线的网卡观测也记录了首选规则下 IPv4/IPv6、显式绑定和未绑定 UDP 的容器外前后对照出线，而容器内标记未出线。**同一原生检查同时观察到隔离父子进程的原生 DNS 查询通过系统服务出线；该问题仍待修复，不能交付为完整安全版本。** [原始网卡摘要与来源](verification/windows-2026-10-15/12acab8/native/source.json) 保留了实际匹配计数和不完整分析的限制。
+
+提交 `5c387b1a` 增加了普通用户可见 Edge 窗口和容器内 Job 限制诊断。ARM 的普通 Edge 仍发生访问冲突；六项 UI 诊断的包装器在查询 Job 前遇到权限错误，因此尚未取得这些预设的内核限制数据，不能据此排除 UI 限制的影响。后续诊断使用独立的 MXC 源码构建产物，只对精确内部 TCP 规则测试是否可以移除自动附加的网络能力；产品运行组件及默认策略保持原有版本，效果以真实运行结果为准。
+
 本机数据独立于旧版目录：Windows `%LOCALAPPDATA%\RuleProxyWebSafe`；Linux `$XDG_DATA_HOME/ruleproxy-web-safe`（默认 `~/.local/share/ruleproxy-web-safe`）。核心日志为该目录的 `core.log`，Linux 应用错误为对应 `profiles/<id>/runtime.log`。删除项目程序不会留下全机断网规则；删除数据前先正常关闭面板。
 
 ## Windows 11 独立验收
@@ -191,6 +195,7 @@ python scripts/windows-acceptance.py --yaml C:\private\proxy.yaml --report windo
 python scripts/windows-acceptance.py --transport-fixture --report windows-transport.json
 python scripts/windows-acceptance.py --manager-fixture --report windows-manager.json
 python .github/windows_browser_check.py --report windows-browser.json
+python .github/windows_gui_check.py --report windows-gui.json
 ```
 
 通道检查使用固定本机字节，不解析或转发任意目的地址；检查跨帧数据、双向半关闭、父子 TCP 限制、宿主回环、测试入口失效及安全停止，并保存启动时实际的宿主 UDP 对照与接收计数。只有宿主同一固定 IPv6 TCP 目标也返回无路由、隔离内本机 IPv6 实际被拒绝时，公网 IPv6 才记为不可用；不会把 `10051` 记为策略拒绝。Manager 检查通过真实 Mihomo 向固定本机 SOCKS 测试服务传输数据，并分别检查正常停止及核心退出后的父子进程句柄、应用记录和资源清理。仅在测试专用核心中临时替换一个测试节点的地址；生产导入器仍拒绝回环节点。浏览器检查使用真实 Edge 渲染固定 HTTP 页面，并验证两次自然退出之间的持久 Cookie。这些模式分别记录 `transport_passed`、`manager_fixture_passed` 和 `browser_fixture_passed`，始终保持 `acceptance_passed: false`、`real_node_passed: false`；实际 HTTPS 节点、会话登录和下载仍需另行验收。

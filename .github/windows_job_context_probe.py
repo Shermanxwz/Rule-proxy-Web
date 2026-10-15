@@ -23,6 +23,28 @@ SCOPE = "actual_test_app_wrapper_innermost_job"
 FLAGS = frozenset({"--headless=new", "--dump-dom", "--disable-gpu", "--new-window",
     "--no-default-browser-check", "--disable-quic", "--disable-background-networking",
     "--force-webrtc-ip-handling-policy=disable_non_proxied_udp", "--no-first-run", "--restore-last-session"})
+FAILURE_STAGES = frozenset({"read_config", "validate_schema", "validate_profile_exists", "validate_profile_resolve",
+    "validate_report_parent", "validate_report_identity", "validate_report_reparse", "validate_command",
+    "validate_executable", "validate_user_data_dir", "validate_proxy_server", "validate_proxy_bypass",
+    "validate_argument", "validate_required_arguments", "query_job", "publish_initial", "launch",
+    "publish_started", "wait", "publish_result"})
+
+
+def failure_facts(exc, stage):
+    stage = getattr(exc, "_job_context_stage", stage)
+    if stage not in FAILURE_STAGES:
+        stage = "validate_schema"
+    cause = exc.__cause__ if isinstance(exc.__cause__, OSError) else exc
+    facts = {"stage": stage, "errno": None, "winerror": None, "class": type(cause).__name__[:80]}
+    for key in ("errno", "winerror"):
+        code = getattr(cause, key, None)
+        if type(code) is int and -0x80000000 <= code <= 0xffffffff:
+            facts[key] = code
+    return facts
+
+
+def publish_failure(exc, stage):
+    print(json.dumps(failure_facts(exc, stage), ensure_ascii=True, separators=(",", ":")), flush=True)
 
 
 class BasicUIRestrictions(ctypes.Structure):
@@ -89,28 +111,46 @@ def read_configuration(path):
 
 
 def validate_configuration(value, command_file, report_file):
+    stage = "validate_schema"
+    stages = []
+    try:
+        return _validate_configuration(value, command_file, report_file, lambda label: stages.append(label))
+    except Exception as exc:
+        exc._job_context_stage = stages[-1] if stages else stage
+        raise
+
+
+def _validate_configuration(value, command_file, report_file, progress):
     if (not isinstance(value, dict) or set(value) != {"schema_version", "nonce", "command", "proxy_port", "profile"}
             or type(value["schema_version"]) is not int or value["schema_version"] != 1
             or not isinstance(value["nonce"], str) or not re.fullmatch(r"[0-9a-f]{64}", value["nonce"])
             or type(value["proxy_port"]) is not int or not 1 <= value["proxy_port"] <= 65535
             or not isinstance(value["profile"], str) or "\0" in value["profile"]):
         raise ValueError("invalid fixed diagnostic configuration")
+    progress("validate_profile_exists")
     profile = Path(value["profile"])
     if not profile.is_absolute() or not profile.is_dir():
         raise ValueError("an existing absolute test profile is required")
+    progress("validate_profile_resolve")
     profile = profile.resolve(strict=True)
     command_file, report_file = Path(command_file), Path(report_file)
-    if (command_file.parent.resolve(strict=True) != profile or report_file.parent.resolve(strict=True) != profile
-            or command_file.resolve() == report_file.resolve() or report_file.resolve() == Path(__file__).resolve()
+    progress("validate_report_parent")
+    if command_file.parent.resolve(strict=True) != profile or report_file.parent.resolve(strict=True) != profile:
+        raise ValueError("configuration and report must stay in the test profile")
+    progress("validate_report_identity")
+    if (command_file.resolve() == report_file.resolve() or report_file.resolve() == Path(__file__).resolve()
             or report_file.suffix != ".json"):
         raise ValueError("configuration and report must stay in the test profile")
+    progress("validate_report_reparse")
     if report_file.exists() and (report_file.is_symlink() or getattr(report_file.lstat(), "st_file_attributes", 0) & 0x400):
         raise ValueError("report cannot be a reparse point")
+    progress("validate_command")
     command = value["command"]
     if (not isinstance(command, list) or not 5 <= len(command) <= 128
             or any(not isinstance(arg, str) or not arg or "\0" in arg for arg in command)
             or sum(map(len, command)) > 16384):
         raise ValueError("invalid bounded Edge command")
+    progress("validate_executable")
     executable = Path(command[0])
     if not executable.is_absolute() or executable.name.casefold() != "msedge.exe" or not executable.is_file():
         raise ValueError("the stock Edge executable is required")
@@ -121,13 +161,15 @@ def validate_configuration(value, command_file, report_file):
     for argument in command[1:]:
         option, separator, data = argument.partition("=")
         if option in enforced:
+            progress({"--user-data-dir": "validate_user_data_dir", "--proxy-server": "validate_proxy_server",
+                      "--proxy-bypass-list": "validate_proxy_bypass"}[option])
             matches = data == enforced[option]
             if option == "--user-data-dir":
                 try:
                     location = Path(data)
                     matches = location.is_absolute() and location.resolve(strict=True) == profile
-                except (OSError, ValueError):
-                    matches = False
+                except (OSError, ValueError) as exc:
+                    raise ValueError("prepared profile or proxy was overridden") from exc
             if not separator or option in seen or not matches:
                 raise ValueError("prepared profile or proxy was overridden")
             seen.add(option)
@@ -138,7 +180,9 @@ def validate_configuration(value, command_file, report_file):
         else:
             # This diagnostic accepts only the fixed source-test command, not
             # user switches, launcher hooks, other destinations or shells.
+            progress("validate_argument")
             raise ValueError("a command argument is outside the fixed Edge fixture")
+    progress("validate_required_arguments")
     if seen != set(enforced) or len(pages) != 1:
         raise ValueError("prepared profile, proxy and fixed fixture page are required")
     return list(command)
@@ -174,30 +218,54 @@ def main(arguments=None):
     parser.add_argument("--command", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
     args = parser.parse_args(arguments)
+    stage = "read_config"
     try:
         value = read_configuration(args.command)
+        stage = "validate_schema"
         command = validate_configuration(value, args.command, args.report)
     except Exception as exc:
-        print(f"Job context diagnostic rejected input ({type(exc).__name__})", flush=True)
+        publish_failure(exc, stage)
         return 1
-    report = {"schema_version": 1, "nonce": value["nonce"], "scope": SCOPE,
-        "pid": os.getpid(), "parent_pid": os.getppid(), "job_context": query_job_context(),
-        "edge_launched": False, "edge_exit_code": None, "edge_exit_code_hex": None, "edge_launch_error": None,
-        "acceptance_passed": False, "browser_sandbox_weakened": False}
-    write_report(args.report, report)
+    stage = "query_job"
+    try:
+        context = query_job_context()
+        if context.get("status") == "incomplete":
+            code = context.get("query_ui_restrictions_error")
+            if code is None:
+                code = context.get("is_process_in_job_error")
+            if "error" in context or code is not None:
+                print(json.dumps({"stage": "query_job", "errno": None, "winerror": code,
+                    "class": context.get("error", "Win32ApiFailure")}, ensure_ascii=True, separators=(",", ":")), flush=True)
+        report = {"schema_version": 1, "nonce": value["nonce"], "scope": SCOPE,
+            "pid": os.getpid(), "parent_pid": os.getppid(), "job_context": context,
+            "edge_launched": False, "edge_exit_code": None, "edge_exit_code_hex": None, "edge_launch_error": None,
+            "acceptance_passed": False, "browser_sandbox_weakened": False}
+        stage = "publish_initial"
+        write_report(args.report, report)
+    except Exception as exc:
+        publish_failure(exc, stage)
+        return 1
     if os.name != "nt":
         return 3
     try:
+        stage = "launch"
         process = subprocess.Popen(command, shell=False, stdin=subprocess.DEVNULL, close_fds=True)
         report["edge_launched"] = True
+        stage = "publish_started"
         write_report(args.report, report)
+        stage = "wait"
         code = process.wait()  # The existing PSEC guardian owns timeout/cleanup.
         report.update(edge_exit_code=code & 0xFFFFFFFF, edge_exit_code_hex=f"0x{code & 0xffffffff:08X}")
         result = signed_exit_code(code)
     except Exception as exc:
+        publish_failure(exc, stage)
         report["edge_launch_error"] = type(exc).__name__
         result = 1
-    write_report(args.report, report)
+    try:
+        write_report(args.report, report)
+    except Exception as exc:
+        publish_failure(exc, "publish_result")
+        return 1
     return result
 
 

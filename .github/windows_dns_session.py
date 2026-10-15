@@ -47,21 +47,26 @@ def collect_calls(config, role, directory, deadline):
                 "default_system_server_list": True, "server_list_override": False,
                 "acceptance_passed": False, "dns_blocked_proven": False})
             continue
+        stage = "session_identity_init"
         try:
             if identity is None:
                 identity = native.ProcessIdentity()
+            stage = "prepare_session_directory"
             directory.mkdir(parents=True, exist_ok=True)
+            stage = "collect_native_call"
             call = native.collect_call(nonce, role, api, directory / api, identity)
         except Exception as exc:
             # A controller exception does not prove its possible child exited.
-            result.update(cleanup_proven=False, cleanup_error=type(exc).__name__,
-                          recovery_directory=str(directory))
+            result.update(cleanup_proven=False, recovery_directory=str(directory),
+                          **native.error_facts(exc, stage, "cleanup_"))
             break
         result["calls"].append(call)
         if call.get("worker_cleanup_proven") is not True or any(
                 key in call for key in ("cleanup_error", "recovery_directory")):
             result.update(cleanup_proven=False, cleanup_error="NativeDnsWorkerCleanupUnproven",
                           recovery_directory=str(directory))
+            result.update({key: call[key] for key in ("cleanup_error_stage", "cleanup_errno", "cleanup_winerror")
+                           if key in call})
             break
     if len(result["calls"]) == 3 and all(call.get("outcome") == "returned"
             and call.get("api_returned") is True and call.get("native_completion_proven") is True
@@ -109,6 +114,8 @@ class DnsSession:
             self.recovery = {"cleanup_error": observation.get("cleanup_error", "NativeDnsCleanupUnproven"),
                              "recovery_directory": observation.get("recovery_directory", str(self.directory)),
                              "cleanup_proven": False}
+            self.recovery.update({key: observation[key] for key in ("cleanup_error_stage", "cleanup_errno", "cleanup_winerror")
+                                  if key in observation})
 
     def control(self, role, deadline=None):
         if role not in ("outside_before", "outside_after"):
@@ -146,6 +153,6 @@ class DnsSession:
                 shutil.rmtree(self.directory)
         except OSError as exc:
             self.safe = False
-            self.recovery = {"cleanup_error": type(exc).__name__, "recovery_directory": str(self.directory),
-                             "cleanup_proven": False}
+            self.recovery = {"recovery_directory": str(self.directory), "cleanup_proven": False,
+                             **self.native.error_facts(exc, "cleanup_session_directory", "cleanup_")}
         return self.recovery

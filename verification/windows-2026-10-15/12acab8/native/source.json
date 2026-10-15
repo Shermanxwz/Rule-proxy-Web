@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "commit": "12acab89b4a22e8b4a54368d858a62e1c2a397eb",
+  "workflow_run": 38652535672,
+  "native_job": 116154940589,
+  "artifact_id": 11936860464,
+  "artifact_sha256": "89fd0a6805601b134a9ee6a30b3a2c0691d14af9f8ca97959c97cc3f306288df",
+  "system": {
+    "native_x64": true,
+    "ordinary_user": true,
+    "build": 26300,
+    "official_iso_sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+    "baseline_diagnostic": true,
+    "iso_baseline_ubr": 9457,
+    "actual_ubr_recorded": false,
+    "pinned_cumulative_update": "not_required_or_attested_in_this_run"
+  },
+  "observations": {
+    "preferred_policy": "model1_internal_ingress_deny",
+    "all_four_preferred_udp_groups": {
+      "outside_before_and_after_seen": true,
+      "contained_markers_seen": false,
+      "actual_sender_execution_attested": true
+    },
+    "default_native_dns_matched_contained_questions": {
+      "getaddrinfo_parent": 2,
+      "getaddrinfo_child": 2,
+      "dns_a_parent": 1,
+      "dns_a_child": 1,
+      "dns_aaaa_parent": 1,
+      "dns_aaaa_child": 1
+    },
+    "system_dns_bypass_observed": true,
+    "full_acceptance_passed": false
+  },
+  "limits": [
+    "The overall UDP matrix is incomplete because the model2 host variant was unsupported; this does not erase the observed preferred-policy groups.",
+    "The native DNS analysis is incomplete: the outside-before AAAA worker failed and two opaque records remain. Matched fresh contained DNS question packets are still observed.",
+    "NXDOMAIN API return codes are not network denial proof.",
+    "Native browser phases were blocked by a diagnostic collector failure. This report does not establish native Edge compatibility.",
+    "The baseline run does not prove the pinned cumulative update was installed.",
+    "Raw PCAP, packet-control capability and temporary VM disk are not included."
+  ]
+}

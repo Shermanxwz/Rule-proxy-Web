@@ -1,5 +1,7 @@
 """Verify the experimental harness without claiming Windows containment."""
 import importlib.util
+import copy
+import hashlib
 import json
 from pathlib import Path
 import socket
@@ -143,6 +145,60 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                                   {"scope": role, "phase": "initial", "pid": pid, "parent_pid": parent})
         with self.assertRaisesRegex(RuntimeError, "parent/child"):
             experiment.wait_actor_reports(self.directory, SimpleNamespace(poll=lambda: None), "initial", timeout=1)
+
+    def complete_actor_reports(self, phase="initial"):
+        for role, pid, parent in (("parent", 42, 30), ("child", 43, 42)):
+            experiment.write_json(self.directory / f"actor-{role}-{phase}.json",
+                                  {"scope": role, "phase": phase, "pid": pid, "parent_pid": parent})
+
+    def test_final_report_published_between_read_and_clean_exit_is_collected(self):
+        def poll():
+            self.complete_actor_reports()
+            return 0
+        records = experiment.wait_actor_reports(self.directory, SimpleNamespace(poll=poll), "initial", timeout=1)
+        self.assertEqual([record["pid"] for record in records], [42, 43])
+
+    def test_complete_reports_never_hide_a_failed_wrapper_exit(self):
+        self.complete_actor_reports()
+        with self.assertRaisesRegex(RuntimeError, "exited with status 1"):
+            experiment.wait_actor_reports(self.directory, SimpleNamespace(poll=lambda: 1), "initial", timeout=1)
+
+    def test_clean_exit_without_both_reports_remains_incomplete(self):
+        with self.assertRaisesRegex(RuntimeError, "reports completed"):
+            experiment.wait_actor_reports(self.directory, SimpleNamespace(poll=lambda: 0), "initial", timeout=1)
+
+    def test_persistent_stop_bridge_control_publishes_exactly_once(self):
+        relay = self.directory / "relay"
+        relay.mkdir()
+        config = {"root": str(ROOT), "variant": "model1_internal_ingress_deny", "endpoint_port": 49123,
+                  "bridge_directory": str(relay), "bridge_nonce": "a" * 64}
+        config_file = self.directory / "actor-config.json"
+        experiment.write_json(config_file, config)
+        experiment.write_json(relay / "bridge-ready.json", {"ready": True, "nonce": config["bridge_nonce"]})
+        experiment.write_json(self.directory / "actor-control.json", {"state": "stop_bridge"})
+        original_write = experiment.write_json
+        publications = []
+        def write(path, value, **kwargs):
+            if path.name == "bridge-stopped.json":
+                if path.exists():
+                    # The Windows regression was a second os.replace while the
+                    # host read this persistent notification. No retry hides it.
+                    raise PermissionError("destination is held by the reader")
+                publications.append(value)
+            return original_write(path, value, **kwargs)
+        thread = mock.Mock()
+        thread.is_alive.return_value = False
+        bridge = SimpleNamespace(run_guest_bridge=mock.Mock())
+        with mock.patch.object(experiment, "import_project", return_value=(None, None, bridge)), \
+                mock.patch.object(experiment.threading, "Thread", return_value=thread), \
+                mock.patch.object(experiment.subprocess, "Popen"), \
+                mock.patch.object(experiment, "collect_actor_checks", return_value={"scope": "parent"}), \
+                mock.patch.object(experiment, "write_json", side_effect=write), \
+                mock.patch.object(experiment.time, "monotonic", side_effect=[0, 0, 0, 0.1, 0.2, 86]), \
+                mock.patch.object(experiment.time, "sleep"):
+            self.assertEqual(experiment.actor(config_file, "parent"), 0)
+        self.assertEqual(publications, [{"stopped": True}])
+        self.assertEqual(thread.join.call_count, 2)  # First stop, then final safe closure.
 
     def test_report_pids_must_match_both_retained_kernel_handle_generations(self):
         api = mock.Mock()
@@ -310,6 +366,95 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             experiment.write_json(report, {"log": "x" * experiment.MAX_REPORT_BYTES})
 
+    def executor_build_fixture(self):
+        directory = self.directory / "source-build"
+        directory.mkdir()
+        executor = directory / "wxc-exec.exe"
+        executor.write_bytes(b"fixed source-only executor artifact")
+        manifest = directory / "build-manifest.json"
+        value = {"schema_version": 1, "status": "built", "upstream_commit": experiment.PSEC_UPSTREAM_COMMIT,
+                 "executor_sha256": hashlib.sha256(executor.read_bytes()).hexdigest(),
+                 "patch": copy.deepcopy(experiment.PSEC_TEST_PATCH),
+                 "original_file_sha256": experiment.PSEC_ORIGINAL_SOURCE_SHA256,
+                 "patch_sha256": experiment.PSEC_PATCH_SHA256,
+                 "patched_file_sha256": experiment.PSEC_PATCHED_SOURCE_SHA256,
+                 "toolchain": "1.93", "target": "x86_64-pc-windows-msvc"}
+        manifest.write_text(json.dumps(value))
+        return executor, manifest, value
+
+    def test_source_executor_hash_and_fixed_patch_are_verified_without_replacing_runtime(self):
+        executor, manifest, value = self.executor_build_fixture()
+        product = self.directory / "bin/windows-amd64/wxc-exec.exe"
+        product.parent.mkdir(parents=True)
+        product.write_bytes(b"unchanged original product executor")
+        original_sha = hashlib.sha256(product.read_bytes()).hexdigest()
+        selected, report = experiment.verify_test_executor(self.directory, executor, manifest, original_sha)
+        self.assertEqual(selected, executor.resolve())
+        self.assertEqual(report["executor_sha256"], value["executor_sha256"])
+        self.assertEqual(report["original_runtime_sha256"], original_sha)
+        self.assertTrue(report["source_only_executor_changed"])
+        self.assertFalse(report["default_product_runtime_replaced"])
+        self.assertFalse(report["acceptance_passed"])
+        self.assertNotIn(str(executor), json.dumps(report))
+        self.assertEqual(hashlib.sha256(product.read_bytes()).hexdigest(), original_sha)
+        executor.write_bytes(b"different artifact")
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            experiment.verify_test_executor(self.directory, executor, manifest, original_sha)
+        with self.assertRaisesRegex(ValueError, "product runtime directory"):
+            experiment.verify_test_executor(self.directory, product, manifest, original_sha)
+
+    def test_test_executor_manifest_rejects_wrong_source_preparation_and_unknown_semantics(self):
+        executor, manifest, value = self.executor_build_fixture()
+        bad = []
+        for key, item in (("schema_version", True), ("status", "prepared_only"),
+                          ("upstream_commit", "e" * 40), ("executor_sha256", None),
+                          ("target", "aarch64-pc-windows-msvc"), ("toolchain", "stable"),
+                          ("toolchain", "1.93.0"), ("original_file_sha256", "a" * 64),
+                          ("patch_sha256", "c" * 64), ("patched_file_sha256", "d" * 64),
+                          ("untrusted_extra", "ignored")):
+            bad.append(dict(value, **{key: item}))
+        for key in ("original_file_sha256", "patch_sha256", "patched_file_sha256", "toolchain", "target"):
+            bad.append({name: item for name, item in value.items() if name != key})
+        bad.append(dict(value, patch=dict(value["patch"], capabilities_null=1)))
+        bad.append(dict(value, patch=dict(value["patch"], network_table_unchanged=False)))
+        for index, record in enumerate(bad):
+            manifest.write_text(json.dumps(record))
+            with self.subTest(index=index), self.assertRaises(ValueError):
+                experiment.verify_test_executor(self.directory, executor, manifest, "b" * 64)
+        manifest.write_text(json.dumps(value)[:-1] + ',"status":"built"}')
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            experiment.verify_test_executor(self.directory, executor, manifest, "b" * 64)
+        manifest.write_bytes(b"x" * (experiment.MAX_REPORT_BYTES + 1))
+        with self.assertRaisesRegex(ValueError, "size limit"):
+            experiment.verify_test_executor(self.directory, executor, manifest, "b" * 64)
+
+    def test_test_executor_requires_absolute_files_and_rejects_file_or_parent_aliases(self):
+        executor, manifest, value = self.executor_build_fixture()
+        with self.assertRaisesRegex(ValueError, "absolute"):
+            experiment.verify_test_executor(self.directory, Path("wxc-exec.exe"), manifest, "b" * 64)
+        if experiment.os.name == "posix":
+            alias = self.directory / "executor-alias.exe"
+            alias.symlink_to(executor)
+            with self.assertRaisesRegex(ValueError, "reparse"):
+                experiment.verify_test_executor(self.directory, alias, manifest, "b" * 64)
+            folder_alias = self.directory / "source-alias"
+            folder_alias.symlink_to(executor.parent, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "reparse"):
+                experiment.verify_test_executor(self.directory, folder_alias / executor.name, manifest, "b" * 64)
+
+    def test_unpaired_test_executor_flags_cannot_start_any_variant(self):
+        report = self.directory / "unpaired.json"
+        for flag in ("--test-psec-executor", "--test-psec-manifest"):
+            with mock.patch.object(experiment, "load_helpers"), \
+                    mock.patch.object(experiment, "run_variant") as launch, mock.patch("builtins.print"):
+                code = experiment.main(["--root", str(self.directory), "--report", str(report),
+                                        flag, str(self.directory / "input")])
+            result = json.loads(report.read_text())
+            self.assertEqual(code, 1)
+            launch.assert_not_called()
+            self.assertEqual(result["status"], "failed")
+            self.assertFalse(result["acceptance_passed"])
+
     def test_failed_setup_still_writes_false_acceptance_and_no_collection_success(self):
         report = self.directory / "result.json"
         with mock.patch.object(experiment, "load_helpers", side_effect=RuntimeError("fixture setup failed")), \
@@ -323,11 +468,13 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertFalse(value["acceptance_passed"])
         self.assertFalse(value["real_node_passed"])
 
-    def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False):
+    def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False,
+                                explicit_dns=False, wire_enabled=True, test_executor=False):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
         helpers.host_facts.return_value = {"native_machine": 0x8664, "python_pe_machine": 0x8664,
-                                          "acceptance_scope": "native_x64"}
+                                          "acceptance_scope": "native_x64", "platform": "win32",
+                                          "windows_build": 26200, "windows_product_type": 1}
         if arm:
             helpers.host_facts.return_value.update(native_machine=0xAA64, acceptance_scope="x64_on_arm_emulation")
         helpers.network_snapshot.return_value = "unchanged"
@@ -364,9 +511,15 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 mock.patch.object(experiment, "run_variant", side_effect=variant) as launch, \
                 mock.patch("builtins.print"):
             arguments = ["--root", str(self.directory), "--report", str(report),
-                         "--vm-config", str(self.directory / "private-config.json")]
+                         *(["--vm-config", str(self.directory / "private-config.json")] if wire_enabled else [])]
             if arm:
                 arguments.append("--allow-emulated-x64")
+            if explicit_dns:
+                arguments.append("--collect-native-dns")
+            if test_executor:
+                executor, manifest, _ = self.executor_build_fixture()
+                helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": "b" * 64}
+                arguments.extend(["--test-psec-executor", str(executor), "--test-psec-manifest", str(manifest)])
             code = experiment.main(arguments)
         return code, json.loads(report.read_text()), wire, dns, launch, retained
 
@@ -411,6 +564,34 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertTrue(all("dns" not in call.kwargs for call in launch.call_args_list))
         self.assertNotIn("native_dns_controls", result)
         self.assertNotIn("dns_observation", wire.__dict__)
+
+    def test_explicit_arm_native_dns_collects_controls_and_contained_calls_without_wire_claims(self):
+        code, result, wire, dns, launch, _ = self.native_dns_main_fixture(arm=True, explicit_dns=True, wire_enabled=False)
+        self.assertEqual(code, 0)
+        self.assertEqual(launch.call_count, 4)
+        self.assertEqual([call.args[0] for call in dns.control.call_args_list], ["outside_before", "outside_after"])
+        dns.actors.assert_called_once()
+        dns.close.assert_called_once()
+        wire.start.assert_not_called()
+        wire.finish.assert_not_called()
+        self.assertEqual(result["host"]["acceptance_scope"], "x64_on_arm_emulation")
+        self.assertFalse(result["native_dns_scope"]["wire_observed"])
+        self.assertFalse(result["native_dns_scope"]["wire_capture_available"])
+        self.assertFalse(result["acceptance_passed"])
+        self.assertFalse(result["real_node_passed"])
+        self.assertTrue(all(("dns" in call.kwargs) == (call.args[0] == "model1_internal_ingress_deny")
+                            for call in launch.call_args_list))
+
+    def test_test_executor_is_only_an_explicit_source_choice_after_original_integrity_check(self):
+        code, result, wire, dns, launch, _ = self.native_dns_main_fixture(test_executor=True)
+        self.assertEqual(code, 0)
+        for call in launch.call_args_list:
+            self.assertEqual(call.kwargs["executor"], self.directory / "source-build/wxc-exec.exe")
+        self.assertEqual(result["runtime_integrity"]["verified_file_count"], 1)
+        self.assertEqual(result["test_psec_executor"]["original_runtime_sha256"], "b" * 64)
+        self.assertEqual(result["test_psec_executor"]["patch"], experiment.PSEC_TEST_PATCH)
+        self.assertFalse(result["product_provider_changed"])
+        self.assertFalse(result["full_acceptance_passed"])
 
     def test_actor_native_dns_collects_directly_in_its_owned_role_directory(self):
         guest = mock.Mock()

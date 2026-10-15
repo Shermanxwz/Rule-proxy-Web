@@ -2,7 +2,7 @@
 import importlib.util
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PosixPath
 import subprocess
 import sys
 import tempfile
@@ -14,14 +14,11 @@ ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("windows_gui_check", ROOT / ".github/windows_gui_check.py")
 gui = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gui)
-EDGE = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
-
-
 class FakeProcessApi:
-    def __init__(self):
-        self.info = {100: {"pid": 10, "created": 100, "alive": True, "image": r"C:\bin\wxc-exec.exe"},
-                     200: {"pid": 20, "created": 110, "alive": True, "image": r"C:\pkg\python.exe"},
-                     300: {"pid": 30, "created": 120, "alive": True, "image": EDGE}}
+    def __init__(self, *, edge, helper, wrapper):
+        self.info = {100: {"pid": 10, "created": 100, "alive": True, "image": wrapper},
+                     200: {"pid": 20, "created": 110, "alive": True, "image": helper},
+                     300: {"pid": 30, "created": 120, "alive": True, "image": edge}}
         self.parent_map = {10: 1, 20: 10, 30: 20, 99: 1}
         self.snapshots = []
         self.opened, self.closed = [], []
@@ -73,10 +70,38 @@ class FakeWindows:
 
 
 class GuiCheckTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="ruleproxy-gui-unit-")
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name).resolve()
+        self.edge = self.directory / "Edge 测试" / "Application" / "msedge.exe"
+        self.foreign_edge = self.directory / "Foreign Edge" / "msedge.exe"
+        self.helper = self.directory / "Package" / "python.exe"
+        self.wrapper = self.directory / "Runtime" / "wxc-exec.exe"
+        for image in (self.edge, self.foreign_edge, self.helper, self.wrapper):
+            image.parent.mkdir(parents=True, exist_ok=True)
+            image.write_bytes(b"public fake image path fixture; never executed")
+
     def tree(self):
-        api = FakeProcessApi()
+        api = FakeProcessApi(edge=str(self.edge), helper=str(self.helper), wrapper=str(self.wrapper))
         wrapper = mock.Mock(pid=10, _handle=100)
-        return gui.OwnedTree(api, wrapper, EDGE), api
+        return gui.OwnedTree(api, wrapper, self.edge), api
+
+    @unittest.skipIf(os.name == "nt", "Windows already exercises its real strict Path.resolve in every fake-lineage test")
+    def test_windows_canonicalization_branch_requires_real_files_and_keeps_foreign_images_distinct(self):
+        # Execute the production Windows branch with real POSIX test files.
+        # Only its Path constructor is platform-adapted; strict resolution and
+        # the actual image_key function are never mocked or weakened.
+        with mock.patch.object(gui.os, "name", "nt"), mock.patch.object(gui, "Path", PosixPath):
+            alias = self.edge.parent / ".." / "Application" / self.edge.name
+            self.assertEqual(gui.image_key(self.edge), gui.image_key(alias))
+            with self.assertRaises(FileNotFoundError):
+                gui.image_key(self.edge.parent / "missing.exe")
+            tree, api = self.tree()
+            tree.refresh()
+            self.assertIsNotNone(tree.edge_owner(30))
+            api.info[300]["image"] = str(self.foreign_edge)
+            self.assertIsNone(tree.edge_owner(30))
 
     def test_complete_lineage_holds_every_layer_and_excludes_foreign_windows(self):
         tree, api = self.tree()
@@ -93,7 +118,7 @@ class GuiCheckTests(unittest.TestCase):
 
     def test_same_basename_at_another_path_cannot_authorize_a_window(self):
         tree, api = self.tree()
-        api.info[300]["image"] = r"C:\foreign\msedge.exe"
+        api.info[300]["image"] = str(self.foreign_edge)
         tree.refresh()
         self.assertEqual(gui.owned_windows(tree, FakeWindows()), [])
 
@@ -253,7 +278,7 @@ class GuiCheckTests(unittest.TestCase):
         tree.all_exited.return_value = True
         value = {"hwnd": 800, "pid": 30, "created": 120, "rect": [0, 0, 600, 500]}
         with tempfile.TemporaryDirectory() as temporary, \
-                mock.patch.object(launcher, "prepare_app", return_value=([EDGE], {}, {})) as prepare, \
+                mock.patch.object(launcher, "prepare_app", return_value=([str(self.edge)], {}, {})) as prepare, \
                 mock.patch.object(windows_runtime, "choose_guest_port", return_value=34567), \
                 mock.patch.object(windows_runtime, "launch", return_value=(wrapper, resources)), \
                 mock.patch.object(windows_runtime, "stop") as stop, \
@@ -261,7 +286,7 @@ class GuiCheckTests(unittest.TestCase):
                 mock.patch.object(gui, "WindowApi", return_value=windows), \
                 mock.patch.object(gui, "owned_windows", return_value=[value]), \
                 mock.patch.object(gui, "close_owned_window") as close:
-            owner = gui.GuiRun("runtime", EDGE, Path(temporary), fixture, helpers, browser)
+            owner = gui.GuiRun("runtime", self.edge, Path(temporary), fixture, helpers, browser)
             check = owner.run(2)
         args = prepare.call_args.args[0]["args"]
         self.assertIn("--new-window", args)
@@ -297,7 +322,7 @@ class GuiCheckTests(unittest.TestCase):
             helpers.write_json.side_effect = lambda path, value: path.write_text(json.dumps(value))
             browser = mock.Mock()
             browser.acceptance_helpers.return_value = helpers
-            browser.find_edge.return_value = Path(EDGE)
+            browser.find_edge.return_value = self.edge
             owner = mock.Mock()
             owner.run.side_effect = RuntimeError("GUI unavailable")
             owner.close.side_effect = RuntimeError("owned process remains alive")

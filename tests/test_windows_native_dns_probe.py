@@ -145,6 +145,65 @@ class NativeDnsProbeTests(unittest.TestCase):
         self.assertIn("recovery_directory", report)
         process._handle.Close.assert_not_called()
 
+    def permission_error(self):
+        error = PermissionError(13, "private command and credential", "private-path")
+        error.winerror = 5
+        return error
+
+    def test_entry_lease_open_failure_records_exact_stage_and_numeric_error_only(self):
+        process, identity, lease, result = self.worker_records()
+        with mock.patch.object(probe.subprocess, "Popen", return_value=process), \
+                mock.patch.object(Path, "open", side_effect=self.permission_error()):
+            report = probe.collect_call(self.nonce, "parent", "getaddrinfo", self.root / "lease-failure", identity)
+        self.assertEqual(report["outcome"], "tool_error")
+        self.assertEqual(report["error_stage"], "entry_lease_open")
+        self.assertEqual((report["error"], report["errno"], report["winerror"]), ("PermissionError", 13, 5))
+        self.assertTrue(report["worker_cleanup_proven"])
+        self.assertNotIn("entry_lease_published", report)
+        for private in ("private command", "credential", "private-path"):
+            self.assertNotIn(private, json.dumps(report))
+
+    def test_record_replace_failure_retains_specific_operation_without_serializing_path(self):
+        with mock.patch.object(probe.os, "replace", side_effect=self.permission_error()):
+            with self.assertRaises(PermissionError) as observed:
+                probe.write_json(self.root / "lease.json", {"state": "prepared"}, stage="lease")
+        facts = probe.error_facts(observed.exception, "worker_prepare_lease")
+        self.assertEqual(facts, {"error": "PermissionError", "error_stage": "lease_replace", "errno": 13, "winerror": 5})
+        self.assertNotIn("private-path", json.dumps(facts))
+        self.assertNotIn(str(self.root), json.dumps(facts))
+
+    def test_controller_rejection_preserves_native_worker_error_origin(self):
+        process, identity, lease, result = self.worker_records()
+        result.update(api_returned=False, **probe.error_facts(self.permission_error(), "worker_invoke_api"))
+        process.returncode = 1
+        with mock.patch.object(probe.subprocess, "Popen", return_value=process), \
+                mock.patch.object(probe, "read_json", side_effect=[lease, result]):
+            report = probe.collect_call(self.nonce, "parent", "getaddrinfo", self.root / "native-failure", identity)
+        self.assertEqual(report["error"], "PermissionError")
+        self.assertEqual(report["error_stage"], "worker_invoke_api")
+        self.assertEqual(report["winerror"], 5)
+        self.assertEqual(report["controller_error"], "RuntimeError")
+        self.assertEqual(report["controller_error_stage"], "check_native_completion")
+        self.assertIsNone(report["controller_winerror"])
+        self.assertFalse(report["api_returned"])
+        self.assertTrue(report["worker_cleanup_proven"])
+        self.assertFalse(report["acceptance_passed"])
+
+    def test_handle_close_failure_is_separate_from_returned_api_and_preserves_recovery(self):
+        process, identity, lease, result = self.worker_records()
+        process._handle.Close.side_effect = self.permission_error()
+        with mock.patch.object(probe.subprocess, "Popen", return_value=process), \
+                mock.patch.object(probe, "read_json", side_effect=[lease, result]):
+            report = probe.collect_call(self.nonce, "parent", "getaddrinfo", self.root / "close-failure", identity)
+        self.assertEqual(report["outcome"], "returned")
+        self.assertNotIn("error", report)
+        self.assertEqual(report["cleanup_error_stage"], "close_worker_handle")
+        self.assertEqual((report["cleanup_errno"], report["cleanup_winerror"]), (13, 5))
+        self.assertFalse(report["worker_cleanup_proven"])
+        self.assertNotIn("worker_handle_closed", report)
+        self.assertIn("recovery_directory", report)
+        self.assertNotIn("private-path", json.dumps(report))
+
     def test_cleanup_failure_stops_new_native_queries_and_preserves_directory(self):
         report_path = self.root / "report.json"
         retained = self.root / "retained"

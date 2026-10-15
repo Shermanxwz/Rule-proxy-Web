@@ -6,6 +6,110 @@ $utf8 = New-Object Text.UTF8Encoding($false)
 $configuration = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'ruleproxy-vm-config.json') -Raw | ConvertFrom-Json
 $result = @{ status = 'failed'; ordinary_user = $false; phases = @(); reports = @{}; logs = @{} }
 
+function ConvertTo-UpdateSafeText([string]$Text, [int]$Limit = 400) {
+    $value = $Text -replace '(?i)\bhttps?://[^\s]+', '[redacted-url]' -replace '(?i)[0-9a-f]{64}', '[redacted-token]' -replace '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ' '
+    return $value.Substring(0, [Math]::Min($Limit, $value.Length))
+}
+
+function ConvertTo-UpdateDiagnosticState($State) {
+    # A bounded whitelist, never the manifest, URL or arbitrary nested fields.
+    $safe = @{}
+    foreach ($name in @('schema_version', 'target_build', 'target_ubr', 'actual_build', 'actual_ubr', 'attempts', 'reboot_count', 'dism_exit_code', 'error_line', 'downloaded_package_count', 'staged_package_count')) {
+        $property = $State.PSObject.Properties[$name]
+        if ($null -ne $property -and ($property.Value -is [int] -or $property.Value -is [long])) { $safe[$name] = $property.Value }
+    }
+    foreach ($name in @('completed', 'reboot_required', 'packages_verified', 'task_unregistered', 'installer_running')) {
+        $property = $State.PSObject.Properties[$name]
+        if ($null -ne $property -and $property.Value -is [bool]) { $safe[$name] = $property.Value }
+    }
+    foreach ($name in @('status', 'phase', 'error', 'error_type', 'error_detail')) {
+        $property = $State.PSObject.Properties[$name]
+        if ($null -ne $property -and $property.Value -is [string]) { $safe[$name] = ConvertTo-UpdateSafeText $property.Value }
+    }
+    return $safe
+}
+
+function Get-UpdateReadError($Record) {
+    return @{ error_type = $Record.Exception.GetType().Name; error_code = [long]$Record.Exception.HResult }
+}
+
+function Get-UpdateFileFact([string]$Path, [switch]$Directory) {
+    try {
+        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { return @{ status = 'reparse'; exists = $true } }
+        if ([bool]$item.PSIsContainer -ne [bool]$Directory) { return @{ status = 'wrong_type'; exists = $true } }
+        $fact = @{ status = 'present'; exists = $true }
+        if (-not $Directory) { $fact.bytes = [long]$item.Length }
+        return $fact
+    } catch {
+        $fact = Get-UpdateReadError $_
+        $fact.status = if ($_.Exception -is [Management.Automation.ItemNotFoundException]) { 'missing' } else { 'unavailable' }
+        $fact.exists = $null
+        if ($fact.status -eq 'missing') { $fact.exists = $false }
+        return $fact
+    }
+}
+
+function Read-UpdateDiagnosticLog([string]$Path, $Fact) {
+    if ($Fact.status -ne 'present') { return '' }
+    try {
+        $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        try {
+            $length = [int][Math]::Min($stream.Length, 131072)
+            [void]$stream.Seek(-$length, [IO.SeekOrigin]::End)
+            $buffer = New-Object byte[] $length
+            $count = 0
+            while ($count -lt $length) {
+                $read = $stream.Read($buffer, $count, $length - $count)
+                if ($read -eq 0) { break }
+                $count += $read
+            }
+            $Fact.read_status, $Fact.bytes_read = 'read', $count
+            $encoding = [Text.Encoding]::UTF8
+            if ($count -ge 4 -and (($buffer[0] -eq 255 -and $buffer[1] -eq 254) -or ($buffer[1] -eq 0 -and $buffer[3] -eq 0))) { $encoding = [Text.Encoding]::Unicode }
+            return ConvertTo-UpdateSafeText ($encoding.GetString($buffer, 0, $count)) 131072
+        } finally { $stream.Dispose() }
+    } catch {
+        $Fact.read_status = 'unavailable'
+        $Fact.read_error = Get-UpdateReadError $_
+        return ''
+    }
+}
+
+function Get-RuleProxyCIUpdateDiagnostics($Result) {
+    # Read-only facts from this VM's fixed protected folder/task only.
+    $directory = 'C:\RuleProxyCIUpdates'
+    $diagnostic = @{ schema_version = 1; scope = 'disposable_vm_official_update'; files = @{};
+        directory = (Get-UpdateFileFact $directory -Directory); task = @{} }
+    foreach ($entry in @(@('state', 'update-state.json'), @('dism', 'dism.log'), @('worker', 'update-worker.log'))) {
+        $diagnostic.files[$entry[0]] = Get-UpdateFileFact (Join-Path $directory $entry[1])
+    }
+    try {
+        $os = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+        if ([string]$os.CurrentBuildNumber -notmatch '^[0-9]{1,6}$' -or $null -eq $os.UBR) { throw 'Invalid current OS revision' }
+        $diagnostic.os = @{ build = [int]$os.CurrentBuildNumber; ubr = [long]$os.UBR }
+    } catch { $diagnostic.os = Get-UpdateReadError $_ }
+    try {
+        $task = Get-ScheduledTask -TaskName 'RuleProxyCI-InstallOfficialUpdate' -TaskPath '\' -ErrorAction Stop
+        $info = Get-ScheduledTaskInfo -TaskName 'RuleProxyCI-InstallOfficialUpdate' -TaskPath '\' -ErrorAction Stop
+        if ($task.State.ToString() -notin @('Unknown', 'Disabled', 'Queued', 'Ready', 'Running') -or
+            -not ($info.LastTaskResult -is [int] -or $info.LastTaskResult -is [long] -or $info.LastTaskResult -is [uint32]) -or
+            $info.LastRunTime -isnot [DateTime]) { throw 'Invalid task observation' }
+        $diagnostic.task = @{ status = 'observed'; state = [string]$task.State;
+            last_run_utc = $info.LastRunTime.ToUniversalTime().ToString('o'); last_task_result = [long]$info.LastTaskResult }
+    } catch {
+        $diagnostic.task = Get-UpdateReadError $_
+        $diagnostic.task.status = 'unavailable'
+    }
+    $logs = @()
+    foreach ($entry in @(@('dism', 'dism.log'), @('worker', 'update-worker.log'))) {
+        $text = Read-UpdateDiagnosticLog (Join-Path $directory $entry[1]) $diagnostic.files[$entry[0]]
+        if ($text) { $logs += ('[' + $entry[0] + "]`n" + $text) }
+    }
+    if ($logs.Count) { $Result.logs['windows_update'] = $logs -join "`n" }
+    $Result.windows_update_diagnostics = $diagnostic
+}
+
 function Invoke-LocalProgram([string] $Executable, [string[]] $Arguments, [string] $Log, [int] $TimeoutSeconds) {
     $start = New-Object Diagnostics.ProcessStartInfo
     $start.FileName = $Executable
@@ -54,6 +158,7 @@ try {
             if (Test-Path -LiteralPath $statePath) {
                 if ((Get-Item -LiteralPath $statePath).Length -gt 65536) { throw 'Windows update state exceeded its size limit' }
                 $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+                $result.official_update_last_state = ConvertTo-UpdateDiagnosticState $state
                 if ($state.status -eq 'failed') {
                     $result.official_update = $state
                     throw ('Official update failed: ' + [string] $state.error)
@@ -126,19 +231,7 @@ try {
     $result.status = 'failed'
     $result.error = $_.Exception.Message
 } finally {
-    $updateLog = 'C:\RuleProxyCIUpdates\dism.log'
-    if (Test-Path -LiteralPath $updateLog) {
-        try {
-            $stream = [IO.File]::Open($updateLog, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
-            try {
-                $length = [int] [Math]::Min($stream.Length, 131072)
-                [void] $stream.Seek(-$length, [IO.SeekOrigin]::End)
-                $buffer = New-Object byte[] $length
-                $count = $stream.Read($buffer, 0, $length)
-                $result.logs['windows_update'] = [Text.Encoding]::UTF8.GetString($buffer, 0, $count)
-            } finally { $stream.Dispose() }
-        } catch { $result.logs['windows_update'] = 'Could not read the bounded update log.' }
-    }
+    try { Get-RuleProxyCIUpdateDiagnostics $result } catch { $result.windows_update_diagnostics = Get-UpdateReadError $_ }
     $body = $result | ConvertTo-Json -Depth 40 -Compress
     [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'guest-result.json'), $body, $utf8)
     $delivered = $false

@@ -30,6 +30,26 @@ DNS_OPTIONS = 0x00000108  # WIRE_ONLY | BYPASS_CACHE; system server list is NULL
 DNS_REQUEST_PENDING = 9506
 
 
+def error_facts(exc, stage, prefix=""):
+    """Only fixed operation labels and numeric errors, never exception text."""
+    observed = getattr(exc, "_ruleproxy_dns_stage", stage)
+    if not isinstance(observed, str) or not re.fullmatch(r"[a-z_]{1,64}", observed):
+        observed = stage
+    value = {prefix + "error": type(exc).__name__[:64], prefix + "error_stage": observed}
+    for key in ("errno", "winerror"):
+        code = getattr(exc, key, None)
+        value[prefix + key] = code if type(code) is int and -(1 << 31) <= code < (1 << 32) else None
+    return value
+
+
+def annotate_stage(exc, stage):
+    # Keep OSError identity intact so missing-file polling remains unchanged.
+    try:
+        exc._ruleproxy_dns_stage = stage
+    except (AttributeError, TypeError):
+        pass
+
+
 class DnsQueryRequest(ctypes.Structure):
     _fields_ = [("Version", ctypes.c_uint32), ("QueryName", ctypes.c_wchar_p),
                 ("QueryType", ctypes.c_uint16), ("QueryOptions", ctypes.c_uint64),
@@ -53,24 +73,38 @@ def qname(nonce, role, api):
     return f"{nonce}.{api.replace('_', '-')}.{role.replace('_', '-')}.ruleproxy-ci.example.com."
 
 
-def write_json(path, value):
-    raw = json.dumps(value, ensure_ascii=True, separators=(",", ":")).encode("ascii")
-    if len(raw) > MAX_RECORD_BYTES:
-        raise ValueError("diagnostic record size limit")
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_bytes(raw)
-    os.replace(temporary, path)
+def write_json(path, value, *, stage="record"):
+    operation = stage + "_encode"
+    try:
+        raw = json.dumps(value, ensure_ascii=True, separators=(",", ":")).encode("ascii")
+        if len(raw) > MAX_RECORD_BYTES:
+            raise ValueError("diagnostic record size limit")
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        operation = stage + "_write_temp"
+        temporary.write_bytes(raw)
+        operation = stage + "_replace"
+        os.replace(temporary, path)
+    except Exception as exc:
+        annotate_stage(exc, operation)
+        raise
 
 
-def read_json(path):
-    with path.open("rb") as stream:
-        raw = stream.read(MAX_RECORD_BYTES + 1)
-    if len(raw) > MAX_RECORD_BYTES:
-        raise ValueError("diagnostic record size limit")
-    value = json.loads(raw)
-    if not isinstance(value, dict):
-        raise ValueError("invalid diagnostic record")
-    return value
+def read_json(path, *, stage="record"):
+    operation = stage + "_open"
+    try:
+        with path.open("rb") as stream:
+            operation = stage + "_read"
+            raw = stream.read(MAX_RECORD_BYTES + 1)
+        operation = stage + "_decode"
+        if len(raw) > MAX_RECORD_BYTES:
+            raise ValueError("diagnostic record size limit")
+        value = json.loads(raw)
+        if not isinstance(value, dict):
+            raise ValueError("invalid diagnostic record")
+        return value
+    except Exception as exc:
+        annotate_stage(exc, operation)
+        raise
 
 
 class ProcessIdentity:
@@ -160,22 +194,28 @@ def worker(nonce, role, api, directory):
     context = {"api": api, "qname": name, "requested_role": role, "pid": os.getpid(), "ppid": os.getppid(),
                "default_system_server_list": True, "server_list_override": False,
                "dns_blocked_proven": False, "acceptance_passed": False}
+    stage = "worker_identity_init"
     try:
         identity = ProcessIdentity()
+        stage = "worker_identity_created"
         context["process_created"] = identity.current_created()
+        stage = "worker_resolver_init"
         resolver = NativeResolver()
         # The lease proves entry preparation, never actual packet transmission.
-        write_json(directory / "lease.json", dict(context, state="native_call_prepared", monotonic=time.monotonic()))
+        stage = "worker_prepare_lease"
+        write_json(directory / "lease.json", dict(context, state="native_call_prepared", monotonic=time.monotonic()), stage="lease")
+        stage = "worker_invoke_api"
         observation = resolver.invoke(api, name)
         context.update(observation)
-        write_json(directory / "result.json", context)
+        stage = "worker_publish_result"
+        write_json(directory / "result.json", context, stage="native_result")
         if observation.get("operation_pending"):
             while True:
                 time.sleep(1)  # Keep native pointers alive for the controller.
         return 0
     except Exception as exc:
-        context.update(api_returned=False, error=type(exc).__name__, winerror=int(getattr(exc, "winerror", None) or 0))
-        write_json(directory / "result.json", context)
+        context.update(api_returned=False, **error_facts(exc, stage))
+        write_json(directory / "result.json", context, stage="worker_failure")
         return 1
 
 
@@ -189,23 +229,31 @@ def validate_context(value, process, created, nonce, role, api):
 
 
 def collect_call(nonce, role, api, directory, identity):
-    directory.mkdir()
+    try:
+        directory.mkdir()
+    except Exception as exc:
+        annotate_stage(exc, "prepare_worker_directory")
+        raise
     process = None
     record = {"api": api, "qname": qname(nonce, role, api), "requested_role": role, "api_returned": False,
               "default_system_server_list": True, "server_list_override": False,
               "dns_blocked_proven": False, "acceptance_passed": False, "worker_cleanup_proven": False}
+    stage = "launch_worker"
     try:
         process = subprocess.Popen([sys.executable, "-I", "-S", "-X", "utf8", str(Path(__file__).resolve()),
             "--worker", api, "--nonce", nonce, "--role", role, "--report", str(directory)],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             shell=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        stage = "read_worker_generation"
         created = identity.created(process._handle)
         record.update(pid=process.pid, ppid=os.getpid(), process_created=created)
         start = time.monotonic()
         lease = None
         while time.monotonic() - start < STARTUP_SECONDS:
             try:
-                lease = read_json(directory / "lease.json")
+                stage = "read_entry_lease"
+                lease = read_json(directory / "lease.json", stage="entry_lease")
+                stage = "validate_entry_lease"
                 validate_context(lease, process, created, nonce, role, api)
                 break
             except FileNotFoundError:
@@ -213,45 +261,59 @@ def collect_call(nonce, role, api, directory, identity):
                     break
                 time.sleep(0.01)
         if lease is None:
+            stage = "entry_lease_missing"
             raise RuntimeError("native entry lease missing")
+        stage = "validate_entry_timestamp"
         stamp = lease.get("monotonic")
         if (lease.get("state") != "native_call_prepared" or type(stamp) not in (int, float)
                 or not 0 <= time.monotonic() - stamp <= STARTUP_SECONDS):
             raise ValueError("invalid native entry lease timestamp")
         record["entry_lease_published"] = True
         try:
+            stage = "wait_native_call"
             process.wait(timeout=max(0, stamp + CALL_SECONDS - time.monotonic()))
         except subprocess.TimeoutExpired:
             record.update(outcome="deadline", native_completion_proven=False)
         try:
-            value = read_json(directory / "result.json")
+            stage = "read_native_result"
+            value = read_json(directory / "result.json", stage="native_result")
         except FileNotFoundError:
             if record.get("outcome") != "deadline":
                 raise RuntimeError("native worker exited without its API result")
         else:
+            stage = "validate_native_result"
             validate_context(value, process, created, nonce, role, api)
             record.update(value)
+            stage = "check_native_completion"
             if process.returncode not in (None, 0) or value.get("api_returned") is not True or value.get("operation_pending"):
                 raise RuntimeError("native API completion was not collected")
             record["outcome"] = "returned"
     except Exception as exc:
-        record.update(outcome="tool_error", error=type(exc).__name__)
+        # A worker failure is the original observation; rejection by its
+        # controller must not replace its actual stage or Windows error.
+        prefix = "controller_" if "error" in record else ""
+        record.update(outcome="tool_error", **error_facts(exc, stage, prefix))
     finally:
         if process is not None:
             try:
+                stage = "check_worker_exit"
                 if not identity.exited(process._handle):
+                    stage = "terminate_owned_worker"
                     process.kill()  # Popen's exact creation HANDLE, never a PID/name.
                     record["owned_worker_terminated"] = True
+                stage = "wait_owned_worker_exit"
                 process.wait(timeout=2)
+                stage = "verify_worker_exit"
                 if not identity.exited(process._handle):
                     raise RuntimeError("owned native worker remained alive")
                 record["worker_exit_verified"] = True
                 record["worker_exit_code"] = process.returncode
+                stage = "close_worker_handle"
                 process._handle.Close()
                 record["worker_handle_closed"] = True
                 record["worker_cleanup_proven"] = True
             except Exception as exc:
-                record.update(cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+                record.update(recovery_directory=str(directory), **error_facts(exc, stage, "cleanup_"))
         else:
             record["no_process_started"] = True
             record["worker_cleanup_proven"] = True
@@ -278,27 +340,33 @@ def main(arguments=None):
         return 3
     directory = None
     code = 1
+    stage = "controller_identity_init"
     try:
         identity = ProcessIdentity()
+        stage = "prepare_control_directory"
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-native-dns-"))
         for api in APIS:
+            stage = "collect_native_call"
             value = collect_call(args.nonce, args.role, api, directory / api, identity)
             result["calls"].append(value)
             if value.get("cleanup_error") or value["worker_cleanup_proven"] is not True:
                 result.update(cleanup_proven=False, cleanup_error="NativeWorkerCleanupUnproven",
                               recovery_directory=str(directory))
+                result.update({key: value[key] for key in ("cleanup_error_stage", "cleanup_errno", "cleanup_winerror")
+                               if key in value})
                 break
         if result["cleanup_proven"] and len(result["calls"]) == len(APIS) and all(
                 x["outcome"] in ("returned", "deadline") for x in result["calls"]):
             result["status"], code = "native_dns_probe_only", 0
     except Exception as exc:
-        result["error"] = type(exc).__name__
+        result.update(error_facts(exc, stage))
     finally:
         if directory is not None and result["cleanup_proven"]:
             try:
                 shutil.rmtree(directory)
             except OSError as exc:
-                result.update(status="failed", cleanup_proven=False, cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+                result.update(status="failed", cleanup_proven=False, recovery_directory=str(directory),
+                              **error_facts(exc, "cleanup_control_directory", "cleanup_"))
                 code = 1
         write_json(args.report, result)
     return code

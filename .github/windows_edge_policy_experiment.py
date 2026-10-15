@@ -20,6 +20,7 @@ from pathlib import Path
 import secrets
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -40,6 +41,11 @@ BROWSER_TIMEOUT = 45
 CLEANUP_RESERVE = 25  # Existing production stop15 plus local fixture/resource closure.
 FINAL_RESERVE = 125  # Existing read-only network snapshot120 plus report publication.
 _RECOVERY_OWNERS = []
+JOB_FAILURE_STAGES = frozenset({"read_config", "validate_schema", "validate_profile_exists", "validate_profile_resolve",
+    "validate_report_parent", "validate_report_identity", "validate_report_reparse", "validate_command",
+    "validate_executable", "validate_user_data_dir", "validate_proxy_server", "validate_proxy_bypass",
+    "validate_argument", "validate_required_arguments", "query_job", "publish_initial", "launch",
+    "publish_started", "wait", "publish_result"})
 
 
 class DiagnosticError(RuntimeError):
@@ -81,6 +87,7 @@ class UIOverride:
         self.original = None
         self.observe_jobs = observe_jobs
         self.jobs = []
+        self.job_stdout = []
         self.original_edge_command = self.wrapped_command = None
         self.job_source_sha256 = None
 
@@ -154,7 +161,31 @@ class UIOverride:
                 self.jobs.append((report, nonce))
                 # Only app argv changes. Environment, profile, ports, provider,
                 # and all builder kwargs keep the original prepared values.
-                return self.original_launch(self.wrapped_command, env, profile, proxy_port, runtime_path, **kwargs)
+                # Capture only this source diagnostic's exact SDK launch.
+                # Probe subprocesses keep their original stdio; raw SDK output
+                # remains private and is discarded after bounded fact parsing.
+                output_path = profile / "ruleproxy-job-stdout.log"
+                self.job_stdout.append(output_path)
+                original_popen = subprocess.Popen
+                captured = False
+                with output_path.open("xb") as output:
+                    def popen(arguments, *positional, **options):
+                        nonlocal captured
+                        if isinstance(arguments, (list, tuple)) and len(arguments) == 3 \
+                                and str(arguments[0]) == str(runtime_path) and arguments[1] == "--config":
+                            if captured or "stdout" in options or "stderr" in options:
+                                raise DiagnosticError("unexpected SDK stdio while observing the owned test wrapper")
+                            captured = True
+                            options.update(stdout=output, stderr=subprocess.STDOUT)
+                        return original_popen(arguments, *positional, **options)
+                    subprocess.Popen = popen
+                    try:
+                        return self.original_launch(self.wrapped_command, env, profile, proxy_port, runtime_path, **kwargs)
+                    finally:
+                        changed = subprocess.Popen is not popen
+                        subprocess.Popen = original_popen
+                        if changed:
+                            raise DiagnosticError("diagnostic process launcher changed unexpectedly")
             self.launch_replacement = launch
             self.runtime.launch = launch
         return self
@@ -239,13 +270,51 @@ def job_context_observations(override):
     return values
 
 
+def job_stdout_facts(override):
+    facts, truncated = [], False
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate fixed stdout fact")
+            value[key] = item
+        return value
+    for path in getattr(override, "job_stdout", []):
+        with path.open("rb") as stream:
+            raw = stream.read(64 * 1024 + 1)
+        truncated = truncated or len(raw) > 64 * 1024
+        for line in raw[:64 * 1024].splitlines():
+            if len(line) > 1024:
+                continue
+            try:
+                value = json.loads(line, object_pairs_hook=unique)
+            except (ValueError, UnicodeError):
+                continue
+            if (not isinstance(value, dict) or set(value) != {"stage", "errno", "winerror", "class"}
+                    or not isinstance(value["stage"], str) or value["stage"] not in JOB_FAILURE_STAGES
+                    or not isinstance(value["class"], str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", value["class"])
+                    or any(value[key] is not None and (type(value[key]) is not int
+                        or not -0x80000000 <= value[key] <= 0xffffffff) for key in ("errno", "winerror"))):
+                continue
+            if len(facts) < 8:
+                facts.append(value)
+                print(json.dumps(value, ensure_ascii=True, separators=(",", ":")), flush=True)
+            else:
+                truncated = True
+    return {"captured": bool(getattr(override, "job_stdout", [])), "truncated": truncated, "failure_facts": facts}
+
+
 def add_job_context(observation, override):
+    observation["job_observer_stdout"] = job_stdout_facts(override)
     values = job_context_observations(override)
     observation["job_context"] = values
     completed = [entry["reported_context"]["job_context"] for entry in values if entry.get("published") is True
                  and entry["reported_context"]["job_context"]["status"] == "observed"]
     observation["actual_job_ui_limits_verified"] = bool(completed)
     observation["app_wrapper_zero_ui_limits_observed"] = any(entry["ui_restrictions"] == 0 for entry in completed)
+    if observation.get("process_started") is True and values and any(entry.get("published") is not True for entry in values):
+        observation.update(status="failed", tool_error=True, job_context_error="ObserverReportMissing",
+                           single_launch_fixture_passed=False)
 
 
 def skipped_variant(variant):

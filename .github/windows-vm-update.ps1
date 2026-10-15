@@ -232,6 +232,19 @@ function Get-UpdateOS {
     return @{ build = [int]$version.CurrentBuildNumber; ubr = [int]$version.UBR }
 }
 
+function Write-UpdateWorkerEvent([string]$Event) {
+    # Fixed event IDs only: no manifest URL, capability, command or user data.
+    if ($Event -cnotmatch '^[a-z_]{1,64}$') { throw 'update_invalid_log_event' }
+    Assert-ProtectedUpdatePath $script:UpdateDirectory -Directory -ProtectedDacl
+    $path = Join-Path $script:UpdateDirectory 'update-worker.log'
+    if (Test-Path -LiteralPath $path) {
+        Assert-ProtectedUpdatePath $path
+        if ((Get-Item -LiteralPath $path).Length -gt 65536) { throw 'update_worker_log_oversized' }
+    }
+    $line = [DateTime]::UtcNow.ToString('o') + ' pid=' + $PID + ' event=' + $Event + "`n"
+    [IO.File]::AppendAllText($path, $line, [Text.UTF8Encoding]::new($false))
+}
+
 function Write-UpdateState($State) {
     $path = Join-Path $script:UpdateDirectory 'update-state.json'
     $temporary = Join-Path $script:UpdateDirectory 'update-state.json.tmp'
@@ -240,6 +253,8 @@ function Write-UpdateState($State) {
     }
     $raw = ConvertTo-Json -InputObject $State -Depth 8
     if ([Text.Encoding]::UTF8.GetByteCount($raw) -gt 65536) { throw 'update_state_oversized' }
+    # Finish diagnostic I/O before publishing a completed state.
+    Write-UpdateWorkerEvent ('state_' + $State.status)
     [IO.File]::WriteAllText($temporary, $raw, [Text.UTF8Encoding]::new($false))
     if (Test-Path -LiteralPath $path) {
         [IO.File]::Replace($temporary, $path, $null)
@@ -265,6 +280,7 @@ function Invoke-RuleProxyCIUpdate {
         if ($identity.User.Value -ne 'S-1-5-18') { throw 'update_SYSTEM_required' }
         Assert-ProtectedUpdatePath $script:UpdateDirectory -Directory -ProtectedDacl
         $trustedDirectory = $true
+        Write-UpdateWorkerEvent 'worker_started'
         Assert-ProtectedUpdatePath (Join-Path $script:UpdateDirectory 'windows-vm-update.ps1')
         Assert-ProtectedUpdatePath (Join-Path $script:UpdateDirectory 'update-manifest.json')
         $manifest = Read-UpdateManifestDefinition $script:UpdateDirectory
@@ -330,6 +346,7 @@ function Invoke-RuleProxyCIUpdate {
         # directory and verifies their package catalogs. Never IgnoreCheck.
         $arguments = @('/Online', '/Add-Package', ('/PackagePath:"' + $packagePath + '"'),
                        '/Quiet', '/NoRestart', ('/LogPath:"' + $logPath + '"'))
+        Write-UpdateWorkerEvent 'dism_starting'
         $process = Start-Process -FilePath $dism -ArgumentList $arguments -PassThru -WindowStyle Hidden
         try {
             # Retain the kernel handle before a fast exit; PS5 otherwise may
@@ -346,6 +363,7 @@ function Invoke-RuleProxyCIUpdate {
         } finally {
             $process.Dispose()
         }
+        Write-UpdateWorkerEvent 'dism_finished'
         if ($state.dism_exit_code -notin @(0, 3010)) { throw 'update_DISM_failed' }
         $os = Get-UpdateOS
         $state.actual_build, $state.actual_ubr = $os.build, $os.ubr
@@ -362,6 +380,7 @@ function Invoke-RuleProxyCIUpdate {
         $state.reboot_count++
         Write-UpdateState $state
         # This is the disposable test VM. Graceful restart, no process kill.
+        Write-UpdateWorkerEvent 'reboot_requested'
         Restart-Computer -ErrorAction Stop
         return 0
     } catch {

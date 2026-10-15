@@ -1,6 +1,8 @@
 """Validate the read-only job ABI/command boundary without simulating PSEC."""
 import copy
 import ctypes
+import contextlib
+import io
 import importlib.util
 import json
 import os
@@ -128,6 +130,68 @@ class WindowsJobContextTests(unittest.TestCase):
             value["command"][profile_arg] = f"--user-data-dir={target}"
             with self.subTest(target=Path(target).name), self.assertRaises(ValueError):
                 probe.validate_configuration(value, self.command_file, self.report)
+
+    def test_actual_windows_prepared_fixture_command_is_accepted_without_adding_flags_or_grants(self):
+        from ruleproxy import launcher
+        self.edge.chmod(0o700)  # POSIX mock executable; never actually launched.
+        profile_root = self.root / "profiles"
+        app = {"id": "browser", "label": "Real Edge fixture", "path": str(self.edge), "adapter": "chromium",
+               "args": ["--headless=new", "--dump-dom", "--disable-gpu", "--no-default-browser-check",
+                        "http://ruleproxy-browser-fixture.invalid/phase/1"]}
+        with mock.patch.object(launcher.sys, "platform", "win32"):
+            command, _, _ = launcher.prepare_app(app, 19001, profile_root)
+        profile = profile_root / "browser"
+        value = dict(self.config, command=command, profile=str(profile.resolve(strict=True)))
+        accepted = probe.validate_configuration(value, profile / "command.json", profile / "report.json")
+        self.assertEqual(accepted, command)
+        self.assertNotIn("--no-sandbox", accepted)
+        self.assertNotIn("--disable-setuid-sandbox", accepted)
+
+    def permission_error(self):
+        error = PermissionError(13, "PRIVATE_COMMAND_TOKEN", "PRIVATE_PATH")
+        error.winerror = 5
+        return error
+
+    def assert_failure_output(self, raw, stage):
+        value = json.loads(raw)
+        self.assertEqual(value, {"stage": stage, "errno": 13, "winerror": 5, "class": "PermissionError"})
+        for secret in (str(self.root), "PRIVATE_COMMAND_TOKEN", "PRIVATE_PATH", self.config["nonce"], "--proxy-server"):
+            self.assertNotIn(secret, raw)
+
+    def test_read_config_failure_publishes_fixed_facts_before_any_process_is_started(self):
+        output = io.StringIO()
+        with mock.patch.object(probe, "read_configuration", side_effect=self.permission_error()), \
+                mock.patch.object(probe.subprocess, "Popen") as launch, contextlib.redirect_stdout(output):
+            code = probe.main(["--command", str(self.command_file), "--report", str(self.report)])
+        self.assertEqual(code, 1)
+        self.assert_failure_output(output.getvalue(), "read_config")
+        self.assertFalse(self.report.exists())
+        launch.assert_not_called()
+
+    def test_profile_resolve_failure_retains_winerror_and_specific_stage_without_wider_access(self):
+        self.command_file.write_text(json.dumps(self.config))
+        original = Path.resolve
+        def resolve(path, *args, **kwargs):
+            if path == self.root:
+                raise self.permission_error()
+            return original(path, *args, **kwargs)
+        output = io.StringIO()
+        with mock.patch.object(Path, "resolve", autospec=True, side_effect=resolve), \
+                mock.patch.object(probe.subprocess, "Popen") as launch, contextlib.redirect_stdout(output):
+            code = probe.main(["--command", str(self.command_file), "--report", str(self.report)])
+        self.assertEqual(code, 1)
+        self.assert_failure_output(output.getvalue(), "validate_profile_resolve")
+        launch.assert_not_called()
+
+    def test_initial_report_publication_failure_is_not_an_edge_crash(self):
+        self.command_file.write_text(json.dumps(self.config))
+        output = io.StringIO()
+        with mock.patch.object(probe, "write_report", side_effect=self.permission_error()), \
+                mock.patch.object(probe.subprocess, "Popen") as launch, contextlib.redirect_stdout(output):
+            code = probe.main(["--command", str(self.command_file), "--report", str(self.report)])
+        self.assertEqual(code, 1)
+        self.assert_failure_output(output.getvalue(), "publish_initial")
+        launch.assert_not_called()
 
     def test_wrapper_publishes_context_before_running_edge_naturally_and_preserves_dword_crash(self):
         self.command_file.write_text(json.dumps(self.config))

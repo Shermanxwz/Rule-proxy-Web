@@ -212,9 +212,9 @@ class UiPolicyTests(unittest.TestCase):
         self.assertIs(entry["single_launch_fixture_passed"], False)
         browser.BrowserFixture.assert_not_called()
 
-    def browser(self, runtime, *, fail=False, cleanup_fail=False):
+    def browser(self, runtime, *, fail=False, cleanup_fail=False, publish_context=True, exit_code=None):
         process = mock.Mock()
-        process.poll.return_value = 3221225477 if fail else 0
+        process.poll.return_value = exit_code if exit_code is not None else 3221225477 if fail else 0
         class BrowserRun:
             def __init__(self, *arguments):
                 self.wrapper = self.resources = None
@@ -239,9 +239,65 @@ class UiPolicyTests(unittest.TestCase):
                     raise RuntimeError("safe stop retained owned handles")
                 self.wrapper = self.resources = None
         browser = SimpleNamespace(BrowserRun=BrowserRun, BrowserFixture=mock.Mock(return_value=mock.Mock()))
-        runtime.launch = mock.Mock(side_effect=lambda command, env, profile, port, path, **kwargs:
-                                   runtime.build_policy(command, env, profile, kwargs["guest_listener_port"]))
+        def launch(command, env, profile, port, path, **kwargs):
+            policy = runtime.build_policy(command, env, profile, kwargs["guest_listener_port"])
+            if publish_context:
+                config = json.loads(Path(command[command.index("--command") + 1]).read_text())
+                raw = process.poll.return_value & 0xffffffff
+                report = {"schema_version": 1, "nonce": config["nonce"], "scope": "actual_test_app_wrapper_innermost_job",
+                    "pid": 123, "parent_pid": 100, "job_context": {"status": "observed", "is_process_in_job": True,
+                    "is_process_in_job_error": None, "ui_restrictions": 4, "query_ui_restrictions_error": None,
+                    "query_return_length": 4}, "edge_launched": True, "edge_exit_code": raw,
+                    "edge_exit_code_hex": f"0x{raw:08X}", "edge_launch_error": None,
+                    "acceptance_passed": False, "browser_sandbox_weakened": False}
+                Path(command[command.index("--report") + 1]).write_text(json.dumps(report))
+            return policy
+        runtime.launch = mock.Mock(side_effect=launch)
         return browser, process
+
+    def test_missing_context_after_actual_wrapper_exit_one_is_a_tool_failure_with_safe_cleanup(self):
+        runtime = SimpleNamespace(build_policy=mock.Mock(return_value=baseline()))
+        browser, process = self.browser(runtime, fail=True, publish_context=False, exit_code=1)
+        entry = ui.run_variant(ui.VARIANTS[0], runtime, None, None, browser, time.monotonic() + 600)
+        self.assertEqual(entry["status"], "failed")
+        self.assertTrue(entry["tool_error"])
+        self.assertEqual(entry["job_context_error"], "ObserverReportMissing")
+        self.assertEqual(entry["edge_mxc_wrapper_exit_code"], 1)
+        self.assertTrue(entry["cleanup_proven"])
+        self.assertFalse(entry["actual_job_ui_limits_verified"])
+        self.assertFalse(entry["app_wrapper_zero_ui_limits_observed"])
+        process.kill.assert_not_called()
+
+    def test_sdk_stdout_capture_is_exact_and_only_fixed_bounded_facts_leave_private_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            profile = Path(temporary) / "browser"
+            facts = {"stage": "validate_profile_resolve", "errno": 13, "winerror": 5, "class": "PermissionError"}
+            def create(arguments, *positional, **options):
+                if len(arguments) == 3 and "--config" in arguments:
+                    self.assertEqual(options["stderr"], ui.subprocess.STDOUT)
+                    options["stdout"].write(b"PRIVATE_PATH PRIVATE_COMMAND PRIVATE_NONCE\n")
+                    options["stdout"].write((json.dumps(facts) + "\n").encode())
+                else:
+                    self.assertEqual(options["stdout"], ui.subprocess.PIPE)
+                    self.assertEqual(options["stderr"], ui.subprocess.PIPE)
+                return mock.Mock()
+            def launch(command, env, actual_profile, port, runtime_path, **kwargs):
+                ui.subprocess.Popen([runtime_path, "--config", "owned-policy", "--probe"], shell=False,
+                                    stdout=ui.subprocess.PIPE, stderr=ui.subprocess.PIPE)
+                ui.subprocess.Popen([runtime_path, "--config", "owned-policy"], shell=False)
+                return "wrapper", "resources"
+            runtime = SimpleNamespace(build_policy=mock.Mock(return_value=baseline()), launch=launch)
+            with mock.patch.object(ui.subprocess, "Popen", side_effect=create) as original_popen:
+                with ui.UIOverride(runtime, ui.VARIANTS[0], [], observe_jobs=True) as override:
+                    runtime.launch([r"C:\Edge\msedge.exe"], {}, profile, 1234, "owned-sdk", guest_listener_port=34567)
+                self.assertIs(ui.subprocess.Popen, original_popen)
+            with mock.patch("builtins.print"):
+                observed = ui.job_stdout_facts(override)
+            self.assertTrue(observed["captured"])
+            self.assertEqual(observed["failure_facts"], [facts])
+            self.assertFalse(observed["truncated"])
+            for private in ("PRIVATE_PATH", "PRIVATE_COMMAND", "PRIVATE_NONCE", str(profile)):
+                self.assertNotIn(private, json.dumps(observed))
 
     def test_access_violation_is_observed_as_actual_exit_and_clean_case_can_continue(self):
         runtime = SimpleNamespace(build_policy=mock.Mock(return_value=baseline()))

@@ -1,0 +1,85 @@
+name: PSEC capability diagnostic
+
+on:
+  push:
+    branches:
+      - 'codex/windows-capability-*'
+    paths:
+      - '.github/build_mxc_capability_probe.py'
+      - '.github/windows_network_experiment.py'
+      - '.github/windows_native_dns_probe.py'
+      - '.github/windows_dns_session.py'
+      - '.github/workflows/mxc-capability.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psec-capability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  executor:
+    name: Build the fixed MXC source with one diagnostic capability change
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: microsoft/mxc
+          ref: 7bf210247986cb73b1b314df60c2f1109c479c0b
+          path: mxc-source
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Use the fixed upstream Rust toolchain
+        run: |
+          rustup toolchain install 1.93 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build only the diagnostic native executor
+        run: python -B .github\build_mxc_capability_probe.py --source mxc-source --output mxc-capability
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mxc-capability-executor
+          path: mxc-capability/
+          if-no-files-found: error
+          retention-days: 14
+
+  arm-observation:
+    name: Observe proxy sockets and native DNS with the diagnostic PSEC executor
+    needs: executor
+    runs-on: windows-11-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: mxc-capability-executor
+          path: mxc-capability
+      - name: Prepare an independent package with its original verified runtimes
+        run: |
+          python -B .github\build_windows_package.py dist
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
+          $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw 'Package checksum mismatch' }
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\ruleproxy-capability"
+      - name: Collect actual contained sockets and native DNS APIs
+        run: |
+          $root = "$env:RUNNER_TEMP\ruleproxy-capability\RuleProxy-Web"
+          $executor = (Get-Item mxc-capability\wxc-exec.exe).FullName
+          $manifest = (Get-Item mxc-capability\build-manifest.json).FullName
+          & "$root\python\python.exe" -X utf8 -B .github\windows_network_experiment.py --root "$root" --allow-emulated-x64 --collect-native-dns --test-psec-executor "$executor" --test-psec-manifest "$manifest" --report windows-capability-observations.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: windows-capability-observations
+          path: windows-capability-observations.json
+          if-no-files-found: error
+          retention-days: 14

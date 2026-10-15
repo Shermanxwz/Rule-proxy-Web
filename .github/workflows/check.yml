@@ -207,13 +207,22 @@ jobs:
       - name: Collect stock Edge UI-policy and actual job-context diagnostics
         id: edge-ui-experiment
         if: ${{ !cancelled() && steps.network-experiment.outcome == 'success' }}
+        continue-on-error: true
         run: |
           $root = "$env:RUNNER_TEMP\ruleproxy-probe\RuleProxy-Web"
           & "$root\python\python.exe" -X utf8 -B .github\windows_edge_policy_experiment.py --root "$root" --allow-emulated-x64 --report windows-edge-ui.json
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $code = $LASTEXITCODE
+          if (Test-Path windows-edge-ui.json) {
+            $value = Get-Content windows-edge-ui.json -Raw | ConvertFrom-Json
+            $unchanged = @($value.checks | Where-Object { $_.check -eq 'host_proxy_dns_default_routes_unchanged' -and $_.status -eq 'passed' }).Count -eq 1
+            if ($value.cleanup_proven -eq $true -and -not $value.cleanup_error -and -not $value.recovery_directory -and $unchanged) {
+              'cleanup_safe=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            }
+          }
+          if ($code -ne 0) { exit $code }
       - name: Probe the fixed x64 runtime on a real Windows 11 kernel
         id: psec-probe
-        if: ${{ !cancelled() && steps.network-experiment.outcome == 'success' && steps.edge-ui-experiment.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.network-experiment.outcome == 'success' && (steps.edge-ui-experiment.outcome == 'success' || steps.edge-ui-experiment.outputs.cleanup_safe == 'true') }}
         run: |
           $zip = Get-Item dist\RuleProxy-Web-*-windows-x64.zip
           $expected = ((Get-Content dist\SHA256SUMS.txt) -split '\s+')[0]

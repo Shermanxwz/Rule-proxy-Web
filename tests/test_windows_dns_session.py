@@ -35,7 +35,8 @@ class WindowsDnsSessionTests(unittest.TestCase):
                 "acceptance_passed": False, "dns_blocked_proven": False}
 
         self.native = SimpleNamespace(STARTUP_SECONDS=5, CALL_SECONDS=4, qname=native.qname,
-                                      ProcessIdentity=mock.Mock(), collect_call=mock.Mock(side_effect=collect))
+                                      ProcessIdentity=mock.Mock(), collect_call=mock.Mock(side_effect=collect),
+                                      error_facts=native.error_facts)
         patch = mock.patch.object(session, "load_native", return_value=self.native)
         patch.start(); self.addCleanup(patch.stop)
         self.value = session.DnsSession(self.directory / "ordinary", time.monotonic() + 200)
@@ -82,13 +83,16 @@ class WindowsDnsSessionTests(unittest.TestCase):
     def test_native_worker_cleanup_failure_stops_queries_and_preserves_recovery(self):
         self.native.collect_call.side_effect = lambda nonce, role, api, directory, identity: {
             "api": api, "qname": native.qname(nonce, role, api), "requested_role": role,
-            "worker_cleanup_proven": False, "cleanup_error": "HeldWorkerAlive", "recovery_directory": str(directory)}
+            "worker_cleanup_proven": False, "cleanup_error": "HeldWorkerAlive", "recovery_directory": str(directory),
+            "cleanup_error_stage": "verify_worker_exit", "cleanup_errno": None, "cleanup_winerror": 5}
         observation = self.value.control("outside_before")
         self.assertFalse(observation["cleanup_proven"])
         self.assertEqual(self.native.collect_call.call_count, 1)
         self.value.control("outside_after")
         self.assertEqual(self.native.collect_call.call_count, 1)
         self.assertFalse(self.value.safe)
+        self.assertEqual(self.value.recovery["cleanup_error_stage"], "verify_worker_exit")
+        self.assertEqual(self.value.recovery["cleanup_winerror"], 5)
         self.value.directory.mkdir(exist_ok=True)
         self.assertIsNotNone(self.value.close())
         self.assertTrue(self.value.directory.exists())
@@ -98,8 +102,39 @@ class WindowsDnsSessionTests(unittest.TestCase):
         result = session.collect_calls(self.value.config, "parent", self.directory / "actor", time.monotonic() + 40)
         self.assertFalse(result["cleanup_proven"])
         self.assertEqual(result["cleanup_error"], "RuntimeError")
+        self.assertEqual(result["cleanup_error_stage"], "collect_native_call")
+        self.assertIsNone(result["cleanup_errno"])
+        self.assertIsNone(result["cleanup_winerror"])
         self.assertNotIn("do not serialize", str(result))
         self.assertEqual(self.native.collect_call.call_count, 1)
+
+    def test_prepare_directory_error_stage_survives_session_boundary_and_stops_queries(self):
+        error = PermissionError(13, "private command credential", "private-path")
+        error.winerror = 5
+        native.annotate_stage(error, "prepare_worker_directory")
+        self.native.collect_call.side_effect = error
+        observation = self.value.control("outside_before")
+        self.assertFalse(observation["cleanup_proven"])
+        self.assertEqual(observation["cleanup_error_stage"], "prepare_worker_directory")
+        self.assertEqual((observation["cleanup_errno"], observation["cleanup_winerror"]), (13, 5))
+        self.value.control("outside_after")
+        self.assertEqual(self.native.collect_call.call_count, 1)
+        self.assertFalse(self.value.safe)
+        for private in ("private command", "credential", "private-path"):
+            self.assertNotIn(private, str(observation))
+
+    def test_session_directory_cleanup_failure_records_only_stage_and_error_codes(self):
+        self.value.directory.mkdir()
+        error = PermissionError(13, "private command credential", "private-path")
+        error.winerror = 5
+        with mock.patch.object(session.shutil, "rmtree", side_effect=error):
+            recovery = self.value.close()
+        self.assertFalse(recovery["cleanup_proven"])
+        self.assertEqual(recovery["cleanup_error_stage"], "cleanup_session_directory")
+        self.assertEqual((recovery["cleanup_errno"], recovery["cleanup_winerror"]), (13, 5))
+        self.assertTrue(self.value.directory.exists())
+        self.assertFalse(self.value.safe)
+        self.assertNotIn("private-path", str(recovery))
 
     def test_deadline_is_an_incomplete_observation_not_kernel_denial(self):
         self.native.collect_call.side_effect = lambda nonce, role, api, directory, identity: {

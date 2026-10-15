@@ -1,0 +1,768 @@
+{
+  "schema_version": 1,
+  "status": "incomplete",
+  "scope": "captured_qemu_vm_nic_egress",
+  "acceptance_passed": false,
+  "kernel_denial_proven": false,
+  "capture_format_complete": true,
+  "capture_sha256": "5ec2e73837b47a5c08aab4b471f85d00ed4a93aeb32d14f29f578cc235cd68e6",
+  "capture_bytes": 70991,
+  "manifest_sha256": "d349cd9cd36e16435e5d108792e613271457cd3aa9e093cffc7c226e017dfbfb",
+  "packet_records": 181,
+  "positive_controls_complete": true,
+  "control_windows_ordered": true,
+  "unknown_records": 0,
+  "unknown_reasons": {},
+  "contained_markers_absent": null,
+  "absence_observed": false,
+  "groups": [
+    {
+      "id": "model3.ipv4",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model3.ipv4_unbound",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model3.ipv6",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model3.ipv6_unbound",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4_unbound",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6_unbound",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model1_internal.ipv4",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model1_internal.ipv4_unbound",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model1_internal.ipv6",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model1_internal.ipv6_unbound",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": true,
+      "execution_proven": true,
+      "absence_observed": true
+    },
+    {
+      "id": "model2_host.ipv4",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": null,
+      "execution_proven": false,
+      "absence_observed": false
+    },
+    {
+      "id": "model2_host.ipv4_unbound",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": null,
+      "execution_proven": false,
+      "absence_observed": false
+    },
+    {
+      "id": "model2_host.ipv6",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": null,
+      "execution_proven": false,
+      "absence_observed": false
+    },
+    {
+      "id": "model2_host.ipv6_unbound",
+      "positive_controls_complete": true,
+      "control_window_ordered": true,
+      "contained_markers_absent": null,
+      "execution_proven": false,
+      "absence_observed": false
+    }
+  ],
+  "counts": [
+    {
+      "id": "model3.ipv4.outside_before",
+      "group": "model3.ipv4",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "9e4ee0e799acf4adbede11cae35ea422fc5565491adbdd7c83d4a4aac820571c"
+    },
+    {
+      "id": "model3.ipv4.parent",
+      "group": "model3.ipv4",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "a2cc68444150bb533e76b82d6d063e8b9d62eb6413221ab4ac484459e8fa6b5e"
+    },
+    {
+      "id": "model3.ipv4.child",
+      "group": "model3.ipv4",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "139e169fe6c5f3f25917f1d0e58afbfe66481596b1f1831d1c5e2eb03de5592f"
+    },
+    {
+      "id": "model3.ipv4.outside_after",
+      "group": "model3.ipv4",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "cae0ccff51c136d74d68cd1a0102cab0988deac0e93d05c9dde96046ab137e6b"
+    },
+    {
+      "id": "model3.ipv4_unbound.outside_before",
+      "group": "model3.ipv4_unbound",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "f27c00e6d551a4ea53807a0746b92e6bcf4b182eed0275348af8bca6bba347df"
+    },
+    {
+      "id": "model3.ipv4_unbound.parent",
+      "group": "model3.ipv4_unbound",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "3724425701c5a75624225498efee56be1854f809063f1a520130efe7e7c087e1"
+    },
+    {
+      "id": "model3.ipv4_unbound.child",
+      "group": "model3.ipv4_unbound",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "78ff7e27053d6be0b521af4ac5bd973afa196ac249829d0152b7c34f23a26913"
+    },
+    {
+      "id": "model3.ipv4_unbound.outside_after",
+      "group": "model3.ipv4_unbound",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "bf00782a25931ac0a09201dddf4d9c8b42208fa335e8e35cecaf38d2507a0fa3"
+    },
+    {
+      "id": "model3.ipv6.outside_before",
+      "group": "model3.ipv6",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "28fa892ef258a48450882b6215720baae8199d079a48e19cb04a0b9b4a609a75"
+    },
+    {
+      "id": "model3.ipv6.parent",
+      "group": "model3.ipv6",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "fe91efd1d02251d860eff34bfe506286b37d63a41a328c555d8f64c60212df71"
+    },
+    {
+      "id": "model3.ipv6.child",
+      "group": "model3.ipv6",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "df319aee535ba1e4eee8de874c91cf58ba401eb2bec7ce4a1be5e03723557718"
+    },
+    {
+      "id": "model3.ipv6.outside_after",
+      "group": "model3.ipv6",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "3675b6d4471795215bcbd4a877b46c0524c97424fcfa67171f900515be2a6547"
+    },
+    {
+      "id": "model3.ipv6_unbound.outside_before",
+      "group": "model3.ipv6_unbound",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "9157f3fbec9aa7bb114aa91b6b680325df038bbb7cc4135fb7c12c97b08b5a96"
+    },
+    {
+      "id": "model3.ipv6_unbound.parent",
+      "group": "model3.ipv6_unbound",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "04061fbdcdcd0ec8e59016b73be65e604d779ccb5ae5c55aeb3d37baf3472c9e"
+    },
+    {
+      "id": "model3.ipv6_unbound.child",
+      "group": "model3.ipv6_unbound",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "b46c36ddbd781ea89a14718e738719e32a5358f8dceb681728e30d4fe711d45b"
+    },
+    {
+      "id": "model3.ipv6_unbound.outside_after",
+      "group": "model3.ipv6_unbound",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "3cf4a48bafd43e5630e925c79e5ba434fc2ab4e8a6732182b986cc32cf3c8601"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4.outside_before",
+      "group": "model1_internal_ingress_deny.ipv4",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "b38ccf599566d492982235c8eba50bc2f9ed112b919972143646e5b051f7b856"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4.parent",
+      "group": "model1_internal_ingress_deny.ipv4",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "6d27691e459c37662a1cac8ab6d1f7f5dbeaef7ce23ab1c8dd6ee4ad9f56353c"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4.child",
+      "group": "model1_internal_ingress_deny.ipv4",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "e29c9ed3459596c7bbfbff05a9d8f8ec394c0848990c19e727777a64b11c1392"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4.outside_after",
+      "group": "model1_internal_ingress_deny.ipv4",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "5e1dcdc677ce80f7b491acf66d58433fee39ccff41ebbc45e25ef64ecf5b1f62"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4_unbound.outside_before",
+      "group": "model1_internal_ingress_deny.ipv4_unbound",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "7118a0dca47f109de8d6fb3bc9c665b70c60e9cb5cb8cf4b12b83b1e298d8d6c"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4_unbound.parent",
+      "group": "model1_internal_ingress_deny.ipv4_unbound",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "312d363b6620d54278f75a8d26117c886b73b14b7f04e377172151c20839204b"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4_unbound.child",
+      "group": "model1_internal_ingress_deny.ipv4_unbound",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "64ad1cdb21d6a998f6349122837686654db4921f2ccb3c375ac4bc6091ca1575"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv4_unbound.outside_after",
+      "group": "model1_internal_ingress_deny.ipv4_unbound",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "6ed0940a72d520b3de0af37ed1ee231175c855281b77b9eb8243aead06a4aa6c"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6.outside_before",
+      "group": "model1_internal_ingress_deny.ipv6",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "97e6edf1ecccb8a6ccb847e09aa99bdc2e9ee41984861513ab0f31dd76c9e1f2"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6.parent",
+      "group": "model1_internal_ingress_deny.ipv6",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "40e8ff30a8d536a5cf3b462c08259b3dab9ca1e534431e9bdd5a867b443bc3c9"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6.child",
+      "group": "model1_internal_ingress_deny.ipv6",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "3baa2772fbdc7bec313e7413ac380651e742b81ce5142f49e0777fd2bac8361e"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6.outside_after",
+      "group": "model1_internal_ingress_deny.ipv6",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "27d3cf8b5ca29cc16899587d649061171358284f789afc54c967779bbe32c335"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6_unbound.outside_before",
+      "group": "model1_internal_ingress_deny.ipv6_unbound",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "e96a392b0fe991c30beb42ddace8f6b700a549a4330ed33f304a82c434cd1214"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6_unbound.parent",
+      "group": "model1_internal_ingress_deny.ipv6_unbound",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "d43b724b3beb96da37865ad64d17558a421f980b11c8f7fe0e92cd446c212144"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6_unbound.child",
+      "group": "model1_internal_ingress_deny.ipv6_unbound",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "9e35d9c1f7a96b94409220e59930d0957977d1d86ce7b4793b2023e25216d035"
+    },
+    {
+      "id": "model1_internal_ingress_deny.ipv6_unbound.outside_after",
+      "group": "model1_internal_ingress_deny.ipv6_unbound",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "ab402addc9c882d883b3aa90b3180208fa122a22e0b4fc7cc124a4ff9975a9ba"
+    },
+    {
+      "id": "model1_internal.ipv4.outside_before",
+      "group": "model1_internal.ipv4",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "12c3aca6d4854c7b2211ac513277d6113bf518a7d6fd4fdb8ee5c10227c5e28f"
+    },
+    {
+      "id": "model1_internal.ipv4.parent",
+      "group": "model1_internal.ipv4",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "76ee760ad4c5694ccc02e411359ee53d61a080b777b6c1ed402b3b567fadbb85"
+    },
+    {
+      "id": "model1_internal.ipv4.child",
+      "group": "model1_internal.ipv4",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "e66743eb3452afa0d724e60ca2cd7ccc6f48add945861a7a654df1b79c56e5bb"
+    },
+    {
+      "id": "model1_internal.ipv4.outside_after",
+      "group": "model1_internal.ipv4",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "005436e4ec9a920f59c4dee41cd97016695bbe8efb2d9e1cd6e2855f99e6cb55"
+    },
+    {
+      "id": "model1_internal.ipv4_unbound.outside_before",
+      "group": "model1_internal.ipv4_unbound",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "e4d20c03ea6852c205f8ea6bd8e80e6ed1d26072a2c31a70b87ba541338ad169"
+    },
+    {
+      "id": "model1_internal.ipv4_unbound.parent",
+      "group": "model1_internal.ipv4_unbound",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "01dd1cf21625b7f29f2340726090a77a7e03c56d17e460d9e2a953a6f2b57b19"
+    },
+    {
+      "id": "model1_internal.ipv4_unbound.child",
+      "group": "model1_internal.ipv4_unbound",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "dd19ecaaed9582ce290e1e0128c2268b57ce00772a85bb8ac1c825642dc1aa70"
+    },
+    {
+      "id": "model1_internal.ipv4_unbound.outside_after",
+      "group": "model1_internal.ipv4_unbound",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "9f93b882a3e3248b3d8e6a2d2b8f9b88010a070ffd013b3bc194fab9f778b90b"
+    },
+    {
+      "id": "model1_internal.ipv6.outside_before",
+      "group": "model1_internal.ipv6",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "87ba8eb1f8c776a10d28d561757642322dca25f9b882ceaa966eeb0b40f7fca9"
+    },
+    {
+      "id": "model1_internal.ipv6.parent",
+      "group": "model1_internal.ipv6",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "2813ba15b3774cc9e0f71c9daa6d60d6cb8a927955fca5d9ac3a9d6c6dc6fb90"
+    },
+    {
+      "id": "model1_internal.ipv6.child",
+      "group": "model1_internal.ipv6",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "dec06ab3ad4692cc700a9cd6cf69a1c112043bbd6712ee1e4cc8685389af823c"
+    },
+    {
+      "id": "model1_internal.ipv6.outside_after",
+      "group": "model1_internal.ipv6",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "1fa7f5fdefffe70410860b4ba7cf36208bb7f011b861a7051da510fbba479407"
+    },
+    {
+      "id": "model1_internal.ipv6_unbound.outside_before",
+      "group": "model1_internal.ipv6_unbound",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "0c116dd9158fce8d68f3d2524875e5c3e10951292a03e2bf427eec3d769c593b"
+    },
+    {
+      "id": "model1_internal.ipv6_unbound.parent",
+      "group": "model1_internal.ipv6_unbound",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "129bad6d61101dd450471e2ceb1bf4d4bd1b6266705512264780c59084fc1c6c"
+    },
+    {
+      "id": "model1_internal.ipv6_unbound.child",
+      "group": "model1_internal.ipv6_unbound",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "757f0540a6bb203afd65cfd11be15e891dbb0638447208cc0e351fa5c2c8ecb0"
+    },
+    {
+      "id": "model1_internal.ipv6_unbound.outside_after",
+      "group": "model1_internal.ipv6_unbound",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "ce8c6a7b6147632ced784062fb121f5e38353d9b832cb53f2bfcbd2f3bbc85e8"
+    },
+    {
+      "id": "model2_host.ipv4.outside_before",
+      "group": "model2_host.ipv4",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "90bb58331807ab559ff6f69e1c3fbeca80c5196f7505280b5ac57e21003a3db8"
+    },
+    {
+      "id": "model2_host.ipv4.parent",
+      "group": "model2_host.ipv4",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "26d53500d5bc403cd97ac79ae24ce56be27ec21f6a4dea9ead5ba563193438c3"
+    },
+    {
+      "id": "model2_host.ipv4.child",
+      "group": "model2_host.ipv4",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "1c734a349a3f83bf54fb87fef8cb826910a16d837049e1c6c9c23b6f3ac8ca5f"
+    },
+    {
+      "id": "model2_host.ipv4.outside_after",
+      "group": "model2_host.ipv4",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "583775e61fee24334b6db28350febe657349ecbbcf813b33eb2562535722a662"
+    },
+    {
+      "id": "model2_host.ipv4_unbound.outside_before",
+      "group": "model2_host.ipv4_unbound",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "2f6df93050a247e50263241e49c2db27590781d542afddc16086f9f2f665391d"
+    },
+    {
+      "id": "model2_host.ipv4_unbound.parent",
+      "group": "model2_host.ipv4_unbound",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "3aa08cbb2d66a4b731ad44aa3eaf08b4f455b156db34de18b47caa9f52ca053c"
+    },
+    {
+      "id": "model2_host.ipv4_unbound.child",
+      "group": "model2_host.ipv4_unbound",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "b8e6a0f0fe0b2174889c1046060bb62df19645b6813c99929453a8781afd007f"
+    },
+    {
+      "id": "model2_host.ipv4_unbound.outside_after",
+      "group": "model2_host.ipv4_unbound",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "f9d966ae1c213a56a2bbbd87dae51666cb7e541130eaac84acb5cae52e58c1d3"
+    },
+    {
+      "id": "model2_host.ipv6.outside_before",
+      "group": "model2_host.ipv6",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "595d2dab8bfca234d27fe8469e7d0bf3d3a843820c22e7d1e69cfd4f3f6591c7"
+    },
+    {
+      "id": "model2_host.ipv6.parent",
+      "group": "model2_host.ipv6",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "36e6af3bea1e053a4ee3b64956b0feaeede24e2495b764ff2fefbebb43ecfa1c"
+    },
+    {
+      "id": "model2_host.ipv6.child",
+      "group": "model2_host.ipv6",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "1c6942a5414385e0680fdd10c9c1378c973d40c347138b45b889dd563e33c081"
+    },
+    {
+      "id": "model2_host.ipv6.outside_after",
+      "group": "model2_host.ipv6",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "3ea0ba90a30c97c5b67615b363a527781a15d96e49107f4e4eaa8d348a7644cc"
+    },
+    {
+      "id": "model2_host.ipv6_unbound.outside_before",
+      "group": "model2_host.ipv6_unbound",
+      "role": "outside_before",
+      "count": 1,
+      "payload_sha256": "4e58ea784638e717bf07ebd1b8711b4c981cfab8eef10fa2dfd6cf3bd257cc00"
+    },
+    {
+      "id": "model2_host.ipv6_unbound.parent",
+      "group": "model2_host.ipv6_unbound",
+      "role": "parent",
+      "count": 0,
+      "payload_sha256": "87b8866c97a5706b79e638fdfa7aab2d7e6b65106f65d4b100f970e4cbd55289"
+    },
+    {
+      "id": "model2_host.ipv6_unbound.child",
+      "group": "model2_host.ipv6_unbound",
+      "role": "child",
+      "count": 0,
+      "payload_sha256": "7ed3c69ea6c7499e21b576035d81d1b8076174e99e762b7f4ac4b559c07170db"
+    },
+    {
+      "id": "model2_host.ipv6_unbound.outside_after",
+      "group": "model2_host.ipv6_unbound",
+      "role": "outside_after",
+      "count": 1,
+      "payload_sha256": "a82081730715b0dd01b5ecbb1724dbb217e983c7ab35be3a386a0c2df8a18b88"
+    }
+  ],
+  "execution_proven": false,
+  "actor_execution_attested": true,
+  "packet_analysis_complete": true,
+  "capture_flushed": true,
+  "error": "capture_sender_execution_incomplete",
+  "native_dns": {
+    "schema_version": 1,
+    "status": "incomplete",
+    "scope": "default_test_vm_resolver_configuration_observed",
+    "acceptance_passed": false,
+    "kernel_denial_proven": false,
+    "capture_format_complete": true,
+    "capture_sha256": "5ec2e73837b47a5c08aab4b471f85d00ed4a93aeb32d14f29f578cc235cd68e6",
+    "capture_bytes": 70991,
+    "manifest_sha256": "b52dddcac02fcc3b08918187a2af9f73d19d62cfd7ad287e4639b108b34e3761",
+    "packet_records": 181,
+    "unknown_records": 2,
+    "unknown_reasons": {
+      "opaque_dns_tcp_or_https": 2
+    },
+    "contained_questions_absent": null,
+    "absence_observed": false,
+    "groups": [
+      {
+        "id": "model1_internal_ingress_deny.getaddrinfo",
+        "api": "getaddrinfo",
+        "query_type": null,
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_questions_absent": null,
+        "absence_observed": false,
+        "execution_proven": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_a",
+        "api": "dns_a",
+        "query_type": 1,
+        "positive_controls_complete": true,
+        "control_window_ordered": true,
+        "contained_questions_absent": null,
+        "absence_observed": false,
+        "execution_proven": true
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_aaaa",
+        "api": "dns_aaaa",
+        "query_type": 28,
+        "positive_controls_complete": false,
+        "control_window_ordered": false,
+        "contained_questions_absent": null,
+        "absence_observed": false,
+        "execution_proven": false
+      }
+    ],
+    "counts": [
+      {
+        "id": "model1_internal_ingress_deny.getaddrinfo.outside_before",
+        "group": "model1_internal_ingress_deny.getaddrinfo",
+        "role": "outside_before",
+        "api": "getaddrinfo",
+        "query_type": null,
+        "count": 2,
+        "qname_sha256": "df4dd081fe7cde8b34e8118a67d4ddfa0b2ded6a10c08b7b224c4ba96de0a518"
+      },
+      {
+        "id": "model1_internal_ingress_deny.getaddrinfo.parent",
+        "group": "model1_internal_ingress_deny.getaddrinfo",
+        "role": "parent",
+        "api": "getaddrinfo",
+        "query_type": null,
+        "count": 2,
+        "qname_sha256": "4d97eb554e1a506de4b3485ec6c8faa71e6d0cf4d85b15236e260f0ca8952a03"
+      },
+      {
+        "id": "model1_internal_ingress_deny.getaddrinfo.child",
+        "group": "model1_internal_ingress_deny.getaddrinfo",
+        "role": "child",
+        "api": "getaddrinfo",
+        "query_type": null,
+        "count": 2,
+        "qname_sha256": "f6fe15c4a9511089b6968159c8e16a12a1f972157e8d39e01483d9d9a19ffc84"
+      },
+      {
+        "id": "model1_internal_ingress_deny.getaddrinfo.outside_after",
+        "group": "model1_internal_ingress_deny.getaddrinfo",
+        "role": "outside_after",
+        "api": "getaddrinfo",
+        "query_type": null,
+        "count": 2,
+        "qname_sha256": "9811ad20ae4732e7751f8878045aaaa5337686569ba9057ee2019a7a2fc08202"
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_a.outside_before",
+        "group": "model1_internal_ingress_deny.dns_a",
+        "role": "outside_before",
+        "api": "dns_a",
+        "query_type": 1,
+        "count": 1,
+        "qname_sha256": "2045f9e8afa736a3b248ffe93ef5a2a4340f24cc9b3cdc240c98af8e566efe22"
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_a.parent",
+        "group": "model1_internal_ingress_deny.dns_a",
+        "role": "parent",
+        "api": "dns_a",
+        "query_type": 1,
+        "count": 1,
+        "qname_sha256": "31b8fa644ab1bc51b02c8a1b616c3cb96beb2997dc4be030be2289e57d056a0a"
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_a.child",
+        "group": "model1_internal_ingress_deny.dns_a",
+        "role": "child",
+        "api": "dns_a",
+        "query_type": 1,
+        "count": 1,
+        "qname_sha256": "fe17f8e2930987bd667b5600d18b9b944dcc794dfff4b187557831291ccfc826"
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_a.outside_after",
+        "group": "model1_internal_ingress_deny.dns_a",
+        "role": "outside_after",
+        "api": "dns_a",
+        "query_type": 1,
+        "count": 1,
+        "qname_sha256": "7762d04dc92f8dc42c36fdaa7952ca1538033bfc3aba7eacacb33fe3b7c47191"
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_aaaa.outside_before",
+        "group": "model1_internal_ingress_deny.dns_aaaa",
+        "role": "outside_before",
+        "api": "dns_aaaa",
+        "query_type": 28,
+        "count": 0,
+        "qname_sha256": "aebc744e5ddbce3a4bca08f82424e268c644a39d6e0e930e1c94d33d4cbdbe0c"
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_aaaa.parent",
+        "group": "model1_internal_ingress_deny.dns_aaaa",
+        "role": "parent",
+        "api": "dns_aaaa",
+        "query_type": 28,
+        "count": 1,
+        "qname_sha256": "308e83663fc5f3745da003d5712c30e15750165e85f582ec9e6835bea723cad3"
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_aaaa.child",
+        "group": "model1_internal_ingress_deny.dns_aaaa",
+        "role": "child",
+        "api": "dns_aaaa",
+        "query_type": 28,
+        "count": 1,
+        "qname_sha256": "09c8eb64844b6b3f4445c7f8cdc12b3a02890ab67a2df464f9913663e06b387b"
+      },
+      {
+        "id": "model1_internal_ingress_deny.dns_aaaa.outside_after",
+        "group": "model1_internal_ingress_deny.dns_aaaa",
+        "role": "outside_after",
+        "api": "dns_aaaa",
+        "query_type": 28,
+        "count": 2,
+        "qname_sha256": "0bd3f544842a9fbb8d2c9b7c22eb763069352bbddf97a9bafd9f5bf8f6e3bafb"
+      }
+    ],
+    "execution_proven": false,
+    "actor_execution_attested": true,
+    "packet_analysis_complete": false,
+    "capture_flushed": true,
+    "error": "capture_native_dns_execution_incomplete"
+  }
+}

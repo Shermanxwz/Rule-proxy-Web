@@ -14,6 +14,27 @@ if (Test-Path -LiteralPath $updateSource) {
     & icacls.exe $updateDirectory /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Could not protect the disposable VM update directory' }
     Get-ChildItem -LiteralPath $updateSource | Copy-Item -Destination $updateDirectory -Recurse
+    $updateWorker = Join-Path $updateDirectory 'windows-vm-update.ps1'
+    # Verify the copied SYSTEM entry point before dot sourcing its log helper.
+    foreach ($protectedPath in @($updateDirectory, $updateWorker)) {
+        $item = Get-Item -LiteralPath $protectedPath -Force
+        $acl = Get-Acl -LiteralPath $protectedPath
+        $trustedOwners = @('S-1-5-18', 'S-1-5-32-544')
+        $writeMask = [Security.AccessControl.FileSystemRights]::Write -bor [Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trustedOwners -or
+            ($protectedPath -eq $updateDirectory -and -not $acl.AreAccessRulesProtected)) {
+            throw 'Could not verify the protected update bootstrap'
+        }
+        foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+            if ($rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
+                ($rule.FileSystemRights -band $writeMask) -ne 0 -and $rule.IdentityReference.Value -notin $trustedOwners) {
+                throw 'Update bootstrap permits untrusted writes'
+            }
+        }
+    }
+    . $updateWorker
+    Write-UpdateWorkerEvent 'setup_root_verified'
     # Specialize only installs this owned task. Servicing runs after Windows
     # Setup completes and survives its required restart before ordinary tests.
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\RuleProxyCIUpdates\windows-vm-update.ps1'
@@ -23,6 +44,7 @@ if (Test-Path -LiteralPath $updateSource) {
     $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 85) -StartWhenAvailable -MultipleInstances IgnoreNew
     Register-ScheduledTask -TaskName 'RuleProxyCI-InstallOfficialUpdate' -Action $action -Trigger $triggers -Principal $principal -Settings $settings -Force | Out-Null
+    Write-UpdateWorkerEvent 'setup_task_registered'
 }
 & icacls.exe $destination /grant '*S-1-5-32-545:(OI)(CI)M' /T | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not grant the test user access to its test directory' }
