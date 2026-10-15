@@ -847,6 +847,58 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertEqual(result["experiments_phase"]["status"], "blocked")
         self.assertEqual(result["status"], "failed")
 
+    def test_singleton_encoding_is_forwarded_only_in_original_sdk_network_diagnostics(self):
+        workspace = self.guest_control_workspace({"experiments": {}})
+        config = self.root / "singleton-vm-config.json"
+        config.write_text(json.dumps({"network_diagnostic_only": True,
+                                      "singleton_port_range_diagnostic": True}))
+        clean = {"cleanup_proven": True,
+                 "checks": [{"check": "host_proxy_dns_default_routes_unchanged", "status": "passed"}],
+                 "variants": [{"process_started": True, "descendant_cleanup_proven": True,
+                               "resources_closed": True}]}
+        calls = []
+        def phase(name, command, *_, **__):
+            calls.append((name, command))
+            return {"name": name, "status": "passed", "exit_code": 0}, \
+                {"status": "supported_only"} if name == "probe" else copy.deepcopy(clean), ""
+        with mock.patch.object(vm, "run_guest_phase", side_effect=phase):
+            result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports", vm_config=config)
+        self.assertEqual([name for name, _ in calls], ["probe", "experiments"])
+        self.assertIn("--singleton-port-range", calls[1][1])
+        self.assertNotIn("--test-psec-executor", calls[1][1])
+        self.assertTrue(result["singleton_port_range_diagnostic"])
+        self.assertEqual(result["execution_mode"], "original_sdk")
+        self.assertEqual(result["status"], "failed")
+        self.assertFalse(result["product_acceptance_passed"])
+
+    def test_invalid_singleton_configuration_starts_no_guest_phase(self):
+        workspace = self.guest_control_workspace()
+        config = self.root / "singleton-vm-config.json"
+        for value in ({"singleton_port_range_diagnostic": True},
+                      {"network_diagnostic_only": True, "singleton_port_range_diagnostic": True,
+                       "test_psec_executor_diagnostic": True},
+                      {"network_diagnostic_only": True, "singleton_port_range_diagnostic": 1}):
+            config.write_text(json.dumps(value))
+            with self.subTest(value=value), mock.patch.object(vm, "run_guest_phase") as phase:
+                result = vm.run_guest_phases(self.root / "release", workspace, self.root / "reports", vm_config=config)
+                phase.assert_not_called()
+            self.assertEqual(result["diagnostic_configuration_error"], "invalid_private_configuration")
+            self.assertTrue(all(p["status"] == "blocked" for p in result["phases"]))
+
+    def test_singleton_cli_requires_original_sdk_network_mode_and_never_accepts(self):
+        base = ["--package", str(self.root / "release.zip"), "--package-sha256", "0" * 64,
+                "--artifacts", str(self.root / "artifacts"), "--singleton-port-range-diagnostic"]
+        for extra in ([], ["--network-diagnostic-only", "--test-psec-executor", "candidate.exe",
+                           "--test-psec-manifest", "candidate.json"]):
+            with self.subTest(extra=extra), mock.patch.object(vm, "run") as run, mock.patch("sys.stderr"):
+                with self.assertRaises(SystemExit) as failed:
+                    vm.main(base + extra)
+                self.assertEqual(failed.exception.code, 2)
+                run.assert_not_called()
+        with mock.patch.object(vm, "run", return_value=self.passed_result()) as run:
+            self.assertEqual(vm.main(base + ["--network-diagnostic-only"]), 1)
+            self.assertTrue(run.call_args.args[0].singleton_port_range_diagnostic)
+
     def test_network_diagnostic_retains_failed_experiment_and_cleanup_recovery(self):
         report = {"cleanup_proven": False, "cleanup_error": "retained", "recovery_directory": "private",
                   "checks": [], "variants": []}
@@ -1849,6 +1901,12 @@ class WindowsDiagnosticExecutorTests(unittest.TestCase):
         self.assertIn('--gui-diagnostic-only', run_step['run'])
         self.assertIn('inputs.network_diagnostic_only', run_step['env']['RULEPROXY_VM_NETWORK_DIAGNOSTIC'])
         self.assertIn('--network-diagnostic-only', run_step['run'])
+        singleton_option = trigger['workflow_dispatch']['inputs']['singleton_port_range_diagnostic']
+        self.assertEqual(singleton_option, {'description': singleton_option['description'], 'required': False,
+                                            'type': 'boolean', 'default': False})
+        self.assertIn('inputs.singleton_port_range_diagnostic', run_step['env']['RULEPROXY_VM_SINGLETON_DIAGNOSTIC'])
+        self.assertIn('--singleton-port-range-diagnostic', run_step['run'])
+        self.assertIn('SINGLETON_DIAGNOSTIC', validation['run'])
         step = next(step for step in job['steps'] if step.get('with', {}).get('name') == 'mxc-capability-executor')
         self.assertEqual(step['uses'], 'actions/download-artifact@v8')
         self.assertEqual(step['with']['run-id'], 38660663692)

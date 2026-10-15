@@ -61,6 +61,20 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertLess(experiment.VARIANTS.index("model1_internal_ingress_deny"),
                         experiment.VARIANTS.index("model1_internal"))
 
+    def test_singleton_range_option_changes_only_port_encoding_for_model1(self):
+        for name in experiment.MODEL1_VARIANTS:
+            with self.subTest(name=name):
+                single = experiment.network_policy(name, 49123, 10809)
+                ranged = experiment.network_policy(name, 49123, 10809, singleton_port_range=True)
+                rule = ranged["network"]["egress"]["allow"][0]
+                self.assertEqual(rule["to"], [{"cidr": "127.0.0.1/32"}])
+                self.assertEqual(rule["ports"], [{"protocol": "tcp", "port": 49123, "endPort": 49123}])
+                rule["ports"][0].pop("endPort")
+                self.assertEqual(ranged, single)
+        for name in ("model3", "model2_host"):
+            self.assertEqual(experiment.network_policy(name, 49123, 10809, singleton_port_range=True),
+                             experiment.network_policy(name, 49123, 10809))
+
     def test_fixed_http_and_socks_fixture_cross_frames_and_keep_both_fin_directions(self):
         fixture = experiment.FixedProxy()
         self.addCleanup(fixture.close)
@@ -663,6 +677,22 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
             self.assertEqual(result["status"], "failed")
             self.assertFalse(result["acceptance_passed"])
 
+    def test_singleton_range_rejects_custom_executor_before_setup_or_launch(self):
+        executor, manifest, _ = self.executor_build_fixture()
+        report = self.directory / "singleton-custom-executor.json"
+        with mock.patch.object(experiment, "load_helpers") as setup, \
+                mock.patch.object(experiment, "run_variant") as launch, mock.patch("builtins.print"):
+            code = experiment.main(["--root", str(self.directory), "--report", str(report),
+                                    "--singleton-port-range", "--test-psec-executor", str(executor),
+                                    "--test-psec-manifest", str(manifest)])
+        result = json.loads(report.read_text())
+        self.assertEqual(code, 1)
+        self.assertEqual(result["diagnostic_port_encoding"], "singleton_range")
+        self.assertFalse(result["acceptance_passed"])
+        self.assertIn("custom test executor", result["detail"])
+        setup.assert_not_called()
+        launch.assert_not_called()
+
     def test_failed_setup_still_writes_false_acceptance_and_no_collection_success(self):
         report = self.directory / "result.json"
         with mock.patch.object(experiment, "load_helpers", side_effect=RuntimeError("fixture setup failed")), \
@@ -678,7 +708,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
 
     def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False,
                                 explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False,
-                                trust_contaminated=False, warmup_failure=False, trust_close_failure=False,
+                                singleton_port_range=False, trust_contaminated=False, warmup_failure=False, trust_close_failure=False,
                                 dns_payload=None):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
@@ -753,6 +783,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 arguments.append("--collect-native-dns")
             if preferred_only:
                 arguments.append("--preferred-policy-only")
+            if singleton_port_range:
+                arguments.append("--singleton-port-range")
             if test_executor:
                 executor, manifest, _ = self.executor_build_fixture()
                 helpers.verify_runtime_manifest.return_value = {"wxc-exec.exe": "b" * 64}
@@ -768,6 +800,14 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertTrue(result['system_console_signature_preflight']['warmup_completed_before_capture_request'])
         self.assertTrue(result['system_console_signature_preflight']['cleanup_proven'])
         self.assertIs(launch.call_args.kwargs['console_trust'], wire.console_trust)
+
+    def test_main_passes_singleton_range_only_as_diagnostic_encoding(self):
+        code, result, _, _, launch, _ = self.native_dns_main_fixture(preferred_only=True,
+                                                                      singleton_port_range=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(result["diagnostic_port_encoding"], "singleton_range")
+        self.assertFalse(result["acceptance_passed"])
+        self.assertTrue(launch.call_args.kwargs["singleton_port_range"])
 
     def test_failed_trust_preparation_starts_neither_capture_nor_actor_and_closes_owned_cache(self):
         code, result, wire, _, launch, _ = self.native_dns_main_fixture(warmup_failure=True)

@@ -3,6 +3,7 @@
 CLI: package-python windows_network_experiment.py --root PACKAGE --report FILE
      [--allow-emulated-x64]
      [--test-psec-executor EXE --test-psec-manifest JSON] [--collect-native-dns]
+     [--singleton-port-range]
      [--preferred-policy-only]
 Exit 0 means bounded experimental observations were collected, including
 unsupported policies and failed socket checks. Exit 1 means the experiment or
@@ -347,15 +348,20 @@ def proxy_roundtrip(port, token, protocol):
             raise RuntimeError("Fixture reverse payload or FIN was invalid")
 
 
-def network_policy(name, internal_port, proxy_port):
+def network_policy(name, internal_port, proxy_port, *, singleton_port_range=False):
     if name not in VARIANTS or any(type(port) is not int or not 1 <= port <= 65535 for port in (internal_port, proxy_port)):
         raise ValueError("Invalid fixed policy variant or port")
+    if type(singleton_port_range) is not bool:
+        raise ValueError("Invalid diagnostic port encoding")
     value = {"network": {"egress": {"default": "deny"},
                          "ingress": {"default": "deny", "hostLoopback": "deny"}}}
     if name in MODEL1_VARIANTS:
         value["network"]["ingress"]["default"] = "allow" if name == "model1_internal" else "deny"
+        port_rule = {"protocol": "tcp", "port": internal_port}
+        if singleton_port_range:
+            port_rule["endPort"] = internal_port
         value["network"]["egress"]["allow"] = [{"to": [{"cidr": "127.0.0.1/32"}],
-                                                    "ports": [{"protocol": "tcp", "port": internal_port}]}]
+                                                    "ports": [port_rule]}]
     elif name == "model2_host":
         value["network"]["ingress"] = {"default": "allow", "hostLoopback": "allow"}
         value["runtimeConfig"] = {"networkProxy": f"http://127.0.0.1:{proxy_port}"}
@@ -1001,7 +1007,9 @@ def pending_recovery(value):
 
 
 def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None, dns=None,
-                executor=None, console_trust=None):
+                executor=None, console_trust=None, singleton_port_range=False):
+    if singleton_port_range and executor is not None:
+        raise ValueError("Singleton-range diagnostic cannot be combined with a custom test executor")
     profile.mkdir()
     result = {"name": name, "status": "not_run", "process_started": False,
               "no_process_started": True, "checks": []}
@@ -1038,7 +1046,7 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
         policy["process"]["commandLine"] = subprocess.list2cmdline(command)
         policy["process"]["timeout"] = 100000
         policy["filesystem"]["readonlyPaths"] = sorted(set(policy["filesystem"]["readonlyPaths"]) | {str(root), str(pipe_script.parent)})
-        policy.update(network_policy(name, endpoint, proxy.port))
+        policy.update(network_policy(name, endpoint, proxy.port, singleton_port_range=singleton_port_range))
         result["policy"] = policy
         try:
             result["probe"] = runtime._probe_request(str(executor), policy)
@@ -1177,12 +1185,15 @@ def main(arguments):
     parser.add_argument("--collect-native-dns", action="store_true")
     parser.add_argument("--preferred-policy-only", action="store_true",
                         help="Observe only the fixed production-policy candidate; keep other policies unselected")
+    parser.add_argument("--singleton-port-range", action="store_true",
+                        help="Diagnostic-only: encode the MODEL1 TCP port as equal port/endPort bounds")
     args = parser.parse_args(arguments)
     selected = (PREFERRED_VARIANT,) if args.preferred_policy_only else VARIANTS
     unselected = tuple(name for name in VARIANTS if name not in selected)
     args.report.resolve().parent.mkdir(parents=True, exist_ok=True)
     result = {"status": "failed", "full_acceptance_passed": False, "acceptance_passed": False,
               "real_node_passed": False, "product_provider_changed": False, "cleanup_proven": False,
+              "diagnostic_port_encoding": "singleton_range" if args.singleton_port_range else "single_port",
               "variants": [], "checks": [],
               "policy_selection": "preferred_only" if args.preferred_policy_only else "all_fixed",
               "selected_variants": list(selected),
@@ -1194,6 +1205,8 @@ def main(arguments):
     before = None
     phase_deadline = time.monotonic() + MATRIX_PHASE_SECONDS
     try:
+        if args.singleton_port_range and (args.test_psec_executor is not None or args.test_psec_manifest is not None):
+            raise ValueError("Singleton-range diagnostic cannot be combined with a custom test executor")
         helpers = load_helpers()
         if (args.test_psec_executor is None) != (args.test_psec_manifest is None):
             raise ValueError("Test PSEC executor and manifest must be provided together")
@@ -1254,7 +1267,8 @@ def main(arguments):
                                   deadline=phase_deadline, **({"wire": wire} if wire is not None else {}),
                                   **({"dns": dns} if preferred_dns else {}),
                                   **({"console_trust": console_trust} if console_trust is not None else {}),
-                                  **({"executor": executor} if executor is not None else {}))
+                                  **({"executor": executor} if executor is not None else {}),
+                                  **({"singleton_port_range": True} if args.singleton_port_range else {}))
             result["variants"].append(variant)
             if wire is not None:
                 wire.actors(variant)

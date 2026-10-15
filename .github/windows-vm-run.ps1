@@ -215,7 +215,7 @@ try {
     # Load failed reports too. A completed strict probe allows independent
     # fixtures, while retained cleanup errors block new contained launches.
     $result.phases = @($collected.phases)
-    foreach ($name in @('gui_diagnostic_only', 'network_diagnostic_only', 'source_diagnostic_only', 'full_acceptance_passed', 'product_acceptance_passed', 'execution_mode', 'product_runtime_replaced')) {
+    foreach ($name in @('gui_diagnostic_only', 'network_diagnostic_only', 'singleton_port_range_diagnostic', 'source_diagnostic_only', 'full_acceptance_passed', 'product_acceptance_passed', 'execution_mode', 'product_runtime_replaced')) {
         if ($collected.PSObject.Properties.Name -contains $name) { $result[$name] = $collected.$name }
     }
     if ($collected.experiments_phase) { $result.experiments_phase = $collected.experiments_phase }

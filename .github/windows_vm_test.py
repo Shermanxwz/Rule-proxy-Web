@@ -226,10 +226,10 @@ def guest_test_executor(root: Path, workspace: Path, vm_config: Path | None):
     return executor, directory / "build-manifest.json", metadata
 
 
-def guest_diagnostic_modes(vm_config: Path | None) -> tuple[bool, bool]:
+def guest_diagnostic_options(vm_config: Path | None) -> tuple[bool, bool, bool]:
     """Read mutually exclusive source diagnostic phase selections safely."""
     if vm_config is None:
-        return False, False
+        return False, False, False
     def unique_fields(pairs):
         value = {}
         for key, item in pairs:
@@ -245,14 +245,19 @@ def guest_diagnostic_modes(vm_config: Path | None) -> tuple[bool, bool]:
         config = json.loads(raw, object_pairs_hook=unique_fields)
         enabled = config.get("gui_diagnostic_only", False) if isinstance(config, dict) else None
         network = config.get("network_diagnostic_only", False) if isinstance(config, dict) else None
+        singleton = config.get("singleton_port_range_diagnostic", False) if isinstance(config, dict) else None
         executor_enabled = config.get("test_psec_executor_diagnostic", False) if isinstance(config, dict) else None
-        if type(enabled) is not bool or type(network) is not bool or type(executor_enabled) is not bool:
+        if any(type(flag) is not bool for flag in (enabled, network, singleton, executor_enabled)):
             raise ValueError
-        if (enabled and (executor_enabled or network)):
+        if (enabled and (executor_enabled or network)) or (singleton and (not network or executor_enabled)):
             raise ValueError
-        return enabled, network
+        return enabled, network, singleton
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("Private VM diagnostic configuration is invalid") from exc
+
+
+def guest_diagnostic_modes(vm_config: Path | None) -> tuple[bool, bool]:
+    return guest_diagnostic_options(vm_config)[:2]
 
 
 def guest_gui_diagnostic_only(vm_config: Path | None) -> bool:
@@ -1256,7 +1261,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
     probe_passed = False
     cleanup_pending = False
     try:
-        gui_only, network_only = guest_diagnostic_modes(vm_config)
+        gui_only, network_only, singleton = guest_diagnostic_options(vm_config)
     except ValueError:
         result["diagnostic_configuration_error"] = "invalid_private_configuration"
         result["error"] = "Private diagnostic configuration could not be verified"
@@ -1308,6 +1313,7 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
         return result
     if network_only:
         result.update(network_diagnostic_only=True, source_diagnostic_only=True,
+                      singleton_port_range_diagnostic=singleton,
                       full_acceptance_passed=False, product_acceptance_passed=False,
                       acceptance_passed=False, real_node_passed=False,
                       execution_mode="original_sdk", product_runtime_replaced=False)
@@ -1357,6 +1363,8 @@ def run_guest_phases(root: Path, workspace: Path, directory: Path, *, python: st
                    "--report", str(directory / "experiments.json"), "--preferred-policy-only",
                    "--vm-config", str(vm_config)]
         command.extend(diagnostic_arguments)
+        if singleton:
+            command.append("--singleton-port-range")
         record, report, log = run_guest_phase("experiments", command, directory,
                                               timeout=min(600, phase_timeout))
         result["experiments_phase"] = record
@@ -1521,13 +1529,15 @@ def run(args) -> dict:
     diagnostic_mode = custom_executor is not None or custom_manifest is not None
     gui_diagnostic_only = getattr(args, "gui_diagnostic_only", False) is True
     network_diagnostic_only = getattr(args, "network_diagnostic_only", False) is True
+    singleton_port_range_diagnostic = getattr(args, "singleton_port_range_diagnostic", False) is True
     require_update = not baseline
     summary = {"status": "failed", "baseline_diagnostic": baseline,
                "execution_mode": "source_executor_diagnostic" if diagnostic_mode else "original_sdk",
                "product_runtime_replaced": False,
                "gui_diagnostic_only": gui_diagnostic_only,
                "network_diagnostic_only": network_diagnostic_only,
-               "source_diagnostic_only": gui_diagnostic_only or network_diagnostic_only or diagnostic_mode,
+               "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
+               "source_diagnostic_only": gui_diagnostic_only or network_diagnostic_only or singleton_port_range_diagnostic or diagnostic_mode,
                "product_acceptance_passed": False,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
@@ -1613,6 +1623,7 @@ def run(args) -> dict:
                     "test_psec_executor_diagnostic": diagnostic_mode,
                     "gui_diagnostic_only": gui_diagnostic_only,
                     "network_diagnostic_only": network_diagnostic_only,
+                    "singleton_port_range_diagnostic": singleton_port_range_diagnostic,
                     **({"test_psec_executor_sha256": summary["test_psec_executor"]["executor_sha256"],
                         "test_psec_original_runtime_sha256": original_sha256}
                        if diagnostic_mode else {}),
@@ -1705,7 +1716,7 @@ def run(args) -> dict:
                         raise RuntimeError("VM packet capture control or dump/write failed")
                     verify_result(server.result, require_official_update=require_update,
                                   gui_diagnostic_only=gui_diagnostic_only,
-                                  network_diagnostic_only=network_diagnostic_only)
+                                  network_diagnostic_only=network_diagnostic_only or singleton_port_range_diagnostic)
                     if diagnostic_mode:
                         raise RuntimeError("Source executor diagnostics cannot qualify the original product network boundary")
                     summary["network_boundary"] = verify_network_boundary(capture.result)
@@ -1783,6 +1794,8 @@ def main(argv: list[str]) -> int:
                         help="Run only the strict probe and packaged product GUI diagnostic; never qualifies acceptance")
     parser.add_argument("--network-diagnostic-only", action="store_true",
                         help="Run only the strict probe and preferred-policy network experiment; never qualifies acceptance")
+    parser.add_argument("--singleton-port-range-diagnostic", action="store_true",
+                        help="Encode the same single TCP port as an inclusive singleton range in network diagnostics")
     parser.add_argument("--test-psec-executor", type=Path,
                         help="Source-only diagnostic executor; never replaces product bin or grants release success")
     parser.add_argument("--test-psec-manifest", type=Path)
@@ -1793,6 +1806,8 @@ def main(argv: list[str]) -> int:
         parser.error("--gui-diagnostic-only uses the packaged product SDK and cannot be combined with a source executor")
     if args.gui_diagnostic_only and args.network_diagnostic_only:
         parser.error("GUI and network diagnostic-only modes are mutually exclusive")
+    if args.singleton_port_range_diagnostic and (not args.network_diagnostic_only or args.test_psec_executor is not None):
+        parser.error("Singleton port encoding requires network diagnostic-only with the original SDK")
     if not 300 <= args.timeout_seconds <= 14400:
         parser.error("--timeout-seconds must be between 300 and 14400")
     result = run(args)
