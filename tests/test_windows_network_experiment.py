@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import socket
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -388,6 +389,152 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                         {"image_path": path, "image_path_truncated": False})
                 run.assert_not_called()
 
+    def console_cache_fixture(self):
+        class FileApi:
+            def __init__(self):
+                self.next_handle, self.opened, self.closed = 100, [], []
+                self.identity = {'volume': 7, 'file_id': 11, 'size': 1024,
+                    'creation_filetime': 1000, 'write_filetime': 2000, 'attributes': 32, 'sha256': 'b' * 64}
+                self.close_error = False
+            def open(self, path):
+                self.next_handle += 1
+                self.opened.append((self.next_handle, path))
+                return self.next_handle
+            def fingerprint(self, handle):
+                if handle in self.closed:
+                    raise RuntimeError('used closed file handle')
+                return dict(self.identity)
+            def close(self, handle):
+                if self.close_error:
+                    raise OSError('public fixture close error')
+                self.closed.append(handle)
+        api = FileApi()
+        with mock.patch.object(experiment, 'system_directory', return_value=r'C:\Windows\System32'):
+            cache = experiment.SystemConsoleTrustCache(api)
+        self.addCleanup(lambda: (setattr(api, 'close_error', False), cache.close()))
+        signature = {'signature_status': 'Valid', 'signature_type': 'Catalog', 'is_os_binary': True,
+            'publisher': 'Microsoft Windows', 'signer_thumbprint': 'A' * 40, 'file_sha256': 'b' * 64}
+        return cache, api, signature
+
+    def test_preflight_cache_keeps_held_file_and_avoids_online_trust_inside_capture(self):
+        cache, api, signature = self.console_cache_fixture()
+        with mock.patch.object(experiment, 'system_console_signature', return_value=signature) as trust:
+            cache.prepare()
+            self.assertEqual(len(cache.handles), 1)
+            held = cache.handles[0]
+            self.assertNotIn(held, api.closed)
+            cache.before_capture()
+            for _ in range(3):
+                self.assertEqual(cache.verify(cache.directory, cache.image), signature)
+            trust.assert_called_once_with(cache.directory, cache.image)
+            self.assertEqual(cache.handles, [held])
+            self.assertEqual(len(api.closed), 3)
+            cache.close()
+        report = cache.summary()
+        self.assertTrue(report['signature_prevalidated'])
+        self.assertTrue(report['warmup_completed_before_capture_request'])
+        self.assertEqual(report['cache_hits'], 3)
+        self.assertEqual(report['inside_capture_revalidations'], 0)
+        self.assertFalse(report['capture_contaminated'])
+        self.assertTrue(report['cleanup_proven'])
+        serialized = json.dumps(report)
+        self.assertNotIn('Windows', serialized)
+        self.assertNotIn('signer_thumbprint', serialized)
+        with self.assertRaises(RuntimeError):
+            cache.verify(cache.directory, cache.image)
+        with self.assertRaises(RuntimeError):
+            cache.prepare()
+
+    def test_same_path_and_sha_are_insufficient_when_file_id_size_or_times_change(self):
+        for field, value in (('file_id', 12), ('volume', 8), ('size', 2048),
+                             ('creation_filetime', 1001), ('write_filetime', 2001), ('sha256', 'c' * 64)):
+            with self.subTest(field=field):
+                cache, api, signature = self.console_cache_fixture()
+                with mock.patch.object(experiment, 'system_console_signature', return_value=signature) as trust:
+                    cache.prepare(); cache.before_capture()
+                    api.identity[field] = value
+                    with self.assertRaisesRegex(RuntimeError, 'binding changed'):
+                        cache.verify(cache.directory, cache.image)
+                    self.assertEqual(trust.call_count, 2)  # The original trust check is retained on a mismatch.
+                    self.assertTrue(cache.contaminated)
+                    self.assertEqual(cache.summary()['cache_hits'], 0)
+                    with self.assertRaises(RuntimeError):
+                        cache.verify(cache.directory, cache.image)
+                    self.assertEqual(trust.call_count, 2)  # An invalidated cache is never silently refreshed.
+
+    def test_preflight_hash_and_metadata_must_remain_bound_across_signature_query(self):
+        cache, api, signature = self.console_cache_fixture()
+        def change_during_signature(*_):
+            api.identity['file_id'] = 999
+            return signature
+        with mock.patch.object(experiment, 'system_console_signature', side_effect=change_during_signature):
+            with self.assertRaisesRegex(RuntimeError, 'held file bytes'):
+                cache.prepare()
+        self.assertFalse(cache.summary()['signature_prevalidated'])
+        with self.assertRaises(RuntimeError):
+            cache.before_capture()
+        cache.close()
+        self.assertTrue(cache.summary()['cleanup_proven'])
+
+    def test_cache_identity_read_error_is_contaminated_and_cannot_bypass_revalidation(self):
+        cache, api, signature = self.console_cache_fixture()
+        with mock.patch.object(experiment, 'system_console_signature', return_value=signature) as trust:
+            cache.prepare(); cache.before_capture()
+            with mock.patch.object(api, 'fingerprint', side_effect=OSError('public fixture read error')):
+                with self.assertRaisesRegex(RuntimeError, 'could not be verified'):
+                    cache.verify(cache.directory, cache.image)
+            self.assertEqual(trust.call_count, 2)
+        self.assertTrue(cache.summary()['capture_contaminated'])
+        cache.close()
+
+    def test_console_file_close_failure_is_retained_and_retriable_without_claiming_cleanup(self):
+        cache, api, signature = self.console_cache_fixture()
+        with mock.patch.object(experiment, 'system_console_signature', return_value=signature):
+            cache.prepare()
+        api.close_error = True
+        with self.assertRaisesRegex(RuntimeError, 'cleanup was not proven'):
+            cache.close()
+        self.assertFalse(cache.summary()['cleanup_proven'])
+        self.assertIn(cache, experiment._CONSOLE_RECOVERY_OWNERS)
+        api.close_error = False
+        cache.close()
+        self.assertTrue(cache.summary()['cleanup_proven'])
+        experiment._CONSOLE_RECOVERY_OWNERS.remove(cache)
+
+    @unittest.skipUnless(sys.platform == 'win32', 'real Windows file handle ABI required')
+    def test_real_windows_console_file_api_reads_owned_file_and_denies_concurrent_write(self):
+        api = experiment._ConsoleFileApi()
+        target = self.directory / '私有 file.bin'
+        target.write_bytes(b'public owned file bytes' * 10000)
+        handle = api.open(str(target))
+        try:
+            identity = api.fingerprint(handle)
+            self.assertEqual(identity['sha256'], hashlib.sha256(target.read_bytes()).hexdigest())
+            self.assertEqual(identity['size'], target.stat().st_size)
+            attempted = api.kernel32.CreateFileW(str(target), 0x40000000, 7, None, 3, 0x80, None)
+            if attempted != experiment.ctypes.c_void_p(-1).value:
+                api.close(attempted)
+                self.fail('held read-only image handle allowed a concurrent writer')
+            self.assertEqual(experiment.ctypes.get_last_error(), 32)
+        finally:
+            api.close(handle)
+        target.write_bytes(b'write succeeds after releasing the owned handle')
+
+    def test_cached_console_identity_still_requires_canonical_held_process_image(self):
+        api, runtime, wrapper, reports = self.attestation_fixture([(43, 202), (44, 203)])
+        image = {'image_path': r'C:\Windows\System32\conhost.exe', 'image_path_truncated': False}
+        cache, _, signature = self.console_cache_fixture()
+        with mock.patch.object(experiment, 'system_console_signature', return_value=signature) as trust, \
+                mock.patch.object(experiment, 'held_image_diagnostic', return_value=image), \
+                mock.patch.object(experiment, 'system_directory', return_value=cache.directory):
+            cache.prepare(); cache.before_capture()
+            _, handles = experiment.retain_actor_handles(runtime, wrapper, reports, console_trust=cache)
+            self.assertEqual(handles, [(42, 201), (43, 202), (44, 203)])
+            self.assertEqual(cache.summary()['cache_hits'], 1)
+            trust.assert_called_once()
+            with self.assertRaisesRegex(RuntimeError, 'canonical system console'):
+                cache.verify(cache.directory, {**image, 'image_path': r'C:\untrusted\conhost.exe'})
+
     def test_nested_recovery_stops_the_matrix_and_keeps_its_directory(self):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
@@ -530,7 +677,8 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
         self.assertFalse(value["real_node_passed"])
 
     def native_dns_main_fixture(self, *, fail_control=False, fail_actor=False, arm=False,
-                                explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False):
+                                explicit_dns=False, wire_enabled=True, test_executor=False, preferred_only=False,
+                                trust_contaminated=False, warmup_failure=False, trust_close_failure=False):
         helpers = mock.Mock()
         helpers.verify_runtime_manifest.return_value = {"fixed-runtime": "verified"}
         helpers.host_facts.return_value = {"native_machine": 0x8664, "python_pe_machine": 0x8664,
@@ -550,6 +698,22 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
             wire.requested_variants = tuple(variants)
             return wire
         wire.finish.return_value = {"acceptance_passed": False, "kernel_denial_proven": False}
+        trust = mock.Mock(contaminated=trust_contaminated)
+        trust.summary.return_value = {"scope": "system_console_signature_pre_capture", "signature_prevalidated": True,
+            "warmup_completed_before_capture_request": True, "cache_hits": 0, "inside_capture_revalidations": 0,
+            "capture_contaminated": trust_contaminated, "cleanup_proven": not trust_close_failure, "acceptance_passed": False}
+        wire.console_trust = trust
+        wire.sequence = []
+        trust.prepare.side_effect = lambda: wire.sequence.append('signature_prepare')
+        if warmup_failure:
+            trust.prepare.side_effect = RuntimeError('public fixture warmup failed')
+        trust.before_capture.side_effect = lambda: wire.sequence.append('before_capture')
+        wire.start.side_effect = lambda: wire.sequence.append('capture_start')
+        wire.finish.side_effect = lambda: (wire.sequence.append('capture_finish') or
+            {"acceptance_passed": False, "kernel_denial_proven": False})
+        trust.close.side_effect = lambda: wire.sequence.append('signature_file_close')
+        if trust_close_failure:
+            trust.close.side_effect = RuntimeError('public fixture handle close failed')
         dns = mock.Mock(safe=True, controls=[])
         dns.control.return_value = {"calls": [], "cleanup_proven": True}
         dns.finish_payload.return_value = {"manifest": "private-fixed-manifest", "execution": [],
@@ -577,6 +741,7 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 mock.patch.object(experiment.tempfile, "mkdtemp", return_value=str(retained)), \
                 mock.patch.object(experiment, "load_wire_helpers", return_value=SimpleNamespace(WireSession=wire_session)), \
                 mock.patch.object(experiment, "load_dns_session", return_value=SimpleNamespace(DnsSession=lambda *args: dns)), \
+                mock.patch.object(experiment, "SystemConsoleTrustCache", return_value=trust), \
                 mock.patch.object(experiment, "run_variant", side_effect=variant) as launch, \
                 mock.patch("builtins.print"):
             arguments = ["--root", str(self.directory), "--report", str(report),
@@ -593,6 +758,41 @@ class WindowsNetworkExperimentTests(unittest.TestCase):
                 arguments.extend(["--test-psec-executor", str(executor), "--test-psec-manifest", str(manifest)])
             code = experiment.main(arguments)
         return code, json.loads(report.read_text()), wire, dns, launch, retained
+
+    def test_main_prevalidates_signature_before_capture_and_closes_binding_after_finish(self):
+        code, result, wire, _, launch, _ = self.native_dns_main_fixture(preferred_only=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(wire.sequence, ['signature_prepare', 'before_capture', 'capture_start',
+                                         'capture_finish', 'signature_file_close'])
+        self.assertTrue(result['system_console_signature_preflight']['warmup_completed_before_capture_request'])
+        self.assertTrue(result['system_console_signature_preflight']['cleanup_proven'])
+        self.assertIs(launch.call_args.kwargs['console_trust'], wire.console_trust)
+
+    def test_failed_trust_preparation_starts_neither_capture_nor_actor_and_closes_owned_cache(self):
+        code, result, wire, _, launch, _ = self.native_dns_main_fixture(warmup_failure=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(result['status'], 'failed')
+        wire.start.assert_not_called()
+        wire.finish.assert_not_called()
+        launch.assert_not_called()
+        wire.console_trust.close.assert_called_once()
+
+    def test_changed_console_binding_revokes_wire_attestation_and_fails_collection(self):
+        code, result, wire, _, _, _ = self.native_dns_main_fixture(trust_contaminated=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(result['status'], 'failed')
+        self.assertIs(wire.attested, False)
+        self.assertTrue(result['system_console_signature_preflight']['capture_contaminated'])
+
+    def test_console_trust_handle_close_error_retains_recovery_and_cannot_report_success(self):
+        code, result, wire, _, _, retained = self.native_dns_main_fixture(trust_close_failure=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(result['status'], 'failed')
+        self.assertFalse(result['cleanup_proven'])
+        self.assertFalse(result['system_console_signature_preflight']['cleanup_proven'])
+        self.assertEqual(result['cleanup_error'], 'SystemConsoleTrustHandleCloseFailed')
+        self.assertTrue(retained.exists())
+        wire.finish.assert_called_once()
 
     def test_native_dns_only_couples_to_preferred_variant_and_finish_payload_stays_separate(self):
         code, result, wire, dns, launch, _ = self.native_dns_main_fixture()

@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 from ctypes import wintypes
+import hashlib
 import importlib.util
 import json
 import ntpath
@@ -34,13 +35,17 @@ _DIAGNOSTIC_STAGES = frozenset({
     "tree_snapshot_first", "tree_snapshot_second", "tree_child_open", "tree_child_pid_query",
     "tree_child_creation_query", "tree_child_alive_query", "tree_parent_alive_query",
     "tree_parent_exit_time_query", "tree_child_image_query", "tree_owner_alive_query",
-    "tree_owner_image_query", "tree_exit_query", "tree_query_handle_close",
+    "tree_owner_image_query", "tree_exit_query", "tree_exit_wait", "tree_query_handle_close",
     "tree_construct", "tree_refresh", "tree_startup_helper_verify", "tree_close_exited",
     "window_api_bind", "window_enumeration", "window_pid_query", "window_visibility_query",
     "window_close_post", "interactive_context_query", "app_prepare", "fixture_begin",
     "fixture_ack", "fixture_close", "runtime_launch", "startup_evidence", "wrapper_poll",
     "runtime_safe_stop", "runtime_resources_close", "wrapper_handle_close",
     "owner_cleanup", "profile_remove", "host_snapshot_after",
+    "failure_fixture_counts", "failure_owned_windows",
+    "tree_diagnostic_query_open", "tree_diagnostic_pid_query", "tree_diagnostic_creation_query",
+    "tree_diagnostic_image_query", "tree_diagnostic_snapshot_second", "tree_diagnostic_parent_identity",
+    "tree_diagnostic_handle_close",
 })
 
 
@@ -58,6 +63,45 @@ def error_facts(error, fallback_stage="unknown"):
     for key in ("errno", "winerror"):
         value = getattr(error, key, None)
         facts[key] = value if type(value) is int and 0 <= value <= 0xffffffff else None
+    context = getattr(error, "_gui_process_open_context", None)
+    if isinstance(context, dict) and context.get("operation") == "OpenProcess":
+        facts["operation"] = "OpenProcess"
+        for key, limit in (("candidate_pid", 2**32), ("parent_pid", 2**32),
+                           ("parent_creation_filetime", 2**64), ("requested_access", 2**32)):
+            value = context.get(key)
+            if type(value) is int and 0 < value < limit:
+                facts[key] = value
+    diagnostic = getattr(error, "_gui_query_only_diagnostic", None)
+    if isinstance(diagnostic, dict):
+        # This is a fixed diagnostic record, not arbitrary exception contents.
+        safe = {"requested_access": 0x1000}
+        status = diagnostic.get("status")
+        if type(status) is str and status in {"observed", "incomplete", "not_repeated", "limit_reached"}:
+            safe["status"] = status
+        for key in ("opened", "pid_matches", "older_than_parent", "second_parent_matches",
+                    "parent_identity_verified", "image_matches_edge", "handle_closed"):
+            value = diagnostic.get(key)
+            if type(value) is bool or value is None:
+                safe[key] = value
+        created = diagnostic.get("process_created")
+        if type(created) is int and 0 < created < 2**64:
+            safe["process_created"] = created
+        image_hash = diagnostic.get("image_key_sha256")
+        if isinstance(image_hash, str) and len(image_hash) == 64 and all(c in "0123456789abcdef" for c in image_hash):
+            safe["image_key_sha256"] = image_hash
+        for key in ("failure", "close_failure"):
+            value = diagnostic.get(key)
+            if (isinstance(value, dict) and type(value.get("stage")) is str
+                    and value["stage"] in _DIAGNOSTIC_STAGES):
+                kind = value.get("error_type")
+                allowed = {"PermissionError", "FileNotFoundError", "OSError", "RuntimeError", "TimeoutError",
+                           "ValueError", "TypeError", "AttributeError", "NotImplementedError", "Exception"}
+                safe[key] = {"stage": value["stage"],
+                             "error_type": kind if type(kind) is str and kind in allowed else "Exception"}
+                for name in ("errno", "winerror"):
+                    number = value.get(name)
+                    safe[key][name] = number if type(number) is int and 0 <= number <= 0xffffffff else None
+        facts["query_only_diagnostic"] = safe
     return facts
 
 
@@ -79,6 +123,7 @@ def owner_facts(owner):
     """Report existing ownership bookkeeping without making new kernel queries."""
     wrapper, tree = getattr(owner, "wrapper", None), getattr(owner, "tree", None)
     entries, pending = getattr(tree, "entries", None), getattr(tree, "pending", None)
+    diagnostic_owners = getattr(tree, "diagnostic_query_owners", None)
     pid, created = getattr(wrapper, "pid", None), getattr(tree, "root_created", None)
     return {"wrapper_handle_retained": wrapper is not None,
             "runtime_resources_retained": getattr(owner, "resources", None) is not None,
@@ -87,6 +132,7 @@ def owner_facts(owner):
             "wrapper_creation_filetime": created if type(created) is int and 0 < created < 2**64 else None,
             "attested_descendant_query_handles": len(entries) if isinstance(entries, dict) else None,
             "pending_query_handles": len(pending) if isinstance(pending, list) else None,
+            "diagnostic_query_handles": len(diagnostic_owners) if isinstance(diagnostic_owners, list) else None,
             "query_handle_limit": MAX_HANDLES,
             "query_handle_scope": "gui_query_handles_and_borrowed_wrapper_only"}
 
@@ -111,6 +157,8 @@ def image_key(path):
 class ProcessApi:
     """Read-only query/synchronize handles; no terminate capability here."""
 
+    PROCESS_ACCESS = 0x1000 | 0x00100000
+
     def __init__(self):
         from ruleproxy import windows_runtime
         self.api = _diagnostic_call("process_api_bind", windows_runtime._WinProcessApi)
@@ -120,7 +168,13 @@ class ProcessApi:
         self.kernel.GetProcessId.restype = wintypes.DWORD
 
     def open(self, pid):
-        handle = self.kernel.OpenProcess(0x1000 | 0x00100000, False, pid)
+        handle = self.kernel.OpenProcess(self.PROCESS_ACCESS, False, pid)
+        if not handle:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return int(handle)
+
+    def open_query(self, pid):
+        handle = self.kernel.OpenProcess(0x1000, False, pid)
         if not handle:
             raise ctypes.WinError(ctypes.get_last_error())
         return int(handle)
@@ -143,6 +197,9 @@ class ProcessApi:
     def alive(self, handle):
         return self.api.process_alive(handle)
 
+    def wait(self, handle, milliseconds):
+        return self.api.wait(handle, milliseconds)
+
     def image(self, handle):
         return self.api.process_image(handle)
 
@@ -151,6 +208,18 @@ class ProcessApi:
 
     def close(self, handle):
         self.api.close(handle)
+
+
+class _DiagnosticQueryOwner:
+    """Own one read-only diagnostic handle; it grants no process-tree authority."""
+    def __init__(self, api, handle, facts):
+        self.api, self.handle, self.facts = api, handle, facts
+
+    def close(self):
+        if self.handle is not None:
+            _diagnostic_call("tree_diagnostic_handle_close", self.api.close, self.handle)
+            self.handle = None
+            self.facts["handle_closed"] = True
 
 
 class OwnedTree:
@@ -173,6 +242,8 @@ class OwnedTree:
                      "handle": self.root_handle, "depth": 0}
         self.entries = {}
         self.pending = []
+        self.diagnostic_query_owners = []
+        self.diagnostic_attempts = set()
         self.peak_handles = 1
         self.closed = False
 
@@ -180,6 +251,63 @@ class OwnedTree:
         if _diagnostic_call("tree_held_pid_query", self.api.pid, entry["handle"]) != entry["pid"] \
                 or _diagnostic_call("tree_held_creation_query", self.api.created, entry["handle"]) != entry["created"]:
             raise RuntimeError("held process generation changed")
+
+    def _query_failure_candidate(self, pid, ppid, parent):
+        facts = {"status": "incomplete", "requested_access": 0x1000, "opened": False,
+                 "pid_matches": None, "older_than_parent": None, "second_parent_matches": None,
+                 "parent_identity_verified": False, "image_matches_edge": None, "handle_closed": True}
+        key = (pid, ppid, parent["created"])
+        if key in self.diagnostic_attempts:
+            facts["status"] = "not_repeated"
+            return facts
+        if (len(self.diagnostic_attempts) >= MAX_HANDLES or
+                1 + len(self.entries) + len(self.pending) + len(self.diagnostic_query_owners) >= MAX_HANDLES):
+            facts["status"] = "limit_reached"
+            return facts
+        self.diagnostic_attempts.add(key)
+        owner = None
+        try:
+            handle = _diagnostic_call("tree_diagnostic_query_open", self.api.open_query, pid)
+            owner = _DiagnosticQueryOwner(self.api, handle, facts)
+            self.diagnostic_query_owners.append(owner)
+            self.peak_handles = max(self.peak_handles,
+                1 + len(self.entries) + len(self.pending) + len(self.diagnostic_query_owners))
+            facts.update(opened=True, handle_closed=False)
+            facts["pid_matches"] = _diagnostic_call("tree_diagnostic_pid_query", self.api.pid, handle) == pid
+            if not facts["pid_matches"]:
+                raise RuntimeError("diagnostic query PID differed from the candidate")
+            created = _diagnostic_call("tree_diagnostic_creation_query", self.api.created, handle)
+            if type(created) is not int or not 0 < created < 2**64:
+                raise RuntimeError("diagnostic creation time was unavailable")
+            facts.update(process_created=created, older_than_parent=created < parent["created"])
+            _diagnostic_call("tree_diagnostic_parent_identity", self._identity, parent)
+            second = _diagnostic_call("tree_diagnostic_snapshot_second", self.api.snapshot)
+            _diagnostic_call("tree_diagnostic_parent_identity", self._identity, parent)
+            facts["parent_identity_verified"] = True
+            facts["second_parent_matches"] = second.get(pid) == ppid
+            if (not facts["second_parent_matches"] or
+                    _diagnostic_call("tree_diagnostic_creation_query", self.api.created, handle) != created):
+                raise RuntimeError("diagnostic candidate changed between snapshots")
+            image = image_key(_diagnostic_call("tree_diagnostic_image_query", self.api.image, handle))
+            facts.update(image_key_sha256=hashlib.sha256(image.encode("utf-8")).hexdigest(),
+                         image_matches_edge=image == self.edge, status="observed")
+        except Exception as error:
+            value = error_facts(error, "tree_diagnostic_query_open")
+            facts["failure"] = {name: value[name] for name in ("stage", "error_type", "errno", "winerror")}
+        finally:
+            if owner is not None:
+                try:
+                    owner.close()
+                    self.diagnostic_query_owners.remove(owner)
+                except Exception as error:
+                    value = error_facts(error, "tree_diagnostic_handle_close")
+                    facts["close_failure"] = {name: value[name] for name in ("stage", "error_type", "errno", "winerror")}
+        return facts
+
+    def close_diagnostic_queries(self):
+        for owner in list(self.diagnostic_query_owners):
+            owner.close()
+            self.diagnostic_query_owners.remove(owner)
 
     def refresh(self):
         if self.closed:
@@ -196,9 +324,19 @@ class OwnedTree:
                     continue
                 parent = parents[ppid]
                 self._identity(parent)
-                if 1 + len(self.entries) + len(self.pending) >= MAX_HANDLES:
+                if 1 + len(self.entries) + len(self.pending) + len(self.diagnostic_query_owners) >= MAX_HANDLES:
                     raise RuntimeError("owned process query handle limit exceeded")
-                handle = _diagnostic_call("tree_child_open", self.api.open, pid)
+                try:
+                    handle = _diagnostic_call("tree_child_open", self.api.open, pid)
+                except Exception as error:
+                    # Correlation facts only: this candidate has NOT acquired
+                    # owned-process or owned-window authority.
+                    error._gui_process_open_context = {"operation": "OpenProcess", "candidate_pid": pid,
+                        "parent_pid": ppid, "parent_creation_filetime": parent["created"],
+                        "requested_access": ProcessApi.PROCESS_ACCESS}
+                    if getattr(error, "winerror", None) == 5:
+                        error._gui_query_only_diagnostic = self._query_failure_candidate(pid, ppid, parent)
+                    raise
                 self.pending.append(handle)
                 self.peak_handles = max(self.peak_handles, 1 + len(self.entries) + len(self.pending))
                 if _diagnostic_call("tree_child_pid_query", self.api.pid, handle) != pid:
@@ -258,11 +396,21 @@ class OwnedTree:
             not _diagnostic_call("tree_exit_query", self.api.alive, entry["handle"]) for entry in self.entries.values()
         ) and all(not _diagnostic_call("tree_exit_query", self.api.alive, handle) for handle in self.pending)
 
-    def close_exited(self):
+    def close_exited(self, timeout=5):
         if self.closed:
             return
-        if not self.all_exited():
-            raise RuntimeError("owned query handles still include a live process")
+        self.close_diagnostic_queries()
+        if type(timeout) not in (int, float) or not 0 <= timeout <= 5:
+            raise ValueError("owned tree exit wait exceeds its fixed cleanup budget")
+        deadline = time.monotonic() + timeout
+        handles = [self.root_handle, *(entry["handle"] for entry in self.entries.values()), *self.pending]
+        for handle in handles:
+            # SDK teardown/accounting may finish before every descendant's
+            # kernel handle is signaled. Keep one total deadline for all of
+            # them; timeout never authorizes close or resource release.
+            remaining = int(max(0.0, deadline - time.monotonic()) * 1000)
+            if not _diagnostic_call("tree_exit_wait", self.api.wait, handle, remaining):
+                raise RuntimeError("owned query handles still include a live process")
         for pid, entry in list(self.entries.items()):
             _diagnostic_call("tree_query_handle_close", self.api.close, entry["handle"])
             del self.entries[pid]
@@ -304,14 +452,18 @@ class WindowApi:
             return None  # A window may disappear during read-only enumeration.
         return int(pid.value)
 
-    def windows(self):
-        values, overflow = [], []
+    def windows(self, allowed_pids=None):
+        if allowed_pids is not None and (not isinstance(allowed_pids, frozenset)
+                or any(type(pid) is not int or not 0 < pid <= 0xffffffff for pid in allowed_pids)):
+            raise ValueError("window filter requires fixed held process identifiers")
+        values, overflow, visited = [], [], []
         def visit(hwnd, parameter):
-            if len(values) >= 1024:
+            if len(visited) >= 1024:
                 overflow.append(True)
                 return False
+            visited.append(None)  # Bound callbacks without retaining foreign HWND/PID data.
             pid = self.pid(hwnd)
-            if pid:
+            if pid and (allowed_pids is None or pid in allowed_pids):
                 values.append((int(hwnd), pid))
             return True
         callback = self.callback(visit)
@@ -345,9 +497,13 @@ class WindowApi:
             raise ctypes.WinError(ctypes.get_last_error())
 
 
-def owned_windows(tree, windows):
+def owned_windows(tree, windows, *, allowed_pids=None):
     values = []
-    for hwnd, pid in _diagnostic_call("window_enumeration", windows.windows):
+    pairs = (_diagnostic_call("window_enumeration", windows.windows) if allowed_pids is None else
+             _diagnostic_call("window_enumeration", windows.windows, allowed_pids=allowed_pids))
+    for hwnd, pid in pairs:
+        if allowed_pids is not None and pid not in allowed_pids:
+            raise RuntimeError("window enumeration exceeded the held process filter")
         entry = tree.edge_owner(pid)
         if entry is None:
             continue
@@ -358,6 +514,43 @@ def owned_windows(tree, windows):
     if len(values) > 16:
         raise RuntimeError("owned visible window limit exceeded")
     return values
+
+
+def failure_auxiliary(owner, *, windows=None):
+    """Counts only; never repair tracking failure or open another process HANDLE."""
+    result = {"scope": "already_held_gui_failure_observations", "diagnostic_only": True}
+    try:
+        fixture = owner.fixture
+        if not fixture.lock.acquire(timeout=0.1):
+            raise TimeoutError("fixture count lock was unavailable")
+        try:
+            phase = fixture.phase
+            if type(phase) is not int or phase not in (1, 2):
+                raise ValueError("fixture phase was unavailable")
+            pages, acks = len(fixture.pages[phase]), len(fixture.acks[phase])
+            result["fixture"] = {"status": "observed", "phase": phase,
+                "page_request_count": min(pages, 65535), "dom_ack_count": min(acks, 65535),
+                "counts_capped": pages > 65535 or acks > 65535}
+        finally:
+            fixture.lock.release()
+    except Exception as error:
+        result["fixture"] = {"status": "incomplete", "failure": error_facts(error, "failure_fixture_counts")}
+    try:
+        tree = owner.tree
+        if tree is None or tree.closed or len(tree.entries) > MAX_HANDLES - 1:
+            raise RuntimeError("held process generations were unavailable")
+        # Identity/image queries use only the existing held handles. Only
+        # their verified Edge PIDs enter EnumWindows' retention filter.
+        allowed = frozenset(pid for pid in tree.entries if tree.edge_owner(pid) is not None)
+        visible = []
+        if allowed:
+            windows = _diagnostic_call("window_api_bind", WindowApi) if windows is None else windows
+            visible = owned_windows(tree, windows, allowed_pids=allowed)
+        result["visible_owned_windows"] = {"status": "observed", "held_edge_generation_count": len(allowed),
+            "visible_window_count": len(visible), "visible_window_observed": bool(visible)}
+    except Exception as error:
+        result["visible_owned_windows"] = {"status": "incomplete", "failure": error_facts(error, "failure_owned_windows")}
+    return result
 
 
 def close_owned_window(tree, windows, value):
@@ -491,8 +684,17 @@ class GuiRun:
 
     def close(self):
         from ruleproxy import windows_runtime
+        self.cleanup_proven = False
+        diagnostic_error = None
+        if self.tree is not None:
+            try:
+                self.tree.close_diagnostic_queries()
+            except Exception as error:
+                diagnostic_error = error
         if self.wrapper is not None:
             _diagnostic_call("runtime_safe_stop", windows_runtime.stop, self.wrapper)
+        if diagnostic_error is not None:
+            raise diagnostic_error
         if self.tree is not None and not self.tree.closed:
             _diagnostic_call("tree_refresh", self.tree.refresh)  # Include a last child born during graceful shutdown.
             _diagnostic_call("tree_close_exited", self.tree.close_exited)
@@ -570,6 +772,8 @@ def main(arguments):
         result["failure"] = error_facts(exc, phase)
         if owner is not None:
             result["failure_owner_state"] = owner_facts(owner)
+            if result["failure"]["stage"] == "tree_child_open":
+                result["failure_auxiliary"] = failure_auxiliary(owner)
     finally:
         if owner is not None:
             try:

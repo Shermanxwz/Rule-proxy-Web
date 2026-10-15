@@ -100,6 +100,31 @@ class OwnedJobTests(unittest.TestCase):
         self.assertTrue(owner.cleanup_proven)
         self.assertFalse(any(row[0].startswith("terminate") for row in api.calls))
 
+    def test_failure_snapshot_distinguishes_exited_root_from_live_owned_descendants(self):
+        owner, api = self.start()
+        api.active_count = 1
+        before = len(api.calls)
+        value = owner.failure_observations()
+        self.assertEqual(value["status"], "observed")
+        self.assertTrue(value["root_handle_signaled"])
+        self.assertEqual(value["root_exit_code"], 0)
+        self.assertEqual(value["active_job_processes"], 1)
+        self.assertFalse(value["natural_root_and_job_exit"])
+        self.assertFalse(owner.cleanup_proven)
+        self.assertEqual([row[0] for row in api.calls[before:]], ["wait", "active", "exit_code"])
+        owner.close()
+
+    def test_failure_snapshot_query_denial_is_incomplete_and_never_discards_handles(self):
+        owner, api = self.start()
+        api.fail["active"] = 1
+        value = owner.failure_observations()
+        self.assertEqual(value["status"], "incomplete")
+        self.assertEqual(value["failure"]["winerror"], 5)
+        self.assertNotIn("private", json.dumps(value))
+        self.assertEqual((owner.job, owner.process), (10, 20))
+        self.assertFalse(owner.cleanup_proven)
+        owner.close()
+
     def test_assignment_failure_never_resumes_and_only_terminates_its_owned_suspended_root(self):
         api = FakeApi()
         api.fail["assign"] = 1
@@ -280,10 +305,48 @@ class OutsideFixtureTests(unittest.TestCase):
                                            "--no-default-browser-check", "http://ruleproxy-browser-fixture.invalid/phase/1"])
             self.assertIn("--proxy-server=http://127.0.0.1:12345", command)
             self.assertIn("--proxy-bypass-list=<-loopback>", command)
-            self.assertIn("--restore-last-session", command)
+            self.assertNotIn("--restore-last-session", command)
             self.assertFalse(any("no-sandbox" in flag or "disable-setuid" in flag for flag in command))
             self.assertEqual(environment["LOCALAPPDATA"], str(directory / "profiles/browser/localappdata"))
             self.assertEqual(environment["HTTP_PROXY"], "http://127.0.0.1:12345")
+
+    def test_control_omits_only_exact_restore_argument_without_mutating_prepared_command(self):
+        prepared = ["msedge.exe", "--headless=new", "--dump-dom", "--restore-last-session",
+                    "--restore-last-session=literal", "http://fixed.invalid/--restore-last-session"]
+        original, environment = prepared.copy(), {"PUBLIC_FIXTURE_ENV": "unchanged"}
+        launcher = SimpleNamespace(prepare_app=mock.Mock(return_value=(prepared, environment, "detail")))
+        command, returned_environment, detail = control.prepare_control(launcher, Path("msedge.exe"),
+            Path("owned-profiles"), 12345, 2, "fixed.invalid")
+        self.assertEqual(command, original[:3] + original[4:])
+        self.assertEqual(prepared, original)
+        self.assertIs(returned_environment, environment)
+        self.assertEqual(detail, "detail")
+
+    def test_contained_and_outside_headless_commands_remain_identical_for_both_phases(self):
+        from ruleproxy import launcher, windows_runtime
+        browser = control.browser_helpers()
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary).resolve()
+            edge = directory / "msedge.exe"
+            edge.write_bytes(b"public test executable placeholder; never run")
+            edge.chmod(0o755)
+            for phase in (1, 2):
+                with self.subTest(phase=phase), mock.patch.object(launcher.sys, "platform", "win32"):
+                    command, _, _ = control.prepare_control(launcher, edge, directory / "profiles",
+                                                           12345, phase, browser.HOST)
+                    owner = browser.BrowserRun(Path("runtime"), edge, directory / "profiles", mock.Mock(port=23456))
+                    with mock.patch.object(windows_runtime, "choose_guest_port", return_value=12345), \
+                            mock.patch.object(windows_runtime, "launch", side_effect=RuntimeError("fixture capture only")) as launch, \
+                            self.assertRaisesRegex(RuntimeError, "fixture capture only"):
+                        owner.run(phase, 1)
+                    self.assertEqual(command, launch.call_args.args[0])
+                    self.assertEqual(control.command_template_hash(command),
+                                     control.command_template_hash(launch.call_args.args[0]))
+                    self.assertNotIn("--restore-last-session", command)
+                    product_command, _, _ = launcher.prepare_app({"id": "browser", "label": "Product GUI",
+                        "path": str(edge), "adapter": "chromium", "args": ["--new-window", "http://fixed.invalid"]},
+                        12345, directory / "profiles")
+                    self.assertIn("--restore-last-session", product_command)
 
     def test_command_fingerprint_ignores_only_owned_profile_and_proxy_values(self):
         one = ["C:\\Edge\\msedge.exe", "--headless=new", "--user-data-dir=C:\\privateA", "--proxy-server=http://127.0.0.1:1"]

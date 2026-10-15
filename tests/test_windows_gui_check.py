@@ -7,6 +7,7 @@ from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from unittest import mock
 from types import SimpleNamespace
@@ -23,7 +24,8 @@ class FakeProcessApi:
                      300: {"pid": 30, "created": 120, "alive": True, "image": edge}}
         self.parent_map = {10: 1, 20: 10, 30: 20, 99: 1}
         self.snapshots = []
-        self.opened, self.closed = [], []
+        self.opened, self.closed, self.waited = [], [], []
+        self.query_opened = []
 
     def pid(self, handle):
         return self.info[handle]["pid"]
@@ -37,6 +39,10 @@ class FakeProcessApi:
     def alive(self, handle):
         return self.info[handle]["alive"]
 
+    def wait(self, handle, milliseconds):
+        self.waited.append((handle, milliseconds))
+        return not self.alive(handle)
+
     def image(self, handle):
         return self.info[handle]["image"]
 
@@ -46,6 +52,13 @@ class FakeProcessApi:
     def open(self, pid):
         self.opened.append(pid)
         return next(handle for handle, value in self.info.items() if value["pid"] == pid)
+
+    def open_query(self, pid):
+        self.query_opened.append(pid)
+        source = next(value for value in self.info.values() if value["pid"] == pid)
+        handle = 10000 + len(self.query_opened)
+        self.info[handle] = source
+        return handle
 
     def close(self, handle):
         self.closed.append(handle)
@@ -58,8 +71,8 @@ class FakeWindows:
         self.rects = {700: [0, 0, 500, 400], 800: [10, 20, 650, 500]}
         self.posted = []
 
-    def windows(self):
-        return self.values
+    def windows(self, allowed_pids=None):
+        return [value for value in self.values if allowed_pids is None or value[1] in allowed_pids]
 
     def pid(self, hwnd):
         return self.pids.get(hwnd)
@@ -120,13 +133,115 @@ class GuiCheckTests(unittest.TestCase):
         with mock.patch.object(api, "open", side_effect=error), self.assertRaises(PermissionError) as raised:
             tree.refresh()
         self.assertIs(raised.exception, error)
-        self.assertEqual(gui.error_facts(error), {"stage": "tree_child_open", "error_type": "PermissionError",
-                                                 "errno": 13, "winerror": 5})
+        facts = gui.error_facts(error)
+        diagnostic = facts.pop("query_only_diagnostic")
+        self.assertEqual(facts, {"stage": "tree_child_open", "error_type": "PermissionError",
+                                "errno": 13, "winerror": 5, "operation": "OpenProcess",
+                                "candidate_pid": 20, "parent_pid": 10,
+                                "parent_creation_filetime": 100, "requested_access": 0x101000})
+        self.assertEqual(diagnostic["status"], "observed")
+        self.assertEqual(diagnostic["requested_access"], 0x1000)
+        self.assertTrue(diagnostic["handle_closed"])
+        self.assertFalse(diagnostic["older_than_parent"])
+        self.assertEqual(len(diagnostic["image_key_sha256"]), 64)
+        self.assertNotIn("private", json.dumps(gui.error_facts(error)))
         self.assertEqual(tree.entries, {})
         self.assertEqual(tree.pending, [])
-        self.assertEqual(api.closed, [])
+        self.assertEqual(api.closed, [10001])
+        self.assertEqual(api.query_opened, [20])
+        self.assertEqual(tree.diagnostic_query_owners, [])
         with self.assertRaisesRegex(RuntimeError, "live process"):
             tree.close_exited()
+
+    def test_query_only_diagnostic_identifies_older_candidate_without_granting_ownership_or_waiting_it(self):
+        tree, api = self.tree()
+        api.info[200]["created"] = 90
+        error = self.access_denied()
+        with mock.patch.object(api, "open", side_effect=error), self.assertRaises(PermissionError) as raised:
+            tree.refresh()
+        self.assertIs(raised.exception, error)
+        diagnostic = gui.error_facts(error)["query_only_diagnostic"]
+        self.assertTrue(diagnostic["older_than_parent"])
+        self.assertTrue(diagnostic["parent_identity_verified"])
+        self.assertTrue(diagnostic["second_parent_matches"])
+        self.assertTrue(diagnostic["handle_closed"])
+        self.assertEqual(tree.entries, {})
+        self.assertEqual(tree.pending, [])
+        self.assertEqual(api.waited, [])
+        self.assertEqual(gui.owned_windows(tree, FakeWindows()), [])
+        with mock.patch.object(api, "open", side_effect=self.access_denied()), self.assertRaises(PermissionError) as second:
+            tree.refresh()
+        self.assertEqual(api.query_opened, [20])
+        self.assertEqual(gui.error_facts(second.exception)["query_only_diagnostic"]["status"], "not_repeated")
+
+    def test_query_only_close_failure_retains_separate_owner_and_safe_stop_still_runs_before_retry(self):
+        from ruleproxy import windows_runtime
+        tree, api = self.tree()
+        error = self.access_denied()
+        with mock.patch.object(api, "open", side_effect=error), \
+                mock.patch.object(api, "close", side_effect=self.access_denied()), self.assertRaises(PermissionError) as raised:
+            tree.refresh()
+        self.assertIs(raised.exception, error)
+        self.assertEqual(tree.entries, {})
+        self.assertEqual(tree.pending, [])
+        self.assertEqual(len(tree.diagnostic_query_owners), 1)
+        self.assertEqual(tree.diagnostic_query_owners[0].handle, 10001)
+        self.assertFalse(gui.error_facts(error)["query_only_diagnostic"]["handle_closed"])
+        owner = gui.GuiRun(None, None, None, None, None, None)
+        owner.wrapper, owner.tree, owner.resources = tree.wrapper, tree, mock.Mock()
+        resources = owner.resources
+        with mock.patch.object(api, "close", side_effect=self.access_denied()), \
+                mock.patch.object(windows_runtime, "stop") as stop, self.assertRaises(PermissionError):
+            owner.close()
+        stop.assert_called_once_with(tree.wrapper)
+        self.assertFalse(owner.cleanup_proven)
+        resources.close.assert_not_called()
+        self.assertEqual(len(tree.diagnostic_query_owners), 1)
+        self.assertEqual(api.waited, [])
+        for value in api.info.values():
+            value["alive"] = False
+        api.parent_map = {10: 1}
+        with mock.patch.object(windows_runtime, "stop"):
+            owner.close()
+        self.assertTrue(owner.cleanup_proven)
+        self.assertEqual(tree.diagnostic_query_owners, [])
+        self.assertEqual(api.closed, [10001])
+        self.assertFalse(any(handle == 10001 for handle, _ in api.waited))
+
+    def test_query_only_failure_preserves_original_win5_and_cannot_disclose_private_details(self):
+        tree, api = self.tree()
+        original = self.access_denied()
+        with mock.patch.object(api, "open", side_effect=original), \
+                mock.patch.object(api, "open_query", side_effect=self.access_denied()), self.assertRaises(PermissionError) as raised:
+            tree.refresh()
+        self.assertIs(raised.exception, original)
+        facts = gui.error_facts(original)
+        self.assertEqual(facts["stage"], "tree_child_open")
+        self.assertEqual(facts["query_only_diagnostic"]["status"], "incomplete")
+        self.assertEqual(facts["query_only_diagnostic"]["failure"]["stage"], "tree_diagnostic_query_open")
+        self.assertNotIn("private", json.dumps(facts))
+        self.assertEqual(tree.diagnostic_query_owners, [])
+
+    def test_query_only_open_requests_neither_synchronize_nor_termination_rights(self):
+        api = object.__new__(gui.ProcessApi)
+        api.kernel = mock.Mock()
+        api.kernel.OpenProcess.return_value = 1234
+        self.assertEqual(api.open_query(20), 1234)
+        api.kernel.OpenProcess.assert_called_once_with(0x1000, False, 20)
+
+    def test_nested_query_diagnostic_errors_filter_private_text_and_invalid_numeric_properties(self):
+        error = self.access_denied()
+        error._gui_query_only_diagnostic = {"status": "incomplete", "opened": False,
+            "failure": {"stage": "tree_diagnostic_query_open", "error_type": "C:\\Private\\secret.exe",
+                        "errno": "private text", "winerror": True},
+            "close_failure": {"stage": "tree_diagnostic_handle_close", "error_type": "PermissionError",
+                              "errno": -1, "winerror": 2**32, "message": "private command"}}
+        facts = gui.error_facts(error)["query_only_diagnostic"]
+        self.assertEqual(facts["failure"], {"stage": "tree_diagnostic_query_open", "error_type": "Exception",
+                                            "errno": None, "winerror": None})
+        self.assertEqual(facts["close_failure"], {"stage": "tree_diagnostic_handle_close", "error_type": "PermissionError",
+                                                  "errno": None, "winerror": None})
+        self.assertNotIn("private", json.dumps(facts).lower())
 
     def test_failed_child_image_query_retains_pending_handle_and_separates_cleanup_failure(self):
         tree, api = self.tree()
@@ -320,6 +435,85 @@ class GuiCheckTests(unittest.TestCase):
         tree.close_exited()
         self.assertEqual(len(api.closed), 2)
 
+    def test_delayed_kernel_signals_are_waited_with_one_shared_budget_before_close(self):
+        tree, api = self.tree()
+        tree.refresh()
+        self.assertFalse(tree.all_exited())
+
+        def delayed_signal(handle, milliseconds):
+            api.waited.append((handle, milliseconds))
+            self.assertEqual(api.closed, [])
+            api.info[handle]["alive"] = False
+            return True
+
+        with mock.patch.object(api, "wait", side_effect=delayed_signal), \
+                mock.patch.object(gui.time, "monotonic", side_effect=[0, 1, 2, 4]):
+            tree.close_exited()
+        self.assertEqual(api.waited, [(100, 4000), (200, 3000), (300, 1000)])
+        self.assertTrue(tree.closed)
+        self.assertEqual(api.closed, [200, 300])
+
+    def test_tree_kernel_wait_timeout_preserves_all_handles_and_can_retry(self):
+        tree, api = self.tree()
+        tree.refresh()
+        api.info[100]["alive"] = api.info[200]["alive"] = False
+        with mock.patch.object(gui.time, "monotonic", side_effect=[0, 1, 2, 5]):
+            with self.assertRaisesRegex(RuntimeError, "live process"):
+                tree.close_exited()
+        self.assertEqual(api.waited, [(100, 4000), (200, 3000), (300, 0)])
+        self.assertFalse(tree.closed)
+        self.assertEqual(set(tree.entries), {20, 30})
+        self.assertEqual(api.closed, [])
+        api.info[300]["alive"] = False
+        tree.close_exited()
+        self.assertTrue(tree.closed)
+        self.assertEqual(api.closed, [200, 300])
+
+    def test_child_open_context_only_exports_fixed_operation_and_bounded_numeric_facts(self):
+        error = self.access_denied()
+        error._gui_process_open_context = {"operation": "OpenProcess", "candidate_pid": "private",
+            "parent_pid": True, "parent_creation_filetime": -1, "requested_access": 2**32,
+            "image": "C:\\Private\\msedge.exe"}
+        facts = gui.error_facts(error)
+        self.assertEqual(facts, {"stage": "unknown", "error_type": "PermissionError", "errno": 13,
+                                 "winerror": 5, "operation": "OpenProcess"})
+        self.assertNotIn("private", json.dumps(facts).lower())
+
+    def test_failed_tracking_can_report_held_visible_window_and_fixture_counts_without_opening_processes(self):
+        tree, api = self.tree()
+        tree.refresh()
+        fixture = SimpleNamespace(lock=threading.Lock(), phase=1,
+            pages={1: [False, True], 2: []}, acks={1: [True], 2: []})
+        owner = SimpleNamespace(tree=tree, fixture=fixture)
+        windows = FakeWindows()
+        with mock.patch.object(api, "open", side_effect=AssertionError("no new process may be opened")), \
+                mock.patch.object(windows, "visible_rect", wraps=windows.visible_rect) as geometry:
+            facts = gui.failure_auxiliary(owner, windows=windows)
+        self.assertEqual(facts["fixture"], {"status": "observed", "phase": 1,
+            "page_request_count": 2, "dom_ack_count": 1, "counts_capped": False})
+        self.assertEqual(facts["visible_owned_windows"], {"status": "observed",
+            "held_edge_generation_count": 1, "visible_window_count": 1, "visible_window_observed": True})
+        geometry.assert_called_once_with(800)
+        self.assertEqual(windows.posted, [])
+        self.assertNotIn("nonce", json.dumps(facts))
+        self.assertNotIn("cookie", json.dumps(facts))
+        self.assertNotIn("hwnd", json.dumps(facts))
+        self.assertTrue(facts["diagnostic_only"])
+
+    def test_failure_auxiliary_does_not_attribute_a_changed_held_generation_to_visible_edge(self):
+        tree, api = self.tree()
+        tree.refresh()
+        api.info[300]["created"] = 121
+        owner = SimpleNamespace(tree=tree, fixture=SimpleNamespace(lock=threading.Lock(), phase=2,
+            pages={1: [], 2: [True]}, acks={1: [], 2: []}))
+        windows = FakeWindows()
+        with mock.patch.object(windows, "windows", wraps=windows.windows) as enumerate_windows:
+            facts = gui.failure_auxiliary(owner, windows=windows)
+        self.assertEqual(facts["visible_owned_windows"]["status"], "incomplete")
+        self.assertEqual(facts["fixture"]["dom_ack_count"], 0)
+        enumerate_windows.assert_not_called()
+        self.assertEqual(windows.posted, [])
+
     def test_partial_handle_close_failure_preserves_remaining_handles(self):
         tree, api = self.tree()
         tree.refresh()
@@ -426,7 +620,7 @@ class GuiCheckTests(unittest.TestCase):
             browser.find_edge.return_value = self.edge
             owner = mock.Mock()
             error = self.access_denied()
-            error._gui_diagnostic_stage = "tree_child_image_query"
+            error._gui_diagnostic_stage = "tree_child_open"
             owner.run.side_effect = error
             owner.close.side_effect = RuntimeError("owned process remains alive")
             owner.wrapper = mock.Mock(pid=10)
@@ -440,6 +634,8 @@ class GuiCheckTests(unittest.TestCase):
                         mock.patch.object(windows_runtime, "probe", return_value={"supported": True}), \
                         mock.patch.object(gui.tempfile, "mkdtemp", return_value=str(profile)), \
                         mock.patch.object(gui, "GuiRun", return_value=owner), \
+                        mock.patch.object(gui, "failure_auxiliary", return_value={"diagnostic_only": True,
+                            "visible_owned_windows": {"status": "observed", "visible_window_observed": True}}) as auxiliary, \
                         mock.patch.object(gui.shutil, "rmtree") as remove, mock.patch("builtins.print"):
                     self.assertEqual(gui.main(["--root", str(root), "--report", str(report)]), 1)
                 value = json.loads(report.read_text())
@@ -447,8 +643,10 @@ class GuiCheckTests(unittest.TestCase):
                 self.assertIs(value["cleanup_proven"], False)
                 self.assertEqual(value["recovery_directory"], str(profile))
                 self.assertFalse(value["gui_fixture_passed"])
-                self.assertEqual(value["failure"], {"stage": "tree_child_image_query", "error_type": "PermissionError",
+                self.assertEqual(value["failure"], {"stage": "tree_child_open", "error_type": "PermissionError",
                                                     "errno": 13, "winerror": 5})
+                auxiliary.assert_called_once_with(owner)
+                self.assertTrue(value["failure_auxiliary"]["visible_owned_windows"]["visible_window_observed"])
                 self.assertEqual(value["cleanup_failure"]["stage"], "owner_cleanup")
                 self.assertEqual(value["cleanup_failure"]["error_type"], "RuntimeError")
                 self.assertEqual(value["failure_owner_state"]["pending_query_handles"], 1)
@@ -468,6 +666,13 @@ class GuiCheckTests(unittest.TestCase):
         process = subprocess.Popen([sys.executable, "-I", "-S", "-c", "import time; time.sleep(2)"])
         api, tree = gui.ProcessApi(), None
         try:
+            query = api.open_query(process.pid)
+            try:
+                self.assertEqual(api.pid(query), process.pid)
+                self.assertGreater(api.created(query), 0)
+                self.assertTrue(api.image(query))
+            finally:
+                api.close(query)  # QUERY-only is never passed to a wait API.
             tree = gui.OwnedTree(api, process, Path(sys.executable).resolve())
             self.assertEqual(api.pid(tree.root_handle), process.pid)
             self.assertGreater(tree.root_created, 0)

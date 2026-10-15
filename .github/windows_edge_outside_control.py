@@ -215,6 +215,27 @@ class OwnedJobProcess:
                 setattr(self, field, None)
         self.cleanup_proven = True
 
+    def failure_observations(self):
+        """Read existing handles only; root exit is separate from job exit."""
+        result = {"scope": "held_outside_job_failure_observations", "diagnostic_only": True,
+                  "assigned": self.assigned, "resumed": self.resumed,
+                  "natural_root_and_job_exit": self.natural_tree_exit}
+        try:
+            if self.process is None or self.job is None:
+                raise RuntimeError("existing owned handles are unavailable")
+            signaled = self.api.wait(self.process, 0)
+            active = self.api.active(self.job)
+            if type(signaled) is not bool or type(active) is not int or not 0 <= active <= 0xffffffff:
+                raise ValueError("invalid owned job observation")
+            code = self.api.exit_code(self.process) if signaled else None
+            if code is not None and (type(code) is not int or not 0 <= code <= 0xffffffff):
+                raise ValueError("invalid owned root exit code")
+            result.update(status="observed", root_handle_signaled=signaled,
+                          root_exit_code=code, active_job_processes=active)
+        except Exception as error:
+            result.update(status="incomplete", failure=error_facts(error, "held_job_failure_query"))
+        return result
+
 
 def browser_helpers():
     spec = importlib.util.spec_from_file_location("ruleproxy_outside_browser_helpers",
@@ -230,7 +251,11 @@ def prepare_control(launcher, browser, profiles, proxy_port, phase, host):
     app = {"id": "browser", "label": "Real Edge fixture", "path": str(browser), "adapter": "chromium",
            "args": ["--headless=new", "--dump-dom", "--disable-gpu", "--no-default-browser-check",
                     f"http://{host}/phase/{phase}"]}
-    return launcher.prepare_app(app, proxy_port, profiles)
+    command, environment, detail = launcher.prepare_app(app, proxy_port, profiles)
+    # Match BrowserRun's source-only dump-dom fixture. Production/GUI session
+    # restore remains unchanged; this fixture checks a persistent Max-Age cookie.
+    command = [argument for argument in command if argument != "--restore-last-session"]
+    return command, environment, detail
 
 
 def command_template_hash(command):
@@ -261,6 +286,7 @@ def initial_result():
                             "An owned cleanup job adds no UI limits; any pre-existing parent job is still inherited.",
                             "Failure alone cannot establish that host Edge is broken or exclude job compatibility issues.",
                             "Same prepared headless flags, with a new profile and an owned fixed HTTP fixture.",
+                            "The headless capture fixture omits session restore; its Max-Age cookie still tests persistence.",
                             "Only DOM acknowledgement, cookie persistence and natural exit are observed."]}
 
 
@@ -344,6 +370,8 @@ def main(arguments=None):
     except Exception as error:
         operation = owner.stage if owner is not None and stage in {"owned_process", "owned_process_cleanup"} else stage
         result["failure"] = error_facts(error, operation)
+        if owner is not None:
+            result["failure_owner_observations"] = owner.failure_observations()
     finally:
         if owner is not None:
             try:

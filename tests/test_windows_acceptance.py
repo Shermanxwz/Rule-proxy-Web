@@ -410,6 +410,7 @@ class WindowsAcceptanceTests(unittest.TestCase):
         self.assertEqual(status, "200 OK")
         self.assertIn(fixture.nonce.encode(), body)
         self.assertIn("Set-Cookie:", extra)
+        self.assertIn("Max-Age=3600", extra)
         fixture.begin(2)
         _, _, extra = fixture.response("GET", f"http://{browser.HOST}/phase/2", "HTTP/1.1", {})
         self.assertNotIn("Set-Cookie:", extra)
@@ -436,11 +437,18 @@ class WindowsAcceptanceTests(unittest.TestCase):
         wrapper.wait.return_value = 0
         fixture = mock.Mock(port=19002)
         owner = browser.BrowserRun(Path("runtime"), Path("msedge.exe"), self.root, fixture)
-        with mock.patch.object(launcher, "prepare_app", return_value=(["msedge.exe"], {}, "")), \
+        prepared = ["msedge.exe", "--headless=new", "--dump-dom", "--restore-last-session",
+                    "http://ruleproxy-browser-fixture.invalid/phase/1?literal=--restore-last-session"]
+        original = prepared.copy()
+        environment = {"PUBLIC_FIXTURE_ENV": "unchanged"}
+        with mock.patch.object(launcher, "prepare_app", return_value=(prepared, environment, "")), \
                 mock.patch.object(windows_runtime, "choose_guest_port", return_value=19001), \
-                mock.patch.object(windows_runtime, "launch", return_value=(wrapper, resources)), \
+                mock.patch.object(windows_runtime, "launch", return_value=(wrapper, resources)) as launch, \
                 mock.patch.object(windows_runtime, "stop"):
             result = owner.run(1, 90)
+        self.assertEqual(launch.call_args.args[0], [original[0], original[1], original[2], original[4]])
+        self.assertIs(launch.call_args.args[1], environment)
+        self.assertEqual(prepared, original, "Source fixture filtering must not mutate prepared product commands")
         self.assertEqual(result["startup_diagnostics"]["config_readonly"], {"ok": True, "code": 5})
         self.assertFalse(result["public_udp_proven"])
         self.assertFalse(result["system_dns_proven"])

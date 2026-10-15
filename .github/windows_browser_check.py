@@ -217,6 +217,10 @@ class BrowserRun:
                "adapter": "chromium", "args": ["--headless=new", "--dump-dom", "--disable-gpu",
                                                 "--no-default-browser-check", f"http://{HOST}/phase/{phase}"]}
         command, environment, _ = launcher.prepare_app(app, guest_port, self.profile_root)
+        # An existing profile's session restore can bypass dump-dom's command
+        # handler and natural-exit callback. This source-only capture fixture
+        # checks a Max-Age cookie, so it does not require restoring old tabs.
+        command = [argument for argument in command if argument != "--restore-last-session"]
         try:
             self.wrapper, self.resources = windows_runtime.launch(
                 command, environment, self.profile_root / "browser", self.fixture.port,

@@ -48,6 +48,7 @@ PSEC_PATCHED_SOURCE_SHA256 = "3809ab6269efaaf89011364c3f3355465ad11c7f5545f0a4f3
 PSEC_TEST_PATCH = {"name": "exact_internal_tcp_without_automatic_internet_client",
                    "capabilities_null": True, "network_table_unchanged": True,
                    "exact_internal_tcp_only": True, "caller_capabilities_must_be_empty": True}
+_CONSOLE_RECOVERY_OWNERS = []
 
 
 def strict_json_object(pairs):
@@ -562,12 +563,17 @@ def system_directory(api):
     return buffer.value
 
 
-def system_console_signature(directory, image):
-    """Use Windows PowerShell's real embedded/catalog trust verification."""
+def canonical_console_image(directory, image):
     expected = ntpath.join(directory, "conhost.exe")
     if (image.get("image_path_truncated") is not False or not isinstance(image.get("image_path"), str)
             or ntpath.normcase(ntpath.normpath(image["image_path"])) != ntpath.normcase(ntpath.normpath(expected))):
         raise RuntimeError("Extra child was not the canonical system console image")
+    return expected
+
+
+def system_console_signature(directory, image):
+    """Use Windows PowerShell's real embedded/catalog trust verification."""
+    expected = canonical_console_image(directory, image)
     encoded_target = base64.b64encode(expected.encode("utf-8")).decode("ascii")
     script = r"""
 $ErrorActionPreference = 'Stop'
@@ -616,6 +622,164 @@ finally { $sha.Dispose(); $stream.Dispose() }
                 for key, value in evidence.items() if key in fields and isinstance(value, (str, bool))}
         raise error
     return evidence
+
+
+class _ConsoleFileInfo(ctypes.Structure):
+    _fields_ = [(name, ctypes.c_uint32) for name in (
+        "attributes", "creation_low", "creation_high", "access_low", "access_high",
+        "write_low", "write_high", "volume", "size_high", "size_low", "links", "id_high", "id_low")]
+
+
+class _ConsoleFileApi:
+    """Read and retain one canonical system image; no write/delete sharing."""
+    def __init__(self):
+        if sys.platform != "win32":
+            raise OSError("System console file binding requires Windows")
+        self.kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        handle, dword = ctypes.c_void_p, ctypes.c_uint32
+        signatures = {
+            "CreateFileW": ([ctypes.c_wchar_p, dword, dword, handle, dword, dword, handle], handle),
+            "GetFileInformationByHandle": ([handle, ctypes.POINTER(_ConsoleFileInfo)], ctypes.c_int32),
+            "SetFilePointerEx": ([handle, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), dword], ctypes.c_int32),
+            "ReadFile": ([handle, handle, dword, ctypes.POINTER(dword), handle], ctypes.c_int32),
+            "CloseHandle": ([handle], ctypes.c_int32),
+        }
+        for name, (arguments, result) in signatures.items():
+            function = getattr(self.kernel32, name)
+            function.argtypes, function.restype = arguments, result
+
+    @staticmethod
+    def checked(value):
+        if not value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return value
+
+    def open(self, path):
+        # OPEN_REPARSE_POINT makes a replaced leaf observable, not traversable.
+        handle = self.kernel32.CreateFileW(path, 0x80000000, 1, None, 3, 0x00200080, None)
+        if handle in (None, ctypes.c_void_p(-1).value):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return handle
+
+    def metadata(self, handle):
+        info = _ConsoleFileInfo()
+        self.checked(self.kernel32.GetFileInformationByHandle(handle, ctypes.byref(info)))
+        size, identity = info.size_high << 32 | info.size_low, info.id_high << 32 | info.id_low
+        if info.attributes & 0x410 or not identity or not 0 < size <= 64 * 1024 * 1024:
+            raise RuntimeError("System console file was not a bounded ordinary non-reparse image")
+        return {"volume": info.volume, "file_id": identity, "size": size,
+                "creation_filetime": info.creation_high << 32 | info.creation_low,
+                "write_filetime": info.write_high << 32 | info.write_low,
+                "attributes": info.attributes}
+
+    def fingerprint(self, handle):
+        before = self.metadata(handle)
+        self.checked(self.kernel32.SetFilePointerEx(handle, 0, None, 0))
+        checksum, total = hashlib.sha256(), 0
+        buffer, count = ctypes.create_string_buffer(64 * 1024), ctypes.c_uint32()
+        while True:
+            self.checked(self.kernel32.ReadFile(handle, buffer, len(buffer), ctypes.byref(count), None))
+            if not count.value:
+                break
+            total += count.value
+            if count.value > len(buffer) or total > before["size"]:
+                raise RuntimeError("System console file changed during its bounded read")
+            checksum.update(buffer.raw[:count.value])
+        if total != before["size"] or self.metadata(handle) != before:
+            raise RuntimeError("System console file metadata changed during verification")
+        return {**before, "sha256": checksum.hexdigest()}
+
+    def close(self, handle):
+        self.checked(self.kernel32.CloseHandle(handle))
+
+
+class SystemConsoleTrustCache:
+    """One matrix's real trust result, bound to continuously held file bytes."""
+    def __init__(self, api=None):
+        self.api = _ConsoleFileApi() if api is None else api
+        self.directory = system_directory(self.api)
+        self.image = {"image_path": ntpath.join(self.directory, "conhost.exe"), "image_path_truncated": False}
+        self.handles, self.identity, self.signature = [], None, None
+        self.prepared_at = self.started_at = self.capture_requested_at = None
+        self.hits = self.revalidations = 0
+        self.contaminated = False
+
+    def _open(self):
+        handle = self.api.open(self.image["image_path"])
+        self.handles.append(handle)
+        return handle
+
+    def _close(self, handle):
+        self.api.close(handle)
+        self.handles.remove(handle)
+
+    def prepare(self):
+        if self.handles or self.signature is not None or self.capture_requested_at is not None:
+            raise RuntimeError("System console trust is scoped to one matrix")
+        self.started_at = time.monotonic()
+        handle = self._open()
+        before = self.api.fingerprint(handle)
+        signature = system_console_signature(self.directory, self.image)
+        after = self.api.fingerprint(handle)
+        if before != after or signature["file_sha256"] != after["sha256"]:
+            raise RuntimeError("System console signature was not bound to its held file bytes")
+        self.identity, self.signature = after, signature
+        self.prepared_at = time.monotonic()
+
+    def before_capture(self):
+        if self.signature is None or self.prepared_at is None or not self.handles or self.capture_requested_at is not None:
+            raise RuntimeError("System console trust was not prepared before capture")
+        self.capture_requested_at = time.monotonic()
+
+    def verify(self, directory, image):
+        canonical_console_image(directory, image)
+        if (self.signature is None or self.capture_requested_at is None or self.contaminated or not self.handles
+                or ntpath.normcase(directory) != ntpath.normcase(self.directory)):
+            raise RuntimeError("System console pre-capture trust was unavailable")
+        try:
+            handle = self._open()
+            try:
+                unchanged = self.api.fingerprint(handle) == self.identity
+            finally:
+                self._close(handle)
+        except Exception as exc:
+            self.contaminated = True
+            self.revalidations += 1
+            system_console_signature(directory, image)
+            raise RuntimeError("System console file binding could not be verified during capture") from exc
+        if not unchanged:
+            # Revalidation retains the original trust checks. Its possible
+            # network effects contaminate this capture, even if it succeeds.
+            self.contaminated = True
+            self.revalidations += 1
+            system_console_signature(directory, image)
+            raise RuntimeError("System console file binding changed during capture")
+        self.hits += 1
+        return dict(self.signature)
+
+    def close(self):
+        failed = False
+        for handle in tuple(self.handles):
+            try:
+                self._close(handle)
+            except Exception:
+                failed = True
+        if failed:
+            _CONSOLE_RECOVERY_OWNERS.append(self)
+            raise RuntimeError("System console trust file handle cleanup was not proven")
+
+    def summary(self):
+        identity = json.dumps(self.identity, sort_keys=True, separators=(",", ":")).encode("ascii")
+        return {"scope": "system_console_signature_pre_capture", "signature_prevalidated": self.signature is not None,
+            "signature_type": self.signature["signature_type"] if self.signature else None,
+            "warmup_completed_before_capture_request": (self.prepared_at is not None
+                and self.capture_requested_at is not None and self.prepared_at <= self.capture_requested_at),
+            "warmup_duration_ms": round((self.prepared_at - self.started_at) * 1000) if self.prepared_at else None,
+            "file_identity_sha256": hashlib.sha256(identity).hexdigest() if self.identity else None,
+            "file_sha256": self.identity["sha256"] if self.identity else None,
+            "cache_hits": self.hits, "inside_capture_revalidations": self.revalidations,
+            "capture_contaminated": self.contaminated, "cleanup_proven": not self.handles,
+            "acceptance_passed": False, "kernel_denial_proven": False}
 
 
 class _ObservedProcessCall:
@@ -721,7 +885,7 @@ class _ProcessApiObservation:
         return result
 
 
-def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
+def retain_actor_handles(runtime, wrapper, reports, diagnostics=None, *, console_trust=None):
     api = runtime._WinProcessApi()
     entries = []
     diagnostics = diagnostics if diagnostics is not None else {}
@@ -788,7 +952,9 @@ def retain_actor_handles(runtime, wrapper, reports, diagnostics=None):
         if extras:
             pid, _handle, created, image = extras[0]
             try:
-                signature = system_console_signature(system_directory(api), image)
+                directory = system_directory(api)
+                signature = (console_trust.verify(directory, image) if console_trust is not None
+                             else system_console_signature(directory, image))
             except Exception as exc:
                 snapshot["failure"] = "unexpected_live_children"
                 snapshot["helper_verification_error"] = type(exc).__name__
@@ -835,7 +1001,7 @@ def pending_recovery(value):
 
 
 def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_script, *, deadline=None, wire=None, dns=None,
-                executor=None):
+                executor=None, console_trust=None):
     profile.mkdir()
     result = {"name": name, "status": "not_run", "process_started": False,
               "no_process_started": True, "checks": []}
@@ -896,7 +1062,8 @@ def run_variant(name, profile, root, runtime, helpers, host_fixtures, udp, pipe_
             reports = wait_actor_reports(profile, wrapper, "initial", timeout=actor_budget)
             result["actors"] = reports
             result["actor_attestation"] = {}
-            api, handles = retain_actor_handles(runtime, wrapper, reports, result["actor_attestation"])
+            api, handles = retain_actor_handles(runtime, wrapper, reports, result["actor_attestation"],
+                                                console_trust=console_trust)
             if name != "model2_host":
                 try:
                     with socket.create_connection(("127.0.0.1", endpoint), timeout=1):
@@ -1021,7 +1188,7 @@ def main(arguments):
               "selected_variants": list(selected),
               "unselected_variants": [{"name": name, "status": "unselected", "process_started": False,
                                        "no_process_started": True} for name in unselected]}
-    directory = fixtures = udp = wire = dns = None
+    directory = fixtures = udp = wire = dns = console_trust = None
     safe = True
     code = 1
     before = None
@@ -1055,7 +1222,13 @@ def main(arguments):
         directory = Path(tempfile.mkdtemp(prefix="ruleproxy-network-experiment-"))
         fixtures, udp = helpers.HostFixtures(), DatagramObservers()
         if args.vm_config is not None:
+            # Trust verification may retrieve certificate/catalog data. Keep
+            # that unchanged check outside the NIC capture, and hold its file
+            # identity for every later helper binding check.
+            console_trust = SystemConsoleTrustCache()
+            console_trust.prepare()
             wire = load_wire_helpers(ROOT / ".github/windows_wire_probe.py").WireSession(args.vm_config, VARIANTS)
+            console_trust.before_capture()
             wire.start()
             record_unselected_wire_probes(wire, unselected)
         if args.collect_native_dns or (wire is not None and host.get("native_machine") == 0x8664):
@@ -1080,6 +1253,7 @@ def main(arguments):
             variant = run_variant(name, directory / name, root, runtime, helpers, fixtures, udp, pipe_script,
                                   deadline=phase_deadline, **({"wire": wire} if wire is not None else {}),
                                   **({"dns": dns} if preferred_dns else {}),
+                                  **({"console_trust": console_trust} if console_trust is not None else {}),
                                   **({"executor": executor} if executor is not None else {}))
             result["variants"].append(variant)
             if wire is not None:
@@ -1114,10 +1288,23 @@ def main(arguments):
                 code = 1
         if wire is not None:
             try:
+                if console_trust is not None and console_trust.contaminated:
+                    wire.attested = False
+                    result.update(status="failed", signature_binding_error="SystemConsoleChangedDuringCapture")
+                    code = 1
                 result["wire_observation"] = wire.finish()
             except Exception as exc:
                 result.update(status="failed", wire_error=type(exc).__name__)
                 code = 1
+        if console_trust is not None:
+            try:
+                console_trust.close()
+            except Exception:
+                safe = False
+                result.update(status="failed", cleanup_error="SystemConsoleTrustHandleCloseFailed",
+                              recovery_directory=str(directory), cleanup_proven=False)
+                code = 1
+            result["system_console_signature_preflight"] = console_trust.summary()
         if safe:
             try:
                 if udp is not None:
