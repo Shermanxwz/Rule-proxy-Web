@@ -87,6 +87,84 @@ class GuiCheckTests(unittest.TestCase):
         wrapper = mock.Mock(pid=10, _handle=100)
         return gui.OwnedTree(api, wrapper, self.edge), api
 
+    def access_denied(self):
+        error = PermissionError(13, "private error text", "C:\\User Secret\\private.exe")
+        error.winerror = 5
+        return error
+
+    def test_failed_child_open_records_exact_stage_without_granting_ownership(self):
+        tree, api = self.tree()
+        error = self.access_denied()
+        with mock.patch.object(api, "open", side_effect=error), self.assertRaises(PermissionError) as raised:
+            tree.refresh()
+        self.assertIs(raised.exception, error)
+        self.assertEqual(gui.error_facts(error), {"stage": "tree_child_open", "error_type": "PermissionError",
+                                                 "errno": 13, "winerror": 5})
+        self.assertEqual(tree.entries, {})
+        self.assertEqual(tree.pending, [])
+        self.assertEqual(api.closed, [])
+        with self.assertRaisesRegex(RuntimeError, "live process"):
+            tree.close_exited()
+
+    def test_failed_child_image_query_retains_pending_handle_and_separates_cleanup_failure(self):
+        tree, api = self.tree()
+        error = self.access_denied()
+        with mock.patch.object(api, "image", side_effect=error), self.assertRaises(PermissionError) as raised:
+            gui._diagnostic_call("tree_refresh", tree.refresh)
+        self.assertIs(raised.exception, error)
+        self.assertEqual(gui.error_facts(error)["stage"], "tree_child_image_query")
+        self.assertEqual(tree.pending, [200])
+        self.assertEqual(tree.entries, {})
+        self.assertEqual(api.closed, [])
+        owner = gui.GuiRun(None, None, None, None, None, None)
+        owner.tree, owner.wrapper, owner.resources = tree, tree.wrapper, object()
+        state = gui.owner_facts(owner)
+        self.assertEqual(state["wrapper_creation_filetime"], 100)
+        self.assertEqual(state["pending_query_handles"], 1)
+        self.assertTrue(state["runtime_resources_retained"])
+        with self.assertRaisesRegex(RuntimeError, "live process"):
+            gui._diagnostic_call("tree_close_exited", tree.close_exited)
+        self.assertEqual(tree.pending, [200])
+        self.assertEqual(api.closed, [])
+
+    def test_canonical_path_error_has_its_own_stage_and_does_not_publish_filename(self):
+        error = self.access_denied()
+        path = mock.Mock()
+        path.resolve.side_effect = error
+        with mock.patch.object(gui.os, "name", "nt"), mock.patch.object(gui, "Path", return_value=path), \
+                self.assertRaises(PermissionError) as raised:
+            gui.image_key("C:\\User Secret\\private.exe")
+        path.resolve.assert_called_once_with(strict=True)
+        self.assertIs(raised.exception, error)
+        facts = gui.error_facts(error)
+        self.assertEqual(facts["stage"], "image_path_canonicalize")
+        self.assertNotIn("private", json.dumps(facts))
+        self.assertNotIn("filename", facts)
+
+    def test_window_visibility_and_close_errors_are_distinct_and_do_not_touch_foreign_window(self):
+        for method, stage in (("visible_rect", "window_visibility_query"), ("post_close", "window_close_post")):
+            with self.subTest(method=method):
+                tree, api = self.tree()
+                tree.refresh()
+                windows = FakeWindows()
+                selected = gui.owned_windows(tree, windows)[0]
+                error = self.access_denied()
+                with mock.patch.object(windows, method, side_effect=error), self.assertRaises(PermissionError):
+                    gui.close_owned_window(tree, windows, selected)
+                self.assertEqual(gui.error_facts(error)["stage"], stage)
+                self.assertEqual(windows.posted, [])
+                self.assertNotIn(99, api.opened)
+                self.assertEqual(api.closed, [])
+
+    def test_error_facts_reject_unregistered_stage_and_non_integer_codes(self):
+        error = self.access_denied()
+        error._gui_diagnostic_stage = ["private path"]
+        error.errno, error.winerror = True, "5"
+        self.assertEqual(gui.error_facts(error), {"stage": "unknown", "error_type": "PermissionError",
+                                                 "errno": None, "winerror": None})
+        with self.assertRaisesRegex(ValueError, "unregistered"):
+            gui._diagnostic_call("private path", lambda: None)
+
     @unittest.skipIf(os.name == "nt", "Windows already exercises its real strict Path.resolve in every fake-lineage test")
     def test_windows_canonicalization_branch_requires_real_files_and_keeps_foreign_images_distinct(self):
         # Execute the production Windows branch with real POSIX test files.
@@ -239,8 +317,9 @@ class GuiCheckTests(unittest.TestCase):
         wrapper, resources, tree = owner.wrapper, owner.resources, owner.tree
         owner.cleanup_proven = False
         with mock.patch.object(windows_runtime, "stop", side_effect=RuntimeError("retain")):
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(RuntimeError) as raised:
                 owner.close()
+        self.assertEqual(gui.error_facts(raised.exception)["stage"], "runtime_safe_stop")
         self.assertIs(owner.wrapper, wrapper)
         self.assertIs(owner.resources, resources)
         tree.close_exited.assert_not_called()
@@ -324,8 +403,13 @@ class GuiCheckTests(unittest.TestCase):
             browser.acceptance_helpers.return_value = helpers
             browser.find_edge.return_value = self.edge
             owner = mock.Mock()
-            owner.run.side_effect = RuntimeError("GUI unavailable")
+            error = self.access_denied()
+            error._gui_diagnostic_stage = "tree_child_image_query"
+            owner.run.side_effect = error
             owner.close.side_effect = RuntimeError("owned process remains alive")
+            owner.wrapper = mock.Mock(pid=10)
+            owner.resources = mock.Mock()
+            owner.tree = mock.Mock(entries={}, pending=[200], root_created=100)
             retained_count = len(gui._RECOVERY_OWNERS)
             try:
                 with mock.patch.object(gui.sys, "platform", "win32"), \
@@ -341,6 +425,13 @@ class GuiCheckTests(unittest.TestCase):
                 self.assertIs(value["cleanup_proven"], False)
                 self.assertEqual(value["recovery_directory"], str(profile))
                 self.assertFalse(value["gui_fixture_passed"])
+                self.assertEqual(value["failure"], {"stage": "tree_child_image_query", "error_type": "PermissionError",
+                                                    "errno": 13, "winerror": 5})
+                self.assertEqual(value["cleanup_failure"]["stage"], "owner_cleanup")
+                self.assertEqual(value["cleanup_failure"]["error_type"], "RuntimeError")
+                self.assertEqual(value["failure_owner_state"]["pending_query_handles"], 1)
+                self.assertTrue(value["cleanup_owner_state"]["wrapper_handle_retained"])
+                self.assertTrue(value["cleanup_owner_state"]["runtime_resources_retained"])
                 self.assertIs(gui._RECOVERY_OWNERS[-1], owner)
                 owner.run.assert_called_once_with(1)
                 remove.assert_not_called()

@@ -1,5 +1,7 @@
 """Host-side VM controls cannot turn a skipped fixture into Windows acceptance."""
 import importlib.util
+import copy
+import hashlib
 import ipaddress
 import http.client
 import json
@@ -340,9 +342,9 @@ class WindowsVmTests(unittest.TestCase):
         arguments = ["--package", str(self.root / "release.zip"), "--package-sha256", "a" * 64,
                      "--artifacts", str(self.root)]
         baseline = {"status": "baseline_transport_and_package_tests_passed", "baseline_diagnostic": True,
-                    "official_update": {"required": False}}
+                    "official_update": {"required": False}, "network_boundary_passed": True}
         updated = {"status": "transport_and_package_tests_passed", "baseline_diagnostic": False,
-                   "official_update": {"required": True}}
+                   "official_update": {"required": True}, "network_boundary_passed": True}
         with mock.patch.object(vm, "run", return_value=baseline) as run:
             self.assertEqual(vm.main(arguments), 1)
             self.assertFalse(run.call_args.args[0].baseline_diagnostic)
@@ -668,6 +670,150 @@ raise SystemExit(configuration.get('exit_code', 0))
         self.assertEqual(result["recovery_records"], [])
 
 
+class WindowsNetworkBoundaryTests(unittest.TestCase):
+    """Release guards require actual scoped evidence, not aggregate green flags."""
+
+    def evidence(self):
+        preferred = 'model1_internal_ingress_deny'
+        def scope(groups, *, dns=False):
+            value = {'schema_version': 1, 'status': 'complete',
+                'scope': 'default_test_vm_resolver_configuration_observed' if dns else 'captured_qemu_vm_nic_egress',
+                'capture_format_complete': True, 'capture_flushed': True, 'actor_execution_attested': True,
+                'capture_sha256': 'a' * 64, 'capture_bytes': 4096, 'packet_records': 32,
+                'unknown_records': 0, 'unknown_reasons': {}, 'acceptance_passed': False,
+                'kernel_denial_proven': False, 'groups': [], 'counts': []}
+            for suffix in groups:
+                group = preferred + '.' + suffix
+                absent = 'contained_questions_absent' if dns else 'contained_markers_absent'
+                observed = {'id': group, 'execution_proven': True, 'positive_controls_complete': True,
+                    'control_window_ordered': True, 'absence_observed': True, absent: True}
+                if dns:
+                    observed.update(api=suffix, query_type={'getaddrinfo': None, 'dns_a': 1, 'dns_aaaa': 28}[suffix])
+                value['groups'].append(observed)
+                for role in ('outside_before', 'parent', 'child', 'outside_after'):
+                    row = {'id': group + '.' + role, 'group': group, 'role': role,
+                           'count': 1 if role.startswith('outside_') else 0}
+                    row['qname_sha256' if dns else 'payload_sha256'] = hashlib.sha256(row['id'].encode()).hexdigest()
+                    if dns:
+                        row.update(api=suffix, query_type=observed['query_type'])
+                    value['counts'].append(row)
+            return value
+        value = scope(('ipv4', 'ipv4_unbound', 'ipv6', 'ipv6_unbound'))
+        value['native_dns'] = scope(('getaddrinfo', 'dns_a', 'dns_aaaa'), dns=True)
+        return value
+
+    def test_all_preferred_modes_and_default_dns_can_pass_only_their_scoped_guard(self):
+        value = self.evidence()
+        result = vm.verify_network_boundary(value)
+        self.assertEqual(result['status'], 'passed')
+        self.assertEqual(len(result['udp_groups_verified']), 4)
+        self.assertEqual(len(result['native_dns_groups_verified']), 3)
+        self.assertFalse(result['kernel_denial_proven'])
+        self.assertFalse(result['full_acceptance_passed'])
+        self.assertFalse(result['real_node_passed'])
+
+    def test_native_cli_cannot_return_success_for_old_fixture_only_green_status(self):
+        for baseline in (False, True):
+            status = 'baseline_transport_and_package_tests_passed' if baseline else 'transport_and_package_tests_passed'
+            result = {'status': status, 'baseline_diagnostic': baseline,
+                      'official_update': {'required': not baseline}}
+            args = ['--package', 'public-fixture.zip', '--package-sha256', 'a' * 64, '--artifacts', 'unused']
+            if baseline:
+                args.append('--baseline-diagnostic')
+            with mock.patch.object(vm, 'run', return_value=result):
+                self.assertEqual(vm.main(args), 1)
+                result['network_boundary_passed'] = False
+                self.assertEqual(vm.main(args), 1)
+                result['network_boundary_passed'] = True
+                self.assertEqual(vm.main(args), 0)
+
+    def test_unsupported_unrelated_model2_never_requires_diagnostic_success(self):
+        value = self.evidence()
+        for capture in (value, value['native_dns']):
+            capture.update(status='incomplete', execution_proven=False, packet_analysis_complete=False,
+                           absence_observed=False)
+            capture['groups'].append({'id': 'model2_host.unavailable', 'execution_proven': False,
+                'positive_controls_complete': False, 'control_window_ordered': False, 'absence_observed': False})
+        value['error'] = 'capture_sender_execution_incomplete'
+        value['native_dns']['error'] = 'capture_native_dns_execution_incomplete'
+        self.assertEqual(vm.verify_network_boundary(value)['status'], 'passed')
+
+    def test_parent_or_child_wire_leak_cannot_be_hidden_by_positive_summary_flags(self):
+        for dns in (False, True):
+            for role in ('parent', 'child'):
+                value = self.evidence()
+                scope = value['native_dns'] if dns else value
+                row = next(row for row in scope['counts'] if row['role'] == role)
+                row['count'] = 1
+                with self.subTest(dns=dns, role=role), self.assertRaisesRegex(RuntimeError, 'contained traffic'):
+                    vm.verify_network_boundary(value)
+
+    def test_unexecuted_sender_missing_control_or_unordered_window_remains_unverified(self):
+        for dns in (False, True):
+            for field in ('execution_proven', 'positive_controls_complete', 'control_window_ordered', 'absence_observed'):
+                value = self.evidence()
+                scope = value['native_dns'] if dns else value
+                scope['groups'][-1][field] = False
+                with self.subTest(dns=dns, field=field), self.assertRaises(RuntimeError):
+                    vm.verify_network_boundary(value)
+            value = self.evidence()
+            scope = value['native_dns'] if dns else value
+            scope['counts'][-1]['count'] = 0
+            with self.subTest(dns=dns, control='actual count'), self.assertRaisesRegex(RuntimeError, 'positive control'):
+                vm.verify_network_boundary(value)
+
+    def test_missing_bound_unbound_or_native_api_group_cannot_pass_a_partial_scope(self):
+        for dns in (False, True):
+            for index in range(3 if dns else 4):
+                value = self.evidence()
+                scope = value['native_dns'] if dns else value
+                scope['groups'].pop(index)
+                with self.subTest(dns=dns, index=index), self.assertRaises(RuntimeError):
+                    vm.verify_network_boundary(value)
+        value = self.evidence()
+        del value['native_dns']
+        with self.assertRaises(RuntimeError):
+            vm.verify_network_boundary(value)
+
+    def test_unknown_opaque_unflushed_or_unattested_capture_is_not_absence(self):
+        for dns in (False, True):
+            for field, replacement in (('unknown_records', 1), ('unknown_records', False),
+                    ('unknown_reasons', {'opaque_dns_tcp_or_https': 1}), ('capture_format_complete', False),
+                    ('capture_flushed', False), ('actor_execution_attested', False),
+                    ('error', 'capture_analysis_or_flush_failed')):
+                value = self.evidence()
+                scope = value['native_dns'] if dns else value
+                scope[field] = replacement
+                with self.subTest(dns=dns, field=field), self.assertRaises(RuntimeError):
+                    vm.verify_network_boundary(value)
+
+    def test_counter_identity_types_uniqueness_and_same_capture_are_required(self):
+        changes = [('count', False), ('count', -1), ('count', '0'), ('role', 'outside_before'),
+                   ('group', 'model2_host.ipv4'), ('payload_sha256', 'invalid')]
+        for field, replacement in changes:
+            value = self.evidence()
+            value['counts'][1][field] = replacement
+            with self.subTest(field=field, replacement=replacement), self.assertRaises(RuntimeError):
+                vm.verify_network_boundary(value)
+        value = self.evidence()
+        value['counts'][1]['payload_sha256'] = value['counts'][0]['payload_sha256']
+        with self.assertRaises(RuntimeError):
+            vm.verify_network_boundary(value)
+        value = self.evidence()
+        value['native_dns']['counts'][4]['query_type'] = True
+        with self.assertRaises(RuntimeError):
+            vm.verify_network_boundary(value)
+        value = self.evidence()
+        value['counts'].append(copy.deepcopy(value['counts'][0]))
+        with self.assertRaises(RuntimeError):
+            vm.verify_network_boundary(value)
+        for field, replacement in (('capture_sha256', 'b' * 64), ('capture_bytes', 4097), ('packet_records', 33)):
+            value = self.evidence()
+            value['native_dns'][field] = replacement
+            with self.subTest(field=field), self.assertRaisesRegex(RuntimeError, 'same capture'):
+                vm.verify_network_boundary(value)
+
+
 class WindowsWireCaptureTests(unittest.TestCase):
     """Actual private HTTP requests and constructed PCAPs; no PSEC claim."""
 
@@ -795,6 +941,34 @@ class WindowsWireCaptureTests(unittest.TestCase):
         self.assertFalse(result["kernel_denial_proven"])
         self.assertFalse(result["acceptance_passed"])
         self.assertTrue(all(group["execution_proven"] for group in result["groups"]))
+
+    def test_release_guard_accepts_real_parsed_preferred_groups_with_unsupported_model2(self):
+        self.dual_mode()
+        self.execution = [row for row in self.execution if not row['id'].startswith('model2_host.')]
+        dns = self.dns_observation()
+        self.controller.start({}); self.capture(self.dns_capture_probes(dns))
+        result = self.finish(dns=dns)
+        self.assertEqual(result['status'], 'incomplete')
+        self.assertFalse(result['execution_proven'])
+        self.assertTrue(all(group['absence_observed'] for group in result['groups']
+            if group['id'].startswith('model1_internal_ingress_deny.')))
+        self.assertEqual(vm.verify_network_boundary(result)['status'], 'passed')
+
+    def test_release_guard_rejects_real_parsed_contained_default_resolver_question(self):
+        self.dual_mode()
+        dns = self.dns_observation()
+        controls = self.dns_capture_probes(dns)
+        parent = next(probe for probe in dns['manifest']['probes']
+                      if probe['api'] == 'getaddrinfo' and probe['role'] == 'parent')
+        leaked = {**parent, 'family': 'ipv4', 'source_ip': '10.0.2.15', 'destination': '10.0.2.3',
+                  'payload_hex': self.dns_message(parent['qname']).hex()}
+        self.controller.start({}); self.capture(controls + [leaked])
+        result = self.finish(dns=dns)
+        self.assertTrue(result['absence_observed'])  # Fixed raw UDP markers were absent.
+        self.assertEqual(next(row['count'] for row in result['native_dns']['counts']
+            if row['id'] == parent['id']), 1)
+        with self.assertRaisesRegex(RuntimeError, 'contained traffic'):
+            vm.verify_network_boundary(result)
 
     def test_unbound_send_not_attempted_and_bound_bind_denied_leave_own_groups_unknown(self):
         self.dual_mode()

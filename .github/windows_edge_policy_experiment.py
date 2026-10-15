@@ -45,7 +45,11 @@ JOB_FAILURE_STAGES = frozenset({"read_config", "validate_schema", "validate_prof
     "validate_report_parent", "validate_report_identity", "validate_report_reparse", "validate_command",
     "validate_executable", "validate_user_data_dir", "validate_proxy_server", "validate_proxy_bypass",
     "validate_argument", "validate_required_arguments", "query_job", "publish_initial", "launch",
-    "publish_started", "wait", "publish_result"})
+    "publish_started", "wait", "publish_result", "validate_directory_close"}) | frozenset(
+    f"{role}_{operation}" for role in ("validate_profile", "validate_config_parent", "validate_report_parent",
+                                      "validate_report_file", "validate_config_file", "validate_script_file",
+                                      "validate_user_data_dir")
+    for operation in ("open", "attributes", "identity", "opened_name"))
 
 
 class DiagnosticError(RuntimeError):

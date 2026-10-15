@@ -892,6 +892,90 @@ def verify_result(result: dict, *, require_official_update: bool = False) -> Non
         verify_phase_report(name, result.get("reports", {}).get(name))
 
 
+def _boundary_records(value, field, scope):
+    entries = value.get(field)
+    if (not isinstance(entries, list) or not 1 <= len(entries) <= 128
+            or not all(isinstance(entry, dict) and isinstance(entry.get("id"), str) for entry in entries)):
+        raise RuntimeError(f"{scope} omitted bounded {field} evidence")
+    indexed = {entry["id"]: entry for entry in entries}
+    if len(indexed) != len(entries):
+        raise RuntimeError(f"{scope} repeated an evidence identifier")
+    return indexed
+
+
+def _verify_boundary_scope(value, scope, groups, *, dns=False):
+    if (not isinstance(value, dict) or type(value.get("schema_version")) is not int
+            or value["schema_version"] != 1 or value.get("scope") != scope
+            or value.get("status") not in ("complete", "incomplete")
+            or any(value.get(key) is not True for key in (
+                "capture_format_complete", "capture_flushed", "actor_execution_attested"))
+            or any(value.get(key) is not False for key in ("acceptance_passed", "kernel_denial_proven"))
+            or not isinstance(value.get("capture_sha256"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", value["capture_sha256"])
+            or type(value.get("capture_bytes")) is not int or value["capture_bytes"] < 24
+            or type(value.get("packet_records")) is not int or value["packet_records"] < 1):
+        raise RuntimeError(f"{scope} did not establish a flushed, attested packet capture")
+    observed = _boundary_records(value, "groups", scope)
+    counts = _boundary_records(value, "counts", scope)
+    hash_field = "qname_sha256" if dns else "payload_sha256"
+    hashes = set()
+    for group, api in groups.items():
+        record = observed.get(group)
+        if not isinstance(record, dict):
+            raise RuntimeError(f"{scope} omitted a preferred policy group")
+        query_type = {"getaddrinfo": None, "dns_a": 1, "dns_aaaa": 28}.get(api)
+        for role in ("outside_before", "parent", "child", "outside_after"):
+            row = counts.get(group + "." + role)
+            if (not isinstance(row, dict) or row.get("group") != group or row.get("role") != role
+                    or type(row.get("count")) is not int or row["count"] < 0
+                    or not isinstance(row.get(hash_field), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", row[hash_field])
+                    or row[hash_field] in hashes
+                    or (dns and (row.get("api") != api or "query_type" not in row
+                        or type(row["query_type"]) is not type(query_type) or row["query_type"] != query_type))):
+                raise RuntimeError(f"{scope} omitted distinct, typed preferred probe counters")
+            hashes.add(row[hash_field])
+            if role in ("parent", "child") and row["count"]:
+                raise RuntimeError(f"{scope} observed contained traffic on the VM NIC")
+            if role in ("outside_before", "outside_after") and row["count"] < 1:
+                raise RuntimeError(f"{scope} lacked an outside positive control")
+        absence_field = "contained_questions_absent" if dns else "contained_markers_absent"
+        if (any(record.get(key) is not True for key in (
+                "execution_proven", "positive_controls_complete", "control_window_ordered", "absence_observed", absence_field))
+                or (dns and (record.get("api") != api or "query_type" not in record
+                    or type(record["query_type"]) is not type(query_type) or record["query_type"] != query_type))):
+            raise RuntimeError(f"{scope} did not prove executed preferred probes inside healthy control windows")
+    if (type(value.get("unknown_records")) is not int or value["unknown_records"] != 0
+            or value.get("unknown_reasons") != {}):
+        raise RuntimeError(f"{scope} contained unknown or opaque packet evidence")
+    permitted_error = "capture_native_dns_execution_incomplete" if dns else "capture_sender_execution_incomplete"
+    if value.get("error") not in (None, permitted_error):
+        raise RuntimeError(f"{scope} had an unresolved collection failure")
+
+
+def verify_network_boundary(value):
+    """Require the preferred policy's fixed UDP/default-DNS wire observations.
+
+    Other diagnostic policies need not execute. Their aggregate incomplete
+    label cannot erase independently complete preferred group evidence.
+    These observations never establish blanket kernel or real-node acceptance.
+    """
+    preferred = "model1_internal_ingress_deny"
+    udp_groups = {preferred + "." + family + suffix: None
+        for family in ("ipv4", "ipv6") for suffix in ("", "_unbound")}
+    _verify_boundary_scope(value, "captured_qemu_vm_nic_egress", udp_groups)
+    dns = value.get("native_dns")
+    dns_groups = {preferred + "." + api: api for api in ("getaddrinfo", "dns_a", "dns_aaaa")}
+    _verify_boundary_scope(dns, "default_test_vm_resolver_configuration_observed", dns_groups, dns=True)
+    if any(dns.get(key) != value.get(key) for key in ("capture_sha256", "capture_bytes", "packet_records")):
+        raise RuntimeError("UDP and native DNS evidence did not use the same capture")
+    return {"status": "passed", "scope": "preferred_policy_fixed_udp_and_default_dns_on_test_vm_nic",
+            "preferred_policy": preferred, "udp_groups_verified": list(udp_groups),
+            "native_dns_groups_verified": list(dns_groups), "contained_udp_markers_received": 0,
+            "contained_native_dns_questions_received": 0, "capture_sha256": value["capture_sha256"],
+            "kernel_denial_proven": False, "full_acceptance_passed": False, "real_node_passed": False}
+
+
 def read_bounded_log(path: Path) -> str:
     with path.open("rb") as stream:
         raw = stream.read(MAX_PHASE_RECORD_BYTES + 1)
@@ -1079,7 +1163,7 @@ def run(args) -> dict:
     summary = {"status": "failed", "baseline_diagnostic": baseline,
                "full_acceptance_passed": False, "real_node_passed": False,
                "transport_passed": False, "manager_fixture_passed": False, "browser_fixture_passed": False,
-               "gui_fixture_passed": False,
+               "gui_fixture_passed": False, "network_boundary_passed": False,
                "iso": {"url": ISO_URL, "sha256": ISO_SHA256,
                "download_page": ISO_SOURCE, "hash_source": ISO_HASH_SOURCE, "evaluation_days": 90},
                "official_update": {"required": require_update, "kb": "KB5127648", "target_build": UPDATE_BUILD, "target_ubr": UPDATE_UBR,
@@ -1227,11 +1311,12 @@ def run(args) -> dict:
                     if not capture.log_clean() or capture.collection_error:
                         raise RuntimeError("VM packet capture control or dump/write failed")
                     verify_result(server.result, require_official_update=require_update)
+                    summary["network_boundary"] = verify_network_boundary(capture.result)
                     summary.update(status="baseline_transport_and_package_tests_passed" if baseline else "transport_and_package_tests_passed", transport_passed=True,
-                                   manager_fixture_passed=True, browser_fixture_passed=True, gui_fixture_passed=True,
+                                   manager_fixture_passed=True, browser_fixture_passed=True, gui_fixture_passed=True, network_boundary_passed=True,
                                    ordinary_user=True, native_x64=True, elapsed_seconds=int(time.monotonic() - started))
                     scope = "Baseline diagnostic" if baseline else "Officially updated native x64"
-                    print(scope + " PSEC transport, Manager lifecycle, visible Edge GUI and release package tests passed; full/real-node acceptance remains separate", flush=True)
+                    print(scope + " PSEC fixtures, scoped UDP/default DNS boundary and package tests passed; full/real-node acceptance remains separate", flush=True)
             finally:
                 # Dispose only this ephemeral test VM and TPM, never a named
                 # host process or a user-owned Windows application.
@@ -1253,15 +1338,17 @@ def run(args) -> dict:
                     capture.close()
                     summary["wire_evidence"] = capture.result
                     if capture.collection_error:
+                        summary.pop("network_boundary", None)
                         summary.update(status="failed", transport_passed=False, manager_fixture_passed=False,
-                                       browser_fixture_passed=False, gui_fixture_passed=False,
+                                       browser_fixture_passed=False, gui_fixture_passed=False, network_boundary_passed=False,
                                        error="VM packet capture control or dump/write failed")
                 server.shutdown()
                 server.server_close()
                 http_thread.join(timeout=5)
     except Exception as exc:
         summary.update(status="failed", transport_passed=False, manager_fixture_passed=False,
-                       browser_fixture_passed=False, gui_fixture_passed=False, error=f"{type(exc).__name__}: {exc}")
+                       browser_fixture_passed=False, gui_fixture_passed=False, network_boundary_passed=False,
+                       error=f"{type(exc).__name__}: {exc}")
         print(f"::error title=Windows KVM guest::{type(exc).__name__}: {exc}", flush=True)
     finally:
         write_json(artifacts / "windows-vm-summary.json", summary)
@@ -1294,6 +1381,7 @@ def main(argv: list[str]) -> int:
     result = run(args)
     expected = "baseline_transport_and_package_tests_passed" if args.baseline_diagnostic else "transport_and_package_tests_passed"
     return 0 if (result["status"] == expected and result.get("baseline_diagnostic") is args.baseline_diagnostic
+                 and result.get("network_boundary_passed") is True
                  and result.get("official_update", {}).get("required") is (not args.baseline_diagnostic)) else 1
 
 

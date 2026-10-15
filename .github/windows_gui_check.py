@@ -27,6 +27,68 @@ ROOT = Path(__file__).resolve().parent.parent
 MAX_HANDLES = 64
 GUI_BUDGET_SECONDS = 90
 _RECOVERY_OWNERS = []  # Failed cleanup keeps the actual handles, not just PIDs.
+_DIAGNOSTIC_STAGES = frozenset({
+    "unknown", "platform", "runtime_integrity", "request_probe", "host_network_snapshot",
+    "real_edge_gui_1", "real_edge_gui_2", "image_path_canonicalize", "process_api_bind",
+    "tree_root_identity", "tree_held_pid_query", "tree_held_creation_query",
+    "tree_snapshot_first", "tree_snapshot_second", "tree_child_open", "tree_child_pid_query",
+    "tree_child_creation_query", "tree_child_alive_query", "tree_parent_alive_query",
+    "tree_parent_exit_time_query", "tree_child_image_query", "tree_owner_alive_query",
+    "tree_owner_image_query", "tree_exit_query", "tree_query_handle_close",
+    "tree_construct", "tree_refresh", "tree_startup_helper_verify", "tree_close_exited",
+    "window_api_bind", "window_enumeration", "window_pid_query", "window_visibility_query",
+    "window_close_post", "interactive_context_query", "app_prepare", "fixture_begin",
+    "fixture_ack", "fixture_close", "runtime_launch", "startup_evidence", "wrapper_poll",
+    "runtime_safe_stop", "runtime_resources_close", "wrapper_handle_close",
+    "owner_cleanup", "profile_remove", "host_snapshot_after",
+})
+
+
+def error_facts(error, fallback_stage="unknown"):
+    """Finite operation names and integer codes; never filenames or traceback text."""
+    stage = getattr(error, "_gui_diagnostic_stage", fallback_stage)
+    if type(stage) is not str or stage not in _DIAGNOSTIC_STAGES:
+        stage = "unknown"
+    name = type(error).__name__
+    if name not in {"PermissionError", "FileNotFoundError", "OSError", "RuntimeError",
+                    "TimeoutError", "ValueError", "TypeError", "AttributeError",
+                    "NotImplementedError"}:
+        name = "Exception"
+    facts = {"stage": stage, "error_type": name}
+    for key in ("errno", "winerror"):
+        value = getattr(error, key, None)
+        facts[key] = value if type(value) is int and 0 <= value <= 0xffffffff else None
+    return facts
+
+
+def _diagnostic_call(stage, function, *args, **kwargs):
+    if stage not in _DIAGNOSTIC_STAGES:
+        raise ValueError("unregistered GUI diagnostic stage")
+    try:
+        return function(*args, **kwargs)
+    except Exception as error:
+        # Preserve the original exception, owner and pending handles. An inner
+        # operation is more precise than the caller's broader phase label.
+        previous_stage = getattr(error, "_gui_diagnostic_stage", None)
+        if type(previous_stage) is not str or previous_stage not in _DIAGNOSTIC_STAGES:
+            error._gui_diagnostic_stage = stage
+        raise
+
+
+def owner_facts(owner):
+    """Report existing ownership bookkeeping without making new kernel queries."""
+    wrapper, tree = getattr(owner, "wrapper", None), getattr(owner, "tree", None)
+    entries, pending = getattr(tree, "entries", None), getattr(tree, "pending", None)
+    pid, created = getattr(wrapper, "pid", None), getattr(tree, "root_created", None)
+    return {"wrapper_handle_retained": wrapper is not None,
+            "runtime_resources_retained": getattr(owner, "resources", None) is not None,
+            "tree_initialized": tree is not None,
+            "wrapper_pid": pid if type(pid) is int and 0 < pid <= 0xffffffff else None,
+            "wrapper_creation_filetime": created if type(created) is int and 0 < created < 2**64 else None,
+            "attested_descendant_query_handles": len(entries) if isinstance(entries, dict) else None,
+            "pending_query_handles": len(pending) if isinstance(pending, list) else None,
+            "query_handle_limit": MAX_HANDLES,
+            "query_handle_scope": "gui_query_handles_and_borrowed_wrapper_only"}
 
 
 def browser_helpers():
@@ -42,7 +104,7 @@ def image_key(path):
     if not ntpath.isabs(value):
         raise RuntimeError("process image is not an absolute Windows path")
     if os.name == "nt":
-        value = str(Path(value).resolve(strict=True))
+        value = str(_diagnostic_call("image_path_canonicalize", Path(value).resolve, strict=True))
     return ntpath.normcase(ntpath.normpath(value))
 
 
@@ -51,7 +113,7 @@ class ProcessApi:
 
     def __init__(self):
         from ruleproxy import windows_runtime
-        self.api = windows_runtime._WinProcessApi()
+        self.api = _diagnostic_call("process_api_bind", windows_runtime._WinProcessApi)
         self.kernel = self.api.kernel32
         self.filetime = windows_runtime._FileTime
         self.kernel.GetProcessId.argtypes = [wintypes.HANDLE]
@@ -103,9 +165,10 @@ class OwnedTree:
         self.api, self.wrapper = api, wrapper
         self.edge = image_key(edge)
         self.root_handle = int(wrapper._handle)
-        if api.pid(self.root_handle) != wrapper.pid or not api.alive(self.root_handle):
+        if _diagnostic_call("tree_root_identity", api.pid, self.root_handle) != wrapper.pid \
+                or not _diagnostic_call("tree_root_identity", api.alive, self.root_handle):
             raise RuntimeError("wrapper held identity is not live")
-        self.root_created = api.created(self.root_handle)
+        self.root_created = _diagnostic_call("tree_root_identity", api.created, self.root_handle)
         self.root = {"pid": wrapper.pid, "created": self.root_created,
                      "handle": self.root_handle, "depth": 0}
         self.entries = {}
@@ -114,8 +177,8 @@ class OwnedTree:
         self.closed = False
 
     def _identity(self, entry):
-        if self.api.pid(entry["handle"]) != entry["pid"] \
-                or self.api.created(entry["handle"]) != entry["created"]:
+        if _diagnostic_call("tree_held_pid_query", self.api.pid, entry["handle"]) != entry["pid"] \
+                or _diagnostic_call("tree_held_creation_query", self.api.created, entry["handle"]) != entry["created"]:
             raise RuntimeError("held process generation changed")
 
     def refresh(self):
@@ -126,7 +189,7 @@ class OwnedTree:
         # are read. Repeating by depth discovers it without any name-based scan.
         for _ in range(32):
             parents = {self.wrapper.pid: self.root, **self.entries}
-            first = self.api.snapshot()
+            first = _diagnostic_call("tree_snapshot_first", self.api.snapshot)
             added = False
             for pid, ppid in first.items():
                 if pid == self.wrapper.pid or ppid not in parents or pid in self.entries:
@@ -135,31 +198,32 @@ class OwnedTree:
                 self._identity(parent)
                 if 1 + len(self.entries) + len(self.pending) >= MAX_HANDLES:
                     raise RuntimeError("owned process query handle limit exceeded")
-                handle = self.api.open(pid)
+                handle = _diagnostic_call("tree_child_open", self.api.open, pid)
                 self.pending.append(handle)
                 self.peak_handles = max(self.peak_handles, 1 + len(self.entries) + len(self.pending))
-                if self.api.pid(handle) != pid:
+                if _diagnostic_call("tree_child_pid_query", self.api.pid, handle) != pid:
                     raise RuntimeError("opened child PID did not match the snapshot")
-                created = self.api.created(handle)
+                created = _diagnostic_call("tree_child_creation_query", self.api.created, handle)
                 if created < parent["created"]:
                     # This is an old process carrying a recycled parent PID;
                     # the read-only handle grants it no owned-window authority.
-                    self.api.close(handle)
+                    _diagnostic_call("tree_query_handle_close", self.api.close, handle)
                     self.pending.remove(handle)
                     continue
-                second = self.api.snapshot()
+                second = _diagnostic_call("tree_snapshot_second", self.api.snapshot)
                 self._identity(parent)
-                if second.get(pid) != ppid or self.api.created(handle) != created:
+                if second.get(pid) != ppid \
+                        or _diagnostic_call("tree_child_creation_query", self.api.created, handle) != created:
                     raise RuntimeError("child lineage changed between process snapshots")
-                if not self.api.alive(handle):
-                    self.api.close(handle)
+                if not _diagnostic_call("tree_child_alive_query", self.api.alive, handle):
+                    _diagnostic_call("tree_query_handle_close", self.api.close, handle)
                     self.pending.remove(handle)
                     continue
-                if not self.api.alive(parent["handle"]):
-                    exited = self.api.exited_at(parent["handle"])
+                if not _diagnostic_call("tree_parent_alive_query", self.api.alive, parent["handle"]):
+                    exited = _diagnostic_call("tree_parent_exit_time_query", self.api.exited_at, parent["handle"])
                     if not exited or created > exited:
                         raise RuntimeError("new child cannot be attributed to the held parent generation")
-                image = image_key(self.api.image(handle))
+                image = image_key(_diagnostic_call("tree_child_image_query", self.api.image, handle))
                 self.entries[pid] = {"pid": pid, "ppid": ppid, "created": created,
                                      "handle": handle, "depth": parent["depth"] + 1,
                                      "image": image}
@@ -174,7 +238,8 @@ class OwnedTree:
         if entry is None or entry["image"] != self.edge:
             return None
         self._identity(entry)
-        if not self.api.alive(entry["handle"]) or image_key(self.api.image(entry["handle"])) != self.edge:
+        if not _diagnostic_call("tree_owner_alive_query", self.api.alive, entry["handle"]) \
+                or image_key(_diagnostic_call("tree_owner_image_query", self.api.image, entry["handle"])) != self.edge:
             return None
         return entry
 
@@ -185,13 +250,13 @@ class OwnedTree:
                 or parent.get("process_created") != entry["created"]:
             raise RuntimeError("startup helper was not in the held wrapper generation")
         self._identity(entry)
-        if not self.api.alive(entry["handle"]):
+        if not _diagnostic_call("tree_owner_alive_query", self.api.alive, entry["handle"]):
             raise RuntimeError("startup helper exited before GUI attestation")
 
     def all_exited(self):
-        return not self.api.alive(self.root_handle) and all(
-            not self.api.alive(entry["handle"]) for entry in self.entries.values()
-        ) and all(not self.api.alive(handle) for handle in self.pending)
+        return not _diagnostic_call("tree_exit_query", self.api.alive, self.root_handle) and all(
+            not _diagnostic_call("tree_exit_query", self.api.alive, entry["handle"]) for entry in self.entries.values()
+        ) and all(not _diagnostic_call("tree_exit_query", self.api.alive, handle) for handle in self.pending)
 
     def close_exited(self):
         if self.closed:
@@ -199,10 +264,10 @@ class OwnedTree:
         if not self.all_exited():
             raise RuntimeError("owned query handles still include a live process")
         for pid, entry in list(self.entries.items()):
-            self.api.close(entry["handle"])
+            _diagnostic_call("tree_query_handle_close", self.api.close, entry["handle"])
             del self.entries[pid]
         for handle in list(self.pending):
-            self.api.close(handle)
+            _diagnostic_call("tree_query_handle_close", self.api.close, handle)
             self.pending.remove(handle)
         self.closed = True
 
@@ -282,12 +347,13 @@ class WindowApi:
 
 def owned_windows(tree, windows):
     values = []
-    for hwnd, pid in windows.windows():
+    for hwnd, pid in _diagnostic_call("window_enumeration", windows.windows):
         entry = tree.edge_owner(pid)
         if entry is None:
             continue
-        rect = windows.visible_rect(hwnd)
-        if rect is not None and windows.pid(hwnd) == pid and tree.edge_owner(pid) is not None:
+        rect = _diagnostic_call("window_visibility_query", windows.visible_rect, hwnd)
+        if rect is not None and _diagnostic_call("window_pid_query", windows.pid, hwnd) == pid \
+                and tree.edge_owner(pid) is not None:
             values.append({"hwnd": hwnd, "pid": pid, "created": entry["created"], "rect": rect})
     if len(values) > 16:
         raise RuntimeError("owned visible window limit exceeded")
@@ -295,15 +361,16 @@ def owned_windows(tree, windows):
 
 
 def close_owned_window(tree, windows, value):
-    pid = windows.pid(value["hwnd"])
+    pid = _diagnostic_call("window_pid_query", windows.pid, value["hwnd"])
     entry = tree.edge_owner(pid)
     if pid != value["pid"] or entry is None or entry["created"] != value["created"] \
-            or windows.visible_rect(value["hwnd"]) is None:
+            or _diagnostic_call("window_visibility_query", windows.visible_rect, value["hwnd"]) is None:
         raise RuntimeError("owned window identity changed before WM_CLOSE")
     # Revalidate the HWND immediately after all process/image/rectangle queries.
-    if windows.pid(value["hwnd"]) != pid or tree.edge_owner(pid) is None:
+    if _diagnostic_call("window_pid_query", windows.pid, value["hwnd"]) != pid \
+            or tree.edge_owner(pid) is None:
         raise RuntimeError("owned window generation changed before WM_CLOSE")
-    windows.post_close(value["hwnd"])
+    _diagnostic_call("window_close_post", windows.post_close, value["hwnd"])
 
 
 def interactive_facts():
@@ -349,16 +416,17 @@ class GuiRun:
 
     def run(self, phase):
         from ruleproxy import launcher, windows_runtime
-        self.fixture.begin(phase)
+        _diagnostic_call("fixture_begin", self.fixture.begin, phase)
         guest_port = windows_runtime.choose_guest_port(self.fixture.port)
         app = {"id": "gui", "label": "Visible Edge HTTP fixture", "path": str(self.edge),
                "adapter": "chromium", "args": ["--new-window", "--no-default-browser-check",
                                                   f"http://{self.browser_module.HOST}/phase/{phase}"]}
-        command, environment, _ = launcher.prepare_app(app, guest_port, self.profile_root)
+        command, environment, _ = _diagnostic_call("app_prepare", launcher.prepare_app,
+                                                  app, guest_port, self.profile_root)
         startup_started = time.monotonic()
         self.cleanup_proven = False
         try:
-            self.wrapper, self.resources = windows_runtime.launch(
+            self.wrapper, self.resources = _diagnostic_call("runtime_launch", windows_runtime.launch,
                 command, environment, self.profile_root / "gui", self.fixture.port,
                 str(self.runtime), guest_listener_port=guest_port)
         except BaseException as exc:
@@ -366,21 +434,22 @@ class GuiRun:
             self.resources = getattr(exc, "resource", None)
             raise
         startup_seconds = time.monotonic() - startup_started
-        startup = self.helpers.startup_evidence(self.resources)
+        startup = _diagnostic_call("startup_evidence", self.helpers.startup_evidence, self.resources)
         deadline = time.monotonic() + GUI_BUDGET_SECONDS
-        self.tree = OwnedTree(ProcessApi(), self.wrapper, self.edge)
-        self.tree.refresh()
-        self.tree.verify_startup_helper(startup.get("startup_diagnostics", {}).get("parent"))
-        windows = WindowApi()
+        self.tree = _diagnostic_call("tree_construct", OwnedTree, ProcessApi(), self.wrapper, self.edge)
+        _diagnostic_call("tree_refresh", self.tree.refresh)
+        _diagnostic_call("tree_startup_helper_verify", self.tree.verify_startup_helper,
+                         startup.get("startup_diagnostics", {}).get("parent"))
+        windows = _diagnostic_call("window_api_bind", WindowApi)
         selected = []
         while time.monotonic() < deadline:
-            if self.wrapper.poll() is not None:
+            if _diagnostic_call("wrapper_poll", self.wrapper.poll) is not None:
                 raise RuntimeError("Edge/MXC exited before a visible acknowledged GUI window")
-            self.tree.refresh()
+            _diagnostic_call("tree_refresh", self.tree.refresh)
             selected = owned_windows(self.tree, windows)
             if selected:
                 try:
-                    self.fixture.check(phase)
+                    _diagnostic_call("fixture_ack", self.fixture.check, phase)
                     break
                 except RuntimeError:
                     pass
@@ -390,13 +459,13 @@ class GuiRun:
         rects = [value["rect"] for value in selected]
         posted = set()
         while time.monotonic() < deadline:
-            self.tree.refresh()
+            _diagnostic_call("tree_refresh", self.tree.refresh)
             for value in owned_windows(self.tree, windows):
                 key = (value["hwnd"], value["pid"], value["created"])
                 if key not in posted:
                     close_owned_window(self.tree, windows, value)
                     posted.add(key)
-            code = self.wrapper.poll()
+            code = _diagnostic_call("wrapper_poll", self.wrapper.poll)
             if code is not None and self.tree.all_exited():
                 if code:
                     raise RuntimeError(f"Edge/MXC natural GUI close exited with status {code}")
@@ -406,7 +475,7 @@ class GuiRun:
             raise TimeoutError("owned GUI window did not naturally exit within its shared budget")
         if not posted:
             raise RuntimeError("no attested owned WM_CLOSE request was posted")
-        self.fixture.check(phase)
+        _diagnostic_call("fixture_ack", self.fixture.check, phase)
         count, peak = len(self.tree.entries), self.tree.peak_handles
         self.close()
         return {"check": f"real_edge_gui_{phase}", "status": "passed",
@@ -423,14 +492,14 @@ class GuiRun:
     def close(self):
         from ruleproxy import windows_runtime
         if self.wrapper is not None:
-            windows_runtime.stop(self.wrapper)
+            _diagnostic_call("runtime_safe_stop", windows_runtime.stop, self.wrapper)
         if self.tree is not None and not self.tree.closed:
-            self.tree.refresh()  # Include a last child born during graceful shutdown.
-            self.tree.close_exited()
+            _diagnostic_call("tree_refresh", self.tree.refresh)  # Include a last child born during graceful shutdown.
+            _diagnostic_call("tree_close_exited", self.tree.close_exited)
         if self.resources is not None:
-            self.resources.close()
+            _diagnostic_call("runtime_resources_close", self.resources.close)
         if self.wrapper is not None and hasattr(self.wrapper._handle, "Close"):
-            self.wrapper._handle.Close()
+            _diagnostic_call("wrapper_handle_close", self.wrapper._handle.Close)
         self.wrapper = self.resources = self.tree = None
         self.cleanup_proven = True
 
@@ -463,7 +532,7 @@ def main(arguments):
                 or facts.get("native_machine") != 0x8664 or facts.get("python_pe_machine") != 0x8664:
             result.update(status="unsupported", detail="Requires native x64 Windows 11 workstation Python.")
             return 3
-        result["interactive"] = interactive_facts()
+        result["interactive"] = _diagnostic_call("interactive_context_query", interactive_facts)
         if not result["interactive"]["ordinary_interactive"]:
             result.update(status="unsupported", detail="Requires an ordinary user on the interactive default desktop.")
             return 3
@@ -498,6 +567,9 @@ def main(arguments):
         code = 0
     except Exception as exc:
         result.update(status="failed", detail=f"GUI check failed during {phase} ({type(exc).__name__}): {str(exc)[:400]}")
+        result["failure"] = error_facts(exc, phase)
+        if owner is not None:
+            result["failure_owner_state"] = owner_facts(owner)
     finally:
         if owner is not None:
             try:
@@ -507,6 +579,8 @@ def main(arguments):
                 _RECOVERY_OWNERS.append(owner)
                 result.update(status="failed", gui_fixture_passed=False, cleanup_error=type(exc).__name__,
                               recovery_directory=str(directory))
+                result["cleanup_failure"] = error_facts(exc, "owner_cleanup")
+                result["cleanup_owner_state"] = owner_facts(owner)
                 code = 1
         if fixture is not None:
             try:
@@ -515,10 +589,11 @@ def main(arguments):
                 safe_cleanup = False
                 result.update(status="failed", gui_fixture_passed=False, cleanup_error=type(exc).__name__,
                               recovery_directory=str(directory))
+                result["fixture_cleanup_failure"] = error_facts(exc, "fixture_close")
                 code = 1
         if before is not None:
             try:
-                unchanged = before == helpers.network_snapshot()
+                unchanged = before == _diagnostic_call("host_snapshot_after", helpers.network_snapshot)
                 result["checks"].append({"check": "host_proxy_dns_default_routes_unchanged",
                                          "status": "passed" if unchanged else "failed"})
                 if not unchanged:
@@ -526,14 +601,16 @@ def main(arguments):
                     code = 1
             except Exception as exc:
                 result.update(status="failed", gui_fixture_passed=False, host_snapshot_error=type(exc).__name__)
+                result["host_snapshot_failure"] = error_facts(exc, "host_snapshot_after")
                 code = 1
         result["cleanup_proven"] = safe_cleanup
         if directory is not None and safe_cleanup:
             try:
-                shutil.rmtree(directory)
+                _diagnostic_call("profile_remove", shutil.rmtree, directory)
             except OSError as exc:
                 result.update(status="failed", gui_fixture_passed=False, cleanup_proven=False,
                               cleanup_error=type(exc).__name__, recovery_directory=str(directory))
+                result["profile_cleanup_failure"] = error_facts(exc, "profile_remove")
                 code = 1
         args.report.resolve().parent.mkdir(parents=True, exist_ok=True)
         helpers.write_json(args.report.resolve(), result)

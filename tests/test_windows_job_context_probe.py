@@ -152,6 +152,102 @@ class WindowsJobContextTests(unittest.TestCase):
         error.winerror = 5
         return error
 
+    def path_kernel(self, *, attributes=0x10, identifiers=None, opened=True):
+        kernel = mock.Mock()
+        opened_paths = {}
+        def create(path, access, share, security, disposition, flags, template):
+            self.assertEqual((access, share, security, disposition, flags, template),
+                             (0x80, 7, None, 3, 0x02200000, None))
+            handle = 100 + len(opened_paths)
+            opened_paths[handle] = path
+            return handle
+        def info(handle, kind, target, count):
+            if kind == 9:
+                self.assertEqual(count, 8)
+                target._obj.attributes = attributes
+            else:
+                self.assertEqual(kind, 18)
+                self.assertEqual(count, 24)
+                target._obj.volume = 10
+                target._obj.file_id[0] = (identifiers or {}).get(opened_paths[handle], 1)
+            return 1
+        def name(handle, buffer, capacity, flags):
+            self.assertEqual((capacity, flags), (32768, 8))
+            buffer.value = r"\\?\C:\owned\profile"
+            return len(buffer.value) if opened else 0
+        kernel.CreateFileW.side_effect = create
+        kernel.GetFileInformationByHandleEx.side_effect = info
+        kernel.GetFinalPathNameByHandleW.side_effect = name
+        kernel.CloseHandle.return_value = 1
+        return kernel
+
+    def path_identities(self, kernel):
+        return probe.WindowsPathIdentities(kernel, lambda: 5, lambda code: self.permission_error())
+
+    def test_windows_owned_alias_uses_held_file_id_without_any_normalized_resolve(self):
+        alias = self.root / "OWNED~1"
+        value = copy.deepcopy(self.config)
+        index = next(i for i, arg in enumerate(value["command"]) if arg.startswith("--user-data-dir="))
+        value["command"][index] = f"--user-data-dir={alias}"
+        kernel = self.path_kernel()
+        identities = self.path_identities(kernel)
+        with mock.patch.object(probe, "use_windows_path_identities", return_value=True), \
+                mock.patch.object(probe, "WindowsPathIdentities", return_value=identities), \
+                mock.patch.object(Path, "resolve", side_effect=self.permission_error()):
+            self.assertEqual(probe.validate_configuration(value, self.command_file, self.report), value["command"])
+        self.assertEqual(kernel.CloseHandle.call_count, 4)
+        self.assertEqual(identities.handles, [])
+        self.assertEqual(ctypes.sizeof(probe.FileAttributeTagInfo), 8)
+        self.assertEqual(ctypes.sizeof(probe.FileIdInfo), 24)
+
+    def test_different_windows_owned_directory_identity_still_rejects_profile_override(self):
+        other = self.root / "different"
+        value = copy.deepcopy(self.config)
+        index = next(i for i, arg in enumerate(value["command"]) if arg.startswith("--user-data-dir="))
+        value["command"][index] = f"--user-data-dir={other}"
+        kernel = self.path_kernel(identifiers={str(other): 2})
+        identities = self.path_identities(kernel)
+        with mock.patch.object(probe, "use_windows_path_identities", return_value=True), \
+                mock.patch.object(probe, "WindowsPathIdentities", return_value=identities):
+            with self.assertRaises(ValueError):
+                probe.validate_configuration(value, self.command_file, self.report)
+        self.assertEqual(kernel.CloseHandle.call_count, 4)
+        self.assertEqual(identities.handles, [])
+
+    def test_reparse_directory_and_failed_opened_name_are_never_accepted_or_retried(self):
+        for attributes, opened, expected in ((0x410, True, "validate_profile_attributes"),
+                                             (0x10, False, "validate_profile_opened_name")):
+            kernel = self.path_kernel(attributes=attributes, opened=opened)
+            identities = self.path_identities(kernel)
+            with self.subTest(stage=expected), mock.patch.object(probe, "use_windows_path_identities", return_value=True), \
+                    mock.patch.object(probe, "WindowsPathIdentities", return_value=identities):
+                with self.assertRaises((ValueError, PermissionError)) as observed:
+                    probe.validate_configuration(self.config, self.command_file, self.report)
+            facts = probe.failure_facts(observed.exception, "validate_profile_resolve")
+            self.assertEqual(facts["stage"], expected)
+            if not opened:
+                self.assertEqual((facts["class"], facts["errno"], facts["winerror"]), ("PermissionError", 13, 5))
+                self.assertEqual(kernel.GetFinalPathNameByHandleW.call_count, 1)
+            self.assertEqual(kernel.CreateFileW.call_count, 1)
+            self.assertEqual(kernel.CloseHandle.call_count, 1)
+            self.assertEqual(identities.handles, [])
+
+    def test_failed_directory_handle_close_is_reported_and_keeps_only_unclosed_handle(self):
+        kernel = self.path_kernel()
+        identities = self.path_identities(kernel)
+        kernel.CloseHandle.side_effect = [0, 1]
+        with self.assertRaises(PermissionError) as observed:
+            with identities:
+                identities.identity(self.root, "validate_profile")
+                identities.identity(self.root, "validate_config_parent")
+        self.assertEqual(probe.failure_facts(observed.exception, "validate_profile_resolve")["stage"], "validate_directory_close")
+        self.assertEqual(identities.handles, [100])
+        kernel.CloseHandle.side_effect = None
+        with identities:
+            pass
+        self.assertEqual(identities.handles, [])
+        self.assertEqual([call.args[0] for call in kernel.CloseHandle.call_args_list], [100, 101, 100])
+
     def assert_failure_output(self, raw, stage):
         value = json.loads(raw)
         self.assertEqual(value, {"stage": stage, "errno": 13, "winerror": 5, "class": "PermissionError"})
@@ -240,6 +336,17 @@ class WindowsJobContextTests(unittest.TestCase):
             self.assertIsNone(result["ui_restrictions"])
             self.assertIs(type(result["query_ui_restrictions_error"]), int)
         print("Outside current-job ABI observation only: " + json.dumps(result, separators=(",", ":")))
+
+    @unittest.skipUnless(os.name == "nt", "Real outside Windows opened-path ABI only, not PSEC evidence")
+    def test_actual_windows_directory_identity_and_opened_name_are_outside_only(self):
+        with probe.WindowsPathIdentities() as identities:
+            first = identities.identity(self.root, "validate_profile")
+            second = identities.identity(self.root / ".", "validate_config_parent")
+            self.assertEqual(first, second)
+            self.assertEqual(len(first[1]), 16)
+            self.assertTrue(any(first[1]))
+        self.assertEqual(identities.handles, [])
+        print("Outside opened-path ABI only: read_attributes/shared_open/nonreparse/held_identity/close verified")
 
 
 if __name__ == "__main__":

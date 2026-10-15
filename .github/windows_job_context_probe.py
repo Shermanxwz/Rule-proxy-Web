@@ -11,10 +11,12 @@ from __future__ import annotations
 import argparse
 import ctypes
 import json
+import ntpath
 import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 MAX_CONFIG_BYTES = 32768
@@ -27,7 +29,11 @@ FAILURE_STAGES = frozenset({"read_config", "validate_schema", "validate_profile_
     "validate_report_parent", "validate_report_identity", "validate_report_reparse", "validate_command",
     "validate_executable", "validate_user_data_dir", "validate_proxy_server", "validate_proxy_bypass",
     "validate_argument", "validate_required_arguments", "query_job", "publish_initial", "launch",
-    "publish_started", "wait", "publish_result"})
+    "publish_started", "wait", "publish_result", "validate_directory_close"}) | frozenset(
+    f"{role}_{operation}" for role in ("validate_profile", "validate_config_parent", "validate_report_parent",
+                                      "validate_report_file", "validate_config_file", "validate_script_file",
+                                      "validate_user_data_dir")
+    for operation in ("open", "attributes", "identity", "opened_name"))
 
 
 def failure_facts(exc, stage):
@@ -49,6 +55,91 @@ def publish_failure(exc, stage):
 
 class BasicUIRestrictions(ctypes.Structure):
     _fields_ = [("UIRestrictionsClass", ctypes.c_uint32)]
+
+
+class FileAttributeTagInfo(ctypes.Structure):
+    _fields_ = [("attributes", ctypes.c_uint32), ("reparse_tag", ctypes.c_uint32)]
+
+
+class FileIdInfo(ctypes.Structure):
+    _fields_ = [("volume", ctypes.c_uint64), ("file_id", ctypes.c_ubyte * 16)]
+
+
+class WindowsPathIdentities:
+    """Compare held objects without normalized-name queries or parent grants."""
+    def __init__(self, kernel=None, last_error=None, error_factory=None):
+        self.kernel = kernel if kernel is not None else ctypes.WinDLL("kernel32", use_last_error=True)
+        self.last_error = last_error if last_error is not None else ctypes.get_last_error
+        self.error_factory = error_factory if error_factory is not None else ctypes.WinError
+        self.handles = []
+        self.kernel.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p,
+                                           ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+        self.kernel.CreateFileW.restype = ctypes.c_void_p
+        self.kernel.GetFileInformationByHandleEx.argtypes = [ctypes.c_void_p, ctypes.c_int32,
+                                                           ctypes.c_void_p, ctypes.c_uint32]
+        self.kernel.GetFileInformationByHandleEx.restype = ctypes.c_int32
+        self.kernel.GetFinalPathNameByHandleW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p,
+                                                        ctypes.c_uint32, ctypes.c_uint32]
+        self.kernel.GetFinalPathNameByHandleW.restype = ctypes.c_uint32
+        self.kernel.CloseHandle.argtypes, self.kernel.CloseHandle.restype = [ctypes.c_void_p], ctypes.c_int32
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, kind, error, traceback):
+        failure = None
+        for handle in list(self.handles):
+            if self.kernel.CloseHandle(handle):
+                self.handles.remove(handle)
+            elif failure is None:
+                failure = self.error_factory(self.last_error())
+                failure._job_context_stage = "validate_directory_close"
+        if failure is not None:
+            if error is not None:
+                publish_failure(failure, "validate_directory_close")
+            else:
+                raise failure
+
+    def identity(self, path, role, *, directory=True):
+        operation = role + "_open"
+        try:
+            if not path.is_absolute() or len(self.handles) >= 8:
+                raise ValueError("invalid bounded owned path identity request")
+            # FILE_READ_ATTRIBUTES; all share modes; no inheritance; existing
+            # object; directories supported; open the reparse object itself.
+            handle = self.kernel.CreateFileW(str(path), 0x80, 7, None, 3, 0x02000000 | 0x00200000, None)
+            if handle in (None, 0, -1, ctypes.c_void_p(-1).value):
+                raise self.error_factory(self.last_error())
+            self.handles.append(handle)
+            operation = role + "_attributes"
+            attributes = FileAttributeTagInfo()
+            if not self.kernel.GetFileInformationByHandleEx(handle, 9, ctypes.byref(attributes), ctypes.sizeof(attributes)):
+                raise self.error_factory(self.last_error())
+            if attributes.attributes & 0x400 or bool(attributes.attributes & 0x10) != directory:
+                raise ValueError("owned path identity has a reparse point or incorrect object kind")
+            operation = role + "_identity"
+            info = FileIdInfo()
+            if not self.kernel.GetFileInformationByHandleEx(handle, 18, ctypes.byref(info), ctypes.sizeof(info)):
+                raise self.error_factory(self.last_error())
+            if not any(info.file_id):
+                raise ValueError("owned path identity was not available")
+            operation = role + "_opened_name"
+            buffer = ctypes.create_unicode_buffer(32768)
+            # FILE_NAME_OPENED | VOLUME_NAME_DOS. Success is required, with no
+            # normalized-name fallback or error-5 permission exception.
+            count = self.kernel.GetFinalPathNameByHandleW(handle, buffer, len(buffer), 8)
+            if not count:
+                raise self.error_factory(self.last_error())
+            if count >= len(buffer) or not ntpath.isabs(buffer.value):
+                raise ValueError("owned opened-path observation exceeded its bound or was not absolute")
+            return info.volume, bytes(info.file_id)
+        except Exception as exc:
+            exc._job_context_stage = operation
+            raise
+
+
+def use_windows_path_identities():
+    return os.name == "nt" and sys.platform == "win32"
 
 
 def _query_job_context(kernel=None, last_error=None):
@@ -114,13 +205,17 @@ def validate_configuration(value, command_file, report_file):
     stage = "validate_schema"
     stages = []
     try:
+        if use_windows_path_identities():
+            with WindowsPathIdentities() as identities:
+                return _validate_configuration(value, command_file, report_file, lambda label: stages.append(label), identities)
         return _validate_configuration(value, command_file, report_file, lambda label: stages.append(label))
     except Exception as exc:
-        exc._job_context_stage = stages[-1] if stages else stage
+        if not hasattr(exc, "_job_context_stage"):
+            exc._job_context_stage = stages[-1] if stages else stage
         raise
 
 
-def _validate_configuration(value, command_file, report_file, progress):
+def _validate_configuration(value, command_file, report_file, progress, identities=None):
     if (not isinstance(value, dict) or set(value) != {"schema_version", "nonce", "command", "proxy_port", "profile"}
             or type(value["schema_version"]) is not int or value["schema_version"] != 1
             or not isinstance(value["nonce"], str) or not re.fullmatch(r"[0-9a-f]{64}", value["nonce"])
@@ -132,14 +227,29 @@ def _validate_configuration(value, command_file, report_file, progress):
     if not profile.is_absolute() or not profile.is_dir():
         raise ValueError("an existing absolute test profile is required")
     progress("validate_profile_resolve")
-    profile = profile.resolve(strict=True)
+    reference = identities.identity(profile, "validate_profile") if identities is not None else profile.resolve(strict=True)
+    if identities is None:
+        profile = reference
     command_file, report_file = Path(command_file), Path(report_file)
     progress("validate_report_parent")
-    if command_file.parent.resolve(strict=True) != profile or report_file.parent.resolve(strict=True) != profile:
+    if identities is not None:
+        same_parent = (identities.identity(command_file.parent, "validate_config_parent") == reference
+                       and identities.identity(report_file.parent, "validate_report_parent") == reference)
+    else:
+        same_parent = command_file.parent.resolve(strict=True) == profile and report_file.parent.resolve(strict=True) == profile
+    if not same_parent:
         raise ValueError("configuration and report must stay in the test profile")
     progress("validate_report_identity")
-    if (command_file.resolve() == report_file.resolve() or report_file.resolve() == Path(__file__).resolve()
-            or report_file.suffix != ".json"):
+    if identities is not None:
+        reserved = (":" in report_file.name or ntpath.normcase(report_file.name) in {
+            ntpath.normcase(command_file.name), ntpath.normcase(Path(__file__).name)})
+        if report_file.exists() and not reserved:
+            report_identity = identities.identity(report_file, "validate_report_file", directory=False)
+            reserved = (report_identity == identities.identity(command_file, "validate_config_file", directory=False)
+                        or report_identity == identities.identity(Path(__file__), "validate_script_file", directory=False))
+    else:
+        reserved = command_file.resolve() == report_file.resolve() or report_file.resolve() == Path(__file__).resolve()
+    if reserved or report_file.suffix != ".json":
         raise ValueError("configuration and report must stay in the test profile")
     progress("validate_report_reparse")
     if report_file.exists() and (report_file.is_symlink() or getattr(report_file.lstat(), "st_file_attributes", 0) & 0x400):
@@ -167,9 +277,14 @@ def _validate_configuration(value, command_file, report_file, progress):
             if option == "--user-data-dir":
                 try:
                     location = Path(data)
-                    matches = location.is_absolute() and location.resolve(strict=True) == profile
+                    actual = (identities.identity(location, "validate_user_data_dir") if identities is not None
+                              else location.resolve(strict=True)) if location.is_absolute() else None
+                    matches = actual == reference
                 except (OSError, ValueError) as exc:
-                    raise ValueError("prepared profile or proxy was overridden") from exc
+                    failure = ValueError("prepared profile or proxy was overridden")
+                    if hasattr(exc, "_job_context_stage"):
+                        failure._job_context_stage = exc._job_context_stage
+                    raise failure from exc
             if not separator or option in seen or not matches:
                 raise ValueError("prepared profile or proxy was overridden")
             seen.add(option)

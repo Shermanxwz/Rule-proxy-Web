@@ -299,6 +299,19 @@ class UiPolicyTests(unittest.TestCase):
             for private in ("PRIVATE_PATH", "PRIVATE_COMMAND", "PRIVATE_NONCE", str(profile)):
                 self.assertNotIn(private, json.dumps(observed))
 
+    def test_precise_opened_name_failure_is_retained_by_the_fixed_stdout_schema(self):
+        spec = importlib.util.spec_from_file_location("job_context_failure_contract", ROOT / ".github/windows_job_context_probe.py")
+        probe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(probe)
+        self.assertEqual(ui.JOB_FAILURE_STAGES, probe.FAILURE_STAGES)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "private-stdout.log"
+            facts = {"stage": "validate_profile_opened_name", "errno": 13, "winerror": 5, "class": "PermissionError"}
+            path.write_text(json.dumps(facts) + "\n")
+            with mock.patch("builtins.print"):
+                value = ui.job_stdout_facts(SimpleNamespace(job_stdout=[path]))
+            self.assertEqual(value["failure_facts"], [facts])
+
     def test_access_violation_is_observed_as_actual_exit_and_clean_case_can_continue(self):
         runtime = SimpleNamespace(build_policy=mock.Mock(return_value=baseline()))
         browser, process = self.browser(runtime, fail=True)
