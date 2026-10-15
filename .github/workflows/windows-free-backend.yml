@@ -1,0 +1,142 @@
+name: Disposable Windows alternative backend trial
+
+on:
+  push:
+    branches:
+      - 'codex/windows-free-backend-*'
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: Backend to test in a fresh disposable VM
+        required: true
+        type: choice
+        options:
+          - sandboxie
+          - proxybridge
+
+permissions:
+  contents: read
+
+jobs:
+  build-fixed-backend-bundle:
+    name: Build pinned ${{ matrix.backend }} payload
+    runs-on: windows-2025
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.backend)) || fromJSON('["sandboxie","proxybridge"]') }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Build fixed-byte source-only backend payload
+        shell: pwsh
+        env:
+          BACKEND: ${{ matrix.backend }}
+        run: python -B .github/windows_free_backend_assets.py --backend "$env:BACKEND" --output "$PWD\free-backend-bundle.zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: free-backend-bundle-${{ matrix.backend }}
+          path: free-backend-bundle.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-installer-smoke:
+    name: Windows 2025 · installer smoke · ${{ matrix.backend }}
+    needs: [build-fixed-backend-bundle]
+    runs-on: windows-2025
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.backend)) || fromJSON('["sandboxie","proxybridge"]') }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: free-backend-bundle-${{ matrix.backend }}
+          path: free-backend
+      - name: Install only in the disposable hosted runner
+        shell: pwsh
+        env:
+          BACKEND: ${{ matrix.backend }}
+        run: |
+          $root = 'C:\RuleProxyCI'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          Expand-Archive -LiteralPath "$PWD\free-backend\free-backend-bundle.zip" -DestinationPath "$root\bundle" -Force
+          New-Item -ItemType Directory -Path "$root\artifacts" -Force | Out-Null
+          if (Get-LocalUser -Name RuleProxyCI -ErrorAction SilentlyContinue) { throw 'Smoke target account already exists' }
+          $secret = ConvertTo-SecureString (([guid]::NewGuid().ToString('N')) + 'Aa1!') -AsPlainText -Force
+          New-LocalUser -Name RuleProxyCI -Password $secret -PasswordNeverExpires | Out-Null
+          $sid = (Get-LocalUser -Name RuleProxyCI).SID.Value
+          $users = Get-LocalGroupMember -Group Users | ForEach-Object { $_.SID.Value }
+          if ($sid -notin $users) { Add-LocalGroupMember -Group Users -Member RuleProxyCI }
+          $control = "$root\bundle\scripts\windows_$($env:BACKEND)_control.py"
+          python -B $control --phase install --bundle "$root\bundle" --manifest "$root\bundle\manifest.json" --report "$root\install-smoke.json" --probe-user RuleProxyCI --probe-user-sid $sid
+          if ($LASTEXITCODE -ne 0) { throw 'Fixed installer smoke failed' }
+          $report = Get-Content "$root\install-smoke.json" -Raw | ConvertFrom-Json
+          if ($report.schema_version -ne 1 -or $report.backend -ne $env:BACKEND -or $report.status -ne 'passed' -or
+              $report.phase -ne 'install' -or $report.ordinary_user -ne $false -or
+              $report.driver_signature.status -ne 'Valid') { throw 'Installer smoke report is incomplete' }
+          Copy-Item "$root\install-smoke.json" "$PWD\install-smoke.json"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: free-backend-install-smoke-${{ matrix.backend }}
+          path: install-smoke.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  native-windows-11-x64:
+    name: Native Windows 11 x64 · ordinary-user probe · ${{ matrix.backend }}
+    needs: [build-fixed-backend-bundle]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.backend)) || fromJSON('["sandboxie","proxybridge"]') }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: free-backend-bundle-${{ matrix.backend }}
+          path: free-backend
+      - name: Reclaim disposable hosted-runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet /usr/local/share/chromium /usr/local/share/powershell/Modules
+          sudo docker system prune --all --force --volumes || true
+          df -h /
+      - name: Install ephemeral KVM guest tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+          available=$(df -B1 --output=avail . | tail -n 1)
+          if [ "$available" -lt 59055800320 ]; then echo "Insufficient free disk for pinned Windows media and update packages" >&2; exit 1; fi
+      - name: Run fixed updated Windows 11 x64 guest
+        env:
+          BACKEND: ${{ matrix.backend }}
+        run: |
+          mkdir -p windows-free-backend-artifacts free-backend/extracted
+          python -B -c 'import zipfile; zipfile.ZipFile("free-backend/free-backend-bundle.zip").extractall("free-backend/extracted")'
+          python -B .github/windows_free_backend_vm.py --backend "$BACKEND" --bundle "$PWD/free-backend/free-backend-bundle.zip" --manifest "$PWD/free-backend/extracted/manifest.json" --artifacts "$PWD/windows-free-backend-artifacts" --timeout-seconds 10800
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-11-free-backend-${{ matrix.backend }}
+          path: windows-free-backend-artifacts/
+          if-no-files-found: error
+          retention-days: 30
