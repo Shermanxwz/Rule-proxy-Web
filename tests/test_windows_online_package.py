@@ -26,7 +26,7 @@ class WindowsOnlinePackageTests(unittest.TestCase):
             metadata = builder.stage(target)
             expected = set(builder.offline.project_files()) | set(builder.EXTRA_SOURCES)
             self.assertEqual(set(metadata['files']), expected)
-            self.assertEqual(len(expected), 38)
+            self.assertEqual(len(expected), 41)
             self.assertEqual({p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()},
                              expected | {'INSTALL-WINDOWS.txt', 'release-source.json'})
             for name in expected:
@@ -39,6 +39,10 @@ class WindowsOnlinePackageTests(unittest.TestCase):
             for name in ('ruleproxy/windows_proxy_burn_manifest.xml', 'ruleproxy/windows_proxy_pins.py',
                          'ruleproxy/windows_runtime_pins.py', 'Setup-Windows.cmd', 'Start-Windows.cmd'):
                 self.assertIn(name, expected)
+            for key, name in zip(builder.offline.LICENSE_KEYS, builder.offline.BUNDLED_LICENSE_SOURCES):
+                self.assertIn(name, expected)
+                self.assertEqual(hashlib.sha256((target / name).read_bytes()).hexdigest(),
+                                 builder.offline.pins.ASSETS[key]['sha256'])
             # The shipped embedded interpreter runs this exact -I -S entrypoint;
             # verify its import closure without site packages or fetching assets.
             result = subprocess.run([sys.executable, '-I', '-S', '-B', str(target / '.github/build_windows_package.py'), '--help'],
@@ -64,7 +68,8 @@ class WindowsOnlinePackageTests(unittest.TestCase):
 
     def test_source_provider_cannot_smuggle_binaries_yaml_manifest_or_state(self):
         for name in ('web/third-party.exe', 'ruleproxy/driver.dll', 'ruleproxy/driver.sys', 'web/installer.msi',
-                     'ruleproxy/private.yaml', 'web/profile.yml', 'package-manifest.json', '.windows-cache/secrets.py'):
+                     'ruleproxy/private.yaml', 'web/profile.yml', 'package-manifest.json', '.windows-cache/secrets.py',
+                     'ruleproxy/licenses/UNREVIEWED-LICENSE'):
             with self.subTest(name=name), mock.patch.object(builder.offline, 'project_files', return_value=[name]), \
                     self.assertRaises(ValueError):
                 builder.project_files()

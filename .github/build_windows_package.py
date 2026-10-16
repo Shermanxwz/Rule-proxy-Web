@@ -32,6 +32,8 @@ INCLUDE = ('Run-RuleProxy.py', 'Start-Windows.cmd', 'Setup-Windows.cmd',
            'scripts/windows-setup.ps1', 'scripts/windows-uninstall.ps1')
 MAX_DOWNLOAD = 64 * 1024**2
 ASSET_CACHE = None
+LICENSE_KEYS = ('mihomo_license', 'proxifyre_license', 'ndisapi_license')
+BUNDLED_LICENSE_SOURCES = tuple('ruleproxy/licenses/' + pins.ASSETS[key]['name'] for key in LICENSE_KEYS)
 
 
 def download(url: str, sha256: str) -> bytes:
@@ -74,7 +76,19 @@ def project_files() -> list[str]:
                     and not any(part.startswith('.') for part in relative.parts)
                     and candidate.suffix.lower() not in ('.pyc', '.yaml', '.yml', '.sqlite', '.db')):
                 files.append(relative.as_posix())
-    return sorted(set(files))
+    files = sorted(set(files))
+    # License notices are part of the source bootstrap, so installation never
+    # needs raw.githubusercontent.com just to obtain these fixed text files.
+    # Verify the upstream pins before either online or offline packaging.
+    for key, name in zip(LICENSE_KEYS, BUNDLED_LICENSE_SOURCES):
+        asset = pins.ASSETS[key]
+        if name not in files:
+            raise ValueError('Required bundled Windows license is missing: ' + name)
+        data = (ROOT / name).read_bytes()
+        if (hashlib.sha256(data).hexdigest() != asset['sha256']
+                or 'size' in asset and len(data) != asset['size']):
+            raise ValueError('Bundled Windows license failed its size/SHA-256 check: ' + name)
+    return files
 
 
 def stage(target: Path, *, asset_cache: Path | None = None, **legacy_options) -> None:

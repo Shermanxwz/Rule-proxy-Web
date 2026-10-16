@@ -65,7 +65,7 @@ jobs:
   unit:
     name: Unit · ${{ matrix.os }} · Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -91,3 +91,7 @@ jobs:
             [System.Management.Automation.Language.Parser]::ParseFile($path.FullName,[ref]$tokens,[ref]$errors) | Out-Null
             if ($errors.Count) { throw ($errors | Out-String) }
           }
+      - name: Online bootstrap with embedded Python and no raw-host access
+        if: runner.os == 'Windows' && matrix.python == '3.14'
+        timeout-minutes: 10
+        run: python -B .github/check_windows_online_bootstrap.py

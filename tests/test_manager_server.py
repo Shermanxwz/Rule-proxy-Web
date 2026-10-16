@@ -653,7 +653,8 @@ class ServerMainTests(unittest.TestCase):
         output = io.StringIO()
         # These tests are about the port, so they also hold when the suite itself runs as root.
         with patch.object(sys, "argv", argv), patch.object(panel_server.webbrowser, "open") as browser, \
-                patch.object(panel_server, "_running_as_root", return_value=False), redirect_stdout(output):
+                patch.object(panel_server, "_running_as_root", return_value=False), \
+                patch('ruleproxy.windows_app_process._get_api', return_value=Mock(assert_unelevated=Mock())), redirect_stdout(output):
             panel_server.main()
         return output.getvalue(), browser
 
@@ -668,7 +669,10 @@ class ServerMainTests(unittest.TestCase):
         self.addCleanup(running.shutdown)
         output, browser = self.main()
         self.assertIn("面板已在运行", output)
-        browser.assert_called_once_with(f"http://127.0.0.1:{self.port}")
+        if sys.platform == 'win32':
+            browser.assert_not_called()
+        else:
+            browser.assert_called_once_with(f"http://127.0.0.1:{self.port}")
         self.assertFalse((Path(self.temp.name) / "second").exists(), "no second panel state may be created")
 
     def test_a_port_held_by_another_program_gives_a_clear_message(self):
@@ -733,14 +737,18 @@ class WindowlessTests(unittest.TestCase):
                 "--state-dir", str(self.state_dir), "--no-browser"]
         with patch.object(sys, "argv", argv), patch.object(panel_server, "_windowless_log", return_value=True), \
                 patch.object(panel_server, "_running_as_root", return_value=False), \
+                patch('ruleproxy.windows_app_process._get_api', return_value=Mock(assert_unelevated=Mock())), \
                 patch.object(panel_server, "wait_for_panel", return_value=None), \
                 patch("ruleproxy.shortcut_launcher._notify") as notify, redirect_stderr(io.StringIO()), \
                 self.assertRaises(SystemExit):
             panel_server.main()
-        title, message = notify.call_args.args
-        self.assertEqual(title, "RuleProxy")
-        self.assertIn(f"无法使用面板端口 {port}", message)
-        self.assertFalse(message.startswith("RuleProxy:"))
+        if sys.platform == 'win32':
+            notify.assert_not_called()
+        else:
+            title, message = notify.call_args.args
+            self.assertEqual(title, "RuleProxy")
+            self.assertIn(f"无法使用面板端口 {port}", message)
+            self.assertFalse(message.startswith("RuleProxy:"))
 
 
 class RootGuardTests(unittest.TestCase):
@@ -752,8 +760,10 @@ class RootGuardTests(unittest.TestCase):
     def test_a_normal_user_or_another_platform_is_allowed(self):
         with patch.object(panel_server, "_running_as_root", return_value=False):
             panel_server._refuse_root("linux")
-        with patch.object(panel_server, "_running_as_root", return_value=True):
+        with patch.object(panel_server, "_running_as_root", return_value=True), \
+                patch('ruleproxy.windows_app_process._get_api', return_value=Mock(assert_unelevated=Mock())) as api:
             panel_server._refuse_root("win32")
+        api.return_value.assert_unelevated.assert_called_once_with()
 
 
 if __name__ == "__main__":

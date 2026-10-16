@@ -253,6 +253,19 @@ namespace RuleProxyLinksTest
                 remove_shortcut_files({"shortcuts": [str(created[0])]})
                 self.assertFalse(created[0].exists())
 
+    def test_installed_panel_link_targets_final_root_before_it_exists(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stage = Path(directory) / 'staging tree'
+            installed = Path(directory) / '最终安装 root'
+            destination = stage / 'Start-Windows.lnk'
+            shortcuts.create_panel_shortcut(destination, installed)
+            target, arguments, workdir = self.read_link(destination)
+            self.assertEqual(os.path.normcase(target), os.path.normcase(str(installed / 'python/pythonw.exe')))
+            self.assertEqual(arguments, subprocess.list2cmdline(
+                ['-I', '-S', str(installed / 'Run-RuleProxy.py'), '--no-browser']))
+            self.assertEqual(os.path.normcase(workdir), os.path.normcase(str(installed)))
+            self.assertFalse(installed.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,18 @@
 """Fixed inputs for the personal, offline Windows x64 deployment."""
 from __future__ import annotations
 
+import errno
 import hashlib
+import http.client
 import os
 from pathlib import Path
 import re
+import socket
+import ssl
+import sys
+import tempfile
+import time
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
@@ -161,20 +169,78 @@ def proxifyre_removal_plan(root: Path, static_files: dict) -> list[str]:
     return sorted(result)
 
 
-def fetch_asset(asset: dict, cache: Path | None = None) -> bytes:
-    target = Path(cache) / asset["name"] if cache is not None else None
-    if target is not None and target.is_file() and not target.is_symlink():
-        data = target.read_bytes()
-    else:
-        request = urllib.request.Request(asset["url"], headers={"User-Agent": "RuleProxy-offline-x64/1"})
-        with urllib.request.urlopen(request, timeout=90) as response:
-            data = response.read(64 * 1024**2 + 1)
+def _verified_asset(asset: dict, data: bytes) -> bytes:
     if (len(data) > 64 * 1024**2 or ("size" in asset and len(data) != asset["size"])
             or hashlib.sha256(data).hexdigest() != asset["sha256"]):
         raise ValueError("Fixed Windows asset failed its size/SHA-256 check: " + asset["name"])
+    return data
+
+
+def _transient_download_error(error: BaseException) -> bool:
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in (408, 425, 429, 500, 502, 503, 504)
+    if isinstance(error, urllib.error.URLError):
+        return isinstance(error.reason, BaseException) and _transient_download_error(error.reason)
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return False
+    if isinstance(error, (TimeoutError, ConnectionError, http.client.IncompleteRead, ssl.SSLEOFError)):
+        return True
+    if isinstance(error, socket.gaierror):
+        return error.errno == socket.EAI_AGAIN
+    return isinstance(error, OSError) and (
+        error.errno in (errno.ECONNRESET, errno.ECONNABORTED, errno.ETIMEDOUT,
+                        errno.ECONNREFUSED, errno.ENETDOWN, errno.ENETUNREACH,
+                        errno.EHOSTUNREACH, errno.EPIPE)
+        or getattr(error, 'winerror', None) in (10050, 10051, 10052, 10053, 10054,
+                                               10060, 10061, 10065, 11002))
+
+
+def fetch_asset(asset: dict, cache: Path | None = None) -> bytes:
+    # Licenses are small, reviewed release inputs. Installing must not depend
+    # on a second network request to raw.githubusercontent.com for these bytes.
+    for key in ('mihomo_license', 'proxifyre_license', 'ndisapi_license'):
+        if asset == ASSETS[key]:
+            license_path = Path(__file__).with_name('licenses') / asset['name']
+            if not license_path.is_file() or license_path.is_symlink():
+                raise ValueError('Bundled Windows license is missing or linked: ' + asset['name'])
+            return _verified_asset(asset, license_path.read_bytes())
+    target = Path(cache) / asset["name"] if cache is not None else None
+    if target is not None and target.is_file() and not target.is_symlink():
+        return _verified_asset(asset, target.read_bytes())
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        print(f'Downloading {asset["name"]} (attempt {attempt}/{attempts})\n  {asset["url"]}',
+              file=sys.stderr, flush=True)
+        request = urllib.request.Request(asset["url"], headers={"User-Agent": "RuleProxy-offline-x64/1"})
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                data = response.read(64 * 1024**2 + 1)
+        except (OSError, http.client.HTTPException) as error:
+            if isinstance(error, urllib.error.HTTPError):
+                error.close()
+            if attempt == attempts or not _transient_download_error(error):
+                raise RuntimeError(
+                    f'Cannot download fixed Windows asset {asset["name"]} from {asset["url"]} '
+                    f'after {attempt} attempt(s): {error}. Check connectivity and run setup again; '
+                    'already verified downloads remain cached.') from error
+            print(f'Download interrupted for {asset["name"]}: {error}. '
+                  f'Retrying in {attempt} second(s).', file=sys.stderr, flush=True)
+            time.sleep(attempt)
+            continue
+        _verified_asset(asset, data)
+        break
     if target is not None:
         target.parent.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_name(target.name + ".partial")
-        temporary.write_bytes(data)
-        temporary.replace(target)
+        # A unique temporary file cannot follow a pre-existing .partial link.
+        # The final cache name appears only after all bytes pass their pins.
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=target.parent, prefix=target.name + '.',
+                                             suffix='.partial', delete=False) as output:
+                temporary = Path(output.name)
+                output.write(data)
+            temporary.replace(target)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
     return data

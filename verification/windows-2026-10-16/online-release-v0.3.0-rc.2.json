@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.2",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "9e9fef6495745ce7f5245186bc781e4e58edb635979a9818b6d5ef48b7bb5e41",
+    "bytes": 206394
+  },
+  "source_base_commit": "47a99623a1b3567abfbe0781c147b9454dcac3d5",
+  "source_files": 41,
+  "archive_members": 43,
+  "fixes": [
+    "bundle_all_three_fixed_license_texts_and_verify_pins",
+    "bounded_transient_dependency_download_retry_with_retained_verified_cache",
+    "silent_windows_panel_core_and_login_launch",
+    "owned_pythonw_daily_shortcut"
+  ],
+  "windows_bootstrap_smoke_entry": ".github/check_windows_online_bootstrap.py",
+  "smoke_scope": "Real Windows x64 embedded Python, extracted Unicode/space path, fresh official binary downloads, raw license host blocked, complete payload hashes and native shell-link roundtrip; no UAC, driver or system installation",
+  "third_party_binaries_bundled_in_online_zip": false,
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "prior_qualification_record": "proxifyre-product/current-status.json",
+  "prior_qualification_is_for_rc2": false
+}

@@ -52,6 +52,32 @@ class WindowsPackageTests(unittest.TestCase):
         builder = self.builder()
         self.assertIn("ruleproxy/windows_runtime_pins.py", builder.project_files())
 
+    def test_bundled_licenses_are_pinned_and_tampering_stops_packaging_before_downloads(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in builder.BUNDLED_LICENSE_SOURCES:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes((builder.ROOT / name).read_bytes())
+            with patch.object(builder, 'ROOT', root), patch.object(builder, 'INCLUDE', ('ruleproxy/',)), \
+                    patch.object(builder, 'download') as network:
+                self.assertEqual(builder.project_files(), sorted(builder.BUNDLED_LICENSE_SOURCES))
+                damaged = root / builder.BUNDLED_LICENSE_SOURCES[0]
+                damaged.write_bytes(damaged.read_bytes() + b'changed')
+                with self.assertRaisesRegex(ValueError, 'license failed its size/SHA-256'):
+                    builder.stage(root / 'output')
+                network.assert_not_called()
+
+    def test_bundled_license_files_are_required_for_source_packages(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'ruleproxy').mkdir()
+            with patch.object(builder, 'ROOT', root), patch.object(builder, 'INCLUDE', ('ruleproxy/',)), \
+                    self.assertRaisesRegex(ValueError, 'Required bundled Windows license is missing'):
+                builder.project_files()
+
     def test_release_notes_bind_qualification_to_matching_evidence(self):
         builder = self.builder()
         notes = builder.release_notes("personal.zip", "a" * 64)
@@ -127,7 +153,10 @@ class WindowsPackageTests(unittest.TestCase):
         yaml = io.BytesIO()
         with zipfile.ZipFile(yaml, "w") as archive:
             archive.writestr("yaml/__init__.py", b"# fixture")
+        original_download = builder.download
         def fake_download(url, _digest):
+            if any(builder.pins.ASSETS[key]['url'] == url for key in builder.LICENSE_KEYS):
+                return original_download(url, _digest)
             return python.getvalue() if url == builder.PYTHON_URL else yaml.getvalue() if url == builder.PYYAML_URL else b"fixed-asset"
         def runtime(target, **_kwargs):
             path = target / "bin/windows-amd64"
@@ -147,6 +176,10 @@ class WindowsPackageTests(unittest.TestCase):
             for asset in builder.pins.ASSETS.values():
                 if asset["name"].endswith((".msi", ".exe")):
                     self.assertTrue((target / "installers" / asset["name"]).is_file())
+            for key in ('proxifyre_license', 'ndisapi_license'):
+                asset = builder.pins.ASSETS[key]
+                self.assertEqual(hashlib.sha256((target / 'licenses' / asset['name']).read_bytes()).hexdigest(),
+                                 asset['sha256'])
             self.assertFalse(list(target.rglob("wxc-exec.exe")))
             self.assertFalse(list(target.rglob("*.yaml")))
 

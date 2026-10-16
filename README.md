@@ -10,13 +10,15 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 目标系统为 Windows 11 x64；ARM64、x86 未验证，Windows Server 仅作为自动化对照环境。系统需保留正常的驱动签名验证与 .NET Framework 4.7.2 以上组件。
 
-1. 取得本次个人离线包 `RuleProxy-Web-0.3.0-windows-x64-personal.zip`，核对随包提供的 `SHA256SUMS.txt`，解压。
-2. 从日常登录账户双击 `Setup-Windows.cmd`，允许一次 UAC 安装。包内已包含固定版本的 Python、PyYAML、Mihomo、ProxiFyre MSI、NDIS 驱动 MSI 和 VC 运行库，完整离线包使用原版官方 Setup 与按其 Burn manifest 精确命名的本地 VC/NDIS 载荷；无需临时下载的实际断网验收仍待完成。
-3. 如果安装返回 `3010`，先重启，再从同一离线包运行 `Setup-Windows.cmd` 续装。
-4. 安装成功后，以同一用户正常打开 `Start-Windows.cmd`；不要选择“以管理员身份运行”。面板默认地址为 `http://127.0.0.1:8879`。
+1. 在 [GitHub Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases) 下载 `RuleProxy-Web-0.3.0-windows-x64-online-setup.zip`，核对同一发布页的 `SHA256SUMS.txt`，完整解压到可写目录。
+2. 从日常登录账户双击 `Setup-Windows.cmd`。首次联网下载并校验固定版本的 Python、PyYAML、Mihomo、ProxiFyre、NDIS 驱动和 VC 运行库，无需预装 Python；准备完成后允许一次 UAC 安装。固定许可证原文已随包附带，无需访问 GitHub 原始文件站点。
+3. 下载失败时，保留 `.windows-cache`，从同一目录再次运行 `Setup-Windows.cmd`，可复用已经校验的依赖。临时连接中断会有界重试，校验不通过会停止。如果安装返回 `3010`，先重启，再运行同一安装入口续装。
+4. 安装成功后会在后台启动。以后以同一普通用户双击桌面的 `RuleProxy Web` 快捷方式，或 `%ProgramFiles%\RuleProxy-Web\Start-Windows.lnk`；无需管理员权限，不弹 CMD、PowerShell、Mihomo 控制台或浏览器。手动访问 `http://127.0.0.1:8879` 打开 Web 面板。
 5. 在 Web 面板导入自己的 YAML，选择真实代理节点，添加应用并启用其代理开关，再启动核心和应用。
 
 安装包没有预装任何用户 YAML、订阅或节点凭证。[示例 YAML](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/examples/ruleproxy.example.yaml) 仅供源码阅读，需要换成自己的节点后导入。
+
+登录后自启动可在 Web 面板中开启，同样静默运行。后台启动错误写入 `%LOCALAPPDATA%\RuleProxyWebSafe\panel.log`，核心日志为同目录的 `core.log`。`Start-Windows.cmd` 保留为兼容入口；直接双击 CMD 本身可能短暂显示命令行窗口，日常请使用上述快捷方式。首次安装仍会显示准备进度并请求 UAC 授权。
 
 安装会拒绝接管另一个来源的既有 ProxiFyre。已有共享 NDIS/VC 组件只有符合兼容与签名检查时才复用。程序、服务入口和固定依赖放在受保护的 `%ProgramFiles%\RuleProxy-Web`；官方引擎位于 `%ProgramFiles%\ProxiFyre`。普通用户只能读取代码，无法通过面板修改服务命令或执行任意管理员命令。
 
@@ -30,7 +32,7 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 控制服务不负责启动应用窗口。应用由普通用户面板创建，并放入本工具持有的 Windows Job 中；不会注入代理环境变量或浏览器代理参数。浏览器仍使用各应用独立的私有配置，以保留登录状态。
 
-从源码使用时也可双击 `Setup-Windows.cmd`。它先以普通用户下载并校验固定资产、生成本地离线载荷，然后请求 UAC 安装；不依赖全局 Python 或 pip。下载缓存位于源码下的 `.windows-cache`。这一步需要联网，完成后的离线包才可离线部署。
+从源码使用时也可双击 `Setup-Windows.cmd`，采用相同的联网准备流程，下载缓存位于源码下的 `.windows-cache`。依赖准备在普通用户权限下完成，失败时尚未执行系统安装。已准备的个人离线包 `RuleProxy-Web-0.3.0-windows-x64-personal.zip` 含完整固定依赖，直接进入 UAC 安装；完整断网安装验收仍待完成，公开发布附件为联网安装包。
 
 ## Windows 应用规则与边界
 

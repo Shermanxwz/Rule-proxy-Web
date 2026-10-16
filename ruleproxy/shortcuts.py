@@ -209,15 +209,16 @@ def _linux_shortcuts(app_id: str, label: str, argv: list[str], icon: str | None)
     return created
 
 
-def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Path] | None = None) -> list[Path]:
+def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Path] | None = None,
+                       *, shortcut_name: str | None = None, working_directory: Path | None = None) -> list[Path]:
     """Create .lnk files on the Desktop and in the Start menu, or in ``folders`` when given."""
-    safe = _INVALID_FILE_CHARS_RE.sub(" ", _display_name(label)).strip(" .") or "RuleProxy"
+    safe = _INVALID_FILE_CHARS_RE.sub(" ", shortcut_name or _display_name(label)).strip(" .") or "RuleProxy"
     environment = {
         **os.environ,
         "RULEPROXY_SHORTCUT_NAME": safe,
         "RULEPROXY_SHORTCUT_TARGET": argv[0],
         "RULEPROXY_SHORTCUT_ARGUMENTS": subprocess.list2cmdline(argv[1:]),
-        "RULEPROXY_SHORTCUT_WORKDIR": str(ROOT),
+        "RULEPROXY_SHORTCUT_WORKDIR": str(working_directory if working_directory is not None else ROOT),
         "RULEPROXY_SHORTCUT_DESCRIPTION": f"RuleProxy 隔离启动：{label}",
         "RULEPROXY_SHORTCUT_ICON": str(app.get("path") or ""),
         "RULEPROXY_SHORTCUT_FOLDERS": "\n".join(str(folder) for folder in folders or []),
@@ -239,6 +240,30 @@ def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Pat
         reason = _powershell_error(result.stderr)
         raise ValueError("无法创建 Windows 快捷方式。请确认桌面和开始菜单目录可写。" + (f"（{reason[:300]}）" if reason else ""))
     return created
+
+
+def create_panel_shortcut(destination: Path, installed_root: Path | None = None) -> Path:
+    """Create the installed, windowless panel entry without starting the panel.
+
+    Setup creates the link inside its staging tree before renaming the tree.
+    Its target therefore uses the final installation root, which need not yet
+    exist. No state path is saved: the eventual ordinary user owns the state.
+    """
+    if sys.platform != 'win32':
+        raise ValueError('The installed panel shortcut is Windows-only')
+    destination = Path(destination)
+    if (destination.suffix.lower() != '.lnk' or not destination.stem
+            or _INVALID_FILE_CHARS_RE.search(destination.stem)
+            or destination.stem.strip(' .') != destination.stem):
+        raise ValueError('Expected a Windows shell-link destination')
+    root = Path(installed_root) if installed_root is not None else ROOT
+    argv = [str(root / 'python' / 'pythonw.exe'), '-I', '-S',
+            str(root / 'Run-RuleProxy.py'), '--no-browser']
+    created = _windows_shortcuts({}, 'RuleProxy Web', argv, [destination.parent],
+                                 shortcut_name=destination.stem, working_directory=root)
+    if created != [destination]:
+        raise ValueError('Windows panel shortcut destination differs from requested path')
+    return destination
 
 
 def _powershell_error(stderr: str | None) -> str:

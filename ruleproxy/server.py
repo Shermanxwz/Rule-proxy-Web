@@ -241,6 +241,13 @@ def _refuse_root(platform: str | None = None) -> None:
     platform = sys.platform if platform is None else platform
     if platform.startswith("linux") and _running_as_root():
         raise SystemExit("RuleProxy: 请用登录桌面的普通用户运行，不要用 sudo 或 root。root 下 Chrome、ChatGPT 等程序必须关闭浏览器沙箱才能启动，本工具不会这样做。")
+    if platform == 'win32':
+        from .windows_app_process import _get_api
+
+        try:
+            _get_api().assert_unelevated()
+        except OSError as exc:
+            raise SystemExit(f'RuleProxy: 面板必须由桌面普通用户启动，请不要使用“以管理员身份运行”（{exc}）。') from None
 
 
 def _tolerant_console() -> None:
@@ -284,9 +291,21 @@ def main():
     parser.add_argument("--controller-port", type=int, default=19097, help="local Mihomo controller port (default: 19097)")
     parser.add_argument("--start-core", action="store_true", help="start the core using the saved YAML on launch")
     parser.add_argument("--state-dir", type=Path, default=state_directory())
-    parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--no-browser", action="store_true", default=sys.platform == 'win32',
+                        help="leave the browser closed (always the default on Windows)")
+    parser.add_argument("--create-panel-shortcut", type=Path, metavar="DESTINATION",
+                        help="create the installed Windows background launcher, then exit")
+    parser.add_argument("--shortcut-root", type=Path, metavar="INSTALL_ROOT",
+                        help="final install root for a shortcut created during staging")
     parser.add_argument("--launch-app", metavar="APP_ID", help="start one saved app from a desktop shortcut, then exit when it closes")
     args = parser.parse_args()
+    if args.shortcut_root is not None and args.create_panel_shortcut is None:
+        parser.error('--shortcut-root requires --create-panel-shortcut')
+    if args.create_panel_shortcut is not None:
+        from .shortcuts import create_panel_shortcut
+
+        create_panel_shortcut(args.create_panel_shortcut, args.shortcut_root)
+        return
     ports = (args.port, args.proxy_port, args.controller_port)
     if any(not 1025 <= port <= 65535 for port in ports) or len(set(ports)) != len(ports):
         parser.error("Panel, proxy, and controller ports must be 1025–65535 and all different")
@@ -299,7 +318,8 @@ def main():
             from .shortcut_launcher import _notify
 
             print(exc.code, file=sys.stderr, flush=True)
-            _notify("RuleProxy", exc.code.removeprefix("RuleProxy: "))
+            if sys.platform != 'win32':
+                _notify("RuleProxy", exc.code.removeprefix("RuleProxy: "))
         raise
 
 

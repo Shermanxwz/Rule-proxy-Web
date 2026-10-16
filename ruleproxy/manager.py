@@ -521,10 +521,14 @@ class Manager:
             if os.name != "nt":
                 os.fchmod(self.core_log.fileno(), 0o600)
             try:
-                validation = subprocess.run([str(core), "-t", *args[1:]], stdout=self.core_log, stderr=subprocess.STDOUT, timeout=30)
+                hidden = {'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)} if os.name == 'nt' else {}
+                validation = subprocess.run([str(core), "-t", *args[1:]], stdout=self.core_log,
+                                            stderr=subprocess.STDOUT, timeout=30, **hidden)
                 if validation.returncode:
                     raise ValueError("Mihomo 配置校验未通过，应用未启动。详情保存在本机 core.log。")
-                options = {"start_new_session": True} if os.name != "nt" else {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+                options = {"start_new_session": True} if os.name != "nt" else {
+                    'creationflags': getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x00000200)
+                    | getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)}
                 self.core = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=self.core_log, stderr=subprocess.STDOUT, **options)
                 if sys.platform == "win32":
                     from .windows_core_process import CoreJob

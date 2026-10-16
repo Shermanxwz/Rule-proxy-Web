@@ -28,7 +28,8 @@ def project_files() -> list[str]:
                 or relative.name == 'package-manifest.json'
                 or '__pycache__' in relative.parts
                 or any(part.startswith('.') for part in relative.parts) and name != EXTRA_SOURCES[1]
-                or relative.suffix.lower() not in ALLOWED_SUFFIXES and name != 'LICENSE'):
+                or relative.suffix.lower() not in ALLOWED_SUFFIXES
+                and name not in ('LICENSE', *offline.BUNDLED_LICENSE_SOURCES)):
             raise ValueError('Ineligible online package source: ' + name)
         path = ROOT
         for part in relative.parts:
@@ -48,7 +49,11 @@ def install_instructions() -> str:
         '无需预装全局 Python。本包仅含源码和引导脚本，不是离线安装包。\n'
         '依赖准备完成后会弹出 UAC 管理员授权。Web 面板和所选应用仍使用普通用户权限。\n'
         '如果提示返回码 3010，请重启 Windows，再运行 Setup-Windows.cmd 继续安装。\n'
-        '安装后使用同一普通账户双击 Start-Windows.cmd，在 Web 面板中自行导入 YAML。'
+        '安装后默认在后台运行。日常双击桌面 RuleProxy Web 快捷方式，或安装目录的 Start-Windows.lnk，'
+        '无需命令行窗口，也不会自动打开浏览器。手动访问 http://127.0.0.1:8879，在 Web 面板中自行导入 YAML。'
+        '登录自启动可在面板开启，同样静默运行；后台错误见 %LOCALAPPDATA%\\RuleProxyWebSafe\\panel.log。\n'
+        '临时下载故障会有界重试；失败后保留 .windows-cache，从同一目录重新运行 Setup-Windows.cmd 可复用校验过的依赖。'
+        '固定许可证原文已随包附带，安装不为许可证访问 raw.githubusercontent.com。'
         '本包不含用户配置、节点凭据或第三方二进制。\n\n'
         '原生 Windows 11 的完整验收尚未通过；已观察到的部分功能不能替代完整 GUI、启动和卸载重装验收。'
         '发布为预发布候选，不宣称 Linux 等价隔离。具体能力和限制请阅读随包 README.md。\n'

@@ -136,15 +136,10 @@ def _report(message: str) -> int:
 
 
 def _notify(title: str, message: str) -> None:
-    """Show the failure on the desktop: a shortcut has no console to print to."""
+    """Linux desktop feedback; Windows background launchers report in panel.log."""
     if sys.platform == "win32":
-        try:
-            import ctypes
-
-            ctypes.windll.user32.MessageBoxW(None, message, title, 0x10)
-        except (AttributeError, OSError):
-            pass
-    elif shutil.which("notify-send"):
+        return
+    if shutil.which("notify-send"):
         try:
             subprocess.run(["notify-send", "-a", "RuleProxy", title, message], capture_output=True, timeout=10, check=False)
         except (OSError, subprocess.SubprocessError):

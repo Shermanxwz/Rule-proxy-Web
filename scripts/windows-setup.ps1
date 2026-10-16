@@ -26,18 +26,21 @@ if ($env:PROCESSOR_ARCHITEW6432 -or $env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
 if ([Environment]::OSVersion.Version.Build -lt 22000) { throw 'Windows 11 x64 is required' }
 $manifestPath = Join-Path $SourceRoot 'package-manifest.json'
 
-# A source checkout bootstraps a pinned private Python without pip/global Python.
-# The release archive already contains the complete offline payload.
+# A checkout or online release bootstraps a pinned private Python without pip/global Python.
+# An offline archive already contains the complete verified payload.
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     if ($Elevated) { throw 'Build the source payload before requesting elevation' }
     $cache = Join-Path $SourceRoot '.windows-cache'
     $assets = Join-Path $cache 'assets'
     $bootstrap = Join-Path $cache 'bootstrap-python'
     New-Item -ItemType Directory -Path $assets, $bootstrap -Force | Out-Null
+    Write-Host 'Preparing the online installation before requesting administrator access.'
+    Write-Host ('Verified downloads are retained for another attempt in: ' + $assets)
     $archive = Join-Path $assets 'python-3.14.8-embed-amd64.zip'
     $pythonHash = 'a93abe456ab01bd96d7a085b3cdb6566b3063f4241360d114142fbdb07f0a310'
     if (-not (Test-Path -LiteralPath $archive) -or
         (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pythonHash) {
+        Write-Host 'Downloading and verifying the private Python runtime...'
         $partial = $archive + '.partial'
         Invoke-WebRequest -UseBasicParsing -Uri 'https://www.python.org/ftp/python/3.14.8/python-3.14.8-embed-amd64.zip' -OutFile $partial -TimeoutSec 120
         if ((Get-Item -LiteralPath $partial).Length -ne 12601679 -or
@@ -50,8 +53,12 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     Expand-Archive -LiteralPath $archive -DestinationPath $bootstrap -Force
     $stagedSource = Join-Path $cache 'offline-package'
     if (Test-Path -LiteralPath $stagedSource) { Remove-Item -LiteralPath $stagedSource -Recurse -Force }
+    Write-Host 'Preparing the pinned components; cached files are checked and reused.'
     & (Join-Path $bootstrap 'python.exe') -I -S (Join-Path $SourceRoot '.github\build_windows_package.py') $stagedSource --stage-only --asset-cache $assets
-    if ($LASTEXITCODE -ne 0) { throw 'Source offline-payload preparation failed' }
+    if ($LASTEXITCODE -ne 0) {
+        throw ('Online installation preparation failed before system installation. See the download error above. ' +
+            'After restoring network access, run Setup-Windows.cmd again from the same folder; verified downloads are retained in: ' + $assets)
+    }
     $SourceRoot = $stagedSource
     $manifestPath = Join-Path $SourceRoot 'package-manifest.json'
 }
@@ -66,7 +73,30 @@ if (-not $isAdmin -or -not $Elevated) {
     if (-not $NoLaunch -and -not $isAdmin) {
         # This continuation retains the original ordinary user's token.
         $installedRoot = Join-Path $env:ProgramFiles 'RuleProxy-Web'
-        Start-Process -FilePath (Join-Path $installedRoot 'python\pythonw.exe') -ArgumentList @('-I','-S',('"' + (Join-Path $installedRoot 'Run-RuleProxy.py') + '"')) -WorkingDirectory $installedRoot
+        # The installed link targets pythonw directly, so later daily starts
+        # have no CMD/PowerShell window. Never replace an unrelated shortcut.
+        $shell = $null
+        $link = $null
+        try {
+            $desktop = [Environment]::GetFolderPath('Desktop')
+            if (-not $desktop) { throw 'Desktop folder is unavailable' }
+            $desktopLink = Join-Path $desktop 'RuleProxy Web.lnk'
+            if (Test-Path -LiteralPath $desktopLink) {
+                $item = Get-Item -LiteralPath $desktopLink -Force
+                if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Existing desktop entry is not an ordinary shortcut' }
+                $shell = New-Object -ComObject WScript.Shell
+                $link = $shell.CreateShortcut($desktopLink)
+                if (-not $link.TargetPath.StartsWith($installedRoot + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Existing desktop shortcut belongs to another program' }
+            }
+            Copy-Item -LiteralPath (Join-Path $installedRoot 'Start-Windows.lnk') -Destination $desktopLink -Force
+            Write-Host ('Desktop silent launcher: ' + $desktopLink)
+        } catch {
+            Write-Warning ('Desktop shortcut left unchanged: ' + $_.Exception.Message + '. Use ' + (Join-Path $installedRoot 'Start-Windows.lnk'))
+        } finally {
+            if ($link) { [Runtime.InteropServices.Marshal]::ReleaseComObject($link) | Out-Null }
+            if ($shell) { [Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null }
+        }
+        Start-Process -FilePath (Join-Path $installedRoot 'python\pythonw.exe') -ArgumentList @('-I','-S',('"' + (Join-Path $installedRoot 'Run-RuleProxy.py') + '"'),'--no-browser') -WorkingDirectory $installedRoot
     }
     exit 0
 }
@@ -340,7 +370,7 @@ try {
     # deployment.json hashes it; the package manifest cannot hash itself.
     [IO.File]::WriteAllBytes((Join-Path $stage 'package-manifest.json'), $manifestBytes)
     $activePackageFile = $null
-    foreach ($required in @('python\python.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
+    foreach ($required in @('python\python.exe','python\pythonw.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) { throw ('Required product file missing: ' + $required) }
     }
     $setupPhase = 'stage_protect'
@@ -395,6 +425,11 @@ try {
         # the owner imports YAML and selects applications through the Web panel.
         [IO.File]::WriteAllText($config, '{"logLevel":"Info","bypassLan":false,"excludes":[],"proxies":[{"appNames":["RuleProxy-No-Selected-Application-71d8c7.exe"],"socks5ProxyEndpoint":"127.0.0.1:9","supportedProtocols":["TCP","UDP"],"supportedAddressFamilies":["IPv4","IPv6"]}]}', $utf8)
     }
+    $setupPhase = 'panel_shortcut'
+    # Create in staging before sealing the owned file hashes, but point at the
+    # final protected root. The GUID staging directory is renamed below.
+    & (Join-Path $stage 'python\python.exe') -I -S (Join-Path $stage 'Run-RuleProxy.py') --create-panel-shortcut (Join-Path $stage 'Start-Windows.lnk') --shortcut-root $root
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $stage 'Start-Windows.lnk') -PathType Leaf)) { throw 'Could not create the silent daily launcher' }
     $files = @{}
     foreach ($path in Get-ChildItem -LiteralPath $stage -File -Recurse) {
         $relative = $path.FullName.Substring($stage.Length + 1).Replace('\','/')
@@ -441,7 +476,9 @@ try {
     Write-State 'completed' $true
     $setupPhase = 'completed'
     if ($oldRootMoved) { Remove-Item -LiteralPath $backup -Recurse -Force }
-    Write-Host 'RuleProxy installed. Start-Windows.cmd opens the ordinary-user Web panel.'
+    Write-Host ('RuleProxy installed. Daily silent launcher: ' + (Join-Path $root 'Start-Windows.lnk'))
+    Write-Host 'The daily launcher runs in the background and leaves the browser closed.'
+    Write-Host 'Web panel (open manually): http://127.0.0.1:8879'
 } catch {
     $originalFailure = $_
     $setupFailed = $true
