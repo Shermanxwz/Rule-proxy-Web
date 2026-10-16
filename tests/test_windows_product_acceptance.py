@@ -1,5 +1,6 @@
 """Guard evidence boundaries and final artifact verification before native CI."""
 import hashlib
+import copy
 import ctypes
 import errno
 import importlib.util
@@ -261,6 +262,106 @@ class ReceiverEvidenceTests(unittest.TestCase):
                      [{**transaction, "request_target": "/unrelated-navigation"}]):
             with self.subTest(rows=rows):
                 self.assertFalse(self.verified(phase, rows)["passed"])
+
+
+class NativeProxyEnvironmentEvidenceTests(unittest.TestCase):
+    owner = "S-1-5-21-101-202-303-1001"
+
+    def receipt(self, root):
+        launcher = str((root / "ruleproxy/windows_app_process.py").resolve())
+        nonce = "a1" * 16
+        targets = [f"http://{nonce}.invalid/{nonce}/{role}" for role in ("child", "grandchild")]
+        environment = {"HTTP_PROXY": "http://127.0.0.1:18809", "HTTPS_PROXY": "http://127.0.0.1:18809",
+                       "ALL_PROXY": "http://127.0.0.1:18809", "NO_PROXY": "localhost,127.0.0.1,::1",
+                       "NODE_USE_ENV_PROXY": "1"}
+        parent = {"sid": self.owner, "elevated": False, "pid": os.getpid()}
+        child_pid, grandchild_pid = os.getpid() + 10000, os.getpid() + 10001
+        def actor(pid, ppid, target):
+            return {"sid": self.owner, "elevated": False, "pid": pid, "ppid": ppid,
+                    "launcher_file": launcher, "proxy_environment": dict(environment),
+                    "target": target, "response": "proxy-fixture:" + nonce}
+        return {"parent_token": parent, "child": {**actor(child_pid, parent["pid"], targets[0]), "grandchild_exit_code": 0},
+                "grandchild": actor(grandchild_pid, child_pid, targets[1]),
+                "expected_targets": targets, "received_targets": list(targets), "exit_code": 0,
+                "launcher_file": launcher, "launched_pid": child_pid, "proxy_port": 18809,
+                "probe_scope": "windows-native-launcher-child-grandchild-loopback"}
+
+    def test_matching_ordinary_tokens_and_both_receiver_markers_are_required(self):
+        root = Path("installed-product").resolve()
+        receipt = self.receipt(root)
+        self.assertTrue(acceptance.native_proxy_receipt_valid(receipt, self.owner, root))
+        for role in ("parent_token", "child", "grandchild"):
+            for key, value in (("sid", "S-1-5-18"), ("elevated", True), ("elevated", 0), ("pid", True)):
+                changed = copy.deepcopy(receipt)
+                changed[role][key] = value
+                with self.subTest(role=role, key=key, value=value):
+                    self.assertFalse(acceptance.native_proxy_receipt_valid(changed, self.owner, root))
+        for received in ([], receipt["received_targets"][:1], receipt["received_targets"] * 2,
+                         list(reversed(receipt["received_targets"])), ["/not-an-explicit-proxy-target"] * 2):
+            changed = copy.deepcopy(receipt)
+            changed["received_targets"] = received
+            self.assertFalse(acceptance.native_proxy_receipt_valid(changed, self.owner, root))
+
+    def test_checkout_launcher_changed_environment_and_unrelated_child_cannot_qualify(self):
+        root = Path("installed-product").resolve()
+        receipt = self.receipt(root)
+        for role, field, value in (
+                ("child", "launcher_file", str(root / "checkout/windows_app_process.py")),
+                ("grandchild", "ppid", receipt["parent_token"]["pid"]),
+                ("child", "response", "unrelated-success"), ("grandchild", "error", "failure"),
+                ("child", "grandchild_exit_code", False)):
+            changed = copy.deepcopy(receipt)
+            changed[role][field] = value
+            self.assertFalse(acceptance.native_proxy_receipt_valid(changed, self.owner, root))
+        for key, value in (("NO_PROXY", "*"), ("CUSTOM_PROXY", "http://127.0.0.1:18809"),
+                           ("HTTPS_PROXY", "http://untrusted.invalid:9")):
+            changed = copy.deepcopy(receipt)
+            changed["child"]["proxy_environment"][key] = value
+            self.assertFalse(acceptance.native_proxy_receipt_valid(changed, self.owner, root))
+        for key, value in (("exit_code", False), ("proxy_port", True), ("launched_pid", True),
+                           ("probe_scope", "transparent_proxy_qualified")):
+            changed = copy.deepcopy(receipt)
+            changed[key] = value
+            self.assertFalse(acceptance.native_proxy_receipt_valid(changed, self.owner, root))
+
+    def test_exact_helper_copy_is_checked_before_running_shared_probe(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            helper = root / "native-proxy-probe.py"
+            helper.write_bytes(b"fixed checked fixture source")
+            spec = {"owner_sid": self.owner, "native_proxy_fixture_sha256": acceptance.digest(helper)}
+            receipt = self.receipt(root / "installed")
+            probe = mock.Mock(return_value=receipt)
+            with mock.patch.object(acceptance, "LAB", root), \
+                    mock.patch.object(acceptance, "INSTALLED", root / "installed"), \
+                    mock.patch.object(acceptance, "module", return_value=SimpleNamespace(native_launcher_proxy_probe=probe)) as load:
+                facts = acceptance.native_proxy_environment_probe(spec)
+                self.assertTrue(facts["passed"])
+                self.assertEqual(facts["receipt"], receipt)
+                self.assertEqual(facts["fixture_sha256"], spec["native_proxy_fixture_sha256"])
+                probe.assert_called_once_with(root / "actors")
+                helper.write_bytes(b"replaced fixture")
+                load.reset_mock()
+                with self.assertRaisesRegex(RuntimeError, "source differs"):
+                    acceptance.native_proxy_environment_probe(spec)
+                load.assert_not_called()
+
+    def test_shared_probe_parent_must_be_the_actual_ordinary_suite_process(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            helper = root / "native-proxy-probe.py"
+            helper.write_bytes(b"fixed checked fixture source")
+            receipt = self.receipt(root / "installed")
+            receipt["parent_token"]["pid"] += 1
+            receipt["child"]["ppid"] = receipt["parent_token"]["pid"]
+            spec = {"owner_sid": self.owner, "native_proxy_fixture_sha256": acceptance.digest(helper)}
+            with mock.patch.object(acceptance, "LAB", root), \
+                    mock.patch.object(acceptance, "INSTALLED", root / "installed"), \
+                    mock.patch.object(acceptance, "module", return_value=SimpleNamespace(native_launcher_proxy_probe=lambda _: receipt)):
+                with self.assertRaisesRegex(RuntimeError, "ordinary token"):
+                    acceptance.native_proxy_environment_probe(spec)
 
 
 class PngDimensionsTests(unittest.TestCase):

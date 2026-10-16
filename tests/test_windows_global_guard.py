@@ -132,6 +132,27 @@ class GuardPolicyTests(unittest.TestCase):
 
 
 class GuardOwnershipAndLifecycleTests(unittest.TestCase):
+    def test_qualified_capability_requires_actual_full_tun_for_active_strict(self):
+        value = guard.Guard(metadata())
+        value.qualification = {**value.qualification, 'native_qualified': True}
+        engine = SimpleNamespace(app_id=Mock(return_value=APP))
+        with patch.object(value, '_owned_provider', return_value=True), \
+                patch.object(value, '_owned_sublayer', return_value=True), \
+                patch.object(guard, '_system_descriptor', return_value=SYSTEM), \
+                patch.object(guard, '_maintenance_descriptor', return_value=MAINTENANCE), \
+                patch.object(guard, '_tun_luid', return_value=9001) as identity:
+            for luid, expected_active, expected_strict in ((None, False, False), (None, True, False),
+                                                           (9001, True, True)):
+                filters = value._expected(guard._plan(APP, SYSTEM, luid, MAINTENANCE)) if expected_active else {}
+                with patch.object(value, '_filters', return_value=filters):
+                    result = value._snapshot(engine, luid=luid)
+                self.assertIs(result['native_qualified'], True)
+                self.assertIs(result['active'], expected_active)
+                self.assertIs(result['strict_isolation'], expected_strict)
+            identity.return_value = 9002
+            with patch.object(value, '_filters', return_value=filters):
+                self.assertIs(value._snapshot(engine, luid=9001)['strict_isolation'], False)
+
     def test_apply_is_system_only_but_restore_checks_real_administrator_authority(self):
         with patch.object(guard.os, 'name', 'nt'), \
                 patch('ruleproxy.windows_proxy_client.current_user_sid', return_value='S-1-5-21-1-2-3-1001'):

@@ -73,10 +73,10 @@ class FakeAPI:
 class WindowsAppProcessTests(unittest.TestCase):
     command = [r"C:\Program Files\Example\app.exe", "argument with spaces"]
 
-    def start(self, api=None, env=None):
+    def start(self, api=None, env=None, **options):
         api = api or FakeAPI()
         with mock.patch.object(app_process, "_get_api", return_value=api):
-            process = app_process.launch(self.command, env or {"PATH": r"C:\Windows"}, r"C:\Work")
+            process = app_process.launch(self.command, env or {"PATH": r"C:\Windows"}, r"C:\Work", **options)
         self.addCleanup(self.dispose, process)
         return api, process
 
@@ -100,11 +100,36 @@ class WindowsAppProcessTests(unittest.TestCase):
     def test_explicit_environment_filters_all_proxy_casings_without_modifying_input(self):
         env = {"HTTPS_PROXY": "x", "http_proxy": "x", "Ftp_Proxy": "x",
                "ALL_PROXY": "x", "no_proxy": "*", "SOCKS_PROXY": "x",
-               "CUSTOM_PROXY": "x", "PATH": r"C:\Windows", "CUSTOM": "你好"}
+               "CUSTOM_PROXY": "x", "NODE_USE_ENV_PROXY": "1",
+               "PATH": r"C:\Windows", "CUSTOM": "你好"}
         original = dict(env)
         api, _ = self.start(env=env)
         self.assertEqual(env, original)
         self.assertEqual(api.environment, "CUSTOM=你好\0PATH=C:\\Windows\0\0")
+
+    def test_explicit_native_proxy_rebuilds_only_the_owned_endpoint_for_both_tokens(self):
+        env = {"http_proxy": "http://untrusted.invalid:1", "HTTP_PROXY": "http://other.invalid:2",
+               "Https_Proxy": "http://untrusted.invalid:3", "ALL_PROXY": "socks5://untrusted.invalid:4",
+               "NO_PROXY": "*", "no_proxy": "*", "SOCKS_PROXY": "untrusted",
+               "CUSTOM_PROXY": "untrusted", "Node_Use_Env_Proxy": "0", "PATH": r"C:\Windows"}
+        original = dict(env)
+        expected = {"HTTP_PROXY": "http://127.0.0.1:18809", "HTTPS_PROXY": "http://127.0.0.1:18809",
+                    "ALL_PROXY": "http://127.0.0.1:18809", "NO_PROXY": "localhost,127.0.0.1,::1",
+                    "NODE_USE_ENV_PROXY": "1", "PATH": r"C:\Windows"}
+        for elevated in (False, True):
+            with self.subTest(elevated=elevated):
+                api, _ = self.start(FakeAPI(elevated=elevated), env, native_proxy_port=18809)
+                entries = api.environment.rstrip("\0").split("\0")
+                self.assertEqual(dict(entry.split("=", 1) for entry in entries), expected)
+                self.assertEqual(len(entries), len(expected))
+                self.assertEqual(env, original)
+
+    def test_native_proxy_port_is_validated_before_any_native_process_operations(self):
+        with mock.patch.object(app_process, "_get_api") as api:
+            for port in (True, False, "18809", "http://127.0.0.1:18809", 18809.0, 0, 1024, 65536):
+                with self.subTest(port=port), self.assertRaises(ValueError):
+                    app_process.launch(self.command, {}, native_proxy_port=port)
+            api.assert_not_called()
 
     def test_elevated_context_still_assigns_job_before_resuming(self):
         api, process = self.start(FakeAPI(elevated=True))

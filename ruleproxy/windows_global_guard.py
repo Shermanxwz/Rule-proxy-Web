@@ -7,10 +7,9 @@ Core startup uses two phases: before the TUN exists only the protected SYSTEM
 core, loopback and narrow link-maintenance traffic are permitted; a second
 atomic apply permits the verified TUN interface. Crashes never delete filters.
 
-IMPORTANT: native packet, reauthorization, RDP, reboot and competing-provider
-qualification has not been completed. Object installation/readback is not proof
-of no leakage. ``strict_isolation`` therefore remains False. A caller requiring
-qualified strict protection must refuse startup rather than change this flag.
+Native qualification requires a protected release attestation bound to the
+tested code/core and exact OS. None ships today. Object readback alone never
+qualifies. The future runtime-only profile explicitly excludes early boot.
 
 Sources checked for this implementation:
 https://learn.microsoft.com/windows/win32/fwp/filtering-conditions-available-at-each-filtering-layer
@@ -33,6 +32,7 @@ import threading
 import uuid
 
 from .windows_proxy_policy import HASH_RE, SID_RE, SERVICE_NAME, ProxyError
+from .windows_global_qualification import load_qualification
 
 
 _P = C.c_void_p
@@ -407,6 +407,7 @@ class Guard:
             raise ProxyError('invalid_deployment', '独立保护缺少可信安装身份。')
         self.metadata = metadata
         self.root = Path(metadata['root'])
+        self.qualification = load_qualification(metadata)
         self.identity = hashlib.sha256((metadata['owner_sid'] + '\0' + str(self.root).casefold()).encode()).hexdigest()
         self.provider = self._key('provider')
         self.sublayer = self._key('sublayer')
@@ -415,6 +416,9 @@ class Guard:
 
     def _key(self, name):
         return uuid.uuid5(_NAMESPACE, self.identity + '/' + name)
+
+    def refresh_qualification(self):
+        self.qualification = load_qualification(self.metadata)
 
     def _rule_key(self, family, name):
         return self._key(str(family) + '/' + name)
@@ -568,16 +572,21 @@ class Guard:
             if not provider or not sublayer or filters != expected:
                 raise ProxyError('global_guard_changed', '独立保护规则不完整或已改变，不能确认故障后阻断。')
             active = True
+        qualified = self.qualification['native_qualified'] is True
+        tun_ready = active and luid is not None and _tun_luid() == luid
         return {'supported': True, 'active': active, 'persistent': active,
-            'strict_isolation': False, 'native_qualified': False,
-            'tun_ready': active and luid is not None and _tun_luid() == luid,
+            'strict_isolation': qualified and active and tun_ready, 'native_qualified': qualified,
+            'qualification': dict(self.qualification), 'tun_ready': tun_ready,
             'state': 'candidate_active' if active else 'idle',
             'rule_count': len(filters),
-            'detail': ('独立 WFP 持久规则已回读确认；尚未通过 Windows 原生不泄漏验收。'
+            'detail': ('独立 WFP 持久规则已回读确认；资格仅覆盖显式启动后的运行期，不保证早期启动。' if qualified and active else
+                       '运行期独立保护资格已核对，尚未启用；不保证早期启动。' if qualified else
+                       '独立 WFP 持久规则已回读确认；尚未通过 Windows 原生不泄漏验收。'
                        if active else '独立保护未启用；Windows 原生不泄漏验收尚未完成。'),
             'exceptions': ['loopback', 'fixed_system_mihomo', 'verified_tun_interface',
                            'os_service_dhcp_client_ports', 'linklocal_icmpv6_neighbor_router_maintenance'],
             'limitations': ['仅控制本机出站 ALE 连接，不改变已建立入站管理会话的防火墙许可。',
+                '运行期资格不涵盖系统早期启动窗口。' if qualified else
                 '尚未验证已有连接重授权、TUN 接口身份复用、其他 WFP 提供程序仲裁及系统早期启动窗口。']}
 
     def apply(self, core_path: Path, tun: dict) -> dict:
@@ -586,6 +595,7 @@ class Guard:
                 or tun.get('device') != _TUN_NAME or tun.get('auto-route') is not True):
             raise ProxyError('global_guard_invalid_tun', '独立保护仅接受服务生成的固定全局 TUN。')
         with self.lock:
+            self.refresh_qualification()
             core = self._fixed_core(core_path)
             luid = _tun_luid()
             with _Engine() as engine:

@@ -849,7 +849,10 @@ class Manager:
                                                             self.mixed_port, downloads, **options).result()
             elif sys.platform == "win32":
                 from .windows_app_process import launch
-                process = launch(command, env)
+                # Native proxy inheritance must be an explicit launch option;
+                # the Windows launcher distrusts all proxy values in ``env``.
+                options = {} if global_mode else {'native_proxy_port': self.mixed_port}
+                process = launch(command, env, **options)
                 resource = None
             elif sys.platform == 'linux' and global_mode:
                 process = subprocess.Popen(command, env=env, start_new_session=True)

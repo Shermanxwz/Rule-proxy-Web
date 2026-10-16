@@ -200,6 +200,16 @@ class GlobalCaptureVMTests(unittest.TestCase):
                 self.assertEqual(len(archive.namelist()), len(set(archive.namelist())))
                 self.assertEqual(archive.read("web/app.js"), (ROOT / "web/app.js").read_bytes())
 
+    def test_product_payload_includes_only_the_required_shared_native_proxy_probe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package, payload = Path(directory) / "package.zip", Path(directory) / "payload.zip"
+            package.write_bytes(b"offline fixture")
+            vm.make_payload(package, payload)
+            with zipfile.ZipFile(payload) as archive:
+                helper = "tests/test_windows_native_proxy.py"
+                self.assertEqual({name for name in archive.namelist() if name.startswith("tests/")}, {helper})
+                self.assertEqual(archive.read(helper), (ROOT / helper).read_bytes())
+
     def test_global_cancel_keeps_product_and_capture_qualification_false(self):
         with tempfile.TemporaryDirectory() as directory:
             args = SimpleNamespace(suite="global-capture", artifacts=Path(directory), timeout_seconds=1800)

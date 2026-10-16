@@ -1,8 +1,9 @@
 """Launch a Windows application in its panel's current security context.
 
 This is process ownership, not a network isolation boundary. The caller must
-enable its transparent proxy rules before calling ``launch``. No shell,
-administrator broker, proxy environment, or PID-based termination is used.
+enable its transparent proxy rules before calling ``launch``. Applications can
+also receive a caller-selected local proxy port; inherited proxy settings are
+always removed. No shell, administrator broker, or PID-based termination is used.
 """
 
 from __future__ import annotations
@@ -71,8 +72,17 @@ class _JobExtendedLimitInfo(ctypes.Structure):
     ]
 
 
-def _environment_block(env: Mapping[str, str]) -> str:
-    """Build a complete Unicode environment without inherited proxy settings."""
+def _environment_block(env: Mapping[str, str], *, native_proxy_port: int | None = None) -> str:
+    """Remove inherited proxies, then optionally add the owned loopback endpoint.
+
+    Only the separately supplied port authorizes native proxy inheritance. The
+    input mapping's proxy values are never trusted, including bypass settings.
+    Windows environment names are case insensitive, so emit each approved name
+    once instead of preserving the launch preparer's upper/lowercase pairs.
+    """
+    if native_proxy_port is not None and (type(native_proxy_port) is not int or
+                                          not 1025 <= native_proxy_port <= 65535):
+        raise ValueError("Native proxy port must be an integer between 1025 and 65535")
     clean: dict[str, str] = {}
     seen: set[str] = set()
     for key, value in env.items():
@@ -88,6 +98,10 @@ def _environment_block(env: Mapping[str, str]) -> str:
             raise ValueError("Duplicate case-insensitive environment name")
         seen.add(folded)
         clean[key] = value
+    if native_proxy_port is not None:
+        proxy = f"http://127.0.0.1:{native_proxy_port}"
+        clean.update(HTTP_PROXY=proxy, HTTPS_PROXY=proxy, ALL_PROXY=proxy,
+                     NO_PROXY="localhost,127.0.0.1,::1", NODE_USE_ENV_PROXY="1")
     return "\0".join(f"{key}={clean[key]}" for key in sorted(clean, key=str.upper)) + "\0\0"
 
 
@@ -312,7 +326,8 @@ class WindowsAppProcess:
                 pass
 
 
-def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None) -> WindowsAppProcess:
+def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None, *,
+           native_proxy_port: int | None = None) -> WindowsAppProcess:
     """Create suspended, assign the non-breakaway Job, then start the app.
 
     Errors abort the new process before returning. A pre-existing parent Job
@@ -325,7 +340,7 @@ def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None) -
         raise ValueError("Application command must contain valid strings")
     if cwd is not None and (not isinstance(cwd, str) or "\0" in cwd):
         raise ValueError("Invalid application working directory")
-    environment = _environment_block(env)
+    environment = _environment_block(env, native_proxy_port=native_proxy_port)
     api = _get_api()
     # A desktop user may intentionally run elevated or have UAC disabled. The
     # app inherits that same token; it is never elevated by this launcher. The

@@ -31,7 +31,7 @@ class Guard:
 
     def status(self):
         return {"supported": True, "active": self.active, "persistent": self.active,
-                "strict_isolation": self.active and self.strict, "native_qualified": True,
+                "strict_isolation": self.active and self.strict and self.applies > 1, "native_qualified": True,
                 "tun_ready": self.active and self.applies > 1,
                 "detail": "Unit fixture only: no native protection claim"}
 
@@ -102,7 +102,7 @@ class GlobalCoreTests(unittest.TestCase):
         self.executable.parent.mkdir(parents=True)
         self.executable.write_bytes(b"fixed installed core fixture")
         required = {"ruleproxy/config.py", "ruleproxy/windows_global_runtime.py", "ruleproxy/windows_app_process.py",
-                    "ruleproxy/windows_global_dns.py"}
+                    "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_qualification.py"}
         self.metadata = {"root": str(self.root), "owner_sid": SID, "global_backend_version": 1,
                          "files": {name: "a" * 64 for name in required}}
         self.metadata["files"]["bin/windows-amd64/mihomo.exe"] = service._file_hash(self.executable)
@@ -279,11 +279,12 @@ class GlobalCoreTests(unittest.TestCase):
         self.assertFalse((self.state / "config.yaml").exists())
         self.assertEqual(self.events, [])
 
-    def test_guard_without_strict_evidence_cannot_satisfy_strict_request(self):
+    def test_guard_without_final_strict_evidence_stops_core_and_keeps_protection(self):
         with self.assertRaises(policy.ProxyError) as caught:
             self.core.start(fields(require_strict=True))
         self.assertEqual(caught.exception.code, "strict_guard_unavailable")
-        self.launch.assert_not_called()
+        self.launch.assert_called_once()
+        self.assertIsNone(self.core.process)
         self.assertTrue(self.guard.active)
         self.assertEqual(self.events[-1][0], "crash_keep")
 
@@ -296,6 +297,23 @@ class GlobalCoreTests(unittest.TestCase):
         self.assertTrue(result["strict_isolation"])
         self.assertTrue(result["guard"]["tun_ready"])
         self.assertEqual(result["protection"], "persistent_guard")
+
+    def test_each_strict_start_rechecks_qualification_before_mutating_or_unchanged_return(self):
+        self.guard.strict = True
+        self.core.start(fields(require_strict=True))
+        self.events.clear()
+        revoked = {**self.guard.status(), "native_qualified": False}
+        def refresh():
+            self.guard.status = mock.Mock(return_value=revoked)
+        self.guard.refresh_qualification = mock.Mock(side_effect=refresh)
+        self.dns.refresh_qualification = mock.Mock()
+        with self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields(require_strict=True))
+        self.assertEqual(caught.exception.code, "strict_guard_unavailable")
+        self.guard.refresh_qualification.assert_called_once()
+        self.dns.refresh_qualification.assert_called_once()
+        self.assertEqual(self.events, [])
+        self.assertTrue(self.core.is_running())
 
     def test_strict_dns_preflight_requires_fresh_supported_qualified_idle_state(self):
         original = self.dns.status()
@@ -312,7 +330,7 @@ class GlobalCoreTests(unittest.TestCase):
     def test_preguard_requires_complete_boolean_protection_before_dns_or_core(self):
         self.guard.strict = True
         original = self.guard.apply
-        for field in ("supported", "active", "persistent", "strict_isolation", "native_qualified"):
+        for field in ("supported", "active", "persistent", "native_qualified"):
             for bad in (None, 1):
                 with self.subTest(field=field, bad=bad):
                     self.events.clear()
@@ -460,6 +478,8 @@ class GlobalCoreTests(unittest.TestCase):
                     self.assertFalse(result["strict_isolation"])
         self.assertFalse(self.core.status(guard_state=guard,
             dns_state={**dns, "state": "conflict"})["strict_isolation"])
+        self.process.live = False
+        self.assertFalse(self.core.status(guard_state=guard, dns_state=dns)["strict_isolation"])
 
     def test_existing_rdp_exceptions_are_explicit_and_limited_to_current_peers(self):
         exceptions = [{"remote": "192.0.2.11", "route": "192.0.2.11/32", "local_port": 3389,

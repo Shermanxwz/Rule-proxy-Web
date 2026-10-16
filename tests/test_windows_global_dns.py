@@ -21,6 +21,33 @@ GUID = "{12345678-1234-1234-1234-123456789abc}"
 
 
 class DnsLeaseTests(unittest.TestCase):
+    def test_qualified_capability_does_not_replace_fresh_effective_dns_state(self):
+        self.lease.qualification = {**self.lease.qualification, "native_qualified": True}
+        refresh = mock.patch.object(dns, "load_qualification", return_value=self.lease.qualification)
+        refresh.start()
+        self.addCleanup(refresh.stop)
+        clock = [0]
+        self.lease._clock = lambda: clock[0]
+        self.runner.return_value = self.snapshot()
+        idle = self.lease.status(refresh=True)
+        self.assertIs(idle["native_qualified"], True)
+        self.assertIs(idle["strict_isolation"], False)
+        self.runner.return_value = self.snapshot([self.owned()], [self.effective()])
+        active = self.lease.apply()
+        self.assertIs(active["strict_isolation"], True)
+        self.assertIs(active["fresh"], True)
+        self.assertIs(self.lease.status()["strict_isolation"], True)
+        clock[0] = 3
+        with mock.patch.object(dns.threading, "Thread"):
+            pending = self.lease.status()
+        self.assertIs(pending["native_qualified"], True)
+        self.assertIs(pending["strict_isolation"], False)
+        self.assertIs(pending["fresh"], False)
+        self.runner.return_value = self.snapshot([self.owned()], [])
+        conflict = self.lease.status(refresh=True)
+        self.assertIs(conflict["native_qualified"], True)
+        self.assertIs(conflict["strict_isolation"], False)
+
     def setUp(self):
         self.runner = mock.Mock()
         self.lease = dns.DnsLease(METADATA, runner=self.runner)

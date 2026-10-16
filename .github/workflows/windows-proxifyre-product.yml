@@ -190,6 +190,7 @@ jobs:
           $files = @(
             'ruleproxy/windows_proxy_service.py', 'ruleproxy/windows_global_guard.py',
             'ruleproxy/windows_global_dns.py', 'ruleproxy/windows_global_runtime.py',
+            'ruleproxy/windows_global_qualification.py', 'ruleproxy/windows_app_process.py',
             'ruleproxy/global_runtime.py', 'ruleproxy/config.py',
             'ruleproxy/manager.py', 'web/app.js'
           )
@@ -324,6 +325,7 @@ jobs:
           $files = @(
             'ruleproxy/windows_proxy_service.py', 'ruleproxy/windows_global_guard.py',
             'ruleproxy/windows_global_dns.py', 'ruleproxy/windows_global_runtime.py',
+            'ruleproxy/windows_global_qualification.py', 'ruleproxy/windows_app_process.py',
             'ruleproxy/global_runtime.py', 'ruleproxy/config.py',
             'ruleproxy/manager.py', 'web/app.js'
           )

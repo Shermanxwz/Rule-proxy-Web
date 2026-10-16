@@ -24,6 +24,7 @@ import threading
 import time
 
 from .windows_proxy_policy import SID_RE, ProxyError
+from .windows_global_qualification import load_qualification
 
 PEERS = ("198.18.0.2", "fdfe:dcba:8879::2")
 MAX_OUTPUT = 256 * 1024
@@ -193,14 +194,19 @@ class DnsLease:
             raise ProxyError("invalid_deployment", "DNS 接管缺少可信安装身份。")
         identity = hashlib.sha256((metadata["owner_sid"] + "\0" + metadata["root"].casefold()).encode()).hexdigest()
         self.marker = "RuleProxyDNS-v1:" + identity
+        self.metadata = metadata
         self.display = "RuleProxy global DNS " + identity[:16]
         self._runner, self._clock = runner or self._run, clock or time.monotonic
+        self.qualification = load_qualification(metadata)
         self._component_hint = runner is not None or os.name == "nt"
         self._cached, self._checked = None, 0
         self._lock = threading.RLock()
         self._query_lock = threading.Lock()
         self._sequence = 0
         self._refreshing = self._busy = False
+
+    def refresh_qualification(self):
+        self.qualification = load_qualification(self.metadata)
 
     @staticmethod
     def _authority(*, restore=False):
@@ -279,7 +285,8 @@ class DnsLease:
                   "NRPT 只读预检通过；尚未启用本工具的 DNS 接管。")
         return {"supported": True, "component_available": True, "active": bool(own),
                 "effective": bool(own) and good_effective and not conflict,
-                "persistent": bool(own), "native_qualified": False, "strict_isolation": False,
+                "persistent": bool(own), "native_qualified": self.qualification["native_qualified"],
+                "qualification": dict(self.qualification), "strict_isolation": False,
                 "state": "conflict" if conflict else "candidate_active" if own and good_effective else
                          "not_effective" if own else "idle",
                 "owned_rule_names": [item["name"] for item in own], "namespace": ".", "nameservers": list(PEERS),
@@ -311,6 +318,15 @@ class DnsLease:
             self._query_lock.release()
 
     def _store(self, result):
+        # Qualification is capability, while strict requires this fresh native
+        # inspection. Cached/checking/unknown observations never become strict.
+        result = {**result, "native_qualified": self.qualification["native_qualified"],
+                  "qualification": dict(self.qualification),
+                  "strict_isolation": self.qualification["native_qualified"] is True
+                  and all(result.get(key) is True for key in ("supported", "active", "effective", "persistent"))
+                  and result.get("state") == "candidate_active"}
+        if result["strict_isolation"]:
+            result["detail"] = "运行期 DNS 资格与自有 NRPT 当前有效策略已核对；不保证系统早期启动。"
         with self._lock:
             self._cached, self._checked = dict(result), self._clock()
             self._sequence += 1
@@ -355,7 +371,8 @@ class DnsLease:
             if not refresh:
                 result = {"supported": self._component_hint, "component_available": self._component_hint,
                     "active": None, "effective": False, "persistent": None,
-                    "native_qualified": False, "strict_isolation": False, "state": "checking",
+                    "native_qualified": self.qualification["native_qualified"],
+                    "qualification": dict(self.qualification), "strict_isolation": False, "state": "checking",
                     "fresh": False, "verification_pending": True, "last_verified_age_seconds": age,
                     "last_observed_active": self._cached.get("active") if self._cached else None,
                     "namespace": ".", "nameservers": list(PEERS), "owned_rule_names": [],
@@ -369,6 +386,7 @@ class DnsLease:
     def apply(self):
         self._authority()
         with self._exclusive():
+            self.refresh_qualification()
             with self._lock:
                 self._cached = None
             result = self._snapshot(self._runner("apply"))
@@ -397,7 +415,9 @@ class DnsLease:
                           "last_verified_age_seconds": age}
             else:
                 result = {"supported": self._component_hint, "component_available": self._component_hint,
-                    "active": None, "effective": False, "persistent": None, "native_qualified": False,
+                    "active": None, "effective": False, "persistent": None,
+                    "native_qualified": self.qualification["native_qualified"],
+                    "qualification": dict(self.qualification),
                     "strict_isolation": False, "state": "checking", "fresh": False,
                     "verification_pending": True, "last_verified_age_seconds": age,
                     "last_observed_active": self._cached.get("active") if self._cached else None,

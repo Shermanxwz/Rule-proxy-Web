@@ -216,7 +216,7 @@ def load_deployment(root: Path, *, secure=True) -> dict:
             raise ProxyError("invalid_deployment", "全局后端安装记录无效，请修复安装。")
         required |= {"bin/windows-amd64/mihomo.exe", "ruleproxy/config.py", "ruleproxy/windows_app_process.py",
                      "ruleproxy/windows_global_runtime.py", "ruleproxy/windows_global_guard.py",
-                     "ruleproxy/windows_global_dns.py"}
+                     "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_qualification.py"}
     if not required.issubset(value.get("files", {})):
         raise ProxyError("invalid_deployment", "Windows 安装清单缺少控制组件。")
     engine_required = {"ProxiFyre.exe", "socksify.dll", "ProxiFyre.Configuration.dll", "Topshelf.dll", "NLog.dll", "NLog.config"}
@@ -577,7 +577,7 @@ class GlobalCore:
     def _available(self):
         required = {"bin/windows-amd64/mihomo.exe", "ruleproxy/config.py",
                     "ruleproxy/windows_global_runtime.py", "ruleproxy/windows_app_process.py",
-                    "ruleproxy/windows_global_dns.py"}
+                    "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_qualification.py"}
         if self.metadata.get("global_backend_version") != 1 or not required.issubset(self.metadata.get("files", {})):
             raise ProxyError("setup_required", "控制服务尚未安装全局后端，请运行 Setup-Windows.cmd 修复安装。")
         for path in (self.directory.parent, self.directory):
@@ -593,6 +593,13 @@ class GlobalCore:
         if tun_ready:
             required += ("tun_ready",)
         return all(value.get(name) is True for name in required)
+
+    @staticmethod
+    def _preguard_ready(value, *, strict=False):
+        # Before launching the core there cannot yet be a verified TUN. Require
+        # the qualified persistent pre-guard, then full strict readback later.
+        return (GlobalCore._guard_ready(value)
+                and (not strict or value.get("native_qualified") is True))
 
     @staticmethod
     def _dns_ready(value, *, strict=False):
@@ -611,7 +618,7 @@ class GlobalCore:
         running = self.is_running()
         guard = self.guard.status() if guard_state is None else guard_state
         dns = self.dns.status() if dns_state is None else dns_state
-        strict = (self._guard_ready(guard, strict=True, tun_ready=True)
+        strict = (running and self._guard_ready(guard, strict=True, tun_ready=True)
                   and self._dns_ready(dns, strict=True))
         protection = ("persistent_guard" if strict else "persistent_guard_unqualified"
                       if guard.get("active") is True and guard.get("persistent") is True else "routing_only")
@@ -752,6 +759,13 @@ class GlobalCore:
         self._available()
         strict = request.get("require_strict") is True
         if strict:
+            # Revalidate the protected attestation/binaries for every strict
+            # start, including the unchanged-running shortcut. Test doubles
+            # and unavailable components need no receipt reader.
+            for component in (self.guard, self.dns):
+                refresh = getattr(component, "refresh_qualification", None)
+                if refresh is not None:
+                    refresh()
             capability = self.guard.status()
             if not (capability.get("supported") is True and capability.get("native_qualified") is True):
                 raise ProxyError("strict_guard_unavailable", "独立故障阻断层尚未通过原生资格验证，不能启动严格全局模式。")
@@ -826,7 +840,7 @@ class GlobalCore:
         self.management_exceptions = exceptions
         try:
             protection = self.guard.apply(self.executable, tun)
-            if not self._guard_ready(protection, strict=strict):
+            if not self._preguard_ready(protection, strict=strict):
                 raise ProxyError("strict_guard_unavailable" if strict else "global_guard_not_effective",
                                  "独立故障阻断层未进入有效状态，未启动全局核心。")
             dns = self.dns.apply()

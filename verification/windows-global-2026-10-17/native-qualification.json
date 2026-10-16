@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "observed_at_utc": "2026-10-16T18:12:00Z",
+  "observed_at_utc": "2026-10-16T18:59:00Z",
   "product_qualification": {
     "qualified": false,
     "strict_qualified": false,
@@ -353,7 +353,7 @@
     }
   },
   "acceptance_remaining": [
-    "Successful system DNS and both fixed DNS peer transports through selected proxy, with unique-name relay failure/recovery controls.",
+    "Successful DNS smoke has passed on the disposable Server; native Windows 11 product DNS behavior and independent physical DNS egress still require acceptance.",
     "Ordinary user Web-to-service global start, node switch, stop and repeated start on native Windows 11.",
     "Calibrated independent physical egress controls during operation, core death, service death and TUN disappearance.",
     "Existing connection reauthorization and ordinary-user same-installed-core-path bypass controls.",
@@ -366,5 +366,499 @@
     "public_internet_ipv6_egress_tested": false,
     "chatgpt_or_other_account_login_tested": false,
     "object_retention_is_packet_fail_closed_proof": false
+  },
+  "dns_smoke": {
+    "tested_source_commit": "24c000eb5f9e337e1c12348975b356ab491e0961",
+    "workflow_run": {
+      "id": 38948255233,
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38948255233"
+    },
+    "job": {
+      "id": 117133023968,
+      "conclusion": "success"
+    },
+    "artifact": {
+      "id": 12067372991,
+      "bytes": 3513,
+      "zip_sha256": "d91397998d7c5598e9c9529c9fe154534ce7337da632b054571eff9c4853cf29"
+    },
+    "source_identity": {
+      "dns_fixture_sha256": "ea4e180ea6f02912341aa81041fdc71e663bb6095aeefaa9b5fe1733ea57ca7d",
+      "harness_sha256": "22281e64ed6fba71d81206573746e16edf66ae0de0128b259a0f32e4e795b375",
+      "schema_version": 1,
+      "tested_source_commit": "24c000eb5f9e337e1c12348975b356ab491e0961",
+      "checkout_matches_installed": true,
+      "strict_qualified": false,
+      "source_sha256": {
+        "ruleproxy/config.py": "0a3d170ffeb51d863f9f1971dd01a858a4a634ab36773e39026b87b423c95dad",
+        "ruleproxy/windows_global_dns.py": "69fbbb76b4b13cee8afd7cd0ee55c200d03cd45509ee30b2e513b1816dd83eae",
+        "ruleproxy/global_runtime.py": "e4d2a4ab81f1d1abda7142615748ad0a3bcf51b0125f0a1d1c73fca8f8c8ad3d",
+        "web/app.js": "64a9dcaae7452ce7f963ea9ab50019b0d17983b3ac74e9a351f29f48bbdaf167",
+        "ruleproxy/windows_global_runtime.py": "34899b0bb51339abeabd431aeb43699572a0ed72b221354cfba7299f74b2792c",
+        "ruleproxy/windows_global_guard.py": "7f457a4e2f9745beeed9a33bb09a24d3999677ea811dca10d009518522c208f9",
+        "ruleproxy/windows_proxy_service.py": "6ef81376d4df90b076ff1f50869f00a705a668520bb25a7e0787810c2f1ea30a",
+        "ruleproxy/manager.py": "b0f734e9868bb8e66db3982823a2f410763884b7c3d2770cea737e81a7e3c490"
+      }
+    },
+    "result": {
+      "mode": "disposable_windows_tun_startup_smoke",
+      "startup_smoke_passed": true,
+      "dns_smoke_requested": true,
+      "dns_smoke_passed": true,
+      "dns_qualified": false,
+      "passed": false,
+      "strict_qualified": false,
+      "physical_qualified": false,
+      "packet_fail_closed_proven": false,
+      "ipv6_public_egress_qualified": false,
+      "rdp_qualified": false,
+      "fixed_core_sha256": "04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314",
+      "windows_build": [
+        10,
+        0,
+        26100
+      ],
+      "dns_carrier": {
+        "scope": "fixed_SYSTEM_core_bound_underlay_doh_only",
+        "underlay_interface_index": 14,
+        "allowed_forward": "1.1.1.1:443",
+        "fixture_sha256": "ea4e180ea6f02912341aa81041fdc71e663bb6095aeefaa9b5fe1733ea57ca7d",
+        "connection_process_identity_verified": true
+      },
+      "dns_fixture_sha256": "ea4e180ea6f02912341aa81041fdc71e663bb6095aeefaa9b5fe1733ea57ca7d",
+      "dns_smoke": {
+        "passed": true,
+        "queries": {
+          "system_default": {
+            "query_name": "rp-91681dd259fab160.1.2.3.4.sslip.io.",
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "validated": true,
+            "resolver": "windows_default_winsock",
+            "explicit_dns_server": false
+          },
+          "udp4": {
+            "transaction_id": 39780,
+            "query_name": "rp-5ed2fa6b16167e99.1.2.3.4.sslip.io.",
+            "qtype": 1,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "answer_count": 1,
+            "validated": true,
+            "peer": "198.18.0.2",
+            "protocol": "udp"
+          },
+          "tcp4": {
+            "transaction_id": 44391,
+            "query_name": "rp-5ae44a1ae74b37cd.1.2.3.4.sslip.io.",
+            "qtype": 1,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "answer_count": 1,
+            "validated": true,
+            "peer": "198.18.0.2",
+            "protocol": "tcp"
+          },
+          "udp6": {
+            "transaction_id": 56318,
+            "query_name": "rp-949211f59dbb69da.1.2.3.4.sslip.io.",
+            "qtype": 1,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "answer_count": 1,
+            "validated": true,
+            "peer": "fdfe:dcba:8879::2",
+            "protocol": "udp"
+          },
+          "tcp6": {
+            "transaction_id": 56863,
+            "query_name": "rp-e09a918ee8623152.1.2.3.4.sslip.io.",
+            "qtype": 1,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "answer_count": 1,
+            "validated": true,
+            "peer": "fdfe:dcba:8879::2",
+            "protocol": "tcp"
+          },
+          "system_restored": {
+            "query_name": "rp-98cd53557c3e88c5.1.2.3.4.sslip.io.",
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "validated": true,
+            "resolver": "windows_default_winsock",
+            "explicit_dns_server": false
+          }
+        },
+        "scope": "real_doh_selected_node_and_nrpt_smoke_only",
+        "before": {
+          "offered": 3,
+          "accepted": 3,
+          "rejected": 0,
+          "failed": 0,
+          "completed": 2,
+          "bytes_to_resolver": 5298,
+          "bytes_to_client": 12966,
+          "enabled": true,
+          "closed": false,
+          "generation": 0,
+          "active": 1,
+          "target": "1.1.1.1:443",
+          "carrier_scope": "loopback_http_connect"
+        },
+        "positive": {
+          "offered": 3,
+          "accepted": 3,
+          "rejected": 0,
+          "failed": 0,
+          "completed": 2,
+          "bytes_to_resolver": 5836,
+          "bytes_to_client": 13782,
+          "enabled": true,
+          "closed": false,
+          "generation": 0,
+          "active": 1,
+          "target": "1.1.1.1:443",
+          "carrier_scope": "loopback_http_connect"
+        },
+        "disabled": {
+          "offered": 3,
+          "accepted": 3,
+          "rejected": 0,
+          "failed": 0,
+          "completed": 2,
+          "bytes_to_resolver": 5836,
+          "bytes_to_client": 13782,
+          "enabled": false,
+          "closed": false,
+          "generation": 1,
+          "active": 0,
+          "target": "1.1.1.1:443",
+          "carrier_scope": "loopback_http_connect"
+        },
+        "negative": {
+          "unique_query_name": "rp-5256ef3fa9e13d14.1.2.3.4.sslip.io.",
+          "failed": true,
+          "relay": {
+            "offered": 5,
+            "accepted": 3,
+            "rejected": 2,
+            "failed": 1,
+            "completed": 2,
+            "bytes_to_resolver": 5836,
+            "bytes_to_client": 13782,
+            "enabled": false,
+            "closed": false,
+            "generation": 1,
+            "active": 0,
+            "target": "1.1.1.1:443",
+            "carrier_scope": "loopback_http_connect"
+          }
+        },
+        "restored": {
+          "offered": 6,
+          "accepted": 4,
+          "rejected": 2,
+          "failed": 1,
+          "completed": 2,
+          "bytes_to_resolver": 7839,
+          "bytes_to_client": 18644,
+          "enabled": true,
+          "closed": false,
+          "generation": 2,
+          "active": 1,
+          "target": "1.1.1.1:443",
+          "carrier_scope": "loopback_http_connect"
+        },
+        "closed": {
+          "offered": 6,
+          "accepted": 4,
+          "rejected": 2,
+          "failed": 2,
+          "completed": 2,
+          "bytes_to_resolver": 7839,
+          "bytes_to_client": 18644,
+          "enabled": false,
+          "closed": true,
+          "generation": 3,
+          "active": 0,
+          "target": "1.1.1.1:443",
+          "carrier_scope": "loopback_http_connect"
+        }
+      },
+      "dns_carrier_closed_before_core_death": true,
+      "tun_echo": {
+        "4": {
+          "tcp": {
+            "executed": true,
+            "received_echo": true,
+            "socket_ok": true,
+            "stage": "send"
+          },
+          "udp": {
+            "executed": true,
+            "received_echo": true,
+            "socket_ok": true,
+            "stage": "send"
+          }
+        },
+        "6": {
+          "tcp": {
+            "executed": true,
+            "received_echo": true,
+            "socket_ok": true,
+            "stage": "send"
+          },
+          "udp": {
+            "executed": true,
+            "received_echo": true,
+            "socket_ok": true,
+            "stage": "send"
+          }
+        }
+      },
+      "synthetic_node_counts": {
+        "tcp4": 1,
+        "tcp6": 1,
+        "udp4": 1,
+        "udp6": 1
+      },
+      "tun_tcp_udp_v4_v6_passed": true,
+      "owned_core_terminated": true,
+      "guard_after_core_death": {
+        "supported": true,
+        "active": true,
+        "persistent": true,
+        "tun_ready": true
+      },
+      "dns_after_core_death": {
+        "supported": true,
+        "active": true,
+        "effective": true,
+        "fresh": true,
+        "state": "candidate_active"
+      },
+      "state_retained_after_core_death": true,
+      "explicit_global_stop": true,
+      "recovery": {
+        "schema_version": 1,
+        "recovered": true,
+        "errors": [],
+        "capture": {
+          "stopped": true,
+          "owned_capture_created": false
+        }
+      },
+      "time_budget": {
+        "cooperative_experiment_seconds": 135,
+        "independent_system_recovery_trigger_seconds": 180,
+        "broker_calls_hard_interrupted": false,
+        "stages": [
+          {
+            "stage": "register_independent_recovery",
+            "started_seconds": 0.007,
+            "elapsed_seconds": 0.702
+          },
+          {
+            "stage": "fixture_prepare",
+            "started_seconds": 0.709,
+            "elapsed_seconds": 0.025
+          },
+          {
+            "stage": "fixture_dns_preflight",
+            "started_seconds": 0.734,
+            "elapsed_seconds": 0.32
+          },
+          {
+            "stage": "dns_carrier_prepare",
+            "started_seconds": 1.054,
+            "elapsed_seconds": 4.089
+          },
+          {
+            "stage": "ipv6_native_before_core",
+            "started_seconds": 5.143,
+            "elapsed_seconds": 1.792
+          },
+          {
+            "stage": "global_start",
+            "started_seconds": 6.935,
+            "elapsed_seconds": 3.469
+          },
+          {
+            "stage": "ipv6_native_after_start",
+            "started_seconds": 10.404,
+            "elapsed_seconds": 1.8
+          },
+          {
+            "stage": "tun_identity_readback",
+            "started_seconds": 12.204,
+            "elapsed_seconds": 0.001
+          },
+          {
+            "stage": "tun_echo_ipv4",
+            "started_seconds": 12.205,
+            "elapsed_seconds": 0.015
+          },
+          {
+            "stage": "tun_echo_ipv6",
+            "started_seconds": 12.22,
+            "elapsed_seconds": 0.004
+          },
+          {
+            "stage": "dns_smoke_queries",
+            "started_seconds": 12.224,
+            "elapsed_seconds": 0.893
+          },
+          {
+            "stage": "core_terminate",
+            "started_seconds": 13.117,
+            "elapsed_seconds": 0.057
+          },
+          {
+            "stage": "core_dead_state_readback",
+            "started_seconds": 13.174,
+            "elapsed_seconds": 0.858
+          },
+          {
+            "stage": "explicit_global_stop",
+            "started_seconds": 14.032,
+            "elapsed_seconds": 1.559
+          },
+          {
+            "stage": "final_recovery",
+            "started_seconds": 15.591,
+            "elapsed_seconds": 6.157
+          }
+        ],
+        "experiment_elapsed_seconds": 15.591,
+        "total_elapsed_seconds": 25.174
+      }
+    }
+  },
+  "dns_initial_attempt": {
+    "workflow_run": 38947189564,
+    "tested_source_commit": "1381d706e2c9d2de26b4b0a3070acfbed2b2c8b5",
+    "all_five_positive_queries_validated": true,
+    "failed_check": "dns_positive_selected_node_unobserved",
+    "cause": "Harness incorrectly required a new TLS connection instead of accepting genuine HTTP/2 connection reuse.",
+    "negative_and_restored_queries_exercised": false,
+    "recovered": true
+  },
+  "latest_regression": {
+    "tested_source_commit": "1381d706e2c9d2de26b4b0a3070acfbed2b2c8b5",
+    "check_run": 38947182651,
+    "conclusion": "success",
+    "local": {
+      "tests": 1408,
+      "failures": 0,
+      "skipped": 77
+    },
+    "windows_310": {
+      "tests": 1408,
+      "failures": 0,
+      "skipped": 108
+    },
+    "windows_314": {
+      "tests": 1408,
+      "failures": 0,
+      "skipped": 108
+    },
+    "native_windows_powershell_helper_exit_0_17_and_timeout_tests": true,
+    "prior_edge_rendering_failure_did_not_recur_on_either_version": true,
+    "prior_edge_failure_root_cause_proven": false,
+    "linux_real_global_kernel_tests": {
+      "tests": 2,
+      "failures": 0,
+      "skipped": 0
+    }
+  },
+  "windows_11_latest_attempt": {
+    "run_id": 38947803804,
+    "job_id": 117131514662,
+    "artifact_id": 12068351625,
+    "artifact_sha256": "47d446b73b5745d2562bca8a54f45f79d8656ffef0a884b7fc8b570fe0025f58",
+    "artifact_bytes": 325319,
+    "tested_source_commit": "1381d706e2c9d2de26b4b0a3070acfbed2b2c8b5",
+    "host_guest_source_identity_matches": true,
+    "harness_sha256": "e8881a8f4fc8c622b9be65247bfe160fe323fcddd2932ba20bafbf6deb2fe6c0",
+    "package": {
+      "fixed_core_sha256": "04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314",
+      "sha256": "e57dc9332e0277d3dc77d63cd9b25ea5eda97ddee0418647705befc3c836327d",
+      "manifest_verified": true
+    },
+    "actual_os": {
+      "ubr": 6584,
+      "native_architecture": "AMD64",
+      "build": 26200,
+      "product_type": "WinNT"
+    },
+    "owner_sid_matches_installation": true,
+    "owner_elevated": true,
+    "actual_global_harness_executed": true,
+    "actual_tun_executed": false,
+    "physical_capture_executed": false,
+    "harness_failed_stage": "fixture_dns_preflight",
+    "harness_error": "URLError:<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1082)>",
+    "harness_recovery": {
+      "schema_version": 1,
+      "recovered": true,
+      "errors": [],
+      "capture": {
+        "stopped": true,
+        "owned_capture_created": false
+      }
+    },
+    "harness_total_elapsed_seconds": 60.796,
+    "child_scripts": {
+      "setup": {
+        "stdout": "setup.stdout.log",
+        "drain_complete": true,
+        "handle_captured": true,
+        "exited": true,
+        "stderr": "setup.stderr.log",
+        "timed_out": false,
+        "pid": 5116,
+        "exit_code": 0,
+        "termination_confirmed": false
+      },
+      "uninstall": {
+        "stdout": "uninstall.stdout.log",
+        "drain_complete": true,
+        "handle_captured": true,
+        "exited": true,
+        "stderr": "uninstall.stderr.log",
+        "timed_out": false,
+        "pid": 9696,
+        "exit_code": 1,
+        "termination_confirmed": false
+      }
+    },
+    "uninstall_failure": "DnsLease.normal_stop PowerShell NRPT remove subprocess timed out after 8 seconds; owned code/services retained.",
+    "task_cleanup_confirmed": true,
+    "installation_cleanup_confirmed": false,
+    "user_cleanup_confirmed": false,
+    "host_phase": "finished",
+    "host_cleanup_errors": [],
+    "qemu_termination_signal_15_logged": true,
+    "native_windows_11_global_capture_passed": false,
+    "strict_qualified": false,
+    "outcome": "No-go for Windows 11 qualification. Harness failed in HTTPS certificate-chain preflight before TUN or packet capture. No new VM parameters or rerun.",
+    "decision": "No qualification; stop this VM route. No TUN architecture failure is inferred from the fixture TLS preflight."
+  },
+  "qualification_admission": {
+    "implemented": true,
+    "profile": "windows-global-runtime-v1",
+    "trusted_receipt": "ruleproxy/windows-global-qualification.json",
+    "accepted_receipt_shipped": false,
+    "client_or_yaml_can_supply_receipt": false,
+    "early_boot_protection_claimed": false,
+    "requires_installed_manifest_acl_actual_critical_hashes_exact_windows_build_ubr_and_native_scenarios": true,
+    "scope": "Release-reviewed offline attestation admission; it does not automatically verify remote artifacts or qualify a smoke result."
   }
 }

@@ -25,6 +25,7 @@ import json
 import os
 import platform
 from pathlib import Path, PurePosixPath
+import re
 import secrets
 import shutil
 import socket
@@ -182,6 +183,65 @@ def receiver_evidence(phases, snapshot):
                          "attempts": attempts, "receiver_node_counts": counts,
                          "matching_receiver_transactions": matches, "passed": bool(ok and attempts)})
     return verified
+
+
+def native_proxy_receipt_valid(receipt, owner_sid, installed_root):
+    """Bind the separate HTTP fixture to real ordinary tokens and installed code."""
+    if (not isinstance(receipt, dict) or not isinstance(owner_sid, str)
+            or re.fullmatch(r"S-1-[0-9]+(?:-[0-9]+)+", owner_sid) is None):
+        return False
+    try:
+        expected_launcher = (Path(installed_root) / "ruleproxy/windows_app_process.py").resolve()
+        parent, child, grandchild = (receipt[key] for key in ("parent_token", "child", "grandchild"))
+        if (receipt.get("probe_scope") != "windows-native-launcher-child-grandchild-loopback"
+                or type(receipt.get("exit_code")) is not int or receipt["exit_code"] != 0
+                or type(receipt.get("proxy_port")) is not int or not 1025 <= receipt["proxy_port"] <= 65535
+                or Path(receipt["launcher_file"]).resolve() != expected_launcher):
+            return False
+        actors = (parent, child, grandchild)
+        if any(not isinstance(actor, dict) or actor.get("sid") != owner_sid
+               or actor.get("elevated") is not False or type(actor.get("pid")) is not int
+               or actor["pid"] <= 0 or "error" in actor for actor in actors):
+            return False
+        if (len({actor["pid"] for actor in actors}) != 3 or type(receipt.get("launched_pid")) is not int
+                or child.get("pid") != receipt["launched_pid"] or type(child.get("ppid")) is not int
+                or type(grandchild.get("ppid")) is not int or child["ppid"] != parent["pid"]
+                or grandchild["ppid"] != child["pid"]
+                or type(child.get("grandchild_exit_code")) is not int or child["grandchild_exit_code"] != 0):
+            return False
+        targets = receipt.get("expected_targets")
+        if not isinstance(targets, list) or len(targets) != 2 or receipt.get("received_targets") != targets:
+            return False
+        first = re.fullmatch(r"http://([a-f0-9]{32})\.invalid/\1/child", targets[0])
+        if first is None or targets[1] != f"http://{first[1]}.invalid/{first[1]}/grandchild":
+            return False
+        endpoint = f"http://127.0.0.1:{receipt['proxy_port']}"
+        environment = {"HTTP_PROXY": endpoint, "HTTPS_PROXY": endpoint, "ALL_PROXY": endpoint,
+                       "NO_PROXY": "localhost,127.0.0.1,::1", "NODE_USE_ENV_PROXY": "1"}
+        for actor, target in zip((child, grandchild), targets):
+            if (Path(actor["launcher_file"]).resolve() != expected_launcher
+                    or actor.get("proxy_environment") != environment or actor.get("target") != target
+                    or actor.get("response") != "proxy-fixture:" + first[1]):
+                return False
+        return True
+    except (KeyError, TypeError, ValueError, OSError):
+        return False
+
+
+def native_proxy_environment_probe(spec):
+    """Run the exact shared probe before any product panel or proxy core starts."""
+    expected = spec.get("native_proxy_fixture_sha256", "")
+    helper = LAB / "native-proxy-probe.py"
+    if (not isinstance(expected, str) or re.fullmatch(r"[a-f0-9]{64}", expected) is None
+            or digest(helper) != expected):
+        raise RuntimeError("Native proxy fixture source differs from the checked controller copy")
+    probe = module(helper, "product_native_proxy_probe")
+    receipt = probe.native_launcher_proxy_probe(LAB / "actors")
+    if (not native_proxy_receipt_valid(receipt, spec["owner_sid"], INSTALLED)
+            or receipt["parent_token"]["pid"] != os.getpid()):
+        raise RuntimeError("Native proxy fixture lacks ordinary token, installed launcher or receiver evidence")
+    return {"passed": True, "fixture_sha256": expected, "receipt": receipt,
+            "scope": "ordinary_installed_launcher_explicit_proxy_environment_only"}
 
 
 class UserProcess:
@@ -704,6 +764,8 @@ def ordinary_suite(spec_path, result_path):
         result["loaded_package"] = str(Path(ruleproxy.__file__).resolve())
         check("installed_package_loaded", Path(ruleproxy.__file__).resolve().parent.parent == INSTALLED)
         result["loaded_manager_sha256"] = digest(INSTALLED / "ruleproxy/manager.py")
+        result["native_proxy_environment"] = native_proxy_environment_probe(spec)
+        check("native_proxy_environment_ordinary", result["native_proxy_environment"]["passed"])
         panel = start_panel()
         result["panel_pid"] = panel.pid
         result["panel_is_elevated"] = process_elevated(panel.pid)
@@ -837,6 +899,13 @@ def controller(package_dir, output):
                                              for name in compared}
         if not all(report["source_matches_bundle"].values()):
             raise RuntimeError("Source and final package implementations differ")
+        proxy_helper = source_root / "tests/test_windows_native_proxy.py"
+        proxy_helper_digest = digest(proxy_helper)
+        shutil.copyfile(proxy_helper, LAB / "native-proxy-probe.py")
+        if digest(LAB / "native-proxy-probe.py") != proxy_helper_digest:
+            raise RuntimeError("Native proxy fixture copy differs from the checkout")
+        report["native_proxy_fixture"] = {"source": "tests/test_windows_native_proxy.py",
+                                          "sha256": proxy_helper_digest, "copy_verified": True}
         for iteration in range(2):
             install = execute_script(bundle / "scripts/windows-setup.ps1", owner, bundle)
             report["installations"].append(install)
@@ -888,6 +957,7 @@ def controller(package_dir, output):
         proxies = [{"name": node, "type": "socks5", "server": hostname,
                     "port": fixture._listeners[node].getsockname()[1], "udp": True} for node in ("A", "B")]
         spec = {"nonce": fixture.nonce, "panel_port": 28879, "proxy_port": 20809, "controller_port": 29097,
+                "owner_sid": owner, "native_proxy_fixture_sha256": proxy_helper_digest,
                 "visible_gui_required": interactive_session is not None,
                 "interactive_session_id": interactive_session,
                 "yaml": json.dumps({"proxies": proxies, "proxy-groups": [{"name": "Select", "type": "select", "proxies": ["A", "B"]}],
@@ -951,6 +1021,13 @@ def controller(package_dir, output):
         checkpoint()
         report["ordinary_suite"] = json.loads(user_result.read_text(encoding="ascii"))
         report["receiver_final"] = fixture.snapshot()
+        proxy_evidence = report["ordinary_suite"].get("native_proxy_environment", {})
+        report["native_proxy_environment_verified"] = (proxy_evidence.get("passed") is True
+            and proxy_evidence.get("fixture_sha256") == proxy_helper_digest
+            and native_proxy_receipt_valid(proxy_evidence.get("receipt"), owner, INSTALLED)
+            and proxy_evidence["receipt"]["parent_token"]["pid"] == process.pid)
+        if not report["native_proxy_environment_verified"]:
+            raise RuntimeError("Ordinary installed launcher lacks independent explicit-proxy environment evidence")
         if process.poll() != 0 or report["ordinary_suite"]["status"] != "passed":
             raise RuntimeError("Installed ordinary-user product suite failed")
         report["receiver_phase_evidence"] = receiver_evidence(report["ordinary_suite"]["phases"], report["receiver_final"])

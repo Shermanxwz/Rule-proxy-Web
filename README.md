@@ -16,7 +16,9 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 Windows 独立守卫及 DNS 尚未取得完整原生资格，当前面板会拒绝启动严格全局模式；实验脚本的对象回读、局部内核对照或单次成功都不能替代完整资格。Linux 全局内核与实际核心验收是独立任务，不等于交互式 polkit 或真实互联网登录验收。
 
-Windows 全局的[原生进度记录](verification/windows-global-2026-10-17/native-qualification.json)已记录实际 TUN 双栈 TCP/UDP 代理回显、接口身份和停止恢复通过；修复了 IPv4 承载网络下 Mihomo 自动清除 TUN IPv6 地址的问题。该结果来自一次性 Server 对照环境；Windows 11 产品入口、成功 DNS 与独立出口故障对照仍需分别验收，当前没有开放全局保护资格。
+Windows 资格入口只接受发布时审核并随安装清单校验的受保护记录，绑定实际代码、核心、Python、Windows 版本及完整原生场景；Web 和 YAML 不能提供或启用资格。当前不附有效记录。未来运行期资格也不包含登录前及系统早期启动的保护承诺。
+
+Windows 全局的[原生进度记录](verification/windows-global-2026-10-17/native-qualification.json)已记录实际 TUN 双栈 TCP/UDP 代理回显、接口身份和停止恢复通过；修复了 IPv4 承载网络下 Mihomo 自动清除 TUN IPv6 地址的问题。系统默认 DNS 与双栈 DNS peer 的 UDP/TCP 查询也已真实成功，并通过关闭代理中继后新查询失败、恢复后新查询成功的对照。结果来自一次性 Server 环境；Windows 11 产品入口与独立出口故障对照仍需分别验收，当前没有开放全局保护资格。
 
 Linux 全局的[受控原生验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/linux-global-2026-10-16/native-qualification.json)已通过双栈 TCP/UDP、DNS 拦截、故障阻断与恢复；未测试用户节点、实机授权对话框或账户登录。
 

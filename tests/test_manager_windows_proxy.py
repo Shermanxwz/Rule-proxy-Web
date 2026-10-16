@@ -65,12 +65,27 @@ class WindowsManagerTests(unittest.TestCase):
         process = Mock(pid=5678, poll=Mock(return_value=None))
         self.backend.apply.side_effect = lambda *args: order.append("policy")
         with patch("ruleproxy.manager.prepare_app", return_value=([self.app["path"]], {}, "")) as prepare, \
-                patch("ruleproxy.windows_app_process.launch", side_effect=lambda *args: order.append("app") or process):
+                patch("ruleproxy.windows_app_process.launch",
+                      side_effect=lambda *args, **kwargs: order.append("app") or process) as launch:
             result = self.manager.launch("app")
         self.assertEqual(order, ["policy", "app"])
         self.assertEqual(result["pid"], 5678)
         self.assertIn("transparent", prepare.call_args.kwargs)
+        self.assertTrue(prepare.call_args.kwargs['native_proxy'])
+        launch.assert_called_once_with([self.app['path']], {}, native_proxy_port=self.manager.mixed_port)
         self.assertIsNone(self.manager.active["app"][1])
+
+    def test_global_launch_does_not_authorize_native_proxy_environment(self):
+        self.use_core()
+        self.manager.settings['capture_mode'] = 'global'
+        process = Mock(pid=5678, poll=Mock(return_value=None))
+        with patch.object(self.manager, 'protection', return_value={'supported': True}), \
+                patch('ruleproxy.manager.prepare_app', return_value=([self.app['path']], {}, '')) as prepare, \
+                patch('ruleproxy.windows_app_process.launch', return_value=process) as launch:
+            self.manager.launch('app')
+        self.assertFalse(prepare.call_args.kwargs['native_proxy'])
+        launch.assert_called_once_with([self.app['path']], {})
+        self.backend.apply.assert_not_called()
 
     def test_policy_failure_never_starts_app(self):
         self.use_core()
@@ -145,7 +160,7 @@ class WindowsManagerTests(unittest.TestCase):
         self.backend.apply.side_effect = lambda *args: order.append(('policy', args[0]))
         with patch('ruleproxy.manager.prepare_app', return_value=([path], {}, '')), \
                 patch('ruleproxy.windows_app_process.launch',
-                      side_effect=lambda command, env: order.append(('launch', command)) or process):
+                      side_effect=lambda command, env, **kwargs: order.append(('launch', command)) or process):
             self.manager.launch('app')
         self.assertEqual(order, [('policy', [path]), ('launch', [path])])
 

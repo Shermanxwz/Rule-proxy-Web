@@ -40,6 +40,7 @@ SOURCE_IDENTITIES = frozenset({"manager.py", "server.py", "launcher.py", "window
     "windows_proxy_pins.py", "windows_app_process.py", "windows_core_process.py"})
 GLOBAL_SOURCE_IDENTITIES = frozenset({"ruleproxy/windows_proxy_service.py", "ruleproxy/windows_global_guard.py",
     "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_runtime.py", "ruleproxy/global_runtime.py",
+    "ruleproxy/windows_global_qualification.py", "ruleproxy/windows_app_process.py",
     "ruleproxy/config.py", "ruleproxy/manager.py", "web/app.js"})
 MAX_GUEST_RESULT_BYTES = 8 * 1024**2
 VISIBLE_GUI_CHECKS = frozenset({"suite_interactive_session", "visible_browser_window", "visible_browser_ordinary",
@@ -249,6 +250,13 @@ def make_payload(package: Path, destination: Path, *, include_global_sources=Fal
             for path in sorted((ROOT / folder).rglob("*.py")):
                 if "__pycache__" not in path.parts and path.is_file() and not path.is_symlink():
                     archive.write(path, path.relative_to(ROOT).as_posix())
+        # The installed ordinary-user controller verifies and imports this
+        # exact shared probe. Keep it out of the product ZIP, but include it in
+        # the disposable guest workspace without copying the whole test suite.
+        probe = ROOT / "tests/test_windows_native_proxy.py"
+        if not probe.is_file() or probe.is_symlink():
+            raise ValueError("Native proxy probe source is missing or unsafe")
+        archive.write(probe, "tests/test_windows_native_proxy.py")
         if include_global_sources:
             present = set(archive.namelist())
             for name in sorted(GLOBAL_SOURCE_IDENTITIES - present):
