@@ -8,6 +8,10 @@ on:
         type: string
         required: true
         default: v0.3.0-rc.1
+      release_id:
+        description: Numeric ID of the existing draft prerelease
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -22,6 +26,7 @@ jobs:
     timeout-minutes: 10
     env:
       RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_ID: ${{ inputs.release_id }}
     steps:
       - name: Validate the release-candidate tag
         run: |
@@ -29,6 +34,8 @@ jobs:
           import os, re
           if re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+', os.environ['RELEASE_TAG']) is None:
               raise SystemExit('A versioned release-candidate tag is required')
+          if re.fullmatch(r'[1-9][0-9]*', os.environ['RELEASE_ID']) is None:
+              raise SystemExit('A numeric draft release ID is required')
           PY
       - uses: actions/checkout@v5
         with:
@@ -44,9 +51,10 @@ jobs:
           python - <<'PY'
           import json, os, subprocess
           repo, tag = os.environ['GITHUB_REPOSITORY'], os.environ['RELEASE_TAG']
-          release = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/tags/{tag}']))
+          release_id = os.environ['RELEASE_ID']
+          release = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/{release_id}']))
           commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-          if (release['tag_name'] != tag or release['draft'] is not True
+          if (str(release['id']) != release_id or release['tag_name'] != tag or release['draft'] is not True
                   or release['prerelease'] is not True or release['target_commitish'] != commit):
               raise SystemExit('Only the matching draft prerelease can receive these assets')
           print('Draft prerelease and checked-out commit match')
