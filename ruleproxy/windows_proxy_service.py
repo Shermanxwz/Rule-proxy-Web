@@ -9,15 +9,19 @@ import ctypes
 from ctypes import wintypes
 from datetime import datetime, timezone
 import hashlib
+import http.client
 import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
+import socket
+import secrets
 import subprocess
 import sys
 import threading
 import time
 import traceback
+import urllib.parse
 
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
@@ -111,7 +115,7 @@ def _token_sid(token):
     return _sid_text(ctypes.cast(value, ctypes.POINTER(wintypes.LPVOID))[0])
 
 
-def protected_path(path: Path):
+def protected_path(path: Path, *, private=False):
     """Require a trusted owner and no non-admin write grant on this object."""
     _windows()
     if path.is_symlink() or getattr(path.lstat(), "st_file_attributes", 0) & 0x400:
@@ -147,8 +151,11 @@ def protected_path(path: Path):
             if kind != 0:
                 raise ProxyError("unsafe_installation", "安装文件包含不支持的访问许可。")
             mask = ctypes.c_uint32.from_address(ace.value + 4).value
-            if mask & 0x500D0156 and _sid_text(ace.value + 8) not in trusted:
+            trustee = _sid_text(ace.value + 8)
+            if mask & 0x500D0156 and trustee not in trusted:
                 raise ProxyError("unsafe_installation", "普通用户不能改写管理员运行组件。")
+            if private and mask & 0x90000001 and trustee not in trusted:
+                raise ProxyError("unsafe_installation", "全局核心状态与控制密钥不能授予普通用户读取权限，请修复安装。")
     finally:
         kernel.LocalFree(descriptor)
 
@@ -195,6 +202,15 @@ def load_deployment(root: Path, *, secure=True) -> dict:
     if os.path.normcase(value.get("proxifyre_root", "")) != os.path.normcase(str(engine_root)):
         raise ProxyError("invalid_deployment", "ProxiFyre 安装位置无效。")
     required = {"python/python.exe", "ruleproxy/windows_proxy_service.py", "ruleproxy/windows_proxy_policy.py"}
+    if "global_backend_version" in value:
+        expected_state = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "RuleProxy-Web/global"
+        if (type(value["global_backend_version"]) is not int or value["global_backend_version"] != 1
+                or not isinstance(value.get("global_state_dir"), str)
+                or os.path.normcase(value.get("global_state_dir", "")) != os.path.normcase(str(expected_state))):
+            raise ProxyError("invalid_deployment", "全局后端安装记录无效，请修复安装。")
+        required |= {"bin/windows-amd64/mihomo.exe", "ruleproxy/config.py", "ruleproxy/windows_app_process.py",
+                     "ruleproxy/windows_global_runtime.py", "ruleproxy/windows_global_guard.py",
+                     "ruleproxy/windows_global_dns.py"}
     if not required.issubset(value.get("files", {})):
         raise ProxyError("invalid_deployment", "Windows 安装清单缺少控制组件。")
     engine_required = {"ProxiFyre.exe", "socksify.dll", "ProxiFyre.Configuration.dll", "Topshelf.dll", "NLog.dll", "NLog.config"}
@@ -375,8 +391,407 @@ class ProcessLease:
         return buffer.value
 
 
+def _tcp_connections(family):
+    """Bounded native ownership/management snapshot; no subprocess parsing."""
+    class Row4(ctypes.Structure):
+        _fields_ = [(name, ctypes.c_uint32) for name in
+                    ("state", "local", "local_port", "remote", "remote_port", "pid")]
+    class Row6(ctypes.Structure):
+        _fields_ = [("local", ctypes.c_ubyte * 16), ("local_scope", ctypes.c_uint32),
+                    ("local_port", ctypes.c_uint32), ("remote", ctypes.c_ubyte * 16),
+                    ("remote_scope", ctypes.c_uint32), ("remote_port", ctypes.c_uint32),
+                    ("state", ctypes.c_uint32), ("pid", ctypes.c_uint32)]
+    row_type = Row4 if family == socket.AF_INET else Row6
+    api = _dll("iphlpapi")
+    api.GetExtendedTcpTable.argtypes = [wintypes.LPVOID, ctypes.POINTER(wintypes.DWORD),
+                                       wintypes.BOOL, wintypes.ULONG, ctypes.c_int, wintypes.ULONG]
+    api.GetExtendedTcpTable.restype = wintypes.DWORD
+    size = wintypes.DWORD()
+    error = api.GetExtendedTcpTable(None, ctypes.byref(size), False, family, 5, 0)
+    if error not in (0, 122) or not 4 <= size.value <= 8 * 1024 * 1024:
+        raise ProxyError("network_state_unavailable", "无法安全核对当前网络连接。")
+    for _ in range(3):
+        data = ctypes.create_string_buffer(size.value)
+        error = api.GetExtendedTcpTable(data, ctypes.byref(size), False, family, 5, 0)
+        if error == 122 and 4 <= size.value <= 8 * 1024 * 1024:
+            continue
+        if error:
+            raise ProxyError("network_state_unavailable", "无法安全核对当前网络连接。")
+        count = ctypes.c_uint32.from_buffer(data).value
+        if count > 65536 or 4 + count * ctypes.sizeof(row_type) > len(data):
+            raise ProxyError("network_state_unavailable", "网络连接快照无效。")
+        rows = []
+        for index in range(count):
+            row = row_type.from_buffer_copy(data, 4 + index * ctypes.sizeof(row_type))
+            def address(value):
+                raw = int(value).to_bytes(4, "little") if family == socket.AF_INET else bytes(value)
+                return socket.inet_ntop(family, raw)
+            rows.append({"state": row.state, "pid": row.pid, "local": address(row.local),
+                         "remote": address(row.remote), "local_port": socket.ntohs(row.local_port & 0xffff),
+                         "remote_port": socket.ntohs(row.remote_port & 0xffff)})
+        return rows
+    raise ProxyError("network_state_unavailable", "网络连接变化过快，请稍后重试。")
+
+
+def _management_exceptions():
+    """Preserve only remote endpoints of already established RDP sessions."""
+    import ipaddress
+    import winreg
+    port = 3389
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                r"SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp") as key:
+            port = winreg.QueryValueEx(key, "PortNumber")[0]
+    except FileNotFoundError:
+        pass
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ProxyError("network_state_unavailable", "无法核对远程桌面管理端口。")
+    owners = {4}  # Some RDP kernel transports report System as the owner.
+    try:
+        terminal = ServiceControl().status("TermService")
+        if terminal["state"] == 4 and terminal["pid"] > 0:
+            owners.add(terminal["pid"])
+    except OSError as exc:
+        if getattr(exc, "winerror", None) != 1060:  # RDP host not installed.
+            raise
+    result = []
+    for family in (socket.AF_INET, socket.AF_INET6):
+        for row in _tcp_connections(family):
+            if row["state"] != 5 or row["local_port"] != port or row["pid"] not in owners:
+                continue
+            remote = ipaddress.ip_address(row["remote"])
+            if remote.is_loopback or remote.is_unspecified:
+                continue
+            if getattr(remote, "ipv4_mapped", None):
+                remote = remote.ipv4_mapped
+            route = str(remote) + ("/32" if remote.version == 4 else "/128")
+            if not any(item["route"] == route for item in result):
+                if len(result) >= 128:
+                    raise ProxyError("network_state_unavailable", "远程管理连接过多，无法生成有界的安全例外。")
+                result.append({"remote": str(remote), "route": route, "protocol": "TCP", "local_port": port,
+                               "reason": "启动时已建立的远程桌面管理连接"})
+    return result
+
+
+class UnavailableGlobalGuard:
+    """Honest intermediate capability until a verified independent guard exists."""
+    def status(self):
+        return {"supported": False, "active": False, "persistent": False, "strict_isolation": False,
+                "detail": "未安装经过验证的独立故障阻断层；TUN 路由本身不能保证核心故障后不直连。"}
+
+    def apply(self, _core_path, _tun):
+        return self.status()
+
+    normal_stop = status
+    crash_keep = status
+
+
+class UnavailableGlobalDNS:
+    def status(self, *, refresh=False):
+        return {"supported": False, "active": None, "effective": False, "persistent": None,
+                "native_qualified": False, "state": "setup_required",
+                "detail": "全局 DNS 组件尚未安装，请运行 Setup-Windows.cmd 修复安装。"}
+
+    def apply(self):
+        raise ProxyError("setup_required", self.status()["detail"])
+
+    normal_stop = apply
+    crash_keep = status
+
+
+class GlobalCore:
+    """One fixed installed Mihomo process, owned by the SYSTEM control service.
+
+    The installer owns every executable/import and the private state directory.
+    A killed broker closes the non-inheritable Job handle and kills the core;
+    persistent traffic protection belongs to the separate guard, not that Job.
+    """
+    def __init__(self, metadata, *, guard=None, dns=None, compiler=None, launcher=None,
+                 validator=None, health=None, management=None, state_directory=None):
+        self.metadata = metadata
+        self.root = Path(metadata["root"])
+        self.directory = (Path(state_directory) if state_directory is not None else
+                          Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "RuleProxy-Web/global")
+        self.executable = self.root / "bin/windows-amd64/mihomo.exe"
+        self.process = None
+        self.fingerprint = None
+        self.error = None
+        self.management_exceptions = []
+        # A caller who knows an elevated Mihomo's full controller secret can
+        # use /configs to bypass the compiler and reload arbitrary YAML. Never
+        # give desktop users that secret: expose only bounded broker verbs.
+        self._controller_secret = secrets.token_urlsafe(48)
+        self._controller_port = None
+        self._allowed_nodes = set()
+        self._primary_group = None
+        self.selected_node = None
+        self._compiler, self._launcher = compiler, launcher
+        self._validator, self._health = validator, health
+        self._management = management or _management_exceptions
+        if guard is not None:
+            self.guard = guard
+        elif "ruleproxy/windows_global_guard.py" in metadata.get("files", {}):
+            from ruleproxy.windows_global_guard import Guard
+            self.guard = Guard(metadata)
+        else:
+            self.guard = UnavailableGlobalGuard()
+        if dns is not None:
+            self.dns = dns
+        elif "ruleproxy/windows_global_dns.py" in metadata.get("files", {}):
+            from ruleproxy.windows_global_dns import DnsLease
+            self.dns = DnsLease(metadata)
+        else:
+            self.dns = UnavailableGlobalDNS()
+
+    def _available(self):
+        required = {"bin/windows-amd64/mihomo.exe", "ruleproxy/config.py",
+                    "ruleproxy/windows_global_runtime.py", "ruleproxy/windows_app_process.py",
+                    "ruleproxy/windows_global_dns.py"}
+        if self.metadata.get("global_backend_version") != 1 or not required.issubset(self.metadata.get("files", {})):
+            raise ProxyError("setup_required", "控制服务尚未安装全局后端，请运行 Setup-Windows.cmd 修复安装。")
+        for path in (self.directory.parent, self.directory):
+            if not path.is_dir():
+                raise ProxyError("setup_required", "全局运行目录尚未安装，请修复安装。")
+            protected_path(path, private=True)
+
+    def status(self, *, dns_state=None):
+        try:
+            self._available()
+            available, detail = True, "Windows 全局 TUN 后端已安装。"
+        except ProxyError as exc:
+            available, detail = False, str(exc)
+        running = self.is_running()
+        guard = self.guard.status()
+        dns = self.dns.status() if dns_state is None else dns_state
+        strict = (guard.get("active") is True and guard.get("persistent") is True
+                  and guard.get("strict_isolation") is True and guard.get("native_qualified") is True
+                  and dns.get("effective") is True and dns.get("native_qualified") is True)
+        protection = ("persistent_guard" if strict else "persistent_guard_unqualified"
+                      if guard.get("active") is True and guard.get("persistent") is True else "routing_only")
+        if not guard.get("supported"):
+            detail += " 独立故障阻断层不可用，不能确认故障后防直连。"
+        component_supported = available and dns.get("component_available", dns.get("supported")) is True
+        policy_ready = dns.get("fresh", True) is True and dns.get("supported") is True and dns.get("state") in {"idle", "candidate_active"}
+        dns_conflict = dns.get("state") in {"conflict", "not_effective"}
+        if not policy_ready:
+            detail += " " + dns.get("detail", "无法核对全局 DNS 策略。")
+        return {"global_schema_version": 1, "mode": "global", "backend": "Mihomo TUN",
+                "supported": component_supported and not dns_conflict, "component_supported": component_supported,
+                "policy_ready": policy_ready, "setup_required": not available,
+                "state": "setup_required" if not available else ("running" if running else
+                         ("failed" if self.error else "idle")),
+                "running": running, "pid": self.process.pid if running else None,
+                "strict_isolation": strict, "protection": protection,
+                "guard": guard, "dns": dns, "detail": detail, "error": self.error,
+                "selected_node": self.selected_node,
+                "management_exceptions": list(self.management_exceptions),
+                "limitations": list(policy.GLOBAL_LIMITATIONS)}
+
+    def is_running(self):
+        """Process ownership only; watchdogs never wait on a DNS subprocess."""
+        return self.process is not None and self.process.poll() is None
+
+    def _write(self, text):
+        destination, temporary = self.directory / "config.yaml", self.directory / "config.ruleproxy.tmp"
+        for path in (destination, temporary):
+            if path.exists() or path.is_symlink():
+                protected_path(path, private=True)
+        with temporary.open("wb") as output:
+            output.write(text.encode("utf-8"))
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, destination)
+        protected_path(destination, private=True)
+        return destination
+
+    def _owned_controller(self, port, secret, process, method, path, data=None):
+        """Authenticate this established TCP peer *before* disclosing a token.
+
+        Checking a LISTEN socket before connecting is racy: a dead core's port
+        could be acquired by an ordinary user's process. The connected socket
+        and server-side tuple are stable while its original peer stays alive.
+        """
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=.5)
+        try:
+            connection.connect()
+            local = connection.sock.getsockname()
+            owned = any(row["state"] == 5 and row["pid"] == process.pid and
+                        row["local_port"] == port and row["remote_port"] == local[1] and
+                        row["local"] == "127.0.0.1" and row["remote"] == local[0]
+                        for row in _tcp_connections(socket.AF_INET))
+            if not owned or process.poll() is not None:
+                raise ProxyError("invalid_controller_owner", "核心控制连接不属于持有的固定进程，未发送控制密钥。")
+            body = json.dumps(data).encode("utf-8") if data is not None else None
+            connection.request(method, path, body=body,
+                headers={"Authorization": "Bearer " + secret, "Content-Type": "application/json"})
+            response = connection.getresponse()
+            if not 200 <= response.status < 300:
+                raise ProxyError("controller_failed", "全局核心控制请求失败。")
+            raw = response.read(65537)
+            if len(raw) > 65536:
+                raise ProxyError("invalid_controller_response", "核心控制响应过大。")
+            return json.loads(raw.decode("utf-8")) if raw else None
+        finally:
+            connection.close()
+
+    def _controller_ready(self, port, secret, process):
+        value = self._owned_controller(port, secret, process, "GET", "/version")
+        return isinstance(value, dict) and isinstance(value.get("version"), str)
+
+    def _halt(self):
+        process = self.process
+        if process is not None:
+            if process.poll() is None:
+                process.terminate()
+            process.wait(timeout=5)
+            self.process = None
+
+    def stop(self, *, normal=True):
+        # Do not withdraw a guard after an unconfirmed process cleanup.
+        self._halt()
+        if normal:
+            dns = self.dns.normal_stop()
+            if dns.get("supported") is not True or dns.get("active") is not False:
+                raise ProxyError("global_dns_restore_incomplete", "无法确认全局 DNS 已恢复，独立保护保持生效。")
+            result = self.guard.normal_stop()
+        else:
+            dns = self.dns.crash_keep()
+            result = self.guard.crash_keep()
+        self.fingerprint = None
+        self._controller_port, self._primary_group = None, None
+        self._allowed_nodes = set()
+        if normal:
+            self.error = None
+        return {**self.status(dns_state=dns), "stopped": True, "guard": result, "dns": dns}
+
+    def select_node(self, name):
+        if self.process is None or self.process.poll() is not None:
+            raise ProxyError("global_not_running", "全局核心尚未运行。")
+        if not isinstance(name, str) or name not in self._allowed_nodes:
+            raise ProxyError("invalid_node", "只能切换到已安全编译的代理节点。")
+        path = "/proxies/" + urllib.parse.quote(self._primary_group, safe="")
+        self._owned_controller(self._controller_port, self._controller_secret, self.process,
+                               "PUT", path, {"name": name})
+        self.selected_node = name
+        return self.status()
+
+    def start(self, request):
+        policy.validate_global_request(request)
+        self._available()
+        if request.get("require_strict"):
+            capability = self.guard.status()
+            if not (capability.get("supported") is True and capability.get("native_qualified") is True):
+                raise ProxyError("strict_guard_unavailable", "独立故障阻断层尚未通过原生资格验证，不能启动严格全局模式。")
+            if self.dns.status().get("native_qualified") is not True:
+                raise ProxyError("strict_dns_unavailable", "全局 DNS 尚未通过原生资格验证，不能启动严格全局模式。")
+        # Parse/query the fixed DNS control program without changing policy
+        # before installing a persistent pre-guard. A missing/broken DNSClient
+        # must not lock networking before it can even inspect its own lease.
+        dns_capability = self.dns.status(refresh=True)
+        if (dns_capability.get("supported") is not True
+                or dns_capability.get("state") in {"conflict", "not_effective"}):
+            raise ProxyError("global_dns_conflict", "已有 DNS 策略冲突或无法核对有效 NRPT，未启动全局接管。")
+        if self.process is None or self.process.poll() is not None:
+            self._controller_secret = secrets.token_urlsafe(48)
+        compiler = self._compiler
+        if compiler is None:
+            from ruleproxy.config import compile_config
+            compiler = compile_config
+        try:
+            compiled = compiler(request["source"], secret=self._controller_secret, mixed_port=request["mixed_port"],
+                                controller_port=request["controller_port"], selected_node=request["selected_node"],
+                                capture_mode="global", allow_udp=True)
+        except (ValueError, TypeError, RecursionError) as exc:
+            raise ProxyError("invalid_config", "全局配置未通过安全编译，请在面板检查 YAML 与所选节点。") from exc
+        fingerprint = hashlib.sha256(compiled.text.encode("utf-8")).hexdigest()
+        if self.process is not None and self.process.poll() is None:
+            if self.fingerprint == fingerprint:
+                return {**self.status(), "unchanged": True}
+            raise ProxyError("already_running", "全局核心已运行，请先停止后再更改配置。")
+        reservations = []
+        try:
+            for port in (request["mixed_port"], request["controller_port"]):
+                reserved = socket.socket()
+                reservations.append(reserved)
+                if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                    reserved.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+                reserved.bind(("127.0.0.1", port))
+        except OSError as exc:
+            raise ProxyError("port_in_use", "全局核心本地监听端口已被占用，未修改路由。") from exc
+        finally:
+            for reserved in reservations:
+                reserved.close()
+        protected_path(self.executable)
+        if _file_hash(self.executable) != self.metadata["files"]["bin/windows-amd64/mihomo.exe"]:
+            raise ProxyError("installation_changed", "固定 Mihomo 核心已改变，请修复安装。")
+        # Protect existing management before auto-route alters the default path.
+        exceptions = self._management()
+        tun = compiled.config["tun"]
+        if (tun.get("inet4-address") != ["198.18.0.1/30"]
+                or tun.get("inet6-address") != ["fdfe:dcba:8879::1/126"]):
+            raise ProxyError("invalid_config", "全局 TUN 地址与固定 DNS peer 不匹配，未启动网络接管。")
+        if exceptions:
+            tun["route-exclude-address"] = [item["route"] for item in exceptions]
+        import yaml
+        text = yaml.safe_dump(compiled.config, allow_unicode=True, sort_keys=False)
+        configuration = self._write(text)
+        command = [str(self.executable), "-d", str(self.directory), "-f", str(configuration)]
+        validation = self._validator or subprocess.run
+        checked = validation([command[0], "-t", *command[1:]], stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, timeout=12,
+                             cwd=str(self.root), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if checked.returncode:
+            raise ProxyError("invalid_config", "固定 Mihomo 未通过全局配置校验，未启动 TUN。")
+        self.management_exceptions = exceptions
+        try:
+            protection = self.guard.apply(self.executable, tun)
+            if request.get("require_strict") and not (protection.get("active") and protection.get("strict_isolation")):
+                raise ProxyError("strict_guard_unavailable", "独立故障阻断层未进入有效状态，未启动全局核心。")
+            dns = self.dns.apply()
+            if dns.get("effective") is not True or dns.get("active") is not True:
+                raise ProxyError("global_dns_not_effective", "全局 DNS 未确认生效，未启动全局核心。")
+            launcher = self._launcher
+            if launcher is None:
+                from ruleproxy.windows_app_process import launch
+                launcher = launch
+            self.process = launcher(command, dict(os.environ), str(self.root))
+            deadline = time.monotonic() + 8
+            health = self._health or self._controller_ready
+            while time.monotonic() < deadline and self.process.poll() is None:
+                try:
+                    if health(request["controller_port"], self._controller_secret, self.process):
+                        # First apply may deliberately install a fail-closed
+                        # pre-guard before the TUN interface has a real LUID.
+                        # Reapply atomically after the core creates the device.
+                        ready = self.guard.apply(self.executable, tun)
+                        if ready.get("tun_ready") is not False:
+                            final_dns = self.dns.status(refresh=True)
+                            if final_dns.get("supported") is not True or final_dns.get("effective") is not True:
+                                raise ProxyError("global_dns_not_effective", "启动后的 DNS 有效策略未确认，保留独立保护。")
+                            self.fingerprint, self.error = fingerprint, None
+                            self._controller_port = request["controller_port"]
+                            self._allowed_nodes = {node["name"] for node in compiled.nodes}
+                            self._primary_group = compiled.primary_group
+                            self.selected_node = compiled.selected_node
+                            return self.status()
+                except (OSError, ValueError):
+                    pass
+                time.sleep(.1)
+            raise ProxyError("global_start_failed", "全局核心未能建立自身控制监听，请停止或修复后重试。")
+        except BaseException:
+            self.error = {"code": "global_start_failed", "message": "全局核心未启动；已保留独立保护状态。"}
+            try:
+                self._halt()
+            finally:
+                try:
+                    self.dns.crash_keep()
+                finally:
+                    self.guard.crash_keep()
+            raise
+
+
 class Broker:
-    def __init__(self, metadata, control=None, lease_factory=None):
+    def __init__(self, metadata, control=None, lease_factory=None, global_factory=None):
         self.metadata = metadata
         self.control = control or ServiceControl()
         self.lease_factory = lease_factory or ProcessLease
@@ -386,16 +801,35 @@ class Broker:
         self.paths = []
         self.port = None
         self.error = None
+        self.global_factory = global_factory or GlobalCore
+        self.global_core = None
+        self.global_panel = None
+
+    def _global(self):
+        if self.global_core is None:
+            self.global_core = self.global_factory(self.metadata)
+        return self.global_core
+
+    def _global_active(self):
+        if self.global_core is None:
+            return False
+        status = self.global_core.status()
+        return (status["running"] or status.get("guard", {}).get("active") is True
+                or status.get("dns", {}).get("active") is True)
 
     def snapshot(self):
         engine_running = self.control.status()["state"] == 4
         state = ("running" if self.panel else "external_conflict") if engine_running else (
             "failed" if self.panel or self.error else "idle")
+        global_active = self._global_active()
+        if global_active:
+            state = "global_conflict"
         return {"backend": "ProxiFyre", "mode": "application_proxy", "strict_isolation": False,
             "state": state, "running": engine_running and self.panel is not None,
             "engine_running": engine_running, "generation": self.generation,
             "owner_pid": self.panel.pid if self.panel else None, "path_count": len(self.paths),
-            "proxy_port": self.port, "limitations": list(policy.LIMITATIONS), "error": self.error}
+            "proxy_port": self.port, "limitations": list(policy.LIMITATIONS), "error": self.error,
+            "global_active": global_active}
 
     def _clear(self):
         for process in (self.panel, self.core):
@@ -419,12 +853,74 @@ class Broker:
                     if not self.error:
                         _log_service_error("lease_cleanup", exc)
                     self.error = {"code": "cleanup_incomplete", "message": str(exc)[:500]}
+            if self.global_panel and (not self.global_panel.alive() or not self._global().is_running()):
+                try:
+                    self._global().error = {"code": "global_owner_or_core_exited",
+                        "message": "全局核心或面板已退出；保留独立保护，显式停止后恢复。"}
+                    self._global().stop(normal=False)
+                    self.global_panel.close()
+                    self.global_panel = None
+                except Exception as exc:
+                    if not self.error:
+                        _log_service_error("global_lease_cleanup", exc)
+                    self.error = {"code": "cleanup_incomplete", "message": "全局清理未能确认，保留保护状态。"}
+
+    def shutdown(self):
+        """An SCM/broker exit is not the user's explicit network restore."""
+        with self.lock:
+            if self.panel is not None:
+                self.stop()
+            if self.global_core is not None:
+                self.global_core.stop(normal=False)
+            if self.global_panel is not None:
+                self.global_panel.close()
+                self.global_panel = None
+
+    def _global_handle(self, request, caller_pid, caller_sid):
+        operation = request["op"]
+        if operation == "global_status":
+            result = self._global().status()
+            if self.control.status()["state"] == 4 and self.panel is None:
+                result.update(supported=False, state="external_conflict",
+                              detail="ProxiFyre 已由其他程序启动，请先停止该程序的代理。")
+            return result
+        if ((self.panel and self.panel.pid != caller_pid)
+                or (self.global_panel and self.global_panel.pid != caller_pid)):
+            raise ProxyError("instance_conflict", "另一面板正在管理 Windows 代理。")
+        if operation == "global_stop":
+            result = self._global().stop(normal=True)
+            if self.global_panel:
+                self.global_panel.close()
+                self.global_panel = None
+            return result
+        if operation == "global_select_node":
+            return self._global().select_node(request["selected_node"])
+        policy.validate_global_request(request)
+        if self.control.status()["state"] == 4 and self.panel is None:
+            raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
+        owner = self.lease_factory(caller_pid, caller_sid)
+        try:
+            self.control.verify(self.metadata)
+            if self.panel is not None:
+                self.stop()
+            # Caller identity and the held process handle are established before
+            # any privileged core/configuration/network operation.
+            result = self._global().start(request)
+            if self.global_panel:
+                self.global_panel.close()
+            self.global_panel, owner = owner, None
+            return result
+        finally:
+            if owner:
+                owner.close()
 
     def handle(self, request, caller_pid, caller_sid):
         with self.lock:
             if caller_sid != self.metadata["owner_sid"] or request["client_pid"] != caller_pid:
                 raise ProxyError("access_denied", "控制请求身份不匹配。")
             self.check_lease()
+            if request["op"] in {"global_status", "global_start", "global_stop", "global_select_node"}:
+                return self._global_handle(request, caller_pid, caller_sid)
             if request["op"] == "status":
                 return self.snapshot()
             if self.panel and self.panel.pid != caller_pid:
@@ -433,6 +929,8 @@ class Broker:
                 if self.panel is None:
                     return {"stopped": True, "not_owned": True, "generation": self.generation}
                 return self.stop()
+            if self._global_active():
+                raise ProxyError("mode_conflict", "全局接管或故障保护仍在生效，请先显式停止全局模式。")
             if request["generation"] != self.generation + 1:
                 raise ProxyError("generation_conflict", "配置状态已改变，请刷新后重试。")
             compiled = policy.build_policy(request["paths"], request["proxy_port"],
@@ -632,7 +1130,9 @@ def serve(broker, stopping):
         watcher.join(timeout=2)
         try:
             with broker.lock:
-                if broker.panel is not None:
+                if hasattr(broker, "shutdown"):
+                    broker.shutdown()
+                elif broker.panel is not None:
                     broker.stop()
         finally:
             if handle is not None:

@@ -575,6 +575,24 @@ class LocalServerTests(unittest.TestCase):
             self.request("/api/import", {"yaml": "bad"}, **{"X-RuleProxy-Token": self.manager.token})
         self.assertEqual(error.exception.code, 400)
 
+    def test_capture_mode_endpoint_requires_token_and_switches_only_when_stopped(self):
+        backend = Mock()
+        backend.status.return_value = {'supported': False, 'running': False, 'state': 'setup_required'}
+        self.manager._global_backend = backend
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.request('/api/mode', {'capture_mode': 'global'})
+        self.assertEqual(error.exception.code, 403)
+        token = {'X-RuleProxy-Token': self.manager.token}
+        with self.request('/api/mode', {'capture_mode': 'global'}, **token) as response:
+            self.assertEqual(json.load(response)['capture_mode'], 'global')
+        backend.start.assert_not_called()
+        for payload in ({'capture_mode': 'tun'}, {'capture_mode': 'global', 'command': 'anything'}):
+            with self.subTest(payload=payload), self.assertRaises(urllib.error.HTTPError) as error:
+                self.request('/api/mode', payload, **token)
+            self.assertEqual(error.exception.code, 400)
+        with self.request('/api/mode', {'capture_mode': 'applications'}, **token) as response:
+            self.assertEqual(json.load(response)['capture_mode'], 'applications')
+
     def test_autostart_is_reported_and_set_for_this_panel(self):
         token = {"X-RuleProxy-Token": self.manager.token}
         with patch("ruleproxy.autostart.status", return_value="off"):

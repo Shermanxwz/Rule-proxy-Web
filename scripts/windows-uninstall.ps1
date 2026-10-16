@@ -49,6 +49,51 @@ function Get-OwnedProxiFyreRemovalPlan {
     if ($LASTEXITCODE -ne 0) { throw 'Unknown, changed or linked ProxiFyre content; uninstall refused' }
     return @($result | ConvertFrom-Json)
 }
+function Restore-OwnedGlobalNetwork {
+    # This is a fixed administrator recovery action, not an owner-SID pipe
+    # impersonation. The core must be gone before DNS/guard can be released.
+    $core = Join-Path $root 'bin\windows-amd64\mihomo.exe'
+    foreach ($process in Get-CimInstance Win32_Process -Filter "Name='mihomo.exe'") {
+        if (-not $process.ExecutablePath) { throw 'Cannot verify a running Mihomo identity; global restoration refused' }
+        if ([string]::Equals([string]$process.ExecutablePath,$core,[StringComparison]::OrdinalIgnoreCase)) {
+            $owner = Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid
+            if ($owner.ReturnValue -ne 0 -or -not $owner.Sid) { throw 'Cannot verify the installed core owner' }
+            if ($owner.Sid -eq 'S-1-5-18') { throw 'The fixed SYSTEM Mihomo is still running; keep the recovery components installed' }
+        }
+    }
+    $code = @'
+import json,sys
+from pathlib import Path
+from ruleproxy.windows_proxy_service import load_deployment,ServiceControl
+from ruleproxy.windows_proxy_policy import SERVICE_NAME
+metadata=load_deployment(Path(sys.argv[1]))
+try:
+    service=ServiceControl().status(SERVICE_NAME)
+except OSError as error:
+    if getattr(error,'winerror',None)!=1060:
+        raise
+else:
+    if service['state']!=1:
+        raise RuntimeError('Stop the fixed control service before restoring global networking')
+if metadata.get('global_backend_version')==1:
+    from ruleproxy.windows_global_dns import DnsLease
+    from ruleproxy.windows_global_guard import Guard
+    dns=DnsLease(metadata).normal_stop()
+    if dns.get('supported') is not True or dns.get('active') is not False:
+        raise RuntimeError('Owned DNS restoration could not be confirmed; guard retained')
+    guard=Guard(metadata).normal_stop()
+    if guard.get('supported') is not True or guard.get('active') is not False:
+        raise RuntimeError('Owned guard restoration could not be confirmed')
+print(json.dumps({'restored':True}))
+'@
+    $global:LASTEXITCODE = $null
+    $result = & (Join-Path $root 'python\python.exe') -I -S -c $code $root
+    if ($null -eq $global:LASTEXITCODE -or $global:LASTEXITCODE -ne 0) {
+        throw 'Global network restoration failed; owned services/code are retained for recovery'
+    }
+    $confirmation = $result | ConvertFrom-Json
+    if ($confirmation.restored -ne $true) { throw 'Global network restoration was not confirmed' }
+}
 # Refuse foreign contents before changing services or invoking MSI.
 if (Test-Path -LiteralPath $pfRoot) { Assert-State $pfRoot }
 $null = Get-OwnedProxiFyreRemovalPlan
@@ -58,6 +103,12 @@ if ($service -and $service.PathName -ne $expected) { throw 'Refuse a substituted
 if ($service) {
     Stop-Service RuleProxyControl -ErrorAction Stop
     (Get-Service RuleProxyControl).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(30))
+}
+# A crashed core/service may have left persistent protection. The actual
+# elevated administrator (including a different UAC account) may remove only
+# this protected installation's exact DNS lease and WFP filters.
+Restore-OwnedGlobalNetwork
+if ($service) {
     & sc.exe delete RuleProxyControl | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Control service deletion failed' }
 }

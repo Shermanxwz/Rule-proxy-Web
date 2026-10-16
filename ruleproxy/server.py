@@ -187,6 +187,10 @@ class Handler(BaseHTTPRequestHandler):
                 manager.import_yaml(data.get("yaml"))
             elif path == "/api/settings":
                 manager.save_settings(data)
+            elif path == '/api/mode':
+                if set(data) != {'capture_mode'}:
+                    raise ValueError('接管模式请求只能包含 capture_mode。')
+                manager.set_capture_mode(data['capture_mode'])
             elif path == "/api/start":
                 manager.start()
             elif path == "/api/autostart":
@@ -361,6 +365,7 @@ def _run(args, windowless: bool):
         raise SystemExit(f"RuleProxy: 无法使用面板端口 {args.port}（{exc.strerror or exc}）。该端口可能被其他程序占用，可用 --port 指定其他端口。") from None
 
     manager = None
+    explicit_interrupt = threading.Event()
     try:
         manager = Manager(
             args.state_dir,
@@ -369,8 +374,14 @@ def _run(args, windowless: bool):
             controller_port=args.controller_port,
         )
         server.manager = manager
-        for name in ("SIGINT", "SIGTERM"):
-            signal.signal(getattr(signal, name), lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
+        def shutdown_on_signal(number, _frame):
+            if number == signal.SIGINT:
+                explicit_interrupt.set()
+            threading.Thread(target=server.shutdown, daemon=True).start()
+        for name in ("SIGINT", "SIGTERM", "SIGHUP"):
+            number = getattr(signal, name, None)
+            if number is not None:
+                signal.signal(number, shutdown_on_signal)
         print("RuleProxy: " + url, flush=True)
         if windowless:
             print("Running without a window. Use Quit on the panel page to stop the panel and its protected applications.", flush=True)
@@ -389,6 +400,6 @@ def _run(args, windowless: bool):
     finally:
         try:
             if manager is not None:
-                manager.close()
+                manager.close(restore_global=(explicit_interrupt.is_set() or server.quit_requested.is_set()))
         finally:
             server.server_close()

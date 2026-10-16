@@ -1,0 +1,954 @@
+"""Explicit disposable-Windows experiment; never run on a user's desktop.
+
+Uses real production WFP guard/SCM global core and a synthetic loopback SOCKS
+echo node. Physical IPv4 evidence is captured at one identified NIC component,
+with positive TCP/UDP controls before and after the guarded probes. IPv6 public
+egress is NOT qualified by a scoped ::1 action test. No result enables strict
+product protection automatically. Raw ETL/PCAP/state remain private locally.
+
+Run from the installing desktop owner's elevated account after installing the
+candidate package::
+    python .github/check_windows_global_capture.py --ack-disposable-windows \
+        --installed-root "C:\\Program Files\\RuleProxy-Web" --output summary.json
+
+An independent SYSTEM scheduled recovery task is registered before any route,
+WFP or TUN mutation. It stops the fixed service/core, restores only owned NRPT
+and guard rules, and removes the exact test route. Every normal/failed run also
+executes recovery. The hard recovery deadline is 180 seconds.
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import ctypes
+import hashlib
+import ipaddress
+import json
+import os
+import re
+from pathlib import Path
+import secrets
+import select
+import shutil
+import socket
+import struct
+import subprocess
+import sys
+import threading
+import time
+
+
+DEST4 = '203.0.113.77'
+TUN4, TUN6 = '198.51.100.88', '2001:db8::88'
+TCP_PORT, UDP_PORT = 18080, 39177
+MAX_CAPTURE = 64 * 1024 * 1024
+FIXTURE_SERVER = '127.0.0.1.sslip.io'
+
+
+def fixture_source(port):
+    """Public DNS spelling accepted by the unchanged production compiler."""
+    source = json.dumps({'proxies': [{'name': 'CaptureEcho', 'type': 'socks5',
+        'server': FIXTURE_SERVER, 'port': port, 'udp': True}], 'rules': ['MATCH,CaptureEcho']})
+    from ruleproxy.config import compile_config
+    compiled = compile_config(source, secret='fixture-preflight', capture_mode='global',
+                              selected_node='CaptureEcho')
+    if compiled.config['proxies'][0]['server'] != FIXTURE_SERVER:
+        raise RuntimeError('fixture_compiler_changed_node')
+    return source
+
+
+def fixture_dns_preflight():
+    # Same fixed IP DoH bootstrap as generated global config; no adapter or
+    # hosts changes. This third-party DNS dependency is explicitly scoped.
+    import urllib.request
+    request = urllib.request.Request('https://1.1.1.1/dns-query?name=' + FIXTURE_SERVER + '&type=A',
+                                     headers={'Accept': 'application/dns-json'})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=5) as response:
+        data = response.read(16385)
+    if len(data) > 16384:
+        raise ValueError('fixture_dns_response_bound')
+    value = json.loads(data)
+    addresses = {item.get('data') for item in value.get('Answer', []) if item.get('type') == 1}
+    if value.get('Status') != 0 or addresses != {'127.0.0.1'}:
+        raise RuntimeError('fixture_dns_loopback_control_missing')
+    return {'resolver': 'cloudflare_ip_doh', 'server_name': FIXTURE_SERVER,
+            'only_ipv4_answer_loopback': True, 'external_dns_dependency': True}
+
+
+def read_json(path):
+    path = Path(path)
+    if path.stat().st_size > 256 * 1024:
+        raise ValueError('state_size_bound')
+    return json.loads(path.read_text(encoding='utf-8-sig'))
+
+
+def write_json(path, value):
+    path = Path(path)
+    temporary = path.with_suffix(path.suffix + '.tmp')
+    temporary.write_text(json.dumps(value, ensure_ascii=True, indent=2), encoding='utf-8')
+    os.replace(temporary, path)
+
+
+def ps(script, environment=None, timeout=25):
+    from ruleproxy.windows_store_apps import _system_powershell
+    executable = _system_powershell()
+    prefix = "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';$env:PSModulePath=Join-Path $PSHOME 'Modules';"
+    suffix = ";$bytes=[Text.Encoding]::UTF8.GetBytes([string]$result);$s=[Console]::OpenStandardOutput();$s.Write($bytes,0,$bytes.Length)"
+    command = [str(executable), '-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand',
+        base64.b64encode((prefix + script + suffix).encode('utf-16-le')).decode('ascii')]
+    result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, timeout=timeout, env={**os.environ, **(environment or {})},
+        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), check=False)
+    if result.returncode or len(result.stdout) > 2 * 1024 * 1024:
+        raise RuntimeError('powershell_operation_failed:' + result.stderr.decode('utf-8', 'replace')[-700:])
+    return result.stdout.decode('utf-8-sig').strip()
+
+
+def pktmon(*arguments):
+    from ruleproxy.windows_store_apps import _system_powershell
+    executable = _system_powershell().parents[2] / 'pktmon.exe'
+    result = subprocess.run([str(executable), *map(str, arguments)], stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=20,
+        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), check=False)
+    if result.returncode or len(result.stdout) > 2 * 1024 * 1024:
+        raise RuntimeError('pktmon_operation_failed:' + result.stdout.decode('utf-8', 'replace')[-700:])
+    return result.stdout.decode('utf-8-sig', 'replace')
+
+
+def component_id(document, mac, description):
+    """Require one explicit NIC match; never confuse a TUN capture with wire."""
+    found, visited = set(), 0
+    pending = [document]
+    normalized_mac = ''.join(c for c in mac.casefold() if c in '0123456789abcdef')
+    if len(normalized_mac) != 12:
+        raise ValueError('physical_mac_required')
+    while pending:
+        value = pending.pop()
+        visited += 1
+        if visited > 10000:
+            raise ValueError('component_list_bound')
+        if isinstance(value, list):
+            pending.extend(value)
+        elif isinstance(value, dict):
+            pending.extend(value.values())
+            fields = {key.casefold().replace('_', '').replace('-', ''): item for key, item in value.items()}
+            identity = fields.get('id', fields.get('componentid'))
+            candidate_mac = fields.get('macaddress', fields.get('mac'))
+            same_mac = (isinstance(candidate_mac, str) and ''.join(c for c in candidate_mac.casefold()
+                        if c in '0123456789abcdef') == normalized_mac)
+            same_description = fields.get('name') == description or fields.get('description') == description
+            if (same_mac or (candidate_mac is None and same_description)) and type(identity) is int and identity > 0:
+                found.add(identity)
+    if len(found) != 1:
+        raise ValueError('physical_component_not_unique')
+    return found.pop()
+
+
+def ethernet_probe(frame, marker):
+    if len(frame) < 14:
+        raise ValueError('short_ethernet')
+    offset, kind = 14, struct.unpack_from('!H', frame, 12)[0]
+    for _ in range(4):
+        if kind not in (0x8100, 0x88a8, 0x9100):
+            break
+        if len(frame) < offset + 4:
+            raise ValueError('short_vlan')
+        kind = struct.unpack_from('!H', frame, offset + 2)[0]
+        offset += 4
+    if kind != 0x0800:
+        return (0, 0)
+    if len(frame) < offset + 20 or frame[offset] >> 4 != 4:
+        raise ValueError('invalid_ipv4')
+    length = struct.unpack_from('!H', frame, offset + 2)[0]
+    header = (frame[offset] & 15) * 4
+    if header < 20 or length < header or len(frame) < offset + length:
+        raise ValueError('truncated_ipv4')
+    if frame[offset + 16:offset + 20] != ipaddress.IPv4Address(DEST4).packed:
+        return (0, 0)
+    if struct.unpack_from('!H', frame, offset + 6)[0] & 0x3fff:
+        raise ValueError('fragmented_watched_probe')
+    protocol, start, end = frame[offset + 9], offset + header, offset + length
+    if protocol == 6:
+        if end - start < 20:
+            raise ValueError('short_tcp')
+        port, flags = struct.unpack_from('!H', frame, start + 2)[0], frame[start + 13]
+        return (int(port == TCP_PORT and flags & 2 != 0 and flags & 16 == 0), 0)
+    if protocol == 17:
+        if end - start < 8:
+            raise ValueError('short_udp')
+        port, size = struct.unpack_from('!HH', frame, start + 2)
+        if size < 8 or start + size > end:
+            raise ValueError('invalid_udp')
+        return (0, int(port == UDP_PORT and frame[start + 8:start + size] == marker))
+    return (0, 0)
+
+
+def pcapng_counts(path, marker):
+    """Strict bounded Ethernet EPB reader; capture truncation never means zero."""
+    with Path(path).open('rb') as stream:
+        data = stream.read(MAX_CAPTURE + 1)
+    if len(data) > MAX_CAPTURE:
+        raise ValueError('capture_size_bound')
+    offset, endian, links, tcp, udp, packets = 0, None, [], 0, 0, 0
+    while offset < len(data):
+        if len(data) - offset < 12:
+            raise ValueError('partial_pcapng_block')
+        if data[offset:offset + 4] == b'\x0a\x0d\x0d\x0a':
+            magic = data[offset + 8:offset + 12]
+            endian = '<' if magic == b'\x4d\x3c\x2b\x1a' else '>' if magic == b'\x1a\x2b\x3c\x4d' else None
+            if endian is None:
+                raise ValueError('invalid_pcapng_magic')
+            links = []
+        if endian is None:
+            raise ValueError('missing_pcapng_section')
+        kind, size = struct.unpack_from(endian + 'II', data, offset)
+        if size < 12 or size % 4 or offset + size > len(data) or struct.unpack_from(endian + 'I', data, offset + size - 4)[0] != size:
+            raise ValueError('invalid_pcapng_length')
+        body = data[offset + 8:offset + size - 4]
+        if kind == 0x0a0d0d0a:
+            if len(body) < 16 or struct.unpack_from(endian + 'HH', body, 4) != (1, 0):
+                raise ValueError('unsupported_pcapng_section')
+        elif kind == 1:
+            if len(body) < 8:
+                raise ValueError('short_interface_block')
+            links.append(struct.unpack_from(endian + 'H', body)[0])
+        elif kind == 6:
+            if len(body) < 20:
+                raise ValueError('short_packet_block')
+            interface, _hi, _lo, captured, original = struct.unpack_from(endian + '5I', body)
+            if interface >= len(links) or links[interface] != 1 or captured != original or len(body) < 20 + captured:
+                raise ValueError('unsupported_or_truncated_packet')
+            one, two = ethernet_probe(body[20:20 + captured], marker)
+            tcp, udp, packets = tcp + one, udp + two, packets + 1
+        elif kind in (2, 3):
+            raise ValueError('unsupported_packet_block')
+        offset += size
+    if not links:
+        raise ValueError('missing_capture_interface')
+    return {'tcp_syn': tcp, 'udp_marker': udp, 'packets_parsed': packets,
+            'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)}
+
+
+def exact(connection, length):
+    result = bytearray()
+    while len(result) < length:
+        chunk = connection.recv(length - len(result))
+        if not chunk:
+            raise EOFError('short_fixture_stream')
+        result.extend(chunk)
+    return bytes(result)
+
+
+def socks_address(connection):
+    kind = exact(connection, 1)[0]
+    if kind not in (1, 4):
+        raise ValueError('fixture_ip_literals_only')
+    address = str(ipaddress.ip_address(exact(connection, 4 if kind == 1 else 16)))
+    return address, struct.unpack('!H', exact(connection, 2))[0]
+
+
+def encode_address(host, port):
+    address = ipaddress.ip_address(host)
+    return bytes([1 if address.version == 4 else 4]) + address.packed + struct.pack('!H', port)
+
+
+class EchoNode:
+    """Synthetic SOCKS echo only; never forwards to any Internet destination."""
+    def __init__(self):
+        self.socket = socket.socket()
+        self.socket.bind(('127.0.0.1', 0))
+        self.socket.listen(16)
+        self.socket.settimeout(.2)
+        self.port = self.socket.getsockname()[1]
+        self.stop = threading.Event()
+        self.counts = {'tcp4': 0, 'tcp6': 0, 'udp4': 0, 'udp6': 0}
+        self.lock = threading.Lock()
+        threading.Thread(target=self.accept, daemon=True).start()
+
+    def accept(self):
+        while not self.stop.is_set():
+            try:
+                connection, _ = self.socket.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            threading.Thread(target=self.serve, args=(connection,), daemon=True).start()
+
+    def serve(self, connection):
+        try:
+            connection.settimeout(5)
+            version, count = exact(connection, 2)
+            if version != 5 or 0 not in exact(connection, count):
+                return
+            connection.sendall(b'\x05\x00')
+            version, command, reserved = exact(connection, 3)
+            host, port = socks_address(connection)
+            if (version, reserved) != (5, 0):
+                return
+            if command == 3:
+                self.udp(connection)
+                return
+            if command != 1 or host not in (TUN4, TUN6) or port != TCP_PORT:
+                connection.sendall(b'\x05\x02\x00' + encode_address('127.0.0.1', 0))
+                return
+            connection.sendall(b'\x05\x00\x00' + encode_address('127.0.0.1', 0))
+            data = connection.recv(512)
+            if not data.startswith(b'RuleProxyCapture:'):
+                return
+            with self.lock:
+                self.counts['tcp' + str(ipaddress.ip_address(host).version)] += 1
+            connection.sendall(data)
+        except (OSError, EOFError, ValueError):
+            pass
+        finally:
+            connection.close()
+
+    def udp(self, control):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as relay:
+            relay.bind(('127.0.0.1', 0))
+            relay.setblocking(False)
+            control.sendall(b'\x05\x00\x00' + encode_address('127.0.0.1', relay.getsockname()[1]))
+            while not self.stop.is_set():
+                ready, _, _ = select.select((relay, control), (), (), .2)
+                if control in ready and not control.recv(1):
+                    return
+                if relay not in ready:
+                    continue
+                data, peer = relay.recvfrom(2048)
+                if data[:3] != b'\0\0\0' or data[3:4] not in (b'\x01', b'\x04'):
+                    continue
+                width = 4 if data[3] == 1 else 16
+                if len(data) < 6 + width:
+                    continue
+                host = str(ipaddress.ip_address(data[4:4 + width]))
+                port = struct.unpack_from('!H', data, 4 + width)[0]
+                payload = data[6 + width:]
+                if host not in (TUN4, TUN6) or port != UDP_PORT or not payload.startswith(b'RuleProxyCapture:'):
+                    continue
+                with self.lock:
+                    self.counts['udp' + str(ipaddress.ip_address(host).version)] += 1
+                relay.sendto(data, peer)
+
+    def close(self):
+        self.stop.set()
+        self.socket.close()
+
+
+class LocalEcho6:
+    def __init__(self):
+        self.stop = threading.Event()
+        self.counts = {'tcp': 0, 'udp': 0}
+        self.tcp = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        self.udp = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        for stream in (self.tcp, self.udp):
+            stream.bind(('::1', 0))
+            stream.settimeout(.2)
+        self.tcp.listen(4)
+        self.tcp_port, self.udp_port = self.tcp.getsockname()[1], self.udp.getsockname()[1]
+        for protocol in ('tcp', 'udp'):
+            threading.Thread(target=self.serve, args=(protocol,), daemon=True).start()
+
+    def serve(self, protocol):
+        while not self.stop.is_set():
+            try:
+                if protocol == 'tcp':
+                    connection, _ = self.tcp.accept()
+                    with connection:
+                        connection.settimeout(.5)
+                        payload = connection.recv(512)
+                        if payload.startswith(b'RuleProxyCapture:'):
+                            self.counts['tcp'] += 1
+                            connection.sendall(payload)
+                else:
+                    payload, peer = self.udp.recvfrom(512)
+                    if payload.startswith(b'RuleProxyCapture:'):
+                        self.counts['udp'] += 1
+                        self.udp.sendto(payload, peer)
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+
+    def close(self):
+        self.stop.set()
+        self.tcp.close()
+        self.udp.close()
+
+
+def actor(value):
+    marker = value['marker'].encode('ascii')
+    host, family = value['host'], value['family']
+    kind = socket.AF_INET if family == 4 else socket.AF_INET6
+    results = {}
+    for protocol, port in (('tcp', value['tcp_port']), ('udp', value['udp_port'])):
+        stage = 'socket'
+        try:
+            with socket.socket(kind, socket.SOCK_STREAM if protocol == 'tcp' else socket.SOCK_DGRAM) as stream:
+                stream.settimeout(1.2)
+                if value.get('source'):
+                    stage = 'bind'
+                    stream.bind((value['source'], 0))
+                if protocol == 'tcp':
+                    stage = 'connect'
+                    stream.connect((host, port))
+                    stage = 'send'
+                    stream.sendall(marker)
+                    received = stream.recv(len(marker)) == marker if value.get('echo') else False
+                else:
+                    stage = 'send'
+                    for _ in range(3 if not value.get('echo') else 1):
+                        stream.sendto(marker, (host, port))
+                    received = stream.recvfrom(2048)[0] == marker if value.get('echo') else False
+                results[protocol] = {'executed': True, 'received_echo': received, 'socket_ok': True, 'stage': stage}
+        except OSError as error:
+            results[protocol] = {'executed': stage in ('connect', 'send'), 'received_echo': False,
+                                 'socket_ok': False, 'stage': stage, 'error': (getattr(error, 'winerror', None)
+                                     or error.errno or (10060 if isinstance(error, TimeoutError) else None))}
+    return results
+
+
+def valid_physical_attempt(result):
+    # Timeout/refused/unreachable after connect/send are valid attempted probes;
+    # socket creation, bind, protocol/address errors never establish blocking.
+    allowed_errors = {13, 110, 111, 10013, 10060, 10061}
+    return all(isinstance(result.get(kind), dict)
+        and result[kind].get('executed') is True
+        and result[kind].get('stage') in ('connect', 'send')
+        and (result[kind].get('socket_ok') is True or result[kind].get('error') in allowed_errors)
+        for kind in ('tcp', 'udp'))
+
+
+def restore_capture(state_path):
+    state = read_json(state_path)
+    lease = state.get('capture')
+    if not lease:
+        return {'stopped': True, 'owned_capture_created': False}
+    def idle(value):
+        return bool(re.search(r'^\s*(?:Packet Monitor|PktMon)(?: (?:driver|trace))? is not running\.?\s*$',
+                              value, re.IGNORECASE | re.MULTILINE))
+    status = pktmon('status')
+    if not idle(status):
+        # CI is explicitly English Windows. Unknown/localized status fails
+        # closed; no global stop without the exact private per-run log marker.
+        base = str(lease['base']).replace('/', '\\')
+        expression = (r'^\s*Log file:\s*"?' + re.escape(base)
+                      + r'(?:[_.-]?\d+)?\.etl"?\s*$')
+        if not re.search(expression, status.replace('/', '\\'), re.IGNORECASE | re.MULTILINE):
+            raise RuntimeError('capture_session_ownership_unconfirmed')
+        pktmon('stop')
+        status = pktmon('status')
+        if not idle(status):
+            raise RuntimeError('owned_capture_stop_unconfirmed')
+    state['capture']['stopped'] = True
+    write_json(state_path, state)
+    return {'stopped': True, 'owned_capture_created': True}
+
+
+def scoped_guard(metadata, nonce):
+    from ruleproxy.windows_global_guard import Guard
+    class Scoped(Guard):
+        def __init__(self, deployment):
+            super().__init__(deployment)
+            self.identity = hashlib.sha256((self.identity + '/native-scope/' + nonce).encode()).hexdigest()
+            self.provider, self.sublayer = self._key('provider'), self._key('sublayer')
+            self.marker = 'RuleProxyGuard-v1:' + self.identity
+    return Scoped(metadata)
+
+
+def pid_identity(pid):
+    """Hold a process while reading its image/creation time to prevent PID reuse."""
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.OpenProcess.argtypes, kernel.OpenProcess.restype = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32], ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel.QueryFullProcessImageNameW.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_uint32)]
+    kernel.GetProcessTimes.argtypes = [ctypes.c_void_p, *([ctypes.POINTER(ctypes.c_uint64)] * 4)]
+    handle = kernel.OpenProcess(0x1000 | 1 | 0x100000, False, pid)
+    if not handle:
+        return None
+    try:
+        image, size = ctypes.create_unicode_buffer(32768), ctypes.c_uint32(32768)
+        creation, end, kern, user = (ctypes.c_uint64() for _ in range(4))
+        if not kernel.QueryFullProcessImageNameW(handle, 0, image, ctypes.byref(size)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if not kernel.GetProcessTimes(handle, *map(ctypes.byref, (creation, end, kern, user))):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return {'pid': pid, 'image': image.value, 'creation': creation.value}
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def require_owned_identity(pid, fixed_core):
+    record = pid_identity(pid)
+    if not record or os.path.normcase(record['image']) != os.path.normcase(str(fixed_core)):
+        raise RuntimeError('fixed_core_process_identity_unconfirmed')
+    return record
+
+
+def terminate_owned(record, fixed_core):
+    if not record:
+        return
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.OpenProcess.argtypes, kernel.OpenProcess.restype = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32], ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel.QueryFullProcessImageNameW.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_uint32)]
+    kernel.GetProcessTimes.argtypes = [ctypes.c_void_p, *([ctypes.POINTER(ctypes.c_uint64)] * 4)]
+    kernel.TerminateProcess.argtypes, kernel.TerminateProcess.restype = [ctypes.c_void_p, ctypes.c_uint32], ctypes.c_int
+    kernel.WaitForSingleObject.argtypes, kernel.WaitForSingleObject.restype = [ctypes.c_void_p, ctypes.c_uint32], ctypes.c_uint32
+    handle = kernel.OpenProcess(0x1000 | 1 | 0x100000, False, record['pid'])
+    if not handle:
+        error = ctypes.get_last_error()
+        if error == 87:  # ERROR_INVALID_PARAMETER: process no longer exists.
+            return
+        raise ctypes.WinError(error)  # Access/query failure is not proof of exit.
+    try:
+        image, size = ctypes.create_unicode_buffer(32768), ctypes.c_uint32(32768)
+        creation, end, kern, user = (ctypes.c_uint64() for _ in range(4))
+        if not kernel.QueryFullProcessImageNameW(handle, 0, image, ctypes.byref(size)) or not kernel.GetProcessTimes(
+                handle, *map(ctypes.byref, (creation, end, kern, user))):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if creation.value != record['creation']:
+            return
+        if os.path.normcase(image.value) != os.path.normcase(str(fixed_core)) or image.value != record['image']:
+            raise ValueError('owned_process_image_changed')
+        if not kernel.TerminateProcess(handle, 93):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if kernel.WaitForSingleObject(handle, 5000) != 0:
+            raise RuntimeError('owned_process_exit_unconfirmed')
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def service_state(metadata, running):
+    from ruleproxy.windows_proxy_service import ServiceControl
+    ServiceControl().verify(metadata)
+    operation = 'Start-Service' if running else 'Stop-Service'
+    desired = 'Running' if running else 'Stopped'
+    ps(f"{operation} -Name RuleProxyControl -ErrorAction Stop;"
+       f"(Get-Service RuleProxyControl).WaitForStatus('{desired}',[TimeSpan]::FromSeconds(20));$result='ok'", timeout=24)
+
+
+def _recover_locked(state_path):
+    state = read_json(state_path)
+    root, work = Path(state['root']), Path(state_path).parent
+    sys.path.insert(0, str(root))
+    from ruleproxy.windows_proxy_service import load_deployment, protected_path
+    from ruleproxy.windows_global_guard import Guard
+    from ruleproxy.windows_global_dns import DnsLease
+    protected_path(work, private=True)
+    metadata = load_deployment(root)
+    result = {'schema_version': 1, 'recovered': False, 'errors': []}
+    try:
+        service_state(metadata, False)
+        for name in ('core-owned.json', 'carrier-owned.json'):
+            if (work / name).is_file():
+                terminate_owned(read_json(work / name), root / 'bin/windows-amd64/mihomo.exe')
+        dns = DnsLease(metadata).normal_stop()
+        if dns.get('active') is not False or dns.get('supported') is not True:
+            raise RuntimeError('owned_dns_restore_unconfirmed')
+        scoped_guard(metadata, state['nonce']).normal_stop()
+        guard = Guard(metadata).normal_stop()
+        if guard.get('active') is not False:
+            raise RuntimeError('owned_guard_restore_unconfirmed')
+        if state.get('route_created'):
+            ps("$s=Get-Content -LiteralPath $env:RP_CAPTURE_STATE -Raw|ConvertFrom-Json;"
+               "$r=@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -PolicyStore ActiveStore -ErrorAction SilentlyContinue);"
+               "foreach($x in $r){if($x.NextHop -ne $s.nic.gateway -or $x.RouteMetric -ne 1){throw 'test route identity changed'};"
+               "$x|Remove-NetRoute -Confirm:$false -ErrorAction Stop};$result='ok'",
+               {'RP_CAPTURE_STATE': str(state_path)})
+        service_state(metadata, True)
+        result['capture'] = restore_capture(state_path)
+        if result['capture'].get('stopped') is not True:
+            raise RuntimeError('owned_capture_restore_unconfirmed')
+        result['recovered'] = True
+    except BaseException as error:
+        result['errors'].append(type(error).__name__ + ':' + str(error)[:600])
+    write_json(work / 'recovery-result.json', result)
+    return result
+
+
+def recover(state_path):
+    """A kernel mutex permits recovery after the orchestrator is abandoned."""
+    state = read_json(state_path)
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateMutexW.argtypes, kernel.CreateMutexW.restype = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p], ctypes.c_void_p
+    kernel.WaitForSingleObject.argtypes, kernel.WaitForSingleObject.restype = [ctypes.c_void_p, ctypes.c_uint32], ctypes.c_uint32
+    kernel.ReleaseMutex.argtypes, kernel.CloseHandle.argtypes = [ctypes.c_void_p], [ctypes.c_void_p]
+    handle = kernel.CreateMutexW(None, False, 'Global\\RuleProxyCaptureRecovery-' + state['nonce'])
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    acquired = False
+    try:
+        # WAIT_ABANDONED is successful ownership after a crashed recovery worker.
+        acquired = kernel.WaitForSingleObject(handle, 30000) in (0, 0x80)
+        if not acquired:
+            raise RuntimeError('recovery_mutex_timeout')
+        return _recover_locked(state_path)
+    finally:
+        if acquired:
+            kernel.ReleaseMutex(handle)
+        kernel.CloseHandle(handle)
+
+
+def system_operation(state_path, operation):
+    state, work = read_json(state_path), Path(state_path).parent
+    root = Path(state['root'])
+    sys.path.insert(0, str(root))
+    from ruleproxy.windows_proxy_service import load_deployment, protected_path
+    from ruleproxy import windows_global_guard as guard
+    protected_path(work, private=True)
+    metadata = load_deployment(root)
+    value = scoped_guard(metadata, state['nonce'])
+    if operation == 'recover':
+        return recover(state_path)
+    if operation == 'scope-stop':
+        return value.normal_stop()
+    if operation == 'scope-apply':
+        value._system_only()
+        with guard._Engine() as engine:
+            rules = (guard._Rule('block', 6, guard._BLOCK, 0,
+                      (('app', 0, 12, engine.app_id(work / 'actor/python.exe')),)),)
+            with engine.transaction():
+                value._replace(engine, rules)
+            if value._filters(engine) != value._expected(rules):
+                raise RuntimeError('scoped_filter_readback_failed')
+        return {'active': True, 'scope': 'test_actor_ipv6_loopback_action_only', 'native_qualified': False}
+    if operation == 'carrier':
+        config = {'mixed-port': state['carrier_port'], 'bind-address': '127.0.0.1', 'allow-lan': False,
+            'mode': 'rule', 'log-level': 'error', 'interface-name': state['nic']['alias'],
+            'tun': {'enable': False}, 'dns': {'enable': False},
+            'rules': ['MATCH,DIRECT']}
+        path = work / 'carrier.json'
+        write_json(path, config)
+        with (work / 'carrier-private.log').open('wb') as log:
+            process = subprocess.Popen([str(root / 'bin/windows-amd64/mihomo.exe'), '-d', str(work), '-f', str(path)],
+                stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            write_json(work / 'carrier-owned.json', require_owned_identity(process.pid, root / 'bin/windows-amd64/mihomo.exe'))
+            try:
+                deadline = time.monotonic() + 160
+                while process.poll() is None and time.monotonic() < deadline and not (work / 'carrier-stop').exists():
+                    time.sleep(.2)
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    process.wait(timeout=5)
+        return {'completed': True}
+    raise ValueError('unknown_system_operation')
+
+
+def task(state_path, operation, *, wait=True, watchdog=False):
+    state = read_json(state_path)
+    work, root = Path(state_path).parent, Path(state['root'])
+    name = 'RuleProxy-Capture-' + state['nonce'] + '-' + operation
+    arguments = subprocess.list2cmdline(['-I', '-S', str(work / 'capture.py'), '--system-operation', operation,
+                                       '--state', str(state_path)])
+    script = ("Import-Module ScheduledTasks;"
+        "$a=New-ScheduledTaskAction -Execute $env:RP_CAPTURE_PYTHON -Argument $env:RP_CAPTURE_ARGS;"
+        "$p=New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest;"
+        "$s=New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds 240) -StartWhenAvailable -MultipleInstances IgnoreNew;"
+        "$t=New-ScheduledTaskTrigger -Once -At ((Get-Date).AddSeconds(" + ('180' if watchdog else '31536000') + "));"
+        "Register-ScheduledTask -TaskName $env:RP_CAPTURE_TASK -Action $a -Principal $p -Settings $s -Trigger $t -Force|Out-Null;"
+        + ('' if watchdog else "Start-ScheduledTask -TaskName $env:RP_CAPTURE_TASK;") + "$result='ok'")
+    (work / (operation + '.result.json')).unlink(missing_ok=True)
+    ps(script, {'RP_CAPTURE_PYTHON': str(root / 'python/python.exe'), 'RP_CAPTURE_ARGS': arguments, 'RP_CAPTURE_TASK': name})
+    if watchdog or not wait:
+        return name
+    result = work / (operation + '.result.json')
+    deadline = time.monotonic() + 25
+    while not result.is_file() and time.monotonic() < deadline:
+        time.sleep(.1)
+    if not result.is_file():
+        raise RuntimeError('system_operation_timeout:' + operation)
+    value = read_json(result)
+    if not value.get('ok'):
+        raise RuntimeError('system_operation_failed:' + value.get('error', 'unknown'))
+    return value['result']
+
+
+def capture_probe(work, component, phase, run_actor):
+    marker = ('RuleProxyCapture:' + phase + ':' + secrets.token_hex(8)).encode('ascii')
+    base = work / ('wire-' + phase)
+    started = False
+    state_path = work / 'state.json'
+    state = read_json(state_path)
+    state['capture'] = {'base': str(base), 'stopped': False}
+    write_json(state_path, state)
+    try:
+        pktmon('start', '--capture', '--comp', component, '--pkt-size', 0,
+               '--file-name', str(base) + '.etl', '--file-size', 16, '--log-mode', 'multi-file')
+        started = True
+        result = run_actor(marker.decode('ascii'))
+        time.sleep(.5)
+    finally:
+        if started:
+            restore_capture(state_path)
+    sources = sorted(work.glob(base.name + '*.etl'))
+    if not 1 <= len(sources) <= 4 or sum(path.stat().st_size for path in sources) > MAX_CAPTURE:
+        raise RuntimeError('capture_incomplete_or_oversized')
+    counts = {'tcp_syn': 0, 'udp_marker': 0, 'packets_parsed': 0, 'captures': []}
+    for source in sources:
+        pcap = source.with_suffix('.pcapng')
+        pktmon('etl2pcap', source, '--component-id', component, '--out', pcap)
+        summary = pcapng_counts(pcap, marker)
+        for key in ('tcp_syn', 'udp_marker', 'packets_parsed'):
+            counts[key] += summary[key]
+        counts['captures'].append({'sha256': summary['sha256'], 'bytes': summary['bytes']})
+    counts['actor'] = result
+    return counts
+
+
+def unused_port():
+    with socket.socket() as stream:
+        stream.bind(('127.0.0.1', 0))
+        return stream.getsockname()[1]
+
+
+def run_actor(work, request):
+    process = subprocess.run([str(work / 'actor/python.exe'), '-I', '-S', str(work / 'capture.py'),
+        '--actor-json', json.dumps(request)], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, timeout=6, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    if process.returncode or len(process.stdout) > 16384:
+        raise RuntimeError('actor_process_failed')
+    return json.loads(process.stdout.decode('utf-8'))
+
+
+def scoped_ipv6_preflight(work, state_path):
+    echo = LocalEcho6()
+    request = {'marker': 'RuleProxyCapture:ipv6-scope:' + secrets.token_hex(8), 'host': '::1', 'family': 6,
+               'tcp_port': echo.tcp_port, 'udp_port': echo.udp_port, 'echo': True}
+    result = {'scope': 'actor_appid_ipv6_loopback_wfp_action_only', 'public_ipv6_proof': False}
+    try:
+        result['before'] = run_actor(work, request)
+        if not all(result['before'][kind]['received_echo'] for kind in ('tcp', 'udp')):
+            raise RuntimeError('ipv6_loopback_positive_control_missing')
+        result['filter'] = task(state_path, 'scope-apply')
+        before = dict(echo.counts)
+        result['guarded'] = run_actor(work, request)
+        result['fixture_unchanged'] = echo.counts == before
+        if any(result['guarded'][kind]['received_echo'] for kind in ('tcp', 'udp')) or not result['fixture_unchanged']:
+            raise RuntimeError('scoped_ipv6_filter_did_not_block')
+    finally:
+        task(state_path, 'scope-stop')
+        echo.close()
+    echo = LocalEcho6()
+    try:
+        request['tcp_port'], request['udp_port'] = echo.tcp_port, echo.udp_port
+        result['after'] = run_actor(work, request)
+        result['passed'] = all(result['after'][kind]['received_echo'] for kind in ('tcp', 'udp'))
+    finally:
+        echo.close()
+    return result
+
+
+def carrier_control(port, address):
+    with socket.create_connection(('127.0.0.1', port), timeout=3) as connection:
+        connection.settimeout(3)
+        connection.sendall(b'\x05\x01\x00')
+        if exact(connection, 2) != b'\x05\x00':
+            raise RuntimeError('carrier_socks_greeting')
+        connection.sendall(b'\x05\x01\x00' + encode_address(address, 80))
+        if exact(connection, 3) != b'\x05\x00\x00':
+            raise RuntimeError('carrier_connect_failed')
+        socks_address(connection)
+        connection.sendall(b'GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n')
+        data = bytearray()
+        while len(data) < 65536:
+            chunk = connection.recv(4096)
+            if not chunk:
+                break
+            data.extend(chunk)
+        return b'Example Domain' in data and data.startswith(b'HTTP/1.')
+
+
+def run(arguments):
+    if os.name != 'nt' or not arguments.ack_disposable_windows:
+        raise RuntimeError('explicit_disposable_windows_ack_required')
+    root = arguments.installed_root.resolve(strict=True)
+    sys.path.insert(0, str(root))
+    from ruleproxy.windows_proxy_service import load_deployment, protected_path
+    from ruleproxy.windows_global_runtime import Runtime
+    from ruleproxy.windows_proxy_client import current_user_sid
+    from ruleproxy.windows_global_guard import Guard
+    from ruleproxy.windows_global_dns import DnsLease
+    metadata = load_deployment(root)
+    if current_user_sid() != metadata['owner_sid']:
+        raise RuntimeError('run_as_installing_desktop_owner_not_system')
+    if Guard(metadata).status().get('active') or DnsLease(metadata).status(refresh=True).get('active'):
+        raise RuntimeError('existing_guard_or_dns_lease_refused')
+    native = Runtime(root)
+    initial = native.status()
+    if initial.get('supported') is not True:
+        raise RuntimeError('installed_global_service_not_supported')
+    if initial.get('running'):
+        raise RuntimeError('existing_global_core_refused')
+    nonce = secrets.token_hex(8)
+    work = Path(os.environ['ProgramData']) / 'RuleProxy-Web' / ('capture-' + nonce)
+    work.mkdir()
+    ps("$p=$env:RP_CAPTURE_WORK;$acl=New-Object Security.AccessControl.DirectorySecurity;"
+       "$acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')));"
+       "$acl.SetAccessRuleProtection($true,$false);foreach($sid in @('S-1-5-18','S-1-5-32-544')){"
+       "$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))};"
+       "Set-Acl -LiteralPath $p -AclObject $acl;$result='ok'", {'RP_CAPTURE_WORK': str(work)})
+    protected_path(work, private=True)
+    shutil.copy2(__file__, work / 'capture.py')
+    shutil.copytree(root / 'python', work / 'actor')
+    # Private embedded interpreter is a distinct WFP AppId for scoped preflight.
+    state_path = work / 'state.json'
+    state = {'schema_version': 1, 'root': str(root), 'nonce': nonce, 'route_created': False,
+             'carrier_port': unused_port()}
+    write_json(state_path, state)
+    report = {'schema_version': 1, 'mode': 'disposable_windows_native_capture',
+        'strict_qualified': False, 'ipv6_public_egress_qualified': False,
+        'dns_qualified': False, 'rdp_qualified': False, 'phases': {}, 'passed': False,
+        'raw_capture_exported': False, 'proxy_node_synthetic_only': True,
+        'carrier_scope': 'read_only_example_com_http_over_fixed_system_core_bound_physical_interface',
+        'service_death_scope': 'real_scm_stop_after_actual_core_termination',
+        'fixed_core_sha256': metadata['files']['bin/windows-amd64/mihomo.exe'],
+        'guard_source_sha256': hashlib.sha256((root / 'ruleproxy/windows_global_guard.py').read_bytes()).hexdigest(),
+        'windows_build': list(sys.getwindowsversion()[:3])}
+    fixture = None
+    watchdog = task(state_path, 'recover', wait=False, watchdog=True)
+    names = [watchdog]
+    try:
+        fixture = EchoNode()
+        source = fixture_source(fixture.port)
+        report['fixture_dns'] = fixture_dns_preflight()
+        report['ipv6_scoped_action'] = scoped_ipv6_preflight(work, state_path)
+        if not report['ipv6_scoped_action']['passed']:
+            raise RuntimeError('scoped_ipv6_restore_failed')
+        nic = json.loads(ps("$r=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore|Sort-Object RouteMetric);"
+            "if(-not $r.Count){throw 'no physical default route'};$a=Get-NetAdapter -InterfaceIndex $r[0].InterfaceIndex;"
+            "if($a.Status -ne 'Up'){throw 'adapter down'};$ip=@(Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4|"
+            "Where-Object {$_.AddressState -eq 'Preferred' -and -not $_.SkipAsSource})[0];"
+            "$result=@{index=[int]$a.ifIndex;mac=[string]$a.MacAddress;description=[string]$a.InterfaceDescription;"
+            "source=[string]$ip.IPAddress;gateway=[string]$r[0].NextHop;alias=[string]$a.Name}|ConvertTo-Json -Compress"))
+        state['nic'] = nic
+        component = component_id(json.loads(pktmon('list', '--json')), nic['mac'], nic['description'])
+        ps("if(@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -ErrorAction SilentlyContinue).Count){throw 'test prefix already owned'};$result='ok'")
+        state['route_created'] = True  # watchdog covers a crash immediately after route creation
+        write_json(state_path, state)
+        ps("$s=Get-Content -LiteralPath $env:RP_CAPTURE_STATE -Raw|ConvertFrom-Json;"
+           "New-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -NextHop $s.nic.gateway "
+           "-RouteMetric 1 -PolicyStore ActiveStore -ErrorAction Stop|Out-Null;$result='ok'", {'RP_CAPTURE_STATE': str(state_path)})
+        carrier_address = socket.getaddrinfo('example.com', 80, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        names.append(task(state_path, 'carrier', wait=False))
+        deadline = time.monotonic() + 10
+        while not (work / 'carrier-owned.json').is_file() and time.monotonic() < deadline:
+            time.sleep(.1)
+        # A fresh actor process is used for each capture: no cached ALE flow.
+        def physical(marker):
+            request = {'marker': marker, 'host': DEST4, 'family': 4, 'source': nic['source'],
+                       'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': False}
+            return run_actor(work, request)
+        report['phases']['outside_before'] = capture_probe(work, component, 'before', physical)
+        if any(report['phases']['outside_before'][key] < 1 for key in ('tcp_syn', 'udp_marker')):
+            raise RuntimeError('physical_positive_control_missing')
+        started = native.start(source, secrets.token_urlsafe(24), unused_port(), unused_port(), 'CaptureEcho', require_strict=False)
+        if not started.get('running'):
+            raise RuntimeError('real_global_core_not_running')
+        write_json(work / 'core-owned.json', require_owned_identity(started['pid'], root / 'bin/windows-amd64/mihomo.exe'))
+        report['phases']['running_guard'] = capture_probe(work, component, 'running', physical)
+        report['system_core_carrier_http'] = carrier_control(state['carrier_port'], carrier_address)
+        # No second privileged Mihomo is left alive during the core-death proof.
+        terminate_owned(read_json(work / 'carrier-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
+        report['tun_echo'] = {}
+        for family, host in ((4, TUN4), (6, TUN6)):
+            result = actor({'marker': 'RuleProxyCapture:tun:' + nonce, 'host': host, 'family': family,
+                            'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': True})
+            report['tun_echo'][str(family)] = result
+        report['synthetic_node_counts'] = dict(fixture.counts)
+        terminate_owned(read_json(work / 'core-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
+        time.sleep(.5)
+        report['phases']['core_dead'] = capture_probe(work, component, 'coredead', physical)
+        service_state(metadata, False)
+        report['phases']['service_stopped'] = capture_probe(work, component, 'servicedead', physical)
+        report['guard_after_service_death'] = {key: value for key, value in Guard(metadata).status().items()
+            if key in ('active', 'persistent', 'native_qualified', 'strict_isolation')}
+        # Restart the actual broker and exercise its user-visible explicit
+        # global_stop protocol before emergency watchdog cleanup is invoked.
+        service_state(metadata, True)
+        native.stop()
+        stopped_guard, stopped_dns = Guard(metadata).status(), DnsLease(metadata).status(refresh=True)
+        report['explicit_global_stop'] = (stopped_guard.get('active') is False
+                                          and stopped_dns.get('active') is False)
+        if not report['explicit_global_stop']:
+            raise RuntimeError('explicit_global_stop_not_restored')
+        restoration = recover(state_path)
+        report['recovery'] = restoration
+        if not restoration.get('recovered'):
+            raise RuntimeError('precise_restore_failed')
+        report['phases']['outside_after'] = capture_probe(work, component, 'after', physical)
+        denied = (all(report['phases'][phase][key] == 0
+                      for phase in ('running_guard', 'core_dead', 'service_stopped')
+                      for key in ('tcp_syn', 'udp_marker'))
+                  and all(valid_physical_attempt(report['phases'][phase]['actor'])
+                      for phase in ('running_guard', 'core_dead', 'service_stopped')))
+        controls = all(report['phases'][phase][key] > 0 for phase in ('outside_before', 'outside_after')
+                       for key in ('tcp_syn', 'udp_marker'))
+        tun = all(report['tun_echo'][str(family)][protocol]['received_echo']
+                  for family in (4, 6) for protocol in ('tcp', 'udp'))
+        report['ipv4_physical_scope_passed'] = controls and denied
+        report['tun_tcp_udp_v4_v6_passed'] = tun
+        guard_owned = (report['guard_after_service_death'].get('active') is True
+                       and report['guard_after_service_death'].get('persistent') is True)
+        report['passed'] = (controls and denied and tun and guard_owned
+            and report['system_core_carrier_http'] and report['ipv6_scoped_action']['passed'])
+    except BaseException as error:
+        report['error'] = type(error).__name__ + ':' + str(error)[:900]
+    finally:
+        (work / 'carrier-stop').touch()
+        if fixture is not None:
+            fixture.close()
+        try:
+            restoration = recover(state_path)
+        except BaseException as error:
+            restoration = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
+        report['recovery'] = restoration
+        if restoration.get('recovered'):
+            # Watchdog is removed only after independently verified restoration.
+            names += ['RuleProxy-Capture-' + nonce + '-' + op for op in ('scope-apply', 'scope-stop')]
+            for name in names:
+                try:
+                    ps("Unregister-ScheduledTask -TaskName $env:RP_CAPTURE_TASK -Confirm:$false -ErrorAction SilentlyContinue;$result='ok'",
+                       {'RP_CAPTURE_TASK': name})
+                except BaseException as error:
+                    report.setdefault('task_cleanup_errors', []).append(type(error).__name__ + ':' + str(error)[:300])
+        else:
+            report['passed'] = False
+        arguments.output.parent.mkdir(parents=True, exist_ok=True)
+        write_json(arguments.output, report)
+    print(json.dumps({'passed': report['passed'], 'strict_qualified': False,
+                      'recovered': report['recovery'].get('recovered'), 'summary': str(arguments.output)}))
+    return 0 if report['passed'] and report['recovery'].get('recovered') else 1
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--ack-disposable-windows', action='store_true')
+    parser.add_argument('--installed-root', type=Path)
+    parser.add_argument('--output', type=Path)
+    parser.add_argument('--state', type=Path)
+    parser.add_argument('--system-operation', choices=('scope-apply', 'scope-stop', 'carrier', 'recover'))
+    parser.add_argument('--actor-json')
+    args = parser.parse_args()
+    if args.actor_json:
+        print(json.dumps(actor(json.loads(args.actor_json))))
+        return 0
+    if args.system_operation:
+        try:
+            result = system_operation(args.state, args.system_operation)
+            write_json(args.state.parent / (args.system_operation + '.result.json'), {'ok': True, 'result': result})
+            return 0
+        except BaseException as error:
+            write_json(args.state.parent / (args.system_operation + '.result.json'),
+                       {'ok': False, 'error': type(error).__name__ + ':' + str(error)[:900]})
+            return 1
+    if args.installed_root is None or args.output is None:
+        parser.error('--installed-root and --output required')
+    return run(args)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

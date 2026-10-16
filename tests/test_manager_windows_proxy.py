@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 from ruleproxy.manager import Manager
 
@@ -79,6 +80,61 @@ class WindowsManagerTests(unittest.TestCase):
             with self.assertRaisesRegex(OSError, "driver unavailable"):
                 self.manager.launch("app")
         launch.assert_not_called()
+
+    def test_registered_package_refreshes_entry_and_routes_all_helpers_before_launch(self):
+        self.use_core()
+        binding = {'package_family_name': 'Vendor.Product_publisher', 'application_id': 'Main',
+                   'scope': 'package'}
+        app = self.manager.app('app')
+        app.update(store_binding=binding, related_paths=[])
+        family = SimpleNamespace(entry_path=r'C:\NewVersion\main.exe',
+                                 paths=(r'C:\NewVersion\main.exe', r'C:\NewVersion\resources\token.exe'))
+        process = Mock(pid=5678, poll=Mock(return_value=None))
+        with patch('ruleproxy.windows_app_family.resolve_store_family', return_value=family) as resolve, \
+                patch('ruleproxy.manager.prepare_app', return_value=([family.entry_path], {}, '')) as prepare, \
+                patch('ruleproxy.windows_app_process.launch', return_value=process):
+            self.manager.launch('app')
+        resolve.assert_called_once_with(binding)
+        self.assertEqual(app['path'], family.entry_path)
+        self.assertEqual(self.backend.apply.call_args.args[0], list(family.paths))
+        self.assertEqual(prepare.call_args.args[0]['path'], family.entry_path)
+        self.assertTrue(prepare.call_args.kwargs['native_proxy'])
+
+    def test_package_resolution_failure_never_launches_or_partially_updates_paths(self):
+        self.use_core()
+        binding = {'package_family_name': 'Vendor.Product_publisher', 'application_id': 'Main',
+                   'scope': 'package'}
+        first = self.manager.app('app')
+        first['store_binding'] = binding
+        self.manager.settings['apps'].append({**first, 'id': 'other', 'path': r'C:\Other\main.exe',
+                                             'store_binding': {**binding, 'application_id': 'Other'}})
+        family = SimpleNamespace(entry_path=r'C:\Updated\main.exe', paths=(r'C:\Updated\main.exe',))
+        with patch('ruleproxy.windows_app_family.resolve_store_family',
+                   side_effect=[family, ValueError('package registration is ambiguous')]), \
+                patch('ruleproxy.windows_app_process.launch') as launch:
+            with self.assertRaisesRegex(ValueError, 'ambiguous'):
+                self.manager.launch('app')
+        self.assertEqual(first['path'], self.app['path'])
+        self.backend.apply.assert_not_called()
+        launch.assert_not_called()
+
+    def test_existing_old_package_paths_remain_selected_across_repeated_version_refreshes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            old, helper, current = (Path(directory) / name for name in ('old.exe', 'helper.exe', 'new.exe'))
+            for path in (old, helper, current):
+                path.touch()
+            app = self.manager.app('app')
+            app.update(path=str(old), related_paths=[], store_binding={
+                'package_family_name': 'Vendor.Product_publisher', 'application_id': 'Main', 'scope': 'package'})
+            first = SimpleNamespace(entry_path=str(old), paths=(str(old), str(helper)))
+            newer = SimpleNamespace(entry_path=str(current), paths=(str(current),))
+            with patch('ruleproxy.windows_app_family.resolve_store_family', side_effect=[first, newer, newer]):
+                self.manager._selected_windows_paths()
+                second = self.manager._selected_windows_paths()
+                third = self.manager._selected_windows_paths()
+            self.assertEqual(set(second), {str(old), str(helper), str(current)})
+            self.assertEqual(set(second), set(third))
+            self.assertEqual(app['path'], str(current))
 
     def test_store_executable_is_the_policy_and_launch_target_before_resume(self):
         self.use_core()

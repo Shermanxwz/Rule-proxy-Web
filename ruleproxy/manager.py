@@ -21,7 +21,7 @@ import urllib.request
 import uuid
 
 from . import __version__, autostart
-from .config import MAX_SOURCE_BYTES, compile_config
+from .config import CAPTURE_MODES, MAX_SOURCE_BYTES, compile_config
 from .launcher import app_profile_directory, discover_apps, validate_app, prepare_app
 from .shortcuts import create_shortcut_files, remove_shortcut_files
 
@@ -151,11 +151,15 @@ class Manager:
         self._profile_preparing: set[str] = set()
         self._windows_backend = None
         self._windows_paths = []
+        self._windows_family_paths = {}
+        self._global_backend = None
+        self._global_fault = False
         self.quitting = False
         # bwrap --die-with-parent follows the creating THREAD on Linux. HTTP
         # request threads are short lived; all launches must have a stable owner.
         self.launch_owner = ThreadPoolExecutor(max_workers=1, thread_name_prefix="RuleProxyLaunchOwner")
-        self.settings = {"core_path": "", "runtime_path": "", "selected_node": None, "apps": []}
+        self.settings = {"core_path": "", "runtime_path": "", "selected_node": None,
+                         "capture_mode": "applications", "apps": []}
         self.storage_warnings = []
         self._settings_need_backup = False
         self._restore_settings()
@@ -175,6 +179,15 @@ class Manager:
         self._apps_time = 0.0
         self._apps_scan: threading.Thread | None = None
         self.closed = threading.Event()
+        if self.capture_mode == 'global':
+            status = self.global_status()
+            if status.get('running') is True:
+                from .global_runtime import ManagedGlobalCore
+                self.core = ManagedGlobalCore(self.global_backend(), status)
+            else:
+                self._global_fault = bool(status.get('protection_active') or
+                                          (status.get('guard') or {}).get('active') or
+                                          status.get('state') == 'blocked')
         threading.Thread(target=self._watch, daemon=True).start()
 
     def _restore_settings(self):
@@ -200,6 +213,11 @@ class Manager:
                 self.settings[key] = value
             else:
                 invalid = True
+        mode = data.get("capture_mode", "applications")
+        if isinstance(mode, str) and mode in CAPTURE_MODES:
+            self.settings["capture_mode"] = mode
+        else:
+            invalid = True
         records = data.get("apps", [])
         if not isinstance(records, list):
             records = []
@@ -263,13 +281,63 @@ class Manager:
             pass
         try:
             # The saved node may have gone; fall back to the first node of the same config.
-            self.compiled = compile_config(self.source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, allow_udp=sys.platform == "win32")
+            self.compiled = compile_config(self.source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, allow_udp=sys.platform == "win32", capture_mode=self.capture_mode)
             self.settings["selected_node"] = self.compiled.selected_node
         except ValueError as exc:
             self.error = f"已保存的配置无法使用，请重新导入：{exc}"
 
     def _compile(self, source, selected=None):
-        return compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, selected_node=selected if selected is not None else self.settings.get("selected_node"), allow_udp=sys.platform == "win32")
+        return compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, selected_node=selected if selected is not None else self.settings.get("selected_node"), allow_udp=sys.platform == "win32", capture_mode=self.capture_mode)
+
+    @property
+    def capture_mode(self):
+        return self.settings.get("capture_mode", "applications")
+
+    def global_backend(self):
+        if self._global_backend is None:
+            if sys.platform == 'win32':
+                from .windows_global_runtime import Runtime
+                self._global_backend = Runtime(ROOT)
+            elif sys.platform == 'linux':
+                from .linux_global_runtime import Runtime
+                self._global_backend = Runtime()
+            else:
+                raise ValueError('当前系统不支持全局接管。')
+        return self._global_backend
+
+    def global_status(self):
+        try:
+            status = self.global_backend().status()
+            if not isinstance(status, dict):
+                raise ValueError('Invalid global helper status')
+            return status
+        except Exception as exc:
+            return {'supported': False, 'running': False, 'state': 'unavailable',
+                    'detail': str(exc), 'backend': 'Mihomo TUN', 'strict_isolation': False,
+                    'guard': {'active': None}, 'limitations': []}
+
+    def set_capture_mode(self, mode):
+        if not isinstance(mode, str) or mode not in CAPTURE_MODES:
+            raise ValueError('请选择按应用或全局接管。')
+        with self.lock:
+            if self.quitting or self.closed.is_set():
+                raise ValueError('面板正在退出，不能切换接管模式。')
+            if self.core or self.active or self._profile_preparing:
+                raise ValueError('请先关闭本工具启动的应用并停止核心，再切换接管模式。')
+            if self._global_fault:
+                raise ValueError('全局保护仍在阻断，请先点击停止恢复网络，再切换模式。')
+            if mode == self.capture_mode:
+                return
+            previous, previous_compiled = self.capture_mode, self.compiled
+            self.settings['capture_mode'] = mode
+            try:
+                if self.source:
+                    self.compiled = self._compile(self.source)
+                self._save()
+            except BaseException:
+                self.settings['capture_mode'], self.compiled = previous, previous_compiled
+                raise
+            self._probe_cache = None
 
     def windows_backend(self):
         if self._windows_backend is None:
@@ -279,20 +347,55 @@ class Manager:
 
     def _selected_windows_paths(self):
         paths, seen = [], set()
-        for app in self.settings["apps"]:
-            if not app["enabled"]:
+        families, updates, retained = {}, [], {}
+        for saved_app in self.settings["apps"]:
+            if not saved_app["enabled"]:
                 continue
-            for path in [app["path"], *app.get("related_paths", [])]:
+            app = copy.deepcopy(saved_app)
+            self._bind_store_app(app)
+            selected = [app["path"], *app.get("related_paths", [])]
+            binding = app.get('store_binding')
+            if binding:
+                from .windows_app_family import resolve_store_family
+                identity = (binding['package_family_name'], binding['application_id'])
+                if identity not in families:
+                    families[identity] = resolve_store_family(binding)
+                family = families[identity]
+                # Routing includes the current package's helpers. Retain an
+                # extant old entry while it may still own a running instance.
+                selected = [*family.paths, *app.get('related_paths', [])]
+                previous = self._windows_family_paths.get(app['id'], ())
+                selected.extend(path for path in previous if path not in selected and Path(path).is_file())
+                if app['path'] != family.entry_path and Path(app['path']).is_file():
+                    selected.append(app['path'])
+                retained[app['id']] = tuple(dict.fromkeys(selected))
+                app['path'] = str(family.entry_path)
+            updates.append((saved_app, app))
+            for path in selected:
                 key = path.replace("/", "\\").casefold()
                 if key not in seen:
                     seen.add(key)
                     paths.append(path)
         if len(paths) > 128:
             raise ValueError("启用的程序与相关程序合计不能超过 128 个路径。")
+        # A later ambiguous or unavailable package must not partially migrate
+        # earlier saved records while the complete policy is being resolved.
+        for saved_app, app in updates:
+            saved_app.update(app)
+        self._windows_family_paths = retained
         return paths
 
+    @staticmethod
+    def _bind_store_app(app):
+        if not app.get('store_binding') and any(
+                part.casefold() == 'windowsapps' for part in Path(app['path']).parts):
+            from .windows_app_family import binding_for_path
+            binding = binding_for_path(app['path'])
+            if binding:
+                app['store_binding'] = binding
+
     def _sync_windows_policy(self):
-        if sys.platform != "win32" or not self.core or self.core.poll() is not None:
+        if self.capture_mode == 'global' or sys.platform != "win32" or not self.core or self.core.poll() is not None:
             return
         paths = self._selected_windows_paths()
         backend = self.windows_backend()
@@ -324,6 +427,11 @@ class Manager:
     def protection(self):
         """The isolation check, run once. It can take seconds, so callers hold no other lock."""
         with self._probe_lock:
+            if self.capture_mode == 'global':
+                status = self.global_status()
+                return {**status, 'backend': status.get('backend', 'Mihomo TUN'),
+                        'detail': status.get('detail', '全局接管由独立权限组件管理。'),
+                        'limitations': status.get('limitations', [])}
             if sys.platform == "win32":
                 return self._check_isolation()
             if self._probe_cache is None:
@@ -414,8 +522,9 @@ class Manager:
                 pending = bool(alive and getattr(owned[1], "failed_process", None) is not None)
                 record = {**app, "active": alive and not pending, "cleanup_pending": pending,
                           "profile_preparing": app["id"] in self._profile_preparing}
-                if sys.platform == "win32":
-                    record["routed"] = running and app["enabled"] and bool(self._windows_paths)
+                if sys.platform == "win32" or self.capture_mode == 'global':
+                    record["routed"] = running and (self.capture_mode == 'global' or
+                                                    (app["enabled"] and bool(self._windows_paths)))
                 apps.append(record)
             compiled = self.compiled
             return {
@@ -424,6 +533,9 @@ class Manager:
                 "version": __version__,
                 "imported": bool(compiled),
                 "running": running,
+                "capture_mode": self.capture_mode,
+                "effective_capture_mode": self.capture_mode if running else None,
+                "global_fault": self._global_fault,
                 "error": self.error,
                 "core_path": self.settings["core_path"] if sys.platform != "win32" else "",
                 "runtime_path": self.settings["runtime_path"] if sys.platform != "win32" else "",
@@ -445,7 +557,7 @@ class Manager:
         with self.lock:
             if self.core and self.core.poll() is None:
                 raise ValueError("请先停止代理，再导入新配置。")
-            compiled = compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, allow_udp=sys.platform == "win32")
+            compiled = compile_config(source, secret=self.secret, mixed_port=self.mixed_port, controller_port=self.controller_port, allow_udp=sys.platform == "win32", capture_mode=self.capture_mode)
             write_private(self.directory / "source.yaml", source)
             self.source, self.compiled = source, compiled
             self.settings["selected_node"] = compiled.selected_node
@@ -493,6 +605,9 @@ class Manager:
                 return
             if not self.compiled:
                 raise ValueError("请先导入 YAML。")
+            if self.capture_mode == 'global':
+                self._start_global()
+                return
             if sys.platform == "win32":
                 capability = self.protection()
                 if not capability["supported"]:
@@ -563,6 +678,31 @@ class Manager:
                 self.core_log = None
                 raise
 
+    def _start_global(self):
+        from .global_runtime import ManagedGlobalCore
+        if self._global_fault:
+            raise ValueError('全局保护已进入阻断状态，请先点击停止恢复网络，再重试。')
+        self.compiled = self._compile(self.source)
+        backend = self.global_backend()
+        status = backend.status()
+        if not status.get('supported'):
+            raise ValueError(status.get('detail') or '请先安装全局接管组件。')
+        try:
+            status = backend.start(self.source, self.secret, self.mixed_port,
+                                   self.controller_port, self.compiled.selected_node,
+                                   **({'require_strict': True} if sys.platform == 'win32' else {}))
+            self.core = ManagedGlobalCore(backend, status)
+            self._global_fault = False
+            self.error = ''
+        except BaseException:
+            # Never call stop here: the privileged helper may have installed
+            # an independent guard before discovering a startup failure.
+            state = self.global_status()
+            guard = state.get('guard') or {}
+            self._global_fault = bool(state.get('protection_active') or guard.get('active')
+                                      or state.get('state') == 'blocked')
+            raise
+
     def select_node(self, name):
         with self.lock:
             if not isinstance(name, str) or not name:
@@ -572,8 +712,11 @@ class Manager:
             compiled = self._compile(self.source, name)
             if self.core and self.core.poll() is None:
                 try:
-                    self._controller("PUT", "/proxies/" + urllib.parse.quote(compiled.primary_group, safe=""), {"name": name})
-                except (OSError, ValueError) as exc:
+                    if self.capture_mode == 'global':
+                        self.global_backend().select_node(name)
+                    else:
+                        self._controller("PUT", "/proxies/" + urllib.parse.quote(compiled.primary_group, safe=""), {"name": name})
+                except (OSError, ValueError, RuntimeError) as exc:
                     raise ValueError("切换节点失败：核心没有响应，请稍后重试。") from exc
             self.compiled = compiled
             self.settings["selected_node"] = name
@@ -584,6 +727,8 @@ class Manager:
             if len(self.settings["apps"]) >= MAX_APPS:
                 raise ValueError(f"最多保存 {MAX_APPS} 个应用，请先删除不再使用的应用。")
             normalized = validate_app(data)
+            if sys.platform == 'win32':
+                self._bind_store_app(normalized)
             if any(os.path.normcase(app["path"]) == os.path.normcase(normalized["path"]) for app in self.settings["apps"]):
                 raise ValueError("这个应用已在列表中。")
             normalized.update(id=uuid.uuid4().hex, enabled=data.get("enabled", True) is True)
@@ -680,9 +825,16 @@ class Manager:
                 return {"pid": self.active[ident][0].pid, "adapter": app["adapter"], "detail": "这个应用已经在运行。" if sys.platform == "win32" else "这个应用已经在隔离中运行。"}
             if ident in self.active:
                 self.stop_app(ident)
+            global_mode = self.capture_mode == 'global'
+            if sys.platform == 'win32' and not global_mode:
+                # Resolve current Store versions and cover package helpers
+                # before validating/starting the selected executable.
+                self._sync_windows_policy()
             profile = self.directory / "profiles" / ident
-            command, env, _detail = prepare_app(app, self.mixed_port, self.directory / "profiles", **({"transparent": True} if sys.platform == "win32" else {}))
-            if sys.platform == "linux":
+            options = ({'transparent': True, 'native_proxy': not global_mode}
+                       if sys.platform == 'win32' else ({'transparent': True} if global_mode else {}))
+            command, env, _detail = prepare_app(app, self.mixed_port, self.directory / "profiles", **options)
+            if sys.platform == "linux" and not global_mode:
                 from .linux_runtime import downloads_folder, launch
                 downloads = downloads_folder(self.directory)
                 options = ({"original_profile": app_profile_directory(self.directory / "profiles", app),
@@ -691,14 +843,18 @@ class Manager:
                                                             self.mixed_port, downloads, **options).result()
             elif sys.platform == "win32":
                 from .windows_app_process import launch
-                self._sync_windows_policy()
                 process = launch(command, env)
+                resource = None
+            elif sys.platform == 'linux' and global_mode:
+                process = subprocess.Popen(command, env=env, start_new_session=True)
                 resource = None
             else:
                 raise ValueError("系统不支持应用隔离。")
             self.active[ident] = (process, resource)
             self.error = ""
-            detail = "程序路径代理已启用；同路径实例也会受影响，DNS 与故障后直连仍有限制。" if sys.platform == "win32" else "仅此隔离实例受保护。不支持的流量阻断，不会直连。"
+            detail = ('全局 TUN 已启用，应用沿用当前桌面账户权限。' if global_mode else
+                      '程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
+                      '仅此隔离实例受保护。不支持的流量阻断，不会直连。')
             if app.get("use_original_data"):
                 detail += (" 使用原应用资料；启动请求可能交给已有窗口，已有进程不会由面板接管或关闭。"
                            if sys.platform == "win32" else " 直接共用原应用资料；修改会同步到原应用，请勿同时启动原应用。")
@@ -712,7 +868,7 @@ class Manager:
                 if sys.platform == "win32":
                     process.terminate()
                     process.wait(timeout=10)
-                elif sys.platform == "linux":
+                elif sys.platform == "linux" and self.capture_mode != 'global':
                     from .linux_runtime import stop as stop_sandboxed_app
                     stop_sandboxed_app(process)
                 else:
@@ -729,6 +885,18 @@ class Manager:
         with self.lock:
             for ident in list(self.active):
                 self.stop_app(ident)
+            if self.capture_mode == 'global':
+                # This is an explicit user stop/quit, the sole place where
+                # restoring normal network access is requested.
+                status = self.global_status()
+                if (self.core is not None or self._global_fault or status.get('running')
+                        or status.get('protection_active') or (status.get('guard') or {}).get('active')
+                        or status.get('state') in {'unknown', 'unreachable', 'unavailable', 'failed'}
+                        or status.get('code') == 'backend_unavailable'):
+                    self.global_backend().stop()
+                self.core = None
+                self._global_fault = False
+                return
             if sys.platform == "win32" and self._windows_backend is not None:
                 self._windows_backend.stop()
                 self._windows_paths = []
@@ -751,6 +919,16 @@ class Manager:
         while not self.closed.wait(0.5):
             with self.lock:
                 if self.core and self.core.poll() is not None:
+                    if self.capture_mode == 'global':
+                        self._global_fault = True
+                        self.error = '全局核心或权限服务已退出。已关闭本工具启动的应用；点击停止可恢复网络。'
+                        for ident in list(self.active):
+                            try:
+                                self.stop_app(ident)
+                            except Exception:
+                                traceback.print_exc()
+                        self.core = None
+                        continue
                     self.error = "代理核心已退出，受保护应用已关闭。"
                     try:
                         self.stop()
@@ -773,9 +951,18 @@ class Manager:
                         close_resource(resource)
                         self.active.pop(ident, None)
 
-    def close(self):
+    def close(self, *, restore_global=False):
         self.closed.set()
         try:
-            self.stop()
+            if self.capture_mode == 'global' and restore_global is not True:
+                # Resource cleanup also runs after failed startup/shortcuts or
+                # unexpected panel loss. Only an explicit stop/quit/Ctrl+C may
+                # release the independent guard. The helper owns the core and
+                # observes this panel's eventual process exit itself.
+                with self.lock:
+                    for ident in list(self.active):
+                        self.stop_app(ident)
+            else:
+                self.stop()
         finally:
             self.launch_owner.shutdown(wait=True)

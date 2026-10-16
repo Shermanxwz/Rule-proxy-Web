@@ -52,10 +52,14 @@ class WindowsStoreDiscoveryTests(unittest.TestCase):
         self.assertEqual(selected['source'], 'windows-store')
         self.assertEqual(selected['adapter'], 'chromium')
         self.assertEqual(selected['args'], [])
+        expected_binding = {'package_family_name': 'OpenAI.ChatGPT_publisher',
+                            'application_id': 'ChatGPT', 'scope': 'package'}
+        self.assertEqual(selected['store_binding'], expected_binding)
         normalized = launcher.validate_app(selected)
         self.assertEqual(normalized['path'], str(self.chatgpt.resolve()))
         self.assertNotIn('source', normalized)
         self.assertNotIn('package_family_name', normalized)
+        self.assertEqual(normalized['store_binding'], expected_binding)
 
     def test_store_and_registry_results_are_deduplicated_with_the_store_display_name(self):
         with patch.object(launcher, '_win_store_apps', return_value=[self.candidate()]), \
@@ -65,6 +69,29 @@ class WindowsStoreDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]['label'], 'ChatGPT')
         self.assertEqual(entries[0]['source'], 'windows-store')
+        self.assertEqual(entries[0]['store_binding']['application_id'], 'ChatGPT')
+
+    def test_bad_store_identity_does_not_create_an_automatic_package_binding(self):
+        candidate = self.candidate()
+        candidate['package_family_name'] = 'bad!identity'
+        with patch.object(launcher, '_win_store_apps', return_value=[candidate]), \
+                patch.object(launcher, '_win_registry_apps', return_value=[]):
+            found = launcher._windows_discover()
+        self.assertFalse(any(app.get('source') == 'windows-store' for app in found))
+
+    def test_restored_binding_is_structurally_checked_without_querying_registration(self):
+        app = {'label': 'ChatGPT', 'path': str(self.chatgpt), 'adapter': 'chromium',
+               'store_binding': {'package_family_name': 'OpenAI.ChatGPT_publisher',
+                                 'application_id': 'ChatGPT', 'scope': 'package'}}
+        self.chatgpt.unlink()
+        with patch('ruleproxy.windows_app_family.resolve_store_family', side_effect=AssertionError('No query while restoring')), \
+                patch('ruleproxy.windows_app_family.binding_for_path', side_effect=AssertionError('No query while restoring')):
+            normalized = launcher.validate_app(app, check_exists=False)
+        self.assertEqual(normalized['store_binding'], app['store_binding'])
+        for invalid in (None, {}, {**app['store_binding'], 'scope': 'application'},
+                        {**app['store_binding'], 'path': str(self.chatgpt)}):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                launcher.validate_app({**app, 'store_binding': invalid}, check_exists=False)
 
     def test_unavailable_package_service_does_not_hide_ordinary_applications(self):
         with patch('ruleproxy.windows_store_apps.discover_store_apps', side_effect=OSError('Appx unavailable')), \

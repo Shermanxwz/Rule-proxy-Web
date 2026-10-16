@@ -18,6 +18,7 @@ MAX_SOURCE_BYTES = 2 * 1024 * 1024
 MAX_YAML_OBJECTS = 100_000
 APP_GROUP = "RuleProxySelected"
 APP_LISTENER = "RuleProxyApp"
+CAPTURE_MODES = frozenset({"applications", "global"})
 _UNSUPPORTED_SEMANTICS = frozenset({"script", "sub-rules", "tunnels"})
 _SPECIAL_TYPES = frozenset({"direct", "dns", "reject", "reject-drop", "pass", "compatible"})
 # Supported real outbound proxy protocols. Special Mihomo policy outbounds are
@@ -321,14 +322,17 @@ def _compile_groups(value: Any, proxy_names: set[str]) -> tuple[list[dict[str, A
     return groups, names
 
 
-def _compile_dns(warnings: list[str]) -> dict[str, Any]:
+def _compile_dns(warnings: list[str], *, capture_mode: str = "applications") -> dict[str, Any]:
     # Destination lookups go through an explicit DoH resolver over the
     # dedicated selector. Only proxy-server-name bootstrap uses system DNS.
     # This config is internal to Mihomo; it never changes OS adapter DNS.
-    warnings.append(
-        "目标地址的 DNS 查询经所选节点走 DoH。若代理服务器是域名，只有解析该服务器地址时使用系统 DNS；"
-        "不会更改网卡 DNS。"
-    )
+    if capture_mode == "global":
+        warnings.append("全局模式接管 DNS；目标解析经所选节点走 DoH。代理服务器域名的初始解析由核心直接使用固定 DoH，是承载连接所需的例外。")
+    else:
+        warnings.append(
+            "目标地址的 DNS 查询经所选节点走 DoH。若代理服务器是域名，只有解析该服务器地址时使用系统 DNS；"
+            "不会更改网卡 DNS。"
+        )
     return {
         "enable": True,
         "ipv6": True,
@@ -338,7 +342,8 @@ def _compile_dns(warnings: list[str]) -> dict[str, Any]:
         "use-system-hosts": False,
         "default-nameserver": ["1.1.1.1"],
         "nameserver": [f"https://1.1.1.1/dns-query#{APP_GROUP}"],
-        "proxy-server-nameserver": ["system"],
+        "proxy-server-nameserver": (["https://1.1.1.1/dns-query#DIRECT"]
+                                    if capture_mode == "global" else ["system"]),
     }
 
 
@@ -431,11 +436,14 @@ def compile_config(
     secret: str,
     selected_node: str | None = None,
     allow_udp: bool = False,
+    capture_mode: str = "applications",
 ) -> CompiledConfig:
     """Compile an imported config for one explicitly proxied app listener."""
     mixed_port = _port(mixed_port, "mixed_port")
     if not isinstance(allow_udp, bool):
         raise ValueError("allow_udp must be a boolean")
+    if not isinstance(capture_mode, str) or capture_mode not in CAPTURE_MODES:
+        raise ValueError("接管模式必须是 applications 或 global。")
     controller_port = _port(controller_port, "controller_port")
     if mixed_port == controller_port:
         raise ValueError("mixed_port must differ from controller_port")
@@ -464,7 +472,7 @@ def compile_config(
         # The user's source may contain TUN/redirect/TProxy listeners. They
         # are deliberately discarded; only the generated loopback mixed
         # listener is emitted below.
-        warnings = ["导入的监听器已丢弃；只启用为应用生成的本机回环入口。"]
+        warnings = ["导入的监听器已丢弃；接管入口由当前模式生成。"]
     else:
         warnings = []
     for provider_key in ("proxy-providers", "rule-providers"):
@@ -548,7 +556,7 @@ def compile_config(
         "type": "mixed",
         "listen": "127.0.0.1",
         "port": mixed_port,
-        "udp": allow_udp,
+        "udp": allow_udp or capture_mode == "global",
     }
     config: dict[str, Any] = {
         "mixed-port": 0,
@@ -559,11 +567,26 @@ def compile_config(
         "secret": secret,
         "tun": {"enable": False},
         "listeners": [listener],
-        "dns": _compile_dns(warnings),
+        "dns": _compile_dns(warnings, capture_mode=capture_mode),
         "proxies": proxies,
         "proxy-groups": [*groups, app_group],
         "rules": list(rules),
     }
+    if capture_mode == "global":
+        config["ipv6"] = True
+        config["tun"] = {
+            "enable": True,
+            "device": "RuleProxyTun",
+            "stack": "mips",
+            "auto-route": True,
+            "strict-route": True,
+            "auto-detect-interface": True,
+            "dns-hijack": ["any:53", "tcp://any:53"],
+            "inet4-address": ["198.18.0.1/30"],
+            "inet6-address": ["fdfe:dcba:8879::1/126"],
+            "mtu": 1500,
+        }
+        warnings.append("全局接管覆盖整台设备，由独立权限组件管理 TUN；停止后恢复本工具拥有的网络设置。")
     text = yaml.safe_dump(config, allow_unicode=True, sort_keys=False, default_flow_style=False)
     return CompiledConfig(
         text=text,

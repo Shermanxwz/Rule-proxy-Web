@@ -26,7 +26,9 @@ class WindowsOnlinePackageTests(unittest.TestCase):
             metadata = builder.stage(target)
             expected = set(builder.offline.project_files()) | set(builder.EXTRA_SOURCES)
             self.assertEqual(set(metadata['files']), expected)
-            self.assertEqual(len(expected), 46)
+            self.assertTrue({'ruleproxy/windows_app_family.py', 'ruleproxy/global_runtime.py',
+                             'ruleproxy/windows_global_runtime.py', 'ruleproxy/windows_global_guard.py',
+                             'ruleproxy/windows_global_dns.py'} <= expected)
             self.assertEqual({p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()},
                              expected | {'INSTALL-WINDOWS.txt', 'release-source.json'})
             for name in expected:

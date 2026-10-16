@@ -85,7 +85,7 @@ class Client:
             raise ProxyError("unsupported_platform", "Windows 后端仅适用于 Windows。")
         request = {"schema_version": 1, "request_id": uuid.uuid4().hex,
                    "op": operation, "client_pid": os.getpid(), **fields}
-        raw = json.dumps(request, ensure_ascii=True, separators=(",", ":")).encode("ascii")
+        raw = json.dumps(request, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         if len(raw) > MAX_MESSAGE:
             raise ProxyError("invalid_request", "控制请求过大。")
         from .windows_proxy_service import PipeAPI, ServiceControl
@@ -113,7 +113,8 @@ class Client:
                 raise ctypes.WinError(ctypes.get_last_error())
             api.operation(handle, "write", buffer=ctypes.create_string_buffer(raw, len(raw)), timeout=45)
             output = ctypes.create_string_buffer(MAX_MESSAGE)
-            returned = api.operation(handle, "read", buffer=output, timeout=45)
+            returned = api.operation(handle, "read", buffer=output,
+                                     timeout=90 if operation == "global_start" else 45)
             # The broker waits for this bounded ACK before disconnecting, so a
             # completed write cannot discard a response still in the pipe.
             api.operation(handle, "write", buffer=ctypes.create_string_buffer(b"1", 1), timeout=2)

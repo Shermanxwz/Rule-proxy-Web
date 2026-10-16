@@ -116,7 +116,7 @@ class FakeManager:
     def state(self, refresh_apps=False):
         return {"token": self.token, "version": "test", "running": self.running, "apps": []}
 
-    def close(self):
+    def close(self, *, restore_global=False):
         self.close_calls += 1
 
     def begin_quit(self):

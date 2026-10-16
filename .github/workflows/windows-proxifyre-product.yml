@@ -126,3 +126,52 @@ jobs:
           path: windows-native-product-results/
           if-no-files-found: warn
           retention-days: 14
+
+  global-server-capture:
+    name: Global TUN and independent guard · disposable Server 2025
+    if: github.event_name == 'workflow_dispatch'
+    needs: package
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-proxifyre-product-package
+          path: windows-product-package
+      - name: Verify and unpack the final offline package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $receipt = (Get-Content windows-product-package/SHA256SUMS.txt -Raw).Trim() -split '\s+'
+          if ($receipt.Count -ne 2 -or $receipt[0] -notmatch '^[a-f0-9]{64}$' -or $receipt[1] -notmatch '^[A-Za-z0-9._-]+\.zip$') { throw 'Invalid package checksum receipt' }
+          $archive = Join-Path windows-product-package $receipt[1]
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $receipt[0]) { throw 'Package checksum mismatch' }
+          Expand-Archive -LiteralPath $archive -DestinationPath capture-package
+          New-Item -ItemType Directory -Path windows-global-results -Force | Out-Null
+          Copy-Item windows-product-package/SHA256SUMS.txt windows-global-results/
+      - name: Install for the actual runner owner without starting a panel
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = (Resolve-Path capture-package/RuleProxy-Web).Path
+          $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+          & "$source/scripts/windows-setup.ps1" -SourceRoot $source -OwnerSid $sid -Elevated -NoLaunch
+          if ($LASTEXITCODE -ne 0) { throw ('Installation incomplete; exit ' + $LASTEXITCODE) }
+      - name: Test actual capture with an independent SYSTEM recovery deadline
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:ProgramFiles 'RuleProxy-Web'
+          & "$root/python/python.exe" -I -S -B .github/check_windows_global_capture.py --ack-disposable-windows --installed-root $root --output windows-global-results/summary.json
+          if ($LASTEXITCODE -ne 0) { throw 'Native capture acceptance failed; inspect the bounded summary' }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-global-native-evidence
+          path: windows-global-results/
+          if-no-files-found: error
+          retention-days: 14

@@ -83,7 +83,8 @@ def _host_panel(server, app_id: str, state_dir: Path, panel_port: int, mixed_por
     from .manager import Manager
 
     stop = threading.Event()
-    _stop_on_signal(stop)
+    explicit_interrupt = threading.Event()
+    _stop_on_signal(stop, explicit_interrupt)
     manager = None
     serving = None
     try:
@@ -100,7 +101,9 @@ def _host_panel(server, app_id: str, state_dir: Path, panel_port: int, mixed_por
         while not stop.wait(0.5):
             if server.quit_requested.is_set():
                 break
-            if manager.has_active_apps() or server.viewer_recent():
+            global_capture = (getattr(manager, 'capture_mode', 'applications') == 'global'
+                              and (manager.core is not None or getattr(manager, '_global_fault', False)))
+            if manager.has_active_apps() or server.viewer_recent() or global_capture:
                 idle_since = None
             elif idle_since is None:
                 idle_since = time.monotonic()
@@ -111,11 +114,13 @@ def _host_panel(server, app_id: str, state_dir: Path, panel_port: int, mixed_por
             server.shutdown()
         server.server_close()
         if manager is not None:
-            manager.close()
+            manager.close(restore_global=(explicit_interrupt.is_set() or server.quit_requested.is_set()))
 
 
-def _stop_on_signal(stop: threading.Event) -> None:
-    def handler(*_):
+def _stop_on_signal(stop: threading.Event, explicit_interrupt: threading.Event | None = None) -> None:
+    def handler(number, _frame):
+        if number == signal.SIGINT and explicit_interrupt is not None:
+            explicit_interrupt.set()
         stop.set()
 
     for name in ("SIGINT", "SIGTERM", "SIGHUP"):

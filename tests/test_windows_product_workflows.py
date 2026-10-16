@@ -19,11 +19,11 @@ class DefaultWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.workflow = read_workflow(ROOT / ".github/workflows/check.yml")
 
-    def test_default_checks_only_run_linux_and_cross_platform_units(self):
+    def test_default_checks_keep_retired_and_release_operations_disabled(self):
         trigger = self.workflow.get("on", self.workflow.get(True))
         self.assertEqual(set(trigger), {"push", "pull_request", "workflow_dispatch"})
         self.assertIsNone(trigger["workflow_dispatch"])
-        self.assertEqual(set(self.workflow["jobs"]), {"linux", "linux-system", "unit"})
+        self.assertEqual(set(self.workflow["jobs"]), {"linux", "linux-system", "unit", "global-linux-native"})
         self.assertEqual(self.workflow["permissions"], {"contents": "read"})
         for name, job in self.workflow["jobs"].items():
             with self.subTest(job=name):
@@ -32,9 +32,31 @@ class DefaultWorkflowTests(unittest.TestCase):
                 for step in job["steps"]:
                     self.assertFalse(step.get("uses", "").startswith("actions/download-artifact@"))
                     command = step.get("run", "").lower()
-                    for retired_operation in ("gh release", "windows_vm_test.py", "install_runtime.py",
+                    for retired_operation in ("gh release", "windows_vm_test.py",
                                                "build_windows_package.py", "mxc", "psec"):
                         self.assertNotIn(retired_operation, command)
+                    if "install_runtime.py" in command:
+                        self.assertEqual(name, "global-linux-native")
+                        self.assertEqual(step["run"],
+                                         'python3 install_runtime.py --if-needed 2>&1 | tee "$GLOBAL_PROOF_DIR/runtime-preparation.log"')
+
+    def test_native_global_job_requires_both_real_probes_and_retains_failed_evidence(self):
+        job = self.workflow["jobs"]["global-linux-native"]
+        self.assertEqual(job["runs-on"], "ubuntu-24.04")
+        self.assertEqual(job["timeout-minutes"], 15)
+        steps = job["steps"]
+        native = next(step for step in steps if "RULEPROXY_REQUIRE_GLOBAL_CORE_NETNS=1" in step.get("run", ""))
+        self.assertIn("RULEPROXY_REQUIRE_GLOBAL_NETNS=1", native["run"])
+        self.assertIn("sudo env", native["run"])
+        self.assertIn("test_linux_global*_netns.py", native["run"])
+        self.assertIn("PIPESTATUS[0]", native["run"])
+        self.assertIn("native_status == 0 and count == 2", native["run"])
+        self.assertIn("'skipped' not in log.lower()", native["run"])
+        evidence = next(step for step in steps if step.get("uses", "").startswith("actions/upload-artifact@"))
+        self.assertEqual(evidence["if"], "always()")
+        self.assertEqual(evidence["with"]["if-no-files-found"], "error")
+        for step in steps:
+            self.assertNotRegex(step.get("run", ""), r"(?m)^\s*(?:sudo\s+)?(?:ip|nft|sysctl)\s")
 
     def test_original_four_linux_combinations_keep_their_full_checks(self):
         archived = read_workflow(ARCHIVE)

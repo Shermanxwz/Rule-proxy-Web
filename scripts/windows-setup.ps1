@@ -226,6 +226,7 @@ if (-not $isAdmin -or -not $Elevated) {
 $root = Join-Path $env:ProgramFiles 'RuleProxy-Web'
 $pfRoot = Join-Path $env:ProgramFiles 'ProxiFyre'
 $stateRoot = Join-Path $env:ProgramData 'RuleProxy-Web'
+$globalRoot = Join-Path $stateRoot 'global'
 $statePath = Join-Path $stateRoot 'install-state.json'
 $logRoot = Join-Path $stateRoot 'setup-logs'
 $serviceName = 'RuleProxyControl'
@@ -243,7 +244,7 @@ $setupPhase = 'preflight'
 $activePackageFile = $null
 $script:AclActivePath = $null
 
-function Protect-Tree([string]$Path) {
+function Protect-Tree([string]$Path, [switch]$Private) {
     # Construct owner and the complete protected DACL in memory, then persist
     # them together. Do not remove a child's inherited grants in a separate
     # operation before its explicit administrator grants have been installed.
@@ -257,9 +258,11 @@ function Protect-Tree([string]$Path) {
         if ($item.PSIsContainer) {
             $security = New-Object Security.AccessControl.DirectorySecurity
             $sddl = 'O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;GRGX;;;BU)'
+            if ($Private) { $sddl = 'O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)' }
         } else {
             $security = New-Object Security.AccessControl.FileSecurity
             $sddl = 'O:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGX;;;BU)'
+            if ($Private) { $sddl = 'O:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)' }
         }
         $security.SetSecurityDescriptorSddlForm($sddl)
         Set-Acl -LiteralPath $current -AclObject $security -ErrorAction Stop
@@ -425,7 +428,13 @@ function Write-SetupDiagnostic($Failure) {
 if (Test-Path -LiteralPath $stateRoot) { Assert-Protected $stateRoot }
 else { New-Item -ItemType Directory -Path $stateRoot | Out-Null }
 if (Test-Path -LiteralPath $statePath) { Assert-Protected $statePath }
-Protect-Tree $stateRoot
+# This tree now contains the SYSTEM core's YAML and node credentials. Keep
+# state/log/config descendants private during upgrades too; never temporarily
+# grant all local users read access to an existing global configuration.
+Protect-Tree $stateRoot -Private
+if (Test-Path -LiteralPath $globalRoot) { Assert-Protected $globalRoot }
+else { New-Item -ItemType Directory -Path $globalRoot | Out-Null }
+Protect-Tree $globalRoot -Private
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 try {
     $sessionLog = Join-Path $logRoot ('setup-session-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N') + '.log')
@@ -501,7 +510,7 @@ try {
     # deployment.json hashes it; the package manifest cannot hash itself.
     [IO.File]::WriteAllBytes((Join-Path $stage 'package-manifest.json'), $manifestBytes)
     $activePackageFile = $null
-    foreach ($required in @('python\python.exe','python\pythonw.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
+    foreach ($required in @('python\python.exe','python\pythonw.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','ruleproxy\windows_global_runtime.py','ruleproxy\windows_global_guard.py','ruleproxy\windows_global_dns.py','ruleproxy\windows_app_process.py','ruleproxy\config.py','bin\windows-amd64\mihomo.exe','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) { throw ('Required product file missing: ' + $required) }
     }
     $setupPhase = 'stage_protect'
@@ -590,7 +599,8 @@ try {
     $hash = [Security.Cryptography.SHA256]::Create()
     try { $sidHash = ([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::ASCII.GetBytes($OwnerSid)))).Replace('-','').ToLowerInvariant().Substring(0,16) }
     finally { $hash.Dispose() }
-    $deployment = [ordered]@{schema_version=1; owner_sid=$OwnerSid; root=$root; proxifyre_root=$pfRoot;
+    $deployment = [ordered]@{schema_version=1; global_backend_version=1; global_state_dir=$globalRoot;
+        owner_sid=$OwnerSid; root=$root; proxifyre_root=$pfRoot;
         service_name=$serviceName; pipe_name=('RuleProxyControl-v1-' + $sidHash); files=$files; proxifyre_files=$pfFiles}
     [IO.File]::WriteAllText((Join-Path $stage 'deployment.json'), ($deployment|ConvertTo-Json -Depth 6), $utf8)
     $newDeploymentHash = (Get-FileHash -LiteralPath (Join-Path $stage 'deployment.json') -Algorithm SHA256).Hash

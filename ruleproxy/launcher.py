@@ -169,7 +169,30 @@ def _is_elf_executable(path: Path) -> bool:
         return False
 
 
+def _pe_console_program(path: Path) -> bool:
+    """Read the bounded PE subsystem; never execute a discovery candidate."""
+    try:
+        with path.open('rb') as source:
+            header = source.read(64)
+            if len(header) != 64 or header[:2] != b'MZ':
+                return False
+            offset = int.from_bytes(header[60:64], 'little')
+            if not 64 <= offset <= 1024 * 1024:
+                return False
+            source.seek(offset)
+            pe = source.read(94)
+        return (len(pe) == 94 and pe[:4] == b'PE\0\0' and
+                int.from_bytes(pe[24:26], 'little') in (0x10b, 0x20b) and
+                int.from_bytes(pe[92:94], 'little') == 3)
+    except (OSError, ValueError):
+        return False
+
+
 def _infer_adapter(label: str, path: Path) -> str:
+    if _pe_console_program(path):
+        # A package/label containing ChatGPT or Electron can also expose CLI
+        # helpers. Browser flags must never be passed to those executables.
+        return 'environment'
     name = path.name.lower()
     text = f"{label} {path}".lower()
     if name in {"firefox", "firefox-bin", "waterfox", "librewolf"} or "firefox" in text or "librewolf" in text:
@@ -499,7 +522,8 @@ def _windows_discover() -> list[dict[str, Any]]:
     found: list[dict[str, Any]] = []
     seen: set[str] = set()
 
-    def add(label: str, raw_path: str | Path | None, *, source: str | None = None) -> None:
+    def add(label: str, raw_path: str | Path | None, *, source: str | None = None,
+            store_binding: dict[str, str] | None = None) -> None:
         if not raw_path:
             return
         path = Path(raw_path).expanduser()
@@ -515,12 +539,16 @@ def _windows_discover() -> list[dict[str, Any]]:
                 existing = next(app for app in found if os.path.normcase(app['path']) == key)
                 existing['label'] = label
                 existing['source'] = source
+                if store_binding is not None:
+                    existing['store_binding'] = store_binding
             return
         seen.add(key)
         adapter = _infer_adapter(label, path)
         record = _app(label, path, adapter, category=_category(label, path))
         if source:
             record['source'] = source
+        if store_binding is not None:
+            record['store_binding'] = store_binding
         found.append(record)
 
     roots = [
@@ -549,7 +577,13 @@ def _windows_discover() -> list[dict[str, Any]]:
     # Query the current user's registered packages and their manifests instead
     # of enumerating the protected WindowsApps directory or execution aliases.
     for app in _win_store_apps():
-        add(app['label'], app['path'], source='windows-store')
+        from .windows_app_family import validate_binding
+        try:
+            binding = validate_binding({'package_family_name': app['package_family_name'],
+                'application_id': app['application_id'], 'scope': 'package'})
+        except (KeyError, ValueError):
+            continue
+        add(app['label'], app['path'], source='windows-store', store_binding=binding)
 
     scan_roots = [roots[0], roots[1], roots[2] / "Programs"]
     for root in scan_roots:
@@ -659,6 +693,12 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
     """Validate and normalize an executable selection supplied by the user."""
     if not isinstance(data, dict):
         raise ValueError("应用信息格式无效。")
+    store_binding = None
+    if 'store_binding' in data:
+        from .windows_app_family import validate_binding
+        # This validates saved data only. Fresh current-user registration and
+        # complete package routing are checked separately before any startup.
+        store_binding = validate_binding(data['store_binding'])
     label = data.get("label")
     raw_path = data.get("path")
     adapter = data.get("adapter")
@@ -694,6 +734,8 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         raise ValueError("不能把命令行解释器（shell）添加为应用。")
     args = _validate_args(data.get("args", []))
     result = {"label": label.strip(), "path": str(path), "adapter": adapter, "args": args}
+    if store_binding is not None:
+        result['store_binding'] = store_binding
     if 'use_original_data' in data:
         result['use_original_data'] = original_data
     related = data.get("related_paths", [])
@@ -770,7 +812,8 @@ def _reject_reserved_args(args: list[str], adapter: str) -> None:
             raise ValueError(f"启动参数 {arg} 可能绕过代理或配置隔离，不能使用。")
 
 
-def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: bool = False) -> tuple[list[str], dict[str, str], str]:
+def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: bool = False,
+                native_proxy: bool = False) -> tuple[list[str], dict[str, str], str]:
     """Prepare an app command, child-only environment overrides, and limitations.
 
     The returned command is only safe inside the platform's isolation runtime
@@ -778,9 +821,13 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     privileged broker before the ordinary process is resumed.
     """
     normalized = validate_app(app)
+    if transparent and native_proxy and normalized['adapter'] == 'chromium' and _pe_console_program(Path(normalized['path'])):
+        normalized = {**normalized, 'adapter': 'environment', 'use_original_data': False}
     proxy_port = _validate_port(proxy_port)
     _reject_reserved_args(normalized["args"], normalized["adapter"])
-    profile = app_profile_directory(profile_dir, app)
+    profile_app = ({**app, 'adapter': normalized['adapter'], 'use_original_data': False}
+                   if normalized['adapter'] != app['adapter'] else app)
+    profile = app_profile_directory(profile_dir, profile_app)
     original_data = normalized.get('use_original_data', False)
     native_original = transparent and original_data
     shared_original = original_data and sys.platform.startswith('linux')
@@ -795,7 +842,22 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
         for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "FTP_PROXY"):
             env.pop(name, None)
             env.pop(name.lower(), None)
+        if native_proxy:
+            # Also cover proxy-aware authentication/CLI children before their
+            # executable path is ever seen by the transparent backend.
+            proxy = f'http://127.0.0.1:{proxy_port}'
+            for name in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY'):
+                env[name] = env[name.lower()] = proxy
+            env['NO_PROXY'] = env['no_proxy'] = 'localhost,127.0.0.1,::1'
+            env['NODE_USE_ENV_PROXY'] = '1'
+        def browser_proxy():
+            if native_proxy and normalized['adapter'] == 'chromium':
+                command.extend([f'--proxy-server=http://127.0.0.1:{proxy_port}',
+                                '--proxy-bypass-list=<-loopback>;localhost;127.0.0.1;[::1]',
+                                '--disable-quic', '--disable-background-networking',
+                                '--force-webrtc-ip-handling-policy=disable_non_proxied_udp'])
         if native_original:
+            browser_proxy()
             return command, env, '使用应用原有数据；按程序路径透明转发，同路径实例也受规则影响，不能保证 DNS 隔离。'
         if normalized["adapter"] == "chromium":
             command.extend([f"--user-data-dir={profile}", "--no-first-run", "--restore-last-session"])
@@ -804,6 +866,7 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
             # from profiles created by the retired Windows runtime.
             (profile / "user.js").write_text('user_pref("network.proxy.type", 0);\n', encoding="utf-8")
             command.extend(["-no-remote", "-profile", str(profile)])
+        browser_proxy()
         return command, env, "按程序路径透明转发；同路径实例也受规则影响，不能保证 DNS 隔离。"
     proxy = f"http://127.0.0.1:{proxy_port}"
     env.update(

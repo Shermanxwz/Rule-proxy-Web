@@ -7,6 +7,7 @@
     statusDetail: $('status-detail'), error: $('global-error'), configState: $('config-state'),
     file: $('yaml-file'), fileName: $('file-name'), yaml: $('yaml-input'), importButton: $('import-button'),
     core: $('core-path'), saveCore: $('save-core-button'), node: $('node-select'), saveNode: $('save-node-button'),
+    captureMode: $('capture-mode'), captureModeDetail: $('capture-mode-detail'),
     nodeHint: $('node-hint'), proxy: $('proxy-address'), ports: $('port-summary'), version: $('version-label'),
     footerVersion: $('footer-version'), start: $('start-button'), stop: $('stop-button'), apps: $('apps-list'),
     launchAll: $('launch-all-button'), appLabel: $('app-label'), appPath: $('app-path'),
@@ -30,6 +31,7 @@
   let lastAvailableSignature = '';
   let refreshingApps = false;
   const isWindows = () => /windows|win32|win64/i.test(String(state && state.platform || ''));
+  const isGlobal = () => state?.capture_mode === 'global';
 
   function showError(message, source = 'local') {
     if (message) {
@@ -62,7 +64,10 @@
     ui.saveNode.disabled = busy || !imported || !ui.node.value;
     ui.node.disabled = busy || !imported || !((state && state.nodes) || []).length;
     ui.start.disabled = busy || !imported || running;
-    ui.stop.disabled = busy || !running;
+    ui.stop.disabled = busy || !ready || !(isGlobal() || running || state?.global_fault || state?.protection?.protection_active
+                                 || state?.protection?.guard?.active);
+    if (ui.captureMode) ui.captureMode.disabled = busy || !ready || running || !!state?.global_fault
+      || (state?.apps || []).some((app) => app.active || app.cleanup_pending || app.profile_preparing);
     ui.addApp.disabled = busy || !ready;
     ui.refreshApps.disabled = busy || refreshingApps || !ready;
     ui.refreshApps.textContent = refreshingApps ? '正在扫描…' : '重新扫描';
@@ -133,12 +138,13 @@
 
       const appInfo = textElement('div', 'app-info');
       appInfo.append(textElement('strong', 'app-name', app.label || '未命名应用'));
-      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isWindows() ? '代理中运行' : '隔离中运行') : (app.routed ? '路径代理已启用' : (app.enabled ? '待启动' : '未启用'))));
+      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isGlobal() ? '全局代理中运行' : (isWindows() ? '代理中运行' : '隔离中运行')) : (app.routed ? (isGlobal() ? '全局接管已启用' : '路径代理已启用') : (app.enabled ? '待启动' : '未启用'))));
       const statusClass = (app.profile_preparing || app.cleanup_pending) ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       const appPath = textElement('span', 'app-path', app.path || '未设置路径');
       appPath.title = app.path || '未设置路径';
       appInfo.append(appPath);
+      if (app.store_binding) appInfo.append(textElement('span', 'app-path', '自动跟随当前商店软件包版本；包含包内全部辅助程序。'));
       if (app.related_paths?.length) appInfo.append(textElement('span', 'app-path', `相关程序：${app.related_paths.join('；')}`));
       appInfo.append(appTools(app));
       const adapter = friendlyAdapter(app.adapter, app.use_original_data === true);
@@ -327,7 +333,8 @@
     if (busy || !app || !app.path || !app.adapter) return;
     const label = String(app.label || app.path);
     const args = Array.isArray(app.args) ? app.args : [];
-    await mutate('/api/apps', { body: { label, path: app.path, adapter: app.adapter, args, enabled: true } });
+    await mutate('/api/apps', { body: { label, path: app.path, adapter: app.adapter, args, enabled: true,
+      ...(app.store_binding ? { store_binding: app.store_binding } : {}) } });
   }
 
   function render(stateValue) {
@@ -378,8 +385,14 @@
       ? `隔离应用可以读写下载文件夹 ${state.files_dir}：下载的文件保存在这里，要上传的文件也请先放到这里。家目录里的其他文件对隔离应用不可见。`
       : '';
     const protection = state.protection || {};
+    if (ui.captureMode) ui.captureMode.value = state.capture_mode || 'applications';
+    if (ui.captureModeDetail) ui.captureModeDetail.textContent = isGlobal()
+      ? '全局覆盖整台设备，启动时需要独立系统权限组件。保护触发后，点击停止可恢复普通网络。'
+      : (isWindows() ? '仅接管启用的程序及其辅助路径；已识别商店软件包会自动跟随本机版本。'
+                      : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
+    ui.stop.textContent = isGlobal() ? '停止全局接管并恢复网络' : '关闭受保护应用并停止';
     ui.protectionCard.className = `protection-card ${protection.supported ? 'is-supported' : 'is-unsupported'}`;
-    ui.protectionBadge.textContent = protection.supported ? (isWindows() ? '应用代理可用' : '隔离能力可用') : '不可用，启动受阻';
+    ui.protectionBadge.textContent = protection.supported ? (isGlobal() ? '全局接管组件可用' : (isWindows() ? '应用代理可用' : '隔离能力可用')) : '不可用，启动受阻';
     ui.protectionDetail.textContent = protection.detail || (protection.supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。');
     ui.protectionBackend.textContent = protection.backend ? `运行后端：${protection.backend}` : '';
     const elevated = isWindows() && state.process_elevated === true;
@@ -398,11 +411,21 @@
     ui.relatedField.hidden = !isWindows();
     const ordinaryOption = ui.appAdapter.querySelector('option[value="environment"]');
     if (ordinaryOption) ordinaryOption.textContent = isWindows() ? '普通应用（按程序路径透明代理）' : '遵循代理环境变量的应用（不兼容即阻断）';
-    if (isWindows()) {
+    if (isGlobal()) {
+      $('connection-intro').textContent = '启动后接管整台设备，包括没有加入应用清单的程序。';
+      $('protection-note').textContent = '保护范围和明确例外以本机权限组件报告为准。切换模式前请停止全局接管。';
+      $('apps-intro').textContent = '全局模式下，应用开关仅决定待启动清单；未加入清单或关闭开关的程序仍受全局接管。';
+      $('compatibility-note').textContent = '全局模式使用独立权限组件管理 TUN 与故障保护；核心故障时请查看保护状态，点击停止可恢复普通网络。';
+    } else if (isWindows()) {
       $('connection-intro').textContent = '启动核心后，启用清单中的程序路径交给 ProxiFyre 转发；也可以从下方启动独立应用实例。';
       $('protection-note').textContent = '同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';
-      $('apps-intro').textContent = '打开开关即加入代理清单；核心运行时规则自动生效。不同 exe 的联网子进程需填写相关程序路径。';
+      $('apps-intro').textContent = '打开开关即加入代理清单；已识别商店应用同时接管本机当前软件包内的辅助程序。包外辅助程序可填写相关程序路径。';
       $('compatibility-note').textContent = 'Windows 按程序路径转发 TCP 与可支持的 UDP，不提供 Linux 同等的隔离。UDP 53、系统 DNS、IPv6 分片及代理引擎故障后直连仍有限制。';
+    } else {
+      $('connection-intro').textContent = '应用从面板启动并进入独立隔离后使用代理。';
+      $('protection-note').textContent = '仅面板或快捷方式启动的隔离实例受保护；其他已有实例保持原网络。';
+      $('apps-intro').textContent = '已添加的应用显示待启动；启动后进入独立网络隔离。';
+      $('compatibility-note').textContent = 'Linux 按应用模式继续使用独立命名空间；不支持的流量阻断。';
     }
     ui.availablePaths.replaceChildren();
     for (const app of (Array.isArray(state.available_apps) ? state.available_apps : [])) {
@@ -576,6 +599,10 @@
     if (ui.node.value) mutate('/api/node', { body: { name: ui.node.value } });
   });
   ui.start.addEventListener('click', () => mutate('/api/start'));
+  ui.captureMode?.addEventListener('change', async () => {
+    const result = await mutate('/api/mode', { body: { capture_mode: ui.captureMode.value } });
+    if (!result && state) render(state);
+  });
   ui.stop.addEventListener('click', () => mutate('/api/stop', {}, { stoppingCore: true }));
   ui.launchAll.addEventListener('click', () => {
     if (!state || !state.running || !state.protection || !state.protection.supported) return;

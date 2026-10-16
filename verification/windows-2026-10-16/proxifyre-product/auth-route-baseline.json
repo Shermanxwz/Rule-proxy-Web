@@ -1,0 +1,235 @@
+{
+  "run_id": 38898000610,
+  "job_id": 116963232599,
+  "artifact_id": 12044981498,
+  "source_commit": "d2af2e514a63f3bd8a8f6778f0e5c5c1c4932f45",
+  "scope": "Baseline before package-family/native-proxy/global-mode changes. Native Windows Server 2025 controlled receivers, not user hardware or ChatGPT/Claude login.",
+  "zip_sha256": "7e09e2e11812a4359e9d05cd49576b691f8b346d7a6b79e4223b442593c02742",
+  "report_sha256": "e434b220e8867b4f7fec4a9e11bc2bd9a5c649311398c9a2acdb8c714d66ef28",
+  "actual_os": {
+    "major": 10,
+    "minor": 0,
+    "build": 26100,
+    "platform": 2,
+    "product_type": 3,
+    "architecture": "AMD64"
+  },
+  "status": "passed_server_product_qualification",
+  "ordinary_checks_count": 41,
+  "ordinary_checks_all_true": true,
+  "receiver_phases_count": 17,
+  "receiver_phases_recomputed_exact_match": true,
+  "phase_summaries": [
+    {
+      "label": "unselected_before",
+      "expected_node": null,
+      "attempts": 2,
+      "direct_responses": 2,
+      "actor_proxy_responses": 0,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "selected_raw_tcp",
+      "expected_node": "A",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "same_path_second_instance",
+      "expected_node": "A",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "selected_udp_39017",
+      "expected_node": "A",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "selected_udp_connected_39017",
+      "expected_node": "A",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "different_helper_before",
+      "expected_node": null,
+      "attempts": 2,
+      "direct_responses": 2,
+      "actor_proxy_responses": 0,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "explicit_helper_after",
+      "expected_node": "A",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 2,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "selected_node_b",
+      "expected_node": "B",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "passed": true
+    },
+    {
+      "label": "related_helper_node_b",
+      "expected_node": "B",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "passed": true
+    },
+    {
+      "label": "unselected_with_rules",
+      "expected_node": null,
+      "attempts": 2,
+      "direct_responses": 2,
+      "actor_proxy_responses": 0,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "disabled_path_direct",
+      "expected_node": null,
+      "attempts": 2,
+      "direct_responses": 2,
+      "actor_proxy_responses": 0,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "disabled_helper_direct",
+      "expected_node": null,
+      "attempts": 2,
+      "direct_responses": 2,
+      "actor_proxy_responses": 0,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 0
+      },
+      "passed": true
+    },
+    {
+      "label": "reenabled_path_proxy",
+      "expected_node": "B",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "passed": true
+    },
+    {
+      "label": "reenabled_helper_proxy",
+      "expected_node": "B",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "passed": true
+    },
+    {
+      "label": "restart_saved_node",
+      "expected_node": "B",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "passed": true
+    },
+    {
+      "label": "real_edge_headless",
+      "expected_node": "B",
+      "attempts": 1,
+      "direct_responses": 0,
+      "actor_proxy_responses": 0,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 1
+      },
+      "passed": true
+    },
+    {
+      "label": "start_cmd_saved_node",
+      "expected_node": "B",
+      "attempts": 2,
+      "direct_responses": 0,
+      "actor_proxy_responses": 2,
+      "receiver_node_counts": {
+        "A": 0,
+        "B": 2
+      },
+      "passed": true
+    }
+  ],
+  "schema_version": 1,
+  "test_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38898000610",
+  "conclusions": [
+    "An unselected helper path reached the controlled direct receiver; explicitly selected helper paths reached the synthetic proxy receiver.",
+    "This does not identify the failing OAuth executable or measure the user-selected internet exit.",
+    "Windows 11, full DNS/IPv6 protection and account login are outside this result."
+  ]
+}

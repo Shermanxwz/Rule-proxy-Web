@@ -87,6 +87,12 @@
           </div>
         </div>
         <p id="connection-intro" class="muted intro-copy">核心运行不代表应用已受保护。应用实例需从下方启动并进入隔离后才会使用代理。</p>
+        <label class="field-label" for="capture-mode">接管范围</label>
+        <select id="capture-mode" class="text-input" aria-label="选择接管范围">
+          <option value="applications">按应用接管</option>
+          <option value="global">全局接管整台设备</option>
+        </select>
+        <p id="capture-mode-detail" class="field-hint">切换范围前需关闭本工具启动的应用并停止核心；应用清单和节点选择会保留。</p>
         <div id="protection-card" class="protection-card" aria-live="polite">
           <div class="protection-heading"><span class="protection-shield" aria-hidden="true">◆</span><div><strong>流量保护能力</strong><span id="protection-badge" class="protection-badge">正在检查</span></div></div>
           <p id="protection-detail" class="protection-detail">等待本机服务报告隔离能力。</p>
