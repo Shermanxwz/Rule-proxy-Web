@@ -2,6 +2,7 @@
 import importlib.util
 import ipaddress
 import json
+import os
 from pathlib import Path
 import struct
 import sys
@@ -239,6 +240,20 @@ class HarnessPlanningTests(unittest.TestCase):
         response.__enter__.return_value.read.return_value = b'{"Status":0,"Answer":[{"type":1,"data":"1.2.3.4"}]}'
         with patch.object(urllib.request, 'build_opener', return_value=opener), self.assertRaisesRegex(RuntimeError, 'fixture_dns_loopback_control_missing'):
             H.fixture_dns_preflight()
+
+
+@unittest.skipUnless(os.name == 'nt', 'native in-memory Windows ACL constructor')
+class NativeAclConstructorTests(unittest.TestCase):
+    def test_acl_contains_real_system_admin_sid_objects_without_account_name_lookup(self):
+        # Construct and inspect only: no filesystem ACL/network mutation.
+        script = H.private_acl_script() + ("$result=@($acl.GetAccessRules($true,$true,"
+            "[Security.Principal.SecurityIdentifier])|ForEach-Object {"
+            "@{sid=$_.IdentityReference.Value;rights=[int]$_.FileSystemRights;"
+            "inheritance=[int]$_.InheritanceFlags;type=[int]$_.AccessControlType}})|ConvertTo-Json -Compress")
+        rules = json.loads(H.ps(script))
+        self.assertEqual({item['sid'] for item in rules}, {'S-1-5-18', 'S-1-5-32-544'})
+        self.assertTrue(all(item['rights'] == 2032127 and item['inheritance'] == 3 and item['type'] == 0
+                            for item in rules))
 
 
 if __name__ == '__main__':

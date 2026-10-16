@@ -44,7 +44,14 @@ class DefaultWorkflowTests(unittest.TestCase):
         job = self.workflow["jobs"]["global-linux-native"]
         self.assertEqual(job["runs-on"], "ubuntu-24.04")
         self.assertEqual(job["timeout-minutes"], 15)
+        # runner context is unavailable at job.env evaluation time. Initialize
+        # the external evidence directory on the runner for later steps.
+        self.assertNotIn("env", job)
         steps = job["steps"]
+        initialization = steps[0]["run"]
+        self.assertIn('${RUNNER_TEMP:?}/ruleproxy-linux-global-native', initialization)
+        self.assertIn('mkdir -p "$global_proof_dir"', initialization)
+        self.assertIn('>> "$GITHUB_ENV"', initialization)
         native = next(step for step in steps if "RULEPROXY_REQUIRE_GLOBAL_CORE_NETNS=1" in step.get("run", ""))
         self.assertIn("RULEPROXY_REQUIRE_GLOBAL_NETNS=1", native["run"])
         self.assertIn("sudo env", native["run"])

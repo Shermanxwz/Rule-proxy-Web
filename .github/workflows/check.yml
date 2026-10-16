@@ -66,16 +66,18 @@ jobs:
     name: Linux global capture · real kernel and pinned Mihomo
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    env:
-      GLOBAL_PROOF_DIR: ${{ runner.temp }}/ruleproxy-linux-global-native
     steps:
+      - name: Initialize native evidence outside the checkout
+        run: |
+          global_proof_dir="${RUNNER_TEMP:?}/ruleproxy-linux-global-native"
+          mkdir -p "$global_proof_dir"
+          printf 'GLOBAL_PROOF_DIR=%s\n' "$global_proof_dir" >> "$GITHUB_ENV"
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
       - name: Prepare evidence and native dependencies
         run: |
-          mkdir -p "$GLOBAL_PROOF_DIR"
           python3 - <<'PY'
           import json, os
           from pathlib import Path

@@ -762,6 +762,17 @@ def carrier_control(port, address):
         return b'Example Domain' in data and data.startswith(b'HTTP/1.')
 
 
+def private_acl_script():
+    # SID strings select the account-name overload and fail translation. Pass
+    # real SecurityIdentifier objects to the IdentityReference overload.
+    return ("$acl=New-Object Security.AccessControl.DirectorySecurity;"
+        "$acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')));"
+        "$acl.SetAccessRuleProtection($true,$false);foreach($sid in @('S-1-5-18','S-1-5-32-544')){"
+        "$identity=New-Object Security.Principal.SecurityIdentifier($sid);"
+        "$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity,'FullControl',"
+        "'ContainerInherit,ObjectInherit','None','Allow')))};")
+
+
 def run(arguments):
     if os.name != 'nt' or not arguments.ack_disposable_windows:
         raise RuntimeError('explicit_disposable_windows_ack_required')
@@ -786,11 +797,8 @@ def run(arguments):
     nonce = secrets.token_hex(8)
     work = Path(os.environ['ProgramData']) / 'RuleProxy-Web' / ('capture-' + nonce)
     work.mkdir()
-    ps("$p=$env:RP_CAPTURE_WORK;$acl=New-Object Security.AccessControl.DirectorySecurity;"
-       "$acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')));"
-       "$acl.SetAccessRuleProtection($true,$false);foreach($sid in @('S-1-5-18','S-1-5-32-544')){"
-       "$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))};"
-       "Set-Acl -LiteralPath $p -AclObject $acl;$result='ok'", {'RP_CAPTURE_WORK': str(work)})
+    ps(private_acl_script() + "Set-Acl -LiteralPath $env:RP_CAPTURE_WORK -AclObject $acl;$result='ok'",
+       {'RP_CAPTURE_WORK': str(work)})
     protected_path(work, private=True)
     shutil.copy2(__file__, work / 'capture.py')
     shutil.copytree(root / 'python', work / 'actor')
