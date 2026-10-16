@@ -58,12 +58,13 @@ def client():
     if os.stat('/proc/self/ns/net').st_ino==int(os.environ['RULEPROXY_PARENT_NETNS']):
         raise RuntimeError('Refusing socket probes in the parent network namespace')
     print(json.dumps({'pid':os.getpid(),'uid':os.geteuid(),'namespace':os.stat('/proc/self/ns/net').st_ino}),flush=True)
-    servers=[];cached=None
+    servers=[];cached=None;last_error=None
     for line in sys.stdin:
         request=json.loads(line);operation=request['operation'];answer=False
         try:
             if operation=='stop':return
-            if operation=='listen':
+            if operation=='diagnostics':answer=last_error
+            elif operation=='listen':
                 servers.extend([echo_server(socket.AF_INET,socket.SOCK_STREAM,'0.0.0.0',18879),
                                 echo_server(socket.AF_INET6,socket.SOCK_STREAM,'::',18879)])
                 answer=True
@@ -97,7 +98,9 @@ def client():
                     if operation=='open':cached=peer;peer=None
                 finally:
                     if peer:peer.close()
-        except OSError:answer=False
+        except OSError as error:
+            answer=False
+            last_error={'operation':operation,'type':type(error).__name__,'errno':error.errno}
         print(json.dumps({'result':answer}),flush=True)
 
 
