@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 import hashlib
 from contextlib import nullcontext
 
@@ -67,7 +67,11 @@ class GlobalInstallTests(unittest.TestCase):
 
     def test_remove_has_no_network_commands(self):
         installer.install(self.source,1000);installer.subprocess.run.reset_mock()
-        installer.remove()
+        # Real installation is root-only. This unprivileged fixture already
+        # mocks protected-directory ownership; simulate only the policy's root
+        # ownership while retaining its real filesystem removal operations.
+        policy=Mock(wraps=self.policy);policy.stat.return_value=Mock(st_uid=0)
+        with patch.object(installer,'POLICY',policy):installer.remove()
         self.assertFalse(self.destination.exists());self.assertFalse(self.policy.exists())
         installer.subprocess.run.assert_not_called()
 

@@ -169,6 +169,37 @@ class HarnessPlanningTests(unittest.TestCase):
                 H.restore_capture(state)
             self.assertFalse(H.read_json(state)['capture']['stopped'])
 
+    def test_scope_diagnostic_reports_exact_safety_fields_without_relaxing_rejection(self):
+        from contextlib import contextmanager
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from ruleproxy import windows_global_guard as guard
+        owned = H.scoped_guard({'root': '/protected', 'owner_sid': 'S-1-5-21-1-2-3-1001'}, 'unit-scope')
+        value = guard._Filter()
+        key = guard._GUID.of(owned.provider)
+        value.key = guard._GUID.of(owned._rule_key(6, 'block'))
+        value.display = guard._Display('scope', owned.marker)
+        value.provider = H.ctypes.pointer(key)
+        value.layer = guard._GUID.of(guard._LAYERS[6])
+        value.sublayer = guard._GUID.of(owned.sublayer)
+        value.flags, value.count = 65, 1
+        @contextmanager
+        def get(kind, identity, structure):
+            yield value if str(identity) == value.key.text() else None
+        engine = SimpleNamespace(get=get)
+        with self.assertRaisesRegex(guard.ProxyError, 'scope_filter_readback') as caught:
+            owned._filters(engine)
+        diagnostic = json.loads(str(caught.exception).split(':', 1)[1])
+        self.assertEqual(len(diagnostic), 1)
+        row = diagnostic[0]
+        self.assertEqual(row['flags'], 65)
+        self.assertEqual(row['expected_flags'], 1)
+        self.assertTrue(all(row[field] for field in ('marker_matches', 'provider_matches',
+            'sublayer_matches', 'layer_matches')))
+        self.assertEqual(row['condition_count'], 1)
+        self.assertNotIn('/protected', str(caught.exception))
+        self.assertNotIn('app', row)
+
     def test_failed_open_process_only_missing_pid_can_count_as_gone(self):
         from types import SimpleNamespace
         from unittest.mock import Mock

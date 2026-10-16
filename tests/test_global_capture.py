@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 from ruleproxy.config import compile_config
 from ruleproxy.global_runtime import ManagedGlobalCore
@@ -130,6 +131,26 @@ class GlobalManagerTests(unittest.TestCase):
             self.manager.stop()
         self.backend.stop.assert_called_once()
         self.backend.stop.side_effect = None
+
+    def test_global_store_launch_refreshes_registered_entry_without_app_path_routing(self):
+        self.manager.import_yaml(SOURCE)
+        self.manager.set_capture_mode('global')
+        self.manager.start()
+        binding = {'package_family_name': 'Vendor.App_publisher', 'application_id': 'Main', 'scope': 'package'}
+        app = {'id': 'app', 'label': 'Store application', 'path': r'C:\OldVersion\main.exe',
+               'adapter': 'chromium', 'args': [], 'enabled': True, 'store_binding': binding}
+        self.manager.settings['apps'] = [app]
+        current = r'C:\CurrentVersion\main.exe'
+        with patch('ruleproxy.manager.sys.platform', 'win32'), \
+                patch('ruleproxy.windows_app_family.resolve_store_family', return_value=SimpleNamespace(entry_path=current)), \
+                patch('ruleproxy.manager.prepare_app', return_value=([current], {}, '')) as prepare, \
+                patch('ruleproxy.windows_app_process.launch', return_value=Mock(pid=5234, poll=Mock(return_value=None))), \
+                patch.object(self.manager, 'windows_backend') as application_backend:
+            self.manager.launch('app')
+        application_backend.assert_not_called()
+        self.assertEqual(app['path'], current)
+        self.assertFalse(prepare.call_args.kwargs['native_proxy'])
+        self.manager.active.clear()
 
     def test_managed_process_does_not_implicitly_release_the_guard_on_loss(self):
         core = ManagedGlobalCore(self.backend, self.backend.start.return_value)

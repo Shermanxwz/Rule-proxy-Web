@@ -446,14 +446,43 @@ def restore_capture(state_path):
     return {'stopped': True, 'owned_capture_created': True}
 
 
+def scope_filter_diagnostics(owned, engine):
+    # Only deterministic keys in this random per-run scope. No enumeration,
+    # AppId blobs, security descriptors, filesystem paths or packet contents.
+    from ruleproxy import windows_global_guard as guard
+    records = []
+    for family, name in guard._ALL_RULES:
+        with engine.get('Filter', owned._rule_key(family, name), guard._Filter) as value:
+            if value is None:
+                continue
+            records.append({'key': value.key.text(), 'family': family, 'name': name,
+                'marker_matches': value.display.description == owned.marker,
+                'provider_matches': bool(value.provider) and value.provider.contents.text() == str(owned.provider),
+                'sublayer_matches': value.sublayer.text() == str(owned.sublayer),
+                'layer_matches': value.layer.text() == guard._LAYERS[family],
+                'flags': int(value.flags), 'expected_flags': guard._PERSISTENT,
+                'condition_count': int(value.count)})
+            if len(records) == 2:
+                break
+    return records
+
+
 def scoped_guard(metadata, nonce):
-    from ruleproxy.windows_global_guard import Guard
-    class Scoped(Guard):
+    from ruleproxy import windows_global_guard as guard
+    class Scoped(guard.Guard):
         def __init__(self, deployment):
             super().__init__(deployment)
             self.identity = hashlib.sha256((self.identity + '/native-scope/' + nonce).encode()).hexdigest()
             self.provider, self.sublayer = self._key('provider'), self._key('sublayer')
             self.marker = 'RuleProxyGuard-v1:' + self.identity
+
+        def _filters(self, engine):
+            try:
+                return super()._filters(engine)
+            except guard.ProxyError as error:
+                detail = scope_filter_diagnostics(self, engine)
+                raise guard.ProxyError(getattr(error, 'code', 'global_guard_conflict'),
+                    'scope_filter_readback:' + json.dumps(detail, separators=(',', ':'))) from error
     return Scoped(metadata)
 
 

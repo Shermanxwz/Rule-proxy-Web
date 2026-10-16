@@ -218,8 +218,9 @@ def main():
         inside(['ip','address','add',APP4+'/24','dev','rpclient'])
         inside(['ip','-6','address','add',APP6+'/64','dev','rpclient','nodad'])
         inside(['ip','route','add','default','via',NODE4]);inside(['ip','-6','route','add','default','via',NODE6])
-        servers=[echo_server(family,kind,address,port)
-                 for family,address in ((socket.AF_INET,'0.0.0.0'),(socket.AF_INET6,'::'))
+        servers=[echo_server(family,kind,udp_target if kind==socket.SOCK_DGRAM else wildcard,port)
+                 for family,wildcard,udp_target in ((socket.AF_INET,'0.0.0.0',TARGET4),
+                                                    (socket.AF_INET6,'::',TARGET6))
                  for kind,port in ((socket.SOCK_STREAM,18878),(socket.SOCK_DGRAM,18880))]
         dns_count=[0];dns_socket=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);dns_socket.bind((DNS4,53))
         def dns_sink():

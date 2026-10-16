@@ -132,8 +132,12 @@ def main():
         inside(['ip','-6','address','add','2001:4860::2/64','dev','rpclient','nodad'])
         inside(['ip','route','add','default','via','8.8.8.8'])
         inside(['ip','-6','route','add','default','via','2001:4860::1'])
-        servers=[echo_server(family,kind,address,port)
-                 for family,address in ((socket.AF_INET,'0.0.0.0'),(socket.AF_INET6,'::'))
+        # Connected UDP clients require replies from the exact destination.
+        # A wildcard bind would choose the interface's primary source address
+        # when the probe targets its secondary alias.
+        servers=[echo_server(family,kind,udp_target if kind==socket.SOCK_DGRAM else wildcard,port)
+                 for family,wildcard,udp_target in ((socket.AF_INET,'0.0.0.0','8.8.4.4'),
+                                                    (socket.AF_INET6,'::','2001:4860:1::1'))
                  for kind,port in ((socket.SOCK_STREAM,18878),(socket.SOCK_DGRAM,18880))]
         for version in (4,6):
             for operation in ('tcp','udp'):assert rpc(operation,version=version),(operation,version,'baseline')

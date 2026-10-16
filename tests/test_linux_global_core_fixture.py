@@ -1,4 +1,4 @@
-"""Pure protocol checks for the isolated acceptance fixture; no sockets opened."""
+"""Protocol checks for isolated fixtures; the source-address probe is loopback only."""
 import importlib.util
 import io
 import ipaddress
@@ -28,6 +28,19 @@ class CoreFixtureProtocolTests(unittest.TestCase):
             raw=b'\x00\x00\x00'+bytes([kind])+socket.inet_pton(family,address)+struct.pack('!H',18880)+b'fixture'
             self.assertEqual(self.fixture.udp_address(raw)[:3],(address,18880,b'fixture'))
             with self.assertRaises(OSError):self.fixture.udp_address(b'\x00\x00\x01'+raw[3:])
+
+    def test_exact_udp_echo_bind_preserves_requested_alias_as_reply_source(self):
+        address='127.0.0.2'
+        listener=self.fixture.echo_server(socket.AF_INET,socket.SOCK_DGRAM,address,0)
+        self.addCleanup(listener.close)
+        destination=(address,listener.getsockname()[1])
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as peer:
+            peer.settimeout(1);peer.sendto(b'alias-source',destination)
+            data,origin=peer.recvfrom(1024)
+            self.assertEqual(data,b'alias-source');self.assertEqual(origin,destination)
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as peer:
+            peer.settimeout(1);peer.connect(destination);peer.sendall(b'connected')
+            self.assertEqual(peer.recv(1024),b'connected')
 
     def test_node_rejects_every_nonfixture_target_without_connecting(self):
         class Peer:

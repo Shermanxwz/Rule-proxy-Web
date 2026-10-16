@@ -826,10 +826,16 @@ class Manager:
             if ident in self.active:
                 self.stop_app(ident)
             global_mode = self.capture_mode == 'global'
-            if sys.platform == 'win32' and not global_mode:
-                # Resolve current Store versions and cover package helpers
-                # before validating/starting the selected executable.
-                self._sync_windows_policy()
+            if sys.platform == 'win32':
+                if global_mode:
+                    self._bind_store_app(app)
+                    if app.get('store_binding'):
+                        from .windows_app_family import resolve_store_family
+                        app['path'] = resolve_store_family(app['store_binding']).entry_path
+                else:
+                    # Resolve current Store versions and cover package helpers
+                    # before validating/starting the selected executable.
+                    self._sync_windows_policy()
             profile = self.directory / "profiles" / ident
             options = ({'transparent': True, 'native_proxy': not global_mode}
                        if sys.platform == 'win32' else ({'transparent': True} if global_mode else {}))
