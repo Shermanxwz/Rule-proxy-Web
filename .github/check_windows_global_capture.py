@@ -145,6 +145,66 @@ def component_id(document, mac, description):
     return found.pop()
 
 
+def component_diagnostics(document, mac, description):
+    # Bounded structural evidence only. Never include executable paths or raw
+    # packets, and never select an ambiguous or merely similar component.
+    pending, rows, visited = [('$', document)], [], 0
+    expected = ''.join(c for c in mac.casefold() if c in '0123456789abcdef')
+    matching_mac, matching_description = 0, 0
+    fields_wanted = {'id', 'componentid', 'compid', 'mac', 'macaddress', 'name',
+                     'description', 'type', 'componenttype', 'mediatype'}
+    def safe(value):
+        if isinstance(value, str):
+            if ':\\' in value or value.startswith(('\\\\', '/')):
+                return '<path omitted>'
+            return ''.join(c for c in value if ord(c) >= 32)[:160]
+        if value is None or type(value) in (int, bool):
+            return value
+        return '<' + type(value).__name__ + '>'
+    while pending and visited < 10000:
+        path, value = pending.pop()
+        visited += 1
+        if isinstance(value, list):
+            pending.extend((path + '[' + str(index) + ']', item) for index, item in enumerate(value))
+        elif isinstance(value, dict):
+            fields = {key.casefold().replace('_', '').replace('-', '').replace(' ', ''): item
+                      for key, item in value.items() if isinstance(key, str)}
+            candidate = fields.get('macaddress', fields.get('mac'))
+            same_mac = isinstance(candidate, str) and ''.join(c for c in candidate.casefold()
+                        if c in '0123456789abcdef') == expected
+            same_description = fields.get('name') == description or fields.get('description') == description
+            matching_mac += int(same_mac)
+            matching_description += int(same_description)
+            if fields_wanted.intersection(fields) and len(rows) < 96:
+                rows.append({'json_path': path[:200], 'keys': [safe(str(key)) for key in list(value)[:20]],
+                    'fields': {key: safe(item) for key, item in fields.items() if key in fields_wanted},
+                    'field_types': {key: type(item).__name__ for key, item in fields.items() if key in fields_wanted},
+                    'exact_mac_match': same_mac, 'exact_description_match': same_description})
+            pending.extend((path + '.' + str(key)[:60], item) for key, item in value.items())
+    return {'top_type': type(document).__name__, 'rows': rows, 'visited': visited,
+            'rows_bound_reached': len(rows) == 96, 'traversal_incomplete': bool(pending),
+            'exact_mac_match_count': matching_mac, 'exact_description_match_count': matching_description}
+
+
+def nic_components():
+    nic = json.loads(ps("$r=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore|Sort-Object RouteMetric);"
+        "if(-not $r.Count){throw 'no physical default route'};$a=Get-NetAdapter -InterfaceIndex $r[0].InterfaceIndex;"
+        "if($a.Status -ne 'Up'){throw 'adapter down'};$ip=@(Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4|"
+        "Where-Object {$_.AddressState -eq 'Preferred' -and -not $_.SkipAsSource})[0];"
+        "$result=@{index=[int]$a.ifIndex;mac=[string]$a.MacAddress;description=[string]$a.InterfaceDescription;"
+        "source=[string]$ip.IPAddress;gateway=[string]$r[0].NextHop;alias=[string]$a.Name}|ConvertTo-Json -Compress"))
+    document = json.loads(pktmon('list', '--json'))
+    evidence = component_diagnostics(document, nic['mac'], nic['description'])
+    evidence['nic'] = {key: nic[key] for key in ('index', 'mac', 'description')}
+    component = None
+    try:
+        component = component_id(document, nic['mac'], nic['description'])
+    except ValueError as error:
+        evidence['selection_error'] = str(error)
+    evidence['selected_component'] = component
+    return nic, component, evidence
+
+
 def ethernet_probe(frame, marker):
     if len(frame) < 14:
         raise ValueError('short_ethernet')
@@ -815,6 +875,12 @@ def run(arguments):
     metadata = load_deployment(root)
     if current_user_sid() != metadata['owner_sid']:
         raise RuntimeError('run_as_installing_desktop_owner_not_system')
+    if arguments.read_only_components:
+        _nic, _component, evidence = nic_components()
+        arguments.output.parent.mkdir(parents=True, exist_ok=True)
+        write_json(arguments.output, {'schema_version': 1, 'read_only_components': True,
+            'network_modified': False, 'strict_qualified': False, 'components': evidence})
+        return 0
     if Guard(metadata).status().get('active') or DnsLease(metadata).status(refresh=True).get('active'):
         raise RuntimeError('existing_guard_or_dns_lease_refused')
     native = Runtime(root)
@@ -852,17 +918,14 @@ def run(arguments):
         fixture = EchoNode()
         source = fixture_source(fixture.port)
         report['fixture_dns'] = fixture_dns_preflight()
+        nic, component, evidence = nic_components()
+        report['components'] = evidence
+        if component is None:
+            raise ValueError(evidence['selection_error'])
+        state['nic'] = nic
         report['ipv6_scoped_action'] = scoped_ipv6_preflight(work, state_path)
         if not report['ipv6_scoped_action']['passed']:
             raise RuntimeError('scoped_ipv6_restore_failed')
-        nic = json.loads(ps("$r=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore|Sort-Object RouteMetric);"
-            "if(-not $r.Count){throw 'no physical default route'};$a=Get-NetAdapter -InterfaceIndex $r[0].InterfaceIndex;"
-            "if($a.Status -ne 'Up'){throw 'adapter down'};$ip=@(Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4|"
-            "Where-Object {$_.AddressState -eq 'Preferred' -and -not $_.SkipAsSource})[0];"
-            "$result=@{index=[int]$a.ifIndex;mac=[string]$a.MacAddress;description=[string]$a.InterfaceDescription;"
-            "source=[string]$ip.IPAddress;gateway=[string]$r[0].NextHop;alias=[string]$a.Name}|ConvertTo-Json -Compress"))
-        state['nic'] = nic
-        component = component_id(json.loads(pktmon('list', '--json')), nic['mac'], nic['description'])
         ps("if(@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -ErrorAction SilentlyContinue).Count){throw 'test prefix already owned'};$result='ok'")
         state['route_created'] = True  # watchdog covers a crash immediately after route creation
         write_json(state_path, state)
@@ -964,6 +1027,7 @@ def run(arguments):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ack-disposable-windows', action='store_true')
+    parser.add_argument('--read-only-components', action='store_true')
     parser.add_argument('--installed-root', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--state', type=Path)

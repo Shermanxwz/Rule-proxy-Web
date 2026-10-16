@@ -200,6 +200,45 @@ class HarnessPlanningTests(unittest.TestCase):
         self.assertNotIn('/protected', str(caught.exception))
         self.assertNotIn('app', row)
 
+    def test_component_diagnostic_exposes_id_type_and_nested_schema_without_guessing(self):
+        data = {'Components': [{'Component ID': '17', 'MACAddress': 'AA-BB-CC-DD-EE-FF',
+                'Description': 'physical', 'Type': 'Miniport'}]}
+        evidence = H.component_diagnostics(data, 'AA-BB-CC-DD-EE-FF', 'physical')
+        self.assertEqual(evidence['exact_mac_match_count'], 1)
+        self.assertEqual(evidence['exact_description_match_count'], 1)
+        row = evidence['rows'][0]
+        self.assertEqual(row['fields']['componentid'], '17')
+        self.assertEqual(row['field_types']['componentid'], 'str')
+        self.assertEqual(row['fields']['type'], 'Miniport')
+        self.assertIn('Components', row['json_path'])
+        with self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
+            H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'physical')
+
+    def test_component_diagnostic_bounds_and_redacts_paths_without_losing_ambiguity(self):
+        data = [{'Id': i + 1, 'Mac': 'AA-BB-CC-DD-EE-FF', 'Name': 'C:\\private\\file.exe'}
+                for i in range(120)]
+        value = H.component_diagnostics(data, 'AA-BB-CC-DD-EE-FF', 'physical')
+        self.assertEqual(value['exact_mac_match_count'], 120)
+        self.assertEqual(len(value['rows']), 96)
+        self.assertTrue(value['rows_bound_reached'])
+        self.assertNotIn('private', json.dumps(value))
+        with self.assertRaises(ValueError):
+            H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'physical')
+
+    def test_read_only_component_snapshot_reports_zero_selection_and_preserves_schema(self):
+        nic = {'index': 6, 'mac': 'AA-BB-CC-DD-EE-FF', 'description': 'physical',
+               'source': '192.0.2.1', 'gateway': '192.0.2.2', 'alias': 'Ethernet'}
+        data = {'Components': [{'Id': '7', 'Mac': nic['mac'], 'Name': nic['description']}]}
+        with patch.object(H, 'ps', return_value=json.dumps(nic)), \
+             patch.object(H, 'pktmon', return_value=json.dumps(data)) as packet:
+            actual, selected, evidence = H.nic_components()
+        self.assertEqual(actual, nic)
+        self.assertIsNone(selected)
+        self.assertEqual(evidence['selection_error'], 'physical_component_not_unique')
+        self.assertEqual(evidence['exact_mac_match_count'], 1)
+        self.assertNotIn('source', evidence['nic'])
+        packet.assert_called_once_with('list', '--json')
+
     def test_failed_open_process_only_missing_pid_can_count_as_gone(self):
         from types import SimpleNamespace
         from unittest.mock import Mock

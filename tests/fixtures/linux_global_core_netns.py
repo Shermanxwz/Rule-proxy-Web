@@ -180,6 +180,7 @@ def helper():
                 elif operation=='kill_core':
                     lease.core.kill();lease.core.wait(timeout=5);lease.watch();result=lease.snapshot()
                 elif operation=='status':result=lease.snapshot()
+                elif operation=='preserved_peers':result=list(lease.peers)
                 elif operation=='diagnostics':
                     links=lease.system.json('ip',['-j','address','show'])
                     rules=lease.system.json('ip',['-j','-6','rule','show'])
@@ -255,9 +256,20 @@ def main():
             for operation in ('tcp','udp'):assert app(operation,version=version,address=address),('baseline',operation,version)
         assert app('dns',version=4,address=DNS4,port=53);baseline_dns=dns_count[0]
         assert app('listen')
-        incoming=[socket.create_connection((address,18879),timeout=2) for address in (APP4,APP6)]
-        for peer in incoming:peer.sendall(b'alive');assert peer.recv(5)==b'alive'
+        # Keep management peers distinct from probe destinations. IPv6 source
+        # selection can otherwise choose the secondary TARGET6 /128 alias;
+        # its legitimate reply-route exception then safely blocks a new test
+        # connection to that same address before it reaches TUN.
+        incoming=[socket.create_connection((address,18879),timeout=2,source_address=(source,0))
+                  for address,source in ((APP4,NODE4),(APP6,NODE6))]
+        for peer,source,address in zip(incoming,(NODE4,NODE6),(APP4,APP6)):
+            assert peer.getsockname()[0]==source,('unexpected management source',peer.getsockname())
+            assert peer.getpeername()[0]==address,('unexpected management target',peer.getpeername())
+            peer.sendall(b'alive');assert peer.recv(5)==b'alive'
         status=rpc('start');assert status['running'] and status['strict_isolation'],status
+        preserved=rpc('preserved_peers')
+        assert set(preserved)=={NODE4+'/32',NODE6+'/128'},('unexpected preserved peers',preserved)
+        assert TARGET4+'/32' not in preserved and TARGET6+'/128' not in preserved
         private_path=str(directory/'lease'/('state-'+str(uid))/'config.yaml')
         assert not app('read_private',path=private_path),'ordinary user could read privileged controller credentials'
         for version,address in ((4,TARGET4),(6,TARGET6)):

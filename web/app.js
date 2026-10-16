@@ -57,13 +57,15 @@
     const ready = !!state;
     const imported = ready && !!state.imported;
     const running = ready && !!state.running;
-    const protectedBackend = ready && !!state.protection && !!state.protection.supported;
+    const globalQualified = !(isGlobal() && isWindows())
+      || (state?.protection?.guard?.native_qualified === true && state?.protection?.dns?.native_qualified === true);
+    const protectedBackend = ready && !!state.protection && !!state.protection.supported && globalQualified;
     ui.importButton.disabled = busy || !ready;
     ui.core.disabled = busy || !ready || running;
     ui.saveCore.disabled = busy || !ready || running;
     ui.saveNode.disabled = busy || !imported || !ui.node.value;
     ui.node.disabled = busy || !imported || !((state && state.nodes) || []).length;
-    ui.start.disabled = busy || !imported || running;
+    ui.start.disabled = busy || !imported || running || (isGlobal() && !protectedBackend);
     ui.stop.disabled = busy || !ready || !(isGlobal() || running || state?.global_fault || state?.protection?.protection_active
                                  || state?.protection?.guard?.active);
     if (ui.captureMode) ui.captureMode.disabled = busy || !ready || running || !!state?.global_fault
@@ -385,15 +387,20 @@
       ? `隔离应用可以读写下载文件夹 ${state.files_dir}：下载的文件保存在这里，要上传的文件也请先放到这里。家目录里的其他文件对隔离应用不可见。`
       : '';
     const protection = state.protection || {};
+    const globalQualified = !(isGlobal() && isWindows())
+      || (protection.guard?.native_qualified === true && protection.dns?.native_qualified === true);
+    const supported = protection.supported && globalQualified;
     if (ui.captureMode) ui.captureMode.value = state.capture_mode || 'applications';
     if (ui.captureModeDetail) ui.captureModeDetail.textContent = isGlobal()
       ? '全局覆盖整台设备，启动时需要独立系统权限组件。保护触发后，点击停止可恢复普通网络。'
       : (isWindows() ? '仅接管启用的程序及其辅助路径；已识别商店软件包会自动跟随本机版本。'
                       : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
     ui.stop.textContent = isGlobal() ? '停止全局接管并恢复网络' : '关闭受保护应用并停止';
-    ui.protectionCard.className = `protection-card ${protection.supported ? 'is-supported' : 'is-unsupported'}`;
-    ui.protectionBadge.textContent = protection.supported ? (isGlobal() ? '全局接管组件可用' : (isWindows() ? '应用代理可用' : '隔离能力可用')) : '不可用，启动受阻';
-    ui.protectionDetail.textContent = protection.detail || (protection.supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。');
+    ui.protectionCard.className = `protection-card ${supported ? 'is-supported' : 'is-unsupported'}`;
+    ui.protectionBadge.textContent = !globalQualified ? '严格全局验收未完成，启动受阻' : (supported ? (isGlobal() ? '全局接管组件可用' : (isWindows() ? '应用代理可用' : '隔离能力可用')) : '不可用，启动受阻');
+    ui.protectionDetail.textContent = !globalQualified
+      ? 'Windows 独立守卫与 DNS 尚未取得完整原生资格，当前不开放严格全局启动。可停止后切回按应用模式。'
+      : (protection.detail || (supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。'));
     ui.protectionBackend.textContent = protection.backend ? `运行后端：${protection.backend}` : '';
     const elevated = isWindows() && state.process_elevated === true;
     ui.processPermissionNote.hidden = !elevated;
