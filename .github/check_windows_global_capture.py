@@ -24,6 +24,7 @@ import ctypes
 import hashlib
 import ipaddress
 import json
+import ntpath
 import os
 import re
 from pathlib import Path
@@ -31,6 +32,7 @@ import secrets
 import select
 import shutil
 import socket
+import stat
 import struct
 import subprocess
 import sys
@@ -637,30 +639,97 @@ def valid_physical_attempt(result):
         for kind in ('tcp', 'udp'))
 
 
+class CaptureEvidenceError(RuntimeError):
+    def __init__(self, code, evidence):
+        super().__init__(code)
+        self.evidence = evidence
+
+
+def capture_idle(value):
+    return bool(re.search(r'^\s*(?:Packet Monitor|PktMon)(?: (?:driver|trace))? is not running\.?\s*$',
+                          value, re.IGNORECASE | re.MULTILINE))
+
+
+def capture_cli_metadata(value, base):
+    """Whitelist counters/configuration only, never export complete CLI text."""
+    result = {'idle_reported': capture_idle(value), 'loss_counters_reported': False}
+    counters = {'events lost', 'buffers lost', 'packets lost', 'events dropped', 'packets dropped',
+                'events logged', 'packets captured', 'buffers written', 'events captured', 'buffers free',
+                'buffers available', 'buffers allocated', 'number of buffers', 'free buffers'}
+    sizes = {'maximum file size', 'max file size', 'file size', 'buffer size', 'packet size'}
+    for line in value.splitlines()[:256]:
+        match = re.fullmatch(r'\s*([A-Za-z ]{1,48}):\s*(.*?)\s*', line)
+        if not match:
+            continue
+        label, item = match[1].casefold(), match[2]
+        key = label.replace(' ', '_')
+        if label == 'log file':
+            location = item.strip('"').replace('/', '\\')
+            name = ntpath.basename(location)
+            result['log_basename'] = name if re.fullmatch(r'[A-Za-z0-9_.%() -]{1,160}', name) else '<unrecognized basename>'
+            result['log_parent_is_private_run_directory'] = (
+                ntpath.normcase(ntpath.dirname(location)) == ntpath.normcase(str(base.parent).replace('/', '\\')))
+            result['log_matches_owned_prefix'] = bool(re.fullmatch(re.escape(str(base).replace('/', '\\'))
+                + r'(?:[_.-]?\d+)?\.etl', location, re.IGNORECASE))
+        elif label in counters and re.fullmatch(r'[0-9][0-9,]{0,24}', item):
+            result[key] = int(item.replace(',', ''))
+            if label.endswith((' lost', ' dropped')):
+                result['loss_counters_reported'] = True
+        elif label in sizes and re.fullmatch(r'[0-9][0-9,.]{0,24}(?:\s*(?:bytes|B|KB|MB|GB))?', item, re.IGNORECASE):
+            result[key] = item
+        elif label in {'logging mode', 'log mode'} and item.casefold() in {'multi-file', 'circular', 'memory', 'real-time'}:
+            result['logging_mode'] = item.casefold()
+    return result
+
+
+def capture_inventory(work, base):
+    """Inspect only capture filenames in this private run directory."""
+    rows, matching_count, matching_bytes, scanned = [], 0, 0, 0
+    for path in sorted(work.iterdir()):
+        scanned += 1
+        if scanned > 256:
+            raise RuntimeError('capture_directory_inventory_bound')
+        name = path.name
+        if '.etl' not in name.casefold() and not name.casefold().endswith('.pcapng'):
+            continue
+        info = path.stat(follow_symlinks=False)
+        reparse = bool(getattr(info, 'st_file_attributes', 0) & 0x400) or path.is_symlink()
+        regular = stat.S_ISREG(info.st_mode) and not reparse
+        matches = bool(re.fullmatch(re.escape(base.name) + r'.*\.etl', name, re.IGNORECASE))
+        matching_count += int(matches)
+        matching_bytes += info.st_size if matches else 0
+        rows.append({'basename': name if re.fullmatch(r'[A-Za-z0-9_.%() -]{1,160}', name) else '<unrecognized basename>',
+                     'bytes': info.st_size, 'regular_file': regular, 'reparse_point': reparse,
+                     'matches_expected_capture_glob': matches})
+    rows.sort(key=lambda item: not item['matches_expected_capture_glob'])
+    return {'scope': 'private_run_directory_only', 'capture_file_count': len(rows), 'files': rows[:32],
+            'rows_truncated': len(rows) > 32, 'matching_etl_count': matching_count,
+            'matching_etl_bytes': matching_bytes, 'etl_logical_event_bytes_verified': False}
+
+
 def restore_capture(state_path):
     state = read_json(state_path)
     lease = state.get('capture')
     if not lease:
         return {'stopped': True, 'owned_capture_created': False}
-    def idle(value):
-        return bool(re.search(r'^\s*(?:Packet Monitor|PktMon)(?: (?:driver|trace))? is not running\.?\s*$',
-                              value, re.IGNORECASE | re.MULTILINE))
+    base = Path(lease['base'])
     status = pktmon('status')
-    if not idle(status):
+    evidence = {'status_before': capture_cli_metadata(status, base)}
+    if not capture_idle(status):
         # CI is explicitly English Windows. Unknown/localized status fails
         # closed; no global stop without the exact private per-run log marker.
-        base = str(lease['base']).replace('/', '\\')
-        expression = (r'^\s*Log file:\s*"?' + re.escape(base)
+        expression = (r'^\s*Log file:\s*"?' + re.escape(str(base).replace('/', '\\'))
                       + r'(?:[_.-]?\d+)?\.etl"?\s*$')
         if not re.search(expression, status.replace('/', '\\'), re.IGNORECASE | re.MULTILINE):
             raise RuntimeError('capture_session_ownership_unconfirmed')
-        pktmon('stop')
+        evidence['stop'] = capture_cli_metadata(pktmon('stop'), base)
         status = pktmon('status')
-        if not idle(status):
+        evidence['status_after'] = capture_cli_metadata(status, base)
+        if not capture_idle(status):
             raise RuntimeError('owned_capture_stop_unconfirmed')
     state['capture']['stopped'] = True
     write_json(state_path, state)
-    return {'stopped': True, 'owned_capture_created': True}
+    return {'stopped': True, 'owned_capture_created': True, 'cli_metadata': evidence}
 
 
 def scope_filter_diagnostics(owned, engine):
@@ -916,6 +985,18 @@ def task(state_path, operation, *, wait=True, watchdog=False):
 
 
 def capture_probe(work, component, phase, run_actor):
+    evidence = {'phase': phase}
+    try:
+        return _capture_probe(work, component, phase, run_actor, evidence)
+    except BaseException as error:
+        code = str(error).split(':', 1)[0]
+        if not re.fullmatch(r'[a-z_]{1,80}', code):
+            code = 'capture_operation_failed'
+        evidence['error_type'] = type(error).__name__
+        raise CaptureEvidenceError(code, evidence) from error
+
+
+def _capture_probe(work, component, phase, run_actor, evidence):
     marker = ('RuleProxyCapture:' + phase + ':' + secrets.token_hex(8)).encode('ascii')
     base = work / ('wire-' + phase)
     started = False
@@ -924,17 +1005,36 @@ def capture_probe(work, component, phase, run_actor):
     state['capture'] = {'base': str(base), 'stopped': False}
     write_json(state_path, state)
     try:
-        pktmon('start', '--capture', '--comp', component, '--pkt-size', 0,
-               '--file-name', str(base) + '.etl', '--file-size', 16, '--log-mode', 'multi-file')
+        output = pktmon('start', '--capture', '--comp', component, '--pkt-size', 0,
+                        '--file-name', str(base) + '.etl', '--file-size', 16, '--log-mode', 'multi-file')
+        evidence['start'] = capture_cli_metadata(output, base)
         started = True
         result = run_actor(marker.decode('ascii'))
+        evidence['actor'] = result
         time.sleep(.5)
+        try:
+            evidence['buffer_info'] = capture_cli_metadata(pktmon('status', '--buffer-info'), base)
+        except Exception as error:
+            # Optional diagnostics must never decide whether recovery runs.
+            evidence['buffer_info'] = {'available': False, 'error_type': type(error).__name__}
     finally:
         if started:
-            restore_capture(state_path)
+            try:
+                evidence['inventory_before_stop'] = capture_inventory(work, base)
+            finally:
+                evidence['restore'] = restore_capture(state_path)
+            evidence['inventory_after_stop'] = capture_inventory(work, base)
+    time.sleep(.2)  # One bounded observation of post-stop filesystem visibility.
+    inventory = evidence['inventory_after_flush_wait'] = capture_inventory(work, base)
     sources = sorted(work.glob(base.name + '*.etl'))
-    if not 1 <= len(sources) <= 4 or sum(path.stat().st_size for path in sources) > MAX_CAPTURE:
-        raise RuntimeError('capture_incomplete_or_oversized')
+    if not sources:
+        raise RuntimeError('capture_files_missing')
+    if len(sources) > 4:
+        raise RuntimeError('capture_file_count_exceeded')
+    if inventory['matching_etl_bytes'] > MAX_CAPTURE:
+        raise RuntimeError('capture_total_bytes_exceeded')
+    if any(not item['regular_file'] for item in inventory['files'] if item['matches_expected_capture_glob']):
+        raise RuntimeError('capture_file_not_regular')
     counts = {'tcp_syn': 0, 'udp_marker': 0, 'packets_parsed': 0, 'captures': []}
     for source in sources:
         pcap = source.with_suffix('.pcapng')
@@ -944,6 +1044,7 @@ def capture_probe(work, component, phase, run_actor):
             counts[key] += summary[key]
         counts['captures'].append({'sha256': summary['sha256'], 'bytes': summary['bytes']})
     counts['actor'] = result
+    counts['capture_diagnostics'] = evidence
     return counts
 
 
@@ -1194,6 +1295,8 @@ def run(arguments):
             and report['system_core_carrier_http'] and report['ipv6_scoped_action']['passed'])
     except BaseException as error:
         report['failed_stage'] = budget.stages[-1]['stage'] if budget.stages else 'unknown'
+        if isinstance(error, CaptureEvidenceError):
+            report['capture_failure'] = error.evidence
         report['error'] = type(error).__name__ + ':' + str(error)[:900]
     finally:
         # Cleanup must remain possible after the experiment budget expires.

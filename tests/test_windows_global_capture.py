@@ -295,6 +295,7 @@ class HarnessPlanningTests(unittest.TestCase):
             active = 'Logger name: PktMon\nLog file: ' + base + '_0001.etl\n'
             with patch.object(H, 'pktmon', side_effect=[active, 'ok', 'Packet Monitor is not running.']) as packet:
                 self.assertTrue(H.restore_capture(state)['stopped'])
+            self.assertEqual(packet.call_args_list[0].args, ('status',))
             self.assertEqual(packet.call_args_list[1].args, ('stop',))
             self.assertTrue(H.read_json(state)['capture']['stopped'])
 
@@ -310,6 +311,74 @@ class HarnessPlanningTests(unittest.TestCase):
             with patch.object(H, 'pktmon', side_effect=[active, 'stop unsuccessful', active]), self.assertRaisesRegex(RuntimeError, 'stop_unconfirmed'):
                 H.restore_capture(state)
             self.assertFalse(H.read_json(state)['capture']['stopped'])
+
+    def test_capture_metadata_exports_only_owned_basename_sizes_and_reported_loss_counts(self):
+        base = Path('C:/ProgramData/private-run/wire-before')
+        output = ('Log file: C:\\ProgramData\\private-run\\wire-before1.etl\n'
+            'Logging mode: Multi-file\nMaximum file size: 16 MB\nEvents lost: 12\nBuffers lost: 0\n'
+            'Unrecognized: C:\\secret\\payload\nNode: https://private.invalid/token\n')
+        value = H.capture_cli_metadata(output, base)
+        self.assertTrue(value['log_parent_is_private_run_directory'])
+        self.assertTrue(value['log_matches_owned_prefix'])
+        self.assertEqual(value['log_basename'], 'wire-before1.etl')
+        self.assertEqual(value['maximum_file_size'], '16 MB')
+        self.assertEqual(value['events_lost'], 12)
+        self.assertTrue(value['loss_counters_reported'])
+        self.assertNotIn('private-run', json.dumps(value))
+        self.assertNotIn('secret', json.dumps(value))
+        self.assertNotIn('invalid', json.dumps(value))
+        missing = H.capture_cli_metadata('Packet Monitor is not running.', base)
+        self.assertTrue(missing['idle_reported'])
+        self.assertFalse(missing['loss_counters_reported'])
+        self.assertNotIn('events_lost', missing)
+        foreign = H.capture_cli_metadata('Log file: C:\\foreign\\wire-before1.etl', base)
+        self.assertFalse(foreign['log_parent_is_private_run_directory'])
+        self.assertFalse(foreign['log_matches_owned_prefix'])
+
+    def test_capture_inventory_only_reports_capture_files_and_actual_sizes_inside_private_work(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            (work / 'state.json').write_text('private state')
+            (work / 'capture.py').write_text('private script')
+            (work / 'carrier-private.log').write_text('private log contents')
+            (work / 'wire-before1.etl').write_bytes(b'123456789')
+            (work / 'wire-before.etl.0001').write_bytes(b'12')
+            inventory = H.capture_inventory(work, work / 'wire-before')
+        self.assertEqual(inventory['capture_file_count'], 2)
+        self.assertEqual(inventory['matching_etl_count'], 1)
+        self.assertEqual(inventory['matching_etl_bytes'], 9)
+        self.assertEqual({item['basename'] for item in inventory['files']}, {'wire-before1.etl', 'wire-before.etl.0001'})
+        self.assertFalse(inventory['etl_logical_event_bytes_verified'])
+        self.assertNotIn(directory, json.dumps(inventory))
+        self.assertNotIn('contents', json.dumps(inventory))
+        self.assertNotIn('state.json', json.dumps(inventory))
+
+    def test_capture_failure_distinguishes_missing_count_size_and_still_restores(self):
+        for count, size, code in ((0, 1, 'capture_files_missing'),
+                                 (5, 1, 'capture_file_count_exceeded'),
+                                 (1, 9, 'capture_total_bytes_exceeded')):
+            with self.subTest(count=count, size=size), tempfile.TemporaryDirectory() as directory:
+                work = Path(directory)
+                H.write_json(work / 'state.json', {})
+                def actor(_marker):
+                    for index in range(count):
+                        (work / ('wire-before' + str(index + 1) + '.etl')).write_bytes(b'x' * size)
+                    return {'probe_executed': True}
+                with patch.object(H, 'pktmon', side_effect=['Logging mode: Multi-file\nMaximum file size: 16 MB',
+                         RuntimeError('unsupported optional flag with private output')]), \
+                     patch.object(H, 'restore_capture', return_value={'stopped': True}) as restore, \
+                     patch.object(H.time, 'sleep'), patch.object(H, 'MAX_CAPTURE', 8), \
+                     self.assertRaisesRegex(H.CaptureEvidenceError, code) as caught:
+                    H.capture_probe(work, 40, 'before', actor)
+                restore.assert_called_once_with(work / 'state.json')
+                evidence = caught.exception.evidence
+                self.assertEqual(evidence['phase'], 'before')
+                self.assertEqual(evidence['inventory_after_flush_wait']['matching_etl_count'], count)
+                self.assertEqual(evidence['inventory_after_flush_wait']['matching_etl_bytes'], count * size)
+                self.assertTrue(evidence['restore']['stopped'])
+                self.assertEqual(evidence['buffer_info'], {'available': False, 'error_type': 'RuntimeError'})
+                self.assertNotIn('private output', json.dumps(evidence))
+                self.assertNotIn(directory, json.dumps(evidence))
 
     def test_scope_diagnostic_reports_exact_safety_fields_without_relaxing_rejection(self):
         from contextlib import contextmanager
