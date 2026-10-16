@@ -7,6 +7,18 @@ param(
     [switch]$NoLaunch
 )
 $ErrorActionPreference = 'Stop'
+$script:SetupTranscriptPath = $null
+$script:SetupTranscriptActive = $false
+trap {
+    [Console]::Error.WriteLine(('RuleProxy setup failed: ' + $_.Exception.Message))
+    if ($script:SetupTranscriptPath) {
+        [Console]::Error.WriteLine(('Installation session log: ' + $script:SetupTranscriptPath))
+    } else {
+        [Console]::Error.WriteLine('This process has no protected session log. Keep the error shown here; administrator installation logs, when available, are under ProgramData\RuleProxy-Web\setup-logs.')
+    }
+    if ($script:SetupTranscriptActive) { try { Stop-Transcript | Out-Null } catch {} }
+    exit 1
+}
 $env:PSModulePath = [IO.Path]::Combine($PSHOME,'Modules')
 Import-Module -Name Microsoft.PowerShell.Security -ErrorAction Stop
 Import-Module -Name Microsoft.PowerShell.Management -ErrorAction Stop
@@ -25,6 +37,123 @@ if ($env:PROCESSOR_ARCHITEW6432 -or $env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
 }
 if ([Environment]::OSVersion.Version.Build -lt 22000) { throw 'Windows 11 x64 is required' }
 $manifestPath = Join-Path $SourceRoot 'package-manifest.json'
+
+function Get-SetupExitCode($Process, [string]$Label) {
+    if ($null -eq $Process) { throw ('No process result was returned: ' + $Label) }
+    # Populate the native process exit information before reading ExitCode.
+    # A missing code must never become `exit $null`, which reports success.
+    [void]$Process.WaitForExit()
+    [void]$Process.Refresh()
+    $code = $Process.ExitCode
+    if ($null -eq $code) { throw ('No exit code was returned: ' + $Label) }
+    return [int]$code
+}
+
+function Test-OwnerPanel([string]$InstalledRoot) {
+    $probe = @'
+import sys, time
+from ruleproxy.panel_client import panel_state
+deadline = time.monotonic() + 10
+while True:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        sys.exit(1)
+    if panel_state(8879, timeout=min(1, remaining)) is not None:
+        sys.exit(0)
+    time.sleep(min(0.25, max(0, deadline - time.monotonic())))
+'@
+    $process = $null
+    try {
+        # Reuse this installation's interpreter and proxy-free panel client.
+        # NoNewWindow keeps the one-time installer console; the hard process
+        # deadline also bounds a slow HTTP response beyond its socket timeout.
+        $process = Start-Process -FilePath (Join-Path $InstalledRoot 'python\python.exe') -ArgumentList @('-I','-S','-c',('"' + $probe + '"')) -WorkingDirectory $InstalledRoot -NoNewWindow -PassThru
+        if (-not $process.WaitForExit(12000)) {
+            $process.Kill()
+            [void]$process.WaitForExit(1000)
+            return $false
+        }
+        return ((Get-SetupExitCode $process 'Web panel health probe') -eq 0)
+    } catch {
+        return $false
+    } finally {
+        if ($null -ne $process) { try { $process.Dispose() } catch {} }
+    }
+}
+
+function Test-ExistingDeployment([string]$ExistingRoot, [string]$Stage, [string]$ExpectedOwner) {
+    $verificationCode = @'
+import sys
+from pathlib import Path
+from ruleproxy.windows_proxy_service import load_deployment, ServiceControl
+metadata = load_deployment(Path(sys.argv[1]))
+if metadata['owner_sid'] != sys.argv[2] or 'package-manifest.json' not in metadata['files']:
+    raise ValueError('Existing deployment identity or package receipt is incomplete')
+ServiceControl().verify(metadata)
+'@
+    $global:LASTEXITCODE = $null
+    & (Join-Path $Stage 'python\python.exe') -I -S -c $verificationCode $ExistingRoot $ExpectedOwner 2>&1 | Out-Null
+    return ($null -ne $global:LASTEXITCODE -and $global:LASTEXITCODE -eq 0)
+}
+
+function Test-ReusableComponents([bool]$CompletedOwnedDeployment, [bool]$BundleRegistered,
+    [bool]$RuntimeCompatible, [bool]$DriverCompatible, [string]$ExistingRoot,
+    [string]$Stage, $Manifest, [string]$ExpectedOwner) {
+    if (-not ($CompletedOwnedDeployment -and $BundleRegistered -and $RuntimeCompatible -and $DriverCompatible)) { return $false }
+    try {
+        # Only the protected installed receipt is eligible; source/cache receipts
+        # do not establish what was installed. load_deployment below also checks
+        # its recorded digest and every installed program/engine file and ACL.
+        $receipt = Join-Path $ExistingRoot 'package-manifest.json'
+        Assert-Protected $receipt
+        if ((Get-Item -LiteralPath $receipt).Length -gt 4MB) { return $false }
+        $previous = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+        if ($previous.schema_version -ne 1 -or $previous.platform -ne 'windows-amd64' -or $previous.backend -ne 'proxifyre') { return $false }
+        foreach ($key in @('vc_redist','ndis_msi','proxifyre_msi','proxifyre_setup')) {
+            $oldPin = $previous.installers.$key.sha256
+            $newPin = $Manifest.installers.$key.sha256
+            if ($oldPin -notmatch '^[a-f0-9]{64}$' -or $newPin -notmatch '^[a-f0-9]{64}$' -or $oldPin -cne $newPin) { return $false }
+        }
+        return (Test-ExistingDeployment $ExistingRoot $Stage $ExpectedOwner)
+    } catch { return $false }
+}
+
+function Complete-OwnerSetup([string]$InstalledRoot, [string]$Desktop, [switch]$NoLaunch) {
+    if ($NoLaunch) {
+        Write-Host 'Installation complete; desktop shortcut and background panel launch were skipped as requested.'
+        return
+    }
+    # This runs only in the original owner's continuation, whether that owner
+    # started normally or as administrator. A different UAC account never runs it.
+    $shell = $null
+    $link = $null
+    try {
+        if (-not $Desktop) { throw 'Desktop folder is unavailable' }
+        $desktopLink = Join-Path $Desktop 'RuleProxy Web.lnk'
+        if (Test-Path -LiteralPath $desktopLink) {
+            $item = Get-Item -LiteralPath $desktopLink -Force
+            if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Existing desktop entry is not an ordinary shortcut' }
+            $shell = New-Object -ComObject WScript.Shell
+            $link = $shell.CreateShortcut($desktopLink)
+            if (-not $link.TargetPath.StartsWith($InstalledRoot + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Existing desktop shortcut belongs to another program' }
+        }
+        Copy-Item -LiteralPath (Join-Path $InstalledRoot 'Start-Windows.lnk') -Destination $desktopLink -Force
+        Write-Host ('Desktop Web panel launcher: ' + $desktopLink)
+    } catch {
+        Write-Warning ('Desktop shortcut left unchanged: ' + $_.Exception.Message + '. Use ' + (Join-Path $InstalledRoot 'Start-Windows.lnk'))
+    } finally {
+        if ($link) { [Runtime.InteropServices.Marshal]::ReleaseComObject($link) | Out-Null }
+        if ($shell) { [Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null }
+    }
+    Write-Host 'Starting the background Web panel without opening a browser.'
+    Start-Process -FilePath (Join-Path $InstalledRoot 'python\pythonw.exe') -ArgumentList @('-I','-S',('"' + (Join-Path $InstalledRoot 'Run-RuleProxy.py') + '"'),'--no-browser') -WorkingDirectory $InstalledRoot
+    Write-Host 'Checking that the local Web panel is ready (up to twelve seconds).'
+    if (-not (Test-OwnerPanel $InstalledRoot)) {
+        $panelLog = Join-Path $env:LOCALAPPDATA 'RuleProxyWebSafe\panel.log'
+        throw ('The program installation completed, but the Web panel failed to start. Installed components were retained. See ' + $panelLog + ' and retry the installed Start-Windows.lnk launcher.')
+    }
+    Write-Host 'Installation complete. Web panel: http://127.0.0.1:8879'
+}
 
 # A checkout or online release bootstraps a pinned private Python without pip/global Python.
 # An offline archive already contains the complete verified payload.
@@ -61,43 +190,29 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     }
     $SourceRoot = $stagedSource
     $manifestPath = Join-Path $SourceRoot 'package-manifest.json'
+    Write-Host 'Online preparation completed. The verified installation payload is ready.'
 }
 
 if (-not $isAdmin -or -not $Elevated) {
     if ($Elevated) { throw 'Installer elevation did not succeed' }
-    # Only fixed installer parameters cross UAC. Never run the panel elevated.
+    # Only fixed installer parameters cross UAC. The child never starts the panel
+    # or writes another account's desktop; the original owner does that below.
     $script = Join-Path $SourceRoot 'scripts\windows-setup.ps1'
     $arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $script.Replace('"','') + '" -SourceRoot "' + $SourceRoot.Replace('"','') + '" -OwnerSid ' + $OwnerSid + ' -Elevated -NoLaunch'
-    $child = Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -Verb RunAs -ArgumentList $arguments -Wait -PassThru
-    if ($child.ExitCode -ne 0) { exit $child.ExitCode }
-    if (-not $NoLaunch -and -not $isAdmin) {
-        # This continuation retains the original ordinary user's token.
-        $installedRoot = Join-Path $env:ProgramFiles 'RuleProxy-Web'
-        # The installed link targets pythonw directly, so later daily starts
-        # have no CMD/PowerShell window. Never replace an unrelated shortcut.
-        $shell = $null
-        $link = $null
-        try {
-            $desktop = [Environment]::GetFolderPath('Desktop')
-            if (-not $desktop) { throw 'Desktop folder is unavailable' }
-            $desktopLink = Join-Path $desktop 'RuleProxy Web.lnk'
-            if (Test-Path -LiteralPath $desktopLink) {
-                $item = Get-Item -LiteralPath $desktopLink -Force
-                if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Existing desktop entry is not an ordinary shortcut' }
-                $shell = New-Object -ComObject WScript.Shell
-                $link = $shell.CreateShortcut($desktopLink)
-                if (-not $link.TargetPath.StartsWith($installedRoot + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Existing desktop shortcut belongs to another program' }
-            }
-            Copy-Item -LiteralPath (Join-Path $installedRoot 'Start-Windows.lnk') -Destination $desktopLink -Force
-            Write-Host ('Desktop Web panel launcher: ' + $desktopLink)
-        } catch {
-            Write-Warning ('Desktop shortcut left unchanged: ' + $_.Exception.Message + '. Use ' + (Join-Path $installedRoot 'Start-Windows.lnk'))
-        } finally {
-            if ($link) { [Runtime.InteropServices.Marshal]::ReleaseComObject($link) | Out-Null }
-            if ($shell) { [Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null }
-        }
-        Start-Process -FilePath (Join-Path $installedRoot 'python\pythonw.exe') -ArgumentList @('-I','-S',('"' + (Join-Path $installedRoot 'Run-RuleProxy.py') + '"'),'--no-browser') -WorkingDirectory $installedRoot
+    Write-Host 'Starting protected installation. Allow the administrator prompt if Windows displays it.'
+    Write-Host ('Installer logs after security preflight: ' + (Join-Path $env:ProgramData 'RuleProxy-Web\setup-logs'))
+    try {
+        $child = Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -Verb RunAs -ArgumentList $arguments -Wait -PassThru
+    } catch {
+        throw ('Administrator installation could not start. If the administrator prompt was cancelled or denied, rerun Setup-Windows.cmd and allow it. Details: ' + $_.Exception.Message)
     }
+    $childCode = Get-SetupExitCode $child 'protected RuleProxy installation'
+    Write-Host ('Protected installation returned exit code ' + $childCode + '.')
+    if ($childCode -ne 0) {
+        [Console]::Error.WriteLine(('Protected installation did not complete. See the administrator window and ' + (Join-Path $env:ProgramData 'RuleProxy-Web\setup-logs') + '.'))
+        exit $childCode
+    }
+    Complete-OwnerSetup -InstalledRoot (Join-Path $env:ProgramFiles 'RuleProxy-Web') -Desktop ([Environment]::GetFolderPath('Desktop')) -NoLaunch:$NoLaunch
     exit 0
 }
 
@@ -206,7 +321,7 @@ function Invoke-Installer([string]$File, [string]$Arguments, [string]$Label, [sw
         & taskkill.exe /PID $process.Id /T /F | Out-Null
         throw ('Installer exceeded bound: ' + $Label)
     }
-    $code = $process.ExitCode
+    $code = Get-SetupExitCode $process $Label
     if ($code -in @(1641,3010) -or ($OfficialBurn -and $code -eq 3017)) { return 3010 }
     if ($code -ne 0) { throw ('Installer failed: ' + $Label + ' exit ' + $code) }
     return 0
@@ -305,6 +420,14 @@ else { New-Item -ItemType Directory -Path $stateRoot | Out-Null }
 if (Test-Path -LiteralPath $statePath) { Assert-Protected $statePath }
 Protect-Tree $stateRoot
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+try {
+    $sessionLog = Join-Path $logRoot ('setup-session-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N') + '.log')
+    Start-Transcript -Path $sessionLog -NoClobber | Out-Null
+    $script:SetupTranscriptPath = $sessionLog
+    $script:SetupTranscriptActive = $true
+    Write-Host ('Installation session log: ' + $sessionLog)
+} catch { Write-Warning ('Could not start installation session logging: ' + $_.Exception.Message) }
+Write-Host 'Checking installation ownership and the verified package.'
 $pfOwned = $false
 if (Test-Path -LiteralPath $statePath) {
     $oldState = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
@@ -352,6 +475,7 @@ try {
     New-Item -ItemType Directory -Path $stage | Out-Null
     Protect-Tree $stage
     $setupPhase = 'stage_copy'
+    Write-Host 'Copying and verifying the protected application files.'
     foreach ($entry in $manifest.files.PSObject.Properties) {
         $name = [string]$entry.Name
         $activePackageFile = $name
@@ -396,24 +520,38 @@ try {
     $runtime = Get-VisualCppRuntime
     [IO.File]::WriteAllText((Join-Path $logRoot 'vc-runtime-before.json'),($runtime | ConvertTo-Json -Depth 7),$utf8)
     $driver = Join-Path $env:SystemRoot 'System32\drivers\ndisrd.sys'
+    $driverCompatible = $false
     if ((Get-Service NDISRD -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath $driver)) {
         Assert-Signature $driver
         $driverVersion = [version](Get-Item -LiteralPath $driver).VersionInfo.FileVersion
         if ($driverVersion -lt [version]'3.6.1.0' -or $driverVersion -ge [version]'4.0.0.0') { throw 'An incompatible shared NDIS driver is installed; refusing replacement' }
+        $driverCompatible = $true
     }
+    $setupPhase = 'existing_components_verify'
+    $reuseComponents = Test-ReusableComponents ($pfOwned -and $oldState.phase -eq 'completed') $bundleRegistered $runtime.files_compatible $driverCompatible $root $stage $manifest $OwnerSid
     $control = Get-CimInstance Win32_Service -Filter "Name='RuleProxyControl'"
     if ($control -and $control.PathName -ne $serviceCommand) { throw 'Unexpected control service executable' }
     $restoreControlService = $null -ne $control
     if ($control) { Stop-Service -Name $serviceName -ErrorAction Stop }
     if (Get-Service ProxiFyreService -ErrorAction SilentlyContinue) { Stop-Service ProxiFyreService -ErrorAction Stop }
-    $setupPhase = 'official_burn_install'
-    $pfOwned = $true
-    Write-State 'installing_proxifyre_bundle' $pfOwned
-    $bundle = Join-Path $stage ('installers\' + $manifest.installers.proxifyre_setup.name)
-    $burnAction = if ($bundleRegistered) { '/repair' } else { '/install' }
-    $log = Join-Path $logRoot 'official-setup.log'
-    $code = Invoke-Installer $bundle ($burnAction + ' /quiet /norestart /log "' + $log + '"') 'official ProxiFyre setup' -OfficialBurn
-    if ($code -eq 3010) { Write-State 'reboot_required' $pfOwned; exit 3010 }
+    if ($reuseComponents) {
+        $setupPhase = 'existing_components_reused'
+        Write-Host 'Reusing verified installed components with unchanged installer pins; the official installer and network driver repair are skipped.'
+    } else {
+        $setupPhase = 'official_burn_install'
+        Write-Host 'Installing or repairing the official ProxiFyre components (up to four minutes); existing components did not meet every reuse check.'
+        $pfOwned = $true
+        Write-State 'installing_proxifyre_bundle' $pfOwned
+        $bundle = Join-Path $stage ('installers\' + $manifest.installers.proxifyre_setup.name)
+        $burnAction = if ($bundleRegistered) { '/repair' } else { '/install' }
+        $log = Join-Path $logRoot 'official-setup.log'
+        $code = Invoke-Installer $bundle ($burnAction + ' /quiet /norestart /log "' + $log + '"') 'official ProxiFyre setup' -OfficialBurn
+        if ($code -eq 3010) {
+            Write-State 'reboot_required' $pfOwned
+            Write-Host 'The official installer requires a Windows restart. Installation is not complete; rerun Setup-Windows.cmd afterwards.'
+            exit 3010
+        }
+    }
     $runtime = Get-VisualCppRuntime
     [IO.File]::WriteAllText((Join-Path $logRoot 'vc-runtime-after.json'),($runtime | ConvertTo-Json -Depth 7),$utf8)
     if (-not $runtime.files_compatible) { throw 'The native VC/UCRT file set remains incomplete after official setup success; inspect vc-runtime-after.json' }
@@ -426,6 +564,7 @@ try {
         [IO.File]::WriteAllText($config, '{"logLevel":"Info","bypassLan":false,"excludes":[],"proxies":[{"appNames":["RuleProxy-No-Selected-Application-71d8c7.exe"],"socks5ProxyEndpoint":"127.0.0.1:9","supportedProtocols":["TCP","UDP"],"supportedAddressFamilies":["IPv4","IPv6"]}]}', $utf8)
     }
     $setupPhase = 'panel_shortcut'
+    Write-Host 'Creating the installed Web panel launcher.'
     # Create in staging before sealing the owned file hashes, but point at the
     # final protected root. The GUID staging directory is renamed below.
     & (Join-Path $stage 'python\python.exe') -I -S (Join-Path $stage 'Run-RuleProxy.py') --create-panel-shortcut (Join-Path $stage 'Start-Windows.lnk') --shortcut-root $root
@@ -466,6 +605,7 @@ try {
     $swapped = $true
     Protect-Tree $root
     $setupPhase = 'control_service_start'
+    Write-Host 'Starting the protected RuleProxy control service.'
     $existingService = Get-CimInstance Win32_Service -Filter "Name='RuleProxyControl'"
     if ($existingService -and $existingService.PathName -ne $serviceCommand) { throw 'Refuse a non-owned control service' }
     if (-not $existingService) {
@@ -502,5 +642,9 @@ try {
                 Write-Warning ('Staging cleanup incomplete; retained at ' + $stage + ': ' + $_.Exception.Message)
             }
         }
+    }
+    if ($script:SetupTranscriptActive) {
+        try { Stop-Transcript | Out-Null } catch {}
+        $script:SetupTranscriptActive = $false
     }
 }

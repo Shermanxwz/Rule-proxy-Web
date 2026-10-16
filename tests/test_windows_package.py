@@ -88,7 +88,7 @@ class WindowsPackageTests(unittest.TestCase):
         self.assertIn("A successful build does not establish qualification", notes)
         self.assertNotIn("qualification passed", notes)
         self.assertNotIn("qualification remains pending", notes)
-        self.assertIn("Start-Windows.cmd as the same ordinary user", notes)
+        self.assertIn("same installation account to open Start-Windows.lnk", notes)
         self.assertIn("3010, restart Windows and repeat setup", notes)
         self.assertIn("Import your own YAML through the Web panel", notes)
         self.assertIn("UDP 53 and system DNS can go direct", notes)

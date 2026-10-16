@@ -91,18 +91,19 @@ class SilentWindowsStartTests(unittest.TestCase):
             notify.assert_not_called()
             self.assertIn('RuleProxy: startup failed', (state / 'panel.log').read_text(encoding='utf-8'))
 
-    def test_elevated_windows_panel_is_refused_before_binding_or_spawning(self):
-        api = Mock(assert_unelevated=Mock())
-        api.assert_unelevated.side_effect = PermissionError('elevated token')
+    def test_elevated_windows_context_does_not_block_panel_startup(self):
+        api = Mock(is_elevated=Mock(return_value=True))
         with patch.object(sys, 'platform', 'win32'), patch.object(sys, 'argv', ['Run-RuleProxy.py']), \
                 patch('ruleproxy.windows_app_process._get_api', return_value=api), \
+                patch.object(server, 'panel_state', return_value=None), \
                 patch.object(server, 'PanelServer') as listener, \
                 patch.object(server, 'Manager') as manager, \
-                patch.object(server.webbrowser, 'open') as browser:
-            with self.assertRaisesRegex(SystemExit, '桌面普通用户'):
-                server.main()
-        listener.assert_not_called()
-        manager.assert_not_called()
+                patch.object(server.signal, 'signal'), patch.object(server.threading, 'Thread'), \
+                patch.object(server.webbrowser, 'open') as browser, redirect_stdout(io.StringIO()):
+            server.main()
+        listener.assert_called_once_with(8879)
+        listener.return_value.serve_forever.assert_called_once()
+        manager.assert_called_once()
         browser.assert_not_called()
 
     def test_windows_app_shortcut_error_logs_without_any_notification_program(self):

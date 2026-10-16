@@ -1,4 +1,4 @@
-"""Launch an ordinary Windows application in an owned process-family Job.
+"""Launch a Windows application in its panel's current security context.
 
 This is process ownership, not a network isolation boundary. The caller must
 enable its transparent proxy rules before calling ``launch``. No shell,
@@ -129,7 +129,8 @@ class _KernelAPI:
         if not ok:
             raise ctypes.WinError(ctypes.get_last_error())
 
-    def assert_unelevated(self) -> None:
+    def is_elevated(self) -> bool:
+        """Read the real token state without changing UAC or the caller's token."""
         token = _HANDLE()
         self._check(self.advapi.OpenProcessToken(self.kernel.GetCurrentProcess(), 0x0008,
                                                 ctypes.byref(token)))
@@ -139,10 +140,14 @@ class _KernelAPI:
                                                        ctypes.sizeof(elevated), ctypes.byref(size)))
             if size.value != ctypes.sizeof(elevated):
                 raise OSError("Unexpected TokenElevation information size")
-            if elevated.value:
-                raise PermissionError("Applications must be launched by the ordinary user panel, not an elevated process")
+            return bool(elevated.value)
         finally:
             self.close_handle(token.value)
+
+    def assert_unelevated(self) -> None:
+        """Retained for historical probes that explicitly require a limited token."""
+        if self.is_elevated():
+            raise PermissionError("Applications must be launched by the ordinary user panel, not an elevated process")
 
     def create_job(self) -> int:
         handle = self.kernel.CreateJobObjectW(None, None)
@@ -322,7 +327,10 @@ def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None) -
         raise ValueError("Invalid application working directory")
     environment = _environment_block(env)
     api = _get_api()
-    api.assert_unelevated()
+    # A desktop user may intentionally run elevated or have UAC disabled. The
+    # app inherits that same token; it is never elevated by this launcher. The
+    # panel authenticates local HTTP callers before permitting such a launch.
+    api.is_elevated()
     job = None
     info = _ProcessInfo()
     assigned = False

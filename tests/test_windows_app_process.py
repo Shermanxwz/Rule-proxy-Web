@@ -8,20 +8,22 @@ from ruleproxy import windows_app_process as app_process
 
 
 class FakeAPI:
-    def __init__(self, failure=None):
+    def __init__(self, failure=None, *, elevated=False):
         self.failure = failure
         self.calls = []
         self.exited = False
         self.exit_status = 0
         self.environment = None
+        self.elevated = elevated
 
     def record(self, action, *args):
         self.calls.append((action, *args))
         if self.failure == action:
             raise OSError("injected " + action)
 
-    def assert_unelevated(self):
-        self.record("unelevated")
+    def is_elevated(self):
+        self.record("elevation")
+        return self.elevated
 
     def create_job(self):
         self.record("create_job")
@@ -89,7 +91,7 @@ class WindowsAppProcessTests(unittest.TestCase):
         self.assertEqual(process.pid, 987)
         self.assertEqual(process.args, self.command)
         self.assertEqual(api.calls, [
-            ("unelevated",), ("create_job",),
+            ("elevation",), ("create_job",),
             ("configure_job", 101, app_process._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE),
             ("create_process", self.command, r"C:\Work"),
             ("assign_job", 101, 201), ("resume_thread", 202), ("close_handle", 202),
@@ -104,12 +106,19 @@ class WindowsAppProcessTests(unittest.TestCase):
         self.assertEqual(env, original)
         self.assertEqual(api.environment, "CUSTOM=你好\0PATH=C:\\Windows\0\0")
 
-    def test_elevation_or_token_query_failure_creates_nothing(self):
-        api = FakeAPI("unelevated")
+    def test_elevated_context_still_assigns_job_before_resuming(self):
+        api, process = self.start(FakeAPI(elevated=True))
+        self.assertEqual(process.pid, 987)
+        actions = [call[0] for call in api.calls]
+        self.assertEqual(actions[0], 'elevation')
+        self.assertLess(actions.index('assign_job'), actions.index('resume_thread'))
+
+    def test_token_query_failure_creates_nothing(self):
+        api = FakeAPI("elevation")
         with mock.patch.object(app_process, "_get_api", return_value=api):
             with self.assertRaises(OSError):
                 app_process.launch(self.command, {})
-        self.assertEqual(api.calls, [("unelevated",)])
+        self.assertEqual(api.calls, [("elevation",)])
 
     def test_configuration_failure_closes_job_without_creating_application(self):
         api = FakeAPI("configure_job")

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.6",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "b64e43a25148371a311fb14857845b62b1e0022362e980b07fb6a88e221e30fe",
+    "bytes": 229120
+  },
+  "source_base_commit": "383e549fcddb1abd5c3ce7a679fecd03d53ed42c",
+  "source_files": 45,
+  "archive_members": 47,
+  "change": "Support current-account Windows elevated/UAC-disabled startup; finish administrator setup with desktop shortcut and bounded panel health check; reuse fully verified identical components",
+  "uac_or_ipv6_settings_modified_by_product": false,
+  "elevated_http_authorization": "Actual TCP owner process TokenUser SID must match panel account; held process handle, timestamp and liveness checks reject stale PID entries; errors deny access",
+  "same_account_program_isolation_claimed": false,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "windows_bootstrap_smoke_entry": ".github/check_windows_online_bootstrap.py",
+  "native_windows_elevated_startup_entry": "tests/test_windows_elevated_startup.py",
+  "native_windows_installer_completion_entry": "tests/test_windows_setup_completion.py",
+  "native_windows_elevated_startup_validation": "Required native Windows CI pending for this commit; results recorded after completion",
+  "real_edge_headless_validation": "Required native Windows CI with sandbox and temporary browser data; results pending for this commit",
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "real_browser_shared_profile_gui_qualification_performed": false,
+  "prior_qualification_record": "proxifyre-product/current-status.json",
+  "prior_qualification_is_for_rc6": false,
+  "local_regression": {
+    "python_versions": [
+      "3.10",
+      "3.14"
+    ],
+    "tests_per_version": 1123,
+    "failures": 0,
+    "skipped_per_version": 62,
+    "ui_permission_state_cases": 18,
+    "prior_shared_profile_ui_assertions": 50,
+    "linux_namespace_validation_deferred_to_required_ci": true
+  }
+}

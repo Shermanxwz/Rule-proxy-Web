@@ -43,6 +43,20 @@ class PanelServer(ThreadingHTTPServer):
 
     def __init__(self, port: int, manager: Manager | None = None, *, hosted: bool = False):
         self.manager = manager
+        self.process_elevated = None
+        self.client_identity = None
+        if os.name == 'nt':
+            from .windows_app_process import _get_api
+            from .windows_http_identity import WindowsHTTPIdentity
+
+            try:
+                self.process_elevated = _get_api().is_elevated()
+                if not isinstance(self.process_elevated, bool):
+                    raise OSError('Invalid Windows process token status')
+                if self.process_elevated:
+                    self.client_identity = WindowsHTTPIdentity()
+            except OSError as exc:
+                raise RuntimeError('无法确认 Windows 面板权限或本机账户身份，请查看 panel.log。') from exc
         # A panel hosted by a desktop shortcut exits once nothing uses it.
         self.hosted = hosted
         # Monotonic time of the last state read by a panel page; None until a page reads it.
@@ -105,9 +119,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def state_payload(self, **options):
-        return {**self.server.manager.state(**options), "hosted": bool(getattr(self.server, "hosted", False))}
+        return {**self.server.manager.state(**options), "hosted": bool(getattr(self.server, "hosted", False)),
+                "process_elevated": self.server.process_elevated}
 
     def valid_origin(self, mutation=False):
+        identity = self.server.client_identity
+        if identity is not None and not identity.authorize(self.connection):
+            return False
         port = self.server.server_address[1]
         allowed = {f"127.0.0.1:{port}", f"localhost:{port}"}
         if self.headers.get("Host", "") not in allowed:
@@ -239,17 +257,10 @@ def _running_as_root() -> bool:
 
 
 def _refuse_root(platform: str | None = None) -> None:
-    """Chromium-based apps start as root only with their sandbox disabled, which this tool never does."""
+    """Keep Linux's browser-sandbox requirement; Windows supports the owner's token."""
     platform = sys.platform if platform is None else platform
     if platform.startswith("linux") and _running_as_root():
         raise SystemExit("RuleProxy: 请用登录桌面的普通用户运行，不要用 sudo 或 root。root 下 Chrome、ChatGPT 等程序必须关闭浏览器沙箱才能启动，本工具不会这样做。")
-    if platform == 'win32':
-        from .windows_app_process import _get_api
-
-        try:
-            _get_api().assert_unelevated()
-        except OSError as exc:
-            raise SystemExit(f'RuleProxy: 面板必须由桌面普通用户启动，请不要使用“以管理员身份运行”（{exc}）。') from None
 
 
 def _tolerant_console() -> None:

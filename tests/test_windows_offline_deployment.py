@@ -93,11 +93,14 @@ if (Test-Path -LiteralPath $root) { throw 'Admin cleanup failed' }
 # Execute the real installer exit handling with a process double: only the
 # official Burn chain may map ERROR_FAIL_REBOOT_REQUIRED to a pending reboot.
 $invoke = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-Installer'},$true)
+$exitCode = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-SetupExitCode'},$true)
+Invoke-Expression $exitCode.Extent.Text
 Invoke-Expression $invoke.Extent.Text
 function Start-Process {
     param([string]$FilePath,[string]$ArgumentList,[switch]$Wait,[switch]$PassThru)
     $process = [pscustomobject]@{ExitCode=3017}
     $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { param($timeout) return $true }
+    $process | Add-Member -MemberType ScriptMethod -Name Refresh -Value {}
     return $process
 }
 if ((Invoke-Installer 'unused.exe' '' 'official test' -OfficialBurn) -ne 3010) { throw 'Burn reboot mapping failed' }

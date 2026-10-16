@@ -26,7 +26,7 @@ class WindowsOnlinePackageTests(unittest.TestCase):
             metadata = builder.stage(target)
             expected = set(builder.offline.project_files()) | set(builder.EXTRA_SOURCES)
             self.assertEqual(set(metadata['files']), expected)
-            self.assertEqual(len(expected), 44)
+            self.assertEqual(len(expected), 45)
             self.assertEqual({p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()},
                              expected | {'INSTALL-WINDOWS.txt', 'release-source.json'})
             for name in expected:

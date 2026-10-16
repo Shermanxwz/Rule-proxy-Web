@@ -11,28 +11,30 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 目标系统为 Windows 11 x64；ARM64、x86 未验证，Windows Server 仅作为自动化对照环境。系统需保留正常的驱动签名验证与 .NET Framework 4.7.2 以上组件。
 
 1. 在 [GitHub Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases) 下载 `RuleProxy-Web-0.3.0-windows-x64-online-setup.zip`，核对同一发布页的 `SHA256SUMS.txt`，完整解压到可写目录。
-2. 从日常登录账户双击 `Setup-Windows.cmd`。首次联网下载并校验固定版本的 Python、PyYAML、Mihomo、ProxiFyre、NDIS 驱动和 VC 运行库，无需预装 Python；准备完成后允许一次 UAC 安装。固定许可证原文已随包附带，无需访问 GitHub 原始文件站点。
+2. 从日常登录账户双击 `Setup-Windows.cmd`。首次联网下载并校验固定版本的 Python、PyYAML、Mihomo、ProxiFyre、NDIS 驱动和 VC 运行库，无需预装 Python；准备完成后按需允许 UAC 安装。支持以该账户的管理员权限启动安装。固定许可证原文已随包附带，无需访问 GitHub 原始文件站点。
 3. 下载失败时，保留 `.windows-cache`，从同一目录再次运行 `Setup-Windows.cmd`，可复用已经校验的依赖。临时连接中断会有界重试，校验不通过会停止。如果安装返回 `3010`，先重启，再运行同一安装入口续装。
-4. 安装成功后会在后台启动。需要操作时，以同一普通用户双击桌面的 `RuleProxy Web` 快捷方式，或 `%ProgramFiles%\RuleProxy-Web\Start-Windows.lnk`，即可打开 Web 面板；无需管理员权限，不弹 CMD、PowerShell 或 Mihomo 控制台。也可手动访问 `http://127.0.0.1:8879`。
+4. 安装成功后会在后台启动，安装窗口保留结果供查看。需要操作时，以同一安装账户双击桌面的 `RuleProxy Web` 快捷方式，或 `%ProgramFiles%\RuleProxy-Web\Start-Windows.lnk`，即可打开 Web 面板，不弹 CMD、PowerShell 或 Mihomo 控制台。也可手动访问 `http://127.0.0.1:8879`。
 5. 在 Web 面板导入自己的 YAML，选择真实代理节点，添加应用并启用其代理开关，再启动核心和应用。
 
 安装包没有预装任何用户 YAML、订阅或节点凭证。[示例 YAML](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/examples/ruleproxy.example.yaml) 仅供源码阅读，需要换成自己的节点后导入。
 
 登录后自启动可在 Web 面板中开启，静默运行，不自动打开浏览器；安装结束后的后台启动也不会打开浏览器。后台启动错误写入 `%LOCALAPPDATA%\RuleProxyWebSafe\panel.log`，核心日志为同目录的 `core.log`。`Start-Windows.cmd` 保留为兼容入口；直接双击 CMD 本身可能短暂显示命令行窗口，日常请使用上述快捷方式。首次安装仍会显示准备进度并请求 UAC 授权。
 
-安装会拒绝接管另一个来源的既有 ProxiFyre。已有共享 NDIS/VC 组件只有符合兼容与签名检查时才复用。程序、服务入口和固定依赖放在受保护的 `%ProgramFiles%\RuleProxy-Web`；官方引擎位于 `%ProgramFiles%\ProxiFyre`。普通用户只能读取代码，无法通过面板修改服务命令或执行任意管理员命令。
+面板支持普通权限和当前安装账户的管理员权限，也支持 UAC 已关闭的环境，无需为启动 RuleProxy 改动 UAC 设置。面板、Mihomo 和所选应用沿用当前进程的权限；管理员运行时面板会显示权限继承提示。高权限面板根据真实本机 TCP 连接、进程令牌和 Windows 账户 SID 校验每个请求，允许同账户访问，拒绝其他账户；这是账户级校验，不区分同账户下的不同程序。
+
+安装会拒绝接管另一个来源的既有 ProxiFyre。已有共享 NDIS/VC 组件只有符合兼容与签名检查时才复用。程序、服务入口和固定依赖放在受保护的 `%ProgramFiles%\RuleProxy-Web`；官方引擎位于 `%ProgramFiles%\ProxiFyre`。普通用户只能读取代码；控制服务协议只处理固定引擎和应用路径规则，不提供任意管理员命令执行接口。
 
 | 组件 | 职责与权限 |
 |---|---|
-| 普通用户面板与 Mihomo | 读取用户 YAML、管理节点、启动用户应用；使用当前桌面用户权限 |
+| 当前账户面板与 Mihomo | 读取用户 YAML、管理节点、启动用户应用；沿用当前账户的实际启动权限 |
 | `RuleProxyControl` | 固定入口的 SYSTEM 服务；验证安装身份、请求结构、路径和核心进程，再写入规则、控制官方引擎 |
 | `ProxiFyreService` | 官方 LocalSystem 服务，手动启动；把匹配应用的受支持流量交给本机 Mihomo SOCKS 入口 |
 | 用户状态 | `%LOCALAPPDATA%\RuleProxyWebSafe`：导入配置、设置、日志和浏览器私有配置 |
 | 安装状态与日志 | `%ProgramData%\RuleProxy-Web`：归属、续装状态和安装日志 |
 
-控制服务不负责启动应用窗口。应用由普通用户面板创建，并放入本工具持有的 Windows Job 中；不会注入代理环境变量或浏览器代理参数。浏览器仍使用各应用独立的私有配置，以保留登录状态。
+控制服务不负责启动应用窗口。应用由面板在当前权限下创建，并放入本工具持有的 Windows Job 中；不会注入代理环境变量或浏览器代理参数。浏览器默认使用各应用独立的私有配置，也可选择下文的原应用数据模式。
 
-从源码使用时也可双击 `Setup-Windows.cmd`，采用相同的联网准备流程，下载缓存位于源码下的 `.windows-cache`。依赖准备在普通用户权限下完成，失败时尚未执行系统安装。已准备的个人离线包 `RuleProxy-Web-0.3.0-windows-x64-personal.zip` 含完整固定依赖，直接进入 UAC 安装；完整断网安装验收仍待完成，公开发布附件为联网安装包。
+从源码使用时也可双击 `Setup-Windows.cmd`，采用相同的联网准备流程，下载缓存位于源码下的 `.windows-cache`。依赖准备在发起安装的账户下完成，失败时尚未执行系统安装。已准备的个人离线包 `RuleProxy-Web-0.3.0-windows-x64-personal.zip` 含完整固定依赖，直接进入安装；完整断网安装验收仍待完成，公开发布附件为联网安装包。
 
 ## Windows 应用规则与边界
 
@@ -116,7 +118,9 @@ Linux 共用时，请先完全关闭原应用。支持自动识别的 Chrome、C
 
 ## Windows 更新与卸载
 
-更新或修复时，从新的完整个人离线包运行 `Setup-Windows.cmd`。安装会核对归属和固定组件，关闭本安装中该用户的旧面板/核心，替换受保护程序，保留用户数据。中断或 `3010` 后按提示续装。同一组固定引擎/驱动依赖下，程序目录替换失败会尝试恢复旧程序；不承诺未来版本的 ProxiFyre MSI 或共享驱动可以降级回滚。
+更新或修复时，从新的完整联网安装包或个人离线包运行 `Setup-Windows.cmd`。安装会核对归属和固定组件，关闭本安装中该用户的旧面板/核心，替换受保护程序，保留用户数据。若已完成的旧部署、文件摘要、服务注册、安装器固定版本、VC 组件和已签名驱动全部通过检查，则复用这些组件，跳过官方组件与网络驱动的修复；否则进入原有安装或修复流程。安装日志会说明采用哪条路径。中断或 `3010` 后按提示续装。同一组固定引擎/驱动依赖下，程序目录替换失败会尝试恢复旧程序；不承诺未来版本的 ProxiFyre MSI 或共享驱动可以降级回滚。
+
+安装会检查后台面板是否实际响应。若程序已装好但面板未能启动，安装窗口会保留失败原因并指向当前用户的 `panel.log`；详细安装会话日志位于 `%ProgramData%\RuleProxy-Web\setup-logs`。
 
 完整卸载入口是已安装的脚本。在原安装用户的普通 PowerShell 中执行，它会按需请求 UAC：
 

@@ -517,6 +517,28 @@ class LocalServerTests(unittest.TestCase):
             self.request("/api/state", **{"Host": "evil.example"})
         self.assertEqual(error.exception.code, 403)
 
+    def test_account_authentication_precedes_state_token_and_mutations(self):
+        identity = Mock(authorize=Mock(return_value=False))
+        self.server.client_identity = identity
+        with patch.object(self.manager, 'add_app') as add:
+            for path, payload, headers in (
+                ('/api/state', None, {}),
+                ('/', None, {}),
+                ('/api/apps', {}, {'X-RuleProxy-Token': self.manager.token}),
+            ):
+                with self.subTest(path=path), self.assertRaises(urllib.error.HTTPError) as error:
+                    self.request(path, payload, **headers)
+                self.assertEqual(error.exception.code, 403)
+                self.assertNotIn(self.manager.token, error.exception.read().decode())
+            add.assert_not_called()
+        self.assertEqual(identity.authorize.call_count, 3)
+
+    def test_permission_state_uses_server_token_not_client_input(self):
+        for elevated in (True, False, None):
+            self.server.process_elevated = elevated
+            with self.request('/api/state') as response:
+                self.assertIs(json.load(response)['process_elevated'], elevated)
+
     def test_state_says_whether_a_shortcut_hosts_the_panel(self):
         with self.request("/api/state") as response:
             self.assertFalse(json.load(response)["hosted"])
@@ -669,7 +691,7 @@ class ServerMainTests(unittest.TestCase):
         # These tests are about the port, so they also hold when the suite itself runs as root.
         with patch.object(sys, "argv", argv), patch.object(panel_server.webbrowser, "open") as browser, \
                 patch.object(panel_server, "_running_as_root", return_value=False), \
-                patch('ruleproxy.windows_app_process._get_api', return_value=Mock(assert_unelevated=Mock())), redirect_stdout(output):
+                patch('ruleproxy.windows_app_process._get_api', return_value=Mock(is_elevated=Mock(return_value=False))), redirect_stdout(output):
             panel_server.main()
         return output.getvalue(), browser
 
@@ -752,7 +774,7 @@ class WindowlessTests(unittest.TestCase):
                 "--state-dir", str(self.state_dir), "--no-browser"]
         with patch.object(sys, "argv", argv), patch.object(panel_server, "_windowless_log", return_value=True), \
                 patch.object(panel_server, "_running_as_root", return_value=False), \
-                patch('ruleproxy.windows_app_process._get_api', return_value=Mock(assert_unelevated=Mock())), \
+                patch('ruleproxy.windows_app_process._get_api', return_value=Mock(is_elevated=Mock(return_value=False))), \
                 patch.object(panel_server, "wait_for_panel", return_value=None), \
                 patch("ruleproxy.shortcut_launcher._notify") as notify, redirect_stderr(io.StringIO()), \
                 self.assertRaises(SystemExit):
@@ -776,9 +798,9 @@ class RootGuardTests(unittest.TestCase):
         with patch.object(panel_server, "_running_as_root", return_value=False):
             panel_server._refuse_root("linux")
         with patch.object(panel_server, "_running_as_root", return_value=True), \
-                patch('ruleproxy.windows_app_process._get_api', return_value=Mock(assert_unelevated=Mock())) as api:
+                patch('ruleproxy.windows_app_process._get_api') as api:
             panel_server._refuse_root("win32")
-        api.return_value.assert_unelevated.assert_called_once_with()
+        api.assert_not_called()
 
 
 if __name__ == "__main__":

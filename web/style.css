@@ -79,6 +79,7 @@ h1 { margin: 0; color: #1c2a27; font-size: clamp(26px, 3vw, 34px); line-height: 
 .is-unsupported .protection-badge { background: #f9e9e6; color: #aa5147; }
 .protection-detail { margin: 10px 0 0; color: #65756d; font-size: 10px; line-height: 1.55; }
 .protection-backend { margin-top: 6px; color: #8c9891; font-size: 9px; }
+.process-permission-note { margin: 7px 0 0; color: #92735b; font-size: 10px; line-height: 1.55; }
 .protection-limitations { margin: 7px 0 0; padding-left: 17px; color: #92735b; font-size: 9px; line-height: 1.55; }
 .is-unsupported .protection-limitations { color: #a4554b; }
 .protection-note { margin: 9px 0 0; padding-top: 8px; border-top: 1px solid #e7ece8; color: #8c9791; font-size: 9px; line-height: 1.55; }

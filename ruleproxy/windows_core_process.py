@@ -9,7 +9,7 @@ from .windows_app_process import _get_api
 class CoreJob:
     def __init__(self, process):
         self._api = _get_api()
-        self._api.assert_unelevated()
+        self._api.is_elevated()
         self._lock = threading.Lock()
         self._job = None
         job = self._api.create_job()

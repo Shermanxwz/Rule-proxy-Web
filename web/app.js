@@ -15,6 +15,7 @@
     availableAppsCount: $('available-apps-count'),
     protectionCard: $('protection-card'), protectionBadge: $('protection-badge'), protectionDetail: $('protection-detail'),
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
+    processPermissionNote: $('process-permission-note'),
     coreSettings: $('core-path-settings'), relatedField: $('related-paths-field'), relatedPaths: $('app-related-paths'),
     hostedNote: $('hosted-note'), filesNote: $('files-note'), configNotes: $('config-notes'), configWarnings: $('config-warnings'),
     autostartRow: $('autostart-row'), autostart: $('autostart-toggle'), autostartDetail: $('autostart-detail'), quit: $('quit-button'),
@@ -351,6 +352,9 @@
     ui.protectionBadge.textContent = protection.supported ? (isWindows() ? '应用代理可用' : '隔离能力可用') : '不可用，启动受阻';
     ui.protectionDetail.textContent = protection.detail || (protection.supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。');
     ui.protectionBackend.textContent = protection.backend ? `运行后端：${protection.backend}` : '';
+    const elevated = isWindows() && state.process_elevated === true;
+    ui.processPermissionNote.hidden = !elevated;
+    ui.processPermissionNote.textContent = elevated ? '当前以管理员权限运行；从面板启动的应用将继承该权限。' : '';
     ui.protectionLimitations.replaceChildren();
     const limitations = Array.isArray(protection.limitations) ? protection.limitations : [];
     ui.protectionLimitations.hidden = limitations.length === 0;
