@@ -253,7 +253,9 @@ class LiveFilteredKeyringTests(unittest.TestCase):
                     try:
                         state = (Path('/proc') / str(report['pid']) / 'stat').read_text().rsplit(')', 1)[1].split()[0]
                         exited = state == 'Z'
-                    except FileNotFoundError:
+                    except (FileNotFoundError, ProcessLookupError):
+                        # The process can disappear after /proc/stat opens but
+                        # before read(), which reports ESRCH rather than ENOENT.
                         exited = True
                     if exited:
                         break
