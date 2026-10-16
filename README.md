@@ -4,7 +4,7 @@
 
 **版本 0.3.0。Windows 按应用模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
 
-Windows 的目标是让自定义应用走所选代理节点。它不能提供 Linux 同等的 DNS、子进程和故障隔离；具体边界见下文。Linux 功能保持原有实现。
+Windows 的目标是让自定义应用走所选代理节点。它不能提供 Linux 同等的 DNS、子进程和故障隔离；具体边界见下文。Linux 按应用功能保持原有实现。
 
 ## 选择接管范围
 
@@ -15,6 +15,8 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 全局保护发生故障时保留自身阻断和 DNS 策略；点击“停止全局接管并恢复网络”才恢复普通网络。恢复只处理本工具记录的规则。已有入站连接的精确对端可能作为保活例外直连；这不保证新远程连接可建立。Linux 对同一保活对端地址的新出站连接当前会阻断，例外只放行既有连接回复。全局接管会改变整机网络，请在有本机恢复方式时启用。
 
 Windows 独立守卫及 DNS 尚未取得完整原生资格，当前面板会拒绝启动严格全局模式；实验脚本的对象回读、局部内核对照或单次成功都不能替代完整资格。Linux 全局内核与实际核心验收是独立任务，不等于交互式 polkit 或真实互联网登录验收。
+
+Linux 全局的[受控原生验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/linux-global-2026-10-16/native-qualification.json)已通过双栈 TCP/UDP、DNS 拦截、故障阻断与恢复；未测试用户节点、实机授权对话框或账户登录。
 
 ## Windows 开始使用
 

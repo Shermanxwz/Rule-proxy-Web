@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "qualified_commit": "9c6329d7d7ae3730ea1b2f4d8167e1b114d818f7",
+  "observed_at_utc": "2026-10-16T14:17:02Z",
+  "workflow_run": {
+    "id": 38914464955,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38914464955"
+  },
+  "native_job": {
+    "id": 117018254195,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38914464955/job/117018254195",
+    "conclusion": "success"
+  },
+  "artifact": {
+    "id": 12051322946,
+    "name": "linux-global-native-38914464955-1",
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38914464955/artifacts/12051322946",
+    "zip_sha256": "d28838fcd87f9b0494c7ba9b79d495d336909dadfedab8d41b4bb0e727245ffb",
+    "retention_days": 14
+  },
+  "runtime": {
+    "mihomo_version": "v1.19.32",
+    "mihomo_elf_sha256": "7a0d59da2e678d56c899a3db996a2ad8963286c4f3634b0451435db248f13fa1",
+    "python_version": "3.14.8",
+    "runner": "GitHub Actions Ubuntu 24.04"
+  },
+  "result": {
+    "passed": true,
+    "unittest_exit_code": 0,
+    "native_tests_run": 2,
+    "no_skips": true
+  },
+  "actual_core_acceptance": {
+    "real_linux_kernel": true,
+    "actual_pinned_mihomo": true,
+    "production_lease": true,
+    "ordinary_user_application": true,
+    "actual_tun_and_owned_policy_routes": true,
+    "ipv4_tcp_and_udp_via_fixture_socks": true,
+    "ipv6_tcp_and_udp_via_fixture_socks": true,
+    "dns_observed_via_fixture_socks": true,
+    "udp53_physical_dns_sink_not_reached": true,
+    "core_crash_keeps_independent_guard": true,
+    "preexisting_inbound_sessions_preserved": true,
+    "loopback_preserved": true,
+    "privileged_controller_configuration_unreadable_by_ordinary_application": true,
+    "explicit_stop_restores_networking": true
+  },
+  "independent_guard_kernel_acceptance": {
+    "real_linux_kernel": true,
+    "production_guard_and_rule_plan": true,
+    "ipv4_and_ipv6_tcp_and_udp_checked": true,
+    "existing_outbound_connection_blocked": true,
+    "existing_inbound_sessions_preserved": true,
+    "loopback_preserved": true,
+    "marked_core_carrier_bypass_verified": true,
+    "tun_disappearance_keeps_block": true,
+    "explicit_stop_restores_networking": true,
+    "unrelated_firewall_table_preserved": true
+  },
+  "scope": {
+    "nested_disposable_network_namespaces": true,
+    "synthetic_local_socks_node_and_targets": true,
+    "user_device_tested": false,
+    "interactive_polkit_prompt_exercised": false,
+    "installed_privileged_helper_transport_exercised": false,
+    "external_proxy_account_or_service_login_exercised": false,
+    "successful_upstream_dns_resolution_exercised": false
+  },
+  "limitations": [
+    "These are isolated CI results for the real kernel, pinned core and production Lease; they are not a test on the user's device.",
+    "The fixture deliberately rejects its observed proxied DoH request. It verifies capture and absence of direct UDP53 leakage, not successful external DNS resolution.",
+    "The headless fixture invokes the production Lease directly. Interactive installation, the polkit dialog and the installed helper transport require separate validation.",
+    "Exact existing inbound peer addresses retain reply routes. New outbound connections to the same peer address can be blocked by the independent guard."
+  ]
+}

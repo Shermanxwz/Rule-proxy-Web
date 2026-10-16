@@ -7,6 +7,10 @@ on:
         description: Run the complete native Windows 11 qualification
         type: boolean
         default: true
+      global_capture:
+        description: Run the unqualified global capture experiment on a disposable host
+        type: boolean
+        default: false
   push:
     branches:
       - 'codex/windows-proxifyre-product-*'
@@ -129,7 +133,7 @@ jobs:
 
   global-server-capture:
     name: Global TUN and independent guard · disposable Server 2025
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.global_capture
     needs: package
     runs-on: windows-2025
     timeout-minutes: 15
