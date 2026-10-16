@@ -15,6 +15,10 @@ on:
         description: Run the unqualified global capture experiment on a disposable host
         type: boolean
         default: false
+      global_windows_11:
+        description: Run only the bounded global capture experiment on native Windows 11
+        type: boolean
+        default: false
   push:
     branches:
       - 'codex/windows-proxifyre-product-*'
@@ -206,4 +210,66 @@ jobs:
           name: windows-global-native-evidence
           path: windows-global-results/
           if-no-files-found: error
+          retention-days: 14
+
+  global-windows-11:
+    name: Global TUN · Windows 11 x64 · native KVM
+    needs: package
+    if: github.event_name == 'workflow_dispatch' && inputs.global_windows_11
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-proxifyre-product-package
+          path: windows-product-package
+      - name: Parse both guest scripts before preparing the native VM
+        shell: pwsh
+        run: |
+          $errors = $null
+          $tokens = $null
+          $path = (Resolve-Path .github/windows-global-vm-run.ps1).Path
+          $ast = [Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+          if ($errors.Count) { throw ($errors | Out-String) }
+          $owner = $ast.Find({param($node) $node -is [Management.Automation.Language.StringConstantExpressionAst] -and $node.Value.Contains('Highest owner token required')}, $true)
+          if ($null -eq $owner) { throw 'Missing owner script' }
+          $null = [Management.Automation.Language.Parser]::ParseInput($owner.Value, [ref]$tokens, [ref]$errors)
+          if ($errors.Count) { throw ($errors | Out-String) }
+      - name: Prepare space on the disposable hosted runner
+        run: |
+          mkdir -p windows-native-global-results
+          {
+            date -u
+            uname -a
+            lscpu
+            free -b
+            df -B1 /tmp .
+            cat /sys/fs/cgroup/cpu.max /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.current 2>/dev/null || true
+          } > windows-native-global-results/host-preflight.txt
+          available=$(df -B1 --output=avail /tmp | tail -n 1)
+          if [ "$available" -lt 59055800320 ]; then
+            sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet /usr/local/share/chromium /usr/local/share/powershell/Modules
+            sudo docker system prune --all --force --volumes || true
+          fi
+          df -h /
+      - name: Prepare disposable native VM tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+      - name: Exercise only bounded global capture on the official client Windows kernel
+        run: |
+          read -r expected name < windows-product-package/SHA256SUMS.txt
+          exec timeout --signal=TERM --kill-after=20s 30m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
+            --package "windows-product-package/$name" --package-sha256 "$expected" \
+            --artifacts windows-native-global-results --timeout-seconds 1800 --suite global-capture
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-global-native-client-evidence
+          path: windows-native-global-results/
+          if-no-files-found: warn
           retention-days: 14

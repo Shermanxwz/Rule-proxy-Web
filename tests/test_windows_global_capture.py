@@ -17,6 +17,12 @@ SPEC.loader.exec_module(H)
 MARKER = b'RuleProxyCapture:test:nonce'
 
 
+def loss_evidence():
+    return {'buffer_info': {'events_lost': 0, 'buffers_lost': 0}, 'restore': {'stopped': True,
+        'cli_metadata': {'stop': {'final_events_lost': 0, 'log_parent_is_private_run_directory': True,
+                                 'log_matches_owned_prefix': True}}}}
+
+
 def block(kind, body, endian='<'):
     padded = body + b'\0' * (-len(body) % 4)
     size = len(padded) + 12
@@ -180,6 +186,17 @@ class HarnessPlanningTests(unittest.TestCase):
             with self.subTest(order=[item['Type'] for item in components]):
                 self.assertEqual(H.component_id([{'Components': components}], mac, 'different adapter name', 14), 40)
                 self.assertEqual(H.component_id([{'Components': components}], mac, 'different adapter name', 3), 3)
+                self.assertEqual(H.capture_component_ids([{'Components': components}], mac,
+                    'different adapter name', 14, 40), [3, 40])
+        self.assertEqual(H.capture_component_ids([netvsc], mac, 'single VM NIC', 14, 40), [40])
+        for other in ({**vf, 'Id': 40}, {**vf, 'Properties': [{'Name': 'MAC Address', 'Value': mac}]},
+                      {**vf, 'Id': '3'}):
+            with self.subTest(other=other), self.assertRaises(ValueError):
+                H.capture_component_ids([netvsc, other], mac, 'different adapter name', 14, 40)
+        too_many = [netvsc] + [{'Id': index, 'Type': 'Miniport', 'Properties': [
+            {'Name': 'MAC Address', 'Value': mac}, {'Name': 'ifIndex', 'Value': index}]} for index in range(1, 5)]
+        with self.assertRaisesRegex(ValueError, 'capture_component_set_bound'):
+            H.capture_component_ids(too_many, mac, 'different adapter name', 14, 40)
         # MAC alone cannot distinguish the two actual miniports.
         with self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
             H.component_id([vf, netvsc], mac, 'different adapter name')
@@ -334,6 +351,44 @@ class HarnessPlanningTests(unittest.TestCase):
         foreign = H.capture_cli_metadata('Log file: C:\\foreign\\wire-before1.etl', base)
         self.assertFalse(foreign['log_parent_is_private_run_directory'])
         self.assertFalse(foreign['log_matches_owned_prefix'])
+        stopped = H.capture_cli_metadata('Log file: C:\\ProgramData\\private-run\\wire-before2.etl (No events lost)', base)
+        self.assertEqual(stopped['final_events_lost'], 0)
+        self.assertEqual(stopped['log_basename'], 'wire-before2.etl')
+        self.assertTrue(stopped['log_matches_owned_prefix'])
+        unknown = H.capture_cli_metadata('Log file: C:\\ProgramData\\private-run\\wire-before2.etl (Some events lost)', base)
+        self.assertNotIn('final_events_lost', unknown)
+
+    def test_loss_receipt_requires_final_owned_zero_and_never_treats_unknown_as_zero(self):
+        import copy
+        good = loss_evidence()
+        self.assertTrue(H.capture_loss_verified(good))
+        cases = [None, {}, {'buffer_info': good['buffer_info']}]
+        for section, key, value in (('buffer_info', 'events_lost', 1), ('buffer_info', 'buffers_lost', 1),
+                                   ('buffer_info', 'events_lost', False), ('stop', 'final_events_lost', None),
+                                   ('stop', 'log_matches_owned_prefix', False)):
+            bad = copy.deepcopy(good)
+            target = bad['buffer_info'] if section == 'buffer_info' else bad['restore']['cli_metadata']['stop']
+            target[key] = value
+            cases.append(bad)
+        bad = copy.deepcopy(good)
+        bad['restore']['cli_metadata']['status_before'] = {'events_lost': 1}
+        cases.append(bad)
+        for bad in cases:
+            with self.subTest(bad=bad):
+                self.assertFalse(H.capture_loss_verified(bad))
+
+    def test_missing_physical_positive_can_continue_loss_free_experiment_but_never_pass_controls(self):
+        before = {'tcp_syn': 0, 'udp_marker': 0, 'capture_loss_verified': True,
+                  'capture_diagnostics': loss_evidence()}
+        after = {**before, 'tcp_syn': 1, 'udp_marker': 1}
+        report = {'phases': {'outside_before': before, 'outside_after': after}}
+        self.assertFalse(H.record_physical_control(report, 'before'))
+        self.assertIn('physical_positive_before_missing', report['evidence_gaps'])
+        self.assertTrue(H.record_physical_control(report, 'after'))
+        self.assertFalse(report['physical_positive_before_valid'] and report['physical_positive_after_valid'])
+        before['capture_diagnostics'] = {}
+        with self.assertRaisesRegex(RuntimeError, 'capture_loss_unverified'):
+            H.record_physical_control(report, 'before')
 
     def test_capture_inventory_only_reports_capture_files_and_actual_sizes_inside_private_work(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -380,6 +435,71 @@ class HarnessPlanningTests(unittest.TestCase):
                 self.assertNotIn('private output', json.dumps(evidence))
                 self.assertNotIn(directory, json.dumps(evidence))
 
+    def test_component_aggregation_requires_every_conversion_and_zero_on_each_declared_path(self):
+        import copy
+        empty = {'tcp_syn': 0, 'udp_marker': 0, 'packets_parsed': 0,
+                 'captures': [{'sha256': '0' * 64, 'bytes': 188}]}
+        values = {'3': copy.deepcopy(empty), '40': copy.deepcopy(empty)}
+        result = H.aggregate_capture_components([3, 40], values, 1)
+        result.update(capture_loss_verified=True, capture_diagnostics=loss_evidence())
+        self.assertTrue(H.protected_components_clear(result, [3, 40]))
+        self.assertEqual(result['packets_parsed'], 0)
+        values['3']['tcp_syn'] = values['3']['udp_marker'] = 1
+        values['3']['packets_parsed'] = 2
+        result = H.aggregate_capture_components([3, 40], values, 1)
+        result.update(capture_loss_verified=True, capture_diagnostics=loss_evidence())
+        self.assertEqual((result['tcp_syn'], result['udp_marker']), (1, 1))
+        self.assertFalse(H.protected_components_clear(result, [3, 40]))
+        cases = [{'3': copy.deepcopy(empty)}, {**values, '99': copy.deepcopy(empty)},
+                 {**values, '40': {**empty, 'captures': []}}, {**values, '40': {**empty, 'udp_marker': -1}}]
+        for incomplete in cases:
+            with self.subTest(incomplete=incomplete), self.assertRaisesRegex(ValueError, 'conversion_incomplete'):
+                H.aggregate_capture_components([3, 40], incomplete, 1)
+            self.assertFalse(H.protected_components_clear({'declared_components': [3, 40],
+                'components': incomplete}, [3, 40]))
+        for declared in ([3, 3], [], [True, 40], list(range(1, 6))):
+            with self.assertRaisesRegex(ValueError, 'capture_component_set_invalid'):
+                H.aggregate_capture_components(declared, values, 1)
+
+    def test_capture_converts_all_frozen_components_and_missing_conversion_cannot_pass(self):
+        for omit_second in (False, True):
+            with self.subTest(omit_second=omit_second), tempfile.TemporaryDirectory() as directory:
+                work = Path(directory)
+                H.write_json(work / 'state.json', {})
+                marker = None
+                def actor(value):
+                    nonlocal marker
+                    marker = value.encode('ascii')
+                    (work / 'wire-before1.etl').write_bytes(b'etl fixture')
+                    return {'tcp': {'executed': True}, 'udp': {'executed': True}}
+                def packet(*arguments):
+                    if arguments[0] == 'start':
+                        self.assertEqual(arguments[arguments.index('--comp') + 1], '3,40')
+                    elif arguments[0] == 'etl2pcap':
+                        identity = arguments[arguments.index('--component-id') + 1]
+                        output = arguments[arguments.index('--out') + 1]
+                        if identity == 3:
+                            output.write_bytes(capture([frame(6), frame(marker=marker)]))
+                        elif not omit_second:
+                            output.write_bytes(capture([]))
+                    elif arguments[0] == 'status':
+                        return 'Events lost: 0\nBuffers lost: 0'
+                    return ''
+                with patch.object(H, 'pktmon', side_effect=packet), \
+                     patch.object(H, 'restore_capture', return_value=loss_evidence()['restore']), patch.object(H.time, 'sleep'):
+                    if omit_second:
+                        with self.assertRaises(H.CaptureEvidenceError) as caught:
+                            H.capture_probe(work, [3, 40], 'before', actor)
+                        self.assertEqual(caught.exception.evidence['conversion_component'], 40)
+                        self.assertEqual(caught.exception.evidence['component_results']['40']['captures'], [])
+                    else:
+                        result = H.capture_probe(work, [3, 40], 'before', actor)
+                        self.assertEqual(result['declared_components'], [3, 40])
+                        self.assertEqual(result['components']['3']['tcp_syn'], 1)
+                        self.assertEqual(result['components']['3']['udp_marker'], 1)
+                        self.assertEqual(result['components']['40']['packets_parsed'], 0)
+                        self.assertEqual(len(result['captures']), 2)
+
     def test_scope_diagnostic_reports_exact_safety_fields_without_relaxing_rejection(self):
         from contextlib import contextmanager
         from types import SimpleNamespace
@@ -413,7 +533,7 @@ class HarnessPlanningTests(unittest.TestCase):
 
     def test_component_diagnostic_exposes_id_type_and_nested_schema_without_guessing(self):
         data = {'Components': [{'Component ID': '17', 'MACAddress': 'AA-BB-CC-DD-EE-FF',
-                'Description': 'physical', 'Type': 'Miniport'}]}
+                'Description': 'physical', 'Type': 'Miniport', 'SecondaryId': 700}]}
         evidence = H.component_diagnostics(data, 'AA-BB-CC-DD-EE-FF', 'physical')
         self.assertEqual(evidence['exact_mac_match_count'], 1)
         self.assertEqual(evidence['exact_description_match_count'], 1)
@@ -421,6 +541,7 @@ class HarnessPlanningTests(unittest.TestCase):
         self.assertEqual(row['fields']['componentid'], '17')
         self.assertEqual(row['field_types']['componentid'], 'str')
         self.assertEqual(row['fields']['type'], 'Miniport')
+        self.assertEqual(row['fields']['secondaryid'], 700)
         self.assertIn('Components', row['json_path'])
         with self.assertRaisesRegex(ValueError, 'physical_component_id_invalid'):
             H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'physical')

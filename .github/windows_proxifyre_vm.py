@@ -16,6 +16,7 @@ import os
 import platform
 from pathlib import Path, PurePosixPath
 import secrets
+import re
 import shutil
 import signal
 import stat
@@ -25,6 +26,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -36,6 +38,9 @@ _spec.loader.exec_module(media)
 SOURCE_IDENTITIES = frozenset({"manager.py", "server.py", "launcher.py", "windows_proxy_service.py",
     "windows_proxy_policy.py", "windows_proxy_client.py", "windows_proxy_runtime.py",
     "windows_proxy_pins.py", "windows_app_process.py", "windows_core_process.py"})
+GLOBAL_SOURCE_IDENTITIES = frozenset({"ruleproxy/windows_proxy_service.py", "ruleproxy/windows_global_guard.py",
+    "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_runtime.py", "ruleproxy/global_runtime.py",
+    "ruleproxy/config.py", "ruleproxy/manager.py", "web/app.js"})
 MAX_GUEST_RESULT_BYTES = 8 * 1024**2
 VISIBLE_GUI_CHECKS = frozenset({"suite_interactive_session", "visible_browser_window", "visible_browser_ordinary",
                               "visible_browser_png_created", "visible_browser_job_stop"})
@@ -236,7 +241,7 @@ def verify_package(package: Path, expected: str):
                 raise ValueError("Unsafe native product package path")
 
 
-def make_payload(package: Path, destination: Path):
+def make_payload(package: Path, destination: Path, *, include_global_sources=False):
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.write(package, "package/" + package.name)
         archive.writestr("package/SHA256SUMS.txt", media.digest(package) + "  " + package.name + "\n")
@@ -244,6 +249,10 @@ def make_payload(package: Path, destination: Path):
             for path in sorted((ROOT / folder).rglob("*.py")):
                 if "__pycache__" not in path.parts and path.is_file() and not path.is_symlink():
                     archive.write(path, path.relative_to(ROOT).as_posix())
+        if include_global_sources:
+            present = set(archive.namelist())
+            for name in sorted(GLOBAL_SOURCE_IDENTITIES - present):
+                archive.write(ROOT / name, name)
     return media.digest(destination)
 
 
@@ -308,6 +317,143 @@ def verify_result(result, *, package_sha256=None):
     return report
 
 
+def global_source_identity():
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+                            capture_output=True, text=True, timeout=5).stdout.strip()
+    if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit):
+        raise RuntimeError("Missing global capture checkout identity")
+    return {"tested_source_commit": commit,
+            "source_sha256": {name: media.digest(ROOT / name) for name in sorted(GLOBAL_SOURCE_IDENTITIES)},
+            "harness_sha256": media.digest(ROOT / ".github/check_windows_global_capture.py")}
+
+
+def verify_global_result(result, *, package_sha256, source_identity):
+    """Accept only the bounded capture experiment, never product qualification."""
+    if not isinstance(result, dict) or len(json.dumps(result).encode("utf-8")) > MAX_GUEST_RESULT_BYTES:
+        raise RuntimeError("Invalid or oversized Windows global result")
+    if not isinstance(result.get("reports"), dict):
+        raise RuntimeError("Native Windows global reports are missing")
+    report = result["reports"].get("global_capture", {})
+    os_info, owner, package = result.get("os", {}), result.get("owner", {}), result.get("package", {})
+    if (not all(isinstance(value, dict) for value in (report, os_info, owner, package))
+            or result.get("suite") != "global-capture" or result.get("status") != "passed"
+            or type(result.get("exit_code")) is not int or result["exit_code"] != 0
+            or any(result.get(name) is not True for name in ("user_cleanup_confirmed", "task_cleanup_confirmed",
+                                                           "installation_cleanup_confirmed"))
+            or os_info.get("product_type") != "WinNT" or os_info.get("native_architecture") != "AMD64"
+            or type(os_info.get("build")) is not int or os_info["build"] < 22000
+            or owner.get("elevated") is not True or owner.get("sid_matches_installation") is not True
+            or not isinstance(owner.get("sid"), str) or not re.fullmatch(r"S-1-5-21-(?:\d+-){3}\d+", owner["sid"])
+            or package.get("manifest_verified") is not True or package.get("sha256") != package_sha256
+            or result.get("source_identity") != source_identity):
+        raise RuntimeError("Native Windows 11 global identity or cleanup evidence is incomplete")
+    if not all(isinstance(report.get(name), dict) for name in
+               ("recovery", "ipv6_scoped_action", "tun_identity", "guard_after_service_death")):
+        raise RuntimeError("Native Windows global stage evidence is missing")
+    if (report.get("mode") != "disposable_windows_native_capture" or report.get("passed") is not True
+            or report.get("strict_qualified") is not False or report.get("raw_capture_exported") is not False
+            or any(report.get(name) is not False for name in
+                   ("ipv6_public_egress_qualified", "dns_qualified", "rdp_qualified"))
+            or any(report.get(name) is not True for name in ("ipv4_physical_scope_passed",
+                "tun_tcp_udp_v4_v6_passed", "explicit_global_stop", "system_core_carrier_http"))
+            or report.get("recovery", {}).get("recovered") is not True
+            or report.get("ipv6_scoped_action", {}).get("passed") is not True
+            or report.get("tun_identity", {}).get("identity_matches") is not True
+            or report.get("tun_identity", {}).get("start_guard_tun_ready") is not True
+            or report.get("guard_after_service_death", {}).get("active") is not True
+            or report.get("guard_after_service_death", {}).get("persistent") is not True
+            or report.get("windows_build") != [10, 0, os_info["build"]]
+            or report.get("fixed_core_sha256") != package.get("fixed_core_sha256")
+            or report.get("guard_source_sha256") != source_identity["source_sha256"]["ruleproxy/windows_global_guard.py"]
+            or report.get("task_cleanup_errors")):
+        raise RuntimeError("Native Windows global capture or precise recovery evidence is incomplete")
+    phases = report.get("phases")
+    if not isinstance(phases, dict):
+        raise RuntimeError("Native Windows global physical phases are missing")
+    declared = report.get("components", {}).get("capture_components") if isinstance(report.get("components"), dict) else None
+    if (not isinstance(declared, list) or not 1 <= len(declared) <= 4
+            or any(type(item) is not int or not 0 < item <= 0xffffffff for item in declared)
+            or declared != sorted(set(declared))):
+        raise RuntimeError("Native Windows global capture component identities are missing")
+    allowed_errors = {13, 110, 111, 10013, 10060, 10061}
+    for name in ("outside_before", "running_guard", "core_dead", "service_stopped", "outside_after"):
+        phase = phases.get(name)
+        if not isinstance(phase, dict):
+            raise RuntimeError("Native Windows global physical phase is missing: " + name)
+        positive = name in {"outside_before", "outside_after"}
+        if any(type(phase.get(key)) is not int or phase[key] < 0
+               or (phase[key] == 0 if positive else phase[key] != 0) for key in ("tcp_syn", "udp_marker")):
+            raise RuntimeError("Native Windows global physical controls or denials disagree: " + name)
+        etl_count, components = phase.get("etl_count"), phase.get("components")
+        if (phase.get("declared_components") != declared or type(etl_count) is not int or not 1 <= etl_count <= 4
+                or not isinstance(components, dict) or set(components) != {str(item) for item in declared}):
+            raise RuntimeError("Native Windows global component conversions are incomplete: " + name)
+        totals, captures = dict.fromkeys(("tcp_syn", "udp_marker", "packets_parsed"), 0), []
+        for component in declared:
+            value = components[str(component)]
+            if (not isinstance(value, dict) or any(type(value.get(key)) is not int or value[key] < 0 for key in totals)
+                    or value["packets_parsed"] < value["tcp_syn"] + value["udp_marker"]
+                    or (not positive and (value["tcp_syn"] != 0 or value["udp_marker"] != 0))
+                    or not isinstance(value.get("captures"), list) or len(value["captures"]) != etl_count
+                    or any(not isinstance(row, dict) or set(row) != {"sha256", "bytes"}
+                           or type(row.get("bytes")) is not int or row["bytes"] <= 0
+                           or not isinstance(row.get("sha256"), str) or not re.fullmatch("[0-9a-f]{64}", row["sha256"])
+                           for row in value["captures"])
+                    or sum(row["bytes"] for row in value["captures"]) > 64 * 1024**2):
+                raise RuntimeError("Native Windows global component evidence is incomplete: " + name)
+            for key in totals:
+                totals[key] += value[key]
+            captures.extend({"component": component, **row} for row in value["captures"])
+        if (any(type(phase.get(key)) is not int or phase[key] != total for key, total in totals.items())
+                or phase.get("captures") != captures):
+            raise RuntimeError("Native Windows global capture receipts are incomplete: " + name)
+        diagnostics = phase.get("capture_diagnostics")
+        if (not isinstance(diagnostics, dict) or diagnostics.get("declared_components") != declared
+                or diagnostics.get("component_results") != components or phase.get("capture_loss_verified") is not True):
+            raise RuntimeError("Native Windows global capture diagnostics are incomplete: " + name)
+        buffer_info, restore = diagnostics.get("buffer_info"), diagnostics.get("restore")
+        metadata = restore.get("cli_metadata") if isinstance(restore, dict) else None
+        stopped = metadata.get("stop") if isinstance(metadata, dict) else None
+        if (not isinstance(buffer_info, dict) or any(type(buffer_info.get(key)) is not int or buffer_info[key] != 0
+                for key in ("events_lost", "buffers_lost")) or not isinstance(restore, dict)
+                or restore.get("stopped") is not True or not isinstance(stopped, dict)
+                or type(stopped.get("final_events_lost")) is not int or stopped["final_events_lost"] != 0
+                or stopped.get("log_parent_is_private_run_directory") is not True
+                or stopped.get("log_matches_owned_prefix") is not True):
+            raise RuntimeError("Native Windows global capture loss or stop ownership is unconfirmed: " + name)
+        actors = phase.get("actor")
+        if not isinstance(actors, dict):
+            raise RuntimeError("Native Windows global actors are missing: " + name)
+        for protocol in ("tcp", "udp"):
+            actor = actors.get(protocol)
+            if (not isinstance(actor, dict) or actor.get("executed") is not True
+                    or actor.get("stage") not in {"connect", "send"}
+                    or not (actor.get("socket_ok") is True or
+                            (type(actor.get("error")) is int and actor["error"] in allowed_errors))):
+                raise RuntimeError("Native Windows global probe execution is unconfirmed: " + name)
+    echoes, counts = report.get("tun_echo"), report.get("synthetic_node_counts")
+    if not isinstance(echoes, dict) or not isinstance(counts, dict):
+        raise RuntimeError("Native Windows global synthetic receivers are missing")
+    for family in ("4", "6"):
+        if not isinstance(echoes.get(family), dict):
+            raise RuntimeError("Native Windows global TUN family is missing")
+        for protocol in ("tcp", "udp"):
+            row, count = echoes[family].get(protocol), counts.get(protocol + family)
+            if (not isinstance(row, dict) or any(row.get(key) is not True
+                    for key in ("executed", "received_echo", "socket_ok")) or row.get("stage") != "send"
+                    or type(count) is not int or count <= 0):
+                raise RuntimeError("Native Windows global TUN receiver evidence is incomplete")
+    identity = report["tun_identity"]
+    expected_guid = str(uuid.UUID(bytes_le=hashlib.md5(b"wintunRuleProxyTun").digest()))
+    if (identity.get("alias") != "RuleProxyTun" or identity.get("expected_guid") != expected_guid
+            or identity.get("interface_guid") != expected_guid
+            or type(identity.get("interface_index")) is not int or not 0 < identity["interface_index"] <= 0xffffffff
+            or type(identity.get("luid")) is not int or not 0 < identity["luid"] <= 0xffffffffffffffff
+            or identity.get("native_qualified") is not False):
+        raise RuntimeError("Native Windows global TUN identity is invalid")
+    return report
+
+
 def cleanup_owned(qmp, qemu, tpm, server, thread, private_directory):
     """Stop VM users of the private disk/ISO/password before deleting them."""
     errors = []
@@ -336,6 +482,9 @@ def cleanup_owned(qmp, qemu, tpm, server, thread, private_directory):
 
 
 def run(args):
+    suite = getattr(args, "suite", "product")
+    if suite not in {"product", "global-capture"}:
+        raise ValueError("Unknown native Windows suite")
     artifacts = args.artifacts.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
     summary = {"schema_version": 2, "status": "running", "scope": "native Windows 11 x64 final offline product",
@@ -344,6 +493,10 @@ def run(args):
                "iso": {"url": media.ISO_URL, "sha256": media.ISO_SHA256, "bytes": media.ISO_BYTES},
                "cumulative_update_required": False,
                "update_scope": "The selected proxy backend does not require the former MXC build contract."}
+    summary["suite"] = suite
+    if suite == "global-capture":
+        summary.update(scope="native Windows 11 x64 bounded global capture experiment",
+                       native_windows_11_global_capture_passed=False, strict_qualified=False)
     summary["vm_configuration"] = {"machine": "q35,accel=kvm,smm=on", "vcpu": 4, "ram_mib": 6144,
         "disk_controller": "q35 built-in AHCI/SATA (ide-hd on ide.0)", "disk_virtual_gib": 80,
         "installer_dynamic_update": False, "secure_boot": True, "tpm": "2.0"}
@@ -361,6 +514,9 @@ def run(args):
         package = args.package.resolve(strict=True)
         verify_package(package, args.package_sha256)
         summary["package_sha256"] = args.package_sha256
+        source_identity = global_source_identity() if suite == "global-capture" else None
+        if source_identity is not None:
+            summary["source_identity"] = source_identity
         extractor = shutil.which("7zz") or shutil.which("7z")
         for binary in ("qemu-system-x86_64", "qemu-img", "swtpm", "xorriso", "curl"):
             if not shutil.which(binary):
@@ -389,7 +545,8 @@ def run(args):
         summary["iso"]["verified"] = True
         stage("official_iso_verified")
         payload = work / "payload.zip"
-        payload_hash = make_payload(package, payload)
+        payload_hash = (make_payload(package, payload, include_global_sources=True) if suite == "global-capture"
+                        else make_payload(package, payload))
         server = media.GuestServer(payload, artifacts)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -402,12 +559,14 @@ def run(args):
         xml = (ROOT / ".github/windows-vm-unattend.xml").read_text().replace("@PASSWORD@", password)
         ET.fromstring(xml)
         (tree / "autounattend.xml").write_text(xml, encoding="utf-8")
+        runner = "windows-global-vm-run.ps1" if suite == "global-capture" else "windows-proxifyre-vm-run.ps1"
         for name, destination in (("windows-proxifyre-vm-setup.ps1", "ruleproxy-vm-setup.ps1"),
-                                  ("windows-proxifyre-vm-run.ps1", "ruleproxy-vm-run.ps1")):
+                                  (runner, "ruleproxy-vm-run.ps1")):
             (tree / destination).write_text((ROOT / ".github" / name).read_text(), encoding="utf-8-sig")
         media.write_json(tree / "ruleproxy-vm-config.json", {
             "host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
-            "payload_sha256": payload_hash, "package_sha256": args.package_sha256})
+            "payload_sha256": payload_hash, "package_sha256": args.package_sha256,
+            **({"suite": suite, "source_identity": source_identity} if source_identity is not None else {})})
         unattended = work / "unattended.iso"
         stage("unattended_iso_build")
         subprocess.run(["xorriso", "-as", "mkisofs", "-iso-level", "3", "-J", "-joliet-long", "-R", "-V", "RULEPROXY_CI",
@@ -492,15 +651,22 @@ def run(args):
                 print(f"Native Windows product VM: {int(time.monotonic() - started)} s", flush=True)
                 server.received.wait(30)
             stage("guest_result_received")
-            report = verify_result(server.result, package_sha256=args.package_sha256)
-            screenshot = visible_screenshot_bytes(report)
-            (artifacts / "visible-edge.png").write_bytes(screenshot)
-            media.write_json(artifacts / "native-product-report.json", report)
-            summary.update(status="passed", native_windows_11_product_passed=True,
-                           gui_verified=True, interactive_session_id=server.result["actor_session_id"],
-                           visible_edge_screenshot={"file": "visible-edge.png", "bytes": len(screenshot),
-                                                    "sha256": hashlib.sha256(screenshot).hexdigest()},
-                           os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
+            if suite == "global-capture":
+                report = verify_global_result(server.result, package_sha256=args.package_sha256,
+                                              source_identity=source_identity)
+                media.write_json(artifacts / "native-global-capture-report.json", report)
+                summary.update(status="passed", native_windows_11_global_capture_passed=True,
+                               os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
+            else:
+                report = verify_result(server.result, package_sha256=args.package_sha256)
+                screenshot = visible_screenshot_bytes(report)
+                (artifacts / "visible-edge.png").write_bytes(screenshot)
+                media.write_json(artifacts / "native-product-report.json", report)
+                summary.update(status="passed", native_windows_11_product_passed=True,
+                               gui_verified=True, interactive_session_id=server.result["actor_session_id"],
+                               visible_edge_screenshot={"file": "visible-edge.png", "bytes": len(screenshot),
+                                                        "sha256": hashlib.sha256(screenshot).hexdigest()},
+                               os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
     except QualificationInterrupted as exc:
         summary.update(status="cancelled", native_windows_11_product_passed=False,
                        cancellation_signal=signal.Signals(exc.signum).name,
@@ -522,11 +688,16 @@ def run(args):
     finally:
         summary["product_execution_confirmed"] = bool(server is not None and isinstance(server.result, dict)
             and isinstance(server.result.get("reports", {}).get("product"), dict))
+        if suite == "global-capture":
+            summary["global_capture_execution_confirmed"] = bool(server is not None and isinstance(server.result, dict)
+                and isinstance(server.result.get("reports", {}).get("global_capture"), dict))
         summary["phase_before_cleanup"] = summary["phase"]
         stage("cleanup")
         cleanup_errors = cleanup_owned(qmp, qemu, tpm, server, thread, private_directory)
         if cleanup_errors:
             summary.update(status="failed", native_windows_11_product_passed=False, cleanup_errors=cleanup_errors)
+            if suite == "global-capture":
+                summary["native_windows_11_global_capture_passed"] = False
         stage("finished")
     return summary
 
@@ -537,6 +708,7 @@ def main():
     parser.add_argument("--package-sha256", required=True)
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=2700)
+    parser.add_argument("--suite", choices=("product", "global-capture"), default="product")
     args = parser.parse_args()
     if not 300 <= args.timeout_seconds <= 3600:
         parser.error("VM execution budget must be 300–3600 seconds")

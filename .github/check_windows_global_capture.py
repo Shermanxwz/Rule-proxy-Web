@@ -45,6 +45,7 @@ DEST4 = '203.0.113.77'
 TUN4, TUN6 = '198.51.100.88', '2001:db8::88'
 TCP_PORT, UDP_PORT = 18080, 39177
 MAX_CAPTURE = 64 * 1024 * 1024
+MAX_CAPTURE_COMPONENTS = 4
 FIXTURE_SERVER = '127.0.0.1.sslip.io'
 RECOVERY_DEADLINE_SECONDS = 180
 EXPERIMENT_BUDGET_SECONDS = 135
@@ -265,12 +266,99 @@ def component_id(document, mac, description, interface_index=None):
     return found[0]
 
 
+def capture_component_ids(document, mac, description, interface_index, logical_component):
+    """Freeze the exact-MAC Miniport set before the product creates its TUN.
+
+    Windows SR-IOV may send through the VF rather than the logical NetVsc
+    miniport. Observe both known paths, retaining the original ifIndex check.
+    https://learn.microsoft.com/en-us/windows-hardware/drivers/network/overview-of-sr-iov-data-paths
+    """
+    if component_id(document, mac, description, interface_index) != logical_component:
+        raise ValueError('logical_component_identity_changed')
+    expected, found, indexes = _mac(mac), [], set()
+    for _path, _value, fields in _component_records(document):
+        if fields.get('type', fields.get('componenttype')) != 'Miniport':
+            continue
+        candidate_mac, candidate_index = _component_identity(fields)
+        if candidate_mac != expected:
+            continue
+        identity = fields.get('id', fields.get('componentid'))
+        if type(identity) is not int or not 0 < identity <= 0xffffffff or candidate_index is None:
+            raise ValueError('capture_component_identity_unconfirmed')
+        if identity in found or candidate_index in indexes:
+            raise ValueError('capture_component_identity_ambiguous')
+        found.append(identity)
+        indexes.add(candidate_index)
+        if len(found) > MAX_CAPTURE_COMPONENTS:
+            raise ValueError('capture_component_set_bound')
+    if logical_component not in found:
+        raise ValueError('logical_component_mac_unconfirmed')
+    return sorted(found)
+
+
+def _capture_set(value):
+    values = [value] if type(value) is int else value
+    if (not isinstance(values, (list, tuple)) or not 1 <= len(values) <= MAX_CAPTURE_COMPONENTS
+            or any(type(item) is not int or not 0 < item <= 0xffffffff for item in values)
+            or len(set(values)) != len(values)):
+        raise ValueError('capture_component_set_invalid')
+    return sorted(values)
+
+
+def aggregate_capture_components(declared, values, etl_count):
+    components = _capture_set(declared)
+    if (type(etl_count) is not int or not 1 <= etl_count <= 4 or not isinstance(values, dict)
+            or set(values) != {str(component) for component in components}):
+        raise ValueError('capture_component_conversion_incomplete')
+    counts = {'tcp_syn': 0, 'udp_marker': 0, 'packets_parsed': 0, 'captures': [],
+              'declared_components': components, 'components': values, 'etl_count': etl_count}
+    for component in components:
+        value = values[str(component)]
+        if (not isinstance(value, dict) or not isinstance(value.get('captures'), list)
+                or len(value['captures']) != etl_count
+                or any(type(value.get(key)) is not int or value[key] < 0
+                       for key in ('tcp_syn', 'udp_marker', 'packets_parsed'))
+                or any(not isinstance(item, dict) or type(item.get('bytes')) is not int or item['bytes'] <= 0
+                       or not isinstance(item.get('sha256'), str) or not re.fullmatch(r'[a-f0-9]{64}', item['sha256'])
+                       for item in value['captures'])):
+            raise ValueError('capture_component_conversion_incomplete')
+        for key in ('tcp_syn', 'udp_marker', 'packets_parsed'):
+            counts[key] += value[key]
+        counts['captures'].extend({'component': component, **item} for item in value['captures'])
+    return counts
+
+
+def protected_components_clear(value, declared):
+    try:
+        if value.get('capture_loss_verified') is not True or not capture_loss_verified(value.get('capture_diagnostics')):
+            return False
+        components = _capture_set(declared)
+        if value.get('declared_components') != components:
+            return False
+        checked = aggregate_capture_components(components, value.get('components'), value.get('etl_count'))
+        return all(type(value.get(key)) is int and value[key] == checked[key] == 0
+                   for key in ('tcp_syn', 'udp_marker'))
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
+def record_physical_control(report, phase):
+    value = report['phases']['outside_' + phase]
+    if value.get('capture_loss_verified') is not True or not capture_loss_verified(value.get('capture_diagnostics')):
+        raise RuntimeError('capture_loss_unverified')
+    valid = all(type(value.get(key)) is int and value[key] > 0 for key in ('tcp_syn', 'udp_marker'))
+    report['physical_positive_' + phase + '_valid'] = valid
+    if not valid:
+        report.setdefault('evidence_gaps', []).append('physical_positive_' + phase + '_missing')
+    return valid
+
+
 def component_diagnostics(document, mac, description, interface_index=None):
     # Bounded component rows, with Miniports and exact identity matches first.
     # Only MAC/ifIndex property values are exported; pointers/IPs/paths stay local.
     rows, total, matching_mac, matching_index, matching_description = [], 0, 0, 0, 0
     expected = _mac(mac)
-    fields_wanted = {'id', 'componentid', 'mac', 'macaddress', 'name', 'description',
+    fields_wanted = {'id', 'componentid', 'secondaryid', 'mac', 'macaddress', 'name', 'description',
                      'type', 'componenttype', 'mediatype', *_INDEX_FIELDS}
     def safe(value):
         if isinstance(value, str):
@@ -331,8 +419,11 @@ def nic_components():
     component = None
     try:
         component = component_id(document, nic['mac'], nic['description'], nic['index'])
+        evidence['capture_components'] = capture_component_ids(document, nic['mac'], nic['description'], nic['index'], component)
     except ValueError as error:
         evidence['selection_error'] = str(error)
+        component = None
+    evidence['logical_interface_component'] = component
     evidence['selected_component'] = component
     return nic, component, evidence
 
@@ -664,6 +755,9 @@ def capture_cli_metadata(value, base):
         label, item = match[1].casefold(), match[2]
         key = label.replace(' ', '_')
         if label == 'log file':
+            if item.endswith(' (No events lost)'):
+                item = item[:-len(' (No events lost)')]
+                result['final_events_lost'] = 0
             location = item.strip('"').replace('/', '\\')
             name = ntpath.basename(location)
             result['log_basename'] = name if re.fullmatch(r'[A-Za-z0-9_.%() -]{1,160}', name) else '<unrecognized basename>'
@@ -680,6 +774,25 @@ def capture_cli_metadata(value, base):
         elif label in {'logging mode', 'log mode'} and item.casefold() in {'multi-file', 'circular', 'memory', 'real-time'}:
             result['logging_mode'] = item.casefold()
     return result
+
+
+def capture_loss_verified(evidence):
+    """Require observed zero ETW loss and an owned post-stop zero-loss receipt."""
+    try:
+        buffer = evidence['buffer_info']
+        restoration = evidence['restore']
+        stop = restoration['cli_metadata']['stop']
+        required = (buffer.get('events_lost'), buffer.get('buffers_lost'), stop.get('final_events_lost'))
+        if (any(type(item) is not int or item != 0 for item in required)
+                or restoration.get('stopped') is not True
+                or stop.get('log_parent_is_private_run_directory') is not True
+                or stop.get('log_matches_owned_prefix') is not True):
+            return False
+        snapshots = (buffer, *restoration['cli_metadata'].values())
+        return all(type(value[key]) is int and value[key] == 0 for value in snapshots if isinstance(value, dict)
+                   for key in ('events_lost', 'buffers_lost') if key in value)
+    except (AttributeError, KeyError, TypeError):
+        return False
 
 
 def capture_inventory(work, base):
@@ -997,6 +1110,8 @@ def capture_probe(work, component, phase, run_actor):
 
 
 def _capture_probe(work, component, phase, run_actor, evidence):
+    components = _capture_set(component)
+    evidence['declared_components'] = components
     marker = ('RuleProxyCapture:' + phase + ':' + secrets.token_hex(8)).encode('ascii')
     base = work / ('wire-' + phase)
     started = False
@@ -1005,7 +1120,7 @@ def _capture_probe(work, component, phase, run_actor, evidence):
     state['capture'] = {'base': str(base), 'stopped': False}
     write_json(state_path, state)
     try:
-        output = pktmon('start', '--capture', '--comp', component, '--pkt-size', 0,
+        output = pktmon('start', '--capture', '--comp', ','.join(map(str, components)), '--pkt-size', 0,
                         '--file-name', str(base) + '.etl', '--file-size', 16, '--log-mode', 'multi-file')
         evidence['start'] = capture_cli_metadata(output, base)
         started = True
@@ -1035,16 +1150,24 @@ def _capture_probe(work, component, phase, run_actor, evidence):
         raise RuntimeError('capture_total_bytes_exceeded')
     if any(not item['regular_file'] for item in inventory['files'] if item['matches_expected_capture_glob']):
         raise RuntimeError('capture_file_not_regular')
-    counts = {'tcp_syn': 0, 'udp_marker': 0, 'packets_parsed': 0, 'captures': []}
-    for source in sources:
-        pcap = source.with_suffix('.pcapng')
-        pktmon('etl2pcap', source, '--component-id', component, '--out', pcap)
-        summary = pcapng_counts(pcap, marker)
-        for key in ('tcp_syn', 'udp_marker', 'packets_parsed'):
-            counts[key] += summary[key]
-        counts['captures'].append({'sha256': summary['sha256'], 'bytes': summary['bytes']})
+    values = evidence['component_results'] = {}
+    for identity in components:
+        value = values[str(identity)] = {'tcp_syn': 0, 'udp_marker': 0, 'packets_parsed': 0, 'captures': []}
+        evidence['conversion_component'] = identity
+        for source in sources:
+            pcap = source.with_name(source.stem + '.component-' + str(identity) + '.pcapng')
+            pktmon('etl2pcap', source, '--component-id', identity, '--out', pcap)
+            summary = pcapng_counts(pcap, marker)
+            for key in ('tcp_syn', 'udp_marker', 'packets_parsed'):
+                value[key] += summary[key]
+            value['captures'].append({'sha256': summary['sha256'], 'bytes': summary['bytes']})
+    counts = aggregate_capture_components(components, values, len(sources))
+    evidence.pop('conversion_component', None)
     counts['actor'] = result
     counts['capture_diagnostics'] = evidence
+    counts['capture_loss_verified'] = evidence['capture_loss_verified'] = capture_loss_verified(evidence)
+    if not counts['capture_loss_verified']:
+        raise RuntimeError('capture_loss_unverified')
     return counts
 
 
@@ -1195,6 +1318,7 @@ def run(arguments):
         report['components'] = evidence
         if component is None:
             raise ValueError(evidence['selection_error'])
+        capture_components = evidence['capture_components']
         state['nic'] = nic
         budget.stage('scoped_ipv6_action')
         report['ipv6_scoped_action'] = scoped_ipv6_preflight(work, state_path)
@@ -1219,9 +1343,11 @@ def run(arguments):
                        'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': False}
             return run_actor(work, request)
         budget.stage('physical_positive_before')
-        report['phases']['outside_before'] = capture_probe(work, component, 'before', physical)
-        if any(report['phases']['outside_before'][key] < 1 for key in ('tcp_syn', 'udp_marker')):
-            raise RuntimeError('physical_positive_control_missing')
+        report['phases']['outside_before'] = capture_probe(work, capture_components, 'before', physical)
+        # Missing wire positives invalidate physical evidence, but a complete,
+        # loss-free capture can still precede this bounded TUN/GUID experiment.
+        # It can never produce passed=True without both physical controls.
+        record_physical_control(report, 'before')
         # The broker's fixed global_start response wait is 90 seconds. Do not
         # begin it if the remaining cooperative budget cannot cover that wait.
         budget.stage('global_start')
@@ -1236,7 +1362,7 @@ def run(arguments):
         if not (report['tun_identity']['identity_matches'] and report['tun_identity']['start_guard_tun_ready']):
             raise RuntimeError('tun_identity_unconfirmed')
         budget.stage('physical_running_guard')
-        report['phases']['running_guard'] = capture_probe(work, component, 'running', physical)
+        report['phases']['running_guard'] = capture_probe(work, capture_components, 'running', physical)
         budget.stage('system_carrier_http')
         report['system_core_carrier_http'] = carrier_control(state['carrier_port'], carrier_address)
         # No second privileged Mihomo is left alive during the core-death proof.
@@ -1253,11 +1379,11 @@ def run(arguments):
         terminate_owned(read_json(work / 'core-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
         time.sleep(.5)
         budget.stage('physical_core_dead')
-        report['phases']['core_dead'] = capture_probe(work, component, 'coredead', physical)
+        report['phases']['core_dead'] = capture_probe(work, capture_components, 'coredead', physical)
         budget.stage('service_stop')
         service_state(metadata, False)
         budget.stage('physical_service_stopped')
-        report['phases']['service_stopped'] = capture_probe(work, component, 'servicedead', physical)
+        report['phases']['service_stopped'] = capture_probe(work, capture_components, 'servicedead', physical)
         report['guard_after_service_death'] = {key: value for key, value in Guard(metadata).status().items()
             if key in ('active', 'persistent', 'native_qualified', 'strict_isolation')}
         # Restart the actual broker and exercise its user-visible explicit
@@ -1277,14 +1403,13 @@ def run(arguments):
         if not restoration.get('recovered'):
             raise RuntimeError('precise_restore_failed')
         budget.stage('physical_positive_after')
-        report['phases']['outside_after'] = capture_probe(work, component, 'after', physical)
-        denied = (all(report['phases'][phase][key] == 0
-                      for phase in ('running_guard', 'core_dead', 'service_stopped')
-                      for key in ('tcp_syn', 'udp_marker'))
+        report['phases']['outside_after'] = capture_probe(work, capture_components, 'after', physical)
+        denied = (all(protected_components_clear(report['phases'][phase], capture_components)
+                      for phase in ('running_guard', 'core_dead', 'service_stopped'))
                   and all(valid_physical_attempt(report['phases'][phase]['actor'])
                       for phase in ('running_guard', 'core_dead', 'service_stopped')))
-        controls = all(report['phases'][phase][key] > 0 for phase in ('outside_before', 'outside_after')
-                       for key in ('tcp_syn', 'udp_marker'))
+        after_control = record_physical_control(report, 'after')
+        controls = report.get('physical_positive_before_valid') is True and after_control
         tun = all(report['tun_echo'][str(family)][protocol]['received_echo']
                   for family in (4, 6) for protocol in ('tcp', 'udp'))
         report['ipv4_physical_scope_passed'] = controls and denied
