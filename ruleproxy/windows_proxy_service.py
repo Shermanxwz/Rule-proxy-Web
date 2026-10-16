@@ -861,7 +861,12 @@ class GlobalCore:
                         # pre-guard before the TUN interface has a real LUID.
                         # Reapply atomically after the core creates the device.
                         ready = self.guard.apply(self.executable, tun)
-                        if not self._guard_ready(ready, strict=strict):
+                        # The controller can answer before mihomo creates the TUN
+                        # (hub.ApplyConfig starts it before executor.ApplyConfig does;
+                        # https://github.com/MetaCubeX/mihomo/blob/v1.19.32/hub/hub.go).
+                        # Before tun_ready only the qualified persistent pre-guard is
+                        # required; _confirmed_running checks strict isolation once it is.
+                        if not self._preguard_ready(ready, strict=strict):
                             raise ProxyError("strict_guard_unavailable" if strict else "global_guard_not_effective",
                                              "TUN 启动后的独立保护未确认，保留独立保护。")
                         if ready.get("tun_ready") is True:

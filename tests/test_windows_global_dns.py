@@ -124,10 +124,47 @@ class DnsLeaseTests(unittest.TestCase):
         self.runner.assert_called_once_with("remove")
 
     def test_foreign_effective_policy_still_using_virtual_dns_blocks_restore_confirmation(self):
+        self.lease._sleep = mock.Mock()
         self.runner.return_value = self.snapshot([], [self.effective()])
         with self.assertRaises(ProxyError) as caught:
             self.lease.normal_stop()
         self.assertEqual(caught.exception.code, "global_dns_restore_incomplete")
+
+    def test_normal_stop_retries_transient_unavailable_then_restores(self):
+        self.lease._sleep = mock.Mock()
+        self.runner.side_effect = [ProxyError("global_dns_unavailable", "timeout"), self.snapshot()]
+        result = self.lease.normal_stop()
+        self.assertTrue(result["stopped"])
+        self.assertFalse(result["active"])
+        self.assertEqual(self.runner.call_args_list, [mock.call("remove"), mock.call("remove")])
+        self.lease._sleep.assert_called_once_with(dns._RESTORE_BACKOFF_SECONDS)
+
+    def test_normal_stop_retry_is_bounded(self):
+        self.lease._sleep = mock.Mock()
+        self.runner.side_effect = ProxyError("global_dns_unavailable", "timeout")
+        with self.assertRaises(ProxyError) as caught:
+            self.lease.normal_stop()
+        self.assertEqual(caught.exception.code, "global_dns_unavailable")
+        self.assertEqual(self.runner.call_count, dns._RESTORE_ATTEMPTS)
+        self.assertEqual(self.lease._sleep.call_count, dns._RESTORE_ATTEMPTS - 1)
+
+    def test_normal_stop_does_not_retry_policy_conflict(self):
+        self.lease._sleep = mock.Mock()
+        self.runner.side_effect = ProxyError("global_dns_conflict", "conflict")
+        with self.assertRaises(ProxyError) as caught:
+            self.lease.normal_stop()
+        self.assertEqual(caught.exception.code, "global_dns_conflict")
+        self.runner.assert_called_once_with("remove")
+        self.lease._sleep.assert_not_called()
+
+    def test_normal_stop_retries_effective_policy_lag(self):
+        self.lease._sleep = mock.Mock()
+        self.runner.side_effect = [self.snapshot([], [self.effective()]), self.snapshot()]
+        result = self.lease.normal_stop()
+        self.assertTrue(result["stopped"])
+        self.assertFalse(result["active"])
+        self.assertEqual(self.runner.call_count, 2)
+        self.lease._sleep.assert_called_once_with(dns._RESTORE_BACKOFF_SECONDS)
 
     def test_crash_keep_does_not_run_remove_or_apply(self):
         self.runner.return_value = self.snapshot([self.owned()], [self.effective()])

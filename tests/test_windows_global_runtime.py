@@ -51,6 +51,17 @@ class Guard:
         return self.status()
 
 
+class LateTunGuard(Guard):
+    """The TUN adapter appears one poll after the controller already answers."""
+
+    def status(self):
+        value = super().status()
+        ready = self.active and self.applies > 2
+        value["tun_ready"] = ready
+        value["strict_isolation"] = self.active and self.strict and ready
+        return value
+
+
 class Process:
     def __init__(self, events, live=True):
         self.events, self.live, self.pid = events, live, 12345
@@ -376,6 +387,47 @@ class GlobalCoreTests(unittest.TestCase):
         self.assertTrue(self.guard.active)
         self.assertTrue(self.dns.active)
         self.assertNotIn("normal_stop", [event[0] for event in self.events])
+
+    def test_strict_start_waits_for_tun_created_after_controller(self):
+        self.guard = LateTunGuard(self.events)
+        self.guard.strict = True
+        self.core = service.GlobalCore(self.metadata, guard=self.guard, dns=self.dns, launcher=self.launch,
+                    validator=self.validator, health=lambda *_: True, management=lambda: [],
+                    state_directory=self.state)
+        result = self.core.start(fields(require_strict=True))
+        self.assertIs(result["strict_isolation"], True)
+        self.assertIs(result["guard"]["tun_ready"], True)
+        self.assertNotIn("terminate", [event[0] for event in self.events])
+        self.assertNotIn("crash_keep", [event[0] for event in self.events])
+        self.assertEqual([event[0] for event in self.events].count("guard_apply"), 3)
+
+    def test_non_strict_start_waits_for_tun_created_after_controller(self):
+        self.guard = LateTunGuard(self.events)
+        self.core = service.GlobalCore(self.metadata, guard=self.guard, dns=self.dns, launcher=self.launch,
+                    validator=self.validator, health=lambda *_: True, management=lambda: [],
+                    state_directory=self.state)
+        result = self.core.start(fields(require_strict=False))
+        self.assertIs(result["running"], True)
+        self.assertNotIn("terminate", [event[0] for event in self.events])
+
+    def test_strict_late_tun_reapply_still_requires_native_qualification(self):
+        self.guard = LateTunGuard(self.events)
+        self.guard.strict = True
+        self.core = service.GlobalCore(self.metadata, guard=self.guard, dns=self.dns, launcher=self.launch,
+                    validator=self.validator, health=lambda *_: True, management=lambda: [],
+                    state_directory=self.state)
+        original = self.guard.apply
+        def apply(core, tun):
+            value = original(core, tun)
+            if self.guard.applies >= 2:
+                return {**value, "native_qualified": False}
+            return value
+        with mock.patch.object(self.guard, "apply", side_effect=apply), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields(require_strict=True))
+        self.assertEqual(caught.exception.code, "strict_guard_unavailable")
+        self.assertIn("crash_keep", [event[0] for event in self.events])
+        self.assertIn("dns_keep", [event[0] for event in self.events])
 
     def test_guard_losing_qualification_during_second_apply_stops_core_and_keeps_protection(self):
         self.guard.strict = True
