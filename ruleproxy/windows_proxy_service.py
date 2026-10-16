@@ -376,6 +376,31 @@ class ProcessLease:
     def alive(self):
         return bool(self.handle) and self.kernel.WaitForSingleObject(self.handle, 0) == 258
 
+    def is_elevated(self):
+        """Query this held process, never reopen its possibly reused PID."""
+        if not self.handle:
+            return False
+        advapi = _dll("advapi32")
+        advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+        advapi.OpenProcessToken.restype = wintypes.BOOL
+        advapi.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
+            wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+        advapi.GetTokenInformation.restype = wintypes.BOOL
+        token = wintypes.HANDLE()
+        try:
+            if not advapi.OpenProcessToken(self.handle, 8, ctypes.byref(token)) or not token.value:
+                return False
+            elevated, returned = ctypes.c_uint32(), wintypes.DWORD()
+            if not advapi.GetTokenInformation(token, 20, ctypes.byref(elevated), ctypes.sizeof(elevated),
+                                               ctypes.byref(returned)):
+                return False
+            return returned.value == ctypes.sizeof(elevated) and bool(elevated.value)
+        except (OSError, ValueError):
+            return False
+        finally:
+            if token.value:
+                self.kernel.CloseHandle(token)
+
     def close(self):
         if self.handle:
             self.kernel.CloseHandle(self.handle)
@@ -554,24 +579,40 @@ class GlobalCore:
                 raise ProxyError("setup_required", "全局运行目录尚未安装，请修复安装。")
             protected_path(path, private=True)
 
-    def status(self, *, dns_state=None):
+    @staticmethod
+    def _guard_ready(value, *, strict=False, tun_ready=False):
+        required = ("supported", "active", "persistent")
+        if strict:
+            required += ("strict_isolation", "native_qualified")
+        if tun_ready:
+            required += ("tun_ready",)
+        return all(value.get(name) is True for name in required)
+
+    @staticmethod
+    def _dns_ready(value, *, strict=False):
+        required = ("supported", "active", "persistent", "effective", "fresh")
+        if strict:
+            required += ("native_qualified",)
+        return (all(value.get(name) is True for name in required)
+                and value.get("state") == "candidate_active")
+
+    def status(self, *, dns_state=None, guard_state=None):
         try:
             self._available()
             available, detail = True, "Windows 全局 TUN 后端已安装。"
         except ProxyError as exc:
             available, detail = False, str(exc)
         running = self.is_running()
-        guard = self.guard.status()
+        guard = self.guard.status() if guard_state is None else guard_state
         dns = self.dns.status() if dns_state is None else dns_state
-        strict = (guard.get("active") is True and guard.get("persistent") is True
-                  and guard.get("strict_isolation") is True and guard.get("native_qualified") is True
-                  and dns.get("effective") is True and dns.get("native_qualified") is True)
+        strict = (self._guard_ready(guard, strict=True, tun_ready=True)
+                  and self._dns_ready(dns, strict=True))
         protection = ("persistent_guard" if strict else "persistent_guard_unqualified"
                       if guard.get("active") is True and guard.get("persistent") is True else "routing_only")
         if not guard.get("supported"):
             detail += " 独立故障阻断层不可用，不能确认故障后防直连。"
         component_supported = available and dns.get("component_available", dns.get("supported")) is True
-        policy_ready = dns.get("fresh", True) is True and dns.get("supported") is True and dns.get("state") in {"idle", "candidate_active"}
+        policy_ready = dns.get("fresh") is True and dns.get("supported") is True and dns.get("state") in {"idle", "candidate_active"}
         dns_conflict = dns.get("state") in {"conflict", "not_effective"}
         if not policy_ready:
             detail += " " + dns.get("detail", "无法核对全局 DNS 策略。")
@@ -646,6 +687,31 @@ class GlobalCore:
             process.wait(timeout=5)
             self.process = None
 
+    def _keep_after_start_failure(self):
+        self.error = {"code": "global_start_failed", "message": "全局核心未能确认有效运行；已保留独立保护状态。"}
+        try:
+            self._halt()
+        finally:
+            # Failed cleanup never authorizes withdrawing either protection.
+            try:
+                self.dns.crash_keep()
+            finally:
+                self.guard.crash_keep()
+
+    def _confirmed_running(self, *, strict):
+        dns = self.dns.status(refresh=True)
+        guard = self.guard.status()
+        if not self._guard_ready(guard, strict=strict, tun_ready=True):
+            raise ProxyError("strict_guard_unavailable" if strict else "global_guard_not_effective",
+                             "启动后的独立保护或 TUN 接口未确认，保留独立保护。")
+        if not self._dns_ready(dns, strict=strict):
+            raise ProxyError("strict_dns_unavailable" if strict else "global_dns_not_effective",
+                             "启动后的 DNS 有效策略未确认，保留独立保护。")
+        result = self.status(dns_state=dns, guard_state=guard)
+        if result["running"] is not True:
+            raise ProxyError("global_start_failed", "全局核心已退出，保留独立保护。")
+        return result
+
     def stop(self, *, normal=True):
         # Do not withdraw a guard after an unconfirmed process cleanup.
         self._halt()
@@ -678,19 +744,21 @@ class GlobalCore:
     def start(self, request):
         policy.validate_global_request(request)
         self._available()
-        if request.get("require_strict"):
+        strict = request.get("require_strict") is True
+        if strict:
             capability = self.guard.status()
             if not (capability.get("supported") is True and capability.get("native_qualified") is True):
                 raise ProxyError("strict_guard_unavailable", "独立故障阻断层尚未通过原生资格验证，不能启动严格全局模式。")
-            if self.dns.status().get("native_qualified") is not True:
-                raise ProxyError("strict_dns_unavailable", "全局 DNS 尚未通过原生资格验证，不能启动严格全局模式。")
         # Parse/query the fixed DNS control program without changing policy
         # before installing a persistent pre-guard. A missing/broken DNSClient
         # must not lock networking before it can even inspect its own lease.
         dns_capability = self.dns.status(refresh=True)
         if (dns_capability.get("supported") is not True
-                or dns_capability.get("state") in {"conflict", "not_effective"}):
+                or dns_capability.get("fresh") is not True
+                or dns_capability.get("state") not in {"idle", "candidate_active"}):
             raise ProxyError("global_dns_conflict", "已有 DNS 策略冲突或无法核对有效 NRPT，未启动全局接管。")
+        if strict and dns_capability.get("native_qualified") is not True:
+            raise ProxyError("strict_dns_unavailable", "全局 DNS 尚未通过原生资格验证，不能启动严格全局模式。")
         if self.process is None or self.process.poll() is not None:
             self._controller_secret = secrets.token_urlsafe(48)
         compiler = self._compiler
@@ -706,7 +774,11 @@ class GlobalCore:
         fingerprint = hashlib.sha256(compiled.text.encode("utf-8")).hexdigest()
         if self.process is not None and self.process.poll() is None:
             if self.fingerprint == fingerprint:
-                return {**self.status(), "unchanged": True}
+                try:
+                    return {**self._confirmed_running(strict=strict), "unchanged": True}
+                except BaseException:
+                    self._keep_after_start_failure()
+                    raise
             raise ProxyError("already_running", "全局核心已运行，请先停止后再更改配置。")
         reservations = []
         try:
@@ -745,11 +817,13 @@ class GlobalCore:
         self.management_exceptions = exceptions
         try:
             protection = self.guard.apply(self.executable, tun)
-            if request.get("require_strict") and not (protection.get("active") and protection.get("strict_isolation")):
-                raise ProxyError("strict_guard_unavailable", "独立故障阻断层未进入有效状态，未启动全局核心。")
+            if not self._guard_ready(protection, strict=strict):
+                raise ProxyError("strict_guard_unavailable" if strict else "global_guard_not_effective",
+                                 "独立故障阻断层未进入有效状态，未启动全局核心。")
             dns = self.dns.apply()
-            if dns.get("effective") is not True or dns.get("active") is not True:
-                raise ProxyError("global_dns_not_effective", "全局 DNS 未确认生效，未启动全局核心。")
+            if not self._dns_ready(dns, strict=strict):
+                raise ProxyError("strict_dns_unavailable" if strict else "global_dns_not_effective",
+                                 "全局 DNS 未确认生效，未启动全局核心。")
             launcher = self._launcher
             if launcher is None:
                 from ruleproxy.windows_app_process import launch
@@ -764,29 +838,23 @@ class GlobalCore:
                         # pre-guard before the TUN interface has a real LUID.
                         # Reapply atomically after the core creates the device.
                         ready = self.guard.apply(self.executable, tun)
-                        if ready.get("tun_ready") is not False:
-                            final_dns = self.dns.status(refresh=True)
-                            if final_dns.get("supported") is not True or final_dns.get("effective") is not True:
-                                raise ProxyError("global_dns_not_effective", "启动后的 DNS 有效策略未确认，保留独立保护。")
+                        if not self._guard_ready(ready, strict=strict):
+                            raise ProxyError("strict_guard_unavailable" if strict else "global_guard_not_effective",
+                                             "TUN 启动后的独立保护未确认，保留独立保护。")
+                        if ready.get("tun_ready") is True:
+                            confirmed = self._confirmed_running(strict=strict)
                             self.fingerprint, self.error = fingerprint, None
                             self._controller_port = request["controller_port"]
                             self._allowed_nodes = {node["name"] for node in compiled.nodes}
                             self._primary_group = compiled.primary_group
                             self.selected_node = compiled.selected_node
-                            return self.status()
+                            return {**confirmed, "error": None, "selected_node": self.selected_node}
                 except (OSError, ValueError):
                     pass
                 time.sleep(.1)
             raise ProxyError("global_start_failed", "全局核心未能建立自身控制监听，请停止或修复后重试。")
         except BaseException:
-            self.error = {"code": "global_start_failed", "message": "全局核心未启动；已保留独立保护状态。"}
-            try:
-                self._halt()
-            finally:
-                try:
-                    self.dns.crash_keep()
-                finally:
-                    self.guard.crash_keep()
+            self._keep_after_start_failure()
             raise
 
 
@@ -900,6 +968,14 @@ class Broker:
             raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
         owner = self.lease_factory(caller_pid, caller_sid)
         try:
+            if request.get("require_strict") is not True:
+                try:
+                    experimental_admin = owner.is_elevated() is True
+                except Exception:
+                    experimental_admin = False
+                if not experimental_admin:
+                    raise ProxyError("experimental_global_requires_admin",
+                        "未通过资格验证的全局实验仅允许实际提升的管理员进程；普通面板必须使用严格模式。")
             self.control.verify(self.metadata)
             if self.panel is not None:
                 self.stop()

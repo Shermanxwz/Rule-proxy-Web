@@ -36,6 +36,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 
 
 DEST4 = '203.0.113.77'
@@ -43,6 +44,43 @@ TUN4, TUN6 = '198.51.100.88', '2001:db8::88'
 TCP_PORT, UDP_PORT = 18080, 39177
 MAX_CAPTURE = 64 * 1024 * 1024
 FIXTURE_SERVER = '127.0.0.1.sslip.io'
+RECOVERY_DEADLINE_SECONDS = 180
+EXPERIMENT_BUDGET_SECONDS = 135
+_ACTIVE_BUDGET = None
+
+
+class ExperimentBudget:
+    """Stop scheduling new work before the independent SYSTEM recovery fires.
+
+    This bounds cooperative harness operations, not a hung broker/native call;
+    the separate 180-second task remains the hard network-recovery backstop.
+    """
+    def __init__(self):
+        self.started = time.monotonic()
+        self.deadline = self.started + EXPERIMENT_BUDGET_SECONDS
+        self.stages = []
+
+    def stage(self, name):
+        elapsed = time.monotonic() - self.started
+        if self.stages and 'elapsed_seconds' not in self.stages[-1]:
+            previous = self.stages[-1]
+            previous['elapsed_seconds'] = round(elapsed - previous['started_seconds'], 3)
+        if name is not None:
+            self.stages.append({'stage': name, 'started_seconds': round(elapsed, 3)})
+
+    def timeout(self, maximum, *, reserve=0):
+        remaining = self.deadline - time.monotonic() - reserve
+        if remaining <= 0:
+            raise RuntimeError('experiment_time_budget_exhausted')
+        return min(maximum, remaining)
+
+    def require(self, seconds):
+        if self.deadline - time.monotonic() < seconds:
+            raise RuntimeError('experiment_time_budget_insufficient')
+
+
+def operation_timeout(maximum):
+    return _ACTIVE_BUDGET.timeout(maximum) if _ACTIVE_BUDGET is not None else maximum
 
 
 def fixture_source(port):
@@ -98,7 +136,7 @@ def ps(script, environment=None, timeout=25):
     command = [str(executable), '-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand',
         base64.b64encode((prefix + script + suffix).encode('utf-16-le')).decode('ascii')]
     result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, timeout=timeout, env={**os.environ, **(environment or {})},
+        stderr=subprocess.PIPE, timeout=operation_timeout(timeout), env={**os.environ, **(environment or {})},
         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), check=False)
     if result.returncode or len(result.stdout) > 2 * 1024 * 1024:
         raise RuntimeError('powershell_operation_failed:' + result.stderr.decode('utf-8', 'replace')[-700:])
@@ -109,50 +147,127 @@ def pktmon(*arguments):
     from ruleproxy.windows_store_apps import _system_powershell
     executable = _system_powershell().parents[2] / 'pktmon.exe'
     result = subprocess.run([str(executable), *map(str, arguments)], stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=20,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=operation_timeout(20),
         creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), check=False)
     if result.returncode or len(result.stdout) > 2 * 1024 * 1024:
         raise RuntimeError('pktmon_operation_failed:' + result.stdout.decode('utf-8', 'replace')[-700:])
     return result.stdout.decode('utf-8-sig', 'replace')
 
 
-def component_id(document, mac, description):
-    """Require one explicit NIC match; never confuse a TUN capture with wire."""
-    found, visited = set(), 0
-    pending = [document]
-    normalized_mac = ''.join(c for c in mac.casefold() if c in '0123456789abcdef')
-    if len(normalized_mac) != 12:
-        raise ValueError('physical_mac_required')
+def _field_name(value):
+    return re.sub(r'[\s_-]', '', value.casefold())
+
+
+def _mac(value):
+    if not isinstance(value, str):
+        return None
+    if not re.fullmatch(r'(?:[0-9a-fA-F]{12}|(?:[0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2})', value):
+        return None
+    return value.replace('-', '').replace(':', '').casefold()
+
+
+def _index(value):
+    if type(value) is int:
+        return value if 0 < value <= 0xffffffff else None
+    if isinstance(value, str) and re.fullmatch(r'[1-9][0-9]{0,9}', value):
+        return _index(int(value))
+    return None
+
+
+def _component_records(document):
+    # Properties belong to their enclosing component. Recursing into their
+    # Name/Value rows (or Counters) loses that association and floods evidence.
+    pending, visited = [('$', document)], 0
     while pending:
-        value = pending.pop()
+        path, value = pending.pop()
         visited += 1
         if visited > 10000:
             raise ValueError('component_list_bound')
         if isinstance(value, list):
-            pending.extend(value)
+            pending.extend((path + '[' + str(index) + ']', item)
+                           for index, item in reversed(list(enumerate(value))))
         elif isinstance(value, dict):
-            pending.extend(value.values())
-            fields = {key.casefold().replace('_', '').replace('-', ''): item for key, item in value.items()}
-            identity = fields.get('id', fields.get('componentid'))
-            candidate_mac = fields.get('macaddress', fields.get('mac'))
-            same_mac = (isinstance(candidate_mac, str) and ''.join(c for c in candidate_mac.casefold()
-                        if c in '0123456789abcdef') == normalized_mac)
-            same_description = fields.get('name') == description or fields.get('description') == description
-            if (same_mac or (candidate_mac is None and same_description)) and type(identity) is int and identity > 0:
-                found.add(identity)
+            fields = {}
+            for key, item in value.items():
+                if not isinstance(key, str):
+                    raise ValueError('component_keys_schema')
+                normalized = _field_name(key)
+                if normalized in fields:
+                    raise ValueError('component_fields_ambiguous')
+                fields[normalized] = item
+            if 'id' in fields or 'componentid' in fields:
+                yield path, value, fields
+            pending.extend((path + '.' + str(key)[:60], item) for key, item in reversed(list(value.items()))
+                           if isinstance(key, str) and _field_name(key) not in {'properties', 'counters'})
+
+
+_MAC_FIELDS = {'mac', 'macaddress'}
+_INDEX_FIELDS = {'ifindex', 'interfaceindex', 'miniportifindex'}
+
+
+def _component_identity(fields):
+    macs = [item for key, item in fields.items() if key in _MAC_FIELDS]
+    indexes = [item for key, item in fields.items() if key in _INDEX_FIELDS]
+    properties = fields.get('properties', [])
+    if not isinstance(properties, list) or len(properties) > 64:
+        raise ValueError('component_properties_schema')
+    for prop in properties:
+        if not isinstance(prop, dict) or not isinstance(prop.get('Name'), str) or 'Value' not in prop:
+            raise ValueError('component_properties_schema')
+        key = _field_name(prop['Name'])
+        if key in _MAC_FIELDS:
+            macs.append(prop['Value'])
+        elif key in _INDEX_FIELDS:
+            indexes.append(prop['Value'])
+    normalized_macs, normalized_indexes = {_mac(item) for item in macs}, {_index(item) for item in indexes}
+    if (None in normalized_macs or None in normalized_indexes
+            or len(normalized_macs) > 1 or len(normalized_indexes) > 1):
+        raise ValueError('component_identity_conflict')
+    return next(iter(normalized_macs), None), next(iter(normalized_indexes), None)
+
+
+def component_id(document, mac, description, interface_index=None):
+    """Bind exactly one Miniport to Get-NetAdapter identity, never its name.
+
+    Server 2025 emits Properties:[{Name,Value}], with a driver component name
+    different from InterfaceDescription. Require its exact ifIndex when the
+    caller supplies one; any available MAC must also agree. Names are diagnostic.
+    """
+    expected_mac = _mac(mac)
+    if expected_mac is None:
+        raise ValueError('physical_mac_required')
+    if interface_index is not None and _index(interface_index) != interface_index:
+        raise ValueError('physical_index_required')
+    found = []
+    for _path, _value, fields in _component_records(document):
+        if ('type' in fields and 'componenttype' in fields and fields['type'] != fields['componenttype']
+                or 'id' in fields and 'componentid' in fields and fields['id'] != fields['componentid']):
+            raise ValueError('component_fields_ambiguous')
+        if fields.get('type', fields.get('componenttype')) != 'Miniport':
+            continue
+        candidate_mac, candidate_index = _component_identity(fields)
+        same_mac, same_index = candidate_mac == expected_mac, candidate_index == interface_index
+        if ((same_mac and interface_index is not None and candidate_index is not None and not same_index)
+                or (interface_index is not None and same_index and candidate_mac is not None and not same_mac)):
+            raise ValueError('component_identity_conflict')
+        matches = same_index if interface_index is not None else same_mac
+        identity = fields.get('id', fields.get('componentid'))
+        if matches:
+            if type(identity) is not int or not 0 < identity <= 0xffffffff:
+                raise ValueError('physical_component_id_invalid')
+            found.append(identity)
     if len(found) != 1:
         raise ValueError('physical_component_not_unique')
-    return found.pop()
+    return found[0]
 
 
-def component_diagnostics(document, mac, description):
-    # Bounded structural evidence only. Never include executable paths or raw
-    # packets, and never select an ambiguous or merely similar component.
-    pending, rows, visited = [('$', document)], [], 0
-    expected = ''.join(c for c in mac.casefold() if c in '0123456789abcdef')
-    matching_mac, matching_description = 0, 0
-    fields_wanted = {'id', 'componentid', 'compid', 'mac', 'macaddress', 'name',
-                     'description', 'type', 'componenttype', 'mediatype'}
+def component_diagnostics(document, mac, description, interface_index=None):
+    # Bounded component rows, with Miniports and exact identity matches first.
+    # Only MAC/ifIndex property values are exported; pointers/IPs/paths stay local.
+    rows, total, matching_mac, matching_index, matching_description = [], 0, 0, 0, 0
+    expected = _mac(mac)
+    fields_wanted = {'id', 'componentid', 'mac', 'macaddress', 'name', 'description',
+                     'type', 'componenttype', 'mediatype', *_INDEX_FIELDS}
     def safe(value):
         if isinstance(value, str):
             if ':\\' in value or value.startswith(('\\\\', '/')):
@@ -161,29 +276,42 @@ def component_diagnostics(document, mac, description):
         if value is None or type(value) in (int, bool):
             return value
         return '<' + type(value).__name__ + '>'
-    while pending and visited < 10000:
-        path, value = pending.pop()
-        visited += 1
-        if isinstance(value, list):
-            pending.extend((path + '[' + str(index) + ']', item) for index, item in enumerate(value))
-        elif isinstance(value, dict):
-            fields = {key.casefold().replace('_', '').replace('-', '').replace(' ', ''): item
-                      for key, item in value.items() if isinstance(key, str)}
-            candidate = fields.get('macaddress', fields.get('mac'))
-            same_mac = isinstance(candidate, str) and ''.join(c for c in candidate.casefold()
-                        if c in '0123456789abcdef') == expected
+    traversal_error = None
+    try:
+        for path, value, fields in _component_records(document):
+            total += 1
+            row = {'json_path': path[:200], 'keys': [safe(str(key)) for key in list(value)[:20]],
+                'fields': {key: safe(item) for key, item in fields.items() if key in fields_wanted},
+                'field_types': {key: type(item).__name__ for key, item in fields.items() if key in fields_wanted}}
+            try:
+                candidate_mac, candidate_index = _component_identity(fields)
+            except ValueError as error:
+                candidate_mac, candidate_index = None, None
+                row['identity_error'] = str(error)
+            same_mac, same_index = candidate_mac == expected, interface_index is not None and candidate_index == interface_index
             same_description = fields.get('name') == description or fields.get('description') == description
             matching_mac += int(same_mac)
+            matching_index += int(same_index)
             matching_description += int(same_description)
-            if fields_wanted.intersection(fields) and len(rows) < 96:
-                rows.append({'json_path': path[:200], 'keys': [safe(str(key)) for key in list(value)[:20]],
-                    'fields': {key: safe(item) for key, item in fields.items() if key in fields_wanted},
-                    'field_types': {key: type(item).__name__ for key, item in fields.items() if key in fields_wanted},
-                    'exact_mac_match': same_mac, 'exact_description_match': same_description})
-            pending.extend((path + '.' + str(key)[:60], item) for key, item in value.items())
-    return {'top_type': type(document).__name__, 'rows': rows, 'visited': visited,
-            'rows_bound_reached': len(rows) == 96, 'traversal_incomplete': bool(pending),
-            'exact_mac_match_count': matching_mac, 'exact_description_match_count': matching_description}
+            row.update(exact_mac_match=same_mac, exact_index_match=same_index, exact_description_match=same_description)
+            properties = fields.get('properties', [])
+            if isinstance(properties, list):
+                row['property_count'] = len(properties)
+                row['properties'] = [{'name': safe(prop.get('Name')), 'value_type': type(prop.get('Value')).__name__,
+                    **({'value': safe(prop.get('Value'))} if isinstance(prop.get('Name'), str)
+                       and _field_name(prop['Name']) in _MAC_FIELDS | _INDEX_FIELDS else {})}
+                    for prop in properties[:64] if isinstance(prop, dict)]
+            priority = (same_index or same_mac, fields.get('type') == 'Miniport')
+            rows.append((priority, total, row))
+            rows.sort(key=lambda item: (not item[0][0], not item[0][1], item[1]))
+            del rows[96:]
+    except ValueError as error:
+        traversal_error = str(error)
+    return {'top_type': type(document).__name__, 'rows': [row for _, _, row in rows],
+            'component_count': total, 'rows_bound_reached': total > 96,
+            'traversal_incomplete': traversal_error is not None, 'traversal_error': traversal_error,
+            'exact_mac_match_count': matching_mac, 'exact_index_match_count': matching_index,
+            'exact_description_match_count': matching_description}
 
 
 def nic_components():
@@ -194,15 +322,42 @@ def nic_components():
         "$result=@{index=[int]$a.ifIndex;mac=[string]$a.MacAddress;description=[string]$a.InterfaceDescription;"
         "source=[string]$ip.IPAddress;gateway=[string]$r[0].NextHop;alias=[string]$a.Name}|ConvertTo-Json -Compress"))
     document = json.loads(pktmon('list', '--json'))
-    evidence = component_diagnostics(document, nic['mac'], nic['description'])
+    evidence = component_diagnostics(document, nic['mac'], nic['description'], nic['index'])
     evidence['nic'] = {key: nic[key] for key in ('index', 'mac', 'description')}
     component = None
     try:
-        component = component_id(document, nic['mac'], nic['description'])
+        component = component_id(document, nic['mac'], nic['description'], nic['index'])
     except ValueError as error:
         evidence['selection_error'] = str(error)
     evidence['selected_component'] = component
     return nic, component, evidence
+
+
+def tun_identity_receipt(started):
+    """Read actual adapter identity without PowerShell or changing interfaces."""
+    from ruleproxy import windows_global_guard as guard
+    api = ctypes.WinDLL('iphlpapi.dll', use_last_error=True)
+    api.ConvertInterfaceAliasToLuid.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_uint64)]
+    api.ConvertInterfaceAliasToLuid.restype = ctypes.c_uint32
+    api.ConvertInterfaceLuidToGuid.argtypes = [ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(guard._GUID)]
+    api.ConvertInterfaceLuidToGuid.restype = ctypes.c_uint32
+    api.ConvertInterfaceLuidToIndex.argtypes = [ctypes.POINTER(ctypes.c_uint64), ctypes.POINTER(ctypes.c_uint32)]
+    api.ConvertInterfaceLuidToIndex.restype = ctypes.c_uint32
+    luid, identity, index = ctypes.c_uint64(), guard._GUID(), ctypes.c_uint32()
+    for operation, arguments in (
+        (api.ConvertInterfaceAliasToLuid, (guard._TUN_NAME, ctypes.byref(luid))),
+        (api.ConvertInterfaceLuidToGuid, (ctypes.byref(luid), ctypes.byref(identity))),
+        (api.ConvertInterfaceLuidToIndex, (ctypes.byref(luid), ctypes.byref(index)))):
+        code = operation(*arguments)
+        if code:
+            raise OSError(code, 'tun_identity_readback_failed')
+    expected = str(uuid.UUID(bytes_le=hashlib.md5(('wintun' + guard._TUN_NAME).encode()).digest()))
+    verified_luid = guard._tun_luid()
+    return {'alias': guard._TUN_NAME, 'interface_guid': identity.text(), 'interface_index': index.value,
+        'luid': luid.value, 'expected_guid': expected,
+        'identity_matches': bool(luid.value and index.value and identity.text() == expected and verified_luid == luid.value),
+        'start_guard_tun_ready': started.get('guard', {}).get('tun_ready') is True,
+        'native_qualified': False}
 
 
 def ethernet_probe(frame, marker):
@@ -682,6 +837,8 @@ def recover(state_path):
 
 def system_operation(state_path, operation):
     state, work = read_json(state_path), Path(state_path).parent
+    if operation not in ('recover', 'scope-stop') and time.time() >= state.get('experiment_expires_unix', 0):
+        raise RuntimeError('experiment_time_budget_exhausted')
     root = Path(state['root'])
     sys.path.insert(0, str(root))
     from ruleproxy.windows_proxy_service import load_deployment, protected_path
@@ -737,7 +894,7 @@ def task(state_path, operation, *, wait=True, watchdog=False):
         "$a=New-ScheduledTaskAction -Execute $env:RP_CAPTURE_PYTHON -Argument $env:RP_CAPTURE_ARGS;"
         "$p=New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest;"
         "$s=New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds 240) -StartWhenAvailable -MultipleInstances IgnoreNew;"
-        "$t=New-ScheduledTaskTrigger -Once -At ((Get-Date).AddSeconds(" + ('180' if watchdog else '31536000') + "));"
+        "$t=New-ScheduledTaskTrigger -Once -At ((Get-Date).AddSeconds(" + (str(RECOVERY_DEADLINE_SECONDS) if watchdog else '31536000') + "));"
         "Register-ScheduledTask -TaskName $env:RP_CAPTURE_TASK -Action $a -Principal $p -Settings $s -Trigger $t -Force|Out-Null;"
         + ('' if watchdog else "Start-ScheduledTask -TaskName $env:RP_CAPTURE_TASK;") + "$result='ok'")
     (work / (operation + '.result.json')).unlink(missing_ok=True)
@@ -745,7 +902,7 @@ def task(state_path, operation, *, wait=True, watchdog=False):
     if watchdog or not wait:
         return name
     result = work / (operation + '.result.json')
-    deadline = time.monotonic() + 25
+    deadline = time.monotonic() + operation_timeout(25)
     while not result.is_file() and time.monotonic() < deadline:
         time.sleep(.1)
     if not result.is_file():
@@ -797,7 +954,7 @@ def unused_port():
 def run_actor(work, request):
     process = subprocess.run([str(work / 'actor/python.exe'), '-I', '-S', str(work / 'capture.py'),
         '--actor-json', json.dumps(request)], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, timeout=6, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        stderr=subprocess.PIPE, timeout=operation_timeout(6), creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     if process.returncode or len(process.stdout) > 16384:
         raise RuntimeError('actor_process_failed')
     return json.loads(process.stdout.decode('utf-8'))
@@ -832,8 +989,8 @@ def scoped_ipv6_preflight(work, state_path):
 
 
 def carrier_control(port, address):
-    with socket.create_connection(('127.0.0.1', port), timeout=3) as connection:
-        connection.settimeout(3)
+    with socket.create_connection(('127.0.0.1', port), timeout=operation_timeout(3)) as connection:
+        connection.settimeout(operation_timeout(3))
         connection.sendall(b'\x05\x01\x00')
         if exact(connection, 2) != b'\x05\x00':
             raise RuntimeError('carrier_socks_greeting')
@@ -844,6 +1001,7 @@ def carrier_control(port, address):
         connection.sendall(b'GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n')
         data = bytearray()
         while len(data) < 65536:
+            connection.settimeout(operation_timeout(3))
             chunk = connection.recv(4096)
             if not chunk:
                 break
@@ -863,6 +1021,8 @@ def private_acl_script():
 
 
 def run(arguments):
+    global _ACTIVE_BUDGET
+    run_started = time.monotonic()
     if os.name != 'nt' or not arguments.ack_disposable_windows:
         raise RuntimeError('explicit_disposable_windows_ack_required')
     root = arguments.installed_root.resolve(strict=True)
@@ -911,21 +1071,33 @@ def run(arguments):
         'fixed_core_sha256': metadata['files']['bin/windows-amd64/mihomo.exe'],
         'guard_source_sha256': hashlib.sha256((root / 'ruleproxy/windows_global_guard.py').read_bytes()).hexdigest(),
         'windows_build': list(sys.getwindowsversion()[:3])}
-    fixture = None
-    watchdog = task(state_path, 'recover', wait=False, watchdog=True)
-    names = [watchdog]
+    fixture, names = None, []
+    budget = ExperimentBudget()
+    state['experiment_expires_unix'] = time.time() + EXPERIMENT_BUDGET_SECONDS
+    write_json(state_path, state)
+    _ACTIVE_BUDGET = budget
+    report['time_budget'] = {'cooperative_experiment_seconds': EXPERIMENT_BUDGET_SECONDS,
+        'independent_system_recovery_trigger_seconds': RECOVERY_DEADLINE_SECONDS,
+        'broker_calls_hard_interrupted': False, 'stages': budget.stages}
     try:
+        budget.stage('register_independent_recovery')
+        names.append(task(state_path, 'recover', wait=False, watchdog=True))
+        budget.stage('fixture_prepare')
         fixture = EchoNode()
         source = fixture_source(fixture.port)
+        budget.stage('fixture_dns_preflight')
         report['fixture_dns'] = fixture_dns_preflight()
+        budget.stage('physical_component_identity')
         nic, component, evidence = nic_components()
         report['components'] = evidence
         if component is None:
             raise ValueError(evidence['selection_error'])
         state['nic'] = nic
+        budget.stage('scoped_ipv6_action')
         report['ipv6_scoped_action'] = scoped_ipv6_preflight(work, state_path)
         if not report['ipv6_scoped_action']['passed']:
             raise RuntimeError('scoped_ipv6_restore_failed')
+        budget.stage('physical_route_prepare')
         ps("if(@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -ErrorAction SilentlyContinue).Count){throw 'test prefix already owned'};$result='ok'")
         state['route_created'] = True  # watchdog covers a crash immediately after route creation
         write_json(state_path, state)
@@ -933,6 +1105,7 @@ def run(arguments):
            "New-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -NextHop $s.nic.gateway "
            "-RouteMetric 1 -PolicyStore ActiveStore -ErrorAction Stop|Out-Null;$result='ok'", {'RP_CAPTURE_STATE': str(state_path)})
         carrier_address = socket.getaddrinfo('example.com', 80, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+        budget.stage('system_carrier_start')
         names.append(task(state_path, 'carrier', wait=False))
         deadline = time.monotonic() + 10
         while not (work / 'carrier-owned.json').is_file() and time.monotonic() < deadline:
@@ -942,43 +1115,65 @@ def run(arguments):
             request = {'marker': marker, 'host': DEST4, 'family': 4, 'source': nic['source'],
                        'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': False}
             return run_actor(work, request)
+        budget.stage('physical_positive_before')
         report['phases']['outside_before'] = capture_probe(work, component, 'before', physical)
         if any(report['phases']['outside_before'][key] < 1 for key in ('tcp_syn', 'udp_marker')):
             raise RuntimeError('physical_positive_control_missing')
+        # The broker's fixed global_start response wait is 90 seconds. Do not
+        # begin it if the remaining cooperative budget cannot cover that wait.
+        budget.stage('global_start')
+        budget.require(90)
         started = native.start(source, secrets.token_urlsafe(24), unused_port(), unused_port(), 'CaptureEcho', require_strict=False)
+        budget.require(1)
         if not started.get('running'):
             raise RuntimeError('real_global_core_not_running')
         write_json(work / 'core-owned.json', require_owned_identity(started['pid'], root / 'bin/windows-amd64/mihomo.exe'))
+        budget.stage('tun_identity_readback')
+        report['tun_identity'] = tun_identity_receipt(started)
+        if not (report['tun_identity']['identity_matches'] and report['tun_identity']['start_guard_tun_ready']):
+            raise RuntimeError('tun_identity_unconfirmed')
+        budget.stage('physical_running_guard')
         report['phases']['running_guard'] = capture_probe(work, component, 'running', physical)
+        budget.stage('system_carrier_http')
         report['system_core_carrier_http'] = carrier_control(state['carrier_port'], carrier_address)
         # No second privileged Mihomo is left alive during the core-death proof.
         terminate_owned(read_json(work / 'carrier-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
         report['tun_echo'] = {}
         for family, host in ((4, TUN4), (6, TUN6)):
+            budget.stage('tun_echo_ipv' + str(family))
+            budget.require(3)
             result = actor({'marker': 'RuleProxyCapture:tun:' + nonce, 'host': host, 'family': family,
                             'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': True})
             report['tun_echo'][str(family)] = result
         report['synthetic_node_counts'] = dict(fixture.counts)
+        budget.stage('core_terminate')
         terminate_owned(read_json(work / 'core-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
         time.sleep(.5)
+        budget.stage('physical_core_dead')
         report['phases']['core_dead'] = capture_probe(work, component, 'coredead', physical)
+        budget.stage('service_stop')
         service_state(metadata, False)
+        budget.stage('physical_service_stopped')
         report['phases']['service_stopped'] = capture_probe(work, component, 'servicedead', physical)
         report['guard_after_service_death'] = {key: value for key, value in Guard(metadata).status().items()
             if key in ('active', 'persistent', 'native_qualified', 'strict_isolation')}
         # Restart the actual broker and exercise its user-visible explicit
         # global_stop protocol before emergency watchdog cleanup is invoked.
+        budget.stage('service_restart')
         service_state(metadata, True)
+        budget.stage('explicit_global_stop')
         native.stop()
         stopped_guard, stopped_dns = Guard(metadata).status(), DnsLease(metadata).status(refresh=True)
         report['explicit_global_stop'] = (stopped_guard.get('active') is False
                                           and stopped_dns.get('active') is False)
         if not report['explicit_global_stop']:
             raise RuntimeError('explicit_global_stop_not_restored')
+        budget.stage('explicit_recovery')
         restoration = recover(state_path)
         report['recovery'] = restoration
         if not restoration.get('recovered'):
             raise RuntimeError('precise_restore_failed')
+        budget.stage('physical_positive_after')
         report['phases']['outside_after'] = capture_probe(work, component, 'after', physical)
         denied = (all(report['phases'][phase][key] == 0
                       for phase in ('running_guard', 'core_dead', 'service_stopped')
@@ -996,8 +1191,14 @@ def run(arguments):
         report['passed'] = (controls and denied and tun and guard_owned
             and report['system_core_carrier_http'] and report['ipv6_scoped_action']['passed'])
     except BaseException as error:
+        report['failed_stage'] = budget.stages[-1]['stage'] if budget.stages else 'unknown'
         report['error'] = type(error).__name__ + ':' + str(error)[:900]
     finally:
+        # Cleanup must remain possible after the experiment budget expires.
+        # The independent SYSTEM task never inherits this in-process budget.
+        _ACTIVE_BUDGET = None
+        report['time_budget']['experiment_elapsed_seconds'] = round(time.monotonic() - budget.started, 3)
+        budget.stage('final_recovery')
         (work / 'carrier-stop').touch()
         if fixture is not None:
             fixture.close()
@@ -1018,6 +1219,8 @@ def run(arguments):
         else:
             report['passed'] = False
         arguments.output.parent.mkdir(parents=True, exist_ok=True)
+        budget.stage(None)
+        report['time_budget']['total_elapsed_seconds'] = round(time.monotonic() - run_started, 3)
         write_json(arguments.output, report)
     print(json.dumps({'passed': report['passed'], 'strict_qualified': False,
                       'recovered': report['recovery'].get('recovered'), 'summary': str(arguments.output)}))

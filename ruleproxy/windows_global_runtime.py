@@ -45,7 +45,7 @@ class Runtime:
         return result
 
     def start(self, source: str, secret: str, mixed_port: int, controller_port: int,
-              selected_node: str | None = None, *, require_strict: bool = False) -> dict:
+              selected_node: str | None = None, *, require_strict: bool = True) -> dict:
         fields = dict(source=source, secret=secret, mixed_port=mixed_port,
                       controller_port=controller_port, selected_node=selected_node,
                       require_strict=require_strict)

@@ -27,10 +27,12 @@ def fields(**overrides):
 class Guard:
     def __init__(self, events):
         self.events, self.active, self.applies = events, False, 0
+        self.strict = False
 
     def status(self):
         return {"supported": True, "active": self.active, "persistent": self.active,
-                "strict_isolation": False, "native_qualified": True, "tun_ready": self.applies > 1,
+                "strict_isolation": self.active and self.strict, "native_qualified": True,
+                "tun_ready": self.active and self.applies > 1,
                 "detail": "Unit fixture only: no native protection claim"}
 
     def apply(self, core, tun):
@@ -71,7 +73,8 @@ class DNS:
 
     def status(self, *, refresh=False):
         return {"supported": True, "active": self.active, "effective": self.active,
-                "native_qualified": True, "state": "candidate_active" if self.active else "idle"}
+                "persistent": self.active, "fresh": True, "native_qualified": True,
+                "state": "candidate_active" if self.active else "idle"}
 
     def apply(self):
         self.events.append(("dns_apply",))
@@ -266,6 +269,180 @@ class GlobalCoreTests(unittest.TestCase):
         self.assertTrue(self.guard.active)
         self.assertEqual(self.events[-1][0], "crash_keep")
 
+    def test_qualified_idle_components_can_start_without_active_strict_preflight(self):
+        self.guard.strict = True
+        self.assertFalse(self.guard.status()["strict_isolation"])
+        self.assertFalse(self.dns.status()["active"])
+        result = self.core.start(fields(require_strict=True))
+        self.assertTrue(result["running"])
+        self.assertTrue(result["strict_isolation"])
+        self.assertTrue(result["guard"]["tun_ready"])
+        self.assertEqual(result["protection"], "persistent_guard")
+
+    def test_strict_dns_preflight_requires_fresh_supported_qualified_idle_state(self):
+        original = self.dns.status()
+        for field in ("supported", "native_qualified", "fresh", "state"):
+            for bad in (None, 1):
+                with self.subTest(field=field, bad=bad):
+                    value = {**original, field: bad}
+                    with mock.patch.object(self.dns, "status", return_value=value), \
+                            self.assertRaises(policy.ProxyError):
+                        self.core.start(fields(require_strict=True))
+                    self.assertEqual(self.events, [])
+                    self.assertFalse((self.state / "config.yaml").exists())
+
+    def test_preguard_requires_complete_boolean_protection_before_dns_or_core(self):
+        self.guard.strict = True
+        original = self.guard.apply
+        for field in ("supported", "active", "persistent", "strict_isolation", "native_qualified"):
+            for bad in (None, 1):
+                with self.subTest(field=field, bad=bad):
+                    self.events.clear()
+                    def apply(core, tun):
+                        return {**original(core, tun), field: bad}
+                    with mock.patch.object(self.guard, "apply", side_effect=apply), \
+                            self.assertRaises(policy.ProxyError) as caught:
+                        self.core.start(fields(require_strict=True))
+                    self.assertEqual(caught.exception.code, "strict_guard_unavailable")
+                    self.launch.assert_not_called()
+                    self.assertNotIn("dns_apply", [event[0] for event in self.events])
+                    self.assertTrue(self.guard.active)
+                    self.assertEqual(self.events[-1][0], "crash_keep")
+
+    def test_dns_losing_qualification_during_apply_keeps_preguard_without_launch(self):
+        self.guard.strict = True
+        original = self.dns.apply
+        def apply():
+            return {**original(), "native_qualified": False}
+        with mock.patch.object(self.dns, "apply", side_effect=apply), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields(require_strict=True))
+        self.assertEqual(caught.exception.code, "strict_dns_unavailable")
+        self.launch.assert_not_called()
+        self.assertTrue(self.guard.active)
+        self.assertTrue(self.dns.active)
+        self.assertEqual([event[0] for event in self.events][-2:], ["dns_keep", "crash_keep"])
+
+    def test_second_guard_apply_requires_explicit_true_tun_readiness(self):
+        original = self.guard.apply
+        def apply(core, tun):
+            value = original(core, tun)
+            if self.guard.applies > 1:
+                value.pop("tun_ready")
+            return value
+        with mock.patch.object(self.guard, "apply", side_effect=apply), \
+                mock.patch.object(service.time, "monotonic", side_effect=[0, 0, 9]), \
+                mock.patch.object(service.time, "sleep"), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields())
+        self.assertEqual(caught.exception.code, "global_start_failed")
+        self.assertIsNone(self.core.process)
+        self.assertTrue(self.guard.active)
+        self.assertTrue(self.dns.active)
+        self.assertNotIn("normal_stop", [event[0] for event in self.events])
+
+    def test_guard_losing_qualification_during_second_apply_stops_core_and_keeps_protection(self):
+        self.guard.strict = True
+        original = self.guard.apply
+        def apply(core, tun):
+            value = original(core, tun)
+            if self.guard.applies > 1:
+                value["native_qualified"] = False
+            return value
+        with mock.patch.object(self.guard, "apply", side_effect=apply), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields(require_strict=True))
+        self.assertEqual(caught.exception.code, "strict_guard_unavailable")
+        self.assertIsNone(self.core.process)
+        self.assertTrue(self.guard.active)
+        self.assertTrue(self.dns.active)
+        self.assertEqual([event[0] for event in self.events][-4:], ["terminate", "wait", "dns_keep", "crash_keep"])
+
+    def test_final_guard_readback_cannot_reuse_successful_apply_after_state_loss(self):
+        self.guard.strict = True
+        original = self.guard.status
+        def status():
+            value = original()
+            if self.guard.applies > 1:
+                value["persistent"] = False
+            return value
+        original_apply = self.guard.apply
+        def apply(core, tun):
+            # The apply response can be healthy while the independent final
+            # readback detects a change made immediately afterwards.
+            original_apply(core, tun)
+            return original()
+        with mock.patch.object(self.guard, "status", side_effect=status), \
+                mock.patch.object(self.guard, "apply", side_effect=apply), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields(require_strict=True))
+        self.assertEqual(caught.exception.code, "strict_guard_unavailable")
+        self.assertIsNone(self.core.process)
+        self.assertTrue(self.guard.active)
+        self.assertNotIn("normal_stop", [event[0] for event in self.events])
+
+    def test_final_dns_readback_requires_qualification_after_effective_apply(self):
+        self.guard.strict = True
+        original = self.dns.status
+        def status(*, refresh=False):
+            value = original(refresh=refresh)
+            if refresh and self.guard.applies > 1:
+                value["native_qualified"] = False
+            return value
+        with mock.patch.object(self.dns, "status", side_effect=status), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields(require_strict=True))
+        self.assertEqual(caught.exception.code, "strict_dns_unavailable")
+        self.assertIsNone(self.core.process)
+        self.assertTrue(self.guard.active)
+        self.assertTrue(self.dns.active)
+
+    def test_identical_request_rechecks_current_tun_before_unchanged_success(self):
+        self.core.start(fields())
+        self.assertTrue(self.core.start(fields())["unchanged"])
+        original = self.guard.status()
+        with mock.patch.object(self.guard, "status", return_value={**original, "tun_ready": False}), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields())
+        self.assertEqual(caught.exception.code, "global_guard_not_effective")
+        self.assertIsNone(self.core.process)
+        self.assertTrue(self.guard.active)
+        self.assertEqual([event[0] for event in self.events][-2:], ["dns_keep", "crash_keep"])
+
+    def test_failed_start_cleanup_keeps_both_leases_even_if_core_exit_is_unconfirmed(self):
+        self.guard.strict = True
+        original = self.dns.status
+        def status(*, refresh=False):
+            value = original(refresh=refresh)
+            if refresh and self.guard.applies > 1:
+                value["effective"] = False
+            return value
+        self.process.wait = mock.Mock(side_effect=TimeoutError("cleanup unconfirmed"))
+        with mock.patch.object(self.dns, "status", side_effect=status), self.assertRaises(TimeoutError):
+            self.core.start(fields(require_strict=True))
+        self.assertIs(self.core.process, self.process)
+        self.assertTrue(self.guard.active)
+        self.assertTrue(self.dns.active)
+        self.assertEqual([event[0] for event in self.events][-2:], ["dns_keep", "crash_keep"])
+        self.assertNotIn("normal_stop", [event[0] for event in self.events])
+
+    def test_status_never_reports_strict_for_incomplete_runtime_component_state(self):
+        self.guard.strict = True
+        self.core.start(fields(require_strict=True))
+        guard, dns = self.guard.status(), self.dns.status()
+        for component, field in (("guard", "supported"), ("guard", "tun_ready"),
+                                 ("guard", "persistent"), ("guard", "native_qualified"),
+                                 ("dns", "supported"), ("dns", "active"), ("dns", "persistent"),
+                                 ("dns", "effective"), ("dns", "fresh"), ("dns", "native_qualified")):
+            for bad in (None, 1):
+                with self.subTest(component=component, field=field, bad=bad):
+                    changed_guard, changed_dns = dict(guard), dict(dns)
+                    (changed_guard if component == "guard" else changed_dns)[field] = bad
+                    result = self.core.status(guard_state=changed_guard, dns_state=changed_dns)
+                    self.assertFalse(result["strict_isolation"])
+        self.assertFalse(self.core.status(guard_state=guard,
+            dns_state={**dns, "state": "conflict"})["strict_isolation"])
+
     def test_existing_rdp_exceptions_are_explicit_and_limited_to_current_peers(self):
         exceptions = [{"remote": "192.0.2.11", "route": "192.0.2.11/32", "local_port": 3389,
                        "protocol": "TCP", "reason": "existing management fixture"},
@@ -387,6 +564,17 @@ class GlobalProtocolTests(unittest.TestCase):
         connect.assert_called_once()
         connection.request.assert_called_once_with("global_stop")
 
+    def test_product_facade_defaults_to_strict_and_experimental_opt_out_is_explicit(self):
+        runtime = Runtime(Path.cwd())
+        connection = mock.Mock()
+        connection.request.return_value = {"global_schema_version": 1, "mode": "global",
+            "running": True, "supported": True, "pid": 12345}
+        with mock.patch.object(runtime, "_connect", return_value=connection):
+            runtime.start(SOURCE, "desktop-secret", 28009, 29097, "node-a")
+            self.assertIs(connection.request.call_args.kwargs["require_strict"], True)
+            runtime.start(SOURCE, "desktop-secret", 28009, 29097, "node-a", require_strict=False)
+            self.assertIs(connection.request.call_args.kwargs["require_strict"], False)
+
 
 class ManagementExceptionsTests(unittest.TestCase):
     def test_only_real_established_rdp_service_or_system_owned_peers_are_exempt(self):
@@ -423,7 +611,7 @@ class GlobalBrokerTests(unittest.TestCase):
         self.factory = mock.Mock(return_value=self.core)
         self.leases = []
         def lease(pid, sid):
-            item = mock.Mock(pid=pid)
+            item = mock.Mock(spec=["pid", "alive", "close"], pid=pid)
             item.alive.return_value = True
             self.leases.append(item)
             return item
@@ -431,7 +619,8 @@ class GlobalBrokerTests(unittest.TestCase):
             self.control, lease, self.factory)
 
     def request(self, op="global_start", **extra):
-        return {"op": op, "client_pid": 101, **(fields() if op == "global_start" else {}), **extra}
+        return {"op": op, "client_pid": 101,
+                **(fields(require_strict=True) if op == "global_start" else {}), **extra}
 
     def test_wrong_caller_has_no_global_side_effects(self):
         for pid, sid in ((102, SID), (101, SID + "1")):
@@ -457,6 +646,67 @@ class GlobalBrokerTests(unittest.TestCase):
         app_core.close.assert_called_once()
         self.core.start.assert_called_once()
         self.assertEqual(self.broker.global_panel.pid, 101)
+
+    def test_ordinary_strict_client_needs_no_elevation_query(self):
+        self.broker.handle(self.request(), 101, SID)
+        self.assertFalse(hasattr(self.leases[0], "is_elevated"))
+        self.core.start.assert_called_once()
+        self.assertIs(self.core.start.call_args.args[0]["require_strict"], True)
+
+    def test_ordinary_owner_cannot_opt_out_of_strict_or_stop_existing_proxy(self):
+        panel, app_core = mock.Mock(pid=101), mock.Mock(pid=102)
+        panel.alive.return_value = app_core.alive.return_value = True
+        self.broker.panel, self.broker.core = panel, app_core
+        with self.assertRaises(policy.ProxyError) as caught:
+            self.broker.handle(self.request(require_strict=False), 101, SID)
+        self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
+        self.leases[0].close.assert_called_once()
+        self.assertIsNone(self.broker.global_panel)
+        self.control.verify.assert_not_called()
+        self.control.set_running.assert_not_called()
+        self.factory.assert_not_called()
+        panel.close.assert_not_called()
+        app_core.close.assert_not_called()
+
+    def test_experimental_request_requires_explicit_native_boolean_elevation(self):
+        for elevation in (False, None, 1, "true", mock.Mock()):
+            with self.subTest(elevation=elevation):
+                owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
+                owner.is_elevated.return_value = elevation
+                self.broker.lease_factory = mock.Mock(return_value=owner)
+                with self.assertRaises(policy.ProxyError) as caught:
+                    self.broker.handle(self.request(require_strict=False), 101, SID)
+                self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
+                owner.is_elevated.assert_called_once_with()
+                owner.close.assert_called_once()
+                self.control.verify.assert_not_called()
+                self.control.set_running.assert_not_called()
+                self.factory.assert_not_called()
+
+    def test_failed_elevation_query_closes_owner_and_leaves_network_untouched(self):
+        owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
+        owner.is_elevated.side_effect = OSError("access denied")
+        self.broker.lease_factory = mock.Mock(return_value=owner)
+        with self.assertRaises(policy.ProxyError) as caught:
+            self.broker.handle(self.request(require_strict=False), 101, SID)
+        self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
+        owner.close.assert_called_once()
+        self.control.verify.assert_not_called()
+        self.control.set_running.assert_not_called()
+        self.factory.assert_not_called()
+
+    def test_explicit_elevated_experiment_can_start_and_retains_held_owner(self):
+        owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
+        owner.is_elevated.return_value = True
+        self.broker.lease_factory = mock.Mock(return_value=owner)
+        result = self.broker.handle(self.request(require_strict=False), 101, SID)
+        self.assertTrue(result["running"])
+        self.assertIs(self.broker.global_panel, owner)
+        owner.is_elevated.assert_called_once_with()
+        owner.close.assert_not_called()
+        self.control.verify.assert_called_once()
+        self.core.start.assert_called_once()
+        self.assertIs(self.core.start.call_args.args[0]["require_strict"], False)
 
     def test_global_core_death_keeps_guard_and_closes_owner_lease(self):
         self.broker.handle(self.request(), 101, SID)

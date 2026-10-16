@@ -97,19 +97,138 @@ class CaptureParserTests(unittest.TestCase):
 
 class HarnessPlanningTests(unittest.TestCase):
     def test_unique_nic_mac_required_and_nested_json_supported(self):
-        data = {'components': [{'Id': 7, 'MacAddress': 'AA-BB-CC-DD-EE-FF', 'Name': 'physical'},
-                               {'Id': 8, 'MacAddress': '00-00-00-00-00-01', 'Name': 'tun'}]}
+        data = {'components': [{'Id': 7, 'Type': 'Miniport', 'MacAddress': 'AA-BB-CC-DD-EE-FF', 'Name': 'physical'},
+                               {'Id': 8, 'Type': 'Miniport', 'MacAddress': '00-00-00-00-00-01', 'Name': 'tun'}]}
         self.assertEqual(H.component_id(data, 'aa:bb:cc:dd:ee:ff', 'physical'), 7)
         with self.assertRaisesRegex(ValueError, 'physical_mac_required'):
             H.component_id(data, '', 'physical')
-        data['components'].append({'Id': 9, 'MacAddress': 'AA-BB-CC-DD-EE-FF'})
+        data['components'].append({'Id': 9, 'Type': 'Miniport', 'MacAddress': 'AA-BB-CC-DD-EE-FF'})
         with self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
             H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'physical')
 
-    def test_description_fallback_only_when_component_has_no_mac(self):
-        self.assertEqual(H.component_id({'Id': 7, 'Name': 'nic'}, 'AA-BB-CC-DD-EE-FF', 'nic'), 7)
+    def test_description_or_matching_name_alone_never_selects_a_component(self):
+        for data in ({'Id': 7, 'Type': 'Miniport', 'Name': 'nic'},
+                     {'Id': 7, 'Type': 'Miniport', 'Name': 'nic', 'Mac': '11-22-33-44-55-66'},
+                     {'Id': 7, 'Name': 'nic', 'Mac': 'AA-BB-CC-DD-EE-FF'}):
+            with self.subTest(data=data), self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
+                H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'nic')
+
+    def test_server2025_properties_bind_exact_ifindex_despite_different_driver_name(self):
+        # Shape/names from run38914473858 summary; identity values below are
+        # synthetic. Old evidence omitted the actual Properties.Value fields.
+        data = [{'Name': 'Network Adapters', 'Components': [
+            {'Id': 40, 'Name': 'Microsoft NetVsc Nic #3', 'Type': 'Miniport',
+             'Properties': [{'Name': 'MAC Address', 'Value': 'AA-BB-CC-DD-EE-FF'},
+                            {'Name': 'ifIndex', 'Value': '14'},
+                            {'Name': 'Ndis Object', 'Value': 'private-pointer'}],
+             'Counters': [{'Name': 'Upper'}] * 500},
+            {'Id': 18, 'Name': 'TCPIP', 'Type': 'Protocol',
+             'Properties': [{'Name': 'Miniport ifIndex', 'Value': '14'}]}]}]
+        self.assertEqual(H.component_id(data, 'AA-BB-CC-DD-EE-FF',
+            'Microsoft Hyper-V Network Adapter #3', 14), 40)
+        evidence = H.component_diagnostics(data, 'AA-BB-CC-DD-EE-FF', 'different', 14)
+        self.assertEqual(evidence['component_count'], 2)
+        self.assertEqual(evidence['rows'][0]['fields']['id'], 40)
+        self.assertEqual(evidence['rows'][0]['properties'][0]['value'], 'AA-BB-CC-DD-EE-FF')
+        self.assertEqual(evidence['rows'][0]['properties'][1]['value'], '14')
+        self.assertNotIn('private-pointer', json.dumps(evidence))
+        # Exact live interface index suffices when pktmon exposes no MAC.
+        del data[0]['Components'][0]['Properties'][0]
+        self.assertEqual(H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'different', 14), 40)
+
+    def test_properties_identity_conflict_ambiguity_and_unknown_schema_refused(self):
+        good = {'Id': 40, 'Name': 'ignored', 'Type': 'Miniport', 'Properties': [
+            {'Name': 'MAC Address', 'Value': 'AA-BB-CC-DD-EE-FF'}, {'Name': 'ifIndex', 'Value': 14}]}
+        import copy
+        cases = []
+        for key, value in (('MAC Address', '11-22-33-44-55-66'), ('ifIndex', 15),
+                           ('ifIndex', True), ('ifIndex', '0xe'), ('MAC Address', 'AA-BB-CC-DD-EE-FF garbage')):
+            item = copy.deepcopy(good)
+            next(prop for prop in item['Properties'] if prop['Name'] == key)['Value'] = value
+            cases.append(item)
+        conflict = copy.deepcopy(good)
+        conflict['Properties'].append({'Name': 'ifIndex', 'Value': 99})
+        cases += [conflict, {**good, 'Properties': {}}, {**good, 'Properties': [{'Name': 'ifIndex'}]},
+                  {**good, 'ifIndex': 99}, {**good, 'Type': 'Filter'}, {**good, 'Type': 'unknown'},
+                  {**good, 'Id': '40'}, {**good, 'ComponentId': 41}]
+        for item in cases:
+            with self.subTest(item=item), self.assertRaises(ValueError):
+                H.component_id([item], 'AA-BB-CC-DD-EE-FF', 'ignored', 14)
+        for data in ([good, good], [good, {**good, 'Id': 41}]):
+            with self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
+                H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'ignored', 14)
+        with self.assertRaisesRegex(ValueError, 'physical_index_required'):
+            H.component_id(good, 'AA-BB-CC-DD-EE-FF', 'ignored', True)
+
+    def test_mac_without_live_index_binding_cannot_replace_expected_interface(self):
+        data = {'Id': 7, 'Type': 'Miniport', 'Mac': 'AA-BB-CC-DD-EE-FF'}
         with self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
-            H.component_id({'Id': 7, 'Name': 'nic', 'Mac': '11-22-33-44-55-66'}, 'AA-BB-CC-DD-EE-FF', 'nic')
+            H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'physical', 14)
+
+    def test_nic_identity_diagnostics_survive_counters_and_component_row_bound(self):
+        data = [{'Id': item + 100, 'Type': 'Protocol', 'Name': 'other',
+                 'Counters': [{'Name': 'counter'}] * 100} for item in range(120)]
+        data.append({'Id': 40, 'Type': 'Miniport', 'Name': 'driver name', 'Properties': [
+            {'Name': 'MAC Address', 'Value': 'AA-BB-CC-DD-EE-FF'}, {'Name': 'ifIndex', 'Value': '14'}]})
+        value = H.component_diagnostics(data, 'AA-BB-CC-DD-EE-FF', 'adapter name', 14)
+        self.assertTrue(value['rows_bound_reached'])
+        self.assertFalse(value['traversal_incomplete'])
+        self.assertEqual(value['component_count'], 121)
+        self.assertEqual(value['rows'][0]['fields']['id'], 40)
+        self.assertEqual(value['rows'][0]['properties'][1]['value'], '14')
+        self.assertEqual(H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'adapter name', 14), 40)
+
+    def test_tun_receipt_reports_actual_guid_luid_index_and_guard_check_without_mutation(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from ruleproxy import windows_global_guard as guard
+        expected = '5c7d2762-671d-c5cd-02f3-f6d58670a9f5'
+        api = SimpleNamespace(**{name: Mock() for name in ('ConvertInterfaceAliasToLuid',
+            'ConvertInterfaceLuidToGuid', 'ConvertInterfaceLuidToIndex')})
+        def alias(name, pointer):
+            self.assertEqual(name, 'RuleProxyTun')
+            pointer._obj.value = 42
+            return 0
+        def identity(_luid, pointer):
+            value = guard._GUID.of(expected)
+            H.ctypes.memmove(pointer, H.ctypes.byref(value), H.ctypes.sizeof(value))
+            return 0
+        def index(_luid, pointer):
+            pointer._obj.value = 27
+            return 0
+        api.ConvertInterfaceAliasToLuid.side_effect = alias
+        api.ConvertInterfaceLuidToGuid.side_effect = identity
+        api.ConvertInterfaceLuidToIndex.side_effect = index
+        with patch.object(H.ctypes, 'WinDLL', return_value=api, create=True), \
+             patch.object(guard, '_tun_luid', return_value=42):
+            value = H.tun_identity_receipt({'guard': {'tun_ready': True}})
+        self.assertEqual(value['interface_guid'], expected)
+        self.assertEqual((value['luid'], value['interface_index']), (42, 27))
+        self.assertTrue(value['identity_matches'])
+        self.assertTrue(value['start_guard_tun_ready'])
+        self.assertFalse(value['native_qualified'])
+        with patch.object(H.ctypes, 'WinDLL', return_value=api, create=True), \
+             patch.object(guard, '_tun_luid', return_value=99):
+            self.assertFalse(H.tun_identity_receipt({'guard': {}})['identity_matches'])
+        api.ConvertInterfaceAliasToLuid.side_effect = lambda *_: 1168
+        with patch.object(H.ctypes, 'WinDLL', return_value=api, create=True), \
+             self.assertRaisesRegex(OSError, 'tun_identity_readback_failed'):
+            H.tun_identity_receipt({'guard': {}})
+
+    def test_budget_caps_operations_and_rejects_new_work_but_recovery_has_own_limit(self):
+        with patch.object(H.time, 'monotonic', return_value=100):
+            budget = H.ExperimentBudget()
+        with patch.object(H, '_ACTIVE_BUDGET', budget), patch.object(H.time, 'monotonic', return_value=230):
+            self.assertEqual(H.operation_timeout(20), 5)
+            with self.assertRaisesRegex(RuntimeError, 'time_budget_insufficient'):
+                budget.require(90)
+        with patch.object(H, '_ACTIVE_BUDGET', budget), patch.object(H.time, 'monotonic', return_value=235):
+            with self.assertRaisesRegex(RuntimeError, 'time_budget_exhausted'):
+                H.operation_timeout(20)
+        with patch.object(H, '_ACTIVE_BUDGET', None):
+            self.assertEqual(H.operation_timeout(25), 25)
+        self.assertLess(H.EXPERIMENT_BUDGET_SECONDS, H.RECOVERY_DEADLINE_SECONDS)
+        self.assertEqual(H.RECOVERY_DEADLINE_SECONDS, 180)
 
     def test_fixture_accepted_by_real_production_compiler_without_private_ip_exception(self):
         from ruleproxy.config import compile_config
@@ -211,11 +330,11 @@ class HarnessPlanningTests(unittest.TestCase):
         self.assertEqual(row['field_types']['componentid'], 'str')
         self.assertEqual(row['fields']['type'], 'Miniport')
         self.assertIn('Components', row['json_path'])
-        with self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
+        with self.assertRaisesRegex(ValueError, 'physical_component_id_invalid'):
             H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'physical')
 
     def test_component_diagnostic_bounds_and_redacts_paths_without_losing_ambiguity(self):
-        data = [{'Id': i + 1, 'Mac': 'AA-BB-CC-DD-EE-FF', 'Name': 'C:\\private\\file.exe'}
+        data = [{'Id': i + 1, 'Type': 'Miniport', 'Mac': 'AA-BB-CC-DD-EE-FF', 'Name': 'C:\\private\\file.exe'}
                 for i in range(120)]
         value = H.component_diagnostics(data, 'AA-BB-CC-DD-EE-FF', 'physical')
         self.assertEqual(value['exact_mac_match_count'], 120)
@@ -228,13 +347,13 @@ class HarnessPlanningTests(unittest.TestCase):
     def test_read_only_component_snapshot_reports_zero_selection_and_preserves_schema(self):
         nic = {'index': 6, 'mac': 'AA-BB-CC-DD-EE-FF', 'description': 'physical',
                'source': '192.0.2.1', 'gateway': '192.0.2.2', 'alias': 'Ethernet'}
-        data = {'Components': [{'Id': '7', 'Mac': nic['mac'], 'Name': nic['description']}]}
+        data = {'Components': [{'Id': '7', 'Type': 'Miniport', 'ifIndex': 6, 'Mac': nic['mac'], 'Name': nic['description']}]}
         with patch.object(H, 'ps', return_value=json.dumps(nic)), \
              patch.object(H, 'pktmon', return_value=json.dumps(data)) as packet:
             actual, selected, evidence = H.nic_components()
         self.assertEqual(actual, nic)
         self.assertIsNone(selected)
-        self.assertEqual(evidence['selection_error'], 'physical_component_not_unique')
+        self.assertEqual(evidence['selection_error'], 'physical_component_id_invalid')
         self.assertEqual(evidence['exact_mac_match_count'], 1)
         self.assertNotIn('source', evidence['nic'])
         packet.assert_called_once_with('list', '--json')

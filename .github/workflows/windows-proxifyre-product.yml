@@ -3,6 +3,10 @@ name: Windows ProxiFyre product qualification
 on:
   workflow_dispatch:
     inputs:
+      applications_product:
+        description: Run the installed per-application product qualification
+        type: boolean
+        default: true
       native_windows_11:
         description: Run the complete native Windows 11 qualification
         type: boolean
@@ -39,6 +43,7 @@ jobs:
 
   server-product:
     name: Final ZIP · Server 2025 · ordinary user
+    if: github.event_name != 'workflow_dispatch' || inputs.applications_product
     needs: package
     runs-on: windows-2025
     timeout-minutes: 45
@@ -170,6 +175,29 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $root = Join-Path $env:ProgramFiles 'RuleProxy-Web'
+          $files = @(
+            'ruleproxy/windows_proxy_service.py', 'ruleproxy/windows_global_guard.py',
+            'ruleproxy/windows_global_dns.py', 'ruleproxy/windows_global_runtime.py',
+            'ruleproxy/global_runtime.py', 'ruleproxy/config.py',
+            'ruleproxy/manager.py', 'web/app.js'
+          )
+          $hashes = @{}
+          foreach ($relative in $files) {
+            $checkout = (Get-FileHash -LiteralPath $relative -Algorithm SHA256).Hash.ToLowerInvariant()
+            $installed = (Get-FileHash -LiteralPath (Join-Path $root $relative) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($checkout -ne $installed) { throw ('Installed source differs: ' + $relative) }
+            $hashes[$relative] = $installed
+          }
+          $commit = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[a-f0-9]{40}$') { throw 'Missing checkout identity' }
+          @{
+            schema_version = 1
+            tested_source_commit = $commit
+            checkout_matches_installed = $true
+            source_sha256 = $hashes
+            harness_sha256 = (Get-FileHash .github/check_windows_global_capture.py -Algorithm SHA256).Hash.ToLowerInvariant()
+            strict_qualified = $false
+          } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 windows-global-results/source-identity.json
           & "$root/python/python.exe" -I -S -B .github/check_windows_global_capture.py --ack-disposable-windows --installed-root $root --output windows-global-results/summary.json
           if ($LASTEXITCODE -ne 0) { throw 'Native capture acceptance failed; inspect the bounded summary' }
       - uses: actions/upload-artifact@v7
