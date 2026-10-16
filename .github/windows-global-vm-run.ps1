@@ -65,6 +65,39 @@ function Read-DiagnosticTail([string]$Path) {
     } finally { $stream.Dispose() }
 }
 
+function Initialize-FixtureTrust([string]$Python) {
+    # Python's OpenSSL trusts only roots already present in the Windows store, while a
+    # fresh client fetches missing roots lazily through CryptoAPI chain building. Let the
+    # OS verifier fetch the exact fixture chain, confirm Python then verifies it, and only
+    # otherwise import Microsoft's published root list. Verification is never disabled.
+    $uri = 'https://1.1.1.1/dns-query?name=127.0.0.1.sslip.io&type=A'
+    $probe = 'import urllib.request as u; r=u.Request(''' + $uri + ''', headers={''Accept'': ''application/dns-json''}); u.build_opener(u.ProxyHandler({})).open(r, timeout=10).read(1)'
+    $trust = @{python_initial=$false; os_fetch=$false; root_list_imported=$false; python_final=$false}
+    # Same hashtable reference: later updates stay visible if a step below throws.
+    $script:result.fixture_trust = $trust
+    & $Python -I -S -B -c $probe *> $null
+    $trust.python_initial = $LASTEXITCODE -eq 0
+    $trust.python_final = $trust.python_initial
+    if (-not $trust.python_final) {
+        try {
+            $null = Invoke-WebRequest -UseBasicParsing -Uri $uri -Headers @{Accept='application/dns-json'} -TimeoutSec 20
+            $trust.os_fetch = $true
+        } catch { }
+        & $Python -I -S -B -c $probe *> $null
+        $trust.python_final = $LASTEXITCODE -eq 0
+    }
+    if (-not $trust.python_final) {
+        $sst = Join-Path $script:root 'authroots.sst'
+        & certutil.exe -f -generateSSTFromWU $sst *> $null
+        if ($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($sst)) { throw 'Microsoft root list download failed' }
+        $null = Import-Certificate -FilePath $sst -CertStoreLocation Cert:\LocalMachine\Root
+        $trust.root_list_imported = $true
+        & $Python -I -S -B -c $probe *> $null
+        $trust.python_final = $LASTEXITCODE -eq 0
+    }
+    if (-not $trust.python_final) { throw 'Fixture HTTPS trust could not be established' }
+}
+
 # OOBE/defaultuser0 logons must not claim or report the product run. The actual
 # fixture user owns the active console and Explorer before the SYSTEM task starts.
 if ([IO.File]::Exists((Join-Path $root 'started'))) { exit 0 }
@@ -270,6 +303,8 @@ try {
     $harnessHash = (Get-FileHash -LiteralPath $harness -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($harnessHash -ne $configuration.source_identity.harness_sha256) { throw 'Capture harness differs' }
     $result.source_identity = @{tested_source_commit=$configuration.source_identity.tested_source_commit; source_sha256=$hashes; harness_sha256=$harnessHash}
+    Write-BootstrapStep 'global_fixture_trust'
+    Initialize-FixtureTrust (Join-Path $installed 'python\python.exe')
     $ownerConfiguration = @{owner_sid=$captureSid; installed=$installed; harness=$harness; root=$root}
     [IO.File]::WriteAllText((Join-Path $root 'owner-config.json'), ($ownerConfiguration | ConvertTo-Json -Compress), $utf8)
     $ownerScript = @'
