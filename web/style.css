@@ -120,7 +120,8 @@ h1 { margin: 0; color: #1c2a27; font-size: clamp(26px, 3vw, 34px); line-height: 
 .discovery-add { min-width: 58px; min-height: 30px; padding: 0 10px; font-size: 10px; }
 .discovery-add:disabled[data-added="true"] { border-color: #e1eee5; background: #f0f7f2; color: #548267; opacity: 1; }
 .discovery-empty, .discovery-more { grid-column: 1 / -1; padding: 16px 10px; color: #95a099; text-align: center; font-size: 10px; }
-.discovery-more { padding: 4px 10px 1px; font-size: 9px; }
+.discovery-more { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; padding: 4px 10px 1px; font-size: 9px; }
+.discovery-expand { min-height: 30px; padding: 0 10px; font-size: 10px; }
 .discovery-footnote { margin: 9px 0 0; color: #98a39c; font-size: 9px; line-height: 1.5; }
 .manual-app-details { margin-top: 12px; border: 1px solid #e8ede9; border-radius: 11px; background: #fff; }
 .manual-app-details > summary { padding: 12px 14px; color: #68766e; font-size: 10px; font-weight: 680; cursor: pointer; }

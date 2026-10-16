@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.11",
+  "source_base_commit": "f7fa7ffd8f6a379a141a4b0d62367cf14b3c3baa",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "ab55c99e67d69085f89bab83fc038672615cdeb3e190a33e8744b0d9497f3ae6",
+    "bytes": 235755
+  },
+  "source_files": 46,
+  "archive_members": 48,
+  "change": "Installed application list gains Show more and Show all controls on Windows and Linux; search covers all discovered entries, polling preserves expansion, and changing search resets its initial display count",
+  "backend_behavior_changed": false,
+  "app_selection_payload_changed": false,
+  "initial_display_limits": {
+    "all_discovered": 24,
+    "search_results": 60
+  },
+  "show_more_increment": 24,
+  "show_all_supported": true,
+  "new_configuration_fields_added": false,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "personal_yaml_or_nodes_included": false,
+  "specific_chatgpt_store_package_qualification_performed": false,
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "real_browser_shared_profile_gui_qualification_performed": false,
+  "windows_bootstrap_smoke_entry": ".github/check_windows_online_bootstrap.py",
+  "prior_release": "v0.3.0-rc.10",
+  "local_validation": {
+    "real_ui_expansion_click_render_assertions": 51,
+    "store_ui_regression_assertions": 20,
+    "shared_profile_ui_regression_assertions": 50,
+    "node_syntax_passed": true,
+    "online_package_tests": 4,
+    "failures": 0,
+    "prior_unchanged_backend_full_suite": {
+      "release": "v0.3.0-rc.10",
+      "tests_per_version": 1145,
+      "python_versions": [
+        "3.10",
+        "3.14"
+      ],
+      "failures": 0
+    },
+    "fresh_full_platform_validation": "Required main and tag CI pending for this commit"
+  }
+}

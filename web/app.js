@@ -257,14 +257,17 @@
     const available = state && Array.isArray(state.available_apps) ? state.available_apps : [];
     const saved = state && Array.isArray(state.apps) ? state.apps : [];
     const scanning = !!(state && state.apps_scanning);
-    const signature = JSON.stringify({ available, scanning, saved: saved.map((app) => [app.path, app.enabled, app.active]) });
+    const query = ui.appSearch.value.trim().toLocaleLowerCase();
+    const expandedLimit = Number(ui.availableApps.dataset.limit);
+    const limit = ui.availableApps.dataset.query === ui.appSearch.value && Number.isSafeInteger(expandedLimit) && expandedLimit > 0
+      ? expandedLimit : (query ? 60 : 24);
+    const signature = JSON.stringify({ available, scanning, limit, saved: saved.map((app) => [app.path, app.enabled, app.active]) });
     if (signature === lastAvailableSignature && ui.availableApps.dataset.query === ui.appSearch.value) return;
     lastAvailableSignature = signature;
-    const query = ui.appSearch.value.trim().toLocaleLowerCase();
     ui.availableApps.dataset.query = ui.appSearch.value;
+    ui.availableApps.dataset.limit = String(limit);
     ui.availableApps.replaceChildren();
     const matches = available.filter((app) => `${app.label || ''} ${app.path || ''} ${friendlyAdapter(app.adapter)}`.toLocaleLowerCase().includes(query));
-    const limit = query ? 60 : 24;
     const visible = matches.slice(0, limit);
     ui.availableAppsCount.textContent = available.length
       ? (query ? `找到 ${matches.length} 项` : `发现 ${available.length} 项`)
@@ -301,7 +304,22 @@
       ui.availableApps.append(row);
     }
     if (matches.length > visible.length) {
-      ui.availableApps.append(textElement('div', 'discovery-more', `仅显示前 ${visible.length} 项，请继续搜索缩小范围。`));
+      const controls = textElement('div', 'discovery-more');
+      controls.append(textElement('span', '', `已显示 ${visible.length} / ${matches.length} 项`));
+      const more = textElement('button', 'button button-secondary discovery-expand', `显示更多（${Math.min(24, matches.length - visible.length)} 项）`);
+      more.type = 'button';
+      more.addEventListener('click', () => {
+        ui.availableApps.dataset.limit = String(limit + 24);
+        renderAvailableApps();
+      });
+      const all = textElement('button', 'button button-secondary discovery-expand', `显示全部（${matches.length} 项）`);
+      all.type = 'button';
+      all.addEventListener('click', () => {
+        ui.availableApps.dataset.limit = String(Number.MAX_SAFE_INTEGER);
+        renderAvailableApps();
+      });
+      controls.append(more, all);
+      ui.availableApps.append(controls);
     }
   }
 
