@@ -11,6 +11,7 @@ socket connection.
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import mmap
@@ -83,7 +84,12 @@ def _retry_windows_sharing(operation):
         try:
             return operation()
         except OSError as exc:
-            if (os.name != "nt" or getattr(exc, "winerror", None) not in _WINDOWS_SHARING_ERRORS
+            winerror = getattr(exc, 'winerror', None)
+            # Python file opens use the Windows CRT's _wopen; its sharing
+            # conflicts can surface as EACCES without a Win32 error code.
+            retryable = (winerror in _WINDOWS_SHARING_ERRORS
+                         or (winerror is None and exc.errno == errno.EACCES))
+            if (os.name != "nt" or not retryable
                     or retry == len(_SHARING_RETRY_DELAYS)):
                 raise
             time.sleep(_SHARING_RETRY_DELAYS[retry])

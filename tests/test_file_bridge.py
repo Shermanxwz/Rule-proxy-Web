@@ -1,5 +1,6 @@
 """Exercise the real file transport; these tests do not emulate Windows isolation."""
 
+import errno
 import os
 import socket
 import subprocess
@@ -95,6 +96,98 @@ class FileBridgeTests(unittest.TestCase):
             file_bridge._atomic_json(path, {"state": "GUEST_READY"})
         self.assertEqual(len(calls), 2)
         self.assertEqual(file_bridge._read_json(path), {"state": "GUEST_READY"})
+
+    def test_control_read_retries_windows_crt_eacces_without_winerror(self):
+        path = self.root / 'guest-status.json'
+        expected = {'nonce': 'a' * 64, 'state': 'BRIDGE_READY'}
+        file_bridge._atomic_json(path, expected)
+        error = PermissionError(errno.EACCES, 'Permission denied', str(path))
+        self.assertIsNone(getattr(error, 'winerror', None))
+        real_open, attempts = Path.open, []
+
+        def open_after_conflict(candidate, *args, **kwargs):
+            attempts.append(candidate)
+            if len(attempts) == 1:
+                raise error
+            return real_open(candidate, *args, **kwargs)
+
+        with mock.patch.object(file_bridge.os, 'name', 'nt'), \
+                mock.patch.object(file_bridge.time, 'sleep') as sleep, \
+                mock.patch.object(Path, 'open', autospec=True, side_effect=open_after_conflict):
+            self.assertEqual(file_bridge._read_json(path), expected)
+        self.assertEqual(attempts, [path, path])
+        sleep.assert_called_once_with(file_bridge._SHARING_RETRY_DELAYS[0])
+
+    def test_persistent_crt_eacces_still_raises_original_error_after_bounded_retries(self):
+        path = self.root / 'guest-status.json'
+        file_bridge._atomic_json(path, {'state': 'BRIDGE_READY'})
+        error = PermissionError(errno.EACCES, 'Permission denied', str(path))
+        with mock.patch.object(file_bridge.os, 'name', 'nt'), \
+                mock.patch.object(file_bridge.time, 'sleep') as sleep, \
+                mock.patch.object(Path, 'open', side_effect=error) as opening:
+            with self.assertRaises(PermissionError) as raised:
+                file_bridge._read_json(path)
+        self.assertIs(raised.exception, error)
+        self.assertEqual(opening.call_count, len(file_bridge._SHARING_RETRY_DELAYS) + 1)
+        self.assertEqual(sleep.call_count, len(file_bridge._SHARING_RETRY_DELAYS))
+        self.assertEqual(file_bridge._read_json(path), {'state': 'BRIDGE_READY'})
+
+    def test_crt_errno_fallback_does_not_apply_to_other_platforms_or_explicit_winerrors(self):
+        for platform, code in (('posix', None), ('nt', 87)):
+            error = PermissionError(errno.EACCES, 'Permission denied')
+            if code is not None:
+                error.winerror = code
+            with self.subTest(platform=platform, code=code), \
+                    mock.patch.object(file_bridge.os, 'name', platform), \
+                    mock.patch.object(file_bridge.time, 'sleep') as sleep, \
+                    mock.patch.object(Path, 'open', side_effect=error) as opening:
+                with self.assertRaises(PermissionError) as raised:
+                    file_bridge._read_json(self.root)
+                self.assertIs(raised.exception, error)
+                opening.assert_called_once()
+                sleep.assert_not_called()
+
+    @unittest.skipUnless(os.name == 'nt', 'requires a real Windows file sharing lock')
+    def test_actual_windows_exclusive_handle_read_recovers_after_lock_release(self):
+        import ctypes
+        from ctypes import wintypes
+
+        path = self.root / 'guest-status.json'
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                      ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+        kernel.CreateFileW.restype = wintypes.HANDLE
+        kernel.WriteFile.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
+                                    ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
+        kernel.WriteFile.restype = wintypes.BOOL
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
+        # Create and write under one exclusive handle, so no timing or worker
+        # thread is needed to establish the same CRT sharing failure as CI.
+        handle = kernel.CreateFileW(str(path), 0xC0000000, 0, None, 1, 0x80, None)
+        self.assertNotEqual(handle, ctypes.c_void_p(-1).value, 'cannot create exclusive test file')
+
+        def release(_delay=None):
+            nonlocal handle
+            if handle is not None:
+                self.assertTrue(kernel.CloseHandle(handle))
+                handle = None
+
+        try:
+            payload = b'{"state":"BRIDGE_READY"}'
+            written = wintypes.DWORD()
+            self.assertTrue(kernel.WriteFile(handle, payload, len(payload), ctypes.byref(written), None))
+            self.assertEqual(written.value, len(payload))
+            with self.assertRaises(PermissionError) as blocked:
+                with path.open('rb'):
+                    self.fail('the exclusive Windows handle must prevent this read')
+            self.assertEqual(blocked.exception.errno, errno.EACCES)
+            self.assertIsNone(getattr(blocked.exception, 'winerror', None))
+            with mock.patch.object(file_bridge.time, 'sleep', side_effect=release) as sleep:
+                self.assertEqual(file_bridge._read_json(path), {'state': 'BRIDGE_READY'})
+            sleep.assert_called_once_with(file_bridge._SHARING_RETRY_DELAYS[0])
+        finally:
+            release()
 
     def test_persistent_windows_sharing_error_reraises_after_bounded_retries(self):
         path = self.root / "guest-status.json"

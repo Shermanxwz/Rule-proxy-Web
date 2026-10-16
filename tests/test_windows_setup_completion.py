@@ -114,11 +114,12 @@ foreach ($invalid in @('missing','malformed','acl','deployment')) {
 }
 '''
         with tempfile.TemporaryDirectory(prefix='ruleproxy-component-reuse-') as temporary:
-            runner = Path(temporary) / 'check.ps1'
+            fixture_root = Path(temporary).resolve()
+            runner = fixture_root / 'check.ps1'
             runner.write_text(script, encoding='ascii')
             environment = {key: value for key, value in os.environ.items() if key.casefold() != 'psmodulepath'}
             environment.update(RULEPROXY_SETUP_TEST_SCRIPT=str(ROOT / 'scripts/windows-setup.ps1'),
-                               RULEPROXY_SETUP_TEST_ROOT=temporary)
+                               RULEPROXY_SETUP_TEST_ROOT=str(fixture_root))
             powershell = Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
             result = subprocess.run([str(powershell), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
                                      '-File', str(runner)], env=environment, text=True, capture_output=True, timeout=15)
@@ -226,7 +227,20 @@ foreach ($case in @('ordinary','administrator','no-launch','foreign','owned','di
     } elseif ($case -eq 'foreign') {
         if ((Get-FileHash -LiteralPath $desktopLink).Hash -ne $before) { throw 'Foreign shortcut was overwritten' }
     } elseif ((Get-FileHash -LiteralPath $desktopLink).Hash -ne (Get-FileHash -LiteralPath (Join-Path $fixtureRoot 'Start-Windows.lnk')).Hash) {
-        throw ('Owned desktop launcher was not copied: ' + $case)
+        $com = New-Object -ComObject WScript.Shell
+        $inspected = $null
+        $comparison = [ordered]@{expected_root=$fixtureRoot; actual_target=$null; desktop_link=$desktopLink}
+        try {
+            $inspected = $com.CreateShortcut($desktopLink)
+            $comparison.actual_target = $inspected.TargetPath
+        } catch {
+            $comparison['read_error'] = $_.Exception.Message
+        } finally {
+            if ($inspected) { [Runtime.InteropServices.Marshal]::ReleaseComObject($inspected) | Out-Null }
+            [Runtime.InteropServices.Marshal]::ReleaseComObject($com) | Out-Null
+        }
+        $comparison = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($comparison | ConvertTo-Json -Compress)))
+        throw ('Owned desktop launcher was not copied: ' + $case + '; synthetic_path_comparison_base64=' + $comparison)
     }
 }
 foreach ($failure in @('exit-one','missing-code','timeout')) {
@@ -247,9 +261,12 @@ foreach ($failure in @('exit-one','missing-code','timeout')) {
 }
 '''
         with tempfile.TemporaryDirectory(prefix='ruleproxy-completion-') as temporary:
-            directory = Path(temporary) / '应用 setup space'
+            # Windows TEMP may use RUNNER~1, while ShellLink returns the long
+            # path. Use the canonical form that Program Files uses in setup.
+            fixture_root = Path(temporary).resolve()
+            directory = fixture_root / '应用 setup space'
             directory.mkdir()
-            installed = Path(temporary) / 'installed'
+            installed = (fixture_root / 'installed').resolve()
             (installed / 'python').mkdir(parents=True)
             for name in ('python/python.exe', 'python/pythonw.exe', 'old.exe'):
                 shutil.copyfile(sys.executable, installed / name)
