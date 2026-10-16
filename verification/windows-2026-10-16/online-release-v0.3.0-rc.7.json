@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.7",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "b74e05fa924c1f4c520282468bd0af858b28a343bb815c6b8e4f7c17f63677d2",
+    "bytes": 229209
+  },
+  "source_base_commit": "62a36d9d504402bcc56a558ff0292290f11f6c27",
+  "source_files": 45,
+  "archive_members": 47,
+  "change": "Support current-account Windows elevated/UAC-disabled startup; finish administrator setup with desktop shortcut and bounded panel health check; reuse fully verified identical components",
+  "uac_or_ipv6_settings_modified_by_product": false,
+  "elevated_http_authorization": "Actual TCP owner process TokenUser SID must match panel account; held process handle, timestamp and liveness checks reject stale PID entries; errors deny access",
+  "same_account_program_isolation_claimed": false,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "windows_bootstrap_smoke_entry": ".github/check_windows_online_bootstrap.py",
+  "native_windows_elevated_startup_entry": "tests/test_windows_elevated_startup.py",
+  "native_windows_installer_completion_entry": "tests/test_windows_setup_completion.py",
+  "native_windows_elevated_startup_validation": "Required native Windows CI pending for this commit; results recorded after completion",
+  "real_edge_headless_validation": "Required native Windows CI with sandbox and temporary browser data; results pending for this commit",
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "real_browser_shared_profile_gui_qualification_performed": false,
+  "prior_qualification_record": "proxifyre-product/current-status.json",
+  "local_regression": {
+    "python_versions": [
+      "3.10",
+      "3.14"
+    ],
+    "tests_per_version": 1123,
+    "failures": 0,
+    "skipped_per_version": 62,
+    "ui_permission_state_cases": 18,
+    "prior_shared_profile_ui_assertions": 50,
+    "linux_namespace_validation_deferred_to_required_ci": true,
+    "scope": "Full rc6 production code on both versions; rc7 modifies test fixtures and release notes, final targeted fixture diagnostics additionally required"
+  },
+  "candidate_correction": "rc6 remains unpublished. Native elevated production panel, app token inheritance and Job cleanup, core Job, real HTTP account identity, and Python 3.10 sandboxed Edge passed. Fix the shortcut fixture to use Unicode shell-link creation and the fixed installation path model; record Edge driver exit/timeout/exception separately with a 30-second browser deadline and unchanged sandbox and DOM assertions. Old Python 3.14 driver exit 1 had insufficient diagnostic to establish its cause.",
+  "prior_native_startup_checks": {
+    "commit": "62a36d9d504402bcc56a558ff0292290f11f6c27",
+    "main_check_run": 38873191197,
+    "windows_python_310_job": 116881930664,
+    "windows_python_314_job": 116881930739,
+    "production_elevated_panel_passed": true,
+    "production_app_current_token_and_job_cleanup_passed": true,
+    "production_core_job_passed": true,
+    "actual_http_owner_account_guard_passed": true,
+    "sandboxed_edge_python_310_passed": true,
+    "full_prior_check_passed": false
+  },
+  "prior_qualification_is_for_rc7": false
+}

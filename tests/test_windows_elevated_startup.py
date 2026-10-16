@@ -51,6 +51,28 @@ def token_identity():
         kernel.CloseHandle(token)
 '''
 
+EDGE_DRIVER = '''
+import json, subprocess, sys, time, traceback
+from pathlib import Path
+
+started = time.monotonic()
+result = {"outcome": "starting", "timeout_seconds": float(sys.argv[5])}
+try:
+    with open(sys.argv[1], "wb") as output, open(sys.argv[2], "wb") as errors:
+        child = subprocess.run(sys.argv[6:], stdout=output, stderr=errors,
+                               timeout=result["timeout_seconds"])
+    result.update(outcome="exited", browser_returncode=child.returncode)
+except Exception as error:
+    result.update(outcome="timeout" if isinstance(error, subprocess.TimeoutExpired) else "exception",
+                  exception_type=type(error).__name__)
+    Path(sys.argv[4]).write_text(traceback.format_exc(), encoding="utf-8")
+    raise
+finally:
+    result["elapsed_seconds"] = round(time.monotonic() - started, 3)
+    Path(sys.argv[3]).write_text(json.dumps(result), encoding="utf-8")
+raise SystemExit(child.returncode)
+'''
+
 
 def token_identity():
     namespace = {}
@@ -178,26 +200,42 @@ class WindowsElevatedStartupTests(unittest.TestCase):
         # A Python driver captures stdout while production launch owns its Job
         # and every Edge descendant, including on timeout or browser failure.
         driver = self.directory / 'edge_dom_driver.py'
-        driver.write_text('import subprocess,sys\n'
-            'with open(sys.argv[1],"wb") as output, open(sys.argv[2],"wb") as errors:\n'
-            '    result=subprocess.run(sys.argv[3:],stdout=output,stderr=errors,timeout=12)\n'
-            'raise SystemExit(result.returncode)\n', encoding='utf-8')
+        driver.write_text(EDGE_DRIVER, encoding='utf-8')
         dom_path, error_path = self.directory / 'edge-dom.html', self.directory / 'edge-stderr.log'
+        result_path = self.directory / 'edge-result.json'
+        exception_path = self.directory / 'edge-driver-exception.log'
         profile = self.directory / 'edge-private-profile'
         with self.production_panel() as (state, url):
-            command = [self.python, '-B', str(driver), str(dom_path), str(error_path), str(edge),
+            command = [sys.executable, '-B', str(driver), str(dom_path), str(error_path),
+                str(result_path), str(exception_path), '30', str(edge),
                 '--headless', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
                 '--disable-background-networking', '--no-proxy-server',
                 '--user-data-dir=' + str(profile), '--dump-dom', '--timeout=8000',
                 '--virtual-time-budget=5000', url + '/']
             process = windows_app_process.launch(command, os.environ, str(self.directory))
             try:
+                def tail(path, limit=2000):
+                    try:
+                        return path.read_text(encoding='utf-8', errors='replace')[-limit:]
+                    except OSError:
+                        return '(file unavailable)'
+
                 try:
-                    returncode = process.wait(timeout=15)
+                    returncode = process.wait(timeout=35)
                 except subprocess.TimeoutExpired:
-                    self.fail('Sandboxed Edge did not finish the production panel DOM check within fifteen seconds')
-                errors = error_path.read_text(encoding='utf-8', errors='replace')[-2000:]
-                self.assertEqual(returncode, 0, 'Sandboxed Edge failed: ' + errors)
+                    self.fail('Sandboxed Edge driver did not finish within thirty-five seconds.\n'
+                        + tail(result_path) + '\nDriver exception:\n' + tail(exception_path)
+                        + '\nEdge stderr:\n' + tail(error_path))
+                diagnostic = ('Driver exit: ' + str(returncode) + '\nDriver result:\n' + tail(result_path)
+                    + '\nDriver exception:\n' + tail(exception_path) + '\nEdge stderr:\n' + tail(error_path)
+                    + '\nDOM tail:\n' + tail(dom_path, 500))
+                try:
+                    result = json.loads(result_path.read_text(encoding='utf-8'))
+                except (OSError, ValueError):
+                    self.fail('Sandboxed Edge driver did not produce a valid result.\n' + diagnostic)
+                self.assertEqual(result.get('outcome'), 'exited', diagnostic)
+                self.assertEqual(result.get('browser_returncode'), 0, diagnostic)
+                self.assertEqual(returncode, 0, diagnostic)
                 dom = dom_path.read_text(encoding='utf-8', errors='replace')
 
                 class Fields(HTMLParser):
@@ -219,7 +257,7 @@ class WindowsElevatedStartupTests(unittest.TestCase):
 
                 fields = Fields()
                 fields.feed(dom)
-                message = 'Edge did not render the actual /api/state response: ' + errors
+                message = 'Edge did not render the actual /api/state response.\n' + diagnostic
                 self.assertEqual(fields.values.get('version-label'), '版本：' + state['version'], message)
                 self.assertEqual(fields.values.get('status-title'), '等待导入配置', message)
                 self.assertEqual(fields.values.get('platform-label'), state['platform'], message)

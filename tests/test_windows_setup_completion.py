@@ -2,13 +2,14 @@
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from ruleproxy import windows_proxy_service
+from ruleproxy import shortcuts, windows_proxy_service
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -150,16 +151,15 @@ foreach ($process in @($missing,$null)) {
     if (-not $rejected) { throw 'Missing child result was accepted as success' }
 }
 
-$fixtureRoot = Join-Path $env:RULEPROXY_SETUP_TEST_ROOT 'installed'
-New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
-$com = New-Object -ComObject WScript.Shell
-try {
-    $shortcut = $com.CreateShortcut((Join-Path $fixtureRoot 'Start-Windows.lnk'))
-    $shortcut.TargetPath = Join-Path $fixtureRoot 'python\pythonw.exe'
-    $shortcut.Arguments = '-I -S "Run-RuleProxy.py" --open-browser'
-    $shortcut.Save()
-    [Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut) | Out-Null
-} finally { [Runtime.InteropServices.Marshal]::ReleaseComObject($com) | Out-Null }
+$fixtureRoot = $env:RULEPROXY_SETUP_TEST_INSTALLED_ROOT
+# Match the fixed Program Files target while retaining Unicode desktop paths.
+# Write fixtures with the production Unicode API: WScript.Shell cannot create
+# non-ACP targets on an English-locale host. The real completion still reads
+# existing links itself, so its ownership/preservation checks remain exercised.
+Add-Type -TypeDefinition $env:RULEPROXY_SETUP_TEST_LINK_TYPES
+[RuleProxyLinks.Links]::Create((Join-Path $fixtureRoot 'Start-Windows.lnk'),
+    (Join-Path $fixtureRoot 'python\pythonw.exe'), '-I -S "Run-RuleProxy.py" --open-browser',
+    $fixtureRoot, 'Panel fixture', '')
 
 # Execute the actual outer UAC continuation, replacing only its final process
 # exit with return so all cases can run in one test host. Redirect its completion
@@ -204,13 +204,8 @@ foreach ($case in @('ordinary','administrator','no-launch','foreign','owned','di
     $desktopLink = Join-Path $fixtureDesktop 'RuleProxy Web.lnk'
     $before = $null
     if ($case -in @('foreign','owned')) {
-        $com = New-Object -ComObject WScript.Shell
-        try {
-            $shortcut = $com.CreateShortcut($desktopLink)
-            $shortcut.TargetPath = if ($case -eq 'foreign') { Join-Path $env:SystemRoot 'System32\notepad.exe' } else { Join-Path $fixtureRoot 'old.exe' }
-            $shortcut.Save()
-            [Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut) | Out-Null
-        } finally { [Runtime.InteropServices.Marshal]::ReleaseComObject($com) | Out-Null }
+        $target = if ($case -eq 'foreign') { $env:ComSpec } else { Join-Path $fixtureRoot 'old.exe' }
+        [RuleProxyLinks.Links]::Create($desktopLink, $target, '', $fixtureRoot, 'Existing fixture', '')
         $before = (Get-FileHash -LiteralPath $desktopLink).Hash
     } elseif ($case -eq 'directory') { New-Item -ItemType Directory -Path $desktopLink | Out-Null }
     $isAdmin = $case -ne 'ordinary'; $NoLaunch = $case -eq 'no-launch'
@@ -254,11 +249,17 @@ foreach ($failure in @('exit-one','missing-code','timeout')) {
         with tempfile.TemporaryDirectory(prefix='ruleproxy-completion-') as temporary:
             directory = Path(temporary) / '应用 setup space'
             directory.mkdir()
+            installed = Path(temporary) / 'installed'
+            (installed / 'python').mkdir(parents=True)
+            for name in ('python/python.exe', 'python/pythonw.exe', 'old.exe'):
+                shutil.copyfile(sys.executable, installed / name)
             runner = directory / 'check.ps1'
             runner.write_text(script, encoding='ascii')
             environment = {key: value for key, value in os.environ.items() if key.casefold() != 'psmodulepath'}
             environment.update(RULEPROXY_SETUP_TEST_SCRIPT=str(ROOT / 'scripts/windows-setup.ps1'),
-                               RULEPROXY_SETUP_TEST_ROOT=str(directory))
+                               RULEPROXY_SETUP_TEST_ROOT=str(directory),
+                               RULEPROXY_SETUP_TEST_INSTALLED_ROOT=str(installed),
+                               RULEPROXY_SETUP_TEST_LINK_TYPES=shortcuts._SHELL_LINK_TYPES)
             powershell = Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
             result = subprocess.run([str(powershell), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
                                      '-File', str(runner)], env=environment, text=True, capture_output=True, timeout=45)
