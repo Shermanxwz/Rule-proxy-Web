@@ -165,6 +165,29 @@ class HarnessPlanningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
             H.component_id(data, 'AA-BB-CC-DD-EE-FF', 'physical', 14)
 
+    def test_server2025_sriov_vf_and_netvsc_shared_mac_use_live_ifindex(self):
+        # run38936420411: Mellanox VF Id3/index3 and NetVsc Id40/index14
+        # legitimately share a MAC. Values below preserve that relationship.
+        mac = 'AA-BB-CC-DD-EE-FF'
+        vf = {'Id': 3, 'Type': 'Miniport', 'Name': 'Mellanox ConnectX-4 Lx Virtual Ethernet Adapter',
+              'Properties': [{'Name': 'MAC Address', 'Value': mac}, {'Name': 'ifIndex', 'Value': 3}]}
+        netvsc = {'Id': 40, 'Type': 'Miniport', 'Name': 'Microsoft NetVsc Nic #3',
+                  'Properties': [{'Name': 'MAC Address', 'Value': mac}, {'Name': 'ifIndex', 'Value': 14}]}
+        logical = {'Id': 40, 'Type': 'NetVsc', 'Name': netvsc['Name'],
+                   'Properties': [{'Name': 'Nic ifIndex', 'Value': 3},
+                                  {'Name': 'MAC Address', 'Value': mac}, {'Name': 'ifIndex', 'Value': 14}]}
+        for components in ([vf, logical, netvsc], [netvsc, logical, vf]):
+            with self.subTest(order=[item['Type'] for item in components]):
+                self.assertEqual(H.component_id([{'Components': components}], mac, 'different adapter name', 14), 40)
+                self.assertEqual(H.component_id([{'Components': components}], mac, 'different adapter name', 3), 3)
+        # MAC alone cannot distinguish the two actual miniports.
+        with self.assertRaisesRegex(ValueError, 'physical_component_not_unique'):
+            H.component_id([vf, netvsc], mac, 'different adapter name')
+        # Conflicting MAC on the exact live interface remains a hard refusal.
+        netvsc['Properties'][0]['Value'] = '11-22-33-44-55-66'
+        with self.assertRaisesRegex(ValueError, 'component_identity_conflict'):
+            H.component_id([vf, netvsc], mac, 'different adapter name', 14)
+
     def test_nic_identity_diagnostics_survive_counters_and_component_row_bound(self):
         data = [{'Id': item + 100, 'Type': 'Protocol', 'Name': 'other',
                  'Counters': [{'Name': 'counter'}] * 100} for item in range(120)]

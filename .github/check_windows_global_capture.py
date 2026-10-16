@@ -247,8 +247,10 @@ def component_id(document, mac, description, interface_index=None):
             continue
         candidate_mac, candidate_index = _component_identity(fields)
         same_mac, same_index = candidate_mac == expected_mac, candidate_index == interface_index
-        if ((same_mac and interface_index is not None and candidate_index is not None and not same_index)
-                or (interface_index is not None and same_index and candidate_mac is not None and not same_mac)):
+        # SR-IOV VF and synthetic NetVsc miniports can legitimately share a
+        # MAC while having different ifIndexes. The live ifIndex identifies
+        # our candidate; only that candidate's optional MAC must agree.
+        if interface_index is not None and same_index and candidate_mac is not None and not same_mac:
             raise ValueError('component_identity_conflict')
         matches = same_index if interface_index is not None else same_mac
         identity = fields.get('id', fields.get('componentid'))
