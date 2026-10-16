@@ -118,6 +118,16 @@ function Test-ReusableComponents([bool]$CompletedOwnedDeployment, [bool]$BundleR
     } catch { return $false }
 }
 
+function Get-InstalledShortcutTarget([string]$InstalledRoot, [string]$ShortcutPath) {
+    if (-not ('RuleProxyLinks.Links' -as [type])) {
+        $global:LASTEXITCODE = $null
+        $types = & (Join-Path $InstalledRoot 'python\python.exe') -I -S -c 'from ruleproxy.shortcuts import _SHELL_LINK_TYPES; print(_SHELL_LINK_TYPES)'
+        if ($null -eq $global:LASTEXITCODE -or $global:LASTEXITCODE -ne 0) { throw 'Could not load the installed Unicode shortcut reader' }
+        Add-Type -TypeDefinition ($types -join [Environment]::NewLine) -ErrorAction Stop
+    }
+    return [RuleProxyLinks.Links]::ReadTarget($ShortcutPath)
+}
+
 function Complete-OwnerSetup([string]$InstalledRoot, [string]$Desktop, [switch]$NoLaunch) {
     if ($NoLaunch) {
         Write-Host 'Installation complete; desktop shortcut and background panel launch were skipped as requested.'
@@ -125,25 +135,22 @@ function Complete-OwnerSetup([string]$InstalledRoot, [string]$Desktop, [switch]$
     }
     # This runs only in the original owner's continuation, whether that owner
     # started normally or as administrator. A different UAC account never runs it.
-    $shell = $null
-    $link = $null
     try {
         if (-not $Desktop) { throw 'Desktop folder is unavailable' }
         $desktopLink = Join-Path $Desktop 'RuleProxy Web.lnk'
         if (Test-Path -LiteralPath $desktopLink) {
             $item = Get-Item -LiteralPath $desktopLink -Force
             if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Existing desktop entry is not an ordinary shortcut' }
-            $shell = New-Object -ComObject WScript.Shell
-            $link = $shell.CreateShortcut($desktopLink)
-            if (-not $link.TargetPath.StartsWith($InstalledRoot + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Existing desktop shortcut belongs to another program' }
+            $target = Get-InstalledShortcutTarget $InstalledRoot $desktopLink
+            if (-not [IO.Path]::IsPathRooted($target) -or $target -notmatch '^[A-Za-z]:[\\/]') { throw 'Existing desktop shortcut target is not an absolute local path' }
+            $target = [IO.Path]::GetFullPath($target)
+            $ownedPrefix = [IO.Path]::GetFullPath($InstalledRoot).TrimEnd('\') + '\'
+            if (-not $target.StartsWith($ownedPrefix,[StringComparison]::OrdinalIgnoreCase)) { throw 'Existing desktop shortcut belongs to another program' }
         }
         Copy-Item -LiteralPath (Join-Path $InstalledRoot 'Start-Windows.lnk') -Destination $desktopLink -Force
         Write-Host ('Desktop Web panel launcher: ' + $desktopLink)
     } catch {
         Write-Warning ('Desktop shortcut left unchanged: ' + $_.Exception.Message + '. Use ' + (Join-Path $InstalledRoot 'Start-Windows.lnk'))
-    } finally {
-        if ($link) { [Runtime.InteropServices.Marshal]::ReleaseComObject($link) | Out-Null }
-        if ($shell) { [Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null }
     }
     Write-Host 'Starting the background Web panel without opening a browser.'
     Start-Process -FilePath (Join-Path $InstalledRoot 'python\pythonw.exe') -ArgumentList @('-I','-S',('"' + (Join-Path $InstalledRoot 'Run-RuleProxy.py') + '"'),'--no-browser') -WorkingDirectory $InstalledRoot

@@ -133,7 +133,7 @@ Import-Module Microsoft.PowerShell.Management -ErrorAction Stop
 $tokens = $null; $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($env:RULEPROXY_SETUP_TEST_SCRIPT,[ref]$tokens,[ref]$errors)
 if ($errors.Count) { throw 'Installer PowerShell parse failed' }
-foreach ($name in @('Get-SetupExitCode','Test-OwnerPanel','Complete-OwnerSetup')) {
+foreach ($name in @('Get-SetupExitCode','Test-OwnerPanel','Get-InstalledShortcutTarget','Complete-OwnerSetup')) {
     $definition = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
     if (-not $definition) { throw ('Missing installer function: ' + $name) }
     Invoke-Expression $definition.Extent.Text
@@ -161,6 +161,8 @@ Add-Type -TypeDefinition $env:RULEPROXY_SETUP_TEST_LINK_TYPES
 [RuleProxyLinks.Links]::Create((Join-Path $fixtureRoot 'Start-Windows.lnk'),
     (Join-Path $fixtureRoot 'python\pythonw.exe'), '-I -S "Run-RuleProxy.py" --open-browser',
     $fixtureRoot, 'Panel fixture', '')
+$panelTarget = [RuleProxyLinks.Links]::ReadTarget((Join-Path $fixtureRoot 'Start-Windows.lnk'))
+if (-not $panelTarget.Equals((Join-Path $fixtureRoot 'python\pythonw.exe'),[StringComparison]::OrdinalIgnoreCase)) { throw ('Unicode fixture target differs: ' + $panelTarget) }
 
 # Execute the actual outer UAC continuation, replacing only its final process
 # exit with return so all cases can run in one test host. Redirect its completion
@@ -199,14 +201,16 @@ $outer = $ast.Find({param($node) $node -is [Management.Automation.Language.IfSta
 if (-not $outer) { throw 'Owner UAC continuation is missing' }
 $continuation = $outer.Extent.Text -replace '(?m)^    exit 0\r?$','    return'
 $SourceRoot = $fixtureRoot; $OwnerSid = 'S-1-5-21-100-200-300-1001'; $Elevated = $false
-foreach ($case in @('ordinary','administrator','no-launch','foreign','owned','directory')) {
+foreach ($case in @('ordinary','administrator','no-launch','foreign','foreign-dot-segment','owned','directory')) {
     $fixtureDesktop = Join-Path $env:RULEPROXY_SETUP_TEST_ROOT $case
     New-Item -ItemType Directory -Path $fixtureDesktop | Out-Null
     $desktopLink = Join-Path $fixtureDesktop 'RuleProxy Web.lnk'
     $before = $null
-    if ($case -in @('foreign','owned')) {
-        $target = if ($case -eq 'foreign') { $env:ComSpec } else { Join-Path $fixtureRoot 'old.exe' }
+    if ($case -in @('foreign','foreign-dot-segment','owned')) {
+        $target = if ($case -eq 'foreign') { $env:ComSpec } elseif ($case -eq 'foreign-dot-segment') { Join-Path $fixtureRoot '..\outside.exe' } else { Join-Path $fixtureRoot 'old.exe' }
         [RuleProxyLinks.Links]::Create($desktopLink, $target, '', $fixtureRoot, 'Existing fixture', '')
+        $actualTarget = [RuleProxyLinks.Links]::ReadTarget($desktopLink)
+        if (-not [IO.Path]::GetFullPath($actualTarget).Equals([IO.Path]::GetFullPath($target),[StringComparison]::OrdinalIgnoreCase)) { throw ('Unicode fixture target differs: ' + $actualTarget) }
         $before = (Get-FileHash -LiteralPath $desktopLink).Hash
     } elseif ($case -eq 'directory') { New-Item -ItemType Directory -Path $desktopLink | Out-Null }
     $isAdmin = $case -ne 'ordinary'; $NoLaunch = $case -eq 'no-launch'
@@ -224,20 +228,14 @@ foreach ($case in @('ordinary','administrator','no-launch','foreign','owned','di
     if ($launch.file -ne (Join-Path $fixtureRoot 'python\pythonw.exe') -or $launch.directory -ne $fixtureRoot -or $launch.argv[-1] -ne '--no-browser') { throw 'Panel launch did not stay quiet and local' }
     if ($case -eq 'directory') {
         if (-not (Test-Path -LiteralPath $desktopLink -PathType Container)) { throw 'Foreign directory was overwritten' }
-    } elseif ($case -eq 'foreign') {
+    } elseif ($case -in @('foreign','foreign-dot-segment')) {
         if ((Get-FileHash -LiteralPath $desktopLink).Hash -ne $before) { throw 'Foreign shortcut was overwritten' }
     } elseif ((Get-FileHash -LiteralPath $desktopLink).Hash -ne (Get-FileHash -LiteralPath (Join-Path $fixtureRoot 'Start-Windows.lnk')).Hash) {
-        $com = New-Object -ComObject WScript.Shell
-        $inspected = $null
         $comparison = [ordered]@{expected_root=$fixtureRoot; actual_target=$null; desktop_link=$desktopLink}
         try {
-            $inspected = $com.CreateShortcut($desktopLink)
-            $comparison.actual_target = $inspected.TargetPath
+            $comparison.actual_target = [RuleProxyLinks.Links]::ReadTarget($desktopLink)
         } catch {
             $comparison['read_error'] = $_.Exception.Message
-        } finally {
-            if ($inspected) { [Runtime.InteropServices.Marshal]::ReleaseComObject($inspected) | Out-Null }
-            [Runtime.InteropServices.Marshal]::ReleaseComObject($com) | Out-Null
         }
         $comparison = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($comparison | ConvertTo-Json -Compress)))
         throw ('Owned desktop launcher was not copied: ' + $case + '; synthetic_path_comparison_base64=' + $comparison)
@@ -270,6 +268,7 @@ foreach ($failure in @('exit-one','missing-code','timeout')) {
             (installed / 'python').mkdir(parents=True)
             for name in ('python/python.exe', 'python/pythonw.exe', 'old.exe'):
                 shutil.copyfile(sys.executable, installed / name)
+            shutil.copyfile(sys.executable, fixture_root / 'outside.exe')
             runner = directory / 'check.ps1'
             runner.write_text(script, encoding='ascii')
             environment = {key: value for key, value in os.environ.items() if key.casefold() != 'psmodulepath'}

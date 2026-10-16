@@ -102,6 +102,28 @@ namespace RuleProxyLinksSmoke {
     if installed.exists():
         raise AssertionError('Creating the launcher must not create or launch the final installation')
 
+    # A fresh PowerShell process must load the production reader from the
+    # staged private Python. Preloading the C# fixture would skip that branch.
+    reader_check = r'''
+$ErrorActionPreference = 'Stop'
+$env:PSModulePath = Join-Path $PSHOME 'Modules'
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($env:RULEPROXY_SMOKE_SETUP,[ref]$tokens,[ref]$errors)
+if ($errors.Count) { throw 'Staged setup parser failed' }
+$definition = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-InstalledShortcutTarget'},$true)
+if (-not $definition) { throw 'Production shortcut reader is missing' }
+Invoke-Expression $definition.Extent.Text
+$value = Get-InstalledShortcutTarget -InstalledRoot $env:RULEPROXY_SMOKE_STAGE -ShortcutPath $env:RULEPROXY_SMOKE_LINK
+Write-Output ([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($value)))
+'''
+    readback = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', reader_check],
+        env={**os.environ, 'RULEPROXY_SMOKE_SETUP': str(target / 'scripts/windows-setup.ps1'),
+             'RULEPROXY_SMOKE_STAGE': str(target), 'RULEPROXY_SMOKE_LINK': str(destination)},
+        check=True, capture_output=True, text=True, timeout=60)
+    actual_target = base64.b64decode(readback.stdout.strip(), validate=True).decode('utf-8')
+    if os.path.normcase(actual_target) != os.path.normcase(expected[0]):
+        raise AssertionError('Production Unicode shortcut reader returned a different target')
+
 
 def main() -> int:
     if os.name != 'nt' or sys.maxsize <= 2**32:
@@ -132,7 +154,8 @@ def main() -> int:
         count = validate_payload(target, cache)
         validate_panel_launcher(target, root)
         print(f'Online bootstrap passed: embedded Python, Unicode/spaces path, fresh official downloads, '
-              f'raw host blocked, all 3 license pins, {count} payload hashes and manual panel launcher verified. '
+              f'raw host blocked, all 3 license pins, {count} payload hashes, manual panel launcher '
+              'and production Unicode shortcut reader verified. '
               'No elevation or system installation was performed.', flush=True)
     return 0
 

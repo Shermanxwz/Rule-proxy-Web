@@ -64,6 +64,22 @@ namespace RuleProxyLinks
 
     public static class Links
     {
+        public static string ReadTarget(string path)
+        {
+            IShellLinkW link = (IShellLinkW)new ShellLink();
+            try
+            {
+                ((IPersistFile)link).Load(path, 0);
+                StringBuilder target = new StringBuilder(32768);
+                link.GetPath(target, target.Capacity, IntPtr.Zero, 4); // SLGP_RAWPATH; never Resolve
+                return target.ToString();
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(link);
+            }
+        }
+
         public static void Create(string path, string target, string arguments, string workingDirectory, string description, string iconPath)
         {
             IShellLinkW link = (IShellLinkW)new ShellLink();

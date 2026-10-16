@@ -7,7 +7,7 @@ on:
         description: Existing release-candidate tag with a draft GitHub Release
         type: string
         required: true
-        default: v0.3.0-rc.8
+        default: v0.3.0-rc.9
       release_id:
         description: Numeric ID of the existing draft prerelease
         type: string
