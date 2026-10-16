@@ -89,7 +89,7 @@ if (-not $isAdmin -or -not $Elevated) {
                 if (-not $link.TargetPath.StartsWith($installedRoot + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Existing desktop shortcut belongs to another program' }
             }
             Copy-Item -LiteralPath (Join-Path $installedRoot 'Start-Windows.lnk') -Destination $desktopLink -Force
-            Write-Host ('Desktop silent launcher: ' + $desktopLink)
+            Write-Host ('Desktop Web panel launcher: ' + $desktopLink)
         } catch {
             Write-Warning ('Desktop shortcut left unchanged: ' + $_.Exception.Message + '. Use ' + (Join-Path $installedRoot 'Start-Windows.lnk'))
         } finally {
@@ -429,7 +429,7 @@ try {
     # Create in staging before sealing the owned file hashes, but point at the
     # final protected root. The GUID staging directory is renamed below.
     & (Join-Path $stage 'python\python.exe') -I -S (Join-Path $stage 'Run-RuleProxy.py') --create-panel-shortcut (Join-Path $stage 'Start-Windows.lnk') --shortcut-root $root
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $stage 'Start-Windows.lnk') -PathType Leaf)) { throw 'Could not create the silent daily launcher' }
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $stage 'Start-Windows.lnk') -PathType Leaf)) { throw 'Could not create the daily Web panel launcher' }
     $files = @{}
     foreach ($path in Get-ChildItem -LiteralPath $stage -File -Recurse) {
         $relative = $path.FullName.Substring($stage.Length + 1).Replace('\','/')
@@ -476,9 +476,9 @@ try {
     Write-State 'completed' $true
     $setupPhase = 'completed'
     if ($oldRootMoved) { Remove-Item -LiteralPath $backup -Recurse -Force }
-    Write-Host ('RuleProxy installed. Daily silent launcher: ' + (Join-Path $root 'Start-Windows.lnk'))
-    Write-Host 'The daily launcher runs in the background and leaves the browser closed.'
-    Write-Host 'Web panel (open manually): http://127.0.0.1:8879'
+    Write-Host ('RuleProxy installed. Daily Web panel launcher: ' + (Join-Path $root 'Start-Windows.lnk'))
+    Write-Host 'Setup starts the panel quietly. Clicking the daily launcher opens its Web page without a console window.'
+    Write-Host 'Web panel: http://127.0.0.1:8879'
 } catch {
     $originalFailure = $_
     $setupFailed = $true

@@ -60,7 +60,7 @@ def validate_payload(target: Path, cache: Path) -> int:
     return len(files)
 
 
-def validate_silent_launcher(target: Path, root: Path) -> None:
+def validate_panel_launcher(target: Path, root: Path) -> None:
     from ruleproxy import shortcuts
 
     destination, installed = root / 'Start-Windows.lnk', root / '最终安装 root'
@@ -96,9 +96,9 @@ namespace RuleProxyLinksSmoke {
                             check=True, capture_output=True, text=True, timeout=60)
     values = [base64.b64decode(line, validate=True).decode('utf-8') for line in result.stdout.split()]
     expected = [str(installed / 'python/pythonw.exe'), subprocess.list2cmdline(
-        ['-I', '-S', str(installed / 'Run-RuleProxy.py'), '--no-browser']), str(installed)]
+        ['-I', '-S', str(installed / 'Run-RuleProxy.py'), '--open-browser']), str(installed)]
     if len(values) != 3 or any(os.path.normcase(a) != os.path.normcase(b) for a, b in zip(values, expected)):
-        raise AssertionError('Silent launcher target, arguments or working directory differ')
+        raise AssertionError('Manual panel launcher target, arguments or working directory differ')
     if installed.exists():
         raise AssertionError('Creating the launcher must not create or launch the final installation')
 
@@ -130,9 +130,9 @@ def main() -> int:
                         str(source / '.github/build_windows_package.py'), str(target),
                         '--stage-only', '--asset-cache', str(cache)], check=True, timeout=480)
         count = validate_payload(target, cache)
-        validate_silent_launcher(target, root)
+        validate_panel_launcher(target, root)
         print(f'Online bootstrap passed: embedded Python, Unicode/spaces path, fresh official downloads, '
-              f'raw host blocked, all 3 license pins, {count} payload hashes and silent launcher verified. '
+              f'raw host blocked, all 3 license pins, {count} payload hashes and manual panel launcher verified. '
               'No elevation or system installation was performed.', flush=True)
     return 0
 

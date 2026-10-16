@@ -13,12 +13,12 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 1. 在 [GitHub Releases](https://github.com/Shermanxwz/Rule-proxy-Web/releases) 下载 `RuleProxy-Web-0.3.0-windows-x64-online-setup.zip`，核对同一发布页的 `SHA256SUMS.txt`，完整解压到可写目录。
 2. 从日常登录账户双击 `Setup-Windows.cmd`。首次联网下载并校验固定版本的 Python、PyYAML、Mihomo、ProxiFyre、NDIS 驱动和 VC 运行库，无需预装 Python；准备完成后允许一次 UAC 安装。固定许可证原文已随包附带，无需访问 GitHub 原始文件站点。
 3. 下载失败时，保留 `.windows-cache`，从同一目录再次运行 `Setup-Windows.cmd`，可复用已经校验的依赖。临时连接中断会有界重试，校验不通过会停止。如果安装返回 `3010`，先重启，再运行同一安装入口续装。
-4. 安装成功后会在后台启动。以后以同一普通用户双击桌面的 `RuleProxy Web` 快捷方式，或 `%ProgramFiles%\RuleProxy-Web\Start-Windows.lnk`；无需管理员权限，不弹 CMD、PowerShell、Mihomo 控制台或浏览器。手动访问 `http://127.0.0.1:8879` 打开 Web 面板。
+4. 安装成功后会在后台启动。需要操作时，以同一普通用户双击桌面的 `RuleProxy Web` 快捷方式，或 `%ProgramFiles%\RuleProxy-Web\Start-Windows.lnk`，即可打开 Web 面板；无需管理员权限，不弹 CMD、PowerShell 或 Mihomo 控制台。也可手动访问 `http://127.0.0.1:8879`。
 5. 在 Web 面板导入自己的 YAML，选择真实代理节点，添加应用并启用其代理开关，再启动核心和应用。
 
 安装包没有预装任何用户 YAML、订阅或节点凭证。[示例 YAML](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/examples/ruleproxy.example.yaml) 仅供源码阅读，需要换成自己的节点后导入。
 
-登录后自启动可在 Web 面板中开启，同样静默运行。后台启动错误写入 `%LOCALAPPDATA%\RuleProxyWebSafe\panel.log`，核心日志为同目录的 `core.log`。`Start-Windows.cmd` 保留为兼容入口；直接双击 CMD 本身可能短暂显示命令行窗口，日常请使用上述快捷方式。首次安装仍会显示准备进度并请求 UAC 授权。
+登录后自启动可在 Web 面板中开启，静默运行，不自动打开浏览器；安装结束后的后台启动也不会打开浏览器。后台启动错误写入 `%LOCALAPPDATA%\RuleProxyWebSafe\panel.log`，核心日志为同目录的 `core.log`。`Start-Windows.cmd` 保留为兼容入口；直接双击 CMD 本身可能短暂显示命令行窗口，日常请使用上述快捷方式。首次安装仍会显示准备进度并请求 UAC 授权。
 
 安装会拒绝接管另一个来源的既有 ProxiFyre。已有共享 NDIS/VC 组件只有符合兼容与签名检查时才复用。程序、服务入口和固定依赖放在受保护的 `%ProgramFiles%\RuleProxy-Web`；官方引擎位于 `%ProgramFiles%\ProxiFyre`。普通用户只能读取代码，无法通过面板修改服务命令或执行任意管理员命令。
 

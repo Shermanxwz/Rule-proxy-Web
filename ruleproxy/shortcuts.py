@@ -243,11 +243,12 @@ def _windows_shortcuts(app: dict, label: str, argv: list[str], folders: list[Pat
 
 
 def create_panel_shortcut(destination: Path, installed_root: Path | None = None) -> Path:
-    """Create the installed, windowless panel entry without starting the panel.
+    """Create the installed manual panel entry without starting the panel.
 
     Setup creates the link inside its staging tree before renaming the tree.
     Its target therefore uses the final installation root, which need not yet
-    exist. No state path is saved: the eventual ordinary user owns the state.
+    exist. Clicking the link opens the panel in a browser, without a console.
+    No state path is saved: the eventual ordinary user owns the state.
     """
     if sys.platform != 'win32':
         raise ValueError('The installed panel shortcut is Windows-only')
@@ -258,7 +259,7 @@ def create_panel_shortcut(destination: Path, installed_root: Path | None = None)
         raise ValueError('Expected a Windows shell-link destination')
     root = Path(installed_root) if installed_root is not None else ROOT
     argv = [str(root / 'python' / 'pythonw.exe'), '-I', '-S',
-            str(root / 'Run-RuleProxy.py'), '--no-browser']
+            str(root / 'Run-RuleProxy.py'), '--open-browser']
     created = _windows_shortcuts({}, 'RuleProxy Web', argv, [destination.parent],
                                  shortcut_name=destination.stem, working_directory=root)
     if created != [destination]:

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.3",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "295d9ef5f60bcc2dc1b77fe94301afb92927ca03b6123507ecdc932832a60561",
+    "bytes": 206641
+  },
+  "source_base_commit": "5f21893d45d6d7448bee59f5a11f41108fb5626e",
+  "source_files": 41,
+  "archive_members": 43,
+  "fix": "Explicit manual shortcut opens Web page; default background and login launch remain silent",
+  "manual_shortcut_option": "--open-browser",
+  "background_login_option": "--no-browser",
+  "browser_options_mutually_exclusive": true,
+  "windows_bootstrap_smoke_entry": ".github/check_windows_online_bootstrap.py",
+  "third_party_binaries_bundled_in_online_zip": false,
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "prior_qualification_record": "proxifyre-product/current-status.json",
+  "prior_qualification_is_for_rc3": false
+}

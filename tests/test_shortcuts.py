@@ -262,7 +262,7 @@ namespace RuleProxyLinksTest
             target, arguments, workdir = self.read_link(destination)
             self.assertEqual(os.path.normcase(target), os.path.normcase(str(installed / 'python/pythonw.exe')))
             self.assertEqual(arguments, subprocess.list2cmdline(
-                ['-I', '-S', str(installed / 'Run-RuleProxy.py'), '--no-browser']))
+                ['-I', '-S', str(installed / 'Run-RuleProxy.py'), '--open-browser']))
             self.assertEqual(os.path.normcase(workdir), os.path.normcase(str(installed)))
             self.assertFalse(installed.exists())
 

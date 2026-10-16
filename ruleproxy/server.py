@@ -291,10 +291,14 @@ def main():
     parser.add_argument("--controller-port", type=int, default=19097, help="local Mihomo controller port (default: 19097)")
     parser.add_argument("--start-core", action="store_true", help="start the core using the saved YAML on launch")
     parser.add_argument("--state-dir", type=Path, default=state_directory())
-    parser.add_argument("--no-browser", action="store_true", default=sys.platform == 'win32',
-                        help="leave the browser closed (always the default on Windows)")
+    browser = parser.add_mutually_exclusive_group()
+    browser.add_argument("--no-browser", action="store_true", dest='no_browser',
+                         help="leave the browser closed (the default on Windows)")
+    browser.add_argument("--open-browser", action="store_false", dest='no_browser',
+                         help="open the panel in the browser for this manual launch")
+    parser.set_defaults(no_browser=sys.platform == 'win32')
     parser.add_argument("--create-panel-shortcut", type=Path, metavar="DESTINATION",
-                        help="create the installed Windows background launcher, then exit")
+                        help="create the Windows panel shortcut without a console, then exit")
     parser.add_argument("--shortcut-root", type=Path, metavar="INSTALL_ROOT",
                         help="final install root for a shortcut created during staging")
     parser.add_argument("--launch-app", metavar="APP_ID", help="start one saved app from a desktop shortcut, then exit when it closes")

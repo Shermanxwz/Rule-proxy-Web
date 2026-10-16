@@ -1,6 +1,6 @@
 """Installed Windows panel/core launchers keep their own UI in the background."""
 import base64
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 import io
 from pathlib import Path
 import socket
@@ -33,6 +33,45 @@ class SilentWindowsStartTests(unittest.TestCase):
                 patch.object(server, '_run') as run:
             server.main()
         self.assertFalse(run.call_args.args[0].no_browser)
+
+    def test_browser_options_are_mutually_exclusive(self):
+        with patch.object(sys, 'argv', ['Run-RuleProxy.py', '--open-browser', '--no-browser']), \
+                patch.object(server, '_run') as run, redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as failure:
+                server.main()
+        self.assertEqual(failure.exception.code, 2)
+        run.assert_not_called()
+
+    def test_existing_windows_panel_only_opens_browser_on_explicit_request(self):
+        for options in ([], ['--no-browser'], ['--open-browser']):
+            with self.subTest(options=options), patch.object(sys, 'platform', 'win32'), \
+                    patch.object(sys, 'argv', ['Run-RuleProxy.py', *options]), \
+                    patch.object(server, '_refuse_root'), \
+                    patch.object(server, 'panel_state', return_value={'running': False}), \
+                    patch.object(server, 'Manager') as manager, \
+                    patch.object(server.webbrowser, 'open') as browser, redirect_stdout(io.StringIO()):
+                server.main()
+                if '--open-browser' in options:
+                    browser.assert_called_once_with('http://127.0.0.1:8879')
+                else:
+                    browser.assert_not_called()
+                manager.assert_not_called()
+
+    def test_new_windows_panel_only_opens_browser_on_explicit_request(self):
+        for options in ([], ['--no-browser'], ['--open-browser']):
+            with self.subTest(options=options), patch.object(sys, 'platform', 'win32'), \
+                    patch.object(sys, 'argv', ['Run-RuleProxy.py', *options]), \
+                    patch.object(server, '_refuse_root'), patch.object(server, 'panel_state', return_value=None), \
+                    patch.object(server, 'PanelServer') as listener, patch.object(server, 'Manager') as manager, \
+                    patch.object(server.signal, 'signal'), patch.object(server.threading, 'Thread'), \
+                    patch.object(server.webbrowser, 'open') as browser, redirect_stdout(io.StringIO()):
+                server.main()
+                if '--open-browser' in options:
+                    browser.assert_called_once_with('http://127.0.0.1:8879')
+                else:
+                    browser.assert_not_called()
+                manager.assert_called_once()
+                listener.return_value.serve_forever.assert_called_once()
 
     def test_silent_start_failure_is_written_to_log_without_desktop_notification(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -89,7 +128,7 @@ class SilentWindowsStartTests(unittest.TestCase):
             environment = create.call_args.kwargs['env']
             self.assertEqual(environment['RULEPROXY_SHORTCUT_TARGET'], str(final / 'python/pythonw.exe'))
             self.assertEqual(environment['RULEPROXY_SHORTCUT_ARGUMENTS'], subprocess.list2cmdline(
-                ['-I', '-S', str(final / 'Run-RuleProxy.py'), '--no-browser']))
+                ['-I', '-S', str(final / 'Run-RuleProxy.py'), '--open-browser']))
             self.assertEqual(environment['RULEPROXY_SHORTCUT_WORKDIR'], str(final))
             self.assertEqual(environment['RULEPROXY_SHORTCUT_FOLDERS'], str(stage))
             self.assertNotIn('--state-dir', environment['RULEPROXY_SHORTCUT_ARGUMENTS'])
