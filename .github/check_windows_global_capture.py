@@ -1398,7 +1398,14 @@ def run_dns_smoke(context, report, budget):
             value['queries'][protocol + family] = module.raw_dns_query(peer, name=module.query_name(expected),
                 expected_ip=expected, protocol=protocol, timeout=2.5)
     value['positive'] = relay.snapshot()
-    if not (value['positive']['accepted'] > value['before']['accepted']
+    positive_queries = list(value['queries'].values())
+    if (len(positive_queries) != 5
+            or any(item.get('validated') is not True or item.get('addresses') != [expected] for item in positive_queries)
+            or len({item.get('query_name') for item in positive_queries}) != 5):
+        raise RuntimeError('dns_positive_response_or_uniqueness_invalid')
+    # DoH legitimately reuses an already admitted HTTP/2 TLS connection. The
+    # fresh DNS names and byte deltas prove work, not a new TLS admission count.
+    if not (value['positive']['accepted'] > 0 and value['positive']['accepted'] >= value['before']['accepted']
             and all(value['positive'][key] > value['before'][key] for key in ('bytes_to_resolver', 'bytes_to_client'))):
         raise RuntimeError('dns_positive_selected_node_unobserved')
     value['disabled'] = relay.disable()
@@ -1420,8 +1427,8 @@ def run_dns_smoke(context, report, budget):
     relay.enable()
     value['queries']['system_restored'] = module.system_dns_query(module.query_name(expected), expected, timeout=3)
     value['restored'] = relay.snapshot()
-    if not (value['restored']['accepted'] > value['positive']['accepted']
-            and all(value['restored'][key] > value['positive'][key] for key in ('bytes_to_resolver', 'bytes_to_client'))):
+    if not (value['restored']['accepted'] > value['disabled']['accepted']
+            and all(value['restored'][key] > value['disabled'][key] for key in ('bytes_to_resolver', 'bytes_to_client'))):
         raise RuntimeError('dns_restored_selected_node_unobserved')
     results = list(value['queries'].values())
     if (any(item.get('validated') is not True or item.get('addresses') != [expected] for item in results)

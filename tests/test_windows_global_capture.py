@@ -727,14 +727,20 @@ class HarnessPlanningTests(unittest.TestCase):
             def __init__(self, code):
                 super().__init__(code)
                 self.code = code
-        for failure in (None, 'no_rejected_attempt', 'disabled_query_succeeded', 'restored_no_traffic', 'bad_response'):
+        for failure in (None, 'reuse_positive', 'no_rejected_attempt', 'disabled_query_succeeded',
+                        'restored_no_traffic', 'restored_no_fresh_admission', 'restored_only_pre_disable_bytes', 'bad_response'):
             with self.subTest(failure=failure):
                 state = {'enabled': True, 'accepted': 0, 'rejected': 0, 'active': 1,
                          'bytes_to_resolver': 0, 'bytes_to_client': 0}
+                if failure == 'reuse_positive':
+                    state['accepted'] = 3
                 relay = Mock()
                 relay.snapshot.side_effect = lambda: dict(state)
                 def disable():
                     state.update(enabled=False, active=0)
+                    if failure == 'restored_only_pre_disable_bytes':
+                        state['bytes_to_resolver'] += 100
+                        state['bytes_to_client'] += 200
                     return dict(state)
                 relay.disable.side_effect = disable
                 relay.enable.side_effect = lambda: state.update(enabled=True)
@@ -751,9 +757,12 @@ class HarnessPlanningTests(unittest.TestCase):
                         if failure != 'disabled_query_succeeded':
                             raise FixtureError('system_dns_child_failed')
                     if not (failure == 'restored_no_traffic' and len(system_calls) == 3):
-                        state['accepted'] += 1
-                        state['bytes_to_resolver'] += 100
-                        state['bytes_to_client'] += 200
+                        if not (failure == 'reuse_positive' and len(system_calls) < 3
+                                or failure == 'restored_no_fresh_admission' and len(system_calls) == 3):
+                            state['accepted'] += 1
+                        if not (failure == 'restored_only_pre_disable_bytes' and len(system_calls) == 3):
+                            state['bytes_to_resolver'] += 100
+                            state['bytes_to_client'] += 200
                     return {'validated': failure != 'bad_response', 'query_name': query_name, 'addresses': [expected_ip]}
                 def system(query_name, expected_ip, **kwargs):
                     system_calls.append((query_name, kwargs['timeout']))
@@ -763,7 +772,7 @@ class HarnessPlanningTests(unittest.TestCase):
                     return query(kwargs['name'], kwargs['expected_ip'])
                 module = SimpleNamespace(query_name=name, system_dns_query=system, raw_dns_query=raw, FixtureError=FixtureError)
                 report = {'dns_smoke_passed': False, 'dns_qualified': False, 'strict_qualified': False}
-                if failure is None:
+                if failure in (None, 'reuse_positive'):
                     H.run_dns_smoke({'module': module, 'relay': relay}, report, Mock())
                     self.assertTrue(report['dns_smoke_passed'])
                     self.assertEqual(len(names), len(set(names)))
@@ -771,6 +780,10 @@ class HarnessPlanningTests(unittest.TestCase):
                     self.assertEqual(set((peer, protocol) for peer, protocol, _ in raw_calls),
                         {(peer, protocol) for peer in ('198.18.0.2', 'fdfe:dcba:8879::2') for protocol in ('udp', 'tcp')})
                     self.assertEqual([timeout for _, timeout in system_calls], [3, 3, 3])
+                    if failure == 'reuse_positive':
+                        self.assertEqual(report['dns_smoke']['before']['accepted'], 3)
+                        self.assertEqual(report['dns_smoke']['positive']['accepted'], 3)
+                        self.assertEqual(report['dns_smoke']['restored']['accepted'], 4)
                 else:
                     with self.assertRaises((RuntimeError, FixtureError)):
                         H.run_dns_smoke({'module': module, 'relay': relay}, report, Mock())
