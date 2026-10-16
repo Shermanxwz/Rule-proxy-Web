@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.1",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "da0c7607a01005d001fdf4af53377476443d786af2a4db8b2b5c70c206ccd611",
+    "bytes": 177648
+  },
+  "reference_personal_offline_zip_sha256": "8043b2cb10b655f8691babe5d9b5f58a9babf22c7623394ff3feb9907a70cda6",
+  "reference_source_commit": "e1b8ce61fa742c76acea515f541595fe0fa08315",
+  "isolated_bootstrap_payload_files_compared": 109,
+  "all_compared_file_bytes_equal": true,
+  "comparison_environment": "Linux Python -I -S, extracted source package, fixed verified local asset cache",
+  "third_party_binaries_bundled_in_online_zip": false,
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "qualification_record": "proxifyre-product/current-status.json"
+}

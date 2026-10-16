@@ -1,0 +1,80 @@
+name: Windows online setup release assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release-candidate tag with a draft GitHub Release
+        type: string
+        required: true
+        default: v0.3.0-rc.1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-online-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  upload-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Validate the release-candidate tag
+        run: |
+          python3 - <<'PY'
+          import os, re
+          if re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+', os.environ['RELEASE_TAG']) is None:
+              raise SystemExit('A versioned release-candidate tag is required')
+          PY
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Verify that the draft release belongs to this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          repo, tag = os.environ['GITHUB_REPOSITORY'], os.environ['RELEASE_TAG']
+          release = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/tags/{tag}']))
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          if (release['tag_name'] != tag or release['draft'] is not True
+                  or release['prerelease'] is not True or release['target_commitish'] != commit):
+              raise SystemExit('Only the matching draft prerelease can receive these assets')
+          print('Draft prerelease and checked-out commit match')
+          PY
+      - name: Build the Windows online setup source package
+        run: python -B .github/build_windows_online_package.py windows-online-release
+      - name: Verify the release asset against the archived package identity
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          record = json.loads(Path(f'verification/windows-2026-10-16/online-release-{os.environ["RELEASE_TAG"]}.json').read_text())
+          expected = record['online_zip']
+          package = Path('windows-online-release') / expected['name']
+          data = package.read_bytes()
+          if len(data) != expected['bytes'] or hashlib.sha256(data).hexdigest() != expected['sha256']:
+              raise SystemExit('Built release asset does not match the reviewed package')
+          print('Release ZIP matches its archived SHA-256 and byte count')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-online-release-${{ inputs.tag }}
+          path: windows-online-release/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload assets to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$RELEASE_TAG" windows-online-release/*.zip windows-online-release/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --clobber
