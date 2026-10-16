@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "status": "draft",
+  "publication_status": "unpublished",
+  "release_tag": "v0.3.0-rc.12",
+  "source_base_commit": "954badb76b27950e9d8489fc8c5e1ccf487034f6",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "035c6e23113e34faa47a9fcd772b0c877ece137646ecf840a14450822d1c78e5",
+    "bytes": 290367
+  },
+  "source_files": 52,
+  "archive_members": 54,
+  "change": "Add stable current-user Store package identity and checked package executable resolution across updates, proxy environment inheritance for compatible CLI children, and selectable application/global capture modes with privileged global runtimes; Windows strict global startup remains blocked pending native guard and DNS qualification",
+  "backend_changed": true,
+  "backend_behavior_changed": true,
+  "app_selection_payload_changed": true,
+  "new_configuration_fields_added": true,
+  "new_configuration_fields": [
+    "capture_mode",
+    "apps[].store_binding"
+  ],
+  "initial_display_limits": {
+    "all_discovered": 24,
+    "search_results": 60
+  },
+  "show_more_increment": 24,
+  "show_all_supported": true,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "personal_yaml_or_nodes_included": false,
+  "runtime_state_or_profiles_included": false,
+  "specific_chatgpt_store_package_qualification_performed": false,
+  "real_chatgpt_desktop_oauth_qualification_performed": false,
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "real_browser_shared_profile_gui_qualification_performed": false,
+  "public_ipv6_proxy_qualification_performed": false,
+  "windows_bootstrap_smoke_entry": ".github/check_windows_online_bootstrap.py",
+  "prior_release": "v0.3.0-rc.11",
+  "archive_audit": {
+    "manifest": "RuleProxy-Web/release-source.json",
+    "manifest_sha256": "361eb795b02ab9a03b243c57f2ae70d5061567ab31ef530642cd82179840334d",
+    "manifest_source_hashes_verified": 52,
+    "manifest_generated_hashes_verified": 1,
+    "generated_files": [
+      "INSTALL-WINDOWS.txt"
+    ],
+    "manifest_excludes_itself": true,
+    "all_members_accounted_for": true,
+    "source_bytes_match_source_base_commit": true,
+    "source_comparison_normalization": "CMD line endings only, normalized to CRLF as documented by the manifest",
+    "unsafe_paths_duplicate_paths_or_symlinks_found": false,
+    "fixed_archive_timestamp_and_regular_file_mode_verified": true,
+    "user_yaml_third_party_binaries_or_runtime_state_found": false
+  },
+  "local_validation": {
+    "python_sources_compiled_in_memory": 37,
+    "static_internal_import_statements_checked": 80,
+    "unresolved_internal_imports": 0,
+    "isolated_extracted_bootstrap_help": {
+      "entry": ".github/build_windows_package.py --help",
+      "interpreter_flags": [
+        "-I",
+        "-S",
+        "-B"
+      ],
+      "exit_code": 0,
+      "stage_only_option_present": true,
+      "downloads_or_system_installation_performed": false
+    },
+    "import_validation_scope": "Static packaged internal imports, in-memory compilation and isolated bootstrap entrypoint only; PyYAML and Windows runtime assets are installed later through the pinned bootstrap",
+    "failures": 0,
+    "fresh_full_platform_validation": "Required main and tag CI pending for this release candidate"
+  },
+  "ci_validation": {
+    "main_check": "pending",
+    "tag_check": "pending",
+    "release_asset_comparison": "pending"
+  },
+  "global_qualification": {
+    "windows": {
+      "guard_native_qualified": false,
+      "dns_native_qualified": false,
+      "strict_global_start_enabled_in_ui": false,
+      "strict_global_start_permitted_by_runtime": false,
+      "qualification_status": "Not qualified; partial object readback or kernel experiments do not establish end-to-end Windows global isolation"
+    },
+    "linux": {
+      "native_kernel_and_pinned_core_qualification_passed": true,
+      "evidence": "verification/linux-global-2026-10-16/native-qualification.json",
+      "qualified_commit": "9c6329d7d7ae3730ea1b2f4d8167e1b114d818f7",
+      "workflow_run_id": 38914464955,
+      "scope": "Isolated real Linux kernel, production Lease and pinned Mihomo with synthetic local SOCKS targets; not a user-device or public Internet qualification"
+    }
+  },
+  "known_limitations": [
+    "Windows strict global mode is disabled until both the independent WFP guard and NRPT DNS lease obtain complete native qualification; neither component is marked qualified in this candidate.",
+    "Windows application mode remains ProxiFyre path-based routing, not per-process-instance isolation. Other instances and similar substring-matching paths may also be affected.",
+    "Store application identity follows current-user registered desktop package entries and covers checked executables in the whole package. Ambiguous, missing, unsupported or excessive package contents are rejected; package-external helpers require explicit related paths.",
+    "No real ChatGPT Store installation, version upgrade, desktop GUI, OAuth login or external proxy-account login was exercised for this candidate.",
+    "Windows application mode does not guarantee DNS isolation: ProxiFyre passes UDP port 53 directly and system DNS service traffic cannot be reliably attributed to the originating application.",
+    "Windows application mode can restore direct connectivity after engine or driver failure. Its process monitor and Job lifecycle are not a persistent network denial boundary.",
+    "Public IPv6 connectivity and complete IPv6 leak prevention remain unqualified; upstream ProxiFyre permits IPv6 fragments to bypass its proxy path.",
+    "UDP compatibility depends on the chosen node and protocol. Controlled fixture forwarding does not prove real Internet egress identity or every application's UDP behavior.",
+    "Full Windows 11 interactive installation, UAC and reboot continuation, shared-profile browser GUI behavior, uninstall and reinstall remain outside this archive audit.",
+    "The online ZIP contains source and bootstrap scripts only. Successful archive verification does not prove that every external download or elevated installation will complete on the user's device.",
+    "Linux native qualification used disposable nested namespaces and synthetic local SOCKS targets. Interactive polkit, installed helper transport, user-device behavior and successful external DNS resolution were not exercised.",
+    "Linux global mode preserves replies for exact existing inbound peers; new outbound connections to the same peer address may be blocked, and new remote-management sessions are not guaranteed. Explicit stop is required to restore owned global protection state after a failure."
+  ],
+  "controlled_qualification_commits": {
+    "linux_global": "9c6329d7d7ae3730ea1b2f4d8167e1b114d818f7",
+    "windows_application_routing": "b375f3f516f243124935931524231d187efe3c6a"
+  },
+  "final_source_differences_from_linux_qualified_commit": "Release documentation, workflow experiment opt-in and published JSON evidence only; runtime and Web bytes unchanged."
+}
