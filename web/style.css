@@ -114,6 +114,8 @@ h1 { margin: 0; color: #1c2a27; font-size: clamp(26px, 3vw, 34px); line-height: 
 .available-app-name, .available-app-kind, .available-app-hint { display: block; overflow: hidden; text-overflow: ellipsis; }
 .available-app-name { color: #34443c; font-size: 11px; font-weight: 690; white-space: nowrap; }
 .available-app-kind { margin-top: 4px; color: #638272; font-size: 9px; }
+.available-app-source { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px; background: #edf5f0; color: #4f7963; font-size: 9px; }
+.available-app-path { display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #8c9992; font-size: 9px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .available-app-hint { margin-top: 4px; color: #98a39c; font-size: 9px; line-height: 1.45; }
 .discovery-add { min-width: 58px; min-height: 30px; padding: 0 10px; font-size: 10px; }
 .discovery-add:disabled[data-added="true"] { border-color: #e1eee5; background: #f0f7f2; color: #548267; opacity: 1; }

@@ -12,7 +12,7 @@
     launchAll: $('launch-all-button'), appLabel: $('app-label'), appPath: $('app-path'),
     appAdapter: $('app-adapter'), appArgs: $('app-args'), addApp: $('add-app-button'), availablePaths: $('available-app-paths'),
     appSearch: $('app-search'), refreshApps: $('refresh-apps-button'), availableApps: $('available-apps-list'),
-    availableAppsCount: $('available-apps-count'),
+    availableAppsCount: $('available-apps-count'), storeAppsNote: $('store-apps-note'),
     protectionCard: $('protection-card'), protectionBadge: $('protection-badge'), protectionDetail: $('protection-detail'),
     protectionBackend: $('protection-backend'), protectionLimitations: $('protection-limitations'),
     processPermissionNote: $('process-permission-note'),
@@ -136,7 +136,9 @@
       const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isWindows() ? '代理中运行' : '隔离中运行') : (app.routed ? '路径代理已启用' : (app.enabled ? '待启动' : '未启用'))));
       const statusClass = (app.profile_preparing || app.cleanup_pending) ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
-      appInfo.append(textElement('span', 'app-path', app.path || '未设置路径'));
+      const appPath = textElement('span', 'app-path', app.path || '未设置路径');
+      appPath.title = app.path || '未设置路径';
+      appInfo.append(appPath);
       if (app.related_paths?.length) appInfo.append(textElement('span', 'app-path', `相关程序：${app.related_paths.join('；')}`));
       appInfo.append(appTools(app));
       const adapter = friendlyAdapter(app.adapter, app.use_original_data === true);
@@ -276,7 +278,16 @@
       const row = textElement('article', 'available-app-row');
       const info = textElement('div', 'available-app-info');
       info.append(textElement('strong', 'available-app-name', app.label || '未命名应用'));
-      info.append(textElement('span', 'available-app-kind', friendlyAdapter(app.adapter)));
+      const kind = textElement('span', 'available-app-kind', friendlyAdapter(app.adapter));
+      if (app.source === 'windows-store') {
+        kind.append(textElement('span', 'available-app-source', '商店应用'));
+      }
+      info.append(kind);
+      if (app.source === 'windows-store') {
+        const path = textElement('span', 'available-app-path', app.path || '未设置路径');
+        path.title = app.path || '未设置路径';
+        info.append(path);
+      }
       info.append(textElement('span', 'available-app-hint', compatibilityHint(app.adapter)));
       const button = textElement('button', 'button button-secondary discovery-add');
       button.type = 'button';
@@ -305,6 +316,7 @@
     state = stateValue;
     if (!state) return;
     ui.platform.textContent = state.platform || '本机服务';
+    ui.storeAppsNote.hidden = !isWindows();
     ui.statusDot.className = `status-indicator ${state.running ? 'is-running' : ''}`;
     ui.statusTitle.textContent = state.running ? '核心正在运行' : (state.imported ? '配置已就绪' : '等待导入配置');
     ui.statusDetail.textContent = state.running ? '本机 Mihomo 已启动；应用保护状态见下方' : (state.imported ? '核心尚未启动' : '导入 YAML 配置以开始');

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.10",
+  "source_base_commit": "d7b6947c85dae9f209b96026319730190dbed556",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "98cac42971663026fad278193083481dccd64352fd1ca09f4e0c07a6ea436619",
+    "bytes": 235423
+  },
+  "source_files": 46,
+  "archive_members": 48,
+  "change": "Discover current-user registered FullTrust Appx/MSIX desktop executable candidates through fixed system PowerShell; show Store origin and real executable path, preserving existing validation, Job ownership and ProxiFyre routing",
+  "store_discovery_entry": "ruleproxy/windows_store_apps.py",
+  "native_store_tests": "tests/test_windows_store_apps.py",
+  "native_store_validation": "Required Windows CI pending for this commit; successful empty package results are allowed, query failures fail the native test",
+  "new_uwp_or_shell_activation_added": false,
+  "store_candidate_executed_during_discovery": false,
+  "windowsapps_parent_directory_walked": false,
+  "windowsapps_permissions_changed": false,
+  "package_version_migration": "No automatic migration. Disable the stale entry, rescan and add the current version if the executable path changes.",
+  "third_party_binaries_bundled_in_online_zip": false,
+  "personal_yaml_or_nodes_included": false,
+  "specific_chatgpt_store_package_qualification_performed": false,
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "real_browser_shared_profile_gui_qualification_performed": false,
+  "windows_bootstrap_smoke_entry": ".github/check_windows_online_bootstrap.py",
+  "prior_release": "v0.3.0-rc.9",
+  "local_regression": {
+    "python_versions": [
+      "3.10",
+      "3.14"
+    ],
+    "tests_per_version": 1145,
+    "failures": 0,
+    "skipped_per_version": 65,
+    "store_ui_behavior_assertions": 20,
+    "prior_shared_profile_ui_assertions": 50,
+    "linux_namespace_validation_deferred_to_required_ci": true
+  }
+}

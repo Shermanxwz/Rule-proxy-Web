@@ -80,6 +80,19 @@ class WindowsManagerTests(unittest.TestCase):
                 self.manager.launch("app")
         launch.assert_not_called()
 
+    def test_store_executable_is_the_policy_and_launch_target_before_resume(self):
+        self.use_core()
+        path = r'C:\Program Files\WindowsApps\OpenAI.ChatGPT_1.2.3_x64__publisher\app\ChatGPT.exe'
+        self.manager.settings['apps'][0].update(path=path, related_paths=[])
+        order = []
+        process = Mock(pid=5678, poll=Mock(return_value=None))
+        self.backend.apply.side_effect = lambda *args: order.append(('policy', args[0]))
+        with patch('ruleproxy.manager.prepare_app', return_value=([path], {}, '')), \
+                patch('ruleproxy.windows_app_process.launch',
+                      side_effect=lambda command, env: order.append(('launch', command)) or process):
+            self.manager.launch('app')
+        self.assertEqual(order, [('policy', [path]), ('launch', [path])])
+
     def test_stop_order_is_owned_apps_then_routing_then_core(self):
         self.use_core()
         order = []

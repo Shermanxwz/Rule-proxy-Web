@@ -485,11 +485,21 @@ def _win_registry_apps() -> list[tuple[str, Path]]:
     return found
 
 
+def _win_store_apps() -> list[dict[str, str]]:
+    from .windows_store_apps import discover_store_apps
+
+    try:
+        return discover_store_apps()
+    except (OSError, ValueError, UnicodeError):
+        # A broken/unavailable Appx service must not hide ordinary applications.
+        return []
+
+
 def _windows_discover() -> list[dict[str, Any]]:
     found: list[dict[str, Any]] = []
     seen: set[str] = set()
 
-    def add(label: str, raw_path: str | Path | None) -> None:
+    def add(label: str, raw_path: str | Path | None, *, source: str | None = None) -> None:
         if not raw_path:
             return
         path = Path(raw_path).expanduser()
@@ -501,10 +511,17 @@ def _windows_discover() -> list[dict[str, Any]]:
             return
         key = os.path.normcase(str(path))
         if key in seen:
+            if source:
+                existing = next(app for app in found if os.path.normcase(app['path']) == key)
+                existing['label'] = label
+                existing['source'] = source
             return
         seen.add(key)
         adapter = _infer_adapter(label, path)
-        found.append(_app(label, path, adapter, category=_category(label, path)))
+        record = _app(label, path, adapter, category=_category(label, path))
+        if source:
+            record['source'] = source
+        found.append(record)
 
     roots = [
         Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")),
@@ -528,6 +545,11 @@ def _windows_discover() -> list[dict[str, Any]]:
 
     for label, path in _win_registry_apps():
         add(label, path)
+
+    # Query the current user's registered packages and their manifests instead
+    # of enumerating the protected WindowsApps directory or execution aliases.
+    for app in _win_store_apps():
+        add(app['label'], app['path'], source='windows-store')
 
     scan_roots = [roots[0], roots[1], roots[2] / "Programs"]
     for root in scan_roots:
@@ -657,6 +679,8 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         try:
             path = path.resolve(strict=True)
         except (OSError, RuntimeError) as exc:
+            if sys.platform == 'win32' and any(part.casefold() == 'windowsapps' for part in path.parts):
+                raise ValueError('无法访问这个商店应用，可能已更新或卸载。请停用旧条目，刷新应用列表，重新添加当前版本。') from exc
             raise ValueError("找不到这个程序。") from exc
         if not path.is_file():
             raise ValueError("程序路径必须指向一个文件。")
