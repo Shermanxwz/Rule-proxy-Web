@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.4",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "d30a89626736ffd88cf43f2ea9075b5ab49f710ddd0c4e03b737b80abc060bb8",
+    "bytes": 222911
+  },
+  "source_base_commit": "bea40aea2a740835cd9760f190178aaf368dcea4",
+  "source_files": 44,
+  "archive_members": 46,
+  "change": "Optional directly shared original browser data on Windows and Linux; default independent profiles remain available",
+  "profile_copy_performed": false,
+  "source_profile_proxy_preferences_modified_by_launcher": false,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "windows_bootstrap_smoke_entry": ".github/check_windows_online_bootstrap.py",
+  "full_windows_online_setup_flow_verified": false,
+  "full_native_windows_11_qualification_passed": false,
+  "real_browser_shared_profile_gui_qualification_performed": false,
+  "prior_qualification_record": "proxifyre-product/current-status.json",
+  "prior_qualification_is_for_rc4": false,
+  "local_regression": {
+    "python_versions": [
+      "3.10",
+      "3.14"
+    ],
+    "tests_per_version": 1107,
+    "failures": 0,
+    "skipped_per_version": 54,
+    "ui_behavior_assertions": 50,
+    "real_filtered_dbus_tests_passed": true,
+    "linux_namespace_validation_deferred_to_required_ci": true
+  }
+}

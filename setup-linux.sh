@@ -37,7 +37,7 @@ apparmor_current() {
 runtime_ok() { python3 install_runtime.py --check; }
 
 if [ "$mode" = check ]; then
-    if [ "$(id -u)" -ne 0 ] && python_ok && yaml_ok && have bwrap && runtime_ok \
+    if [ "$(id -u)" -ne 0 ] && python_ok && yaml_ok && have bwrap && have xdg-dbus-proxy && have dbus-send && runtime_ok \
         && { ! apparmor_needed || apparmor_present; }; then
         exit 0
     fi
@@ -53,6 +53,8 @@ esac
 packages=""
 have python3 || packages="python3"
 have bwrap || packages="$packages bubblewrap"
+have xdg-dbus-proxy || packages="$packages xdg-dbus-proxy"
+have dbus-send || packages="$packages dbus"
 if have apt-get; then
     yaml_ok || packages="$packages python3-yaml"
     packages=${packages# }
@@ -64,7 +66,7 @@ if have apt-get; then
         sudo apt-get install -y --no-install-recommends $packages || fail "无法安装 $packages，请查看上面的错误后重新运行。"
     fi
 elif [ -n "${packages# }" ]; then
-    fail "请先用系统的软件管理器安装 bubblewrap 和 Python 3.10 以上，再重新运行。例如 Fedora：sudo dnf install bubblewrap python3-pyyaml；Arch：sudo pacman -S bubblewrap python-yaml"
+    fail "请先用系统的软件管理器安装 bubblewrap、xdg-dbus-proxy、dbus-send 和 Python 3.10 以上，再重新运行。例如 Fedora：sudo dnf install bubblewrap xdg-dbus-proxy dbus-tools python3-pyyaml；Arch：sudo pacman -S bubblewrap xdg-dbus-proxy dbus python-yaml"
 fi
 
 python_ok || fail "需要 Python 3.10 或更高版本（Ubuntu 22.04 及以后自带）。当前：$(python3 --version 2>&1)"

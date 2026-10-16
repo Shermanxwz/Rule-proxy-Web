@@ -81,7 +81,7 @@ class SavedStateTests(unittest.TestCase):
                self.record(id="second", path=first["path"]), first]
         self.save({"apps": [first, *bad], "core_path": [], "runtime_path": 1, "selected_node": {}})
         manager = self.open_panel()
-        expected = {**first, "active": False, "cleanup_pending": False}
+        expected = {**first, "active": False, "cleanup_pending": False, "profile_preparing": False}
         if sys.platform == "win32":
             expected["routed"] = False
         self.assertEqual(manager.state()["apps"], [expected])

@@ -55,6 +55,173 @@ class LauncherTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     launcher.validate_app(selection)
 
+    def test_original_data_mode_requires_a_boolean_and_preserves_explicit_choice(self):
+        for value in (None, 0, 1, 'true', '', [], {}):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, '布尔值'):
+                launcher.validate_app(self.app_for(use_original_data=value))
+        for value in (True, False):
+            with self.subTest(value=value):
+                normalized = launcher.validate_app(self.app_for(use_original_data=value))
+                self.assertIs(normalized['use_original_data'], value)
+        self.assertNotIn('use_original_data', launcher.validate_app(self.app_for()))
+        with self.assertRaisesRegex(ValueError, '不支持切换'):
+            launcher.validate_app(self.app_for('environment', use_original_data=True))
+        self.assertIs(launcher.validate_app(self.app_for('environment', use_original_data=False))['use_original_data'], False)
+
+    def test_original_data_directory_selects_real_linux_profile_and_keeps_private_mode(self):
+        base = self.root / 'profiles'
+        source = self.root / 'actual-original-data'
+        with mock.patch('ruleproxy.app_profile_data.original_profile_source', return_value=source) as resolve:
+            for platform in ('linux', 'win32'):
+                with mock.patch.object(launcher.sys, 'platform', platform):
+                    for mode in (False, True):
+                        with self.subTest(platform=platform, mode=mode):
+                            app = self.app_for(use_original_data=mode)
+                            expected = source if mode and platform == 'linux' else base / app['id']
+                            self.assertEqual(launcher.app_profile_directory(base, app), expected)
+            resolve.assert_called_once()
+        self.assertFalse(base.exists(), 'selecting a directory must not create it')
+        with self.assertRaisesRegex(ValueError, '应用 ID 无效'):
+            launcher.app_profile_directory(base, self.app_for(id='../outside', use_original_data=True))
+
+    def test_windows_original_data_uses_native_browser_selection_without_writes(self):
+        proxy_vars = {name: 'http://unrelated:1' for name in (
+            'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY', 'FTP_PROXY',
+            'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy', 'ftp_proxy')}
+        source = self.root / 'original-app-data'
+        source.mkdir()
+        original = source / 'user.js'
+        original.write_text('keep original preferences', encoding='utf-8')
+        for adapter in ('chromium', 'firefox'):
+            base = self.root / ('not-created-' + adapter)
+            with self.subTest(adapter=adapter), mock.patch.object(launcher.sys, 'platform', 'win32'), \
+                    mock.patch.dict(os.environ, {**proxy_vars, 'APPDATA': str(source), 'LOCALAPPDATA': str(source)}):
+                command, environment, detail = launcher.prepare_app(
+                    self.app_for(adapter, args=['https://example.test'], use_original_data=True),
+                    8899, base, transparent=True)
+                self.assertEqual(command, [str(self.executable.resolve()), 'https://example.test'])
+                self.assertEqual(environment['APPDATA'], str(source))
+                self.assertEqual(environment['LOCALAPPDATA'], str(source))
+                for name in proxy_vars:
+                    self.assertNotIn(name, environment)
+                self.assertIn('原有数据', detail)
+                self.assertFalse(base.exists(), 'native mode must not create a private profile')
+        self.assertEqual(original.read_text(encoding='utf-8'), 'keep original preferences')
+        self.assertEqual(list(source.iterdir()), [original])
+
+    def test_windows_original_data_leaves_existing_private_firefox_preferences_intact(self):
+        base = self.root / 'profiles'
+        private = base / 'saved-app-1'
+        private.mkdir(parents=True)
+        user_js = private / 'user.js'
+        user_js.write_text('private preferences must survive mode switching', encoding='utf-8')
+        with mock.patch.object(launcher.sys, 'platform', 'win32'):
+            launcher.prepare_app(self.app_for('firefox', use_original_data=True), 8899, base, transparent=True)
+        self.assertEqual(user_js.read_text(encoding='utf-8'), 'private preferences must survive mode switching')
+
+    def test_windows_explicit_private_mode_preserves_browser_profile_flags(self):
+        for adapter in ('chromium', 'firefox'):
+            with self.subTest(adapter=adapter), mock.patch.object(launcher.sys, 'platform', 'win32'):
+                command, _env, _detail = launcher.prepare_app(
+                    self.app_for(adapter, use_original_data=False), 8899, self.root / 'profiles', transparent=True)
+            profile = self.root / 'profiles' / 'saved-app-1'
+            if adapter == 'chromium':
+                self.assertIn(f'--user-data-dir={profile}', command)
+            else:
+                self.assertEqual(command[-3:], ['-no-remote', '-profile', str(profile)])
+                self.assertEqual((profile / 'user.js').read_text(), 'user_pref("network.proxy.type", 0);\n')
+
+    def test_linux_original_mode_rejects_unresolved_profile_without_creating_new_data(self):
+        base = self.root / 'profiles'
+        app = self.app_for(use_original_data=True)
+        with mock.patch.object(launcher.sys, 'platform', 'linux'), \
+                mock.patch('ruleproxy.app_profile_data.original_profile_source',
+                           side_effect=ValueError('无法确定原应用数据目录')) as resolve:
+            with self.assertRaisesRegex(ValueError, '无法确定'):
+                launcher.prepare_app(app, 8899, base)
+        resolve.assert_called_once_with(app)
+        self.assertFalse(base.exists())
+
+    def test_linux_original_mode_uses_real_profile_without_writing_source_preferences(self):
+        normal = self.root / 'profiles/saved-app-1'
+        normal.mkdir(parents=True)
+        private_prefs = normal / 'user.js'
+        private_prefs.write_text('private mode stays intact', encoding='utf-8')
+        source = self.root / 'original-profile'
+        source.mkdir()
+        source_prefs = source / 'user.js'
+        source_prefs.write_text('original proxy and browser settings', encoding='utf-8')
+        (source / 'prefs.js').write_text('original saved preferences', encoding='utf-8')
+        before = {path.name: path.read_bytes() for path in source.iterdir()}
+        for adapter in ('chromium', 'firefox'):
+            app = self.app_for(adapter, use_original_data=True)
+            with self.subTest(adapter=adapter), mock.patch.object(launcher.sys, 'platform', 'linux'), \
+                    mock.patch('ruleproxy.app_profile_data.original_profile_source', return_value=source) as resolve:
+                command, environment, _detail = launcher.prepare_app(app, 8899, self.root / 'profiles')
+                resolve.assert_called_once_with(app)
+                self.assertEqual(environment['HTTP_PROXY'], 'http://127.0.0.1:8899')
+                if adapter == 'chromium':
+                    self.assertIn(f'--user-data-dir={source}', command)
+                    self.assertIn('--proxy-server=http://127.0.0.1:8899', command)
+                    self.assertIn('--force-webrtc-ip-handling-policy=disable_non_proxied_udp', command)
+                else:
+                    self.assertEqual(command[-3:], ['-no-remote', '-profile', str(source)])
+        self.assertEqual({path.name: path.read_bytes() for path in source.iterdir()}, before)
+        self.assertEqual(private_prefs.read_text(encoding='utf-8'), 'private mode stays intact')
+        self.assertFalse((self.root / 'profiles-inherited').exists())
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'native Linux profile discovery')
+    def test_linux_chromium_original_profile_discovery_and_command_use_same_real_directory(self):
+        browser = self.root / 'google-chrome'
+        browser.write_bytes(b'')
+        browser.chmod(0o755)
+        home = self.root / 'desktop-home'
+        source = home / '.config/google-chrome'
+        (source / 'Default').mkdir(parents=True)
+        (source / 'Local State').write_text('{}')
+        (source / 'Default/Preferences').write_text('{}')
+        (source / 'Default/Bookmarks').write_bytes(b'original bookmarks')
+        before = {path.relative_to(source): path.read_bytes() for path in source.rglob('*') if path.is_file()}
+        app = self.app_for(path=str(browser), use_original_data=True)
+        with mock.patch.object(Path, 'home', return_value=home), mock.patch.dict(os.environ, {
+                'CHROME_USER_DATA_DIR': '', 'CHROME_CONFIG_HOME': '', 'XDG_CONFIG_HOME': str(home / '.config')}):
+            selected = launcher.app_profile_directory(self.root / 'profiles', app)
+            command, _environment, _detail = launcher.prepare_app(app, 8899, self.root / 'profiles')
+        self.assertEqual(selected, source)
+        self.assertIn(f'--user-data-dir={source}', command)
+        self.assertEqual({path.relative_to(source): path.read_bytes() for path in source.rglob('*') if path.is_file()}, before)
+        self.assertFalse((self.root / 'profiles').exists())
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'native Linux profile discovery')
+    def test_linux_firefox_original_profile_is_selected_without_changing_its_proxy_preferences(self):
+        browser = self.root / 'firefox'
+        browser.write_bytes(b'')
+        browser.chmod(0o755)
+        home = self.root / 'desktop-home'
+        firefox = home / '.mozilla/firefox'
+        source = firefox / 'original.default'
+        source.mkdir(parents=True)
+        (firefox / 'profiles.ini').write_text('[Profile0]\nPath=original.default\nIsRelative=1\nDefault=1\n')
+        (source / 'prefs.js').write_text('user_pref("network.proxy.type", 0);\n')
+        (source / 'user.js').write_text('user_pref("browser.startup.page", 1);\n')
+        before = {path.name: path.read_bytes() for path in source.iterdir()}
+        app = self.app_for('firefox', path=str(browser), use_original_data=True)
+        with mock.patch.object(Path, 'home', return_value=home):
+            command, _environment, _detail = launcher.prepare_app(app, 8899, self.root / 'profiles')
+        self.assertEqual(command[-3:], ['-no-remote', '-profile', str(source)])
+        self.assertEqual({path.name: path.read_bytes() for path in source.iterdir()}, before)
+        self.assertFalse((self.root / 'profiles').exists())
+
+    def test_original_data_does_not_allow_profile_or_proxy_override_arguments(self):
+        for adapter, args in (('chromium', ['--user-data-dir=somewhere']),
+                              ('chromium', ['--proxy-server=direct://']),
+                              ('firefox', ['-profile', 'somewhere']),
+                              ('firefox', ['-no-remote'])):
+            with self.subTest(adapter=adapter, args=args), mock.patch.object(launcher.sys, 'platform', 'win32'), \
+                    self.assertRaises(ValueError):
+                launcher.prepare_app(self.app_for(adapter, args=args, use_original_data=True),
+                                     8899, self.root / 'profiles', transparent=True)
+
     def test_transparent_launch_has_no_native_proxy_configuration(self):
         with mock.patch.dict(os.environ, {"HTTP_PROXY": "http://unrelated:1", "all_proxy": "socks5://unrelated:2"}):
             command, env, _ = launcher.prepare_app(self.app_for(), 8899, self.root / "profiles", transparent=True)

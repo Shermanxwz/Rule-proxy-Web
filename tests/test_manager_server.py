@@ -612,6 +612,21 @@ class LocalServerTests(unittest.TestCase):
             self.request(f"/api/apps/{ident}/shortcut", {})
         self.assertEqual(error.exception.code, 403)
 
+    def test_profile_choice_endpoint_requires_token_and_strict_boolean(self):
+        ident = self.app_with_executable()
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.request(f"/api/apps/{ident}/profile", {"use_original_data": True})
+        self.assertEqual(error.exception.code, 403)
+        with patch.object(self.manager, 'set_app_profile') as change:
+            with self.request(f"/api/apps/{ident}/profile", {"use_original_data": True},
+                              **{"X-RuleProxy-Token": self.manager.token}) as response:
+                self.assertEqual(response.status, 200)
+            change.assert_called_once_with(ident, True)
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.request(f"/api/apps/{ident}/profile", {"use_original_data": "true"},
+                         **{"X-RuleProxy-Token": self.manager.token})
+        self.assertEqual(error.exception.code, 400)
+
     def test_apps_cannot_be_pointed_at_another_browser_profile(self):
         ident = self.app_with_executable()
         with self.assertRaises(urllib.error.HTTPError) as error:

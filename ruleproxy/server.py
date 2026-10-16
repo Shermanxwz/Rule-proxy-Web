@@ -205,6 +205,8 @@ class Handler(BaseHTTPRequestHandler):
                 elif len(parts) == 5 and parts[4] == "shortcut":
                     created = manager.create_shortcuts(parts[3])
                     return self.reply(200, {**self.state_payload(), "created": created})
+                elif len(parts) == 5 and parts[4] == "profile":
+                    manager.set_app_profile(parts[3], data.get("use_original_data"))
                 elif len(parts) == 5 and parts[4] == "launch":
                     return self.reply(200, manager.launch(parts[3]))
                 elif len(parts) == 5 and parts[4] == "stop":

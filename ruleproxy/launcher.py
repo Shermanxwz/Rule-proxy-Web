@@ -1,8 +1,8 @@
 """Prepare per-app commands for a strict, externally enforced proxy runtime.
 
-This module does not spawn processes. Windows execution must go through the
-MXC ProcessContainer runtime; callers must not start the returned application
-command directly. Unsupported network flows are expected to fail closed.
+This module does not spawn processes. Linux commands must run inside the
+network namespace runtime. Windows commands run as the ordinary user after
+the ProxiFyre broker applies the selected executable paths.
 """
 
 from __future__ import annotations
@@ -624,6 +624,15 @@ def _validate_args(value: Any) -> list[str]:
     return args
 
 
+def _original_data_mode(app: dict) -> bool:
+    value = app.get('use_original_data', False)
+    if not isinstance(value, bool):
+        raise ValueError('使用原应用数据必须为布尔值。')
+    if value and app.get('adapter') not in ('chromium', 'firefox'):
+        raise ValueError('这个启动方式不支持切换浏览器数据。')
+    return value
+
+
 def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
     """Validate and normalize an executable selection supplied by the user."""
     if not isinstance(data, dict):
@@ -637,6 +646,7 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         raise ValueError("请填写程序路径。")
     if not isinstance(adapter, str) or adapter not in ADAPTERS:
         raise ValueError("启动方式无效。")
+    original_data = _original_data_mode(data)
     try:
         label.encode("utf-8")
         raw_path.encode("utf-8")
@@ -660,6 +670,8 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         raise ValueError("不能把命令行解释器（shell）添加为应用。")
     args = _validate_args(data.get("args", []))
     result = {"label": label.strip(), "path": str(path), "adapter": adapter, "args": args}
+    if 'use_original_data' in data:
+        result['use_original_data'] = original_data
     related = data.get("related_paths", [])
     if not isinstance(related, list) or len(related) > 16:
         raise ValueError("相关程序路径最多填写 16 个。")
@@ -697,6 +709,21 @@ def _profile_for_app(profile_dir: Path, app: dict) -> Path:
     return Path(profile_dir).expanduser() / app_id
 
 
+def app_profile_directory(profile_dir: Path, app: dict) -> Path:
+    """Select app data without replacing the normal launcher-owned profile.
+
+    Linux original-data mode directly shares the resolved application profile.
+    Windows native-data mode lets the application select its own data instead.
+    """
+    original_data = _original_data_mode(app)
+    private = _profile_for_app(profile_dir, app)
+    if original_data and sys.platform.startswith('linux'):
+        from .app_profile_data import original_profile_source
+
+        return original_profile_source(app)
+    return private
+
+
 def _validate_port(proxy_port: int) -> int:
     if isinstance(proxy_port, bool) or not isinstance(proxy_port, int) or not 1 <= proxy_port <= 65535:
         raise ValueError("proxy_port must be an integer from 1 through 65535")
@@ -729,8 +756,12 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
     normalized = validate_app(app)
     proxy_port = _validate_port(proxy_port)
     _reject_reserved_args(normalized["args"], normalized["adapter"])
-    profile = _profile_for_app(profile_dir, app)
-    profile.mkdir(parents=True, exist_ok=True)
+    profile = app_profile_directory(profile_dir, app)
+    original_data = normalized.get('use_original_data', False)
+    native_original = transparent and original_data
+    shared_original = original_data and sys.platform.startswith('linux')
+    if not native_original and not shared_original:
+        profile.mkdir(parents=True, exist_ok=True)
     command = [normalized["path"], *normalized["args"]]
     # Keep the caller's GUI/session environment (DISPLAY, WAYLAND_DISPLAY,
     # XDG_RUNTIME_DIR, etc.); the platform runtime must apply its own safe
@@ -740,6 +771,8 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
         for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "FTP_PROXY"):
             env.pop(name, None)
             env.pop(name.lower(), None)
+        if native_original:
+            return command, env, '使用应用原有数据；按程序路径透明转发，同路径实例也受规则影响，不能保证 DNS 隔离。'
         if normalized["adapter"] == "chromium":
             command.extend([f"--user-data-dir={profile}", "--no-first-run", "--restore-last-session"])
         elif normalized["adapter"] == "firefox":
@@ -805,7 +838,10 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
             'user_pref("network.prefetch-next", false);\n'
             'user_pref("network.predictor.enabled", false);\n'
         )
-        (profile / "user.js").write_text(prefs, encoding="utf-8")
+        # Original profiles remain directly shared. The namespace runtime
+        # supplies its proxy policy without writing the user's preferences.
+        if not shared_original:
+            (profile / "user.js").write_text(prefs, encoding="utf-8")
         command.extend(["-no-remote", "-profile", str(profile)])
         detail = (
             "Strict runtime mode allows the configured proxy endpoint and blocks direct egress. "

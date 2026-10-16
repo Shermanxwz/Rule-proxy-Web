@@ -20,3 +20,5 @@ This deployment is for the owner's personal use. It does not require buying a co
 The current Windows product does not ship MXC binaries. Older MXC code, tests and reports remain only for historical reproduction; their fixed versions and MIT notices are described in the [0.2.2 historical documentation](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-15/mxc-0.2.2-readme.md).
 
 No user YAML, subscription, node password or browser profile is included in the product payload. Users import their own configuration through the local Web panel.
+
+Linux setup installs the distribution's `xdg-dbus-proxy` and D-Bus command-line tools for optional access to the original browser's keyring. They run as separate system executables and are not bundled in the Windows package. [xdg-dbus-proxy source](https://github.com/flatpak/xdg-dbus-proxy), [D-Bus source](https://gitlab.freedesktop.org/dbus/dbus).

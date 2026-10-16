@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import uuid
 
 
 _RULEPROXY_BWRAP = Path("/usr/local/lib/ruleproxy-web/bwrap")
@@ -213,7 +214,10 @@ def _point_downloads(profile: Path, target: Path | None) -> None:
         pass
 
 
-def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str, downloads: tuple[Path, Path] | None = None) -> tuple[list[str], dict[str, str]]:
+def build_command(command: list[str], env: dict[str, str], profile: Path, bridge_path: str, downloads: tuple[Path, Path] | None = None,
+                  *, original_profile: Path | None = None, profile_adapter: str | None = None,
+                  keyring_socket: Path | None = None,
+                  policy_mounts: list[tuple[Path, Path]] | None = None) -> tuple[list[str], dict[str, str]]:
     try:
         executable_path = str(Path(command[0]).resolve(strict=True))
     except (OSError, RuntimeError, IndexError):
@@ -224,14 +228,30 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
         raise ValueError("bubblewrap is required; direct launch is disabled")
     profile = profile.resolve()
     profile.mkdir(parents=True, exist_ok=True)
+    if original_profile is not None:
+        from .linux_profile_access import has_saved_chromium_secrets, session_address, shared_profile
+        if profile_adapter not in {'chromium', 'firefox'}:
+            raise ValueError('只有已识别的浏览器可以共用原应用资料。')
+        original_profile = shared_profile(original_profile, profile)
+        if profile_adapter == 'firefox' and not policy_mounts:
+            raise ValueError('原 Firefox 资料启动需要隔离空间内的临时代理策略。')
+        if profile_adapter == 'chromium' and keyring_socket is None:
+            if session_address(env) is not None or has_saved_chromium_secrets(original_profile):
+                raise ValueError('共用原浏览器资料需要受限的桌面密钥服务连接；未打开原资料。')
+    elif profile_adapter is not None or keyring_socket is not None or policy_mounts:
+        raise ValueError('原应用资料启动参数不完整。')
     helper = Path(__file__).with_name("namespace_helper.py").resolve()
     args = [bwrap, "--die-with-parent", "--new-session", "--unshare-user", "--unshare-net", "--unshare-pid", "--unshare-ipc", "--unshare-uts", "--cap-drop", "ALL"]
+    if original_profile is not None:
+        args += ['--hostname', 'rp-' + uuid.uuid4().hex[:16]]
     for system_path in ("/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc"):
         if Path(system_path).exists():
             args += ["--ro-bind", system_path, system_path]
     # A private /proc prevents reaching the host's namespace descriptors.
     args += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--tmpfs", "/run", "--tmpfs", "/home", "--dir", "/root"]
     args += ["--bind", str(profile), str(profile), "--ro-bind", str(helper), _HELPER_PATH, "--ro-bind", bridge_path, "/run/ruleproxy.sock"]
+    if original_profile is not None:
+        args += ['--bind', str(original_profile), str(original_profile)]
     if downloads is not None:
         source, target = downloads
         args += ["--bind", str(source), str(target)]
@@ -243,9 +263,24 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
     if not python.is_relative_to(Path("/usr")):
         # A virtualenv/runtime outside /usr needs its interpreter directory.
         args += ["--ro-bind", str(python.parent.parent), str(python.parent.parent)]
+    if policy_mounts:
+        from .linux_profile_access import policy_overlay_args
+        args += policy_overlay_args(policy_mounts)
     isolated_env = {key: value for key, value in env.items() if key in {"PATH", "LANG", "LC_ALL", "LC_CTYPE", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy", "NO_PROXY", "no_proxy"}}
     isolated_env.update({"HOME": str(profile), "TMPDIR": "/tmp", "XDG_CONFIG_HOME": str(profile / ".config"), "XDG_CACHE_HOME": str(profile / ".cache"), "XDG_DATA_HOME": str(profile / ".local/share"), "XDG_RUNTIME_DIR": f"/run/user/{os.getuid()}"})
+    if original_profile is not None:
+        isolated_env['HOME'] = str(Path.home())
+        isolated_env['XDG_CONFIG_HOME'] = str(original_profile.parent)
+        for key in ('XDG_CURRENT_DESKTOP', 'DESKTOP_SESSION'):
+            if key in env:
+                isolated_env[key] = env[key]
     args += ["--dir", isolated_env["XDG_RUNTIME_DIR"]]
+    if keyring_socket is not None:
+        if profile_adapter != 'chromium' or not Path(keyring_socket).is_socket():
+            raise ValueError('原浏览器资料需要有效的受限密钥服务连接。')
+        destination = isolated_env['XDG_RUNTIME_DIR'] + '/bus'
+        args += ['--ro-bind', str(keyring_socket), destination]
+        isolated_env['DBUS_SESSION_BUS_ADDRESS'] = 'unix:path=' + destination
     # Expose only the chosen GUI transport, not D-Bus, Docker or other host brokers.
     wayland = env.get("WAYLAND_DISPLAY", "")
     runtime = env.get("XDG_RUNTIME_DIR", "")
@@ -269,11 +304,52 @@ def build_command(command: list[str], env: dict[str, str], profile: Path, bridge
     return args, isolated_env
 
 
-def launch(command: list[str], env: dict[str, str], profile: Path, port: int, downloads: tuple[Path, Path] | None = None):
+class _LaunchResources:
+    def __init__(self, bridge, keyring=None, policy_directories=()):
+        self.bridge, self.keyring = bridge, keyring
+        self.policy_directories = tuple(policy_directories)
+        self.lock = threading.Lock()
+
+    def close(self):
+        with self.lock:
+            try:
+                if self.keyring is not None:
+                    self.keyring.close()
+            finally:
+                try:
+                    self.bridge.close()
+                finally:
+                    for directory in self.policy_directories:
+                        shutil.rmtree(directory, ignore_errors=True)
+
+
+def launch(command: list[str], env: dict[str, str], profile: Path, port: int, downloads: tuple[Path, Path] | None = None,
+           *, original_profile: Path | None = None, profile_adapter: str | None = None):
     proxy_bridge = ProxyBridge(port)
+    resource = proxy_bridge
     process = None
     try:
-        args, isolated_env = build_command(command, env, profile, proxy_bridge.path, downloads)
+        if original_profile is not None:
+            from .linux_profile_access import prepare_keyring, shared_profile
+            profile = Path(profile).resolve()
+            original_profile = shared_profile(original_profile, profile)
+            if profile_adapter not in {'chromium', 'firefox'}:
+                raise ValueError('只有已识别的浏览器可以共用原应用资料。')
+            profile.mkdir(mode=0o700, parents=True, exist_ok=True)
+            resource = _LaunchResources(proxy_bridge)
+            resource.keyring = prepare_keyring(env, original_profile, profile_adapter)
+            mounts = None
+            if profile_adapter == 'firefox':
+                from .firefox_profile_policy import prepare_policy_mounts
+                mounts = prepare_policy_mounts(Path(command[0]).resolve(strict=True), profile, port)
+                resource.policy_directories = tuple({source.parent for source, _target in mounts})
+            args, isolated_env = build_command(command, env, profile, proxy_bridge.path, downloads,
+                original_profile=original_profile, profile_adapter=profile_adapter,
+                keyring_socket=resource.keyring.path if resource.keyring else None, policy_mounts=mounts)
+        else:
+            if profile_adapter is not None:
+                raise ValueError('原应用资料启动参数不完整。')
+            args, isolated_env = build_command(command, env, profile, proxy_bridge.path, downloads)
         # Apps may print any bytes; a strict decode would stop the drain thread and let the app block on a full pipe.
         process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
                                    encoding="utf-8", errors="replace")
@@ -297,12 +373,12 @@ def launch(command: list[str], env: dict[str, str], profile: Path, port: int, do
                         saved.flush()
         for stream in (process.stdout, process.stderr):
             threading.Thread(target=drain, args=(stream,), daemon=True).start()
-        return process, proxy_bridge
+        return process, resource
     except Exception:
         if process and process.poll() is None:
             process.kill()
             process.wait(timeout=3)
-        proxy_bridge.close()
+        resource.close()
         raise
 
 

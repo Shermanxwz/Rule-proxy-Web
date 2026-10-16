@@ -65,17 +65,24 @@
     ui.addApp.disabled = busy || !ready;
     ui.refreshApps.disabled = busy || refreshingApps || !ready;
     ui.refreshApps.textContent = refreshingApps ? '正在扫描…' : '重新扫描';
-    ui.launchAll.disabled = busy || !running || !protectedBackend || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
+    ui.launchAll.disabled = busy || !running || !protectedBackend || (state.apps || []).some((app) => app.profile_preparing)
+      || !(state.apps || []).some((app) => app.enabled && !app.active && !app.cleanup_pending);
     ui.autostart.disabled = busy || !ready;
     ui.quit.disabled = busy || !ready;
-    ui.apps.querySelectorAll('.app-toggle input, .remove-app').forEach((control) => { control.disabled = busy; });
+    ui.apps.querySelectorAll('.app-toggle input, .remove-app, .app-shortcut').forEach((control) => {
+      const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
+      control.disabled = busy || !!app?.profile_preparing;
+    });
     ui.availableApps.querySelectorAll('.discovery-add').forEach((control) => { control.disabled = busy || control.dataset.added === 'true'; });
-    ui.apps.querySelectorAll('.app-shortcut').forEach((control) => { control.disabled = busy; });
+    ui.apps.querySelectorAll('.app-profile-option input').forEach((control) => {
+      const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
+      control.disabled = busy || !app || !!app.active || !!app.cleanup_pending || !!app.profile_preparing;
+    });
     ui.apps.querySelectorAll('.app-action').forEach((control) => {
       const app = (state.apps || []).find((item) => String(item.id) === control.dataset.appId);
       const canLaunch = app && app.enabled && running && protectedBackend;
-      control.disabled = busy || (!(app?.active || app?.cleanup_pending) && !canLaunch);
-      control.title = app?.active ? '关闭此工具启动的实例' : (!running ? '请先启动核心' : (!protectedBackend ? '本机代理能力不可用' : '启动此应用'));
+      control.disabled = busy || !!app?.profile_preparing || (!(app?.active || app?.cleanup_pending) && !canLaunch);
+      control.title = app?.profile_preparing ? '正在检查应用资料，请稍候' : (app?.active ? '关闭此工具启动的实例' : (!running ? '请先启动核心' : (!protectedBackend ? '本机代理能力不可用' : '启动此应用')));
     });
   }
 
@@ -106,10 +113,15 @@
       const enabled = document.createElement('input');
       enabled.type = 'checkbox';
       enabled.checked = !!app.enabled;
-      enabled.disabled = busy;
+      enabled.disabled = busy || !!app.profile_preparing;
       enabled.setAttribute('aria-label', `将 ${app.label || '应用'}加入启动清单`);
+      enabled.dataset.appId = String(app.id);
       enabled.dataset.appControl = `${app.id}:enabled`;
       enabled.addEventListener('change', () => {
+        if (busy || app.profile_preparing) {
+          enabled.checked = !!app.enabled;
+          return;
+        }
         const requested = enabled.checked;
         mutate(`/api/apps/${encodeURIComponent(app.id)}`, { method: 'POST', body: { enabled: requested } }).then((result) => {
           if (!result) enabled.checked = !!app.enabled;
@@ -120,28 +132,29 @@
 
       const appInfo = textElement('div', 'app-info');
       appInfo.append(textElement('strong', 'app-name', app.label || '未命名应用'));
-      const statusText = app.cleanup_pending ? '清理待完成' : (app.active ? (isWindows() ? '代理中运行' : '隔离中运行') : (app.routed ? '路径代理已启用' : (app.enabled ? '待启动' : '未启用')));
-      const statusClass = app.cleanup_pending ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
+      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isWindows() ? '代理中运行' : '隔离中运行') : (app.routed ? '路径代理已启用' : (app.enabled ? '待启动' : '未启用'))));
+      const statusClass = (app.profile_preparing || app.cleanup_pending) ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       appInfo.append(textElement('span', 'app-path', app.path || '未设置路径'));
       if (app.related_paths?.length) appInfo.append(textElement('span', 'app-path', `相关程序：${app.related_paths.join('；')}`));
       appInfo.append(appTools(app));
-      const adapter = friendlyAdapter(app.adapter);
+      const adapter = friendlyAdapter(app.adapter, app.use_original_data === true);
       const appMeta = textElement('div', 'app-meta');
       appMeta.append(textElement('span', 'app-adapter', adapter));
       const status = textElement('span', `app-status ${statusClass}`, statusText);
       appMeta.append(status);
-      const launch = textElement('button', 'button button-launch app-action', app.cleanup_pending ? '关闭守卫' : (app.active ? '关闭实例' : (isWindows() ? '启动应用 ↗' : '启动隔离实例 ↗')));
+      const launch = textElement('button', 'button button-launch app-action', app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '关闭守卫' : (app.active ? '关闭实例' : (isWindows() ? '启动应用 ↗' : '启动隔离实例 ↗'))));
       launch.type = 'button';
       launch.dataset.appId = String(app.id);
-      launch.disabled = busy || ((app.active || app.cleanup_pending) ? false : !(app.enabled && state.running && state.protection && state.protection.supported));
+      launch.disabled = busy || !!app.profile_preparing || ((app.active || app.cleanup_pending) ? false : !(app.enabled && state.running && state.protection && state.protection.supported));
       launch.title = app.active ? '关闭此工具启动的实例' : '启动此应用';
       launch.addEventListener('click', () => (app.active || app.cleanup_pending) ? stopApp(app) : launchApp(app));
       const remove = textElement('button', 'icon-button remove-app', '×');
       remove.type = 'button';
       remove.setAttribute('aria-label', `移除 ${app.label || '应用'}`);
       remove.title = '移除应用';
-      remove.disabled = busy;
+      remove.dataset.appId = String(app.id);
+      remove.disabled = busy || !!app.profile_preparing;
       remove.addEventListener('click', () => removeApp(app));
       row.append(enabledLabel, appInfo, appMeta, launch, remove);
       ui.apps.append(row);
@@ -157,8 +170,49 @@
     const shortcut = textElement('button', 'button button-secondary app-shortcut', '创建快捷方式');
     shortcut.type = 'button';
     shortcut.title = '生成系统启动入口，不打开面板也能启动这个应用';
+    shortcut.disabled = busy || !!app.profile_preparing;
+    shortcut.dataset.appId = String(app.id);
+    shortcut.dataset.appControl = `${app.id}:shortcut`;
     shortcut.addEventListener('click', () => createShortcut(app));
     tools.append(shortcut);
+    if (isBrowserAdapter(app.adapter)) {
+      const profileLabel = textElement('label', 'app-profile-option');
+      const label = '使用原应用数据';
+      profileLabel.title = '直接使用原应用资料，书签、历史和设置的修改会同步到原应用；请先关闭原应用后再使用。';
+      const profile = document.createElement('input');
+      profile.type = 'checkbox';
+      profile.title = profileLabel.title;
+      profile.checked = app.use_original_data === true;
+      profile.disabled = busy || !!app.active || !!app.cleanup_pending || !!app.profile_preparing;
+      profile.dataset.appId = String(app.id);
+      profile.dataset.appControl = `${app.id}:profile`;
+      profile.setAttribute('aria-label', `${app.label || '应用'}：${label}`);
+      profile.addEventListener('change', () => {
+        if (busy || app.active || app.cleanup_pending || app.profile_preparing) {
+          profile.checked = app.use_original_data === true;
+          return;
+        }
+        const useOriginalData = profile.checked;
+        const hadFocus = document.activeElement === profile;
+        mutate(`/api/apps/${encodeURIComponent(app.id)}/profile`, {
+          body: { use_original_data: useOriginalData },
+        }).then(async (result) => {
+          if (!result) {
+            profile.checked = app.use_original_data === true;
+            const failureMessage = ui.error.textContent;
+            const failureSource = ui.error.dataset.source || 'local';
+            await readState({ quiet: true });
+            if (failureMessage) showError(failureMessage, failureSource);
+          }
+          if (hadFocus && (!document.activeElement || document.activeElement === document.body || document.activeElement === profile)) {
+            const current = ui.apps.querySelector(`[data-app-control="${CSS.escape(`${app.id}:profile`)}"]`);
+            if (current && !current.disabled) current.focus({ preventScroll: true });
+          }
+        });
+      });
+      profileLabel.append(profile, textElement('span', '', label));
+      tools.append(profileLabel);
+    }
     return tools;
   }
 
@@ -168,9 +222,15 @@
     });
   }
 
-  function friendlyAdapter(adapter) {
+  function isBrowserAdapter(adapter) {
+    return ['chrome', 'chromium', 'edge', 'brave', 'firefox'].includes(adapter);
+  }
+
+  function friendlyAdapter(adapter, useOriginalData = false) {
     if (isWindows() && (adapter === 'environment' || adapter === 'env')) return '普通应用 · 按路径透明代理';
-    const names = { chrome: '浏览器 / Electron · 独立配置', chromium: '浏览器 / Electron · 独立配置', edge: '浏览器 / Electron · 独立配置', brave: '浏览器 / Electron · 独立配置', firefox: 'Firefox · 独立配置', env: '代理环境变量启动', environment: '代理环境变量启动' };
+    const profile = useOriginalData ? '原应用数据' : '独立配置';
+    const browser = `浏览器 / Electron · ${profile}`;
+    const names = { chrome: browser, chromium: browser, edge: browser, brave: browser, firefox: `Firefox · ${profile}`, env: '代理环境变量启动', environment: '代理环境变量启动' };
     return names[adapter] || (adapter ? String(adapter) : '应用启动');
   }
 
@@ -426,7 +486,7 @@
   }
 
   function launchApp(app) {
-    if (!state || !state.running || !state.protection || !state.protection.supported || !app.enabled || app.active || app.cleanup_pending) return;
+    if (!state || !state.running || !state.protection || !state.protection.supported || !app.enabled || app.active || app.cleanup_pending || app.profile_preparing) return;
     mutate(`/api/apps/${encodeURIComponent(app.id)}/launch`, {}, { launch: app.label || '应用' });
   }
 
@@ -436,6 +496,7 @@
   }
 
   function removeApp(app) {
+    if (app.profile_preparing) return;
     mutate(`/api/apps/${encodeURIComponent(app.id)}`, { method: 'DELETE' });
   }
 

@@ -80,7 +80,7 @@ Linux Chromium 保留自己的 user namespace 与 seccomp 沙箱；仅禁用与�
 sudo sh scripts/remove-linux-apparmor.sh
 ```
 
-策略来源与背景见 [Ubuntu AppArmor 权限限制](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)。不开放 D-Bus、桌面门户或音频服务，只按需开放直接的 X11/Wayland 显示连接；隔离外既有服务不在保护范围内。
+策略来源与背景见 [Ubuntu AppArmor 权限限制](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)。默认不开放 D-Bus、桌面门户或音频服务，只按需开放直接的 X11/Wayland 显示连接；选择原应用数据时仅为 Chromium 提供受限的桌面密钥服务连接，不开放完整会话总线。隔离外既有服务不在保护范围内。
 
 隔离应用可读写当前用户的“下载”文件夹，默认 `~/Downloads`，也读取 `user-dirs.dirs` 设置。上传文件请先放到该目录。家目录的其他文件不向隔离应用开放；下载目录若与家目录、面板数据或所有权边界冲突，则拒绝共享。面板会显示实际开放目录。
 
@@ -96,7 +96,11 @@ Web 面板支持内联的真实代理节点，包括当前编译器支持的 VLE
 
 导入后会显示改写与忽略设置的说明。源 YAML、节点凭证只保存在本机用户状态目录；状态 API 不返回服务器、UUID 或密码。请勿将真实节点 YAML 提交到仓库或 CI 产物。
 
-每个浏览器应用使用数据目录下的 `profiles/<id>` 私有配置。首次在此配置中登录后，再从面板或快捷方式启动会保留登录；与原浏览器窗口的配置分开。Windows 普通应用仍按其自身方式访问用户文件，不提供 Linux 的文件系统隔离。
+浏览器默认使用数据目录下的 `profiles/<id>` 独立配置，之后会保留该配置中的登录状态。Windows 和 Linux 的浏览器应用行都可在“创建快捷方式”旁开启 **使用原应用数据**：直接共用原资料，书签、历史和设置的修改会同步，不复制一份新资料。选项按应用保存，已有应用快捷方式也会使用当前选择；切换前需关闭此工具启动的实例。
+
+Windows 开启后由应用选择原生资料目录，已有窗口可能被复用；面板不会接管或关闭这些原有进程。普通 Windows 应用本来就沿用自身数据，不额外显示这个浏览器选项。
+
+Linux 共用时，请先完全关闭原应用。支持自动识别的 Chrome、Chromium、Edge、Brave、Firefox 及部分常见 Electron 应用；找不到唯一、已初始化且未被占用的资料目录时会明确提示，不猜测其他目录。只额外开放该应用的原资料目录，网络、进程和家目录隔离继续生效。Chromium 已有登录资料需要原桌面的密钥服务；通过受限连接访问密钥服务，缺少服务时停止启动，不切换密码存储。Firefox 的代理设置通过隔离环境内的临时策略生效，不替换原配置文件。特殊安装、多默认配置或未识别的应用可能仍需使用独立资料。
 
 配置损坏、过大或不再受支持时，面板仍会打开并提示重新导入。暂时不存在的 exe 会保留列表与登录数据，在启动时说明原因。无效设置首次保存前会另存为 `settings.recovery-<标识>.json`。最多保存 128 个应用；Windows 还需满足启用路径的总数上限。
 

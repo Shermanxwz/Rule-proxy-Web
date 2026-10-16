@@ -22,7 +22,7 @@ import uuid
 
 from . import __version__, autostart
 from .config import MAX_SOURCE_BYTES, compile_config
-from .launcher import discover_apps, validate_app, prepare_app
+from .launcher import app_profile_directory, discover_apps, validate_app, prepare_app
 from .shortcuts import create_shortcut_files, remove_shortcut_files
 
 
@@ -148,6 +148,7 @@ class Manager:
         self._core_job = None
         self.error = ""
         self.active = {}
+        self._profile_preparing: set[str] = set()
         self._windows_backend = None
         self._windows_paths = []
         self.quitting = False
@@ -411,7 +412,8 @@ class Manager:
                 owned = self.active.get(app["id"])
                 alive = bool(owned and owned[0].poll() is None)
                 pending = bool(alive and getattr(owned[1], "failed_process", None) is not None)
-                record = {**app, "active": alive and not pending, "cleanup_pending": pending}
+                record = {**app, "active": alive and not pending, "cleanup_pending": pending,
+                          "profile_preparing": app["id"] in self._profile_preparing}
                 if sys.platform == "win32":
                     record["routed"] = running and app["enabled"] and bool(self._windows_paths)
                 apps.append(record)
@@ -597,6 +599,8 @@ class Manager:
             app = self.app(ident)
             if app is None:
                 raise ValueError("应用不存在。")
+            if ident in self._profile_preparing:
+                raise ValueError("正在准备此应用的原有资料，请完成后再修改应用。")
             if not delete and not isinstance(enabled, bool):
                 raise ValueError("enabled 必须是布尔值。")
             previous = copy.deepcopy(self.settings["apps"])
@@ -611,6 +615,40 @@ class Manager:
             self._save_app_changes(previous)
             if delete:
                 remove_shortcut_files(app)
+
+    def set_app_profile(self, ident, use_original_data):
+        """Select shared browser data without holding the manager lock during path checks."""
+        if not isinstance(use_original_data, bool):
+            raise ValueError("use_original_data 必须是布尔值。")
+        with self.lock:
+            app = self.app(ident)
+            if app is None:
+                raise ValueError("应用不存在。")
+            if ident in self._profile_preparing:
+                raise ValueError("正在准备此应用的原有资料，请稍候。")
+            if ident in self.active and self.active[ident][0].poll() is None:
+                raise ValueError("请先关闭此工具启动的应用，再切换资料模式。")
+            candidate = validate_app({**app, "use_original_data": use_original_data}, check_exists=False)
+            candidate["id"] = ident
+            self._profile_preparing.add(ident)
+        try:
+            if use_original_data and sys.platform == "linux":
+                from .app_profile_data import original_profile_source
+                original_profile_source(candidate)
+            with self.lock:
+                if self.app(ident) is not app or self.quitting or self.closed.is_set():
+                    raise ValueError("应用或面板状态已改变，请重新操作。")
+                old = dict(app)
+                app["use_original_data"] = use_original_data
+                try:
+                    self._save()
+                except BaseException:
+                    app.clear()
+                    app.update(old)
+                    raise
+        finally:
+            with self.lock:
+                self._profile_preparing.discard(ident)
 
     def create_shortcuts(self, ident):
         """Write launcher files that start this app headlessly; returns their paths."""
@@ -627,6 +665,8 @@ class Manager:
         with self.lock:
             if self.quitting or self.closed.is_set():
                 raise ValueError("面板正在退出，不能启动应用。")
+            if ident in self._profile_preparing:
+                raise ValueError("正在检查此应用的原有资料，请完成后再启动。")
             app = self.app(ident)
             if not app or not app["enabled"]:
                 raise ValueError("请先将应用加入待保护列表。")
@@ -645,7 +685,10 @@ class Manager:
             if sys.platform == "linux":
                 from .linux_runtime import downloads_folder, launch
                 downloads = downloads_folder(self.directory)
-                process, resource = self.launch_owner.submit(launch, command, env, profile, self.mixed_port, downloads).result()
+                options = ({"original_profile": app_profile_directory(self.directory / "profiles", app),
+                            "profile_adapter": app["adapter"]} if app.get("use_original_data") else {})
+                process, resource = self.launch_owner.submit(launch, command, env, profile,
+                                                            self.mixed_port, downloads, **options).result()
             elif sys.platform == "win32":
                 from .windows_app_process import launch
                 self._sync_windows_policy()
@@ -656,6 +699,9 @@ class Manager:
             self.active[ident] = (process, resource)
             self.error = ""
             detail = "程序路径代理已启用；同路径实例也会受影响，DNS 与故障后直连仍有限制。" if sys.platform == "win32" else "仅此隔离实例受保护。不支持的流量阻断，不会直连。"
+            if app.get("use_original_data"):
+                detail += (" 使用原应用资料；启动请求可能交给已有窗口，已有进程不会由面板接管或关闭。"
+                           if sys.platform == "win32" else " 直接共用原应用资料；修改会同步到原应用，请勿同时启动原应用。")
             return {"pid": process.pid, "adapter": app["adapter"], "detail": detail}
 
     def stop_app(self, ident):

@@ -152,6 +152,11 @@ h1 { margin: 0; color: #1c2a27; font-size: clamp(26px, 3vw, 34px); line-height: 
 /* Launcher shortcuts */
 .app-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .app-tools .button { min-height: 27px; padding: 0 9px; font-size: 10px; }
+.app-profile-option { display: inline-flex; min-height: 27px; max-width: 100%; align-items: center; gap: 5px; padding: 0 3px; color: #687b70; font-size: 10px; line-height: 1.45; cursor: pointer; }
+.app-profile-option input { width: 14px; height: 14px; flex: 0 0 auto; margin: 0; accent-color: var(--green); cursor: pointer; }
+.app-profile-option:has(input:disabled) { color: #9aa49f; cursor: default; }
+.app-profile-option input:disabled { cursor: default; }
+.app-profile-option input:focus-visible { outline: 2px solid #8db8a1; outline-offset: 2px; }
 
 /* Background running: start at login, and quit */
 .background-panel { margin-top: 14px; padding: 4px 18px; }
