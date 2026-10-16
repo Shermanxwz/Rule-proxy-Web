@@ -1,5 +1,6 @@
 """The short client-OS experiment cannot become a product/GUI qualification."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import signal
@@ -225,3 +226,84 @@ if ($errors.Count) { throw ($errors | Out-String) }
             env={**os.environ, "RP_GLOBAL_SCRIPT": str(ROOT / ".github/windows-global-vm-run.ps1")},
             capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def _native_helper_prelude(self):
+        # Import only the helper/diagnostic definitions from the exact guest
+        # source. Never execute its account, installer, task or network code.
+        return r'''
+$ErrorActionPreference='Stop'
+$errors=$null; $tokens=$null
+$ast=[Management.Automation.Language.Parser]::ParseFile($env:RP_GLOBAL_SCRIPT,[ref]$tokens,[ref]$errors)
+if ($errors.Count) { throw ($errors | Out-String) }
+foreach ($name in @('Invoke-BoundedScript','Protect-DiagnosticText','Read-DiagnosticTail','Export-GlobalDiagnostics')) {
+    $definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
+    if ($null -eq $definition) { throw ('Missing helper: ' + $name) }
+    . ([scriptblock]::Create($definition.Extent.Text))
+}
+$root=$env:RP_GLOBAL_HELPER_ROOT
+$powershell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$script:result=@{logs=@{}}
+$script:passwordText='SyntheticHelperSecretQ7!'
+$script:configuration=[pscustomobject]@{host_url='http://127.0.0.1:12345/private-test-capability'}
+'''
+
+    @unittest.skipUnless(os.name == "nt", "requires native Windows child-process and PowerShell handles")
+    def test_native_helper_retains_real_zero_and_seventeen_exit_codes_and_separate_redacted_logs(self):
+        command = self._native_helper_prelude() + r'''
+$zero=Join-Path $root 'zero spaced 脚本.ps1'
+$nonzero=Join-Path $root 'nonzero spaced.ps1'
+[IO.File]::WriteAllText($zero,'[Console]::Out.WriteLine("SETUP-OUT SyntheticHelperSecretQ7!"); [Console]::Error.WriteLine("SETUP-ERR"); exit 0')
+[IO.File]::WriteAllText($nonzero,'[Console]::Out.WriteLine("UNINSTALL-OUT"); [Console]::Error.WriteLine("UNINSTALL-ERR http://127.0.0.1:12345/private-test-capability/result"); exit 17')
+Invoke-BoundedScript $zero '' 10 'setup'
+if ($script:result.child_scripts.setup.exit_code -isnot [int] -or $script:result.child_scripts.setup.exit_code -ne 0) { throw 'Real exit zero was not retained' }
+$refused=$false
+try { Invoke-BoundedScript $nonzero '' 10 'uninstall' }
+catch {
+    if ($_.Exception.Message -notmatch 'uninstall failed or requires reboot: 17') { throw }
+    $refused=$true
+}
+if (-not $refused -or $script:result.child_scripts.uninstall.exit_code -ne 17) { throw 'Real exit seventeen was accepted or lost' }
+Export-GlobalDiagnostics
+foreach ($name in @('setup','uninstall')) {
+    $receipt=$script:result.child_scripts[$name]
+    if (-not $receipt.handle_captured -or -not $receipt.exited -or -not $receipt.drain_complete) { throw 'Incomplete held-process receipt' }
+}
+$logs=$script:result.logs.tests
+foreach ($marker in @('SETUP-OUT','SETUP-ERR','UNINSTALL-OUT','UNINSTALL-ERR','[PASSWORD REDACTED]')) {
+    if (-not $logs.Contains($marker)) { throw ('Missing independent log: ' + $marker) }
+}
+if ($logs.Contains('SyntheticHelperSecretQ7!') -or $logs.Contains('private-test-capability')) { throw 'Private child diagnostic escaped redaction' }
+if ($logs.Length -gt 5*131072+512) { throw 'Exported log tails exceeded bound' }
+@{zero=$script:result.child_scripts.setup.exit_code; nonzero=$script:result.child_scripts.uninstall.exit_code; redacted=$true}|ConvertTo-Json -Compress
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command],
+                env={**os.environ, "RP_GLOBAL_SCRIPT": str(ROOT / ".github/windows-global-vm-run.ps1"),
+                     "RP_GLOBAL_HELPER_ROOT": directory}, capture_output=True, text=True, timeout=35)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout.strip()), {"zero": 0, "nonzero": 17, "redacted": True})
+
+    @unittest.skipUnless(os.name == "nt", "requires native Windows child-process and PowerShell handles")
+    def test_native_helper_timeout_terminates_owned_child_and_never_invents_exit_zero(self):
+        command = self._native_helper_prelude() + r'''
+$slow=Join-Path $root 'slow child.ps1'
+[IO.File]::WriteAllText($slow,'Start-Sleep -Seconds 30; exit 0')
+$timer=[Diagnostics.Stopwatch]::StartNew()
+$refused=$false
+try { Invoke-BoundedScript $slow '' 1 'timeout' }
+catch {
+    if ($_.Exception.Message -notmatch 'exceeded its deadline') { throw }
+    $refused=$true
+}
+$timer.Stop()
+$receipt=$script:result.child_scripts.timeout
+if (-not $refused -or -not $receipt.timed_out -or -not $receipt.handle_captured -or -not $receipt.termination_confirmed -or -not $receipt.exited) { throw 'Timeout did not stop the held child' }
+if ($null -ne $receipt.exit_code -or $timer.Elapsed.TotalSeconds -gt 15) { throw 'Timeout invented success or cleanup exceeded its bound' }
+@{timed_out=$true; exit_code=$receipt.exit_code; terminated=$receipt.termination_confirmed}|ConvertTo-Json -Compress
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command],
+                env={**os.environ, "RP_GLOBAL_SCRIPT": str(ROOT / ".github/windows-global-vm-run.ps1"),
+                     "RP_GLOBAL_HELPER_ROOT": directory}, capture_output=True, text=True, timeout=25)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout.strip()), {"timed_out": True, "exit_code": None, "terminated": True})

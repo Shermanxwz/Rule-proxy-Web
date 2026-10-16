@@ -608,7 +608,7 @@ class HarnessPlanningTests(unittest.TestCase):
         from ruleproxy import windows_global_guard as guard
         from ruleproxy import windows_global_dns as dns
         from ruleproxy import windows_proxy_client as client
-        for failure in (None, 'echo', 'receiver', 'recovery'):
+        for failure in (None, 'echo', 'receiver', 'recovery', 'dns', 'dns_ok'):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory, ExitStack() as stack:
                 root = Path(directory)
                 (root / 'ruleproxy').mkdir()
@@ -646,6 +646,18 @@ class HarnessPlanningTests(unittest.TestCase):
                 stack.enter_context(patch.object(H, 'task', return_value='independent-watchdog'))
                 stack.enter_context(patch.object(H, 'EchoNode', return_value=fixture))
                 stack.enter_context(patch.object(H, 'fixture_dns_preflight', return_value={'verified': True}))
+                relay = Mock()
+                relay.close.return_value = {'active': 0, 'closed': True}
+                def prepare(work, _state, _fixture, report, _budget, _names):
+                    H.write_json(work / 'carrier-owned.json', {'pid': 18, 'creation': 24, 'image': 'fixed'})
+                    report['dns_fixture_sha256'] = 'ea4e180ea6f02912341aa81041fdc71e663bb6095aeefaa9b5fe1733ea57ca7d'
+                    return {'relay': relay}
+                stack.enter_context(patch.object(H, 'prepare_dns_smoke', side_effect=prepare))
+                def dns_queries(_context, report, _budget):
+                    if failure == 'dns':
+                        raise RuntimeError('dns_disabled_control_not_observed')
+                    report['dns_smoke_passed'] = True
+                stack.enter_context(patch.object(H, 'run_dns_smoke', side_effect=dns_queries))
                 stack.enter_context(patch.object(H, 'tun_identity_receipt', return_value={'identity_matches': True, 'start_guard_tun_ready': True}))
                 stack.enter_context(patch.object(H, 'require_owned_identity', return_value={'pid': 17, 'creation': 23, 'image': 'fixed'}))
                 terminated = stack.enter_context(patch.object(H, 'terminate_owned'))
@@ -659,13 +671,14 @@ class HarnessPlanningTests(unittest.TestCase):
                 previous_path = list(sys.path)
                 try:
                     result = H.run(SimpleNamespace(ack_disposable_windows=True, installed_root=root,
-                        output=root / 'summary.json', read_only_components=False, startup_smoke_only=True))
+                        output=root / 'summary.json', read_only_components=False, startup_smoke_only=True,
+                        dns_smoke=failure in ('dns', 'dns_ok')))
                 finally:
                     sys.path[:] = previous_path
                 value = H.read_json(root / 'summary.json')
-                self.assertEqual(result, 0 if failure is None else 1)
+                self.assertEqual(result, 0 if failure in (None, 'dns_ok') else 1)
                 self.assertEqual(value['mode'], 'disposable_windows_tun_startup_smoke')
-                self.assertEqual(value['startup_smoke_passed'], failure is None)
+                self.assertEqual(value['startup_smoke_passed'], failure in (None, 'dns_ok'))
                 for key in ('passed', 'strict_qualified', 'physical_qualified', 'ipv4_physical_scope_passed',
                             'dns_qualified', 'ipv6_public_egress_qualified', 'rdp_qualified', 'packet_fail_closed_proven'):
                     self.assertIs(value[key], False)
@@ -674,7 +687,13 @@ class HarnessPlanningTests(unittest.TestCase):
                 self.assertEqual(actors.call_count, 2)
                 self.assertIs(instance.start.call_args.kwargs['require_strict'], False)
                 instance.stop.assert_called_once_with()
-                terminated.assert_called_once()
+                if failure in ('dns', 'dns_ok'):
+                    self.assertEqual([call.args[0]['pid'] for call in terminated.call_args_list], [18, 17])
+                    self.assertEqual(value['dns_smoke_passed'], failure == 'dns_ok')
+                    self.assertTrue(value['dns_carrier_closed_before_core_death'])
+                    relay.close.assert_called_once_with()
+                else:
+                    terminated.assert_called_once()
                 packet.assert_not_called()
                 scripts = str(powershell.call_args_list)
                 self.assertNotRegex(scripts, r'(?:New|Set|Remove|Enable|Disable)-Net')
@@ -700,6 +719,85 @@ class HarnessPlanningTests(unittest.TestCase):
             failed = H.native_ipv6_diagnostics()
         self.assertFalse(failed['available'])
         self.assertNotIn('private', json.dumps(failed))
+
+    def test_dns_smoke_requires_unique_queries_causal_disable_and_restored_node_traffic(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        class FixtureError(ValueError):
+            def __init__(self, code):
+                super().__init__(code)
+                self.code = code
+        for failure in (None, 'no_rejected_attempt', 'disabled_query_succeeded', 'restored_no_traffic', 'bad_response'):
+            with self.subTest(failure=failure):
+                state = {'enabled': True, 'accepted': 0, 'rejected': 0, 'active': 1,
+                         'bytes_to_resolver': 0, 'bytes_to_client': 0}
+                relay = Mock()
+                relay.snapshot.side_effect = lambda: dict(state)
+                def disable():
+                    state.update(enabled=False, active=0)
+                    return dict(state)
+                relay.disable.side_effect = disable
+                relay.enable.side_effect = lambda: state.update(enabled=True)
+                names, raw_calls, system_calls = [], [], []
+                def name(_expected):
+                    result = 'rp-' + format(len(names) + 1, '016x') + '.1.2.3.4.sslip.io.'
+                    names.append(result)
+                    return result
+                def query(query_name, expected_ip):
+                    if not state['enabled']:
+                        if failure == 'no_rejected_attempt':
+                            raise H.subprocess.TimeoutExpired('fixed DNS child', 3)
+                        state['rejected'] += 1
+                        if failure != 'disabled_query_succeeded':
+                            raise FixtureError('system_dns_child_failed')
+                    if not (failure == 'restored_no_traffic' and len(system_calls) == 3):
+                        state['accepted'] += 1
+                        state['bytes_to_resolver'] += 100
+                        state['bytes_to_client'] += 200
+                    return {'validated': failure != 'bad_response', 'query_name': query_name, 'addresses': [expected_ip]}
+                def system(query_name, expected_ip, **kwargs):
+                    system_calls.append((query_name, kwargs['timeout']))
+                    return query(query_name, expected_ip)
+                def raw(peer, **kwargs):
+                    raw_calls.append((peer, kwargs['protocol'], kwargs['timeout']))
+                    return query(kwargs['name'], kwargs['expected_ip'])
+                module = SimpleNamespace(query_name=name, system_dns_query=system, raw_dns_query=raw, FixtureError=FixtureError)
+                report = {'dns_smoke_passed': False, 'dns_qualified': False, 'strict_qualified': False}
+                if failure is None:
+                    H.run_dns_smoke({'module': module, 'relay': relay}, report, Mock())
+                    self.assertTrue(report['dns_smoke_passed'])
+                    self.assertEqual(len(names), len(set(names)))
+                    self.assertEqual(len(names), 7)
+                    self.assertEqual(set((peer, protocol) for peer, protocol, _ in raw_calls),
+                        {(peer, protocol) for peer in ('198.18.0.2', 'fdfe:dcba:8879::2') for protocol in ('udp', 'tcp')})
+                    self.assertEqual([timeout for _, timeout in system_calls], [3, 3, 3])
+                else:
+                    with self.assertRaises((RuntimeError, FixtureError)):
+                        H.run_dns_smoke({'module': module, 'relay': relay}, report, Mock())
+                    self.assertFalse(report['dns_smoke_passed'])
+                self.assertIs(report['dns_qualified'], False)
+                self.assertIs(report['strict_qualified'], False)
+
+    def test_echo_node_only_admits_fixed_doh_connect_after_carrier_success_callback(self):
+        import threading
+        from unittest.mock import MagicMock, Mock
+        for host in ('1.1.1.1', '9.9.9.9'):
+            with self.subTest(host=host):
+                connection = MagicMock()
+                connection.recv.side_effect = [b'\x05\x01', b'\x00', b'\x05\x01\x00', b'\x01',
+                                               ipaddress.IPv4Address(host).packed, struct.pack('!H', 443)]
+                fixture = H.EchoNode.__new__(H.EchoNode)
+                fixture.lock, fixture.clients = threading.Lock(), {connection}
+                fixture.doh_relay = Mock()
+                fixture.doh_relay.handle.side_effect = lambda stream, _host, _port, on_ready: on_ready(stream)
+                fixture.serve(connection)
+                if host == '1.1.1.1':
+                    self.assertEqual(fixture.doh_relay.handle.call_args.args, (connection, host, 443))
+                    self.assertEqual(connection.sendall.call_args_list[-1].args[0][:3], b'\x05\x00\x00')
+                else:
+                    fixture.doh_relay.handle.assert_not_called()
+                    self.assertEqual(connection.sendall.call_args_list[-1].args[0][:3], b'\x05\x02\x00')
+                self.assertFalse(fixture.clients)
 
     def test_dns_restore_failure_keeps_guard_and_does_not_restart_service(self):
         from ruleproxy import windows_proxy_service as service

@@ -406,13 +406,17 @@ def component_diagnostics(document, mac, description, interface_index=None):
             'exact_description_match_count': matching_description}
 
 
-def nic_components():
-    nic = json.loads(ps("$r=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore|Sort-Object RouteMetric);"
+def default_nic():
+    return json.loads(ps("$r=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore|Sort-Object RouteMetric);"
         "if(-not $r.Count){throw 'no physical default route'};$a=Get-NetAdapter -InterfaceIndex $r[0].InterfaceIndex;"
         "if($a.Status -ne 'Up'){throw 'adapter down'};$ip=@(Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4|"
         "Where-Object {$_.AddressState -eq 'Preferred' -and -not $_.SkipAsSource})[0];"
         "$result=@{index=[int]$a.ifIndex;mac=[string]$a.MacAddress;description=[string]$a.InterfaceDescription;"
-        "source=[string]$ip.IPAddress;gateway=[string]$r[0].NextHop;alias=[string]$a.Name}|ConvertTo-Json -Compress"))
+        "source=[string]$ip.IPAddress;gateway=[string]$r[0].NextHop;alias=[string]$a.Name}|ConvertTo-Json -Compress", timeout=8))
+
+
+def nic_components():
+    nic = default_nic()
     document = json.loads(pktmon('list', '--json'))
     evidence = component_diagnostics(document, nic['mac'], nic['description'], nic['index'])
     evidence['nic'] = {key: nic[key] for key in ('index', 'mac', 'description')}
@@ -574,6 +578,8 @@ class EchoNode:
         self.stop = threading.Event()
         self.counts = {'tcp4': 0, 'tcp6': 0, 'udp4': 0, 'udp6': 0}
         self.lock = threading.Lock()
+        self.doh_relay = None
+        self.clients = set()
         threading.Thread(target=self.accept, daemon=True).start()
 
     def accept(self):
@@ -584,6 +590,11 @@ class EchoNode:
                 continue
             except OSError:
                 return
+            with self.lock:
+                if self.stop.is_set():
+                    connection.close()
+                    return
+                self.clients.add(connection)
             threading.Thread(target=self.serve, args=(connection,), daemon=True).start()
 
     def serve(self, connection):
@@ -600,6 +611,10 @@ class EchoNode:
             if command == 3:
                 self.udp(connection)
                 return
+            if command == 1 and self.doh_relay is not None and (host, port) == ('1.1.1.1', 443):
+                self.doh_relay.handle(connection, host, port,
+                    on_ready=lambda stream: stream.sendall(b'\x05\x00\x00' + encode_address('127.0.0.1', 0)))
+                return
             if command != 1 or host not in (TUN4, TUN6) or port != TCP_PORT:
                 connection.sendall(b'\x05\x02\x00' + encode_address('127.0.0.1', 0))
                 return
@@ -613,6 +628,8 @@ class EchoNode:
         except (OSError, EOFError, ValueError):
             pass
         finally:
+            with self.lock:
+                self.clients.discard(connection)
             connection.close()
 
     def udp(self, control):
@@ -643,6 +660,16 @@ class EchoNode:
 
     def close(self):
         self.stop.set()
+        if self.doh_relay is not None:
+            self.doh_relay.close()
+        with self.lock:
+            clients = list(self.clients)
+        for connection in clients:
+            try:
+                connection.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            connection.close()
         self.socket.close()
 
 
@@ -1045,13 +1072,21 @@ def system_operation(state_path, operation):
             if value._filters(engine) != value._expected(rules):
                 raise RuntimeError('scoped_filter_readback_failed')
         return {'active': True, 'scope': 'test_actor_ipv6_loopback_action_only', 'native_qualified': False}
-    if operation == 'carrier':
+    if operation in ('carrier', 'dns-carrier'):
         config = {'mixed-port': state['carrier_port'], 'bind-address': '127.0.0.1', 'allow-lan': False,
             'mode': 'rule', 'log-level': 'error', 'interface-name': state['nic']['alias'],
             'tun': {'enable': False}, 'dns': {'enable': False},
             'rules': ['MATCH,DIRECT']}
+        if operation == 'dns-carrier':
+            config['rules'] = ['AND,((IP-CIDR,1.1.1.1/32,no-resolve),(DST-PORT,443)),DIRECT', 'MATCH,REJECT']
         path = work / 'carrier.json'
         write_json(path, config)
+        if operation == 'dns-carrier':
+            checked = subprocess.run([str(root / 'bin/windows-amd64/mihomo.exe'), '-t', '-d', str(work), '-f', str(path)],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+                timeout=5, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), check=False)
+            if checked.returncode:
+                raise RuntimeError('dns_carrier_config_invalid')
         with (work / 'carrier-private.log').open('wb') as log:
             process = subprocess.Popen([str(root / 'bin/windows-amd64/mihomo.exe'), '-d', str(work), '-f', str(path)],
                 stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
@@ -1304,7 +1339,99 @@ $result=@{available=$true;active_ipv6_address_count=$addresses.Count;global_unic
         return {'available': False, 'code': 'native_ipv6_diagnostics_unavailable', 'error_type': type(error).__name__}
 
 
-def startup_smoke(root, native, metadata, source, fixture, work, report, budget):
+def prepare_dns_smoke(work, state_path, fixture, report, budget, names):
+    import importlib.util
+    from ruleproxy.windows_proxy_service import _tcp_connections
+    budget.stage('dns_carrier_prepare')
+    budget.require(105)
+    helper = work / 'dns-fixture.py'
+    shutil.copy2(Path(__file__).with_name('windows_global_dns_fixture.py'), helper)
+    digest = hashlib.sha256(helper.read_bytes()).hexdigest()
+    if digest != 'ea4e180ea6f02912341aa81041fdc71e663bb6095aeefaa9b5fe1733ea57ca7d':
+        raise RuntimeError('dns_fixture_source_changed')
+    spec = importlib.util.spec_from_file_location('ruleproxy_dns_smoke_fixture', helper)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    state = read_json(state_path)
+    state['nic'] = default_nic()  # Read-only underlay binding, no test route.
+    write_json(state_path, state)
+    relay = module.DohRelay(state['carrier_port'], timeout=10)
+    fixture.doh_relay = relay
+    names.append(task(state_path, 'dns-carrier', wait=False))
+    deadline = time.monotonic() + operation_timeout(3)
+    ready = False
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection(('127.0.0.1', state['carrier_port']), timeout=.1) as connection:
+                if (work / 'carrier-owned.json').is_file():
+                    record = read_json(work / 'carrier-owned.json')
+                    held = require_owned_identity(record['pid'], Path(state['root']) / 'bin/windows-amd64/mihomo.exe')
+                    peer = connection.getsockname()
+                    ready = held == record and any(row['state'] == 5 and row['pid'] == record['pid']
+                        and row['local'] == '127.0.0.1' and row['local_port'] == state['carrier_port']
+                        and row['remote'] == peer[0] and row['remote_port'] == peer[1]
+                        for row in _tcp_connections(socket.AF_INET))
+        except OSError:
+            pass
+        if ready:
+            break
+        time.sleep(.05)
+    if not ready:
+        raise RuntimeError('dns_carrier_not_ready')
+    report['dns_carrier'] = {'scope': 'fixed_SYSTEM_core_bound_underlay_doh_only',
+        'underlay_interface_index': state['nic']['index'], 'allowed_forward': '1.1.1.1:443',
+        'fixture_sha256': digest, 'connection_process_identity_verified': True}
+    report['dns_fixture_sha256'] = digest
+    return {'module': module, 'relay': relay}
+
+
+def run_dns_smoke(context, report, budget):
+    module, relay = context['module'], context['relay']
+    budget.require(35)  # Queries <=19 seconds, then owned carrier/core cleanup.
+    value = report['dns_smoke'] = {'passed': False, 'queries': {}, 'scope': 'real_doh_selected_node_and_nrpt_smoke_only'}
+    value['before'] = relay.snapshot()
+    expected = '1.2.3.4'
+    name = module.query_name(expected)
+    value['queries']['system_default'] = module.system_dns_query(name, expected, timeout=3)
+    for peer, family in (('198.18.0.2', '4'), ('fdfe:dcba:8879::2', '6')):
+        for protocol in ('udp', 'tcp'):
+            value['queries'][protocol + family] = module.raw_dns_query(peer, name=module.query_name(expected),
+                expected_ip=expected, protocol=protocol, timeout=2.5)
+    value['positive'] = relay.snapshot()
+    if not (value['positive']['accepted'] > value['before']['accepted']
+            and all(value['positive'][key] > value['before'][key] for key in ('bytes_to_resolver', 'bytes_to_client'))):
+        raise RuntimeError('dns_positive_selected_node_unobserved')
+    value['disabled'] = relay.disable()
+    if value['disabled']['active'] != 0:
+        raise RuntimeError('dns_relay_close_unconfirmed')
+    name = module.query_name(expected)
+    failed = False
+    try:
+        module.system_dns_query(name, expected, timeout=3)
+    except module.FixtureError as error:
+        if error.code != 'system_dns_child_failed':
+            raise
+        failed = True
+    except subprocess.TimeoutExpired:
+        failed = True
+    value['negative'] = {'unique_query_name': name, 'failed': failed, 'relay': relay.snapshot()}
+    if not failed or value['negative']['relay']['rejected'] <= value['disabled']['rejected']:
+        raise RuntimeError('dns_disabled_control_not_observed')
+    relay.enable()
+    value['queries']['system_restored'] = module.system_dns_query(module.query_name(expected), expected, timeout=3)
+    value['restored'] = relay.snapshot()
+    if not (value['restored']['accepted'] > value['positive']['accepted']
+            and all(value['restored'][key] > value['positive'][key] for key in ('bytes_to_resolver', 'bytes_to_client'))):
+        raise RuntimeError('dns_restored_selected_node_unobserved')
+    results = list(value['queries'].values())
+    if (any(item.get('validated') is not True or item.get('addresses') != [expected] for item in results)
+            or len({item.get('query_name') for item in results} | {name}) != 7):
+        raise RuntimeError('dns_smoke_response_or_uniqueness_invalid')
+    value['passed'] = True
+    report['dns_smoke_passed'] = True
+
+
+def startup_smoke(root, native, metadata, source, fixture, work, report, budget, *, dns_context=None):
     """Real TUN startup/echo lifecycle only; never a physical no-leak proof."""
     from ruleproxy.windows_global_guard import Guard
     from ruleproxy.windows_global_dns import DnsLease
@@ -1340,6 +1467,22 @@ def startup_smoke(root, native, metadata, source, fixture, work, report, budget)
     received = all(type(fixture.counts.get(key)) is int and fixture.counts[key] > 0
                    for key in ('tcp4', 'tcp6', 'udp4', 'udp6'))
     report['tun_tcp_udp_v4_v6_passed'] = echo and received
+    if dns_context is not None:
+        budget.stage('dns_smoke_queries')
+        try:
+            run_dns_smoke(dns_context, report, budget)
+        except Exception as error:
+            code = getattr(error, 'code', str(error).split(':', 1)[0])
+            report.setdefault('dns_smoke', {})['error'] = code if re.fullmatch(r'[a-z_]{1,80}', code) else 'dns_smoke_operation_failed'
+            report['dns_smoke_passed'] = False
+        finally:
+            closed = dns_context['relay'].close()
+            report.setdefault('dns_smoke', {})['closed'] = closed
+            if closed.get('active') != 0 or closed.get('closed') is not True:
+                raise RuntimeError('dns_relay_close_unconfirmed')
+            (work / 'carrier-stop').touch()
+            terminate_owned(read_json(work / 'carrier-owned.json'), core)
+            report['dns_carrier_closed_before_core_death'] = True
     budget.stage('core_terminate')
     terminate_owned(identity, core)
     report['owned_core_terminated'] = True
@@ -1358,7 +1501,8 @@ def startup_smoke(root, native, metadata, source, fixture, work, report, budget)
                                       and dns.get('supported') is True and dns.get('active') is False)
     if not report['explicit_global_stop']:
         raise RuntimeError('explicit_global_stop_not_restored')
-    report['startup_smoke_passed'] = echo and received and retained
+    report['startup_smoke_passed'] = (echo and received and retained
+                                    and (dns_context is None or report.get('dns_smoke_passed') is True))
     if not report['startup_smoke_passed']:
         raise RuntimeError('startup_smoke_checks_failed')
 
@@ -1379,6 +1523,9 @@ def run(arguments):
     if current_user_sid() != metadata['owner_sid']:
         raise RuntimeError('run_as_installing_desktop_owner_not_system')
     smoke_only = getattr(arguments, 'startup_smoke_only', False)
+    dns_requested = getattr(arguments, 'dns_smoke', False)
+    if dns_requested and not smoke_only:
+        raise RuntimeError('dns_smoke_requires_startup_smoke_only')
     if smoke_only:
         if arguments.read_only_components:
             raise RuntimeError('startup_smoke_mode_conflict')
@@ -1434,6 +1581,8 @@ def run(arguments):
             ipv4_physical_scope_passed=False, physical_qualified=False, packet_fail_closed_proven=False,
             carrier_scope='not_exercised', service_death_scope='not_exercised',
             scope='synthetic_loopback_node_tun_startup_identity_and_state_readback_only')
+        if dns_requested:
+            report.update(dns_smoke_requested=True, dns_smoke_passed=False)
     fixture, names = None, []
     budget = ExperimentBudget()
     state['experiment_expires_unix'] = time.time() + EXPERIMENT_BUDGET_SECONDS
@@ -1451,7 +1600,8 @@ def run(arguments):
         budget.stage('fixture_dns_preflight')
         report['fixture_dns'] = fixture_dns_preflight()
         if smoke_only:
-            startup_smoke(root, native, metadata, source, fixture, work, report, budget)
+            dns_context = prepare_dns_smoke(work, state_path, fixture, report, budget, names) if dns_requested else None
+            startup_smoke(root, native, metadata, source, fixture, work, report, budget, dns_context=dns_context)
         else:
             budget.stage('physical_component_identity')
             nic, component, evidence = nic_components()
@@ -1590,6 +1740,8 @@ def run(arguments):
             report['passed'] = False
             if smoke_only:
                 report['startup_smoke_passed'] = False
+                if dns_requested:
+                    report['dns_smoke_passed'] = False
         arguments.output.parent.mkdir(parents=True, exist_ok=True)
         budget.stage(None)
         report['time_budget']['total_elapsed_seconds'] = round(time.monotonic() - run_started, 3)
@@ -1606,10 +1758,12 @@ def main():
     parser.add_argument('--read-only-components', action='store_true')
     parser.add_argument('--startup-smoke-only', action='store_true',
                         help='Bounded TUN startup/echo/state readback only; never physical no-leak acceptance')
+    parser.add_argument('--dns-smoke', action='store_true',
+                        help='Opt-in genuine DoH/NRPT smoke; requires --startup-smoke-only')
     parser.add_argument('--installed-root', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--state', type=Path)
-    parser.add_argument('--system-operation', choices=('scope-apply', 'scope-stop', 'carrier', 'recover'))
+    parser.add_argument('--system-operation', choices=('scope-apply', 'scope-stop', 'carrier', 'dns-carrier', 'recover'))
     parser.add_argument('--actor-json')
     args = parser.parse_args()
     if args.actor_json:

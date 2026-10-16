@@ -128,15 +128,96 @@ $captureTaskRegistered = $false
 $captureUserCreated = $false
 $installed = Join-Path $env:ProgramFiles 'RuleProxy-Web'
 $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-function Invoke-BoundedScript([string]$Script, [string]$Arguments, [int]$Seconds) {
-    $child = Start-Process -FilePath $powershell -ArgumentList ('-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $Script + '" ' + $Arguments) -PassThru -RedirectStandardOutput (Join-Path $root 'installer.stdout.log') -RedirectStandardError (Join-Path $root 'installer.stderr.log')
+function Invoke-BoundedScript([string]$Script, [string]$Arguments, [int]$Seconds, [string]$LogName) {
+    if ($Seconds -lt 1 -or $Seconds -gt 300 -or $LogName -notmatch '^[a-z][a-z0-9-]{0,31}$') { throw 'Invalid bounded child parameters' }
+    $info = New-Object Diagnostics.ProcessStartInfo
+    $info.FileName = $powershell
+    $info.Arguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $Script + '" ' + $Arguments
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $child = New-Object Diagnostics.Process
+    $child.StartInfo = $info
+    $started = $false
+    $stdout = $null; $stderr = $null; $outReader = $null; $errReader = $null
+    $outPump = $null; $errPump = $null
+    $receipt = @{pid=$null; handle_captured=$false; exited=$false; exit_code=$null;
+        timed_out=$false; termination_confirmed=$false; drain_complete=$false;
+        stdout=($LogName + '.stdout.log'); stderr=($LogName + '.stderr.log')}
+    if (-not $script:result.ContainsKey('child_scripts')) { $script:result.child_scripts = @{} }
+    $script:result.child_scripts[$LogName] = $receipt
     try {
+        $stdout = [IO.File]::Open((Join-Path $root $receipt.stdout), [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
+        $stderr = [IO.File]::Open((Join-Path $root $receipt.stderr), [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
+        $started = $child.Start()
+        if (-not $started) { throw 'Owned child did not start' }
+        # Process.Start directly owns the native handle; retain it through the
+        # exit-code read. Do not reacquire a potentially reused PID or depend
+        # on Start-Process's returned/cached process properties.
+        # https://learn.microsoft.com/dotnet/api/system.diagnostics.process.waitforexit
+        $heldHandle = $child.Handle
+        if ($heldHandle -eq [IntPtr]::Zero) { throw 'Owned child handle is unavailable' }
+        $receipt.pid = $child.Id
+        $receipt.handle_captured = $true
+        $outReader, $errReader = $child.StandardOutput.BaseStream, $child.StandardError.BaseStream
+        # Drain both pipes concurrently without buffering entire logs in RAM.
+        $outPump = $outReader.CopyToAsync($stdout, 81920)
+        $errPump = $errReader.CopyToAsync($stderr, 81920)
         if (-not $child.WaitForExit($Seconds * 1000)) {
-            & taskkill.exe /PID $child.Id /T /F | Out-Null
+            $receipt.timed_out = $true
+            # The held process handle preserves the child identity until this
+            # exact owned tree has been terminated and its exit is confirmed.
+            & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $child.Id /T /F *> $null
+            $receipt.termination_confirmed = $child.WaitForExit(5000)
+            $receipt.exited = $receipt.termination_confirmed
             throw 'Owned installer exceeded its deadline'
         }
-        if ($child.ExitCode -ne 0) { throw ('Owned installer failed or requires reboot: ' + $child.ExitCode) }
-    } finally { $child.Dispose() }
+        $receipt.exited = $child.HasExited
+        $exitCode = $child.ExitCode
+        if ($receipt.exited -ne $true -or $null -eq $exitCode -or $exitCode -isnot [int]) { throw 'Owned child exit code is unavailable' }
+        $receipt.exit_code = $exitCode
+        # An inherited pipe in a descendant must never turn cleanup into an
+        # infinite ReadToEnd/WaitForExit(). Unknown or incomplete output fails.
+        $drainDeadline = [DateTime]::UtcNow.AddSeconds(5)
+        foreach ($pump in @($outPump, $errPump)) {
+            $remaining = [int][Math]::Max(0, ($drainDeadline - [DateTime]::UtcNow).TotalMilliseconds)
+            if (-not $pump.Wait($remaining)) { throw 'Owned child output drain exceeded deadline' }
+        }
+        $receipt.drain_complete = $true
+        if ($exitCode -ne 0) { throw ('Owned ' + $LogName + ' failed or requires reboot: ' + $exitCode) }
+    } finally {
+        # Pipe setup/API failures can happen after Start but before the wait.
+        # Keep the original failure and make an explicit, bounded cleanup
+        # attempt only while the native process identity is still held.
+        if ($started -and $receipt.exited -ne $true) {
+            if ($receipt.handle_captured) {
+                try {
+                    if (-not $child.HasExited) {
+                        & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $child.Id /T /F *> $null
+                    }
+                    $receipt.termination_confirmed = $child.WaitForExit(5000)
+                    $receipt.exited = $receipt.termination_confirmed
+                    if (-not $receipt.termination_confirmed) { $receipt.cleanup_unconfirmed = $true }
+                } catch { $receipt.cleanup_unconfirmed = $true; $receipt.cleanup_error_type = $_.Exception.GetType().FullName }
+            } else { $receipt.cleanup_unconfirmed = $true }
+        }
+        foreach ($reader in @($outReader, $errReader)) { if ($null -ne $reader) { try { $reader.Dispose() } catch {} } }
+        foreach ($pump in @($outPump, $errPump)) {
+            if ($null -ne $pump) { try { [void]$pump.Wait(1000) } catch {} }
+        }
+        foreach ($stream in @($stdout, $stderr)) { if ($null -ne $stream) { try { $stream.Dispose() } catch {} } }
+        $child.Dispose()
+    }
+}
+
+function Export-GlobalDiagnostics {
+    $tails = @()
+    foreach ($name in @('capture.log', 'setup.stdout.log', 'setup.stderr.log', 'uninstall.stdout.log', 'uninstall.stderr.log')) {
+        $tails += '[' + $name + ']' + [Environment]::NewLine + (Read-DiagnosticTail (Join-Path $root $name))
+    }
+    $script:result.logs.tests = $tails -join [Environment]::NewLine
+    $script:result.logs.supervisor = Read-DiagnosticTail (Join-Path $root 'bootstrap.log')
 }
 try {
     Write-BootstrapStep 'global_configuration'
@@ -174,7 +255,7 @@ try {
     $captureUserCreated = $true
     Add-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-544').Name -Member $captureUser
     Write-BootstrapStep 'global_install'
-    Invoke-BoundedScript (Join-Path $bundle 'scripts\windows-setup.ps1') ('-SourceRoot "' + $bundle + '" -OwnerSid ' + $captureSid + ' -Elevated -NoLaunch') 300
+    Invoke-BoundedScript (Join-Path $bundle 'scripts\windows-setup.ps1') ('-SourceRoot "' + $bundle + '" -OwnerSid ' + $captureSid + ' -Elevated -NoLaunch') 300 'setup'
     $deployment = [IO.File]::ReadAllText((Join-Path $installed 'deployment.json')) | ConvertFrom-Json
     if ($deployment.owner_sid -ne $captureSid) { throw 'Installed owner differs from capture fixture' }
     $hashes = @{}
@@ -257,7 +338,7 @@ exit $detail.exit_code
         if (Test-Path -LiteralPath $deploymentPath) {
             $deployment = [IO.File]::ReadAllText($deploymentPath) | ConvertFrom-Json
             if (-not $captureSid -or $deployment.owner_sid -ne $captureSid) { throw 'Installed cleanup owner changed' }
-            Invoke-BoundedScript (Join-Path $installed 'scripts\windows-uninstall.ps1') ('-OwnerSid ' + $captureSid + ' -Elevated') 120
+            Invoke-BoundedScript (Join-Path $installed 'scripts\windows-uninstall.ps1') ('-OwnerSid ' + $captureSid + ' -Elevated') 120 'uninstall'
         }
         $result.installation_cleanup_confirmed = -not (Test-Path -LiteralPath $deploymentPath)
     } catch { [void](Add-BootstrapError 'installation_cleanup' $_) }
@@ -290,8 +371,7 @@ exit $detail.exit_code
     try {
         $captureSummary = Join-Path $root 'capture-summary.json'
         if (-not $result.reports.ContainsKey('global_capture') -and [IO.File]::Exists($captureSummary)) { $result.reports.global_capture = [IO.File]::ReadAllText($captureSummary) | ConvertFrom-Json }
-        $result.logs.tests = Read-DiagnosticTail (Join-Path $root 'capture.log')
-        $result.logs.supervisor = Read-DiagnosticTail (Join-Path $root 'bootstrap.log')
+        Export-GlobalDiagnostics
     } catch { [void](Add-BootstrapError 'diagnostic_collection' $_) }
     Write-BootstrapStep 'global_report_ready'
     $body = Protect-DiagnosticText ($result | ConvertTo-Json -Depth 70 -Compress)
