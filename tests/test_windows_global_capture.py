@@ -17,6 +17,11 @@ SPEC.loader.exec_module(H)
 MARKER = b'RuleProxyCapture:test:nonce'
 
 
+def filter_listing(*names):
+    """Stand-in for `pktmon filter list`: only the substrings the harness checks."""
+    return ''.join(name + ' ' + H.DEST4 + '\n' for name in names)
+
+
 def loss_evidence():
     return {'buffer_info': {'events_lost': 0, 'buffers_lost': 0}, 'restore': {'stopped': True,
         'cli_metadata': {'stop': {'final_events_lost': 0, 'log_parent_is_private_run_directory': True,
@@ -329,6 +334,87 @@ class HarnessPlanningTests(unittest.TestCase):
                 H.restore_capture(state)
             self.assertFalse(H.read_json(state)['capture']['stopped'])
 
+    def test_capture_filter_install_replaces_filters_and_records_confirmed_destination(self):
+        evidence = {}
+        with patch.object(H, 'pktmon', side_effect=['stale listing', '', '', filter_listing(H.CAPTURE_FILTER)]) as packet:
+            H.install_capture_filter(evidence)
+        self.assertEqual([call.args for call in packet.call_args_list], [('filter', 'list'), ('filter', 'remove'),
+            ('filter', 'add', H.CAPTURE_FILTER, '-i', H.DEST4), ('filter', 'list')])
+        self.assertEqual(evidence['filter_before'], 'stale listing')
+        self.assertEqual(evidence['filter'], {'name': H.CAPTURE_FILTER, 'ip': H.DEST4, 'confirmed': True})
+
+    def test_capture_filter_install_tolerates_failed_remove_when_no_filter_exists(self):
+        evidence = {}
+        with patch.object(H, 'pktmon', side_effect=['', RuntimeError('pktmon_operation_failed:none'), '',
+                          filter_listing(H.CAPTURE_FILTER)]) as packet:
+            H.install_capture_filter(evidence)
+        self.assertEqual(packet.call_args_list[2].args, ('filter', 'add', H.CAPTURE_FILTER, '-i', H.DEST4))
+        self.assertTrue(evidence['filter']['confirmed'])
+
+    def test_capture_filter_install_refuses_listing_without_both_name_and_destination(self):
+        for listing in ('', H.CAPTURE_FILTER + '\n', H.DEST4 + '\n'):
+            evidence = {}
+            with self.subTest(listing=listing), patch.object(H, 'pktmon', side_effect=['', '', '', listing]), \
+                 self.assertRaisesRegex(RuntimeError, 'capture_filter_unconfirmed'):
+                H.install_capture_filter(evidence)
+            self.assertNotIn('filter', evidence)
+
+    def test_capture_filter_removal_tolerates_failed_remove_only_when_name_is_gone(self):
+        with patch.object(H, 'pktmon', side_effect=[RuntimeError('pktmon_operation_failed:none'), filter_listing()]) as packet:
+            self.assertTrue(H.remove_capture_filter())
+        self.assertEqual([call.args for call in packet.call_args_list], [('filter', 'remove'), ('filter', 'list')])
+        with patch.object(H, 'pktmon', side_effect=['', filter_listing(H.CAPTURE_FILTER)]), \
+             self.assertRaisesRegex(RuntimeError, 'capture_filter_remove_unconfirmed'):
+            H.remove_capture_filter()
+
+    def test_capture_filter_install_tolerates_failing_empty_listing_before_install(self):
+        evidence = {}
+        with patch.object(H, 'pktmon', side_effect=[RuntimeError('pktmon_operation_failed:There are no packet filters.'),
+                          '', '', filter_listing(H.CAPTURE_FILTER)]):
+            H.install_capture_filter(evidence)
+        self.assertTrue(evidence['filter_before'].startswith('listing_failed:'))
+        self.assertTrue(evidence['filter']['confirmed'])
+
+    def test_capture_filter_removal_reads_failing_listing_output_for_remaining_name(self):
+        with patch.object(H, 'pktmon', side_effect=['', RuntimeError('pktmon_operation_failed:no filters')]):
+            self.assertTrue(H.remove_capture_filter())
+        with patch.object(H, 'pktmon', side_effect=['', RuntimeError('pktmon_operation_failed:' + H.CAPTURE_FILTER)]), \
+             self.assertRaisesRegex(RuntimeError, 'capture_filter_remove_unconfirmed'):
+            H.remove_capture_filter()
+
+    def test_restore_removes_lease_named_filter_even_when_capture_never_started(self):
+        with tempfile.TemporaryDirectory() as work:
+            state = Path(work) / 'state.json'
+            H.write_json(state, {'capture': {'base': str(Path(work) / 'wire-never'), 'stopped': False,
+                                             'filter': H.CAPTURE_FILTER}})
+            with patch.object(H, 'pktmon', side_effect=['Packet Monitor is not running.', '', '']) as packet:
+                result = H.restore_capture(state)
+            self.assertEqual([call.args for call in packet.call_args_list],
+                             [('status',), ('filter', 'remove'), ('filter', 'list')])
+            self.assertIs(result['cli_metadata']['filter_removed'], True)
+            self.assertTrue(H.read_json(state)['capture']['stopped'])
+
+    def test_restore_stops_owned_capture_before_removing_named_filter(self):
+        with tempfile.TemporaryDirectory() as work:
+            state = Path(work) / 'state.json'
+            base = str(Path(work) / 'wire-owned')
+            H.write_json(state, {'capture': {'base': base, 'stopped': False, 'filter': H.CAPTURE_FILTER}})
+            active = 'Logger name: PktMon\nLog file: ' + base + '_0001.etl\n'
+            with patch.object(H, 'pktmon', side_effect=[active, 'ok', 'Packet Monitor is not running.', '',
+                                                        filter_listing()]) as packet:
+                self.assertIs(H.restore_capture(state)['cli_metadata']['filter_removed'], True)
+            self.assertEqual([call.args for call in packet.call_args_list],
+                             [('status',), ('stop',), ('status',), ('filter', 'remove'), ('filter', 'list')])
+
+    def test_restore_without_filter_lease_never_calls_filter_commands(self):
+        with tempfile.TemporaryDirectory() as work:
+            state = Path(work) / 'state.json'
+            H.write_json(state, {'capture': {'base': str(Path(work) / 'wire-never'), 'stopped': False}})
+            with patch.object(H, 'pktmon', side_effect=['Packet Monitor is not running.']) as packet:
+                result = H.restore_capture(state)
+            self.assertNotIn('filter_removed', result['cli_metadata'])
+            self.assertEqual([call.args for call in packet.call_args_list], [('status',)])
+
     def test_capture_metadata_exports_only_owned_basename_sizes_and_reported_loss_counts(self):
         base = Path('C:/ProgramData/private-run/wire-before')
         output = ('Log file: C:\\ProgramData\\private-run\\wire-before1.etl\n'
@@ -419,7 +505,9 @@ class HarnessPlanningTests(unittest.TestCase):
                     for index in range(count):
                         (work / ('wire-before' + str(index + 1) + '.etl')).write_bytes(b'x' * size)
                     return {'probe_executed': True}
-                with patch.object(H, 'pktmon', side_effect=['Logging mode: Multi-file\nMaximum file size: 16 MB',
+                # Filter list, remove, add and confirm run before the original start and buffer-info calls.
+                with patch.object(H, 'pktmon', side_effect=['', '', '', filter_listing(H.CAPTURE_FILTER),
+                         'Logging mode: Multi-file\nMaximum file size: 16 MB',
                          RuntimeError('unsupported optional flag with private output')]), \
                      patch.object(H, 'restore_capture', return_value={'stopped': True}) as restore, \
                      patch.object(H.time, 'sleep'), patch.object(H, 'MAX_CAPTURE', 8), \
@@ -482,6 +570,8 @@ class HarnessPlanningTests(unittest.TestCase):
                             output.write_bytes(capture([frame(6), frame(marker=marker)]))
                         elif not omit_second:
                             output.write_bytes(capture([]))
+                    elif arguments[:2] == ('filter', 'list'):
+                        return filter_listing(H.CAPTURE_FILTER)
                     elif arguments[0] == 'status':
                         return 'Events lost: 0\nBuffers lost: 0'
                     return ''
@@ -499,6 +589,58 @@ class HarnessPlanningTests(unittest.TestCase):
                         self.assertEqual(result['components']['3']['udp_marker'], 1)
                         self.assertEqual(result['components']['40']['packets_parsed'], 0)
                         self.assertEqual(len(result['captures']), 2)
+
+    def test_capture_filter_is_leased_then_installed_before_start(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            H.write_json(work / 'state.json', {})
+            calls, leases = [], []
+            def actor(_marker):
+                (work / 'wire-before1.etl').write_bytes(b'etl fixture')
+                return {'tcp': {'executed': True}, 'udp': {'executed': True}}
+            def packet(*arguments):
+                calls.append(arguments)
+                if arguments == ('filter', 'add', H.CAPTURE_FILTER, '-i', H.DEST4):
+                    leases.append(H.read_json(work / 'state.json')['capture'])
+                elif arguments[:2] == ('filter', 'list'):
+                    return filter_listing(H.CAPTURE_FILTER)
+                elif arguments[0] == 'etl2pcap':
+                    arguments[arguments.index('--out') + 1].write_bytes(capture([]))
+                elif arguments[0] == 'status':
+                    return 'Events lost: 0\nBuffers lost: 0'
+                return ''
+            with patch.object(H, 'pktmon', side_effect=packet), \
+                 patch.object(H, 'restore_capture', return_value=loss_evidence()['restore']), patch.object(H.time, 'sleep'):
+                result = H.capture_probe(work, 40, 'before', actor)
+        self.assertEqual(calls[:4], [('filter', 'list'), ('filter', 'remove'),
+                                     ('filter', 'add', H.CAPTURE_FILTER, '-i', H.DEST4), ('filter', 'list')])
+        self.assertEqual(calls[4][:2], ('start', '--capture'))
+        self.assertEqual(leases, [{'base': str(work / 'wire-before'), 'stopped': False, 'filter': H.CAPTURE_FILTER}])
+        self.assertTrue(result['capture_loss_verified'])
+
+    def test_capture_start_failure_still_removes_installed_filter_through_restore(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            H.write_json(work / 'state.json', {})
+            installed = []
+            def packet(*arguments):
+                if arguments[:2] == ('filter', 'add'):
+                    installed.append(arguments[2])
+                elif arguments[:2] == ('filter', 'remove'):
+                    installed.clear()
+                elif arguments[:2] == ('filter', 'list'):
+                    return filter_listing(*installed)
+                elif arguments[0] == 'start':
+                    raise RuntimeError('pktmon_operation_failed:start refused')
+                elif arguments[0] == 'status':
+                    return 'Packet Monitor is not running.'
+                return ''
+            with patch.object(H, 'pktmon', side_effect=packet), \
+                 self.assertRaisesRegex(H.CaptureEvidenceError, 'pktmon_operation_failed') as caught:
+                H.capture_probe(work, 40, 'before', lambda _marker: {'probe_executed': True})
+            self.assertEqual(installed, [])
+            self.assertIs(caught.exception.evidence['restore']['cli_metadata']['filter_removed'], True)
+            self.assertTrue(H.read_json(work / 'state.json')['capture']['stopped'])
 
     def test_scope_diagnostic_reports_exact_safety_fields_without_relaxing_rejection(self):
         from contextlib import contextmanager

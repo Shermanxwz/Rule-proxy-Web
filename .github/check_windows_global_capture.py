@@ -42,6 +42,7 @@ import uuid
 
 
 DEST4 = '203.0.113.77'
+CAPTURE_FILTER = 'RuleProxyCaptureDest'
 TUN4, TUN6 = '198.51.100.88', '2001:db8::88'
 TCP_PORT, UDP_PORT = 18080, 39177
 MAX_CAPTURE = 64 * 1024 * 1024
@@ -847,6 +848,47 @@ def capture_inventory(work, base):
             'matching_etl_bytes': matching_bytes, 'etl_logical_event_bytes_verified': False}
 
 
+def install_capture_filter(evidence):
+    """Report only frames to/from the single physical test destination.
+
+    The matcher counts only DEST4 frames, so other frames never influenced a
+    gate; positive controls pass through the same filter, so zero counts in
+    blocked phases cannot become vacuous. IP-only (no port) keeps non-initial
+    fragments visible. pktmon filters are global: this disposable harness
+    already owns the single pktmon session, and the prior listing is retained.
+    """
+    try:
+        evidence['filter_before'] = pktmon('filter', 'list')[-2000:]
+    except RuntimeError as error:
+        # The exit status of an empty listing is undocumented; keep the output.
+        evidence['filter_before'] = ('listing_failed:' + str(error))[-2000:]
+    try:
+        pktmon('filter', 'remove')
+    except RuntimeError:
+        pass  # Exit status with no filters is undocumented; presence is checked below.
+    pktmon('filter', 'add', CAPTURE_FILTER, '-i', DEST4)
+    listing = pktmon('filter', 'list')
+    if CAPTURE_FILTER not in listing or DEST4 not in listing:
+        raise RuntimeError('capture_filter_unconfirmed')
+    evidence['filter'] = {'name': CAPTURE_FILTER, 'ip': DEST4, 'confirmed': True}
+
+
+def remove_capture_filter():
+    try:
+        pktmon('filter', 'remove')
+    except RuntimeError:
+        pass
+    try:
+        listing = pktmon('filter', 'list')
+    except RuntimeError as error:
+        # An empty listing may exit non-zero; its bounded output still names any
+        # remaining filter, so the absence check below keeps its meaning.
+        listing = str(error)
+    if CAPTURE_FILTER in listing:
+        raise RuntimeError('capture_filter_remove_unconfirmed')
+    return True
+
+
 def restore_capture(state_path):
     state = read_json(state_path)
     lease = state.get('capture')
@@ -867,6 +909,8 @@ def restore_capture(state_path):
         evidence['status_after'] = capture_cli_metadata(status, base)
         if not capture_idle(status):
             raise RuntimeError('owned_capture_stop_unconfirmed')
+    if lease.get('filter'):
+        evidence['filter_removed'] = remove_capture_filter()
     state['capture']['stopped'] = True
     write_json(state_path, state)
     return {'stopped': True, 'owned_capture_created': True, 'cli_metadata': evidence}
@@ -1151,11 +1195,14 @@ def _capture_probe(work, component, phase, run_actor, evidence):
     marker = ('RuleProxyCapture:' + phase + ':' + secrets.token_hex(8)).encode('ascii')
     base = work / ('wire-' + phase)
     started = False
+    filtered = False
     state_path = work / 'state.json'
     state = read_json(state_path)
-    state['capture'] = {'base': str(base), 'stopped': False}
+    state['capture'] = {'base': str(base), 'stopped': False, 'filter': CAPTURE_FILTER}
     write_json(state_path, state)
     try:
+        install_capture_filter(evidence)
+        filtered = True
         output = pktmon('start', '--capture', '--comp', ','.join(map(str, components)), '--pkt-size', 0,
                         '--file-name', str(base) + '.etl', '--file-size', 16, '--log-mode', 'multi-file')
         evidence['start'] = capture_cli_metadata(output, base)
@@ -1175,6 +1222,8 @@ def _capture_probe(work, component, phase, run_actor, evidence):
             finally:
                 evidence['restore'] = restore_capture(state_path)
             evidence['inventory_after_stop'] = capture_inventory(work, base)
+        elif filtered:
+            evidence['restore'] = restore_capture(state_path)
     time.sleep(.2)  # One bounded observation of post-stop filesystem visibility.
     inventory = evidence['inventory_after_flush_wait'] = capture_inventory(work, base)
     sources = sorted(work.glob(base.name + '*.etl'))
