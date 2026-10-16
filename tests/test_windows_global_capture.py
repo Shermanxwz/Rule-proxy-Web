@@ -182,7 +182,7 @@ class HarnessPlanningTests(unittest.TestCase):
         value.provider = H.ctypes.pointer(key)
         value.layer = guard._GUID.of(guard._LAYERS[6])
         value.sublayer = guard._GUID.of(owned.sublayer)
-        value.flags, value.count = 65, 1
+        value.flags, value.count = 97, 1
         @contextmanager
         def get(kind, identity, structure):
             yield value if str(identity) == value.key.text() else None
@@ -192,7 +192,7 @@ class HarnessPlanningTests(unittest.TestCase):
         diagnostic = json.loads(str(caught.exception).split(':', 1)[1])
         self.assertEqual(len(diagnostic), 1)
         row = diagnostic[0]
-        self.assertEqual(row['flags'], 65)
+        self.assertEqual(row['flags'], 97)
         self.assertEqual(row['expected_flags'], 1)
         self.assertTrue(all(row[field] for field in ('marker_matches', 'provider_matches',
             'sublayer_matches', 'layer_matches')))

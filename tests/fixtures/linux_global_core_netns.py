@@ -145,6 +145,19 @@ def helper():
         app.stdin.write(json.dumps({'operation':operation,**fields})+'\n');app.stdin.flush()
         if not select.select([app.stdout],[],[],5)[0]:raise RuntimeError('ordinary-user probe timed out')
         return json.loads(app.stdout.readline())['result']
+    def core_log_tail():
+        log=lease.directory/'core.log'
+        if not log.exists():return ''
+        tail=log.read_bytes()[-3500:].decode('utf-8','replace')
+        if lease.controller_secret:tail=tail.replace(lease.controller_secret,'[redacted]')
+        return tail
+    def network_fact(arguments):
+        result=lease.system.run('ip',arguments,check=False)
+        raw=result.stdout[:3000].decode('utf-8','replace')
+        try:value=json.loads(raw)
+        except ValueError:value=raw
+        return {'exit_code':result.returncode,'value':value,
+                'stderr':result.stderr[:500].decode('utf-8','replace')}
     try:
         for line in sys.stdin:
             request=json.loads(line);operation=request['operation']
@@ -167,18 +180,27 @@ def helper():
                 elif operation=='kill_core':
                     lease.core.kill();lease.core.wait(timeout=5);lease.watch();result=lease.snapshot()
                 elif operation=='status':result=lease.snapshot()
+                elif operation=='diagnostics':
+                    links=lease.system.json('ip',['-j','address','show'])
+                    rules=lease.system.json('ip',['-j','-6','rule','show'])
+                    result={'lease':lease.snapshot(),'app_error':application('diagnostics'),
+                            'interfaces':[{'name':row.get('ifname'),'flags':row.get('flags'),
+                                           'addresses':[{key:item.get(key) for key in ('family','local','prefixlen')}
+                                                        for item in row.get('addr_info',[])]} for row in links],
+                            'owned_v6_rules':[row for row in rules if runtime.RULE_PRIORITY<=int(row.get('priority',-1))
+                                              <=runtime.RULE_PRIORITY+runtime.RULE_SPAN],
+                            'v6_route_get':network_fact(['-j','-6','route','get',TARGET6]),
+                            'v6_route_get_original_source':network_fact(['-j','-6','route','get',TARGET6,'from',APP6]),
+                            'v6_owned_routes':network_fact(['-j','-6','route','show','table',str(runtime.ROUTE_TABLE)]),
+                            'core_log_tail':core_log_tail()}
                 elif operation=='stop_capture':result=lease.stop()
                 elif operation=='quit':break
                 else:raise RuntimeError('unknown fixture operation')
                 print(json.dumps({'ok':True,'result':result}),flush=True)
             except Exception as error:
-                log=lease.directory/'core.log';tail=''
-                if log.exists():
-                    tail=log.read_bytes()[-4000:].decode('utf-8','replace')
-                    if lease.controller_secret:tail=tail.replace(lease.controller_secret,'[redacted]')
                 print(json.dumps({'ok':False,'type':type(error).__name__,
                                   'detail':str(error) if isinstance(error,runtime.GlobalRuntimeError) else 'fixture operation failed',
-                                  'core_log_tail':tail}),flush=True)
+                                  'core_log_tail':core_log_tail()}),flush=True)
     finally:
         if lease.guard or lease.journal.exists():lease.stop()
         if app and app.poll() is None:
@@ -239,7 +261,12 @@ def main():
         private_path=str(directory/'lease'/('state-'+str(uid))/'config.yaml')
         assert not app('read_private',path=private_path),'ordinary user could read privileged controller credentials'
         for version,address in ((4,TARGET4),(6,TARGET6)):
-            for operation in ('tcp','udp'):assert app(operation,version=version,address=address),('captured',operation,version)
+            for operation in ('tcp','udp'):
+                if not app(operation,version=version,address=address):
+                    diagnostics=rpc('diagnostics')
+                    with node.lock:diagnostics['node_counts']=dict(node.counts)
+                    raise AssertionError(json.dumps({'phase':'captured','operation':operation,'version':version,
+                                                     'diagnostics':diagnostics},sort_keys=True))
         assert app('loopback')
         for peer in incoming:peer.sendall(b'alive');assert peer.recv(5)==b'alive','pre-existing inbound reply lost'
         before=node.counts['dns_doh_rejected'];app('dns',version=4,address=DNS4,port=53)

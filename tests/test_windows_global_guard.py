@@ -328,5 +328,40 @@ class NativeGuardPersistentObjectExperiment(unittest.TestCase):
               'packet, RDP, TUN, competing-provider and reboot qualification remains incomplete.')
 
 
+class ReadbackFlagCompatibilityTests(unittest.TestCase):
+    def readback(self, flags, *, marker_matches=True):
+        owned = guard.Guard(metadata())
+        value = guard._Filter()
+        provider = guard._GUID.of(owned.provider)
+        value.key = guard._GUID.of(owned._rule_key(6, 'block'))
+        value.display = guard._Display('guard', owned.marker if marker_matches else 'foreign')
+        value.provider = ctypes.pointer(provider)
+        value.layer = guard._GUID.of(guard._LAYERS[6])
+        value.sublayer = guard._GUID.of(owned.sublayer)
+        value.flags, value.count, value.action.type = flags, 0, guard._BLOCK
+        value.weight.type, value.weight.value.u8 = 1, 0
+        @contextmanager
+        def get(kind, identity, structure):
+            yield value if str(identity) == value.key.text() else None
+        return owned._filters(SimpleNamespace(get=get))
+
+    def test_bfe_indexed_annotation_preserves_exact_persistent_policy(self):
+        expected = {(6, 'block'): (guard._BLOCK, 1, 0, ())}
+        for flags in (guard._PERSISTENT, guard._PERSISTENT | guard._INDEXED):
+            with self.subTest(flags=flags):
+                self.assertEqual(self.readback(flags), expected)
+
+    def test_disabled_clear_action_right_missing_persistence_and_unknown_bits_rejected(self):
+        for flags in (0, 0x40, 0x21, 0x61, 0x09, 0x49, 0x81, 0x101, 0x80000001):
+            with self.subTest(flags=flags), self.assertRaises(ProxyError) as caught:
+                self.readback(flags)
+            self.assertEqual(caught.exception.code, 'global_guard_conflict')
+
+    def test_indexed_never_excuses_marker_identity_mismatch(self):
+        with self.assertRaises(ProxyError) as caught:
+            self.readback(0x41, marker_matches=False)
+        self.assertEqual(caught.exception.code, 'global_guard_conflict')
+
+
 if __name__ == '__main__':
     unittest.main()

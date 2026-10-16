@@ -38,7 +38,10 @@ from .windows_proxy_policy import HASH_RE, SID_RE, SERVICE_NAME, ProxyError
 _P = C.c_void_p
 _U8, _U16, _U32, _U64 = C.c_uint8, C.c_uint16, C.c_uint32, C.c_uint64
 _BLOCK, _PERMIT = 0x1001, 0x1002
-_PERSISTENT, _DISABLED = 1, 0x20
+# Readback may include BFE's INDEXED optimization flag. All behavioral bits
+# (including DISABLED and CLEAR_ACTION_RIGHT) remain exact and are rejected.
+# https://learn.microsoft.com/en-us/windows/win32/api/fwpmtypes/ns-fwpmtypes-fwpm_filter0#members
+_PERSISTENT, _DISABLED, _INDEXED = 1, 0x20, 0x40
 _NOT_FOUND = {'Filter': 0x80320003, 'Layer': 0x80320004,
               'Provider': 0x80320005, 'SubLayer': 0x80320007}
 _TUN_NAME = 'RuleProxyTun'
@@ -501,7 +504,7 @@ class Guard:
                         or value.provider.contents.text() != str(self.provider)
                         or value.sublayer.text() != str(self.sublayer)
                         or value.layer.text() != _LAYERS[family]
-                        or value.flags != _PERSISTENT or value.count > 16):
+                        or (value.flags & ~_INDEXED) != _PERSISTENT or value.count > 16):
                     raise ProxyError('global_guard_conflict', '自有 WFP 规则身份冲突，未修改现有规则。')
                 conditions = tuple((value.conditions[index].field.text(), value.conditions[index].match,
                     value.conditions[index].value.type, _data(value.conditions[index].value))
