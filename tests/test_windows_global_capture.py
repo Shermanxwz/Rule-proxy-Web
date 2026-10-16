@@ -676,7 +676,30 @@ class HarnessPlanningTests(unittest.TestCase):
                 instance.stop.assert_called_once_with()
                 terminated.assert_called_once()
                 packet.assert_not_called()
-                self.assertNotIn('NetRoute', str(powershell.call_args_list))
+                scripts = str(powershell.call_args_list)
+                self.assertNotRegex(scripts, r'(?:New|Set|Remove|Enable|Disable)-Net')
+                self.assertNotIn('203.0.113.77/32', scripts)
+                self.assertIn('native_ipv6_before_core', value)
+                self.assertIn('native_ipv6_after_start', value)
+
+    def test_native_ipv6_diagnostics_are_read_only_bounded_and_return_only_compact_summary(self):
+        summary = {'available': True, 'global_unicast_ipv6_count': 0,
+                   'non_tun_global_unicast_ipv6_count': 0, 'tun_present': False,
+                   'default_routes': [], 'interfaces': [], 'disabled_components': {'present': False, 'dword': None}}
+        with patch.object(H, 'ps', return_value=json.dumps(summary)) as powershell:
+            self.assertEqual(H.native_ipv6_diagnostics(), summary)
+        script = powershell.call_args.args[0]
+        self.assertEqual(powershell.call_args.kwargs['timeout'], 8)
+        self.assertIn('Get-NetIPAddress', script)
+        self.assertIn('Get-NetIPInterface', script)
+        self.assertIn('Get-NetRoute', script)
+        self.assertIn("$present=(@($registry.GetValueNames()) -contains 'DisabledComponents')", script)
+        self.assertNotRegex(script, r'(?:New|Set|Remove|Enable|Disable)-Net|Set-Item|\.SetValue\(')
+        self.assertNotIn('IPAddress=[', script)
+        with patch.object(H, 'ps', side_effect=RuntimeError('private host details')):
+            failed = H.native_ipv6_diagnostics()
+        self.assertFalse(failed['available'])
+        self.assertNotIn('private', json.dumps(failed))
 
     def test_dns_restore_failure_keeps_guard_and_does_not_restart_service(self):
         from ruleproxy import windows_proxy_service as service
@@ -725,6 +748,15 @@ class HarnessPlanningTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == 'nt', 'native in-memory Windows ACL constructor')
 class NativeAclConstructorTests(unittest.TestCase):
+    def test_native_ipv6_classifier_includes_ula_and_documentation_but_excludes_local_addresses(self):
+        # Execute the exact production PowerShell classifier with synthetic
+        # literals only. No host network query or registry access occurs.
+        with patch.object(H, 'ps', return_value='{}') as powershell:
+            H.native_ipv6_diagnostics()
+        script = powershell.call_args.args[0].split('$addresses=', 1)[0]
+        script += "$result=@('fdfe:dcba:8879::1','2001:db8::88','fe80::1','::1','ff02::1','::','::ffff:192.0.2.1','::ffff:127.0.0.1')|ForEach-Object {Is-Unicast6 $_}|ConvertTo-Json -Compress"
+        self.assertEqual(json.loads(H.ps(script, timeout=8)), [True, True, False, False, False, False, False, False])
+
     def test_acl_contains_real_system_admin_sid_objects_without_account_name_lookup(self):
         # Construct and inspect only: no filesystem ACL/network mutation.
         script = H.private_acl_script() + ("$result=@($acl.GetAccessRules($true,$true,"

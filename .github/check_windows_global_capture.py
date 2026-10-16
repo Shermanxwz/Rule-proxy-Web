@@ -1247,10 +1247,69 @@ def private_acl_script():
         "'ContainerInherit,ObjectInherit','None','Allow')))};")
 
 
+def native_ipv6_diagnostics():
+    """Bounded read-only address/route facts; never export host IP inventories."""
+    script = r"""
+function Is-Unicast6($text) {
+  $ip=[Net.IPAddress]::Parse([string]$text)
+  # Mihomo tests Unmap().Is6() before IsGlobalUnicast(): mapped IPv4 is excluded.
+  return ($ip.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetworkV6 -and
+    -not $ip.IsIPv6Multicast -and -not $ip.IsIPv6LinkLocal -and -not $ip.IsIPv4MappedToIPv6 -and
+    -not $ip.Equals([Net.IPAddress]::IPv6Any) -and -not $ip.Equals([Net.IPAddress]::IPv6Loopback))
+}
+$addresses=@(Get-NetIPAddress -AddressFamily IPv6 -PolicyStore ActiveStore -ErrorAction Stop)
+$tun=@(Get-NetAdapter -Name 'RuleProxyTun' -ErrorAction SilentlyContinue)
+if($tun.Count -gt 1){throw 'ambiguous fixed tun'}
+$tunIndex=if($tun.Count -eq 1){[int]$tun[0].ifIndex}else{-1}
+$global=@($addresses|Where-Object {Is-Unicast6 $_.IPAddress})
+$tunAddresses=@($addresses|Where-Object {$_.InterfaceIndex -eq $tunIndex})
+$fixed=@($tunAddresses|Where-Object {$_.IPAddress -eq 'fdfe:dcba:8879::1'})
+$routes=@(Get-NetRoute -AddressFamily IPv6 -PolicyStore ActiveStore -ErrorAction Stop|
+  Where-Object {$_.DestinationPrefix -in @('::/0','::/1','8000::/1')})
+$routeRows=@($routes|Sort-Object DestinationPrefix,InterfaceIndex,RouteMetric|Select-Object -First 8|ForEach-Object {
+  $next=[Net.IPAddress]::Parse([string]$_.NextHop)
+  $kind=if($next.Equals([Net.IPAddress]::IPv6Any)){'on_link'}elseif($next.IsIPv6LinkLocal){'link_local'}else{'other'}
+  @{prefix=[string]$_.DestinationPrefix;interface_index=[int]$_.InterfaceIndex;is_tun=($_.InterfaceIndex -eq $tunIndex);
+    metric=[int]$_.RouteMetric;next_hop_kind=$kind}
+})
+$wanted=@($routes|ForEach-Object {[int]$_.InterfaceIndex})+@($tunIndex)
+$interfaces=@(Get-NetIPInterface -AddressFamily IPv6 -PolicyStore ActiveStore -ErrorAction Stop|
+  Where-Object {$_.InterfaceIndex -in $wanted})
+$interfaceRows=@($interfaces|Sort-Object InterfaceIndex|Select-Object -First 8|ForEach-Object {
+  @{interface_index=[int]$_.InterfaceIndex;is_tun=($_.InterfaceIndex -eq $tunIndex);
+    connected=($_.ConnectionState -eq 'Connected');mtu=[int]$_.NlMtu;metric=[int]$_.InterfaceMetric}
+})
+$registry=Get-Item -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters' -ErrorAction Stop
+$present=(@($registry.GetValueNames()) -contains 'DisabledComponents')
+$disabled=@{present=$present;dword=$null}
+if($present){
+  if($registry.GetValueKind('DisabledComponents') -ne [Microsoft.Win32.RegistryValueKind]::DWord){throw 'unexpected IPv6 registry type'}
+  $disabled.dword=[long]$registry.GetValue('DisabledComponents') -band 4294967295L
+}
+$result=@{available=$true;active_ipv6_address_count=$addresses.Count;global_unicast_ipv6_count=$global.Count;
+  non_tun_global_unicast_ipv6_count=@($global|Where-Object {$_.InterfaceIndex -ne $tunIndex}).Count;
+  tun_present=($tunIndex -gt 0);tun_ipv6_address_count=$tunAddresses.Count;fixed_tun_ipv6_present=($fixed.Count -eq 1);
+  fixed_tun_ipv6_preferred=(@($fixed|Where-Object {$_.AddressState -eq 'Preferred'}).Count -eq 1);
+  fixed_tun_ipv6_prefix_126=(@($fixed|Where-Object {$_.PrefixLength -eq 126}).Count -eq 1);
+  default_route_count=$routes.Count;tun_default_route_count=@($routes|Where-Object {$_.InterfaceIndex -eq $tunIndex}).Count;
+  default_routes=$routeRows;route_rows_truncated=($routes.Count -gt 8);interfaces=$interfaceRows;
+  interface_rows_truncated=($interfaces.Count -gt 8);disabled_components=$disabled}|ConvertTo-Json -Depth 5 -Compress
+"""
+    try:
+        value = json.loads(ps(script, timeout=8))
+        if not isinstance(value, dict) or value.get('available') is not True:
+            raise ValueError('ipv6_diagnostic_schema')
+        return value
+    except Exception as error:
+        return {'available': False, 'code': 'native_ipv6_diagnostics_unavailable', 'error_type': type(error).__name__}
+
+
 def startup_smoke(root, native, metadata, source, fixture, work, report, budget):
     """Real TUN startup/echo lifecycle only; never a physical no-leak proof."""
     from ruleproxy.windows_global_guard import Guard
     from ruleproxy.windows_global_dns import DnsLease
+    budget.stage('ipv6_native_before_core')
+    report['native_ipv6_before_core'] = native_ipv6_diagnostics()
     budget.stage('global_start')
     budget.require(90)
     started = native.start(source, secrets.token_urlsafe(24), unused_port(), unused_port(),
@@ -1262,6 +1321,8 @@ def startup_smoke(root, native, metadata, source, fixture, work, report, budget)
     identity = require_owned_identity(started['pid'], core)
     write_json(work / 'core-owned.json', identity)
     budget.require(1)
+    budget.stage('ipv6_native_after_start')
+    report['native_ipv6_after_start'] = native_ipv6_diagnostics()
     budget.stage('tun_identity_readback')
     report['tun_identity'] = tun_identity_receipt(started)
     if not (report['tun_identity']['identity_matches'] and report['tun_identity']['start_guard_tun_ready']):

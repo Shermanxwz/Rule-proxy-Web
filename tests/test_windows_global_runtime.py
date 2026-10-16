@@ -151,6 +151,24 @@ class GlobalCoreTests(unittest.TestCase):
         self.assertEqual(names, ["validate", "guard_apply", "dns_apply", "launch", "guard_apply"])
         self.assertEqual(self.guard.applies, 2)
 
+    def test_global_validation_and_core_use_fixed_ipv6_override_without_mutating_service_env(self):
+        with mock.patch.dict(service.os.environ, {"SKIP_SYSTEM_IPV6_CHECK": "false", "RULEPROXY_ENV_FIXTURE": "kept"}):
+            before = dict(service.os.environ)
+            self.core.start(fields())
+            validation_env = self.validator.call_args.kwargs["env"]
+            launched_env = self.launch.call_args.args[1]
+            self.assertTrue(validation_env == {**before, "SKIP_SYSTEM_IPV6_CHECK": "true"}, "unexpected global environment")
+            self.assertTrue(launched_env == validation_env, "validation and runtime environments differ")
+            self.assertTrue(dict(service.os.environ) == before, "service environment changed")
+            self.assertIsNot(launched_env, service.os.environ)
+
+    def test_global_ipv6_override_stays_out_of_environment_inherited_by_other_children(self):
+        with mock.patch.dict(service.os.environ):
+            service.os.environ.pop("SKIP_SYSTEM_IPV6_CHECK", None)
+            self.core.start(fields())
+            self.assertEqual(self.launch.call_args.args[1]["SKIP_SYSTEM_IPV6_CHECK"], "true")
+            self.assertNotIn("SKIP_SYSTEM_IPV6_CHECK", service.os.environ)
+
     def test_explicit_stop_removes_guard_after_confirmed_core_exit(self):
         self.core.start(fields())
         result = self.core.stop()
@@ -518,6 +536,7 @@ class GlobalProtocolTests(unittest.TestCase):
         self.assertEqual(policy.decode_request(json.dumps(request).encode()), request)
         for change in ({"command": "whoami"}, {"executable": r"C:\Users\x\evil.exe"},
                        {"directory": r"C:\Users\x"}, {"mixed_port": True},
+                       {"env": {"SKIP_SYSTEM_IPV6_CHECK": "false"}},
                        {"controller_port": 80}, {"controller_port": 28009},
                        {"require_strict": 1}, {"source": "x\0"}, {"op": []}):
             with self.subTest(change=change), self.assertRaises(policy.ProxyError):

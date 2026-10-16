@@ -45,6 +45,13 @@ RULE_SPAN = MAX_PEERS + 5
 MAX_REQUEST = 6 * 1024 * 1024
 MAX_RESPONSE = 256 * 1024
 TOOLS = {"nft": "/usr/sbin/nft", "ip": "/usr/sbin/ip", "pkexec": "/usr/bin/pkexec"}
+_SYSTEM_ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"}
+# Preserve our fixed TUN IPv6 address even on an IPv4-only underlay. The pinned
+# core otherwise removes it before creating the interface. Only the global
+# core's validation/launch use this override; network tools retain _SYSTEM_ENV.
+# https://github.com/MetaCubeX/mihomo/blob/v1.19.32/config/utils.go#L191-L209
+# https://github.com/MetaCubeX/mihomo/blob/v1.19.32/config/config.go#L1587-L1591
+_GLOBAL_CORE_ENV = {**_SYSTEM_ENV, "SKIP_SYSTEM_IPV6_CHECK": "true"}
 LIMITATIONS = [
     "整机全局接管包括 IPv4、IPv6、TCP、UDP 与进入 TUN 的 DNS；节点自身承载和初始解析需要直接出站。",
     "本地回环、DHCP、IPv6 邻居发现，以及启用前已存在的入站连接回复是明确的直接通信例外。",
@@ -368,7 +375,7 @@ class System:
             _fail("unsafe_component", "受保护的全局组件所有权或权限无效。")
         result = subprocess.run([path, *arguments], input=data, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, timeout=15, cwd="/",
-                                env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"})
+                                env=dict(_GLOBAL_CORE_ENV if name == "core" else _SYSTEM_ENV))
         if check and result.returncode:
             _fail("network_command_failed", "受保护的网络操作失败；阻断保护如已建立将保持。")
         return result
@@ -577,7 +584,7 @@ class Lease:
             try:
                 self.core = subprocess.Popen([str(CORE), "-d", str(self.directory), "-f", str(config_path)],
                                              stdin=subprocess.DEVNULL, stdout=log, stderr=log,
-                                             cwd="/", env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"},
+                                             cwd="/", env=dict(_GLOBAL_CORE_ENV),
                                              start_new_session=True, preexec_fn=parent_death_signal)
             finally:
                 log.close()

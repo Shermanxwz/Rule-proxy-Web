@@ -36,6 +36,12 @@ else:
 ProxyError = policy.ProxyError
 _LOG_LOCK = threading.Lock()
 _LOG_LIMIT = 256 * 1024
+# The pinned core otherwise removes our configured TUN IPv6 address when the
+# host has no pre-existing global/ULA IPv6 interface. Apply only to the two
+# service-owned global-core children; never change the service/desktop env.
+# https://github.com/MetaCubeX/mihomo/blob/v1.19.32/config/utils.go#L191-L209
+# https://github.com/MetaCubeX/mihomo/blob/v1.19.32/config/config.go#L1587-L1591
+_GLOBAL_CORE_ENV = {"SKIP_SYSTEM_IPV6_CHECK": "true"}
 
 
 def _log_service_error(context, error):
@@ -808,10 +814,13 @@ class GlobalCore:
         text = yaml.safe_dump(compiled.config, allow_unicode=True, sort_keys=False)
         configuration = self._write(text)
         command = [str(self.executable), "-d", str(self.directory), "-f", str(configuration)]
+        child_env = dict(os.environ)
+        child_env.update(_GLOBAL_CORE_ENV)
         validation = self._validator or subprocess.run
         checked = validation([command[0], "-t", *command[1:]], stdin=subprocess.DEVNULL,
                              stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, timeout=12,
-                             cwd=str(self.root), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                             cwd=str(self.root), env=child_env,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if checked.returncode:
             raise ProxyError("invalid_config", "固定 Mihomo 未通过全局配置校验，未启动 TUN。")
         self.management_exceptions = exceptions
@@ -828,7 +837,7 @@ class GlobalCore:
             if launcher is None:
                 from ruleproxy.windows_app_process import launch
                 launcher = launch
-            self.process = launcher(command, dict(os.environ), str(self.root))
+            self.process = launcher(command, child_env, str(self.root))
             deadline = time.monotonic() + 8
             health = self._health or self._controller_ready
             while time.monotonic() < deadline and self.process.poll() is None:

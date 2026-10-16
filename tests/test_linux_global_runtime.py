@@ -141,6 +141,18 @@ class PureGlobalTests(unittest.TestCase):
             status=runtime.Runtime().status()
             self.assertTrue(status['setup_required']);self.assertFalse(status['supported']);run.assert_not_called()
 
+    def test_core_validation_preserves_fixed_ipv6_without_giving_override_to_network_tools(self):
+        fixed = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"}
+        with patch.dict(runtime.os.environ, {"SKIP_SYSTEM_IPV6_CHECK": "false", "RULEPROXY_ENV_FIXTURE": "ignored"}), \
+                patch.object(runtime, '_trusted', return_value=True), \
+                patch.object(runtime.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'', b'')) as run:
+            system = runtime.System()
+            system.run('core', ['-t', '-f', '/fixed/config.yaml'])
+            self.assertEqual(run.call_args.kwargs['env'], {**fixed, 'SKIP_SYSTEM_IPV6_CHECK': 'true'})
+            system.run('ip', ['-j', 'link', 'show'])
+            self.assertEqual(run.call_args.kwargs['env'], fixed)
+            self.assertEqual(runtime.os.environ['SKIP_SYSTEM_IPV6_CHECK'], 'false')
+
 
 class LeaseTests(unittest.TestCase):
     def setUp(self):
@@ -224,6 +236,13 @@ class LeaseTests(unittest.TestCase):
         call=runtime.subprocess.Popen.call_args
         self.assertTrue(call.kwargs['start_new_session'])
         self.assertTrue(callable(call.kwargs['preexec_fn']))
+
+    def test_global_core_launch_uses_same_fixed_ipv6_environment_as_validation(self):
+        with patch.dict(runtime.os.environ, {"SKIP_SYSTEM_IPV6_CHECK": "false", "RULEPROXY_ENV_FIXTURE": "ignored"}):
+            self.lease.start(self.payload)
+            self.assertEqual(runtime.subprocess.Popen.call_args.kwargs['env'],
+                {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C", "SKIP_SYSTEM_IPV6_CHECK": "true"})
+            self.assertEqual(runtime.os.environ['SKIP_SYSTEM_IPV6_CHECK'], 'false')
 
     def test_bad_owner_rejected_before_firewall_or_core(self):
         self.payload['owner_start']='reused'
