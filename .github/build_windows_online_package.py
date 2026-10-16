@@ -15,6 +15,7 @@ offline = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(offline)
 
 EXTRA_SOURCES = ('install_runtime.py', '.github/build_windows_package.py')
+QUALIFICATION_SOURCE = 'ruleproxy/windows-global-qualification.json'
 ALLOWED_SUFFIXES = {'.py', '.cmd', '.ps1', '.md', '.txt', '.html', '.css', '.js', '.xml'}
 
 
@@ -29,7 +30,7 @@ def project_files() -> list[str]:
                 or '__pycache__' in relative.parts
                 or any(part.startswith('.') for part in relative.parts) and name != EXTRA_SOURCES[1]
                 or relative.suffix.lower() not in ALLOWED_SUFFIXES
-                and name not in ('LICENSE', *offline.BUNDLED_LICENSE_SOURCES)):
+                and name not in ('LICENSE', QUALIFICATION_SOURCE, *offline.BUNDLED_LICENSE_SOURCES)):
             raise ValueError('Ineligible online package source: ' + name)
         path = ROOT
         for part in relative.parts:

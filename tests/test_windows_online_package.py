@@ -18,6 +18,25 @@ SPEC.loader.exec_module(builder)
 
 
 class WindowsOnlinePackageTests(unittest.TestCase):
+    def test_only_the_fixed_release_qualification_json_can_enter_the_online_source_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            receipt = root / builder.QUALIFICATION_SOURCE
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text('{"accepted": false}', encoding='utf-8')
+            private = root / 'ruleproxy/private.json'
+            private.write_text('{"private": true}', encoding='utf-8')
+            for name in builder.EXTRA_SOURCES:
+                source = root / name
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text('# bootstrap fixture\n', encoding='utf-8')
+            with mock.patch.object(builder, 'ROOT', root):
+                with mock.patch.object(builder.offline, 'project_files', return_value=[builder.QUALIFICATION_SOURCE]):
+                    self.assertEqual(builder.project_files(), sorted([builder.QUALIFICATION_SOURCE, *builder.EXTRA_SOURCES]))
+                with mock.patch.object(builder.offline, 'project_files', return_value=['ruleproxy/private.json']), \
+                        self.assertRaises(ValueError):
+                    builder.project_files()
+
     def test_complete_bootstrap_layout_and_exact_source_bytes_without_downloads(self):
         with tempfile.TemporaryDirectory() as directory, \
                 mock.patch.object(builder.offline, 'download', side_effect=AssertionError('online packaging must not download')), \

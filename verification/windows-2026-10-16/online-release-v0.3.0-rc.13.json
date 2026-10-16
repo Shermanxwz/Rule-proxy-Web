@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "status": "audited_release_candidate",
+  "release_tag": "v0.3.0-rc.13",
+  "source_base_commit": "c31de518aa58d7f24a5f947af9ed1584d9a37c80",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "066f9b37216c1bbf3930e1a51199dcf1ab5be471f326c4363830ad5e877cdada",
+    "bytes": 296291
+  },
+  "source_files": 53,
+  "archive_members": 55,
+  "prior_release": "v0.3.0-rc.12",
+  "change": "Fix actual Windows native launcher deleting controlled CLI proxy inheritance; preserve global TUN IPv6 on IPv4-only underlays; admit only protected release-reviewed global runtime qualification while shipping no accepted receipt.",
+  "personal_yaml_or_nodes_included": false,
+  "runtime_state_or_profiles_included": false,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "archive_audit": {
+    "manifest": "RuleProxy-Web/release-source.json",
+    "manifest_sha256": "cf365419232be120d4701d3cfd6a4fc3918cf164ae9e78cb779faa88d5bc8c63",
+    "manifest_source_hashes_verified": 53,
+    "manifest_generated_hashes_verified": 1,
+    "all_members_accounted_for": true,
+    "source_bytes_match_source_base_commit": true,
+    "source_comparison_normalization": "CMD line endings only, normalized to CRLF",
+    "unsafe_paths_duplicate_paths_or_symlinks_found": false,
+    "fixed_archive_timestamp_and_regular_file_mode_verified": true,
+    "user_yaml_third_party_binaries_or_runtime_state_found": false,
+    "accepted_global_qualification_receipt_found": false
+  },
+  "local_validation": {
+    "python_sources_compiled_in_memory": 38,
+    "static_internal_import_statements_checked": 84,
+    "unresolved_internal_imports": 0,
+    "isolated_extracted_bootstrap_help_exit_code": 0,
+    "downloads_or_system_installation_performed": false,
+    "failures": 0
+  },
+  "ci_validation": {
+    "tested_source_commit": "c31de518aa58d7f24a5f947af9ed1584d9a37c80",
+    "main_check": 38951955917,
+    "main_check_conclusion": "success",
+    "local_tests": 1428,
+    "local_failures": 0,
+    "local_skipped": 78,
+    "windows_tests_per_python_version": 1428,
+    "windows_failures": 0,
+    "windows_skipped_per_python_version": 108,
+    "native_workflow": 38951969738,
+    "server_installed_ordinary_product_job": 117145519114,
+    "global_startup_dns_job": 117145519190,
+    "required_publication_checks": "Matching tag Check and uploaded ZIP hash must succeed before publication."
+  },
+  "native_server_product": {
+    "passed": true,
+    "offline_zip_sha256": "76cd72531c1b66cb7660c8f0a3f73be782c661dfae9b765673024ccc0c083ff1",
+    "manifest_files_verified": 123,
+    "ordinary_checks_passed": 42,
+    "controller_checks_passed": 3,
+    "traffic_phases_verified": 17,
+    "ordinary_native_launcher_child_grandchild_explicit_proxy_verified": true,
+    "install_repair_uninstall_and_reinstall_verified": true
+  },
+  "global_qualification": {
+    "windows_strict_qualified": false,
+    "accepted_receipt_shipped": false,
+    "strict_global_start_enabled_in_ui": false,
+    "native_server_dual_stack_tcp_udp_smoke_passed": true,
+    "native_server_successful_default_and_dual_stack_dns_with_failure_and_restoration_controls_passed": true,
+    "windows_11_qualified": false,
+    "scope_record": "verification/windows-global-2026-10-17/native-qualification.json",
+    "linux_actual_global_kernel_tests_passed": true
+  },
+  "known_limitations": [
+    "This is a prerelease candidate, not a completed native Windows 11 or Linux-equivalent isolation qualification.",
+    "Windows strict global startup remains disabled; no accepted qualification receipt is bundled.",
+    "The bounded Windows 11 fixture failed TLS certificate-chain preflight before TUN and timed out querying NRPT during uninstall; the VM route was stopped without inferring a TUN architecture failure.",
+    "Per-application DNS, IPv6 fragments and engine-failure direct connectivity remain existing ProxiFyre limitations.",
+    "The new ordinary-user proof covers installed native launcher environment inheritance and two independent loopback HTTP transactions, not real ChatGPT OAuth, public exit identity or arbitrary application child behavior."
+  ]
+}
