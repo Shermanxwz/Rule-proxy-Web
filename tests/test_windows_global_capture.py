@@ -599,6 +599,85 @@ class HarnessPlanningTests(unittest.TestCase):
         with patch.object(H.os, 'name', 'posix'), self.assertRaisesRegex(RuntimeError, 'explicit_disposable_windows_ack_required'):
             H.run(SimpleNamespace(ack_disposable_windows=True))
 
+    def test_startup_smoke_uses_real_start_lifecycle_without_capture_and_cannot_claim_full_acceptance(self):
+        from contextlib import ExitStack
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from ruleproxy import windows_proxy_service as service
+        from ruleproxy import windows_global_runtime as runtime
+        from ruleproxy import windows_global_guard as guard
+        from ruleproxy import windows_global_dns as dns
+        from ruleproxy import windows_proxy_client as client
+        for failure in (None, 'echo', 'receiver', 'recovery'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory, ExitStack() as stack:
+                root = Path(directory)
+                (root / 'ruleproxy').mkdir()
+                (root / 'ruleproxy/windows_global_guard.py').write_text('fixed guard fixture')
+                (root / 'RuleProxy-Web').mkdir()
+                sid = 'S-1-5-21-1-2-3-1001'
+                metadata = {'root': str(root), 'owner_sid': sid, 'files': {'bin/windows-amd64/mihomo.exe': '0' * 64}}
+                idle_guard = {'supported': True, 'active': False, 'persistent': False}
+                idle_dns = {'supported': True, 'active': False, 'fresh': True}
+                held_guard = {'supported': True, 'active': True, 'persistent': True}
+                held_dns = {'supported': True, 'active': True, 'fresh': True, 'effective': True}
+                instance = Mock()
+                instance.status.return_value = {'supported': True, 'running': False}
+                instance.start.return_value = {'running': True, 'pid': 17, 'guard': {'tun_ready': True}}
+                guard_instance, dns_instance = Mock(), Mock()
+                guard_instance.status.side_effect = [idle_guard, held_guard, idle_guard]
+                dns_instance.status.side_effect = [idle_dns, held_dns, idle_dns]
+                counts = {key: 1 for key in ('tcp4', 'tcp6', 'udp4', 'udp6')}
+                if failure == 'receiver':
+                    counts['udp6'] = 0
+                fixture = SimpleNamespace(port=41367, counts=counts, close=Mock())
+                environment = SimpleNamespace(**{**vars(os), 'name': 'nt', 'environ': {**os.environ, 'ProgramData': directory}})
+                stack.enter_context(patch.object(H, 'os', environment))
+                stack.enter_context(patch.object(H.sys, 'getwindowsversion', return_value=(10, 0, 26100), create=True))
+                stack.enter_context(patch.object(service, 'load_deployment', return_value=metadata))
+                stack.enter_context(patch.object(service, 'protected_path'))
+                process_lease = stack.enter_context(patch.object(service, 'ProcessLease'))
+                process_lease.return_value.is_elevated.return_value = True
+                stack.enter_context(patch.object(client, 'current_user_sid', return_value=sid))
+                stack.enter_context(patch.object(runtime, 'Runtime', return_value=instance))
+                stack.enter_context(patch.object(guard, 'Guard', return_value=guard_instance))
+                stack.enter_context(patch.object(dns, 'DnsLease', return_value=dns_instance))
+                packet = stack.enter_context(patch.object(H, 'pktmon', side_effect=AssertionError('startup must not capture')))
+                powershell = stack.enter_context(patch.object(H, 'ps', return_value='ok'))
+                stack.enter_context(patch.object(H, 'task', return_value='independent-watchdog'))
+                stack.enter_context(patch.object(H, 'EchoNode', return_value=fixture))
+                stack.enter_context(patch.object(H, 'fixture_dns_preflight', return_value={'verified': True}))
+                stack.enter_context(patch.object(H, 'tun_identity_receipt', return_value={'identity_matches': True, 'start_guard_tun_ready': True}))
+                stack.enter_context(patch.object(H, 'require_owned_identity', return_value={'pid': 17, 'creation': 23, 'image': 'fixed'}))
+                terminated = stack.enter_context(patch.object(H, 'terminate_owned'))
+                stack.enter_context(patch.object(H.shutil, 'copytree'))
+                stack.enter_context(patch.object(H, 'recover', return_value={'recovered': failure != 'recovery'}))
+                def echo(value):
+                    return {kind: {'received_echo': not (failure == 'echo' and value['family'] == 6 and kind == 'udp'),
+                                   'socket_ok': True} for kind in ('tcp', 'udp')}
+                actors = stack.enter_context(patch.object(H, 'actor', side_effect=echo))
+                stack.enter_context(patch.object(H, 'print', create=True))
+                previous_path = list(sys.path)
+                try:
+                    result = H.run(SimpleNamespace(ack_disposable_windows=True, installed_root=root,
+                        output=root / 'summary.json', read_only_components=False, startup_smoke_only=True))
+                finally:
+                    sys.path[:] = previous_path
+                value = H.read_json(root / 'summary.json')
+                self.assertEqual(result, 0 if failure is None else 1)
+                self.assertEqual(value['mode'], 'disposable_windows_tun_startup_smoke')
+                self.assertEqual(value['startup_smoke_passed'], failure is None)
+                for key in ('passed', 'strict_qualified', 'physical_qualified', 'ipv4_physical_scope_passed',
+                            'dns_qualified', 'ipv6_public_egress_qualified', 'rdp_qualified', 'packet_fail_closed_proven'):
+                    self.assertIs(value[key], False)
+                self.assertTrue(value['core_started'])
+                self.assertTrue(value['explicit_global_stop'])
+                self.assertEqual(actors.call_count, 2)
+                self.assertIs(instance.start.call_args.kwargs['require_strict'], False)
+                instance.stop.assert_called_once_with()
+                terminated.assert_called_once()
+                packet.assert_not_called()
+                self.assertNotIn('NetRoute', str(powershell.call_args_list))
+
     def test_dns_restore_failure_keeps_guard_and_does_not_restart_service(self):
         from ruleproxy import windows_proxy_service as service
         from ruleproxy import windows_global_dns as dns

@@ -975,7 +975,8 @@ def _recover_locked(state_path):
         dns = DnsLease(metadata).normal_stop()
         if dns.get('active') is not False or dns.get('supported') is not True:
             raise RuntimeError('owned_dns_restore_unconfirmed')
-        scoped_guard(metadata, state['nonce']).normal_stop()
+        if not state.get('startup_smoke_only'):
+            scoped_guard(metadata, state['nonce']).normal_stop()
         guard = Guard(metadata).normal_stop()
         if guard.get('active') is not False:
             raise RuntimeError('owned_guard_restore_unconfirmed')
@@ -1246,6 +1247,61 @@ def private_acl_script():
         "'ContainerInherit,ObjectInherit','None','Allow')))};")
 
 
+def startup_smoke(root, native, metadata, source, fixture, work, report, budget):
+    """Real TUN startup/echo lifecycle only; never a physical no-leak proof."""
+    from ruleproxy.windows_global_guard import Guard
+    from ruleproxy.windows_global_dns import DnsLease
+    budget.stage('global_start')
+    budget.require(90)
+    started = native.start(source, secrets.token_urlsafe(24), unused_port(), unused_port(),
+                           'CaptureEcho', require_strict=False)
+    if started.get('running') is not True:
+        raise RuntimeError('real_global_core_not_running')
+    report['core_started'] = True
+    core = root / 'bin/windows-amd64/mihomo.exe'
+    identity = require_owned_identity(started['pid'], core)
+    write_json(work / 'core-owned.json', identity)
+    budget.require(1)
+    budget.stage('tun_identity_readback')
+    report['tun_identity'] = tun_identity_receipt(started)
+    if not (report['tun_identity']['identity_matches'] and report['tun_identity']['start_guard_tun_ready']):
+        raise RuntimeError('tun_identity_unconfirmed')
+    report['tun_echo'] = {}
+    for family, host in ((4, TUN4), (6, TUN6)):
+        budget.stage('tun_echo_ipv' + str(family))
+        budget.require(3)
+        report['tun_echo'][str(family)] = actor({'marker': 'RuleProxyCapture:startup:' + secrets.token_hex(8),
+            'host': host, 'family': family, 'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': True})
+    report['synthetic_node_counts'] = dict(fixture.counts)
+    echo = all(report['tun_echo'][str(family)][protocol].get('received_echo') is True
+               and report['tun_echo'][str(family)][protocol].get('socket_ok') is True
+               for family in (4, 6) for protocol in ('tcp', 'udp'))
+    received = all(type(fixture.counts.get(key)) is int and fixture.counts[key] > 0
+                   for key in ('tcp4', 'tcp6', 'udp4', 'udp6'))
+    report['tun_tcp_udp_v4_v6_passed'] = echo and received
+    budget.stage('core_terminate')
+    terminate_owned(identity, core)
+    report['owned_core_terminated'] = True
+    budget.stage('core_dead_state_readback')
+    guard, dns = Guard(metadata).status(), DnsLease(metadata).status(refresh=True)
+    report['guard_after_core_death'] = {key: guard.get(key) for key in ('supported', 'active', 'persistent', 'tun_ready')}
+    report['dns_after_core_death'] = {key: dns.get(key) for key in ('supported', 'active', 'effective', 'fresh', 'state')}
+    retained = (guard.get('supported') is True and guard.get('active') is True and guard.get('persistent') is True
+                and dns.get('supported') is True and dns.get('active') is True and dns.get('fresh') is True)
+    report['state_retained_after_core_death'] = retained
+    report['packet_fail_closed_proven'] = False
+    budget.stage('explicit_global_stop')
+    native.stop()
+    guard, dns = Guard(metadata).status(), DnsLease(metadata).status(refresh=True)
+    report['explicit_global_stop'] = (guard.get('supported') is True and guard.get('active') is False
+                                      and dns.get('supported') is True and dns.get('active') is False)
+    if not report['explicit_global_stop']:
+        raise RuntimeError('explicit_global_stop_not_restored')
+    report['startup_smoke_passed'] = echo and received and retained
+    if not report['startup_smoke_passed']:
+        raise RuntimeError('startup_smoke_checks_failed')
+
+
 def run(arguments):
     global _ACTIVE_BUDGET
     run_started = time.monotonic()
@@ -1253,7 +1309,7 @@ def run(arguments):
         raise RuntimeError('explicit_disposable_windows_ack_required')
     root = arguments.installed_root.resolve(strict=True)
     sys.path.insert(0, str(root))
-    from ruleproxy.windows_proxy_service import load_deployment, protected_path
+    from ruleproxy.windows_proxy_service import load_deployment, protected_path, ProcessLease
     from ruleproxy.windows_global_runtime import Runtime
     from ruleproxy.windows_proxy_client import current_user_sid
     from ruleproxy.windows_global_guard import Guard
@@ -1261,13 +1317,26 @@ def run(arguments):
     metadata = load_deployment(root)
     if current_user_sid() != metadata['owner_sid']:
         raise RuntimeError('run_as_installing_desktop_owner_not_system')
+    smoke_only = getattr(arguments, 'startup_smoke_only', False)
+    if smoke_only:
+        if arguments.read_only_components:
+            raise RuntimeError('startup_smoke_mode_conflict')
+        lease = ProcessLease(os.getpid(), metadata['owner_sid'])
+        try:
+            if lease.is_elevated() is not True:
+                raise RuntimeError('startup_smoke_requires_actual_elevation')
+        finally:
+            lease.close()
     if arguments.read_only_components:
         _nic, _component, evidence = nic_components()
         arguments.output.parent.mkdir(parents=True, exist_ok=True)
         write_json(arguments.output, {'schema_version': 1, 'read_only_components': True,
             'network_modified': False, 'strict_qualified': False, 'components': evidence})
         return 0
-    if Guard(metadata).status().get('active') or DnsLease(metadata).status(refresh=True).get('active'):
+    guard_initial, dns_initial = Guard(metadata).status(), DnsLease(metadata).status(refresh=True)
+    if (guard_initial.get('active') or dns_initial.get('active')
+            or smoke_only and (guard_initial.get('supported') is not True or guard_initial.get('active') is not False
+                               or dns_initial.get('supported') is not True or dns_initial.get('active') is not False)):
         raise RuntimeError('existing_guard_or_dns_lease_refused')
     native = Runtime(root)
     initial = native.status()
@@ -1287,6 +1356,8 @@ def run(arguments):
     state_path = work / 'state.json'
     state = {'schema_version': 1, 'root': str(root), 'nonce': nonce, 'route_created': False,
              'carrier_port': unused_port()}
+    if smoke_only:
+        state['startup_smoke_only'] = True
     write_json(state_path, state)
     report = {'schema_version': 1, 'mode': 'disposable_windows_native_capture',
         'strict_qualified': False, 'ipv6_public_egress_qualified': False,
@@ -1297,6 +1368,11 @@ def run(arguments):
         'fixed_core_sha256': metadata['files']['bin/windows-amd64/mihomo.exe'],
         'guard_source_sha256': hashlib.sha256((root / 'ruleproxy/windows_global_guard.py').read_bytes()).hexdigest(),
         'windows_build': list(sys.getwindowsversion()[:3])}
+    if smoke_only:
+        report.update(mode='disposable_windows_tun_startup_smoke', startup_smoke_passed=False,
+            ipv4_physical_scope_passed=False, physical_qualified=False, packet_fail_closed_proven=False,
+            carrier_scope='not_exercised', service_death_scope='not_exercised',
+            scope='synthetic_loopback_node_tun_startup_identity_and_state_readback_only')
     fixture, names = None, []
     budget = ExperimentBudget()
     state['experiment_expires_unix'] = time.time() + EXPERIMENT_BUDGET_SECONDS
@@ -1313,111 +1389,114 @@ def run(arguments):
         source = fixture_source(fixture.port)
         budget.stage('fixture_dns_preflight')
         report['fixture_dns'] = fixture_dns_preflight()
-        budget.stage('physical_component_identity')
-        nic, component, evidence = nic_components()
-        report['components'] = evidence
-        if component is None:
-            raise ValueError(evidence['selection_error'])
-        capture_components = evidence['capture_components']
-        state['nic'] = nic
-        budget.stage('scoped_ipv6_action')
-        report['ipv6_scoped_action'] = scoped_ipv6_preflight(work, state_path)
-        if not report['ipv6_scoped_action']['passed']:
-            raise RuntimeError('scoped_ipv6_restore_failed')
-        budget.stage('physical_route_prepare')
-        ps("if(@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -ErrorAction SilentlyContinue).Count){throw 'test prefix already owned'};$result='ok'")
-        state['route_created'] = True  # watchdog covers a crash immediately after route creation
-        write_json(state_path, state)
-        ps("$s=Get-Content -LiteralPath $env:RP_CAPTURE_STATE -Raw|ConvertFrom-Json;"
-           "New-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -NextHop $s.nic.gateway "
-           "-RouteMetric 1 -PolicyStore ActiveStore -ErrorAction Stop|Out-Null;$result='ok'", {'RP_CAPTURE_STATE': str(state_path)})
-        carrier_address = socket.getaddrinfo('example.com', 80, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
-        budget.stage('system_carrier_start')
-        names.append(task(state_path, 'carrier', wait=False))
-        deadline = time.monotonic() + 10
-        while not (work / 'carrier-owned.json').is_file() and time.monotonic() < deadline:
-            time.sleep(.1)
-        # A fresh actor process is used for each capture: no cached ALE flow.
-        def physical(marker):
-            request = {'marker': marker, 'host': DEST4, 'family': 4, 'source': nic['source'],
-                       'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': False}
-            return run_actor(work, request)
-        budget.stage('physical_positive_before')
-        report['phases']['outside_before'] = capture_probe(work, capture_components, 'before', physical)
-        # Missing wire positives invalidate physical evidence, but a complete,
-        # loss-free capture can still precede this bounded TUN/GUID experiment.
-        # It can never produce passed=True without both physical controls.
-        record_physical_control(report, 'before')
-        # The broker's fixed global_start response wait is 90 seconds. Do not
-        # begin it if the remaining cooperative budget cannot cover that wait.
-        budget.stage('global_start')
-        budget.require(90)
-        started = native.start(source, secrets.token_urlsafe(24), unused_port(), unused_port(), 'CaptureEcho', require_strict=False)
-        budget.require(1)
-        if not started.get('running'):
-            raise RuntimeError('real_global_core_not_running')
-        write_json(work / 'core-owned.json', require_owned_identity(started['pid'], root / 'bin/windows-amd64/mihomo.exe'))
-        budget.stage('tun_identity_readback')
-        report['tun_identity'] = tun_identity_receipt(started)
-        if not (report['tun_identity']['identity_matches'] and report['tun_identity']['start_guard_tun_ready']):
-            raise RuntimeError('tun_identity_unconfirmed')
-        budget.stage('physical_running_guard')
-        report['phases']['running_guard'] = capture_probe(work, capture_components, 'running', physical)
-        budget.stage('system_carrier_http')
-        report['system_core_carrier_http'] = carrier_control(state['carrier_port'], carrier_address)
-        # No second privileged Mihomo is left alive during the core-death proof.
-        terminate_owned(read_json(work / 'carrier-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
-        report['tun_echo'] = {}
-        for family, host in ((4, TUN4), (6, TUN6)):
-            budget.stage('tun_echo_ipv' + str(family))
-            budget.require(3)
-            result = actor({'marker': 'RuleProxyCapture:tun:' + nonce, 'host': host, 'family': family,
-                            'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': True})
-            report['tun_echo'][str(family)] = result
-        report['synthetic_node_counts'] = dict(fixture.counts)
-        budget.stage('core_terminate')
-        terminate_owned(read_json(work / 'core-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
-        time.sleep(.5)
-        budget.stage('physical_core_dead')
-        report['phases']['core_dead'] = capture_probe(work, capture_components, 'coredead', physical)
-        budget.stage('service_stop')
-        service_state(metadata, False)
-        budget.stage('physical_service_stopped')
-        report['phases']['service_stopped'] = capture_probe(work, capture_components, 'servicedead', physical)
-        report['guard_after_service_death'] = {key: value for key, value in Guard(metadata).status().items()
-            if key in ('active', 'persistent', 'native_qualified', 'strict_isolation')}
-        # Restart the actual broker and exercise its user-visible explicit
-        # global_stop protocol before emergency watchdog cleanup is invoked.
-        budget.stage('service_restart')
-        service_state(metadata, True)
-        budget.stage('explicit_global_stop')
-        native.stop()
-        stopped_guard, stopped_dns = Guard(metadata).status(), DnsLease(metadata).status(refresh=True)
-        report['explicit_global_stop'] = (stopped_guard.get('active') is False
-                                          and stopped_dns.get('active') is False)
-        if not report['explicit_global_stop']:
-            raise RuntimeError('explicit_global_stop_not_restored')
-        budget.stage('explicit_recovery')
-        restoration = recover(state_path)
-        report['recovery'] = restoration
-        if not restoration.get('recovered'):
-            raise RuntimeError('precise_restore_failed')
-        budget.stage('physical_positive_after')
-        report['phases']['outside_after'] = capture_probe(work, capture_components, 'after', physical)
-        denied = (all(protected_components_clear(report['phases'][phase], capture_components)
-                      for phase in ('running_guard', 'core_dead', 'service_stopped'))
-                  and all(valid_physical_attempt(report['phases'][phase]['actor'])
-                      for phase in ('running_guard', 'core_dead', 'service_stopped')))
-        after_control = record_physical_control(report, 'after')
-        controls = report.get('physical_positive_before_valid') is True and after_control
-        tun = all(report['tun_echo'][str(family)][protocol]['received_echo']
-                  for family in (4, 6) for protocol in ('tcp', 'udp'))
-        report['ipv4_physical_scope_passed'] = controls and denied
-        report['tun_tcp_udp_v4_v6_passed'] = tun
-        guard_owned = (report['guard_after_service_death'].get('active') is True
-                       and report['guard_after_service_death'].get('persistent') is True)
-        report['passed'] = (controls and denied and tun and guard_owned
-            and report['system_core_carrier_http'] and report['ipv6_scoped_action']['passed'])
+        if smoke_only:
+            startup_smoke(root, native, metadata, source, fixture, work, report, budget)
+        else:
+            budget.stage('physical_component_identity')
+            nic, component, evidence = nic_components()
+            report['components'] = evidence
+            if component is None:
+                raise ValueError(evidence['selection_error'])
+            capture_components = evidence['capture_components']
+            state['nic'] = nic
+            budget.stage('scoped_ipv6_action')
+            report['ipv6_scoped_action'] = scoped_ipv6_preflight(work, state_path)
+            if not report['ipv6_scoped_action']['passed']:
+                raise RuntimeError('scoped_ipv6_restore_failed')
+            budget.stage('physical_route_prepare')
+            ps("if(@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -ErrorAction SilentlyContinue).Count){throw 'test prefix already owned'};$result='ok'")
+            state['route_created'] = True  # watchdog covers a crash immediately after route creation
+            write_json(state_path, state)
+            ps("$s=Get-Content -LiteralPath $env:RP_CAPTURE_STATE -Raw|ConvertFrom-Json;"
+               "New-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -NextHop $s.nic.gateway "
+               "-RouteMetric 1 -PolicyStore ActiveStore -ErrorAction Stop|Out-Null;$result='ok'", {'RP_CAPTURE_STATE': str(state_path)})
+            carrier_address = socket.getaddrinfo('example.com', 80, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+            budget.stage('system_carrier_start')
+            names.append(task(state_path, 'carrier', wait=False))
+            deadline = time.monotonic() + 10
+            while not (work / 'carrier-owned.json').is_file() and time.monotonic() < deadline:
+                time.sleep(.1)
+            # A fresh actor process is used for each capture: no cached ALE flow.
+            def physical(marker):
+                request = {'marker': marker, 'host': DEST4, 'family': 4, 'source': nic['source'],
+                           'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': False}
+                return run_actor(work, request)
+            budget.stage('physical_positive_before')
+            report['phases']['outside_before'] = capture_probe(work, capture_components, 'before', physical)
+            # Missing wire positives invalidate physical evidence, but a complete,
+            # loss-free capture can still precede this bounded TUN/GUID experiment.
+            # It can never produce passed=True without both physical controls.
+            record_physical_control(report, 'before')
+            # The broker's fixed global_start response wait is 90 seconds. Do not
+            # begin it if the remaining cooperative budget cannot cover that wait.
+            budget.stage('global_start')
+            budget.require(90)
+            started = native.start(source, secrets.token_urlsafe(24), unused_port(), unused_port(), 'CaptureEcho', require_strict=False)
+            budget.require(1)
+            if not started.get('running'):
+                raise RuntimeError('real_global_core_not_running')
+            write_json(work / 'core-owned.json', require_owned_identity(started['pid'], root / 'bin/windows-amd64/mihomo.exe'))
+            budget.stage('tun_identity_readback')
+            report['tun_identity'] = tun_identity_receipt(started)
+            if not (report['tun_identity']['identity_matches'] and report['tun_identity']['start_guard_tun_ready']):
+                raise RuntimeError('tun_identity_unconfirmed')
+            budget.stage('physical_running_guard')
+            report['phases']['running_guard'] = capture_probe(work, capture_components, 'running', physical)
+            budget.stage('system_carrier_http')
+            report['system_core_carrier_http'] = carrier_control(state['carrier_port'], carrier_address)
+            # No second privileged Mihomo is left alive during the core-death proof.
+            terminate_owned(read_json(work / 'carrier-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
+            report['tun_echo'] = {}
+            for family, host in ((4, TUN4), (6, TUN6)):
+                budget.stage('tun_echo_ipv' + str(family))
+                budget.require(3)
+                result = actor({'marker': 'RuleProxyCapture:tun:' + nonce, 'host': host, 'family': family,
+                                'tcp_port': TCP_PORT, 'udp_port': UDP_PORT, 'echo': True})
+                report['tun_echo'][str(family)] = result
+            report['synthetic_node_counts'] = dict(fixture.counts)
+            budget.stage('core_terminate')
+            terminate_owned(read_json(work / 'core-owned.json'), root / 'bin/windows-amd64/mihomo.exe')
+            time.sleep(.5)
+            budget.stage('physical_core_dead')
+            report['phases']['core_dead'] = capture_probe(work, capture_components, 'coredead', physical)
+            budget.stage('service_stop')
+            service_state(metadata, False)
+            budget.stage('physical_service_stopped')
+            report['phases']['service_stopped'] = capture_probe(work, capture_components, 'servicedead', physical)
+            report['guard_after_service_death'] = {key: value for key, value in Guard(metadata).status().items()
+                if key in ('active', 'persistent', 'native_qualified', 'strict_isolation')}
+            # Restart the actual broker and exercise its user-visible explicit
+            # global_stop protocol before emergency watchdog cleanup is invoked.
+            budget.stage('service_restart')
+            service_state(metadata, True)
+            budget.stage('explicit_global_stop')
+            native.stop()
+            stopped_guard, stopped_dns = Guard(metadata).status(), DnsLease(metadata).status(refresh=True)
+            report['explicit_global_stop'] = (stopped_guard.get('active') is False
+                                              and stopped_dns.get('active') is False)
+            if not report['explicit_global_stop']:
+                raise RuntimeError('explicit_global_stop_not_restored')
+            budget.stage('explicit_recovery')
+            restoration = recover(state_path)
+            report['recovery'] = restoration
+            if not restoration.get('recovered'):
+                raise RuntimeError('precise_restore_failed')
+            budget.stage('physical_positive_after')
+            report['phases']['outside_after'] = capture_probe(work, capture_components, 'after', physical)
+            denied = (all(protected_components_clear(report['phases'][phase], capture_components)
+                          for phase in ('running_guard', 'core_dead', 'service_stopped'))
+                      and all(valid_physical_attempt(report['phases'][phase]['actor'])
+                          for phase in ('running_guard', 'core_dead', 'service_stopped')))
+            after_control = record_physical_control(report, 'after')
+            controls = report.get('physical_positive_before_valid') is True and after_control
+            tun = all(report['tun_echo'][str(family)][protocol]['received_echo']
+                      for family in (4, 6) for protocol in ('tcp', 'udp'))
+            report['ipv4_physical_scope_passed'] = controls and denied
+            report['tun_tcp_udp_v4_v6_passed'] = tun
+            guard_owned = (report['guard_after_service_death'].get('active') is True
+                           and report['guard_after_service_death'].get('persistent') is True)
+            report['passed'] = (controls and denied and tun and guard_owned
+                and report['system_core_carrier_http'] and report['ipv6_scoped_action']['passed'])
     except BaseException as error:
         report['failed_stage'] = budget.stages[-1]['stage'] if budget.stages else 'unknown'
         if isinstance(error, CaptureEvidenceError):
@@ -1448,19 +1527,24 @@ def run(arguments):
                     report.setdefault('task_cleanup_errors', []).append(type(error).__name__ + ':' + str(error)[:300])
         else:
             report['passed'] = False
+            if smoke_only:
+                report['startup_smoke_passed'] = False
         arguments.output.parent.mkdir(parents=True, exist_ok=True)
         budget.stage(None)
         report['time_budget']['total_elapsed_seconds'] = round(time.monotonic() - run_started, 3)
         write_json(arguments.output, report)
-    print(json.dumps({'passed': report['passed'], 'strict_qualified': False,
+    print(json.dumps({'passed': report['passed'], 'startup_smoke_passed': report.get('startup_smoke_passed'), 'strict_qualified': False,
                       'recovered': report['recovery'].get('recovered'), 'summary': str(arguments.output)}))
-    return 0 if report['passed'] and report['recovery'].get('recovered') else 1
+    accepted = report.get('startup_smoke_passed') is True if smoke_only else report['passed']
+    return 0 if accepted and report['recovery'].get('recovered') else 1
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ack-disposable-windows', action='store_true')
     parser.add_argument('--read-only-components', action='store_true')
+    parser.add_argument('--startup-smoke-only', action='store_true',
+                        help='Bounded TUN startup/echo/state readback only; never physical no-leak acceptance')
     parser.add_argument('--installed-root', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--state', type=Path)

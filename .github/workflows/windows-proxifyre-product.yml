@@ -19,6 +19,10 @@ on:
         description: Run only the bounded global capture experiment on native Windows 11
         type: boolean
         default: false
+      global_startup_smoke:
+        description: Verify actual TUN startup and proxy echoes without packet-capture qualification
+        type: boolean
+        default: false
   push:
     branches:
       - 'codex/windows-proxifyre-product-*'
@@ -272,4 +276,76 @@ jobs:
           name: windows-global-native-client-evidence
           path: windows-native-global-results/
           if-no-files-found: warn
+          retention-days: 14
+
+  global-server-startup:
+    name: Actual TUN startup · disposable Server 2025
+    if: github.event_name == 'workflow_dispatch' && inputs.global_startup_smoke
+    needs: package
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-proxifyre-product-package
+          path: windows-product-package
+      - name: Verify and unpack the final offline package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $receipt = (Get-Content windows-product-package/SHA256SUMS.txt -Raw).Trim() -split '\s+'
+          if ($receipt.Count -ne 2 -or $receipt[0] -notmatch '^[a-f0-9]{64}$' -or $receipt[1] -notmatch '^[A-Za-z0-9._-]+\.zip$') { throw 'Invalid package checksum receipt' }
+          $archive = Join-Path windows-product-package $receipt[1]
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $receipt[0]) { throw 'Package checksum mismatch' }
+          Expand-Archive -LiteralPath $archive -DestinationPath capture-package
+          New-Item -ItemType Directory -Path windows-global-startup-results -Force | Out-Null
+          Copy-Item windows-product-package/SHA256SUMS.txt windows-global-startup-results/
+      - name: Install for the actual runner owner without starting a panel
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = (Resolve-Path capture-package/RuleProxy-Web).Path
+          $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+          & "$source/scripts/windows-setup.ps1" -SourceRoot $source -OwnerSid $sid -Elevated -NoLaunch
+          if ($LASTEXITCODE -ne 0) { throw ('Installation incomplete; exit ' + $LASTEXITCODE) }
+      - name: Verify actual startup with an independent SYSTEM recovery deadline
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:ProgramFiles 'RuleProxy-Web'
+          $files = @(
+            'ruleproxy/windows_proxy_service.py', 'ruleproxy/windows_global_guard.py',
+            'ruleproxy/windows_global_dns.py', 'ruleproxy/windows_global_runtime.py',
+            'ruleproxy/global_runtime.py', 'ruleproxy/config.py',
+            'ruleproxy/manager.py', 'web/app.js'
+          )
+          $hashes = @{}
+          foreach ($relative in $files) {
+            $checkout = (Get-FileHash -LiteralPath $relative -Algorithm SHA256).Hash.ToLowerInvariant()
+            $installed = (Get-FileHash -LiteralPath (Join-Path $root $relative) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($checkout -ne $installed) { throw ('Installed source differs: ' + $relative) }
+            $hashes[$relative] = $installed
+          }
+          $commit = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[a-f0-9]{40}$') { throw 'Missing checkout identity' }
+          @{
+            schema_version = 1
+            tested_source_commit = $commit
+            checkout_matches_installed = $true
+            source_sha256 = $hashes
+            harness_sha256 = (Get-FileHash .github/check_windows_global_capture.py -Algorithm SHA256).Hash.ToLowerInvariant()
+            strict_qualified = $false
+          } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 windows-global-startup-results/source-identity.json
+          & "$root/python/python.exe" -I -S -B .github/check_windows_global_capture.py --ack-disposable-windows --startup-smoke-only --installed-root $root --output windows-global-startup-results/summary.json
+          if ($LASTEXITCODE -ne 0) { throw 'TUN startup smoke failed; inspect the bounded summary' }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-global-startup-evidence
+          path: windows-global-startup-results/
+          if-no-files-found: error
           retention-days: 14
