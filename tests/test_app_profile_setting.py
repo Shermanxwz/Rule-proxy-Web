@@ -15,7 +15,7 @@ class AppProfileSettingTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        program = self.root / 'chrome'
+        program = self.root / ('chrome.exe' if sys.platform == 'win32' else 'chrome')
         program.write_bytes(b'fake executable')
         program.chmod(0o700)
         self.manager = Manager(self.root / 'state', 18879)
