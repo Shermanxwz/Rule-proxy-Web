@@ -51,6 +51,9 @@ FIXTURE_SERVER = '127.0.0.1.sslip.io'
 RECOVERY_DEADLINE_SECONDS = 180
 EXPERIMENT_BUDGET_SECONDS = 135
 _ACTIVE_BUDGET = None
+# Stage names only: these become public GitHub notices, so no evidence payloads.
+_CI_MILESTONES = frozenset(('fixture_dns_preflight', 'physical_positive_before', 'global_start',
+                            'core_terminate', 'explicit_global_stop', 'final_recovery'))
 
 
 class ExperimentBudget:
@@ -71,6 +74,8 @@ class ExperimentBudget:
             previous['elapsed_seconds'] = round(elapsed - previous['started_seconds'], 3)
         if name is not None:
             self.stages.append({'stage': name, 'started_seconds': round(elapsed, 3)})
+            if name in _CI_MILESTONES:
+                _ci_annotation('notice', 'Global capture stage', name + ' t=' + format(elapsed, '.1f'))
 
     def timeout(self, maximum, *, reserve=0):
         remaining = self.deadline - time.monotonic() - reserve
@@ -130,6 +135,50 @@ def write_json(path, value):
     temporary = path.with_suffix(path.suffix + '.tmp')
     temporary.write_text(json.dumps(value, ensure_ascii=True, indent=2), encoding='utf-8')
     os.replace(temporary, path)
+
+
+def _ci_annotation(level, title, payload):
+    """GitHub turns these stdout lines into public annotations; never include secrets."""
+    if os.environ.get('GITHUB_ACTIONS') != 'true':
+        return
+    text = payload if isinstance(payload, str) else json.dumps(payload, separators=(',', ':'), sort_keys=True)
+    text = text[:1800].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+    print('::' + level + ' title=' + title + '::' + text, flush=True)
+
+
+def _ci_text(value, limit, private=()):
+    """Bounded text for public annotations: run-private values, paths and token-like strings removed."""
+    text = str(value)
+    for item in private:
+        if item:
+            text = text.replace(str(item), '<private>')
+    text = re.sub(r'(?<![A-Za-z])[A-Za-z]:[\\/][^\'"\r\n]*', '<path>', text)
+    text = re.sub(r'\\\\[^\s\'"<>|]+', '<path>', text)
+    text = re.sub(r'[A-Za-z0-9_-]{32,}', '<token>', text)
+    return text[:limit]
+
+
+def _ci_summary(report, budget, private=()):
+    """Fixed-shape digest for the public summary annotation: no paths, nonces, tokens or evidence."""
+    def recovery(value):
+        value = value if isinstance(value, dict) else {}
+        return {'recovered': value.get('recovered'),
+                'errors': [_ci_text(item, 200, private) for item in value.get('errors', [])[:2]]}
+    capture = report.get('capture_failure')
+    code = capture.get('code', capture.get('reason')) if isinstance(capture, dict) else None
+    summary = {'passed': report.get('passed'), 'startup_smoke_passed': report.get('startup_smoke_passed'),
+               'failed_stage': report.get('failed_stage'),
+               'error': _ci_text(report['error'], 300, private) if report.get('error') else None,
+               'stages': [item['stage'] for item in budget.stages], 'recovery': recovery(report.get('recovery'))}
+    if 'dns_smoke_passed' in report:
+        summary['dns_smoke_passed'] = report['dns_smoke_passed']
+    if budget.stages and 'elapsed_seconds' in budget.stages[-1]:
+        summary['last_stage_elapsed'] = budget.stages[-1]['elapsed_seconds']
+    if 'ci_network_reclaim' in report:
+        summary['ci_network_reclaim'] = recovery(report['ci_network_reclaim'])
+    if isinstance(code, str):
+        summary['capture_failure_code'] = _ci_text(code, 200, private)
+    return summary
 
 
 def ps(script, environment=None, timeout=25):
@@ -1028,7 +1077,7 @@ def service_state(metadata, running):
        f"(Get-Service RuleProxyControl).WaitForStatus('{desired}',[TimeSpan]::FromSeconds(20));$result='ok'", timeout=24)
 
 
-def _recover_locked(state_path):
+def _recover_locked(state_path, best_effort=False):
     state = read_json(state_path)
     root, work = Path(state['root']), Path(state_path).parent
     sys.path.insert(0, str(root))
@@ -1038,37 +1087,61 @@ def _recover_locked(state_path):
     protected_path(work, private=True)
     metadata = load_deployment(root)
     result = {'schema_version': 1, 'recovered': False, 'errors': []}
-    try:
-        service_state(metadata, False)
+    if best_effort:
+        result['best_effort'] = True
+
+    def terminate_cores():
         for name in ('core-owned.json', 'carrier-owned.json'):
             if (work / name).is_file():
                 terminate_owned(read_json(work / name), root / 'bin/windows-amd64/mihomo.exe')
+
+    def restore_dns():
         dns = DnsLease(metadata).normal_stop()
         if dns.get('active') is not False or dns.get('supported') is not True:
             raise RuntimeError('owned_dns_restore_unconfirmed')
-        if not state.get('startup_smoke_only'):
-            scoped_guard(metadata, state['nonce']).normal_stop()
+
+    def restore_guard():
         guard = Guard(metadata).normal_stop()
         if guard.get('active') is not False:
             raise RuntimeError('owned_guard_restore_unconfirmed')
-        if state.get('route_created'):
-            ps("$s=Get-Content -LiteralPath $env:RP_CAPTURE_STATE -Raw|ConvertFrom-Json;"
-               "$r=@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -PolicyStore ActiveStore -ErrorAction SilentlyContinue);"
-               "foreach($x in $r){if($x.NextHop -ne $s.nic.gateway -or $x.RouteMetric -ne 1){throw 'test route identity changed'};"
-               "$x|Remove-NetRoute -Confirm:$false -ErrorAction Stop};$result='ok'",
-               {'RP_CAPTURE_STATE': str(state_path)})
-        service_state(metadata, True)
+
+    def remove_route():
+        ps("$s=Get-Content -LiteralPath $env:RP_CAPTURE_STATE -Raw|ConvertFrom-Json;"
+           "$r=@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -PolicyStore ActiveStore -ErrorAction SilentlyContinue);"
+           "foreach($x in $r){if($x.NextHop -ne $s.nic.gateway -or $x.RouteMetric -ne 1){throw 'test route identity changed'};"
+           "$x|Remove-NetRoute -Confirm:$false -ErrorAction Stop};$result='ok'",
+           {'RP_CAPTURE_STATE': str(state_path)})
+
+    def restore_capture_checked():
         result['capture'] = restore_capture(state_path)
         if result['capture'].get('stopped') is not True:
             raise RuntimeError('owned_capture_restore_unconfirmed')
-        result['recovered'] = True
+
+    # Strict mode keeps the first-failure evidence contract. Best-effort (CI reclaim)
+    # attempts every step and reports recovered only when no step failed.
+    steps = [lambda: service_state(metadata, False), terminate_cores, restore_dns]
+    if not state.get('startup_smoke_only'):
+        steps.append(lambda: scoped_guard(metadata, state['nonce']).normal_stop())
+    steps.append(restore_guard)
+    if state.get('route_created'):
+        steps.append(remove_route)
+    steps += [lambda: service_state(metadata, True), restore_capture_checked]
+    try:
+        for step in steps:
+            try:
+                step()
+            except BaseException as error:
+                if not best_effort:
+                    raise
+                result['errors'].append(type(error).__name__ + ':' + str(error)[:600])
+        result['recovered'] = not result['errors']
     except BaseException as error:
         result['errors'].append(type(error).__name__ + ':' + str(error)[:600])
-    write_json(work / 'recovery-result.json', result)
+    write_json(work / ('ci-network-reclaim-result.json' if best_effort else 'recovery-result.json'), result)
     return result
 
 
-def recover(state_path):
+def recover(state_path, best_effort=False):
     """A kernel mutex permits recovery after the orchestrator is abandoned."""
     state = read_json(state_path)
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)
@@ -1084,7 +1157,7 @@ def recover(state_path):
         acquired = kernel.WaitForSingleObject(handle, 30000) in (0, 0x80)
         if not acquired:
             raise RuntimeError('recovery_mutex_timeout')
-        return _recover_locked(state_path)
+        return _recover_locked(state_path, best_effort=best_effort)
     finally:
         if acquired:
             kernel.ReleaseMutex(handle)
@@ -1103,7 +1176,13 @@ def system_operation(state_path, operation):
     metadata = load_deployment(root)
     value = scoped_guard(metadata, state['nonce'])
     if operation == 'recover':
-        return recover(state_path)
+        value = recover(state_path)
+        if value.get('recovered') is not True and read_json(state_path).get('ci_network_reclaim') is True:
+            try:
+                value['ci_network_reclaim'] = recover(state_path, best_effort=True)
+            except BaseException as error:
+                value['ci_network_reclaim'] = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
+        return value
     if operation == 'scope-stop':
         return value.normal_stop()
     if operation == 'scope-apply':
@@ -1622,6 +1701,8 @@ def run(arguments):
              'carrier_port': unused_port()}
     if smoke_only:
         state['startup_smoke_only'] = True
+    # Read by the SYSTEM watchdog, which runs without the GitHub environment.
+    state['ci_network_reclaim'] = os.environ.get('GITHUB_ACTIONS') == 'true'
     write_json(state_path, state)
     report = {'schema_version': 1, 'mode': 'disposable_windows_native_capture',
         'strict_qualified': False, 'ipv6_public_egress_qualified': False,
@@ -1783,6 +1864,12 @@ def run(arguments):
         except BaseException as error:
             restoration = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
         report['recovery'] = restoration
+        if restoration.get('recovered') is not True and state.get('ci_network_reclaim') is True:
+            # Best-effort reclaim is diagnostic only: it never sets recovered, passed or the exit code.
+            try:
+                report['ci_network_reclaim'] = recover(state_path, best_effort=True)
+            except BaseException as error:
+                report['ci_network_reclaim'] = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
         if restoration.get('recovered'):
             # Watchdog is removed only after independently verified restoration.
             names += ['RuleProxy-Capture-' + nonce + '-' + op for op in ('scope-apply', 'scope-stop')]
@@ -1802,9 +1889,11 @@ def run(arguments):
         budget.stage(None)
         report['time_budget']['total_elapsed_seconds'] = round(time.monotonic() - run_started, 3)
         write_json(arguments.output, report)
+    accepted = report.get('startup_smoke_passed') is True if smoke_only else report['passed']
+    _ci_annotation('notice' if accepted and report['recovery'].get('recovered') else 'error', 'Global capture summary',
+                   _ci_summary(report, budget, (str(work), str(root), nonce)))
     print(json.dumps({'passed': report['passed'], 'startup_smoke_passed': report.get('startup_smoke_passed'), 'strict_qualified': False,
                       'recovered': report['recovery'].get('recovered'), 'summary': str(arguments.output)}))
-    accepted = report.get('startup_smoke_passed') is True if smoke_only else report['passed']
     return 0 if accepted and report['recovery'].get('recovered') else 1
 
 
