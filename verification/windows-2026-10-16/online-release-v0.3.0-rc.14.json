@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "status": "audited_release_candidate",
+  "release_tag": "v0.3.0-rc.14",
+  "source_base_commit": "ff8d937111b936567d2661749e345276f916c5ec",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "d78070280ec92418da0ab223316da6b4a5c130683ba441188a47207ee0f2566b",
+    "bytes": 297012
+  },
+  "source_files": 53,
+  "archive_members": 55,
+  "prior_release": "v0.3.0-rc.13",
+  "change": "Open the ordinary (uncertified) Windows global mode in the panel: the same persistent guard and NRPT DNS protection are installed and read back before running; fix global start failing when the controller answers before the TUN adapter exists; retry bounded NRPT restoration on stop; update the generated install instructions.",
+  "owner_decision": "2026-10-18: the owner chose to open ordinary global without a native qualification receipt; certification stays a long-term goal.",
+  "personal_yaml_or_nodes_included": false,
+  "runtime_state_or_profiles_included": false,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "archive_audit": {
+    "manifest": "RuleProxy-Web/release-source.json",
+    "manifest_sha256": "5eadc8c8e574c6a37a91bea637b5e4d456543fa291dee54f427f46579a78c98a",
+    "manifest_source_hashes_verified": 53,
+    "manifest_generated_hashes_verified": 1,
+    "all_members_accounted_for": true,
+    "source_bytes_match_source_base_commit": true,
+    "source_comparison_normalization": "CMD line endings only, normalized to CRLF",
+    "unsafe_paths_duplicate_paths_or_symlinks_found": false,
+    "fixed_archive_timestamp_and_regular_file_mode_verified": true,
+    "user_yaml_third_party_binaries_or_runtime_state_found": false,
+    "accepted_global_qualification_receipt_found": false,
+    "builder_reproduced_prior_release": "v0.3.0-rc.13 ZIP rebuilt locally with the same SHA-256 and byte count as its record",
+    "install_instructions_describe_ordinary_global": true
+  },
+  "local_validation": {
+    "python_sources_compiled_in_memory": 38,
+    "static_internal_import_statements_checked": 84,
+    "unresolved_internal_imports": 0,
+    "local_tests": 1477,
+    "local_failures": 5,
+    "local_failure_scope": "Sandbox-only AF_UNIX path length and private D-Bus tests in test_linux_profile_access and test_linux_runtime; CI runs them and passes.",
+    "downloads_or_system_installation_performed": false
+  },
+  "ci_validation": {
+    "tested_source_commit": "ff8d937111b936567d2661749e345276f916c5ec",
+    "pull_request": 10,
+    "check_runs": [
+      39072283456,
+      39072286566
+    ],
+    "check_conclusion": "success",
+    "windows_tests_per_python_version": 1477,
+    "windows_failures": 0,
+    "native_workflow": 39072289617,
+    "server_installed_ordinary_product_job": 117463859616,
+    "global_startup_dns_job": 117512305629,
+    "required_publication_checks": "Matching tag Check and uploaded ZIP hash must succeed before publication."
+  },
+  "native_server_product": {
+    "passed": true,
+    "source_commit": "376cb9304d20e31f110f7a506d4f4caaaf8978ab",
+    "source_commit_note": "Packaged product sources are byte-identical to ff8d937; that commit changes only the native harness and tests.",
+    "native_workflow": 39055926637,
+    "offline_zip_sha256": "3c5f27159bffcb522b87c795eff13031acdcf955b500e0b76869f67d29f9d7bc",
+    "manifest_files_verified": 123,
+    "ordinary_checks_passed": 42,
+    "controller_checks_passed": 3,
+    "traffic_phases_verified": 17,
+    "ordinary_native_launcher_child_grandchild_explicit_proxy_verified": true,
+    "install_repair_uninstall_and_reinstall_verified": true
+  },
+  "global_qualification": {
+    "windows_strict_qualified": false,
+    "accepted_receipt_shipped": false,
+    "strict_global_start_enabled_in_ui": false,
+    "ordinary_global_start_enabled_in_ui": true,
+    "ordinary_global_label": "全局接管组件可用",
+    "native_server_ordinary_global_startup_and_dns_passed": true,
+    "windows_11_qualified": false,
+    "windows_11_kvm_global_runs": [
+      39043134615,
+      39051381123
+    ],
+    "windows_11_kvm_global_result": "Not passed. Offline OOBE, fixture trust and installation worked, but in the nested KVM guest PowerShell with CIM took 18.5 s cold and 5 s warm while idle, so the harness's 8 s queries and the 8 s DNS policy query timed out. Recorded as an environment limit, not as a TUN failure; Windows 11 CI iteration stopped by owner decision.",
+    "scope_record": "verification/windows-global-2026-10-17/native-qualification.json",
+    "linux_actual_global_kernel_tests_passed": true
+  },
+  "known_limitations": [
+    "This is a prerelease candidate, not a completed native Windows 11 or Linux-equivalent isolation qualification.",
+    "Windows global starts as ordinary global without a qualification receipt. It installs the same persistent guard and NRPT DNS protection and reads both back, but the certification failure scenarios have not all passed natively, so zero leakage under extreme failures is not guaranteed.",
+    "DNS policy queries are bounded at 8 s each; on a machine as slow as the nested Windows 11 guest, start can refuse and stop can need another recovery click. Restoration retries at most three times and keeps the error.",
+    "Per-application DNS, IPv6 fragments and engine-failure direct connectivity remain existing ProxiFyre limitations.",
+    "The ordinary-user proof covers installed native launcher environment inheritance and loopback HTTP transactions, not real ChatGPT OAuth, public exit identity or arbitrary application child behavior."
+  ]
+}
