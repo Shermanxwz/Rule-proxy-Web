@@ -50,6 +50,9 @@ MAX_CAPTURE_COMPONENTS = 4
 FIXTURE_SERVER = '127.0.0.1.sslip.io'
 RECOVERY_DEADLINE_SECONDS = 180
 EXPERIMENT_BUDGET_SECONDS = 135
+# After the SYSTEM watchdog's 180 s trigger and 240 s task limit: a wedged
+# orchestrator still emits a bounded digest and exits non-zero before the job timeout.
+HARD_DEADLINE_SECONDS = 480
 _ACTIVE_BUDGET = None
 # Stage names only: these become public GitHub notices, so no evidence payloads.
 _CI_MILESTONES = frozenset(('fixture_dns_preflight', 'physical_positive_before', 'global_start',
@@ -138,12 +141,27 @@ def write_json(path, value):
 
 
 def _ci_annotation(level, title, payload):
-    """GitHub turns these stdout lines into public annotations; never include secrets."""
-    if os.environ.get('GITHUB_ACTIONS') != 'true':
+    """GitHub turns these stdout lines into public annotations; never include secrets.
+
+    A disposable VM guest has no Actions runner: there the same bounded line is
+    appended to RULEPROXY_CAPTURE_PROGRESS, which the guest relays over the VM
+    serial console so progress stays visible after guest networking is lost.
+    """
+    actions = os.environ.get('GITHUB_ACTIONS') == 'true'
+    progress = os.environ.get('RULEPROXY_CAPTURE_PROGRESS')
+    if not actions and not progress:
         return
     text = payload if isinstance(payload, str) else json.dumps(payload, separators=(',', ':'), sort_keys=True)
     text = text[:1800].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-    print('::' + level + ' title=' + title + '::' + text, flush=True)
+    line = '::' + level + ' title=' + title + '::' + text
+    if actions:
+        print(line, flush=True)
+    if progress:
+        try:
+            with open(progress, 'a', encoding='ascii', errors='replace') as stream:
+                stream.write(line + '\n')
+        except OSError:
+            pass  # Progress relay is diagnostic only.
 
 
 def _ci_text(value, limit, private=()):
@@ -203,6 +221,69 @@ def _ci_summary(report, budget, private=()):
     if isinstance(capture, dict):
         summary['capture'] = _ci_capture_digest(capture)
     return summary
+
+
+def _hang_frames(thread_id, limit=16):
+    """Innermost-first basename:function:line of one thread; no locals, arguments or paths."""
+    frame = sys._current_frames().get(thread_id)
+    frames = []
+    while frame is not None and len(frames) < limit:
+        code = frame.f_code
+        frames.append(os.path.basename(code.co_filename)[:48] + ':' + code.co_name[:48] + ':' + str(frame.f_lineno))
+        frame = frame.f_back
+    return frames
+
+
+def _watchdog_digest(work, private=()):
+    """Bounded digest of the independent recovery results already written to the run directory."""
+    def recovery(value):
+        value = value if isinstance(value, dict) else {}
+        return {'recovered': value.get('recovered'), 'mutex_bypassed': value.get('mutex_bypassed'),
+                'errors': [_ci_text(item, 160, private) for item in value.get('errors', [])[:2]]}
+    digest = {}
+    for name, key in (('recover.result.json', 'watchdog'), ('recovery-result.json', 'strict_file'),
+                      ('ci-network-reclaim-result.json', 'reclaim_file')):
+        try:
+            value = read_json(Path(work) / name)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(value, dict):
+            continue
+        if key != 'watchdog':
+            digest[key] = recovery(value)
+            continue
+        result = value.get('result') if isinstance(value.get('result'), dict) else {}
+        digest[key] = {'ok': value.get('ok'), **recovery(result),
+                       'error': _ci_text(value['error'], 160, private) if value.get('error') else None}
+        if 'ci_network_reclaim' in result:
+            digest[key]['ci_network_reclaim'] = recovery(result['ci_network_reclaim'])
+    return digest
+
+
+def _hard_deadline(finished, report, budget, private, work, output, thread_id):
+    """Bounded public digest, then exit, if the orchestrator outlives HARD_DEADLINE_SECONDS.
+
+    The process exits non-zero; this path never sets passed or recovered.
+    """
+    if finished.wait(HARD_DEADLINE_SECONDS):
+        return
+    try:
+        stage = budget.stages[-1]['stage'] if budget.stages else 'unknown'
+        _ci_annotation('error', 'Global capture hard deadline',
+                       {'stage': stage, 'frames': [_ci_text(item, 120, private) for item in _hang_frames(thread_id)]})
+        _ci_annotation('error', 'Global capture watchdog', _watchdog_digest(work, private))
+        report.update(passed=False, hard_deadline_exceeded=True, failed_stage=stage,
+                      error=report.get('error') or 'RuntimeError:orchestrator_hard_deadline')
+        for key in ('startup_smoke_passed', 'dns_smoke_passed'):
+            if key in report:
+                report[key] = False
+        _ci_annotation('error', 'Global capture summary', _ci_summary(report, budget, private))
+        output.parent.mkdir(parents=True, exist_ok=True)
+        write_json(output, report)
+    except BaseException:
+        pass  # Diagnostics must never extend the hang; exit below regardless.
+    finally:
+        os._exit(3)
 
 
 def ps(script, environment=None, timeout=25):
@@ -1166,7 +1247,11 @@ def _recover_locked(state_path, best_effort=False):
 
 
 def recover(state_path, best_effort=False):
-    """A kernel mutex permits recovery after the orchestrator is abandoned."""
+    """A kernel mutex permits recovery after the orchestrator is abandoned.
+
+    Best-effort CI reclaim proceeds without the mutex after the bounded wait:
+    a wedged orchestrator holding it must not keep the runner offline.
+    """
     state = read_json(state_path)
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)
     kernel.CreateMutexW.argtypes, kernel.CreateMutexW.restype = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p], ctypes.c_void_p
@@ -1179,9 +1264,12 @@ def recover(state_path, best_effort=False):
     try:
         # WAIT_ABANDONED is successful ownership after a crashed recovery worker.
         acquired = kernel.WaitForSingleObject(handle, 30000) in (0, 0x80)
-        if not acquired:
+        if not acquired and not best_effort:
             raise RuntimeError('recovery_mutex_timeout')
-        return _recover_locked(state_path, best_effort=best_effort)
+        result = _recover_locked(state_path, best_effort=best_effort)
+        if not acquired:
+            result['mutex_bypassed'] = True
+        return result
     finally:
         if acquired:
             kernel.ReleaseMutex(handle)
@@ -1200,8 +1288,15 @@ def system_operation(state_path, operation):
     metadata = load_deployment(root)
     value = scoped_guard(metadata, state['nonce'])
     if operation == 'recover':
-        value = recover(state_path)
-        if value.get('recovered') is not True and read_json(state_path).get('ci_network_reclaim') is True:
+        reclaim = state.get('ci_network_reclaim') is True
+        try:
+            value = recover(state_path)
+        except BaseException as error:
+            if not reclaim:
+                raise
+            # A strict failure (e.g. mutex timeout) must not skip the CI reclaim below.
+            value = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
+        if value.get('recovered') is not True and reclaim:
             try:
                 value['ci_network_reclaim'] = recover(state_path, best_effort=True)
             except BaseException as error:
@@ -1751,7 +1846,11 @@ def run(arguments):
     _ACTIVE_BUDGET = budget
     report['time_budget'] = {'cooperative_experiment_seconds': EXPERIMENT_BUDGET_SECONDS,
         'independent_system_recovery_trigger_seconds': RECOVERY_DEADLINE_SECONDS,
+        'orchestrator_hard_deadline_seconds': HARD_DEADLINE_SECONDS,
         'broker_calls_hard_interrupted': False, 'stages': budget.stages}
+    finished = threading.Event()
+    threading.Thread(target=_hard_deadline, daemon=True, args=(finished, report, budget,
+        (str(work), str(root), nonce), work, arguments.output, threading.get_ident())).start()
     try:
         budget.stage('register_independent_recovery')
         names.append(task(state_path, 'recover', wait=False, watchdog=True))
@@ -1913,6 +2012,7 @@ def run(arguments):
         budget.stage(None)
         report['time_budget']['total_elapsed_seconds'] = round(time.monotonic() - run_started, 3)
         write_json(arguments.output, report)
+        finished.set()
     accepted = report.get('startup_smoke_passed') is True if smoke_only else report['passed']
     _ci_annotation('notice' if accepted and report['recovery'].get('recovered') else 'error', 'Global capture summary',
                    _ci_summary(report, budget, (str(work), str(root), nonce)))

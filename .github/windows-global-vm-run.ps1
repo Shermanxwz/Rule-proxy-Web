@@ -27,6 +27,36 @@ function Protect-DiagnosticText([string]$Value) {
     return [regex]::Replace($Value, '(?i)https?://[^\\\s"''<>]+', '[URL REDACTED]')
 }
 
+function Send-SerialBeacon([string]$Text) {
+    # QEMU records COM1 in the host artifacts, so progress stays visible to the
+    # host even when guest networking or the result POST is lost. Diagnostics only.
+    $port = $null
+    try {
+        $clean = [regex]::Replace((Protect-DiagnosticText $Text), '[^\x20-\x7E]', '?')
+        if ($clean.Length -gt 2000) { $clean = $clean.Substring(0, 2000) }
+        $port = New-Object IO.Ports.SerialPort('COM1', 115200)
+        $port.WriteTimeout = 2000
+        $port.Open()
+        $port.Write('RPBEACON ' + $clean + "`r`n")
+    } catch { } finally {
+        if ($null -ne $port) { try { $port.Dispose() } catch { } }
+    }
+}
+
+function Send-ProgressBeacons([string]$Path, [int]$Sent) {
+    # Relay complete harness progress lines not yet sent, at most 20 per call.
+    try {
+        if (-not [IO.File]::Exists($Path)) { return $Sent }
+        $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        try { $text = (New-Object IO.StreamReader($stream)).ReadToEnd() } finally { $stream.Dispose() }
+        if ($text.Length -gt 1048576) { return $Sent }
+        $lines = @($text.Substring(0, $text.LastIndexOf("`n") + 1).Split("`n") | Where-Object { $_.Trim() })
+        $limit = [Math]::Min($lines.Count, $Sent + 20)
+        for ($index = $Sent; $index -lt $limit; $index++) { Send-SerialBeacon ('capture ' + $lines[$index].Trim()) }
+        return $limit
+    } catch { return $Sent }
+}
+
 function Write-BootstrapStep([string]$Phase) {
     $script:result.phase = $Phase
     $step = @{phase=$Phase; utc=[DateTime]::UtcNow.ToString('o')}
@@ -37,6 +67,7 @@ function Write-BootstrapStep([string]$Phase) {
         [IO.File]::WriteAllText((Join-Path $script:root 'bootstrap-progress.json'),
             (Protect-DiagnosticText ($script:result | ConvertTo-Json -Depth 12 -Compress)), $script:utf8)
     } catch { } # Diagnostic I/O must not replace the original failure.
+    Send-SerialBeacon ('phase ' + $Phase)
 }
 
 function Add-BootstrapError([string]$Phase, $Failure) {
@@ -45,6 +76,7 @@ function Add-BootstrapError([string]$Phase, $Failure) {
         message=(Protect-DiagnosticText ([string]$Failure.Exception.Message));
         stack=(Protect-DiagnosticText ([string]$Failure.ScriptStackTrace))}
     $script:result.errors += $item
+    Send-SerialBeacon ('error ' + $Phase + ' ' + $item.type + ' ' + $item.message)
     return $item
 }
 
@@ -319,6 +351,7 @@ try {
     $detail.owner.elevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     $detail.owner.sid_matches_installation = $detail.owner.sid -eq $cfg.owner_sid
     if (-not $detail.owner.elevated -or -not $detail.owner.sid_matches_installation) { throw 'Highest owner token required' }
+    $env:RULEPROXY_CAPTURE_PROGRESS = Join-Path $root 'capture-progress.log'
     & (Join-Path $cfg.installed 'python\python.exe') -I -S -B $cfg.harness --ack-disposable-windows --installed-root $cfg.installed --output (Join-Path $root 'capture-summary.json') *> (Join-Path $root 'capture.log')
     $detail.exit_code = $LASTEXITCODE
 } catch { $detail.error_type = $_.Exception.GetType().FullName }
@@ -338,10 +371,14 @@ exit $detail.exit_code
     Write-BootstrapStep 'global_capture_running'
     $captureDeadline = [DateTime]::UtcNow.AddSeconds(240)
     $ownerResult = Join-Path $root 'capture-owner-result.json'
+    $progressPath = Join-Path $root 'capture-progress.log'
+    $progressSent = 0
     while (-not [IO.File]::Exists($ownerResult)) {
+        $progressSent = Send-ProgressBeacons $progressPath $progressSent
         if ([DateTime]::UtcNow -gt $captureDeadline) { throw 'Capture owner exceeded deadline' }
         Start-Sleep -Milliseconds 250
     }
+    $progressSent = Send-ProgressBeacons $progressPath $progressSent
     $detail = [IO.File]::ReadAllText($ownerResult) | ConvertFrom-Json
     $result.exit_code = [int]$detail.exit_code
     $result.owner = $detail.owner
@@ -368,6 +405,7 @@ exit $detail.exit_code
         }
         $result.task_cleanup_confirmed = $true
     } catch { [void](Add-BootstrapError 'capture_task_cleanup' $_) }
+    if ($progressPath) { $progressSent = Send-ProgressBeacons $progressPath $progressSent }
     try {
         $deploymentPath = Join-Path $installed 'deployment.json'
         if (Test-Path -LiteralPath $deploymentPath) {
@@ -415,6 +453,7 @@ exit $detail.exit_code
     $passwordText = $null
     if ($password) { $password.Dispose(); $password = $null }
     if ($configuration -and $configuration.host_url) {
+        $posted = $false
         for ($attempt = 0; $attempt -lt 3; $attempt++) {
             $request = [Net.HttpWebRequest]::Create($configuration.host_url + '/result')
             $request.Method = 'POST'; $request.Proxy = $null; $request.Timeout = 15000; $request.ReadWriteTimeout = 15000
@@ -425,8 +464,10 @@ exit $detail.exit_code
                 $response = $request.GetResponse()
                 try { if ([int]$response.StatusCode -ne 200) { throw 'Result rejected' } } finally { $response.Dispose() }
                 Unregister-ScheduledTask -TaskName 'RuleProxyProduct-Qualification' -Confirm:$false -ErrorAction SilentlyContinue
+                $posted = $true
                 break
             } catch { $request.Abort() }
         }
+        Send-SerialBeacon ('result_post ' + $(if ($posted) { 'ok' } else { 'failed' }))
     }
 }

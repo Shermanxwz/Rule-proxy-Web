@@ -554,6 +554,43 @@ def print_global_guest_digest(level, server):
         pass
 
 
+# The workflows wrap this process in `timeout` with the same --timeout-seconds.
+# Stop waiting early enough that failure diagnostics and owned cleanup finish
+# before that outer TERM.
+CLEANUP_RESERVE_SECONDS = 120
+_SERIAL_BEACON = re.compile(r"RPBEACON ([\x20-\x7e]{1,2000})")
+_GUEST_HARNESS_TITLES = ("Global capture hard deadline", "Global capture watchdog", "Global capture summary")
+
+
+def serial_beacons(path, limit=262144):
+    """Guest progress lines relayed over the VM serial console; independent of guest networking."""
+    try:
+        with Path(path).open("rb") as stream:
+            stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, stream.tell() - limit))
+            data = stream.read(limit)
+    except OSError:
+        return []
+    return _SERIAL_BEACON.findall(data.decode("ascii", "replace"))
+
+
+def print_serial_beacons(level, path):
+    """Diagnostics only: last guest phases, then the last harness digest of each kind."""
+    try:
+        beacons = serial_beacons(path)
+        print_ci_annotation(level, "Win11 guest serial progress",
+                            {"count": len(beacons), "last": [_digest_text(line, 110) for line in beacons[-12:]]})
+        for title in _GUEST_HARNESS_TITLES:
+            marker = " title=" + title + "::"
+            found = [line for line in beacons if marker in line]
+            if found:
+                payload = found[-1].split(marker, 1)[1]
+                payload = payload.replace("%0D", "\r").replace("%0A", "\n").replace("%25", "%")
+                print_ci_annotation(level, "Win11 guest " + title[len("Global "):], {"payload": _digest_text(payload, 1700)})
+    except Exception:
+        pass
+
+
 def cleanup_owned(qmp, qemu, tpm, server, thread, private_directory):
     """Stop VM users of the private disk/ISO/password before deleting them."""
     errors = []
@@ -744,7 +781,8 @@ def run(args):
                     stream.write(json.dumps(sample, ensure_ascii=True) + "\n")
                 summary["latest_vm_sample"] = sample
                 stage("guest_installation_or_qualification_wait")
-                if qemu.poll() is not None or time.monotonic() - overall_started > args.timeout_seconds:
+                if (qemu.poll() is not None
+                        or time.monotonic() - overall_started > args.timeout_seconds - CLEANUP_RESERVE_SECONDS):
                     raise RuntimeError("Native Windows installation/product qualification did not finish within its budget")
                 if shutil.disk_usage(work).free < 5 * 1024**3:
                     raise RuntimeError("VM disk safety reserve reached")
@@ -773,6 +811,8 @@ def run(args):
                        cancellation_signal=signal.Signals(exc.signum).name,
                        stop_reason="Controller/runner cancellation; no product failure is inferred.")
         stage("cancelled")
+        if suite == "global-capture":
+            print_serial_beacons("error", artifacts / "serial.log")
         # Ask owned children to exit immediately; do not spend cancellation grace
         # waiting on additional QMP commands or screenshots.
         for process in (qemu, tpm):
@@ -788,6 +828,7 @@ def run(args):
         print("::error title=Native Windows product::" + summary["error"], flush=True)
         if suite == "global-capture":
             print_global_guest_digest("error", server)
+            print_serial_beacons("error", artifacts / "serial.log")
     finally:
         summary["product_execution_confirmed"] = bool(server is not None and isinstance(server.result, dict)
             and isinstance(server.result.get("reports", {}).get("product"), dict))
