@@ -182,7 +182,7 @@ class CiNetworkReclaimTests(unittest.TestCase):
         text = json.dumps(summary, sort_keys=True)
         self.assertEqual(set(summary), {'passed', 'startup_smoke_passed', 'dns_smoke_passed', 'failed_stage', 'error',
                                         'stages', 'last_stage_elapsed', 'recovery', 'ci_network_reclaim',
-                                        'capture_failure_code'})
+                                        'capture_failure_code', 'capture'})
         self.assertLessEqual(len(summary['error']), 300)
         self.assertEqual(len(summary['recovery']['errors']), 2)
         self.assertTrue(all(len(item) <= 200 for item in summary['recovery']['errors']))
@@ -191,9 +191,34 @@ class CiNetworkReclaimTests(unittest.TestCase):
         self.assertEqual(summary['capture_failure_code'], 'pktmon_status_unknown')
         for leaked in (nonce, 'C:', 'capture-', 'AAAA', 'evidence'):
             self.assertNotIn(leaked, text)
+        self.assertEqual(summary['capture'], {'components': None, 'filter_confirmed': False, 'etl_file_bytes': None,
+                                              'matching_etl_bytes': None, 'start': None, 'buffer_info': None})
         minimal = H._ci_summary({'passed': True, 'recovery': {'recovered': True}}, budget)
         self.assertEqual(set(minimal), {'passed', 'startup_smoke_passed', 'failed_stage', 'error', 'stages',
                                         'last_stage_elapsed', 'recovery'})
+
+    def test_capture_digest_keeps_only_sizes_counters_and_component_count(self):
+        evidence = {'declared_components': [11, 12, 13], 'filter': {'name': 'RuleProxyCaptureDest', 'confirmed': True},
+                    'filter_before': 'C:\\private listing',
+                    'inventory_after_flush_wait': {'matching_etl_bytes': 70000000, 'files': [
+                        {'basename': 'wire-before.etl', 'bytes': 16777216, 'matches_expected_capture_glob': True},
+                        {'basename': 'wire-before_1.etl', 'bytes': 53222784, 'matches_expected_capture_glob': True},
+                        {'basename': 'other.pcapng', 'bytes': 5, 'matches_expected_capture_glob': False}]},
+                    'start': {'log_basename': 'wire-before.etl', 'maximum_file_size': '16 MB', 'idle_reported': False,
+                              'logging_mode': 'multi-file'},
+                    'buffer_info': {'events_logged': 1234, 'buffers_written': 4096, 'buffer_size': '1,024 KB',
+                                    'log_parent_is_private_run_directory': True, 'note': 'C:\\x'}}
+        digest = H._ci_capture_digest(evidence)
+        self.assertEqual(digest, {'components': 3, 'filter_confirmed': True, 'etl_file_bytes': [16777216, 53222784],
+                                  'matching_etl_bytes': 70000000,
+                                  'start': {'idle_reported': False, 'maximum_file_size': '16 MB'},
+                                  'buffer_info': {'buffer_size': '1,024 KB', 'buffers_written': 4096, 'events_logged': 1234,
+                                                  'log_parent_is_private_run_directory': True}})
+        text = json.dumps(digest)
+        for leaked in ('C:', 'wire-before', 'RuleProxyCaptureDest', 'multi-file', 'pcapng'):
+            self.assertNotIn(leaked, text)
+        self.assertIsNone(H._ci_capture_digest('not a dict'))
+
 
 if __name__ == '__main__':
     unittest.main()

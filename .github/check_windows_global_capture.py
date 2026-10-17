@@ -158,6 +158,28 @@ def _ci_text(value, limit, private=()):
     return text[:limit]
 
 
+def _ci_capture_digest(evidence):
+    """Numbers only from capture failure evidence: file sizes, pktmon counters, component count."""
+    if not isinstance(evidence, dict):
+        return None
+    def numeric(meta):
+        if not isinstance(meta, dict):
+            return None
+        return {key: value for key, value in sorted(meta.items())[:24] if isinstance(key, str)
+                and (type(value) in (int, bool) or isinstance(value, str)
+                     and re.fullmatch(r'[0-9][0-9,.]{0,24}(?:\s*(?:bytes|B|KB|MB|GB))?', value, re.IGNORECASE))}
+    inventory = evidence.get('inventory_after_flush_wait') or evidence.get('inventory_after_stop')
+    files = inventory.get('files') if isinstance(inventory, dict) else None
+    components = evidence.get('declared_components')
+    return {'components': len(components) if isinstance(components, list) else None,
+            'filter_confirmed': (evidence.get('filter') or {}).get('confirmed') is True,
+            'etl_file_bytes': [item.get('bytes') for item in files if isinstance(item, dict)
+                               and item.get('matches_expected_capture_glob') and type(item.get('bytes')) is int][:8]
+                              if isinstance(files, list) else None,
+            'matching_etl_bytes': inventory.get('matching_etl_bytes') if isinstance(inventory, dict) else None,
+            'start': numeric(evidence.get('start')), 'buffer_info': numeric(evidence.get('buffer_info'))}
+
+
 def _ci_summary(report, budget, private=()):
     """Fixed-shape digest for the public summary annotation: no paths, nonces, tokens or evidence."""
     def recovery(value):
@@ -178,6 +200,8 @@ def _ci_summary(report, budget, private=()):
         summary['ci_network_reclaim'] = recovery(report['ci_network_reclaim'])
     if isinstance(code, str):
         summary['capture_failure_code'] = _ci_text(code, 200, private)
+    if isinstance(capture, dict):
+        summary['capture'] = _ci_capture_digest(capture)
     return summary
 
 
