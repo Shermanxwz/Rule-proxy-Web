@@ -97,6 +97,18 @@ function Read-DiagnosticTail([string]$Path) {
     } finally { $stream.Dispose() }
 }
 
+function Invoke-NativeQuietly([string]$FilePath, [string[]]$Arguments) {
+    # Windows PowerShell 5.1 turns native stderr into ErrorRecords that terminate under
+    # 'Stop' even when redirected, so a failing probe threw before its exit code was read.
+    # Only this scope continues; the last output line is kept as a bounded diagnostic.
+    $ErrorActionPreference = 'Continue'
+    $lines = @(& $FilePath @Arguments 2>&1 | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+    $code = $LASTEXITCODE
+    $script:nativeLastLine = ''
+    if ($lines.Count) { $script:nativeLastLine = Protect-DiagnosticText $lines[-1].Substring(0, [Math]::Min(300, $lines[-1].Length)) }
+    return $code
+}
+
 function Initialize-FixtureTrust([string]$Python) {
     # Python's OpenSSL trusts only roots already present in the Windows store, while a
     # fresh client fetches missing roots lazily through CryptoAPI chain building. Let the
@@ -107,27 +119,25 @@ function Initialize-FixtureTrust([string]$Python) {
     $trust = @{python_initial=$false; os_fetch=$false; root_list_imported=$false; python_final=$false}
     # Same hashtable reference: later updates stay visible if a step below throws.
     $script:result.fixture_trust = $trust
-    & $Python -I -S -B -c $probe *> $null
-    $trust.python_initial = $LASTEXITCODE -eq 0
+    $arguments = @('-I', '-S', '-B', '-c', $probe)
+    $trust.python_initial = (Invoke-NativeQuietly $Python $arguments) -eq 0
     $trust.python_final = $trust.python_initial
     if (-not $trust.python_final) {
         try {
             $null = Invoke-WebRequest -UseBasicParsing -Uri $uri -Headers @{Accept='application/dns-json'} -TimeoutSec 20
             $trust.os_fetch = $true
         } catch { }
-        & $Python -I -S -B -c $probe *> $null
-        $trust.python_final = $LASTEXITCODE -eq 0
+        $trust.python_final = (Invoke-NativeQuietly $Python $arguments) -eq 0
     }
     if (-not $trust.python_final) {
         $sst = Join-Path $script:root 'authroots.sst'
-        & certutil.exe -f -generateSSTFromWU $sst *> $null
-        if ($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($sst)) { throw 'Microsoft root list download failed' }
+        $code = Invoke-NativeQuietly 'certutil.exe' @('-f', '-generateSSTFromWU', $sst)
+        if ($code -ne 0 -or -not [IO.File]::Exists($sst)) { throw ('Microsoft root list download failed: ' + $script:nativeLastLine) }
         $null = Import-Certificate -FilePath $sst -CertStoreLocation Cert:\LocalMachine\Root
         $trust.root_list_imported = $true
-        & $Python -I -S -B -c $probe *> $null
-        $trust.python_final = $LASTEXITCODE -eq 0
+        $trust.python_final = (Invoke-NativeQuietly $Python $arguments) -eq 0
     }
-    if (-not $trust.python_final) { throw 'Fixture HTTPS trust could not be established' }
+    if (-not $trust.python_final) { throw ('Fixture HTTPS trust could not be established: ' + $script:nativeLastLine) }
 }
 
 # OOBE/defaultuser0 logons must not claim or report the product run. The actual
@@ -233,7 +243,7 @@ function Invoke-BoundedScript([string]$Script, [string]$Arguments, [int]$Seconds
             $receipt.timed_out = $true
             # The held process handle preserves the child identity until this
             # exact owned tree has been terminated and its exit is confirmed.
-            & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $child.Id /T /F *> $null
+            $null = Invoke-NativeQuietly (Join-Path $env:SystemRoot 'System32\taskkill.exe') @('/PID', [string]$child.Id, '/T', '/F')
             $receipt.termination_confirmed = $child.WaitForExit(5000)
             $receipt.exited = $receipt.termination_confirmed
             throw 'Owned installer exceeded its deadline'
@@ -259,7 +269,7 @@ function Invoke-BoundedScript([string]$Script, [string]$Arguments, [int]$Seconds
             if ($receipt.handle_captured) {
                 try {
                     if (-not $child.HasExited) {
-                        & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $child.Id /T /F *> $null
+                        $null = Invoke-NativeQuietly (Join-Path $env:SystemRoot 'System32\taskkill.exe') @('/PID', [string]$child.Id, '/T', '/F')
                     }
                     $receipt.termination_confirmed = $child.WaitForExit(5000)
                     $receipt.exited = $receipt.termination_confirmed
@@ -352,8 +362,12 @@ try {
     $detail.owner.sid_matches_installation = $detail.owner.sid -eq $cfg.owner_sid
     if (-not $detail.owner.elevated -or -not $detail.owner.sid_matches_installation) { throw 'Highest owner token required' }
     $env:RULEPROXY_CAPTURE_PROGRESS = Join-Path $root 'capture-progress.log'
+    # Windows PowerShell 5.1 turns redirected native stderr into terminating errors under
+    # 'Stop'; a harness traceback must land in capture.log with the real exit code.
+    $ErrorActionPreference = 'Continue'
     & (Join-Path $cfg.installed 'python\python.exe') -I -S -B $cfg.harness --ack-disposable-windows --installed-root $cfg.installed --output (Join-Path $root 'capture-summary.json') *> (Join-Path $root 'capture.log')
     $detail.exit_code = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
 } catch { $detail.error_type = $_.Exception.GetType().FullName }
 finally {
     $temporary = Join-Path $root 'capture-owner-result.tmp'
