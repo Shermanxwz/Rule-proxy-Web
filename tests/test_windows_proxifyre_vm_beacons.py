@@ -98,6 +98,25 @@ class SerialBeaconTests(unittest.TestCase):
         setup = (ROOT / ".github/windows-proxifyre-vm-setup.ps1").read_text()
         self.assertLess(setup.index("/v BypassNRO /t REG_DWORD /d 1"), setup.index("Register-ScheduledTask"))
 
+    def test_guest_waits_for_a_quick_harness_query_before_the_timed_experiment(self):
+        script = (ROOT / ".github/windows-global-vm-run.ps1").read_text()
+        harness = (ROOT / ".github/check_windows_global_capture.py").read_text()
+        call = script.index("    Wait-SystemSettled 600")
+        self.assertLess(script.index("    Initialize-FixtureTrust (Join-Path"), script.index("Write-BootstrapStep 'global_settle'"))
+        self.assertLess(script.index("Write-BootstrapStep 'global_settle'"), call)
+        self.assertLess(call, script.index("Register-ScheduledTask -TaskName $captureTask"))
+        probe = script[script.index("function Wait-SystemSettled"):call]
+        default_nic = harness[harness.index("def default_nic"):harness.index("def nic_components")]
+        for cmdlet in ("Get-NetRoute -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore", "Get-NetAdapter",
+                       "Get-NetIPAddress"):
+            self.assertIn(cmdlet, default_nic)
+            self.assertIn(cmdlet, probe)
+        self.assertIn("$env:PSModulePath=Join-Path $PSHOME 'Modules'", harness)
+        self.assertIn("`$env:PSModulePath=Join-Path `$PSHOME 'Modules'", probe)
+        setup = (ROOT / ".github/windows-proxifyre-vm-setup.ps1").read_text()
+        for policy in ("/v NoAutoUpdate /t REG_DWORD /d 1", "/v AutoDownload /t REG_DWORD /d 2"):
+            self.assertLess(setup.index(policy), setup.index("Register-ScheduledTask"))
+
     def test_cleanup_reserve_leaves_a_positive_wait_for_the_smallest_budget(self):
         self.assertGreater(300 - vm.CLEANUP_RESERVE_SECONDS, 0)
         self.assertGreaterEqual(vm.CLEANUP_RESERVE_SECONDS, 60)

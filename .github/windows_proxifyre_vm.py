@@ -522,6 +522,11 @@ def global_guest_digest(result):
     if isinstance(trust, dict):
         guest["fixture_trust"] = {key: value for key, value in trust.items()
                                   if isinstance(key, str) and isinstance(value, bool)}
+    settle = result.get("settle")
+    if isinstance(settle, dict):
+        guest["settle"] = {key: _digest_scalar(settle.get(key)) for key in (
+            "settled", "probes", "first_seconds", "last_seconds", "waited_seconds")}
+        guest["settle"]["busy_processes"] = _digest_strings(settle.get("busy_processes"), 60, 6)
     digest = {"guest": guest}
     reports = result.get("reports")
     report = reports.get("global_capture") if isinstance(reports, dict) else None

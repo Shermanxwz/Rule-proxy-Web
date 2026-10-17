@@ -98,6 +98,19 @@ class GlobalGuestDigestTests(unittest.TestCase):
         self.assertEqual([len(text) for text in digest["harness"]["recovery"]["errors"]], [200, 200])
         self.assertEqual([len(text) for text in digest["harness"]["ci_network_reclaim"]["errors"]], [200, 200])
 
+    def test_settle_view_keeps_bounded_scalars_and_process_names(self):
+        result = failed_global_result()
+        result["settle"] = {"settled": False, "probes": 41, "first_seconds": 11.2, "last_seconds": 6.4,
+                            "waited_seconds": 603, "streak": 9,
+                            "busy_processes": ["MsMpEng=1.21"] + ["x" * 99] * 9 + [3]}
+        self.assertEqual(vm.global_guest_digest(result)["guest"]["settle"],
+                         {"settled": False, "probes": 41, "first_seconds": 11.2, "last_seconds": 6.4,
+                          "waited_seconds": 603, "busy_processes": ["MsMpEng=1.21"] + ["x" * 60] * 5})
+        self.assertNotIn("settle", vm.global_guest_digest(failed_global_result())["guest"])
+        self.assertEqual(vm.global_guest_digest({"settle": {"probes": [1], "busy_processes": "MsMpEng"}})["guest"]["settle"],
+                         {"settled": None, "probes": None, "first_seconds": None, "last_seconds": None,
+                          "waited_seconds": None, "busy_processes": []})
+
     def test_non_dict_results_are_described_not_raised(self):
         for value in (None, "text", 7, 1.5, True, [], ["global_capture"]):
             with self.subTest(value=value):

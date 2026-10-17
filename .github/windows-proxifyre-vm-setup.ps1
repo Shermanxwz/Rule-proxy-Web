@@ -12,6 +12,12 @@ $setupLog = Join-Path $root 'setup.log'
 # The global suite keeps the NIC unplugged through OOBE; never wait on a network-required page.
 & reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE' /v BypassNRO /t REG_DWORD /d 1 /f | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Cannot allow offline OOBE' }
+# The disposable guest is online only for its tests; automatic Windows Update and Store app
+# downloads would compete with the timed experiment and may restart the guest.
+& reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' /v NoAutoUpdate /t REG_DWORD /d 1 /f | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Cannot pause automatic updates' }
+& reg.exe add 'HKLM\SOFTWARE\Policies\Microsoft\WindowsStore' /v AutoDownload /t REG_DWORD /d 2 /f | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Cannot pause Store app downloads' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ruleproxy-vm-run.ps1') -Destination $root
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ruleproxy-vm-config.json') -Destination $root
 $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'

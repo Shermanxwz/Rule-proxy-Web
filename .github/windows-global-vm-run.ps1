@@ -146,6 +146,54 @@ function Initialize-FixtureTrust([string]$Python) {
     if (-not $trust.python_final) { throw ('Fixture HTTPS trust could not be established: ' + $script:nativeLastLine) }
 }
 
+function Get-BusyProcesses {
+    # Busiest processes in cores from two raw counter samples 5 s apart; locale-independent. Diagnostics only.
+    try {
+        $before = @{}
+        foreach ($row in @(Get-CimInstance Win32_PerfRawData_PerfProc_Process -OperationTimeoutSec 20)) { $before[[string]$row.IDProcess + $row.Name] = $row }
+        Start-Sleep -Seconds 5
+        $busy = foreach ($row in @(Get-CimInstance Win32_PerfRawData_PerfProc_Process -OperationTimeoutSec 20)) {
+            $old = $before[[string]$row.IDProcess + $row.Name]
+            if ($old -and $row.Name -notin '_Total', 'Idle' -and $row.Timestamp_Sys100NS -gt $old.Timestamp_Sys100NS) {
+                New-Object PSObject -Property @{name=$row.Name; cores=($row.PercentProcessorTime - $old.PercentProcessorTime) / ($row.Timestamp_Sys100NS - $old.Timestamp_Sys100NS)}
+            }
+        }
+        return @($busy | Sort-Object cores -Descending | Select-Object -First 6 | ForEach-Object { '{0}={1:N2}' -f $_.name, $_.cores })
+    } catch { return @('unavailable') }
+}
+
+function Wait-SystemSettled([int]$Seconds) {
+    # A fresh client is still busy with first-logon provisioning and post-network work when
+    # the harness starts (3+ of 4 vCPUs in run 39043134615), so its first bounded query, the
+    # 8 s default route and adapter read, timed out. Repeat that read-only query in fresh
+    # processes until two in a row finish within 4 s or the bound expires. Harness limits are
+    # unchanged; an unsettled system is only recorded and the experiment still decides.
+    $query = "`$ErrorActionPreference='Stop';`$env:PSModulePath=Join-Path `$PSHOME 'Modules';" +
+        "`$null=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore);`$null=@(Get-NetAdapter);" +
+        "`$null=@(Get-NetIPAddress -AddressFamily IPv4)"
+    $arguments = '-NoLogo -NoProfile -NonInteractive -EncodedCommand ' + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($query))
+    $settle = @{settled=$false; probes=0; first_seconds=$null; last_seconds=$null; waited_seconds=0; busy_processes=@()}
+    # Same hashtable reference: partial values stay visible if a probe throws.
+    $script:result.settle = $settle
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $streak = 0
+    while ($streak -lt 2 -and $clock.Elapsed.TotalSeconds -lt $Seconds) {
+        $probe = [Diagnostics.Stopwatch]::StartNew()
+        $child = Start-Process -FilePath $powershell -ArgumentList $arguments -WindowStyle Hidden -PassThru
+        $null = $child.Handle  # keeps ExitCode readable after exit
+        $quick = $child.WaitForExit(30000) -and $child.ExitCode -eq 0 -and $probe.Elapsed.TotalSeconds -le 4
+        if (-not $child.HasExited) { try { $child.Kill() } catch { } }
+        $settle.probes += 1
+        $settle.last_seconds = [Math]::Round($probe.Elapsed.TotalSeconds, 1)
+        if ($null -eq $settle.first_seconds) { $settle.first_seconds = $settle.last_seconds }
+        if ($quick) { $streak += 1 } else { $streak = 0; Start-Sleep -Seconds 5 }
+    }
+    $settle.settled = $streak -ge 2
+    $settle.waited_seconds = [int]$clock.Elapsed.TotalSeconds
+    $settle.busy_processes = @(Get-BusyProcesses)
+    Send-SerialBeacon ('settle ' + ($settle | ConvertTo-Json -Compress))
+}
+
 # OOBE/defaultuser0 logons must not claim or report the product run. The actual
 # fixture user owns the active console and Explorer before the SYSTEM task starts.
 if ([IO.File]::Exists((Join-Path $root 'started'))) { exit 0 }
@@ -362,6 +410,8 @@ try {
     $result.source_identity = @{tested_source_commit=$configuration.source_identity.tested_source_commit; source_sha256=$hashes; harness_sha256=$harnessHash}
     Write-BootstrapStep 'global_fixture_trust'
     Initialize-FixtureTrust (Join-Path $installed 'python\python.exe')
+    Write-BootstrapStep 'global_settle'
+    Wait-SystemSettled 600
     $ownerConfiguration = @{owner_sid=$captureSid; installed=$installed; harness=$harness; root=$root}
     [IO.File]::WriteAllText((Join-Path $root 'owner-config.json'), ($ownerConfiguration | ConvertTo-Json -Compress), $utf8)
     $ownerScript = @'
