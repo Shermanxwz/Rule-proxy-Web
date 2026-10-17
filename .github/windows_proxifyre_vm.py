@@ -462,6 +462,98 @@ def verify_global_result(result, *, package_sha256, source_identity):
     return report
 
 
+_DIGEST_REDACTIONS = (
+    (re.compile(r"(?i)\b[a-z][a-z0-9+.-]*://[^\s\"'<>\\]+"), "[URL REDACTED]"),
+    (re.compile(r"(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/]|\\\\)[^\s\"'<>|]*"), "[PATH REDACTED]"),
+    (re.compile(r"\bS-1-\d+(?:-\d+)+"), "[SID REDACTED]"),
+)
+
+
+def _digest_text(value, limit=200):
+    """Redacted and truncated text for a public annotation; non-strings are dropped."""
+    if not isinstance(value, str):
+        return None
+    for pattern, replacement in _DIGEST_REDACTIONS:
+        value = pattern.sub(replacement, value)
+    return value[:limit]
+
+
+def _digest_scalar(value, limit=200):
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return _digest_text(value, limit)
+
+
+def _digest_strings(values, limit, count):
+    if not isinstance(values, list):
+        return []
+    return [_digest_text(value, limit) for value in values if isinstance(value, str)][:count]
+
+
+def _digest_column(rows, key, limit, count):
+    if not isinstance(rows, list):
+        return []
+    return _digest_strings([row.get(key) for row in rows if isinstance(row, dict)], limit, count)
+
+
+def _digest_recovery(value):
+    if not isinstance(value, dict):
+        return None
+    return {"recovered": _digest_scalar(value.get("recovered")),
+            "errors": _digest_strings(value.get("errors"), 200, 2)}
+
+
+def global_guest_digest(result):
+    """Bounded, secret-free view of a guest global-capture result for a public annotation."""
+    if not isinstance(result, dict):
+        return {"result_type": type(result).__name__}
+    errors = result.get("errors")
+    last = errors[-1] if isinstance(errors, list) and errors else None
+    guest = {name: _digest_scalar(result.get(name)) for name in (
+        "status", "phase", "error_type", "error_code", "exit_code",
+        "user_cleanup_confirmed", "task_cleanup_confirmed", "installation_cleanup_confirmed")}
+    guest["step_phases"] = _digest_column(result.get("steps"), "phase", 200, 30)
+    guest["last_error"] = None
+    if isinstance(last, dict):
+        guest["last_error"] = {"phase": _digest_scalar(last.get("phase")),
+                               "type": _digest_scalar(last.get("type")),
+                               "message": _digest_text(last.get("message"), 300)}
+    trust = result.get("fixture_trust")
+    if isinstance(trust, dict):
+        guest["fixture_trust"] = {key: value for key, value in trust.items()
+                                  if isinstance(key, str) and isinstance(value, bool)}
+    digest = {"guest": guest}
+    reports = result.get("reports")
+    report = reports.get("global_capture") if isinstance(reports, dict) else None
+    if isinstance(report, dict):
+        budget = report.get("time_budget")
+        stages = budget.get("stages") if isinstance(budget, dict) else None
+        harness = {"passed": _digest_scalar(report.get("passed")),
+                   "failed_stage": _digest_scalar(report.get("failed_stage")),
+                   "error": _digest_text(report.get("error"), 300),
+                   "stages": _digest_column(stages, "stage", 200, 40),
+                   "recovery": _digest_recovery(report.get("recovery"))}
+        if isinstance(report.get("ci_network_reclaim"), dict):
+            harness["ci_network_reclaim"] = _digest_recovery(report["ci_network_reclaim"])
+        digest["harness"] = harness
+    return digest
+
+
+def print_ci_annotation(level, title, payload):
+    text = json.dumps(payload, separators=(",", ":"), sort_keys=True)[:1800]
+    text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print("::" + level + " title=" + title + "::" + text, flush=True)
+
+
+def print_global_guest_digest(level, server):
+    """Diagnostics only: printing must never change the qualification outcome."""
+    try:
+        if server is not None and server.result is not None:
+            print_ci_annotation(level, "Win11 global guest digest", global_guest_digest(server.result))
+    except Exception:
+        pass
+
+
 def cleanup_owned(qmp, qemu, tpm, server, thread, private_directory):
     """Stop VM users of the private disk/ISO/password before deleting them."""
     errors = []
@@ -665,6 +757,7 @@ def run(args):
                 media.write_json(artifacts / "native-global-capture-report.json", report)
                 summary.update(status="passed", native_windows_11_global_capture_passed=True,
                                os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
+                print_global_guest_digest("notice", server)
             else:
                 report = verify_result(server.result, package_sha256=args.package_sha256)
                 screenshot = visible_screenshot_bytes(report)
@@ -693,6 +786,8 @@ def run(args):
         summary["failure_phase"] = summary["phase"]
         summary["error"] = type(exc).__name__ + ": " + str(exc)
         print("::error title=Native Windows product::" + summary["error"], flush=True)
+        if suite == "global-capture":
+            print_global_guest_digest("error", server)
     finally:
         summary["product_execution_confirmed"] = bool(server is not None and isinstance(server.result, dict)
             and isinstance(server.result.get("reports", {}).get("product"), dict))
