@@ -9,6 +9,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Cannot set disposable bootstrap owner' }
 if ($LASTEXITCODE -ne 0) { throw 'Cannot protect disposable bootstrap' }
 $setupLog = Join-Path $root 'setup.log'
 [IO.File]::AppendAllText($setupLog, [DateTime]::UtcNow.ToString('o') + ' protected_bootstrap_ready' + [Environment]::NewLine)
+# The global suite keeps the NIC unplugged through OOBE; never wait on a network-required page.
+& reg.exe add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE' /v BypassNRO /t REG_DWORD /d 1 /f | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Cannot allow offline OOBE' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ruleproxy-vm-run.ps1') -Destination $root
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ruleproxy-vm-config.json') -Destination $root
 $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'

@@ -574,6 +574,14 @@ def serial_beacons(path, limit=262144):
     return _SERIAL_BEACON.findall(data.decode("ascii", "replace"))
 
 
+def plug_network_after_beacon(qmp, path):
+    """Plug the NIC in once the claimed guest script has beaconed; OOBE never beacons."""
+    if not serial_beacons(path):
+        return False
+    qmp.execute("set_link", {"name": "vmnet", "up": True})
+    return True
+
+
 def print_serial_beacons(level, path):
     """Diagnostics only: last guest phases, then the last harness digest of each kind."""
     try:
@@ -761,6 +769,13 @@ def run(args):
                 for _ in range(8):
                     qmp.execute("send-key", {"keys": [{"type": "qcode", "data": "ret"}], "hold-time": 100})
                     time.sleep(2)
+            # Online Windows 11 OOBE fetches a zero-day patch, and an update-service failure
+            # parks setup on "Something went wrong (OOBEZDP)" with no unattended skip (run
+            # 39030476856). The global suite keeps the NIC unplugged until its claimed guest
+            # script beacons over COM1; that script waits, bounded, for the host endpoint.
+            network_pending = suite == "global-capture"
+            if network_pending:
+                qmp.execute("set_link", {"name": "vmnet", "up": False})
             started = time.monotonic()
             (artifacts / "screenshots").mkdir(exist_ok=True)
             stage("guest_installation_or_qualification_wait")
@@ -787,7 +802,14 @@ def run(args):
                 if shutil.disk_usage(work).free < 5 * 1024**3:
                     raise RuntimeError("VM disk safety reserve reached")
                 print(f"Native Windows product VM: {int(time.monotonic() - started)} s", flush=True)
-                server.received.wait(30)
+                for _ in range(6):
+                    if server.received.wait(5):
+                        break
+                    if network_pending and plug_network_after_beacon(qmp, artifacts / "serial.log"):
+                        network_pending = False
+                        summary["guest_network_plugged_seconds"] = int(time.monotonic() - started)
+                        print_ci_annotation("notice", "Win11 guest network",
+                                            {"plugged_after_seconds": summary["guest_network_plugged_seconds"]})
             stage("guest_result_received")
             if suite == "global-capture":
                 report = verify_global_result(server.result, package_sha256=args.package_sha256,

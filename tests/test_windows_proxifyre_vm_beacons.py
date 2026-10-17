@@ -66,6 +66,38 @@ class SerialBeaconTests(unittest.TestCase):
         self.assertEqual(output.getvalue(),
                          '::error title=Win11 guest serial progress::{"count":0,"last":[]}\n')
 
+    def test_nic_is_plugged_in_only_after_a_guest_beacon(self):
+        class Qmp:
+            calls = []
+
+            def execute(self, command, arguments=None):
+                self.calls.append((command, arguments))
+                return {}
+        qmp = Qmp()
+        with tempfile.TemporaryDirectory() as work:
+            path = Path(work) / "serial.log"
+            path.write_bytes(b'BdsDxe: starting Boot0003 "Windows Boot Manager"\r\n')
+            self.assertFalse(vm.plug_network_after_beacon(qmp, path))
+            self.assertFalse(vm.plug_network_after_beacon(qmp, Path(work) / "missing.log"))
+            self.assertEqual(qmp.calls, [])
+            with path.open("ab") as stream:
+                stream.write(b"RPBEACON phase global_configuration\r\n")
+            self.assertTrue(vm.plug_network_after_beacon(qmp, path))
+        self.assertEqual(qmp.calls, [("set_link", {"name": "vmnet", "up": True})])
+
+    def test_global_suite_keeps_the_nic_unplugged_until_the_guest_waits_for_it(self):
+        source = (ROOT / ".github/windows_proxifyre_vm.py").read_text()
+        self.assertIn('"-netdev", "user,id=vmnet"', source)
+        self.assertIn('network_pending = suite == "global-capture"', source)
+        self.assertLess(source.index('qmp.execute("set_link", {"name": "vmnet", "up": False})'),
+                        source.index('stage("guest_installation_or_qualification_wait")'))
+        script = (ROOT / ".github/windows-global-vm-run.ps1").read_text()
+        self.assertLess(script.index("Write-BootstrapStep 'global_configuration'"),
+                        script.index("while (-not (Test-HostReachable $hostUri))"))
+        self.assertLess(script.index("while (-not (Test-HostReachable $hostUri))"), script.index("/payload.zip"))
+        setup = (ROOT / ".github/windows-proxifyre-vm-setup.ps1").read_text()
+        self.assertLess(setup.index("/v BypassNRO /t REG_DWORD /d 1"), setup.index("Register-ScheduledTask"))
+
     def test_cleanup_reserve_leaves_a_positive_wait_for_the_smallest_budget(self):
         self.assertGreater(300 - vm.CLEANUP_RESERVE_SECONDS, 0)
         self.assertGreaterEqual(vm.CLEANUP_RESERVE_SECONDS, 60)

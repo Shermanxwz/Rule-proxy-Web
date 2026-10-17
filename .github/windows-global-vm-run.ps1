@@ -97,6 +97,12 @@ function Read-DiagnosticTail([string]$Path) {
     } finally { $stream.Dispose() }
 }
 
+function Test-HostReachable([Uri]$Uri) {
+    $client = New-Object Net.Sockets.TcpClient
+    try { return ($client.ConnectAsync($Uri.Host, $Uri.Port).Wait(3000) -and $client.Connected) }
+    catch { return $false } finally { $client.Dispose() }
+}
+
 function Invoke-NativeQuietly([string]$FilePath, [string[]]$Arguments) {
     # Windows PowerShell 5.1 turns native stderr into ErrorRecords that terminate under
     # 'Stop' even when redirected, so a failing probe threw before its exit code was read.
@@ -302,6 +308,15 @@ try {
     $os = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
     $result.os = @{build=[int]$os.CurrentBuildNumber; ubr=[int]$os.UBR; product_type=[string](Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\ProductOptions').ProductType; native_architecture=$env:PROCESSOR_ARCHITECTURE}
     if ($result.os.product_type -ne 'WinNT' -or $result.os.build -lt 22000 -or $result.os.native_architecture -ne 'AMD64') { throw 'Client Windows 11 x64 required' }
+    # The host kept the NIC unplugged through OOBE and plugs it in after the beacons above;
+    # wait, bounded, for DHCP and the host endpoint before the first download.
+    Write-BootstrapStep 'global_network_wait'
+    $hostUri = [Uri]$configuration.host_url
+    $networkDeadline = [DateTime]::UtcNow.AddSeconds(240)
+    while (-not (Test-HostReachable $hostUri)) {
+        if ([DateTime]::UtcNow -gt $networkDeadline) { throw 'Host endpoint unreachable after the NIC was plugged in' }
+        Start-Sleep -Seconds 3
+    }
     Write-BootstrapStep 'global_payload'
     $payload = Join-Path $root 'payload.zip'
     $client = New-Object Net.WebClient
