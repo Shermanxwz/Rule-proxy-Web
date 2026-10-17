@@ -744,8 +744,9 @@ class HarnessPlanningTests(unittest.TestCase):
     def test_startup_smoke_uses_real_start_lifecycle_without_capture_and_cannot_claim_full_acceptance(self):
         from contextlib import ExitStack
         from types import SimpleNamespace
-        from unittest.mock import Mock
+        from unittest.mock import Mock, create_autospec
         from ruleproxy import windows_proxy_service as service
+        from ruleproxy import windows_app_process as app_process
         from ruleproxy import windows_global_runtime as runtime
         from ruleproxy import windows_global_guard as guard
         from ruleproxy import windows_global_dns as dns
@@ -777,8 +778,9 @@ class HarnessPlanningTests(unittest.TestCase):
                 stack.enter_context(patch.object(H.sys, 'getwindowsversion', return_value=(10, 0, 26100), create=True))
                 stack.enter_context(patch.object(service, 'load_deployment', return_value=metadata))
                 stack.enter_context(patch.object(service, 'protected_path'))
-                process_lease = stack.enter_context(patch.object(service, 'ProcessLease'))
-                process_lease.return_value.is_elevated.return_value = True
+                api = create_autospec(app_process._KernelAPI, instance=True)
+                api.is_elevated.return_value = True
+                stack.enter_context(patch.object(app_process, '_get_api', return_value=api))
                 stack.enter_context(patch.object(client, 'current_user_sid', return_value=sid))
                 stack.enter_context(patch.object(runtime, 'Runtime', return_value=instance))
                 stack.enter_context(patch.object(guard, 'Guard', return_value=guard_instance))

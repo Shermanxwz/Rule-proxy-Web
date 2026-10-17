@@ -1768,7 +1768,8 @@ def run(arguments):
         raise RuntimeError('explicit_disposable_windows_ack_required')
     root = arguments.installed_root.resolve(strict=True)
     sys.path.insert(0, str(root))
-    from ruleproxy.windows_proxy_service import load_deployment, protected_path, ProcessLease
+    from ruleproxy.windows_proxy_service import load_deployment, protected_path
+    from ruleproxy.windows_app_process import _get_api
     from ruleproxy.windows_global_runtime import Runtime
     from ruleproxy.windows_proxy_client import current_user_sid
     from ruleproxy.windows_global_guard import Guard
@@ -1783,12 +1784,10 @@ def run(arguments):
     if smoke_only:
         if arguments.read_only_components:
             raise RuntimeError('startup_smoke_mode_conflict')
-        lease = ProcessLease(os.getpid(), metadata['owner_sid'])
-        try:
-            if lease.is_elevated() is not True:
-                raise RuntimeError('startup_smoke_requires_actual_elevation')
-        finally:
-            lease.close()
+        # The service no longer needs an elevated caller, but this harness registers its
+        # own SYSTEM recovery tasks, so its own token must still be elevated.
+        if _get_api().is_elevated() is not True:
+            raise RuntimeError('startup_smoke_requires_actual_elevation')
     if arguments.read_only_components:
         _nic, _component, evidence = nic_components()
         arguments.output.parent.mkdir(parents=True, exist_ok=True)
