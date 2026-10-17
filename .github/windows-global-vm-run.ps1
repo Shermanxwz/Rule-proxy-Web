@@ -27,6 +27,36 @@ function Protect-DiagnosticText([string]$Value) {
     return [regex]::Replace($Value, '(?i)https?://[^\\\s"''<>]+', '[URL REDACTED]')
 }
 
+function Send-SerialBeacon([string]$Text) {
+    # QEMU records COM1 in the host artifacts, so progress stays visible to the
+    # host even when guest networking or the result POST is lost. Diagnostics only.
+    $port = $null
+    try {
+        $clean = [regex]::Replace((Protect-DiagnosticText $Text), '[^\x20-\x7E]', '?')
+        if ($clean.Length -gt 2000) { $clean = $clean.Substring(0, 2000) }
+        $port = New-Object IO.Ports.SerialPort('COM1', 115200)
+        $port.WriteTimeout = 2000
+        $port.Open()
+        $port.Write('RPBEACON ' + $clean + "`r`n")
+    } catch { } finally {
+        if ($null -ne $port) { try { $port.Dispose() } catch { } }
+    }
+}
+
+function Send-ProgressBeacons([string]$Path, [int]$Sent) {
+    # Relay complete harness progress lines not yet sent, at most 20 per call.
+    try {
+        if (-not [IO.File]::Exists($Path)) { return $Sent }
+        $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        try { $text = (New-Object IO.StreamReader($stream)).ReadToEnd() } finally { $stream.Dispose() }
+        if ($text.Length -gt 1048576) { return $Sent }
+        $lines = @($text.Substring(0, $text.LastIndexOf("`n") + 1).Split("`n") | Where-Object { $_.Trim() })
+        $limit = [Math]::Min($lines.Count, $Sent + 20)
+        for ($index = $Sent; $index -lt $limit; $index++) { Send-SerialBeacon ('capture ' + $lines[$index].Trim()) }
+        return $limit
+    } catch { return $Sent }
+}
+
 function Write-BootstrapStep([string]$Phase) {
     $script:result.phase = $Phase
     $step = @{phase=$Phase; utc=[DateTime]::UtcNow.ToString('o')}
@@ -37,6 +67,7 @@ function Write-BootstrapStep([string]$Phase) {
         [IO.File]::WriteAllText((Join-Path $script:root 'bootstrap-progress.json'),
             (Protect-DiagnosticText ($script:result | ConvertTo-Json -Depth 12 -Compress)), $script:utf8)
     } catch { } # Diagnostic I/O must not replace the original failure.
+    Send-SerialBeacon ('phase ' + $Phase)
 }
 
 function Add-BootstrapError([string]$Phase, $Failure) {
@@ -45,6 +76,7 @@ function Add-BootstrapError([string]$Phase, $Failure) {
         message=(Protect-DiagnosticText ([string]$Failure.Exception.Message));
         stack=(Protect-DiagnosticText ([string]$Failure.ScriptStackTrace))}
     $script:result.errors += $item
+    Send-SerialBeacon ('error ' + $Phase + ' ' + $item.type + ' ' + $item.message)
     return $item
 }
 
@@ -63,6 +95,103 @@ function Read-DiagnosticTail([string]$Path) {
         if ($unicode) { $encoding = [Text.Encoding]::Unicode }
         return Protect-DiagnosticText ($encoding.GetString($buffer, 0, $read))
     } finally { $stream.Dispose() }
+}
+
+function Test-HostReachable([Uri]$Uri) {
+    $client = New-Object Net.Sockets.TcpClient
+    try { return ($client.ConnectAsync($Uri.Host, $Uri.Port).Wait(3000) -and $client.Connected) }
+    catch { return $false } finally { $client.Dispose() }
+}
+
+function Invoke-NativeQuietly([string]$FilePath, [string[]]$Arguments) {
+    # Windows PowerShell 5.1 turns native stderr into ErrorRecords that terminate under
+    # 'Stop' even when redirected, so a failing probe threw before its exit code was read.
+    # Only this scope continues; the last output line is kept as a bounded diagnostic.
+    $ErrorActionPreference = 'Continue'
+    $lines = @(& $FilePath @Arguments 2>&1 | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+    $code = $LASTEXITCODE
+    $script:nativeLastLine = ''
+    if ($lines.Count) { $script:nativeLastLine = Protect-DiagnosticText $lines[-1].Substring(0, [Math]::Min(300, $lines[-1].Length)) }
+    return $code
+}
+
+function Initialize-FixtureTrust([string]$Python) {
+    # Python's OpenSSL trusts only roots already present in the Windows store, while a
+    # fresh client fetches missing roots lazily through CryptoAPI chain building. Let the
+    # OS verifier fetch the exact fixture chain, confirm Python then verifies it, and only
+    # otherwise import Microsoft's published root list. Verification is never disabled.
+    $uri = 'https://1.1.1.1/dns-query?name=127.0.0.1.sslip.io&type=A'
+    $probe = 'import urllib.request as u; r=u.Request(''' + $uri + ''', headers={''Accept'': ''application/dns-json''}); u.build_opener(u.ProxyHandler({})).open(r, timeout=10).read(1)'
+    $trust = @{python_initial=$false; os_fetch=$false; root_list_imported=$false; python_final=$false}
+    # Same hashtable reference: later updates stay visible if a step below throws.
+    $script:result.fixture_trust = $trust
+    $arguments = @('-I', '-S', '-B', '-c', $probe)
+    $trust.python_initial = (Invoke-NativeQuietly $Python $arguments) -eq 0
+    $trust.python_final = $trust.python_initial
+    if (-not $trust.python_final) {
+        try {
+            $null = Invoke-WebRequest -UseBasicParsing -Uri $uri -Headers @{Accept='application/dns-json'} -TimeoutSec 20
+            $trust.os_fetch = $true
+        } catch { }
+        $trust.python_final = (Invoke-NativeQuietly $Python $arguments) -eq 0
+    }
+    if (-not $trust.python_final) {
+        $sst = Join-Path $script:root 'authroots.sst'
+        $code = Invoke-NativeQuietly 'certutil.exe' @('-f', '-generateSSTFromWU', $sst)
+        if ($code -ne 0 -or -not [IO.File]::Exists($sst)) { throw ('Microsoft root list download failed: ' + $script:nativeLastLine) }
+        $null = Import-Certificate -FilePath $sst -CertStoreLocation Cert:\LocalMachine\Root
+        $trust.root_list_imported = $true
+        $trust.python_final = (Invoke-NativeQuietly $Python $arguments) -eq 0
+    }
+    if (-not $trust.python_final) { throw ('Fixture HTTPS trust could not be established: ' + $script:nativeLastLine) }
+}
+
+function Get-BusyProcesses {
+    # Busiest processes in cores from two raw counter samples 5 s apart; locale-independent. Diagnostics only.
+    try {
+        $before = @{}
+        foreach ($row in @(Get-CimInstance Win32_PerfRawData_PerfProc_Process -OperationTimeoutSec 20)) { $before[[string]$row.IDProcess + $row.Name] = $row }
+        Start-Sleep -Seconds 5
+        $busy = foreach ($row in @(Get-CimInstance Win32_PerfRawData_PerfProc_Process -OperationTimeoutSec 20)) {
+            $old = $before[[string]$row.IDProcess + $row.Name]
+            if ($old -and $row.Name -notin '_Total', 'Idle' -and $row.Timestamp_Sys100NS -gt $old.Timestamp_Sys100NS) {
+                New-Object PSObject -Property @{name=$row.Name; cores=($row.PercentProcessorTime - $old.PercentProcessorTime) / ($row.Timestamp_Sys100NS - $old.Timestamp_Sys100NS)}
+            }
+        }
+        return @($busy | Sort-Object cores -Descending | Select-Object -First 6 | ForEach-Object { '{0}={1:N2}' -f $_.name, $_.cores })
+    } catch { return @('unavailable') }
+}
+
+function Wait-SystemSettled([int]$Seconds) {
+    # A fresh client is still busy with first-logon provisioning and post-network work when
+    # the harness starts (3+ of 4 vCPUs in run 39043134615), so its first bounded query, the
+    # 8 s default route and adapter read, timed out. Repeat that read-only query in fresh
+    # processes until two in a row finish within 4 s or the bound expires. Harness limits are
+    # unchanged; an unsettled system is only recorded and the experiment still decides.
+    $query = "`$ErrorActionPreference='Stop';`$env:PSModulePath=Join-Path `$PSHOME 'Modules';" +
+        "`$null=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -PolicyStore ActiveStore);`$null=@(Get-NetAdapter);" +
+        "`$null=@(Get-NetIPAddress -AddressFamily IPv4)"
+    $arguments = '-NoLogo -NoProfile -NonInteractive -EncodedCommand ' + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($query))
+    $settle = @{settled=$false; probes=0; first_seconds=$null; last_seconds=$null; waited_seconds=0; busy_processes=@()}
+    # Same hashtable reference: partial values stay visible if a probe throws.
+    $script:result.settle = $settle
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $streak = 0
+    while ($streak -lt 2 -and $clock.Elapsed.TotalSeconds -lt $Seconds) {
+        $probe = [Diagnostics.Stopwatch]::StartNew()
+        $child = Start-Process -FilePath $powershell -ArgumentList $arguments -WindowStyle Hidden -PassThru
+        $null = $child.Handle  # keeps ExitCode readable after exit
+        $quick = $child.WaitForExit(30000) -and $child.ExitCode -eq 0 -and $probe.Elapsed.TotalSeconds -le 4
+        if (-not $child.HasExited) { try { $child.Kill() } catch { } }
+        $settle.probes += 1
+        $settle.last_seconds = [Math]::Round($probe.Elapsed.TotalSeconds, 1)
+        if ($null -eq $settle.first_seconds) { $settle.first_seconds = $settle.last_seconds }
+        if ($quick) { $streak += 1 } else { $streak = 0; Start-Sleep -Seconds 5 }
+    }
+    $settle.settled = $streak -ge 2
+    $settle.waited_seconds = [int]$clock.Elapsed.TotalSeconds
+    $settle.busy_processes = @(Get-BusyProcesses)
+    Send-SerialBeacon ('settle ' + ($settle | ConvertTo-Json -Compress))
 }
 
 # OOBE/defaultuser0 logons must not claim or report the product run. The actual
@@ -168,7 +297,7 @@ function Invoke-BoundedScript([string]$Script, [string]$Arguments, [int]$Seconds
             $receipt.timed_out = $true
             # The held process handle preserves the child identity until this
             # exact owned tree has been terminated and its exit is confirmed.
-            & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $child.Id /T /F *> $null
+            $null = Invoke-NativeQuietly (Join-Path $env:SystemRoot 'System32\taskkill.exe') @('/PID', [string]$child.Id, '/T', '/F')
             $receipt.termination_confirmed = $child.WaitForExit(5000)
             $receipt.exited = $receipt.termination_confirmed
             throw 'Owned installer exceeded its deadline'
@@ -194,7 +323,7 @@ function Invoke-BoundedScript([string]$Script, [string]$Arguments, [int]$Seconds
             if ($receipt.handle_captured) {
                 try {
                     if (-not $child.HasExited) {
-                        & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $child.Id /T /F *> $null
+                        $null = Invoke-NativeQuietly (Join-Path $env:SystemRoot 'System32\taskkill.exe') @('/PID', [string]$child.Id, '/T', '/F')
                     }
                     $receipt.termination_confirmed = $child.WaitForExit(5000)
                     $receipt.exited = $receipt.termination_confirmed
@@ -227,6 +356,15 @@ try {
     $os = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
     $result.os = @{build=[int]$os.CurrentBuildNumber; ubr=[int]$os.UBR; product_type=[string](Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\ProductOptions').ProductType; native_architecture=$env:PROCESSOR_ARCHITECTURE}
     if ($result.os.product_type -ne 'WinNT' -or $result.os.build -lt 22000 -or $result.os.native_architecture -ne 'AMD64') { throw 'Client Windows 11 x64 required' }
+    # The host kept the NIC unplugged through OOBE and plugs it in after the beacons above;
+    # wait, bounded, for DHCP and the host endpoint before the first download.
+    Write-BootstrapStep 'global_network_wait'
+    $hostUri = [Uri]$configuration.host_url
+    $networkDeadline = [DateTime]::UtcNow.AddSeconds(240)
+    while (-not (Test-HostReachable $hostUri)) {
+        if ([DateTime]::UtcNow -gt $networkDeadline) { throw 'Host endpoint unreachable after the NIC was plugged in' }
+        Start-Sleep -Seconds 3
+    }
     Write-BootstrapStep 'global_payload'
     $payload = Join-Path $root 'payload.zip'
     $client = New-Object Net.WebClient
@@ -270,6 +408,10 @@ try {
     $harnessHash = (Get-FileHash -LiteralPath $harness -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($harnessHash -ne $configuration.source_identity.harness_sha256) { throw 'Capture harness differs' }
     $result.source_identity = @{tested_source_commit=$configuration.source_identity.tested_source_commit; source_sha256=$hashes; harness_sha256=$harnessHash}
+    Write-BootstrapStep 'global_fixture_trust'
+    Initialize-FixtureTrust (Join-Path $installed 'python\python.exe')
+    Write-BootstrapStep 'global_settle'
+    Wait-SystemSettled 600
     $ownerConfiguration = @{owner_sid=$captureSid; installed=$installed; harness=$harness; root=$root}
     [IO.File]::WriteAllText((Join-Path $root 'owner-config.json'), ($ownerConfiguration | ConvertTo-Json -Compress), $utf8)
     $ownerScript = @'
@@ -284,8 +426,13 @@ try {
     $detail.owner.elevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     $detail.owner.sid_matches_installation = $detail.owner.sid -eq $cfg.owner_sid
     if (-not $detail.owner.elevated -or -not $detail.owner.sid_matches_installation) { throw 'Highest owner token required' }
+    $env:RULEPROXY_CAPTURE_PROGRESS = Join-Path $root 'capture-progress.log'
+    # Windows PowerShell 5.1 turns redirected native stderr into terminating errors under
+    # 'Stop'; a harness traceback must land in capture.log with the real exit code.
+    $ErrorActionPreference = 'Continue'
     & (Join-Path $cfg.installed 'python\python.exe') -I -S -B $cfg.harness --ack-disposable-windows --installed-root $cfg.installed --output (Join-Path $root 'capture-summary.json') *> (Join-Path $root 'capture.log')
     $detail.exit_code = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
 } catch { $detail.error_type = $_.Exception.GetType().FullName }
 finally {
     $temporary = Join-Path $root 'capture-owner-result.tmp'
@@ -303,10 +450,14 @@ exit $detail.exit_code
     Write-BootstrapStep 'global_capture_running'
     $captureDeadline = [DateTime]::UtcNow.AddSeconds(240)
     $ownerResult = Join-Path $root 'capture-owner-result.json'
+    $progressPath = Join-Path $root 'capture-progress.log'
+    $progressSent = 0
     while (-not [IO.File]::Exists($ownerResult)) {
+        $progressSent = Send-ProgressBeacons $progressPath $progressSent
         if ([DateTime]::UtcNow -gt $captureDeadline) { throw 'Capture owner exceeded deadline' }
         Start-Sleep -Milliseconds 250
     }
+    $progressSent = Send-ProgressBeacons $progressPath $progressSent
     $detail = [IO.File]::ReadAllText($ownerResult) | ConvertFrom-Json
     $result.exit_code = [int]$detail.exit_code
     $result.owner = $detail.owner
@@ -333,6 +484,7 @@ exit $detail.exit_code
         }
         $result.task_cleanup_confirmed = $true
     } catch { [void](Add-BootstrapError 'capture_task_cleanup' $_) }
+    if ($progressPath) { $progressSent = Send-ProgressBeacons $progressPath $progressSent }
     try {
         $deploymentPath = Join-Path $installed 'deployment.json'
         if (Test-Path -LiteralPath $deploymentPath) {
@@ -380,6 +532,7 @@ exit $detail.exit_code
     $passwordText = $null
     if ($password) { $password.Dispose(); $password = $null }
     if ($configuration -and $configuration.host_url) {
+        $posted = $false
         for ($attempt = 0; $attempt -lt 3; $attempt++) {
             $request = [Net.HttpWebRequest]::Create($configuration.host_url + '/result')
             $request.Method = 'POST'; $request.Proxy = $null; $request.Timeout = 15000; $request.ReadWriteTimeout = 15000
@@ -390,8 +543,10 @@ exit $detail.exit_code
                 $response = $request.GetResponse()
                 try { if ([int]$response.StatusCode -ne 200) { throw 'Result rejected' } } finally { $response.Dispose() }
                 Unregister-ScheduledTask -TaskName 'RuleProxyProduct-Qualification' -Confirm:$false -ErrorAction SilentlyContinue
+                $posted = $true
                 break
             } catch { $request.Abort() }
         }
+        Send-SerialBeacon ('result_post ' + $(if ($posted) { 'ok' } else { 'failed' }))
     }
 }

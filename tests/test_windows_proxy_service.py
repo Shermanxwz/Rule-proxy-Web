@@ -157,61 +157,6 @@ class ServiceConfigurationTests(unittest.TestCase):
         control.api.CloseServiceHandle.assert_called_once_with(19)
 
 
-class ProcessLeaseElevationTests(unittest.TestCase):
-    def fixture(self, *, elevated=1, length=4, opened=True, queried=True):
-        lease = object.__new__(service.ProcessLease)
-        lease.handle, lease.pid, lease.kernel = 0x100000789, 101, mock.Mock()
-        advapi = mock.Mock()
-        def open_token(process, rights, token):
-            self.assertEqual((process, rights), (lease.handle, 8))
-            if opened:
-                token._obj.value = 0x100001234
-            return opened
-        def information(token, kind, output, size, returned):
-            self.assertEqual((token.value, kind, size), (0x100001234, 20, 4))
-            output._obj.value, returned._obj.value = elevated, length
-            return queried
-        advapi.OpenProcessToken.side_effect = open_token
-        advapi.GetTokenInformation.side_effect = information
-        return lease, advapi
-
-    def test_elevation_reads_held_process_handle_and_closes_only_queried_token(self):
-        lease, advapi = self.fixture()
-        with mock.patch.object(service, "_dll", return_value=advapi) as loader:
-            self.assertIs(lease.is_elevated(), True)
-        loader.assert_called_once_with("advapi32")
-        lease.kernel.OpenProcess.assert_not_called()
-        lease.kernel.CloseHandle.assert_called_once()
-        self.assertEqual(lease.kernel.CloseHandle.call_args.args[0].value, 0x100001234)
-        self.assertEqual(lease.handle, 0x100000789)
-
-    def test_unelevated_unreadable_and_wrong_length_tokens_fail_closed(self):
-        for fields in ({"elevated": 0}, {"opened": False}, {"queried": False},
-                       {"length": 0}, {"length": 8}):
-            with self.subTest(fields=fields):
-                lease, advapi = self.fixture(**fields)
-                with mock.patch.object(service, "_dll", return_value=advapi):
-                    self.assertIs(lease.is_elevated(), False)
-                lease.kernel.OpenProcess.assert_not_called()
-                self.assertEqual(lease.kernel.CloseHandle.call_count, int(fields.get("opened", True)))
-
-    def test_query_exception_closes_token_and_cannot_prove_elevation(self):
-        lease, advapi = self.fixture()
-        advapi.GetTokenInformation.side_effect = OSError("token query failed")
-        with mock.patch.object(service, "_dll", return_value=advapi):
-            self.assertIs(lease.is_elevated(), False)
-        lease.kernel.CloseHandle.assert_called_once()
-        self.assertEqual(lease.kernel.CloseHandle.call_args.args[0].value, 0x100001234)
-
-    def test_closed_lease_never_reopens_pid_or_queries_token(self):
-        lease, _ = self.fixture()
-        lease.handle = None
-        with mock.patch.object(service, "_dll") as loader:
-            self.assertIs(lease.is_elevated(), False)
-        loader.assert_not_called()
-        lease.kernel.OpenProcess.assert_not_called()
-
-
 class ServiceDiagnosticTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

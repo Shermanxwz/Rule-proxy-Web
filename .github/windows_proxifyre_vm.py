@@ -462,6 +462,148 @@ def verify_global_result(result, *, package_sha256, source_identity):
     return report
 
 
+_DIGEST_REDACTIONS = (
+    (re.compile(r"(?i)\b[a-z][a-z0-9+.-]*://[^\s\"'<>\\]+"), "[URL REDACTED]"),
+    (re.compile(r"(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/]|\\\\)[^\s\"'<>|]*"), "[PATH REDACTED]"),
+    (re.compile(r"\bS-1-\d+(?:-\d+)+"), "[SID REDACTED]"),
+)
+
+
+def _digest_text(value, limit=200):
+    """Redacted and truncated text for a public annotation; non-strings are dropped."""
+    if not isinstance(value, str):
+        return None
+    for pattern, replacement in _DIGEST_REDACTIONS:
+        value = pattern.sub(replacement, value)
+    return value[:limit]
+
+
+def _digest_scalar(value, limit=200):
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return _digest_text(value, limit)
+
+
+def _digest_strings(values, limit, count):
+    if not isinstance(values, list):
+        return []
+    return [_digest_text(value, limit) for value in values if isinstance(value, str)][:count]
+
+
+def _digest_column(rows, key, limit, count):
+    if not isinstance(rows, list):
+        return []
+    return _digest_strings([row.get(key) for row in rows if isinstance(row, dict)], limit, count)
+
+
+def _digest_recovery(value):
+    if not isinstance(value, dict):
+        return None
+    return {"recovered": _digest_scalar(value.get("recovered")),
+            "errors": _digest_strings(value.get("errors"), 200, 2)}
+
+
+def global_guest_digest(result):
+    """Bounded, secret-free view of a guest global-capture result for a public annotation."""
+    if not isinstance(result, dict):
+        return {"result_type": type(result).__name__}
+    errors = result.get("errors")
+    last = errors[-1] if isinstance(errors, list) and errors else None
+    guest = {name: _digest_scalar(result.get(name)) for name in (
+        "status", "phase", "error_type", "error_code", "exit_code",
+        "user_cleanup_confirmed", "task_cleanup_confirmed", "installation_cleanup_confirmed")}
+    guest["step_phases"] = _digest_column(result.get("steps"), "phase", 200, 30)
+    guest["last_error"] = None
+    if isinstance(last, dict):
+        guest["last_error"] = {"phase": _digest_scalar(last.get("phase")),
+                               "type": _digest_scalar(last.get("type")),
+                               "message": _digest_text(last.get("message"), 300)}
+    trust = result.get("fixture_trust")
+    if isinstance(trust, dict):
+        guest["fixture_trust"] = {key: value for key, value in trust.items()
+                                  if isinstance(key, str) and isinstance(value, bool)}
+    settle = result.get("settle")
+    if isinstance(settle, dict):
+        guest["settle"] = {key: _digest_scalar(settle.get(key)) for key in (
+            "settled", "probes", "first_seconds", "last_seconds", "waited_seconds")}
+        guest["settle"]["busy_processes"] = _digest_strings(settle.get("busy_processes"), 60, 6)
+    digest = {"guest": guest}
+    reports = result.get("reports")
+    report = reports.get("global_capture") if isinstance(reports, dict) else None
+    if isinstance(report, dict):
+        budget = report.get("time_budget")
+        stages = budget.get("stages") if isinstance(budget, dict) else None
+        harness = {"passed": _digest_scalar(report.get("passed")),
+                   "failed_stage": _digest_scalar(report.get("failed_stage")),
+                   "error": _digest_text(report.get("error"), 300),
+                   "stages": _digest_column(stages, "stage", 200, 40),
+                   "recovery": _digest_recovery(report.get("recovery"))}
+        if isinstance(report.get("ci_network_reclaim"), dict):
+            harness["ci_network_reclaim"] = _digest_recovery(report["ci_network_reclaim"])
+        digest["harness"] = harness
+    return digest
+
+
+def print_ci_annotation(level, title, payload):
+    text = json.dumps(payload, separators=(",", ":"), sort_keys=True)[:1800]
+    text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print("::" + level + " title=" + title + "::" + text, flush=True)
+
+
+def print_global_guest_digest(level, server):
+    """Diagnostics only: printing must never change the qualification outcome."""
+    try:
+        if server is not None and server.result is not None:
+            print_ci_annotation(level, "Win11 global guest digest", global_guest_digest(server.result))
+    except Exception:
+        pass
+
+
+# The workflows wrap this process in `timeout` with the same --timeout-seconds.
+# Stop waiting early enough that failure diagnostics and owned cleanup finish
+# before that outer TERM.
+CLEANUP_RESERVE_SECONDS = 120
+_SERIAL_BEACON = re.compile(r"RPBEACON ([\x20-\x7e]{1,2000})")
+_GUEST_HARNESS_TITLES = ("Global capture hard deadline", "Global capture watchdog", "Global capture summary")
+
+
+def serial_beacons(path, limit=262144):
+    """Guest progress lines relayed over the VM serial console; independent of guest networking."""
+    try:
+        with Path(path).open("rb") as stream:
+            stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, stream.tell() - limit))
+            data = stream.read(limit)
+    except OSError:
+        return []
+    return _SERIAL_BEACON.findall(data.decode("ascii", "replace"))
+
+
+def plug_network_after_beacon(qmp, path):
+    """Plug the NIC in once the claimed guest script has beaconed; OOBE never beacons."""
+    if not serial_beacons(path):
+        return False
+    qmp.execute("set_link", {"name": "vmnet", "up": True})
+    return True
+
+
+def print_serial_beacons(level, path):
+    """Diagnostics only: last guest phases, then the last harness digest of each kind."""
+    try:
+        beacons = serial_beacons(path)
+        print_ci_annotation(level, "Win11 guest serial progress",
+                            {"count": len(beacons), "last": [_digest_text(line, 110) for line in beacons[-12:]]})
+        for title in _GUEST_HARNESS_TITLES:
+            marker = " title=" + title + "::"
+            found = [line for line in beacons if marker in line]
+            if found:
+                payload = found[-1].split(marker, 1)[1]
+                payload = payload.replace("%0D", "\r").replace("%0A", "\n").replace("%25", "%")
+                print_ci_annotation(level, "Win11 guest " + title[len("Global "):], {"payload": _digest_text(payload, 1700)})
+    except Exception:
+        pass
+
+
 def cleanup_owned(qmp, qemu, tpm, server, thread, private_directory):
     """Stop VM users of the private disk/ISO/password before deleting them."""
     errors = []
@@ -632,6 +774,13 @@ def run(args):
                 for _ in range(8):
                     qmp.execute("send-key", {"keys": [{"type": "qcode", "data": "ret"}], "hold-time": 100})
                     time.sleep(2)
+            # Online Windows 11 OOBE fetches a zero-day patch, and an update-service failure
+            # parks setup on "Something went wrong (OOBEZDP)" with no unattended skip (run
+            # 39030476856). The global suite keeps the NIC unplugged until its claimed guest
+            # script beacons over COM1; that script waits, bounded, for the host endpoint.
+            network_pending = suite == "global-capture"
+            if network_pending:
+                qmp.execute("set_link", {"name": "vmnet", "up": False})
             started = time.monotonic()
             (artifacts / "screenshots").mkdir(exist_ok=True)
             stage("guest_installation_or_qualification_wait")
@@ -652,12 +801,20 @@ def run(args):
                     stream.write(json.dumps(sample, ensure_ascii=True) + "\n")
                 summary["latest_vm_sample"] = sample
                 stage("guest_installation_or_qualification_wait")
-                if qemu.poll() is not None or time.monotonic() - overall_started > args.timeout_seconds:
+                if (qemu.poll() is not None
+                        or time.monotonic() - overall_started > args.timeout_seconds - CLEANUP_RESERVE_SECONDS):
                     raise RuntimeError("Native Windows installation/product qualification did not finish within its budget")
                 if shutil.disk_usage(work).free < 5 * 1024**3:
                     raise RuntimeError("VM disk safety reserve reached")
                 print(f"Native Windows product VM: {int(time.monotonic() - started)} s", flush=True)
-                server.received.wait(30)
+                for _ in range(6):
+                    if server.received.wait(5):
+                        break
+                    if network_pending and plug_network_after_beacon(qmp, artifacts / "serial.log"):
+                        network_pending = False
+                        summary["guest_network_plugged_seconds"] = int(time.monotonic() - started)
+                        print_ci_annotation("notice", "Win11 guest network",
+                                            {"plugged_after_seconds": summary["guest_network_plugged_seconds"]})
             stage("guest_result_received")
             if suite == "global-capture":
                 report = verify_global_result(server.result, package_sha256=args.package_sha256,
@@ -665,6 +822,7 @@ def run(args):
                 media.write_json(artifacts / "native-global-capture-report.json", report)
                 summary.update(status="passed", native_windows_11_global_capture_passed=True,
                                os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
+                print_global_guest_digest("notice", server)
             else:
                 report = verify_result(server.result, package_sha256=args.package_sha256)
                 screenshot = visible_screenshot_bytes(report)
@@ -680,6 +838,8 @@ def run(args):
                        cancellation_signal=signal.Signals(exc.signum).name,
                        stop_reason="Controller/runner cancellation; no product failure is inferred.")
         stage("cancelled")
+        if suite == "global-capture":
+            print_serial_beacons("error", artifacts / "serial.log")
         # Ask owned children to exit immediately; do not spend cancellation grace
         # waiting on additional QMP commands or screenshots.
         for process in (qemu, tpm):
@@ -693,6 +853,9 @@ def run(args):
         summary["failure_phase"] = summary["phase"]
         summary["error"] = type(exc).__name__ + ": " + str(exc)
         print("::error title=Native Windows product::" + summary["error"], flush=True)
+        if suite == "global-capture":
+            print_global_guest_digest("error", server)
+            print_serial_beacons("error", artifacts / "serial.log")
     finally:
         summary["product_execution_confirmed"] = bool(server is not None and isinstance(server.result, dict)
             and isinstance(server.result.get("reports", {}).get("product"), dict))

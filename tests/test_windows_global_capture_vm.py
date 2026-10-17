@@ -245,7 +245,7 @@ $ErrorActionPreference='Stop'
 $errors=$null; $tokens=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($env:RP_GLOBAL_SCRIPT,[ref]$tokens,[ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }
-foreach ($name in @('Invoke-BoundedScript','Protect-DiagnosticText','Read-DiagnosticTail','Export-GlobalDiagnostics')) {
+foreach ($name in @('Invoke-BoundedScript','Invoke-NativeQuietly','Protect-DiagnosticText','Read-DiagnosticTail','Export-GlobalDiagnostics')) {
     $definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
     if ($null -eq $definition) { throw ('Missing helper: ' + $name) }
     . ([scriptblock]::Create($definition.Extent.Text))

@@ -42,6 +42,7 @@ import uuid
 
 
 DEST4 = '203.0.113.77'
+CAPTURE_FILTER = 'RuleProxyCaptureDest'
 TUN4, TUN6 = '198.51.100.88', '2001:db8::88'
 TCP_PORT, UDP_PORT = 18080, 39177
 MAX_CAPTURE = 64 * 1024 * 1024
@@ -49,7 +50,13 @@ MAX_CAPTURE_COMPONENTS = 4
 FIXTURE_SERVER = '127.0.0.1.sslip.io'
 RECOVERY_DEADLINE_SECONDS = 180
 EXPERIMENT_BUDGET_SECONDS = 135
+# After the SYSTEM watchdog's 180 s trigger and 240 s task limit: a wedged
+# orchestrator still emits a bounded digest and exits non-zero before the job timeout.
+HARD_DEADLINE_SECONDS = 480
 _ACTIVE_BUDGET = None
+# Stage names only: these become public GitHub notices, so no evidence payloads.
+_CI_MILESTONES = frozenset(('fixture_dns_preflight', 'physical_positive_before', 'global_start',
+                            'core_terminate', 'explicit_global_stop', 'final_recovery'))
 
 
 class ExperimentBudget:
@@ -70,6 +77,8 @@ class ExperimentBudget:
             previous['elapsed_seconds'] = round(elapsed - previous['started_seconds'], 3)
         if name is not None:
             self.stages.append({'stage': name, 'started_seconds': round(elapsed, 3)})
+            if name in _CI_MILESTONES:
+                _ci_annotation('notice', 'Global capture stage', name + ' t=' + format(elapsed, '.1f'))
 
     def timeout(self, maximum, *, reserve=0):
         remaining = self.deadline - time.monotonic() - reserve
@@ -129,6 +138,152 @@ def write_json(path, value):
     temporary = path.with_suffix(path.suffix + '.tmp')
     temporary.write_text(json.dumps(value, ensure_ascii=True, indent=2), encoding='utf-8')
     os.replace(temporary, path)
+
+
+def _ci_annotation(level, title, payload):
+    """GitHub turns these stdout lines into public annotations; never include secrets.
+
+    A disposable VM guest has no Actions runner: there the same bounded line is
+    appended to RULEPROXY_CAPTURE_PROGRESS, which the guest relays over the VM
+    serial console so progress stays visible after guest networking is lost.
+    """
+    actions = os.environ.get('GITHUB_ACTIONS') == 'true'
+    progress = os.environ.get('RULEPROXY_CAPTURE_PROGRESS')
+    if not actions and not progress:
+        return
+    text = payload if isinstance(payload, str) else json.dumps(payload, separators=(',', ':'), sort_keys=True)
+    text = text[:1800].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+    line = '::' + level + ' title=' + title + '::' + text
+    if actions:
+        print(line, flush=True)
+    if progress:
+        try:
+            with open(progress, 'a', encoding='ascii', errors='replace') as stream:
+                stream.write(line + '\n')
+        except OSError:
+            pass  # Progress relay is diagnostic only.
+
+
+def _ci_text(value, limit, private=()):
+    """Bounded text for public annotations: run-private values, paths and token-like strings removed."""
+    text = str(value)
+    for item in private:
+        if item:
+            text = text.replace(str(item), '<private>')
+    text = re.sub(r'(?<![A-Za-z])[A-Za-z]:[\\/][^\'"\r\n]*', '<path>', text)
+    text = re.sub(r'\\\\[^\s\'"<>|]+', '<path>', text)
+    text = re.sub(r'[A-Za-z0-9_-]{32,}', '<token>', text)
+    return text[:limit]
+
+
+def _ci_capture_digest(evidence):
+    """Numbers only from capture failure evidence: file sizes, pktmon counters, component count."""
+    if not isinstance(evidence, dict):
+        return None
+    def numeric(meta):
+        if not isinstance(meta, dict):
+            return None
+        return {key: value for key, value in sorted(meta.items())[:24] if isinstance(key, str)
+                and (type(value) in (int, bool) or isinstance(value, str)
+                     and re.fullmatch(r'[0-9][0-9,.]{0,24}(?:\s*(?:bytes|B|KB|MB|GB))?', value, re.IGNORECASE))}
+    inventory = evidence.get('inventory_after_flush_wait') or evidence.get('inventory_after_stop')
+    files = inventory.get('files') if isinstance(inventory, dict) else None
+    components = evidence.get('declared_components')
+    return {'components': len(components) if isinstance(components, list) else None,
+            'filter_confirmed': (evidence.get('filter') or {}).get('confirmed') is True,
+            'etl_file_bytes': [item.get('bytes') for item in files if isinstance(item, dict)
+                               and item.get('matches_expected_capture_glob') and type(item.get('bytes')) is int][:8]
+                              if isinstance(files, list) else None,
+            'matching_etl_bytes': inventory.get('matching_etl_bytes') if isinstance(inventory, dict) else None,
+            'start': numeric(evidence.get('start')), 'buffer_info': numeric(evidence.get('buffer_info'))}
+
+
+def _ci_summary(report, budget, private=()):
+    """Fixed-shape digest for the public summary annotation: no paths, nonces, tokens or evidence."""
+    def recovery(value):
+        value = value if isinstance(value, dict) else {}
+        return {'recovered': value.get('recovered'),
+                'errors': [_ci_text(item, 200, private) for item in value.get('errors', [])[:2]]}
+    capture = report.get('capture_failure')
+    code = capture.get('code', capture.get('reason')) if isinstance(capture, dict) else None
+    summary = {'passed': report.get('passed'), 'startup_smoke_passed': report.get('startup_smoke_passed'),
+               'failed_stage': report.get('failed_stage'),
+               'error': _ci_text(report['error'], 300, private) if report.get('error') else None,
+               'stages': [item['stage'] for item in budget.stages], 'recovery': recovery(report.get('recovery'))}
+    if 'dns_smoke_passed' in report:
+        summary['dns_smoke_passed'] = report['dns_smoke_passed']
+    if budget.stages and 'elapsed_seconds' in budget.stages[-1]:
+        summary['last_stage_elapsed'] = budget.stages[-1]['elapsed_seconds']
+    if 'ci_network_reclaim' in report:
+        summary['ci_network_reclaim'] = recovery(report['ci_network_reclaim'])
+    if isinstance(code, str):
+        summary['capture_failure_code'] = _ci_text(code, 200, private)
+    if isinstance(capture, dict):
+        summary['capture'] = _ci_capture_digest(capture)
+    return summary
+
+
+def _hang_frames(thread_id, limit=16):
+    """Innermost-first basename:function:line of one thread; no locals, arguments or paths."""
+    frame = sys._current_frames().get(thread_id)
+    frames = []
+    while frame is not None and len(frames) < limit:
+        code = frame.f_code
+        frames.append(os.path.basename(code.co_filename)[:48] + ':' + code.co_name[:48] + ':' + str(frame.f_lineno))
+        frame = frame.f_back
+    return frames
+
+
+def _watchdog_digest(work, private=()):
+    """Bounded digest of the independent recovery results already written to the run directory."""
+    def recovery(value):
+        value = value if isinstance(value, dict) else {}
+        return {'recovered': value.get('recovered'), 'mutex_bypassed': value.get('mutex_bypassed'),
+                'errors': [_ci_text(item, 160, private) for item in value.get('errors', [])[:2]]}
+    digest = {}
+    for name, key in (('recover.result.json', 'watchdog'), ('recovery-result.json', 'strict_file'),
+                      ('ci-network-reclaim-result.json', 'reclaim_file')):
+        try:
+            value = read_json(Path(work) / name)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(value, dict):
+            continue
+        if key != 'watchdog':
+            digest[key] = recovery(value)
+            continue
+        result = value.get('result') if isinstance(value.get('result'), dict) else {}
+        digest[key] = {'ok': value.get('ok'), **recovery(result),
+                       'error': _ci_text(value['error'], 160, private) if value.get('error') else None}
+        if 'ci_network_reclaim' in result:
+            digest[key]['ci_network_reclaim'] = recovery(result['ci_network_reclaim'])
+    return digest
+
+
+def _hard_deadline(finished, report, budget, private, work, output, thread_id):
+    """Bounded public digest, then exit, if the orchestrator outlives HARD_DEADLINE_SECONDS.
+
+    The process exits non-zero; this path never sets passed or recovered.
+    """
+    if finished.wait(HARD_DEADLINE_SECONDS):
+        return
+    try:
+        stage = budget.stages[-1]['stage'] if budget.stages else 'unknown'
+        _ci_annotation('error', 'Global capture hard deadline',
+                       {'stage': stage, 'frames': [_ci_text(item, 120, private) for item in _hang_frames(thread_id)]})
+        _ci_annotation('error', 'Global capture watchdog', _watchdog_digest(work, private))
+        report.update(passed=False, hard_deadline_exceeded=True, failed_stage=stage,
+                      error=report.get('error') or 'RuntimeError:orchestrator_hard_deadline')
+        for key in ('startup_smoke_passed', 'dns_smoke_passed'):
+            if key in report:
+                report[key] = False
+        _ci_annotation('error', 'Global capture summary', _ci_summary(report, budget, private))
+        output.parent.mkdir(parents=True, exist_ok=True)
+        write_json(output, report)
+    except BaseException:
+        pass  # Diagnostics must never extend the hang; exit below regardless.
+    finally:
+        os._exit(3)
 
 
 def ps(script, environment=None, timeout=25):
@@ -847,6 +1002,47 @@ def capture_inventory(work, base):
             'matching_etl_bytes': matching_bytes, 'etl_logical_event_bytes_verified': False}
 
 
+def install_capture_filter(evidence):
+    """Report only frames to/from the single physical test destination.
+
+    The matcher counts only DEST4 frames, so other frames never influenced a
+    gate; positive controls pass through the same filter, so zero counts in
+    blocked phases cannot become vacuous. IP-only (no port) keeps non-initial
+    fragments visible. pktmon filters are global: this disposable harness
+    already owns the single pktmon session, and the prior listing is retained.
+    """
+    try:
+        evidence['filter_before'] = pktmon('filter', 'list')[-2000:]
+    except RuntimeError as error:
+        # The exit status of an empty listing is undocumented; keep the output.
+        evidence['filter_before'] = ('listing_failed:' + str(error))[-2000:]
+    try:
+        pktmon('filter', 'remove')
+    except RuntimeError:
+        pass  # Exit status with no filters is undocumented; presence is checked below.
+    pktmon('filter', 'add', CAPTURE_FILTER, '-i', DEST4)
+    listing = pktmon('filter', 'list')
+    if CAPTURE_FILTER not in listing or DEST4 not in listing:
+        raise RuntimeError('capture_filter_unconfirmed')
+    evidence['filter'] = {'name': CAPTURE_FILTER, 'ip': DEST4, 'confirmed': True}
+
+
+def remove_capture_filter():
+    try:
+        pktmon('filter', 'remove')
+    except RuntimeError:
+        pass
+    try:
+        listing = pktmon('filter', 'list')
+    except RuntimeError as error:
+        # An empty listing may exit non-zero; its bounded output still names any
+        # remaining filter, so the absence check below keeps its meaning.
+        listing = str(error)
+    if CAPTURE_FILTER in listing:
+        raise RuntimeError('capture_filter_remove_unconfirmed')
+    return True
+
+
 def restore_capture(state_path):
     state = read_json(state_path)
     lease = state.get('capture')
@@ -867,6 +1063,8 @@ def restore_capture(state_path):
         evidence['status_after'] = capture_cli_metadata(status, base)
         if not capture_idle(status):
             raise RuntimeError('owned_capture_stop_unconfirmed')
+    if lease.get('filter'):
+        evidence['filter_removed'] = remove_capture_filter()
     state['capture']['stopped'] = True
     write_json(state_path, state)
     return {'stopped': True, 'owned_capture_created': True, 'cli_metadata': evidence}
@@ -984,7 +1182,7 @@ def service_state(metadata, running):
        f"(Get-Service RuleProxyControl).WaitForStatus('{desired}',[TimeSpan]::FromSeconds(20));$result='ok'", timeout=24)
 
 
-def _recover_locked(state_path):
+def _recover_locked(state_path, best_effort=False):
     state = read_json(state_path)
     root, work = Path(state['root']), Path(state_path).parent
     sys.path.insert(0, str(root))
@@ -994,38 +1192,66 @@ def _recover_locked(state_path):
     protected_path(work, private=True)
     metadata = load_deployment(root)
     result = {'schema_version': 1, 'recovered': False, 'errors': []}
-    try:
-        service_state(metadata, False)
+    if best_effort:
+        result['best_effort'] = True
+
+    def terminate_cores():
         for name in ('core-owned.json', 'carrier-owned.json'):
             if (work / name).is_file():
                 terminate_owned(read_json(work / name), root / 'bin/windows-amd64/mihomo.exe')
+
+    def restore_dns():
         dns = DnsLease(metadata).normal_stop()
         if dns.get('active') is not False or dns.get('supported') is not True:
             raise RuntimeError('owned_dns_restore_unconfirmed')
-        if not state.get('startup_smoke_only'):
-            scoped_guard(metadata, state['nonce']).normal_stop()
+
+    def restore_guard():
         guard = Guard(metadata).normal_stop()
         if guard.get('active') is not False:
             raise RuntimeError('owned_guard_restore_unconfirmed')
-        if state.get('route_created'):
-            ps("$s=Get-Content -LiteralPath $env:RP_CAPTURE_STATE -Raw|ConvertFrom-Json;"
-               "$r=@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -PolicyStore ActiveStore -ErrorAction SilentlyContinue);"
-               "foreach($x in $r){if($x.NextHop -ne $s.nic.gateway -or $x.RouteMetric -ne 1){throw 'test route identity changed'};"
-               "$x|Remove-NetRoute -Confirm:$false -ErrorAction Stop};$result='ok'",
-               {'RP_CAPTURE_STATE': str(state_path)})
-        service_state(metadata, True)
+
+    def remove_route():
+        ps("$s=Get-Content -LiteralPath $env:RP_CAPTURE_STATE -Raw|ConvertFrom-Json;"
+           "$r=@(Get-NetRoute -DestinationPrefix '203.0.113.77/32' -InterfaceIndex $s.nic.index -PolicyStore ActiveStore -ErrorAction SilentlyContinue);"
+           "foreach($x in $r){if($x.NextHop -ne $s.nic.gateway -or $x.RouteMetric -ne 1){throw 'test route identity changed'};"
+           "$x|Remove-NetRoute -Confirm:$false -ErrorAction Stop};$result='ok'",
+           {'RP_CAPTURE_STATE': str(state_path)})
+
+    def restore_capture_checked():
         result['capture'] = restore_capture(state_path)
         if result['capture'].get('stopped') is not True:
             raise RuntimeError('owned_capture_restore_unconfirmed')
-        result['recovered'] = True
+
+    # Strict mode keeps the first-failure evidence contract. Best-effort (CI reclaim)
+    # attempts every step and reports recovered only when no step failed.
+    steps = [lambda: service_state(metadata, False), terminate_cores, restore_dns]
+    if not state.get('startup_smoke_only'):
+        steps.append(lambda: scoped_guard(metadata, state['nonce']).normal_stop())
+    steps.append(restore_guard)
+    if state.get('route_created'):
+        steps.append(remove_route)
+    steps += [lambda: service_state(metadata, True), restore_capture_checked]
+    try:
+        for step in steps:
+            try:
+                step()
+            except BaseException as error:
+                if not best_effort:
+                    raise
+                result['errors'].append(type(error).__name__ + ':' + str(error)[:600])
+        result['recovered'] = not result['errors']
     except BaseException as error:
         result['errors'].append(type(error).__name__ + ':' + str(error)[:600])
-    write_json(work / 'recovery-result.json', result)
+    write_json(work / ('ci-network-reclaim-result.json' if best_effort else 'recovery-result.json'), result)
     return result
 
 
-def recover(state_path):
-    """A kernel mutex permits recovery after the orchestrator is abandoned."""
+def recover(state_path, best_effort=False):
+    """A kernel mutex permits recovery after the orchestrator is abandoned.
+
+    Best-effort CI reclaim proceeds without the mutex after the bounded wait:
+    a wedged orchestrator holding it must not keep the runner offline.
+    """
     state = read_json(state_path)
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)
     kernel.CreateMutexW.argtypes, kernel.CreateMutexW.restype = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p], ctypes.c_void_p
@@ -1038,9 +1264,12 @@ def recover(state_path):
     try:
         # WAIT_ABANDONED is successful ownership after a crashed recovery worker.
         acquired = kernel.WaitForSingleObject(handle, 30000) in (0, 0x80)
-        if not acquired:
+        if not acquired and not best_effort:
             raise RuntimeError('recovery_mutex_timeout')
-        return _recover_locked(state_path)
+        result = _recover_locked(state_path, best_effort=best_effort)
+        if not acquired:
+            result['mutex_bypassed'] = True
+        return result
     finally:
         if acquired:
             kernel.ReleaseMutex(handle)
@@ -1059,7 +1288,20 @@ def system_operation(state_path, operation):
     metadata = load_deployment(root)
     value = scoped_guard(metadata, state['nonce'])
     if operation == 'recover':
-        return recover(state_path)
+        reclaim = state.get('ci_network_reclaim') is True
+        try:
+            value = recover(state_path)
+        except BaseException as error:
+            if not reclaim:
+                raise
+            # A strict failure (e.g. mutex timeout) must not skip the CI reclaim below.
+            value = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
+        if value.get('recovered') is not True and reclaim:
+            try:
+                value['ci_network_reclaim'] = recover(state_path, best_effort=True)
+            except BaseException as error:
+                value['ci_network_reclaim'] = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
+        return value
     if operation == 'scope-stop':
         return value.normal_stop()
     if operation == 'scope-apply':
@@ -1151,11 +1393,14 @@ def _capture_probe(work, component, phase, run_actor, evidence):
     marker = ('RuleProxyCapture:' + phase + ':' + secrets.token_hex(8)).encode('ascii')
     base = work / ('wire-' + phase)
     started = False
+    filtered = False
     state_path = work / 'state.json'
     state = read_json(state_path)
-    state['capture'] = {'base': str(base), 'stopped': False}
+    state['capture'] = {'base': str(base), 'stopped': False, 'filter': CAPTURE_FILTER}
     write_json(state_path, state)
     try:
+        install_capture_filter(evidence)
+        filtered = True
         output = pktmon('start', '--capture', '--comp', ','.join(map(str, components)), '--pkt-size', 0,
                         '--file-name', str(base) + '.etl', '--file-size', 16, '--log-mode', 'multi-file')
         evidence['start'] = capture_cli_metadata(output, base)
@@ -1175,6 +1420,8 @@ def _capture_probe(work, component, phase, run_actor, evidence):
             finally:
                 evidence['restore'] = restore_capture(state_path)
             evidence['inventory_after_stop'] = capture_inventory(work, base)
+        elif filtered:
+            evidence['restore'] = restore_capture(state_path)
     time.sleep(.2)  # One bounded observation of post-stop filesystem visibility.
     inventory = evidence['inventory_after_flush_wait'] = capture_inventory(work, base)
     sources = sorted(work.glob(base.name + '*.etl'))
@@ -1521,7 +1768,8 @@ def run(arguments):
         raise RuntimeError('explicit_disposable_windows_ack_required')
     root = arguments.installed_root.resolve(strict=True)
     sys.path.insert(0, str(root))
-    from ruleproxy.windows_proxy_service import load_deployment, protected_path, ProcessLease
+    from ruleproxy.windows_proxy_service import load_deployment, protected_path
+    from ruleproxy.windows_app_process import _get_api
     from ruleproxy.windows_global_runtime import Runtime
     from ruleproxy.windows_proxy_client import current_user_sid
     from ruleproxy.windows_global_guard import Guard
@@ -1536,12 +1784,10 @@ def run(arguments):
     if smoke_only:
         if arguments.read_only_components:
             raise RuntimeError('startup_smoke_mode_conflict')
-        lease = ProcessLease(os.getpid(), metadata['owner_sid'])
-        try:
-            if lease.is_elevated() is not True:
-                raise RuntimeError('startup_smoke_requires_actual_elevation')
-        finally:
-            lease.close()
+        # The service no longer needs an elevated caller, but this harness registers its
+        # own SYSTEM recovery tasks, so its own token must still be elevated.
+        if _get_api().is_elevated() is not True:
+            raise RuntimeError('startup_smoke_requires_actual_elevation')
     if arguments.read_only_components:
         _nic, _component, evidence = nic_components()
         arguments.output.parent.mkdir(parents=True, exist_ok=True)
@@ -1573,6 +1819,8 @@ def run(arguments):
              'carrier_port': unused_port()}
     if smoke_only:
         state['startup_smoke_only'] = True
+    # Read by the SYSTEM watchdog, which runs without the GitHub environment.
+    state['ci_network_reclaim'] = os.environ.get('GITHUB_ACTIONS') == 'true'
     write_json(state_path, state)
     report = {'schema_version': 1, 'mode': 'disposable_windows_native_capture',
         'strict_qualified': False, 'ipv6_public_egress_qualified': False,
@@ -1597,7 +1845,11 @@ def run(arguments):
     _ACTIVE_BUDGET = budget
     report['time_budget'] = {'cooperative_experiment_seconds': EXPERIMENT_BUDGET_SECONDS,
         'independent_system_recovery_trigger_seconds': RECOVERY_DEADLINE_SECONDS,
+        'orchestrator_hard_deadline_seconds': HARD_DEADLINE_SECONDS,
         'broker_calls_hard_interrupted': False, 'stages': budget.stages}
+    finished = threading.Event()
+    threading.Thread(target=_hard_deadline, daemon=True, args=(finished, report, budget,
+        (str(work), str(root), nonce), work, arguments.output, threading.get_ident())).start()
     try:
         budget.stage('register_independent_recovery')
         names.append(task(state_path, 'recover', wait=False, watchdog=True))
@@ -1734,6 +1986,12 @@ def run(arguments):
         except BaseException as error:
             restoration = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
         report['recovery'] = restoration
+        if restoration.get('recovered') is not True and state.get('ci_network_reclaim') is True:
+            # Best-effort reclaim is diagnostic only: it never sets recovered, passed or the exit code.
+            try:
+                report['ci_network_reclaim'] = recover(state_path, best_effort=True)
+            except BaseException as error:
+                report['ci_network_reclaim'] = {'recovered': False, 'errors': [type(error).__name__ + ':' + str(error)[:600]]}
         if restoration.get('recovered'):
             # Watchdog is removed only after independently verified restoration.
             names += ['RuleProxy-Capture-' + nonce + '-' + op for op in ('scope-apply', 'scope-stop')]
@@ -1753,9 +2011,12 @@ def run(arguments):
         budget.stage(None)
         report['time_budget']['total_elapsed_seconds'] = round(time.monotonic() - run_started, 3)
         write_json(arguments.output, report)
+        finished.set()
+    accepted = report.get('startup_smoke_passed') is True if smoke_only else report['passed']
+    _ci_annotation('notice' if accepted and report['recovery'].get('recovered') else 'error', 'Global capture summary',
+                   _ci_summary(report, budget, (str(work), str(root), nonce)))
     print(json.dumps({'passed': report['passed'], 'startup_smoke_passed': report.get('startup_smoke_passed'), 'strict_qualified': False,
                       'recovered': report['recovery'].get('recovered'), 'summary': str(arguments.output)}))
-    accepted = report.get('startup_smoke_passed') is True if smoke_only else report['passed']
     return 0 if accepted and report['recovery'].get('recovered') else 1
 
 

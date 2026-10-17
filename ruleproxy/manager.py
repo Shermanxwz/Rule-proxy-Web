@@ -688,9 +688,11 @@ class Manager:
         if not status.get('supported'):
             raise ValueError(status.get('detail') or '请先安装全局接管组件。')
         try:
+            # Windows starts the ordinary global mode: the same guard and DNS protection, with
+            # native certification reported in the status instead of required to start.
             status = backend.start(self.source, self.secret, self.mixed_port,
                                    self.controller_port, self.compiled.selected_node,
-                                   **({'require_strict': True} if sys.platform == 'win32' else {}))
+                                   **({'require_strict': False} if sys.platform == 'win32' else {}))
             self.core = ManagedGlobalCore(backend, status)
             self._global_fault = False
             self.error = ''

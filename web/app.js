@@ -57,9 +57,7 @@
     const ready = !!state;
     const imported = ready && !!state.imported;
     const running = ready && !!state.running;
-    const globalQualified = !(isGlobal() && isWindows())
-      || (state?.protection?.guard?.native_qualified === true && state?.protection?.dns?.native_qualified === true);
-    const protectedBackend = ready && !!state.protection && !!state.protection.supported && globalQualified;
+    const protectedBackend = ready && !!state.protection && !!state.protection.supported;
     ui.importButton.disabled = busy || !ready;
     ui.core.disabled = busy || !ready || running;
     ui.saveCore.disabled = busy || !ready || running;
@@ -389,7 +387,7 @@
     const protection = state.protection || {};
     const globalQualified = !(isGlobal() && isWindows())
       || (protection.guard?.native_qualified === true && protection.dns?.native_qualified === true);
-    const supported = protection.supported && globalQualified;
+    const supported = !!protection.supported;
     if (ui.captureMode) ui.captureMode.value = state.capture_mode || 'applications';
     if (ui.captureModeDetail) ui.captureModeDetail.textContent = isGlobal()
       ? '全局覆盖整台设备，启动时需要独立系统权限组件。保护触发后，点击停止可恢复普通网络。'
@@ -397,9 +395,10 @@
                       : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
     ui.stop.textContent = isGlobal() ? '停止全局接管并恢复网络' : '关闭受保护应用并停止';
     ui.protectionCard.className = `protection-card ${supported ? 'is-supported' : 'is-unsupported'}`;
-    ui.protectionBadge.textContent = !globalQualified ? '严格全局验收未完成，启动受阻' : (supported ? (isGlobal() ? '全局接管组件可用' : (isWindows() ? '应用代理可用' : '隔离能力可用')) : '不可用，启动受阻');
-    ui.protectionDetail.textContent = !globalQualified
-      ? 'Windows 独立守卫与 DNS 尚未取得完整原生资格，当前不开放严格全局启动。可停止后切回按应用模式。'
+    ui.protectionBadge.textContent = !supported ? '不可用，启动受阻'
+      : (isGlobal() ? (globalQualified ? '全局接管组件可用' : '普通全局可用（未认证）') : (isWindows() ? '应用代理可用' : '隔离能力可用'));
+    ui.protectionDetail.textContent = supported && !globalQualified
+      ? 'Windows 普通全局：同样安装独立故障阻断层与 DNS 保护，回读确认后才报告运行；尚未完成全部原生故障场景认证，极端故障下不保证零泄漏。'
       : (protection.detail || (supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。'));
     ui.protectionBackend.textContent = protection.backend ? `运行后端：${protection.backend}` : '';
     const elevated = isWindows() && state.process_elevated === true;

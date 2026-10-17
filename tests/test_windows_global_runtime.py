@@ -51,6 +51,17 @@ class Guard:
         return self.status()
 
 
+class LateTunGuard(Guard):
+    """The TUN adapter appears one poll after the controller already answers."""
+
+    def status(self):
+        value = super().status()
+        ready = self.active and self.applies > 2
+        value["tun_ready"] = ready
+        value["strict_isolation"] = self.active and self.strict and ready
+        return value
+
+
 class Process:
     def __init__(self, events, live=True):
         self.events, self.live, self.pid = events, live, 12345
@@ -377,6 +388,47 @@ class GlobalCoreTests(unittest.TestCase):
         self.assertTrue(self.dns.active)
         self.assertNotIn("normal_stop", [event[0] for event in self.events])
 
+    def test_strict_start_waits_for_tun_created_after_controller(self):
+        self.guard = LateTunGuard(self.events)
+        self.guard.strict = True
+        self.core = service.GlobalCore(self.metadata, guard=self.guard, dns=self.dns, launcher=self.launch,
+                    validator=self.validator, health=lambda *_: True, management=lambda: [],
+                    state_directory=self.state)
+        result = self.core.start(fields(require_strict=True))
+        self.assertIs(result["strict_isolation"], True)
+        self.assertIs(result["guard"]["tun_ready"], True)
+        self.assertNotIn("terminate", [event[0] for event in self.events])
+        self.assertNotIn("crash_keep", [event[0] for event in self.events])
+        self.assertEqual([event[0] for event in self.events].count("guard_apply"), 3)
+
+    def test_non_strict_start_waits_for_tun_created_after_controller(self):
+        self.guard = LateTunGuard(self.events)
+        self.core = service.GlobalCore(self.metadata, guard=self.guard, dns=self.dns, launcher=self.launch,
+                    validator=self.validator, health=lambda *_: True, management=lambda: [],
+                    state_directory=self.state)
+        result = self.core.start(fields(require_strict=False))
+        self.assertIs(result["running"], True)
+        self.assertNotIn("terminate", [event[0] for event in self.events])
+
+    def test_strict_late_tun_reapply_still_requires_native_qualification(self):
+        self.guard = LateTunGuard(self.events)
+        self.guard.strict = True
+        self.core = service.GlobalCore(self.metadata, guard=self.guard, dns=self.dns, launcher=self.launch,
+                    validator=self.validator, health=lambda *_: True, management=lambda: [],
+                    state_directory=self.state)
+        original = self.guard.apply
+        def apply(core, tun):
+            value = original(core, tun)
+            if self.guard.applies >= 2:
+                return {**value, "native_qualified": False}
+            return value
+        with mock.patch.object(self.guard, "apply", side_effect=apply), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.start(fields(require_strict=True))
+        self.assertEqual(caught.exception.code, "strict_guard_unavailable")
+        self.assertIn("crash_keep", [event[0] for event in self.events])
+        self.assertIn("dns_keep", [event[0] for event in self.events])
+
     def test_guard_losing_qualification_during_second_apply_stops_core_and_keeps_protection(self):
         self.guard.strict = True
         original = self.guard.apply
@@ -692,60 +744,28 @@ class GlobalBrokerTests(unittest.TestCase):
         self.core.start.assert_called_once()
         self.assertIs(self.core.start.call_args.args[0]["require_strict"], True)
 
-    def test_ordinary_owner_cannot_opt_out_of_strict_or_stop_existing_proxy(self):
+    def test_ordinary_owner_starts_uncertified_global_and_stops_owned_proxy(self):
         panel, app_core = mock.Mock(pid=101), mock.Mock(pid=102)
         panel.alive.return_value = app_core.alive.return_value = True
         self.broker.panel, self.broker.core = panel, app_core
-        with self.assertRaises(policy.ProxyError) as caught:
-            self.broker.handle(self.request(require_strict=False), 101, SID)
-        self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
-        self.leases[0].close.assert_called_once()
-        self.assertIsNone(self.broker.global_panel)
-        self.control.verify.assert_not_called()
-        self.control.set_running.assert_not_called()
-        self.factory.assert_not_called()
-        panel.close.assert_not_called()
-        app_core.close.assert_not_called()
-
-    def test_experimental_request_requires_explicit_native_boolean_elevation(self):
-        for elevation in (False, None, 1, "true", mock.Mock()):
-            with self.subTest(elevation=elevation):
-                owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
-                owner.is_elevated.return_value = elevation
-                self.broker.lease_factory = mock.Mock(return_value=owner)
-                with self.assertRaises(policy.ProxyError) as caught:
-                    self.broker.handle(self.request(require_strict=False), 101, SID)
-                self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
-                owner.is_elevated.assert_called_once_with()
-                owner.close.assert_called_once()
-                self.control.verify.assert_not_called()
-                self.control.set_running.assert_not_called()
-                self.factory.assert_not_called()
-
-    def test_failed_elevation_query_closes_owner_and_leaves_network_untouched(self):
-        owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
-        owner.is_elevated.side_effect = OSError("access denied")
-        self.broker.lease_factory = mock.Mock(return_value=owner)
-        with self.assertRaises(policy.ProxyError) as caught:
-            self.broker.handle(self.request(require_strict=False), 101, SID)
-        self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
-        owner.close.assert_called_once()
-        self.control.verify.assert_not_called()
-        self.control.set_running.assert_not_called()
-        self.factory.assert_not_called()
-
-    def test_explicit_elevated_experiment_can_start_and_retains_held_owner(self):
-        owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
-        owner.is_elevated.return_value = True
-        self.broker.lease_factory = mock.Mock(return_value=owner)
         result = self.broker.handle(self.request(require_strict=False), 101, SID)
         self.assertTrue(result["running"])
-        self.assertIs(self.broker.global_panel, owner)
-        owner.is_elevated.assert_called_once_with()
-        owner.close.assert_not_called()
+        self.assertFalse(hasattr(self.leases[0], "is_elevated"))
         self.control.verify.assert_called_once()
+        self.control.set_running.assert_called_once_with(False)
+        panel.close.assert_called_once()
+        app_core.close.assert_called_once()
         self.core.start.assert_called_once()
         self.assertIs(self.core.start.call_args.args[0]["require_strict"], False)
+        self.assertIs(self.broker.global_panel, self.leases[0])
+        self.leases[0].close.assert_not_called()
+
+    def test_uncertified_start_still_rejects_another_users_request(self):
+        with self.assertRaises(policy.ProxyError) as caught:
+            self.broker.handle(self.request(require_strict=False), 101, "S-1-5-21-9-9-9-1001")
+        self.assertEqual(caught.exception.code, "access_denied")
+        self.core.start.assert_not_called()
+        self.control.verify.assert_not_called()
 
     def test_global_core_death_keeps_guard_and_closes_owner_lease(self):
         self.broker.handle(self.request(), 101, SID)

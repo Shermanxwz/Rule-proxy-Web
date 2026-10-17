@@ -382,31 +382,6 @@ class ProcessLease:
     def alive(self):
         return bool(self.handle) and self.kernel.WaitForSingleObject(self.handle, 0) == 258
 
-    def is_elevated(self):
-        """Query this held process, never reopen its possibly reused PID."""
-        if not self.handle:
-            return False
-        advapi = _dll("advapi32")
-        advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
-        advapi.OpenProcessToken.restype = wintypes.BOOL
-        advapi.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
-            wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
-        advapi.GetTokenInformation.restype = wintypes.BOOL
-        token = wintypes.HANDLE()
-        try:
-            if not advapi.OpenProcessToken(self.handle, 8, ctypes.byref(token)) or not token.value:
-                return False
-            elevated, returned = ctypes.c_uint32(), wintypes.DWORD()
-            if not advapi.GetTokenInformation(token, 20, ctypes.byref(elevated), ctypes.sizeof(elevated),
-                                               ctypes.byref(returned)):
-                return False
-            return returned.value == ctypes.sizeof(elevated) and bool(elevated.value)
-        except (OSError, ValueError):
-            return False
-        finally:
-            if token.value:
-                self.kernel.CloseHandle(token)
-
     def close(self):
         if self.handle:
             self.kernel.CloseHandle(self.handle)
@@ -861,7 +836,12 @@ class GlobalCore:
                         # pre-guard before the TUN interface has a real LUID.
                         # Reapply atomically after the core creates the device.
                         ready = self.guard.apply(self.executable, tun)
-                        if not self._guard_ready(ready, strict=strict):
+                        # The controller can answer before mihomo creates the TUN
+                        # (hub.ApplyConfig starts it before executor.ApplyConfig does;
+                        # https://github.com/MetaCubeX/mihomo/blob/v1.19.32/hub/hub.go).
+                        # Before tun_ready only the qualified persistent pre-guard is
+                        # required; _confirmed_running checks strict isolation once it is.
+                        if not self._preguard_ready(ready, strict=strict):
                             raise ProxyError("strict_guard_unavailable" if strict else "global_guard_not_effective",
                                              "TUN 启动后的独立保护未确认，保留独立保护。")
                         if ready.get("tun_ready") is True:
@@ -991,14 +971,8 @@ class Broker:
             raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
         owner = self.lease_factory(caller_pid, caller_sid)
         try:
-            if request.get("require_strict") is not True:
-                try:
-                    experimental_admin = owner.is_elevated() is True
-                except Exception:
-                    experimental_admin = False
-                if not experimental_admin:
-                    raise ProxyError("experimental_global_requires_admin",
-                        "未通过资格验证的全局实验仅允许实际提升的管理员进程；普通面板必须使用严格模式。")
+            # An uncertified (non-strict) start installs the same persistent guard and DNS
+            # lease and reads both back before reporting running; certification only labels it.
             self.control.verify(self.metadata)
             if self.panel is not None:
                 self.stop()

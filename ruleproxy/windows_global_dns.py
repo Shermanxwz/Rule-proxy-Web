@@ -31,6 +31,14 @@ MAX_OUTPUT = 256 * 1024
 MAX_RULES = 256
 _GUID = re.compile(r"\{?[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\}?\Z")
 
+# Restoration must survive a cold DnsClient/CIM provider load (observed above
+# the 8 s per-query bound on Windows 11) and effective-policy refresh lag after
+# removal. "remove" is idempotent, so a bounded retry is safe; worst case
+# 3 x 8 s + 2 x 1 s stays inside the 45 s control-pipe read timeout.
+_RESTORE_ATTEMPTS = 3
+_RESTORE_BACKOFF_SECONDS = 1.0
+_RESTORE_RETRY_CODES = frozenset({"global_dns_unavailable", "global_dns_restore_incomplete"})
+
 # Only a hash-derived marker and a closed operation name are substituted.
 # Cmdlet output is captured, reduced and bounded before writing UTF-8 JSON.
 _SCRIPT = r'''
@@ -187,7 +195,7 @@ def _servers(value):
 
 
 class DnsLease:
-    def __init__(self, metadata, *, runner=None, clock=None):
+    def __init__(self, metadata, *, runner=None, clock=None, sleep=None):
         if (not isinstance(metadata, dict) or not isinstance(metadata.get("root"), str)
                 or not metadata["root"] or "\0" in metadata["root"]
                 or not isinstance(metadata.get("owner_sid"), str) or not SID_RE.fullmatch(metadata["owner_sid"])):
@@ -197,6 +205,7 @@ class DnsLease:
         self.metadata = metadata
         self.display = "RuleProxy global DNS " + identity[:16]
         self._runner, self._clock = runner or self._run, clock or time.monotonic
+        self._sleep = sleep or time.sleep
         self.qualification = load_qualification(metadata)
         self._component_hint = runner is not None or os.name == "nt"
         self._cached, self._checked = None, 0
@@ -397,12 +406,18 @@ class DnsLease:
     def normal_stop(self):
         self._authority(restore=True)
         with self._exclusive():
-            with self._lock:
-                self._cached = None
-            result = self._snapshot(self._runner("remove"))
-            if result["active"] or result["virtual_dns_in_effective"]:
-                raise ProxyError("global_dns_restore_incomplete", "本工具 DNS 规则仍在，未撤销独立保护。")
-            return {**self._store(result), "stopped": True}
+            for attempt in range(1, _RESTORE_ATTEMPTS + 1):
+                with self._lock:
+                    self._cached = None
+                try:
+                    result = self._snapshot(self._runner("remove"))
+                    if result["active"] or result["virtual_dns_in_effective"]:
+                        raise ProxyError("global_dns_restore_incomplete", "本工具 DNS 规则仍在，未撤销独立保护。")
+                    return {**self._store(result), "stopped": True}
+                except ProxyError as exc:
+                    if exc.code not in _RESTORE_RETRY_CODES or attempt == _RESTORE_ATTEMPTS:
+                        raise
+                self._sleep(_RESTORE_BACKOFF_SECONDS)
 
     def crash_keep(self):
         # Shutdown/crash handling never creates a new PowerShell child or waits

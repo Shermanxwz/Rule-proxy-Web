@@ -97,7 +97,7 @@ class GlobalManagerTests(unittest.TestCase):
         self.assertIsInstance(self.manager.core, ManagedGlobalCore)
         self.assertEqual(self.manager.core.pid, 64213)
         self.backend.start.assert_called_once_with(SOURCE, self.manager.secret, 10809, 19097, 'Node',
-                                                 **({'require_strict': True} if sys.platform == 'win32' else {}))
+                                                 **({'require_strict': False} if sys.platform == 'win32' else {}))
 
     def test_start_failure_retains_guard_until_explicit_stop(self):
         self.manager.import_yaml(SOURCE)

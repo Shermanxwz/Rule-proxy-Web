@@ -226,7 +226,7 @@ jobs:
     needs: package
     if: github.event_name == 'workflow_dispatch' && inputs.global_windows_11
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -272,9 +272,9 @@ jobs:
       - name: Exercise only bounded global capture on the official client Windows kernel
         run: |
           read -r expected name < windows-product-package/SHA256SUMS.txt
-          exec timeout --signal=TERM --kill-after=20s 30m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
+          exec timeout --signal=TERM --kill-after=20s 40m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
             --package "windows-product-package/$name" --package-sha256 "$expected" \
-            --artifacts windows-native-global-results --timeout-seconds 1800 --suite global-capture
+            --artifacts windows-native-global-results --timeout-seconds 2400 --suite global-capture
       - uses: actions/upload-artifact@v7
         if: always()
         with:
