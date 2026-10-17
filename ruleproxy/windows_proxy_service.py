@@ -382,31 +382,6 @@ class ProcessLease:
     def alive(self):
         return bool(self.handle) and self.kernel.WaitForSingleObject(self.handle, 0) == 258
 
-    def is_elevated(self):
-        """Query this held process, never reopen its possibly reused PID."""
-        if not self.handle:
-            return False
-        advapi = _dll("advapi32")
-        advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
-        advapi.OpenProcessToken.restype = wintypes.BOOL
-        advapi.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
-            wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
-        advapi.GetTokenInformation.restype = wintypes.BOOL
-        token = wintypes.HANDLE()
-        try:
-            if not advapi.OpenProcessToken(self.handle, 8, ctypes.byref(token)) or not token.value:
-                return False
-            elevated, returned = ctypes.c_uint32(), wintypes.DWORD()
-            if not advapi.GetTokenInformation(token, 20, ctypes.byref(elevated), ctypes.sizeof(elevated),
-                                               ctypes.byref(returned)):
-                return False
-            return returned.value == ctypes.sizeof(elevated) and bool(elevated.value)
-        except (OSError, ValueError):
-            return False
-        finally:
-            if token.value:
-                self.kernel.CloseHandle(token)
-
     def close(self):
         if self.handle:
             self.kernel.CloseHandle(self.handle)
@@ -996,14 +971,8 @@ class Broker:
             raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
         owner = self.lease_factory(caller_pid, caller_sid)
         try:
-            if request.get("require_strict") is not True:
-                try:
-                    experimental_admin = owner.is_elevated() is True
-                except Exception:
-                    experimental_admin = False
-                if not experimental_admin:
-                    raise ProxyError("experimental_global_requires_admin",
-                        "未通过资格验证的全局实验仅允许实际提升的管理员进程；普通面板必须使用严格模式。")
+            # An uncertified (non-strict) start installs the same persistent guard and DNS
+            # lease and reads both back before reporting running; certification only labels it.
             self.control.verify(self.metadata)
             if self.panel is not None:
                 self.stop()

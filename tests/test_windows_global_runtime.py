@@ -744,60 +744,28 @@ class GlobalBrokerTests(unittest.TestCase):
         self.core.start.assert_called_once()
         self.assertIs(self.core.start.call_args.args[0]["require_strict"], True)
 
-    def test_ordinary_owner_cannot_opt_out_of_strict_or_stop_existing_proxy(self):
+    def test_ordinary_owner_starts_uncertified_global_and_stops_owned_proxy(self):
         panel, app_core = mock.Mock(pid=101), mock.Mock(pid=102)
         panel.alive.return_value = app_core.alive.return_value = True
         self.broker.panel, self.broker.core = panel, app_core
-        with self.assertRaises(policy.ProxyError) as caught:
-            self.broker.handle(self.request(require_strict=False), 101, SID)
-        self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
-        self.leases[0].close.assert_called_once()
-        self.assertIsNone(self.broker.global_panel)
-        self.control.verify.assert_not_called()
-        self.control.set_running.assert_not_called()
-        self.factory.assert_not_called()
-        panel.close.assert_not_called()
-        app_core.close.assert_not_called()
-
-    def test_experimental_request_requires_explicit_native_boolean_elevation(self):
-        for elevation in (False, None, 1, "true", mock.Mock()):
-            with self.subTest(elevation=elevation):
-                owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
-                owner.is_elevated.return_value = elevation
-                self.broker.lease_factory = mock.Mock(return_value=owner)
-                with self.assertRaises(policy.ProxyError) as caught:
-                    self.broker.handle(self.request(require_strict=False), 101, SID)
-                self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
-                owner.is_elevated.assert_called_once_with()
-                owner.close.assert_called_once()
-                self.control.verify.assert_not_called()
-                self.control.set_running.assert_not_called()
-                self.factory.assert_not_called()
-
-    def test_failed_elevation_query_closes_owner_and_leaves_network_untouched(self):
-        owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
-        owner.is_elevated.side_effect = OSError("access denied")
-        self.broker.lease_factory = mock.Mock(return_value=owner)
-        with self.assertRaises(policy.ProxyError) as caught:
-            self.broker.handle(self.request(require_strict=False), 101, SID)
-        self.assertEqual(caught.exception.code, "experimental_global_requires_admin")
-        owner.close.assert_called_once()
-        self.control.verify.assert_not_called()
-        self.control.set_running.assert_not_called()
-        self.factory.assert_not_called()
-
-    def test_explicit_elevated_experiment_can_start_and_retains_held_owner(self):
-        owner = mock.Mock(spec=["pid", "alive", "close", "is_elevated"], pid=101)
-        owner.is_elevated.return_value = True
-        self.broker.lease_factory = mock.Mock(return_value=owner)
         result = self.broker.handle(self.request(require_strict=False), 101, SID)
         self.assertTrue(result["running"])
-        self.assertIs(self.broker.global_panel, owner)
-        owner.is_elevated.assert_called_once_with()
-        owner.close.assert_not_called()
+        self.assertFalse(hasattr(self.leases[0], "is_elevated"))
         self.control.verify.assert_called_once()
+        self.control.set_running.assert_called_once_with(False)
+        panel.close.assert_called_once()
+        app_core.close.assert_called_once()
         self.core.start.assert_called_once()
         self.assertIs(self.core.start.call_args.args[0]["require_strict"], False)
+        self.assertIs(self.broker.global_panel, self.leases[0])
+        self.leases[0].close.assert_not_called()
+
+    def test_uncertified_start_still_rejects_another_users_request(self):
+        with self.assertRaises(policy.ProxyError) as caught:
+            self.broker.handle(self.request(require_strict=False), 101, "S-1-5-21-9-9-9-1001")
+        self.assertEqual(caught.exception.code, "access_denied")
+        self.core.start.assert_not_called()
+        self.control.verify.assert_not_called()
 
     def test_global_core_death_keeps_guard_and_closes_owner_lease(self):
         self.broker.handle(self.request(), 101, SID)
