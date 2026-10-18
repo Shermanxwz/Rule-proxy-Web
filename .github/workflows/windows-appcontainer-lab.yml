@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'claude/windows-appcontainer-*'
+      - 'codex/windows-finish-*'
     paths:
       - '.github/windows_appcontainer_lab.py'
       - '.github/windows_appcontainer_product.py'
@@ -72,14 +73,17 @@ jobs:
           python-version: '3.14'
           architecture: x64
       - run: python -m pip install -r requirements.txt
-      - name: Run browsers inside the AppContainer (informational)
+      - name: Run bounded browser sandbox compatibility matrix
         shell: pwsh
-        run: python -B .github/windows_appcontainer_compat.py --work 'C:\RuleProxyAppContainerCompat'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PYTHONIOENCODING = 'utf-8'
+          python -B .github/windows_appcontainer_compat.py --work 'C:\RuleProxyAppContainerCompat'
+          if ($LASTEXITCODE -ne 0) { throw 'Browser fixture, control or cleanup failed; inspect report' }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: windows-appcontainer-compat
           path: |
             C:\RuleProxyAppContainerCompat\compat-report.json
-            C:\RuleProxyAppContainerCompat\*.log
           if-no-files-found: warn
