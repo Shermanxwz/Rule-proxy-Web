@@ -1,0 +1,54 @@
+{
+ "role": "controller",
+ "started": 1792357384.2962267,
+ "missing_exports": [],
+ "identity": "S-1-5-18",
+ "default_compartment": 1,
+ "thread_compartment": 1,
+ "session0_compartment": 1,
+ "initialized_row": {
+  "id": 0,
+  "guid": "ffffffff-ffff-ffff-ffff-ffffffffffff"
+ },
+ "create": {
+  "code": 0,
+  "id": 2,
+  "guid": "59704123-c1f7-4bd7-8c63-6d4487049f29"
+ },
+ "thread_probe": {
+  "set": 0,
+  "get": 2,
+  "public_1111_443": {
+   "ok": false,
+   "winerror": 10051,
+   "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+  },
+  "host_fixture_loopback": {
+   "ok": false,
+   "winerror": 10061,
+   "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+  },
+  "bind_loopback4": {
+   "ok": true,
+   "port": 49154
+  },
+  "dns": {
+   "ok": false,
+   "winerror": null,
+   "text": "[Errno 11004] getaddrinfo failed"
+  }
+ },
+ "set_job": {
+  "code": 0
+ },
+ "job_compartment": 2,
+ "relay": {
+  "accepted": 0,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_2": true,
+  "bound_23": true
+ }
+}

@@ -1,0 +1,304 @@
+{
+ "schema_version": 1,
+ "source_commit": "5f35f899dc01062cfac46d972f8d83199b011890",
+ "nonce": "59adf8e33bec9cfce1bfb999",
+ "windows": [
+  10,
+  0,
+  26100,
+  2
+ ],
+ "identity": "S-1-5-21-4239583824-265399229-1323058055-500",
+ "missing_exports": [],
+ "phases": {},
+ "browsers": {},
+ "tools": {},
+ "product_qualified": false,
+ "host_ip_is_private": true,
+ "before": {
+  "code": 0,
+  "stdout": "{\"CompartmentId\":1,\"CompartmentDescription\":\"Default Compartment\",\"CompartmentGuid\":\"{b1062982-2b18-4b4f-b3d5-a78ddb9cdd49}\"}\r\n",
+  "stderr": ""
+ },
+ "task": {
+  "code": 0,
+  "stdout": "started\r\n",
+  "stderr": ""
+ },
+ "controller_ready": {
+  "role": "controller",
+  "started": 1792357384.2962267,
+  "missing_exports": [],
+  "identity": "S-1-5-18",
+  "default_compartment": 1,
+  "thread_compartment": 1,
+  "session0_compartment": 1,
+  "initialized_row": {
+   "id": 0,
+   "guid": "ffffffff-ffff-ffff-ffff-ffffffffffff"
+  },
+  "create": {
+   "code": 0,
+   "id": 2,
+   "guid": "59704123-c1f7-4bd7-8c63-6d4487049f29"
+  },
+  "thread_probe": {
+   "set": 0,
+   "get": 2,
+   "public_1111_443": {
+    "ok": false,
+    "winerror": 10051,
+    "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+   },
+   "host_fixture_loopback": {
+    "ok": false,
+    "winerror": 10061,
+    "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+   },
+   "bind_loopback4": {
+    "ok": true,
+    "port": 49154
+   },
+   "dns": {
+    "ok": false,
+    "winerror": null,
+    "text": "[Errno 11004] getaddrinfo failed"
+   }
+  },
+  "set_job": {
+   "code": 0
+  },
+  "job_compartment": 2,
+  "relay": {
+   "accepted": 0,
+   "forward_errors": [],
+   "listener_errors": [],
+   "listener_set": 0,
+   "listener_get": 2,
+   "bound_2": true,
+   "bound_23": true
+  }
+ },
+ "net_config": {
+  "compartments": {
+   "code": 0,
+   "stdout": "[{\"CompartmentId\":1,\"CompartmentDescription\":\"Default Compartment\"},{\"CompartmentId\":2,\"CompartmentDescription\":\"RuleProxy compartment lab\"}]\r\n",
+   "stderr": ""
+  },
+  "interfaces": {
+   "code": 0,
+   "stdout": "[{\"ifIndex\":19,\"InterfaceAlias\":\"Loopback Pseudo-Interface 2\",\"AddressFamily\":23,\"CompartmentId\":2,\"ConnectionState\":1},{\"ifIndex\":19,\"InterfaceAlias\":\"Loopback Pseudo-Interface 2\",\"AddressFamily\":2,\"CompartmentId\":2,\"ConnectionState\":1},{\"ifIndex\":11,\"InterfaceAlias\":\"vEthernet (nat)\",\"AddressFamily\":23,\"CompartmentId\":1,\"ConnectionState\":1},{\"ifIndex\":14,\"InterfaceAlias\":\"Ethernet 3\",\"AddressFamily\":23,\"CompartmentId\":1,\"ConnectionState\":1},{\"ifIndex\":1,\"InterfaceAlias\":\"Loopback Pseudo-Interface 1\",\"AddressFamily\":23,\"CompartmentId\":1,\"ConnectionState\":1},{\"ifIndex\":11,\"InterfaceAlias\":\"vEthernet (nat)\",\"AddressFamily\":2,\"CompartmentId\":1,\"ConnectionState\":1},{\"ifIndex\":14,\"InterfaceAlias\":\"Ethernet 3\",\"AddressFamily\":2,\"CompartmentId\":1,\"ConnectionState\":1},{\"ifIndex\":1,\"InterfaceAlias\":\"Loopback Pseudo-Interface 1\",\"AddressFamily\":2,\"CompartmentId\":1,\"ConnectionState\":1}]\r\n",
+   "stderr": ""
+  },
+  "addresses": {
+   "code": 0,
+   "stdout": "[{\"ifIndex\":19,\"InterfaceAlias\":\"Loopback Pseudo-Interface 2\",\"IPAddress\":\"::1\",\"CompartmentId\":null},{\"ifIndex\":19,\"InterfaceAlias\":\"Loopback Pseudo-Interface 2\",\"IPAddress\":\"127.0.0.1\",\"CompartmentId\":null},{\"ifIndex\":11,\"InterfaceAlias\":\"vEthernet (nat)\",\"IPAddress\":\"fe80::2659:58af:3c57:b661%11\",\"CompartmentId\":null},{\"ifIndex\":14,\"InterfaceAlias\":\"Ethernet 3\",\"IPAddress\":\"fe80::fcc7:9c23:41e0:6ff5%14\",\"CompartmentId\":null},{\"ifIndex\":1,\"InterfaceAlias\":\"Loopback Pseudo-Interface 1\",\"IPAddress\":\"::1\",\"CompartmentId\":null},{\"ifIndex\":11,\"InterfaceAlias\":\"vEthernet (nat)\",\"IPAddress\":\"172.25.96.1\",\"CompartmentId\":null},{\"ifIndex\":14,\"InterfaceAlias\":\"Ethernet 3\",\"IPAddress\":\"10.1.0.114\",\"CompartmentId\":null},{\"ifIndex\":1,\"InterfaceAlias\":\"Loopback Pseudo-Interface 1\",\"IPAddress\":\"127.0.0.1\",\"CompartmentId\":null}]\r\n",
+   "stderr": ""
+  },
+  "routes": {
+   "code": 0,
+   "stdout": "[{\"ifIndex\":19,\"DestinationPrefix\":\"255.255.255.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":19,\"DestinationPrefix\":\"224.0.0.0/4\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":19,\"DestinationPrefix\":\"127.255.255.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":19,\"DestinationPrefix\":\"127.0.0.1/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":19,\"DestinationPrefix\":\"127.0.0.0/8\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":19,\"DestinationPrefix\":\"ff00::/8\",\"NextHop\":\"::\",\"CompartmentId\":2},{\"ifIndex\":19,\"DestinationPrefix\":\"::1/128\",\"NextHop\":\"::\",\"CompartmentId\":2},{\"ifIndex\":11,\"DestinationPrefix\":\"255.255.255.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"255.255.255.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":1,\"DestinationPrefix\":\"255.255.255.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":11,\"DestinationPrefix\":\"224.0.0.0/4\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"224.0.0.0/4\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":1,\"DestinationPrefix\":\"224.0.0.0/4\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":11,\"DestinationPrefix\":\"172.25.111.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":11,\"DestinationPrefix\":\"172.25.96.1/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":11,\"DestinationPrefix\":\"172.25.96.0/20\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"169.254.169.254/32\",\"NextHop\":\"10.1.0.1\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"168.63.129.16/32\",\"NextHop\":\"10.1.0.1\",\"CompartmentId\":1},{\"ifIndex\":1,\"DestinationPrefix\":\"127.255.255.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":1,\"DestinationPrefix\":\"127.0.0.1/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":1,\"DestinationPrefix\":\"127.0.0.0/8\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"10.1.15.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"10.1.0.114/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"10.1.0.0/20\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"0.0.0.0/0\",\"NextHop\":\"10.1.0.1\",\"CompartmentId\":1},{\"ifIndex\":11,\"DestinationPrefix\":\"ff00::/8\",\"NextHop\":\"::\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"ff00::/8\",\"NextHop\":\"::\",\"CompartmentId\":1},{\"ifIndex\":1,\"DestinationPrefix\":\"ff00::/8\",\"NextHop\":\"::\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"fe80::fcc7:9c23:41e0:6ff5/128\",\"NextHop\":\"::\",\"CompartmentId\":1},{\"ifIndex\":11,\"DestinationPrefix\":\"fe80::2659:58af:3c57:b661/128\",\"NextHop\":\"::\",\"CompartmentId\":1},{\"ifIndex\":11,\"DestinationPrefix\":\"fe80::/64\",\"NextHop\":\"::\",\"CompartmentId\":1},{\"ifIndex\":14,\"DestinationPrefix\":\"fe80::/64\",\"NextHop\":\"::\",\"CompartmentId\":1},{\"ifIndex\":1,\"DestinationPrefix\":\"::1/128\",\"NextHop\":\"::\",\"CompartmentId\":1}]\r\n",
+   "stderr": ""
+  }
+ },
+ "decoy_bind_error": null,
+ "open_job_error": 5,
+ "error": "RuntimeError: cannot open controller job",
+ "traceback": "Traceback (most recent call last):\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_compartment_lab.py\", line 815, in driver\n    raise RuntimeError('cannot open controller job')\nRuntimeError: cannot open controller job\n",
+ "controller_final": {
+  "role": "controller",
+  "started": 1792357384.2962267,
+  "missing_exports": [],
+  "identity": "S-1-5-18",
+  "default_compartment": 1,
+  "thread_compartment": 1,
+  "session0_compartment": 1,
+  "initialized_row": {
+   "id": 0,
+   "guid": "ffffffff-ffff-ffff-ffff-ffffffffffff"
+  },
+  "create": {
+   "code": 0,
+   "id": 2,
+   "guid": "59704123-c1f7-4bd7-8c63-6d4487049f29"
+  },
+  "thread_probe": {
+   "set": 0,
+   "get": 2,
+   "public_1111_443": {
+    "ok": false,
+    "winerror": 10051,
+    "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+   },
+   "host_fixture_loopback": {
+    "ok": false,
+    "winerror": 10061,
+    "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+   },
+   "bind_loopback4": {
+    "ok": true,
+    "port": 49154
+   },
+   "dns": {
+    "ok": false,
+    "winerror": null,
+    "text": "[Errno 11004] getaddrinfo failed"
+   }
+  },
+  "set_job": {
+   "code": 0
+  },
+  "job_compartment": 2,
+  "relay": {
+   "accepted": 0,
+   "forward_errors": [],
+   "listener_errors": [],
+   "listener_set": 0,
+   "listener_get": 2,
+   "bound_2": true,
+   "bound_23": true
+  },
+  "driver_done_seen": true,
+  "terminate_job": true,
+  "delete": [
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359
+  ],
+  "finished": 1792357402.938151
+ },
+ "controller_log": "",
+ "task_cleanup": {
+  "code": 0,
+  "stdout": "ok\r\n",
+  "stderr": ""
+ },
+ "after": {
+  "code": 0,
+  "stdout": "[{\"CompartmentId\":1,\"CompartmentDescription\":\"Default Compartment\"},{\"CompartmentId\":2,\"CompartmentDescription\":\"RuleProxy compartment lab\"}]\r\n",
+  "stderr": ""
+ },
+ "echo_payloads": [],
+ "proxy_received": [],
+ "direct_received": [],
+ "assessment": {
+  "create": {
+   "code": 0,
+   "id": 2,
+   "guid": "59704123-c1f7-4bd7-8c63-6d4487049f29"
+  },
+  "set_job": {
+   "code": 0
+  },
+  "job_compartment": 2,
+  "thread_probe": {
+   "set": 0,
+   "get": 2,
+   "public_1111_443": {
+    "ok": false,
+    "winerror": 10051,
+    "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+   },
+   "host_fixture_loopback": {
+    "ok": false,
+    "winerror": 10061,
+    "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+   },
+   "bind_loopback4": {
+    "ok": true,
+    "port": 49154
+   },
+   "dns": {
+    "ok": false,
+    "winerror": null,
+    "text": "[Errno 11004] getaddrinfo failed"
+   }
+  },
+  "relay_errors": [],
+  "decoy_bind_error": null,
+  "outside_compartment": null,
+  "inside_compartment": null,
+  "child_compartment": null,
+  "outside_rows": {
+   "tcp4_host_ip": null,
+   "tcp4_loopback": null,
+   "udp4_host_ip": null,
+   "udp4_loopback": null,
+   "tcp6_loopback": null,
+   "udp6_loopback": null,
+   "tcp4_public_1111_443": null,
+   "tcp4_public_8888_53": null,
+   "udp4_public_dns_8888": null
+  },
+  "inside_rows": {
+   "tcp4_host_ip": null,
+   "tcp4_loopback": null,
+   "udp4_host_ip": null,
+   "udp4_loopback": null,
+   "tcp6_loopback": null,
+   "udp6_loopback": null,
+   "tcp4_public_1111_443": null,
+   "tcp4_public_8888_53": null,
+   "udp4_public_dns_8888": null
+  },
+  "child_rows": {
+   "tcp4_host_ip": null,
+   "tcp4_loopback": null,
+   "udp4_host_ip": null,
+   "udp4_loopback": null,
+   "tcp6_loopback": null,
+   "udp6_loopback": null,
+   "tcp4_public_1111_443": null,
+   "tcp4_public_8888_53": null,
+   "udp4_public_dns_8888": null
+  },
+  "nested_compartment": null,
+  "nested_rows": {
+   "tcp4_host_ip": null,
+   "tcp4_loopback": null,
+   "udp4_host_ip": null,
+   "udp4_loopback": null,
+   "tcp6_loopback": null,
+   "udp6_loopback": null,
+   "tcp4_public_1111_443": null,
+   "tcp4_public_8888_53": null,
+   "udp4_public_dns_8888": null
+  },
+  "nested_dns": null,
+  "nested_proxy": null,
+  "nested_assign": null,
+  "nested_error": null,
+  "outside_dns": null,
+  "inside_dns": null,
+  "child_dns": null,
+  "outside_proxy": null,
+  "inside_proxy": null,
+  "child_proxy": null,
+  "inside_relay_banner": null,
+  "outside_relay_banner": null,
+  "breakaway": null,
+  "tools": {},
+  "browsers": {},
+  "error": "RuntimeError: cannot open controller job",
+  "controller_error": null,
+  "delete": [
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359
+  ]
+ }
+}
