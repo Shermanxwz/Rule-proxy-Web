@@ -862,7 +862,7 @@ class GlobalCore:
 
 
 class Broker:
-    def __init__(self, metadata, control=None, lease_factory=None, global_factory=None):
+    def __init__(self, metadata, control=None, lease_factory=None, global_factory=None, container_factory=None):
         self.metadata = metadata
         self.control = control or ServiceControl()
         self.lease_factory = lease_factory or ProcessLease
@@ -875,6 +875,16 @@ class Broker:
         self.global_factory = global_factory or GlobalCore
         self.global_core = None
         self.global_panel = None
+        self.container_factory = container_factory
+        self.container_gate = None
+
+    def _containers(self):
+        if self.container_gate is None:
+            if self.container_factory is None:
+                from ruleproxy.windows_appcontainer import ContainerGate
+                self.container_factory = ContainerGate
+            self.container_gate = self.container_factory(self.metadata)
+        return self.container_gate
 
     def _global(self):
         if self.global_core is None:
@@ -992,6 +1002,12 @@ class Broker:
             if caller_sid != self.metadata["owner_sid"] or request["client_pid"] != caller_pid:
                 raise ProxyError("access_denied", "控制请求身份不匹配。")
             self.check_lease()
+            # Per-app AppContainer gates are independent of the ProxiFyre and
+            # global modes: they only ever narrow one owned package SID.
+            if request["op"] == "container_allow":
+                return self._containers().allow(request["container"], request["proxy_port"])
+            if request["op"] == "container_revoke":
+                return self._containers().revoke(request["container"])
             if request["op"] in {"global_status", "global_start", "global_stop", "global_select_node"}:
                 return self._global_handle(request, caller_pid, caller_sid)
             if request["op"] == "status":

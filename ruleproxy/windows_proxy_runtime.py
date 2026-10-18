@@ -59,6 +59,14 @@ class Runtime:
             self._generation = result["generation"]
             return result
 
+    def container_allow(self, container: str, proxy_port: int) -> dict:
+        with self._lock:
+            return self._connect().request("container_allow", container=container, proxy_port=proxy_port)
+
+    def container_revoke(self, container: str) -> dict:
+        with self._lock:
+            return self._connect().request("container_revoke", container=container)
+
     def stop(self) -> dict:
         with self._lock:
             if self._client is None:
