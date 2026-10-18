@@ -180,15 +180,39 @@ class Manager:
         self._apps_scan: threading.Thread | None = None
         self.closed = threading.Event()
         if self.capture_mode == 'global':
-            status = self.global_status()
-            if status.get('running') is True:
-                from .global_runtime import ManagedGlobalCore
-                self.core = ManagedGlobalCore(self.global_backend(), status)
-            else:
-                self._global_fault = bool(status.get('protection_active') or
-                                          (status.get('guard') or {}).get('active') or
-                                          status.get('state') == 'blocked')
+            # The legacy helper may ask for authorisation, so recovery never
+            # blocks the panel from opening.
+            threading.Thread(target=self._recover_global, daemon=True).start()
         threading.Thread(target=self._watch, daemon=True).start()
+
+    def _recover_global(self):
+        """Undo whatever a crashed panel or an older TUN version left behind."""
+        with self.lock:
+            if self.core is not None:
+                return
+            try:
+                from . import system_proxy
+                system_proxy.restore(self.directory)
+            except Exception as exc:
+                self.error = f'上次的系统代理设置未能自动恢复：{exc}'
+            self._release_legacy_tun()
+
+    def _release_legacy_tun(self):
+        # Up to 0.3.0-rc.14 global mode was a privileged TUN whose guard kept
+        # blocking after a failure. That mode is gone; only its cleanup stays.
+        if sys.platform not in ('win32', 'linux'):
+            return
+        status = self.global_status()
+        if not (status.get('running') or status.get('protection_active')
+                or (status.get('guard') or {}).get('active')
+                or (status.get('dns') or {}).get('active')
+                or status.get('state') in {'blocked', 'unknown'}):
+            return
+        try:
+            self.global_backend().stop()
+        except Exception as exc:
+            self.error = (f'旧版全局 TUN 留下的网络规则未能自动清除：{exc}。'
+                          '请点击停止重试，或运行卸载脚本恢复网络。')
 
     def _restore_settings(self):
         """Restore bounded records without losing profiles for temporarily missing apps."""
@@ -324,8 +348,6 @@ class Manager:
                 raise ValueError('面板正在退出，不能切换接管模式。')
             if self.core or self.active or self._profile_preparing:
                 raise ValueError('请先关闭本工具启动的应用并停止核心，再切换接管模式。')
-            if self._global_fault:
-                raise ValueError('全局保护仍在阻断，请先点击停止恢复网络，再切换模式。')
             if mode == self.capture_mode:
                 return
             previous, previous_compiled = self.capture_mode, self.compiled
@@ -428,10 +450,11 @@ class Manager:
         """The isolation check, run once. It can take seconds, so callers hold no other lock."""
         with self._probe_lock:
             if self.capture_mode == 'global':
-                status = self.global_status()
-                return {**status, 'backend': status.get('backend', 'Mihomo TUN'),
-                        'detail': status.get('detail', '全局接管由独立权限组件管理。'),
-                        'limitations': status.get('limitations', [])}
+                from .system_proxy import available
+                supported, detail = available()
+                return {'supported': supported, 'backend': '系统代理', 'detail': detail,
+                        'limitations': ['只覆盖遵循系统代理的应用；不读取系统代理的程序会直连。',
+                                        '面板意外退出时系统代理会暂时指向已停止的端口，下次打开面板或点击停止即恢复。']}
             if sys.platform == "win32":
                 return self._check_isolation()
             if self._probe_cache is None:
@@ -605,10 +628,7 @@ class Manager:
                 return
             if not self.compiled:
                 raise ValueError("请先导入 YAML。")
-            if self.capture_mode == 'global':
-                self._start_global()
-                return
-            if sys.platform == "win32":
+            if sys.platform == "win32" and self.capture_mode != 'global':
                 capability = self.protection()
                 if not capability["supported"]:
                     raise ValueError(capability["detail"])
@@ -659,6 +679,9 @@ class Manager:
                         time.sleep(0.1)
                         continue
                     self._sync_windows_policy()
+                    if self.capture_mode == 'global':
+                        from . import system_proxy
+                        system_proxy.enable(self.directory, self.mixed_port)
                     self.error = ""
                     return
                 raise ValueError("Mihomo 未能启动；未启动任何应用。请查看本机 core.log。")
@@ -678,33 +701,6 @@ class Manager:
                 self.core_log = None
                 raise
 
-    def _start_global(self):
-        from .global_runtime import ManagedGlobalCore
-        if self._global_fault:
-            raise ValueError('全局保护已进入阻断状态，请先点击停止恢复网络，再重试。')
-        self.compiled = self._compile(self.source)
-        backend = self.global_backend()
-        status = backend.status()
-        if not status.get('supported'):
-            raise ValueError(status.get('detail') or '请先安装全局接管组件。')
-        try:
-            # Windows starts the ordinary global mode: the same guard and DNS protection, with
-            # native certification reported in the status instead of required to start.
-            status = backend.start(self.source, self.secret, self.mixed_port,
-                                   self.controller_port, self.compiled.selected_node,
-                                   **({'require_strict': False} if sys.platform == 'win32' else {}))
-            self.core = ManagedGlobalCore(backend, status)
-            self._global_fault = False
-            self.error = ''
-        except BaseException:
-            # Never call stop here: the privileged helper may have installed
-            # an independent guard before discovering a startup failure.
-            state = self.global_status()
-            guard = state.get('guard') or {}
-            self._global_fault = bool(state.get('protection_active') or guard.get('active')
-                                      or state.get('state') == 'blocked')
-            raise
-
     def select_node(self, name):
         with self.lock:
             if not isinstance(name, str) or not name:
@@ -714,10 +710,7 @@ class Manager:
             compiled = self._compile(self.source, name)
             if self.core and self.core.poll() is None:
                 try:
-                    if self.capture_mode == 'global':
-                        self.global_backend().select_node(name)
-                    else:
-                        self._controller("PUT", "/proxies/" + urllib.parse.quote(compiled.primary_group, safe=""), {"name": name})
+                    self._controller("PUT", "/proxies/" + urllib.parse.quote(compiled.primary_group, safe=""), {"name": name})
                 except (OSError, ValueError, RuntimeError) as exc:
                     raise ValueError("切换节点失败：核心没有响应，请稍后重试。") from exc
             self.compiled = compiled
@@ -861,8 +854,8 @@ class Manager:
                     # before validating/starting the selected executable.
                     self._sync_windows_policy()
             profile = self.directory / "profiles" / ident
-            options = ({'transparent': True, 'native_proxy': not global_mode}
-                       if sys.platform == 'win32' else ({'transparent': True} if global_mode else {}))
+            options = ({'transparent': True, 'native_proxy': True, 'system_proxy': global_mode}
+                       if sys.platform == 'win32' or global_mode else {})
             command, env, _detail = prepare_app(app, self.mixed_port, self.directory / "profiles", **options)
             if sys.platform == "linux" and not global_mode:
                 from .linux_runtime import downloads_folder, launch
@@ -882,8 +875,7 @@ class Manager:
                         profile=app_profile_directory(self.directory / "profiles", app),
                         proxy_port=self.mixed_port, launch=launch)
                 else:
-                    options = {} if global_mode else {'native_proxy_port': self.mixed_port}
-                    process = launch(command, env, **options)
+                    process = launch(command, env, native_proxy_port=self.mixed_port)
                     resource = None
             elif sys.platform == 'linux' and global_mode:
                 process = subprocess.Popen(command, env=env, start_new_session=True)
@@ -892,7 +884,7 @@ class Manager:
                 raise ValueError("系统不支持应用隔离。")
             self.active[ident] = (process, resource)
             self.error = ""
-            detail = ('全局 TUN 已启用，应用沿用当前桌面账户权限。' if global_mode else
+            detail = ('全局系统代理已启用；应用同时继承本机代理设置。' if global_mode else
                       '强隔离（AppContainer）已启用：只能经本机代理联网，代理停止即断网。'
                       if sys.platform == 'win32' and app.get('windows_container') else
                       '程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
@@ -928,17 +920,14 @@ class Manager:
             for ident in list(self.active):
                 self.stop_app(ident)
             if self.capture_mode == 'global':
-                # This is an explicit user stop/quit, the sole place where
-                # restoring normal network access is requested.
-                status = self.global_status()
-                if (self.core is not None or self._global_fault or status.get('running')
-                        or status.get('protection_active') or (status.get('guard') or {}).get('active')
-                        or status.get('state') in {'unknown', 'unreachable', 'unavailable', 'failed'}
-                        or status.get('code') == 'backend_unavailable'):
-                    self.global_backend().stop()
-                self.core = None
-                self._global_fault = False
-                return
+                # Restore first: a lost core must never leave the desktop
+                # pointing at a dead port.
+                from . import system_proxy
+                try:
+                    system_proxy.restore(self.directory)
+                except Exception as exc:
+                    self.error = f'原系统代理未能自动恢复，请在系统设置中关闭代理：{exc}'
+                self._release_legacy_tun()
             if sys.platform == "win32" and self._windows_backend is not None:
                 self._windows_backend.stop()
                 self._windows_paths = []
@@ -961,17 +950,8 @@ class Manager:
         while not self.closed.wait(0.5):
             with self.lock:
                 if self.core and self.core.poll() is not None:
-                    if self.capture_mode == 'global':
-                        self._global_fault = True
-                        self.error = '全局核心或权限服务已退出。已关闭本工具启动的应用；点击停止可恢复网络。'
-                        for ident in list(self.active):
-                            try:
-                                self.stop_app(ident)
-                            except Exception:
-                                traceback.print_exc()
-                        self.core = None
-                        continue
-                    self.error = "代理核心已退出，受保护应用已关闭。"
+                    self.error = ("代理核心已退出，已恢复原系统代理并关闭本工具启动的应用。"
+                                  if self.capture_mode == 'global' else "代理核心已退出，受保护应用已关闭。")
                     try:
                         self.stop()
                     except Exception:
@@ -993,18 +973,11 @@ class Manager:
                         close_resource(resource)
                         self.active.pop(ident, None)
 
-    def close(self, *, restore_global=False):
+    def close(self, *, restore_global=True):
+        # Every exit path restores the system proxy; ``restore_global`` is
+        # kept only for callers written against the retired TUN mode.
         self.closed.set()
         try:
-            if self.capture_mode == 'global' and restore_global is not True:
-                # Resource cleanup also runs after failed startup/shortcuts or
-                # unexpected panel loss. Only an explicit stop/quit/Ctrl+C may
-                # release the independent guard. The helper owns the core and
-                # observes this panel's eventual process exit itself.
-                with self.lock:
-                    for ident in list(self.active):
-                        self.stop_app(ident)
-            else:
-                self.stop()
+            self.stop()
         finally:
             self.launch_owner.shutdown(wait=True)

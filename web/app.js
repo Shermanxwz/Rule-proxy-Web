@@ -64,9 +64,8 @@
     ui.saveNode.disabled = busy || !imported || !ui.node.value;
     ui.node.disabled = busy || !imported || !((state && state.nodes) || []).length;
     ui.start.disabled = busy || !imported || running || (isGlobal() && !protectedBackend);
-    ui.stop.disabled = busy || !ready || !(isGlobal() || running || state?.global_fault || state?.protection?.protection_active
-                                 || state?.protection?.guard?.active);
-    if (ui.captureMode) ui.captureMode.disabled = busy || !ready || running || !!state?.global_fault
+    ui.stop.disabled = busy || !ready || !(isGlobal() || running);
+    if (ui.captureMode) ui.captureMode.disabled = busy || !ready || running
       || (state?.apps || []).some((app) => app.active || app.cleanup_pending || app.profile_preparing);
     ui.addApp.disabled = busy || !ready;
     ui.refreshApps.disabled = busy || refreshingApps || !ready;
@@ -415,21 +414,17 @@
       ? `隔离应用可以读写下载文件夹 ${state.files_dir}：下载的文件保存在这里，要上传的文件也请先放到这里。家目录里的其他文件对隔离应用不可见。`
       : '';
     const protection = state.protection || {};
-    const globalQualified = !(isGlobal() && isWindows())
-      || (protection.guard?.native_qualified === true && protection.dns?.native_qualified === true);
     const supported = !!protection.supported;
     if (ui.captureMode) ui.captureMode.value = state.capture_mode || 'applications';
     if (ui.captureModeDetail) ui.captureModeDetail.textContent = isGlobal()
-      ? '全局覆盖整台设备，启动时需要独立系统权限组件。保护触发后，点击停止可恢复普通网络。'
+      ? '全局把系统代理指向本机核心，不安装 TUN、不改防火墙和 DNS；停止、核心退出或下次打开面板时恢复原系统代理。'
       : (isWindows() ? '仅接管启用的程序及其辅助路径；已识别商店软件包会自动跟随本机版本。'
                       : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
-    ui.stop.textContent = isGlobal() ? '停止全局接管并恢复网络' : '关闭受保护应用并停止';
+    ui.stop.textContent = isGlobal() ? '停止全局代理并恢复系统代理' : '关闭受保护应用并停止';
     ui.protectionCard.className = `protection-card ${supported ? 'is-supported' : 'is-unsupported'}`;
     ui.protectionBadge.textContent = !supported ? '不可用，启动受阻'
-      : (isGlobal() ? (globalQualified ? '全局接管组件可用' : '普通全局可用（未认证）') : (isWindows() ? '应用代理可用' : '隔离能力可用'));
-    ui.protectionDetail.textContent = supported && !globalQualified
-      ? 'Windows 普通全局：同样安装独立故障阻断层与 DNS 保护，回读确认后才报告运行；尚未完成全部原生故障场景认证，极端故障下不保证零泄漏。'
-      : (protection.detail || (supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。'));
+      : (isGlobal() ? '全局系统代理可用' : (isWindows() ? '应用代理可用' : '隔离能力可用'));
+    ui.protectionDetail.textContent = (protection.detail || (supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。'));
     ui.protectionBackend.textContent = protection.backend ? `运行后端：${protection.backend}` : '';
     const elevated = isWindows() && state.process_elevated === true;
     ui.processPermissionNote.hidden = !elevated;
@@ -448,10 +443,10 @@
     const ordinaryOption = ui.appAdapter.querySelector('option[value="environment"]');
     if (ordinaryOption) ordinaryOption.textContent = isWindows() ? '普通应用（按程序路径透明代理）' : '遵循代理环境变量的应用（不兼容即阻断）';
     if (isGlobal()) {
-      $('connection-intro').textContent = '启动后接管整台设备，包括没有加入应用清单的程序。';
-      $('protection-note').textContent = '保护范围和明确例外以本机权限组件报告为准。切换模式前请停止全局接管。';
-      $('apps-intro').textContent = '全局模式下，应用开关仅决定待启动清单；未加入清单或关闭开关的程序仍受全局接管。';
-      $('compatibility-note').textContent = '全局模式使用独立权限组件管理 TUN 与故障保护；核心故障时请查看保护状态，点击停止可恢复普通网络。';
+      $('connection-intro').textContent = '启动后把系统代理指向本机核心，遵循系统代理的程序都会经过规则。';
+      $('protection-note').textContent = '不读取系统代理的程序仍会直连。切换模式前请先停止。';
+      $('apps-intro').textContent = '全局模式下，从面板启动的应用额外继承代理环境变量；其余程序按系统代理设置联网。';
+      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS，任何故障都不会断网；需要强制只走代理的应用请在按应用模式下使用强隔离。';
     } else if (isWindows()) {
       $('connection-intro').textContent = '启动核心后，启用清单中的程序路径交给 ProxiFyre 转发；也可以从下方启动独立应用实例。';
       $('protection-note').textContent = '同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';

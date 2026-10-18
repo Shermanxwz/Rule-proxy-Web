@@ -75,7 +75,7 @@ class WindowsManagerTests(unittest.TestCase):
         launch.assert_called_once_with([self.app['path']], {}, native_proxy_port=self.manager.mixed_port)
         self.assertIsNone(self.manager.active["app"][1])
 
-    def test_global_launch_does_not_authorize_native_proxy_environment(self):
+    def test_global_launch_hands_the_system_proxy_to_the_app_without_path_routing(self):
         self.use_core()
         self.manager.settings['capture_mode'] = 'global'
         process = Mock(pid=5678, poll=Mock(return_value=None))
@@ -83,8 +83,9 @@ class WindowsManagerTests(unittest.TestCase):
                 patch('ruleproxy.manager.prepare_app', return_value=([self.app['path']], {}, '')) as prepare, \
                 patch('ruleproxy.windows_app_process.launch', return_value=process) as launch:
             self.manager.launch('app')
-        self.assertFalse(prepare.call_args.kwargs['native_proxy'])
-        launch.assert_called_once_with([self.app['path']], {})
+        self.assertTrue(prepare.call_args.kwargs['native_proxy'])
+        self.assertTrue(prepare.call_args.kwargs['system_proxy'])
+        launch.assert_called_once_with([self.app['path']], {}, native_proxy_port=self.manager.mixed_port)
         self.backend.apply.assert_not_called()
 
     def test_policy_failure_never_starts_app(self):

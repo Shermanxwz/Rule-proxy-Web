@@ -819,7 +819,7 @@ def _reject_reserved_args(args: list[str], adapter: str) -> None:
 
 
 def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: bool = False,
-                native_proxy: bool = False) -> tuple[list[str], dict[str, str], str]:
+                native_proxy: bool = False, system_proxy: bool = False) -> tuple[list[str], dict[str, str], str]:
     """Prepare an app command, child-only environment overrides, and limitations.
 
     The returned command is only safe inside the platform's isolation runtime
@@ -870,7 +870,9 @@ def prepare_app(app: dict, proxy_port: int, profile_dir: Path, *, transparent: b
         elif normalized["adapter"] == "firefox":
             # user.js belongs to this launcher. Clear the explicit proxy mode
             # from profiles created by the retired Windows runtime.
-            (profile / "user.js").write_text('user_pref("network.proxy.type", 0);\n', encoding="utf-8")
+            # Global mode follows the system proxy (type 5) that it sets.
+            (profile / "user.js").write_text(
+                f'user_pref("network.proxy.type", {5 if system_proxy else 0});\n', encoding="utf-8")
             command.extend(["-no-remote", "-profile", str(profile)])
         browser_proxy()
         return command, env, "按程序路径透明转发；同路径实例也受规则影响，不能保证 DNS 隔离。"
