@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/windows_appcontainer_lab.py'
       - '.github/windows_appcontainer_product.py'
+      - '.github/windows_appcontainer_compat.py'
       - '.github/workflows/windows-appcontainer-lab.yml'
       - 'ruleproxy/windows_appcontainer.py'
       - 'ruleproxy/windows_app_process.py'
@@ -15,6 +16,7 @@ on:
     paths:
       - '.github/windows_appcontainer_lab.py'
       - '.github/windows_appcontainer_product.py'
+      - '.github/windows_appcontainer_compat.py'
       - '.github/workflows/windows-appcontainer-lab.yml'
       - 'ruleproxy/windows_appcontainer.py'
       - 'ruleproxy/windows_app_process.py'
@@ -57,4 +59,27 @@ jobs:
             C:\RuleProxyAppContainerLab\report.json
             C:\RuleProxyAppContainerLab\*.log
             C:\RuleProxyAppContainerProduct\product-report.json
+          if-no-files-found: warn
+
+  compat:
+    name: AppContainer app compatibility · disposable Server 2025
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - run: python -m pip install -r requirements.txt
+      - name: Run browsers inside the AppContainer (informational)
+        shell: pwsh
+        run: python -B .github/windows_appcontainer_compat.py --work 'C:\RuleProxyAppContainerCompat'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-appcontainer-compat
+          path: |
+            C:\RuleProxyAppContainerCompat\compat-report.json
+            C:\RuleProxyAppContainerCompat\*.log
           if-no-files-found: warn
