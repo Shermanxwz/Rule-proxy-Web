@@ -249,14 +249,7 @@ class Runtime:
         return response["status"]
 
     def start(self, source, secret, mixed_port, controller_port, selected_node):
-        status = self.status()
-        if status["state"] not in {"idle", "setup_required"}:
-            _fail("already_active", "已有全局会话或阻断保护；请先点击停止。")
-        identity = _identity(os.getpid())
-        return self._launch({"operation": "start", "source": source, "secret": secret,
-                             "mixed_port": mixed_port, "controller_port": controller_port,
-                             "selected_node": selected_node, "owner_pid": os.getpid(),
-                             "owner_start": identity["start"] if identity else ""})
+        _fail("global_tun_removed", "全局 TUN 已移除；全局模式改用系统代理。")
 
     def stop(self):
         self._installation()
@@ -765,8 +758,9 @@ def helper_main():
         if not raw.endswith(b"\n"):
             _fail("invalid_request", "全局请求未完整传送。")
         payload = _json(raw)
-        if payload.get("operation") not in {"start", "recover-stop"}:
-            _fail("invalid_request", "全局操作无效。")
+        # The TUN start was removed; only recovery of older sessions remains.
+        if payload.get("operation") != "recover-stop":
+            _fail("global_tun_removed", "全局 TUN 已移除；全局模式改用系统代理。")
         lease = Lease(uid)
         if payload["operation"] == "recover-stop":
             if set(payload) != {"operation"}:

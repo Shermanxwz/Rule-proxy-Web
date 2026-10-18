@@ -326,13 +326,10 @@ def _compile_dns(warnings: list[str], *, capture_mode: str = "applications") -> 
     # Destination lookups go through an explicit DoH resolver over the
     # dedicated selector. Only proxy-server-name bootstrap uses system DNS.
     # This config is internal to Mihomo; it never changes OS adapter DNS.
-    if capture_mode == "global":
-        warnings.append("全局模式接管 DNS；目标解析经所选节点走 DoH。代理服务器域名的初始解析由核心直接使用固定 DoH，是承载连接所需的例外。")
-    else:
-        warnings.append(
-            "目标地址的 DNS 查询经所选节点走 DoH。若代理服务器是域名，只有解析该服务器地址时使用系统 DNS；"
-            "不会更改网卡 DNS。"
-        )
+    warnings.append(
+        "目标地址的 DNS 查询经所选节点走 DoH。若代理服务器是域名，只有解析该服务器地址时使用系统 DNS；"
+        "不会更改网卡 DNS。"
+    )
     return {
         "enable": True,
         "ipv6": True,
@@ -342,8 +339,7 @@ def _compile_dns(warnings: list[str], *, capture_mode: str = "applications") -> 
         "use-system-hosts": False,
         "default-nameserver": ["1.1.1.1"],
         "nameserver": [f"https://1.1.1.1/dns-query#{APP_GROUP}"],
-        "proxy-server-nameserver": (["https://1.1.1.1/dns-query#DIRECT"]
-                                    if capture_mode == "global" else ["system"]),
+        "proxy-server-nameserver": ["system"],
     }
 
 
@@ -573,20 +569,7 @@ def compile_config(
         "rules": list(rules),
     }
     if capture_mode == "global":
-        config["ipv6"] = True
-        config["tun"] = {
-            "enable": True,
-            "device": "RuleProxyTun",
-            "stack": "mips",
-            "auto-route": True,
-            "strict-route": True,
-            "auto-detect-interface": True,
-            "dns-hijack": ["any:53", "tcp://any:53"],
-            "inet4-address": ["198.18.0.1/30"],
-            "inet6-address": ["fdfe:dcba:8879::1/126"],
-            "mtu": 1500,
-        }
-        warnings.append("全局接管覆盖整台设备，由独立权限组件管理 TUN；停止后恢复本工具拥有的网络设置。")
+        warnings.append("全局模式把系统代理指向本机核心；不安装 TUN，不改防火墙和 DNS，停止或核心退出后恢复原系统代理。")
     text = yaml.safe_dump(config, allow_unicode=True, sort_keys=False, default_flow_style=False)
     return CompiledConfig(
         text=text,

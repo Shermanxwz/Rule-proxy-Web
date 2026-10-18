@@ -174,29 +174,6 @@ class LeaseTests(unittest.TestCase):
                       patch.object(runtime.subprocess,'Popen',return_value=self.process)]
         for item in self.patches:item.start();self.addCleanup(item.stop)
 
-    def test_start_guard_precedes_core_and_routes_and_stop_removes_only_owned(self):
-        state=self.lease.start(self.payload)
-        self.assertTrue(state['running']);self.assertTrue(state['strict_isolation'])
-        apply_index=next(i for i,(name,args,_) in enumerate(self.system.calls) if name=='nft' and args==['--file','-'])
-        route_index=next(i for i,(name,args,_) in enumerate(self.system.calls) if name=='ip' and 'add' in args)
-        self.assertLess(apply_index,route_index)
-        self.assertEqual(len(self.lease.applied),10)
-        state=self.lease.stop();self.assertFalse(state['protection_active'])
-        self.assertFalse(self.lease.journal.exists());self.assertFalse(self.lease.directory.exists())
-        mutations=[args for name,args,_ in self.system.calls if name=='ip' and 'del' in args]
-        self.assertEqual(len(mutations),10)
-        self.assertFalse(any('flush' in args for _,args,_ in self.system.calls))
-        self.assertFalse(any(args[:2]==['link','delete'] for _,args,_ in self.system.calls))
-
-    def test_failed_route_start_keeps_guard_and_recovery_journal(self):
-        self.system.fail_command=('ip',['-6','route','add','table',str(runtime.ROUTE_TABLE),'default','dev',runtime.DEVICE,'metric','8879','proto',str(runtime.ROUTING_PROTOCOL)])
-        with self.assertRaises(runtime.GlobalRuntimeError):self.lease.start(self.payload)
-        self.assertTrue(self.system.guard);self.assertTrue(self.lease.guard)
-        self.assertEqual(self.lease.state,'blocked');self.assertTrue(self.lease.journal.exists())
-        self.assertEqual(len(self.lease.applied),1,'a known failed route add must not become a cleanup target')
-        self.system.fail_command=None
-        self.lease.stop();self.assertFalse(self.system.guard)
-
     def test_uncertain_nft_commit_keeps_recovery_and_explicit_stop_handles_absence(self):
         self.system.fail_command=('nft',['--file','-'])
         with self.assertRaises(runtime.GlobalRuntimeError):self.lease.start(self.payload)
@@ -204,45 +181,6 @@ class LeaseTests(unittest.TestCase):
         self.assertEqual(self.lease.state,'blocked')
         self.system.fail_command=None
         self.assertEqual(self.lease.stop()['state'],'idle')
-
-    def test_crash_after_nft_commit_before_flag_write_is_recovered_by_lease_comment(self):
-        self.lease.start(self.payload)
-        record=json.loads(self.lease.journal.read_text())
-        record.update(guard=False,core_pid=None,core_identity=None,applied=[])
-        self.lease.journal.write_text(json.dumps(record))
-        recovered=runtime.Lease(1000,self.system)
-        recovered.journal=self.lease.journal;recovered.directory=self.lease.directory
-        with patch.object(runtime,'_trusted',return_value=True):
-            result=runtime._recover(recovered)
-        self.assertFalse(self.system.guard);self.assertEqual(result['state'],'idle')
-
-    def test_corrupt_recovery_never_runs_recorded_arbitrary_commands(self):
-        self.lease.start(self.payload)
-        record=json.loads(self.lease.journal.read_text());record['applied']=[['link','delete','eth0']]
-        self.lease.journal.write_text(json.dumps(record));self.system.calls.clear()
-        with patch.object(runtime,'_trusted',return_value=True),self.assertRaises(runtime.GlobalRuntimeError):
-            runtime._recover(self.lease)
-        self.assertFalse(self.system.calls)
-
-    def test_cleanup_failure_retains_firewall_and_journal(self):
-        self.lease.start(self.payload)
-        deletion=list(self.lease.applied[-1]);deletion[2]='del'
-        self.system.fail_command=('ip',deletion)
-        with self.assertRaises(runtime.GlobalRuntimeError):self.lease.stop()
-        self.assertTrue(self.system.guard);self.assertTrue(self.lease.journal.exists())
-
-    def test_fixed_core_has_parent_death_kill_signal(self):
-        self.lease.start(self.payload)
-        call=runtime.subprocess.Popen.call_args
-        self.assertTrue(call.kwargs['start_new_session'])
-        self.assertTrue(callable(call.kwargs['preexec_fn']))
-
-    def test_global_core_launch_uses_same_fixed_ipv6_environment_as_validation(self):
-        with patch.dict(runtime.os.environ, {"SKIP_SYSTEM_IPV6_CHECK": "false", "RULEPROXY_ENV_FIXTURE": "ignored"}):
-            self.lease.start(self.payload)
-            self.assertEqual(runtime.subprocess.Popen.call_args.kwargs['env'],
-                {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C", "SKIP_SYSTEM_IPV6_CHECK": "true"})
-            self.assertEqual(runtime.os.environ['SKIP_SYSTEM_IPV6_CHECK'], 'false')
 
     def test_bad_owner_rejected_before_firewall_or_core(self):
         self.payload['owner_start']='reused'
@@ -270,40 +208,5 @@ class LeaseTests(unittest.TestCase):
         self.assertEqual(config['external-controller'],'')
         self.assertEqual(config['external-controller-unix'],str(self.lease.directory/'controller.sock'))
         self.assertNotEqual(config['secret'],self.payload['secret'])
-
-    def test_node_selection_is_closed_and_whitelisted(self):
-        self.lease.start(self.payload)
-        with self.assertRaises(runtime.GlobalRuntimeError):self.lease.select_node('DIRECT')
-        with self.assertRaises(runtime.GlobalRuntimeError):self.lease.select_node('/configs')
-        self.lease.select_node('test')
-        self.lease._controller.assert_called_with('PUT','/proxies/RuleProxySelected',{'name':'test'})
-
-    def test_owner_exit_stops_core_and_retains_independent_guard(self):
-        self.lease.start(self.payload)
-        with patch.object(runtime,'_identity',return_value=None):self.lease.watch()
-        self.assertEqual(self.lease.state,'blocked');self.assertTrue(self.system.guard)
-        self.process.terminate.assert_called_once()
-
-    def test_external_guard_edit_is_detected_and_owned_table_can_be_removed(self):
-        self.lease.start(self.payload);self.system.guard_text=b'changed rules\n'
-        self.lease.watch()
-        self.assertEqual(self.lease.state,'failed');self.assertFalse(self.lease.snapshot()['strict_isolation'])
-        self.lease.stop();self.assertFalse(self.system.guard)
-
-    def test_guard_already_removed_does_not_delete_unrelated_tables(self):
-        self.lease.start(self.payload);self.system.guard=False
-        state=self.lease.stop()
-        self.assertEqual(state['state'],'idle')
-        self.assertFalse(any(name=='nft' and args[:2]==['delete','table'] for name,args,_ in self.system.calls))
-
-    def test_guard_identity_change_is_not_deleted(self):
-        self.lease.start(self.payload);self.system.comment='other tool'
-        with self.assertRaises(runtime.GlobalRuntimeError):self.lease.stop()
-        self.assertTrue(self.system.guard);self.assertTrue(self.lease.journal.exists())
-
-    def test_status_never_contains_config_secret_or_node_server(self):
-        state=self.lease.start(self.payload);text=json.dumps(state)
-        self.assertNotIn('test-only-not-output',text);self.assertNotIn('8.8.8.8',text)
-
 
 if __name__=='__main__':unittest.main()

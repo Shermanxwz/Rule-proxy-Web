@@ -90,7 +90,7 @@
         <label class="field-label" for="capture-mode">接管范围</label>
         <select id="capture-mode" class="text-input" aria-label="选择接管范围">
           <option value="applications">按应用接管</option>
-          <option value="global">全局接管整台设备</option>
+          <option value="global">全局（系统代理）</option>
         </select>
         <p id="capture-mode-detail" class="field-hint">切换范围前需关闭本工具启动的应用并停止核心；应用清单和节点选择会保留。</p>
         <div id="protection-card" class="protection-card" aria-live="polite">
@@ -118,7 +118,7 @@
           <button id="start-button" class="button button-start" type="button" disabled><span class="play-icon" aria-hidden="true">▶</span>启动核心</button>
           <button id="stop-button" class="button button-stop" type="button" disabled>关闭受保护应用并停止</button>
         </div>
-        <p class="field-hint">只启动本机 Mihomo，不会修改系统代理设置。停止时会关闭此工具启动的受保护应用实例。</p>
+        <p class="field-hint">按应用模式只启动本机 Mihomo，不修改系统代理；全局模式把系统代理指向本机核心，停止后恢复。停止时会关闭此工具启动的受保护应用实例。</p>
       </article>
     </section>
 

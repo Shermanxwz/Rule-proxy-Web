@@ -1,14 +1,12 @@
-"""Mode transitions and privileged-core ownership boundaries."""
+"""Global mode: the user's system proxy points at the local core; no TUN."""
 import json
-import sys
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
-from types import SimpleNamespace
 
+from ruleproxy import system_proxy
 from ruleproxy.config import compile_config
-from ruleproxy.global_runtime import ManagedGlobalCore
 from ruleproxy.manager import Manager
 
 SOURCE = '''proxies:
@@ -20,20 +18,35 @@ rules: ['MATCH,DIRECT']
 '''
 
 
+class FakeDesktop:
+    """In-memory system proxy settings standing in for WinINet/gsettings."""
+
+    def __init__(self):
+        self.values = {'mode': 'none'}
+        self.writes = []
+
+    def backend(self):
+        return ('fake', lambda: dict(self.values), self.write,
+                lambda port: {'mode': 'manual', 'port': port},
+                lambda port: self.values == {'mode': 'manual', 'port': port})
+
+    def write(self, values):
+        self.writes.append(dict(values))
+        self.values = dict(values)
+
+
 class GlobalCompilerTests(unittest.TestCase):
-    def test_global_enables_owned_dual_stack_tun_and_remote_dns_without_imported_controls(self):
-        source = SOURCE + 'tun: {enable: false, exclude-uid: [1000]}\nlisteners: [{type: tun, name: injected}]\n'
-        app = compile_config(source, secret='test', capture_mode='applications').config
-        full = compile_config(source, secret='test', capture_mode='global').config
-        self.assertEqual(app['tun'], {'enable': False})
-        self.assertTrue(full['tun']['enable'])
-        self.assertTrue(full['ipv6'])
-        self.assertTrue(full['tun']['strict-route'])
-        self.assertEqual(full['tun']['dns-hijack'], ['any:53', 'tcp://any:53'])
-        self.assertNotIn('exclude-uid', full['tun'])
-        self.assertEqual(full['dns']['proxy-server-nameserver'], ['https://1.1.1.1/dns-query#DIRECT'])
-        self.assertEqual(full['rules'], ['MATCH,RuleProxySelected'])
-        self.assertEqual(full['listeners'][0]['listen'], '127.0.0.1')
+    def test_global_never_enables_tun_or_imported_controls(self):
+        source = SOURCE + 'tun: {enable: true, exclude-uid: [1000]}\nlisteners: [{type: tun, name: injected}]\n'
+        for mode in ('applications', 'global'):
+            with self.subTest(mode=mode):
+                config = compile_config(source, secret='test', capture_mode=mode).config
+                self.assertEqual(config['tun'], {'enable': False})
+                self.assertEqual(config['dns']['proxy-server-nameserver'], ['system'])
+                self.assertEqual([item['type'] for item in config['listeners']], ['mixed'])
+                self.assertEqual(config['listeners'][0]['listen'], '127.0.0.1')
+        self.assertEqual(compile_config(source, secret='test', capture_mode='global').config['rules'],
+                         ['MATCH,RuleProxySelected'])
 
     def test_unknown_modes_are_not_silently_downgraded(self):
         for mode in (None, True, '', 'tun', 'GLOBAL', {}, []):
@@ -41,22 +54,72 @@ class GlobalCompilerTests(unittest.TestCase):
                 compile_config(SOURCE, secret='test', capture_mode=mode)
 
 
+class SystemProxyTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.directory = Path(self.temp.name)
+        self.desktop = FakeDesktop()
+        patcher = patch.object(system_proxy, '_backend', side_effect=self.desktop.backend)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_enable_saves_previous_settings_and_restore_puts_them_back(self):
+        system_proxy.enable(self.directory, 10809)
+        self.assertEqual(self.desktop.values, {'mode': 'manual', 'port': 10809})
+        self.assertTrue((self.directory / system_proxy.BACKUP).exists())
+        self.assertTrue(system_proxy.restore(self.directory))
+        self.assertEqual(self.desktop.values, {'mode': 'none'})
+        self.assertFalse((self.directory / system_proxy.BACKUP).exists())
+        self.assertFalse(system_proxy.restore(self.directory))
+
+    def test_second_enable_after_crash_keeps_the_original_backup(self):
+        system_proxy.enable(self.directory, 10809)
+        system_proxy.enable(self.directory, 10810)
+        system_proxy.restore(self.directory)
+        self.assertEqual(self.desktop.values, {'mode': 'none'})
+
+    def test_settings_changed_by_the_user_are_not_overwritten(self):
+        system_proxy.enable(self.directory, 10809)
+        self.desktop.values = {'mode': 'manual', 'port': 3128}
+        system_proxy.restore(self.directory)
+        self.assertEqual(self.desktop.values, {'mode': 'manual', 'port': 3128})
+        self.assertFalse((self.directory / system_proxy.BACKUP).exists())
+
+    def test_failed_write_restores_immediately(self):
+        original = self.desktop.write
+        def broken(values):
+            if values.get('mode') == 'manual':
+                self.desktop.values = {'mode': 'manual', 'port': 10809}
+                raise OSError('denied')
+            original(values)
+        self.desktop.write = broken
+        with self.assertRaises(OSError):
+            system_proxy.enable(self.directory, 10809)
+        self.assertEqual(self.desktop.values, {'mode': 'none'})
+        self.assertFalse((self.directory / system_proxy.BACKUP).exists())
+
+    def test_corrupt_backup_is_dropped_without_touching_settings(self):
+        (self.directory / system_proxy.BACKUP).write_text('{', encoding='utf-8')
+        self.assertTrue(system_proxy.restore(self.directory))
+        self.assertEqual(self.desktop.writes, [])
+
+
 class GlobalManagerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.manager = Manager(Path(self.temp.name), 18879)
         self.manager._probe_cache = {'supported': False}
-        self.backend = Mock()
-        self.backend.status.return_value = {'supported': True, 'running': False, 'state': 'idle'}
-        self.backend.start.return_value = {'supported': True, 'running': True, 'pid': 64213, 'state': 'running'}
-        self.backend.stop.return_value = {'running': False, 'state': 'idle'}
-        self.manager._global_backend = self.backend
+        self.legacy = Mock()
+        self.legacy.status.return_value = {'supported': False, 'running': False, 'state': 'setup_required'}
+        self.manager._global_backend = self.legacy
 
     def tearDown(self):
-        self.manager.close()
+        with patch.object(system_proxy, 'restore'):
+            self.manager.close()
         self.temp.cleanup()
 
-    def test_mode_and_node_survive_restore_and_do_not_launch_a_core(self):
+    def test_mode_and_node_survive_restore_and_compile_without_tun(self):
         self.manager.import_yaml(SOURCE)
         with patch('subprocess.Popen') as popen:
             self.manager.set_capture_mode('global')
@@ -64,9 +127,7 @@ class GlobalManagerTests(unittest.TestCase):
         saved = json.loads((Path(self.temp.name) / 'settings.json').read_text())
         self.assertEqual(saved['capture_mode'], 'global')
         self.assertEqual(saved['selected_node'], 'Node')
-        self.assertTrue(self.manager.compiled.config['tun']['enable'])
-        self.manager.set_capture_mode('applications')
-        self.assertFalse(self.manager.compiled.config['tun']['enable'])
+        self.assertEqual(self.manager.compiled.config['tun'], {'enable': False})
 
     def test_failed_mode_save_restores_old_compilation_and_mode(self):
         self.manager.import_yaml(SOURCE)
@@ -77,88 +138,64 @@ class GlobalManagerTests(unittest.TestCase):
         self.assertEqual(self.manager.capture_mode, 'applications')
         self.assertIs(self.manager.compiled, before)
 
-    def test_switch_is_blocked_while_apps_or_fault_guard_are_owned(self):
-        for attribute, value in (('active', {'a': (Mock(), None)}), ('_global_fault', True)):
-            with self.subTest(attribute=attribute):
-                previous = getattr(self.manager, attribute)
-                setattr(self.manager, attribute, value)
-                try:
-                    with self.assertRaises(ValueError):
-                        self.manager.set_capture_mode('global')
-                finally:
-                    setattr(self.manager, attribute, previous)
+    def test_switch_is_blocked_while_apps_are_owned(self):
+        self.manager.active = {'a': (Mock(), None)}
+        try:
+            with self.assertRaises(ValueError):
+                self.manager.set_capture_mode('global')
+        finally:
+            self.manager.active = {}
 
-    def test_global_start_delegates_to_helper_and_never_launches_a_privileged_user_command(self):
-        self.manager.import_yaml(SOURCE)
+    def test_protection_reports_the_system_proxy_backend(self):
         self.manager.set_capture_mode('global')
-        with patch('subprocess.Popen') as popen, patch.object(self.manager, 'core_path') as path:
-            self.manager.start()
-        popen.assert_not_called(); path.assert_not_called()
-        self.assertIsInstance(self.manager.core, ManagedGlobalCore)
-        self.assertEqual(self.manager.core.pid, 64213)
-        self.backend.start.assert_called_once_with(SOURCE, self.manager.secret, 10809, 19097, 'Node',
-                                                 **({'require_strict': False} if sys.platform == 'win32' else {}))
+        with patch.object(system_proxy, 'available', return_value=(True, 'ok')):
+            status = self.manager.protection()
+        self.assertEqual((status['supported'], status['backend']), (True, '系统代理'))
+        self.legacy.status.assert_not_called()
 
-    def test_start_failure_retains_guard_until_explicit_stop(self):
-        self.manager.import_yaml(SOURCE)
+    def test_stop_restores_system_proxy_and_releases_only_active_legacy_state(self):
         self.manager.set_capture_mode('global')
-        self.backend.start.side_effect = RuntimeError('core failed')
-        self.backend.status.side_effect = [
-            {'supported': True, 'running': False},
-            {'supported': True, 'running': False, 'state': 'blocked', 'protection_active': True}]
-        with self.assertRaises(RuntimeError):
-            self.manager.start()
-        self.backend.stop.assert_not_called()
-        self.assertTrue(self.manager._global_fault)
-        self.manager.stop()
-        self.backend.stop.assert_called_once()
-        self.assertFalse(self.manager._global_fault)
-
-    def test_global_node_changes_use_closed_helper_operation_not_root_controller(self):
-        self.manager.import_yaml(SOURCE)
-        self.manager.set_capture_mode('global')
-        self.manager.start()
-        with patch.object(self.manager, '_controller') as controller:
-            self.manager.select_node('Node')
-        controller.assert_not_called()
-        self.backend.select_node.assert_called_once_with('Node')
-
-    def test_unknown_guard_state_is_explicitly_recovered_instead_of_reporting_a_successful_stop(self):
-        self.manager.set_capture_mode('global')
-        self.backend.status.return_value = {'supported': True, 'running': False, 'state': 'unknown'}
-        self.backend.stop.side_effect = RuntimeError('recovery unavailable')
-        with self.assertRaisesRegex(RuntimeError, 'recovery unavailable'):
+        with patch.object(system_proxy, 'restore') as restore:
             self.manager.stop()
-        self.backend.stop.assert_called_once()
-        self.backend.stop.side_effect = None
+        restore.assert_called_once_with(self.manager.directory)
+        self.legacy.stop.assert_not_called()
+        self.legacy.status.return_value = {'supported': True, 'running': False, 'state': 'blocked',
+                                           'protection_active': True}
+        with patch.object(system_proxy, 'restore'):
+            self.manager.stop()
+        self.legacy.stop.assert_called_once()
 
-    def test_global_store_launch_refreshes_registered_entry_without_app_path_routing(self):
+    def test_legacy_cleanup_failure_still_restores_the_proxy_and_reports(self):
+        self.manager.set_capture_mode('global')
+        self.legacy.status.return_value = {'running': False, 'state': 'unknown'}
+        self.legacy.stop.side_effect = RuntimeError('service gone')
+        with patch.object(system_proxy, 'restore') as restore:
+            self.manager.stop()
+        restore.assert_called_once()
+        self.assertIn('service gone', self.manager.error)
+
+    def test_panel_start_recovers_a_crashed_session(self):
+        self.manager.set_capture_mode('global')
+        with patch.object(system_proxy, 'restore') as restore:
+            self.manager._recover_global()
+        restore.assert_called_once_with(self.manager.directory)
+
+    def test_global_launch_hands_the_proxy_to_apps(self):
         self.manager.import_yaml(SOURCE)
         self.manager.set_capture_mode('global')
-        self.manager.start()
-        binding = {'package_family_name': 'Vendor.App_publisher', 'application_id': 'Main', 'scope': 'package'}
-        app = {'id': 'app', 'label': 'Store application', 'path': r'C:\OldVersion\main.exe',
-               'adapter': 'chromium', 'args': [], 'enabled': True, 'store_binding': binding}
-        self.manager.settings['apps'] = [app]
-        current = r'C:\CurrentVersion\main.exe'
-        with patch('ruleproxy.manager.sys.platform', 'win32'), \
-                patch('ruleproxy.windows_app_family.resolve_store_family', return_value=SimpleNamespace(entry_path=current)), \
-                patch('ruleproxy.manager.prepare_app', return_value=([current], {}, '')) as prepare, \
-                patch('ruleproxy.windows_app_process.launch', return_value=Mock(pid=5234, poll=Mock(return_value=None))), \
-                patch.object(self.manager, 'windows_backend') as application_backend:
+        self.manager.core = Mock(pid=1, poll=Mock(return_value=None))
+        self.manager.settings['apps'] = [{'id': 'app', 'label': 'App', 'path': '/bin/true',
+                                          'adapter': 'firefox', 'args': [], 'enabled': True}]
+        with patch('ruleproxy.manager.prepare_app', return_value=(['/bin/true'], {}, '')) as prepare, \
+                patch.object(self.manager, 'protection', return_value={'supported': True}), \
+                patch('subprocess.Popen', return_value=Mock(pid=7, poll=Mock(return_value=None))), \
+                patch('ruleproxy.windows_app_process.launch', create=True,
+                      return_value=Mock(pid=7, poll=Mock(return_value=None))):
             self.manager.launch('app')
-        application_backend.assert_not_called()
-        self.assertEqual(app['path'], current)
-        self.assertFalse(prepare.call_args.kwargs['native_proxy'])
+        options = prepare.call_args.kwargs
+        self.assertEqual((options['native_proxy'], options['system_proxy']), (True, True))
         self.manager.active.clear()
-
-    def test_managed_process_does_not_implicitly_release_the_guard_on_loss(self):
-        core = ManagedGlobalCore(self.backend, self.backend.start.return_value)
-        self.backend.status.return_value = {'running': False, 'state': 'blocked'}
-        core._checked = 0
-        self.assertEqual(core.poll(), 1)
-        self.backend.stop.assert_not_called()
-        self.assertFalse(hasattr(core, 'terminate'))
+        self.manager.core = None
 
 
 if __name__ == '__main__':

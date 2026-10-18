@@ -1,6 +1,6 @@
 # RuleProxy Web
 
-本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 使用 ProxiFyre 按程序路径转发，Linux 使用网络命名空间隔离。只有明确选择全局模式才允许启用 TUN。
+本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 使用 ProxiFyre 按程序路径转发，Linux 使用网络命名空间隔离。全局模式使用系统代理，不使用 TUN。
 
 **版本 0.3.0。Windows 按应用模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
 
@@ -8,19 +8,11 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 ## 选择接管范围
 
-面板提供“按应用”和“全局”两种模式，默认按应用；停止核心和本工具启动的应用后才能切换。配置导入、节点选择和应用清单按原方式保留。全局模式接管没有加入清单的程序，应用开关只决定启动清单，不是全局模式的排除规则。
+面板提供“按应用”和“全局”两种模式，默认按应用；停止核心和本工具启动的应用后才能切换。配置导入、节点选择和应用清单按原方式保留。全局模式下遵循系统代理的程序都会经过规则，应用开关只决定启动清单。
 
-全局模式使用固定 Mihomo TUN 和独立权限组件。Windows 核心由已安装 SYSTEM 服务启动，面板不持有其控制器密钥；Linux 先运行 `sh setup-linux.sh --global` 安装 root 所有的固定 helper，再由桌面用户通过 polkit 启动。不要以 root 启动整个面板，也不要给用户可写的核心文件添加网络权限。
+全局模式只把当前用户的系统代理指向本机核心（Windows：WinINet 系统代理；Linux：GNOME 兼容桌面的 gsettings），不安装 TUN，不改防火墙、路由和 DNS，不需要额外权限组件。原系统代理设置在开启前保存，停止、核心退出或面板意外退出后下次打开面板时自动恢复；任何故障都不会让整机断网。不读取系统代理的程序会直连；需要强制只走代理的应用，请在按应用模式下使用 Windows 强隔离或 Linux 命名空间隔离。
 
-全局保护发生故障时保留自身阻断和 DNS 策略；点击“停止全局接管并恢复网络”才恢复普通网络。恢复只处理本工具记录的规则。已有入站连接的精确对端可能作为保活例外直连；这不保证新远程连接可建立。Linux 对同一保活对端地址的新出站连接当前会阻断，例外只放行既有连接回复。全局接管会改变整机网络，请在有本机恢复方式时启用。
-
-Windows 面板启动普通全局：同样安装独立守卫与 DNS 保护，回读确认后才报告运行，但尚未取得完整原生资格（认证），极端故障下不保证零泄漏；实验脚本的对象回读、局部内核对照或单次成功都不能替代完整资格。Linux 全局内核与实际核心验收是独立任务，不等于交互式 polkit 或真实互联网登录验收。
-
-Windows 资格入口只接受发布时审核并随安装清单校验的受保护记录，绑定实际代码、核心、Python、Windows 版本及完整原生场景；Web 和 YAML 不能提供或启用资格。当前不附有效记录。未来运行期资格也不包含登录前及系统早期启动的保护承诺。
-
-Windows 全局的[原生进度记录](verification/windows-global-2026-10-17/native-qualification.json)已记录实际 TUN 双栈 TCP/UDP 代理回显、接口身份和停止恢复通过；修复了 IPv4 承载网络下 Mihomo 自动清除 TUN IPv6 地址的问题。系统默认 DNS 与双栈 DNS peer 的 UDP/TCP 查询也已真实成功，并通过关闭代理中继后新查询失败、恢复后新查询成功的对照。结果来自一次性 Server 环境；Windows 11 产品入口与独立出口故障对照仍需分别验收，当前没有开放全局保护资格。
-
-Linux 全局的[受控原生验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/linux-global-2026-10-16/native-qualification.json)已通过双栈 TCP/UDP、DNS 拦截、故障阻断与恢复；未测试用户节点、实机授权对话框或账户登录。
+从 0.3.0-rc.14 及更早版本升级：旧版全局 TUN 若留下阻断规则或 DNS 策略，打开面板（全局模式）或点击停止时会自动清除；也可运行卸载脚本恢复。
 
 ## Windows 开始使用
 
@@ -43,7 +35,7 @@ Linux 全局的[受控原生验收记录](https://github.com/Shermanxwz/Rule-pro
 | 组件 | 职责与权限 |
 |---|---|
 | 当前账户面板与按应用 Mihomo | 读取用户 YAML、管理节点、启动用户应用；沿用当前账户的实际启动权限 |
-| 全局 Mihomo | 仅由固定权限组件启动；Windows 为 SYSTEM，Linux 为受保护 root helper；控制器密钥不交给桌面用户 |
+| 全局 Mihomo | 与按应用模式相同的本机用户核心，只监听 127.0.0.1；系统代理指向它，停止后恢复 |
 | `RuleProxyControl` | 固定入口的 SYSTEM 服务；验证安装身份、请求结构、路径和核心进程，再写入规则、控制官方引擎 |
 | `ProxiFyreService` | 官方 LocalSystem 服务，手动启动；把匹配应用的受支持流量交给本机 Mihomo SOCKS 入口 |
 | 用户状态 | `%LOCALAPPDATA%\RuleProxyWebSafe`：导入配置、设置、日志和浏览器私有配置 |

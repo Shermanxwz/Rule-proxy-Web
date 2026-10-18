@@ -976,26 +976,9 @@ class Broker:
             return result
         if operation == "global_select_node":
             return self._global().select_node(request["selected_node"])
-        policy.validate_global_request(request)
-        if self.control.status()["state"] == 4 and self.panel is None:
-            raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
-        owner = self.lease_factory(caller_pid, caller_sid)
-        try:
-            # An uncertified (non-strict) start installs the same persistent guard and DNS
-            # lease and reads both back before reporting running; certification only labels it.
-            self.control.verify(self.metadata)
-            if self.panel is not None:
-                self.stop()
-            # Caller identity and the held process handle are established before
-            # any privileged core/configuration/network operation.
-            result = self._global().start(request)
-            if self.global_panel:
-                self.global_panel.close()
-            self.global_panel, owner = owner, None
-            return result
-        finally:
-            if owner:
-                owner.close()
+        # Global mode is now the user's own system proxy. The TUN start was
+        # removed; this service only releases what older versions installed.
+        raise ProxyError("global_tun_removed", "全局 TUN 已移除，请更新面板；全局模式改用系统代理。")
 
     def handle(self, request, caller_pid, caller_sid):
         with self.lock:

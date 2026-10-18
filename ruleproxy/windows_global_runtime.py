@@ -10,7 +10,7 @@ from pathlib import Path
 import threading
 
 from .windows_proxy_client import Client, current_user_sid
-from .windows_proxy_policy import GLOBAL_LIMITATIONS, ProxyError, validate_global_request
+from .windows_proxy_policy import GLOBAL_LIMITATIONS, ProxyError
 from .windows_proxy_service import load_deployment
 
 
@@ -46,18 +46,7 @@ class Runtime:
 
     def start(self, source: str, secret: str, mixed_port: int, controller_port: int,
               selected_node: str | None = None, *, require_strict: bool = True) -> dict:
-        fields = dict(source=source, secret=secret, mixed_port=mixed_port,
-                      controller_port=controller_port, selected_node=selected_node,
-                      require_strict=require_strict)
-        validate_global_request(fields)
-        with self._lock:
-            try:
-                result = self._connect().request("global_start", **fields)
-            except ProxyError as exc:
-                if exc.code == "invalid_request":
-                    raise ProxyError("setup_required", "Windows 控制服务不支持全局协议，请修复安装。") from exc
-                raise
-            return self._checked_status(result)
+        raise ProxyError("global_tun_removed", "全局 TUN 已移除；全局模式改用系统代理。")
 
     def status(self) -> dict:
         with self._lock:

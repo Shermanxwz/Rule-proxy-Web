@@ -11,8 +11,8 @@ case "${1-}" in
     "") ;;
     --check) mode=check ;;
     --for-start) mode=start ;;
-    --global) mode=global ;;
-    *) echo "用法：sh setup-linux.sh [--check|--global]" >&2; exit 2 ;;
+    --global) echo "全局 TUN 已移除：全局模式改用桌面系统代理，无需安装额外组件。" >&2; exit 2 ;;
+    *) echo "用法：sh setup-linux.sh [--check]" >&2; exit 2 ;;
 esac
 
 say() { printf 'RuleProxy: %s\n' "$*"; }
@@ -25,9 +25,6 @@ have() { command -v "$1" >/dev/null 2>&1; }
 python_ok() { have python3 && python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; }
 # Importing ruleproxy first puts the project's vendor/ folder on the path, as the panel does.
 yaml_ok() { have python3 && python3 -c 'import ruleproxy, yaml' >/dev/null 2>&1; }
-# The protected helper deliberately uses the OS interpreter, even when the
-# desktop panel uses conda/pyenv. Its parser must be available independently.
-system_yaml_ok() { /usr/bin/python3 -I -c 'import yaml' >/dev/null 2>&1; }
 # Ubuntu 23.10 and later block user namespaces for programs without an AppArmor profile.
 apparmor_needed() { [ -r "$restriction" ] && [ "$(cat "$restriction")" = 1 ]; }
 apparmor_present() { [ -x "$dedicated/bwrap" ] && [ -x "$dedicated/bwrap-chromium" ]; }
@@ -59,15 +56,8 @@ have python3 || packages="python3"
 have bwrap || packages="$packages bubblewrap"
 have xdg-dbus-proxy || packages="$packages xdg-dbus-proxy"
 have dbus-send || packages="$packages dbus"
-if [ "$mode" = global ]; then
-    have nft || packages="$packages nftables"
-    have ip || packages="$packages iproute2"
-    have pkexec || packages="$packages pkexec"
-fi
 if have apt-get; then
-    if ! yaml_ok || { [ "$mode" = global ] && ! system_yaml_ok; }; then
-        packages="$packages python3-yaml"
-    fi
+    yaml_ok || packages="$packages python3-yaml"
     packages=${packages# }
     if [ -n "$packages" ]; then
         have sudo || fail "需要 sudo 来安装 $packages。请用管理员账户安装后重新运行。"
@@ -81,10 +71,6 @@ elif [ -n "${packages# }" ]; then
 fi
 
 python_ok || fail "需要 Python 3.10 或更高版本（Ubuntu 22.04 及以后自带）。当前：$(python3 --version 2>&1)"
-if [ "$mode" = global ]; then
-    /usr/bin/python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1 \
-        || fail "受保护的全局组件需要 /usr/bin/python3 为 3.10 或更高版本；普通面板仍使用当前 Python。"
-fi
 if ! yaml_ok; then
     # python3 is not the interpreter the system package serves (pyenv, conda…): install PyYAML into vendor/.
     if python3 -m pip --version >/dev/null 2>&1; then
@@ -94,43 +80,6 @@ if ! yaml_ok; then
     yaml_ok || fail "找不到 PyYAML。请为 $(command -v python3) 安装 PyYAML 后重新运行。"
 fi
 
-if [ "$mode" = global ] && ! system_yaml_ok; then
-    # Non-apt/venv setup: copy only pure parser source as the desktop user;
-    # the privileged installer subsequently copies it into its protected tree.
-    python3 - <<'GLOBAL_VENDOR_YAML'
-from pathlib import Path
-import shutil
-import tempfile
-import ruleproxy
-import yaml
-
-source = Path(yaml.__file__).resolve().parent
-vendor = Path.cwd() / 'vendor'
-target = vendor / 'yaml'
-if vendor.is_symlink() or target.is_symlink():
-    raise SystemExit('RuleProxy: vendor/yaml 不能是符号链接。')
-if source != target.resolve():
-    if target.exists():
-        raise SystemExit('RuleProxy: vendor/yaml 不完整，请先检查该项目依赖目录后重试。')
-    vendor.mkdir(parents=True, exist_ok=True, mode=0o755)
-    staged = Path(tempfile.mkdtemp(prefix='.yaml-global-', dir=vendor))
-    try:
-        for item in source.iterdir():
-            if item.suffix == '.py':
-                if item.is_symlink() or not item.is_file():
-                    raise SystemExit('RuleProxy: 当前 PyYAML 源文件无效。')
-                shutil.copyfile(item, staged / item.name)
-        if not (staged / '__init__.py').is_file():
-            raise SystemExit('RuleProxy: 当前 PyYAML 源文件不完整。')
-        staged.chmod(0o755)
-        staged.rename(target)
-    finally:
-        if staged.exists():
-            shutil.rmtree(staged)
-print('RuleProxy: 已为受保护的全局组件准备纯 Python PyYAML。')
-GLOBAL_VENDOR_YAML
-fi
-
 if apparmor_needed && ! apparmor_current; then
     have sudo || fail "需要 sudo 来加载 AppArmor 策略。请用管理员账户运行：sudo sh scripts/setup-linux-apparmor.sh"
     say "加载 RuleProxy 专用的 AppArmor 策略（需要 sudo 密码）…"
@@ -138,14 +87,6 @@ if apparmor_needed && ! apparmor_current; then
 fi
 
 python3 install_runtime.py --if-needed
-
-if [ "$mode" = global ]; then
-    have sudo || fail "安装受保护的全局组件需要 sudo；面板仍以普通用户运行。"
-    say "安装固定的 Linux 全局组件（需要 sudo 密码；不会启动接管）…"
-    sudo /usr/bin/python3 -I "$PWD/scripts/install-linux-global.py" --source "$PWD" --owner "$(id -u)"
-    say "全局组件已安装；在网页中选择全局模式后手动启动。"
-    exit 0
-fi
 
 python3 - <<'EOF'
 import sys
