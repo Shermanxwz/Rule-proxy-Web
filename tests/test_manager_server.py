@@ -155,6 +155,7 @@ class ManagerTests(unittest.TestCase):
                 # Windows owns the application's Job through its process
                 # object; Linux uses its sandbox runtime. Core stop is shared.
                 with patch("ruleproxy.manager.sys.platform", platform), \
+                        patch.object(self.manager, '_legacy_artifacts_present', return_value=False), \
                         patch("ruleproxy.manager.stop_process", side_effect=events.append), \
                         patch("ruleproxy.linux_runtime.stop", side_effect=events.append):
                     self.manager.stop()

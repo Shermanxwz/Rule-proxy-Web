@@ -701,19 +701,34 @@ class GlobalCore:
         return result
 
     def stop(self, *, normal=True):
-        # Do not withdraw a guard after an unconfirmed process cleanup.
+        # Confirm process cleanup before touching either retired protection.
         self._halt()
-        if normal:
-            dns = self.dns.normal_stop()
-            if dns.get("supported") is not True or dns.get("active") is not False:
-                raise ProxyError("global_dns_restore_incomplete", "无法确认全局 DNS 已恢复，独立保护保持生效。")
-            result = self.guard.normal_stop()
-        else:
-            dns = self.dns.crash_keep()
-            result = self.guard.crash_keep()
         self.fingerprint = None
         self._controller_port, self._primary_group = None, None
         self._allowed_nodes = set()
+        if normal:
+            # TUN is retired. A broken/slow NRPT service must not leave our
+            # independent whole-machine block in place indefinitely. Each
+            # component still enforces its exact owned-resource checks.
+            errors = []
+            try:
+                result = self.guard.normal_stop()
+                if result.get("supported") is not True or result.get("active") is not False:
+                    raise ValueError("自有 WFP 规则撤销未能确认。")
+            except Exception as exc:
+                errors.append("WFP: " + str(exc))
+            try:
+                dns = self.dns.normal_stop()
+                if dns.get("supported") is not True or dns.get("active") is not False:
+                    raise ValueError("自有 DNS 规则撤销未能确认。")
+            except Exception as exc:
+                errors.append("DNS: " + str(exc))
+            if errors:
+                self.error = {"code": "global_restore_incomplete", "message": "；".join(errors)}
+                raise ProxyError("global_restore_incomplete", "旧版网络规则恢复尚未完成，请重试：" + self.error["message"])
+        else:
+            dns = self.dns.crash_keep()
+            result = self.guard.crash_keep()
         if normal:
             self.error = None
         return {**self.status(dns_state=dns), "stopped": True, "guard": result, "dns": dns}

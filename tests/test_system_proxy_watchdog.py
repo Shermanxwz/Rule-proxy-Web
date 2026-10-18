@@ -34,6 +34,21 @@ def child():
 
 
 class WatchdogTests(unittest.TestCase):
+    def test_binary_protocol_accepts_only_exact_lf_or_windows_crlf_with_matching_nonce(self):
+        for prefix in (b'READY ', b'ARMED '):
+            expected = prefix + b'a' * 32 + b'\n'
+            for ending in (b'\n', b'\r\n'):
+                with self.subTest(prefix=prefix, ending=ending):
+                    process = mock.Mock()
+                    process.stdout.readline.return_value = prefix + b'a' * 32 + ending
+                    watchdog._line(process, expected)
+            for invalid in (prefix + b'b' * 32 + b'\r\n', prefix + b'a' * 32 + b' \r\n',
+                            prefix + b'a' * 32 + b'\r\r\n', b' ' + expected, expected + b'extra', b''):
+                with self.subTest(prefix=prefix, invalid=invalid), self.assertRaises(OSError):
+                    process = mock.Mock()
+                    process.stdout.readline.return_value = invalid
+                    watchdog._line(process, expected)
+
     def core(self):
         process = child()
         def cleanup():

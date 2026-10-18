@@ -136,6 +136,55 @@ class GlobalCoreTests(unittest.TestCase):
         self.protection.start()
         self.addCleanup(self.protection.stop)
 
+    def prepare_retired_session(self):
+        self.core.process = self.process
+        self.guard.active = self.dns.active = True
+
+    def test_retired_normal_stop_confirms_core_exit_then_releases_guard_before_dns(self):
+        self.prepare_retired_session()
+        result = self.core.stop()
+        self.assertEqual(self.events, [('terminate',), ('wait', 5), ('normal_stop',), ('dns_stop',)])
+        self.assertFalse(result['running'])
+        self.assertTrue(result['stopped'])
+        self.assertFalse(self.guard.active)
+        self.assertFalse(self.dns.active)
+
+    def test_dns_failure_does_not_leave_the_retired_guard_in_place_and_retry_is_possible(self):
+        self.prepare_retired_session()
+        with mock.patch.object(self.dns, 'normal_stop', side_effect=OSError('NRPT timed out')), \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.stop()
+        self.assertEqual(caught.exception.code, 'global_restore_incomplete')
+        self.assertIn('NRPT timed out', str(caught.exception))
+        self.assertFalse(self.guard.active)
+        self.assertTrue(self.dns.active)
+        self.assertIsNone(self.core.process)
+        result = self.core.stop()
+        self.assertTrue(result['stopped'])
+        self.assertFalse(self.dns.active)
+
+    def test_guard_failure_does_not_skip_dns_and_both_errors_are_reported(self):
+        self.prepare_retired_session()
+        with mock.patch.object(self.guard, 'normal_stop', side_effect=OSError('WFP unavailable')) as guard, \
+                mock.patch.object(self.dns, 'normal_stop', side_effect=OSError('DNS unavailable')) as dns, \
+                self.assertRaises(policy.ProxyError) as caught:
+            self.core.stop()
+        guard.assert_called_once()
+        dns.assert_called_once()
+        self.assertIn('WFP unavailable', str(caught.exception))
+        self.assertIn('DNS unavailable', str(caught.exception))
+
+    def test_unconfirmed_process_exit_never_releases_either_retired_component(self):
+        self.prepare_retired_session()
+        with mock.patch.object(self.process, 'wait', side_effect=OSError('exit not confirmed')), \
+                mock.patch.object(self.guard, 'normal_stop') as guard, \
+                mock.patch.object(self.dns, 'normal_stop') as dns, \
+                self.assertRaisesRegex(OSError, 'exit not confirmed'):
+            self.core.stop()
+        guard.assert_not_called()
+        dns.assert_not_called()
+        self.assertIs(self.core.process, self.process)
+
     def test_config_validation_failure_has_no_launch_or_guard_effect(self):
         self.validator.side_effect = None
         self.validator.return_value = SimpleNamespace(returncode=1)

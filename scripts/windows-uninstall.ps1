@@ -75,19 +75,31 @@ except OSError as error:
 else:
     if service['state']!=1:
         raise RuntimeError('Stop the fixed control service before restoring global networking')
+errors=[]
 if metadata.get('global_backend_version')==1:
-    from ruleproxy.windows_global_dns import DnsLease
-    from ruleproxy.windows_global_guard import Guard
-    dns=DnsLease(metadata).normal_stop()
-    if dns.get('supported') is not True or dns.get('active') is not False:
-        raise RuntimeError('Owned DNS restoration could not be confirmed; guard retained')
-    guard=Guard(metadata).normal_stop()
-    if guard.get('supported') is not True or guard.get('active') is not False:
-        raise RuntimeError('Owned guard restoration could not be confirmed')
-from ruleproxy.windows_appcontainer import ContainerGate
-containers=ContainerGate(metadata).purge()
-if containers.get('active') is not False:
-    raise RuntimeError('Owned application container protection cleanup was not confirmed')
+    try:
+        from ruleproxy.windows_global_guard import Guard
+        guard=Guard(metadata).normal_stop()
+        if guard.get('supported') is not True or guard.get('active') is not False:
+            raise RuntimeError('Owned guard restoration could not be confirmed')
+    except Exception as error:
+        errors.append('WFP: '+str(error))
+    try:
+        from ruleproxy.windows_global_dns import DnsLease
+        dns=DnsLease(metadata).normal_stop()
+        if dns.get('supported') is not True or dns.get('active') is not False:
+            raise RuntimeError('Owned DNS restoration could not be confirmed')
+    except Exception as error:
+        errors.append('DNS: '+str(error))
+try:
+    from ruleproxy.windows_appcontainer import ContainerGate
+    containers=ContainerGate(metadata).purge()
+    if containers.get('active') is not False:
+        raise RuntimeError('Owned application container protection cleanup was not confirmed')
+except Exception as error:
+    errors.append('AppContainer: '+str(error))
+if errors:
+    raise RuntimeError('Owned network restoration incomplete; retry with recovery tools retained: '+'; '.join(errors))
 print(json.dumps({'restored':True}))
 '@
     $global:LASTEXITCODE = $null

@@ -1,7 +1,9 @@
 from contextlib import contextmanager
 import ctypes
 import json
+import os
 from pathlib import Path
+import secrets
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -20,6 +22,55 @@ OWNER = "S-1-5-21-1-2-3-1001"
 PACKAGE = "S-1-15-2-1-2-3-4-5-6-7"
 OTHER = "S-1-15-2-9-9-9-9-9-9-9"
 NAME = container.container_name("app-1")
+
+
+def owner_profile_diagnostics(api, name, expected_sid, owner_sid):
+    """Only target-SID facts; these observations never grant admission."""
+    rows = [(profile_name, owner) for profile_name, sid, owner in api.profiles() if sid == expected_sid]
+    owned = [profile_name for profile_name, owner in rows if owner == owner_sid]
+    return {'sid_seen': bool(rows), 'owner_matches': bool(owned),
+            'name_exact': any(profile_name == name for profile_name in owned),
+            'name_casefold': any(isinstance(profile_name, str) and profile_name.casefold() == name.casefold()
+                                 for profile_name in owned),
+            'derive_matches': any(isinstance(profile_name, str) and api.derive(profile_name) == expected_sid
+                                  for profile_name in owned)}
+
+
+class OwnerDiagnosticTests(unittest.TestCase):
+    def test_case_only_observation_does_not_become_owner_qualification(self):
+        api = mock.Mock()
+        api.profiles.return_value = [(NAME.lower(), PACKAGE, OWNER), ('unrelated', OTHER, OWNER)]
+        api.derive.return_value = PACKAGE
+        facts = owner_profile_diagnostics(api, NAME, PACKAGE, OWNER)
+        self.assertEqual(facts, {'sid_seen': True, 'owner_matches': True, 'name_exact': False,
+                                 'name_casefold': True, 'derive_matches': True})
+        self.assertTrue(all(type(value) is bool for value in facts.values()))
+        api.profiles.return_value = [(NAME, PACKAGE, OWNER + '1')]
+        self.assertEqual(owner_profile_diagnostics(api, NAME, PACKAGE, OWNER), {
+            'sid_seen': True, 'owner_matches': False, 'name_exact': False, 'name_casefold': False, 'derive_matches': False})
+
+    @unittest.skipUnless(os.name == 'nt' and os.environ.get('GITHUB_ACTIONS') == 'true',
+                         'native profile diagnostic only on disposable Windows Actions')
+    def test_native_own_profile_enumeration_diagnostic_without_network_changes(self):
+        from ruleproxy.windows_proxy_client import current_user_sid
+        api = container._get_api()
+        name = 'RuleProxy.' + secrets.token_hex(10)
+        created = False
+        try:
+            code, sid = api._owned_sid(api.userenv.CreateAppContainerProfile, name, name,
+                                       'RuleProxy CI owner diagnostic', None, 0)
+            self.assertEqual(code, 0, 'Only a newly created profile may be deleted by this diagnostic')
+            created = True
+            self.assertRegex(sid, container.PACKAGE_SID_RE)
+            self.assertEqual(api.derive(name), sid)
+            facts = owner_profile_diagnostics(api, name, sid, current_user_sid())
+            self.assertEqual(set(facts), {'sid_seen', 'owner_matches', 'name_exact', 'name_casefold', 'derive_matches'})
+            self.assertTrue(all(type(value) is bool for value in facts.values()))
+            print('::notice title=AppContainer owner diagnostic::' + json.dumps(facts, ensure_ascii=True, sort_keys=True),
+                  flush=True)
+        finally:
+            if created:
+                self.assertIsNone(api.delete(name))
 
 
 class FakeEngine:

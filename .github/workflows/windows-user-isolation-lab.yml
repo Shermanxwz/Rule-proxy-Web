@@ -2,12 +2,6 @@ name: Windows dedicated-user isolation falsification lab
 
 on:
   workflow_dispatch:
-  push:
-    branches: ['codex/windows-finish-*']
-    paths:
-      - '.github/windows_user_isolation_lab.py'
-      - '.github/workflows/windows-user-isolation-lab.yml'
-      - 'tests/test_windows_user_isolation_lab.py'
 
 permissions:
   contents: read

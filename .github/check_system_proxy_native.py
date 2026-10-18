@@ -35,7 +35,9 @@ directory,port,core=Path(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4])
 watch=start(directory,core)
 system_proxy.enable(directory,port,watchdog_session=watch.nonce)
 watch.arm()
-(directory/'panel-ready.json').write_text(json.dumps({'session':watch.nonce}),encoding='ascii')
+ready=directory/'panel-ready.tmp'
+ready.write_text(json.dumps({'session':watch.nonce}),encoding='ascii')
+ready.replace(directory/'panel-ready.json')
 time.sleep(90)
 '''
     core = subprocess.Popen([sys.executable, '-I', '-S', '-c', 'import time; time.sleep(90)'],

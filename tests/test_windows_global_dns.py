@@ -258,7 +258,7 @@ class UninstallRecoveryCodeTests(unittest.TestCase):
         self.code = re.search(r"\$code = @'\n(.*?)\n'@", source, re.S).group(1)
 
     def run_recovery(self, *, running=False, dns_result=None, dns_error=None, metadata=None):
-        events = []
+        events = self.events = []
         control = mock.Mock()
         control.status.return_value = {"state": 4 if running else 1}
         lease = mock.Mock()
@@ -285,19 +285,22 @@ class UninstallRecoveryCodeTests(unittest.TestCase):
             exec(compile(self.code, "<fixed-uninstall-global-restore>", "exec"), {})
         return events
 
-    def test_actual_admin_restore_code_restores_dns_before_releasing_guard(self):
-        self.assertEqual(self.run_recovery(), ["dns", "guard", "containers"])
+    def test_actual_admin_restore_code_releases_retired_guard_before_restoring_dns(self):
+        self.assertEqual(self.run_recovery(), ["guard", "dns", "containers"])
 
     def test_running_service_is_rejected_before_any_restore(self):
         with self.assertRaises(RuntimeError):
             self.run_recovery(running=True)
+        self.assertEqual(self.events, [])
 
-    def test_dns_failure_or_unconfirmed_restore_never_withdraws_guard(self):
+    def test_dns_failure_or_unconfirmed_restore_does_not_skip_guard_and_container_cleanup(self):
         for result, error in (({"supported": True, "active": True}, None),
                               ({"supported": False, "active": False}, None),
                               (None, ProxyError("global_dns_unavailable", "unavailable"))):
-            with self.subTest(result=result), self.assertRaises((RuntimeError, ProxyError)):
-                self.run_recovery(dns_result=result, dns_error=error)
+            with self.subTest(result=result):
+                with self.assertRaises(RuntimeError):
+                    self.run_recovery(dns_result=result, dns_error=error)
+                self.assertEqual(self.events, ["guard", "dns", "containers"])
 
     def test_legacy_non_global_install_does_not_invent_a_dns_lease(self):
         self.assertEqual(self.run_recovery(metadata={**METADATA, "global_backend_version": None}), ["containers"])

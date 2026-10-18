@@ -48,7 +48,12 @@ class UninstallRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(OSError, 'retry required'):
             self.run_code('Restore-OwnerSystemProxy', modules)
 
-    def network_modules(self, events, *, dns_active=False, container_active=False):
+    def network_modules(self, events, *, dns_active=False, container_active=False, guard_error=None):
+        def remove_guard():
+            events.append('guard')
+            if guard_error:
+                raise guard_error
+            return {'supported': True, 'active': False}
         return {
             'ruleproxy.windows_proxy_service': SimpleNamespace(
                 load_deployment=lambda root: {'owner_sid': SID, 'global_backend_version': 1},
@@ -56,7 +61,7 @@ class UninstallRecoveryTests(unittest.TestCase):
             'ruleproxy.windows_global_dns': SimpleNamespace(DnsLease=lambda metadata: SimpleNamespace(
                 normal_stop=lambda: events.append('dns') or {'supported': True, 'active': dns_active})),
             'ruleproxy.windows_global_guard': SimpleNamespace(Guard=lambda metadata: SimpleNamespace(
-                normal_stop=lambda: events.append('guard') or {'supported': True, 'active': False})),
+                normal_stop=remove_guard)),
             'ruleproxy.windows_appcontainer': SimpleNamespace(ContainerGate=lambda metadata: SimpleNamespace(
                 purge=lambda: events.append('containers') or {'active': container_active, 'purged_sids': []})),
         }
@@ -64,15 +69,24 @@ class UninstallRecoveryTests(unittest.TestCase):
     def test_owned_dns_guard_and_container_purge_must_all_confirm_cleanup(self):
         events = []
         receipt = self.run_code('Restore-OwnedGlobalNetwork', self.network_modules(events))
-        self.assertEqual(events, ['dns', 'guard', 'containers'])
+        self.assertEqual(events, ['guard', 'dns', 'containers'])
         self.assertEqual(receipt, {'restored': True})
         events.clear()
         with self.assertRaisesRegex(RuntimeError, 'DNS restoration'):
             self.run_code('Restore-OwnedGlobalNetwork', self.network_modules(events, dns_active=True))
-        self.assertEqual(events, ['dns'])
+        self.assertEqual(events, ['guard', 'dns', 'containers'])
         events.clear()
         with self.assertRaisesRegex(RuntimeError, 'container protection cleanup'):
             self.run_code('Restore-OwnedGlobalNetwork', self.network_modules(events, container_active=True))
+
+    def test_guard_failure_does_not_skip_dns_or_containers_and_aggregates_errors(self):
+        events = []
+        with self.assertRaises(RuntimeError) as caught:
+            self.run_code('Restore-OwnedGlobalNetwork', self.network_modules(
+                events, guard_error=OSError('owned WFP unavailable'), container_active=True))
+        self.assertEqual(events, ['guard', 'dns', 'containers'])
+        self.assertIn('owned WFP unavailable', str(caught.exception))
+        self.assertIn('container protection cleanup', str(caught.exception))
 
     def test_owner_proxy_recovery_precedes_service_stop_and_forced_panel_termination(self):
         source = SCRIPT.read_text(encoding='utf-8')

@@ -41,9 +41,11 @@ class ReceiptTests(unittest.TestCase):
         with mock.patch.dict(os.environ, original, clear=True):
             with self.assertRaises(RuntimeError):
                 with lab.clean_actor_environment():
-                    self.assertEqual(dict(os.environ), {key: original[key] for key in ('SystemRoot', 'TEMP', 'PATH')})
+                    self.assertEqual({key.upper(): value for key, value in os.environ.items()},
+                                     {key.upper(): original[key] for key in ('SystemRoot', 'TEMP', 'PATH')})
                     raise RuntimeError('injected process creation failure')
-            self.assertEqual(dict(os.environ), original)
+            self.assertEqual({key.upper(): value for key, value in os.environ.items()},
+                             {key.upper(): value for key, value in original.items()})
 
     def test_system_account_or_unbounded_filter_identity_is_rejected_before_native_access(self):
         for sid, port, marker in (('S-1-5-18', 20809, 'RuleProxyUserLab:' + 'a' * 32),

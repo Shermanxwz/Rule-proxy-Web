@@ -23,6 +23,12 @@ on:
       - 'ruleproxy/windows_app_process.py'
       - 'ruleproxy/windows_global_guard.py'
   workflow_dispatch:
+    inputs:
+      browser_compat:
+        description: 'Repeat the completed browser compatibility experiment'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -63,6 +69,7 @@ jobs:
           if-no-files-found: warn
 
   compat:
+    if: github.event_name == 'workflow_dispatch' && inputs.browser_compat
     name: AppContainer app compatibility · disposable Server 2025
     runs-on: windows-2025
     timeout-minutes: 40

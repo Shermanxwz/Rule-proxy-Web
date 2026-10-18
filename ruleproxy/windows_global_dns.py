@@ -412,7 +412,7 @@ class DnsLease:
                 try:
                     result = self._snapshot(self._runner("remove"))
                     if result["active"] or result["virtual_dns_in_effective"]:
-                        raise ProxyError("global_dns_restore_incomplete", "本工具 DNS 规则仍在，未撤销独立保护。")
+                        raise ProxyError("global_dns_restore_incomplete", "本工具 DNS 规则仍在，DNS 恢复尚未完成。")
                     return {**self._store(result), "stopped": True}
                 except ProxyError as exc:
                     if exc.code not in _RESTORE_RETRY_CODES or attempt == _RESTORE_ATTEMPTS:

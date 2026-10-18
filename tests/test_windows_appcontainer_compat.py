@@ -81,8 +81,13 @@ class BrowserEvidenceTests(unittest.TestCase):
     def test_browser_and_debugger_environments_exclude_ci_credentials(self):
         with mock.patch.dict(os.environ, {'GITHUB_TOKEN': 'secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN': 'secret',
                                          'HTTPS_PROXY': 'secret', 'CUSTOM_SECRET': 'secret', 'SystemRoot': 'C:\\Windows'}, clear=True):
+            before = {key.upper(): value for key, value in os.environ.items()}
             env = compat.safe_environment(Path('owned'))
-        self.assertEqual(env['SystemRoot'], 'C:\\Windows')
+            self.assertEqual({key.upper(): value for key, value in os.environ.items()}, before)
+        expected = {'SYSTEMROOT': 'C:\\Windows', **{key: str(Path('owned') / child) for key, child in (
+            ('TEMP', 'tmp'), ('TMP', 'tmp'), ('HOME', 'home'), ('USERPROFILE', 'home'),
+            ('LOCALAPPDATA', 'local'), ('APPDATA', 'roaming'))}}
+        self.assertEqual({key.upper(): value for key, value in env.items()}, expected)
         self.assertFalse(any('secret' in value for value in env.values()))
         self.assertEqual(env['USERPROFILE'], str(Path('owned/home')))
 

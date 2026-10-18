@@ -156,7 +156,11 @@ def _line(process, expected):
         line = result.get(timeout=5)
     except queue.Empty as error:
         raise OSError('Independent proxy recovery handshake timed out') from error
-    if line != expected:
+    # print() uses CRLF in a Windows text stream, while the control pipes are
+    # deliberately binary. Accept only the two transport line endings; never
+    # strip whitespace from the nonce or accept additional protocol content.
+    crlf = expected[:-1] + b'\r\n' if expected.endswith(b'\n') else expected
+    if line not in (expected, crlf):
         raise OSError('Independent proxy recovery did not confirm readiness')
 
 

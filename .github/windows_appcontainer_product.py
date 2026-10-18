@@ -8,10 +8,12 @@ and ``windows_app_process.launch(container_sid=...)``. Only for CI.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import shutil
 import sys
 import time
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +52,9 @@ class DirectBackend:
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8', errors='backslashreplace')
     parser = argparse.ArgumentParser()
     parser.add_argument('--work', type=Path, required=True)
     work = parser.parse_args().work.resolve()
@@ -64,7 +69,7 @@ def main() -> int:
     udp, proxy = lab._udp_echo(), lab.ConnectProxy()
     gate = product.ContainerGate({'owner_sid': current_user_sid(), 'root': str(work)})
     backend = DirectBackend(gate)
-    ident = 'product-check'
+    ident = 'product-check-' + uuid.uuid4().hex
     name = product.container_name(ident)
     profile = work / 'profile'
     profile.mkdir()
@@ -91,8 +96,28 @@ def main() -> int:
         return [sys.executable, '-I', str(probe), json.dumps({**config, 'out': str(profile / f'{phase}.json')})]
 
     lease = None
+    created = False
     firewall_changed = False
+    cleanup_errors = []
     try:
+        # Reuse the exact diagnostic logic exercised by Check. This source-only
+        # helper is never installed or used as an admission decision.
+        helper_spec = importlib.util.spec_from_file_location('appcontainer_owner_diagnostic',
+                                                            ROOT / 'tests/test_windows_appcontainer.py')
+        helper = importlib.util.module_from_spec(helper_spec)
+        helper_spec.loader.exec_module(helper)
+        api = product._get_api()
+        code, sid = api._owned_sid(api.userenv.CreateAppContainerProfile, name, name,
+                                   'RuleProxy disposable product fixture', None, 0)
+        if code != 0:
+            raise RuntimeError(f'Fresh product profile creation failed (0x{code:08x}); existing profiles retained')
+        created = True
+        report['package_sid'] = sid
+        if not product.PACKAGE_SID_RE.fullmatch(sid) or api.derive(name) != sid:
+            raise RuntimeError('Fresh product profile identity did not match its derived SID')
+        report['owner_diagnostics'] = helper.owner_profile_diagnostics(gate.api, name, sid, current_user_sid())
+        print('::notice title=AppContainer direct owner diagnostic::' + json.dumps(
+            report['owner_diagnostics'], ensure_ascii=True, sort_keys=True), flush=True)
         process, lease = product.start_contained(backend, ident, command('product_confined'), environment,
                                                  profile=profile, proxy_port=proxy.port, launch=launch)
         report['package_sid'] = sid = product.ensure_profile(name)
@@ -117,17 +142,25 @@ def main() -> int:
         print(f"::error title=AppContainer product error::{report['error']}", flush=True)
     finally:
         if firewall_changed:
-            report['firewall_restored'] = lab.firewall(True)
+            try:
+                report['firewall_restored'] = lab.firewall(True)
+            except Exception as exc:
+                cleanup_errors.append('firewall: ' + type(exc).__name__)
         if lease is not None:
             try:
                 lease.close()
             except Exception as exc:
                 report['notes'].append(f'revoke: {exc}')
-        try:
-            product.delete_profile(name)
-            report['profile_deleted'] = True
-        except Exception as exc:
-            report['notes'].append(f'delete profile: {exc}')
+                cleanup_errors.append('revoke: ' + type(exc).__name__)
+        report['profile_created'] = created
+        if created:
+            try:
+                product.delete_profile(name)
+                report['profile_deleted'] = True
+            except Exception as exc:
+                report['notes'].append(f'delete profile: {exc}')
+                cleanup_errors.append('profile: ' + type(exc).__name__)
+        report['cleanup_errors'] = cleanup_errors
         report['seconds'] = round(time.monotonic() - started, 1)
     failures = []
     for phase, expected in GATES.items():
@@ -140,7 +173,7 @@ def main() -> int:
         failures.append(f"revoke left rules={report.get('rules_after_revoke')} "
                         f"exempt={report.get('exempt_after_revoke')}")
     report['gate_failures'] = failures
-    report['passed'] = not failures and 'error' not in report
+    report['passed'] = not failures and 'error' not in report and not cleanup_errors
     (work / 'product-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     print(f"::notice title=AppContainer product verdict::passed={report['passed']} failures={len(failures)} "
           f"seconds={report['seconds']}", flush=True)
