@@ -1,0 +1,39 @@
+name: Windows AppContainer isolation lab
+
+on:
+  push:
+    branches:
+      - 'claude/windows-appcontainer-*'
+    paths:
+      - '.github/windows_appcontainer_lab.py'
+      - '.github/workflows/windows-appcontainer-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lab:
+    name: AppContainer confinement · disposable Server 2025
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Run bounded AppContainer lab
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B .github/windows_appcontainer_lab.py --work 'C:\RuleProxyAppContainerLab'
+          if ($LASTEXITCODE -ne 0) { throw 'AppContainer lab gates failed; inspect report artifact' }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-appcontainer-lab
+          path: |
+            C:\RuleProxyAppContainerLab\report.json
+            C:\RuleProxyAppContainerLab\*.log
+          if-no-files-found: warn
