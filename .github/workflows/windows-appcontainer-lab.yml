@@ -6,7 +6,19 @@ on:
       - 'claude/windows-appcontainer-*'
     paths:
       - '.github/windows_appcontainer_lab.py'
+      - '.github/windows_appcontainer_product.py'
       - '.github/workflows/windows-appcontainer-lab.yml'
+      - 'ruleproxy/windows_appcontainer.py'
+      - 'ruleproxy/windows_app_process.py'
+      - 'ruleproxy/windows_global_guard.py'
+  pull_request:
+    paths:
+      - '.github/windows_appcontainer_lab.py'
+      - '.github/windows_appcontainer_product.py'
+      - '.github/workflows/windows-appcontainer-lab.yml'
+      - 'ruleproxy/windows_appcontainer.py'
+      - 'ruleproxy/windows_app_process.py'
+      - 'ruleproxy/windows_global_guard.py'
   workflow_dispatch:
 
 permissions:
@@ -23,12 +35,20 @@ jobs:
         with:
           python-version: '3.14'
           architecture: x64
+      - run: python -m pip install -r requirements.txt
       - name: Run bounded AppContainer lab
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           python -B .github/windows_appcontainer_lab.py --work 'C:\RuleProxyAppContainerLab'
           if ($LASTEXITCODE -ne 0) { throw 'AppContainer lab gates failed; inspect report artifact' }
+      - name: Run shipped AppContainer code end to end
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B .github/windows_appcontainer_product.py --work 'C:\RuleProxyAppContainerProduct'
+          if ($LASTEXITCODE -ne 0) { throw 'AppContainer product gates failed; inspect report artifact' }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -36,4 +56,5 @@ jobs:
           path: |
             C:\RuleProxyAppContainerLab\report.json
             C:\RuleProxyAppContainerLab\*.log
+            C:\RuleProxyAppContainerProduct\product-report.json
           if-no-files-found: warn

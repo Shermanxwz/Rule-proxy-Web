@@ -797,6 +797,28 @@ class Manager:
             with self.lock:
                 self._profile_preparing.discard(ident)
 
+    def set_app_isolation(self, ident, windows_container):
+        """Toggle Windows AppContainer strong isolation for a stopped app."""
+        if not isinstance(windows_container, bool):
+            raise ValueError("windows_container 必须是布尔值。")
+        if windows_container and sys.platform != "win32":
+            raise ValueError("强隔离仅适用于 Windows。")
+        with self.lock:
+            app = self.app(ident)
+            if app is None:
+                raise ValueError("应用不存在。")
+            if ident in self.active and self.active[ident][0].poll() is None:
+                raise ValueError("请先关闭此工具启动的应用，再切换隔离方式。")
+            validate_app({**app, "windows_container": windows_container}, check_exists=False)
+            old = dict(app)
+            app["windows_container"] = windows_container
+            try:
+                self._save()
+            except BaseException:
+                app.clear()
+                app.update(old)
+                raise
+
     def create_shortcuts(self, ident):
         """Write launcher files that start this app headlessly; returns their paths."""
         with self.lock:
@@ -853,9 +875,16 @@ class Manager:
                 from .windows_app_process import launch
                 # Native proxy inheritance must be an explicit launch option;
                 # the Windows launcher distrusts all proxy values in ``env``.
-                options = {} if global_mode else {'native_proxy_port': self.mixed_port}
-                process = launch(command, env, **options)
-                resource = None
+                if app.get('windows_container') and not global_mode:
+                    from .windows_appcontainer import start_contained
+                    process, resource = start_contained(
+                        self.windows_backend(), ident, command, env,
+                        profile=app_profile_directory(self.directory / "profiles", app),
+                        proxy_port=self.mixed_port, launch=launch)
+                else:
+                    options = {} if global_mode else {'native_proxy_port': self.mixed_port}
+                    process = launch(command, env, **options)
+                    resource = None
             elif sys.platform == 'linux' and global_mode:
                 process = subprocess.Popen(command, env=env, start_new_session=True)
                 resource = None
@@ -864,6 +893,8 @@ class Manager:
             self.active[ident] = (process, resource)
             self.error = ""
             detail = ('全局 TUN 已启用，应用沿用当前桌面账户权限。' if global_mode else
+                      '强隔离（AppContainer）已启用：只能经本机代理联网，代理停止即断网。'
+                      if sys.platform == 'win32' and app.get('windows_container') else
                       '程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
                       '仅此隔离实例受保护。不支持的流量阻断，不会直连。')
             if app.get("use_original_data"):

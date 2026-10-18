@@ -222,7 +222,37 @@
       profileLabel.append(profile, textElement('span', '', label));
       tools.append(profileLabel);
     }
+    if (isWindows() && !isGlobal() && !app.store_binding && app.use_original_data !== true) {
+      tools.append(isolationOption(app));
+    }
     return tools;
+  }
+
+  function isolationOption(app) {
+    const optionLabel = textElement('label', 'app-profile-option');
+    const label = '强隔离（实验）';
+    optionLabel.title = '在 Windows AppContainer 中启动：只能经本机代理联网，代理停止即断网；部分应用（如 Edge 等自带沙箱的浏览器）可能无法启动。';
+    const option = document.createElement('input');
+    option.type = 'checkbox';
+    option.title = optionLabel.title;
+    option.checked = app.windows_container === true;
+    option.disabled = busy || !!app.active || !!app.cleanup_pending || !!app.profile_preparing;
+    option.dataset.appId = String(app.id);
+    option.dataset.appControl = `${app.id}:isolation`;
+    option.setAttribute('aria-label', `${app.label || '应用'}：${label}`);
+    option.addEventListener('change', () => {
+      if (busy || app.active || app.cleanup_pending || app.profile_preparing) {
+        option.checked = app.windows_container === true;
+        return;
+      }
+      mutate(`/api/apps/${encodeURIComponent(app.id)}/isolation`, {
+        body: { windows_container: option.checked },
+      }).then((result) => {
+        if (!result) option.checked = app.windows_container === true;
+      });
+    });
+    optionLabel.append(option, textElement('span', '', label));
+    return optionLabel;
   }
 
   function createShortcut(app) {

@@ -132,9 +132,11 @@ def decode_request(raw: bytes) -> dict:
         raise ProxyError("invalid_request", "请求操作无效。")
     extra = {"apply": {"paths", "proxy_port", "mihomo_pid", "generation"},
              "global_start": {"source", "secret", "mixed_port", "controller_port", "selected_node", "require_strict"},
-             "global_select_node": {"selected_node"}}
+             "global_select_node": {"selected_node"},
+             "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"}}
     expected = common | extra.get(operation, set())
-    if (operation not in {"status", "apply", "stop", "global_status", "global_start", "global_stop", "global_select_node"}
+    if (operation not in {"status", "apply", "stop", "global_status", "global_start", "global_stop", "global_select_node",
+                          "container_allow", "container_revoke"}
             or set(request) != expected
             or type(request.get("schema_version")) is not int or request.get("schema_version") != 1
             or not isinstance(request.get("request_id"), str)
@@ -151,4 +153,10 @@ def decode_request(raw: bytes) -> dict:
         node = request["selected_node"]
         if not isinstance(node, str) or not node or len(node) > 4096 or "\0" in node:
             raise ProxyError("invalid_request", "所选节点无效。")
+    if operation in {"container_allow", "container_revoke"}:
+        if not isinstance(request["container"], str) or not re.fullmatch(r"RuleProxy\.[0-9a-f]{20}", request["container"]):
+            raise ProxyError("invalid_request", "AppContainer 名称无效。")
+        if operation == "container_allow" and (type(request["proxy_port"]) is not int
+                                               or not 1025 <= request["proxy_port"] <= 65535):
+            raise ProxyError("invalid_request", "代理端口无效。")
     return request

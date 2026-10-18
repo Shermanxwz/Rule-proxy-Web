@@ -738,6 +738,12 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         result['store_binding'] = store_binding
     if 'use_original_data' in data:
         result['use_original_data'] = original_data
+    if 'windows_container' in data:
+        if not isinstance(data['windows_container'], bool):
+            raise ValueError('强隔离必须为布尔值。')
+        if data['windows_container'] and (store_binding is not None or original_data):
+            raise ValueError('强隔离不支持商店应用或使用原应用数据。')
+        result['windows_container'] = data['windows_container']
     related = data.get("related_paths", [])
     if not isinstance(related, list) or len(related) > 16:
         raise ValueError("相关程序路径最多填写 16 个。")

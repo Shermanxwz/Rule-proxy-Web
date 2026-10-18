@@ -11,6 +11,7 @@ from __future__ import annotations
 import ctypes
 import math
 import os
+import re
 import subprocess
 import threading
 import time
@@ -21,6 +22,8 @@ _DWORD = ctypes.c_uint32
 _HANDLE = ctypes.c_void_p
 _CREATE_SUSPENDED = 0x00000004
 _CREATE_UNICODE_ENVIRONMENT = 0x00000400
+_EXTENDED_STARTUPINFO_PRESENT = 0x00080000
+_PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES = 0x00020009
 _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 _WAIT_OBJECT_0 = 0
 _WAIT_TIMEOUT = 258
@@ -39,6 +42,16 @@ class _StartupInfo(ctypes.Structure):
         ("cbReserved2", ctypes.c_uint16), ("lpReserved2", ctypes.c_void_p),
         ("hStdInput", _HANDLE), ("hStdOutput", _HANDLE), ("hStdError", _HANDLE),
     ]
+
+
+class _StartupInfoEx(ctypes.Structure):
+    _fields_ = [("StartupInfo", _StartupInfo), ("lpAttributeList", ctypes.c_void_p)]
+
+
+class _SecurityCapabilities(ctypes.Structure):
+    # Zero capabilities: the AppContainer has no network access of its own.
+    _fields_ = [("AppContainerSid", ctypes.c_void_p), ("Capabilities", ctypes.c_void_p),
+                ("CapabilityCount", _DWORD), ("Reserved", _DWORD)]
 
 
 class _ProcessInfo(ctypes.Structure):
@@ -117,8 +130,14 @@ class _KernelAPI:
             "SetInformationJobObject": ([_HANDLE, ctypes.c_int, ctypes.c_void_p, _DWORD], ctypes.c_int),
             "CreateProcessW": ([ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p,
                                 ctypes.c_void_p, ctypes.c_int, _DWORD, ctypes.c_void_p,
-                                ctypes.c_wchar_p, ctypes.POINTER(_StartupInfo),
+                                ctypes.c_wchar_p, ctypes.c_void_p,
                                 ctypes.POINTER(_ProcessInfo)], ctypes.c_int),
+            "InitializeProcThreadAttributeList": ([ctypes.c_void_p, _DWORD, _DWORD,
+                                                   ctypes.POINTER(ctypes.c_size_t)], ctypes.c_int),
+            "UpdateProcThreadAttribute": ([ctypes.c_void_p, _DWORD, ctypes.c_size_t, ctypes.c_void_p,
+                                           ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p], ctypes.c_int),
+            "DeleteProcThreadAttributeList": ([ctypes.c_void_p], None),
+            "LocalFree": ([ctypes.c_void_p], ctypes.c_void_p),
             "AssignProcessToJobObject": ([_HANDLE, _HANDLE], ctypes.c_int),
             "ResumeThread": ([_HANDLE], _DWORD),
             "TerminateProcess": ([_HANDLE, _DWORD], ctypes.c_int),
@@ -137,6 +156,8 @@ class _KernelAPI:
         self.advapi.GetTokenInformation.argtypes = [_HANDLE, ctypes.c_int, ctypes.c_void_p,
                                                    _DWORD, ctypes.POINTER(_DWORD)]
         self.advapi.GetTokenInformation.restype = ctypes.c_int
+        self.advapi.ConvertStringSidToSidW.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_void_p)]
+        self.advapi.ConvertStringSidToSidW.restype = ctypes.c_int
 
     @staticmethod
     def _check(ok: object) -> None:
@@ -175,16 +196,39 @@ class _KernelAPI:
                                                        ctypes.sizeof(limits)))
 
     def create_process(self, command: Sequence[str], environment: str, cwd: str | None,
-                       info: _ProcessInfo) -> None:
-        startup = _StartupInfo()
-        startup.cb = ctypes.sizeof(startup)
+                       info: _ProcessInfo, container_sid: str | None = None) -> None:
+        startup = _StartupInfoEx()
+        startup.StartupInfo.cb = ctypes.sizeof(_StartupInfo if container_sid is None else _StartupInfoEx)
         command_line = ctypes.create_unicode_buffer(subprocess.list2cmdline(command))
         environment_buffer = ctypes.create_unicode_buffer(environment)
-        self._check(self.kernel.CreateProcessW(
-            command[0], command_line, None, None, False,
-            _CREATE_SUSPENDED | _CREATE_UNICODE_ENVIRONMENT,
-            environment_buffer, cwd, ctypes.byref(startup), ctypes.byref(info),
-        ))
+        flags = _CREATE_SUSPENDED | _CREATE_UNICODE_ENVIRONMENT
+        if container_sid is None:
+            self._check(self.kernel.CreateProcessW(
+                command[0], command_line, None, None, False, flags,
+                environment_buffer, cwd, ctypes.byref(startup), ctypes.byref(info),
+            ))
+            return
+        sid = ctypes.c_void_p()
+        self._check(self.advapi.ConvertStringSidToSidW(container_sid, ctypes.byref(sid)))
+        try:
+            size = ctypes.c_size_t()
+            self.kernel.InitializeProcThreadAttributeList(None, 1, 0, ctypes.byref(size))
+            attributes = ctypes.create_string_buffer(size.value)
+            self._check(self.kernel.InitializeProcThreadAttributeList(attributes, 1, 0, ctypes.byref(size)))
+            try:
+                capabilities = _SecurityCapabilities(sid.value, None, 0, 0)
+                self._check(self.kernel.UpdateProcThreadAttribute(
+                    attributes, 0, _PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
+                    ctypes.byref(capabilities), ctypes.sizeof(capabilities), None, None))
+                startup.lpAttributeList = ctypes.cast(attributes, ctypes.c_void_p)
+                self._check(self.kernel.CreateProcessW(
+                    command[0], command_line, None, None, False, flags | _EXTENDED_STARTUPINFO_PRESENT,
+                    environment_buffer, cwd, ctypes.byref(startup), ctypes.byref(info),
+                ))
+            finally:
+                self.kernel.DeleteProcThreadAttributeList(attributes)
+        finally:
+            self.kernel.LocalFree(sid)
 
     def assign_job(self, job: int, process: int) -> None:
         self._check(self.kernel.AssignProcessToJobObject(job, process))
@@ -327,12 +371,13 @@ class WindowsAppProcess:
 
 
 def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None, *,
-           native_proxy_port: int | None = None) -> WindowsAppProcess:
+           native_proxy_port: int | None = None, container_sid: str | None = None) -> WindowsAppProcess:
     """Create suspended, assign the non-breakaway Job, then start the app.
 
     Errors abort the new process before returning. A pre-existing parent Job
     that prevents assignment causes a clean failure; there is no breakaway or
-    unsupervised-launch fallback.
+    unsupervised-launch fallback. ``container_sid`` starts the app inside that
+    AppContainer with zero capabilities (see ``windows_appcontainer``).
     """
     if not isinstance(command, (list, tuple)) or not command:
         raise ValueError("A non-empty application command is required")
@@ -340,6 +385,9 @@ def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None, *
         raise ValueError("Application command must contain valid strings")
     if cwd is not None and (not isinstance(cwd, str) or "\0" in cwd):
         raise ValueError("Invalid application working directory")
+    if container_sid is not None and (not isinstance(container_sid, str)
+                                      or not re.fullmatch(r"S-1-15-2(?:-[0-9]{1,10}){7}", container_sid)):
+        raise ValueError("Invalid AppContainer SID")
     environment = _environment_block(env, native_proxy_port=native_proxy_port)
     api = _get_api()
     # A desktop user may intentionally run elevated or have UAC disabled. The
@@ -352,7 +400,10 @@ def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None, *
     try:
         job = api.create_job()
         api.configure_job(job, _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
-        api.create_process(command, environment, cwd, info)
+        if container_sid is None:
+            api.create_process(command, environment, cwd, info)
+        else:
+            api.create_process(command, environment, cwd, info, container_sid)
         api.assign_job(job, info.hProcess)
         assigned = True
         api.resume_thread(info.hThread)
