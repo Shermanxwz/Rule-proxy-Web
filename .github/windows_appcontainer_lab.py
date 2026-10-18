@@ -495,21 +495,28 @@ def main() -> int:
             results['probe'] = {'ok': False, 'detail': (outcome, text[-400:])}
         for label, extra in (('curl_direct', []), ('curl_via_proxy', ['--proxy', f'http://127.0.0.1:{proxy.port}'])):
             curl_log = work / f'{name}.{label}.log'
-            ran = launch(sid, [str(CURL), '-sS', '--ssl-no-revoke', '-o', 'NUL', '-w', '%{http_code}', '--max-time', '15', *extra,
-                               PUBLIC_URL], contained=contained, cwd=work, env=env, log=curl_log, timeout=40)
+            # The container may not open the NUL device, so the body goes to a granted file.
+            ran = launch(sid, [str(CURL), '-sS', '--ssl-no-revoke', '-o', str(work / 'tmp' / f'{name}.{label}.body'),
+                               '-w', '%{http_code}', '--max-time', '15', *extra, PUBLIC_URL],
+                         contained=contained, cwd=work, env=env, log=curl_log, timeout=40)
             body = curl_log.read_text(encoding='utf-8', errors='replace').strip()
             results[label] = {'ok': ran.get('exit_code') == 0 and body.endswith('200'), 'detail': body[-160:]}
         if edge and EDGE.exists():
-            for label, flags in (('edge_sandboxed', []), ('edge_no_sandbox', ['--no-sandbox'])):
+            # Edge's network service re-grants ACLs on its profile, which needs WRITE_DAC there.
+            for label, flags in (('edge_default', []),
+                                 ('edge_no_network_sandbox', ['--disable-features=NetworkServiceSandbox']),
+                                 ('edge_no_sandbox', ['--no-sandbox', '--disable-features=NetworkServiceSandbox'])):
                 profile = work / ('edge-' + label)
                 profile.mkdir(exist_ok=True)
+                subprocess.run(['icacls', str(profile), '/grant', f'*{package}:(OI)(CI)(F)', '/Q'],
+                               capture_output=True, timeout=60)
                 edge_log = work / f'{name}.{label}.log'
                 ran = launch(sid, [str(EDGE), '--headless=new', '--disable-gpu', '--no-first-run',
                                    f'--user-data-dir={profile}', f'--proxy-server=http://127.0.0.1:{proxy.port}',
                                    *flags, '--dump-dom', PUBLIC_URL],
                              contained=contained, cwd=work, env=env, log=edge_log, timeout=60)
                 body = edge_log.read_text(encoding='utf-8', errors='replace')
-                results[label] = {'ok': 'Example Domain' in body, 'detail': {**ran, 'tail': body[-300:]}}
+                results[label] = {'ok': 'Example Domain' in body, 'detail': {**ran, 'tail': body[-1500:]}}
         report['phases'][name] = {'contained': contained, 'results': results,
                                   'proxy_tunnels_total': proxy.tunnels, 'firewall': firewall()}
         summary = ' '.join(f"{k}={'Y' if v['ok'] else 'n'}" for k, v in sorted(results.items()))
