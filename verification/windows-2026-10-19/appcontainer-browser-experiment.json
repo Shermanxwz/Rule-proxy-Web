@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "status": "bounded_browser_experiment_complete_not_product_qualified",
+  "run_id": 39153776164,
+  "source_commit": "005ea162bfb2d22641fd796c981c90f558ff0515",
+  "harness_sha256": "926841fb99192afe234d16d8acfb9fabbf8c9e2c08832c7f947e53b1d6ec66fd",
+  "product_code_origin_commit": "9a6e44ed24266c0391c13f61c11bcc2c685a6f1a",
+  "scope": "Disposable Windows Server 2025 headless browsers against independent nonce HTTP fixture; not Windows 11 desktop, TLS or OAuth.",
+  "windows": [
+    10,
+    0,
+    26100,
+    2
+  ],
+  "artifact": {
+    "id": 12146755206,
+    "sha256": "b103e74216a1b0076054a785f5ab11998fe205cc92404f59cfd7cc663e54565b"
+  },
+  "runs": {
+    "edge_control": {
+      "contained": false,
+      "diagnostic_only": false,
+      "browser_sandbox_enabled": true,
+      "ok": true,
+      "started": true,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 5.431,
+      "owned_job": true,
+      "fixture_requests": 1,
+      "rendered": true
+    },
+    "edge_contained": {
+      "contained": true,
+      "diagnostic_only": false,
+      "browser_sandbox_enabled": true,
+      "ok": false,
+      "started": true,
+      "exit_code": 3221225477,
+      "timed_out": false,
+      "seconds": 1.869,
+      "owned_job": true,
+      "fixture_requests": 0,
+      "rendered": false
+    },
+    "edge_diagnostic_no_sandbox": {
+      "contained": true,
+      "diagnostic_only": true,
+      "browser_sandbox_enabled": false,
+      "ok": false,
+      "started": true,
+      "exit_code": 3221225477,
+      "timed_out": false,
+      "seconds": 1.178,
+      "owned_job": true,
+      "fixture_requests": 0,
+      "rendered": false
+    },
+    "chrome_control": {
+      "contained": false,
+      "diagnostic_only": false,
+      "browser_sandbox_enabled": true,
+      "ok": true,
+      "started": true,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 8.607,
+      "owned_job": true,
+      "fixture_requests": 1,
+      "rendered": true
+    },
+    "chrome_contained": {
+      "contained": true,
+      "diagnostic_only": false,
+      "browser_sandbox_enabled": true,
+      "ok": false,
+      "started": true,
+      "exit_code": 2147483651,
+      "timed_out": false,
+      "seconds": 0.033,
+      "owned_job": true,
+      "fixture_requests": 0,
+      "rendered": false
+    },
+    "chrome_diagnostic_no_sandbox": {
+      "contained": true,
+      "diagnostic_only": true,
+      "browser_sandbox_enabled": false,
+      "ok": false,
+      "started": true,
+      "exit_code": 2147483651,
+      "timed_out": false,
+      "seconds": 0.012,
+      "owned_job": true,
+      "fixture_requests": 0,
+      "rendered": false
+    },
+    "firefox_control": {
+      "contained": false,
+      "diagnostic_only": false,
+      "browser_sandbox_enabled": true,
+      "ok": true,
+      "started": true,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 6.123,
+      "owned_job": true,
+      "fixture_requests": 1,
+      "rendered": true
+    },
+    "firefox_contained": {
+      "contained": true,
+      "diagnostic_only": false,
+      "browser_sandbox_enabled": true,
+      "ok": false,
+      "started": true,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 1.443,
+      "owned_job": true,
+      "fixture_requests": 0,
+      "rendered": false
+    }
+  },
+  "valid_experiment": true,
+  "cleanup_ok": true,
+  "browser_compatibility": {
+    "edge": {
+      "control_valid": true,
+      "contained_sandbox_preserved_passed": false
+    },
+    "chrome": {
+      "control_valid": true,
+      "contained_sandbox_preserved_passed": false
+    },
+    "firefox": {
+      "control_valid": true,
+      "contained_sandbox_preserved_passed": false
+    }
+  },
+  "debugger_available": true,
+  "product_qualified": false,
+  "windows_11_qualified": false,
+  "interactive_qualified": false,
+  "real_tls_or_oauth_tested": false,
+  "new_owner_enumeration_and_broker_lifecycle_native_verified": false,
+  "decision": "Stop parameter retries for this AppContainer browser launch; separately test the dedicated-user fallback. No unsupported application is promoted to product compatibility."
+}

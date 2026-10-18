@@ -57,15 +57,17 @@
     const ready = !!state;
     const imported = ready && !!state.imported;
     const running = ready && !!state.running;
+    const recoveryPending = ready && (state.global_fault === true
+      || (state.apps || []).some((app) => app.cleanup_pending));
     const protectedBackend = ready && !!state.protection && !!state.protection.supported;
     ui.importButton.disabled = busy || !ready;
     ui.core.disabled = busy || !ready || running;
     ui.saveCore.disabled = busy || !ready || running;
     ui.saveNode.disabled = busy || !imported || !ui.node.value;
     ui.node.disabled = busy || !imported || !((state && state.nodes) || []).length;
-    ui.start.disabled = busy || !imported || running || (isGlobal() && !protectedBackend);
-    ui.stop.disabled = busy || !ready || !(isGlobal() || running);
-    if (ui.captureMode) ui.captureMode.disabled = busy || !ready || running
+    ui.start.disabled = busy || !imported || running || recoveryPending || (isGlobal() && !protectedBackend);
+    ui.stop.disabled = busy || !ready || !(isGlobal() || running || recoveryPending);
+    if (ui.captureMode) ui.captureMode.disabled = busy || !ready || running || recoveryPending
       || (state?.apps || []).some((app) => app.active || app.cleanup_pending || app.profile_preparing);
     ui.addApp.disabled = busy || !ready;
     ui.refreshApps.disabled = busy || refreshingApps || !ready;
@@ -230,7 +232,7 @@
   function isolationOption(app) {
     const optionLabel = textElement('label', 'app-profile-option');
     const label = '强隔离（实验）';
-    optionLabel.title = '在 Windows AppContainer 中启动：只能经本机代理联网，代理停止即断网；部分应用（如 Edge 等自带沙箱的浏览器）可能无法启动。';
+    optionLabel.title = '在 Windows AppContainer 中启动，仅放行本机代理端口。当前 Edge、Chrome、Firefox 未通过兼容测试；商店应用和共用原应用资料模式不支持。';
     const option = document.createElement('input');
     option.type = 'checkbox';
     option.title = optionLabel.title;
@@ -420,7 +422,8 @@
       ? '全局把系统代理指向本机核心，不安装 TUN、不改防火墙和 DNS；停止、核心退出或下次打开面板时恢复原系统代理。'
       : (isWindows() ? '仅接管启用的程序及其辅助路径；已识别商店软件包会自动跟随本机版本。'
                       : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
-    ui.stop.textContent = isGlobal() ? '停止全局代理并恢复系统代理' : '关闭受保护应用并停止';
+    ui.stop.textContent = state.global_fault === true ? '重试恢复网络与清理'
+      : (isGlobal() ? '停止全局代理并恢复系统代理' : '关闭受保护应用并停止');
     ui.protectionCard.className = `protection-card ${supported ? 'is-supported' : 'is-unsupported'}`;
     ui.protectionBadge.textContent = !supported ? '不可用，启动受阻'
       : (isGlobal() ? '全局系统代理可用' : (isWindows() ? '应用代理可用' : '隔离能力可用'));
@@ -446,7 +449,7 @@
       $('connection-intro').textContent = '启动后把系统代理指向本机核心，遵循系统代理的程序都会经过规则。';
       $('protection-note').textContent = '不读取系统代理的程序仍会直连。切换模式前请先停止。';
       $('apps-intro').textContent = '全局模式下，从面板启动的应用额外继承代理环境变量；其余程序按系统代理设置联网。';
-      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS，任何故障都不会断网；需要强制只走代理的应用请在按应用模式下使用强隔离。';
+      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。Windows 强隔离仍为实验功能，需逐个应用验证兼容性。';
     } else if (isWindows()) {
       $('connection-intro').textContent = '启动核心后，启用清单中的程序路径交给 ProxiFyre 转发；也可以从下方启动独立应用实例。';
       $('protection-note').textContent = '同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';

@@ -84,6 +84,10 @@ if metadata.get('global_backend_version')==1:
     guard=Guard(metadata).normal_stop()
     if guard.get('supported') is not True or guard.get('active') is not False:
         raise RuntimeError('Owned guard restoration could not be confirmed')
+from ruleproxy.windows_appcontainer import ContainerGate
+containers=ContainerGate(metadata).purge()
+if containers.get('active') is not False:
+    raise RuntimeError('Owned application container protection cleanup was not confirmed')
 print(json.dumps({'restored':True}))
 '@
     $global:LASTEXITCODE = $null
@@ -94,9 +98,36 @@ print(json.dumps({'restored':True}))
     $confirmation = $result | ConvertFrom-Json
     if ($confirmation.restored -ne $true) { throw 'Global network restoration was not confirmed' }
 }
+function Restore-OwnerSystemProxy {
+    # UAC may use another administrator's account. Resolve the protected owner
+    # through ProfileList and restore only HKU\OwnerSid, never that admin's HKCU.
+    $code = @'
+import json,sys
+from pathlib import Path
+from ruleproxy.windows_proxy_service import load_deployment
+from ruleproxy.system_proxy import restore_windows_owner
+metadata=load_deployment(Path(sys.argv[1]))
+if metadata['owner_sid']!=sys.argv[2]:
+    raise RuntimeError('Uninstall proxy owner does not match the protected deployment')
+restored=restore_windows_owner(sys.argv[2])
+print(json.dumps({'checked':True,'owner_sid':sys.argv[2],'restored':restored}))
+'@
+    $global:LASTEXITCODE = $null
+    $result = & (Join-Path $root 'python\python.exe') -I -S -c $code $root $OwnerSid
+    if ($null -eq $global:LASTEXITCODE -or $global:LASTEXITCODE -ne 0) {
+        throw 'Owner system proxy restoration failed; panel/core and recovery files were retained. Log in as the installation owner and retry Stop or uninstall.'
+    }
+    $confirmation = $result | ConvertFrom-Json
+    if ($confirmation.checked -ne $true -or $confirmation.owner_sid -ne $OwnerSid) {
+        throw 'Owner system proxy restoration could not be confirmed'
+    }
+}
 # Refuse foreign contents before changing services or invoking MSI.
 if (Test-Path -LiteralPath $pfRoot) { Assert-State $pfRoot }
 $null = Get-OwnedProxiFyreRemovalPlan
+# Restore the user's desktop before any service stop, MSI action or forced
+# panel/core termination can turn the proxy endpoint into an unavailable port.
+Restore-OwnerSystemProxy
 $expected = '"' + (Join-Path $root 'python\python.exe') + '" -I -S "' + (Join-Path $root 'ruleproxy\windows_proxy_service.py') + '" --service'
 $service = Get-CimInstance Win32_Service -Filter "Name='RuleProxyControl'"
 if ($service -and $service.PathName -ne $expected) { throw 'Refuse a substituted control service' }
@@ -160,6 +191,10 @@ foreach ($ownedProcess in Get-CimInstance Win32_Process) {
         }
     }
 }
+# Recheck after terminating the owner panel, which could have completed an
+# already pending enable request after the first restoration. This operation
+# remains read-only on user files and only updates the validated owner's HKU.
+Restore-OwnerSystemProxy
 # Own shortcuts/tasks are removed only if their targets point into this root.
 $profile = Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $OwnerSid) -ErrorAction SilentlyContinue
 if ($profile) {

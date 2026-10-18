@@ -146,6 +146,7 @@ class Manager:
         self.core: subprocess.Popen | None = None
         self.core_log = None
         self._core_job = None
+        self._proxy_watchdog = None
         self.error = ""
         self.active = {}
         self._profile_preparing: set[str] = set()
@@ -154,6 +155,9 @@ class Manager:
         self._windows_family_paths = {}
         self._global_backend = None
         self._global_fault = False
+        self._legacy_recovered = False
+        self._restore_pending = False
+        self._restore_retry_at = 0.0
         self.quitting = False
         # bwrap --die-with-parent follows the creating THREAD on Linux. HTTP
         # request threads are short lived; all launches must have a stable owner.
@@ -179,40 +183,81 @@ class Manager:
         self._apps_time = 0.0
         self._apps_scan: threading.Thread | None = None
         self.closed = threading.Event()
-        if self.capture_mode == 'global':
-            # The legacy helper may ask for authorisation, so recovery never
-            # blocks the panel from opening.
+        from .system_proxy import BACKUP
+        if (self.directory / BACKUP).exists() or self._legacy_artifacts_present():
+            # Recovery is independent of the newly selected capture mode.
+            # start() also waits for/retries it before launching any core.
             threading.Thread(target=self._recover_global, daemon=True).start()
         threading.Thread(target=self._watch, daemon=True).start()
 
-    def _recover_global(self):
+    def _legacy_artifacts_present(self):
+        if sys.platform == 'win32':
+            return (ROOT / 'deployment.json').exists()
+        if sys.platform == 'linux':
+            from .linux_global_runtime import INSTALL_ROOT, RUN_ROOT
+            return INSTALL_ROOT.exists() or (RUN_ROOT / ('lease-' + str(os.getuid()) + '.json')).exists()
+        return False
+
+    def _recover_global(self, *, raise_errors=False):
         """Undo whatever a crashed panel or an older TUN version left behind."""
         with self.lock:
             if self.core is not None:
                 return
+            errors = []
             try:
                 from . import system_proxy
                 system_proxy.restore(self.directory)
             except Exception as exc:
-                self.error = f'上次的系统代理设置未能自动恢复：{exc}'
-            self._release_legacy_tun()
+                errors.append(f'上次的系统代理设置未能自动恢复：{exc}')
+                self._restore_pending = True
+            try:
+                self._release_legacy_tun()
+            except Exception as exc:
+                errors.append(str(exc))
+            if errors:
+                self._global_fault = True
+                self.error = '；'.join(errors)
+                if raise_errors:
+                    raise ValueError(self.error)
+            else:
+                self._global_fault = self._restore_pending = False
 
     def _release_legacy_tun(self):
         # Up to 0.3.0-rc.14 global mode was a privileged TUN whose guard kept
         # blocking after a failure. That mode is gone; only its cleanup stays.
-        if sys.platform not in ('win32', 'linux'):
+        if self._legacy_recovered or sys.platform not in ('win32', 'linux'):
             return
         status = self.global_status()
-        if not (status.get('running') or status.get('protection_active')
+        active = (status.get('running') or status.get('protection_active')
                 or (status.get('guard') or {}).get('active')
                 or (status.get('dns') or {}).get('active')
-                or status.get('state') in {'blocked', 'unknown'}):
+                or status.get('state') in {'blocked', 'unknown'})
+        if (not active and not self._legacy_artifacts_present() and status.get('supported') is False):
+            self._legacy_recovered = True
             return
+        def clean(value):
+            if not isinstance(value, dict) or value.get('running') is not False:
+                return False
+            if value.get('state') not in {'idle', 'stopped'}:
+                return False
+            if 'guard' in value or 'dns' in value:
+                return all(isinstance(value.get(name), dict) and value[name].get('active') is False
+                           and value[name].get('supported') is not False for name in ('guard', 'dns'))
+            return value.get('protection_active') is False
         try:
-            self.global_backend().stop()
+            if not clean(status):
+                # Checking/unavailable or incomplete WFP status is not proof
+                # that the old rules are gone. The fixed recovery operation
+                # reads them synchronously and confirms removal.
+                result = self.global_backend().stop()
+                if not clean(result):
+                    raise ValueError('旧版网络保护尚未确认完全撤销。')
         except Exception as exc:
+            self._global_fault = True
             self.error = (f'旧版全局 TUN 留下的网络规则未能自动清除：{exc}。'
                           '请点击停止重试，或运行卸载脚本恢复网络。')
+            raise ValueError(self.error) from exc
+        self._legacy_recovered = True
 
     def _restore_settings(self):
         """Restore bounded records without losing profiles for temporarily missing apps."""
@@ -348,6 +393,8 @@ class Manager:
                 raise ValueError('面板正在退出，不能切换接管模式。')
             if self.core or self.active or self._profile_preparing:
                 raise ValueError('请先关闭本工具启动的应用并停止核心，再切换接管模式。')
+            if self._global_fault or self._restore_pending:
+                raise ValueError('上次网络恢复尚未完成，请先点击停止重试。')
             if mode == self.capture_mode:
                 return
             previous, previous_compiled = self.capture_mode, self.compiled
@@ -542,7 +589,8 @@ class Manager:
             for app in self.settings["apps"]:
                 owned = self.active.get(app["id"])
                 alive = bool(owned and owned[0].poll() is None)
-                pending = bool(alive and getattr(owned[1], "failed_process", None) is not None)
+                pending = bool(owned and ((not alive and owned[1] is not None) or
+                               (alive and getattr(owned[1], "failed_process", None) is not None)))
                 record = {**app, "active": alive and not pending, "cleanup_pending": pending,
                           "profile_preparing": app["id"] in self._profile_preparing}
                 if sys.platform == "win32" or self.capture_mode == 'global':
@@ -626,8 +674,11 @@ class Manager:
                 raise ValueError("面板正在退出，不能启动核心。")
             if self.core and self.core.poll() is None:
                 return
+            if self.core is not None:
+                self.stop()
             if not self.compiled:
                 raise ValueError("请先导入 YAML。")
+            self._recover_global(raise_errors=True)
             if sys.platform == "win32" and self.capture_mode != 'global':
                 capability = self.protection()
                 if not capability["supported"]:
@@ -666,7 +717,18 @@ class Manager:
                 options = {"start_new_session": True} if os.name != "nt" else {
                     'creationflags': getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x00000200)
                     | getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)}
-                self.core = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=self.core_log, stderr=subprocess.STDOUT, **options)
+                command = args
+                if sys.platform == 'linux' and self.capture_mode == 'global':
+                    from .linux_core_process import command_for_parent
+                    command = command_for_parent(args)
+                    # PR_SET_PDEATHSIG follows the creating thread. The HTTP
+                    # request thread ends after start(); this owner survives
+                    # until all cores/apps have been stopped by close().
+                    self.core = self.launch_owner.submit(
+                        subprocess.Popen, command, stdin=subprocess.DEVNULL,
+                        stdout=self.core_log, stderr=subprocess.STDOUT, **options).result()
+                else:
+                    self.core = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=self.core_log, stderr=subprocess.STDOUT, **options)
                 if sys.platform == "win32":
                     from .windows_core_process import CoreJob
                     self._core_job = CoreJob(self.core)
@@ -681,24 +743,45 @@ class Manager:
                     self._sync_windows_policy()
                     if self.capture_mode == 'global':
                         from . import system_proxy
-                        system_proxy.enable(self.directory, self.mixed_port)
+                        from .system_proxy_watchdog import start as watch_proxy
+                        self._proxy_watchdog = watch_proxy(self.directory, self.core.pid)
+                        system_proxy.enable(self.directory, self.mixed_port,
+                                            watchdog_session=self._proxy_watchdog.nonce)
+                        self._proxy_watchdog.arm()
                     self.error = ""
                     return
                 raise ValueError("Mihomo 未能启动；未启动任何应用。请查看本机 core.log。")
-            except Exception:
+            except Exception as original:
+                proxy_failed = False
+                try:
+                    from . import system_proxy
+                    system_proxy.restore(self.directory)
+                except Exception as exc:
+                    proxy_failed = self._restore_pending = self._global_fault = True
+                    self._restore_retry_at = time.monotonic() + 2
+                    self.error = f'启动未完成，系统代理恢复失败；核心与恢复记录已保留，请点击停止重试：{exc}'
+                if not proxy_failed and self._proxy_watchdog is not None:
+                    try:
+                        self._proxy_watchdog.close()
+                        self._proxy_watchdog = None
+                    except Exception:
+                        traceback.print_exc()
                 if sys.platform == "win32" and self._windows_backend is not None:
                     try:
                         self._windows_backend.stop()
                     except Exception:
                         traceback.print_exc()
                     self._windows_paths = []
-                if self.core:
+                if self.core and (not proxy_failed or self.core.poll() is not None):
                     stop_process(self.core)
                     self.core = None
-                close_resource(self._core_job)
-                self._core_job = None
-                self.core_log.close()
-                self.core_log = None
+                if self.core is None:
+                    close_resource(self._core_job)
+                    self._core_job = None
+                    self.core_log.close()
+                    self.core_log = None
+                if proxy_failed:
+                    raise ValueError(self.error) from original
                 raise
 
     def select_node(self, name):
@@ -917,28 +1000,66 @@ class Manager:
 
     def stop(self):
         with self.lock:
+            errors = []
+            app_errors = []
             for ident in list(self.active):
-                self.stop_app(ident)
-            if self.capture_mode == 'global':
-                # Restore first: a lost core must never leave the desktop
-                # pointing at a dead port.
-                from . import system_proxy
                 try:
-                    system_proxy.restore(self.directory)
+                    self.stop_app(ident)
                 except Exception as exc:
-                    self.error = f'原系统代理未能自动恢复，请在系统设置中关闭代理：{exc}'
+                    errors.append(f'应用未能关闭：{exc}')
+                    app_errors.append(exc)
+            # App cleanup cannot prevent desktop restoration. A saved journal
+            # can belong to a previous mode, so recover it unconditionally.
+            from . import system_proxy
+            proxy_failed = False
+            try:
+                system_proxy.restore(self.directory)
+                self._restore_pending = False
+            except Exception as exc:
+                proxy_failed = self._restore_pending = True
+                self._restore_retry_at = time.monotonic() + 2
+                errors.append(f'原系统代理未能恢复，记录已保留，请点击停止重试：{exc}')
+            if not proxy_failed and self._proxy_watchdog is not None:
+                try:
+                    self._proxy_watchdog.close()
+                    self._proxy_watchdog = None
+                except Exception as exc:
+                    errors.append(f'独立恢复进程尚未退出：{exc}')
+            try:
                 self._release_legacy_tun()
-            if sys.platform == "win32" and self._windows_backend is not None:
-                self._windows_backend.stop()
-                self._windows_paths = []
-            if self.core:
-                stop_process(self.core)
-                self.core = None
-            close_resource(self._core_job)
-            self._core_job = None
-            if self.core_log:
-                self.core_log.close()
-                self.core_log = None
+            except Exception as exc:
+                errors.append(str(exc))
+            keep_app_protection = bool(app_errors) and self.capture_mode != 'global'
+            if sys.platform == "win32" and self._windows_backend is not None and not keep_app_protection:
+                try:
+                    self._windows_backend.stop()
+                    self._windows_paths = []
+                except Exception as exc:
+                    errors.append(f'Windows 应用代理未能停止：{exc}')
+            # If restoration failed while the core is still healthy, retain
+            # it rather than deliberately turning the desktop proxy into a
+            # dead port. The panel stays usable and the watcher retries.
+            if self.core and not keep_app_protection and (not proxy_failed or self.core.poll() is not None):
+                try:
+                    stop_process(self.core)
+                    self.core = None
+                except Exception as exc:
+                    errors.append(f'代理核心未能停止：{exc}')
+            if self.core is None:
+                try:
+                    close_resource(self._core_job)
+                    self._core_job = None
+                    if self.core_log:
+                        self.core_log.close()
+                        self.core_log = None
+                except Exception as exc:
+                    errors.append(f'核心资源未能释放：{exc}')
+            self._global_fault = bool(errors)
+            if errors:
+                self.error = '；'.join(errors)
+                if keep_app_protection and not proxy_failed and len(errors) == len(app_errors):
+                    raise app_errors[0]
+                raise ValueError(self.error)
 
     def begin_quit(self):
         """Stop safely before preventing new launches; failures keep the panel usable."""
@@ -950,12 +1071,16 @@ class Manager:
         while not self.closed.wait(0.5):
             with self.lock:
                 if self.core and self.core.poll() is not None:
-                    self.error = ("代理核心已退出，已恢复原系统代理并关闭本工具启动的应用。"
-                                  if self.capture_mode == 'global' else "代理核心已退出，受保护应用已关闭。")
+                    try:
+                        self.stop()
+                        self.error = '代理核心已退出，原系统代理已恢复；本工具启动的应用已关闭。'
+                    except Exception as exc:
+                        self.error = f'代理核心已退出；网络或应用恢复尚未完成：{exc}'
+                if self._restore_pending and time.monotonic() >= self._restore_retry_at:
                     try:
                         self.stop()
                     except Exception:
-                        self.error = "代理核心已退出；部分应用未能关闭，请手动关闭其窗口。" if sys.platform == "win32" else "代理核心已退出；部分隔离实例未能关闭，请手动关闭其窗口。隔离不会退回直连。"
+                        pass  # stop() retains the journal and its precise error.
                 if sys.platform == "win32" and self._windows_paths and self.core:
                     try:
                         status = self.windows_backend().snapshot()
@@ -970,14 +1095,17 @@ class Manager:
                             traceback.print_exc()
                 for ident, (process, resource) in list(self.active.items()):
                     if process.poll() is not None:
-                        close_resource(resource)
+                        try:
+                            close_resource(resource)
+                        except Exception as exc:
+                            self.error = f'应用已退出，保护规则尚待回收，请点击停止重试：{exc}'
+                            self._global_fault = True
+                            continue
                         self.active.pop(ident, None)
 
     def close(self, *, restore_global=True):
         # Every exit path restores the system proxy; ``restore_global`` is
         # kept only for callers written against the retired TUN mode.
+        self.stop()
         self.closed.set()
-        try:
-            self.stop()
-        finally:
-            self.launch_owner.shutdown(wait=True)
+        self.launch_owner.shutdown(wait=True)

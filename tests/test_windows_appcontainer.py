@@ -56,12 +56,21 @@ class FakeEngine:
 
     def _add(self, _handle, value, _reserved, _ident):
         rule = value._obj
-        conditions = [(rule.conditions[index].field.text(), rule.conditions[index].value.type)
-                      for index in range(rule.count)]
+        conditions = (G._Condition * rule.count)()
+        keep = []
+        for index in range(rule.count):
+            conditions[index] = rule.conditions[index]
+            if conditions[index].value.type == 11:
+                data = ctypes.create_string_buffer(ctypes.string_at(conditions[index].value.value.pointer, 16))
+                keep.append(data)
+                conditions[index].value.value.pointer = ctypes.cast(data, ctypes.c_void_p)
+        provider = G._GUID.of(rule.provider.contents.text())
         record = SimpleNamespace(display=SimpleNamespace(description=rule.display.description),
+                                 key=G._GUID.of(rule.key.text()), provider=ctypes.pointer(provider),
                                  sublayer=G._GUID.of(rule.sublayer.text()), flags=rule.flags,
-                                 action=rule.action.type, weight=rule.weight.value.u8,
-                                 conditions=conditions, layer=rule.layer.text())
+                                 action=SimpleNamespace(type=rule.action.type), weight=rule.weight,
+                                 count=rule.count, conditions=conditions, layer=G._GUID.of(rule.layer.text()),
+                                 _keep=keep)
         if not self.drop_filters:
             self.filters[rule.key.text()] = record
         self.events.append(("add", rule.action.type, rule.layer.text()))
@@ -84,6 +93,12 @@ class FakeAPI:
         self.events.append(("derive", name))
         return PACKAGE
 
+    def profiles(self):
+        return [(NAME, PACKAGE, OWNER)]
+
+    def sid_text(self, _pointer):
+        return PACKAGE
+
     def binary_sid(self, _sid):
         return ctypes.c_void_p(1234)
 
@@ -101,6 +116,9 @@ class GateTests(unittest.TestCase):
         self.events = []
         self.engine = FakeEngine(self.events, drop_filters=drop_filters)
         self.api = FakeAPI(self.events, exempt)
+        patch = mock.patch.object(container, '_enum_filters', lambda engine: iter(engine.filters.values()))
+        patch.start()
+        self.addCleanup(patch.stop)
         return container.ContainerGate({"owner_sid": OWNER, "root": r"C:\RuleProxy"}, api=self.api,
                                        engine_factory=lambda: self.engine)
 
@@ -117,15 +135,17 @@ class GateTests(unittest.TestCase):
                                           (G._BLOCK, G._LAYERS[4]), (G._BLOCK, G._LAYERS[6])]))
         for record in self.engine.filters.values():
             self.assertEqual(record.flags, G._PERSISTENT)
-            self.assertEqual(record.conditions[0], (container.PACKAGE_FIELD, 13))
-            if record.action == G._BLOCK:
-                self.assertEqual(len(record.conditions), 1)
-                self.assertEqual(record.weight, 0)
+            conditions = [(record.conditions[index].field.text(), record.conditions[index].value.type)
+                          for index in range(record.count)]
+            self.assertEqual(conditions[0], (container.PACKAGE_FIELD, 13))
+            if record.action.type == G._BLOCK:
+                self.assertEqual(record.count, 1)
+                self.assertEqual(record.weight.value.u8, 0)
             else:
-                fields = {field for field, _kind in record.conditions}
+                fields = {field for field, _kind in conditions}
                 self.assertEqual(fields, {container.PACKAGE_FIELD, G._FIELDS["protocol"],
                                           G._FIELDS["remote"], G._FIELDS["remote_port"]})
-                self.assertEqual(record.weight, 15)
+                self.assertEqual(record.weight.value.u8, 15)
 
     def test_allow_replaces_previous_rules_for_the_same_package(self):
         gate = self.gate()
@@ -163,6 +183,7 @@ class GateTests(unittest.TestCase):
         gate = self.gate()
         key = str(gate._key(PACKAGE, 4, "block"))
         self.engine.filters[key] = SimpleNamespace(display=SimpleNamespace(description="other"),
+                                                   key=G._GUID.of(key), provider=None,
                                                    sublayer=G._GUID.of(gate.sublayer), flags=G._PERSISTENT)
         with self.assertRaises(policy.ProxyError):
             gate.allow(NAME, 7890)
@@ -181,6 +202,59 @@ class GateTests(unittest.TestCase):
         for metadata in ({}, {"owner_sid": "x", "root": "C:\\R"}, {"owner_sid": OWNER, "root": ""}):
             with self.assertRaises(policy.ProxyError):
                 container.ContainerGate(metadata, api=mock.Mock())
+
+    def test_profile_owner_is_verified_before_any_network_change(self):
+        gate = self.gate()
+        self.api.profiles = lambda: [(NAME, PACKAGE, OWNER + '1')]
+        with self.assertRaises(policy.ProxyError):
+            gate.allow(NAME, 7890)
+        self.assertFalse(self.engine.filters)
+        self.assertFalse(self.api.exempt)
+
+    def test_purge_recovers_orphan_filters_without_a_remaining_profile(self):
+        gate = self.gate(exempt=[OTHER])
+        gate.allow(NAME, 7890)
+        self.api.profiles = lambda: []
+        result = gate.purge()
+        self.assertEqual(result, {'active': False, 'purged_sids': [PACKAGE]})
+        self.assertEqual(self.api.exempt, [OTHER])
+        self.assertFalse(self.engine.filters)
+        self.assertEqual(gate.purge(), {'active': False, 'purged_sids': []})
+
+    def test_purge_keeps_foreign_filters_and_unproved_exemptions(self):
+        gate = self.gate(exempt=[OTHER, PACKAGE])
+        foreign = SimpleNamespace(provider=ctypes.pointer(G._GUID.of(uuid.uuid4())))
+        self.engine.filters['foreign'] = foreign
+        self.assertEqual(gate.purge(), {'active': False, 'purged_sids': []})
+        self.assertEqual(self.api.exempt, [OTHER, PACKAGE])
+        self.assertIs(self.engine.filters['foreign'], foreign)
+
+    def test_changed_own_filter_aborts_purge_before_touching_exemptions(self):
+        gate = self.gate(exempt=[OTHER])
+        gate.allow(NAME, 7890)
+        record = self.engine.filters[str(gate._key(PACKAGE, 4, 'proxy'))]
+        record.conditions[1].value.value.u8 = 17
+        before = list(self.api.exempt)
+        with self.assertRaises(policy.ProxyError):
+            gate.purge()
+        self.assertEqual(self.api.exempt, before)
+        self.assertEqual(len(self.engine.filters), 4)
+
+    def test_stuck_exemption_purge_keeps_rules_and_can_be_retried(self):
+        gate = self.gate()
+        gate.allow(NAME, 7890)
+        self.api.stuck = True
+        with self.assertRaises(policy.ProxyError):
+            gate.purge()
+        self.assertEqual(len(self.engine.filters), 4)
+        self.api.stuck = False
+        self.assertFalse(gate.purge()['active'])
+        self.assertFalse(self.engine.filters)
+
+    def test_revoke_does_not_remove_a_foreign_exemption_without_own_rules(self):
+        gate = self.gate(exempt=[PACKAGE, OTHER])
+        self.assertFalse(gate.revoke(NAME)['active'])
+        self.assertEqual(self.api.exempt, [PACKAGE, OTHER])
 
 
 class NameAndEnvironmentTests(unittest.TestCase):
@@ -201,6 +275,15 @@ class NameAndEnvironmentTests(unittest.TestCase):
             self.assertEqual(env["APPDATA"], str(Path(directory) / "APPDATA"))
             self.assertEqual(env["TEMP"], env["TMP"])
             self.assertTrue(Path(env["LOCALAPPDATA"]).is_dir())
+
+    def test_profile_candidates_require_actual_owner_name_and_derived_sid(self):
+        api = mock.Mock()
+        api.profiles.return_value = [(NAME, PACKAGE, OWNER), (NAME, OTHER, OWNER),
+                                     (NAME, PACKAGE, OWNER + '1'), ('Other', PACKAGE, OWNER)]
+        api.derive.return_value = PACKAGE
+        self.assertEqual(container.owner_profile_sids(OWNER, api=api), {PACKAGE})
+        with self.assertRaises(policy.ProxyError):
+            container.owner_profile_sids('not-a-sid', api=api)
 
 
 class RequestTests(unittest.TestCase):
@@ -223,6 +306,7 @@ class RequestTests(unittest.TestCase):
     def test_broker_dispatches_only_for_the_installed_owner(self):
         gate = mock.Mock()
         gate.allow.return_value = {"active": True}
+        gate.revoke.return_value = {"active": False}
         factory = mock.Mock(return_value=gate)
         broker = service.Broker({"root": r"C:\RuleProxy", "owner_sid": OWNER}, mock.Mock(),
                                 mock.Mock(), mock.Mock(), container_factory=factory)
@@ -231,6 +315,9 @@ class RequestTests(unittest.TestCase):
             with self.assertRaises(policy.ProxyError):
                 broker.handle(request, pid, sid)
         factory.assert_not_called()
+        broker.panel = mock.Mock(pid=101)
+        broker.core = mock.Mock(pid=102)
+        broker.port = 7890
         self.assertEqual(broker.handle(request, 101, OWNER), {"active": True})
         gate.allow.assert_called_once_with(NAME, 7890)
         broker.handle({"op": "container_revoke", "client_pid": 101, "container": NAME}, 101, OWNER)
@@ -280,6 +367,18 @@ class LaunchFlowTests(unittest.TestCase):
             self.run_flow(launch_error=OSError("denied"))
         self.assertEqual([item[0] for item in self.events][-2:], ["launch", "revoke"])
 
+    def test_failed_revoke_retains_lease_for_a_real_retry(self):
+        backend = mock.Mock()
+        backend.container_revoke.side_effect = [OSError('service unavailable'), {'active': False}]
+        lease = container.ContainerLease(backend, NAME)
+        with self.assertRaises(OSError):
+            lease.close()
+        self.assertEqual(lease.name, NAME)
+        lease.close()
+        lease.close()
+        self.assertIsNone(lease.name)
+        self.assertEqual(backend.container_revoke.call_count, 2)
+
     def test_system_program_directory_needs_no_grant(self):
         events, _result = self.run_flow(read_grant_error=True)
         self.assertIn("launch", [item[0] for item in events])
@@ -303,6 +402,55 @@ class ValidationTests(unittest.TestCase):
 
 
 class NativeBindingTests(unittest.TestCase):
+    def test_profile_enumeration_always_releases_os_memory(self):
+        api = object.__new__(container._ContainerAPI)
+        api.firewall = mock.Mock()
+        entries = (container._AppContainer * 1)()
+        entries[0].name, entries[0].sid, entries[0].user = NAME, 1, 2
+        def enumerate_profiles(_flags, count, result):
+            ctypes.cast(count, ctypes.POINTER(ctypes.c_uint32))[0] = 1
+            ctypes.cast(result, ctypes.POINTER(ctypes.POINTER(container._AppContainer)))[0] = entries
+            return 0
+        api.firewall.NetworkIsolationEnumAppContainers.side_effect = enumerate_profiles
+        api.sid_text = lambda sid: {1: PACKAGE, 2: OWNER}[sid]
+        self.assertEqual(api.profiles(), [(NAME, PACKAGE, OWNER)])
+        api.firewall.NetworkIsolationFreeAppContainers.assert_called_once()
+        api.sid_text = mock.Mock(side_effect=ValueError('invalid SID'))
+        with self.assertRaises(ValueError):
+            api.profiles()
+        self.assertEqual(api.firewall.NetworkIsolationFreeAppContainers.call_count, 2)
+
+    def native_filter_enumeration(self, count):
+        api = mock.Mock()
+        record = G._Filter()
+        entries = (ctypes.POINTER(G._Filter) * 1)(ctypes.pointer(record))
+        def create(_engine, _template, result):
+            ctypes.cast(result, ctypes.POINTER(ctypes.c_void_p))[0] = 23
+            return 0
+        def enumerate_filters(_engine, _handle, _limit, result, length):
+            ctypes.cast(length, ctypes.POINTER(ctypes.c_uint32))[0] = count
+            ctypes.cast(result, ctypes.POINTER(ctypes.POINTER(ctypes.POINTER(G._Filter))))[0] = entries
+            return 0
+        api.FwpmFilterCreateEnumHandle0.side_effect = create
+        api.FwpmFilterEnum0.side_effect = enumerate_filters
+        api.FwpmFilterDestroyEnumHandle0.return_value = 0
+        return SimpleNamespace(api=api, handle=11), entries
+
+    def test_filter_enum_releases_page_and_handle_when_consumer_stops(self):
+        engine, _entries = self.native_filter_enumeration(1)
+        iterator = container._enum_filters(engine)
+        self.assertIsInstance(next(iterator), G._Filter)
+        iterator.close()
+        engine.api.FwpmFreeMemory0.assert_called_once()
+        engine.api.FwpmFilterDestroyEnumHandle0.assert_called_once()
+
+    def test_filter_enum_rejects_oversize_page_before_dereferencing_entries(self):
+        engine, _entries = self.native_filter_enumeration(257)
+        with self.assertRaises(policy.ProxyError):
+            list(container._enum_filters(engine))
+        engine.api.FwpmFreeMemory0.assert_called_once()
+        engine.api.FwpmFilterDestroyEnumHandle0.assert_called_once()
+
     def test_contained_create_process_uses_zero_capability_attribute(self):
         with mock.patch.object(ctypes, "WinDLL", create=True) as loader:
             kernel, advapi = mock.Mock(), mock.Mock()

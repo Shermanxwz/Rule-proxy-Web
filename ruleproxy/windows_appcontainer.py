@@ -5,9 +5,8 @@ network access at all; Windows enforces that from the process token, and every
 child inherits it. The SYSTEM service then opens exactly one path for that
 package SID: TCP to 127.0.0.1/::1 on the panel's proxy port. Everything else
 from the package is hard-blocked in our own persistent WFP sublayer, so the
-result does not depend on Windows Firewall being enabled. This mirrors the
-Linux network-namespace mode: only a loopback proxy is reachable, DNS goes
-through the proxy and a stopped proxy means no network.
+result does not depend on Windows Firewall being enabled. Applications must
+support an explicit proxy; arbitrary GUI compatibility is not established.
 
 Ordering is fail-closed. ``allow`` commits the persistent filters before it
 adds the loopback exemption; ``revoke`` removes the exemption before deleting
@@ -15,6 +14,7 @@ the filters. A container with neither has no network at all.
 
 Native evidence: .github/windows_appcontainer_lab.py (Windows Server 2025),
 including with all firewall profiles disabled and after the proxy stops.
+That CLI experiment does not qualify arbitrary browsers or Windows builds.
 
 Sources checked for this implementation:
 https://learn.microsoft.com/windows/win32/secauthp/implementing-an-appcontainer
@@ -72,6 +72,21 @@ class _SidAndAttributes(C.Structure):
     _fields_ = [('sid', C.c_void_p), ('attributes', C.c_uint32)]
 
 
+class _Capabilities(C.Structure):
+    _fields_ = [('count', C.c_uint32), ('entries', C.POINTER(_SidAndAttributes))]
+
+
+class _Binaries(C.Structure):
+    _fields_ = [('count', C.c_uint32), ('entries', C.POINTER(C.c_wchar_p))]
+
+
+class _AppContainer(C.Structure):
+    _fields_ = [('sid', C.c_void_p), ('user', C.c_void_p), ('name', C.c_wchar_p),
+               ('display', C.c_wchar_p), ('description', C.c_wchar_p),
+               ('capabilities', _Capabilities), ('binaries', _Binaries),
+               ('directory', C.c_wchar_p), ('package', C.c_wchar_p)]
+
+
 class _ContainerAPI:
     """Load userenv/firewallapi only when an AppContainer is really used."""
 
@@ -95,7 +110,10 @@ class _ContainerAPI:
                 (self.firewall, 'NetworkIsolationGetAppContainerConfig',
                  [C.POINTER(U32), C.POINTER(C.POINTER(_SidAndAttributes))], U32),
                 (self.firewall, 'NetworkIsolationSetAppContainerConfig',
-                 [U32, C.POINTER(_SidAndAttributes)], U32)):
+                 [U32, C.POINTER(_SidAndAttributes)], U32),
+                (self.firewall, 'NetworkIsolationEnumAppContainers',
+                 [U32, C.POINTER(U32), C.POINTER(C.POINTER(_AppContainer))], U32),
+                (self.firewall, 'NetworkIsolationFreeAppContainers', [C.POINTER(_AppContainer)], U32)):
             function = getattr(owner, name)
             function.argtypes, function.restype = arguments, result
 
@@ -155,8 +173,10 @@ class _ContainerAPI:
         return [self.sid_text(entries[index].sid) for index in range(count.value)]
 
     def set_exemptions(self, sids):
-        owned = [self.binary_sid(sid) for sid in sids]
+        owned = []
         try:
+            for sid in sids:
+                owned.append(self.binary_sid(sid))
             array = (_SidAndAttributes * max(1, len(owned)))(*[_SidAndAttributes(sid.value, 0) for sid in owned])
             code = self.firewall.NetworkIsolationSetAppContainerConfig(len(owned), array)
             if code:
@@ -164,6 +184,20 @@ class _ContainerAPI:
         finally:
             for sid in owned:
                 self.kernel.LocalFree(sid)
+
+    def profiles(self):
+        count, entries = C.c_uint32(), C.POINTER(_AppContainer)()
+        code = self.firewall.NetworkIsolationEnumAppContainers(0, C.byref(count), C.byref(entries))
+        if code:
+            raise ProxyError('appcontainer_failed', f'无法枚举 AppContainer 配置（{code}）。')
+        try:
+            if count.value > 65536 or (count.value and not entries):
+                raise ProxyError('appcontainer_failed', 'AppContainer 配置数量异常。')
+            return [(item.name, self.sid_text(item.sid), self.sid_text(item.user))
+                    for item in (entries[index] for index in range(count.value))]
+        finally:
+            if entries:
+                self.firewall.NetworkIsolationFreeAppContainers(entries)
 
 
 _api = None
@@ -190,6 +224,24 @@ def ensure_profile(name: str) -> str:
 
 def delete_profile(name: str) -> None:
     _get_api().delete(_check_name(name))
+
+
+def owner_profile_sids(owner_sid: str, *, api=None) -> set[str]:
+    """Return OS profiles whose actual owner, name and derived SID agree.
+
+    These are candidates, not proof that this installation owns a WFP rule or
+    exemption. Cleanup must additionally verify its installation marker.
+    """
+    if not isinstance(owner_sid, str) or not SID_RE.fullmatch(owner_sid):
+        raise ProxyError('invalid_deployment', 'AppContainer 配置所有者无效。')
+    api = api or _get_api()
+    result = set()
+    for name, sid, owner in api.profiles():
+        if (owner == owner_sid and isinstance(name, str) and NAME_RE.fullmatch(name)
+                and isinstance(sid, str) and PACKAGE_SID_RE.fullmatch(sid)
+                and api.derive(name) == sid):
+            result.add(sid)
+    return result
 
 
 def grant_access(sid: str, path: Path, *, write: bool) -> None:
@@ -227,6 +279,44 @@ def container_environment(env: dict[str, str], data: Path) -> dict[str, str]:
     return result
 
 
+def _enum_filters(engine):
+    """Yield native filters while their OS allocation is alive; always free it."""
+    from . import windows_global_guard as G
+    P, U32 = C.c_void_p, C.c_uint32
+    signatures = {
+        'FwpmFilterCreateEnumHandle0': ([P, P, C.POINTER(P)], U32),
+        'FwpmFilterEnum0': ([P, P, U32, C.POINTER(C.POINTER(C.POINTER(G._Filter))), C.POINTER(U32)], U32),
+        'FwpmFilterDestroyEnumHandle0': ([P, P], U32),
+    }
+    for name, (arguments, result) in signatures.items():
+        function = getattr(engine.api, name)
+        function.argtypes, function.restype = arguments, result
+    handle = P()
+    G._error(engine.api.FwpmFilterCreateEnumHandle0(engine.handle, None, C.byref(handle)), '枚举隔离规则')
+    try:
+        total = 0
+        while True:
+            entries, count = C.POINTER(C.POINTER(G._Filter))(), U32()
+            G._error(engine.api.FwpmFilterEnum0(engine.handle, handle, 256, C.byref(entries), C.byref(count)),
+                     '读取隔离规则列表')
+            try:
+                total += count.value
+                if count.value > 256 or total > 65536 or (count.value and not entries):
+                    raise ProxyError('appcontainer_failed', 'WFP 规则枚举超过安全上限。')
+                for index in range(count.value):
+                    if not entries[index]:
+                        raise ProxyError('appcontainer_failed', 'WFP 规则枚举含空指针。')
+                    yield entries[index].contents
+                if count.value < 256:
+                    break
+            finally:
+                if entries:
+                    pointer = C.cast(entries, P)
+                    engine.api.FwpmFreeMemory0(C.byref(pointer))
+    finally:
+        engine.api.FwpmFilterDestroyEnumHandle0(engine.handle, handle)
+
+
 # ---------------------------------------------------------------- SYSTEM service side
 
 class ContainerGate:
@@ -242,6 +332,7 @@ class ContainerGate:
         self.provider = uuid.uuid5(_NAMESPACE, self.identity + '/provider')
         self.sublayer = uuid.uuid5(_NAMESPACE, self.identity + '/sublayer')
         self.marker = 'RuleProxyAppContainer-v1:' + self.identity
+        self.owner_sid = metadata['owner_sid']
         self._api = api
         self._engine_factory = engine_factory
         self.lock = threading.RLock()
@@ -296,11 +387,70 @@ class ContainerGate:
             with engine.get('Filter', self._key(sid, family, name), G._Filter) as value:
                 if value is None:
                     continue
-                if (value.display.description != self.marker or value.sublayer.text() != str(self.sublayer)
-                        or (value.flags & ~G._INDEXED) != G._PERSISTENT):
-                    raise ProxyError('appcontainer_conflict', '自有 AppContainer 规则身份冲突。')
+                self._validate_filter(value, sid, family, name)
                 found.append((family, name))
         return found
+
+    def _validate_filter(self, value, sid, family, name):
+        from . import windows_global_guard as G
+        valid = (value.key.text() == str(self._key(sid, family, name))
+                 and value.display.description == self.marker
+                 and value.provider and value.provider.contents.text() == str(self.provider)
+                 and value.sublayer.text() == str(self.sublayer)
+                 and value.layer.text() == G._LAYERS[family]
+                 and (value.flags & ~G._INDEXED) == G._PERSISTENT
+                 and value.weight.type == 1 and value.weight.value.u8 == (15 if name == 'proxy' else 0)
+                 and value.action.type == (G._PERMIT if name == 'proxy' else G._BLOCK)
+                 and value.count == (4 if name == 'proxy' else 1) and value.conditions)
+        if not valid:
+            raise ProxyError('appcontainer_conflict', '自有 AppContainer 规则身份冲突。')
+        fields = {}
+        for index in range(value.count):
+            condition = value.conditions[index]
+            key = condition.field.text()
+            if condition.match != 0 or key in fields:
+                raise ProxyError('appcontainer_conflict', '自有 AppContainer 条件已改变。')
+            if key == PACKAGE_FIELD:
+                if condition.value.type != _FWP_SID or not condition.value.value.pointer:
+                    raise ProxyError('appcontainer_conflict', '自有 AppContainer 包身份已改变。')
+                fields[key] = self.api.sid_text(condition.value.value.pointer)
+            else:
+                fields[key] = (condition.value.type, G._data(condition.value))
+        expected = {PACKAGE_FIELD: sid}
+        if name == 'proxy':
+            port = fields.get(G._FIELDS['remote_port'])
+            if not port or port[0] != 2 or type(port[1]) is not int or not 1025 <= port[1] <= 65535:
+                raise ProxyError('appcontainer_conflict', '自有 AppContainer 代理端口已改变。')
+            expected.update({G._FIELDS['protocol']: (1, 6), G._FIELDS['remote_port']: port,
+                             G._FIELDS['remote']: ((3, 0x7F000001) if family == 4 else
+                                                  (11, ipaddress.IPv6Address('::1').packed))})
+        if fields != expected:
+            raise ProxyError('appcontainer_conflict', '自有 AppContainer 条件已改变。')
+
+    def _owned_sids(self, engine):
+        """Discover only exact installation-owned filters, including orphan SIDs."""
+        from . import windows_global_guard as G
+        result = set()
+        for value in _enum_filters(engine):
+            if not value.provider or value.provider.contents.text() != str(self.provider):
+                continue
+            if value.count > 16 or not value.conditions:
+                raise ProxyError('appcontainer_conflict', '自有 AppContainer 规则无法安全识别。')
+            packages = [value.conditions[index] for index in range(value.count)
+                        if value.conditions[index].field.text() == PACKAGE_FIELD]
+            if (len(packages) != 1 or packages[0].value.type != _FWP_SID
+                    or not packages[0].value.value.pointer):
+                raise ProxyError('appcontainer_conflict', '自有 AppContainer 规则缺少包身份。')
+            sid = self.api.sid_text(packages[0].value.value.pointer)
+            if not isinstance(sid, str) or not PACKAGE_SID_RE.fullmatch(sid):
+                raise ProxyError('appcontainer_conflict', '自有 AppContainer 包身份异常。')
+            matches = [(family, name) for family, name in _RULES
+                       if value.key.text() == str(self._key(sid, family, name))]
+            if len(matches) != 1:
+                raise ProxyError('appcontainer_conflict', '自有 AppContainer 规则键已改变。')
+            self._validate_filter(value, sid, *matches[0])
+            result.add(sid)
+        return result
 
     def _delete(self, engine, sid):
         from . import windows_global_guard as G
@@ -337,6 +487,8 @@ class ContainerGate:
         port = _check_port(proxy_port)
         with self.lock:
             sid = self._sid(name)
+            if sid not in owner_profile_sids(self.owner_sid, api=self.api):
+                raise ProxyError('access_denied', 'AppContainer 配置不属于安装用户。')
             binary = self.api.binary_sid(sid)
             try:
                 with self._engine() as engine:
@@ -360,6 +512,15 @@ class ContainerGate:
         """Exemption first (back to no network at all), then the filters."""
         with self.lock:
             sid = self._sid(name)
+            with self._engine() as engine:
+                present = self._present(engine, sid)
+            if not present:
+                return {'container': name, 'sid': sid, 'active': False}
+            self._revoke_sid(sid)
+            return {'container': name, 'sid': sid, 'active': False}
+
+    def _revoke_sid(self, sid):
+        with self.lock:
             current = self.api.exemptions()
             if sid in current:
                 self.api.set_exemptions([item for item in current if item != sid])
@@ -368,7 +529,23 @@ class ContainerGate:
             with self._engine() as engine:
                 with engine.transaction():
                     self._delete(engine, sid)
-            return {'container': name, 'sid': sid, 'active': False}
+                if self._present(engine, sid):
+                    raise ProxyError('appcontainer_failed', 'AppContainer 规则清理未能确认。')
+
+    def purge(self) -> dict:
+        """Recover this installation's orphan gates; never adopt a prefix alone."""
+        with self.lock:
+            with self._engine() as engine:
+                sids = self._owned_sids(engine)
+                # Validate all discovered rules before changing any exemptions.
+                for sid in sids:
+                    self._present(engine, sid)
+            for sid in sorted(sids):
+                self._revoke_sid(sid)
+            with self._engine() as engine:
+                if self._owned_sids(engine):
+                    raise ProxyError('appcontainer_failed', 'AppContainer 遗留规则尚未清理完成。')
+            return {'active': False, 'purged_sids': sorted(sids)}
 
 
 # ---------------------------------------------------------------- panel launch flow
@@ -380,9 +557,9 @@ class ContainerLease:
         self.backend, self.name = backend, name
 
     def close(self):
-        name, self.name = self.name, None
-        if name:
-            self.backend.container_revoke(name)
+        if self.name:
+            self.backend.container_revoke(self.name)
+            self.name = None
 
 
 def start_contained(backend, ident, command, env, *, profile: Path, proxy_port: int, launch):

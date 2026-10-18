@@ -137,6 +137,104 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(result["state"], "setup_required")
         self.assertFalse(result["strict_isolation"])
 
+    def container_gate(self):
+        gate = mock.Mock()
+        gate.allow.return_value = {'active': True}
+        gate.revoke.return_value = {'active': False}
+        gate.purge.return_value = {'active': False, 'purged_sids': []}
+        self.broker.container_factory = mock.Mock(return_value=gate)
+        return gate
+
+    def allow_container(self, **fields):
+        return self.handle('container_allow', container='RuleProxy.' + 'a' * 20,
+                           proxy_port=fields.pop('proxy_port', 10809), **fields)
+
+    def test_container_allow_requires_the_held_panel_and_core_port(self):
+        gate = self.container_gate()
+        with self.assertRaises(policy.ProxyError):
+            self.allow_container()
+        gate.allow.assert_not_called()
+        self.handle()
+        with self.assertRaises(policy.ProxyError):
+            self.allow_container(proxy_port=10810)
+        request = self.request('container_allow', client_pid=222,
+                               container='RuleProxy.' + 'a' * 20, proxy_port=10809)
+        with self.assertRaises(policy.ProxyError):
+            self.broker.handle(request, 222, self.sid)
+        gate.allow.assert_not_called()
+        self.allow_container()
+        self.assertEqual(self.broker.snapshot()['container_count'], 1)
+
+    def test_dead_owner_purges_containers_before_releasing_held_processes(self):
+        gate = self.container_gate()
+        self.handle()
+        self.allow_container()
+        gate.purge.side_effect = lambda: (self.assertFalse(self.broker.panel.closed)
+                                          or {'active': False, 'purged_sids': []})
+        self.broker.panel.live = False
+        self.broker.check_lease()
+        gate.purge.assert_called_once()
+        self.assertEqual(self.control.state, 1)
+        self.assertEqual(self.broker.snapshot()['container_count'], 0)
+
+    def test_failed_allow_retains_cleanup_intent_until_confirmed_purge(self):
+        gate = self.container_gate()
+        self.handle()
+        gate.allow.side_effect = OSError('readback failed after commit')
+        with self.assertRaises(OSError):
+            self.allow_container()
+        self.assertEqual(len(self.broker.containers), 1)
+        self.handle('stop')
+        gate.purge.assert_called_once()
+        self.assertFalse(self.broker.containers)
+
+    def test_failed_purge_preserves_owner_and_retries_on_next_watch(self):
+        gate = self.container_gate()
+        self.handle()
+        self.allow_container()
+        self.broker.panel.live = False
+        gate.purge.side_effect = [OSError('temporary WFP failure'), {'active': False}]
+        with mock.patch.object(service, '_log_service_error'):
+            self.broker.check_lease()
+        self.assertIsNotNone(self.broker.panel)
+        self.assertEqual(len(self.broker.containers), 1)
+        self.assertTrue(self.broker.snapshot()['cleanup_pending'])
+        self.broker.check_lease()
+        self.assertIsNone(self.broker.panel)
+        self.assertFalse(self.broker.containers)
+        self.assertEqual(gate.purge.call_count, 2)
+
+    def test_failed_revoke_keeps_broker_intent_and_can_be_retried(self):
+        gate = self.container_gate()
+        self.handle()
+        self.allow_container()
+        gate.revoke.side_effect = [OSError('temporary IPC failure'), {'active': False}]
+        fields = {'container': 'RuleProxy.' + 'a' * 20}
+        with self.assertRaises(OSError):
+            self.handle('container_revoke', **fields)
+        self.assertEqual(len(self.broker.containers), 1)
+        self.handle('container_revoke', **fields)
+        self.assertFalse(self.broker.containers)
+
+    def test_restart_recovery_and_ownerless_shutdown_require_confirmed_purge(self):
+        gate = self.container_gate()
+        self.broker.recover_containers()
+        self.broker.containers.add('RuleProxy.' + 'a' * 20)
+        self.broker.shutdown()
+        self.assertEqual(gate.purge.call_count, 2)
+        self.assertFalse(self.broker.containers)
+        gate.purge.return_value = {'active': True}
+        with self.assertRaises(policy.ProxyError):
+            self.broker.recover_containers()
+
+    def test_replacing_proxy_port_revokes_old_container_permissions(self):
+        gate = self.container_gate()
+        self.handle()
+        self.allow_container()
+        self.handle(proxy_port=10810)
+        gate.purge.assert_called_once()
+        self.assertFalse(self.broker.containers)
+
 
 class ServiceConfigurationTests(unittest.TestCase):
     def test_scm_configuration_query_never_exceeds_native_eight_kib_limit(self):

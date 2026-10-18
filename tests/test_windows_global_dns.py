@@ -273,17 +273,20 @@ class UninstallRecoveryCodeTests(unittest.TestCase):
             events.append("guard")
             return {"supported": True, "active": False}
         owned_guard.normal_stop.side_effect = restore_guard
+        gate = mock.Mock()
+        gate.purge.side_effect = lambda: events.append("containers") or {"active": False, "purged_sids": []}
         with mock.patch.object(sys, "argv", ["restore", str(ROOT)]), \
                 mock.patch.object(service, "load_deployment", return_value=metadata or METADATA), \
                 mock.patch.object(service, "ServiceControl", return_value=control), \
                 mock.patch.object(dns, "DnsLease", return_value=lease), \
                 mock.patch.object(guard, "Guard", return_value=owned_guard), \
+                mock.patch("ruleproxy.windows_appcontainer.ContainerGate", return_value=gate), \
                 mock.patch("builtins.print"):
             exec(compile(self.code, "<fixed-uninstall-global-restore>", "exec"), {})
         return events
 
     def test_actual_admin_restore_code_restores_dns_before_releasing_guard(self):
-        self.assertEqual(self.run_recovery(), ["dns", "guard"])
+        self.assertEqual(self.run_recovery(), ["dns", "guard", "containers"])
 
     def test_running_service_is_rejected_before_any_restore(self):
         with self.assertRaises(RuntimeError):
@@ -297,7 +300,7 @@ class UninstallRecoveryCodeTests(unittest.TestCase):
                 self.run_recovery(dns_result=result, dns_error=error)
 
     def test_legacy_non_global_install_does_not_invent_a_dns_lease(self):
-        self.assertEqual(self.run_recovery(metadata={**METADATA, "global_backend_version": None}), [])
+        self.assertEqual(self.run_recovery(metadata={**METADATA, "global_backend_version": None}), ["containers"])
 
 
 @unittest.skipUnless(os.name == "nt", "requires native PowerShell parser; performs no DNS mutations")

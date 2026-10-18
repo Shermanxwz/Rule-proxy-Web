@@ -877,6 +877,7 @@ class Broker:
         self.global_panel = None
         self.container_factory = container_factory
         self.container_gate = None
+        self.containers = set()
 
     def _containers(self):
         if self.container_gate is None:
@@ -885,6 +886,21 @@ class Broker:
                 self.container_factory = ContainerGate
             self.container_gate = self.container_factory(self.metadata)
         return self.container_gate
+
+    def recover_containers(self):
+        """Before accepting clients, revoke gates left by an earlier service."""
+        result = self._containers().purge()
+        if not isinstance(result, dict) or result.get('active') is not False:
+            raise ProxyError('cleanup_incomplete', 'AppContainer 遗留规则恢复未能确认。')
+        self.containers.clear()
+        return result
+
+    def _purge_containers(self):
+        if self.container_gate is not None:
+            result = self.container_gate.purge()
+            if not isinstance(result, dict) or result.get('active') is not False:
+                raise ProxyError('cleanup_incomplete', 'AppContainer 清理未能确认。')
+        self.containers.clear()
 
     def _global(self):
         if self.global_core is None:
@@ -910,7 +926,8 @@ class Broker:
             "engine_running": engine_running, "generation": self.generation,
             "owner_pid": self.panel.pid if self.panel else None, "path_count": len(self.paths),
             "proxy_port": self.port, "limitations": list(policy.LIMITATIONS), "error": self.error,
-            "global_active": global_active}
+            "global_active": global_active, "container_count": len(self.containers),
+            "cleanup_pending": self.error is not None and self.error.get('code') == 'cleanup_incomplete'}
 
     def _clear(self):
         for process in (self.panel, self.core):
@@ -920,6 +937,7 @@ class Broker:
         self.paths, self.port = [], None
 
     def stop(self):
+        self._purge_containers()
         result = self.control.set_running(False)
         self._clear()
         self.error = None
@@ -951,6 +969,8 @@ class Broker:
         with self.lock:
             if self.panel is not None:
                 self.stop()
+            else:
+                self._purge_containers()
             if self.global_core is not None:
                 self.global_core.stop(normal=False)
             if self.global_panel is not None:
@@ -985,12 +1005,30 @@ class Broker:
             if caller_sid != self.metadata["owner_sid"] or request["client_pid"] != caller_pid:
                 raise ProxyError("access_denied", "控制请求身份不匹配。")
             self.check_lease()
-            # Per-app AppContainer gates are independent of the ProxiFyre and
-            # global modes: they only ever narrow one owned package SID.
+            # A container gate belongs to the same held panel/core lease as the
+            # path policy. An arbitrary same-user pipe client cannot choose a
+            # different port or silently replace another panel's gates.
             if request["op"] == "container_allow":
-                return self._containers().allow(request["container"], request["proxy_port"])
+                if (self.panel is None or self.core is None or self.panel.pid != caller_pid
+                        or not self.panel.alive() or not self.core.alive()
+                        or request['proxy_port'] != self.port):
+                    raise ProxyError('instance_conflict', 'AppContainer 必须使用当前面板持有的核心和代理端口。')
+                name = request['container']
+                # Retain intent even if allow fails after committing persistent
+                # filters; explicit stop/dead-owner cleanup must still recover.
+                self.containers.add(name)
+                result = self._containers().allow(name, request["proxy_port"])
+                if not isinstance(result, dict) or result.get('active') is not True:
+                    raise ProxyError('appcontainer_failed', 'AppContainer 授权未能确认。')
+                return result
             if request["op"] == "container_revoke":
-                return self._containers().revoke(request["container"])
+                if self.panel is not None and self.panel.pid != caller_pid:
+                    raise ProxyError('instance_conflict', '另一面板正在管理 Windows 代理。')
+                result = self._containers().revoke(request["container"])
+                if not isinstance(result, dict) or result.get('active') is not False:
+                    raise ProxyError('cleanup_incomplete', 'AppContainer 撤销未能确认。')
+                self.containers.discard(request['container'])
+                return result
             if request["op"] in {"global_status", "global_start", "global_stop", "global_select_node"}:
                 return self._global_handle(request, caller_pid, caller_sid)
             if request["op"] == "status":
@@ -999,6 +1037,7 @@ class Broker:
                 raise ProxyError("instance_conflict", "另一面板正在管理 Windows 代理。")
             if request["op"] == "stop":
                 if self.panel is None:
+                    self._purge_containers()
                     return {"stopped": True, "not_owned": True, "generation": self.generation}
                 return self.stop()
             if self._global_active():
@@ -1021,6 +1060,9 @@ class Broker:
                 expected_core = Path(self.metadata["root"]) / "bin/windows-amd64/mihomo.exe"
                 if os.path.normcase(core.image_path()) != os.path.normcase(str(expected_core)):
                     raise ProxyError("invalid_process", "必须使用安装包内的 Mihomo 核心。")
+                if self.containers and (self.port != request['proxy_port']
+                        or self.core is None or self.core.pid != request['mihomo_pid']):
+                    self._purge_containers()
                 self.control.verify(self.metadata)
                 config = Path(self.metadata["proxifyre_root"]) / "app-config.json"
                 old = config.read_bytes() if config.is_file() else None
@@ -1254,6 +1296,7 @@ def service_main():
             control = ServiceControl()
             control.verify(metadata)
             broker = Broker(metadata, control)
+            broker.recover_containers()
             report(4)
             serve(broker, stopping)
             report(1)

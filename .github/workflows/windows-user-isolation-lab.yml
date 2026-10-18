@@ -1,0 +1,34 @@
+name: Windows dedicated-user isolation falsification lab
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/windows-finish-*']
+    paths:
+      - '.github/windows_user_isolation_lab.py'
+      - '.github/workflows/windows-user-isolation-lab.yml'
+      - 'tests/test_windows_user_isolation_lab.py'
+
+permissions:
+  contents: read
+
+jobs:
+  user-isolation:
+    name: Disposable Server user-SID socket and DNS experiment
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Run one bounded user-isolation experiment
+        timeout-minutes: 7
+        run: python -B .github/windows_user_isolation_lab.py --work 'C:\RuleProxyUserIsolationLab'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-user-isolation-lab
+          path: C:\RuleProxyUserIsolationLab\report.json
+          if-no-files-found: warn

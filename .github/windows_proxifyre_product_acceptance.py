@@ -40,6 +40,156 @@ import zipfile
 LAB = Path(r"C:\RuleProxyProduct")
 INSTALLED = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "RuleProxy-Web"
 
+# Standalone, checked fixture code. It deliberately imports no checkout or
+# installed product module inside the restricted token.
+APPCONTAINER_ACTOR = r'''
+import ctypes as C
+import json, os, subprocess, sys, time, urllib.request
+from pathlib import Path
+
+def identity():
+    advapi, kernel = C.WinDLL('advapi32', use_last_error=True), C.WinDLL('kernel32', use_last_error=True)
+    P, U = C.c_void_p, C.c_uint32
+    kernel.GetCurrentProcess.restype = P
+    kernel.CloseHandle.argtypes = [P]
+    kernel.LocalFree.argtypes = [P]
+    advapi.OpenProcessToken.argtypes = [P, U, C.POINTER(P)]
+    advapi.GetTokenInformation.argtypes = [P, C.c_int, P, U, C.POINTER(U)]
+    advapi.ConvertSidToStringSidW.argtypes = [P, C.POINTER(C.c_wchar_p)]
+    token = P()
+    if not advapi.OpenProcessToken(kernel.GetCurrentProcess(), 8, C.byref(token)):
+        raise C.WinError(C.get_last_error())
+    def information(kind):
+        size = U()
+        advapi.GetTokenInformation(token, kind, None, 0, C.byref(size))
+        if not 0 < size.value <= 65536: raise RuntimeError('invalid token buffer size')
+        buffer = C.create_string_buffer(size.value)
+        if not advapi.GetTokenInformation(token, kind, buffer, len(buffer), C.byref(size)):
+            raise C.WinError(C.get_last_error())
+        return buffer
+    def sid(kind):
+        buffer = information(kind)
+        pointer = C.cast(buffer, C.POINTER(P))[0]
+        text = C.c_wchar_p()
+        if not pointer or not advapi.ConvertSidToStringSidW(pointer, C.byref(text)):
+            raise C.WinError(C.get_last_error())
+        try: return text.value
+        finally: kernel.LocalFree(C.cast(text, P))
+    def integer(kind): return C.cast(information(kind), C.POINTER(U))[0]
+    try:
+        return {'sid': sid(1), 'elevated': bool(integer(20)), 'is_appcontainer': bool(integer(29)),
+                'package_sid': sid(31), 'capability_count': int(integer(30)),
+                'pid': os.getpid(), 'ppid': os.getppid(), 'executable': sys.executable}
+    finally: kernel.CloseHandle(token)
+
+config = json.loads(Path(sys.argv[1]).read_text(encoding='ascii'))
+role = sys.argv[2]
+out = identity()
+try:
+    proxy = 'http://127.0.0.1:' + str(config['proxy_port'])
+    expected = {'HTTP_PROXY': proxy, 'HTTPS_PROXY': proxy, 'ALL_PROXY': proxy,
+                'NO_PROXY': 'localhost,127.0.0.1,::1', 'NODE_USE_ENV_PROXY': '1'}
+    out['proxy_environment'] = {key: value for key, value in os.environ.items()
+                               if key.lower().endswith('_proxy') or key == 'NODE_USE_ENV_PROXY'}
+    if out['proxy_environment'] != expected: raise RuntimeError('unexpected proxy environment')
+    target = 'http://1.1.1.1/ruleproxy-compare/' + config['nonce'] + '/' + config['token'] + '/' + role
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({'http': proxy}))
+    with opener.open(target, timeout=8) as response:
+        if response.status != 200: raise RuntimeError('unexpected controlled response status')
+        out['response'] = json.loads(response.read(4096).decode('ascii'))
+    out['target'] = target
+    if role == 'child':
+        process = subprocess.run([sys.executable, '-I', '-S', __file__, sys.argv[1], 'grandchild'],
+                                 capture_output=True, timeout=15)
+        out['grandchild_exit_code'] = process.returncode
+        if process.returncode != 0: raise RuntimeError('grandchild failed: ' + repr(process.stderr[-2048:]))
+        out['grandchild'] = json.loads(process.stdout.decode('ascii'))
+except Exception as error:
+    out['error'] = type(error).__name__ + ': ' + str(error)
+if role == 'grandchild':
+    print(json.dumps(out), flush=True)
+    raise SystemExit(1 if 'error' in out else 0)
+Path(config['report']).write_text(json.dumps(out), encoding='ascii')
+if 'error' in out: raise SystemExit(1)
+deadline = time.monotonic() + 60
+while time.monotonic() < deadline: time.sleep(.2)
+raise SystemExit(2)
+'''
+
+
+def appcontainer_pipe_receipt_valid(receipt, *, owner_sid, package_sid, panel_pid, launched_pid,
+                                   executable, nonce, marker, proxy_port):
+    """Validate actual child tokens and responses; receiver proof is separate."""
+    try:
+        if (not isinstance(package_sid, str) or re.fullmatch(r'S-1-15-2(?:-[0-9]{1,10}){7}', package_sid) is None
+                or not isinstance(nonce, str) or re.fullmatch('[0-9a-f]{32}', nonce) is None
+                or not isinstance(marker, str) or re.fullmatch('[0-9a-f]{16}', marker) is None
+                or type(proxy_port) is not int or not 1025 <= proxy_port <= 65535):
+            return False
+        child, grandchild = receipt, receipt['grandchild']
+        expected_environment = {key: f'http://127.0.0.1:{proxy_port}' for key in
+                                ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY')}
+        expected_environment.update(NO_PROXY='localhost,127.0.0.1,::1', NODE_USE_ENV_PROXY='1')
+        if (type(panel_pid) is not int or panel_pid <= 0 or type(launched_pid) is not int or launched_pid <= 0
+                or child['pid'] != launched_pid or child['ppid'] != panel_pid
+                or grandchild['ppid'] != launched_pid or type(child.get('grandchild_exit_code')) is not int
+                or child['grandchild_exit_code'] != 0):
+            return False
+        pids = {panel_pid}
+        for role, actor in (('child', child), ('grandchild', grandchild)):
+            if (actor.get('error') or actor.get('sid') != owner_sid or actor.get('elevated') is not False
+                    or actor.get('is_appcontainer') is not True or actor.get('package_sid') != package_sid
+                    or type(actor.get('capability_count')) is not int or actor['capability_count'] != 0
+                    or type(actor.get('pid')) is not int or actor['pid'] <= 0 or actor['pid'] in pids
+                    or type(actor.get('ppid')) is not int
+                    or os.path.normcase(actor['executable']) != os.path.normcase(str(executable))
+                    or actor.get('proxy_environment') != expected_environment):
+                return False
+            pids.add(actor['pid'])
+            path = f'/ruleproxy-compare/{nonce}/{marker}/{role}'
+            if (actor.get('target') != 'http://1.1.1.1' + path
+                    or actor.get('response') != {'node': 'B', 'nonce': nonce, 'request_target': path,
+                                                  'origin_kind': 'controlled_synthetic_stub'}):
+                return False
+        return True
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return False
+
+
+def inspect_appcontainer_gate(app_id, owner_sid):
+    """Controller-only readback of this installation's exact package rules."""
+    if not isinstance(app_id, str) or re.fullmatch('[0-9a-f]{32}', app_id) is None:
+        raise ValueError('Invalid contained test app id')
+    sys.path.insert(0, str(INSTALLED))
+    from ruleproxy.windows_appcontainer import ContainerGate, container_name
+    from ruleproxy.windows_proxy_service import load_deployment
+    metadata = load_deployment(INSTALLED)
+    if metadata['owner_sid'] != owner_sid:
+        raise RuntimeError('Installed container owner changed')
+    gate = ContainerGate(metadata)
+    name = container_name(app_id)
+    sid = gate._sid(name)
+    with gate._engine() as engine:
+        present = gate._present(engine, sid)
+    return {'container': name, 'sid': sid, 'filter_count': len(present),
+            'loopback_exempt': sid in gate.api.exemptions()}
+
+
+def appcontainer_gate_readbacks_valid(facts):
+    try:
+        name = 'RuleProxy.' + hashlib.sha256(('appcontainer\0' + facts['app_id']).encode()).hexdigest()[:20]
+        if re.fullmatch('[0-9a-f]{32}', facts['app_id']) is None:
+            return False
+        for label, count, exempt in (('active_gate', 4, True), ('revoked_gate', 0, False)):
+            value = facts[label]
+            if (value.get('container') != name or value.get('sid') != facts['package_sid']
+                    or type(value.get('filter_count')) is not int or value['filter_count'] != count
+                    or value.get('loopback_exempt') is not exempt):
+                return False
+        return True
+    except (KeyError, TypeError, AttributeError):
+        return False
+
 
 def write(path, value, *, replace_timeout=2.0):
     path = Path(path)
@@ -183,6 +333,19 @@ def receiver_evidence(phases, snapshot):
                          "attempts": attempts, "receiver_node_counts": counts,
                          "matching_receiver_transactions": matches, "passed": bool(ok and attempts)})
     return verified
+
+
+def appcontainer_receiver_evidence(facts, snapshot):
+    """Both descendants need their own completed independent HTTP response."""
+    result = []
+    for role in ('child', 'grandchild'):
+        path = f'/ruleproxy-compare/{facts["nonce"]}/{facts["marker"]}/{role}'
+        matches = [row for row in snapshot['transactions']
+                   if row.get('request_target') == path and row.get('protocol') == 'tcp_http_response'
+                   and row.get('evidence_role') == 'actor' and row.get('response_complete') is True]
+        result.append({'role': role, 'request_target': path, 'transactions': matches,
+                       'passed': bool(matches) and all(row.get('node') == 'B' for row in matches)})
+    return result
 
 
 def native_proxy_receipt_valid(receipt, owner_sid, installed_root):
@@ -644,6 +807,57 @@ def ordinary_suite(spec_path, result_path):
         holder = wait_for(lambda: json.loads(report.read_text()) if report.is_file() else None)
         check("holder_ordinary", holder.get("is_elevated") is False and holder["pid"] == value["pid"])
         return holder
+    def appcontainer_phase():
+        from ruleproxy.windows_appcontainer import container_name, ensure_profile, grant_access
+        work = LAB / 'actors/appcontainer'
+        work.mkdir()
+        actor, configuration, report_path = work / 'actor.py', work / 'config.json', work / 'result.json'
+        actor.write_bytes(APPCONTAINER_ACTOR.encode('ascii'))
+        actor_hash = hashlib.sha256(APPCONTAINER_ACTOR.encode('ascii')).hexdigest()
+        if digest(actor) != spec['appcontainer_actor_sha256'] or digest(actor) != actor_hash:
+            raise RuntimeError('Contained fixture actor differs from checked source')
+        marker = secrets.token_hex(8)
+        executable = LAB / 'runtime/contained.exe'
+        write(configuration, {'nonce': spec['nonce'], 'token': marker, 'proxy_port': spec['proxy_port'],
+                              'report': str(report_path)})
+        state = api('/api/apps', {'label': 'AppContainer CLI pipe fixture', 'path': str(executable),
+                    'adapter': 'environment', 'args': ['-I', '-S', str(actor), str(configuration), 'child'],
+                    'windows_container': True})
+        app = next(item for item in state['apps'] if os.path.normcase(item['path']) == os.path.normcase(str(executable)))
+        package_sid = ensure_profile(container_name(app['id']))
+        # The actor/report directory belongs only to this disposable fixture;
+        # product launch still grants and uses its own independent app profile.
+        grant_access(package_sid, work, write=True)
+        facts = result['appcontainer_pipe'] = {'scope': 'ordinary_web_panel_system_service_cli_only',
+            'app_id': app['id'], 'package_sid': package_sid, 'nonce': spec['nonce'], 'marker': marker,
+            'actor_sha256': actor_hash, 'executable': str(executable), 'panel_pid': panel.pid,
+            'browser_compatible': False, 'windows_11_qualified': False, 'strict_qualified': False}
+        try:
+            launched = api('/api/apps/' + app['id'] + '/launch', {})
+            facts['launched_pid'] = launched['pid']
+            facts['receipt'] = wait_for(lambda: json.loads(report_path.read_text(encoding='ascii'))
+                                        if report_path.is_file() else None, timeout=35)
+            check('appcontainer_actual_ordinary_child_and_grandchild', appcontainer_pipe_receipt_valid(
+                facts['receipt'], owner_sid=spec['owner_sid'], package_sid=package_sid,
+                panel_pid=panel.pid, launched_pid=launched['pid'], executable=executable,
+                nonce=spec['nonce'], marker=marker, proxy_port=spec['proxy_port']))
+            inspection = action('inspect_contained_gate', app_id=app['id'])
+            facts['active_gate'] = inspection.get('evidence')
+            check('appcontainer_active_gate_readback', inspection['ok'] and facts['active_gate'] == {
+                'container': container_name(app['id']), 'sid': package_sid, 'filter_count': 4,
+                'loopback_exempt': True})
+            api('/api/apps/' + app['id'] + '/stop', {})
+            check('appcontainer_stop_closes_job', wait_for(lambda: not alive(launched['pid']) and
+                  not alive(facts['receipt']['grandchild']['pid'])))
+            inspection = action('inspect_contained_gate', app_id=app['id'])
+            facts['revoked_gate'] = inspection.get('evidence')
+            check('appcontainer_revoke_readback', inspection['ok'] and facts['revoked_gate'] == {
+                'container': container_name(app['id']), 'sid': package_sid, 'filter_count': 0,
+                'loopback_exempt': False})
+            facts['local_checks_passed'] = True
+        finally:
+            api('/api/apps/' + app['id'] + '/stop', {})
+            api('/api/apps/' + app['id'], method='DELETE')
     def browser_phase():
         candidates = [Path(os.environ.get(name, r"C:\Program Files")) /
                       "Microsoft/Edge/Application/msedge.exe" for name in ("ProgramFiles(x86)", "ProgramFiles")]
@@ -827,12 +1041,14 @@ def ordinary_suite(spec_path, result_path):
         check("panel_crash_stops_engine", action("wait_engine_stopped")["ok"])
         check("panel_crash_closes_owned_core", action("wait_core_stopped")["ok"])
         panel = start_panel()
+        result['restarted_panel_pid'] = panel.pid
         state = api()
         token = state["token"]
         check("saved_state_preserved", state["imported"] and len(state["apps"]) == 1 and
               state["apps"][0].get("related_paths") == selected["related_paths"])
         api("/api/start", {})
         phase("restart_saved_node", node="B")
+        appcontainer_phase()
         browser_phase()
         if spec.get("visible_gui_required"):
             visible_browser_phase()
@@ -862,6 +1078,7 @@ def controller(package_dir, output):
     report = {"schema_version": 1, "status": "running", "qualification_scope": "Windows installed product from final offline ZIP; see actual_os",
         "windows_11_verified": False, "gui_verified": False, "product_release_eligible": False,
         "headless_browser_verified": False,
+        "appcontainer_cli_pipe_verified": False,
         "checks": {}, "installations": [], "actions": []}
     report_path = output / "product-report.json"
     hosts_path = Path(os.environ["SystemRoot"]) / "System32/drivers/etc/hosts"
@@ -894,7 +1111,7 @@ def controller(package_dir, output):
         source_root = Path(__file__).resolve().parent.parent
         compared = ["manager.py", "server.py", "launcher.py", "windows_proxy_service.py", "windows_proxy_policy.py",
                     "windows_proxy_client.py", "windows_proxy_runtime.py", "windows_proxy_pins.py",
-                    "windows_app_process.py", "windows_core_process.py"]
+                    "windows_app_process.py", "windows_core_process.py", "windows_appcontainer.py"]
         report["source_matches_bundle"] = {name: digest(source_root / "ruleproxy" / name) == digest(bundle / "ruleproxy" / name)
                                              for name in compared}
         if not all(report["source_matches_bundle"].values()):
@@ -930,7 +1147,7 @@ def controller(package_dir, output):
             raise RuntimeError("Installed signed shared dependencies could not be verified")
         report["installed_firewall_rules"] = powershell("Get-NetFirewallApplicationFilter -Program (Join-Path $env:ProgramFiles 'ProxiFyre\\ProxiFyre.exe') -ErrorAction SilentlyContinue|Get-NetFirewallRule|Select-Object Name,DisplayName,Enabled,Direction,Action|ConvertTo-Json -Compress")
         shutil.copytree(bundle / "python", LAB / "runtime")
-        for name in ("selected", "helper", "outside"):
+        for name in ("selected", "helper", "outside", "contained"):
             shutil.copyfile(LAB / "runtime/python.exe", LAB / "runtime" / (name + ".exe"))
         shutil.copyfile(__file__, LAB / "acceptance.py")
         shutil.copyfile(Path(__file__).with_name("windows_proxy_compare.py"), LAB / "actor.py")
@@ -958,6 +1175,7 @@ def controller(package_dir, output):
                     "port": fixture._listeners[node].getsockname()[1], "udp": True} for node in ("A", "B")]
         spec = {"nonce": fixture.nonce, "panel_port": 28879, "proxy_port": 20809, "controller_port": 29097,
                 "owner_sid": owner, "native_proxy_fixture_sha256": proxy_helper_digest,
+                "appcontainer_actor_sha256": hashlib.sha256(APPCONTAINER_ACTOR.encode('ascii')).hexdigest(),
                 "visible_gui_required": interactive_session is not None,
                 "interactive_session_id": interactive_session,
                 "yaml": json.dumps({"proxies": proxies, "proxy-groups": [{"name": "Select", "type": "select", "proxies": ["A", "B"]}],
@@ -979,6 +1197,7 @@ def controller(package_dir, output):
                 request = json.loads(request_path.read_text(encoding="ascii"))
                 if request["id"] != last_action:
                     operation = request["op"]
+                    action_evidence = None
                     actions = {"stop_broker": "Stop-Service RuleProxyControl; 'ok'",
                         "start_broker": "Start-Service RuleProxyControl; (Get-Service RuleProxyControl).WaitForStatus('Running',[TimeSpan]::FromSeconds(30)); 'ok'",
                         "wait_engine_stopped": "(Get-Service ProxiFyreService).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(20)); 'ok'",
@@ -995,6 +1214,9 @@ def controller(package_dir, output):
                         evidence = wait_for(lambda: next((row for row in receiver_evidence(
                             [phase], fixture.snapshot()) if row["passed"]), None), timeout=20)
                         observation = {"returncode": 0, "stdout": json.dumps(evidence), "stderr": ""}
+                    elif operation == 'inspect_contained_gate':
+                        action_evidence = inspect_appcontainer_gate(request.get('app_id'), owner)
+                        observation = {'returncode': 0, 'stdout': json.dumps(action_evidence), 'stderr': ''}
                     elif operation not in actions:
                         raise RuntimeError("Invalid bounded administrator test operation")
                     else:
@@ -1004,8 +1226,10 @@ def controller(package_dir, output):
                         captured_core = int(observation["stdout"].strip())
                     if operation == "wait_core_stopped" and captured_core is None:
                         observation = {"returncode": 1, "stdout": "", "stderr": "No captured owned core identity"}
-                    report["actions"].append({"op": operation, **observation})
-                    write(LAB / "actors/admin-reply.json", {"id": request["id"], "ok": observation["returncode"] == 0})
+                    report["actions"].append({"op": operation, **observation,
+                                              **({'app_id': request['app_id']} if operation == 'inspect_contained_gate' else {})})
+                    write(LAB / "actors/admin-reply.json", {"id": request["id"], "ok": observation["returncode"] == 0,
+                                                            "evidence": action_evidence})
                     last_action = request["id"]
             if user_result.is_file():
                 report["ordinary_suite"] = json.loads(user_result.read_text(encoding="ascii"))
@@ -1030,6 +1254,22 @@ def controller(package_dir, output):
             raise RuntimeError("Ordinary installed launcher lacks independent explicit-proxy environment evidence")
         if process.poll() != 0 or report["ordinary_suite"]["status"] != "passed":
             raise RuntimeError("Installed ordinary-user product suite failed")
+        contained = report['ordinary_suite'].get('appcontainer_pipe', {})
+        contained_receivers = appcontainer_receiver_evidence(contained, report['receiver_final'])
+        report['appcontainer_receiver_evidence'] = contained_receivers
+        if (contained.get('local_checks_passed') is not True
+                or contained.get('panel_pid') != report['ordinary_suite'].get('restarted_panel_pid')
+                or not appcontainer_gate_readbacks_valid(contained)
+                or contained.get('actor_sha256') != spec['appcontainer_actor_sha256']
+                or digest(LAB / 'actors/appcontainer/actor.py') != spec['appcontainer_actor_sha256']
+                or contained.get('nonce') != fixture.nonce
+                or not appcontainer_pipe_receipt_valid(contained.get('receipt'), owner_sid=owner,
+                    package_sid=contained.get('package_sid'), panel_pid=contained.get('panel_pid'),
+                    launched_pid=contained.get('launched_pid'), executable=LAB / 'runtime/contained.exe',
+                    nonce=fixture.nonce, marker=contained.get('marker'), proxy_port=spec['proxy_port'])
+                or len(contained_receivers) != 2 or not all(row['passed'] for row in contained_receivers)):
+            raise RuntimeError('AppContainer CLI lacks ordinary tokens, SYSTEM pipe or both independent receiver markers')
+        report['appcontainer_cli_pipe_verified'] = True
         report["receiver_phase_evidence"] = receiver_evidence(report["ordinary_suite"]["phases"], report["receiver_final"])
         if not report["receiver_phase_evidence"] or not all(row["passed"] for row in report["receiver_phase_evidence"]):
             raise RuntimeError("Transparent actor markers lack matching independent receiver evidence")

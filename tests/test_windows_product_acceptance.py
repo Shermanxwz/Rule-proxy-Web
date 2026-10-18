@@ -364,6 +364,90 @@ class NativeProxyEnvironmentEvidenceTests(unittest.TestCase):
                     acceptance.native_proxy_environment_probe(spec)
 
 
+class AppContainerPipeEvidenceTests(unittest.TestCase):
+    owner = 'S-1-5-21-101-202-303-1001'
+    package = 'S-1-15-2-1-2-3-4-5-6-7'
+    nonce, marker = 'a' * 32, 'b' * 16
+    executable = str(Path('contained.exe').resolve())
+
+    def receipt(self):
+        environment = {key: 'http://127.0.0.1:20809' for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY')}
+        environment.update(NO_PROXY='localhost,127.0.0.1,::1', NODE_USE_ENV_PROXY='1')
+        def actor(role, pid, parent):
+            path = f'/ruleproxy-compare/{self.nonce}/{self.marker}/{role}'
+            return {'sid': self.owner, 'package_sid': self.package, 'elevated': False, 'is_appcontainer': True,
+                    'capability_count': 0, 'pid': pid, 'ppid': parent, 'executable': self.executable,
+                    'proxy_environment': dict(environment), 'target': 'http://1.1.1.1' + path,
+                    'response': {'node': 'B', 'nonce': self.nonce, 'request_target': path,
+                                 'origin_kind': 'controlled_synthetic_stub'}}
+        return {**actor('child', 202, 101), 'grandchild': actor('grandchild', 303, 202), 'grandchild_exit_code': 0}
+
+    def valid(self, receipt):
+        return acceptance.appcontainer_pipe_receipt_valid(receipt, owner_sid=self.owner, package_sid=self.package,
+            panel_pid=101, launched_pid=202, executable=self.executable, nonce=self.nonce,
+            marker=self.marker, proxy_port=20809)
+
+    def test_both_actual_container_tokens_and_distinct_parent_chain_are_required(self):
+        receipt = self.receipt()
+        self.assertTrue(self.valid(receipt))
+        for role in ('child', 'grandchild'):
+            for key, value in (('sid', 'S-1-5-18'), ('package_sid', self.package + '-1'), ('elevated', True),
+                               ('elevated', 0), ('is_appcontainer', False), ('is_appcontainer', 1),
+                               ('capability_count', 1), ('capability_count', False), ('pid', True),
+                               ('ppid', 404), ('executable', str(Path('outside.exe').resolve()))):
+                changed = copy.deepcopy(receipt)
+                (changed if role == 'child' else changed['grandchild'])[key] = value
+                with self.subTest(role=role, key=key, value=value):
+                    self.assertFalse(self.valid(changed))
+
+    def test_wrong_response_or_untrusted_environment_cannot_qualify(self):
+        receipt = self.receipt()
+        for role in ('child', 'grandchild'):
+            for key, value in (('target', 'http://1.1.1.1/wrong'), ('error', 'probe failed'),
+                               ('proxy_environment', {'HTTP_PROXY': 'http://untrusted.invalid:80'}),
+                               ('response', {'node': 'B'})):
+                changed = copy.deepcopy(receipt)
+                (changed if role == 'child' else changed['grandchild'])[key] = value
+                self.assertFalse(self.valid(changed))
+        receipt['grandchild_exit_code'] = False
+        self.assertFalse(self.valid(receipt))
+
+    def test_independent_receivers_require_one_exact_completed_path_per_descendant(self):
+        facts = {'nonce': self.nonce, 'marker': self.marker}
+        def row(role):
+            return {'request_target': f'/ruleproxy-compare/{self.nonce}/{self.marker}/{role}',
+                    'protocol': 'tcp_http_response', 'evidence_role': 'actor', 'node': 'B', 'response_complete': True}
+        child, grandchild = row('child'), row('grandchild')
+        def passed(rows):
+            return all(item['passed'] for item in acceptance.appcontainer_receiver_evidence(facts, {'transactions': rows}))
+        self.assertTrue(passed([child, grandchild]))
+        for rows in ([child, child], [], [child, {**grandchild, 'node': 'A'}],
+                     [child, {**grandchild, 'evidence_role': 'health'}],
+                     [child, {**grandchild, 'response_complete': False}],
+                     [child, {**grandchild, 'request_target': grandchild['request_target'] + '-other'}]):
+            self.assertFalse(passed(rows))
+
+    def test_gate_readbacks_bind_exact_app_and_real_inactive_values(self):
+        app_id = 'c' * 32
+        name = 'RuleProxy.' + hashlib.sha256(('appcontainer\0' + app_id).encode()).hexdigest()[:20]
+        facts = {'app_id': app_id, 'package_sid': self.package,
+                 'active_gate': {'container': name, 'sid': self.package, 'filter_count': 4, 'loopback_exempt': True},
+                 'revoked_gate': {'container': name, 'sid': self.package, 'filter_count': 0, 'loopback_exempt': False}}
+        self.assertTrue(acceptance.appcontainer_gate_readbacks_valid(facts))
+        for label, key, value in (('active_gate', 'filter_count', 0), ('active_gate', 'sid', 'S-1-5-18'),
+                                  ('revoked_gate', 'filter_count', False), ('revoked_gate', 'loopback_exempt', 0),
+                                  ('revoked_gate', 'container', 'RuleProxy.' + '0' * 20)):
+            changed = copy.deepcopy(facts)
+            changed[label][key] = value
+            self.assertFalse(acceptance.appcontainer_gate_readbacks_valid(changed))
+
+    def test_standalone_actor_is_valid_and_reads_actual_token_information(self):
+        compile(acceptance.APPCONTAINER_ACTOR, 'appcontainer-actor.py', 'exec')
+        self.assertIn("'sid': sid(1)", acceptance.APPCONTAINER_ACTOR)
+        self.assertIn("'package_sid': sid(31)", acceptance.APPCONTAINER_ACTOR)
+        self.assertNotIn('import ruleproxy', acceptance.APPCONTAINER_ACTOR)
+
+
 class PngDimensionsTests(unittest.TestCase):
     @staticmethod
     def png(width=1, height=1):
