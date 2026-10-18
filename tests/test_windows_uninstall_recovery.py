@@ -98,6 +98,23 @@ class UninstallRecoveryTests(unittest.TestCase):
         self.assertIn('$root $OwnerSid', source)
         self.assertIn('$confirmation.owner_sid -ne $OwnerSid', source)
 
+    def test_second_owner_restore_keeps_validated_roots_until_after_panel_stop(self):
+        source = SCRIPT.read_text(encoding='utf-8')
+        restores = [match.start() for match in re.finditer(r'^Restore-OwnerSystemProxy$', source, re.M)]
+        self.assertEqual(len(restores), 2)
+        owner_stop = source.index('Stop-Process -Id $ownedProcess.ProcessId -Force -ErrorAction Stop')
+        self.assertLess(restores[0], owner_stop)
+        self.assertLess(owner_stop, restores[1])
+        self.assertLess(source.index("if ($owner.Sid -eq $OwnerSid)"), owner_stop)
+        self.assertLess(source.index('Stop-Service ProxiFyreService -ErrorAction Stop'), restores[1])
+        # Native C4 proved load_deployment requires pfRoot even when the
+        # owner journal is already restored. Neither Burn nor residual/root
+        # deletion may run before the post-panel recovery has succeeded.
+        for destructive in ('Start-Process -FilePath $bundle',
+                            'foreach ($name in $remaining) { Remove-Item',
+                            'Remove-Item -LiteralPath $root -Recurse -Force'):
+            self.assertLess(restores[1], source.index(destructive))
+
 
 if __name__ == '__main__':
     unittest.main()

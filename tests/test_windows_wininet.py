@@ -1,7 +1,11 @@
 """Documented LAN flags ABI; fake writes never change desktop settings."""
 import ctypes
+import importlib.util
+import json
 import os
 from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -72,6 +76,30 @@ class FlagsTests(unittest.TestCase):
         self.assertIn("report['normal_connection_flags_restored'] = query_flags() == before_flags", source)
         self.assertIn('and query_flags() == before_flags', source)
         self.assertIn("report['connection_flags_restored'] = query_flags() == before_flags", source)
+
+    def test_native_panel_actor_imports_production_dependency_with_untrusted_python_paths_ignored(self):
+        root = Path(__file__).resolve().parents[1]
+        spec = importlib.util.spec_from_file_location('native_system_proxy_actor_test', root / '.github/check_system_proxy_native.py')
+        native = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(native)
+        actor = '''import json,sys
+sys.path.insert(0,sys.argv[1])
+from ruleproxy.manager import write_private
+import yaml
+print(json.dumps({'isolated':sys.flags.isolated,'no_user_site':sys.flags.no_user_site,
+                  'no_site':sys.flags.no_site,'writer_imported':callable(write_private),
+                  'yaml_imported':callable(yaml.safe_load)}))
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / 'yaml.py').write_text('raise RuntimeError("untrusted YAML imported")')
+            environment = {**os.environ, 'PYTHONPATH': directory, 'PYTHONUSERBASE': directory,
+                           'PYTHONHOME': directory}
+            command = native.panel_command(actor, root)
+            self.assertEqual(command[1:3], ['-I', '-c'])
+            result = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {'isolated': 1, 'no_user_site': 1, 'no_site': 0,
+                                                   'writer_imported': True, 'yaml_imported': True})
 
     @unittest.skipUnless(os.name == 'nt', 'native read-only WinINet query')
     def test_native_query_abi_returns_a_dword_without_modifying_the_desktop(self):

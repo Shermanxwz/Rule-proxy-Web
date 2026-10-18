@@ -162,6 +162,22 @@ if ($pfService) {
     Stop-Service ProxiFyreService -ErrorAction Stop
     (Get-Service ProxiFyreService).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(30))
 }
+# Stop only this desktop owner's private runtime processes from this protected
+# installation. Applications selected for proxying live elsewhere and are retained.
+foreach ($ownedProcess in Get-CimInstance Win32_Process) {
+    if ($ownedProcess.ExecutablePath -and $ownedProcess.ExecutablePath.StartsWith($root + '\',[StringComparison]::OrdinalIgnoreCase)) {
+        $owner = Invoke-CimMethod -InputObject $ownedProcess -MethodName GetOwnerSid
+        if ($owner.Sid -eq $OwnerSid) {
+            Stop-Process -Id $ownedProcess.ProcessId -Force -ErrorAction Stop
+        }
+    }
+}
+# Recheck after terminating the owner panel, which could have completed an
+# already pending enable request after the first restoration. This operation
+# remains read-only on user files and only updates the validated owner's HKU.
+# Protected deployment validation still needs ProxiFyre: finish this check
+# before the official uninstaller or residual cleanup can remove that root.
+Restore-OwnerSystemProxy
 $bundle = Join-Path $root 'installers\ProxiFyre-2.6.4-win-x64-setup.exe'
 if ((Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'afaf3ac8a2069f9653adb1b4a63b31d1edd8aa109ccdc367cf0d4462e78f5027') { throw 'Fixed official uninstall setup failed verification' }
 $log = Join-Path $env:ProgramData 'RuleProxy-Web\uninstall-burn.log'
@@ -193,20 +209,6 @@ foreach ($relative in @('logs\archive','logs','')) {
     $directory = if ($relative) { Join-Path $pfRoot $relative } else { $pfRoot }
     if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Force }
 }
-# Stop only this desktop owner's private runtime processes from this protected
-# installation. Applications selected for proxying live elsewhere and are retained.
-foreach ($ownedProcess in Get-CimInstance Win32_Process) {
-    if ($ownedProcess.ExecutablePath -and $ownedProcess.ExecutablePath.StartsWith($root + '\',[StringComparison]::OrdinalIgnoreCase)) {
-        $owner = Invoke-CimMethod -InputObject $ownedProcess -MethodName GetOwnerSid
-        if ($owner.Sid -eq $OwnerSid) {
-            Stop-Process -Id $ownedProcess.ProcessId -Force -ErrorAction Stop
-        }
-    }
-}
-# Recheck after terminating the owner panel, which could have completed an
-# already pending enable request after the first restoration. This operation
-# remains read-only on user files and only updates the validated owner's HKU.
-Restore-OwnerSystemProxy
 # Own shortcuts/tasks are removed only if their targets point into this root.
 $profile = Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $OwnerSid) -ErrorAction SilentlyContinue
 if ($profile) {

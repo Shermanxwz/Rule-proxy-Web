@@ -21,6 +21,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
+def panel_command(actor, *arguments):
+    # CI installs PyYAML into the trusted interpreter's system site-packages.
+    # -I still excludes user site/PYTHONPATH; -S would hide this dependency.
+    return [sys.executable, '-I', '-c', actor, *map(str, arguments)]
+
+
 def crash_recovery(work, port, before, before_flags, environment):
     """Kill an owned panel actor; its independent monitor must restore WinINet."""
     from ruleproxy import system_proxy
@@ -47,8 +53,7 @@ time.sleep(90)
     panel = None
     try:
         with (work / 'panel-fixture.stderr').open('wb') as stderr:
-            panel = subprocess.Popen([sys.executable, '-I', '-S', '-c', actor, str(ROOT),
-                                      str(work), str(port), str(core.pid)], env=environment,
+            panel = subprocess.Popen(panel_command(actor, ROOT, work, port, core.pid), env=environment,
                                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=stderr,
                                      creationflags=subprocess.CREATE_NO_WINDOW)
             deadline = time.monotonic() + 15
