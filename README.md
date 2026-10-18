@@ -12,7 +12,7 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 全局模式只把当前用户的系统代理指向本机核心（Windows：WinINet 系统代理；Linux：GNOME 兼容桌面的 gsettings），不安装 TUN，不改防火墙、路由和 DNS，不需要额外权限组件。开启前保存原系统代理，停止或核心退出时恢复；独立的同用户恢复进程会在面板意外退出后尝试还原，恢复失败时保留记录供重试。系统代理指向不可用端口期间，遵循系统代理的程序可能暂时无法联网。不读取系统代理的程序会直连。
 
-Linux 按应用模式继续使用网络命名空间隔离。Windows 的“AppContainer（实验）”现有证据限于独立 CLI 原型；当前安装包的实际通过范围仍须核对对应 SHA-256 的验收记录。[浏览器对照](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-19/appcontainer-browser-experiment.json)中 Edge、Chrome、Firefox 在容器外正常、容器内均未完成渲染，该实验选项当前不支持这些浏览器。商店应用与共用原应用资料模式也不支持。
+Linux 按应用模式继续使用网络命名空间隔离。Windows 的“AppContainer（实验）”已在 Windows Server 2025 验证受控 CLI，以及普通用户 Web 面板至 SYSTEM 服务的子孙进程链路；这不代表任意用户软件已通过兼容验收。当前安装包的实际通过范围仍须核对对应 SHA-256 的验收记录。[浏览器对照](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-19/appcontainer-browser-experiment.json)中 Edge、Chrome、Firefox 在容器外正常、容器内均未完成渲染，该实验选项当前不支持这些浏览器。商店应用与共用原应用资料模式也不支持。
 
 Windows 卸载前请先用原安装账户停止全局代理；如果改用其他管理员账户且原连接标志尚未恢复，卸载会保留恢复组件并提示先完成恢复。恢复检测到设置冲突时也会保留记录，不覆盖无法确认归属的设置。
 

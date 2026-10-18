@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "release_tag": "v0.3.0-rc.16",
-  "status": "final_native_checks_pending",
+  "status": "bounded_native_acceptance_complete_source_prerelease",
   "isolation_goal": {
     "linux_equivalent_windows_gui": false,
     "all_application_compatibility": false,
@@ -52,6 +52,18 @@
       "artifact_id": 12147786432,
       "artifact_sha256": "c2d45d8d65d9461f4df91112be919d12dea4e6f628c4803a48a3fc8e68ce3242",
       "result": "33 ordinary checks and 15 traffic phases passed, contained Python could not read encodings, no contained actor receipt; browser/uninstall phases not reached"
+    },
+    {
+      "source_commit": "ca1a62983478d85e0271a1644de78841cbdd925b",
+      "check_run": 39159561888,
+      "installed_run": 39159571074,
+      "result": "All eight 1550-test suites had zero unit failures. Native WinINet flags, Edge fixture and normal restoration passed; crash actor did not arm. Installed runtime passed 47 ordinary checks, 17 traffic stages and the Web-to-SYSTEM contained child/grandchild CLI, then uninstall failed because owner recovery followed engine removal. Both specific sequencing/fixture defects were corrected without changing isolation architecture.",
+      "installed_artifact_id": 12148357706,
+      "installed_artifact_sha256": "310f98fde4045b81a19dc00e0462d60b99d658f26f6bd6b4d1d7381d4bb834d3",
+      "native_proxy_artifact_id": 12147823286,
+      "native_proxy_artifact_sha256": "8de2d5ce0cfa9a5c3c21996cec079f0840b73562bd6f88344477ae8e60aa4c30",
+      "old_online_zip_sha256": "f99b35430ee1667302b8d2c2002431dac5d5ff58c8b28867ab9034339a55020f",
+      "superseded_package_not_current_qualification": true
     }
   ],
   "untested_scope": [
@@ -61,5 +73,155 @@
     "Public IPv6 isolation",
     "Interactive Linux desktop gsettings restoration"
   ],
-  "evidence_policy": "Original failure reports remain failures. Each native result is scoped to its own source, package and fixture; independent CLI does not certify browser or installed product behavior."
+  "evidence_policy": "Original failure reports remain failures. Each native result is scoped to its own source, package and fixture; independent CLI does not certify browser or installed product behavior.",
+  "source_commit": "34791ea05f5e1a36e57f1d9e104d178cbb7eeea3",
+  "local_validation": {
+    "stage": "C4 local regression plus subsequent targeted C5 fixes; final C5 full-suite result is the CI matrix below",
+    "full_suite_tests": 1550,
+    "failures": 0,
+    "platform_skips": 79,
+    "reparse_followup_tests": 31,
+    "c5_targeted_fixes_passed": true
+  },
+  "final_native": {
+    "source_commit": "34791ea05f5e1a36e57f1d9e104d178cbb7eeea3",
+    "check_run": 39160377543,
+    "check_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39160377543",
+    "check_status": "success",
+    "matrix_jobs_passed": 8,
+    "tests_per_job": 1552,
+    "unit_failures_per_job": 0,
+    "platform_skips": {
+      "linux_isolation_jobs": 47,
+      "linux_unit_jobs": 55,
+      "windows_jobs": 106
+    },
+    "system_proxy": {
+      "artifact_id": 12147614774,
+      "artifact_zip_sha256": "e5b2f092bf3ff94c9a0a37684357e217827b223735d5309a167d463c4ce81bb5",
+      "report_sha256": "d86886f7fe51080950672b919941aafc82d1074e4e8db4e91ca610f5fc03c79a",
+      "observations": {
+        "scope": "Windows Server headless Edge through actual current-user WinINet",
+        "tun_used": false,
+        "explicit_browser_proxy_used": false,
+        "proxy_environment_used": false,
+        "browser_sandbox_disabled": false,
+        "interactive_desktop_qualified": false,
+        "passed": true,
+        "manual_connection_flags_verified": true,
+        "browser_exit_code": 0,
+        "independent_fixture_hits": 1,
+        "unique_dom_marker_verified": true,
+        "exact_fixture_target_verified": true,
+        "normal_connection_flags_restored": true,
+        "panel_termination_independent_recovery_verified": true,
+        "original_settings_restored": true,
+        "connection_flags_restored": true,
+        "recovery_journal_removed": true
+      },
+      "execution_file_hashes": {
+        "ruleproxy/system_proxy.py": "4a12c075e33f764721dd67d222c1d298e9265b1d76a9f02ec765b39bd6569a05",
+        "ruleproxy/system_proxy_watchdog.py": "6abfc98a068b807a1701d063df6d5bc1d05169cdeff693ac2ca7969925727d33",
+        "ruleproxy/windows_wininet.py": "c3ce3a9aca949a8fba8fa5b80267f367dd8d9a114bd2bd78e0f245e25e9e97b0"
+      }
+    },
+    "installed_product": {
+      "run_id": 39160385165,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39160385165",
+      "artifact_id": 12147659670,
+      "artifact_zip_sha256": "6c1852704fc90e49f85369997f953f8488353b6eb2103c646ea8a9d3af57b627",
+      "tested_offline_zip_sha256": "569953bf6522b4800a6e626c5a5675492a59432b2182aee9eb469621ecf97652",
+      "manifest_files_verified": 128,
+      "source_file_hashes": {
+        "ruleproxy/manager.py": "ebe919a163d0fdd6c7346a3ef09f83105ee16743bfd29dbab49e9ae1f3a15249",
+        "ruleproxy/server.py": "ace7b5e1738e07ffd80a2e845dd3ed00c43eacf7df718b75f1e8b2d9e6a949e5",
+        "ruleproxy/launcher.py": "a1b95017743bd8bd741aab857fefd5492e2cbce220308b566ad5c732a590f0a2",
+        "ruleproxy/windows_proxy_service.py": "4b5d785799cde67b0254d35047894d61b9ec5d6932d1206257d09cee1c57442d",
+        "ruleproxy/windows_proxy_policy.py": "687585bf717cc14f20e95720e5f11e0e4767bb7dc140029100b41c60c18e38a6",
+        "ruleproxy/windows_proxy_client.py": "2a8ed2fd8030616396fe7e6981ba4eed63f696a1592506ea7e9717f746e765cd",
+        "ruleproxy/windows_proxy_runtime.py": "42ba2a25e343c53df90addea2e54e85bd90706ebef2ce567d86b7bf55c4b61c8",
+        "ruleproxy/windows_proxy_pins.py": "c759e687ae32011ad0de394ed187f450e327d473a1f4d0d7ecd5da23f0ea2889",
+        "ruleproxy/windows_app_process.py": "a4d72c3999ab6cff2f6f96f3e3ec6312a4111a6eb4b402b029ef31a229f3a758",
+        "ruleproxy/windows_core_process.py": "bbb14acf0dc236b9a31593fd8b08fa1edf0a0dbbc55da5633dc677f0adcacdef",
+        "ruleproxy/windows_appcontainer.py": "7a090b6ad7e8470b7629db0f2af88acfdfad979b7883c1f59e929f1f7731243d",
+        "scripts/windows-uninstall.ps1": "126fca4dda3aeb979367891c0f22222dd03c25bf488dc897e1311a9a6d6107cb"
+      },
+      "observations": {
+        "status": "passed_server_product_qualification",
+        "controller_checks": {
+          "install_and_reinstall": true,
+          "uninstall_preserves_user_state_and_shared_driver": true,
+          "uninstall_then_fresh_reinstall": true
+        },
+        "ordinary_check_count": 47,
+        "ordinary_checks_all_passed": true,
+        "independent_receiver_phase_count": 17,
+        "independent_receiver_phases_all_passed": true,
+        "ordinary_explicit_proxy_environment_parent_child_grandchild_verified": true,
+        "appcontainer_scope": "ordinary_Web_panel_to_SYSTEM_pipe_CLI_child_and_grandchild_only",
+        "appcontainer_non_elevated_tokens": true,
+        "appcontainer_capability_count": 0,
+        "runtime_source_files_verified": 41,
+        "exact_package_acl_rows_verified": 42,
+        "both_restricted_actors_actual_runtime_reads_verified": true,
+        "two_independent_B_nonce_receivers_verified": true,
+        "active_filter_count": 4,
+        "revoked_filter_count": 0,
+        "active_exemption": true,
+        "revoked_exemption": false,
+        "headless_edge_sandbox_enabled": true,
+        "headless_edge_explicit_proxy_configuration": false,
+        "headless_edge_png_and_independent_receiver_verified": true,
+        "uninstall_exit": 0,
+        "uninstall_inspection": {
+          "control": 0,
+          "engine": 0,
+          "driver": 1,
+          "firewall": 0
+        },
+        "fresh_reinstall_exit": 0,
+        "second_uninstall_exit": 0,
+        "shared_signed_NDIS_and_VC_preserved": true,
+        "hosts_modified": false,
+        "hosts_restored": true,
+        "windows_11_verified": false,
+        "visible_gui_verified": false,
+        "appcontainer_browser_compatible": false,
+        "strict_qualified": false,
+        "product_release_eligible": false
+      }
+    },
+    "status": "passed_with_explicit_qualification_limits"
+  },
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "968dc375be61707eba7f2d7ecd98d772a43f210ed93759b4b1e9728a77a8616c",
+    "bytes": 322606,
+    "members": 60,
+    "source_files": 58,
+    "independent_double_build_identical": true,
+    "personal_yaml_or_nodes_included": false,
+    "third_party_binaries_bundled": false
+  },
+  "post_native_changes": [
+    "README.md clarifies the proven controlled CLI Web-to-SYSTEM scope.",
+    "Verification records only; no execution files changed."
+  ],
+  "branch_consolidation": {
+    "retained_branch": "main",
+    "candidate_head": "34791ea05f5e1a36e57f1d9e104d178cbb7eeea3",
+    "squash_equivalent_trees_verified": [
+      {
+        "branch": "claude/global-system-proxy",
+        "head": "c167980765b39ffa269ec4c4a2762c57c5423b31",
+        "already_accepted_commit": "94b5ca88c59c3ecf7b84c9c77003a8c89a50f7bc"
+      },
+      {
+        "branch": "claude/windows-appcontainer-isolation",
+        "head": "982fafb43e52be9ac5e534951737079671ebb9b2",
+        "already_accepted_commit": "9a6e44e"
+      }
+    ],
+    "history_policy": "The final merge records these already squash-merged heads as parents, preserving tested content and all experimental branch ancestry."
+  }
 }
