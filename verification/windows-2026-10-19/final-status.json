@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "release_tag": "v0.3.0-rc.16",
+  "status": "final_native_checks_pending",
+  "isolation_goal": {
+    "linux_equivalent_windows_gui": false,
+    "all_application_compatibility": false,
+    "zero_leakage_guarantee": false,
+    "chatgpt_login_root_cause_proven": false
+  },
+  "retired_routes": {
+    "tun_global": "retired_on_windows_and_linux; recovery only",
+    "dedicated_user_wfp": "no_go_dns_broker_bypass; see dedicated-user-no-go.json",
+    "browser_appcontainer": "current Edge/Chrome/Firefox contained cases failed; ordinary controls passed; see appcontainer-browser-experiment.json"
+  },
+  "direct_appcontainer_cli": {
+    "source_commit": "963172c61e376885e1d8d9f0b3e9e48bf19f3127",
+    "run_id": 39157979710,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39157979710",
+    "artifact_id": 12147632675,
+    "artifact_sha256": "1c288f744a7484f829f39b1fa8c31acba8426ebd22dea1ca4cb4c3d7d7c622e7",
+    "status": "passed",
+    "phases": 3,
+    "independently_checked_results": 24,
+    "owned_cleanup_confirmed": true,
+    "scope": "Same-user direct CLI calls on disposable Server 2025; not the Web-to-SYSTEM installed path."
+  },
+  "attempt_history": [
+    {
+      "source_commit": "edc4831576c6223261596dc8c74b7a3e22e70c96",
+      "check_run": 39155587020,
+      "result": "failed Windows helper CRLF and test environment assumptions; corrected; owned journal handle test passed"
+    },
+    {
+      "source_commit": "7a4280eca7f03ec4d0e1f84b0fcaea8f9d19d864",
+      "check_run": 39157363089,
+      "result": "Windows units and helper identity/termination recovery passed; native WinINet readback failed and rolled back; one Linux SIGINT fixture timeout before VM execution"
+    },
+    {
+      "source_commit": "7a4280eca7f03ec4d0e1f84b0fcaea8f9d19d864",
+      "direct_run": 39157363029,
+      "result": "owner correctly matched but OS profile name case differed; strict request validation kept, only OS enum ASCII case handling corrected"
+    },
+    {
+      "source_commit": "963172c61e376885e1d8d9f0b3e9e48bf19f3127",
+      "check_run": 39157979725,
+      "result": "all six Linux jobs passed; both Windows 1529-test suites passed; only native WinINet readback failed: AutoDetect registry value removed, rollback confirmed"
+    },
+    {
+      "source_commit": "963172c61e376885e1d8d9f0b3e9e48bf19f3127",
+      "installed_run": 39157990918,
+      "artifact_id": 12147786432,
+      "artifact_sha256": "c2d45d8d65d9461f4df91112be919d12dea4e6f628c4803a48a3fc8e68ce3242",
+      "result": "33 ordinary checks and 15 traffic phases passed, contained Python could not read encodings, no contained actor receipt; browser/uninstall phases not reached"
+    }
+  ],
+  "untested_scope": [
+    "Interactive Windows 11 GUI",
+    "Real public exit IP and OAuth login",
+    "Browser cookies, downloads and platform account risk",
+    "Public IPv6 isolation",
+    "Interactive Linux desktop gsettings restoration"
+  ],
+  "evidence_policy": "Original failure reports remain failures. Each native result is scoped to its own source, package and fixture; independent CLI does not certify browser or installed product behavior."
+}

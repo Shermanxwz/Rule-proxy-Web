@@ -12,7 +12,9 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 全局模式只把当前用户的系统代理指向本机核心（Windows：WinINet 系统代理；Linux：GNOME 兼容桌面的 gsettings），不安装 TUN，不改防火墙、路由和 DNS，不需要额外权限组件。开启前保存原系统代理，停止或核心退出时恢复；独立的同用户恢复进程会在面板意外退出后尝试还原，恢复失败时保留记录供重试。系统代理指向不可用端口期间，遵循系统代理的程序可能暂时无法联网。不读取系统代理的程序会直连。
 
-Linux 按应用模式继续使用网络命名空间隔离。Windows 的“AppContainer（实验）”现有证据限于独立 CLI 原型；当前安装包的实际通过范围仍须核对对应 SHA-256 的验收记录。[浏览器对照](verification/windows-2026-10-19/appcontainer-browser-experiment.json)中 Edge、Chrome、Firefox 在容器外正常、容器内均未完成渲染，该实验选项当前不支持这些浏览器。商店应用与共用原应用资料模式也不支持。
+Linux 按应用模式继续使用网络命名空间隔离。Windows 的“AppContainer（实验）”现有证据限于独立 CLI 原型；当前安装包的实际通过范围仍须核对对应 SHA-256 的验收记录。[浏览器对照](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-19/appcontainer-browser-experiment.json)中 Edge、Chrome、Firefox 在容器外正常、容器内均未完成渲染，该实验选项当前不支持这些浏览器。商店应用与共用原应用资料模式也不支持。
+
+Windows 卸载前请先用原安装账户停止全局代理；如果改用其他管理员账户且原连接标志尚未恢复，卸载会保留恢复组件并提示先完成恢复。恢复检测到设置冲突时也会保留记录，不覆盖无法确认归属的设置。
 
 从 0.3.0-rc.14 及更早版本升级：面板会检查旧版全局 TUN 遗留的自有阻断规则和 DNS 策略。恢复未能确认时应先完成恢复，再启动新的代理；卸载也必须先恢复网络状态，再删除恢复组件。
 
@@ -156,7 +158,7 @@ python3 -B .github/build_windows_package.py /tmp/ruleproxy-personal-package --as
 
 构建器只收集程序文件，拒绝在非空暂存目录中混入旧文件；固定资产下载后校验 SHA-256，生成含逐文件摘要的 `package-manifest.json`。包中包含 ProxiFyre AGPL 许可及依赖说明。完整依赖与来源见 [THIRD-PARTY.md](THIRD-PARTY.md)，资产固定在 [windows_proxy_pins.py](ruleproxy/windows_proxy_pins.py)。Linux 保留自己的安装和测试流程。
 
-常规 CI 检查 Linux 隔离、面板启动和跨平台单元测试。产品验收入口 `.github/windows_proxifyre_product_acceptance.py` 针对实际 ZIP 检查安装、重复安装、卸载后重装、普通用户权限、服务身份、Web 导入、相关程序路径、节点切换、生产启动入口和异常清理。Windows Server 对照与 Windows 11 原生验收分别记录；可见窗口、真实互联网出口、浏览器登录和下载也分别标识。请以[当前验收状态](verification/windows-2026-10-16/proxifyre-product/current-status.json)中与 ZIP SHA-256 相同的证据为准，脚本存在不代表相应项目已经通过。
+常规 CI 检查 Linux 隔离、面板启动和跨平台单元测试。产品验收入口 `.github/windows_proxifyre_product_acceptance.py` 针对实际 ZIP 检查安装、重复安装、卸载后重装、普通用户权限、服务身份、Web 导入、相关程序路径、节点切换、生产启动入口和异常清理。Windows Server 对照与 Windows 11 原生验收分别记录；可见窗口、真实互联网出口、浏览器登录和下载也分别标识。请以[当前验收状态](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-16/proxifyre-product/current-status.json)中与 ZIP SHA-256 相同的证据为准，脚本存在不代表相应项目已经通过。
 
 之前的 Windows Server 候选比较（包括运行 `38770720406`）仅证明其报告实际完成的候选路径，不代表这个最终产品包已通过。旧 MXC/PSEC 脚本与报告保留供历史复现，不是当前 Windows 默认入口；旧产品说明见 [0.2.2 历史文档](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-15/mxc-0.2.2-readme.md)。
 

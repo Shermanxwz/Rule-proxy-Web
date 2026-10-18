@@ -44,7 +44,7 @@ INSTALLED = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "RulePro
 # installed product module inside the restricted token.
 APPCONTAINER_ACTOR = r'''
 import ctypes as C
-import json, os, subprocess, sys, time, urllib.request
+import hashlib, json, os, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 def identity():
@@ -86,6 +86,9 @@ config = json.loads(Path(sys.argv[1]).read_text(encoding='ascii'))
 role = sys.argv[2]
 out = identity()
 try:
+    out['runtime_access'] = {name: hashlib.sha256((Path(sys.executable).parent / name).read_bytes()).hexdigest()
+                             for name in config['runtime_files']}
+    if out['runtime_access'] != config['runtime_files']: raise RuntimeError('runtime file access or digest mismatch')
     proxy = 'http://127.0.0.1:' + str(config['proxy_port'])
     expected = {'HTTP_PROXY': proxy, 'HTTPS_PROXY': proxy, 'ALL_PROXY': proxy,
                 'NO_PROXY': 'localhost,127.0.0.1,::1', 'NODE_USE_ENV_PROXY': '1'}
@@ -118,13 +121,15 @@ raise SystemExit(2)
 
 
 def appcontainer_pipe_receipt_valid(receipt, *, owner_sid, package_sid, panel_pid, launched_pid,
-                                   executable, nonce, marker, proxy_port):
+                                   executable, nonce, marker, proxy_port, runtime_files):
     """Validate actual child tokens and responses; receiver proof is separate."""
     try:
         if (not isinstance(package_sid, str) or re.fullmatch(r'S-1-15-2(?:-[0-9]{1,10}){7}', package_sid) is None
                 or not isinstance(nonce, str) or re.fullmatch('[0-9a-f]{32}', nonce) is None
                 or not isinstance(marker, str) or re.fullmatch('[0-9a-f]{16}', marker) is None
                 or type(proxy_port) is not int or not 1025 <= proxy_port <= 65535):
+            return False
+        if not isinstance(runtime_files, dict) or not runtime_files:
             return False
         child, grandchild = receipt, receipt['grandchild']
         expected_environment = {key: f'http://127.0.0.1:{proxy_port}' for key in
@@ -143,6 +148,7 @@ def appcontainer_pipe_receipt_valid(receipt, *, owner_sid, package_sid, panel_pi
                     or type(actor.get('pid')) is not int or actor['pid'] <= 0 or actor['pid'] in pids
                     or type(actor.get('ppid')) is not int
                     or os.path.normcase(actor['executable']) != os.path.normcase(str(executable))
+                    or actor.get('runtime_access') != runtime_files
                     or actor.get('proxy_environment') != expected_environment):
                 return False
             pids.add(actor['pid'])
@@ -153,6 +159,86 @@ def appcontainer_pipe_receipt_valid(receipt, *, owner_sid, package_sid, panel_pi
                 return False
         return True
     except (KeyError, TypeError, ValueError, AttributeError):
+        return False
+
+
+def appcontainer_runtime_manifest(runtime, source):
+    """Bind only the disposable runtime copy to the verified final ZIP files."""
+    runtime, source = Path(runtime), Path(source)
+    if runtime.resolve() == source.resolve():
+        raise RuntimeError('Fixture runtime must be a separate copy')
+    def entries(root):
+        paths = [root, *root.rglob('*')]
+        if len(paths) > 1024:
+            raise RuntimeError('Fixture runtime inventory exceeded bound')
+        for path in paths:
+            if path.is_symlink() or getattr(path.lstat(), 'st_file_attributes', 0) & 0x400:
+                raise RuntimeError('Fixture runtime contains a reparse point')
+        return {path.relative_to(root).as_posix(): path for path in paths if path.is_file()}
+    original, copied = entries(source), entries(runtime)
+    aliases = {name + '.exe': 'python.exe' for name in ('selected', 'helper', 'outside', 'contained')}
+    expected = {name: name for name in original}
+    if set(expected) & set(aliases) or 'python.exe' not in original:
+        raise RuntimeError('Unexpected source runtime executable inventory')
+    expected.update(aliases)
+    if set(copied) != set(expected):
+        raise RuntimeError('Fixture runtime inventory differs from final ZIP')
+    result = {}
+    for name, origin in sorted(expected.items()):
+        value = digest(original[origin])
+        if digest(copied[name]) != value:
+            raise RuntimeError('Fixture runtime file differs from final ZIP: ' + name)
+        result[name] = value
+    return result
+
+
+def prepare_appcontainer_runtime(app_id, owner_sid):
+    """Administrator fixture action: grant one package RX on our copy only."""
+    identity = inspect_appcontainer_gate(app_id, owner_sid)
+    sid, runtime = identity['sid'], LAB / 'runtime'
+    files = appcontainer_runtime_manifest(runtime, LAB / 'bundle/RuleProxy-Web/python')
+    system = Path(os.environ.get('SystemRoot', r'C:\Windows'))
+    subprocess.run([str(system / 'System32/icacls.exe'), str(runtime), '/grant',
+                    '*' + sid + ':(OI)(CI)(RX)', '/T', '/C', '/Q'],
+                   stdin=subprocess.DEVNULL, capture_output=True, check=True, timeout=30)
+    body = r'''$root=$env:RULEPROXY_FIXTURE_RUNTIME; $sid=$env:RULEPROXY_FIXTURE_PACKAGE
+$paths=@(Get-Item -LiteralPath $root)+@(Get-ChildItem -LiteralPath $root -Recurse -Force)
+$rows=@(foreach($path in $paths){
+ $aces=@((Get-Acl -LiteralPath $path.FullName).Access|Where-Object {
+  $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq $sid})
+ $allow=@($aces|Where-Object {$_.AccessControlType -eq 'Allow' -and
+   (($_.FileSystemRights -band 0x200A9) -eq 0x200A9)}).Count -gt 0
+ $deny=@($aces|Where-Object {$_.AccessControlType -eq 'Deny'}).Count -gt 0
+ [ordered]@{path=$path.FullName.Substring($root.Length).TrimStart('\').Replace('\','/');rx=$allow;deny=$deny}
+})
+ConvertTo-Json -InputObject $rows -Compress -Depth 4'''
+    readback = powershell(body, env={'RULEPROXY_FIXTURE_RUNTIME': str(runtime),
+                                   'RULEPROXY_FIXTURE_PACKAGE': sid}, timeout=30)
+    if readback['returncode']:
+        raise RuntimeError('Fixture runtime ACL readback failed')
+    rows = json.loads(readback['stdout'])
+    wanted = {path.relative_to(runtime).as_posix() for path in runtime.rglob('*')} | {''}
+    if (not isinstance(rows, list) or len(rows) != len(wanted)
+            or {row.get('path') for row in rows} != wanted
+            or any(row.get('rx') is not True or row.get('deny') is not False for row in rows)):
+        raise RuntimeError('Fixture runtime exact-package RX readback incomplete')
+    if appcontainer_runtime_manifest(runtime, LAB / 'bundle/RuleProxy-Web/python') != files:
+        raise RuntimeError('Fixture runtime changed while granting access')
+    return {'app_id': app_id, 'sid': sid, 'runtime': str(runtime), 'files': files,
+            'acl_readback': rows, 'scope': 'disposable_runtime_exact_package_rx'}
+
+
+def appcontainer_runtime_evidence_valid(evidence, *, app_id, sid, files):
+    try:
+        rows = evidence['acl_readback']
+        return (evidence.get('scope') == 'disposable_runtime_exact_package_rx'
+                and evidence.get('app_id') == app_id and evidence.get('sid') == sid
+                and evidence.get('runtime') == str(LAB / 'runtime') and evidence.get('files') == files
+                and isinstance(files, dict) and bool(files) and isinstance(rows, list)
+                and len(rows) >= len(files) + 1 and len({row['path'] for row in rows}) == len(rows)
+                and {''} | set(files) <= {row['path'] for row in rows}
+                and all(row.get('rx') is True and row.get('deny') is False for row in rows))
+    except (KeyError, TypeError, AttributeError):
         return False
 
 
@@ -808,7 +894,7 @@ def ordinary_suite(spec_path, result_path):
         check("holder_ordinary", holder.get("is_elevated") is False and holder["pid"] == value["pid"])
         return holder
     def appcontainer_phase():
-        from ruleproxy.windows_appcontainer import container_name, ensure_profile, grant_access
+        from ruleproxy.windows_appcontainer import container_name, _get_api, grant_access
         work = LAB / 'actors/appcontainer'
         work.mkdir()
         actor, configuration, report_path = work / 'actor.py', work / 'config.json', work / 'result.json'
@@ -818,13 +904,16 @@ def ordinary_suite(spec_path, result_path):
             raise RuntimeError('Contained fixture actor differs from checked source')
         marker = secrets.token_hex(8)
         executable = LAB / 'runtime/contained.exe'
-        write(configuration, {'nonce': spec['nonce'], 'token': marker, 'proxy_port': spec['proxy_port'],
-                              'report': str(report_path)})
         state = api('/api/apps', {'label': 'AppContainer CLI pipe fixture', 'path': str(executable),
                     'adapter': 'environment', 'args': ['-I', '-S', str(actor), str(configuration), 'child'],
                     'windows_container': True})
         app = next(item for item in state['apps'] if os.path.normcase(item['path']) == os.path.normcase(str(executable)))
-        package_sid = ensure_profile(container_name(app['id']))
+        native = _get_api()
+        name = container_name(app['id'])
+        code, package_sid = native._owned_sid(native.userenv.CreateAppContainerProfile,
+            name, name, 'Disposable installed product fixture', None, 0)
+        if code != 0 or package_sid != native.derive(name):
+            raise RuntimeError('Fixture profile was not newly created with the expected identity')
         # The actor/report directory belongs only to this disposable fixture;
         # product launch still grants and uses its own independent app profile.
         grant_access(package_sid, work, write=True)
@@ -833,6 +922,13 @@ def ordinary_suite(spec_path, result_path):
             'actor_sha256': actor_hash, 'executable': str(executable), 'panel_pid': panel.pid,
             'browser_compatible': False, 'windows_11_qualified': False, 'strict_qualified': False}
         try:
+            prepared = action('prepare_contained_runtime', app_id=app['id'])
+            facts['runtime'] = prepared.get('evidence')
+            files = facts['runtime'].get('files', {}) if isinstance(facts['runtime'], dict) else {}
+            check('appcontainer_runtime_exact_sid_rx', prepared['ok'] and appcontainer_runtime_evidence_valid(
+                facts['runtime'], app_id=app['id'], sid=package_sid, files=files))
+            write(configuration, {'nonce': spec['nonce'], 'token': marker, 'proxy_port': spec['proxy_port'],
+                                  'report': str(report_path), 'runtime_files': files})
             launched = api('/api/apps/' + app['id'] + '/launch', {})
             facts['launched_pid'] = launched['pid']
             facts['receipt'] = wait_for(lambda: json.loads(report_path.read_text(encoding='ascii'))
@@ -840,7 +936,7 @@ def ordinary_suite(spec_path, result_path):
             check('appcontainer_actual_ordinary_child_and_grandchild', appcontainer_pipe_receipt_valid(
                 facts['receipt'], owner_sid=spec['owner_sid'], package_sid=package_sid,
                 panel_pid=panel.pid, launched_pid=launched['pid'], executable=executable,
-                nonce=spec['nonce'], marker=marker, proxy_port=spec['proxy_port']))
+                nonce=spec['nonce'], marker=marker, proxy_port=spec['proxy_port'], runtime_files=files))
             inspection = action('inspect_contained_gate', app_id=app['id'])
             facts['active_gate'] = inspection.get('evidence')
             check('appcontainer_active_gate_readback', inspection['ok'] and facts['active_gate'] == {
@@ -1149,6 +1245,7 @@ def controller(package_dir, output):
         shutil.copytree(bundle / "python", LAB / "runtime")
         for name in ("selected", "helper", "outside", "contained"):
             shutil.copyfile(LAB / "runtime/python.exe", LAB / "runtime" / (name + ".exe"))
+        report['appcontainer_runtime_source_files'] = appcontainer_runtime_manifest(LAB / 'runtime', bundle / 'python')
         shutil.copyfile(__file__, LAB / "acceptance.py")
         shutil.copyfile(Path(__file__).with_name("windows_proxy_compare.py"), LAB / "actor.py")
         fixture_module = module(Path(__file__).with_name("windows_proxy_compare_fixture.py"), "product_fixture")
@@ -1217,6 +1314,11 @@ def controller(package_dir, output):
                     elif operation == 'inspect_contained_gate':
                         action_evidence = inspect_appcontainer_gate(request.get('app_id'), owner)
                         observation = {'returncode': 0, 'stdout': json.dumps(action_evidence), 'stderr': ''}
+                    elif operation == 'prepare_contained_runtime':
+                        action_evidence = prepare_appcontainer_runtime(request.get('app_id'), owner)
+                        if action_evidence['files'] != report['appcontainer_runtime_source_files']:
+                            raise RuntimeError('Prepared runtime differs from verified source inventory')
+                        observation = {'returncode': 0, 'stdout': json.dumps(action_evidence), 'stderr': ''}
                     elif operation not in actions:
                         raise RuntimeError("Invalid bounded administrator test operation")
                     else:
@@ -1227,7 +1329,8 @@ def controller(package_dir, output):
                     if operation == "wait_core_stopped" and captured_core is None:
                         observation = {"returncode": 1, "stdout": "", "stderr": "No captured owned core identity"}
                     report["actions"].append({"op": operation, **observation,
-                                              **({'app_id': request['app_id']} if operation == 'inspect_contained_gate' else {})})
+                                              **({'app_id': request['app_id']} if operation in
+                                                 {'inspect_contained_gate', 'prepare_contained_runtime'} else {})})
                     write(LAB / "actors/admin-reply.json", {"id": request["id"], "ok": observation["returncode"] == 0,
                                                             "evidence": action_evidence})
                     last_action = request["id"]
@@ -1260,13 +1363,16 @@ def controller(package_dir, output):
         if (contained.get('local_checks_passed') is not True
                 or contained.get('panel_pid') != report['ordinary_suite'].get('restarted_panel_pid')
                 or not appcontainer_gate_readbacks_valid(contained)
+                or not appcontainer_runtime_evidence_valid(contained.get('runtime'), app_id=contained.get('app_id'),
+                    sid=contained.get('package_sid'), files=report['appcontainer_runtime_source_files'])
                 or contained.get('actor_sha256') != spec['appcontainer_actor_sha256']
                 or digest(LAB / 'actors/appcontainer/actor.py') != spec['appcontainer_actor_sha256']
                 or contained.get('nonce') != fixture.nonce
                 or not appcontainer_pipe_receipt_valid(contained.get('receipt'), owner_sid=owner,
                     package_sid=contained.get('package_sid'), panel_pid=contained.get('panel_pid'),
                     launched_pid=contained.get('launched_pid'), executable=LAB / 'runtime/contained.exe',
-                    nonce=fixture.nonce, marker=contained.get('marker'), proxy_port=spec['proxy_port'])
+                    nonce=fixture.nonce, marker=contained.get('marker'), proxy_port=spec['proxy_port'],
+                    runtime_files=report['appcontainer_runtime_source_files'])
                 or len(contained_receivers) != 2 or not all(row['passed'] for row in contained_receivers)):
             raise RuntimeError('AppContainer CLI lacks ordinary tokens, SYSTEM pipe or both independent receiver markers')
         report['appcontainer_cli_pipe_verified'] = True

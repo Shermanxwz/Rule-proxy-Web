@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 from ruleproxy import system_proxy as proxy
 from ruleproxy import windows_proxy_client, system_proxy_watchdog
+from ruleproxy import windows_wininet
 
 
 SID = 'S-1-5-21-11-22-33-1001'
@@ -76,6 +77,9 @@ class SystemProxyRecoveryTests(unittest.TestCase):
         self.notify = Mock()
         self.notify.InternetSetOptionW.return_value = 1
         patch('ctypes.WinDLL', return_value=self.notify, create=True).start()
+        self.flags = 9
+        patch.object(windows_wininet, 'query_flags', side_effect=lambda: self.flags).start()
+        patch.object(windows_wininet, 'set_flags', side_effect=lambda value: setattr(self, 'flags', value)).start()
         self.previous = {'ProxyEnable': [0, 4], 'ProxyServer': ['old.example:8080', 1],
                          'ProxyOverride': None, 'AutoConfigURL': ['https://pac.invalid/settings', 1],
                          'AutoDetect': [1, 4]}
@@ -152,6 +156,146 @@ class SystemProxyRecoveryTests(unittest.TestCase):
         self.assertTrue((self.directory / proxy.BACKUP).exists())
         proxy.restore(self.directory)
         self.assertEqual(proxy._win_read(), self.previous)
+
+    def test_flags_are_journalled_verified_and_restored_when_autodetect_registry_value_disappears(self):
+        original_write = proxy._win_write
+        def write(values, *args):
+            original_write(values, *args)
+            self.registry.values[(Registry.HKEY_CURRENT_USER, proxy._WIN_KEY)].pop('AutoDetect', None)
+        with patch.object(proxy, '_win_write', side_effect=write):
+            proxy.enable(self.directory, 18809)
+            data = json.loads((self.directory / proxy.BACKUP).read_text())
+            self.assertEqual(data['connection_flags'], {'previous': 9, 'target': 3})
+            self.assertEqual(self.flags, 3)
+            self.assertIsNone(proxy._win_read()['AutoDetect'])
+            self.assertTrue(proxy.restore(self.directory))
+        self.assertEqual(self.flags, 9)
+        self.assertEqual({key: value for key, value in proxy._win_read().items() if key != 'AutoDetect'},
+                         {key: value for key, value in self.previous.items() if key != 'AutoDetect'})
+
+    def test_missing_autodetect_never_passes_without_exact_manual_flags(self):
+        original_write = proxy._win_write
+        def write(values, *args):
+            original_write(values, *args)
+            self.registry.values[(Registry.HKEY_CURRENT_USER, proxy._WIN_KEY)].pop('AutoDetect', None)
+        with patch.object(proxy, '_win_write', side_effect=write), \
+                patch.object(windows_wininet, 'set_flags'), self.assertRaises(proxy.SystemProxyError):
+            proxy.enable(self.directory, 18809)
+        self.assertEqual(self.flags, 9)
+
+    def test_present_wrong_autodetect_value_or_type_is_still_rejected(self):
+        actual_read = proxy._win_read
+        for bad in ([1, 4], ['private-string', 1]):
+            reads = []
+            def read(*args):
+                observed = actual_read(*args)
+                reads.append(True)
+                if len(reads) == 2:
+                    observed['AutoDetect'] = bad
+                return observed
+            with self.subTest(bad=bad), patch.object(proxy, '_win_read', side_effect=read), \
+                    self.assertRaises(proxy.SystemProxyError):
+                proxy.enable(self.directory, 18809)
+            self.assertEqual(actual_read(), self.previous)
+            self.assertEqual(self.flags, 9)
+
+    def test_partial_api_change_or_notification_error_restores_the_original_flags(self):
+        failed = []
+        def setter(value):
+            self.flags = value
+            if not failed:
+                failed.append(True)
+                raise OSError('API failed after changing flags')
+        with patch.object(windows_wininet, 'set_flags', side_effect=setter), self.assertRaises(OSError):
+            proxy.enable(self.directory, 18809)
+        self.assertEqual(self.flags, 9)
+        self.assertEqual(proxy._win_read(), self.previous)
+        self.assertFalse((self.directory / proxy.BACKUP).exists())
+
+    def test_external_endpoint_or_connection_mode_changes_take_priority(self):
+        for field in ('endpoint', 'flags'):
+            with self.subTest(field=field):
+                proxy.enable(self.directory, 18809)
+                if field == 'endpoint':
+                    self.registry.values[(Registry.HKEY_CURRENT_USER, proxy._WIN_KEY)]['ProxyServer'] = ['user-chosen:8080', 1]
+                else:
+                    self.flags = 7
+                before, flags = proxy._win_read(), self.flags
+                if field == 'flags':
+                    with self.assertRaises(proxy.SystemProxyError):
+                        proxy.restore(self.directory)
+                    self.assertTrue((self.directory / proxy.BACKUP).exists())
+                    (self.directory / proxy.BACKUP).unlink()
+                else:
+                    self.assertTrue(proxy.restore(self.directory))
+                self.assertEqual(proxy._win_read(), before)
+                self.assertEqual(self.flags, flags)
+                self.registry.values[(Registry.HKEY_CURRENT_USER, proxy._WIN_KEY)] = {
+                    key: list(value) for key, value in self.previous.items() if value is not None}
+                self.flags = 9
+
+    def test_interrupted_restore_intermediate_flags_cannot_delete_the_journal_on_retry(self):
+        proxy.enable(self.directory, 18809)
+        original_write = proxy._win_write
+        def write(values, *args):
+            original_write(values, *args)
+            self.flags = 13  # An owned registry notification produced an intermediate mode.
+        with patch.object(proxy, '_win_write', side_effect=write), \
+                patch.object(windows_wininet, 'set_flags', side_effect=OSError('temporarily denied')), \
+                self.assertRaises(OSError):
+            proxy.restore(self.directory)
+        path = self.directory / proxy.BACKUP
+        journal = path.read_bytes()
+        self.registry.calls.clear()
+        with patch.object(windows_wininet, 'set_flags') as setter, self.assertRaises(proxy.SystemProxyError):
+            proxy.restore(self.directory)
+        setter.assert_not_called()
+        self.assertEqual(path.read_bytes(), journal)
+        self.assertEqual(self.flags, 13)
+        self.assertFalse(any(call[0] in {'set', 'delete'} for call in self.registry.calls))
+
+    def test_old_five_value_journal_does_not_invent_or_change_connection_flags(self):
+        self.registry.values[(Registry.HKEY_CURRENT_USER, proxy._WIN_KEY)] = {
+            key: list(value) for key, value in proxy._win_ours(18809).items() if value is not None}
+        (self.directory / proxy.BACKUP).write_text(json.dumps({
+            'kind': 'wininet', 'port': 18809, 'previous': self.previous}))
+        with patch.object(windows_wininet, 'query_flags', side_effect=AssertionError('legacy has no flags')), \
+                patch.object(windows_wininet, 'set_flags') as setter:
+            self.assertTrue(proxy.restore(self.directory))
+        setter.assert_not_called()
+        self.assertEqual(proxy._win_read(), self.previous)
+
+    def test_invalid_or_null_connection_flags_keep_the_journal_without_writes(self):
+        for flags in (None, {'previous': True, 'target': 3}, {'previous': -1, 'target': 3},
+                      {'previous': 2 ** 32, 'target': 3}, {'previous': 9, 'target': True},
+                      {'previous': 9, 'target': 7}, {'previous': 9, 'target': 3, 'extra': 1}):
+            with self.subTest(flags=flags):
+                path = self.directory / proxy.BACKUP
+                raw = json.dumps({'kind': 'wininet', 'port': 18809, 'previous': self.previous,
+                                  'connection_flags': flags})
+                path.write_text(raw)
+                self.registry.calls.clear()
+                with self.assertRaises(proxy.SystemProxyError):
+                    proxy.restore(self.directory)
+                self.assertEqual(path.read_text(), raw)
+                self.assertFalse(any(call[0] in {'set', 'delete'} for call in self.registry.calls))
+
+    def test_failed_flag_restore_keeps_journal_for_retry(self):
+        proxy.enable(self.directory, 18809)
+        with patch.object(windows_wininet, 'set_flags', side_effect=OSError('denied')), self.assertRaises(OSError):
+            proxy.restore(self.directory)
+        self.assertTrue((self.directory / proxy.BACKUP).exists())
+        self.assertTrue(proxy.restore(self.directory))
+        self.assertEqual(self.flags, 9)
+
+    def test_cross_account_flag_restore_rejects_before_touching_admin_flags_or_owner_values(self):
+        raw = json.dumps({'kind': 'wininet', 'port': 18809, 'previous': self.previous,
+                          'connection_flags': {'previous': 9, 'target': 3}}).encode()
+        with patch.object(proxy, '_read_owner_journal', return_value=raw), \
+                patch.object(windows_wininet, 'set_flags') as setter, self.assertRaises(proxy.SystemProxyError):
+            proxy.restore_windows_owner(SID)
+        setter.assert_not_called()
+        self.assertFalse(any(call[0] in {'set', 'delete'} for call in self.registry.calls))
 
     def test_wrong_kind_duplicate_and_oversized_journals_are_retained(self):
         valid = {'kind': 'wininet', 'port': 18809, 'previous': self.previous}

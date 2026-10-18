@@ -186,13 +186,25 @@ def _enable_locked(directory, port, watchdog_session):
         _restore_locked(directory)
     data = {'schema': 1, 'kind': kind, 'port': port, 'phase': 'applying',
             'previous': read(), 'target': ours(port)}
+    if kind == 'wininet':
+        from .windows_wininet import query_flags, MANUAL_FLAGS
+        data['connection_flags'] = {'previous': query_flags(), 'target': MANUAL_FLAGS}
     if watchdog_session is not None:
         data['watchdog_session'] = watchdog_session
     write_private(backup, json.dumps(data))
     try:
+        if kind == 'wininet':
+            from .windows_wininet import set_flags
+            set_flags(data['connection_flags']['target'])
         write(data['target'])
+        if kind == 'wininet':
+            if query_flags() != data['connection_flags']['target']:
+                raise SystemProxyError('Windows 代理连接标志未能回读确认。')
         observed = read()
-        if observed != data['target']:
+        # WinINet removes the undocumented AutoDetect registry value during
+        # refresh. Its authoritative connection flags were verified above.
+        if any(observed.get(key) != value for key, value in data['target'].items()
+               if not (kind == 'wininet' and key == 'AutoDetect' and observed.get(key) is None)):
             details = (' ' + _win_readback_details(data['target'], observed)) if kind == 'wininet' else ''
             raise SystemProxyError('系统代理设置未能回读确认。' + details)
         data['phase'] = 'active'
@@ -222,7 +234,7 @@ def _journal(raw, kind, ours):
                 not isinstance(data.get('previous'), dict)):
             raise ValueError('invalid journal identity')
         target = ours(data['port'])
-        # Accept rc.15's older three-field journal, but apply the same bounded
+        # Accept rc.15's older five-value journal, but apply the same bounded
         # field-level rollback to it instead of assuming the write was atomic.
         if 'schema' in data and (type(data['schema']) is not int or data['schema'] != 1 or data.get('phase') not in {'applying', 'active'}
                                  or data.get('target') != target):
@@ -230,6 +242,12 @@ def _journal(raw, kind, ours):
         previous = data['previous']
         if set(previous) != set(target):
             raise ValueError('invalid journal settings')
+        flags = data.get('connection_flags')
+        if 'connection_flags' in data and (kind != 'wininet' or not isinstance(flags, dict)
+                or set(flags) != {'previous', 'target'}
+                or type(flags['previous']) is not int or not 0 <= flags['previous'] <= 0xffffffff
+                or type(flags['target']) is not int or flags['target'] != 3):
+            raise ValueError('invalid connection flags')
         if kind == 'wininet':
             for name, item in previous.items():
                 if item is None:
@@ -258,14 +276,37 @@ def _restore_values(data, target, read, write):
                      {f'{_GNOME}.http host', f'{_GNOME}.http port'} if data['kind'] == 'gnome' else
                      set(target))
     if any(current.get(key) not in (previous.get(key), target.get(key)) for key in endpoint_keys):
-        return
+        return False
     changes = {key: value for key, value in previous.items()
                if current.get(key) == target[key] and current.get(key) != value}
     if changes or data['kind'] == 'wininet':
         write(changes)
         observed = read()
-        if any(observed.get(key) != value for key, value in changes.items()):
+        if any(observed.get(key) != value for key, value in changes.items()
+               if not (data.get('connection_flags') is not None and key == 'AutoDetect'
+                       and observed.get(key) is None)):
             raise SystemProxyError('系统代理恢复未能回读确认，恢复记录已保留。')
+    return True
+
+
+def _restore_win_flags(data, target, read, write):
+    flags = data.get('connection_flags')
+    if flags is None:
+        return _restore_values(data, target, read, write)
+    from .windows_wininet import query_flags, set_flags
+    if read().get('ProxyServer') not in (data['previous'].get('ProxyServer'), target.get('ProxyServer')):
+        return False  # A separately chosen endpoint takes priority over all our settings.
+    current = query_flags()
+    if current not in (flags['previous'], flags['target']):
+        # This may be an external mode change or an interrupted notification
+        # from our own restore. Neither may be overwritten or called restored.
+        raise SystemProxyError('系统代理连接标志已变更；未覆盖当前设置，恢复记录已保留。')
+    if _restore_values(data, target, read, write):
+        set_flags(flags['previous'])
+        if query_flags() != flags['previous']:
+            raise SystemProxyError('Windows 代理连接标志恢复未能确认，恢复记录已保留。')
+        return True
+    return False
 
 
 def restore(directory: Path, *, expected_session=None) -> bool:
@@ -289,7 +330,7 @@ def _restore_locked(directory, *, expected_session=None):
     data, target = _journal(raw, kind, ours)
     if expected_session is not None and data.get('watchdog_session') != expected_session:
         return False
-    _restore_values(data, target, read, write)
+    _restore_win_flags(data, target, read, write)
     backup.unlink(missing_ok=True)
     return True
 
@@ -371,6 +412,10 @@ def restore_windows_owner(owner_sid: str) -> bool:
     if raw is None:
         return False
     data, target = _journal(raw, 'wininet', _win_ours)
-    _restore_values(data, target, lambda: _win_read(owner_sid),
-                    lambda values: _win_write(values, owner_sid))
+    if data.get('connection_flags') is not None:
+        from .windows_proxy_client import current_user_sid
+        if current_user_sid() != owner_sid:
+            raise SystemProxyError('请使用原安装账户恢复系统代理连接标志；恢复记录和工具已保留。')
+    _restore_win_flags(data, target, lambda: _win_read(owner_sid),
+                       lambda values: _win_write(values, owner_sid))
     return True

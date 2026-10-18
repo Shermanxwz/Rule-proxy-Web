@@ -21,10 +21,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-def crash_recovery(work, port, before, environment):
+def crash_recovery(work, port, before, before_flags, environment):
     """Kill an owned panel actor; its independent monitor must restore WinINet."""
     from ruleproxy import system_proxy
     from ruleproxy.system_proxy_watchdog import STATUS
+    from ruleproxy.windows_wininet import query_flags, MANUAL_FLAGS
     actor = r'''
 import json,sys,time
 from pathlib import Path
@@ -56,7 +57,7 @@ time.sleep(90)
                     raise RuntimeError('Owned native panel fixture did not arm recovery')
                 time.sleep(.05)
             session = json.loads((work / 'panel-ready.json').read_text(encoding='ascii'))['session']
-            if not system_proxy._win_is_ours(port):
+            if not system_proxy._win_is_ours(port) or query_flags() != MANUAL_FLAGS:
                 raise RuntimeError('Panel fixture did not enable the expected native proxy')
             panel.kill()
             panel.wait(timeout=5)
@@ -67,6 +68,7 @@ time.sleep(90)
                     value = json.loads(status.read_text(encoding='utf-8'))
                     if (value.get('session') == session and value.get('restored') is True
                             and system_proxy._win_read() == before
+                            and query_flags() == before_flags
                             and not (work / system_proxy.BACKUP).exists()):
                         return True
                 if time.monotonic() >= deadline:
@@ -89,6 +91,7 @@ def main():
         raise RuntimeError('Refusing to reuse a native proxy test directory')
     work.mkdir(parents=True)
     from ruleproxy import system_proxy
+    from ruleproxy.windows_wininet import query_flags, MANUAL_FLAGS
 
     candidates = [Path(os.environ.get(key, r'C:\Program Files')) /
                   'Microsoft/Edge/Application/msedge.exe'
@@ -97,6 +100,7 @@ def main():
     if browser is None:
         raise RuntimeError('Native Edge positive control is required')
     before = system_proxy._win_read()
+    before_flags = query_flags()
     nonce = secrets.token_hex(16)
     target = f'http://{nonce}.invalid/{nonce}'
     marker = 'ruleproxy-system-proxy-' + nonce
@@ -132,6 +136,9 @@ def main():
     failure = None
     try:
         system_proxy.enable(work, server.server_port)
+        report['manual_connection_flags_verified'] = query_flags() == MANUAL_FLAGS
+        if not report['manual_connection_flags_verified']:
+            raise RuntimeError('Native connection flags did not confirm manual proxy mode')
         command = [str(browser), '--headless=new', '--disable-gpu', '--no-first-run',
                    '--no-default-browser-check', '--disable-background-networking',
                    '--disable-sync', '--disable-component-update',
@@ -162,10 +169,11 @@ def main():
         if code != 0 or marker not in dom or not received or set(received) != {target}:
             raise RuntimeError('Headless Edge did not prove the actual system proxy path')
         system_proxy.restore(work)
-        if system_proxy._win_read() != before:
+        report['normal_connection_flags_restored'] = query_flags() == before_flags
+        if system_proxy._win_read() != before or not report['normal_connection_flags_restored']:
             raise RuntimeError('Initial native system proxy restoration failed')
         report['panel_termination_independent_recovery_verified'] = crash_recovery(
-            work, server.server_port, before, environment)
+            work, server.server_port, before, before_flags, environment)
     except BaseException as exc:
         failure = exc
         report['error_type'] = type(exc).__name__
@@ -174,8 +182,10 @@ def main():
         try:
             system_proxy.restore(work)
             report['original_settings_restored'] = system_proxy._win_read() == before
+            report['connection_flags_restored'] = query_flags() == before_flags
             report['recovery_journal_removed'] = not (work / system_proxy.BACKUP).exists()
-            if not report['original_settings_restored'] or not report['recovery_journal_removed']:
+            if (not report['original_settings_restored'] or not report['connection_flags_restored']
+                    or not report['recovery_journal_removed']):
                 raise RuntimeError('Native system proxy restoration could not be verified')
         except BaseException as exc:
             failure = failure or exc

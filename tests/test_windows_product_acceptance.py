@@ -369,6 +369,7 @@ class AppContainerPipeEvidenceTests(unittest.TestCase):
     package = 'S-1-15-2-1-2-3-4-5-6-7'
     nonce, marker = 'a' * 32, 'b' * 16
     executable = str(Path('contained.exe').resolve())
+    runtime_files = {'python314.zip': 'a' * 64, 'contained.exe': 'b' * 64}
 
     def receipt(self):
         environment = {key: 'http://127.0.0.1:20809' for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY')}
@@ -377,6 +378,7 @@ class AppContainerPipeEvidenceTests(unittest.TestCase):
             path = f'/ruleproxy-compare/{self.nonce}/{self.marker}/{role}'
             return {'sid': self.owner, 'package_sid': self.package, 'elevated': False, 'is_appcontainer': True,
                     'capability_count': 0, 'pid': pid, 'ppid': parent, 'executable': self.executable,
+                    'runtime_access': dict(self.runtime_files),
                     'proxy_environment': dict(environment), 'target': 'http://1.1.1.1' + path,
                     'response': {'node': 'B', 'nonce': self.nonce, 'request_target': path,
                                  'origin_kind': 'controlled_synthetic_stub'}}
@@ -385,7 +387,7 @@ class AppContainerPipeEvidenceTests(unittest.TestCase):
     def valid(self, receipt):
         return acceptance.appcontainer_pipe_receipt_valid(receipt, owner_sid=self.owner, package_sid=self.package,
             panel_pid=101, launched_pid=202, executable=self.executable, nonce=self.nonce,
-            marker=self.marker, proxy_port=20809)
+            marker=self.marker, proxy_port=20809, runtime_files=self.runtime_files)
 
     def test_both_actual_container_tokens_and_distinct_parent_chain_are_required(self):
         receipt = self.receipt()
@@ -411,6 +413,17 @@ class AppContainerPipeEvidenceTests(unittest.TestCase):
                 self.assertFalse(self.valid(changed))
         receipt['grandchild_exit_code'] = False
         self.assertFalse(self.valid(receipt))
+
+    def test_python_startup_missing_or_unreadable_stdlib_never_counts_as_block_success(self):
+        self.assertFalse(self.valid(None))
+        self.assertFalse(self.valid({'error': 'No module named encodings'}))
+        for role in ('child', 'grandchild'):
+            changed = self.receipt()
+            actor = changed if role == 'child' else changed['grandchild']
+            actor.pop('runtime_access')
+            self.assertFalse(self.valid(changed))
+            actor['runtime_access'] = {'python314.zip': '0' * 64}
+            self.assertFalse(self.valid(changed))
 
     def test_independent_receivers_require_one_exact_completed_path_per_descendant(self):
         facts = {'nonce': self.nonce, 'marker': self.marker}
@@ -446,6 +459,78 @@ class AppContainerPipeEvidenceTests(unittest.TestCase):
         self.assertIn("'sid': sid(1)", acceptance.APPCONTAINER_ACTOR)
         self.assertIn("'package_sid': sid(31)", acceptance.APPCONTAINER_ACTOR)
         self.assertNotIn('import ruleproxy', acceptance.APPCONTAINER_ACTOR)
+
+
+class AppContainerRuntimeFixtureTests(unittest.TestCase):
+    package = 'S-1-15-2-1-2-3-4-5-6-7'
+
+    def runtime(self, root):
+        source, runtime = root / 'bundle/RuleProxy-Web/python', root / 'runtime'
+        source.mkdir(parents=True)
+        for name in ('python.exe', 'python314.zip', 'python314._pth', 'DLLs/ssl.pyd'):
+            path = source / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(('fixed ' + name).encode())
+        import shutil
+        shutil.copytree(source, runtime)
+        for alias in ('selected', 'helper', 'outside', 'contained'):
+            (runtime / (alias + '.exe')).write_bytes((source / 'python.exe').read_bytes())
+        return source, runtime
+
+    def test_inventory_binds_all_copied_files_and_aliases_to_final_source(self):
+        with tempfile.TemporaryDirectory() as value:
+            source, runtime = self.runtime(Path(value))
+            files = acceptance.appcontainer_runtime_manifest(runtime, source)
+            self.assertEqual(len(files), 8)
+            self.assertEqual(files['contained.exe'], acceptance.digest(source / 'python.exe'))
+            (runtime / 'python314.zip').write_bytes(b'tampered')
+            with self.assertRaisesRegex(RuntimeError, 'differs'):
+                acceptance.appcontainer_runtime_manifest(runtime, source)
+
+    def test_extra_missing_source_self_or_linked_runtime_are_rejected(self):
+        with tempfile.TemporaryDirectory() as value:
+            root = Path(value)
+            source, runtime = self.runtime(root)
+            with self.assertRaisesRegex(RuntimeError, 'separate'):
+                acceptance.appcontainer_runtime_manifest(source, source)
+            (runtime / 'secret.txt').write_text('never grant unrelated files')
+            with self.assertRaisesRegex(RuntimeError, 'inventory differs'):
+                acceptance.appcontainer_runtime_manifest(runtime, source)
+            (runtime / 'secret.txt').unlink()
+            (runtime / 'python314.zip').unlink()
+            try:
+                (runtime / 'python314.zip').symlink_to(source / 'python314.zip')
+            except OSError:
+                return  # Windows unprivileged symlink creation can be disabled.
+            with self.assertRaisesRegex(RuntimeError, 'reparse'):
+                acceptance.appcontainer_runtime_manifest(runtime, source)
+
+    def test_controller_grants_only_its_copy_to_exact_package_and_reads_every_acl(self):
+        with tempfile.TemporaryDirectory() as value:
+            root = Path(value)
+            source, runtime = self.runtime(root)
+            files = acceptance.appcontainer_runtime_manifest(runtime, source)
+            rows = [{'path': '', 'rx': True, 'deny': False}] + [
+                {'path': path.relative_to(runtime).as_posix(), 'rx': True, 'deny': False}
+                for path in runtime.rglob('*')]
+            with mock.patch.object(acceptance, 'LAB', root), \
+                    mock.patch.object(acceptance, 'inspect_appcontainer_gate', return_value={'sid': self.package}) as identity, \
+                    mock.patch.object(acceptance.subprocess, 'run') as grant, \
+                    mock.patch.object(acceptance, 'powershell', return_value={
+                        'returncode': 0, 'stdout': json.dumps(rows), 'stderr': ''}) as read:
+                evidence = acceptance.prepare_appcontainer_runtime('c' * 32, 'owner')
+                identity.assert_called_once_with('c' * 32, 'owner')
+                command = grant.call_args.args[0]
+                self.assertEqual(command[1:], [str(runtime), '/grant', '*' + self.package + ':(OI)(CI)(RX)', '/T', '/C', '/Q'])
+                self.assertNotIn('*S-1-15-2-1:', command)  # no broad ALL APPLICATION PACKAGES grant
+                self.assertEqual(read.call_args.kwargs['env']['RULEPROXY_FIXTURE_PACKAGE'], self.package)
+                self.assertTrue(acceptance.appcontainer_runtime_evidence_valid(
+                    evidence, app_id='c' * 32, sid=self.package, files=files))
+                for bad in (rows[:-1], [{**row, 'rx': False} for row in rows],
+                            [{**row, 'deny': True} for row in rows]):
+                    read.return_value = {'returncode': 0, 'stdout': json.dumps(bad)}
+                    with self.assertRaisesRegex(RuntimeError, 'readback incomplete'):
+                        acceptance.prepare_appcontainer_runtime('c' * 32, 'owner')
 
 
 class PngDimensionsTests(unittest.TestCase):
