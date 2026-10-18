@@ -20,7 +20,7 @@ jobs:
   lab:
     name: Compartment isolation · disposable Server 2025
     runs-on: windows-2025
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v5
         with:
@@ -54,6 +54,7 @@ jobs:
           path: compartment-results/
           if-no-files-found: warn
           retention-days: 14
+          overwrite: true
 
   publish:
     name: Publish lab report to the results branch
