@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "status": "audited_release_candidate",
+  "release_tag": "v0.3.0-rc.15",
+  "source_base_commit": "94b5ca88c59c3ecf7b84c9c77003a8c89a50f7bc",
+  "online_zip": {
+    "name": "RuleProxy-Web-0.3.0-windows-x64-online-setup.zip",
+    "sha256": "369f301e719ced54840ba67ceb8c642a9e8ed9a06f1f183252327bd125538e61",
+    "bytes": 306747
+  },
+  "archive_members": 57,
+  "prior_release": "v0.3.0-rc.14",
+  "change": "Global mode becomes the user's system proxy on Windows (WinINet) and Linux (GNOME gsettings); the TUN global, its fail-closed guard and DNS takeover are removed and only legacy cleanup remains. Adds the experimental per-app Windows AppContainer strong isolation (PR #11).",
+  "owner_decision": "2026-10-18: after TUN global left the owner's PC without Internet, the owner asked to remove TUN global on Windows and Linux and use an ordinary system-proxy global.",
+  "personal_yaml_or_nodes_included": false,
+  "third_party_binaries_bundled_in_online_zip": false,
+  "local_validation": {
+    "local_failures": 5,
+    "local_failure_scope": "Sandbox-only AF_UNIX path length and private D-Bus tests; CI runs them and passes.",
+    "package_built_locally_with_release_builder": true
+  },
+  "ci_validation": {
+    "pull_requests": [
+      11,
+      12
+    ],
+    "check_conclusion": "success",
+    "appcontainer_native_lab": "Server 2025 product phases confined/firewall-off/revoked passed on PR #11"
+  },
+  "known_limitations": [
+    "Global system proxy covers only applications that honour the system proxy; others connect directly.",
+    "If the panel crashes, the system proxy points at a stopped port until the panel is opened again or stopped.",
+    "Linux automatic system proxy supports GNOME-compatible desktops only.",
+    "Windows strong isolation is experimental; Edge/Chromium crash inside the AppContainer and uninstall does not yet remove container rules.",
+    "Global system-proxy mode has not been exercised on a real Windows or Linux desktop in CI."
+  ]
+}
