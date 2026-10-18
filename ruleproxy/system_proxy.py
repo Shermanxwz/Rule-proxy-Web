@@ -93,6 +93,19 @@ def _win_is_ours(port):
             and (current.get('ProxyServer') or [''])[0] == f'127.0.0.1:{port}')
 
 
+def _win_readback_details(expected, observed):
+    # Registry values can contain credentials or private PAC URLs. Only expose
+    # fixed field names and presence/type, including a same-type value mismatch.
+    def shape(item):
+        if item is None:
+            return 'absent'
+        if isinstance(item, list) and len(item) == 2 and type(item[1]) is int:
+            return f'present:{item[1]}'
+        return 'invalid'
+    return ','.join(f'{name}({shape(expected.get(name))}->{shape(observed.get(name))})'
+                    for name in _WIN_VALUES if expected.get(name) != observed.get(name))
+
+
 # Linux: GNOME-compatible desktops (GNOME, Cinnamon, Budgie, Unity) through
 # gsettings. Apps started from the panel also get proxy variables.
 _GNOME = 'org.gnome.system.proxy'
@@ -178,8 +191,10 @@ def _enable_locked(directory, port, watchdog_session):
     write_private(backup, json.dumps(data))
     try:
         write(data['target'])
-        if read() != data['target']:
-            raise SystemProxyError('系统代理设置未能回读确认。')
+        observed = read()
+        if observed != data['target']:
+            details = (' ' + _win_readback_details(data['target'], observed)) if kind == 'wininet' else ''
+            raise SystemProxyError('系统代理设置未能回读确认。' + details)
         data['phase'] = 'active'
         write_private(backup, json.dumps(data))
     except Exception:

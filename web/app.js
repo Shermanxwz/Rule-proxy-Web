@@ -231,7 +231,7 @@
 
   function isolationOption(app) {
     const optionLabel = textElement('label', 'app-profile-option');
-    const label = '强隔离（实验）';
+    const label = 'AppContainer（实验）';
     optionLabel.title = '在 Windows AppContainer 中启动，仅放行本机代理端口。当前 Edge、Chrome、Firefox 未通过兼容测试；商店应用和共用原应用资料模式不支持。';
     const option = document.createElement('input');
     option.type = 'checkbox';
@@ -375,7 +375,7 @@
     ui.storeAppsNote.hidden = !isWindows();
     ui.statusDot.className = `status-indicator ${state.running ? 'is-running' : ''}`;
     ui.statusTitle.textContent = state.running ? '核心正在运行' : (state.imported ? '配置已就绪' : '等待导入配置');
-    ui.statusDetail.textContent = state.running ? '本机 Mihomo 已启动；应用保护状态见下方' : (state.imported ? '核心尚未启动' : '导入 YAML 配置以开始');
+    ui.statusDetail.textContent = state.running ? '本机 Mihomo 已启动；应用连接状态见下方' : (state.imported ? '核心尚未启动' : '导入 YAML 配置以开始');
     ui.configState.textContent = state.imported ? '已导入' : '尚未导入';
     ui.configState.className = `pill ${state.imported ? 'pill-ready' : ''}`;
     if (document.activeElement !== ui.core) ui.core.value = state.core_path || '';
@@ -423,11 +423,11 @@
       : (isWindows() ? '仅接管启用的程序及其辅助路径；已识别商店软件包会自动跟随本机版本。'
                       : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
     ui.stop.textContent = state.global_fault === true ? '重试恢复网络与清理'
-      : (isGlobal() ? '停止全局代理并恢复系统代理' : '关闭受保护应用并停止');
+      : (isGlobal() ? '停止全局代理并恢复系统代理' : (isWindows() ? '关闭本工具启动的应用并停止' : '关闭受保护应用并停止'));
     ui.protectionCard.className = `protection-card ${supported ? 'is-supported' : 'is-unsupported'}`;
     ui.protectionBadge.textContent = !supported ? '不可用，启动受阻'
       : (isGlobal() ? '全局系统代理可用' : (isWindows() ? '应用代理可用' : '隔离能力可用'));
-    ui.protectionDetail.textContent = (protection.detail || (supported ? '本机报告隔离能力可用。实例启动后会显示隔离状态。' : '本机未报告可用隔离能力，受保护应用启动已阻断。'));
+    ui.protectionDetail.textContent = (protection.detail || (supported ? '本机后端可用，应用状态见下方。' : '本机未报告可用代理或隔离能力，应用启动已阻断。'));
     ui.protectionBackend.textContent = protection.backend ? `运行后端：${protection.backend}` : '';
     const elevated = isWindows() && state.process_elevated === true;
     ui.processPermissionNote.hidden = !elevated;
@@ -449,7 +449,7 @@
       $('connection-intro').textContent = '启动后把系统代理指向本机核心，遵循系统代理的程序都会经过规则。';
       $('protection-note').textContent = '不读取系统代理的程序仍会直连。切换模式前请先停止。';
       $('apps-intro').textContent = '全局模式下，从面板启动的应用额外继承代理环境变量；其余程序按系统代理设置联网。';
-      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。Windows 强隔离仍为实验功能，需逐个应用验证兼容性。';
+      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。Windows AppContainer 仍为实验功能，需逐个应用验证兼容性。';
     } else if (isWindows()) {
       $('connection-intro').textContent = '启动核心后，启用清单中的程序路径交给 ProxiFyre 转发；也可以从下方启动独立应用实例。';
       $('protection-note').textContent = '同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';
@@ -523,13 +523,13 @@
         await readState({ quiet: true });
       } else if (options.stopped) {
         showError('');
-        setNotice(`${options.stopped}的隔离实例已关闭。`);
+        setNotice(`${options.stopped}的${isWindows() ? '实例' : '隔离实例'}已关闭。`);
         await readState({ quiet: true });
       } else if (options.stoppingCore) {
         showError('');
         if (result && result.token) render(result);
         else await readState({ quiet: true });
-        setNotice('受保护应用实例已关闭，本机核心已停止。');
+        setNotice('本工具启动的应用实例已关闭，本机核心已停止。');
       } else if (options.launchAll) {
         showLaunchResults(result.results || []);
         await readState({ quiet: true });
@@ -569,7 +569,7 @@
     const alreadyRunning = results.filter((item) => item.error && /已经在隔离中运行/.test(item.error));
     const failures = results.filter((item) => item.error && !/已经在隔离中运行/.test(item.error));
     if (!failures.length) {
-      setNotice(`已处理 ${results.length} 个应用${alreadyRunning.length ? `，其中 ${alreadyRunning.length} 个已在隔离中运行` : ''}。`);
+      setNotice(`已处理 ${results.length} 个应用${alreadyRunning.length ? `，其中 ${alreadyRunning.length} 个${isWindows() ? '已在运行' : '已在隔离中运行'}` : ''}。`);
       return;
     }
     const summary = failures.map((item) => `${item.label || '应用'}：${item.error}`).join('；');
@@ -653,7 +653,7 @@
 
   ui.quit.addEventListener('click', async () => {
     if (busy || !state) return;
-    if (!window.confirm('退出面板会关闭此工具启动的受保护应用，并停止核心。确定退出吗？')) return;
+    if (!window.confirm('退出面板会关闭此工具启动的应用，并停止核心。确定退出吗？')) return;
     const isWindows = /windows|win32|win64/i.test(String(state.platform || ''));
     if (!await mutate('/api/quit', {}, { quit: true })) return;
     stopped = true;
@@ -662,7 +662,7 @@
     ui.statusDetail.textContent = '可以关闭此页面';
     ui.error.className = 'notice success-notice';
     ui.error.textContent = isWindows
-      ? '面板已退出，受保护应用已关闭，核心已停止。需要时双击 Start-Windows.cmd 或应用的快捷方式即可重新打开。'
+      ? '面板已退出，本工具启动的应用已关闭，核心已停止。需要时双击 Start-Windows.cmd 或应用的快捷方式即可重新打开。'
       : '面板已退出，受保护应用已关闭，核心已停止。需要时运行 sh start-linux.sh 或点应用的快捷方式即可重新打开。';
     ui.error.hidden = false;
     renderControls();

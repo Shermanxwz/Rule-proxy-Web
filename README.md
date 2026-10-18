@@ -12,7 +12,7 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 全局模式只把当前用户的系统代理指向本机核心（Windows：WinINet 系统代理；Linux：GNOME 兼容桌面的 gsettings），不安装 TUN，不改防火墙、路由和 DNS，不需要额外权限组件。开启前保存原系统代理，停止或核心退出时恢复；独立的同用户恢复进程会在面板意外退出后尝试还原，恢复失败时保留记录供重试。系统代理指向不可用端口期间，遵循系统代理的程序可能暂时无法联网。不读取系统代理的程序会直连。
 
-Linux 按应用模式继续使用网络命名空间隔离。Windows 的“强隔离（实验）”仅用于兼容应用，现有实验覆盖部分 CLI；[浏览器对照](verification/windows-2026-10-19/appcontainer-browser-experiment.json)中 Edge、Chrome、Firefox 在容器外正常、容器内均未完成渲染，当前不支持。商店应用与共用原应用资料模式也不支持。它尚不能替代 Linux 的通用应用隔离体验。
+Linux 按应用模式继续使用网络命名空间隔离。Windows 的“AppContainer（实验）”现有证据限于独立 CLI 原型；当前安装包的实际通过范围仍须核对对应 SHA-256 的验收记录。[浏览器对照](verification/windows-2026-10-19/appcontainer-browser-experiment.json)中 Edge、Chrome、Firefox 在容器外正常、容器内均未完成渲染，该实验选项当前不支持这些浏览器。商店应用与共用原应用资料模式也不支持。
 
 从 0.3.0-rc.14 及更早版本升级：面板会检查旧版全局 TUN 遗留的自有阻断规则和 DNS 策略。恢复未能确认时应先完成恢复，再启动新的代理；卸载也必须先恢复网络状态，再删除恢复组件。
 
@@ -65,6 +65,10 @@ Windows 应用清单读取当前账户的 Appx/MSIX 注册信息，识别具有�
 | IPv6 | 配置启用，但尚无本项目完整原生实证；上游明确允许 IPv6 分片直通，不能保证没有直连 |
 | 引擎退出或驱动故障 | 可能恢复直连；不能保证故障期间持续阻断 |
 | 未选应用 | 不配置全机默认代理、TUN 或全机断网规则；路径包含匹配的额外命中仍需留意 |
+
+另一个[专用低权限账户原生实验](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39155586929)中，按账户 SID 设置 WFP 规则后，直接 TCP/UDP socket 被阻断，但系统解析器仍成功解析全新的 DNS 名。该路线已停止，不作为产品隔离方案。Linux 按应用模式继续使用下文的独立网络命名空间。
+
+当前未完成 ChatGPT/Claude 登录流程、真实互联网出口或平台风控结果的验收，不能据此保证登录成功或账户使用结果。
 
 上游的 [IPv6 与分片说明](https://github.com/wiresock/proxifyre/blob/v2.6.4/docs/configuration.md#protocols-and-address-families) 和 [UDP 53 处理源码](https://github.com/wiresock/proxifyre/blob/v2.6.4/netlib/src/proxy/socks_local_router.h) 是这些限制的依据。本项目的监视器会尝试处理核心或后端退出，Job 会管理自身创建的进程；两者都不等于持久的网络拒绝边界。
 

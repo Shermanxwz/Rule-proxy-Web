@@ -94,6 +94,30 @@ class SystemProxyRecoveryTests(unittest.TestCase):
         self.assertEqual(proxy._win_read(), self.previous)
         self.assertFalse((self.directory / proxy.BACKUP).exists())
 
+    def test_failed_readback_reports_only_fixed_field_presence_and_kinds_then_restores(self):
+        actual_read = proxy._win_read
+        reads = []
+        def read(*args):
+            observed = actual_read(*args)
+            reads.append(True)
+            if len(reads) == 2:
+                observed.update(ProxyServer=['credential-user:private-password@remote.invalid', 1],
+                                AutoConfigURL=['https://private-pac.invalid/private-token', 1],
+                                AutoDetect=['private-string', 1])
+            return observed
+        with patch.object(proxy, '_win_read', side_effect=read), self.assertRaises(proxy.SystemProxyError) as raised:
+            proxy.enable(self.directory, 18809)
+        message = str(raised.exception)
+        for detail in ('ProxyServer(present:1->present:1)', 'AutoConfigURL(absent->present:1)',
+                       'AutoDetect(present:4->present:1)'):
+            self.assertIn(detail, message)
+        for secret in ('credential-user', 'private-password', 'remote.invalid', 'private-pac', 'private-token',
+                       'private-string', '127.0.0.1', '18809', 'old.example'):
+            self.assertNotIn(secret, message)
+        self.assertLess(len(message), 300)
+        self.assertEqual(actual_read(), self.previous)
+        self.assertFalse((self.directory / proxy.BACKUP).exists())
+
     def test_failed_partial_rollback_keeps_original_settings_for_a_later_retry(self):
         failures = []
         def fail(root, name, value):

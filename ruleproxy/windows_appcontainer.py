@@ -39,6 +39,9 @@ from .windows_proxy_policy import SID_RE, SERVICE_NAME, ProxyError
 
 
 NAME_RE = re.compile(r'RuleProxy\.[0-9a-f]{20}')
+# Windows enumeration canonicalizes profile names to lower case. Only this
+# OS readback accepts ASCII case equivalence; requests retain NAME_RE exactly.
+_ENUM_NAME_RE = re.compile(r'ruleproxy\.[0-9a-f]{20}', re.ASCII)
 PACKAGE_SID_RE = re.compile(r'S-1-15-2(?:-[0-9]{1,10}){7}')
 # FWPM_CONDITION_ALE_PACKAGE_ID; FWP_SID value type.
 PACKAGE_FIELD = '71bc78fa-f17c-4997-a602-6abb261f351c'
@@ -237,7 +240,8 @@ def owner_profile_sids(owner_sid: str, *, api=None) -> set[str]:
     api = api or _get_api()
     result = set()
     for name, sid, owner in api.profiles():
-        if (owner == owner_sid and isinstance(name, str) and NAME_RE.fullmatch(name)
+        if (owner == owner_sid and isinstance(name, str) and name.isascii()
+                and _ENUM_NAME_RE.fullmatch(name.lower())
                 and isinstance(sid, str) and PACKAGE_SID_RE.fullmatch(sid)
                 and api.derive(name) == sid):
             result.add(sid)

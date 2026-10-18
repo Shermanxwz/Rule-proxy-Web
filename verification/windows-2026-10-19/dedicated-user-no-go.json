@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "status": "bounded_dedicated_user_experiment_complete_no_go",
+  "source_commit": "edc4831576c6223261596dc8c74b7a3e22e70c96",
+  "run_id": 39155586929,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39155586929",
+  "harness_sha256": "0635ee3680c45b535ba8082cbb0c258f51fff8e1a03e044bd417d8df5a529016",
+  "artifact": {
+    "id": 12147032097,
+    "sha256": "f25a4db27967c0e7669e70605c8d6ea78aa55ac890249108e0d53710f6d159f0"
+  },
+  "scope": "Disposable Windows Server 2025 CLI experiment with a temporary ordinary user and per-user WFP socket filters. IPv4 receivers were on the host physical NIC; IPv6 receivers were on host loopback.",
+  "observations": {
+    "ordinary_actor_identity_verified": true,
+    "positive_socket_controls_before_and_after": true,
+    "receiver_echo_counts": {
+      "before": {
+        "tcp4": 1,
+        "udp4": 1,
+        "tcp6": 1,
+        "udp6": 1
+      },
+      "filtered": {
+        "tcp4": 0,
+        "udp4": 0,
+        "tcp6": 0,
+        "udp6": 0
+      },
+      "after": {
+        "tcp4": 1,
+        "udp4": 1,
+        "tcp6": 1,
+        "udp6": 1
+      }
+    },
+    "filtered_direct_tcp_and_udp_blocked": true,
+    "explicit_proxy_fixture_passed_before_filtered_after": true,
+    "system_dns_lookup_names_fresh_and_distinct": true,
+    "filtered_system_dns_answer": [
+      "1.2.3.4"
+    ],
+    "system_dns_succeeded_while_user_socket_filters_active": true
+  },
+  "cleanup": {
+    "completed_without_reported_errors": true,
+    "temporary_filters_and_account_cleanup_completed": true,
+    "foreign_fixture_filters_preserved_after_owned_cleanup": true
+  },
+  "valid_experiment": true,
+  "decision": "no_go_dns_broker_bypass",
+  "next_action": "Stop the dedicated-user isolation route; it does not provide the required DNS isolation.",
+  "product_qualified": false,
+  "linux_equivalent": false,
+  "browser_tested": false,
+  "public_ipv6_tested": false,
+  "installed_product_acceptance_claimed": false,
+  "qualification_scope": "This source-only experiment does not qualify the separately tested ProxiFyre installed product, arbitrary applications, browsers, public IPv6, or Linux-equivalent isolation."
+}

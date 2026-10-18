@@ -66,6 +66,7 @@ class OwnerDiagnosticTests(unittest.TestCase):
             facts = owner_profile_diagnostics(api, name, sid, current_user_sid())
             self.assertEqual(set(facts), {'sid_seen', 'owner_matches', 'name_exact', 'name_casefold', 'derive_matches'})
             self.assertTrue(all(type(value) is bool for value in facts.values()))
+            self.assertIn(sid, container.owner_profile_sids(current_user_sid(), api=api))
             print('::notice title=AppContainer owner diagnostic::' + json.dumps(facts, ensure_ascii=True, sort_keys=True),
                   flush=True)
         finally:
@@ -335,6 +336,37 @@ class NameAndEnvironmentTests(unittest.TestCase):
         self.assertEqual(container.owner_profile_sids(OWNER, api=api), {PACKAGE})
         with self.assertRaises(policy.ProxyError):
             container.owner_profile_sids('not-a-sid', api=api)
+
+    def test_os_profile_name_accepts_only_ascii_case_equivalence(self):
+        api = mock.Mock()
+        api.derive.return_value = PACKAGE
+        for name in (NAME, NAME.lower(), NAME.upper(), 'rUlEpRoXy.' + NAME.split('.')[1].upper()):
+            api.profiles.return_value = [(name, PACKAGE, OWNER)]
+            with self.subTest(name=name):
+                self.assertEqual(container.owner_profile_sids(OWNER, api=api), {PACKAGE})
+                api.derive.assert_called_with(name)
+        # The request namespace remains strict even though OS readback differs.
+        with self.assertRaises(policy.ProxyError):
+            container._check_name(NAME.lower())
+
+    def test_owner_sid_derived_sid_and_profile_boundaries_are_not_relaxed(self):
+        api = mock.Mock()
+        api.derive.return_value = PACKAGE
+        for name, sid, owner in ((NAME.lower(), PACKAGE, OWNER + '1'),
+                                  (NAME.lower(), 'S-1-5-18', OWNER),
+                                  ('prefix' + NAME.lower(), PACKAGE, OWNER),
+                                  (NAME.lower() + '.suffix', PACKAGE, OWNER),
+                                  (NAME.lower() + '\0', PACKAGE, OWNER),
+                                  ('RuleProx\u0443.' + 'a' * 20, PACKAGE, OWNER),
+                                  ('RuleProxy.' + '\uff21' * 20, PACKAGE, OWNER)):
+            api.profiles.return_value = [(name, sid, owner)]
+            api.derive.reset_mock()
+            with self.subTest(name=name, sid=sid, owner=owner):
+                self.assertEqual(container.owner_profile_sids(OWNER, api=api), set())
+                api.derive.assert_not_called()
+        api.profiles.return_value = [(NAME.lower(), PACKAGE, OWNER)]
+        api.derive.return_value = OTHER
+        self.assertEqual(container.owner_profile_sids(OWNER, api=api), set())
 
 
 class RequestTests(unittest.TestCase):

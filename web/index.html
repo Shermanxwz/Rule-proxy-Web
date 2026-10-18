@@ -25,8 +25,8 @@
     <section class="hero">
       <div>
         <p class="eyebrow">私人代理控制台</p>
-        <h1>让指定应用使用受保护连接</h1>
-        <p class="hero-copy">导入配置、选择节点，再从这里启动需要保护的应用。</p>
+        <h1>让指定应用使用所选代理</h1>
+        <p class="hero-copy">导入配置、选择节点，再从这里启动自定义应用。</p>
         <p id="hosted-note" class="hosted-note" hidden>此面板由快捷方式启动：应用和这个页面都关闭后会自动退出。</p>
       </div>
       <div class="status-card" aria-live="polite">
@@ -86,7 +86,7 @@
           <h2>选择节点并启动核心</h2>
           </div>
         </div>
-        <p id="connection-intro" class="muted intro-copy">核心运行不代表应用已受保护。应用实例需从下方启动并进入隔离后才会使用代理。</p>
+        <p id="connection-intro" class="muted intro-copy">启动核心后，按所选接管范围为应用提供本机代理。</p>
         <label class="field-label" for="capture-mode">接管范围</label>
         <select id="capture-mode" class="text-input" aria-label="选择接管范围">
           <option value="applications">按应用接管</option>
@@ -94,12 +94,12 @@
         </select>
         <p id="capture-mode-detail" class="field-hint">切换范围前需关闭本工具启动的应用并停止核心；应用清单和节点选择会保留。</p>
         <div id="protection-card" class="protection-card" aria-live="polite">
-          <div class="protection-heading"><span class="protection-shield" aria-hidden="true">◆</span><div><strong>流量保护能力</strong><span id="protection-badge" class="protection-badge">正在检查</span></div></div>
-          <p id="protection-detail" class="protection-detail">等待本机服务报告隔离能力。</p>
+          <div class="protection-heading"><span class="protection-shield" aria-hidden="true">◆</span><div><strong>代理与隔离能力</strong><span id="protection-badge" class="protection-badge">正在检查</span></div></div>
+          <p id="protection-detail" class="protection-detail">等待本机后端报告可用状态。</p>
           <div id="protection-backend" class="protection-backend"></div>
           <p id="process-permission-note" class="process-permission-note" hidden></p>
           <ul id="protection-limitations" class="protection-limitations" hidden></ul>
-          <p id="protection-note" class="protection-note">只有从此面板或快捷方式启动、并显示“隔离中运行”的实例才受保护。已打开的实例需自行关闭；不兼容应用的流量会被阻断，不会切换到弱模式。</p>
+          <p id="protection-note" class="protection-note">不同平台和接管模式的范围不同，请查看后端状态与限制说明。</p>
         </div>
         <label class="field-label" for="node-select">代理节点</label>
         <div class="inline-field node-field">
@@ -116,9 +116,9 @@
         </div>
         <div class="start-actions">
           <button id="start-button" class="button button-start" type="button" disabled><span class="play-icon" aria-hidden="true">▶</span>启动核心</button>
-          <button id="stop-button" class="button button-stop" type="button" disabled>关闭受保护应用并停止</button>
+          <button id="stop-button" class="button button-stop" type="button" disabled>关闭本工具启动的应用并停止</button>
         </div>
-        <p class="field-hint">按应用模式只启动本机 Mihomo，不修改系统代理；全局模式把系统代理指向本机核心，停止后恢复。停止时会关闭此工具启动的受保护应用实例。</p>
+        <p class="field-hint">按应用模式启用本机核心与应用代理，不修改系统代理；全局模式把系统代理指向本机核心，停止后恢复。停止时会关闭此工具启动的应用实例。</p>
       </article>
     </section>
 
@@ -128,12 +128,12 @@
           <div class="section-icon icon-apps" aria-hidden="true">03</div>
           <div>
             <p class="eyebrow">应用</p>
-          <h2>启动受保护应用</h2>
+          <h2>启动自定义应用</h2>
           </div>
         </div>
         <button id="launch-all-button" class="button button-primary" type="button" disabled>启动所有待启动应用 <span aria-hidden="true">↗</span></button>
       </div>
-      <p id="apps-intro" class="muted apps-intro">已添加的应用显示“待启动”；只有显示“隔离中运行”的实例才受保护。现有已打开的应用不会自动接管。</p>
+      <p id="apps-intro" class="muted apps-intro">添加应用并选择是否启用；实际代理范围与当前平台和接管模式有关。</p>
       <p id="files-note" class="muted files-note" hidden></p>
       <div id="apps-list" class="apps-list" aria-live="polite">
         <div class="empty-state"><span class="empty-symbol" aria-hidden="true">＋</span><strong>还没有添加应用</strong><span>从下方已安装应用中选择。</span></div>
@@ -169,7 +169,7 @@
           <label id="related-paths-field" class="form-control args-control" hidden><span class="field-label">相关程序路径 <span class="optional">选填，每行一个 exe，最多 16 个</span></span><textarea id="app-related-paths" class="text-input args-input" rows="2" placeholder="填入应用联网子进程的完整 exe 路径；不会单独启动这些程序"></textarea></label>
           <button id="add-app-button" class="button button-secondary add-button" type="button">添加应用</button>
         </div>
-        <p class="compatibility-note"><span class="info-icon" aria-hidden="true">i</span><span id="compatibility-note">此工具不能保证所有软件兼容。只有本机隔离能力报告支持且实例显示“隔离中运行”时才表示保护已启用；不兼容流量将被阻断。</span></p>
+        <p class="compatibility-note"><span class="info-icon" aria-hidden="true">i</span><span id="compatibility-note">应用兼容性与代理范围取决于当前平台和接管模式；请查看上方后端状态和限制。</span></p>
       </div>
       </details>
     </section>
@@ -186,7 +186,7 @@
       <div class="background-row">
         <div>
           <strong>退出面板</strong>
-          <p>关闭此工具启动的受保护应用，停止核心，然后退出面板。面板在后台运行时，从这里退出。</p>
+          <p>关闭此工具启动的应用，停止核心，然后退出面板。面板在后台运行时，从这里退出。</p>
         </div>
         <button id="quit-button" class="button button-secondary" type="button">退出面板</button>
       </div>
