@@ -1,0 +1,1193 @@
+{
+  "schema_version": 1,
+  "product_qualified": false,
+  "privacy_qualified": false,
+  "scope": "installed production network path, ordinary actor, controlled TLS and owned core/service faults",
+  "source_identity": {
+    "source_commit": "f3d99eb1e608cbb80e60d74d870dd8664f094961",
+    "declared_bundle_sha256": "bb3b14934f896ca0ce8ff4c1db085ac0d88a3d57618c44942a883ceaa4f988e8",
+    "package_manifest_sha256": "9a2f56947f9eae168b4ea797833a3652c56c4c72283a4753f36bef54ff203301",
+    "package_inventory_matches": true,
+    "source_matches_bundle": {
+      "ruleproxy/windows_compartment.py": true,
+      "ruleproxy/manager.py": true,
+      "ruleproxy/windows_proxy_service.py": true,
+      "ruleproxy/windows_proxy_runtime.py": true,
+      "ruleproxy/windows_proxy_policy.py": true,
+      "ruleproxy/windows_app_process.py": true
+    },
+    "installed_files_sha256": {
+      "ruleproxy/windows_compartment.py": "52e3852112c25a950e195b4c4b732439fcd853826c9252c66188a64a900af9a5",
+      "ruleproxy/manager.py": "40e77d23893ed5d4a13509893aae750162fe956832451c6a1a6ac9a1f36dcee2",
+      "ruleproxy/windows_proxy_service.py": "7e3d32dba0002faac252ff052c809a82bfe7b713072adcf9cabc7047e23c9472",
+      "ruleproxy/windows_proxy_runtime.py": "ec888e81192b610f7d5864d2b33cfb1ea6e35415e1f92cb87412836edc46d1c8",
+      "ruleproxy/windows_proxy_policy.py": "3e0d61c031bbd07a6ba8e78b25539d107bfdb9ec55d9ceabe69087b71a16a3e4",
+      "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+    },
+    "deployment_inventory_sha256": "943c1be92468693f4d524c759f24c089584175a0453cc003f5692edc43fe63fc",
+    "deployment_inventory_matches": true,
+    "mismatched_files": [],
+    "mihomo_sha256": "04f8d7fc2b314771e1ecbf15951d59f0e1cb7914503c88cfb6972ff6a824e314",
+    "python_sha256": "434b361fe0c5960d404974feed493db47f2603a1ace2574312104fbed0182c6f",
+    "probe_sha256": "56e2f463c523d1c33751b0bcb5e2b669b3ac397acc7b02046f72fcf9c15d7835",
+    "fixture_sha256": "c8a126a378ee7b2aa7f537dde81cbb2a262b918ebae267c119e8453efa826ec6"
+  },
+  "owner_sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+  "source_is_installed_package": true,
+  "controller_identity": {
+    "sid": "S-1-5-21-4239583824-265399229-1323058055-500",
+    "session_id": 2,
+    "elevated": true
+  },
+  "tls_trust": "explicit fixture CA file; no system certificate-store changes",
+  "dns_packet_evidence": false,
+  "browser_sandbox_qualification": false,
+  "service_at_start": {
+    "pid": 9004,
+    "alive": true,
+    "time_ns": 231735313700,
+    "scm": {
+      "state": 4,
+      "pid": 9004,
+      "win32_exit_code": 0
+    }
+  },
+  "ordinary_launch_method": "CreateProcessWithLogonW",
+  "launcher_exit_code": 0,
+  "ordinary": {
+    "product_qualified": false,
+    "privacy_qualified": false,
+    "identity": {
+      "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+      "session_id": 2,
+      "elevated": false,
+      "pid": 7112,
+      "compartment_id": 1
+    },
+    "scenarios": {
+      "core": {
+        "outside": {
+          "identity": {
+            "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+            "session_id": 2,
+            "elevated": false,
+            "pid": 7456,
+            "compartment_id": 1
+          },
+          "before": {
+            "http_proxy": {
+              "ok": true
+            },
+            "direct_http": {
+              "ok": true
+            },
+            "direct_tls": {
+              "ok": true,
+              "route": "direct",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "core-outside-direct_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "connect_tls": {
+              "ok": true,
+              "route": "connect",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "core-outside-connect_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "socks_tls": {
+              "ok": true,
+              "route": "socks",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "core-outside-socks_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "external_connect_tls": {
+              "ok": false,
+              "route": "connect",
+              "host": "www.microsoft.com",
+              "tag": "core-outside-external",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "9f17b548f7d24f309dbcaab571576c0ca73b80559ce69f27fe295f6408cc57bf",
+              "http_status": 403
+            }
+          },
+          "before_complete": true
+        },
+        "namespace_prepare": {
+          "backend": "ProxiFyre",
+          "mode": "application_proxy",
+          "strict_isolation": false,
+          "state": "running",
+          "running": true,
+          "engine_running": false,
+          "engine_owned": false,
+          "generation": 1,
+          "owner_pid": 7112,
+          "path_count": 0,
+          "proxy_port": 53402,
+          "limitations": [
+            "\u89c4\u5219\u6309\u7a0b\u5e8f\u8def\u5f84\u5339\u914d\uff0c\u540c\u4e00\u8def\u5f84\u7684\u5176\u4ed6\u5b9e\u4f8b\u4e5f\u53ef\u80fd\u88ab\u63a5\u7ba1\uff1b\u5df2\u6709\u8fde\u63a5\u9700\u8981\u91cd\u542f\u5e94\u7528\u540e\u91cd\u65b0\u5efa\u7acb\u3002",
+            "ProxiFyre \u4f7f\u7528\u8def\u5f84\u5305\u542b\u5339\u914d\uff0c\u5305\u542b\u6240\u586b\u5b8c\u6574\u8def\u5f84\u6587\u672c\u7684\u76f8\u4f3c\u8def\u5f84\u4e5f\u53ef\u80fd\u547d\u4e2d\u3002",
+            "\u5f02\u540d\u5b50\u8fdb\u7a0b\u9700\u8981\u663e\u5f0f\u6dfb\u52a0\u5176\u7a0b\u5e8f\u8def\u5f84\uff0c\u4e0d\u4fdd\u8bc1\u81ea\u52a8\u7ee7\u627f\u3002",
+            "UDP 53 \u4e0e\u7cfb\u7edf DNS \u4e0d\u4fdd\u8bc1\u7ecf\u8fc7\u4ee3\u7406\uff1b\u5f53\u524d\u4e0d\u63d0\u4f9b DNS \u9632\u6cc4\u6f0f\u9694\u79bb\u3002",
+            "IPv6 \u8fd0\u884c\u5c1a\u9700\u672c\u673a\u9a8c\u8bc1\uff0cIPv6 \u5206\u7247\u53ef\u80fd\u76f4\u8fde\u3002",
+            "\u4ee3\u7406\u5f15\u64ce\u505c\u6b62\u6216\u6545\u969c\u540e\u53ef\u80fd\u6062\u590d\u76f4\u8fde\uff1bWindows \u6a21\u5f0f\u4e0d\u63d0\u4f9b\u4e25\u683c\u9694\u79bb\u3002"
+          ],
+          "error": null,
+          "global_active": false,
+          "container_count": 0,
+          "namespace_count": 0,
+          "namespace_ready": true,
+          "cleanup_pending": false
+        },
+        "inside": {
+          "identity": {
+            "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+            "session_id": 2,
+            "elevated": false,
+            "pid": 2356,
+            "compartment_id": 2
+          },
+          "before": {
+            "http_proxy": {
+              "ok": true
+            },
+            "direct_http": {
+              "ok": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "direct_tls": {
+              "ok": false,
+              "route": "direct",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "core-inside-direct_tls",
+              "tls_verified": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "connect_tls": {
+              "ok": true,
+              "route": "connect",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "core-inside-connect_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "socks_tls": {
+              "ok": true,
+              "route": "socks",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "core-inside-socks_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "external_connect_tls": {
+              "ok": false,
+              "route": "connect",
+              "host": "www.microsoft.com",
+              "tag": "core-inside-external",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "9f17b548f7d24f309dbcaab571576c0ca73b80559ce69f27fe295f6408cc57bf",
+              "http_status": 403
+            }
+          },
+          "before_complete": true
+        },
+        "actor_alive_before_fault": true,
+        "before_fault_counts": {
+          "proxy_requests": 10,
+          "origin_requests": 5,
+          "direct_connections": 0,
+          "udp4_received": 0,
+          "udp6_received": 0,
+          "udp4_by_role": {},
+          "udp6_by_role": {},
+          "errors": [],
+          "gui_first_page_requests": 0,
+          "gui_second_page_requests": 0,
+          "gui_first_beacon_requests": 0,
+          "gui_second_beacon_requests": 0,
+          "gui_first_cookie_valid": 0,
+          "gui_second_cookie_valid": 0,
+          "tls_requests": [
+            {
+              "tag": "core-outside-direct_tls",
+              "time_ns": 250810261000
+            },
+            {
+              "tag": "core-outside-connect_tls",
+              "time_ns": 250815591500
+            },
+            {
+              "tag": "core-outside-socks_tls",
+              "time_ns": 250820737300
+            },
+            {
+              "tag": "core-inside-connect_tls",
+              "time_ns": 258324917000
+            },
+            {
+              "tag": "core-inside-socks_tls",
+              "time_ns": 258332517200
+            }
+          ],
+          "upstream_connects": [
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53399,
+              "time_ns": 250610944300
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53399,
+              "time_ns": 250614601900
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53399,
+              "time_ns": 250798255900
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53398,
+              "time_ns": 250812323700
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53398,
+              "time_ns": 250817508100
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 250822698700
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53399,
+              "time_ns": 254253465500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53398,
+              "time_ns": 258317167500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53398,
+              "time_ns": 258328813000
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 258335969600
+            }
+          ],
+          "external_connects": 2
+        },
+        "fault": {
+          "injected": true,
+          "kind": "owned_mihomo_termination",
+          "time_ns": 258500209300,
+          "owned_process_started": true,
+          "exited": true,
+          "exit_code": 1
+        },
+        "actor_exit_code": 1,
+        "post_fault_tls_hits": [],
+        "post_fault_http_delta": 0,
+        "outside_after": {
+          "direct_tls": {
+            "ok": true,
+            "route": "direct",
+            "host": "ruleproxy-fixture.invalid",
+            "tag": "core-outside-after",
+            "tls_verified": true,
+            "tls_version": "TLSv1.3",
+            "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+            "http_status": 200
+          }
+        },
+        "checks": {
+          "plain_same_api_positive": true,
+          "ordinary_same_identity": true,
+          "distinct_compartment": true,
+          "real_mihomo_local_tls": true,
+          "direct_controls_denied": true,
+          "fault_injected": true,
+          "post_fault_terminated_or_denied": true,
+          "no_post_fault_tls_hit": true,
+          "no_post_fault_http_hit": true,
+          "origin_still_reachable_outside": true
+        },
+        "fixture_counts": {
+          "proxy_requests": 10,
+          "origin_requests": 5,
+          "direct_connections": 0,
+          "udp4_received": 0,
+          "udp6_received": 0,
+          "udp4_by_role": {},
+          "udp6_by_role": {},
+          "errors": [],
+          "gui_first_page_requests": 0,
+          "gui_second_page_requests": 0,
+          "gui_first_beacon_requests": 0,
+          "gui_second_beacon_requests": 0,
+          "gui_first_cookie_valid": 0,
+          "gui_second_cookie_valid": 0,
+          "tls_requests": [
+            {
+              "tag": "core-outside-direct_tls",
+              "time_ns": 250810261000
+            },
+            {
+              "tag": "core-outside-connect_tls",
+              "time_ns": 250815591500
+            },
+            {
+              "tag": "core-outside-socks_tls",
+              "time_ns": 250820737300
+            },
+            {
+              "tag": "core-inside-connect_tls",
+              "time_ns": 258324917000
+            },
+            {
+              "tag": "core-inside-socks_tls",
+              "time_ns": 258332517200
+            },
+            {
+              "tag": "core-outside-after",
+              "time_ns": 258807463900
+            }
+          ],
+          "upstream_connects": [
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53399,
+              "time_ns": 250610944300
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53399,
+              "time_ns": 250614601900
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53399,
+              "time_ns": 250798255900
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53398,
+              "time_ns": 250812323700
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53398,
+              "time_ns": 250817508100
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 250822698700
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53399,
+              "time_ns": 254253465500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53398,
+              "time_ns": 258317167500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53398,
+              "time_ns": 258328813000
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 258335969600
+            }
+          ],
+          "external_connects": 2
+        }
+      },
+      "service": {
+        "outside": {
+          "identity": {
+            "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+            "session_id": 2,
+            "elevated": false,
+            "pid": 744,
+            "compartment_id": 1
+          },
+          "before": {
+            "http_proxy": {
+              "ok": true
+            },
+            "direct_http": {
+              "ok": true
+            },
+            "direct_tls": {
+              "ok": true,
+              "route": "direct",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-outside-direct_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "connect_tls": {
+              "ok": true,
+              "route": "connect",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-outside-connect_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "socks_tls": {
+              "ok": true,
+              "route": "socks",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-outside-socks_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "external_connect_tls": {
+              "ok": false,
+              "route": "connect",
+              "host": "www.microsoft.com",
+              "tag": "service-outside-external",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "9f17b548f7d24f309dbcaab571576c0ca73b80559ce69f27fe295f6408cc57bf",
+              "http_status": 403
+            }
+          },
+          "before_complete": true
+        },
+        "namespace_prepare": {
+          "backend": "ProxiFyre",
+          "mode": "application_proxy",
+          "strict_isolation": false,
+          "state": "running",
+          "running": true,
+          "engine_running": false,
+          "engine_owned": false,
+          "generation": 2,
+          "owner_pid": 7112,
+          "path_count": 0,
+          "proxy_port": 53442,
+          "limitations": [
+            "\u89c4\u5219\u6309\u7a0b\u5e8f\u8def\u5f84\u5339\u914d\uff0c\u540c\u4e00\u8def\u5f84\u7684\u5176\u4ed6\u5b9e\u4f8b\u4e5f\u53ef\u80fd\u88ab\u63a5\u7ba1\uff1b\u5df2\u6709\u8fde\u63a5\u9700\u8981\u91cd\u542f\u5e94\u7528\u540e\u91cd\u65b0\u5efa\u7acb\u3002",
+            "ProxiFyre \u4f7f\u7528\u8def\u5f84\u5305\u542b\u5339\u914d\uff0c\u5305\u542b\u6240\u586b\u5b8c\u6574\u8def\u5f84\u6587\u672c\u7684\u76f8\u4f3c\u8def\u5f84\u4e5f\u53ef\u80fd\u547d\u4e2d\u3002",
+            "\u5f02\u540d\u5b50\u8fdb\u7a0b\u9700\u8981\u663e\u5f0f\u6dfb\u52a0\u5176\u7a0b\u5e8f\u8def\u5f84\uff0c\u4e0d\u4fdd\u8bc1\u81ea\u52a8\u7ee7\u627f\u3002",
+            "UDP 53 \u4e0e\u7cfb\u7edf DNS \u4e0d\u4fdd\u8bc1\u7ecf\u8fc7\u4ee3\u7406\uff1b\u5f53\u524d\u4e0d\u63d0\u4f9b DNS \u9632\u6cc4\u6f0f\u9694\u79bb\u3002",
+            "IPv6 \u8fd0\u884c\u5c1a\u9700\u672c\u673a\u9a8c\u8bc1\uff0cIPv6 \u5206\u7247\u53ef\u80fd\u76f4\u8fde\u3002",
+            "\u4ee3\u7406\u5f15\u64ce\u505c\u6b62\u6216\u6545\u969c\u540e\u53ef\u80fd\u6062\u590d\u76f4\u8fde\uff1bWindows \u6a21\u5f0f\u4e0d\u63d0\u4f9b\u4e25\u683c\u9694\u79bb\u3002"
+          ],
+          "error": null,
+          "global_active": false,
+          "container_count": 0,
+          "namespace_count": 0,
+          "namespace_ready": true,
+          "cleanup_pending": false
+        },
+        "inside": {
+          "identity": {
+            "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+            "session_id": 2,
+            "elevated": false,
+            "pid": 4420,
+            "compartment_id": 3
+          },
+          "before": {
+            "http_proxy": {
+              "ok": true
+            },
+            "direct_http": {
+              "ok": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "direct_tls": {
+              "ok": false,
+              "route": "direct",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-inside-direct_tls",
+              "tls_verified": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "connect_tls": {
+              "ok": true,
+              "route": "connect",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-inside-connect_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "socks_tls": {
+              "ok": true,
+              "route": "socks",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-inside-socks_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "external_connect_tls": {
+              "ok": false,
+              "route": "connect",
+              "host": "www.microsoft.com",
+              "tag": "service-inside-external",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "9f17b548f7d24f309dbcaab571576c0ca73b80559ce69f27fe295f6408cc57bf",
+              "http_status": 403
+            }
+          },
+          "before_complete": true,
+          "after": {
+            "http_proxy": {
+              "ok": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "direct_http": {
+              "ok": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "direct_tls": {
+              "ok": false,
+              "route": "direct",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-inside-after-direct_tls",
+              "tls_verified": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "connect_tls": {
+              "ok": false,
+              "route": "connect",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-inside-after-connect_tls",
+              "tls_verified": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "socks_tls": {
+              "ok": false,
+              "route": "socks",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "service-inside-after-socks_tls",
+              "tls_verified": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            }
+          },
+          "after_complete": true
+        },
+        "actor_alive_before_fault": true,
+        "before_fault_counts": {
+          "proxy_requests": 10,
+          "origin_requests": 5,
+          "direct_connections": 0,
+          "udp4_received": 0,
+          "udp6_received": 0,
+          "udp4_by_role": {},
+          "udp6_by_role": {},
+          "errors": [],
+          "gui_first_page_requests": 0,
+          "gui_second_page_requests": 0,
+          "gui_first_beacon_requests": 0,
+          "gui_second_beacon_requests": 0,
+          "gui_first_cookie_valid": 0,
+          "gui_second_cookie_valid": 0,
+          "tls_requests": [
+            {
+              "tag": "service-outside-direct_tls",
+              "time_ns": 260844599200
+            },
+            {
+              "tag": "service-outside-connect_tls",
+              "time_ns": 260849608300
+            },
+            {
+              "tag": "service-outside-socks_tls",
+              "time_ns": 260867614000
+            },
+            {
+              "tag": "service-inside-connect_tls",
+              "time_ns": 266432304900
+            },
+            {
+              "tag": "service-inside-socks_tls",
+              "time_ns": 266439995800
+            }
+          ],
+          "upstream_connects": [
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53439,
+              "time_ns": 260611544400
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53439,
+              "time_ns": 260614935700
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53439,
+              "time_ns": 260834157600
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 260846374300
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 260864250100
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 260880316900
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53439,
+              "time_ns": 262377026600
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 266424972500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 266436462200
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 266443621500
+            }
+          ],
+          "external_connects": 2
+        },
+        "fault": {
+          "injected": true,
+          "kind": "verified_system_service_handle_termination",
+          "pid": 9004,
+          "process_sid": "S-1-5-18",
+          "exit_code": 125,
+          "time_ns": 266682228800
+        },
+        "actor_exit_code": null,
+        "post_fault_tls_hits": [],
+        "post_fault_http_delta": 0,
+        "outside_after": {
+          "direct_tls": {
+            "ok": true,
+            "route": "direct",
+            "host": "ruleproxy-fixture.invalid",
+            "tag": "service-outside-after",
+            "tls_verified": true,
+            "tls_version": "TLSv1.3",
+            "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+            "http_status": 200
+          },
+          "mihomo_still_works": {
+            "ok": true,
+            "route": "connect",
+            "host": "ruleproxy-fixture.invalid",
+            "tag": "service-outside-core-alive",
+            "tls_verified": true,
+            "tls_version": "TLSv1.3",
+            "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+            "http_status": 200
+          }
+        },
+        "checks": {
+          "plain_same_api_positive": true,
+          "ordinary_same_identity": true,
+          "distinct_compartment": true,
+          "real_mihomo_local_tls": true,
+          "direct_controls_denied": true,
+          "fault_injected": true,
+          "post_fault_terminated_or_denied": true,
+          "no_post_fault_tls_hit": true,
+          "no_post_fault_http_hit": true,
+          "origin_still_reachable_outside": true
+        },
+        "fixture_counts": {
+          "proxy_requests": 11,
+          "origin_requests": 5,
+          "direct_connections": 0,
+          "udp4_received": 0,
+          "udp6_received": 0,
+          "udp4_by_role": {},
+          "udp6_by_role": {},
+          "errors": [],
+          "gui_first_page_requests": 0,
+          "gui_second_page_requests": 0,
+          "gui_first_beacon_requests": 0,
+          "gui_second_beacon_requests": 0,
+          "gui_first_cookie_valid": 0,
+          "gui_second_cookie_valid": 0,
+          "tls_requests": [
+            {
+              "tag": "service-outside-direct_tls",
+              "time_ns": 260844599200
+            },
+            {
+              "tag": "service-outside-connect_tls",
+              "time_ns": 260849608300
+            },
+            {
+              "tag": "service-outside-socks_tls",
+              "time_ns": 260867614000
+            },
+            {
+              "tag": "service-inside-connect_tls",
+              "time_ns": 266432304900
+            },
+            {
+              "tag": "service-inside-socks_tls",
+              "time_ns": 266439995800
+            },
+            {
+              "tag": "service-outside-after",
+              "time_ns": 276803205400
+            },
+            {
+              "tag": "service-outside-core-alive",
+              "time_ns": 276818692100
+            }
+          ],
+          "upstream_connects": [
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53439,
+              "time_ns": 260611544400
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53439,
+              "time_ns": 260614935700
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53439,
+              "time_ns": 260834157600
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 260846374300
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 260864250100
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 260880316900
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53439,
+              "time_ns": 262377026600
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 266424972500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 266436462200
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 266443621500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53438,
+              "time_ns": 276815317500
+            }
+          ],
+          "external_connects": 2
+        }
+      }
+    },
+    "complete": true,
+    "controlled_chain_checks_passed": true,
+    "external_https_verified": false,
+    "external_tls_handshake_verified": true
+  },
+  "service_before_cleanup": {
+    "pid": 9004,
+    "alive": false,
+    "time_ns": 277720755000,
+    "scm": {
+      "state": 1,
+      "pid": 0,
+      "win32_exit_code": 1067
+    },
+    "exit_code": 125,
+    "exit_code_hex": "0x0000007D"
+  },
+  "service_diagnostics": {
+    "namespace_journal": {
+      "boot_id": "2bce6d15-80b5-45e6-82b3-05f863945416",
+      "compartments": {
+        "RuleProxyNS.afc30de28c038bfcd4aa": {
+          "cid": 2,
+          "guid": "de623cb2-304f-46d1-9880-61b3b6f93626",
+          "phase": "clean"
+        },
+        "RuleProxyNS.ea6ea637f61efa55ac3b": {
+          "cid": 3,
+          "guid": "f4f5a070-2445-49bb-a559-b2d245ba8876",
+          "phase": "dirty"
+        }
+      },
+      "identity": "e2eda0fd4fd34a0f6eaf14a4",
+      "version": 1
+    },
+    "namespace_journal_sha256": "d1303390c0906eb2b80afb81db840cd5e281efc863bf876c4738f48f36d931f6",
+    "crash_event_query_exit_code": 0,
+    "exact_process_crash_events": []
+  },
+  "service_recovery": {
+    "restored": true,
+    "state": 4,
+    "pid": 5136,
+    "win32_exit_code": 0,
+    "fresh_chain": {
+      "launcher_exit_code": 0,
+      "result": {
+        "product_qualified": false,
+        "privacy_qualified": false,
+        "identity": {
+          "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+          "session_id": 2,
+          "elevated": false,
+          "pid": 9148,
+          "compartment_id": 1
+        },
+        "initial_status": {
+          "backend": "ProxiFyre",
+          "mode": "application_proxy",
+          "strict_isolation": false,
+          "state": "idle",
+          "running": false,
+          "engine_running": false,
+          "engine_owned": false,
+          "generation": 0,
+          "owner_pid": null,
+          "path_count": 0,
+          "proxy_port": null,
+          "limitations": [
+            "\u89c4\u5219\u6309\u7a0b\u5e8f\u8def\u5f84\u5339\u914d\uff0c\u540c\u4e00\u8def\u5f84\u7684\u5176\u4ed6\u5b9e\u4f8b\u4e5f\u53ef\u80fd\u88ab\u63a5\u7ba1\uff1b\u5df2\u6709\u8fde\u63a5\u9700\u8981\u91cd\u542f\u5e94\u7528\u540e\u91cd\u65b0\u5efa\u7acb\u3002",
+            "ProxiFyre \u4f7f\u7528\u8def\u5f84\u5305\u542b\u5339\u914d\uff0c\u5305\u542b\u6240\u586b\u5b8c\u6574\u8def\u5f84\u6587\u672c\u7684\u76f8\u4f3c\u8def\u5f84\u4e5f\u53ef\u80fd\u547d\u4e2d\u3002",
+            "\u5f02\u540d\u5b50\u8fdb\u7a0b\u9700\u8981\u663e\u5f0f\u6dfb\u52a0\u5176\u7a0b\u5e8f\u8def\u5f84\uff0c\u4e0d\u4fdd\u8bc1\u81ea\u52a8\u7ee7\u627f\u3002",
+            "UDP 53 \u4e0e\u7cfb\u7edf DNS \u4e0d\u4fdd\u8bc1\u7ecf\u8fc7\u4ee3\u7406\uff1b\u5f53\u524d\u4e0d\u63d0\u4f9b DNS \u9632\u6cc4\u6f0f\u9694\u79bb\u3002",
+            "IPv6 \u8fd0\u884c\u5c1a\u9700\u672c\u673a\u9a8c\u8bc1\uff0cIPv6 \u5206\u7247\u53ef\u80fd\u76f4\u8fde\u3002",
+            "\u4ee3\u7406\u5f15\u64ce\u505c\u6b62\u6216\u6545\u969c\u540e\u53ef\u80fd\u6062\u590d\u76f4\u8fde\uff1bWindows \u6a21\u5f0f\u4e0d\u63d0\u4f9b\u4e25\u683c\u9694\u79bb\u3002"
+          ],
+          "error": null,
+          "global_active": false,
+          "container_count": 0,
+          "namespace_count": 0,
+          "namespace_ready": false,
+          "cleanup_pending": false
+        },
+        "outside": {
+          "identity": {
+            "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+            "session_id": 2,
+            "elevated": false,
+            "pid": 9148,
+            "compartment_id": 1
+          },
+          "before": {
+            "http_proxy": {
+              "ok": true
+            },
+            "direct_http": {
+              "ok": true
+            },
+            "direct_tls": {
+              "ok": true,
+              "route": "direct",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "recovery-outside-direct_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "connect_tls": {
+              "ok": true,
+              "route": "connect",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "recovery-outside-connect_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "socks_tls": {
+              "ok": true,
+              "route": "socks",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "recovery-outside-socks_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            }
+          }
+        },
+        "namespace_prepare": {
+          "backend": "ProxiFyre",
+          "mode": "application_proxy",
+          "strict_isolation": false,
+          "state": "running",
+          "running": true,
+          "engine_running": false,
+          "engine_owned": false,
+          "generation": 1,
+          "owner_pid": 9148,
+          "path_count": 0,
+          "proxy_port": 53499,
+          "limitations": [
+            "\u89c4\u5219\u6309\u7a0b\u5e8f\u8def\u5f84\u5339\u914d\uff0c\u540c\u4e00\u8def\u5f84\u7684\u5176\u4ed6\u5b9e\u4f8b\u4e5f\u53ef\u80fd\u88ab\u63a5\u7ba1\uff1b\u5df2\u6709\u8fde\u63a5\u9700\u8981\u91cd\u542f\u5e94\u7528\u540e\u91cd\u65b0\u5efa\u7acb\u3002",
+            "ProxiFyre \u4f7f\u7528\u8def\u5f84\u5305\u542b\u5339\u914d\uff0c\u5305\u542b\u6240\u586b\u5b8c\u6574\u8def\u5f84\u6587\u672c\u7684\u76f8\u4f3c\u8def\u5f84\u4e5f\u53ef\u80fd\u547d\u4e2d\u3002",
+            "\u5f02\u540d\u5b50\u8fdb\u7a0b\u9700\u8981\u663e\u5f0f\u6dfb\u52a0\u5176\u7a0b\u5e8f\u8def\u5f84\uff0c\u4e0d\u4fdd\u8bc1\u81ea\u52a8\u7ee7\u627f\u3002",
+            "UDP 53 \u4e0e\u7cfb\u7edf DNS \u4e0d\u4fdd\u8bc1\u7ecf\u8fc7\u4ee3\u7406\uff1b\u5f53\u524d\u4e0d\u63d0\u4f9b DNS \u9632\u6cc4\u6f0f\u9694\u79bb\u3002",
+            "IPv6 \u8fd0\u884c\u5c1a\u9700\u672c\u673a\u9a8c\u8bc1\uff0cIPv6 \u5206\u7247\u53ef\u80fd\u76f4\u8fde\u3002",
+            "\u4ee3\u7406\u5f15\u64ce\u505c\u6b62\u6216\u6545\u969c\u540e\u53ef\u80fd\u6062\u590d\u76f4\u8fde\uff1bWindows \u6a21\u5f0f\u4e0d\u63d0\u4f9b\u4e25\u683c\u9694\u79bb\u3002"
+          ],
+          "error": null,
+          "global_active": false,
+          "container_count": 0,
+          "namespace_count": 0,
+          "namespace_ready": true,
+          "cleanup_pending": false
+        },
+        "inside": {
+          "identity": {
+            "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+            "session_id": 2,
+            "elevated": false,
+            "pid": 8140,
+            "compartment_id": 4
+          },
+          "before": {
+            "http_proxy": {
+              "ok": true
+            },
+            "direct_http": {
+              "ok": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "direct_tls": {
+              "ok": false,
+              "route": "direct",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "recovery-inside-direct_tls",
+              "tls_verified": false,
+              "error_type": "ConnectionRefusedError",
+              "errno": 10061,
+              "winerror": 10061
+            },
+            "connect_tls": {
+              "ok": true,
+              "route": "connect",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "recovery-inside-connect_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "socks_tls": {
+              "ok": true,
+              "route": "socks",
+              "host": "ruleproxy-fixture.invalid",
+              "tag": "recovery-inside-socks_tls",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+              "http_status": 200
+            },
+            "external_connect_tls": {
+              "ok": false,
+              "route": "connect",
+              "host": "www.microsoft.com",
+              "tag": "recovery-inside-external",
+              "tls_verified": true,
+              "tls_version": "TLSv1.3",
+              "certificate_sha256": "9f17b548f7d24f309dbcaab571576c0ca73b80559ce69f27fe295f6408cc57bf",
+              "http_status": 403
+            }
+          },
+          "before_complete": true
+        },
+        "actor_exit_code": 0,
+        "checks": {
+          "plain_same_api_positive": true,
+          "ordinary_same_identity": true,
+          "distinct_compartment": true,
+          "real_mihomo_local_tls": true,
+          "direct_controls_denied": true,
+          "actor_finished": true
+        },
+        "fixture_counts": {
+          "proxy_requests": 9,
+          "origin_requests": 5,
+          "direct_connections": 0,
+          "udp4_received": 0,
+          "udp6_received": 0,
+          "udp4_by_role": {},
+          "udp6_by_role": {},
+          "errors": [],
+          "gui_first_page_requests": 0,
+          "gui_second_page_requests": 0,
+          "gui_first_beacon_requests": 0,
+          "gui_second_beacon_requests": 0,
+          "gui_first_cookie_valid": 0,
+          "gui_second_cookie_valid": 0,
+          "tls_requests": [
+            {
+              "tag": "recovery-outside-direct_tls",
+              "time_ns": 281252164900
+            },
+            {
+              "tag": "recovery-outside-connect_tls",
+              "time_ns": 281257585000
+            },
+            {
+              "tag": "recovery-outside-socks_tls",
+              "time_ns": 281262694300
+            },
+            {
+              "tag": "recovery-inside-connect_tls",
+              "time_ns": 286550292600
+            },
+            {
+              "tag": "recovery-inside-socks_tls",
+              "time_ns": 286577059400
+            }
+          ],
+          "upstream_connects": [
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53496,
+              "time_ns": 281238208400
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53496,
+              "time_ns": 281241584500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53496,
+              "time_ns": 281245212700
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53495,
+              "time_ns": 281254351800
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53495,
+              "time_ns": 281259676600
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53496,
+              "time_ns": 282503191500
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53495,
+              "time_ns": 286541954400
+            },
+            {
+              "host": "ruleproxy-fixture.invalid",
+              "port": 53495,
+              "time_ns": 286573553200
+            },
+            {
+              "host": "www.microsoft.com",
+              "port": 443,
+              "time_ns": 286603660500
+            }
+          ],
+          "external_connects": 1
+        },
+        "complete": true,
+        "controlled_chain_checks_passed": true
+      },
+      "verified": true
+    }
+  },
+  "complete": true
+}

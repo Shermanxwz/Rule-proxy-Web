@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "source_commit": "f3d99eb1e608cbb80e60d74d870dd8664f094961",
+  "workflow_run": 39206919590,
+  "workflow_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39206919590",
+  "job_id": 117911791291,
+  "artifact_id": 12165972995,
+  "artifact_sha256": "891edf8b12335c83802fe34228c73bed814ba7773e3652cfac6b0cf93813e556",
+  "raw_member_sha256": {
+    "report.json": "506e2f4dafbeaa7e1ed9af073ffc3f3f00b74db7b93a96035f707c9ffa3c2fc1",
+    "ordinary-result.json": "a0f39dfa0c8e35147ea43e641a211287834050e5553abb6dfdd1eee0bce39472",
+    "recovery-result.json": "66ee6809cdfd3ca3563d49c28f07f43ddc195f5adc590104f9f5211217b42af7"
+  },
+  "scope": "Installed product on Windows Server 2025; ordinary local account; actual Mihomo; controlled HTTP and verified TLS; owned process/service faults. This is not Windows 11 or complete privacy acceptance.",
+  "abi_fix": "The former 536-byte native row was smaller than the 540-byte initializer observed in current Windows DLLs. This revision preserves the opaque DWORD at offset 536 and uses guarded native storage.",
+  "package_sha256": "bb3b14934f896ca0ce8ff4c1db085ac0d88a3d57618c44942a883ceaa4f988e8",
+  "source_identity_verified": true,
+  "scenarios": {
+    "core": {
+      "checks": {
+        "plain_same_api_positive": true,
+        "ordinary_same_identity": true,
+        "distinct_compartment": true,
+        "real_mihomo_local_tls": true,
+        "direct_controls_denied": true,
+        "fault_injected": true,
+        "post_fault_terminated_or_denied": true,
+        "no_post_fault_tls_hit": true,
+        "no_post_fault_http_hit": true,
+        "origin_still_reachable_outside": true
+      },
+      "inside_compartment_id": 2,
+      "inside_elevated": false,
+      "fault": {
+        "injected": true,
+        "kind": "owned_mihomo_termination",
+        "time_ns": 258500209300,
+        "owned_process_started": true,
+        "exited": true,
+        "exit_code": 1
+      },
+      "post_fault_tls_hits": [],
+      "post_fault_http_delta": 0
+    },
+    "service": {
+      "checks": {
+        "plain_same_api_positive": true,
+        "ordinary_same_identity": true,
+        "distinct_compartment": true,
+        "real_mihomo_local_tls": true,
+        "direct_controls_denied": true,
+        "fault_injected": true,
+        "post_fault_terminated_or_denied": true,
+        "no_post_fault_tls_hit": true,
+        "no_post_fault_http_hit": true,
+        "origin_still_reachable_outside": true
+      },
+      "inside_compartment_id": 3,
+      "inside_elevated": false,
+      "fault": {
+        "injected": true,
+        "kind": "verified_system_service_handle_termination",
+        "pid": 9004,
+        "process_sid": "S-1-5-18",
+        "exit_code": 125,
+        "time_ns": 266682228800
+      },
+      "post_fault_tls_hits": [],
+      "post_fault_http_delta": 0
+    }
+  },
+  "service_recovery_verified": true,
+  "recovery_checks": {
+    "plain_same_api_positive": true,
+    "ordinary_same_identity": true,
+    "distinct_compartment": true,
+    "real_mihomo_local_tls": true,
+    "direct_controls_denied": true,
+    "actor_finished": true
+  },
+  "controlled_chain_checks_passed": true,
+  "external_tls_handshake_verified": true,
+  "external_https_verified": false,
+  "external_https_limit": "The public endpoint completed certificate-verified TLS but returned HTTP 403; only controlled endpoint HTTP success is accepted.",
+  "native_abi_unit_checks": {
+    "run": 39206919589,
+    "windows_python_314_job": 117911663165,
+    "real_initializer_and_guard_pages": "passed",
+    "create_error_allocation_cleanup": "passed",
+    "one_byte_native_overrun_containment_and_cleanup": "passed"
+  },
+  "privacy_qualified": false,
+  "product_qualified": false,
+  "linux_equivalence_qualified": false,
+  "remaining": [
+    "System DNS and WMI bypasses remain documented in primary-token-server/assessment.json.",
+    "Windows 11 and visible browser/profile acceptance remain separate.",
+    "This finite run does not establish stability across Windows updates or all failure interleavings."
+  ]
+}

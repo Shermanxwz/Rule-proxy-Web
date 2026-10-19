@@ -1,35 +1,36 @@
-"""Windows strong per-app isolation through TCP/IP network compartments.
+"""Experimental Windows direct-network isolation through TCP/IP compartments.
 
-This is the Windows counterpart of the Linux network-namespace mode. A network
-compartment is a kernel partition of the TCP/IP stack: a compartment created
+A network compartment is a kernel partition of the TCP/IP stack: one created
 with no configured interface keeps only its own loopback pseudo-interface and
-has no route off the host, so a process bound into it cannot reach the network
-at all. Windows enforces that in the kernel, independent of the process token
+has no route off the host, so its sockets cannot directly reach other networks.
+Windows enforces that in the kernel, independent of the process token
 and of whether Windows Firewall is enabled. Directly created descendants and
 nested Jobs inherit it; service-mediated work is a separate boundary.
 
 The installed SYSTEM service binds the panel's Job object to a compartment, so
-the launched application and all of its descendants run inside it. The service
-then opens exactly one path out: a relay thread that listens on 127.0.0.1/::1
+the launched application and directly created descendants run inside it. The
+service opens a relay thread that listens on 127.0.0.1/::1
 at the panel's proxy port *inside* the compartment and forwards to the engine
 on the same port in the default compartment (port spaces are per-compartment).
-With the relay stopped the compartment is sealed again, so revoking isolation
-leaves the application with no network. Applications must speak to that
-loopback proxy; the panel injects it through the process environment exactly as
+With the relay stopped, compartment sockets lose their proxy path. Applications
+must speak to that loopback proxy; the panel injects it through the environment as
 the plain native-proxy launch already does, so the endpoint the app sees is
 identical whether or not it is contained.
 
 Native evidence: .github/windows_compartment_lab.py (Windows Server 2025).
 Inside the compartment, direct TCP/UDP to the host, loopback services, IPv6,
-public addresses, UDP 53 and getaddrinfo all fail; only the relayed proxy port
-works; children, nested Jobs and in-process compartment re-bind attempts stay
+public addresses and UDP 53 fail; only the relayed proxy port works. Children,
+nested Jobs and in-process compartment re-bind attempts stay
 contained; Edge, Chrome and Firefox render through the relay with their own
 sandboxes intact. That experiment does not by itself qualify every application
 or Windows build; product acceptance is gathered separately on real Windows.
 
 Some compartment creation exports are not a current documented Win32 contract.
 Their presence is checked at runtime; the CIM readback and native qualification
-are both required. This module does not claim to block every DNS-service API.
+are both required. Ordinary-user tests also establish outgoing DNS queries even
+when getaddrinfo reports failure, and WMI can launch a process in the default
+compartment. These service-mediated paths are not contained by this module;
+it does not provide Linux-equivalent privacy or a complete sandbox boundary.
 """
 from __future__ import annotations
 
