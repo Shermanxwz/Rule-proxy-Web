@@ -1,8 +1,13 @@
 """Compartment evidence must not promote incomplete probes into qualification."""
 import copy
 import importlib.util
+import json
 from pathlib import Path
+import sys
+import tempfile
+import threading
 import unittest
+from unittest import mock
 import urllib.request
 
 
@@ -10,6 +15,152 @@ SOURCE = Path(__file__).resolve().parents[1] / '.github' / 'windows_compartment_
 SPEC = importlib.util.spec_from_file_location('windows_compartment_lab', SOURCE)
 lab = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(lab)
+
+
+class AtomicJsonTests(unittest.TestCase):
+    @staticmethod
+    def windows_error(code):
+        error = PermissionError('fixture sharing/access failure')
+        error.winerror = code
+        return error
+
+    def test_transient_replace_failure_preserves_old_document_until_publish(self):
+        for code in (5, 32, 33):
+            with self.subTest(winerror=code), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'controller-health.json'
+                path.write_text('{"stage":"old","complete":true}', encoding='utf-8')
+                previous = path.read_bytes()
+                value = {'stage': 'new', 'rows': list(range(100))}
+                replace = lab.os.replace
+                attempts = []
+
+                def sharing_then_publish(source, destination):
+                    attempts.append(source)
+                    self.assertEqual(path.read_bytes(), previous)
+                    self.assertEqual(json.loads(source.read_text(encoding='utf-8')), value)
+                    if len(attempts) <= 2:
+                        raise self.windows_error(code)
+                    replace(source, destination)
+
+                with mock.patch.object(lab.sys, 'platform', 'win32'), \
+                        mock.patch.object(lab.os, 'replace', side_effect=sharing_then_publish), \
+                        mock.patch.object(lab.time, 'sleep') as sleep:
+                    lab.write_json(path, value)
+                self.assertEqual(len(attempts), 3)
+                self.assertEqual(sleep.call_count, 2)
+                self.assertEqual(json.loads(path.read_text(encoding='utf-8')), value)
+                self.assertEqual(list(Path(directory).iterdir()), [path])
+
+    def test_permanent_failure_is_bounded_and_removes_only_its_temporary_file(self):
+        for platform, code, expected_attempts in (('win32', 5, 21), ('win32', 32, 21),
+                                                   ('win32', 2, 1), ('linux', 5, 1)):
+            with self.subTest(platform=platform, winerror=code), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'controller-health.json'
+                path.write_text('{"stage":"old"}', encoding='utf-8')
+                previous = path.read_bytes()
+                foreign = path.with_name(path.name + '.tmp')
+                foreign.write_bytes(b'belongs to another writer')
+                error = self.windows_error(code)
+                with mock.patch.object(lab.sys, 'platform', platform), \
+                        mock.patch.object(lab.os, 'replace', side_effect=error) as replace, \
+                        mock.patch.object(lab.time, 'monotonic', return_value=10), \
+                        mock.patch.object(lab.time, 'sleep') as sleep:
+                    with self.assertRaises(OSError) as caught:
+                        lab.write_json(path, {'stage': 'new'})
+                self.assertIs(caught.exception, error)
+                self.assertEqual(replace.call_count, expected_attempts)
+                self.assertLessEqual(sum(call.args[0] for call in sleep.call_args_list), 1.01)
+                self.assertEqual(path.read_bytes(), previous)
+                self.assertEqual(foreign.read_bytes(), b'belongs to another writer')
+                self.assertEqual(set(Path(directory).iterdir()), {path, foreign})
+
+    def test_concurrent_publishers_use_distinct_complete_temporary_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'controller-health.json'
+            values = [{'writer': index, 'rows': [index] * 1000} for index in range(2)]
+            barrier = threading.Barrier(2)
+            sources, errors = [], []
+            source_lock = threading.Lock()
+            replace = lab.os.replace
+
+            def concurrent_replace(source, destination):
+                with source_lock:
+                    first_attempt = source not in sources
+                    sources.append(source)
+                self.assertIn(json.loads(source.read_text(encoding='utf-8')), values)
+                if first_attempt:
+                    barrier.wait(timeout=2)
+                replace(source, destination)
+
+            def publish(value):
+                try:
+                    lab.write_json(path, value)
+                except BaseException as exc:
+                    errors.append(exc)
+
+            with mock.patch.object(lab.os, 'replace', side_effect=concurrent_replace):
+                writers = [threading.Thread(target=publish, args=(value,)) for value in values]
+                for writer in writers:
+                    writer.start()
+                for writer in writers:
+                    writer.join(timeout=3)
+                self.assertTrue(all(not writer.is_alive() for writer in writers))
+            self.assertEqual(errors, [])
+            self.assertEqual(len(set(sources)), 2)
+            self.assertIn(json.loads(path.read_text(encoding='utf-8')), values)
+            self.assertEqual(list(Path(directory).iterdir()), [path])
+
+    @unittest.skipUnless(sys.platform == 'win32', 'requires real Windows file sharing')
+    def test_windows_reader_without_delete_sharing_can_release_before_deadline(self):
+        kernel = lab.C.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateFileW.argtypes = [lab.W.LPCWSTR, lab.W.DWORD, lab.W.DWORD, lab.C.c_void_p,
+                                      lab.W.DWORD, lab.W.DWORD, lab.W.HANDLE]
+        kernel.CreateFileW.restype = lab.W.HANDLE
+        kernel.CloseHandle.argtypes = [lab.W.HANDLE]
+        kernel.CloseHandle.restype = lab.W.BOOL
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'controller-health.json'
+            path.write_text('{"stage":"old"}', encoding='utf-8')
+            # Read/write sharing permits ordinary readers, but withholding
+            # FILE_SHARE_DELETE reproduces the actual Windows rename failure.
+            handle = kernel.CreateFileW(str(path), 0x80000000, 3, None, 3, 0x80, None)
+            if handle == lab.C.c_void_p(-1).value:
+                raise lab.C.WinError(lab.C.get_last_error())
+            blocked, errors = threading.Event(), []
+            replace = lab.os.replace
+
+            def observe_real_replace(source, destination):
+                try:
+                    return replace(source, destination)
+                except OSError as exc:
+                    if getattr(exc, 'winerror', None) in (5, 32, 33):
+                        blocked.set()
+                    raise
+
+            def publish():
+                try:
+                    lab.write_json(path, {'stage': 'new'})
+                except BaseException as exc:
+                    errors.append(exc)
+
+            writer = threading.Thread(target=publish)
+            try:
+                with mock.patch.object(lab.os, 'replace', side_effect=observe_real_replace):
+                    writer.start()
+                    try:
+                        self.assertTrue(blocked.wait(timeout=2), 'the real rename was never blocked')
+                        self.assertEqual(json.loads(path.read_text(encoding='utf-8')), {'stage': 'old'})
+                    finally:
+                        self.assertTrue(kernel.CloseHandle(handle))
+                        handle = None
+                        writer.join(timeout=3)
+                    self.assertFalse(writer.is_alive())
+                self.assertEqual(errors, [])
+                self.assertEqual(json.loads(path.read_text(encoding='utf-8')), {'stage': 'new'})
+                self.assertEqual(list(Path(directory).iterdir()), [path])
+            finally:
+                if handle is not None:
+                    kernel.CloseHandle(handle)
 
 
 class AssessmentTests(unittest.TestCase):
