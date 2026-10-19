@@ -102,6 +102,72 @@ class ServerBootstrapTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == "nt", "requires the native Windows PowerShell parser and CI guard")
 class ServerWrapperWindowsTests(unittest.TestCase):
+    def run_missing_input(self, directory, *, python=None, bundle, browser, prelude=""):
+        powershell = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+        output = directory / "reports"
+        script = directory / "missing-input.ps1"
+        quote = lambda value: "'" + str(value).replace("'", "''") + "'"
+        arguments = " -BundleZip " + quote(bundle) + " -BrowserPath " + quote(browser) + " -Output " + quote(output)
+        if python is not None:
+            arguments += " -PythonPath " + quote(python)
+        script.write_text(
+            "$ErrorActionPreference='Stop'\n"
+            "$env:GITHUB_ACTIONS='true'; $env:RUNNER_OS='Windows'; $env:GITHUB_SHA='" + "a" * 40 + "'\n" +
+            prelude + "\ntry { & " + quote(SCRIPT) + arguments + "; throw 'Expected missing input' } catch {\n"
+            "  if ($_.Exception.Message -ne 'Server PSEC control failed; inspect the structured JSON reports')"
+            " { throw }\n}\n", encoding="utf-8-sig")
+        result = subprocess.run([str(powershell), "-NoProfile", "-NonInteractive", "-File", str(script)],
+                                capture_output=True, text=True, timeout=30, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        raw = (output / "task.json").read_text(encoding="utf-8-sig")
+        self.assertNotIn(str(directory), raw)  # No full input paths or raw errors are exported.
+        report = json.loads(raw)
+        self.assertFalse(report["bootstrap_created"])
+        self.assertFalse(report["task_registered"])
+        self.assertFalse(report["functionality_passed"])
+        self.assertGreater(report["error"]["script_line_number"], 0)
+        return report
+
+    def test_missing_inputs_are_identified_before_any_system_task_or_bootstrap(self):
+        for kind in ("python", "bundle", "browser"):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                present = directory / "ordinary-placeholder-file"
+                present.write_bytes(b"never executed")
+                missing = directory / "absent-input"
+                paths = {name: missing if name == kind else present for name in ("python", "bundle", "browser")}
+                report = self.run_missing_input(directory, **paths)
+                self.assertEqual(report["failure_code"], "Missing" + kind.capitalize())
+                self.assertEqual(report["phase"], "resolve_" + kind)
+                self.assertEqual(report["error"]["path_kind"], kind)
+                self.assertEqual(report["path_facts"][-1], {"path_kind": kind, "provided": True,
+                                                          "leaf_exists": False, "container_exists": False})
+
+    def test_default_python_prefers_setup_location_and_uses_one_fallback_application(self):
+        for setup_location in (True, False):
+            with self.subTest(setup_location=setup_location), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                python = directory / "python.exe"
+                python.write_bytes(b"never executed")
+                quote = lambda value: "'" + str(value).replace("'", "''") + "'"
+                if setup_location:
+                    prelude = "$env:pythonLocation=" + quote(directory) + "\n"
+                    expected = "setup_python_location"
+                else:
+                    prelude = (
+                        "$env:pythonLocation=$null\n"
+                        "function Get-Command { [CmdletBinding()]param([string]$Name,[string]$CommandType)\n"
+                        "  [pscustomobject]@{ Source=" + quote(python) + " }\n"
+                        "  [pscustomobject]@{ Source='C:\\absent-second-python\\python.exe' }\n}\n")
+                    expected = "first_application_command"
+                report = self.run_missing_input(directory, bundle=python, browser=directory / "absent-edge.exe",
+                                                prelude=prelude)
+                self.assertEqual(report["python_resolution"], expected)
+                self.assertEqual(report["failure_code"], "MissingBrowser")
+                self.assertTrue(report["path_facts"][0]["leaf_exists"])
+                if not setup_location:
+                    self.assertEqual(report["python_command_candidates"], 2)
+
     def test_ps51_parses_and_rejects_non_ci_before_creating_files(self):
         powershell = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
         with tempfile.TemporaryDirectory() as temporary:
