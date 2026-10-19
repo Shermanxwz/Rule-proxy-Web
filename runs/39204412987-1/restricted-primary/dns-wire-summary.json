@@ -1,0 +1,70 @@
+{
+  "absence_proven": false,
+  "captures": [
+    {
+      "blocks": 19,
+      "bytes": 2620,
+      "first_packet_unix_ns": 1792388025468005000,
+      "interfaces": 1,
+      "last_packet_unix_ns": 1792388026031958000,
+      "records": 16,
+      "reported_drop_count": 0,
+      "sections": 1,
+      "sha256": "d9c12e318f5649d7c1cca61520c51b27f7cff449ca81d4bea1f511fbed51c7a5",
+      "unknown_blocks": 0
+    },
+    {
+      "blocks": 3,
+      "bytes": 188,
+      "first_packet_unix_ns": null,
+      "interfaces": 1,
+      "last_packet_unix_ns": null,
+      "records": 0,
+      "reported_drop_count": 0,
+      "sections": 1,
+      "sha256": "2816db63d3aaeb542c4e2ac4e0be80109e6a79a1c8acf32785cf5f1ea20abb4d",
+      "unknown_blocks": 0
+    }
+  ],
+  "coverage": {
+    "all_rotations_converted_and_parsed": true,
+    "capture_start_confirmed_unix_ns": 1792388014026270800,
+    "etl_loss_counters_after_flush": {
+      "events_lost": 0,
+      "log_buffers_lost": 0,
+      "realtime_buffers_lost": 0
+    },
+    "etl_loss_counters_zero_through_flush": true,
+    "loss_after_last_query": "unknown",
+    "multi_file_non_circular_confirmed": true,
+    "no_capture_loss_proven": false,
+    "pktmon_stop_confirmed": true,
+    "prestop_flush_started_unix_ns": 1792388028000438400,
+    "report_finished_unix_ns": null,
+    "report_started_unix_ns": 1792388014256236288,
+    "report_window_bracketed": false
+  },
+  "errors": [],
+  "host_nic_identity_count": 2,
+  "network_delivery_proven": false,
+  "opaque_packets": {},
+  "parsed_all_capture_files": true,
+  "privacy_qualified": false,
+  "process_attribution_proven": false,
+  "queries": [
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792388025468005000,
+      "last_observed_unix_ns": 1792388025504404000,
+      "outbound_question_records": 4,
+      "qname_sha256": "d0fe1422f479f9df9820671aa663b1b9bf33b10e893c75b593b4989a04a6b594"
+    }
+  ],
+  "raw_capture_removed": true,
+  "report_sha256": "e929f3f886f5ad832fd6eedbcafe4babf5872e06b392c004edf699f92972c1a1",
+  "schema_version": 1,
+  "scope": "positive_outbound_udp_dns_observations_only",
+  "status": "observed"
+}
