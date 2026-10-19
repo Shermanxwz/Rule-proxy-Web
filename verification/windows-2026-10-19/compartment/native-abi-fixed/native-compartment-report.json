@@ -1,0 +1,6113 @@
+{
+  "schema_version": 3,
+  "source_commit": "f3d99eb1e608cbb80e60d74d870dd8664f094961",
+  "nonce": "aa6e45c23b41ccdfd357bf4e",
+  "windows": [
+    10,
+    0,
+    26200,
+    2
+  ],
+  "identity": "S-1-5-18",
+  "python": {
+    "version": "3.14.8 (tags/v3.14.8:8e6e75d, Sep 30 2026, 18:19:33) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\RuleProxyProductBootstrap\\compartment-runtime\\RuleProxy-Web\\python\\python.exe"
+  },
+  "missing_exports": [],
+  "phases": {
+    "outside": {
+      "label": "outside",
+      "pid": 10024,
+      "depth": 0,
+      "identity": {
+        "sid": "S-1-5-18",
+        "pid": 10024,
+        "elevated": true,
+        "session_id": 0
+      },
+      "compartment": 1,
+      "rows": {
+        "tcp4_host_ip": {
+          "ok": true
+        },
+        "tcp4_loopback": {
+          "ok": true
+        },
+        "udp4_host_ip": {
+          "ok": true
+        },
+        "udp4_loopback": {
+          "ok": true
+        },
+        "tcp6_loopback": {
+          "ok": true
+        },
+        "udp6_loopback": {
+          "ok": true
+        },
+        "tcp4_public_1111_443": {
+          "ok": true,
+          "banner": ""
+        },
+        "udp4_public_dns_8888": {
+          "ok": true
+        },
+        "relay_port_loopback": {
+          "ok": true,
+          "banner": "RULEPROXY-DECOY\n"
+        },
+        "system_dns": {
+          "ok": true,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "name": "a225a9cafb272c6ec81389e2258cc0f2.1.2.3.4.sslip.io"
+        }
+      },
+      "proxy": {
+        "ok": true,
+        "port": 49854
+      },
+      "child": {
+        "label": "outside-child",
+        "pid": 10820,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-18",
+          "pid": 10820,
+          "elevated": true,
+          "session_id": 0
+        },
+        "compartment": 1,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": true
+          },
+          "tcp4_loopback": {
+            "ok": true
+          },
+          "udp4_host_ip": {
+            "ok": true
+          },
+          "udp4_loopback": {
+            "ok": true
+          },
+          "tcp6_loopback": {
+            "ok": true
+          },
+          "udp6_loopback": {
+            "ok": true
+          },
+          "tcp4_public_1111_443": {
+            "ok": true,
+            "banner": ""
+          },
+          "udp4_public_dns_8888": {
+            "ok": true
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": "RULEPROXY-DECOY\n"
+          },
+          "system_dns": {
+            "ok": true,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "name": "95e7904f5006db7f3222231a0be56226.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 49854
+        },
+        "exit_code": 0
+      },
+      "breakaway": {
+        "started": true,
+        "exit": 0
+      },
+      "nested": {
+        "label": "outside-nested",
+        "pid": 10476,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-18",
+          "pid": 10476,
+          "elevated": true,
+          "session_id": 0
+        },
+        "compartment": 1,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": true
+          },
+          "tcp4_loopback": {
+            "ok": true
+          },
+          "udp4_host_ip": {
+            "ok": true
+          },
+          "udp4_loopback": {
+            "ok": true
+          },
+          "tcp6_loopback": {
+            "ok": true
+          },
+          "udp6_loopback": {
+            "ok": true
+          },
+          "tcp4_public_1111_443": {
+            "ok": true,
+            "banner": ""
+          },
+          "udp4_public_dns_8888": {
+            "ok": true
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": "RULEPROXY-DECOY\n"
+          },
+          "system_dns": {
+            "ok": true,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "name": "895368ac97961b490f488d32e5c27081.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 49854
+        },
+        "exit_code": 0
+      },
+      "escape": {
+        "thread_set_default": 0,
+        "thread_after_set": 1,
+        "thread_tcp4_host_ip": {
+          "ok": true
+        },
+        "job_set_default": 0,
+        "job_child": {
+          "label": "outside-escape",
+          "pid": 3272,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 3272,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": true
+            },
+            "tcp4_loopback": {
+              "ok": true
+            },
+            "udp4_host_ip": {
+              "ok": true
+            },
+            "udp4_loopback": {
+              "ok": true
+            },
+            "tcp6_loopback": {
+              "ok": true
+            },
+            "udp6_loopback": {
+              "ok": true
+            },
+            "tcp4_public_1111_443": {
+              "ok": true,
+              "banner": ""
+            },
+            "udp4_public_dns_8888": {
+              "ok": true
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": "RULEPROXY-DECOY\n"
+            },
+            "system_dns": {
+              "ok": true,
+              "addresses": [
+                "1.2.3.4"
+              ],
+              "name": "13676c352df14f85dcf1191aa5ef8f46.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 49854
+          },
+          "exit_code": 0
+        }
+      },
+      "exit_code": 0,
+      "timed_out": false
+    },
+    "inside": {
+      "label": "inside",
+      "pid": 3764,
+      "depth": 0,
+      "identity": {
+        "sid": "S-1-5-18",
+        "pid": 3764,
+        "elevated": true,
+        "session_id": 0
+      },
+      "compartment": 2,
+      "rows": {
+        "tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "tcp4_loopback": {
+          "ok": false,
+          "type": "ConnectionRefusedError",
+          "winerror": 10061,
+          "errno": 10061,
+          "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+        },
+        "udp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "udp4_loopback": {
+          "ok": false,
+          "type": "ConnectionResetError",
+          "winerror": 10054,
+          "errno": 10054,
+          "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+        },
+        "tcp6_loopback": {
+          "ok": false,
+          "type": "ConnectionRefusedError",
+          "winerror": 10061,
+          "errno": 10061,
+          "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+        },
+        "udp6_loopback": {
+          "ok": false,
+          "type": "ConnectionResetError",
+          "winerror": 10054,
+          "errno": 10054,
+          "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+        },
+        "tcp4_public_1111_443": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "udp4_public_dns_8888": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "relay_port_loopback": {
+          "ok": true,
+          "banner": ""
+        },
+        "system_dns": {
+          "ok": false,
+          "type": "gaierror",
+          "winerror": null,
+          "errno": 11004,
+          "text": "[Errno 11004] getaddrinfo failed",
+          "name": "769f8494d9affd5fb232a2981eb4734c.1.2.3.4.sslip.io"
+        }
+      },
+      "proxy": {
+        "ok": true,
+        "port": 18808
+      },
+      "child": {
+        "label": "inside-child",
+        "pid": 8804,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-18",
+          "pid": 8804,
+          "elevated": true,
+          "session_id": 0
+        },
+        "compartment": 2,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": ""
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "29035e324817a63115a38169891dec88.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 18808
+        },
+        "exit_code": 0
+      },
+      "breakaway": {
+        "ok": false,
+        "type": "PermissionError",
+        "winerror": 5,
+        "errno": 13,
+        "text": "[WinError 5] Access is denied",
+        "started": false
+      },
+      "nested": {
+        "label": "inside-nested",
+        "pid": 10068,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-18",
+          "pid": 10068,
+          "elevated": true,
+          "session_id": 0
+        },
+        "compartment": 2,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": ""
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "b2df89b45b2b19c6ed45cba12fe0198c.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 18808
+        },
+        "exit_code": 0
+      },
+      "escape": {
+        "thread_set_default": 1168,
+        "thread_after_set": 2,
+        "thread_tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "job_set_default": 1168
+      },
+      "exit_code": 0,
+      "timed_out": false
+    },
+    "linger-inside": {
+      "label": "linger-inside",
+      "pid": 2212,
+      "depth": 0,
+      "identity": {
+        "sid": "S-1-5-18",
+        "pid": 2212,
+        "elevated": true,
+        "session_id": 0
+      },
+      "compartment": 3,
+      "linger_released": true,
+      "compartment_after": 3,
+      "rows": {
+        "tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "tcp4_loopback": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "udp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "udp4_loopback": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "tcp6_loopback": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "udp6_loopback": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "tcp4_public_1111_443": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "udp4_public_dns_8888": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "relay_port_loopback": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "system_dns": {
+          "ok": false,
+          "type": "gaierror",
+          "winerror": null,
+          "errno": 11003,
+          "text": "[Errno 11003] getaddrinfo failed",
+          "name": "13b65dfdfb48dd94716127cce20efd77.1.2.3.4.sslip.io"
+        }
+      },
+      "proxy": {
+        "ok": false,
+        "type": "URLError",
+        "winerror": null,
+        "errno": null,
+        "text": "<urlopen error [WinError 10022] An invalid argument was supplied>",
+        "port": 18808
+      },
+      "child": {
+        "label": "linger-inside-child",
+        "pid": 2128,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-18",
+          "pid": 2128,
+          "elevated": true,
+          "session_id": 0
+        },
+        "compartment": 3,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "relay_port_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11003,
+            "text": "[Errno 11003] getaddrinfo failed",
+            "name": "fb70f2a12981d0842ba691c654f0c2cc.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": false,
+          "type": "URLError",
+          "winerror": null,
+          "errno": null,
+          "text": "<urlopen error [WinError 10022] An invalid argument was supplied>",
+          "port": 18808
+        },
+        "exit_code": 0
+      },
+      "breakaway": {
+        "ok": false,
+        "type": "PermissionError",
+        "winerror": 5,
+        "errno": 13,
+        "text": "[WinError 5] Access is denied",
+        "started": false
+      },
+      "nested": {
+        "label": "linger-inside-nested",
+        "pid": 11116,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-18",
+          "pid": 11116,
+          "elevated": true,
+          "session_id": 0
+        },
+        "compartment": 3,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "relay_port_loopback": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10022,
+            "errno": 22,
+            "text": "[WinError 10022] An invalid argument was supplied"
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11003,
+            "text": "[Errno 11003] getaddrinfo failed",
+            "name": "99d952baac862b9816700c455b6425cf.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": false,
+          "type": "URLError",
+          "winerror": null,
+          "errno": null,
+          "text": "<urlopen error [WinError 10022] An invalid argument was supplied>",
+          "port": 18808
+        },
+        "exit_code": 0
+      },
+      "escape": {
+        "thread_set_default": 1168,
+        "thread_after_set": 3,
+        "thread_tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10022,
+          "errno": 22,
+          "text": "[WinError 10022] An invalid argument was supplied"
+        },
+        "job_set_default": 1168
+      },
+      "exit_code": 0,
+      "timed_out": false
+    },
+    "relay-live-inside": {
+      "label": "relay-live-inside",
+      "pid": 1948,
+      "depth": 0,
+      "identity": {
+        "sid": "S-1-5-18",
+        "pid": 1948,
+        "elevated": true,
+        "session_id": 0
+      },
+      "compartment": 2,
+      "before": {
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": ""
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "8cdd47e7dd5991ac5d08be6ce555a662.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 18808
+        }
+      },
+      "released": true,
+      "after": {
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "1e367e3400fc1e167fef666ba99c4bc0.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": false,
+          "type": "URLError",
+          "winerror": null,
+          "errno": null,
+          "text": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+          "port": 18808
+        }
+      },
+      "exit_code": 0,
+      "timed_out": false
+    },
+    "relay-stopped-inside": {
+      "label": "relay-stopped-inside",
+      "pid": 7732,
+      "depth": 0,
+      "identity": {
+        "sid": "S-1-5-18",
+        "pid": 7732,
+        "elevated": true,
+        "session_id": 0
+      },
+      "compartment": 2,
+      "rows": {
+        "tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "tcp4_loopback": {
+          "ok": false,
+          "type": "TimeoutError",
+          "winerror": null,
+          "errno": null,
+          "text": "timed out"
+        },
+        "udp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "udp4_loopback": {
+          "ok": false,
+          "type": "ConnectionResetError",
+          "winerror": 10054,
+          "errno": 10054,
+          "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+        },
+        "tcp6_loopback": {
+          "ok": false,
+          "type": "ConnectionRefusedError",
+          "winerror": 10061,
+          "errno": 10061,
+          "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+        },
+        "udp6_loopback": {
+          "ok": false,
+          "type": "ConnectionResetError",
+          "winerror": 10054,
+          "errno": 10054,
+          "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+        },
+        "tcp4_public_1111_443": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "udp4_public_dns_8888": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "relay_port_loopback": {
+          "ok": false,
+          "type": "ConnectionRefusedError",
+          "winerror": 10061,
+          "errno": 10061,
+          "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+        },
+        "system_dns": {
+          "ok": false,
+          "type": "gaierror",
+          "winerror": null,
+          "errno": 11004,
+          "text": "[Errno 11004] getaddrinfo failed",
+          "name": "2419691a056102b5f686bb33d6613dd8.1.2.3.4.sslip.io"
+        }
+      },
+      "proxy": {
+        "ok": false,
+        "type": "URLError",
+        "winerror": null,
+        "errno": null,
+        "text": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+        "port": 18808
+      },
+      "child": {
+        "label": "relay-stopped-inside-child",
+        "pid": 3296,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-18",
+          "pid": 3296,
+          "elevated": true,
+          "session_id": 0
+        },
+        "compartment": 2,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "b3574a33a987fa1c5cec48f6f76dfa94.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": false,
+          "type": "URLError",
+          "winerror": null,
+          "errno": null,
+          "text": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+          "port": 18808
+        },
+        "exit_code": 0
+      },
+      "breakaway": {
+        "ok": false,
+        "type": "PermissionError",
+        "winerror": 5,
+        "errno": 13,
+        "text": "[WinError 5] Access is denied",
+        "started": false
+      },
+      "nested": {
+        "label": "relay-stopped-inside-nested",
+        "pid": 8476,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-18",
+          "pid": 8476,
+          "elevated": true,
+          "session_id": 0
+        },
+        "compartment": 2,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "1dc12ea112ec7b37a2434e6aca574b0b.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": false,
+          "type": "URLError",
+          "winerror": null,
+          "errno": null,
+          "text": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+          "port": 18808
+        },
+        "exit_code": 0
+      },
+      "escape": {
+        "thread_set_default": 1168,
+        "thread_after_set": 2,
+        "thread_tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "job_set_default": 1168
+      },
+      "exit_code": 0,
+      "timed_out": false
+    }
+  },
+  "browsers": {
+    "edge_control": {
+      "contained": false,
+      "variant": "control",
+      "exit_code": 1002,
+      "timed_out": false,
+      "seconds": 1.52,
+      "fixture_hits": 0,
+      "rendered": false,
+      "sandbox_disable_switch_requested": false,
+      "sandbox_state_verified": false,
+      "render_content_verified": false,
+      "tail": ""
+    },
+    "edge_contained": {
+      "contained": true,
+      "variant": "contained",
+      "exit_code": 1002,
+      "timed_out": false,
+      "seconds": 1.52,
+      "fixture_hits": 0,
+      "rendered": false,
+      "sandbox_disable_switch_requested": false,
+      "sandbox_state_verified": false,
+      "render_content_verified": false,
+      "tail": ""
+    },
+    "edge_direct": {
+      "contained": true,
+      "variant": "direct",
+      "exit_code": 1002,
+      "timed_out": false,
+      "seconds": 1.52,
+      "fixture_hits": 0,
+      "rendered": false,
+      "sandbox_disable_switch_requested": false,
+      "sandbox_state_verified": false,
+      "render_content_verified": false,
+      "tail": ""
+    },
+    "edge_directcontrol": {
+      "contained": false,
+      "variant": "directcontrol",
+      "exit_code": 1002,
+      "timed_out": false,
+      "seconds": 1.52,
+      "fixture_hits": 0,
+      "rendered": false,
+      "sandbox_disable_switch_requested": false,
+      "sandbox_state_verified": false,
+      "render_content_verified": false,
+      "tail": ""
+    },
+    "chrome_control": {
+      "missing": true
+    },
+    "chrome_contained": {
+      "missing": true
+    },
+    "chrome_direct": {
+      "missing": true
+    },
+    "chrome_directcontrol": {
+      "missing": true
+    },
+    "firefox_control": {
+      "missing": true
+    },
+    "firefox_contained": {
+      "missing": true
+    },
+    "firefox_direct": {
+      "missing": true
+    },
+    "firefox_directcontrol": {
+      "missing": true
+    }
+  },
+  "tools": {
+    "nslookup_inside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "*** UnKnown can't find 4b972644ec47b509b34d2a1ad1297834.1.2.3.4.sslip.io: No response from server\r\r\nServer:  UnKnown\r\nAddress:  8.8.8.8\r\n\r\n",
+      "name": "4b972644ec47b509b34d2a1ad1297834.1.2.3.4.sslip.io"
+    },
+    "resolve_inside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "1.2.3.4\r\n",
+      "name": "b2772a537285c70c065f51ab4a76ce06.1.2.3.4.sslip.io"
+    },
+    "resolve_outside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "1.2.3.4\r\n",
+      "name": "b7691d101d5ae4e627531bdf81846b77.1.2.3.4.sslip.io"
+    },
+    "curl_direct_inside": {
+      "exit_code": 7,
+      "timed_out": false,
+      "tail": "curl: (7) Failed to connect to 10.0.2.15 port 49855 after 0 ms: Could not connect to server\r\n",
+      "fixture_hits": 0
+    },
+    "curl_direct_outside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "<!doctype html><html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:aa6e45c23b41ccdfd357bf4e:curl_direct_outside</body></html>",
+      "fixture_hits": 1
+    },
+    "curl_proxy_inside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "<!doctype html><html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:aa6e45c23b41ccdfd357bf4e:curl_proxy_inside</body></html>",
+      "fixture_hits": 1
+    },
+    "curl_public_inside": {
+      "exit_code": 6,
+      "timed_out": false,
+      "tail": "curl: (6) Could not resolve host: www.microsoft.com\r\n000"
+    },
+    "curl_public_outside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "200"
+    },
+    "dns-outside_before-getaddrinfo-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_before-DnsQuery_W-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_before-DnsQuery_W-264": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_before-DnsQueryEx-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_before-DnsQueryEx-264": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_before-DnsQuery_W-0-restricted": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_before-DnsQueryEx-0-restricted": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_before-Resolve-DnsName": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+    },
+    "dns-inside-getaddrinfo-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-inside-DnsQuery_W-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-inside-DnsQuery_W-264": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-inside-DnsQueryEx-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-inside-DnsQueryEx-264": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-inside-DnsQuery_W-0-restricted": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-inside-DnsQueryEx-0-restricted": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-inside-Resolve-DnsName": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+    },
+    "dns-outside_after-getaddrinfo-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_after-DnsQuery_W-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_after-DnsQuery_W-264": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_after-DnsQueryEx-0": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_after-DnsQueryEx-264": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_after-DnsQuery_W-0-restricted": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_after-DnsQueryEx-0-restricted": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": ""
+    },
+    "dns-outside_after-Resolve-DnsName": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+    },
+    "wmi_outside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "{\"return_value\":0,\"child_pid\":3164}\r\n"
+    },
+    "bits_outside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "{\"supported\":true,\"job_id\":\"42f5f799-e15b-484f-8313-864b9326ae0b\",\"state\":\"Transferred\",\"bytes_transferred\":140,\"error_code\":null,\"marker_matches\":true}\r\n"
+    },
+    "wmi_inside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "{\"return_value\":0,\"child_pid\":8932}\r\n"
+    },
+    "bits_inside": {
+      "exit_code": 0,
+      "timed_out": false,
+      "tail": "{\"supported\":true,\"job_id\":\"f2363309-31cf-48af-b7e4-ca2250ace8ab\",\"state\":\"Transferred\",\"bytes_transferred\":139,\"error_code\":null,\"marker_matches\":true}\r\n"
+    }
+  },
+  "product_qualified": false,
+  "dns_matrix": {
+    "outside_before": {
+      "getaddrinfo:0": {
+        "name": "8d476e1917dcfe5095eb21fec00e909b.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "getaddrinfo",
+          "name": "8d476e1917dcfe5095eb21fec00e909b.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 3400,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "return_code": 0,
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQuery_W:0": {
+        "name": "2f65d681a22e5bc67d73b690e19adfbf.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "2f65d681a22e5bc67d73b690e19adfbf.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 6768,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQuery_W:264": {
+        "name": "5f286988de9543057f702cdf0c031269.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "5f286988de9543057f702cdf0c031269.1.2.3.4.sslip.io",
+          "options": 264,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 6188,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQueryEx:0": {
+        "name": "5ffefa63cc86753dada63baae6b23772.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "5ffefa63cc86753dada63baae6b23772.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 6952,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "query_status": 0,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQueryEx:264": {
+        "name": "bd71574401e99ba3242822ef727ba1ae.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "bd71574401e99ba3242822ef727ba1ae.1.2.3.4.sslip.io",
+          "options": 264,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 10132,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "query_status": 0,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQuery_W:0:restricted": {
+        "name": "2608b2d0f406c0ae7fef3a791bf7a671.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "2608b2d0f406c0ae7fef3a791bf7a671.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 9952,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "thread_impersonation_active": true,
+          "restriction_scope": "revertible diagnostic thread; not a primary token or production boundary",
+          "return_code": 87,
+          "addresses": [],
+          "completed": true,
+          "answer_matches": false,
+          "reverted": true
+        }
+      },
+      "DnsQueryEx:0:restricted": {
+        "name": "034973c45c8a10ddb72e515225652962.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "034973c45c8a10ddb72e515225652962.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 9256,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "thread_impersonation_active": true,
+          "restriction_scope": "revertible diagnostic thread; not a primary token or production boundary",
+          "query_status": 87,
+          "return_code": 87,
+          "addresses": [],
+          "completed": true,
+          "answer_matches": false,
+          "reverted": true
+        }
+      },
+      "Resolve-DnsName:0": {
+        "name": "02532378bc2f188d48953fcf40d559a8.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+        },
+        "result": {
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      }
+    },
+    "inside": {
+      "getaddrinfo:0": {
+        "name": "e7437b89b05803dc8409efaf38dc2e8e.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "getaddrinfo",
+          "name": "e7437b89b05803dc8409efaf38dc2e8e.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 8872,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "stage": "error",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "completed": true,
+          "error": "gaierror(11004, 'getaddrinfo failed')",
+          "errno": 11004
+        }
+      },
+      "DnsQuery_W:0": {
+        "name": "5fbb5ef67615afc7e87ba5dd33a85489.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "5fbb5ef67615afc7e87ba5dd33a85489.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 8696,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQuery_W:264": {
+        "name": "f1cfa3992ac2f5dcfee247e776d8aba9.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "f1cfa3992ac2f5dcfee247e776d8aba9.1.2.3.4.sslip.io",
+          "options": 264,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 5260,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQueryEx:0": {
+        "name": "10c365d4b92632b09d14cff0d9efd05f.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "10c365d4b92632b09d14cff0d9efd05f.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 10280,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "query_status": 0,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQueryEx:264": {
+        "name": "305e7c02065948741497f4a19286ba3b.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "305e7c02065948741497f4a19286ba3b.1.2.3.4.sslip.io",
+          "options": 264,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 7420,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "query_status": 0,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQuery_W:0:restricted": {
+        "name": "9c83dcc14e009224249c3f81acab67b5.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "9c83dcc14e009224249c3f81acab67b5.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 10424,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "thread_impersonation_active": true,
+          "restriction_scope": "revertible diagnostic thread; not a primary token or production boundary",
+          "return_code": 87,
+          "addresses": [],
+          "completed": true,
+          "answer_matches": false,
+          "reverted": true
+        }
+      },
+      "DnsQueryEx:0:restricted": {
+        "name": "99420f60a6924659bb31680c938e9e25.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "99420f60a6924659bb31680c938e9e25.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 9640,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "thread_impersonation_active": true,
+          "restriction_scope": "revertible diagnostic thread; not a primary token or production boundary",
+          "query_status": 87,
+          "return_code": 87,
+          "addresses": [],
+          "completed": true,
+          "answer_matches": false,
+          "reverted": true
+        }
+      },
+      "Resolve-DnsName:0": {
+        "name": "b5d465ecf7c652dcbc0b1b51aa8af7f2.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+        },
+        "result": {
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      }
+    },
+    "outside_after": {
+      "getaddrinfo:0": {
+        "name": "8c77195dd24b68a4dfb2dcaf85b5d31b.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "getaddrinfo",
+          "name": "8c77195dd24b68a4dfb2dcaf85b5d31b.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 11052,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "return_code": 0,
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQuery_W:0": {
+        "name": "a333bf88f7ac8e03575e0aea0ce83762.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "a333bf88f7ac8e03575e0aea0ce83762.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 2384,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQuery_W:264": {
+        "name": "ea6f6c855694246ca03d7fcfeccbe114.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "ea6f6c855694246ca03d7fcfeccbe114.1.2.3.4.sslip.io",
+          "options": 264,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 10252,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQueryEx:0": {
+        "name": "a767a126bc134f0225a604d43c4d2d59.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "a767a126bc134f0225a604d43c4d2d59.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 10272,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "query_status": 0,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQueryEx:264": {
+        "name": "e5433dd11ab8476fe6ec7b4bc4a14ad5.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "e5433dd11ab8476fe6ec7b4bc4a14ad5.1.2.3.4.sslip.io",
+          "options": 264,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 5940,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "query_status": 0,
+          "return_code": 0,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      },
+      "DnsQuery_W:0:restricted": {
+        "name": "10acfe98574bcd3c74f6d843a204336d.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQuery_W",
+          "name": "10acfe98574bcd3c74f6d843a204336d.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 6444,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "thread_impersonation_active": true,
+          "restriction_scope": "revertible diagnostic thread; not a primary token or production boundary",
+          "return_code": 87,
+          "addresses": [],
+          "completed": true,
+          "answer_matches": false,
+          "reverted": true
+        }
+      },
+      "DnsQueryEx:0:restricted": {
+        "name": "51c94a8b45ce6d681ed59d4a3b096646.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": ""
+        },
+        "result": {
+          "api": "DnsQueryEx",
+          "name": "51c94a8b45ce6d681ed59d4a3b096646.1.2.3.4.sslip.io",
+          "options": 0,
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 7856,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "stage": "finished",
+          "wire_egress_proven": false,
+          "wire_denial_proven": false,
+          "thread_impersonation_active": true,
+          "restriction_scope": "revertible diagnostic thread; not a primary token or production boundary",
+          "query_status": 87,
+          "return_code": 87,
+          "addresses": [],
+          "completed": true,
+          "answer_matches": false,
+          "reverted": true
+        }
+      },
+      "Resolve-DnsName:0": {
+        "name": "efcab2317958f28fabd05431b845b9d6.1.2.3.4.sslip.io",
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+        },
+        "result": {
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "completed": true,
+          "answer_matches": true
+        }
+      }
+    }
+  },
+  "broker_matrix": {
+    "outside": {
+      "wmi": {
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": "{\"return_value\":0,\"child_pid\":3164}\r\n"
+        },
+        "invocation": {
+          "return_value": 0,
+          "child_pid": 3164
+        },
+        "child": {
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 3164,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "marker": "RuleProxyFixture:aa6e45c23b41ccdfd357bf4e:wmi_outside",
+          "direct_http": true
+        },
+        "fixture_hits": 1
+      },
+      "bits": {
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": "{\"supported\":true,\"job_id\":\"42f5f799-e15b-484f-8313-864b9326ae0b\",\"state\":\"Transferred\",\"bytes_transferred\":140,\"error_code\":null,\"marker_matches\":true}\r\n"
+        },
+        "result": {
+          "supported": true,
+          "job_id": "42f5f799-e15b-484f-8313-864b9326ae0b",
+          "state": "Transferred",
+          "bytes_transferred": 140,
+          "error_code": null,
+          "marker_matches": true
+        },
+        "fixture_hits": 1
+      }
+    },
+    "inside": {
+      "wmi": {
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": "{\"return_value\":0,\"child_pid\":8932}\r\n"
+        },
+        "invocation": {
+          "return_value": 0,
+          "child_pid": 8932
+        },
+        "child": {
+          "identity": {
+            "sid": "S-1-5-18",
+            "pid": 8932,
+            "elevated": true,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "marker": "RuleProxyFixture:aa6e45c23b41ccdfd357bf4e:wmi_inside",
+          "direct_http": true
+        },
+        "fixture_hits": 1
+      },
+      "bits": {
+        "execution": {
+          "exit_code": 0,
+          "timed_out": false,
+          "tail": "{\"supported\":true,\"job_id\":\"f2363309-31cf-48af-b7e4-ca2250ace8ab\",\"state\":\"Transferred\",\"bytes_transferred\":139,\"error_code\":null,\"marker_matches\":true}\r\n"
+        },
+        "result": {
+          "supported": true,
+          "job_id": "f2363309-31cf-48af-b7e4-ca2250ace8ab",
+          "state": "Transferred",
+          "bytes_transferred": 139,
+          "error_code": null,
+          "marker_matches": true
+        },
+        "fixture_hits": 1
+      }
+    }
+  },
+  "dns_wire_evidence_available": false,
+  "scope": "PoC; HTTP fixture, host NIC and IPv6 loopback; no real Mihomo/HTTPS acceptance",
+  "before": [
+    {
+      "CompartmentId": 1,
+      "CompartmentDescription": "Default Compartment"
+    }
+  ],
+  "task": {
+    "code": 0,
+    "stdout": "started\r\n",
+    "stderr": ""
+  },
+  "controller_ready": {
+    "role": "controller",
+    "pid": 10888,
+    "started": 1792390720.6876707,
+    "missing_exports": [],
+    "identity": "S-1-5-18",
+    "requests": [],
+    "python": {
+      "version": "3.14.8 (tags/v3.14.8:8e6e75d, Sep 30 2026, 18:19:33) [MSC v.1944 64 bit (AMD64)]",
+      "executable": "C:\\RuleProxyProductBootstrap\\compartment-runtime\\RuleProxy-Web\\python\\python.exe"
+    },
+    "create_A": {
+      "code": 0,
+      "id": 2,
+      "guid": "4f9d000a-c2f2-431a-96e7-b3897ebc7d54"
+    },
+    "default_compartment": 1,
+    "thread_probe": {
+      "set": 0,
+      "get": 2,
+      "public_1111_443": {
+        "ok": false,
+        "winerror": 10051
+      },
+      "host_fixture_loopback": {
+        "ok": false,
+        "winerror": 10061
+      },
+      "dns": {
+        "name": "a5a533d6cbbf71db21f307d81580a1cf.1.2.3.4.sslip.io",
+        "ok": false,
+        "errno": 11004,
+        "text": "[Errno 11004] getaddrinfo failed"
+      }
+    },
+    "default_thread_dns": {
+      "name": "c2c5331021733bb76d845e52b83a58b7.1.2.3.4.sslip.io",
+      "ok": false,
+      "errno": 11001,
+      "text": "[Errno 11001] getaddrinfo failed"
+    },
+    "relay": {
+      "accepted": 0,
+      "forward_errors": [],
+      "listener_errors": [],
+      "listener_set": 0,
+      "listener_get": 2,
+      "bound_127.0.0.1": true,
+      "bound_::1": true
+    }
+  },
+  "controller_at_ready": {
+    "pid": 10888,
+    "handle_opened": true,
+    "alive": true,
+    "health": {
+      "pid": 10888,
+      "time": 1792390726.5602677,
+      "stage": "serving",
+      "requests_completed": 0,
+      "relay": {
+        "accepted": 0,
+        "forward_errors": [],
+        "listener_errors": [],
+        "listener_set": 0,
+        "listener_get": 2,
+        "bound_127.0.0.1": true,
+        "bound_::1": true
+      }
+    },
+    "wrapper_exit": null
+  },
+  "net_config": {
+    "interfaces": {
+      "code": 0,
+      "stdout": "[{\"ifIndex\":10,\"InterfaceAlias\":\"Loopback Pseudo-Interface 2\",\"AddressFamily\":23,\"CompartmentId\":2},{\"ifIndex\":10,\"InterfaceAlias\":\"Loopback Pseudo-Interface 2\",\"AddressFamily\":2,\"CompartmentId\":2},{\"ifIndex\":3,\"InterfaceAlias\":\"Ethernet\",\"AddressFamily\":23,\"CompartmentId\":1},{\"ifIndex\":1,\"InterfaceAlias\":\"Loopback Pseudo-Interface 1\",\"AddressFamily\":23,\"CompartmentId\":1},{\"ifIndex\":3,\"InterfaceAlias\":\"Ethernet\",\"AddressFamily\":2,\"CompartmentId\":1},{\"ifIndex\":1,\"InterfaceAlias\":\"Loopback Pseudo-Interface 1\",\"AddressFamily\":2,\"CompartmentId\":1}]\r\n",
+      "stderr": ""
+    },
+    "routes": {
+      "code": 0,
+      "stdout": "[{\"ifIndex\":10,\"DestinationPrefix\":\"255.255.255.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":10,\"DestinationPrefix\":\"224.0.0.0/4\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":10,\"DestinationPrefix\":\"127.255.255.255/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":10,\"DestinationPrefix\":\"127.0.0.1/32\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":10,\"DestinationPrefix\":\"127.0.0.0/8\",\"NextHop\":\"0.0.0.0\",\"CompartmentId\":2},{\"ifIndex\":10,\"DestinationPrefix\":\"ff00::/8\",\"NextHop\":\"::\",\"CompartmentId\":2},{\"ifIndex\":10,\"DestinationPrefix\":\"::1/128\",\"NextHop\":\"::\",\"CompartmentId\":2}]\r\n",
+      "stderr": ""
+    }
+  },
+  "decoy_bind_error": null,
+  "binds": {
+    "A": {
+      "code": 0,
+      "job_compartment": 2,
+      "compartment_id": 2,
+      "driver_view": 2
+    },
+    "B": {
+      "code": 0,
+      "job_compartment": 3,
+      "compartment_id": 3,
+      "driver_view": 3
+    }
+  },
+  "controller_after_first_actors": {
+    "pid": 10888,
+    "handle_opened": true,
+    "alive": true,
+    "health": {
+      "pid": 10888,
+      "time": 1792390765.340443,
+      "stage": "serving",
+      "requests_completed": 1,
+      "relay": {
+        "accepted": 5,
+        "forward_errors": [],
+        "listener_errors": [],
+        "listener_set": 0,
+        "listener_get": 2,
+        "bound_127.0.0.1": true,
+        "bound_::1": true
+      }
+    },
+    "wrapper_exit": null
+  },
+  "hcn_capabilities": {
+    "dns_remediation_tested": false,
+    "scope": "read-only exports and service discovery; namespace/silo isolation not inferred",
+    "exports": {
+      "HcnCreateNamespace": true,
+      "HcnEnumerateNamespaces": true,
+      "HcnQueryNamespaceProperties": true,
+      "HcnDeleteNamespace": true
+    },
+    "services": {
+      "code": 1,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "user_flow": {
+    "method": "LogonUserW+CreateProcessWithTokenW",
+    "stage": "finished",
+    "interactive_desktop_tested": false,
+    "user_add": 0,
+    "group": 0,
+    "identity": {
+      "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+      "elevated": false,
+      "session_id": 0
+    },
+    "desktop": {
+      "name": "RuleProxyLab860c92b56b12\\default",
+      "private_noninteractive": true,
+      "system_acl_changes": false
+    },
+    "pid": 3276,
+    "exit_code": 0,
+    "exit_code_hex": "0x00000000",
+    "timed_out": false,
+    "wrapper_entered": true,
+    "stdio": "",
+    "progress": {
+      "pid": 3960,
+      "identity": {
+        "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+        "pid": 3960,
+        "elevated": false,
+        "session_id": 0
+      },
+      "stage": "actors_finished",
+      "job_created": true,
+      "bind": {
+        "code": 0,
+        "job_compartment": 2,
+        "compartment_id": 2
+      },
+      "user-outside": {
+        "label": "user-outside",
+        "pid": 3136,
+        "depth": 0,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 3136,
+          "elevated": false,
+          "session_id": 0
+        },
+        "compartment": 1,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": true
+          },
+          "tcp4_loopback": {
+            "ok": true
+          },
+          "udp4_host_ip": {
+            "ok": true
+          },
+          "udp4_loopback": {
+            "ok": true
+          },
+          "tcp6_loopback": {
+            "ok": true
+          },
+          "udp6_loopback": {
+            "ok": true
+          },
+          "tcp4_public_1111_443": {
+            "ok": true,
+            "banner": ""
+          },
+          "udp4_public_dns_8888": {
+            "ok": true
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": "RULEPROXY-DECOY\n"
+          },
+          "system_dns": {
+            "ok": true,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "name": "93f3fb589188a06266ee125e52057ee6.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 49854
+        },
+        "child": {
+          "label": "user-outside-child",
+          "pid": 2944,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 2944,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": true
+            },
+            "tcp4_loopback": {
+              "ok": true
+            },
+            "udp4_host_ip": {
+              "ok": true
+            },
+            "udp4_loopback": {
+              "ok": true
+            },
+            "tcp6_loopback": {
+              "ok": true
+            },
+            "udp6_loopback": {
+              "ok": true
+            },
+            "tcp4_public_1111_443": {
+              "ok": true,
+              "banner": ""
+            },
+            "udp4_public_dns_8888": {
+              "ok": true
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": "RULEPROXY-DECOY\n"
+            },
+            "system_dns": {
+              "ok": true,
+              "addresses": [
+                "1.2.3.4"
+              ],
+              "name": "89e6687f81e854c28c785c2e09f38f0b.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 49854
+          },
+          "exit_code": 0
+        },
+        "breakaway": {
+          "ok": false,
+          "type": "PermissionError",
+          "winerror": 5,
+          "errno": 13,
+          "text": "[WinError 5] Access is denied",
+          "started": false
+        },
+        "nested": {
+          "label": "user-outside-nested",
+          "pid": 4116,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 4116,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": true
+            },
+            "tcp4_loopback": {
+              "ok": true
+            },
+            "udp4_host_ip": {
+              "ok": true
+            },
+            "udp4_loopback": {
+              "ok": true
+            },
+            "tcp6_loopback": {
+              "ok": true
+            },
+            "udp6_loopback": {
+              "ok": true
+            },
+            "tcp4_public_1111_443": {
+              "ok": true,
+              "banner": ""
+            },
+            "udp4_public_dns_8888": {
+              "ok": true
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": "RULEPROXY-DECOY\n"
+            },
+            "system_dns": {
+              "ok": true,
+              "addresses": [
+                "1.2.3.4"
+              ],
+              "name": "c1bbdb39917fef2172ef0601ddacfb14.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 49854
+          },
+          "exit_code": 0
+        },
+        "escape": {
+          "thread_set_default": 5,
+          "thread_after_set": 1,
+          "thread_tcp4_host_ip": {
+            "ok": true
+          },
+          "job_set_default": 5
+        },
+        "exit_code": 0
+      },
+      "user-inside": {
+        "label": "user-inside",
+        "pid": 6384,
+        "depth": 0,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 6384,
+          "elevated": false,
+          "session_id": 0
+        },
+        "compartment": 2,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": ""
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "37c53abf8e92d0a555d603a8b4e689c4.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 18808
+        },
+        "child": {
+          "label": "user-inside-child",
+          "pid": 9144,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 9144,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "tcp4_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp6_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp6_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp4_public_1111_443": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_public_dns_8888": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": ""
+            },
+            "system_dns": {
+              "ok": false,
+              "type": "gaierror",
+              "winerror": null,
+              "errno": 11004,
+              "text": "[Errno 11004] getaddrinfo failed",
+              "name": "64d29b1cbff5c65f34b2e4d4bb3847dd.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 18808
+          },
+          "exit_code": 0
+        },
+        "breakaway": {
+          "ok": false,
+          "type": "PermissionError",
+          "winerror": 5,
+          "errno": 13,
+          "text": "[WinError 5] Access is denied",
+          "started": false
+        },
+        "nested": {
+          "label": "user-inside-nested",
+          "pid": 1924,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 1924,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "tcp4_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp6_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp6_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp4_public_1111_443": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_public_dns_8888": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": ""
+            },
+            "system_dns": {
+              "ok": false,
+              "type": "gaierror",
+              "winerror": null,
+              "errno": 11004,
+              "text": "[Errno 11004] getaddrinfo failed",
+              "name": "fb8cb810420b115d94920e9042737394.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 18808
+          },
+          "exit_code": 0
+        },
+        "escape": {
+          "thread_set_default": 5,
+          "thread_after_set": 2,
+          "thread_tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "job_set_default": 5
+        },
+        "exit_code": 0
+      }
+    },
+    "launcher": {
+      "pid": 3960,
+      "identity": {
+        "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+        "pid": 3960,
+        "elevated": false,
+        "session_id": 0
+      },
+      "stage": "actors_finished",
+      "job_created": true,
+      "bind": {
+        "code": 0,
+        "job_compartment": 2,
+        "compartment_id": 2
+      },
+      "user-outside": {
+        "label": "user-outside",
+        "pid": 3136,
+        "depth": 0,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 3136,
+          "elevated": false,
+          "session_id": 0
+        },
+        "compartment": 1,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": true
+          },
+          "tcp4_loopback": {
+            "ok": true
+          },
+          "udp4_host_ip": {
+            "ok": true
+          },
+          "udp4_loopback": {
+            "ok": true
+          },
+          "tcp6_loopback": {
+            "ok": true
+          },
+          "udp6_loopback": {
+            "ok": true
+          },
+          "tcp4_public_1111_443": {
+            "ok": true,
+            "banner": ""
+          },
+          "udp4_public_dns_8888": {
+            "ok": true
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": "RULEPROXY-DECOY\n"
+          },
+          "system_dns": {
+            "ok": true,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "name": "93f3fb589188a06266ee125e52057ee6.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 49854
+        },
+        "child": {
+          "label": "user-outside-child",
+          "pid": 2944,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 2944,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": true
+            },
+            "tcp4_loopback": {
+              "ok": true
+            },
+            "udp4_host_ip": {
+              "ok": true
+            },
+            "udp4_loopback": {
+              "ok": true
+            },
+            "tcp6_loopback": {
+              "ok": true
+            },
+            "udp6_loopback": {
+              "ok": true
+            },
+            "tcp4_public_1111_443": {
+              "ok": true,
+              "banner": ""
+            },
+            "udp4_public_dns_8888": {
+              "ok": true
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": "RULEPROXY-DECOY\n"
+            },
+            "system_dns": {
+              "ok": true,
+              "addresses": [
+                "1.2.3.4"
+              ],
+              "name": "89e6687f81e854c28c785c2e09f38f0b.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 49854
+          },
+          "exit_code": 0
+        },
+        "breakaway": {
+          "ok": false,
+          "type": "PermissionError",
+          "winerror": 5,
+          "errno": 13,
+          "text": "[WinError 5] Access is denied",
+          "started": false
+        },
+        "nested": {
+          "label": "user-outside-nested",
+          "pid": 4116,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 4116,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": true
+            },
+            "tcp4_loopback": {
+              "ok": true
+            },
+            "udp4_host_ip": {
+              "ok": true
+            },
+            "udp4_loopback": {
+              "ok": true
+            },
+            "tcp6_loopback": {
+              "ok": true
+            },
+            "udp6_loopback": {
+              "ok": true
+            },
+            "tcp4_public_1111_443": {
+              "ok": true,
+              "banner": ""
+            },
+            "udp4_public_dns_8888": {
+              "ok": true
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": "RULEPROXY-DECOY\n"
+            },
+            "system_dns": {
+              "ok": true,
+              "addresses": [
+                "1.2.3.4"
+              ],
+              "name": "c1bbdb39917fef2172ef0601ddacfb14.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 49854
+          },
+          "exit_code": 0
+        },
+        "escape": {
+          "thread_set_default": 5,
+          "thread_after_set": 1,
+          "thread_tcp4_host_ip": {
+            "ok": true
+          },
+          "job_set_default": 5
+        },
+        "exit_code": 0
+      },
+      "user-inside": {
+        "label": "user-inside",
+        "pid": 6384,
+        "depth": 0,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 6384,
+          "elevated": false,
+          "session_id": 0
+        },
+        "compartment": 2,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": ""
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "37c53abf8e92d0a555d603a8b4e689c4.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 18808
+        },
+        "child": {
+          "label": "user-inside-child",
+          "pid": 9144,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 9144,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "tcp4_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp6_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp6_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp4_public_1111_443": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_public_dns_8888": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": ""
+            },
+            "system_dns": {
+              "ok": false,
+              "type": "gaierror",
+              "winerror": null,
+              "errno": 11004,
+              "text": "[Errno 11004] getaddrinfo failed",
+              "name": "64d29b1cbff5c65f34b2e4d4bb3847dd.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 18808
+          },
+          "exit_code": 0
+        },
+        "breakaway": {
+          "ok": false,
+          "type": "PermissionError",
+          "winerror": 5,
+          "errno": 13,
+          "text": "[WinError 5] Access is denied",
+          "started": false
+        },
+        "nested": {
+          "label": "user-inside-nested",
+          "pid": 1924,
+          "depth": 1,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 1924,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "tcp4_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp6_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp6_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp4_public_1111_443": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_public_dns_8888": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": ""
+            },
+            "system_dns": {
+              "ok": false,
+              "type": "gaierror",
+              "winerror": null,
+              "errno": 11004,
+              "text": "[Errno 11004] getaddrinfo failed",
+              "name": "fb8cb810420b115d94920e9042737394.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 18808
+          },
+          "exit_code": 0
+        },
+        "escape": {
+          "thread_set_default": 5,
+          "thread_after_set": 2,
+          "thread_tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "job_set_default": 5
+        },
+        "exit_code": 0
+      }
+    },
+    "user_removed": 0,
+    "profile_cleanup": {
+      "code": 0,
+      "stdout": "ok\r\n",
+      "stderr": ""
+    }
+  },
+  "user_launcher": {
+    "pid": 3960,
+    "identity": {
+      "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+      "pid": 3960,
+      "elevated": false,
+      "session_id": 0
+    },
+    "stage": "actors_finished",
+    "job_created": true,
+    "bind": {
+      "code": 0,
+      "job_compartment": 2,
+      "compartment_id": 2
+    },
+    "user-outside": {
+      "label": "user-outside",
+      "pid": 3136,
+      "depth": 0,
+      "identity": {
+        "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+        "pid": 3136,
+        "elevated": false,
+        "session_id": 0
+      },
+      "compartment": 1,
+      "rows": {
+        "tcp4_host_ip": {
+          "ok": true
+        },
+        "tcp4_loopback": {
+          "ok": true
+        },
+        "udp4_host_ip": {
+          "ok": true
+        },
+        "udp4_loopback": {
+          "ok": true
+        },
+        "tcp6_loopback": {
+          "ok": true
+        },
+        "udp6_loopback": {
+          "ok": true
+        },
+        "tcp4_public_1111_443": {
+          "ok": true,
+          "banner": ""
+        },
+        "udp4_public_dns_8888": {
+          "ok": true
+        },
+        "relay_port_loopback": {
+          "ok": true,
+          "banner": "RULEPROXY-DECOY\n"
+        },
+        "system_dns": {
+          "ok": true,
+          "addresses": [
+            "1.2.3.4"
+          ],
+          "name": "93f3fb589188a06266ee125e52057ee6.1.2.3.4.sslip.io"
+        }
+      },
+      "proxy": {
+        "ok": true,
+        "port": 49854
+      },
+      "child": {
+        "label": "user-outside-child",
+        "pid": 2944,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 2944,
+          "elevated": false,
+          "session_id": 0
+        },
+        "compartment": 1,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": true
+          },
+          "tcp4_loopback": {
+            "ok": true
+          },
+          "udp4_host_ip": {
+            "ok": true
+          },
+          "udp4_loopback": {
+            "ok": true
+          },
+          "tcp6_loopback": {
+            "ok": true
+          },
+          "udp6_loopback": {
+            "ok": true
+          },
+          "tcp4_public_1111_443": {
+            "ok": true,
+            "banner": ""
+          },
+          "udp4_public_dns_8888": {
+            "ok": true
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": "RULEPROXY-DECOY\n"
+          },
+          "system_dns": {
+            "ok": true,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "name": "89e6687f81e854c28c785c2e09f38f0b.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 49854
+        },
+        "exit_code": 0
+      },
+      "breakaway": {
+        "ok": false,
+        "type": "PermissionError",
+        "winerror": 5,
+        "errno": 13,
+        "text": "[WinError 5] Access is denied",
+        "started": false
+      },
+      "nested": {
+        "label": "user-outside-nested",
+        "pid": 4116,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 4116,
+          "elevated": false,
+          "session_id": 0
+        },
+        "compartment": 1,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": true
+          },
+          "tcp4_loopback": {
+            "ok": true
+          },
+          "udp4_host_ip": {
+            "ok": true
+          },
+          "udp4_loopback": {
+            "ok": true
+          },
+          "tcp6_loopback": {
+            "ok": true
+          },
+          "udp6_loopback": {
+            "ok": true
+          },
+          "tcp4_public_1111_443": {
+            "ok": true,
+            "banner": ""
+          },
+          "udp4_public_dns_8888": {
+            "ok": true
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": "RULEPROXY-DECOY\n"
+          },
+          "system_dns": {
+            "ok": true,
+            "addresses": [
+              "1.2.3.4"
+            ],
+            "name": "c1bbdb39917fef2172ef0601ddacfb14.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 49854
+        },
+        "exit_code": 0
+      },
+      "escape": {
+        "thread_set_default": 5,
+        "thread_after_set": 1,
+        "thread_tcp4_host_ip": {
+          "ok": true
+        },
+        "job_set_default": 5
+      },
+      "exit_code": 0
+    },
+    "user-inside": {
+      "label": "user-inside",
+      "pid": 6384,
+      "depth": 0,
+      "identity": {
+        "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+        "pid": 6384,
+        "elevated": false,
+        "session_id": 0
+      },
+      "compartment": 2,
+      "rows": {
+        "tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "tcp4_loopback": {
+          "ok": false,
+          "type": "ConnectionRefusedError",
+          "winerror": 10061,
+          "errno": 10061,
+          "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+        },
+        "udp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "udp4_loopback": {
+          "ok": false,
+          "type": "ConnectionResetError",
+          "winerror": 10054,
+          "errno": 10054,
+          "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+        },
+        "tcp6_loopback": {
+          "ok": false,
+          "type": "ConnectionRefusedError",
+          "winerror": 10061,
+          "errno": 10061,
+          "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+        },
+        "udp6_loopback": {
+          "ok": false,
+          "type": "ConnectionResetError",
+          "winerror": 10054,
+          "errno": 10054,
+          "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+        },
+        "tcp4_public_1111_443": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "udp4_public_dns_8888": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "relay_port_loopback": {
+          "ok": true,
+          "banner": ""
+        },
+        "system_dns": {
+          "ok": false,
+          "type": "gaierror",
+          "winerror": null,
+          "errno": 11004,
+          "text": "[Errno 11004] getaddrinfo failed",
+          "name": "37c53abf8e92d0a555d603a8b4e689c4.1.2.3.4.sslip.io"
+        }
+      },
+      "proxy": {
+        "ok": true,
+        "port": 18808
+      },
+      "child": {
+        "label": "user-inside-child",
+        "pid": 9144,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 9144,
+          "elevated": false,
+          "session_id": 0
+        },
+        "compartment": 2,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": ""
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "64d29b1cbff5c65f34b2e4d4bb3847dd.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 18808
+        },
+        "exit_code": 0
+      },
+      "breakaway": {
+        "ok": false,
+        "type": "PermissionError",
+        "winerror": 5,
+        "errno": 13,
+        "text": "[WinError 5] Access is denied",
+        "started": false
+      },
+      "nested": {
+        "label": "user-inside-nested",
+        "pid": 1924,
+        "depth": 1,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 1924,
+          "elevated": false,
+          "session_id": 0
+        },
+        "compartment": 2,
+        "rows": {
+          "tcp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "tcp4_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp4_host_ip": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp6_loopback": {
+            "ok": false,
+            "type": "ConnectionRefusedError",
+            "winerror": 10061,
+            "errno": 10061,
+            "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+          },
+          "udp6_loopback": {
+            "ok": false,
+            "type": "ConnectionResetError",
+            "winerror": 10054,
+            "errno": 10054,
+            "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+          },
+          "tcp4_public_1111_443": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "udp4_public_dns_8888": {
+            "ok": false,
+            "type": "OSError",
+            "winerror": 10051,
+            "errno": 10051,
+            "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+          },
+          "relay_port_loopback": {
+            "ok": true,
+            "banner": ""
+          },
+          "system_dns": {
+            "ok": false,
+            "type": "gaierror",
+            "winerror": null,
+            "errno": 11004,
+            "text": "[Errno 11004] getaddrinfo failed",
+            "name": "fb8cb810420b115d94920e9042737394.1.2.3.4.sslip.io"
+          }
+        },
+        "proxy": {
+          "ok": true,
+          "port": 18808
+        },
+        "exit_code": 0
+      },
+      "escape": {
+        "thread_set_default": 5,
+        "thread_after_set": 2,
+        "thread_tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "job_set_default": 5
+      },
+      "exit_code": 0
+    }
+  },
+  "create_B": {
+    "code": 0,
+    "id": 3,
+    "guid": "5c71d420-594d-468f-90ff-51cb47435eb6"
+  },
+  "delete_B_while_alive": {
+    "code": 1359,
+    "id": 3
+  },
+  "delete_B_after_exit": {
+    "code": 1359,
+    "id": 3
+  },
+  "create_C": {
+    "code": 0,
+    "id": 4,
+    "guid": "605216b8-90a3-490c-83b5-193d9e966173"
+  },
+  "keep_C": {
+    "kept": "C",
+    "id": 4
+  },
+  "relay_failure_ready": {
+    "label": "relay-live-inside",
+    "pid": 1948,
+    "depth": 0,
+    "identity": {
+      "sid": "S-1-5-18",
+      "pid": 1948,
+      "elevated": true,
+      "session_id": 0
+    },
+    "compartment": 2,
+    "before": {
+      "rows": {
+        "tcp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "tcp4_loopback": {
+          "ok": false,
+          "type": "ConnectionRefusedError",
+          "winerror": 10061,
+          "errno": 10061,
+          "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+        },
+        "udp4_host_ip": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "udp4_loopback": {
+          "ok": false,
+          "type": "ConnectionResetError",
+          "winerror": 10054,
+          "errno": 10054,
+          "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+        },
+        "tcp6_loopback": {
+          "ok": false,
+          "type": "ConnectionRefusedError",
+          "winerror": 10061,
+          "errno": 10061,
+          "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+        },
+        "udp6_loopback": {
+          "ok": false,
+          "type": "ConnectionResetError",
+          "winerror": 10054,
+          "errno": 10054,
+          "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+        },
+        "tcp4_public_1111_443": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "udp4_public_dns_8888": {
+          "ok": false,
+          "type": "OSError",
+          "winerror": 10051,
+          "errno": 10051,
+          "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+        },
+        "relay_port_loopback": {
+          "ok": true,
+          "banner": ""
+        },
+        "system_dns": {
+          "ok": false,
+          "type": "gaierror",
+          "winerror": null,
+          "errno": 11004,
+          "text": "[Errno 11004] getaddrinfo failed",
+          "name": "8cdd47e7dd5991ac5d08be6ce555a662.1.2.3.4.sslip.io"
+        }
+      },
+      "proxy": {
+        "ok": true,
+        "port": 18808
+      }
+    }
+  },
+  "stop_relay": {
+    "closed": 32
+  },
+  "exit": {
+    "exiting": true
+  },
+  "bits_cleanup": {
+    "code": 0,
+    "stdout": "{\"removed\":0,\"remaining\":0}\r\n",
+    "stderr": ""
+  },
+  "controller_final": {
+    "role": "controller",
+    "pid": 10888,
+    "started": 1792390720.6876707,
+    "missing_exports": [],
+    "identity": "S-1-5-18",
+    "requests": [
+      {
+        "request": {
+          "op": "bind",
+          "pid": 8316,
+          "handle": 852,
+          "compartment": "A"
+        },
+        "response": {
+          "code": 0,
+          "job_compartment": 2,
+          "compartment_id": 2
+        }
+      },
+      {
+        "request": {
+          "op": "bind",
+          "pid": 3960,
+          "handle": 432,
+          "compartment": "A"
+        },
+        "response": {
+          "code": 0,
+          "job_compartment": 2,
+          "compartment_id": 2
+        }
+      },
+      {
+        "request": {
+          "op": "create",
+          "name": "B"
+        },
+        "response": {
+          "code": 0,
+          "id": 3,
+          "guid": "5c71d420-594d-468f-90ff-51cb47435eb6"
+        }
+      },
+      {
+        "request": {
+          "op": "bind",
+          "pid": 8316,
+          "handle": 828,
+          "compartment": "B"
+        },
+        "response": {
+          "code": 0,
+          "job_compartment": 3,
+          "compartment_id": 3
+        }
+      },
+      {
+        "request": {
+          "op": "delete",
+          "name": "B"
+        },
+        "response": {
+          "code": 1359,
+          "id": 3
+        }
+      },
+      {
+        "request": {
+          "op": "delete",
+          "name": "B"
+        },
+        "response": {
+          "code": 1359,
+          "id": 3
+        }
+      },
+      {
+        "request": {
+          "op": "create",
+          "name": "C"
+        },
+        "response": {
+          "code": 0,
+          "id": 4,
+          "guid": "605216b8-90a3-490c-83b5-193d9e966173"
+        }
+      },
+      {
+        "request": {
+          "op": "keep",
+          "name": "C"
+        },
+        "response": {
+          "kept": "C",
+          "id": 4
+        }
+      },
+      {
+        "request": {
+          "op": "stop_relay"
+        },
+        "response": {
+          "closed": 32
+        }
+      },
+      {
+        "request": {
+          "op": "exit"
+        },
+        "response": {
+          "exiting": true
+        }
+      }
+    ],
+    "python": {
+      "version": "3.14.8 (tags/v3.14.8:8e6e75d, Sep 30 2026, 18:19:33) [MSC v.1944 64 bit (AMD64)]",
+      "executable": "C:\\RuleProxyProductBootstrap\\compartment-runtime\\RuleProxy-Web\\python\\python.exe"
+    },
+    "create_A": {
+      "code": 0,
+      "id": 2,
+      "guid": "4f9d000a-c2f2-431a-96e7-b3897ebc7d54"
+    },
+    "default_compartment": 1,
+    "thread_probe": {
+      "set": 0,
+      "get": 2,
+      "public_1111_443": {
+        "ok": false,
+        "winerror": 10051
+      },
+      "host_fixture_loopback": {
+        "ok": false,
+        "winerror": 10061
+      },
+      "dns": {
+        "name": "a5a533d6cbbf71db21f307d81580a1cf.1.2.3.4.sslip.io",
+        "ok": false,
+        "errno": 11004,
+        "text": "[Errno 11004] getaddrinfo failed"
+      }
+    },
+    "default_thread_dns": {
+      "name": "c2c5331021733bb76d845e52b83a58b7.1.2.3.4.sslip.io",
+      "ok": false,
+      "errno": 11001,
+      "text": "[Errno 11001] getaddrinfo failed"
+    },
+    "relay": {
+      "accepted": 15,
+      "forward_errors": [],
+      "listener_errors": [],
+      "listener_set": 0,
+      "listener_get": 2,
+      "bound_127.0.0.1": true,
+      "bound_::1": true
+    },
+    "final_stop_relay": {
+      "closed": 0
+    },
+    "terminated_jobs": [
+      true,
+      true,
+      true
+    ],
+    "final_deletes": {
+      "A": [
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359
+      ],
+      "B": [
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359
+      ]
+    },
+    "kept": {
+      "C": 4
+    },
+    "finished": 1792390929.2798898
+  },
+  "controller_log": "",
+  "controller_before_cleanup": {
+    "pid": 10888,
+    "handle_opened": true,
+    "alive": false,
+    "exit_code": 0,
+    "exit_code_hex": "0x00000000",
+    "health": {
+      "pid": 10888,
+      "time": 1792390911.4105034,
+      "stage": "request_entered",
+      "request": {
+        "op": "exit"
+      },
+      "relay": {
+        "accepted": 15,
+        "forward_errors": [],
+        "listener_errors": [],
+        "listener_set": 0,
+        "listener_get": 2,
+        "bound_127.0.0.1": true,
+        "bound_::1": true
+      }
+    },
+    "wrapper_exit": {
+      "exit_code": 0
+    }
+  },
+  "controller_task_state": {
+    "code": 0,
+    "stdout": "{\"last_run_utc\":\"2026-10-19T06:18:40.0000000Z\",\"last_task_result\":0,\"state\":\"Ready\"}\r\n",
+    "stderr": ""
+  },
+  "task_cleanup": {
+    "code": 0,
+    "stdout": "ok\r\n",
+    "stderr": ""
+  },
+  "after_controller": [
+    {
+      "CompartmentId": 1,
+      "CompartmentDescription": "Default Compartment"
+    },
+    {
+      "CompartmentId": 2,
+      "CompartmentDescription": "RuleProxy compartment lab A"
+    },
+    {
+      "CompartmentId": 3,
+      "CompartmentDescription": "RuleProxy compartment lab B"
+    },
+    {
+      "CompartmentId": 4,
+      "CompartmentDescription": "RuleProxy compartment lab C"
+    }
+  ],
+  "cleanup_task": {
+    "code": 0,
+    "stdout": "started\r\n",
+    "stderr": ""
+  },
+  "cleanup_result": {
+    "identity": "S-1-5-18",
+    "deletes": {
+      "2": 1359,
+      "3": 1359,
+      "4": 0
+    }
+  },
+  "after_cleanup": [
+    {
+      "CompartmentId": 1,
+      "CompartmentDescription": "Default Compartment"
+    },
+    {
+      "CompartmentId": 2,
+      "CompartmentDescription": "RuleProxy compartment lab A"
+    },
+    {
+      "CompartmentId": 3,
+      "CompartmentDescription": "RuleProxy compartment lab B"
+    }
+  ],
+  "echo_payloads": [
+    "aa6e45c23b41ccdfd357bf4e:outside:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside-child:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-child:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-child:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside-child:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside-child:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-child:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside-nested:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-nested:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-nested:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside-nested:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside-nested:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-nested:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-escape:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-escape:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-escape:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside-escape:udp",
+    "aa6e45c23b41ccdfd357bf4e:outside-escape:tcp",
+    "aa6e45c23b41ccdfd357bf4e:outside-escape:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-child:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-child:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-child:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-child:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-child:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-child:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-nested:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-nested:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-nested:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-nested:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-nested:tcp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside-nested:udp",
+    "aa6e45c23b41ccdfd357bf4e:user-outside:tcp"
+  ],
+  "proxy_received": [
+    "outside",
+    "outside-child",
+    "outside-nested",
+    "outside-escape",
+    "inside",
+    "inside-child",
+    "inside-nested",
+    "curl_proxy_inside",
+    "user-outside",
+    "user-outside-child",
+    "user-outside-nested",
+    "user-inside",
+    "user-inside-child",
+    "user-inside-nested",
+    "relay-live-inside"
+  ],
+  "direct_received": [
+    "curl_direct_outside",
+    "wmi_outside",
+    "bits_outside",
+    "wmi_inside",
+    "bits_inside"
+  ],
+  "assessment": {
+    "create_A": {
+      "code": 0,
+      "id": 2,
+      "guid": "4f9d000a-c2f2-431a-96e7-b3897ebc7d54"
+    },
+    "thread_probe": {
+      "set": 0,
+      "get": 2,
+      "public_1111_443": {
+        "ok": false,
+        "winerror": 10051
+      },
+      "host_fixture_loopback": {
+        "ok": false,
+        "winerror": 10061
+      },
+      "dns": {
+        "name": "a5a533d6cbbf71db21f307d81580a1cf.1.2.3.4.sslip.io",
+        "ok": false,
+        "errno": 11004,
+        "text": "[Errno 11004] getaddrinfo failed"
+      }
+    },
+    "default_thread_dns": {
+      "name": "c2c5331021733bb76d845e52b83a58b7.1.2.3.4.sslip.io",
+      "ok": false,
+      "errno": 11001,
+      "text": "[Errno 11001] getaddrinfo failed"
+    },
+    "relay": {
+      "accepted": 0,
+      "forward_errors": [],
+      "listener_errors": [],
+      "listener_set": 0,
+      "listener_get": 2,
+      "bound_127.0.0.1": true,
+      "bound_::1": true
+    },
+    "decoy_bind_error": null,
+    "binds": {
+      "A": {
+        "code": 0,
+        "job_compartment": 2,
+        "compartment_id": 2,
+        "driver_view": 2
+      },
+      "B": {
+        "code": 0,
+        "job_compartment": 3,
+        "compartment_id": 3,
+        "driver_view": 3
+      }
+    },
+    "outside": {
+      "compartment": 1,
+      "exit": 0,
+      "rows": {
+        "tcp4_host_ip": true,
+        "tcp4_loopback": true,
+        "udp4_host_ip": true,
+        "udp4_loopback": true,
+        "tcp6_loopback": true,
+        "udp6_loopback": true,
+        "tcp4_public_1111_443": true,
+        "udp4_public_dns_8888": true,
+        "system_dns": true
+      },
+      "relay_banner": "RULEPROXY-DECOY\n",
+      "proxy": true,
+      "child": {
+        "compartment": 1,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": true,
+          "tcp4_loopback": true,
+          "udp4_host_ip": true,
+          "udp4_loopback": true,
+          "tcp6_loopback": true,
+          "udp6_loopback": true,
+          "tcp4_public_1111_443": true,
+          "udp4_public_dns_8888": true,
+          "system_dns": true
+        },
+        "relay_banner": "RULEPROXY-DECOY\n",
+        "proxy": true
+      },
+      "nested": {
+        "compartment": 1,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": true,
+          "tcp4_loopback": true,
+          "udp4_host_ip": true,
+          "udp4_loopback": true,
+          "tcp6_loopback": true,
+          "udp6_loopback": true,
+          "tcp4_public_1111_443": true,
+          "udp4_public_dns_8888": true,
+          "system_dns": true
+        },
+        "relay_banner": "RULEPROXY-DECOY\n",
+        "proxy": true
+      },
+      "escape": {
+        "thread_set_default": 0,
+        "thread_after_set": 1,
+        "thread_tcp4_host_ip": true,
+        "job_set_default": 0,
+        "job_child": {
+          "compartment": 1,
+          "exit": 0,
+          "rows": {
+            "tcp4_host_ip": true,
+            "tcp4_loopback": true,
+            "udp4_host_ip": true,
+            "udp4_loopback": true,
+            "tcp6_loopback": true,
+            "udp6_loopback": true,
+            "tcp4_public_1111_443": true,
+            "udp4_public_dns_8888": true,
+            "system_dns": true
+          },
+          "relay_banner": "RULEPROXY-DECOY\n",
+          "proxy": true
+        }
+      },
+      "breakaway_started": true
+    },
+    "inside": {
+      "compartment": 2,
+      "exit": 0,
+      "rows": {
+        "tcp4_host_ip": false,
+        "tcp4_loopback": false,
+        "udp4_host_ip": false,
+        "udp4_loopback": false,
+        "tcp6_loopback": false,
+        "udp6_loopback": false,
+        "tcp4_public_1111_443": false,
+        "udp4_public_dns_8888": false,
+        "system_dns": false
+      },
+      "relay_banner": "",
+      "proxy": true,
+      "child": {
+        "compartment": 2,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": false,
+          "tcp4_loopback": false,
+          "udp4_host_ip": false,
+          "udp4_loopback": false,
+          "tcp6_loopback": false,
+          "udp6_loopback": false,
+          "tcp4_public_1111_443": false,
+          "udp4_public_dns_8888": false,
+          "system_dns": false
+        },
+        "relay_banner": "",
+        "proxy": true
+      },
+      "nested": {
+        "compartment": 2,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": false,
+          "tcp4_loopback": false,
+          "udp4_host_ip": false,
+          "udp4_loopback": false,
+          "tcp6_loopback": false,
+          "udp6_loopback": false,
+          "tcp4_public_1111_443": false,
+          "udp4_public_dns_8888": false,
+          "system_dns": false
+        },
+        "relay_banner": "",
+        "proxy": true
+      },
+      "escape": {
+        "thread_set_default": 1168,
+        "thread_after_set": 2,
+        "thread_tcp4_host_ip": false,
+        "job_set_default": 1168
+      },
+      "breakaway_started": false
+    },
+    "user_bind": {
+      "code": 0,
+      "job_compartment": 2,
+      "compartment_id": 2
+    },
+    "user_outside": {
+      "compartment": 1,
+      "exit": 0,
+      "rows": {
+        "tcp4_host_ip": true,
+        "tcp4_loopback": true,
+        "udp4_host_ip": true,
+        "udp4_loopback": true,
+        "tcp6_loopback": true,
+        "udp6_loopback": true,
+        "tcp4_public_1111_443": true,
+        "udp4_public_dns_8888": true,
+        "system_dns": true
+      },
+      "relay_banner": "RULEPROXY-DECOY\n",
+      "proxy": true,
+      "child": {
+        "compartment": 1,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": true,
+          "tcp4_loopback": true,
+          "udp4_host_ip": true,
+          "udp4_loopback": true,
+          "tcp6_loopback": true,
+          "udp6_loopback": true,
+          "tcp4_public_1111_443": true,
+          "udp4_public_dns_8888": true,
+          "system_dns": true
+        },
+        "relay_banner": "RULEPROXY-DECOY\n",
+        "proxy": true
+      },
+      "nested": {
+        "compartment": 1,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": true,
+          "tcp4_loopback": true,
+          "udp4_host_ip": true,
+          "udp4_loopback": true,
+          "tcp6_loopback": true,
+          "udp6_loopback": true,
+          "tcp4_public_1111_443": true,
+          "udp4_public_dns_8888": true,
+          "system_dns": true
+        },
+        "relay_banner": "RULEPROXY-DECOY\n",
+        "proxy": true
+      },
+      "escape": {
+        "thread_set_default": 5,
+        "thread_after_set": 1,
+        "thread_tcp4_host_ip": true,
+        "job_set_default": 5
+      },
+      "breakaway_started": false
+    },
+    "user_inside": {
+      "compartment": 2,
+      "exit": 0,
+      "rows": {
+        "tcp4_host_ip": false,
+        "tcp4_loopback": false,
+        "udp4_host_ip": false,
+        "udp4_loopback": false,
+        "tcp6_loopback": false,
+        "udp6_loopback": false,
+        "tcp4_public_1111_443": false,
+        "udp4_public_dns_8888": false,
+        "system_dns": false
+      },
+      "relay_banner": "",
+      "proxy": true,
+      "child": {
+        "compartment": 2,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": false,
+          "tcp4_loopback": false,
+          "udp4_host_ip": false,
+          "udp4_loopback": false,
+          "tcp6_loopback": false,
+          "udp6_loopback": false,
+          "tcp4_public_1111_443": false,
+          "udp4_public_dns_8888": false,
+          "system_dns": false
+        },
+        "relay_banner": "",
+        "proxy": true
+      },
+      "nested": {
+        "compartment": 2,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": false,
+          "tcp4_loopback": false,
+          "udp4_host_ip": false,
+          "udp4_loopback": false,
+          "tcp6_loopback": false,
+          "udp6_loopback": false,
+          "tcp4_public_1111_443": false,
+          "udp4_public_dns_8888": false,
+          "system_dns": false
+        },
+        "relay_banner": "",
+        "proxy": true
+      },
+      "escape": {
+        "thread_set_default": 5,
+        "thread_after_set": 2,
+        "thread_tcp4_host_ip": false,
+        "job_set_default": 5
+      },
+      "breakaway_started": false
+    },
+    "user_error": null,
+    "user_flow": {
+      "method": "LogonUserW+CreateProcessWithTokenW",
+      "stage": "finished",
+      "interactive_desktop_tested": false,
+      "user_add": 0,
+      "group": 0,
+      "identity": {
+        "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+        "elevated": false,
+        "session_id": 0
+      },
+      "desktop": {
+        "name": "RuleProxyLab860c92b56b12\\default",
+        "private_noninteractive": true,
+        "system_acl_changes": false
+      },
+      "pid": 3276,
+      "exit_code": 0,
+      "exit_code_hex": "0x00000000",
+      "timed_out": false,
+      "wrapper_entered": true,
+      "stdio": "",
+      "progress": {
+        "pid": 3960,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 3960,
+          "elevated": false,
+          "session_id": 0
+        },
+        "stage": "actors_finished",
+        "job_created": true,
+        "bind": {
+          "code": 0,
+          "job_compartment": 2,
+          "compartment_id": 2
+        },
+        "user-outside": {
+          "label": "user-outside",
+          "pid": 3136,
+          "depth": 0,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 3136,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": true
+            },
+            "tcp4_loopback": {
+              "ok": true
+            },
+            "udp4_host_ip": {
+              "ok": true
+            },
+            "udp4_loopback": {
+              "ok": true
+            },
+            "tcp6_loopback": {
+              "ok": true
+            },
+            "udp6_loopback": {
+              "ok": true
+            },
+            "tcp4_public_1111_443": {
+              "ok": true,
+              "banner": ""
+            },
+            "udp4_public_dns_8888": {
+              "ok": true
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": "RULEPROXY-DECOY\n"
+            },
+            "system_dns": {
+              "ok": true,
+              "addresses": [
+                "1.2.3.4"
+              ],
+              "name": "93f3fb589188a06266ee125e52057ee6.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 49854
+          },
+          "child": {
+            "label": "user-outside-child",
+            "pid": 2944,
+            "depth": 1,
+            "identity": {
+              "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+              "pid": 2944,
+              "elevated": false,
+              "session_id": 0
+            },
+            "compartment": 1,
+            "rows": {
+              "tcp4_host_ip": {
+                "ok": true
+              },
+              "tcp4_loopback": {
+                "ok": true
+              },
+              "udp4_host_ip": {
+                "ok": true
+              },
+              "udp4_loopback": {
+                "ok": true
+              },
+              "tcp6_loopback": {
+                "ok": true
+              },
+              "udp6_loopback": {
+                "ok": true
+              },
+              "tcp4_public_1111_443": {
+                "ok": true,
+                "banner": ""
+              },
+              "udp4_public_dns_8888": {
+                "ok": true
+              },
+              "relay_port_loopback": {
+                "ok": true,
+                "banner": "RULEPROXY-DECOY\n"
+              },
+              "system_dns": {
+                "ok": true,
+                "addresses": [
+                  "1.2.3.4"
+                ],
+                "name": "89e6687f81e854c28c785c2e09f38f0b.1.2.3.4.sslip.io"
+              }
+            },
+            "proxy": {
+              "ok": true,
+              "port": 49854
+            },
+            "exit_code": 0
+          },
+          "breakaway": {
+            "ok": false,
+            "type": "PermissionError",
+            "winerror": 5,
+            "errno": 13,
+            "text": "[WinError 5] Access is denied",
+            "started": false
+          },
+          "nested": {
+            "label": "user-outside-nested",
+            "pid": 4116,
+            "depth": 1,
+            "identity": {
+              "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+              "pid": 4116,
+              "elevated": false,
+              "session_id": 0
+            },
+            "compartment": 1,
+            "rows": {
+              "tcp4_host_ip": {
+                "ok": true
+              },
+              "tcp4_loopback": {
+                "ok": true
+              },
+              "udp4_host_ip": {
+                "ok": true
+              },
+              "udp4_loopback": {
+                "ok": true
+              },
+              "tcp6_loopback": {
+                "ok": true
+              },
+              "udp6_loopback": {
+                "ok": true
+              },
+              "tcp4_public_1111_443": {
+                "ok": true,
+                "banner": ""
+              },
+              "udp4_public_dns_8888": {
+                "ok": true
+              },
+              "relay_port_loopback": {
+                "ok": true,
+                "banner": "RULEPROXY-DECOY\n"
+              },
+              "system_dns": {
+                "ok": true,
+                "addresses": [
+                  "1.2.3.4"
+                ],
+                "name": "c1bbdb39917fef2172ef0601ddacfb14.1.2.3.4.sslip.io"
+              }
+            },
+            "proxy": {
+              "ok": true,
+              "port": 49854
+            },
+            "exit_code": 0
+          },
+          "escape": {
+            "thread_set_default": 5,
+            "thread_after_set": 1,
+            "thread_tcp4_host_ip": {
+              "ok": true
+            },
+            "job_set_default": 5
+          },
+          "exit_code": 0
+        },
+        "user-inside": {
+          "label": "user-inside",
+          "pid": 6384,
+          "depth": 0,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 6384,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "tcp4_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp6_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp6_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp4_public_1111_443": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_public_dns_8888": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": ""
+            },
+            "system_dns": {
+              "ok": false,
+              "type": "gaierror",
+              "winerror": null,
+              "errno": 11004,
+              "text": "[Errno 11004] getaddrinfo failed",
+              "name": "37c53abf8e92d0a555d603a8b4e689c4.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 18808
+          },
+          "child": {
+            "label": "user-inside-child",
+            "pid": 9144,
+            "depth": 1,
+            "identity": {
+              "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+              "pid": 9144,
+              "elevated": false,
+              "session_id": 0
+            },
+            "compartment": 2,
+            "rows": {
+              "tcp4_host_ip": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "tcp4_loopback": {
+                "ok": false,
+                "type": "ConnectionRefusedError",
+                "winerror": 10061,
+                "errno": 10061,
+                "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+              },
+              "udp4_host_ip": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "udp4_loopback": {
+                "ok": false,
+                "type": "ConnectionResetError",
+                "winerror": 10054,
+                "errno": 10054,
+                "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+              },
+              "tcp6_loopback": {
+                "ok": false,
+                "type": "ConnectionRefusedError",
+                "winerror": 10061,
+                "errno": 10061,
+                "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+              },
+              "udp6_loopback": {
+                "ok": false,
+                "type": "ConnectionResetError",
+                "winerror": 10054,
+                "errno": 10054,
+                "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+              },
+              "tcp4_public_1111_443": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "udp4_public_dns_8888": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "relay_port_loopback": {
+                "ok": true,
+                "banner": ""
+              },
+              "system_dns": {
+                "ok": false,
+                "type": "gaierror",
+                "winerror": null,
+                "errno": 11004,
+                "text": "[Errno 11004] getaddrinfo failed",
+                "name": "64d29b1cbff5c65f34b2e4d4bb3847dd.1.2.3.4.sslip.io"
+              }
+            },
+            "proxy": {
+              "ok": true,
+              "port": 18808
+            },
+            "exit_code": 0
+          },
+          "breakaway": {
+            "ok": false,
+            "type": "PermissionError",
+            "winerror": 5,
+            "errno": 13,
+            "text": "[WinError 5] Access is denied",
+            "started": false
+          },
+          "nested": {
+            "label": "user-inside-nested",
+            "pid": 1924,
+            "depth": 1,
+            "identity": {
+              "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+              "pid": 1924,
+              "elevated": false,
+              "session_id": 0
+            },
+            "compartment": 2,
+            "rows": {
+              "tcp4_host_ip": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "tcp4_loopback": {
+                "ok": false,
+                "type": "ConnectionRefusedError",
+                "winerror": 10061,
+                "errno": 10061,
+                "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+              },
+              "udp4_host_ip": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "udp4_loopback": {
+                "ok": false,
+                "type": "ConnectionResetError",
+                "winerror": 10054,
+                "errno": 10054,
+                "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+              },
+              "tcp6_loopback": {
+                "ok": false,
+                "type": "ConnectionRefusedError",
+                "winerror": 10061,
+                "errno": 10061,
+                "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+              },
+              "udp6_loopback": {
+                "ok": false,
+                "type": "ConnectionResetError",
+                "winerror": 10054,
+                "errno": 10054,
+                "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+              },
+              "tcp4_public_1111_443": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "udp4_public_dns_8888": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "relay_port_loopback": {
+                "ok": true,
+                "banner": ""
+              },
+              "system_dns": {
+                "ok": false,
+                "type": "gaierror",
+                "winerror": null,
+                "errno": 11004,
+                "text": "[Errno 11004] getaddrinfo failed",
+                "name": "fb8cb810420b115d94920e9042737394.1.2.3.4.sslip.io"
+              }
+            },
+            "proxy": {
+              "ok": true,
+              "port": 18808
+            },
+            "exit_code": 0
+          },
+          "escape": {
+            "thread_set_default": 5,
+            "thread_after_set": 2,
+            "thread_tcp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "job_set_default": 5
+          },
+          "exit_code": 0
+        }
+      },
+      "launcher": {
+        "pid": 3960,
+        "identity": {
+          "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+          "pid": 3960,
+          "elevated": false,
+          "session_id": 0
+        },
+        "stage": "actors_finished",
+        "job_created": true,
+        "bind": {
+          "code": 0,
+          "job_compartment": 2,
+          "compartment_id": 2
+        },
+        "user-outside": {
+          "label": "user-outside",
+          "pid": 3136,
+          "depth": 0,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 3136,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 1,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": true
+            },
+            "tcp4_loopback": {
+              "ok": true
+            },
+            "udp4_host_ip": {
+              "ok": true
+            },
+            "udp4_loopback": {
+              "ok": true
+            },
+            "tcp6_loopback": {
+              "ok": true
+            },
+            "udp6_loopback": {
+              "ok": true
+            },
+            "tcp4_public_1111_443": {
+              "ok": true,
+              "banner": ""
+            },
+            "udp4_public_dns_8888": {
+              "ok": true
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": "RULEPROXY-DECOY\n"
+            },
+            "system_dns": {
+              "ok": true,
+              "addresses": [
+                "1.2.3.4"
+              ],
+              "name": "93f3fb589188a06266ee125e52057ee6.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 49854
+          },
+          "child": {
+            "label": "user-outside-child",
+            "pid": 2944,
+            "depth": 1,
+            "identity": {
+              "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+              "pid": 2944,
+              "elevated": false,
+              "session_id": 0
+            },
+            "compartment": 1,
+            "rows": {
+              "tcp4_host_ip": {
+                "ok": true
+              },
+              "tcp4_loopback": {
+                "ok": true
+              },
+              "udp4_host_ip": {
+                "ok": true
+              },
+              "udp4_loopback": {
+                "ok": true
+              },
+              "tcp6_loopback": {
+                "ok": true
+              },
+              "udp6_loopback": {
+                "ok": true
+              },
+              "tcp4_public_1111_443": {
+                "ok": true,
+                "banner": ""
+              },
+              "udp4_public_dns_8888": {
+                "ok": true
+              },
+              "relay_port_loopback": {
+                "ok": true,
+                "banner": "RULEPROXY-DECOY\n"
+              },
+              "system_dns": {
+                "ok": true,
+                "addresses": [
+                  "1.2.3.4"
+                ],
+                "name": "89e6687f81e854c28c785c2e09f38f0b.1.2.3.4.sslip.io"
+              }
+            },
+            "proxy": {
+              "ok": true,
+              "port": 49854
+            },
+            "exit_code": 0
+          },
+          "breakaway": {
+            "ok": false,
+            "type": "PermissionError",
+            "winerror": 5,
+            "errno": 13,
+            "text": "[WinError 5] Access is denied",
+            "started": false
+          },
+          "nested": {
+            "label": "user-outside-nested",
+            "pid": 4116,
+            "depth": 1,
+            "identity": {
+              "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+              "pid": 4116,
+              "elevated": false,
+              "session_id": 0
+            },
+            "compartment": 1,
+            "rows": {
+              "tcp4_host_ip": {
+                "ok": true
+              },
+              "tcp4_loopback": {
+                "ok": true
+              },
+              "udp4_host_ip": {
+                "ok": true
+              },
+              "udp4_loopback": {
+                "ok": true
+              },
+              "tcp6_loopback": {
+                "ok": true
+              },
+              "udp6_loopback": {
+                "ok": true
+              },
+              "tcp4_public_1111_443": {
+                "ok": true,
+                "banner": ""
+              },
+              "udp4_public_dns_8888": {
+                "ok": true
+              },
+              "relay_port_loopback": {
+                "ok": true,
+                "banner": "RULEPROXY-DECOY\n"
+              },
+              "system_dns": {
+                "ok": true,
+                "addresses": [
+                  "1.2.3.4"
+                ],
+                "name": "c1bbdb39917fef2172ef0601ddacfb14.1.2.3.4.sslip.io"
+              }
+            },
+            "proxy": {
+              "ok": true,
+              "port": 49854
+            },
+            "exit_code": 0
+          },
+          "escape": {
+            "thread_set_default": 5,
+            "thread_after_set": 1,
+            "thread_tcp4_host_ip": {
+              "ok": true
+            },
+            "job_set_default": 5
+          },
+          "exit_code": 0
+        },
+        "user-inside": {
+          "label": "user-inside",
+          "pid": 6384,
+          "depth": 0,
+          "identity": {
+            "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+            "pid": 6384,
+            "elevated": false,
+            "session_id": 0
+          },
+          "compartment": 2,
+          "rows": {
+            "tcp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "tcp4_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp6_loopback": {
+              "ok": false,
+              "type": "ConnectionRefusedError",
+              "winerror": 10061,
+              "errno": 10061,
+              "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+            },
+            "udp6_loopback": {
+              "ok": false,
+              "type": "ConnectionResetError",
+              "winerror": 10054,
+              "errno": 10054,
+              "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+            },
+            "tcp4_public_1111_443": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "udp4_public_dns_8888": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "relay_port_loopback": {
+              "ok": true,
+              "banner": ""
+            },
+            "system_dns": {
+              "ok": false,
+              "type": "gaierror",
+              "winerror": null,
+              "errno": 11004,
+              "text": "[Errno 11004] getaddrinfo failed",
+              "name": "37c53abf8e92d0a555d603a8b4e689c4.1.2.3.4.sslip.io"
+            }
+          },
+          "proxy": {
+            "ok": true,
+            "port": 18808
+          },
+          "child": {
+            "label": "user-inside-child",
+            "pid": 9144,
+            "depth": 1,
+            "identity": {
+              "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+              "pid": 9144,
+              "elevated": false,
+              "session_id": 0
+            },
+            "compartment": 2,
+            "rows": {
+              "tcp4_host_ip": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "tcp4_loopback": {
+                "ok": false,
+                "type": "ConnectionRefusedError",
+                "winerror": 10061,
+                "errno": 10061,
+                "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+              },
+              "udp4_host_ip": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "udp4_loopback": {
+                "ok": false,
+                "type": "ConnectionResetError",
+                "winerror": 10054,
+                "errno": 10054,
+                "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+              },
+              "tcp6_loopback": {
+                "ok": false,
+                "type": "ConnectionRefusedError",
+                "winerror": 10061,
+                "errno": 10061,
+                "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+              },
+              "udp6_loopback": {
+                "ok": false,
+                "type": "ConnectionResetError",
+                "winerror": 10054,
+                "errno": 10054,
+                "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+              },
+              "tcp4_public_1111_443": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "udp4_public_dns_8888": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "relay_port_loopback": {
+                "ok": true,
+                "banner": ""
+              },
+              "system_dns": {
+                "ok": false,
+                "type": "gaierror",
+                "winerror": null,
+                "errno": 11004,
+                "text": "[Errno 11004] getaddrinfo failed",
+                "name": "64d29b1cbff5c65f34b2e4d4bb3847dd.1.2.3.4.sslip.io"
+              }
+            },
+            "proxy": {
+              "ok": true,
+              "port": 18808
+            },
+            "exit_code": 0
+          },
+          "breakaway": {
+            "ok": false,
+            "type": "PermissionError",
+            "winerror": 5,
+            "errno": 13,
+            "text": "[WinError 5] Access is denied",
+            "started": false
+          },
+          "nested": {
+            "label": "user-inside-nested",
+            "pid": 1924,
+            "depth": 1,
+            "identity": {
+              "sid": "S-1-5-21-3355180261-66475208-123379597-1002",
+              "pid": 1924,
+              "elevated": false,
+              "session_id": 0
+            },
+            "compartment": 2,
+            "rows": {
+              "tcp4_host_ip": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "tcp4_loopback": {
+                "ok": false,
+                "type": "ConnectionRefusedError",
+                "winerror": 10061,
+                "errno": 10061,
+                "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+              },
+              "udp4_host_ip": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "udp4_loopback": {
+                "ok": false,
+                "type": "ConnectionResetError",
+                "winerror": 10054,
+                "errno": 10054,
+                "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+              },
+              "tcp6_loopback": {
+                "ok": false,
+                "type": "ConnectionRefusedError",
+                "winerror": 10061,
+                "errno": 10061,
+                "text": "[WinError 10061] No connection could be made because the target machine actively refused it"
+              },
+              "udp6_loopback": {
+                "ok": false,
+                "type": "ConnectionResetError",
+                "winerror": 10054,
+                "errno": 10054,
+                "text": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+              },
+              "tcp4_public_1111_443": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "udp4_public_dns_8888": {
+                "ok": false,
+                "type": "OSError",
+                "winerror": 10051,
+                "errno": 10051,
+                "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+              },
+              "relay_port_loopback": {
+                "ok": true,
+                "banner": ""
+              },
+              "system_dns": {
+                "ok": false,
+                "type": "gaierror",
+                "winerror": null,
+                "errno": 11004,
+                "text": "[Errno 11004] getaddrinfo failed",
+                "name": "fb8cb810420b115d94920e9042737394.1.2.3.4.sslip.io"
+              }
+            },
+            "proxy": {
+              "ok": true,
+              "port": 18808
+            },
+            "exit_code": 0
+          },
+          "escape": {
+            "thread_set_default": 5,
+            "thread_after_set": 2,
+            "thread_tcp4_host_ip": {
+              "ok": false,
+              "type": "OSError",
+              "winerror": 10051,
+              "errno": 10051,
+              "text": "[WinError 10051] A socket operation was attempted to an unreachable network"
+            },
+            "job_set_default": 5
+          },
+          "exit_code": 0
+        }
+      },
+      "user_removed": 0,
+      "profile_cleanup": {
+        "code": 0,
+        "stdout": "ok\r\n",
+        "stderr": ""
+      }
+    },
+    "tools": {
+      "nslookup_inside": {
+        "exit": 0,
+        "hits": null,
+        "tail": "*** UnKnown can't find 4b972644ec47b509b34d2a1ad1297834.1.2.3.4.sslip.io: No response from server\r\r\nServer:  UnKnown\r\nAddress:  8.8.8.8\r\n\r\n"
+      },
+      "resolve_inside": {
+        "exit": 0,
+        "hits": null,
+        "tail": "1.2.3.4\r\n"
+      },
+      "resolve_outside": {
+        "exit": 0,
+        "hits": null,
+        "tail": "1.2.3.4\r\n"
+      },
+      "curl_direct_inside": {
+        "exit": 7,
+        "hits": 0,
+        "tail": "curl: (7) Failed to connect to 10.0.2.15 port 49855 after 0 ms: Could not connect to server\r\n"
+      },
+      "curl_direct_outside": {
+        "exit": 0,
+        "hits": 1,
+        "tail": "<!doctype html><html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:aa6e45c23b41ccdfd357bf4e:curl_direct_outside</body></html>"
+      },
+      "curl_proxy_inside": {
+        "exit": 0,
+        "hits": 1,
+        "tail": "<!doctype html><html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:aa6e45c23b41ccdfd357bf4e:curl_proxy_inside</body></html>"
+      },
+      "curl_public_inside": {
+        "exit": 6,
+        "hits": null,
+        "tail": "curl: (6) Could not resolve host: www.microsoft.com\r\n000"
+      },
+      "curl_public_outside": {
+        "exit": 0,
+        "hits": null,
+        "tail": "200"
+      },
+      "dns-outside_before-getaddrinfo-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_before-DnsQuery_W-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_before-DnsQuery_W-264": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_before-DnsQueryEx-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_before-DnsQueryEx-264": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_before-DnsQuery_W-0-restricted": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_before-DnsQueryEx-0-restricted": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_before-Resolve-DnsName": {
+        "exit": 0,
+        "hits": null,
+        "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+      },
+      "dns-inside-getaddrinfo-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-inside-DnsQuery_W-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-inside-DnsQuery_W-264": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-inside-DnsQueryEx-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-inside-DnsQueryEx-264": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-inside-DnsQuery_W-0-restricted": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-inside-DnsQueryEx-0-restricted": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-inside-Resolve-DnsName": {
+        "exit": 0,
+        "hits": null,
+        "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+      },
+      "dns-outside_after-getaddrinfo-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_after-DnsQuery_W-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_after-DnsQuery_W-264": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_after-DnsQueryEx-0": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_after-DnsQueryEx-264": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_after-DnsQuery_W-0-restricted": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_after-DnsQueryEx-0-restricted": {
+        "exit": 0,
+        "hits": null,
+        "tail": ""
+      },
+      "dns-outside_after-Resolve-DnsName": {
+        "exit": 0,
+        "hits": null,
+        "tail": "{\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"answer_matches\":true}\r\n"
+      },
+      "wmi_outside": {
+        "exit": 0,
+        "hits": null,
+        "tail": "{\"return_value\":0,\"child_pid\":3164}\r\n"
+      },
+      "bits_outside": {
+        "exit": 0,
+        "hits": null,
+        "tail": "{\"supported\":true,\"job_id\":\"42f5f799-e15b-484f-8313-864b9326ae0b\",\"state\":\"Transferred\",\"bytes_transferred\":140,\"error_code\":null,\"marker_matches\":true}\r\n"
+      },
+      "wmi_inside": {
+        "exit": 0,
+        "hits": null,
+        "tail": "{\"return_value\":0,\"child_pid\":8932}\r\n"
+      },
+      "bits_inside": {
+        "exit": 0,
+        "hits": null,
+        "tail": "{\"supported\":true,\"job_id\":\"f2363309-31cf-48af-b7e4-ca2250ace8ab\",\"state\":\"Transferred\",\"bytes_transferred\":139,\"error_code\":null,\"marker_matches\":true}\r\n"
+      }
+    },
+    "browsers": {
+      "edge_control": {
+        "hits": 0,
+        "rendered": false,
+        "exit": 1002
+      },
+      "edge_contained": {
+        "hits": 0,
+        "rendered": false,
+        "exit": 1002
+      },
+      "edge_direct": {
+        "hits": 0,
+        "rendered": false,
+        "exit": 1002
+      },
+      "edge_directcontrol": {
+        "hits": 0,
+        "rendered": false,
+        "exit": 1002
+      },
+      "chrome_control": {
+        "hits": null,
+        "rendered": null,
+        "exit": null
+      },
+      "chrome_contained": {
+        "hits": null,
+        "rendered": null,
+        "exit": null
+      },
+      "chrome_direct": {
+        "hits": null,
+        "rendered": null,
+        "exit": null
+      },
+      "chrome_directcontrol": {
+        "hits": null,
+        "rendered": null,
+        "exit": null
+      },
+      "firefox_control": {
+        "hits": null,
+        "rendered": null,
+        "exit": null
+      },
+      "firefox_contained": {
+        "hits": null,
+        "rendered": null,
+        "exit": null
+      },
+      "firefox_direct": {
+        "hits": null,
+        "rendered": null,
+        "exit": null
+      },
+      "firefox_directcontrol": {
+        "hits": null,
+        "rendered": null,
+        "exit": null
+      }
+    },
+    "delete_B_while_alive": {
+      "code": 1359,
+      "id": 3
+    },
+    "linger": {
+      "compartment": 3,
+      "exit": 0,
+      "rows": {
+        "tcp4_host_ip": false,
+        "tcp4_loopback": false,
+        "udp4_host_ip": false,
+        "udp4_loopback": false,
+        "tcp6_loopback": false,
+        "udp6_loopback": false,
+        "tcp4_public_1111_443": false,
+        "udp4_public_dns_8888": false,
+        "system_dns": false
+      },
+      "relay_banner": null,
+      "proxy": false,
+      "child": {
+        "compartment": 3,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": false,
+          "tcp4_loopback": false,
+          "udp4_host_ip": false,
+          "udp4_loopback": false,
+          "tcp6_loopback": false,
+          "udp6_loopback": false,
+          "tcp4_public_1111_443": false,
+          "udp4_public_dns_8888": false,
+          "system_dns": false
+        },
+        "relay_banner": null,
+        "proxy": false
+      },
+      "nested": {
+        "compartment": 3,
+        "exit": 0,
+        "rows": {
+          "tcp4_host_ip": false,
+          "tcp4_loopback": false,
+          "udp4_host_ip": false,
+          "udp4_loopback": false,
+          "tcp6_loopback": false,
+          "udp6_loopback": false,
+          "tcp4_public_1111_443": false,
+          "udp4_public_dns_8888": false,
+          "system_dns": false
+        },
+        "relay_banner": null,
+        "proxy": false
+      },
+      "escape": {
+        "thread_set_default": 1168,
+        "thread_after_set": 3,
+        "thread_tcp4_host_ip": false,
+        "job_set_default": 1168
+      },
+      "breakaway_started": false,
+      "linger_released": true,
+      "compartment_after": 3
+    },
+    "delete_B_after_exit": {
+      "code": 1359,
+      "id": 3
+    },
+    "final_deletes": {
+      "A": [
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359
+      ],
+      "B": [
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359,
+        1359
+      ]
+    },
+    "kept": {
+      "C": 4
+    },
+    "after_controller": [
+      {
+        "CompartmentId": 1,
+        "CompartmentDescription": "Default Compartment"
+      },
+      {
+        "CompartmentId": 2,
+        "CompartmentDescription": "RuleProxy compartment lab A"
+      },
+      {
+        "CompartmentId": 3,
+        "CompartmentDescription": "RuleProxy compartment lab B"
+      },
+      {
+        "CompartmentId": 4,
+        "CompartmentDescription": "RuleProxy compartment lab C"
+      }
+    ],
+    "cleanup_result": {
+      "identity": "S-1-5-18",
+      "deletes": {
+        "2": 1359,
+        "3": 1359,
+        "4": 0
+      }
+    },
+    "after_cleanup": [
+      {
+        "CompartmentId": 1,
+        "CompartmentDescription": "Default Compartment"
+      },
+      {
+        "CompartmentId": 2,
+        "CompartmentDescription": "RuleProxy compartment lab A"
+      },
+      {
+        "CompartmentId": 3,
+        "CompartmentDescription": "RuleProxy compartment lab B"
+      }
+    ],
+    "error": null,
+    "controller_error": null
+  },
+  "checks": {
+    "required_observations_complete": true,
+    "socket_positive_controls": true,
+    "job_socket_isolation_and_http_fixture": true,
+    "ordinary_user_flow": true,
+    "relay_stop_live_and_new_processes": true,
+    "dns_matrix_complete_and_names_unique": true,
+    "dns_answer_inside_observed": true,
+    "dns_no_egress_proven": false,
+    "broker_positive_controls": true,
+    "wmi_broker_bypass_observed": true,
+    "bits_broker_bypass_observed": true,
+    "compartment_cleanup_complete": false,
+    "real_mihomo_https_tested": false,
+    "browser_sandbox_state_verified": false,
+    "primary_restricted_token_tested": false,
+    "hcn_dns_remediation_tested": false
+  },
+  "harness_complete": true,
+  "decision": "no_go_local_broker_bypass"
+}

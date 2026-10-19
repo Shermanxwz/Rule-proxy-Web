@@ -139,7 +139,7 @@
 
       const appInfo = textElement('div', 'app-info');
       appInfo.append(textElement('strong', 'app-name', app.label || '未命名应用'));
-      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isGlobal() ? '全局代理中运行' : (isWindows() && !app.windows_container ? '代理中运行' : '隔离中运行')) : (app.routed ? (isGlobal() ? '全局接管已启用' : '路径代理已启用') : (app.enabled ? '待启动' : '未启用'))));
+      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isGlobal() ? '全局代理中运行' : (isWindows() ? (app.windows_container ? '独立网络（实验）运行中' : '代理中运行') : '隔离中运行')) : (app.routed ? (isGlobal() ? '全局接管已启用' : '路径代理已启用') : (app.enabled ? '待启动' : '未启用'))));
       const statusClass = (app.profile_preparing || app.cleanup_pending) ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       const appPath = textElement('span', 'app-path', app.path || '未设置路径');
@@ -267,7 +267,7 @@
   }
 
   function friendlyAdapter(adapter, useOriginalData = false) {
-    if (isWindows() && (adapter === 'environment' || adapter === 'env')) return '普通应用 · 按路径透明代理';
+    if (isWindows() && (adapter === 'environment' || adapter === 'env')) return '普通应用';
     const profile = useOriginalData ? '原应用数据' : '独立配置';
     const browser = `浏览器 / Electron · ${profile}`;
     const names = { chrome: browser, chromium: browser, edge: browser, brave: browser, firefox: `Firefox · ${profile}`, env: '代理环境变量启动', environment: '代理环境变量启动' };
@@ -420,7 +420,7 @@
     if (ui.captureMode) ui.captureMode.value = state.capture_mode || 'applications';
     if (ui.captureModeDetail) ui.captureModeDetail.textContent = isGlobal()
       ? '全局把系统代理指向本机核心，不安装 TUN、不改防火墙和 DNS；停止、核心退出或下次打开面板时恢复原系统代理。'
-      : (isWindows() ? '仅接管启用的程序及其辅助路径；已识别商店软件包会自动跟随本机版本。'
+      : (isWindows() ? '兼容模式按程序及辅助路径代理；独立网络（实验）仅约束本工具启动实例的直接网络访问。'
                       : '从面板启动的应用进入独立隔离；其他应用继续使用原网络。');
     ui.stop.textContent = state.global_fault === true ? '重试恢复网络与清理'
       : (isGlobal() ? '停止全局代理并恢复系统代理' : (isWindows() ? '关闭本工具启动的应用并停止' : '关闭受保护应用并停止'));
@@ -444,17 +444,17 @@
     ui.coreSettings.hidden = isWindows();
     ui.relatedField.hidden = !isWindows();
     const ordinaryOption = ui.appAdapter.querySelector('option[value="environment"]');
-    if (ordinaryOption) ordinaryOption.textContent = isWindows() ? '普通应用（按程序路径透明代理）' : '遵循代理环境变量的应用（不兼容即阻断）';
+    if (ordinaryOption) ordinaryOption.textContent = isWindows() ? '普通应用（使用所选联网模式）' : '遵循代理环境变量的应用（不兼容即阻断）';
     if (isGlobal()) {
       $('connection-intro').textContent = '启动后把系统代理指向本机核心，遵循系统代理的程序都会经过规则。';
       $('protection-note').textContent = '不读取系统代理的程序仍会直连。切换模式前请先停止。';
       $('apps-intro').textContent = '全局模式下，从面板启动的应用额外继承代理环境变量；其余程序按系统代理设置联网。';
-      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。独立网络选项适用于按应用模式。';
+      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。独立网络（实验）选项适用于 Windows 按应用模式。';
     } else if (isWindows()) {
-      $('connection-intro').textContent = '启动核心后，启用清单中的程序路径交给 ProxiFyre 转发；也可以从下方启动独立应用实例。';
-      $('protection-note').textContent = '同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';
-      $('apps-intro').textContent = '打开开关即加入代理清单；已识别商店应用同时接管本机当前软件包内的辅助程序。包外辅助程序可填写相关程序路径。';
-      $('compatibility-note').textContent = 'Windows 按程序路径转发 TCP 与可支持的 UDP，不提供 Linux 同等的隔离。UDP 53、系统 DNS、IPv6 分片及代理引擎故障后直连仍有限制。';
+      $('connection-intro').textContent = '启动核心后，兼容模式条目的程序路径交给 ProxiFyre 转发；独立网络（实验）通过本机代理通道联网。';
+      $('protection-note').textContent = '兼容模式下，同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';
+      $('apps-intro').textContent = '兼容模式打开开关即加入路径代理清单；已识别商店应用同时接管软件包内的辅助程序。独立网络（实验）需从面板或快捷方式启动实例。';
+      $('compatibility-note').textContent = '兼容模式存在 DNS、IPv6 分片和引擎故障后直连限制；独立网络（实验）已知系统 DNS 和系统服务代办可绕过。两者都不提供 Linux 等效隔离。';
     } else {
       $('connection-intro').textContent = '应用从面板启动并进入独立隔离后使用代理。';
       $('protection-note').textContent = '仅面板或快捷方式启动的隔离实例受保护；其他已有实例保持原网络。';
