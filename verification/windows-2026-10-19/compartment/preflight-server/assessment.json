@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "tested_commit": "08d382f65618978a117493cc59186805ff111913",
+  "run_id": 39212624779,
+  "artifact_id": 12169020066,
+  "artifact_sha256": "febf123e7c17c0478c50e0a6f084bc6888ad7e446ec6383c4d11036486e21ecf",
+  "source_archive_commit": "a81c1616ba024e07943df3c48898d68d7363e071",
+  "source_archive_directory": "runs/39212624779-1",
+  "source_files": {
+    "compartment-report.json": "375a99a4903bb93b953d521c8a9c53a225020244cfcc483efe522fc49ed3b037",
+    "restricted-primary/report.json": "1d1a155ac4aac8168375d4fe788bd6a31c124d00e196a30710b9e625d2a75b6e",
+    "restricted-primary/dns-wire-summary.json": "1d479930efd6c42ae32fc5d467889f685c56a8fa778fcbaf392b21ce089518cf"
+  },
+  "platform": "Windows Server 2025 x64",
+  "windows": [
+    10,
+    0,
+    26100,
+    2
+  ],
+  "harness_complete": true,
+  "product_qualified": false,
+  "privacy_qualified": false,
+  "linux_equivalent_isolation": false,
+  "decision": "no_go_local_broker_bypass",
+  "copied_runtime_import_preflight": {
+    "required_imports": [
+      "ctypes",
+      "socket",
+      "ssl"
+    ],
+    "timeout_seconds": 20,
+    "passed": true,
+    "timed_out": false,
+    "exit_code": 0
+  },
+  "compartment_lab_checks": {
+    "required_observations_complete": true,
+    "socket_positive_controls": true,
+    "job_socket_isolation_and_http_fixture": true,
+    "ordinary_user_flow": true,
+    "relay_stop_live_and_new_processes": true,
+    "dns_matrix_complete_and_names_unique": true,
+    "dns_answer_inside_observed": true,
+    "dns_no_egress_proven": false,
+    "broker_positive_controls": true,
+    "wmi_broker_bypass_observed": true,
+    "bits_broker_bypass_observed": true,
+    "compartment_cleanup_complete": false,
+    "real_mihomo_https_tested": false,
+    "browser_sandbox_state_verified": false,
+    "primary_restricted_token_tested": false,
+    "hcn_dns_remediation_tested": false
+  },
+  "ordinary_dns": {
+    "getaddrinfo_standard": {
+      "process_exit_code": 0,
+      "timed_out": false,
+      "qname_sha256": "6404cd6f73c0dbde29056b0784986bd306a0fd85122190393bca23f9569b5b5a",
+      "outbound_question_records": 4,
+      "api_result": {
+        "phase": "complete",
+        "compartment_id": 4,
+        "errno": 11004
+      }
+    },
+    "DnsQuery_W_standard": {
+      "process_exit_code": 0,
+      "timed_out": false,
+      "qname_sha256": "85e1b14cdfa3dfb7c6ad3ce1b229920d3090f71f9ea7970dc7caf1ce3f1163cb",
+      "outbound_question_records": 4,
+      "api_result": {
+        "phase": "complete",
+        "compartment_id": 4,
+        "status": 0,
+        "has_records": true
+      }
+    },
+    "DnsQuery_W_wire": {
+      "process_exit_code": 0,
+      "timed_out": false,
+      "qname_sha256": "077a5411a340ae21f21e82c087d214cb2efe008efd905187ad53d331e78795e5",
+      "outbound_question_records": 4,
+      "api_result": {
+        "phase": "complete",
+        "compartment_id": 4,
+        "status": 0,
+        "has_records": true
+      }
+    },
+    "DnsQueryEx_standard": {
+      "process_exit_code": 0,
+      "timed_out": false,
+      "qname_sha256": "133d91060c6391376cf767196c2e5b1fa7fc1fd08b3ae92a6888a10af9315ffe",
+      "outbound_question_records": 4,
+      "api_result": {
+        "phase": "complete",
+        "compartment_id": 4,
+        "status": 0,
+        "query_status": 0,
+        "has_records": true
+      }
+    },
+    "DnsQueryEx_wire": {
+      "process_exit_code": 0,
+      "timed_out": false,
+      "qname_sha256": "3c9e1578b7e59db3f54a79e6e4973ee064f926e9c454cb20ac2f69d2fc560b8e",
+      "outbound_question_records": 2,
+      "api_result": {
+        "phase": "complete",
+        "compartment_id": 4,
+        "status": 0,
+        "query_status": 0,
+        "has_records": true
+      }
+    },
+    "Resolve-DnsName_standard": {
+      "process_exit_code": 0,
+      "timed_out": false,
+      "qname_sha256": "44ebef816d75e27651c3a9802c24456920e1b11f7e5ad7ca2a17a8b6d1a92890",
+      "outbound_question_records": 4,
+      "api_result": {
+        "completed": true,
+        "answer_matches": true
+      }
+    }
+  },
+  "ordinary_brokers": {
+    "brokers_wmi": {
+      "return_value": 0,
+      "owned_child_handle_verified": true,
+      "child_cid": 1,
+      "child_elevated": false,
+      "child_same_sid": true,
+      "direct_http": true,
+      "fixture_hits": 1
+    },
+    "brokers_bits": {
+      "hresult": -2147023651,
+      "fixture_hits": 0
+    },
+    "outside_broker_control_wmi": {
+      "return_value": 0,
+      "owned_child_handle_verified": true,
+      "child_cid": 1,
+      "child_elevated": false,
+      "child_same_sid": true,
+      "direct_http": true,
+      "fixture_hits": 1
+    },
+    "outside_broker_control_bits": {
+      "hresult": -2147023651,
+      "fixture_hits": 0
+    }
+  },
+  "ordinary_edge": {
+    "browsers": {
+      "exit_code": 0,
+      "timed_out": false,
+      "fixture_hits": 1,
+      "rendered": true,
+      "sandbox_disabled": false,
+      "sandbox_child_token_observed": true
+    },
+    "outside_browsers": {
+      "exit_code": 0,
+      "timed_out": false,
+      "fixture_hits": 1,
+      "rendered": true,
+      "sandbox_disabled": false,
+      "sandbox_child_token_observed": true
+    }
+  },
+  "limits": [
+    "This is the compartment-only regression, not the PSEC candidate experiment.",
+    "Ordinary BITS outside control failed with ERROR_NOT_LOGGED_ON; no denial conclusion.",
+    "Edge headless DOM and sampled child token observations do not qualify visible GUI or all browser sandbox policies.",
+    "DNS wire counts are packet records, not distinct queries; absence and per-process attribution are not proven.",
+    "Raw packet captures were removed; only matched-name hash observations are archived.",
+    "Installed-product lifecycle is covered by a separate Server run, not this lab."
+  ]
+}

@@ -291,9 +291,30 @@ class Native:
 
 
 def write_json(path: Path, value):
-    temporary = path.with_name(path.name + '.tmp')
-    temporary.write_text(json.dumps(value, indent=1, default=str), encoding='utf-8')
-    os.replace(temporary, path)
+    temporary = path.with_name(path.name + '.' + secrets.token_hex(12) + '.tmp')
+    owned = False
+    try:
+        # Exclusive, per-write names prevent concurrent publishers from
+        # replacing or deleting one another's partially written document.
+        with temporary.open('x', encoding='utf-8') as stream:
+            owned = True
+            json.dump(value, stream, indent=1, default=str)
+        deadline = time.monotonic() + 1.0
+        for attempt in range(21):
+            try:
+                os.replace(temporary, path)
+                return
+            except OSError as exc:
+                # A reader can briefly deny DELETE sharing on Windows. Never
+                # truncate the old JSON, change its ACL, or hide a lasting error.
+                remaining = deadline - time.monotonic()
+                if (sys.platform != 'win32' or getattr(exc, 'winerror', None) not in (5, 32, 33)
+                        or attempt == 20 or remaining <= 0):
+                    raise
+                time.sleep(min(0.05, remaining))
+    finally:
+        if owned:
+            temporary.unlink(missing_ok=True)
 
 
 # ----------------------------------------------------------------------------- actor

@@ -16,7 +16,7 @@ Linux 按应用模式继续使用网络命名空间隔离。Windows 的“独立
 
 **独立网络（实验）已知存在系统 DNS 和系统服务代办绕过，不能提供 Linux 等效隔离，也未通过产品验收。** [Windows Server 2025 普通用户实验](verification/windows-2026-10-19/compartment/primary-abi-fixed/assessment.json)确认 Edge 在保留低完整性受限子进程的情况下可以渲染代理页面，但同一普通账户仍可通过 WMI 启动隔间外进程并直连。六类系统 DNS 查询均有网卡外发记录，甚至 `getaddrinfo` 返回失败时也会外发。两种受限主令牌配置使 Python、PowerShell 或 Edge 启动失败，不能把这些失败算作防泄漏成功。此前的 [AppContainer 浏览器实验](verification/windows-2026-10-19/appcontainer-browser-experiment.json)同样未通过浏览器兼容验收。
 
-[修复后的 Windows 11 实验记录](verification/windows-2026-10-19/compartment/native-abi-fixed/assessment.json)确认普通用户启动、代理通道和中继停止后代理通道断开；普通用户 Edge 的隔间内外页面对照均成功。它仍记录了系统 DNS 外发，部分 Python 探针因便携运行时漏文件而未执行，不能算作阻断成功；这份实验报告不代表安装版产品或可见界面验收通过。
+[Windows 11 补测记录](verification/windows-2026-10-19/compartment/preflight-native/assessment.json)在修复便携 Python 漏文件后，确认六类普通用户系统 DNS 查询外发，以及普通用户 WMI 在默认隔间创建子进程并直连。普通用户 Edge 的隔间内外页面对照仍成功。整轮实验另有状态文件写入失败和 PowerShell 退出超时，仍按失败归档；它不代表安装版产品或可见界面验收通过。[此前含无效 Python 探针的记录](verification/windows-2026-10-19/compartment/native-abi-fixed/assessment.json)保留供对照。
 
 Windows 卸载前请先用原安装账户停止全局代理；如果改用其他管理员账户且原连接标志尚未恢复，卸载会保留恢复组件并提示先完成恢复。恢复检测到设置冲突时也会保留记录，不覆盖无法确认归属的设置。
 
