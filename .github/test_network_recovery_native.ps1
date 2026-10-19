@@ -101,7 +101,21 @@ try{
     # Exercise actual WinINet flags/registry and WinHTTP, restoring the runner in finally.
     $proxyBefore=Get-ProxyState
     if($null -ne $proxyBefore.Previous){throw 'Unexpected RuleProxy journal on disposable runner'}
+    $journalDirectory=Join-Path $env:LOCALAPPDATA 'RuleProxyWebSafe'
+    $journalPath=Join-Path $journalDirectory 'system-proxy.json'
+    $createdJournal=$false
     try{
+        $target=[ordered]@{ProxyEnable=@(1,4);ProxyServer=@('127.0.0.1:65531',1);ProxyOverride=@('localhost;127.0.0.1;::1;10.*;172.16.*;192.168.*;<local>',1);AutoConfigURL=$null;AutoDetect=@(0,4)}
+        foreach($name in $target.Keys){$v=$target[$name];if($null -eq $v){Remove-ItemProperty -LiteralPath $proxyBefore.Key -Name $name -ErrorAction SilentlyContinue}else{New-ItemProperty -LiteralPath $proxyBefore.Key -Name $name -Value $v[0] -PropertyType ([Microsoft.Win32.RegistryValueKind][int]$v[1]) -Force | Out-Null}}
+        [RuleProxyRecover.Native]::Flags(3)
+        New-Item -ItemType Directory -Path $journalDirectory -Force | Out-Null
+        if(Test-Path -LiteralPath $journalPath){throw 'Refuse existing proxy fixture journal'}
+        $journal=[ordered]@{schema=1;kind='wininet';port=65531;phase='active';previous=$proxyBefore.Current;target=$target;connection_flags=@{previous=$proxyBefore.Flags;target=3}}
+        $journal | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $journalPath -Encoding UTF8
+        $createdJournal=$true;$ResetDeadLoopbackProxy=$false
+        Invoke-ProxyRepair (Get-ProxyState)
+        if(-not (Test-ProxyRestoreEqual (Read-ProxyValues $proxyBefore.Key) $proxyBefore.Current $true) -or [RuleProxyRecover.Native]::Flags() -ne $proxyBefore.Flags){throw 'Default journal recovery failed'}
+        Remove-Item -LiteralPath $journalPath -Force;$createdJournal=$false
         New-ItemProperty -LiteralPath $proxyBefore.Key -Name ProxyEnable -Value 1 -PropertyType DWord -Force | Out-Null
         New-ItemProperty -LiteralPath $proxyBefore.Key -Name ProxyServer -Value '127.0.0.1:65531' -PropertyType String -Force | Out-Null
         New-ItemProperty -LiteralPath $proxyBefore.Key -Name AutoConfigURL -Value 'http://127.0.0.1:65530/recovery-fixture.pac' -PropertyType String -Force | Out-Null
@@ -112,6 +126,7 @@ try{
         $afterProxy=Get-ProxyState
         if($afterProxy.DeadManual -or $afterProxy.DeadPac -or $afterProxy.DeadWinHttp -or ($afterProxy.Flags -band 6)){throw 'Native proxy/PAC restoration failed'}
     }finally{
+        if($createdJournal){Remove-Item -LiteralPath $journalPath -Force -ErrorAction SilentlyContinue}
         foreach($name in $proxyBefore.Current.Keys){$v=$proxyBefore.Current[$name];if($null -eq $v){Remove-ItemProperty -LiteralPath $proxyBefore.Key -Name $name -ErrorAction SilentlyContinue}else{New-ItemProperty -LiteralPath $proxyBefore.Key -Name $name -Value $v[0] -PropertyType ([Microsoft.Win32.RegistryValueKind][int]$v[1]) -Force | Out-Null}}
         [RuleProxyRecover.Native]::Flags($proxyBefore.Flags)
         [RecoveryFixture]::SetHttp([uint32]$proxyBefore.WinHttp[0],$proxyBefore.WinHttp[1],$proxyBefore.WinHttp[2])

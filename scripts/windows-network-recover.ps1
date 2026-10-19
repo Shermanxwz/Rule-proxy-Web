@@ -397,6 +397,13 @@ function Read-ProxyValues([string]$Key) {
     };return $values
 }
 function Test-ValueEqual($A,$B) { return (ConvertTo-Json -InputObject $A -Compress) -ceq (ConvertTo-Json -InputObject $B -Compress) }
+function Test-ProxyRestoreEqual($Observed,$Expected,[bool]$FlagsTracked) {
+    foreach($name in @('ProxyEnable','ProxyServer','ProxyOverride','AutoConfigURL','AutoDetect')){
+        # WinINet can remove the legacy AutoDetect value when setting actual LAN flags.
+        if($name -eq 'AutoDetect' -and $FlagsTracked -and $null -eq $Observed[$name]){continue}
+        if(-not (Test-ValueEqual $Observed[$name] $Expected[$name])){return $false}
+    };return $true
+}
 function Get-ProxyState {
     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $key='Registry::HKEY_USERS\'+$sid+'\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
@@ -406,17 +413,19 @@ function Get-ProxyState {
     if($journalPath -and (Test-Path -LiteralPath $journalPath)){
         Assert-NoReparse $journalPath;$file=Get-Item -LiteralPath $journalPath;if($file.Length -gt 65536){throw 'Proxy journal too large'}
         $j=Get-Content -LiteralPath $journalPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if($j.schema -ne 1 -or $j.kind -ne 'wininet' -or $j.port -lt 1025 -or $j.port -gt 65535){throw 'Proxy journal invalid'}
+        $hasSchema=$j.PSObject.Properties.Name -contains 'schema'
+        if(($hasSchema -and ($j.schema -ne 1 -or $j.phase -notin @('active','applying'))) -or $j.kind -ne 'wininet' -or $j.port -lt 1025 -or $j.port -gt 65535){throw 'Proxy journal invalid'}
         $expected=[ordered]@{ProxyEnable=@(1,4);ProxyServer=@(('127.0.0.1:'+$j.port),1);ProxyOverride=@('localhost;127.0.0.1;::1;10.*;172.16.*;192.168.*;<local>',1);AutoConfigURL=$null;AutoDetect=@(0,4)}
         foreach($name in $expected.Keys){
-            if(-not ($j.target.PSObject.Properties.Name -contains $name) -or -not ($j.previous.PSObject.Properties.Name -contains $name) -or -not (Test-ValueEqual $j.target.$name $expected[$name])){throw 'Proxy journal target invalid'}
+            if(-not ($j.previous.PSObject.Properties.Name -contains $name) -or ($hasSchema -and (-not ($j.target.PSObject.Properties.Name -contains $name) -or -not (Test-ValueEqual $j.target.$name $expected[$name])))){throw 'Proxy journal target invalid'}
             $v=$j.previous.$name
             if($null -ne $v){if(@($v).Count -ne 2){throw 'Proxy journal value invalid'};if($name -in @('ProxyEnable','AutoDetect')){if($v[1] -ne 4 -or $v[0] -notin @(0,1)){throw 'Proxy journal DWORD invalid'}}elseif($v[1] -notin @(1,2) -or $v[0] -isnot [string] -or $v[0].Length -gt 16384){throw 'Proxy journal text invalid'}}
+            if($name -eq 'AutoDetect' -and $j.connection_flags -and $null -eq $current[$name]){continue}
             if(-not (Test-ValueEqual $current[$name] $v) -and -not (Test-ValueEqual $current[$name] $expected[$name])){throw 'System proxy changed outside RuleProxy; refusing overwrite'}
         }
         $previous=[ordered]@{};foreach($name in $expected.Keys){$previous[$name]=$j.previous.$name}
         if($j.connection_flags){
-            if($j.connection_flags.target -ne 3 -or $j.connection_flags.previous -isnot [ValueType] -or $j.connection_flags.previous -lt 1 -or $j.connection_flags.previous -gt 15){throw 'Proxy journal flags invalid'}
+            if($j.connection_flags.target -ne 3 -or $j.connection_flags.previous -isnot [ValueType] -or $j.connection_flags.previous -lt 0 -or $j.connection_flags.previous -gt [uint32]::MaxValue){throw 'Proxy journal flags invalid'}
             $previousFlags=[uint32]$j.connection_flags.previous
             if($flags -ne 3 -and $flags -ne $previousFlags){throw 'WinINet flags conflict'}
         }
@@ -437,12 +446,12 @@ function Get-ProxyState {
 }
 function Invoke-ProxyRepair($State) {
     $values=Read-ProxyValues $State.Key;$flagsNow=[RuleProxyRecover.Native]::Flags()
-    $alreadyRestored=($null -ne $State.Previous -and (Test-ValueEqual $values $State.Previous) -and ($null -eq $State.PreviousFlags -or $flagsNow -eq $State.PreviousFlags))
+    $alreadyRestored=($null -ne $State.Previous -and (Test-ProxyRestoreEqual $values $State.Previous ($null -ne $State.PreviousFlags)) -and ($null -eq $State.PreviousFlags -or $flagsNow -eq $State.PreviousFlags))
     if(-not $alreadyRestored -and (-not (Test-ValueEqual $values $State.Current) -or $flagsNow -ne $State.Flags)){throw 'Proxy settings changed since preflight'}
     if($null -ne $State.Previous -and -not $alreadyRestored){
         foreach($name in $State.Previous.Keys){$v=$State.Previous[$name];if($null -eq $v){Remove-ItemProperty -LiteralPath $State.Key -Name $name -ErrorAction SilentlyContinue}else{New-ItemProperty -LiteralPath $State.Key -Name $name -Value $v[0] -PropertyType ([Microsoft.Win32.RegistryValueKind][int]$v[1]) -Force -ErrorAction Stop | Out-Null}}
         if($null -ne $State.PreviousFlags){[RuleProxyRecover.Native]::Flags($State.PreviousFlags)}else{[RuleProxyRecover.Native]::Notify()}
-        if(-not (Test-ValueEqual (Read-ProxyValues $State.Key) $State.Previous)){throw 'Proxy restore readback failed'}
+        if(-not (Test-ProxyRestoreEqual (Read-ProxyValues $State.Key) $State.Previous ($null -ne $State.PreviousFlags))){throw 'Proxy restore readback failed'}
         if($null -ne $State.PreviousFlags -and [RuleProxyRecover.Native]::Flags() -ne $State.PreviousFlags){throw 'Proxy flags restore readback failed'}
         Changed 'Current user system proxy restored from RuleProxy journal (journal retained)'
     }elseif($null -eq $State.Previous -and $ResetDeadLoopbackProxy){
@@ -478,7 +487,7 @@ function Get-Blockers($State) {
     if($State.Dns.Candidates.Count -or $State.Dns.Virtual.Count -or $State.Dns.Unresolved.Count){$items+='Owned/virtual/unresolved DNS policy remains'}
     if($State.Runtime.Processes.Count -or $State.Runtime.Autoruns.Count -or @(@($State.Runtime.Services)+@($State.Runtime.EngineServices) | Where-Object {$null -ne $_ -and ($_.State -ne 'Stopped' -or $_.StartMode -ne 'Disabled')}).Count){$items+='RuleProxy runtime still enabled/running'}
     if(@($State.Adapter.Owned | Where-Object {$_.Status -ne 'Disabled'}).Count -or $State.Adapter.Unresolved.Count){$items+='Active or unverified RuleProxy TUN adapter remains'}
-    if($null -ne $State.Proxy.Previous -and (-not (Test-ValueEqual $State.Proxy.Current $State.Proxy.Previous) -or ($null -ne $State.Proxy.PreviousFlags -and $State.Proxy.Flags -ne $State.Proxy.PreviousFlags))){$items+='Saved RuleProxy user proxy has not been restored'}
+    if($null -ne $State.Proxy.Previous -and (-not (Test-ProxyRestoreEqual $State.Proxy.Current $State.Proxy.Previous ($null -ne $State.Proxy.PreviousFlags)) -or ($null -ne $State.Proxy.PreviousFlags -and $State.Proxy.Flags -ne $State.Proxy.PreviousFlags))){$items+='Saved RuleProxy user proxy has not been restored'}
     if($State.Proxy.DeadManual -or $State.Proxy.DeadPac -or $State.Proxy.DeadWinHttp){$items+='Dead loopback proxy/PAC remains; ownership unknown, explicit reset required'}
     if($State.Proxy.OtherUserJournals.Count){$items+='Other logged-in user has a RuleProxy recovery journal: run as that user; do not elevate using a different account'}
     return $items
