@@ -396,6 +396,13 @@ def verify_psec_smoke_result(result, *, package_sha256, source_commit):
             or actual_os.get("python_pointer_bits") != 64 or actual_os.get("build") != facts["build"]
             or type(actual_os.get("ubr")) is not int or actual_os["ubr"] != facts.get("ubr")):
         raise RuntimeError("PSEC process OS facts differ from the Windows guest")
+    update = result.get("official_update", {})
+    if (not isinstance(update, dict) or update.get("status") != "completed"
+            or any(update.get(key) is not True for key in ("completed", "packages_verified", "task_unregistered"))
+            or update.get("reboot_required") is not False
+            or facts["build"] != media.UPDATE_BUILD or facts.get("ubr", -1) < media.UPDATE_UBR
+            or update.get("actual_build") != facts["build"] or update.get("actual_ubr") != facts["ubr"]):
+        raise RuntimeError("PSEC smoke did not prove the required official servicing")
     return report
 
 
@@ -727,7 +734,8 @@ def run(args):
     elif suite == "psec-compartment-smoke":
         summary.update(scope="native Windows 11 x64 PSEC/compartment functional smoke",
                        native_windows_11_psec_functionality_passed=False, strict_qualified=False,
-                       update_scope="Fixed OS media; executor probe gates PSEC support. No servicing is performed.")
+                       cumulative_update_required=True,
+                       update_scope="Pinned official KB5127648 and checkpoint; executor probe still gates PSEC support.")
     summary["vm_configuration"] = {"machine": "q35,accel=kvm,smm=on", "vcpu": 4, "ram_mib": 6144,
         "disk_controller": "q35 built-in AHCI/SATA (ide-hd on ide.0)", "disk_virtual_gib": 80,
         "installer_dynamic_update": False, "secure_boot": True, "tpm": "2.0"}
@@ -767,6 +775,11 @@ def run(args):
         if shutil.disk_usage(work).free < media.MIN_FREE_BYTES:
             raise RuntimeError("At least 55 GiB free is required for official Windows media")
         iso = work / "official.iso"
+        updates = None
+        if suite == "psec-compartment-smoke":
+            stage("official_cumulative_update_download")
+            updates = work / "official-updates"
+            summary["official_update_packages"] = media.download_updates(updates)
         stage("official_iso_download")
         subprocess.run(["curl", "--fail", "--location", "--retry", "3", "--retry-all-errors",
             "--connect-timeout", "30", "--max-time", "1200", "--proto", "=https", "--proto-redir", "=https",
@@ -778,7 +791,7 @@ def run(args):
         payload = work / "payload.zip"
         payload_hash = make_payload(package, payload, include_global_sources=suite == "global-capture",
                                     psec_bundle=getattr(args, "psec_bundle", None) if suite == "psec-compartment-smoke" else None)
-        server = media.GuestServer(payload, artifacts)
+        server = media.GuestServer(payload, artifacts, updates=updates)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         tree = work / "iso-tree"
@@ -787,6 +800,18 @@ def run(args):
         subprocess.run([extractor, "x", "-tudf", "-y", f"-o{tree}", str(iso)], check=True, timeout=900)
         efi_boot = media.validate_install_tree(tree)
         password = secrets.token_hex(16) + "Ci!9"
+        source_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+                                       capture_output=True, text=True, timeout=5).stdout.strip()
+        seed_configuration = {"host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
+            "payload_sha256": payload_hash, "package_sha256": args.package_sha256,
+            "source_commit": source_commit, "suite": suite,
+            **({"source_identity": source_identity} if source_identity is not None else {})}
+        if updates is not None:
+            seed_configuration.update(require_official_update=True,
+                                      update_build=media.UPDATE_BUILD, update_ubr=media.UPDATE_UBR)
+            # Reuse the verified update seed, then replace only its legacy
+            # ordinary-user setup/runner with this suite's SYSTEM controller.
+            media.prepare_seed(tree, password, seed_configuration, updates=updates)
         xml = (ROOT / ".github/windows-vm-unattend.xml").read_text().replace("@PASSWORD@", password)
         ET.fromstring(xml)
         (tree / "autounattend.xml").write_text(xml, encoding="utf-8")
@@ -796,13 +821,7 @@ def run(args):
         for name, destination in (("windows-proxifyre-vm-setup.ps1", "ruleproxy-vm-setup.ps1"),
                                   (runner, "ruleproxy-vm-run.ps1")):
             (tree / destination).write_text((ROOT / ".github" / name).read_text(), encoding="utf-8-sig")
-        source_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
-                                       capture_output=True, text=True, timeout=5).stdout.strip()
-        media.write_json(tree / "ruleproxy-vm-config.json", {
-            "host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
-            "payload_sha256": payload_hash, "package_sha256": args.package_sha256,
-            "source_commit": source_commit, "suite": suite,
-            **({"source_identity": source_identity} if source_identity is not None else {})})
+        media.write_json(tree / "ruleproxy-vm-config.json", seed_configuration)
         unattended = work / "unattended.iso"
         stage("unattended_iso_build")
         subprocess.run(["xorriso", "-as", "mkisofs", "-iso-level", "3", "-J", "-joliet-long", "-R", "-V", "RULEPROXY_CI",
@@ -992,8 +1011,9 @@ def main():
     parser.add_argument("--suite", choices=("product", "global-capture", "compartment-lab", "psec-compartment-smoke"), default="product")
     parser.add_argument("--psec-bundle", type=Path)
     args = parser.parse_args()
-    if not 300 <= args.timeout_seconds <= 3600:
-        parser.error("VM execution budget must be 300–3600 seconds")
+    maximum = 7200 if args.suite == "psec-compartment-smoke" else 3600
+    if not 300 <= args.timeout_seconds <= maximum:
+        parser.error(f"VM execution budget must be 300–{maximum} seconds")
     if (args.suite == "psec-compartment-smoke") != (args.psec_bundle is not None):
         parser.error("Only the PSEC functional suite requires --psec-bundle")
     with cancellation_signals():

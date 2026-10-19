@@ -31,6 +31,9 @@ def result():
                               "g_patch_applies_to_model2": False})
     report["checks"] = fixtures.smoke.checks(report)
     return {"suite": "psec-compartment-smoke", "status": "passed", "exit_code": 0,
+            "official_update": {"status": "completed", "completed": True, "packages_verified": True,
+                                "task_unregistered": True, "reboot_required": False,
+                                "actual_build": 26200, "actual_ubr": 9711},
             "package_sha256": "b" * 64, "reports": {"psec_smoke": report},
             "os": {"product_type": "WinNT", "native_architecture": "AMD64", "build": 26200, "ubr": 9711}}
 
@@ -77,6 +80,15 @@ class PsecVmTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 vm.make_payload(package, destination, psec_bundle=bundle)
             self.assertFalse(destination.exists())
+
+    def test_unserviced_or_pending_reboot_guest_cannot_pass(self):
+        for field, value in (("completed", False), ("packages_verified", False),
+                             ("task_unregistered", False), ("reboot_required", True),
+                             ("actual_ubr", 6584)):
+            changed = result()
+            changed["official_update"][field] = value
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                self.verify(changed)
 
 
 if __name__ == "__main__":

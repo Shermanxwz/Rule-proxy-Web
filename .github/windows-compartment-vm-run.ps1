@@ -107,12 +107,71 @@ function Invoke-OwnedPython([string]$Executable, [string]$Arguments, [int]$Secon
 if (Test-Path -LiteralPath (Join-Path $root 'compartment-started')) { exit 0 }
 $session = @((Get-Process explorer -ErrorAction SilentlyContinue) | Where-Object { $_.SessionId -gt 0 })
 if ($session.Count -eq 0) { exit 0 }
+# Servicing can restart this process. Never claim the experiment until the
+# fixed update has completed on the running kernel. Other suites skip this.
+$updateGateError = $null
+try {
+    $configuration = Get-Content -LiteralPath (Join-Path $root 'ruleproxy-vm-config.json') -Raw | ConvertFrom-Json
+    if ($configuration.suite -eq 'psec-compartment-smoke') {
+        $result.suite = 'psec-compartment-smoke'
+        $result.phase = 'official_update_gate'
+        if ($configuration.require_official_update -ne $true) { throw 'PSEC smoke requires the pinned official update' }
+        Beacon 'update-ready'
+        $endpoint = [Uri]$configuration.host_url
+        $networkReady = $false
+        for ($attempt=0; $attempt -lt 30; $attempt++) {
+            $socket = New-Object Net.Sockets.TcpClient
+            $pending = $null
+            try {
+                $pending = $socket.BeginConnect($endpoint.Host, $endpoint.Port, $null, $null)
+                if ($pending.AsyncWaitHandle.WaitOne(2000)) {
+                    $socket.EndConnect($pending)
+                    $networkReady = $true
+                    break
+                }
+            } catch { } finally {
+                if ($null -ne $pending) { $pending.AsyncWaitHandle.Close() }
+                $socket.Dispose()
+            }
+            Start-Sleep -Seconds 2
+        }
+        if (-not $networkReady) { throw 'Private update host connection did not become ready' }
+        $statePath = 'C:\RuleProxyCIUpdates\update-state.json'
+        $updateDeadline = [DateTime]::UtcNow.AddMinutes(85)
+        $updateStarted = $false
+        do {
+            if (Test-Path -LiteralPath $statePath) {
+                if ((Get-Item -LiteralPath $statePath).Length -gt 65536) { throw 'Update state exceeds its bound' }
+                $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+                $result.official_update = $state
+                if ($state.status -eq 'failed') { throw 'Pinned official update failed' }
+                if ($state.status -eq 'completed' -and $state.completed -eq $true) {
+                    $actual = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+                    if ($state.packages_verified -ne $true -or $state.task_unregistered -ne $true -or
+                        $state.reboot_required -ne $false -or
+                        [int]$actual.CurrentBuildNumber -ne [int]$configuration.update_build -or
+                        [int]$actual.UBR -lt [int]$configuration.update_ubr -or
+                        [int]$state.actual_build -ne [int]$actual.CurrentBuildNumber -or
+                        [int]$state.actual_ubr -ne [int]$actual.UBR) { throw 'Update state and running kernel do not agree' }
+                    break
+                }
+            }
+            if (-not $updateStarted) {
+                Start-ScheduledTask -TaskName 'RuleProxyCI-InstallOfficialUpdate'
+                $updateStarted = $true
+            }
+            if ([DateTime]::UtcNow -ge $updateDeadline) { throw 'Official update exceeded its deadline' }
+            Start-Sleep -Seconds 5
+        } while ($true)
+    }
+} catch { $updateGateError = $_ }
 try {
     $claim = [IO.File]::Open((Join-Path $root 'compartment-started'),[IO.FileMode]::CreateNew)
     $claim.Dispose()
 } catch [IO.IOException] { exit 0 }
 Beacon 'claimed'
 try {
+    if ($null -ne $updateGateError) { throw $updateGateError }
     $result.phase = 'os_validation'
     $os = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
     $nativeArchitecture = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }

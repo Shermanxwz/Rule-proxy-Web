@@ -13,6 +13,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  guest-syntax:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Parse the bootstrap and servicing entry points before allocating a VM
+        shell: powershell
+        run: |
+          foreach ($name in @('windows-proxifyre-vm-setup.ps1', 'windows-compartment-vm-run.ps1', 'windows-vm-update.ps1')) {
+            $tokens = $null; $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/$name"), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) { throw ($errors | Out-String) }
+          }
   pinned-mxc-g-bundle:
     name: Verify fixed G artifact and assemble deterministic bundle
     runs-on: ubuntu-24.04
@@ -133,9 +146,9 @@ jobs:
 
   native:
     name: Windows 11 x64 · PSEC and compartment functionality
-    needs: [package, pinned-mxc-g-bundle]
+    needs: [package, pinned-mxc-g-bundle, guest-syntax]
     runs-on: ubuntu-24.04
-    timeout-minutes: 65
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -161,9 +174,9 @@ jobs:
       - name: Execute the experiment on the official Windows client kernel
         run: |
           read -r expected name < compartment-package/SHA256SUMS.txt
-          exec timeout --signal=TERM --kill-after=20s 55m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
+          exec timeout --signal=TERM --kill-after=20s 110m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
             --suite psec-compartment-smoke --psec-bundle "$PWD/g-bundle/mxc-g-bundle.zip" --package "compartment-package/$name" --package-sha256 "$expected" \
-            --artifacts psec-smoke-results --timeout-seconds 3300
+            --artifacts psec-smoke-results --timeout-seconds 6600
       - uses: actions/upload-artifact@v7
         if: always()
         with:
