@@ -1,0 +1,228 @@
+{
+  "exit_code": 1,
+  "logs": {
+    "psec_stderr": "",
+    "psec_stdout": ""
+  },
+  "error_code": -2146233087,
+  "schema_version": 1,
+  "suite": "psec-compartment-smoke",
+  "reports": {
+    "psec_smoke": {
+      "schema_version": 1,
+      "scope": "PSEC/compartment functional smoke only",
+      "privacy_qualified": false,
+      "product_acceptance": false,
+      "provenance": {
+        "executor_sha256": "cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7",
+        "upstream_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+        "g_patch_applies_to_model2": false
+      },
+      "browser_requested": true,
+      "cleanup": {
+        "job_empty": true,
+        "relay": true,
+        "fixture": true,
+        "account": {
+          "desktop_closed": true,
+          "station_closed": true,
+          "environment_freed": true,
+          "profile_unloaded": true,
+          "token_closed": true,
+          "account_delete_status": 0,
+          "profile_deleted": true
+        },
+        "compartment": "retained until disposable host reboot; bound compartments are not deleted"
+      },
+      "source_commit": "a6a38caece1099babc8e67eb2f7622ae8a232525",
+      "os": {
+        "build": 26300,
+        "ubr": 9457,
+        "architecture": "AMD64",
+        "python_pointer_bits": 64
+      },
+      "runtime_import_exit_code": 0,
+      "ordinary_identity": {
+        "sid": "S-1-5-21-737461785-667693293-1340325952-1002",
+        "elevated": false,
+        "session_id": 0
+      },
+      "fixture_control": {
+        "status": 200,
+        "marker_matched": true,
+        "body_bytes": 84
+      },
+      "cid": 2,
+      "inventory": {
+        "interfaces": [
+          {
+            "InterfaceIndex": 10
+          },
+          {
+            "InterfaceIndex": 10
+          }
+        ],
+        "addresses": [
+          {
+            "InterfaceIndex": 10,
+            "IPAddress": "::1"
+          },
+          {
+            "InterfaceIndex": 10,
+            "IPAddress": "127.0.0.1"
+          }
+        ],
+        "routes": [
+          {
+            "DestinationPrefix": "ff00::/8",
+            "NextHop": "::"
+          },
+          {
+            "DestinationPrefix": "::1/128",
+            "NextHop": "::"
+          },
+          {
+            "DestinationPrefix": "255.255.255.255/32",
+            "NextHop": "0.0.0.0"
+          },
+          {
+            "DestinationPrefix": "224.0.0.0/4",
+            "NextHop": "0.0.0.0"
+          },
+          {
+            "DestinationPrefix": "127.255.255.255/32",
+            "NextHop": "0.0.0.0"
+          },
+          {
+            "DestinationPrefix": "127.0.0.1/32",
+            "NextHop": "0.0.0.0"
+          },
+          {
+            "DestinationPrefix": "127.0.0.0/8",
+            "NextHop": "0.0.0.0"
+          }
+        ]
+      },
+      "outer_job": {
+        "cid": 2,
+        "ui_limits": 0,
+        "kill_on_close": true,
+        "breakaway": false
+      },
+      "relay_bound": [
+        "127.0.0.1",
+        "::1"
+      ],
+      "launcher_pid": 5544,
+      "launcher_exit_code": 0,
+      "launcher_timed_out": false,
+      "launcher": {
+        "identity": {
+          "sid": "S-1-5-21-737461785-667693293-1340325952-1002",
+          "pid": 5544,
+          "cid": 2,
+          "elevated": false,
+          "appcontainer": false
+        },
+        "started": false,
+        "relay_control": {
+          "status": 200,
+          "marker_matched": true,
+          "body_bytes": 84
+        },
+        "probe_exit_code": 0,
+        "probe_diagnostic": {
+          "bytes_observed": 0,
+          "inspection_truncated": false,
+          "categories": [],
+          "operations": [],
+          "native_codes": [],
+          "error_envelopes": [],
+          "inspected_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "probe": {
+          "tier": null,
+          "needsDaclAugmentation": null,
+          "probes": {
+            "baseContainerApiPresent": true,
+            "nativeCaptureAvailable": true,
+            "guardedCaptureAvailable": false,
+            "bfscfgPresent": false,
+            "bfsCompiledIn": false,
+            "baseContainerSupportsDenyPaths": true,
+            "baseContainerSupportsEnumeratePaths": false,
+            "baseContainerSupportsIngressHostLoopbackAllow": false,
+            "isolationSessionAvailable": false,
+            "hyperlightAvailable": false,
+            "uiCapabilities": {
+              "canBlockClipboardRead": true,
+              "canBlockClipboardWrite": true,
+              "canBlockInputInjection": true,
+              "canBlockInputMethodChanges": true,
+              "canBlockExternalUiObjects": true,
+              "canBlockGlobalUiNamespace": true,
+              "canBlockDesktopSwitching": true,
+              "canBlockLogoffOrShutdown": true,
+              "canBlockSystemParameterChanges": true,
+              "canBlockDisplaySettingsChanges": true
+            }
+          },
+          "error": "network.ingress.hostLoopback='allow' is not supported by this version of Windows; host-loopback ingress requires native ProcessContainer support"
+        },
+        "status": "unsupported"
+      },
+      "fixture_requests": {
+        "outside": 2,
+        "inside": 0,
+        "browser": 0
+      },
+      "relay": {
+        "accepted": 1,
+        "errors": []
+      },
+      "checks": {
+        "outside_fixture": true,
+        "ordinary_relay_control": true,
+        "ordinary_launcher_in_cid": true,
+        "psec_selected": false,
+        "psec_actor_in_cid": false,
+        "psec_child_in_cid": false,
+        "proxy_request": false,
+        "normal_exit": false,
+        "outer_job_empty": true,
+        "account_cleanup": true,
+        "browser_render": false
+      },
+      "functionality_passed": false
+    }
+  },
+  "error_type": "System.Management.Automation.RuntimeException",
+  "status": "failed",
+  "os": {
+    "ubr": 9457,
+    "native_architecture": "AMD64",
+    "build": 26300,
+    "product_type": "WinNT"
+  },
+  "package_sha256": "7b53e3ed9d2148d06c480fb11e308690b3948aaa1589d1a72fb6efcf22fe9955",
+  "phase": "psec_functional_smoke",
+  "child_processes": {
+    "psec": {
+      "stdout": "psec-stdout.log",
+      "drain_complete": true,
+      "handle_captured": true,
+      "exited": true,
+      "stderr": "psec-stderr.log",
+      "timed_out": false,
+      "pid": 8000,
+      "exit_code": 1,
+      "termination_confirmed": false
+    }
+  },
+  "install_media": {
+    "profile": "26h2",
+    "actual_build": 26300,
+    "iso_sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+    "actual_ubr": 9457
+  }
+}
