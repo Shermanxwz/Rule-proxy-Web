@@ -5,7 +5,7 @@ Windows 原生 64 位 PowerShell 5.1，无需网络、Python、旧安装账户�
 
 ## 一键使用
 
-在能上网的电脑下载仓库 ZIP，或在 GitHub Actions 的 **Windows offline network recovery** 成功任务下载 `RuleProxy-Network-Recovery` 附件。把解压后的文件拷到断网电脑：
+在能上网的电脑[下载小型离线修复包](https://github.com/Shermanxwz/Rule-proxy-Web/raw/refs/heads/main/downloads/RuleProxy-Network-Recovery.zip)，或在 GitHub Actions 的 **Windows offline network recovery** 成功任务下载 `RuleProxy-Network-Recovery` 附件。把解压后的文件拷到断网电脑：
 
 ```text
 Recover-Windows-Network.cmd

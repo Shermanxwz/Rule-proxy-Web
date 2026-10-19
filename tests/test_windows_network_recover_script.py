@@ -3,6 +3,8 @@
 Native WFP/NRPT mutation is restricted to disposable GitHub Windows runners.
 Linux can exercise the parser, C# compiler and mocked OS boundaries with pwsh.
 """
+import hashlib
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -42,6 +44,15 @@ class RecoveryContracts(unittest.TestCase):
         self.assertIn('-Verb RunAs', launcher)
         self.assertNotIn('-ResetDeadLoopbackProxy', launcher)
         self.assertNotIn('DownloadString', launcher)
+
+    def test_download_is_built_from_current_source(self):
+        spec = importlib.util.spec_from_file_location('recovery_package', ROOT / '.github/build_network_recovery_package.py')
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        data = (ROOT / 'downloads/RuleProxy-Network-Recovery.zip').read_bytes()
+        self.assertEqual(data, builder.package_bytes())
+        digest = (ROOT / 'downloads/SHA256SUMS.txt').read_text().split()[0]
+        self.assertEqual(digest, hashlib.sha256(data).hexdigest())
 
     @unittest.skipUnless(powershell(), 'PowerShell not installed')
     def test_parser_native_interop_compile_and_behavior(self):

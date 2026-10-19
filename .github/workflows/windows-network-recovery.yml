@@ -6,6 +6,8 @@ on:
       - Recover-Windows-Network.cmd
       - .github/test_network_recovery*.ps1
       - tests/test_windows_network_recover_script.py
+      - .github/build_network_recovery_package.py
+      - downloads/**
       - .github/workflows/windows-network-recovery.yml
   pull_request:
     paths:
@@ -13,6 +15,8 @@ on:
       - Recover-Windows-Network.cmd
       - .github/test_network_recovery*.ps1
       - tests/test_windows_network_recover_script.py
+      - .github/build_network_recovery_package.py
+      - downloads/**
       - .github/workflows/windows-network-recovery.yml
   workflow_dispatch:
 permissions:
@@ -32,15 +36,11 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          New-Item -ItemType Directory -Path recovery-package\scripts | Out-Null
-          Copy-Item Recover-Windows-Network.cmd recovery-package\
-          Copy-Item scripts\windows-network-recover.ps1 recovery-package\scripts\
-          Copy-Item docs\windows-network-recovery.md recovery-package\README.md
-          Compress-Archive -Path recovery-package\* -DestinationPath RuleProxy-Network-Recovery.zip
-          (Get-FileHash RuleProxy-Network-Recovery.zip -Algorithm SHA256).Hash | Set-Content SHA256.txt
+          python -B .github/build_network_recovery_package.py
+          git diff --exit-code -- downloads
       - uses: actions/upload-artifact@v7
         with:
           name: RuleProxy-Network-Recovery
           path: |
-            RuleProxy-Network-Recovery.zip
-            SHA256.txt
+            downloads/RuleProxy-Network-Recovery.zip
+            downloads/SHA256SUMS.txt

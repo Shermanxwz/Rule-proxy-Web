@@ -39,7 +39,7 @@ public static class RecoveryFixture {
     public static void Add(string provider,string sublayer,string filter,string marker,bool owned){
         if(Marshal.SizeOf(typeof(Provider))!=64 || Marshal.SizeOf(typeof(Sublayer))!=72 || Marshal.SizeOf(typeof(FilterHead))!=96 || Marshal.SizeOf(typeof(Filter))!=200)throw new Exception("Unexpected WFP ABI");
         IntPtr h;Check(FwpmEngineOpen0(null,10,IntPtr.Zero,IntPtr.Zero,out h));
-        IntPtr name=Marshal.StringToHGlobalUni("RuleProxy recovery CI fixture"),description=Marshal.StringToHGlobalUni(marker),service=Marshal.StringToHGlobalUni(owned?"RuleProxyControl":"");
+        IntPtr name=Marshal.StringToHGlobalUni("RuleProxy recovery CI fixture"),description=Marshal.StringToHGlobalUni(marker),service=owned?Marshal.StringToHGlobalUni("RuleProxyControl"):IntPtr.Zero;
         IntPtr providerPtr=Marshal.AllocHGlobal(16);
         try{
             Guid pg=new Guid(provider);Marshal.StructureToPtr(pg,providerPtr,false);
