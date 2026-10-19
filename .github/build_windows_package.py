@@ -29,7 +29,9 @@ PTH_TEXT = pins.PTH_TEXT
 FOLDER = pins.INSTALL_FOLDER
 INCLUDE = ('Run-RuleProxy.py', 'Start-Windows.cmd', 'Setup-Windows.cmd',
            'README.md', 'CHANGELOG.md', 'LICENSE', 'THIRD-PARTY.md', 'ruleproxy/', 'web/',
-           'scripts/windows-setup.ps1', 'scripts/windows-uninstall.ps1')
+           'scripts/windows-setup.ps1', 'scripts/windows-uninstall.ps1',
+           'Recover-Windows-Network.cmd', 'scripts/windows-network-recover.ps1',
+           'docs/windows-network-recovery.md')
 MAX_DOWNLOAD = 64 * 1024**2
 ASSET_CACHE = None
 LICENSE_KEYS = ('mihomo_license', 'proxifyre_license', 'ndisapi_license')

@@ -1,0 +1,46 @@
+name: Windows offline network recovery
+on:
+  push:
+    paths:
+      - scripts/windows-network-recover.ps1
+      - Recover-Windows-Network.cmd
+      - .github/test_network_recovery*.ps1
+      - tests/test_windows_network_recover_script.py
+      - .github/workflows/windows-network-recovery.yml
+  pull_request:
+    paths:
+      - scripts/windows-network-recover.ps1
+      - Recover-Windows-Network.cmd
+      - .github/test_network_recovery*.ps1
+      - tests/test_windows_network_recover_script.py
+      - .github/workflows/windows-network-recovery.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Offline script contracts, executable behavior and real WFP/NRPT fixtures
+        run: python -B -m unittest tests.test_windows_network_recover_script -v
+      - name: Build two-file offline recovery ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Path recovery-package\scripts | Out-Null
+          Copy-Item Recover-Windows-Network.cmd recovery-package\
+          Copy-Item scripts\windows-network-recover.ps1 recovery-package\scripts\
+          Copy-Item docs\windows-network-recovery.md recovery-package\README.md
+          Compress-Archive -Path recovery-package\* -DestinationPath RuleProxy-Network-Recovery.zip
+          (Get-FileHash RuleProxy-Network-Recovery.zip -Algorithm SHA256).Hash | Set-Content SHA256.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: RuleProxy-Network-Recovery
+          path: |
+            RuleProxy-Network-Recovery.zip
+            SHA256.txt
