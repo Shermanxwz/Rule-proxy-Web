@@ -1,0 +1,184 @@
+{
+ "role": "controller",
+ "started": 1792358648.5714025,
+ "missing_exports": [],
+ "identity": "S-1-5-18",
+ "requests": [
+  {
+   "request": {
+    "op": "bind",
+    "pid": 9664,
+    "handle": 764,
+    "compartment": "A"
+   },
+   "response": {
+    "code": 0,
+    "job_compartment": 2,
+    "compartment_id": 2
+   }
+  },
+  {
+   "request": {
+    "op": "user_flow"
+   },
+   "response": {
+    "user_add": 0,
+    "group": 0,
+    "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+    "pid": 8860
+   }
+  },
+  {
+   "request": {
+    "op": "create",
+    "name": "B"
+   },
+   "response": {
+    "code": 0,
+    "id": 3,
+    "guid": "af487a04-e4bd-41b3-8b93-06b176f3b434"
+   }
+  },
+  {
+   "request": {
+    "op": "bind",
+    "pid": 9664,
+    "handle": 924,
+    "compartment": "B"
+   },
+   "response": {
+    "code": 0,
+    "job_compartment": 3,
+    "compartment_id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "delete",
+    "name": "B"
+   },
+   "response": {
+    "code": 1359,
+    "id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "delete",
+    "name": "B"
+   },
+   "response": {
+    "code": 1359,
+    "id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "create",
+    "name": "C"
+   },
+   "response": {
+    "code": 0,
+    "id": 4,
+    "guid": "e2890062-918f-4055-8731-75c2a21f039c"
+   }
+  },
+  {
+   "request": {
+    "op": "keep",
+    "name": "C"
+   },
+   "response": {
+    "kept": "C",
+    "id": 4
+   }
+  },
+  {
+   "request": {
+    "op": "stop_relay"
+   },
+   "response": {
+    "closed": 60
+   }
+  },
+  {
+   "request": {
+    "op": "exit"
+   },
+   "response": {
+    "exiting": true
+   }
+  }
+ ],
+ "create_A": {
+  "code": 0,
+  "id": 2,
+  "guid": "e4dbc297-aab3-4d44-a111-2948729d3353"
+ },
+ "default_compartment": 1,
+ "thread_probe": {
+  "set": 0,
+  "get": 2,
+  "public_1111_443": {
+   "ok": false,
+   "winerror": 10051
+  },
+  "host_fixture_loopback": {
+   "ok": false,
+   "winerror": 10061
+  },
+  "dns": {
+   "ok": false,
+   "errno": 11004,
+   "text": "[Errno 11004] getaddrinfo failed"
+  }
+ },
+ "default_thread_dns": {
+  "ok": false,
+  "errno": 11001,
+  "text": "[Errno 11001] getaddrinfo failed"
+ },
+ "relay": {
+  "accepted": 29,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ },
+ "final_stop_relay": {
+  "closed": 0
+ },
+ "terminated_jobs": [
+  true,
+  true
+ ],
+ "final_deletes": {
+  "A": [
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359
+  ],
+  "B": [
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359,
+   1359
+  ]
+ },
+ "kept": {
+  "C": 4
+ },
+ "user_removed": 0,
+ "finished": 1792359315.0141163
+}

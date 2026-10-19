@@ -1,0 +1,7 @@
+[5064:3476:1018/212540.122:WARNING:chrome\browser\chrome_browser_main_win.cc:1670] Edge is running elevated: 3
+[5064:7040:1018/212540.144:WARNING:net\dns\dns_config_service_win.cc:609] Failed to read DnsConfig.
+[5064:3476:1018/212540.148:ERROR:components\optimization_guide\core\model_execution\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU
+[5064:3476:1018/212541.166:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[5064:3476:1018/212542.003:ERROR:chrome\browser\component_updater\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5
+[5064:3476:1018/212542.206:INFO:CONSOLE:5645] "[ProtocolLaunch] handler constructed; wiring port events.", source: chrome-extension://ndcpkimcihhghdcddljkfmmjccdmcmof/background.rollup.js (5645)
+[5064:3476:1018/212542.498:ERROR:components\headless\command_handler\headless_command_handler.cc:403] Page load failed: net::ERR_INTERNET_DISCONNECTED

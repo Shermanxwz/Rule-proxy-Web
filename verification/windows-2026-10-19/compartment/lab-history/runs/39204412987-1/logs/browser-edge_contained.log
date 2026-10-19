@@ -1,0 +1,11 @@
+[8828:6708:1019/052842.743:WARNING:chrome\browser\chrome_browser_main_win.cc:1670] Edge is running elevated: 3
+[8828:912:1019/052842.775:WARNING:net\dns\dns_config_service_win.cc:609] Failed to read DnsConfig.
+[8828:6708:1019/052842.779:ERROR:components\optimization_guide\core\model_execution\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU
+[8828:6708:1019/052843.854:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[8828:4784:1019/052847.787:WARNING:net\dns\dns_config_service_win.cc:609] Failed to read DnsConfig.
+[8828:6708:1019/052849.337:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[8828:6708:1019/052849.345:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[8828:6708:1019/052849.358:ERROR:chrome\browser\component_updater\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5
+[8828:6708:1019/052849.362:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+<!DOCTYPE html>
+<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:e2d111f9b666e4c90e418e09:edge_contained</body></html>

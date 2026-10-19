@@ -1,0 +1,12 @@
+2026-10-19 05:59:28.937: [INFO] CurrentProfilePath: C:\RuleProxyCompartmentLab\profiles\edge_directcontrol\Default
+2026-10-19 05:59:28.937: [INFO] Profiles total count: 1
+2026-10-19 05:59:28.937: [INFO] Profile: name=Profile 1 path=C:\RuleProxyCompartmentLab\profiles\edge_directcontrol\Default lastActive=2026-10-19T05:59:28.882Z
+2026-10-19 05:59:28.937: [INFO] LastUsedProfileDir: C:\RuleProxyCompartmentLab\profiles\edge_directcontrol\Default
+2026-10-19 05:59:28.937: [INFO] MostRecentlyActiveProfile: name=Profile 1 path=C:\RuleProxyCompartmentLab\profiles\edge_directcontrol\Default lastActive=2026-10-19T05:59:28.882Z
+2026-10-19 05:59:28.937: [INFO] OnDoneLoading sync enabled: 0
+2026-10-19 05:59:28.937: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2026-10-19 05:59:28.937: [INFO] BookmarksLoadDropped droppedNodes=0
+2026-10-19 05:59:28.937: [INFO] BookmarksSnapshot Startup total=0 bar=0 other=0 mobile=0 showBar=0 showBarNTP=1
+2026-10-19 05:59:29.870: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-10-19 05:59:33.491: [INFO] VisibilityChanged: 0
+2026-10-19 05:59:39.645: [INFO] BookmarksSnapshot Shutdown total=0 bar=0 other=0 mobile=0 showBar=0 showBarNTP=1

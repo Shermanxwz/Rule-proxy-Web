@@ -418,7 +418,7 @@ class Manager:
         paths, seen = [], set()
         families, updates, retained = {}, [], {}
         for saved_app in self.settings["apps"]:
-            if not saved_app["enabled"]:
+            if not saved_app["enabled"] or saved_app.get("windows_container"):
                 continue
             app = copy.deepcopy(saved_app)
             self._bind_store_app(app)
@@ -470,6 +470,8 @@ class Manager:
         backend = self.windows_backend()
         if paths:
             backend.apply(paths, self.mixed_port, self.core.pid)
+        elif any(app["enabled"] and app.get("windows_container") for app in self.settings["apps"]):
+            backend.namespace_prepare(self.mixed_port, self.core.pid)
         else:
             backend.stop()
         self._windows_paths = paths
@@ -595,7 +597,8 @@ class Manager:
                           "profile_preparing": app["id"] in self._profile_preparing}
                 if sys.platform == "win32" or self.capture_mode == 'global':
                     record["routed"] = running and (self.capture_mode == 'global' or
-                                                    (app["enabled"] and bool(self._windows_paths)))
+                        (alive and not pending if app.get("windows_container") else
+                         app["enabled"] and bool(self._windows_paths)))
                 apps.append(record)
             compiled = self.compiled
             return {
@@ -874,11 +877,11 @@ class Manager:
                 self._profile_preparing.discard(ident)
 
     def set_app_isolation(self, ident, windows_container):
-        """Toggle Windows AppContainer strong isolation for a stopped app."""
+        """Toggle experimental Windows network compartments for a stopped app."""
         if not isinstance(windows_container, bool):
             raise ValueError("windows_container 必须是布尔值。")
         if windows_container and sys.platform != "win32":
-            raise ValueError("强隔离仅适用于 Windows。")
+            raise ValueError("独立网络（实验）仅适用于 Windows。")
         with self.lock:
             app = self.app(ident)
             if app is None:
@@ -886,14 +889,9 @@ class Manager:
             if ident in self.active and self.active[ident][0].poll() is None:
                 raise ValueError("请先关闭此工具启动的应用，再切换隔离方式。")
             validate_app({**app, "windows_container": windows_container}, check_exists=False)
-            old = dict(app)
+            previous = copy.deepcopy(self.settings["apps"])
             app["windows_container"] = windows_container
-            try:
-                self._save()
-            except BaseException:
-                app.clear()
-                app.update(old)
-                raise
+            self._save_app_changes(previous)
 
     def create_shortcuts(self, ident):
         """Write launcher files that start this app headlessly; returns their paths."""
@@ -952,10 +950,9 @@ class Manager:
                 # Native proxy inheritance must be an explicit launch option;
                 # the Windows launcher distrusts all proxy values in ``env``.
                 if app.get('windows_container') and not global_mode:
-                    from .windows_appcontainer import start_contained
-                    process, resource = start_contained(
+                    from .windows_compartment import start_namespaced
+                    process, resource = start_namespaced(
                         self.windows_backend(), ident, command, env,
-                        profile=app_profile_directory(self.directory / "profiles", app),
                         proxy_port=self.mixed_port, launch=launch)
                 else:
                     process = launch(command, env, native_proxy_port=self.mixed_port)
@@ -968,9 +965,9 @@ class Manager:
             self.active[ident] = (process, resource)
             self.error = ""
             detail = ('全局系统代理已启用；应用同时继承本机代理设置。' if global_mode else
-                      '强隔离（AppContainer）已启用：只能经本机代理联网，代理停止即断网。'
+                      '独立网络（实验）已启用；已知系统 DNS 和系统服务代办可绕过，不提供 Linux 等效隔离。'
                       if sys.platform == 'win32' and app.get('windows_container') else
-                      '程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
+                      '兼容模式的程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
                       '仅此隔离实例受保护。不支持的流量阻断，不会直连。')
             if app.get("use_original_data"):
                 detail += (" 使用原应用资料；启动请求可能交给已有窗口，已有进程不会由面板接管或关闭。"

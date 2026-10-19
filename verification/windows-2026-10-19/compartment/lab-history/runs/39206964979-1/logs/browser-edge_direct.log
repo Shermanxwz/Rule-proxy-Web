@@ -1,0 +1,6 @@
+[3392:996:1019/055923.242:WARNING:chrome\browser\chrome_browser_main_win.cc:1670] Edge is running elevated: 3
+[3392:9116:1019/055923.274:WARNING:net\dns\dns_config_service_win.cc:609] Failed to read DnsConfig.
+[3392:996:1019/055923.294:ERROR:components\optimization_guide\core\model_execution\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU
+[3392:996:1019/055924.691:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[3392:996:1019/055925.821:ERROR:chrome\browser\component_updater\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5
+[3392:996:1019/055926.135:ERROR:components\headless\command_handler\headless_command_handler.cc:403] Page load failed: net::ERR_INTERNET_DISCONNECTED

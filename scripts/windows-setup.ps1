@@ -227,6 +227,7 @@ $root = Join-Path $env:ProgramFiles 'RuleProxy-Web'
 $pfRoot = Join-Path $env:ProgramFiles 'ProxiFyre'
 $stateRoot = Join-Path $env:ProgramData 'RuleProxy-Web'
 $globalRoot = Join-Path $stateRoot 'global'
+$namespaceRoot = Join-Path $stateRoot 'compartments'
 $statePath = Join-Path $stateRoot 'install-state.json'
 $logRoot = Join-Path $stateRoot 'setup-logs'
 $serviceName = 'RuleProxyControl'
@@ -435,6 +436,9 @@ Protect-Tree $stateRoot -Private
 if (Test-Path -LiteralPath $globalRoot) { Assert-Protected $globalRoot }
 else { New-Item -ItemType Directory -Path $globalRoot | Out-Null }
 Protect-Tree $globalRoot -Private
+if (Test-Path -LiteralPath $namespaceRoot) { Assert-Protected $namespaceRoot }
+else { New-Item -ItemType Directory -Path $namespaceRoot | Out-Null }
+Protect-Tree $namespaceRoot -Private
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 try {
     $sessionLog = Join-Path $logRoot ('setup-session-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N') + '.log')
@@ -510,7 +514,7 @@ try {
     # deployment.json hashes it; the package manifest cannot hash itself.
     [IO.File]::WriteAllBytes((Join-Path $stage 'package-manifest.json'), $manifestBytes)
     $activePackageFile = $null
-    foreach ($required in @('python\python.exe','python\pythonw.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','ruleproxy\windows_global_runtime.py','ruleproxy\windows_global_guard.py','ruleproxy\windows_global_dns.py','ruleproxy\windows_app_process.py','ruleproxy\config.py','bin\windows-amd64\mihomo.exe','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
+    foreach ($required in @('python\python.exe','python\pythonw.exe','python\python314._pth','ruleproxy\windows_proxy_service.py','ruleproxy\windows_proxy_policy.py','ruleproxy\windows_global_runtime.py','ruleproxy\windows_global_guard.py','ruleproxy\windows_global_dns.py','ruleproxy\windows_app_process.py','ruleproxy\windows_compartment.py','ruleproxy\config.py','bin\windows-amd64\mihomo.exe','Run-RuleProxy.py','scripts\windows-uninstall.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) { throw ('Required product file missing: ' + $required) }
     }
     $setupPhase = 'stage_protect'
@@ -600,6 +604,7 @@ try {
     try { $sidHash = ([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::ASCII.GetBytes($OwnerSid)))).Replace('-','').ToLowerInvariant().Substring(0,16) }
     finally { $hash.Dispose() }
     $deployment = [ordered]@{schema_version=1; global_backend_version=1; global_state_dir=$globalRoot;
+        namespace_backend_version=1; namespace_state_dir=$namespaceRoot;
         owner_sid=$OwnerSid; root=$root; proxifyre_root=$pfRoot;
         service_name=$serviceName; pipe_name=('RuleProxyControl-v1-' + $sidHash); files=$files; proxifyre_files=$pfFiles}
     [IO.File]::WriteAllText((Join-Path $stage 'deployment.json'), ($deployment|ConvertTo-Json -Depth 6), $utf8)

@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "source_commit": "f3d99eb1e608cbb80e60d74d870dd8664f094961",
+  "workflow_run": 39206919590,
+  "artifact_id": 12165323913,
+  "artifact_sha256": "c4f4ea4b945c3f190e396b910dd4188e16a3aa9fd397cc60546db73e5d5948cf",
+  "raw_member_sha256": {
+    "report.json": "fa9c8c1ca95eb3e8a4c412b96c9ebe6aac9599fa35a645562aa0118461c55acd",
+    "dns-wire-summary.json": "6e73868776fc0d9d3c9fd31797a030a9d11c6362a9f71eec825899840f47f4ad"
+  },
+  "scope": "Fresh repetition after the 540-byte native layout fix, Windows Server 2025 ordinary user.",
+  "plain": {
+    "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+    "restricted_sids": [],
+    "dns_inside": {
+      "getaddrinfo_standard": {
+        "qname_sha256": "fbcaf6d679aad4bfdff5cf1eb65521e105c66792bf20c511b14c5a7e4bd602ce",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "DnsQuery_W_standard": {
+        "qname_sha256": "1adb397a0e16a8629703fd41bf625232a4c3287cd2b29818f36c3507bfb8d40e",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "DnsQuery_W_wire": {
+        "qname_sha256": "657d6645f00ff612e54443bb48a3ac70634c4f3f8ed076af0dbb71d2562f2169",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "DnsQueryEx_standard": {
+        "qname_sha256": "e241e1f4d029254cd0d40a137f5f54c920d7f7c9542096cde37a750fa0574297",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "DnsQueryEx_wire": {
+        "qname_sha256": "f84fac2ca5f578c543e0e516ac4e505783fc8fb6ef772cd00d162d13b9c0aeee",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "Resolve-DnsName_standard": {
+        "qname_sha256": "47c610768678c7a92d1606055cfbdf26ec74bd9eedc47509ecd00bec52c905b9",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      }
+    },
+    "dns_outside": {
+      "getaddrinfo_standard": {
+        "qname_sha256": "5e4ce162868a245e9ee5efd751238903ffb260b41349f5c6d04873bab001fc32",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "DnsQuery_W_standard": {
+        "qname_sha256": "937976f7ec17048bf361acbb13a4a4bb205bac5880598d1e35d529e867204610",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "DnsQuery_W_wire": {
+        "qname_sha256": "ed52a5fc82530f888834455febf46022fb4038448951a91d5a73cf3d9b2d127c",
+        "outbound_question_records": 4,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "DnsQueryEx_standard": {
+        "qname_sha256": "91930e51f2b22c39c09234887b855d4256967c1946ad7cad61a37e34728fb77b",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "DnsQueryEx_wire": {
+        "qname_sha256": "4122382177db42cb6cba7515a3256120ee96f2b03b9d7e469a02d2f7d7cf106f",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      },
+      "Resolve-DnsName_standard": {
+        "qname_sha256": "7c9846e769b849547b583bb0dbe7e4ed14d1837d2f297ab5cda3b1dfe832e82e",
+        "outbound_question_records": 2,
+        "process_exit_code": 0,
+        "query_executed": true
+      }
+    },
+    "wmi": {
+      "inside_job_bind_status": 0,
+      "child_compartment": 1,
+      "child_elevated": false,
+      "child_direct_http": true,
+      "receiver_hits": 1,
+      "outside_positive": true
+    },
+    "edge_inside": {
+      "rendered": true,
+      "fixture_hits": 1,
+      "sandbox_disabled": false,
+      "sandbox_child_token_observed": true,
+      "exit_code": 0
+    },
+    "edge_outside": {
+      "rendered": true,
+      "fixture_hits": 1,
+      "sandbox_disabled": false,
+      "sandbox_child_token_observed": true,
+      "exit_code": 0
+    }
+  },
+  "restricted_variants": {
+    "write_custom_logon": {
+      "dns": {
+        "getaddrinfo_standard": {
+          "qname_sha256": "092495736f0d3f0f9c8b8e2d4e27fa30ba8cb84f12dec28c29aface969dc2f05",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "DnsQuery_W_standard": {
+          "qname_sha256": "75c82b2a519c6653bf8e01874fc674252ea0f82fed42043b02f981b1451575bb",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "DnsQuery_W_wire": {
+          "qname_sha256": "c508a8d13e61bde203e56b81a7c74b2972be2ce072c6da74196cc36445e8d86b",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "DnsQueryEx_standard": {
+          "qname_sha256": "339f0452a1cf887e8a865f82ed1bb71b2c5ebcc4e90ed0bca73b61a62a617066",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "DnsQueryEx_wire": {
+          "qname_sha256": "f7aa39a9d391703db0d7799098eed740de23091b4f46e4224a506033caffd92e",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "Resolve-DnsName_standard": {
+          "qname_sha256": "4db9dfb2099fa26a4eef69a74ce6a688d0a676a5346c8f7c71563aebba95bb93",
+          "outbound_question_records": 0,
+          "process_exit_code": 4294901760,
+          "query_executed": false
+        }
+      },
+      "edge": {
+        "rendered": false,
+        "fixture_hits": 0,
+        "sandbox_disabled": false,
+        "sandbox_child_token_observed": false,
+        "exit_code": 2147483651
+      }
+    },
+    "write_custom_rc_logon": {
+      "dns": {
+        "getaddrinfo_standard": {
+          "qname_sha256": "62c1d9eb9ed15c4df9c6f537ac7d283f51e54e388f811887b7032f2afd0d28c4",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "DnsQuery_W_standard": {
+          "qname_sha256": "e8dc74c4f9f9d646dc1708349d1c842d811515c03690ab6d0c7b12ea2298016a",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "DnsQuery_W_wire": {
+          "qname_sha256": "676aaa117455a85e4790d46d19d0f5b84e08639eead8a3a52b1a6491b3d2d214",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "DnsQueryEx_standard": {
+          "qname_sha256": "3acf47aa9932bcf01aecf631fda7c66f0a03cf4a5678b24a861ddd4f1bca587e",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "DnsQueryEx_wire": {
+          "qname_sha256": "39a2f828751cd2e68fcfd9e98a4f2491b4825ffadea8cb626fea728fab0a4ab8",
+          "outbound_question_records": 0,
+          "process_exit_code": 3221225794,
+          "query_executed": false
+        },
+        "Resolve-DnsName_standard": {
+          "qname_sha256": "08e2190f6354a3f7865d98b73c947c6712567fd385fc8eea68c770d9bf6c2d1e",
+          "outbound_question_records": 0,
+          "process_exit_code": 4294901760,
+          "query_executed": false
+        }
+      },
+      "edge": {
+        "rendered": false,
+        "fixture_hits": 0,
+        "sandbox_disabled": false,
+        "sandbox_child_token_observed": false,
+        "exit_code": 21
+      }
+    }
+  },
+  "interpretation": [
+    "The ABI fix restores reliable native storage; six tested ordinary-user DNS paths still have positive NIC observations.",
+    "getaddrinfo returning 11004 does not imply no DNS query was emitted.",
+    "WMI still starts an unelevated process in default compartment 1; the fixed receiver records its direct HTTP request.",
+    "Restricted variants fail to start Python/PowerShell/Edge usefully; their zero DNS observations cannot establish usable isolation.",
+    "Packet record counts can include NIC duplicates; they are not counts of distinct queries.",
+    "The capture establishes positive DNS observations, not complete absence proof or OS process attribution.",
+    "Headless Edge DOM and sampled restricted/AppContainer child tokens do not qualify visible GUI or every sandbox policy.",
+    "Ordinary BITS outside control fails with ERROR_NOT_LOGGED_ON; do not infer BITS isolation."
+  ],
+  "privacy_qualified": false,
+  "product_qualified": false,
+  "linux_equivalence_qualified": false
+}

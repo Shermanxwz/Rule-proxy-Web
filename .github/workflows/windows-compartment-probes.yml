@@ -1,0 +1,106 @@
+name: Windows compartment focused probes
+
+on:
+  push:
+    branches: ['codex/windows-compartment-probe-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-compartment-probes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  primary:
+    name: Primary token · DNS brokers and Edge
+    runs-on: windows-2025
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Run bounded SYSTEM controller
+        shell: pwsh
+        run: ./.github/run_windows_primary_probe.ps1 -Output primary-results
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: primary-token-evidence
+          path: primary-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - run: python -m pip install -r requirements.txt
+      - run: python -B .github/build_windows_package.py product-probe-package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: product-probe-package
+          path: product-probe-package/
+          if-no-files-found: error
+          retention-days: 7
+
+  product:
+    name: Installed service · ordinary owner · real Mihomo and TLS
+    needs: package
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: product-probe-package
+          path: product-probe-package
+      - name: Exercise the installed product and restore the disposable host
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $name='RuleProxyProbeOwner'
+          $secret=[guid]::NewGuid().ToString('N') + 'aA1!'
+          $user=New-LocalUser -Name $name -Password (ConvertTo-SecureString $secret -AsPlainText -Force) -PasswordNeverExpires
+          Add-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-545').Name -Member $name
+          $env:RULEPROXY_TEST_USER=$name
+          $env:RULEPROXY_TEST_PASSWORD=$secret
+          $env:RULEPROXY_TEST_SID=$user.SID.Value
+          $installed=Join-Path $env:ProgramFiles 'RuleProxy-Web'
+          try {
+            $receipt=(Get-Content product-probe-package/SHA256SUMS.txt -Raw).Trim() -split '\s+'
+            if ($receipt.Count -ne 2 -or $receipt[0] -notmatch '^[a-f0-9]{64}$' -or $receipt[1] -notmatch '^[A-Za-z0-9._-]+\.zip$') { throw 'Invalid package receipt' }
+            $package=Join-Path $PWD ('product-probe-package/' + $receipt[1])
+            if ((Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant() -ne $receipt[0]) { throw 'Package digest mismatch' }
+            Expand-Archive -LiteralPath $package -DestinationPath product-probe-source
+            $source=(Resolve-Path product-probe-source/RuleProxy-Web).Path
+            & "$source/scripts/windows-setup.ps1" -SourceRoot $source -OwnerSid $user.SID.Value -Elevated -NoLaunch
+            if ($LASTEXITCODE -ne 0) { throw ('Installation incomplete: ' + $LASTEXITCODE) }
+            & "$installed/python/python.exe" -I -S -B .github/windows_compartment_product_probe.py --root $installed --output "$PWD/product-probe-results" --source-commit $env:GITHUB_SHA --bundle-sha256 $receipt[0]
+            if ($LASTEXITCODE -ne 0) { throw 'Installed compartment probe failed; inspect artifacts' }
+          } finally {
+            Remove-Item Env:RULEPROXY_TEST_PASSWORD -ErrorAction SilentlyContinue
+            Remove-Item Env:RULEPROXY_TEST_USER -ErrorAction SilentlyContinue
+            Remove-Item Env:RULEPROXY_TEST_SID -ErrorAction SilentlyContinue
+            $secret=$null
+            if (Test-Path -LiteralPath "$installed/scripts/windows-uninstall.ps1") {
+              & "$installed/scripts/windows-uninstall.ps1" -Elevated -OwnerSid $user.SID.Value
+            }
+            Remove-LocalUser -Name $name -ErrorAction SilentlyContinue
+          }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: installed-compartment-evidence
+          path: product-probe-results/
+          if-no-files-found: warn
+          retention-days: 14

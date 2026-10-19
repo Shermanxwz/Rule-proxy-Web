@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "scope": "positive_plaintext_dns_observations_only",
+  "absence_proven": false,
+  "process_attribution_proven": false,
+  "capture_sha256": "1f492e39009981e87abae688a8bfa744c0aae506a387c786e2a6c6eaacd49d93",
+  "capture_bytes": 462330551,
+  "records": 329032,
+  "opaque_packets": {
+    "empty_tcp_payload": 6297,
+    "opaque_dns_tcp_or_https": 1604,
+    "opaque_dns_encrypted_udp": 119
+  },
+  "queries": [
+    {
+      "qname_sha256": "0428cd7079c00e0321e4ae086fcda0b793ccb6261bd0ada5dbabec4da9211402",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "046d5d24d148d046f2b0c79c14778c421fea15acf9f5bae09a8ad4c1e127b1ac",
+      "query_type": 1,
+      "count": 1
+    },
+    {
+      "qname_sha256": "070ea7b1bc30c8c5d29229cbd5e8b0dab02bdbbf5b02eb90a1f8c662cbd4fde0",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "074951ac136834d7488e11690e8254f6ea0a69ece5b5b101e9306313a098e548",
+      "query_type": 1,
+      "count": 1
+    },
+    {
+      "qname_sha256": "0c8c0da3e9a54263340488a61f09d84ea10fa0d0f32e498f146ae3366890c9af",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "0f98689b719ade418f41e84a4384c4206f928cc284760d47cdbfffe38c0605c4",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "200f3e82bff5d431c8d81798b45e4cfcec525106810a058051cf178ad4c913e4",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "286daa4d6b11234222c7b71a3d24cb6f95bc04184050bc9f0396306568dd911b",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "296f34cd916de027080713e04b064004c15c84c1676b948389cd10fe1e407661",
+      "query_type": 1,
+      "count": 1
+    },
+    {
+      "qname_sha256": "2d2ae785e0fcdac1df1ce6fd43b34238bb41635eca2bceafa0c0416206d4c541",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "30fe8cdb3b8c418042502631db9786a53ddea88ef385cd26530900df0669e830",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "3835915325f71d75186a752d9fcb743ca7715ac6cda7f460d1a9829c817eea1a",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "3888570e9a56eaff7135a9530586e49258e87db7465fe5b4ab6ecd90d9032aa2",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "3b1b7176652a47245e2123e5d4855b6c21de1949c0e54f792728d8754904da21",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "48bff3148366c1c9453ee7fe4f962ab7b1ed28373517217f5c728a8d62390295",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "4a7026ba8f83af8505e00969c6c7b782d14e7366ce9a15d2cab4b74ccfafca99",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "4db31bdc1051346f2c232e0d9c8f002d10a53e2b0438d4fcfd2b013a30c5c183",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "4f61e54c75f1766e020013ca947384636a03965b60c02a8e721dc107cde27239",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "4f74c16a4aa394715ce677c4d6e297cb1299e711c299ed670b9596bd4f8a38f6",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "5bd7e29f41d01a969b6399a9f975b93769aae2aa368141bf93c4bd49419e2a6a",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "5c32cd1617e401af1489b148593870cb7e1e309f8045186870c13773f510d768",
+      "query_type": 1,
+      "count": 1
+    },
+    {
+      "qname_sha256": "5cfd749191aaafb5cf9ce14fad27e35e3bc0d62c557cb2134c1f15eefa26cc2e",
+      "query_type": 1,
+      "count": 1
+    },
+    {
+      "qname_sha256": "6708f66ecd6636708d081611cc9916cae22b9e141a94a0e1638c2c3090de5ae2",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "67bea5a2bcadf32a7f986907e8fcbea51f732a6ea2d764b7c8a8e579e3d9b464",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "684994d9a84d000d99e15e7e32ece1152295b8a4f4ea0689a163a1425ad4839e",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "6c33fc32fa073b232f16a87e8d01e5e79191886058093d2e149a598568f772ba",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "71e91779f5f0fe79ac552ecd956e64a2c373768409b0356a345844effac8f1d9",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "7c7685b6a3bc5d682228dfcee9d0a83e72602abec82fdbd1c04217343f3102c0",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "8a9233b8a0d670dce1e379b0a2976e2c5eece5ce85a515fb566f9e2c1a6c9e7f",
+      "query_type": 1,
+      "count": 1
+    },
+    {
+      "qname_sha256": "8f63cd150a1a8c878794e694bac6070b1ebb3f20f959cd630c7141dbce1f2df6",
+      "query_type": 1,
+      "count": 1
+    },
+    {
+      "qname_sha256": "9100d1cfa40c0850bc87f3ab69fe8261e236ff0786747f92633a578adde35a3b",
+      "query_type": 1,
+      "count": 1
+    },
+    {
+      "qname_sha256": "967623ae0e9572333b5608f496b15b41c951ce6ef2b8c56648efe50182daaf57",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "967623ae0e9572333b5608f496b15b41c951ce6ef2b8c56648efe50182daaf57",
+      "query_type": 28,
+      "count": 2
+    },
+    {
+      "qname_sha256": "9f5fdb7db78204b395ddd49acfa4d2f54e3896e529b16f4a6728480da906490d",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "a1e3c63fb95b0a2cd5cdf9583177d0651fcc16401e736f202f756247de1d2c46",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "a4b8c6b7bf8964f561ae7b381fac32043e2a8a9772a2e8992c76ac1347c6617b",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "a54e07980136b8d32691e596b44bbae5df25180d650a45b56b5579653f61ef4e",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "ab905cdc696aa81669b9021e313e4e9a74f52678787f286987ee03731bc20262",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "b15e9cad95eb64dfd8413d6529d8d0ad2413be0a529e78e52443256870c3e072",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "bedbb519b3102a8bbf46482ca4aaa35781bff6a4da9d6c6099df10d7d0c7c3c0",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "c28d961bcd3b254629be6fd567390f6e8041bb7bf5466c84586c7c29e7ec8a91",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "ca7a0f7a4aea54e08ab0ef6e492bcac0650ec4610803a98b89723a186db04e77",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "d2a9906f354bd3895f10666fe02160ae858a8aa59a8f0b2bf988da8a19836ab4",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "d3f836500580557604c9941fe8a8006480a84e972b5e200f6f4bfaba544648b3",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "d6ad0223dfbeea182b83f607d45ce9f0b2bf218d6df1ed9917ed690f90633d13",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "da285d42985506028b00368d1092e9a7c75f3e66ae73e7dfa552c4a0f33ebb39",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "da285d42985506028b00368d1092e9a7c75f3e66ae73e7dfa552c4a0f33ebb39",
+      "query_type": 28,
+      "count": 2
+    },
+    {
+      "qname_sha256": "de07f7b27a1398ac624dfb3bf02cbce87ba2549d51a9b685772b022bd947d3f5",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "dfb03e8b21e41bdbcc552b75b57459e16bd5936a4e66b7394fa67964ab72948c",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "e129e0bd90211f9aa8f9f470ed676e2312abbad2d1882809839594d4c0a72923",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "f5847051aed4de66a8b73f2fa669a63f2720219c56cb9faf14cb150d1544e9d8",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "f952918ea8fad5a1548588580f5156e104f394f95f2f40d6cb0835e45b85c5f5",
+      "query_type": 1,
+      "count": 2
+    },
+    {
+      "qname_sha256": "fa30be5947a1acb66a6ec31b8d41d27bd18ade49525c33618e22faa254b52cc4",
+      "query_type": 1,
+      "count": 2
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+[5024:4480:1019/052903.605:WARNING:chrome\browser\chrome_browser_main_win.cc:1670] Edge is running elevated: 3
+[5024:4480:1019/052903.632:ERROR:components\optimization_guide\core\model_execution\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU
+[5024:4480:1019/052904.738:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[5024:4480:1019/052911.018:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[5024:4480:1019/052911.025:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[5024:4480:1019/052911.039:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+<!DOCTYPE html>
+<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:e2d111f9b666e4c90e418e09:edge_directcontrol</body></html>

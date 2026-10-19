@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-10-19T09:24:27.760845+00:00",
+  "request": "Consolidate every local and remote development branch, committed history and current evidence into main.",
+  "main_before": "a2ccb801abfb116abdb322db5e68072dbfb2f237",
+  "refs_before": {
+    "refs/heads/codex/windows-compartment-check-20261019": "a27083f1abd7128b1568658686644dfa4600edb2",
+    "refs/heads/codex/windows-compartment-finish-20261019": "aaf20dee3427576dfd08987ef8fdc7287da3aa04",
+    "refs/heads/codex/windows-primary-preflight-snapshot-20261019": "c6abfc277244b25c1a3bb3aa1be7738a56d77fc1",
+    "refs/heads/codex/windows-psec-check-20261019": "04441d85d679ef2add3f9726e0dcee49c404c733",
+    "refs/heads/codex/windows-psec-server-20261019": "dc75aff51cafdd774ae6e23d6b40a9f5a026a6eb",
+    "refs/heads/codex/windows-psec-smoke-20261019": "ff1f6ed69bac7fb506d0291e671f371d1f2f0a83",
+    "refs/heads/codex/windows-psec-smoke-controls-20261019": "df0377c71d4fd9e9a1b1f3bf2fc52aecbd9925ad",
+    "refs/heads/codex/windows-psec-smoke-media-20261019": "a6a38caece1099babc8e67eb2f7622ae8a232525",
+    "refs/heads/main": "a2ccb801abfb116abdb322db5e68072dbfb2f237",
+    "refs/remotes/origin/claude/windows-compartment": "f457082e1e9bd373ac2caf9c6cd05ca5d9d21b69",
+    "refs/remotes/origin/claude/windows-compartment-lab": "fef0a8266659d1128fc724315fb142702fbba105",
+    "refs/remotes/origin/claude/windows-compartment-results": "a81c1616ba024e07943df3c48898d68d7363e071",
+    "refs/remotes/origin/codex/windows-compartment-check-20261019": "a27083f1abd7128b1568658686644dfa4600edb2",
+    "refs/remotes/origin/codex/windows-compartment-finish-20261019": "118c11fa71fcb53033242bb82ce36b0c78310fe8",
+    "refs/remotes/origin/codex/windows-compartment-probe-20261019": "f3d99eb1e608cbb80e60d74d870dd8664f094961",
+    "refs/remotes/origin/codex/windows-primary-preflight-snapshot-20261019": "08acb26f5f9762d5b01d774367e600f782c52f87",
+    "refs/remotes/origin/codex/windows-psec-check-20261019": "8ab2b97ca1da83406e05238b11a216ea606734fd",
+    "refs/remotes/origin/codex/windows-psec-server-20261019": "b138e0a6fa408805e991e3959afa9c26dfa26b4a",
+    "refs/remotes/origin/codex/windows-psec-smoke-20261019": "ff1f6ed69bac7fb506d0291e671f371d1f2f0a83",
+    "refs/remotes/origin/codex/windows-psec-smoke-controls-20261019": "df0377c71d4fd9e9a1b1f3bf2fc52aecbd9925ad",
+    "refs/remotes/origin/codex/windows-psec-smoke-media-20261019": "a6a38caece1099babc8e67eb2f7622ae8a232525",
+    "refs/remotes/origin/main": "a2ccb801abfb116abdb322db5e68072dbfb2f237"
+  },
+  "counts_before": {
+    "local_branches": 9,
+    "remote_branches": 13,
+    "independent_development_tips": 7
+  },
+  "independent_history_tips": [
+    "08acb26f5f9762d5b01d774367e600f782c52f87",
+    "118c11fa71fcb53033242bb82ce36b0c78310fe8",
+    "a27083f1abd7128b1568658686644dfa4600edb2",
+    "a81c1616ba024e07943df3c48898d68d7363e071",
+    "b138e0a6fa408805e991e3959afa9c26dfa26b4a",
+    "c6abfc277244b25c1a3bb3aa1be7738a56d77fc1",
+    "dc75aff51cafdd774ae6e23d6b40a9f5a026a6eb"
+  ],
+  "older_preserved_history_tips": [
+    "139653ceb36e0597050d9a166f9bca6249248f81",
+    "3145990bfedd2e9d3d06a98fc3061a2222cb998f",
+    "f360524755039476aeddf070e6368cd7042868ad",
+    "1740e6765710905278f3118ff7c8ac5bcacc75a5",
+    "adc4e146cdafcf7b931ebf73d793874913033262",
+    "c2ccadbf4afcef3602bae75bc7a741e5d48d2614"
+  ],
+  "all_source_refs_reachable_from_integrated_history": true,
+  "content_merge": {
+    "server_diagnostics": "b138e0a6fa408805e991e3959afa9c26dfa26b4a",
+    "primary_runtime_preflight": "08acb26f5f9762d5b01d774367e600f782c52f87",
+    "latest_findings_and_atomic_report_fix": "118c11fa71fcb53033242bb82ce36b0c78310fe8",
+    "independent_lab_reports": "a81c1616ba024e07943df3c48898d68d7363e071",
+    "readme_resolution": "Keep the latest preflight, serviced PSEC failure and 26H2 capability-rejection evidence, including explicit limitations.",
+    "same_tree_local_histories_preserved": [
+      "04441d85d679ef2add3f9726e0dcee49c404c733",
+      "c6abfc277244b25c1a3bb3aa1be7738a56d77fc1",
+      "dc75aff51cafdd774ae6e23d6b40a9f5a026a6eb"
+    ]
+  },
+  "raw_report_archive": {
+    "manifest": "verification/windows-2026-10-19/compartment/lab-history/source-manifest.json",
+    "manifest_sha256": "58098d3bfed9da681136ae5be7c6d3ce0b9dd01b2b9dfb3c8afa8461d9ce66b0",
+    "files": 569,
+    "bytes": 1451847,
+    "runs": 6,
+    "original_git_blobs_and_sha256_verified": true
+  },
+  "verification": {
+    "local_python": "3.10.12",
+    "tests": 1715,
+    "failed": 0,
+    "skipped": 89,
+    "skips_include_platform_specific_and_unavailable_local_namespaces": true,
+    "javascript_syntax": "passed",
+    "online_source_package_build": "passed",
+    "online_source_package_sha256": "49ad69e799b455179309eec503a1eb1b7c423bdda241f8d3252cc06e4a04fc3e",
+    "cross_platform_ci": "Normal Check workflow after main publication; this local report does not assert its future result."
+  },
+  "scope": {
+    "production_code_and_experimental_diagnostics_both_merged": true,
+    "default_proxifyre_compatibility_mode_retained": true,
+    "experimental_compartment_still_has_dns_and_broker_escape_limits": true,
+    "psec_diagnostics_remain_unfinished_and_not_default_product_backend": true,
+    "failed_raw_evidence_not_rewritten": true,
+    "long_running_vm_experiments_not_resumed": true,
+    "new_release_not_requested": true
+  },
+  "private_material": {
+    "user_yaml_node_credentials_and_private_installer_payloads_excluded": true,
+    "existing_private_backups_not_blindly_published": true,
+    "previous_artifact_digest_only_entries_are_not_claimed_to_be_complete_raw_payload_archives": true
+  },
+  "branch_cleanup_target": "main only, after remote publication and exact ancestry/content verification",
+  "backup_bundle_sha256": "eb36b4b71d6eb2dfdb6b63eea302556c24a03ab283329317bc51ae9e01b05b31"
+}

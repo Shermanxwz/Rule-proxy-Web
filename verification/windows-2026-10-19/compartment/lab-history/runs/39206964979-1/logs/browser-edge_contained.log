@@ -1,0 +1,12 @@
+[4676:4940:1019/055917.531:WARNING:chrome\browser\chrome_browser_main_win.cc:1670] Edge is running elevated: 3
+[4676:7044:1019/055917.562:WARNING:net\dns\dns_config_service_win.cc:609] Failed to read DnsConfig.
+[4676:4940:1019/055917.569:ERROR:components\optimization_guide\core\model_execution\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU
+[4676:4940:1019/055918.623:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[4676:4940:1019/055920.341:ERROR:chrome\browser\component_updater\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5
+[4676:4940:1019/055920.876:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[4676:4940:1019/055920.885:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[4676:4940:1019/055920.905:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+<!DOCTYPE html>
+<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:c0c772e397f557e628e71221:edge_contained</body></html>
+[4676:7244:1019/055921.017:ERROR:components\edge_window_tab_manager\wtm_com_provider.cc:204] tab_manager_statics->GetForWindow(window_id, &iwindow_tab_manager) failed: Invalid window handle. (0x80070578)
+[4676:7244:1019/055921.017:ERROR:chrome\browser\ui\edge_window_tab_manager\api\iwindow_tab_manager_helper.cc:256] iwindow_tab_manager is null

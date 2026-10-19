@@ -1,0 +1,76 @@
+name: Windows 11 compartment experiment
+
+on:
+  push:
+    branches: ['codex/windows-compartment-finish-*']
+    paths:
+      - '.github/windows_compartment_lab.py'
+      - '.github/windows_restricted_primary_lab.py'
+      - '.github/windows_dns_compartment_probe.py'
+      - '.github/windows-compartment-vm-run.ps1'
+      - '.github/windows_proxifyre_vm.py'
+      - '.github/windows_compartment_wire.py'
+      - '.github/workflows/windows-compartment-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-compartment-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - run: python -m pip install -r requirements.txt
+      - run: python -B .github/build_windows_package.py compartment-package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: compartment-runtime-package
+          path: compartment-package/
+          if-no-files-found: error
+          retention-days: 7
+
+  native:
+    name: Windows 11 x64 · isolated ordinary-user experiment
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: compartment-runtime-package
+          path: compartment-package
+      - name: Prepare disposable VM tools and disk space
+        run: |
+          available=$(df -B1 --output=avail /tmp | tail -n 1)
+          if [ "$available" -lt 59055800320 ]; then
+            sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet /usr/local/share/chromium /usr/local/share/powershell/Modules
+            sudo docker system prune --all --force --volumes || true
+          fi
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+      - name: Execute the experiment on the official Windows client kernel
+        run: |
+          read -r expected name < compartment-package/SHA256SUMS.txt
+          exec timeout --signal=TERM --kill-after=20s 55m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
+            --suite compartment-lab --package "compartment-package/$name" --package-sha256 "$expected" \
+            --artifacts compartment-native-results --timeout-seconds 3300
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-11-compartment-evidence
+          path: compartment-native-results/
+          if-no-files-found: warn
+          retention-days: 14

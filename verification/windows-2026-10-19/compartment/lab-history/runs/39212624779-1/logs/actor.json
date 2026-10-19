@@ -1,0 +1,13 @@
+{
+ "nonce": "d6334201943d5d592c08e16b",
+ "host_ip": "10.1.0.109",
+ "echo_tcp": 60268,
+ "echo_udp": 57247,
+ "echo_tcp6": 60269,
+ "echo_udp6": 57248,
+ "relay_port": 18808,
+ "fixture_port": 60266,
+ "default_compartment": 1,
+ "linger": "linger-inside",
+ "linger_go": "C:\\RuleProxyCompartmentLab\\linger-go"
+}

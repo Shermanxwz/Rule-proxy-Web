@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "tested_commit": "f3d99eb1e608cbb80e60d74d870dd8664f094961",
+  "run_id": 39206964969,
+  "artifact_id": 12167351452,
+  "artifact_sha256": "ce4e9f548405aecc3c9f92ffc8c404869b9d6032464d4754185a87f7862a8db9",
+  "os": {
+    "ubr": 6584,
+    "native_architecture": "AMD64",
+    "build": 26200,
+    "product_type": "WinNT"
+  },
+  "experiment_completed": true,
+  "product_qualified": false,
+  "privacy_qualified": false,
+  "linux_equivalent_isolation": false,
+  "package_sha256": "bb3b14934f896ca0ce8ff4c1db085ac0d88a3d57618c44942a883ceaa4f988e8",
+  "byte_exact_copies": {
+    "native-product-summary.json": "630b2340844fc6d00f444a38211b2d42adafa443a7808c9dcb6cc858c8205935",
+    "native-compartment-report.json": "b416277f8dd6cc5719282d7a3818af2d930b80d556b02ff49da1acc6212ddbbf",
+    "compartment-dns-wire-observations.json": "68597f7e872315e2fd39fbded842e41f2db83e92b232bdb21488619ecdd64554"
+  },
+  "nested_primary_projection": {
+    "source": "guest-result.json#/reports/restricted_primary",
+    "source_member_sha256": "b9382d9491c080eb93cd9493346229ac7a032ee203216f3293101368d8a04bcd",
+    "copy": "restricted-primary-report.json",
+    "byte_exact": false
+  },
+  "compartment_lab_checks": {
+    "required_observations_complete": true,
+    "socket_positive_controls": true,
+    "job_socket_isolation_and_http_fixture": true,
+    "ordinary_user_flow": true,
+    "relay_stop_live_and_new_processes": true,
+    "dns_matrix_complete_and_names_unique": true,
+    "dns_answer_inside_observed": true,
+    "dns_no_egress_proven": false,
+    "broker_positive_controls": true,
+    "wmi_broker_bypass_observed": true,
+    "bits_broker_bypass_observed": true,
+    "compartment_cleanup_complete": false,
+    "real_mihomo_https_tested": false,
+    "browser_sandbox_state_verified": false,
+    "primary_restricted_token_tested": false,
+    "hcn_dns_remediation_tested": false
+  },
+  "ordinary_edge": {
+    "outside_browsers": {
+      "exit_code": 0,
+      "timed_out": false,
+      "fixture_hits": 1,
+      "rendered": true,
+      "sandbox_disabled": false,
+      "sandbox_child_token_observed": true
+    },
+    "browsers": {
+      "exit_code": 0,
+      "timed_out": false,
+      "fixture_hits": 1,
+      "rendered": true,
+      "sandbox_disabled": false,
+      "sandbox_child_token_observed": true
+    }
+  },
+  "ordinary_dns": {
+    "Resolve-DnsName": {
+      "completed": true,
+      "answer_matches": true,
+      "qname_sha256": "bab9b38adf5c52d3ebeb9a8c9732e91fba2c48d6e0e3dfe6c96c8135fe3381be",
+      "outbound_question_records": 2
+    },
+    "invalid_cases": [
+      "getaddrinfo_standard",
+      "DnsQuery_W_standard",
+      "DnsQuery_W_wire",
+      "DnsQueryEx_standard",
+      "DnsQueryEx_wire"
+    ],
+    "invalid_reason": "Copied embedded Python omitted root-level .pyd files; five Python probes failed importing _ctypes before API execution. These failures do not establish blocking. Fixed in ff1f6ed69bac7fb506d0291e671f371d1f2f0a83."
+  },
+  "broker_scope": {
+    "main_lab": "WMI and BITS succeeded from the SYSTEM lab context. Do not reinterpret these as ordinary-user observations.",
+    "ordinary_wmi": "Invocation succeeded but child report and receiver hit absent; missing _ctypes also invalidates its Python child evidence.",
+    "ordinary_bits": "Outside control could not log on to network; no ordinary-user denial conclusion."
+  },
+  "limits": [
+    "Edge results are headless DOM and sampled child token observations, not visible GUI or complete browser policy attestation.",
+    "Windows 11 26200.6584 supports this compartment experiment but is below the new PSEC API floor; PSEC candidate is a separate updated-OS experiment.",
+    "Wire record counts are not distinct DNS-query counts. Capture does not prove absence or process attribution.",
+    "Raw packet captures were not exported.",
+    "Installed production namespace service was tested separately on Server 2025; this Windows 11 lab is not installed-product qualification."
+  ]
+}

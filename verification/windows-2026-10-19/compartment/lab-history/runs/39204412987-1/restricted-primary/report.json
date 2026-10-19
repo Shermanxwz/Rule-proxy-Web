@@ -1,0 +1,177 @@
+{
+ "started": 1792388014.2562363,
+ "identity": "S-1-5-18",
+ "scope": "disposable primary-token compatibility experiment; no product qualification",
+ "variants": {
+  "plain": {
+   "flags": 0,
+   "sids": [],
+   "dns": {},
+   "browsers": {},
+   "token_user": "S-1-5-21-4239583824-265399229-1323058055-1004",
+   "token_restricted_sids": [],
+   "outside_dns_control": {
+    "getaddrinfo_standard": {
+     "api": "getaddrinfo",
+     "mode": "standard",
+     "name": "e82786d44fed4766c4803b595069ecbb.1.2.3.4.sslip.io",
+     "outside_control": true,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-48787340abc9457dbd41df956c5ba068\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-48787340abc9457dbd41df956c5ba068\\dns_probe.py",
+      "--api",
+      "getaddrinfo",
+      "--mode",
+      "standard",
+      "--name",
+      "e82786d44fed4766c4803b595069ecbb.1.2.3.4.sslip.io"
+     ],
+     "pid": 4224,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.48,
+     "tail": "{\"phase\": \"begin\", \"pid\": 4224, \"name\": \"e82786d44fed4766c4803b595069ecbb.1.2.3.4.sslip.io\", \"api\": \"getaddrinfo\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 1}\r\n{\"phase\": \"complete\", \"pid\": 4224, \"name\": \"e82786d44fed4766c4803b595069ecbb.1.2.3.4.sslip.io\", \"api\": \"getaddrinfo\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 1, \"addresses\": [\"1.2.3.4\"], \"status\": 0, \"elapsed_seconds\": 0.08938200000000052}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 4224,
+       "name": "e82786d44fed4766c4803b595069ecbb.1.2.3.4.sslip.io",
+       "api": "getaddrinfo",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 1
+      },
+      {
+       "phase": "complete",
+       "pid": 4224,
+       "name": "e82786d44fed4766c4803b595069ecbb.1.2.3.4.sslip.io",
+       "api": "getaddrinfo",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 1,
+       "addresses": [
+        "1.2.3.4"
+       ],
+       "status": 0,
+       "elapsed_seconds": 0.08938200000000052
+      }
+     ]
+    }
+   }
+  }
+ },
+ "cleanup": {},
+ "system_acl_changes": false,
+ "user": {
+  "name": "rprt0247319b33",
+  "sid": "S-1-5-21-4239583824-265399229-1323058055-1004",
+  "group_add_status": 0,
+  "logon_sid": "S-1-5-5-0-4217830",
+  "groups": [
+   {
+    "sid": "S-1-5-21-4239583824-265399229-1323058055-513",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-1-0",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-32-545",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-4",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-2-1",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-11",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-15",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-113",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-5-0-4217830",
+    "attributes": 3221225479
+   },
+   {
+    "sid": "S-1-5-64-10",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-16-8192",
+    "attributes": 96
+   }
+  ],
+  "profile_loaded": true
+ },
+ "desktop": {
+  "name": "RPRestricted21b8cd9be7\\default",
+  "private_noninteractive": true
+ },
+ "runtime": {
+  "source": "C:\\hostedtoolcache\\windows\\Python\\3.14.8\\x64",
+  "private": "C:\\RuleProxyPrimaryWork-48787340abc9457dbd41df956c5ba068\\runtime",
+  "executable": "C:\\RuleProxyPrimaryWork-48787340abc9457dbd41df956c5ba068\\runtime\\python.exe"
+ },
+ "compartment": {
+  "code": 0,
+  "id": 4,
+  "guid": "46ad05f0-1ec2-4e8f-9ad9-f4180d413284"
+ },
+ "loopback_readiness": {
+  "ready": true,
+  "attempts": [
+   {
+    "elapsed": 0.0,
+    "ipv4": {
+     "bound": false,
+     "error": "OSError(10049, 'The requested address is not valid in its context', None, 10049, None)",
+     "winerror": 10049
+    },
+    "ipv6": {
+     "bound": false,
+     "error": "OSError(22, 'An invalid argument was supplied', None, 10022, None)",
+     "winerror": 10022
+    }
+   },
+   {
+    "elapsed": 0.251,
+    "ipv4": {
+     "bound": true
+    },
+    "ipv6": {
+     "bound": true
+    }
+   }
+  ],
+  "timeout_seconds": 20,
+  "thread_set": 0,
+  "thread_get": 4,
+  "elapsed": 0.251,
+  "worker_finished": true
+ },
+ "relay": {
+  "accepted": 0,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 4,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ }
+}

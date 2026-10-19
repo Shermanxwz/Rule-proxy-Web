@@ -1,0 +1,15 @@
+{
+ "pid": 2008,
+ "time": 1792389744.2826614,
+ "stage": "serving",
+ "requests_completed": 8,
+ "relay": {
+  "accepted": 34,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ }
+}

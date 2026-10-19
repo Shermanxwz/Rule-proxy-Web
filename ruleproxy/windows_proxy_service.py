@@ -217,6 +217,13 @@ def load_deployment(root: Path, *, secure=True) -> dict:
         required |= {"bin/windows-amd64/mihomo.exe", "ruleproxy/config.py", "ruleproxy/windows_app_process.py",
                      "ruleproxy/windows_global_runtime.py", "ruleproxy/windows_global_guard.py",
                      "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_qualification.py"}
+    if "namespace_backend_version" in value:
+        expected_state = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "RuleProxy-Web/compartments"
+        if (type(value["namespace_backend_version"]) is not int or value["namespace_backend_version"] != 1
+                or not isinstance(value.get("namespace_state_dir"), str)
+                or os.path.normcase(value["namespace_state_dir"]) != os.path.normcase(str(expected_state))):
+            raise ProxyError("invalid_deployment", "网络隔间安装记录无效，请修复安装。")
+        required |= {"ruleproxy/windows_compartment.py", "ruleproxy/windows_app_process.py"}
     if not required.issubset(value.get("files", {})):
         raise ProxyError("invalid_deployment", "Windows 安装清单缺少控制组件。")
     engine_required = {"ProxiFyre.exe", "socksify.dll", "ProxiFyre.Configuration.dll", "Topshelf.dll", "NLog.dll", "NLog.config"}
@@ -877,12 +884,16 @@ class GlobalCore:
 
 
 class Broker:
-    def __init__(self, metadata, control=None, lease_factory=None, global_factory=None, container_factory=None):
+    def __init__(self, metadata, control=None, lease_factory=None, global_factory=None, container_factory=None,
+                 namespace_factory=None):
         self.metadata = metadata
         self.control = control or ServiceControl()
         self.lease_factory = lease_factory or ProcessLease
         self.lock = threading.RLock()
         self.panel = self.core = None
+        # A core lease also exists in namespace-only mode, where this broker
+        # has no authority to stop an independently started path engine.
+        self.engine_owned = False
         self.generation = 0
         self.paths = []
         self.port = None
@@ -893,6 +904,9 @@ class Broker:
         self.container_factory = container_factory
         self.container_gate = None
         self.containers = set()
+        self.namespace_factory = namespace_factory
+        self.namespace_gate = None
+        self.namespaces = set()
 
     def _containers(self):
         if self.container_gate is None:
@@ -917,6 +931,58 @@ class Broker:
                 raise ProxyError('cleanup_incomplete', 'AppContainer 清理未能确认。')
         self.containers.clear()
 
+    def _namespaces(self):
+        if self.namespace_gate is None:
+            if self.namespace_factory is None:
+                from ruleproxy.windows_compartment import NamespaceGate
+                self.namespace_factory = NamespaceGate
+            self.namespace_gate = self.namespace_factory(self.metadata)
+        return self.namespace_gate
+
+    def recover_namespaces(self):
+        """Before accepting clients, seal compartments left by an earlier service."""
+        result = self._namespaces().purge()
+        if not isinstance(result, dict) or result.get('active') is not False:
+            raise ProxyError('cleanup_incomplete', '网络隔间遗留状态恢复未能确认。')
+        self.namespaces.clear()
+        return result
+
+    def _purge_namespaces(self):
+        if self.namespace_gate is not None:
+            result = self.namespace_gate.purge()
+            if not isinstance(result, dict) or result.get('active') is not False:
+                raise ProxyError('cleanup_incomplete', '网络隔间清理未能确认。')
+        self.namespaces.clear()
+
+    def _cleanup_failed(self, failures):
+        message = "; ".join(f"{name}: {exc}" for name, exc in failures)[:500]
+        self.error = {"code": "cleanup_incomplete", "message": message}
+        raise ProxyError("cleanup_incomplete", message)
+
+    def _purge_gates(self):
+        failures = []
+        for name, cleanup in (("AppContainer", self._purge_containers),
+                              ("网络隔间", self._purge_namespaces)):
+            try:
+                cleanup()
+            except Exception as exc:
+                failures.append((name, exc))
+        if failures:
+            self._cleanup_failed(failures)
+
+    def _stop_owned_engine(self):
+        if self.engine_owned:
+            result = self.control.set_running(False)
+            if not isinstance(result, dict) or result.get("state") != 1:
+                raise ProxyError("cleanup_incomplete", "ProxiFyre 停止未能确认。")
+            self.engine_owned = False
+
+    def _core_alive(self, expected_pid):
+        # Relay workers cannot take self.lock: stop holds it while joining them.
+        # Read a single lease reference; a simultaneous close fails closed.
+        core = self.core
+        return core is not None and core.pid == expected_pid and core.alive()
+
     def _global(self):
         if self.global_core is None:
             self.global_core = self.global_factory(self.metadata)
@@ -930,19 +996,36 @@ class Broker:
                 or status.get("dns", {}).get("active") is True)
 
     def snapshot(self):
-        engine_running = self.control.status()["state"] == 4
-        state = ("running" if self.panel else "external_conflict") if engine_running else (
-            "failed" if self.panel or self.error else "idle")
+        engine_state = self.control.status()["state"]
+        engine_running = engine_state == 4
+        lease_alive = (self.panel is not None and self.core is not None
+                       and self.panel.alive() and self.core.alive())
+        error = self.error
+        if self.panel is not None and not lease_alive and error is None:
+            error = {"code": "lease_expired", "message": "面板或核心已退出，正在关闭代理授权。"}
+        external = engine_state != 1 and not self.engine_owned
+        namespace_ready = bool(lease_alive and not self.paths and not self.engine_owned
+                               and not error and not external)
         global_active = self._global_active()
-        if global_active:
+        if error:
+            state = "failed"
+        elif global_active:
             state = "global_conflict"
+        elif external:
+            state = "external_conflict"
+        elif namespace_ready or (lease_alive and self.engine_owned and engine_running):
+            state = "running"
+        else:
+            state = "failed" if self.panel is not None or self.engine_owned else "idle"
         return {"backend": "ProxiFyre", "mode": "application_proxy", "strict_isolation": False,
-            "state": state, "running": engine_running and self.panel is not None,
-            "engine_running": engine_running, "generation": self.generation,
+            "state": state, "running": state == "running",
+            "engine_running": engine_running, "engine_owned": self.engine_owned, "generation": self.generation,
             "owner_pid": self.panel.pid if self.panel else None, "path_count": len(self.paths),
-            "proxy_port": self.port, "limitations": list(policy.LIMITATIONS), "error": self.error,
+            "proxy_port": self.port, "limitations": list(policy.LIMITATIONS), "error": error,
             "global_active": global_active, "container_count": len(self.containers),
-            "cleanup_pending": self.error is not None and self.error.get('code') == 'cleanup_incomplete'}
+            "namespace_count": len(self.namespaces),
+            "namespace_ready": namespace_ready,
+            "cleanup_pending": error is not None and error.get('code') == 'cleanup_incomplete'}
 
     def _clear(self):
         for process in (self.panel, self.core):
@@ -952,19 +1035,34 @@ class Broker:
         self.paths, self.port = [], None
 
     def stop(self):
-        self._purge_containers()
-        result = self.control.set_running(False)
-        self._clear()
+        owned = self.panel is not None or self.engine_owned
+        failures = []
+        for name, cleanup in (("AppContainer", self._purge_containers),
+                              ("网络隔间", self._purge_namespaces),
+                              ("ProxiFyre", self._stop_owned_engine)):
+            try:
+                cleanup()
+            except Exception as exc:
+                failures.append((name, exc))
+        if failures:
+            self._cleanup_failed(failures)
+        try:
+            self._clear()
+        except Exception as exc:
+            self._cleanup_failed([("进程句柄", exc)])
         self.error = None
-        return {"stopped": result["state"] == 1, "generation": self.generation}
+        return {"stopped": True, "not_owned": not owned, "generation": self.generation}
 
     def check_lease(self):
         with self.lock:
-            if self.panel and (not self.panel.alive() or not self.core.alive()):
+            if ((self.panel is not None and (not self.panel.alive() or self.core is None or not self.core.alive()))
+                    or (self.error is not None and self.error.get("code") == "cleanup_incomplete")
+                    or (self.engine_owned and self.panel is None)):
+                had_error = self.error is not None
                 try:
                     self.stop()
                 except Exception as exc:
-                    if not self.error:
+                    if not had_error:
                         _log_service_error("lease_cleanup", exc)
                     self.error = {"code": "cleanup_incomplete", "message": str(exc)[:500]}
             if self.global_panel and (not self.global_panel.alive() or not self._global().is_running()):
@@ -982,21 +1080,32 @@ class Broker:
     def shutdown(self):
         """An SCM/broker exit is not the user's explicit network restore."""
         with self.lock:
-            if self.panel is not None:
+            failures = []
+            try:
                 self.stop()
-            else:
-                self._purge_containers()
+            except Exception as exc:
+                failures.append(("应用代理", exc))
+            global_stopped = True
             if self.global_core is not None:
-                self.global_core.stop(normal=False)
-            if self.global_panel is not None:
-                self.global_panel.close()
-                self.global_panel = None
+                try:
+                    self.global_core.stop(normal=False)
+                except Exception as exc:
+                    global_stopped = False
+                    failures.append(("全局保护", exc))
+            if global_stopped and self.global_panel is not None:
+                try:
+                    self.global_panel.close()
+                    self.global_panel = None
+                except Exception as exc:
+                    failures.append(("全局进程句柄", exc))
+            if failures:
+                self._cleanup_failed(failures)
 
     def _global_handle(self, request, caller_pid, caller_sid):
         operation = request["op"]
         if operation == "global_status":
             result = self._global().status()
-            if self.control.status()["state"] == 4 and self.panel is None:
+            if self.control.status()["state"] != 1 and not self.engine_owned:
                 result.update(supported=False, state="external_conflict",
                               detail="ProxiFyre 已由其他程序启动，请先停止该程序的代理。")
             return result
@@ -1020,6 +1129,9 @@ class Broker:
             if caller_sid != self.metadata["owner_sid"] or request["client_pid"] != caller_pid:
                 raise ProxyError("access_denied", "控制请求身份不匹配。")
             self.check_lease()
+            if (self.error is not None and self.error.get("code") == "cleanup_incomplete"
+                    and request["op"] in {"container_allow", "namespace_allow", "apply", "namespace_prepare"}):
+                raise ProxyError("cleanup_incomplete", "旧授权尚未清理完成，请先停止代理后重试。")
             # A container gate belongs to the same held panel/core lease as the
             # path policy. An arbitrary same-user pipe client cannot choose a
             # different port or silently replace another panel's gates.
@@ -1044,6 +1156,31 @@ class Broker:
                     raise ProxyError('cleanup_incomplete', 'AppContainer 撤销未能确认。')
                 self.containers.discard(request['container'])
                 return result
+            # A compartment gate is bound to the panel's own Job handle and the
+            # held core/port, exactly like the path policy and the container gate.
+            if request["op"] == "namespace_allow":
+                if (self.panel is None or self.core is None or self.panel.pid != caller_pid
+                        or not self.panel.alive() or not self.core.alive()
+                        or request['proxy_port'] != self.port):
+                    raise ProxyError('instance_conflict', '网络隔间必须使用当前面板持有的核心和代理端口。')
+                name = request['container']
+                # Retain intent even if the bind fails midway; explicit stop and
+                # dead-owner cleanup must still seal the compartment afterwards.
+                self.namespaces.add(name)
+                core_pid = self.core.pid
+                result = self._namespaces().allow(name, request["proxy_port"], caller_pid, request["job_handle"],
+                    core_pid=core_pid, core_alive=lambda: self._core_alive(core_pid))
+                if not isinstance(result, dict) or result.get('active') is not True:
+                    raise ProxyError('namespace_failed', '网络隔间授权未能确认。')
+                return result
+            if request["op"] == "namespace_revoke":
+                if self.panel is not None and self.panel.pid != caller_pid:
+                    raise ProxyError('instance_conflict', '另一面板正在管理 Windows 代理。')
+                result = self._namespaces().revoke(request["container"])
+                if not isinstance(result, dict) or result.get('active') is not False:
+                    raise ProxyError('cleanup_incomplete', '网络隔间撤销未能确认。')
+                self.namespaces.discard(request['container'])
+                return result
             if request["op"] in {"global_status", "global_start", "global_stop", "global_select_node"}:
                 return self._global_handle(request, caller_pid, caller_sid)
             if request["op"] == "status":
@@ -1051,19 +1188,18 @@ class Broker:
             if self.panel and self.panel.pid != caller_pid:
                 raise ProxyError("instance_conflict", "另一面板正在管理 Windows 代理。")
             if request["op"] == "stop":
-                if self.panel is None:
-                    self._purge_containers()
-                    return {"stopped": True, "not_owned": True, "generation": self.generation}
                 return self.stop()
             if self._global_active():
                 raise ProxyError("mode_conflict", "全局接管或故障保护仍在生效，请先显式停止全局模式。")
             if request["generation"] != self.generation + 1:
                 raise ProxyError("generation_conflict", "配置状态已改变，请刷新后重试。")
+            if request["op"] == "namespace_prepare":
+                return self._prepare_namespace_core(request, caller_pid, caller_sid)
             compiled = policy.build_policy(request["paths"], request["proxy_port"],
                 root=self.metadata["root"], proxifyre_root=self.metadata["proxifyre_root"],
                 windows_root=os.environ.get("SystemRoot", r"C:\Windows"))
             verify_selected_paths(compiled["proxies"][0]["appNames"])
-            if (self.panel is not None and self.core.pid == request["mihomo_pid"]
+            if (self.engine_owned and self.panel is not None and self.core.pid == request["mihomo_pid"]
                     and self.port == request["proxy_port"] and self.control.status()["state"] == 4
                     and {os.path.normcase(path) for path in self.paths} == {
                         os.path.normcase(path) for path in compiled["proxies"][0]["appNames"]}):
@@ -1075,16 +1211,20 @@ class Broker:
                 expected_core = Path(self.metadata["root"]) / "bin/windows-amd64/mihomo.exe"
                 if os.path.normcase(core.image_path()) != os.path.normcase(str(expected_core)):
                     raise ProxyError("invalid_process", "必须使用安装包内的 Mihomo 核心。")
-                if self.containers and (self.port != request['proxy_port']
-                        or self.core is None or self.core.pid != request['mihomo_pid']):
-                    self._purge_containers()
                 self.control.verify(self.metadata)
                 config = Path(self.metadata["proxifyre_root"]) / "app-config.json"
                 old = config.read_bytes() if config.is_file() else None
-                was_running = self.control.status()["state"] == 4
-                if was_running and self.panel is None:
+                engine_state = self.control.status()["state"]
+                was_running = engine_state == 4
+                if engine_state != 1 and not self.engine_owned:
                     raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
-                self.control.set_running(False)
+                if (self.port != request['proxy_port'] or self.core is None
+                        or self.core.pid != request['mihomo_pid']):
+                    self._purge_gates()
+                try:
+                    self._stop_owned_engine()
+                except Exception as exc:
+                    self._cleanup_failed([("ProxiFyre", exc)])
                 try:
                     temporary = config.with_suffix(".ruleproxy.tmp")
                     if temporary.is_symlink() or config.is_symlink():
@@ -1094,15 +1234,26 @@ class Broker:
                         output.flush()
                         os.fsync(output.fileno())
                     os.replace(temporary, config)
-                    self.control.set_running(True)
+                    # StartService may time out after starting the process. Keep
+                    # cleanup authority until a confirmed stop even on failure.
+                    self.engine_owned = True
+                    result = self.control.set_running(True)
+                    if not isinstance(result, dict) or result.get("state") != 4:
+                        raise ProxyError("backend_start_failed", "ProxiFyre 启动未能确认。")
                 except BaseException:
-                    self.control.set_running(False)
-                    if old is None:
-                        config.unlink(missing_ok=True)
-                    else:
-                        config.write_bytes(old)
-                    if was_running:
-                        self.control.set_running(True)
+                    try:
+                        self._stop_owned_engine()
+                        if old is None:
+                            config.unlink(missing_ok=True)
+                        else:
+                            config.write_bytes(old)
+                        if was_running:
+                            self.engine_owned = True
+                            result = self.control.set_running(True)
+                            if not isinstance(result, dict) or result.get("state") != 4:
+                                raise ProxyError("backend_start_failed", "旧 ProxiFyre 配置恢复未能确认。")
+                    except Exception as exc:
+                        self._cleanup_failed([("代理配置恢复", exc)])
                     raise
                 self._clear()
                 self.panel, self.core = panel, core
@@ -1115,6 +1266,44 @@ class Broker:
                 for process in (panel, core):
                     if process:
                         process.close()
+
+    def _prepare_namespace_core(self, request, caller_pid, caller_sid):
+        """Bind an authenticated core lease without applying any path proxy rule."""
+        state = self.control.status()["state"]
+        if state != 1 and not self.engine_owned:
+            raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
+        if (self.panel is not None and not self.paths and not self.engine_owned
+                and self.core.pid == request["mihomo_pid"]
+                and self.port == request["proxy_port"]):
+            self.generation = request["generation"]
+            return {**self.snapshot(), "unchanged": True}
+        panel = self.lease_factory(caller_pid, caller_sid)
+        core = None
+        try:
+            core = self.lease_factory(request["mihomo_pid"], caller_sid)
+            expected = Path(self.metadata["root"]) / "bin/windows-amd64/mihomo.exe"
+            if os.path.normcase(core.image_path()) != os.path.normcase(str(expected)):
+                raise ProxyError("invalid_process", "必须使用安装包内的 Mihomo 核心。")
+            changed = self.port != request["proxy_port"] or self.core is None or self.core.pid != request["mihomo_pid"]
+            if changed:
+                self._purge_gates()
+            # A transition from compatibility mode releases only our own path
+            # engine. Namespace-only operation never starts the engine.
+            try:
+                self._stop_owned_engine()
+            except Exception as exc:
+                self._cleanup_failed([("ProxiFyre", exc)])
+            self._clear()
+            self.panel, self.core = panel, core
+            panel = core = None
+            self.port, self.paths = request["proxy_port"], []
+            self.generation = request["generation"]
+            self.error = None
+            return self.snapshot()
+        finally:
+            for process in (panel, core):
+                if process:
+                    process.close()
 
 
 class Overlapped(ctypes.Structure):
@@ -1312,6 +1501,7 @@ def service_main():
             control.verify(metadata)
             broker = Broker(metadata, control)
             broker.recover_containers()
+            broker.recover_namespaces()
             report(4)
             serve(broker, stopping)
             report(1)

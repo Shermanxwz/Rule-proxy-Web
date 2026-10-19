@@ -1,8 +1,8 @@
 # RuleProxy Web
 
-本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 使用 ProxiFyre 按程序路径转发，Linux 使用网络命名空间隔离。全局模式使用系统代理，不使用 TUN。
+本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 兼容模式使用 ProxiFyre 按程序路径转发，另提供“独立网络（实验）”；Linux 使用网络命名空间隔离。全局模式使用系统代理，不使用 TUN。
 
-**版本 0.3.0。Windows 按应用模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
+**版本 0.3.0。Windows 按应用的兼容模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
 
 Windows 的目标是让自定义应用走所选代理节点。它不能提供 Linux 同等的 DNS、子进程和故障隔离；具体边界见下文。Linux 按应用功能保持原有实现。
 
@@ -12,7 +12,13 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 全局模式只把当前用户的系统代理指向本机核心（Windows：WinINet 系统代理；Linux：GNOME 兼容桌面的 gsettings），不安装 TUN，不改防火墙、路由和 DNS，不需要额外权限组件。开启前保存原系统代理，停止或核心退出时恢复；独立的同用户恢复进程会在面板意外退出后尝试还原，恢复失败时保留记录供重试。系统代理指向不可用端口期间，遵循系统代理的程序可能暂时无法联网。不读取系统代理的程序会直连。
 
-Linux 按应用模式继续使用网络命名空间隔离。Windows 的“AppContainer（实验）”已在 Windows Server 2025 验证受控 CLI，以及普通用户 Web 面板至 SYSTEM 服务的子孙进程链路；这不代表任意用户软件已通过兼容验收。当前安装包的实际通过范围仍须核对对应 SHA-256 的验收记录。[浏览器对照](https://github.com/Shermanxwz/Rule-proxy-Web/blob/main/verification/windows-2026-10-19/appcontainer-browser-experiment.json)中 Edge、Chrome、Firefox 在容器外正常、容器内均未完成渲染，该实验选项当前不支持这些浏览器。商店应用与共用原应用资料模式也不支持。
+Linux 按应用模式继续使用网络命名空间隔离。Windows 的“独立网络（实验）”由 SYSTEM 服务建立只有回环的网络隔间，把启动前的空 Job 绑定进去，再提供通向所持有 Mihomo 进程的 TCP 中继。实验模式不启动 ProxiFyre 路径转发，安装程序仍会准备兼容模式所需组件。商店应用与共用原应用资料模式不支持。
+
+**独立网络（实验）已知存在系统 DNS 和系统服务代办绕过，不能提供 Linux 等效隔离，也未通过产品验收。** [Windows Server 2025 普通用户实验](verification/windows-2026-10-19/compartment/primary-abi-fixed/assessment.json)确认 Edge 在保留低完整性受限子进程的情况下可以渲染代理页面，但同一普通账户仍可通过 WMI 启动隔间外进程并直连。六类系统 DNS 查询均有网卡外发记录，甚至 `getaddrinfo` 返回失败时也会外发。两种受限主令牌配置使 Python、PowerShell 或 Edge 启动失败，不能把这些失败算作防泄漏成功。此前的 [AppContainer 浏览器实验](verification/windows-2026-10-19/appcontainer-browser-experiment.json)同样未通过浏览器兼容验收。
+
+[Windows 11 补测记录](verification/windows-2026-10-19/compartment/preflight-native/assessment.json)在修复便携 Python 漏文件后，确认六类普通用户系统 DNS 查询外发，以及普通用户 WMI 在默认隔间创建子进程并直连。普通用户 Edge 的隔间内外页面对照仍成功。整轮实验另有状态文件写入失败和 PowerShell 退出超时，仍按失败归档；它不代表安装版产品或可见界面验收通过。[此前含无效 Python 探针的记录](verification/windows-2026-10-19/compartment/native-abi-fixed/assessment.json)保留供对照。
+
+[PSEC 与隔间组合实验](verification/windows-2026-10-19/compartment/psec-smoke-first/assessment.json)已在实际更新至 `26200.9711` 的 Windows 11 上运行：普通用户中继对照和 PSEC 接口探测成功，但执行器随后退出，尚未取得应用、子进程或浏览器成功运行的证据。该方向仍未通过功能验证，更未通过 DNS、系统服务和产品验收。 [官方 26H2 基础镜像对照](verification/windows-2026-10-19/compartment/psec-smoke-media/assessment.json)的实际版本为 `26300.9457`，固定执行器在能力检查阶段报告不支持所需的回环入口，没有尝试启动应用；它不能替代更新后的 `26200.9711` 运行，也不能用于宣称组合隔离通过。
 
 Windows 卸载前请先用原安装账户停止全局代理；如果改用其他管理员账户且原连接标志尚未恢复，卸载会保留恢复组件并提示先完成恢复。恢复检测到设置冲突时也会保留记录，不覆盖无法确认归属的设置。
 
@@ -40,22 +46,24 @@ Windows 卸载前请先用原安装账户停止全局代理；如果改用其他
 |---|---|
 | 当前账户面板与按应用 Mihomo | 读取用户 YAML、管理节点、启动用户应用；沿用当前账户的实际启动权限 |
 | 全局 Mihomo | 与按应用模式相同的本机用户核心，只监听 127.0.0.1；系统代理指向它，停止后恢复 |
-| `RuleProxyControl` | 固定入口的 SYSTEM 服务；验证安装身份、请求结构、路径和核心进程，再写入规则、控制官方引擎 |
+| `RuleProxyControl` | 固定入口的 SYSTEM 服务；验证安装身份、请求结构、路径和核心进程；兼容模式控制官方引擎，实验模式管理隔间、Job 绑定和中继 |
 | `ProxiFyreService` | 官方 LocalSystem 服务，手动启动；把匹配应用的受支持流量交给本机 Mihomo SOCKS 入口 |
 | 用户状态 | `%LOCALAPPDATA%\RuleProxyWebSafe`：导入配置、设置、日志和浏览器私有配置 |
 | 安装状态与日志 | `%ProgramData%\RuleProxy-Web`：归属、续装状态和安装日志 |
 
-控制服务不负责启动应用窗口。应用由面板在当前权限下创建，并放入本工具持有的 Windows Job 中。按应用启动时同时设置指向本机 HTTP 代理的环境变量，供支持代理的 CLI 及其子进程继承；Chromium 另外使用显式代理、关闭 QUIC 及限制非代理 WebRTC UDP。忽略这些设置的应用仍依赖路径转发。浏览器默认使用各应用独立的私有配置，也可选择下文的原应用数据模式。
+控制服务不负责启动应用窗口。应用由面板在当前权限下创建，并放入本工具持有的 Windows Job 中。按应用启动时同时设置指向本机 HTTP 代理的环境变量，供支持代理的 CLI 及其子进程继承；Chromium 另外使用显式代理、关闭 QUIC 及限制非代理 WebRTC UDP。兼容模式下，忽略这些设置的应用仍依赖路径转发。实验模式先完成 Job 绑定，再恢复暂停的应用；未能建立隔间或中继时拒绝启动，不回退为普通联网。浏览器默认使用各应用独立的私有配置，也可选择下文的原应用数据模式。
 
 从源码使用时也可双击 `Setup-Windows.cmd`，采用相同的联网准备流程，下载缓存位于源码下的 `.windows-cache`。依赖准备在发起安装的账户下完成，失败时尚未执行系统安装。已准备的个人离线包 `RuleProxy-Web-0.3.0-windows-x64-personal.zip` 含完整固定依赖，直接进入安装；完整断网安装验收仍待完成，公开发布附件为联网安装包。
 
 ## Windows 应用规则与边界
 
-核心运行时，应用代理开关会同步所有已启用应用的主 exe 和“相关程序路径”。每个应用最多填写 16 个相关路径，所有启用项去重后合计最多 128 个路径；不接受通配符、系统服务程序或代理组件本身。添加应用时可搜索本机清单，也可手动填写本地 exe 的绝对路径。
+以下路径规则及表格描述兼容模式。独立网络（实验）条目不加入路径规则，仅约束本工具新建 Job 中实例的直接网络访问；系统服务代办及其创建的进程仍可能在隔间之外。隔间的状态由受保护日志记录；同次系统启动内仅复用已确认清空的自有隔间，服务异常后无法确认清空时要求重启。已绑定 Job 的隔间目前不会主动删除，避免 Windows 返回 1359 后继续复用不可靠状态；每次启动最多保留 128 个自有隔间。
+
+核心运行时，应用代理开关会同步已启用兼容条目的主 exe 和“相关程序路径”。每个应用最多填写 16 个相关路径，所有启用项去重后合计最多 128 个路径；不接受通配符、系统服务程序或代理组件本身。添加应用时可搜索本机清单，也可手动填写本地 exe 的绝对路径。
 
 Windows 应用清单读取当前账户的 Appx/MSIX 注册信息，识别具有独立 exe 入口的商店桌面应用。新条目保存软件包家族与应用身份，在启动或同步规则前重新读取本机注册路径，并将当前软件包内经过验证的 exe 一并加入规则，覆盖异名辅助程序。包内其他入口、更新器也可能受影响；这是整个软件包的范围。缺少注册信息、出现歧义、遇到重解析目录或超出扫描上限时拒绝启动，不猜测路径或扫描整个 WindowsApps。UWP、宿主应用和需要系统激活的入口不在此范围。历史条目只在旧路径仍能对应唯一当前注册入口时自动迁移，否则请重新添加当前清单条目。
 
-**规则按程序路径作用，不能只限定面板启动的某一个 PID。** 同路径的其他实例也会受影响；已有连接可能要重启应用后才按新规则建立。上游对含目录分隔符的条目使用完整路径文本的“包含匹配”，因此少数包含同样文本的相似路径也可能命中。[官方匹配规则](https://github.com/wiresock/proxifyre/blob/v2.6.4/docs/configuration.md#application-matching-and-rule-order)
+**兼容模式的规则按程序路径作用，不能只限定面板启动的某一个 PID。** 同路径的其他实例也会受影响；已有连接可能要重启应用后才按新规则建立。上游对含目录分隔符的条目使用完整路径文本的“包含匹配”，因此少数包含同样文本的相似路径也可能命中。[官方匹配规则](https://github.com/wiresock/proxifyre/blob/v2.6.4/docs/configuration.md#application-matching-and-rule-order)
 
 同 exe 的新实例使用同一路径规则。已识别商店软件包内的辅助 exe 自动纳入；包外或普通安装程序的异名辅助 exe 仍需加入“相关程序路径”。Job 管理进程生命周期不代表路由规则会自动继承。通过既有系统服务代发的流量也不能可靠归属于所选应用。
 
@@ -74,7 +82,7 @@ Windows 应用清单读取当前账户的 Appx/MSIX 注册信息，识别具有�
 
 上游的 [IPv6 与分片说明](https://github.com/wiresock/proxifyre/blob/v2.6.4/docs/configuration.md#protocols-and-address-families) 和 [UDP 53 处理源码](https://github.com/wiresock/proxifyre/blob/v2.6.4/netlib/src/proxy/socks_local_router.h) 是这些限制的依据。本项目的监视器会尝试处理核心或后端退出，Job 会管理自身创建的进程；两者都不等于持久的网络拒绝边界。
 
-正常停止顺序是：先关闭本工具启动的应用，再停止 ProxiFyre 引擎，最后停止自己的 Mihomo。其他已存在实例不会被本工具强杀，但路径规则撤销后它们可能恢复直连。关闭浏览器页面不会停止面板；“退出面板”会执行应用和核心的停止流程。
+兼容模式的正常停止顺序是：先关闭本工具启动的应用，再停止 ProxiFyre 引擎，最后停止自己的 Mihomo。其他已存在实例不会被本工具强杀，但路径规则撤销后它们可能恢复直连。关闭浏览器页面不会停止面板；“退出面板”会执行应用和核心的停止流程。
 
 ## Linux 开始使用
 
@@ -150,6 +158,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:ProgramFiles\RuleP
 卸载只处理归属已验证的控制服务、官方 ProxiFyre 安装、程序文件及指向本安装的用户快捷方式/启动项。保留共享 NDIS 驱动、VC 运行库及用户数据。先停止本安装的应用与面板有助于正常关闭；若共享组件要求重启，会返回 `3010`。不要直接删除 Program Files 目录来代替卸载。
 
 ## 构建与验证状态
+
+开发分支的来源、合并范围和提交历史见[主线收拢记录](verification/windows-2026-10-19/main-consolidation.json)。实验报告统一保存在 [verification](verification/)；原独立 results 分支的六轮原始报告见[实验档案及逐文件校验清单](verification/windows-2026-10-19/compartment/lab-history/source-manifest.json)。失败与未完成实验保留原状态，旧实现仍可从记录中的历史提交追溯。
 
 ```sh
 python3 -B -m unittest discover -s tests -v

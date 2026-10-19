@@ -1,0 +1,1 @@
+{"report": "C:\\RuleProxyRestrictedPrimaryLab\\report.json", "error": "RuntimeError('private ACL grant failed: Successfully processed 0 files; Failed processing 1 files\\n*S-1-5-21-1552666808-363479983-1570655564-31337: No mapping between account names and security IDs was done.\\n')"}

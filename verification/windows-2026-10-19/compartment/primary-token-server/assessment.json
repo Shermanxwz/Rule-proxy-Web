@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "source_commit": "ac0eeac4dfb17cbd3d0dab0304f4c09f4ae6e864",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39203489932",
+  "artifact_id": 12163814402,
+  "artifact_sha256": "5c4ed386f2eeab642a0e8395b162c55702cabb05b8562f7251728270d59488fb",
+  "product_qualified": false,
+  "privacy_qualified": false,
+  "decision": "not_qualified",
+  "ordinary_actor_sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+  "facts": {
+    "plain_edge_inside_and_outside_rendered": true,
+    "plain_edge_low_integrity_restricted_or_appcontainer_child_observed": true,
+    "plain_ordinary_wmi_inside_direct_fixture_hits": 1,
+    "bits_ordinary_outside_positive_control": false,
+    "restricted_python_started": false,
+    "restricted_powershell_started": false,
+    "restricted_edge_rendered": false
+  },
+  "limits": [
+    "Job reported success means experiment completed, not isolation accepted.",
+    "Plain ordinary-user API failures still correlate with outbound nonce DNS; the service may broker them.",
+    "Restricted variants did not execute usable Python/PowerShell actors and Edge did not render. Zero observed queries from actors that failed initialization cannot qualify denial.",
+    "BITS outside returned ERROR_NOT_LOGGED_ON; no ordinary-user BITS blocking inference is valid.",
+    "Observed low-integrity child tokens are not a complete browser sandbox policy attestation.",
+    "Packet counters may contain repeated records at multiple NIC capture points; they are not unique query counts.",
+    "The observer does not prove complete packet absence, encrypted/TCP DNS coverage, or process attribution."
+  ],
+  "dns_api_wire_join": [
+    {
+      "variant": "plain",
+      "api": "getaddrinfo_standard",
+      "qname_sha256": "6bb7ac8a274cacc9422f85c103fe38862b681279ecdc564df12a870b5f8330bb",
+      "exit_code": 0,
+      "completed_api_rows": 1,
+      "outbound_dns_question_records": 2
+    },
+    {
+      "variant": "plain",
+      "api": "DnsQuery_W_standard",
+      "qname_sha256": "83646611d022664530e1641a8f533d44d6ccb3eeb232a579439792efb1624c3c",
+      "exit_code": 0,
+      "completed_api_rows": 1,
+      "outbound_dns_question_records": 2
+    },
+    {
+      "variant": "plain",
+      "api": "DnsQuery_W_wire",
+      "qname_sha256": "7d311eb62330e28f874bea9ceb1ac5b86bceebeab9b05ac19ec9ec45216c0dba",
+      "exit_code": 0,
+      "completed_api_rows": 1,
+      "outbound_dns_question_records": 2
+    },
+    {
+      "variant": "plain",
+      "api": "DnsQueryEx_standard",
+      "qname_sha256": "0d7f3a412ec3315691bce2099371316ebb6c670acea039ae7898e1cb5d2f90ab",
+      "exit_code": 0,
+      "completed_api_rows": 1,
+      "outbound_dns_question_records": 2
+    },
+    {
+      "variant": "plain",
+      "api": "DnsQueryEx_wire",
+      "qname_sha256": "653604bf97dddb487ff41ab131578c74428c9a3dd2dec941421b4ea1ea75168b",
+      "exit_code": 0,
+      "completed_api_rows": 1,
+      "outbound_dns_question_records": 4
+    },
+    {
+      "variant": "plain",
+      "api": "Resolve-DnsName_standard",
+      "qname_sha256": "89765bc96f5c6b4cc63d61d0fa8032632a11d94c477bceca3268edc4007f1d86",
+      "exit_code": 0,
+      "completed_api_rows": 1,
+      "outbound_dns_question_records": 4
+    },
+    {
+      "variant": "write_custom_logon",
+      "api": "getaddrinfo_standard",
+      "qname_sha256": "f9bfec1595c8cb94e501db378c4e6dddb3161c7e003706db72868550eab0e457",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_logon",
+      "api": "DnsQuery_W_standard",
+      "qname_sha256": "fe3148f43b469c0c189f52acf2e25cab60d074301cabae16a7ac9a257e37c83b",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_logon",
+      "api": "DnsQuery_W_wire",
+      "qname_sha256": "d08cb4660c99d785a8d0bd959c3ceb2505c362da7d8bfc2f455e8a55913559ca",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_logon",
+      "api": "DnsQueryEx_standard",
+      "qname_sha256": "8d9d912d671118f915a4acd3e2e9aa0e859ee6c0d890d14ea84ce5436b678fd3",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_logon",
+      "api": "DnsQueryEx_wire",
+      "qname_sha256": "df5985b9f034e460032d65d9ed91baea9ecf522cbec44e759b6e908f1ffdc9a5",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_logon",
+      "api": "Resolve-DnsName_standard",
+      "qname_sha256": "fe633669e5c7ddfa6cdfec9e6c680959501293162db310de444fbd727d67658d",
+      "exit_code": 4294901760,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_rc_logon",
+      "api": "getaddrinfo_standard",
+      "qname_sha256": "1886e573fa682fe733fdd710e4dcf4f42b3182e7614482dadfb1fa3337e0e296",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_rc_logon",
+      "api": "DnsQuery_W_standard",
+      "qname_sha256": "ee2da76cc16dadc9e865827ced7fab8c98b1776d66fed56ff846926f6ac2a13c",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_rc_logon",
+      "api": "DnsQuery_W_wire",
+      "qname_sha256": "fa73782aef2d860cee503f661b28dd2e661ebc6d91b95262bd9a565a34b19e1f",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_rc_logon",
+      "api": "DnsQueryEx_standard",
+      "qname_sha256": "095f221737604435240c78c3be7ef3a3c369ff3ce70ffa6d2d3d1bf539a046d9",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_rc_logon",
+      "api": "DnsQueryEx_wire",
+      "qname_sha256": "079b99a7e19eecd37abaad00a54d44d27a28b7d31b51bdc963dd4c556c23c4c2",
+      "exit_code": 3221225794,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    },
+    {
+      "variant": "write_custom_rc_logon",
+      "api": "Resolve-DnsName_standard",
+      "qname_sha256": "b7e35f3808cc40504d031f7aa4e6939af33c0178ea0ab350cee92e5a337dc714",
+      "exit_code": 4294901760,
+      "completed_api_rows": 0,
+      "outbound_dns_question_records": 0
+    }
+  ],
+  "evidence_files_sha256": {
+    "dns-wire-summary.json": "7cd439447dad4684a5d3d4a66c0d29914e089fda3c28cee8f8bedd865463f66c",
+    "report.json": "d7e4e8d8fb121525afc5c5f9e909feda7b45ea81843d8825c02e8e316e10a441"
+  }
+}

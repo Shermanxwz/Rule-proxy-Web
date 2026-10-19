@@ -1,0 +1,65 @@
+{
+ "started": 1792385454.232694,
+ "identity": "S-1-5-18",
+ "scope": "disposable primary-token compatibility experiment; no product qualification",
+ "variants": {},
+ "cleanup": {
+  "user_deleted": 0
+ },
+ "system_acl_changes": false,
+ "user": {
+  "name": "rprt89a68cc2cb",
+  "sid": "S-1-5-21-4239583824-265399229-1323058055-1004",
+  "group_add_status": 0,
+  "logon_sid": "S-1-5-5-0-4925442",
+  "groups": [
+   {
+    "sid": "S-1-5-21-4239583824-265399229-1323058055-513",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-1-0",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-32-545",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-4",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-2-1",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-11",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-15",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-113",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-5-0-4925442",
+    "attributes": 3221225479
+   },
+   {
+    "sid": "S-1-5-64-10",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-16-8192",
+    "attributes": 96
+   }
+  ]
+ },
+ "error": "RuntimeError('private ACL grant failed: Successfully processed 0 files; Failed processing 1 files\\n*S-1-5-21-1552666808-363479983-1570655564-31337: No mapping between account names and security IDs was done.\\n')",
+ "traceback": "Traceback (most recent call last):\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_restricted_primary_lab.py\", line 292, in run\n    self.privileges();self.make_user();self.make_desktop();self.copy_runtime()\n                      ~~~~~~~~~~~~~~^^\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_restricted_primary_lab.py\", line 140, in make_user\n    self.grant(self.work,[self.user_sid,'S-1-5-12',self.custom,self.logon_sid])\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_restricted_primary_lab.py\", line 149, in grant\n    if cp.returncode:raise RuntimeError('private ACL grant failed: '+cp.stdout+cp.stderr)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: private ACL grant failed: Successfully processed 0 files; Failed processing 1 files\n*S-1-5-21-1552666808-363479983-1570655564-31337: No mapping between account names and security IDs was done.\n\n",
+ "finished": 1792385454.3097029
+}

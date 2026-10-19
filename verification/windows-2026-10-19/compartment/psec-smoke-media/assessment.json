@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "run_id": 39220167668,
+  "job_id": 117953548874,
+  "tested_commit": "a6a38caece1099babc8e67eb2f7622ae8a232525",
+  "artifact_id": 12172336486,
+  "artifact_sha256": "6d4ede4ef13874cc9ee8ac03cdb4881c66c2aab7a2a65a0cdcb9a017764bb68b",
+  "source_files": {
+    "guest-result.json": "ca288fd1f9d413c197484680046588e46f3baa303e55858c7675b93f77eee87a",
+    "native-product-summary.json": "9c04423862fc1c80b73299c73590e1ea6103f2177cba2245e81e1e7fa0f65c82"
+  },
+  "source_files_byte_exact": true,
+  "platform": "Windows 11 Enterprise Evaluation 26H2 x64",
+  "os": {
+    "ubr": 9457,
+    "native_architecture": "AMD64",
+    "build": 26300,
+    "product_type": "WinNT"
+  },
+  "install_media": {
+    "profile": "26h2",
+    "actual_build": 26300,
+    "iso_sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+    "actual_ubr": 9457
+  },
+  "host_iso": {
+    "url": "https://software-static.download.prss.microsoft.com/dbazure/26300.9457.260913-1737.26h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_en-us.iso",
+    "sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+    "bytes": 8225329152,
+    "download_page": "https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise",
+    "hash_source": "https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file",
+    "build": 26300,
+    "ubr": 9457,
+    "verified": true
+  },
+  "elapsed_total_seconds": 881.93,
+  "decision": "fixed_executor_rejected_required_capability_before_execution",
+  "functionality_passed": false,
+  "privacy_qualified": false,
+  "product_acceptance": false,
+  "linux_equivalent_isolation": false,
+  "checks": {
+    "outside_fixture": true,
+    "ordinary_relay_control": true,
+    "ordinary_launcher_in_cid": true,
+    "psec_selected": false,
+    "psec_actor_in_cid": false,
+    "psec_child_in_cid": false,
+    "proxy_request": false,
+    "normal_exit": false,
+    "outer_job_empty": true,
+    "account_cleanup": true,
+    "browser_render": false
+  },
+  "probe": {
+    "tier": null,
+    "needsDaclAugmentation": null,
+    "probes": {
+      "baseContainerApiPresent": true,
+      "nativeCaptureAvailable": true,
+      "guardedCaptureAvailable": false,
+      "bfscfgPresent": false,
+      "bfsCompiledIn": false,
+      "baseContainerSupportsDenyPaths": true,
+      "baseContainerSupportsEnumeratePaths": false,
+      "baseContainerSupportsIngressHostLoopbackAllow": false,
+      "isolationSessionAvailable": false,
+      "hyperlightAvailable": false,
+      "uiCapabilities": {
+        "canBlockClipboardRead": true,
+        "canBlockClipboardWrite": true,
+        "canBlockInputInjection": true,
+        "canBlockInputMethodChanges": true,
+        "canBlockExternalUiObjects": true,
+        "canBlockGlobalUiNamespace": true,
+        "canBlockDesktopSwitching": true,
+        "canBlockLogoffOrShutdown": true,
+        "canBlockSystemParameterChanges": true,
+        "canBlockDisplaySettingsChanges": true
+      }
+    },
+    "error": "network.ingress.hostLoopback='allow' is not supported by this version of Windows; host-loopback ingress requires native ProcessContainer support"
+  },
+  "observations": [
+    "The ISO passed the fixed official SHA-256 and size checks, and the actual installed guest was 26300.9457.",
+    "The ordinary unelevated launcher ran in compartment 2 and read the controlled response through the relay.",
+    "The fixed executor probe did not select base-container for this policy: ingress host-loopback support and enumerate-paths support were reported false.",
+    "No actor, child or browser execution was attempted after the failed capability gate.",
+    "Job, relay, fixture and temporary account/profile cleanup succeeded."
+  ],
+  "limits": [
+    "A newer base build does not establish support for this fixed executor and policy.",
+    "The probe result alone does not distinguish an OS capability absence from a fixed SDK detection limitation.",
+    "This run cannot explain the previous executor exit after a successful probe on serviced 26200.9711.",
+    "No conclusion about the combined isolation boundary, DNS privacy, service mediation or browser compatibility follows from this unsupported result.",
+    "No PSEC baseline in the default compartment was included in this run."
+  ]
+}

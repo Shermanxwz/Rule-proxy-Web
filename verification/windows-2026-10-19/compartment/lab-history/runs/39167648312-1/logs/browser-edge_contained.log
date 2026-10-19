@@ -1,0 +1,11 @@
+[6152:2168:1018/212535.765:WARNING:chrome\browser\chrome_browser_main_win.cc:1670] Edge is running elevated: 3
+[6152:3608:1018/212535.793:WARNING:net\dns\dns_config_service_win.cc:609] Failed to read DnsConfig.
+[6152:2168:1018/212535.797:ERROR:components\optimization_guide\core\model_execution\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU
+[6152:2168:1018/212536.452:ERROR:chrome\browser\component_updater\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5
+[6152:2168:1018/212536.727:ERROR:chrome\browser\task_manager\providers\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a "Renderer" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.
+[6152:2168:1018/212537.721:INFO:CONSOLE:5645] "[ProtocolLaunch] handler constructed; wiring port events.", source: chrome-extension://ndcpkimcihhghdcddljkfmmjccdmcmof/background.rollup.js (5645)
+[6152:2168:1018/212537.964:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[6152:2168:1018/212537.970:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+[6152:2168:1018/212537.983:WARNING:chrome\browser\edge_pinned_sites\pinned_sites_cache.cc:304] Cache isn't initialized
+<!DOCTYPE html>
+<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:5fb9e2d44b8bf79467729c58:edge_contained</body></html>

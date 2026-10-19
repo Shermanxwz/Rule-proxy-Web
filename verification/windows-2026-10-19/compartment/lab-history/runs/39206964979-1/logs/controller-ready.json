@@ -1,0 +1,145 @@
+{
+ "role": "controller",
+ "pid": 2008,
+ "started": 1792389298.2725909,
+ "missing_exports": [],
+ "identity": "S-1-5-18",
+ "requests": [
+  {
+   "request": {
+    "op": "bind",
+    "pid": 1980,
+    "handle": 840,
+    "compartment": "A"
+   },
+   "response": {
+    "code": 0,
+    "job_compartment": 2,
+    "compartment_id": 2
+   }
+  },
+  {
+   "request": {
+    "op": "bind",
+    "pid": 3384,
+    "handle": 180,
+    "compartment": "A"
+   },
+   "response": {
+    "code": 0,
+    "job_compartment": 2,
+    "compartment_id": 2
+   }
+  },
+  {
+   "request": {
+    "op": "create",
+    "name": "B"
+   },
+   "response": {
+    "code": 0,
+    "id": 3,
+    "guid": "4c17fcda-3c4e-46bc-8787-aca06b2781e1"
+   }
+  },
+  {
+   "request": {
+    "op": "bind",
+    "pid": 1980,
+    "handle": 944,
+    "compartment": "B"
+   },
+   "response": {
+    "code": 0,
+    "job_compartment": 3,
+    "compartment_id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "delete",
+    "name": "B"
+   },
+   "response": {
+    "code": 1359,
+    "id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "delete",
+    "name": "B"
+   },
+   "response": {
+    "code": 1359,
+    "id": 3
+   }
+  },
+  {
+   "request": {
+    "op": "create",
+    "name": "C"
+   },
+   "response": {
+    "code": 0,
+    "id": 4,
+    "guid": "08e778fb-7c59-4a9e-85b1-21efd3e2ff74"
+   }
+  },
+  {
+   "request": {
+    "op": "keep",
+    "name": "C"
+   },
+   "response": {
+    "kept": "C",
+    "id": 4
+   }
+  }
+ ],
+ "python": {
+  "version": "3.14.8 (tags/v3.14.8:8e6e75d, Sep 30 2026, 18:19:33) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\hostedtoolcache\\windows\\Python\\3.14.8\\x64\\python.exe"
+ },
+ "create_A": {
+  "code": 0,
+  "id": 2,
+  "guid": "b1fff2a8-de0f-462e-9b84-34b6905baa46"
+ },
+ "default_compartment": 1,
+ "thread_probe": {
+  "set": 0,
+  "get": 2,
+  "public_1111_443": {
+   "ok": false,
+   "winerror": 10051
+  },
+  "host_fixture_loopback": {
+   "ok": false,
+   "winerror": 10061
+  },
+  "dns": {
+   "name": "1449a0b2567006df5d64d01ec379a699.1.2.3.4.sslip.io",
+   "ok": false,
+   "errno": 11004,
+   "text": "[Errno 11004] getaddrinfo failed"
+  }
+ },
+ "default_thread_dns": {
+  "name": "5658afaaa549a5ee179425e612369d6a.1.2.3.4.sslip.io",
+  "ok": false,
+  "errno": 11001,
+  "text": "[Errno 11001] getaddrinfo failed"
+ },
+ "relay": {
+  "accepted": 35,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ },
+ "error": "PermissionError: [WinError 5] Access is denied: 'C:\\\\RuleProxyCompartmentLab\\\\controller-health.json.tmp' -> 'C:\\\\RuleProxyCompartmentLab\\\\controller-health.json'",
+ "traceback": "Traceback (most recent call last):\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_compartment_lab.py\", line 922, in run\n    self.serve()\n    ~~~~~~~~~~^^\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_compartment_lab.py\", line 883, in serve\n    write_json(self.work / 'controller-health.json', {\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        'pid': os.getpid(), 'time': time.time(), 'stage': 'serving',\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        'requests_completed': len(self.report['requests']), 'relay': self.relay})\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\a\\Rule-proxy-Web\\Rule-proxy-Web\\.github\\windows_compartment_lab.py\", line 296, in write_json\n    os.replace(temporary, path)\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^\nPermissionError: [WinError 5] Access is denied: 'C:\\\\RuleProxyCompartmentLab\\\\controller-health.json.tmp' -> 'C:\\\\RuleProxyCompartmentLab\\\\controller-health.json'\n"
+}

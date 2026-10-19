@@ -740,9 +740,9 @@ def validate_app(data: dict, *, check_exists: bool = True) -> dict[str, Any]:
         result['use_original_data'] = original_data
     if 'windows_container' in data:
         if not isinstance(data['windows_container'], bool):
-            raise ValueError('强隔离必须为布尔值。')
+            raise ValueError('独立网络（实验）选项必须为布尔值。')
         if data['windows_container'] and (store_binding is not None or original_data):
-            raise ValueError('强隔离不支持商店应用或使用原应用数据。')
+            raise ValueError('独立网络（实验）不支持商店应用或使用原应用数据。')
         result['windows_container'] = data['windows_container']
     related = data.get("related_paths", [])
     if not isinstance(related, list) or len(related) > 16:

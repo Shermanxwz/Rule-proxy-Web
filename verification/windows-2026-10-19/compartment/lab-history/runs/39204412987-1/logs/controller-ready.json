@@ -1,0 +1,51 @@
+{
+ "role": "controller",
+ "pid": 768,
+ "started": 1792387506.2234933,
+ "missing_exports": [],
+ "identity": "S-1-5-18",
+ "requests": [],
+ "python": {
+  "version": "3.14.8 (tags/v3.14.8:8e6e75d, Sep 30 2026, 18:19:33) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\hostedtoolcache\\windows\\Python\\3.14.8\\x64\\python.exe"
+ },
+ "create_A": {
+  "code": 0,
+  "id": 2,
+  "guid": "accd8360-5238-4992-b2fe-139d0b85eac0"
+ },
+ "default_compartment": 1,
+ "thread_probe": {
+  "set": 0,
+  "get": 2,
+  "public_1111_443": {
+   "ok": false,
+   "winerror": 10051
+  },
+  "host_fixture_loopback": {
+   "ok": false,
+   "winerror": 10061
+  },
+  "dns": {
+   "name": "c837c318dcd747a2db979fd84276ea1d.1.2.3.4.sslip.io",
+   "ok": false,
+   "errno": 11004,
+   "text": "[Errno 11004] getaddrinfo failed"
+  }
+ },
+ "default_thread_dns": {
+  "name": "bc19795223a0f06fec627bf424f61955.1.2.3.4.sslip.io",
+  "ok": false,
+  "errno": 11001,
+  "text": "[Errno 11001] getaddrinfo failed"
+ },
+ "relay": {
+  "accepted": 0,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ }
+}

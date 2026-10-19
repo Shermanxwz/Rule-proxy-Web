@@ -1,0 +1,2047 @@
+"""Disposable Windows experiment: Linux-netns-like isolation via TCP/IP compartments.
+
+Question: can an ordinary process tree be placed in an otherwise empty TCP/IP
+network compartment (the Windows analogue of a Linux network namespace) so
+that direct sockets, system DNS and descendants cannot reach the network,
+while a privileged relay exposes exactly one loopback proxy port inside it?
+
+Roles (one CI job on a disposable hosted runner):
+  driver      hosted runner account: fixtures, phases, browsers, report
+  controller  LocalSystem through a one-shot scheduled task. It owns the
+              compartments and the in-compartment relay, and binds Jobs that
+              other processes created (handle duplication, as a service would)
+  launcher    a temporary standard user repeating the product flow: create a
+              Job, ask the controller to bind it, then start actors inside it
+  actor       a short Python process started inside or outside a bound Job
+
+The compartment routines are iphlpapi exports declared in the Windows SDK
+10.0.10586 netioapi.h (CreateCompartment, SetJobCompartmentId, ...). Microsoft
+Learn marks the thread/session variants "reserved", so every claim here rests
+on this run's own positive and negative controls, not on documentation.
+Nothing here enables a product mode or qualifies a product.
+"""
+from __future__ import annotations
+
+import argparse
+import faulthandler
+import ctypes as C
+from ctypes import wintypes as W
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import mmap
+import os
+from pathlib import Path
+import secrets
+import select
+import shutil
+import socket
+import struct
+import subprocess
+import sys
+import threading
+import time
+import traceback
+import uuid
+import zlib
+
+TASK = 'RuleProxyCompartmentLab'
+CLEANUP_TASK = 'RuleProxyCompartmentLabCleanup'
+WORK = Path(r'C:\RuleProxyCompartmentLab')
+DESCRIPTION = 'RuleProxy compartment lab'
+PROGRAMS = {
+    'edge': Path(r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'),
+    'chrome': Path(r'C:\Program Files\Google\Chrome\Application\chrome.exe'),
+    'firefox': Path(r'C:\Program Files\Mozilla Firefox\firefox.exe'),
+}
+CHROMIUM = ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
+            '--disable-background-networking', '--enable-logging=stderr', '--v=0']
+
+# ----------------------------------------------------------------------------- native
+
+
+class GUID(C.Structure):
+    _fields_ = [('Data1', C.c_uint32), ('Data2', C.c_uint16), ('Data3', C.c_uint16), ('Data4', C.c_ubyte * 8)]
+
+    @classmethod
+    def of(cls, value: uuid.UUID) -> 'GUID':
+        result = cls()
+        C.memmove(C.byref(result), value.bytes_le, 16)
+        return result
+
+
+class MIB_COMPARTMENT_ROW(C.Structure):
+    # SDK 10.0.10240 used 536 bytes; Microsoft's 26100.1 / .9278 DLLs initialize
+    # 540 and read flags at offset 536. Preserve these opaque native defaults.
+    _fields_ = [('CompartmentGuid', GUID), ('CompartmentId', C.c_uint32),
+                ('Description', C.c_wchar * 257), ('OpaqueFlags', C.c_uint32)]
+
+
+@contextmanager
+def _guarded_compartment_row():
+    """Independent lab guard: private ABI expansion must not corrupt its heap."""
+    if C.sizeof(MIB_COMPARTMENT_ROW) != 540 or MIB_COMPARTMENT_ROW.OpaqueFlags.offset != 536:
+        raise RuntimeError('unverified compartment row layout')
+    kernel = C.WinDLL('kernel32', use_last_error=True)
+    for name, args, result in (
+            ('VirtualAlloc', [C.c_void_p, C.c_size_t, W.DWORD, W.DWORD], C.c_void_p),
+            ('VirtualProtect', [C.c_void_p, C.c_size_t, W.DWORD, C.POINTER(W.DWORD)], W.BOOL),
+            ('VirtualFree', [C.c_void_p, C.c_size_t, W.DWORD], W.BOOL)):
+        function = getattr(kernel, name)
+        function.argtypes, function.restype = args, result
+    base = None
+    try:
+        page = mmap.PAGESIZE
+        if page < C.sizeof(MIB_COMPARTMENT_ROW):
+            raise RuntimeError('compartment row exceeds a memory page')
+        base = kernel.VirtualAlloc(None, page * 3, 0x3000, 1)
+        if not base:
+            raise C.WinError(C.get_last_error())
+        previous = W.DWORD()
+        if not kernel.VirtualProtect(base + page, page, 4, C.byref(previous)):
+            raise C.WinError(C.get_last_error())
+        yield MIB_COMPARTMENT_ROW.from_address(base + page * 2 - C.sizeof(MIB_COMPARTMENT_ROW))
+    finally:
+        if base and not kernel.VirtualFree(base, 0, 0x8000):
+            raise C.WinError(C.get_last_error())
+
+
+class STARTUPINFOW(C.Structure):
+    _fields_ = [('cb', W.DWORD), ('lpReserved', W.LPWSTR), ('lpDesktop', W.LPWSTR), ('lpTitle', W.LPWSTR),
+                ('dwX', W.DWORD), ('dwY', W.DWORD), ('dwXSize', W.DWORD), ('dwYSize', W.DWORD),
+                ('dwXCountChars', W.DWORD), ('dwYCountChars', W.DWORD), ('dwFillAttribute', W.DWORD),
+                ('dwFlags', W.DWORD), ('wShowWindow', W.WORD), ('cbReserved2', W.WORD),
+                ('lpReserved2', C.c_void_p), ('hStdInput', W.HANDLE), ('hStdOutput', W.HANDLE),
+                ('hStdError', W.HANDLE)]
+
+
+class PROCESS_INFORMATION(C.Structure):
+    _fields_ = [('hProcess', W.HANDLE), ('hThread', W.HANDLE), ('dwProcessId', W.DWORD), ('dwThreadId', W.DWORD)]
+
+
+class JOBOBJECT_BASIC_LIMIT_INFORMATION(C.Structure):
+    _fields_ = [('PerProcessUserTimeLimit', C.c_int64), ('PerJobUserTimeLimit', C.c_int64),
+                ('LimitFlags', W.DWORD), ('MinimumWorkingSetSize', C.c_size_t),
+                ('MaximumWorkingSetSize', C.c_size_t), ('ActiveProcessLimit', W.DWORD),
+                ('Affinity', C.c_size_t), ('PriorityClass', W.DWORD), ('SchedulingClass', W.DWORD)]
+
+
+class IO_COUNTERS(C.Structure):
+    _fields_ = [(name, C.c_uint64) for name in ('a', 'b', 'c', 'd', 'e', 'f')]
+
+
+class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(C.Structure):
+    _fields_ = [('BasicLimitInformation', JOBOBJECT_BASIC_LIMIT_INFORMATION), ('IoInfo', IO_COUNTERS),
+                ('ProcessMemoryLimit', C.c_size_t), ('JobMemoryLimit', C.c_size_t),
+                ('PeakProcessMemoryUsed', C.c_size_t), ('PeakJobMemoryUsed', C.c_size_t)]
+
+
+class USER_INFO_1(C.Structure):
+    _fields_ = [('name', W.LPWSTR), ('password', W.LPWSTR), ('age', W.DWORD), ('privilege', W.DWORD),
+                ('home', W.LPWSTR), ('comment', W.LPWSTR), ('flags', W.DWORD), ('script', W.LPWSTR)]
+
+
+class Native:
+    def __init__(self):
+        self.k = C.WinDLL('kernel32', use_last_error=True)
+        self.a = C.WinDLL('advapi32', use_last_error=True)
+        self.i = C.WinDLL('iphlpapi', use_last_error=True)
+        P = C.c_void_p
+        for owner, name, args, result in (
+                (self.k, 'GetCurrentProcess', [], W.HANDLE),
+                (self.k, 'OpenProcess', [W.DWORD, W.BOOL, W.DWORD], W.HANDLE),
+                (self.k, 'DuplicateHandle', [W.HANDLE, W.HANDLE, W.HANDLE, C.POINTER(W.HANDLE), W.DWORD, W.BOOL,
+                                             W.DWORD], W.BOOL),
+                (self.k, 'CloseHandle', [W.HANDLE], W.BOOL),
+                (self.k, 'CreateJobObjectW', [P, W.LPCWSTR], W.HANDLE),
+                (self.k, 'SetInformationJobObject', [W.HANDLE, C.c_int, P, W.DWORD], W.BOOL),
+                (self.k, 'AssignProcessToJobObject', [W.HANDLE, W.HANDLE], W.BOOL),
+                (self.k, 'TerminateJobObject', [W.HANDLE, W.UINT], W.BOOL),
+                (self.k, 'CreateProcessW', [W.LPCWSTR, W.LPWSTR, P, P, W.BOOL, W.DWORD, P, W.LPCWSTR,
+                                            C.POINTER(STARTUPINFOW), C.POINTER(PROCESS_INFORMATION)], W.BOOL),
+                (self.k, 'ResumeThread', [W.HANDLE], W.DWORD),
+                (self.k, 'TerminateProcess', [W.HANDLE, W.UINT], W.BOOL),
+                (self.k, 'WaitForSingleObject', [W.HANDLE, W.DWORD], W.DWORD),
+                (self.k, 'GetExitCodeProcess', [W.HANDLE, C.POINTER(W.DWORD)], W.BOOL),
+                (self.k, 'LocalFree', [P], P),
+                (self.a, 'OpenProcessToken', [W.HANDLE, W.DWORD, C.POINTER(W.HANDLE)], W.BOOL),
+                (self.a, 'GetTokenInformation', [W.HANDLE, C.c_int, P, W.DWORD, C.POINTER(W.DWORD)], W.BOOL),
+                (self.a, 'ConvertSidToStringSidW', [P, C.POINTER(W.LPWSTR)], W.BOOL),
+                (self.a, 'LogonUserW', [W.LPCWSTR, W.LPCWSTR, W.LPCWSTR, W.DWORD, W.DWORD, C.POINTER(W.HANDLE)], W.BOOL),
+                (self.a, 'CreateProcessWithTokenW', [W.HANDLE, W.DWORD, W.LPCWSTR, W.LPWSTR, W.DWORD, P, W.LPCWSTR,
+                                                     C.POINTER(STARTUPINFOW), C.POINTER(PROCESS_INFORMATION)], W.BOOL),
+                (self.a, 'CreateProcessWithLogonW', [W.LPCWSTR, W.LPCWSTR, W.LPCWSTR, W.DWORD, W.LPCWSTR,
+                                                     W.LPWSTR, W.DWORD, P, W.LPCWSTR,
+                                                     C.POINTER(STARTUPINFOW), C.POINTER(PROCESS_INFORMATION)], W.BOOL)):
+            function = getattr(owner, name)
+            function.argtypes, function.restype = args, result
+        self.missing = []
+        for name, args, result in (
+                ('GetDefaultCompartmentId', [], C.c_uint32),
+                ('GetCurrentThreadCompartmentId', [], C.c_uint32),
+                ('SetCurrentThreadCompartmentId', [C.c_uint32], C.c_uint32),
+                ('GetSessionCompartmentId', [C.c_uint32], C.c_uint32),
+                ('GetJobCompartmentId', [W.HANDLE], C.c_uint32),
+                ('SetJobCompartmentId', [W.HANDLE, C.c_uint32], C.c_uint32),
+                ('InitializeCompartmentEntry', [C.POINTER(MIB_COMPARTMENT_ROW)], None),
+                ('CreateCompartment', [C.POINTER(MIB_COMPARTMENT_ROW)], C.c_uint32),
+                ('DeleteCompartment', [C.c_uint32], C.c_uint32)):
+            try:
+                function = getattr(self.i, name)
+            except AttributeError:
+                self.missing.append(name)
+                continue
+            function.argtypes, function.restype = args, result
+
+    def check(self, ok, what):
+        if not ok:
+            error = C.get_last_error()
+            raise OSError(error, f'{what} failed: {C.FormatError(error).strip()} ({error})')
+        return ok
+
+    def token_user(self, token=None):
+        owned = token is None
+        if owned:
+            token = W.HANDLE()
+            self.check(self.a.OpenProcessToken(self.k.GetCurrentProcess(), 8, C.byref(token)), 'OpenProcessToken')
+        try:
+            size = W.DWORD()
+            self.a.GetTokenInformation(token, 1, None, 0, C.byref(size))
+            buffer = C.create_string_buffer(max(size.value, 64))
+            self.check(self.a.GetTokenInformation(token, 1, buffer, len(buffer), C.byref(size)), 'GetTokenInformation')
+            text = W.LPWSTR()
+            self.check(self.a.ConvertSidToStringSidW(C.cast(buffer, C.POINTER(C.c_void_p))[0], C.byref(text)),
+                       'ConvertSidToStringSidW')
+            try:
+                return text.value
+            finally:
+                self.k.LocalFree(C.cast(text, C.c_void_p))
+        finally:
+            if owned:
+                self.k.CloseHandle(token)
+
+    def new_job(self):
+        job = self.check(self.k.CreateJobObjectW(None, None), 'CreateJobObjectW')
+        limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+        limits.BasicLimitInformation.LimitFlags = 0x2000  # KILL_ON_JOB_CLOSE, no breakaway allowed
+        self.check(self.k.SetInformationJobObject(job, 9, C.byref(limits), C.sizeof(limits)), 'SetInformationJobObject')
+        return job
+
+    def token_identity(self, token):
+        result = {'sid': self.token_user(token)}
+        for name, kind in (('elevated', 20), ('session_id', 12)):
+            value, size = W.DWORD(), W.DWORD()
+            self.check(self.a.GetTokenInformation(token, kind, C.byref(value), C.sizeof(value), C.byref(size)),
+                       'GetTokenInformation ' + name)
+            result[name] = bool(value.value) if name == 'elevated' else value.value
+        return result
+
+    def spawn(self, argv, *, job=None, env=None, cwd=None, stdout=None):
+        """Create suspended, join the Job before the first instruction, then resume."""
+        import msvcrt
+        info = STARTUPINFOW()
+        info.cb = C.sizeof(info)
+        inherit = False
+        stream = handle = None
+        if stdout is not None:
+            stream = open(stdout, 'wb')
+            handle = msvcrt.get_osfhandle(stream.fileno())
+            os.set_handle_inheritable(handle, True)
+            info.dwFlags = 0x100  # STARTF_USESTDHANDLES
+            info.hStdOutput = info.hStdError = handle
+            inherit = True
+        process = PROCESS_INFORMATION()
+        block = None
+        if env is not None:
+            block = C.create_unicode_buffer('\0'.join(f'{k}={v}' for k, v in sorted(env.items(), key=lambda x: x[0].upper())) + '\0\0')
+        flags = 0x4 | 0x400 | 0x08000000  # CREATE_SUSPENDED | UNICODE_ENVIRONMENT | NO_WINDOW
+        try:
+            self.check(self.k.CreateProcessW(None, C.create_unicode_buffer(subprocess.list2cmdline([str(x) for x in argv])),
+                                             None, None, inherit, flags, block, str(cwd) if cwd else None,
+                                             C.byref(info), C.byref(process)), 'CreateProcessW')
+        finally:
+            if stream is not None:
+                os.set_handle_inheritable(handle, False)
+                stream.close()
+        return self._start(process, job)
+
+    def _start(self, process, job):
+        try:
+            if job is not None:
+                self.check(self.k.AssignProcessToJobObject(job, process.hProcess), 'AssignProcessToJobObject')
+            if self.k.ResumeThread(process.hThread) == 0xFFFFFFFF:
+                self.check(False, 'ResumeThread')
+        except BaseException:
+            self.k.TerminateProcess(process.hProcess, 1)
+            self.k.CloseHandle(process.hThread)
+            self.k.CloseHandle(process.hProcess)
+            raise
+        self.k.CloseHandle(process.hThread)
+        return process.hProcess, process.dwProcessId
+
+    def wait(self, process, seconds):
+        timed_out = self.k.WaitForSingleObject(process, int(seconds * 1000)) != 0
+        if timed_out:
+            self.k.TerminateProcess(process, 0xC0DE)
+            self.k.WaitForSingleObject(process, 5000)
+        code = W.DWORD()
+        self.check(self.k.GetExitCodeProcess(process, C.byref(code)), 'GetExitCodeProcess')
+        self.k.CloseHandle(process)
+        return code.value, timed_out
+
+
+def write_json(path: Path, value):
+    temporary = path.with_name(path.name + '.' + secrets.token_hex(12) + '.tmp')
+    owned = False
+    try:
+        # Exclusive, per-write names prevent concurrent publishers from
+        # replacing or deleting one another's partially written document.
+        with temporary.open('x', encoding='utf-8') as stream:
+            owned = True
+            json.dump(value, stream, indent=1, default=str)
+        deadline = time.monotonic() + 1.0
+        for attempt in range(21):
+            try:
+                os.replace(temporary, path)
+                return
+            except OSError as exc:
+                # A reader can briefly deny DELETE sharing on Windows. Never
+                # truncate the old JSON, change its ACL, or hide a lasting error.
+                remaining = deadline - time.monotonic()
+                if (sys.platform != 'win32' or getattr(exc, 'winerror', None) not in (5, 32, 33)
+                        or attempt == 20 or remaining <= 0):
+                    raise
+                time.sleep(min(0.05, remaining))
+    finally:
+        if owned:
+            temporary.unlink(missing_ok=True)
+
+
+# ----------------------------------------------------------------------------- actor
+# argv: actor.py config.json result.json label depth. Labels containing
+# 'inside' use the in-compartment relay port; all others use the fixture.
+
+IDENTITY = r'''
+import ctypes as C, os
+def current_identity():
+    P, U = C.c_void_p, C.c_uint32
+    a, k = C.WinDLL('advapi32', use_last_error=True), C.WinDLL('kernel32', use_last_error=True)
+    k.GetCurrentProcess.restype = P
+    k.CloseHandle.argtypes = [P]; k.LocalFree.argtypes = [P]
+    a.OpenProcessToken.argtypes = [P, U, C.POINTER(P)]
+    a.GetTokenInformation.argtypes = [P, C.c_int, P, U, C.POINTER(U)]
+    a.ConvertSidToStringSidW.argtypes = [P, C.POINTER(C.c_wchar_p)]
+    token = P()
+    if not a.OpenProcessToken(k.GetCurrentProcess(), 8, C.byref(token)):
+        raise C.WinError(C.get_last_error())
+    try:
+        size = U(); a.GetTokenInformation(token, 1, None, 0, C.byref(size))
+        if not 0 < size.value <= 65536: raise RuntimeError('invalid token size')
+        data = C.create_string_buffer(size.value)
+        if not a.GetTokenInformation(token, 1, data, len(data), C.byref(size)):
+            raise C.WinError(C.get_last_error())
+        text = C.c_wchar_p()
+        if not a.ConvertSidToStringSidW(C.cast(data, C.POINTER(P))[0], C.byref(text)):
+            raise C.WinError(C.get_last_error())
+        try: result = {'sid': text.value, 'pid': os.getpid()}
+        finally: k.LocalFree(C.cast(text, P))
+        for name, kind in (('elevated', 20), ('session_id', 12)):
+            value = U()
+            if not a.GetTokenInformation(token, kind, C.byref(value), 4, C.byref(size)):
+                raise C.WinError(C.get_last_error())
+            result[name] = bool(value.value) if name == 'elevated' else value.value
+        return result
+    finally:
+        k.CloseHandle(token)
+'''
+
+ACTOR = IDENTITY + r'''
+import ctypes as C, json, os, secrets, socket, struct, subprocess, sys, time, urllib.request
+cfg = json.loads(open(sys.argv[1], encoding='utf-8').read())
+result_path, label, depth = sys.argv[2], sys.argv[3], int(sys.argv[4])
+inside = 'inside' in label
+port = cfg['relay_port'] if inside else cfg['fixture_port']
+out = {'label': label, 'pid': os.getpid(), 'depth': depth, 'identity': current_identity()}
+i = C.WinDLL('iphlpapi', use_last_error=True)
+i.GetCurrentThreadCompartmentId.restype = C.c_uint32
+i.SetCurrentThreadCompartmentId.argtypes = [C.c_uint32]; i.SetCurrentThreadCompartmentId.restype = C.c_uint32
+i.SetJobCompartmentId.argtypes = [C.c_void_p, C.c_uint32]; i.SetJobCompartmentId.restype = C.c_uint32
+k = C.WinDLL('kernel32', use_last_error=True); n = C.WinDLL('ntdll')
+k.CreateJobObjectW.restype = C.c_void_p; k.CreateJobObjectW.argtypes = [C.c_void_p, C.c_wchar_p]
+k.AssignProcessToJobObject.argtypes = [C.c_void_p, C.c_void_p]; n.NtResumeProcess.argtypes = [C.c_void_p]
+out['compartment'] = int(i.GetCurrentThreadCompartmentId())
+def error(e):
+    return {'ok': False, 'type': type(e).__name__, 'winerror': getattr(e, 'winerror', None), 'errno': getattr(e, 'errno', None), 'text': str(e)[:160]}
+def tcp(host, p, family=socket.AF_INET):
+    try:
+        with socket.socket(family, socket.SOCK_STREAM) as s:
+            s.settimeout(3)
+            payload = (cfg['nonce'] + ':' + label + ':tcp').encode()
+            s.connect((host, p)); s.sendall(payload); data = s.recv(256)
+        return {'ok': data == payload}
+    except Exception as e:
+        return error(e)
+def connect_only(host, p, family=socket.AF_INET):
+    try:
+        with socket.socket(family, socket.SOCK_STREAM) as s:
+            s.settimeout(3); s.connect((host, p))
+            s.settimeout(1)
+            try: banner = s.recv(64).decode('ascii', 'replace')
+            except Exception: banner = ''
+        return {'ok': True, 'banner': banner}
+    except Exception as e:
+        return error(e)
+def udp(host, p, family=socket.AF_INET):
+    try:
+        with socket.socket(family, socket.SOCK_DGRAM) as s:
+            s.settimeout(2)
+            payload = (cfg['nonce'] + ':' + label + ':udp').encode()
+            s.sendto(payload, (host, p)); data, _ = s.recvfrom(256)
+        return {'ok': data == payload}
+    except Exception as e:
+        return error(e)
+def dns_udp(server):
+    try:
+        name = secrets.token_hex(8) + '.example.com'
+        query = struct.pack('!HHHHHH', 0x5250, 0x0100, 1, 0, 0, 0) + b''.join(bytes([len(x)]) + x.encode() for x in name.split('.')) + b'\0' + struct.pack('!HH', 1, 1)
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(3); s.sendto(query, (server, 53)); data, _ = s.recvfrom(2048)
+        return {'ok': len(data) > 12 and data[:2] == b'\x52\x50'}
+    except Exception as e:
+        return error(e)
+def system_dns():
+    name = secrets.token_hex(16) + '.1.2.3.4.sslip.io'
+    try:
+        values = sorted({x[4][0] for x in socket.getaddrinfo(name, 443, socket.AF_INET, socket.SOCK_STREAM)})
+        return {'ok': values == ['1.2.3.4'], 'addresses': values, 'name': name}
+    except Exception as e:
+        return dict(error(e), name=name)
+def rows():
+    r = {}
+    r['tcp4_host_ip'] = tcp(cfg['host_ip'], cfg['echo_tcp'])
+    r['tcp4_loopback'] = tcp('127.0.0.1', cfg['echo_tcp'])
+    r['udp4_host_ip'] = udp(cfg['host_ip'], cfg['echo_udp'])
+    r['udp4_loopback'] = udp('127.0.0.1', cfg['echo_udp'])
+    r['tcp6_loopback'] = tcp('::1', cfg['echo_tcp6'], socket.AF_INET6)
+    r['udp6_loopback'] = udp('::1', cfg['echo_udp6'], socket.AF_INET6)
+    r['tcp4_public_1111_443'] = connect_only('1.1.1.1', 443)
+    r['udp4_public_dns_8888'] = dns_udp('8.8.8.8')
+    r['relay_port_loopback'] = connect_only('127.0.0.1', cfg['relay_port'])
+    r['system_dns'] = system_dns()
+    return r
+def proxy_get():
+    target = 'http://' + label + '.invalid/' + cfg['nonce'] + '/' + label
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({'http': 'http://127.0.0.1:' + str(port)}))
+        with opener.open(target, timeout=6) as response:
+            body = response.read(4096).decode('ascii', 'replace')
+        return {'ok': ('RuleProxyFixture:' + cfg['nonce'] + ':' + label) in body, 'port': port}
+    except Exception as e:
+        return dict(error(e), port=port)
+def child(name, flags=0, job=None):
+    path = result_path + '.' + name
+    p = subprocess.Popen([sys.executable, '-I', '-B', sys.argv[0], sys.argv[1], path, name, str(depth + 1)],
+                         creationflags=flags | (0x4 if job else 0))
+    if job:
+        ok = bool(k.AssignProcessToJobObject(job, int(p._handle)))
+        if not ok:
+            e = C.get_last_error(); p.kill(); p.wait(10)
+            return {'assign_error': e}
+        n.NtResumeProcess(int(p._handle))
+    code = p.wait(120)
+    try:
+        value = json.loads(open(path, encoding='utf-8').read())
+    except Exception as e:
+        value = {'read_error': repr(e)}
+    value['exit_code'] = code
+    return value
+if label == 'relay-live-inside':
+    # The SAME process survives relay shutdown; a separate new actor is also tested.
+    out['before'] = {'rows': rows(), 'proxy': proxy_get()}
+    with open(result_path + '.ready.json', 'w', encoding='utf-8') as stream:
+        json.dump(out, stream)
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline and not os.path.exists(result_path + '.go'):
+        time.sleep(0.1)
+    out['released'] = os.path.exists(result_path + '.go')
+    out['after'] = {'rows': rows(), 'proxy': proxy_get()}
+    with open(result_path, 'w', encoding='utf-8') as stream: json.dump(out, stream)
+    raise SystemExit(0 if out['released'] else 2)
+if cfg.get('linger') == label:
+    go = cfg['linger_go']
+    deadline = time.time() + 180
+    while time.time() < deadline and not os.path.exists(go):
+        time.sleep(0.25)
+    out['linger_released'] = os.path.exists(go)
+    out['compartment_after'] = int(i.GetCurrentThreadCompartmentId())
+out['rows'] = rows()
+out['proxy'] = proxy_get()
+if depth == 0:
+    try:
+        out['child'] = child(label + '-child')
+    except Exception as e:
+        out['child'] = {'spawn_error': repr(e)}
+    try:
+        p = subprocess.Popen([sys.executable, '-c', 'print(1)'], creationflags=0x01000000)
+        out['breakaway'] = {'started': True, 'exit': p.wait(30)}
+    except Exception as e:
+        out['breakaway'] = dict(error(e), started=False)
+    try:
+        nested_job = k.CreateJobObjectW(None, None)
+        out['nested'] = child(label + '-nested', job=nested_job)
+    except Exception as e:
+        out['nested'] = {'spawn_error': repr(e)}
+    # Escape attempts that an uncooperative app could try from inside.
+    escape = {}
+    escape['thread_set_default'] = int(i.SetCurrentThreadCompartmentId(cfg['default_compartment']))
+    escape['thread_after_set'] = int(i.GetCurrentThreadCompartmentId())
+    escape['thread_tcp4_host_ip'] = tcp(cfg['host_ip'], cfg['echo_tcp'])
+    i.SetCurrentThreadCompartmentId(out['compartment'])
+    try:
+        own_job = k.CreateJobObjectW(None, None)
+        escape['job_set_default'] = int(i.SetJobCompartmentId(own_job, cfg['default_compartment']))
+        if escape['job_set_default'] == 0:
+            escape['job_child'] = child(label + '-escape', job=own_job)
+    except Exception as e:
+        escape['job_error'] = repr(e)
+    out['escape'] = escape
+write = open(result_path, 'w', encoding='utf-8'); write.write(json.dumps(out)); write.close()
+'''
+
+# The product-like flow for a temporary standard user: create a Job, ask the
+# controller (as a SYSTEM service would be asked) to bind it, start actors.
+LAUNCHER = IDENTITY + r'''
+import ctypes as C, json, os, subprocess, sys, time
+from pathlib import Path
+from ctypes import wintypes as W
+cfg_path, userdir = sys.argv[1], Path(sys.argv[2])
+k = C.WinDLL('kernel32', use_last_error=True); n = C.WinDLL('ntdll')
+k.CreateJobObjectW.restype = C.c_void_p; k.CreateJobObjectW.argtypes = [C.c_void_p, C.c_wchar_p]
+k.AssignProcessToJobObject.argtypes = [C.c_void_p, C.c_void_p]; n.NtResumeProcess.argtypes = [C.c_void_p]
+out = {'pid': os.getpid(), 'identity': current_identity(), 'stage': 'entered'}
+def checkpoint(stage):
+    out['stage'] = stage
+    tmp = userdir / 'launcher-progress.json.tmp'
+    tmp.write_text(json.dumps(out), encoding='utf-8')
+    os.replace(tmp, userdir / 'launcher-progress.json')
+checkpoint('entered')
+def run(label, job):
+    path = str(userdir / ('actor-' + label + '.json'))
+    log = open(userdir / (label + '.log'), 'wb')
+    p = subprocess.Popen([sys.executable, '-I', '-B', str(userdir.parent / 'actor.py'), cfg_path, path, label, '0'],
+                         creationflags=0x4 if job else 0, stdout=log, stderr=subprocess.STDOUT)
+    log.close()
+    if job:
+        if not k.AssignProcessToJobObject(job, int(p._handle)):
+            e = C.get_last_error(); p.kill(); p.wait(10)
+            return {'assign_error': e}
+        n.NtResumeProcess(int(p._handle))
+    try:
+        code = p.wait(160)
+    except subprocess.TimeoutExpired:
+        p.kill(); p.wait(10)
+        return {'timed_out': True, 'exit_code': p.returncode}
+    try:
+        value = json.loads(open(path, encoding='utf-8').read())
+    except Exception as e:
+        value = {'read_error': repr(e)}
+    value['exit_code'] = code
+    return value
+try:
+    job = k.CreateJobObjectW(None, None)
+    out['job_created'] = bool(job)
+    if not job: raise C.WinError(C.get_last_error())
+    checkpoint('job_created')
+    request = userdir / 'req-user.json'
+    tmp = userdir / 'req-user.json.tmp'
+    tmp.write_text(json.dumps({'op': 'bind', 'pid': os.getpid(), 'handle': int(job), 'compartment': 'A'}), encoding='utf-8')
+    os.replace(tmp, request)
+    response = userdir / 'resp-user.json'
+    deadline = time.time() + 30
+    while time.time() < deadline and not response.exists():
+        time.sleep(0.2)
+    out['bind'] = json.loads(response.read_text(encoding='utf-8')) if response.exists() else {'timeout': True}
+    checkpoint('bound')
+    out['user-outside'] = run('user-outside', None)
+    checkpoint('outside_finished')
+    if out['bind'].get('code') == 0:
+        out['user-inside'] = run('user-inside', job)
+    checkpoint('actors_finished')
+except Exception as e:
+    out['error'] = repr(e)
+tmp = userdir / 'launcher-result.json.tmp'
+tmp.write_text(json.dumps(out), encoding='utf-8')
+os.replace(tmp, userdir / 'launcher-result.json')
+'''
+
+RESTRICTED_IMPERSONATION = r'''
+from ctypes import wintypes as W
+class SidAndAttributes(C.Structure):
+    _fields_ = [('Sid', C.c_void_p), ('Attributes', W.DWORD)]
+def impersonate_restriction():
+    # Diagnostic thread impersonation only. The process may RevertToSelf; this
+    # is NOT a primary-token sandbox and cannot qualify a product boundary.
+    k, a = C.WinDLL('kernel32', use_last_error=True), C.WinDLL('advapi32', use_last_error=True)
+    k.GetCurrentProcess.restype = W.HANDLE
+    k.CloseHandle.argtypes = [W.HANDLE]; k.LocalFree.argtypes = [C.c_void_p]
+    a.OpenProcessToken.argtypes = [W.HANDLE, W.DWORD, C.POINTER(W.HANDLE)]
+    a.ConvertStringSidToSidW.argtypes = [W.LPCWSTR, C.POINTER(C.c_void_p)]
+    a.CreateRestrictedToken.argtypes = [W.HANDLE, W.DWORD, W.DWORD, C.c_void_p,
+        W.DWORD, C.c_void_p, W.DWORD, C.POINTER(SidAndAttributes), C.POINTER(W.HANDLE)]
+    a.ImpersonateLoggedOnUser.argtypes = [W.HANDLE]
+    a.RevertToSelf.argtypes = []
+    token, restricted, sid = W.HANDLE(), W.HANDLE(), C.c_void_p()
+    def check(ok):
+        if not ok: raise C.WinError(C.get_last_error())
+    try:
+        check(a.OpenProcessToken(k.GetCurrentProcess(), 0xA, C.byref(token)))
+        check(a.ConvertStringSidToSidW('S-1-5-21-123456789-234567890-345678901-456789', C.byref(sid)))
+        entry = SidAndAttributes(sid, 0)
+        check(a.CreateRestrictedToken(token, 1, 0, None, 0, None, 1, C.byref(entry), C.byref(restricted)))
+        check(a.ImpersonateLoggedOnUser(restricted))
+        return a
+    finally:
+        if sid: k.LocalFree(sid)
+        if restricted: k.CloseHandle(restricted)
+        if token: k.CloseHandle(token)
+'''
+
+DNS_PROBE = IDENTITY + RESTRICTED_IMPERSONATION + r'''
+import json, socket, sys, time
+from pathlib import Path
+api, name, destination, options = sys.argv[1], sys.argv[2], Path(sys.argv[3]), int(sys.argv[4])
+i = C.WinDLL('iphlpapi'); i.GetCurrentThreadCompartmentId.restype = C.c_uint32
+out = {'api': api, 'name': name, 'options': options, 'identity': current_identity(),
+       'compartment': int(i.GetCurrentThreadCompartmentId()), 'stage': 'entered',
+       'wire_egress_proven': False, 'wire_denial_proven': False}
+def publish():
+    temporary = destination.with_suffix('.tmp')
+    temporary.write_text(json.dumps(out), encoding='utf-8'); temporary.replace(destination)
+publish()
+class Request(C.Structure):
+    _fields_ = [('Version', C.c_uint32), ('QueryName', C.c_wchar_p), ('QueryType', C.c_uint16),
+                ('QueryOptions', C.c_uint64), ('pDnsServerList', C.c_void_p), ('InterfaceIndex', C.c_uint32),
+                ('pQueryCompletionCallback', C.c_void_p), ('pQueryContext', C.c_void_p)]
+class Result(C.Structure):
+    _fields_ = [('Version', C.c_uint32), ('QueryStatus', C.c_int32), ('QueryOptions', C.c_uint64),
+                ('pQueryRecords', C.c_void_p), ('Reserved', C.c_void_p)]
+class Record(C.Structure):
+    _fields_ = [('next', C.c_void_p), ('name', C.c_void_p), ('type', C.c_uint16), ('length', C.c_uint16),
+                ('flags', C.c_uint32), ('ttl', C.c_uint32), ('reserved', C.c_uint32), ('data', C.c_uint32)]
+def addresses(pointer):
+    result, seen = [], set()
+    while pointer and pointer not in seen and len(seen) < 64:
+        seen.add(pointer); record = C.cast(pointer, C.POINTER(Record)).contents
+        if record.type == 1 and record.length == 4:
+            result.append(socket.inet_ntoa(C.string_at(pointer + Record.data.offset, 4)))
+        pointer = record.next
+    return sorted(set(result))
+impersonation = None
+try:
+    dns = C.WinDLL('dnsapi', use_last_error=True)
+    dns.DnsFree.argtypes = [C.c_void_p, C.c_int]; dns.DnsFree.restype = None
+    if len(sys.argv) > 5 and sys.argv[5] == 'restricted':
+        impersonation = impersonate_restriction()
+        out['thread_impersonation_active'] = True
+        out['restriction_scope'] = 'revertible diagnostic thread; not a primary token or production boundary'
+    if api == 'getaddrinfo':
+        out['addresses'] = sorted({item[4][0] for item in socket.getaddrinfo(name, 443, socket.AF_INET)})
+        out['return_code'] = 0
+    else:
+        pointer = C.c_void_p()
+        if api == 'DnsQuery_W':
+            dns.DnsQuery_W.argtypes = [C.c_wchar_p, C.c_uint16, C.c_uint32, C.c_void_p,
+                                      C.POINTER(C.c_void_p), C.c_void_p]
+            dns.DnsQuery_W.restype = C.c_int32
+            code = dns.DnsQuery_W(name, 1, options, None, C.byref(pointer), None)
+        elif api == 'DnsQueryEx':
+            dns.DnsQueryEx.argtypes = [C.POINTER(Request), C.POINTER(Result), C.c_void_p]
+            dns.DnsQueryEx.restype = C.c_int32
+            request, result = Request(Version=1, QueryName=name, QueryType=1, QueryOptions=options), Result(Version=1)
+            code = dns.DnsQueryEx(C.byref(request), C.byref(result), None)
+            out['query_status'] = int(result.QueryStatus)
+            if code == 9506:
+                # Preserve native request/result buffers until the owner terminates this worker.
+                if impersonation is not None:
+                    out['reverted'] = bool(impersonation.RevertToSelf())
+                    if not out['reverted']: raise C.WinError(C.get_last_error())
+                    impersonation = None
+                out.update(stage='pending', return_code=int(code), completed=False); publish()
+                while True: time.sleep(1)
+            pointer.value = result.pQueryRecords
+        else:
+            raise ValueError('unknown DNS API')
+        out['return_code'] = int(code)
+        try:
+            out['addresses'] = addresses(pointer.value) if pointer.value else []
+        finally:
+            if pointer.value: dns.DnsFree(pointer, 1)
+    out.update(stage='finished', completed=True, answer_matches=out.get('addresses') == ['1.2.3.4'])
+except Exception as error:
+    out.update(stage='error', completed=True, error=repr(error), errno=getattr(error, 'errno', None))
+finally:
+    if impersonation is not None:
+        out['reverted'] = bool(impersonation.RevertToSelf())
+        if not out['reverted']: raise C.WinError(C.get_last_error())
+publish()
+'''
+
+BROKER_CHILD = IDENTITY + r'''
+import json, sys, urllib.request
+from pathlib import Path
+url, destination, marker = sys.argv[1], Path(sys.argv[2]), sys.argv[3]
+i = C.WinDLL('iphlpapi'); i.GetCurrentThreadCompartmentId.restype = C.c_uint32
+out = {'identity': current_identity(), 'compartment': int(i.GetCurrentThreadCompartmentId()), 'marker': marker}
+try:
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(url, timeout=8) as response: body = response.read(4096).decode('ascii')
+    out['direct_http'] = marker in body
+except Exception as error:
+    out.update(direct_http=False, error=repr(error))
+temporary = destination.with_suffix('.tmp')
+temporary.write_text(json.dumps(out), encoding='utf-8'); temporary.replace(destination)
+'''
+
+# ----------------------------------------------------------------------------- controller
+
+
+class Controller:
+    def __init__(self, args):
+        self.args = args
+        self.work = Path(args.work)
+        self.userdir = self.work / 'user'
+        self.native = Native()
+        self.i = self.native.i
+        self.report = {'role': 'controller', 'pid': os.getpid(), 'started': time.time(), 'missing_exports': self.native.missing,
+                       'identity': self.native.token_user(), 'requests': [],
+                       'python': {'version': sys.version, 'executable': sys.executable}}
+        self.compartments = {}
+        self.keep = set()
+        self.jobs = []
+        self.listeners, self.connections = [], []
+        self.relay = {'accepted': 0, 'forward_errors': [], 'listener_errors': []}
+        self.listening = threading.Event()
+        self.stop = threading.Event()
+        self.default = int(self.i.GetDefaultCompartmentId())
+
+    def create(self, name):
+        with _guarded_compartment_row() as row:
+            self.i.InitializeCompartmentEntry(C.byref(row))
+            guid = uuid.uuid4()
+            row.CompartmentGuid = GUID.of(guid)
+            row.Description = DESCRIPTION + ' ' + name
+            code = int(self.i.CreateCompartment(C.byref(row)))
+            if code == 0:
+                self.compartments[name] = int(row.CompartmentId)
+            return {'code': code, 'id': int(row.CompartmentId), 'guid': str(guid)}
+
+    def delete(self, name):
+        cid = self.compartments.get(name)
+        if cid is None:
+            return {'code': None, 'missing': True}
+        code = int(self.i.DeleteCompartment(cid))
+        if code == 0:
+            del self.compartments[name]
+        return {'code': code, 'id': cid}
+
+    def thread_probe(self, cid):
+        probe = {}
+
+        def body():
+            probe['set'] = int(self.i.SetCurrentThreadCompartmentId(cid))
+            probe['get'] = int(self.i.GetCurrentThreadCompartmentId())
+            for key, (host, port) in {'public_1111_443': ('1.1.1.1', 443),
+                                      'host_fixture_loopback': ('127.0.0.1', self.args.fixture_port)}.items():
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.settimeout(3)
+                        s.connect((host, port))
+                    probe[key] = {'ok': True}
+                except OSError as e:
+                    probe[key] = {'ok': False, 'winerror': getattr(e, 'winerror', None)}
+            name = secrets.token_hex(16) + '.1.2.3.4.sslip.io'
+            try:
+                probe['dns'] = {'name': name, 'ok': True, 'addresses': sorted({x[4][0] for x in socket.getaddrinfo(name, 443, socket.AF_INET)})}
+            except OSError as e:
+                probe['dns'] = {'name': name, 'ok': False, 'errno': getattr(e, 'errno', None), 'text': str(e)[:120]}
+        worker = threading.Thread(target=body)
+        worker.start()
+        worker.join(30)
+        return probe
+
+    def default_dns(self):
+        name = secrets.token_hex(16) + '.1.2.3.4.sslip.io'
+        try:
+            return {'name': name, 'ok': True, 'addresses': sorted({x[4][0] for x in socket.getaddrinfo(name, 443, socket.AF_INET)})}
+        except OSError as e:
+            return {'name': name, 'ok': False, 'errno': getattr(e, 'errno', None), 'text': str(e)[:120]}
+
+    # -- relay: listener bound inside compartment A, upstream in the default one
+    def start_relay(self, cid):
+        def pump(source, target):
+            try:
+                while True:
+                    data = source.recv(65536)
+                    if not data:
+                        break
+                    target.sendall(data)
+            except OSError:
+                pass
+            finally:
+                for s in (source, target):
+                    try:
+                        s.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
+
+        def forward(accepted):
+            upstream = None
+            try:
+                self.i.SetCurrentThreadCompartmentId(self.default)
+                upstream = socket.create_connection(('127.0.0.1', self.args.fixture_port), timeout=5)
+                self.connections.append(upstream)
+                upstream.settimeout(None)
+                accepted.settimeout(None)
+                back = threading.Thread(target=pump, args=(upstream, accepted), daemon=True)
+                back.start()
+                pump(accepted, upstream)
+                back.join(30)
+            except OSError as e:
+                self.relay['forward_errors'].append(str(e)[:160])
+            finally:
+                for s in (accepted, upstream):
+                    if s is not None:
+                        s.close()
+
+        def listen():
+            try:
+                self.relay['listener_set'] = int(self.i.SetCurrentThreadCompartmentId(cid))
+                self.relay['listener_get'] = int(self.i.GetCurrentThreadCompartmentId())
+                for family, host in ((socket.AF_INET, '127.0.0.1'), (socket.AF_INET6, '::1')):
+                    s = socket.socket(family, socket.SOCK_STREAM)
+                    try:
+                        s.bind((host, self.args.relay_port))
+                        s.listen(64)
+                        self.listeners.append(s)
+                        self.relay['bound_' + host] = True
+                    except OSError as e:
+                        self.relay['listener_errors'].append(f'{host}: {e}'[:160])
+                        s.close()
+            finally:
+                self.listening.set()
+            while not self.stop.is_set():
+                try:
+                    ready, _, _ = select.select(self.listeners, [], [], 0.5)
+                except (OSError, ValueError):
+                    break
+                for s in ready:
+                    try:
+                        accepted, _ = s.accept()
+                    except OSError:
+                        continue
+                    self.relay['accepted'] += 1
+                    self.connections.append(accepted)
+                    threading.Thread(target=forward, args=(accepted,), daemon=True).start()
+
+        threading.Thread(target=listen, daemon=True).start()
+        self.listening.wait(10)
+
+    def stop_relay(self):
+        self.stop.set()
+        time.sleep(0.8)
+        closed = 0
+        for s in self.listeners + self.connections:
+            try:
+                s.close()
+                closed += 1
+            except OSError:
+                pass
+        self.listeners, self.connections = [], []
+        return {'closed': closed}
+
+    def bind(self, request):
+        """Duplicate a Job handle owned by another process and bind it, as a service would."""
+        n, k = self.native, self.native.k
+        cid = self.compartments.get(request.get('compartment', 'A'))
+        if cid is None:
+            return {'code': None, 'error': 'unknown compartment'}
+        process = k.OpenProcess(0x0040 | 0x1000, False, int(request['pid']))  # DUP_HANDLE | QUERY_LIMITED
+        if not process:
+            return {'code': None, 'open_error': C.get_last_error()}
+        try:
+            duplicate = W.HANDLE()
+            if not k.DuplicateHandle(process, W.HANDLE(int(request['handle'])), k.GetCurrentProcess(),
+                                     C.byref(duplicate), 0, False, 2):
+                return {'code': None, 'dup_error': C.get_last_error()}
+        finally:
+            k.CloseHandle(process)
+        self.jobs.append(duplicate.value)
+        code = int(self.i.SetJobCompartmentId(duplicate, cid))
+        return {'code': code, 'job_compartment': int(self.i.GetJobCompartmentId(duplicate)), 'compartment_id': cid}
+
+    def handle(self, request):
+        op = request.get('op')
+        if op == 'bind':
+            return self.bind(request)
+        if op == 'create':
+            return self.create(request['name'])
+        if op == 'delete':
+            return self.delete(request['name'])
+        if op == 'keep':
+            self.keep.add(request['name'])
+            return {'kept': request['name'], 'id': self.compartments.get(request['name'])}
+        if op == 'stop_relay':
+            return self.stop_relay()
+        if op == 'exit':
+            return {'exiting': True}
+        return {'error': 'unknown op'}
+
+    def serve(self):
+        deadline = time.monotonic() + self.args.timeout
+        next_health = 0
+        while time.monotonic() < deadline:
+            if time.monotonic() >= next_health:
+                write_json(self.work / 'controller-health.json', {
+                    'pid': os.getpid(), 'time': time.time(), 'stage': 'serving',
+                    'requests_completed': len(self.report['requests']), 'relay': self.relay})
+                next_health = time.monotonic() + 1
+            pending = sorted(self.work.glob('req-*.json')) + sorted(self.userdir.glob('req-*.json'))
+            for path in pending:
+                try:
+                    request = json.loads(path.read_text(encoding='utf-8'))
+                except (OSError, ValueError):
+                    continue
+                try:
+                    write_json(self.work / 'controller-health.json', {
+                        'pid': os.getpid(), 'time': time.time(), 'stage': 'request_entered',
+                        'request': request, 'relay': self.relay})
+                    response = self.handle(request)
+                except Exception as e:
+                    response = {'exception': f'{type(e).__name__}: {e}'[:300]}
+                self.report['requests'].append({'request': request, 'response': response})
+                write_json(path.with_name(path.name.replace('req-', 'resp-', 1)), response)
+                path.unlink()
+                if request.get('op') == 'exit':
+                    return
+            time.sleep(0.2)
+
+    def run(self):
+        # Native crashes otherwise bypass Python's exception/finally handlers.
+        faulthandler.enable(all_threads=True)
+        try:
+            created = self.create('A')
+            self.report['create_A'] = created
+            if created['code']:
+                raise OSError(created['code'], 'CreateCompartment failed')
+            cid = self.compartments['A']
+            self.report['default_compartment'] = self.default
+            self.report['thread_probe'] = self.thread_probe(cid)
+            self.report['default_thread_dns'] = self.default_dns()
+            self.start_relay(cid)
+            self.report['relay'] = self.relay
+            write_json(self.work / 'controller-ready.json', self.report)
+            self.serve()
+        except Exception as e:
+            self.report['error'] = f'{type(e).__name__}: {e}'
+            self.report['traceback'] = traceback.format_exc()[-3000:]
+            write_json(self.work / 'controller-ready.json', self.report)
+        finally:
+            self.report['final_stop_relay'] = self.stop_relay()
+            terminated = []
+            for job in self.jobs:
+                terminated.append(bool(self.native.k.TerminateJobObject(job, 1)))
+                self.native.k.CloseHandle(job)
+            self.report['terminated_jobs'] = terminated
+            time.sleep(1.0)
+            deletes = {}
+            for name in [name for name in self.compartments if name not in self.keep]:
+                codes = []
+                for _ in range(8):
+                    result = self.delete(name)
+                    codes.append(result['code'])
+                    if result['code'] == 0:
+                        break
+                    time.sleep(1.0)
+                deletes[name] = codes
+            self.report['final_deletes'] = deletes
+            self.report['kept'] = {name: self.compartments.get(name) for name in self.keep}
+            self.report['relay'] = self.relay
+            self.report['finished'] = time.time()
+            write_json(self.work / 'controller-final.json', self.report)
+
+
+def cleanup(args) -> int:
+    native = Native()
+    result = {'identity': native.token_user(), 'deletes': {}}
+    for cid in args.ids:
+        result['deletes'][str(cid)] = int(native.i.DeleteCompartment(int(cid)))
+    write_json(Path(args.out), result)
+    return 0
+
+
+# ----------------------------------------------------------------------------- driver fixtures
+
+
+class Fixture:
+    """Local HTTP endpoint: proxy mode answers absolute-URI GETs; direct mode plain paths."""
+
+    def __init__(self, nonce, direct=False):
+        self.nonce, self.direct = nonce, direct
+        self.received, self.lock = [], threading.Lock()
+        owner = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_):
+                pass
+
+            def do_GET(self):
+                self.respond(True)
+
+            def do_HEAD(self):
+                self.respond(False)
+
+            def respond(self, send_body):
+                path, label = self.path, None
+                if owner.direct:
+                    parts = path.strip('/').split('/')
+                    if len(parts) == 2 and parts[0] == owner.nonce:
+                        label = parts[1]
+                elif path.startswith('http://'):
+                    host, _, tail = path[len('http://'):].partition('/')
+                    parts = tail.split('/')
+                    if len(parts) == 2 and parts[0] == owner.nonce and host == parts[1] + '.invalid':
+                        label = parts[1]
+                if label is None:
+                    self.send_error(403)
+                    return
+                if send_body:
+                    with owner.lock:
+                        owner.received.append(label)
+                body = ('<!doctype html><html><head><title>RuleProxy fixture</title></head><body>'
+                        + owner.marker(label) + '</body></html>').encode('ascii')
+                full_size, start, end = len(body), 0, len(body) - 1
+                byte_range = self.headers.get('Range')
+                if byte_range:
+                    try:
+                        first, last = byte_range.removeprefix('bytes=').split('-', 1)
+                        start, end = int(first), int(last) if last else end
+                        if not byte_range.startswith('bytes=') or not 0 <= start <= end < full_size:
+                            raise ValueError('range')
+                    except ValueError:
+                        self.send_error(416); return
+                    body = body[start:end + 1]
+                self.send_response(206 if byte_range else 200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Accept-Ranges', 'bytes')
+                if byte_range:
+                    self.send_header('Content-Range', f'bytes {start}-{end}/{full_size}')
+                self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+                if send_body:
+                    self.wfile.write(body)
+
+            def do_CONNECT(self):
+                with owner.lock:
+                    owner.received.append('CONNECT ' + self.path)
+                self.send_error(403)
+
+        self.server = ThreadingHTTPServer(('0.0.0.0' if direct else '127.0.0.1', 0), Handler)
+        self.server.daemon_threads = True
+        self.port = self.server.server_port
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def marker(self, label):
+        return 'RuleProxyFixture:' + self.nonce + ':' + label
+
+    def count(self, label):
+        with self.lock:
+            return self.received.count(label)
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
+class Echo:
+    def __init__(self):
+        self.payloads, self.lock, self.sockets = [], threading.Lock(), []
+        self.tcp4 = self._tcp(socket.AF_INET, '0.0.0.0')
+        self.tcp6 = self._tcp(socket.AF_INET6, '::')
+        self.udp4 = self._udp(socket.AF_INET, '0.0.0.0')
+        self.udp6 = self._udp(socket.AF_INET6, '::')
+
+    def _record(self, data):
+        with self.lock:
+            self.payloads.append(data[:128].decode('ascii', 'replace'))
+
+    def _tcp(self, family, host):
+        s = socket.socket(family, socket.SOCK_STREAM)
+        if family == socket.AF_INET6:
+            s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        s.bind((host, 0))
+        s.listen(32)
+        self.sockets.append(s)
+
+        def serve():
+            while True:
+                try:
+                    c, _ = s.accept()
+                except OSError:
+                    return
+                try:
+                    c.settimeout(3)
+                    data = c.recv(256)
+                    self._record(data)
+                    c.sendall(data)
+                except OSError:
+                    pass
+                finally:
+                    c.close()
+        threading.Thread(target=serve, daemon=True).start()
+        return s.getsockname()[1]
+
+    def _udp(self, family, host):
+        s = socket.socket(family, socket.SOCK_DGRAM)
+        if family == socket.AF_INET6:
+            s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        s.bind((host, 0))
+        self.sockets.append(s)
+
+        def serve():
+            while True:
+                try:
+                    data, peer = s.recvfrom(2048)
+                except OSError:
+                    return
+                self._record(data)
+                try:
+                    s.sendto(data, peer)
+                except OSError:
+                    pass
+        threading.Thread(target=serve, daemon=True).start()
+        return s.getsockname()[1]
+
+    def close(self):
+        for s in self.sockets:
+            s.close()
+
+
+class Decoy:
+    """A default-compartment listener on the relay port, to prove loopback separation."""
+
+    def __init__(self, port):
+        self.error = None
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self.socket.bind(('127.0.0.1', port))
+            self.socket.listen(16)
+        except OSError as e:
+            self.error = str(e)[:160]
+            self.socket.close()
+            self.socket = None
+            return
+
+        def serve():
+            while True:
+                try:
+                    c, _ = self.socket.accept()
+                except OSError:
+                    return
+                try:
+                    c.sendall(b'RULEPROXY-DECOY\n')
+                except OSError:
+                    pass
+                c.close()
+        threading.Thread(target=serve, daemon=True).start()
+
+    def close(self):
+        if self.socket:
+            self.socket.close()
+
+
+def host_ipv4():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect(('8.8.8.8', 53))
+        return s.getsockname()[0]
+
+
+def powershell(script, timeout=90):
+    try:
+        out = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command',
+                              "$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);"
+                              + script], capture_output=True, timeout=timeout)
+        return {'code': out.returncode, 'stdout': out.stdout.decode('utf-8', 'replace')[-20000:],
+                'stderr': out.stderr.decode('utf-8', 'replace')[-4000:]}
+    except subprocess.TimeoutExpired:
+        return {'code': None, 'timeout': True}
+
+
+def png_valid(path: Path) -> bool:
+    if not path.is_file() or not 33 <= path.stat().st_size <= 8 * 1024 * 1024:
+        return False
+    data = path.read_bytes()
+    if data[:8] != b'\x89PNG\r\n\x1a\n':
+        return False
+    offset, image = 8, False
+    while offset + 12 <= len(data):
+        size = struct.unpack('!I', data[offset:offset + 4])[0]
+        kind, end = data[offset + 4:offset + 8], offset + 12 + size
+        if end > len(data) or zlib.crc32(data[offset + 4:end - 4]) != struct.unpack('!I', data[end - 4:end])[0]:
+            return False
+        image = image or (kind == b'IDAT' and size > 0)
+        if kind == b'IEND':
+            return image
+        offset = end
+    return False
+
+
+def read_tail(path: Path, limit=6000):
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return ''
+    return data[-limit:].decode('utf-8', 'replace')
+
+
+def safe_env(work: Path, label: str):
+    keep = {'SYSTEMROOT', 'WINDIR', 'PATH', 'COMSPEC', 'PATHEXT', 'PROGRAMFILES', 'PROGRAMFILES(X86)',
+            'PROGRAMW6432', 'COMMONPROGRAMFILES', 'COMMONPROGRAMFILES(X86)', 'COMMONPROGRAMW6432', 'OS',
+            'NUMBER_OF_PROCESSORS', 'PROCESSOR_ARCHITECTURE', 'PROCESSOR_IDENTIFIER', 'PROCESSOR_LEVEL',
+            'PROCESSOR_REVISION', 'SYSTEMDRIVE', 'PROGRAMDATA', 'ALLUSERSPROFILE', 'PUBLIC',
+            'USERNAME', 'USERDOMAIN', 'COMPUTERNAME', 'HOMEDRIVE', 'HOMEPATH', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA'}
+    env = {k: v for k, v in os.environ.items() if k.upper() in keep}
+    temp = work / 'tmp' / label
+    temp.mkdir(parents=True, exist_ok=True)
+    env.update(TEMP=str(temp), TMP=str(temp))
+    return env
+
+
+class Requests:
+    def __init__(self, work, native=None):
+        self.work, self.sequence, self.native = work, 0, native
+        self.process, self.pid = None, None
+        self.monitor = {}
+
+    def attach(self, pid):
+        self.pid = pid
+        if self.native is None or type(pid) is not int or pid <= 0:
+            return
+        self.process = self.native.k.OpenProcess(0x100000 | 0x1000, False, pid)
+        self.monitor['pid'] = pid
+        self.monitor['handle_opened'] = bool(self.process)
+        if not self.process:
+            self.monitor['open_error'] = C.get_last_error()
+
+    def state(self):
+        result = dict(self.monitor)
+        if self.process:
+            waited = self.native.k.WaitForSingleObject(self.process, 0)
+            result['alive'] = waited == 258
+            if waited == 0:
+                code = W.DWORD()
+                if self.native.k.GetExitCodeProcess(self.process, C.byref(code)):
+                    result.update(exit_code=code.value, exit_code_hex=f'0x{code.value:08X}')
+            elif waited != 258:
+                result['wait_error'] = C.get_last_error()
+        result['health'] = read_json_optional(self.work / 'controller-health.json')
+        result['wrapper_exit'] = read_json_optional(self.work / 'controller-exit.json')
+        return result
+
+    def close(self):
+        if self.process:
+            self.native.k.CloseHandle(self.process)
+            self.process = None
+
+    def __call__(self, op, timeout=30, **fields):
+        state = self.state()
+        if state.get('alive') is False or state.get('wrapper_exit') is not None:
+            return {'controller_exited': True, 'controller_state': state}
+        self.sequence += 1
+        name = f'{self.sequence:03d}-{op}.json'
+        write_json(self.work / ('req-' + name), {'op': op, **fields})
+        response = self.work / ('resp-' + name)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline and not response.exists():
+            state = self.state()
+            if state.get('alive') is False or state.get('wrapper_exit') is not None:
+                return {'controller_exited': True, 'controller_state': state}
+            time.sleep(0.2)
+        if not response.exists():
+            return {'timeout': True, 'controller_state': self.state()}
+        return json.loads(response.read_text(encoding='utf-8'))
+
+
+def schedule_system(name, wrapper: Path):
+    return powershell(
+        f"$a=New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c \"{wrapper}\"';"
+        f"$p=New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest;"
+        f"$s=New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 45) -AllowStartIfOnBatteries;"
+        f"Register-ScheduledTask -TaskName '{name}' -Action $a -Principal $p -Settings $s -Force | Out-Null;"
+        f"Start-ScheduledTask -TaskName '{name}'; 'started'")
+
+
+def wait_file(path: Path, seconds):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline and not path.exists():
+        time.sleep(0.5)
+    return path.exists()
+
+
+def lab_compartments():
+    value = powershell('@(Get-NetCompartment | Select-Object CompartmentId,CompartmentDescription) | ConvertTo-Json -Compress')
+    try:
+        rows = json.loads(value.get('stdout') or '[]')
+    except ValueError:
+        return value, []
+    rows = rows if isinstance(rows, list) else [rows]
+    return rows, [row['CompartmentId'] for row in rows if str(row.get('CompartmentDescription', '')).startswith(DESCRIPTION)]
+
+
+# ----------------------------------------------------------------------------- driver
+
+
+def read_json_optional(path):
+    try:
+        return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+    except (OSError, ValueError):
+        return None
+
+
+def ps_literal(value):
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def wmi_script(command):
+    return ("$ErrorActionPreference='Stop'; try { $r=Invoke-CimMethod -ClassName Win32_Process "
+            "-MethodName Create -Arguments @{CommandLine=" + ps_literal(command) + "}; "
+            "@{return_value=[int]$r.ReturnValue; child_pid=[int]$r.ProcessId} | ConvertTo-Json -Compress "
+            "} catch { @{error=$_.Exception.Message; hresult=$_.Exception.HResult} | ConvertTo-Json -Compress }")
+
+
+def bits_script(url, destination, display_name, marker):
+    return ("$ErrorActionPreference='Stop'; $job=$null; $r=[ordered]@{supported=$false}; try { "
+            "Import-Module BitsTransfer -ErrorAction Stop; $r.supported=$true; "
+            " $job=Start-BitsTransfer -Asynchronous -Source " + ps_literal(url) + " -Destination "
+            + ps_literal(destination) + " -DisplayName " + ps_literal(display_name) + " -ProxyUsage NoProxy; "
+            "$r.job_id=[string]$job.JobId; $deadline=[DateTime]::UtcNow.AddSeconds(20); do { "
+            "$job=Get-BitsTransfer -JobId $job.JobId; $r.state=[string]$job.JobState; "
+            "$r.bytes_transferred=$job.BytesTransferred; $r.error_code=$job.ErrorCode; "
+            "if($r.state -in @('Transferred','Error','TransientError')){break}; Start-Sleep -Milliseconds 200 "
+            "} while([DateTime]::UtcNow -lt $deadline); if($r.state -eq 'Transferred'){ "
+            "Complete-BitsTransfer -BitsJob $job; $job=$null; "
+            "$r.marker_matches=([IO.File]::ReadAllText(" + ps_literal(destination) + ")).Contains("
+            + ps_literal(marker) + ") } } catch { $r.error=$_.Exception.Message; $r.hresult=$_.Exception.HResult "
+            "} finally { if($job){ Remove-BitsTransfer -BitsJob $job -Confirm:$false -ErrorAction SilentlyContinue } }; "
+            "$r | ConvertTo-Json -Compress")
+
+
+def hcn_capabilities():
+    result = {'dns_remediation_tested': False,
+              'scope': 'read-only exports and service discovery; namespace/silo isolation not inferred'}
+    try:
+        library = C.WinDLL('computenetwork', use_last_error=True)
+        result['exports'] = {name: hasattr(library, name) for name in (
+            'HcnCreateNamespace', 'HcnEnumerateNamespaces', 'HcnQueryNamespaceProperties', 'HcnDeleteNamespace')}
+    except OSError as error:
+        result['load_error'] = str(error)[:300]
+    result['services'] = powershell(
+        "Get-Service hns,vmcompute -ErrorAction SilentlyContinue | Select-Object Name,Status | ConvertTo-Json -Compress")
+    return result
+
+
+class PrivateUserDesktop:
+    """A private session-0 station/desktop for the SYSTEM WithTokenW child.
+
+    The real Win11 ordinary child reached cmd.exe, then _ctypes failed to load
+    with ERROR_DLL_INIT_FAILED. Give GUI-dependent DLL initialization an explicit
+    accessible desktop; do not change winsta0 or any existing object's ACL.
+    """
+    def __init__(self, native, sid):
+        class SecurityAttributes(C.Structure):
+            _fields_ = [('length', W.DWORD), ('descriptor', C.c_void_p), ('inherit', W.BOOL)]
+        self.native, self.u = native, C.WinDLL('user32', use_last_error=True)
+        self.station = self.desktop = None
+        for name, args, result in (
+            ('GetProcessWindowStation', [], W.HANDLE),
+            ('SetProcessWindowStation', [W.HANDLE], W.BOOL),
+            ('CreateWindowStationW', [W.LPCWSTR, W.DWORD, W.DWORD, C.POINTER(SecurityAttributes)], W.HANDLE),
+            ('CloseWindowStation', [W.HANDLE], W.BOOL),
+            ('CreateDesktopW', [W.LPCWSTR, W.LPCWSTR, C.c_void_p, W.DWORD, W.DWORD,
+                                C.POINTER(SecurityAttributes)], W.HANDLE),
+            ('CloseDesktop', [W.HANDLE], W.BOOL)):
+            function = getattr(self.u, name)
+            function.argtypes, function.restype = args, result
+        native.a.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+            W.LPCWSTR, W.DWORD, C.POINTER(C.c_void_p), C.POINTER(W.DWORD)]
+        native.a.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = W.BOOL
+        descriptor = C.c_void_p()
+        native.check(native.a.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            'D:P(A;;GA;;;SY)(A;;GA;;;' + sid + ')', 1, C.byref(descriptor), None), 'Private desktop descriptor')
+        previous = self.u.GetProcessWindowStation()
+        name = 'RuleProxyLab' + secrets.token_hex(6)
+        try:
+            attributes = SecurityAttributes(C.sizeof(SecurityAttributes), descriptor, False)
+            self.station = native.check(self.u.CreateWindowStationW(name, 0, 0xF037F, C.byref(attributes)),
+                                        'CreateWindowStationW')
+            native.check(self.u.SetProcessWindowStation(self.station), 'SetProcessWindowStation private')
+            try:
+                self.desktop = native.check(self.u.CreateDesktopW('default', None, None, 0, 0xF01FF,
+                                            C.byref(attributes)), 'CreateDesktopW')
+            finally:
+                native.check(self.u.SetProcessWindowStation(previous), 'Restore process window station')
+            self.path = name + '\\default'
+        except BaseException:
+            self.close()
+            raise
+        finally:
+            native.k.LocalFree(descriptor)
+
+    def close(self):
+        if self.desktop:
+            self.u.CloseDesktop(self.desktop)
+            self.desktop = None
+        if self.station:
+            self.u.CloseWindowStation(self.station)
+            self.station = None
+
+
+def ordinary_user_flow(native, work):
+    """Use the already exercised hosted-runner WithLogonW + private Python flow.
+
+    The SYSTEM controller only receives the ordinary launcher's Job handle.
+    Passwords remain in this function, never in a request, command line or report.
+    """
+    net, userenv = C.WinDLL('netapi32'), C.WinDLL('userenv', use_last_error=True)
+    net.NetUserAdd.argtypes = [W.LPCWSTR, W.DWORD, C.c_void_p, C.POINTER(W.DWORD)]
+    net.NetLocalGroupAddMembers.argtypes = [W.LPCWSTR, W.LPCWSTR, W.DWORD, C.c_void_p, W.DWORD]
+    net.NetUserDel.argtypes = [W.LPCWSTR, W.LPCWSTR]
+    userenv.CreateEnvironmentBlock.argtypes = [C.POINTER(C.c_void_p), W.HANDLE, W.BOOL]
+    userenv.CreateEnvironmentBlock.restype = W.BOOL
+    userenv.DestroyEnvironmentBlock.argtypes = [C.c_void_p]
+    name, password = 'rpc' + secrets.token_hex(5), secrets.token_urlsafe(24) + 'aA1!'
+    userdir, runtime = work / 'user', work / 'user-runtime'
+    result = {'method': 'CreateProcessWithLogonW', 'stage': 'create_account', 'interactive_desktop_tested': False}
+    token, environment, process = W.HANDLE(), C.c_void_p(), None
+    lifetime_job, created, desktop = None, False, None
+    try:
+        info = USER_INFO_1(name, password, 0, 1, None, 'RuleProxy compartment lab', 0x10201, None)
+        failed = W.DWORD()
+        code = int(net.NetUserAdd(None, 1, C.byref(info), C.byref(failed)))
+        result['user_add'] = code
+        if code: return result
+        created = True
+        member = W.LPWSTR(name)
+        result['group'] = int(net.NetLocalGroupAddMembers(None, 'Users', 3, C.byref(member), 1))
+        if result['group'] not in (0, 1378): return result
+        native.check(native.a.LogonUserW(name, '.', password, 2, 0, C.byref(token)), 'LogonUserW')
+        result['identity'] = native.token_identity(token)
+        if result['identity']['elevated'] or result['identity']['sid'] == 'S-1-5-18':
+            raise RuntimeError('temporary account is not ordinary')
+        sid = result['identity']['sid']
+        for path, rights in ((work, 'RX'), (userdir, 'M')):
+            subprocess.run(['icacls', str(path), '/grant', f'*{sid}:(OI)(CI)({rights})', '/Q'],
+                           capture_output=True, check=True, timeout=30)
+        result['stage'] = 'copy_private_runtime'
+        runtime.mkdir()
+        for pattern in ('python.exe', '*.dll', '*.pyd', 'python*.zip'):
+            for source in Path(sys.executable).parent.glob(pattern):
+                shutil.copyfile(source, runtime / source.name)
+        for directory in ('DLLs', 'Lib'):
+            if (Path(sys.base_prefix) / directory).is_dir():
+                shutil.copytree(Path(sys.base_prefix) / directory, runtime / directory,
+                                ignore=shutil.ignore_patterns('site-packages', '__pycache__', 'test', 'idlelib', 'tkinter', 'ensurepip'))
+        # Embedded Python has a zip stdlib and _pth instead of Lib/DLLs. Keep
+        # its copied runtime independent of the product vendor/source paths.
+        for source in Path(sys.executable).parent.glob('python*._pth'):
+            archives = sorted(path.name for path in runtime.glob('python*.zip'))
+            (runtime / source.name).write_text('\n'.join(archives + ['.', '']) + '\n', encoding='ascii')
+        launcher_command = subprocess.list2cmdline([str(runtime / 'python.exe'), '-I', '-S', '-B',
+            str(work / 'launcher.py'), str(work / 'actor.json'), str(userdir)])
+        wrapper = userdir / 'launch.cmd'
+        wrapper.write_text('@echo off\r\n'
+            f'echo entered>"{userdir / "wrapper-entered.txt"}"\r\n'
+            f'{launcher_command} >"{userdir / "launcher-stdio.log"}" 2>&1\r\n'
+            'set "launcher_exit=%errorlevel%"\r\n'
+            f'echo %launcher_exit%>"{userdir / "launcher-exit.txt"}"\r\n'
+            'exit /b %launcher_exit%\r\n', encoding='ascii')
+        native.check(userenv.CreateEnvironmentBlock(C.byref(environment), token, False), 'CreateEnvironmentBlock')
+        command = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32' / 'cmd.exe'
+        startup, pi = STARTUPINFOW(), PROCESS_INFORMATION()
+        startup.cb = C.sizeof(startup)
+        result['stage'] = 'create_suspended'
+        lifetime_job = native.new_job()
+        command_line = C.create_unicode_buffer(subprocess.list2cmdline([str(command), '/d', '/c', str(wrapper)]))
+        if native.token_user() == 'S-1-5-18':
+            result['method'] = 'LogonUserW+CreateProcessWithTokenW'
+            desktop = PrivateUserDesktop(native, sid)
+            startup.lpDesktop = desktop.path
+            result['desktop'] = {'name': desktop.path, 'private_noninteractive': True, 'system_acl_changes': False}
+            started = native.a.CreateProcessWithTokenW(token, 1, str(command), command_line,
+                0x08000000 | 0x400 | 4, environment, str(userdir), C.byref(startup), C.byref(pi))
+        else:
+            started = native.a.CreateProcessWithLogonW(name, '.', password, 1, str(command), command_line,
+                0x08000000 | 0x400 | 4, environment, str(userdir), C.byref(startup), C.byref(pi))
+        native.check(started, result['method'])
+        process, pid = native._start(pi, lifetime_job)
+        result['pid'], result['stage'] = pid, 'running'
+        deadline = time.monotonic() + 420
+        while time.monotonic() < deadline:
+            status = native.k.WaitForSingleObject(process, 200)
+            if status == 0: break
+            if status != 258: raise OSError(C.get_last_error(), 'WaitForSingleObject launcher')
+        code, timed_out = native.wait(process, 0)
+        process = None
+        result.update(stage='finished', exit_code=code, exit_code_hex=f'0x{code:08X}', timed_out=timed_out)
+    except Exception as error:
+        result.update(error=f'{type(error).__name__}: {error}'[:500])
+    finally:
+        if process:
+            native.k.TerminateProcess(process, 125)
+            native.k.WaitForSingleObject(process, 5000)
+            native.k.CloseHandle(process)
+        if lifetime_job:
+            native.k.TerminateJobObject(lifetime_job, 125)
+            native.k.CloseHandle(lifetime_job)
+        if desktop:
+            desktop.close()
+        if environment: userenv.DestroyEnvironmentBlock(environment)
+        if token: native.k.CloseHandle(token)
+        result['wrapper_entered'] = (userdir / 'wrapper-entered.txt').is_file()
+        result['stdio'] = read_tail(userdir / 'launcher-stdio.log')
+        result['progress'] = read_json_optional(userdir / 'launcher-progress.json')
+        result['launcher'] = read_json_optional(userdir / 'launcher-result.json')
+        if created:
+            result['user_removed'] = int(net.NetUserDel(None, name))
+            sid = result.get('identity', {}).get('sid')
+            if sid:
+                result['profile_cleanup'] = powershell(
+                    "$ErrorActionPreference='Stop'; @(Get-CimInstance Win32_UserProfile -Filter "
+                    f'"SID=\'{sid}\'"' + ") | Remove-CimInstance; 'ok'", timeout=30)
+    return result
+
+
+def driver(args) -> int:
+    sys.stdout.reconfigure(encoding='utf-8', errors='backslashreplace')
+    if os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true':
+        raise SystemExit('requires a disposable Windows Actions runner')
+    work = WORK
+    if work.exists():
+        raise SystemExit('work directory already exists')
+    work.mkdir(parents=True)
+    (work / 'user').mkdir()
+    out_dir = Path(args.out).resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    native = Native()
+    nonce = secrets.token_hex(12)
+    report = {'schema_version': 3, 'source_commit': os.environ.get('GITHUB_SHA'), 'nonce': nonce,
+              'windows': list(sys.getwindowsversion()[:4]), 'identity': native.token_user(),
+              'python': {'version': sys.version, 'executable': sys.executable},
+              'missing_exports': native.missing, 'phases': {}, 'browsers': {}, 'tools': {},
+              'product_qualified': False, 'dns_matrix': {}, 'broker_matrix': {},
+              'dns_wire_evidence_available': False,
+              'scope': 'PoC; HTTP fixture, host NIC and IPv6 loopback; no real Mihomo/HTTPS acceptance'}
+    proxy, direct, echo = Fixture(nonce), Fixture(nonce, direct=True), Echo()
+    relay_port = 18808
+    decoy = None
+    host_ip = host_ipv4()
+    (work / 'actor.py').write_text(ACTOR, encoding='utf-8')
+    (work / 'launcher.py').write_text(LAUNCHER, encoding='utf-8')
+    (work / 'dns-probe.py').write_text(DNS_PROBE, encoding='utf-8')
+    (work / 'broker-child.py').write_text(BROKER_CHILD, encoding='utf-8')
+    config = {'nonce': nonce, 'host_ip': host_ip, 'echo_tcp': echo.tcp4, 'echo_udp': echo.udp4,
+              'echo_tcp6': echo.tcp6, 'echo_udp6': echo.udp6, 'relay_port': relay_port, 'fixture_port': proxy.port,
+              'default_compartment': 1, 'linger': 'linger-inside', 'linger_go': str(work / 'linger-go')}
+    write_json(work / 'actor.json', config)
+    report['before'] = lab_compartments()[0]
+    request = Requests(work, native)
+    task_ok = False
+    jobs = {}
+    bits_names = []
+    try:
+        wrapper = work / 'controller.cmd'
+        wrapper.write_text(
+            '@echo off\r\n'
+            f'"{sys.executable}" -X faulthandler -I -B "{Path(__file__).resolve()}" controller --work "{work}" '
+            f'--relay-port {relay_port} --fixture-port {proxy.port} --timeout 2400 '
+            f'> "{work / "controller.log"}" 2>&1\r\n'
+            'set "RP_CONTROLLER_EXIT=%ERRORLEVEL%"\r\n'
+            f'echo {{"exit_code":%RP_CONTROLLER_EXIT%}}>"{work / "controller-exit.json"}"\r\n'
+            'exit /b %RP_CONTROLLER_EXIT%\r\n', encoding='ascii')
+        report['task'] = schedule_system(TASK, wrapper)
+        task_ok = report['task'].get('code') == 0
+        if not wait_file(work / 'controller-ready.json', 90):
+            raise RuntimeError('controller did not report readiness: ' + read_tail(work / 'controller.log'))
+        ready = json.loads((work / 'controller-ready.json').read_text(encoding='utf-8'))
+        report['controller_ready'] = ready
+        request.attach(ready.get('pid'))
+        report['controller_at_ready'] = request.state()
+        print('::group::controller ready\n' + json.dumps(ready, indent=1)[:20000] + '\n::endgroup::', flush=True)
+        if ready.get('error'):
+            raise RuntimeError('controller failed: ' + ready['error'])
+        config['default_compartment'] = ready['default_compartment']
+        write_json(work / 'actor.json', config)
+        report['net_config'] = {
+            'interfaces': powershell('Get-NetIPInterface -IncludeAllCompartments | Select-Object ifIndex,InterfaceAlias,AddressFamily,CompartmentId | ConvertTo-Json -Compress'),
+            'routes': powershell('Get-NetRoute -IncludeAllCompartments | Where-Object CompartmentId -ne 1 | Select-Object ifIndex,DestinationPrefix,NextHop,CompartmentId | ConvertTo-Json -Compress'),
+        }
+        decoy = Decoy(relay_port)
+        report['decoy_bind_error'] = decoy.error
+
+        def bound_job(name, compartment):
+            job = native.new_job()
+            jobs[name] = job
+            result = request('bind', pid=os.getpid(), handle=int(job), compartment=compartment)
+            result['driver_view'] = int(native.i.GetJobCompartmentId(job))
+            report.setdefault('binds', {})[name] = result
+            return job, result
+
+        job_a, bind_a = bound_job('A', 'A')
+        if bind_a.get('code') != 0:
+            raise RuntimeError('job binding failed: ' + json.dumps(bind_a))
+
+        def actor(label, job, timeout=300):
+            result_path = work / f'actor-{label}.json'
+            process, pid = native.spawn([sys.executable, '-I', '-B', work / 'actor.py', work / 'actor.json', result_path,
+                                         label, '0'], job=job, env=safe_env(work, label), cwd=work,
+                                        stdout=work / f'actor-{label}.log')
+            return process, result_path
+
+        def finish(label, process, result_path, timeout=300):
+            code, timed_out = native.wait(process, timeout)
+            try:
+                value = json.loads(result_path.read_text(encoding='utf-8'))
+            except (OSError, ValueError) as e:
+                value = {'error': repr(e), 'log': read_tail(work / f'actor-{label}.log')}
+            value['exit_code'], value['timed_out'] = code, timed_out
+            report['phases'][label] = value
+            print(f'::group::actor {label}\n' + json.dumps(value, indent=1)[:16000] + '\n::endgroup::', flush=True)
+            return value
+
+        finish('outside', *actor('outside', None))
+        finish('inside', *actor('inside', job_a))
+        report['controller_after_first_actors'] = request.state()
+
+        def tool(label, argv, job, timeout=60):
+            log = work / f'tool-{label}.log'
+            process, pid = native.spawn(argv, job=job, env=safe_env(work, label), cwd=work, stdout=log)
+            code, timed_out = native.wait(process, timeout)
+            report['tools'][label] = {'exit_code': code, 'timed_out': timed_out, 'tail': read_tail(log, 3000)}
+            return report['tools'][label]
+
+        system = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32'
+        powershell_exe = system / 'WindowsPowerShell' / 'v1.0' / 'powershell.exe'
+        name = secrets.token_hex(16) + '.1.2.3.4.sslip.io'
+        tool('nslookup_inside', [system / 'nslookup.exe', name, '8.8.8.8'], job_a)
+        report['tools']['nslookup_inside']['name'] = name
+        for label, job in (('resolve_inside', job_a), ('resolve_outside', None)):
+            name = secrets.token_hex(16) + '.1.2.3.4.sslip.io'
+            tool(label, [powershell_exe, '-NoProfile', '-Command',
+                         f'Resolve-DnsName -Name {name} -Type A -ErrorAction Stop | Select-Object -ExpandProperty IPAddress'], job)
+            report['tools'][label]['name'] = name
+        curl = system / 'curl.exe'
+        for label, job in (('curl_direct_inside', job_a), ('curl_direct_outside', None)):
+            tool(label, [curl, '-sS', '-m', '8', f'http://{host_ip}:{direct.port}/{nonce}/{label}'], job)
+            report['tools'][label]['fixture_hits'] = direct.count(label)
+        tool('curl_proxy_inside', [curl, '-sS', '-m', '8', '-x', f'http://127.0.0.1:{relay_port}',
+                                   f'http://curl_proxy_inside.invalid/{nonce}/curl_proxy_inside'], job_a)
+        report['tools']['curl_proxy_inside']['fixture_hits'] = proxy.count('curl_proxy_inside')
+        for label, job in (('curl_public_inside', job_a), ('curl_public_outside', None)):
+            tool(label, [curl, '-sS', '-m', '8', '-o', 'NUL', '-w', '%{http_code}', 'https://www.microsoft.com/'], job)
+
+        # Every native API gets its own bounded process and fresh uncached name.
+        # A failed API call is NOT packet-level evidence of DNS denial.
+        dns_calls = [('getaddrinfo', 0, False), ('DnsQuery_W', 0, False), ('DnsQuery_W', 0x108, False),
+                     ('DnsQueryEx', 0, False), ('DnsQueryEx', 0x108, False),
+                     ('DnsQuery_W', 0, True), ('DnsQueryEx', 0, True)]
+        for scope, job in (('outside_before', None), ('inside', job_a), ('outside_after', None)):
+            entries = report['dns_matrix'][scope] = {}
+            for api, options, restricted in dns_calls:
+                key = f'{api}:{options}' + (':restricted' if restricted else '')
+                label = f'dns-{scope}-' + key.replace(':', '-')
+                destination = work / (label + '.json')
+                name = secrets.token_hex(16) + '.1.2.3.4.sslip.io'
+                execution = tool(label, [sys.executable, '-I', '-B', work / 'dns-probe.py',
+                                        api, name, destination, str(options),
+                                        'restricted' if restricted else 'original'], job, timeout=25)
+                entries[key] = {'name': name, 'execution': execution, 'result': read_json_optional(destination)}
+            label = 'dns-' + scope + '-Resolve-DnsName'
+            name = secrets.token_hex(16) + '.1.2.3.4.sslip.io'
+            command = (f"$ErrorActionPreference='Stop'; try {{ $a=@(Resolve-DnsName -Name {name} -Type A "
+                       "-DnsOnly -NoHostsFile -ErrorAction Stop | Select-Object -ExpandProperty IPAddress); "
+                       "@{completed=$true;addresses=$a;answer_matches=($a.Count -eq 1 -and $a[0] -eq '1.2.3.4')} "
+                       "| ConvertTo-Json -Compress } catch { @{completed=$true;error=$_.Exception.Message} "
+                       "| ConvertTo-Json -Compress }")
+            execution = tool(label, [powershell_exe, '-NoProfile', '-NonInteractive', '-Command', command], job, timeout=25)
+            try: observation = json.loads(execution['tail'])
+            except ValueError: observation = None
+            entries['Resolve-DnsName:0'] = {'name': name, 'execution': execution, 'result': observation}
+
+        # Local RPC brokers may start a new process or perform HTTP outside the Job.
+        # Their own default-compartment controls are required before interpreting denial.
+        for scope, job in (('outside', None), ('inside', job_a)):
+            entries = report['broker_matrix'][scope] = {}
+            label = 'wmi_' + scope
+            destination = work / (label + '-child.json')
+            url = f'http://{host_ip}:{direct.port}/{nonce}/{label}'
+            child_command = subprocess.list2cmdline([sys.executable, '-I', '-B', str(work / 'broker-child.py'),
+                                                     url, str(destination), direct.marker(label)])
+            execution = tool(label, [powershell_exe, '-NoProfile', '-NonInteractive', '-Command',
+                                     wmi_script(child_command)], job, timeout=30)
+            try: invocation = json.loads(execution['tail'])
+            except ValueError: invocation = {}
+            if invocation.get('return_value') == 0:
+                wait_file(destination, 15)
+            entries['wmi'] = {'execution': execution, 'invocation': invocation,
+                              'child': read_json_optional(destination), 'fixture_hits': direct.count(label)}
+            label = 'bits_' + scope
+            display_name = 'RuleProxyCompartmentLab-' + nonce + '-' + scope
+            bits_names.append(display_name)
+            url = f'http://{host_ip}:{direct.port}/{nonce}/{label}'
+            execution = tool(label, [powershell_exe, '-NoProfile', '-NonInteractive', '-Command',
+                bits_script(url, work / (label + '.html'), display_name, direct.marker(label))], job, timeout=35)
+            try: observation = json.loads(execution['tail'])
+            except ValueError: observation = None
+            entries['bits'] = {'execution': execution, 'result': observation, 'fixture_hits': direct.count(label)}
+        report['hcn_capabilities'] = hcn_capabilities()
+
+        def browser(family, variant, job):
+            program = PROGRAMS[family]
+            label = f'{family}_{variant}'
+            if not program.exists():
+                report['browsers'][label] = {'missing': True}
+                return
+            profile = work / 'profiles' / label
+            profile.mkdir(parents=True)
+            direct_variant = variant.startswith('direct')
+            port = relay_port if job is not None else proxy.port
+            url = (f'http://{host_ip}:{direct.port}/{nonce}/{label}' if direct_variant
+                   else f'http://{label}.invalid/{nonce}/{label}')
+            shot = None
+            if family == 'firefox':
+                prefs = {'network.proxy.type': 0 if direct_variant else 1, 'network.proxy.http': '127.0.0.1',
+                         'network.proxy.http_port': port, 'network.proxy.ssl': '127.0.0.1', 'network.proxy.ssl_port': port,
+                         'network.proxy.no_proxies_on': '', 'network.proxy.allow_hijacking_localhost': True,
+                         'network.manage-offline-status': False, 'network.trr.mode': 5,
+                         'browser.shell.checkDefaultBrowser': False, 'datareporting.policy.dataSubmissionEnabled': False,
+                         'toolkit.startup.max_resumed_crashes': -1}
+                (profile / 'user.js').write_text(''.join(f'user_pref("{k}", {json.dumps(v)});\n' for k, v in prefs.items()),
+                                                 encoding='utf-8')
+                shot = work / f'{label}.png'
+                argv = [program, '--headless', '--no-remote', '--profile', profile, '--screenshot', shot, url]
+            else:
+                argv = [program, *CHROMIUM, f'--user-data-dir={profile}']
+                argv += (['--no-proxy-server'] if direct_variant else
+                         [f'--proxy-server=http://127.0.0.1:{port}', '--proxy-bypass-list=<-loopback>'])
+                argv += ['--dump-dom', url]
+            log = work / f'browser-{label}.log'
+            started = time.monotonic()
+            process, pid = native.spawn(argv, job=job, env=safe_env(work, label), cwd=program.parent, stdout=log)
+            code, timed_out = native.wait(process, 60)
+            time.sleep(1.5)
+            body = read_tail(log, 60000)
+            hits = (direct if direct_variant else proxy).count(label)
+            rendered = png_valid(shot) if shot is not None else ('RuleProxyFixture:' + nonce + ':' + label) in body
+            report['browsers'][label] = {'contained': job is not None, 'variant': variant, 'exit_code': code,
+                                         'timed_out': timed_out, 'seconds': round(time.monotonic() - started, 2),
+                                         'fixture_hits': hits, 'rendered': rendered,
+                                         'sandbox_disable_switch_requested': False,
+                                         'sandbox_state_verified': False,
+                                         'render_content_verified': shot is None and rendered,
+                                         'tail': body[-2500:]}
+            print(f'::group::browser {label}\n' + json.dumps(report['browsers'][label], indent=1)[:8000] + '\n::endgroup::',
+                  flush=True)
+
+        for family in PROGRAMS:
+            browser(family, 'control', None)
+            browser(family, 'contained', job_a)
+            browser(family, 'direct', job_a)
+            browser(family, 'directcontrol', None)
+
+        # Product-like flow under a temporary standard user.
+        report['user_flow'] = ordinary_user_flow(native, work)
+        report['user_launcher'] = report['user_flow'].get('launcher') or {'missing': True}
+        print('::group::user launcher\n' + json.dumps(report['user_launcher'], indent=1)[:20000] + '\n::endgroup::', flush=True)
+
+        # Fail-open check: delete a compartment while a Job member is still alive.
+        report['create_B'] = request('create', name='B')
+        if report['create_B'].get('code') == 0:
+            job_b, bind_b = bound_job('B', 'B')
+            if bind_b.get('code') == 0:
+                process, result_path = actor('linger-inside', job_b)
+                time.sleep(4)
+                report['delete_B_while_alive'] = request('delete', name='B')
+                (work / 'linger-go').write_text('go', encoding='ascii')
+                finish('linger-inside', process, result_path, 240)
+                native.k.TerminateJobObject(job_b, 1)
+                time.sleep(1)
+                report['delete_B_after_exit'] = request('delete', name='B')
+        # Orphan lifetime: keep compartment C past the controller and delete it from a new SYSTEM process.
+        report['create_C'] = request('create', name='C')
+        report['keep_C'] = request('keep', name='C')
+        live_process, live_path = actor('relay-live-inside', job_a)
+        live_ready = wait_file(Path(str(live_path) + '.ready.json'), 45)
+        report['relay_failure_ready'] = read_json_optional(str(live_path) + '.ready.json') if live_ready else None
+        report['stop_relay'] = request('stop_relay')
+        Path(str(live_path) + '.go').write_text('go', encoding='ascii')
+        finish('relay-live-inside', live_process, live_path, 90)
+        finish('relay-stopped-inside', *actor('relay-stopped-inside', job_a))
+        report['exit'] = request('exit')
+    except Exception as e:
+        report['error'] = f'{type(e).__name__}: {e}'
+        report['traceback'] = traceback.format_exc()[-4000:]
+    finally:
+        if bits_names:
+            names = ','.join(ps_literal(name) for name in bits_names)
+            report['bits_cleanup'] = powershell(
+                "$ErrorActionPreference='Stop'; Import-Module BitsTransfer; $names=@(" + names + "); "
+                "$remaining=@(Get-BitsTransfer | Where-Object {$_.DisplayName -in $names}); "
+                "$remaining | Remove-BitsTransfer -Confirm:$false; "
+                "@{removed=$remaining.Count;remaining=@(Get-BitsTransfer | Where-Object {$_.DisplayName -in $names}).Count} "
+                "| ConvertTo-Json -Compress", timeout=30)
+        if decoy:
+            decoy.close()
+        if not (work / 'controller-final.json').exists():
+            write_json(work / 'req-999-exit.json', {'op': 'exit'})
+        monitor = request.state()
+        wait_seconds = 2 if monitor.get('alive') is False or monitor.get('wrapper_exit') is not None else 45
+        if wait_file(work / 'controller-final.json', wait_seconds):
+            report['controller_final'] = json.loads((work / 'controller-final.json').read_text(encoding='utf-8'))
+        for job in jobs.values():
+            native.k.TerminateJobObject(job, 1)
+            native.k.CloseHandle(job)
+        report['controller_log'] = read_tail(work / 'controller.log', 6000)
+        report['controller_before_cleanup'] = request.state()
+        if task_ok:
+            report['controller_task_state'] = powershell(
+                f"$t=Get-ScheduledTask -TaskName '{TASK}'; $i=Get-ScheduledTaskInfo -TaskName '{TASK}'; "
+                "@{state=[string]$t.State; last_task_result=[int64]$i.LastTaskResult; "
+                "last_run_utc=$i.LastRunTime.ToUniversalTime().ToString('o')} | ConvertTo-Json -Compress", timeout=20)
+            report['task_cleanup'] = powershell(f"Stop-ScheduledTask -TaskName '{TASK}' -ErrorAction SilentlyContinue; "
+                f"Unregister-ScheduledTask -TaskName '{TASK}' -Confirm:$false; 'ok'", timeout=20)
+        if 'controller_final' not in report:
+            report['controller_crash_events'] = powershell(
+                "Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1001; "
+                "StartTime=[DateTime]::Now.AddMinutes(-60)} -ErrorAction SilentlyContinue | "
+                "Where-Object {$_.Message -match 'python'} | Select-Object -First 5 TimeCreated,Id,ProviderName,"
+                "@{n='Message';e={$_.Message.Substring(0,[Math]::Min(2500,$_.Message.Length))}} | ConvertTo-Json -Compress", timeout=20)
+        request.close()
+        rows, leftovers = lab_compartments()
+        report['after_controller'] = rows
+        if leftovers:
+            wrapper = work / 'cleanup.cmd'
+            out = work / 'cleanup-result.json'
+            wrapper.write_text(f'@"{sys.executable}" -I -B "{Path(__file__).resolve()}" cleanup --out "{out}" '
+                               + ' '.join(str(x) for x in leftovers) + f' > "{work / "cleanup.log"}" 2>&1\r\n',
+                               encoding='ascii')
+            report['cleanup_task'] = schedule_system(CLEANUP_TASK, wrapper)
+            if wait_file(out, 90):
+                report['cleanup_result'] = json.loads(out.read_text(encoding='utf-8'))
+            powershell(f"Unregister-ScheduledTask -TaskName '{CLEANUP_TASK}' -Confirm:$false; 'ok'")
+        report['after_cleanup'] = lab_compartments()[0]
+        proxy.close()
+        direct.close()
+        echo.close()
+    report['echo_payloads'] = echo.payloads[-300:]
+    report['proxy_received'] = proxy.received[-300:]
+    report['direct_received'] = direct.received[-300:]
+    report['assessment'] = assess(report)
+    report['checks'] = qualification_checks(report)
+    report['harness_complete'] = report['checks']['required_observations_complete']
+    report['decision'] = experiment_decision(report['checks'])
+    report['product_qualified'] = False
+    write_json(out_dir / 'compartment-report.json', report)
+    print('::notice title=Compartment lab::' + json.dumps({'decision': report['decision'],
+          'product_qualified': False, 'checks': report['checks']}, separators=(',', ':'))[:3800], flush=True)
+    return 0 if report['harness_complete'] else 1
+
+
+ROW_KEYS = ('tcp4_host_ip', 'tcp4_loopback', 'udp4_host_ip', 'udp4_loopback', 'tcp6_loopback', 'udp6_loopback',
+            'tcp4_public_1111_443', 'udp4_public_dns_8888', 'system_dns')
+
+
+def actor_checks(value, *, allowed, compartment=None, descendants=True, proxy=True):
+    if not isinstance(value, dict) or value.get('exit_code') != 0 or value.get('timed_out'):
+        return False
+    if compartment is not None and value.get('compartment') != compartment:
+        return False
+    if not all(value.get('rows', {}).get(key, {}).get('ok') is allowed for key in ROW_KEYS):
+        return False
+    if value.get('proxy', {}).get('ok') is not proxy:
+        return False
+    return not descendants or all(actor_checks(value.get(key), allowed=allowed, compartment=compartment,
+                                               descendants=False, proxy=proxy) for key in ('child', 'nested'))
+
+
+def ordinary_actor_identity(value, sid):
+    if not isinstance(value, dict):
+        return False
+    actors = [value, value.get('child', {}), value.get('nested', {})]
+    return all(actor.get('identity', {}).get('sid') == sid
+               and actor.get('identity', {}).get('elevated') is False for actor in actors)
+
+
+def qualification_checks(report):
+    """Conservative observations, never infer packet denial from an API failure."""
+    phases = report.get('phases', {})
+    cid = report.get('binds', {}).get('A', {}).get('compartment_id')
+    user = report.get('user_flow', {})
+    launcher = report.get('user_launcher', {})
+    user_identity, launch_identity = user.get('identity', {}), launcher.get('identity', {})
+    user_ok = (user.get('exit_code') == 0 and user.get('timed_out') is False
+               and user_identity.get('elevated') is False and launch_identity.get('elevated') is False
+               and isinstance(user_identity.get('sid'), str)
+               and user_identity.get('sid') == launch_identity.get('sid')
+               and ordinary_actor_identity(launcher.get('user-outside'), user_identity.get('sid'))
+               and ordinary_actor_identity(launcher.get('user-inside'), user_identity.get('sid'))
+               and actor_checks(launcher.get('user-outside'), allowed=True, compartment=1)
+               and actor_checks(launcher.get('user-inside'), allowed=False, compartment=cid))
+    live, ready = phases.get('relay-live-inside', {}), report.get('relay_failure_ready') or {}
+    relay_ok = (live.get('exit_code') == 0 and live.get('released') is True
+                and type(live.get('pid')) is int and live.get('pid') == ready.get('pid')
+                and live.get('compartment') == cid
+                and live.get('before', {}).get('proxy', {}).get('ok') is True
+                and ready.get('before', {}).get('proxy', {}).get('ok') is True
+                and live.get('after', {}).get('proxy', {}).get('ok') is False
+                and all(live.get('after', {}).get('rows', {}).get(key, {}).get('ok') is False for key in ROW_KEYS)
+                and actor_checks(phases.get('relay-stopped-inside'), allowed=False, compartment=cid, proxy=False))
+    matrix = report.get('dns_matrix', {})
+    keys = ('getaddrinfo:0', 'DnsQuery_W:0', 'DnsQuery_W:264', 'DnsQueryEx:0', 'DnsQueryEx:264',
+            'DnsQuery_W:0:restricted', 'DnsQueryEx:0:restricted', 'Resolve-DnsName:0')
+    entries = [matrix.get(scope, {}).get(key, {}) for scope in ('outside_before', 'inside', 'outside_after') for key in keys]
+    names = [entry.get('name') for entry in entries]
+    unique_names = all(isinstance(name, str) and name.endswith('.1.2.3.4.sslip.io') for name in names) and len(set(names)) == len(names)
+    dns_complete = unique_names and all(isinstance(entry.get('result'), dict)
+        and entry['result'].get('completed') is True and entry.get('execution', {}).get('timed_out') is False for entry in entries)
+    dns_success = any(bool((entry.get('result') or {}).get('addresses'))
+                      for entry in matrix.get('inside', {}).values())
+    dns_success = dns_success or '1.2.3.4' in report.get('tools', {}).get('resolve_inside', {}).get('tail', '')
+    brokers = report.get('broker_matrix', {})
+    inside_wmi = brokers.get('inside', {}).get('wmi', {})
+    inside_bits = brokers.get('inside', {}).get('bits', {})
+    child = inside_wmi.get('child') or {}
+    wmi_bypass = (inside_wmi.get('fixture_hits', 0) > 0 and child.get('direct_http') is True
+                  and child.get('compartment') != cid
+                  and child.get('marker') == f"RuleProxyFixture:{report.get('nonce')}:wmi_inside"
+                  and child.get('identity', {}).get('pid') == inside_wmi.get('invocation', {}).get('child_pid'))
+    bits_bypass = inside_bits.get('fixture_hits', 0) > 0 and (inside_bits.get('result') or {}).get('marker_matches') is True
+    broker_complete = all(brokers.get(scope, {}).get(kind, {}).get('execution', {}).get('timed_out') is False
+                          for scope in ('outside', 'inside') for kind in ('wmi', 'bits'))
+    outside = brokers.get('outside', {})
+    broker_controls = ((outside.get('wmi', {}).get('child') or {}).get('direct_http') is True
+                       and outside.get('wmi', {}).get('fixture_hits', 0) > 0
+                       and (outside.get('bits', {}).get('result') or {}).get('marker_matches') is True
+                       and outside.get('bits', {}).get('fixture_hits', 0) > 0)
+    required_complete = (not report.get('error') and cid is not None and dns_complete and broker_complete
+        and user.get('exit_code') == 0 and isinstance(user.get('launcher'), dict)
+        and all(launcher.get(label, {}).get('exit_code') == 0 for label in ('user-outside', 'user-inside'))
+        and all(phases.get(label, {}).get('exit_code') == 0 for label in
+                ('outside', 'inside', 'relay-live-inside', 'relay-stopped-inside')))
+    return {
+        'required_observations_complete': bool(required_complete),
+        'socket_positive_controls': actor_checks(phases.get('outside'), allowed=True, compartment=1),
+        'job_socket_isolation_and_http_fixture': cid is not None and actor_checks(phases.get('inside'), allowed=False, compartment=cid),
+        'ordinary_user_flow': bool(user_ok), 'relay_stop_live_and_new_processes': bool(relay_ok),
+        'dns_matrix_complete_and_names_unique': bool(dns_complete), 'dns_answer_inside_observed': bool(dns_success),
+        'dns_no_egress_proven': False,
+        'broker_positive_controls': bool(broker_controls), 'wmi_broker_bypass_observed': bool(wmi_bypass),
+        'bits_broker_bypass_observed': bool(bits_bypass),
+        'compartment_cleanup_complete': isinstance(report.get('cleanup_result', {}).get('deletes'), dict)
+            and bool(report['cleanup_result']['deletes']) and all(code == 0 for code in report['cleanup_result']['deletes'].values()),
+        'real_mihomo_https_tested': False, 'browser_sandbox_state_verified': False,
+        'primary_restricted_token_tested': False, 'hcn_dns_remediation_tested': False,
+    }
+
+
+def experiment_decision(checks):
+    if checks['wmi_broker_bypass_observed'] or checks['bits_broker_bypass_observed']:
+        return 'no_go_local_broker_bypass'
+    if checks['dns_answer_inside_observed']:
+        return 'no_go_dns_broker_bypass'
+    if not checks['required_observations_complete']:
+        return 'incomplete_experiment'
+    if not checks['socket_positive_controls']:
+        return 'inconclusive_socket_positive_controls'
+    if not all(checks[key] for key in ('job_socket_isolation_and_http_fixture', 'ordinary_user_flow',
+                                       'relay_stop_live_and_new_processes')):
+        return 'no_go_required_isolation_behavior'
+    return 'poc_only_requires_wire_evidence_and_product_acceptance'
+
+
+def summarize_actor(value):
+    if not isinstance(value, dict):
+        return value
+    rows = value.get('rows', {})
+    result = {'compartment': value.get('compartment'), 'exit': value.get('exit_code'),
+              'rows': {key: rows.get(key, {}).get('ok') for key in ROW_KEYS},
+              'relay_banner': rows.get('relay_port_loopback', {}).get('banner'),
+              'proxy': value.get('proxy', {}).get('ok')}
+    for key in ('child', 'nested'):
+        if isinstance(value.get(key), dict):
+            result[key] = summarize_actor(value[key])
+    if 'escape' in value:
+        escape = dict(value['escape'])
+        if isinstance(escape.get('job_child'), dict):
+            escape['job_child'] = summarize_actor(escape['job_child'])
+        if isinstance(escape.get('thread_tcp4_host_ip'), dict):
+            escape['thread_tcp4_host_ip'] = escape['thread_tcp4_host_ip'].get('ok')
+        result['escape'] = escape
+    if 'breakaway' in value:
+        result['breakaway_started'] = value['breakaway'].get('started')
+    for key in ('linger_released', 'compartment_after'):
+        if key in value:
+            result[key] = value[key]
+    return result
+
+
+def assess(report):
+    ready = report.get('controller_ready', {})
+    final = report.get('controller_final', {})
+    user = report.get('user_launcher', {})
+    return {
+        'create_A': ready.get('create_A'), 'thread_probe': ready.get('thread_probe'),
+        'default_thread_dns': ready.get('default_thread_dns'), 'relay': ready.get('relay'),
+        'decoy_bind_error': report.get('decoy_bind_error'), 'binds': report.get('binds'),
+        'outside': summarize_actor(report['phases'].get('outside')),
+        'inside': summarize_actor(report['phases'].get('inside')),
+        'user_bind': user.get('bind'), 'user_outside': summarize_actor(user.get('user-outside')),
+        'user_inside': summarize_actor(user.get('user-inside')), 'user_error': user.get('error'),
+        'user_flow': report.get('user_flow'),
+        'tools': {k: {'exit': v.get('exit_code'), 'hits': v.get('fixture_hits'), 'tail': v.get('tail', '')[-160:]}
+                  for k, v in report.get('tools', {}).items()},
+        'browsers': {label: {'hits': value.get('fixture_hits'), 'rendered': value.get('rendered'),
+                             'exit': value.get('exit_code')} for label, value in report.get('browsers', {}).items()},
+        'delete_B_while_alive': report.get('delete_B_while_alive'),
+        'linger': summarize_actor(report['phases'].get('linger-inside')),
+        'delete_B_after_exit': report.get('delete_B_after_exit'),
+        'final_deletes': final.get('final_deletes'), 'kept': final.get('kept'),
+        'after_controller': report.get('after_controller'), 'cleanup_result': report.get('cleanup_result'),
+        'after_cleanup': report.get('after_cleanup'),
+        'error': report.get('error'), 'controller_error': ready.get('error') or final.get('error'),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest='role', required=True)
+    d = sub.add_parser('driver')
+    d.add_argument('--out', required=True)
+    c = sub.add_parser('controller')
+    c.add_argument('--work', required=True)
+    c.add_argument('--relay-port', type=int, required=True)
+    c.add_argument('--fixture-port', type=int, required=True)
+    c.add_argument('--timeout', type=int, default=1500)
+    k = sub.add_parser('cleanup')
+    k.add_argument('--out', required=True)
+    k.add_argument('ids', nargs='*', type=int)
+    args = parser.parse_args()
+    if args.role == 'driver':
+        return driver(args)
+    if args.role == 'cleanup':
+        return cleanup(args)
+    Controller(args).run()
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
