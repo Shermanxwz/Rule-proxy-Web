@@ -45,6 +45,25 @@ def passing_report():
 
 
 class PsecCompartmentSmokeTests(unittest.TestCase):
+    def test_embedded_python_keeps_native_extensions_beside_the_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary) / "embedded"
+            base.mkdir()
+            # The embedded distribution puts these beside python.exe, while
+            # the full installation uses DLLs/. The former was being lost.
+            for name in ("python.exe", "_ctypes.pyd", "_socket.pyd", "_ssl.pyd", "python314.zip", "python314._pth"):
+                (base / name).write_bytes(name.encode("ascii"))
+            (base / "user-state.txt").write_text("unrelated")
+            target = Path(temporary) / "copied"
+            with mock.patch.object(smoke.sys, "base_prefix", str(base)), \
+                    mock.patch.object(smoke.sys, "executable", str(base / "python.exe")):
+                executable = smoke.copy_python(target)
+            self.assertEqual(executable, target / "python.exe")
+            self.assertEqual((target / "_ctypes.pyd").read_bytes(), b"_ctypes.pyd")
+            self.assertTrue((target / "_socket.pyd").is_file())
+            self.assertTrue((target / "_ssl.pyd").is_file())
+            self.assertFalse((target / "user-state.txt").exists())
+
     def test_model2_has_only_runtime_proxy_and_deny_direct_egress(self):
         value = smoke.build_policy(config(Path("private")), ["python.exe", "actor.py"])
         self.assertEqual(value["version"], "1.0.0")

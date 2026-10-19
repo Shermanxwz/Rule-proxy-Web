@@ -348,7 +348,7 @@ def copy_python(target):
     target.mkdir()
     base = Path(sys.base_prefix)
     for path in base.iterdir():
-        if path.is_file() and path.suffix.casefold() in (".exe", ".dll", ".zip", "._pth"):
+        if path.is_file() and path.suffix.casefold() in (".exe", ".dll", ".pyd", ".zip", "._pth"):
             shutil.copy2(path, target / path.name)
     for name in ("DLLs", "Lib"):
         if (base / name).is_dir():
@@ -558,6 +558,11 @@ def controller(args):
     api = account = fixture = relay = job = process = None
     try:
         python = copy_python(work / "runtime")
+        runtime_check = subprocess.run([str(python), "-I", "-S", "-c", "import ctypes, socket, ssl"],
+                                       stdin=subprocess.DEVNULL, capture_output=True, timeout=20)
+        report["runtime_import_exit_code"] = runtime_check.returncode
+        if runtime_check.returncode:
+            raise RuntimeError("copied Python cannot import its native networking extensions")
         shutil.copy2(__file__, work / "inputs" / "smoke.py")
         executor = work / "inputs" / "wxc-exec.exe"
         shutil.copy2(args.executor, executor)

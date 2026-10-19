@@ -201,7 +201,7 @@ class Experiment:
         runtime=self.work/'runtime';runtime.mkdir()
         base=Path(sys.base_prefix)
         for path in base.iterdir():
-            if path.is_file() and (path.suffix.lower() in {'.exe','.dll','.zip','._pth'}):shutil.copy2(path,runtime/path.name)
+            if path.is_file() and (path.suffix.lower() in {'.exe','.dll','.pyd','.zip','._pth'}):shutil.copy2(path,runtime/path.name)
         for name in ['DLLs','Lib']:
             source=base/name
             if source.is_dir():
