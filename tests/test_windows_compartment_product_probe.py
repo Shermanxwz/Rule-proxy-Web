@@ -17,6 +17,21 @@ SPEC.loader.exec_module(probe)
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_cleanup_error_keeps_original_native_failure(self):
+        try:
+            try:
+                raise PermissionError(5, 'native launch access denied')
+            finally:
+                raise TypeError("cannot create 'winreg.PyHKEY' instances")
+        except TypeError as error:
+            result = probe.failure(error)
+        self.assertEqual(result['error_type'], 'TypeError')
+        original = result['exception_chain'][0]
+        self.assertEqual(original['relation'], 'context')
+        self.assertEqual(original['error_type'], 'PermissionError')
+        self.assertEqual(original['errno'], 5)
+        self.assertTrue(original['frames'])
+
     def result(self):
         sid = 'S-1-5-21-1-2-3-1001'
         plain = {name: {'ok': True} for name in probe.LOCAL_PROXY + probe.LOCAL_DIRECT}

@@ -23,6 +23,7 @@ Nothing here enables a product mode or qualifies a product.
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import ctypes as C
 from ctypes import wintypes as W
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -503,7 +504,7 @@ try:
     tmp.write_text(json.dumps({'op': 'bind', 'pid': os.getpid(), 'handle': int(job), 'compartment': 'A'}), encoding='utf-8')
     os.replace(tmp, request)
     response = userdir / 'resp-user.json'
-    deadline = time.time() + 60
+    deadline = time.time() + 30
     while time.time() < deadline and not response.exists():
         time.sleep(0.2)
     out['bind'] = json.loads(response.read_text(encoding='utf-8')) if response.exists() else {'timeout': True}
@@ -658,8 +659,9 @@ class Controller:
         self.userdir = self.work / 'user'
         self.native = Native()
         self.i = self.native.i
-        self.report = {'role': 'controller', 'started': time.time(), 'missing_exports': self.native.missing,
-                       'identity': self.native.token_user(), 'requests': []}
+        self.report = {'role': 'controller', 'pid': os.getpid(), 'started': time.time(), 'missing_exports': self.native.missing,
+                       'identity': self.native.token_user(), 'requests': [],
+                       'python': {'version': sys.version, 'executable': sys.executable}}
         self.compartments = {}
         self.keep = set()
         self.jobs = []
@@ -843,7 +845,13 @@ class Controller:
 
     def serve(self):
         deadline = time.monotonic() + self.args.timeout
+        next_health = 0
         while time.monotonic() < deadline:
+            if time.monotonic() >= next_health:
+                write_json(self.work / 'controller-health.json', {
+                    'pid': os.getpid(), 'time': time.time(), 'stage': 'serving',
+                    'requests_completed': len(self.report['requests']), 'relay': self.relay})
+                next_health = time.monotonic() + 1
             pending = sorted(self.work.glob('req-*.json')) + sorted(self.userdir.glob('req-*.json'))
             for path in pending:
                 try:
@@ -851,6 +859,9 @@ class Controller:
                 except (OSError, ValueError):
                     continue
                 try:
+                    write_json(self.work / 'controller-health.json', {
+                        'pid': os.getpid(), 'time': time.time(), 'stage': 'request_entered',
+                        'request': request, 'relay': self.relay})
                     response = self.handle(request)
                 except Exception as e:
                     response = {'exception': f'{type(e).__name__}: {e}'[:300]}
@@ -862,6 +873,8 @@ class Controller:
             time.sleep(0.2)
 
     def run(self):
+        # Native crashes otherwise bypass Python's exception/finally handlers.
+        faulthandler.enable(all_threads=True)
         try:
             created = self.create('A')
             self.report['create_A'] = created
@@ -1152,19 +1165,57 @@ def safe_env(work: Path, label: str):
 
 
 class Requests:
-    def __init__(self, work):
-        self.work, self.sequence = work, 0
+    def __init__(self, work, native=None):
+        self.work, self.sequence, self.native = work, 0, native
+        self.process, self.pid = None, None
+        self.monitor = {}
 
-    def __call__(self, op, timeout=120, **fields):
+    def attach(self, pid):
+        self.pid = pid
+        if self.native is None or type(pid) is not int or pid <= 0:
+            return
+        self.process = self.native.k.OpenProcess(0x100000 | 0x1000, False, pid)
+        self.monitor['pid'] = pid
+        self.monitor['handle_opened'] = bool(self.process)
+        if not self.process:
+            self.monitor['open_error'] = C.get_last_error()
+
+    def state(self):
+        result = dict(self.monitor)
+        if self.process:
+            waited = self.native.k.WaitForSingleObject(self.process, 0)
+            result['alive'] = waited == 258
+            if waited == 0:
+                code = W.DWORD()
+                if self.native.k.GetExitCodeProcess(self.process, C.byref(code)):
+                    result.update(exit_code=code.value, exit_code_hex=f'0x{code.value:08X}')
+            elif waited != 258:
+                result['wait_error'] = C.get_last_error()
+        result['health'] = read_json_optional(self.work / 'controller-health.json')
+        result['wrapper_exit'] = read_json_optional(self.work / 'controller-exit.json')
+        return result
+
+    def close(self):
+        if self.process:
+            self.native.k.CloseHandle(self.process)
+            self.process = None
+
+    def __call__(self, op, timeout=30, **fields):
+        state = self.state()
+        if state.get('alive') is False or state.get('wrapper_exit') is not None:
+            return {'controller_exited': True, 'controller_state': state}
         self.sequence += 1
         name = f'{self.sequence:03d}-{op}.json'
         write_json(self.work / ('req-' + name), {'op': op, **fields})
         response = self.work / ('resp-' + name)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline and not response.exists():
+            state = self.state()
+            if state.get('alive') is False or state.get('wrapper_exit') is not None:
+                return {'controller_exited': True, 'controller_state': state}
             time.sleep(0.2)
         if not response.exists():
-            return {'timeout': True}
+            return {'timeout': True, 'controller_state': self.state()}
         return json.loads(response.read_text(encoding='utf-8'))
 
 
@@ -1246,6 +1297,62 @@ def hcn_capabilities():
     return result
 
 
+class PrivateUserDesktop:
+    """A private session-0 station/desktop for the SYSTEM WithTokenW child.
+
+    The real Win11 ordinary child reached cmd.exe, then _ctypes failed to load
+    with ERROR_DLL_INIT_FAILED. Give GUI-dependent DLL initialization an explicit
+    accessible desktop; do not change winsta0 or any existing object's ACL.
+    """
+    def __init__(self, native, sid):
+        class SecurityAttributes(C.Structure):
+            _fields_ = [('length', W.DWORD), ('descriptor', C.c_void_p), ('inherit', W.BOOL)]
+        self.native, self.u = native, C.WinDLL('user32', use_last_error=True)
+        self.station = self.desktop = None
+        for name, args, result in (
+            ('GetProcessWindowStation', [], W.HANDLE),
+            ('SetProcessWindowStation', [W.HANDLE], W.BOOL),
+            ('CreateWindowStationW', [W.LPCWSTR, W.DWORD, W.DWORD, C.POINTER(SecurityAttributes)], W.HANDLE),
+            ('CloseWindowStation', [W.HANDLE], W.BOOL),
+            ('CreateDesktopW', [W.LPCWSTR, W.LPCWSTR, C.c_void_p, W.DWORD, W.DWORD,
+                                C.POINTER(SecurityAttributes)], W.HANDLE),
+            ('CloseDesktop', [W.HANDLE], W.BOOL)):
+            function = getattr(self.u, name)
+            function.argtypes, function.restype = args, result
+        native.a.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+            W.LPCWSTR, W.DWORD, C.POINTER(C.c_void_p), C.POINTER(W.DWORD)]
+        native.a.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = W.BOOL
+        descriptor = C.c_void_p()
+        native.check(native.a.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            'D:P(A;;GA;;;SY)(A;;GA;;;' + sid + ')', 1, C.byref(descriptor), None), 'Private desktop descriptor')
+        previous = self.u.GetProcessWindowStation()
+        name = 'RuleProxyLab' + secrets.token_hex(6)
+        try:
+            attributes = SecurityAttributes(C.sizeof(SecurityAttributes), descriptor, False)
+            self.station = native.check(self.u.CreateWindowStationW(name, 0, 0xF037F, C.byref(attributes)),
+                                        'CreateWindowStationW')
+            native.check(self.u.SetProcessWindowStation(self.station), 'SetProcessWindowStation private')
+            try:
+                self.desktop = native.check(self.u.CreateDesktopW('default', None, None, 0, 0xF01FF,
+                                            C.byref(attributes)), 'CreateDesktopW')
+            finally:
+                native.check(self.u.SetProcessWindowStation(previous), 'Restore process window station')
+            self.path = name + '\\default'
+        except BaseException:
+            self.close()
+            raise
+        finally:
+            native.k.LocalFree(descriptor)
+
+    def close(self):
+        if self.desktop:
+            self.u.CloseDesktop(self.desktop)
+            self.desktop = None
+        if self.station:
+            self.u.CloseWindowStation(self.station)
+            self.station = None
+
+
 def ordinary_user_flow(native, work):
     """Use the already exercised hosted-runner WithLogonW + private Python flow.
 
@@ -1263,7 +1370,7 @@ def ordinary_user_flow(native, work):
     userdir, runtime = work / 'user', work / 'user-runtime'
     result = {'method': 'CreateProcessWithLogonW', 'stage': 'create_account', 'interactive_desktop_tested': False}
     token, environment, process = W.HANDLE(), C.c_void_p(), None
-    lifetime_job, created = None, False
+    lifetime_job, created, desktop = None, False, None
     try:
         info = USER_INFO_1(name, password, 0, 1, None, 'RuleProxy compartment lab', 0x10201, None)
         failed = W.DWORD()
@@ -1314,6 +1421,9 @@ def ordinary_user_flow(native, work):
         command_line = C.create_unicode_buffer(subprocess.list2cmdline([str(command), '/d', '/c', str(wrapper)]))
         if native.token_user() == 'S-1-5-18':
             result['method'] = 'LogonUserW+CreateProcessWithTokenW'
+            desktop = PrivateUserDesktop(native, sid)
+            startup.lpDesktop = desktop.path
+            result['desktop'] = {'name': desktop.path, 'private_noninteractive': True, 'system_acl_changes': False}
             started = native.a.CreateProcessWithTokenW(token, 1, str(command), command_line,
                 0x08000000 | 0x400 | 4, environment, str(userdir), C.byref(startup), C.byref(pi))
         else:
@@ -1340,6 +1450,8 @@ def ordinary_user_flow(native, work):
         if lifetime_job:
             native.k.TerminateJobObject(lifetime_job, 125)
             native.k.CloseHandle(lifetime_job)
+        if desktop:
+            desktop.close()
         if environment: userenv.DestroyEnvironmentBlock(environment)
         if token: native.k.CloseHandle(token)
         result['wrapper_entered'] = (userdir / 'wrapper-entered.txt').is_file()
@@ -1371,6 +1483,7 @@ def driver(args) -> int:
     nonce = secrets.token_hex(12)
     report = {'schema_version': 3, 'source_commit': os.environ.get('GITHUB_SHA'), 'nonce': nonce,
               'windows': list(sys.getwindowsversion()[:4]), 'identity': native.token_user(),
+              'python': {'version': sys.version, 'executable': sys.executable},
               'missing_exports': native.missing, 'phases': {}, 'browsers': {}, 'tools': {},
               'product_qualified': False, 'dns_matrix': {}, 'broker_matrix': {},
               'dns_wire_evidence_available': False,
@@ -1388,22 +1501,28 @@ def driver(args) -> int:
               'default_compartment': 1, 'linger': 'linger-inside', 'linger_go': str(work / 'linger-go')}
     write_json(work / 'actor.json', config)
     report['before'] = lab_compartments()[0]
-    request = Requests(work)
+    request = Requests(work, native)
     task_ok = False
     jobs = {}
     bits_names = []
     try:
         wrapper = work / 'controller.cmd'
         wrapper.write_text(
-            f'@"{sys.executable}" -I -B "{Path(__file__).resolve()}" controller --work "{work}" '
+            '@echo off\r\n'
+            f'"{sys.executable}" -X faulthandler -I -B "{Path(__file__).resolve()}" controller --work "{work}" '
             f'--relay-port {relay_port} --fixture-port {proxy.port} --timeout 2400 '
-            f'> "{work / "controller.log"}" 2>&1\r\n', encoding='ascii')
+            f'> "{work / "controller.log"}" 2>&1\r\n'
+            'set "RP_CONTROLLER_EXIT=%ERRORLEVEL%"\r\n'
+            f'echo {{"exit_code":%RP_CONTROLLER_EXIT%}}>"{work / "controller-exit.json"}"\r\n'
+            'exit /b %RP_CONTROLLER_EXIT%\r\n', encoding='ascii')
         report['task'] = schedule_system(TASK, wrapper)
         task_ok = report['task'].get('code') == 0
         if not wait_file(work / 'controller-ready.json', 90):
             raise RuntimeError('controller did not report readiness: ' + read_tail(work / 'controller.log'))
         ready = json.loads((work / 'controller-ready.json').read_text(encoding='utf-8'))
         report['controller_ready'] = ready
+        request.attach(ready.get('pid'))
+        report['controller_at_ready'] = request.state()
         print('::group::controller ready\n' + json.dumps(ready, indent=1)[:20000] + '\n::endgroup::', flush=True)
         if ready.get('error'):
             raise RuntimeError('controller failed: ' + ready['error'])
@@ -1448,6 +1567,7 @@ def driver(args) -> int:
 
         finish('outside', *actor('outside', None))
         finish('inside', *actor('inside', job_a))
+        report['controller_after_first_actors'] = request.state()
 
         def tool(label, argv, job, timeout=60):
             log = work / f'tool-{label}.log'
@@ -1630,14 +1750,29 @@ def driver(args) -> int:
             decoy.close()
         if not (work / 'controller-final.json').exists():
             write_json(work / 'req-999-exit.json', {'op': 'exit'})
-        if wait_file(work / 'controller-final.json', 90):
+        monitor = request.state()
+        wait_seconds = 2 if monitor.get('alive') is False or monitor.get('wrapper_exit') is not None else 45
+        if wait_file(work / 'controller-final.json', wait_seconds):
             report['controller_final'] = json.loads((work / 'controller-final.json').read_text(encoding='utf-8'))
         for job in jobs.values():
             native.k.TerminateJobObject(job, 1)
             native.k.CloseHandle(job)
         report['controller_log'] = read_tail(work / 'controller.log', 6000)
+        report['controller_before_cleanup'] = request.state()
         if task_ok:
-            report['task_cleanup'] = powershell(f"Unregister-ScheduledTask -TaskName '{TASK}' -Confirm:$false; 'ok'")
+            report['controller_task_state'] = powershell(
+                f"$t=Get-ScheduledTask -TaskName '{TASK}'; $i=Get-ScheduledTaskInfo -TaskName '{TASK}'; "
+                "@{state=[string]$t.State; last_task_result=[int64]$i.LastTaskResult; "
+                "last_run_utc=$i.LastRunTime.ToUniversalTime().ToString('o')} | ConvertTo-Json -Compress", timeout=20)
+            report['task_cleanup'] = powershell(f"Stop-ScheduledTask -TaskName '{TASK}' -ErrorAction SilentlyContinue; "
+                f"Unregister-ScheduledTask -TaskName '{TASK}' -Confirm:$false; 'ok'", timeout=20)
+        if 'controller_final' not in report:
+            report['controller_crash_events'] = powershell(
+                "Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1001; "
+                "StartTime=[DateTime]::Now.AddMinutes(-60)} -ErrorAction SilentlyContinue | "
+                "Where-Object {$_.Message -match 'python'} | Select-Object -First 5 TimeCreated,Id,ProviderName,"
+                "@{n='Message';e={$_.Message.Substring(0,[Math]::Min(2500,$_.Message.Length))}} | ConvertTo-Json -Compress", timeout=20)
+        request.close()
         rows, leftovers = lab_compartments()
         report['after_controller'] = rows
         if leftovers:
@@ -1746,6 +1881,7 @@ def qualification_checks(report):
                        and outside.get('bits', {}).get('fixture_hits', 0) > 0)
     required_complete = (not report.get('error') and cid is not None and dns_complete and broker_complete
         and user.get('exit_code') == 0 and isinstance(user.get('launcher'), dict)
+        and all(launcher.get(label, {}).get('exit_code') == 0 for label in ('user-outside', 'user-inside'))
         and all(phases.get(label, {}).get('exit_code') == 0 for label in
                 ('outside', 'inside', 'relay-live-inside', 'relay-stopped-inside')))
     return {

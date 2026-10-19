@@ -127,9 +127,28 @@ def digest(path):
 
 
 def failure(exc):
-    return {**error_facts(exc), "message": str(exc)[:400],
-            "frames": [{"file": Path(f.filename).name, "line": f.lineno, "function": f.name}
-                       for f in traceback.extract_tb(exc.__traceback__)[-8:]]}
+    def details(error):
+        return {**error_facts(error), "message": str(error)[:400],
+                "frames": [{"file": Path(f.filename).name, "line": f.lineno, "function": f.name}
+                           for f in traceback.extract_tb(error.__traceback__)[-8:]]}
+
+    result, seen, current = details(exc), {id(exc)}, exc
+    # A native launch error can be followed by a second error during gate
+    # revocation. Preserve the first failure without dumping locals or commands.
+    chain = []
+    for _ in range(4):
+        related = current.__cause__
+        relation = "cause"
+        if related is None and not current.__suppress_context__:
+            related, relation = current.__context__, "context"
+        if related is None or id(related) in seen:
+            break
+        seen.add(id(related))
+        chain.append({"relation": relation, **details(related)})
+        current = related
+    if chain:
+        result["exception_chain"] = chain
+    return result
 
 
 def read_json(path):
@@ -491,6 +510,9 @@ def ordinary(args):
         all(value.get("checks", {}).values()) and bool(value.get("checks")) for value in report["scenarios"].values())
     report["external_https_verified"] = len(report["scenarios"]) == 2 and all(
         value.get(scope, {}).get("before", {}).get("external_connect_tls", {}).get("ok") is True
+        for value in report["scenarios"].values() for scope in ("outside", "inside"))
+    report["external_tls_handshake_verified"] = len(report["scenarios"]) == 2 and all(
+        value.get(scope, {}).get("before", {}).get("external_connect_tls", {}).get("tls_verified") is True
         for value in report["scenarios"].values() for scope in ("outside", "inside"))
     write_json(args.output / "ordinary-result.json", report)
     return int("error" in report or not report["controlled_chain_checks_passed"])

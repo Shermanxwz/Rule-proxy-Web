@@ -12,6 +12,7 @@ import unittest
 from unittest import mock
 import uuid
 import json
+import os
 from pathlib import Path
 import tempfile
 
@@ -25,6 +26,67 @@ OWNER = "S-1-5-21-1-2-3-1001"
 NAME = ns.namespace_name("app-1")
 META = {"root": r"C:\RuleProxy", "owner_sid": OWNER}
 BOOT_ID = "3a57d15b-d13b-4934-bbc4-7f7ef68902fb"
+
+
+@unittest.skipUnless(os.name == "nt", "requires the real Windows registry APIs")
+class NativeBootIdentityTests(unittest.TestCase):
+    """Only redirect the parent key; create/query/set/close are real native APIs."""
+
+    def setUp(self):
+        import winreg
+        self.registry = winreg
+        self.path = r"Software\RuleProxyBootIdentityTest-" + uuid.uuid4().hex
+        self.access = winreg.KEY_READ | winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, self.path, 0, self.access):
+            pass
+        self.addCleanup(self.remove_keys)
+        native_open = winreg.OpenKey
+        def open_parent(root, path, reserved=0, access=winreg.KEY_READ):
+            if root == winreg.HKEY_LOCAL_MACHINE and path == r"SYSTEM\CurrentControlSet\Services\RuleProxyControl":
+                return native_open(winreg.HKEY_CURRENT_USER, self.path, reserved, access)
+            return native_open(root, path, reserved, access)
+        patch = mock.patch.object(winreg, "OpenKey", side_effect=open_parent)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def remove_keys(self):
+        for path in (self.path + r"\CompartmentBoot", self.path):
+            try:
+                self.registry.DeleteKeyEx(self.registry.HKEY_CURRENT_USER, path)
+            except FileNotFoundError:
+                pass
+
+    def assert_closed(self, handle):
+        self.assertIs(type(handle), int)
+        with self.assertRaises(OSError) as caught:
+            self.registry.QueryValueEx(handle, "BootId")
+        self.assertEqual(caught.exception.winerror, 6)  # ERROR_INVALID_HANDLE
+
+    def test_actual_native_boot_identity_is_stable_and_owns_its_raw_handle(self):
+        with mock.patch.object(self.registry, "QueryValueEx", wraps=self.registry.QueryValueEx) as query:
+            first = ns._boot_identity()
+            first_handle = query.call_args.args[0]
+        self.assertEqual(str(uuid.UUID(first)), first)
+        self.assert_closed(first_handle)
+        with mock.patch.object(self.registry, "QueryValueEx", wraps=self.registry.QueryValueEx) as query:
+            second = ns._boot_identity()
+            second_handle = query.call_args.args[0]
+        self.assertEqual(second, first)
+        self.assert_closed(second_handle)
+
+    def test_actual_native_key_is_closed_when_existing_identity_is_invalid(self):
+        ns._boot_identity()
+        for kind, value in ((self.registry.REG_SZ, "invalid UUID"), (self.registry.REG_DWORD, 7)):
+            with self.subTest(kind=kind):
+                with self.registry.OpenKey(self.registry.HKEY_CURRENT_USER,
+                        self.path + r"\CompartmentBoot", 0, self.access) as key:
+                    self.registry.SetValueEx(key, "BootId", 0, kind, value)
+                with mock.patch.object(self.registry, "QueryValueEx", wraps=self.registry.QueryValueEx) as query:
+                    with self.assertRaises(ns.ProxyError) as caught:
+                        ns._boot_identity()
+                    handle = query.call_args.args[0]
+                self.assertEqual(caught.exception.code, "namespace_unsupported")
+                self.assert_closed(handle)
 
 
 class FakeCompartmentAPI:

@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "source_commit": "21549f85a55637a32ee1b7d0bbd647cb5b472b29",
+  "decision": "not_qualified_for_linux_equivalent_network_isolation",
+  "product_qualified": false,
+  "privacy_qualified": false,
+  "scope": "Historical first native experiment, before primary-token remediation. Socket-only success does not qualify the complete product.",
+  "server": {
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39199866925",
+    "artifact_id": 12163828094,
+    "artifact_sha256": "4b890a2c0a0ca1d065eb512661fa95a5cb4ce620e5301dc529f6d086708008ea",
+    "actor_identity": "S-1-5-21-4239583824-265399229-1323058055-500",
+    "broker_actor": "elevated administrator; ordinary user not qualified",
+    "windows_version": [
+      10,
+      0,
+      26100,
+      2
+    ],
+    "checks": {
+      "required_observations_complete": false,
+      "socket_positive_controls": true,
+      "job_socket_isolation_and_http_fixture": false,
+      "ordinary_user_flow": false,
+      "relay_stop_live_and_new_processes": false,
+      "dns_matrix_complete_and_names_unique": true,
+      "dns_answer_inside_observed": true,
+      "dns_no_egress_proven": false,
+      "broker_positive_controls": true,
+      "wmi_broker_bypass_observed": true,
+      "bits_broker_bypass_observed": true,
+      "compartment_cleanup_complete": false,
+      "real_mihomo_https_tested": false,
+      "browser_sandbox_state_verified": false,
+      "primary_restricted_token_tested": false,
+      "hcn_dns_remediation_tested": false
+    },
+    "ordinary_user_limit": "ordinary WithLogonW launch succeeded, but compartment bind RPC timed out after controller disappeared; no valid isolated ordinary-user result"
+  },
+  "windows_client": {
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39199867044",
+    "artifact_id": 12164280781,
+    "artifact_sha256": "be31e46c2ed9b5faeb7338a6ba19969f4e9633e736d14330bd9a788c8666d8ec",
+    "actor_identity": "S-1-5-18",
+    "broker_actor": "SYSTEM; ordinary user not qualified",
+    "windows_version": [
+      10,
+      0,
+      26200,
+      2
+    ],
+    "package_sha256": "baeb4eb6294b5722c64df6fa0116048f448b10d72bb7210c84024cfb41310632",
+    "checks": {
+      "required_observations_complete": false,
+      "socket_positive_controls": true,
+      "job_socket_isolation_and_http_fixture": true,
+      "ordinary_user_flow": false,
+      "relay_stop_live_and_new_processes": true,
+      "dns_matrix_complete_and_names_unique": true,
+      "dns_answer_inside_observed": true,
+      "dns_no_egress_proven": false,
+      "broker_positive_controls": true,
+      "wmi_broker_bypass_observed": true,
+      "bits_broker_bypass_observed": true,
+      "compartment_cleanup_complete": false,
+      "real_mihomo_https_tested": false,
+      "browser_sandbox_state_verified": false,
+      "primary_restricted_token_tested": false,
+      "hcn_dns_remediation_tested": false
+    },
+    "inside_dns_positive_wire_correlations": [
+      {
+        "api": "getaddrinfo:0",
+        "qname_sha256": "1356a4ac0d68fcd7d5b2d3f137b85853c273606b25a14b59c817b36fe5f96b10",
+        "api_return_code": null,
+        "api_error": "gaierror(11004, 'getaddrinfo failed')",
+        "answers": null,
+        "matching_outbound_udp_dns_queries": 1
+      },
+      {
+        "api": "DnsQuery_W:0",
+        "qname_sha256": "4e91bda54de8b3f32399aea4669d44e0edae2f8841c6aafef38e2f724e8f46ff",
+        "api_return_code": 0,
+        "api_error": null,
+        "answers": [
+          "1.2.3.4"
+        ],
+        "matching_outbound_udp_dns_queries": 1
+      },
+      {
+        "api": "DnsQuery_W:264",
+        "qname_sha256": "086ace2e38ee2a533cb99e8baa9c241df26cc7d02c22b91f1d0b908c3c4c3d64",
+        "api_return_code": 0,
+        "api_error": null,
+        "answers": [
+          "1.2.3.4"
+        ],
+        "matching_outbound_udp_dns_queries": 1
+      },
+      {
+        "api": "DnsQueryEx:0",
+        "qname_sha256": "667be0224d28e34bf5ccf7e60973bf34a4e4d7c427e0fa4fbceeed761aed28b9",
+        "api_return_code": 0,
+        "api_error": null,
+        "answers": [
+          "1.2.3.4"
+        ],
+        "matching_outbound_udp_dns_queries": 1
+      },
+      {
+        "api": "DnsQueryEx:264",
+        "qname_sha256": "400a8bdffc6e5b3b7d6c94c6efd80b955795e6496dfb4d612bc2de10a51f096f",
+        "api_return_code": 0,
+        "api_error": null,
+        "answers": [
+          "1.2.3.4"
+        ],
+        "matching_outbound_udp_dns_queries": 1
+      },
+      {
+        "api": "DnsQuery_W:0:restricted",
+        "qname_sha256": "a8960f25c6201c039bce7812635d74a1e509b404bb8cd9b6a3e9a4d7873e4eb6",
+        "api_return_code": 87,
+        "api_error": null,
+        "answers": [],
+        "matching_outbound_udp_dns_queries": 0
+      },
+      {
+        "api": "DnsQueryEx:0:restricted",
+        "qname_sha256": "896f286154e1b7cfa89ab45d061e7a93ac195181f6b56c6787bd29da0f081a9b",
+        "api_return_code": 87,
+        "api_error": null,
+        "answers": [],
+        "matching_outbound_udp_dns_queries": 0
+      },
+      {
+        "api": "Resolve-DnsName:0",
+        "qname_sha256": "fec96957413fc29b1a39692ca56ab3a9b9d39ae91ab5d832e15e2d2f38ba7834",
+        "api_return_code": null,
+        "api_error": null,
+        "answers": [
+          "1.2.3.4"
+        ],
+        "matching_outbound_udp_dns_queries": 1
+      }
+    ],
+    "process_attribution_proven": false,
+    "packet_absence_proven": false,
+    "ordinary_user_limit": "WithTokenW wrapper ran, but Python _ctypes failed DLL initialization before the actor; desktop/session prerequisite must be repaired",
+    "browser_limit": "Edge outside and inside controls both failed; no compatibility or sandbox success inference is valid"
+  },
+  "primary_token_limit": "Neither first native run executed a token variant: setup failed assigning a numeric custom SID ACL with icacls. This says nothing about a corrected primary-token mechanism.",
+  "artifacts_policy": "Raw packet captures were deleted at collection; this directory retains JSON reports and hashed DNS observations only.",
+  "evidence_files_sha256": {
+    "server-compartment-report.json": "82fd5ca7d0407e67a65394971ea9e5897bab2c4117832642a1e0567e8097f443",
+    "server-primary-setup-report.json": "730ac116f89931366ff649806f89f26d237be3cbf22e7dec1f6f6071c72334d7",
+    "windows11-dns-api-wire-join.json": "111f921a8fac17f646906caf25bb1daa00f8da22f21ac6018d2c4c24ab075969",
+    "windows11-dns-wire-observations.json": "93cc9e2a1327fe0ea8cde3cc9672681bceae9bda3294d42b729f20fa98e477e7",
+    "windows11-guest-result.json": "0a88aae1c233c8a16b3240b7695ab95d112ffda21b8242d0f227816a5f556bc5",
+    "windows11-host-summary.json": "974b10f05a54eee89fe75ebf85eb9def1012d434c7b0766d25065d7bf7d1b37b"
+  },
+  "derived_files": [
+    "windows11-dns-api-wire-join.json",
+    "assessment.json"
+  ]
+}

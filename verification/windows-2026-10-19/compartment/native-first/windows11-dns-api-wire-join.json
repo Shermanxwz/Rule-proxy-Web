@@ -1,0 +1,285 @@
+{
+  "source_commit": "21549f85a55637a32ee1b7d0bbd647cb5b472b29",
+  "run_id": 39199867044,
+  "artifact_sha256": "be31e46c2ed9b5faeb7338a6ba19969f4e9633e736d14330bd9a788c8666d8ec",
+  "actor_identity": "S-1-5-18",
+  "scope": "random nonce DNS API to positive QEMU NIC UDP query correlation; original PCAP deliberately removed by capture owner",
+  "process_attribution_proven": false,
+  "packet_absence_proven": false,
+  "rows": [
+    {
+      "scope": "outside_before",
+      "api": "getaddrinfo:0",
+      "name": "e93c4899d7b4d895f4c5b7eb7679054a.1.2.3.4.sslip.io",
+      "qname_sha256": "41223d1dc1255091498de00f8d0397c97d3aeb6313d75b9a163219d772edd3f3",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_before",
+      "api": "DnsQuery_W:0",
+      "name": "85402683e7810648aff0af4b528e1446.1.2.3.4.sslip.io",
+      "qname_sha256": "0916c479e9b6e879384d486ecc97787c1109e39b81fd6bd2b087ac710b35b531",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_before",
+      "api": "DnsQuery_W:264",
+      "name": "fd08fe0994d575bdb928e14e75d6e07c.1.2.3.4.sslip.io",
+      "qname_sha256": "c9d2b45effb6e35412c7a27e31d500d4682bf4229596f448844a7228bdda3e4e",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_before",
+      "api": "DnsQueryEx:0",
+      "name": "383ef450d00847017952823d7051b005.1.2.3.4.sslip.io",
+      "qname_sha256": "1b870088bfabea983cf497c445cf5799f50caab62df4e610ff12e3c1d2641f7f",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_before",
+      "api": "DnsQueryEx:264",
+      "name": "f453bf7c9bde16094a2b5208330a7439.1.2.3.4.sslip.io",
+      "qname_sha256": "1a1c89a35039e4d71b609d99758ae315217d993dc9a9472cfefdb9fddd25b4a1",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_before",
+      "api": "DnsQuery_W:0:restricted",
+      "name": "28b9d41634c21fc758db78c07fd6d8f2.1.2.3.4.sslip.io",
+      "qname_sha256": "6204a0120bf85d02ae456a7dd2bf3b70e868b11e75305da383e4e8d55ad55c93",
+      "api_return_code": 87,
+      "api_error": null,
+      "answers": [],
+      "matching_outbound_udp_dns_queries": 0
+    },
+    {
+      "scope": "outside_before",
+      "api": "DnsQueryEx:0:restricted",
+      "name": "c4364ad4fc4490ea7132cdcc99eaae49.1.2.3.4.sslip.io",
+      "qname_sha256": "327afa37c4a3692e8cb460a92ac4e151108ca1bfa9611b9d60ec01a9d153b71a",
+      "api_return_code": 87,
+      "api_error": null,
+      "answers": [],
+      "matching_outbound_udp_dns_queries": 0
+    },
+    {
+      "scope": "outside_before",
+      "api": "Resolve-DnsName:0",
+      "name": "0566373a57498d95da7fb10403594b37.1.2.3.4.sslip.io",
+      "qname_sha256": "d94802499c5f28044d58a79589414032aaf690d72668d3906a1a8a7f040af03b",
+      "api_return_code": null,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "inside",
+      "api": "getaddrinfo:0",
+      "name": "9570650afdc1ed12c2d1decfbf7a7889.1.2.3.4.sslip.io",
+      "qname_sha256": "1356a4ac0d68fcd7d5b2d3f137b85853c273606b25a14b59c817b36fe5f96b10",
+      "api_return_code": null,
+      "api_error": "gaierror(11004, 'getaddrinfo failed')",
+      "answers": null,
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "inside",
+      "api": "DnsQuery_W:0",
+      "name": "74bf73ef02707053935de0c02e64529a.1.2.3.4.sslip.io",
+      "qname_sha256": "4e91bda54de8b3f32399aea4669d44e0edae2f8841c6aafef38e2f724e8f46ff",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "inside",
+      "api": "DnsQuery_W:264",
+      "name": "9323e3cc5ed5a478fae4a0c0924c5c41.1.2.3.4.sslip.io",
+      "qname_sha256": "086ace2e38ee2a533cb99e8baa9c241df26cc7d02c22b91f1d0b908c3c4c3d64",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "inside",
+      "api": "DnsQueryEx:0",
+      "name": "782d99017636e7c19df6b60f551b666f.1.2.3.4.sslip.io",
+      "qname_sha256": "667be0224d28e34bf5ccf7e60973bf34a4e4d7c427e0fa4fbceeed761aed28b9",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "inside",
+      "api": "DnsQueryEx:264",
+      "name": "53ac642594f87755f7c76d8863f58160.1.2.3.4.sslip.io",
+      "qname_sha256": "400a8bdffc6e5b3b7d6c94c6efd80b955795e6496dfb4d612bc2de10a51f096f",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "inside",
+      "api": "DnsQuery_W:0:restricted",
+      "name": "3f628410b34cd26c48f9f8091b6d01f0.1.2.3.4.sslip.io",
+      "qname_sha256": "a8960f25c6201c039bce7812635d74a1e509b404bb8cd9b6a3e9a4d7873e4eb6",
+      "api_return_code": 87,
+      "api_error": null,
+      "answers": [],
+      "matching_outbound_udp_dns_queries": 0
+    },
+    {
+      "scope": "inside",
+      "api": "DnsQueryEx:0:restricted",
+      "name": "fa787e8ad5e840df01583aaf6b4192c5.1.2.3.4.sslip.io",
+      "qname_sha256": "896f286154e1b7cfa89ab45d061e7a93ac195181f6b56c6787bd29da0f081a9b",
+      "api_return_code": 87,
+      "api_error": null,
+      "answers": [],
+      "matching_outbound_udp_dns_queries": 0
+    },
+    {
+      "scope": "inside",
+      "api": "Resolve-DnsName:0",
+      "name": "339a04f776dbb1b286eb02a7be5d5f06.1.2.3.4.sslip.io",
+      "qname_sha256": "fec96957413fc29b1a39692ca56ab3a9b9d39ae91ab5d832e15e2d2f38ba7834",
+      "api_return_code": null,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_after",
+      "api": "getaddrinfo:0",
+      "name": "e42b525842d1b540c3184cb932b61cf8.1.2.3.4.sslip.io",
+      "qname_sha256": "9a18c2060d1b6650bc7962224bffb8667850acab8dc512d37af0295d59650162",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_after",
+      "api": "DnsQuery_W:0",
+      "name": "3d97c524705df17bf419870d89e3bb35.1.2.3.4.sslip.io",
+      "qname_sha256": "dba18190b0c2463b7593f110ac8b442fe6e94b0234966fe401764213e3064857",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_after",
+      "api": "DnsQuery_W:264",
+      "name": "ee4cec4619888a24c96b6e5f53c4920f.1.2.3.4.sslip.io",
+      "qname_sha256": "ef717dda5e676af225dedd5b452e1ede3766af2c4ba7f7c9c7884f94fcb1d847",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_after",
+      "api": "DnsQueryEx:0",
+      "name": "d68b982e43fac2675a8e5bfc7a3830de.1.2.3.4.sslip.io",
+      "qname_sha256": "587ec263c28701247d1c9dfcf37c2fbf0f7ed1410943c0e3b7daa6ba2400eb7c",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_after",
+      "api": "DnsQueryEx:264",
+      "name": "4fd81fcdef90ed041547a7ae7762d42d.1.2.3.4.sslip.io",
+      "qname_sha256": "c4f99921a4087b07530c449273c992ecce7158bdb86a2c8fee4014aee7becfec",
+      "api_return_code": 0,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    },
+    {
+      "scope": "outside_after",
+      "api": "DnsQuery_W:0:restricted",
+      "name": "d194c9f82ed8b72f211e588a71fe1493.1.2.3.4.sslip.io",
+      "qname_sha256": "9f726121799c578bb47c489fabf98abb51b5a1a99079ce7c2d7605aeb34bb0ef",
+      "api_return_code": 87,
+      "api_error": null,
+      "answers": [],
+      "matching_outbound_udp_dns_queries": 0
+    },
+    {
+      "scope": "outside_after",
+      "api": "DnsQueryEx:0:restricted",
+      "name": "5b3f367be8979241b130d59499bc807e.1.2.3.4.sslip.io",
+      "qname_sha256": "4bf09a216bf8e4ac95204b8d21477d07ed101dc6ea67c2aab081eeb330d50abe",
+      "api_return_code": 87,
+      "api_error": null,
+      "answers": [],
+      "matching_outbound_udp_dns_queries": 0
+    },
+    {
+      "scope": "outside_after",
+      "api": "Resolve-DnsName:0",
+      "name": "284b0079c5a3ac31f0c294c6fd37d6e9.1.2.3.4.sslip.io",
+      "qname_sha256": "30c16f553709e0914f0fce207e09d5a2102deb58c870ce6c32db4d30329f5e18",
+      "api_return_code": null,
+      "api_error": null,
+      "answers": [
+        "1.2.3.4"
+      ],
+      "matching_outbound_udp_dns_queries": 1
+    }
+  ]
+}

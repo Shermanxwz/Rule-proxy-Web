@@ -33,54 +33,17 @@ jobs:
           python-version: '3.14'
           architecture: x64
       - name: Run bounded compartment lab
+        timeout-minutes: 31
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           python -B .github/windows_compartment_lab.py driver --out "$PWD\compartment-results"
           if ($LASTEXITCODE -ne 0) { throw 'compartment lab harness failed; inspect report artifact' }
-      - name: Probe primary restricted tokens as SYSTEM
+      - name: Probe primary restricted tokens with independent DNS observations
         if: always()
-        timeout-minutes: 12
+        timeout-minutes: 23
         shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $task = 'RuleProxyRestrictedPrimaryProbe'
-          $launch = 'C:\RuleProxyRestrictedPrimaryLaunch'
-          $work = 'C:\RuleProxyRestrictedPrimaryLab'
-          New-Item -ItemType Directory -Path $launch | Out-Null
-          $python = (Get-Command python).Source
-          $script = (Resolve-Path .github/windows_restricted_primary_lab.py).Path
-          $lab = (Resolve-Path .github/windows_compartment_lab.py).Path
-          $probe = (Resolve-Path .github/windows_dns_compartment_probe.py).Path
-          $command = '@"' + $python + '" -I -S -B "' + $script + '" --lab-script "' + $lab + '" --probe-script "' + $probe + '" --work "' + $work + '" --variants plain,write_custom_logon,write_custom_rc_logon --browsers edge > "' + $launch + '\stdout.log" 2>&1'
-          $wrapper = Join-Path $launch 'run.cmd'
-          [IO.File]::WriteAllText($wrapper,$command + "`r`n",[Text.Encoding]::ASCII)
-          $action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\cmd.exe" -Argument ('/d /c "' + $wrapper + '"')
-          $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-          $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
-          Register-ScheduledTask -TaskName $task -Action $action -Principal $principal -Settings $settings | Out-Null
-          try {
-            Start-ScheduledTask -TaskName $task
-            $deadline = [DateTime]::UtcNow.AddMinutes(10)
-            $finished = $false
-            do {
-              Start-Sleep -Seconds 3
-              $path = Join-Path $work 'report.json'
-              if (Test-Path -LiteralPath $path) {
-                try { $report = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json; $finished = $null -ne $report.finished } catch { }
-              }
-              $info = Get-ScheduledTaskInfo -TaskName $task
-              if ($info.LastRunTime.Year -ge 2026 -and $info.LastTaskResult -ne 267009 -and (Get-ScheduledTask -TaskName $task).State -ne 'Running') { break }
-            } while (-not $finished -and [DateTime]::UtcNow -lt $deadline)
-            if (-not $finished) { throw 'Restricted-token experiment did not finish; inspect bounded diagnostics' }
-            if ($report.error) { throw 'Restricted-token experiment setup failed; inspect report' }
-          } finally {
-            Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue
-            Unregister-ScheduledTask -TaskName $task -Confirm:$false
-            New-Item -ItemType Directory -Path compartment-results/restricted-primary -Force | Out-Null
-            if (Test-Path -LiteralPath (Join-Path $work 'report.json')) { Copy-Item -LiteralPath (Join-Path $work 'report.json') -Destination compartment-results/restricted-primary/report.json }
-            if (Test-Path -LiteralPath (Join-Path $launch 'stdout.log')) { Get-Content -LiteralPath (Join-Path $launch 'stdout.log') -Tail 100 | Set-Content compartment-results/restricted-primary/stdout.log }
-          }
+        run: ./.github/run_windows_primary_probe.ps1 -Output compartment-results/restricted-primary
       - name: Collect bounded native logs
         if: always()
         shell: pwsh

@@ -451,6 +451,50 @@ class Experiment:
             self.browser_matrix(token,directory,result['browsers'],name,cid)
         finally:self.k.CloseHandle(token)
 
+    def wait_loopback(self, cid):
+        # Compartment creation can complete before its loopback addresses are
+        # available. The main lab previously hid that delay behind DNS probes.
+        # Observe actual local binding, without adding an interface or route.
+        import socket
+        row = {'ready': False, 'attempts': [], 'timeout_seconds': 20}
+        self.report['loopback_readiness'] = row
+        def probe():
+            started = time.monotonic()
+            row['thread_set'] = int(self.n.i.SetCurrentThreadCompartmentId(cid))
+            row['thread_get'] = int(self.n.i.GetCurrentThreadCompartmentId())
+            if row['thread_set'] or row['thread_get'] != cid:
+                return
+            try:
+                while time.monotonic() - started < 20:
+                    attempt = {'elapsed': round(time.monotonic() - started, 3)}
+                    for key, family, host in (('ipv4', socket.AF_INET, '127.0.0.1'),
+                                               ('ipv6', socket.AF_INET6, '::1')):
+                        try:
+                            with socket.socket(family, socket.SOCK_STREAM) as sock:
+                                sock.bind((host, self.relay_port))
+                                sock.listen(1)
+                            attempt[key] = {'bound': True}
+                        except OSError as error:
+                            attempt[key] = {'bound': False, 'error': repr(error),
+                                            'winerror': getattr(error, 'winerror', None)}
+                    # The shared relay creates both families; do not start it
+                    # while IPv6 socket creation can still abort its thread.
+                    row['ready'] = attempt['ipv4']['bound'] and attempt['ipv6']['bound']
+                    row['attempts'].append(attempt)
+                    if row['ready']:
+                        break
+                    time.sleep(0.25)
+            except Exception as error:
+                row['error'] = repr(error)
+            finally:
+                row['elapsed'] = round(time.monotonic() - started, 3)
+        thread = threading.Thread(target=probe, daemon=True)
+        thread.start(); thread.join(23)
+        row['worker_finished'] = not thread.is_alive()
+        self.save()
+        if not row['ready'] or not row['worker_finished']:
+            raise RuntimeError('isolated loopback did not become bindable before its deadline')
+
     def run(self):
         try:
             if self.report['identity']!='S-1-5-18':raise RuntimeError('run controller as SYSTEM')
@@ -465,7 +509,7 @@ class Experiment:
             self.controller=self.lab.Controller(ca);created=self.controller.create('restricted-primary')
             self.report['compartment']=created
             if created['code']:raise OSError(created['code'],'CreateCompartment')
-            cid=created['id'];self.controller.start_relay(cid)
+            cid=created['id'];self.wait_loopback(cid);self.controller.start_relay(cid)
             self.report['relay']=self.controller.relay
             if (self.controller.relay.get('listener_set') != 0
                     or self.controller.relay.get('listener_get') != cid

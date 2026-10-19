@@ -3,7 +3,10 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -120,6 +123,62 @@ class SerialBeaconTests(unittest.TestCase):
     def test_cleanup_reserve_leaves_a_positive_wait_for_the_smallest_budget(self):
         self.assertGreater(300 - vm.CLEANUP_RESERVE_SECONDS, 0)
         self.assertGreaterEqual(vm.CLEANUP_RESERVE_SECONDS, 60)
+
+    @unittest.skipUnless(os.name == "nt", "requires actual Windows PowerShell process handles")
+    def test_compartment_child_exit_status_output_and_timeout_are_observed(self):
+        # Parse just the process-owner function; no VM/account/network setup runs.
+        command = r'''
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($env:RULEPROXY_NATIVE_SCRIPT, [ref]$tokens, [ref]$errors)
+if ($errors.Count -ne 0) { throw 'Compartment bootstrap PowerShell syntax error' }
+$definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-OwnedPython' }, $true)
+if ($null -eq $definition) { throw 'Missing owned-process function' }
+. ([scriptblock]::Create($definition.Extent.Text))
+$script:root = $env:RULEPROXY_NATIVE_TEST_ROOT
+$script:result = @{}
+$arguments = '-I -B "' + $env:RULEPROXY_NATIVE_WORKER + '" '
+$noisy = Invoke-OwnedPython $env:RULEPROXY_NATIVE_PYTHON ($arguments + 'noise') 10 'noise'
+$fast = Invoke-OwnedPython $env:RULEPROXY_NATIVE_PYTHON ($arguments + 'fast') 10 'fast'
+$timer = [Diagnostics.Stopwatch]::StartNew()
+$timeoutFailed = $false
+try { Invoke-OwnedPython $env:RULEPROXY_NATIVE_PYTHON ($arguments + 'sleep') 1 'sleep' | Out-Null }
+catch { $timeoutFailed = $true }
+$timer.Stop()
+$startFailed = $false
+try { Invoke-OwnedPython (Join-Path $root 'missing-python.exe') '' 1 'missing' | Out-Null }
+catch { $startFailed = $true }
+@{noisy=$noisy; fast=$fast; timeout_failed=$timeoutFailed; timeout_seconds=$timer.Elapsed.TotalSeconds;
+  start_failed=$startFailed; children=$script:result.child_processes} | ConvertTo-Json -Depth 8 -Compress
+'''
+        with tempfile.TemporaryDirectory(prefix="ruleproxy child with spaces ") as directory:
+            worker = Path(directory) / "worker.py"
+            worker.write_text("import os, sys, time\n"
+                              "if sys.argv[1] == 'noise':\n"
+                              " os.write(1, b'O' * 200000); os.write(2, b'E' * 200000); sys.exit(7)\n"
+                              "if sys.argv[1] == 'sleep': time.sleep(30)\n", encoding="ascii")
+            environment = dict(os.environ,
+                RULEPROXY_NATIVE_SCRIPT=str(ROOT / ".github/windows-compartment-vm-run.ps1"),
+                RULEPROXY_NATIVE_TEST_ROOT=directory, RULEPROXY_NATIVE_WORKER=str(worker),
+                RULEPROXY_NATIVE_PYTHON=sys.executable)
+            powershell = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+            completed = subprocess.run([str(powershell), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command],
+                                       env=environment, capture_output=True, text=True, timeout=45)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            data = json.loads(completed.stdout)
+            self.assertEqual((data["noisy"], data["fast"]), (7, 0))
+            self.assertEqual((Path(directory) / "noise-stdout.log").read_bytes(), b"O" * 200000)
+            self.assertEqual((Path(directory) / "noise-stderr.log").read_bytes(), b"E" * 200000)
+            for name in ("noise", "fast"):
+                self.assertTrue(data["children"][name]["handle_captured"])
+                self.assertTrue(data["children"][name]["drain_complete"])
+            self.assertTrue(data["timeout_failed"])
+            self.assertLess(data["timeout_seconds"], 15)
+            self.assertTrue(data["children"]["sleep"]["timed_out"])
+            self.assertTrue(data["children"]["sleep"]["termination_confirmed"])
+            self.assertIsNone(data["children"]["sleep"]["exit_code"])
+            self.assertTrue(data["start_failed"])
+            self.assertIsNone(data["children"]["missing"]["exit_code"])
 
 
 if __name__ == "__main__":

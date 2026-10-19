@@ -480,6 +480,8 @@ def _boot_identity():
     create.argtypes = [W.HANDLE, W.LPCWSTR, W.DWORD, W.LPWSTR, W.DWORD,
                        W.DWORD, C.c_void_p, C.POINTER(W.HANDLE), C.POINTER(W.DWORD)]
     create.restype = C.c_int32
+    close = advapi.RegCloseKey
+    close.argtypes, close.restype = [W.HANDLE], C.c_int32
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                             r"SYSTEM\CurrentControlSet\Services\RuleProxyControl", 0,
@@ -490,7 +492,10 @@ def _boot_identity():
                           None, C.byref(handle), C.byref(disposition))
             if code:
                 raise OSError(code, "Cannot create volatile compartment boot key")
-            with winreg.HKEYType(handle.value) as key:
+            # PyHKEY is not publicly constructible. winreg explicitly accepts
+            # integer HKEYs; this function retains ownership of the native key.
+            key = handle.value
+            try:
                 try:
                     value, kind = winreg.QueryValueEx(key, "BootId")
                 except FileNotFoundError:
@@ -499,6 +504,10 @@ def _boot_identity():
                 if kind != winreg.REG_SZ or str(uuid.UUID(value)) != value:
                     raise ValueError("Invalid boot identity")
                 return value
+            finally:
+                code = close(handle)
+                if code:
+                    raise OSError(code, "Cannot close volatile compartment boot key")
     except (OSError, ValueError) as exc:
         raise ProxyError("namespace_unsupported", "无法确认本次 Windows 启动身份，未复用网络隔间。") from exc
 
