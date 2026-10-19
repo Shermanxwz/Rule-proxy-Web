@@ -21,7 +21,7 @@ jobs:
       - name: Parse the bootstrap and servicing entry points before allocating a VM
         shell: powershell
         run: |
-          foreach ($name in @('windows-proxifyre-vm-setup.ps1', 'windows-compartment-vm-run.ps1', 'windows-vm-update.ps1')) {
+          foreach ($name in @('windows-proxifyre-vm-setup.ps1', 'windows-compartment-vm-run.ps1', 'windows-vm-update.ps1', 'run_windows_psec_smoke.ps1')) {
             $tokens = $null; $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/$name"), [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count) { throw ($errors | Out-String) }
@@ -144,6 +144,35 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  server-control:
+    name: Server 2025 · PSEC baseline and compartment diagnostic
+    needs: [pinned-mxc-g-bundle, guest-syntax]
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixed-mxc-g-bundle
+          path: g-bundle
+      - name: Execute bounded ordinary-user functional controls
+        timeout-minutes: 14
+        shell: powershell
+        run: ./.github/run_windows_psec_smoke.ps1 -BundleZip "$PWD/g-bundle/mxc-g-bundle.zip" -Output "$PWD/psec-server-results"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: server-2025-psec-smoke-evidence
+          path: psec-server-results/
+          if-no-files-found: warn
+          retention-days: 14
+
   native:
     name: Windows 11 x64 · PSEC and compartment functionality
     needs: [package, pinned-mxc-g-bundle, guest-syntax]
@@ -175,8 +204,8 @@ jobs:
         run: |
           read -r expected name < compartment-package/SHA256SUMS.txt
           exec timeout --signal=TERM --kill-after=20s 110m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
-            --suite psec-compartment-smoke --psec-media 26h2 --psec-bundle "$PWD/g-bundle/mxc-g-bundle.zip" --package "compartment-package/$name" --package-sha256 "$expected" \
-            --artifacts psec-smoke-results --timeout-seconds 3600
+            --suite psec-compartment-smoke --psec-media serviced-25h2 --psec-bundle "$PWD/g-bundle/mxc-g-bundle.zip" --package "compartment-package/$name" --package-sha256 "$expected" \
+            --artifacts psec-smoke-results --timeout-seconds 6600
       - uses: actions/upload-artifact@v7
         if: always()
         with:

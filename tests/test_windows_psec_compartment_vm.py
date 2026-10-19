@@ -55,7 +55,7 @@ class PsecVmTests(unittest.TestCase):
 
     def test_stale_success_flags_do_not_hide_failed_observations(self):
         original = result()
-        for mutation in ("cid", "source", "browser", "executor", "cleanup"):
+        for mutation in ("cid", "source", "browser", "executor", "cleanup", "baseline", "default_cid"):
             changed = copy.deepcopy(original)
             report = changed["reports"]["psec_smoke"]
             if mutation == "cid":
@@ -66,6 +66,14 @@ class PsecVmTests(unittest.TestCase):
                 report["launcher"]["actor"]["browser"]["dom_marker_matched"] = False
             elif mutation == "executor":
                 report["provenance"]["executor_sha256"] = "c" * 64
+            elif mutation == "baseline":
+                report.pop("baseline", None)
+            elif mutation == "default_cid":
+                report["cid"] = 1
+                report["outer_job"]["cid"] = 1
+                report["launcher"]["identity"]["cid"] = 1
+                report["launcher"]["actor"]["identity"]["cid"] = 1
+                report["launcher"]["actor"]["child"]["identity"]["cid"] = 1
             else:
                 report["cleanup"]["account"]["profile_deleted"] = False
             with self.subTest(mutation=mutation), self.assertRaises(RuntimeError):

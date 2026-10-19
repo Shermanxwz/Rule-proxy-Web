@@ -239,7 +239,9 @@ try {
             '" --disposable-ci --executor "' + (Join-Path $psecDirectory 'wxc-exec.exe') +
             '" --manifest "' + (Join-Path $psecDirectory 'build-manifest.json') +
             '" --work "C:\RuleProxyPsecCompartmentSmoke" --report "' + $psecReport + '" --browser "' + $edge + '"'
-        $result.exit_code = Invoke-OwnedPython $python $arguments 420 'psec'
+        # Two sequential cases (PSEC baseline and compartment combination)
+        # retain their per-process limits and independent cleanup budgets.
+        $result.exit_code = Invoke-OwnedPython $python $arguments 660 'psec'
         $result.reports.psec_smoke = Get-Content -LiteralPath $psecReport -Raw | ConvertFrom-Json
         if ($result.exit_code -ne 0) { throw 'PSEC/compartment functional smoke did not pass' }
     } else {

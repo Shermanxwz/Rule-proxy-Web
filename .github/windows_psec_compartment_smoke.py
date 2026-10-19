@@ -1,9 +1,10 @@
-"""Disposable CI only: fixed MXC Model 2 inside a pre-bound compartment Job.
+"""Disposable CI only: fixed MXC Model 2 with a default-network control.
 
 Run as SYSTEM with --disposable-ci --executor EXE --manifest JSON --work NEW_DIR
 --report JSON [--browser CHROMIUM_EXE]. The executor and manifest must match the
 existing G bundle pins. G's guarded Model-1 patch does not apply to Model 2.
 
+Run a default-compartment baseline first, then the pre-bound compartment case.
 The ordinary-user launcher and wxc-exec inherit an outer Job with no UI limits.
 The existing MXC executor creates the PSEC environment and its own nested Job.
 Only fixed HTTP fixture content is served; no external destination is dialed.
@@ -125,11 +126,18 @@ def identity_snapshot():
 
 class FixedHTTPProxy:
     """A fixed local HTTP response source, never a forwarding/open proxy."""
-    def __init__(self, marker):
-        self.marker, self.requests = marker, {"outside": 0, "inside": 0, "browser": 0}
+    def __init__(self, markers):
+        if (set(markers) != {"baseline", "combined"}
+                or len(set(markers.values())) != 2
+                or not all(re.fullmatch(r"[0-9a-f]{32}", marker) for marker in markers.values())):
+            raise ValueError("fixture requires two distinct fixed case nonces")
+        self.markers = dict(markers)
+        self.requests = {case: {"outside": 0, "inside": 0, "browser": 0} for case in markers}
         self.rejected = 0
         self.lock = threading.Lock()
         owner = self
+        expected = {f"http://{HOST}/{marker}/{phase}": (case, phase, marker)
+                    for case, marker in self.markers.items() for phase in self.requests[case]}
 
         class Handler(BaseHTTPRequestHandler):
             def setup(self):
@@ -137,14 +145,14 @@ class FixedHTTPProxy:
                 self.connection.settimeout(5)
 
             def do_GET(self):
-                expected = {f"http://{HOST}/{marker}/{phase}": phase for phase in owner.requests}
-                phase = expected.get(self.path)
+                match = expected.get(self.path)
                 with owner.lock:
-                    if phase is None:
+                    if match is None:
                         owner.rejected += 1
                     else:
-                        owner.requests[phase] += 1
-                if phase is None:
+                        case, phase, marker = match
+                        owner.requests[case][phase] += 1
+                if match is None:
                     self.send_error(403)
                     return
                 body = f"<!doctype html><title>RuleProxy smoke</title><p>{marker}</p>".encode("ascii")
@@ -166,6 +174,10 @@ class FixedHTTPProxy:
         self.port = self.server.server_port
         self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": .05}, daemon=True)
         self.thread.start()
+
+    def snapshot(self, case):
+        with self.lock:
+            return dict(self.requests[case])
 
     def close(self):
         self.server.shutdown()
@@ -198,7 +210,7 @@ def browser_command(executable, profile, port, marker):
 
 
 def actor(config, *, child=False):
-    result = {"identity": identity_snapshot()}
+    result = {"identity": identity_snapshot(), "marker": config["marker"]}
     if child:
         save(config["child_report"], result)
         return 0
@@ -358,7 +370,7 @@ def executor_diagnostic(data):
 
 
 def run_psec(config, runner=subprocess.run):
-    result = {"identity": identity_snapshot(), "started": False}
+    result = {"identity": identity_snapshot(), "marker": config["marker"], "started": False}
     if (result["identity"]["sid"] != config["sid"] or result["identity"]["elevated"]
             or result["identity"]["appcontainer"] or result["identity"]["cid"] != config["cid"]):
         raise RuntimeError("ordinary launcher identity or pre-bound compartment differs")
@@ -541,19 +553,38 @@ def enable_profile_privileges(native):
         native.k.CloseHandle(token)
 
 
-def checks(report):
+def case_checks(report, *, combined):
+    """The caller fixes the case semantics; never trust a report's mode flag."""
     launch = report.get("launcher", {})
     actor_value = launch.get("actor", {})
     expected = report.get("ordinary_identity", {}).get("sid")
     cid = report.get("cid")
+    cid_valid = type(cid) is int and (cid > 1 if combined else cid == 1)
+    outer = report.get("outer_job", {})
+    marker = report.get("marker")
+    cleanup = report.get("cleanup", {})
 
     def valid(value, appcontainer=None):
-        return (value.get("sid") == expected and value.get("elevated") is False
-                and value.get("cid") == cid and type(value.get("appcontainer")) is bool
+        return (cid_valid and isinstance(expected, str) and bool(expected)
+                and value.get("sid") == expected and value.get("elevated") is False
+                and type(value.get("cid")) is int and value.get("cid") == cid
+                and type(value.get("appcontainer")) is bool
                 and (appcontainer is None or value["appcontainer"] is appcontainer))
 
-    account_cleanup = report.get("cleanup", {}).get("account", {})
-    result = {"outside_fixture": report.get("fixture_control", {}).get("marker_matched") is True,
+    result = {"compartment_id": cid_valid,
+              # An unbound Job's raw compartment property is recorded, but
+              # baseline membership is measured in the three real processes.
+              "outer_job_configuration": (
+                  type(outer.get("cid")) is int
+                  and (outer["cid"] == cid if combined else outer["cid"] >= 0)
+                  and outer.get("compartment_bound") is combined
+                  and type(outer.get("ui_limits")) is int and outer["ui_limits"] == 0
+                  and outer.get("kill_on_close") is True
+                  and outer.get("breakaway") is False),
+              "case_nonce": (isinstance(marker, str) and re.fullmatch(r"[0-9a-f]{32}", marker) is not None
+                             and all(value.get("marker") == marker for value in (
+                                 launch, actor_value, actor_value.get("child", {})))),
+              "outside_fixture": report.get("fixture_control", {}).get("marker_matched") is True,
               "ordinary_relay_control": launch.get("relay_control", {}).get("marker_matched") is True,
               "ordinary_launcher_in_cid": valid(launch.get("identity", {}), False),
               # This gate measures functionality. Record the actual token's
@@ -567,20 +598,158 @@ def checks(report):
                                and report.get("fixture_requests", {}).get("inside", 0) > 0,
               "normal_exit": (report.get("launcher_exit_code") == 0
                               and report.get("launcher_timed_out") is False and launch.get("exit_code") == 0
+                              and launch.get("timed_out") is False
                               and actor_value.get("child_exit_code") == 0 and "error" not in actor_value
                               and "error" not in report and "error" not in launch),
-              "outer_job_empty": report.get("cleanup", {}).get("job_empty") is True,
-              "account_cleanup": (isinstance(account_cleanup, dict)
-                                  and account_cleanup.get("account_delete_status") == 0
-                                  and all(account_cleanup.get(key) is True for key in (
-                                      "environment_freed", "profile_unloaded", "profile_deleted", "token_closed",
-                                      "desktop_closed", "station_closed")))}
+              "outer_job_empty": cleanup.get("job_empty") is True,
+              "case_cleanup": (cleanup.get("job_closed") is True
+                               and cleanup.get("ready_for_next_case") is True
+                               and not any(key.endswith("_error") for key in cleanup)
+                               and (cleanup.get("relay") is True if combined else "relay" not in cleanup))}
     if report.get("browser_requested"):
         browser = actor_value.get("browser", {})
         result["browser_render"] = (browser.get("dom_marker_matched") is True
                                     and browser.get("exit_code") == 0 and browser.get("timed_out") is False
                                     and report.get("fixture_requests", {}).get("browser", 0) > 0)
     return result
+
+
+def baseline_checks(report):
+    return case_checks(report, combined=False)
+
+
+def checks(report):
+    # Keep the main report's original fields as the combined case; baseline
+    # success is recomputed independently, never taken from its claimed flag.
+    result = case_checks(report, combined=True)
+    baseline = report.get("baseline", {})
+    account_cleanup = report.get("cleanup", {}).get("account", {})
+    result["baseline_success"] = all(baseline_checks(baseline).values())
+    result["case_independence"] = (
+        report.get("case_id") == "combined" and baseline.get("case_id") == "baseline"
+        and report.get("profile_id") == "combined" and baseline.get("profile_id") == "baseline"
+        and report.get("marker") != baseline.get("marker")
+        and report.get("fixture_port") == baseline.get("fixture_port")
+        and type(report.get("fixture_port")) is int and 0 < report["fixture_port"] < 65536
+        and report.get("ordinary_identity", {}).get("sid") == baseline.get("ordinary_identity", {}).get("sid")
+        and report.get("browser_requested") is baseline.get("browser_requested"))
+    result["account_cleanup"] = (isinstance(account_cleanup, dict)
+                                 and account_cleanup.get("account_delete_status") == 0
+                                 and all(account_cleanup.get(key) is True for key in (
+                                     "environment_freed", "profile_unloaded", "profile_deleted", "token_closed",
+                                     "desktop_closed", "station_closed")))
+    result["fixture_cleanup"] = report.get("cleanup", {}).get("fixture") is True
+    return result
+
+
+def run_case(*, combined, native, api, account, fixture, work, python, executor, browser, job_limits_type):
+    """Run one bounded case and release its Job/relay before returning."""
+    name = "combined" if combined else "baseline"
+    marker = fixture.markers[name]
+    profile = work / "user" / name
+    report = {"case_id": name, "profile_id": name, "marker": marker, "fixture_port": fixture.port,
+              "ordinary_identity": dict(account.identity), "browser_requested": browser is not None,
+              "cleanup": {}}
+    job = process = relay = None
+    try:
+        profile.mkdir()  # A stale case profile/report must never be reused.
+        report["fixture_control"] = proxy_get(fixture.port, marker, "outside")
+        cid = api.create(str(uuid.uuid4()), "RuleProxy disposable PSEC smoke") if combined else 1
+        report["cid"] = cid
+        if type(cid) is not int or (cid <= 1 if combined else cid != 1):
+            raise RuntimeError("combined compartment must have an integer CID greater than 1")
+        if combined:
+            inventory = api.inspect(cid)
+            report["inventory"] = {key: inventory.get(key) for key in ("interfaces", "addresses", "routes")}
+        job = native.new_job()
+        if combined:
+            duplicate = api.bind_job(os.getpid(), job, cid)
+            api.close(duplicate)
+        ui_limits, limits = W.DWORD(), job_limits_type()
+        native.check(api.k.QueryInformationJobObject(job, 4, C.byref(ui_limits), C.sizeof(ui_limits), None),
+                     "Query outer Job UI limits")
+        native.check(api.k.QueryInformationJobObject(job, 9, C.byref(limits), C.sizeof(limits), None),
+                     "Query outer Job lifetime limits")
+        flags = limits.BasicLimitInformation.LimitFlags
+        outer = report["outer_job"] = {"cid": int(native.i.GetJobCompartmentId(job)),
+                                        "compartment_bound": combined, "ui_limits": ui_limits.value,
+                                        "kill_on_close": bool(flags & 0x2000),
+                                        "breakaway": bool(flags & (0x800 | 0x1000))}
+        if (outer["ui_limits"] or not outer["kill_on_close"] or outer["breakaway"]
+                or (combined and outer["cid"] != cid)):
+            raise RuntimeError("outer Job compartment or lifetime/UI configuration differs")
+        if combined:
+            from ruleproxy.windows_compartment import _Relay
+            relay = _Relay(api, cid, fixture.port, expected_core_pid=os.getpid(),
+                           core_alive=lambda: fixture.thread.is_alive())
+            report["relay_bound"] = relay.start()
+        config_path = work / "inputs" / (name + ".json")
+        config = {"config_path": str(config_path), "sid": account.identity["sid"], "cid": cid,
+                  "executor": str(executor), "inputs": str(work / "inputs"), "runtime": str(work / "runtime"),
+                  "profile": str(profile), "port": fixture.port, "marker": marker,
+                  "actor_report": str(profile / "actor.json"), "child_report": str(profile / "child.json"),
+                  "launcher_report": str(profile / "launcher.json"), "browser": str(browser) if browser else None}
+        save(config_path, config)
+        command = [python, "-I", "-S", "-B", work / "inputs" / "smoke.py", "--launcher", config_path]
+        process, pid = account.launch(command, profile, job)
+        report["launcher_pid"] = pid
+        report["launcher_exit_code"], report["launcher_timed_out"] = native.wait(process, 155)
+        process = None  # Native.wait closes the exact handle.
+        if Path(config["launcher_report"]).is_file():
+            report["launcher"] = read(config["launcher_report"])
+    except Exception as exc:
+        report["error"] = failure(exc)
+    finally:
+        if process:
+            try:
+                native.check(native.k.TerminateProcess(process, 125), "Terminate case launcher")
+                if native.k.WaitForSingleObject(process, 5000) != 0:
+                    raise RuntimeError("case launcher did not exit during cleanup")
+            except Exception as exc:
+                report["cleanup"]["process_error"] = failure(exc)
+            finally:
+                try:
+                    native.check(native.k.CloseHandle(process), "Close case launcher handle")
+                except Exception as exc:
+                    report["cleanup"]["process_close_error"] = failure(exc)
+        if job:
+            try:
+                api.terminate_job(job)
+                report["cleanup"]["job_empty"] = api._active_processes(job) == 0
+            except Exception as exc:
+                report["cleanup"]["job_error"] = failure(exc)
+            try:
+                report["cleanup"]["job_closed"] = bool(native.k.CloseHandle(job))
+            except Exception as exc:
+                report["cleanup"]["job_close_error"] = failure(exc)
+        if relay:
+            report["relay"] = {"accepted": relay.accepted, "errors": list(relay.errors)}
+            try:
+                relay.stop()
+                report["cleanup"]["relay"] = True
+            except Exception as exc:
+                report["cleanup"]["relay_error"] = failure(exc)
+        if combined and type(report.get("cid")) is int and report["cid"] > 1:
+            report["cleanup"]["compartment"] = "retained until disposable host reboot; allocated compartments are not deleted"
+        cleanup = report["cleanup"]
+        cleanup["ready_for_next_case"] = (not any(key.endswith("_error") for key in cleanup)
+                                           and (job is None or (cleanup.get("job_empty") is True
+                                                                and cleanup.get("job_closed") is True)))
+        report["fixture_requests"] = fixture.snapshot(name)
+    return report
+
+
+def run_cases(**kwargs):
+    """A failed baseline is still measured; only uncertain cleanup stops case 2."""
+    baseline = run_case(combined=False, **kwargs)
+    baseline["checks"] = baseline_checks(baseline)
+    baseline["functionality_passed"] = all(baseline["checks"].values())
+    if baseline.get("cleanup", {}).get("ready_for_next_case") is True:
+        combined = run_case(combined=True, **kwargs)
+    else:
+        combined = {"cleanup": {}, "error": {"type": "BaselineCleanupIncomplete"}}
+    combined["baseline"] = baseline
+    return combined
 
 
 def source_commit():
@@ -604,7 +773,7 @@ def controller(args):
     sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import windows_compartment_lab as lab
-    from ruleproxy.windows_compartment import _CompartmentAPI, _Relay
+    from ruleproxy.windows_compartment import _CompartmentAPI
     native = lab.Native()
     if native.token_user() != "S-1-5-18":
         raise PermissionError("compartment controller must run as SYSTEM")
@@ -623,8 +792,10 @@ def controller(args):
     work.mkdir(parents=True)
     for name in ("user", "inputs"):
         (work / name).mkdir()
-    api = account = fixture = relay = job = process = None
+    account = fixture = None
     try:
+        if int(native.i.GetCurrentThreadCompartmentId()) != 1:
+            raise RuntimeError("controller must start in the default compartment")
         python = copy_python(work / "runtime")
         runtime_check = subprocess.run([str(python), "-I", "-S", "-c", "import ctypes, socket, ssl"],
                                        stdin=subprocess.DEVNULL, capture_output=True, timeout=20)
@@ -637,68 +808,21 @@ def controller(args):
         account = OrdinaryAccount(native, lab)
         account.start(work)
         report["ordinary_identity"] = account.identity
-        marker = secrets.token_hex(16)
-        fixture = FixedHTTPProxy(marker)
-        report["fixture_control"] = proxy_get(fixture.port, marker, "outside")
+        fixture = FixedHTTPProxy({name: secrets.token_hex(16) for name in ("baseline", "combined")})
         api = _CompartmentAPI()
-        cid = api.create(str(uuid.uuid4()), "RuleProxy disposable PSEC smoke")
-        report["cid"] = cid
-        inventory = api.inspect(cid)
-        report["inventory"] = {key: inventory.get(key) for key in ("interfaces", "addresses", "routes")}
-        job = native.new_job()
-        duplicate = api.bind_job(os.getpid(), job, cid)
-        api.close(duplicate)
-        ui_limits = W.DWORD()
-        native.check(api.k.QueryInformationJobObject(job, 4, C.byref(ui_limits), C.sizeof(ui_limits), None),
-                     "Query outer Job UI limits")
-        if ui_limits.value:
-            raise RuntimeError("outer Job unexpectedly has UI restrictions")
-        report["outer_job"] = {"cid": int(native.i.GetJobCompartmentId(job)),
-                               "ui_limits": ui_limits.value, "kill_on_close": True, "breakaway": False}
-        relay = _Relay(api, cid, fixture.port, expected_core_pid=os.getpid(),
-                       core_alive=lambda: fixture.thread.is_alive())
-        report["relay_bound"] = relay.start()
-        config_path = work / "inputs" / "config.json"
-        config = {"config_path": str(config_path), "sid": account.identity["sid"], "cid": cid,
-                  "executor": str(executor), "inputs": str(work / "inputs"), "runtime": str(work / "runtime"),
-                  "profile": str(work / "user"), "port": fixture.port, "marker": marker,
-                  "actor_report": str(work / "user" / "actor.json"),
-                  "child_report": str(work / "user" / "child.json"),
-                  "launcher_report": str(work / "user" / "launcher.json"),
-                  "browser": str(args.browser.resolve(strict=True)) if args.browser else None}
-        save(config_path, config)
-        command = [python, "-I", "-S", "-B", work / "inputs" / "smoke.py", "--launcher", config_path]
-        process, pid = account.launch(command, work / "user", job)
-        report["launcher_pid"] = pid
-        report["launcher_exit_code"], report["launcher_timed_out"] = native.wait(process, 155)
-        process = None  # Native.wait closes the exact handle.
-        if Path(config["launcher_report"]).is_file():
-            report["launcher"] = read(config["launcher_report"])
-        report["fixture_requests"] = dict(fixture.requests)
-        report["relay"] = {"accepted": relay.accepted, "errors": list(relay.errors)}
+        browser = args.browser.resolve(strict=True) if args.browser else None
+        report.update(run_cases(native=native, api=api, account=account, fixture=fixture, work=work,
+                                python=python, executor=executor, browser=browser,
+                                job_limits_type=lab.JOBOBJECT_EXTENDED_LIMIT_INFORMATION))
     except Exception as exc:
         report["error"] = failure(exc)
     finally:
-        if process:
-            native.k.TerminateProcess(process, 125)
-            native.k.WaitForSingleObject(process, 5000)
-            native.k.CloseHandle(process)
-        if job:
-            try:
-                api.terminate_job(job)
-                report["cleanup"]["job_empty"] = api._active_processes(job) == 0
-            except Exception as exc:
-                report["cleanup"]["job_error"] = failure(exc)
-            native.k.CloseHandle(job)
-        for name, owned, close in (("relay", relay, "stop"), ("fixture", fixture, "close"),
-                                   ("account", account, "close")):
+        for name, owned, close in (("fixture", fixture, "close"), ("account", account, "close")):
             if owned:
                 try:
                     report["cleanup"][name] = getattr(owned, close)() or True
                 except Exception as exc:
                     report["cleanup"][name + "_error"] = failure(exc)
-        if "cid" in report:
-            report["cleanup"]["compartment"] = "retained until disposable host reboot; bound compartments are not deleted"
         report["checks"] = checks(report)
         report["functionality_passed"] = all(report["checks"].values()) and not any(
             name.endswith("_error") for name in report["cleanup"]) and "error" not in report

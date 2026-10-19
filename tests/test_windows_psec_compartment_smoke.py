@@ -1,4 +1,5 @@
 import copy
+import ctypes
 import hashlib
 import http.client
 import importlib.util
@@ -29,19 +30,34 @@ def probe():
             "probes": {"baseContainerApiPresent": True}, "error": None}
 
 
-def passing_report():
-    identity = {"sid": "S-1-5-21-1-2-3-1001", "cid": 2, "elevated": False, "appcontainer": False}
-    return {"cid": 2, "ordinary_identity": identity, "fixture_control": {"marker_matched": True},
+def passing_case(*, combined):
+    cid, name, marker = (2, "combined", "b" * 32) if combined else (1, "baseline", "a" * 32)
+    identity = {"sid": "S-1-5-21-1-2-3-1001", "cid": cid, "elevated": False, "appcontainer": False}
+    report = {"cid": cid, "case_id": name, "profile_id": name, "marker": marker, "fixture_port": 12345,
+            "ordinary_identity": dict(identity), "fixture_control": {"marker_matched": True},
+            "outer_job": {"cid": cid if combined else 0, "compartment_bound": combined,
+                          "ui_limits": 0, "kill_on_close": True, "breakaway": False},
             "launcher_exit_code": 0, "launcher_timed_out": False,
-            "launcher": {"identity": identity, "relay_control": {"marker_matched": True},
-                         "probe": probe(), "probe_exit_code": 0, "started": True, "exit_code": 0,
-                         "actor": {"identity": identity, "child": {"identity": identity}, "child_exit_code": 0,
+            "launcher": {"identity": dict(identity), "marker": marker, "relay_control": {"marker_matched": True},
+                         "probe": probe(), "probe_exit_code": 0, "started": True, "exit_code": 0, "timed_out": False,
+                         "actor": {"identity": dict(identity), "marker": marker,
+                                   "child": {"identity": dict(identity), "marker": marker}, "child_exit_code": 0,
                                    "proxy": {"marker_matched": True},
                                    "browser": {"dom_marker_matched": True, "exit_code": 0, "timed_out": False}}},
             "fixture_requests": {"inside": 1, "browser": 1}, "browser_requested": True,
-            "cleanup": {"job_empty": True, "account": {
+            "cleanup": {"job_empty": True, "job_closed": True, "ready_for_next_case": True}}
+    if combined:
+        report["cleanup"]["relay"] = True
+    return report
+
+
+def passing_report():
+    report = passing_case(combined=True)
+    report["baseline"] = passing_case(combined=False)
+    report["cleanup"].update(fixture=True, account={
                 "account_delete_status": 0, "environment_freed": True, "profile_unloaded": True,
-                "profile_deleted": True, "token_closed": True, "desktop_closed": True, "station_closed": True}}}
+                "profile_deleted": True, "token_closed": True, "desktop_closed": True, "station_closed": True})
+    return report
 
 
 class PsecCompartmentSmokeTests(unittest.TestCase):
@@ -80,7 +96,7 @@ class PsecCompartmentSmokeTests(unittest.TestCase):
         self.assertTrue(argv[-1].startswith("http://" + smoke.HOST + "/"))
 
     def test_fixed_proxy_serves_only_the_expected_local_fixture_request(self):
-        fixture = smoke.FixedHTTPProxy("a" * 32)
+        fixture = smoke.FixedHTTPProxy({"baseline": "a" * 32, "combined": "b" * 32})
         try:
             result = smoke.proxy_get(fixture.port, "a" * 32, "inside")
             self.assertEqual(result["status"], 200)
@@ -93,7 +109,12 @@ class PsecCompartmentSmokeTests(unittest.TestCase):
                 response.read()
             finally:
                 connection.close()
-            self.assertEqual(fixture.requests["inside"], 1)
+            self.assertEqual(fixture.snapshot("baseline")["inside"], 1)
+            self.assertEqual(fixture.snapshot("combined")["inside"], 0)
+            second = smoke.proxy_get(fixture.port, "b" * 32, "browser")
+            self.assertTrue(second["marker_matched"])
+            self.assertEqual(fixture.snapshot("baseline")["browser"], 0)
+            self.assertEqual(fixture.snapshot("combined")["browser"], 1)
             self.assertEqual(fixture.rejected, 1)
         finally:
             fixture.close()
@@ -258,6 +279,155 @@ class PsecCompartmentSmokeTests(unittest.TestCase):
         altered = copy.deepcopy(report)
         altered["launcher"]["probe"]["probes"] = None
         self.assertFalse(smoke.checks(altered)["psec_selected"])
+
+    def test_default_cid_and_unverified_outer_job_cannot_pass_as_combination(self):
+        for cid in (0, 1, True):
+            report = passing_report()
+            report["cid"] = report["outer_job"]["cid"] = cid
+            launch = report["launcher"]
+            for observed in (launch, launch["actor"], launch["actor"]["child"]):
+                observed["identity"]["cid"] = cid
+            report["mode"] = "baseline"  # Self-described mode cannot weaken checks.
+            with self.subTest(cid=cid):
+                self.assertFalse(smoke.checks(report)["compartment_id"])
+                self.assertFalse(all(smoke.checks(report).values()))
+        for key, value in (("cid", 3), ("compartment_bound", False), ("ui_limits", 1),
+                           ("kill_on_close", False), ("breakaway", True)):
+            report = passing_report()
+            report["outer_job"][key] = value
+            with self.subTest(key=key):
+                self.assertFalse(smoke.checks(report)["outer_job_configuration"])
+        report = passing_report()
+        report.pop("outer_job")
+        self.assertFalse(smoke.checks(report)["outer_job_configuration"])
+
+    def test_baseline_and_nonce_observations_are_recomputed_not_self_certified(self):
+        report = passing_report()
+        self.assertTrue(all(smoke.baseline_checks(report["baseline"]).values()))
+        report["baseline"].update(functionality_passed=True, checks={"everything": True})
+        report["baseline"]["launcher"]["exit_code"] = 1
+        self.assertFalse(smoke.checks(report)["baseline_success"])
+        report = passing_report()
+        report["launcher"]["actor"] = copy.deepcopy(report["baseline"]["launcher"]["actor"])
+        self.assertFalse(smoke.checks(report)["case_nonce"])
+        report = passing_report()
+        report["baseline"]["marker"] = report["marker"]
+        self.assertFalse(smoke.checks(report)["case_independence"])
+        report = passing_report()
+        report["baseline"]["profile_id"] = report["profile_id"]
+        self.assertFalse(smoke.checks(report)["case_independence"])
+        report = passing_report()
+        report["baseline"]["cleanup"]["job_empty"] = False
+        self.assertFalse(smoke.checks(report)["baseline_success"])
+
+    def test_invalid_created_cid_is_rejected_before_inventory_bind_or_launch(self):
+        for cid in (0, 1, True):
+            with self.subTest(cid=cid), tempfile.TemporaryDirectory() as temporary:
+                work = Path(temporary)
+                (work / "user").mkdir()
+                native, api, account = mock.Mock(), mock.Mock(), mock.Mock()
+                account.identity = {"sid": "ordinary-user"}
+                api.create.return_value = cid
+                fixture = mock.Mock(markers={"combined": "b" * 32}, port=12345)
+                fixture.snapshot.return_value = {}
+                with mock.patch.object(smoke, "proxy_get", return_value={"marker_matched": True}):
+                    report = smoke.run_case(combined=True, native=native, api=api, account=account,
+                                            fixture=fixture, work=work, python="python.exe", executor="wxc-exec.exe",
+                                            browser=None, job_limits_type=mock.Mock())
+                self.assertEqual(report["error"]["type"], "RuntimeError")
+                api.inspect.assert_not_called()
+                api.bind_job.assert_not_called()
+                native.new_job.assert_not_called()
+                account.launch.assert_not_called()
+
+    def test_failed_baseline_still_runs_independent_combination_after_cleanup(self):
+        class Basic(ctypes.Structure):
+            _fields_ = [("LimitFlags", ctypes.c_uint32)]
+
+        class Limits(ctypes.Structure):
+            _fields_ = [("BasicLimitInformation", Basic)]
+
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary)
+            for name in ("user", "inputs"):
+                (work / name).mkdir()
+            fixture = smoke.FixedHTTPProxy({"baseline": "a" * 32, "combined": "b" * 32})
+            self.addCleanup(fixture.close)
+            native, api, account, relay = mock.Mock(), mock.Mock(), mock.Mock(), mock.Mock()
+            events, configs = [], []
+            account.identity = {"sid": "S-1-5-21-1-2-3-1001", "elevated": False}
+            native.new_job.side_effect = [11, 22]
+            native.i.GetJobCompartmentId.side_effect = lambda job: 0 if job == 11 else 2
+            native.check.side_effect = lambda value, _: value if value else self.fail("unexpected native failure")
+            native.wait.return_value = (0, False)
+            native.k.CloseHandle.side_effect = lambda handle: events.append(("close", handle)) or True
+
+            def query(job, kind, buffer, *_):
+                if kind == 4:
+                    buffer._obj.value = 0
+                else:
+                    buffer._obj.BasicLimitInformation.LimitFlags = 0x2000
+                return True
+
+            api.k.QueryInformationJobObject.side_effect = query
+            api.create.side_effect = lambda *_: events.append(("create", 2)) or 2
+            api.inspect.return_value = {}
+            api.bind_job.side_effect = lambda pid, job, cid: events.append(("bind", job)) or 99
+            api.terminate_job.side_effect = lambda job: events.append(("terminate", job))
+            api._active_processes.return_value = 0
+            relay.accepted, relay.errors = 1, []
+            relay.start.return_value = ["127.0.0.1"]
+            relay.stop.side_effect = lambda: events.append(("relay_stop", 22))
+
+            def launch(command, cwd, job):
+                cfg = smoke.read(command[-1])
+                configs.append(cfg)
+                events.append(("launch", job))
+                value = passing_case(combined=job == 22)["launcher"]
+                value["relay_control"] = smoke.proxy_get(fixture.port, cfg["marker"], "outside")
+                if job == 11:
+                    value["exit_code"] = 1
+                    value.pop("actor")
+                else:
+                    value["actor"]["proxy"] = smoke.proxy_get(fixture.port, cfg["marker"], "inside")
+                smoke.save(cfg["launcher_report"], value)
+                return 100 + job, 1000 + job
+
+            account.launch.side_effect = launch
+            with mock.patch("ruleproxy.windows_compartment._Relay", return_value=relay):
+                report = smoke.run_cases(native=native, api=api, account=account, fixture=fixture,
+                                         work=work, python=work / "runtime/python.exe",
+                                         executor=work / "inputs/wxc-exec.exe", browser=None, job_limits_type=Limits)
+            self.assertFalse(report["baseline"]["functionality_passed"])
+            self.assertTrue(all(smoke.case_checks(report, combined=True).values()))
+            self.assertFalse(smoke.checks(report)["baseline_success"])
+            self.assertLess(events.index(("terminate", 11)), events.index(("create", 2)))
+            self.assertLess(events.index(("close", 11)), events.index(("launch", 22)))
+            self.assertEqual([call.args[1] for call in api.bind_job.call_args_list], [22])
+            self.assertEqual(api.terminate_job.call_count, 2)
+            self.assertEqual(native.wait.call_args_list, [mock.call(111, 155), mock.call(122, 155)])
+            self.assertEqual(relay.stop.call_count, 1)
+            self.assertNotIn("relay", report["baseline"]["cleanup"])
+            self.assertEqual(report["baseline"]["fixture_requests"]["inside"], 0)
+            self.assertEqual(report["fixture_requests"]["inside"], 1)
+            for key in ("marker", "profile", "config_path", "actor_report", "child_report", "launcher_report"):
+                self.assertNotEqual(configs[0][key], configs[1][key], key)
+            for key in ("runtime", "executor", "inputs", "port", "sid"):
+                self.assertEqual(configs[0][key], configs[1][key], key)
+            policies = [smoke.build_policy(cfg, ["python", cfg["config_path"]]) for cfg in configs]
+            for key in ("network", "runtimeConfig", "fallback", "ui", "processContainer"):
+                self.assertEqual(policies[0][key], policies[1][key], key)
+            account.close.assert_not_called()  # Shared account belongs to the outer controller.
+
+    def test_uncertain_baseline_cleanup_stops_second_case(self):
+        baseline = passing_case(combined=False)
+        baseline["cleanup"].update(job_empty=False, ready_for_next_case=False,
+                                   job_error={"type": "CleanupIncomplete"})
+        with mock.patch.object(smoke, "run_case", return_value=baseline) as run:
+            report = smoke.run_cases()
+        run.assert_called_once_with(combined=False)
+        self.assertEqual(report["error"]["type"], "BaselineCleanupIncomplete")
+        self.assertFalse(report["baseline"]["functionality_passed"])
 
     def test_executor_manifest_cannot_supply_its_own_new_hash(self):
         from ruleproxy import windows_runtime_pins as pins
