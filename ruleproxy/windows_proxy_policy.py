@@ -133,10 +133,11 @@ def decode_request(raw: bytes) -> dict:
     extra = {"apply": {"paths", "proxy_port", "mihomo_pid", "generation"},
              "global_start": {"source", "secret", "mixed_port", "controller_port", "selected_node", "require_strict"},
              "global_select_node": {"selected_node"},
-             "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"}}
+             "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"},
+             "namespace_allow": {"container", "proxy_port", "job_handle"}, "namespace_revoke": {"container"}}
     expected = common | extra.get(operation, set())
     if (operation not in {"status", "apply", "stop", "global_status", "global_start", "global_stop", "global_select_node",
-                          "container_allow", "container_revoke"}
+                          "container_allow", "container_revoke", "namespace_allow", "namespace_revoke"}
             or set(request) != expected
             or type(request.get("schema_version")) is not int or request.get("schema_version") != 1
             or not isinstance(request.get("request_id"), str)
@@ -159,4 +160,12 @@ def decode_request(raw: bytes) -> dict:
         if operation == "container_allow" and (type(request["proxy_port"]) is not int
                                                or not 1025 <= request["proxy_port"] <= 65535):
             raise ProxyError("invalid_request", "代理端口无效。")
+    if operation in {"namespace_allow", "namespace_revoke"}:
+        if not isinstance(request["container"], str) or not re.fullmatch(r"RuleProxyNS\.[0-9a-f]{20}", request["container"]):
+            raise ProxyError("invalid_request", "网络隔间名称无效。")
+        if operation == "namespace_allow":
+            if type(request["proxy_port"]) is not int or not 1025 <= request["proxy_port"] <= 65535:
+                raise ProxyError("invalid_request", "代理端口无效。")
+            if type(request["job_handle"]) is not int or not 1 <= request["job_handle"] <= 0xFFFFFFFFFFFFFFFF:
+                raise ProxyError("invalid_request", "Job 句柄无效。")
     return request

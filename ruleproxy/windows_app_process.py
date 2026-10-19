@@ -15,7 +15,7 @@ import re
 import subprocess
 import threading
 import time
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 
 _DWORD = ctypes.c_uint32
@@ -371,14 +371,24 @@ class WindowsAppProcess:
 
 
 def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None, *,
-           native_proxy_port: int | None = None, container_sid: str | None = None) -> WindowsAppProcess:
+           native_proxy_port: int | None = None, container_sid: str | None = None,
+           prepare_job: Callable[[int], None] | None = None) -> WindowsAppProcess:
     """Create suspended, assign the non-breakaway Job, then start the app.
 
     Errors abort the new process before returning. A pre-existing parent Job
     that prevents assignment causes a clean failure; there is no breakaway or
     unsupervised-launch fallback. ``container_sid`` starts the app inside that
     AppContainer with zero capabilities (see ``windows_appcontainer``).
+
+    ``prepare_job`` is a hook called with the new Job handle after the Job is
+    configured and before the suspended app is created, so the SYSTEM service
+    can seal that Job into a network compartment while nothing has run yet (see
+    ``windows_compartment``). It is mutually exclusive with ``container_sid``.
     """
+    if prepare_job is not None and container_sid is not None:
+        raise ValueError("Compartment and AppContainer isolation cannot be combined")
+    if prepare_job is not None and not callable(prepare_job):
+        raise TypeError("prepare_job must be callable")
     if not isinstance(command, (list, tuple)) or not command:
         raise ValueError("A non-empty application command is required")
     if any(not isinstance(part, str) or "\0" in part for part in command) or not command[0]:
@@ -400,6 +410,9 @@ def launch(command: list[str], env: Mapping[str, str], cwd: str | None = None, *
     try:
         job = api.create_job()
         api.configure_job(job, _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
+        if prepare_job is not None:
+            # The service seals this Job into a compartment before anything runs.
+            prepare_job(job)
         if container_sid is None:
             api.create_process(command, environment, cwd, info)
         else:

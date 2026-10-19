@@ -874,7 +874,7 @@ class Manager:
                 self._profile_preparing.discard(ident)
 
     def set_app_isolation(self, ident, windows_container):
-        """Toggle Windows AppContainer strong isolation for a stopped app."""
+        """Toggle Windows network-compartment strong isolation for a stopped app."""
         if not isinstance(windows_container, bool):
             raise ValueError("windows_container 必须是布尔值。")
         if windows_container and sys.platform != "win32":
@@ -952,10 +952,9 @@ class Manager:
                 # Native proxy inheritance must be an explicit launch option;
                 # the Windows launcher distrusts all proxy values in ``env``.
                 if app.get('windows_container') and not global_mode:
-                    from .windows_appcontainer import start_contained
-                    process, resource = start_contained(
+                    from .windows_compartment import start_namespaced
+                    process, resource = start_namespaced(
                         self.windows_backend(), ident, command, env,
-                        profile=app_profile_directory(self.directory / "profiles", app),
                         proxy_port=self.mixed_port, launch=launch)
                 else:
                     process = launch(command, env, native_proxy_port=self.mixed_port)
@@ -968,7 +967,7 @@ class Manager:
             self.active[ident] = (process, resource)
             self.error = ""
             detail = ('全局系统代理已启用；应用同时继承本机代理设置。' if global_mode else
-                      '强隔离（AppContainer）已启用：只能经本机代理联网，代理停止即断网。'
+                      '强隔离（网络隔间）已启用：应用及其子进程只能经本机代理联网，代理停止即断网。'
                       if sys.platform == 'win32' and app.get('windows_container') else
                       '程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
                       '仅此隔离实例受保护。不支持的流量阻断，不会直连。')

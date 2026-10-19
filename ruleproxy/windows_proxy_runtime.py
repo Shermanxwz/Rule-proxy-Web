@@ -67,6 +67,15 @@ class Runtime:
         with self._lock:
             return self._connect().request("container_revoke", container=container)
 
+    def namespace_allow(self, container: str, proxy_port: int, job_handle: int) -> dict:
+        with self._lock:
+            return self._connect().request("namespace_allow", container=container,
+                                           proxy_port=proxy_port, job_handle=job_handle)
+
+    def namespace_revoke(self, container: str) -> dict:
+        with self._lock:
+            return self._connect().request("namespace_revoke", container=container)
+
     def stop(self) -> dict:
         with self._lock:
             if self._client is None:
