@@ -331,6 +331,7 @@ function Invoke-RuntimeRepair($State) {
         $now=Get-CimInstance Win32_Service -Filter "Name='RuleProxyControl'" -ErrorAction Stop
         if($now.PathName -cne $s.PathName){throw 'Service identity changed'}
         Set-Service -Name $WfpServiceName -StartupType Disabled -ErrorAction Stop
+        Changed 'RuleProxyControl startup disabled'
         if((Get-Service -Name $WfpServiceName).Status -ne 'Stopped'){Stop-Service -Name $WfpServiceName -ErrorAction Stop;(Get-Service -Name $WfpServiceName).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(30))}
         Changed 'RuleProxyControl stopped and disabled (reinstall/repair to re-enable)'
     }
@@ -338,6 +339,7 @@ function Invoke-RuntimeRepair($State) {
         $now=Get-CimInstance Win32_Service -Filter "Name='ProxiFyreService'" -ErrorAction Stop
         if($now.PathName -cne $s.PathName){throw 'ProxiFyre service identity changed'}
         Set-Service -Name ProxiFyreService -StartupType Disabled -ErrorAction Stop
+        Changed 'Owned ProxiFyre startup disabled'
         if((Get-Service ProxiFyreService).Status -ne 'Stopped'){Stop-Service ProxiFyreService -ErrorAction Stop;(Get-Service ProxiFyreService).WaitForStatus('Stopped',[TimeSpan]::FromSeconds(30))}
         Changed 'Owned ProxiFyre service stopped and disabled; shared driver retained'
     }
@@ -369,6 +371,7 @@ function Invoke-AdapterRepair($State) {
         foreach($store in @('ActiveStore','PersistentStore')){
             foreach($r in @(Get-NetRoute -PolicyStore $store -ErrorAction Stop | Where-Object {$_.InterfaceIndex -eq $a.ifIndex -and $_.Protocol -eq 'NetMgmt'})){
                 $r | Remove-NetRoute -Confirm:$false -ErrorAction Stop
+                Changed ('Owned TUN route removed: '+$r.DestinationPrefix+' @ '+$a.ifIndex+' ['+$store+']')
             }
         }
         # Remove the owned dead-end routes even if the driver later refuses disable.
@@ -450,7 +453,13 @@ function Invoke-ProxyRepair($State) {
     $alreadyRestored=($null -ne $State.Previous -and (Test-ProxyRestoreEqual $values $State.Previous ($null -ne $State.PreviousFlags)) -and ($null -eq $State.PreviousFlags -or $flagsNow -eq $State.PreviousFlags))
     if(-not $alreadyRestored -and (-not (Test-ValueEqual $values $State.Current) -or $flagsNow -ne $State.Flags)){throw 'Proxy settings changed since preflight'}
     if($null -ne $State.Previous -and -not $alreadyRestored){
-        foreach($name in $State.Previous.Keys){$v=$State.Previous[$name];if($null -eq $v){Remove-ItemProperty -LiteralPath $State.Key -Name $name -ErrorAction SilentlyContinue}else{New-ItemProperty -LiteralPath $State.Key -Name $name -Value $v[0] -PropertyType ([Microsoft.Win32.RegistryValueKind][int]$v[1]) -Force -ErrorAction Stop | Out-Null}}
+        foreach($name in $State.Previous.Keys){
+            $v=$State.Previous[$name];$current=Read-ProxyValues $State.Key
+            if(Test-ValueEqual $current[$name] $v){continue}
+            if($null -eq $v){Remove-ItemProperty -LiteralPath $State.Key -Name $name -ErrorAction Stop}else{New-ItemProperty -LiteralPath $State.Key -Name $name -Value $v[0] -PropertyType ([Microsoft.Win32.RegistryValueKind][int]$v[1]) -Force -ErrorAction Stop | Out-Null}
+            if(-not (Test-ValueEqual (Read-ProxyValues $State.Key)[$name] $v)){throw ('Proxy field readback failed: '+$name)}
+            Changed ('Current-user proxy field restored: '+$name)
+        }
         if($null -ne $State.PreviousFlags){[RuleProxyRecover.Native]::Flags($State.PreviousFlags)}else{[RuleProxyRecover.Native]::Notify()}
         if(-not (Test-ProxyRestoreEqual (Read-ProxyValues $State.Key) $State.Previous ($null -ne $State.PreviousFlags))){throw 'Proxy restore readback failed'}
         if($null -ne $State.PreviousFlags -and [RuleProxyRecover.Native]::Flags() -ne $State.PreviousFlags){throw 'Proxy flags restore readback failed'}
