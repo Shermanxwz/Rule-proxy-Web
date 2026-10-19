@@ -88,6 +88,16 @@ try{
     $output=& $ps -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $ScriptPath -Json
     $code=$LASTEXITCODE;$report=($output -join "`n") | ConvertFrom-Json
     if($code -notin @(0,1) -or $report.mode -ne 'dry-run' -or @($report.changed).Count){throw ('Native full dry-run failed: '+($output -join "`n"))}
+    # Recreate real leftovers and exercise the COMPLETE -Apply entry point, not
+    # only its component helpers. The unrelated WFP/NRPT fixtures must survive.
+    [RecoveryFixture]::Add($p,$s,$f,$marker,$true)
+    $rule=Add-DnsClientNrptRule -Namespace '.' -NameServers $NrptPeers -DisplayName ('RuleProxy global DNS '+$id.Substring(0,16)) -Comment ('RuleProxyDNS-v1:'+$id) -PassThru -ErrorAction Stop
+    $dnsName=[string]$rule.Name
+    $output=& $ps -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $ScriptPath -Apply -Json
+    $code=$LASTEXITCODE;$report=($output -join "`n") | ConvertFrom-Json
+    if($code -notin @(0,1) -or -not $report.log_directory -or @($report.changed).Count -lt 2){throw ('Native full apply failed: '+($output -join "`n"))}
+    if(@(Read-WfpRecords | Where-Object {$_.Key -eq $f}).Count -or @(Get-DnsClientNrptRule | Where-Object {$_.Name -eq $dnsName}).Count){throw 'Full apply left owned blocking objects'}
+    if(@(Read-WfpRecords | Where-Object {$_.Key -eq $foreign[2]}).Count -ne 1 -or @(Get-DnsClientNrptRule | Where-Object {$_.Name -eq $foreignDns}).Count -ne 1){throw 'Full apply touched foreign objects'}
     # Exercise actual WinINet flags/registry and WinHTTP, restoring the runner in finally.
     $proxyBefore=Get-ProxyState
     if($null -ne $proxyBefore.Previous){throw 'Unexpected RuleProxy journal on disposable runner'}
@@ -108,8 +118,9 @@ try{
     }
     Write-Host 'PASS: native owned/foreign WFP and NRPT recovery'
 }finally{
-    if($dnsName){Remove-DnsClientNrptRule -Name $dnsName -Force -ErrorAction SilentlyContinue}
-    if($foreignDns){Remove-DnsClientNrptRule -Name $foreignDns -Force -ErrorAction SilentlyContinue}
+    foreach($r in @(Get-DnsClientNrptRule -ErrorAction SilentlyContinue)){
+        if([string]$r.Name -in @($dnsName,$foreignDns)){Remove-DnsClientNrptRule -Name ([string]$r.Name) -Force -ErrorAction Stop}
+    }
     Clear-DnsClientCache -ErrorAction SilentlyContinue
     [RecoveryFixture]::Cleanup($p,$s,$f)
     [RecoveryFixture]::Cleanup($foreign[0],$foreign[1],$foreign[2])

@@ -528,6 +528,7 @@ function Invoke-Recovery {
 }
 if($LibraryOnly){return}
 if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or [IntPtr]::Size -ne 8){Write-Error 'Use native 64-bit Windows PowerShell on Windows';exit 3}
+$env:PSModulePath=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\Modules'
 if(-not (Test-IsAdministrator)){
     if($Json){'{"schema":2,"exit_code":2,"changed":[],"error":"Administrator elevation required"}'}else{Write-Host 'Open PowerShell as administrator using the affected Windows account, then run again. Nothing changed.'};exit 2
 }

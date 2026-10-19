@@ -70,4 +70,5 @@ $script:Calls.Clear()
 function Get-RecoveryState {throw 'fixture preflight failure'}
 $code=Invoke-Recovery
 Assert ($code -eq 3 -and $script:Calls.Count -eq 0) 'preflight error must stop all writes'
+Assert ($script:Changed.Count -eq 0) 'changes from a previous invocation leaked into this report'
 Write-Host ('PASS: '+$script:Tests+' recovery behavioral assertions')

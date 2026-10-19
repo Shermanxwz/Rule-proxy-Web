@@ -29,12 +29,14 @@ def package_bytes(root: Path = ROOT) -> bytes:
         for name, data in sorted(files.items())
     ).encode('ascii')
     output = io.BytesIO()
-    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+    # Stored entries keep the exact bytes identical across Windows/Linux zlib versions.
+    # The entire standalone download is only about 50 KiB.
+    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_STORED) as archive:
         for name, data in sorted(files.items()):
             entry = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
             entry.create_system = 3
             entry.external_attr = 0o100644 << 16
-            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.compress_type = zipfile.ZIP_STORED
             archive.writestr(entry, data)
     return output.getvalue()
 
