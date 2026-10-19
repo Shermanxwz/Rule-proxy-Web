@@ -1,8 +1,8 @@
 # RuleProxy Web
 
-本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 使用 ProxiFyre 按程序路径转发，Linux 使用网络命名空间隔离。全局模式使用系统代理，不使用 TUN。
+本机 Web 面板：导入自己的 Mihomo YAML、选择节点、自定义应用。按应用模式下，Windows 兼容模式使用 ProxiFyre 按程序路径转发，另提供“独立网络（实验）”；Linux 使用网络命名空间隔离。全局模式使用系统代理，不使用 TUN。
 
-**版本 0.3.0。Windows 按应用模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
+**版本 0.3.0。Windows 按应用的兼容模式使用 ProxiFyre 2.6.4 + Mihomo 1.19.32，关闭 TUN。安装前请核对[产品验收记录](https://github.com/Shermanxwz/Rule-proxy-Web/tree/main/verification/windows-2026-10-16/proxifyre-product)中与离线 ZIP 的 SHA-256 一致的报告；只有报告实际通过的项目属于已验证范围。**
 
 Windows 的目标是让自定义应用走所选代理节点。它不能提供 Linux 同等的 DNS、子进程和故障隔离；具体边界见下文。Linux 按应用功能保持原有实现。
 
@@ -14,7 +14,9 @@ Windows 的目标是让自定义应用走所选代理节点。它不能提供 Li
 
 Linux 按应用模式继续使用网络命名空间隔离。Windows 的“独立网络（实验）”由 SYSTEM 服务建立只有回环的网络隔间，把启动前的空 Job 绑定进去，再提供通向所持有 Mihomo 进程的 TCP 中继。实验模式不启动 ProxiFyre 路径转发，安装程序仍会准备兼容模式所需组件。商店应用与共用原应用资料模式不支持。
 
-**独立网络尚未通过产品验收，不能提供 Linux 等效隔离。** [普通用户原生实验](verification/windows-2026-10-19/compartment/primary-token-server/assessment.json)确认 Edge 在保留低完整性受限子进程的情况下可以渲染代理页面，但同一普通账户仍可通过 WMI 启动隔间外进程并直连。六类系统 DNS 查询均有网卡外发记录，甚至 `getaddrinfo` 返回失败时也会外发。两种受限主令牌配置使 Python、PowerShell 或 Edge 启动失败，不能把这些失败算作防泄漏成功。此前的 [AppContainer 浏览器实验](verification/windows-2026-10-19/appcontainer-browser-experiment.json)同样未通过浏览器兼容验收。
+**独立网络（实验）已知存在系统 DNS 和系统服务代办绕过，不能提供 Linux 等效隔离，也未通过产品验收。** [Windows Server 2025 普通用户实验](verification/windows-2026-10-19/compartment/primary-abi-fixed/assessment.json)确认 Edge 在保留低完整性受限子进程的情况下可以渲染代理页面，但同一普通账户仍可通过 WMI 启动隔间外进程并直连。六类系统 DNS 查询均有网卡外发记录，甚至 `getaddrinfo` 返回失败时也会外发。两种受限主令牌配置使 Python、PowerShell 或 Edge 启动失败，不能把这些失败算作防泄漏成功。此前的 [AppContainer 浏览器实验](verification/windows-2026-10-19/appcontainer-browser-experiment.json)同样未通过浏览器兼容验收。
+
+[修复后的 Windows 11 实验记录](verification/windows-2026-10-19/compartment/native-abi-fixed/assessment.json)确认普通用户启动、代理通道和中继停止后代理通道断开；普通用户 Edge 的隔间内外页面对照均成功。它仍记录了系统 DNS 外发，部分 Python 探针因便携运行时漏文件而未执行，不能算作阻断成功；这份实验报告不代表安装版产品或可见界面验收通过。
 
 Windows 卸载前请先用原安装账户停止全局代理；如果改用其他管理员账户且原连接标志尚未恢复，卸载会保留恢复组件并提示先完成恢复。恢复检测到设置冲突时也会保留记录，不覆盖无法确认归属的设置。
 
@@ -53,13 +55,13 @@ Windows 卸载前请先用原安装账户停止全局代理；如果改用其他
 
 ## Windows 应用规则与边界
 
-以下路径规则及表格描述兼容模式。实验隔间条目不加入路径规则，仅约束本工具新建 Job 中的实例；系统服务代办及其创建的进程仍可能在隔间之外。实验隔间的状态由受保护日志记录；同次系统启动内仅复用已确认清空的自有隔间，服务异常后无法确认清空时要求重启。已绑定 Job 的隔间目前不会主动删除，避免 Windows 返回 1359 后继续复用不可靠状态；每次启动最多保留 128 个自有隔间。
+以下路径规则及表格描述兼容模式。独立网络（实验）条目不加入路径规则，仅约束本工具新建 Job 中实例的直接网络访问；系统服务代办及其创建的进程仍可能在隔间之外。隔间的状态由受保护日志记录；同次系统启动内仅复用已确认清空的自有隔间，服务异常后无法确认清空时要求重启。已绑定 Job 的隔间目前不会主动删除，避免 Windows 返回 1359 后继续复用不可靠状态；每次启动最多保留 128 个自有隔间。
 
 核心运行时，应用代理开关会同步已启用兼容条目的主 exe 和“相关程序路径”。每个应用最多填写 16 个相关路径，所有启用项去重后合计最多 128 个路径；不接受通配符、系统服务程序或代理组件本身。添加应用时可搜索本机清单，也可手动填写本地 exe 的绝对路径。
 
 Windows 应用清单读取当前账户的 Appx/MSIX 注册信息，识别具有独立 exe 入口的商店桌面应用。新条目保存软件包家族与应用身份，在启动或同步规则前重新读取本机注册路径，并将当前软件包内经过验证的 exe 一并加入规则，覆盖异名辅助程序。包内其他入口、更新器也可能受影响；这是整个软件包的范围。缺少注册信息、出现歧义、遇到重解析目录或超出扫描上限时拒绝启动，不猜测路径或扫描整个 WindowsApps。UWP、宿主应用和需要系统激活的入口不在此范围。历史条目只在旧路径仍能对应唯一当前注册入口时自动迁移，否则请重新添加当前清单条目。
 
-**规则按程序路径作用，不能只限定面板启动的某一个 PID。** 同路径的其他实例也会受影响；已有连接可能要重启应用后才按新规则建立。上游对含目录分隔符的条目使用完整路径文本的“包含匹配”，因此少数包含同样文本的相似路径也可能命中。[官方匹配规则](https://github.com/wiresock/proxifyre/blob/v2.6.4/docs/configuration.md#application-matching-and-rule-order)
+**兼容模式的规则按程序路径作用，不能只限定面板启动的某一个 PID。** 同路径的其他实例也会受影响；已有连接可能要重启应用后才按新规则建立。上游对含目录分隔符的条目使用完整路径文本的“包含匹配”，因此少数包含同样文本的相似路径也可能命中。[官方匹配规则](https://github.com/wiresock/proxifyre/blob/v2.6.4/docs/configuration.md#application-matching-and-rule-order)
 
 同 exe 的新实例使用同一路径规则。已识别商店软件包内的辅助 exe 自动纳入；包外或普通安装程序的异名辅助 exe 仍需加入“相关程序路径”。Job 管理进程生命周期不代表路由规则会自动继承。通过既有系统服务代发的流量也不能可靠归属于所选应用。
 
@@ -78,7 +80,7 @@ Windows 应用清单读取当前账户的 Appx/MSIX 注册信息，识别具有�
 
 上游的 [IPv6 与分片说明](https://github.com/wiresock/proxifyre/blob/v2.6.4/docs/configuration.md#protocols-and-address-families) 和 [UDP 53 处理源码](https://github.com/wiresock/proxifyre/blob/v2.6.4/netlib/src/proxy/socks_local_router.h) 是这些限制的依据。本项目的监视器会尝试处理核心或后端退出，Job 会管理自身创建的进程；两者都不等于持久的网络拒绝边界。
 
-正常停止顺序是：先关闭本工具启动的应用，再停止 ProxiFyre 引擎，最后停止自己的 Mihomo。其他已存在实例不会被本工具强杀，但路径规则撤销后它们可能恢复直连。关闭浏览器页面不会停止面板；“退出面板”会执行应用和核心的停止流程。
+兼容模式的正常停止顺序是：先关闭本工具启动的应用，再停止 ProxiFyre 引擎，最后停止自己的 Mihomo。其他已存在实例不会被本工具强杀，但路径规则撤销后它们可能恢复直连。关闭浏览器页面不会停止面板；“退出面板”会执行应用和核心的停止流程。
 
 ## Linux 开始使用
 

@@ -877,11 +877,11 @@ class Manager:
                 self._profile_preparing.discard(ident)
 
     def set_app_isolation(self, ident, windows_container):
-        """Toggle Windows network-compartment strong isolation for a stopped app."""
+        """Toggle experimental Windows network compartments for a stopped app."""
         if not isinstance(windows_container, bool):
             raise ValueError("windows_container 必须是布尔值。")
         if windows_container and sys.platform != "win32":
-            raise ValueError("强隔离仅适用于 Windows。")
+            raise ValueError("独立网络（实验）仅适用于 Windows。")
         with self.lock:
             app = self.app(ident)
             if app is None:
@@ -965,9 +965,9 @@ class Manager:
             self.active[ident] = (process, resource)
             self.error = ""
             detail = ('全局系统代理已启用；应用同时继承本机代理设置。' if global_mode else
-                      '独立网络实验已启用；DNS 防泄漏尚未通过验收。'
+                      '独立网络（实验）已启用；已知系统 DNS 和系统服务代办可绕过，不提供 Linux 等效隔离。'
                       if sys.platform == 'win32' and app.get('windows_container') else
-                      '程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
+                      '兼容模式的程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
                       '仅此隔离实例受保护。不支持的流量阻断，不会直连。')
             if app.get("use_original_data"):
                 detail += (" 使用原应用资料；启动请求可能交给已有窗口，已有进程不会由面板接管或关闭。"

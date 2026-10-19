@@ -146,8 +146,11 @@ class InteractiveLaunchTests(unittest.TestCase):
     def test_bootstrap_gates_before_claim_and_keeps_session_after_cleanup(self):
         script = (ROOT / ".github/windows-proxifyre-vm-run.ps1").read_text(encoding="utf-8")
         setup = (ROOT / ".github/windows-proxifyre-vm-setup.ps1").read_text(encoding="utf-8")
-        self.assertIn("-MultipleInstances Queue", setup)
-        self.assertNotIn("-MultipleInstances IgnoreNew", setup)
+        # Qualification must queue a real logon after OOBE. The separate,
+        # demand-started servicing task intentionally ignores duplicate starts.
+        qualification_setup = setup[setup.index("$powershell = Join-Path"):]
+        self.assertIn("-MultipleInstances Queue", qualification_setup)
+        self.assertNotIn("-MultipleInstances IgnoreNew", qualification_setup)
         self.assertLess(script.index("GetOwnerSid"), script.index("FileMode]::CreateNew"))
         self.assertLess(script.index("if ($null -eq $actorSession) { exit 0 }"),
                         script.index("FileMode]::CreateNew"))
