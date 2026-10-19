@@ -6,6 +6,7 @@ import socket
 import ssl
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -17,6 +18,16 @@ SPEC.loader.exec_module(probe)
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_service_restart_cannot_hide_original_process_crash(self):
+        native = SimpleNamespace(wait=lambda handle, timeout: 0,
+                                 exit_code=lambda handle: 0xC0000005)
+        control = SimpleNamespace(status=lambda service: {'state': 4, 'pid': 999, 'win32_exit_code': 0})
+        result = probe.service_state((native, control, 123, 42))
+        self.assertFalse(result['alive'])
+        self.assertEqual(result['pid'], 42)
+        self.assertEqual(result['exit_code_hex'], '0xC0000005')
+        self.assertEqual(result['scm']['pid'], 999)
+
     def test_cleanup_error_keeps_original_native_failure(self):
         try:
             try:

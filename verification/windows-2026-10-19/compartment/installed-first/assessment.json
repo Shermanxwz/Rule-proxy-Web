@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "source_commit": "b2748f310d523662f638e2dc2297b8c1670a7b18",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39202429179",
+  "artifact_id": 12164875217,
+  "artifact_sha256": "21c364e8366cb886290da20e9c876a0ba13e229632d95f42cd9fd21268067877",
+  "product_qualified": false,
+  "privacy_qualified": false,
+  "decision": "incomplete_product_probe",
+  "package_sha256": "05a8c4d3598b24a965d34e054db8d8ec5ffdbe74d20c61633a151a549b70611c",
+  "facts": [
+    "Ordinary owner launch succeeded.",
+    "Installed and source code inventories matched.",
+    "Outside real Mihomo HTTP, CONNECT TLS and SOCKS TLS controls succeeded with fixture CA verification.",
+    "Inside actor was not started."
+  ],
+  "blocker": "namespace_allow blocked by invalid Python registry handle construction",
+  "evidence_files_sha256": {
+    "report.json": "bc4edea3c88b27998ae91c029d0267fd9fcc0392765182db8a66fe652c44814e",
+    "ordinary-result.json": "e7deefeb71cb88b02f0e7f0c5147f1b2a8d45e1f9ab6a1f91cb880bc7a8a932b"
+  }
+}

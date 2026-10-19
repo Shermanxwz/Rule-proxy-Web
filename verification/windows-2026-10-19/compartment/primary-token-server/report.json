@@ -1,0 +1,1680 @@
+{
+ "started": 1792386873.5045948,
+ "identity": "S-1-5-18",
+ "scope": "disposable primary-token compatibility experiment; no product qualification",
+ "variants": {
+  "plain": {
+   "flags": 0,
+   "sids": [],
+   "dns": {
+    "getaddrinfo_standard": {
+     "api": "getaddrinfo",
+     "mode": "standard",
+     "name": "12871ee7775501c5c1fb323e8cb85eb0.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "getaddrinfo",
+      "--mode",
+      "standard",
+      "--name",
+      "12871ee7775501c5c1fb323e8cb85eb0.1.2.3.4.sslip.io"
+     ],
+     "pid": 3284,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.45,
+     "tail": "{\"phase\": \"begin\", \"pid\": 3284, \"name\": \"12871ee7775501c5c1fb323e8cb85eb0.1.2.3.4.sslip.io\", \"api\": \"getaddrinfo\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 2}\r\n{\"phase\": \"complete\", \"pid\": 3284, \"name\": \"12871ee7775501c5c1fb323e8cb85eb0.1.2.3.4.sslip.io\", \"api\": \"getaddrinfo\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 2, \"error\": \"[Errno 11004] getaddrinfo failed\", \"winerror\": null, \"errno\": 11004, \"elapsed_seconds\": 0.21980980000000727}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 3284,
+       "name": "12871ee7775501c5c1fb323e8cb85eb0.1.2.3.4.sslip.io",
+       "api": "getaddrinfo",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 2
+      },
+      {
+       "phase": "complete",
+       "pid": 3284,
+       "name": "12871ee7775501c5c1fb323e8cb85eb0.1.2.3.4.sslip.io",
+       "api": "getaddrinfo",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 2,
+       "error": "[Errno 11004] getaddrinfo failed",
+       "winerror": null,
+       "errno": 11004,
+       "elapsed_seconds": 0.21980980000000727
+      }
+     ]
+    },
+    "DnsQuery_W_standard": {
+     "api": "DnsQuery_W",
+     "mode": "standard",
+     "name": "38f6329cc4d4959dddc849c645150ddb.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQuery_W",
+      "--mode",
+      "standard",
+      "--name",
+      "38f6329cc4d4959dddc849c645150ddb.1.2.3.4.sslip.io"
+     ],
+     "pid": 7936,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.38,
+     "tail": "{\"phase\": \"begin\", \"pid\": 7936, \"name\": \"38f6329cc4d4959dddc849c645150ddb.1.2.3.4.sslip.io\", \"api\": \"DnsQuery_W\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 2}\r\n{\"phase\": \"complete\", \"pid\": 7936, \"name\": \"38f6329cc4d4959dddc849c645150ddb.1.2.3.4.sslip.io\", \"api\": \"DnsQuery_W\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 2, \"status\": 0, \"has_records\": true, \"elapsed_seconds\": 0.15064289999997982}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 7936,
+       "name": "38f6329cc4d4959dddc849c645150ddb.1.2.3.4.sslip.io",
+       "api": "DnsQuery_W",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 2
+      },
+      {
+       "phase": "complete",
+       "pid": 7936,
+       "name": "38f6329cc4d4959dddc849c645150ddb.1.2.3.4.sslip.io",
+       "api": "DnsQuery_W",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 2,
+       "status": 0,
+       "has_records": true,
+       "elapsed_seconds": 0.15064289999997982
+      }
+     ]
+    },
+    "DnsQuery_W_wire": {
+     "api": "DnsQuery_W",
+     "mode": "wire",
+     "name": "baf997530f8916ee0d287be61e5fd337.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQuery_W",
+      "--mode",
+      "wire",
+      "--name",
+      "baf997530f8916ee0d287be61e5fd337.1.2.3.4.sslip.io"
+     ],
+     "pid": 9200,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.38,
+     "tail": "{\"phase\": \"begin\", \"pid\": 9200, \"name\": \"baf997530f8916ee0d287be61e5fd337.1.2.3.4.sslip.io\", \"api\": \"DnsQuery_W\", \"mode\": \"wire\", \"flags\": 6624, \"interface_index\": 0, \"compartment_id\": 2}\r\n{\"phase\": \"complete\", \"pid\": 9200, \"name\": \"baf997530f8916ee0d287be61e5fd337.1.2.3.4.sslip.io\", \"api\": \"DnsQuery_W\", \"mode\": \"wire\", \"flags\": 6624, \"interface_index\": 0, \"compartment_id\": 2, \"status\": 0, \"has_records\": true, \"elapsed_seconds\": 0.15159169999998312}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 9200,
+       "name": "baf997530f8916ee0d287be61e5fd337.1.2.3.4.sslip.io",
+       "api": "DnsQuery_W",
+       "mode": "wire",
+       "flags": 6624,
+       "interface_index": 0,
+       "compartment_id": 2
+      },
+      {
+       "phase": "complete",
+       "pid": 9200,
+       "name": "baf997530f8916ee0d287be61e5fd337.1.2.3.4.sslip.io",
+       "api": "DnsQuery_W",
+       "mode": "wire",
+       "flags": 6624,
+       "interface_index": 0,
+       "compartment_id": 2,
+       "status": 0,
+       "has_records": true,
+       "elapsed_seconds": 0.15159169999998312
+      }
+     ]
+    },
+    "DnsQueryEx_standard": {
+     "api": "DnsQueryEx",
+     "mode": "standard",
+     "name": "e02aa5eeba022f00e1a80a4fddb3af18.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQueryEx",
+      "--mode",
+      "standard",
+      "--name",
+      "e02aa5eeba022f00e1a80a4fddb3af18.1.2.3.4.sslip.io"
+     ],
+     "pid": 6624,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.31,
+     "tail": "{\"phase\": \"begin\", \"pid\": 6624, \"name\": \"e02aa5eeba022f00e1a80a4fddb3af18.1.2.3.4.sslip.io\", \"api\": \"DnsQueryEx\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 2}\r\n{\"phase\": \"complete\", \"pid\": 6624, \"name\": \"e02aa5eeba022f00e1a80a4fddb3af18.1.2.3.4.sslip.io\", \"api\": \"DnsQueryEx\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 2, \"status\": 0, \"query_status\": 0, \"has_records\": true, \"elapsed_seconds\": 0.0533839999999941}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 6624,
+       "name": "e02aa5eeba022f00e1a80a4fddb3af18.1.2.3.4.sslip.io",
+       "api": "DnsQueryEx",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 2
+      },
+      {
+       "phase": "complete",
+       "pid": 6624,
+       "name": "e02aa5eeba022f00e1a80a4fddb3af18.1.2.3.4.sslip.io",
+       "api": "DnsQueryEx",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 2,
+       "status": 0,
+       "query_status": 0,
+       "has_records": true,
+       "elapsed_seconds": 0.0533839999999941
+      }
+     ]
+    },
+    "DnsQueryEx_wire": {
+     "api": "DnsQueryEx",
+     "mode": "wire",
+     "name": "845e8feedaade28e515a4e2ea5fa95d3.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQueryEx",
+      "--mode",
+      "wire",
+      "--name",
+      "845e8feedaade28e515a4e2ea5fa95d3.1.2.3.4.sslip.io"
+     ],
+     "pid": 3484,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.32,
+     "tail": "{\"phase\": \"begin\", \"pid\": 3484, \"name\": \"845e8feedaade28e515a4e2ea5fa95d3.1.2.3.4.sslip.io\", \"api\": \"DnsQueryEx\", \"mode\": \"wire\", \"flags\": 6624, \"interface_index\": 0, \"compartment_id\": 2}\r\n{\"phase\": \"complete\", \"pid\": 3484, \"name\": \"845e8feedaade28e515a4e2ea5fa95d3.1.2.3.4.sslip.io\", \"api\": \"DnsQueryEx\", \"mode\": \"wire\", \"flags\": 6624, \"interface_index\": 0, \"compartment_id\": 2, \"status\": 0, \"query_status\": 0, \"has_records\": true, \"elapsed_seconds\": 0.0778047000000015}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 3484,
+       "name": "845e8feedaade28e515a4e2ea5fa95d3.1.2.3.4.sslip.io",
+       "api": "DnsQueryEx",
+       "mode": "wire",
+       "flags": 6624,
+       "interface_index": 0,
+       "compartment_id": 2
+      },
+      {
+       "phase": "complete",
+       "pid": 3484,
+       "name": "845e8feedaade28e515a4e2ea5fa95d3.1.2.3.4.sslip.io",
+       "api": "DnsQueryEx",
+       "mode": "wire",
+       "flags": 6624,
+       "interface_index": 0,
+       "compartment_id": 2,
+       "status": 0,
+       "query_status": 0,
+       "has_records": true,
+       "elapsed_seconds": 0.0778047000000015
+      }
+     ]
+    },
+    "Resolve-DnsName_standard": {
+     "api": "Resolve-DnsName",
+     "mode": "standard",
+     "name": "c0e4f977011756dc70e3db1c865ecb6f.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$ErrorActionPreference='Stop'; try { $a=@(Resolve-DnsName -Name c0e4f977011756dc70e3db1c865ecb6f.1.2.3.4.sslip.io -Type A -DnsOnly -NoHostsFile -ErrorAction Stop | Select-Object -ExpandProperty IPAddress); @{name='c0e4f977011756dc70e3db1c865ecb6f.1.2.3.4.sslip.io';api='Resolve-DnsName';mode='standard';completed=$true;addresses=$a;answer_matches=($a.Count -eq 1 -and $a[0] -eq '1.2.3.4')} | ConvertTo-Json -Compress } catch { @{name='c0e4f977011756dc70e3db1c865ecb6f.1.2.3.4.sslip.io';api='Resolve-DnsName';mode='standard';completed=$true;error=$_.Exception.Message} | ConvertTo-Json -Compress }"
+     ],
+     "pid": 2520,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.48,
+     "tail": "{\"name\":\"c0e4f977011756dc70e3db1c865ecb6f.1.2.3.4.sslip.io\",\"answer_matches\":true,\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"mode\":\"standard\",\"api\":\"Resolve-DnsName\"}\r\n",
+     "rows": [
+      {
+       "name": "c0e4f977011756dc70e3db1c865ecb6f.1.2.3.4.sslip.io",
+       "answer_matches": true,
+       "addresses": [
+        "1.2.3.4"
+       ],
+       "completed": true,
+       "mode": "standard",
+       "api": "Resolve-DnsName"
+      }
+     ]
+    }
+   },
+   "browsers": {
+    "edge": {
+     "outside_control": false,
+     "label": "plain_edge",
+     "proxy_port": 55725,
+     "bind_status": 0,
+     "argv": [
+      "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "--headless=new",
+      "--disable-gpu",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-background-networking",
+      "--enable-logging=stderr",
+      "--v=0",
+      "--user-data-dir=C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\plain\\plain_edge",
+      "--proxy-server=http://127.0.0.1:55725",
+      "--proxy-bypass-list=<-loopback>",
+      "--dump-dom",
+      "http://plain_edge.invalid/20553732f6d4a32bc7045d51/plain_edge"
+     ],
+     "browser_process_tokens": [
+      {
+       "pid": 2184,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": false,
+       "appcontainer": false
+      },
+      {
+       "pid": 7196,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": false,
+       "appcontainer": false
+      },
+      {
+       "pid": 5692,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": true,
+       "appcontainer": false
+      },
+      {
+       "pid": 6852,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": false,
+       "appcontainer": false
+      },
+      {
+       "pid": 5492,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": false
+      },
+      {
+       "pid": 4704,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 2696,
+       "integrity_sid": "S-1-16-0",
+       "integrity_rid": 0,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 384,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 5520,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 976,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 1440,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 5892,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 6060,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      }
+     ],
+     "pid": 2184,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 3.03,
+     "tail": "[2184:6212:1019/051504.464:WARNING:net\\dns\\dns_config_service_win.cc:609] Failed to read DnsConfig.\r\n[2184:4968:1019/051504.468:ERROR:components\\optimization_guide\\core\\model_execution\\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU\r\n[2184:4968:1019/051504.478:ERROR:chrome\\installer\\util\\helper.cc:44] Failed to get path from PathService for key: 112: An attempt was made to reference a token that does not exist. (0x3F0)\r\n[2184:4968:1019/051504.691:WARNING:chrome\\browser\\extensions\\external_registry_loader_win.cc:283] Error observing HKLM: 5\r\n[2184:4968:1019/051505.569:ERROR:chrome\\browser\\task_manager\\providers\\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a \"Renderer\" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.\r\n[2184:6824:1019/051506.382:ERROR:chrome\\common\\importer\\edge_chrome_importer_utils_win.cc:37] Unable to get local app data path.\r\n<!DOCTYPE html>\r\n<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:20553732f6d4a32bc7045d51:plain_edge</body></html>\r\n[2184:4968:1019/051506.465:ERROR:chrome\\browser\\component_updater\\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5\r\n",
+     "rows": [],
+     "fixture_hits": 1,
+     "sandbox_disabled": false,
+     "rendered": true,
+     "sandbox_child_token_observed": true,
+     "sandbox_observation_scope": "job child token integrity/restrictions; no full browser policy attestation"
+    }
+   },
+   "token_user": "S-1-5-21-4239583824-265399229-1323058055-1003",
+   "token_restricted_sids": [],
+   "outside_dns_control": {
+    "getaddrinfo_standard": {
+     "api": "getaddrinfo",
+     "mode": "standard",
+     "name": "3c471a26658e8fe7300169e2f99e1036.1.2.3.4.sslip.io",
+     "outside_control": true,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "getaddrinfo",
+      "--mode",
+      "standard",
+      "--name",
+      "3c471a26658e8fe7300169e2f99e1036.1.2.3.4.sslip.io"
+     ],
+     "pid": 3592,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.4,
+     "tail": "{\"phase\": \"begin\", \"pid\": 3592, \"name\": \"3c471a26658e8fe7300169e2f99e1036.1.2.3.4.sslip.io\", \"api\": \"getaddrinfo\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 1}\r\n{\"phase\": \"complete\", \"pid\": 3592, \"name\": \"3c471a26658e8fe7300169e2f99e1036.1.2.3.4.sslip.io\", \"api\": \"getaddrinfo\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 1, \"addresses\": [\"1.2.3.4\"], \"status\": 0, \"elapsed_seconds\": 0.06787040000000388}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 3592,
+       "name": "3c471a26658e8fe7300169e2f99e1036.1.2.3.4.sslip.io",
+       "api": "getaddrinfo",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 1
+      },
+      {
+       "phase": "complete",
+       "pid": 3592,
+       "name": "3c471a26658e8fe7300169e2f99e1036.1.2.3.4.sslip.io",
+       "api": "getaddrinfo",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 1,
+       "addresses": [
+        "1.2.3.4"
+       ],
+       "status": 0,
+       "elapsed_seconds": 0.06787040000000388
+      }
+     ]
+    },
+    "DnsQuery_W_standard": {
+     "api": "DnsQuery_W",
+     "mode": "standard",
+     "name": "783d3618f3ecce05148d8230ca4af7b8.1.2.3.4.sslip.io",
+     "outside_control": true,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQuery_W",
+      "--mode",
+      "standard",
+      "--name",
+      "783d3618f3ecce05148d8230ca4af7b8.1.2.3.4.sslip.io"
+     ],
+     "pid": 6216,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.41,
+     "tail": "{\"phase\": \"begin\", \"pid\": 6216, \"name\": \"783d3618f3ecce05148d8230ca4af7b8.1.2.3.4.sslip.io\", \"api\": \"DnsQuery_W\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 1}\r\n{\"phase\": \"complete\", \"pid\": 6216, \"name\": \"783d3618f3ecce05148d8230ca4af7b8.1.2.3.4.sslip.io\", \"api\": \"DnsQuery_W\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 1, \"status\": 0, \"has_records\": true, \"elapsed_seconds\": 0.14105950000003986}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 6216,
+       "name": "783d3618f3ecce05148d8230ca4af7b8.1.2.3.4.sslip.io",
+       "api": "DnsQuery_W",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 1
+      },
+      {
+       "phase": "complete",
+       "pid": 6216,
+       "name": "783d3618f3ecce05148d8230ca4af7b8.1.2.3.4.sslip.io",
+       "api": "DnsQuery_W",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 1,
+       "status": 0,
+       "has_records": true,
+       "elapsed_seconds": 0.14105950000003986
+      }
+     ]
+    },
+    "DnsQuery_W_wire": {
+     "api": "DnsQuery_W",
+     "mode": "wire",
+     "name": "d91f5ab88f726679530a4b25eea02149.1.2.3.4.sslip.io",
+     "outside_control": true,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQuery_W",
+      "--mode",
+      "wire",
+      "--name",
+      "d91f5ab88f726679530a4b25eea02149.1.2.3.4.sslip.io"
+     ],
+     "pid": 2176,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.39,
+     "tail": "{\"phase\": \"begin\", \"pid\": 2176, \"name\": \"d91f5ab88f726679530a4b25eea02149.1.2.3.4.sslip.io\", \"api\": \"DnsQuery_W\", \"mode\": \"wire\", \"flags\": 6624, \"interface_index\": 0, \"compartment_id\": 1}\r\n{\"phase\": \"complete\", \"pid\": 2176, \"name\": \"d91f5ab88f726679530a4b25eea02149.1.2.3.4.sslip.io\", \"api\": \"DnsQuery_W\", \"mode\": \"wire\", \"flags\": 6624, \"interface_index\": 0, \"compartment_id\": 1, \"status\": 0, \"has_records\": true, \"elapsed_seconds\": 0.13663729999996121}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 2176,
+       "name": "d91f5ab88f726679530a4b25eea02149.1.2.3.4.sslip.io",
+       "api": "DnsQuery_W",
+       "mode": "wire",
+       "flags": 6624,
+       "interface_index": 0,
+       "compartment_id": 1
+      },
+      {
+       "phase": "complete",
+       "pid": 2176,
+       "name": "d91f5ab88f726679530a4b25eea02149.1.2.3.4.sslip.io",
+       "api": "DnsQuery_W",
+       "mode": "wire",
+       "flags": 6624,
+       "interface_index": 0,
+       "compartment_id": 1,
+       "status": 0,
+       "has_records": true,
+       "elapsed_seconds": 0.13663729999996121
+      }
+     ]
+    },
+    "DnsQueryEx_standard": {
+     "api": "DnsQueryEx",
+     "mode": "standard",
+     "name": "b56acbc4f774c23abf7c4b848649cd32.1.2.3.4.sslip.io",
+     "outside_control": true,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQueryEx",
+      "--mode",
+      "standard",
+      "--name",
+      "b56acbc4f774c23abf7c4b848649cd32.1.2.3.4.sslip.io"
+     ],
+     "pid": 620,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.28,
+     "tail": "{\"phase\": \"begin\", \"pid\": 620, \"name\": \"b56acbc4f774c23abf7c4b848649cd32.1.2.3.4.sslip.io\", \"api\": \"DnsQueryEx\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 1}\r\n{\"phase\": \"complete\", \"pid\": 620, \"name\": \"b56acbc4f774c23abf7c4b848649cd32.1.2.3.4.sslip.io\", \"api\": \"DnsQueryEx\", \"mode\": \"standard\", \"flags\": 0, \"interface_index\": 0, \"compartment_id\": 1, \"status\": 0, \"query_status\": 0, \"has_records\": true, \"elapsed_seconds\": 0.048881600000015624}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 620,
+       "name": "b56acbc4f774c23abf7c4b848649cd32.1.2.3.4.sslip.io",
+       "api": "DnsQueryEx",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 1
+      },
+      {
+       "phase": "complete",
+       "pid": 620,
+       "name": "b56acbc4f774c23abf7c4b848649cd32.1.2.3.4.sslip.io",
+       "api": "DnsQueryEx",
+       "mode": "standard",
+       "flags": 0,
+       "interface_index": 0,
+       "compartment_id": 1,
+       "status": 0,
+       "query_status": 0,
+       "has_records": true,
+       "elapsed_seconds": 0.048881600000015624
+      }
+     ]
+    },
+    "DnsQueryEx_wire": {
+     "api": "DnsQueryEx",
+     "mode": "wire",
+     "name": "ac28dc8a30763d00347d2e7e18852ba1.1.2.3.4.sslip.io",
+     "outside_control": true,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQueryEx",
+      "--mode",
+      "wire",
+      "--name",
+      "ac28dc8a30763d00347d2e7e18852ba1.1.2.3.4.sslip.io"
+     ],
+     "pid": 6080,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.38,
+     "tail": "{\"phase\": \"begin\", \"pid\": 6080, \"name\": \"ac28dc8a30763d00347d2e7e18852ba1.1.2.3.4.sslip.io\", \"api\": \"DnsQueryEx\", \"mode\": \"wire\", \"flags\": 6624, \"interface_index\": 0, \"compartment_id\": 1}\r\n{\"phase\": \"complete\", \"pid\": 6080, \"name\": \"ac28dc8a30763d00347d2e7e18852ba1.1.2.3.4.sslip.io\", \"api\": \"DnsQueryEx\", \"mode\": \"wire\", \"flags\": 6624, \"interface_index\": 0, \"compartment_id\": 1, \"status\": 0, \"query_status\": 0, \"has_records\": true, \"elapsed_seconds\": 0.1457917999999836}\r\n",
+     "rows": [
+      {
+       "phase": "begin",
+       "pid": 6080,
+       "name": "ac28dc8a30763d00347d2e7e18852ba1.1.2.3.4.sslip.io",
+       "api": "DnsQueryEx",
+       "mode": "wire",
+       "flags": 6624,
+       "interface_index": 0,
+       "compartment_id": 1
+      },
+      {
+       "phase": "complete",
+       "pid": 6080,
+       "name": "ac28dc8a30763d00347d2e7e18852ba1.1.2.3.4.sslip.io",
+       "api": "DnsQueryEx",
+       "mode": "wire",
+       "flags": 6624,
+       "interface_index": 0,
+       "compartment_id": 1,
+       "status": 0,
+       "query_status": 0,
+       "has_records": true,
+       "elapsed_seconds": 0.1457917999999836
+      }
+     ]
+    },
+    "Resolve-DnsName_standard": {
+     "api": "Resolve-DnsName",
+     "mode": "standard",
+     "name": "33ad5ea06546e0ede4c3b5b089215925.1.2.3.4.sslip.io",
+     "outside_control": true,
+     "argv": [
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$ErrorActionPreference='Stop'; try { $a=@(Resolve-DnsName -Name 33ad5ea06546e0ede4c3b5b089215925.1.2.3.4.sslip.io -Type A -DnsOnly -NoHostsFile -ErrorAction Stop | Select-Object -ExpandProperty IPAddress); @{name='33ad5ea06546e0ede4c3b5b089215925.1.2.3.4.sslip.io';api='Resolve-DnsName';mode='standard';completed=$true;addresses=$a;answer_matches=($a.Count -eq 1 -and $a[0] -eq '1.2.3.4')} | ConvertTo-Json -Compress } catch { @{name='33ad5ea06546e0ede4c3b5b089215925.1.2.3.4.sslip.io';api='Resolve-DnsName';mode='standard';completed=$true;error=$_.Exception.Message} | ConvertTo-Json -Compress }"
+     ],
+     "pid": 8484,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 0.54,
+     "tail": "{\"name\":\"33ad5ea06546e0ede4c3b5b089215925.1.2.3.4.sslip.io\",\"answer_matches\":true,\"addresses\":[\"1.2.3.4\"],\"completed\":true,\"mode\":\"standard\",\"api\":\"Resolve-DnsName\"}\r\n",
+     "rows": [
+      {
+       "name": "33ad5ea06546e0ede4c3b5b089215925.1.2.3.4.sslip.io",
+       "answer_matches": true,
+       "addresses": [
+        "1.2.3.4"
+       ],
+       "completed": true,
+       "mode": "standard",
+       "api": "Resolve-DnsName"
+      }
+     ]
+    }
+   },
+   "outside_broker_control": {
+    "wmi": {
+     "label": "outside_plain_wmi_f8198e9612b10015",
+     "url": "http://10.1.1.81:55724/20553732f6d4a32bc7045d51/outside_plain_wmi_f8198e9612b10015",
+     "outside_control": true,
+     "execution": {
+      "argv": [
+       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+       "-NoProfile",
+       "-NonInteractive",
+       "-Command",
+       "$ErrorActionPreference='Stop'; try { $r=Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe -I -B C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\broker_child.py http://10.1.1.81:55724/20553732f6d4a32bc7045d51/outside_plain_wmi_f8198e9612b10015 C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\plain\\outside_plain_wmi_f8198e9612b10015-child.json RuleProxyFixture:20553732f6d4a32bc7045d51:outside_plain_wmi_f8198e9612b10015'}; @{return_value=[int]$r.ReturnValue; child_pid=[int]$r.ProcessId} | ConvertTo-Json -Compress } catch { @{error=$_.Exception.Message; hresult=$_.Exception.HResult} | ConvertTo-Json -Compress }"
+      ],
+      "pid": 3760,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.38,
+      "tail": "{\"return_value\":0,\"child_pid\":7656}\r\n",
+      "rows": [
+       {
+        "return_value": 0,
+        "child_pid": 7656
+       }
+      ]
+     },
+     "invocation": {
+      "return_value": 0,
+      "child_pid": 7656
+     },
+     "owned_child_handle_verified": true,
+     "child": {
+      "identity": {
+       "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+       "pid": 7656,
+       "elevated": false,
+       "session_id": 0
+      },
+      "compartment": 1,
+      "marker": "RuleProxyFixture:20553732f6d4a32bc7045d51:outside_plain_wmi_f8198e9612b10015",
+      "direct_http": true
+     },
+     "fixture_hits": 1,
+     "host_direct_request_observed": true
+    },
+    "bits": {
+     "label": "outside_plain_bits_408718b2ac5157d2",
+     "url": "http://10.1.1.81:55724/20553732f6d4a32bc7045d51/outside_plain_bits_408718b2ac5157d2",
+     "outside_control": true,
+     "execution": {
+      "argv": [
+       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+       "-NoProfile",
+       "-NonInteractive",
+       "-Command",
+       "$ErrorActionPreference='Stop'; $job=$null; $r=[ordered]@{supported=$false}; try { Import-Module BitsTransfer -ErrorAction Stop; $r.supported=$true;  $job=Start-BitsTransfer -Asynchronous -Source 'http://10.1.1.81:55724/20553732f6d4a32bc7045d51/outside_plain_bits_408718b2ac5157d2' -Destination 'C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\plain\\outside_plain_bits_408718b2ac5157d2.html' -DisplayName 'RuleProxyPrimary-20553732f6d4a32bc7045d51-outside_plain_bits_408718b2ac5157d2' -ProxyUsage NoProxy; $r.job_id=[string]$job.JobId; $deadline=[DateTime]::UtcNow.AddSeconds(12); do { $job=Get-BitsTransfer -JobId $job.JobId; $r.state=[string]$job.JobState; $r.bytes_transferred=$job.BytesTransferred; $r.error_code=$job.ErrorCode; if($r.state -in @('Transferred','Error','TransientError')){break}; Start-Sleep -Milliseconds 200 } while([DateTime]::UtcNow -lt $deadline); if($r.state -eq 'Transferred'){ Complete-BitsTransfer -BitsJob $job; $job=$null; $r.marker_matches=([IO.File]::ReadAllText('C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\plain\\outside_plain_bits_408718b2ac5157d2.html')).Contains('RuleProxyFixture:20553732f6d4a32bc7045d51:outside_plain_bits_408718b2ac5157d2') } } catch { $r.error=$_.Exception.Message; $r.hresult=$_.Exception.HResult } finally { if($job){ Remove-BitsTransfer -BitsJob $job -Confirm:$false -ErrorAction SilentlyContinue } }; $r | ConvertTo-Json -Compress"
+      ],
+      "pid": 6208,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 1.15,
+      "tail": "{\"supported\":true,\"error\":\"The operation being requested was not performed because the user has not logged on to the network. The specified service does not exist. (Exception from HRESULT: 0x800704DD)\",\"hresult\":-2147023651}\r\n",
+      "rows": [
+       {
+        "supported": true,
+        "error": "The operation being requested was not performed because the user has not logged on to the network. The specified service does not exist. (Exception from HRESULT: 0x800704DD)",
+        "hresult": -2147023651
+       }
+      ]
+     },
+     "invocation": {
+      "supported": true,
+      "error": "The operation being requested was not performed because the user has not logged on to the network. The specified service does not exist. (Exception from HRESULT: 0x800704DD)",
+      "hresult": -2147023651
+     },
+     "fixture_hits": 0,
+     "host_direct_request_observed": false
+    }
+   },
+   "outside_browsers": {
+    "edge": {
+     "outside_control": true,
+     "label": "outside_plain_edge",
+     "proxy_port": 55723,
+     "argv": [
+      "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "--headless=new",
+      "--disable-gpu",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-background-networking",
+      "--enable-logging=stderr",
+      "--v=0",
+      "--user-data-dir=C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\plain\\outside_plain_edge",
+      "--proxy-server=http://127.0.0.1:55723",
+      "--proxy-bypass-list=<-loopback>",
+      "--dump-dom",
+      "http://outside_plain_edge.invalid/20553732f6d4a32bc7045d51/outside_plain_edge"
+     ],
+     "browser_process_tokens": [
+      {
+       "pid": 1416,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": false,
+       "appcontainer": false
+      },
+      {
+       "pid": 7624,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": false,
+       "appcontainer": false
+      },
+      {
+       "pid": 8992,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": true,
+       "appcontainer": false
+      },
+      {
+       "pid": 5596,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": false,
+       "appcontainer": false
+      },
+      {
+       "pid": 3716,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": false
+      },
+      {
+       "pid": 8488,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 1568,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 2444,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 8548,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 3200,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 3148,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 5456,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 1352,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 6236,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 4016,
+       "integrity_sid": "S-1-16-4096",
+       "integrity_rid": 4096,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 7492,
+       "integrity_sid": "S-1-16-0",
+       "integrity_rid": 0,
+       "restricted": true,
+       "appcontainer": true
+      },
+      {
+       "pid": 9100,
+       "integrity_sid": "S-1-16-0",
+       "integrity_rid": 0,
+       "restricted": true,
+       "appcontainer": true
+      }
+     ],
+     "pid": 1416,
+     "exit_code": 0,
+     "timed_out": false,
+     "seconds": 4.74,
+     "tail": "[1416:4632:1019/051456.659:ERROR:components\\optimization_guide\\core\\model_execution\\performance_class.cc:111] Edge LLM: Not supported on non Desktop SKU\r\n[1416:4632:1019/051456.673:ERROR:chrome\\installer\\util\\helper.cc:44] Failed to get path from PathService for key: 112: An attempt was made to reference a token that does not exist. (0x3F0)\r\n[1416:4632:1019/051457.673:WARNING:chrome\\browser\\extensions\\external_registry_loader_win.cc:283] Error observing HKLM: 5\r\n[1416:4632:1019/051458.030:ERROR:chrome\\browser\\component_updater\\edge_language_detection_model_installer.cc:97] Edge Language Detection Model: On-demand update failed with error: 5\r\n[1416:4632:1019/051458.429:ERROR:chrome\\browser\\task_manager\\providers\\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a \"Renderer\" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.\r\n[1416:4632:1019/051458.507:ERROR:chrome\\browser\\task_manager\\providers\\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a \"Renderer\" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.\r\n[1416:4632:1019/051458.523:ERROR:chrome\\browser\\task_manager\\providers\\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a \"Renderer\" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.\r\n[1416:4632:1019/051458.523:ERROR:chrome\\browser\\task_manager\\providers\\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a \"Renderer\" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.\r\n[1416:4632:1019/051458.527:ERROR:chrome\\browser\\task_manager\\providers\\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a \"Renderer\" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.\r\n[1416:4632:1019/051458.587:ERROR:chrome\\browser\\task_manager\\providers\\fallback_task_provider.cc:126] Every renderer should have at least one task provided by a primary task provider. If a \"Renderer\" fallback task is shown, it is a bug. If you have repro steps, please file a new bug and tag it as a dependency of crbug.com/40528867.\r\n[1416:6552:1019/051500.088:ERROR:chrome\\common\\importer\\edge_chrome_importer_utils_win.cc:37] Unable to get local app data path.\r\n[1416:4632:1019/051500.484:INFO:CONSOLE:5645] \"[ProtocolLaunch] handler constructed; wiring port events.\", source: chrome-extension://ndcpkimcihhghdcddljkfmmjccdmcmof/background.rollup.js (5645)\r\n<!DOCTYPE html>\r\n<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:20553732f6d4a32bc7045d51:outside_plain_edge</body></html>\r\n",
+     "rows": [],
+     "fixture_hits": 1,
+     "sandbox_disabled": false,
+     "rendered": true,
+     "sandbox_child_token_observed": true,
+     "sandbox_observation_scope": "job child token integrity/restrictions; no full browser policy attestation"
+    }
+   },
+   "brokers": {
+    "wmi": {
+     "label": "plain_wmi_07e88353e11b980a",
+     "url": "http://10.1.1.81:55724/20553732f6d4a32bc7045d51/plain_wmi_07e88353e11b980a",
+     "outside_control": false,
+     "bind_status": 0,
+     "execution": {
+      "argv": [
+       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+       "-NoProfile",
+       "-NonInteractive",
+       "-Command",
+       "$ErrorActionPreference='Stop'; try { $r=Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe -I -B C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\broker_child.py http://10.1.1.81:55724/20553732f6d4a32bc7045d51/plain_wmi_07e88353e11b980a C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\plain\\plain_wmi_07e88353e11b980a-child.json RuleProxyFixture:20553732f6d4a32bc7045d51:plain_wmi_07e88353e11b980a'}; @{return_value=[int]$r.ReturnValue; child_pid=[int]$r.ProcessId} | ConvertTo-Json -Compress } catch { @{error=$_.Exception.Message; hresult=$_.Exception.HResult} | ConvertTo-Json -Compress }"
+      ],
+      "pid": 9512,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.3,
+      "tail": "{\"return_value\":0,\"child_pid\":4744}\r\n",
+      "rows": [
+       {
+        "return_value": 0,
+        "child_pid": 4744
+       }
+      ]
+     },
+     "invocation": {
+      "return_value": 0,
+      "child_pid": 4744
+     },
+     "owned_child_handle_verified": true,
+     "child": {
+      "identity": {
+       "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+       "pid": 4744,
+       "elevated": false,
+       "session_id": 0
+      },
+      "compartment": 1,
+      "marker": "RuleProxyFixture:20553732f6d4a32bc7045d51:plain_wmi_07e88353e11b980a",
+      "direct_http": true
+     },
+     "fixture_hits": 1,
+     "host_direct_request_observed": true
+    },
+    "bits": {
+     "label": "plain_bits_9c743cbb743f00ca",
+     "url": "http://10.1.1.81:55724/20553732f6d4a32bc7045d51/plain_bits_9c743cbb743f00ca",
+     "outside_control": false,
+     "bind_status": 0,
+     "execution": {
+      "argv": [
+       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+       "-NoProfile",
+       "-NonInteractive",
+       "-Command",
+       "$ErrorActionPreference='Stop'; $job=$null; $r=[ordered]@{supported=$false}; try { Import-Module BitsTransfer -ErrorAction Stop; $r.supported=$true;  $job=Start-BitsTransfer -Asynchronous -Source 'http://10.1.1.81:55724/20553732f6d4a32bc7045d51/plain_bits_9c743cbb743f00ca' -Destination 'C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\plain\\plain_bits_9c743cbb743f00ca.html' -DisplayName 'RuleProxyPrimary-20553732f6d4a32bc7045d51-plain_bits_9c743cbb743f00ca' -ProxyUsage NoProxy; $r.job_id=[string]$job.JobId; $deadline=[DateTime]::UtcNow.AddSeconds(12); do { $job=Get-BitsTransfer -JobId $job.JobId; $r.state=[string]$job.JobState; $r.bytes_transferred=$job.BytesTransferred; $r.error_code=$job.ErrorCode; if($r.state -in @('Transferred','Error','TransientError')){break}; Start-Sleep -Milliseconds 200 } while([DateTime]::UtcNow -lt $deadline); if($r.state -eq 'Transferred'){ Complete-BitsTransfer -BitsJob $job; $job=$null; $r.marker_matches=([IO.File]::ReadAllText('C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\plain\\plain_bits_9c743cbb743f00ca.html')).Contains('RuleProxyFixture:20553732f6d4a32bc7045d51:plain_bits_9c743cbb743f00ca') } } catch { $r.error=$_.Exception.Message; $r.hresult=$_.Exception.HResult } finally { if($job){ Remove-BitsTransfer -BitsJob $job -Confirm:$false -ErrorAction SilentlyContinue } }; $r | ConvertTo-Json -Compress"
+      ],
+      "pid": 6356,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.41,
+      "tail": "{\"supported\":true,\"error\":\"The operation being requested was not performed because the user has not logged on to the network. The specified service does not exist. (Exception from HRESULT: 0x800704DD)\",\"hresult\":-2147023651}\r\n",
+      "rows": [
+       {
+        "supported": true,
+        "error": "The operation being requested was not performed because the user has not logged on to the network. The specified service does not exist. (Exception from HRESULT: 0x800704DD)",
+        "hresult": -2147023651
+       }
+      ]
+     },
+     "invocation": {
+      "supported": true,
+      "error": "The operation being requested was not performed because the user has not logged on to the network. The specified service does not exist. (Exception from HRESULT: 0x800704DD)",
+      "hresult": -2147023651
+     },
+     "fixture_hits": 0,
+     "host_direct_request_observed": false
+    }
+   }
+  },
+  "write_custom_logon": {
+   "flags": 9,
+   "sids": [
+    "S-1-5-21-1484336888-1314452085-24965097-31337",
+    "S-1-5-5-0-2869938"
+   ],
+   "dns": {
+    "getaddrinfo_standard": {
+     "api": "getaddrinfo",
+     "mode": "standard",
+     "name": "9037211f75c3f0e2e92b9b16870bab60.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "getaddrinfo",
+      "--mode",
+      "standard",
+      "--name",
+      "9037211f75c3f0e2e92b9b16870bab60.1.2.3.4.sslip.io"
+     ],
+     "pid": 9648,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "DnsQuery_W_standard": {
+     "api": "DnsQuery_W",
+     "mode": "standard",
+     "name": "ddbe18e5f36474097e9d574b7fae9035.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQuery_W",
+      "--mode",
+      "standard",
+      "--name",
+      "ddbe18e5f36474097e9d574b7fae9035.1.2.3.4.sslip.io"
+     ],
+     "pid": 7200,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "DnsQuery_W_wire": {
+     "api": "DnsQuery_W",
+     "mode": "wire",
+     "name": "78d425cc1a1d33b6445e7cf799680755.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQuery_W",
+      "--mode",
+      "wire",
+      "--name",
+      "78d425cc1a1d33b6445e7cf799680755.1.2.3.4.sslip.io"
+     ],
+     "pid": 6400,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "DnsQueryEx_standard": {
+     "api": "DnsQueryEx",
+     "mode": "standard",
+     "name": "f6f160e20ac50027cbf5960435d782ea.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQueryEx",
+      "--mode",
+      "standard",
+      "--name",
+      "f6f160e20ac50027cbf5960435d782ea.1.2.3.4.sslip.io"
+     ],
+     "pid": 7364,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "DnsQueryEx_wire": {
+     "api": "DnsQueryEx",
+     "mode": "wire",
+     "name": "9d11194f7529701fce4ca36bc9f077c5.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQueryEx",
+      "--mode",
+      "wire",
+      "--name",
+      "9d11194f7529701fce4ca36bc9f077c5.1.2.3.4.sslip.io"
+     ],
+     "pid": 2528,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "Resolve-DnsName_standard": {
+     "api": "Resolve-DnsName",
+     "mode": "standard",
+     "name": "30ca1a020f68fad747a18e234215af8d.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$ErrorActionPreference='Stop'; try { $a=@(Resolve-DnsName -Name 30ca1a020f68fad747a18e234215af8d.1.2.3.4.sslip.io -Type A -DnsOnly -NoHostsFile -ErrorAction Stop | Select-Object -ExpandProperty IPAddress); @{name='30ca1a020f68fad747a18e234215af8d.1.2.3.4.sslip.io';api='Resolve-DnsName';mode='standard';completed=$true;addresses=$a;answer_matches=($a.Count -eq 1 -and $a[0] -eq '1.2.3.4')} | ConvertTo-Json -Compress } catch { @{name='30ca1a020f68fad747a18e234215af8d.1.2.3.4.sslip.io';api='Resolve-DnsName';mode='standard';completed=$true;error=$_.Exception.Message} | ConvertTo-Json -Compress }"
+     ],
+     "pid": 9892,
+     "exit_code": 4294901760,
+     "timed_out": false,
+     "seconds": 0.02,
+     "tail": "S\u0000t\u0000a\u0000r\u0000t\u0000i\u0000n\u0000g\u0000 \u0000t\u0000h\u0000e\u0000 \u0000C\u0000L\u0000R\u0000 \u0000f\u0000a\u0000i\u0000l\u0000e\u0000d\u0000 \u0000w\u0000i\u0000t\u0000h\u0000 \u0000H\u0000R\u0000E\u0000S\u0000U\u0000L\u0000T\u0000 \u00008\u00000\u00000\u00007\u00000\u00000\u00000\u00005\u0000.\u0000\r\u0000\n\u0000",
+     "rows": []
+    }
+   },
+   "browsers": {
+    "edge": {
+     "outside_control": false,
+     "label": "write_custom_logon_edge",
+     "proxy_port": 55725,
+     "bind_status": 0,
+     "argv": [
+      "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "--headless=new",
+      "--disable-gpu",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-background-networking",
+      "--enable-logging=stderr",
+      "--v=0",
+      "--user-data-dir=C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\write_custom_logon\\write_custom_logon_edge",
+      "--proxy-server=http://127.0.0.1:55725",
+      "--proxy-bypass-list=<-loopback>",
+      "--dump-dom",
+      "http://write_custom_logon_edge.invalid/20553732f6d4a32bc7045d51/write_custom_logon_edge"
+     ],
+     "browser_process_tokens": [
+      {
+       "pid": 1944,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": true,
+       "appcontainer": false
+      },
+      {
+       "pid": 1920,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": true,
+       "appcontainer": false
+      }
+     ],
+     "pid": 1944,
+     "exit_code": 2147483651,
+     "timed_out": false,
+     "seconds": 15.1,
+     "tail": "[1019/051507.554:FATAL:third_party\\crashpad\\crashpad\\client\\crashpad_client_win.cc:349] Check failed: . CreateNamedPipe: Access is denied. (0x5)\r\n",
+     "rows": [],
+     "fixture_hits": 0,
+     "sandbox_disabled": false,
+     "rendered": false,
+     "sandbox_child_token_observed": false,
+     "sandbox_observation_scope": "job child token integrity/restrictions; no full browser policy attestation"
+    }
+   },
+   "token_user": "S-1-5-21-4239583824-265399229-1323058055-1003",
+   "token_restricted_sids": [
+    {
+     "sid": "S-1-5-21-1484336888-1314452085-24965097-31337",
+     "attributes": 7
+    },
+    {
+     "sid": "S-1-5-5-0-2869938",
+     "attributes": 7
+    }
+   ],
+   "brokers": {
+    "wmi": {
+     "label": "write_custom_logon_wmi_fcdd1cacec52c89c",
+     "url": "http://10.1.1.81:55724/20553732f6d4a32bc7045d51/write_custom_logon_wmi_fcdd1cacec52c89c",
+     "outside_control": false,
+     "bind_status": 0,
+     "execution": {
+      "argv": [
+       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+       "-NoProfile",
+       "-NonInteractive",
+       "-Command",
+       "$ErrorActionPreference='Stop'; try { $r=Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe -I -B C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\broker_child.py http://10.1.1.81:55724/20553732f6d4a32bc7045d51/write_custom_logon_wmi_fcdd1cacec52c89c C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\write_custom_logon\\write_custom_logon_wmi_fcdd1cacec52c89c-child.json RuleProxyFixture:20553732f6d4a32bc7045d51:write_custom_logon_wmi_fcdd1cacec52c89c'}; @{return_value=[int]$r.ReturnValue; child_pid=[int]$r.ProcessId} | ConvertTo-Json -Compress } catch { @{error=$_.Exception.Message; hresult=$_.Exception.HResult} | ConvertTo-Json -Compress }"
+      ],
+      "pid": 8352,
+      "exit_code": 4294901760,
+      "timed_out": false,
+      "seconds": 0.02,
+      "tail": "S\u0000t\u0000a\u0000r\u0000t\u0000i\u0000n\u0000g\u0000 \u0000t\u0000h\u0000e\u0000 \u0000C\u0000L\u0000R\u0000 \u0000f\u0000a\u0000i\u0000l\u0000e\u0000d\u0000 \u0000w\u0000i\u0000t\u0000h\u0000 \u0000H\u0000R\u0000E\u0000S\u0000U\u0000L\u0000T\u0000 \u00008\u00000\u00000\u00007\u00000\u00000\u00000\u00005\u0000.\u0000\r\u0000\n\u0000",
+      "rows": []
+     },
+     "invocation": null,
+     "fixture_hits": 0,
+     "host_direct_request_observed": false
+    },
+    "bits": {
+     "label": "write_custom_logon_bits_480d06832f39d720",
+     "url": "http://10.1.1.81:55724/20553732f6d4a32bc7045d51/write_custom_logon_bits_480d06832f39d720",
+     "outside_control": false,
+     "bind_status": 0,
+     "execution": {
+      "argv": [
+       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+       "-NoProfile",
+       "-NonInteractive",
+       "-Command",
+       "$ErrorActionPreference='Stop'; $job=$null; $r=[ordered]@{supported=$false}; try { Import-Module BitsTransfer -ErrorAction Stop; $r.supported=$true;  $job=Start-BitsTransfer -Asynchronous -Source 'http://10.1.1.81:55724/20553732f6d4a32bc7045d51/write_custom_logon_bits_480d06832f39d720' -Destination 'C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\write_custom_logon\\write_custom_logon_bits_480d06832f39d720.html' -DisplayName 'RuleProxyPrimary-20553732f6d4a32bc7045d51-write_custom_logon_bits_480d06832f39d720' -ProxyUsage NoProxy; $r.job_id=[string]$job.JobId; $deadline=[DateTime]::UtcNow.AddSeconds(12); do { $job=Get-BitsTransfer -JobId $job.JobId; $r.state=[string]$job.JobState; $r.bytes_transferred=$job.BytesTransferred; $r.error_code=$job.ErrorCode; if($r.state -in @('Transferred','Error','TransientError')){break}; Start-Sleep -Milliseconds 200 } while([DateTime]::UtcNow -lt $deadline); if($r.state -eq 'Transferred'){ Complete-BitsTransfer -BitsJob $job; $job=$null; $r.marker_matches=([IO.File]::ReadAllText('C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\write_custom_logon\\write_custom_logon_bits_480d06832f39d720.html')).Contains('RuleProxyFixture:20553732f6d4a32bc7045d51:write_custom_logon_bits_480d06832f39d720') } } catch { $r.error=$_.Exception.Message; $r.hresult=$_.Exception.HResult } finally { if($job){ Remove-BitsTransfer -BitsJob $job -Confirm:$false -ErrorAction SilentlyContinue } }; $r | ConvertTo-Json -Compress"
+      ],
+      "pid": 7016,
+      "exit_code": 4294901760,
+      "timed_out": false,
+      "seconds": 0.02,
+      "tail": "S\u0000t\u0000a\u0000r\u0000t\u0000i\u0000n\u0000g\u0000 \u0000t\u0000h\u0000e\u0000 \u0000C\u0000L\u0000R\u0000 \u0000f\u0000a\u0000i\u0000l\u0000e\u0000d\u0000 \u0000w\u0000i\u0000t\u0000h\u0000 \u0000H\u0000R\u0000E\u0000S\u0000U\u0000L\u0000T\u0000 \u00008\u00000\u00000\u00007\u00000\u00000\u00000\u00005\u0000.\u0000\r\u0000\n\u0000",
+      "rows": []
+     },
+     "invocation": null,
+     "fixture_hits": 0,
+     "host_direct_request_observed": false
+    }
+   }
+  },
+  "write_custom_rc_logon": {
+   "flags": 9,
+   "sids": [
+    "S-1-5-21-1484336888-1314452085-24965097-31337",
+    "S-1-5-12",
+    "S-1-5-5-0-2869938"
+   ],
+   "dns": {
+    "getaddrinfo_standard": {
+     "api": "getaddrinfo",
+     "mode": "standard",
+     "name": "f777a540d8fbc7444d7150f594d68fb5.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "getaddrinfo",
+      "--mode",
+      "standard",
+      "--name",
+      "f777a540d8fbc7444d7150f594d68fb5.1.2.3.4.sslip.io"
+     ],
+     "pid": 10236,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "DnsQuery_W_standard": {
+     "api": "DnsQuery_W",
+     "mode": "standard",
+     "name": "353482636a40b3af44ebe0ed6f5462d8.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQuery_W",
+      "--mode",
+      "standard",
+      "--name",
+      "353482636a40b3af44ebe0ed6f5462d8.1.2.3.4.sslip.io"
+     ],
+     "pid": 7492,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.02,
+     "tail": "",
+     "rows": []
+    },
+    "DnsQuery_W_wire": {
+     "api": "DnsQuery_W",
+     "mode": "wire",
+     "name": "d0afa5c76e8e44f85fe9ab23ed7faa89.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQuery_W",
+      "--mode",
+      "wire",
+      "--name",
+      "d0afa5c76e8e44f85fe9ab23ed7faa89.1.2.3.4.sslip.io"
+     ],
+     "pid": 2432,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "DnsQueryEx_standard": {
+     "api": "DnsQueryEx",
+     "mode": "standard",
+     "name": "a2e5006af72c1b40346a5c98c545c661.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQueryEx",
+      "--mode",
+      "standard",
+      "--name",
+      "a2e5006af72c1b40346a5c98c545c661.1.2.3.4.sslip.io"
+     ],
+     "pid": 6996,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "DnsQueryEx_wire": {
+     "api": "DnsQueryEx",
+     "mode": "wire",
+     "name": "027cb2e0bb716acb68d33dc627abe4a1.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe",
+      "-I",
+      "-B",
+      "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\dns_probe.py",
+      "--api",
+      "DnsQueryEx",
+      "--mode",
+      "wire",
+      "--name",
+      "027cb2e0bb716acb68d33dc627abe4a1.1.2.3.4.sslip.io"
+     ],
+     "pid": 8912,
+     "exit_code": 3221225794,
+     "timed_out": false,
+     "seconds": 0.01,
+     "tail": "",
+     "rows": []
+    },
+    "Resolve-DnsName_standard": {
+     "api": "Resolve-DnsName",
+     "mode": "standard",
+     "name": "d6fd7d835a20826af6b4edaede8c163e.1.2.3.4.sslip.io",
+     "outside_control": false,
+     "bind_status": 0,
+     "argv": [
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$ErrorActionPreference='Stop'; try { $a=@(Resolve-DnsName -Name d6fd7d835a20826af6b4edaede8c163e.1.2.3.4.sslip.io -Type A -DnsOnly -NoHostsFile -ErrorAction Stop | Select-Object -ExpandProperty IPAddress); @{name='d6fd7d835a20826af6b4edaede8c163e.1.2.3.4.sslip.io';api='Resolve-DnsName';mode='standard';completed=$true;addresses=$a;answer_matches=($a.Count -eq 1 -and $a[0] -eq '1.2.3.4')} | ConvertTo-Json -Compress } catch { @{name='d6fd7d835a20826af6b4edaede8c163e.1.2.3.4.sslip.io';api='Resolve-DnsName';mode='standard';completed=$true;error=$_.Exception.Message} | ConvertTo-Json -Compress }"
+     ],
+     "pid": 6224,
+     "exit_code": 4294901760,
+     "timed_out": false,
+     "seconds": 0.02,
+     "tail": "S\u0000t\u0000a\u0000r\u0000t\u0000i\u0000n\u0000g\u0000 \u0000t\u0000h\u0000e\u0000 \u0000C\u0000L\u0000R\u0000 \u0000f\u0000a\u0000i\u0000l\u0000e\u0000d\u0000 \u0000w\u0000i\u0000t\u0000h\u0000 \u0000H\u0000R\u0000E\u0000S\u0000U\u0000L\u0000T\u0000 \u00008\u00000\u00000\u00007\u00000\u00000\u00000\u00005\u0000.\u0000\r\u0000\n\u0000",
+     "rows": []
+    }
+   },
+   "browsers": {
+    "edge": {
+     "outside_control": false,
+     "label": "write_custom_rc_logon_edge",
+     "proxy_port": 55725,
+     "bind_status": 0,
+     "argv": [
+      "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "--headless=new",
+      "--disable-gpu",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-background-networking",
+      "--enable-logging=stderr",
+      "--v=0",
+      "--user-data-dir=C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\write_custom_rc_logon\\write_custom_rc_logon_edge",
+      "--proxy-server=http://127.0.0.1:55725",
+      "--proxy-bypass-list=<-loopback>",
+      "--dump-dom",
+      "http://write_custom_rc_logon_edge.invalid/20553732f6d4a32bc7045d51/write_custom_rc_logon_edge"
+     ],
+     "browser_process_tokens": [
+      {
+       "pid": 9204,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": true,
+       "appcontainer": false
+      },
+      {
+       "pid": 3580,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": true,
+       "appcontainer": false
+      },
+      {
+       "pid": 4716,
+       "integrity_sid": "S-1-16-8192",
+       "integrity_rid": 8192,
+       "restricted": true,
+       "appcontainer": false
+      }
+     ],
+     "pid": 9204,
+     "exit_code": 21,
+     "timed_out": false,
+     "seconds": 0.06,
+     "tail": "[1019/051522.812:ERROR:third_party\\crashpad\\crashpad\\util\\win\\registration_protocol_win.cc:108] CreateFile: Access is denied. (0x5)\r\n[9204:9852:1019/051522.851:ERROR:chrome\\app\\chrome_main_delegate.cc:728] Failed to create a ProcessSingleton for your profile directory. This means that running multiple instances would start multiple browser processes rather than opening a new window in the existing process. Aborting now to avoid profile corruption.\r\n",
+     "rows": [],
+     "fixture_hits": 0,
+     "sandbox_disabled": false,
+     "rendered": false,
+     "sandbox_child_token_observed": false,
+     "sandbox_observation_scope": "job child token integrity/restrictions; no full browser policy attestation"
+    }
+   },
+   "token_user": "S-1-5-21-4239583824-265399229-1323058055-1003",
+   "token_restricted_sids": [
+    {
+     "sid": "S-1-5-21-1484336888-1314452085-24965097-31337",
+     "attributes": 7
+    },
+    {
+     "sid": "S-1-5-12",
+     "attributes": 7
+    },
+    {
+     "sid": "S-1-5-5-0-2869938",
+     "attributes": 7
+    }
+   ],
+   "brokers": {
+    "wmi": {
+     "label": "write_custom_rc_logon_wmi_5d32e26c21284261",
+     "url": "http://10.1.1.81:55724/20553732f6d4a32bc7045d51/write_custom_rc_logon_wmi_5d32e26c21284261",
+     "outside_control": false,
+     "bind_status": 0,
+     "execution": {
+      "argv": [
+       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+       "-NoProfile",
+       "-NonInteractive",
+       "-Command",
+       "$ErrorActionPreference='Stop'; try { $r=Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe -I -B C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\broker_child.py http://10.1.1.81:55724/20553732f6d4a32bc7045d51/write_custom_rc_logon_wmi_5d32e26c21284261 C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\write_custom_rc_logon\\write_custom_rc_logon_wmi_5d32e26c21284261-child.json RuleProxyFixture:20553732f6d4a32bc7045d51:write_custom_rc_logon_wmi_5d32e26c21284261'}; @{return_value=[int]$r.ReturnValue; child_pid=[int]$r.ProcessId} | ConvertTo-Json -Compress } catch { @{error=$_.Exception.Message; hresult=$_.Exception.HResult} | ConvertTo-Json -Compress }"
+      ],
+      "pid": 2192,
+      "exit_code": 4294901760,
+      "timed_out": false,
+      "seconds": 0.02,
+      "tail": "S\u0000t\u0000a\u0000r\u0000t\u0000i\u0000n\u0000g\u0000 \u0000t\u0000h\u0000e\u0000 \u0000C\u0000L\u0000R\u0000 \u0000f\u0000a\u0000i\u0000l\u0000e\u0000d\u0000 \u0000w\u0000i\u0000t\u0000h\u0000 \u0000H\u0000R\u0000E\u0000S\u0000U\u0000L\u0000T\u0000 \u00008\u00000\u00000\u00007\u00000\u00000\u00000\u00005\u0000.\u0000\r\u0000\n\u0000",
+      "rows": []
+     },
+     "invocation": null,
+     "fixture_hits": 0,
+     "host_direct_request_observed": false
+    },
+    "bits": {
+     "label": "write_custom_rc_logon_bits_62d3f3e6ab182488",
+     "url": "http://10.1.1.81:55724/20553732f6d4a32bc7045d51/write_custom_rc_logon_bits_62d3f3e6ab182488",
+     "outside_control": false,
+     "bind_status": 0,
+     "execution": {
+      "argv": [
+       "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+       "-NoProfile",
+       "-NonInteractive",
+       "-Command",
+       "$ErrorActionPreference='Stop'; $job=$null; $r=[ordered]@{supported=$false}; try { Import-Module BitsTransfer -ErrorAction Stop; $r.supported=$true;  $job=Start-BitsTransfer -Asynchronous -Source 'http://10.1.1.81:55724/20553732f6d4a32bc7045d51/write_custom_rc_logon_bits_62d3f3e6ab182488' -Destination 'C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\write_custom_rc_logon\\write_custom_rc_logon_bits_62d3f3e6ab182488.html' -DisplayName 'RuleProxyPrimary-20553732f6d4a32bc7045d51-write_custom_rc_logon_bits_62d3f3e6ab182488' -ProxyUsage NoProxy; $r.job_id=[string]$job.JobId; $deadline=[DateTime]::UtcNow.AddSeconds(12); do { $job=Get-BitsTransfer -JobId $job.JobId; $r.state=[string]$job.JobState; $r.bytes_transferred=$job.BytesTransferred; $r.error_code=$job.ErrorCode; if($r.state -in @('Transferred','Error','TransientError')){break}; Start-Sleep -Milliseconds 200 } while([DateTime]::UtcNow -lt $deadline); if($r.state -eq 'Transferred'){ Complete-BitsTransfer -BitsJob $job; $job=$null; $r.marker_matches=([IO.File]::ReadAllText('C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\write_custom_rc_logon\\write_custom_rc_logon_bits_62d3f3e6ab182488.html')).Contains('RuleProxyFixture:20553732f6d4a32bc7045d51:write_custom_rc_logon_bits_62d3f3e6ab182488') } } catch { $r.error=$_.Exception.Message; $r.hresult=$_.Exception.HResult } finally { if($job){ Remove-BitsTransfer -BitsJob $job -Confirm:$false -ErrorAction SilentlyContinue } }; $r | ConvertTo-Json -Compress"
+      ],
+      "pid": 8448,
+      "exit_code": 4294901760,
+      "timed_out": false,
+      "seconds": 0.02,
+      "tail": "S\u0000t\u0000a\u0000r\u0000t\u0000i\u0000n\u0000g\u0000 \u0000t\u0000h\u0000e\u0000 \u0000C\u0000L\u0000R\u0000 \u0000f\u0000a\u0000i\u0000l\u0000e\u0000d\u0000 \u0000w\u0000i\u0000t\u0000h\u0000 \u0000H\u0000R\u0000E\u0000S\u0000U\u0000L\u0000T\u0000 \u00008\u00000\u00000\u00007\u00000\u00000\u00000\u00005\u0000.\u0000\r\u0000\n\u0000",
+      "rows": []
+     },
+     "invocation": null,
+     "fixture_hits": 0,
+     "host_direct_request_observed": false
+    }
+   }
+  }
+ },
+ "cleanup": {
+  "relay": {
+   "closed": 20
+  },
+  "compartment": {
+   "code": 1359,
+   "id": 2
+  },
+  "bits": {
+   "code": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "desktop_closed": true,
+  "station_closed": true,
+  "profile_unloaded": true,
+  "profile_deleted": true,
+  "user_deleted": 0
+ },
+ "system_acl_changes": false,
+ "user": {
+  "name": "rprt72ca0b612d",
+  "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+  "group_add_status": 0,
+  "logon_sid": "S-1-5-5-0-2869938",
+  "groups": [
+   {
+    "sid": "S-1-5-21-4239583824-265399229-1323058055-513",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-1-0",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-32-545",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-4",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-2-1",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-11",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-15",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-113",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-5-5-0-2869938",
+    "attributes": 3221225479
+   },
+   {
+    "sid": "S-1-5-64-10",
+    "attributes": 7
+   },
+   {
+    "sid": "S-1-16-8192",
+    "attributes": 96
+   }
+  ],
+  "profile_loaded": true
+ },
+ "desktop": {
+  "name": "RPRestricted064b131e7a\\default",
+  "private_noninteractive": true
+ },
+ "runtime": {
+  "source": "C:\\hostedtoolcache\\windows\\Python\\3.14.8\\x64",
+  "private": "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime",
+  "executable": "C:\\RuleProxyPrimaryWork-f8c201f51abe47bf8afb00fc1a75c940\\runtime\\python.exe"
+ },
+ "compartment": {
+  "code": 0,
+  "id": 2,
+  "guid": "45e0d30c-803f-40c8-8668-703aa43ad326"
+ },
+ "loopback_readiness": {
+  "ready": true,
+  "attempts": [
+   {
+    "elapsed": 0.0,
+    "ipv4": {
+     "bound": false,
+     "error": "OSError(10049, 'The requested address is not valid in its context', None, 10049, None)",
+     "winerror": 10049
+    },
+    "ipv6": {
+     "bound": false,
+     "error": "OSError(22, 'An invalid argument was supplied', None, 10022, None)",
+     "winerror": 10022
+    }
+   },
+   {
+    "elapsed": 0.251,
+    "ipv4": {
+     "bound": true
+    },
+    "ipv6": {
+     "bound": true
+    }
+   }
+  ],
+  "timeout_seconds": 20,
+  "thread_set": 0,
+  "thread_get": 2,
+  "elapsed": 0.251,
+  "worker_finished": true
+ },
+ "relay": {
+  "accepted": 9,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ },
+ "finished": 1792386926.5076892
+}

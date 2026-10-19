@@ -1,0 +1,129 @@
+{
+  "product_qualified": false,
+  "privacy_qualified": false,
+  "identity": {
+    "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+    "session_id": 2,
+    "elevated": false,
+    "pid": 5724,
+    "compartment_id": 1
+  },
+  "scenarios": {
+    "core": {
+      "outside": {
+        "identity": {
+          "sid": "S-1-5-21-4239583824-265399229-1323058055-1003",
+          "session_id": 2,
+          "elevated": false,
+          "pid": 8516,
+          "compartment_id": 1
+        },
+        "before": {
+          "http_proxy": {
+            "ok": true
+          },
+          "direct_http": {
+            "ok": true
+          },
+          "direct_tls": {
+            "ok": true,
+            "route": "direct",
+            "host": "ruleproxy-fixture.invalid",
+            "tag": "core-outside-direct_tls",
+            "tls_verified": true,
+            "tls_version": "TLSv1.3",
+            "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+            "http_status": 200
+          },
+          "connect_tls": {
+            "ok": true,
+            "route": "connect",
+            "host": "ruleproxy-fixture.invalid",
+            "tag": "core-outside-connect_tls",
+            "tls_verified": true,
+            "tls_version": "TLSv1.3",
+            "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+            "http_status": 200
+          },
+          "socks_tls": {
+            "ok": true,
+            "route": "socks",
+            "host": "ruleproxy-fixture.invalid",
+            "tag": "core-outside-socks_tls",
+            "tls_verified": true,
+            "tls_version": "TLSv1.3",
+            "certificate_sha256": "f0d442d70de10e2770a486182d0265348ef57e88d75963899c14c4481938e022",
+            "http_status": 200
+          },
+          "external_connect_tls": {
+            "ok": false,
+            "route": "connect",
+            "host": "www.microsoft.com",
+            "tag": "core-outside-external",
+            "tls_verified": true,
+            "tls_version": "TLSv1.3",
+            "certificate_sha256": "9f17b548f7d24f309dbcaab571576c0ca73b80559ce69f27fe295f6408cc57bf",
+            "http_status": 403
+          }
+        },
+        "before_complete": true
+      },
+      "namespace_prepare": {
+        "backend": "ProxiFyre",
+        "mode": "application_proxy",
+        "strict_isolation": false,
+        "state": "running",
+        "running": true,
+        "engine_running": false,
+        "engine_owned": false,
+        "generation": 1,
+        "owner_pid": 5724,
+        "path_count": 0,
+        "proxy_port": 54329,
+        "limitations": [
+          "\u89c4\u5219\u6309\u7a0b\u5e8f\u8def\u5f84\u5339\u914d\uff0c\u540c\u4e00\u8def\u5f84\u7684\u5176\u4ed6\u5b9e\u4f8b\u4e5f\u53ef\u80fd\u88ab\u63a5\u7ba1\uff1b\u5df2\u6709\u8fde\u63a5\u9700\u8981\u91cd\u542f\u5e94\u7528\u540e\u91cd\u65b0\u5efa\u7acb\u3002",
+          "ProxiFyre \u4f7f\u7528\u8def\u5f84\u5305\u542b\u5339\u914d\uff0c\u5305\u542b\u6240\u586b\u5b8c\u6574\u8def\u5f84\u6587\u672c\u7684\u76f8\u4f3c\u8def\u5f84\u4e5f\u53ef\u80fd\u547d\u4e2d\u3002",
+          "\u5f02\u540d\u5b50\u8fdb\u7a0b\u9700\u8981\u663e\u5f0f\u6dfb\u52a0\u5176\u7a0b\u5e8f\u8def\u5f84\uff0c\u4e0d\u4fdd\u8bc1\u81ea\u52a8\u7ee7\u627f\u3002",
+          "UDP 53 \u4e0e\u7cfb\u7edf DNS \u4e0d\u4fdd\u8bc1\u7ecf\u8fc7\u4ee3\u7406\uff1b\u5f53\u524d\u4e0d\u63d0\u4f9b DNS \u9632\u6cc4\u6f0f\u9694\u79bb\u3002",
+          "IPv6 \u8fd0\u884c\u5c1a\u9700\u672c\u673a\u9a8c\u8bc1\uff0cIPv6 \u5206\u7247\u53ef\u80fd\u76f4\u8fde\u3002",
+          "\u4ee3\u7406\u5f15\u64ce\u505c\u6b62\u6216\u6545\u969c\u540e\u53ef\u80fd\u6062\u590d\u76f4\u8fde\uff1bWindows \u6a21\u5f0f\u4e0d\u63d0\u4f9b\u4e25\u683c\u9694\u79bb\u3002"
+        ],
+        "error": null,
+        "global_active": false,
+        "container_count": 0,
+        "namespace_count": 0,
+        "namespace_ready": true,
+        "cleanup_pending": false
+      }
+    }
+  },
+  "error": {
+    "error_type": "ProxyError",
+    "message": "cannot create 'winreg.PyHKEY' instances",
+    "frames": [
+      {
+        "file": "windows_compartment_product_probe.py",
+        "line": 439,
+        "function": "ordinary"
+      },
+      {
+        "file": "windows_compartment.py",
+        "line": 816,
+        "function": "start_namespaced"
+      },
+      {
+        "file": "windows_proxy_runtime.py",
+        "line": 90,
+        "function": "namespace_revoke"
+      },
+      {
+        "file": "windows_proxy_client.py",
+        "line": 131,
+        "function": "request"
+      }
+    ]
+  },
+  "complete": true,
+  "controlled_chain_checks_passed": false,
+  "external_https_verified": false
+}

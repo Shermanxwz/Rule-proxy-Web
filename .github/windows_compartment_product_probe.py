@@ -11,6 +11,7 @@ The companion fixture and interactive-user helper must accompany this file.
 from __future__ import annotations
 
 import argparse
+import base64
 import ctypes
 import hashlib
 import json
@@ -601,8 +602,8 @@ def temporary_debug_privilege(native):
     return restore
 
 
-def kill_verified_service(root):
-    """Keep an exact handle and verify its SYSTEM identity/image before faulting."""
+def open_verified_service(root, *, terminate=False):
+    """Retain the installed service's exact process; restore privilege promptly."""
     from ruleproxy.windows_proxy_service import ServiceControl
     from ruleproxy.windows_proxy_policy import SERVICE_NAME
     from windows_product_interactive_user import WindowsAPI
@@ -617,7 +618,7 @@ def kill_verified_service(root):
     handle = None
     restore = temporary_debug_privilege(native)
     try:
-        handle = kernel.OpenProcess(0x100000 | 0x1000 | 1, False, before["pid"])
+        handle = kernel.OpenProcess(0x100000 | 0x1000 | (1 if terminate else 0), False, before["pid"])
         native.checked(handle)
         token = native.process_token(handle)
         try:
@@ -630,15 +631,96 @@ def kill_verified_service(root):
         if (actual["sid"] != "S-1-5-18" or os.path.normcase(image.value) != os.path.normcase(str(expected))
                 or control.status(SERVICE_NAME)["pid"] != before["pid"] or native.wait(handle, 0) != 258):
             raise PermissionError("SCM service process identity changed or did not match the installation")
-        native.terminate(handle)
-        if native.wait(handle, 5000) != 0:
-            raise TimeoutError("verified service did not terminate")
-        return {"injected": True, "kind": "verified_system_service_handle_termination", "pid": before["pid"],
-                "process_sid": actual["sid"], "exit_code": native.exit_code(handle), "time_ns": time.monotonic_ns()}
+        restore_now, restore = restore, None
+        restore_now()
+        result = native, control, handle, before["pid"]
+        handle = None
+        return result
     finally:
         if handle:
             native.close(handle)
-        restore()
+        if restore is not None:
+            restore()
+
+
+def service_state(witness):
+    from ruleproxy.windows_proxy_policy import SERVICE_NAME
+    native, control, handle, pid = witness
+    result = {"pid": pid, "alive": native.wait(handle, 0) == 258,
+              "time_ns": time.monotonic_ns(), "scm": control.status(SERVICE_NAME)}
+    if not result["alive"]:
+        code = native.exit_code(handle)
+        result.update(exit_code=code, exit_code_hex=f"0x{code:08X}")
+    return result
+
+
+def service_diagnostics(root, metadata, pid, started):
+    """Read only fixed product records and exact-process crash event fields."""
+    result = {}
+    log = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "RuleProxy-Web/service.log"
+    if log.is_file():
+        result["service_log_sha256"] = digest(log)
+        with log.open("rb") as stream:
+            stream.seek(max(0, log.stat().st_size - 256 * 1024))
+            lines = stream.read(256 * 1024).decode("ascii", "replace").splitlines()
+        records = []
+        for line in lines[-32:]:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(record, dict):
+                records.append(record)
+        result["service_log_records"] = records
+    directory = metadata.get("namespace_state_dir")
+    if isinstance(directory, str):
+        journal = Path(directory) / "compartments.json"
+        value = read_json(journal)
+        if value is not None:
+            result["namespace_journal"] = value
+            result["namespace_journal_sha256"] = digest(journal)
+    if type(pid) is int and pid > 0:
+        # Event 1000 uses the exact faulting image and PID. Do not export broad
+        # Application logs, WER dumps, message text or command-line information.
+        image = str(root / "python/python.exe").replace("'", "''")
+        command = (
+            "$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.UTF8Encoding]::new();"
+            f"$start=[DateTimeOffset]::FromUnixTimeSeconds({int(started)}).LocalDateTime;"
+            "$events=@(Get-WinEvent -FilterHashtable @{LogName='Application';Id=1000;StartTime=$start} "
+            "-MaxEvents 50 -ErrorAction SilentlyContinue);$rows=@();foreach($e in $events){"
+            "$x=[xml]$e.ToXml();$d=@{};foreach($v in $x.Event.EventData.Data){$d[$v.Name]=[string]$v.'#text'};"
+            f"if($d.AppPath -ine '{image}'){{continue}};"
+            "$n=0;try{if($d.ProcessId -match '^0x'){$n=[Convert]::ToInt64($d.ProcessId.Substring(2),16)}"
+            "else{$n=[int64]$d.ProcessId}}catch{continue};"
+            f"if($n -ne {pid}){{continue}};"
+            "$r=@{time_utc=$e.TimeCreated.ToUniversalTime().ToString('o');event_id=$e.Id};"
+            "foreach($k in @('AppName','AppVersion','ModuleName','ModuleVersion','ExceptionCode',"
+            "'FaultingOffset','ProcessId','AppPath','ModulePath','ReportId')){if($d.ContainsKey($k)){$r[$k]=$d[$k]}};"
+            "$rows+=$r};ConvertTo-Json -InputObject @($rows | Select-Object -First 5) -Compress -Depth 5")
+        encoded = base64.b64encode(command.encode("utf-16-le")).decode("ascii")
+        powershell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+        execution = subprocess.run([str(powershell), "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+                                   capture_output=True, timeout=15)
+        result["crash_event_query_exit_code"] = execution.returncode
+        if len(execution.stdout) <= 65536:
+            try:
+                result["exact_process_crash_events"] = json.loads(execution.stdout.decode("utf-8-sig"))
+            except ValueError:
+                result["crash_event_json_invalid"] = True
+    return result
+
+
+def kill_verified_service(root):
+    """Keep an exact handle and verify its SYSTEM identity/image before faulting."""
+    native, control, handle, pid = open_verified_service(root, terminate=True)
+    try:
+        native.terminate(handle)
+        if native.wait(handle, 5000) != 0:
+            raise TimeoutError("verified service did not terminate")
+        return {"injected": True, "kind": "verified_system_service_handle_termination", "pid": pid,
+                "process_sid": "S-1-5-18", "exit_code": native.exit_code(handle), "time_ns": time.monotonic_ns()}
+    finally:
+        native.close(handle)
 
 
 def restart_service():
@@ -807,13 +889,16 @@ def driver(args):
               "controller_identity": caller,
               "tls_trust": "explicit fixture CA file; no system certificate-store changes",
               "dns_packet_evidence": False, "browser_sandbox_qualification": False}
-    process, fault, lifetime_api, lifetime_job = None, None, None, None
+    process, fault, lifetime_api, lifetime_job, witness = None, None, None, None, None
+    started = time.time()
     service_fault_attempted = False
     try:
         if not (report["source_identity"]["deployment_inventory_matches"] and
                 report["source_identity"]["package_inventory_matches"] and
                 all(report["source_identity"]["source_matches_bundle"].values())):
             raise RuntimeError("source, installed files and package/deployment inventories do not match")
+        witness = open_verified_service(args.root)
+        report["service_at_start"] = service_state(witness)
         command = [str(args.root / "python/python.exe"), "-I", "-S", "-B", str(scripts / Path(__file__).name),
                    "--role", "ordinary", "--root", str(args.root), "--output", str(args.output), "--nonce", nonce]
         process, lifetime_api, lifetime_job = launch_owned_owner(
@@ -843,6 +928,14 @@ def driver(args):
                 action()
             except BaseException as exc:
                 report.setdefault("cleanup_errors", []).append({"operation": label, "error": failure(exc)})
+        if witness is not None:
+            try:
+                report["service_before_cleanup"] = service_state(witness)
+                report["service_diagnostics"] = service_diagnostics(args.root, metadata, witness[3], started)
+            except BaseException as exc:
+                report["service_diagnostics_error"] = failure(exc)
+            finally:
+                cleanup("close_service_witness", lambda: witness[0].close(witness[2]))
         if process is not None:
             def stop_launcher():
                 if process.poll() is None:
