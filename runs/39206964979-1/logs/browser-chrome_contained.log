@@ -1,0 +1,4 @@
+[6044:5740:1019/055952.424:WARNING:net\dns\dns_config_service_win.cc:609] Failed to read DnsConfig.
+[6044:7540:1019/055952.436:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:241] No machine level policy manager exists.
+<!DOCTYPE html>
+<html><head><title>RuleProxy fixture</title></head><body>RuleProxyFixture:c0c772e397f557e628e71221:chrome_contained</body></html>

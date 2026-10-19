@@ -1,0 +1,253 @@
+{
+  "absence_proven": false,
+  "captures": [
+    {
+      "blocks": 93,
+      "bytes": 14052,
+      "first_packet_unix_ns": 1792389788719297000,
+      "interfaces": 1,
+      "last_packet_unix_ns": 1792389831479444000,
+      "records": 90,
+      "reported_drop_count": 0,
+      "sections": 1,
+      "sha256": "27a17e545f47416df1a7d0bfa4a32d1c5aa0b2d18a95c1dc8e6ccd71f23a3482",
+      "unknown_blocks": 0
+    },
+    {
+      "blocks": 3,
+      "bytes": 188,
+      "first_packet_unix_ns": null,
+      "interfaces": 1,
+      "last_packet_unix_ns": null,
+      "records": 0,
+      "reported_drop_count": 0,
+      "sections": 1,
+      "sha256": "2816db63d3aaeb542c4e2ac4e0be80109e6a79a1c8acf32785cf5f1ea20abb4d",
+      "unknown_blocks": 0
+    }
+  ],
+  "coverage": {
+    "all_rotations_converted_and_parsed": true,
+    "capture_start_confirmed_unix_ns": 1792389774368120000,
+    "etl_loss_counters_after_flush": {
+      "events_lost": 0,
+      "log_buffers_lost": 0,
+      "realtime_buffers_lost": 0
+    },
+    "etl_loss_counters_zero_through_flush": true,
+    "loss_after_last_query": "unknown",
+    "multi_file_non_circular_confirmed": true,
+    "no_capture_loss_proven": false,
+    "pktmon_stop_confirmed": true,
+    "prestop_flush_started_unix_ns": 1792389831524489700,
+    "report_finished_unix_ns": 1792389829344843776,
+    "report_started_unix_ns": 1792389774646021632,
+    "report_window_bracketed": true
+  },
+  "errors": [],
+  "host_nic_identity_count": 2,
+  "network_delivery_proven": false,
+  "opaque_packets": {},
+  "parsed_all_capture_files": true,
+  "privacy_qualified": false,
+  "process_attribution_proven": false,
+  "queries": [
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "cc7cfca2e052eeba65bf718264343fdfb00ac55c8c04b03ae9c744026147003d"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "34fd1b65b4ed32498d7becdbc6a8b4bd03b9f3c2e5fb2f4ba011ee18a8fc9c75"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389789715888000,
+      "last_observed_unix_ns": 1792389789746800000,
+      "outbound_question_records": 4,
+      "qname_sha256": "9d4a7a8c9994c13cd0c5f5a9539c54d12d937449bd534b710b2601693f8a7298"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389801151101000,
+      "last_observed_unix_ns": 1792389801194490000,
+      "outbound_question_records": 4,
+      "qname_sha256": "1ac412d1de198244c12a730c614489747da7fa0b291ab643cbd83ece198cab44"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "a7701d5308cf47147ce9c03f1b26316100e55785625c87ccfc7c993c651cede2"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "2d3f21a853aba54dac2cb038be5d6e13a229c8b4bf853368ace4e1e7d039f9e8"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389799650079000,
+      "last_observed_unix_ns": 1792389799681641000,
+      "outbound_question_records": 4,
+      "qname_sha256": "3513b6aebaa574592054cf06b4b935b98ac152a1dc3ac7b19203dda5f6ce75b0"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389788719297000,
+      "last_observed_unix_ns": 1792389788763443000,
+      "outbound_question_records": 4,
+      "qname_sha256": "acccb06eae280a284b76ef8d71e44c952c03485f94de99130bf97ca13af14824"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "fd728555e56ae97b86036154a4cd261b90ef51fa48ca8480a7d2509a387dd0db"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389800521495000,
+      "last_observed_unix_ns": 1792389800560113000,
+      "outbound_question_records": 4,
+      "qname_sha256": "09929f3f7507870f567fb2394a5c0b415ceb5007547d2c981355a6efb2c0a294"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "6d82d37685cf3eee662b7314b85c81b220ee4a988362f5a2b1df49553f9c3106"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "993ddfc2070d4fb85021e8fa6b135bf653f0635cb1336abd4dbb8d4806d963fc"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "1ba5c1f053e29ca55a09512be58c6fec19302f1652d717d20ff13e2a75816b78"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389798841422000,
+      "last_observed_unix_ns": 1792389798880349000,
+      "outbound_question_records": 4,
+      "qname_sha256": "7f76b01f66c1c83a74221dc1d9c0053f39298f9315d7c92f4e09c87bd8c2aab3"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "bbafa6e4fafce7b52124bc69a19880cb5a30ae8a1d40fe793d9077220ab5cc1c"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "80b41c641cbff77f746ec0c781d6617579f64c2c339832b8edf9551dde3fccca"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "8c495ee5108ca6581d6e490b78449b7fc1defe38cf2f0ff03d172a403809c77e"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389791179712000,
+      "last_observed_unix_ns": 1792389791220113000,
+      "outbound_question_records": 4,
+      "qname_sha256": "3682c0b14eca95cd130ec64283c9e6b0fdc20e9771204b6ccc0cfbc5cb0d1ed2"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389790122583000,
+      "last_observed_unix_ns": 1792389790157935000,
+      "outbound_question_records": 4,
+      "qname_sha256": "597637ef72c02bb4864c4b9015611923267877dc8861eed29f55729f05a72aa7"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389800051591000,
+      "last_observed_unix_ns": 1792389800084727000,
+      "outbound_question_records": 4,
+      "qname_sha256": "62abfde498b0d499f9dd0bd0effc1d120c8fa1da4e702ba33f17bcca75dbe667"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389789245471000,
+      "last_observed_unix_ns": 1792389789286219000,
+      "outbound_question_records": 4,
+      "qname_sha256": "4b356fd242aafd7b4ea6e761a09d566b9090878b2600c39cf4086b308d75e820"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389799254974000,
+      "last_observed_unix_ns": 1792389799293135000,
+      "outbound_question_records": 4,
+      "qname_sha256": "e7e386e157c537f25d9a7033cbfc572a23edd9f006dfa45ba4ba450fba8d7a3d"
+    },
+    {
+      "by_query_type": {
+        "1": 4
+      },
+      "first_observed_unix_ns": 1792389790519790000,
+      "last_observed_unix_ns": 1792389790554122000,
+      "outbound_question_records": 4,
+      "qname_sha256": "5cb6f22c3669d7ceaf81e45cd0178ce7ad2972b4b2ad19b9c88348feb17e754e"
+    },
+    {
+      "by_query_type": {},
+      "first_observed_unix_ns": null,
+      "last_observed_unix_ns": null,
+      "outbound_question_records": 0,
+      "qname_sha256": "deaecbffb9cf1bda163991d1fb3420c6789fbe64a8f0d5b38503666d7f9ae369"
+    }
+  ],
+  "raw_capture_removed": true,
+  "report_sha256": "db0b36e3f8cd199940c05a8b86fbccd7f409b4969867a8fd3d1af60810370fac",
+  "schema_version": 1,
+  "scope": "positive_outbound_udp_dns_observations_only",
+  "status": "observed"
+}
