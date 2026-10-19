@@ -305,6 +305,7 @@ class ServiceDiagnosticTests(unittest.TestCase):
         broker.panel = mock.Mock()
         broker.panel.alive.return_value = False
         broker.core = mock.Mock()
+        broker.engine_owned = True
         broker.control.set_running.side_effect = OSError(5, "private")
         with mock.patch.object(service, "_log_service_error") as log:
             broker.check_lease()

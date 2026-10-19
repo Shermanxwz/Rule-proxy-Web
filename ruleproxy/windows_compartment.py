@@ -249,8 +249,13 @@ class _Relay:
     BUFFER_LIMIT = 262144
     _global_slots = threading.BoundedSemaphore(256)
 
-    def __init__(self, api, cid, proxy_port, upstream_port=None):
+    def __init__(self, api, cid, proxy_port, upstream_port=None, *, expected_core_pid,
+                 core_alive, peer_verifier=None):
+        if type(expected_core_pid) is not int or not 1 <= expected_core_pid <= 0xFFFFFFFF or not callable(core_alive):
+            raise ProxyError("invalid_process", "代理中继必须绑定持有的 Mihomo 进程。")
         self.api, self.cid, self.proxy_port = api, cid, proxy_port
+        self.expected_core_pid, self.core_alive = expected_core_pid, core_alive
+        self._peer_verifier = peer_verifier or self._peer_owned
         # The engine listens on the same port number in the default compartment;
         # tests point the upstream at a distinct port on single-compartment hosts.
         self.upstream_port = upstream_port if upstream_port is not None else proxy_port
@@ -270,7 +275,14 @@ class _Relay:
             if self._listener is not None or self.stopping.is_set():
                 raise ProxyError("namespace_failed", "代理中继不能重复启动。")
             self._listener = threading.Thread(target=self._listen, name="ruleproxy-ns-listen", daemon=True)
-            self._listener.start()
+            try:
+                self._listener.start()
+            except BaseException:
+                # An unstarted Thread cannot be joined. Retain a sealed relay
+                # that NamespaceGate can stop again while unwinding the Job.
+                self._listener = None
+                self.stopping.set()
+                raise
         if not self.ready.wait(10) or not self.bound or self.stopping.is_set():
             self.stop()
             raise ProxyError("namespace_failed", "网络隔间内未能建立代理监听。")
@@ -325,6 +337,15 @@ class _Relay:
                     raise OSError("proxy connection closed while writing")
                 del pending[sock][:sent]
 
+    @staticmethod
+    def _peer_owned(upstream, expected_pid):
+        from .windows_proxy_service import _tcp_connections
+        local, remote = upstream.getsockname(), upstream.getpeername()
+        return any(row["state"] == 5 and row["pid"] == expected_pid
+                   and row["local"] == remote[0] and row["local_port"] == remote[1]
+                   and row["remote"] == local[0] and row["remote_port"] == local[1]
+                   for row in _tcp_connections(socket.AF_INET))
+
     def _forward(self, accepted):
         upstream = None
         try:
@@ -334,8 +355,15 @@ class _Relay:
                 return
             upstream.settimeout(5)
             upstream.connect(("127.0.0.1", self.upstream_port))
+            # Authenticate the established peer before reading or forwarding
+            # proxy bytes. A LISTEN check before connect would permit a port
+            # replacement race after the held Mihomo process exits.
+            if (not self.core_alive()
+                    or self._peer_verifier(upstream, self.expected_core_pid) is not True
+                    or not self.core_alive()):
+                raise ProxyError("invalid_proxy_owner", "代理连接不属于持有的 Mihomo 进程，未转发数据。")
             self._pump(accepted, upstream)
-        except (OSError, ValueError) as exc:
+        except Exception as exc:
             if not self.stopping.is_set():
                 self.errors.append(str(exc)[:160])
         finally:
@@ -670,13 +698,16 @@ class NamespaceGate:
                 record["phase"] = "dirty"
                 raise
 
-    def allow(self, name: str, proxy_port: int, job_pid: int, job_handle: int) -> dict:
+    def allow(self, name: str, proxy_port: int, job_pid: int, job_handle: int, *,
+              core_pid: int, core_alive) -> dict:
         _check_name(name)
         port = _check_port(proxy_port)
         if type(job_pid) is not int or not 1 <= job_pid <= 0xFFFFFFFF:
             raise ProxyError("invalid_request", "面板进程标识无效。")
         if type(job_handle) is not int or not 1 <= job_handle <= 0xFFFFFFFFFFFFFFFF:
             raise ProxyError("invalid_request", "Job 句柄无效。")
+        if type(core_pid) is not int or not 1 <= core_pid <= 0xFFFFFFFF or not callable(core_alive) or not core_alive():
+            raise ProxyError("invalid_process", "网络隔间必须使用持有的 Mihomo 进程。")
         with self.lock:
             self._load()
             api = self.api()
@@ -706,7 +737,7 @@ class NamespaceGate:
             try:
                 job = api.bind_job(job_pid, job_handle, cid)
                 record["job"] = job
-                relay = self._relay_factory(api, cid, port)
+                relay = self._relay_factory(api, cid, port, expected_core_pid=core_pid, core_alive=core_alive)
                 record["relay"] = relay
                 relay.start()
             except BaseException:

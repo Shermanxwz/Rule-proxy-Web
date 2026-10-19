@@ -597,7 +597,8 @@ class Manager:
                           "profile_preparing": app["id"] in self._profile_preparing}
                 if sys.platform == "win32" or self.capture_mode == 'global':
                     record["routed"] = running and (self.capture_mode == 'global' or
-                                                    (app["enabled"] and bool(self._windows_paths)))
+                        (alive and not pending if app.get("windows_container") else
+                         app["enabled"] and bool(self._windows_paths)))
                 apps.append(record)
             compiled = self.compiled
             return {
@@ -888,16 +889,9 @@ class Manager:
             if ident in self.active and self.active[ident][0].poll() is None:
                 raise ValueError("请先关闭此工具启动的应用，再切换隔离方式。")
             validate_app({**app, "windows_container": windows_container}, check_exists=False)
-            old = dict(app)
+            previous = copy.deepcopy(self.settings["apps"])
             app["windows_container"] = windows_container
-            try:
-                self._sync_windows_policy()
-                self._save()
-            except BaseException:
-                app.clear()
-                app.update(old)
-                self._sync_windows_policy()
-                raise
+            self._save_app_changes(previous)
 
     def create_shortcuts(self, ident):
         """Write launcher files that start this app headlessly; returns their paths."""
@@ -971,7 +965,7 @@ class Manager:
             self.active[ident] = (process, resource)
             self.error = ""
             detail = ('全局系统代理已启用；应用同时继承本机代理设置。' if global_mode else
-                      '强隔离（网络隔间）已启用：应用及其子进程只能经本机代理联网，代理停止即断网。'
+                      '独立网络实验已启用；DNS 防泄漏尚未通过验收。'
                       if sys.platform == 'win32' and app.get('windows_container') else
                       '程序及辅助路径代理已启用；支持原生代理的应用同时使用本机代理。' if sys.platform == 'win32' else
                       '仅此隔离实例受保护。不支持的流量阻断，不会直连。')

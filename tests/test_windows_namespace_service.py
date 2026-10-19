@@ -9,6 +9,7 @@ from unittest import mock
 from ruleproxy import windows_proxy_policy as policy
 from ruleproxy import windows_proxy_service as service
 from ruleproxy.manager import Manager
+from ruleproxy.windows_proxy_runtime import Runtime
 from tests.test_windows_proxy_service import Control, Lease
 
 
@@ -110,6 +111,17 @@ class NamespaceServiceTests(unittest.TestCase):
             with self.subTest(key=key, value=value), self.assertRaises(policy.ProxyError):
                 policy.decode_request(json.dumps({**base, key: value}).encode())
 
+    def test_runtime_reports_namespace_readiness_without_claiming_qualification(self):
+        runtime = Runtime(self.root)
+        client = mock.Mock()
+        client.request.return_value = {"state": "running", "generation": 1, "namespace_ready": True}
+        with mock.patch.object(runtime, "_connect", return_value=client):
+            result = runtime.probe()
+        self.assertTrue(result["supported"])
+        self.assertFalse(result["strict_isolation"])
+        self.assertEqual(result["mode"], "isolated_application")
+        self.assertEqual(result["limitations"], policy.NAMESPACE_LIMITATIONS)
+
 
 class NamespaceSelectionTests(unittest.TestCase):
     def test_isolated_image_is_excluded_from_path_policy(self):
@@ -128,7 +140,19 @@ class NamespaceSelectionTests(unittest.TestCase):
                     manager._sync_windows_policy()
                 manager._windows_backend.namespace_prepare.assert_called_once_with(manager.mixed_port, 102)
                 manager._windows_backend.apply.assert_not_called()
+                # Another path policy must not mark an unlaunched namespace
+                # instance as routed. Its own running Job is the prerequisite.
+                manager._windows_paths = [r"C:\Apps\compat.exe"]
+                with mock.patch.object(manager, "available_apps", return_value=([], False)), \
+                        mock.patch.object(manager, "files_dir", return_value=None), \
+                        mock.patch.object(manager, "protection", return_value={"supported": True}), \
+                        mock.patch.object(manager, "autostart_status", return_value="off"), \
+                        mock.patch("ruleproxy.manager.sys.platform", "win32"):
+                    self.assertFalse(manager.state()["apps"][0]["routed"])
+                    manager.active["isolated"] = (mock.Mock(pid=200, poll=mock.Mock(return_value=None)), None)
+                    self.assertTrue(manager.state()["apps"][0]["routed"])
             finally:
+                manager.active.clear()
                 manager.core = None
                 manager.close()
 

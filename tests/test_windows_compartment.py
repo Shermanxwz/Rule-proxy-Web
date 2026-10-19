@@ -77,8 +77,9 @@ class FakeCompartmentAPI:
 class FakeRelay:
     instances = []
 
-    def __init__(self, api, cid, proxy_port, upstream_port=None):
+    def __init__(self, api, cid, proxy_port, upstream_port=None, *, expected_core_pid, core_alive):
         self.api, self.cid, self.proxy_port = api, cid, proxy_port
+        self.expected_core_pid, self.core_alive = expected_core_pid, core_alive
         self.started = self.stopped = 0
         self.start_error = None
         FakeRelay.instances.append(self)
@@ -112,6 +113,14 @@ class GateTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.metadata = {**META, "namespace_state_dir": directory.name, "namespace_backend_version": 1}
+        # These journal/Job tests inject the native API and run as an ordinary
+        # Windows CI user. The SYSTEM-only directory ACL is tested separately.
+        protection = mock.patch.object(service, "protected_path")
+        protection.start()
+        self.addCleanup(protection.stop)
+
+    def allow(self, gate, *args):
+        return gate.allow(*args, core_pid=4322, core_alive=lambda: True)
 
     def gate(self, **kwargs):
         api = FakeCompartmentAPI(**kwargs)
@@ -120,18 +129,20 @@ class GateTests(unittest.TestCase):
 
     def test_allow_creates_binds_and_opens_the_only_relay(self):
         gate, api = self.gate()
-        result = gate.allow(NAME, 7890, 4321, 555)
+        result = self.allow(gate, NAME, 7890, 4321, 555)
         self.assertEqual(result, {"container": NAME, "compartment_id": 2, "proxy_port": 7890, "active": True})
         self.assertEqual([c[0] for c in api.calls], ["create", "bind_job"])
         self.assertEqual(api.calls[1], ("bind_job", 4321, 555, 2))
         relay = FakeRelay.instances[-1]
+        self.assertEqual(relay.expected_core_pid, 4322)
+        self.assertTrue(relay.core_alive())
         self.assertEqual((relay.cid, relay.proxy_port, relay.started), (2, 7890, 1))
 
     def test_restart_reuses_the_same_compartment_and_replaces_job_and_relay(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         first_relay = FakeRelay.instances[-1]
-        gate.allow(NAME, 7890, 4321, 777)
+        self.allow(gate, NAME, 7890, 4321, 777)
         # Only one compartment ever created for this app; the prior relay stopped
         # and the prior Job handle closed before the new bind.
         self.assertEqual([c for c in api.calls if c[0] == "create"], [("create", 2)])
@@ -141,15 +152,15 @@ class GateTests(unittest.TestCase):
 
     def test_distinct_apps_get_distinct_compartments(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         other = ns.namespace_name("app-2")
-        gate.allow(other, 7890, 4321, 556)
+        self.allow(gate, other, 7890, 4321, 556)
         self.assertEqual([c for c in api.calls if c[0] == "create"], [("create", 2), ("create", 3)])
 
     def test_bind_failure_opens_no_relay_and_leaks_no_handle(self):
         gate, api = self.gate(bind_error=policy.ProxyError("namespace_failed", "bind denied"))
         with self.assertRaises(policy.ProxyError):
-            gate.allow(NAME, 7890, 4321, 555)
+            self.allow(gate, NAME, 7890, 4321, 555)
         self.assertEqual(FakeRelay.instances, [])
         self.assertNotIn("close", [c[0] for c in api.calls])
         self.assertFalse(gate.active[NAME]["open"])
@@ -162,13 +173,13 @@ class GateTests(unittest.TestCase):
             raise OSError("listen failed")
         with mock.patch.object(FakeRelay, "start", boom):
             with self.assertRaises(OSError):
-                gate.allow(NAME, 7890, 4321, 555)
+                self.allow(gate, NAME, 7890, 4321, 555)
         self.assertIn(("close", ("job", 4321, 555, 2)), api.calls)
         self.assertFalse(gate.active[NAME]["open"])
 
     def test_revoke_stops_relay_closes_job_and_keeps_compartment(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         relay = FakeRelay.instances[-1]
         result = gate.revoke(NAME)
         self.assertEqual(result, {"container": NAME, "active": False})
@@ -178,7 +189,7 @@ class GateTests(unittest.TestCase):
         self.assertEqual(gate.active[NAME]["cid"], 2)
         self.assertFalse(gate.active[NAME]["open"])
         # A second allow reuses it without creating another compartment.
-        gate.allow(NAME, 7890, 4321, 558)
+        self.allow(gate, NAME, 7890, 4321, 558)
         self.assertEqual([c for c in api.calls if c[0] == "create"], [("create", 2)])
 
     def test_revoke_unknown_name_is_a_safe_no_op(self):
@@ -188,9 +199,9 @@ class GateTests(unittest.TestCase):
 
     def test_purge_seals_everything_and_reports_inactive(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         other = ns.namespace_name("app-2")
-        gate.allow(other, 7890, 4321, 556)
+        self.allow(gate, other, 7890, 4321, 556)
         result = gate.purge()
         self.assertEqual(result, {"active": False, "purged": sorted([NAME, other])})
         self.assertEqual(set(gate.active), {NAME, other})
@@ -200,42 +211,42 @@ class GateTests(unittest.TestCase):
 
     def test_clean_compartment_reused_after_service_reconstruction(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         gate.purge()
         recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=BOOT_ID)
-        recovered.allow(NAME, 7890, 4321, 556)
+        self.allow(recovered, NAME, 7890, 4321, 556)
         self.assertEqual([c for c in api.calls if c[0] == "create"], [("create", 2)])
 
     def test_crashed_open_compartment_cannot_be_reopened(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=BOOT_ID)
         recovered.purge()
         before = len(FakeRelay.instances)
         with self.assertRaises(policy.ProxyError) as caught:
-            recovered.allow(NAME, 7890, 4321, 556)
+            self.allow(recovered, NAME, 7890, 4321, 556)
         self.assertEqual(caught.exception.code, "namespace_reboot_required")
         self.assertEqual(len(FakeRelay.instances), before)
 
     def test_unconfirmed_job_termination_keeps_dirty_journal_and_no_replacement(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         with mock.patch.object(api, "terminate_job", side_effect=OSError("still running")):
             with self.assertRaises(OSError):
-                gate.allow(NAME, 7890, 4321, 556)
+                self.allow(gate, NAME, 7890, 4321, 556)
         saved = json.loads(gate.path.read_text())
         self.assertEqual(saved["compartments"][NAME]["phase"], "dirty")
         self.assertEqual(len(FakeRelay.instances), 1)
 
     def test_new_boot_resets_quota_only_when_old_compartments_are_gone(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         next_boot = str(uuid.uuid4())
         recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=next_boot)
         with self.assertRaises(policy.ProxyError):
-            recovered.allow(NAME, 7890, 4321, 556)
+            self.allow(recovered, NAME, 7890, 4321, 556)
         api.rows.clear()
-        recovered.allow(NAME, 7890, 4321, 556)
+        self.allow(recovered, NAME, 7890, 4321, 556)
         self.assertEqual(recovered.active[NAME]["cid"], 3)
 
     def test_quota_retains_stopped_app_records(self):
@@ -243,10 +254,10 @@ class GateTests(unittest.TestCase):
         gate.MAX_COMPARTMENTS = 2
         for i in range(2):
             name = ns.namespace_name(str(i))
-            gate.allow(name, 7890, 4321, 555 + i)
+            self.allow(gate, name, 7890, 4321, 555 + i)
             gate.revoke(name)
         with self.assertRaises(policy.ProxyError) as caught:
-            gate.allow(NAME, 7890, 4321, 558)
+            self.allow(gate, NAME, 7890, 4321, 558)
         self.assertEqual(caught.exception.code, "namespace_quota")
         self.assertEqual(len(api.rows), 2)
 
@@ -256,7 +267,7 @@ class GateTests(unittest.TestCase):
                 gate, api = self.gate()
                 # Each subtest starts with a fresh protected journal.
                 gate.path.unlink(missing_ok=True)
-                gate.allow(NAME, 7890, 4321, 555)
+                self.allow(gate, NAME, 7890, 4321, 555)
                 gate.revoke(NAME)
                 if change == "guid":
                     api.rows[2]["CompartmentGuid"] = str(uuid.uuid4())
@@ -270,22 +281,22 @@ class GateTests(unittest.TestCase):
                         observation["interfaces"].append({"InterfaceIndex": 25})
                     api.inspect = lambda cid=None: observation
                 with self.assertRaises(policy.ProxyError):
-                    gate.allow(NAME, 7890, 4321, 556)
+                    self.allow(gate, NAME, 7890, 4321, 556)
 
     def test_incomplete_creation_is_recovered_by_recorded_guid(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         gate.revoke(NAME)
         saved = json.loads(gate.path.read_text())
         saved["compartments"][NAME].update(cid=None, phase="creating")
         gate.path.write_text(json.dumps(saved))
         recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=BOOT_ID)
-        recovered.allow(NAME, 7890, 4321, 556)
+        self.allow(recovered, NAME, 7890, 4321, 556)
         self.assertEqual(len(api.rows), 1)
 
     def test_lost_or_malformed_journal_does_not_allocate_more_compartments(self):
         gate, api = self.gate()
-        gate.allow(NAME, 7890, 4321, 555)
+        self.allow(gate, NAME, 7890, 4321, 555)
         gate.purge()
         for raw in (None, "{}", "[1]"):
             if raw is None:
@@ -294,14 +305,14 @@ class GateTests(unittest.TestCase):
                 gate.path.write_text(raw)
             recovered = ns.NamespaceGate(self.metadata, api=api, relay_factory=FakeRelay, boot_id=BOOT_ID)
             with self.assertRaises(policy.ProxyError):
-                recovered.allow(NAME, 7890, 4321, 556)
+                self.allow(recovered, NAME, 7890, 4321, 556)
             self.assertEqual(len(api.rows), 1)
 
     def test_journal_failure_before_binding_never_opens_network(self):
         gate, api = self.gate()
         with mock.patch.object(ns.os, "replace", side_effect=OSError("disk full")):
             with self.assertRaises(policy.ProxyError):
-                gate.allow(NAME, 7890, 4321, 555)
+                self.allow(gate, NAME, 7890, 4321, 555)
         self.assertEqual(api.calls, [])
         self.assertEqual(FakeRelay.instances, [])
 
@@ -309,7 +320,7 @@ class GateTests(unittest.TestCase):
         gate = ns.NamespaceGate(META, api=FakeCompartmentAPI(), boot_id=BOOT_ID)
         self.assertFalse(gate.purge()["active"])
         with self.assertRaises(policy.ProxyError) as caught:
-            gate.allow(NAME, 7890, 4321, 555)
+            self.allow(gate, NAME, 7890, 4321, 555)
         self.assertEqual(caught.exception.code, "setup_required")
 
     def test_invalid_arguments_raise_before_any_privileged_call(self):
@@ -318,8 +329,26 @@ class GateTests(unittest.TestCase):
                      ("RuleProxy.0123456789abcdef0123", 7890, 4321, 555),
                      (NAME, 7890, 4321, True), (NAME, True, 4321, 555)):
             with self.subTest(args=args), self.assertRaises(policy.ProxyError):
-                gate.allow(*args)
+                self.allow(gate, *args)
         self.assertEqual(api.calls, [])
+
+    def test_core_identity_is_required_before_any_privileged_call(self):
+        gate, api = self.gate()
+        for pid, alive in ((True, lambda: True), (0, lambda: True), (2**32, lambda: True),
+                           (4322, None), (4322, lambda: False)):
+            with self.subTest(pid=pid), self.assertRaises(ns.ProxyError):
+                gate.allow(NAME, 7890, 4321, 555, core_pid=pid, core_alive=alive)
+        self.assertEqual(api.calls, [])
+        self.assertEqual(FakeRelay.instances, [])
+
+    def test_unprotected_state_directory_refuses_native_allocation(self):
+        gate, api = self.gate()
+        with mock.patch.object(ns.os, "name", "nt"), \
+                mock.patch.object(service, "protected_path", side_effect=ns.ProxyError("unsafe_installation", "ACL")):
+            with self.assertRaisesRegex(ns.ProxyError, "ACL"):
+                self.allow(gate, NAME, 7890, 4321, 555)
+        self.assertEqual(api.calls, [])
+        self.assertEqual(FakeRelay.instances, [])
 
 
 def _free_port():
@@ -331,6 +360,12 @@ def _free_port():
 class RelayTests(unittest.TestCase):
     """The real relay on a single-compartment host: switches are stubbed, the
     upstream points at a distinct port, so forwarding is verified end to end."""
+
+    def make_relay(self, *args, **kwargs):
+        kwargs.setdefault("expected_core_pid", 4322)
+        kwargs.setdefault("core_alive", lambda: True)
+        kwargs.setdefault("peer_verifier", lambda sock, pid: True)
+        return ns._Relay(*args, **kwargs)
 
     def _echo_server(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -364,7 +399,7 @@ class RelayTests(unittest.TestCase):
         upstream = self._echo_server()
         listen = _free_port()
         api = self._api(2)
-        relay = ns._Relay(api, 2, listen, upstream_port=upstream)
+        relay = self.make_relay(api, 2, listen, upstream_port=upstream)
         bound = relay.start()
         self.addCleanup(relay.stop)
         self.assertIn("127.0.0.1", bound)
@@ -400,10 +435,24 @@ class RelayTests(unittest.TestCase):
         port = busy.getsockname()[1]
         api = self._api(2)
         # The advertised endpoint is IPv4; an IPv6-only bind is not success.
-        relay = ns._Relay(api, 2, port, upstream_port=port)
+        relay = self.make_relay(api, 2, port, upstream_port=port)
         with self.assertRaises(ns.ProxyError):
             relay.start()
         self.assertEqual(relay.listeners, [])
+
+    def test_listener_thread_start_failure_leaves_an_idempotently_sealed_relay(self):
+        relay = self.make_relay(self._api(2), 2, _free_port())
+        with mock.patch.object(threading.Thread, "start", side_effect=RuntimeError("thread quota exhausted")):
+            with self.assertRaisesRegex(RuntimeError, "quota"):
+                relay.start()
+        relay.stop()
+        relay.stop()
+        self.assertIsNone(relay._listener)
+        self.assertTrue(relay.stopping.is_set())
+        self.assertEqual(relay.listeners, [])
+        self.assertEqual(relay.connections, set())
+        with self.assertRaises(ns.ProxyError):
+            relay.start()
 
     def _one_connection_server(self, handler):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -428,7 +477,7 @@ class RelayTests(unittest.TestCase):
         return server.getsockname()[1], thread, errors
 
     def _relay(self, upstream):
-        relay = ns._Relay(self._api(2), 2, _free_port(), upstream_port=upstream)
+        relay = self.make_relay(self._api(2), 2, _free_port(), upstream_port=upstream)
         relay.start()
         self.addCleanup(relay.stop)
         return relay
@@ -527,7 +576,7 @@ class RelayTests(unittest.TestCase):
 
     def test_stop_during_bind_cannot_publish_a_late_listener(self):
         entered = threading.Event()
-        relay = ns._Relay(self._api(2), 2, _free_port(), upstream_port=12345)
+        relay = self.make_relay(self._api(2), 2, _free_port(), upstream_port=12345)
         real_socket = socket.socket
         class LateBind(real_socket):
             def bind(self, address):
@@ -561,6 +610,76 @@ class RelayTests(unittest.TestCase):
         relay.stop()
         self.assertTrue(any("switch failed" in error for error in relay.errors))
 
+    def test_peer_identity_requires_the_exact_established_server_tuple(self):
+        upstream = mock.Mock()
+        upstream.getsockname.return_value = ("127.0.0.1", 50001)
+        upstream.getpeername.return_value = ("127.0.0.1", 7890)
+        owned = {"state": 5, "pid": 4322, "local": "127.0.0.1", "local_port": 7890,
+                 "remote": "127.0.0.1", "remote_port": 50001}
+        with mock.patch.object(service, "_tcp_connections", return_value=[owned]) as snapshot:
+            self.assertTrue(ns._Relay._peer_owned(upstream, 4322))
+            snapshot.assert_called_once_with(socket.AF_INET)
+        for key, wrong in (("pid", 999), ("state", 2), ("local", "127.0.0.2"), ("local_port", 7891),
+                           ("remote", "127.0.0.2"), ("remote_port", 50002)):
+            with self.subTest(key=key), mock.patch.object(service, "_tcp_connections", return_value=[{**owned, key: wrong}]):
+                self.assertFalse(ns._Relay._peer_owned(upstream, 4322))
+
+    def test_rejected_peer_never_receives_proxy_bytes(self):
+        for reason in ("foreign owner", "snapshot failed", "core exited", "core exited during snapshot"):
+            with self.subTest(reason=reason):
+                received = []
+                upstream, thread, errors = self._one_connection_server(lambda conn: received.append(conn.recv(100)))
+                alive = mock.Mock(return_value=True)
+                verifier = mock.Mock(return_value=True)
+                if reason == "foreign owner":
+                    verifier.return_value = False
+                elif reason == "snapshot failed":
+                    verifier.side_effect = ns.ProxyError("network_state_unavailable", "snapshot failed")
+                elif reason == "core exited":
+                    alive.return_value = False
+                else:
+                    alive.side_effect = [True, False]
+                relay = self.make_relay(self._api(2), 2, _free_port(), upstream_port=upstream,
+                    core_alive=alive, peer_verifier=verifier)
+                relay.start()
+                self.addCleanup(relay.stop)
+                with socket.create_connection(("127.0.0.1", relay.proxy_port), timeout=5) as client:
+                    client.sendall(b"CONNECT private.example:443 HTTP/1.1\r\n\r\n")
+                    try:
+                        self.assertEqual(client.recv(1), b"")
+                    except ConnectionResetError:
+                        pass
+                thread.join(5)
+                relay.stop()
+                self.assertFalse(thread.is_alive())
+                self.assertEqual(errors, [])
+                self.assertEqual(received, [b""])
+                self.assertTrue(relay.errors)
+
+    def test_verified_established_owner_can_receive_proxy_bytes(self):
+        expected = b"CONNECT allowed.example:443 HTTP/1.1\r\n\r\n"
+        received = []
+        def serve(conn):
+            received.append(conn.recv(100))
+            conn.sendall(b"OK")
+        upstream, thread, errors = self._one_connection_server(serve)
+        def verify(connected, pid):
+            local, remote = connected.getsockname(), connected.getpeername()
+            row = {"state": 5, "pid": 4322, "local": remote[0], "local_port": remote[1],
+                   "remote": local[0], "remote_port": local[1]}
+            with mock.patch.object(service, "_tcp_connections", return_value=[row]):
+                return ns._Relay._peer_owned(connected, pid)
+        relay = self.make_relay(self._api(2), 2, _free_port(), upstream_port=upstream, peer_verifier=verify)
+        relay.start()
+        self.addCleanup(relay.stop)
+        with socket.create_connection(("127.0.0.1", relay.proxy_port), timeout=5) as client:
+            client.sendall(expected)
+            self.assertEqual(client.recv(2), b"OK")
+        thread.join(5)
+        relay.stop()
+        self.assertEqual(received, [expected])
+        self.assertEqual(errors, [])
+
 
 class BrokerDispatchTests(unittest.TestCase):
     def broker(self):
@@ -587,7 +706,7 @@ class BrokerDispatchTests(unittest.TestCase):
         gate.allow.assert_not_called()
         broker.port = 7890
         self.assertEqual(broker.handle(request, 101, OWNER), {"active": True})
-        gate.allow.assert_called_once_with(NAME, 7890, 101, 555)
+        gate.allow.assert_called_once_with(NAME, 7890, 101, 555, core_pid=102, core_alive=mock.ANY)
         self.assertIn(NAME, broker.namespaces)
 
     def test_namespace_revoke_dispatches_and_forgets_the_name(self):

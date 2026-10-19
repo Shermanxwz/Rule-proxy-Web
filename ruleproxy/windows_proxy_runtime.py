@@ -6,7 +6,7 @@ from pathlib import Path
 import threading
 
 from .windows_proxy_client import Client, current_user_sid
-from .windows_proxy_policy import LIMITATIONS, ProxyError, build_policy
+from .windows_proxy_policy import LIMITATIONS, NAMESPACE_LIMITATIONS, ProxyError, build_policy
 from .windows_proxy_service import load_deployment
 
 
@@ -35,12 +35,15 @@ class Runtime:
                 status = self._connect().request("status")
                 self._generation = status["generation"]
                 available = status.get("state") in {"idle", "running"}
-                return {"supported": available, "backend": "ProxiFyre + Mihomo", "mode": "application_proxy",
+                namespaced = status.get("namespace_ready") is True
+                return {"supported": available, "backend": "Windows 网络隔间 + Mihomo" if namespaced else "ProxiFyre + Mihomo",
+                        "mode": "isolated_application" if namespaced else "application_proxy",
                         "strict_isolation": False, "state": status.get("state", "failed"),
-                        "detail": "Windows 应用路径代理可用。" if available else (
+                        "detail": ("Windows 独立网络实验可用；防泄漏尚未通过验收。" if namespaced else
+                                   "Windows 应用路径代理可用。") if available else (
                             "另一程序正在管理 ProxiFyre，请先停止该程序的代理。" if
                             status.get("state") == "external_conflict" else "Windows 代理后端异常，请停止后重试。"),
-                        "limitations": list(LIMITATIONS), "status": status}
+                        "limitations": list(NAMESPACE_LIMITATIONS if namespaced else LIMITATIONS), "status": status}
             except (OSError, ValueError, ProxyError) as exc:
                 return {"supported": False, "backend": "ProxiFyre + Mihomo", "mode": "application_proxy",
                         "strict_isolation": False, "code": getattr(exc, "code", "backend_unavailable"),

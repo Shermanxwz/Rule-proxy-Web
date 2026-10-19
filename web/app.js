@@ -139,7 +139,7 @@
 
       const appInfo = textElement('div', 'app-info');
       appInfo.append(textElement('strong', 'app-name', app.label || '未命名应用'));
-      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isGlobal() ? '全局代理中运行' : (isWindows() ? '代理中运行' : '隔离中运行')) : (app.routed ? (isGlobal() ? '全局接管已启用' : '路径代理已启用') : (app.enabled ? '待启动' : '未启用'))));
+      const statusText = app.profile_preparing ? '检查应用资料…' : (app.cleanup_pending ? '清理待完成' : (app.active ? (isGlobal() ? '全局代理中运行' : (isWindows() && !app.windows_container ? '代理中运行' : '隔离中运行')) : (app.routed ? (isGlobal() ? '全局接管已启用' : '路径代理已启用') : (app.enabled ? '待启动' : '未启用'))));
       const statusClass = (app.profile_preparing || app.cleanup_pending) ? 'is-pending' : (app.active ? 'is-active' : (app.enabled ? 'is-enabled' : ''));
       appInfo.append(textElement('span', `app-inline-status ${statusClass}`, statusText));
       const appPath = textElement('span', 'app-path', app.path || '未设置路径');
@@ -231,8 +231,8 @@
 
   function isolationOption(app) {
     const optionLabel = textElement('label', 'app-profile-option');
-    const label = '网络隔间（强隔离）';
-    optionLabel.title = '在 Windows 网络隔间中启动：应用及其子进程只能经本机代理端口联网，直连与系统 DNS 一律失败，代理停止即断网。商店应用和共用原应用资料模式不支持。';
+    const label = '独立网络（实验）';
+    optionLabel.title = '为本次启动的应用建立独立网络，仅开放本机代理通道。不支持代理的流量阻断；系统 DNS 防泄漏尚未通过验收。商店应用和共用原应用资料模式不支持。';
     const option = document.createElement('input');
     option.type = 'checkbox';
     option.title = optionLabel.title;
@@ -449,7 +449,7 @@
       $('connection-intro').textContent = '启动后把系统代理指向本机核心，遵循系统代理的程序都会经过规则。';
       $('protection-note').textContent = '不读取系统代理的程序仍会直连。切换模式前请先停止。';
       $('apps-intro').textContent = '全局模式下，从面板启动的应用额外继承代理环境变量；其余程序按系统代理设置联网。';
-      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。Windows 网络隔间强隔离可按应用开启：直连与系统 DNS 阻断，仅放行本机代理端口，建议逐个应用验证。';
+      $('compatibility-note').textContent = '全局模式不安装 TUN、不改防火墙和 DNS；恢复系统代理失败时请按提示重试，指向不可用端口期间可能暂时无法联网。独立网络选项适用于按应用模式。';
     } else if (isWindows()) {
       $('connection-intro').textContent = '启动核心后，启用清单中的程序路径交给 ProxiFyre 转发；也可以从下方启动独立应用实例。';
       $('protection-note').textContent = '同一路径的所有实例都会受规则影响。已有连接需重启应用；关闭单个实例不会取消路径规则，关闭对应开关或停止核心才会取消。';
