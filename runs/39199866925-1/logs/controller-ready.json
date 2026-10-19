@@ -1,0 +1,46 @@
+{
+ "role": "controller",
+ "started": 1792384284.5418599,
+ "missing_exports": [],
+ "identity": "S-1-5-18",
+ "requests": [],
+ "create_A": {
+  "code": 0,
+  "id": 2,
+  "guid": "2a6fa3ee-6839-4992-9842-9237f871cf93"
+ },
+ "default_compartment": 1,
+ "thread_probe": {
+  "set": 0,
+  "get": 2,
+  "public_1111_443": {
+   "ok": false,
+   "winerror": 10051
+  },
+  "host_fixture_loopback": {
+   "ok": false,
+   "winerror": 10061
+  },
+  "dns": {
+   "name": "bc654663b42bd03a09ca0308de3938a2.1.2.3.4.sslip.io",
+   "ok": false,
+   "errno": 11004,
+   "text": "[Errno 11004] getaddrinfo failed"
+  }
+ },
+ "default_thread_dns": {
+  "name": "1b870dda9fa9bd85d163e614d5a8ea0e.1.2.3.4.sslip.io",
+  "ok": false,
+  "errno": 11001,
+  "text": "[Errno 11001] getaddrinfo failed"
+ },
+ "relay": {
+  "accepted": 0,
+  "forward_errors": [],
+  "listener_errors": [],
+  "listener_set": 0,
+  "listener_get": 2,
+  "bound_127.0.0.1": true,
+  "bound_::1": true
+ }
+}

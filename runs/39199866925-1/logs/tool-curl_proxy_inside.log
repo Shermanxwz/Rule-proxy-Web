@@ -1,0 +1,1 @@
+curl: (7) Failed to connect to curl_proxy_inside.invalid port 80 via 127.0.0.1 after 2006 ms: Could not connect to server
