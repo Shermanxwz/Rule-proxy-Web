@@ -90,6 +90,53 @@ class PsecVmTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(RuntimeError):
                 self.verify(changed)
 
+    def test_fixed_26h2_profile_requires_matching_installed_os_and_probe(self):
+        value = result()
+        value.pop("official_update")
+        value["os"].update(build=26300, ubr=9457)
+        value["reports"]["psec_smoke"]["os"].update(build=26300, ubr=9457)
+        value["install_media"] = {"profile": "26h2", "iso_sha256": vm.PSEC_26H2_MEDIA["sha256"],
+                                  "actual_build": 26300, "actual_ubr": 9457}
+        def verify(candidate):
+            return vm.verify_psec_smoke_result(candidate, package_sha256="b" * 64,
+                                              source_commit="a" * 40, psec_media="26h2")
+        self.assertFalse(verify(value)["product_acceptance"])
+        # A newer build with a lower revision is a separately pinned baseline,
+        # not an exception that permits any unserviced or self-declared build.
+        for mutation in ("hash", "build", "revision", "receipt", "update", "probe", "actor"):
+            changed = copy.deepcopy(value)
+            if mutation == "hash":
+                changed["install_media"]["iso_sha256"] = "c" * 64
+            elif mutation == "build":
+                changed["os"]["build"] = 26200
+            elif mutation == "revision":
+                changed["install_media"]["actual_ubr"] = 9456
+            elif mutation == "receipt":
+                changed.pop("install_media")
+            elif mutation == "update":
+                changed["official_update"] = result()["official_update"]
+            elif mutation == "probe":
+                changed["reports"]["psec_smoke"]["launcher"]["probe"]["tier"] = "appcontainer"
+            else:
+                changed["reports"]["psec_smoke"]["launcher"].pop("actor")
+            with self.subTest(mutation=mutation), self.assertRaises(RuntimeError):
+                verify(changed)
+        with self.assertRaises(RuntimeError):
+            self.verify(value)
+        with self.assertRaises(RuntimeError):
+            verify(result())
+
+    def test_experimental_media_cannot_change_other_suites(self):
+        for suite in ("product", "global-capture", "compartment-lab"):
+            selected = vm.selected_install_media(suite, "serviced-25h2")
+            self.assertEqual(selected["sha256"], vm.media.ISO_SHA256)
+            with self.subTest(suite=suite), self.assertRaises(ValueError):
+                vm.selected_install_media(suite, "26h2")
+        self.assertEqual(vm.selected_install_media("psec-compartment-smoke", "26h2")["sha256"],
+                         vm.PSEC_26H2_MEDIA["sha256"])
+        with self.assertRaises(ValueError):
+            vm.selected_install_media("psec-compartment-smoke", "unpinned")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -35,6 +35,31 @@ _spec = importlib.util.spec_from_file_location("ruleproxy_vm_media", ROOT / ".gi
 media = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(media)
 
+# A separate, fixed baseline for the PSEC experiment. Never silently change
+# the media used by product, compartment or existing serviced-25H2 tests.
+PSEC_26H2_MEDIA = {
+    "url": "https://software-static.download.prss.microsoft.com/dbazure/"
+           "26300.9457.260913-1737.26h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_en-us.iso",
+    "sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+    "bytes": 8_225_329_152,
+    "download_page": "https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise",
+    "hash_source": "https://support.microsoft.com/en-us/servicing/os/windows/docs/2026/09/"
+                   "verify-the-authenticity-of-a-windows-11-enterprise-evaluation-iso-file",
+    "build": 26300,
+    "ubr": 9457,
+}
+
+
+def selected_install_media(suite, psec_media):
+    if psec_media not in {"serviced-25h2", "26h2"}:
+        raise ValueError("Unknown fixed PSEC media profile")
+    if psec_media == "26h2":
+        if suite != "psec-compartment-smoke":
+            raise ValueError("The 26H2 baseline is limited to the PSEC experiment")
+        return dict(PSEC_26H2_MEDIA)
+    return {"url": media.ISO_URL, "sha256": media.ISO_SHA256, "bytes": media.ISO_BYTES}
+
+
 SOURCE_IDENTITIES = frozenset({"manager.py", "server.py", "launcher.py", "windows_proxy_service.py",
     "windows_proxy_policy.py", "windows_proxy_client.py", "windows_proxy_runtime.py",
     "windows_proxy_pins.py", "windows_app_process.py", "windows_core_process.py"})
@@ -356,7 +381,7 @@ def verify_compartment_lab_result(result, *, package_sha256):
     return report
 
 
-def verify_psec_smoke_result(result, *, package_sha256, source_commit):
+def verify_psec_smoke_result(result, *, package_sha256, source_commit, psec_media="serviced-25h2"):
     """Verify this functional experiment without promoting privacy/GUI claims."""
     if (not isinstance(result, dict)
             or len(json.dumps(result, ensure_ascii=True).encode("ascii")) > MAX_GUEST_RESULT_BYTES):
@@ -396,6 +421,16 @@ def verify_psec_smoke_result(result, *, package_sha256, source_commit):
             or actual_os.get("python_pointer_bits") != 64 or actual_os.get("build") != facts["build"]
             or type(actual_os.get("ubr")) is not int or actual_os["ubr"] != facts.get("ubr")):
         raise RuntimeError("PSEC process OS facts differ from the Windows guest")
+    if psec_media == "26h2":
+        baseline = result.get("install_media", {})
+        expected = {"profile": "26h2", "iso_sha256": PSEC_26H2_MEDIA["sha256"],
+                    "actual_build": PSEC_26H2_MEDIA["build"], "actual_ubr": PSEC_26H2_MEDIA["ubr"]}
+        if (baseline != expected or result.get("official_update") is not None
+                or facts["build"] != expected["actual_build"] or facts["ubr"] != expected["actual_ubr"]):
+            raise RuntimeError("PSEC smoke did not run the fixed 26H2 installation baseline")
+        return report
+    if psec_media != "serviced-25h2":
+        raise RuntimeError("Unknown PSEC result media profile")
     update = result.get("official_update", {})
     if (not isinstance(update, dict) or update.get("status") != "completed"
             or any(update.get(key) is not True for key in ("completed", "packages_verified", "task_unregistered"))
@@ -716,12 +751,14 @@ def run(args):
     suite = getattr(args, "suite", "product")
     if suite not in {"product", "global-capture", "compartment-lab", "psec-compartment-smoke"}:
         raise ValueError("Unknown native Windows suite")
+    psec_media = getattr(args, "psec_media", "serviced-25h2")
+    install_media = selected_install_media(suite, psec_media)
     artifacts = args.artifacts.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
     summary = {"schema_version": 2, "status": "running", "scope": "native Windows 11 x64 final offline product",
                "native_windows_11_product_passed": False, "real_exit_ip_verified": False,
                "gui_verified": False, "linux_equivalent_isolation": False,
-               "iso": {"url": media.ISO_URL, "sha256": media.ISO_SHA256, "bytes": media.ISO_BYTES},
+               "iso": install_media,
                "cumulative_update_required": False,
                "update_scope": "The selected proxy backend does not require the former MXC build contract."}
     summary["suite"] = suite
@@ -734,8 +771,11 @@ def run(args):
     elif suite == "psec-compartment-smoke":
         summary.update(scope="native Windows 11 x64 PSEC/compartment functional smoke",
                        native_windows_11_psec_functionality_passed=False, strict_qualified=False,
-                       cumulative_update_required=True,
-                       update_scope="Pinned official KB5127648 and checkpoint; executor probe still gates PSEC support.")
+                       psec_media_profile=psec_media,
+                       cumulative_update_required=psec_media == "serviced-25h2",
+                       update_scope=("Pinned official KB5127648 and checkpoint; executor probe still gates PSEC support."
+                                     if psec_media == "serviced-25h2" else
+                                     "Fixed official 26H2 media and exact installed build; the executor probe still gates PSEC support."))
     summary["vm_configuration"] = {"machine": "q35,accel=kvm,smm=on", "vcpu": 4, "ram_mib": 6144,
         "disk_controller": "q35 built-in AHCI/SATA (ide-hd on ide.0)", "disk_virtual_gib": 80,
         "installer_dynamic_update": False, "secure_boot": True, "tpm": "2.0"}
@@ -776,15 +816,15 @@ def run(args):
             raise RuntimeError("At least 55 GiB free is required for official Windows media")
         iso = work / "official.iso"
         updates = None
-        if suite == "psec-compartment-smoke":
+        if suite == "psec-compartment-smoke" and psec_media == "serviced-25h2":
             stage("official_cumulative_update_download")
             updates = work / "official-updates"
             summary["official_update_packages"] = media.download_updates(updates)
         stage("official_iso_download")
         subprocess.run(["curl", "--fail", "--location", "--retry", "3", "--retry-all-errors",
             "--connect-timeout", "30", "--max-time", "1200", "--proto", "=https", "--proto-redir", "=https",
-            "--output", str(iso), media.ISO_URL], check=True, timeout=1220)
-        if iso.stat().st_size != media.ISO_BYTES or media.digest(iso) != media.ISO_SHA256:
+            "--output", str(iso), install_media["url"]], check=True, timeout=1220)
+        if iso.stat().st_size != install_media["bytes"] or media.digest(iso) != install_media["sha256"]:
             raise RuntimeError("Official Windows media size or hash mismatch")
         summary["iso"]["verified"] = True
         stage("official_iso_verified")
@@ -806,6 +846,11 @@ def run(args):
             "payload_sha256": payload_hash, "package_sha256": args.package_sha256,
             "source_commit": source_commit, "suite": suite,
             **({"source_identity": source_identity} if source_identity is not None else {})}
+        if suite == "psec-compartment-smoke":
+            seed_configuration["psec_media_profile"] = psec_media
+            if psec_media == "26h2":
+                seed_configuration.update(media_build=install_media["build"], media_ubr=install_media["ubr"],
+                                          media_iso_sha256=install_media["sha256"], require_official_update=False)
         if updates is not None:
             seed_configuration.update(require_official_update=True,
                                       update_build=media.UPDATE_BUILD, update_ubr=media.UPDATE_UBR)
@@ -937,7 +982,7 @@ def run(args):
                 print_global_guest_digest("notice", server)
             elif suite == "psec-compartment-smoke":
                 report = verify_psec_smoke_result(server.result, package_sha256=args.package_sha256,
-                                                  source_commit=source_commit)
+                                                 source_commit=source_commit, psec_media=psec_media)
                 media.write_json(artifacts / "native-psec-smoke-report.json", report)
                 summary.update(status="passed", native_windows_11_psec_functionality_passed=True,
                                os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
@@ -1010,12 +1055,15 @@ def main():
     parser.add_argument("--timeout-seconds", type=int, default=2700)
     parser.add_argument("--suite", choices=("product", "global-capture", "compartment-lab", "psec-compartment-smoke"), default="product")
     parser.add_argument("--psec-bundle", type=Path)
+    parser.add_argument("--psec-media", choices=("serviced-25h2", "26h2"), default="serviced-25h2")
     args = parser.parse_args()
     maximum = 7200 if args.suite == "psec-compartment-smoke" else 3600
     if not 300 <= args.timeout_seconds <= maximum:
         parser.error(f"VM execution budget must be 300–{maximum} seconds")
     if (args.suite == "psec-compartment-smoke") != (args.psec_bundle is not None):
         parser.error("Only the PSEC functional suite requires --psec-bundle")
+    if args.psec_media != "serviced-25h2" and args.suite != "psec-compartment-smoke":
+        parser.error("--psec-media is limited to the PSEC functional experiment")
     with cancellation_signals():
         return 0 if run(args)["status"] == "passed" else 1
 

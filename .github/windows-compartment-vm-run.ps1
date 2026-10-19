@@ -114,55 +114,70 @@ try {
     $configuration = Get-Content -LiteralPath (Join-Path $root 'ruleproxy-vm-config.json') -Raw | ConvertFrom-Json
     if ($configuration.suite -eq 'psec-compartment-smoke') {
         $result.suite = 'psec-compartment-smoke'
-        $result.phase = 'official_update_gate'
-        if ($configuration.require_official_update -ne $true) { throw 'PSEC smoke requires the pinned official update' }
-        Beacon 'update-ready'
-        $endpoint = [Uri]$configuration.host_url
-        $networkReady = $false
-        for ($attempt=0; $attempt -lt 30; $attempt++) {
-            $socket = New-Object Net.Sockets.TcpClient
-            $pending = $null
-            try {
-                $pending = $socket.BeginConnect($endpoint.Host, $endpoint.Port, $null, $null)
-                if ($pending.AsyncWaitHandle.WaitOne(2000)) {
-                    $socket.EndConnect($pending)
-                    $networkReady = $true
-                    break
+        if ($configuration.psec_media_profile -eq '26h2') {
+            $result.phase = 'fixed_media_baseline_gate'
+            if ($configuration.require_official_update -ne $false) { throw 'Fixed media must not request the 25H2 update' }
+            $actual = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+            if ([int]$configuration.media_build -ne 26300 -or [int]$configuration.media_ubr -ne 9457 -or
+                [int]$actual.CurrentBuildNumber -ne [int]$configuration.media_build -or
+                [int]$actual.UBR -ne [int]$configuration.media_ubr) { throw 'Running kernel differs from the fixed 26H2 baseline' }
+            # The host verifies the downloaded ISO hash. This receipt reports
+            # installed OS facts; API presence and actual execution gate later.
+            $result.install_media = @{profile='26h2'; iso_sha256=$configuration.media_iso_sha256;
+                actual_build=[int]$actual.CurrentBuildNumber; actual_ubr=[int]$actual.UBR}
+        } elseif ($configuration.psec_media_profile -and $configuration.psec_media_profile -ne 'serviced-25h2') {
+            throw 'Unknown fixed PSEC media profile'
+        } else {
+            $result.phase = 'official_update_gate'
+            if ($configuration.require_official_update -ne $true) { throw 'PSEC smoke requires the pinned official update' }
+            Beacon 'update-ready'
+            $endpoint = [Uri]$configuration.host_url
+            $networkReady = $false
+            for ($attempt=0; $attempt -lt 30; $attempt++) {
+                $socket = New-Object Net.Sockets.TcpClient
+                $pending = $null
+                try {
+                    $pending = $socket.BeginConnect($endpoint.Host, $endpoint.Port, $null, $null)
+                    if ($pending.AsyncWaitHandle.WaitOne(2000)) {
+                        $socket.EndConnect($pending)
+                        $networkReady = $true
+                        break
+                    }
+                } catch { } finally {
+                    if ($null -ne $pending) { $pending.AsyncWaitHandle.Close() }
+                    $socket.Dispose()
                 }
-            } catch { } finally {
-                if ($null -ne $pending) { $pending.AsyncWaitHandle.Close() }
-                $socket.Dispose()
+                Start-Sleep -Seconds 2
             }
-            Start-Sleep -Seconds 2
+            if (-not $networkReady) { throw 'Private update host connection did not become ready' }
+            $statePath = 'C:\RuleProxyCIUpdates\update-state.json'
+            $updateDeadline = [DateTime]::UtcNow.AddMinutes(85)
+            $updateStarted = $false
+            do {
+                if (Test-Path -LiteralPath $statePath) {
+                    if ((Get-Item -LiteralPath $statePath).Length -gt 65536) { throw 'Update state exceeds its bound' }
+                    $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+                    $result.official_update = $state
+                    if ($state.status -eq 'failed') { throw 'Pinned official update failed' }
+                    if ($state.status -eq 'completed' -and $state.completed -eq $true) {
+                        $actual = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+                        if ($state.packages_verified -ne $true -or $state.task_unregistered -ne $true -or
+                            $state.reboot_required -ne $false -or
+                            [int]$actual.CurrentBuildNumber -ne [int]$configuration.update_build -or
+                            [int]$actual.UBR -lt [int]$configuration.update_ubr -or
+                            [int]$state.actual_build -ne [int]$actual.CurrentBuildNumber -or
+                            [int]$state.actual_ubr -ne [int]$actual.UBR) { throw 'Update state and running kernel do not agree' }
+                        break
+                    }
+                }
+                if (-not $updateStarted) {
+                    Start-ScheduledTask -TaskName 'RuleProxyCI-InstallOfficialUpdate'
+                    $updateStarted = $true
+                }
+                if ([DateTime]::UtcNow -ge $updateDeadline) { throw 'Official update exceeded its deadline' }
+                Start-Sleep -Seconds 5
+            } while ($true)
         }
-        if (-not $networkReady) { throw 'Private update host connection did not become ready' }
-        $statePath = 'C:\RuleProxyCIUpdates\update-state.json'
-        $updateDeadline = [DateTime]::UtcNow.AddMinutes(85)
-        $updateStarted = $false
-        do {
-            if (Test-Path -LiteralPath $statePath) {
-                if ((Get-Item -LiteralPath $statePath).Length -gt 65536) { throw 'Update state exceeds its bound' }
-                $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
-                $result.official_update = $state
-                if ($state.status -eq 'failed') { throw 'Pinned official update failed' }
-                if ($state.status -eq 'completed' -and $state.completed -eq $true) {
-                    $actual = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
-                    if ($state.packages_verified -ne $true -or $state.task_unregistered -ne $true -or
-                        $state.reboot_required -ne $false -or
-                        [int]$actual.CurrentBuildNumber -ne [int]$configuration.update_build -or
-                        [int]$actual.UBR -lt [int]$configuration.update_ubr -or
-                        [int]$state.actual_build -ne [int]$actual.CurrentBuildNumber -or
-                        [int]$state.actual_ubr -ne [int]$actual.UBR) { throw 'Update state and running kernel do not agree' }
-                    break
-                }
-            }
-            if (-not $updateStarted) {
-                Start-ScheduledTask -TaskName 'RuleProxyCI-InstallOfficialUpdate'
-                $updateStarted = $true
-            }
-            if ([DateTime]::UtcNow -ge $updateDeadline) { throw 'Official update exceeded its deadline' }
-            Start-Sleep -Seconds 5
-        } while ($true)
     }
 } catch { $updateGateError = $_ }
 try {

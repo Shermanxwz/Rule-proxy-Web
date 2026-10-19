@@ -136,6 +136,16 @@ class PsecCompartmentSmokeTests(unittest.TestCase):
                     return subprocess.CompletedProcess(argv, 0, json.dumps(probe()).encode(), b"")
                 kwargs["stderr"].write(b"AssignProcessToJobObject: Access denied (os error 5), HRESULT 0x80070005\n"
                                        b"private-user-secret=do-not-export\n")
+                kwargs["stderr"].write(json.dumps({"error": {
+                    "code": "backend_error",
+                    "message": "failed to create the process security environment: do-not-export",
+                    "extended_error": "CreateProcessSecurityEnvironment failed: WIN32_ERROR(1920) "
+                                      "C:\\private\\do-not-export",
+                }}).encode() + b"\n")
+                kwargs["stdout"].write(b"private child output: do-not-export\n" + json.dumps({"error": {
+                    "code": "policy_validation",
+                    "message": "network.ingress.hostLoopback='allow' requires Process Security Environment contract version 1.1",
+                }}).encode() + b"\n")
                 return subprocess.CompletedProcess(argv, 1)
 
             with mock.patch.object(smoke, "identity_snapshot", return_value=identity), \
@@ -146,13 +156,67 @@ class PsecCompartmentSmokeTests(unittest.TestCase):
             self.assertEqual(result["exit_code"], 1)
             self.assertFalse(result["timed_out"])
             diagnostic = result["executor_diagnostic"]
+            self.assertEqual(diagnostic["stream"], "stderr")
             self.assertIn("permission", diagnostic["categories"])
             self.assertIn("AssignProcessToJobObject", diagnostic["operations"])
-            self.assertEqual(diagnostic["native_codes"], ["0x80070005", "5"])
+            self.assertEqual(diagnostic["native_codes"], ["0x80070005", "1920", "5"])
+            envelope = diagnostic["error_envelopes"][0]
+            self.assertEqual(envelope["code"], "backend_error")
+            self.assertEqual(envelope["message_class"], "psec_environment_create")
+            self.assertEqual(envelope["native_codes"], ["1920"])
+            self.assertTrue(envelope["has_extended_error"])
+            stdout = result["executor_stdout_diagnostic"]
+            self.assertEqual(stdout["stream"], "stdout")
+            self.assertEqual(stdout["error_envelopes"][0]["code"], "policy_validation")
+            self.assertEqual(stdout["error_envelopes"][0]["message_class"], "host_loopback_contract")
+            self.assertEqual(stdout["native_codes"], [])
             self.assertNotIn("do-not-export", json.dumps(result))
             large = smoke.executor_diagnostic(b"secret" * 20000)
             self.assertTrue(large["inspection_truncated"])
             self.assertLess(len(json.dumps(large)), 2048)
+
+    def test_error_envelope_can_follow_unterminated_stderr_without_exporting_text(self):
+        error = {"error": {"code": "backend_error", "message": "private-unclassified-message",
+                           "extended_error": "HRESULT(0x80070057) private-details"}}
+        # The pinned CLI uses eprint!(standard_err) then eprintln!(envelope).
+        raw = b"private-prefix-without-newline" + json.dumps(error).encode() + b"\r\n"
+        value = smoke.executor_diagnostic(raw)
+        self.assertEqual(len(value["error_envelopes"]), 1)
+        envelope = value["error_envelopes"][0]
+        self.assertEqual(envelope["code"], "backend_error")
+        self.assertEqual(envelope["message_class"], "unclassified")
+        self.assertEqual(envelope["native_codes"], ["0x80070057"])
+        self.assertEqual(envelope["message_sha256"], hashlib.sha256(b"private-unclassified-message").hexdigest())
+        self.assertNotIn("private-", json.dumps(value))
+
+    def test_error_envelopes_reject_other_shapes_and_bound_retained_records(self):
+        invalid = [
+            {"error": {"code": "backend_error", "message": 5}},
+            {"error": {"code": "backend_error", "message": "text", "extended_error": {"code": 5}}},
+            {"error": {"code": "backend_error", "message": "text", "child_log": "private"}},
+            {"error": {"code": "backend_error", "message": "text"}, "result": "private"},
+            {"error": {"code": "unrecognized", "message": "text"}},
+            {"error": {"code": "backend_error", "message": "x" * 8193}},
+            {"error": "arbitrary browser error"},
+        ]
+        encoded = [json.dumps(value).encode() for value in invalid]
+        encoded.extend([
+            b'{"error":{"code":"backend_error","code":"policy_validation","message":"text"}}',
+            b'{"error":{"code":"backend_error","message":"text"}} trailing child text',
+            b'{"error":' + b'[' * 1500,
+        ])
+        for raw in encoded:
+            with self.subTest(data_length=len(raw)):
+                self.assertEqual(smoke.executor_diagnostic(raw)["error_envelopes"], [])
+        valid = b"\n".join(json.dumps({"error": {
+            "code": "backend_error", "message": f"private-{i}",
+        }}).encode() for i in range(8))
+        summary = smoke.executor_diagnostic(valid)
+        self.assertEqual(len(summary["error_envelopes"]), 4)
+        self.assertNotIn("private-", json.dumps(summary))
+        truncated = smoke.executor_diagnostic(b"x" * 65536 + valid)
+        self.assertTrue(truncated["inspection_truncated"])
+        self.assertEqual(truncated["error_envelopes"], [])
 
     def test_preflight_rejection_writes_source_and_nonqualification_report(self):
         with tempfile.TemporaryDirectory() as temporary:

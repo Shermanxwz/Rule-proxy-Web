@@ -175,8 +175,8 @@ jobs:
         run: |
           read -r expected name < compartment-package/SHA256SUMS.txt
           exec timeout --signal=TERM --kill-after=20s 110m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
-            --suite psec-compartment-smoke --psec-bundle "$PWD/g-bundle/mxc-g-bundle.zip" --package "compartment-package/$name" --package-sha256 "$expected" \
-            --artifacts psec-smoke-results --timeout-seconds 6600
+            --suite psec-compartment-smoke --psec-media 26h2 --psec-bundle "$PWD/g-bundle/mxc-g-bundle.zip" --package "compartment-package/$name" --package-sha256 "$expected" \
+            --artifacts psec-smoke-results --timeout-seconds 3600
       - uses: actions/upload-artifact@v7
         if: always()
         with:

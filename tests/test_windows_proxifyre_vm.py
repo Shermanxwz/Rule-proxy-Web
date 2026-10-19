@@ -262,7 +262,8 @@ sys.exit(0 if result['status'] == 'cancelled' else 1)
 
     def test_cancellation_persists_summary_before_cleanup_without_inventing_product_failure(self):
         with tempfile.TemporaryDirectory() as directory:
-            args = mock.Mock(artifacts=Path(directory), timeout_seconds=2700, suite="product")
+            args = mock.Mock(artifacts=Path(directory), timeout_seconds=2700, suite="product",
+                             psec_media="serviced-25h2")
             with mock.patch.object(vm.media, "require_kvm", side_effect=vm.QualificationInterrupted(signal.SIGTERM)), \
                     mock.patch.object(vm, "cleanup_owned", return_value=[]) as cleanup:
                 result = vm.run(args)
@@ -278,7 +279,8 @@ sys.exit(0 if result['status'] == 'cancelled' else 1)
 
     def test_underprovisioned_host_fails_before_download_and_retains_resource_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
-            args = mock.Mock(artifacts=Path(directory), timeout_seconds=2700, suite="product")
+            args = mock.Mock(artifacts=Path(directory), timeout_seconds=2700, suite="product",
+                             psec_media="serviced-25h2")
             facts = {"effective_cpu_count": 2, "MemAvailable": 7 * 1024**3}
             with mock.patch.object(vm.media, "require_kvm", return_value=12), \
                     mock.patch.object(vm, "host_resources", return_value=facts), \

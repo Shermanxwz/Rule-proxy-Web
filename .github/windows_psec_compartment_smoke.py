@@ -261,10 +261,8 @@ def base_container_selected(value, exit_code):
             and value["probes"].get("baseContainerApiPresent") is True)
 
 
-def executor_diagnostic(data):
-    """Retain fixed error categories/codes, never arbitrary executor output."""
-    bounded = data[:65536]
-    message = bounded.decode("utf-8", errors="replace")
+def executor_message_summary(message):
+    """Return only closed categories, operation names and numeric codes."""
     categories = {
         "configuration": r"config|schema|unknown field|deserializ|json|policy",
         "permission": r"access.denied|permission.denied|privilege",
@@ -277,16 +275,85 @@ def executor_diagnostic(data):
     operations = ("CreateProcessW", "CreateProcessAsUserW", "CreateProcessWithTokenW",
                   "AssignProcessToJobObject", "CreateJobObjectW", "SetInformationJobObject",
                   "CreateProcessSecurityEnvironment", "DeriveAppContainerSidFromAppContainerName",
-                  "CreateAppContainerProfile", "UpdateProcThreadAttribute", "GetLastError")
+                  "CreateAppContainerProfile", "UpdateProcThreadAttribute", "GetLastError",
+                  "GetStdHandle", "SetHandleInformation", "ResumeThread")
     # Code labels are allowed; their surrounding text (paths, command lines,
     # environment values and any child logs) is deliberately not exported.
-    numeric = re.findall(r"\b(?:HRESULT|WIN32|OS ERROR|ERROR(?: CODE)?|CODE)\s*[:=(]?\s*(0x[0-9a-f]{1,8}|[0-9]{1,10})\b",
+    numeric = re.findall(r"\b(?:HRESULT|WIN32(?:_ERROR)?|WINERROR|OS ERROR|ERROR(?: CODE)?|CODE)\s*[:=(]?\s*(0x[0-9a-f]{1,8}|-?[0-9]{1,10})\b",
                          message, flags=re.IGNORECASE)
     hex_codes = re.findall(r"\b0x[89c][0-9a-f]{7}\b", message, flags=re.IGNORECASE)
-    return {"bytes_observed": len(data), "inspection_truncated": len(data) > len(bounded),
-            "categories": [name for name, pattern in categories.items() if re.search(pattern, message, re.IGNORECASE)],
+    return {"categories": [name for name, pattern in categories.items() if re.search(pattern, message, re.IGNORECASE)],
             "operations": [name for name in operations if name.casefold() in message.casefold()],
-            "native_codes": sorted(set(value.lower() for value in numeric + hex_codes))[:16],
+            "native_codes": sorted(set(value.lower() for value in numeric + hex_codes))[:16]}
+
+
+def executor_error_envelopes(message):
+    """Recognize the pinned one-shot CLI shape; never return its free text.
+
+    MXC 7bf2102 core/mxc_common/script_runner.rs:102-118 emits only error
+    code/message and optional extended_error. Its two codes come from
+    models.rs:1328-1332. This is reported CLI output, not an authenticated
+    observation of an API call or proof that the workload never started.
+    """
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON key")
+            result[key] = value
+        return result
+
+    decoder = json.JSONDecoder(object_pairs_hook=unique_object)
+    prefixes = {
+        "psec_environment_create": "failed to create the process security environment:",
+        "psec_environment_attach": "failed to attach the process security environment:",
+        "child_environment": "failed to create a clean child environment:",
+        "job_setup": "BaseContainer sandbox could not be placed in a job object,",
+        "child_resume": "ResumeThread failed for the BaseContainer child:",
+        "host_loopback_contract": "network.ingress.hostLoopback='allow' requires Process Security Environment contract version",
+        "proxy_identity_conflict": "processContainer.network.allowedProxyPeer grants loopback access only to the",
+    }
+    envelopes = []
+    # standard_err is printed without an added newline before the envelope;
+    # accept a JSON object at a line's end even when preceded by that text.
+    for match in re.finditer(r'\{\s*"error"\s*:', message[:65536]):
+        try:
+            value, end = decoder.raw_decode(message, match.start())
+        except (ValueError, RecursionError):
+            continue
+        suffix = message[end:].split("\n", 1)[0]
+        if suffix.strip() or not isinstance(value, dict) or set(value) != {"error"}:
+            continue
+        error = value["error"]
+        if (not isinstance(error, dict) or not {"code", "message"} <= set(error)
+                or set(error) - {"code", "message", "extended_error"}
+                or not all(isinstance(item, str) for item in error.values())
+                or error["code"] not in ("backend_error", "policy_validation")
+                or any(len(item) > 8192 for item in error.values())):
+            continue
+        detail = error.get("extended_error", "")
+        summary = {"code": error["code"],
+                   "message_class": next((name for name, prefix in prefixes.items()
+                                          if error["message"].startswith(prefix)), "unclassified"),
+                   "message_sha256": hashlib.sha256(error["message"].encode("utf-8", errors="surrogatepass")).hexdigest(),
+                   "has_extended_error": "extended_error" in error,
+                   **executor_message_summary(error["message"] + "\n" + detail)}
+        if "extended_error" in error:
+            summary["extended_error_sha256"] = hashlib.sha256(detail.encode("utf-8", errors="surrogatepass")).hexdigest()
+        if summary not in envelopes:
+            envelopes.append(summary)
+        if len(envelopes) == 4:
+            break
+    return envelopes
+
+
+def executor_diagnostic(data):
+    """Retain bounded structured diagnostics, never arbitrary executor output."""
+    bounded = data[:65536]
+    message = bounded.decode("utf-8", errors="replace")
+    return {"bytes_observed": len(data), "inspection_truncated": len(data) > len(bounded),
+            **executor_message_summary(message),
+            "error_envelopes": executor_error_envelopes(message),
             "inspected_sha256": hashlib.sha256(bounded).hexdigest()}
 
 
@@ -327,8 +394,9 @@ def run_psec(config, runner=subprocess.run):
             result["exit_code"], result["timed_out"] = completed.returncode, False
         except subprocess.TimeoutExpired:
             result["exit_code"], result["timed_out"] = None, True
-    with Path(config["profile"], "executor.stderr").open("rb") as errors:
-        result["executor_diagnostic"] = executor_diagnostic(errors.read(65537))
+    for stream, key in (("stderr", "executor_diagnostic"), ("stdout", "executor_stdout_diagnostic")):
+        with Path(config["profile"], "executor." + stream).open("rb") as output:
+            result[key] = {"stream": stream, **executor_diagnostic(output.read(65537))}
     if Path(config["actor_report"]).is_file():
         result["actor"] = read(config["actor_report"])
     result["status"] = "observed"
