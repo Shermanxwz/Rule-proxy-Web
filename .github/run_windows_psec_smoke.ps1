@@ -27,8 +27,27 @@ $state = [ordered]@{
     source_commit = $env:GITHUB_SHA.ToLowerInvariant(); windows_11_verified = $false
     privacy_qualified = $false; product_acceptance = $false
     completed = $false; functionality_passed = $false; cleanup_unconfirmed = $true
+    phase = 'prepare_output'; failure_code = $null; path_kind = $null; path_facts = @()
+    bootstrap_created = $false; task_registered = $false
 }
 New-Item -ItemType Directory -Path $target -Force | Out-Null
+
+function Resolve-PsecInputPath {
+    param([ValidateSet('python', 'bundle', 'browser')][string]$Kind, [string]$Value)
+    $state.phase = 'resolve_' + $Kind
+    $state.path_kind = $Kind
+    $provided = -not [string]::IsNullOrWhiteSpace($Value)
+    $leaf = $provided -and (Test-Path -LiteralPath $Value -PathType Leaf -ErrorAction SilentlyContinue)
+    $container = $provided -and (Test-Path -LiteralPath $Value -PathType Container -ErrorAction SilentlyContinue)
+    $state.path_facts += [ordered]@{ path_kind = $Kind; provided = $provided
+        leaf_exists = [bool]$leaf; container_exists = [bool]$container }
+    if (-not $leaf) {
+        $missingCodes = @{ python = 'MissingPython'; bundle = 'MissingBundle'; browser = 'MissingBrowser' }
+        $state.failure_code = $missingCodes[$Kind]
+        throw $state.failure_code
+    }
+    return (Get-Item -LiteralPath $Value -ErrorAction Stop).FullName
+}
 
 # The bootstrap owns its Popen handle for the entire bounded controller run.
 # No output stream or process selected by a numeric PID is exported or killed.
@@ -155,21 +174,45 @@ if __name__ == "__main__":
 '@
 
 try {
-    if (-not $PythonPath) { $PythonPath = (Get-Command python -CommandType Application).Source }
-    $PythonPath = (Get-Item -LiteralPath $PythonPath).FullName
-    $bundle = (Get-Item -LiteralPath $BundleZip).FullName
+    $state.phase = 'discover_python'
+    $state.path_kind = 'python'
+    $state.python_resolution = 'explicit'
+    if (-not $PythonPath) {
+        if ($env:pythonLocation) {
+            $PythonPath = Join-Path $env:pythonLocation 'python.exe'
+            $state.python_resolution = 'setup_python_location'
+        } else {
+            $candidates = @(Get-Command -Name python -CommandType Application -ErrorAction SilentlyContinue)
+            $state.python_command_candidates = $candidates.Count
+            $state.python_resolution = 'first_application_command'
+            if ($candidates.Count) { $PythonPath = [string]$candidates[0].Source }
+        }
+    }
+    $PythonPath = Resolve-PsecInputPath -Kind python -Value $PythonPath
+    $bundle = Resolve-PsecInputPath -Kind bundle -Value $BundleZip
+    $state.phase = 'discover_browser'
+    $state.path_kind = 'browser'
+    $state.browser_resolution = 'explicit'
     if (-not $BrowserPath) {
+        $state.browser_resolution = 'fixed_edge_locations'
+        $state.browser_candidates = @()
         foreach ($base in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
             if ($base) {
                 $candidate = Join-Path $base 'Microsoft\Edge\Application\msedge.exe'
-                if (Test-Path -LiteralPath $candidate -PathType Leaf) { $BrowserPath = $candidate; break }
+                $exists = Test-Path -LiteralPath $candidate -PathType Leaf
+                $state.browser_candidates += [ordered]@{ candidate = $state.browser_candidates.Count; leaf_exists = [bool]$exists }
+                if ($exists) { $BrowserPath = $candidate; break }
             }
         }
     }
-    $BrowserPath = (Get-Item -LiteralPath $BrowserPath).FullName
+    $BrowserPath = Resolve-PsecInputPath -Kind browser -Value $BrowserPath
+    $state.path_kind = $null
+    $state.phase = 'create_bootstrap_directory'
     if (Test-Path -LiteralPath $launch) { throw 'Unique bootstrap directory already exists' }
     New-Item -ItemType Directory -Path $launch | Out-Null
     $createdLaunch = $true
+    $state.bootstrap_created = $true
+    $state.phase = 'protect_bootstrap_directory'
     $acl = New-Object Security.AccessControl.DirectorySecurity
     $acl.SetSecurityDescriptorSddlForm('D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)')
     Set-Acl -LiteralPath $launch -AclObject $acl
@@ -177,21 +220,28 @@ try {
         browser = $BrowserPath; source_commit = $state.source_commit }
     $configPath = Join-Path $launch 'config.json'
     $bootstrapPath = Join-Path $launch 'bootstrap.py'
+    $state.phase = 'write_bootstrap_files'
     [IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json), $utf8)
     [IO.File]::WriteAllText($bootstrapPath, $bootstrap, $utf8)
     # Both paths consist of our fixed root and GUID; no shell is involved.
     $arguments = '-I -S -B "' + $bootstrapPath + '" "' + $configPath + '"'
+    $state.phase = 'prepare_scheduled_task'
     $action = New-ScheduledTaskAction -Execute $PythonPath -Argument $arguments
     $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds 720)
+    $state.phase = 'register_scheduled_task'
     Register-ScheduledTask -TaskName $task -Action $action -Principal $principal -Settings $settings | Out-Null
     $registered = $true
+    $state.task_registered = $true
+    $state.phase = 'protect_scheduled_task'
     $scheduler = New-Object -ComObject 'Schedule.Service'
     $scheduler.Connect()
     $scheduler.GetFolder('\').GetTask($task).SetSecurityDescriptor('D:P(A;;GA;;;SY)(A;;GA;;;BA)', 0)
     $started = [DateTime]::Now
+    $state.phase = 'start_scheduled_task'
     Start-ScheduledTask -TaskName $task
     $deadline = [DateTime]::UtcNow.AddSeconds(750)
+    $state.phase = 'wait_scheduled_task'
     do {
         Start-Sleep -Seconds 2
         $info = Get-ScheduledTaskInfo -TaskName $task
@@ -201,6 +251,7 @@ try {
         }
     } while ([DateTime]::UtcNow -lt $deadline)
     if (-not $state.completed) { throw 'Own scheduled task timed out' }
+    $state.phase = 'read_bootstrap_report'
     $bootstrapReport = Join-Path $launch 'bootstrap-report.json'
     if (-not (Test-Path -LiteralPath $bootstrapReport -PathType Leaf)) { throw 'Bootstrap report missing' }
     if ((Get-Item -LiteralPath $bootstrapReport).Length -gt 131072) { throw 'Bootstrap report exceeded bound' }
@@ -210,13 +261,16 @@ try {
     if ($observed.functionality_passed -ne $true -or $info.LastTaskResult -ne 0) {
         throw 'Server functionality control did not pass; inspect structured reports'
     }
+    $state.phase = 'functionality_control_completed'
 } catch {
     $failure = $_
-    $state.error = @{ type = $_.Exception.GetType().Name; hresult = $_.Exception.HResult }
+    $state.error = @{ type = $_.Exception.GetType().Name; hresult = $_.Exception.HResult
+        script_line_number = $_.InvocationInfo.ScriptLineNumber; phase = $state.phase; path_kind = $state.path_kind }
 } finally {
     $canRemoveLaunch = -not $registered
     if ($registered) {
         try {
+            $state.cleanup_phase = 'stop_own_scheduled_task'
             Stop-ScheduledTask -TaskName $task -ErrorAction Stop
             $stopDeadline = [DateTime]::UtcNow.AddSeconds(10)
             while ((Get-ScheduledTask -TaskName $task).State -eq 'Running' -and [DateTime]::UtcNow -lt $stopDeadline) {
@@ -226,17 +280,20 @@ try {
             $canRemoveLaunch = $true
             $info = Get-ScheduledTaskInfo -TaskName $task
             $state.last_task_result = $info.LastTaskResult
+            $state.cleanup_phase = 'unregister_own_scheduled_task'
             Unregister-ScheduledTask -TaskName $task -Confirm:$false
             $state.task_removed = $true
         } catch {
             $state.task_removed = $false
             $state.cleanup_unconfirmed = $true
-            $state.task_cleanup_error = @{ type = $_.Exception.GetType().Name; hresult = $_.Exception.HResult }
+            $state.task_cleanup_error = @{ type = $_.Exception.GetType().Name; hresult = $_.Exception.HResult
+                script_line_number = $_.InvocationInfo.ScriptLineNumber; phase = $state.cleanup_phase }
             if ($null -eq $failure) { $failure = $_ }
         }
     }
     if ($createdLaunch) {
         try {
+            $state.cleanup_phase = 'copy_structured_reports'
             foreach ($name in @('smoke-report.json', 'bootstrap-report.json')) {
                 $source = Join-Path $launch $name
                 if (Test-Path -LiteralPath $source -PathType Leaf) {
@@ -246,17 +303,20 @@ try {
                 }
             }
         } catch {
-            $state.report_copy_error = @{ type = $_.Exception.GetType().Name; hresult = $_.Exception.HResult }
+            $state.report_copy_error = @{ type = $_.Exception.GetType().Name; hresult = $_.Exception.HResult
+                script_line_number = $_.InvocationInfo.ScriptLineNumber; phase = $state.cleanup_phase }
             if ($null -eq $failure) { $failure = $_ }
         } finally {
             if ($canRemoveLaunch) {
                 try {
+                    $state.cleanup_phase = 'remove_own_bootstrap'
                     Remove-Item -LiteralPath $launch -Recurse -Force
                     $state.bootstrap_removed = $true
                 } catch {
                     $state.bootstrap_removed = $false
                     $state.cleanup_unconfirmed = $true
-                    $state.bootstrap_cleanup_error = @{ type = $_.Exception.GetType().Name; hresult = $_.Exception.HResult }
+                    $state.bootstrap_cleanup_error = @{ type = $_.Exception.GetType().Name; hresult = $_.Exception.HResult
+                        script_line_number = $_.InvocationInfo.ScriptLineNumber; phase = $state.cleanup_phase }
                     if ($null -eq $failure) { $failure = $_ }
                 }
             } else {
