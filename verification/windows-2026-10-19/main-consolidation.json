@@ -79,7 +79,13 @@
     "javascript_syntax": "passed",
     "online_source_package_build": "passed",
     "online_source_package_sha256": "49ad69e799b455179309eec503a1eb1b7c423bdda241f8d3252cc06e4a04fc3e",
-    "cross_platform_ci": "Normal Check workflow after main publication; this local report does not assert its future result."
+    "cross_platform_ci": {
+      "commit": "d2f89057b06feaf43848b82f6594e71fb0bb7ee3",
+      "run_id": 39230197752,
+      "result": "success",
+      "jobs_passed": 8,
+      "receipt": "verification/windows-2026-10-19/main-consolidation-ci.json"
+    }
   },
   "scope": {
     "production_code_and_experimental_diagnostics_both_merged": true,
@@ -96,5 +102,20 @@
     "previous_artifact_digest_only_entries_are_not_claimed_to_be_complete_raw_payload_archives": true
   },
   "branch_cleanup_target": "main only, after remote publication and exact ancestry/content verification",
-  "backup_bundle_sha256": "eb36b4b71d6eb2dfdb6b63eea302556c24a03ab283329317bc51ae9e01b05b31"
+  "backup_bundle_sha256": "eb36b4b71d6eb2dfdb6b63eea302556c24a03ab283329317bc51ae9e01b05b31",
+  "historical_uncommitted_snapshots": {
+    "index": "verification/windows-2026-10-19/historical-worktrees/archive-index.json",
+    "original_archive_sha256": "0ab67d216e76094a2974709e8cd767c9e27781ae5169b64bdcdd39340b373b2a",
+    "worktrees": 27,
+    "payload_files": 353,
+    "binary_parts": 14,
+    "all_bytes_reconstruct_and_verify": true,
+    "privacy_and_integrity_reviews_included": true
+  },
+  "current_partial_experiment": {
+    "source": "verification/windows-2026-10-19/compartment/psec-server-controls/source.json",
+    "server_result": "failure",
+    "native_status_at_checkpoint": "in_progress",
+    "not_counted_as_passed": true
+  }
 }

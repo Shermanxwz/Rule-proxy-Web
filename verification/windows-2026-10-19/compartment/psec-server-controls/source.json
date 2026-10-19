@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "workflow_run": 39223826779,
+  "source_commit": "df0377c71d4fd9e9a1b1f3bf2fc52aecbd9925ad",
+  "server_job": 117965294017,
+  "server_job_conclusion": "failure",
+  "artifact_id": 12172872170,
+  "artifact_bytes": 395,
+  "artifact_sha256": "7194d2e95b401ee000e9c36119ea844c07783e5c920c90ff9adf371f02061559",
+  "artifact_digest_verified": true,
+  "members": [
+    {
+      "path": "task.json",
+      "bytes": 497,
+      "sha256": "11e0fa244707c4821cd0d3836e844dd6f5e87b554aeb4b22112b73896e348472"
+    }
+  ],
+  "native_job_status_at_archival": "in_progress",
+  "product_acceptance_passed": false
+}

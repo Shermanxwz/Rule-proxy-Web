@@ -1,0 +1,15 @@
+{
+    "schema_version":  1,
+    "scope":  "Windows Server hosted-runner functional control",
+    "source_commit":  "df0377c71d4fd9e9a1b1f3bf2fc52aecbd9925ad",
+    "windows_11_verified":  false,
+    "privacy_qualified":  false,
+    "product_acceptance":  false,
+    "completed":  false,
+    "functionality_passed":  false,
+    "cleanup_unconfirmed":  true,
+    "error":  {
+                  "type":  "ItemNotFoundException",
+                  "hresult":  -2146233087
+              }
+}

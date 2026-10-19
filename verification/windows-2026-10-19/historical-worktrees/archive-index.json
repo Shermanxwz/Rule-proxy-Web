@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "scope": "Historical uncommitted working/index snapshots and patches; not the current product source or a qualification result. Some changes may later have been committed independently.",
+  "original_archive_name": "worktree-dirty-20261015T181024Z.tar.gz",
+  "archive_bytes": 2602047,
+  "archive_sha256": "0ab67d216e76094a2974709e8cd767c9e27781ae5169b64bdcdd39340b373b2a",
+  "storage": "Byte-exact binary parts, split to fit repository transport limits. Concatenate in the listed order.",
+  "parts": [
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-000",
+      "bytes": 196608,
+      "sha256": "9335bec4baf6744921014d76e7c2ad860c4752bad74f07bd0f6600ed35429f55",
+      "git_blob": "7dbc8cda3846b37981914be4c30a63c74240060b"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-001",
+      "bytes": 196608,
+      "sha256": "40256e2090d6ecf8ca1dfeaa50213da8423881da07e936176e5c80ecbfeb4f66",
+      "git_blob": "ee86bc86ba12fe037832db72906fd4c965d4c890"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-002",
+      "bytes": 196608,
+      "sha256": "a8ccc52195304e11ca2f0d268ece9cf178cf790629e100dd37404d97bde74e11",
+      "git_blob": "4c93e16e47185f4a51451e97cd4676b5965ebff1"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-003",
+      "bytes": 196608,
+      "sha256": "a7ee2e3979ad4473e4cf18eaf960c45e8ea6c442799acbf344865e10539bd5e8",
+      "git_blob": "93b89a33a5890f63bf6817e1fc2b26b913752f66"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-004",
+      "bytes": 196608,
+      "sha256": "dbd3049fb0dc4e270ed1465f45c58691fa36be81abd3931c078e5682d4b23393",
+      "git_blob": "7392efddd12326b1e7d833b965308ee9e9bea472"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-005",
+      "bytes": 196608,
+      "sha256": "e3679d313eae7bd3bb17670ed03a37770700fd0e411c99c2457be52771180496",
+      "git_blob": "5217b7c27c2084e1f14975fc7d078a9094171cbd"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-006",
+      "bytes": 196608,
+      "sha256": "1445cd8c40727cabc0c46892f204ac2555ba7e0825cf32cabe1112039e8f86c8",
+      "git_blob": "47e349db006dd31df00ffe266df6ff2c306544fb"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-007",
+      "bytes": 196608,
+      "sha256": "c12f632efe0fc33f17382bec5f727f03e8acdbb61c0d3c470c036b0d87665ea5",
+      "git_blob": "780771cb82ad85f0f6069ae95e6939aae13ca9dc"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-008",
+      "bytes": 196608,
+      "sha256": "55b24ae9694138ab8dfe660dffd26ed0dbcfe6cf0a3a7fcc1b967460c927a131",
+      "git_blob": "efbe3373f0875d94e4295467ee4a2df1628cfc20"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-009",
+      "bytes": 196608,
+      "sha256": "5351375b61a882ca5701f2828461e0cba57312a4cc9eb407e4a3fad918bcec73",
+      "git_blob": "93faeec18fdc4647d0cf36c7e12db3d72c67c22c"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-010",
+      "bytes": 196608,
+      "sha256": "7884cea4f37e7f718083da0211a6fe54b037f54ffff8c41ef97576506e8bf8cf",
+      "git_blob": "bd3a4e92c6e7b60c2ad000782408afbee2b24b89"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-011",
+      "bytes": 196608,
+      "sha256": "097dbb1ca1bf90d1be60481e9a971281e17a8855f3aa058756124857627577c4",
+      "git_blob": "5b6c77e0d42ae356f73b835f894839a5e2fdae15"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-012",
+      "bytes": 196608,
+      "sha256": "c84497566da1e101b446f708d041619684c88eb35a8afea09fe969b7a0f1fe92",
+      "git_blob": "4a793b5d61a6b5a070545341808edb6acfb73bc0"
+    },
+    {
+      "path": "worktree-dirty-20261015T181024Z.tar.gz.part-013",
+      "bytes": 46143,
+      "sha256": "cc88fcaaab43e76ffd51dff5b8666a45ce45eab9f375c5b9dbdf73ddd8dcd4ce",
+      "git_blob": "bc849510979f3a4b126403dac96465bff9a54748"
+    }
+  ],
+  "original_manifest": "original-manifest.json",
+  "original_manifest_sha256": "b3290e7fe849b4586c1cea7e7abc39e17331a6add83f01624d2bf48af261422a",
+  "content_review": "content-audit.json",
+  "integrity_review": "integrity-audit.json",
+  "worktrees": 27,
+  "working_files": 128,
+  "index_blob_versions": 90,
+  "manifest_payload_files": 353,
+  "regular_files_including_top_manifest": 354,
+  "directories": 220,
+  "reconstruction_verified": true,
+  "reconstruct_posix": "cat worktree-dirty-20261015T181024Z.tar.gz.part-* > worktree-dirty-20261015T181024Z.tar.gz",
+  "reconstruct_python": "from pathlib import Path; import json,hashlib; p=Path('.'); m=json.loads((p/'archive-index.json').read_text()); b=b''.join((p/x['path']).read_bytes() for x in m['parts']); assert len(b)==m['archive_bytes'] and hashlib.sha256(b).hexdigest()==m['archive_sha256']; (p/m['original_archive_name']).write_bytes(b)",
+  "private_user_yaml_installer_and_browser_state_not_included": true
+}

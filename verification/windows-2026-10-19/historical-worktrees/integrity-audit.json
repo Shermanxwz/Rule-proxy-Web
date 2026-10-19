@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-10-19T09:35:42.908084+00:00",
+  "scope": "Archive byte integrity, manifest coverage and Git ancestry only; content/privacy review is separate.",
+  "archive_bytes": 2602047,
+  "archive_sha256": "0ab67d216e76094a2974709e8cd767c9e27781ae5169b64bdcdd39340b373b2a",
+  "expected_archive_sha256": "0ab67d216e76094a2974709e8cd767c9e27781ae5169b64bdcdd39340b373b2a",
+  "main_commit": "d2f89057b06feaf43848b82f6594e71fb0bb7ee3",
+  "manifest_sha256": "b3290e7fe849b4586c1cea7e7abc39e17331a6add83f01624d2bf48af261422a",
+  "counts": {
+    "tar_members": 574,
+    "regular_files": 354,
+    "directories": 220,
+    "links": 0,
+    "other_types": 0,
+    "duplicate_member_names": 0,
+    "top_level_manifests": 1,
+    "manifest_payload_entries": 353,
+    "verified_payload_files": 353,
+    "unlisted_regular_files": 0,
+    "missing_payload_files": 0,
+    "payload_bytes": 11221715,
+    "worktrees": 27,
+    "unique_worktree_heads": 13,
+    "reachable_worktree_heads": 27,
+    "dirty_entries": 128,
+    "index_blob_versions": 90
+  },
+  "payload_categories": {
+    "index-files": 90,
+    "index.original": 27,
+    "manifest.json": 27,
+    "staged.patch": 27,
+    "status.porcelain-v1.z": 27,
+    "unstaged.patch": 27,
+    "working-files": 128
+  },
+  "heads": [
+    {
+      "head": "a963b7ac8b998aedc4cab5351caf1e24e7574b57",
+      "reachable_from_main": true
+    },
+    {
+      "head": "874fd86c2225bb68cfe3027d059399d252acb555",
+      "reachable_from_main": true
+    },
+    {
+      "head": "add3a61eeb0ff8f2f0b54128b8dc0031faed1b39",
+      "reachable_from_main": true
+    },
+    {
+      "head": "f0ef0344707b9910c40b1840cf823d50a9a5f3eb",
+      "reachable_from_main": true
+    },
+    {
+      "head": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b",
+      "reachable_from_main": true
+    },
+    {
+      "head": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b",
+      "reachable_from_main": true
+    },
+    {
+      "head": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b",
+      "reachable_from_main": true
+    },
+    {
+      "head": "f0ef0344707b9910c40b1840cf823d50a9a5f3eb",
+      "reachable_from_main": true
+    },
+    {
+      "head": "0d6c44c684a38a36a58a9d35db4a8806ecaf151e",
+      "reachable_from_main": true
+    },
+    {
+      "head": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85",
+      "reachable_from_main": true
+    },
+    {
+      "head": "becf2458f010d3f370eb79cf8a8c592764fac5a2",
+      "reachable_from_main": true
+    },
+    {
+      "head": "9fdb6f4974f8c800095ded70b5579b4156f1da7b",
+      "reachable_from_main": true
+    },
+    {
+      "head": "becf2458f010d3f370eb79cf8a8c592764fac5a2",
+      "reachable_from_main": true
+    },
+    {
+      "head": "1ea7544c445253b0d0aaa80b6290f7c5b2c28522",
+      "reachable_from_main": true
+    },
+    {
+      "head": "a963b7ac8b998aedc4cab5351caf1e24e7574b57",
+      "reachable_from_main": true
+    },
+    {
+      "head": "874fd86c2225bb68cfe3027d059399d252acb555",
+      "reachable_from_main": true
+    },
+    {
+      "head": "af533b52767b6537451b4de6a0d25529462425f8",
+      "reachable_from_main": true
+    },
+    {
+      "head": "add3a61eeb0ff8f2f0b54128b8dc0031faed1b39",
+      "reachable_from_main": true
+    },
+    {
+      "head": "16aa934b75c3838564869e275d3543471d911094",
+      "reachable_from_main": true
+    },
+    {
+      "head": "874fd86c2225bb68cfe3027d059399d252acb555",
+      "reachable_from_main": true
+    },
+    {
+      "head": "0d6c44c684a38a36a58a9d35db4a8806ecaf151e",
+      "reachable_from_main": true
+    },
+    {
+      "head": "9fdb6f4974f8c800095ded70b5579b4156f1da7b",
+      "reachable_from_main": true
+    },
+    {
+      "head": "dbc34205df70eb1acf2acbf95450c3d37f210a2c",
+      "reachable_from_main": true
+    },
+    {
+      "head": "1ea7544c445253b0d0aaa80b6290f7c5b2c28522",
+      "reachable_from_main": true
+    },
+    {
+      "head": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85",
+      "reachable_from_main": true
+    },
+    {
+      "head": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85",
+      "reachable_from_main": true
+    },
+    {
+      "head": "0d6c44c684a38a36a58a9d35db4a8806ecaf151e",
+      "reachable_from_main": true
+    }
+  ],
+  "errors": [],
+  "passed": true
+}

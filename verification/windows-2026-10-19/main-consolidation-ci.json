@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "commit": "d2f89057b06feaf43848b82f6594e71fb0bb7ee3",
+  "workflow_run": 39230197752,
+  "result": "success",
+  "jobs": [
+    {
+      "id": 117986036766,
+      "result": "success"
+    },
+    {
+      "id": 117986036920,
+      "result": "success"
+    },
+    {
+      "id": 117986036991,
+      "result": "success"
+    },
+    {
+      "id": 117986037004,
+      "result": "success"
+    },
+    {
+      "id": 117986037044,
+      "result": "success"
+    },
+    {
+      "id": 117986037137,
+      "result": "success"
+    },
+    {
+      "id": 117986037165,
+      "result": "success"
+    },
+    {
+      "id": 117986037177,
+      "result": "success"
+    }
+  ],
+  "checks_include": "Windows and Linux Python 3.10/3.14, Ubuntu22.04/24.04 real namespace setup and smoke tests",
+  "does_not_claim": "New Windows isolation or PSEC product qualification"
+}
