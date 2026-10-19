@@ -26,8 +26,10 @@ import argparse
 import faulthandler
 import ctypes as C
 from ctypes import wintypes as W
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import mmap
 import os
 from pathlib import Path
 import secrets
@@ -69,9 +71,39 @@ class GUID(C.Structure):
 
 
 class MIB_COMPARTMENT_ROW(C.Structure):
-    # netioapi.h: GUID CompartmentGuid; NET_IF_COMPARTMENT_ID CompartmentId;
-    # WCHAR Description[IF_MAX_STRING_SIZE + 1] with IF_MAX_STRING_SIZE 256.
-    _fields_ = [('CompartmentGuid', GUID), ('CompartmentId', C.c_uint32), ('Description', C.c_wchar * 257)]
+    # SDK 10.0.10240 used 536 bytes; Microsoft's 26100.1 / .9278 DLLs initialize
+    # 540 and read flags at offset 536. Preserve these opaque native defaults.
+    _fields_ = [('CompartmentGuid', GUID), ('CompartmentId', C.c_uint32),
+                ('Description', C.c_wchar * 257), ('OpaqueFlags', C.c_uint32)]
+
+
+@contextmanager
+def _guarded_compartment_row():
+    """Independent lab guard: private ABI expansion must not corrupt its heap."""
+    if C.sizeof(MIB_COMPARTMENT_ROW) != 540 or MIB_COMPARTMENT_ROW.OpaqueFlags.offset != 536:
+        raise RuntimeError('unverified compartment row layout')
+    kernel = C.WinDLL('kernel32', use_last_error=True)
+    for name, args, result in (
+            ('VirtualAlloc', [C.c_void_p, C.c_size_t, W.DWORD, W.DWORD], C.c_void_p),
+            ('VirtualProtect', [C.c_void_p, C.c_size_t, W.DWORD, C.POINTER(W.DWORD)], W.BOOL),
+            ('VirtualFree', [C.c_void_p, C.c_size_t, W.DWORD], W.BOOL)):
+        function = getattr(kernel, name)
+        function.argtypes, function.restype = args, result
+    base = None
+    try:
+        page = mmap.PAGESIZE
+        if page < C.sizeof(MIB_COMPARTMENT_ROW):
+            raise RuntimeError('compartment row exceeds a memory page')
+        base = kernel.VirtualAlloc(None, page * 3, 0x3000, 1)
+        if not base:
+            raise C.WinError(C.get_last_error())
+        previous = W.DWORD()
+        if not kernel.VirtualProtect(base + page, page, 4, C.byref(previous)):
+            raise C.WinError(C.get_last_error())
+        yield MIB_COMPARTMENT_ROW.from_address(base + page * 2 - C.sizeof(MIB_COMPARTMENT_ROW))
+    finally:
+        if base and not kernel.VirtualFree(base, 0, 0x8000):
+            raise C.WinError(C.get_last_error())
 
 
 class STARTUPINFOW(C.Structure):
@@ -672,15 +704,15 @@ class Controller:
         self.default = int(self.i.GetDefaultCompartmentId())
 
     def create(self, name):
-        row = MIB_COMPARTMENT_ROW()
-        self.i.InitializeCompartmentEntry(C.byref(row))
-        guid = uuid.uuid4()
-        row.CompartmentGuid = GUID.of(guid)
-        row.Description = DESCRIPTION + ' ' + name
-        code = int(self.i.CreateCompartment(C.byref(row)))
-        if code == 0:
-            self.compartments[name] = int(row.CompartmentId)
-        return {'code': code, 'id': int(row.CompartmentId), 'guid': str(guid)}
+        with _guarded_compartment_row() as row:
+            self.i.InitializeCompartmentEntry(C.byref(row))
+            guid = uuid.uuid4()
+            row.CompartmentGuid = GUID.of(guid)
+            row.Description = DESCRIPTION + ' ' + name
+            code = int(self.i.CreateCompartment(C.byref(row)))
+            if code == 0:
+                self.compartments[name] = int(row.CompartmentId)
+            return {'code': code, 'id': int(row.CompartmentId), 'guid': str(guid)}
 
     def delete(self, name):
         cid = self.compartments.get(name)

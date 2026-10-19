@@ -232,7 +232,7 @@
   function isolationOption(app) {
     const optionLabel = textElement('label', 'app-profile-option');
     const label = '独立网络（实验）';
-    optionLabel.title = '为本次启动的应用建立独立网络，仅开放本机代理通道。不支持代理的流量阻断；系统 DNS 防泄漏尚未通过验收。商店应用和共用原应用资料模式不支持。';
+    optionLabel.title = '隔离本次启动实例的直接网络访问，提供本机代理通道。已知系统 DNS 可外发，WMI 等系统服务仍可代为联网；不提供 Linux 等效防泄漏。商店应用和共用原应用资料模式不支持。';
     const option = document.createElement('input');
     option.type = 'checkbox';
     option.title = optionLabel.title;

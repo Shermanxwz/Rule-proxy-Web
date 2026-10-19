@@ -5,6 +5,7 @@ bookkeeping, request policy, broker dispatch and panel launch flow are exercised
 on any host with injected fakes, mirroring tests/test_windows_appcontainer.py.
 """
 import socket
+from contextlib import contextmanager
 import threading
 import time
 from types import SimpleNamespace
@@ -26,6 +27,36 @@ OWNER = "S-1-5-21-1-2-3-1001"
 NAME = ns.namespace_name("app-1")
 META = {"root": r"C:\RuleProxy", "owner_sid": OWNER}
 BOOT_ID = "3a57d15b-d13b-4934-bbc4-7f7ef68902fb"
+
+
+class NativeCreateContractTests(unittest.TestCase):
+    def test_create_preserves_initialized_opaque_flags_and_releases_its_guard(self):
+        api = ns._CompartmentAPI.__new__(ns._CompartmentAPI)
+        row = ns._Row()
+        events = []
+        guid = uuid.uuid4()
+        @contextmanager
+        def guard():
+            events.append("allocated")
+            try:
+                yield row
+            finally:
+                events.append("released")
+        def initialize(pointer):
+            self.assertEqual(ns.C.addressof(pointer._obj), ns.C.addressof(row))
+            row.OpaqueFlags = 0xA55A01FF  # Native defaults are opaque, not ours to reset.
+            events.append("initialized")
+        def create(pointer):
+            self.assertEqual(row.OpaqueFlags, 0xA55A01FF)
+            self.assertEqual(ns.C.string_at(ns.C.byref(row.CompartmentGuid), 16), guid.bytes_le)
+            self.assertEqual(row.Description, "owned compartment")
+            row.CompartmentId = 2
+            events.append("created")
+            return 0
+        api.i = SimpleNamespace(InitializeCompartmentEntry=initialize, CreateCompartment=create)
+        with mock.patch.object(ns, "_guarded_row", guard):
+            self.assertEqual(api.create(str(guid), "owned compartment"), 2)
+        self.assertEqual(events, ["allocated", "initialized", "created", "released"])
 
 
 @unittest.skipUnless(os.name == "nt", "requires the real Windows registry APIs")

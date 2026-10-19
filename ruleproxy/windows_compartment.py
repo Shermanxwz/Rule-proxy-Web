@@ -36,10 +36,12 @@ from __future__ import annotations
 import ctypes as C
 from ctypes import wintypes as W
 from collections import deque
+from contextlib import contextmanager
 import base64
 import hashlib
 import ipaddress
 import json
+import mmap
 import os
 from pathlib import Path
 import re
@@ -87,11 +89,49 @@ class _GUID(C.Structure):
 
 
 class _Row(C.Structure):
-    # netioapi.h MIB_COMPARTMENT_ROW: GUID CompartmentGuid;
-    # NET_IF_COMPARTMENT_ID CompartmentId; WCHAR Description[IF_MAX_STRING_SIZE + 1]
-    # with IF_MAX_STRING_SIZE == 256.
+    # The old Windows SDK 10.0.10240 row was 536 bytes. Microsoft's x64
+    # iphlpapi.dll 10.0.26100.1 / .9278 initializes 540 bytes and CreateCompartment
+    # reads a flag at offset 536. Current SDKs omit this private structure.
+    # Keep the opaque field DWORD-aligned and preserve Initialize's defaults.
     _fields_ = [("CompartmentGuid", _GUID), ("CompartmentId", C.c_uint32),
-                ("Description", C.c_wchar * 257)]
+                ("Description", C.c_wchar * 257), ("OpaqueFlags", C.c_uint32)]
+
+
+@contextmanager
+def _guarded_row():
+    """Keep an unsupported native row expansion away from the Python heap.
+
+    The observed 540-byte Windows row ends exactly at a PAGE_NOACCESS page.
+    ctypes converts a native access violation into OSError on Windows; callers
+    fail closed, and the allocation is released even after a rejected write.
+    This protects this buffer, not arbitrary bugs inside an undocumented API.
+    """
+    if C.sizeof(_Row) != 540 or _Row.OpaqueFlags.offset != 536:
+        raise ProxyError("namespace_unsupported", "当前平台的网络隔间结构布局未经验证。")
+    kernel = C.WinDLL("kernel32", use_last_error=True)
+    for name, args, result in (
+            ("VirtualAlloc", [C.c_void_p, C.c_size_t, W.DWORD, W.DWORD], C.c_void_p),
+            ("VirtualProtect", [C.c_void_p, C.c_size_t, W.DWORD, C.POINTER(W.DWORD)], W.BOOL),
+            ("VirtualFree", [C.c_void_p, C.c_size_t, W.DWORD], W.BOOL)):
+        function = getattr(kernel, name)
+        function.argtypes, function.restype = args, result
+    base = None
+    try:
+        page = mmap.PAGESIZE
+        if page < C.sizeof(_Row):
+            raise OSError("Compartment row exceeds a memory page")
+        base = kernel.VirtualAlloc(None, page * 3, 0x3000, 1)  # COMMIT|RESERVE, NOACCESS
+        if not base:
+            raise C.WinError(C.get_last_error())
+        previous = W.DWORD()
+        if not kernel.VirtualProtect(base + page, page, 4, C.byref(previous)):  # READWRITE
+            raise C.WinError(C.get_last_error())
+        yield _Row.from_address(base + page * 2 - C.sizeof(_Row))
+    except OSError as exc:
+        raise ProxyError("namespace_unsupported", "Windows 网络隔间原生接口或内存布局不兼容，未启动应用。") from exc
+    finally:
+        if base and not kernel.VirtualFree(base, 0, 0x8000):  # RELEASE
+            raise ProxyError("namespace_unsupported", "无法释放网络隔间原生调用的保护内存。")
 
 
 class _CompartmentAPI:
@@ -129,14 +169,14 @@ class _CompartmentAPI:
 
     def create(self, guid, description):
         """Create the journal-reserved GUID and return its new compartment ID."""
-        row = _Row()
-        self.i.InitializeCompartmentEntry(C.byref(row))
-        row.CompartmentGuid = _GUID.of(uuid.UUID(guid))
-        row.Description = description
-        code = int(self.i.CreateCompartment(C.byref(row)))
-        if code != 0:
-            raise ProxyError("namespace_failed", f"创建网络隔间失败（{code}）。")
-        return int(row.CompartmentId)
+        with _guarded_row() as row:
+            self.i.InitializeCompartmentEntry(C.byref(row))
+            row.CompartmentGuid = _GUID.of(uuid.UUID(guid))
+            row.Description = description
+            code = int(self.i.CreateCompartment(C.byref(row)))
+            if code != 0:
+                raise ProxyError("namespace_failed", f"创建网络隔间失败（{code}）。")
+            return int(row.CompartmentId)
 
     def bind_job(self, pid, handle, cid):
         """Duplicate the panel's Job handle into this process and seal it into ``cid``.

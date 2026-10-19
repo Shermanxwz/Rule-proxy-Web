@@ -39,7 +39,7 @@ class Runtime:
                 return {"supported": available, "backend": "Windows 网络隔间 + Mihomo" if namespaced else "ProxiFyre + Mihomo",
                         "mode": "isolated_application" if namespaced else "application_proxy",
                         "strict_isolation": False, "state": status.get("state", "failed"),
-                        "detail": ("Windows 独立网络实验可用；防泄漏尚未通过验收。" if namespaced else
+                        "detail": ("Windows 独立网络实验已启动；系统 DNS 和服务代办仍可绕过。" if namespaced else
                                    "Windows 应用路径代理可用。") if available else (
                             "另一程序正在管理 ProxiFyre，请先停止该程序的代理。" if
                             status.get("state") == "external_conflict" else "Windows 代理后端异常，请停止后重试。"),
