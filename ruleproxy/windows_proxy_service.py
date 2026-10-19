@@ -217,6 +217,13 @@ def load_deployment(root: Path, *, secure=True) -> dict:
         required |= {"bin/windows-amd64/mihomo.exe", "ruleproxy/config.py", "ruleproxy/windows_app_process.py",
                      "ruleproxy/windows_global_runtime.py", "ruleproxy/windows_global_guard.py",
                      "ruleproxy/windows_global_dns.py", "ruleproxy/windows_global_qualification.py"}
+    if "namespace_backend_version" in value:
+        expected_state = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "RuleProxy-Web/compartments"
+        if (type(value["namespace_backend_version"]) is not int or value["namespace_backend_version"] != 1
+                or not isinstance(value.get("namespace_state_dir"), str)
+                or os.path.normcase(value["namespace_state_dir"]) != os.path.normcase(str(expected_state))):
+            raise ProxyError("invalid_deployment", "网络隔间安装记录无效，请修复安装。")
+        required |= {"ruleproxy/windows_compartment.py", "ruleproxy/windows_app_process.py"}
     if not required.issubset(value.get("files", {})):
         raise ProxyError("invalid_deployment", "Windows 安装清单缺少控制组件。")
     engine_required = {"ProxiFyre.exe", "socksify.dll", "ProxiFyre.Configuration.dll", "Topshelf.dll", "NLog.dll", "NLog.config"}
@@ -958,18 +965,21 @@ class Broker:
 
     def snapshot(self):
         engine_running = self.control.status()["state"] == 4
+        namespace_ready = self.panel is not None and not self.paths
         state = ("running" if self.panel else "external_conflict") if engine_running else (
+            "running" if namespace_ready else
             "failed" if self.panel or self.error else "idle")
         global_active = self._global_active()
         if global_active:
             state = "global_conflict"
         return {"backend": "ProxiFyre", "mode": "application_proxy", "strict_isolation": False,
-            "state": state, "running": engine_running and self.panel is not None,
+            "state": state, "running": (engine_running or namespace_ready) and self.panel is not None,
             "engine_running": engine_running, "generation": self.generation,
             "owner_pid": self.panel.pid if self.panel else None, "path_count": len(self.paths),
             "proxy_port": self.port, "limitations": list(policy.LIMITATIONS), "error": self.error,
             "global_active": global_active, "container_count": len(self.containers),
             "namespace_count": len(self.namespaces),
+            "namespace_ready": namespace_ready,
             "cleanup_pending": self.error is not None and self.error.get('code') == 'cleanup_incomplete'}
 
     def _clear(self):
@@ -1113,6 +1123,8 @@ class Broker:
                 raise ProxyError("mode_conflict", "全局接管或故障保护仍在生效，请先显式停止全局模式。")
             if request["generation"] != self.generation + 1:
                 raise ProxyError("generation_conflict", "配置状态已改变，请刷新后重试。")
+            if request["op"] == "namespace_prepare":
+                return self._prepare_namespace_core(request, caller_pid, caller_sid)
             compiled = policy.build_policy(request["paths"], request["proxy_port"],
                 root=self.metadata["root"], proxifyre_root=self.metadata["proxifyre_root"],
                 windows_root=os.environ.get("SystemRoot", r"C:\Windows"))
@@ -1172,6 +1184,42 @@ class Broker:
                 for process in (panel, core):
                     if process:
                         process.close()
+
+    def _prepare_namespace_core(self, request, caller_pid, caller_sid):
+        """Bind an authenticated core lease without applying any path proxy rule."""
+        if (self.panel is not None and not self.paths and self.core.pid == request["mihomo_pid"]
+                and self.port == request["proxy_port"]):
+            self.generation = request["generation"]
+            return {**self.snapshot(), "unchanged": True}
+        panel = self.lease_factory(caller_pid, caller_sid)
+        core = None
+        try:
+            core = self.lease_factory(request["mihomo_pid"], caller_sid)
+            expected = Path(self.metadata["root"]) / "bin/windows-amd64/mihomo.exe"
+            if os.path.normcase(core.image_path()) != os.path.normcase(str(expected)):
+                raise ProxyError("invalid_process", "必须使用安装包内的 Mihomo 核心。")
+            state = self.control.status()["state"]
+            if state == 4 and self.panel is None:
+                raise ProxyError("external_instance_conflict", "ProxiFyre 已由其他程序启动，不能接管。")
+            changed = self.port != request["proxy_port"] or self.core is None or self.core.pid != request["mihomo_pid"]
+            if changed:
+                self._purge_containers()
+                self._purge_namespaces()
+            # A transition from compatibility mode releases only our own path
+            # engine. Namespace-only operation never starts the engine.
+            if self.panel is not None and state == 4:
+                self.control.set_running(False)
+            self._clear()
+            self.panel, self.core = panel, core
+            panel = core = None
+            self.port, self.paths = request["proxy_port"], []
+            self.generation = request["generation"]
+            self.error = None
+            return self.snapshot()
+        finally:
+            for process in (panel, core):
+                if process:
+                    process.close()
 
 
 class Overlapped(ctypes.Structure):

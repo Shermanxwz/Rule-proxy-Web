@@ -418,7 +418,7 @@ class Manager:
         paths, seen = [], set()
         families, updates, retained = {}, [], {}
         for saved_app in self.settings["apps"]:
-            if not saved_app["enabled"]:
+            if not saved_app["enabled"] or saved_app.get("windows_container"):
                 continue
             app = copy.deepcopy(saved_app)
             self._bind_store_app(app)
@@ -470,6 +470,8 @@ class Manager:
         backend = self.windows_backend()
         if paths:
             backend.apply(paths, self.mixed_port, self.core.pid)
+        elif any(app["enabled"] and app.get("windows_container") for app in self.settings["apps"]):
+            backend.namespace_prepare(self.mixed_port, self.core.pid)
         else:
             backend.stop()
         self._windows_paths = paths
@@ -889,10 +891,12 @@ class Manager:
             old = dict(app)
             app["windows_container"] = windows_container
             try:
+                self._sync_windows_policy()
                 self._save()
             except BaseException:
                 app.clear()
                 app.update(old)
+                self._sync_windows_policy()
                 raise
 
     def create_shortcuts(self, ident):

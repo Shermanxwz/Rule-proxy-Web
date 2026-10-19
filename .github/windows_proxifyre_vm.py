@@ -325,6 +325,28 @@ def verify_result(result, *, package_sha256=None):
     return report
 
 
+def verify_compartment_lab_result(result, *, package_sha256):
+    """Attest completion of an experiment, never promote it to isolation qualification."""
+    if not isinstance(result, dict):
+        raise RuntimeError("Compartment guest result must be an object")
+    if len(json.dumps(result, ensure_ascii=True).encode("ascii")) > MAX_GUEST_RESULT_BYTES:
+        raise RuntimeError("Compartment guest result exceeds its bound")
+    facts, report = result.get("os", {}), result.get("reports", {}).get("compartment")
+    if (not isinstance(facts, dict) or not isinstance(report, dict)
+            or result.get("status") != "passed" or result.get("suite") != "compartment-lab"
+            or result.get("exit_code") != 0
+            or type(result.get("exit_code")) is not int
+            or facts.get("product_type") != "WinNT" or facts.get("native_architecture") != "AMD64"
+            or type(facts.get("build")) is not int or facts["build"] < 22000
+            or result.get("package_sha256") != package_sha256
+            or report.get("product_qualified") is not False or report.get("error") is not None
+            or not isinstance(report.get("source_commit"), str)
+            or not re.fullmatch(r"[a-f0-9]{40}", report["source_commit"])
+            or not isinstance(report.get("assessment"), dict)):
+        raise RuntimeError("Native Windows 11 compartment experiment evidence is incomplete")
+    return report
+
+
 def global_source_identity():
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
                             capture_output=True, text=True, timeout=5).stdout.strip()
@@ -633,7 +655,7 @@ def cleanup_owned(qmp, qemu, tpm, server, thread, private_directory):
 
 def run(args):
     suite = getattr(args, "suite", "product")
-    if suite not in {"product", "global-capture"}:
+    if suite not in {"product", "global-capture", "compartment-lab"}:
         raise ValueError("Unknown native Windows suite")
     artifacts = args.artifacts.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
@@ -647,10 +669,13 @@ def run(args):
     if suite == "global-capture":
         summary.update(scope="native Windows 11 x64 bounded global capture experiment",
                        native_windows_11_global_capture_passed=False, strict_qualified=False)
+    elif suite == "compartment-lab":
+        summary.update(scope="native Windows 11 x64 compartment experiment",
+                       native_windows_11_compartment_lab_completed=False, strict_qualified=False)
     summary["vm_configuration"] = {"machine": "q35,accel=kvm,smm=on", "vcpu": 4, "ram_mib": 6144,
         "disk_controller": "q35 built-in AHCI/SATA (ide-hd on ide.0)", "disk_virtual_gib": 80,
         "installer_dynamic_update": False, "secure_boot": True, "tpm": "2.0"}
-    server = thread = qemu = tpm = qmp = private_directory = work = None
+    server = thread = qemu = tpm = qmp = private_directory = work = compartment_capture = None
     overall_started = time.monotonic()
     def stage(name):
         summary["elapsed_total_seconds"] = round(time.monotonic() - overall_started, 2)
@@ -709,13 +734,16 @@ def run(args):
         xml = (ROOT / ".github/windows-vm-unattend.xml").read_text().replace("@PASSWORD@", password)
         ET.fromstring(xml)
         (tree / "autounattend.xml").write_text(xml, encoding="utf-8")
-        runner = "windows-global-vm-run.ps1" if suite == "global-capture" else "windows-proxifyre-vm-run.ps1"
+        runner = {"global-capture": "windows-global-vm-run.ps1",
+                  "compartment-lab": "windows-compartment-vm-run.ps1"}.get(suite, "windows-proxifyre-vm-run.ps1")
         for name, destination in (("windows-proxifyre-vm-setup.ps1", "ruleproxy-vm-setup.ps1"),
                                   (runner, "ruleproxy-vm-run.ps1")):
             (tree / destination).write_text((ROOT / ".github" / name).read_text(), encoding="utf-8-sig")
         media.write_json(tree / "ruleproxy-vm-config.json", {
             "host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
             "payload_sha256": payload_hash, "package_sha256": args.package_sha256,
+            "source_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+                                             capture_output=True, text=True, timeout=5).stdout.strip(),
             **({"suite": suite, "source_identity": source_identity} if source_identity is not None else {})})
         unattended = work / "unattended.iso"
         stage("unattended_iso_build")
@@ -763,6 +791,13 @@ def run(args):
             if qmp.execute("query-kvm").get("enabled") is not True:
                 raise RuntimeError("KVM required; software CPU emulation refused")
             summary["qemu_kvm_enabled"] = True
+            if suite == "compartment-lab":
+                spec = importlib.util.spec_from_file_location("compartment_private_capture",
+                    ROOT / ".github/windows_compartment_wire.py")
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                compartment_capture = module.Capture(qmp, work, artifacts)
+                server.capture = compartment_capture
             try:
                 cpus = qmp.execute("query-cpus-fast")
                 summary["actual_guest_vcpus"] = [{"index": cpu.get("cpu-index"), "host_thread_id": cpu.get("thread-id")}
@@ -778,7 +813,7 @@ def run(args):
             # parks setup on "Something went wrong (OOBEZDP)" with no unattended skip (run
             # 39030476856). The global suite keeps the NIC unplugged until its claimed guest
             # script beacons over COM1; that script waits, bounded, for the host endpoint.
-            network_pending = suite == "global-capture"
+            network_pending = suite in {"global-capture", "compartment-lab"}
             if network_pending:
                 qmp.execute("set_link", {"name": "vmnet", "up": False})
             started = time.monotonic()
@@ -823,6 +858,11 @@ def run(args):
                 summary.update(status="passed", native_windows_11_global_capture_passed=True,
                                os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
                 print_global_guest_digest("notice", server)
+            elif suite == "compartment-lab":
+                report = verify_compartment_lab_result(server.result, package_sha256=args.package_sha256)
+                media.write_json(artifacts / "native-compartment-report.json", report)
+                summary.update(status="passed", native_windows_11_compartment_lab_completed=True,
+                               os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
             else:
                 report = verify_result(server.result, package_sha256=args.package_sha256)
                 screenshot = visible_screenshot_bytes(report)
@@ -864,6 +904,12 @@ def run(args):
                 and isinstance(server.result.get("reports", {}).get("global_capture"), dict))
         summary["phase_before_cleanup"] = summary["phase"]
         stage("cleanup")
+        if compartment_capture is not None:
+            try:
+                compartment_capture.close()
+            except Exception as exc:
+                summary["capture_cleanup_error"] = type(exc).__name__
+                summary["status"] = "failed"
         cleanup_errors = cleanup_owned(qmp, qemu, tpm, server, thread, private_directory)
         if cleanup_errors:
             summary.update(status="failed", native_windows_11_product_passed=False, cleanup_errors=cleanup_errors)
@@ -879,7 +925,7 @@ def main():
     parser.add_argument("--package-sha256", required=True)
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=2700)
-    parser.add_argument("--suite", choices=("product", "global-capture"), default="product")
+    parser.add_argument("--suite", choices=("product", "global-capture", "compartment-lab"), default="product")
     args = parser.parse_args()
     if not 300 <= args.timeout_seconds <= 3600:
         parser.error("VM execution budget must be 300–3600 seconds")

@@ -135,9 +135,10 @@ def decode_request(raw: bytes) -> dict:
              "global_select_node": {"selected_node"},
              "container_allow": {"container", "proxy_port"}, "container_revoke": {"container"},
              "namespace_allow": {"container", "proxy_port", "job_handle"}, "namespace_revoke": {"container"}}
+    extra["namespace_prepare"] = {"proxy_port", "mihomo_pid", "generation"}
     expected = common | extra.get(operation, set())
     if (operation not in {"status", "apply", "stop", "global_status", "global_start", "global_stop", "global_select_node",
-                          "container_allow", "container_revoke", "namespace_allow", "namespace_revoke"}
+                          "container_allow", "container_revoke", "namespace_allow", "namespace_revoke", "namespace_prepare"}
             or set(request) != expected
             or type(request.get("schema_version")) is not int or request.get("schema_version") != 1
             or not isinstance(request.get("request_id"), str)
@@ -168,4 +169,10 @@ def decode_request(raw: bytes) -> dict:
                 raise ProxyError("invalid_request", "代理端口无效。")
             if type(request["job_handle"]) is not int or not 1 <= request["job_handle"] <= 0xFFFFFFFFFFFFFFFF:
                 raise ProxyError("invalid_request", "Job 句柄无效。")
+    if operation == "namespace_prepare":
+        for key in ("mihomo_pid", "generation"):
+            if type(request[key]) is not int or not 1 <= request[key] <= 0xFFFFFFFF:
+                raise ProxyError("invalid_request", "网络隔间核心身份无效。")
+        if type(request["proxy_port"]) is not int or not 1025 <= request["proxy_port"] <= 65535:
+            raise ProxyError("invalid_request", "代理端口无效。")
     return request

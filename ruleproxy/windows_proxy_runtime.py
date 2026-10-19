@@ -72,6 +72,16 @@ class Runtime:
             return self._connect().request("namespace_allow", container=container,
                                            proxy_port=proxy_port, job_handle=job_handle)
 
+    def namespace_prepare(self, proxy_port: int, mihomo_pid: int) -> dict:
+        """Hold the panel/core lease without enabling executable-path routing."""
+        with self._lock:
+            client = self._connect()
+            state = client.request("status")
+            result = client.request("namespace_prepare", proxy_port=proxy_port, mihomo_pid=mihomo_pid,
+                                    generation=state["generation"] + 1)
+            self._generation = result["generation"]
+            return result
+
     def namespace_revoke(self, container: str) -> dict:
         with self._lock:
             return self._connect().request("namespace_revoke", container=container)
