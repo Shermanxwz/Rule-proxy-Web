@@ -96,6 +96,9 @@ namespace RuleProxyRecover {
         static string S(IntPtr p) { return p == IntPtr.Zero ? "" : Marshal.PtrToStringUni(p); }
         static string G(IntPtr p) { return p == IntPtr.Zero ? "" : ((Guid)Marshal.PtrToStructure(p,typeof(Guid))).ToString(); }
         static void Check(uint c) { if(c!=0) throw new InvalidOperationException("WFP 0x"+c.ToString("X8")); }
+        // PowerShell coerces $null to an empty string for a string parameter.
+        // Keep the local-server NULL inside C#, never call that P/Invoke from PS.
+        public static IntPtr OpenEngine() {IntPtr h;Check(FwpmEngineOpen0(null,10,IntPtr.Zero,IntPtr.Zero,out h));return h;}
         static Record Read(string kind,IntPtr p) {
             Record r=new Record(); r.Kind=kind; r.ProviderRef=""; r.SubLayerRef=""; r.Layer=""; r.ServiceName="";
             Display d;
@@ -213,9 +216,7 @@ function Get-WfpPlan($Records) {
 function Read-WfpRecords { return [RuleProxyRecover.Native]::Snapshot() }
 function Invoke-WfpDeleteTransaction($Records) {
     if(@($Records).Count -eq 0){return}
-    $engine=[IntPtr]::Zero; $committed=$false
-    $rc=[RuleProxyRecover.Native]::FwpmEngineOpen0($null,10,[IntPtr]::Zero,[IntPtr]::Zero,[ref]$engine)
-    if($rc){throw ('WFP open 0x'+$rc.ToString('X8'))}
+    $engine=[RuleProxyRecover.Native]::OpenEngine(); $committed=$false
     try {
         $rc=[RuleProxyRecover.Native]::FwpmTransactionBegin0($engine,0);if($rc){throw ('WFP begin 0x'+$rc.ToString('X8'))}
         try {
@@ -289,7 +290,7 @@ function Get-InstallRoots {
         if($args.Count -ne 5 -or $args[0] -notmatch '^[A-Za-z]:\\' -or $args[0] -notlike '*\python\python.exe'){throw 'RuleProxyControl identity is not recognized; no changes made'}
         $root=[IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($args[0]))
         if($args[1] -cne '-I' -or $args[2] -cne '-S' -or $args[3] -ine (Join-Path $root 'ruleproxy\windows_proxy_service.py') -or $args[4] -cne '--service' -or $s.StartName -notin @('LocalSystem','NT AUTHORITY\SYSTEM')){throw 'RuleProxyControl command/owner mismatch'}
-        if($root -ne $default){
+        if($root -ne $default -and (Test-Path -LiteralPath (Join-Path $root 'deployment.json'))){
             Assert-ProtectedFile (Join-Path $root 'deployment.json');$d=Get-Content -LiteralPath (Join-Path $root 'deployment.json') -Raw | ConvertFrom-Json
             if($d.schema_version -ne 1 -or $d.root -ne $root -or $d.service_name -ne $WfpServiceName){throw 'Custom installation identity invalid'}
         }
@@ -420,9 +421,9 @@ function Get-ProxyState {
             if($flags -ne 3 -and $flags -ne $previousFlags){throw 'WinINet flags conflict'}
         }
     }
-    $manual=($current.ProxyEnable -and $current.ProxyEnable[0] -eq 1 -and (Test-DeadLocalProxy ([string]$current.ProxyServer[0])))
+    $manual=(($flags -band 2) -ne 0 -and $current.ProxyServer -and (Test-DeadLocalProxy ([string]$current.ProxyServer[0])))
     $pac=$false
-    if($current.AutoConfigURL -and $current.AutoConfigURL[0]){
+    if(($flags -band 4) -and $current.AutoConfigURL -and $current.AutoConfigURL[0]){
         $uri=$null;if([Uri]::TryCreate([string]$current.AutoConfigURL[0],[UriKind]::Absolute,[ref]$uri) -and $uri.IsLoopback -and $uri.Scheme -in @('http','https')){$server=$uri.Host;if($server.Contains(':')){$server='['+$server.Trim('[',']')+']'};$pac=Test-DeadLocalProxy ($server+':'+$uri.Port)}
     }
     $http=@([RuleProxyRecover.Native]::WinHttp());$httpDead=($http[0] -eq '3' -and (Test-DeadLocalProxy $http[1]))

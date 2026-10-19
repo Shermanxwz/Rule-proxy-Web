@@ -6,6 +6,7 @@ vendor/
 *.log
 !verification/windows-2026-10-16/proxifyre-product/**/*.log
 *.zip
+!downloads/RuleProxy-Network-Recovery.zip
 private/
 state/
 source.yaml
