@@ -1,0 +1,904 @@
+{
+  "schema_version": 2,
+  "status": "failed",
+  "scope": "native Windows 11 x64 PSEC/compartment functional smoke",
+  "native_windows_11_product_passed": false,
+  "real_exit_ip_verified": false,
+  "gui_verified": false,
+  "linux_equivalent_isolation": false,
+  "iso": {
+    "url": "https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26200.6584.250915-1905.25h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_en-us.iso",
+    "sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+    "bytes": 7092807680,
+    "verified": true
+  },
+  "cumulative_update_required": true,
+  "update_scope": "Pinned official KB5127648 and checkpoint; executor probe still gates PSEC support.",
+  "suite": "psec-compartment-smoke",
+  "native_windows_11_psec_functionality_passed": false,
+  "strict_qualified": false,
+  "vm_configuration": {
+    "machine": "q35,accel=kvm,smm=on",
+    "vcpu": 4,
+    "ram_mib": 6144,
+    "disk_controller": "q35 built-in AHCI/SATA (ide-hd on ide.0)",
+    "disk_virtual_gib": 80,
+    "installer_dynamic_update": false,
+    "secure_boot": true,
+    "tpm": "2.0"
+  },
+  "elapsed_total_seconds": 4431.21,
+  "phase": "finished",
+  "phases": [
+    {
+      "phase": "host_preflight",
+      "unix_time": 1792391856.5385165
+    },
+    {
+      "phase": "host_resources_recorded",
+      "unix_time": 1792391856.5533652
+    },
+    {
+      "phase": "official_cumulative_update_download",
+      "unix_time": 1792391856.6076157
+    },
+    {
+      "phase": "official_iso_download",
+      "unix_time": 1792391878.7673354
+    },
+    {
+      "phase": "official_iso_verified",
+      "unix_time": 1792392415.9506495
+    },
+    {
+      "phase": "official_iso_extract",
+      "unix_time": 1792392422.5092347
+    },
+    {
+      "phase": "unattended_iso_build",
+      "unix_time": 1792392469.8303597
+    },
+    {
+      "phase": "unattended_iso_verified",
+      "unix_time": 1792392514.431561
+    },
+    {
+      "phase": "vm_start",
+      "unix_time": 1792392515.196934
+    },
+    {
+      "phase": "vm_kvm_confirmed",
+      "unix_time": 1792392515.442608
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392515.4437454
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392515.4553502
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392545.4923272
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392575.520011
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392605.5534787
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392635.5814943
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392665.6075602
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392695.6344426
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392725.6626549
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392755.7543406
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392785.7782106
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392815.800109
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392845.825234
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392875.8573327
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392905.8794541
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392935.9086037
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392965.9328222
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792392995.956314
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393026.0041466
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393056.0287266
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393086.0507379
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393116.1325963
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393146.1747284
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393176.2023375
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393206.2477293
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393236.2922797
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393266.3369503
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393296.380162
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393326.4121497
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393356.4557629
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393386.4937882
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393416.5304773
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393446.570258
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393476.605342
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393506.6392405
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393536.6766052
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393566.7127273
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393596.7544441
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393626.7893546
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393656.8307006
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393686.8523204
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393716.9167306
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393746.9796243
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393777.0415242
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393807.1080158
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393837.1723034
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393867.2348816
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393897.302317
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393927.3605242
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393957.430866
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792393987.5207415
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394017.5554574
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394047.5860374
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394077.6157532
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394107.6980095
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394137.7423012
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394167.7734094
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394197.8108056
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394227.950099
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394257.972414
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394287.9976704
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394318.0265813
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394348.0637805
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394378.0905428
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394408.1103263
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394438.1442258
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394468.1861815
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394498.2081513
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394528.2335243
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394558.2580292
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394588.2866974
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394618.3133972
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394648.335832
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394678.4160242
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394708.459536
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394738.4820476
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394768.5046635
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394798.5273392
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394828.5490177
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394858.572492
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394888.5944827
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394918.746044
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394948.7697587
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792394978.7928057
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395008.8154702
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395038.8378441
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395068.8612306
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395098.8893268
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395128.9102519
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395158.9349563
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395188.9641373
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395218.9881656
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395249.0095801
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395279.040505
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395309.063913
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395339.0940244
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395369.122604
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395399.1470776
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395429.1762958
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395459.2327344
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395489.3034844
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395519.368169
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395549.4383802
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395579.5034328
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395609.6081824
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395639.6687164
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395669.7353125
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395699.7971659
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395729.864209
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395759.892155
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395789.9200225
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395819.9477527
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395849.9772637
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395880.003219
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395910.0309649
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395940.1051319
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792395970.1350274
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396000.165463
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396030.194917
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396060.2255356
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396090.2544246
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396120.2763927
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396150.3057091
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396180.3345368
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396210.3650656
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396240.3949358
+    },
+    {
+      "phase": "guest_installation_or_qualification_wait",
+      "unix_time": 1792396270.421294
+    },
+    {
+      "phase": "guest_result_received",
+      "unix_time": 1792396276.0352397
+    },
+    {
+      "phase": "cleanup",
+      "unix_time": 1792396276.0363863
+    },
+    {
+      "phase": "finished",
+      "unix_time": 1792396287.7496054
+    }
+  ],
+  "kvm_api_version": 12,
+  "host_preflight": {
+    "architecture": "x86_64",
+    "kernel": "6.17.0-1022-azure",
+    "cpu_count": 4,
+    "disk_free_bytes": 91638571008,
+    "cgroup_membership": "0::/system.slice/hosted-compute-agent.service",
+    "cpu_affinity_count": 4,
+    "cpu_max": "max 100000",
+    "cpu_stat": "usage_usec 20615845\nuser_usec 15681341\nsystem_usec 4934503\nnice_usec 2037000\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0",
+    "memory_max": "max",
+    "memory_current": "1180123136",
+    "cpu_pressure": "some avg10=0.61 avg60=0.85 avg300=0.45 total=2022374\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0",
+    "io_pressure": "some avg10=9.59 avg60=8.66 avg300=3.57 total=13315335\nfull avg10=9.45 avg60=8.36 avg300=3.43 total=12845086",
+    "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=1628\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=1627",
+    "cpu_times": "cpu  2812 205 1565 29405 3178 0 16 0 0 0",
+    "MemTotal": 16766414848,
+    "MemAvailable": 15573872640,
+    "SwapTotal": 3221221376,
+    "SwapFree": 3221221376,
+    "effective_cpu_count": 4
+  },
+  "package_sha256": "eb3ddf93607272ba1597b48d4fdfaee4bb99cfff89b3106b6010338ad427c6fe",
+  "qemu_version": "QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)",
+  "official_update_packages": [
+    {
+      "filename": "windows11.0-kb5043080-x64_953449672073f8fb99badb4cc6d5d7849b9c83e8.msu",
+      "seed_filename": "windows11.0-kb5043080-x64.msu",
+      "url": "https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/d8b7f92b-bd35-4b4c-96e5-46ce984b31e0/public/windows11.0-kb5043080-x64_953449672073f8fb99badb4cc6d5d7849b9c83e8.msu",
+      "sha256": "819632610a101af11c72907fb13ff05b5fb4222c0e263ee9a03bcc1d1d5f26a4",
+      "bytes": 533761740,
+      "verified": true
+    },
+    {
+      "filename": "windows11.0-kb5127648-x64_2b88d2d308adc938fcd4d2876a68ee0b2a3c4c09.msu",
+      "seed_filename": "windows11.0-kb5127648-x64.msu",
+      "url": "https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/4225b261-8248-43e5-a808-34f3faafe3f6/public/windows11.0-kb5127648-x64_2b88d2d308adc938fcd4d2876a68ee0b2a3c4c09.msu",
+      "sha256": "8a1067c763121953876e2e0dcbf5e2c5832545a44ef6baba362938287e05fcfb",
+      "bytes": 4775050195,
+      "verified": true
+    }
+  ],
+  "remastered_iso": {
+    "bytes": 7089082368,
+    "filesystem_options": "iso9660_level3_joliet_rockridge",
+    "boot_wim_layout_status": "reported",
+    "boot_wim_extents": [
+      {
+        "extent_index": 0,
+        "lba": 28535,
+        "blocks": 289623,
+        "file_bytes": 593147852,
+        "byte_offset": 58439680
+      }
+    ]
+  },
+  "qemu_kvm_enabled": true,
+  "actual_guest_vcpus": [
+    {
+      "index": 0,
+      "host_thread_id": 4052
+    },
+    {
+      "index": 1,
+      "host_thread_id": 4053
+    },
+    {
+      "index": 2,
+      "host_thread_id": 4054
+    },
+    {
+      "index": 3,
+      "host_thread_id": 4055
+    }
+  ],
+  "latest_vm_sample": {
+    "unix_time": 1792396270.3969104,
+    "host": {
+      "architecture": "x86_64",
+      "kernel": "6.17.0-1022-azure",
+      "cpu_count": 4,
+      "disk_free_bytes": 54212526080,
+      "cgroup_membership": "0::/system.slice/hosted-compute-agent.service",
+      "cpu_affinity_count": 4,
+      "cpu_max": "max 100000",
+      "cpu_stat": "usage_usec 8227841663\nuser_usec 5542805992\nsystem_usec 2685035670\nnice_usec 2037000\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0",
+      "memory_max": "max",
+      "memory_current": "15597887488",
+      "cpu_pressure": "some avg10=2.04 avg60=1.94 avg300=2.27 total=214876770\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0",
+      "io_pressure": "some avg10=0.79 avg60=0.21 avg300=0.66 total=306077858\nfull avg10=0.79 avg60=0.20 avg300=0.54 total=252797453",
+      "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=2700066\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=2523972",
+      "cpu_times": "cpu  545596 205 267036 877717 78899 0 513 0 507635 0",
+      "MemTotal": 16766414848,
+      "MemAvailable": 9150689280,
+      "SwapTotal": 3221221376,
+      "SwapFree": 3221151744,
+      "effective_cpu_count": 4
+    },
+    "qemu_exit_code": null,
+    "qemu_cpu_seconds": 8129.06,
+    "qemu_threads": 66,
+    "qemu_rss_bytes": 6514991104,
+    "qemu_io": {
+      "rchar": 81037037359,
+      "wchar": 80530915536,
+      "syscr": 18815820,
+      "syscw": 17752466,
+      "read_bytes": 40290897920,
+      "write_bytes": 85920870400,
+      "cancelled_write_bytes": 0
+    },
+    "disk_allocated_bytes": 24953077760,
+    "disk_file_bytes": 33947910144,
+    "qmp_status": {
+      "running": true,
+      "status": "running",
+      "singlestep": false
+    },
+    "blockstats": [
+      {
+        "device": "pflash0",
+        "stats": {
+          "unmap_operations": 0,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 0,
+          "wr_highest_offset": 0,
+          "wr_total_time_ns": 0,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 0,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 0,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 0,
+          "wr_operations": 0,
+          "unmap_bytes": 0,
+          "rd_merged": 0,
+          "rd_bytes": 0,
+          "unmap_total_time_ns": 0,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 0,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      },
+      {
+        "device": "pflash1",
+        "stats": {
+          "unmap_operations": 0,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 0,
+          "wr_highest_offset": 106496,
+          "wr_total_time_ns": 0,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 0,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 0,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 0,
+          "wr_operations": 0,
+          "unmap_bytes": 0,
+          "rd_merged": 0,
+          "rd_bytes": 0,
+          "unmap_total_time_ns": 0,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 0,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      },
+      {
+        "device": "system",
+        "stats": {
+          "unmap_operations": 146508,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 368600870090,
+          "wr_highest_offset": 85899345920,
+          "wr_total_time_ns": 756006809289,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 77828633088,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 918342514483,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 37351,
+          "wr_operations": 1784986,
+          "unmap_bytes": 145706115072,
+          "rd_merged": 0,
+          "rd_bytes": 80496642560,
+          "unmap_total_time_ns": 21014835912,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "idle_time_ns": 21929131,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 5161723,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      },
+      {
+        "device": "install",
+        "stats": {
+          "unmap_operations": 0,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 0,
+          "wr_highest_offset": 0,
+          "wr_total_time_ns": 0,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 0,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 46102951602,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 0,
+          "wr_operations": 0,
+          "unmap_bytes": 0,
+          "rd_merged": 0,
+          "rd_bytes": 7727493120,
+          "unmap_total_time_ns": 0,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "idle_time_ns": 851582940714,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 350691,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      },
+      {
+        "device": "sd0",
+        "stats": {
+          "unmap_operations": 0,
+          "unmap_merged": 0,
+          "failed_zone_append_operations": 0,
+          "flush_total_time_ns": 0,
+          "wr_highest_offset": 0,
+          "wr_total_time_ns": 0,
+          "failed_wr_operations": 0,
+          "failed_rd_operations": 0,
+          "wr_merged": 0,
+          "wr_bytes": 0,
+          "failed_unmap_operations": 0,
+          "zone_append_merged": 0,
+          "failed_flush_operations": 0,
+          "account_invalid": true,
+          "rd_total_time_ns": 0,
+          "invalid_unmap_operations": 0,
+          "flush_operations": 0,
+          "wr_operations": 0,
+          "unmap_bytes": 0,
+          "rd_merged": 0,
+          "rd_bytes": 0,
+          "unmap_total_time_ns": 0,
+          "invalid_flush_operations": 0,
+          "account_failed": true,
+          "zone_append_total_time_ns": 0,
+          "zone_append_operations": 0,
+          "rd_operations": 0,
+          "zone_append_bytes": 0,
+          "invalid_zone_append_operations": 0,
+          "invalid_wr_operations": 0,
+          "invalid_rd_operations": 0
+        }
+      }
+    ],
+    "vm_elapsed_seconds": 3754,
+    "screen_sha256": "05713dbacb00cfa92e8cad1581147b0f1349f6ee14c97d122440aff36011bd53"
+  },
+  "guest_network_plugged_seconds": 560,
+  "failure_phase": "guest_result_received",
+  "error": "RuntimeError: PSEC/compartment functional evidence is incomplete",
+  "product_execution_confirmed": false,
+  "phase_before_cleanup": "guest_result_received"
+}

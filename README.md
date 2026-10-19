@@ -18,6 +18,8 @@ Linux 按应用模式继续使用网络命名空间隔离。Windows 的“独立
 
 [Windows 11 补测记录](verification/windows-2026-10-19/compartment/preflight-native/assessment.json)在修复便携 Python 漏文件后，确认六类普通用户系统 DNS 查询外发，以及普通用户 WMI 在默认隔间创建子进程并直连。普通用户 Edge 的隔间内外页面对照仍成功。整轮实验另有状态文件写入失败和 PowerShell 退出超时，仍按失败归档；它不代表安装版产品或可见界面验收通过。[此前含无效 Python 探针的记录](verification/windows-2026-10-19/compartment/native-abi-fixed/assessment.json)保留供对照。
 
+[PSEC 与隔间组合实验](verification/windows-2026-10-19/compartment/psec-smoke-first/assessment.json)已在实际更新至 `26200.9711` 的 Windows 11 上运行：普通用户中继对照和 PSEC 接口探测成功，但执行器随后退出，尚未取得应用、子进程或浏览器成功运行的证据。该方向仍未通过功能验证，更未通过 DNS、系统服务和产品验收。
+
 Windows 卸载前请先用原安装账户停止全局代理；如果改用其他管理员账户且原连接标志尚未恢复，卸载会保留恢复组件并提示先完成恢复。恢复检测到设置冲突时也会保留记录，不覆盖无法确认归属的设置。
 
 从 0.3.0-rc.14 及更早版本升级：面板会检查旧版全局 TUN 遗留的自有阻断规则和 DNS 策略。恢复未能确认时应先完成恢复，再启动新的代理；卸载也必须先恢复网络状态，再删除恢复组件。
