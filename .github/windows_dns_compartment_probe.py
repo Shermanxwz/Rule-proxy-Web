@@ -142,6 +142,18 @@ def run(args):
             try:
                 report['status'] = int(fn(C.byref(request), C.byref(result), None))
                 report['query_status'] = int(result.QueryStatus)
+                if report['status'] == 9506:  # DNS_REQUEST_PENDING
+                    # Keep the native request/result buffers alive until the
+                    # parent terminates this bounded worker. Pending is not a
+                    # completed denial, even though no callback was requested.
+                    if impersonation is not None:
+                        if not impersonation.RevertToSelf():
+                            raise C.WinError(C.get_last_error())
+                        impersonation = None
+                    print(json.dumps({'phase': 'pending', 'completed': False,
+                                      **report}), flush=True)
+                    while True:
+                        time.sleep(1)
                 report['has_records'] = bool(result.pQueryRecords)
             finally:
                 if result.pQueryRecords:

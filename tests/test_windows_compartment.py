@@ -644,10 +644,12 @@ class RelayTests(unittest.TestCase):
                 relay.start()
                 self.addCleanup(relay.stop)
                 with socket.create_connection(("127.0.0.1", relay.proxy_port), timeout=5) as client:
-                    client.sendall(b"CONNECT private.example:443 HTTP/1.1\r\n\r\n")
                     try:
+                        client.sendall(b"CONNECT private.example:443 HTTP/1.1\r\n\r\n")
                         self.assertEqual(client.recv(1), b"")
-                    except ConnectionResetError:
+                    except (ConnectionResetError, ConnectionAbortedError):
+                        # Windows can abort the local side while the relay
+                        # closes an unread request; upstream must still see EOF.
                         pass
                 thread.join(5)
                 relay.stop()

@@ -16,8 +16,16 @@ import secrets
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import traceback
+
+DNS_CASES = (
+    ('getaddrinfo', 'standard'),
+    ('DnsQuery_W', 'standard'), ('DnsQuery_W', 'wire'),
+    ('DnsQueryEx', 'standard'), ('DnsQueryEx', 'wire'),
+    ('Resolve-DnsName', 'standard'),
+)
 
 class SA(C.Structure):
     _fields_ = [('length', W.DWORD), ('descriptor', C.c_void_p), ('inherit', W.BOOL)]
@@ -56,13 +64,18 @@ class Experiment:
             'variants': {}, 'cleanup': {}, 'system_acl_changes': False}
         self.account = None; self.token = W.HANDLE(); self.loaded = None
         self.desktop = self.station = self.oldstation = None
-        self.controller = self.fixture = None
+        self.controller = self.fixture = self.direct = None
+        self.bits_names = []
         self.allocated_sids = []
         self.custom = 'S-1-5-21-' + '-'.join(str(secrets.randbelow(2**31-1)+1) for _ in range(3)) + '-31337'
         P = C.c_void_p
         bind(self.a, 'ConvertStringSidToSidW', [W.LPCWSTR, C.POINTER(P)], W.BOOL)
         bind(self.a, 'ConvertStringSecurityDescriptorToSecurityDescriptorW', [W.LPCWSTR,W.DWORD,C.POINTER(P),C.POINTER(W.DWORD)],W.BOOL)
         bind(self.a, 'GetSecurityDescriptorDacl', [P,C.POINTER(W.BOOL),C.POINTER(P),C.POINTER(W.BOOL)],W.BOOL)
+        bind(self.a, 'SetNamedSecurityInfoW', [W.LPWSTR,W.DWORD,W.DWORD,P,P,P,P],W.DWORD)
+        bind(self.k, 'QueryInformationJobObject', [W.HANDLE,C.c_int,P,W.DWORD,C.POINTER(W.DWORD)],W.BOOL)
+        bind(self.k, 'QueryFullProcessImageNameW', [W.HANDLE,W.DWORD,W.LPWSTR,C.POINTER(W.DWORD)],W.BOOL)
+        bind(self.a, 'IsTokenRestricted', [W.HANDLE], W.BOOL)
         bind(self.a, 'CreateRestrictedToken', [W.HANDLE,W.DWORD,W.DWORD,P,W.DWORD,P,W.DWORD,C.POINTER(SIDATTR),C.POINTER(W.HANDLE)],W.BOOL)
         bind(self.a, 'SetTokenInformation', [W.HANDLE,C.c_int,P,W.DWORD],W.BOOL)
         bind(self.a, 'CreateProcessAsUserW', [W.HANDLE,W.LPCWSTR,W.LPWSTR,P,P,W.BOOL,W.DWORD,P,W.LPCWSTR,C.POINTER(lab.STARTUPINFOW),C.POINTER(lab.PROCESS_INFORMATION)],W.BOOL)
@@ -119,7 +132,10 @@ class Experiment:
             for name in ['SeAssignPrimaryTokenPrivilege','SeIncreaseQuotaPrivilege','SeBackupPrivilege','SeRestorePrivilege']:
                 priv=PRIVILEGES();priv.count=1;priv.attributes=2
                 self.check(self.a.LookupPrivilegeValueW(None,name,C.byref(priv.luid)),'LookupPrivilegeValue')
+                C.set_last_error(0)
                 self.check(self.a.AdjustTokenPrivileges(token,False,C.byref(priv),0,None,None),'AdjustTokenPrivileges')
+                if C.get_last_error() == 1300:
+                    raise OSError(1300, 'required SYSTEM privilege unavailable: ' + name)
         finally:self.k.CloseHandle(token)
 
     def make_user(self):
@@ -141,12 +157,31 @@ class Experiment:
         profile=PROFILE();profile.size=C.sizeof(profile);profile.flags=1;profile.username=name
         if self.ue.LoadUserProfileW(self.token,C.byref(profile)):
             self.loaded=profile.profile;self.report['user']['profile_loaded']=True
-        else:self.report['user']['profile_load_error']=C.get_last_error()
+        else:
+            self.report['user']['profile_load_error']=C.get_last_error()
+            raise C.WinError(self.report['user']['profile_load_error'])
 
     def grant(self,path,sids):
-        for sid in sids:
-            cp=subprocess.run(['icacls',str(path),'/grant','*'+sid+':(OI)(CI)M','/Q'],capture_output=True,text=True,timeout=60)
-            if cp.returncode:raise RuntimeError('private ACL grant failed: '+cp.stdout+cp.stderr)
+        path = Path(path).resolve()
+        if path != self.work and self.work not in path.parents:
+            raise ValueError('ACL grants are restricted to this disposable work directory')
+        # Pass numeric SIDs directly to the security APIs. icacls can reject an
+        # otherwise valid custom restricting SID when account lookup fails.
+        text = 'D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)' + ''.join(
+            '(A;OICI;0x1301bf;;;' + sid + ')' for sid in dict.fromkeys(sids))
+        descriptor = C.c_void_p()
+        self.check(self.a.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            text, 1, C.byref(descriptor), None), 'Parse private work DACL')
+        try:
+            present, defaulted, dacl = W.BOOL(), W.BOOL(), C.c_void_p()
+            self.check(self.a.GetSecurityDescriptorDacl(descriptor, C.byref(present),
+                C.byref(dacl), C.byref(defaulted)), 'Get private work DACL')
+            code = int(self.a.SetNamedSecurityInfoW(str(path), 1, 4 | 0x80000000,
+                                                   None, None, dacl, None))
+            if code:
+                raise OSError(code, 'Set private work DACL')
+        finally:
+            self.k.LocalFree(descriptor)
 
     def make_desktop(self):
         sd=self.sd([self.user_sid,self.logon_sid,self.custom,'S-1-5-12'])
@@ -175,6 +210,8 @@ class Experiment:
         if not target.exists():shutil.copy2(sys.executable,target)
         probe=self.work/'dns_probe.py';shutil.copy2(self.args.probe_script,probe)
         self.python,self.probe=target,probe
+        self.broker_child=self.work/'broker_child.py'
+        self.broker_child.write_text(self.lab.BROKER_CHILD,encoding='utf-8')
         self.report['runtime']={'source':str(base),'private':str(runtime),'executable':str(target)}
 
     def env(self,directory):
@@ -210,7 +247,36 @@ class Experiment:
         finally:self.k.LocalFree(sd)
         return token
 
-    def execute(self,token,job,argv,directory,log,timeout):
+    def sample_browser_tokens(self, job, destination, stop):
+        seen = set()
+        while not stop.is_set():
+            buffer, needed = C.create_string_buffer(8 + 128 * C.sizeof(C.c_size_t)), W.DWORD()
+            if self.k.QueryInformationJobObject(job, 3, buffer, len(buffer), C.byref(needed)):
+                count = min(C.cast(C.addressof(buffer)+4,C.POINTER(W.DWORD))[0],128)
+                pids = C.cast(C.addressof(buffer)+8,C.POINTER(C.c_size_t))
+                for index in range(count):
+                    pid = int(pids[index])
+                    if pid in seen: continue
+                    process = self.k.OpenProcess(0x1000,False,pid)
+                    if not process: continue
+                    token = W.HANDLE()
+                    try:
+                        self.check(self.a.OpenProcessToken(process,8,C.byref(token)),'Sample browser token')
+                        integrity = self.info(token,25)
+                        sid = self.sidtext(C.cast(integrity,C.POINTER(SIDATTR))[0].sid)
+                        appcontainer = self.info(token,29)
+                        destination.append({'pid':pid,'integrity_sid':sid,'integrity_rid':int(sid.rsplit('-',1)[1]),
+                            'restricted':bool(self.a.IsTokenRestricted(token)),
+                            'appcontainer':bool(C.cast(appcontainer,C.POINTER(W.DWORD))[0])})
+                        seen.add(pid)
+                    except Exception:
+                        pass  # A short-lived child may exit during observation.
+                    finally:
+                        if token.value:self.k.CloseHandle(token)
+                        self.k.CloseHandle(process)
+            stop.wait(.05)
+
+    def execute(self,token,job,argv,directory,log,timeout,browser=False):
         import msvcrt
         started=time.monotonic();result={'argv':[str(x) for x in argv]}
         si,pi=self.lab.STARTUPINFOW(),self.lab.PROCESS_INFORMATION();si.cb=C.sizeof(si)
@@ -225,13 +291,22 @@ class Experiment:
                 if not ok:return dict(result,launch_error=C.get_last_error())
             finally:
                 for handle in [h,hin]:os.set_handle_inheritable(handle,False)
+        observer = None
+        observation_stop = threading.Event()
         try:
             self.check(self.k.AssignProcessToJobObject(job,pi.hProcess),'AssignProcessToJobObject')
+            if browser:
+                result['browser_process_tokens'] = []
+                observer = threading.Thread(target=self.sample_browser_tokens,
+                    args=(job,result['browser_process_tokens'],observation_stop),daemon=True)
+                observer.start()
             if self.k.ResumeThread(pi.hThread)==0xFFFFFFFF:raise C.WinError(C.get_last_error())
             result['pid']=int(pi.dwProcessId)
             result['exit_code'],result['timed_out']=self.n.wait(pi.hProcess,timeout);pi.hProcess=None
         except Exception as exc:result['error']=repr(exc)
         finally:
+            observation_stop.set()
+            if observer:observer.join(2)
             self.k.CloseHandle(pi.hThread)
             if pi.hProcess:self.k.TerminateProcess(pi.hProcess,1);self.k.CloseHandle(pi.hProcess)
             self.k.TerminateJobObject(job,1)
@@ -243,6 +318,120 @@ class Experiment:
             except ValueError:pass
         return result
 
+    def dns_command(self, api, mode, name):
+        if api != 'Resolve-DnsName':
+            return [self.python, '-I', '-B', self.probe, '--api', api,
+                    '--mode', mode, '--name', name]
+        # Match the main lab's real PowerShell DNS entry point. The generated
+        # hexadecimal name cannot introduce PowerShell syntax.
+        powershell = Path(os.environ['SystemRoot']) / 'System32' / 'WindowsPowerShell' / 'v1.0' / 'powershell.exe'
+        identity = "name='" + name + "';api='Resolve-DnsName';mode='standard';"
+        command = ("$ErrorActionPreference='Stop'; try { $a=@(Resolve-DnsName -Name " + name
+                   + " -Type A -DnsOnly -NoHostsFile -ErrorAction Stop | Select-Object -ExpandProperty IPAddress); "
+                   + "@{" + identity + "completed=$true;addresses=$a;answer_matches=($a.Count -eq 1 -and $a[0] -eq '1.2.3.4')} "
+                   + "| ConvertTo-Json -Compress } catch { @{" + identity
+                   + "completed=$true;error=$_.Exception.Message} | ConvertTo-Json -Compress }")
+        return [powershell, '-NoProfile', '-NonInteractive', '-Command', command]
+
+    def dns_matrix(self, token, directory, destination, cid=None):
+        # Outside controls and isolated variants use exactly the same APIs and
+        # flags, each in a fresh process and with a fresh observable query name.
+        for api, mode in DNS_CASES:
+            label = api + '_' + mode
+            query = secrets.token_hex(16) + '.1.2.3.4.sslip.io'
+            row = {'api': api, 'mode': mode, 'name': query, 'outside_control': cid is None}
+            destination[label] = row
+            job = self.n.new_job()
+            try:
+                if cid is not None:
+                    row['bind_status'] = int(self.n.i.SetJobCompartmentId(job, cid))
+                if cid is None or row['bind_status'] == 0:
+                    logfile = directory / (('outside_' if cid is None else '') + label + '.log')
+                    row.update(self.execute(token, job, self.dns_command(api, mode, query),
+                                            directory, logfile, self.args.dns_timeout))
+            except Exception as exc:
+                row['error'] = repr(exc)
+            finally:
+                self.k.CloseHandle(job)
+            self.save()
+
+    def broker_matrix(self, token, directory, destination, label_prefix, cid=None):
+        powershell = Path(os.environ['SystemRoot'])/'System32'/'WindowsPowerShell'/'v1.0'/'powershell.exe'
+        for broker in ('wmi','bits'):
+            label = label_prefix+'_'+broker+'_'+secrets.token_hex(8)
+            url = 'http://'+self.host_ip+':'+str(self.direct.port)+'/'+self.nonce+'/'+label
+            row = {'label':label,'url':url,'outside_control':cid is None}
+            destination[broker] = row
+            child_result = directory/(label+'-child.json')
+            if broker == 'wmi':
+                command = subprocess.list2cmdline([str(self.python),'-I','-B',str(self.broker_child),
+                    url,str(child_result),self.direct.marker(label)])
+                script = self.lab.wmi_script(command)
+            else:
+                display_name = 'RuleProxyPrimary-'+self.nonce+'-'+label
+                self.bits_names.append(display_name)
+                script = self.lab.bits_script(url,directory/(label+'.html'),display_name,
+                    self.direct.marker(label)).replace('AddSeconds(20)','AddSeconds(12)')
+            job = self.n.new_job()
+            try:
+                if cid is not None:row['bind_status']=int(self.n.i.SetJobCompartmentId(job,cid))
+                if cid is None or row['bind_status']==0:
+                    row['execution']=self.execute(token,job,[powershell,'-NoProfile','-NonInteractive','-Command',script],
+                        directory,directory/(label+'.log'),22)
+                    rows=row['execution'].get('rows',[])
+                    row['invocation']=rows[-1] if rows else None
+                    if broker=='wmi' and isinstance(row['invocation'],dict) and row['invocation'].get('return_value')==0:
+                        process=self.k.OpenProcess(0x100000|0x1000|1,False,int(row['invocation']['child_pid']))
+                        if process:
+                            try:
+                                length,image=W.DWORD(32768),C.create_unicode_buffer(32768)
+                                child_token=W.HANDLE()
+                                self.check(self.k.QueryFullProcessImageNameW(process,0,image,C.byref(length)),'Identify WMI child')
+                                self.check(self.a.OpenProcessToken(process,8,C.byref(child_token)),'Read WMI child identity')
+                                try:child_sid=self.n.token_user(child_token)
+                                finally:self.k.CloseHandle(child_token)
+                                owned=(os.path.normcase(image.value)==os.path.normcase(str(self.python)) and child_sid==self.user_sid)
+                                row['owned_child_handle_verified']=owned
+                                if owned and self.k.WaitForSingleObject(process,10000)!=0:
+                                    row['child_terminated_after_timeout']=bool(self.k.TerminateProcess(process,1))
+                                    self.k.WaitForSingleObject(process,5000)
+                            finally:self.k.CloseHandle(process)
+                        row['child']=self.lab.read_json_optional(child_result)
+            except Exception as exc:row['error']=repr(exc)
+            finally:self.k.CloseHandle(job)
+            row['fixture_hits']=self.direct.count(label)
+            row['host_direct_request_observed']=row['fixture_hits']>0
+            self.save()
+
+    def browser_matrix(self,token,directory,destination,label_prefix,cid=None):
+        proxy_port=self.fixture.port if cid is None else self.relay_port
+        for family in self.args.browsers.split(','):
+            program=self.lab.PROGRAMS.get(family)
+            if not program or not program.exists():destination[family]={'missing':True};continue
+            label=label_prefix+'_'+family;profile=directory/label;profile.mkdir()
+            logfile=directory/(label+'.log')
+            url='http://'+label+'.invalid/'+self.nonce+'/'+label;shot=None
+            if family=='firefox':
+                prefs={'network.proxy.type':1,'network.proxy.http':'127.0.0.1','network.proxy.http_port':proxy_port,'network.proxy.ssl':'127.0.0.1','network.proxy.ssl_port':proxy_port,'network.proxy.no_proxies_on':'','network.proxy.allow_hijacking_localhost':True,'network.manage-offline-status':False,'network.trr.mode':5,'browser.shell.checkDefaultBrowser':False,'datareporting.policy.dataSubmissionEnabled':False}
+                (profile/'user.js').write_text(''.join('user_pref('+json.dumps(k)+', '+json.dumps(v)+');\n' for k,v in prefs.items()),encoding='utf-8')
+                shot=directory/(label+'.png');argv=[program,'--headless','--no-remote','--profile',profile,'--screenshot',shot,url]
+            else:argv=[program,*self.lab.CHROMIUM,'--user-data-dir='+str(profile),'--proxy-server=http://127.0.0.1:'+str(proxy_port),'--proxy-bypass-list=<-loopback>','--dump-dom',url]
+            job=self.n.new_job()
+            row={'outside_control':cid is None,'label':label,'proxy_port':proxy_port}
+            destination[family]=row
+            try:
+                if cid is not None:row['bind_status']=int(self.n.i.SetJobCompartmentId(job,cid))
+                if cid is None or row['bind_status']==0:
+                    row.update(self.execute(token,job,argv,directory,logfile,self.args.browser_timeout,browser=True))
+                row.update(fixture_hits=self.fixture.count(label),sandbox_disabled=False,
+                    rendered=self.lab.png_valid(shot) if shot else self.fixture.marker(label) in self.lab.read_tail(logfile,65536))
+                row['sandbox_child_token_observed']=any(item['pid']!=row.get('pid') and item['integrity_rid']<=4096
+                    and (item['restricted'] or item['appcontainer']) for item in row.get('browser_process_tokens',[]))
+                row['sandbox_observation_scope']='job child token integrity/restrictions; no full browser policy attestation'
+            except Exception as exc:row['error']=repr(exc)
+            finally:self.k.CloseHandle(job)
+            self.save()
+
     def case(self,name,flags,sids,cid):
         directory=self.work/name;directory.mkdir()
         result={'flags':flags,'sids':sids,'dns':{},'browsers':{}};self.report['variants'][name]=result;self.save()
@@ -251,39 +440,15 @@ class Experiment:
             result['token_user']=self.n.token_user(token);result['token_restricted_sids']=self.groups(token,11)
             if name == 'plain':
                 result['outside_dns_control'] = {}
-                for api in ['getaddrinfo','DnsQuery_W','DnsQueryEx']:
-                    job=self.n.new_job()
-                    try:
-                        result['outside_dns_control'][api]=self.execute(token,job,[self.python,'-I','-B',self.probe,'--api',api,'--mode','wire' if api!='getaddrinfo' else 'standard'],directory,directory/('outside_'+api+'.log'),self.args.dns_timeout)
-                    finally:self.k.CloseHandle(job)
-                    self.save()
-            for api,mode in [('getaddrinfo','standard'),('DnsQuery_W','wire'),('DnsQueryEx','wire')]:
-                label=api+'_'+mode;job=self.n.new_job()
-                try:
-                    result['dns'][label]={'bind_status':int(self.n.i.SetJobCompartmentId(job,cid))}
-                    if result['dns'][label]['bind_status']==0:
-                        result['dns'][label].update(self.execute(token,job,[self.python,'-I','-B',self.probe,'--api',api,'--mode',mode],directory,directory/(label+'.log'),self.args.dns_timeout))
-                finally:self.k.CloseHandle(job)
-                self.save()
-            for family in self.args.browsers.split(','):
-                program=self.lab.PROGRAMS.get(family)
-                if not program or not program.exists():result['browsers'][family]={'missing':True};continue
-                label=name+'_'+family;profile=directory/family;profile.mkdir()
-                url='http://'+label+'.invalid/'+self.nonce+'/'+label;shot=None
-                if family=='firefox':
-                    prefs={'network.proxy.type':1,'network.proxy.http':'127.0.0.1','network.proxy.http_port':self.relay_port,'network.proxy.ssl':'127.0.0.1','network.proxy.ssl_port':self.relay_port,'network.proxy.no_proxies_on':'','network.proxy.allow_hijacking_localhost':True,'network.manage-offline-status':False,'network.trr.mode':5,'browser.shell.checkDefaultBrowser':False,'datareporting.policy.dataSubmissionEnabled':False}
-                    (profile/'user.js').write_text(''.join('user_pref('+json.dumps(k)+', '+json.dumps(v)+');\n' for k,v in prefs.items()),encoding='utf-8')
-                    shot=directory/(family+'.png');argv=[program,'--headless','--no-remote','--profile',profile,'--screenshot',shot,url]
-                else:argv=[program,*self.lab.CHROMIUM,'--user-data-dir='+str(profile),'--proxy-server=http://127.0.0.1:'+str(self.relay_port),'--proxy-bypass-list=<-loopback>','--dump-dom',url]
-                job=self.n.new_job()
-                try:
-                    row={'bind_status':int(self.n.i.SetJobCompartmentId(job,cid))}
-                    if row['bind_status']==0:row.update(self.execute(token,job,argv,directory,directory/(family+'.log'),self.args.browser_timeout))
-                    row.update(fixture_hits=self.fixture.count(label),sandbox_disabled=False,
-                        rendered=self.lab.png_valid(shot) if shot else self.fixture.marker(label) in self.lab.read_tail(directory/(family+'.log'),65536))
-                    result['browsers'][family]=row
-                finally:self.k.CloseHandle(job)
-                self.save()
+                self.dns_matrix(token, directory, result['outside_dns_control'])
+                result['outside_broker_control'] = {}
+                self.broker_matrix(token,directory,result['outside_broker_control'],'outside_plain')
+                result['outside_browsers'] = {}
+                self.browser_matrix(token,directory,result['outside_browsers'],'outside_plain')
+            self.dns_matrix(token, directory, result['dns'], cid)
+            result['brokers'] = {}
+            self.broker_matrix(token,directory,result['brokers'],name,cid)
+            self.browser_matrix(token,directory,result['browsers'],name,cid)
         finally:self.k.CloseHandle(token)
 
     def run(self):
@@ -291,6 +456,8 @@ class Experiment:
             if self.report['identity']!='S-1-5-18':raise RuntimeError('run controller as SYSTEM')
             self.privileges();self.make_user();self.make_desktop();self.copy_runtime()
             self.nonce=secrets.token_hex(12);self.fixture=self.lab.Fixture(self.nonce)
+            self.direct=self.lab.Fixture(self.nonce,direct=True)
+            self.host_ip=self.lab.host_ipv4()
             # Ephemeral loopback port, same on default and isolated compartment.
             import socket
             with socket.socket() as sock:sock.bind(('127.0.0.1',0));self.relay_port=sock.getsockname()[1]
@@ -300,6 +467,10 @@ class Experiment:
             if created['code']:raise OSError(created['code'],'CreateCompartment')
             cid=created['id'];self.controller.start_relay(cid)
             self.report['relay']=self.controller.relay
+            if (self.controller.relay.get('listener_set') != 0
+                    or self.controller.relay.get('listener_get') != cid
+                    or not self.controller.relay.get('bound_127.0.0.1')):
+                raise RuntimeError('isolated IPv4 relay did not start in the requested compartment')
             variants={'plain':(0,[]),'rc':(1,['S-1-5-12']),'custom':(1,[self.custom]),
                 'custom_logon':(1,[self.custom,self.logon_sid]),'write_custom':(9,[self.custom]),
                 'write_custom_logon':(9,[self.custom,self.logon_sid]),
@@ -317,6 +488,15 @@ class Experiment:
                 try:self.report['cleanup']['compartment']=self.controller.delete('restricted-primary')
                 except Exception as exc:self.report['cleanup']['compartment_error']=repr(exc)
             if self.fixture:self.fixture.close()
+            if self.direct:self.direct.close()
+            if self.bits_names:
+                try:
+                    names=','.join(self.lab.ps_literal(name) for name in self.bits_names)
+                    self.report['cleanup']['bits']=self.lab.powershell(
+                        'Import-Module BitsTransfer; $names=@('+names+'); Get-BitsTransfer -AllUsers -ErrorAction SilentlyContinue | '
+                        'Where-Object { $names -contains $_.DisplayName } | '
+                        'Remove-BitsTransfer -Confirm:$false -ErrorAction SilentlyContinue',timeout=20)
+                except Exception as exc:self.report['cleanup']['bits_error']=repr(exc)
             if self.desktop:self.report['cleanup']['desktop_closed']=bool(self.u.CloseDesktop(self.desktop))
             if self.station:self.report['cleanup']['station_closed']=bool(self.u.CloseWindowStation(self.station))
             if self.loaded:

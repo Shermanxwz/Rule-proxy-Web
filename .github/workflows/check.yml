@@ -86,7 +86,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $paths = @(Get-ChildItem scripts -Filter '*.ps1' -File) + @(Get-ChildItem .github -Filter 'windows-proxifyre-vm-*.ps1' -File) + @(Get-Item -LiteralPath .github/windows-global-vm-run.ps1) + @(Get-Item -LiteralPath .github/windows-compartment-vm-run.ps1)
+          $paths = @(Get-ChildItem scripts -Filter '*.ps1' -File) + @(Get-ChildItem .github -Filter 'windows-proxifyre-vm-*.ps1' -File) + @(Get-Item -LiteralPath .github/windows-global-vm-run.ps1) + @(Get-Item -LiteralPath .github/windows-compartment-vm-run.ps1) + @(Get-ChildItem .github -Filter '*primary*.ps1' -File)
           foreach ($path in $paths) {
             $tokens = $null
             $errors = $null
