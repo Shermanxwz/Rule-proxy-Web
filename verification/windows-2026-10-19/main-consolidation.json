@@ -117,5 +117,18 @@
     "server_result": "failure",
     "native_status_at_checkpoint": "in_progress",
     "not_counted_as_passed": true
+  },
+  "branch_cleanup": {
+    "status": "completed",
+    "verified_at_utc": "2026-10-19T09:46:46.100093+00:00",
+    "local_heads": 1,
+    "remote_heads": 1,
+    "retained_branch": "main",
+    "removed_local_branches": 8,
+    "removed_remote_branches": 12,
+    "remote_transaction": "Atomic updateRefs with exact beforeOid for every branch and a main no-op lease.",
+    "verified_main_before_receipt_commit": "e90bddb69bc5d0a681b1013c00276c6a48c8e3c2",
+    "all_original_refs_remain_reachable": true,
+    "stale_worktree_administrative_entries_pruned_after_ancestry_and_archive_checks": true
   }
 }
