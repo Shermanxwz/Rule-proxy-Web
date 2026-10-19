@@ -208,11 +208,37 @@ class Experiment:
                 shutil.copytree(source,runtime/name,ignore=shutil.ignore_patterns('site-packages','__pycache__','test','tests','idlelib','tkinter','turtledemo'))
         target=runtime/Path(sys.executable).name
         if not target.exists():shutil.copy2(sys.executable,target)
+        preflight={'required_imports':['ctypes','socket','ssl'],'timeout_seconds':20,
+                   'passed':False,'timed_out':False,'exit_code':None}
+        self.report['runtime']={'source':str(base),'private':str(runtime),'executable':str(target),
+                                'import_preflight':preflight}
+        try:
+            checked=subprocess.run([str(target),'-I','-S','-B','-c','import ctypes, socket, ssl'],
+                                   stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.PIPE,timeout=preflight['timeout_seconds'])
+        except subprocess.TimeoutExpired:
+            preflight['timed_out']=True
+            raise RuntimeError('copied Python import preflight timed out after 20 seconds') from None
+        except OSError as exc:
+            preflight.update(error_type=type(exc).__name__,errno=exc.errno,
+                             winerror=getattr(exc,'winerror',None))
+            raise RuntimeError('copied Python import preflight could not start') from None
+        preflight['exit_code']=checked.returncode
+        if checked.returncode != 0:
+            # Export only fixed diagnostic labels, never child output, paths,
+            # environment values or a subprocess exception containing them.
+            text=(checked.stderr or b'')[:4096].decode('utf-8',errors='replace')
+            preflight['error_type']=next((name for name in ('ModuleNotFoundError','ImportError','OSError')
+                                         if name+':' in text),'InterpreterFailure')
+            modules=('_ctypes','_socket','_ssl','_hashlib','_struct','ctypes','socket','ssl')
+            preflight['module']=next((name for name in modules
+                                      if "'"+name+"'" in text or 'importing '+name+':' in text),None)
+            raise RuntimeError(f'copied Python import preflight failed (exit code {checked.returncode})')
+        preflight['passed']=True
         probe=self.work/'dns_probe.py';shutil.copy2(self.args.probe_script,probe)
         self.python,self.probe=target,probe
         self.broker_child=self.work/'broker_child.py'
         self.broker_child.write_text(self.lab.BROKER_CHILD,encoding='utf-8')
-        self.report['runtime']={'source':str(base),'private':str(runtime),'executable':str(target)}
 
     def env(self,directory):
         pointer=C.c_void_p();env={}
