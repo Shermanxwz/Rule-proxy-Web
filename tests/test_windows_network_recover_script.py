@@ -36,6 +36,8 @@ class RecoveryContracts(unittest.TestCase):
         from ruleproxy import windows_global_guard
         expected = uuid.uuid5(windows_global_guard._NAMESPACE, 'a' * 64 + '/provider')
         self.assertIn(str(expected), (ROOT / '.github/test_network_recovery.ps1').read_text())
+        tun = uuid.UUID(bytes_le=hashlib.md5(('wintun' + windows_global_guard._TUN_NAME).encode()).digest())
+        self.assertIn(str(tun), (ROOT / '.github/test_network_recovery.ps1').read_text())
 
     def test_bom_and_offline_launcher(self):
         self.assertTrue(SCRIPT.read_bytes().startswith(b'\xef\xbb\xbf'))

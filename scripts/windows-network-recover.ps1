@@ -366,12 +366,13 @@ function Invoke-AdapterRepair($State) {
         if(-not @($now.Owned | Where-Object {$_.InterfaceGuid -eq $a.InterfaceGuid}).Count -and -not $now.Unresolved.Count){continue}
         if(@($now.Owned | Where-Object {$_.InterfaceGuid -eq $a.InterfaceGuid -and $_.ifIndex -eq $a.ifIndex}).Count -ne 1){throw 'TUN interface identity changed'}
         # No physical adapter, global routing table or shared driver is reset.
-        Disable-NetAdapter -InputObject $a -Confirm:$false -ErrorAction Stop
         foreach($store in @('ActiveStore','PersistentStore')){
             foreach($r in @(Get-NetRoute -PolicyStore $store -ErrorAction Stop | Where-Object {$_.InterfaceIndex -eq $a.ifIndex -and $_.Protocol -eq 'NetMgmt'})){
                 $r | Remove-NetRoute -Confirm:$false -ErrorAction Stop
             }
         }
+        # Remove the owned dead-end routes even if the driver later refuses disable.
+        Disable-NetAdapter -InputObject $a -Confirm:$false -ErrorAction Stop
         Changed ('Owned TUN disabled; owned-interface manual routes removed: '+$a.InterfaceGuid)
     }
 }

@@ -41,6 +41,28 @@ Assert ($null -eq (Get-LoopbackPorts '127.0.0.1:0')) 'invalid proxy port accepte
 Assert (@(Get-LoopbackPorts 'http=127.0.0.1:12345;https=[::1]:12346')[0].Count -eq 2) 'loopback proxy parsing'
 Assert (-not (Test-ValueEqual @('a',1) @('b',1))) 'proxy conflict equality'
 
+# The real adapter identity code must agree with sing-tun's deterministic GUID.
+$ownedAdapter=[pscustomobject]@{Name='RuleProxyTun';InterfaceGuid=[guid]'5c7d2762-671d-c5cd-02f3-f6d58670a9f5';ifIndex=7;Status='Up'}
+$foreignAdapter=[pscustomobject]@{Name='RuleProxyTun';InterfaceGuid=[guid]::NewGuid();ifIndex=8;Status='Up'}
+function Get-NetAdapter {return @($ownedAdapter,$foreignAdapter)}
+$adapters=Get-AdapterState
+Assert ($adapters.Owned.Count -eq 1 -and $adapters.Unresolved.Count -eq 1) 'TUN identity must include actual GUID, not name alone'
+function Get-NetAdapter {return @($ownedAdapter)}
+$script:RouteCalls=New-Object System.Collections.ArrayList
+function Get-NetRoute {param($PolicyStore) return @([pscustomobject]@{InterfaceIndex=7;Protocol='NetMgmt'},[pscustomobject]@{InterfaceIndex=8;Protocol='NetMgmt'},[pscustomobject]@{InterfaceIndex=7;Protocol='Local'})}
+function Remove-NetRoute {
+    [CmdletBinding(SupportsShouldProcess=$true)]param([Parameter(ValueFromPipeline=$true)]$InputObject)
+    process{if($InputObject.InterfaceIndex -ne 7 -or $InputObject.Protocol -ne 'NetMgmt'){throw 'Foreign route targeted'};[void]$script:RouteCalls.Add('route')}
+}
+function Disable-NetAdapter {[CmdletBinding(SupportsShouldProcess=$true)]param($InputObject) [void]$script:RouteCalls.Add('disable');throw 'fixture driver refuses disable'}
+$threw=$false;try{Invoke-AdapterRepair (Get-AdapterState)}catch{$threw=$true}
+Assert ($threw -and ($script:RouteCalls -join ',') -eq 'route,route,disable') 'owned routes must be cleaned before disabling the virtual adapter, even if disable fails'
+
+$observed=[ordered]@{ProxyEnable=@(0,4);ProxyServer=$null;ProxyOverride=$null;AutoConfigURL=$null;AutoDetect=$null}
+$expected=[ordered]@{ProxyEnable=@(0,4);ProxyServer=$null;ProxyOverride=$null;AutoConfigURL=$null;AutoDetect=@(1,4)}
+Assert (Test-ProxyRestoreEqual $observed $expected $true) 'actual flags allow WinINet to remove obsolete AutoDetect registry value'
+Assert (-not (Test-ProxyRestoreEqual $observed $expected $false)) 'without actual flag evidence, absent AutoDetect must not be assumed restored'
+
 # Mock the OS boundary, exercise the real orchestration / failure semantics.
 $empty=[pscustomobject]@{
     Runtime=[pscustomobject]@{Processes=@();Services=@();ForeignMihomo=@()}
