@@ -1,0 +1,173 @@
+name: Windows 11 PSEC and compartment functional smoke
+
+on:
+  push:
+    branches: ['codex/windows-psec-smoke-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-psec-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-mxc-g-bundle:
+    name: Verify fixed G artifact and assemble deterministic bundle
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Prefer the published fixed G release asset
+        id: g-release-asset
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import install_runtime
+
+          output = Path('mxc-g-bundle.zip')
+          try:
+              data = install_runtime.fetch_g_bundle_release()
+          except install_runtime.GBundleNotPublished:
+              with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
+                  stream.write('bootstrap_fallback=true\n')
+              print('The v0.2.2 bundle asset is not published yet; using the fixed bootstrap artifact.')
+          else:
+              output.write_bytes(data)
+              with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
+                  stream.write('bootstrap_fallback=false\n')
+              print(f'Verified published G bundle SHA-256 {install_runtime.MXC_G_BUNDLE_SHA256}')
+          PY
+      - name: Download the fixed successful G build artifact for bootstrap
+        if: steps.g-release-asset.outputs.bootstrap_fallback == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: 11938733475
+          run-id: 38660663692
+          github-token: ${{ github.token }}
+          repository: Shermanxwz/Rule-proxy-Web
+          path: g-source-download
+          skip-decompress: true
+          digest-mismatch: error
+      - name: Verify the artifact ZIP and assemble the pinned G bundle
+        if: steps.g-release-asset.outputs.bootstrap_fallback == 'true'
+        run: |
+          python -B - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path, PurePosixPath
+          import stat
+          import zipfile
+          import install_runtime
+
+          downloads = [path for path in Path('g-source-download').iterdir() if path.is_file()]
+          if len(downloads) != 1:
+              raise SystemExit('Expected one raw artifact archive')
+          archive_path = downloads[0]
+          if hashlib.sha256(archive_path.read_bytes()).hexdigest() != '8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036':
+              raise SystemExit('Fixed G build artifact ZIP digest mismatch')
+          required = {'build-manifest.json', 'wxc-exec.exe', 'MXC-LICENSE.md'}
+          source = Path('g-source')
+          source.mkdir()
+          with zipfile.ZipFile(archive_path) as artifact:
+              selected = {}
+              for info in artifact.infolist():
+                  name = PurePosixPath(info.filename)
+                  if name.is_absolute() or '..' in name.parts or ':' in info.filename or '\\' in info.filename:
+                      raise SystemExit('Unsafe member in pinned G build artifact')
+                  if info.is_dir():
+                      continue
+                  mode = (info.external_attr >> 16) & 0xFFFF
+                  if stat.S_ISLNK(mode):
+                      raise SystemExit('Symlink in pinned G build artifact')
+                  leaf = name.name
+                  if leaf in required:
+                      if leaf in selected:
+                          raise SystemExit('Duplicate fixed G build artifact member')
+                      selected[leaf] = info
+              if set(selected) != required:
+                  raise SystemExit('Pinned G build artifact is missing required members')
+              for leaf, info in selected.items():
+                  (source / leaf).write_bytes(artifact.read(info))
+
+          bundle = Path('mxc-g-bundle.zip')
+          digest = install_runtime.build_g_bundle(source, bundle)
+          if digest != install_runtime.MXC_G_BUNDLE_SHA256:
+              raise SystemExit('Deterministic G bundle SHA-256 mismatch')
+          extracted = Path('verified-g-bundle')
+          extracted.mkdir()
+          install_runtime._extract_g_bundle(bundle.read_bytes(), extracted)
+          if hashlib.sha256((extracted / 'wxc-exec.exe').read_bytes()).hexdigest() != install_runtime.MXC_G_EXECUTOR_SHA256:
+              raise SystemExit('Bundled G executor SHA-256 mismatch')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: fixed-mxc-g-bundle
+          path: mxc-g-bundle.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - run: python -m pip install -r requirements.txt
+      - run: python -B .github/build_windows_package.py compartment-package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: compartment-runtime-package
+          path: compartment-package/
+          if-no-files-found: error
+          retention-days: 7
+
+  native:
+    name: Windows 11 x64 · PSEC and compartment functionality
+    needs: [package, pinned-mxc-g-bundle]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v8
+        with:
+          name: compartment-runtime-package
+          path: compartment-package
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixed-mxc-g-bundle
+          path: g-bundle
+      - name: Prepare disposable VM tools and disk space
+        run: |
+          available=$(df -B1 --output=avail /tmp | tail -n 1)
+          if [ "$available" -lt 59055800320 ]; then
+            sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet /usr/local/share/chromium /usr/local/share/powershell/Modules
+            sudo docker system prune --all --force --volumes || true
+          fi
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+      - name: Execute the experiment on the official Windows client kernel
+        run: |
+          read -r expected name < compartment-package/SHA256SUMS.txt
+          exec timeout --signal=TERM --kill-after=20s 55m sudo "$(command -v python)" -B .github/windows_proxifyre_vm.py \
+            --suite psec-compartment-smoke --psec-bundle "$PWD/g-bundle/mxc-g-bundle.zip" --package "compartment-package/$name" --package-sha256 "$expected" \
+            --artifacts psec-smoke-results --timeout-seconds 3300
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-11-psec-smoke-evidence
+          path: psec-smoke-results/
+          if-no-files-found: warn
+          retention-days: 14

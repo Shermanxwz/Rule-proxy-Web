@@ -1,7 +1,7 @@
 """Qualify the installed product in a fixed official Windows 11 x64 KVM VM.
 
-Only media/VM primitives are reused from the historical harness. No MXC policy,
-capability gate or PSEC acceptance result participates in this qualification.
+The product, compartment, global-capture and PSEC smoke suites are separate.
+The PSEC smoke establishes functionality only, never product/privacy acceptance.
 """
 from __future__ import annotations
 
@@ -242,10 +242,19 @@ def verify_package(package: Path, expected: str):
                 raise ValueError("Unsafe native product package path")
 
 
-def make_payload(package: Path, destination: Path, *, include_global_sources=False):
+def make_payload(package: Path, destination: Path, *, include_global_sources=False, psec_bundle=None):
+    if psec_bundle is not None:
+        # Explicit file input only; no ambient cache or mutable download pin.
+        sys.path.insert(0, str(ROOT))
+        import install_runtime
+        data = install_runtime._g_bundle_bytes(Path(psec_bundle), allow_env_cache=False)
+        with tempfile.TemporaryDirectory() as temporary:
+            install_runtime._extract_g_bundle(data, Path(temporary))
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.write(package, "package/" + package.name)
         archive.writestr("package/SHA256SUMS.txt", media.digest(package) + "  " + package.name + "\n")
+        if psec_bundle is not None:
+            archive.writestr("psec/mxc-g-runtime-bundle.zip", data)
         for folder in (".github", "ruleproxy"):
             for path in sorted((ROOT / folder).rglob("*.py")):
                 if "__pycache__" not in path.parts and path.is_file() and not path.is_symlink():
@@ -344,6 +353,49 @@ def verify_compartment_lab_result(result, *, package_sha256):
             or not re.fullmatch(r"[a-f0-9]{40}", report["source_commit"])
             or not isinstance(report.get("assessment"), dict)):
         raise RuntimeError("Native Windows 11 compartment experiment evidence is incomplete")
+    return report
+
+
+def verify_psec_smoke_result(result, *, package_sha256, source_commit):
+    """Verify this functional experiment without promoting privacy/GUI claims."""
+    if (not isinstance(result, dict)
+            or len(json.dumps(result, ensure_ascii=True).encode("ascii")) > MAX_GUEST_RESULT_BYTES):
+        raise RuntimeError("Invalid PSEC smoke result")
+    facts = result.get("os", {})
+    reports = result.get("reports", {})
+    report = reports.get("psec_smoke") if isinstance(reports, dict) else None
+    if (not isinstance(facts, dict) or not isinstance(report, dict)
+            or result.get("suite") != "psec-compartment-smoke" or result.get("status") != "passed"
+            or type(result.get("exit_code")) is not int or result["exit_code"] != 0
+            or result.get("package_sha256") != package_sha256
+            or facts.get("product_type") != "WinNT" or facts.get("native_architecture") != "AMD64"
+            or type(facts.get("build")) is not int or facts["build"] < 26100
+            or report.get("source_commit") != source_commit
+            or report.get("privacy_qualified") is not False or report.get("product_acceptance") is not False
+            or report.get("functionality_passed") is not True or report.get("browser_requested") is not True
+            or report.get("error") is not None
+            or type(report.get("launcher_exit_code")) is not int or report["launcher_exit_code"] != 0
+            or report.get("launcher_timed_out") is not False):
+        raise RuntimeError("PSEC/compartment functional evidence is incomplete")
+    spec = importlib.util.spec_from_file_location("psec_smoke_validation", ROOT / ".github/windows_psec_compartment_smoke.py")
+    smoke = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(smoke)
+    checks = smoke.checks(report)
+    if not checks or report.get("checks") != checks or any(value is not True for value in checks.values()):
+        raise RuntimeError("PSEC/compartment observations do not establish functionality")
+    sys.path.insert(0, str(ROOT))
+    from ruleproxy import windows_runtime_pins as pins
+    provenance = report.get("provenance", {})
+    actual_os = report.get("os", {})
+    if (not isinstance(provenance, dict)
+            or provenance.get("executor_sha256") != pins.MXC_G_EXECUTOR_SHA256
+            or provenance.get("upstream_commit") != pins.MXC_G_BUILD_MANIFEST["upstream_commit"]
+            or provenance.get("g_patch_applies_to_model2") is not False):
+        raise RuntimeError("PSEC executor provenance differs from the fixed experiment")
+    if (not isinstance(actual_os, dict) or actual_os.get("architecture") != "AMD64"
+            or actual_os.get("python_pointer_bits") != 64 or actual_os.get("build") != facts["build"]
+            or type(actual_os.get("ubr")) is not int or actual_os["ubr"] != facts.get("ubr")):
+        raise RuntimeError("PSEC process OS facts differ from the Windows guest")
     return report
 
 
@@ -655,7 +707,7 @@ def cleanup_owned(qmp, qemu, tpm, server, thread, private_directory):
 
 def run(args):
     suite = getattr(args, "suite", "product")
-    if suite not in {"product", "global-capture", "compartment-lab"}:
+    if suite not in {"product", "global-capture", "compartment-lab", "psec-compartment-smoke"}:
         raise ValueError("Unknown native Windows suite")
     artifacts = args.artifacts.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
@@ -672,6 +724,10 @@ def run(args):
     elif suite == "compartment-lab":
         summary.update(scope="native Windows 11 x64 compartment experiment",
                        native_windows_11_compartment_lab_completed=False, strict_qualified=False)
+    elif suite == "psec-compartment-smoke":
+        summary.update(scope="native Windows 11 x64 PSEC/compartment functional smoke",
+                       native_windows_11_psec_functionality_passed=False, strict_qualified=False,
+                       update_scope="Fixed OS media; executor probe gates PSEC support. No servicing is performed.")
     summary["vm_configuration"] = {"machine": "q35,accel=kvm,smm=on", "vcpu": 4, "ram_mib": 6144,
         "disk_controller": "q35 built-in AHCI/SATA (ide-hd on ide.0)", "disk_virtual_gib": 80,
         "installer_dynamic_update": False, "secure_boot": True, "tpm": "2.0"}
@@ -720,8 +776,8 @@ def run(args):
         summary["iso"]["verified"] = True
         stage("official_iso_verified")
         payload = work / "payload.zip"
-        payload_hash = (make_payload(package, payload, include_global_sources=True) if suite == "global-capture"
-                        else make_payload(package, payload))
+        payload_hash = make_payload(package, payload, include_global_sources=suite == "global-capture",
+                                    psec_bundle=getattr(args, "psec_bundle", None) if suite == "psec-compartment-smoke" else None)
         server = media.GuestServer(payload, artifacts)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -735,16 +791,18 @@ def run(args):
         ET.fromstring(xml)
         (tree / "autounattend.xml").write_text(xml, encoding="utf-8")
         runner = {"global-capture": "windows-global-vm-run.ps1",
-                  "compartment-lab": "windows-compartment-vm-run.ps1"}.get(suite, "windows-proxifyre-vm-run.ps1")
+                  "compartment-lab": "windows-compartment-vm-run.ps1",
+                  "psec-compartment-smoke": "windows-compartment-vm-run.ps1"}.get(suite, "windows-proxifyre-vm-run.ps1")
         for name, destination in (("windows-proxifyre-vm-setup.ps1", "ruleproxy-vm-setup.ps1"),
                                   (runner, "ruleproxy-vm-run.ps1")):
             (tree / destination).write_text((ROOT / ".github" / name).read_text(), encoding="utf-8-sig")
+        source_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+                                       capture_output=True, text=True, timeout=5).stdout.strip()
         media.write_json(tree / "ruleproxy-vm-config.json", {
             "host_url": f"http://10.0.2.2:{server.server_address[1]}/{server.capability}",
             "payload_sha256": payload_hash, "package_sha256": args.package_sha256,
-            "source_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
-                                             capture_output=True, text=True, timeout=5).stdout.strip(),
-            **({"suite": suite, "source_identity": source_identity} if source_identity is not None else {})})
+            "source_commit": source_commit, "suite": suite,
+            **({"source_identity": source_identity} if source_identity is not None else {})})
         unattended = work / "unattended.iso"
         stage("unattended_iso_build")
         subprocess.run(["xorriso", "-as", "mkisofs", "-iso-level", "3", "-J", "-joliet-long", "-R", "-V", "RULEPROXY_CI",
@@ -813,7 +871,7 @@ def run(args):
             # parks setup on "Something went wrong (OOBEZDP)" with no unattended skip (run
             # 39030476856). The global suite keeps the NIC unplugged until its claimed guest
             # script beacons over COM1; that script waits, bounded, for the host endpoint.
-            network_pending = suite in {"global-capture", "compartment-lab"}
+            network_pending = suite in {"global-capture", "compartment-lab", "psec-compartment-smoke"}
             if network_pending:
                 qmp.execute("set_link", {"name": "vmnet", "up": False})
             started = time.monotonic()
@@ -858,6 +916,12 @@ def run(args):
                 summary.update(status="passed", native_windows_11_global_capture_passed=True,
                                os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
                 print_global_guest_digest("notice", server)
+            elif suite == "psec-compartment-smoke":
+                report = verify_psec_smoke_result(server.result, package_sha256=args.package_sha256,
+                                                  source_commit=source_commit)
+                media.write_json(artifacts / "native-psec-smoke-report.json", report)
+                summary.update(status="passed", native_windows_11_psec_functionality_passed=True,
+                               os=server.result["os"], elapsed_seconds=int(time.monotonic() - started))
             elif suite == "compartment-lab":
                 report = verify_compartment_lab_result(server.result, package_sha256=args.package_sha256)
                 media.write_json(artifacts / "native-compartment-report.json", report)
@@ -925,10 +989,13 @@ def main():
     parser.add_argument("--package-sha256", required=True)
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=2700)
-    parser.add_argument("--suite", choices=("product", "global-capture", "compartment-lab"), default="product")
+    parser.add_argument("--suite", choices=("product", "global-capture", "compartment-lab", "psec-compartment-smoke"), default="product")
+    parser.add_argument("--psec-bundle", type=Path)
     args = parser.parse_args()
     if not 300 <= args.timeout_seconds <= 3600:
         parser.error("VM execution budget must be 300–3600 seconds")
+    if (args.suite == "psec-compartment-smoke") != (args.psec_bundle is not None):
+        parser.error("Only the PSEC functional suite requires --psec-bundle")
     with cancellation_signals():
         return 0 if run(args)["status"] == "passed" else 1
 

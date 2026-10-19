@@ -91,7 +91,7 @@ class SerialBeaconTests(unittest.TestCase):
     def test_global_suite_keeps_the_nic_unplugged_until_the_guest_waits_for_it(self):
         source = (ROOT / ".github/windows_proxifyre_vm.py").read_text()
         self.assertIn('"-netdev", "user,id=vmnet"', source)
-        self.assertIn('network_pending = suite in {"global-capture", "compartment-lab"}', source)
+        self.assertIn('network_pending = suite in {"global-capture", "compartment-lab", "psec-compartment-smoke"}', source)
         self.assertLess(source.index('qmp.execute("set_link", {"name": "vmnet", "up": False})'),
                         source.index('stage("guest_installation_or_qualification_wait")'))
         script = (ROOT / ".github/windows-global-vm-run.ps1").read_text()

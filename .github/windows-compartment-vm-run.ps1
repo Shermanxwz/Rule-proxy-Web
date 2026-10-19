@@ -123,6 +123,8 @@ try {
         throw 'This experiment requires an AMD64 Windows client VM'
     }
     $configuration = Get-Content -LiteralPath (Join-Path $root 'ruleproxy-vm-config.json') -Raw | ConvertFrom-Json
+    $psecSmoke = $configuration.suite -eq 'psec-compartment-smoke'
+    if ($psecSmoke) { $result.suite = 'psec-compartment-smoke' }
     $payload = Join-Path $root 'compartment-payload.zip'
     $result.phase = 'download'
     $downloaded = $false
@@ -149,23 +151,42 @@ try {
     $output = Join-Path $workspace 'compartment-results'
     $env:GITHUB_SHA = [string]$configuration.source_commit
     $env:GITHUB_ACTIONS = 'true'
-    $client = New-Object Net.WebClient
-    $client.Proxy = $null
-    try { [void]$client.UploadString(($configuration.host_url + '/capture/start'),'POST','{}'); $captureStarted=$true }
-    finally { $client.Dispose() }
-    $result.phase = 'experiment'
-    Beacon 'experiment'
-    $arguments = '-I -S -B "' + (Join-Path $workspace '.github\windows_compartment_lab.py') + '" driver --out "' + $output + '"'
-    $result.exit_code = Invoke-OwnedPython $python $arguments 1800 'compartment'
-    $result.reports.compartment = Get-Content -LiteralPath (Join-Path $output 'compartment-report.json') -Raw | ConvertFrom-Json
-    $result.phase='primary_token_experiment'
-    Beacon 'primary-token'
-    $primaryWork='C:\RuleProxyRestrictedPrimaryLab'
-    $primaryArgs='-I -S -B "' + (Join-Path $workspace '.github\windows_restricted_primary_lab.py') + '" --lab-script "' + (Join-Path $workspace '.github\windows_compartment_lab.py') + '" --probe-script "' + (Join-Path $workspace '.github\windows_dns_compartment_probe.py') + '" --work "' + $primaryWork + '" --variants plain,write_custom_logon,write_custom_rc_logon --browsers edge'
-    $result.primary_exit_code = Invoke-OwnedPython $python $primaryArgs 1080 'primary'
-    $result.reports.restricted_primary=Get-Content -LiteralPath (Join-Path $primaryWork 'report.json') -Raw | ConvertFrom-Json
-    if ($result.primary_exit_code -ne 0) { throw 'Primary-token experiment setup failed' }
-    if ($result.exit_code -ne 0) { throw 'Experiment harness failed' }
+    if ($psecSmoke) {
+        $psecDirectory = Join-Path $workspace 'psec\runtime'
+        Expand-Archive -LiteralPath (Join-Path $workspace 'psec\mxc-g-runtime-bundle.zip') -DestinationPath $psecDirectory
+        $edge = @((Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'),
+                  (Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe')) |
+            Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+        if (-not $edge) { throw 'Installed Edge is required for the functional smoke' }
+        $psecReport = Join-Path $workspace 'psec-smoke-report.json'
+        $result.phase = 'psec_functional_smoke'
+        Beacon 'psec-functional-smoke'
+        $arguments = '-I -S -B "' + (Join-Path $workspace '.github\windows_psec_compartment_smoke.py') +
+            '" --disposable-ci --executor "' + (Join-Path $psecDirectory 'wxc-exec.exe') +
+            '" --manifest "' + (Join-Path $psecDirectory 'build-manifest.json') +
+            '" --work "C:\RuleProxyPsecCompartmentSmoke" --report "' + $psecReport + '" --browser "' + $edge + '"'
+        $result.exit_code = Invoke-OwnedPython $python $arguments 420 'psec'
+        $result.reports.psec_smoke = Get-Content -LiteralPath $psecReport -Raw | ConvertFrom-Json
+        if ($result.exit_code -ne 0) { throw 'PSEC/compartment functional smoke did not pass' }
+    } else {
+        $client = New-Object Net.WebClient
+        $client.Proxy = $null
+        try { [void]$client.UploadString(($configuration.host_url + '/capture/start'),'POST','{}'); $captureStarted=$true }
+        finally { $client.Dispose() }
+        $result.phase = 'experiment'
+        Beacon 'experiment'
+        $arguments = '-I -S -B "' + (Join-Path $workspace '.github\windows_compartment_lab.py') + '" driver --out "' + $output + '"'
+        $result.exit_code = Invoke-OwnedPython $python $arguments 1800 'compartment'
+        $result.reports.compartment = Get-Content -LiteralPath (Join-Path $output 'compartment-report.json') -Raw | ConvertFrom-Json
+        $result.phase='primary_token_experiment'
+        Beacon 'primary-token'
+        $primaryWork='C:\RuleProxyRestrictedPrimaryLab'
+        $primaryArgs='-I -S -B "' + (Join-Path $workspace '.github\windows_restricted_primary_lab.py') + '" --lab-script "' + (Join-Path $workspace '.github\windows_compartment_lab.py') + '" --probe-script "' + (Join-Path $workspace '.github\windows_dns_compartment_probe.py') + '" --work "' + $primaryWork + '" --variants plain,write_custom_logon,write_custom_rc_logon --browsers edge'
+        $result.primary_exit_code = Invoke-OwnedPython $python $primaryArgs 1080 'primary'
+        $result.reports.restricted_primary=Get-Content -LiteralPath (Join-Path $primaryWork 'report.json') -Raw | ConvertFrom-Json
+        if ($result.primary_exit_code -ne 0) { throw 'Primary-token experiment setup failed' }
+        if ($result.exit_code -ne 0) { throw 'Experiment harness failed' }
+    }
     $result.phase='completed'; $result.status='passed'
 } catch {
     $result.error_type=$_.Exception.GetType().FullName
@@ -175,7 +196,8 @@ try {
     # Preserve completed or partial evidence even if handle/exit-code reading
     # failed before the normal report import. Missing exit status stays unknown.
     foreach ($entry in @(@('compartment', $(if ($output) { Join-Path $output 'compartment-report.json' })),
-                         @('restricted_primary', $(if ($primaryWork) { Join-Path $primaryWork 'report.json' })))) {
+                         @('restricted_primary', $(if ($primaryWork) { Join-Path $primaryWork 'report.json' })),
+                         @('psec_smoke', $psecReport))) {
         if (-not $result.reports.ContainsKey($entry[0]) -and $entry[1] -and (Test-Path -LiteralPath $entry[1])) {
             try { $result.reports[$entry[0]] = Get-Content -LiteralPath $entry[1] -Raw | ConvertFrom-Json }
             catch { $result[($entry[0] + '_report_error_type')] = $_.Exception.GetType().FullName }
@@ -188,7 +210,7 @@ try {
         catch { $result.capture_error_type=$_.Exception.GetType().FullName; $result.status='failed' }
         finally { $client.Dispose() }
     }
-    foreach ($label in @('compartment','primary')) {
+    foreach ($label in @('compartment','primary','psec')) {
         foreach ($name in @('stdout','stderr')) {
             $path = Join-Path $root ($label + '-' + $name + '.log')
             $key = if ($label -eq 'compartment') { $name } else { $label + '_' + $name }
