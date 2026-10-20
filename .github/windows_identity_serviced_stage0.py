@@ -349,7 +349,7 @@ def proof_helpers():
 
 def closed_failure(exc):
     proof = proof_helpers()
-    return {'type': proof._enum(type(exc).__name__, proof.FAILURE_TYPES + ('BrokenPipeError', 'ConnectionResetError', 'ConnectionAbortedError', 'EarlyGuestFailure')),
+    return {'type': proof._enum(type(exc).__name__, proof.FAILURE_TYPES + ('BrokenPipeError', 'ConnectionResetError', 'ConnectionAbortedError', 'EarlyGuestFailure', 'BootstrapTimeout')),
             'errno': proof._integer(getattr(exc, 'errno', None), -0x80000000),
             'winerror': proof._integer(getattr(exc, 'winerror', None), -0x80000000)}
 
@@ -1081,6 +1081,25 @@ def observe_guest_serial(public, observer, chunk, *, fail_fast=True):
             raise EarlyGuestFailure('closed early guest failure')
 
 
+BOOTSTRAP_SECONDS = 2100
+
+
+class BootstrapTimeout(TimeoutError):
+    pass
+
+
+def observe_bootstrap(public, observer, chunk, tail, *, started, handed_off, plugged, now):
+    # Parse bounded negative evidence before testing the bootstrap clock. A
+    # beacon first observed at the deadline cannot retroactively meet it.
+    observe_guest_serial(public, observer, chunk, fail_fast=not plugged)
+    tail = (tail + chunk)[-256:]
+    if not handed_off and now >= started + BOOTSTRAP_SECONDS:
+        public['stage0_passed'] = False
+        public['host_wait_failure'] = 'bootstrap_timeout'
+        raise BootstrapTimeout('installed guest beacon deadline')
+    return tail, not handed_off and 'RPBEACON identity-stock-installed-ready' in tail
+
+
 def host(args):
     if not EXECUTION_ENABLED:
         raise PermissionError('stock experiment execution is disabled pending frozen review')
@@ -1177,6 +1196,7 @@ def host(args):
         operation = 'vm_work_budget'
         public['vm_work_seconds_available'] = int(require_vm_work_budget(deadline))
         operation = 'qemu_start'
+        bootstrap_started = time.monotonic()
         qemu = subprocess.Popen(limited_command(['qemu-system-x86_64', '-machine', 'q35,accel=kvm,smm=on', '-cpu',
             'host,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-time=on', '-m', '6144', '-smp', '4',
             '-global', 'driver=cfi.pflash01,property=secure,value=on',
@@ -1220,11 +1240,11 @@ def host(args):
                 public['host_wait_failure'] = 'qemu_exited' if stopped else 'guest_deadline'
                 raise RuntimeError('guest deadline or exit')
             beacon = qmp.execute('ringbuf-read', {'device': 'serialbuf', 'size': 65536})
-            observe_guest_serial(public, early_serial, beacon, fail_fast=not plugged)
-            serial_tail = (serial_tail + beacon)[-256:]
+            serial_tail, installed_ready = observe_bootstrap(public, early_serial, beacon, serial_tail,
+                started=bootstrap_started, handed_off=service_started, plugged=plugged, now=time.monotonic())
             if 'RPBEACON identity-result-transport-failed' in serial_tail:
                 public['guest_result_transport_failed'] = True
-            if not service_started and 'RPBEACON identity-stock-installed-ready' in serial_tail:
+            if installed_ready:
                 record_breadcrumb(public, 'guest_beacon', work, disk, deadline)
                 operation = 'serviced_media'
                 prepare_servicing(media, qmp, work, iso, disk, deadline, watch, public)

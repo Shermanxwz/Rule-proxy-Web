@@ -159,4 +159,32 @@ class IndependentCleanupFactsTests(unittest.TestCase):
         self.assertEqual(facts['error_count'],20);self.assertEqual(len(facts['errors']),8)
         self.assertNotIn('SECRET',json.dumps(facts))
 
+class BootstrapDeadlineTests(unittest.TestCase):
+    diagnostic = EarlySerialTests.diagnostic
+    line = EarlySerialTests.line
+    beacon='RPBEACON identity-stock-installed-ready\r\n'
+    def observe(self, now, chunk='', handed_off=False, public=None):
+        return host.observe_bootstrap({} if public is None else public,host.EarlyGuestSerial(),chunk,'',
+            started=100,handed_off=handed_off,plugged=handed_off,now=now)
+    def test_before_boundary_waits_without_beacon(self):
+        self.assertEqual(host.BOOTSTRAP_SECONDS,2100)
+        self.assertEqual(self.observe(2199.999),('',False))
+    def test_equal_and_after_boundary_fail_even_with_new_beacon(self):
+        for now in (2200,2200.001):
+            for chunk in ('',self.beacon):
+                public={'stage0_passed':True}
+                with self.assertRaises(host.BootstrapTimeout):self.observe(now,chunk,public=public)
+                self.assertFalse(public['stage0_passed'])
+                self.assertEqual(public['host_wait_failure'],'bootstrap_timeout')
+    def test_earlier_beacon_handoff_disables_bootstrap_bound(self):
+        tail,ready=self.observe(2199.999,self.beacon)
+        self.assertTrue(ready)
+        self.assertEqual(self.observe(9000,handed_off=ready),('',False))
+    def test_valid_early_failure_precedes_expired_clock(self):
+        public={}
+        with self.assertRaises(host.EarlyGuestFailure):self.observe(2201,self.line(),public=public)
+        self.assertEqual(public['host_wait_failure'],'guest_launcher_failure')
+    def test_timeout_class_is_closed(self):
+        self.assertEqual(host.closed_failure(host.BootstrapTimeout('SECRET'))['type'],'BootstrapTimeout')
+
 if __name__=='__main__':unittest.main()

@@ -119,3 +119,15 @@ The `[identity-serviced-stage0-gates]` commit marker runs only the bounded Windo
 compile/semantic tests and Linux unit jobs. Native recovery/VM execution requires
 the separate exact runtime marker and both successful dependencies. This permits
 executable boundary verification before any separately reviewed full VM retry.
+
+Before the next combined bootstrap-to-servicing attempt, the no-installed-beacon
+interval is additionally bounded to 2100 seconds from QEMU launch. The successful
+stock attempt observed its first guest beacon after approximately 1552 seconds;
+this supports a diagnostic timeout, not a guarantee that every valid installation
+finishes in time. A newly observed beacon at or after the boundary is rejected.
+A validated early failure takes precedence over timeout classification. Once the
+installed-stock beacon is admitted before the boundary, the separate bootstrap
+clock no longer applies; all existing servicing and absolute deadlines remain.
+Timeout uses the same closed report and owned cleanup, never success acceptance.
+The cutoff is evaluated after the existing bounded QMP poll; it is a logical
+admission deadline, not a hard real-time process-kill guarantee.
