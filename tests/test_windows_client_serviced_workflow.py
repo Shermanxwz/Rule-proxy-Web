@@ -4,6 +4,10 @@ import unittest
 import subprocess
 import sys
 import tempfile
+import os
+import json
+from types import SimpleNamespace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,10 +22,49 @@ class ServicedWorkflowTests(unittest.TestCase):
         self.assertIn('[identity-serviced-stage0-runtime]', self.serviced)
         self.assertNotIn('[identity-stock-stage0-runtime]', self.serviced)
 
-    def test_recovery_source_is_unchanged(self):
-        def body(text):
-            return text.split("<<'REVIEWED_RECOVERY'", 1)[1].split('\n          REVIEWED_RECOVERY', 1)[0]
-        self.assertEqual(body(self.stock), body(self.serviced))
+    def test_provider_cleanup_is_absent(self):
+        self.assertNotIn('REVIEWED_RECOVERY', self.serviced)
+        self.assertNotIn('--execute-reviewed-recovery', self.serviced)
+        self.assertNotIn('provider_cache_recovery', self.serviced)
+        self.assertNotIn('serviced-provider-recovery-public', self.serviced)
+        self.assertIn('serviced-capacity-preflight-public', self.serviced)
+        self.assertIn('if [ "$minutes" -gt 2 ]; then minutes=2; fi', self.serviced)
+        self.assertIn('--execute-reviewed-recovery', self.stock)  # other path untouched
+
+    def test_actual_readonly_capacity_script_boundaries_and_owned_report(self):
+        body = self.serviced.split("<<'READ_ONLY_CAPACITY'",1)[1].split('\n          READ_ONLY_CAPACITY',1)[0]
+        import textwrap
+        body=textwrap.dedent(body)
+        for forbidden in ('rmtree', '.unlink(', 'os.remove', 'os.rmdir', 'subprocess', 'chmod', 'chown'):
+            self.assertNotIn(forbidden, body)
+        threshold=64*1024**3+512*1024**2
+        for free in (threshold-1,threshold,threshold+1):
+            with tempfile.TemporaryDirectory() as temporary:
+                workspace=Path(temporary)/'workspace';workspace.mkdir()
+                with patch.dict(os.environ,{'GITHUB_WORKSPACE':str(workspace),'RUNNER_TEMP':temporary}), patch('shutil.disk_usage',return_value=SimpleNamespace(free=free)):
+                    if free<threshold:
+                        with self.assertRaises(SystemExit): exec(compile(body,'readonly-capacity','exec'),{})
+                    else: exec(compile(body,'readonly-capacity','exec'),{})
+                report=json.loads((Path(temporary)/'identity-serviced-capacity/public.json').read_text())
+                self.assertEqual(report['kind'],'read_only_capacity_preflight')
+                self.assertEqual(report['status'],'admitted' if free>=threshold else 'insufficient_capacity')
+                self.assertFalse(report['provider_changes']);self.assertFalse(report['provider_deletion_attempted'])
+                self.assertFalse(report['recovery_performed'])
+                # A second invocation cannot overwrite or relabel the prior observation.
+                with patch.dict(os.environ,{'GITHUB_WORKSPACE':str(workspace),'RUNNER_TEMP':temporary}):
+                    with self.assertRaises(FileExistsError): exec(compile(body,'readonly-capacity','exec'),{})
+
+    def test_readonly_capacity_rejects_cross_filesystem(self):
+        import textwrap
+        body=textwrap.dedent(self.serviced.split("<<'READ_ONLY_CAPACITY'",1)[1].split('\n          READ_ONLY_CAPACITY',1)[0])
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace=Path(temporary)/'workspace';workspace.mkdir()
+            def fake_stat(path, *args, **kwargs): return SimpleNamespace(st_dev=1 if path==workspace else 2)
+            with patch.dict(os.environ,{'GITHUB_WORKSPACE':str(workspace),'RUNNER_TEMP':temporary}), patch('shutil.disk_usage',return_value=SimpleNamespace(free=100*1024**3)), patch.object(Path,'stat',fake_stat):
+                with self.assertRaises(SystemExit): exec(compile(body,'readonly-capacity','exec'),{})
+            report=json.loads((Path(temporary)/'identity-serviced-capacity/public.json').read_text())
+            self.assertFalse(report['same_filesystem']);self.assertEqual(report['status'],'insufficient_capacity')
+            self.assertFalse(report['provider_changes'])
 
     def test_budget_and_dependencies_remain_bounded(self):
         for fragment in ('timeout-minutes: 180', ' + 10500 ', '--timeout-seconds 9600',
