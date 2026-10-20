@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "stage": "win11-serviced26200.9711-ordinary-deny-only-stage0",
+  "status": "blocked",
+  "stage0_passed": false,
+  "product_acceptance": false,
+  "privacy_qualified": false,
+  "network_tested": false,
+  "vm_destroyed": true,
+  "iso_sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+  "actor_sha256": "447f9c12ce0cbf99477c055156a4ac9a5466792972704daf0105bd6d400e48b9",
+  "premedia_free_bytes": 34582020096,
+  "phase_samples": [
+    {
+      "phase": "iso_verified",
+      "filesystem_free_bytes": 27488620544,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 5017,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    },
+    {
+      "phase": "media_ready",
+      "filesystem_free_bytes": 27472760832,
+      "qcow_size_bytes": 197888,
+      "qcow_allocated_bytes": 200704,
+      "remaining_work_seconds": 5016,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "qemu_started",
+      "filesystem_free_bytes": 27472756736,
+      "qcow_size_bytes": 197888,
+      "qcow_allocated_bytes": 200704,
+      "remaining_work_seconds": 5016,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "guest_beacon",
+      "filesystem_free_bytes": 11411775488,
+      "qcow_size_bytes": 16101474304,
+      "qcow_allocated_bytes": 16061100032,
+      "remaining_work_seconds": 3193,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "cleanup_done",
+      "filesystem_free_bytes": 34581360640,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 3185,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    }
+  ],
+  "launch_free_bytes": 27472756736,
+  "disk_file_ceiling_bytes": 23622320128,
+  "reserve_guard_hard_guarantee": false,
+  "vm_work_seconds_available": 5016,
+  "installed_guest_paused": true,
+  "host_failure": {
+    "type": "RuntimeError",
+    "errno": null,
+    "winerror": null,
+    "operation": "serviced_media"
+  },
+  "result_transport_state": "not_observed",
+  "teardown_diagnostic": {
+    "schema_version": 1,
+    "qemu_present": true,
+    "tpm_present": true,
+    "qemu_exit_before_cleanup": null,
+    "tpm_exit_before_cleanup": null,
+    "qemu_exit_after_cleanup": -9,
+    "tpm_exit_after_cleanup": -9,
+    "qemu_exit_confirmed": true,
+    "tpm_exit_confirmed": true,
+    "helper_count": 0,
+    "helper_exit_confirmed_count": 0,
+    "qmp_present": true,
+    "qmp_close_succeeded": true,
+    "qmp_file_closed": true,
+    "qmp_socket_closed": true,
+    "server_present": true,
+    "server_shutdown_succeeded": true,
+    "server_close_succeeded": true,
+    "server_thread_stopped": true,
+    "watcher_present": true,
+    "watcher_stopped": true,
+    "work_remove_attempted": true,
+    "work_removed": true,
+    "work_retained": false,
+    "first_failed_stage": null,
+    "error_count": 0,
+    "errors": []
+  },
+  "minimum_free_bytes": 11398275072,
+  "last_phase": "stock_guest_installation"
+}
