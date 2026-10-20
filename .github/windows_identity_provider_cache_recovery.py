@@ -9,8 +9,10 @@ the current files are provider content.
 This is not an adversarial-concurrency sandbox: Linux unlinkat/rmdir have no
 compare-and-delete-by-inode operation. Descriptors, no-follow opens, full snapshots,
 and immediate binding/mount revalidation reject observed replacements, but cannot
-eliminate the final syscall race with a concurrent privileged writer. Therefore
-execution is forbidden in a reused job or alongside untrusted/privileged writers.
+eliminate the final syscall race with any concurrent untrusted writer. The
+measured provider defaults include 0777 directories: an unprivileged process can
+also replace their entries. Execution is forbidden in a reused job or alongside
+ANY concurrent untrusted writer, privileged or unprivileged.
 No chmod, mounts, broad cleanup, content reads, or symlink-target reads are used.
 """
 from __future__ import annotations
@@ -40,20 +42,46 @@ TARGETS = {
     'dotnet_sdk': '/usr/share/dotnet',
     'swift_toolchain': '/usr/share/swift',
 }
-# These are intentionally not command-line/environment overrides. The 32 GiB
-# proposal still requires final resource review; enabling this source is a
-# separately approved frozen action, never a self-granted permission.
+# Exact metadata observed by read-only run 39380768721 on 20261018.339.1.
+# Ownership remains UID 0/GID 0 for every role. These modes are an eligibility
+# policy, not proof of provider content, and are checked again on every binding.
+ANCESTOR_MODES = {
+    'android_sdk': {
+        '/': 0o755, '/usr': 0o755, '/usr/local': 0o755,
+        '/usr/local/lib': 0o755, '/usr/local/lib/android': 0o755,
+    },
+    'dotnet_sdk': {'/': 0o755, '/usr': 0o755, '/usr/share': 0o777},
+    'swift_toolchain': {'/': 0o755, '/usr': 0o755, '/usr/share': 0o777},
+}
+DESCENDANT_MODES = {
+    'android_sdk': {
+        stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o644, 0o777}),
+        stat.S_IFLNK: frozenset({0o777}),
+    },
+    'dotnet_sdk': {
+        stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o777}),
+    },
+    'swift_toolchain': {
+        stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o777}),
+        stat.S_IFLNK: frozenset({0o777}),
+    },
+}
+# No command-line/environment overrides. The additional 512 MiB is a proposed
+# preparation allowance requiring separate resource review before any retry.
+# The existing enabled flag is preserved; code eligibility is not authorization.
 EXECUTION_ENABLED = True
-REVIEWED_FREE_TARGET_BYTES = 32 * 1024**3
+REVIEWED_FREE_TARGET_BYTES = 32 * 1024**3 + 512 * 1024**2
 MAX_ENTRIES = 500000
 MAX_DEPTH = 128
-MAX_SECONDS = 240
+# A bounded 45-minute recovery slice, not a throughput guarantee. The workflow
+# must still enforce its unchanged overall deadline and cleanup reserve.
+MAX_SECONDS = 2700
 GIB = 1024**3
 STOP_REASONS = frozenset({
     'execution_not_reviewed', 'free_target_not_reviewed', 'not_fresh_hosted_job',
     'workspace_not_empty', 'workspace_unavailable', 'image_not_reviewed',
     'root_privilege_required', 'linux_required', 'unknown_ownership',
-    'writable_entry', 'root_or_ancestor_symlink', 'mount_boundary',
+    'unexpected_mode', 'root_or_ancestor_symlink', 'mount_boundary',
     'mount_metadata_invalid', 'mount_metadata_bound', 'mount_identity_unavailable',
     'entry_changed', 'ancestor_changed', 'directory_changed', 'special_entry',
     'multiply_linked_file', 'entry_bound', 'depth_bound', 'time_bound',
@@ -115,7 +143,9 @@ def _fingerprint(info):
         info.st_nlink, info.st_size, info.st_blocks, info.st_mtime_ns, info.st_ctime_ns)
 
 
-def _metadata(info):
+def _metadata(info, *, label, role, ancestor=None):
+    if label not in TARGETS:
+        raise RecoveryStopped('invalid_target')
     if info.st_uid != 0 or info.st_gid != 0:
         raise RecoveryStopped('unknown_ownership')
     if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)
@@ -123,9 +153,20 @@ def _metadata(info):
         raise RecoveryStopped('special_entry')
     if stat.S_ISREG(info.st_mode) and info.st_nlink != 1:
         raise RecoveryStopped('multiply_linked_file')
-    # Symlink modes conventionally contain all write bits, but are never followed.
-    if not stat.S_ISLNK(info.st_mode) and info.st_mode & 0o022:
-        raise RecoveryStopped('writable_entry')
+    kind, mode = stat.S_IFMT(info.st_mode), stat.S_IMODE(info.st_mode)
+    # S_IMODE includes setuid, setgid and sticky bits. None is silently masked
+    # away: a special bit or any unmeasured mode fails these exact comparisons.
+    if role == 'ancestor':
+        allowed = (kind == stat.S_IFDIR
+                   and mode == ANCESTOR_MODES[label].get(ancestor))
+    elif role == 'root':
+        allowed = kind == stat.S_IFDIR and mode == 0o777
+    elif role == 'descendant':
+        allowed = mode in DESCENDANT_MODES[label].get(kind, ())
+    else:
+        raise RecoveryStopped('invalid_target')
+    if not allowed:
+        raise RecoveryStopped('unexpected_mode')
 
 
 def _directory_open(name, parent=None):
@@ -138,16 +179,16 @@ def _entry_open(name, parent):
     return os.open(name, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
 
 
-def _bound_entry(parent, name, expected, root_mount, root_device):
+def _bound_entry(parent, name, expected, root_mount, root_device, *, label, role='descendant'):
     """Return an owned O_PATH fd after checking a single no-follow binding."""
     before = os.stat(name, dir_fd=parent, follow_symlinks=False)
-    _metadata(before)
+    _metadata(before, label=label, role=role)
     if _fingerprint(before) != expected:
         raise RecoveryStopped('entry_changed')
     descriptor = _entry_open(name, parent)
     try:
         current = os.fstat(descriptor)
-        _metadata(current)
+        _metadata(current, label=label, role=role)
         if mount_id(descriptor) != root_mount or current.st_dev != root_device:
             raise RecoveryStopped('mount_boundary')
         if _fingerprint(current) != expected:
@@ -161,26 +202,31 @@ def _bound_entry(parent, name, expected, root_mount, root_device):
         raise
 
 
-def _open_anchors(path, expected=None):
+def _open_anchors(path, expected=None, *, label):
     """Open from / component-by-component, checking every ancestor binding."""
-    if not path.startswith('/') or str(Path(path)) != path:
+    target = TARGETS.get(label)
+    if (target is None or path not in (target, str(Path(target).parent))
+            or not path.startswith('/') or str(Path(path)) != path):
         raise RecoveryStopped('invalid_target')
     descriptor = _directory_open('/')
     observations = []
     try:
         root = os.fstat(descriptor)
-        _metadata(root)
+        _metadata(root, label=label, role='ancestor', ancestor='/')
         root_mount = mount_id(descriptor)
         observations.append((_identity(root), root_mount))
+        current_path = '/'
         for part in Path(path).parts[1:]:
+            current_path = str(Path(current_path) / part)
+            role = 'root' if current_path == target else 'ancestor'
             before = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
             if stat.S_ISLNK(before.st_mode):
                 raise RecoveryStopped('root_or_ancestor_symlink')
-            _metadata(before)
+            _metadata(before, label=label, role=role, ancestor=current_path)
             child = _directory_open(part, descriptor)
             try:
                 current = os.fstat(child)
-                _metadata(current)
+                _metadata(current, label=label, role=role, ancestor=current_path)
                 current_mount = mount_id(child)
                 if current_mount != root_mount or current.st_dev != root.st_dev:
                     raise RecoveryStopped('mount_boundary')
@@ -233,7 +279,7 @@ class TreeSnapshot:
 
     def _add(self, relative, info):
         _budget(self.deadline)
-        _metadata(info)
+        _metadata(info, label=self.label, role='descendant' if relative else 'root')
         if info.st_dev != self.device:
             raise RecoveryStopped('mount_boundary')
         if len(relative) > MAX_DEPTH:
@@ -259,7 +305,7 @@ class TreeSnapshot:
                 info = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
                 self._add(child_relative, info)
                 pinned = _bound_entry(descriptor, name, self.records[child_relative],
-                                      self.mount, self.device)
+                                      self.mount, self.device, label=self.label)
                 try:
                     if stat.S_ISDIR(info.st_mode):
                         child = _directory_open(name, descriptor)
@@ -275,11 +321,13 @@ class TreeSnapshot:
                 names.append(name)
         if _fingerprint(os.fstat(descriptor)) != _fingerprint(before):
             raise RecoveryStopped('directory_changed')
-        self.children[relative] = tuple(sorted(names))
+        # The remaining-name set changes only after a successful owned removal.
+        # Full verification still enumerates and compares the entire directory.
+        self.children[relative] = set(names)
 
     def capture(self):
         self._mount_list_check()
-        self.root, self.anchors = _open_anchors(self.path)
+        self.root, self.anchors = _open_anchors(self.path, label=self.label)
         info = os.fstat(self.root)
         self.device = info.st_dev
         self.mount = mount_id(self.root)
@@ -290,7 +338,7 @@ class TreeSnapshot:
 
     def _verify_root(self):
         _budget(self.deadline)
-        current, _ = _open_anchors(self.path, self.anchors)
+        current, _ = _open_anchors(self.path, self.anchors, label=self.label)
         try:
             if _fingerprint(os.fstat(current)) != self.records[()]:
                 raise RecoveryStopped('entry_changed')
@@ -302,7 +350,7 @@ class TreeSnapshot:
     def _verify_directory(self, descriptor, relative):
         _budget(self.deadline)
         current = os.fstat(descriptor)
-        _metadata(current)
+        _metadata(current, label=self.label, role='descendant' if relative else 'root')
         if mount_id(descriptor) != self.mount or current.st_dev != self.device:
             raise RecoveryStopped('mount_boundary')
         if _fingerprint(current) != self.records[relative]:
@@ -318,12 +366,12 @@ class TreeSnapshot:
                 if len(names) > len(self.children[relative]):
                     raise RecoveryStopped('directory_changed')
         names = tuple(sorted(names))
-        if names != self.children[relative]:
+        if set(names) != self.children[relative]:
             raise RecoveryStopped('directory_changed')
         for name in names:
             child_relative = relative + (name,)
             pinned = _bound_entry(descriptor, name, self.records[child_relative],
-                                  self.mount, self.device)
+                                  self.mount, self.device, label=self.label)
             try:
                 if stat.S_ISDIR(self.records[child_relative][2]):
                     child = _directory_open(name, descriptor)
@@ -347,7 +395,7 @@ class TreeSnapshot:
         for parent, relative, child in chain:
             self._verify_directory(parent, relative[:-1])
             pinned = _bound_entry(parent, relative[-1], self.records[relative],
-                                  self.mount, self.device)
+                                  self.mount, self.device, label=self.label)
             try:
                 if _fingerprint(os.fstat(child)) != self.records[relative]:
                     raise RecoveryStopped('entry_changed')
@@ -360,7 +408,7 @@ class TreeSnapshot:
         self._verify_chain(chain)
         self._verify_directory(parent, relative[:-1])
         pinned = _bound_entry(parent, relative[-1], self.records[relative],
-                              self.mount, self.device)
+                              self.mount, self.device, label=self.label)
         try:
             # Last checks immediately precede unlinkat/rmdir. See module-level
             # limitation: these syscalls cannot atomically compare the inode.
@@ -378,20 +426,21 @@ class TreeSnapshot:
                 raise CleanupFailed(exc) from None
             self.removed += 1
             self.records[relative[:-1]] = _fingerprint(os.fstat(parent))
-            self.children[relative[:-1]] = tuple(
-                name for name in self.children[relative[:-1]] if name != relative[-1])
+            self.children[relative[:-1]].remove(relative[-1])
         finally:
             os.close(pinned)
 
     def _remove_walk(self, descriptor, relative, chain, goal_reached):
-        for name in tuple(self.children[relative]):
+        # Snapshot deterministic order once per directory. Do not rebuild the
+        # remaining sibling collection for every unlink (quadratic in fan-out).
+        for name in sorted(self.children[relative]):
             if goal_reached():
                 return True
             child_relative = relative + (name,)
             self._verify_chain(chain)
             self._verify_directory(descriptor, relative)
             pinned = _bound_entry(descriptor, name, self.records[child_relative],
-                                  self.mount, self.device)
+                                  self.mount, self.device, label=self.label)
             is_directory = stat.S_ISDIR(self.records[child_relative][2])
             try:
                 if is_directory:
@@ -421,11 +470,11 @@ class TreeSnapshot:
         # Remove only the now-empty exact allowlisted root, relative to its
         # separately revalidated parent. Never resolve a symlink path.
         parent_path = str(Path(self.path).parent)
-        parent, _ = _open_anchors(parent_path, self.anchors[:-1])
+        parent, _ = _open_anchors(parent_path, self.anchors[:-1], label=self.label)
         try:
             self._verify_root()
             pinned = _bound_entry(parent, Path(self.path).name, self.records[()],
-                                  self.mount, self.device)
+                                  self.mount, self.device, label=self.label, role='root')
             try:
                 self.attempted_removals += 1
                 try:
@@ -511,6 +560,7 @@ def collect(*, execute=False, fresh_job_before_checkout=False):
         'reviewed_image_version_matches': image is not None,
         'source_provenance_is_content_proof': False,
         'atomic_snapshot': False, 'concurrent_privileged_mutation_safe': False,
+        'concurrent_untrusted_mutation_safe': False,
         'minimum_free_bytes': REVIEWED_FREE_TARGET_BYTES,
         'free_bytes_before': None, 'free_bytes_after': None,
         'free_bytes_after_snapshot': None, 'capacity_upper_bound_sufficient': None,
@@ -540,6 +590,8 @@ def collect(*, execute=False, fresh_job_before_checkout=False):
                 tree.capture()
                 report['targets'][label] = {
                     'snapshot_complete': True, 'entries': len(tree.records),
+                    'snapshot_max_relative_depth': max(map(len, tree.records), default=0),
+                    'snapshot_sum_relative_depth': sum(map(len, tree.records)),
                     'allocated_bytes_upper_bound': tree.allocated,
                     'symlink_count': tree.symlinks, 'removed_entries': 0,
                     'root_removed': False,

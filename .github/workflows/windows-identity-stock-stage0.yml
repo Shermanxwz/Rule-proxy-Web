@@ -22,6 +22,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          fetch-depth: 1
       - name: Parse only the new guest PowerShell entrypoints
         shell: powershell
         run: |
@@ -70,12 +71,12 @@ jobs:
           remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
           minutes=$(( remaining / 60 ))
           test "$minutes" -ge 1
-          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          if [ "$minutes" -gt 46 ]; then minutes=46; fi
           echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
       - name: Frozen pre-checkout recovery gate (execution remains disabled)
         timeout-minutes: ${{ fromJSON(steps.stock_budget_0.outputs.minutes) }}
         run: |
-          sudo python3 -c 'import os,fcntl; fd=os.open("/dev/kvm",os.O_RDWR|os.O_CLOEXEC); v=fcntl.ioctl(fd,0xAE00,0); os.close(fd); assert v==12'
+          sudo /usr/bin/python3 -c 'import os,fcntl; fd=os.open("/dev/kvm",os.O_RDWR|os.O_CLOEXEC); v=fcntl.ioctl(fd,0xAE00,0); os.close(fd); assert v==12'
           mkdir -p "$RUNNER_TEMP/identity-stock-recovery"
           cat > "$RUNNER_TEMP/identity-stock-recovery/reviewed.py" <<'REVIEWED_RECOVERY'
           """Narrow, fail-closed provider-cache recovery with fixed reviewed images.
@@ -89,8 +90,10 @@ jobs:
           This is not an adversarial-concurrency sandbox: Linux unlinkat/rmdir have no
           compare-and-delete-by-inode operation. Descriptors, no-follow opens, full snapshots,
           and immediate binding/mount revalidation reject observed replacements, but cannot
-          eliminate the final syscall race with a concurrent privileged writer. Therefore
-          execution is forbidden in a reused job or alongside untrusted/privileged writers.
+          eliminate the final syscall race with any concurrent untrusted writer. The
+          measured provider defaults include 0777 directories: an unprivileged process can
+          also replace their entries. Execution is forbidden in a reused job or alongside
+          ANY concurrent untrusted writer, privileged or unprivileged.
           No chmod, mounts, broad cleanup, content reads, or symlink-target reads are used.
           """
           from __future__ import annotations
@@ -120,20 +123,46 @@ jobs:
               'dotnet_sdk': '/usr/share/dotnet',
               'swift_toolchain': '/usr/share/swift',
           }
-          # These are intentionally not command-line/environment overrides. The 32 GiB
-          # proposal still requires final resource review; enabling this source is a
-          # separately approved frozen action, never a self-granted permission.
+          # Exact metadata observed by read-only run 39380768721 on 20261018.339.1.
+          # Ownership remains UID 0/GID 0 for every role. These modes are an eligibility
+          # policy, not proof of provider content, and are checked again on every binding.
+          ANCESTOR_MODES = {
+              'android_sdk': {
+                  '/': 0o755, '/usr': 0o755, '/usr/local': 0o755,
+                  '/usr/local/lib': 0o755, '/usr/local/lib/android': 0o755,
+              },
+              'dotnet_sdk': {'/': 0o755, '/usr': 0o755, '/usr/share': 0o777},
+              'swift_toolchain': {'/': 0o755, '/usr': 0o755, '/usr/share': 0o777},
+          }
+          DESCENDANT_MODES = {
+              'android_sdk': {
+                  stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o644, 0o777}),
+                  stat.S_IFLNK: frozenset({0o777}),
+              },
+              'dotnet_sdk': {
+                  stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o777}),
+              },
+              'swift_toolchain': {
+                  stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o777}),
+                  stat.S_IFLNK: frozenset({0o777}),
+              },
+          }
+          # No command-line/environment overrides. The additional 512 MiB is a proposed
+          # preparation allowance requiring separate resource review before any retry.
+          # The existing enabled flag is preserved; code eligibility is not authorization.
           EXECUTION_ENABLED = True
-          REVIEWED_FREE_TARGET_BYTES = 32 * 1024**3
+          REVIEWED_FREE_TARGET_BYTES = 32 * 1024**3 + 512 * 1024**2
           MAX_ENTRIES = 500000
           MAX_DEPTH = 128
-          MAX_SECONDS = 240
+          # A bounded 45-minute recovery slice, not a throughput guarantee. The workflow
+          # must still enforce its unchanged overall deadline and cleanup reserve.
+          MAX_SECONDS = 2700
           GIB = 1024**3
           STOP_REASONS = frozenset({
               'execution_not_reviewed', 'free_target_not_reviewed', 'not_fresh_hosted_job',
               'workspace_not_empty', 'workspace_unavailable', 'image_not_reviewed',
               'root_privilege_required', 'linux_required', 'unknown_ownership',
-              'writable_entry', 'root_or_ancestor_symlink', 'mount_boundary',
+              'unexpected_mode', 'root_or_ancestor_symlink', 'mount_boundary',
               'mount_metadata_invalid', 'mount_metadata_bound', 'mount_identity_unavailable',
               'entry_changed', 'ancestor_changed', 'directory_changed', 'special_entry',
               'multiply_linked_file', 'entry_bound', 'depth_bound', 'time_bound',
@@ -195,7 +224,9 @@ jobs:
                   info.st_nlink, info.st_size, info.st_blocks, info.st_mtime_ns, info.st_ctime_ns)
           
           
-          def _metadata(info):
+          def _metadata(info, *, label, role, ancestor=None):
+              if label not in TARGETS:
+                  raise RecoveryStopped('invalid_target')
               if info.st_uid != 0 or info.st_gid != 0:
                   raise RecoveryStopped('unknown_ownership')
               if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)
@@ -203,9 +234,20 @@ jobs:
                   raise RecoveryStopped('special_entry')
               if stat.S_ISREG(info.st_mode) and info.st_nlink != 1:
                   raise RecoveryStopped('multiply_linked_file')
-              # Symlink modes conventionally contain all write bits, but are never followed.
-              if not stat.S_ISLNK(info.st_mode) and info.st_mode & 0o022:
-                  raise RecoveryStopped('writable_entry')
+              kind, mode = stat.S_IFMT(info.st_mode), stat.S_IMODE(info.st_mode)
+              # S_IMODE includes setuid, setgid and sticky bits. None is silently masked
+              # away: a special bit or any unmeasured mode fails these exact comparisons.
+              if role == 'ancestor':
+                  allowed = (kind == stat.S_IFDIR
+                             and mode == ANCESTOR_MODES[label].get(ancestor))
+              elif role == 'root':
+                  allowed = kind == stat.S_IFDIR and mode == 0o777
+              elif role == 'descendant':
+                  allowed = mode in DESCENDANT_MODES[label].get(kind, ())
+              else:
+                  raise RecoveryStopped('invalid_target')
+              if not allowed:
+                  raise RecoveryStopped('unexpected_mode')
           
           
           def _directory_open(name, parent=None):
@@ -218,16 +260,16 @@ jobs:
               return os.open(name, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
           
           
-          def _bound_entry(parent, name, expected, root_mount, root_device):
+          def _bound_entry(parent, name, expected, root_mount, root_device, *, label, role='descendant'):
               """Return an owned O_PATH fd after checking a single no-follow binding."""
               before = os.stat(name, dir_fd=parent, follow_symlinks=False)
-              _metadata(before)
+              _metadata(before, label=label, role=role)
               if _fingerprint(before) != expected:
                   raise RecoveryStopped('entry_changed')
               descriptor = _entry_open(name, parent)
               try:
                   current = os.fstat(descriptor)
-                  _metadata(current)
+                  _metadata(current, label=label, role=role)
                   if mount_id(descriptor) != root_mount or current.st_dev != root_device:
                       raise RecoveryStopped('mount_boundary')
                   if _fingerprint(current) != expected:
@@ -241,26 +283,31 @@ jobs:
                   raise
           
           
-          def _open_anchors(path, expected=None):
+          def _open_anchors(path, expected=None, *, label):
               """Open from / component-by-component, checking every ancestor binding."""
-              if not path.startswith('/') or str(Path(path)) != path:
+              target = TARGETS.get(label)
+              if (target is None or path not in (target, str(Path(target).parent))
+                      or not path.startswith('/') or str(Path(path)) != path):
                   raise RecoveryStopped('invalid_target')
               descriptor = _directory_open('/')
               observations = []
               try:
                   root = os.fstat(descriptor)
-                  _metadata(root)
+                  _metadata(root, label=label, role='ancestor', ancestor='/')
                   root_mount = mount_id(descriptor)
                   observations.append((_identity(root), root_mount))
+                  current_path = '/'
                   for part in Path(path).parts[1:]:
+                      current_path = str(Path(current_path) / part)
+                      role = 'root' if current_path == target else 'ancestor'
                       before = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
                       if stat.S_ISLNK(before.st_mode):
                           raise RecoveryStopped('root_or_ancestor_symlink')
-                      _metadata(before)
+                      _metadata(before, label=label, role=role, ancestor=current_path)
                       child = _directory_open(part, descriptor)
                       try:
                           current = os.fstat(child)
-                          _metadata(current)
+                          _metadata(current, label=label, role=role, ancestor=current_path)
                           current_mount = mount_id(child)
                           if current_mount != root_mount or current.st_dev != root.st_dev:
                               raise RecoveryStopped('mount_boundary')
@@ -313,7 +360,7 @@ jobs:
           
               def _add(self, relative, info):
                   _budget(self.deadline)
-                  _metadata(info)
+                  _metadata(info, label=self.label, role='descendant' if relative else 'root')
                   if info.st_dev != self.device:
                       raise RecoveryStopped('mount_boundary')
                   if len(relative) > MAX_DEPTH:
@@ -339,7 +386,7 @@ jobs:
                           info = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
                           self._add(child_relative, info)
                           pinned = _bound_entry(descriptor, name, self.records[child_relative],
-                                                self.mount, self.device)
+                                                self.mount, self.device, label=self.label)
                           try:
                               if stat.S_ISDIR(info.st_mode):
                                   child = _directory_open(name, descriptor)
@@ -355,11 +402,13 @@ jobs:
                           names.append(name)
                   if _fingerprint(os.fstat(descriptor)) != _fingerprint(before):
                       raise RecoveryStopped('directory_changed')
-                  self.children[relative] = tuple(sorted(names))
+                  # The remaining-name set changes only after a successful owned removal.
+                  # Full verification still enumerates and compares the entire directory.
+                  self.children[relative] = set(names)
           
               def capture(self):
                   self._mount_list_check()
-                  self.root, self.anchors = _open_anchors(self.path)
+                  self.root, self.anchors = _open_anchors(self.path, label=self.label)
                   info = os.fstat(self.root)
                   self.device = info.st_dev
                   self.mount = mount_id(self.root)
@@ -370,7 +419,7 @@ jobs:
           
               def _verify_root(self):
                   _budget(self.deadline)
-                  current, _ = _open_anchors(self.path, self.anchors)
+                  current, _ = _open_anchors(self.path, self.anchors, label=self.label)
                   try:
                       if _fingerprint(os.fstat(current)) != self.records[()]:
                           raise RecoveryStopped('entry_changed')
@@ -382,7 +431,7 @@ jobs:
               def _verify_directory(self, descriptor, relative):
                   _budget(self.deadline)
                   current = os.fstat(descriptor)
-                  _metadata(current)
+                  _metadata(current, label=self.label, role='descendant' if relative else 'root')
                   if mount_id(descriptor) != self.mount or current.st_dev != self.device:
                       raise RecoveryStopped('mount_boundary')
                   if _fingerprint(current) != self.records[relative]:
@@ -398,12 +447,12 @@ jobs:
                           if len(names) > len(self.children[relative]):
                               raise RecoveryStopped('directory_changed')
                   names = tuple(sorted(names))
-                  if names != self.children[relative]:
+                  if set(names) != self.children[relative]:
                       raise RecoveryStopped('directory_changed')
                   for name in names:
                       child_relative = relative + (name,)
                       pinned = _bound_entry(descriptor, name, self.records[child_relative],
-                                            self.mount, self.device)
+                                            self.mount, self.device, label=self.label)
                       try:
                           if stat.S_ISDIR(self.records[child_relative][2]):
                               child = _directory_open(name, descriptor)
@@ -427,7 +476,7 @@ jobs:
                   for parent, relative, child in chain:
                       self._verify_directory(parent, relative[:-1])
                       pinned = _bound_entry(parent, relative[-1], self.records[relative],
-                                            self.mount, self.device)
+                                            self.mount, self.device, label=self.label)
                       try:
                           if _fingerprint(os.fstat(child)) != self.records[relative]:
                               raise RecoveryStopped('entry_changed')
@@ -440,7 +489,7 @@ jobs:
                   self._verify_chain(chain)
                   self._verify_directory(parent, relative[:-1])
                   pinned = _bound_entry(parent, relative[-1], self.records[relative],
-                                        self.mount, self.device)
+                                        self.mount, self.device, label=self.label)
                   try:
                       # Last checks immediately precede unlinkat/rmdir. See module-level
                       # limitation: these syscalls cannot atomically compare the inode.
@@ -458,20 +507,21 @@ jobs:
                           raise CleanupFailed(exc) from None
                       self.removed += 1
                       self.records[relative[:-1]] = _fingerprint(os.fstat(parent))
-                      self.children[relative[:-1]] = tuple(
-                          name for name in self.children[relative[:-1]] if name != relative[-1])
+                      self.children[relative[:-1]].remove(relative[-1])
                   finally:
                       os.close(pinned)
           
               def _remove_walk(self, descriptor, relative, chain, goal_reached):
-                  for name in tuple(self.children[relative]):
+                  # Snapshot deterministic order once per directory. Do not rebuild the
+                  # remaining sibling collection for every unlink (quadratic in fan-out).
+                  for name in sorted(self.children[relative]):
                       if goal_reached():
                           return True
                       child_relative = relative + (name,)
                       self._verify_chain(chain)
                       self._verify_directory(descriptor, relative)
                       pinned = _bound_entry(descriptor, name, self.records[child_relative],
-                                            self.mount, self.device)
+                                            self.mount, self.device, label=self.label)
                       is_directory = stat.S_ISDIR(self.records[child_relative][2])
                       try:
                           if is_directory:
@@ -501,11 +551,11 @@ jobs:
                   # Remove only the now-empty exact allowlisted root, relative to its
                   # separately revalidated parent. Never resolve a symlink path.
                   parent_path = str(Path(self.path).parent)
-                  parent, _ = _open_anchors(parent_path, self.anchors[:-1])
+                  parent, _ = _open_anchors(parent_path, self.anchors[:-1], label=self.label)
                   try:
                       self._verify_root()
                       pinned = _bound_entry(parent, Path(self.path).name, self.records[()],
-                                            self.mount, self.device)
+                                            self.mount, self.device, label=self.label, role='root')
                       try:
                           self.attempted_removals += 1
                           try:
@@ -591,6 +641,7 @@ jobs:
                   'reviewed_image_version_matches': image is not None,
                   'source_provenance_is_content_proof': False,
                   'atomic_snapshot': False, 'concurrent_privileged_mutation_safe': False,
+                  'concurrent_untrusted_mutation_safe': False,
                   'minimum_free_bytes': REVIEWED_FREE_TARGET_BYTES,
                   'free_bytes_before': None, 'free_bytes_after': None,
                   'free_bytes_after_snapshot': None, 'capacity_upper_bound_sufficient': None,
@@ -620,6 +671,8 @@ jobs:
                           tree.capture()
                           report['targets'][label] = {
                               'snapshot_complete': True, 'entries': len(tree.records),
+                              'snapshot_max_relative_depth': max(map(len, tree.records), default=0),
+                              'snapshot_sum_relative_depth': sum(map(len, tree.records)),
                               'allocated_bytes_upper_bound': tree.allocated,
                               'symlink_count': tree.symlinks, 'removed_entries': 0,
                               'root_removed': False,
@@ -704,8 +757,31 @@ jobs:
           if __name__ == '__main__':
               raise SystemExit(main())
           REVIEWED_RECOVERY
-          test "$(sha256sum "$RUNNER_TEMP/identity-stock-recovery/reviewed.py" | cut -d' ' -f1)" = 'bf3e860953e8ce9c7442c4309ec0fde4b03a414e5eaa71a9ef382b92e800c179'
-          sudo --preserve-env=ImageOS,ImageVersion,GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS,RUNNER_ARCH,GITHUB_WORKSPACE,RUNNER_TEMP python3 -B "$RUNNER_TEMP/identity-stock-recovery/reviewed.py" --execute-reviewed-recovery --fresh-job-before-checkout > "$RUNNER_TEMP/identity-stock-recovery/public.json"
+          test "$(sha256sum "$RUNNER_TEMP/identity-stock-recovery/reviewed.py" | cut -d' ' -f1)" = '15372acf38c5f619766d95f71b1720757771e86bffd47a2d68fe1b51f6328cc8'
+          sudo --preserve-env=ImageOS,ImageVersion,GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS,RUNNER_ARCH,GITHUB_WORKSPACE,RUNNER_TEMP /usr/bin/python3 -B "$RUNNER_TEMP/identity-stock-recovery/reviewed.py" --execute-reviewed-recovery --fresh-job-before-checkout > "$RUNNER_TEMP/identity-stock-recovery/public.json"
+      - name: Observe preparation baseline on the same filesystem before checkout
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B - <<'PY'
+          import json, os, shutil, sys
+          from pathlib import Path
+          workspace=Path(os.environ['GITHUB_WORKSPACE'])
+          output=Path(os.environ['RUNNER_TEMP'])/'identity-stock-recovery/preparation-public.json'
+          device=workspace.stat().st_dev
+          same=device==output.parent.stat().st_dev
+          free=shutil.disk_usage(workspace).free
+          allowance=512*1024**2; floor=32*1024**3
+          okay=same and sys.version_info[:2]==(3,12) and free>=floor+allowance
+          report={'schema_version':1,'allowance_bytes':allowance,'minimum_free_bytes':floor,
+                  'baseline_free_bytes':free,'same_filesystem':same,
+                  'status':'observed_within_allowance' if okay else 'blocked',
+                  'peak_measured':False,'provider_background_writes_excluded':False,
+                  'samples':[{'phase':'before_checkout','free_bytes':free,'net_decline_bytes':0}]}
+          output.write_text(json.dumps(report,sort_keys=True)+'\n',encoding='ascii')
+          if not okay: raise SystemExit('Preparation baseline unavailable; no checkout or package installation')
+          with open(os.environ['GITHUB_ENV'],'a',encoding='ascii') as environment:
+              environment.write('STOCK_PREP_DEVICE_ID='+str(device)+'\n')
+          PY
       - name: Remaining absolute budget for step 1
         id: stock_budget_1
         timeout-minutes: 1
@@ -719,6 +795,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(steps.stock_budget_1.outputs.minutes) }}
         with:
           persist-credentials: false
+          fetch-depth: 1
       - name: Remaining absolute budget for step 2
         id: stock_budget_2
         timeout-minutes: 1
@@ -728,10 +805,11 @@ jobs:
           test "$minutes" -ge 1
           if [ "$minutes" -gt 8 ]; then minutes=8; fi
           echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-python@v6
+      - name: Check preinstalled system Python and observed checkout consumption
         timeout-minutes: ${{ fromJSON(steps.stock_budget_2.outputs.minutes) }}
-        with:
-          python-version: '3.14'
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_checkout \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
       - name: Remaining absolute budget for step 3
         id: stock_budget_3
         timeout-minutes: 1
@@ -745,7 +823,13 @@ jobs:
         timeout-minutes: ${{ fromJSON(steps.stock_budget_3.outputs.minutes) }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_apt_indexes \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-apt-plan \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          sudo apt-get install -y --no-install-recommends --no-remove qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_apt \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
       - name: Remaining absolute budget for step 4
         id: stock_budget_4
         timeout-minutes: 1
@@ -764,6 +848,8 @@ jobs:
         id: stock_budget_5
         timeout-minutes: 1
         run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_actor \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
           remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
           minutes=$(( remaining / 60 ))
           test "$minutes" -ge 1
@@ -783,6 +869,8 @@ jobs:
         id: stock_budget_6
         timeout-minutes: 1
         run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_g_download \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
           remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
           minutes=$(( remaining / 60 ))
           test "$minutes" -ge 1
@@ -791,16 +879,18 @@ jobs:
       - name: Verify the fixed artifact wrapper and deterministic G runtime
         timeout-minutes: ${{ fromJSON(steps.stock_budget_6.outputs.minutes) }}
         run: |
-          python -B - <<'PY'
+          /usr/bin/python3 -B - <<'PY'
           import hashlib, stat, zipfile
           from pathlib import Path, PurePosixPath
           import install_runtime
           files=[p for p in Path('g-source-download').iterdir() if p.is_file()]
-          if len(files)!=1 or hashlib.sha256(files[0].read_bytes()).hexdigest()!='8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036':
+          if len(files)!=1 or files[0].is_symlink() or files[0].stat().st_size!=2059230 or hashlib.sha256(files[0].read_bytes()).hexdigest()!='8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036':
               raise SystemExit('Fixed G artifact wrapper mismatch')
           needed={'build-manifest.json','wxc-exec.exe','MXC-LICENSE.md'}
           source=Path('g-source'); source.mkdir()
           with zipfile.ZipFile(files[0]) as z:
+              if len(z.infolist())!=3 or sum(i.file_size for i in z.infolist())!=5682058:
+                  raise SystemExit('Fixed G archive expansion mismatch')
               selected={}
               for item in z.infolist():
                   p=PurePosixPath(item.filename)
@@ -813,25 +903,31 @@ jobs:
               for name,item in selected.items(): (source/name).write_bytes(z.read(item))
           if install_runtime.build_g_bundle(source,Path('g-bundle.zip'))!=install_runtime.MXC_G_BUNDLE_SHA256:
               raise SystemExit('Deterministic G bundle mismatch')
+          if Path('g-bundle.zip').stat().st_size!=5682398:
+              raise SystemExit('Fixed G bundle size mismatch')
           PY
       - name: Remaining absolute budget for step 7
         id: stock_budget_7
         timeout-minutes: 1
         run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_g_bundle \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
           remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
           minutes=$(( remaining / 60 ))
           test "$minutes" -ge 1
           if [ "$minutes" -gt 8 ]; then minutes=8; fi
           echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
-      - name: Assemble existing pinned Windows Python runtime package
+      - name: Fetch and statically verify only the existing pinned official embedded Python
         timeout-minutes: ${{ fromJSON(steps.stock_budget_7.outputs.minutes) }}
         run: |
-          python -m pip install -r requirements.txt
-          python -B .github/build_windows_package.py client-stage0-package
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --download-python \
+            --output client-stage0-python/python-3.14.8-embed-amd64.zip
       - name: Remaining absolute budget for step 8
         id: stock_budget_8
         timeout-minutes: 1
         run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_python \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
           remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 0 ))
           minutes=$(( remaining / 60 ))
           test "$minutes" -ge 1
@@ -841,13 +937,14 @@ jobs:
       - name: Run one genuine ordinary-user Stage0 in the disposable stock client
         timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
         run: |
-          read -r expected name < client-stage0-package/SHA256SUMS.txt
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase pre_vm \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
           actor=$(cat client-stage0-actor/actor-sha256.txt)
           STOCK_HOST_DEADLINE=${{ steps.stock_budget_8.outputs.deadline }}
           remaining=$(( STOCK_HOST_DEADLINE - $(date +%s) ))
           test "$remaining" -ge 300
-          exec timeout --signal=TERM --kill-after=30s "${remaining}s" sudo "$(command -v python)" -B .github/windows_identity_stock_stage0.py \
-            --approved-disposable-vm --package "client-stage0-package/$name" --package-sha256 "$expected" \
+          exec timeout --signal=TERM --kill-after=30s "${remaining}s" sudo /usr/bin/python3 -B .github/windows_identity_stock_stage0.py \
+            --approved-disposable-vm --python-archive "$PWD/client-stage0-python/python-3.14.8-embed-amd64.zip" \
             --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 "$actor" \
             --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 6600 --job-deadline-epoch "$STOCK_HOST_DEADLINE"
       - uses: actions/upload-artifact@v7
@@ -864,5 +961,13 @@ jobs:
         with:
           name: windows-11-ordinary-stage0-public
           path: client-stage0-public/public-report.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: always()
+        timeout-minutes: 2
+        with:
+          name: stock-preparation-public
+          path: ${{ runner.temp }}/identity-stock-recovery/preparation-public.json
           retention-days: 14
           if-no-files-found: warn

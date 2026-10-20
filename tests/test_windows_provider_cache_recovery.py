@@ -37,6 +37,9 @@ class SyntheticTreeTests(unittest.TestCase):
         self.transform = None
         self.context = contextlib.ExitStack()
         self.context.enter_context(patch.object(m, 'TARGETS', {'android_sdk': str(self.root)}))
+        self.context.enter_context(patch.object(m, 'ANCESTOR_MODES', {
+            'android_sdk': {str(path): 0o755 for path in (self.root.parent, *self.root.parent.parents)}
+        }))
         self.context.enter_context(patch.object(m.os, 'stat', side_effect=self.normal_stat))
         self.context.enter_context(patch.object(m.os, 'fstat', side_effect=self.normal_fstat))
         self.context.enter_context(patch.object(m, 'mount_points', return_value={'/'}))
@@ -55,8 +58,9 @@ class SyntheticTreeTests(unittest.TestCase):
     def normalized(self, info):
         values = {key: getattr(info, key) for key in dir(info) if key.startswith('st_')}
         values.update(st_uid=0, st_gid=0, st_dev=123)
-        if (info.st_dev, info.st_ino) in self.ancestor_keys:
-            values['st_mode'] &= ~0o022  # Synthetic /tmp ancestor is not production.
+        if stat.S_ISDIR(info.st_mode):
+            mode = 0o755 if (info.st_dev, info.st_ino) in self.ancestor_keys else 0o777
+            values['st_mode'] = stat.S_IFDIR | mode
         if self.transform is not None:
             values.update(self.transform(info) or {})
         return SimpleNamespace(**values)
@@ -123,6 +127,60 @@ class SyntheticTreeTests(unittest.TestCase):
         self.assertFalse(tree.root_removed)
         self.assertTrue((self.root / 'b').exists())
 
+    def test_remaining_set_preserves_deterministic_removal_order(self):
+        for name in ('z', 'a', 'm'):
+            (self.root / name).write_bytes(b'owned')
+        tree = self.snapshot()
+        original_unlink, removed = m.os.unlink, []
+        def tracked_unlink(name, *, dir_fd):
+            removed.append(name)
+            return original_unlink(name, dir_fd=dir_fd)
+        with patch.object(m.os, 'unlink', side_effect=tracked_unlink):
+            tree.remove_until(lambda: False)
+        self.assertEqual(removed, ['a', 'm', 'z'])
+        self.assertEqual(tree.children[()], set())
+
+    def test_many_siblings_update_one_remaining_set_in_place(self):
+        for index in range(128):
+            (self.root / ('entry-' + str(index).zfill(3))).write_bytes(b'owned')
+        tree = self.snapshot()
+        remaining = tree.children[()]
+        self.assertIsInstance(remaining, set)
+        self.assertTrue(tree.remove_until(lambda: tree.removed >= 65))
+        self.assertIs(tree.children[()], remaining)
+        self.assertEqual(len(remaining), 63)
+        self.assertEqual(remaining, {'entry-' + str(i).zfill(3) for i in range(65, 128)})
+        self.assertTrue((self.root / 'entry-065').exists())
+
+    def test_full_name_set_verification_rejects_same_count_replacement(self):
+        (self.root / 'a').write_bytes(b'owned')
+        (self.root / 'b').write_bytes(b'owned')
+        tree = self.snapshot()
+        (self.root / 'a').rename(self.root / 'unobserved')
+        # Isolate the complete-name-set gate from the independent timestamp
+        # gate; production never silently updates a snapshot in this way.
+        tree.records[()] = m._fingerprint(m.os.fstat(tree.root))
+        self.assert_reason('directory_changed', lambda: tree._verify_walk(tree.root, ()))
+        self.assertEqual(tree.attempted_removals, 0)
+        self.assertTrue((self.root / 'unobserved').exists())
+
+    def test_unexpected_entry_added_during_removal_is_never_deleted(self):
+        (self.root / 'a').write_bytes(b'owned')
+        (self.root / 'b').write_bytes(b'owned')
+        tree = self.snapshot()
+        original_unlink, removed = m.os.unlink, []
+        def add_after_owned_unlink(name, *, dir_fd):
+            original_unlink(name, dir_fd=dir_fd)
+            removed.append(name)
+            if len(removed) == 1:
+                (self.root / 'unobserved').write_bytes(b'must survive')
+        with patch.object(m.os, 'unlink', side_effect=add_after_owned_unlink):
+            self.assert_reason('cleanup_failed', lambda: tree.remove_until(lambda: False))
+        self.assertEqual(removed, ['a', 'b'])
+        self.assertEqual((self.root / 'unobserved').read_bytes(), b'must survive')
+        self.assertFalse(tree.root_removed)
+        self.assertTrue(tree.cleanup_outcome_uncertain)
+
     def test_root_symlink_is_rejected_without_following(self):
         self.root.rmdir()
         self.root.symlink_to(self.parent, target_is_directory=True)
@@ -154,12 +212,18 @@ class SyntheticTreeTests(unittest.TestCase):
         target = container / 'provider'
         target.mkdir()
         (target / 'a').write_bytes(b'keep')
-        with patch.object(m, 'TARGETS', {'android_sdk': str(target)}):
+        self.ancestor_keys.update((RAW_STAT(p).st_dev, RAW_STAT(p).st_ino)
+                                  for p in target.parents)
+        with patch.object(m, 'TARGETS', {'android_sdk': str(target)}), \
+                patch.object(m, 'ANCESTOR_MODES', {
+                    'android_sdk': {str(path): 0o755 for path in target.parents}
+                }):
             tree = self.snapshot()
             moved = self.root / 'moved-container'
             container.rename(moved)
             container.mkdir()
             (container / 'provider').mkdir()
+            self.ancestor_keys.add((RAW_STAT(container).st_dev, RAW_STAT(container).st_ino))
             self.assert_reason('ancestor_changed', lambda: tree.remove_until(lambda: False))
             self.assertTrue((moved / 'provider' / 'a').exists())
             self.assertEqual(tree.removed, 0)
@@ -265,12 +329,83 @@ class SyntheticTreeTests(unittest.TestCase):
         self.assert_reason('unknown_ownership', self.snapshot)
         self.assertTrue(entry.exists())
 
-    def test_writable_file_is_rejected_without_changing_permissions(self):
+    def test_unmeasured_writable_file_mode_is_rejected_without_changing_permissions(self):
         entry = self.root / 'a'
         entry.write_bytes(b'keep')
         inode = RAW_STAT(entry).st_ino
         self.transform = lambda info: {'st_mode': info.st_mode | stat.S_IWOTH} if info.st_ino == inode else {}
-        self.assert_reason('writable_entry', self.snapshot)
+        self.assert_reason('unexpected_mode', self.snapshot)
+
+    def test_unexpected_root_mode_is_rejected(self):
+        inode = RAW_STAT(self.root).st_ino
+        self.transform = lambda info: {'st_mode': stat.S_IFDIR | 0o755} if info.st_ino == inode else {}
+        self.assert_reason('unexpected_mode', self.snapshot)
+        self.assertTrue(self.root.exists())
+
+    def test_unexpected_writable_ancestor_is_rejected(self):
+        inode = RAW_STAT(self.parent).st_ino
+        self.transform = lambda info: {'st_mode': stat.S_IFDIR | 0o777} if info.st_ino == inode else {}
+        self.assert_reason('unexpected_mode', self.snapshot)
+        self.assertTrue(self.root.exists())
+
+    def test_allowed_regular_mode_change_after_snapshot_still_rejects(self):
+        entry = self.root / 'a'
+        entry.write_bytes(b'keep')
+        tree = self.snapshot()  # Synthetic Android file starts as allowed 0644.
+        inode = RAW_STAT(entry).st_ino
+        self.transform = lambda info: {'st_mode': stat.S_IFREG | 0o777} if info.st_ino == inode else {}
+        self.assert_reason('entry_changed',
+                           lambda: tree._remove_entry(tree.root, ('a',), []))
+        self.assertEqual(tree.attempted_removals, 0)
+        self.assertTrue(entry.exists())
+
+    def test_root_mode_change_after_snapshot_rejects_before_removal(self):
+        (self.root / 'a').write_bytes(b'keep')
+        tree = self.snapshot()
+        inode = RAW_STAT(self.root).st_ino
+        self.transform = lambda info: {'st_mode': stat.S_IFDIR | 0o755} if info.st_ino == inode else {}
+        self.assert_reason('unexpected_mode', lambda: tree.remove_until(lambda: False))
+        self.assertEqual(tree.attempted_removals, 0)
+        self.assertTrue((self.root / 'a').exists())
+
+    def test_descendant_directory_mode_change_after_snapshot_rejects(self):
+        directory = self.root / 'nested'
+        directory.mkdir()
+        (directory / 'a').write_bytes(b'keep')
+        tree = self.snapshot()
+        inode = RAW_STAT(directory).st_ino
+        self.transform = lambda info: {'st_mode': stat.S_IFDIR | 0o755} if info.st_ino == inode else {}
+        self.assert_reason('unexpected_mode', lambda: tree.remove_until(lambda: False))
+        self.assertEqual(tree.attempted_removals, 0)
+        self.assertTrue((directory / 'a').exists())
+
+    def test_ancestor_mode_change_after_snapshot_rejects_even_if_less_writable(self):
+        (self.root / 'a').write_bytes(b'keep')
+        tree = self.snapshot()
+        inode = RAW_STAT(self.parent).st_ino
+        self.transform = lambda info: {'st_mode': stat.S_IFDIR | 0o555} if info.st_ino == inode else {}
+        self.assert_reason('unexpected_mode', lambda: tree.remove_until(lambda: False))
+        self.assertEqual(tree.attempted_removals, 0)
+        self.assertTrue((self.root / 'a').exists())
+
+    def test_mode_change_at_last_entry_check_rejects(self):
+        entry = self.root / 'a'
+        entry.write_bytes(b'keep')
+        tree = self.snapshot()
+        inode = RAW_STAT(entry).st_ino
+        original_verify, checks = tree._verify_chain, 0
+        def change_after_check(chain):
+            nonlocal checks
+            original_verify(chain)
+            checks += 1
+            if checks == 2:
+                self.transform = lambda info: (
+                    {'st_mode': stat.S_IFREG | 0o777} if info.st_ino == inode else {})
+        with patch.object(tree, '_verify_chain', side_effect=change_after_check):
+            self.assert_reason('entry_changed',
+                               lambda: tree._remove_entry(tree.root, ('a',), []))
+        self.assertEqual(tree.attempted_removals, 0)
+        self.assertTrue(entry.exists())
 
     def test_fifo_is_rejected_without_opening_or_reading(self):
         os.mkfifo(self.root / 'fifo')
@@ -310,7 +445,10 @@ class SyntheticTreeTests(unittest.TestCase):
         self.assertTrue(report['read_only'])
         self.assertFalse(report['host_changes'])
         self.assertFalse(report['concurrent_privileged_mutation_safe'])
+        self.assertFalse(report['concurrent_untrusted_mutation_safe'])
         self.assertEqual(report['removed_entries'], 0)
+        self.assertEqual(report['targets']['android_sdk']['snapshot_max_relative_depth'], 2)
+        self.assertEqual(report['targets']['android_sdk']['snapshot_sum_relative_depth'], 5)
         text = json.dumps(report)
         for private in (str(self.parent), 'outside-sensitive-file', 'external-link', 'must survive unchanged'):
             self.assertNotIn(private, text)
@@ -340,7 +478,8 @@ class ClosedGateTests(unittest.TestCase):
                 'ubuntu24/20261018.339', 'b4067e48bd9bd803e958bfe1503ea0a06a3a127f'),
         })
         self.assertIs(type(m.EXECUTION_ENABLED), bool)
-        self.assertEqual(m.REVIEWED_FREE_TARGET_BYTES, 32 * 1024**3)
+        self.assertEqual(m.REVIEWED_FREE_TARGET_BYTES, 32 * 1024**3 + 512 * 1024**2)
+        self.assertEqual(m.MAX_SECONDS, 2700)
 
     def test_execution_request_is_blocked_before_any_filesystem_access(self):
         with patch.object(m, 'EXECUTION_ENABLED', False), \
@@ -536,6 +675,113 @@ class ClosedGateTests(unittest.TestCase):
             self.assertEqual(raised.exception.reason, 'mount_identity_unavailable')
         with patch('builtins.open', mock_open(read_data='pos:\t0\nmnt_id:\t123\n')):
             self.assertEqual(m.mount_id(7), 123)
+
+
+class ExactModePolicyTests(unittest.TestCase):
+    """Pure metadata checks; no real file mode or owner is changed."""
+    @staticmethod
+    def info(kind, mode, *, uid=0, gid=0, links=1):
+        return SimpleNamespace(st_mode=kind | mode, st_uid=uid, st_gid=gid, st_nlink=links)
+
+    def assert_rejected(self, info, *, label, role, ancestor=None, reason='unexpected_mode'):
+        with self.assertRaises(m.RecoveryStopped) as raised:
+            m._metadata(info, label=label, role=role, ancestor=ancestor)
+        self.assertEqual(raised.exception.reason, reason)
+
+    def test_exact_ancestor_map_has_only_two_usr_share_exceptions(self):
+        self.assertEqual(m.ANCESTOR_MODES, {
+            'android_sdk': {
+                '/': 0o755, '/usr': 0o755, '/usr/local': 0o755,
+                '/usr/local/lib': 0o755, '/usr/local/lib/android': 0o755,
+            },
+            'dotnet_sdk': {'/': 0o755, '/usr': 0o755, '/usr/share': 0o777},
+            'swift_toolchain': {'/': 0o755, '/usr': 0o755, '/usr/share': 0o777},
+        })
+        exceptions = [(label, path) for label, entries in m.ANCESTOR_MODES.items()
+                      for path, mode in entries.items() if mode & 0o022]
+        self.assertEqual(exceptions, [('dotnet_sdk', '/usr/share'), ('swift_toolchain', '/usr/share')])
+
+    def test_exact_descendant_map_matches_measured_type_mode_combinations(self):
+        self.assertEqual(m.DESCENDANT_MODES, {
+            'android_sdk': {
+                stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o644, 0o777}),
+                stat.S_IFLNK: frozenset({0o777}),
+            },
+            'dotnet_sdk': {
+                stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o777}),
+            },
+            'swift_toolchain': {
+                stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o777}),
+                stat.S_IFLNK: frozenset({0o777}),
+            },
+        })
+
+    def test_every_measured_role_type_and_mode_is_accepted(self):
+        for label in m.TARGETS:
+            m._metadata(self.info(stat.S_IFDIR, 0o777), label=label, role='root')
+            for path, mode in m.ANCESTOR_MODES[label].items():
+                m._metadata(self.info(stat.S_IFDIR, mode), label=label, role='ancestor', ancestor=path)
+            for kind, modes in m.DESCENDANT_MODES[label].items():
+                for mode in modes:
+                    m._metadata(self.info(kind, mode), label=label, role='descendant')
+
+    def test_root_accepts_only_directory_0777_without_special_bits(self):
+        for label in m.TARGETS:
+            for kind, mode in ((stat.S_IFDIR, 0o755), (stat.S_IFREG, 0o777),
+                               (stat.S_IFLNK, 0o777), (stat.S_IFDIR, 0o1777),
+                               (stat.S_IFDIR, 0o2777), (stat.S_IFDIR, 0o4777)):
+                self.assert_rejected(self.info(kind, mode), label=label, role='root')
+
+    def test_ancestor_mode_is_exact_even_when_replacement_is_not_writable(self):
+        for label, entries in m.ANCESTOR_MODES.items():
+            for path, mode in entries.items():
+                for different in {0o555, 0o644, 0o700, 0o755, 0o775, 0o777, 0o1777} - {mode}:
+                    self.assert_rejected(self.info(stat.S_IFDIR, different),
+                                         label=label, role='ancestor', ancestor=path)
+
+    def test_usr_share_exception_cannot_apply_to_other_paths_or_android(self):
+        for label, path in (('android_sdk', '/usr/share'), ('android_sdk', '/usr/local/lib'),
+                            ('dotnet_sdk', '/usr'), ('dotnet_sdk', '/usr/share/other'),
+                            ('swift_toolchain', '/usr/shared'), ('swift_toolchain', '/opt')):
+            self.assert_rejected(self.info(stat.S_IFDIR, 0o777),
+                                 label=label, role='ancestor', ancestor=path)
+
+    def test_root_and_descendant_modes_cannot_weaken_ancestor_checks(self):
+        for label in m.TARGETS:
+            self.assert_rejected(self.info(stat.S_IFREG, 0o777),
+                                 label=label, role='ancestor', ancestor='/')
+            self.assert_rejected(self.info(stat.S_IFLNK, 0o777),
+                                 label=label, role='ancestor', ancestor='/')
+
+    def test_unmeasured_modes_and_special_bits_reject_for_every_descendant_type(self):
+        for label, kinds in m.DESCENDANT_MODES.items():
+            for kind, allowed in kinds.items():
+                for mode in {0o600, 0o640, 0o644, 0o666, 0o700, 0o755, 0o775,
+                             0o777, 0o1777, 0o2777, 0o4777, 0o6777, 0o7777} - allowed:
+                    self.assert_rejected(self.info(kind, mode), label=label, role='descendant')
+
+    def test_dotnet_symlink_is_not_inferred_from_other_providers(self):
+        self.assert_rejected(self.info(stat.S_IFLNK, 0o777),
+                             label='dotnet_sdk', role='descendant')
+
+    def test_owner_group_hardlink_and_special_file_rejections_survive_mode_policy(self):
+        for label in m.TARGETS:
+            for uid, gid in ((1, 0), (0, 1), (1, 1)):
+                for role in ('root', 'ancestor', 'descendant'):
+                    self.assert_rejected(self.info(stat.S_IFDIR, 0o777, uid=uid, gid=gid),
+                                         label=label, role=role, ancestor='/',
+                                         reason='unknown_ownership')
+            self.assert_rejected(self.info(stat.S_IFREG, 0o777, links=2),
+                                 label=label, role='descendant', reason='multiply_linked_file')
+            for kind in (stat.S_IFIFO, stat.S_IFSOCK, stat.S_IFCHR, stat.S_IFBLK):
+                self.assert_rejected(self.info(kind, 0o777), label=label,
+                                     role='descendant', reason='special_entry')
+
+    def test_unknown_role_or_label_cannot_create_mode_policy(self):
+        self.assert_rejected(self.info(stat.S_IFDIR, 0o777), label='unreviewed',
+                             role='root', reason='invalid_target')
+        self.assert_rejected(self.info(stat.S_IFDIR, 0o777), label='android_sdk',
+                             role='writable_allowed', reason='invalid_target')
 
 
 class ContextGateTests(unittest.TestCase):

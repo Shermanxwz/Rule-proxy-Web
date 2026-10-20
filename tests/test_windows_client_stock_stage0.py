@@ -1,12 +1,413 @@
 import importlib.util
+import ast
+from contextlib import ExitStack
+import hashlib
+import io
+import json
 from pathlib import Path
+import stat
+import sys
+import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from types import SimpleNamespace
+import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('stock', ROOT / '.github/windows_identity_stock_stage0.py')
 stock = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(stock)
 class StockTests(unittest.TestCase):
+    def test_minimum_vm_work_budget_boundary_excludes_existing_cleanup_reserve(self):
+        self.assertEqual(stock.MIN_VM_WORK_SECONDS,1800)
+        with self.assertRaises(stock.VMWorkBudgetInsufficient):
+            stock.require_vm_work_budget(5000,now=3201)
+        self.assertEqual(stock.require_vm_work_budget(5000,now=3200),1800)
+        source=(ROOT/'.github/windows_identity_stock_stage0.py').read_text()
+        self.assertIn('deadline = time.monotonic() + available - 120',source)
+        position=source.index("public['vm_work_seconds_available'] = int(require_vm_work_budget(deadline))")
+        self.assertGreater(position,source.index('package_digest = payload('))
+        self.assertLess(position,source.index("qemu = subprocess.Popen(limited_command(['qemu-system-x86_64'"))
+        self.assertIn("except VMWorkBudgetInsufficient:\n        public['status'] = 'time_budget_insufficient'",source)
+    def prep_fixture(self, path, *, baseline=None, phases=1, apt=False):
+        baseline=stock.PREMEDIA_FREE+stock.PREP_ALLOWANCE if baseline is None else baseline
+        value={'schema_version':1,'allowance_bytes':stock.PREP_ALLOWANCE,
+               'minimum_free_bytes':stock.PREMEDIA_FREE,'baseline_free_bytes':baseline,
+               'status':'observed_within_allowance','peak_measured':False,
+               'provider_background_writes_excluded':False,
+               'samples':[{'phase':phase,'free_bytes':baseline,'net_decline_bytes':0}
+                          for phase in stock.PREP_PHASES[:phases]]}
+        if apt:
+            value['apt_plan']={'verified':True,'package_count':0,'download_bytes':0,
+                'positive_installed_growth_bytes':0,'plan_sha256':'a'*64}
+        path.write_text(json.dumps(value))
+        return value
+    def test_preparation_gate_measures_same_filesystem_and_closed_ordered_samples(self):
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'public.json'; self.prep_fixture(path)
+            with patch.object(stock,'ROOT',Path(directory)),patch.dict(os.environ,STOCK_PREP_DEVICE_ID=str(path.stat().st_dev)),\
+                 patch.object(stock.sys,'version_info',(3,12,0)),\
+                 patch.object(stock.shutil,'disk_usage',return_value=SimpleNamespace(free=stock.PREMEDIA_FREE)):
+                self.assertEqual(stock.preparation_checkpoint(path,'post_checkout'),0)
+            result=json.loads(path.read_text())
+            self.assertEqual(result['samples'][-1]['net_decline_bytes'],stock.PREP_ALLOWANCE)
+            self.assertEqual(result['minimum_free_bytes'],32*stock.GIB)
+            self.assertFalse(result['peak_measured'])
+            self.assertFalse(result['provider_background_writes_excluded'])
+            self.assertFalse(result['installed_plan_verified'])
+            self.assertFalse(result['planning_ledger_is_hard_quota'])
+            self.assertEqual(sum(result['planning_ledger_bytes'].values()),522502602)
+            self.assertLess(sum(result['planning_ledger_bytes'].values()),stock.PREP_ALLOWANCE)
+            self.assertTrue(result['same_filesystem'])
+            with self.assertRaises(ValueError): stock.preparation_checkpoint(path,'pre_vm')
+    def test_preparation_rejects_unexpected_overhead_wrong_filesystem_and_python(self):
+        import os
+        for variant in ('floor','allowance','filesystem','python','apt_plan'):
+            with self.subTest(variant=variant),tempfile.TemporaryDirectory() as directory:
+                path=Path(directory)/'public.json'
+                baseline=stock.PREMEDIA_FREE+2*stock.PREP_ALLOWANCE
+                self.prep_fixture(path,baseline=baseline,phases=3 if variant=='apt_plan' else 1)
+                free=(stock.PREMEDIA_FREE-1 if variant=='floor' else
+                      baseline-stock.PREP_ALLOWANCE-1 if variant=='allowance' else baseline)
+                device=path.stat().st_dev+(1 if variant=='filesystem' else 0)
+                with patch.object(stock,'ROOT',Path(directory)),patch.dict(os.environ,STOCK_PREP_DEVICE_ID=str(device)),\
+                     patch.object(stock.sys,'version_info',(3,14,0) if variant=='python' else (3,12,0)),\
+                     patch.object(stock.shutil,'disk_usage',return_value=SimpleNamespace(free=free)):
+                    self.assertEqual(stock.preparation_checkpoint(path,'post_apt' if variant=='apt_plan' else 'post_checkout'),1)
+                self.assertEqual(json.loads(path.read_text())['status'],'blocked')
+    def test_preparation_requires_full_initial_allowance_and_strips_unknown_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'public.json'
+            self.prep_fixture(path,baseline=stock.PREMEDIA_FREE)
+            with self.assertRaises(ValueError): stock.preparation_record(path)
+            value=self.prep_fixture(path); value['raw_path']='/private/never/export'
+            path.write_text(json.dumps(value))
+            self.assertNotIn('raw_path',stock.preparation_record(path))
+            value['samples'][0]['raw_path']='/private/never/export'
+            path.write_text(json.dumps(value))
+            with self.assertRaises(ValueError): stock.preparation_record(path)
+    def apt_runner(self, *, install_size=10, archive_size=100, old=None, installed_version=None,
+                   simulation=None, metadata_suffix=''):
+        calls=[]
+        def runner(command,**kwargs):
+            calls.append(command)
+            if command[0]=='apt-get':
+                text=simulation or (('1 upgraded, 0 newly installed' if old else '0 upgraded, 1 newly installed')+
+                    ', 0 to remove and 0 not upgraded.\nInst fixture'+(' ['+old+']' if old else '')+
+                    ' (2.0 Ubuntu:stable [amd64])\nConf fixture (2.0 Ubuntu:stable [amd64])\n')
+                return SimpleNamespace(returncode=0,stdout=text,stderr='')
+            if command[0]=='apt-cache':
+                text=f'Package: fixture\nVersion: 2.0\nArchitecture: amd64\nSize: {archive_size}\nInstalled-Size: {install_size}\n'
+                return SimpleNamespace(returncode=0,stdout=text+metadata_suffix,stderr='')
+            if command[0]=='dpkg-query':
+                return SimpleNamespace(returncode=0 if old else 1,
+                    stdout='installed\n5\n'+(installed_version or old)+'\n' if old else '',stderr='')
+            raise AssertionError('No install/update command may run in plan inspection')
+        return runner,calls
+    def test_current_apt_plan_counts_new_and_positive_upgrade_growth(self):
+        for old,expected in ((None,10*1024),('1.0',5*1024)):
+            runner,calls=self.apt_runner(old=old)
+            result=stock.reviewed_apt_plan(runner=runner)
+            self.assertEqual(result['package_count'],1)
+            self.assertEqual(result['download_bytes'],100)
+            self.assertEqual(result['positive_installed_growth_bytes'],expected)
+            self.assertRegex(result['plan_sha256'],r'^[0-9a-f]{64}$')
+            self.assertEqual(calls[0],['apt-get','-s','--no-install-recommends','--no-remove','install',*stock.VM_PACKAGES])
+            self.assertEqual({command[0] for command in calls},{'apt-get','apt-cache','dpkg-query'})
+    def test_current_apt_plan_rejects_unreviewed_size_metadata_or_removals(self):
+        bad=[
+            {'archive_size':stock.APT_DOWNLOAD_CEILING+1},
+            {'install_size':stock.APT_INSTALLED_GROWTH_CEILING//1024+1},
+            {'old':'1.0','installed_version':'unexpected'},
+            {'metadata_suffix':'Size: 100\n'},
+            {'metadata_suffix':'\nPackage: fixture\nVersion: 9.0\nArchitecture: amd64\nSize: 1\nInstalled-Size: 1\n'},
+            {'simulation':'0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded.\nRemv fixture\n'},
+            {'simulation':'0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\nInst fixture (2.0 Ubuntu [amd64])\n'},
+            {'simulation':'metadata unavailable'},
+        ]
+        for options in bad:
+            runner,_=self.apt_runner(**options)
+            with self.subTest(options=options),self.assertRaises(ValueError):
+                stock.reviewed_apt_plan(runner=runner)
+    def test_apt_plan_failure_report_contains_only_closed_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'public.json'; self.prep_fixture(path,phases=3)
+            with patch.object(stock,'reviewed_apt_plan',side_effect=ValueError('/private/package/path')):
+                self.assertEqual(stock.check_apt_plan(path),1)
+            result=json.loads(path.read_text())
+            self.assertFalse(result['apt_plan_verified'])
+            self.assertEqual(result['status'],'blocked')
+            self.assertNotIn('/private',path.read_text())
+    def test_all_preparation_gates_precede_native_execution_and_use_system_python(self):
+        text=(ROOT/'.github/workflows/windows-identity-stock-stage0.yml').read_text()
+        self.assertNotIn('actions/setup-python',text)
+        self.assertEqual(text.count('fetch-depth: 1'),2)
+        self.assertIn('sudo apt-get install -y --no-install-recommends --no-remove ',text)
+        positions=[text.index("'phase':'before_checkout'")]
+        positions.extend(text.index('--preparation-phase '+phase) for phase in stock.PREP_PHASES[1:])
+        self.assertEqual(positions,sorted(positions))
+        self.assertLess(text.index('--check-apt-plan'),text.index('sudo apt-get install -y'))
+        self.assertLess(positions[-1],text.index('--approved-disposable-vm --python-archive'))
+        native=text.split('  native:\n',1)[1]
+        self.assertNotIn('          python ',native)
+        self.assertNotIn('command -v python',native)
+        self.assertIn('sudo /usr/bin/python3 -B .github/windows_identity_stock_stage0.py',native)
+        self.assertIn('floor=32*1024**3',text)
+        self.assertIn('free>=floor+allowance',text)
+        for number in ('2059230','5682058','5682398'):
+            self.assertIn(number,text)
+    def python_fixture(self, *, runtime_changes=None, stdlib_changes=None):
+        library = {name: b'fixture-only-not-executable' for name in stock.STDLIB_REQUIRED}
+        library.update(stdlib_changes or {})
+        inner = io.BytesIO()
+        with zipfile.ZipFile(inner, 'w') as archive:
+            for name, data in library.items():
+                if data is not None: archive.writestr(name, data)
+        binary = b'MZ' + b'\0' * 58 + (64).to_bytes(4, 'little') + b'PE\0\0\x64\x86\0'
+        members = {name: b'fixture-only-not-executable' for name in stock.PYTHON_REQUIRED}
+        members.update({'python.exe': binary, 'python314.dll': binary,
+                        'python314.zip': inner.getvalue(), 'python314._pth': stock.PYTHON_PTH})
+        members.update(runtime_changes or {})
+        outer = io.BytesIO()
+        with zipfile.ZipFile(outer, 'w') as archive:
+            for name, data in members.items():
+                if data is not None: archive.writestr(name, data)
+        data = outer.getvalue()
+        values = {'PYTHON_ASSET': dict(stock.PYTHON_ASSET, size=len(data), sha256=hashlib.sha256(data).hexdigest()),
+                  'PYTHON_MEMBERS': sum(value is not None for value in members.values()),
+                  'PYTHON_EXPANDED': sum(len(value) for value in members.values() if value is not None),
+                  'STDLIB_MEMBERS': sum(value is not None for value in library.values()),
+                  'STDLIB_EXPANDED': sum(len(value) for value in library.values() if value is not None)}
+        return data, values
+    def check_python_fixture(self, data, values):
+        with tempfile.TemporaryDirectory() as directory, ExitStack() as patches:
+            target=Path(directory)/'fixture.zip'; target.write_bytes(data)
+            for name,value in values.items(): patches.enter_context(patch.object(stock,name,value))
+            return stock.verify_python(target)
+    def test_existing_official_python_pin_and_archive_bounds(self):
+        self.assertEqual(stock.PYTHON_ASSET, {
+            'name':'python-3.14.8-embed-amd64.zip','size':12601679,
+            'url':'https://www.python.org/ftp/python/3.14.8/python-3.14.8-embed-amd64.zip',
+            'sha256':'a93abe456ab01bd96d7a085b3cdb6566b3063f4241360d114142fbdb07f0a310'})
+        self.assertEqual((stock.PYTHON_MEMBERS,stock.PYTHON_EXPANDED),(37,24405990))
+        self.assertEqual((stock.STDLIB_MEMBERS,stock.STDLIB_EXPANDED),(563,9772779))
+        path=ROOT/'ruleproxy/windows_proxy_pins.py'
+        # Sparse read-only audit workspaces may omit unrelated product sources.
+        # The real checkout always exercises this parity assertion.
+        if path.exists():
+            pins=stock.load('stock_test_existing_pin',path)
+            self.assertEqual(pins.ASSETS['python'],stock.PYTHON_ASSET)
+    def test_python_fixture_validates_without_running_binary(self):
+        data,values=self.python_fixture()
+        self.assertEqual(self.check_python_fixture(data,values),data)
+    def test_python_requires_size_hash_and_expansion_pins(self):
+        data,values=self.python_fixture()
+        for name,bad in (
+            ('PYTHON_ASSET',dict(values['PYTHON_ASSET'],size=len(data)+1)),
+            ('PYTHON_ASSET',dict(values['PYTHON_ASSET'],sha256='0'*64)),
+            ('PYTHON_MEMBERS',values['PYTHON_MEMBERS']+1),
+            ('PYTHON_EXPANDED',values['PYTHON_EXPANDED']+1),
+            ('STDLIB_MEMBERS',values['STDLIB_MEMBERS']+1),
+            ('STDLIB_EXPANDED',values['STDLIB_EXPANDED']+1)):
+            with self.subTest(pin=name,bad=bad),self.assertRaises(ValueError):
+                self.check_python_fixture(data,dict(values,**{name:bad}))
+    def test_python_rejects_missing_runtime_or_stdlib_and_nonisolated_pth(self):
+        for changes in ({'python.exe':None},{'python314.zip':None},{'python314._pth':b'python314.zip\n.\n..\nimport site\n'},
+                        {'python.exe':b'not a PE file'},{'python314.dll':b'MZ'+b'\0'*100}):
+            with self.subTest(changes=changes),self.assertRaises(ValueError):
+                self.check_python_fixture(*self.python_fixture(runtime_changes=changes))
+        with self.assertRaises(ValueError):
+            self.check_python_fixture(*self.python_fixture(stdlib_changes={'ctypes/__init__.pyc':None}))
+    def test_python_rejects_unsafe_runtime_and_nested_stdlib_paths(self):
+        for name in ('../escape','/absolute','C:drive','dir\\member','double//name',
+                     './relative','space /member','trailing.','NUL','COM1.txt','_CTYPES.pyd'):
+            for key in ('runtime_changes','stdlib_changes'):
+                # The case-insensitive duplicate belongs to the runtime archive.
+                if name=='_CTYPES.pyd' and key=='stdlib_changes': continue
+                with self.subTest(name=name,layer=key),self.assertRaises(ValueError):
+                    self.check_python_fixture(*self.python_fixture(**{key:{name:b'bad'}}))
+    def test_zip_rejects_links_duplicates_encryption_and_directory_aliases(self):
+        def item(name):
+            result=zipfile.ZipInfo(name); result.file_size=1
+            return result
+        for change in ('symlink','directory','duplicate','encrypted','nul','special','compression'):
+            entry=item('safe')
+            members=[entry]
+            if change=='symlink': entry.external_attr=(stat.S_IFLNK|0o777)<<16
+            if change=='special': entry.external_attr=(stat.S_IFIFO|0o600)<<16
+            if change=='directory': entry.external_attr=0x10
+            if change=='duplicate': members.append(item('SAFE'))
+            if change=='encrypted': entry.flag_bits=1
+            if change=='nul': entry.orig_filename='safe\0hidden'
+            if change=='compression': entry.compress_type=zipfile.ZIP_BZIP2
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                stock.checked_members(SimpleNamespace(infolist=lambda:members),count=len(members),expanded=len(members))
+    def test_download_uses_only_existing_official_pin_without_running_it(self):
+        import urllib.request
+        data,values=self.python_fixture()
+        pins=SimpleNamespace(ASSETS={'python':values['PYTHON_ASSET']},PYTHON_VERSION='3.14.8',
+                             PYTHON_PTH='python314._pth',PYTHON_STDLIB='python314.zip')
+        class Response(io.BytesIO):
+            headers={'Content-Length':str(len(data))}
+            def geturl(self): return values['PYTHON_ASSET']['url']
+        with tempfile.TemporaryDirectory() as directory,ExitStack() as patches:
+            for name,value in values.items(): patches.enter_context(patch.object(stock,name,value))
+            patches.enter_context(patch.object(stock,'load',return_value=pins))
+            opener=Mock(); opener.open.return_value=Response(data)
+            builder=patches.enter_context(patch.object(urllib.request,'build_opener',return_value=opener))
+            path=Path(directory)/'official.zip'
+            stock.download_python(path)
+            self.assertEqual(path.read_bytes(),data)
+            request=opener.open.call_args.args[0]
+            self.assertEqual(request.full_url,values['PYTHON_ASSET']['url'])
+            self.assertEqual(opener.open.call_args.kwargs,{'timeout':90})
+            redirect=builder.call_args.args[0]()
+            with self.assertRaises(ValueError): redirect.redirect_request(None,None,None,None,None,None)
+    def test_download_blocks_changed_product_pin_and_response_identity(self):
+        import urllib.request
+        pins=SimpleNamespace(ASSETS={'python':dict(stock.PYTHON_ASSET)},PYTHON_VERSION='3.14.8',
+                             PYTHON_PTH='python314._pth',PYTHON_STDLIB='python314.zip')
+        with tempfile.TemporaryDirectory() as directory,patch.object(stock,'load',return_value=pins),\
+             patch.object(urllib.request,'build_opener') as builder:
+            target=Path(directory)/'rejected.zip'
+            pins.ASSETS['python']['sha256']='0'*64
+            with self.assertRaises(ValueError): stock.download_python(target)
+            builder.assert_not_called(); self.assertFalse(target.exists())
+            pins.ASSETS['python']=dict(stock.PYTHON_ASSET)
+            for url,length in (('https://example.invalid/different',str(stock.PYTHON_ASSET['size'])),
+                               (stock.PYTHON_ASSET['url'],'-1')):
+                response=Mock(); response.geturl.return_value=url
+                response.headers={'Content-Length':length}
+                response.__enter__=Mock(return_value=response); response.__exit__=Mock(return_value=False)
+                builder.return_value.open.return_value=response
+                with self.subTest(url=url,length=length),self.assertRaises(ValueError):
+                    stock.download_python(target)
+                response.read.assert_not_called(); self.assertFalse(target.exists())
+    def test_payload_contains_only_python_fixed_g_actor_and_guest_sources(self):
+        from unittest.mock import patch as patcher
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            actor=root/'actor'; actor.write_bytes(b'fixture actor')
+            bundle=root/'g.zip'
+            with zipfile.ZipFile(bundle,'w') as archive:
+                archive.writestr('build-manifest.json',b'fixture validated manifest')
+            def extract(data,target):
+                # Match the real helper: it validates but does not write manifest.
+                for name in ('wxc-exec.exe','MXC-LICENSE.md'):
+                    (target/name).write_bytes(b'fixture-only-not-executable')
+            runtime=SimpleNamespace(_g_bundle_bytes=lambda *a,**k:bundle.read_bytes(),_extract_g_bundle=extract)
+            output=root/'payload.zip'
+            with patcher.dict(sys.modules,{'install_runtime':runtime}),\
+                 patch.object(stock,'verify_python',return_value=b'fixture pinned Python'),\
+                 patch.object(stock.sys,'path',list(sys.path)):
+                digest=stock.payload(root/'python.zip',actor,hashlib.sha256(actor.read_bytes()).hexdigest(),bundle,output)
+            self.assertEqual(digest,hashlib.sha256(output.read_bytes()).hexdigest())
+            with zipfile.ZipFile(output) as archive:
+                self.assertEqual(set(archive.namelist()),set(stock.GUEST_SOURCES)|{
+                    'python-embed.zip','actor.exe','stage0-input.json','g/wxc-exec.exe','g/build-manifest.json','g/MXC-LICENSE.md'})
+                self.assertEqual(len(archive.namelist()),10)
+                self.assertEqual(archive.read('python-embed.zip'),b'fixture pinned Python')
+                self.assertEqual(archive.read('g/build-manifest.json'),b'fixture validated manifest')
+    def test_transitive_guest_dependencies_are_stdlib_and_fixed_runtime_pins(self):
+        modules={'.github/windows_identity_proof.py','.github/windows_psec_compartment_smoke.py',
+                 'ruleproxy/windows_runtime_pins.py'}
+        trees={filename:ast.parse((ROOT/filename).read_text()) for filename in modules}
+        def reachable(tree, seeds):
+            functions={node.name:node for node in tree.body if isinstance(node,ast.FunctionDef)}
+            names=set(seeds)
+            pending=list(seeds)
+            while pending:
+                for node in ast.walk(functions[pending.pop()]):
+                    if isinstance(node,ast.Call) and isinstance(node.func,ast.Name):
+                        name=node.func.id
+                        if name in functions and name not in names:
+                            names.add(name); pending.append(name)
+            return names,[functions[name] for name in names]
+        proof_names,proof_nodes=reachable(trees['.github/windows_identity_proof.py'],{'controller'})
+        self.assertEqual(proof_names,{'controller','policy','run_case','stage0_checks','actual_tiers'})
+        smoke_seeds={'read'}  # Also called directly by the stock guest wrapper.
+        for root in proof_nodes:
+            for node in ast.walk(root):
+                if (isinstance(node,ast.Attribute) and isinstance(node.value,ast.Name)
+                        and node.value.id=='smoke'):
+                    smoke_seeds.add(node.attr)
+        smoke_names,smoke_nodes=reachable(trees['.github/windows_psec_compartment_smoke.py'],smoke_seeds)
+        self.assertEqual(smoke_names,{'read','save','failure','verify_executor','identity_snapshot',
+            'base_container_selected','executor_diagnostic','executor_message_summary','executor_error_envelopes'})
+        self.assertNotIn('controller',smoke_names)
+        # Its unrelated controller/run_case have lazy product/network imports.
+        # They are absent from this audited Stage0 call closure, not dependencies.
+        active=[*proof_nodes,*smoke_nodes,trees['ruleproxy/windows_runtime_pins.py']]
+        for tree in trees.values():
+            active.extend(node for node in tree.body if isinstance(node,(ast.Import,ast.ImportFrom)))
+        nonstdlib=[]
+        for root in active:
+            for node in ast.walk(root):
+                if isinstance(node,ast.Import):
+                    nonstdlib.extend(name.name for name in node.names if name.name.split('.')[0] not in sys.stdlib_module_names)
+                elif isinstance(node,ast.ImportFrom):
+                    self.assertEqual(node.level,0)
+                    if node.module.split('.')[0] not in sys.stdlib_module_names:
+                        nonstdlib.append(node.module+'.'+','.join(name.name for name in node.names))
+        self.assertEqual(nonstdlib,['ruleproxy.windows_runtime_pins'])
+        self.assertEqual(set(stock.GUEST_SOURCES),modules|{'.github/windows_identity_stock_stage0.py'})
+        proof=(ROOT/'.github/windows_identity_proof.py').read_text()
+        self.assertIn('ROOT / ".github/windows_psec_compartment_smoke.py"',proof)
+        for filename in modules:
+            text=(ROOT/filename).read_text()
+            self.assertNotIn('__import__(',text); self.assertNotIn('import_module(',text)
+    def test_guest_source_tree_imports_in_isolated_no_site_no_bytecode_mode(self):
+        import shutil,subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for filename in stock.GUEST_SOURCES:
+                target=root/filename; target.parent.mkdir(parents=True,exist_ok=True)
+                shutil.copyfile(ROOT/filename,target)
+            code="""import importlib.util,pathlib,sys
+root=pathlib.Path(sys.argv[1])
+assert sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode and 'site' not in sys.modules
+spec=importlib.util.spec_from_file_location('isolated_stage0',root/'.github/windows_identity_stock_stage0.py')
+stock=importlib.util.module_from_spec(spec); spec.loader.exec_module(stock)
+proof=stock.load('isolated_proof',root/'.github/windows_identity_proof.py')
+assert callable(proof.controller) and callable(proof.smoke.identity_snapshot)
+sys.path.insert(0,str(root))
+from ruleproxy import windows_runtime_pins
+assert windows_runtime_pins.MXC_G_EXECUTOR_SHA256 == 'cd32e225fb858161b66bc23e9d2415843de348edf2cfdfb05cee0e7535dca1a7'
+assert 'install_runtime' not in sys.modules and 'ruleproxy.windows_proxy_pins' not in sys.modules
+assert not any(root.rglob('__pycache__'))
+"""
+            subprocess.run([sys.executable,'-I','-S','-B','-c',code,str(root)],check=True,timeout=10,
+                           stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    def test_guest_import_path_rejects_nonisolated_or_product_layout(self):
+        runtime=stock.ROOT/'python'
+        flags=SimpleNamespace(isolated=1,no_site=1)
+        # Pure property check: no Windows API or security operation is called.
+        with patch.object(stock.os,'name','nt'),patch.object(stock.sys,'flags',flags),\
+             patch.object(stock.sys,'dont_write_bytecode',True),patch.object(stock.sys,'modules',{}),\
+             patch.object(stock.sys,'executable',str(runtime/'python.exe')),\
+             patch.object(stock.sys,'path',[str(runtime/'python314.zip'),str(runtime)]),\
+             patch.object(stock,'Path',type(runtime)):
+            stock.verify_guest_import_path()
+            with patch.object(stock.sys,'path',[str(runtime/'python314.zip'),str(runtime),str(stock.ROOT)]):
+                with self.assertRaises(ValueError): stock.verify_guest_import_path()
+            flags.no_site=0
+            with self.assertRaises(ValueError): stock.verify_guest_import_path()
+    def test_dedicated_workflow_does_not_build_full_product_or_install_pip(self):
+        text=(ROOT/'.github/workflows/windows-identity-stock-stage0.yml').read_text()
+        for forbidden in ('build_windows_package.py','pip install','requirements.txt','client-stage0-package','--package '):
+            self.assertNotIn(forbidden,text)
+        self.assertIn('--download-python',text); self.assertIn('--python-archive',text)
+        self.assertNotIn('windows_proxifyre_vm.py',(ROOT/'.github/windows_identity_stock_stage0.py').read_text())
+    def test_guest_checks_archive_before_extracting_or_executing(self):
+        text=(ROOT/'.github/windows-identity-stock-stage0-run.ps1').read_text()
+        self.assertNotIn('Expand-Archive',text); self.assertNotIn('runtime\\RuleProxy-Web',text)
+        self.assertIn(stock.PYTHON_ASSET['sha256'],text)
+        self.assertIn('-MemberCount 37 -ExactBytes 24405990 -MaximumBytes 24405990',text)
+        self.assertIn('-MemberCount 10 -ExactBytes 0 -MaximumBytes 134217728',text)
+        self.assertIn("Join-Path $workspace 'python\\python.exe'",text)
+        self.assertIn("$info.Arguments='-I -S -B ",text)
+        self.assertLess(text.index("throw 'Payload digest mismatch'"),text.index('Expand-CheckedStage0Zip -ArchivePath $payload'))
+        self.assertLess(text.index("throw 'Pinned Python mismatch'"),text.index('Expand-CheckedStage0Zip -ArchivePath $runtime'))
+        self.assertLess(text.index('Expand-CheckedStage0Zip -ArchivePath $runtime'),text.index('$child.Start()'))
     def test_execution_disabled(self):
         with patch.object(stock, 'EXECUTION_ENABLED', False):
             with self.assertRaises(PermissionError): stock.host(SimpleNamespace())

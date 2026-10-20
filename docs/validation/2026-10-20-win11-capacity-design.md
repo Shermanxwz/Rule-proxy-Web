@@ -161,3 +161,51 @@ not replace the condition with unconditional true. Main is never needed for
 branch push activation. Runtime and recovery source enablement remain separate
 explicit review decisions. Pure tests patch disabled state rather than demanding
 that future approved production source stay disabled forever.
+
+## Revised candidate after measured mode inventory (not yet dispatched)
+
+The earlier disabled-draft and eight-minute preparation descriptions above are
+historical. Source activation occurred for three bounded attempts, all stopped
+before provider removal or VM launch. The next candidate still requires its own
+reviewed execution decision.
+
+The exact two-image map and observed target/role/type modes now govern recovery.
+Only the exact /usr/share ancestor for .NET and Swift admits0777; other ancestors
+remain0755. Android regular0644 entries are retained in the allowed set alongside
+observed0777 entries. No chmod or permission change is performed. All ownership,
+mount, hardlink, no-follow, identity and snapshot checks remain. Writable trees
+require the explicitly assumed fresh hosted job without concurrent untrusted
+writers; provenance and mode matching do not establish adversarial content trust.
+
+The proposed recovery goal is34,896,609,280 bytes (32.5GiB). The latest measured
+free-plus-allocation upper bound is35,040,411,648 bytes, not a reclaim guarantee.
+Preparation has a512MiB net-decline allowance with nine ordered same-filesystem
+samples and an unchanged32GiB floor. The explicit planning ledger totals
+522,502,602 bytes (498.30MiB), including APT indexes, archives, installed growth,
+transient assumption, checkout, G/Python/actor payloads and logs. This ledger is
+not a hard quota or measured peak. Current APT simulation must fit23 packages,
+25,315,786 download bytes and115,948,544 positive installed-growth bytes;
+installed-plan verification is not claimed.
+
+Full-product packaging and pip are removed from this dedicated experiment.
+The payload uses the pinned official Python3.14.8 embedded archive (12,601,679
+bytes, SHA256 a93abe456ab01bd96d7a085b3cdb6566b3063f4241360d114142fbdb07f0a310),
+pinned G, native actor and required standard-library controller sources only.
+The archive, embedded search path and isolated/no-site/no-bytecode guest mode
+are verified. Host preparation uses the preinstalled Python3.12.
+
+Recovery now has a proposed2,700-second internal deadline and a46-minute maximum
+step timeout, still bounded by the original absolute6,900-second native-job
+budget minus its reserve. Other preparation steps remain at most eight minutes.
+Set bookkeeping removes an avoidable quadratic component without dropping any
+per-binding checks. A synthetic2,000-file depth-six full cycle took6.622 seconds;
+this is not a hosted full-tree throughput guarantee. VM launch requires at least
+1,800 seconds of remaining work time after media preparation, excluding the
+already reserved120-second cleanup period. Less time is an explicit time-budget
+abort, not a reason to extend the job.
+
+The32GiB post-preparation,24GiB launch,18GiB QEMU per-file limit and4GiB reserve
+stop remain unchanged. The retained installer ISO, bounded sidecars and watchdog
+do not turn a per-file limit into an aggregate filesystem quota or guarantee
+against provider background writes. Any resource/cleanup uncertainty revokes a
+Stage0 pass. No new Windows isolation result is claimed by these code changes.
