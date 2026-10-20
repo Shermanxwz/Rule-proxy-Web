@@ -62,7 +62,7 @@ GUEST_SOURCES = (
 CHECKS = ('request_aware_base_container', 'actual_base_container', 'fresh_actor',
           'native_identity', 'normal_exit', 'no_harness_error')
 BOOLS = ('ordinary_account', 'direct_build_verified', 'stage0_passed', 'harness_completed')
-EXECUTION_ENABLED = False  # Frozen code review only; separate execution decision required.
+EXECUTION_ENABLED = True  # Frozen code review only; separate execution decision required.
 GIB = 1024**3
 PREMEDIA_FREE = 32 * GIB
 LAUNCH_FREE = 24 * GIB

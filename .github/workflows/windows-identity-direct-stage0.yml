@@ -86,7 +86,7 @@ jobs:
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
   native:
-    if: ${{ false && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') }}
     needs: [compile, host-unit]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
