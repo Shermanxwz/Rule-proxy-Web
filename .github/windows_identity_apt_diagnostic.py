@@ -25,7 +25,10 @@ MAX_ROWS = 256  # Observation limit only. Acceptance remains at 23 packages.
 MAX_RECORDS = 16
 MAX_STREAM = 512 * 1024
 MAX_CAPTURE = 8 * 1024**2
-MAX_REPORT = 2 * 1024**2
+MAX_REPORT = 4 * 1024**2
+MAX_RELATIONSHIPS = 1024
+MAX_ROW_RELATIONSHIPS = 128
+DEPENDENCY_FIELDS = ('Depends', 'Pre-Depends', 'Provides')
 MAX_NUMBER = 2**63 - 1
 ABSOLUTE_SECONDS = 480
 PHASES = ('before_refresh', 'after_refresh')
@@ -63,8 +66,8 @@ def number(value):
 def command_fact(result=None, reason=None):
     return {'status': reason or ('completed' if result is not None else 'not_started'),
             'return_code': result.returncode if result is not None and -2**31 <= result.returncode < 2**31 else None,
-            'stdout_bytes': len(result.stdout.encode('utf-8')) if result is not None else None,
-            'stderr_bytes': len(result.stderr.encode('utf-8')) if result is not None else None}
+            'stdout_bytes': getattr(result, 'stdout_bytes', len(result.stdout.encode('utf-8'))) if result is not None else None,
+            'stderr_bytes': getattr(result, 'stderr_bytes', len(result.stderr.encode('utf-8'))) if result is not None else None}
 
 
 def bounded_command(argv, *, deadline, timeout=30, capture_remaining=MAX_CAPTURE):
@@ -97,8 +100,11 @@ def bounded_command(argv, *, deadline, timeout=30, capture_remaining=MAX_CAPTURE
                         raise Stopped('capture_bound')
                     slot.extend(data)
         try:
-            return SimpleNamespace(returncode=process.returncode,
-                                   stdout=buffers[0].decode('utf-8'), stderr=buffers[1].decode('utf-8'))
+            # Match subprocess.run(text=True)'s universal-newline behavior,
+            # while retaining actual byte counts for capture accounting.
+            text = [data.decode('utf-8').replace('\r\n', '\n').replace('\r', '\n') for data in buffers]
+            return SimpleNamespace(returncode=process.returncode, stdout=text[0], stderr=text[1],
+                                   stdout_bytes=len(buffers[0]), stderr_bytes=len(buffers[1]))
         except UnicodeError:
             raise Stopped('command_encoding') from None
     except OSError:
@@ -161,7 +167,7 @@ class Recorder:
         try:
             result = self.executor(['/usr/bin/' + argv[0], *argv[1:]], deadline=self.deadline,
                                    capture_remaining=MAX_CAPTURE - self.captured)
-            self.captured += len(result.stdout.encode('utf-8')) + len(result.stderr.encode('utf-8'))
+            self.captured += command_fact(result)['stdout_bytes'] + command_fact(result)['stderr_bytes']
             self.cache[key] = result
             self.facts[key] = command_fact(result)
             return result
@@ -242,6 +248,81 @@ def metadata_facts(text, name, version):
     return result
 
 
+def dependency_facts(text, budget):
+    """Project only ordinary public Debian package relationships, never raw fields.
+
+    This describes declared metadata, not solver causality or a proof that an
+    alternative/virtual dependency was selected. Constraints remain explicit
+    for review; they are not silently treated as verified.
+    """
+    result = {'status': 'complete', 'all_records_parsed': True, 'records_agree': False,
+              'distinct_record_count': 0, 'records': [], 'relationships_exported': 0,
+              'virtual_providers_resolved': False}
+    signatures = []
+    paragraphs = re.split(r'\n\s*\n', text.strip())
+    if len(paragraphs) > MAX_RECORDS:
+        result.update(status='record_bound', all_records_parsed=False)
+    for paragraph in paragraphs[:MAX_RECORDS]:
+        fields = {}
+        current = None
+        for line in paragraph.splitlines():
+            if line and line[0].isspace():
+                if current in DEPENDENCY_FIELDS:
+                    fields[current] += ' ' + line.strip()
+                continue
+            current = None
+            header = re.match(r'^(Depends|Pre-Depends|Provides)(?:$|[:\s])', line)
+            if header is None:
+                continue
+            key = header[1]
+            if not line.startswith(key + ':') or not line[len(key) + 1:].strip():
+                result.update(status='unsupported_relationship_syntax', all_records_parsed=False)
+                continue
+            value = line[len(key) + 1:].strip()
+            if key in fields:
+                result.update(status='duplicate_dependency_field', all_records_parsed=False)
+            fields[key] = value
+            current = key
+        signature = tuple(fields.get(key, '') for key in DEPENDENCY_FIELDS)
+        if signature not in signatures:
+            signatures.append(signature)
+    result['distinct_record_count'] = len(signatures)
+    result['records_agree'] = len(signatures) == 1 and len(paragraphs) <= MAX_RECORDS
+    row_remaining = MAX_ROW_RELATIONSHIPS
+    for signature in signatures:
+        record = {key: [] for key in DEPENDENCY_FIELDS}
+        result['records'].append(record)
+        for kind, value in zip(DEPENDENCY_FIELDS, signature):
+            if not value:
+                continue
+            for group in value.split(','):
+                alternatives = group.split('|')
+                if len(alternatives) > 8:
+                    result.update(status='relationship_bound', all_records_parsed=False)
+                    return result
+                projected = []
+                for alternative in alternatives:
+                    match = re.fullmatch(r'\s*([a-z0-9][a-z0-9+.-]*)(?::([a-z0-9-]+))?'
+                        r'(?:\s+\((<<|<=|=|>=|>>)\s+([A-Za-z0-9.+:~_-]+)\))?\s*', alternative)
+                    if (match is None or len(match[1]) > 256
+                            or (match[2] is not None and len(match[2]) > 32)
+                            or (match[4] is not None and not safe_version(match[4]))
+                            or (kind == 'Provides' and (len(alternatives) != 1 or match[3] not in (None, '=')))):
+                        result.update(status='unsupported_relationship_syntax', all_records_parsed=False)
+                        continue
+                    if row_remaining <= 0 or budget[0] <= 0:
+                        result.update(status='relationship_bound', all_records_parsed=False)
+                        return result
+                    projected.append({'package': match[1], 'architecture_qualifier': match[2],
+                                      'operator': match[3], 'version': match[4]})
+                    row_remaining -= 1
+                    budget[0] -= 1
+                    result['relationships_exported'] += 1
+                record[kind].append({'alternative_count': len(alternatives), 'alternatives': projected,
+                                     'complete': len(projected) == len(alternatives)})
+    return result
+
+
 def installed_facts(completed, old):
     fields = completed.stdout.splitlines()
     installed = completed.returncode == 0 and len(fields) == 3 and fields[0] == 'installed'
@@ -269,8 +350,12 @@ def blank_phase(phase):
             'ceiling_verdicts': {'package_count': None, 'download_bytes': None, 'positive_installed_growth_bytes': None},
             'ceilings': {'package_count': 23, 'download_bytes': 25315786, 'positive_installed_growth_bytes': 115948544},
             'observation_limits': {'rows': MAX_ROWS, 'records_per_row': MAX_RECORDS, 'bytes_per_stream': MAX_STREAM,
-                                   'captured_bytes_per_phase': MAX_CAPTURE, 'absolute_seconds': ABSOLUTE_SECONDS},
+                                   'captured_bytes_per_phase': MAX_CAPTURE, 'absolute_seconds': ABSOLUTE_SECONDS,
+                                   'public_relationships_per_phase': MAX_RELATIONSHIPS,
+                                   'public_relationships_per_row': MAX_ROW_RELATIONSHIPS, 'report_bytes': MAX_REPORT},
             'refresh': {'attempted': False, 'completed': False, 'all_sources_refreshed_verified': False, 'command': command_fact()},
+            'public_package_names_versions_exported': True, 'dependency_solver_causality_proven': False,
+            'dependency_version_constraints_evaluated': False,
             'raw_output_exported': False, 'packages_installed': False, 'recovery_attempted': False,
             'vm_created': False, 'acceptance_policy_changed': False, 'atomic_package_snapshot': False}
 
@@ -280,6 +365,7 @@ def probe(stock, phase, *, deadline, executor=bounded_command):
     result.update(exact_image_verified=True, stock_source_verified=True, status='observed')
     recorder = Recorder(deadline, executor)
     failed_name = None
+    relationship_budget = [MAX_RELATIONSHIPS]
     try:
         stock.reviewed_apt_plan(runner=recorder)
         result['frozen_gate_accepted'] = True
@@ -311,18 +397,24 @@ def probe(stock, phase, *, deadline, executor=bounded_command):
                 raise Stopped('time_bound')
             row = {'index': index, 'safe_simulation_row': entry is not None, 'metadata': None, 'installed': None,
                    'metadata_command': command_fact(), 'installed_command': command_fact(), 'complete_sizes': False,
-                   'stop_reasons': []}
+                   'package': None, 'dependencies': None, 'stop_reasons': []}
             result['rows'].append(row)
             if entry is None:
                 complete = False
                 continue
             name, old, version = entry
+            row['package'] = {'name': name, 'selected_version': version, 'simulated_old_version': old,
+                              'directly_requested': name.split(':', 1)[0] in stock.VM_PACKAGES}
             metadata_key = ('apt-cache', 'show', name + '=' + version)
             installed_key = ('dpkg-query', '-W', DPKG_FORMAT, name)
             for key, kind in ((metadata_key, 'metadata'), (installed_key, 'installed')):
                 try:
                     value = recorder(key)
                     row[kind] = metadata_facts(value.stdout, name, version) if kind == 'metadata' else installed_facts(value, old)
+                    if kind == 'metadata':
+                        row['dependencies'] = dependency_facts(value.stdout, relationship_budget)
+                        if not row['dependencies']['all_records_parsed']:
+                            result.update(status='partial', stop_reason='dependency_observation_incomplete')
                 except Stopped as exc:
                     row['stop_reasons'].append(exc.reason)
                     result.update(status='partial', stop_reason=result['stop_reason'] or exc.reason)
@@ -382,7 +474,8 @@ def load_frozen_stock():
 
 def save(output, value):
     # Every report is constructed from fixed keys/enums, bounded numbers and
-    # booleans above. No raw argv, output, exceptions, versions or paths copied.
+    # booleans plus explicitly validated public package names/versions above.
+    # No raw argv, output, exceptions, account identities or paths are copied.
     if value.get('phase') not in PHASES:
         raise ValueError('closed_phase_required')
     data = json.dumps(value, sort_keys=True, ensure_ascii=True) + '\n'

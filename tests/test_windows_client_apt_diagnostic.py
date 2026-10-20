@@ -87,7 +87,7 @@ class AptDiagnosticTests(unittest.TestCase):
         self.assertEqual(len(result['rows']), 256)
         data = json.dumps(result, sort_keys=True, ensure_ascii=True)
         self.assertLess(len(data), diag.MAX_REPORT)
-        self.assertNotIn('fixture', data)
+        self.assertEqual(result['rows'][0]['package']['name'], 'fixture0')
         self.assertNotIn('Ubuntu:stable', data)
 
     def test_original_23_count_rejects_but_24_rows_are_fully_observed(self):
@@ -149,7 +149,7 @@ class AptDiagnosticTests(unittest.TestCase):
                 self.assertFalse(result['totals_complete'])
                 self.assertEqual(set(row['metadata']['records'][0]['required_field_counts']), set(diag.FIELDS))
                 public = json.dumps(result)
-                for private in ('/private/raw', 'secret', 'unexpected', 'arm64', 'fixture0', 'Private-Field'):
+                for private in ('/private/raw', 'secret', 'unexpected', 'arm64', 'Private-Field'):
                     self.assertNotIn(private, public)
 
     def test_multiple_records_include_missing_size_and_disagreement(self):
@@ -237,6 +237,90 @@ class AptDiagnosticTests(unittest.TestCase):
         self.assertFalse(result['ceiling_verdicts']['download_bytes'])
         self.assertIsNone(result['ceiling_verdicts']['positive_installed_growth_bytes'])
 
+    def test_public_upgrade_identity_and_direct_request_are_explicit(self):
+        fixture = Fixture(old='1.0', summary='1 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n'
+                          'Inst curl [1.0] (2.0 Ubuntu [amd64])\n',
+                          metadata=lambda x: x + 'Depends: libexample (= 2.0)\n')
+        result = run_probe(fixture)
+        package = result['rows'][0]['package']
+        self.assertEqual(package, {'name': 'curl', 'selected_version': '2.0', 'simulated_old_version': '1.0',
+                                   'directly_requested': True})
+        self.assertTrue(result['rows'][0]['installed']['version_matches_simulated_old'])
+        self.assertTrue(result['public_package_names_versions_exported'])
+        self.assertFalse(result['dependency_solver_causality_proven'])
+        self.assertFalse(result['dependency_version_constraints_evaluated'])
+        dependency = result['rows'][0]['dependencies']['records'][0]['Depends'][0]['alternatives'][0]
+        self.assertEqual(dependency, {'package': 'libexample', 'architecture_qualifier': None,
+                                     'operator': '=', 'version': '2.0'})
+
+    def test_dependencies_preserve_public_alternatives_constraints_folding_and_provides(self):
+        text = ('Package: fixture\nDepends: libc6 (>= 2.38), a:any | b:native (<< 9:2.0~beta-1),\n'
+                ' c:amd64\nPre-Depends: helper (<= 7), tool (>> 1)\nProvides: virtual (= 2.0)\n'
+                'Description: /private/never/publish\n secret account identity\n')
+        value = diag.dependency_facts(text, [1024])
+        self.assertTrue(value['all_records_parsed'])
+        self.assertTrue(value['records_agree'])
+        self.assertEqual(value['relationships_exported'], 7)
+        record = value['records'][0]
+        self.assertEqual(record['Depends'][1]['alternative_count'], 2)
+        self.assertEqual(record['Depends'][1]['alternatives'][1]['version'], '9:2.0~beta-1')
+        self.assertEqual(record['Depends'][2]['alternatives'][0]['architecture_qualifier'], 'amd64')
+        self.assertEqual(record['Provides'][0]['alternatives'][0]['package'], 'virtual')
+        self.assertFalse(value['virtual_providers_resolved'])
+        self.assertNotIn('/private', json.dumps(value))
+        self.assertNotIn('secret', json.dumps(value))
+
+    def test_public_relationship_projection_rejects_unvalidated_syntax_without_raw_pass_through(self):
+        for field, value in (('Depends', '/private/path'), ('Depends', 'evil;touch /private'),
+                             ('Depends', 'x (>= /private/version)'), ('Provides', 'x | y'),
+                             ('Provides', 'x (>= 1)')):
+            result = diag.dependency_facts(field + ': ' + value, [1024])
+            self.assertFalse(result['all_records_parsed'])
+            self.assertEqual(result['status'], 'unsupported_relationship_syntax')
+            self.assertNotIn('/private', json.dumps(result))
+            self.assertNotIn('touch', json.dumps(result))
+
+    def test_malformed_or_empty_recognized_dependency_headers_are_not_silently_omitted(self):
+        for text in ('Pre-Depends:', 'Provides: ', 'Depends:   ', 'Depends',
+                     'Depends : foo', 'Depends /private/raw'):
+            with self.subTest(text=text):
+                result = diag.dependency_facts(text, [1024])
+                self.assertEqual(result['status'], 'unsupported_relationship_syntax')
+                self.assertFalse(result['all_records_parsed'])
+                self.assertEqual(result['relationships_exported'], 0)
+                self.assertNotIn('/private', json.dumps(result))
+                self.assertNotIn('foo', json.dumps(result))
+        for text in ('Depends:foo', 'Depends: foo', 'Depends:\tfoo'):
+            result = diag.dependency_facts(text, [1024])
+            self.assertTrue(result['all_records_parsed'])
+            self.assertEqual(result['records'][0]['Depends'][0]['alternatives'][0]['package'], 'foo')
+        result = diag.dependency_facts('Description: ordinary public description', [1024])
+        self.assertTrue(result['all_records_parsed'])
+        self.assertEqual(result['relationships_exported'], 0)
+
+    def test_distinct_metadata_relationship_records_are_not_silently_merged(self):
+        value = diag.dependency_facts('Depends: a\n\nDepends: b', [1024])
+        self.assertFalse(value['records_agree'])
+        self.assertEqual(value['distinct_record_count'], 2)
+        self.assertEqual(value['records'][1]['Depends'][0]['alternatives'][0]['package'], 'b')
+        repeated = diag.dependency_facts('Depends: a\n\nDepends: a', [1024])
+        self.assertTrue(repeated['records_agree'])
+        self.assertEqual(repeated['relationships_exported'], 1)
+        duplicate = diag.dependency_facts('Depends: a\nDepends: b', [1024])
+        self.assertEqual(duplicate['status'], 'duplicate_dependency_field')
+        self.assertFalse(duplicate['all_records_parsed'])
+
+    def test_relationship_row_phase_record_and_alternative_bounds_are_closed(self):
+        for text, budget in (('Depends: ' + ', '.join('a'+str(i) for i in range(129)), [1024]),
+                            ('Depends: a, b', [1]), ('Depends: ' + ' | '.join(['a'] * 9), [1024])):
+            result = diag.dependency_facts(text, budget)
+            self.assertEqual(result['status'], 'relationship_bound')
+            self.assertFalse(result['all_records_parsed'])
+            self.assertLessEqual(result['relationships_exported'], 128)
+        result = diag.dependency_facts('\n\n'.join(['Depends: a'] * 17), [1024])
+        self.assertFalse(result['records_agree'])
+        self.assertFalse(result['all_records_parsed'])
+
     def test_allowlist_cannot_request_update_install_or_arbitrary_package_switch(self):
         fixture = Fixture()
         recorder = diag.Recorder(time.monotonic() + 60, fixture)
@@ -318,6 +402,13 @@ class AptDiagnosticTests(unittest.TestCase):
                 self.assertEqual(raised.exception.reason, expected)
                 self.assertTrue(all(process.poll() is not None for process in processes))
 
+    @unittest.skipUnless(sys.platform == 'linux', 'POSIX diagnostic transport only')
+    def test_transport_mirrors_text_mode_newlines_but_counts_original_bytes(self):
+        result = diag.bounded_command([sys.executable, '-I', '-S', '-c',
+            'import os; os.write(1, b"a\\r\\nb\\rc\\n")'], deadline=time.monotonic() + 10)
+        self.assertEqual(result.stdout, 'a\nb\nc\n')
+        self.assertEqual(diag.command_fact(result)['stdout_bytes'], 7)
+
     def test_expired_absolute_budget_spawns_no_process(self):
         with patch.object(diag.subprocess, 'Popen') as spawn:
             with self.assertRaises(diag.Stopped) as raised:
@@ -327,7 +418,7 @@ class AptDiagnosticTests(unittest.TestCase):
 
     def test_workflow_is_separate_bounded_no_cleanup_install_or_vm(self):
         workflow = (ROOT / '.github/workflows/windows-identity-apt-diagnostic.yml').read_text()
-        self.assertIn('[identity-win11-apt-diagnostic-01]', workflow)
+        self.assertIn('[identity-win11-apt-diagnostic-02]', workflow)
         self.assertIn('timeout-minutes: 10', workflow)
         self.assertIn('int(time.time()) + 480', workflow)
         self.assertIn('fetch-depth: 1', workflow)

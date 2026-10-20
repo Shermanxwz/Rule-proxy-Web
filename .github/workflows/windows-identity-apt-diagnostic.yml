@@ -10,7 +10,7 @@ permissions:
   contents: read
 jobs:
   diagnostic:
-    if: github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-win11-apt-diagnostic-01]')
+    if: github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-win11-apt-diagnostic-02]')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -19,7 +19,7 @@ jobs:
         run: |
           /usr/bin/python3 -I -B - <<'PY'
           import json, os, pathlib, time
-          output = pathlib.Path(os.environ['RUNNER_TEMP']) / 'identity-apt-diagnostic-01'
+          output = pathlib.Path(os.environ['RUNNER_TEMP']) / 'identity-apt-diagnostic-02'
           output.mkdir()
           for phase in ('before_refresh', 'after_refresh'):
               (output / (phase + '.json')).write_text(json.dumps({
@@ -42,15 +42,15 @@ jobs:
         timeout-minutes: 8
         run: |
           /usr/bin/python3 -I -B .github/windows_identity_apt_diagnostic.py \
-            --output-dir "$RUNNER_TEMP/identity-apt-diagnostic-01" \
+            --output-dir "$RUNNER_TEMP/identity-apt-diagnostic-02" \
             --deadline-epoch "$APT_DIAGNOSTIC_DEADLINE"
       - uses: actions/upload-artifact@v7
         if: always()
         timeout-minutes: 1
         with:
-          name: identity-apt-diagnostic-01-public
+          name: identity-apt-diagnostic-02-public
           path: |
-            ${{ runner.temp }}/identity-apt-diagnostic-01/before_refresh.json
-            ${{ runner.temp }}/identity-apt-diagnostic-01/after_refresh.json
+            ${{ runner.temp }}/identity-apt-diagnostic-02/before_refresh.json
+            ${{ runner.temp }}/identity-apt-diagnostic-02/after_refresh.json
           retention-days: 7
           if-no-files-found: error
