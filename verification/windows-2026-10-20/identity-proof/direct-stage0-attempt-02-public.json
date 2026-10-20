@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "stage": "win11-direct26300.9457-exploratory-ordinary-deny-only-stage0",
+  "status": "observed_failure",
+  "stage0_passed": false,
+  "product_acceptance": false,
+  "exploratory_stage0": true,
+  "documented_support_floor": "26300.9550",
+  "privacy_qualified": false,
+  "network_tested": false,
+  "vm_destroyed": true,
+  "iso_sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+  "actor_sha256": "b2e14ab6a1484378e8532bac2ed91e9cf96594e730bd55416a920a0ffdcac6e2",
+  "premedia_free_bytes": 90997956608,
+  "phase_samples": [
+    {
+      "phase": "iso_verified",
+      "filesystem_free_bytes": 82772635648,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 6451,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    },
+    {
+      "phase": "media_ready",
+      "filesystem_free_bytes": 82756792320,
+      "qcow_size_bytes": 197888,
+      "qcow_allocated_bytes": 200704,
+      "remaining_work_seconds": 6450,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "qemu_started",
+      "filesystem_free_bytes": 82756780032,
+      "qcow_size_bytes": 197888,
+      "qcow_allocated_bytes": 200704,
+      "remaining_work_seconds": 6450,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "guest_beacon",
+      "filesystem_free_bytes": 67675844608,
+      "qcow_size_bytes": 15331950592,
+      "qcow_allocated_bytes": 15080980480,
+      "remaining_work_seconds": 5604,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "result_received",
+      "filesystem_free_bytes": 67390427136,
+      "qcow_size_bytes": 15388180480,
+      "qcow_allocated_bytes": 15366397952,
+      "remaining_work_seconds": 5593,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "cleanup_done",
+      "filesystem_free_bytes": 90997817344,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 5587,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    }
+  ],
+  "launch_free_bytes": 82756788224,
+  "disk_file_ceiling_bytes": 23622320128,
+  "reserve_guard_hard_guarantee": false,
+  "vm_work_seconds_available": 6450,
+  "qmp_diagnostic": {
+    "command": "ringbuf-read",
+    "error_class": "none",
+    "completed": true
+  },
+  "guest_result_provenance_verified": true,
+  "diagnostics": {
+    "policy_schema_version": "1.0.0",
+    "required_tier": "base-container",
+    "probe_schema_version_available": false,
+    "numeric_psec_contract_version_available": false,
+    "controller_phase": "completed",
+    "failure_phase": "absent",
+    "failure": {
+      "type": "absent",
+      "winerror": null,
+      "errno": null
+    },
+    "probe": {
+      "attempted": true,
+      "completed": true,
+      "outcome": "selected",
+      "exit_code": 0,
+      "stdout_state": "object",
+      "tier": "base-container",
+      "tier_state": "known",
+      "needs_dacl_augmentation": {
+        "state": "value",
+        "value": false
+      },
+      "probes_state": "object",
+      "facts": {
+        "baseContainerApiPresent": {
+          "state": "value",
+          "value": true
+        },
+        "nativeCaptureAvailable": {
+          "state": "value",
+          "value": true
+        },
+        "guardedCaptureAvailable": {
+          "state": "value",
+          "value": false
+        },
+        "bfscfgPresent": {
+          "state": "value",
+          "value": false
+        },
+        "bfsCompiledIn": {
+          "state": "value",
+          "value": false
+        },
+        "baseContainerSupportsDenyPaths": {
+          "state": "value",
+          "value": true
+        },
+        "baseContainerSupportsEnumeratePaths": {
+          "state": "value",
+          "value": false
+        },
+        "baseContainerSupportsIngressHostLoopbackAllow": {
+          "state": "value",
+          "value": false
+        },
+        "isolationSessionAvailable": {
+          "state": "value",
+          "value": false
+        },
+        "hyperlightAvailable": {
+          "state": "value",
+          "value": false
+        }
+      },
+      "ui_state": "object",
+      "ui_facts": {
+        "canBlockClipboardRead": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockClipboardWrite": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockInputInjection": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockInputMethodChanges": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockExternalUiObjects": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockGlobalUiNamespace": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockDesktopSwitching": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockLogoffOrShutdown": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockSystemParameterChanges": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockDisplaySettingsChanges": {
+          "state": "value",
+          "value": true
+        }
+      },
+      "error_present": false,
+      "error_class": "absent",
+      "error_summary": {
+        "bytes_observed": null,
+        "inspection_truncated": false,
+        "categories": [],
+        "operations": [],
+        "native_codes": [],
+        "inspected_sha256": null,
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      },
+      "warnings_state": "array",
+      "warning_count": 0,
+      "warning_nonstring_count": 0,
+      "warning_summaries": [],
+      "stdout": {
+        "bytes_observed": 935,
+        "inspection_truncated": false,
+        "categories": [
+          "psec",
+          "proxy"
+        ],
+        "operations": [],
+        "native_codes": [],
+        "inspected_sha256": "2ce65e21126bbe9a442dd23b4527d045633e490e721f9a034f252c7739f455e0",
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      },
+      "stderr": {
+        "bytes_observed": 0,
+        "inspection_truncated": false,
+        "categories": [],
+        "operations": [],
+        "native_codes": [],
+        "inspected_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      },
+      "cli": {
+        "classes": [],
+        "policy_fields": []
+      }
+    },
+    "execution": {
+      "launch_attempted": true,
+      "outcome": "completed",
+      "exit_code": 0,
+      "timed_out": false,
+      "actual_tier_count": 1,
+      "actual_tiers": [
+        "base-container"
+      ],
+      "unknown_tier_count": 0,
+      "actor_report_state": "parsed",
+      "actor_reparse_point_observed": false,
+      "actor_checks_passed": false,
+      "stdout": {
+        "bytes_observed": 1041,
+        "inspection_truncated": false,
+        "categories": [
+          "configuration",
+          "process_creation",
+          "psec",
+          "proxy"
+        ],
+        "operations": [],
+        "native_codes": [
+          0
+        ],
+        "inspected_sha256": "5259da096e2561b4c08733cacbb5b9d10e053ee67fedb256f8f847a11dbd6bf3",
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      },
+      "stderr": {
+        "bytes_observed": 0,
+        "inspection_truncated": false,
+        "categories": [],
+        "operations": [],
+        "native_codes": [],
+        "inspected_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      }
+    }
+  },
+  "guest_diagnostic": {
+    "phase": "completed",
+    "failure": {
+      "type": "absent",
+      "errno": null,
+      "winerror": null
+    }
+  },
+  "launcher_diagnostic": {
+    "phase": "completed",
+    "failure_category": "none",
+    "failed": false,
+    "hresult": null,
+    "python_exit_code": 1,
+    "transport_attempt": 1
+  },
+  "psec_cleanup_independently_verified": false,
+  "checks": {
+    "request_aware_base_container": true,
+    "actual_base_container": true,
+    "fresh_actor": true,
+    "native_identity": false,
+    "normal_exit": true,
+    "no_harness_error": true
+  },
+  "request_supported": true,
+  "executor_exit_code": 0,
+  "ordinary_account": true,
+  "direct_build_verified": true,
+  "harness_completed": true,
+  "os": {
+    "build": 26300,
+    "ubr": 9457,
+    "product_type": "WinNT",
+    "architecture": "AMD64"
+  },
+  "result_transport_state": "object_received",
+  "teardown_diagnostic": {
+    "schema_version": 1,
+    "qemu_present": true,
+    "tpm_present": true,
+    "qemu_exit_before_cleanup": null,
+    "tpm_exit_before_cleanup": null,
+    "qemu_exit_after_cleanup": -9,
+    "tpm_exit_after_cleanup": -9,
+    "qemu_exit_confirmed": true,
+    "tpm_exit_confirmed": true,
+    "helper_count": 0,
+    "helper_exit_confirmed_count": 0,
+    "qmp_present": true,
+    "qmp_close_succeeded": true,
+    "qmp_file_closed": true,
+    "qmp_socket_closed": true,
+    "server_present": true,
+    "server_shutdown_succeeded": true,
+    "server_close_succeeded": true,
+    "server_thread_stopped": true,
+    "watcher_present": true,
+    "watcher_stopped": true,
+    "work_remove_attempted": true,
+    "work_removed": true,
+    "work_retained": false,
+    "first_failed_stage": null,
+    "error_count": 0,
+    "errors": []
+  },
+  "minimum_free_bytes": 67390427136,
+  "last_phase": "stage0_completed"
+}

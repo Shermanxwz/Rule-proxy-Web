@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "run_id": 39447439803,
+  "source_commit": "7fa0c671cbb70afb8aab25c87404b65957adb459",
+  "runtime_artifact_id": 12278765263,
+  "runtime_artifact_sha256": "74c37fc315e922f4ea91c3bfaea380f244334d4aa206eb64e98abb8910ab3bad",
+  "request_environment_fix_sha256": "df3abdfec602b15f6f69ead5b48e06d74a7031d9436cbc05e18ec380db925fb8",
+  "exact_os": "26300.9457",
+  "documented_support_floor": "26300.9550",
+  "ordinary_account": true,
+  "probe_selected": true,
+  "executor_exit_code": 0,
+  "actor_report_state": "parsed",
+  "fresh_actor": true,
+  "native_identity": false,
+  "normal_exit": true,
+  "no_harness_error": true,
+  "stage0_passed": false,
+  "product_acceptance": false,
+  "privacy_qualified": false,
+  "cleanup_confirmed": true,
+  "interpretation": "The fresh nonce-bound actor ran and exited normally. Native-identity conjunction failed; individual predicate values are not retained in this closed artifact. This is not isolation acceptance, and neither OS incompatibility nor an assay mismatch is established. No automatic replay."
+}
