@@ -276,8 +276,8 @@ class InputTests(unittest.TestCase):
                     patch.object(launcher.sys, "base_prefix", str(root / "runtime")), \
                     patch.object(launcher.sys, "executable", str(root / "runtime/python.exe")):
                 python, script, actor, work = launcher.validate_inputs(args)
-                self.assertEqual(work, root / "new")
-                self.assertEqual(actor, args.actor)
+                self.assertEqual(work, root.resolve() / "new")
+                self.assertEqual(actor, args.actor.resolve())
                 bad = copy.copy(args)
                 bad.actor_sha256 = "0" * 64
                 with self.assertRaisesRegex(launcher.GateFailure, "digest_mismatch"):
@@ -287,6 +287,39 @@ class InputTests(unittest.TestCase):
                 with self.assertRaisesRegex(launcher.GateFailure, "report_must"):
                     launcher.validate_inputs(bad)
                 args.work.mkdir()
+                with self.assertRaisesRegex(launcher.GateFailure, "fresh_owned"):
+                    launcher.validate_inputs(args)
+
+    def test_fresh_work_uses_validated_canonical_parent_spelling(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            args = self.fixture(root)
+            # Simulate Windows expanding an existing 8.3 parent name. This
+            # is not a symlink and must still go through checked_path.
+            short_parent = root.parent / (root.name + "~1")
+            args.work = short_parent / "new"
+            args.report = args.work / "report.json"
+            original_checked = launcher.checked_path
+            parent_checks = []
+
+            def checked(path, **kwargs):
+                if Path(path) == short_parent:
+                    parent_checks.append(kwargs)
+                    return original_checked(root, **kwargs)
+                return original_checked(path, **kwargs)
+
+            with patch.object(launcher, "ROOT", root), \
+                    patch.object(launcher, "PROBE", root / ".github/windows_identity_pipe_probe.py"), \
+                    patch.object(launcher.sys, "base_prefix", str(root / "runtime")), \
+                    patch.object(launcher.sys, "executable", str(root / "runtime/python.exe")), \
+                    patch.object(launcher, "checked_path", side_effect=checked):
+                self.assertEqual(launcher.validate_inputs(args)[3], root / "new")
+                self.assertEqual(parent_checks, [{"inside": root, "is_file": False}])
+                bad = copy.copy(args)
+                bad.report = root / "new/report.json"
+                with self.assertRaisesRegex(launcher.GateFailure, "report_must"):
+                    launcher.validate_inputs(bad)
+                (root / "new").mkdir()
                 with self.assertRaisesRegex(launcher.GateFailure, "fresh_owned"):
                     launcher.validate_inputs(args)
 

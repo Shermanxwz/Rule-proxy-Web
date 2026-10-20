@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "source_commit": "1e9ca34af41f24f14805612596f5b2bd80985002",
+  "run_id": 39366873802,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39366873802",
+  "job_id": 118445598257,
+  "native_compile": "success",
+  "unit_tests_run": 51,
+  "unit_test_errors": 1,
+  "failing_test": "test_input_paths_digest_and_fresh_directory_are_checked",
+  "failure_operation": "validate_inputs",
+  "failure_reason": "fresh_owned_work_directory_required",
+  "diagnosis": "Fresh destination used abspath spelling while verified existing parent/root used resolve spelling. Windows short/long path spelling can differ; canonicalize the already verified existing parent, without relaxing alias checks.",
+  "native_runtime_step": "skipped_due_to_unit_gate",
+  "native_actor_executed": false,
+  "appcontainer_created": false,
+  "privacy_qualified": false,
+  "product_acceptance": false
+}

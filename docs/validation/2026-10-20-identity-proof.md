@@ -109,7 +109,7 @@ not be logged, uploaded, or replaced. No user PC/OVH/Tianyi access is involved.
 
 1. Native artifact compilation passed. Run Stage 0b first on standard Server
    runner, using the verified ordinary-token launcher. Local pure suite now has
-   51 passing tests; the first Windows build ran the earlier 25-test suite.
+   52 passing tests; the first Windows build ran the earlier 25-test suite.
 2. Separately run PSEC Stage 0 on a supported Windows host and independently
    measure controller-death/Job teardown. An AppContainer pipe pass is not PSEC
    acceptance.
@@ -123,3 +123,13 @@ not be logged, uploaded, or replaced. No user PC/OVH/Tianyi access is involved.
 
 Do not replace a failed gate with broad ACL grants, host-loopback exemptions,
 relaxed actor checks, disabled browser sandbox, or an unsigned-driver bypass.
+
+## First native-run attempt: stopped at unit gate
+
+Run 39366873802 rebuilt successfully but one of 51 unit tests rejected a Windows
+short/long parent path spelling mismatch. The native step was skipped, so no
+AppContainer or ACL test ran. The attempt is retained in
+`verification/windows-2026-10-20/identity-proof/attempt-01-unit-gate.json`.
+The correction reconstructs only the fresh destination from its already
+validated canonical parent; all per-component reparse and ownership checks
+remain. An additional regression brings the pure suite to 52 tests.

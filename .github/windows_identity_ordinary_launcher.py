@@ -172,12 +172,16 @@ def validate_inputs(args):
         raise GateFailure("native_actor_digest_mismatch")
     # A single new directory within the checkout, never an arbitrary system or
     # pre-existing directory. Its existing parent must have no aliases.
-    work = Path(os.path.abspath(args.work))
-    checked_path(work.parent, inside=root, is_file=False)
+    raw_work = Path(os.path.abspath(args.work))
+    # First bind the report to the caller's exact fresh-work spelling. Resolve
+    # only the existing parent after its no-reparse checks: Windows can expand
+    # a legitimate 8.3 name into a different canonical long-path spelling.
+    if Path(os.path.abspath(args.report)) != raw_work / "report.json":
+        raise GateFailure("report_must_be_work_report_json")
+    parent = checked_path(raw_work.parent, inside=root, is_file=False)
+    work = parent / raw_work.name
     if root not in work.parents or work.exists() or work.is_symlink():
         raise GateFailure("fresh_owned_work_directory_required")
-    if Path(os.path.abspath(args.report)) != work / "report.json":
-        raise GateFailure("report_must_be_work_report_json")
     return python, script, actor, work
 
 
