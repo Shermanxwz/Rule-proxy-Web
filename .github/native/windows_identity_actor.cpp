@@ -11,6 +11,8 @@
 // 5 = transport failure, 6 = internal failure.
 // A report is valid only with the expected nonce, strict schema, and exit 0.
 // HTTP is opt-in and forces a named proxy at 127.0.0.1:1025..65535.
+// Build with /DRULEPROXY_IDENTITY_ONLY=1 to omit WinHTTP code/imports and
+// reject actor-http. The actor and actor-pipe roles are unchanged.
 // Anonymous-pipe I/O is synchronous: the controller MUST impose an outer
 // timeout and terminate the containing job. There is no native pipe timeout.
 
@@ -29,10 +31,15 @@
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0602
 #endif
+#ifndef RULEPROXY_IDENTITY_ONLY
+#define RULEPROXY_IDENTITY_ONLY 0
+#endif
 
 #include <windows.h>
 #include <sddl.h>
+#if !RULEPROXY_IDENTITY_ONLY
 #include <winhttp.h>
+#endif
 
 #include <array>
 #include <cstddef>
@@ -45,7 +52,9 @@
 #include <vector>
 
 #pragma comment(lib, "advapi32.lib")
+#if !RULEPROXY_IDENTITY_ONLY
 #pragma comment(lib, "winhttp.lib")
+#endif
 
 namespace {
 
@@ -89,6 +98,7 @@ private:
     LPWSTR text_ = nullptr;
 };
 
+#if !RULEPROXY_IDENTITY_ONLY
 class UniqueInternetHandle final {
 public:
     explicit UniqueInternetHandle(HINTERNET handle = nullptr) noexcept
@@ -105,6 +115,7 @@ public:
 private:
     HINTERNET handle_;
 };
+#endif
 
 struct QueryError {
     const char* query;
@@ -166,6 +177,7 @@ bool ReadNonce(const wchar_t* argument, std::string& result) {
     return argument[kNonceLength] == L'\0';
 }
 
+#if !RULEPROXY_IDENTITY_ONLY
 bool ReadPort(const wchar_t* argument, unsigned int& result) noexcept {
     unsigned int port = 0;
     std::size_t digits = 0;
@@ -183,6 +195,7 @@ bool ReadPort(const wchar_t* argument, unsigned int& result) noexcept {
     result = port;
     return true;
 }
+#endif
 
 bool ReadPipeHandle(const wchar_t* argument, HANDLE& result) noexcept {
     std::uintptr_t value = 0;
@@ -436,6 +449,7 @@ Observations ObserveNativeIdentity() {
     return observations;
 }
 
+#if !RULEPROXY_IDENTITY_ONLY
 HttpResult ProbeHttp(const std::string& nonce, unsigned int proxyPort,
                      bool nativeQueriesSucceeded) {
     HttpResult result;
@@ -566,6 +580,7 @@ HttpResult ProbeHttp(const std::string& nonce, unsigned int proxyPort,
     result.succeeded = true;
     return result;
 }
+#endif
 
 PipeResult ProbePipes(const std::string& nonce, HANDLE readHandle,
                       HANDLE writeHandle, bool nativeQueriesSucceeded) {
@@ -766,14 +781,18 @@ int Run(int argc, wchar_t* argv[]) {
     }
     const std::wstring role(argv[1]);
     const char* mode = nullptr;
+#if !RULEPROXY_IDENTITY_ONLY
     unsigned int proxyPort = 0;
+#endif
     HANDLE readHandle = nullptr;
     HANDLE writeHandle = nullptr;
     if (role == L"actor" && argc == 4) {
         mode = "actor";
+#if !RULEPROXY_IDENTITY_ONLY
     } else if (role == L"actor-http" && argc == 5 &&
                ReadPort(argv[4], proxyPort)) {
         mode = "actor-http";
+#endif
     } else if (role == L"actor-pipe" && argc == 6 &&
                ReadPipeHandle(argv[4], readHandle) &&
                ReadPipeHandle(argv[5], writeHandle) &&
@@ -796,9 +815,12 @@ int Run(int argc, wchar_t* argv[]) {
     const Observations observations = ObserveNativeIdentity();
     std::optional<HttpResult> http;
     std::optional<PipeResult> pipe;
+#if !RULEPROXY_IDENTITY_ONLY
     if (role == L"actor-http") {
         http = ProbeHttp(nonce, proxyPort, observations.errors.empty());
-    } else if (role == L"actor-pipe") {
+    } else
+#endif
+    if (role == L"actor-pipe") {
         pipe = ProbePipes(nonce, readHandle, writeHandle,
                           observations.errors.empty());
     }

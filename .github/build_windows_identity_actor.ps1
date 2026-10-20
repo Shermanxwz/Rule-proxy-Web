@@ -7,6 +7,8 @@ Run from an MSVC Native Tools developer shell with a Windows 8+ SDK.
 No elevation, firewall rules, token creation, ACL changes, or test execution.
 The output directory must not already exist. An optional expected SHA-256
 pins the reviewed source; the source is also checked for changes during build.
+IdentityOnly omits WinHTTP code/imports and rejects the actor-http role.
+Without IdentityOnly, the existing HTTP-capable build is preserved.
 .EXAMPLE
 .\.github\build_windows_identity_actor.ps1 -OutputDirectory C:\proof\actor-build `
     -ExpectedSourceSha256 <reviewed-source-sha256>
@@ -20,7 +22,8 @@ param(
         )
     ),
     [ValidatePattern('^[0-9a-fA-F]{64}$')]
-    [string] $ExpectedSourceSha256
+    [string] $ExpectedSourceSha256,
+    [switch] $IdentityOnly
 )
 
 Set-StrictMode -Version Latest
@@ -57,7 +60,12 @@ $compilerArguments = @(
     '/MT',
     '/O2',
     '/utf-8',
-    '/guard:cf',
+    '/guard:cf'
+)
+if ($IdentityOnly) {
+    $compilerArguments += '/DRULEPROXY_IDENTITY_ONLY=1'
+}
+$compilerArguments += @(
     "/Fo$objPath",
     "/Fe$exePath",
     $source.FullName,
@@ -92,6 +100,7 @@ $manifest = [ordered]@{
     compilerArguments = $compilerArguments
     targetArchitecture = $env:VSCMD_ARG_TGT_ARCH
     staticCrt = $true
+    httpCompiled = (-not [bool]$IdentityOnly)
     compileOnly = $true
     builtAtUtc = [DateTime]::UtcNow.ToString('o')
 }
@@ -104,5 +113,6 @@ $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
     ExecutablePath = $exePath
     ExecutableSha256 = $exeHash
     ManifestPath = $manifestPath
+    HttpCompiled = (-not [bool]$IdentityOnly)
     Executed = $false
 }

@@ -264,3 +264,79 @@ records bounded ABI diagnostics, and blocks restriction/launch if any read is
 incomplete. Runtime uses the same readers. Unmeasured parent-token equality is
 now null, with explicit reduced-token/process creation markers. Native results
 for this correction remain pending.
+
+
+### Second R0 attempt: verified reduced-token launch, actor DLL startup fails
+
+Run [39369637351](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39369637351)
+at commit `1a8cf663d71bf82d55cb62186e93b8e812dbc147` passed native compilation,
+104 tests and all18 preflight observations. Class21 actually returned one byte.
+CreateRestrictedToken and CreateProcessAsUser succeeded. The suspended child's
+native identity matched the derived token: medium integrity, administrator
+deny-only, only SeChangeNotify privilege, same user/session/authentication.
+Parent security facts were unchanged and Job/handle cleanup completed.
+
+After resume, the actor exited `0xC0000142` (DLL initialization failure) before
+its report was created. R0 remains failed; the verified restricted launch is
+partial mechanism evidence, not successful actor/pipe/PSEC acceptance. A sanitized
+summary with artifact provenance is retained as R0 attempt2; original reports
+remain in the existing Actions artifact, not republished in this commit.
+An independently downloaded, SHA-verified actor imports ADVAPI32, WINHTTP and
+KERNEL32 eagerly. This does not identify the failing DLL or prove a desktop
+permission cause. The next diagnostic isolates optional WinHTTP imports in a
+separately pinned identity-only build while preserving token restrictions,
+process flags, environment and ACLs. No desktop or window-station permissions
+will be broadened to make it pass.
+
+### Bounded paired startup controls (preparation)
+
+A missing positive control is addressed before attributing the failure: one
+four-cell diagnostic compares the HTTP-capable actor and an explicit
+IdentityOnly build, each under the unchanged source token and the verified
+restricted token. Both binaries come from the same pinned source and installed
+MSVC toolchain. IdentityOnly omits WinHTTP code/imports and rejects actor-http;
+actor and actor-pipe report semantics remain unchanged. Installed dumpbin
+captures actual dependency/import tables and system WinHTTP dependencies; the
+controller records both binary hashes and the dependency-audit file hash.
+
+All four cells use the same fixed actor command shape, minimal environment,
+explicit standard handles, suspended launch, owned Job and cleanup rules.
+Source controls verify exact source identity, never a weakened restricted
+gate. Each cell is independently cleaned before proceeding. An uncertain
+cleanup or changed parent stops remaining cells. No source-control result can
+count as restricted/ordinary/PSEC acceptance. No profiles, ACL changes,
+network configuration, extra accounts or privileges are introduced.
+
+The earlier restricted-primary Python laboratory also recorded 0xC0000142;
+that used materially different account/profile, private desktop, DefaultDacl
+and restricting-SID choices. The current paired test is dependency/startup
+measurement, not a claim to invent a new isolation scheme or to have solved
+that historical failure.
+
+Paired-control preparation validation: 119 pure tests pass locally. Both
+compile variants passed portable mocked-header C++ checks; actual MSVC/import
+checks remain part of the pending Windows run. The paired controller's zero
+exit means all four diagnostic records were safely collected, not that any
+actor started or isolation passed. Per-cell actor outcomes and every
+acceptance flag remain separate and explicit. The original ordinary-user
+launcher is unchanged.
+
+Publication minimization: R0 attempt2 is published only as
+`r0-attempt-02-summary.json`, containing match booleans, bounded result/error
+counts, byte widths and source/build/artifact hashes. Raw report payloads,
+account/host identifiers, session/process IDs, SID literals, privilege lists,
+handles and authentication LUIDs are excluded from this new repository
+publication. Original evidence remains in its existing Actions artifact.
+
+
+Publication projection hardening: raw native/controller reports remain local
+for checks. Workflow artifact paths now name only closed public report,
+preflight, build and import projections, plus the synthetic compiled binaries.
+No raw actor report, ownership journal or path-bearing build manifest is
+uploaded by this workflow. Public import metadata contains DLL basenames and
+hashes of actual import tables, not raw tool output or machine file versions.
+Full internal security checks and source code are unchanged. The expanded
+suite has 132 passing pure tests, including nested-private-field injection
+checks. Published projections are marked sanitized=true and byte_exact=false;
+the source digest identifies the original data, not a claim that the public
+projection is a byte-exact copy.

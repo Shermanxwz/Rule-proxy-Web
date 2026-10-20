@@ -553,11 +553,24 @@ def token_preflight(api):
 
 
 def launch_actor(api, actor, nonce, work, token, derived, source):
+    """Existing R0 launch always enforces the synthetic-restricted identity."""
+    return _launch_actor(api, actor, nonce, work, token, derived, source, source_control=False)
+
+
+def launch_source_control(api, actor, nonce, work, token, source):
+    """Explicit positive control only; never a restricted or ordinary pass."""
+    return _launch_actor(api, actor, nonce, work, token, source, source, source_control=True)
+
+
+def _launch_actor(api, actor, nonce, work, token, expected, source, *, source_control):
     info, job, handles, assigned = api.process_info(), None, [], False
     result = {"started": False, "resumed": False, "timed_out": False,
-              "cleanup": {"errors": [], "job_closed": False, "job_empty": False, "handles_closed": False}}
+              "source_control": source_control, "job_created": False, "assigned_to_owned_job": False,
+              "cleanup": {"errors": [], "job_closed": False, "job_empty": False,
+                          "process_exit_confirmed": False, "handles_closed": False}}
     try:
         job = api.create_job()
+        result["job_created"] = True
         for name in ("controller.stdin", "controller.stdout", "controller.stderr"):
             handles.append(api.open_stdio_file(work / name, read=name.endswith("stdin")))
         command = [str(actor), "actor", nonce, str(work / "actor.json")]
@@ -565,12 +578,17 @@ def launch_actor(api, actor, nonce, work, token, derived, source):
         result.update(started=True, child_pid=int(info.dwProcessId))
         api.assign_job(job, info.hProcess)
         assigned = True
+        result["assigned_to_owned_job"] = True
         api.verify_job(job, info.hProcess)
         api.verify_image(info.hProcess, actor)
         child = api.child_restricted_identity(info.hProcess)
-        verify_derivation(child, source)
-        if child != derived:
-            raise GateFailure("suspended_child_differs_from_verified_restricted_token")
+        if source_control:
+            if not source_identity_valid(source) or not source_identity_valid(child) or child != source:
+                raise GateFailure("suspended_child_differs_from_verified_source_token")
+        else:
+            verify_derivation(child, source)
+            if child != expected:
+                raise GateFailure("suspended_child_differs_from_verified_restricted_token")
         result["child_identity"] = safe_identity(child, source)
         result["native_verified_before_resume"] = True
         api.resume(info.hThread)
@@ -609,6 +627,7 @@ def launch_actor(api, actor, nonce, work, token, derived, source):
             def wait_exit():
                 if not api.wait(info.hProcess, 5000):
                     raise GateFailure("restricted_actor_cleanup_deadline")
+                cleanup["process_exit_confirmed"] = True
             attempt(wait_exit)
         if job and attempt(lambda: api.close(job)):
             cleanup["job_closed"] = True

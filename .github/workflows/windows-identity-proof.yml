@@ -10,6 +10,8 @@ on:
       - '.github/windows_identity_pipe_probe.py'
       - '.github/windows_identity_ordinary_launcher.py'
       - '.github/windows_identity_restricted_launcher.py'
+      - '.github/windows_identity_paired_startup.py'
+      - '.github/windows_identity_publication.py'
       - 'tests/test_windows_identity*.py'
       - '.github/workflows/windows-identity-proof.yml'
 
@@ -37,7 +39,31 @@ jobs:
           if (-not $vs) { throw 'Installed MSVC toolchain not found' }
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build" -ExpectedSourceSha256 4f5b398e2341694242009e03ecb96dc1bc7479a2bba3fe76968df7b238406b0b
+          ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build" -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          if ("${{ contains(github.event.head_commit.message, '[identity-startup-paired-runtime]') }}" -eq 'true') {
+            ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build-minimal" -IdentityOnly -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+            function Read-Dependencies([string]$Path) {
+              $lines = & dumpbin /nologo /dependents $Path 2>&1
+              if ($LASTEXITCODE -ne 0) { throw 'Installed dumpbin failed' }
+              $names = @($lines | ForEach-Object { if ($_ -match '^\s+([A-Za-z0-9_.-]+\.dll)\s*$') { $Matches[1].ToUpperInvariant() } } | Sort-Object -Unique)
+              if ($names.Count -eq 0 -or $names.Count -gt 64) { throw 'Unexpected dependency count' }
+              return $names
+            }
+            $fullDeps = @(Read-Dependencies "$PWD\identity-actor-build\windows_identity_actor.exe")
+            $minimalDeps = @(Read-Dependencies "$PWD\identity-actor-build-minimal\windows_identity_actor.exe")
+            $winhttpDeps = @(Read-Dependencies "$env:windir\System32\winhttp.dll")
+            if ($fullDeps -notcontains 'WINHTTP.DLL' -or $minimalDeps -contains 'WINHTTP.DLL') { throw 'HTTP variant import distinction not established' }
+            function Read-ImportTable([string]$Path) {
+              $lines = @(& dumpbin /nologo /imports $Path 2>&1)
+              if ($LASTEXITCODE -ne 0 -or $lines.Count -gt 2048) { throw 'Import inspection failed or exceeded bound' }
+              return @($lines | ForEach-Object { $line = $_.ToString().Trim(); if ($line -and $line -notmatch '^Dump of file ') { if ($line.Length -gt 512) { throw 'Import line too long' }; $line } })
+            }
+            $fullImports = @(Read-ImportTable "$PWD\identity-actor-build\windows_identity_actor.exe")
+            $minimalImports = @(Read-ImportTable "$PWD\identity-actor-build-minimal\windows_identity_actor.exe")
+            $audit = [ordered]@{ schema_version = 1; full = $fullDeps; identity_only = $minimalDeps; full_import_table = $fullImports; identity_only_import_table = $minimalImports; system_winhttp = $winhttpDeps; system_winhttp_file_version = (Get-Item "$env:windir\System32\winhttp.dll").VersionInfo.FileVersion }
+            $audit | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 identity-actor-build/dependency-audit.json
+
+          }
       - name: Pure Python identity proof unit tests only
         run: python -B -m unittest discover -s tests -p "test_windows_identity*.py" -v
       - name: Read-only current and existing linked token ABI preflight
@@ -56,7 +82,7 @@ jobs:
           python -I -S -B .github/windows_identity_ordinary_launcher.py --disposable-ci --approved-security-test --actor "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-sha256 $build.executableSha256 --work "$PWD\identity-ordinary-run" --report "$PWD\identity-ordinary-run\report.json"
           if ($LASTEXITCODE -ne 0) { throw 'Stage 0b did not pass; inspect bounded reports, no fallback is permitted.' }
       - name: Read-only R0 source token field and ABI diagnostics
-        if: contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]')
+        if: contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]') || contains(github.event.head_commit.message, '[identity-startup-paired-runtime]')
         timeout-minutes: 1
         shell: pwsh
         run: |
@@ -70,14 +96,58 @@ jobs:
           $build = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
           python -I -S -B .github/windows_identity_restricted_launcher.py --disposable-ci --approved-security-test --actor "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-sha256 $build.executableSha256 --work "$PWD\identity-restricted-r0" --report "$PWD\identity-restricted-r0\report.json"
           if ($LASTEXITCODE -ne 0) { throw 'Restricted-caller R0 diagnostic blocked or failed; no ordinary-token fallback.' }
+      - name: Four-cell trusted-actor startup controls, no isolation acceptance
+        if: contains(github.event.head_commit.message, '[identity-startup-paired-runtime]')
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $full = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
+          $minimal = Get-Content -Raw identity-actor-build-minimal/build-manifest.json | ConvertFrom-Json
+          if (-not $full.httpCompiled -or $minimal.httpCompiled) { throw 'Expected distinct full and IdentityOnly manifests' }
+          python -I -S -B .github/windows_identity_paired_startup.py --disposable-ci --approved-security-test --paired-startup --actor-full "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-full-sha256 $full.executableSha256 --actor-identity "$PWD\identity-actor-build-minimal\windows_identity_actor.exe" --actor-identity-sha256 $minimal.executableSha256 --work "$PWD\identity-startup-paired" --report "$PWD\identity-startup-paired\report.json" --dependency-audit "$PWD\identity-actor-build\dependency-audit.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Paired startup collection incomplete; inspect reports. Individual startup outcomes never imply isolation acceptance.' }
+      - name: Create closed publication projections without machine identities or paths
+        if: always()
+        shell: pwsh
+        run: |
+          $pairs = [ordered]@{
+            'identity-token-preflight.json' = 'identity-token-preflight.public.json'
+            'identity-ordinary-run/report.json' = 'identity-ordinary-run/public-report.json'
+            'identity-ordinary-run/probe/report.json' = 'identity-ordinary-run/probe/public-report.json'
+            'identity-restricted-r0-preflight.json' = 'identity-restricted-r0-preflight.public.json'
+            'identity-restricted-r0/report.json' = 'identity-restricted-r0/public-report.json'
+            'identity-actor-build/build-manifest.json' = 'identity-actor-build/public-manifest.json'
+            'identity-actor-build-minimal/build-manifest.json' = 'identity-actor-build-minimal/public-manifest.json'
+            'identity-actor-build/dependency-audit.json' = 'identity-actor-build/dependency-audit-public.json'
+          }
+          foreach ($entry in $pairs.GetEnumerator()) {
+            if (Test-Path -LiteralPath $entry.Key -PathType Leaf) {
+              $arguments = @('-I', '-S', '-B', '.github/windows_identity_publication.py', '--input', (Join-Path $PWD $entry.Key), '--output', (Join-Path $PWD $entry.Value))
+              if ($entry.Key.EndsWith('build-manifest.json')) { $arguments += '--build' }
+              if ($entry.Key.EndsWith('dependency-audit.json')) { $arguments += '--imports' }
+              & python @arguments
+              if ($LASTEXITCODE -ne 0) { throw 'Closed publication projection failed; raw evidence must not be uploaded' }
+            }
+          }
+      - uses: actions/upload-artifact@v7
+        if: always() && contains(github.event.head_commit.message, '[identity-startup-paired-runtime]')
+        with:
+          name: identity-startup-paired-observations
+          path: |
+            identity-restricted-r0-preflight.public.json
+            identity-startup-paired/public-report.json
+            identity-actor-build/dependency-audit-public.json
+            identity-actor-build-minimal/public-manifest.json
+            identity-actor-build-minimal/windows_identity_actor.exe
+          if-no-files-found: warn
+          retention-days: 14
       - uses: actions/upload-artifact@v7
         if: always() && contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]')
         with:
           name: identity-restricted-r0-observations
           path: |
-            identity-restricted-r0-preflight.json
-            identity-restricted-r0/report.json
-            identity-restricted-r0/actor.json
+            identity-restricted-r0-preflight.public.json
+            identity-restricted-r0/public-report.json
           if-no-files-found: warn
           retention-days: 14
       - uses: actions/upload-artifact@v7
@@ -85,10 +155,9 @@ jobs:
         with:
           name: identity-pipe-runtime-observations
           path: |
-            identity-token-preflight.json
-            identity-ordinary-run/report.json
-            identity-ordinary-run/probe/report.json
-            identity-ordinary-run/probe/ownership.json
+            identity-token-preflight.public.json
+            identity-ordinary-run/public-report.json
+            identity-ordinary-run/probe/public-report.json
           if-no-files-found: warn
           retention-days: 14
       - uses: actions/upload-artifact@v7
@@ -97,7 +166,8 @@ jobs:
           name: identity-actor-build
           path: |
             identity-actor-build/windows_identity_actor.exe
-            identity-actor-build/build-manifest.json
+            identity-actor-build/public-manifest.json
+            identity-actor-build/dependency-audit-public.json
           if-no-files-found: warn
           retention-days: 7
 
