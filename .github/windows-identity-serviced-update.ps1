@@ -37,20 +37,36 @@ function Assert-ProtectedUpdatePath($Path, [switch]$Directory, [switch]$Protecte
     }
 }
 
+# Closed read diagnostics only; never grants trust or changes deadline acceptance.
+$script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null}
 function ConvertTo-ServicedDeadline($Epoch, [DateTime]$Now) {
-    if (($Epoch -isnot [int] -and $Epoch -isnot [long]) -or $Epoch -le 0) { throw 'service_deadline' }
-    $deadline=[DateTimeOffset]::FromUnixTimeSeconds([long]$Epoch).UtcDateTime
-    if ($deadline -le $Now -or ($deadline-$Now).TotalSeconds -gt 9600) { throw 'service_deadline' }
+    $script:ServicingReadDiagnostic.step='budget_epoch'
+    if (($Epoch -isnot [int] -and $Epoch -isnot [long])) { $script:ServicingReadDiagnostic.reason='type'; throw 'service_deadline' }
+    try { $deadline=[DateTimeOffset]::FromUnixTimeSeconds([long]$Epoch).UtcDateTime }
+    catch { $script:ServicingReadDiagnostic.reason='over_bound'; throw 'service_deadline' }
+    $remaining=($deadline-$Now).TotalSeconds
+    if ($remaining -ge -172800 -and $remaining -le 172800) { $script:ServicingReadDiagnostic.remaining_seconds=[int][Math]::Floor($remaining) }
+    if ($Epoch -le 0 -or $deadline -le $Now) { $script:ServicingReadDiagnostic.reason='expired'; throw 'service_deadline' }
+    if ($remaining -gt 9600) { $script:ServicingReadDiagnostic.reason='over_bound'; throw 'service_deadline' }
     return $deadline
 }
 function Get-ServicedDeadline {
     $path=Join-Path 'C:\RuleProxyCIUpdates' 'service-budget.json'
-    Assert-ProtectedUpdatePath $path
-    if ((Get-Item -LiteralPath $path).Length -gt 1024) { throw 'service_deadline' }
-    $budget=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-    if ($budget.schema -ne 1) { throw 'service_deadline' }
+    $script:ServicingReadDiagnostic.step='budget_acl'
+    if (-not (Test-Path -LiteralPath $path)) { $script:ServicingReadDiagnostic.reason='missing'; throw 'service_deadline' }
+    try { Assert-ProtectedUpdatePath $path } catch { $script:ServicingReadDiagnostic.reason='acl'; throw }
+    $script:ServicingReadDiagnostic.step='budget_read'
+    try {
+        if ((Get-Item -LiteralPath $path).Length -gt 1024) { $script:ServicingReadDiagnostic.reason='over_bound'; throw 'service_deadline' }
+        $rawBudget=Get-Content -LiteralPath $path -Raw
+    } catch { if ($script:ServicingReadDiagnostic.reason -eq 'none') { $script:ServicingReadDiagnostic.reason='read' }; throw }
+    $script:ServicingReadDiagnostic.step='budget_json'
+    try { $budget=$rawBudget | ConvertFrom-Json } catch { $script:ServicingReadDiagnostic.reason='json'; throw }
+    $script:ServicingReadDiagnostic.step='budget_schema'
+    if ($null -eq $budget -or 'schema' -notin @($budget.PSObject.Properties.Name) -or $budget.schema -ne 1 -or 'deadline_unix_seconds' -notin @($budget.PSObject.Properties.Name)) { $script:ServicingReadDiagnostic.reason='schema'; throw 'service_deadline' }
     return ConvertTo-ServicedDeadline $budget.deadline_unix_seconds ([DateTime]::UtcNow)
 }
+
 function Assert-ServicedTime([DateTime]$Deadline) {
     if ([DateTime]::UtcNow -ge $Deadline) { throw 'service_deadline' }
 }

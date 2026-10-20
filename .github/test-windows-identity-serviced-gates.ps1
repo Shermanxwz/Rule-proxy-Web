@@ -1,5 +1,6 @@
 # Windows compile-job only. Pure synthetic predicates plus read-only runner facts.
-# Never invoke the guest entrypoint, create an identity, change ACLs or start a VM.
+# Never invoke the guest entrypoint, create an account/task or start a VM.
+# ACL changes are restricted to the exact newly owned temporary test fixture.
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $source=Join-Path $PSScriptRoot 'windows-identity-serviced-stage0-run.ps1'
@@ -154,6 +155,119 @@ $rejected=$false
 try { Assert-ServicedTime ([DateTime]::UtcNow.AddSeconds(-1)) } catch { $rejected=$true }
 if (-not $rejected) { throw 'Expired shared deadline accepted' }; $passed++
 Assert-ServicedTime ([DateTime]::UtcNow.AddMinutes(1)); $passed++
+
+# Real owned NTFS ACL + serialization/reader regression. No account/task/VM.
+# Hosted runner is not guest SYSTEM: explicit trusted fixture owner is deliberate.
+$fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('rp-serviced-acl-'+[Guid]::NewGuid().ToString('N'))
+$fixtureCreated=$false; $fixtureCleanup=$false
+try {
+    $null=New-Item -ItemType Directory -Path $fixtureRoot
+    $fixtureCreated=$true
+    $fixtureAdmins=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
+    $fixtureSystem=New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
+    $fixtureUsers=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-545')
+    $fixtureAcl=New-Object Security.AccessControl.DirectorySecurity
+    $fixtureAcl.SetOwner($fixtureAdmins); $fixtureAcl.SetAccessRuleProtection($true,$false)
+    foreach ($fixtureSid in @($fixtureSystem,$fixtureAdmins)) {
+        $fixtureAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($fixtureSid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))
+    }
+    $fixtureAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($fixtureUsers,'ReadAndExecute','ContainerInherit,ObjectInherit','None','Allow')))
+    Set-Acl -LiteralPath $fixtureRoot -AclObject $fixtureAcl
+    $fixtureWorker=[IO.Path]::Combine($fixtureRoot,'copied-worker.ps1')
+    Copy-Item -LiteralPath $helper -Destination $fixtureWorker
+    $callerRootBefore=$PSScriptRoot
+    . $fixtureWorker
+    if ($PSScriptRoot -cne $callerRootBefore) { throw 'Dot-source caller root changed' }
+    Write-Output ((@{fixture='dot_source_root';caller_root_preserved=$true;worker_entry_not_invoked=$true})|ConvertTo-Json -Compress)
+    $passed++
+    $closedReadDefinitions=@($ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-ClosedServicingReadDiagnostic'},$false))
+    if ($closedReadDefinitions.Count -ne 1) { throw 'Closed service reader ambiguous' }
+    . ([ScriptBlock]::Create($closedReadDefinitions[0].Extent.Text))
+    $closedRead=Get-ClosedServicingReadDiagnostic ([PSCustomObject]@{step='PRIVATE_PATH';reason='PRIVATE_IDENTITY';remaining_seconds=172801;private='PRIVATE_RAW'})
+    if ($closedRead.Count -ne 3 -or $closedRead.step -cne 'not_started' -or $closedRead.reason -cne 'none' -or $null -ne $closedRead.remaining_seconds -or ($closedRead|ConvertTo-Json -Compress).Contains('PRIVATE')) { throw 'Closed setup reader leaked fixture' }
+    foreach ($boundary in @(-172800,0,172800)) {
+        $closedRead=Get-ClosedServicingReadDiagnostic ([PSCustomObject]@{step='budget_epoch';reason='expired';remaining_seconds=$boundary})
+        if ($closedRead.remaining_seconds -ne $boundary -or $closedRead.step -cne 'budget_epoch' -or $closedRead.reason -cne 'expired') { throw 'Closed setup reader boundary failed' }; $passed++
+    }
+    $script:BudgetFixtureRoot=$fixtureRoot
+    # Redirect only the production fixed root; file, ACL and JSON cmdlets are real.
+    function Join-Path {
+        param($Path,$ChildPath)
+        if ($Path -cne 'C:\RuleProxyCIUpdates' -or $ChildPath -cne 'service-budget.json') { throw 'Unexpected fixture path operation' }
+        return [IO.Path]::Combine($script:BudgetFixtureRoot,$ChildPath)
+    }
+    foreach ($fixtureSource in @($source,$helper)) {
+        $fixtureAst=[System.Management.Automation.Language.Parser]::ParseFile($fixtureSource,[ref]$tokens,[ref]$errors)
+        if ($errors.Count -ne 0) { throw 'ACL fixture parser failed' }
+        foreach ($fixtureName in @('Assert-UpdateFile','Assert-ProtectedUpdatePath','ConvertTo-ServicedDeadline','Get-ServicedDeadline')) {
+            $fixtureDefinitions=@($fixtureAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq $fixtureName},$false))
+            if ($fixtureDefinitions.Count -ne 1) { throw 'ACL fixture function ambiguous' }
+            . ([ScriptBlock]::Create($fixtureDefinitions[0].Extent.Text))
+        }
+        Assert-ProtectedUpdatePath $fixtureRoot -Directory -ProtectedDacl
+        $fixtureFile=[IO.Path]::Combine($fixtureRoot,'service-budget.json')
+        $fixtureEpoch=([DateTimeOffset]::UtcNow.AddMinutes(30)).ToUnixTimeSeconds()
+        $fixtureCases=@(
+            @{name='valid';raw=(@{schema=1;deadline_unix_seconds=$fixtureEpoch}|ConvertTo-Json -Compress);reason='none'},
+            @{name='missing';raw=$null;reason='missing'},
+            @{name='json';raw='{';reason='json'},
+            @{name='schema';raw='{"schema":2,"deadline_unix_seconds":1}';reason='schema'},
+            @{name='type';raw='{"schema":1,"deadline_unix_seconds":"1"}';reason='type'},
+            @{name='expired';raw='{"schema":1,"deadline_unix_seconds":1}';reason='expired'},
+            @{name='future';raw=(@{schema=1;deadline_unix_seconds=([DateTimeOffset]::UtcNow.AddHours(3)).ToUnixTimeSeconds()}|ConvertTo-Json -Compress);reason='over_bound'},
+            @{name='size';raw=('x'*1025);reason='over_bound'},
+            @{name='write_acl';raw=(@{schema=1;deadline_unix_seconds=$fixtureEpoch}|ConvertTo-Json -Compress);reason='acl'},
+            @{name='owner';raw=(@{schema=1;deadline_unix_seconds=$fixtureEpoch}|ConvertTo-Json -Compress);reason='acl'}
+        )
+        foreach ($fixtureCase in $fixtureCases) {
+            if (Test-Path -LiteralPath $fixtureFile) { Remove-Item -LiteralPath $fixtureFile -Force }
+            if ($null -ne $fixtureCase.raw) {
+                [IO.File]::WriteAllText($fixtureFile,$fixtureCase.raw,[Text.Encoding]::ASCII)
+                $fileAcl=Get-Acl -LiteralPath $fixtureFile
+                $naturalOwnerTrusted=$fileAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -in @('S-1-5-18','S-1-5-32-544')
+                $fileAcl.SetOwner($fixtureAdmins)
+                if ($fixtureCase.name -ceq 'write_acl') { $fileAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($fixtureUsers,'Write','Allow'))) }
+                if ($fixtureCase.name -ceq 'owner') { $fileAcl.SetOwner([Security.Principal.WindowsIdentity]::GetCurrent().User) }
+                Set-Acl -LiteralPath $fixtureFile -AclObject $fileAcl
+            }
+            $script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null}
+            $fixtureRejected=$false; $fixtureDeadline=$null
+            try { $fixtureDeadline=Get-ServicedDeadline } catch { $fixtureRejected=$true }
+            $fixturePass=($fixtureRejected -eq ($fixtureCase.reason -cne 'none')) -and ($script:ServicingReadDiagnostic.reason -ceq $fixtureCase.reason)
+            if ($fixtureCase.name -ceq 'valid') {
+                $observedFileAcl=Get-Acl -LiteralPath $fixtureFile
+                $usersReadRules=@($observedFileAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]) | Where-Object { $_.IdentityReference.Value -ceq 'S-1-5-32-545' -and $_.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow })
+                $readMask=[Security.AccessControl.FileSystemRights]::ReadAndExecute -bor [Security.AccessControl.FileSystemRights]::ReadPermissions
+                $writeMask=[Security.AccessControl.FileSystemRights]::Write -bor [Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership
+                $usersReadVerified=$usersReadRules.Count -eq 1 -and $usersReadRules[0].IsInherited -and (($usersReadRules[0].FileSystemRights -band $readMask) -eq $readMask) -and (($usersReadRules[0].FileSystemRights -band $writeMask) -eq 0)
+                $roundtripBudget=Get-Content -LiteralPath $fixtureFile -Raw | ConvertFrom-Json
+                $epochIsInteger=$roundtripBudget.deadline_unix_seconds -is [int] -or $roundtripBudget.deadline_unix_seconds -is [long]
+                if (-not $usersReadVerified -or -not $epochIsInteger) { throw 'Inherited Users read or serialized epoch fixture failed' }
+                $fixturePass=$fixturePass -and (([DateTimeOffset]$fixtureDeadline).ToUnixTimeSeconds() -eq $fixtureEpoch)
+                Write-Output ((@{fixture='trusted_acl_roundtrip';natural_owner_trusted=$naturalOwnerTrusted;explicit_trusted_owner=$true;directory_acl_verified=$true;users_inherited_read_verified=$usersReadVerified;ordinary_token_read_tested=$false;epoch_is_integer=$epochIsInteger;roundtrip_passed=$fixturePass})|ConvertTo-Json -Compress)
+            }
+            Write-Output ((@{fixture=$fixtureCase.name;rejected=$fixtureRejected;reason=$script:ServicingReadDiagnostic.reason;step=$script:ServicingReadDiagnostic.step;passed=$fixturePass})|ConvertTo-Json -Compress)
+            if (-not $fixturePass) { throw 'Real ACL budget fixture failed' }
+            $passed++
+        }
+    }
+} catch {
+    Write-Output ((@{fixture='acl_operation';failed=$true;hresult=[int]$_.Exception.HResult})|ConvertTo-Json -Compress)
+    throw 'Real owned ACL fixture operation failed'
+} finally {
+    Remove-Item Function:\Join-Path -ErrorAction SilentlyContinue
+    if ($fixtureCreated) {
+        # Exact freshly owned tree only; reject unexpected reparse children.
+        foreach ($fixtureItem in @(Get-ChildItem -LiteralPath $fixtureRoot -Force)) {
+            if ($fixtureItem.PSIsContainer -or ($fixtureItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Fixture cleanup boundary' }
+            Remove-Item -LiteralPath $fixtureItem.FullName -Force
+        }
+        Remove-Item -LiteralPath $fixtureRoot -Force
+        $fixtureCleanup=-not (Test-Path -LiteralPath $fixtureRoot)
+        Write-Output ((@{fixture='acl_cleanup';removed=$fixtureCleanup})|ConvertTo-Json -Compress)
+        if (-not $fixtureCleanup) { throw 'Fixture cleanup failed' }
+    }
+}
 
 # Execute the actual wait helper with owned mock objects, never DISM/processes.
 foreach ($scenario in @('success','timeout','unknown_exit','null_exit','string_exit')) {

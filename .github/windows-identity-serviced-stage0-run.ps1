@@ -102,20 +102,49 @@ function Assert-ProtectedUpdatePath($Path, [switch]$Directory, [switch]$Protecte
 }
 
 
+# Closed read diagnostics only; never grants trust or changes deadline acceptance.
+$script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null}
+$setupReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null}
+function Get-ClosedServicingReadDiagnostic($Value) {
+    $closed=@{step='not_started';reason='none';remaining_seconds=$null}
+    $steps=@('not_started','directory_acl','budget_acl','budget_read','budget_json','budget_schema','budget_epoch','receipt_acl','receipt_read','receipt_json','receipt_observed')
+    $reasons=@('none','missing','acl','read','json','schema','type','expired','over_bound','operation_failed')
+    if ($null -ne $Value) {
+        $keys=@($Value.PSObject.Properties.Name)
+        if ('step' -in $keys -and $Value.step -is [string] -and $Value.step -cin $steps) { $closed.step=$Value.step }
+        if ('reason' -in $keys -and $Value.reason -is [string] -and $Value.reason -cin $reasons) { $closed.reason=$Value.reason }
+        if ('remaining_seconds' -in $keys -and ($Value.remaining_seconds -is [int] -or $Value.remaining_seconds -is [long]) -and $Value.remaining_seconds -ge -172800 -and $Value.remaining_seconds -le 172800) { $closed.remaining_seconds=[long]$Value.remaining_seconds }
+    }
+    return $closed
+}
 function ConvertTo-ServicedDeadline($Epoch, [DateTime]$Now) {
-    if (($Epoch -isnot [int] -and $Epoch -isnot [long]) -or $Epoch -le 0) { throw 'service_deadline' }
-    $deadline=[DateTimeOffset]::FromUnixTimeSeconds([long]$Epoch).UtcDateTime
-    if ($deadline -le $Now -or ($deadline-$Now).TotalSeconds -gt 9600) { throw 'service_deadline' }
+    $script:ServicingReadDiagnostic.step='budget_epoch'
+    if (($Epoch -isnot [int] -and $Epoch -isnot [long])) { $script:ServicingReadDiagnostic.reason='type'; throw 'service_deadline' }
+    try { $deadline=[DateTimeOffset]::FromUnixTimeSeconds([long]$Epoch).UtcDateTime }
+    catch { $script:ServicingReadDiagnostic.reason='over_bound'; throw 'service_deadline' }
+    $remaining=($deadline-$Now).TotalSeconds
+    if ($remaining -ge -172800 -and $remaining -le 172800) { $script:ServicingReadDiagnostic.remaining_seconds=[int][Math]::Floor($remaining) }
+    if ($Epoch -le 0 -or $deadline -le $Now) { $script:ServicingReadDiagnostic.reason='expired'; throw 'service_deadline' }
+    if ($remaining -gt 9600) { $script:ServicingReadDiagnostic.reason='over_bound'; throw 'service_deadline' }
     return $deadline
 }
 function Get-ServicedDeadline {
     $path=Join-Path 'C:\RuleProxyCIUpdates' 'service-budget.json'
-    Assert-ProtectedUpdatePath $path
-    if ((Get-Item -LiteralPath $path).Length -gt 1024) { throw 'service_deadline' }
-    $budget=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-    if ($budget.schema -ne 1) { throw 'service_deadline' }
+    $script:ServicingReadDiagnostic.step='budget_acl'
+    if (-not (Test-Path -LiteralPath $path)) { $script:ServicingReadDiagnostic.reason='missing'; throw 'service_deadline' }
+    try { Assert-ProtectedUpdatePath $path } catch { $script:ServicingReadDiagnostic.reason='acl'; throw }
+    $script:ServicingReadDiagnostic.step='budget_read'
+    try {
+        if ((Get-Item -LiteralPath $path).Length -gt 1024) { $script:ServicingReadDiagnostic.reason='over_bound'; throw 'service_deadline' }
+        $rawBudget=Get-Content -LiteralPath $path -Raw
+    } catch { if ($script:ServicingReadDiagnostic.reason -eq 'none') { $script:ServicingReadDiagnostic.reason='read' }; throw }
+    $script:ServicingReadDiagnostic.step='budget_json'
+    try { $budget=$rawBudget | ConvertFrom-Json } catch { $script:ServicingReadDiagnostic.reason='json'; throw }
+    $script:ServicingReadDiagnostic.step='budget_schema'
+    if ($null -eq $budget -or 'schema' -notin @($budget.PSObject.Properties.Name) -or $budget.schema -ne 1 -or 'deadline_unix_seconds' -notin @($budget.PSObject.Properties.Name)) { $script:ServicingReadDiagnostic.reason='schema'; throw 'service_deadline' }
     return ConvertTo-ServicedDeadline $budget.deadline_unix_seconds ([DateTime]::UtcNow)
 }
+
 function Expand-CheckedStage0Zip {
     param([string]$ArchivePath, [string]$Destination, [string[]]$RequiredNames,
           [int]$MemberCount, [long]$ExactBytes, [long]$MaximumBytes, [bool]$Flat, [bool]$ExactNames)
@@ -218,15 +247,30 @@ try {
     }
     $earlyBootGateCompleted=$true
     $phase='servicing_wait'; $earlyOperation='other'
-    Assert-ProtectedUpdatePath 'C:\RuleProxyCIUpdates' -Directory -ProtectedDacl
+    $script:ServicingReadDiagnostic.step='directory_acl'
+    if (-not (Test-Path -LiteralPath 'C:\RuleProxyCIUpdates')) { $script:ServicingReadDiagnostic.reason='missing'; throw 'Service directory missing' }
+    try { Assert-ProtectedUpdatePath 'C:\RuleProxyCIUpdates' -Directory -ProtectedDacl } catch { $script:ServicingReadDiagnostic.reason='acl'; throw }
     $statePath='C:\RuleProxyCIUpdates\update-state.json'
+    $setupDiagnosticPath='C:\RuleProxyCIUpdates\setup-read-diagnostic.json'
+    if (Test-Path -LiteralPath $setupDiagnosticPath) {
+        try {
+            Assert-ProtectedUpdatePath $setupDiagnosticPath
+            if ((Get-Item -LiteralPath $setupDiagnosticPath).Length -gt 1024) { throw 'Setup diagnostic bound' }
+            $setupReadDiagnostic=Get-ClosedServicingReadDiagnostic (Get-Content -LiteralPath $setupDiagnosticPath -Raw | ConvertFrom-Json)
+        } catch { }
+    }
     $servicingDeadline=Get-ServicedDeadline
     do {
         if (Test-Path -LiteralPath $statePath) {
-            Assert-ProtectedUpdatePath $statePath
+            $script:ServicingReadDiagnostic.step='receipt_acl'
+            try { Assert-ProtectedUpdatePath $statePath } catch { $script:ServicingReadDiagnostic.reason='acl'; throw }
+            $script:ServicingReadDiagnostic.step='receipt_read'
             $item=Get-Item -LiteralPath $statePath -Force
-            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.Length -gt 4096) { $failureCategory='servicing_receipt'; throw 'Closed servicing receipt rejected' }
-            $service=Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.Length -gt 4096) { $script:ServicingReadDiagnostic.reason='over_bound'; $failureCategory='servicing_receipt'; throw 'Closed servicing receipt rejected' }
+            try { $rawService=Get-Content -LiteralPath $statePath -Raw } catch { $script:ServicingReadDiagnostic.reason='read'; throw }
+            $script:ServicingReadDiagnostic.step='receipt_json'
+            try { $service=$rawService | ConvertFrom-Json } catch { $script:ServicingReadDiagnostic.reason='json'; throw }
+            $script:ServicingReadDiagnostic.step='receipt_observed'
             if ($service.status -ceq 'failed') { $failureCategory='servicing_failed'; throw 'Pinned servicing failed' }
             if ([DateTime]::UtcNow -ge $servicingDeadline) { $failureCategory='servicing_deadline'; throw 'Servicing deadline' }
             if ($service.status -ceq 'completed') { break }
@@ -369,6 +413,9 @@ try {
         if ($service.dism_exit_code -is [int] -or $service.dism_exit_code -is [long]) { $serviceFacts.dism_exit_code=[long]$service.dism_exit_code }
         foreach ($name in @('packages_verified','reboot_observed','task_unregistered','completed','dism_wait_timed_out','dism_exit_observed','dism_exit_observation_available')) { $serviceFacts[$name]=($service.$name -eq $true) }
     }
+    if ($failed -and $phase -eq 'servicing_wait' -and $script:ServicingReadDiagnostic.reason -eq 'none') { $script:ServicingReadDiagnostic.reason='operation_failed' }
+    Set-ClosedResultField 'setup_read_diagnostic' $setupReadDiagnostic
+    Set-ClosedResultField 'servicing_read_diagnostic' $script:ServicingReadDiagnostic
     Set-ClosedResultField 'servicing_diagnostic' $serviceFacts
     $launcher=@{phase=$phase; failure_category=$failureCategory; failed=$failed; hresult=$hresult; python_exit_code=$pythonExit; transport_attempt=0}
     Set-ClosedResultField 'launcher_diagnostic' $launcher

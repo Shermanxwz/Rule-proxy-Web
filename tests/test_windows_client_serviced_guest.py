@@ -133,6 +133,20 @@ class ServicedGuestContractTests(unittest.TestCase):
                        'value=$true', 'value=$null', 'Wire HRESULT value or JSON numeric type changed'):
             self.assertIn(marker, test)
 
+    def test_actual_acl_budget_semantics_and_closed_setup_failure(self):
+        test=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        for marker in ('Set-Acl -LiteralPath $fixtureRoot', 'Get-ServicedDeadline', "'write_acl'", "'owner'", "'missing'", "'future'", 'natural_owner_trusted', 'explicit_trusted_owner', 'caller_root_preserved', 'acl_cleanup'):
+            self.assertIn(marker,test)
+        self.assertIn("if ($Path -cne 'C:\\RuleProxyCIUpdates'",test)
+        self.assertIn("'setup-read-diagnostic.json'",SETUP)
+        self.assertIn('[IO.FileMode]::CreateNew',SETUP)
+        self.assertIn("Set-ClosedResultField 'setup_read_diagnostic'",RUN)
+        self.assertIn("Set-ClosedResultField 'servicing_read_diagnostic'",RUN)
+        self.assertIn('Get-ClosedServicingReadDiagnostic',RUN)
+        for marker in ("reason='type'", "reason='expired'", "reason='over_bound'", "reason='acl'", "reason='json'", "reason='missing'"):
+            self.assertIn(marker,RUN)
+            self.assertIn(marker,UPDATE)
+
     def test_guest_deadline_is_seed_bound_protected_and_never_reset(self):
         self.assertIn("Join-Path $PSScriptRoot 'service-budget.json'", SETUP)
         self.assertIn('$hostDeadline=ConvertTo-ServicedDeadline', SETUP)

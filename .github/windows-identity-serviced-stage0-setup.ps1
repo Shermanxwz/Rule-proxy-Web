@@ -34,11 +34,20 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'windows-identity-serviced-updat
 . $worker
 Assert-ProtectedUpdatePath $protected -Directory -ProtectedDacl
 Assert-ProtectedUpdatePath $worker
+# Persist only closed setup-budget failures after directory trust is established.
+try {
 # Read only the original immutable seed, never the user-writable workspace copy.
+$script:ServicingReadDiagnostic.step='budget_read'
 $seedBudgetPath=Join-Path $PSScriptRoot 'service-budget.json'
-if ((Get-Item -LiteralPath $seedBudgetPath).Length -gt 1024) { throw 'Host budget bound' }
-$seedBudget=Get-Content -LiteralPath $seedBudgetPath -Raw | ConvertFrom-Json
-if ($seedBudget.schema -ne 1) { throw 'Invalid host budget' }
+if (-not (Test-Path -LiteralPath $seedBudgetPath)) { $script:ServicingReadDiagnostic.reason='missing'; throw 'Host budget missing' }
+try {
+    if ((Get-Item -LiteralPath $seedBudgetPath).Length -gt 1024) { $script:ServicingReadDiagnostic.reason='over_bound'; throw 'Host budget bound' }
+    $seedRaw=Get-Content -LiteralPath $seedBudgetPath -Raw
+} catch { if ($script:ServicingReadDiagnostic.reason -eq 'none') { $script:ServicingReadDiagnostic.reason='read' }; throw }
+$script:ServicingReadDiagnostic.step='budget_json'
+try { $seedBudget=$seedRaw | ConvertFrom-Json } catch { $script:ServicingReadDiagnostic.reason='json'; throw }
+$script:ServicingReadDiagnostic.step='budget_schema'
+if ($null -eq $seedBudget -or 'schema' -notin @($seedBudget.PSObject.Properties.Name) -or $seedBudget.schema -ne 1 -or 'deadline_unix_seconds' -notin @($seedBudget.PSObject.Properties.Name)) { $script:ServicingReadDiagnostic.reason='schema'; throw 'Invalid host budget' }
 $now=[DateTime]::UtcNow
 $hostDeadline=ConvertTo-ServicedDeadline $seedBudget.deadline_unix_seconds $now
 $serviceDeadline=$now.AddMinutes(110)
@@ -47,6 +56,21 @@ $budgetPath=Join-Path $protected 'service-budget.json'
 $budgetJson=@{schema=1;deadline_unix_seconds=([DateTimeOffset]$serviceDeadline).ToUnixTimeSeconds()} | ConvertTo-Json -Compress
 [IO.File]::WriteAllText($budgetPath,$budgetJson,[Text.Encoding]::ASCII)
 Assert-ProtectedUpdatePath $budgetPath
+
+} catch {
+    if ($script:ServicingReadDiagnostic.reason -eq 'none') { $script:ServicingReadDiagnostic.reason='operation_failed' }
+    try {
+        Assert-ProtectedUpdatePath $protected -Directory -ProtectedDacl
+        $setupDiagnosticPath=Join-Path $protected 'setup-read-diagnostic.json'
+        if (Test-Path -LiteralPath $setupDiagnosticPath) { throw 'Fresh setup diagnostic required' }
+        $setupDiagnosticJson=$script:ServicingReadDiagnostic | ConvertTo-Json -Compress
+        if ([Text.Encoding]::ASCII.GetByteCount($setupDiagnosticJson) -gt 1024) { throw 'Setup diagnostic bound' }
+        $setupDiagnosticStream=[IO.File]::Open($setupDiagnosticPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+        try { $setupDiagnosticBytes=[Text.Encoding]::ASCII.GetBytes($setupDiagnosticJson); $setupDiagnosticStream.Write($setupDiagnosticBytes,0,$setupDiagnosticBytes.Length) } finally { $setupDiagnosticStream.Dispose() }
+        Assert-ProtectedUpdatePath $setupDiagnosticPath
+    } catch { }
+    throw
+}
 
 $powerShell=Join-Path ([Environment]::GetFolderPath('Windows')) 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $action=New-ScheduledTaskAction -Execute $powerShell -Argument ('-NoProfile -ExecutionPolicy Bypass -File "'+$worker+'"')

@@ -47,12 +47,15 @@ class EarlySerialTests(unittest.TestCase):
         self.assertEqual(values('categories'),set(host.LAUNCHER_FAILURES))
     def test_serial_failure_cannot_be_replaced_by_later_success(self):
         public={'early_guest_diagnostic':self.diagnostic(),'stage0_passed':True}
-        with patch.object(host,'project_stage0',return_value={key:{} for key in ('diagnostics','guest_diagnostic','launcher_diagnostic','servicing_diagnostic')}), patch.object(host,'validate_guest',return_value={'stage0_passed':True}) as validate:
+        projected=host.project_stage0({})
+        with patch.object(host,'project_stage0',return_value=projected), patch.object(host,'validate_guest',return_value={'stage0_passed':True}) as validate:
             with self.assertRaises(host.EarlyGuestFailure):
                 host.merge_serviced_result(public,{},'a'*64,True)
             validate.assert_not_called()
         self.assertFalse(public['stage0_passed'])
         self.assertIn('servicing_diagnostic',public)
+        self.assertEqual(public['servicing_read_diagnostic'],host.closed_servicing_read({}))
+        self.assertEqual(public['setup_read_diagnostic'],host.closed_servicing_read({}))
     def test_setup_wait_failure_is_accepted(self):
         value=self.diagnostic();value.update(phase='installed_setup_wait',operation='waiting_setup',failure_category='installed_setup_deadline')
         self.assertEqual(host.parse_early_guest(self.line(value).strip()),value)

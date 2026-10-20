@@ -209,6 +209,51 @@ class WireReceiptTests(unittest.TestCase):
                 'packages_verified':True,'reboot_observed':True,'task_unregistered':True,'completed':True},
             launcher_diagnostic={'phase':'serviced_build','failure_category':'none','failed':False})
 
+    def test_read_diagnostic_is_closed_bounded_and_idempotent(self):
+        for seconds in (-172800, 0, 172800, None):
+            raw={'step':'budget_epoch','reason':'expired','remaining_seconds':seconds,'path':'PRIVATE_SENTINEL'}
+            closed=host.closed_servicing_read(raw)
+            self.assertEqual(closed['remaining_seconds'],seconds)
+            self.assertEqual(host.closed_servicing_read(closed),closed)
+            self.assertNotIn('PRIVATE_SENTINEL',json.dumps(closed))
+        for seconds in (-172801,172801,True,1.5,'PRIVATE_SENTINEL',{},[]):
+            self.assertIsNone(host.closed_servicing_read({'remaining_seconds':seconds})['remaining_seconds'])
+        closed=host.closed_servicing_read({'step':'PRIVATE_SENTINEL','reason':'PRIVATE_SENTINEL'})
+        self.assertEqual(closed,{'step':'not_started','reason':'operation_failed','remaining_seconds':None})
+
+    def test_read_diagnostic_preserved_without_affecting_acceptance(self):
+        for step in host.SERVICE_READ_STEPS:
+            for reason in host.SERVICE_READ_REASONS:
+                raw=self.receipt()
+                raw['servicing_read_diagnostic']={'step':step,'reason':reason,'remaining_seconds':-172800}
+                result=host.validate_guest(raw,'a'*64)
+                self.assertTrue(result['stage0_passed'])
+                self.assertEqual(result['servicing_read_diagnostic'],raw['servicing_read_diagnostic'])
+                raw['checks']['native_identity']=False
+                self.assertFalse(host.validate_guest(raw,'a'*64)['stage0_passed'])
+
+    def test_setup_diagnostic_independent_from_ordinary_missing_budget(self):
+        raw=self.receipt()
+        raw['setup_read_diagnostic']={'step':'budget_epoch','reason':'over_bound','remaining_seconds':172800,'private':'PRIVATE_SENTINEL'}
+        raw['servicing_read_diagnostic']={'step':'budget_acl','reason':'missing','remaining_seconds':None}
+        result=host.validate_guest(raw,'a'*64)
+        self.assertTrue(result['stage0_passed'])  # diagnostics never create or revoke acceptance
+        self.assertEqual(result['setup_read_diagnostic'],{'step':'budget_epoch','reason':'over_bound','remaining_seconds':172800})
+        self.assertEqual(result['servicing_read_diagnostic'],raw['servicing_read_diagnostic'])
+        self.assertNotIn('PRIVATE_SENTINEL',json.dumps(result))
+        raw['os']['ubr']=6584;public={}
+        with self.assertRaises(ValueError):host.merge_serviced_result(public,raw,'a'*64,False)
+        self.assertEqual(public['setup_read_diagnostic'],result['setup_read_diagnostic'])
+        self.assertFalse(public['stage0_passed'])
+
+    def test_read_diagnostic_retained_on_failed_provenance(self):
+        raw=self.receipt();raw['os']['ubr']=6584
+        raw['servicing_read_diagnostic']={'step':'budget_json','reason':'json','remaining_seconds':None}
+        public={}
+        with self.assertRaises(ValueError):host.merge_serviced_result(public,raw,'a'*64,False)
+        self.assertFalse(public['stage0_passed'])
+        self.assertEqual(public['servicing_read_diagnostic'],raw['servicing_read_diagnostic'])
+
     def test_exact_guest_receipt_passes_gate(self):
         result=host.validate_guest(self.receipt(),'a'*64)
         self.assertTrue(result['stage0_passed'])

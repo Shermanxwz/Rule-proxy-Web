@@ -370,6 +370,8 @@ def project_stage0(raw):
               'stage0_passed': raw.get('stage0_passed') is True and all(checks.get(k) is True for k in CHECKS),
               'diagnostics': proof.closed_diagnostics(raw)}
     result['servicing_diagnostic'] = closed_servicing(raw.get('servicing_diagnostic'))
+    result['servicing_read_diagnostic'] = closed_servicing_read(raw.get('servicing_read_diagnostic'))
+    result['setup_read_diagnostic'] = closed_servicing_read(raw.get('setup_read_diagnostic'))
     guest = proof._dict(raw.get('guest_diagnostic')); failure = proof._dict(guest.get('failure'))
     result['guest_diagnostic'] = {'phase': proof._enum(guest.get('phase'), GUEST_PHASES, 'not_started'),
         'failure': {'type': proof._enum(failure.get('type'), proof.FAILURE_TYPES, 'absent'),
@@ -831,6 +833,18 @@ SERVICE_PHASES = ('not_observed', 'unclassified', 'initializing', 'waiting_for_o
 SERVICE_FAILURES = ('none','unclassified','service_deadline','system_required','prior_bound','prior_state','setup_deadline','optical_deadline','optical_device','optical_root','optical_members','optical_package','optical_changed','reboot_not_observed','exact_serviced_build','reboot_still_pending','task_remains','exact_stock_build','dism_log_exists','dism_handle','dism_deadline','dism_exit_absent','dism_failed','operation_failed')
 
 
+SERVICE_READ_STEPS = ('not_started', 'directory_acl', 'budget_acl', 'budget_read', 'budget_json',
+    'budget_schema', 'budget_epoch', 'receipt_acl', 'receipt_read', 'receipt_json', 'receipt_observed')
+SERVICE_READ_REASONS = ('none', 'missing', 'acl', 'read', 'json', 'schema', 'type', 'expired', 'over_bound', 'operation_failed')
+
+
+def closed_servicing_read(value):
+    proof = proof_helpers(); value = proof._dict(value)
+    return {'step': proof._enum(value.get('step'), SERVICE_READ_STEPS, 'not_started'),
+            'reason': proof._enum(value.get('reason'), SERVICE_READ_REASONS, 'operation_failed'),
+            'remaining_seconds': proof._integer(value.get('remaining_seconds'), -172800, 172800)}
+
+
 def closed_servicing(value):
     proof = proof_helpers(); value = proof._dict(value)
     return {'phase': proof._enum(value.get('phase'), SERVICE_PHASES, 'not_observed'),
@@ -1072,7 +1086,7 @@ def merge_serviced_result(public, value, actor_digest, service_started):
     public['stage0_passed'] = False
     public['guest_result_provenance_verified'] = False
     observed = project_stage0(value)
-    for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic'):
+    for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic', 'servicing_read_diagnostic', 'setup_read_diagnostic'):
         public[key] = observed[key]
     if public.get('early_guest_diagnostic') is not None:
         raise EarlyGuestFailure('closed guest failure contradicts result acceptance')
