@@ -64,7 +64,7 @@ class StockTests(unittest.TestCase):
             self.assertFalse(result['provider_background_writes_excluded'])
             self.assertFalse(result['installed_plan_verified'])
             self.assertFalse(result['planning_ledger_is_hard_quota'])
-            self.assertEqual(sum(result['planning_ledger_bytes'].values()),522502602)
+            self.assertEqual(sum(result['planning_ledger_bytes'].values()),523416078)
             self.assertLess(sum(result['planning_ledger_bytes'].values()),stock.PREP_ALLOWANCE)
             self.assertTrue(result['same_filesystem'])
             with self.assertRaises(ValueError): stock.preparation_checkpoint(path,'pre_vm')
@@ -137,6 +137,87 @@ class StockTests(unittest.TestCase):
             runner,_=self.apt_runner(**options)
             with self.subTest(options=options),self.assertRaises(ValueError):
                 stock.reviewed_apt_plan(runner=runner)
+    def measured_apt_fixture(self):
+        fixture=json.loads((ROOT/'tests/fixtures/windows_stock_apt_after_refresh.json').read_text(encoding='ascii'))
+        records=[dict(zip(fixture['record_fields'],row)) for row in fixture['records']]
+        return fixture,records
+    def measured_apt_runner(self,records):
+        calls=[]
+        by_name={row['name']:row for row in records}
+        def runner(command,**kwargs):
+            calls.append(command)
+            if command[0]=='apt-get':
+                self.assertEqual(command,['apt-get','-s','--no-install-recommends','--no-remove','install',*stock.VM_PACKAGES])
+                upgraded=sum(row['old_version'] is not None for row in records)
+                text=f'{upgraded} upgraded, {len(records)-upgraded} newly installed, 0 to remove and 78 not upgraded.\n'
+                for row in records:
+                    text+='Inst '+row['name']+(' ['+row['old_version']+']' if row['old_version'] else '')
+                    text+=' ('+row['version']+' Ubuntu [amd64])\n'
+                return SimpleNamespace(returncode=0,stdout=text,stderr='')
+            if command[0]=='apt-cache':
+                name,version=command[2].split('='); row=by_name[name]
+                self.assertEqual(version,row['version'])
+                text='\n'.join(key+': '+str(value) for key,value in (
+                    ('Package',name),('Version',version),('Architecture',row['architecture']),
+                    ('Size',row['download_bytes']),('Installed-Size',row['installed_kib'])))+'\n'
+                return SimpleNamespace(returncode=0,stdout=text,stderr='')
+            if command[0]=='dpkg-query':
+                row=by_name[command[-1]]
+                text=('installed\n'+str(row['previous_kib'])+'\n'+row['old_version']+'\n') if row['old_version'] else ''
+                return SimpleNamespace(returncode=0 if row['old_version'] else 1,stdout=text,stderr='')
+            self.fail('Only fake read-only APT plan commands are permitted')
+        return runner,calls
+    def test_exact_measured_refreshed_plan_is_accepted_without_other_scope_changes(self):
+        fixture,records=self.measured_apt_fixture()
+        self.assertEqual(fixture['source_run_id'],39389193171)
+        self.assertEqual(fixture['source_commit'],'342c8cd336af4811366d1e3af6b1f89834975930')
+        self.assertEqual(fixture['source_artifact_id'],12248706851)
+        self.assertEqual(fixture['source_artifact_sha256'],'fe8c5dacc7adda9e90faa93dff04f9b47d1b17cedd8fc32a46e624bd6be1febf')
+        self.assertRegex(fixture['source_report_sha256'],r'^[0-9a-f]{64}$')
+        upgraded=[row for row in records if row['old_version'] is not None]
+        self.assertEqual({row['name'] for row in upgraded},{'curl','libcurl4t64','libcurl3t64-gnutls'})
+        self.assertTrue(all(row['old_version']=='8.5.0-2ubuntu10.15' and row['version']=='8.5.0-2ubuntu10.16' for row in upgraded))
+        self.assertFalse(fixture['third_upgrade_solver_causality_proven'])
+        runner,calls=self.measured_apt_runner(records)
+        result=stock.reviewed_apt_plan(runner=runner)
+        self.assertEqual((result['package_count'],result['download_bytes'],result['positive_installed_growth_bytes']),
+                         (26,26223118,115951616))
+        self.assertEqual(len(calls),53)
+        self.assertEqual((stock.PREP_ALLOWANCE,stock.PREMEDIA_FREE,stock.LAUNCH_FREE,stock.DISK_FILE_CAP,stock.STOP_FREE),
+                         (512*1024**2,32*stock.GIB,24*stock.GIB,18*stock.GIB,4*stock.GIB))
+        self.assertEqual(stock.MIN_VM_WORK_SECONDS,1800)
+        self.assertEqual(stock.PREP_PLANNING_BYTES['apt_positive_growth_plan_ceiling'],115951616)
+        self.assertEqual(stock.PREP_PLANNING_BYTES['dpkg_transient_assumption'],115951616)
+        self.assertEqual(sum(stock.PREP_PLANNING_BYTES.values()),523416078)
+        self.assertEqual(stock.PREP_ALLOWANCE-sum(stock.PREP_PLANNING_BYTES.values()),13454834)
+        with patch.object(stock,'APT_PACKAGE_CEILING',23),self.assertRaisesRegex(ValueError,'APT package count differs'):
+            stock.reviewed_apt_plan(runner=runner)
+    def test_measured_plan_rejects_first_representable_increase_and_one_byte_lower_ceiling(self):
+        _,original=self.measured_apt_fixture()
+        for variant in ('count','download','growth'):
+            records=[dict(row) for row in original]
+            if variant=='count':
+                records.append(dict(name='extra-fixture',version='1.0',old_version=None,architecture='all',
+                                    download_bytes=0,installed_kib=0,previous_kib=0))
+            elif variant=='download': records[0]['download_bytes']+=1
+            else: records[0]['installed_kib']+=1
+            runner,_=self.measured_apt_runner(records)
+            with self.subTest(variant=variant),self.assertRaises(ValueError): stock.reviewed_apt_plan(runner=runner)
+        for field,bound in (('APT_DOWNLOAD_CEILING',26223117),('APT_INSTALLED_GROWTH_CEILING',115951615)):
+            runner,_=self.measured_apt_runner(original)
+            with patch.object(stock,field,bound),self.assertRaisesRegex(ValueError,'APT plan exceeds'):
+                stock.reviewed_apt_plan(runner=runner)
+    def test_record_accepts_each_exact_ceiling_and_rejects_each_plus_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'public.json'
+            for changed in (None,'package_count','download_bytes','positive_installed_growth_bytes'):
+                value=self.prep_fixture(path,phases=3,apt=True)
+                value['apt_plan'].update(package_count=26,download_bytes=26223118,positive_installed_growth_bytes=115951616)
+                if changed is not None: value['apt_plan'][changed]+=1
+                path.write_text(json.dumps(value))
+                if changed is None: self.assertTrue(stock.preparation_record(path)['apt_plan']['verified'])
+                else:
+                    with self.subTest(field=changed),self.assertRaises(ValueError): stock.preparation_record(path)
     def test_apt_plan_failure_report_contains_only_closed_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'public.json'; self.prep_fixture(path,phases=3)

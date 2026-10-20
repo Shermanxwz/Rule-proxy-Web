@@ -602,3 +602,20 @@ than a parser ambiguity. Only indexes were refreshed: no package installation,
 provider recovery or VM. Row-only evidence does not identify the three public
 package names, so a narrow follow-on must establish their dependency identities
 before the conditionally approved measured-ceiling correction is exercised.
+
+Identity diagnostic `39389193171` (`342c8cd3`) names the three upgrades as curl,
+libcurl4t64 and libcurl3t64-gnutls, each8.5.0-2ubuntu10.15 to10.16. curl is an
+explicit requested tool and declares the exact-version libcurl4t64 dependency.
+The GnuTLS variant was selected by the same fixed install-only simulation; its
+specific solver relationship is not established by the exported graph. No
+upgrade/dist-upgrade command or security-setting change was used. This bounded
+curl-family update is within the approved official tool setup. The measured
+26-package/26,223,118-download-byte/115,951,616-growth-byte correction is being
+reviewed with the unchanged512MiB preparation allowance and runtime limits.
+The frozen correction changes exactly the three measured APT ceiling constants;
+reversing them restores the previous stock source hash. The planning ledger now
+totals523,416,078 bytes, leaving13,454,834 bytes within the unchanged512MiB
+allowance. A compact26-package public metadata fixture exercises the real parser
+and exact boundaries. All326 local pure tests pass. The historical diagnostic
+retains its old source pin and intentionally rejects the updated live host;
+its pure tests use an explicit old-ceiling fixture rather than disabling tests.

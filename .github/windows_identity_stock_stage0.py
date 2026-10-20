@@ -73,9 +73,9 @@ PREP_ALLOWANCE = 512 * 1024**2
 PREP_PHASES = ('before_checkout', 'post_checkout', 'post_apt_indexes', 'post_apt',
                'post_actor', 'post_g_download', 'post_g_bundle', 'post_python', 'pre_vm')
 VM_PACKAGES = ('qemu-system-x86', 'qemu-utils', 'ovmf', 'swtpm', 'xorriso', 'curl', '7zip')
-APT_DOWNLOAD_CEILING = 25315786
-APT_INSTALLED_GROWTH_CEILING = 115948544
-APT_PACKAGE_CEILING = 23
+APT_DOWNLOAD_CEILING = 26223118
+APT_INSTALLED_GROWTH_CEILING = 115951616
+APT_PACKAGE_CEILING = 26
 # A planning ledger, NOT filesystem quotas or a proven transient peak. Only
 # current APT plan ceilings and observed net capacity gates are enforced below.
 # The other categories are explicit conservative assumptions, including one

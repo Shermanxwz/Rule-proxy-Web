@@ -15,7 +15,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('apt_diagnostic', ROOT / '.github/windows_identity_apt_diagnostic.py')
 diag = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(diag)
-stock = diag.load_frozen_stock()
+# Historical parser fixtures use an explicit test-only module. Restore only
+# the original ceilings; never repin or relax the production diagnostic loader.
+STOCK_SPEC = importlib.util.spec_from_file_location('historical_stock_fixture', ROOT / '.github/windows_identity_stock_stage0.py')
+stock = importlib.util.module_from_spec(STOCK_SPEC)
+STOCK_SPEC.loader.exec_module(stock)
+stock.APT_PACKAGE_CEILING = 23
+stock.APT_DOWNLOAD_CEILING = 25315786
+stock.APT_INSTALLED_GROWTH_CEILING = 115948544
 
 
 class Fixture:
@@ -60,8 +67,11 @@ def run_probe(fixture):
 
 
 class AptDiagnosticTests(unittest.TestCase):
-    def test_frozen_runtime_source_and_all_acceptance_ceilings_are_unchanged(self):
-        self.assertEqual(hashlib.sha256((ROOT / '.github/windows_identity_stock_stage0.py').read_bytes()).hexdigest(), diag.STOCK_SHA256)
+    def test_historical_ceilings_are_preserved_and_frozen_loader_rejects_changed_live_source(self):
+        self.assertEqual(diag.STOCK_SHA256, 'f24f413caccc2619182e76ad22b385e134e7403bc9614d3b927812b1ea410e62')
+        self.assertNotEqual(hashlib.sha256((ROOT / '.github/windows_identity_stock_stage0.py').read_bytes()).hexdigest(), diag.STOCK_SHA256)
+        with self.assertRaisesRegex(ValueError, 'stock_source_mismatch'):
+            diag.load_frozen_stock()
         self.assertEqual((stock.APT_PACKAGE_CEILING, stock.APT_DOWNLOAD_CEILING, stock.APT_INSTALLED_GROWTH_CEILING),
                          (23, 25315786, 115948544))
         self.assertEqual(tuple(diag.SIMULATION[-7:]), stock.VM_PACKAGES)
@@ -359,7 +369,8 @@ class AptDiagnosticTests(unittest.TestCase):
             self.assertNotIn('/private', (Path(directory) / 'after_refresh.json').read_text())
 
     def test_successful_orchestrator_only_refreshes_once_and_uses_one_absolute_deadline(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(diag, 'reviewed_environment', return_value=True):
+        with tempfile.TemporaryDirectory() as directory, patch.object(diag, 'reviewed_environment', return_value=True), \
+             patch.object(diag, 'load_frozen_stock', return_value=stock):
             fixture = Fixture()
             start = time.monotonic()
             self.assertEqual(diag.diagnose(Path(directory), time.time() + 400, executor=fixture), 0)
@@ -376,7 +387,8 @@ class AptDiagnosticTests(unittest.TestCase):
                 self.assertNotIn('private refresh', json.dumps(result))
 
     def test_refresh_failure_preserves_before_and_blocks_after_probe(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(diag, 'reviewed_environment', return_value=True):
+        with tempfile.TemporaryDirectory() as directory, patch.object(diag, 'reviewed_environment', return_value=True), \
+             patch.object(diag, 'load_frozen_stock', return_value=stock):
             fixture = Fixture(refresh_code=100)
             self.assertEqual(diag.diagnose(Path(directory), time.time() + 400, executor=fixture), 1)
             before = json.loads((Path(directory) / 'before_refresh.json').read_text())

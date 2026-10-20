@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": false,
+  "run_id": 39389193171,
+  "commit": "342c8cd336af4811366d1e3af6b1f89834975930",
+  "artifact_id": 12248706851,
+  "artifact_zip_sha256": "fe8c5dacc7adda9e90faa93dff04f9b47d1b17cedd8fc32a46e624bd6be1febf",
+  "source": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39389193171",
+  "after_refresh": {
+    "download_bytes": 26223118,
+    "positive_installed_growth_bytes": 115951616,
+    "totals_complete": true,
+    "frozen_gate_error": "simulation_count",
+    "package_count": 26
+  },
+  "upgrades": [
+    {
+      "directly_requested": true,
+      "name": "curl",
+      "selected_version": "8.5.0-2ubuntu10.16",
+      "simulated_old_version": "8.5.0-2ubuntu10.15"
+    },
+    {
+      "directly_requested": false,
+      "name": "libcurl4t64",
+      "selected_version": "8.5.0-2ubuntu10.16",
+      "simulated_old_version": "8.5.0-2ubuntu10.15"
+    },
+    {
+      "directly_requested": false,
+      "name": "libcurl3t64-gnutls",
+      "selected_version": "8.5.0-2ubuntu10.16",
+      "simulated_old_version": "8.5.0-2ubuntu10.15"
+    }
+  ],
+  "curl_declared_exact_libcurl4t64_dependency": "8.5.0-2ubuntu10.16",
+  "libcurl3t64_gnutls_selection_causality_established": false,
+  "packages_installed": false,
+  "provider_recovery": false,
+  "vm_created": false
+}
