@@ -1,4 +1,4 @@
-# Read-only provider capacity preflight; no cache deletion on this path.
+# Supported control attempt 03: read-only capacity preflight; no provider deletion.
 name: Windows serviced client Stage0 (bounded experiment)
 on:
   push:
