@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "0f76508469d8c3ffa18b714d62f03f96f8662cd2",
+  "run_id": 39488688154,
+  "native_job_id": 118856965243,
+  "artifacts": [
+    {
+      "artifact_id": 12297424568,
+      "archive_sha256": "a818aebea88a66b542e8e3bf124df6c09bf233f60e7fcfeac89182e8a712f046",
+      "public_file": "serviced-stage0-attempt-06-runtime-public.json"
+    },
+    {
+      "artifact_id": 12297944120,
+      "archive_sha256": "654630e9d7eb83198d656d1fe3cdc55fd74544b3ad6d33662392f1aa10c195f7",
+      "public_file": "serviced-stage0-attempt-06-preparation-public.json"
+    },
+    {
+      "artifact_id": 12299460174,
+      "archive_sha256": "e0c880a5c971d282170e167822f3d9c3bed0bbb1c16134f6bfc1cbe37608a120",
+      "public_file": "serviced-stage0-attempt-06-capacity-public.json"
+    }
+  ],
+  "observed_outcome": "accepted_prior_checkpoint_overwritten_by_nonresumable_optical_progress",
+  "stage0_passed": false,
+  "vm_destroyed": true,
+  "prior_attempt_cleanup_uncertainty_unchanged": true,
+  "provider_deletion_attempted": false,
+  "installed_stock_beacon_observed": true,
+  "update_media_host_verified_and_attached": true,
+  "isolation_not_tested": true,
+  "qemu_started_utc": "2026-10-20T20:15:11Z",
+  "installed_stock_beacon_utc": "2026-10-20T20:28:24Z",
+  "result_received_utc": "2026-10-20T21:13:06Z",
+  "cleanup_done_utc": "2026-10-20T21:13:13Z",
+  "setup_budget_accepted": true,
+  "setup_remaining_seconds": 8273,
+  "ordinary_remaining_seconds": 3731,
+  "observed_zone_pacific": true,
+  "observed_utc_offset_minutes": -420,
+  "preserved_prior_service": {
+    "s": "installing",
+    "p": "verifying_optical",
+    "f": "none",
+    "e": 3010,
+    "b": 55
+  },
+  "additional_invocation_cause_not_established": true,
+  "dism_application_not_independently_established": true,
+  "reboot_not_established": true,
+  "exact_serviced_build_not_established": true
+}
