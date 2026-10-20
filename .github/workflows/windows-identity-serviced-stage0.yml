@@ -1,4 +1,4 @@
-# Supported control attempt 05: matched serviced RTC convention; no provider deletion.
+# Supported control attempt 06: closed prior-state diagnostics; no provider deletion.
 name: Windows serviced client Stage0 (bounded experiment)
 on:
   push:
