@@ -416,6 +416,7 @@ def project_stage0(raw):
     result['servicing_diagnostic'] = closed_servicing(raw.get('servicing_diagnostic'))
     result['servicing_read_diagnostic'] = closed_servicing_read(raw.get('servicing_read_diagnostic'))
     result['setup_read_diagnostic'] = closed_servicing_read(raw.get('setup_read_diagnostic'))
+    result['prior_service'] = closed_prior_service(raw.get('prior_service'))
     guest = proof._dict(raw.get('guest_diagnostic')); failure = proof._dict(guest.get('failure'))
     result['guest_diagnostic'] = {'phase': proof._enum(guest.get('phase'), GUEST_PHASES, 'not_started'),
         'failure': {'type': proof._enum(failure.get('type'), proof.FAILURE_TYPES, 'absent'),
@@ -882,6 +883,20 @@ SERVICE_READ_STEPS = ('not_started', 'clock_contract', 'directory_acl', 'budget_
 SERVICE_READ_REASONS = ('none', 'clock_contract', 'missing', 'acl', 'read', 'json', 'schema', 'type', 'expired', 'over_bound', 'operation_failed')
 
 
+PRIOR_SERVICE_STATUSES = ('absent', 'unclassified', 'installing', 'reboot_pending', 'completed', 'failed')
+
+
+def closed_prior_service(value):
+    # Bits: schema/build/UBR/status/exit/boot-shape/packages, respectively.
+    # Null mask means unavailable; this diagnostic never authorizes a resume.
+    proof = proof_helpers(); value = proof._dict(value)
+    return {'s': proof._enum(value.get('s'), PRIOR_SERVICE_STATUSES, 'absent'),
+            'p': proof._enum(value.get('p'), SERVICE_PHASES, 'not_observed'),
+            'f': proof._enum(value.get('f'), SERVICE_FAILURES, 'unclassified'),
+            'e': proof._integer(value.get('e'), -0x80000000),
+            'b': proof._integer(value.get('b'), 0, 127)}
+
+
 def closed_servicing_read(value):
     proof = proof_helpers(); value = proof._dict(value)
     return {'step': proof._enum(value.get('step'), SERVICE_READ_STEPS, 'not_started'),
@@ -1132,7 +1147,7 @@ def merge_serviced_result(public, value, actor_digest, service_started):
     public['stage0_passed'] = False
     public['guest_result_provenance_verified'] = False
     observed = project_stage0(value)
-    for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic', 'servicing_read_diagnostic', 'setup_read_diagnostic'):
+    for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic', 'servicing_read_diagnostic', 'setup_read_diagnostic', 'prior_service'):
         public[key] = observed[key]
     if public.get('early_guest_diagnostic') is not None:
         raise EarlyGuestFailure('closed guest failure contradicts result acceptance')

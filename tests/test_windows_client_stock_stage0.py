@@ -622,7 +622,25 @@ assert not any(root.rglob('__pycache__'))
             'reason':max(serviced.SERVICE_READ_REASONS,key=len),'remaining_seconds':-172800,
             'zone_pacific':False,'utc_offset_minutes':-480}
         serviced_guest['setup_read_diagnostic']=dict(serviced_guest['servicing_read_diagnostic'])
+        serviced_guest['prior_service']={'s':max(serviced.PRIOR_SERVICE_STATUSES,key=len),
+            'p':max(serviced.SERVICE_PHASES,key=len),'f':max(serviced.SERVICE_FAILURES,key=len),
+            'e':-2147483648,'b':127}
+        # JSON null is longer than every valid mask (including 127). Exercise
+        # both observed/unavailable shapes, and null versus widest exit values.
+        prior_wire_sizes={}
+        for mask in (None,127):
+            for code in (None,-2147483648,4294967295):
+                candidate=json.loads(json.dumps(serviced_guest))
+                candidate['prior_service'].update(b=mask,e=code)
+                candidate_wire=json.dumps(candidate)
+                prior_wire_sizes[(mask,code)]=len(candidate_wire)
+                self.assertLessEqual(len(candidate_wire),serviced.MAX_REPORT)
+                restored_prior=serviced.validate_guest(json.loads(candidate_wire),'a'*64)['prior_service']
+                self.assertEqual(restored_prior,candidate['prior_service'])
+        self.assertEqual(max(prior_wire_sizes,key=prior_wire_sizes.get),(None,-2147483648))
+        serviced_guest['prior_service']['b']=None
         serviced_wire = json.dumps(serviced_guest)
+        self.assertEqual(len(serviced_wire),max(prior_wire_sizes.values()))
         self.assertLessEqual(len(serviced_wire), serviced.MAX_REPORT)
         self.assertLessEqual(nesting(serviced_guest),10)
         serviced_restored=serviced.validate_guest(json.loads(serviced_wire),'a'*64)

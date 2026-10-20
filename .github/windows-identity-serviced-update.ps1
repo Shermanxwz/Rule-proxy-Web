@@ -170,8 +170,52 @@ function Wait-ServicedDism($Process, [int]$Milliseconds, $State) {
         } catch { $State.dism_exit_observation_available=$false }
     }
 }
+function Get-ClosedPriorService($Value) {
+    $closed=@{s='absent';p='not_observed';f='unclassified';e=$null;b=$null}
+    if ($null -eq $Value) { return $closed }
+    $keys=if ($Value -is [System.Collections.IDictionary]) { @($Value.Keys) } else { @($Value.PSObject.Properties.Name) }
+    $statuses=@('absent','unclassified','installing','reboot_pending','completed','failed')
+    $phases=@('not_observed','unclassified','initializing','waiting_for_optical','verifying_optical','post_reboot_verify','installing_official_cu','reboot_pending','completed')
+    $failures=@('none','unclassified','service_deadline','system_required','prior_bound','prior_state','setup_deadline','optical_deadline','optical_device','optical_root','optical_members','optical_package','optical_changed','reboot_not_observed','exact_serviced_build','reboot_still_pending','task_remains','exact_stock_build','dism_log_exists','dism_handle','dism_deadline','dism_exit_absent','dism_failed','operation_failed')
+    if ('s' -in $keys -and $Value.s -is [string]) { $closed.s=if ($Value.s -cin $statuses) { $Value.s } else { 'unclassified' } }
+    if ('p' -in $keys -and $Value.p -is [string]) { $closed.p=if ($Value.p -cin $phases) { $Value.p } else { 'unclassified' } }
+    if ('f' -in $keys -and $Value.f -is [string]) { $closed.f=if ($Value.f -cin $failures) { $Value.f } else { 'unclassified' } }
+    if ('e' -in $keys -and ($Value.e -is [int] -or $Value.e -is [long]) -and $Value.e -ge -2147483648 -and $Value.e -le 4294967295) { $closed.e=[long]$Value.e }
+    if ('b' -in $keys -and ($Value.b -is [int] -or $Value.b -is [long]) -and $Value.b -ge 0 -and $Value.b -le 127) { $closed.b=[int]$Value.b }
+    return $closed
+}
+function Get-PriorServiceFacts($Prior) {
+    if ($null -eq $Prior) { return Get-ClosedPriorService $null }
+    $keys=if ($Prior -is [System.Collections.IDictionary]) { @($Prior.Keys) } else { @($Prior.PSObject.Properties.Name) }
+    $facts=@{s='unclassified';p='unclassified';f='unclassified';e=$null;b=0}
+    foreach ($pair in @(@('status','s'),@('phase','p'),@('failure','f'),@('dism_exit_code','e'))) {
+        if ($pair[0] -in $keys) { $facts[$pair[1]]=$Prior.($pair[0]) }
+    }
+    # These bits negate the original rejection clauses; they do not impose new types.
+    if ('schema_version' -in $keys -and -not ($Prior.schema_version -ne 1)) { $facts.b=$facts.b -bor 1 }
+    if ('target_build' -in $keys -and -not ($Prior.target_build -ne 26200)) { $facts.b=$facts.b -bor 2 }
+    if ('target_ubr' -in $keys -and -not ($Prior.target_ubr -ne 9711)) { $facts.b=$facts.b -bor 4 }
+    if ('status' -in $keys -and -not ($Prior.status -cne 'reboot_pending')) { $facts.b=$facts.b -bor 8 }
+    if ('dism_exit_code' -in $keys -and -not ($Prior.dism_exit_code -notin @(0,3010))) { $facts.b=$facts.b -bor 16 }
+    if ('before_boot' -in $keys -and $Prior.before_boot -is [string] -and -not ($Prior.before_boot -cnotmatch '^[0-9]{15,20}$')) { $facts.b=$facts.b -bor 32 }
+    if ('packages_verified' -in $keys -and -not ($Prior.packages_verified -ne $true)) { $facts.b=$facts.b -bor 64 }
+    return Get-ClosedPriorService $facts
+}
+function Get-RetainedPriorService($Prior,$Facts) {
+    $existing=Get-ClosedPriorService $null
+    $keys=if ($Prior -is [System.Collections.IDictionary]) { @($Prior.Keys) } else { @($Prior.PSObject.Properties.Name) }
+    if ('prior_service' -in $keys) { $existing=Get-ClosedPriorService $Prior.prior_service }
+    if ($null -ne $existing.b) { return $existing }
+    return Get-ClosedPriorService $Facts
+}
+function Assert-ServicedPriorState($prior) {
+    if ($prior.schema_version -ne 1 -or $prior.target_build -ne 26200 -or $prior.target_ubr -ne 9711 -or
+                $prior.status -cne 'reboot_pending' -or $prior.dism_exit_code -notin @(0,3010) -or
+                $prior.before_boot -isnot [string] -or $prior.before_boot -cnotmatch '^[0-9]{15,20}$' -or
+                $prior.packages_verified -ne $true) { throw 'prior_state' }
+}
 function Invoke-ServicedUpdate {
-    $state=@{ schema_version=1; status='installing'; phase='initializing'; completed=$false;
+    $state=@{ prior_service=(Get-ClosedPriorService $null); schema_version=1; status='installing'; phase='initializing'; completed=$false;
         target_build=26200; target_ubr=9711; actual_build=0; actual_ubr=0;
         packages_verified=$false; reboot_required=$false; reboot_observed=$false;
         task_unregistered=$false; dism_exit_code=$null; dism_wait_timed_out=$false;
@@ -190,10 +234,12 @@ function Invoke-ServicedUpdate {
             Assert-ProtectedUpdatePath $statePath
             if ((Get-Item -LiteralPath $statePath).Length -gt 4096) { throw 'prior_bound' }
             $prior=Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
-            if ($prior.schema_version -ne 1 -or $prior.target_build -ne 26200 -or $prior.target_ubr -ne 9711 -or
-                $prior.status -cne 'reboot_pending' -or $prior.dism_exit_code -notin @(0,3010) -or
-                $prior.before_boot -isnot [string] -or $prior.before_boot -cnotmatch '^[0-9]{15,20}$' -or
-                $prior.packages_verified -ne $true) { throw 'prior_state' }
+            $priorFacts=Get-PriorServiceFacts $prior
+            try { Assert-ServicedPriorState $prior } catch {
+                # Keep only the first closed rejected-prior snapshot, never raw or nested state.
+                $state.prior_service=Get-RetainedPriorService $prior $priorFacts
+                throw
+            }
             $state.before_boot=$prior.before_boot
             $state.dism_exit_code=[int]$prior.dism_exit_code
             foreach ($name in @('dism_wait_timed_out','dism_exit_observed','dism_exit_observation_available')) { $state[$name]=($prior.$name -eq $true) }

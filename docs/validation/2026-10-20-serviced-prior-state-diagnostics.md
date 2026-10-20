@@ -1,0 +1,13 @@
+# Serviced prior-state diagnosis
+
+Attempt 05 (`39476695725`, source `e3cfcf54d5ee124c437ff0171f966a4c987128d2`) passed the actual setup clock/budget boundary: Pacific observed, offset −420 minutes, original host deadline accepted with 8,707 seconds remaining. The ordinary reader later observed its protected budget and a parsed service receipt, but the worker reported `initializing / prior_state`. Native probe and actor were not reached. Owned teardown was positively confirmed; earlier uncertain cleanup records remain unchanged.
+
+The previous receipt's successful read does not prove servicing or reboot succeeded. The worker's catch replaced it with a newly initialized failed receipt, losing prior status, phase, failure and exit code. Disk growth and elapsed time are not substitutes for that evidence.
+
+The current prior guard requires schema 1, exact target build/UBR, `reboot_pending`, exit 0 or 3010, a string boot witness with the fixed digit shape, and verified packages. The normal producer appears consistent with those requirements; an interrupted earlier stage, failed receipt or completed receipt must still reject. No recovery from arbitrary prior phases is authorized by this diagnostic change.
+
+The scoped continuation records a compact, closed prior snapshot before overwrite, preserving the first snapshot through subsequent starts that reach the trusted prior read and guard, without recursive nesting. An earlier clock, budget or trust failure can occur before that read and replace the snapshot with unavailable defaults; preservation is not unconditional. It must include the original failure label as well as fixed predicate results, status/phase and bounded exit code. Unknown strings, raw boot identities and paths are never exported. This snapshot is diagnostic only and cannot enable resume or change Stage0 acceptance.
+
+The fixed `prior_service` keys are `s` (status), `p` (phase), `f` (failure), `e` (bounded exit code), and `b` (predicate mask). Bits 1/2/4/8/16/32/64 respectively mean schema, build, UBR, reboot-pending status, allowed exit, boot-witness string/shape, and packages-verified passed the original expression. Mask 127 means all original predicate clauses passed; null means no available snapshot. These are observations, not resume authorization.
+
+Before another runtime decision, execute the actual protected writer (initial move and replacement), JSON readback and unchanged prior validator on Windows. Include the actual native CIM boot-witness producer, successful 0/3010 receipts, interruption states and malformed/missing/tampered fields. Any failed fixture is a gate failure, not a reason to loosen the guard. Preserve the composed 16 KiB transport limit and verify the maximum closed representation.

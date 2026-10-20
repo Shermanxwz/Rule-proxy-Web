@@ -133,6 +133,23 @@ class ServicedGuestContractTests(unittest.TestCase):
                        'value=$true', 'value=$null', 'Wire HRESULT value or JSON numeric type changed'):
             self.assertIn(marker, test)
 
+    def test_prior_diagnostic_guard_and_native_roundtrip_are_scoped(self):
+        self.assertIn('function Assert-ServicedPriorState($prior)',UPDATE)
+        expected=("if ($prior.schema_version -ne 1 -or $prior.target_build -ne 26200 -or $prior.target_ubr -ne 9711 -or "
+                  "$prior.status -cne 'reboot_pending' -or $prior.dism_exit_code -notin @(0,3010) -or "
+                  "$prior.before_boot -isnot [string] -or $prior.before_boot -cnotmatch '^[0-9]{15,20}$' -or "
+                  "$prior.packages_verified -ne $true) { throw 'prior_state' }")
+        self.assertIn(expected,' '.join(UPDATE.split()))
+        self.assertLess(UPDATE.index('$priorFacts=Get-PriorServiceFacts $prior'),UPDATE.index('try { Assert-ServicedPriorState $prior }'))
+        self.assertIn('$state.prior_service=Get-RetainedPriorService $prior $priorFacts',UPDATE)
+        self.assertIn("Set-ClosedResultField 'prior_service'",RUN)
+        left=RUN[RUN.index('function Get-ClosedPriorService'):];left=left[:left.index('\n}')+2]
+        right=UPDATE[UPDATE.index('function Get-ClosedPriorService'):];right=right[:right.index('\n}')+2]
+        self.assertEqual(left,right)
+        test=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        for marker in ('$nativeBoot=Get-ServicedBoot','Write-ServicedState $producer','Write-ServicedState $changed','Assert-ServicedPriorState $roundtrip','Get-RetainedPriorService $readLater','writer_owner_trusted','before_string','after_string','predicate_mask','Malformed prior JSON accepted','reboot_tested=$false'):
+            self.assertIn(marker,test)
+
     def test_clock_contract_is_read_only_harness_and_native_rules_tested(self):
         for text in (RUN,UPDATE):
             self.assertIn("$Zone.Id -ceq 'Pacific Standard Time'",text)

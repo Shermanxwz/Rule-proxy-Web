@@ -281,6 +281,76 @@ try {
             $passed++
         }
     }
+    # Production writer/reader/guard, using an actual native CIM boot witness.
+    # This is NOT a reboot or ordinary-user acceptance test.
+    Remove-Item Function:\Join-Path -ErrorAction SilentlyContinue
+    $originalUpdateDirectory=$script:UpdateDirectory
+    $script:UpdateDirectory=$fixtureRoot
+    try {
+        $nativeBoot=Get-ServicedBoot
+        $bootBeforeString=$nativeBoot -is [string]
+        $bootBeforeShape=$bootBeforeString -and $nativeBoot -cmatch '^[0-9]{15,20}$'
+        if (-not $bootBeforeShape) { throw 'Native boot producer type or shape failed' }
+        $priorPath=[IO.Path]::Combine($fixtureRoot,'update-state.json')
+        foreach ($exitFixture in @(0,3010)) {
+            $producer=@{schema_version=1;target_build=26200;target_ubr=9711;status='reboot_pending';phase='reboot_pending';failure='none';dism_exit_code=$exitFixture;before_boot=$nativeBoot;packages_verified=$true;prior_service=(Get-ClosedPriorService $null)}
+            $replaceExpected=Test-Path -LiteralPath $priorPath
+            Write-ServicedState $producer
+            $priorFileAcl=Get-Acl -LiteralPath $priorPath
+            $writerOwnerTrusted=$priorFileAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -in @('S-1-5-18','S-1-5-32-544')
+            $priorFileAcl.SetOwner($fixtureAdmins); Set-Acl -LiteralPath $priorPath -AclObject $priorFileAcl
+            $roundtrip=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+            $roundtripFacts=Get-PriorServiceFacts $roundtrip
+            $bootAfterString=$roundtrip.before_boot -is [string]
+            $bootSame=$bootAfterString -and $roundtrip.before_boot -ceq $nativeBoot
+            $exitInteger=$roundtrip.dism_exit_code -is [int] -or $roundtrip.dism_exit_code -is [long]
+            $packageBoolean=$roundtrip.packages_verified -is [bool] -and $roundtrip.packages_verified -eq $true
+            $guardPassed=$false
+            try { Assert-ServicedPriorState $roundtrip; $guardPassed=$true } catch { }
+            Write-Output ((@{fixture='native_boot_state_roundtrip';replace=$replaceExpected;writer_owner_trusted=$writerOwnerTrusted;before_string=$bootBeforeString;before_shape=$bootBeforeShape;after_string=$bootAfterString;same_value=$bootSame;exit_integer=$exitInteger;package_boolean=$packageBoolean;predicate_mask=$roundtripFacts.b;guard_passed=$guardPassed;reboot_tested=$false})|ConvertTo-Json -Compress)
+            if (-not $bootSame -or -not $exitInteger -or -not $packageBoolean -or $roundtripFacts.b -ne 127 -or -not $guardPassed) { throw 'Native state serialization regression' }; $passed++
+        }
+        $tamperCases=@(
+            @{field='schema_version';value=2;bit=1},@{field='target_build';value=0;bit=2},@{field='target_ubr';value=0;bit=4},
+            @{field='status';value='installing';bit=8},@{field='status';value='failed';bit=8},@{field='status';value='completed';bit=8},
+            @{field='dism_exit_code';value=87;bit=16},@{field='before_boot';value=123;bit=32},@{field='before_boot';value='PRIVATE_BOOT';bit=32},
+            @{field='packages_verified';value=$false;bit=64})
+        foreach ($tamper in $tamperCases) {
+            $changed=$producer.Clone(); $changed[$tamper.field]=$tamper.value
+            if ($tamper.field -ceq 'status' -and $tamper.value -ceq 'failed') { $changed.failure='dism_deadline' }
+            Write-ServicedState $changed
+            $readChanged=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+            $changedFacts=Get-PriorServiceFacts $readChanged
+            $rejected=$false
+            try { Assert-ServicedPriorState $readChanged } catch { $rejected=$true }
+            if (-not $rejected -or $changedFacts.b -ne (127 -bxor $tamper.bit)) { throw 'Prior field rejection or predicate changed' }
+            if ($tamper.field -ceq 'status' -and $tamper.value -ceq 'failed' -and $changedFacts.f -cne 'dism_deadline') { throw 'Original failed cause lost' }
+            $passed++
+        }
+        foreach ($missing in @('schema_version','target_build','target_ubr','status','dism_exit_code','before_boot','packages_verified')) {
+            $changed=$producer.Clone(); $changed.Remove($missing)
+            Write-ServicedState $changed
+            $readChanged=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+            $changedFacts=Get-PriorServiceFacts $readChanged
+            $rejected=$false
+            try { Assert-ServicedPriorState $readChanged } catch { $rejected=$true }
+            if (-not $rejected -or $changedFacts.b -eq 127) { throw 'Missing prior field accepted' }; $passed++
+        }
+        # Closed snapshot survives a later failed receipt without raw/nested data.
+        $first=Get-PriorServiceFacts ([PSCustomObject]@{status='failed';phase='installing_official_cu';failure='dism_deadline';dism_exit_code=$null})
+        $later=$producer.Clone();$later.status='failed';$later.failure='prior_state';$later.prior_service=$first
+        Write-ServicedState $later
+        $readLater=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+        $preserved=Get-RetainedPriorService $readLater (Get-PriorServiceFacts $readLater)
+        foreach ($key in @('s','p','f','e','b')) { if ($preserved[$key] -cne $first[$key]) { throw 'First closed prior snapshot changed' } }
+        if ($preserved.f -cne 'dism_deadline' -or $preserved.Count -ne 5) { throw 'First closed prior snapshot shape changed' };$passed++
+        $redacted=Get-ClosedPriorService ([PSCustomObject]@{s='PRIVATE';p='PRIVATE';f='PRIVATE';e='PRIVATE';b=128;raw=$nativeBoot})
+        if (($redacted|ConvertTo-Json -Compress).Contains('PRIVATE') -or $null -ne $redacted.b -or $redacted.Count -ne 5) { throw 'Prior snapshot redaction failed' };$passed++
+        [IO.File]::WriteAllText($priorPath,'{',[Text.UTF8Encoding]::new($false))
+        $rejected=$false
+        try { $null=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json } catch { $rejected=$true }
+        if (-not $rejected) { throw 'Malformed prior JSON accepted' };$passed++
+    } finally { $script:UpdateDirectory=$originalUpdateDirectory }
 } catch {
     Write-Output ((@{fixture='acl_operation';failed=$true;hresult=[int]$_.Exception.HResult})|ConvertTo-Json -Compress)
     throw 'Real owned ACL fixture operation failed'

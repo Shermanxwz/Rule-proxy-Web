@@ -105,6 +105,20 @@ function Assert-ProtectedUpdatePath($Path, [switch]$Directory, [switch]$Protecte
 # Closed read diagnostics only; never grants trust or changes deadline acceptance.
 $script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
 $setupReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
+function Get-ClosedPriorService($Value) {
+    $closed=@{s='absent';p='not_observed';f='unclassified';e=$null;b=$null}
+    if ($null -eq $Value) { return $closed }
+    $keys=if ($Value -is [System.Collections.IDictionary]) { @($Value.Keys) } else { @($Value.PSObject.Properties.Name) }
+    $statuses=@('absent','unclassified','installing','reboot_pending','completed','failed')
+    $phases=@('not_observed','unclassified','initializing','waiting_for_optical','verifying_optical','post_reboot_verify','installing_official_cu','reboot_pending','completed')
+    $failures=@('none','unclassified','service_deadline','system_required','prior_bound','prior_state','setup_deadline','optical_deadline','optical_device','optical_root','optical_members','optical_package','optical_changed','reboot_not_observed','exact_serviced_build','reboot_still_pending','task_remains','exact_stock_build','dism_log_exists','dism_handle','dism_deadline','dism_exit_absent','dism_failed','operation_failed')
+    if ('s' -in $keys -and $Value.s -is [string]) { $closed.s=if ($Value.s -cin $statuses) { $Value.s } else { 'unclassified' } }
+    if ('p' -in $keys -and $Value.p -is [string]) { $closed.p=if ($Value.p -cin $phases) { $Value.p } else { 'unclassified' } }
+    if ('f' -in $keys -and $Value.f -is [string]) { $closed.f=if ($Value.f -cin $failures) { $Value.f } else { 'unclassified' } }
+    if ('e' -in $keys -and ($Value.e -is [int] -or $Value.e -is [long]) -and $Value.e -ge -2147483648 -and $Value.e -le 4294967295) { $closed.e=[long]$Value.e }
+    if ('b' -in $keys -and ($Value.b -is [int] -or $Value.b -is [long]) -and $Value.b -ge 0 -and $Value.b -le 127) { $closed.b=[int]$Value.b }
+    return $closed
+}
 function Get-ClosedServicingReadDiagnostic($Value) {
     $closed=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
     $steps=@('not_started','clock_contract','directory_acl','budget_acl','budget_read','budget_json','budget_schema','budget_epoch','receipt_acl','receipt_read','receipt_json','receipt_observed')
@@ -435,6 +449,9 @@ try {
     if ($failed -and $phase -eq 'servicing_wait' -and $script:ServicingReadDiagnostic.reason -eq 'none') { $script:ServicingReadDiagnostic.reason='operation_failed' }
     Set-ClosedResultField 'setup_read_diagnostic' $setupReadDiagnostic
     Set-ClosedResultField 'servicing_read_diagnostic' $script:ServicingReadDiagnostic
+    $priorServiceFacts=Get-ClosedPriorService $null
+    if ($null -ne (Get-Variable -Name service -ErrorAction SilentlyContinue) -and 'prior_service' -in @($service.PSObject.Properties.Name)) { $priorServiceFacts=Get-ClosedPriorService $service.prior_service }
+    Set-ClosedResultField 'prior_service' $priorServiceFacts
     Set-ClosedResultField 'servicing_diagnostic' $serviceFacts
     $launcher=@{phase=$phase; failure_category=$failureCategory; failed=$failed; hresult=$hresult; python_exit_code=$pythonExit; transport_attempt=0}
     Set-ClosedResultField 'launcher_diagnostic' $launcher

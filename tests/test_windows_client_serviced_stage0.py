@@ -355,6 +355,34 @@ class WireReceiptTests(unittest.TestCase):
         self.assertFalse(public['stage0_passed'])
         self.assertEqual(public['servicing_read_diagnostic'],host.closed_servicing_read(raw['servicing_read_diagnostic']))
 
+    def test_prior_service_closed_bounded_idempotent(self):
+        for mask in range(128):
+            raw={'s':'failed','p':'installing_official_cu','f':'dism_failed','e':-2147483648,'b':mask,'private':'PRIVATE_SENTINEL'}
+            result=host.closed_prior_service(raw)
+            self.assertEqual(result['b'],mask)
+            self.assertEqual(host.closed_prior_service(result),result)
+            self.assertNotIn('PRIVATE_SENTINEL',json.dumps(result))
+        for mask in (-1,128,True,1.0,'1',{},[]):
+            self.assertIsNone(host.closed_prior_service({'b':mask})['b'])
+        for code in (-2147483649,4294967296,True,0.0,'0'):
+            self.assertIsNone(host.closed_prior_service({'e':code})['e'])
+        for code in (-2147483648,0,3010,4294967295):
+            self.assertEqual(host.closed_prior_service({'e':code})['e'],code)
+        self.assertIsNone(host.closed_prior_service({})['b'])
+        self.assertNotIn('PRIVATE_SENTINEL',json.dumps(host.closed_prior_service({k:'PRIVATE_SENTINEL' for k in ('s','p','f','e','b')})))
+
+    def test_prior_service_never_changes_acceptance_and_survives_provenance_failure(self):
+        raw=self.receipt();raw['prior_service']={'s':'failed','p':'initializing','f':'prior_state','e':None,'b':0}
+        result=host.validate_guest(raw,'a'*64)
+        self.assertTrue(result['stage0_passed'])
+        self.assertEqual(result['prior_service'],raw['prior_service'])
+        raw['checks']['native_identity']=False
+        self.assertFalse(host.validate_guest(raw,'a'*64)['stage0_passed'])
+        raw['os']['ubr']=6584;public={}
+        with self.assertRaises(ValueError):host.merge_serviced_result(public,raw,'a'*64,False)
+        self.assertFalse(public['stage0_passed'])
+        self.assertEqual(public['prior_service'],raw['prior_service'])
+
     def test_exact_guest_receipt_passes_gate(self):
         result=host.validate_guest(self.receipt(),'a'*64)
         self.assertTrue(result['stage0_passed'])
