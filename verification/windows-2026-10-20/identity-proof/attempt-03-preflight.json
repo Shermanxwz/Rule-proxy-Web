@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "stage": "ordinary-token-preflight",
+  "preflight_only": true,
+  "process_created": false,
+  "profile_created": false,
+  "network_tested": false,
+  "product_acceptance": false,
+  "linked_token": {
+    "attempted": true,
+    "error": {
+      "operation": "GetTokenInformation(TokenLinkedToken)",
+      "winerror": 1312
+    }
+  },
+  "cleanup": {
+    "token_handles_closed": true,
+    "errors": []
+  },
+  "compartment": {
+    "ok": true,
+    "value": 1
+  },
+  "current": {
+    "sid": {
+      "ok": true,
+      "value": {
+        "sid_present": true
+      }
+    },
+    "session_id": {
+      "ok": true,
+      "value": 2
+    },
+    "token_type": {
+      "ok": true,
+      "value": 1
+    },
+    "elevation_type": {
+      "ok": true,
+      "value": 1
+    },
+    "elevated": {
+      "ok": true,
+      "value": true
+    },
+    "integrity_rid": {
+      "ok": true,
+      "value": 12288
+    },
+    "groups": {
+      "ok": true,
+      "value": {
+        "count": 14,
+        "admin_attributes": 15
+      }
+    },
+    "appcontainer": {
+      "ok": true,
+      "value": false
+    },
+    "appcontainer_sid": {
+      "ok": true,
+      "value": {
+        "sid_present": false
+      }
+    },
+    "capabilities": {
+      "ok": true,
+      "value": {
+        "count": 0
+      }
+    },
+    "ui_access": {
+      "ok": true,
+      "value": false
+    }
+  },
+  "observations_complete": false,
+  "status": "diagnostic_incomplete"
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "source_commit": "3f2c0b327fcb3151aabbd74fe5893bdf706086bc",
+  "run_id": 39367860553,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39367860553",
+  "job_id": 118448703699,
+  "native_compile": "success",
+  "unit_tests_passed": 71,
+  "artifact_id": 12239718835,
+  "artifact_sha256": "4fb53df4507ad84eb4f2828f70b22b014194c0739c0d0862501d1aa6c8b89efe",
+  "report_file": "attempt-03-preflight.json",
+  "current_token_queries_succeeded": 11,
+  "failure_operation": "GetTokenInformation(TokenLinkedToken)",
+  "native_error": 1312,
+  "runner_elevation_type": 1,
+  "runner_elevated": true,
+  "runner_integrity_rid": 12288,
+  "child_launched": false,
+  "appcontainer_created": false,
+  "token_handles_closed": true,
+  "privacy_qualified": false,
+  "product_acceptance": false
+}

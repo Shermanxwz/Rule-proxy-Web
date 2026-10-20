@@ -169,3 +169,26 @@ ordinary-token acceptance relaxation is introduced.
 
 Combined correction validation: 71 pure tests pass locally. Native runtime
 results for this correction remain pending until a separate Actions report.
+
+## Third attempt: ordinary-token source unavailable on this runner
+
+Run [39367860553](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39367860553)
+at commit `3f2c0b327fcb3151aabbd74fe5893bdf706086bc` rebuilt the native actor
+and passed all 71 pure tests on Windows. Every one of the 11 current-token
+queries succeeded. The runner had elevated=true, TokenElevationTypeDefault (1),
+high integrity (12288), and an enabled Administrators group. It was not an
+ordinary user or an observed split-token Full identity. The attempt to read an
+existing linked token returned ERROR_NO_SUCH_LOGON_SESSION (1312).
+
+The preflight stopped native execution as designed. No Stage 0b process,
+AppContainer profile or ACL mutation occurred, and all opened token handles
+were closed. The bounded report and verified artifact SHA are retained in
+attempt-03-preflight.json and attempt-03-source.json. This is a concrete host
+identity limitation, not evidence that inherited AppContainer pipes fail.
+
+No account creation, credential use, UAC/privilege policy change, synthetic
+medium-integrity token, or alternate process-creation fallback was attempted.
+The current ordinary-user acceptance gate remains unchanged. A different
+ordinary-token source or a separately labelled non-acceptance diagnostic needs
+an explicit next design decision; retries of this exact missing linked-token
+path do not provide new evidence.
