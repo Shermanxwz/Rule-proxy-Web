@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "diagnostic_only": true,
+  "product_qualified": false,
+  "exports": "trimmed text only; no raw logs, dumps, debugger binaries or fixture bodies",
+  "windows": {
+    "major": 10,
+    "minor": 0,
+    "build": 26100,
+    "platform_id": 2,
+    "service_pack": ""
+  },
+  "platform": "Windows-2025Server-10.0.26100-SP0",
+  "image": {
+    "ImageOS": "win25-vs2026",
+    "ImageVersion": "20261007.264.1"
+  },
+  "source_commit": "5d4cafed0ba9c14e0ea8b2c2cb605d3b4840b443",
+  "harness_sha256": "049571b44fc168d7c7c06c9e389bdac4433225b9f4ede736dac54836f92eb246",
+  "notes": [
+    "cdb options and filter names are re-checked at runtime (debugger.introspection)",
+    "IFEO GlobalFlag (both registry views) only for debugged contained rows; firefox.exe added to LocalDumps",
+    "ready = kernel debug object on the suspended PID plus cdb log stable for 1.5 s",
+    "ResumeThread previous count is recorded; 2 would mean a debugger freeze was pending"
+  ],
+  "runs": {},
+  "cleanup_errors": [],
+  "harness_errors": [],
+  "budget_seconds": 1320,
+  "browsers": {
+    "edge": {
+      "path": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "sha256": "d366716ba3cd2cc67d92d9b712b129fea4c8df769961d1e04b037ce034780ad0",
+      "version": null
+    },
+    "chrome": {
+      "path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "sha256": "f76f0234efb271041dc84f9f38fb858e01859d5da6f775f5108668eb3ae80975",
+      "version": null
+    },
+    "firefox": {
+      "path": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "sha256": "f029827ec8841dfd36e75acb95343f2669eb86c296eedd49f0e48d80c2a7d514",
+      "version": null
+    }
+  },
+  "debugger": {
+    "found": true,
+    "path": "C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64\\cdb.exe",
+    "sha256": "31789c2c2645d5fdafb1621c47b0db8bc2fbca47b510a0e4e6fdede0479ce105",
+    "version": null,
+    "introspection": {
+      "sx_exit": 2147942402,
+      "sx_filter_lines": [],
+      "usage_lines": [
+        "  -- equivalent to -G -g -o -p -1 -d -pd",
+        "  -loga <logfile> appends to a log file",
+        "  -logo <logfile> opens a new log file",
+        "  -p <pid> specifies the decimal process ID to attach to",
+        "  -pb specifies that the debugger should not break in at attach",
+        "  -pv specifies that any attach should be noninvasive"
+      ]
+    },
+    "symbol_warmup": {
+      "seconds": 2.6,
+      "exit": 0,
+      "done": true,
+      "module_lines": [
+        "ModLoad: 00007ffe`599c0000 00007ffe`59c24000   ntdll.dll",
+        "ModLoad: 00007ffe`58f70000 00007ffe`59039000   C:\\Windows\\System32\\KERNEL32.DLL",
+        "ModLoad: 00007ffe`57130000 00007ffe`5751e000   C:\\Windows\\System32\\KERNELBASE.dll",
+        "ntdll!LdrpDoDebuggerBreak+0x35:",
+        "00007ffe`57130000 00007ffe`5751e000   KERNELBASE   (pdb symbols)          c:\\sym\\kernelbase.pdb\\0B01ED22AA49026DB0B395E011AF2A5E1\\kernelbase.pdb",
+        "00007ffe`58f70000 00007ffe`59039000   KERNEL32   (pdb symbols)          c:\\sym\\kernel32.pdb\\24E27EFA0D4C1FBF9299583085ECD4B61\\kernel32.pdb"
+      ]
+    }
+  },
+  "package_sid": "S-1-15-2-2346129105-2057727528-3384966300-2624438831-3238027797-1406634230-3703464686",
+  "error": "CalledProcessError: Command '['icacls', 'C:\\\\RuleProxyDiagCrash', '/grant', '*S-1-15-2-2346129105-2057727528-3384966300-2624438831-3238027797-1406634230-3703464686:(OI)(CI)(F)', '/T', '/Q']' returned non-zero exit status 5.",
+  "summary": [],
+  "harness_ok": false,
+  "seconds": 26.0
+}
