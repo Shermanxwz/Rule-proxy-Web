@@ -156,14 +156,16 @@ if (-not $rejected) { throw 'Expired shared deadline accepted' }; $passed++
 Assert-ServicedTime ([DateTime]::UtcNow.AddMinutes(1)); $passed++
 
 # Execute the actual wait helper with owned mock objects, never DISM/processes.
-foreach ($scenario in @('success','timeout','unknown_exit')) {
+foreach ($scenario in @('success','timeout','unknown_exit','null_exit','string_exit')) {
     $state=@{dism_exit_code=$null;dism_wait_timed_out=$false;dism_exit_observed=$false;dism_exit_observation_available=$false}
     $process=[PSCustomObject]@{Scenario=$scenario;ExitCode=0;WaitArgument=0}
     $process | Add-Member ScriptMethod WaitForExit { param($milliseconds) $this.WaitArgument=$milliseconds; return ($this.Scenario -ceq 'success') }
     $process | Add-Member ScriptMethod Refresh { }
-    $process | Add-Member ScriptProperty HasExited { if ($this.Scenario -ceq 'unknown_exit') { throw 'fixture_observation_unavailable' }; return ($this.Scenario -ceq 'success') }
+    $process | Add-Member ScriptProperty HasExited { if ($this.Scenario -ceq 'unknown_exit') { throw 'fixture_observation_unavailable' }; if ($this.Scenario -ceq 'null_exit') { return $null }; if ($this.Scenario -ceq 'string_exit') { return 'False' }; return ($this.Scenario -ceq 'success') }
     $failure=$null
     try { Wait-ServicedDism $process 1234 $state } catch { $failure=$_.Exception.Message }
+    # Fixed fixture label and closed flags make any failed branch identifiable.
+    Write-Output (([ordered]@{fixture=$scenario;wait_timed_out=$state.dism_wait_timed_out;exit_observed=$state.dism_exit_observed;observation_available=$state.dism_exit_observation_available;deadline_failure=($failure -ceq 'dism_deadline');exit_code_zero=($state.dism_exit_code -ceq 0)}) | ConvertTo-Json -Compress)
     if ($process.WaitArgument -ne 1234) { throw 'DISM wait bound not forwarded' }
     if ($scenario -ceq 'success') {
         if ($null -ne $failure -or $state.dism_exit_code -ne 0 -or $state.dism_wait_timed_out -or -not $state.dism_exit_observed -or -not $state.dism_exit_observation_available) { throw 'Successful DISM wait fixture failed' }

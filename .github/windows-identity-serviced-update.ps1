@@ -125,8 +125,16 @@ function Wait-ServicedDism($Process, [int]$Milliseconds, $State) {
         # This bounds waiting, not Windows servicing work. Never kill servicing
         # processes/services here; failed receipt blocks proof, host destroys VM.
         try {
-            $State.dism_exit_observed=($Process.HasExited -eq $true)
-            $State.dism_exit_observation_available=$true
+            # PowerShell adapted getters can yield null instead of propagating
+            # their exception. Only an actual Boolean is an exit observation.
+            $exitObservation=$Process.HasExited
+            if ($exitObservation -is [bool]) {
+                $State.dism_exit_observed=$exitObservation
+                $State.dism_exit_observation_available=$true
+            } else {
+                $State.dism_exit_observed=$false
+                $State.dism_exit_observation_available=$false
+            }
         } catch { $State.dism_exit_observation_available=$false }
     }
 }
