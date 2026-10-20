@@ -1,0 +1,137 @@
+name: Opt-in genuine Windows 11 ordinary-user Stage0
+on:
+  push:
+    branches: ['dot/windows-isolation-proof']
+    paths:
+      - '.github/windows_identity_win11_stage0.py'
+      - '.github/windows-identity-win11-stage0-setup.ps1'
+      - '.github/windows-identity-win11-stage0-run.ps1'
+      - '.github/workflows/windows-identity-win11-stage0.yml'
+      - 'tests/test_windows_client_identity_stage0.py'
+permissions:
+  contents: read
+concurrency:
+  group: identity-win11-stage0-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  compile:
+    if: contains(github.event.head_commit.message, '[identity-win11-stage0-runtime]')
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Parse only the new guest PowerShell entrypoints
+        shell: powershell
+        run: |
+          foreach ($name in @('setup', 'run')) {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/windows-identity-win11-stage0-$name.ps1"),[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw 'Stage0 guest syntax gate failed' }
+          }
+      - name: Compile the pinned zero-network native actor, never execute it here
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC not found' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_identity_actor.ps1 -IdentityOnly -OutputDirectory "$PWD\client-stage0-actor" -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          $manifest=Get-Content -Raw client-stage0-actor/build-manifest.json | ConvertFrom-Json
+          if ($manifest.httpCompiled -or -not $manifest.staticCrt) { throw 'Zero-network static actor required' }
+          [IO.File]::WriteAllText("$PWD\client-stage0-actor/actor-sha256.txt",$manifest.executableSha256)
+      - name: Pure unit tests, not Windows runtime acceptance
+        run: python -B -m unittest discover -s tests -p "test_windows_client_identity_stage0.py" -v
+      - uses: actions/upload-artifact@v7
+        with:
+          name: client-stage0-actor
+          path: |
+            client-stage0-actor/windows_identity_actor.exe
+            client-stage0-actor/actor-sha256.txt
+          retention-days: 7
+          if-no-files-found: error
+  native:
+    needs: compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Require free storage and KVM before lab downloads or provisioning
+        run: |
+          available=$(df -B1 --output=avail /tmp | tail -n 1)
+          if [ "$available" -lt 59055800320 ]; then echo 'Insufficient free space; no global cleanup is permitted'; exit 1; fi
+          sudo "$(command -v python)" -B - <<'PY'
+          import os
+          descriptor = os.open('/dev/kvm', os.O_RDWR | os.O_CLOEXEC)
+          os.close(descriptor)
+          print('KVM device is readable/writable with the existing runner authority')
+          PY
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+      - uses: actions/download-artifact@v8
+        with:
+          name: client-stage0-actor
+          path: client-stage0-actor
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: 11938733475
+          run-id: 38660663692
+          github-token: ${{ github.token }}
+          repository: Shermanxwz/Rule-proxy-Web
+          path: g-source-download
+          skip-decompress: true
+          digest-mismatch: error
+      - name: Verify the fixed artifact wrapper and deterministic G runtime
+        run: |
+          python -B - <<'PY'
+          import hashlib, stat, zipfile
+          from pathlib import Path, PurePosixPath
+          import install_runtime
+          files=[p for p in Path('g-source-download').iterdir() if p.is_file()]
+          if len(files)!=1 or hashlib.sha256(files[0].read_bytes()).hexdigest()!='8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036':
+              raise SystemExit('Fixed G artifact wrapper mismatch')
+          needed={'build-manifest.json','wxc-exec.exe','MXC-LICENSE.md'}
+          source=Path('g-source'); source.mkdir()
+          with zipfile.ZipFile(files[0]) as z:
+              selected={}
+              for item in z.infolist():
+                  p=PurePosixPath(item.filename)
+                  if p.is_absolute() or '..' in p.parts or ':' in item.filename or '\\' in item.filename or stat.S_ISLNK(item.external_attr>>16):
+                      raise SystemExit('Unsafe pinned artifact member')
+                  if not item.is_dir() and p.name in needed:
+                      if p.name in selected or item.file_size>32*1024*1024: raise SystemExit('Invalid pinned member')
+                      selected[p.name]=item
+              if set(selected)!=needed: raise SystemExit('Missing fixed G input')
+              for name,item in selected.items(): (source/name).write_bytes(z.read(item))
+          if install_runtime.build_g_bundle(source,Path('g-bundle.zip'))!=install_runtime.MXC_G_BUNDLE_SHA256:
+              raise SystemExit('Deterministic G bundle mismatch')
+          PY
+      - name: Assemble existing pinned Windows Python runtime package
+        run: |
+          python -m pip install -r requirements.txt
+          python -B .github/build_windows_package.py client-stage0-package
+      - name: Run one genuine ordinary-user Stage0 in the disposable serviced client
+        run: |
+          read -r expected name < client-stage0-package/SHA256SUMS.txt
+          actor=$(cat client-stage0-actor/actor-sha256.txt)
+          exec timeout --signal=TERM --kill-after=90s 112m sudo "$(command -v python)" -B .github/windows_identity_win11_stage0.py \
+            --approved-disposable-vm --package "client-stage0-package/$name" --package-sha256 "$expected" \
+            --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 "$actor" \
+            --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 6600
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-11-ordinary-stage0-public
+          path: client-stage0-public/public-report.json
+          retention-days: 14
+          if-no-files-found: warn

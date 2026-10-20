@@ -400,3 +400,34 @@ path_outside_owned_root error. This is a demonstrated viable cause, not proof
 of the original CI cell error, which was not printed. Three regressions cover
 the alias, preserved containment rejection and sanitized assertion diagnostics.
 All 154 pure tests pass locally; production path and reparse gates are unchanged.
+
+
+Paired startup attempt 4 (commit `3482b9ca`, run `39373025025`) completed all
+four fixed controls after both native builds, import gates, 154 Windows pure
+tests and source-token preflight passed. Full/source and IdentityOnly/source
+exited 0 and produced reports matching native observations. Full/restricted
+and IdentityOnly/restricted both exited 3221225794 (0xC0000142) before actor
+reports, despite verified derived/suspended-child identity gates. Every
+parent-token check remained unchanged, every job was empty and all owned
+process/token handles closed. The workflow success means completed diagnostic
+collection, NOT restricted, ordinary, PSEC or product acceptance.
+
+This comparison rules out a general binary/environment/launch-path failure
+under the unchanged source token and shows that removing WinHTTP does not
+resolve the reduced-token startup failure. It does not identify the failing
+DLL or exact reduced-token incompatibility. Preserve this negative result;
+stop the synthetic-token detour and prioritize genuine ordinary-user Windows 11
+validation. The published report is an already-sanitized closed projection;
+its artifact and byte-copy digest are retained separately.
+
+Next opt-in slice: one disposable genuine Windows 11 client at 26200.9711,
+one existing-pattern RuleProxyCI Users account, IdentityOnly native actor and
+pinned G executor, request-aware and actual BaseContainer Stage0 only. No
+proxy, network traffic, extra rpps account or browser matrix. The known guest-
+only BypassNRO/NoAutoUpdate baseline comes from the repository's existing
+proxifyre setup; no new host policy. A standard Windows compile job and standard
+Ubuntu KVM job have fixed caps. Free space and KVM are checked before downloads;
+insufficient resources stop without broad cleanup or new paid capacity.
+The host reserves 120 seconds for owned-process cleanup, destroys its private
+VM/media/password tree only after owned processes exit, and publishes only a
+closed report. 11 new local integration tests pass. No native Win11 result yet.
