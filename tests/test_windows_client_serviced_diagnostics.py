@@ -122,6 +122,7 @@ class IndependentCleanupFactsTests(unittest.TestCase):
             try:file.close()
             except OSError:pass
             left.close()
+    @unittest.skipUnless(host.sys.platform == 'linux', 'Linux-only finalizer requires SIGXFSZ')
     def test_failed_server_close_distinct_from_vm_exit_and_work_removal(self):
         with tempfile.TemporaryDirectory() as directory:
             work=Path(directory)/'work';work.mkdir();qemu=Mock();qemu.poll.return_value=0
