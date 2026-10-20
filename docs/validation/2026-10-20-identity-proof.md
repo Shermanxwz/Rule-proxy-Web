@@ -494,3 +494,23 @@ Next work is a bounded design review of lower-peak owned-media provisioning,
 not a blind threshold reduction or expansion of deletion targets. Existing
 source/extracted/remastered ISO copies and host MSUs can potentially be phased,
 but servicing peak and safety margin must be established before provisioning.
+
+### Disabled lower-peak stock-client candidate
+
+The exact observed image release `ubuntu24/20261018.339` resolves to official
+runner-images commit `b4067e48bd9bd803e958bfe1503ea0a06a3a127f`. The three
+provider installer scripts are byte-identical to the earlier reviewed image;
+this repairs definition provenance, not current-content or reclaim guarantees.
+A narrowly scoped recovery helper is implemented but hard-disabled. It rejects
+insufficient optimistic capacity before removal, snapshots every fixed tree,
+uses no-follow descriptor-relative checks, and reconciles final measured free
+space. It is not safe against concurrent privileged mutation. Forty-seven
+synthetic tests passed without modifying any actual provider tool installation.
+
+The separately disabled stock-client candidate retains normal Setup and the
+original pinned 26200.6584 ISO with a tiny separate answer/seed ISO, omitting
+servicing and full media extraction/remaster. It does not replace or qualify
+26200.9711. Proposed resource gates and per-file process limits are documented
+in `2026-10-20-win11-capacity-design.md`; these are a bounded capacity-abort
+experiment, not proof of fit or an aggregate filesystem quota. Code review is
+still required before any activation. No cache removal or stock VM has run.
