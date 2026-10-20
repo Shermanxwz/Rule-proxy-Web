@@ -57,13 +57,14 @@ relax that gate. No user account or credential is created by these scripts.
 
 ## CI and authorization boundary
 
-All 19 current `.github/workflows/*.yml` files were inspected before this push.
-`check.yml` runs on every push and includes real Windows system-proxy tests,
-so this experiment's commits use `[skip ci]`. None of the specialist push
+All 19 pre-existing `.github/workflows/*.yml` files were inspected before the
+initial `[skip ci]` source commit. `check.yml` included real Windows system-proxy
+tests on every push. The deliberate second commit excludes only
+`dot/windows-isolation-proof` from that push trigger; main behavior is unchanged. None of the specialist push
 branch filters matches `dot/windows-isolation-proof`; the unfiltered recovery
 workflow has a path filter not touched by this slice. No workflow_run,
 pull_request_target, scheduled, or repository_dispatch trigger was found.
-The main workflow definitions remain unchanged because only this branch moves.
+No main ref or workflow definition on main is modified.
 
 The existing `mxc-capability.yml` has an optional, default-false
 `identity_proof_compile_only` workflow_dispatch input on this branch. When true,
@@ -73,7 +74,14 @@ old executor/ARM execution path is excluded in that mode. This does **not** run
 the actor or create a sandbox. No larger runner, VM matrix, service install,
 package signing, real credentials, or billing changes are introduced.
 
-Manual dispatch must still respect the owner's GitHub-only, no-new-paid-resource
+The added `windows-identity-proof.yml` provides the same compile-only job on
+pushes to exactly this experimental branch and only proof-source/test/workflow
+paths. It has no runtime, pull-request, or scheduled trigger. The initial source
+commit remains CI-skipped; the second commit deliberately starts this one
+bounded build. The new workflow was structurally checked for one standard
+runner job, eight-minute cap, no matrix and no native actor invocation.
+
+Manual dispatch and automatic build execution must still respect the owner's GitHub-only, no-new-paid-resource
 instruction. Windows runtime tests need the separately approved disposable
 security-test context, not merely a compile success. Existing credentials may
 not be logged, uploaded, or replaced. No user PC/OVH/Tianyi access is involved.

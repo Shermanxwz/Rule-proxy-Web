@@ -2,6 +2,8 @@ name: Check
 
 on:
   push:
+    branches-ignore:
+      - 'dot/windows-isolation-proof'
   pull_request:
   workflow_dispatch:
 
@@ -107,3 +109,4 @@ jobs:
           name: windows-system-proxy-native
           path: C:\RuleProxySystemProxyNative\report.json
           if-no-files-found: warn
+
