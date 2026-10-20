@@ -81,27 +81,44 @@ def exercise(host, qmp, work, public, result):
     result['phase'] = 'attach'
     host.attach_update_medium(qmp, work / 'updates.iso', public)
     result['phase'] = 'final_readback'
+    # QEMU v8.2.2 qapi/block-core.json BlockInfo uses tray_open (underscore).
+    # DEVICE_TRAY_MOVED event uses a different field spelling.
+    result['readback_failure'] = 'installer_frontend'
     install_row = host.exact_frontend(qmp, 'install', 'install-cd')
-    if install_row.get('inserted') or install_row.get('tray-open') is not True:
+    result['readback_failure'] = 'installer_present'
+    if install_row.get('inserted'):
         raise ValueError('installer eject not established')
+    result['readback_failure'] = 'installer_tray_not_open'
+    if install_row.get('tray_open') is not True:
+        raise ValueError('installer tray not open')
+    result['readback_failure'] = 'update_frontend'
     update_row = host.exact_frontend(qmp, 'updates', 'update-cd')
-    if update_row.get('tray-open') is not False:
+    result['readback_failure'] = 'update_tray_not_closed'
+    if update_row.get('tray_open') is not False:
         raise ValueError('update tray closure not established')
     result['installer_tray_open_verified'] = True
     result['update_tray_closed_verified'] = True
     inserted = update_row.get('inserted', {})
-    if inserted.get('file') != str(work / 'updates.iso') or inserted.get('ro') is not True:
+    result['readback_failure'] = 'update_file_binding'
+    if inserted.get('file') != str(work / 'updates.iso'):
+        raise ValueError('update file binding not established')
+    result['readback_failure'] = 'update_not_readonly'
+    if inserted.get('ro') is not True:
         raise ValueError('readonly update not established')
     for query in ('query-block', 'query-named-block-nodes'):
+        result['readback_failure'] = 'installer_reference_' + ('block' if query == 'query-block' else 'named_nodes')
         if host.references(host.block_inventory(qmp, query), original):
             raise ValueError('installer reference remains')
+    result['readback_failure'] = 'production_witness'
     for key in ('installer_frontend_verified', 'installer_tray_opened', 'installer_medium_removed',
                 'installer_backend_released', 'update_frontend_verified', 'update_medium_changed',
                 'update_media_attached_readonly'):
         if public.get(key) is not True:
             raise ValueError('production media witness missing')
         result[key] = True
+    result['readback_failure'] = 'machine_not_paused'
     require_paused(qmp)
+    result['readback_failure'] = 'none'
     result['never_running_verified'] = True
     result['phase'] = 'completed'
 
@@ -110,7 +127,7 @@ def run_actual():
     result = {'schema': 1, 'test_kind': 'actual_paused_tcg_qmp', 'phase': 'preflight',
               'passed': False, 'runtime_acceptance': False, 'failure_class': 'none',
               'process_exited': False, 'qmp_closed': False, 'work_removed': False,
-              'watchdog_expired': False, 'cleanup_error': False}
+              'watchdog_expired': False, 'cleanup_error': False, 'readback_failure': 'not_observed'}
     work = None; process = None; qmp = None; watchdog = None; host = None
     public = {}
     expired = threading.Event()

@@ -25,8 +25,8 @@ class FakeQmp:
         if command == 'query-status': return {'running': False, 'status': 'prelaunch'}
         if command == 'query-version': return {'qemu': {'major': self.major, 'minor': 2, 'micro': 2}}
         if command == 'query-block':
-            rows = [{'device': 'install', 'qdev': 'bad' if self.bad_qdev else 'install-cd', 'tray-open': not self.installed},
-                    {'device': 'updates', 'qdev': 'update-cd', 'tray-open': self.bad_tray or not self.updated}]
+            rows = [{'device': 'install', 'qdev': 'bad' if self.bad_qdev else 'install-cd', 'tray_open': not self.installed},
+                    {'device': 'updates', 'qdev': 'update-cd', 'tray_open': self.bad_tray or not self.updated}]
             if self.installed: rows[0]['inserted'] = {'file': str(self.work / 'official.iso'), 'ro': True}
             if self.updated: rows[1]['inserted'] = {'file': str(self.work / 'updates.iso'), 'ro': not self.bad_ro}
             return rows
@@ -63,6 +63,7 @@ class SyntheticQmpTests(unittest.TestCase):
         result, calls = self.run_mock()
         self.assertEqual(result['phase'], 'completed')
         self.assertTrue(result['installer_reclaimed'])
+        self.assertEqual(result['readback_failure'], 'none')
         self.assertTrue(result['never_running_verified'])
         self.assertTrue(result['installer_tray_open_verified'])
         self.assertTrue(result['update_tray_closed_verified'])
@@ -119,6 +120,22 @@ class SyntheticQmpTests(unittest.TestCase):
         self.assertTrue(result['work_removed'])
         self.assertFalse(result['passed'])
         self.assertNotIn('PRIVATE', json.dumps(result))
+
+    @unittest.skipUnless(os.name == 'posix', 'POSIX ownership and permission semantics required')
+    def test_missing_underscore_tray_field_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            for name in ('official.iso', 'updates.iso'): (work / name).write_bytes(bytes(smoke.MEDIA_BYTES))
+            public = {}; result = {}; qmp = FakeQmp(work, public)
+            original = qmp.execute
+            def wrong_event_schema(command, arguments=None):
+                value = original(command, arguments)
+                if command == 'query-block':
+                    for row in value: row['tray-open'] = row.pop('tray_open')
+                return value
+            qmp.execute = wrong_event_schema
+            with self.assertRaises(ValueError): smoke.exercise(host, qmp, work, public, result)
+            self.assertEqual(result['readback_failure'], 'installer_tray_not_open')
 
     def test_wrong_version_fails(self):
         with self.assertRaises(ValueError): self.run_mock(major=9)
