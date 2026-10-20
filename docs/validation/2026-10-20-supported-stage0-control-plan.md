@@ -34,9 +34,10 @@ observes free space and filesystem identity, creates one new owned report
 directory, and requires 64 GiB plus the existing 512 MiB preparation allowance.
 Insufficient space stops without attempting recovery or changing runner size.
 The artifact is explicitly `serviced-capacity-preflight-public` with kind
-`read_only_capacity_preflight`; it is not a recovery-success receipt. Existing
-small preparation measurements and the host's independent capacity guards stay
-in force. Other historical workflows and their records are unchanged.
+`read_only_capacity_preflight`; it is not a recovery-success receipt. All preparation checkpoints and the APT-plan validator use the serviced
+module and the same 64 GiB floor; an executable integration test feeds the
+actual embedded baseline into that production parser and first checkpoint.
+The independent host capacity guards stay in force. Other historical workflows and their records are unchanged.
 
 ## Proposed storage bounds on the same standard free runner
 

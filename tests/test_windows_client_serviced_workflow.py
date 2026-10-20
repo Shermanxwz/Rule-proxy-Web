@@ -66,6 +66,35 @@ class ServicedWorkflowTests(unittest.TestCase):
             self.assertFalse(report['same_filesystem']);self.assertEqual(report['status'],'insufficient_capacity')
             self.assertFalse(report['provider_changes'])
 
+    def test_embedded_baseline_matches_actual_preparation_consumer(self):
+        import importlib.util, re, textwrap
+        consumers=set(re.findall(r'/usr/bin/python3 -B (\.github/[^ ]+\.py) --check-(?:preparation|apt-plan)',self.serviced))
+        self.assertEqual(consumers,{'.github/windows_identity_serviced_stage0.py'})
+        selected=next(iter(consumers))
+        spec=importlib.util.spec_from_file_location('serviced_workflow_capacity_contract',ROOT/selected)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        step=self.serviced.split('      - name: Observe preparation baseline',1)[1].split('      - ',1)[0]
+        body=textwrap.dedent(step.split("<<'PY'",1)[1].split('\n          PY',1)[0])
+        free=80*1024**3
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace=Path(temporary)/'workspace';workspace.mkdir()
+            directory=Path(temporary)/'identity-serviced-capacity';directory.mkdir()
+            environment=Path(temporary)/'job-env'
+            with patch.dict(os.environ,{'GITHUB_WORKSPACE':str(workspace),'RUNNER_TEMP':temporary,'GITHUB_ENV':str(environment)}), patch.object(sys,'version_info',(3,12,0)), patch('shutil.disk_usage',return_value=SimpleNamespace(free=free)):
+                exec(compile(body,'actual-workflow-baseline','exec'),{})
+                path=directory/'preparation-public.json'
+                record=module.preparation_record(path)
+                self.assertEqual(record['minimum_free_bytes'],64*1024**3)
+                device=environment.read_text().strip().split('=',1)[1]
+                with patch.dict(os.environ,{'STOCK_PREP_DEVICE_ID':device}), patch.object(module,'ROOT',workspace):
+                    self.assertEqual(module.preparation_checkpoint(path,'post_checkout'),0)
+                self.assertEqual(len(module.preparation_record(path)['samples']),2)
+                value=json.loads(path.read_text());value['minimum_free_bytes']=32*1024**3
+                path.write_text(json.dumps(value))
+                with self.assertRaises(ValueError):module.preparation_record(path)
+        self.assertNotIn('floor=32*1024**3',self.serviced)
+        self.assertNotIn('windows_identity_stock_stage0.py --check-',self.serviced)
+
     def test_budget_and_dependencies_remain_bounded(self):
         for fragment in ('timeout-minutes: 180', ' + 10500 ', '--timeout-seconds 9600',
                          '--job-deadline-epoch "$STOCK_HOST_DEADLINE"',
@@ -142,7 +171,7 @@ class ServicedWorkflowTests(unittest.TestCase):
 
     def test_only_new_runtime_host_changes(self):
         self.assertIn('sudo /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py', self.serviced)
-        self.assertIn('.github/windows_identity_stock_stage0.py --check-preparation', self.serviced)
+        self.assertIn('.github/windows_identity_serviced_stage0.py --check-preparation', self.serviced)
         self.assertIn('windows-11-serviced-ordinary-stage0-public', self.serviced)
         self.assertNotIn('sudo /usr/bin/python3 -B .github/windows_identity_stock_stage0.py \\', self.serviced)
 

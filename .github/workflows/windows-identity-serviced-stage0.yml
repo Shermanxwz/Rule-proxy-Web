@@ -179,7 +179,7 @@ jobs:
           device=workspace.stat().st_dev
           same=device==output.parent.stat().st_dev
           free=shutil.disk_usage(workspace).free
-          allowance=512*1024**2; floor=32*1024**3
+          allowance=512*1024**2; floor=64*1024**3
           okay=same and sys.version_info[:2]==(3,12) and free>=floor+allowance
           report={'schema_version':1,'allowance_bytes':allowance,'minimum_free_bytes':floor,
                   'baseline_free_bytes':free,'same_filesystem':same,
@@ -217,7 +217,7 @@ jobs:
       - name: Check preinstalled system Python and observed checkout consumption
         timeout-minutes: ${{ fromJSON(steps.stock_budget_2.outputs.minutes) }}
         run: |
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_checkout \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_checkout \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
       - name: Remaining absolute budget for step 3
         id: stock_budget_3
@@ -232,12 +232,12 @@ jobs:
         timeout-minutes: ${{ fromJSON(steps.stock_budget_3.outputs.minutes) }}
         run: |
           sudo apt-get update
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_apt_indexes \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_apt_indexes \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-apt-plan \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-apt-plan \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
           sudo apt-get install -y --no-install-recommends --no-remove qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_apt \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_apt \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
       - name: Remaining absolute budget for step 4
         id: stock_budget_4
@@ -257,7 +257,7 @@ jobs:
         id: stock_budget_5
         timeout-minutes: 1
         run: |
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_actor \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_actor \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
           remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
           minutes=$(( remaining / 60 ))
@@ -278,7 +278,7 @@ jobs:
         id: stock_budget_6
         timeout-minutes: 1
         run: |
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_g_download \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_g_download \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
           remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
           minutes=$(( remaining / 60 ))
@@ -319,7 +319,7 @@ jobs:
         id: stock_budget_7
         timeout-minutes: 1
         run: |
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_g_bundle \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_g_bundle \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
           remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
           minutes=$(( remaining / 60 ))
@@ -335,7 +335,7 @@ jobs:
         id: stock_budget_8
         timeout-minutes: 1
         run: |
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_python \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase post_python \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
           now=$(date +%s)
           remaining=$(( STOCK_JOB_DEADLINE - now ))
@@ -349,7 +349,7 @@ jobs:
       - name: Run one exact serviced ordinary-user Stage0 in the disposable client
         timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
         run: |
-          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase pre_vm \
+          /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py --check-preparation --preparation-phase pre_vm \
             --output "$RUNNER_TEMP/identity-serviced-capacity/preparation-public.json"
           actor=$(cat client-stage0-actor/actor-sha256.txt)
           STOCK_HOST_DEADLINE=${{ steps.stock_budget_8.outputs.deadline }}
