@@ -60,15 +60,18 @@ CHECKS = ('request_aware_base_container', 'actual_base_container', 'fresh_actor'
 BOOLS = ('ordinary_account', 'servicing_verified', 'stage0_passed', 'harness_completed')
 EXECUTION_ENABLED = True  # Frozen code review only; separate execution decision required.
 GIB = 1024**3
-PREMEDIA_FREE = 32 * GIB
-LAUNCH_FREE = 24 * GIB
-DISK_FILE_CAP = 22 * GIB
+PREMEDIA_FREE = 64 * GIB
+LAUNCH_FREE = 54 * GIB
+DISK_FILE_CAP = 48 * GIB
+HOST_MAX_SECONDS = 9600
+CLEANUP_RESERVE_SECONDS = 180
+HOST_START_MIN_SECONDS = 9000
 STOP_FREE = 4 * GIB
 MAX_PAYLOAD = 256 * 1024**2
 MAX_SEED = 16 * 1024**2
 DIGEST = re.compile(r'[0-9a-f]{64}\Z')
 MAX_REPORT = 16384
-MIN_VM_WORK_SECONDS = 1800
+MIN_VM_WORK_SECONDS = 7500
 PREP_ALLOWANCE = 512 * 1024**2
 PREP_PHASES = ('before_checkout', 'post_checkout', 'post_apt_indexes', 'post_apt',
                'post_actor', 'post_g_download', 'post_g_bundle', 'post_python', 'pre_vm')
@@ -398,7 +401,8 @@ def validate_guest(value, actor_digest):
     result['stage0_passed'] = result['stage0_passed'] and all(result['servicing_diagnostic'][k] is True for k in ('completed', 'packages_verified', 'task_unregistered', 'reboot_observed'))
     receipt = result['servicing_diagnostic']
     result['stage0_passed'] = (result['stage0_passed'] and receipt['phase'] == 'completed'
-        and receipt['failure'] == 'none' and receipt['dism_exit_code'] in (0,3010))
+        and receipt['failure'] == 'none' and receipt['dism_exit_code'] in (0,3010)
+        and receipt['dism_wait_timed_out'] is False)
     result['os'] = {'build': 26200, 'ubr': 9711, 'product_type': 'WinNT', 'architecture': 'AMD64'}
     if value.get('os') != result['os'] or value.get('actor_sha256') != actor_digest:
         raise ValueError('guest provenance differs')
@@ -611,8 +615,25 @@ class VMWorkBudgetInsufficient(TimeoutError):
     pass
 
 
+def admit_host_budget(timeout, job_deadline, *, wall_now=None, monotonic_now=None):
+    wall = time.time() if wall_now is None else wall_now
+    mono = time.monotonic() if monotonic_now is None else monotonic_now
+    available = min(timeout, job_deadline - wall)
+    if available < HOST_START_MIN_SECONDS:
+        raise VMWorkBudgetInsufficient('host start budget insufficient')
+    work = available - CLEANUP_RESERVE_SECONDS
+    return available, mono + work, int(wall + work)
+
+
+def require_phase_budget(deadline, minimum, *, now=None):
+    remaining = deadline - (time.monotonic() if now is None else now)
+    if remaining < minimum:
+        raise VMWorkBudgetInsufficient('phase time budget insufficient')
+    return remaining
+
+
 def require_vm_work_budget(deadline, *, now=None):
-    # This is the existing work deadline, with the 120s cleanup reserve already
+    # This is the existing work deadline, with the 180s cleanup reserve already
     # excluded. Never extend it because preparation took longer than expected.
     remaining = deadline - (time.monotonic() if now is None else now)
     if remaining < MIN_VM_WORK_SECONDS:
@@ -792,25 +813,29 @@ def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=No
 
 
 # New opt-in sizing, not a claim that servicing fits. The original stock path is
-# unchanged. QEMU receives a 22 GiB hard limit from launch; no privilege increase.
+# unchanged. QEMU receives a 48 GiB hard limit from launch; no privilege increase.
 UPDATE_VOLUME = 'RULEPROXY_UPDATE'
 UPDATE_BYTES = 5308811935
 UPDATE_ISO_OVERHEAD = 16 * 1024**2
 UPDATE_ISO_CAP = UPDATE_BYTES + UPDATE_ISO_OVERHEAD
 SERVICE_FLOOR = STOP_FREE + GIB
-MIN_SERVICE_SECONDS = 3000  # 40-minute DISM bound plus 10 minutes reboot/native checks.
+# Conservative full qcow cap plus the larger retained-installer or duplicate-update peak.
+FULL_PEAK_BUDGET_BYTES = DISK_FILE_CAP + max(7092807680, UPDATE_BYTES + UPDATE_ISO_CAP) + SERVICE_FLOOR + GIB
+MIN_MEDIA_WORK_SECONDS = 5400
+MIN_SERVICE_SECONDS = 3000  # 40-minute DISM wait bound plus 10 minutes reboot/native checks.
 UPDATE_PINS = (
     ('windows11.0-kb5043080-x64.msu', 533761740, '819632610a101af11c72907fb13ff05b5fb4222c0e263ee9a03bcc1d1d5f26a4'),
     ('windows11.0-kb5127648-x64.msu', 4775050195, '8a1067c763121953876e2e0dcbf5e2c5832545a44ef6baba362938287e05fcfb'),
 )
 SERVICE_PHASES = ('not_observed', 'unclassified', 'initializing', 'waiting_for_optical', 'verifying_optical', 'post_reboot_verify', 'installing_official_cu', 'reboot_pending', 'completed')
-SERVICE_FAILURES = ('none','unclassified','system_required','prior_bound','prior_state','setup_deadline','optical_deadline','optical_device','optical_root','optical_members','optical_package','optical_changed','reboot_not_observed','exact_serviced_build','reboot_still_pending','task_remains','exact_stock_build','dism_log_exists','dism_handle','dism_deadline','dism_exit_absent','dism_failed','operation_failed')
+SERVICE_FAILURES = ('none','unclassified','service_deadline','system_required','prior_bound','prior_state','setup_deadline','optical_deadline','optical_device','optical_root','optical_members','optical_package','optical_changed','reboot_not_observed','exact_serviced_build','reboot_still_pending','task_remains','exact_stock_build','dism_log_exists','dism_handle','dism_deadline','dism_exit_absent','dism_failed','operation_failed')
 
 
 def closed_servicing(value):
     proof = proof_helpers(); value = proof._dict(value)
     return {'phase': proof._enum(value.get('phase'), SERVICE_PHASES, 'not_observed'),
-            **{k: value.get(k) is True for k in ('completed', 'packages_verified', 'task_unregistered', 'reboot_observed')},
+            **{k: value.get(k) is True for k in ('completed', 'packages_verified', 'task_unregistered', 'reboot_observed',
+                'dism_wait_timed_out', 'dism_exit_observed', 'dism_exit_observation_available')},
             'dism_exit_code': proof._integer(value.get('dism_exit_code'), -0x80000000),
             'failure': proof._enum(value.get('failure'), SERVICE_FAILURES, 'unclassified')}
 
@@ -989,7 +1014,7 @@ def service_process(command, deadline, watch, *, ceiling, maximum=600, stream_di
 
 def prepare_servicing(media, qmp, work, iso, disk, deadline, watch, public):
     packages = update_packages(media)
-    if deadline-time.monotonic() < MIN_SERVICE_SECONDS: raise VMWorkBudgetInsufficient('servicing time budget insufficient')
+    require_phase_budget(deadline, MIN_MEDIA_WORK_SECONDS)
     pause_installed(qmp)
     public['installed_guest_paused'] = True
     reclaim_installer(qmp, iso, work, media, public)
@@ -1030,12 +1055,13 @@ def prepare_servicing(media, qmp, work, iso, disk, deadline, watch, public):
     for path, before in files: unlink_same(path, work, before)
     public['update_source_files_removed'] = True
     record_breadcrumb(public, 'update_sources_removed', work, disk, deadline)
-    if deadline-time.monotonic() < MIN_SERVICE_SECONDS: raise VMWorkBudgetInsufficient('remaining servicing budget insufficient')
+    require_phase_budget(deadline, MIN_SERVICE_SECONDS)
     public['servicing_admission_before_attach'] = service_capacity(work, disk)
     rebound = owned_regular(update_iso, work)
     if (rebound.st_dev,rebound.st_ino,rebound.st_size) != (image.st_dev,image.st_ino,image.st_size): raise ValueError('update image binding changed')
     attach_update_medium(qmp, update_iso, public)
     record_breadcrumb(public, 'servicing_admitted', work, disk, deadline)
+    require_phase_budget(deadline, MIN_SERVICE_SECONDS)
     qmp.execute('cont')
     if qmp.execute('query-status').get('running') is not True: raise ValueError('guest resume unconfirmed')
     public['installed_guest_resumed'] = True
@@ -1165,14 +1191,12 @@ def host(args):
     public = {'schema_version': 1, 'stage': 'win11-serviced26200.9711-ordinary-deny-only-stage0',
               'status': 'blocked', 'stage0_passed': False, 'product_acceptance': False,
               'privacy_qualified': False, 'network_tested': False, 'vm_destroyed': False}
-    available = min(args.timeout_seconds, args.job_deadline_epoch - time.time())
-    if available < 300: raise TimeoutError('native job cleanup reserve unavailable')
+    available, deadline, work_deadline_epoch = admit_host_budget(args.timeout_seconds, args.job_deadline_epoch)
     qemu = tpm = server = thread = qmp = watch = None
     work = Path(tempfile.mkdtemp(prefix='identity-win11-private-')); work.chmod(0o700)
     old_handlers = {sig: signal.signal(sig, interrupted) for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGALRM)}
-    deadline = time.monotonic() + available - 120
     # Also bound non-subprocess work (hashes/ZIPs/filesystem) and helper calls.
-    signal.setitimer(signal.ITIMER_REAL, available - 120)
+    signal.setitimer(signal.ITIMER_REAL, available - CLEANUP_RESERVE_SECONDS)
     source = os.environ.get('GITHUB_SHA', '')
     if re.fullmatch(r'[0-9a-f]{40}', source): public['source_commit'] = source
     public['iso_sha256'] = media.ISO_SHA256
@@ -1211,6 +1235,9 @@ def host(args):
                   'payload_sha256': package_digest, 'python_sha256': PYTHON_ASSET['sha256'],
                   'actor_sha256': args.actor_sha256}
         media.prepare_seed(tree, secrets.token_hex(16) + 'Ci!9', config)
+        # Readonly seed authority: SYSTEM copies this absolute deadline to protected storage.
+        (tree / 'service-budget.json').write_text(json.dumps({'schema': 1,
+            'deadline_unix_seconds': work_deadline_epoch}), encoding='ascii')
         for role in ('setup', 'run'):
             shutil.copyfile(ROOT / f'.github/windows-identity-serviced-stage0-{role}.ps1', tree / f'ruleproxy-vm-{role}.ps1')
         shutil.copyfile(ROOT / '.github/windows-identity-serviced-update.ps1', tree / 'windows-identity-serviced-update.ps1')
@@ -1343,7 +1370,7 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True)
     for name in ('python-archive', 'actor', 'bundle'): parser.add_argument('--' + name, type=Path)
     parser.add_argument('--actor-sha256')
-    parser.add_argument('--timeout-seconds', type=int, default=6600)
+    parser.add_argument('--timeout-seconds', type=int, default=HOST_MAX_SECONDS)
     parser.add_argument('--job-deadline-epoch', type=int)
     args = parser.parse_args(argv)
     if args.check_preparation or args.check_apt_plan:
@@ -1358,8 +1385,8 @@ def main(argv=None):
         download_python(args.output)
         return 0
     if args.guest: return guest(args)
-    if not all((args.python_archive, args.actor, args.bundle, args.actor_sha256)) or args.timeout_seconds != 6600 or args.job_deadline_epoch is None:
-        parser.error('fixed host inputs, maximum6600-second budget and absolute job deadline required')
+    if not all((args.python_archive, args.actor, args.bundle, args.actor_sha256)) or args.timeout_seconds != HOST_MAX_SECONDS or args.job_deadline_epoch is None:
+        parser.error('fixed host inputs, maximum9600-second budget and absolute job deadline required')
     return host(args)
 
 if __name__ == '__main__': raise SystemExit(main())

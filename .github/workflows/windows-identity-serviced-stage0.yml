@@ -1,4 +1,4 @@
-# Reviewed runtime attempt 02: unchanged gates, budgets and production sources.
+# Code-only supported-build budget redesign; runtime still requires its explicit marker.
 name: Windows serviced client Stage0 (bounded experiment)
 on:
   push:
@@ -17,6 +17,11 @@ on:
       - '.github/test_windows_serviced_qmp.py'
       - 'tests/test_windows_client_serviced_qmp.py'
       - 'tests/test_windows_provider_cache_recovery.py'
+      - '.github/windows_identity_proof.py'
+      - '.github/test_windows_identity_actor_projection.py'
+      - '.github/test-windows-identity-direct-gates.ps1'
+      - 'tests/test_windows_client_direct_actor_projection.py'
+      - 'tests/test_windows_identity_proof.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -42,7 +47,10 @@ jobs:
       - name: Execute mocked guest boundary regressions, not VM acceptance
         shell: powershell
         run: ./.github/test-windows-identity-serviced-gates.ps1
-      - name: Compile the pinned zero-network native actor, never execute it here
+      - name: Execute read-only native environment/capability and direct boundary gates
+        shell: powershell
+        run: ./.github/test-windows-identity-direct-gates.ps1
+      - name: Compile the pinned zero-network native actor for source control and later VM
         shell: pwsh
         run: |
           $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -54,6 +62,13 @@ jobs:
           $manifest=Get-Content -Raw client-stage0-actor/build-manifest.json | ConvertFrom-Json
           if ($manifest.httpCompiled -or -not $manifest.staticCrt) { throw 'Zero-network static actor required' }
           [IO.File]::WriteAllText("$PWD\client-stage0-actor/actor-sha256.txt",$manifest.executableSha256)
+      - name: Source-token actor projection negative control, not isolation acceptance
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          $digest=(Get-Content -Raw client-stage0-actor/actor-sha256.txt).Trim().ToLowerInvariant()
+          python -B .github/test_windows_identity_actor_projection.py --run-source-token-control --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 $digest
+          if ($LASTEXITCODE -ne 0) { throw 'Source-token actor projection control failed' }
       - name: Pure unit tests, not Windows runtime acceptance
         run: |
           python -B -m unittest discover -s tests -p "test_windows_client_stock_stage0.py" -v
@@ -88,9 +103,12 @@ jobs:
           test -f tests/test_windows_client_serviced_workflow.py
           test -f tests/test_windows_client_serviced_diagnostics.py
           test -f tests/test_windows_client_serviced_qmp.py
+          test -f tests/test_windows_identity_proof.py
+          test -f tests/test_windows_client_direct_actor_projection.py
           python3 -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful() or bool(r.skipped))"
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
+          python3 -B -m unittest discover -s tests -p test_windows_client_direct_actor_projection.py -q
   qmp-media-gate:
     # Paused synthetic QEMU only: no Windows media, guest CPU, KVM or networking.
     if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-serviced-stage0-gates]')) }}
@@ -113,14 +131,14 @@ jobs:
     if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') }}
     needs: [compile, host-unit, qmp-media-gate]
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 180
     permissions:
       contents: read
       actions: read
     steps:
       - name: Establish absolute native job deadline
         timeout-minutes: 1
-        run: echo "STOCK_JOB_DEADLINE=$(( $(date +%s) + 6900 ))" >> "$GITHUB_ENV"
+        run: echo "STOCK_JOB_DEADLINE=$(( $(date +%s) + 10500 ))" >> "$GITHUB_ENV"
       - name: Remaining absolute budget for step 0
         id: stock_budget_0
         timeout-minutes: 1
@@ -985,12 +1003,15 @@ jobs:
         run: |
           /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_python \
             --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
-          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 0 ))
+          now=$(date +%s)
+          remaining=$(( STOCK_JOB_DEADLINE - now ))
           minutes=$(( remaining / 60 ))
           test "$minutes" -ge 1
-          if [ "$minutes" -gt 111 ]; then minutes=111; fi
+          if [ "$minutes" -gt 161 ]; then minutes=161; fi
+          host_deadline=$(( now + minutes * 60 - 30 ))
+          if [ "$host_deadline" -gt "$STOCK_JOB_DEADLINE" ]; then host_deadline=$STOCK_JOB_DEADLINE; fi
           echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
-          echo "deadline=$(( $(date +%s) + minutes * 60 - 30 ))" >> "$GITHUB_OUTPUT"
+          echo "deadline=$host_deadline" >> "$GITHUB_OUTPUT"
       - name: Run one exact serviced ordinary-user Stage0 in the disposable client
         timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
         run: |
@@ -999,11 +1020,11 @@ jobs:
           actor=$(cat client-stage0-actor/actor-sha256.txt)
           STOCK_HOST_DEADLINE=${{ steps.stock_budget_8.outputs.deadline }}
           remaining=$(( STOCK_HOST_DEADLINE - $(date +%s) ))
-          test "$remaining" -ge 300
+          test "$remaining" -ge 9000
           exec timeout --signal=TERM --kill-after=30s "${remaining}s" sudo /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py \
             --approved-disposable-vm --python-archive "$PWD/client-stage0-python/python-3.14.8-embed-amd64.zip" \
             --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 "$actor" \
-            --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 6600 --job-deadline-epoch "$STOCK_HOST_DEADLINE"
+            --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 9600 --job-deadline-epoch "$STOCK_HOST_DEADLINE"
       - uses: actions/upload-artifact@v7
         if: always()
         timeout-minutes: 2

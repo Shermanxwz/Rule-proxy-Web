@@ -34,10 +34,24 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'windows-identity-serviced-updat
 . $worker
 Assert-ProtectedUpdatePath $protected -Directory -ProtectedDacl
 Assert-ProtectedUpdatePath $worker
+# Read only the original immutable seed, never the user-writable workspace copy.
+$seedBudgetPath=Join-Path $PSScriptRoot 'service-budget.json'
+if ((Get-Item -LiteralPath $seedBudgetPath).Length -gt 1024) { throw 'Host budget bound' }
+$seedBudget=Get-Content -LiteralPath $seedBudgetPath -Raw | ConvertFrom-Json
+if ($seedBudget.schema -ne 1) { throw 'Invalid host budget' }
+$now=[DateTime]::UtcNow
+$hostDeadline=ConvertTo-ServicedDeadline $seedBudget.deadline_unix_seconds $now
+$serviceDeadline=$now.AddMinutes(110)
+if ($serviceDeadline -gt $hostDeadline) { $serviceDeadline=$hostDeadline }
+$budgetPath=Join-Path $protected 'service-budget.json'
+$budgetJson=@{schema=1;deadline_unix_seconds=([DateTimeOffset]$serviceDeadline).ToUnixTimeSeconds()} | ConvertTo-Json -Compress
+[IO.File]::WriteAllText($budgetPath,$budgetJson,[Text.Encoding]::ASCII)
+Assert-ProtectedUpdatePath $budgetPath
+
 $powerShell=Join-Path ([Environment]::GetFolderPath('Windows')) 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $action=New-ScheduledTaskAction -Execute $powerShell -Argument ('-NoProfile -ExecutionPolicy Bypass -File "'+$worker+'"')
 $trigger=New-ScheduledTaskTrigger -AtStartup
 $principal=New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-$settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 80) -MultipleInstances IgnoreNew -StartWhenAvailable
+$settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 110) -MultipleInstances IgnoreNew -StartWhenAvailable
 Register-ScheduledTask -TaskName $script:UpdateTaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings | Out-Null
 Start-ScheduledTask -TaskName $script:UpdateTaskName

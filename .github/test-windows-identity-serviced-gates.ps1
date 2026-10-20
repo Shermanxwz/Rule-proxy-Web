@@ -135,6 +135,45 @@ if ($errors.Count -ne 0) { throw 'Servicing helper parser failed' }
 $definitions=@($helperAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-ServicedOpticalRoot'},$false))
 if ($definitions.Count -ne 1) { throw 'Unique optical function required' }
 . $helper # Guarded dot-source defines actual worker helpers; never invokes servicing.
+# Execute actual pure deadline conversion without servicing or a guest. The
+# protected host-derived epoch is immutable across retries/reboots, never renewed.
+$fixedNow=[DateTime]::SpecifyKind([DateTime]'2030-01-01T00:00:00',[DateTimeKind]::Utc)
+$fixedEpoch=([DateTimeOffset]$fixedNow).ToUnixTimeSeconds()
+foreach ($offset in @(1,6600,9600)) {
+    $converted=ConvertTo-ServicedDeadline ([long]($fixedEpoch+$offset)) $fixedNow
+    if (($converted-$fixedNow).TotalSeconds -ne $offset) { throw 'Deadline conversion changed' }
+    $passed++
+}
+foreach ($invalid in @($null,$true,'1893456001',[long]0,[long]($fixedEpoch-1),[long]$fixedEpoch,[long]($fixedEpoch+9601))) {
+    $rejected=$false
+    try { $null=ConvertTo-ServicedDeadline $invalid $fixedNow } catch { $rejected=$true }
+    if (-not $rejected) { throw 'Invalid or expired deadline accepted' }
+    $passed++
+}
+$rejected=$false
+try { Assert-ServicedTime ([DateTime]::UtcNow.AddSeconds(-1)) } catch { $rejected=$true }
+if (-not $rejected) { throw 'Expired shared deadline accepted' }; $passed++
+Assert-ServicedTime ([DateTime]::UtcNow.AddMinutes(1)); $passed++
+
+# Execute the actual wait helper with owned mock objects, never DISM/processes.
+foreach ($scenario in @('success','timeout','unknown_exit')) {
+    $state=@{dism_exit_code=$null;dism_wait_timed_out=$false;dism_exit_observed=$false;dism_exit_observation_available=$false}
+    $process=[PSCustomObject]@{Scenario=$scenario;ExitCode=0;WaitArgument=0}
+    $process | Add-Member ScriptMethod WaitForExit { param($milliseconds) $this.WaitArgument=$milliseconds; return ($this.Scenario -ceq 'success') }
+    $process | Add-Member ScriptMethod Refresh { }
+    $process | Add-Member ScriptProperty HasExited { if ($this.Scenario -ceq 'unknown_exit') { throw 'fixture_observation_unavailable' }; return ($this.Scenario -ceq 'success') }
+    $failure=$null
+    try { Wait-ServicedDism $process 1234 $state } catch { $failure=$_.Exception.Message }
+    if ($process.WaitArgument -ne 1234) { throw 'DISM wait bound not forwarded' }
+    if ($scenario -ceq 'success') {
+        if ($null -ne $failure -or $state.dism_exit_code -ne 0 -or $state.dism_wait_timed_out -or -not $state.dism_exit_observed -or -not $state.dism_exit_observation_available) { throw 'Successful DISM wait fixture failed' }
+    } else {
+        if ($failure -cne 'dism_deadline' -or -not $state.dism_wait_timed_out -or $null -ne $state.dism_exit_code -or $state.dism_exit_observed) { throw 'DISM timeout fixture failed' }
+        if ($state.dism_exit_observation_available -ne ($scenario -ceq 'timeout')) { throw 'DISM observation fixture failed' }
+    }
+    $passed++
+}
+
 function Get-CimInstance { param($ClassName,$Filter) return $script:OpticalFixtures }
 try {
     Set-StrictMode -Version Latest

@@ -133,4 +133,37 @@ class ServicedGuestContractTests(unittest.TestCase):
                        'value=$true', 'value=$null', 'Wire HRESULT value or JSON numeric type changed'):
             self.assertIn(marker, test)
 
+    def test_guest_deadline_is_seed_bound_protected_and_never_reset(self):
+        self.assertIn("Join-Path $PSScriptRoot 'service-budget.json'", SETUP)
+        self.assertIn('$hostDeadline=ConvertTo-ServicedDeadline', SETUP)
+        self.assertIn('$serviceDeadline=$now.AddMinutes(110)', SETUP)
+        self.assertIn('if ($serviceDeadline -gt $hostDeadline)', SETUP)
+        self.assertIn('Assert-ProtectedUpdatePath $budgetPath', SETUP)
+        self.assertIn('-Minutes 110', SETUP)
+        self.assertIn('$serviceDeadline=Get-ServicedDeadline', UPDATE)
+        self.assertIn('$servicingDeadline=Get-ServicedDeadline', RUN)
+        self.assertNotIn('AddMinutes(80)', RUN)
+        self.assertNotIn('AddMinutes(110)', UPDATE)
+        self.assertIn('AddMinutes(45)', UPDATE)
+        self.assertIn('if ($mediaDeadline -gt $serviceDeadline)', UPDATE)
+        self.assertIn('if ($setupDeadline -gt $serviceDeadline)', UPDATE)
+        self.assertIn('[Math]::Min(40*60*1000,($serviceDeadline-', UPDATE)
+        self.assertIn('Wait-ServicedDism $process $dismMilliseconds $state', UPDATE)
+        self.assertNotIn('$Process.Kill()', UPDATE)
+        self.assertIn('$State.dism_exit_observation_available=$true', UPDATE)
+        self.assertIn("'service_deadline'", UPDATE)
+        self.assertIn("'service_deadline'", RUN)
+        gate=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        self.assertIn('ConvertTo-ServicedDeadline ([long]($fixedEpoch+$offset))', gate)
+        self.assertIn('Invalid or expired deadline accepted', gate)
+        self.assertIn('Assert-ServicedTime ([DateTime]::UtcNow.AddSeconds(-1))', gate)
+        for source in (RUN, UPDATE):
+            function=source[source.index('function Get-ServicedDeadline'):]
+            function=function[:function.index('\n}')+2]
+            self.assertNotIn('AddMinutes', function)
+            self.assertNotIn('Write', function)
+            self.assertIn('Assert-ProtectedUpdatePath $path', function)
+        self.assertLess(UPDATE.index('Assert-ServicedMedia $optical'), UPDATE.index('$process=Start-Process'))
+
+
 if __name__ == '__main__': unittest.main()

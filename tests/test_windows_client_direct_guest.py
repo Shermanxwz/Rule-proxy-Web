@@ -97,7 +97,7 @@ class DirectGuestTests(unittest.TestCase):
             self.assertIn(marker, GATE)
         self.assertNotIn('print(observed)', GATE)
         self.assertNotIn('print(native)', GATE)
-        self.assertIn('if runner_environment != "validated":\n    raise SystemExit(1)', GATE)
+        self.assertIn('if runner_environment != "validated" or not capability_gate_passed:\n    raise SystemExit(1)', GATE)
 
     def test_embedded_python_synthetic_environment_cases_execute(self):
         # Executes real validator/policy with synthetic Windows strings here.
@@ -119,9 +119,29 @@ class DirectGuestTests(unittest.TestCase):
         self.assertIn(result['runner_environment_error_class'], ('none', 'PermissionError', 'ValueError', 'OSError', 'unclassified'))
         self.assertFalse(result['runtime_acceptance'])
         self.assertIn(result['runner_environment'], ('validated', 'rejected'))
-        self.assertEqual(exit_code, 0 if result['runner_environment'] == 'validated' else 1)
+        self.assertEqual(exit_code, 0 if result['runner_environment'] == 'validated' and result['capability_gate_passed'] else 1)
         self.assertNotIn('FixtureUser', output.getvalue())
         self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())
+
+    def test_classifier_semantics_use_actual_proof_with_mock_native_catalog(self):
+        import ast
+        spec=importlib.util.spec_from_file_location('direct_classifier_test', GITHUB/'windows_identity_proof.py')
+        proof=importlib.util.module_from_spec(spec); spec.loader.exec_module(proof)
+        embedded=GATE.split("$parityCode=@'",1)[1].split("\n'@",1)[0]
+        function=next(n for n in ast.parse(embedded).body if isinstance(n,ast.FunctionDef) and n.name=='run_capability_regression')
+        namespace={'json':json}
+        exec(compile(ast.Module(body=[function],type_ignores=[]),'<classifier-regression>','exec'),namespace)
+        catalog={name:'S-1-15-3-'+str(index+1) for index,name in enumerate(proof.CAPABILITY_LABELS)}
+        class Observer:
+            def catalog(self): return catalog
+            def source(self): return []
+            def equal_sid(self,left,right): return left==right
+            def known_sid(self,kind): return catalog[next(name for name,value in proof.CAPABILITY_LEGACY_TYPES.items() if value==kind)]
+        result=namespace['run_capability_regression'](proof,Observer())
+        self.assertEqual(result['legacy_sid_crosschecks_passed'],12)
+        self.assertTrue(result['capability_unknown_redacted'])
+        self.assertNotIn('S-1-',json.dumps(result))
+        self.assertNotIn('PRIVATE',json.dumps(result))
 
 
 if __name__ == '__main__': unittest.main()

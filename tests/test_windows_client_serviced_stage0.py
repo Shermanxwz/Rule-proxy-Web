@@ -19,31 +19,70 @@ class BudgetTests(unittest.TestCase):
         with patch.object(host.shutil, 'disk_usage', return_value=types.SimpleNamespace(free=free)):
             return host.service_capacity(Path('/owned'), disk, **kwargs)
 
-    def test_observed_reclaimed_stock_can_admit_bounded_media(self):
-        result = self.calculate(11302961152+7092807680,16159727616,
+    def test_admission_boundaries_and_immutable_epoch(self):
+        for delta in (-1,0,1):
+            if delta < 0:
+                with self.assertRaises(host.VMWorkBudgetInsufficient):
+                    host.admit_host_budget(9600,10000+9000+delta,wall_now=10000,monotonic_now=100)
+            else:
+                available,deadline,epoch=host.admit_host_budget(9600,10000+9000+delta,wall_now=10000,monotonic_now=100)
+                self.assertEqual((available,deadline,epoch),(9000+delta,8920+delta,18820+delta))
+                with patch.object(host.time,'time',return_value=999999):
+                    self.assertEqual(epoch,18820+delta)
+                    self.assertEqual(host.require_phase_budget(deadline,3000,now=101),8819+delta)
+        for threshold in (host.MIN_MEDIA_WORK_SECONDS,host.MIN_SERVICE_SECONDS):
+            for delta in (-1,0,1):
+                if delta<0:
+                    with self.assertRaises(host.VMWorkBudgetInsufficient): host.require_phase_budget(100+threshold+delta,threshold,now=100)
+                else: self.assertEqual(host.require_phase_budget(100+threshold+delta,threshold,now=100),threshold+delta)
+
+    def test_recent_runner_can_admit_bounded_media(self):
+        result = self.calculate(68695736320+7092807680,16159727616,
             size=16185294848, temporary=host.UPDATE_BYTES+host.UPDATE_ISO_CAP, final_addition=host.UPDATE_ISO_CAP)
         self.assertGreaterEqual(result['projected_floor_bytes'], 5*host.GIB)
+
+    def test_old_low_capacity_runner_rejects_even_after_reclaim(self):
+        with self.assertRaises(RuntimeError):
+            self.calculate(11302961152+7092807680,16159727616,
+                temporary=host.UPDATE_BYTES+host.UPDATE_ISO_CAP, final_addition=host.UPDATE_ISO_CAP)
+
+    def test_full_cap_duplicate_peak_ceil_and_fixed_time_chain(self):
+        full_peak=host.DISK_FILE_CAP+max(7092807680,host.UPDATE_BYTES+host.UPDATE_ISO_CAP)+host.SERVICE_FLOOR+host.GIB
+        self.assertEqual(host.FULL_PEAK_BUDGET_BYTES,full_peak)
+        self.assertEqual((full_peak+host.GIB-1)//host.GIB,64)
+        self.assertEqual(host.PREMEDIA_FREE,64*host.GIB)
+        self.assertEqual(host.LAUNCH_FREE,54*host.GIB)
+        self.assertGreaterEqual(host.PREMEDIA_FREE,full_peak)
+        self.assertEqual(host.HOST_MAX_SECONDS,9600)
+        self.assertEqual(host.CLEANUP_RESERVE_SECONDS,180)
+        self.assertEqual(host.HOST_START_MIN_SECONDS,9000)
+        self.assertEqual(host.MIN_VM_WORK_SECONDS,7500)
+        self.assertEqual(host.MIN_MEDIA_WORK_SECONDS,5400)
+        self.assertEqual(host.MIN_SERVICE_SECONDS,3000)
+        self.assertEqual(host.BOOTSTRAP_SECONDS,2100)
+        with self.assertRaises(host.VMWorkBudgetInsufficient): host.require_vm_work_budget(7499,now=0)
+        self.assertEqual(host.require_vm_work_budget(7500,now=0),7500)
 
     def test_unreclaimed_stock_cannot_admit(self):
         with self.assertRaises(RuntimeError):
             self.calculate(11302961152,16159727616,temporary=host.UPDATE_BYTES+host.UPDATE_ISO_CAP,final_addition=host.UPDATE_ISO_CAP)
 
     def test_full_remaining_allocation_not_just_logical_gap(self):
-        result = self.calculate(30*host.GIB, 10*host.GIB, size=15*host.GIB)
-        self.assertEqual(result['remaining_qcow_allocation_bound'],12*host.GIB)
+        result = self.calculate(50*host.GIB, 10*host.GIB, size=15*host.GIB)
+        self.assertEqual(result['remaining_qcow_allocation_bound'],38*host.GIB)
 
     def test_exact_projected_floor_allowed_below_rejected(self):
         for delta in (0,-1):
             if delta == 0:
-                self.calculate(17*host.GIB+delta,10*host.GIB)
+                self.calculate(43*host.GIB+delta,10*host.GIB)
             else:
-                with self.assertRaises(RuntimeError): self.calculate(17*host.GIB+delta,10*host.GIB)
+                with self.assertRaises(RuntimeError): self.calculate(43*host.GIB+delta,10*host.GIB)
 
     def test_hard_cap_never_unlimited(self):
-        self.assertEqual(host.DISK_FILE_CAP,22*host.GIB)
+        self.assertEqual(host.DISK_FILE_CAP,48*host.GIB)
         self.assertEqual(host.STOP_FREE,4*host.GIB)
         self.assertEqual(host.SERVICE_FLOOR,5*host.GIB)
-        self.assertIn('--fsize=23622320128:23622320128',host.limited_command(['qemu'],host.DISK_FILE_CAP))
+        self.assertIn('--fsize=51539607552:51539607552',host.limited_command(['qemu'],host.DISK_FILE_CAP))
         self.assertIs(type(host.EXECUTION_ENABLED), bool)
 
     def test_disabled_runtime_flag_refuses_before_inputs_or_mutation(self):
@@ -176,6 +215,14 @@ class WireReceiptTests(unittest.TestCase):
         self.assertEqual(result['servicing_diagnostic']['dism_exit_code'],3010)
         self.assertEqual(result['launcher_diagnostic']['phase'],'serviced_build')
 
+    def test_dism_wait_diagnostics_do_not_require_timeout_for_success(self):
+        raw=self.receipt()
+        self.assertTrue(host.validate_guest(raw,'a'*64)['stage0_passed'])
+        raw['servicing_diagnostic'].update(dism_wait_timed_out=False,dism_exit_observed=True,dism_exit_observation_available=True)
+        self.assertTrue(host.validate_guest(raw,'a'*64)['stage0_passed'])
+        raw['servicing_diagnostic']['dism_wait_timed_out']=True
+        self.assertFalse(host.validate_guest(raw,'a'*64)['stage0_passed'])
+
     def test_missing_or_truthy_service_observations_fail(self):
         for field in ('completed','packages_verified','reboot_observed','task_unregistered'):
             for value in (None,'true',1,False):
@@ -201,11 +248,11 @@ class WireReceiptTests(unittest.TestCase):
 
 class PrepareProtocolTests(unittest.TestCase):
     @unittest.skipUnless(os.name == 'posix', 'POSIX ownership and permission semantics required')
-    def test_sources_deleted_before_readonly_attach(self):
+    def test_sources_deleted_before_readonly_attach(self, expire_during_attach=False):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);disk=root/'windows.qcow2';disk.write_bytes(b'disk');iso=root/'official.iso';iso.write_bytes(b'iso')
             pkgs=[dict(seed_filename=n,bytes=1,sha256=h,url='https://test') for n,_,h in host.UPDATE_PINS]
-            calls=[];qmp=Mock();attached={'value':False}
+            calls=[];qmp=Mock();attached={'value':False};clock={'now':0}
             def command(cmd,args=None):
                 calls.append(cmd)
                 if cmd=='query-block':
@@ -213,6 +260,7 @@ class PrepareProtocolTests(unittest.TestCase):
                 if cmd=='blockdev-change-medium':
                     self.assertTrue(all(not (root/p['seed_filename']).exists() for p in pkgs))
                     self.assertEqual(args['read-only-mode'],'read-only');attached['value']=True
+                    if expire_during_attach: clock['now']=3001
                 if cmd=='query-status':return {'running':True}
                 return {}
             qmp.execute.side_effect=command
@@ -224,10 +272,19 @@ class PrepareProtocolTests(unittest.TestCase):
                  patch.object(host,'reclaim_installer',side_effect=lambda *a:iso.unlink()),\
                  patch.object(host,'service_capacity',return_value={'projected_floor_bytes':host.SERVICE_FLOOR}),\
                  patch.object(host,'record_breadcrumb'),patch.object(host,'service_process',side_effect=process),\
-                 patch.object(host.shutil,'which',return_value='/usr/bin/7z'),patch.object(host,'UPDATE_BYTES',2),patch.object(host,'UPDATE_ISO_CAP',20):
-                public={};host.prepare_servicing(media,qmp,root,iso,disk,host.time.monotonic()+4000,Mock(),public)
+                 patch.object(host.shutil,'which',return_value='/usr/bin/7z'),patch.object(host,'UPDATE_BYTES',2),patch.object(host,'UPDATE_ISO_CAP',20),patch.object(host.time,'monotonic',side_effect=lambda:clock['now']):
+                public={}
+                if expire_during_attach:
+                    with self.assertRaises(host.VMWorkBudgetInsufficient):
+                        host.prepare_servicing(media,qmp,root,iso,disk,6000,Mock(),public)
+                    self.assertNotIn('cont',calls)
+                    return
+                host.prepare_servicing(media,qmp,root,iso,disk,6000,Mock(),public)
             self.assertTrue(public['update_media_members_verified']);self.assertTrue(public['update_source_files_removed'])
             self.assertTrue(public['installed_guest_resumed']);self.assertLess(calls.index('blockdev-change-medium'),calls.index('cont'))
+
+    def test_attach_elapsed_time_rechecked_before_resume(self):
+        self.test_sources_deleted_before_readonly_attach(expire_during_attach=True)
 
     def test_time_gate_before_pause_or_mutation(self):
         qmp=Mock()

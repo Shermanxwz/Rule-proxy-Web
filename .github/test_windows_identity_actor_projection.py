@@ -93,6 +93,16 @@ def run_control(actor_path, expected_sha256):
         if len(raw) > MAX_REPORT: raise ValueError('report bound')
         actor = json.loads(raw)
         result.update(evaluate(proof, actor, nonce, process.pid, exit_code))
+        # Diagnostic comparison only; never changes the established control
+        # conjunction or treats parent/child capability equality as authority.
+        result['capability_diagnostic'] = proof.closed_capability_diagnostic(None)
+        try:
+            source, catalog, observer = proof.observe_capability_context()
+            result['capability_diagnostic'] = proof.capability_diagnostic(actor, source, catalog,
+                equal_sid=observer.equal_sid if observer is not None else None)
+        except Exception:
+            pass  # Unavailable diagnostic never changes the negative control.
+
     except Exception:
         # Never print raw exceptions, actor identity, nonce, PID, SID or paths.
         pass

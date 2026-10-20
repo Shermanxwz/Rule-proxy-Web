@@ -102,6 +102,20 @@ function Assert-ProtectedUpdatePath($Path, [switch]$Directory, [switch]$Protecte
 }
 
 
+function ConvertTo-ServicedDeadline($Epoch, [DateTime]$Now) {
+    if (($Epoch -isnot [int] -and $Epoch -isnot [long]) -or $Epoch -le 0) { throw 'service_deadline' }
+    $deadline=[DateTimeOffset]::FromUnixTimeSeconds([long]$Epoch).UtcDateTime
+    if ($deadline -le $Now -or ($deadline-$Now).TotalSeconds -gt 9600) { throw 'service_deadline' }
+    return $deadline
+}
+function Get-ServicedDeadline {
+    $path=Join-Path 'C:\RuleProxyCIUpdates' 'service-budget.json'
+    Assert-ProtectedUpdatePath $path
+    if ((Get-Item -LiteralPath $path).Length -gt 1024) { throw 'service_deadline' }
+    $budget=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    if ($budget.schema -ne 1) { throw 'service_deadline' }
+    return ConvertTo-ServicedDeadline $budget.deadline_unix_seconds ([DateTime]::UtcNow)
+}
 function Expand-CheckedStage0Zip {
     param([string]$ArchivePath, [string]$Destination, [string[]]$RequiredNames,
           [int]$MemberCount, [long]$ExactBytes, [long]$MaximumBytes, [bool]$Flat, [bool]$ExactNames)
@@ -206,7 +220,7 @@ try {
     $phase='servicing_wait'; $earlyOperation='other'
     Assert-ProtectedUpdatePath 'C:\RuleProxyCIUpdates' -Directory -ProtectedDacl
     $statePath='C:\RuleProxyCIUpdates\update-state.json'
-    $servicingDeadline=[DateTime]::UtcNow.AddMinutes(80)
+    $servicingDeadline=Get-ServicedDeadline
     do {
         if (Test-Path -LiteralPath $statePath) {
             Assert-ProtectedUpdatePath $statePath
@@ -214,6 +228,7 @@ try {
             if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.Length -gt 4096) { $failureCategory='servicing_receipt'; throw 'Closed servicing receipt rejected' }
             $service=Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
             if ($service.status -ceq 'failed') { $failureCategory='servicing_failed'; throw 'Pinned servicing failed' }
+            if ([DateTime]::UtcNow -ge $servicingDeadline) { $failureCategory='servicing_deadline'; throw 'Servicing deadline' }
             if ($service.status -ceq 'completed') { break }
         }
         if ([DateTime]::UtcNow -ge $servicingDeadline) { $failureCategory='servicing_deadline'; throw 'Servicing deadline' }
@@ -342,17 +357,17 @@ try {
     }
     $status = if ($result.stage0_passed -eq $true) { 'passed' } else { 'failed' }
     if ($result -is [hashtable]) { $result.status=$status } else { $result | Add-Member -NotePropertyName status -NotePropertyValue $status -Force }
-    $serviceFacts=@{phase='not_observed'; failure='none'; dism_exit_code=$null; packages_verified=$false; reboot_observed=$false; task_unregistered=$false; completed=$false}
+    $serviceFacts=@{dism_wait_timed_out=$false; dism_exit_observed=$false; dism_exit_observation_available=$false; phase='not_observed'; failure='none'; dism_exit_code=$null; packages_verified=$false; reboot_observed=$false; task_unregistered=$false; completed=$false}
     if ($null -ne (Get-Variable -Name service -ErrorAction SilentlyContinue)) {
         $phases=@('initializing','waiting_for_optical','verifying_optical','post_reboot_verify','installing_official_cu','reboot_pending','completed')
-        $failures=@('none','system_required','prior_bound','prior_state','setup_deadline','optical_deadline',
+        $failures=@('none','service_deadline','system_required','prior_bound','prior_state','setup_deadline','optical_deadline',
             'optical_device','optical_root','optical_members','optical_package','optical_changed',
             'reboot_not_observed','exact_serviced_build','reboot_still_pending','task_remains',
             'exact_stock_build','dism_log_exists','dism_handle','dism_deadline','dism_exit_absent','dism_failed','operation_failed')
         $serviceFacts.phase=if ($service.phase -cin $phases) { [string]$service.phase } else { 'unclassified' }
         $serviceFacts.failure=if ($service.failure -cin $failures) { [string]$service.failure } else { 'unclassified' }
         if ($service.dism_exit_code -is [int] -or $service.dism_exit_code -is [long]) { $serviceFacts.dism_exit_code=[long]$service.dism_exit_code }
-        foreach ($name in @('packages_verified','reboot_observed','task_unregistered','completed')) { $serviceFacts[$name]=($service.$name -eq $true) }
+        foreach ($name in @('packages_verified','reboot_observed','task_unregistered','completed','dism_wait_timed_out','dism_exit_observed','dism_exit_observation_available')) { $serviceFacts[$name]=($service.$name -eq $true) }
     }
     Set-ClosedResultField 'servicing_diagnostic' $serviceFacts
     $launcher=@{phase=$phase; failure_category=$failureCategory; failed=$failed; hresult=$hresult; python_exit_code=$pythonExit; transport_attempt=0}

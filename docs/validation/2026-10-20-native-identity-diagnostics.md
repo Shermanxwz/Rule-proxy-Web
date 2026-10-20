@@ -15,7 +15,8 @@ identity facts. Reprojection preserves the closed schema and never converts the
 original failure into success.
 
 To preserve the existing 16 KiB transport limit, diagnostic operation-label
-lists are bounded to eight per summary/envelope. Recognized-label counts and
+lists were initially bounded to eight per summary/envelope, and are now
+bounded to six to accommodate the closed capability classifier. Recognized-label counts and
 truncation flags remain explicit, alongside message hashes, byte counts,
 categories, native error codes and the primary error envelope. This is bounded
 diagnostic metadata, not an acceptance or isolation-policy change.
@@ -28,5 +29,5 @@ non-AppContainer source token and null AppContainer SID; the outside-sandbox
 identity must not pass Stage0. Elevation/job/capability fields must be observed
 with valid types, but their values are not changed or used as isolation evidence.
 The owned process is observed exited and raw report/directory deletion is checked.
-Only closed booleans enter CI logs. No G executor, container, account, token
+Only closed booleans and fixed bounded capability counts enter CI logs. No G executor, container, account, token
 mutation, HTTP/pipe test, image download or VM is involved in this control.

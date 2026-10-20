@@ -947,21 +947,21 @@ class DiagnosticOperationBoundTests(unittest.TestCase):
              'error_envelopes':[{'operations':labels,'message_sha256':'b'*64,'code':'backend_error','message_class':'psec_environment_create','native_codes':[5]}]}
         result=proof.diagnostic_summary(raw)
         for item in (result,result['error_envelopes'][0]):
-            self.assertEqual(item['operations'],labels[:8]);self.assertEqual(item['operation_label_count'],len(labels))
+            self.assertEqual(item['operations'],labels[:6]);self.assertEqual(item['operation_label_count'],len(labels))
             self.assertTrue(item['operations_truncated']);self.assertEqual(item['native_codes'],[5])
         self.assertEqual(result['inspected_sha256'],'a'*64);self.assertEqual(result['bytes_observed'],123)
         self.assertEqual(result['error_envelopes'][0]['message_sha256'],'b'*64)
         self.assertEqual(result,proof.diagnostic_summary(result))
-    def test_sixteen_allowlisted_fixture_labels_truncate_to_eight(self):
+    def test_sixteen_allowlisted_fixture_labels_truncate_to_six(self):
         # Production currently has 14 allowlisted labels; exercise a 16-label
         # input without adding invented operations to the production allowlist.
         fixture=proof.DIAGNOSTIC_OPERATIONS+('FixtureOperationA','FixtureOperationB')
         with patch.object(proof,'DIAGNOSTIC_OPERATIONS',fixture):
             result=proof.diagnostic_summary({'operations':list(fixture)})
-            self.assertEqual(len(result['operations']),8);self.assertEqual(result['operation_label_count'],16)
+            self.assertEqual(len(result['operations']),6);self.assertEqual(result['operation_label_count'],16)
             self.assertTrue(result['operations_truncated']);self.assertEqual(result,proof.diagnostic_summary(result))
     def test_small_labels_not_reported_truncated_and_unknowns_not_counted(self):
-        for count in (0,1,8):
+        for count in (0,1,6):
             labels=list(proof.DIAGNOSTIC_OPERATIONS[:count])
             result=proof.diagnostic_summary({'operations':labels+['SECRET']*100})
             self.assertEqual(result['operations'],labels);self.assertEqual(result['operation_label_count'],count)
@@ -975,6 +975,124 @@ class DiagnosticOperationBoundTests(unittest.TestCase):
         report['diagnostics']={'execution':{'stderr':{'operations':list(proof.DIAGNOSTIC_OPERATIONS)}}}
         proof.closed_diagnostics(report)
         self.assertEqual(proof.stage0_checks(report),expected)
+
+
+class CapabilityDiagnosticTests(unittest.TestCase):
+    def catalog(self):return {name:'S-1-15-3-'+str(index+1) for index,name in enumerate(proof.CAPABILITY_LABELS)}
+    def actor(self,entries):return {'queriesSucceeded':True,'errors':[],'tokenCapabilities':entries}
+    def entry(self,sid,attributes=4):return {'sid':sid,'attributes':attributes}
+    def classify(self,entries,source=None,catalog=None):
+        return proof.capability_diagnostic(self.actor(entries),[] if source is None else source,self.catalog() if catalog is None else catalog)
+    def test_fixed_order_network_and_library_rows_attributes(self):
+        catalog=self.catalog()
+        for index,name in enumerate(proof.CAPABILITY_LABELS):
+            entries=[self.entry(catalog[name],0x17)]
+            value=self.classify(entries,entries)
+            self.assertEqual(value['known'][index],[1]*10)
+            self.assertEqual(value['unknown'],[0]*10)
+            self.assertTrue(value['same_sid_set']);self.assertTrue(value['same_attributes'])
+    def test_source_and_actor_differences_are_per_label(self):
+        names=proof.CAPABILITY_LABELS;catalog=self.catalog()
+        value=self.classify([self.entry(catalog[names[0]],4)],[self.entry(catalog[names[1]],16)])
+        self.assertEqual(value['known'][0],[1,1,0,0,0,0,0,0,0,0])
+        self.assertEqual(value['known'][1],[0,0,0,0,0,1,0,0,1,0])
+        self.assertFalse(value['same_sid_set']);self.assertFalse(value['same_attributes'])
+    def test_unknown_enabled_source_and_actor_are_distinct_private_sets(self):
+        value=self.classify([self.entry('S-1-15-3-999',4)],[self.entry('S-1-15-3-998',4)])
+        self.assertEqual(value['unknown'],[1,1,0,0,0,1,1,0,0,0])
+        self.assertFalse(value['same_sid_set']);self.assertFalse(value['same_attributes'])
+        text=json.dumps(value);self.assertNotIn('999',text);self.assertNotIn('S-1-',text)
+    def test_same_sid_different_attributes_not_same_authority(self):
+        value=self.classify([self.entry('S-1-15-3-999',4)],[self.entry('S-1-15-3-999',16)])
+        self.assertTrue(value['same_sid_set']);self.assertFalse(value['same_attributes'])
+    def test_duplicates_preserved_and_order_independent_exact_attributes(self):
+        entries=[self.entry('S-1-15-3-999',4),self.entry('S-1-15-3-999',16)]
+        value=self.classify(entries,list(reversed(entries)))
+        self.assertEqual(value['duplicates'],[1,1]);self.assertTrue(value['same_attributes'])
+        self.assertEqual(value['unknown'],[2,1,0,1,0]*2)
+    def test_missing_or_partial_catalog_never_calls_unmatched_unknown(self):
+        entries=[self.entry('S-1-15-3-999',4)]
+        for catalog in ({},dict(list(self.catalog().items())[:-1]),dict(self.catalog(),PRIVATE='S-1-15-3-998')):
+            value=proof.capability_diagnostic(self.actor(entries),entries,catalog)
+            self.assertTrue(value['observed']);self.assertFalse(value['catalog_complete'])
+            self.assertEqual(value['unknown'],[0]*10);self.assertFalse(any(any(row) for row in value['known']))
+    def test_unavailable_sources_not_confused_with_empty_baseline(self):
+        value=proof.capability_diagnostic(self.actor([]),None,self.catalog())
+        self.assertTrue(value['observed']);self.assertFalse(value['source_observed'])
+        self.assertFalse(value['same_sid_set']);self.assertFalse(value['same_attributes'])
+        self.assertTrue(self.classify([],[])['same_attributes'])
+    def test_invalid_and_oversized_observations_are_closed(self):
+        invalid=[{'sid':'PRIVATE_SENTINEL','attributes':4},self.entry('S-1-15-3-1',True),self.entry('S-1-15-3-01'),self.entry('S-1-15-3-4294967296')]
+        value=self.classify(invalid,invalid)
+        self.assertEqual(value['invalid'],[4,4]);self.assertFalse(value['observed']);self.assertFalse(value['source_observed'])
+        self.assertNotIn('PRIVATE_SENTINEL',json.dumps(value))
+        value=self.classify([self.entry('S-1-15-3-1')]*17)
+        self.assertFalse(value['observed']);self.assertEqual(value['invalid'][0],16)
+    def test_queries_failed_cannot_certify_empty_capabilities(self):
+        actor=self.actor([]);actor['queriesSucceeded']=False
+        value=proof.capability_diagnostic(actor,[],self.catalog())
+        self.assertFalse(value['observed']);self.assertFalse(value['same_attributes'])
+    def test_projection_strict_shape_counts_and_idempotence(self):
+        value=self.classify([self.entry('S-1-15-3-1',0x17)]*16,[self.entry('S-1-15-3-1',0x17)]*16)
+        self.assertEqual(value['known'][0],[16]*10)
+        self.assertEqual(value,proof.closed_capability_diagnostic(value))
+        for mutation in ('count_over','sum_over','bool_count','short_row','extra_row','flag_over'):
+            bad=copy.deepcopy(value)
+            if mutation=='count_over':bad['known'][0][0]=17
+            if mutation=='sum_over':bad['known'][1]=[1]*10
+            if mutation=='bool_count':bad['known'][0][0]=True
+            if mutation=='short_row':bad['unknown']=[]
+            if mutation=='extra_row':bad['known'].append([0]*10)
+            if mutation=='flag_over':bad['known'][0][0]=0
+            projected=proof.closed_capability_diagnostic(bad)
+            self.assertFalse(projected['observed']);self.assertFalse(projected['catalog_complete'])
+        value['PRIVATE_SENTINEL']='SECRET';self.assertNotIn('SECRET',json.dumps(proof.closed_capability_diagnostic(value)))
+    def test_native_comparator_is_used_for_classification(self):
+        equal=Mock(side_effect=lambda a,b:a==b)
+        proof.capability_diagnostic(self.actor([self.entry('S-1-15-3-1')]),[],self.catalog(),equal_sid=equal)
+        self.assertEqual(equal.call_count,len(proof.CAPABILITY_LABELS))
+    def test_private_capability_context_never_exported_and_acceptance_unchanged(self):
+        report=evidence();report['actor']['tokenCapabilities']=[self.entry('S-1-15-3-999')]
+        before=proof.stage0_checks(report);self.assertFalse(before['native_identity'])
+        report['capability_diagnostic']=self.classify(report['actor']['tokenCapabilities'])
+        closed=proof.closed_diagnostics(report)
+        self.assertNotIn('S-1-',json.dumps(closed));self.assertEqual(closed,proof.closed_diagnostics({'diagnostics':closed}))
+        self.assertEqual(proof.stage0_checks(report),before)
+    def test_native_derivation_releases_all_trusted_allocations_on_bound_failure(self):
+        import ctypes as C
+        observer=proof.WindowsCapabilityObserver.__new__(proof.WindowsCapabilityObserver);observer.C=C
+        observer.kernel=Mock();observer.base=Mock()
+        groups=(C.c_void_p*17)(*[100+i for i in range(17)]);caps=(C.c_void_p*1)(200)
+        def derive(name,group_out,group_count,cap_out,cap_count):
+            C.cast(group_out,C.POINTER(C.POINTER(C.c_void_p)))[0]=C.cast(groups,C.POINTER(C.c_void_p))
+            C.cast(cap_out,C.POINTER(C.POINTER(C.c_void_p)))[0]=C.cast(caps,C.POINTER(C.c_void_p))
+            C.cast(group_count,C.POINTER(C.c_uint32))[0]=17;C.cast(cap_count,C.POINTER(C.c_uint32))[0]=1
+            return 1
+        observer.base.DeriveCapabilitySidsFromName.side_effect=derive
+        with self.assertRaises(OSError):observer.catalog()
+        self.assertEqual(observer.kernel.LocalFree.call_count,20)
+        freed=[call.args[0] for call in observer.kernel.LocalFree.call_args_list if type(call.args[0]) is int]
+        self.assertEqual(freed,list(range(100,117))+[200])
+    def test_source_final_returned_size_checked_and_token_closed(self):
+        import ctypes as C
+        for final in (0,3,9):
+            observer=proof.WindowsCapabilityObserver.__new__(proof.WindowsCapabilityObserver);observer.C=C
+            observer.kernel=Mock();observer.kernel.GetCurrentProcess.return_value=1;observer.kernel.CloseHandle.return_value=1
+            observer.advapi=Mock();observer.advapi.OpenProcessToken.return_value=1
+            calls=[0]
+            def query(token,kind,buffer,length,size):
+                C.cast(size,C.POINTER(C.c_uint32))[0]=8 if calls[0]==0 else final
+                calls[0]+=1;return int(buffer is not None)
+            observer.advapi.GetTokenInformation.side_effect=query
+            with self.assertRaises(ValueError):observer.source()
+            observer.kernel.CloseHandle.assert_called_once()
+    def test_native_observation_failure_is_diagnostic_only(self):
+        with patch.object(proof,'WindowsCapabilityObserver',side_effect=OSError('PRIVATE')):
+            self.assertEqual(proof.observe_capability_context(),(None,None,None))
+        observer=Mock();observer.source.side_effect=OSError('PRIVATE');observer.catalog.return_value=self.catalog()
+        with patch.object(proof,'WindowsCapabilityObserver',return_value=observer):
+            source,catalog,actual=proof.observe_capability_context()
+            self.assertIsNone(source);self.assertEqual(catalog,self.catalog());self.assertIs(actual,observer)
 
 
 if __name__ == "__main__":

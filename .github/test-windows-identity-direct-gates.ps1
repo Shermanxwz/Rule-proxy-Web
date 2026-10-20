@@ -137,6 +137,33 @@ for denied in (None, [], required+["PATH=PRIVATE_SENTINEL"]):
         pass
     else:
         raise AssertionError("missing or expanded environment accepted")
+def run_capability_regression(proof,observer):
+    catalog=observer.catalog()
+    assert set(catalog)==set(proof.CAPABILITY_LABELS) and len(catalog)==16
+    for name,kind in proof.CAPABILITY_LEGACY_TYPES.items():
+        assert observer.equal_sid(catalog[name],observer.known_sid(kind))
+    source=observer.source()
+    self_actor={"queriesSucceeded":True,"errors":[],"tokenCapabilities":source}
+    source_facts=proof.capability_diagnostic(self_actor,source,catalog,equal_sid=observer.equal_sid)
+    assert source_facts["catalog_complete"] and source_facts["observed"] and source_facts["source_observed"]
+    assert source_facts["invalid"]==[0,0] and source_facts["duplicates"]==[0,0]
+    assert source_facts["same_sid_set"] and source_facts["same_attributes"]
+    known_actor={"queriesSucceeded":True,"errors":[],"tokenCapabilities":[{"sid":catalog[name],"attributes":6} for name in proof.CAPABILITY_LABELS]}
+    known=proof.capability_diagnostic(known_actor,[],catalog,equal_sid=observer.equal_sid)
+    assert known["catalog_complete"] and all(row==[1,1,1,0,0,0,0,0,0,0] for row in known["known"])
+    unknown_sid="S-1-15-3-4294967294"
+    assert not any(observer.equal_sid(unknown_sid,sid) for sid in catalog.values())
+    private_name="PRIVATE_CAPABILITY_SENTINEL"
+    unknown_actor={"queriesSucceeded":True,"errors":[],"tokenCapabilities":[{"sid":unknown_sid,"attributes":0x80000016}],"private_name":private_name}
+    unknown=proof.capability_diagnostic(unknown_actor,[],catalog,equal_sid=observer.equal_sid)
+    assert unknown["unknown"]==[1,1,1,1,1,0,0,0,0,0]
+    assert all(row==[0]*10 for row in unknown["known"])
+    assert proof.closed_capability_diagnostic(unknown)==unknown
+    closed=json.dumps(unknown)
+    assert unknown_sid not in closed and private_name not in closed
+    return {"capability_catalog_validated":True,"capability_source_validated":True,
+            "capability_unknown_redacted":True,"legacy_sid_crosschecks_passed":len(proof.CAPABILITY_LEGACY_TYPES)}
+
 # Hosted Server identity/environment is only a read-only diagnostic, never proof
 # of an ordinary Windows client or BaseContainer acceptance. Never print paths.
 runner_environment="rejected"
@@ -148,12 +175,22 @@ try:
 except Exception as exc:
     kind=type(exc).__name__
     runner_environment_error_class=kind if kind in ("PermissionError","ValueError","OSError") else "unclassified"
+capability_gate_passed=False
+capability_error_class="none"
+capability_summary={}
+try:
+    capability_summary=run_capability_regression(proof,proof.WindowsCapabilityObserver())
+    capability_gate_passed=True
+except Exception as exc:
+    kind=type(exc).__name__
+    capability_error_class=kind if kind in ("PermissionError","ValueError","OSError","AssertionError") else "unclassified"
 print(json.dumps({"actual_powershell_host_wire_records_passed":len(rows),
     "synthetic_environment_cases_passed":2+len(invalid),
     "deny_only_policy_unchanged":True,"policy_environment_negatives_passed":3,
     "runner_environment":runner_environment,"runner_environment_error_class":runner_environment_error_class,
-    "runtime_acceptance":False}))
-if runner_environment != "validated":
+    "runtime_acceptance":False,"capability_gate_passed":capability_gate_passed,
+    "capability_error_class":capability_error_class,**capability_summary}))
+if runner_environment != "validated" or not capability_gate_passed:
     raise SystemExit(1)
 '@
 $parityPath=Join-Path ([IO.Path]::GetTempPath()) ('ruleproxy-wire-'+[Guid]::NewGuid().ToString('N')+'.py')

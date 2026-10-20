@@ -268,8 +268,8 @@ def _operation_labels(value):
     labels = _known_list(value.get('operations'), DIAGNOSTIC_OPERATIONS)
     # The bounded count survives re-projection after the visible list is cut.
     count = max(len(labels), _integer(value.get('operation_label_count'), high=len(DIAGNOSTIC_OPERATIONS)) or 0)
-    return {'operations': labels[:8], 'operation_label_count': count,
-            'operations_truncated': count > 8}
+    return {'operations': labels[:6], 'operation_label_count': count,
+            'operations_truncated': count > 6}
 
 
 def diagnostic_summary(value):
@@ -346,6 +346,207 @@ def closed_native_identity_facts(value):
     return result
 
 
+# Capability diagnostic schema 1: fixed row order; names are never supplied by
+# actor input. Each row is actor [total, enabled, default, deny-only, other-bits]
+# followed by the same five source-token counts. No row implies benign authority.
+CAPABILITY_LABELS = ('internetClient', 'internetClientServer', 'privateNetworkClientServer',
+    'networkLoopback', 'picturesLibrary', 'videosLibrary', 'musicLibrary', 'documentsLibrary',
+    'removableStorage', 'enterpriseAuthentication', 'sharedUserCertificates', 'appointments',
+    'contacts', 'AgenticAppContainer', 'learningModeLogging', 'permissiveLearningMode')
+CAPABILITY_LEGACY_TYPES = {'internetClient':85, 'internetClientServer':86, 'privateNetworkClientServer':87,
+    'picturesLibrary':88, 'videosLibrary':89, 'musicLibrary':90, 'documentsLibrary':91,
+    'sharedUserCertificates':92, 'enterpriseAuthentication':93, 'removableStorage':94,
+    'appointments':108, 'contacts':109}
+MAX_CAPABILITIES = 16
+
+
+def canonical_capability_sid(value):
+    if not isinstance(value, str) or len(value) > 184 or re.fullmatch(r'S-1-[0-9]{1,15}(?:-[0-9]{1,10}){1,15}',value) is None:
+        return False
+    parts = value.split('-')[2:]
+    numbers = [int(part) for part in parts]
+    return (numbers[0] <= 0xffffffffffff and all(number <= 0xffffffff for number in numbers[1:])
+            and all(str(number) == part for number,part in zip(numbers,parts)))
+
+
+def capability_entries(value):
+    if not isinstance(value,list): return None, 0, 0
+    if len(value) > MAX_CAPABILITIES: return None, MAX_CAPABILITIES, 0
+    valid=[]; invalid=0
+    for entry in value:
+        if (not isinstance(entry,dict) or set(entry) != {'sid','attributes'} or
+            not canonical_capability_sid(entry.get('sid')) or type(entry.get('attributes')) is not int or
+            not 0 <= entry['attributes'] <= 0xffffffff):
+            invalid += 1
+        else: valid.append((entry['sid'],entry['attributes']))
+    duplicates=len(valid)-len({sid for sid,_ in valid})
+    return (None if invalid else valid),invalid,duplicates
+
+
+def closed_capability_diagnostic(value):
+    value=_dict(value)
+    empty={'v':1,'observed':False,'source_observed':False,'catalog_complete':False,
+        'known':[[0]*10 for _ in CAPABILITY_LABELS],'unknown':[0]*10,
+        'invalid':[0,0],'duplicates':[0,0],'same_sid_set':False,'same_attributes':False}
+    if type(value.get('v')) is not int or value['v'] != 1: return empty
+    for key in ('invalid','duplicates'):
+        pair=value.get(key)
+        if isinstance(pair,list) and len(pair)==2 and all(type(x) is int and 0<=x<=MAX_CAPABILITIES for x in pair):
+            empty[key]=list(pair)
+    known=value.get('known'); unknown=value.get('unknown')
+    if (not isinstance(known,list) or len(known)!=len(CAPABILITY_LABELS) or not isinstance(unknown,list)
+        or any(not isinstance(row,list) or len(row)!=10 or any(type(x) is not int or not 0<=x<=MAX_CAPABILITIES for x in row) for row in known+[unknown])):
+        return empty
+    rows=known+[unknown]
+    for offset in (0,5):
+        if sum(row[offset] for row in rows)>MAX_CAPABILITIES or any(any(x>row[offset] for x in row[offset+1:offset+5]) for row in rows):
+            return empty
+    complete=value.get('catalog_complete') is True
+    observed=value.get('observed') is True and empty['invalid'][0]==0
+    source=value.get('source_observed') is True and empty['invalid'][1]==0
+    empty.update(catalog_complete=complete,observed=observed,source_observed=source)
+    # Unclassified rows are zero placeholders, NOT observations of no caps.
+    # Consumers require catalog_complete and the corresponding observed flag.
+    if complete:
+        for destination,row in zip(empty['known']+[empty['unknown']],rows):
+            if observed: destination[:5]=row[:5]
+            if source: destination[5:]=row[5:]
+    # Equality is an actual private SID comparison, never inferred from rows.
+    empty['same_sid_set']=observed and source and value.get('same_sid_set') is True
+    empty['same_attributes']=empty['same_sid_set'] and value.get('same_attributes') is True
+    return empty
+
+
+def capability_diagnostic(actor, source, catalog, *, equal_sid=None):
+    equal_sid=equal_sid or (lambda left,right:left==right)  # pure fixture comparator
+    actor=_dict(actor)
+    values,invalid,duplicates=capability_entries(actor.get('tokenCapabilities'))
+    if actor.get('queriesSucceeded') is not True or actor.get('errors') != []: values=None
+    baseline,source_invalid,source_duplicates=capability_entries(source)
+    complete=(isinstance(catalog,dict) and set(catalog)==set(CAPABILITY_LABELS)
+              and all(canonical_capability_sid(sid) for sid in catalog.values())
+              and len(set(catalog.values()))==len(CAPABILITY_LABELS))
+    result={'v':1,'observed':values is not None,'source_observed':baseline is not None,'catalog_complete':complete,
+        'known':[[0]*10 for _ in CAPABILITY_LABELS],'unknown':[0]*10,
+        'invalid':[invalid,source_invalid],'duplicates':[duplicates,source_duplicates],
+        'same_sid_set':False,'same_attributes':False}
+    if values is not None and baseline is not None:
+        result['same_sid_set']={sid for sid,_ in values}=={sid for sid,_ in baseline}
+        result['same_attributes']=sorted(values)==sorted(baseline)
+    if complete:
+        for entries,offset in ((values,0),(baseline,5)):
+            for sid,attributes in entries or []:
+                matches=[index for index,name in enumerate(CAPABILITY_LABELS) if equal_sid(sid,catalog[name])]
+                if len(matches)>1: return closed_capability_diagnostic(dict(result,catalog_complete=False))
+                row=result['known'][matches[0]] if matches else result['unknown']
+                increments=(1,bool(attributes&4),bool(attributes&2),bool(attributes&16),bool(attributes&~0x16))
+                for index,amount in enumerate(increments):row[offset+index]+=int(amount)
+    return closed_capability_diagnostic(result)
+
+
+class WindowsCapabilityObserver:
+    """Read-only current-token observation and fixed-name SID derivation."""
+    def __init__(self):
+        if os.name!='nt': raise PermissionError('Windows capability observation required')
+        import ctypes as C
+        self.C=C; self.kernel=C.WinDLL('kernel32',use_last_error=True)
+        self.advapi=C.WinDLL('advapi32',use_last_error=True);self.base=C.WinDLL('kernelbase',use_last_error=True)
+        H=C.c_void_p;D=C.c_uint32;P=C.POINTER(H)
+        for dll,name,args,returns in (
+            (self.kernel,'GetCurrentProcess',[],H),(self.kernel,'CloseHandle',[H],C.c_int),(self.kernel,'LocalFree',[H],H),
+            (self.advapi,'OpenProcessToken',[H,D,C.POINTER(H)],C.c_int),
+            (self.advapi,'GetTokenInformation',[H,C.c_int,H,D,C.POINTER(D)],C.c_int),
+            (self.advapi,'ConvertSidToStringSidW',[H,C.POINTER(H)],C.c_int),
+            (self.advapi,'ConvertStringSidToSidW',[C.c_wchar_p,C.POINTER(H)],C.c_int),
+            (self.advapi,'IsValidSid',[H],C.c_int),(self.advapi,'EqualSid',[H,H],C.c_int),
+            (self.advapi,'CreateWellKnownSid',[C.c_int,H,H,C.POINTER(D)],C.c_int),
+            (self.base,'DeriveCapabilitySidsFromName',[C.c_wchar_p,C.POINTER(P),C.POINTER(D),C.POINTER(P),C.POINTER(D)],C.c_int)):
+            function=getattr(dll,name);function.argtypes=args;function.restype=returns
+    def sid_text(self,pointer):
+        C=self.C;output=C.c_void_p()
+        if not pointer or not self.advapi.IsValidSid(pointer): raise ValueError('invalid native capability SID')
+        try:
+            if not self.advapi.ConvertSidToStringSidW(pointer,C.byref(output)): raise OSError('native capability conversion failed')
+            value=C.wstring_at(output.value)
+            if not canonical_capability_sid(value): raise ValueError('native capability format invalid')
+            return value
+        finally:
+            if output.value:self.kernel.LocalFree(output)
+    def equal_sid(self,left,right):
+        C=self.C;pointers=[C.c_void_p(),C.c_void_p()]
+        try:
+            for text,pointer in zip((left,right),pointers):
+                if not canonical_capability_sid(text) or not self.advapi.ConvertStringSidToSidW(text,C.byref(pointer)):
+                    raise ValueError('capability comparison input invalid')
+            return bool(self.advapi.EqualSid(*pointers))
+        finally:
+            for pointer in pointers:
+                if pointer.value:self.kernel.LocalFree(pointer)
+    def known_sid(self,kind):
+        if kind not in CAPABILITY_LEGACY_TYPES.values(): raise ValueError('fixed known capability type required')
+        C=self.C;buffer=C.create_string_buffer(68);size=C.c_uint32(len(buffer))
+        if not self.advapi.CreateWellKnownSid(kind,None,buffer,C.byref(size)):raise OSError('known capability lookup failed')
+        return self.sid_text(buffer)
+    def catalog(self):
+        C=self.C;result={}
+        for name in CAPABILITY_LABELS:
+            group=C.POINTER(C.c_void_p)();cap=C.POINTER(C.c_void_p)();groups=C.c_uint32();caps=C.c_uint32()
+            try:
+                success=self.base.DeriveCapabilitySidsFromName(name,C.byref(group),C.byref(groups),C.byref(cap),C.byref(caps))
+                if not success or groups.value>16 or caps.value!=1 or not cap:raise OSError('fixed capability derivation failed')
+                result[name]=self.sid_text(cap[0])
+                if name in CAPABILITY_LEGACY_TYPES and not self.equal_sid(result[name],self.known_sid(CAPABILITY_LEGACY_TYPES[name])):
+                    raise ValueError('legacy capability derivation mismatch')
+            finally:
+                # Counts here describe trusted OS allocations, not actor input.
+                # Release every returned SID even if its count failed our
+                # classification bound, then release both containing arrays.
+                for array,count in ((group,groups.value),(cap,caps.value)):
+                    if array:
+                        for index in range(count):
+                            if array[index]:self.kernel.LocalFree(array[index])
+                        self.kernel.LocalFree(C.cast(array,C.c_void_p))
+        if len(set(result.values()))!=len(result):raise ValueError('ambiguous capability catalog')
+        return result
+    def source(self):
+        C=self.C
+        class Entry(C.Structure):_fields_=[('Sid',C.c_void_p),('Attributes',C.c_uint32)]
+        class Groups(C.Structure):_fields_=[('Count',C.c_uint32),('Entries',Entry*1)]
+        token=C.c_void_p();size=C.c_uint32()
+        if not self.advapi.OpenProcessToken(self.kernel.GetCurrentProcess(),8,C.byref(token)):raise OSError('source token query failed')
+        try:
+            self.advapi.GetTokenInformation(token,30,None,0,C.byref(size))
+            if not 4<=size.value<=65536:raise ValueError('source capability buffer bound')
+            buffer=C.create_string_buffer(size.value)
+            if not self.advapi.GetTokenInformation(token,30,buffer,size,C.byref(size)):raise OSError('source capability query failed')
+            if not 4<=size.value<=len(buffer):raise ValueError('source capability returned size bound')
+            count=C.c_uint32.from_buffer(buffer).value
+            if count>16 or (count and Groups.Entries.offset+count*C.sizeof(Entry)>size.value):raise ValueError('source capability count bound')
+            start=C.addressof(buffer);end=start+size.value;result=[]
+            for index in range(count):
+                entry=Entry.from_buffer(buffer,Groups.Entries.offset+index*C.sizeof(Entry));pointer=entry.Sid
+                if not pointer or not start<=pointer<=end-8:raise ValueError('source capability pointer bound')
+                header=C.string_at(pointer,8);length=8+4*header[1]
+                if header[0]!=1 or header[1]>15 or pointer+length>end:raise ValueError('source capability SID bound')
+                result.append({'sid':self.sid_text(pointer),'attributes':int(entry.Attributes)})
+            return result
+        finally:
+            if not self.kernel.CloseHandle(token):raise OSError('source token close unconfirmed')
+
+
+def observe_capability_context():
+    # Diagnostic only: failures remain explicitly unavailable and never change
+    # the minimal request, native identity acceptance, or token authority.
+    observer=None;source=None;catalog=None
+    try:observer=WindowsCapabilityObserver()
+    except Exception:return source,catalog,observer
+    try:source=observer.source()
+    except Exception:pass
+    try:catalog=observer.catalog()
+    except Exception:pass
+    return source,catalog,observer
+
+
 def closed_diagnostics(raw):
     """Idempotent public projection; no paths, IDs, warning/error text or SID."""
     raw = _dict(raw)
@@ -380,6 +581,7 @@ def closed_diagnostics(raw):
                 "unknown_tier_count": sum(tier not in TIERS for tier in actual) if isinstance(actual, list) else None,
                 "actor_report_state": raw.get("actor_report_state"),
                 "native_identity": native_identity_facts(raw.get("actor"), _dict(raw.get("checks")).get("native_identity")),
+                "capabilities": raw.get("capability_diagnostic"),
                 "actor_reparse_point_observed": raw.get("actor_reparse_point_observed"),
                 "actor_checks_passed": _dict(raw.get("checks")).get("fresh_actor") is True and _dict(raw.get("checks")).get("native_identity") is True,
                 "stdout": raw.get("stdout_diagnostic"), "stderr": raw.get("stderr_diagnostic")}}
@@ -420,6 +622,7 @@ def closed_diagnostics(raw):
             "actor_reparse_point_observed": _boolean(execution.get("actor_reparse_point_observed")),
             "actor_checks_passed": execution.get("actor_checks_passed") is True,
             "native_identity": closed_native_identity_facts(execution.get("native_identity")),
+            "capabilities": closed_capability_diagnostic(execution.get("capabilities")),
             "stdout": diagnostic_summary(execution.get("stdout")), "stderr": diagnostic_summary(execution.get("stderr"))}}
 
 
@@ -565,6 +768,7 @@ def controller(args):
     identity = smoke.identity_snapshot()
     if identity["elevated"] or identity["appcontainer"] or identity["cid"] != 1:
         raise PermissionError("run from an ordinary non-AppContainer user in the default compartment")
+    source_capabilities, capability_catalog, capability_observer = observe_capability_context()
     args.diagnostic_phase = "required_environment"
     required_environment = observe_required_environment()
     args.diagnostic_phase = "executor_verification"
@@ -603,6 +807,11 @@ def controller(args):
         report.update(run_case(staged_executor, policy(inputs, profile, staged_actor, nonce, required_environment=required_environment), profile))
     except Exception as exc:
         report["error"] = smoke.failure(exc)
+    try:
+        report["capability_diagnostic"] = capability_diagnostic(report.get("actor"), source_capabilities, capability_catalog,
+            equal_sid=capability_observer.equal_sid if capability_observer is not None else None)
+    except Exception:
+        report["capability_diagnostic"] = closed_capability_diagnostic({})
     report["checks"] = stage0_checks(report)
     report["stage0_passed"] = all(report["checks"].values())
     # Retain owned directory as diagnostic evidence; no blanket recursive delete.

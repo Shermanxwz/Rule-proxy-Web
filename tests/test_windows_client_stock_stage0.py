@@ -428,7 +428,7 @@ class StockTests(unittest.TestCase):
                  'ruleproxy/windows_runtime_pins.py'}
         trees={filename:ast.parse((ROOT/filename).read_text()) for filename in modules}
         def reachable(tree, seeds):
-            functions={node.name:node for node in tree.body if isinstance(node,ast.FunctionDef)}
+            functions={node.name:node for node in tree.body if isinstance(node,(ast.FunctionDef,ast.ClassDef))}
             names=set(seeds)
             pending=list(seeds)
             while pending:
@@ -443,7 +443,7 @@ class StockTests(unittest.TestCase):
             '_dict','_enum','_integer','_boolean','_digest','_known_list','_codes','_fact','_closed_fact',
             'canonical_environment_directory','validate_required_environment','native_required_environment_paths',
             'observe_required_environment','required_environment_entries',
-            'native_identity_facts','closed_native_identity_facts','_operation_labels'})
+            'native_identity_facts','closed_native_identity_facts','capability_entries','closed_capability_diagnostic','observe_capability_context','capability_diagnostic','canonical_capability_sid','WindowsCapabilityObserver','_operation_labels'})
         smoke_seeds={'read'}  # Also called directly by the stock guest wrapper.
         for root in proof_nodes:
             for node in ast.walk(root):
@@ -562,6 +562,11 @@ assert not any(root.rglob('__pycache__'))
             cli={'classes': list(proof.CLI_CLASSES), 'policy_fields': list(proof.POLICY_FIELDS)},
             warning_count=131072, warning_nonstring_count=131072, attempted=True, completed=True,
             outcome='reported_detector_error', error_class='reported_host_loopback_contract_unavailable')
+        cap_catalog={name:'S-1-15-3-'+str(index+1) for index,name in enumerate(proof.CAPABILITY_LABELS)}
+        cap_entries=[{'sid':cap_catalog[proof.CAPABILITY_LABELS[0]],'attributes':0x17}]*16
+        diag['execution']['capabilities']=proof.capability_diagnostic(
+            {'queriesSucceeded':True,'errors':[],'tokenCapabilities':cap_entries},cap_entries,cap_catalog)
+        self.assertEqual(diag['execution']['capabilities']['known'][0],[16]*10)
         diag['execution'].update(stdout=summary, stderr=summary, actual_tiers=list(proof.TIERS),
             actual_tier_count=8192, unknown_tier_count=8192, actor_reparse_point_observed=True)
         diag['probe']['facts']={key: {'state':'value','value':False} for key in proof.PROBE_FACTS}
@@ -571,7 +576,7 @@ assert not any(root.rglob('__pycache__'))
                'launcher_diagnostic': {'phase': 'payload_download', 'failed': True, 'hresult': -2147483648,
                                        'python_exit_code': 4294967295, 'transport_attempt': 3}}
         guest = stock.project_stage0(raw)
-        guest.update(ordinary_account=True, stock_build_verified=True, harness_completed=True,
+        guest.update(status='passed', ordinary_account=True, stock_build_verified=True, harness_completed=True,
                      os={'build':26200,'ubr':6584,'product_type':'WinNT','architecture':'AMD64'})
         # PowerShell's JSON object/array nesting must remain within Depth 10.
         def nesting(value):
@@ -583,7 +588,7 @@ assert not any(root.rglob('__pycache__'))
         self.assertLessEqual(len(wire), stock.MAX_REPORT)
         self.assertTrue(guest['diagnostics']['probe']['stdout']['operations_truncated'])
         self.assertEqual(guest['diagnostics']['probe']['stdout']['operation_label_count'], len(proof.DIAGNOSTIC_OPERATIONS))
-        self.assertEqual(len(guest['diagnostics']['probe']['stdout']['operations']), 8)
+        self.assertEqual(len(guest['diagnostics']['probe']['stdout']['operations']), 6)
         restored=stock.validate_guest(json.loads(wire),'a'*64)
         self.assertEqual(restored['diagnostics'],guest['diagnostics'])
         self.assertEqual(stock.project_stage0(restored)['diagnostics'],guest['diagnostics'])
@@ -591,12 +596,41 @@ assert not any(root.rglob('__pycache__'))
         direct_spec = importlib.util.spec_from_file_location('direct_wire_bound', ROOT / '.github/windows_identity_direct_stage0.py')
         direct = importlib.util.module_from_spec(direct_spec); direct_spec.loader.exec_module(direct)
         direct_guest = direct.project_stage0(raw)
-        direct_guest.update(ordinary_account=True, direct_build_verified=True, harness_completed=True,
+        direct_guest.update(status='passed', ordinary_account=True, direct_build_verified=True, harness_completed=True,
                             os={'build':26300,'ubr':9457,'product_type':'WinNT','architecture':'AMD64'})
         direct_wire = json.dumps(direct_guest)
         self.assertLessEqual(len(direct_wire), direct.MAX_REPORT)
         self.assertLessEqual(nesting(direct_guest), 10)
         self.assertEqual(direct.validate_guest(json.loads(direct_wire),'a'*64)['diagnostics'], direct_guest['diagnostics'])
+        serviced_spec = importlib.util.spec_from_file_location('serviced_wire_bound', ROOT / '.github/windows_identity_serviced_stage0.py')
+        serviced = importlib.util.module_from_spec(serviced_spec); serviced_spec.loader.exec_module(serviced)
+        serviced_guest = serviced.project_stage0(raw)
+        serviced_guest.update(ordinary_account=False, servicing_verified=False, harness_completed=False,
+            status='failed', os={'build':26200,'ubr':9711,'product_type':'WinNT','architecture':'AMD64'})
+        # Match every field added by the actual PS finally wrapper, using the
+        # longest closed receipt values (failure report, not a passing receipt).
+        serviced_guest['servicing_diagnostic'] = serviced.closed_servicing({
+            'phase': max(serviced.SERVICE_PHASES, key=len),
+            'failure': max(serviced.SERVICE_FAILURES, key=len),
+            'dism_exit_code': -2147483648, 'packages_verified': False,
+            'reboot_observed': False, 'task_unregistered': False, 'completed': False})
+        serviced_guest['launcher_diagnostic'].update(
+            phase=max(serviced.LAUNCHER_PHASES,key=len),
+            failure_category=max(serviced.LAUNCHER_FAILURES,key=len))
+        serviced_wire = json.dumps(serviced_guest)
+        self.assertLessEqual(len(serviced_wire), serviced.MAX_REPORT)
+        self.assertLessEqual(nesting(serviced_guest),10)
+        serviced_restored=serviced.validate_guest(json.loads(serviced_wire),'a'*64)
+        self.assertFalse(serviced_restored['stage0_passed'])
+        self.assertEqual(serviced_restored['diagnostics'],serviced_guest['diagnostics'])
+        self.assertEqual(serviced_restored['servicing_diagnostic'],serviced_guest['servicing_diagnostic'])
+        serviced_ps=(ROOT/'.github/windows-identity-serviced-stage0-run.ps1').read_text()
+        import re
+        receipt_source=re.search(r'\$serviceFacts=@\{([^}]+)\}',serviced_ps).group(1)
+        receipt_keys=set(re.findall(r'(\w+)\s*=',receipt_source))
+        self.assertEqual(receipt_keys,set(serviced_guest['servicing_diagnostic']))
+        self.assertIn("Set-ClosedResultField 'servicing_diagnostic' $serviceFacts",serviced_ps)
+        self.assertIn('$body.Length -gt 16384',serviced_ps)
         ps=(ROOT/'.github/windows-identity-stock-stage0-run.ps1').read_text()
         self.assertIn('ConvertTo-Json -Depth 10 -Compress',ps)
         self.assertIn('$body.Length -gt 16384',ps)

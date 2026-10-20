@@ -80,7 +80,7 @@ class ActorProjectionTests(unittest.TestCase):
                 payload=fixture(); payload['nonce']=args[2]
                 captured['path'].write_text('invalid PRIVATE' if malformed else json.dumps(payload))
                 return process
-            with patch.object(control, 'windows_available', return_value=True), patch.object(control.subprocess, 'Popen', side_effect=spawn) as popen:
+            with patch.object(control, 'windows_available', return_value=True), patch.object(control, 'load_proof', return_value=proof), patch.object(proof, 'observe_capability_context', return_value=([], None, None)), patch.object(control.subprocess, 'Popen', side_effect=spawn) as popen:
                 result=control.run_control(actor, '0'*64 if hash_bad else digest)
             if hash_bad: popen.assert_not_called()
             if captured:
@@ -91,6 +91,8 @@ class ActorProjectionTests(unittest.TestCase):
         result, process=self.run_mock()
         self.assertTrue(result['control_passed'])
         self.assertFalse(result['runtime_acceptance'])
+        self.assertTrue(result['capability_diagnostic']['source_observed'])
+        self.assertFalse(result['capability_diagnostic']['catalog_complete'])
         self.assertTrue(all(result[k] for k in ('process_exited','raw_report_removed','work_removed')))
         self.assertNotIn('PRIVATE', json.dumps(result))
 
