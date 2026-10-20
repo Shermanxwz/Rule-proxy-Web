@@ -264,13 +264,21 @@ def _codes(value):
     return sorted(result)
 
 
+def _operation_labels(value):
+    labels = _known_list(value.get('operations'), DIAGNOSTIC_OPERATIONS)
+    # The bounded count survives re-projection after the visible list is cut.
+    count = max(len(labels), _integer(value.get('operation_label_count'), high=len(DIAGNOSTIC_OPERATIONS)) or 0)
+    return {'operations': labels[:8], 'operation_label_count': count,
+            'operations_truncated': count > 8}
+
+
 def diagnostic_summary(value):
     """Rebuild closed helper output; never trust a nested dictionary as safe."""
     value = _dict(value)
     result = {"bytes_observed": _integer(value.get("bytes_observed"), high=2**31-1),
         "inspection_truncated": value.get("inspection_truncated") is True,
         "categories": _known_list(value.get("categories"), DIAGNOSTIC_CATEGORIES),
-        "operations": _known_list(value.get("operations"), DIAGNOSTIC_OPERATIONS),
+        **_operation_labels(value),
         "native_codes": _codes(value.get("native_codes")), "inspected_sha256": _digest(value.get("inspected_sha256")),
         "error_envelope_count": max(_integer(value.get("error_envelope_count"), high=4) or 0, min(4, len(value.get("error_envelopes", []))) if isinstance(value.get("error_envelopes"), list) else 0),
         "error_envelopes": []}
@@ -281,7 +289,7 @@ def diagnostic_summary(value):
             "message_sha256": _digest(entry.get("message_sha256")), "has_extended_error": entry.get("has_extended_error") is True,
             "extended_error_sha256": _digest(entry.get("extended_error_sha256")),
             "categories": _known_list(entry.get("categories"), DIAGNOSTIC_CATEGORIES),
-            "operations": _known_list(entry.get("operations"), DIAGNOSTIC_OPERATIONS), "native_codes": _codes(entry.get("native_codes"))})
+            **_operation_labels(entry), "native_codes": _codes(entry.get("native_codes"))})
     return result
 
 
@@ -297,6 +305,45 @@ def _closed_fact(value):
     boolean = _boolean(value.get("value"))
     if state == "value" and boolean is None: state = "wrong_type"
     return {"state": state, "value": boolean if state == "value" else None}
+
+
+NATIVE_IDENTITY_PREDICATES = ('schema_v1', 'mode_actor', 'queries_succeeded', 'errors_empty',
+    'token_is_appcontainer', 'sid_string', 'sid_shape_valid', 'not_elevated', 'in_job',
+    'capabilities_empty', 'pid_positive_integer')
+NATIVE_IDENTITY_FIELDS = (('schema', 'schemaVersion', int), ('mode', 'mode', str),
+    ('queries', 'queriesSucceeded', bool), ('errors', 'errors', list),
+    ('appcontainer', 'tokenIsAppContainer', bool), ('sid', 'tokenAppContainerSid', str),
+    ('elevated', 'tokenElevated', bool), ('job', 'isProcessInJob', bool),
+    ('capabilities', 'tokenCapabilities', list), ('pid', 'pid', int))
+NATIVE_IDENTITY_FACT_KEYS = NATIVE_IDENTITY_PREDICATES + ('available', 'recorded_check_passed', 'recorded_check_observed') + tuple(
+    name + suffix for name, _, _ in NATIVE_IDENTITY_FIELDS for suffix in ('_present', '_typed'))
+
+
+def native_identity_facts(actor, recorded_check):
+    # Mirror the existing predicate exactly, including schemaVersion == 1.
+    # Type observations are separate and do not strengthen/weaken acceptance.
+    value = _dict(actor)
+    sid = value.get('tokenAppContainerSid')
+    result = {'schema_v1': value.get('schemaVersion') == 1,
+        'mode_actor': value.get('mode') == 'actor', 'queries_succeeded': value.get('queriesSucceeded') is True,
+        'errors_empty': value.get('errors') == [], 'token_is_appcontainer': value.get('tokenIsAppContainer') is True,
+        'sid_string': isinstance(sid, str), 'sid_shape_valid': isinstance(sid, str) and SID.fullmatch(sid) is not None,
+        'not_elevated': value.get('tokenElevated') is False, 'in_job': value.get('isProcessInJob') is True,
+        'capabilities_empty': value.get('tokenCapabilities') == [],
+        'pid_positive_integer': type(value.get('pid')) is int and value['pid'] > 0,
+        'available': isinstance(actor, dict), 'recorded_check_passed': recorded_check is True,
+        'recorded_check_observed': type(recorded_check) is bool}
+    for name, key, expected in NATIVE_IDENTITY_FIELDS:
+        result[name + '_present'] = key in value
+        result[name + '_typed'] = type(value.get(key)) is expected
+    return closed_native_identity_facts(result)
+
+
+def closed_native_identity_facts(value):
+    value = _dict(value)
+    result = {key: value.get(key) is True for key in NATIVE_IDENTITY_FACT_KEYS}
+    result['predicate_conjunction'] = all(result[key] for key in NATIVE_IDENTITY_PREDICATES)
+    return result
 
 
 def closed_diagnostics(raw):
@@ -332,6 +379,7 @@ def closed_diagnostics(raw):
                 "actual_tiers": [tier for tier in actual if tier in TIERS] if isinstance(actual, list) else [],
                 "unknown_tier_count": sum(tier not in TIERS for tier in actual) if isinstance(actual, list) else None,
                 "actor_report_state": raw.get("actor_report_state"),
+                "native_identity": native_identity_facts(raw.get("actor"), _dict(raw.get("checks")).get("native_identity")),
                 "actor_reparse_point_observed": raw.get("actor_reparse_point_observed"),
                 "actor_checks_passed": _dict(raw.get("checks")).get("fresh_actor") is True and _dict(raw.get("checks")).get("native_identity") is True,
                 "stdout": raw.get("stdout_diagnostic"), "stderr": raw.get("stderr_diagnostic")}}
@@ -371,6 +419,7 @@ def closed_diagnostics(raw):
             "actor_report_state": _enum(execution.get("actor_report_state"), ACTOR_STATES, "not_reached"),
             "actor_reparse_point_observed": _boolean(execution.get("actor_reparse_point_observed")),
             "actor_checks_passed": execution.get("actor_checks_passed") is True,
+            "native_identity": closed_native_identity_facts(execution.get("native_identity")),
             "stdout": diagnostic_summary(execution.get("stdout")), "stderr": diagnostic_summary(execution.get("stderr"))}}
 
 

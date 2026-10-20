@@ -442,7 +442,8 @@ class StockTests(unittest.TestCase):
         self.assertEqual(proof_names,{'controller','policy','run_case','stage0_checks','actual_tiers','probe_outcome','detector_error_class','cli_diagnostic','closed_diagnostics','diagnostic_summary',
             '_dict','_enum','_integer','_boolean','_digest','_known_list','_codes','_fact','_closed_fact',
             'canonical_environment_directory','validate_required_environment','native_required_environment_paths',
-            'observe_required_environment','required_environment_entries'})
+            'observe_required_environment','required_environment_entries',
+            'native_identity_facts','closed_native_identity_facts','_operation_labels'})
         smoke_seeds={'read'}  # Also called directly by the stock guest wrapper.
         for root in proof_nodes:
             for node in ast.walk(root):
@@ -580,10 +581,22 @@ assert not any(root.rglob('__pycache__'))
         self.assertLessEqual(nesting(guest),10)
         wire = json.dumps(guest)
         self.assertLessEqual(len(wire), stock.MAX_REPORT)
+        self.assertTrue(guest['diagnostics']['probe']['stdout']['operations_truncated'])
+        self.assertEqual(guest['diagnostics']['probe']['stdout']['operation_label_count'], len(proof.DIAGNOSTIC_OPERATIONS))
+        self.assertEqual(len(guest['diagnostics']['probe']['stdout']['operations']), 8)
         restored=stock.validate_guest(json.loads(wire),'a'*64)
         self.assertEqual(restored['diagnostics'],guest['diagnostics'])
         self.assertEqual(stock.project_stage0(restored)['diagnostics'],guest['diagnostics'])
         self.assertEqual(restored['diagnostics']['probe']['ui_facts'][proof.UI_FACTS[0]], {'state':'value','value':True})
+        direct_spec = importlib.util.spec_from_file_location('direct_wire_bound', ROOT / '.github/windows_identity_direct_stage0.py')
+        direct = importlib.util.module_from_spec(direct_spec); direct_spec.loader.exec_module(direct)
+        direct_guest = direct.project_stage0(raw)
+        direct_guest.update(ordinary_account=True, direct_build_verified=True, harness_completed=True,
+                            os={'build':26300,'ubr':9457,'product_type':'WinNT','architecture':'AMD64'})
+        direct_wire = json.dumps(direct_guest)
+        self.assertLessEqual(len(direct_wire), direct.MAX_REPORT)
+        self.assertLessEqual(nesting(direct_guest), 10)
+        self.assertEqual(direct.validate_guest(json.loads(direct_wire),'a'*64)['diagnostics'], direct_guest['diagnostics'])
         ps=(ROOT/'.github/windows-identity-stock-stage0-run.ps1').read_text()
         self.assertIn('ConvertTo-Json -Depth 10 -Compress',ps)
         self.assertIn('$body.Length -gt 16384',ps)

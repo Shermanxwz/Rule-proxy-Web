@@ -13,6 +13,8 @@ on:
       - 'tests/test_windows_client_direct_guest.py'
       - 'tests/test_windows_client_direct_workflow.py'
       - '.github/test-windows-identity-direct-gates.ps1'
+      - '.github/test_windows_identity_actor_projection.py'
+      - 'tests/test_windows_client_direct_actor_projection.py'
       - 'tests/test_windows_provider_cache_recovery.py'
   workflow_dispatch:
 permissions:
@@ -51,11 +53,18 @@ jobs:
           $manifest=Get-Content -Raw client-stage0-actor/build-manifest.json | ConvertFrom-Json
           if ($manifest.httpCompiled -or -not $manifest.staticCrt) { throw 'Zero-network static actor required' }
           [IO.File]::WriteAllText("$PWD\client-stage0-actor/actor-sha256.txt",$manifest.executableSha256)
+      - name: Source-token actor projection negative control, not isolation acceptance
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          $digest=(Get-Content -Raw client-stage0-actor/actor-sha256.txt).Trim().ToLowerInvariant()
+          python -B .github/test_windows_identity_actor_projection.py --run-source-token-control --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 $digest
+          if ($LASTEXITCODE -ne 0) { throw 'Source-token actor projection control failed' }
       - name: Pure unit tests, not Windows runtime acceptance
         run: |
           python -B -m unittest discover -s tests -p "test_windows_client_stock_stage0.py" -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($file in @('test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_workflow.py')) {
+          foreach ($file in @('test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_workflow.py', 'test_windows_client_direct_actor_projection.py')) {
             if (-not (Test-Path -LiteralPath (Join-Path 'tests' $file) -PathType Leaf)) { throw 'Required direct tests missing' }
           }
           python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_direct*.py'); assert s.countTestCases() >= 7, 'Direct test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
@@ -83,6 +92,7 @@ jobs:
           test -f tests/test_windows_client_direct_stage0.py
           test -f tests/test_windows_client_direct_guest.py
           test -f tests/test_windows_client_direct_workflow.py
+          test -f tests/test_windows_client_direct_actor_projection.py
           python3 -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_direct*.py'); assert s.countTestCases() >= 7, 'Direct test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful() or bool(r.skipped))"
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q

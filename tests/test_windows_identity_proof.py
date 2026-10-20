@@ -865,5 +865,117 @@ class RequiredEnvironmentTests(unittest.TestCase):
         self.assertNotIn('PRIVATE_SENTINEL',json.dumps(result));self.assertEqual(result['controller_phase'],'required_environment')
 
 
+class NativeIdentityFactTests(unittest.TestCase):
+    def facts(self, report):
+        return proof.closed_diagnostics(report)['execution']['native_identity']
+    def test_each_existing_clause_has_exact_false_diagnostic(self):
+        mutations=(('schemaVersion',2,'schema_v1'),('mode','wrong','mode_actor'),
+            ('queriesSucceeded',False,'queries_succeeded'),('errors',['hidden'],'errors_empty'),
+            ('tokenIsAppContainer',False,'token_is_appcontainer'),('tokenAppContainerSid',None,'sid_string'),
+            ('tokenAppContainerSid','S-1-0-0','sid_shape_valid'),('tokenElevated',True,'not_elevated'),
+            ('isProcessInJob',False,'in_job'),('tokenCapabilities',['hidden'],'capabilities_empty'),
+            ('pid',0,'pid_positive_integer'),('pid',True,'pid_positive_integer'))
+        for field,value,key in mutations:
+            report=evidence();report['actor'][field]=value;report['checks']=proof.stage0_checks(report)
+            facts=self.facts(report)
+            with self.subTest(field=field,value=value):
+                self.assertFalse(facts[key]);self.assertTrue(facts['available'])
+                self.assertFalse(facts['predicate_conjunction']);self.assertFalse(facts['recorded_check_passed'])
+                self.assertTrue(facts['recorded_check_observed'])
+                self.assertEqual(facts['predicate_conjunction'],report['checks']['native_identity'])
+    def test_valid_facts_preserve_exact_conjunction(self):
+        report=evidence();report['checks']=proof.stage0_checks(report)
+        facts=self.facts(report)
+        self.assertTrue(all(facts[k] for k in proof.NATIVE_IDENTITY_PREDICATES))
+        self.assertTrue(facts['predicate_conjunction']);self.assertTrue(facts['recorded_check_passed'])
+    def test_type_observations_do_not_change_original_equality_semantics(self):
+        for schema in (True,1.0):
+            report=evidence();report['actor']['schemaVersion']=schema
+            facts=self.facts(report)
+            self.assertTrue(facts['schema_v1']);self.assertFalse(facts['schema_typed'])
+            self.assertEqual(facts['predicate_conjunction'],proof.stage0_checks(report)['native_identity'])
+    def test_missing_null_and_wrong_types_have_presence_and_type_flags(self):
+        for name,field,expected in proof.NATIVE_IDENTITY_FIELDS:
+            for present,value in ((False,None),(True,None),(True,{})):
+                report=evidence()
+                if present:report['actor'][field]=value
+                else:del report['actor'][field]
+                facts=self.facts(report)
+                self.assertIs(facts[name+'_present'],present)
+                self.assertFalse(facts[name+'_typed'])
+                self.assertEqual(facts['predicate_conjunction'],proof.stage0_checks(report)['native_identity'])
+    def test_original_false_is_not_repaired_by_positive_predicates(self):
+        report=evidence();report['checks']={'native_identity':False}
+        facts=self.facts(report)
+        self.assertFalse(facts['recorded_check_passed']);self.assertTrue(facts['recorded_check_observed'])
+        self.assertTrue(facts['predicate_conjunction'])
+        self.assertFalse(report['checks']['native_identity'])
+    def test_old_or_unavailable_actor_not_invented_as_observed(self):
+        for report in ({},{'actor':None},{'actor':[]},{'diagnostics':{'execution':{}}}):
+            facts=self.facts(report)
+            self.assertFalse(facts['available']);self.assertFalse(facts['recorded_check_observed'])
+            self.assertFalse(facts['predicate_conjunction'])
+    def test_repeated_projection_is_idempotent_and_bool_only(self):
+        report=evidence();report['checks']=proof.stage0_checks(report)
+        first=proof.closed_diagnostics(report)
+        self.assertEqual(first,proof.closed_diagnostics({'diagnostics':first}))
+        facts=first['execution']['native_identity']
+        self.assertEqual(set(facts),set(proof.NATIVE_IDENTITY_FACT_KEYS)|{'predicate_conjunction'})
+        self.assertTrue(all(type(v) is bool for v in facts.values()))
+    def test_malicious_values_and_extras_are_not_exported(self):
+        sentinel='PRIVATE_SENTINEL_PATH_SID_CAPABILITY_PID'
+        report=evidence();report['actor'].update({key:sentinel*1000 for _,key,_ in proof.NATIVE_IDENTITY_FIELDS})
+        report['actor'][sentinel]=sentinel
+        facts=self.facts(report)
+        self.assertNotIn(sentinel,json.dumps(facts));self.assertLess(len(json.dumps(facts)),2000)
+        poisoned={key:sentinel for key in proof.NATIVE_IDENTITY_FACT_KEYS};poisoned[sentinel]=True
+        poisoned['predicate_conjunction']=True
+        projected=self.facts({'diagnostics':{'execution':{'native_identity':poisoned}}})
+        self.assertNotIn(sentinel,json.dumps(projected));self.assertFalse(any(projected.values()))
+    def test_diagnostics_never_mutate_acceptance(self):
+        report=evidence();before=copy.deepcopy(report);checks=proof.stage0_checks(report)
+        self.facts(report)
+        self.assertEqual(report,before);self.assertEqual(proof.stage0_checks(report),checks)
+
+
+class DiagnosticOperationBoundTests(unittest.TestCase):
+    def test_all_recognized_labels_bounded_with_count_and_truncation(self):
+        labels=list(proof.DIAGNOSTIC_OPERATIONS)
+        self.assertEqual(len(labels),14)
+        raw={'operations':labels,'inspected_sha256':'a'*64,'bytes_observed':123,
+             'categories':['psec'],'native_codes':[5],
+             'error_envelopes':[{'operations':labels,'message_sha256':'b'*64,'code':'backend_error','message_class':'psec_environment_create','native_codes':[5]}]}
+        result=proof.diagnostic_summary(raw)
+        for item in (result,result['error_envelopes'][0]):
+            self.assertEqual(item['operations'],labels[:8]);self.assertEqual(item['operation_label_count'],len(labels))
+            self.assertTrue(item['operations_truncated']);self.assertEqual(item['native_codes'],[5])
+        self.assertEqual(result['inspected_sha256'],'a'*64);self.assertEqual(result['bytes_observed'],123)
+        self.assertEqual(result['error_envelopes'][0]['message_sha256'],'b'*64)
+        self.assertEqual(result,proof.diagnostic_summary(result))
+    def test_sixteen_allowlisted_fixture_labels_truncate_to_eight(self):
+        # Production currently has 14 allowlisted labels; exercise a 16-label
+        # input without adding invented operations to the production allowlist.
+        fixture=proof.DIAGNOSTIC_OPERATIONS+('FixtureOperationA','FixtureOperationB')
+        with patch.object(proof,'DIAGNOSTIC_OPERATIONS',fixture):
+            result=proof.diagnostic_summary({'operations':list(fixture)})
+            self.assertEqual(len(result['operations']),8);self.assertEqual(result['operation_label_count'],16)
+            self.assertTrue(result['operations_truncated']);self.assertEqual(result,proof.diagnostic_summary(result))
+    def test_small_labels_not_reported_truncated_and_unknowns_not_counted(self):
+        for count in (0,1,8):
+            labels=list(proof.DIAGNOSTIC_OPERATIONS[:count])
+            result=proof.diagnostic_summary({'operations':labels+['SECRET']*100})
+            self.assertEqual(result['operations'],labels);self.assertEqual(result['operation_label_count'],count)
+            self.assertFalse(result['operations_truncated']);self.assertNotIn('SECRET',json.dumps(result))
+    def test_invalid_counts_never_escape_or_expand_bounds(self):
+        for count in (True,-1,17,'SECRET',{},None):
+            result=proof.diagnostic_summary({'operations':['CreateProcessW'],'operation_label_count':count,'operations_truncated':'true'})
+            self.assertEqual(result['operation_label_count'],1);self.assertFalse(result['operations_truncated'])
+    def test_operation_summaries_never_change_acceptance(self):
+        report=evidence();expected=proof.stage0_checks(report)
+        report['diagnostics']={'execution':{'stderr':{'operations':list(proof.DIAGNOSTIC_OPERATIONS)}}}
+        proof.closed_diagnostics(report)
+        self.assertEqual(proof.stage0_checks(report),expected)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -37,6 +37,15 @@ class DirectWorkflowTests(unittest.TestCase):
         self.assertNotIn('sudo ',pure)
         self.assertNotIn('REVIEWED_RECOVERY',pure)
         self.assertNotIn('--approved-disposable-vm',pure)
+    def test_bounded_source_token_negative_control_after_compile(self):
+        self.assertIn('--run-source-token-control',self.text)
+        self.assertIn('.Trim().ToLowerInvariant()',self.text)
+        self.assertIn('test_windows_client_direct_actor_projection.py',self.text)
+        self.assertLess(self.text.index('Compile the pinned zero-network native actor'),self.text.index('Source-token actor projection negative control'))
+        self.assertLess(self.text.index('Source-token actor projection negative control'),self.text.index('Pure unit tests, not Windows runtime acceptance'))
+        control=self.text.split('      - name: Source-token actor projection negative control',1)[1].split('      - name:',1)[0]
+        self.assertIn('timeout-minutes: 1',control)
+        self.assertNotIn('upload-artifact',control)
     def test_direct_host_only_and_label(self):
         self.assertIn('exploratory below support floor',self.text)
         self.assertIn('sudo /usr/bin/python3 -B .github/windows_identity_direct_stage0.py',self.text)
