@@ -367,3 +367,19 @@ text remains runner-local; only hashes are published. No token, actor or
 launch-policy code changes. The local suite now passes 147 pure tests, including
 15 bounded capture/parser/publication tests. This improves diagnosability; the
 original dumpbin failure cause remains unknown until native observations arrive.
+
+
+Paired startup attempt 2 (commit `c50b6d95`, run `39372121986`) identifies
+the metadata failure rather than guessing its cause. All five dumpbin commands
+succeeded. The sanitized native fixture records 3 Full actor dependencies,
+2 IdentityOnly actor dependencies and 76 System32 WinHTTP dependencies, many
+being API-set contract DLLs. The system-library list exceeded the harness's
+uniform 64-name metadata bound. Token preflight and all actor runtime remained
+skipped. This is not evidence that WinHTTP caused the prior DLL initialization
+failure. The original rejected fixture is retained unchanged with its source
+artifact digest and summary.
+
+The measured correction raises only system-library metadata capacity to 128;
+both actor capacities remain 64. Native token/security/launch gates are unchanged.
+Regression tests replay the actual sanitized fixture and cover each boundary.
+The corrected local suite has 151 passing pure tests.

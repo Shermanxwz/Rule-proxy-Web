@@ -1,5 +1,6 @@
 """Pure parser tests. Fixtures are synthetic; no Windows programs are run."""
 import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -17,6 +18,8 @@ SPEC.loader.exec_module(dumpbin)
 FULL = ["ADVAPI32.dll", "WINHTTP.dll", "KERNEL32.dll"]
 MINIMAL = ["ADVAPI32.dll", "KERNEL32.dll"]
 PRIVATE_PATH = r"C:\Users\private-person\work\private-file.exe"
+MEASURED_FIXTURE = ROOT / "verification/windows-2026-10-20/identity-proof/paired-attempt-02-parser-fixture.json"
+MEASURED_SHA256 = "cc192bc1213fc57d909df492da12a57f2855d979e0ecc2f4013416fff11e9228"
 
 
 def dependents(names, indent="    "):
@@ -98,15 +101,44 @@ class ParserTests(unittest.TestCase):
         self.assertIn("dependency_count", fixture["failures"])
         self.assertEqual(fixture["observations"][0]["legacy_names"], [])
 
-    def test_65_system_dlls_are_diagnosed_without_raising_acceptance_limit(self):
-        names = [f"API-MS-WIN-SYNTHETIC-{index}.dll" for index in range(65)]
-        runner = Runner({("system_winhttp", "dependents"): {"data": dependents(names)}})
-        fixture, audit = collect(runner)
-        self.assertEqual(len(runner.calls), 5)
-        self.assertEqual(fixture["accepted_dll_limit"], 64)
-        self.assertEqual(len(fixture["observations"][2]["legacy_names"]), 65)
-        self.assertIsNone(audit)
-        self.assertIn("dependency_count", fixture["failures"])
+    def test_system_capacity_128_passes_and_129_fails(self):
+        for count in (128, 129):
+            names = [f"API-MS-WIN-SYNTHETIC-{index}.dll" for index in range(count)]
+            runner = Runner({("system_winhttp", "dependents"): {"data": dependents(names)}})
+            fixture, audit = collect(runner)
+            with self.subTest(count=count):
+                self.assertEqual(len(runner.calls), 5)
+                self.assertEqual(fixture["schema_version"], 2)
+                self.assertEqual(fixture["accepted_dll_limits"],
+                                 {"full": 64, "identity_only": 64, "system_winhttp": 128})
+                self.assertEqual(len(fixture["observations"][2]["legacy_names"]), count)
+                self.assertEqual(audit is not None, count == 128)
+                self.assertEqual("dependency_count" in fixture["failures"], count == 129)
+
+    def test_both_actor_capacities_remain_64_not_65(self):
+        for label in ("full", "identity_only"):
+            for count in (64, 65):
+                names = [f"API-MS-WIN-SYNTHETIC-{index}.dll" for index in range(count)]
+                if label == "full":
+                    names[0] = "WINHTTP.dll"
+                fixture, audit = collect(Runner({(label, "dependents"): {"data": dependents(names)}}))
+                with self.subTest(label=label, count=count):
+                    self.assertEqual(audit is not None, count == 64)
+                    self.assertEqual("dependency_count" in fixture["failures"], count == 65)
+
+    def test_measured_v1_fixture_is_preserved_and_76_system_names_fit_current_gate(self):
+        raw = MEASURED_FIXTURE.read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), MEASURED_SHA256)
+        historical = json.loads(raw)
+        dumpbin.validate_fixture(historical)
+        self.assertEqual(historical["schema_version"], 1)
+        self.assertEqual(historical["accepted_dll_limit"], 64)
+        self.assertFalse(historical["metadata_gate_passed"])
+        self.assertEqual(historical["failures"], ["dependency_count"])
+        self.assertEqual([len(row["legacy_names"]) for row in historical["observations"][:3]],
+                         [3, 2, 76])
+        self.assertEqual(dumpbin.metadata_failures(historical["observations"]), [])
+        self.assertEqual(MEASURED_FIXTURE.read_bytes(), raw)
 
     def test_missing_indentation_is_visible_but_does_not_broaden_legacy_gate(self):
         fixture, audit = collect(Runner({

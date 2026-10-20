@@ -84,7 +84,8 @@ def project_imports(value,source_sha256):
     result={'schema_version':1,'stage':'native-import-public-metadata','sanitized':True,'byte_exact':False,'source_report_sha256':source_sha256}
     for name in ('full','identity_only','system_winhttp'):
         entries=value.get(name)
-        if not isinstance(entries,list) or not 1<=len(entries)<=64:raise ValueError('bounded DLL list required')
+        limit=128 if name=='system_winhttp' else 64
+        if not isinstance(entries,list) or not 1<=len(entries)<=limit:raise ValueError('bounded DLL list required')
         if not all(isinstance(x,str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,128}\.dll',x,re.I) for x in entries):raise ValueError('DLL basenames only')
         result[name]=entries
     for name in ('full_import_table','identity_only_import_table'):

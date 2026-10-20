@@ -1,7 +1,8 @@
 """Read-only dumpbin collection with a closed, path-free diagnostic fixture.
 
-Capture limits bound observation, not acceptance. The existing 64-DLL gate
-is deliberately unchanged. Collect every target before applying any gate.
+Capture limits bound observation, not acceptance. Actors retain a 64-DLL
+gate; measured System32 WinHTTP metadata has a separate 128-DLL capacity.
+Collect every target before applying any gate.
 No actor, token, networking, or security-setting operation is performed.
 """
 from __future__ import annotations
@@ -21,7 +22,7 @@ MAX_LINES = 16384
 MAX_STRUCTURE = 2048
 MAX_NAMES = 1024
 MAX_FIXTURE_BYTES = 2 * 1024 * 1024
-ACCEPTED_DLL_LIMIT = 64
+ACCEPTED_DLL_LIMITS = {"full": 64, "identity_only": 64, "system_winhttp": 128}
 DLL = re.compile(r"[A-Za-z0-9_.-]{1,128}\.dll", re.I)
 LEGACY_DLL = re.compile(r"^\s+([A-Za-z0-9_.-]+\.dll)\s*$", re.I)
 LABELS = ("full", "identity_only", "system_winhttp")
@@ -219,30 +220,14 @@ def collect(targets, dumpbin, *, runner=capture, system_version=""):
             # Kept runner-local only. Existing publication emits their hashes,
             # never these strings. Preserve the original trimmed-table meaning.
             local_imports[label] = retained_import_lines(outcome["data"])
-    failures = []
-    for record in records:
-        if record["status"] != "completed" or record["exit_code"] != 0:
-            failures.append("capture_failed")
-        if record["fixture_truncated"]:
-            failures.append("fixture_incomplete")
-        if record["invalid_legacy_name_count"]:
-            failures.append("invalid_dependency_name")
-        if record["mode"] == "dependents":
-            if not 1 <= len(record["legacy_names"]) <= ACCEPTED_DLL_LIMIT:
-                failures.append("dependency_count")
-            if record["dependency_header_count"] != 1:
-                failures.append("dependency_header")
-        elif record["line_count"] > 2048 or record["retained_import_max_chars"] > 512:
-            failures.append("import_bound")
+    failures = metadata_failures(records)
     by_key = {(item["label"], item["mode"]): item for item in records}
     full = by_key["full", "dependents"]["legacy_names"]
     minimal = by_key["identity_only", "dependents"]["legacy_names"]
-    if "WINHTTP.DLL" not in full or "WINHTTP.DLL" in minimal:
-        failures.append("http_variant_distinction")
     fixture = {
-        "schema_version": 1, "stage": "dumpbin-parser-diagnostic",
+        "schema_version": 2, "stage": "dumpbin-parser-diagnostic",
         "sanitized": True, "byte_exact": False, "runtime_performed": False,
-        "accepted_dll_limit": ACCEPTED_DLL_LIMIT,
+        "accepted_dll_limits": dict(ACCEPTED_DLL_LIMITS),
         "metadata_gate_passed": not failures, "failures": sorted(set(failures)),
         "observations": records,
     }
@@ -257,10 +242,35 @@ def collect(targets, dumpbin, *, runner=capture, system_version=""):
     return fixture, audit
 
 
+def metadata_failures(records):
+    """Apply current label-specific gates to already parsed observations."""
+    failures = []
+    for record in records:
+        if record["status"] != "completed" or record["exit_code"] != 0:
+            failures.append("capture_failed")
+        if record["fixture_truncated"]:
+            failures.append("fixture_incomplete")
+        if record["invalid_legacy_name_count"]:
+            failures.append("invalid_dependency_name")
+        if record["mode"] == "dependents":
+            if not 1 <= len(record["legacy_names"]) <= ACCEPTED_DLL_LIMITS[record["label"]]:
+                failures.append("dependency_count")
+            if record["dependency_header_count"] != 1:
+                failures.append("dependency_header")
+        elif record["line_count"] > 2048 or record["retained_import_max_chars"] > 512:
+            failures.append("import_bound")
+    by_key = {(item["label"], item["mode"]): item for item in records}
+    full = by_key["full", "dependents"]["legacy_names"]
+    minimal = by_key["identity_only", "dependents"]["legacy_names"]
+    if "WINHTTP.DLL" not in full or "WINHTTP.DLL" in minimal:
+        failures.append("http_variant_distinction")
+    return sorted(set(failures))
+
+
 def validate_fixture(value):
     """Reject unknown fields and raw strings before any diagnostic is saved."""
     top = {"schema_version", "stage", "sanitized", "byte_exact", "runtime_performed",
-           "accepted_dll_limit", "metadata_gate_passed", "failures", "observations"}
+           "metadata_gate_passed", "failures", "observations"}
     fields = {
         "label", "mode", "status", "exit_code", "captured_bytes", "encoding",
         "replacement_characters", "nul_bytes", "line_count", "max_line_chars",
@@ -273,13 +283,24 @@ def validate_fixture(value):
         "label", "mode", "status", "exit_code", "encoding", "legacy_names",
         "trimmed_names", "fixture_truncated", "structure",
     }
-    if not isinstance(value, dict) or set(value) != top:
+    if not isinstance(value, dict) or type(value.get("schema_version")) is not int:
         raise ValueError("closed diagnostic schema required")
-    if (type(value["schema_version"]) is not int or value["schema_version"] != 1
-            or value["stage"] != "dumpbin-parser-diagnostic"
+    version = value["schema_version"]
+    if version == 1:
+        top.add("accepted_dll_limit")
+        limits_valid = type(value.get("accepted_dll_limit")) is int and value.get("accepted_dll_limit") == 64
+    elif version == 2:
+        top.add("accepted_dll_limits")
+        limits = value.get("accepted_dll_limits")
+        limits_valid = (isinstance(limits, dict) and limits == ACCEPTED_DLL_LIMITS
+                        and all(type(limit) is int for limit in limits.values()))
+    else:
+        raise ValueError("unsupported diagnostic schema version")
+    if set(value) != top:
+        raise ValueError("closed diagnostic schema required")
+    if (not limits_valid or value["stage"] != "dumpbin-parser-diagnostic"
             or value["sanitized"] is not True or value["byte_exact"] is not False
             or value["runtime_performed"] is not False
-            or value["accepted_dll_limit"] != ACCEPTED_DLL_LIMIT
             or type(value["metadata_gate_passed"]) is not bool
             or not isinstance(value["failures"], list)
             or any(item not in FAILURES for item in value["failures"])):
@@ -351,8 +372,8 @@ def main(argv=None):
         {"full": args.full, "identity_only": args.identity, "system_winhttp": args.system_winhttp},
         args.dumpbin, system_version=args.system_version,
     )
-    # The fixture is retained even when zero matches, >64 DLLs, or tool errors
-    # fail the gate. Never create an audit that could enable runtime on failure.
+    # The fixture is retained even when zero matches, label-specific capacity,
+    # or tool errors fail the gate. Never create an audit on gate failure.
     write_new(args.fixture, fixture, MAX_FIXTURE_BYTES)
     if audit is None:
         print("Dumpbin metadata gate failed; all sanitized parser observations retained.")

@@ -28,4 +28,24 @@ class PublicationTests(unittest.TestCase):
         out=m.project_imports(v,H);self.assertNotIn('PRIVATE',json.dumps(out));self.assertEqual(out['system_winhttp'],['USER32.dll'])
         v['full']=['C:\\PRIVATE.dll']
         with self.assertRaises(ValueError):m.project_imports(v,H)
+    def test_import_projection_label_specific_boundaries(self):
+        for label,limit in (('full',64),('identity_only',64),('system_winhttp',128)):
+            for count in (limit,limit+1):
+                v={'full':['WINHTTP.dll'],'identity_only':['KERNEL32.dll'],
+                   'system_winhttp':['KERNEL32.dll'],
+                   'full_import_table':[],'identity_only_import_table':[]}
+                v[label]=[f'API-MS-WIN-SYNTHETIC-{index}.dll' for index in range(count)]
+                with self.subTest(label=label,count=count):
+                    if count==limit:self.assertEqual(len(m.project_imports(v,H)[label]),count)
+                    else:
+                        with self.assertRaises(ValueError):m.project_imports(v,H)
+    def test_import_projection_accepts_measured_76_system_names_without_exporting_structure(self):
+        path=P.parents[1]/'verification/windows-2026-10-20/identity-proof/paired-attempt-02-parser-fixture.json'
+        fixture=json.loads(path.read_bytes())
+        v={row['label']:row['legacy_names'] for row in fixture['observations'] if row['mode']=='dependents'}
+        v.update(full_import_table=[],identity_only_import_table=[])
+        out=m.project_imports(v,H)
+        self.assertEqual(len(out['full']),3);self.assertEqual(len(out['identity_only']),2)
+        self.assertEqual(len(out['system_winhttp']),76)
+        self.assertNotIn('structure',out)
 if __name__=='__main__':unittest.main()

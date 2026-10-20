@@ -1,0 +1,1706 @@
+{
+  "accepted_dll_limit": 64,
+  "byte_exact": false,
+  "failures": [
+    "dependency_count"
+  ],
+  "metadata_gate_passed": false,
+  "observations": [
+    {
+      "captured_bytes": 369,
+      "dependency_header_count": 1,
+      "dll_like_other_count": 0,
+      "encoding": "utf8",
+      "exit_code": 0,
+      "fixture_truncated": false,
+      "invalid_legacy_name_count": 0,
+      "label": "full",
+      "legacy_match_count": 3,
+      "legacy_names": [
+        "ADVAPI32.DLL",
+        "KERNEL32.DLL",
+        "WINHTTP.DLL"
+      ],
+      "line_count": 19,
+      "max_line_chars": 95,
+      "mode": "dependents",
+      "nul_bytes": 0,
+      "replacement_characters": 0,
+      "retained_import_line_count": 0,
+      "retained_import_max_chars": 0,
+      "status": "completed",
+      "structure": [
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 95,
+          "chars_min": 95,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_banner"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 27,
+          "chars_min": 27,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_type"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "dependency_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "ADVAPI32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 15,
+          "chars_min": 15,
+          "count": 1,
+          "dll": "WINHTTP.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "KERNEL32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 9,
+          "chars_min": 9,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "summary_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 21,
+          "chars_min": 18,
+          "count": 6,
+          "indent_max": 8,
+          "indent_min": 7,
+          "kind": "summary_row"
+        }
+      ],
+      "trimmed_match_count": 3,
+      "trimmed_names": [
+        "ADVAPI32.DLL",
+        "KERNEL32.DLL",
+        "WINHTTP.DLL"
+      ]
+    },
+    {
+      "captured_bytes": 360,
+      "dependency_header_count": 1,
+      "dll_like_other_count": 0,
+      "encoding": "utf8",
+      "exit_code": 0,
+      "fixture_truncated": false,
+      "invalid_legacy_name_count": 0,
+      "label": "identity_only",
+      "legacy_match_count": 2,
+      "legacy_names": [
+        "ADVAPI32.DLL",
+        "KERNEL32.DLL"
+      ],
+      "line_count": 18,
+      "max_line_chars": 103,
+      "mode": "dependents",
+      "nul_bytes": 0,
+      "replacement_characters": 0,
+      "retained_import_line_count": 0,
+      "retained_import_max_chars": 0,
+      "status": "completed",
+      "structure": [
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 103,
+          "chars_min": 103,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_banner"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 27,
+          "chars_min": 27,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_type"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "dependency_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "ADVAPI32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "KERNEL32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 9,
+          "chars_min": 9,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "summary_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 21,
+          "chars_min": 18,
+          "count": 6,
+          "indent_max": 8,
+          "indent_min": 7,
+          "kind": "summary_row"
+        }
+      ],
+      "trimmed_match_count": 2,
+      "trimmed_names": [
+        "ADVAPI32.DLL",
+        "KERNEL32.DLL"
+      ]
+    },
+    {
+      "captured_bytes": 3181,
+      "dependency_header_count": 1,
+      "dll_like_other_count": 1,
+      "encoding": "utf8",
+      "exit_code": 0,
+      "fixture_truncated": false,
+      "invalid_legacy_name_count": 0,
+      "label": "system_winhttp",
+      "legacy_match_count": 76,
+      "legacy_names": [
+        "API-MS-WIN-CORE-APIQUERY-L1-1-0.DLL",
+        "API-MS-WIN-CORE-COM-L1-1-0.DLL",
+        "API-MS-WIN-CORE-DATETIME-L1-1-0.DLL",
+        "API-MS-WIN-CORE-DEBUG-L1-1-0.DLL",
+        "API-MS-WIN-CORE-DELAYLOAD-L1-1-0.DLL",
+        "API-MS-WIN-CORE-DELAYLOAD-L1-1-1.DLL",
+        "API-MS-WIN-CORE-ERRORHANDLING-L1-1-0.DLL",
+        "API-MS-WIN-CORE-ERRORHANDLING-L1-1-2.DLL",
+        "API-MS-WIN-CORE-FILE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-HANDLE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-HEAP-L1-1-0.DLL",
+        "API-MS-WIN-CORE-HEAP-L2-1-0.DLL",
+        "API-MS-WIN-CORE-HEAP-OBSOLETE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-INTERLOCKED-L1-1-0.DLL",
+        "API-MS-WIN-CORE-IO-L1-1-0.DLL",
+        "API-MS-WIN-CORE-LIBRARYLOADER-L1-2-0.DLL",
+        "API-MS-WIN-CORE-LIBRARYLOADER-L1-2-1.DLL",
+        "API-MS-WIN-CORE-LOCALIZATION-L1-2-0.DLL",
+        "API-MS-WIN-CORE-LOCALIZATION-OBSOLETE-L1-2-0.DLL",
+        "API-MS-WIN-CORE-MEMORY-L1-1-0.DLL",
+        "API-MS-WIN-CORE-PROCESSENVIRONMENT-L1-1-0.DLL",
+        "API-MS-WIN-CORE-PROCESSTHREADS-L1-1-0.DLL",
+        "API-MS-WIN-CORE-PROCESSTHREADS-L1-1-1.DLL",
+        "API-MS-WIN-CORE-PROFILE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-REALTIME-L1-1-0.DLL",
+        "API-MS-WIN-CORE-REGISTRY-L1-1-0.DLL",
+        "API-MS-WIN-CORE-REGISTRY-L1-1-1.DLL",
+        "API-MS-WIN-CORE-REGISTRY-L2-1-0.DLL",
+        "API-MS-WIN-CORE-RTLSUPPORT-L1-1-0.DLL",
+        "API-MS-WIN-CORE-SHLWAPI-OBSOLETE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-STRING-L1-1-0.DLL",
+        "API-MS-WIN-CORE-STRING-L2-1-0.DLL",
+        "API-MS-WIN-CORE-STRING-OBSOLETE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-SYNCH-L1-1-0.DLL",
+        "API-MS-WIN-CORE-SYNCH-L1-2-0.DLL",
+        "API-MS-WIN-CORE-SYSINFO-L1-1-0.DLL",
+        "API-MS-WIN-CORE-SYSINFO-L1-2-0.DLL",
+        "API-MS-WIN-CORE-SYSINFO-L1-2-6.DLL",
+        "API-MS-WIN-CORE-THREADPOOL-L1-2-0.DLL",
+        "API-MS-WIN-CORE-THREADPOOL-LEGACY-L1-1-0.DLL",
+        "API-MS-WIN-CORE-THREADPOOL-PRIVATE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-TIMEZONE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-URL-L1-1-0.DLL",
+        "API-MS-WIN-CORE-WINDOWSERRORREPORTING-L1-1-0.DLL",
+        "API-MS-WIN-CORE-WOW64-L1-1-1.DLL",
+        "API-MS-WIN-CRT-PRIVATE-L1-1-0.DLL",
+        "API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL",
+        "API-MS-WIN-CRT-STRING-L1-1-0.DLL",
+        "API-MS-WIN-EVENTING-PROVIDER-L1-1-0.DLL",
+        "API-MS-WIN-POWER-BASE-L1-1-0.DLL",
+        "API-MS-WIN-POWER-SETTING-L1-1-0.DLL",
+        "API-MS-WIN-SECURITY-BASE-L1-1-0.DLL",
+        "API-MS-WIN-SECURITY-CREDENTIALS-L1-1-0.DLL",
+        "API-MS-WIN-SECURITY-SDDL-L1-1-0.DLL",
+        "API-MS-WIN-SERVICE-CORE-L1-1-0.DLL",
+        "API-MS-WIN-SERVICE-CORE-L1-1-4.DLL",
+        "API-MS-WIN-SERVICE-MANAGEMENT-L1-1-0.DLL",
+        "API-MS-WIN-SERVICE-PRIVATE-L1-1-0.DLL",
+        "API-MS-WIN-SERVICE-WINSVC-L1-1-0.DLL",
+        "CRYPT32.DLL",
+        "CRYPTBASE.DLL",
+        "DHCPCSVC.DLL",
+        "DNSAPI.DLL",
+        "EXT-MS-WIN-FIREWALLAPI-WEBPROXY-L1-1-0.DLL",
+        "IPHLPAPI.DLL",
+        "KERNELBASE.DLL",
+        "NRTAPI.DLL",
+        "NSI.DLL",
+        "NTDLL.DLL",
+        "OLEAUT32.DLL",
+        "RPCRT4.DLL",
+        "SSPICLI.DLL",
+        "WEBIO.DLL",
+        "WEBSOCKET.DLL",
+        "WINTRUST.DLL",
+        "WS2_32.DLL"
+      ],
+      "line_count": 98,
+      "max_line_chars": 52,
+      "mode": "dependents",
+      "nul_bytes": 0,
+      "replacement_characters": 0,
+      "retained_import_line_count": 0,
+      "retained_import_max_chars": 0,
+      "status": "completed",
+      "structure": [
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 44,
+          "chars_min": 44,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_banner"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 14,
+          "chars_min": 14,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_type"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "dependency_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 37,
+          "chars_min": 37,
+          "count": 1,
+          "dll": "API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 37,
+          "chars_min": 37,
+          "count": 1,
+          "dll": "API-MS-WIN-CRT-PRIVATE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 36,
+          "chars_min": 36,
+          "count": 1,
+          "dll": "API-MS-WIN-CRT-STRING-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 36,
+          "chars_min": 36,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-SYNCH-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 44,
+          "chars_min": 44,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-LIBRARYLOADER-L1-2-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-SECURITY-BASE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 49,
+          "chars_min": 49,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-PROCESSENVIRONMENT-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 45,
+          "chars_min": 45,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-PROCESSTHREADS-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 43,
+          "chars_min": 43,
+          "count": 1,
+          "dll": "API-MS-WIN-EVENTING-PROVIDER-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 44,
+          "chars_min": 44,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-ERRORHANDLING-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 36,
+          "chars_min": 36,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-SYNCH-L1-2-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 41,
+          "chars_min": 41,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-RTLSUPPORT-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 45,
+          "chars_min": 45,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-PROCESSTHREADS-L1-1-1.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 38,
+          "chars_min": 38,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-PROFILE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 38,
+          "chars_min": 38,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-SYSINFO-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 42,
+          "chars_min": 42,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-INTERLOCKED-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 36,
+          "chars_min": 36,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-DEBUG-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 35,
+          "chars_min": 35,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-HEAP-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 37,
+          "chars_min": 37,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-STRING-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 35,
+          "chars_min": 35,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-HEAP-L2-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 37,
+          "chars_min": 37,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-HANDLE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-REGISTRY-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 46,
+          "chars_min": 46,
+          "count": 1,
+          "dll": "API-MS-WIN-SECURITY-CREDENTIALS-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 38,
+          "chars_min": 38,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-SYSINFO-L1-2-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 36,
+          "chars_min": 36,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-WOW64-L1-1-1.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 38,
+          "chars_min": 38,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-SYSINFO-L1-2-6.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-REGISTRY-L1-1-1.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 41,
+          "chars_min": 41,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-THREADPOOL-L1-2-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-TIMEZONE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 35,
+          "chars_min": 35,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-FILE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 33,
+          "chars_min": 33,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-IO-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 37,
+          "chars_min": 37,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-STRING-L2-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 48,
+          "chars_min": 48,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-THREADPOOL-LEGACY-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 47,
+          "chars_min": 47,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-SHLWAPI-OBSOLETE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 52,
+          "chars_min": 52,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-LOCALIZATION-OBSOLETE-L1-2-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 46,
+          "chars_min": 46,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-STRING-OBSOLETE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 44,
+          "chars_min": 44,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-HEAP-OBSOLETE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 34,
+          "chars_min": 34,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-URL-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 52,
+          "chars_min": 52,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-WINDOWSERRORREPORTING-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 49,
+          "chars_min": 49,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-THREADPOOL-PRIVATE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 41,
+          "chars_min": 41,
+          "count": 1,
+          "dll": "API-MS-WIN-SERVICE-PRIVATE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 18,
+          "chars_min": 18,
+          "count": 1,
+          "dll": "KERNELBASE.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 13,
+          "chars_min": 13,
+          "count": 1,
+          "dll": "NTDLL.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 44,
+          "chars_min": 44,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-LIBRARYLOADER-L1-2-1.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-REALTIME-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 43,
+          "chars_min": 43,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-LOCALIZATION-L1-2-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 44,
+          "chars_min": 44,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-ERRORHANDLING-L1-1-2.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 37,
+          "chars_min": 37,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-MEMORY-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 40,
+          "chars_min": 40,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-DELAYLOAD-L1-1-1.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 40,
+          "chars_min": 40,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-DELAYLOAD-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-DATETIME-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-APIQUERY-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 50,
+          "chars_min": 50,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "delay_dependency_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 34,
+          "chars_min": 34,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-COM-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 14,
+          "chars_min": 14,
+          "count": 1,
+          "dll": "RPCRT4.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 14,
+          "chars_min": 14,
+          "count": 1,
+          "dll": "DNSAPI.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 14,
+          "chars_min": 14,
+          "count": 1,
+          "dll": "WS2_32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 38,
+          "chars_min": 38,
+          "count": 1,
+          "dll": "API-MS-WIN-SERVICE-CORE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 38,
+          "chars_min": 38,
+          "count": 1,
+          "dll": "API-MS-WIN-SERVICE-CORE-L1-1-4.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 44,
+          "chars_min": 44,
+          "count": 1,
+          "dll": "API-MS-WIN-SERVICE-MANAGEMENT-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 40,
+          "chars_min": 40,
+          "count": 1,
+          "dll": "API-MS-WIN-SERVICE-WINSVC-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-POWER-SETTING-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 36,
+          "chars_min": 36,
+          "count": 1,
+          "dll": "API-MS-WIN-POWER-BASE-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 15,
+          "chars_min": 15,
+          "count": 1,
+          "dll": "CRYPT32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 15,
+          "chars_min": 15,
+          "count": 1,
+          "dll": "SSPICLI.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 17,
+          "chars_min": 17,
+          "count": 1,
+          "dll": "WEBSOCKET.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 17,
+          "chars_min": 17,
+          "count": 1,
+          "dll": "CRYPTBASE.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "IPHLPAPI.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-SECURITY-SDDL-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 13,
+          "chars_min": 13,
+          "count": 1,
+          "dll": "WEBIO.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 11,
+          "chars_min": 11,
+          "count": 1,
+          "dll": "NSI.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "DHCPCSVC.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 46,
+          "chars_min": 46,
+          "count": 1,
+          "dll": "EXT-MS-WIN-FIREWALLAPI-WEBPROXY-L1-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 14,
+          "chars_min": 14,
+          "count": 1,
+          "dll": "NRTAPI.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "WINTRUST.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "OLEAUT32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 39,
+          "chars_min": 39,
+          "count": 1,
+          "dll": "API-MS-WIN-CORE-REGISTRY-L2-1-0.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 9,
+          "chars_min": 9,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "summary_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 19,
+          "chars_min": 18,
+          "count": 7,
+          "indent_max": 8,
+          "indent_min": 7,
+          "kind": "summary_row"
+        },
+        {
+          "chars_max": 20,
+          "chars_min": 18,
+          "count": 2,
+          "indent_max": 8,
+          "indent_min": 8,
+          "kind": "import_detail"
+        }
+      ],
+      "trimmed_match_count": 76,
+      "trimmed_names": [
+        "API-MS-WIN-CORE-APIQUERY-L1-1-0.DLL",
+        "API-MS-WIN-CORE-COM-L1-1-0.DLL",
+        "API-MS-WIN-CORE-DATETIME-L1-1-0.DLL",
+        "API-MS-WIN-CORE-DEBUG-L1-1-0.DLL",
+        "API-MS-WIN-CORE-DELAYLOAD-L1-1-0.DLL",
+        "API-MS-WIN-CORE-DELAYLOAD-L1-1-1.DLL",
+        "API-MS-WIN-CORE-ERRORHANDLING-L1-1-0.DLL",
+        "API-MS-WIN-CORE-ERRORHANDLING-L1-1-2.DLL",
+        "API-MS-WIN-CORE-FILE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-HANDLE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-HEAP-L1-1-0.DLL",
+        "API-MS-WIN-CORE-HEAP-L2-1-0.DLL",
+        "API-MS-WIN-CORE-HEAP-OBSOLETE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-INTERLOCKED-L1-1-0.DLL",
+        "API-MS-WIN-CORE-IO-L1-1-0.DLL",
+        "API-MS-WIN-CORE-LIBRARYLOADER-L1-2-0.DLL",
+        "API-MS-WIN-CORE-LIBRARYLOADER-L1-2-1.DLL",
+        "API-MS-WIN-CORE-LOCALIZATION-L1-2-0.DLL",
+        "API-MS-WIN-CORE-LOCALIZATION-OBSOLETE-L1-2-0.DLL",
+        "API-MS-WIN-CORE-MEMORY-L1-1-0.DLL",
+        "API-MS-WIN-CORE-PROCESSENVIRONMENT-L1-1-0.DLL",
+        "API-MS-WIN-CORE-PROCESSTHREADS-L1-1-0.DLL",
+        "API-MS-WIN-CORE-PROCESSTHREADS-L1-1-1.DLL",
+        "API-MS-WIN-CORE-PROFILE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-REALTIME-L1-1-0.DLL",
+        "API-MS-WIN-CORE-REGISTRY-L1-1-0.DLL",
+        "API-MS-WIN-CORE-REGISTRY-L1-1-1.DLL",
+        "API-MS-WIN-CORE-REGISTRY-L2-1-0.DLL",
+        "API-MS-WIN-CORE-RTLSUPPORT-L1-1-0.DLL",
+        "API-MS-WIN-CORE-SHLWAPI-OBSOLETE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-STRING-L1-1-0.DLL",
+        "API-MS-WIN-CORE-STRING-L2-1-0.DLL",
+        "API-MS-WIN-CORE-STRING-OBSOLETE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-SYNCH-L1-1-0.DLL",
+        "API-MS-WIN-CORE-SYNCH-L1-2-0.DLL",
+        "API-MS-WIN-CORE-SYSINFO-L1-1-0.DLL",
+        "API-MS-WIN-CORE-SYSINFO-L1-2-0.DLL",
+        "API-MS-WIN-CORE-SYSINFO-L1-2-6.DLL",
+        "API-MS-WIN-CORE-THREADPOOL-L1-2-0.DLL",
+        "API-MS-WIN-CORE-THREADPOOL-LEGACY-L1-1-0.DLL",
+        "API-MS-WIN-CORE-THREADPOOL-PRIVATE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-TIMEZONE-L1-1-0.DLL",
+        "API-MS-WIN-CORE-URL-L1-1-0.DLL",
+        "API-MS-WIN-CORE-WINDOWSERRORREPORTING-L1-1-0.DLL",
+        "API-MS-WIN-CORE-WOW64-L1-1-1.DLL",
+        "API-MS-WIN-CRT-PRIVATE-L1-1-0.DLL",
+        "API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL",
+        "API-MS-WIN-CRT-STRING-L1-1-0.DLL",
+        "API-MS-WIN-EVENTING-PROVIDER-L1-1-0.DLL",
+        "API-MS-WIN-POWER-BASE-L1-1-0.DLL",
+        "API-MS-WIN-POWER-SETTING-L1-1-0.DLL",
+        "API-MS-WIN-SECURITY-BASE-L1-1-0.DLL",
+        "API-MS-WIN-SECURITY-CREDENTIALS-L1-1-0.DLL",
+        "API-MS-WIN-SECURITY-SDDL-L1-1-0.DLL",
+        "API-MS-WIN-SERVICE-CORE-L1-1-0.DLL",
+        "API-MS-WIN-SERVICE-CORE-L1-1-4.DLL",
+        "API-MS-WIN-SERVICE-MANAGEMENT-L1-1-0.DLL",
+        "API-MS-WIN-SERVICE-PRIVATE-L1-1-0.DLL",
+        "API-MS-WIN-SERVICE-WINSVC-L1-1-0.DLL",
+        "CRYPT32.DLL",
+        "CRYPTBASE.DLL",
+        "DHCPCSVC.DLL",
+        "DNSAPI.DLL",
+        "EXT-MS-WIN-FIREWALLAPI-WEBPROXY-L1-1-0.DLL",
+        "IPHLPAPI.DLL",
+        "KERNELBASE.DLL",
+        "NRTAPI.DLL",
+        "NSI.DLL",
+        "NTDLL.DLL",
+        "OLEAUT32.DLL",
+        "RPCRT4.DLL",
+        "SSPICLI.DLL",
+        "WEBIO.DLL",
+        "WEBSOCKET.DLL",
+        "WINTRUST.DLL",
+        "WS2_32.DLL"
+      ]
+    },
+    {
+      "captured_bytes": 5017,
+      "dependency_header_count": 0,
+      "dll_like_other_count": 0,
+      "encoding": "utf8",
+      "exit_code": 0,
+      "fixture_truncated": false,
+      "invalid_legacy_name_count": 0,
+      "label": "full",
+      "legacy_match_count": 3,
+      "legacy_names": [
+        "ADVAPI32.DLL",
+        "KERNEL32.DLL",
+        "WINHTTP.DLL"
+      ],
+      "line_count": 124,
+      "max_line_chars": 95,
+      "mode": "imports",
+      "nul_bytes": 0,
+      "replacement_characters": 0,
+      "retained_import_line_count": 112,
+      "retained_import_max_chars": 39,
+      "status": "completed",
+      "structure": [
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 95,
+          "chars_min": 95,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_banner"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 27,
+          "chars_min": 27,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_type"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 41,
+          "chars_min": 41,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "import_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "ADVAPI32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 57,
+          "chars_min": 38,
+          "count": 4,
+          "indent_max": 21,
+          "indent_min": 13,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 51,
+          "chars_min": 39,
+          "count": 4,
+          "indent_max": 26,
+          "indent_min": 25,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 15,
+          "chars_min": 15,
+          "count": 1,
+          "dll": "WINHTTP.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 57,
+          "chars_min": 38,
+          "count": 4,
+          "indent_max": 21,
+          "indent_min": 13,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 51,
+          "chars_min": 40,
+          "count": 10,
+          "indent_max": 27,
+          "indent_min": 26,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "KERNEL32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 57,
+          "chars_min": 38,
+          "count": 4,
+          "indent_max": 21,
+          "indent_min": 13,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 56,
+          "chars_min": 35,
+          "count": 74,
+          "indent_max": 26,
+          "indent_min": 25,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 9,
+          "chars_min": 9,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "summary_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 21,
+          "chars_min": 18,
+          "count": 6,
+          "indent_max": 8,
+          "indent_min": 7,
+          "kind": "summary_row"
+        }
+      ],
+      "trimmed_match_count": 3,
+      "trimmed_names": [
+        "ADVAPI32.DLL",
+        "KERNEL32.DLL",
+        "WINHTTP.DLL"
+      ]
+    },
+    {
+      "captured_bytes": 4339,
+      "dependency_header_count": 0,
+      "dll_like_other_count": 0,
+      "encoding": "utf8",
+      "exit_code": 0,
+      "fixture_truncated": false,
+      "invalid_legacy_name_count": 0,
+      "label": "identity_only",
+      "legacy_match_count": 2,
+      "legacy_names": [
+        "ADVAPI32.DLL",
+        "KERNEL32.DLL"
+      ],
+      "line_count": 107,
+      "max_line_chars": 103,
+      "mode": "imports",
+      "nul_bytes": 0,
+      "replacement_characters": 0,
+      "retained_import_line_count": 97,
+      "retained_import_max_chars": 39,
+      "status": "completed",
+      "structure": [
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 103,
+          "chars_min": 103,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_banner"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 27,
+          "chars_min": 27,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "file_type"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 41,
+          "chars_min": 41,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "import_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "ADVAPI32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 57,
+          "chars_min": 38,
+          "count": 4,
+          "indent_max": 21,
+          "indent_min": 13,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 51,
+          "chars_min": 39,
+          "count": 4,
+          "indent_max": 26,
+          "indent_min": 25,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 16,
+          "chars_min": 16,
+          "count": 1,
+          "dll": "KERNEL32.DLL",
+          "indent_max": 4,
+          "indent_min": 4,
+          "kind": "dll"
+        },
+        {
+          "chars_max": 57,
+          "chars_min": 38,
+          "count": 4,
+          "indent_max": 21,
+          "indent_min": 13,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 56,
+          "chars_min": 35,
+          "count": 74,
+          "indent_max": 26,
+          "indent_min": 25,
+          "kind": "import_detail"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 9,
+          "chars_min": 9,
+          "count": 1,
+          "indent_max": 2,
+          "indent_min": 2,
+          "kind": "summary_header"
+        },
+        {
+          "chars_max": 0,
+          "chars_min": 0,
+          "count": 1,
+          "indent_max": 0,
+          "indent_min": 0,
+          "kind": "blank"
+        },
+        {
+          "chars_max": 21,
+          "chars_min": 18,
+          "count": 6,
+          "indent_max": 8,
+          "indent_min": 7,
+          "kind": "summary_row"
+        }
+      ],
+      "trimmed_match_count": 2,
+      "trimmed_names": [
+        "ADVAPI32.DLL",
+        "KERNEL32.DLL"
+      ]
+    }
+  ],
+  "runtime_performed": false,
+  "sanitized": true,
+  "schema_version": 1,
+  "stage": "dumpbin-parser-diagnostic"
+}
