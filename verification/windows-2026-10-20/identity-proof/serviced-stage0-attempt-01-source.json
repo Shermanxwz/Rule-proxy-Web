@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": true,
+  "run_id": 39408304275,
+  "commit": "824bc6990257486c159ca4313c5e85bc273601a3",
+  "source": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39408304275",
+  "result": "early_guest_transport_and_cleanup_unconfirmed",
+  "installed_guest_beacon_observed": false,
+  "servicing_started": false,
+  "actor_execution_established": false,
+  "guest_failure_cause_preserved": false,
+  "vm_destroyed": false,
+  "cleanup_cause_known": false,
+  "provider_teardown_established": false,
+  "source_findings_are_not_runtime_cause": true,
+  "artifacts": [
+    {
+      "id": 12262953993,
+      "kind": "runtime",
+      "zip_sha256": "870274a4dd5e03638dee4737d3148788a979c06312ea68f7f7e2f07527c2bc62",
+      "json_sha256": "37acdc5ea95f265cde16d9f2a25077cf816aeedf763aa3e8b668e56988010d4a"
+    },
+    {
+      "id": 12263568183,
+      "kind": "recovery",
+      "zip_sha256": "16f114e4612b90e6be2b202b376fd0448dd7a282f24bd69bac7c99c8c3af020f",
+      "json_sha256": "0588a1936044fc58faa8e1f0edd03b9555c4dfb17a3afcabf6bb7d60b8b222f1"
+    },
+    {
+      "id": 12263588159,
+      "kind": "preparation",
+      "zip_sha256": "93976d39edaf789367b205e99ced35b3fcb8dc42c9162b2da7d4083e376615fb",
+      "json_sha256": "a11ed16da8aa2e736185d11f30e80208c27a3d210bd3d5285273a400772fbd8f"
+    }
+  ]
+}
