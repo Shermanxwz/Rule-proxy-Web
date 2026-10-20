@@ -532,3 +532,12 @@ package provisioning and VM creation were skipped. Workflow diagnostics also
 identified string-valued dynamic timeout outputs, requiring explicit numeric
 conversion. The next reviewed correction admits only the two already verified
 image definitions, not arbitrary future images, and preserves all capacity gates.
+
+Stock attempt `39379467154` (`cf255ba3`) passed compile, tests, numeric timeout
+and exact image gates. Recovery then stopped with `writable_entry`, before
+any attempted removal, checkout or VM. Measured free bytes were 14,093,033,472.
+The blanket group/world-write rejection contradicted the already measured
+provider-writable tool trees. This was a validation/design inconsistency, not
+a newly discovered environment property or Windows isolation result. No mode
+change or automatic guard relaxation was performed; precise provider-mode
+handling requires separate source/inventory reconciliation and review.

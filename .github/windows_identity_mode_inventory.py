@@ -1,0 +1,297 @@
+"""READ-ONLY inventory of three source-proven hosted-image tool directories.
+
+No file contents, symlink targets, user directories or arbitrary paths are read.
+This is evidence for review, never permission to delete or proof of recovery.
+"""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import time
+
+REVIEWED_IMAGES = {
+    '20261012.334.1': ('ubuntu24/20261012.334', '7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe'),
+    '20261018.339.1': ('ubuntu24/20261018.339', 'b4067e48bd9bd803e958bfe1503ea0a06a3a127f'),
+}
+TARGETS = {
+    'android_sdk': ('/usr/local/lib/android/sdk', 'scripts/build/install-android-sdk.sh'),
+    'dotnet_sdk': ('/usr/share/dotnet', 'scripts/build/install-dotnetcore-sdk.sh'),
+    'swift_toolchain': ('/usr/share/swift', 'scripts/build/install-swift.sh'),
+}
+MAX_ENTRIES = 500000
+MAX_DEPTH = 64
+
+
+class InventoryStopped(Exception):
+    pass
+
+
+def mount_points():
+    # Kernel metadata only. Never publish mount source, names or raw paths.
+    with open('/proc/self/mountinfo', encoding='ascii') as stream:
+        data = stream.read(1024 * 1024 + 1)
+    if len(data) > 1024 * 1024: raise InventoryStopped('mount_metadata_bound')
+    result = set()
+    for line in data.splitlines():
+        fields = line.split()
+        if len(fields) < 6: raise InventoryStopped('mount_metadata_invalid')
+        result.add(re.sub(r'\\([0-7]{3})', lambda m: chr(int(m[1], 8)), fields[4]))
+    return result
+
+
+def mount_id(descriptor):
+    # Inspect only this owned descriptor's kernel mount identity; no names or
+    # identifiers leave the process. This also rejects same-device bind mounts.
+    with open('/proc/self/fdinfo/' + str(descriptor), encoding='ascii') as stream:
+        data = stream.read(4097)
+    values = re.findall(r'^mnt_id:\s*([0-9]+)$', data, flags=re.MULTILINE)
+    if len(data) > 4096 or len(values) != 1: raise InventoryStopped('mount_identity_unavailable')
+    return int(values[0])
+
+
+def mode_fact(info):
+    kind = ('directory' if stat.S_ISDIR(info.st_mode) else
+            'regular' if stat.S_ISREG(info.st_mode) else
+            'symlink' if stat.S_ISLNK(info.st_mode) else 'special')
+    return {'type': kind, 'mode': format(stat.S_IMODE(info.st_mode), '04o'),
+            'owner_root': info.st_uid == 0, 'group_root': info.st_gid == 0}
+
+
+def open_root(path, result):
+    descriptor = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        root_mount = mount_id(descriptor)
+        parts = Path(path).parts[1:]
+        result['ancestor_modes'].append(dict(depth=0, **mode_fact(os.fstat(descriptor))))
+        for depth, part in enumerate(parts, 1):
+            result['first_failure_role'] = 'root' if depth == len(parts) else 'ancestor'
+            info = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
+            fact = mode_fact(info)
+            if result['first_writable_role'] is None and info.st_mode & 0o022:
+                result['first_writable_role'] = result['first_failure_role']
+            if depth == len(parts): result['target_root_mode'] = fact
+            else: result['ancestor_modes'].append(dict(depth=depth, **fact))
+            if stat.S_ISLNK(info.st_mode): raise InventoryStopped('root_or_ancestor_symlink')
+            if info.st_uid != 0 or info.st_gid != 0: raise InventoryStopped('unknown_ownership')
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=descriptor)
+            try:
+                current = os.fstat(child)
+                if mount_id(child) != root_mount: raise InventoryStopped('mount_boundary')
+                if (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino): raise InventoryStopped('entry_changed')
+            except BaseException:
+                os.close(child); raise
+            os.close(descriptor); descriptor = child
+        return descriptor
+    except BaseException:
+        os.close(descriptor); raise
+
+
+def inspect_target(path, mounts, deadline):
+    result = {'status': 'blocked', 'complete': False, 'allocated_bytes': None,
+              'logical_bytes': None, 'entries': 0, 'symlink_count': 0,
+              'multiply_linked_file_count': 0, 'world_writable_entry_count': 0, 'ownership': 'unverified',
+              'root_or_ancestor_symlink': False, 'nested_mount': False,
+              'special_entries': False, 'linux_reparse_points': 'not_applicable',
+              'stage0_dependency': False, 'removal_authorized': False,
+              'recoverability_verified': False, 'atomic_snapshot': False,
+              'target_root_mode': None, 'ancestor_modes': [],
+              'mode_counts': {'directory': {}, 'regular': {}, 'symlink': {}, 'special': {}},
+              'first_failure_role': 'root', 'first_writable_role': None}
+    root = None
+    seen = set()
+    allocated = logical = 0
+    try:
+        if any(p == path or p.startswith(path + '/') for p in mounts):
+            result['first_failure_role'] = 'root' if path in mounts else 'descendant'
+            result['nested_mount'] = True; raise InventoryStopped('mount_boundary')
+        root = open_root(path, result)
+        base = os.fstat(root)
+        root_mount = mount_id(root)
+        result['ownership'] = 'root_uid0_gid0_only'
+        for fact in result['ancestor_modes']:
+            if int(fact['mode'], 8) & 0o022: result['first_writable_role'] = 'ancestor'; break
+        if result['first_writable_role'] is None and base.st_mode & 0o022:
+            result['first_writable_role'] = 'root'
+
+        def add(info):
+            nonlocal allocated, logical
+            if time.monotonic() >= deadline: raise InventoryStopped('time_bound')
+            result['entries'] += 1
+            fact = mode_fact(info)
+            bucket = result['mode_counts'][fact['type']]
+            bucket[fact['mode']] = bucket.get(fact['mode'], 0) + 1
+            if result['first_writable_role'] is None and info.st_mode & 0o022:
+                result['first_writable_role'] = result['first_failure_role']
+            if info.st_mode & stat.S_IWOTH: result['world_writable_entry_count'] += 1
+            if result['entries'] > MAX_ENTRIES: raise InventoryStopped('entry_bound')
+            if info.st_uid != 0 or info.st_gid != 0:
+                result['ownership'] = 'unknown_nonroot_encountered'; raise InventoryStopped('unknown_ownership')
+            if info.st_dev != base.st_dev:
+                result['nested_mount'] = True; raise InventoryStopped('mount_boundary')
+            if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)):
+                result['special_entries'] = True; raise InventoryStopped('special_entry')
+            key = (info.st_dev, info.st_ino)
+            if key in seen: return
+            seen.add(key)
+            allocated += info.st_blocks * 512; logical += info.st_size
+            if stat.S_ISLNK(info.st_mode): result['symlink_count'] += 1
+            if stat.S_ISREG(info.st_mode) and info.st_nlink > 1: result['multiply_linked_file_count'] += 1
+
+        def walk(descriptor, depth=0):
+            if depth > MAX_DEPTH: raise InventoryStopped('depth_bound')
+            before = os.fstat(descriptor)
+            with os.scandir(descriptor) as entries:
+                for entry in entries:
+                    info = os.stat(entry.name, dir_fd=descriptor, follow_symlinks=False)
+                    result['first_failure_role'] = 'descendant'
+                    add(info)
+                    if stat.S_ISDIR(info.st_mode):
+                        child = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=descriptor)
+                        try:
+                            current = os.fstat(child)
+                            if mount_id(child) != root_mount:
+                                result['nested_mount'] = True; raise InventoryStopped('mount_boundary')
+                            if (current.st_dev,current.st_ino) != (info.st_dev,info.st_ino): raise InventoryStopped('entry_changed')
+                            walk(child, depth + 1)
+                        finally: os.close(child)
+            after = os.fstat(descriptor)
+            if (before.st_mtime_ns,before.st_ctime_ns) != (after.st_mtime_ns,after.st_ctime_ns): raise InventoryStopped('directory_changed')
+
+        add(base); walk(root)
+        result.update(status='measured', complete=True, allocated_bytes=allocated, logical_bytes=logical, first_failure_role=None)
+    except InventoryStopped as exc:
+        result['stop_reason'] = str(exc)
+        if str(exc) == 'root_or_ancestor_symlink': result['root_or_ancestor_symlink'] = True
+        if str(exc) == 'mount_boundary': result['nested_mount'] = True
+        if str(exc) == 'unknown_ownership': result['ownership'] = 'unknown_nonroot_encountered'
+    except RecursionError:
+        result['stop_reason'] = 'depth_bound'
+    except OSError as exc:
+        result['stop_reason'] = 'filesystem_error'
+        result['error_errno'] = exc.errno if type(exc.errno) is int and 0 <= exc.errno <= 65535 else None
+    finally:
+        if root is not None: os.close(root)
+    return result
+
+
+VM_PACKAGES = ('qemu-system-x86', 'qemu-utils', 'ovmf', 'swtpm', 'xorriso', 'curl', '7zip')
+
+
+def command_metadata(argv, allowed_returncodes=(0,)):
+    import subprocess
+    value = subprocess.run(argv, capture_output=True, text=True, timeout=20,
+                           env=dict(os.environ, LC_ALL='C', LANG='C'))
+    if value.returncode not in allowed_returncodes or len(value.stdout) > 4 * 1024**2:
+        raise ValueError('metadata_unavailable')
+    return value.stdout
+
+
+def package_plan(no_recommends):
+    result = {'available': False, 'selected_package_count': 0,
+              'download_bytes_upper_bound': None, 'positive_installed_growth_bytes': None,
+              'cache_reuse_assumed': False, 'installation_performed': False,
+              'metadata_refreshed': False, 'peak_disk_bound': False}
+    try:
+        args = ['apt-get', '--simulate']
+        if no_recommends: args.append('--no-install-recommends')
+        raw = command_metadata(args + ['install', *VM_PACKAGES])
+        if re.search(r'^Remv ', raw, re.MULTILINE): raise ValueError('removal_plan')
+        selected = re.findall(r'^Inst ([A-Za-z0-9][A-Za-z0-9+.:~-]*) (?:\[[^\]\n]+\] )?\(([^\s()]+)', raw, re.MULTILINE)
+        inst_lines = len(re.findall(r'^Inst ', raw, re.MULTILINE))
+        if inst_lines != len(selected) or len(selected) > 256 or len(set(n for n,v in selected)) != len(selected):
+            raise ValueError('plan_shape')
+        if not selected:
+            result.update(available=True, download_bytes_upper_bound=0, positive_installed_growth_bytes=0)
+            return result
+        metadata = command_metadata(['apt-cache', 'show', *[n+'='+v for n,v in selected]])
+        sizes = {}
+        for paragraph in metadata.split('\n\n'):
+            fields = dict(re.findall(r'^(Package|Version|Size|Installed-Size): ([^\n]+)$', paragraph, re.MULTILINE))
+            if set(fields) != {'Package','Version','Size','Installed-Size'}: continue
+            if not fields['Size'].isdigit() or not fields['Installed-Size'].isdigit(): continue
+            key = (fields['Package'], fields['Version'])
+            entry = (int(fields['Size']), int(fields['Installed-Size'])*1024)
+            if key in sizes and sizes[key] != entry: raise ValueError('ambiguous_metadata')
+            sizes[key] = entry
+        # Query the installed database once. A package not installed contributes0.
+        old_raw = command_metadata(['dpkg-query','-W','-f=${binary:Package}\t${Status}\t${Installed-Size}\n', *[name for name,version in selected]], (0,1))
+        installed = {}
+        for line in old_raw.splitlines():
+            parts = line.split('\t')
+            if len(parts)==3 and parts[1]=='install ok installed' and parts[2].isdigit():
+                installed[parts[0].split(':')[0]]=int(parts[2])*1024
+        download = growth = 0
+        for name,version in selected:
+            base = name.split(':')[0]
+            size, expanded = sizes[(base,version)]
+            download += size; growth += max(0,expanded-installed.get(base,0))
+        result.update(available=True,selected_package_count=len(selected),
+                      download_bytes_upper_bound=download,positive_installed_growth_bytes=growth)
+    except Exception:
+        result['unavailable_reason'] = 'existing_package_metadata_incomplete'
+    return result
+
+
+def preparation_context():
+    import shutil
+    result = {'storage': {}, 'tool_present': {}, 'firmware_regular_present': {},
+              'apt_plans': {}}
+    groups = {}
+    for label,path in (('tmp','/tmp'),('runner_temp',os.environ.get('RUNNER_TEMP','')),
+                       ('workspace',os.environ.get('GITHUB_WORKSPACE',''))):
+        item = {'available':False}
+        try:
+            if not path: raise OSError()
+            info=os.stat(path); fs=os.statvfs(path)
+            group=groups.setdefault(info.st_dev, 'filesystem_'+str(len(groups)+1))
+            item.update(available=True,total_bytes=fs.f_blocks*fs.f_frsize,
+                        free_bytes=fs.f_bavail*fs.f_frsize,filesystem_group=group)
+        except OSError: pass
+        result['storage'][label]=item
+    for name in ('qemu-system-x86_64','qemu-img','swtpm','xorriso','curl','prlimit'):
+        result['tool_present'][name] = shutil.which(name) is not None
+    for label,name in (('secure_boot_code','OVMF_CODE_4M.ms.fd'),('variable_template','OVMF_VARS_4M.ms.fd')):
+        try: present=stat.S_ISREG(os.lstat('/usr/share/OVMF/'+name).st_mode)
+        except OSError: present=False
+        result['firmware_regular_present'][label]=present
+    for label,recommends in (('existing_default',False),('no_recommends_comparison',True)):
+        result['apt_plans'][label]=package_plan(recommends)
+    return result
+
+
+def collect():
+    result = {'schema_version': 1, 'stage': 'hosted-runner-fixed-mode-read-only-inventory',
+              'read_only': True, 'vm_created': False, 'removed_bytes': 0,
+              'removal_authorized': False, 'image_provenance': None, 'targets': {}}
+    version = os.environ.get('ImageVersion', '')
+    selected = REVIEWED_IMAGES.get(version)
+    if os.environ.get('ImageOS') != 'ubuntu24' or selected is None:
+        result['status'] = 'unknown_image_blocked'; return result
+    deadline = time.monotonic() + 180
+    result['preparation_context'] = preparation_context()
+    result['image_provenance'] = {'image_os':'ubuntu24', 'image_version':version,
+                                  'release_tag':selected[0], 'definition_commit':selected[1]}
+    try: mounts = mount_points()
+    except (OSError, InventoryStopped):
+        result['status'] = 'mount_metadata_unavailable'; return result
+    for label, (path, source) in TARGETS.items():
+        item = inspect_target(path, mounts, deadline)
+        item['source_definition'] = ('https://github.com/actions/runner-images/blob/' +
+                                     selected[1] + '/images/ubuntu/' + source)
+        result['targets'][label] = item
+    result['status'] = 'observed'
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', type=Path, required=True)
+    args = parser.parse_args()
+    result = collect()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open('x', encoding='ascii') as stream:
+        json.dump(result, stream, sort_keys=True, indent=2); stream.write('\n')
+
+if __name__ == '__main__': main()
