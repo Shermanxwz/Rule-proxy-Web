@@ -1,0 +1,89 @@
+"""Source-contract checks only; real Windows PS parsing/runtime remain separate gates."""
+import re
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+GITHUB = ROOT / '.github'
+SETUP = (GITHUB / 'windows-identity-serviced-stage0-setup.ps1').read_text()
+RUN = (GITHUB / 'windows-identity-serviced-stage0-run.ps1').read_text()
+UPDATE = (GITHUB / 'windows-identity-serviced-update.ps1').read_text()
+
+class ServicedGuestContractTests(unittest.TestCase):
+    def test_worker_is_protected_and_not_user_workspace(self):
+        self.assertIn("$protected='C:\\RuleProxyCIUpdates'", SETUP)
+        self.assertIn('$acl.SetAccessRuleProtection($true,$false)', SETUP)
+        self.assertIn("$users,'ReadAndExecute'", SETUP)
+        self.assertLess(SETUP.index('Set-Acl -LiteralPath $protected'), SETUP.index('Copy-Item -LiteralPath (Join-Path'))
+        self.assertLess(SETUP.index('Assert-ProtectedUpdatePath $worker'), SETUP.index('Register-ScheduledTask'))
+        self.assertIn("-UserId 'SYSTEM' -LogonType ServiceAccount", SETUP)
+        self.assertIn('-MultipleInstances IgnoreNew', SETUP)
+        self.assertIn('Start-ScheduledTask -TaskName $script:UpdateTaskName', SETUP)
+
+    def test_no_accounts_or_extra_policy(self):
+        for content in (SETUP, RUN, UPDATE):
+            for forbidden in ('New-LocalUser', 'net user', 'Set-ExecutionPolicy', 'IgnoreCheck', 'DisableRealtimeMonitoring'):
+                # A warning comment mentioning IgnoreCheck is not an argument.
+                self.assertNotIn("'/' + 'IgnoreCheck'", content)
+                if forbidden != 'IgnoreCheck': self.assertNotIn(forbidden, content)
+        self.assertEqual(SETUP.count('reg.exe add'), 2)
+
+    def test_media_is_optical_and_exact_pinned_two_members(self):
+        self.assertIn("-Filter 'DriveType=5'", UPDATE)
+        self.assertIn("$_.VolumeName -ceq 'RULEPROXY_UPDATE'", UPDATE)
+        self.assertIn('if ($matches.Count -ne 1)', UPDATE)
+        self.assertIn('if ($items.Count -ne 2)', UPDATE)
+        self.assertIn("filename='windows11.0-kb5043080-x64.msu'; bytes=533761740L", UPDATE)
+        self.assertIn("filename='windows11.0-kb5127648-x64.msu'; bytes=4775050195L", UPDATE)
+        for digest in ('819632610a101af11c72907fb13ff05b5fb4222c0e263ee9a03bcc1d1d5f26a4',
+                       '8a1067c763121953876e2e0dcbf5e2c5832545a44ef6baba362938287e05fcfb'):
+            self.assertIn(digest, UPDATE)
+        self.assertIn('(Get-ServicedOpticalRoot) -cne $Root', UPDATE)
+
+    def test_no_guest_package_download_or_copy(self):
+        for forbidden in ('DownloadFile', 'HttpWebRequest', 'Copy-Item', 'Save-UpdatePackage', 'Stage-UpdatePackages'):
+            self.assertNotIn(forbidden, UPDATE)
+        self.assertIn('$packagePath=Join-Path $optical $script:Packages[1].filename', UPDATE)
+        self.assertIn("'/Online','/Add-Package'", UPDATE)
+
+    def test_forced_reboot_before_completion_even_exit_zero(self):
+        self.assertIn('$state.dism_exit_code -notin @(0,3010)', UPDATE)
+        self.assertIn("$state.status='reboot_pending'", UPDATE)
+        self.assertIn('Restart-Computer -Force', UPDATE)
+        self.assertIn('$state.after_boot -ceq $state.before_boot', UPDATE)
+        self.assertIn('Get-CimInstance -ClassName Win32_OperatingSystem', UPDATE)
+        self.assertIn('$state.actual_ubr -ne 9711', UPDATE)
+        self.assertNotIn('$os.ubr -ge', UPDATE)
+        self.assertIn('if (Test-ServicedPendingReboot)', UPDATE)
+        self.assertLess(UPDATE.index('Unregister-ScheduledTask'), UPDATE.index("$state.status='completed'"))
+        self.assertIn("Get-ScheduledTask | Where-Object", UPDATE)
+
+    def test_installed_stock_beacon_after_required_gate(self):
+        beacon = RUN.index('RPBEACON identity-stock-installed-ready')
+        for marker in ("$bootType -cne 'WinNT'", "$env:PROCESSOR_ARCHITECTURE -cne 'AMD64'",
+                       "$bootDrive.DriveType -ne 3", "$image.ImageState -cne 'IMAGE_STATE_COMPLETE'",
+                       "if ([int]$bootVersion.UBR -eq 6584)"):
+            self.assertLess(RUN.index(marker), beacon)
+        self.assertLess(RUN.index('$service.task_unregistered -ne $true'), RUN.index('RPBEACON identity-ordinary-ready'))
+
+    def test_ordinary_acceptance_waits_protected_receipt_and_reboot(self):
+        self.assertIn('Assert-ProtectedUpdatePath $statePath', RUN)
+        self.assertIn('$item.Length -gt 4096', RUN)
+        self.assertIn('$service.after_boot -cne $bootOS.LastBootUpTime', RUN)
+        self.assertIn('$service.before_boot -ceq $service.after_boot', RUN)
+        self.assertIn('$service.reboot_observed -ne $true', RUN)
+        self.assertLess(RUN.index('$service.task_unregistered -ne $true'), RUN.index("$phase='claim'"))
+        self.assertIn('windows_identity_serviced_stage0.py', RUN)
+        self.assertNotIn('windows_identity_stock_stage0.py', RUN)
+        self.assertIn('-MemberCount 10', RUN)
+
+    def test_public_projection_never_exports_boot_identity(self):
+        final = RUN[RUN.index("$serviceFacts=@{"):]
+        self.assertNotIn('before_boot', final)
+        self.assertNotIn('after_boot', final)
+        self.assertIn("Set-ClosedResultField 'servicing_diagnostic' $serviceFacts", final)
+        self.assertIn("$state.failure=if ($message -cin $allowed)", UPDATE)
+        self.assertNotIn('error_detail', UPDATE)
+        self.assertIn('ConvertTo-Json -Depth 10 -Compress', RUN)
+
+if __name__ == '__main__': unittest.main()
