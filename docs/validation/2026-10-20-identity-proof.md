@@ -1,0 +1,94 @@
+# Identity-bound PSEC proof, staged experiment
+
+Branch: `dot/windows-isolation-proof`. Starting commit:
+`3e90bb1f129a7d08b85fb816c7c70ba4f346ee66`.
+No main merge, product default, release, or prior evidence is changed.
+
+## What this slice establishes
+
+- A static native Windows actor records actual token user/AppContainer SID,
+  elevation, capabilities, PID and Job membership. Reports use a fresh nonce
+  and CREATE_NEW, with bounded JSON and no arbitrary diagnostic text.
+- Stage 0 controller builds explicit deny-all policy, verifies the existing
+  fixed G executor bytes and manifest, probes that exact request, and requires
+  both native actor completion and the executor's actual BaseContainer tier
+  diagnostic. Missing, contradictory or fallback evidence fails the gate.
+- Stage 0b separately creates a zero-capability unpackaged AppContainer and
+  gives it only two inherited anonymous-pipe handles. The parent verifies the
+  suspended child's actual SID before resume, tests a 32-byte nonce echo and
+  pipe EOF, terminates the owned Job, removes only its fresh directory ACEs
+  with DACL readback, and deletes its new profile. No socket is opened.
+- Stage 1's policy builder accepts only a strictly shaped observed proxy
+  identity record. This is validation, **not proof** that the identity exists.
+  No Stage 1 controller or proxy bridge is implemented in this slice.
+
+## Evidence ledger
+
+| Check | Status | Meaning |
+|---|---|---|
+| Pure Python policy/report/unit tests | 25 passed on Linux cloud workspace | No native security boundary was exercised |
+| Native C++ compilation | Not yet run | Requires installed Windows SDK/MSVC |
+| Native Stage 0 deny-all PSEC launch | Not yet run | Neither actor compatibility nor PSEC runtime accepted |
+| Native Stage 0b AppContainer pipe transport | Not yet run | Inherited-handle design remains a hypothesis on target host |
+| Native proxy identity / negative peer controls | Not implemented | No identity-bound proxy success claim |
+| Browser, DNS, broker escape, failure isolation | Not run | No Linux-equivalence or product/privacy qualification |
+
+The work-directory retention in Stage 0 is intentional diagnostic preservation.
+Stage 0 does not independently certify PSEC kernel cleanup. Stage 0b records
+cleanup separately and does not pass if its owned profile/handles/ACEs remain.
+Neither stage tests controller death yet. An ordinary non-AppContainer user in
+the default network compartment is required; elevated CI shells must not simply
+relax that gate. No user account or credential is created by these scripts.
+
+## Pinned implementation references
+
+- Existing G runtime pin remains `ruleproxy/windows_runtime_pins.py`, upstream
+  `7bf210247986cb73b1b314df60c2f1109c479c0b`. G's direct-egress guard is not an
+  identity-proxy implementation and is not presented as one.
+- [Pinned networking contract](https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/docs/backends/process-container/networking.md)
+  permits real AppContainer profile or package-family peer identity while
+  denying general host loopback. Model 2 still has the bidirectional private
+  network capability; this is an explicit limitation, not complete ingress closure.
+- [Pinned AppContainer inherited-handle precedent](https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/appcontainer_runner.rs#L980-L1054)
+  combines security capabilities and an explicit inherited-handle list. It
+  motivates Stage 0b, but does not replace a runtime proof for our transport.
+- [Actual tier diagnostic](https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/core/mxc_engine/run.rs#L229-L244)
+  is consumed only as a closed-value marker, with independent actor evidence.
+
+## CI and authorization boundary
+
+All 19 current `.github/workflows/*.yml` files were inspected before this push.
+`check.yml` runs on every push and includes real Windows system-proxy tests,
+so this experiment's commits use `[skip ci]`. None of the specialist push
+branch filters matches `dot/windows-isolation-proof`; the unfiltered recovery
+workflow has a path filter not touched by this slice. No workflow_run,
+pull_request_target, scheduled, or repository_dispatch trigger was found.
+The main workflow definitions remain unchanged because only this branch moves.
+
+The existing `mxc-capability.yml` has an optional, default-false
+`identity_proof_compile_only` workflow_dispatch input on this branch. When true,
+only one existing standard `windows-2025` job runs, limited to eight minutes:
+installed MSVC compilation, these pure unit tests, and an actor artifact. The
+old executor/ARM execution path is excluded in that mode. This does **not** run
+the actor or create a sandbox. No larger runner, VM matrix, service install,
+package signing, real credentials, or billing changes are introduced.
+
+Manual dispatch must still respect the owner's GitHub-only, no-new-paid-resource
+instruction. Windows runtime tests need the separately approved disposable
+security-test context, not merely a compile success. Existing credentials may
+not be logged, uploaded, or replaced. No user PC/OVH/Tianyi access is involved.
+
+## Next gates, in order
+
+1. Compile and inspect native artifact, then ordinary-user Stage 0.
+2. Run Stage 0b and separately measure controller-death/Job teardown.
+3. Add native AppContainer TCP frontend with privateNetworkClientServer and
+   only inherited framed pipes to a host relay fixed to owned fixture/Mihomo.
+   This capability permits private outbound traffic too, so the frontend is
+   trusted code and must not open arbitrary sockets.
+4. Positive identity-bound request, wrong peer at the **same endpoint**, wrong
+   port, unrelated host loopback, stopped proxy, and host control comparisons.
+5. DNS/brokers/IPv6/UDP/descendants and stock-browser compatibility separately.
+
+Do not replace a failed gate with broad ACL grants, host-loopback exemptions,
+relaxed actor checks, disabled browser sandbox, or an unsigned-driver bypass.
