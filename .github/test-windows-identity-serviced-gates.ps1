@@ -63,7 +63,8 @@ $parityCode=@'
 import importlib.util,json,sys
 spec=importlib.util.spec_from_file_location("serviced_wire_parity",sys.argv[1])
 m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
-rows=json.load(sys.stdin)
+with open(sys.argv[2], encoding="ascii") as wire_file:
+    rows=json.load(wire_file)
 assert len(rows)==11
 for row in rows:
     value=m.parse_early_guest(row)
@@ -72,15 +73,31 @@ for row in rows:
 print(json.dumps({"actual_powershell_host_wire_records_passed":len(rows),"runtime_acceptance":False}))
 '@
 $parityPath=Join-Path ([IO.Path]::GetTempPath()) ('ruleproxy-wire-'+[Guid]::NewGuid().ToString('N')+'.py')
-$parityFile=[IO.File]::Open($parityPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+$wirePath=Join-Path ([IO.Path]::GetTempPath()) ('ruleproxy-wire-'+[Guid]::NewGuid().ToString('N')+'.json')
+$parityOwned=$false; $wireOwned=$false
 try {
-    $bytes=[Text.Encoding]::ASCII.GetBytes($parityCode)
-    $parityFile.Write($bytes,0,$bytes.Length)
-} finally { $parityFile.Dispose() }
-try {
-    (ConvertTo-Json -InputObject @($wireRecords.ToArray()) -Compress) | & python -B $parityPath (Join-Path $PSScriptRoot 'windows_identity_serviced_stage0.py')
+    if ($wireRecords.Count -ne 11) { throw 'Exactly eleven wire records required' }
+    $parityFile=[IO.File]::Open($parityPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    $parityOwned=$true
+    try {
+        $bytes=[Text.Encoding]::ASCII.GetBytes($parityCode)
+        $parityFile.Write($bytes,0,$bytes.Length)
+    } finally { $parityFile.Dispose() }
+    $wireFile=[IO.File]::Open($wirePath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    $wireOwned=$true
+    try {
+        $wireJson=ConvertTo-Json -InputObject @($wireRecords.ToArray()) -Compress
+        $wireBytes=[Text.Encoding]::ASCII.GetBytes($wireJson)
+        if ($wireBytes.Length -eq 0) { throw 'Wire input must not be empty' }
+        $wireFile.Write($wireBytes,0,$wireBytes.Length)
+    } finally { $wireFile.Dispose() }
+    & python -B $parityPath (Join-Path $PSScriptRoot 'windows_identity_serviced_stage0.py') $wirePath
     if ($LASTEXITCODE -ne 0) { throw 'PowerShell to host wire parity failed' }
-} finally { Remove-Item -LiteralPath $parityPath -Force }
+} finally {
+    # Only delete exact paths successfully created by this invocation.
+    try { if ($wireOwned) { Remove-Item -LiteralPath $wirePath -Force } }
+    finally { if ($parityOwned) { Remove-Item -LiteralPath $parityPath -Force } }
+}
 $passed+=$wireRecords.Count
 
 # Regression: regex operators mutate automatic $Matches; optical device selection

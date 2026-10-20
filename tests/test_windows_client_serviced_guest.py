@@ -109,4 +109,19 @@ class ServicedGuestContractTests(unittest.TestCase):
         self.assertIn('Ambiguous optical root accepted', test)
         self.assertIn('runtime_acceptance=$false', test)
 
+    def test_wire_parity_uses_owned_ascii_file_not_native_stdin(self):
+        test=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        self.assertIn('with open(sys.argv[2], encoding="ascii") as wire_file:', test)
+        self.assertIn('rows=json.load(wire_file)', test)
+        self.assertIn('assert len(rows)==11', test)
+        self.assertIn("if ($wireRecords.Count -ne 11)", test)
+        self.assertNotIn('json.load(sys.stdin)', test)
+        self.assertNotIn('| & python', test)
+        self.assertEqual(test.count('[IO.FileMode]::CreateNew'), 2)
+        for name in ('wire', 'parity'):
+            self.assertIn('$'+name+'Owned=$true', test)
+            self.assertIn('if ($'+name+'Owned) { Remove-Item -LiteralPath $'+name+'Path -Force }', test)
+        self.assertIn('[Text.Encoding]::ASCII.GetBytes($wireJson)', test)
+        self.assertIn('if ($wireBytes.Length -eq 0)', test)
+
 if __name__ == '__main__': unittest.main()
