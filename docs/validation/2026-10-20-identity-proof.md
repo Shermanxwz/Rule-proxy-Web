@@ -619,3 +619,25 @@ allowance. A compact26-package public metadata fixture exercises the real parser
 and exact boundaries. All326 local pure tests pass. The historical diagnostic
 retains its old source pin and intentionally rejects the updated live host;
 its pure tests use an explicit old-ceiling fixture rather than disabling tests.
+
+Stock attempt `39390227821` (`89af8a53`) completed the first genuine ordinary-user
+Win11 guest run. RuleProxyCI ordinary context and exact26200.6584 build verified;
+the controller completed. The exact deny-only request did not qualify for the
+required request-aware BaseContainer tier. No successful BaseContainer actor
+execution is established. This is NOT proof the OS lacks PSEC: the published
+projection omitted the probe exit, selected tier and diagnostic details, and
+maps every nonqualifying probe to request_supported=false. Schema/probe failure
+and actual OS capability absence cannot be distinguished from this artifact.
+The private guest diagnostics were removed with the owned VM, as designed.
+
+VM destruction succeeded. Minimum observed host free space was11,323,842,560
+bytes, above the4GiB stop threshold; no capacity abort was reported. Launch free
+space was27,462,426,624 bytes and available work time4,962 seconds. Preparation
+consumed326,303,744 net bytes of512MiB, passing all gates and measured APT ceilings.
+Recovery again stopped at its32.5GiB target with370,713 removals and no reported
+cleanup uncertainty. These measurements establish successful provisioning and
+cleanup within this stock trial, not future servicing peak or isolation success.
+
+Next code work must retain sufficient closed causal probe evidence and bounded
+phase breadcrumbs before another VM attempt. Phased servicing feasibility is
+read-only design work; no new runtime has been authorized by this result.

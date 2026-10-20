@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "stage": "win11-stock26200.6584-ordinary-deny-only-stage0",
+  "status": "observed_failure",
+  "stage0_passed": false,
+  "product_acceptance": false,
+  "privacy_qualified": false,
+  "network_tested": false,
+  "vm_destroyed": true,
+  "iso_sha256": "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9",
+  "actor_sha256": "a686735592d31b54d3f5dad693643c7bad993f724264dc1e38a2fe4adeaf0894",
+  "premedia_free_bytes": 34571411456,
+  "launch_free_bytes": 27462426624,
+  "disk_file_ceiling_bytes": 19327352832,
+  "reserve_guard_hard_guarantee": false,
+  "vm_work_seconds_available": 4962,
+  "psec_cleanup_independently_verified": false,
+  "checks": {
+    "request_aware_base_container": false,
+    "actual_base_container": false,
+    "fresh_actor": false,
+    "native_identity": false,
+    "normal_exit": false,
+    "no_harness_error": true
+  },
+  "request_supported": false,
+  "ordinary_account": true,
+  "stock_build_verified": true,
+  "harness_completed": true,
+  "os": {
+    "build": 26200,
+    "ubr": 6584,
+    "product_type": "WinNT",
+    "architecture": "AMD64"
+  },
+  "minimum_free_bytes": 11323842560,
+  "last_phase": "stage0_completed"
+}
