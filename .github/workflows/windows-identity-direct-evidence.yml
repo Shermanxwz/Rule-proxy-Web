@@ -1,0 +1,83 @@
+name: Read exact direct Stage0 closed evidence
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths: ['.github/workflows/windows-identity-direct-evidence.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  closed-evidence:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-direct-evidence-01]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: e466e15ff524a51dc01721e4248df8474a9cba16
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Read only the exact existing closed report
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/Shermanxwz/Rule-proxy-Web/actions/artifacts/12274967676 > artifact.json
+          gh api repos/Shermanxwz/Rule-proxy-Web/actions/artifacts/12274967676/zip > evidence.zip
+          unset GH_TOKEN
+          python3 -B - <<'PY'
+          import hashlib, importlib.util, json, pathlib, zipfile
+          metadata_path=pathlib.Path('artifact.json')
+          assert metadata_path.stat().st_size <= 65536, 'metadata bound'
+          metadata=json.loads(metadata_path.read_text())
+          assert metadata.get('id') == 12274967676 and metadata.get('size_in_bytes') == 2563, 'artifact metadata differs'
+          assert metadata.get('digest') == 'sha256:a4b0750ddbdd94ffc38e8852e54a90c1d797facddfff60f98ecaefd72d0a6d8d', 'metadata digest differs'
+          wr=metadata.get('workflow_run',{})
+          assert wr.get('id') == 39440004651 and wr.get('head_sha') == 'e466e15ff524a51dc01721e4248df8474a9cba16', 'run provenance differs'
+          archive=pathlib.Path('evidence.zip')
+          assert archive.stat().st_size == 2563, 'artifact size differs'
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == 'a4b0750ddbdd94ffc38e8852e54a90c1d797facddfff60f98ecaefd72d0a6d8d', 'artifact digest differs'
+          with zipfile.ZipFile(archive) as z:
+              assert z.namelist() == ['public-report.json'], 'unexpected archive members'
+              info=z.getinfo('public-report.json')
+              assert info.file_size <= 65536, 'bounded report required'
+              raw=json.loads(z.read(info))
+          assert isinstance(raw,dict), 'object required'
+          assert 'source_commit' not in raw or raw['source_commit'] == 'e466e15ff524a51dc01721e4248df8474a9cba16', 'report source differs'
+          spec=importlib.util.spec_from_file_location('reader_host', '.github/windows_identity_direct_stage0.py')
+          host=importlib.util.module_from_spec(spec); spec.loader.exec_module(host)
+          out=host.project_stage0(raw)
+          out['last_phase']=raw.get('last_phase') if raw.get('last_phase') in ('preflight','verified_media_download','stock_guest_installation','stage0_completed') else 'unclassified'
+          hf=raw.get('host_failure'); hf=hf if isinstance(hf,dict) else {}
+          proof=host.proof_helpers()
+          out['host_failure']={'type':proof._enum(hf.get('type'),proof.FAILURE_TYPES+('BrokenPipeError','ConnectionResetError','ConnectionAbortedError','EarlyGuestFailure','BootstrapTimeout'),'absent'),'operation':proof._enum(hf.get('operation'),('preflight','iso_download','iso_verify','payload_build','result_server','seed_build','disk_create','launch_capacity','tpm_start','vm_work_budget','qemu_start','qmp_connect','kvm_verify','guest_wait','result_validation'),'absent'),'errno':proof._integer(hf.get('errno'),-2147483648),'winerror':proof._integer(hf.get('winerror'),-2147483648)}
+          for key in ('ordinary_account','direct_build_verified','harness_completed','vm_destroyed','guest_result_provenance_verified'):
+              out[key]=raw.get(key) if type(raw.get(key)) is bool else None
+          out['artifact_source_commit']='e466e15ff524a51dc01721e4248df8474a9cba16'
+          out['report_source_state']='verified_match' if 'source_commit' in raw else 'missing'
+          out['source_report_stage0_passed']=raw.get('stage0_passed') if type(raw.get('stage0_passed')) is bool else None
+          out['artifact_id']=12274967676
+          out['os_exact']=raw.get('os') == {'build':26300,'ubr':9457,'product_type':'WinNT','architecture':'AMD64'}
+          out['status']=raw.get('status') if raw.get('status') in ('passed','observed_failure','blocked','time_budget_insufficient','resource_abort','cleanup_unconfirmed') else 'unclassified'
+          early=raw.get('early_guest_diagnostic')
+          out['early_guest_diagnostic']=host.parse_early_guest(host.EARLY_PREFIX+json.dumps(early)) if isinstance(early,dict) else None
+          qd=raw.get('qmp_diagnostic'); qd=qd if isinstance(qd,dict) else {}
+          out['qmp_diagnostic']={'command':proof._enum(qd.get('command'),host.QMP_COMMANDS),'error_class':proof._enum(qd.get('error_class'),host.QMP_ERROR_CLASSES+('none',)),'completed':qd.get('completed') if type(qd.get('completed')) is bool else None}
+          td=raw.get('teardown_diagnostic'); td=td if isinstance(td,dict) else {}
+          out['teardown_diagnostic']={}
+          for key,default in host.new_teardown_facts().items():
+              value=td.get(key)
+              if key == 'errors':
+                  out['teardown_diagnostic'][key]=[{'stage':v.get('stage') if v.get('stage') in host.TEARDOWN_STAGES else 'unclassified','type':v.get('type') if v.get('type') in host.TEARDOWN_ERRORS else 'unclassified'} for v in value[:8] if isinstance(v,dict)] if isinstance(value,list) else []
+              elif key == 'first_failed_stage':
+                  out['teardown_diagnostic'][key]=value if value in host.TEARDOWN_STAGES else None
+              elif key in ('schema_version','qemu_exit_before_cleanup','tpm_exit_before_cleanup','qemu_exit_after_cleanup','tpm_exit_after_cleanup','helper_count','helper_exit_confirmed_count','error_count'):
+                  out['teardown_diagnostic'][key]=value if type(value) is int and -2147483648 <= value <= 4294967295 else None
+              elif type(value) is bool:
+                  out['teardown_diagnostic'][key]=value
+              else: out['teardown_diagnostic'][key]=None
+          print(json.dumps(out,sort_keys=True))
+          archive.unlink()
+          metadata_path.unlink()
+          PY
