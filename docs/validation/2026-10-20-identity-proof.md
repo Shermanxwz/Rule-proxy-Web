@@ -514,3 +514,12 @@ servicing and full media extraction/remaster. It does not replace or qualify
 in `2026-10-20-win11-capacity-design.md`; these are a bounded capacity-abort
 experiment, not proof of fit or an aggregate filesystem quota. Code review is
 still required before any activation. No cache removal or stock VM has run.
+
+The exact bounded activation was approved and published at `4f7d7c7c`.
+Stock attempt `39378217171` passed PowerShell syntax and native actor compilation,
+but its Windows pure-test job failed before the Ubuntu job could run. The mock
+Linux finalizer fixture accessed `signal.SIGXFSZ`, which Windows Python does not
+provide. Thirteen tests ran, one errored and the Linux-only primitive test was
+skipped. The native job was skipped: no provider recovery, VM, temporary account
+or Stage0 execution occurred. The correction is test-only signal injection,
+not relaxation of the Linux finalizer or resource limits.

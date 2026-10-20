@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": false,
+  "stage": "stock26200.6584-stage0",
+  "run_id": 39378217171,
+  "commit": "4f7d7c7c0bacb99d39a49d9e75d782dfe5605b94",
+  "compile_job_id": 118481050665,
+  "native_job_id": 118481338289,
+  "powershell_parse_passed": true,
+  "native_actor_build_passed": true,
+  "pure_tests": {
+    "count": 13,
+    "errors": 1,
+    "skipped": 1,
+    "failed_test": "test_finalize_kill_race_and_live_watcher_retains_work",
+    "error_type": "AttributeError",
+    "error_code": "signal_SIGXFSZ_unavailable_on_windows"
+  },
+  "native_job_skipped": true,
+  "provider_recovery_started": false,
+  "vm_created": false,
+  "account_created": false,
+  "stage0_executed": false,
+  "stage0_passed": false,
+  "classification": "cross_platform_test_fixture_failure"
+}

@@ -58,13 +58,33 @@ class StockTests(unittest.TestCase):
         self.assertFalse(result['stage0_passed']); self.assertEqual(result['status'],'cleanup_unconfirmed')
     def test_finalize_kill_race_and_live_watcher_retains_work(self):
         import tempfile
-        with tempfile.TemporaryDirectory() as directory:
-            work=Path(directory)/'owned'; work.mkdir()
-            process=SimpleNamespace(poll=lambda:None,kill=lambda:(_ for _ in ()).throw(ProcessLookupError()),wait=lambda timeout:0)
-            watch=SimpleNamespace(reason=None,minimum_free=100,thread=SimpleNamespace(is_alive=lambda:True),close=lambda:None)
-            media=SimpleNamespace(stop_owned=lambda p:None)
-            result=stock.finalize_owned({'stage0_passed':True},media,work,qemu=process,watch=watch)
-            self.assertTrue(work.exists()); self.assertFalse(result['vm_destroyed']); self.assertFalse(result['stage0_passed'])
+        # Model both Windows (attribute absent) and an existing Linux value.
+        # Only the mocked Linux finalizer receives this scoped fixture; no
+        # production signal fallback or operating-system guard is changed.
+        for signals in (SimpleNamespace(), SimpleNamespace(SIGXFSZ=31)):
+            original = dict(vars(signals))
+            with self.subTest(signals=original), tempfile.TemporaryDirectory() as directory:
+                work=Path(directory)/'owned'; work.mkdir()
+                process=SimpleNamespace(poll=lambda:None,kill=lambda:(_ for _ in ()).throw(ProcessLookupError()),wait=lambda timeout:0)
+                watch=SimpleNamespace(reason=None,minimum_free=100,thread=SimpleNamespace(is_alive=lambda:True),close=lambda:None)
+                media=SimpleNamespace(stop_owned=lambda p:None)
+                with patch.object(stock,'signal',signals):
+                    with patch.object(stock.signal,'SIGXFSZ',getattr(signals,'SIGXFSZ',25),create=True):
+                        result=stock.finalize_owned({'stage0_passed':True},media,work,qemu=process,watch=watch)
+                self.assertEqual(vars(signals),original)
+                self.assertTrue(work.exists()); self.assertFalse(result['vm_destroyed']); self.assertFalse(result['stage0_passed'])
+    def test_mocked_file_limit_signal_uses_scoped_existing_value(self):
+        for signals in (SimpleNamespace(), SimpleNamespace(SIGXFSZ=31)):
+            original = dict(vars(signals))
+            expected = getattr(signals,'SIGXFSZ',25)
+            process = SimpleNamespace(poll=lambda: -expected)
+            with self.subTest(signals=original), patch.object(stock,'signal',signals):
+                with patch.object(stock.signal,'SIGXFSZ',expected,create=True), patch.object(stock,'cleanup_owned',return_value=True):
+                    result=stock.finalize_owned({'stage0_passed':True},None,Path('/unused'),qemu=process)
+            self.assertEqual(vars(signals),original)
+            self.assertFalse(result['stage0_passed'])
+            self.assertEqual(result['capacity_abort'],'file_size_limit_signal')
+            self.assertEqual(result['status'],'resource_abort')
     def test_absolute_workflow_budget(self):
         text=(ROOT / '.github/workflows/windows-identity-stock-stage0.yml').read_text()
         self.assertIn('STOCK_JOB_DEADLINE=',text)
