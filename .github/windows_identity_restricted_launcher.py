@@ -42,6 +42,14 @@ INTEGRITY_ENABLED = 64
 LOGON_ID = 0xC0000000
 TOKEN_SOURCE_ACCESS = 0x008B  # QUERY|DUPLICATE|ASSIGN_PRIMARY|ADJUST_DEFAULT
 RUN_MILLISECONDS = 15_000
+EXTRA_OBSERVATIONS = ("user_attributes", "privileges", "authentication_luid",
+                      "has_restrictions", "sandbox_inert", "restricted_sids", "logon_sids")
+OBSERVATION_NAMES = ordinary.OBSERVATION_NAMES + EXTRA_OBSERVATIONS
+FIXED_OBSERVATIONS = {
+    "session_id": 12, "token_type": 8, "elevation_type": 18, "elevated": 20,
+    "appcontainer": 29, "ui_access": 26, "authentication_luid": 10,
+    "has_restrictions": 21, "sandbox_inert": 15,
+}
 
 
 class LUID(C.Structure):
@@ -62,6 +70,39 @@ class TokenStatistics(C.Structure):
         ("TokenType", D), ("ImpersonationLevel", D), ("DynamicCharged", D),
         ("DynamicAvailable", D), ("GroupCount", D), ("PrivilegeCount", D), ("ModifiedId", LUID),
     ]
+
+
+# Class 21 is deliberately NOT a DWORD scalar. Microsoft's maintainer clarified
+# the public documentation error: BOOLEAN payload, DWORD-aligned address, only
+# byte 0 valid, ReturnLength == 1 with four-byte capacity.
+# https://github.com/microsoft/win32metadata/discussions/2308
+FIXED_QUERY_TYPES = {
+    8: ("TokenType", "TOKEN_TYPE", D, 4),
+    10: ("TokenStatistics", "TOKEN_STATISTICS", TokenStatistics, 56),
+    12: ("TokenSessionId", "DWORD", D, 4),
+    15: ("TokenSandBoxInert", "DWORD", D, 4),
+    18: ("TokenElevationType", "TOKEN_ELEVATION_TYPE", D, 4),
+    20: ("TokenElevation", "TOKEN_ELEVATION", D, 4),
+    21: ("TokenHasRestrictions", "BOOLEAN_DWORD_ALIGNED", D, 1),
+    26: ("TokenUIAccess", "DWORD", D, 4),
+    29: ("TokenIsAppContainer", "DWORD", D, 4),
+}
+
+
+class FixedQueryFailure(GateFailure):
+    """Closed fixed-query diagnostics; never token bytes or arbitrary text."""
+
+    def __init__(self, record, reason=None):
+        self.record = dict(record)
+        if reason is not None:
+            self.record["reason"] = reason
+        super().__init__(reason or "fixed_token_query_failed")
+
+
+def failure(exc):
+    if isinstance(exc, FixedQueryFailure):
+        return dict(exc.record)
+    return ordinary.failure(exc)
 
 
 class JobAccounting(C.Structure):
@@ -260,12 +301,54 @@ class RestrictedAPI(ordinary.NativeAPI):
                    "OpenProcessToken(restricted_source)")
         return token.value
 
+    def fixed_query(self, token, kind, name):
+        if kind not in FIXED_QUERY_TYPES or FIXED_QUERY_TYPES[kind][0] != name:
+            raise GateFailure("unsupported_restricted_fixed_query")
+        _, abi_type, storage_type, expected = FIXED_QUERY_TYPES[kind]
+        value, size = storage_type(), D()
+        capacity = C.sizeof(value)
+        ok = self.a.GetTokenInformation(token, kind, C.byref(value), capacity, C.byref(size))
+        # LastError is meaningful only on failure, and must be captured before
+        # any further native call. A stale success LastError is not an error.
+        code = C.get_last_error() if not ok else None
+        record = {"operation": "GetTokenInformation(" + name + ")",
+                  "token_information_class": kind, "abi_type": abi_type,
+                  "capacity": capacity, "expected_size": expected,
+                  "returned_size": size.value, "native_success": bool(ok)}
+        if code is not None:
+            record["winerror"] = code
+        if not hasattr(self, "fixed_query_diagnostics"):
+            self.fixed_query_diagnostics = {}
+        self.fixed_query_diagnostics[kind] = record
+        if not ok:
+            raise FixedQueryFailure(record)
+        if size.value != expected:
+            raise FixedQueryFailure(record, "invalid_token_fixed_size")
+        return value
+
+    def scalar(self, token, kind, name):
+        if kind not in FIXED_QUERY_TYPES or kind in (10, 21):
+            raise GateFailure("unsupported_restricted_dword_scalar")
+        return self.fixed_query(token, kind, name).value
+
+    def boolean(self, token, kind, name):
+        value = self.scalar(token, kind, name)
+        if value not in (0, 1):
+            raise FixedQueryFailure(self.fixed_query_diagnostics[kind], "invalid_token_boolean")
+        return bool(value)
+
+    def has_restrictions(self, token):
+        storage = self.fixed_query(token, 21, "TokenHasRestrictions")
+        # Never read the remaining three bytes as a DWORD value.
+        value = C.c_ubyte.from_address(C.addressof(storage)).value
+        if value not in (0, 1):
+            raise FixedQueryFailure(self.fixed_query_diagnostics[21], "invalid_token_boolean")
+        return bool(value)
+
     def authentication_luid(self, token):
-        value, size = TokenStatistics(), D()
-        self.check(self.a.GetTokenInformation(token, 10, C.byref(value), C.sizeof(value), C.byref(size)),
-                   "GetTokenInformation(TokenStatistics)")
-        if size.value != C.sizeof(value) or value.TokenType != 1:
-            raise GateFailure("invalid_primary_token_statistics")
+        value = self.fixed_query(token, 10, "TokenStatistics")
+        if value.TokenType != 1:
+            raise FixedQueryFailure(self.fixed_query_diagnostics[10], "invalid_primary_token_statistics")
         return luid_pair(value.AuthenticationId)
 
     def user_attributes(self, token):
@@ -365,20 +448,108 @@ class RestrictedAPI(ordinary.NativeAPI):
             time.sleep(.02)
 
 
-def restricted_identity(api, token):
-    values = {name: reader() for name, reader in api.observation_readers(token).items()}
+def restricted_observation_readers(api, token):
+    """Identical native readers in fail-fast runtime and independent preflight."""
+    readers = api.observation_readers(token)
+    readers.update(
+        user_attributes=lambda: api.user_attributes(token),
+        privileges=lambda: api.privileges(token),
+        authentication_luid=lambda: api.authentication_luid(token),
+        has_restrictions=lambda: api.has_restrictions(token),
+        sandbox_inert=lambda: api.boolean(token, 15, "TokenSandBoxInert"),
+        restricted_sids=lambda: sorted(api.groups(token, 11, "TokenRestrictedSids")),
+        logon_sids=lambda: sorted(api.groups(token, 28, "TokenLogonSid")))
+    return readers
+
+
+def restricted_identity_from_observations(values):
     result = ordinary.identity_from_observations(values)
-    result.update(
-        groups=sorted(values["groups"]),
-        user_attributes=api.user_attributes(token),
-        privileges=api.privileges(token),
-        authentication_luid=api.authentication_luid(token),
-        has_restrictions=api.boolean(token, 21, "TokenHasRestrictions"),
-        sandbox_inert=api.boolean(token, 15, "TokenSandBoxInert"),
-        restricted_sids=sorted(api.groups(token, 11, "TokenRestrictedSids")),
-        logon_sids=sorted(api.groups(token, 28, "TokenLogonSid")))
+    result["groups"] = sorted(values["groups"])
+    result.update({name: values[name] for name in EXTRA_OBSERVATIONS})
     group_map(result["groups"])
     return result
+
+
+def restricted_identity(api, token):
+    values = {name: reader() for name, reader in restricted_observation_readers(api, token).items()}
+    return restricted_identity_from_observations(values)
+
+
+def safe_observation(name, value):
+    if name in ordinary.OBSERVATION_NAMES:
+        return ordinary.safe_observation(name, value)
+    if name in ("user_attributes", "has_restrictions", "sandbox_inert"):
+        return value
+    if name == "authentication_luid":
+        return {"authentication_luid_present": True}
+    if name in ("restricted_sids", "logon_sids"):
+        return {"count": len(value)}
+    if name == "privileges":
+        return [{"name": entry["name"], "attributes": entry["attributes"]} for entry in value]
+    raise GateFailure("unexpected_restricted_preflight_observation")
+
+
+def collect_observations(api, token):
+    records, values = {}, {}
+    readers = restricted_observation_readers(api, token)
+    for name in OBSERVATION_NAMES:
+        try:
+            value = readers[name]()
+            public = safe_observation(name, value)
+            values[name] = value
+            records[name] = {"ok": True, "value": public}
+        except Exception as exc:
+            records[name] = {"ok": False, "error": failure(exc)}
+        kind = FIXED_OBSERVATIONS.get(name)
+        diagnostic = getattr(api, "fixed_query_diagnostics", {}).get(kind)
+        if diagnostic is not None:
+            records[name]["native_query"] = dict(diagnostic)
+    return records, values
+
+
+def token_preflight(api):
+    """One bounded read-only current-token pass; no linked/derived token work."""
+    report = {
+        "schema_version": 1, "stage": "R0-restricted-source-token-preflight",
+        "controller_context": "current_source_token_read_only", "preflight_only": True,
+        "ordinary_user_acceptance": False, "stage0b_passed": False,
+        "product_acceptance": False, "psec_acceptance": False, "privacy_qualified": False,
+        "restricted_caller_r0_passed": False, "derived_token_created": False,
+        "process_created": False, "profile_created": False, "appcontainer_created": False,
+        "acl_changed": False, "network_tested": False,
+        "token_access": ordinary.TOKEN_QUERY,
+        "cleanup": {"token_handles_closed": False, "errors": []},
+    }
+    token = None
+    try:
+        try:
+            report["compartment"] = {"ok": True, "value": api.compartment()}
+        except Exception as exc:
+            report["compartment"] = {"ok": False, "error": failure(exc)}
+        token = api.current_token()  # QUERY only; never source_token's extra rights.
+        records, values = collect_observations(api, token)
+        report["current"] = records
+        if all(record["ok"] is True for record in records.values()):
+            report["source_identity_gate"] = {
+                "ok": True, "value": source_identity_valid(restricted_identity_from_observations(values))}
+        else:
+            report["source_identity_gate"] = {"ok": False, "reason": "dependent_observation_failed"}
+    except Exception as exc:
+        report["error"] = failure(exc)
+    finally:
+        if token:
+            try:
+                api.close(token)
+            except Exception as exc:
+                report["cleanup"]["errors"].append(failure(exc))
+        report["cleanup"]["token_handles_closed"] = not report["cleanup"]["errors"]
+    report["observations_complete"] = (
+        "error" not in report and report.get("compartment", {}).get("ok") is True
+        and len(report.get("current", {})) == len(OBSERVATION_NAMES)
+        and all(record["ok"] is True for record in report.get("current", {}).values())
+        and report["cleanup"]["token_handles_closed"])
+    report["status"] = "observed" if report["observations_complete"] else "diagnostic_incomplete"
+    return report
 
 
 def launch_actor(api, actor, nonce, work, token, derived, source):
@@ -409,7 +580,7 @@ def launch_actor(api, actor, nonce, work, token, derived, source):
             raise GateFailure("restricted_actor_deadline")
         result["exit_code"] = api.exit_code(info.hProcess)
     except Exception as exc:
-        result["error"] = ordinary.failure(exc)
+        result["error"] = failure(exc)
     finally:
         cleanup = result["cleanup"]
 
@@ -418,7 +589,7 @@ def launch_actor(api, actor, nonce, work, token, derived, source):
                 call()
                 return True
             except Exception as exc:
-                cleanup["errors"].append(ordinary.failure(exc))
+                cleanup["errors"].append(failure(exc))
                 return False
 
         if info.hProcess:
@@ -483,6 +654,30 @@ def validate_inputs(args):
     return actor, work
 
 
+def validate_preflight_report(path):
+    root = ordinary.checked_path(ROOT, is_file=False)
+    ordinary.checked_path(root / "ruleproxy/windows_app_process.py", inside=root)
+    raw = Path(os.path.abspath(path))
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}\.json", raw.name):
+        raise GateFailure("expected_bounded_preflight_report_name")
+    parent = ordinary.checked_path(raw.parent, inside=root, is_file=False)
+    result = parent / raw.name
+    if result.exists() or result.is_symlink():
+        raise GateFailure("fresh_preflight_report_required")
+    return result
+
+
+def run_preflight(args):
+    if os.name != "nt" or not args.disposable_ci or not args.approved_security_test:
+        raise PermissionError("requires an explicitly approved disposable Windows security test")
+    path = validate_preflight_report(args.report)
+    # Construction only binds symbols. token_preflight invokes no restriction,
+    # process, job, profile, integrity-setting, or security-mutation API.
+    report = token_preflight(RestrictedAPI())
+    ordinary.save_report(path, report)
+    return 0 if report["observations_complete"] else 1
+
+
 def run(args):
     if os.name != "nt" or not args.disposable_ci or not args.approved_security_test:
         raise PermissionError("requires an explicitly approved disposable Windows security test")
@@ -497,7 +692,8 @@ def run(args):
         "appcontainer_created": False, "acl_changed": False, "network_tested": False,
         "actor_sha256": args.actor_sha256, "actor_report": "actor.json",
         "restriction_strategy": "explicit_privilege_deletion_and_deny_only_nonbaseline_groups",
-        "parent_token_unchanged": False, "restricted_caller_r0_passed": False,
+        "parent_token_unchanged": None, "restricted_caller_r0_passed": False,
+        "derived_token_created": False, "process_created": False,
         "cleanup": {"token_handles_closed": False, "errors": []},
     }
     api, source_token, new_token, source = None, None, None, None
@@ -509,6 +705,7 @@ def run(args):
             raise GateFailure("expected_current_elevated_unrestricted_default_compartment_source")
         report["parent_identity"] = safe_identity(source)
         new_token = api.create_restricted(source_token, source)
+        report["derived_token_created"] = True
         api.set_medium_integrity(new_token, source_token)
         derived = restricted_identity(api, new_token)
         verify_derivation(derived, source)
@@ -519,11 +716,12 @@ def run(args):
         report["nonce"] = nonce
         report["launch"] = launch_actor(api, actor, nonce, work, new_token, derived, source)
         launch = report["launch"]
+        report["process_created"] = launch["started"]
         if "error" not in launch and launch.get("exit_code") == 0:
             report["actor_matches_native_parent_observation"] = actor_matches(
                 ordinary.read_probe(work / "actor.json"), launch, derived, nonce)
     except Exception as exc:
-        report["error"] = ordinary.failure(exc)
+        report["error"] = failure(exc)
     finally:
         if api is not None and source_token and source is not None:
             try:
@@ -531,13 +729,13 @@ def run(args):
                 if not report["parent_token_unchanged"]:
                     report["cleanup"]["errors"].append({"operation": "invariant", "reason": "parent_token_changed"})
             except Exception as exc:
-                report["cleanup"]["errors"].append(ordinary.failure(exc))
+                report["cleanup"]["errors"].append(failure(exc))
         for token in (new_token, source_token):
             if token:
                 try:
                     api.close(token)
                 except Exception as exc:
-                    report["cleanup"]["errors"].append(ordinary.failure(exc))
+                    report["cleanup"]["errors"].append(failure(exc))
         report["cleanup"]["token_handles_closed"] = not report["cleanup"]["errors"]
     launch = report.get("launch", {})
     cleanup = launch.get("cleanup", {})
@@ -558,10 +756,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--disposable-ci", action="store_true")
     parser.add_argument("--approved-security-test", action="store_true")
-    for name in ("actor", "work", "report"):
-        parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--actor-sha256", required=True)
-    return run(parser.parse_args(argv))
+    parser.add_argument("--token-preflight", action="store_true")
+    parser.add_argument("--report", type=Path, required=True)
+    for name in ("actor", "work"):
+        parser.add_argument("--" + name, type=Path)
+    parser.add_argument("--actor-sha256")
+    args = parser.parse_args(argv)
+    if args.token_preflight:
+        if args.actor is not None or args.work is not None or args.actor_sha256 is not None:
+            parser.error("--token-preflight accepts no actor, actor-sha256, or work")
+        return run_preflight(args)
+    if args.actor is None or args.work is None or args.actor_sha256 is None:
+        parser.error("runtime requires --actor, --actor-sha256, and --work")
+    return run(args)
 
 
 if __name__ == "__main__":

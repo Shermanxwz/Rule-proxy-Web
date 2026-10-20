@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "stage": "R0-restricted-caller-native-identity",
+  "controller_context": "synthetic_restricted_caller_lab",
+  "ordinary_user_acceptance": false,
+  "stage0b_passed": false,
+  "product_acceptance": false,
+  "psec_acceptance": false,
+  "privacy_qualified": false,
+  "appcontainer_created": false,
+  "acl_changed": false,
+  "network_tested": false,
+  "actor_sha256": "aeabb789598b6fe491179ff5829a11ed9f417d674a7acc4b8c712dab3c2a4ee2",
+  "actor_report": "actor.json",
+  "restriction_strategy": "explicit_privilege_deletion_and_deny_only_nonbaseline_groups",
+  "parent_token_unchanged": false,
+  "restricted_caller_r0_passed": false,
+  "cleanup": {
+    "token_handles_closed": true,
+    "errors": []
+  },
+  "error": {
+    "operation": "invariant",
+    "reason": "invalid_token_scalar_size"
+  },
+  "status": "blocked_or_failed"
+}

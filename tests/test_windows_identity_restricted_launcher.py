@@ -2,9 +2,12 @@
 import copy
 import importlib.util
 import json
+import io
 from pathlib import Path
+import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 from test_windows_identity_ordinary_launcher import FakeAPI
 
@@ -129,6 +132,67 @@ class RestrictedGateTests(unittest.TestCase):
 
 
 class NativeABITests(unittest.TestCase):
+    def query_api(self, returned, payload=0, success=True):
+        def query(token, kind, buffer, length, output_size):
+            self.assertEqual(length, 4)
+            self.assertEqual(lab.C.cast(buffer, lab.H).value % lab.C.alignment(lab.D), 0)
+            # Poison the unreturned high bytes. Class 21 must consume byte 0,
+            # not interpret all four allocated bytes as initialized output.
+            lab.C.memmove(buffer, bytes([payload, 0xA5, 0x5A, 0xFF]), 4)
+            lab.C.cast(output_size, lab.C.POINTER(lab.D))[0] = returned
+            return int(success)
+        api = lab.RestrictedAPI.__new__(lab.RestrictedAPI)
+        api.a = SimpleNamespace(GetTokenInformation=query)
+        return api
+
+    def test_class21_reads_only_boolean_byte_at_dword_aligned_address(self):
+        for payload in (0, 1):
+            api = self.query_api(1, payload)
+            with mock.patch.object(lab.C, "get_last_error", create=True,
+                                   side_effect=AssertionError("success must ignore LastError")):
+                self.assertIs(api.has_restrictions(100), bool(payload))
+            self.assertEqual(api.fixed_query_diagnostics[21], {
+                "operation": "GetTokenInformation(TokenHasRestrictions)",
+                "token_information_class": 21, "abi_type": "BOOLEAN_DWORD_ALIGNED",
+                "capacity": 4, "expected_size": 1, "returned_size": 1, "native_success": True})
+
+    def test_class21_rejects_wrong_extent_and_invalid_boolean(self):
+        for returned, payload in ((0, 0), (2, 0), (3, 0), (4, 0), (5, 0), (1, 2)):
+            with self.subTest(returned=returned, payload=payload):
+                api = self.query_api(returned, payload)
+                with self.assertRaises(lab.FixedQueryFailure) as raised:
+                    api.has_restrictions(100)
+                record = lab.failure(raised.exception)
+                self.assertEqual(record["token_information_class"], 21)
+                self.assertEqual(record["capacity"], 4)
+                self.assertEqual(record["expected_size"], 1)
+                self.assertEqual(record["returned_size"], returned)
+                self.assertIn("reason", record)
+                self.assertNotIn("winerror", record)
+
+    def test_other_dword_classes_never_accept_one_byte_extent(self):
+        for kind, (name, _, _, expected) in lab.FIXED_QUERY_TYPES.items():
+            if kind in (10, 21):
+                continue
+            self.assertEqual(expected, 4)
+            with self.subTest(kind=kind), self.assertRaises(lab.FixedQueryFailure) as raised:
+                self.query_api(1).scalar(100, kind, name)
+            self.assertEqual(lab.failure(raised.exception)["expected_size"], 4)
+        with self.assertRaisesRegex(lab.GateFailure, "unsupported_restricted_dword_scalar"):
+            self.query_api(1).scalar(100, 21, "TokenHasRestrictions")
+
+    def test_native_failure_retains_exact_closed_query_metadata_and_winerror(self):
+        api = self.query_api(1, success=False)
+        with mock.patch.object(lab.C, "get_last_error", create=True, return_value=24) as last_error:
+            with self.assertRaises(lab.FixedQueryFailure) as raised:
+                api.has_restrictions(100)
+        last_error.assert_called_once_with()
+        record = lab.failure(raised.exception)
+        self.assertEqual(record["winerror"], 24)
+        self.assertFalse(record["native_success"])
+        self.assertEqual(record["returned_size"], 1)
+        self.assertEqual(record["expected_size"], 1)
+
     def test_luid_privilege_and_statistics_layouts(self):
         self.assertEqual(lab.C.sizeof(lab.LUID), 8)
         self.assertEqual(lab.C.sizeof(lab.LUIDAndAttributes), 12)
@@ -149,6 +213,22 @@ class NativeABITests(unittest.TestCase):
         api = lab.RestrictedAPI.__new__(lab.RestrictedAPI)
         api.a = SimpleNamespace(GetTokenInformation=query)
         self.assertEqual(api.authentication_luid(100), (123, -1))
+        self.assertEqual(api.fixed_query_diagnostics[10]["abi_type"], "TOKEN_STATISTICS")
+        self.assertEqual(api.fixed_query_diagnostics[10]["expected_size"], 56)
+
+    def test_statistics_size_failure_has_named_diagnostics(self):
+        def query(token, kind, buffer, length, returned):
+            self.assertEqual((kind, length), (10, 56))
+            lab.C.cast(returned, lab.C.POINTER(lab.D))[0] = 48
+            return 1
+        api = lab.RestrictedAPI.__new__(lab.RestrictedAPI)
+        api.a = SimpleNamespace(GetTokenInformation=query)
+        with self.assertRaises(lab.FixedQueryFailure) as raised:
+            api.authentication_luid(100)
+        self.assertEqual(lab.failure(raised.exception), {
+            "operation": "GetTokenInformation(TokenStatistics)", "token_information_class": 10,
+            "abi_type": "TOKEN_STATISTICS", "capacity": 56, "expected_size": 56,
+            "returned_size": 48, "native_success": True, "reason": "invalid_token_fixed_size"})
 
     def test_medium_integrity_is_self_contained_and_only_new_token(self):
         calls = []
@@ -231,6 +311,154 @@ class RestrictedFakeAPI(FakeAPI):
         if command != ["windows_identity_actor.exe", "actor", "a" * 32, str(Path("owned/actor.json"))]:
             raise AssertionError("Not the fixed native actor command")
         super().create_suspended(info, command, work, stdio, token)
+
+
+class PreflightFakeAPI(lab.RestrictedAPI):
+    """Only in-memory observations. No Windows API binding or mutation methods."""
+
+    def __init__(self, fail=None):
+        self.events, self.fail = [], fail
+        self.a = SimpleNamespace(GetTokenInformation=self.get_token_information)
+
+    def get_token_information(self, token, kind, buffer, length, returned):
+        self.events.append(("query", kind))
+        self.assert_token(token)
+        if kind == 10:
+            value = lab.C.cast(buffer, lab.C.POINTER(lab.TokenStatistics))[0]
+            value.TokenType = 1
+            value.AuthenticationId = lab.LUID(123, 0)
+            size = 56
+        else:
+            value = {8: 1, 12: 1, 15: 0, 18: 1, 20: 1, 21: 0, 26: 0, 29: 0}[kind]
+            lab.C.cast(buffer, lab.C.POINTER(lab.D))[0] = value
+            size = 1 if kind == 21 else 4
+        lab.C.cast(returned, lab.C.POINTER(lab.D))[0] = 0 if self.fail == kind else size
+        return 1
+
+    def assert_token(self, token):
+        if token != 100:
+            raise AssertionError("not the one current token")
+
+    def compartment(self):
+        self.events.append(("compartment",))
+        return 1
+
+    def current_token(self):
+        self.events.append(("current_token_query_only",))
+        return 100
+
+    def close(self, token):
+        self.assert_token(token)
+        self.events.append(("close", token))
+
+    def sid_field(self, token, kind, name, *, nullable=False):
+        self.assert_token(token)
+        self.events.append(("sid", kind))
+        return {1: USER, 25: "S-1-16-12288", 31: None}[kind]
+
+    def groups(self, token, kind, name):
+        self.assert_token(token)
+        self.events.append(("groups", kind))
+        return {2: source()["groups"], 30: [], 11: [], 28: source()["logon_sids"]}[kind]
+
+    def user_attributes(self, token):
+        self.assert_token(token)
+        self.events.append(("user_attributes",))
+        return source()["user_attributes"]
+
+    def privileges(self, token):
+        self.assert_token(token)
+        self.events.append(("privileges",))
+        return source()["privileges"]
+
+    def forbidden(self, *args, **kwargs):
+        raise AssertionError("preflight attempted a mutation or runtime token operation")
+
+    source_token = create_restricted = set_medium_integrity = create_job = forbidden
+    create_suspended = open_stdio_file = linked_token = forbidden
+
+
+class PreflightTests(unittest.TestCase):
+    def test_independent_preflight_covers_all_original_and_new_fields_without_mutation(self):
+        api = PreflightFakeAPI()
+        report = lab.token_preflight(api)
+        self.assertTrue(report["observations_complete"])
+        self.assertEqual(set(report["current"]), set(lab.OBSERVATION_NAMES))
+        self.assertEqual(len(report["current"]), 18)
+        self.assertTrue(report["source_identity_gate"]["value"])
+        self.assertEqual(report["token_access"], 8)
+        self.assertTrue(report["cleanup"]["token_handles_closed"])
+        self.assertEqual(api.events[-1], ("close", 100))
+        self.assertIn(("current_token_query_only",), api.events)
+        for name in lab.FIXED_OBSERVATIONS:
+            self.assertTrue(report["current"][name]["native_query"]["native_success"])
+        for key in ("ordinary_user_acceptance", "stage0b_passed", "product_acceptance",
+                    "psec_acceptance", "restricted_caller_r0_passed", "derived_token_created",
+                    "process_created", "profile_created", "appcontainer_created", "acl_changed",
+                    "network_tested"):
+            self.assertIs(report[key], False)
+
+    def test_one_query_failure_does_not_hide_other_fields_and_retains_sizes(self):
+        api = PreflightFakeAPI(fail=21)
+        report = lab.token_preflight(api)
+        self.assertFalse(report["observations_complete"])
+        self.assertEqual(sum(record["ok"] for record in report["current"].values()), 17)
+        self.assertTrue(report["current"]["sandbox_inert"]["ok"])
+        self.assertTrue(report["current"]["restricted_sids"]["ok"])
+        self.assertTrue(report["current"]["logon_sids"]["ok"])
+        error = report["current"]["has_restrictions"]["error"]
+        self.assertEqual(error["operation"], "GetTokenInformation(TokenHasRestrictions)")
+        self.assertEqual((error["capacity"], error["expected_size"], error["returned_size"]), (4, 1, 0))
+        self.assertFalse(report["source_identity_gate"]["ok"])
+        self.assertTrue(report["cleanup"]["token_handles_closed"])
+
+    def test_runtime_and_preflight_use_same_strict_native_readers(self):
+        api = PreflightFakeAPI(fail=21)
+        with self.assertRaises(lab.FixedQueryFailure):
+            lab.restricted_identity(api, 100)
+        self.assertNotIn(("query", 15), api.events)
+        clean = PreflightFakeAPI()
+        self.assertEqual(lab.restricted_identity(clean, 100), source())
+
+    def test_preflight_redacts_raw_user_logon_and_authentication_identifiers(self):
+        report = lab.token_preflight(PreflightFakeAPI())
+        encoded = json.dumps(report)
+        self.assertNotIn(USER, encoded)
+        self.assertNotIn(LOGON, encoded)
+        self.assertNotIn(UNKNOWN, encoded)
+        self.assertNotIn("[123, 0]", encoded)
+        self.assertNotIn('"luid":', encoded)
+
+    def test_preflight_permission_gate_prevents_api_construction(self):
+        with mock.patch.object(lab, "RestrictedAPI", side_effect=AssertionError("native construction")):
+            with self.assertRaises(PermissionError):
+                lab.run_preflight(SimpleNamespace(disposable_ci=False, approved_security_test=False))
+
+    def test_preflight_cli_needs_no_actor_and_rejects_runtime_arguments(self):
+        arguments = ["--token-preflight", "--disposable-ci", "--approved-security-test",
+                     "--report", "fresh.json"]
+        with mock.patch.object(lab, "run_preflight", return_value=0) as preflight:
+            with mock.patch.object(lab, "run", side_effect=AssertionError("runtime")):
+                self.assertEqual(lab.main(arguments), 0)
+        self.assertIsNone(preflight.call_args.args[0].actor)
+        for extra in (["--actor", "actor.exe"], ["--work", "work"], ["--actor-sha256", "a" * 64]):
+            with mock.patch("sys.stderr", new_callable=io.StringIO), self.assertRaises(SystemExit):
+                lab.main(arguments + extra)
+
+    def test_preflight_report_must_be_fresh_inside_checkout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "ruleproxy").mkdir()
+            (root / "ruleproxy/windows_app_process.py").write_text("# fixture")
+            with mock.patch.object(lab, "ROOT", root):
+                path = root / "fresh.json"
+                self.assertEqual(lab.validate_preflight_report(path), path.resolve())
+                path.write_text("preserved")
+                with self.assertRaisesRegex(lab.GateFailure, "fresh_preflight_report_required"):
+                    lab.validate_preflight_report(path)
+                self.assertEqual(path.read_text(), "preserved")
+                with self.assertRaises(lab.GateFailure):
+                    lab.validate_preflight_report(root.parent / "outside.json")
 
 
 class LifecycleTests(unittest.TestCase):

@@ -233,3 +233,34 @@ native Job active-process count zero and closure of all owned handles. Parent
 security facts are re-read after the experiment; token bookkeeping IDs are
 not substituted for those facts. The expanded pure suite has 92 passing tests
 locally. This paragraph records preparation only, not Windows R0 execution.
+
+
+### First R0 attempt: source-token scalar contract mismatch
+
+Run [39369029584](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39369029584)
+at commit `03808cae03099f6371932932ff2da9c4052e92ff` compiled successfully and
+passed all 92 tests on Windows. Source identity collection rejected a returned
+scalar size before any reduced token or child was created. The original report
+records only `invalid_token_scalar_size`, not which class or returned size, so
+that artifact alone does not prove the failing class. All acquired handles
+closed; `parent_token_unchanged=false` means not established, not evidence of
+mutation. The exact report and artifact provenance are retained as R0 attempt1.
+
+A primary [Microsoft maintainer clarification](https://github.com/microsoft/win32metadata/discussions/2308)
+identifies a published-documentation mismatch specifically for class21,
+TokenHasRestrictions: the payload is BOOLEAN with DWORD pointer alignment,
+and a successful return length of one defines byte0 only. The published enum
+reference still describes DWORD. A dedicated class21 reader therefore uses
+aligned four-byte storage but requires exactly one returned byte; all other
+DWORD readers remain exact four-byte checks. This is a class-specific contract
+correction, not permission to accept arbitrary short output. Expanded bounded
+per-field diagnostics will retain exact native operation/class and expected
+versus returned sizes, without raw user identities, before another R0 launch.
+
+Class21 correction validation: 104 pure tests pass locally, including poisoned
+upper bytes and rejection of unexpected lengths/BOOLEAN values. The R0
+preflight now independently observes 18 fields using QUERY-only access,
+records bounded ABI diagnostics, and blocks restriction/launch if any read is
+incomplete. Runtime uses the same readers. Unmeasured parent-token equality is
+now null, with explicit reduced-token/process creation markers. Native results
+for this correction remain pending.

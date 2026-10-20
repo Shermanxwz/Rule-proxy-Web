@@ -55,6 +55,13 @@ jobs:
           $build = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
           python -I -S -B .github/windows_identity_ordinary_launcher.py --disposable-ci --approved-security-test --actor "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-sha256 $build.executableSha256 --work "$PWD\identity-ordinary-run" --report "$PWD\identity-ordinary-run\report.json"
           if ($LASTEXITCODE -ne 0) { throw 'Stage 0b did not pass; inspect bounded reports, no fallback is permitted.' }
+      - name: Read-only R0 source token field and ABI diagnostics
+        if: contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]')
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          python -I -S -B .github/windows_identity_restricted_launcher.py --disposable-ci --approved-security-test --token-preflight --report "$PWD\identity-restricted-r0-preflight.json"
+          if ($LASTEXITCODE -ne 0) { throw 'R0 source observations incomplete; no token restriction or native launch.' }
       - name: Restricted-caller R0 identity diagnostic, not ordinary-user acceptance
         if: contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]')
         timeout-minutes: 2
@@ -68,6 +75,7 @@ jobs:
         with:
           name: identity-restricted-r0-observations
           path: |
+            identity-restricted-r0-preflight.json
             identity-restricted-r0/report.json
             identity-restricted-r0/actor.json
           if-no-files-found: warn
