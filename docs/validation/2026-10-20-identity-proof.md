@@ -340,3 +340,30 @@ suite has 132 passing pure tests, including nested-private-field injection
 checks. Published projections are marked sanitized=true and byte_exact=false;
 the source digest identifies the original data, not a claim that the public
 projection is a byte-exact copy.
+
+
+Paired startup attempt 1 (commit `318c5380`, run `39371248897`): both
+MSVC variants compiled successfully. The dumpbin dependency-count guard stopped
+the build-metadata step before unit tests, token preflight or actor runtime.
+The original guard did not identify which of the three targets failed, so the
+record does not attribute the problem to a particular DLL or parser cause.
+Closed projections and exact-path artifact uploads completed successfully.
+
+The exact two build artifacts were downloaded and their archive digests
+verified, then inspected read-only with GNU objdump without executing them.
+Full imports ADVAPI32, WINHTTP and KERNEL32; IdentityOnly imports ADVAPI32 and
+KERNEL32. This independently establishes the intended build distinction, not
+startup or isolation success. `paired-attempt-01-summary.json` records the
+synthetic DLL basenames, artifact/binary hashes and explicit skipped runtime.
+The next metadata correction must collect bounded sanitized parser facts for
+all targets before rejecting, rather than guessing which dependency failed.
+
+The metadata-only diagnostic correction preserves the 64-DLL gate and collects
+all three dependency targets and both actor import tables before any decision.
+It emits a closed-schema parser fixture containing DLL basenames, generated
+section/line categories, bounded counts and exit statuses only, even on failure.
+A rejected metadata gate never creates the audit needed by runtime. Raw import
+text remains runner-local; only hashes are published. No token, actor or
+launch-policy code changes. The local suite now passes 147 pure tests, including
+15 bounded capture/parser/publication tests. This improves diagnosability; the
+original dumpbin failure cause remains unknown until native observations arrive.

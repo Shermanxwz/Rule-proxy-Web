@@ -11,6 +11,7 @@ on:
       - '.github/windows_identity_ordinary_launcher.py'
       - '.github/windows_identity_restricted_launcher.py'
       - '.github/windows_identity_paired_startup.py'
+      - '.github/windows_identity_dumpbin.py'
       - '.github/windows_identity_publication.py'
       - 'tests/test_windows_identity*.py'
       - '.github/workflows/windows-identity-proof.yml'
@@ -42,27 +43,10 @@ jobs:
           ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build" -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
           if ("${{ contains(github.event.head_commit.message, '[identity-startup-paired-runtime]') }}" -eq 'true') {
             ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build-minimal" -IdentityOnly -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
-            function Read-Dependencies([string]$Path) {
-              $lines = & dumpbin /nologo /dependents $Path 2>&1
-              if ($LASTEXITCODE -ne 0) { throw 'Installed dumpbin failed' }
-              $names = @($lines | ForEach-Object { if ($_ -match '^\s+([A-Za-z0-9_.-]+\.dll)\s*$') { $Matches[1].ToUpperInvariant() } } | Sort-Object -Unique)
-              if ($names.Count -eq 0 -or $names.Count -gt 64) { throw 'Unexpected dependency count' }
-              return $names
-            }
-            $fullDeps = @(Read-Dependencies "$PWD\identity-actor-build\windows_identity_actor.exe")
-            $minimalDeps = @(Read-Dependencies "$PWD\identity-actor-build-minimal\windows_identity_actor.exe")
-            $winhttpDeps = @(Read-Dependencies "$env:windir\System32\winhttp.dll")
-            if ($fullDeps -notcontains 'WINHTTP.DLL' -or $minimalDeps -contains 'WINHTTP.DLL') { throw 'HTTP variant import distinction not established' }
-            function Read-ImportTable([string]$Path) {
-              $lines = @(& dumpbin /nologo /imports $Path 2>&1)
-              if ($LASTEXITCODE -ne 0 -or $lines.Count -gt 2048) { throw 'Import inspection failed or exceeded bound' }
-              return @($lines | ForEach-Object { $line = $_.ToString().Trim(); if ($line -and $line -notmatch '^Dump of file ') { if ($line.Length -gt 512) { throw 'Import line too long' }; $line } })
-            }
-            $fullImports = @(Read-ImportTable "$PWD\identity-actor-build\windows_identity_actor.exe")
-            $minimalImports = @(Read-ImportTable "$PWD\identity-actor-build-minimal\windows_identity_actor.exe")
-            $audit = [ordered]@{ schema_version = 1; full = $fullDeps; identity_only = $minimalDeps; full_import_table = $fullImports; identity_only_import_table = $minimalImports; system_winhttp = $winhttpDeps; system_winhttp_file_version = (Get-Item "$env:windir\System32\winhttp.dll").VersionInfo.FileVersion }
-            $audit | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 identity-actor-build/dependency-audit.json
-
+            $dumpbin = (Get-Command dumpbin.exe -CommandType Application -ErrorAction Stop).Source
+            $systemVersion = (Get-Item "$env:windir\System32\winhttp.dll").VersionInfo.FileVersion
+            python -I -S -B .github/windows_identity_dumpbin.py --dumpbin $dumpbin --full "$PWD\identity-actor-build\windows_identity_actor.exe" --identity "$PWD\identity-actor-build-minimal\windows_identity_actor.exe" --system-winhttp "$env:windir\System32\winhttp.dll" --system-version $systemVersion --audit "$PWD\identity-actor-build\dependency-audit.json" --fixture "$PWD\identity-actor-build\dependency-parser-fixture.json"
+            if ($LASTEXITCODE -ne 0) { throw 'Dependency metadata gate failed; all sanitized parser observations retained. No runtime is permitted.' }
           }
       - name: Pure Python identity proof unit tests only
         run: python -B -m unittest discover -s tests -p "test_windows_identity*.py" -v
@@ -137,6 +121,7 @@ jobs:
             identity-restricted-r0-preflight.public.json
             identity-startup-paired/public-report.json
             identity-actor-build/dependency-audit-public.json
+            identity-actor-build/dependency-parser-fixture.json
             identity-actor-build-minimal/public-manifest.json
             identity-actor-build-minimal/windows_identity_actor.exe
           if-no-files-found: warn
