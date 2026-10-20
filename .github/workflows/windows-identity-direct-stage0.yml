@@ -1,0 +1,1006 @@
+name: Windows 26300.9457 direct Stage0 (exploratory below support floor)
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths:
+      - '.github/windows_identity_direct_stage0.py'
+      - '.github/windows_identity_stock_stage0.py'
+      - '.github/windows-identity-direct-stage0-*.ps1'
+      - '.github/windows_identity_provider_cache_recovery.py'
+      - '.github/workflows/windows-identity-direct-stage0.yml'
+      - 'tests/test_windows_client_direct_stage0.py'
+      - 'tests/test_windows_client_direct_guest.py'
+      - 'tests/test_windows_client_direct_workflow.py'
+      - '.github/test-windows-identity-direct-gates.ps1'
+      - 'tests/test_windows_provider_cache_recovery.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    # Keep the exact experimental branch and explicit runtime intent checks.
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]')) }}
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Parse only the new guest PowerShell entrypoints
+        shell: powershell
+        run: |
+          foreach ($name in @('stage0-setup', 'stage0-run')) {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/windows-identity-direct-$name.ps1"),[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw 'Stage0 guest syntax gate failed' }
+          }
+      - name: Execute mocked guest boundary regressions, not VM acceptance
+        shell: powershell
+        run: ./.github/test-windows-identity-direct-gates.ps1
+      - name: Compile the pinned zero-network native actor, never execute it here
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC not found' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_identity_actor.ps1 -IdentityOnly -OutputDirectory "$PWD\client-stage0-actor" -ExpectedSourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          $manifest=Get-Content -Raw client-stage0-actor/build-manifest.json | ConvertFrom-Json
+          if ($manifest.httpCompiled -or -not $manifest.staticCrt) { throw 'Zero-network static actor required' }
+          [IO.File]::WriteAllText("$PWD\client-stage0-actor/actor-sha256.txt",$manifest.executableSha256)
+      - name: Pure unit tests, not Windows runtime acceptance
+        run: |
+          python -B -m unittest discover -s tests -p "test_windows_client_stock_stage0.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($file in @('test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_workflow.py')) {
+            if (-not (Test-Path -LiteralPath (Join-Path 'tests' $file) -PathType Leaf)) { throw 'Required direct tests missing' }
+          }
+          python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_direct*.py'); assert s.countTestCases() >= 7, 'Direct test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: client-stage0-actor
+          path: |
+            client-stage0-actor/windows_identity_actor.exe
+            client-stage0-actor/actor-sha256.txt
+          retention-days: 7
+          if-no-files-found: error
+  host-unit:
+    # Pure Linux host tests are separate: native recovery still starts fresh.
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Required Linux host and closed protocol unit tests, never a VM
+        run: |
+          test -f tests/test_windows_client_direct_stage0.py
+          test -f tests/test_windows_client_direct_guest.py
+          test -f tests/test_windows_client_direct_workflow.py
+          python3 -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_direct*.py'); assert s.countTestCases() >= 7, 'Direct test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful() or bool(r.skipped))"
+          python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
+          python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
+  native:
+    if: ${{ false && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') }}
+    needs: [compile, host-unit]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Establish absolute native job deadline
+        timeout-minutes: 1
+        run: echo "STOCK_JOB_DEADLINE=$(( $(date +%s) + 6900 ))" >> "$GITHUB_ENV"
+      - name: Remaining absolute budget for step 0
+        id: stock_budget_0
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 46 ]; then minutes=46; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Frozen pre-checkout recovery gate (explicit bounded execution)
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_0.outputs.minutes) }}
+        run: |
+          sudo /usr/bin/python3 -c 'import os,fcntl; fd=os.open("/dev/kvm",os.O_RDWR|os.O_CLOEXEC); v=fcntl.ioctl(fd,0xAE00,0); os.close(fd); assert v==12'
+          mkdir -p "$RUNNER_TEMP/identity-stock-recovery"
+          cat > "$RUNNER_TEMP/identity-stock-recovery/reviewed.py" <<'REVIEWED_RECOVERY'
+          """Narrow, fail-closed provider-cache recovery with fixed reviewed images.
+          
+          Only the three fixed provider trees below are eligible. The default is read-only.
+          Execution must be enabled in the reviewed source, with a reviewed fixed free-space
+          goal, and explicitly requested in a fresh standard GitHub job before checkout or
+          any untrusted step. Image provenance and workflow assertions are not a proof that
+          the current files are provider content.
+          
+          This is not an adversarial-concurrency sandbox: Linux unlinkat/rmdir have no
+          compare-and-delete-by-inode operation. Descriptors, no-follow opens, full snapshots,
+          and immediate binding/mount revalidation reject observed replacements, but cannot
+          eliminate the final syscall race with any concurrent untrusted writer. The
+          measured provider defaults include 0777 directories: an unprivileged process can
+          also replace their entries. Execution is forbidden in a reused job or alongside
+          ANY concurrent untrusted writer, privileged or unprivileged.
+          No chmod, mounts, broad cleanup, content reads, or symlink-target reads are used.
+          """
+          from __future__ import annotations
+          
+          import argparse
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import stat
+          import sys
+          import time
+          
+          # Exact reviewed image versions only. No discovery, pattern, "latest", or
+          # environment-supplied extension of this map is permitted.
+          REVIEWED_IMAGES = {
+              '20261012.334.1': (
+                  'ubuntu24/20261012.334', '7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe'),
+              '20261018.339.1': (
+                  'ubuntu24/20261018.339', 'b4067e48bd9bd803e958bfe1503ea0a06a3a127f'),
+          }
+          # The three relevant installers are byte-identical between these definitions.
+          # This provenance comparison is not evidence of the running trees' contents.
+          PRIOR_IDENTICAL_INSTALL_SCRIPTS_SOURCE = '7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe'
+          TARGETS = {
+              'android_sdk': '/usr/local/lib/android/sdk',
+              'dotnet_sdk': '/usr/share/dotnet',
+              'swift_toolchain': '/usr/share/swift',
+          }
+          # Exact metadata observed by read-only run 39380768721 on 20261018.339.1.
+          # Ownership remains UID 0/GID 0 for every role. These modes are an eligibility
+          # policy, not proof of provider content, and are checked again on every binding.
+          ANCESTOR_MODES = {
+              'android_sdk': {
+                  '/': 0o755, '/usr': 0o755, '/usr/local': 0o755,
+                  '/usr/local/lib': 0o755, '/usr/local/lib/android': 0o755,
+              },
+              'dotnet_sdk': {'/': 0o755, '/usr': 0o755, '/usr/share': 0o777},
+              'swift_toolchain': {'/': 0o755, '/usr': 0o755, '/usr/share': 0o777},
+          }
+          DESCENDANT_MODES = {
+              'android_sdk': {
+                  stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o644, 0o777}),
+                  stat.S_IFLNK: frozenset({0o777}),
+              },
+              'dotnet_sdk': {
+                  stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o777}),
+              },
+              'swift_toolchain': {
+                  stat.S_IFDIR: frozenset({0o777}), stat.S_IFREG: frozenset({0o777}),
+                  stat.S_IFLNK: frozenset({0o777}),
+              },
+          }
+          # No command-line/environment overrides. The additional 512 MiB is a proposed
+          # preparation allowance requiring separate resource review before any retry.
+          # The existing enabled flag is preserved; code eligibility is not authorization.
+          EXECUTION_ENABLED = True
+          REVIEWED_FREE_TARGET_BYTES = 32 * 1024**3 + 512 * 1024**2
+          MAX_ENTRIES = 500000
+          MAX_DEPTH = 128
+          # A bounded 45-minute recovery slice, not a throughput guarantee. The workflow
+          # must still enforce its unchanged overall deadline and cleanup reserve.
+          MAX_SECONDS = 2700
+          GIB = 1024**3
+          STOP_REASONS = frozenset({
+              'execution_not_reviewed', 'free_target_not_reviewed', 'not_fresh_hosted_job',
+              'workspace_not_empty', 'workspace_unavailable', 'image_not_reviewed',
+              'root_privilege_required', 'linux_required', 'unknown_ownership',
+              'unexpected_mode', 'root_or_ancestor_symlink', 'mount_boundary',
+              'mount_metadata_invalid', 'mount_metadata_bound', 'mount_identity_unavailable',
+              'entry_changed', 'ancestor_changed', 'directory_changed', 'special_entry',
+              'multiply_linked_file', 'entry_bound', 'depth_bound', 'time_bound',
+              'filesystem_error', 'cleanup_failed', 'goal_not_reached', 'invalid_target',
+              'insufficient_capacity_upper_bound',
+          })
+          
+          
+          class RecoveryStopped(Exception):
+              def __init__(self, reason):
+                  if reason not in STOP_REASONS:
+                      raise ValueError('unknown closed stop reason')
+                  self.reason = reason
+                  super().__init__(reason)
+          
+          
+          def _errno(exc):
+              number = getattr(exc, 'errno', None)
+              return number if type(number) is int and 0 <= number <= 65535 else None
+          
+          
+          def _budget(deadline):
+              if time.monotonic() >= deadline:
+                  raise RecoveryStopped('time_bound')
+          
+          
+          def mount_points():
+              """Kernel metadata only; names and sources never enter public results."""
+              with open('/proc/self/mountinfo', encoding='ascii') as stream:
+                  data = stream.read(1024 * 1024 + 1)
+              if len(data) > 1024 * 1024:
+                  raise RecoveryStopped('mount_metadata_bound')
+              points = set()
+              for line in data.splitlines():
+                  fields = line.split()
+                  if len(fields) < 10 or '-' not in fields[6:]:
+                      raise RecoveryStopped('mount_metadata_invalid')
+                  points.add(re.sub(r'\\([0-7]{3})', lambda m: chr(int(m[1], 8)), fields[4]))
+              if not points:
+                  raise RecoveryStopped('mount_metadata_invalid')
+              return points
+          
+          
+          def mount_id(descriptor):
+              with open('/proc/self/fdinfo/' + str(descriptor), encoding='ascii') as stream:
+                  data = stream.read(4097)
+              values = re.findall(r'^mnt_id:\s*([0-9]+)$', data, flags=re.MULTILINE)
+              if len(data) > 4096 or len(values) != 1:
+                  raise RecoveryStopped('mount_identity_unavailable')
+              return int(values[0])
+          
+          
+          def _identity(info):
+              return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid)
+          
+          
+          def _fingerprint(info):
+              return _identity(info) + (
+                  info.st_nlink, info.st_size, info.st_blocks, info.st_mtime_ns, info.st_ctime_ns)
+          
+          
+          def _metadata(info, *, label, role, ancestor=None):
+              if label not in TARGETS:
+                  raise RecoveryStopped('invalid_target')
+              if info.st_uid != 0 or info.st_gid != 0:
+                  raise RecoveryStopped('unknown_ownership')
+              if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)
+                      or stat.S_ISLNK(info.st_mode)):
+                  raise RecoveryStopped('special_entry')
+              if stat.S_ISREG(info.st_mode) and info.st_nlink != 1:
+                  raise RecoveryStopped('multiply_linked_file')
+              kind, mode = stat.S_IFMT(info.st_mode), stat.S_IMODE(info.st_mode)
+              # S_IMODE includes setuid, setgid and sticky bits. None is silently masked
+              # away: a special bit or any unmeasured mode fails these exact comparisons.
+              if role == 'ancestor':
+                  allowed = (kind == stat.S_IFDIR
+                             and mode == ANCESTOR_MODES[label].get(ancestor))
+              elif role == 'root':
+                  allowed = kind == stat.S_IFDIR and mode == 0o777
+              elif role == 'descendant':
+                  allowed = mode in DESCENDANT_MODES[label].get(kind, ())
+              else:
+                  raise RecoveryStopped('invalid_target')
+              if not allowed:
+                  raise RecoveryStopped('unexpected_mode')
+          
+          
+          def _directory_open(name, parent=None):
+              return os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                             dir_fd=parent)
+          
+          
+          def _entry_open(name, parent):
+              # O_PATH opens the link itself with O_NOFOLLOW, never its content or target.
+              return os.open(name, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+          
+          
+          def _bound_entry(parent, name, expected, root_mount, root_device, *, label, role='descendant'):
+              """Return an owned O_PATH fd after checking a single no-follow binding."""
+              before = os.stat(name, dir_fd=parent, follow_symlinks=False)
+              _metadata(before, label=label, role=role)
+              if _fingerprint(before) != expected:
+                  raise RecoveryStopped('entry_changed')
+              descriptor = _entry_open(name, parent)
+              try:
+                  current = os.fstat(descriptor)
+                  _metadata(current, label=label, role=role)
+                  if mount_id(descriptor) != root_mount or current.st_dev != root_device:
+                      raise RecoveryStopped('mount_boundary')
+                  if _fingerprint(current) != expected:
+                      raise RecoveryStopped('entry_changed')
+                  after = os.stat(name, dir_fd=parent, follow_symlinks=False)
+                  if _fingerprint(after) != expected:
+                      raise RecoveryStopped('entry_changed')
+                  return descriptor
+              except BaseException:
+                  os.close(descriptor)
+                  raise
+          
+          
+          def _open_anchors(path, expected=None, *, label):
+              """Open from / component-by-component, checking every ancestor binding."""
+              target = TARGETS.get(label)
+              if (target is None or path not in (target, str(Path(target).parent))
+                      or not path.startswith('/') or str(Path(path)) != path):
+                  raise RecoveryStopped('invalid_target')
+              descriptor = _directory_open('/')
+              observations = []
+              try:
+                  root = os.fstat(descriptor)
+                  _metadata(root, label=label, role='ancestor', ancestor='/')
+                  root_mount = mount_id(descriptor)
+                  observations.append((_identity(root), root_mount))
+                  current_path = '/'
+                  for part in Path(path).parts[1:]:
+                      current_path = str(Path(current_path) / part)
+                      role = 'root' if current_path == target else 'ancestor'
+                      before = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
+                      if stat.S_ISLNK(before.st_mode):
+                          raise RecoveryStopped('root_or_ancestor_symlink')
+                      _metadata(before, label=label, role=role, ancestor=current_path)
+                      child = _directory_open(part, descriptor)
+                      try:
+                          current = os.fstat(child)
+                          _metadata(current, label=label, role=role, ancestor=current_path)
+                          current_mount = mount_id(child)
+                          if current_mount != root_mount or current.st_dev != root.st_dev:
+                              raise RecoveryStopped('mount_boundary')
+                          if _identity(current) != _identity(before):
+                              raise RecoveryStopped('ancestor_changed')
+                          after = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
+                          if _identity(after) != _identity(current):
+                              raise RecoveryStopped('ancestor_changed')
+                          observations.append((_identity(current), current_mount))
+                      except BaseException:
+                          os.close(child)
+                          raise
+                      os.close(descriptor)
+                      descriptor = child
+                  if expected is not None and observations != expected:
+                      raise RecoveryStopped('ancestor_changed')
+                  return descriptor, observations
+              except BaseException:
+                  os.close(descriptor)
+                  raise
+          
+          
+          class TreeSnapshot:
+              """Internal snapshot. Its path/name/device/inode data must not be published."""
+              def __init__(self, label, deadline):
+                  if label not in TARGETS:
+                      raise RecoveryStopped('invalid_target')
+                  self.label = label
+                  self.path = TARGETS[label]
+                  self.deadline = deadline
+                  self.root = None
+                  self.anchors = None
+                  self.records = {}
+                  self.children = {}
+                  self.allocated = 0
+                  self.symlinks = 0
+                  self.removed = 0
+                  self.attempted_removals = 0
+                  self.cleanup_outcome_uncertain = False
+                  self.root_removed = False
+          
+              def close(self):
+                  if self.root is not None:
+                      os.close(self.root)
+                      self.root = None
+          
+              def _mount_list_check(self):
+                  if any(p == self.path or p.startswith(self.path + '/') for p in mount_points()):
+                      raise RecoveryStopped('mount_boundary')
+          
+              def _add(self, relative, info):
+                  _budget(self.deadline)
+                  _metadata(info, label=self.label, role='descendant' if relative else 'root')
+                  if info.st_dev != self.device:
+                      raise RecoveryStopped('mount_boundary')
+                  if len(relative) > MAX_DEPTH:
+                      raise RecoveryStopped('depth_bound')
+                  if len(self.records) >= MAX_ENTRIES:
+                      raise RecoveryStopped('entry_bound')
+                  self.records[relative] = _fingerprint(info)
+                  self.allocated += info.st_blocks * 512
+                  if stat.S_ISLNK(info.st_mode):
+                      self.symlinks += 1
+          
+              def _scan(self, descriptor, relative):
+                  before = os.fstat(descriptor)
+                  names = []
+                  with os.scandir(descriptor) as entries:
+                      for entry in entries:
+                          _budget(self.deadline)
+                          name = entry.name
+                          # scandir excludes these; explicitly preserve the dir_fd contract.
+                          if name in ('', '.', '..') or '/' in name or '\0' in name:
+                              raise RecoveryStopped('invalid_target')
+                          child_relative = relative + (name,)
+                          info = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+                          self._add(child_relative, info)
+                          pinned = _bound_entry(descriptor, name, self.records[child_relative],
+                                                self.mount, self.device, label=self.label)
+                          try:
+                              if stat.S_ISDIR(info.st_mode):
+                                  child = _directory_open(name, descriptor)
+                                  try:
+                                      if (_fingerprint(os.fstat(child)) != self.records[child_relative]
+                                              or mount_id(child) != self.mount):
+                                          raise RecoveryStopped('entry_changed')
+                                      self._scan(child, child_relative)
+                                  finally:
+                                      os.close(child)
+                          finally:
+                              os.close(pinned)
+                          names.append(name)
+                  if _fingerprint(os.fstat(descriptor)) != _fingerprint(before):
+                      raise RecoveryStopped('directory_changed')
+                  # The remaining-name set changes only after a successful owned removal.
+                  # Full verification still enumerates and compares the entire directory.
+                  self.children[relative] = set(names)
+          
+              def capture(self):
+                  self._mount_list_check()
+                  self.root, self.anchors = _open_anchors(self.path, label=self.label)
+                  info = os.fstat(self.root)
+                  self.device = info.st_dev
+                  self.mount = mount_id(self.root)
+                  self._add((), info)
+                  self._scan(self.root, ())
+                  self.verify()
+                  return self
+          
+              def _verify_root(self):
+                  _budget(self.deadline)
+                  current, _ = _open_anchors(self.path, self.anchors, label=self.label)
+                  try:
+                      if _fingerprint(os.fstat(current)) != self.records[()]:
+                          raise RecoveryStopped('entry_changed')
+                      if _fingerprint(os.fstat(self.root)) != self.records[()]:
+                          raise RecoveryStopped('entry_changed')
+                  finally:
+                      os.close(current)
+          
+              def _verify_directory(self, descriptor, relative):
+                  _budget(self.deadline)
+                  current = os.fstat(descriptor)
+                  _metadata(current, label=self.label, role='descendant' if relative else 'root')
+                  if mount_id(descriptor) != self.mount or current.st_dev != self.device:
+                      raise RecoveryStopped('mount_boundary')
+                  if _fingerprint(current) != self.records[relative]:
+                      raise RecoveryStopped('directory_changed')
+          
+              def _verify_walk(self, descriptor, relative):
+                  self._verify_directory(descriptor, relative)
+                  names = []
+                  with os.scandir(descriptor) as entries:
+                      for entry in entries:
+                          _budget(self.deadline)
+                          names.append(entry.name)
+                          if len(names) > len(self.children[relative]):
+                              raise RecoveryStopped('directory_changed')
+                  names = tuple(sorted(names))
+                  if set(names) != self.children[relative]:
+                      raise RecoveryStopped('directory_changed')
+                  for name in names:
+                      child_relative = relative + (name,)
+                      pinned = _bound_entry(descriptor, name, self.records[child_relative],
+                                            self.mount, self.device, label=self.label)
+                      try:
+                          if stat.S_ISDIR(self.records[child_relative][2]):
+                              child = _directory_open(name, descriptor)
+                              try:
+                                  self._verify_walk(child, child_relative)
+                              finally:
+                                  os.close(child)
+                      finally:
+                          os.close(pinned)
+                  self._verify_directory(descriptor, relative)
+          
+              def verify(self):
+                  self._mount_list_check()
+                  self._verify_root()
+                  self._verify_walk(self.root, ())
+                  self._verify_root()
+          
+              def _verify_chain(self, chain):
+                  """Reopen and compare every current binding, including same-device mounts."""
+                  self._verify_root()
+                  for parent, relative, child in chain:
+                      self._verify_directory(parent, relative[:-1])
+                      pinned = _bound_entry(parent, relative[-1], self.records[relative],
+                                            self.mount, self.device, label=self.label)
+                      try:
+                          if _fingerprint(os.fstat(child)) != self.records[relative]:
+                              raise RecoveryStopped('entry_changed')
+                          if mount_id(child) != self.mount:
+                              raise RecoveryStopped('mount_boundary')
+                      finally:
+                          os.close(pinned)
+          
+              def _remove_entry(self, parent, relative, chain, directory=False):
+                  self._verify_chain(chain)
+                  self._verify_directory(parent, relative[:-1])
+                  pinned = _bound_entry(parent, relative[-1], self.records[relative],
+                                        self.mount, self.device, label=self.label)
+                  try:
+                      # Last checks immediately precede unlinkat/rmdir. See module-level
+                      # limitation: these syscalls cannot atomically compare the inode.
+                      self._verify_chain(chain)
+                      if _fingerprint(os.stat(relative[-1], dir_fd=parent, follow_symlinks=False)) != self.records[relative]:
+                          raise RecoveryStopped('entry_changed')
+                      self.attempted_removals += 1
+                      try:
+                          if directory:
+                              os.rmdir(relative[-1], dir_fd=parent)
+                          else:
+                              os.unlink(relative[-1], dir_fd=parent)
+                      except OSError as exc:
+                          self.cleanup_outcome_uncertain = True
+                          raise CleanupFailed(exc) from None
+                      self.removed += 1
+                      self.records[relative[:-1]] = _fingerprint(os.fstat(parent))
+                      self.children[relative[:-1]].remove(relative[-1])
+                  finally:
+                      os.close(pinned)
+          
+              def _remove_walk(self, descriptor, relative, chain, goal_reached):
+                  # Snapshot deterministic order once per directory. Do not rebuild the
+                  # remaining sibling collection for every unlink (quadratic in fan-out).
+                  for name in sorted(self.children[relative]):
+                      if goal_reached():
+                          return True
+                      child_relative = relative + (name,)
+                      self._verify_chain(chain)
+                      self._verify_directory(descriptor, relative)
+                      pinned = _bound_entry(descriptor, name, self.records[child_relative],
+                                            self.mount, self.device, label=self.label)
+                      is_directory = stat.S_ISDIR(self.records[child_relative][2])
+                      try:
+                          if is_directory:
+                              child = _directory_open(name, descriptor)
+                              try:
+                                  if self._remove_walk(child, child_relative,
+                                                       chain + [(descriptor, child_relative, child)],
+                                                       goal_reached):
+                                      return True
+                              finally:
+                                  os.close(child)
+                      finally:
+                          os.close(pinned)
+                      if goal_reached():
+                          return True
+                      self._remove_entry(descriptor, child_relative, chain, is_directory)
+                  return goal_reached()
+          
+              def remove_until(self, goal_reached):
+                  """Private deletion primitive; caller must pass all execution gates first."""
+                  self.verify()
+                  if self._remove_walk(self.root, (), [], goal_reached):
+                      return True
+                  if goal_reached():
+                      return True
+                  self._verify_root()
+                  # Remove only the now-empty exact allowlisted root, relative to its
+                  # separately revalidated parent. Never resolve a symlink path.
+                  parent_path = str(Path(self.path).parent)
+                  parent, _ = _open_anchors(parent_path, self.anchors[:-1], label=self.label)
+                  try:
+                      self._verify_root()
+                      pinned = _bound_entry(parent, Path(self.path).name, self.records[()],
+                                            self.mount, self.device, label=self.label, role='root')
+                      try:
+                          self.attempted_removals += 1
+                          try:
+                              os.rmdir(Path(self.path).name, dir_fd=parent)
+                          except OSError as exc:
+                              self.cleanup_outcome_uncertain = True
+                              raise CleanupFailed(exc) from None
+                          self.removed += 1
+                          self.root_removed = True
+                      finally:
+                          os.close(pinned)
+                  finally:
+                      os.close(parent)
+                  return goal_reached()
+          
+          
+          class CleanupFailed(RecoveryStopped):
+              def __init__(self, cause):
+                  super().__init__('cleanup_failed')
+                  self.errno = _errno(cause)
+          
+          
+          def _free_bytes(descriptor):
+              value = os.fstatvfs(descriptor)
+              return int(value.f_bavail) * int(value.f_frsize)
+          
+          
+          def _reviewed_image():
+              if os.environ.get('ImageOS') != 'ubuntu24':
+                  return None
+              version = os.environ.get('ImageVersion')
+              provenance = REVIEWED_IMAGES.get(version)
+              return (version, *provenance) if provenance is not None else None
+          
+          
+          def _execution_gate(fresh_job_before_checkout):
+              if not EXECUTION_ENABLED:
+                  raise RecoveryStopped('execution_not_reviewed')
+              # No user-controlled broad target. A separately reviewed frozen source
+              # selects one exact threshold; bounds protect an accidental source edit.
+              if (type(REVIEWED_FREE_TARGET_BYTES) is not int
+                      or not 24 * GIB <= REVIEWED_FREE_TARGET_BYTES <= 40 * GIB):
+                  raise RecoveryStopped('free_target_not_reviewed')
+              if sys.platform != 'linux' or not hasattr(os, 'O_PATH'):
+                  raise RecoveryStopped('linux_required')
+              if os.geteuid() != 0:
+                  raise RecoveryStopped('root_privilege_required')
+              expected = {'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'github-hosted',
+                          'RUNNER_OS': 'Linux', 'RUNNER_ARCH': 'X64'}
+              if not fresh_job_before_checkout or any(os.environ.get(k) != v for k, v in expected.items()):
+                  raise RecoveryStopped('not_fresh_hosted_job')
+              if _reviewed_image() is None:
+                  raise RecoveryStopped('image_not_reviewed')
+              workspace = os.environ.get('GITHUB_WORKSPACE')
+              if not workspace or not os.path.isabs(workspace):
+                  raise RecoveryStopped('workspace_unavailable')
+              descriptor = None
+              try:
+                  # This examines directory-entry presence only, not contents or names.
+                  # The workflow must additionally prove this is its first run step.
+                  descriptor = _directory_open(workspace)
+                  with os.scandir(descriptor) as entries:
+                      if next(entries, None) is not None:
+                          raise RecoveryStopped('workspace_not_empty')
+              except OSError:
+                  raise RecoveryStopped('workspace_unavailable') from None
+              finally:
+                  if descriptor is not None:
+                      os.close(descriptor)
+          
+          
+          def collect(*, execute=False, fresh_job_before_checkout=False):
+              """Closed public projection. Never return paths, entry names, or exceptions."""
+              image = _reviewed_image()
+              report = {
+                  'schema_version': 1, 'stage': 'reviewed-provider-cache-recovery',
+                  'status': 'blocked', 'read_only': not execute, 'execution_requested': bool(execute),
+                  'execution_enabled_in_source': EXECUTION_ENABLED,
+                  'image_definition_commit': image[2] if image is not None else None,
+                  'reviewed_image_release_tag': image[1] if image is not None else None,
+                  'reviewed_image_version': image[0] if image is not None else None,
+                  'prior_identical_install_scripts_commit': PRIOR_IDENTICAL_INSTALL_SCRIPTS_SOURCE,
+                  'reviewed_image_version_matches': image is not None,
+                  'source_provenance_is_content_proof': False,
+                  'atomic_snapshot': False, 'concurrent_privileged_mutation_safe': False,
+                  'concurrent_untrusted_mutation_safe': False,
+                  'minimum_free_bytes': REVIEWED_FREE_TARGET_BYTES,
+                  'free_bytes_before': None, 'free_bytes_after': None,
+                  'free_bytes_after_snapshot': None, 'capacity_upper_bound_sufficient': None,
+                  'goal_reached': False, 'removed_entries': 0, 'host_changes': False,
+                  'attempted_removals': 0, 'cleanup_outcome_uncertain': False,
+                  'vm_created': False, 'targets': {},
+              }
+              trees = []
+              filesystem = None
+              try:
+                  if execute:
+                      _execution_gate(fresh_job_before_checkout)
+                  if sys.platform != 'linux' or not hasattr(os, 'O_PATH'):
+                      raise RecoveryStopped('linux_required')
+                  deadline = time.monotonic() + MAX_SECONDS
+                  # Measure the root filesystem, and require every eligible target and all
+                  # ancestors to share its dev AND kernel mount ID.
+                  filesystem = _directory_open('/')
+                  report['free_bytes_before'] = _free_bytes(filesystem)
+                  if (execute and report['free_bytes_before'] >= REVIEWED_FREE_TARGET_BYTES):
+                      report.update(status='goal_already_met', goal_reached=True)
+                  else:
+                      # Complete ALL selected snapshots before the first possible deletion.
+                      for label in TARGETS:
+                          tree = TreeSnapshot(label, deadline)
+                          trees.append(tree)
+                          tree.capture()
+                          report['targets'][label] = {
+                              'snapshot_complete': True, 'entries': len(tree.records),
+                              'snapshot_max_relative_depth': max(map(len, tree.records), default=0),
+                              'snapshot_sum_relative_depth': sum(map(len, tree.records)),
+                              'allocated_bytes_upper_bound': tree.allocated,
+                              'symlink_count': tree.symlinks, 'removed_entries': 0,
+                              'root_removed': False,
+                          }
+                      # A second whole-set check catches changes while later trees scanned.
+                      for tree in trees:
+                          tree.verify()
+                      report['free_bytes_after_snapshot'] = _free_bytes(filesystem)
+                      report['capacity_upper_bound_sufficient'] = (
+                          report['free_bytes_after_snapshot'] + sum(tree.allocated for tree in trees)
+                          >= REVIEWED_FREE_TARGET_BYTES)
+                      if execute:
+                          # This is a necessary upper-bound test, not a guarantee of
+                          # reclaim: open handles, allocation changes, and other consumers
+                          # can reduce actual recovery. Do not delete if even this fails.
+                          if not report['capacity_upper_bound_sufficient']:
+                              raise RecoveryStopped('insufficient_capacity_upper_bound')
+                          def goal_reached():
+                              _budget(deadline)
+                              return _free_bytes(filesystem) >= REVIEWED_FREE_TARGET_BYTES
+                          for tree in trees:
+                              if goal_reached():
+                                  break
+                              tree.remove_until(goal_reached)
+                          report['goal_reached'] = goal_reached()
+                          if not report['goal_reached']:
+                              raise RecoveryStopped('goal_not_reached')
+                          report['status'] = 'goal_met'
+                      else:
+                          report['status'] = 'snapshots_validated_read_only'
+              except RecoveryStopped as exc:
+                  report['stop_reason'] = exc.reason
+                  if isinstance(exc, CleanupFailed):
+                      report['error_errno'] = exc.errno
+              except OSError as exc:
+                  report['stop_reason'] = 'filesystem_error'
+                  report['error_errno'] = _errno(exc)
+              except RecursionError:
+                  report['stop_reason'] = 'depth_bound'
+              finally:
+                  for tree in trees:
+                      report['removed_entries'] += tree.removed
+                      report['attempted_removals'] += tree.attempted_removals
+                      report['cleanup_outcome_uncertain'] |= tree.cleanup_outcome_uncertain
+                      if tree.label in report['targets']:
+                          report['targets'][tree.label].update(
+                              removed_entries=tree.removed, root_removed=tree.root_removed)
+                      tree.close()
+                  report['host_changes'] = (True if report['removed_entries'] > 0 else
+                                            None if report['cleanup_outcome_uncertain'] else False)
+                  if filesystem is not None:
+                      try:
+                          report['free_bytes_after'] = _free_bytes(filesystem)
+                          if (report['status'] in ('goal_met', 'goal_already_met')
+                                  and report['free_bytes_after'] < REVIEWED_FREE_TARGET_BYTES):
+                              report['status'] = 'blocked'
+                              report['stop_reason'] = 'goal_not_reached'
+                              report['goal_reached'] = False
+                      except OSError as exc:
+                          report['status'] = 'blocked'
+                          report['goal_reached'] = False
+                          report['stop_reason'] = 'filesystem_error'
+                          report['error_errno'] = _errno(exc)
+                      finally:
+                          os.close(filesystem)
+              return report
+          
+          
+          def main(argv=None):
+              parser = argparse.ArgumentParser(description=__doc__)
+              parser.add_argument('--execute-reviewed-recovery', action='store_true')
+              parser.add_argument('--fresh-job-before-checkout', action='store_true')
+              args = parser.parse_args(argv)
+              # Stdout is the only output destination. The reviewed workflow captures it;
+              # the helper never creates report directories or follows output symlinks.
+              result = collect(execute=args.execute_reviewed_recovery,
+                               fresh_job_before_checkout=args.fresh_job_before_checkout)
+              print(json.dumps(result, sort_keys=True, separators=(',', ':')))
+              return 0 if result['status'] != 'blocked' else 1
+          
+          
+          if __name__ == '__main__':
+              raise SystemExit(main())
+          REVIEWED_RECOVERY
+          test "$(sha256sum "$RUNNER_TEMP/identity-stock-recovery/reviewed.py" | cut -d' ' -f1)" = '15372acf38c5f619766d95f71b1720757771e86bffd47a2d68fe1b51f6328cc8'
+          sudo --preserve-env=ImageOS,ImageVersion,GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS,RUNNER_ARCH,GITHUB_WORKSPACE,RUNNER_TEMP /usr/bin/python3 -B "$RUNNER_TEMP/identity-stock-recovery/reviewed.py" --execute-reviewed-recovery --fresh-job-before-checkout > "$RUNNER_TEMP/identity-stock-recovery/public.json"
+      - name: Observe preparation baseline on the same filesystem before checkout
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B - <<'PY'
+          import json, os, shutil, sys
+          from pathlib import Path
+          workspace=Path(os.environ['GITHUB_WORKSPACE'])
+          output=Path(os.environ['RUNNER_TEMP'])/'identity-stock-recovery/preparation-public.json'
+          device=workspace.stat().st_dev
+          same=device==output.parent.stat().st_dev
+          free=shutil.disk_usage(workspace).free
+          allowance=512*1024**2; floor=32*1024**3
+          okay=same and sys.version_info[:2]==(3,12) and free>=floor+allowance
+          report={'schema_version':1,'allowance_bytes':allowance,'minimum_free_bytes':floor,
+                  'baseline_free_bytes':free,'same_filesystem':same,
+                  'status':'observed_within_allowance' if okay else 'blocked',
+                  'peak_measured':False,'provider_background_writes_excluded':False,
+                  'samples':[{'phase':'before_checkout','free_bytes':free,'net_decline_bytes':0}]}
+          output.write_text(json.dumps(report,sort_keys=True)+'\n',encoding='ascii')
+          if not okay: raise SystemExit('Preparation baseline unavailable; no checkout or package installation')
+          with open(os.environ['GITHUB_ENV'],'a',encoding='ascii') as environment:
+              environment.write('STOCK_PREP_DEVICE_ID='+str(device)+'\n')
+          PY
+      - name: Remaining absolute budget for step 1
+        id: stock_budget_1
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_1.outputs.minutes) }}
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Remaining absolute budget for step 2
+        id: stock_budget_2
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Check preinstalled system Python and observed checkout consumption
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_2.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_checkout \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+      - name: Remaining absolute budget for step 3
+        id: stock_budget_3
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Install only the existing disposable VM tools
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_3.outputs.minutes) }}
+        run: |
+          sudo apt-get update
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_apt_indexes \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-apt-plan \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          sudo apt-get install -y --no-install-recommends --no-remove qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_apt \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+      - name: Remaining absolute budget for step 4
+        id: stock_budget_4
+        timeout-minutes: 1
+        run: |
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_4.outputs.minutes) }}
+        with:
+          name: client-stage0-actor
+          path: client-stage0-actor
+      - name: Remaining absolute budget for step 5
+        id: stock_budget_5
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_actor \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_5.outputs.minutes) }}
+        with:
+          artifact-ids: 11938733475
+          run-id: 38660663692
+          github-token: ${{ github.token }}
+          repository: Shermanxwz/Rule-proxy-Web
+          path: g-source-download
+          skip-decompress: true
+          digest-mismatch: error
+      - name: Remaining absolute budget for step 6
+        id: stock_budget_6
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_g_download \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Verify the fixed artifact wrapper and deterministic G runtime
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_6.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B - <<'PY'
+          import hashlib, stat, zipfile
+          from pathlib import Path, PurePosixPath
+          import install_runtime
+          files=[p for p in Path('g-source-download').iterdir() if p.is_file()]
+          if len(files)!=1 or files[0].is_symlink() or files[0].stat().st_size!=2059230 or hashlib.sha256(files[0].read_bytes()).hexdigest()!='8a771727002d5f6f03ff00f5e26f99340fbbd17383dc7405ba99f7dd3388f036':
+              raise SystemExit('Fixed G artifact wrapper mismatch')
+          needed={'build-manifest.json','wxc-exec.exe','MXC-LICENSE.md'}
+          source=Path('g-source'); source.mkdir()
+          with zipfile.ZipFile(files[0]) as z:
+              if len(z.infolist())!=3 or sum(i.file_size for i in z.infolist())!=5682058:
+                  raise SystemExit('Fixed G archive expansion mismatch')
+              selected={}
+              for item in z.infolist():
+                  p=PurePosixPath(item.filename)
+                  if p.is_absolute() or '..' in p.parts or ':' in item.filename or '\\' in item.filename or stat.S_ISLNK(item.external_attr>>16):
+                      raise SystemExit('Unsafe pinned artifact member')
+                  if not item.is_dir() and p.name in needed:
+                      if p.name in selected or item.file_size>32*1024*1024: raise SystemExit('Invalid pinned member')
+                      selected[p.name]=item
+              if set(selected)!=needed: raise SystemExit('Missing fixed G input')
+              for name,item in selected.items(): (source/name).write_bytes(z.read(item))
+          if install_runtime.build_g_bundle(source,Path('g-bundle.zip'))!=install_runtime.MXC_G_BUNDLE_SHA256:
+              raise SystemExit('Deterministic G bundle mismatch')
+          if Path('g-bundle.zip').stat().st_size!=5682398:
+              raise SystemExit('Fixed G bundle size mismatch')
+          PY
+      - name: Remaining absolute budget for step 7
+        id: stock_budget_7
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_g_bundle \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 180 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 8 ]; then minutes=8; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+      - name: Fetch and statically verify only the existing pinned official embedded Python
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_7.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --download-python \
+            --output client-stage0-python/python-3.14.8-embed-amd64.zip
+      - name: Remaining absolute budget for step 8
+        id: stock_budget_8
+        timeout-minutes: 1
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase post_python \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          remaining=$(( STOCK_JOB_DEADLINE - $(date +%s) - 0 ))
+          minutes=$(( remaining / 60 ))
+          test "$minutes" -ge 1
+          if [ "$minutes" -gt 111 ]; then minutes=111; fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+          echo "deadline=$(( $(date +%s) + minutes * 60 - 30 ))" >> "$GITHUB_OUTPUT"
+      - name: Run one exact exploratory direct ordinary-user Stage0 in the disposable client
+        timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
+        run: |
+          /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase pre_vm \
+            --output "$RUNNER_TEMP/identity-stock-recovery/preparation-public.json"
+          actor=$(cat client-stage0-actor/actor-sha256.txt)
+          STOCK_HOST_DEADLINE=${{ steps.stock_budget_8.outputs.deadline }}
+          remaining=$(( STOCK_HOST_DEADLINE - $(date +%s) ))
+          test "$remaining" -ge 300
+          exec timeout --signal=TERM --kill-after=30s "${remaining}s" sudo /usr/bin/python3 -B .github/windows_identity_direct_stage0.py \
+            --approved-disposable-vm --python-archive "$PWD/client-stage0-python/python-3.14.8-embed-amd64.zip" \
+            --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 "$actor" \
+            --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 6600 --job-deadline-epoch "$STOCK_HOST_DEADLINE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        timeout-minutes: 2
+        with:
+          name: direct-provider-recovery-public
+          path: ${{ runner.temp }}/identity-stock-recovery/public.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: always()
+        timeout-minutes: 2
+        with:
+          name: windows-11-direct-ordinary-stage0-public
+          path: client-stage0-public/public-report.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: always()
+        timeout-minutes: 2
+        with:
+          name: direct-preparation-public
+          path: ${{ runner.temp }}/identity-stock-recovery/preparation-public.json
+          retention-days: 14
+          if-no-files-found: warn
