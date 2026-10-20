@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "run_id": 39452582970,
+  "source_commit": "a49315f52a379b00bc37b6d05bfec40c5c347af2",
+  "runtime_artifact_id": 12281005235,
+  "runtime_artifact_sha256": "26fb3ebd0c6e0c408c9a073e7551823a13815a33bfbc1da80aecdeff2595ca33",
+  "proof_sha256": "144c7bf027113898a62831fe8a6d8ce9a36bd79e21187770c6e4ab868e8f2e58",
+  "exact_os": "26300.9457",
+  "documented_support_floor": "26300.9550",
+  "ordinary_account": true,
+  "actor_report_state": "parsed",
+  "executor_exit_code": 0,
+  "fresh_actor": true,
+  "stage0_passed": false,
+  "native_identity": false,
+  "sole_failed_native_identity_predicate": "capabilities_empty",
+  "all_native_identity_fields_present_and_typed": true,
+  "all_other_native_identity_predicates": true,
+  "product_acceptance": false,
+  "privacy_qualified": false,
+  "cleanup_confirmed": true,
+  "interpretation": "The token capability list was nonempty. Capability identities, count and attributes are not retained in this artifact. This observed requirement failure is not relabeled as an invalid assay or isolation success; no acceptance change or automatic replay."
+}
