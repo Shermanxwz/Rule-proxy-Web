@@ -2,6 +2,7 @@ import copy
 import importlib.util
 from pathlib import Path
 import unittest
+import tempfile
 
 PATH=Path(__file__).resolve().parents[1]/'.github/windows_identity_pipe_probe.py'
 SPEC=importlib.util.spec_from_file_location('identity_pipe_probe',PATH)
@@ -13,7 +14,7 @@ def good():
             'pipe_eof_observed':True,'actor':{'schemaVersion':1,'pid':42,'tokenUserSid':'S-1-5-21-1-2-3-1001','mode':'actor-pipe','nonce':N,'tokenAppContainerSid':SID,
             'tokenIsAppContainer':True,'tokenElevated':False,'isProcessInJob':True,'queriesSucceeded':True,
             'errors':[],'pipeSucceeded':True,'tokenCapabilities':[]},
-            'cleanup':{'job_closed':True,'profile_deleted':True,'handles_closed':True,'owned_aces_removed':True,'errors':[]}}
+            'cleanup':{'job_closed':True,'profile_deleted':True,'handles_closed':True,'owned_aces_removed':True,'job_empty':True,'errors':[]}}
 
 class PipeEvidenceTests(unittest.TestCase):
     def test_complete_passes(self): self.assertTrue(all(pipe.checks(good()).values()))
@@ -29,9 +30,24 @@ class PipeEvidenceTests(unittest.TestCase):
     def test_capability_grant_fails_zero_capability_stage(self):
         r=good();r['actor']['tokenCapabilities']=['S-1-15-3-3'];self.assertFalse(all(pipe.checks(r).values()))
     def test_cleanup_failure_fails(self):
-        for key in ('job_closed','profile_deleted','handles_closed','owned_aces_removed'):
+        for key in ('job_closed','profile_deleted','handles_closed','owned_aces_removed','job_empty'):
             r=good();r['cleanup'][key]=False
             with self.subTest(key=key):self.assertFalse(all(pipe.checks(r).values()))
+    def test_owned_tree_is_bounded(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            for i in range(33): (root/str(i)).write_text('fixture')
+            with self.assertRaises(RuntimeError):pipe.owned_paths(root)
+    def test_owned_tree_rejects_symlink_before_recursing(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d); target=root/'target';target.mkdir()
+            try:(root/'alias').symlink_to(target,target_is_directory=True)
+            except OSError:self.skipTest('symlink creation unavailable')
+            with self.assertRaises(RuntimeError):pipe.owned_paths(root)
+    def test_owned_tree_lists_fresh_fixture(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);(root/'inputs').mkdir();(root/'inputs'/'actor').write_text('fixture')
+            self.assertEqual(len(pipe.owned_paths(root)),3)
     def test_runtime_requires_permission(self):
         class Args: disposable_ci=False;approved_security_test=False
         with self.assertRaises(PermissionError):pipe.run(Args())

@@ -1,4 +1,4 @@
-name: Windows identity proof compile only
+name: Windows identity proof staged laboratory
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - '.github/build_windows_identity_actor.ps1'
       - '.github/windows_identity_proof.py'
       - '.github/windows_identity_pipe_probe.py'
+      - '.github/windows_identity_ordinary_launcher.py'
       - 'tests/test_windows_identity*.py'
       - '.github/workflows/windows-identity-proof.yml'
 
@@ -15,12 +16,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: identity-proof-compile-${{ github.ref }}
-  cancel-in-progress: true
+  group: identity-proof-lab-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   identity-proof-compile:
-    name: Compile native identity proof only
+    name: Native build and gated pipe proof
     runs-on: windows-2025
     timeout-minutes: 8
     steps:
@@ -35,15 +36,34 @@ jobs:
           if (-not $vs) { throw 'Installed MSVC toolchain not found' }
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build"
+          ./.github/build_windows_identity_actor.ps1 -OutputDirectory "$PWD\identity-actor-build" -ExpectedSourceSha256 4f5b398e2341694242009e03ecb96dc1bc7479a2bba3fe76968df7b238406b0b
       - name: Pure Python identity proof unit tests only
         run: python -B -m unittest discover -s tests -p "test_windows_identity*.py" -v
+      - name: Approved Stage 0b inherited-pipe proof in a verified ordinary token
+        if: contains(github.event.head_commit.message, '[identity-pipe-runtime]')
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $build = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
+          python -I -S -B .github/windows_identity_ordinary_launcher.py --disposable-ci --approved-security-test --actor "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-sha256 $build.executableSha256 --work "$PWD\identity-ordinary-run" --report "$PWD\identity-ordinary-run\report.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Stage 0b did not pass; inspect bounded reports, no fallback is permitted.' }
       - uses: actions/upload-artifact@v7
+        if: always() && contains(github.event.head_commit.message, '[identity-pipe-runtime]')
         with:
-          name: identity-actor-compile-only
+          name: identity-pipe-runtime-observations
+          path: |
+            identity-ordinary-run/report.json
+            identity-ordinary-run/probe/report.json
+            identity-ordinary-run/probe/ownership.json
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: identity-actor-build
           path: |
             identity-actor-build/windows_identity_actor.exe
             identity-actor-build/build-manifest.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
 

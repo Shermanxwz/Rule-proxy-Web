@@ -43,7 +43,7 @@ def checks(report):
                      and report.get('pipe_eof_observed') is True and actor.get('pipeSucceeded') is True,
         'no_network_capabilities': actor.get('tokenCapabilities') == [],
         'cleanup': cleanup.get('job_closed') is True and cleanup.get('profile_deleted') is True
-                   and cleanup.get('handles_closed') is True and cleanup.get('owned_aces_removed') is True
+                   and cleanup.get('handles_closed') is True and cleanup.get('owned_aces_removed') is True and cleanup.get('job_empty') is True
                    and not cleanup.get('errors'),
         'no_error': 'error' not in report,
     }
@@ -110,11 +110,23 @@ def run(args):
         (a,'FreeSid',[H],H), (a,'ConvertSidToStringSidW',[H,C.POINTER(P)],C.c_int),
         (k,'CreatePipe',[C.POINTER(H),C.POINTER(H),H,D],C.c_int),
         (k,'SetHandleInformation',[H,D,D],C.c_int),
+        (k,'QueryInformationJobObject',[H,C.c_int,H,D,C.POINTER(D)],C.c_int),
         (k,'WriteFile',[H,H,D,C.POINTER(D),H],C.c_int),
         (k,'ReadFile',[H,H,D,C.POINTER(D),H],C.c_int),
         (k,'PeekNamedPipe',[H,H,D,C.POINTER(D),C.POINTER(D),C.POINTER(D)],C.c_int),
     ):
         fn=getattr(owner,name); fn.argtypes,fn.restype=types,result
+    def wait_job_empty(job):
+        class Accounting(C.Structure):
+            _fields_=[('times',C.c_int64*4),('page_faults',D),('total',D),('active',D),('terminated',D)]
+        deadline=time.monotonic()+5
+        while True:
+            info=Accounting(); returned=D()
+            api._check(k.QueryInformationJobObject(job,1,C.byref(info),C.sizeof(info),C.byref(returned)))
+            if returned.value!=C.sizeof(info): raise RuntimeError('unexpected Job accounting size')
+            if info.active==0:return True
+            if time.monotonic()>=deadline:return False
+            time.sleep(.02)
     def sid_text(sid):
         out=P(); api._check(a.ConvertSidToStringSidW(sid,C.byref(out)))
         try: return out.value
@@ -150,10 +162,14 @@ def run(args):
     handles=set(); job=None; info=proc._ProcessInfo(); sid=H(); created=False; assigned_to_job=False
     def close(h):
         if h in handles: api.close_handle(h); handles.remove(h)
+    journal={'schema_version':1,'profile':name,'nonce':nonce,'profile_created':False,'derived_sid':None}
+    proof.smoke.save(work/'ownership.json',journal)
     try:
         code=ue.CreateAppContainerProfile(name,name,'Disposable identity pipe proof',None,0,C.byref(sid)) & 0xffffffff
         if code: raise OSError(code,'CreateAppContainerProfile (never reuse existing profile)')
         created=True; report['derived_sid']=sid_text(sid)
+        journal.update(profile_created=True,derived_sid=report['derived_sid'])
+        proof.smoke.save(work/'ownership.json',journal)
         # Grants on this fresh owned tree only. No ALL APPLICATION PACKAGES ACE.
         for path,right in ((work,'RX'),(inputs,'(OI)(CI)(RX)'),(output,'(OI)(CI)(M)')):
             subprocess.run([str(Path(os.environ['SystemRoot'])/'System32/icacls.exe'),str(path),'/grant',
@@ -212,6 +228,8 @@ def run(args):
         report['actor']=proof.smoke.read(output/'actor.json')
     except Exception as exc: report['error']=proof.smoke.failure(exc)
     finally:
+        process_stopped=not bool(info.hProcess)
+        job_empty=not bool(job)
         if info.hProcess and assigned_to_job:
             try: api.terminate_job(job)
             except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
@@ -221,6 +239,13 @@ def run(args):
         if info.hProcess:
             try:
                 if api.wait_process(info.hProcess,5000)!=0: raise TimeoutError('cleanup process wait')
+                process_stopped=True
+            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+        if job:
+            try:
+                job_empty=wait_job_empty(job)
+                report['cleanup']['job_empty']=job_empty
+                if not job_empty: raise TimeoutError('cleanup Job drain')
             except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
         for h in list(handles):
             try: close(h)
@@ -230,7 +255,7 @@ def run(args):
             try: api.close_handle(job); report['cleanup']['job_closed']=True
             except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
         if sid: a.FreeSid(sid)
-        if created:
+        if created and process_stopped and job_empty:
             try:
                 owned_paths(work)
                 subprocess.run([str(Path(os.environ['SystemRoot'])/'System32/icacls.exe'),str(work),
@@ -241,6 +266,10 @@ def run(args):
             code=ue.DeleteAppContainerProfile(name)&0xffffffff
             report['cleanup']['profile_deleted']=code==0
             if code: report['cleanup']['errors'].append({'operation':'DeleteAppContainerProfile','code':code})
+        elif created:
+            report['cleanup']['profile_retained_due_to_uncertain_process_exit']=True
+    journal['cleanup']=report['cleanup']
+    proof.smoke.save(work/'ownership.json',journal)
     report['checks']=checks(report); report['stage0b_passed']=all(report['checks'].values())
     proof.smoke.save(args.report,report)
     return 0 if report['stage0b_passed'] else 1

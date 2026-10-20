@@ -26,19 +26,32 @@ No main merge, product default, release, or prior evidence is changed.
 
 | Check | Status | Meaning |
 |---|---|---|
-| Pure Python policy/report/unit tests | 25 passed on Linux cloud workspace | No native security boundary was exercised |
-| Native C++ compilation | Not yet run | Requires installed Windows SDK/MSVC |
+| Pure Python policy/report/unit tests | 25 passed locally and on GitHub Windows Server 2025 | No native security boundary was exercised |
+| Native C++ compilation | MSVC /W4 /WX succeeded, run 39366282291 | Actor was not executed |
 | Native Stage 0 deny-all PSEC launch | Not yet run | Neither actor compatibility nor PSEC runtime accepted |
 | Native Stage 0b AppContainer pipe transport | Not yet run | Inherited-handle design remains a hypothesis on target host |
 | Native proxy identity / negative peer controls | Not implemented | No identity-bound proxy success claim |
 | Browser, DNS, broker escape, failure isolation | Not run | No Linux-equivalence or product/privacy qualification |
 
+Compilation evidence is retained in `verification/windows-2026-10-20/identity-proof/compile.json`;
+[the successful run](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39366282291)
+built source SHA-256 `4f5b398e2341694242009e03ecb96dc1bc7479a2bba3fe76968df7b238406b0b`.
+This does not establish native launch, inherited transport, or isolation.
+
 The work-directory retention in Stage 0 is intentional diagnostic preservation.
 Stage 0 does not independently certify PSEC kernel cleanup. Stage 0b records
 cleanup separately and does not pass if its owned profile/handles/ACEs remain.
 Neither stage tests controller death yet. An ordinary non-AppContainer user in
-the default network compartment is required; elevated CI shells must not simply
-relax that gate. No user account or credential is created by these scripts.
+the default network compartment is required. The bounded launcher measures its
+current token or uses only an existing verified same-user/session linked limited
+token. Missing token/privilege (including error 1314) is a blocker, not a reason
+to create an account, lower integrity and claim standard-user status, change UAC,
+or grant privileges. No user account or credential is created by these scripts.
+The outer 120-second watchdog reports nested cleanup as incomplete until the
+matching inner report proves cleanup. The profile ownership journal is written
+before creation and updated with the actual SID. Cleanup waits for Job active
+process count zero before removing owned ACEs/profile; uncertain exit retains
+that state and fails.
 
 ## Pinned implementation references
 
@@ -76,7 +89,13 @@ package signing, real credentials, or billing changes are introduced.
 
 The added `windows-identity-proof.yml` provides the same compile-only job on
 pushes to exactly this experimental branch and only proof-source/test/workflow
-paths. It has no runtime, pull-request, or scheduled trigger. The initial source
+paths. It has no pull-request or scheduled trigger. A deliberate commit marker
+`[identity-pipe-runtime]` enables only the currently approved Stage 0b step, with
+a three-minute step cap within the existing eight-minute job. Other pushes
+remain compile/unit-only. No PSEC, network, firewall or proxy test is included.
+Concurrency cancellation is disabled so a new push cannot interrupt cleanup.
+Artifacts contain only bounded reports/ownership journal and compiled actor,
+never raw controller stdout/stderr. The initial source
 commit remains CI-skipped; the second commit deliberately starts this one
 bounded build. The new workflow was structurally checked for one standard
 runner job, eight-minute cap, no matrix and no native actor invocation.
@@ -88,8 +107,12 @@ not be logged, uploaded, or replaced. No user PC/OVH/Tianyi access is involved.
 
 ## Next gates, in order
 
-1. Compile and inspect native artifact, then ordinary-user Stage 0.
-2. Run Stage 0b and separately measure controller-death/Job teardown.
+1. Native artifact compilation passed. Run Stage 0b first on standard Server
+   runner, using the verified ordinary-token launcher. Local pure suite now has
+   51 passing tests; the first Windows build ran the earlier 25-test suite.
+2. Separately run PSEC Stage 0 on a supported Windows host and independently
+   measure controller-death/Job teardown. An AppContainer pipe pass is not PSEC
+   acceptance.
 3. Add native AppContainer TCP frontend with privateNetworkClientServer and
    only inherited framed pipes to a host relay fixed to owned fixture/Mihomo.
    This capability permits private outbound traffic too, so the frontend is

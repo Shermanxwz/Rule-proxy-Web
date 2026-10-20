@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "scope": "native compilation and pure unit tests only",
+  "source_commit": "65317af598d363981406fad85cecde2e22c4ddfb",
+  "workflow": ".github/workflows/windows-identity-proof.yml",
+  "run_id": 39366282291,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39366282291",
+  "job_id": 118443770644,
+  "runner_label": "windows-2025",
+  "job_conclusion": "success",
+  "source_sha256": "4f5b398e2341694242009e03ecb96dc1bc7479a2bba3fe76968df7b238406b0b",
+  "executable_sha256": "5f6413e1a6f752d29b8103d64fce364fab104839b99c4a9d79bbb29bce95d071",
+  "compiler_flags": ["/W4", "/WX", "/std:c++17", "/EHsc", "/MT", "/guard:cf"],
+  "unit_tests_passed": 25,
+  "artifact_id": 12239925137,
+  "artifact_sha256": "9797b109c728ca48646723c568744748adfee4e9663a963c13893606e738113d",
+  "artifact_expires_at": "2026-10-27T03:49:55Z",
+  "native_actor_executed": false,
+  "security_runtime_tested": false,
+  "identity_proxy_tested": false,
+  "privacy_qualified": false,
+  "product_acceptance": false
+}
