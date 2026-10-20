@@ -3,6 +3,69 @@ $ErrorActionPreference = 'Stop'
 $root = 'C:\RuleProxyCI'
 $result = @{schema_version=1; ordinary_account=$false; stock_build_verified=$false; servicing_verified=$false; harness_completed=$false; stage0_passed=$false}
 $phase='configuration'; $failed=$false; $hresult=$null; $pythonExit=$null; $failureCategory='operation_failed'
+# Pure predicates: fixed Windows path identity is case-insensitive, not alias tolerant.
+function Test-InstalledDriveC($Value) {
+    return ($Value -is [string] -and $Value -cmatch '^[A-Za-z]:$' -and
+        [String]::Equals($Value,'C:',[StringComparison]::OrdinalIgnoreCase))
+}
+function Test-InstalledWindowsDirectory($Value) {
+    if ($Value -isnot [string] -or $Value -notmatch '^[A-Za-z]:\\Windows$') { return $false }
+    try {
+        return [String]::Equals([IO.Path]::GetFullPath($Value),'C:\Windows',[StringComparison]::OrdinalIgnoreCase)
+    } catch { return $false }
+}
+function Get-InstalledBootGates([hashtable]$Facts) {
+    $gates=[ordered]@{product_winnt=$null;arch_amd64=$null;setup_not_busy=$null;oobe_not_busy=$null;
+        image_complete=$null;env_drive_c=$null;os_drive_c=$null;windows_directory=$null;
+        fixed_drive=$null;build_26200=$null;ubr_stock_or_target=$null}
+    if ($Facts.ContainsKey('product')) { $gates.product_winnt=($Facts.product -ceq 'WinNT') }
+    if ($Facts.ContainsKey('architecture')) { $gates.arch_amd64=($Facts.architecture -ceq 'AMD64') }
+    if ($Facts.ContainsKey('system_setup')) { $gates.setup_not_busy=($null -ne $Facts.system_setup -and $Facts.system_setup -eq 0) }
+    if ($Facts.ContainsKey('oobe_present')) {
+        $gates.oobe_not_busy=($Facts.oobe_present -eq $false -or
+            ($Facts.oobe_present -eq $true -and $Facts.ContainsKey('oobe') -and $null -ne $Facts.oobe -and $Facts.oobe -eq 0))
+    }
+    if ($Facts.ContainsKey('image')) { $gates.image_complete=($Facts.image -ceq 'IMAGE_STATE_COMPLETE') }
+    if ($Facts.ContainsKey('env_drive')) { $gates.env_drive_c=Test-InstalledDriveC $Facts.env_drive }
+    if ($Facts.ContainsKey('os_drive')) { $gates.os_drive_c=Test-InstalledDriveC $Facts.os_drive }
+    if ($Facts.ContainsKey('windows_directory')) { $gates.windows_directory=Test-InstalledWindowsDirectory $Facts.windows_directory }
+    if ($Facts.ContainsKey('drive_type')) { $gates.fixed_drive=($null -ne $Facts.drive_type -and $Facts.drive_type -eq 3) }
+    if ($Facts.ContainsKey('build')) { $gates.build_26200=([string]$Facts.build -ceq '26200') }
+    if ($Facts.ContainsKey('ubr')) { $gates.ubr_stock_or_target=([string]$Facts.ubr -cin @('6584','9711')) }
+    return $gates
+}
+function Get-ClosedEarlyDiagnostic {
+    param([string]$Phase,[string]$Operation,[string]$Category,$HResult,$Gates)
+    $phases=@('configuration','identity','installed_boot_gate','installed_setup_wait','beacon','servicing_wait','serviced_build',
+        'claim','endpoint','payload_download','payload_hash','payload_extract','python_hash','python_extract',
+        'python_start','python_wait','report_read','report_parse','completed','transport')
+    $operations=@('configuration_read','identity','cim_os','cim_drive','version','product','setup','image','gate','beacon','waiting_setup','other')
+    $categories=@('none','operation_failed','identity_gate','stock_build_gate','endpoint_timeout','payload_bound','payload_overrun',
+        'payload_incomplete','payload_hash','python_hash','python_not_started','process_handle_missing','python_deadline',
+        'report_absent','report_over_bound','report_nonobject','report_parse','installed_boot_gate','installed_setup_deadline',
+        'servicing_receipt','servicing_failed','servicing_deadline','serviced_build_gate')
+    $knownGates=Get-InstalledBootGates @{}
+    foreach ($key in @($knownGates.Keys)) {
+        if ($Gates -is [Collections.IDictionary] -and $Gates.Contains($key) -and $Gates[$key] -is [bool]) { $knownGates[$key]=$Gates[$key] }
+    }
+    $code=$null
+    if (($HResult -is [int] -or $HResult -is [long]) -and $HResult -ge -2147483648L -and $HResult -le 2147483647L) { $code=[long]$HResult }
+    $record=[ordered]@{schema=1;phase=$(if ($Phase -cin $phases) {$Phase} else {'configuration'});
+        operation=$(if ($Operation -cin $operations) {$Operation} else {'other'});
+        failure_category=$(if ($Category -cin $categories) {$Category} else {'operation_failed'});
+        hresult=$code;gates=$knownGates}
+    $json=$record | ConvertTo-Json -Depth 4 -Compress
+    if ([Text.Encoding]::ASCII.GetByteCount($json) -gt 2048 -or $json -match '[^\x20-\x7e]') { return }
+    return $json
+}
+function Write-ClosedEarlyDiagnostic {
+    param([string]$Phase,[string]$Operation,[string]$Category,$HResult,$Gates)
+    $json=Get-ClosedEarlyDiagnostic -Phase $Phase -Operation $Operation -Category $Category -HResult $HResult -Gates $Gates
+    if (-not $json) { return }
+    $port=New-Object IO.Ports.SerialPort('COM1',115200)
+    try { $port.WriteTimeout=2000; $port.Open(); $port.Write('RPDIAG1 '+$json+"`r`n") } finally { $port.Dispose() }
+}
+$earlyBootGateCompleted=$false; $earlyOperation='configuration_read'; $bootFacts=@{}; $bootGates=Get-InstalledBootGates $bootFacts
 function Set-ClosedResultField {
     param([string]$Name, $Value)
     if ($script:result -is [hashtable]) { $script:result[$Name]=$Value }
@@ -96,33 +159,51 @@ function Expand-CheckedStage0Zip {
 }
 try {
     $configuration = Get-Content -LiteralPath (Join-Path $root 'ruleproxy-vm-config.json') -Raw | ConvertFrom-Json
-    $phase='identity'
+    $phase='identity'; $earlyOperation='identity'
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
     if ($identity.Name -ne 'RULEPROXY-VM\RuleProxyCI' -or
         $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -or
         [Diagnostics.Process]::GetCurrentProcess().SessionId -le 0) { $failureCategory='identity_gate'; throw 'Genuine ordinary account required' }
     $phase='installed_boot_gate'
-    $bootOS=Get-CimInstance -ClassName Win32_OperatingSystem
-    $bootDrive=Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'"
-    $bootVersion=Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
-    $bootType=[string](Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\ProductOptions').ProductType
-    $setup=Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\Setup'
-    $image=Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State'
-    if ($bootType -cne 'WinNT' -or $env:PROCESSOR_ARCHITECTURE -cne 'AMD64' -or
-        $setup.SystemSetupInProgress -ne 0 -or
-        ('OOBEInProgress' -in @($setup.PSObject.Properties.Name) -and $setup.OOBEInProgress -ne 0) -or
-        $image.ImageState -cne 'IMAGE_STATE_COMPLETE' -or $env:SystemDrive -cne 'C:' -or $bootOS.SystemDrive -cne 'C:' -or
-        $bootOS.WindowsDirectory -cne 'C:\Windows' -or $bootDrive.DriveType -ne 3 -or
-        [int]$bootVersion.CurrentBuildNumber -ne 26200 -or [int]$bootVersion.UBR -notin @(6584,9711)) {
-        $failureCategory='installed_boot_gate'; throw 'Installed fixed-disk guest required'
+    $earlyOperation='cim_os'; $bootOS=Get-CimInstance -ClassName Win32_OperatingSystem
+    $bootFacts.os_drive=$bootOS.SystemDrive; $bootFacts.windows_directory=$bootOS.WindowsDirectory
+    $bootGates=Get-InstalledBootGates $bootFacts
+    $earlyOperation='cim_drive'; $bootDrive=Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'"
+    $bootFacts.drive_type=$bootDrive.DriveType; $bootGates=Get-InstalledBootGates $bootFacts
+    $earlyOperation='version'; $bootVersion=Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+    $bootFacts.build=$bootVersion.CurrentBuildNumber; $bootFacts.ubr=$bootVersion.UBR
+    $bootFacts.architecture=$env:PROCESSOR_ARCHITECTURE; $bootFacts.env_drive=$env:SystemDrive
+    $bootGates=Get-InstalledBootGates $bootFacts
+    $earlyOperation='product'; $bootType=[string](Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\ProductOptions').ProductType
+    $bootFacts.product=$bootType; $bootGates=Get-InstalledBootGates $bootFacts
+    $earlyOperation='gate'
+    foreach ($key in @('product_winnt','arch_amd64','env_drive_c','os_drive_c','windows_directory','fixed_drive','build_26200','ubr_stock_or_target')) {
+        if ($bootGates[$key] -ne $true) { $failureCategory='installed_boot_gate'; throw 'Installed fixed-disk guest required' }
     }
+    # First-login setup flags can still be transitioning. Wait only for these
+    # three completion facts, never bypass or mutate them; fixed OS gates held above.
+    $phase='installed_setup_wait'; $setupReadyDeadline=[DateTime]::UtcNow.AddSeconds(120)
+    do {
+        $earlyOperation='setup'; $setup=Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\Setup'
+        $bootFacts.system_setup=$setup.SystemSetupInProgress
+        $bootFacts.oobe_present=('OOBEInProgress' -in @($setup.PSObject.Properties.Name))
+        if ($bootFacts.oobe_present) { $bootFacts.oobe=$setup.OOBEInProgress }
+        $bootGates=Get-InstalledBootGates $bootFacts
+        $earlyOperation='image'; $image=Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State'
+        $bootFacts.image=$image.ImageState; $bootGates=Get-InstalledBootGates $bootFacts
+        if ($bootGates.setup_not_busy -eq $true -and $bootGates.oobe_not_busy -eq $true -and $bootGates.image_complete -eq $true) { break }
+        $earlyOperation='waiting_setup'
+        if ([DateTime]::UtcNow -ge $setupReadyDeadline) { $failureCategory='installed_setup_deadline'; throw 'Setup completion deadline' }
+        Start-Sleep -Seconds 2
+    } while ($true)
     if ([int]$bootVersion.UBR -eq 6584) {
-        $phase='beacon'
+        $phase='beacon'; $earlyOperation='beacon'
         $port = New-Object IO.Ports.SerialPort('COM1',115200)
         try { $port.WriteTimeout=2000; $port.Open(); $port.Write("RPBEACON identity-stock-installed-ready`r`n") } finally { $port.Dispose() }
     }
-    $phase='servicing_wait'
+    $earlyBootGateCompleted=$true
+    $phase='servicing_wait'; $earlyOperation='other'
     Assert-ProtectedUpdatePath 'C:\RuleProxyCIUpdates' -Directory -ProtectedDacl
     $statePath='C:\RuleProxyCIUpdates\update-state.json'
     $servicingDeadline=[DateTime]::UtcNow.AddMinutes(80)
@@ -256,6 +337,9 @@ try {
     # Closed failure only. Never export exception strings, identities or paths.
     $result.stage0_passed=$false
 } finally {
+    if ($failed -and -not $earlyBootGateCompleted) {
+        try { Write-ClosedEarlyDiagnostic -Phase $phase -Operation $earlyOperation -Category $failureCategory -HResult $hresult -Gates $bootGates } catch {}
+    }
     $status = if ($result.stage0_passed -eq $true) { 'passed' } else { 'failed' }
     if ($result -is [hashtable]) { $result.status=$status } else { $result | Add-Member -NotePropertyName status -NotePropertyValue $status -Force }
     $serviceFacts=@{phase='not_observed'; failure='none'; dism_exit_code=$null; packages_verified=$false; reboot_observed=$false; task_unregistered=$false; completed=$false}

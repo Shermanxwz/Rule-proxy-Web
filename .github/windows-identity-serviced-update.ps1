@@ -78,11 +78,12 @@ function Test-ServicedPendingReboot {
         @($session.PendingFileRenameOperations).Count -gt 0)
 }
 function Get-ServicedOpticalRoot {
-    $matches=@(Get-CimInstance -ClassName Win32_LogicalDisk -Filter 'DriveType=5' |
+    $opticalDrives=@(Get-CimInstance -ClassName Win32_LogicalDisk -Filter 'DriveType=5' |
         Where-Object { $_.VolumeName -ceq 'RULEPROXY_UPDATE' })
-    if ($matches.Count -ne 1) { return $null }
-    if ($matches[0].DeviceID -cnotmatch '^[A-Z]:$') { throw 'optical_device' }
-    return $matches[0].DeviceID + '\'
+    if ($opticalDrives.Count -ne 1) { return $null }
+    $device=$opticalDrives[0].DeviceID
+    if ($device -cnotmatch '^[A-Z]:$') { throw 'optical_device' }
+    return $device + '\'
 }
 function Assert-ServicedMedia($Root) {
     if ($Root -cnotmatch '^[A-Z]:\\$') { throw 'optical_root' }

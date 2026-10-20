@@ -38,6 +38,21 @@ class ServicedWorkflowTests(unittest.TestCase):
         self.assertIn('Pure Linux host tests are separate', self.serviced)
         self.assertIn('s.countTestCases() >= 7', self.serviced)
         self.assertIn('Required serviced tests missing', self.serviced)
+        self.assertIn('test_windows_client_serviced_diagnostics.py', self.serviced)
+        self.assertIn('run: ./.github/test-windows-identity-serviced-gates.ps1', self.serviced)
+
+    def test_gate_only_marker_cannot_enter_native(self):
+        compile_job = self.serviced.split('  compile:\n', 1)[1].split('  host-unit:\n', 1)[0]
+        host_job = self.serviced.split('  host-unit:\n', 1)[1].split('  native:\n', 1)[0]
+        native_job = self.serviced.split('  native:\n', 1)[1]
+        for job in (compile_job, host_job):
+            self.assertIn('[identity-serviced-stage0-gates]', job)
+            self.assertNotIn('sudo ', job)
+            self.assertNotIn('REVIEWED_RECOVERY', job)
+        native_condition = native_job.split('    needs:', 1)[0]
+        self.assertIn('[identity-serviced-stage0-runtime]', native_condition)
+        self.assertNotIn('[identity-serviced-stage0-gates]', native_condition)
+        self.assertNotIn('always()', native_condition)
 
     def test_only_new_runtime_host_changes(self):
         self.assertIn('sudo /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py', self.serviced)

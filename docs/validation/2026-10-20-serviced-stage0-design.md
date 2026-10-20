@@ -84,3 +84,38 @@ This may be insufficient; no extension or success claim follows from the estimat
 
 No user device, main merge, release, extra paid machine, broad cleanup, new
 account type, security-policy weakening or unpinned executor is introduced.
+
+## First serviced attempt and code-only harness corrections
+
+Run `39408304275` at `824bc6990257486c159ca4313c5e85bc273601a3`
+failed before the installed-stock beacon. No update medium, servicing, detector,
+or actor execution was observed. Its original `cleanup_unconfirmed` and
+`vm_destroyed=false` result remains unchanged in the archived evidence. Generic
+job orphan-cleanup text is not process or VM destruction confirmation.
+
+The observed host error was errno 32 while waiting for the guest. A local buffered
+socket reproduction establishes that QMP file closure can raise this error and
+skip the subsequent socket closure; it does not establish why the runtime peer
+closed. The scoped teardown now independently attempts both closures and records
+process exit, socket/file closure, server/thread/watcher shutdown and work removal.
+Any uncertainty still revokes acceptance.
+
+The installed path predicate now accepts casing variants of the exact canonical
+`C:\Windows` and `C:` identities, not aliases or other paths. Setup/OOBE/image
+completion alone may wait at most 120 seconds after the unchanged fixed OS/build
+checks. Neither casing nor a transient setup state is claimed as the runtime
+cause: the first attempt did not preserve those facts. Closed bounded early
+serial diagnostics make those failures observable before networking; they never
+constitute success evidence or enable networking.
+
+An independently reproducible later defect used PowerShell's case-insensitive
+automatic `$Matches` variable as an optical-device array. A regex then overwrote
+it. The local is renamed; real Windows PowerShell regression tests execute the
+actual optical function with mocked CIM objects (valid, absent, ambiguous and
+invalid devices), and actual pure path predicates. Hosted runner observations
+are diagnostic only, never Windows 11 acceptance.
+
+The `[identity-serviced-stage0-gates]` commit marker runs only the bounded Windows
+compile/semantic tests and Linux unit jobs. Native recovery/VM execution requires
+the separate exact runtime marker and both successful dependencies. This permits
+executable boundary verification before any separately reviewed full VM retry.

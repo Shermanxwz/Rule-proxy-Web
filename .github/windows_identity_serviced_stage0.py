@@ -333,10 +333,10 @@ def verify_guest_import_path():
 GUEST_PHASES = ('not_started', 'import_path', 'proof_import', 'configuration', 'controller', 'report_read', 'completed')
 LAUNCHER_PHASES = ('not_observed', 'configuration', 'identity', 'beacon', 'stock_build', 'claim', 'endpoint',
     'payload_download', 'payload_hash', 'payload_extract', 'python_hash', 'python_extract',
-    'python_start', 'python_wait', 'report_read', 'report_parse', 'completed', 'transport', 'installed_boot_gate', 'servicing_wait', 'serviced_build')
+    'python_start', 'python_wait', 'report_read', 'report_parse', 'completed', 'transport', 'installed_boot_gate', 'installed_setup_wait', 'servicing_wait', 'serviced_build')
 LAUNCHER_FAILURES = ('none', 'operation_failed', 'identity_gate', 'stock_build_gate', 'endpoint_timeout',
     'payload_bound', 'payload_overrun', 'payload_incomplete', 'payload_hash', 'python_hash', 'python_not_started',
-    'process_handle_missing', 'python_deadline', 'report_absent', 'report_over_bound', 'report_nonobject', 'report_parse', 'installed_boot_gate', 'servicing_receipt', 'servicing_failed', 'servicing_deadline', 'serviced_build_gate')
+    'process_handle_missing', 'python_deadline', 'report_absent', 'report_over_bound', 'report_nonobject', 'report_parse', 'installed_boot_gate', 'installed_setup_deadline', 'servicing_receipt', 'servicing_failed', 'servicing_deadline', 'serviced_build_gate')
 HOST_OPERATIONS = ('preflight', 'iso_download', 'iso_verify', 'payload_build', 'result_server', 'seed_build',
     'disk_create', 'launch_capacity', 'tpm_start', 'vm_work_budget', 'qemu_start', 'qmp_connect', 'kvm_verify',
     'guest_wait', 'serviced_media', 'result_validation', 'cleanup')
@@ -349,7 +349,7 @@ def proof_helpers():
 
 def closed_failure(exc):
     proof = proof_helpers()
-    return {'type': proof._enum(type(exc).__name__, proof.FAILURE_TYPES),
+    return {'type': proof._enum(type(exc).__name__, proof.FAILURE_TYPES + ('BrokenPipeError', 'ConnectionResetError', 'ConnectionAbortedError', 'EarlyGuestFailure')),
             'errno': proof._integer(getattr(exc, 'errno', None), -0x80000000),
             'winerror': proof._integer(getattr(exc, 'winerror', None), -0x80000000)}
 
@@ -624,64 +624,170 @@ def run_bounded(command, deadline, maximum, **kwargs):
     return subprocess.run(command, timeout=remaining_budget(deadline, maximum), **kwargs)
 
 
-def cleanup_owned(media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, *, retain_work=False):
+TEARDOWN_STAGES = ('process_stop', 'process_observation', 'qmp_close', 'qmp_file_observation',
+    'qmp_socket_observation', 'qmp_socket_close', 'qemu_stop', 'tpm_stop', 'server_shutdown',
+    'server_close', 'server_join', 'server_observation', 'watcher_stop', 'watcher_observation',
+    'work_remove', 'work_observation', 'cleanup_wrapper')
+TEARDOWN_ERRORS = ('BrokenPipeError', 'ConnectionResetError', 'ConnectionAbortedError', 'OSError',
+    'TimeoutExpired', 'TimeoutError', 'ValueError', 'RuntimeError', 'PermissionError',
+    'FileNotFoundError', 'ProcessLookupError', 'unclassified')
+
+
+def teardown_error(facts, stage, exc):
+    # Never publish exception text, paths, argv, PID or object representations.
+    if stage not in TEARDOWN_STAGES: stage = 'cleanup_wrapper'
+    facts['error_count'] += 1
+    if facts['first_failed_stage'] is None: facts['first_failed_stage'] = stage
+    if len(facts['errors']) < 8:
+        facts['errors'].append({'stage': stage, 'type': type(exc).__name__ if type(exc).__name__ in TEARDOWN_ERRORS else 'unclassified',
+            'errno': getattr(exc, 'errno', None) if type(getattr(exc, 'errno', None)) is int and -0x80000000 <= exc.errno <= 0xffffffff else None,
+            'winerror': getattr(exc, 'winerror', None) if type(getattr(exc, 'winerror', None)) is int and -0x80000000 <= exc.winerror <= 0xffffffff else None})
+
+
+def new_teardown_facts():
+    return {'schema_version': 1, 'qemu_present': False, 'tpm_present': False,
+        'qemu_exit_before_cleanup': None, 'tpm_exit_before_cleanup': None,
+        'qemu_exit_after_cleanup': None, 'tpm_exit_after_cleanup': None,
+        'qemu_exit_confirmed': None, 'tpm_exit_confirmed': None,
+        'helper_count': 0, 'helper_exit_confirmed_count': 0,
+        'qmp_present': False, 'qmp_close_succeeded': None, 'qmp_file_closed': None, 'qmp_socket_closed': None,
+        'server_present': False, 'server_shutdown_succeeded': None, 'server_close_succeeded': None,
+        'server_thread_stopped': None, 'watcher_present': False, 'watcher_stopped': None,
+        'work_remove_attempted': False, 'work_removed': None, 'work_retained': False,
+        'first_failed_stage': None, 'error_count': 0, 'errors': []}
+
+
+def exit_observation(process, facts, label, when):
+    if process is None: return True
+    try:
+        code = process.poll()
+        # Popen returns int or None. Unexpected protocol values are not proof.
+        observed = type(code) is int and -0x80000000 <= code <= 0xffffffff
+        if label in ('qemu', 'tpm'):
+            facts[label+'_exit_'+when+'_cleanup'] = code if observed else None
+            facts[label+'_exit_confirmed'] = observed
+        return observed
+    except Exception as exc:
+        teardown_error(facts, 'process_observation', exc)
+        if label in ('qemu', 'tpm'): facts[label+'_exit_confirmed'] = False
+        return False
+
+
+def observe_qmp_closed(qmp, facts):
+    try:
+        value = getattr(getattr(qmp, 'file', None), 'closed', None)
+        facts['qmp_file_closed'] = value if type(value) is bool else None
+    except Exception as exc: teardown_error(facts, 'qmp_file_observation', exc)
+    try:
+        sock = getattr(qmp, 'socket', None)
+        fd = sock.fileno() if sock is not None else None
+        facts['qmp_socket_closed'] = fd < 0 if type(fd) is int else None
+    except Exception as exc: teardown_error(facts, 'qmp_socket_observation', exc)
+
+
+def cleanup_owned(media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, *, retain_work=False, diagnostics=None):
+    facts = diagnostics if diagnostics is not None else new_teardown_facts()
     cleanup_ok = True
-    for action in ((lambda: qmp.close()) if qmp else None,
-                   lambda: media.stop_owned(qemu), lambda: media.stop_owned(tpm),
-                   (lambda: server.shutdown()) if server else None,
-                   (lambda: server.server_close()) if server else None):
-        if action:
-            try: action()
-            except Exception: cleanup_ok = False
-    if thread: thread.join(timeout=5)
-    live = any(p is not None and p.poll() is None for p in (qemu, tpm))
-    live = live or (thread is not None and thread.is_alive())
+    facts['qemu_present'] = qemu is not None; facts['tpm_present'] = tpm is not None
+    facts['qmp_present'] = qmp is not None
+    facts['server_present'] = server is not None
+    if qmp is not None:
+        try: qmp.close(); facts['qmp_close_succeeded'] = True
+        except Exception as exc:
+            cleanup_ok = False; facts['qmp_close_succeeded'] = False
+            teardown_error(facts, 'qmp_close', exc)
+            # Existing helper's buffered file.close can raise before socket.close.
+            # Still close the owned socket independently; original failure remains
+            # a failed cleanup criterion even if both handles are now closed.
+            try:
+                sock = getattr(qmp, 'socket', None)
+                if sock is not None: sock.close()
+            except Exception as socket_exc: teardown_error(facts, 'qmp_socket_close', socket_exc)
+        observe_qmp_closed(qmp, facts)
+        if facts['qmp_file_closed'] is not True or facts['qmp_socket_closed'] is not True:
+            cleanup_ok = False
+    for name, process in (('qemu', qemu), ('tpm', tpm)):
+        try: media.stop_owned(process)
+        except Exception as exc:
+            cleanup_ok = False; teardown_error(facts, name+'_stop', exc)
+    for stage, action in (('server_shutdown', server.shutdown if server is not None else None),
+                          ('server_close', server.server_close if server is not None else None)):
+        if action is not None:
+            try: action(); facts[stage+'_succeeded'] = True
+            except Exception as exc:
+                cleanup_ok = False; facts[stage+'_succeeded'] = False; teardown_error(facts, stage, exc)
+    if thread is not None:
+        try: thread.join(timeout=5)
+        except Exception as exc: cleanup_ok = False; teardown_error(facts, 'server_join', exc)
+    live = False
+    for name, process in (('qemu', qemu), ('tpm', tpm)):
+        live = not exit_observation(process, facts, name, 'after') or live
+    if thread is not None:
+        try:
+            facts['server_thread_stopped'] = not thread.is_alive()
+            live = live or not facts['server_thread_stopped']
+        except Exception as exc:
+            live = True; teardown_error(facts, 'server_observation', exc)
     if not live and not retain_work:
+        facts['work_remove_attempted'] = True
         try: shutil.rmtree(work)
-        except OSError: cleanup_ok = False
-    return cleanup_ok and not live and not work.exists()
+        except OSError as exc: cleanup_ok = False; teardown_error(facts, 'work_remove', exc)
+    else: facts['work_retained'] = True
+    try:
+        work.lstat(); facts['work_removed'] = False
+    except FileNotFoundError: facts['work_removed'] = True
+    except OSError as exc:
+        facts['work_removed'] = None; cleanup_ok = False; teardown_error(facts, 'work_observation', exc)
+    return cleanup_ok and not live and facts['work_removed'] is True
 
 
 def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, watch=None):
+    facts = new_teardown_facts(); public['teardown_diagnostic'] = facts
+    facts['qemu_present'] = qemu is not None; facts['tpm_present'] = tpm is not None
+    for name, process in (('qemu', qemu), ('tpm', tpm)): exit_observation(process, facts, name, 'before')
     teardown_uncertain = False
-    # Every spawned servicing helper is registered with the same watcher before
-    # use. Unconfirmed helper exit must retain the private directory too.
     registered = tuple(watch.processes) if watch is not None else ()
     owned = []
     for process in (qemu, tpm, *registered):
         if process is not None and all(process is not prior for prior in owned): owned.append(process)
+    helpers = [p for p in owned if p is not qemu and p is not tpm]
+    facts['helper_count'] = len(helpers)
     for process in owned:
-        if process is None: continue
         try:
             code = process.poll()
-            if process is qemu and code == -signal.SIGXFSZ:
-                public['capacity_abort'] = 'file_size_limit_signal'
+            if process is qemu and code == -signal.SIGXFSZ: public['capacity_abort'] = 'file_size_limit_signal'
             if code is None:
                 try: process.kill()
                 except OSError: pass  # Exit between poll and kill is normal; still wait/check.
                 process.wait(timeout=5)
-        except (OSError, subprocess.TimeoutExpired): teardown_uncertain = True
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            teardown_uncertain = True; teardown_error(facts, 'process_stop', exc)
     retain_work = teardown_uncertain
     for process in owned:
-        try: retain_work = retain_work or process.poll() is None
-        except OSError: retain_work = True
+        confirmed = exit_observation(process, facts, 'qemu' if process is qemu else 'tpm' if process is tpm else 'helper', 'after')
+        retain_work = retain_work or not confirmed
+        if any(process is helper for helper in helpers) and confirmed: facts['helper_exit_confirmed_count'] += 1
     if watch:
-        watcher_uncertain = False
+        facts['watcher_present'] = True; watcher_uncertain = False
         try: watch.close()
-        except Exception: watcher_uncertain = True
-        watcher_uncertain = watcher_uncertain or watch.thread.is_alive()
+        except Exception as exc:
+            watcher_uncertain = True; teardown_error(facts, 'watcher_stop', exc)
+        try: facts['watcher_stopped'] = not watch.thread.is_alive()
+        except Exception as exc:
+            facts['watcher_stopped'] = False; teardown_error(facts, 'watcher_observation', exc)
+        watcher_uncertain = watcher_uncertain or not facts['watcher_stopped']
         retain_work = retain_work or watcher_uncertain
         if watcher_uncertain: watch.reason = 'capacity_watch_stop_unconfirmed'
         public['minimum_free_bytes'] = watch.minimum_free
     try:
-        cleaned = cleanup_owned(media, work, qemu, tpm, qmp, server, thread, retain_work=retain_work)
-    except Exception:
-        cleaned = False
+        cleaned = cleanup_owned(media, work, qemu, tpm, qmp, server, thread,
+                                retain_work=retain_work, diagnostics=facts)
+    except Exception as exc:
+        cleaned = False; teardown_error(facts, 'cleanup_wrapper', exc)
     public['vm_destroyed'] = cleaned and not teardown_uncertain and not retain_work
     reconcile_capacity(public, watch.reason if watch else None)
     if not public['vm_destroyed']:
-        public['status'] = 'cleanup_unconfirmed'
-        public['stage0_passed'] = False
+        public['status'] = 'cleanup_unconfirmed'; public['stage0_passed'] = False
     return public
 
 
@@ -890,11 +996,89 @@ def merge_serviced_result(public, value, actor_digest, service_started):
     observed = project_stage0(value)
     for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic'):
         public[key] = observed[key]
+    if public.get('early_guest_diagnostic') is not None:
+        raise EarlyGuestFailure('closed guest failure contradicts result acceptance')
     validated = validate_guest(value, actor_digest)
     if not service_started or any(public.get(k) is not True for k in ('installer_detach_verified', 'update_media_members_verified', 'update_source_files_removed', 'update_media_attached_readonly', 'installed_guest_resumed')):
         raise ValueError('host servicing stages incomplete')
     public.update(validated)
     public['guest_result_provenance_verified'] = True
+
+
+EARLY_OPERATIONS = ('configuration_read', 'identity', 'cim_os', 'cim_drive', 'version', 'product',
+                    'setup', 'image', 'gate', 'beacon', 'waiting_setup', 'other')
+EARLY_GATES = ('product_winnt', 'arch_amd64', 'setup_not_busy', 'oobe_not_busy', 'image_complete',
+    'env_drive_c', 'os_drive_c', 'windows_directory', 'fixed_drive', 'build_26200', 'ubr_stock_or_target')
+EARLY_KEYS = frozenset(('schema', 'phase', 'operation', 'failure_category', 'hresult', 'gates'))
+EARLY_MAX_JSON = 2048
+EARLY_PREFIX = 'RPDIAG1 '
+
+
+class EarlyGuestFailure(RuntimeError):
+    pass
+
+
+def parse_early_guest(line):
+    if not isinstance(line, str) or not line.startswith(EARLY_PREFIX): return None
+    payload = line[len(EARLY_PREFIX):]
+    if not 0 < len(payload) <= EARLY_MAX_JSON or not payload.isascii(): return None
+    try:
+        # Duplicate keys are rejected, not last-wins parsed.
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result: raise ValueError('duplicate diagnostic key')
+                result[key] = value
+            return result
+        value = json.loads(payload, object_pairs_hook=unique)
+    except (ValueError, TypeError, RecursionError): return None
+    if not isinstance(value, dict) or frozenset(value) != EARLY_KEYS: return None
+    if type(value['schema']) is not int or value['schema'] != 1: return None
+    if type(value['phase']) is not str or value['phase'] not in LAUNCHER_PHASES: return None
+    if type(value['operation']) is not str or value['operation'] not in EARLY_OPERATIONS: return None
+    if type(value['failure_category']) is not str or value['failure_category'] not in LAUNCHER_FAILURES: return None
+    if value['hresult'] is not None and (type(value['hresult']) is not int or not -0x80000000 <= value['hresult'] <= 0x7fffffff): return None
+    gates = value['gates']
+    if not isinstance(gates, dict) or frozenset(gates) != frozenset(EARLY_GATES): return None
+    if any(v is not None and type(v) is not bool for v in gates.values()): return None
+    # Rebuild in fixed order; never retain an input object or unknown data.
+    return {'schema': 1, 'phase': value['phase'], 'operation': value['operation'],
+        'failure_category': value['failure_category'], 'hresult': value['hresult'],
+        'gates': {key: gates[key] for key in EARLY_GATES}}
+
+
+class EarlyGuestSerial:
+    """Bounded fragmented line observer. It cannot grant readiness or acceptance."""
+    def __init__(self):
+        self.pending = ''; self.dropping = False
+    def feed(self, chunk):
+        if not isinstance(chunk, str) or len(chunk) > 65536:
+            self.pending = ''; self.dropping = True; return None
+        for char in chunk:
+            if char == '\n':
+                line = self.pending.removesuffix('\r')
+                dropping = self.dropping; self.pending = ''; self.dropping = False
+                if not dropping:
+                    value = parse_early_guest(line)
+                    if value is not None: return value
+                continue
+            if self.dropping: continue
+            self.pending += char
+            if len(self.pending) > len(EARLY_PREFIX)+EARLY_MAX_JSON+1:
+                self.pending = ''; self.dropping = True
+        return None
+
+
+def observe_guest_serial(public, observer, chunk, *, fail_fast=True):
+    diagnostic = observer.feed(chunk)
+    if diagnostic is not None:
+        public['early_guest_diagnostic'] = diagnostic
+        public['host_wait_failure'] = 'guest_launcher_failure'
+        public['stage0_passed'] = False
+        # Serial is negative evidence only. After NIC activation retain the
+        # cause but allow the already bounded HTTP path to deliver full facts.
+        if fail_fast:
+            raise EarlyGuestFailure('closed early guest failure')
 
 
 def host(args):
@@ -1026,6 +1210,7 @@ def host(args):
         operation = 'guest_wait'
         plugged = False; service_started = False
         serial_tail = ""
+        early_serial = EarlyGuestSerial()
         while not server.received.wait(.2):
             if watch.reason: raise RuntimeError(watch.reason)
             if disk.stat().st_size >= DISK_FILE_CAP - 64 * 1024**2:
@@ -1035,6 +1220,7 @@ def host(args):
                 public['host_wait_failure'] = 'qemu_exited' if stopped else 'guest_deadline'
                 raise RuntimeError('guest deadline or exit')
             beacon = qmp.execute('ringbuf-read', {'device': 'serialbuf', 'size': 65536})
+            observe_guest_serial(public, early_serial, beacon, fail_fast=not plugged)
             serial_tail = (serial_tail + beacon)[-256:]
             if 'RPBEACON identity-result-transport-failed' in serial_tail:
                 public['guest_result_transport_failed'] = True

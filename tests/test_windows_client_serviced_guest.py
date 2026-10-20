@@ -31,7 +31,7 @@ class ServicedGuestContractTests(unittest.TestCase):
     def test_media_is_optical_and_exact_pinned_two_members(self):
         self.assertIn("-Filter 'DriveType=5'", UPDATE)
         self.assertIn("$_.VolumeName -ceq 'RULEPROXY_UPDATE'", UPDATE)
-        self.assertIn('if ($matches.Count -ne 1)', UPDATE)
+        self.assertIn('if ($opticalDrives.Count -ne 1)', UPDATE)
         self.assertIn('if ($items.Count -ne 2)', UPDATE)
         self.assertIn("filename='windows11.0-kb5043080-x64.msu'; bytes=533761740L", UPDATE)
         self.assertIn("filename='windows11.0-kb5127648-x64.msu'; bytes=4775050195L", UPDATE)
@@ -60,8 +60,10 @@ class ServicedGuestContractTests(unittest.TestCase):
 
     def test_installed_stock_beacon_after_required_gate(self):
         beacon = RUN.index('RPBEACON identity-stock-installed-ready')
-        for marker in ("$bootType -cne 'WinNT'", "$env:PROCESSOR_ARCHITECTURE -cne 'AMD64'",
-                       "$bootDrive.DriveType -ne 3", "$image.ImageState -cne 'IMAGE_STATE_COMPLETE'",
+        for marker in ("$gates.product_winnt=($Facts.product -ceq 'WinNT')",
+                       "$gates.arch_amd64=($Facts.architecture -ceq 'AMD64')",
+                       "$gates.fixed_drive=($null -ne $Facts.drive_type -and $Facts.drive_type -eq 3)",
+                       "$gates.image_complete=($Facts.image -ceq 'IMAGE_STATE_COMPLETE')",
                        "if ([int]$bootVersion.UBR -eq 6584)"):
             self.assertLess(RUN.index(marker), beacon)
         self.assertLess(RUN.index('$service.task_unregistered -ne $true'), RUN.index('RPBEACON identity-ordinary-ready'))
@@ -85,5 +87,26 @@ class ServicedGuestContractTests(unittest.TestCase):
         self.assertIn("$state.failure=if ($message -cin $allowed)", UPDATE)
         self.assertNotIn('error_detail', UPDATE)
         self.assertIn('ConvertTo-Json -Depth 10 -Compress', RUN)
+
+
+    def test_early_failure_serial_is_closed_and_before_http(self):
+        self.assertIn("'RPDIAG1 '+$json", RUN)
+        self.assertIn('ASCII.GetByteCount($json) -gt 2048', RUN)
+        self.assertIn("if ($failed -and -not $earlyBootGateCompleted) {", RUN)
+        self.assertLess(RUN.index('try { Write-ClosedEarlyDiagnostic'), RUN.index('for ($i=0; $i -lt 3; $i++)'))
+        self.assertIn("$phase='installed_setup_wait'", RUN)
+        self.assertIn('AddSeconds(120)', RUN)
+        self.assertIn("$failureCategory='installed_setup_deadline'", RUN)
+        self.assertNotRegex(UPDATE, r'(?i)\$matches\s*=')
+        self.assertNotRegex(UPDATE, r'(?i)\$error\s*=')
+
+    def test_actual_windows_branch_harness_exists(self):
+        test=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        self.assertIn("'C:\\WINDOWS'", test)
+        self.assertIn('Invalid directory accepted', test)
+        self.assertIn('Invalid synthetic gates accepted', test)
+        self.assertIn('Optical root regex regression', test)
+        self.assertIn('Ambiguous optical root accepted', test)
+        self.assertIn('runtime_acceptance=$false', test)
 
 if __name__ == '__main__': unittest.main()
