@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "e3cfcf54d5ee124c437ff0171f966a4c987128d2",
+  "run_id": 39476695725,
+  "native_job_id": 118815168142,
+  "artifacts": [
+    {
+      "artifact_id": 12293082917,
+      "archive_sha256": "1dfcaff7808689d1061f386ea957f81f4ae5bf998420da91e66240fd43627afa",
+      "public_file": "serviced-stage0-attempt-05-runtime-public.json"
+    },
+    {
+      "artifact_id": 12293197702,
+      "archive_sha256": "384c486241eec6b1fe35a065c585d9874c98a45fffaaaf9ece92e428fe639d86",
+      "public_file": "serviced-stage0-attempt-05-preparation-public.json"
+    },
+    {
+      "artifact_id": 12293930769,
+      "archive_sha256": "13704bd03259549a4335df65d23b1aa30f7a8009e006a3db191046815421bc76",
+      "public_file": "serviced-stage0-attempt-05-capacity-public.json"
+    }
+  ],
+  "observed_outcome": "setup_clock_budget_accepted_then_worker_prior_state_rejected",
+  "stage0_passed": false,
+  "vm_destroyed": true,
+  "prior_attempt_cleanup_uncertainty_unchanged": true,
+  "provider_deletion_attempted": false,
+  "installed_stock_beacon_observed": true,
+  "update_media_host_verified_and_attached": true,
+  "isolation_not_tested": true,
+  "qemu_started_utc": "2026-10-20T18:43:54Z",
+  "installed_stock_beacon_utc": "2026-10-20T18:56:22Z",
+  "result_received_utc": "2026-10-20T19:42:48Z",
+  "cleanup_done_utc": "2026-10-20T19:43:00Z",
+  "setup_budget_accepted": true,
+  "setup_remaining_seconds": 8707,
+  "ordinary_remaining_seconds": 3641,
+  "observed_zone_pacific": true,
+  "observed_utc_offset_minutes": -420,
+  "previous_receipt_state_not_preserved": true,
+  "dism_application_not_established": true,
+  "reboot_not_established": true,
+  "exact_serviced_build_not_established": true
+}
