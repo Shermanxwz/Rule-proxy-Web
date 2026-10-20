@@ -192,3 +192,44 @@ The current ordinary-user acceptance gate remains unchanged. A different
 ordinary-token source or a separately labelled non-acceptance diagnostic needs
 an explicit next design decision; retries of this exact missing linked-token
 path do not provide new evidence.
+
+## R0: separate restricted-caller identity experiment (preparation)
+
+The missing existing linked token is retained as an unsupported genuine
+ordinary-user route. The next experiment is explicitly **not** a replacement
+ordinary-user test. It derives a transient restricted token only from the
+current runner's own primary token, reduces group/privilege authority, and
+measures that token and the launched child before allowing a fixed native
+actor to run. This synthetic restricted-caller context is reported separately.
+It is not an ordinary desktop, an AppContainer, a general desktop sandbox, or
+PSEC/browser acceptance.
+
+The initial R0 slice runs only the already compiled/hash-checked native actor
+in its identity-reporting mode. It creates no AppContainer profile, ACL grant,
+network rule or proxy. No accounts, credentials, UAC/privilege-policy change,
+explicit privilege enabling, foreign-user token, service, or alternative logon API is
+permitted. CreateProcessAsUser's documented own-restricted-token exception does
+not guarantee all required privileges are available; a native failure remains
+a blocker, not a reason to grant privileges.
+
+A separate `[identity-restricted-r0-runtime]` marker gates the R0 step in the
+same single standard Windows job. Its two-minute step budget is within the
+existing eight-minute job limit. Only bounded controller/actor JSON reports
+are uploaded. Genuine ordinary-user and pipe-runtime steps are not enabled
+by this marker. Successful R0 would establish only this restricted-token
+launch mechanism and must be followed by separately labelled pipe integration.
+
+Primary API references:
+- [CreateRestrictedToken](https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-createrestrictedtoken): new restricted-token ownership, deny-only groups, privilege deletion, and default-desktop limitation.
+- [CreateProcessAsUserW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessasuserw): caller-token restriction exception and required existing caller privileges. Windows may temporarily enable an already held required privilege during this API call; this experiment does not grant privileges or call AdjustTokenPrivileges.
+
+R0 implementation uses Flags=0 and explicit deletion of every observed
+privilege except optional SeChangeNotifyPrivilege, then reads the full native
+privilege array back. Every non-baseline group is made deny-only; the exact
+native user, logon and integrity identity is checked, with unchanged user
+attributes and authentication LUID. The child is created suspended, assigned
+to an owned kill-on-close Job, and verified before resume. Cleanup requires
+native Job active-process count zero and closure of all owned handles. Parent
+security facts are re-read after the experiment; token bookkeeping IDs are
+not substituted for those facts. The expanded pure suite has 92 passing tests
+locally. This paragraph records preparation only, not Windows R0 execution.

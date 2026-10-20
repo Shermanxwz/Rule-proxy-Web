@@ -9,6 +9,7 @@ on:
       - '.github/windows_identity_proof.py'
       - '.github/windows_identity_pipe_probe.py'
       - '.github/windows_identity_ordinary_launcher.py'
+      - '.github/windows_identity_restricted_launcher.py'
       - 'tests/test_windows_identity*.py'
       - '.github/workflows/windows-identity-proof.yml'
 
@@ -54,6 +55,23 @@ jobs:
           $build = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
           python -I -S -B .github/windows_identity_ordinary_launcher.py --disposable-ci --approved-security-test --actor "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-sha256 $build.executableSha256 --work "$PWD\identity-ordinary-run" --report "$PWD\identity-ordinary-run\report.json"
           if ($LASTEXITCODE -ne 0) { throw 'Stage 0b did not pass; inspect bounded reports, no fallback is permitted.' }
+      - name: Restricted-caller R0 identity diagnostic, not ordinary-user acceptance
+        if: contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]')
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          $build = Get-Content -Raw identity-actor-build/build-manifest.json | ConvertFrom-Json
+          python -I -S -B .github/windows_identity_restricted_launcher.py --disposable-ci --approved-security-test --actor "$PWD\identity-actor-build\windows_identity_actor.exe" --actor-sha256 $build.executableSha256 --work "$PWD\identity-restricted-r0" --report "$PWD\identity-restricted-r0\report.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Restricted-caller R0 diagnostic blocked or failed; no ordinary-token fallback.' }
+      - uses: actions/upload-artifact@v7
+        if: always() && contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]')
+        with:
+          name: identity-restricted-r0-observations
+          path: |
+            identity-restricted-r0/report.json
+            identity-restricted-r0/actor.json
+          if-no-files-found: warn
+          retention-days: 14
       - uses: actions/upload-artifact@v7
         if: always() && contains(github.event.head_commit.message, '[identity-pipe-runtime]')
         with:
