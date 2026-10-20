@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "run_id": 39378706680,
+  "commit": "4c052e1dbcef266466524d6ecb6d14a2cf17e374",
+  "native_job_id": 118482776398,
+  "artifact_id": 12244143580,
+  "artifact_zip_sha256": "8268a3027c7e46d7a05cd77d512fdca971b6fcc0f5d08791e6a4bc63bb44d95c",
+  "artifact_member": "public.json",
+  "report_is_original_closed_projection": true,
+  "observed_image_version": "20261012.334.1",
+  "reviewed_required_image_version": "20261018.339.1",
+  "windows_build_passed": true,
+  "windows_test_suite_passed": true,
+  "native_checkout_started": false,
+  "vm_created": false,
+  "secondary_workflow_error": "timeout_minutes_output_string_requires_numeric_conversion"
+}

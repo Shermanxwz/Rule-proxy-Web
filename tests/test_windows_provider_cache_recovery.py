@@ -333,8 +333,12 @@ class ClosedGateTests(unittest.TestCase):
             'dotnet_sdk': '/usr/share/dotnet',
             'swift_toolchain': '/usr/share/swift',
         })
-        self.assertEqual(m.IMAGE_SOURCE, 'b4067e48bd9bd803e958bfe1503ea0a06a3a127f')
-        self.assertEqual(m.IMAGE_VERSION, '20261018.339.1')
+        self.assertEqual(m.REVIEWED_IMAGES, {
+            '20261012.334.1': (
+                'ubuntu24/20261012.334', '7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe'),
+            '20261018.339.1': (
+                'ubuntu24/20261018.339', 'b4067e48bd9bd803e958bfe1503ea0a06a3a127f'),
+        })
         self.assertIs(type(m.EXECUTION_ENABLED), bool)
         self.assertEqual(m.REVIEWED_FREE_TARGET_BYTES, 32 * 1024**3)
 
@@ -358,6 +362,19 @@ class ClosedGateTests(unittest.TestCase):
         self.assertEqual(report['stop_reason'], 'filesystem_error')
         self.assertEqual(report['error_errno'], 5)
         self.assertNotIn('secret', json.dumps(report))
+
+    def test_public_provenance_matches_each_exact_observed_reviewed_image(self):
+        for version, (tag, commit) in m.REVIEWED_IMAGES.items():
+            with self.subTest(version=version), \
+                    patch.dict(m.os.environ, {'ImageOS': 'ubuntu24', 'ImageVersion': version}), \
+                    patch.object(m, '_directory_open', side_effect=OSError(5, 'synthetic stop')):
+                report = m.collect()
+            self.assertTrue(report['reviewed_image_version_matches'])
+            self.assertEqual(report['reviewed_image_version'], version)
+            self.assertEqual(report['reviewed_image_release_tag'], tag)
+            self.assertEqual(report['image_definition_commit'], commit)
+            self.assertFalse(report['source_provenance_is_content_proof'])
+            self.assertEqual(report['attempted_removals'], 0)
 
     def test_collect_validates_whole_set_before_any_private_remove_call(self):
         calls = []
@@ -528,7 +545,7 @@ class ContextGateTests(unittest.TestCase):
         self.environment = {
             'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'github-hosted',
             'RUNNER_OS': 'Linux', 'RUNNER_ARCH': 'X64',
-            'ImageOS': 'ubuntu24', 'ImageVersion': m.IMAGE_VERSION,
+            'ImageOS': 'ubuntu24', 'ImageVersion': '20261018.339.1',
             'GITHUB_WORKSPACE': self.temporary.name,
         }
         self.context = contextlib.ExitStack()
@@ -545,8 +562,10 @@ class ContextGateTests(unittest.TestCase):
             m._execution_gate(fresh)
         self.assertEqual(raised.exception.reason, reason)
 
-    def test_exact_empty_fresh_job_context_passes_read_only_gate(self):
-        m._execution_gate(True)
+    def test_both_exact_empty_fresh_job_contexts_pass_read_only_gate(self):
+        for version in m.REVIEWED_IMAGES:
+            with self.subTest(version=version), patch.dict(m.os.environ, {'ImageVersion': version}):
+                m._execution_gate(True)
 
     def test_missing_explicit_fresh_assertion_blocks(self):
         self.assert_reason('not_fresh_hosted_job', fresh=False)
@@ -560,6 +579,37 @@ class ContextGateTests(unittest.TestCase):
         for key in ('ImageOS', 'ImageVersion'):
             with patch.dict(m.os.environ, {key: 'different'}):
                 self.assert_reason('image_not_reviewed')
+
+    def test_unknown_image_blocks_execution_before_stat_open_or_deletion(self):
+        candidates = (
+            {'ImageVersion': '20261019.999.1'},
+            {'ImageVersion': '20261012.334.2'},
+            {'ImageVersion': '20261018.339.1 '},
+            {'ImageVersion': '20261018.339'},
+            {'ImageVersion': 'latest'},
+            {'ImageVersion': ''},
+            {'ImageOS': 'ubuntu22', 'ImageVersion': '20261012.334.1'},
+        )
+        for candidate in candidates:
+            with self.subTest(candidate=candidate), patch.dict(m.os.environ, candidate), \
+                    patch.object(m.os, 'stat') as inspected, \
+                    patch.object(m, '_directory_open') as opened, \
+                    patch.object(m, 'TreeSnapshot') as tree, \
+                    patch.object(m.os, 'unlink') as unlink, patch.object(m.os, 'rmdir') as rmdir:
+                report = m.collect(execute=True, fresh_job_before_checkout=True)
+            self.assertEqual(report['stop_reason'], 'image_not_reviewed')
+            self.assertFalse(report['reviewed_image_version_matches'])
+            self.assertIsNone(report['reviewed_image_version'])
+            self.assertIsNone(report['reviewed_image_release_tag'])
+            self.assertIsNone(report['image_definition_commit'])
+            self.assertEqual(report['attempted_removals'], 0)
+            self.assertFalse(report['host_changes'])
+            self.assertFalse(report['vm_created'])
+            inspected.assert_not_called()
+            opened.assert_not_called()
+            tree.assert_not_called()
+            unlink.assert_not_called()
+            rmdir.assert_not_called()
 
     def test_populated_workspace_blocks_before_any_cleanup(self):
         (Path(self.temporary.name) / 'checkout-or-other-step').write_bytes(b'keep')

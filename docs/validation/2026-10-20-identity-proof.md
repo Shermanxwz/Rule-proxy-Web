@@ -523,3 +523,12 @@ provide. Thirteen tests ran, one errored and the Linux-only primitive test was
 skipped. The native job was skipped: no provider recovery, VM, temporary account
 or Stage0 execution occurred. The correction is test-only signal injection,
 not relaxation of the Linux finalizer or resource limits.
+
+Stock attempt `39378706680` (`4c052e1d`) passed the Windows build and portable
+test suite. The Ubuntu image rotated back to `20261012.334.1`; the exact
+`20261018.339.1` recovery gate rejected it before snapshots or deletion. The
+closed artifact confirms zero attempted removals and no host changes. Checkout,
+package provisioning and VM creation were skipped. Workflow diagnostics also
+identified string-valued dynamic timeout outputs, requiring explicit numeric
+conversion. The next reviewed correction admits only the two already verified
+image definitions, not arbitrary future images, and preserves all capacity gates.

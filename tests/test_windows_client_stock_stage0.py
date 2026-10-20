@@ -90,6 +90,18 @@ class StockTests(unittest.TestCase):
         self.assertIn('STOCK_JOB_DEADLINE=',text)
         self.assertIn('--job-deadline-epoch "$STOCK_HOST_DEADLINE"',text)
         self.assertNotIn('112m sudo',text)
+    def test_workflow_numeric_fields_convert_step_output_strings(self):
+        import re
+        text=(ROOT / '.github/workflows/windows-identity-stock-stage0.yml').read_text()
+        dynamic=[]
+        for field,value in re.findall(r'^\s+(timeout-minutes|max-parallel):\s*(.*?)\s*$',text,re.MULTILINE):
+            if value.isdecimal():
+                self.assertGreater(int(value),0)
+            else:
+                self.assertRegex(value,r'^\$\{\{ fromJSON\(steps\.stock_budget_[0-8]\.outputs\.minutes\) \}\}$')
+                dynamic.append(value)
+        self.assertEqual(len(dynamic),9)
+        self.assertEqual(len(set(dynamic)),9)
     def test_recovery_embedding_matches_source(self):
         text=(ROOT / '.github/workflows/windows-identity-stock-stage0.yml').read_text()
         body=text.split("<<'REVIEWED_RECOVERY'\n",1)[1].split('          REVIEWED_RECOVERY',1)[0]

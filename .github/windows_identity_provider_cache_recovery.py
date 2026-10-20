@@ -1,4 +1,4 @@
-"""Narrow, fail-closed provider-cache recovery candidate (DISABLED FOR REVIEW).
+"""Narrow, fail-closed provider-cache recovery with fixed reviewed images.
 
 Only the three fixed provider trees below are eligible. The default is read-only.
 Execution must be enabled in the reviewed source, with a reviewed fixed free-space
@@ -24,10 +24,17 @@ import stat
 import sys
 import time
 
-IMAGE_SOURCE = 'b4067e48bd9bd803e958bfe1503ea0a06a3a127f'
+# Exact reviewed image versions only. No discovery, pattern, "latest", or
+# environment-supplied extension of this map is permitted.
+REVIEWED_IMAGES = {
+    '20261012.334.1': (
+        'ubuntu24/20261012.334', '7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe'),
+    '20261018.339.1': (
+        'ubuntu24/20261018.339', 'b4067e48bd9bd803e958bfe1503ea0a06a3a127f'),
+}
+# The three relevant installers are byte-identical between these definitions.
+# This provenance comparison is not evidence of the running trees' contents.
 PRIOR_IDENTICAL_INSTALL_SCRIPTS_SOURCE = '7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe'
-IMAGE_TAG = 'ubuntu24/20261018.339'
-IMAGE_VERSION = '20261018.339.1'
 TARGETS = {
     'android_sdk': '/usr/local/lib/android/sdk',
     'dotnet_sdk': '/usr/share/dotnet',
@@ -446,6 +453,14 @@ def _free_bytes(descriptor):
     return int(value.f_bavail) * int(value.f_frsize)
 
 
+def _reviewed_image():
+    if os.environ.get('ImageOS') != 'ubuntu24':
+        return None
+    version = os.environ.get('ImageVersion')
+    provenance = REVIEWED_IMAGES.get(version)
+    return (version, *provenance) if provenance is not None else None
+
+
 def _execution_gate(fresh_job_before_checkout):
     if not EXECUTION_ENABLED:
         raise RecoveryStopped('execution_not_reviewed')
@@ -462,7 +477,7 @@ def _execution_gate(fresh_job_before_checkout):
                 'RUNNER_OS': 'Linux', 'RUNNER_ARCH': 'X64'}
     if not fresh_job_before_checkout or any(os.environ.get(k) != v for k, v in expected.items()):
         raise RecoveryStopped('not_fresh_hosted_job')
-    if os.environ.get('ImageOS') != 'ubuntu24' or os.environ.get('ImageVersion') != IMAGE_VERSION:
+    if _reviewed_image() is None:
         raise RecoveryStopped('image_not_reviewed')
     workspace = os.environ.get('GITHUB_WORKSPACE')
     if not workspace or not os.path.isabs(workspace):
@@ -484,14 +499,16 @@ def _execution_gate(fresh_job_before_checkout):
 
 def collect(*, execute=False, fresh_job_before_checkout=False):
     """Closed public projection. Never return paths, entry names, or exceptions."""
+    image = _reviewed_image()
     report = {
         'schema_version': 1, 'stage': 'reviewed-provider-cache-recovery',
         'status': 'blocked', 'read_only': not execute, 'execution_requested': bool(execute),
         'execution_enabled_in_source': EXECUTION_ENABLED,
-        'image_definition_commit': IMAGE_SOURCE, 'reviewed_image_release_tag': IMAGE_TAG,
+        'image_definition_commit': image[2] if image is not None else None,
+        'reviewed_image_release_tag': image[1] if image is not None else None,
+        'reviewed_image_version': image[0] if image is not None else None,
         'prior_identical_install_scripts_commit': PRIOR_IDENTICAL_INSTALL_SCRIPTS_SOURCE,
-        'reviewed_image_version_matches': (
-            os.environ.get('ImageOS') == 'ubuntu24' and os.environ.get('ImageVersion') == IMAGE_VERSION),
+        'reviewed_image_version_matches': image is not None,
         'source_provenance_is_content_proof': False,
         'atomic_snapshot': False, 'concurrent_privileged_mutation_safe': False,
         'minimum_free_bytes': REVIEWED_FREE_TARGET_BYTES,
