@@ -11,6 +11,47 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('client_stage0', ROOT / '.github/windows_identity_win11_stage0.py')
 m = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(m)
 
+PREFLIGHT_SPEC=importlib.util.spec_from_file_location('lab_preflight', ROOT/'.github/windows_identity_lab_preflight.py')
+pref=importlib.util.module_from_spec(PREFLIGHT_SPEC); PREFLIGHT_SPEC.loader.exec_module(pref)
+
+class LabPreflightTests(unittest.TestCase):
+    def test_all_fixed_locations_and_kvm_observed_before_storage_failure(self):
+        calls=[]
+        def storage(path):
+            calls.append(path)
+            return {'exists':True,'directory':True,'writable':True,'total_bytes':100,
+                    'free_bytes':1,'minimum_met':False,'error_errno':None}, 4711
+        def kvm():
+            calls.append('KVM_READ_ONLY')
+            return {'opened_read_write':True,'api_supported':True,'handle_closed':True}
+        out=pref.collect(storage_reader=storage,kvm_reader=kvm,runner_temp='/private/temp',workspace='/private/work')
+        self.assertEqual(calls,['/private/work','/tmp','/private/temp','/mnt','KVM_READ_ONLY'])
+        self.assertFalse(out['existing_tmp_ready'])
+        self.assertEqual(out['eligible_storage_labels'],[])
+        text=json.dumps(out)
+        for secret in ('/private','/tmp','/mnt','4711'): self.assertNotIn(secret,text)
+        self.assertEqual({x['filesystem_group'] for x in out['storage'].values()},{'filesystem_1'})
+        self.assertTrue(all(out['same_filesystem'].values()))
+
+    def test_alternate_is_proposed_not_selected_or_provisioned(self):
+        def storage(path):
+            eligible=path=='/mnt'
+            return {'exists':True,'directory':True,'writable':True,'total_bytes':99*1024**3,
+                    'free_bytes':56*1024**3 if eligible else 1,'minimum_met':eligible,'error_errno':None}, 2 if eligible else 1
+        out=pref.collect(storage_reader=storage,kvm_reader=lambda:{'opened_read_write':False},runner_temp='/tmp',workspace='/tmp')
+        self.assertEqual(out['proposed_storage_label'],'mnt')
+        self.assertTrue(out['alternate_storage_available'])
+        self.assertFalse(out['same_filesystem']['tmp__mnt'])
+        self.assertFalse(out['existing_tmp_ready']); self.assertFalse(out['vm_created']); self.assertFalse(out['host_changes'])
+        self.assertEqual(out['minimum_free_bytes'],55*1024**3)
+
+    def test_kvm_open_failure_is_closed_errno_without_path(self):
+        with patch.object(pref.os.path,'exists',return_value=True), patch.object(pref.os,'open',side_effect=PermissionError(13,'private-path')):
+            out=pref.inspect_kvm()
+        self.assertEqual(out['error_errno'],13)
+        self.assertFalse(out['opened_read_write'])
+        self.assertNotIn('private-path',json.dumps(out))
+
 class ClientStage0Tests(unittest.TestCase):
     def sample(self):
         return dict(checks={k: True for k in m.CHECKS}, stage0_passed=True,
@@ -68,11 +109,14 @@ class ClientStage0Tests(unittest.TestCase):
         self.assertIn('timeout-minutes: 120',text)
         self.assertNotIn('rm -rf',text); self.assertNotIn('docker system prune',text)
         self.assertNotIn('matrix:',text); self.assertNotIn('secrets.',text)
-        self.assertIn("os.open('/dev/kvm', os.O_RDWR | os.O_CLOEXEC)",text)
-        self.assertLess(text.index("os.open('/dev/kvm'"),text.index('sudo apt-get update'))
-        self.assertLess(text.index("os.open('/dev/kvm'"),text.index('artifact-ids: 11938733475'))
         native=text[text.index('  native:'):]
-        self.assertLess(native.index("os.open('/dev/kvm'"),native.index('uses: actions/download-artifact'))
+        self.assertLess(native.index('--require-existing-tmp'),native.index('sudo apt-get update'))
+        self.assertLess(native.index('--require-existing-tmp'),native.index('uses: actions/download-artifact'))
+        self.assertIn('[identity-win11-preflight]',text)
+        preflight=text[text.index('  preflight:'):text.index('  compile:')]
+        self.assertNotIn('apt-get',preflight)
+        self.assertNotIn('download-artifact',preflight)
+        self.assertIn('if: always()',preflight)
         self.assertIn('path: client-stage0-public/public-report.json',text)
         self.assertNotIn('test_windows_identity*.py',text)
         self.assertNotIn('build-manifest.json\n',text.split('path: |')[1].split('retention-days:')[0])

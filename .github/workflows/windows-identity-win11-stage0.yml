@@ -4,6 +4,7 @@ on:
     branches: ['dot/windows-isolation-proof']
     paths:
       - '.github/windows_identity_win11_stage0.py'
+      - '.github/windows_identity_lab_preflight.py'
       - '.github/windows-identity-win11-stage0-setup.ps1'
       - '.github/windows-identity-win11-stage0-run.ps1'
       - '.github/workflows/windows-identity-win11-stage0.yml'
@@ -14,6 +15,24 @@ concurrency:
   group: identity-win11-stage0-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  preflight:
+    if: contains(github.event.head_commit.message, '[identity-win11-preflight]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Read all fixed storage and KVM facts without provisioning
+        run: |
+          sudo --preserve-env=RUNNER_TEMP,GITHUB_WORKSPACE "$(command -v python3)" -B .github/windows_identity_lab_preflight.py --output client-stage0-preflight/public-preflight.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-client-lab-preflight
+          path: client-stage0-preflight/public-preflight.json
+          retention-days: 14
+          if-no-files-found: error
   compile:
     if: contains(github.event.head_commit.message, '[identity-win11-stage0-runtime]')
     runs-on: windows-2025
@@ -66,16 +85,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
-      - name: Require free storage and KVM before lab downloads or provisioning
+      - name: Collect all storage and KVM facts, then require the current tmp lab root
         run: |
-          available=$(df -B1 --output=avail /tmp | tail -n 1)
-          if [ "$available" -lt 59055800320 ]; then echo 'Insufficient free space; no global cleanup is permitted'; exit 1; fi
-          sudo "$(command -v python)" -B - <<'PY'
-          import os
-          descriptor = os.open('/dev/kvm', os.O_RDWR | os.O_CLOEXEC)
-          os.close(descriptor)
-          print('KVM device is readable/writable with the existing runner authority')
-          PY
+          sudo --preserve-env=RUNNER_TEMP,GITHUB_WORKSPACE "$(command -v python)" -B .github/windows_identity_lab_preflight.py --require-existing-tmp --output client-stage0-preflight/public-preflight.json
+      - name: Install only the existing disposable VM tools
+        run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip
       - uses: actions/download-artifact@v8
@@ -128,6 +142,13 @@ jobs:
             --approved-disposable-vm --package "client-stage0-package/$name" --package-sha256 "$expected" \
             --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 "$actor" \
             --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 6600
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-client-lab-preflight
+          path: client-stage0-preflight/public-preflight.json
+          retention-days: 14
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v7
         if: always()
         with:

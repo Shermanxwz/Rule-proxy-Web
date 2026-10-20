@@ -431,3 +431,22 @@ insufficient resources stop without broad cleanup or new paid capacity.
 The host reserves 120 seconds for owned-process cleanup, destroys its private
 VM/media/password tree only after owned processes exit, and publishes only a
 closed report. 11 new local integration tests pass. No native Win11 result yet.
+
+
+Genuine Win11 Stage0 attempt 1 (commit `fce91982`, run `39373330655`):
+native IdentityOnly compile, guest PowerShell syntax and 11 integration tests
+passed. Ubuntu stopped at its 55GiB free-space check, before KVM inspection,
+lab artifact/media downloads, apt installation, VM or account creation. No
+global cleanup or paid-resource fallback occurred. The old check did not print
+actual free bytes, so neither its exact storage deficit nor an alternative
+existing filesystem is established. Preserve blocked status and inspect only
+bounded existing-runner resource facts before selecting an owned workspace.
+
+A separate five-minute preflight-only marker now observes total/free bytes
+for four fixed existing runner locations, opaque same-filesystem grouping and
+KVM read/write-open/API-version/close facts. Every candidate and KVM is checked
+even when storage is insufficient. The closed report contains no raw paths,
+host/account names or device identifiers. It creates no VM, account, mount or
+permission change and downloads no lab artifacts/media. The 55GiB runtime gate
+remains unchanged; a reported alternate location is only a proposal. Fourteen
+client integration/preflight tests pass locally.
