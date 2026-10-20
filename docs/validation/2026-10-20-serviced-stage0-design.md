@@ -131,3 +131,29 @@ clock no longer applies; all existing servicing and absolute deadlines remain.
 Timeout uses the same closed report and owned cleanup, never success acceptance.
 The cutoff is evaluated after the existing bounded QMP poll; it is a logical
 admission deadline, not a hard real-time process-kill guarantee.
+
+## Optical API regression gate
+
+Attempt 02 (`39426075620`) reached the installed-stock beacon in approximately
+1823 seconds and paused the guest, then failed during media switching before
+servicing. This attempt separately confirmed every owned teardown step; it does
+not change the prior attempt's cleanup uncertainty.
+
+The QEMU v8.2.2 QAPI contract requires a frontend `id` for
+`blockdev-remove-medium`; the prior implementation incorrectly used legacy
+backend `device`, accepted by some other tray commands but not this one.
+Source: https://github.com/qemu/qemu/blob/v8.2.2/qapi/block.json#L213-L252
+The source mismatch fits the failure boundary, but the original runtime's QMP
+error details were not preserved and exact attribution remains unmeasured.
+
+The corrected helpers use explicit `install-cd`/`update-cd` frontend IDs and verify
+the exact backend-to-frontend mapping, owned filename and read-only state.
+Installer unlink still requires empty insertion plus absence from both block
+inventories. A scoped QMP wrapper records only allowlisted command/error class
+and completion facts, never arbitrary descriptions, paths or identities.
+
+A separate five-minute Ubuntu gate tests the real QEMU 8.2.x API with paused TCG,
+64 MiB RAM and tiny synthetic owned media. No Windows image, KVM, NIC, guest CPU
+execution, account, servicing or isolation acceptance is involved. It must show
+old-request rejection, corrected detach/attach readback and confirmed cleanup.
+Its success is an API regression result only, not a serviced Windows result.

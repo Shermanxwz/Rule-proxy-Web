@@ -87,7 +87,7 @@ class QmpTests(unittest.TestCase):
         def execute(command,args=None):
             if command=='query-block':
                 inserted={} if state['removed'] else {'inserted':{'file':str(path) if not wrong else '/other','ro':True}}
-                return [{'device':'install',**inserted}]
+                return [{'device':'install','qdev':'install-cd',**inserted}]
             if command=='query-named-block-nodes':return [{'file':str(path)}] if lingering else []
             if command=='blockdev-remove-medium':state['removed']=True
             return {}
@@ -100,6 +100,8 @@ class QmpTests(unittest.TestCase):
             root=Path(directory);p=root/'official.iso';p.write_bytes(b'iso')
             qmp=self.fake(p);host.reclaim_installer(qmp,p,root,types.SimpleNamespace(ISO_BYTES=3))
             self.assertFalse(p.exists())
+            qmp.execute.assert_any_call('blockdev-open-tray',{'id':'install-cd','force':True})
+            qmp.execute.assert_any_call('blockdev-remove-medium',{'id':'install-cd'})
             self.assertIn('query-named-block-nodes',[c.args[0] for c in qmp.execute.call_args_list])
 
     @unittest.skipUnless(os.name == 'posix', 'POSIX ownership and permission semantics required')
@@ -207,7 +209,7 @@ class PrepareProtocolTests(unittest.TestCase):
             def command(cmd,args=None):
                 calls.append(cmd)
                 if cmd=='query-block':
-                    return [{'device':'updates',**({'inserted':{'file':str(root/'updates.iso'),'ro':True}} if attached['value'] else {})}]
+                    return [{'device':'updates','qdev':'update-cd',**({'inserted':{'file':str(root/'updates.iso'),'ro':True}} if attached['value'] else {})}]
                 if cmd=='blockdev-change-medium':
                     self.assertTrue(all(not (root/p['seed_filename']).exists() for p in pkgs))
                     self.assertEqual(args['read-only-mode'],'read-only');attached['value']=True
@@ -242,7 +244,7 @@ class InventoryFailureTests(unittest.TestCase):
                 root=Path(directory);p=root/'official.iso';p.write_bytes(b'iso');state={'removed':False}
                 qmp=Mock()
                 def execute(cmd,args=None):
-                    if cmd=='query-block':return [{'device':'install',**({} if state['removed'] else {'inserted':{'file':str(p),'ro':True}})}]
+                    if cmd=='query-block':return [{'device':'install','qdev':'install-cd',**({} if state['removed'] else {'inserted':{'file':str(p),'ro':True}})}]
                     if cmd=='blockdev-remove-medium':state['removed']=True
                     if cmd=='query-named-block-nodes':return invalid
                     return {}

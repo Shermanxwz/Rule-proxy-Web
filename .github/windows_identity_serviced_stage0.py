@@ -843,6 +843,44 @@ def unlink_same(path, work, before):
     path.unlink()
 
 
+QMP_COMMANDS = ('qmp_capabilities', 'query-block', 'query-named-block-nodes', 'query-status',
+    'stop', 'cont', 'blockdev-open-tray', 'blockdev-remove-medium', 'blockdev-change-medium',
+    'query-kvm', 'set_link', 'send-key', 'ringbuf-read')
+QMP_ERROR_CLASSES = ('GenericError', 'CommandNotFound', 'DeviceNotActive', 'DeviceNotFound', 'KVMMissingCap')
+
+
+def scoped_qmp_class(base, public):
+    """Capture only QMP command/error enums, never the server's description."""
+    class ScopedQmp(base):
+        def _execute(self, command, arguments=None):
+            public['qmp_diagnostic'] = {'command': command if command in QMP_COMMANDS else 'unclassified',
+                'error_class': 'none', 'completed': False}
+            request = {'execute': command}
+            if arguments: request['arguments'] = arguments
+            self.file.write(json.dumps(request).encode('ascii') + b'\n')
+            self.file.flush()
+            while True:
+                raw = self.file.readline()
+                if not raw: raise RuntimeError('QMP connection closed')
+                response = json.loads(raw)
+                if 'error' in response:
+                    error = response['error']
+                    kind = error.get('class') if isinstance(error, dict) else None
+                    public['qmp_diagnostic']['error_class'] = kind if kind in QMP_ERROR_CLASSES else 'unclassified'
+                    raise RuntimeError('QMP command rejected')
+                if 'return' in response:
+                    public['qmp_diagnostic']['completed'] = True
+                    return response['return']
+    return ScopedQmp
+
+
+def exact_frontend(qmp, backend, frontend):
+    row = exact_block(qmp, backend)
+    if row.get('qdev') != frontend:
+        raise ValueError('owned frontend binding changed')
+    return row
+
+
 def block_inventory(qmp, command):
     rows = qmp.execute(command)
     if not isinstance(rows, list) or len(rows) > 64 or any(not isinstance(r, dict) for r in rows):
@@ -873,17 +911,35 @@ def pause_installed(qmp):
     if state.get('running') is not False or state.get('status') != 'paused': raise ValueError('guest pause unconfirmed')
 
 
-def reclaim_installer(qmp, iso, work, media):
+def reclaim_installer(qmp, iso, work, media, public=None):
+    if public is None: public = {}
     before = owned_regular(iso, work)
     if before.st_size != media.ISO_BYTES: raise ValueError('original ISO size changed')
-    inserted = exact_block(qmp, 'install').get('inserted', {})
+    inserted = exact_frontend(qmp, 'install', 'install-cd').get('inserted', {})
     if inserted.get('file') != str(iso) or inserted.get('ro') is not True: raise ValueError('original media binding changed')
-    qmp.execute('blockdev-open-tray', {'device': 'install', 'force': True})
-    qmp.execute('blockdev-remove-medium', {'device': 'install'})
-    if exact_block(qmp, 'install').get('inserted'): raise ValueError('installer still inserted')
+    public['installer_frontend_verified'] = True
+    qmp.execute('blockdev-open-tray', {'id': 'install-cd', 'force': True})
+    public['installer_tray_opened'] = True
+    qmp.execute('blockdev-remove-medium', {'id': 'install-cd'})
+    public['installer_medium_removed'] = True
+    if exact_frontend(qmp, 'install', 'install-cd').get('inserted'): raise ValueError('installer still inserted')
     for command in ('query-block', 'query-named-block-nodes'):
         if references(block_inventory(qmp, command), iso): raise ValueError('installer still referenced')
+    public['installer_backend_released'] = True
     unlink_same(iso, work, before)
+
+
+def attach_update_medium(qmp, update_iso, public):
+    if exact_frontend(qmp, 'updates', 'update-cd').get('inserted'):
+        raise ValueError('update device occupied')
+    public['update_frontend_verified'] = True
+    qmp.execute('blockdev-change-medium', {'id': 'update-cd', 'filename': str(update_iso),
+        'format': 'raw', 'read-only-mode': 'read-only'})
+    public['update_medium_changed'] = True
+    inserted = exact_frontend(qmp, 'updates', 'update-cd').get('inserted', {})
+    if inserted.get('file') != str(update_iso) or inserted.get('ro') is not True:
+        raise ValueError('readonly update medium unconfirmed')
+    public['update_media_attached_readonly'] = True
 
 
 def service_capacity(work, disk, *, temporary=0, final_addition=0):
@@ -936,7 +992,7 @@ def prepare_servicing(media, qmp, work, iso, disk, deadline, watch, public):
     if deadline-time.monotonic() < MIN_SERVICE_SECONDS: raise VMWorkBudgetInsufficient('servicing time budget insufficient')
     pause_installed(qmp)
     public['installed_guest_paused'] = True
-    reclaim_installer(qmp, iso, work, media)
+    reclaim_installer(qmp, iso, work, media, public)
     public['installer_detach_verified'] = True
     record_breadcrumb(public, 'installer_reclaimed', work, disk, deadline)
     public['servicing_admission_before_download'] = service_capacity(work, disk,
@@ -978,11 +1034,7 @@ def prepare_servicing(media, qmp, work, iso, disk, deadline, watch, public):
     public['servicing_admission_before_attach'] = service_capacity(work, disk)
     rebound = owned_regular(update_iso, work)
     if (rebound.st_dev,rebound.st_ino,rebound.st_size) != (image.st_dev,image.st_ino,image.st_size): raise ValueError('update image binding changed')
-    if exact_block(qmp, 'updates').get('inserted'): raise ValueError('update device occupied')
-    qmp.execute('blockdev-change-medium', {'device': 'updates', 'filename': str(update_iso), 'format': 'raw', 'read-only-mode': 'read-only'})
-    inserted = exact_block(qmp, 'updates').get('inserted', {})
-    if inserted.get('file') != str(update_iso) or inserted.get('ro') is not True: raise ValueError('readonly update medium unconfirmed')
-    public['update_media_attached_readonly'] = True
+    attach_update_medium(qmp, update_iso, public)
     record_breadcrumb(public, 'servicing_admitted', work, disk, deadline)
     qmp.execute('cont')
     if qmp.execute('query-status').get('running') is not True: raise ValueError('guest resume unconfirmed')
@@ -1202,8 +1254,8 @@ def host(args):
             '-global', 'driver=cfi.pflash01,property=secure,value=on',
             '-drive', f'if=pflash,format=raw,readonly=on,file={code}', '-drive', f'if=pflash,format=raw,file={nvram}',
             '-drive', f'if=none,id=system,file={disk},format=qcow2,discard=unmap', '-device', 'ide-hd,drive=system,bus=ide.0,bootindex=1',
-            '-drive', f'if=none,id=install,file={iso},media=cdrom,readonly=on', '-device', 'ide-cd,drive=install,bus=ide.1,bootindex=2',
-            '-drive', 'if=none,id=updates,media=cdrom,readonly=on', '-device', 'ide-cd,drive=updates,bus=ide.3',
+            '-drive', f'if=none,id=install,file={iso},media=cdrom,readonly=on', '-device', 'ide-cd,id=install-cd,drive=install,bus=ide.1,bootindex=2',
+            '-drive', 'if=none,id=updates,media=cdrom,readonly=on', '-device', 'ide-cd,id=update-cd,drive=updates,bus=ide.3',
             '-drive', f'if=none,id=seed,file={seed},media=cdrom,readonly=on', '-device', 'ide-cd,drive=seed,bus=ide.2',
             '-netdev', 'user,id=vmnet', '-device', f'e1000,netdev=vmnet,mac={media.VM_NIC_MAC}',
             '-chardev', f'socket,id=tpm,path={tpm_socket}', '-tpmdev', 'emulator,id=tpmdev,chardev=tpm', '-device', 'tpm-tis,tpmdev=tpmdev',
@@ -1219,7 +1271,7 @@ def host(args):
             if stopped or time.monotonic() > ready:
                 public['host_wait_failure'] = 'qemu_exited_before_qmp' if stopped else 'qmp_ready_timeout'
                 raise RuntimeError('QEMU failed')
-            try: qmp = media.Qmp(qmp_socket)
+            try: qmp = scoped_qmp_class(media.Qmp, public)(qmp_socket)
             except OSError: time.sleep(.1)
         operation = 'kvm_verify'
         if qmp.execute('query-kvm').get('enabled') is not True: raise RuntimeError('KVM required')

@@ -187,4 +187,40 @@ class BootstrapDeadlineTests(unittest.TestCase):
     def test_timeout_class_is_closed(self):
         self.assertEqual(host.closed_failure(host.BootstrapTimeout('SECRET'))['type'],'BootstrapTimeout')
 
+class QmpFrontendTests(unittest.TestCase):
+    def test_exact_frontend_binding_rejects_unknown_paths_and_crosswire(self):
+        for wrong in (None,'updates','update-cd','/machine/peripheral/install-cd','prefixinstall-cd'):
+            qmp=Mock();qmp.execute.return_value=[{'device':'install','qdev':wrong}]
+            with self.assertRaises(ValueError):host.exact_frontend(qmp,'install','install-cd')
+    def test_update_uses_frontend_and_checks_readback(self):
+        path=Path('updates.iso');qmp=Mock();public={}
+        qmp.execute.side_effect=[ [{'device':'updates','qdev':'update-cd'}],{},
+            [{'device':'updates','qdev':'update-cd','inserted':{'file':str(path),'ro':True}}]]
+        host.attach_update_medium(qmp,path,public)
+        self.assertEqual(qmp.execute.call_args_list[1].args,('blockdev-change-medium',
+            {'id':'update-cd','filename':str(path),'format':'raw','read-only-mode':'read-only'}))
+        self.assertTrue(public['update_media_attached_readonly'])
+    def test_update_bad_binding_or_writable_readback_rejected(self):
+        for bad in ({'file':'other','ro':True},{'file':'updates.iso','ro':False}):
+            qmp=Mock();public={}
+            qmp.execute.side_effect=[[{'device':'updates','qdev':'update-cd'}],{},
+                [{'device':'updates','qdev':'update-cd','inserted':bad}]]
+            with self.assertRaises(ValueError):host.attach_update_medium(qmp,Path('updates.iso'),public)
+            self.assertNotIn('update_media_attached_readonly',public)
+    def test_scoped_qmp_errors_never_export_description(self):
+        for error,expected in (({'class':'GenericError','desc':'SECRET /private nonce'},'GenericError'),
+                               ({'class':'SECRET','desc':'SECRET'},'unclassified')):
+            public={};base=type('Base',(),{})
+            qmp=host.scoped_qmp_class(base,public)();qmp.file=Mock()
+            qmp.file.readline.return_value=(json.dumps({'error':error})+'\n').encode()
+            with self.assertRaisesRegex(RuntimeError,'^QMP command rejected$'):
+                qmp._execute('blockdev-remove-medium',{'id':'install-cd'})
+            self.assertEqual(public['qmp_diagnostic'],{'command':'blockdev-remove-medium','error_class':expected,'completed':False})
+            self.assertNotIn('SECRET',json.dumps(public))
+    def test_scoped_qmp_return_and_event(self):
+        public={};qmp=host.scoped_qmp_class(type('Base',(),{}),public)();qmp.file=Mock()
+        qmp.file.readline.side_effect=[b'{"event":"SECRET"}\n',b'{"return":{}}\n']
+        self.assertEqual(qmp._execute('stop'),{})
+        self.assertEqual(public['qmp_diagnostic'],{'command':'stop','error_class':'none','completed':True})
+
 if __name__=='__main__':unittest.main()

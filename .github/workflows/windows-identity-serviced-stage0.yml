@@ -14,6 +14,8 @@ on:
       - 'tests/test_windows_client_serviced_guest.py'
       - 'tests/test_windows_client_serviced_diagnostics.py'
       - '.github/test-windows-identity-serviced-gates.ps1'
+      - '.github/test_windows_serviced_qmp.py'
+      - 'tests/test_windows_client_serviced_qmp.py'
       - 'tests/test_windows_provider_cache_recovery.py'
   workflow_dispatch:
 permissions:
@@ -56,7 +58,7 @@ jobs:
         run: |
           python -B -m unittest discover -s tests -p "test_windows_client_stock_stage0.py" -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($file in @('test_windows_client_serviced_stage0.py', 'test_windows_client_serviced_guest.py', 'test_windows_client_serviced_workflow.py', 'test_windows_client_serviced_diagnostics.py')) {
+          foreach ($file in @('test_windows_client_serviced_stage0.py', 'test_windows_client_serviced_guest.py', 'test_windows_client_serviced_workflow.py', 'test_windows_client_serviced_diagnostics.py', 'test_windows_client_serviced_qmp.py')) {
             if (-not (Test-Path -LiteralPath (Join-Path 'tests' $file) -PathType Leaf)) { throw 'Required serviced tests missing' }
           }
           python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
@@ -85,12 +87,31 @@ jobs:
           test -f tests/test_windows_client_serviced_guest.py
           test -f tests/test_windows_client_serviced_workflow.py
           test -f tests/test_windows_client_serviced_diagnostics.py
+          test -f tests/test_windows_client_serviced_qmp.py
           python3 -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful() or bool(r.skipped))"
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
+  qmp-media-gate:
+    # Paused synthetic QEMU only: no Windows media, guest CPU, KVM or networking.
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-serviced-stage0-gates]')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Install only the QEMU executable for the synthetic media gate
+        timeout-minutes: 3
+        run: |
+          sudo timeout 90 apt-get update -qq
+          sudo timeout 90 apt-get install -y --no-install-recommends --no-remove qemu-system-x86
+      - name: Actual QEMU 8.2 media API regression, never Windows acceptance
+        timeout-minutes: 1
+        run: python3 -B .github/test_windows_serviced_qmp.py --run-actual-qemu
   native:
     if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') }}
-    needs: [compile, host-unit]
+    needs: [compile, host-unit, qmp-media-gate]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
