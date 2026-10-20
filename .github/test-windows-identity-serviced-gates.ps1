@@ -136,6 +136,31 @@ if ($errors.Count -ne 0) { throw 'Servicing helper parser failed' }
 $definitions=@($helperAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-ServicedOpticalRoot'},$false))
 if ($definitions.Count -ne 1) { throw 'Unique optical function required' }
 . $helper # Guarded dot-source defines actual worker helpers; never invokes servicing.
+# Native Windows zone rules, no machine clock/timezone mutation. UTC instants
+# avoid ambiguous local-time reverse conversion at the autumn transition.
+$pacificZone=[TimeZoneInfo]::FindSystemTimeZoneById('Pacific Standard Time')
+$clockFixtures=@(
+    @{utc='2026-01-15T12:00:00Z';offset=-480},@{utc='2026-07-15T12:00:00Z';offset=-420},
+    @{utc='2026-03-08T09:59:59Z';offset=-480},@{utc='2026-03-08T10:00:00Z';offset=-420},
+    @{utc='2026-11-01T08:59:59Z';offset=-420},@{utc='2026-11-01T09:00:00Z';offset=-480})
+foreach ($clockFixture in $clockFixtures) {
+    $clockNow=([DateTimeOffset]::Parse($clockFixture.utc,[Globalization.CultureInfo]::InvariantCulture)).UtcDateTime
+    $clockFacts=Get-ServicedClockFacts $pacificZone $clockNow
+    if (-not $clockFacts.zone_pacific -or -not $clockFacts.offset_matches -or $clockFacts.utc_offset_minutes -ne $clockFixture.offset) { throw 'Pacific native seasonal rule failed' }
+    Assert-ServicedClock -Zone $pacificZone -UtcNow $clockNow
+    $passed++
+}
+$summerNow=([DateTimeOffset]::Parse('2026-07-15T12:00:00Z')).UtcDateTime
+$fixedPacific=[TimeZoneInfo]::CreateCustomTimeZone('Pacific Standard Time',[TimeSpan]::FromHours(-8),'fixture','fixture')
+foreach ($wrongZone in @([TimeZoneInfo]::Utc,$fixedPacific)) {
+    $script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
+    $clockRejected=$false
+    try { Assert-ServicedClock -Zone $wrongZone -UtcNow $summerNow } catch { $clockRejected=$true }
+    if (-not $clockRejected -or $script:ServicingReadDiagnostic.reason -cne 'clock_contract') { throw 'Wrong clock contract accepted' }; $passed++
+}
+$runnerClock=Get-ServicedClockFacts ([TimeZoneInfo]::Local) ([DateTime]::UtcNow)
+Write-Output ((@{fixture='runner_clock_observation';zone_pacific=$runnerClock.zone_pacific;utc_offset_minutes=$runnerClock.utc_offset_minutes;guest_acceptance=$false})|ConvertTo-Json -Compress)
+$script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
 # Execute actual pure deadline conversion without servicing or a guest. The
 # protected host-derived epoch is immutable across retries/reboots, never renewed.
 $fixedNow=[DateTime]::SpecifyKind([DateTime]'2030-01-01T00:00:00',[DateTimeKind]::Utc)
@@ -183,11 +208,16 @@ try {
     $closedReadDefinitions=@($ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-ClosedServicingReadDiagnostic'},$false))
     if ($closedReadDefinitions.Count -ne 1) { throw 'Closed service reader ambiguous' }
     . ([ScriptBlock]::Create($closedReadDefinitions[0].Extent.Text))
-    $closedRead=Get-ClosedServicingReadDiagnostic ([PSCustomObject]@{step='PRIVATE_PATH';reason='PRIVATE_IDENTITY';remaining_seconds=172801;private='PRIVATE_RAW'})
-    if ($closedRead.Count -ne 3 -or $closedRead.step -cne 'not_started' -or $closedRead.reason -cne 'none' -or $null -ne $closedRead.remaining_seconds -or ($closedRead|ConvertTo-Json -Compress).Contains('PRIVATE')) { throw 'Closed setup reader leaked fixture' }
+    $closedRead=Get-ClosedServicingReadDiagnostic ([PSCustomObject]@{step='PRIVATE_PATH';reason='PRIVATE_IDENTITY';remaining_seconds=172801;zone_pacific='PRIVATE_RAW';utc_offset_minutes=841;private='PRIVATE_RAW'})
+    if ($closedRead.Count -ne 5 -or $closedRead.step -cne 'not_started' -or $closedRead.reason -cne 'none' -or $null -ne $closedRead.remaining_seconds -or $null -ne $closedRead.zone_pacific -or $null -ne $closedRead.utc_offset_minutes -or ($closedRead|ConvertTo-Json -Compress).Contains('PRIVATE')) { throw 'Closed setup reader leaked fixture' }
     foreach ($boundary in @(-172800,0,172800)) {
         $closedRead=Get-ClosedServicingReadDiagnostic ([PSCustomObject]@{step='budget_epoch';reason='expired';remaining_seconds=$boundary})
         if ($closedRead.remaining_seconds -ne $boundary -or $closedRead.step -cne 'budget_epoch' -or $closedRead.reason -cne 'expired') { throw 'Closed setup reader boundary failed' }; $passed++
+    }
+    foreach ($offsetValue in @(-480,-420,0,'-420',$true,$null)) {
+        $closedOffset=Get-ClosedServicingReadDiagnostic ([PSCustomObject]@{zone_pacific=$true;utc_offset_minutes=$offsetValue})
+        $offsetAllowed=($offsetValue -is [int] -and $offsetValue -in @(-480,-420))
+        if ($closedOffset.zone_pacific -ne $true -or ($offsetAllowed -and $closedOffset.utc_offset_minutes -ne $offsetValue) -or (-not $offsetAllowed -and $null -ne $closedOffset.utc_offset_minutes)) { throw 'Clock projection type or allowlist failed' }; $passed++
     }
     $script:BudgetFixtureRoot=$fixtureRoot
     # Redirect only the production fixed root; file, ACL and JSON cmdlets are real.

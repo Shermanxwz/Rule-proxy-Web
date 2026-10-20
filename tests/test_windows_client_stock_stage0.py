@@ -619,7 +619,8 @@ assert not any(root.rglob('__pycache__'))
             failure_category=max(serviced.LAUNCHER_FAILURES,key=len))
         serviced_guest['servicing_read_diagnostic']={
             'step':max(serviced.SERVICE_READ_STEPS,key=len),
-            'reason':max(serviced.SERVICE_READ_REASONS,key=len),'remaining_seconds':-172800}
+            'reason':max(serviced.SERVICE_READ_REASONS,key=len),'remaining_seconds':-172800,
+            'zone_pacific':False,'utc_offset_minutes':-480}
         serviced_guest['setup_read_diagnostic']=dict(serviced_guest['servicing_read_diagnostic'])
         serviced_wire = json.dumps(serviced_guest)
         self.assertLessEqual(len(serviced_wire), serviced.MAX_REPORT)

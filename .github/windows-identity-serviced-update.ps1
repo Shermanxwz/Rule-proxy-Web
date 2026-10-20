@@ -38,7 +38,23 @@ function Assert-ProtectedUpdatePath($Path, [switch]$Directory, [switch]$Protecte
 }
 
 # Closed read diagnostics only; never grants trust or changes deadline acceptance.
-$script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null}
+$script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
+function Get-ServicedClockFacts([TimeZoneInfo]$Zone, [DateTime]$UtcNow) {
+    if ($UtcNow.Kind -ne [DateTimeKind]::Utc) { throw 'clock_contract' }
+    $expected=[TimeZoneInfo]::FindSystemTimeZoneById('Pacific Standard Time')
+    $offset=[int]$Zone.GetUtcOffset($UtcNow).TotalMinutes
+    return @{zone_pacific=($Zone.Id -ceq 'Pacific Standard Time');utc_offset_minutes=$offset;
+        offset_matches=($offset -eq [int]$expected.GetUtcOffset($UtcNow).TotalMinutes)}
+}
+function Assert-ServicedClock([TimeZoneInfo]$Zone=[TimeZoneInfo]::Local, [DateTime]$UtcNow=[DateTime]::UtcNow) {
+    $script:ServicingReadDiagnostic.step='clock_contract'
+    try {
+        $facts=Get-ServicedClockFacts $Zone $UtcNow
+        $script:ServicingReadDiagnostic.zone_pacific=$facts.zone_pacific
+        $script:ServicingReadDiagnostic.utc_offset_minutes=if ($facts.utc_offset_minutes -in @(-480,-420)) { $facts.utc_offset_minutes } else { $null }
+        if (-not $facts.zone_pacific -or -not $facts.offset_matches) { throw 'clock_contract' }
+    } catch { $script:ServicingReadDiagnostic.reason='clock_contract'; throw }
+}
 function ConvertTo-ServicedDeadline($Epoch, [DateTime]$Now) {
     $script:ServicingReadDiagnostic.step='budget_epoch'
     if (($Epoch -isnot [int] -and $Epoch -isnot [long])) { $script:ServicingReadDiagnostic.reason='type'; throw 'service_deadline' }
@@ -166,6 +182,7 @@ function Invoke-ServicedUpdate {
         Assert-ProtectedUpdatePath $script:UpdateDirectory -Directory -ProtectedDacl
         Assert-ProtectedUpdatePath $PSCommandPath
         $trusted=$true
+        Assert-ServicedClock
         $serviceDeadline=Get-ServicedDeadline
         $statePath=Join-Path $script:UpdateDirectory 'update-state.json'
         $prior=$null

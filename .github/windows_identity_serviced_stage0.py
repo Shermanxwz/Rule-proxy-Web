@@ -341,9 +341,53 @@ LAUNCHER_FAILURES = ('none', 'operation_failed', 'identity_gate', 'stock_build_g
     'payload_bound', 'payload_overrun', 'payload_incomplete', 'payload_hash', 'python_hash', 'python_not_started',
     'process_handle_missing', 'python_deadline', 'report_absent', 'report_over_bound', 'report_nonobject', 'report_parse', 'installed_boot_gate', 'installed_setup_deadline', 'servicing_receipt', 'servicing_failed', 'servicing_deadline', 'serviced_build_gate')
 HOST_OPERATIONS = ('preflight', 'iso_download', 'iso_verify', 'payload_build', 'result_server', 'seed_build',
-    'disk_create', 'launch_capacity', 'tpm_start', 'vm_work_budget', 'qemu_start', 'qmp_connect', 'kvm_verify',
+    'disk_create', 'launch_capacity', 'tpm_start', 'vm_work_budget', 'clock_contract', 'qemu_start', 'qmp_connect', 'kvm_verify',
     'guest_wait', 'serviced_media', 'result_validation', 'cleanup')
 BREADCRUMBS = ('iso_verified', 'media_ready', 'qemu_started', 'guest_beacon', 'installer_reclaimed', 'updates_downloaded', 'update_iso_verified', 'update_sources_removed', 'servicing_admitted', 'result_received', 'cleanup_done')
+
+
+SERVICED_QEMU_TZ = 'America/Los_Angeles'
+SERVICED_WINDOWS_TZ = 'Pacific Standard Time'
+SERVICED_RTC = 'base=localtime,clock=host'
+
+
+def serviced_qemu_environment():
+    # Child-only libc timezone contract; never mutate the controller's timezone.
+    environment = os.environ.copy()
+    environment['TZ'] = SERVICED_QEMU_TZ
+    return environment
+
+
+def require_serviced_clock_window(deadline_epoch, *, wall_now=None):
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
+    now = time.time() if wall_now is None else wall_now
+    if not 0 < deadline_epoch - now <= HOST_MAX_SECONDS:
+        raise ValueError('bounded clock window required')
+    zone = ZoneInfo(SERVICED_QEMU_TZ)
+    local = datetime.fromtimestamp(now, timezone.utc).astimezone(zone)
+    if local.replace(fold=0).utcoffset() != local.replace(fold=1).utcoffset():
+        raise ValueError('ambiguous initial local clock')
+    offset = local.utcoffset()
+    # Fixed Pacific zone transitions are larger than this sampling period;
+    # include the exact endpoint and never extend the existing work deadline.
+    sample = now
+    while sample < deadline_epoch:
+        sample = min(sample + 60, deadline_epoch)
+        observed = datetime.fromtimestamp(sample, timezone.utc).astimezone(zone)
+        if observed.replace(fold=0).utcoffset() != observed.replace(fold=1).utcoffset():
+            raise ValueError('ambiguous local clock in work window')
+        if observed.utcoffset() != offset:
+            raise ValueError('clock transition in work window')
+
+
+def render_serviced_timezone(unattend):
+    original = '<TimeZone>UTC</TimeZone>'
+    if not isinstance(unattend, str) or unattend.count(original) != 1:
+        raise ValueError('exact original timezone required')
+    if len(re.findall(r'<TimeZone(?:\s|>)', unattend)) != 1:
+        raise ValueError('single timezone required')
+    return unattend.replace(original, '<TimeZone>' + SERVICED_WINDOWS_TZ + '</TimeZone>', 1)
 
 
 def proof_helpers():
@@ -833,16 +877,18 @@ SERVICE_PHASES = ('not_observed', 'unclassified', 'initializing', 'waiting_for_o
 SERVICE_FAILURES = ('none','unclassified','service_deadline','system_required','prior_bound','prior_state','setup_deadline','optical_deadline','optical_device','optical_root','optical_members','optical_package','optical_changed','reboot_not_observed','exact_serviced_build','reboot_still_pending','task_remains','exact_stock_build','dism_log_exists','dism_handle','dism_deadline','dism_exit_absent','dism_failed','operation_failed')
 
 
-SERVICE_READ_STEPS = ('not_started', 'directory_acl', 'budget_acl', 'budget_read', 'budget_json',
+SERVICE_READ_STEPS = ('not_started', 'clock_contract', 'directory_acl', 'budget_acl', 'budget_read', 'budget_json',
     'budget_schema', 'budget_epoch', 'receipt_acl', 'receipt_read', 'receipt_json', 'receipt_observed')
-SERVICE_READ_REASONS = ('none', 'missing', 'acl', 'read', 'json', 'schema', 'type', 'expired', 'over_bound', 'operation_failed')
+SERVICE_READ_REASONS = ('none', 'clock_contract', 'missing', 'acl', 'read', 'json', 'schema', 'type', 'expired', 'over_bound', 'operation_failed')
 
 
 def closed_servicing_read(value):
     proof = proof_helpers(); value = proof._dict(value)
     return {'step': proof._enum(value.get('step'), SERVICE_READ_STEPS, 'not_started'),
             'reason': proof._enum(value.get('reason'), SERVICE_READ_REASONS, 'operation_failed'),
-            'remaining_seconds': proof._integer(value.get('remaining_seconds'), -172800, 172800)}
+            'remaining_seconds': proof._integer(value.get('remaining_seconds'), -172800, 172800),
+            'zone_pacific': value.get('zone_pacific') if type(value.get('zone_pacific')) is bool else None,
+            'utc_offset_minutes': value.get('utc_offset_minutes') if type(value.get('utc_offset_minutes')) is int and value.get('utc_offset_minutes') in (-480, -420) else None}
 
 
 def closed_servicing(value):
@@ -1249,6 +1295,8 @@ def host(args):
                   'payload_sha256': package_digest, 'python_sha256': PYTHON_ASSET['sha256'],
                   'actor_sha256': args.actor_sha256}
         media.prepare_seed(tree, secrets.token_hex(16) + 'Ci!9', config)
+        unattend = tree / 'autounattend.xml'
+        unattend.write_text(render_serviced_timezone(unattend.read_text(encoding='utf-8')), encoding='utf-8')
         # Readonly seed authority: SYSTEM copies this absolute deadline to protected storage.
         (tree / 'service-budget.json').write_text(json.dumps({'schema': 1,
             'deadline_unix_seconds': work_deadline_epoch}), encoding='ascii')
@@ -1288,10 +1336,12 @@ def host(args):
             time.sleep(.1)
         operation = 'vm_work_budget'
         public['vm_work_seconds_available'] = int(require_vm_work_budget(deadline))
+        operation = 'clock_contract'
+        require_serviced_clock_window(work_deadline_epoch)
         operation = 'qemu_start'
         bootstrap_started = time.monotonic()
         qemu = subprocess.Popen(limited_command(['qemu-system-x86_64', '-machine', 'q35,accel=kvm,smm=on', '-cpu',
-            'host,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-time=on', '-m', '6144', '-smp', '4',
+            'host,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-time=on', '-rtc', SERVICED_RTC, '-m', '6144', '-smp', '4',
             '-global', 'driver=cfi.pflash01,property=secure,value=on',
             '-drive', f'if=pflash,format=raw,readonly=on,file={code}', '-drive', f'if=pflash,format=raw,file={nvram}',
             '-drive', f'if=none,id=system,file={disk},format=qcow2,discard=unmap', '-device', 'ide-hd,drive=system,bus=ide.0,bootindex=1',
@@ -1302,6 +1352,7 @@ def host(args):
             '-chardev', f'socket,id=tpm,path={tpm_socket}', '-tpmdev', 'emulator,id=tpmdev,chardev=tpm', '-device', 'tpm-tis,tpmdev=tpmdev',
             '-device', 'qemu-xhci', '-device', 'usb-tablet', '-vga', 'std', '-display', 'none', '-monitor', 'none',
             '-chardev', 'ringbuf,id=serialbuf,size=65536', '-serial', 'chardev:serialbuf', '-qmp', f'unix:{qmp_socket},server=on,wait=off'], DISK_FILE_CAP),
+            env=serviced_qemu_environment(),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         record_breadcrumb(public, 'qemu_started', work, disk, deadline)
         operation = 'qmp_connect'

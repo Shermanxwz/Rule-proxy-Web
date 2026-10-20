@@ -103,19 +103,37 @@ function Assert-ProtectedUpdatePath($Path, [switch]$Directory, [switch]$Protecte
 
 
 # Closed read diagnostics only; never grants trust or changes deadline acceptance.
-$script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null}
-$setupReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null}
+$script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
+$setupReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
 function Get-ClosedServicingReadDiagnostic($Value) {
-    $closed=@{step='not_started';reason='none';remaining_seconds=$null}
-    $steps=@('not_started','directory_acl','budget_acl','budget_read','budget_json','budget_schema','budget_epoch','receipt_acl','receipt_read','receipt_json','receipt_observed')
-    $reasons=@('none','missing','acl','read','json','schema','type','expired','over_bound','operation_failed')
+    $closed=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
+    $steps=@('not_started','clock_contract','directory_acl','budget_acl','budget_read','budget_json','budget_schema','budget_epoch','receipt_acl','receipt_read','receipt_json','receipt_observed')
+    $reasons=@('none','clock_contract','missing','acl','read','json','schema','type','expired','over_bound','operation_failed')
     if ($null -ne $Value) {
         $keys=@($Value.PSObject.Properties.Name)
+        if ('zone_pacific' -in $keys -and $Value.zone_pacific -is [bool]) { $closed.zone_pacific=$Value.zone_pacific }
+        if ('utc_offset_minutes' -in $keys -and ($Value.utc_offset_minutes -is [int] -or $Value.utc_offset_minutes -is [long]) -and $Value.utc_offset_minutes -in @(-480,-420)) { $closed.utc_offset_minutes=[int]$Value.utc_offset_minutes }
         if ('step' -in $keys -and $Value.step -is [string] -and $Value.step -cin $steps) { $closed.step=$Value.step }
         if ('reason' -in $keys -and $Value.reason -is [string] -and $Value.reason -cin $reasons) { $closed.reason=$Value.reason }
         if ('remaining_seconds' -in $keys -and ($Value.remaining_seconds -is [int] -or $Value.remaining_seconds -is [long]) -and $Value.remaining_seconds -ge -172800 -and $Value.remaining_seconds -le 172800) { $closed.remaining_seconds=[long]$Value.remaining_seconds }
     }
     return $closed
+}
+function Get-ServicedClockFacts([TimeZoneInfo]$Zone, [DateTime]$UtcNow) {
+    if ($UtcNow.Kind -ne [DateTimeKind]::Utc) { throw 'clock_contract' }
+    $expected=[TimeZoneInfo]::FindSystemTimeZoneById('Pacific Standard Time')
+    $offset=[int]$Zone.GetUtcOffset($UtcNow).TotalMinutes
+    return @{zone_pacific=($Zone.Id -ceq 'Pacific Standard Time');utc_offset_minutes=$offset;
+        offset_matches=($offset -eq [int]$expected.GetUtcOffset($UtcNow).TotalMinutes)}
+}
+function Assert-ServicedClock([TimeZoneInfo]$Zone=[TimeZoneInfo]::Local, [DateTime]$UtcNow=[DateTime]::UtcNow) {
+    $script:ServicingReadDiagnostic.step='clock_contract'
+    try {
+        $facts=Get-ServicedClockFacts $Zone $UtcNow
+        $script:ServicingReadDiagnostic.zone_pacific=$facts.zone_pacific
+        $script:ServicingReadDiagnostic.utc_offset_minutes=if ($facts.utc_offset_minutes -in @(-480,-420)) { $facts.utc_offset_minutes } else { $null }
+        if (-not $facts.zone_pacific -or -not $facts.offset_matches) { throw 'clock_contract' }
+    } catch { $script:ServicingReadDiagnostic.reason='clock_contract'; throw }
 }
 function ConvertTo-ServicedDeadline($Epoch, [DateTime]$Now) {
     $script:ServicingReadDiagnostic.step='budget_epoch'
@@ -259,6 +277,7 @@ try {
             $setupReadDiagnostic=Get-ClosedServicingReadDiagnostic (Get-Content -LiteralPath $setupDiagnosticPath -Raw | ConvertFrom-Json)
         } catch { }
     }
+    Assert-ServicedClock
     $servicingDeadline=Get-ServicedDeadline
     do {
         if (Test-Path -LiteralPath $statePath) {

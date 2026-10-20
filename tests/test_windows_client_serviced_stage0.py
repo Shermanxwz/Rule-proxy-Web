@@ -12,6 +12,106 @@ spec = importlib.util.spec_from_file_location('serviced_host_test', ROOT / '.git
 host = importlib.util.module_from_spec(spec); spec.loader.exec_module(host)
 
 
+class ServicedClockContractTests(unittest.TestCase):
+    def test_child_environment_is_independent_and_preserves_parent(self):
+        with patch.dict(os.environ, {'TZ':'UTC','CLOCK_FIXTURE':'preserved'}):
+            before=dict(os.environ);child=host.serviced_qemu_environment()
+            self.assertEqual(child['TZ'],'America/Los_Angeles')
+            self.assertEqual(child['CLOCK_FIXTURE'],'preserved')
+            child['CLOCK_FIXTURE']='changed'
+            self.assertEqual(dict(os.environ),before)
+
+    def test_scoped_render_requires_exact_single_original_timezone(self):
+        original='<root><TimeZone>UTC</TimeZone><unchanged>UTC</unchanged></root>'
+        rendered=host.render_serviced_timezone(original)
+        self.assertEqual(rendered,'<root><TimeZone>Pacific Standard Time</TimeZone><unchanged>UTC</unchanged></root>')
+        self.assertIn('<TimeZone>UTC</TimeZone>',original)
+        for invalid in (None,'',original+original,rendered,original+'<TimeZone>UTC </TimeZone>'):
+            with self.assertRaises(ValueError):host.render_serviced_timezone(invalid)
+
+    def test_real_prepare_seed_template_has_only_scoped_timezone_change(self):
+        import xml.etree.ElementTree as ET
+        media=host.load('serviced_clock_seed_fixture',ROOT/'.github/windows_vm_test.py')
+        source=ROOT/'.github/windows-vm-unattend.xml'
+        original=source.read_bytes()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);github=root/'.github';github.mkdir();tree=root/'seed';tree.mkdir()
+            (github/source.name).write_bytes(original)
+            # These copied script bodies are not involved in XML rendering and
+            # are never executed; only the real prepare_seed transformation runs.
+            for name in ('windows-vm-setup.ps1','windows-vm-run.ps1'):
+                (github/name).write_text('# inert unit fixture',encoding='utf-8')
+            with patch.object(media,'ROOT',root):
+                media.prepare_seed(tree,'SyntheticUnitFixture9',{'fixture':True})
+            generated=(tree/'autounattend.xml').read_text(encoding='utf-8')
+            self.assertEqual(generated,original.decode('utf-8').replace('@PASSWORD@','SyntheticUnitFixture9'))
+            rendered=host.render_serviced_timezone(generated)
+            parsed=ET.fromstring(rendered)
+            zones=parsed.findall('.//{urn:schemas-microsoft-com:unattend}TimeZone')
+            self.assertEqual([z.text for z in zones],['Pacific Standard Time'])
+            self.assertEqual(rendered.replace('<TimeZone>Pacific Standard Time</TimeZone>','<TimeZone>UTC</TimeZone>'),generated)
+            self.assertEqual((github/source.name).read_bytes(),original)
+        self.assertEqual(source.read_bytes(),original)
+
+    def test_clock_window_rejects_transition_and_ambiguous_start(self):
+        import datetime
+        epoch=lambda text:datetime.datetime.fromisoformat(text).replace(tzinfo=datetime.timezone.utc).timestamp()
+        for start,end in [('2026-03-08T09:30:00','2026-03-08T10:00:00'),
+                          ('2026-11-01T07:30:00','2026-11-01T09:30:00'),
+                          ('2026-11-01T07:30:00','2026-11-01T08:30:00'),
+                          ('2026-11-01T07:59:30','2026-11-01T08:00:00'),
+                          ('2026-11-01T08:30:00','2026-11-01T08:45:00'),
+                          ('2026-11-01T09:30:00','2026-11-01T09:45:00')]:
+            with self.assertRaises(ValueError):host.require_serviced_clock_window(epoch(end),wall_now=epoch(start))
+        for start in ('2026-01-15T12:00:00','2026-07-15T12:00:00','2026-03-08T10:00:00','2026-11-01T10:00:00'):
+            now=epoch(start);host.require_serviced_clock_window(now+7200,wall_now=now)
+        for delta in (0,-1,host.HOST_MAX_SECONDS+1):
+            with self.assertRaises(ValueError):host.require_serviced_clock_window(epoch('2026-01-15T12:00:00')+delta,wall_now=epoch('2026-01-15T12:00:00'))
+
+    def test_clock_diagnostics_have_only_observed_pacific_values(self):
+        for offset in (-480,-420):
+            result=host.closed_servicing_read({'zone_pacific':False,'utc_offset_minutes':offset})
+            self.assertIs(result['zone_pacific'],False);self.assertEqual(result['utc_offset_minutes'],offset)
+        for offset in (True,-480.0,'-480',0,-840,840,{},[]):
+            self.assertIsNone(host.closed_servicing_read({'utc_offset_minutes':offset})['utc_offset_minutes'])
+        for flag in (1,0,'true',{},[]):
+            self.assertIsNone(host.closed_servicing_read({'zone_pacific':flag})['zone_pacific'])
+
+    def test_actual_qemu_call_has_exact_rtc_and_child_environment(self):
+        import ast
+        tree=ast.parse((ROOT/'.github/windows_identity_serviced_stage0.py').read_text())
+        calls=[node for node in ast.walk(tree) if isinstance(node,ast.Call) and
+               isinstance(node.func,ast.Attribute) and node.func.attr=='Popen' and
+               any(isinstance(n,ast.Constant) and n.value=='qemu-system-x86_64' for n in ast.walk(node))]
+        self.assertEqual(len(calls),1)
+        env=next(kw.value for kw in calls[0].keywords if kw.arg=='env')
+        self.assertEqual(ast.unparse(env),'serviced_qemu_environment()')
+        argv=calls[0].args[0].args[0].elts
+        index=next(i for i,n in enumerate(argv) if isinstance(n,ast.Constant) and n.value=='-rtc')
+        self.assertEqual(ast.unparse(argv[index+1]),'SERVICED_RTC')
+        self.assertEqual(host.SERVICED_RTC,'base=localtime,clock=host')
+
+    @unittest.skipUnless(os.name == 'posix', 'Linux libc timezone contract required')
+    def test_child_libc_matches_zoneinfo_across_seasons_and_dst_boundaries(self):
+        import datetime, subprocess, sys
+        from zoneinfo import ZoneInfo
+        dates=['2026-01-15T12:00:00','2026-07-15T12:00:00',
+               '2026-03-08T09:59:59','2026-03-08T10:00:00',
+               '2026-11-01T08:59:59','2026-11-01T09:00:00']
+        instants=[datetime.datetime.fromisoformat(v).replace(tzinfo=datetime.timezone.utc) for v in dates]
+        epochs=[int(v.timestamp()) for v in instants]
+        code="import time,json; time.tzset(); print(json.dumps([[time.localtime(t).tm_year,time.localtime(t).tm_mon,time.localtime(t).tm_mday,time.localtime(t).tm_hour,time.localtime(t).tm_min,time.localtime(t).tm_sec,time.localtime(t).tm_gmtoff] for t in "+repr(epochs)+"]))"
+        before=dict(os.environ)
+        observed=json.loads(subprocess.run([sys.executable,'-c',code],env=host.serviced_qemu_environment(),check=True,capture_output=True,text=True,timeout=10).stdout)
+        expected=[]
+        for instant in instants:
+            local=instant.astimezone(ZoneInfo(host.SERVICED_QEMU_TZ))
+            expected.append([local.year,local.month,local.day,local.hour,local.minute,local.second,int(local.utcoffset().total_seconds())])
+        self.assertEqual(observed,expected)
+        self.assertEqual({r[-1] for r in observed},{-28800,-25200})
+        self.assertEqual(dict(os.environ),before)
+
+
 class BudgetTests(unittest.TestCase):
     def calculate(self, free, allocated, size=None, **kwargs):
         disk = Mock(); disk.lstat.return_value = types.SimpleNamespace(st_mode=0o100600,
@@ -219,7 +319,7 @@ class WireReceiptTests(unittest.TestCase):
         for seconds in (-172801,172801,True,1.5,'PRIVATE_SENTINEL',{},[]):
             self.assertIsNone(host.closed_servicing_read({'remaining_seconds':seconds})['remaining_seconds'])
         closed=host.closed_servicing_read({'step':'PRIVATE_SENTINEL','reason':'PRIVATE_SENTINEL'})
-        self.assertEqual(closed,{'step':'not_started','reason':'operation_failed','remaining_seconds':None})
+        self.assertEqual(closed,{'step':'not_started','reason':'operation_failed','remaining_seconds':None,'zone_pacific':None,'utc_offset_minutes':None})
 
     def test_read_diagnostic_preserved_without_affecting_acceptance(self):
         for step in host.SERVICE_READ_STEPS:
@@ -228,7 +328,7 @@ class WireReceiptTests(unittest.TestCase):
                 raw['servicing_read_diagnostic']={'step':step,'reason':reason,'remaining_seconds':-172800}
                 result=host.validate_guest(raw,'a'*64)
                 self.assertTrue(result['stage0_passed'])
-                self.assertEqual(result['servicing_read_diagnostic'],raw['servicing_read_diagnostic'])
+                self.assertEqual(result['servicing_read_diagnostic'],host.closed_servicing_read(raw['servicing_read_diagnostic']))
                 raw['checks']['native_identity']=False
                 self.assertFalse(host.validate_guest(raw,'a'*64)['stage0_passed'])
 
@@ -238,8 +338,8 @@ class WireReceiptTests(unittest.TestCase):
         raw['servicing_read_diagnostic']={'step':'budget_acl','reason':'missing','remaining_seconds':None}
         result=host.validate_guest(raw,'a'*64)
         self.assertTrue(result['stage0_passed'])  # diagnostics never create or revoke acceptance
-        self.assertEqual(result['setup_read_diagnostic'],{'step':'budget_epoch','reason':'over_bound','remaining_seconds':172800})
-        self.assertEqual(result['servicing_read_diagnostic'],raw['servicing_read_diagnostic'])
+        self.assertEqual(result['setup_read_diagnostic'],host.closed_servicing_read({'step':'budget_epoch','reason':'over_bound','remaining_seconds':172800}))
+        self.assertEqual(result['servicing_read_diagnostic'],host.closed_servicing_read(raw['servicing_read_diagnostic']))
         self.assertNotIn('PRIVATE_SENTINEL',json.dumps(result))
         raw['os']['ubr']=6584;public={}
         with self.assertRaises(ValueError):host.merge_serviced_result(public,raw,'a'*64,False)
@@ -252,7 +352,7 @@ class WireReceiptTests(unittest.TestCase):
         public={}
         with self.assertRaises(ValueError):host.merge_serviced_result(public,raw,'a'*64,False)
         self.assertFalse(public['stage0_passed'])
-        self.assertEqual(public['servicing_read_diagnostic'],raw['servicing_read_diagnostic'])
+        self.assertEqual(public['servicing_read_diagnostic'],host.closed_servicing_read(raw['servicing_read_diagnostic']))
 
     def test_exact_guest_receipt_passes_gate(self):
         result=host.validate_guest(self.receipt(),'a'*64)

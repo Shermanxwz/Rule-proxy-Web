@@ -34,8 +34,19 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'windows-identity-serviced-updat
 . $worker
 Assert-ProtectedUpdatePath $protected -Directory -ProtectedDacl
 Assert-ProtectedUpdatePath $worker
-# Persist only closed setup-budget failures after directory trust is established.
+function Write-SetupReadDiagnostic {
+        Assert-ProtectedUpdatePath $protected -Directory -ProtectedDacl
+        $setupDiagnosticPath=Join-Path $protected 'setup-read-diagnostic.json'
+        if (Test-Path -LiteralPath $setupDiagnosticPath) { throw 'Fresh setup diagnostic required' }
+        $setupDiagnosticJson=$script:ServicingReadDiagnostic | ConvertTo-Json -Compress
+        if ([Text.Encoding]::ASCII.GetByteCount($setupDiagnosticJson) -gt 1024) { throw 'Setup diagnostic bound' }
+        $setupDiagnosticStream=[IO.File]::Open($setupDiagnosticPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+        try { $setupDiagnosticBytes=[Text.Encoding]::ASCII.GetBytes($setupDiagnosticJson); $setupDiagnosticStream.Write($setupDiagnosticBytes,0,$setupDiagnosticBytes.Length) } finally { $setupDiagnosticStream.Dispose() }
+        Assert-ProtectedUpdatePath $setupDiagnosticPath
+}
+# Persist closed setup clock/budget observation after directory trust is established.
 try {
+Assert-ServicedClock
 # Read only the original immutable seed, never the user-writable workspace copy.
 $script:ServicingReadDiagnostic.step='budget_read'
 $seedBudgetPath=Join-Path $PSScriptRoot 'service-budget.json'
@@ -56,19 +67,11 @@ $budgetPath=Join-Path $protected 'service-budget.json'
 $budgetJson=@{schema=1;deadline_unix_seconds=([DateTimeOffset]$serviceDeadline).ToUnixTimeSeconds()} | ConvertTo-Json -Compress
 [IO.File]::WriteAllText($budgetPath,$budgetJson,[Text.Encoding]::ASCII)
 Assert-ProtectedUpdatePath $budgetPath
+Write-SetupReadDiagnostic
 
 } catch {
     if ($script:ServicingReadDiagnostic.reason -eq 'none') { $script:ServicingReadDiagnostic.reason='operation_failed' }
-    try {
-        Assert-ProtectedUpdatePath $protected -Directory -ProtectedDacl
-        $setupDiagnosticPath=Join-Path $protected 'setup-read-diagnostic.json'
-        if (Test-Path -LiteralPath $setupDiagnosticPath) { throw 'Fresh setup diagnostic required' }
-        $setupDiagnosticJson=$script:ServicingReadDiagnostic | ConvertTo-Json -Compress
-        if ([Text.Encoding]::ASCII.GetByteCount($setupDiagnosticJson) -gt 1024) { throw 'Setup diagnostic bound' }
-        $setupDiagnosticStream=[IO.File]::Open($setupDiagnosticPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
-        try { $setupDiagnosticBytes=[Text.Encoding]::ASCII.GetBytes($setupDiagnosticJson); $setupDiagnosticStream.Write($setupDiagnosticBytes,0,$setupDiagnosticBytes.Length) } finally { $setupDiagnosticStream.Dispose() }
-        Assert-ProtectedUpdatePath $setupDiagnosticPath
-    } catch { }
+    try { Write-SetupReadDiagnostic } catch { }
     throw
 }
 

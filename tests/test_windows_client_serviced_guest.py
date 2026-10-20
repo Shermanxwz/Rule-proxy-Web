@@ -133,6 +133,25 @@ class ServicedGuestContractTests(unittest.TestCase):
                        'value=$true', 'value=$null', 'Wire HRESULT value or JSON numeric type changed'):
             self.assertIn(marker, test)
 
+    def test_clock_contract_is_read_only_harness_and_native_rules_tested(self):
+        for text in (RUN,UPDATE):
+            self.assertIn("$Zone.Id -ceq 'Pacific Standard Time'",text)
+            self.assertIn('GetUtcOffset($UtcNow)',text)
+            self.assertIn("reason='clock_contract'",text)
+            self.assertNotIn('Set-Date',text)
+            self.assertNotIn('Set-TimeZone',text)
+            self.assertNotIn('AddHours(7)',text)
+        self.assertLess(SETUP.index('Assert-ServicedClock'),SETUP.index('$hostDeadline=ConvertTo-ServicedDeadline'))
+        self.assertLess(UPDATE.index('        Assert-ServicedClock'),UPDATE.index('$serviceDeadline=Get-ServicedDeadline'))
+        self.assertLess(RUN.index('    Assert-ServicedClock'),RUN.index('$servicingDeadline=Get-ServicedDeadline'))
+        test=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        for marker in ('2026-01-15T12:00:00Z','2026-07-15T12:00:00Z','2026-03-08T09:59:59Z','2026-03-08T10:00:00Z','2026-11-01T08:59:59Z','2026-11-01T09:00:00Z','CreateCustomTimeZone','Wrong clock contract accepted'):
+            self.assertIn(marker,test)
+        for name in ('Get-ServicedClockFacts','Assert-ServicedClock'):
+            left=RUN[RUN.index('function '+name):];left=left[:left.index('\n}')+2]
+            right=UPDATE[UPDATE.index('function '+name):];right=right[:right.index('\n}')+2]
+            self.assertEqual(left,right)
+
     def test_actual_acl_budget_semantics_and_closed_setup_failure(self):
         test=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
         for marker in ('Set-Acl -LiteralPath $fixtureRoot', 'Get-ServicedDeadline', "'write_acl'", "'owner'", "'missing'", "'future'", 'natural_owner_trusted', 'explicit_trusted_owner', 'caller_root_preserved', 'acl_cleanup'):
