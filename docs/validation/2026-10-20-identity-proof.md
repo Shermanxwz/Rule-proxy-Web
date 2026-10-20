@@ -476,3 +476,21 @@ symlink targets. Unknown ownership, root aliases, nested mounts or special
 entries stop measurement. Nothing is removed, mounted or reconfigured.
 Nineteen client integration/inventory tests pass; any later removal requires
 a separate exact-target review and parent decision, not this diagnostic.
+
+
+Read-only cache inventory run `39374582044` (commit `556304e0`) completed
+without checkout, provisioning or deletion. Measured allocated bytes: Android
+11,838,296,064; .NET 6,167,728,128; Swift 3,710,971,904. Sum 21,716,996,096 bytes
+(~20.23GiB) is only an optimistic candidate bound, not guaranteed reclaimed
+space. Combined with the prior 13.11GiB free observation it would reach only
+33.34GiB, still below 55GiB. No subset is sufficient under the current pipeline.
+The new observed image is 20261018.339.1, not the reviewed 20261012.334.1; this
+provenance mismatch is explicitly retained. All roots are broadly writable;
+owner/location checks alone do not establish pristine contents. No removal
+is approved or performed. The published freeze had 19 reviewed tests; a later
+20th test exists locally only and was not part of this run.
+
+Next work is a bounded design review of lower-peak owned-media provisioning,
+not a blind threshold reduction or expansion of deletion targets. Existing
+source/extracted/remastered ISO copies and host MSUs can potentially be phased,
+but servicing peak and safety margin must be established before provisioning.
