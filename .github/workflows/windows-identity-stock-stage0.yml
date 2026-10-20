@@ -1,4 +1,4 @@
-name: Windows stock client Stage0 (disabled draft)
+name: Windows stock client Stage0 (bounded experiment)
 on:
   push:
     branches: [dot/windows-isolation-proof]
@@ -14,7 +14,7 @@ permissions:
   contents: read
 jobs:
   compile:
-    # Activation requires replacing false, not dropping branch/intent checks.
+    # Keep the exact experimental branch and explicit runtime intent checks.
     if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-stock-stage0-runtime]') }}
     runs-on: windows-2025
     timeout-minutes: 10
@@ -73,7 +73,7 @@ jobs:
           test "$minutes" -ge 1
           if [ "$minutes" -gt 46 ]; then minutes=46; fi
           echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
-      - name: Frozen pre-checkout recovery gate (execution remains disabled)
+      - name: Frozen pre-checkout recovery gate (explicit bounded execution)
         timeout-minutes: ${{ fromJSON(steps.stock_budget_0.outputs.minutes) }}
         run: |
           sudo /usr/bin/python3 -c 'import os,fcntl; fd=os.open("/dev/kvm",os.O_RDWR|os.O_CLOEXEC); v=fcntl.ioctl(fd,0xAE00,0); os.close(fd); assert v==12'

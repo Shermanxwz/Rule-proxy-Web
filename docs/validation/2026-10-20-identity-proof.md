@@ -574,3 +574,18 @@ both local and central header bytes under POSIX and Windows separator models,
 including raw backslash and NUL cases. Valid nested stdlib acceptance remains.
 All293 local pure tests pass; production host, guest and workflow hashes are
 unchanged. This is fixture portability evidence, not Windows runtime acceptance.
+
+Stock attempt `39383594728` (`90e5d2bc`) passed Windows compilation and all38
+focused tests. Provider recovery on exact reviewed image20261012.334.1 reached
+its32.5GiB goal after370,713 removals in about18.5 minutes. Android and .NET roots
+were removed; Swift stopped partially removed once the goal was met. Final free
+space was34,897,620,992 bytes, with no reported cleanup uncertainty. Only the
+reviewed provider targets were affected; no chmod or target expansion occurred.
+
+Preparation baseline was34,897,592,320 bytes. Checkout consumed30,003,200 net
+bytes; after APT index refresh the net decline was156,278,784 bytes, still within
+the512MiB allowance and above32GiB. The current APT plan gate then blocked before
+package installation or any VM. Its closed report unfortunately omitted the
+failure category and current plan measurements, so neither a changed estimate
+nor parser failure can yet be asserted. The next diagnostic must distinguish
+these before another full recovery attempt. This is not a PSEC isolation result.
