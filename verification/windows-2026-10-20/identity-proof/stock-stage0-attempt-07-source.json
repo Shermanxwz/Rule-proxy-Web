@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "sanitized": true,
+  "byte_exact": true,
+  "run_id": 39400160380,
+  "commit": "abe0f7d1139f2435cc999dc20c87d06b33c3df85",
+  "source": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39400160380",
+  "result": "exact_request_did_not_qualify",
+  "probe_outcome": "reported_detector_error",
+  "probe_error_class": "reported_dacl_fallback_forbidden",
+  "base_container_api_observed": false,
+  "scope": "Pinned request-aware probe on stock Windows 11 26200.6584 only; not all Windows versions",
+  "probe_failure_cause_preserved": true,
+  "actor_execution_established": false,
+  "ordinary_guest_verified": true,
+  "stock_build_verified": true,
+  "vm_destroyed": true,
+  "artifacts": [
+    {
+      "id": 12256886711,
+      "kind": "runtime",
+      "zip_sha256": "1aba1755c1b0fa530dc6f9fd9e598ba8819e816f55fe856fb724d71af32901d2",
+      "json_sha256": "c8f58268fddafa508201b343016ddd0d44545204a5a6635c46e7de330c10ebb1"
+    },
+    {
+      "id": 12257471430,
+      "kind": "recovery",
+      "zip_sha256": "0f7f3578c123559ed8d95ced06e9179d9fd2ec81bbc2188a41cee86ed53661fa",
+      "json_sha256": "b82fdfccc4bb8283111d75a961b0b8c35ee273833f5f04b3741def821ba12065"
+    },
+    {
+      "id": 12257371463,
+      "kind": "preparation",
+      "zip_sha256": "8d7b3d97778d37dbc09075b859a0ce905edce367c4bd9d423cdd1cc73cc26f28",
+      "json_sha256": "0fd1b0f391bdafa15787d0ec69aeb58b23741de71ca25ce66ebb235dd9e9a4c3"
+    }
+  ]
+}
