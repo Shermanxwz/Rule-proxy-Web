@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "run_id": 39380768721,
+  "commit": "1da4bea130f0abe6aba8343ab6026a2cd5713820",
+  "job_id": 118489129109,
+  "artifact_id": 12244984077,
+  "artifact_zip_sha256": "a99709435648c2e08ae8a9ae015620ae6c07814af5f4cf18cf00dce182211935",
+  "artifact_member": "public.json",
+  "report_is_original_closed_projection": true,
+  "read_only": true,
+  "removal_performed": false,
+  "vm_created": false
+}

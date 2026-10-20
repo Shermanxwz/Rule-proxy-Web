@@ -541,3 +541,20 @@ provider-writable tool trees. This was a validation/design inconsistency, not
 a newly discovered environment property or Windows isolation result. No mode
 change or automatic guard relaxation was performed; precise provider-mode
 handling requires separate source/inventory reconciliation and review.
+
+Read-only mode run `39380768721` (`1da4bea1`) completed on image
+20261018.339.1. Android ancestors are0755, target directories0777, regular
+files0777 except two0644, links0777. .NET/Swift use0777 throughout; their exact
+/usr/share ancestor is0777 while / and /usr are0755. Ownership/mount/hardlink
+checks passed. These observations match the pinned Android installer and final
+configure-system script; they do not prove arbitrary writable content is trusted.
+No deletion or permission change occurred.
+
+This run measured 13,323,415,552 free bytes. Adding all three candidate allocations
+gives only35,040,411,648 bytes (32.634GiB), not the earlier33.34GiB estimate.
+Existing APT metadata estimates no-recommends downloads25,315,786 bytes and
+positive installed growth115,948,544 bytes, not transient peak. A proposed
+32.5GiB recovery target must reserve512MiB for measured/bounded preparation
+while retaining32GiB post-preparation and24GiB prelaunch gates. It is not yet
+cleared for execution. The dedicated payload is being reduced to pinned official
+embedded Python, pinned G and native actor instead of the full offline product.

@@ -1,0 +1,275 @@
+{
+  "image_provenance": {
+    "definition_commit": "b4067e48bd9bd803e958bfe1503ea0a06a3a127f",
+    "image_os": "ubuntu24",
+    "image_version": "20261018.339.1",
+    "release_tag": "ubuntu24/20261018.339"
+  },
+  "preparation_context": {
+    "apt_plans": {
+      "existing_default": {
+        "available": true,
+        "cache_reuse_assumed": false,
+        "download_bytes_upper_bound": 47759494,
+        "installation_performed": false,
+        "metadata_refreshed": false,
+        "peak_disk_bound": false,
+        "positive_installed_growth_bytes": 196436992,
+        "selected_package_count": 91
+      },
+      "no_recommends_comparison": {
+        "available": true,
+        "cache_reuse_assumed": false,
+        "download_bytes_upper_bound": 25315786,
+        "installation_performed": false,
+        "metadata_refreshed": false,
+        "peak_disk_bound": false,
+        "positive_installed_growth_bytes": 115948544,
+        "selected_package_count": 23
+      }
+    },
+    "firmware_regular_present": {
+      "secure_boot_code": false,
+      "variable_template": false
+    },
+    "storage": {
+      "runner_temp": {
+        "available": true,
+        "filesystem_group": "filesystem_1",
+        "free_bytes": 13323415552,
+        "total_bytes": 76887154688
+      },
+      "tmp": {
+        "available": true,
+        "filesystem_group": "filesystem_1",
+        "free_bytes": 13323415552,
+        "total_bytes": 76887154688
+      },
+      "workspace": {
+        "available": true,
+        "filesystem_group": "filesystem_1",
+        "free_bytes": 13323415552,
+        "total_bytes": 76887154688
+      }
+    },
+    "tool_present": {
+      "curl": true,
+      "prlimit": true,
+      "qemu-img": false,
+      "qemu-system-x86_64": false,
+      "swtpm": false,
+      "xorriso": false
+    }
+  },
+  "read_only": true,
+  "removal_authorized": false,
+  "removed_bytes": 0,
+  "schema_version": 1,
+  "stage": "hosted-runner-fixed-mode-read-only-inventory",
+  "status": "observed",
+  "targets": {
+    "android_sdk": {
+      "allocated_bytes": 11838296064,
+      "ancestor_modes": [
+        {
+          "depth": 0,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        },
+        {
+          "depth": 1,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        },
+        {
+          "depth": 2,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        },
+        {
+          "depth": 3,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        },
+        {
+          "depth": 4,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        }
+      ],
+      "atomic_snapshot": false,
+      "complete": true,
+      "entries": 312486,
+      "first_failure_role": null,
+      "first_writable_role": "root",
+      "linux_reparse_points": "not_applicable",
+      "logical_bytes": 11071014966,
+      "mode_counts": {
+        "directory": {
+          "0777": 56073
+        },
+        "regular": {
+          "0644": 2,
+          "0777": 256300
+        },
+        "special": {},
+        "symlink": {
+          "0777": 111
+        }
+      },
+      "multiply_linked_file_count": 0,
+      "nested_mount": false,
+      "ownership": "root_uid0_gid0_only",
+      "recoverability_verified": false,
+      "removal_authorized": false,
+      "root_or_ancestor_symlink": false,
+      "source_definition": "https://github.com/actions/runner-images/blob/b4067e48bd9bd803e958bfe1503ea0a06a3a127f/images/ubuntu/scripts/build/install-android-sdk.sh",
+      "special_entries": false,
+      "stage0_dependency": false,
+      "status": "measured",
+      "symlink_count": 111,
+      "target_root_mode": {
+        "group_root": true,
+        "mode": "0777",
+        "owner_root": true,
+        "type": "directory"
+      },
+      "world_writable_entry_count": 312484
+    },
+    "dotnet_sdk": {
+      "allocated_bytes": 6167728128,
+      "ancestor_modes": [
+        {
+          "depth": 0,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        },
+        {
+          "depth": 1,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        },
+        {
+          "depth": 2,
+          "group_root": true,
+          "mode": "0777",
+          "owner_root": true,
+          "type": "directory"
+        }
+      ],
+      "atomic_snapshot": false,
+      "complete": true,
+      "entries": 57284,
+      "first_failure_role": null,
+      "first_writable_role": "ancestor",
+      "linux_reparse_points": "not_applicable",
+      "logical_bytes": 6059474497,
+      "mode_counts": {
+        "directory": {
+          "0777": 8185
+        },
+        "regular": {
+          "0777": 49099
+        },
+        "special": {},
+        "symlink": {}
+      },
+      "multiply_linked_file_count": 0,
+      "nested_mount": false,
+      "ownership": "root_uid0_gid0_only",
+      "recoverability_verified": false,
+      "removal_authorized": false,
+      "root_or_ancestor_symlink": false,
+      "source_definition": "https://github.com/actions/runner-images/blob/b4067e48bd9bd803e958bfe1503ea0a06a3a127f/images/ubuntu/scripts/build/install-dotnetcore-sdk.sh",
+      "special_entries": false,
+      "stage0_dependency": false,
+      "status": "measured",
+      "symlink_count": 0,
+      "target_root_mode": {
+        "group_root": true,
+        "mode": "0777",
+        "owner_root": true,
+        "type": "directory"
+      },
+      "world_writable_entry_count": 57284
+    },
+    "swift_toolchain": {
+      "allocated_bytes": 3710971904,
+      "ancestor_modes": [
+        {
+          "depth": 0,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        },
+        {
+          "depth": 1,
+          "group_root": true,
+          "mode": "0755",
+          "owner_root": true,
+          "type": "directory"
+        },
+        {
+          "depth": 2,
+          "group_root": true,
+          "mode": "0777",
+          "owner_root": true,
+          "type": "directory"
+        }
+      ],
+      "atomic_snapshot": false,
+      "complete": true,
+      "entries": 2534,
+      "first_failure_role": null,
+      "first_writable_role": "ancestor",
+      "linux_reparse_points": "not_applicable",
+      "logical_bytes": 3705820804,
+      "mode_counts": {
+        "directory": {
+          "0777": 215
+        },
+        "regular": {
+          "0777": 2280
+        },
+        "special": {},
+        "symlink": {
+          "0777": 39
+        }
+      },
+      "multiply_linked_file_count": 0,
+      "nested_mount": false,
+      "ownership": "root_uid0_gid0_only",
+      "recoverability_verified": false,
+      "removal_authorized": false,
+      "root_or_ancestor_symlink": false,
+      "source_definition": "https://github.com/actions/runner-images/blob/b4067e48bd9bd803e958bfe1503ea0a06a3a127f/images/ubuntu/scripts/build/install-swift.sh",
+      "special_entries": false,
+      "stage0_dependency": false,
+      "status": "measured",
+      "symlink_count": 39,
+      "target_root_mode": {
+        "group_root": true,
+        "mode": "0777",
+        "owner_root": true,
+        "type": "directory"
+      },
+      "world_writable_entry_count": 2534
+    }
+  },
+  "vm_created": false
+}
