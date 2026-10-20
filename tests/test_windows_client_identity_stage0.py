@@ -52,6 +52,50 @@ class LabPreflightTests(unittest.TestCase):
         self.assertFalse(out['opened_read_write'])
         self.assertNotIn('private-path',json.dumps(out))
 
+INVENTORY_SPEC=importlib.util.spec_from_file_location('cache_inventory', ROOT/'.github/windows_identity_cache_inventory.py')
+inv=importlib.util.module_from_spec(INVENTORY_SPEC); INVENTORY_SPEC.loader.exec_module(inv)
+
+class CacheInventoryTests(unittest.TestCase):
+    def test_exact_source_proven_allowlist(self):
+        self.assertEqual({p for p,_ in inv.TARGETS.values()}, {'/usr/share/dotnet','/usr/local/lib/android/sdk','/usr/share/swift'})
+        self.assertEqual(inv.IMAGE_SOURCE,'7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe')
+
+    def test_mount_boundary_blocks_before_open(self):
+        with patch.object(inv,'open_root') as opened:
+            out=inv.inspect_target('/usr/share/dotnet',{'/usr/share/dotnet/nested'},99999999999)
+            opened.assert_not_called()
+        self.assertFalse(out['complete']); self.assertIsNone(out['allocated_bytes'])
+        self.assertTrue(out['nested_mount']); self.assertFalse(out['removal_authorized'])
+
+    def test_unknown_ownership_and_symlink_stop_without_size_claim(self):
+        for reason in ('unknown_ownership','root_or_ancestor_symlink'):
+            with patch.object(inv,'open_root',side_effect=inv.InventoryStopped(reason)):
+                out=inv.inspect_target('/usr/share/dotnet',set(),99999999999)
+            self.assertFalse(out['complete']); self.assertIsNone(out['allocated_bytes'])
+            self.assertEqual(out['stop_reason'],reason)
+
+    def test_own_image_provenance_not_assumed_from_source(self):
+        with patch.dict(inv.os.environ,{'ImageOS':'ubuntu24','ImageVersion':'20261019.999.1'}), patch.object(inv,'mount_points',return_value=set()), patch.object(inv,'inspect_target',return_value={'complete':False}):
+            result=inv.collect()
+        self.assertFalse(result['reviewed_image_version_matches'])
+        self.assertEqual(result['image_environment_provenance']['ImageVersion'],'20261019.999.1')
+        self.assertFalse(result['removal_authorized'])
+
+    def test_embedded_inspector_is_byte_exact_and_before_checkout(self):
+        import hashlib
+        text=(ROOT/'.github/workflows/windows-identity-win11-stage0.yml').read_text()
+        section=text[text.index('  inventory:'):text.index('  preflight:')]
+        start=section.index("<<'REVIEWED_INSPECTOR'\n")+len("<<'REVIEWED_INSPECTOR'\n")
+        end=section.index('          REVIEWED_INSPECTOR\n',start)
+        embedded=''.join(line[10:]+'\n' for line in section[start:end].splitlines())
+        source=(ROOT/'.github/windows_identity_cache_inventory.py').read_text()
+        self.assertEqual(embedded,source)
+        self.assertIn(hashlib.sha256(source.encode()).hexdigest(),section)
+        for forbidden in ('actions/checkout','download-artifact','apt-get','rm -','chmod','sudo mount'):
+            self.assertNotIn(forbidden,section)
+        self.assertIn('timeout-minutes: 5',section)
+        self.assertIn('path: cache-inventory/public-inventory.json',section)
+
 class ClientStage0Tests(unittest.TestCase):
     def sample(self):
         return dict(checks={k: True for k in m.CHECKS}, stage0_passed=True,

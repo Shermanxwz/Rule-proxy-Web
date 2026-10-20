@@ -464,3 +464,15 @@ serviced guest allocated about 24.95GB alone; eliminating an approximately 7GB
 transient ISO duplicate cannot establish feasibility on this runner. Do not
 blindly lower the reserve or delete global tools. Continue only with a reviewed
 resource plan consistent with the no-new-paid/no-user-device constraints.
+
+Read-only resource-plan preparation now inventories only three provider-defined
+unused tool locations: Android SDK, .NET SDK and Swift. Definitions are pinned
+to the actual prior runner image release ubuntu24/20261012.334, commit
+7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe; the new run separately records whether
+its image version matches. Inspection happens before checkout using the exact
+reviewed helper and SHA check. It records allocated/logical bytes with inode
+deduplication, closed ownership/symlink/mount facts, never file contents or
+symlink targets. Unknown ownership, root aliases, nested mounts or special
+entries stop measurement. Nothing is removed, mounted or reconfigured.
+Nineteen client integration/inventory tests pass; any later removal requires
+a separate exact-target review and parent decision, not this diagnostic.
