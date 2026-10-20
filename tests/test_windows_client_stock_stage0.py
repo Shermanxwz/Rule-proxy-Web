@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 import stat
+import struct
 import sys
 import tempfile
 import unittest
@@ -16,6 +17,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('stock', ROOT / '.github/windows_identity_stock_stage0.py')
 stock = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(stock)
 class StockTests(unittest.TestCase):
+    @staticmethod
+    def raw_zip_info(name):
+        # ZipInfo(name), including writestr's string-name convenience path,
+        # normalizes backslashes to slashes on Windows and truncates NULs.
+        # Malformed-input fixtures must serialize the intended raw name.
+        item=zipfile.ZipInfo('fixture')
+        item.filename=item.orig_filename=name
+        return item
     def test_minimum_vm_work_budget_boundary_excludes_existing_cleanup_reserve(self):
         self.assertEqual(stock.MIN_VM_WORK_SECONDS,1800)
         with self.assertRaises(stock.VMWorkBudgetInsufficient):
@@ -161,7 +170,7 @@ class StockTests(unittest.TestCase):
         inner = io.BytesIO()
         with zipfile.ZipFile(inner, 'w') as archive:
             for name, data in library.items():
-                if data is not None: archive.writestr(name, data)
+                if data is not None: archive.writestr(self.raw_zip_info(name), data)
         binary = b'MZ' + b'\0' * 58 + (64).to_bytes(4, 'little') + b'PE\0\0\x64\x86\0'
         members = {name: b'fixture-only-not-executable' for name in stock.PYTHON_REQUIRED}
         members.update({'python.exe': binary, 'python314.dll': binary,
@@ -170,7 +179,7 @@ class StockTests(unittest.TestCase):
         outer = io.BytesIO()
         with zipfile.ZipFile(outer, 'w') as archive:
             for name, data in members.items():
-                if data is not None: archive.writestr(name, data)
+                if data is not None: archive.writestr(self.raw_zip_info(name), data)
         data = outer.getvalue()
         values = {'PYTHON_ASSET': dict(stock.PYTHON_ASSET, size=len(data), sha256=hashlib.sha256(data).hexdigest()),
                   'PYTHON_MEMBERS': sum(value is not None for value in members.values()),
@@ -219,12 +228,37 @@ class StockTests(unittest.TestCase):
             self.check_python_fixture(*self.python_fixture(stdlib_changes={'ctypes/__init__.pyc':None}))
     def test_python_rejects_unsafe_runtime_and_nested_stdlib_paths(self):
         for name in ('../escape','/absolute','C:drive','dir\\member','double//name',
-                     './relative','space /member','trailing.','NUL','COM1.txt','_CTYPES.pyd'):
+                     './relative','space /member','trailing.','NUL','COM1.txt','_CTYPES.pyd','null\0member'):
             for key in ('runtime_changes','stdlib_changes'):
                 # The case-insensitive duplicate belongs to the runtime archive.
                 if name=='_CTYPES.pyd' and key=='stdlib_changes': continue
                 with self.subTest(name=name,layer=key),self.assertRaises(ValueError):
                     self.check_python_fixture(*self.python_fixture(**{key:{name:b'bad'}}))
+    def test_raw_zip_names_are_preserved_and_rejected_under_both_separator_models(self):
+        for separator,alternate in (('/',None),('\\','/')):
+            # Replace only zipfile's OS reference, not the shared os module:
+            # pathlib/tempfile and real filesystem behavior remain untouched.
+            modeled_os=SimpleNamespace(**(vars(zipfile.os)|{'sep':separator,'altsep':alternate}))
+            with self.subTest(separator=separator),patch.object(zipfile,'os',modeled_os):
+                for name in ('dir\\member','null\0member'):
+                    with self.subTest(name=name):
+                        stream=io.BytesIO()
+                        with zipfile.ZipFile(stream,'w') as archive:
+                            archive.writestr(self.raw_zip_info(name),b'x')
+                        data=stream.getvalue()
+                        self.assertEqual(data[:4],b'PK\x03\x04')
+                        local_length=struct.unpack_from('<H',data,26)[0]
+                        self.assertEqual(data[30:30+local_length],name.encode('ascii'))
+                        central=data.index(b'PK\x01\x02')
+                        central_length=struct.unpack_from('<H',data,central+28)[0]
+                        self.assertEqual(data[central+46:central+46+central_length],name.encode('ascii'))
+                        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                            self.assertEqual(archive.infolist()[0].orig_filename,name)
+                            with self.assertRaises(ValueError):
+                                stock.checked_members(archive,count=1,expanded=1)
+                # Forward-slash stdlib directories are valid on either host.
+                data,values=self.python_fixture(stdlib_changes={'valid/nested.pyc':b'fixture'})
+                self.assertEqual(self.check_python_fixture(data,values),data)
     def test_zip_rejects_links_duplicates_encryption_and_directory_aliases(self):
         def item(name):
             result=zipfile.ZipInfo(name); result.file_size=1

@@ -558,3 +558,19 @@ positive installed growth115,948,544 bytes, not transient peak. A proposed
 while retaining32GiB post-preparation and24GiB prelaunch gates. It is not yet
 cleared for execution. The dedicated payload is being reduced to pinned official
 embedded Python, pinned G and native actor instead of the full offline product.
+
+Stock attempt `39382788325` (`4b1b2c59`) passed guest PowerShell parsing and
+native actor compilation, then stopped at the Windows pure-test gate:37 tests,
+one failure and one expected Linux-only skip. The nested unsafe-ZIP fixture used
+`writestr` with a backslash-containing string name. Windows ZipInfo normalizes
+that separator to a slash before writing, so the fixture represented a legitimate
+nested member rather than the intended malformed archive name. The production
+validator already rejects raw backslashes and original/normalized-name mismatch;
+no validator relaxation is warranted. Native job118495727530 was skipped, with
+no provider removal, VM or new isolation evidence. A test-only raw-name fixture
+correction is under review.
+The frozen test-only correction explicitly sets exact ZIP entry names and checks
+both local and central header bytes under POSIX and Windows separator models,
+including raw backslash and NUL cases. Valid nested stdlib acceptance remains.
+All293 local pure tests pass; production host, guest and workflow hashes are
+unchanged. This is fixture portability evidence, not Windows runtime acceptance.
