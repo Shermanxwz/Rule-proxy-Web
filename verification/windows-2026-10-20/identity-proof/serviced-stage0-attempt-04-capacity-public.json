@@ -1,0 +1,11 @@
+{
+  "kind": "read_only_capacity_preflight",
+  "observed_free_bytes": 91322347520,
+  "provider_changes": false,
+  "provider_deletion_attempted": false,
+  "recovery_performed": false,
+  "required_free_bytes": 69256347648,
+  "same_filesystem": true,
+  "schema_version": 1,
+  "status": "admitted"
+}

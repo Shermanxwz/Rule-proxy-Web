@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "0c35b72955cefcfd8e7f7ca3ebfc3bef4f338ec9",
+  "run_id": 39469042223,
+  "native_job_id": 118788607948,
+  "artifacts": [
+    {
+      "artifact_id": 12287612920,
+      "archive_sha256": "823a819ba4160e50fbae66f5c4f6f66c5ab65d942894d670f116744c2fd99af8",
+      "public_file": "serviced-stage0-attempt-04-runtime-public.json"
+    },
+    {
+      "artifact_id": 12286594945,
+      "archive_sha256": "04966b030885c7d923f7c0e4e7d4df733f84064f9579c076fc2efd11d787e8db",
+      "public_file": "serviced-stage0-attempt-04-preparation-public.json"
+    },
+    {
+      "artifact_id": 12288720210,
+      "archive_sha256": "0c74b01b8a3500b261d7a0ec628e5c9d3330cd5ed3b0d9f7ffb4ba32b561f87d",
+      "public_file": "serviced-stage0-attempt-04-capacity-public.json"
+    }
+  ],
+  "observed_outcome": "setup_absolute_budget_expired_then_ordinary_budget_missing",
+  "stage0_passed": false,
+  "vm_destroyed": true,
+  "prior_attempt_cleanup_uncertainty_unchanged": true,
+  "provider_deletion_attempted": false,
+  "installed_stock_beacon_observed": true,
+  "update_media_host_verified_and_attached": true,
+  "guest_package_verification_not_observed": true,
+  "isolation_not_tested": true,
+  "qemu_started_utc": "2026-10-20T18:03:57Z",
+  "installed_stock_beacon_utc": "2026-10-20T18:15:19Z",
+  "result_received_utc": "2026-10-20T18:16:13Z",
+  "cleanup_done_utc": "2026-10-20T18:16:23Z",
+  "setup_remaining_seconds": -17216,
+  "host_deadline_epoch": 1792528149,
+  "seven_hour_clock_offset_consistent_not_proven": true,
+  "clock_contract_fix_not_yet_tested": true,
+  "seed_work_deadline_formula": "floor(min(host_start_wall+9600,1792528149)-180)",
+  "approximate_seed_work_deadline_utc": "2026-10-20T20:25:39Z"
+}
