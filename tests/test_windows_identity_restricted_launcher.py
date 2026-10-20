@@ -4,10 +4,10 @@ import importlib.util
 import json
 import io
 from pathlib import Path
-import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest import mock
+from windows_identity_test_support import owned_temp_directory
 
 from test_windows_identity_ordinary_launcher import FakeAPI
 
@@ -446,8 +446,7 @@ class PreflightTests(unittest.TestCase):
                 lab.main(arguments + extra)
 
     def test_preflight_report_must_be_fresh_inside_checkout(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with owned_temp_directory() as root:
             (root / "ruleproxy").mkdir()
             (root / "ruleproxy/windows_app_process.py").write_text("# fixture")
             with mock.patch.object(lab, "ROOT", root):

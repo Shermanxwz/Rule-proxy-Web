@@ -4,10 +4,10 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from windows_identity_test_support import owned_temp_directory
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -523,8 +523,7 @@ class InputTests(unittest.TestCase):
                                work=root / "new", report=root / "new/report.json")
 
     def test_input_paths_digest_and_fresh_directory_are_checked(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with owned_temp_directory() as root:
             args = self.fixture(root)
             with patch.object(launcher, "ROOT", root), \
                     patch.object(launcher, "PROBE", root / ".github/windows_identity_pipe_probe.py"), \
@@ -546,8 +545,7 @@ class InputTests(unittest.TestCase):
                     launcher.validate_inputs(args)
 
     def test_fresh_work_uses_validated_canonical_parent_spelling(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary).resolve()
+        with owned_temp_directory() as root:
             args = self.fixture(root)
             # Simulate Windows expanding an existing 8.3 parent name. This
             # is not a symlink and must still go through checked_path.
@@ -597,8 +595,7 @@ class InputTests(unittest.TestCase):
                          {"operation": "launcher", "type": "OSError"})
 
     def test_symlink_and_outside_root_are_rejected(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with owned_temp_directory() as root:
             target = root / "owned"
             target.mkdir()
             file = target / "input"

@@ -383,3 +383,20 @@ The measured correction raises only system-library metadata capacity to 128;
 both actor capacities remain 64. Native token/security/launch gates are unchanged.
 Regression tests replay the actual sanitized fixture and cover each boundary.
 The corrected local suite has 151 passing pure tests.
+
+
+Paired startup attempt 3 (commit `8901787f`, run `39372510124`) passed both
+MSVC builds and every dependency/import metadata gate. Windows ran 151 pure
+tests; one fake-process matrix success test failed, and all native token/actor
+runtime was skipped. The remaining 150 tests passed. The failure is preserved
+separately from runtime outcomes; it supplies no new token or actor evidence.
+
+The test-only correction uses a shared canonical owned-temporary-directory
+fixture in the paired, ordinary and restricted fake-process suites. Production
+input validation already canonicalizes these directories; the old fixture
+bypassed it. A platform-neutral alias simulation reproduces the observed
+completed-diagnostic/unsuccessful-startup signature with the closed
+path_outside_owned_root error. This is a demonstrated viable cause, not proof
+of the original CI cell error, which was not printed. Three regressions cover
+the alias, preserved containment rejection and sanitized assertion diagnostics.
+All 154 pure tests pass locally; production path and reparse gates are unchanged.

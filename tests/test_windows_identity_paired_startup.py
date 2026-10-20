@@ -4,10 +4,11 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest import mock
+import windows_identity_test_support as test_support
+from windows_identity_test_support import owned_temp_directory
 
 from test_windows_identity_ordinary_launcher import FakeAPI
 from test_windows_identity_restricted_launcher import source, restricted
@@ -101,16 +102,92 @@ def builds():
 
 class MatrixTests(unittest.TestCase):
     def matrix(self, api):
-        with tempfile.TemporaryDirectory() as temporary:
+        with owned_temp_directory() as root:
             with mock.patch.object(paired.lab, "restricted_identity",
                                    side_effect=lambda target, token: target.identity(token)):
-                return paired.paired_startup(api, builds(), Path(temporary), "d" * 64)
+                return paired.paired_startup(api, builds(), root, "d" * 64)
+
+    def closed_cell_errors(self, report):
+        # Future CI assertion failures expose only the publication projection's
+        # closed operation IDs/codes, never full identity, nonce, or path data.
+        public = paired.publication_projection(report)
+        diagnostics = []
+        raw_cells = {cell["label"]: cell for cell in report["cells"]}
+        for cell in public["cells"]:
+            error = raw_cells.get(cell["label"], {}).get("error", {})
+            reason = error.get("reason")
+            diagnostics.append({
+                "label": cell["label"], "error": cell.get("error"),
+                "launch_error": cell.get("launch_error"),
+                "native_exit_code": cell.get("native_exit_code"),
+                "actor_report_present": cell.get("actor_report_present"),
+                "actor_matches_native_observation": cell.get("actor_matches_native_observation"),
+                "closed_reason": reason if reason in (
+                    "path_outside_owned_root", "reparse_or_symlink_path",
+                    "probe_report_too_large", "probe_report_not_object") else None,
+            })
+        return diagnostics
+
+    def test_short_parent_fixture_is_canonical_before_mock_process_and_report_paths(self):
+        with owned_temp_directory() as canonical:
+            short = canonical.parent / (canonical.name + "~1")
+            context = mock.MagicMock()
+            context.__enter__.return_value = str(short)
+            original_resolve = Path.resolve
+            expansions = []
+
+            def resolve(path, *args, **kwargs):
+                if path == short:
+                    expansions.append(kwargs)
+                    return canonical
+                return original_resolve(path, *args, **kwargs)
+
+            with mock.patch.object(test_support.tempfile, "TemporaryDirectory", return_value=context), \
+                    mock.patch.object(Path, "resolve", autospec=True, side_effect=resolve):
+                api = MatrixAPI()
+                report = self.matrix(api)
+            self.assertEqual(expansions, [{"strict": True}])
+            self.assertTrue(report["all_actor_startups_succeeded"], self.closed_cell_errors(report))
+            self.assertEqual(api.work.parent, canonical)
+            self.assertEqual(Path(api.command[3]).parent.parent, canonical)
+
+    def test_simulated_uncanonical_fixture_reproduces_closed_report_containment_failure(self):
+        # Reproduce the old fixture's possible Windows behavior, without a real
+        # alias or relaxing production checks: the file resolves to a long
+        # spelling while read_probe's supplied inside parent stays short.
+        with owned_temp_directory() as raw:
+            canonical = raw.parent / ("long-spelling-" + raw.name)
+            original_resolve = Path.resolve
+
+            def resolve(path, *args, **kwargs):
+                result = original_resolve(path, *args, **kwargs)
+                if path.name == "actor.json" and raw in result.parents:
+                    return canonical / result.relative_to(raw)
+                return result
+
+            with mock.patch.object(Path, "resolve", autospec=True, side_effect=resolve), \
+                    mock.patch.object(paired.lab, "restricted_identity",
+                                      side_effect=lambda target, token: target.identity(token)):
+                report = paired.paired_startup(MatrixAPI(), builds(), raw, "d" * 64)
+            self.assertTrue(report["diagnostic_completed"])
+            self.assertFalse(report["all_actor_startups_succeeded"])
+            for cell in report["cells"]:
+                self.assertEqual(cell["error"],
+                                 {"operation": "invariant", "reason": "path_outside_owned_root"})
+            self.assertEqual([item["closed_reason"] for item in self.closed_cell_errors(report)],
+                             ["path_outside_owned_root"] * 4)
+
+    def test_fixture_assertion_diagnostics_never_echo_unclassified_error_text(self):
+        report = self.matrix(MatrixAPI())
+        report["cells"][0]["error"] = {
+            "operation": "SECRET_PATH", "reason": "SECRET_PATH", "message": "SECRET_PATH"}
+        self.assertNotIn("SECRET_PATH", json.dumps(self.closed_cell_errors(report)))
 
     def test_all_four_cells_keep_source_control_distinct_and_clean_each_before_next(self):
         api = MatrixAPI()
         report = self.matrix(api)
         self.assertTrue(report["diagnostic_completed"])
-        self.assertTrue(report["all_actor_startups_succeeded"])
+        self.assertTrue(report["all_actor_startups_succeeded"], self.closed_cell_errors(report))
         self.assertEqual([c["label"] for c in report["cells"]], [c[0] for c in paired.CELLS])
         for index, cell in enumerate(report["cells"]):
             restricted_cell = index in (1, 3)
@@ -275,8 +352,7 @@ class InputTests(unittest.TestCase):
         return SimpleNamespace(**kwargs)
 
     def test_distinct_hashed_variants_same_source_and_audit_are_bound(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with owned_temp_directory() as root:
             args = self.setup_inputs(root)
             with mock.patch.object(paired, "ROOT", root), mock.patch.object(paired.lab, "ROOT", root):
                 result, work, audit_hash = paired.validate_inputs(args)
@@ -289,8 +365,7 @@ class InputTests(unittest.TestCase):
     def test_manifest_wrong_variant_hash_or_source_fails_closed(self):
         for key, value in (("httpCompiled", True), ("executableSha256", "0" * 64),
                            ("sourceSha256", "b" * 64), ("staticCrt", False)):
-            with self.subTest(key=key), tempfile.TemporaryDirectory() as temporary:
-                root = Path(temporary)
+            with self.subTest(key=key), owned_temp_directory() as root:
                 args = self.setup_inputs(root)
                 path = root / "identity/build-manifest.json"
                 manifest = json.loads(path.read_text())
@@ -301,8 +376,7 @@ class InputTests(unittest.TestCase):
                         paired.validate_inputs(args)
 
     def test_existing_work_and_oversized_audit_are_rejected(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+        with owned_temp_directory() as root:
             args = self.setup_inputs(root)
             with mock.patch.object(paired, "ROOT", root), mock.patch.object(paired.lab, "ROOT", root):
                 args.dependency_audit.write_bytes(b" " * (paired.ordinary.MAX_REPORT + 1))
@@ -321,8 +395,8 @@ class PublicationTests(unittest.TestCase):
     def test_public_copy_is_labeled_sanitized_and_bound_to_exact_local_source_bytes(self):
         report = self.report()
         public = paired.publication_projection(report)
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "report.json"
+        with owned_temp_directory() as root:
+            path = root / "report.json"
             paired.ordinary.save_report(path, report)
             self.assertEqual(public["source_report_sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
         self.assertTrue(public["sanitized"])
