@@ -41,6 +41,9 @@ GROUP_DENY_ONLY = 0x00000010
 KILL_ON_JOB_CLOSE = 0x00002000
 SID_PATTERN = re.compile(r"S-1-(?:[0-9]+-)*[0-9]+\Z")
 DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
+OBSERVATION_NAMES = ("sid", "session_id", "token_type", "elevation_type", "elevated",
+                     "integrity_rid", "groups", "appcontainer", "appcontainer_sid",
+                     "capabilities", "ui_access")
 
 
 class NativeFailure(OSError):
@@ -129,6 +132,107 @@ def safe_identity(identity, parent=None):
         result["same_user"] = identity["sid"] == parent["sid"]
         result["same_session"] = identity["session_id"] == parent["session_id"]
     return result
+
+
+def admin_attributes(groups):
+    administrators = [attributes for sid, attributes in groups if sid == ADMIN_SID]
+    if len(administrators) > 1:
+        raise GateFailure("duplicate_administrators_group")
+    return administrators[0] if administrators else None
+
+
+def identity_from_observations(values):
+    # Index required fields instead of substituting defaults for missing data.
+    names = ("sid", "session_id", "token_type", "elevation_type", "elevated",
+             "integrity_rid", "appcontainer", "appcontainer_sid", "ui_access")
+    result = {name: values[name] for name in names}
+    result["admin_attributes"] = admin_attributes(values["groups"])
+    result["capability_count"] = len(values["capabilities"])
+    return result
+
+
+def safe_observation(name, value):
+    if name in ("sid", "appcontainer_sid"):
+        return {"sid_present": value is not None}
+    if name == "groups":
+        return {"count": len(value), "admin_attributes": admin_attributes(value)}
+    if name == "capabilities":
+        return {"count": len(value)}
+    if name in ("session_id", "token_type", "elevation_type", "elevated",
+                "integrity_rid", "appcontainer", "ui_access"):
+        return value
+    raise GateFailure("unexpected_preflight_observation")
+
+
+def collect_observations(api, token):
+    """Independent diagnostic records, without defaulting failed observations."""
+    records, values = {}, {}
+    readers = api.observation_readers(token)
+    for name in OBSERVATION_NAMES:
+        try:
+            value = readers[name]()
+            public = safe_observation(name, value)
+            values[name] = value
+            records[name] = {"ok": True, "value": public}
+        except Exception as exc:
+            records[name] = {"ok": False, "error": failure(exc)}
+    return records, values
+
+
+def token_preflight(api):
+    """Read-only native work: token/compartment queries and handle closure only."""
+    report = {"schema_version": 1, "stage": "ordinary-token-preflight",
+              "preflight_only": True, "process_created": False, "profile_created": False,
+              "network_tested": False, "product_acceptance": False,
+              "linked_token": {"attempted": False},
+              "cleanup": {"token_handles_closed": False, "errors": []}}
+    current, linked = None, None
+    try:
+        try:
+            report["compartment"] = {"ok": True, "value": api.compartment()}
+        except Exception as exc:
+            report["compartment"] = {"ok": False, "error": failure(exc)}
+        current = api.current_token()
+        observations, values = collect_observations(api, current)
+        report["current"] = observations
+        if (values.get("elevated") is True and type(values.get("elevation_type")) is int
+                and values["elevation_type"] in (TOKEN_ELEVATION_TYPE_DEFAULT, TOKEN_ELEVATION_TYPE_FULL)):
+            report["linked_token"]["attempted"] = True
+            try:
+                linked = api.linked_token(current)
+                linked_observations, linked_values = collect_observations(api, linked)
+                report["linked_token"]["observations"] = linked_observations
+                for key, label in (("sid", "same_user"), ("session_id", "same_session")):
+                    if key in values and key in linked_values:
+                        report["linked_token"][label] = {"ok": True, "value": values[key] == linked_values[key]}
+                    else:
+                        report["linked_token"][label] = {"ok": False, "reason": "dependent_observation_failed"}
+            except Exception as exc:
+                report["linked_token"]["error"] = failure(exc)
+        else:
+            report["linked_token"]["reason"] = "elevated_default_or_full_token_not_observed"
+    except Exception as exc:
+        report["error"] = failure(exc)
+    finally:
+        for handle in (linked, current):
+            if handle:
+                try:
+                    api.close(handle)
+                except Exception as exc:
+                    report["cleanup"]["errors"].append(failure(exc))
+        report["cleanup"]["token_handles_closed"] = not report["cleanup"]["errors"]
+    current_complete = bool(report.get("current")) and all(
+        record["ok"] is True for record in report.get("current", {}).values())
+    linked_info = report["linked_token"]
+    linked_complete = (not linked_info["attempted"] or
+                       bool(linked_info.get("observations")) and
+                       all(record["ok"] is True for record in linked_info.get("observations", {}).values()))
+    report["observations_complete"] = (
+        "error" not in report and "error" not in linked_info
+        and report["compartment"]["ok"] is True
+        and current_complete and linked_complete and report["cleanup"]["token_handles_closed"])
+    report["status"] = "observed" if report["observations_complete"] else "diagnostic_incomplete"
+    return report
 
 
 def checked_path(path, *, inside=None, is_file=True):
@@ -254,24 +358,41 @@ class NativeAPI:
         C.set_last_error(0)
         ok = self.a.GetTokenInformation(token, kind, None, 0, C.byref(size))
         code = C.get_last_error()
-        if ok or code != 122:
+        if ok:
+            raise GateFailure("unexpected_token_size_probe_success")
+        if code != 122:
             raise NativeFailure("GetTokenInformation(" + name + ")", code)
         if not 1 <= size.value <= 65536:
             raise GateFailure("invalid_token_information_size")
         buffer = C.create_string_buffer(size.value)
         self.check(self.a.GetTokenInformation(token, kind, buffer, len(buffer), C.byref(size)),
                    "GetTokenInformation(" + name + ")")
-        if size.value > len(buffer):
+        if not 1 <= size.value <= len(buffer):
             raise GateFailure("token_information_length_changed")
         return buffer, size.value
 
     def scalar(self, token, kind, name):
-        buffer, size = self.query(token, kind, name)
-        if size != C.sizeof(D):
+        # Fixed-width token classes are queried directly. Some Windows builds
+        # reject their otherwise-conventional zero-length size probe with
+        # ERROR_BAD_LENGTH; that error is not permission to accept bad data.
+        value, size = D(), D()
+        self.check(self.a.GetTokenInformation(token, kind, C.byref(value),
+                                              C.sizeof(value), C.byref(size)),
+                   "GetTokenInformation(" + name + ")")
+        if size.value != C.sizeof(value):
             raise GateFailure("invalid_token_scalar_size")
-        return D.from_buffer(buffer).value
+        return value.value
 
-    def sid_text(self, pointer):
+    def sid_text(self, pointer, buffer, size):
+        # TOKEN_USER / TOKEN_MANDATORY_LABEL / TOKEN_GROUPS contain native
+        # pointers into their returned buffer, not offsets or separate allocs.
+        beginning = C.addressof(buffer)
+        if not pointer or pointer < beginning or pointer + 8 > beginning + size:
+            raise GateFailure("sid_pointer_outside_token_buffer")
+        revision = C.c_ubyte.from_address(pointer).value
+        count = C.c_ubyte.from_address(pointer + 1).value
+        if revision != 1 or count > 15 or pointer + 8 + count * 4 > beginning + size:
+            raise GateFailure("invalid_sid_length_in_token_buffer")
         text = P()
         self.check(self.a.ConvertSidToStringSidW(pointer, C.byref(text)), "ConvertSidToStringSidW")
         try:
@@ -279,18 +400,20 @@ class NativeAPI:
                 raise GateFailure("invalid_native_sid")
             return text.value
         finally:
-            self.k.LocalFree(C.cast(text, H))
+            if self.k.LocalFree(C.cast(text, H)):
+                raise NativeFailure("LocalFree(SID_string)", C.get_last_error())
 
     def sid_field(self, token, kind, name, *, nullable=False):
         buffer, size = self.query(token, kind, name)
-        if size < C.sizeof(H):
+        header = C.sizeof(H) if kind == 31 else C.sizeof(SIDAndAttributes)
+        if size < header:
             raise GateFailure("invalid_sid_information_size")
         pointer = H.from_buffer(buffer).value
         if not pointer:
             if nullable:
                 return None
             raise GateFailure("missing_native_sid")
-        return self.sid_text(pointer)
+        return self.sid_text(pointer, buffer, size)
 
     def groups(self, token, kind, name):
         buffer, size = self.query(token, kind, name)
@@ -303,34 +426,42 @@ class NativeAPI:
         entries = []
         for index in range(count):
             group = SIDAndAttributes.from_buffer(buffer, start + index * C.sizeof(SIDAndAttributes))
-            entries.append((self.sid_text(group.Sid), group.Attributes))
+            entries.append((self.sid_text(group.Sid, buffer, size), group.Attributes))
         return entries
 
-    def identity(self, token):
-        groups = self.groups(token, 2, "TokenGroups")
-        administrators = [attributes for sid, attributes in groups if sid == ADMIN_SID]
-        if len(administrators) > 1:
-            raise GateFailure("duplicate_administrators_group")
+    def boolean(self, token, kind, name):
+        value = self.scalar(token, kind, name)
+        if value not in (0, 1):
+            raise GateFailure("invalid_token_boolean")
+        return bool(value)
+
+    def integrity(self, token):
         integrity = self.sid_field(token, 25, "TokenIntegrityLevel")
         if not re.fullmatch(r"S-1-16-[0-9]+", integrity):
             raise GateFailure("unexpected_integrity_sid")
-        result = {
-            "sid": self.sid_field(token, 1, "TokenUser"),
-            "session_id": self.scalar(token, 12, "TokenSessionId"),
-            "token_type": self.scalar(token, 8, "TokenType"),
-            "elevation_type": self.scalar(token, 18, "TokenElevationType"),
-            "integrity_rid": int(integrity.rsplit("-", 1)[1]),
-            "admin_attributes": administrators[0] if administrators else None,
-            "appcontainer_sid": self.sid_field(token, 31, "TokenAppContainerSid", nullable=True),
-            "capability_count": len(self.groups(token, 30, "TokenCapabilities")),
+        return int(integrity.rsplit("-", 1)[1])
+
+    def observation_readers(self, token):
+        """The same exact native readers serve runtime and diagnostic mode."""
+        return {
+            "sid": lambda: self.sid_field(token, 1, "TokenUser"),
+            "session_id": lambda: self.scalar(token, 12, "TokenSessionId"),
+            "token_type": lambda: self.scalar(token, 8, "TokenType"),
+            "elevation_type": lambda: self.scalar(token, 18, "TokenElevationType"),
+            "elevated": lambda: self.boolean(token, 20, "TokenElevation"),
+            "integrity_rid": lambda: self.integrity(token),
+            "groups": lambda: self.groups(token, 2, "TokenGroups"),
+            "appcontainer": lambda: self.boolean(token, 29, "TokenIsAppContainer"),
+            "appcontainer_sid": lambda: self.sid_field(token, 31, "TokenAppContainerSid", nullable=True),
+            "capabilities": lambda: self.groups(token, 30, "TokenCapabilities"),
+            "ui_access": lambda: self.boolean(token, 26, "TokenUIAccess"),
         }
-        for key, kind, name in (("elevated", 20, "TokenElevation"),
-                                ("appcontainer", 29, "TokenIsAppContainer"), ("ui_access", 26, "TokenUIAccess")):
-            value = self.scalar(token, kind, name)
-            if value not in (0, 1):
-                raise GateFailure("invalid_token_boolean")
-            result[key] = bool(value)
-        return result
+
+    def identity(self, token):
+        # Runtime remains all-or-nothing. Only the read-only diagnostic
+        # collector below continues after recording an individual failure.
+        values = {name: reader() for name, reader in self.observation_readers(token).items()}
+        return identity_from_observations(values)
 
     def linked_token(self, token):
         # This API returns an existing owned token handle. Never duplicate,
@@ -554,6 +685,24 @@ def save_report(path, report):
         stream.write(data)
 
 
+def run_preflight(args):
+    if os.name != "nt" or not args.disposable_ci or not args.approved_security_test:
+        raise PermissionError("requires an explicitly approved disposable Windows security test")
+    root = checked_path(ROOT, is_file=False)
+    checked_path(root / "ruleproxy/windows_app_process.py", inside=root)
+    raw = Path(os.path.abspath(args.report))
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}\.json", raw.name):
+        raise GateFailure("expected_bounded_preflight_report_name")
+    parent = checked_path(raw.parent, inside=root, is_file=False)
+    path = parent / raw.name
+    if path.exists() or path.is_symlink():
+        raise GateFailure("fresh_preflight_report_required")
+    # NativeAPI construction binds functions but calls no mutation API.
+    report = token_preflight(NativeAPI())
+    save_report(path, report)
+    return 0 if report["observations_complete"] else 1
+
+
 def run(args):
     if os.name != "nt" or not args.disposable_ci or not args.approved_security_test:
         raise PermissionError("requires an explicitly approved disposable Windows security test")
@@ -630,10 +779,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--disposable-ci", action="store_true")
     parser.add_argument("--approved-security-test", action="store_true")
-    for name in ("actor", "work", "report"):
-        parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--actor-sha256", required=True)
-    return run(parser.parse_args(argv))
+    parser.add_argument("--token-preflight", action="store_true")
+    parser.add_argument("--report", type=Path, required=True)
+    for name in ("actor", "work"):
+        parser.add_argument("--" + name, type=Path)
+    parser.add_argument("--actor-sha256")
+    args = parser.parse_args(argv)
+    if args.token_preflight:
+        if args.actor is not None or args.work is not None or args.actor_sha256 is not None:
+            parser.error("--token-preflight accepts no actor, actor-sha256, or work")
+        return run_preflight(args)
+    if args.actor is None or args.work is None or args.actor_sha256 is None:
+        parser.error("runtime requires --actor, --actor-sha256, and --work")
+    return run(args)
 
 
 if __name__ == "__main__":

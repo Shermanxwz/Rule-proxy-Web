@@ -2,6 +2,7 @@
 import copy
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -92,6 +93,260 @@ class TokenGateTests(unittest.TestCase):
         self.assertNotIn("secret_environment", safe)
         self.assertTrue(safe["same_user"])
         self.assertTrue(safe["same_session"])
+
+
+class NativeScalarTests(unittest.TestCase):
+    def api(self, query):
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        api.a = SimpleNamespace(GetTokenInformation=query)
+        return api
+
+    def test_fixed_scalar_does_not_use_rejected_zero_length_probe(self):
+        calls = []
+
+        def query(token, kind, buffer, length, returned):
+            calls.append((token, kind, length))
+            if length == 0:
+                return 0  # This mocked host reports ERROR_BAD_LENGTH (24).
+            self.assertEqual(length, launcher.C.sizeof(launcher.D))
+            launcher.C.cast(buffer, launcher.C.POINTER(launcher.D))[0] = 1
+            launcher.C.cast(returned, launcher.C.POINTER(launcher.D))[0] = length
+            return 1
+
+        api = self.api(query)
+        with patch.object(launcher.C, "get_last_error", return_value=24, create=True), \
+                patch.object(launcher.C, "set_last_error", create=True):
+            self.assertEqual(api.scalar(123, 20, "TokenElevation"), 1)
+        self.assertEqual(calls, [(123, 20, 4)])
+
+    def test_fixed_scalar_rejects_wrong_returned_length(self):
+        for returned_length in (0, 3, 8):
+            def query(token, kind, buffer, length, returned):
+                launcher.C.cast(buffer, launcher.C.POINTER(launcher.D))[0] = 0
+                launcher.C.cast(returned, launcher.C.POINTER(launcher.D))[0] = returned_length
+                return 1
+
+            with self.subTest(returned_length=returned_length):
+                with self.assertRaisesRegex(launcher.GateFailure, "invalid_token_scalar_size"):
+                    self.api(query).scalar(123, 20, "TokenElevation")
+
+    def test_fixed_scalar_still_reports_native_error_24(self):
+        with patch.object(launcher.C, "get_last_error", return_value=24, create=True):
+            with self.assertRaises(launcher.NativeFailure) as caught:
+                self.api(lambda *args: 0).scalar(123, 20, "TokenElevation")
+        self.assertEqual(launcher.failure(caught.exception),
+                         {"operation": "GetTokenInformation(TokenElevation)", "winerror": 24})
+
+
+class NativeABITests(unittest.TestCase):
+    def test_variable_query_requires_insufficient_buffer_then_checks_returned_size(self):
+        calls = []
+
+        def query(token, kind, buffer, length, returned):
+            calls.append(length)
+            launcher.C.cast(returned, launcher.C.POINTER(launcher.D))[0] = 8
+            return 0 if length == 0 else 1
+
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        api.a = SimpleNamespace(GetTokenInformation=query)
+        with patch.object(launcher.C, "get_last_error", return_value=122, create=True), \
+                patch.object(launcher.C, "set_last_error", create=True):
+            buffer, size = api.query(123, 1, "TokenUser")
+        self.assertEqual((len(buffer), size), (8, 8))
+        self.assertEqual(calls, [0, 8])
+
+    def test_variable_query_does_not_accept_bad_length_error_as_size_probe(self):
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        api.a = SimpleNamespace(GetTokenInformation=lambda *args: 0)
+        with patch.object(launcher.C, "get_last_error", return_value=24, create=True), \
+                patch.object(launcher.C, "set_last_error", create=True):
+            with self.assertRaises(launcher.NativeFailure) as caught:
+                api.query(123, 1, "TokenUser")
+        self.assertEqual(launcher.failure(caught.exception),
+                         {"operation": "GetTokenInformation(TokenUser)", "winerror": 24})
+
+    def test_variable_query_rejects_zero_or_oversized_success_length(self):
+        for final_length in (0, 9):
+            def query(token, kind, buffer, length, returned):
+                launcher.C.cast(returned, launcher.C.POINTER(launcher.D))[0] = 8 if length == 0 else final_length
+                return 0 if length == 0 else 1
+
+            api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+            api.a = SimpleNamespace(GetTokenInformation=query)
+            with self.subTest(final_length=final_length):
+                with patch.object(launcher.C, "get_last_error", return_value=122, create=True), \
+                        patch.object(launcher.C, "set_last_error", create=True):
+                    with self.assertRaisesRegex(launcher.GateFailure, "token_information_length_changed"):
+                        api.query(123, 1, "TokenUser")
+
+    def test_linked_token_uses_pointer_sized_handle(self):
+        calls = []
+
+        def query(token, kind, buffer, length, returned):
+            calls.append((kind, length))
+            launcher.C.cast(buffer, launcher.C.POINTER(launcher.H))[0] = 456
+            launcher.C.cast(returned, launcher.C.POINTER(launcher.D))[0] = length
+            return 1
+
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        api.a = SimpleNamespace(GetTokenInformation=query)
+        self.assertEqual(api.linked_token(123), 456)
+        self.assertEqual(calls, [(19, launcher.C.sizeof(launcher.H))])
+
+    def test_linked_wrong_size_closes_returned_handle(self):
+        closed = []
+
+        def query(token, kind, buffer, length, returned):
+            launcher.C.cast(buffer, launcher.C.POINTER(launcher.H))[0] = 456
+            launcher.C.cast(returned, launcher.C.POINTER(launcher.D))[0] = length - 1
+            return 1
+
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        api.a = SimpleNamespace(GetTokenInformation=query)
+        api.close = closed.append
+        with self.assertRaisesRegex(launcher.GateFailure, "invalid_linked_token_size"):
+            api.linked_token(123)
+        self.assertEqual(closed, [456])
+
+    def test_sid_pointer_and_declared_length_stay_inside_native_buffer(self):
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        buffer = launcher.C.create_string_buffer(32)
+        beginning = launcher.C.addressof(buffer)
+        for pointer in (beginning - 1, beginning + 25, None):
+            with self.subTest(pointer=pointer):
+                with self.assertRaisesRegex(launcher.GateFailure, "sid_pointer_outside"):
+                    api.sid_text(pointer, buffer, len(buffer))
+        launcher.C.c_ubyte.from_buffer(buffer, 16).value = 1
+        launcher.C.c_ubyte.from_buffer(buffer, 17).value = 15
+        with self.assertRaisesRegex(launcher.GateFailure, "invalid_sid_length"):
+            api.sid_text(beginning + 16, buffer, len(buffer))
+
+    def test_token_user_requires_full_sid_and_attributes_header(self):
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        buffer = launcher.C.create_string_buffer(launcher.C.sizeof(launcher.H))
+        api.query = lambda *args: (buffer, len(buffer))
+        with self.assertRaisesRegex(launcher.GateFailure, "invalid_sid_information_size"):
+            api.sid_field(123, 1, "TokenUser")
+        # TOKEN_APPCONTAINER_INFORMATION is instead one nullable native pointer.
+        self.assertIsNone(api.sid_field(123, 31, "TokenAppContainerSid", nullable=True))
+
+    def test_group_count_requires_native_aligned_array_to_fit(self):
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        buffer = launcher.C.create_string_buffer(launcher.TokenGroups.Groups.offset)
+        launcher.D.from_buffer(buffer).value = 1
+        api.query = lambda *args: (buffer, len(buffer))
+        with self.assertRaisesRegex(launcher.GateFailure, "invalid_token_groups_count"):
+            api.groups(123, 2, "TokenGroups")
+
+
+class ReadOnlyTokenAPI:
+    """Any attempted mutation, process launch, or filesystem API fails a test."""
+    def __init__(self, identity=None, fail=None):
+        self.events = []
+        self.current = identity or elevated()
+        self.fail = fail
+
+    def compartment(self):
+        self.events.append(("compartment",))
+        return 1
+
+    def current_token(self):
+        self.events.append(("current_token",))
+        return 100
+
+    def linked_token(self, token):
+        self.events.append(("linked_token", token))
+        return 200
+
+    def close(self, token):
+        self.events.append(("close", token))
+
+    def observation_readers(self, token):
+        identity = self.current if token == 100 else limited()
+        values = {key: value for key, value in identity.items()
+                  if key not in ("admin_attributes", "capability_count")}
+        values["groups"] = ([(launcher.ADMIN_SID, identity["admin_attributes"])]
+                            if identity["admin_attributes"] is not None else [])
+        values["capabilities"] = []
+
+        def read(name):
+            self.events.append(("read", token, name))
+            if self.fail == (token, name):
+                raise launcher.NativeFailure("GetTokenInformation(" + name + ")", 24)
+            return values[name]
+        return {name: lambda name=name: read(name) for name in launcher.OBSERVATION_NAMES}
+
+    def __getattr__(self, name):
+        raise AssertionError("Preflight attempted a non-read-only API: " + name)
+
+
+class PreflightTests(unittest.TestCase):
+    def test_failure_does_not_hide_later_independent_fields(self):
+        api = ReadOnlyTokenAPI(fail=(100, "sid"))
+        report = launcher.token_preflight(api)
+        self.assertFalse(report["current"]["sid"]["ok"])
+        self.assertTrue(report["current"]["ui_access"]["ok"])
+        self.assertTrue(report["linked_token"]["attempted"])
+        self.assertFalse(report["observations_complete"])
+        self.assertEqual(len([e for e in api.events if e[0] == "read"]), 22)
+        self.assertEqual(api.events[-2:], [("close", 200), ("close", 100)])
+
+    def test_preflight_only_queries_and_closes_tokens_without_sid_output(self):
+        api = ReadOnlyTokenAPI()
+        report = launcher.token_preflight(api)
+        self.assertTrue(report["observations_complete"])
+        self.assertFalse(report["process_created"])
+        self.assertFalse(report["profile_created"])
+        self.assertNotIn("S-1-", json.dumps(report))
+        self.assertEqual(set(e[0] for e in api.events),
+                         {"compartment", "current_token", "linked_token", "read", "close"})
+        self.assertTrue(report["linked_token"]["same_user"]["value"])
+        self.assertTrue(report["linked_token"]["same_session"]["value"])
+
+    def test_unknown_or_unelevated_identity_never_queries_linked_token(self):
+        cases = (
+            ReadOnlyTokenAPI(identity=ordinary()),
+            ReadOnlyTokenAPI(fail=(100, "elevated")),
+            ReadOnlyTokenAPI(fail=(100, "elevation_type")),
+        )
+        for api in cases:
+            with self.subTest(identity=api.current, fail=api.fail):
+                report = launcher.token_preflight(api)
+                self.assertFalse(report["linked_token"]["attempted"])
+                self.assertNotIn(("linked_token", 100), api.events)
+                self.assertEqual(api.events[-1], ("close", 100))
+
+    def test_elevated_default_matches_runtime_and_reports_missing_linked_token(self):
+        api = ReadOnlyTokenAPI(identity=ordinary(elevated=True, elevation_type=1))
+
+        def missing_linked(token):
+            raise launcher.NativeFailure("GetTokenInformation(TokenLinkedToken)", 1312)
+        api.linked_token = missing_linked
+        report = launcher.token_preflight(api)
+        self.assertTrue(report["linked_token"]["attempted"])
+        self.assertEqual(report["linked_token"]["error"],
+                         {"operation": "GetTokenInformation(TokenLinkedToken)", "winerror": 1312})
+        self.assertFalse(report["observations_complete"])
+        self.assertEqual(api.events[-1], ("close", 100))
+
+    def test_preflight_cli_needs_no_actor_or_work(self):
+        with patch.object(launcher, "run_preflight", return_value=0) as preflight, \
+                patch.object(launcher, "run", side_effect=AssertionError("runtime must not run")):
+            self.assertEqual(launcher.main(["--token-preflight", "--report", "preflight.json",
+                                            "--disposable-ci", "--approved-security-test"]), 0)
+        args = preflight.call_args.args[0]
+        self.assertIsNone(args.actor)
+        self.assertIsNone(args.work)
+        self.assertIsNone(args.actor_sha256)
+
+    def test_runtime_identity_uses_same_exact_observation_readers(self):
+        api = launcher.NativeAPI.__new__(launcher.NativeAPI)
+        source = ReadOnlyTokenAPI(identity=limited())
+        api.observation_readers = source.observation_readers
+        self.assertEqual(api.identity(100), limited())
+        source.fail = (100, "elevated")
+        with self.assertRaises(launcher.NativeFailure):
+            api.identity(100)
 
 
 class FakeAPI:

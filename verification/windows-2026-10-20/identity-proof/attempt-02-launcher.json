@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "stage": "ordinary-user-stage0b-launcher",
+  "network_tested": false,
+  "product_acceptance": false,
+  "privacy_qualified": false,
+  "actor_sha256": "c8f458857335379a6d28c53053674735b97742c8f19447c02a02599ba638ee4e",
+  "probe_report": "probe/report.json",
+  "stage0b_passed": false,
+  "launcher_passed": false,
+  "nested_resource_cleanup_incomplete": false,
+  "cleanup": {
+    "token_handles_closed": true,
+    "errors": []
+  },
+  "error": {
+    "operation": "GetTokenInformation(TokenElevation)",
+    "winerror": 24
+  },
+  "status": "blocked_or_failed"
+}

@@ -133,3 +133,39 @@ AppContainer or ACL test ran. The attempt is retained in
 The correction reconstructs only the fresh destination from its already
 validated canonical parent; all per-component reparse and ownership checks
 remain. An additional regression brings the pure suite to 52 tests.
+
+## Second attempt: fixed-size token query rejected
+
+Run 39367105347 passed all 52 unit tests and rebuilt the actor. The native
+launcher stopped before creating a child/profile because
+GetTokenInformation(TokenElevation) rejected the zero-length sizing probe with
+ERROR_BAD_LENGTH (24). All opened token handles were closed. The exact bounded
+report and source/artifact provenance are retained as attempt-02 files. This is
+a launcher API-handling defect, not evidence against AppContainer pipe transport.
+
+## Combined token ABI correction and read-only preflight
+
+The next attempt replaces zero-length sizing probes for fixed DWORD token
+classes with direct four-byte buffers and exact returned-size checks. Linked
+TOKEN_LINKED_TOKEN remains pointer-sized with explicit handle ownership;
+variable user/integrity/AppContainer SID and group data retain bounded sizing
+and native pointer containment checks. Native errors are captured immediately
+and never interpreted as a default identity. The native actor already used
+separate fixed and variable readers; its source/hash is unchanged.
+
+A read-only diagnostic step precedes native launch and queries all independent
+current-token fields even if one fails. For observed elevated Default/Full
+identity it also inspects the existing linked token, matching the launcher
+selection. Reports redact raw SIDs, retain closed per-query error codes, close
+all acquired tokens, and make no process/profile/ACL/network changes. Any
+incomplete preflight blocks launch. The Stage 0b controller now shares the
+strict current-token readers instead of the historical smoke snapshot helper;
+its separate suspended-child AppContainer SID reader also checks probe error,
+returned size, pointer containment and SID length before conversion.
+
+This is preparatory code and pure-test evidence, not a new native pass. The
+previous failed report remains unchanged. No privilege/account/UAC fallback or
+ordinary-token acceptance relaxation is introduced.
+
+Combined correction validation: 71 pure tests pass locally. Native runtime
+results for this correction remain pending until a separate Actions report.

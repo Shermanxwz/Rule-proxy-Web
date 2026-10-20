@@ -91,10 +91,37 @@ def verify_no_owned_ace(work, sid):
     return True
 
 
+def checked_sid_pointer(buffer, returned):
+    """Validate a TOKEN_APPCONTAINER_INFORMATION pointer before dereference."""
+    if not C.sizeof(C.c_void_p) <= returned <= len(buffer):
+        raise RuntimeError('invalid token SID returned length')
+    pointer=C.c_void_p.from_buffer(buffer).value
+    beginning=C.addressof(buffer)
+    if not pointer or pointer < beginning or pointer+8 > beginning+returned:
+        raise RuntimeError('token SID pointer outside returned buffer')
+    revision=C.c_ubyte.from_address(pointer).value
+    count=C.c_ubyte.from_address(pointer+1).value
+    if revision!=1 or count>15 or pointer+8+count*4 > beginning+returned:
+        raise RuntimeError('invalid token SID bytes')
+    return pointer
+
+
 def run(args):
     if os.name != 'nt' or not args.disposable_ci or not args.approved_security_test:
         raise PermissionError('requires an approved disposable Windows security test')
-    identity = proof.smoke.identity_snapshot()
+    # Reuse the audited token readers, not the historical smoke helper's
+    # looser SID/scalar decoding. This observes only the current controller.
+    token_spec=importlib.util.spec_from_file_location('identity_pipe_token_reader',
+        Path(__file__).with_name('windows_identity_ordinary_launcher.py'))
+    token_reader=importlib.util.module_from_spec(token_spec);token_spec.loader.exec_module(token_reader)
+    token_api=token_reader.NativeAPI(); current=token_api.current_token()
+    try:
+        observed=token_api.identity(current)
+        identity={'sid':observed['sid'],'pid':os.getpid(),'cid':token_api.compartment(),
+                  'elevated':observed['elevated'],'appcontainer':observed['appcontainer']}
+        if not token_reader.token_is_ordinary(observed):
+            raise PermissionError('controller token is not an observed ordinary user')
+    finally:token_api.close(current)
     if identity['elevated'] or identity['appcontainer'] or identity['cid'] != 1:
         raise PermissionError('requires ordinary user outside AppContainer in default compartment')
     # Reuse existing typed structures and Job owner, never its network exemption APIs.
@@ -134,13 +161,15 @@ def run(args):
     def process_sid(handle):
         token=H(); api._check(a.OpenProcessToken(handle,8,C.byref(token)))
         try:
-            size=D(); a.GetTokenInformation(token,31,None,0,C.byref(size))
+            size=D(); C.set_last_error(0)
+            success=a.GetTokenInformation(token,31,None,0,C.byref(size))
+            error=C.get_last_error()
+            if success: raise RuntimeError('unexpected token SID size probe success')
+            if error!=122: raise C.WinError(error)
             if not C.sizeof(H) <= size.value <= 65536: raise RuntimeError('invalid token SID length')
             buf=C.create_string_buffer(size.value)
-            api._check(a.GetTokenInformation(token,31,buf,size,C.byref(size)))
-            ptr=C.cast(buf,C.POINTER(H))[0]
-            if not ptr: raise RuntimeError('child has no AppContainer SID')
-            return sid_text(ptr)
+            api._check(a.GetTokenInformation(token,31,buf,len(buf),C.byref(size)))
+            return sid_text(checked_sid_pointer(buf,size.value))
         finally: api.close_handle(token.value)
     actor=args.actor.resolve(strict=True)
     if actor.suffix.lower()!='.exe' or not 512 <= actor.stat().st_size <= 8*1024*1024:

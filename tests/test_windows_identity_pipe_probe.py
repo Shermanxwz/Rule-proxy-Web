@@ -48,6 +48,24 @@ class PipeEvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);(root/'inputs').mkdir();(root/'inputs'/'actor').write_text('fixture')
             self.assertEqual(len(pipe.owned_paths(root)),3)
+    def test_sid_pointer_accepts_only_bounded_valid_sid(self):
+        C=pipe.C; header=C.sizeof(C.c_void_p)
+        buf=C.create_string_buffer(header+12)
+        C.c_void_p.from_buffer(buf).value=C.addressof(buf)+header
+        C.c_ubyte.from_buffer(buf,header).value=1
+        C.c_ubyte.from_buffer(buf,header+1).value=1
+        self.assertEqual(pipe.checked_sid_pointer(buf,len(buf)),C.addressof(buf)+header)
+        for returned in (0,header,len(buf)-1,len(buf)+1):
+            with self.subTest(returned=returned),self.assertRaises(RuntimeError):
+                pipe.checked_sid_pointer(buf,returned)
+        C.c_ubyte.from_buffer(buf,header+1).value=16
+        with self.assertRaises(RuntimeError):pipe.checked_sid_pointer(buf,len(buf))
+    def test_sid_pointer_rejects_null_or_external_pointer(self):
+        C=pipe.C;buf=C.create_string_buffer(32)
+        for pointer in (None,C.addressof(buf)-1,C.addressof(buf)+28):
+            C.c_void_p.from_buffer(buf).value=pointer
+            with self.subTest(pointer=pointer),self.assertRaises(RuntimeError):
+                pipe.checked_sid_pointer(buf,len(buf))
     def test_runtime_requires_permission(self):
         class Args: disposable_ci=False;approved_security_test=False
         with self.assertRaises(PermissionError):pipe.run(Args())
