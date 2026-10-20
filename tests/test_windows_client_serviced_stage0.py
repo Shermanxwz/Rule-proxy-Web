@@ -53,6 +53,7 @@ class ServicedClockContractTests(unittest.TestCase):
             self.assertEqual((github/source.name).read_bytes(),original)
         self.assertEqual(source.read_bytes(),original)
 
+    @unittest.skipUnless(host.sys.platform == 'linux', 'Linux host zoneinfo database required')
     def test_clock_window_rejects_transition_and_ambiguous_start(self):
         import datetime
         epoch=lambda text:datetime.datetime.fromisoformat(text).replace(tzinfo=datetime.timezone.utc).timestamp()
