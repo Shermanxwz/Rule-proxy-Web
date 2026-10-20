@@ -1,0 +1,92 @@
+{
+ "schema_version": 1,
+ "source_branch": "claude/windows-diag-results",
+ "source_commit": "c8b7a0a7946b03aba3d1e8d4b9946d6bf8072a58",
+ "scope": "Original reports published by the disposable Windows diagnostic labs, including the two rounds whose first run failed or was invalid; diagnostics only, not product qualification.",
+ "files": [
+  {
+   "original_path": "runs/crash-39350432449-1/crash-debug-report.json",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/crash-39350432449-1/crash-debug-report.json",
+   "bytes": 3614,
+   "git_blob": "45d22cde18d999134ad3212c45f58b1ff289fc06",
+   "sha256": "38a64a491aaa7cd215db902ee9c67971b0c15990a274f78aab14a0843ef66c2b"
+  },
+  {
+   "original_path": "runs/crash-39350432449-1/source-commit.txt",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/crash-39350432449-1/source-commit.txt",
+   "bytes": 41,
+   "git_blob": "0ea8761362b18292d0d1429e620279329e7f1de2",
+   "sha256": "fff141fca013832f6d6e1e37e461e17b79dbe9b18cf6a5d668d01bbc343217c7"
+  },
+  {
+   "original_path": "runs/crash-39352260323-1/crash-debug-report.json",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/crash-39352260323-1/crash-debug-report.json",
+   "bytes": 532585,
+   "git_blob": "30550b5541753669822d48cca62e22f009ab8c8e",
+   "sha256": "98b24914fb24b820a339ccc5da0d5a896ee7680361747ad3e3f3d62a95086716"
+  },
+  {
+   "original_path": "runs/crash-39352260323-1/source-commit.txt",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/crash-39352260323-1/source-commit.txt",
+   "bytes": 41,
+   "git_blob": "0857491276426903e6f43bc0e3c9fa34b7edc8c0",
+   "sha256": "4d5b1ea9e974672c6ae0046c8f873bc2b7edb058de550a5fdad0a544db540bae"
+  },
+  {
+   "original_path": "runs/dns-39350432490-1/dns-capture-report.json",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/dns-39350432490-1/dns-capture-report.json",
+   "bytes": 34724,
+   "git_blob": "76dc4ff7ae925c5ddc32587b230f03c0e7d2d764",
+   "sha256": "b0499a10106e468308e2d02e35fffcd594ed5771da3d9f7acc216e4bd26b4c89"
+  },
+  {
+   "original_path": "runs/dns-39350432490-1/source-commit.txt",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/dns-39350432490-1/source-commit.txt",
+   "bytes": 41,
+   "git_blob": "0ea8761362b18292d0d1429e620279329e7f1de2",
+   "sha256": "fff141fca013832f6d6e1e37e461e17b79dbe9b18cf6a5d668d01bbc343217c7"
+  },
+  {
+   "original_path": "runs/dns-39352260335-1/dns-capture-report.json",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/dns-39352260335-1/dns-capture-report.json",
+   "bytes": 40596,
+   "git_blob": "77bffee6ade9f7e1659ce0cf56fd97eeaf12728e",
+   "sha256": "5da3099e9cb7f96a39702c1a9b573a0724ab45f209a3afe739812179259ff974"
+  },
+  {
+   "original_path": "runs/dns-39352260335-1/source-commit.txt",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/dns-39352260335-1/source-commit.txt",
+   "bytes": 41,
+   "git_blob": "0857491276426903e6f43bc0e3c9fa34b7edc8c0",
+   "sha256": "4d5b1ea9e974672c6ae0046c8f873bc2b7edb058de550a5fdad0a544db540bae"
+  },
+  {
+   "original_path": "runs/recover-39350432324-1/recover-report.json",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/recover-39350432324-1/recover-report.json",
+   "bytes": 35852,
+   "git_blob": "427570236f09a26b07df45888a03f3a76cfd95a0",
+   "sha256": "6baab4ee0a5bce91b8ff6a7c445520e8e7a5cf5b229aaee0483021b8d59a6c00"
+  },
+  {
+   "original_path": "runs/recover-39350432324-1/source-commit.txt",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/recover-39350432324-1/source-commit.txt",
+   "bytes": 41,
+   "git_blob": "0ea8761362b18292d0d1429e620279329e7f1de2",
+   "sha256": "fff141fca013832f6d6e1e37e461e17b79dbe9b18cf6a5d668d01bbc343217c7"
+  },
+  {
+   "original_path": "runs/recover-39352260388-1/recover-report.json",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/recover-39352260388-1/recover-report.json",
+   "bytes": 51169,
+   "git_blob": "3b879a07aaaed7b1651406235ccbdc5f4030c2aa",
+   "sha256": "bd350fa3d703a61039d2d80cf6e554f0aeb1e49348e62c072efcbd7be5c0d4c9"
+  },
+  {
+   "original_path": "runs/recover-39352260388-1/source-commit.txt",
+   "path": "verification/windows-2026-10-20/diagnostics/runs/recover-39352260388-1/source-commit.txt",
+   "bytes": 41,
+   "git_blob": "0857491276426903e6f43bc0e3c9fa34b7edc8c0",
+   "sha256": "4d5b1ea9e974672c6ae0046c8f873bc2b7edb058de550a5fdad0a544db540bae"
+  }
+ ]
+}

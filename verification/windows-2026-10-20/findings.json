@@ -1,0 +1,164 @@
+{
+ "schema_version": 1,
+ "created_at_utc": "2026-10-20T02:36:05.892665+00:00",
+ "scope": "Disposable GitHub Actions windows-2025 runner: Windows Server 2025 build 26100, Windows PowerShell 5.1.26100.33438, Python 3.14.8, elevated administrator. Diagnostic labs only; not product qualification, not an interactive Windows 11 session, not a Windows client SKU.",
+ "question": "How close can Windows per-application isolation get to the Linux loopback-only network namespace, and does a zero-capability AppContainer with a package-SID WFP filter help?",
+ "lab_sources": {
+  "first_round_commit": "5d4cafed0ba9c14e0ea8b2c2cb605d3b4840b443",
+  "fixed_round_commit": "1b1384bb0917c56ddce968d26a07bb6434d085b3",
+  "scripts": [
+   ".github/windows_diag_dns.py",
+   ".github/windows_diag_crash.py",
+   ".github/windows_diag_recover.py"
+  ],
+  "workflows": [
+   ".github/workflows/windows-diag-dns.yml",
+   ".github/workflows/windows-diag-crash.yml",
+   ".github/workflows/windows-diag-recover.yml"
+  ]
+ },
+ "runs": {
+  "dns": [
+   {
+    "round": 1,
+    "run_id": 39350432490,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39350432490",
+    "source_commit": "5d4cafed0ba9c14e0ea8b2c2cb605d3b4840b443",
+    "workflow_conclusion": "success",
+    "report_conclusion": "invalid_experiment",
+    "archived_report": "diagnostics/runs/dns-39350432490-1/dns-capture-report.json",
+    "why": "Contained modes m2, m3 and m4 produced no probe result because CreateProcessW failed with error 203 under the minimal environment block; only the uncontained modes ran. The run says nothing about containment."
+   },
+   {
+    "round": 2,
+    "run_id": 39352260335,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39352260335",
+    "source_commit": "1b1384bb0917c56ddce968d26a07bb6434d085b3",
+    "workflow_conclusion": "success",
+    "report_conclusion": "hypothesis_partially_supported",
+    "archived_report": "diagnostics/runs/dns-39352260335-1/dns-capture-report.json"
+   }
+  ],
+  "crash": [
+   {
+    "round": 1,
+    "run_id": 39350432449,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39350432449",
+    "source_commit": "5d4cafed0ba9c14e0ea8b2c2cb605d3b4840b443",
+    "workflow_conclusion": "failure",
+    "archived_report": "diagnostics/runs/crash-39350432449-1/crash-debug-report.json",
+    "why": "icacls /T /Q exited 5 on the package grant, so the lab aborted before any browser ran."
+   },
+   {
+    "round": 2,
+    "run_id": 39352260323,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39352260323",
+    "source_commit": "1b1384bb0917c56ddce968d26a07bb6434d085b3",
+    "workflow_conclusion": "success",
+    "archived_report": "diagnostics/runs/crash-39352260323-1/crash-debug-report.json"
+   }
+  ],
+  "recover": [
+   {
+    "round": 1,
+    "run_id": 39350432324,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39350432324",
+    "source_commit": "5d4cafed0ba9c14e0ea8b2c2cb605d3b4840b443",
+    "workflow_conclusion": "failure",
+    "archived_report": "diagnostics/runs/recover-39350432324-1/recover-report.json",
+    "why": "The foreign negative control, built through the product Guard with a marker override, tripped the product identity check (sublayer identity conflict) and could not be removed (FwpmProviderDeleteByKey0 0x8032000a, in use); cleanup_ok was false on the disposable runner."
+   },
+   {
+    "round": 2,
+    "run_id": 39352260388,
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39352260388",
+    "source_commit": "1b1384bb0917c56ddce968d26a07bb6434d085b3",
+    "workflow_conclusion": "success",
+    "archived_report": "diagnostics/runs/recover-39352260388-1/recover-report.json"
+   }
+  ]
+ },
+ "results": {
+  "dns": {
+   "run_id": 39352260335,
+   "capture_valid": true,
+   "method": "pktmon on all NICs with a UDP/53 filter, converted to pcapng (165 frames); unique nonce names per API and mode; modes: m1 outside before, m2 zero-capability AppContainer, m3 zero-capability AppContainer plus package-SID WFP filter, m4 AppContainer with internetClient (positive control), m5 outside after.",
+   "zero_capability_dns_frames_on_nic": {
+    "getaddrinfo": 0,
+    "gethostbyname": 0,
+    "DnsQuery_W A": 0,
+    "DnsQuery_W AAAA": 0,
+    "System.Net.Dns": 0,
+    "nslookup": 0
+   },
+   "positive_control_seen": true,
+   "m2_equals_m3": true,
+   "caveats": [
+    "Resolve-DnsName timed out in every mode including outside the container, so that probe is invalid and proves nothing.",
+    "DnsQuery_W returned status 87 in m2 and m3 but 9501 in m1, m4 and m5; the cause of the different failure path is not established.",
+    "Only DNS was captured. Direct TCP and UDP from the container, public IPv6 and other brokers were not measured.",
+    "Drop reason and component were not parsed; a zero NIC count does not prove which layer stopped the request.",
+    "Because m2 and m3 are identical, the package-SID WFP filter was neither shown to be needed nor to help for DNS."
+   ]
+  },
+  "crash": {
+   "run_id": 39352260323,
+   "method": "Browser started suspended inside a zero-capability AppContainer with a loopback exemption, cdb attached before resume, uncontained controls for each browser; ACL grant to the package succeeded (icacls exit 0).",
+   "controls": "Chrome, Edge and Firefox rendered the fixture outside the container (exit 0).",
+   "chrome": {
+    "outcome": "fatal exit 0x80000003 within about 0.01 s in the logging row",
+    "first_fault": "[FATAL:third_party\\crashpad\\crashpad\\client\\crashpad_client_win.cc:330] Check failed: . CreateNamedPipe: Access is denied. (0x5), then chrome_elf!base::ImmediateCrash",
+    "also_with": [
+     "--no-sandbox",
+     "--disable-crash-reporter",
+     "headed"
+    ]
+   },
+   "edge": {
+    "outcome": "access violation 0xc0000005 in the browser process, headless and headed, also with --no-sandbox",
+    "first_fault": "msedge!windows_task_manager::WindowsTaskManagerHandler::UpdateTasks+0x102, read of address 0x18 (null pointer), called from base::OneShotTimer::RunUserTask on the browser UI thread",
+    "note": "The headed contained row reached the lab loopback proxy once (fixture_requests 1) before it crashed."
+   },
+   "firefox": {
+    "outcome": "exit 0 without rendering",
+    "detail": "GeckoChildProcessHost.cpp:837 Failed to launch socket subprocess and tab subprocess @InitializeChannel (Error:0)"
+   },
+   "caveat": "The debugger-attached contained rows ran until the harness timeout; they were captured by cdb, whose loader snaps slow the process. The no-debugger logging rows show the same Chrome failure."
+  },
+  "recover": {
+   "run_id": 39352260388,
+   "steps_ok": "18 of 18",
+   "cleanup_ok": true,
+   "established": [
+    "scripts/windows-network-recover.ps1 under Windows PowerShell 5.1 -Json finds, reports and removes WFP objects created by the product Guard (20 PERMIT filters, sublayer, provider).",
+    "A foreign provider, sublayer and 20 filters with an unrelated marker stayed byte-identical in the raw snapshot after two -Apply runs.",
+    "A second -Apply changed nothing (idempotent).",
+    "A dead loopback manual proxy was reset (ProxyEnable 0, ProxyServer kept) and HKCU proxy values and WinINet flags were restored exactly.",
+    "An NRPT rule outside the root namespace is reported as residue (exit 3 on -Apply) and is not removed."
+   ],
+   "not_tested": [
+    "Positive removal of a root-namespace NRPT rule."
+   ]
+  }
+ },
+ "conclusions": [
+  "A zero-capability AppContainer put no DNS query on the network adapter for the six working resolver probes, while an internetClient container and uncontained processes did; this is real packet evidence for DNS only.",
+  "Running the whole stock Chrome, Edge or Firefox inside that container failed for all three at different application-internal points, so this route does not give browser compatibility.",
+  "Because each failure is specific to its application, nothing here shows that arbitrary local programs run inside such a container; compatibility has to be established per program.",
+  "The recovery script is verified against product-made objects on Windows PowerShell 5.1.",
+  "No result in this directory shows Linux-equivalent isolation on Windows."
+ ],
+ "not_established": [
+  "Direct TCP, UDP and public IPv6 egress from the zero-capability container were not packet-tested here.",
+  "The loopback exemption lets the container reach other 127.0.0.1 ports; this follows from how the exemption works and was not measured.",
+  "No non-browser application other than the lab probes was run in the container in these labs.",
+  "Interactive Windows 11 desktop behavior, real public exit IP, login flows and downloads were not tested.",
+  "Why Chrome gets Access denied on CreateNamedPipe inside the container is not explained; the Crashpad pipe security descriptor is documented to include ALL APPLICATION PACKAGES."
+ ],
+ "related_records": [
+  "verification/windows-2026-10-19/final-status.json",
+  "verification/windows-2026-10-19/appcontainer-browser-experiment.json",
+  "verification/windows-2026-10-19/dedicated-user-no-go.json"
+ ],
+ "evidence_policy": "Original failed and invalid reports stay as recorded. Each result applies only to its own source commit and runner image."
+}

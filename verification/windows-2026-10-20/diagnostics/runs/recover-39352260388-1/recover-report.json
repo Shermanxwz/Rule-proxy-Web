@@ -1,0 +1,1413 @@
+{
+  "schema": "windows-diag-recover/2",
+  "work": "C:\\RuleProxyDiagRecover",
+  "source_commit": "1b1384bb0917c56ddce968d26a07bb6434d085b3",
+  "hashes": {
+    "lab_sha256": "d0cac08451182b01d2c85eb4fc275f6bdb6d6c18d57504928143304a113365ad",
+    "script_sha256": "ce77e65f3b8882a8b9a9befc68015245620fb753f457d0497742370130debbd4",
+    "guard_sha256": "623d76f994284de827384d9437738d716666c68c180f518298806394444b597a",
+    "dns_sha256": "29204228849915039af130fc18cf9996c8c5e52ee805c621d861e6e414b2e2a1"
+  },
+  "versions": {
+    "windows": {
+      "major": 10,
+      "minor": 0,
+      "build": 26100,
+      "product_type": 3,
+      "platform_version": "10.0.26100"
+    },
+    "python": "3.14.8",
+    "powershell": {
+      "powershell": "5.1.26100.33438",
+      "edition": "Desktop",
+      "caption": "Microsoft Windows Server 2025 Datacenter",
+      "build": "26100",
+      "version": "10.0.26100",
+      "is64bit_process": true
+    }
+  },
+  "steps": [
+    {
+      "name": "S0-environment",
+      "ok": true,
+      "details": {
+        "probe_exit_code": 0,
+        "value": {
+          "powershell": "5.1.26100.33438",
+          "edition": "Desktop",
+          "caption": "Microsoft Windows Server 2025 Datacenter",
+          "build": "26100",
+          "version": "10.0.26100",
+          "is64bit_process": true
+        }
+      }
+    },
+    {
+      "name": "S0-dry-run-baseline",
+      "ok": true,
+      "details": {
+        "exit_code": 0,
+        "blockers": [],
+        "rule_proxy_residue": [],
+        "changed": [],
+        "notes": []
+      }
+    },
+    {
+      "name": "S1-create-owned-product-objects",
+      "ok": true,
+      "details": {
+        "rule_count": 20,
+        "enumeration": {
+          "filter_keys": [
+            "4/block",
+            "4/core-system",
+            "4/dhcp4",
+            "4/loopback",
+            "4/tun-outbound",
+            "4/tun-reauthorize",
+            "6/block",
+            "6/core-system",
+            "6/dhcp6-0",
+            "6/dhcp6-1",
+            "6/dhcp6-linklocal",
+            "6/loopback",
+            "6/ndp-133-linklocal",
+            "6/ndp-133-multicast",
+            "6/ndp-135-linklocal",
+            "6/ndp-135-multicast",
+            "6/ndp-136-linklocal",
+            "6/ndp-136-multicast",
+            "6/tun-outbound",
+            "6/tun-reauthorize"
+          ],
+          "filter_count": 20,
+          "provider_present": true,
+          "sublayer_present": true,
+          "provider_key": "314483ab-e342-5ff6-b0db-def4630a65e0",
+          "sublayer_key": "808164b9-a299-51fc-8c46-af8d9115c228"
+        },
+        "core_copy": "C:\\RuleProxyDiag\\fake-install\\bin\\windows-amd64\\mihomo.exe",
+        "marker_prefix": "RuleProxyGuard-v1:eb..."
+      }
+    },
+    {
+      "name": "S2-product-status",
+      "ok": true,
+      "details": {
+        "status_unpatched": {
+          "supported": false,
+          "active": false,
+          "persistent": false,
+          "code": "global_guard_changed",
+          "detail": "独立保护规则不完整或已改变，不能确认故障后阻断。",
+          "state": "unavailable",
+          "native_qualified": false
+        },
+        "status_with_expected_rules": {
+          "supported": true,
+          "active": true,
+          "persistent": true,
+          "detail": "独立 WFP 持久规则已回读确认；尚未通过 Windows 原生不泄漏验收。",
+          "rule_count": 20,
+          "state": "candidate_active",
+          "native_qualified": false
+        },
+        "method": "status() with g._plan replaced by the PERMIT rule list (lab process only)"
+      }
+    },
+    {
+      "name": "S6-foreign-negative-control-create",
+      "ok": true,
+      "details": {
+        "marker": "OtherVendor:diag",
+        "root": "C:\\RuleProxyDiag\\foreign-install",
+        "enumeration": {
+          "provider": {
+            "description": "OtherVendor:diag",
+            "flags": 1,
+            "service": "RuleProxyControl"
+          },
+          "sublayer": {
+            "description": "OtherVendor:diag",
+            "flags": 1,
+            "weight": 65534,
+            "provider": "aa661ace-eb45-552e-b325-267c7d99f8a8"
+          },
+          "filters": {
+            "4/loopback": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/core-system": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/block": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/tun-outbound": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/tun-reauthorize": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/loopback": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/core-system": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/block": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/tun-outbound": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/tun-reauthorize": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/dhcp4": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-0": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-1": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-133-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-133-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-135-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-135-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-136-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-136-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            }
+          },
+          "filter_count": 20,
+          "provider_present": true,
+          "sublayer_present": true,
+          "provider_key": "aa661ace-eb45-552e-b325-267c7d99f8a8",
+          "sublayer_key": "03365bfe-010f-5675-8bc1-ebe0f070921f"
+        }
+      }
+    },
+    {
+      "name": "S3-dry-run-expect-findings",
+      "ok": true,
+      "details": {
+        "exit_code": 1,
+        "expected_blocker": "Owned WFP filters: 20",
+        "blockers": [
+          "Owned WFP filters: 20"
+        ],
+        "changed": [],
+        "enumeration_after_dry_run": {
+          "filter_keys": [
+            "4/block",
+            "4/core-system",
+            "4/dhcp4",
+            "4/loopback",
+            "4/tun-outbound",
+            "4/tun-reauthorize",
+            "6/block",
+            "6/core-system",
+            "6/dhcp6-0",
+            "6/dhcp6-1",
+            "6/dhcp6-linklocal",
+            "6/loopback",
+            "6/ndp-133-linklocal",
+            "6/ndp-133-multicast",
+            "6/ndp-135-linklocal",
+            "6/ndp-135-multicast",
+            "6/ndp-136-linklocal",
+            "6/ndp-136-multicast",
+            "6/tun-outbound",
+            "6/tun-reauthorize"
+          ],
+          "filter_count": 20,
+          "provider_present": true,
+          "sublayer_present": true,
+          "provider_key": "314483ab-e342-5ff6-b0db-def4630a65e0",
+          "sublayer_key": "808164b9-a299-51fc-8c46-af8d9115c228"
+        }
+      }
+    },
+    {
+      "name": "S4-apply",
+      "ok": true,
+      "details": {
+        "exit_code": 0,
+        "changed": [
+          "WFP filters: 20",
+          "sublayer: 808164b9-a299-51fc-8c46-af8d9115c228",
+          "provider: 314483ab-e342-5ff6-b0db-def4630a65e0"
+        ],
+        "notes": [],
+        "blockers": [],
+        "error": null,
+        "log_directory": "C:\\ProgramData\\RuleProxy-Network-Recovery\\20261020-011426-6db6c9ab47794507801e9cb3798364ee",
+        "result_json": {
+          "present": true,
+          "path": "C:\\ProgramData\\RuleProxy-Network-Recovery\\20261020-011426-6db6c9ab47794507801e9cb3798364ee\\result.json",
+          "bytes": 546,
+          "parsed_ok": true,
+          "parsed": {
+            "schema": 2,
+            "mode": "apply",
+            "exit_code": 0,
+            "network_verified": false,
+            "changed": [
+              "WFP filters: 20",
+              "sublayer: 808164b9-a299-51fc-8c46-af8d9115c228",
+              "provider: 314483ab-e342-5ff6-b0db-def4630a65e0"
+            ],
+            "notes": [],
+            "blockers": [],
+            "log_directory": "C:\\ProgramData\\RuleProxy-Network-Recovery\\20261020-011426-6db6c9ab47794507801e9cb3798364ee",
+            "error": null
+          },
+          "parsed_exit_code": 0,
+          "text": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"apply\",\r\n    \"exit_code\":  0,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n                    \"WFP filters: 20\",\r\n                    \"sublayer: 808164b9-a299-51fc-8c46-af8d9115c228\",\r\n                    \"provider: 314483ab-e342-5ff6-b0db-def4630a65e0\"\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n\r\n                 ],\r\n    \"log_directory\":  \"C:\\\\ProgramData\\\\RuleProxy-Network-Recovery\\\\20261020-011426-6db6c9ab47794507801e9cb3798364ee\",\r\n    \"error\":  null\r\n}\r\n",
+          "truncated": false
+        }
+      }
+    },
+    {
+      "name": "S4-verify-product-objects-gone",
+      "ok": true,
+      "details": {
+        "enumeration": {
+          "filter_keys": [],
+          "filter_count": 0,
+          "provider_present": false,
+          "sublayer_present": false,
+          "provider_key": "314483ab-e342-5ff6-b0db-def4630a65e0",
+          "sublayer_key": "808164b9-a299-51fc-8c46-af8d9115c228"
+        },
+        "status_unpatched": {
+          "supported": true,
+          "active": false,
+          "persistent": false,
+          "detail": "独立保护未启用；Windows 原生不泄漏验收尚未完成。",
+          "rule_count": 0,
+          "state": "idle",
+          "native_qualified": false
+        }
+      }
+    },
+    {
+      "name": "S4-verify-foreign-intact",
+      "ok": true,
+      "details": {
+        "enumeration": {
+          "provider": {
+            "description": "OtherVendor:diag",
+            "flags": 1,
+            "service": "RuleProxyControl"
+          },
+          "sublayer": {
+            "description": "OtherVendor:diag",
+            "flags": 1,
+            "weight": 65534,
+            "provider": "aa661ace-eb45-552e-b325-267c7d99f8a8"
+          },
+          "filters": {
+            "4/loopback": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/core-system": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/block": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/tun-outbound": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/tun-reauthorize": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/loopback": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/core-system": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/block": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/tun-outbound": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/tun-reauthorize": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/dhcp4": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-0": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-1": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-133-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-133-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-135-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-135-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-136-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-136-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            }
+          },
+          "filter_count": 20,
+          "provider_present": true,
+          "sublayer_present": true,
+          "provider_key": "aa661ace-eb45-552e-b325-267c7d99f8a8",
+          "sublayer_key": "03365bfe-010f-5675-8bc1-ebe0f070921f"
+        },
+        "equal_to_before": true
+      }
+    },
+    {
+      "name": "S5-second-apply-idempotent",
+      "ok": true,
+      "details": {
+        "exit_code": 0,
+        "changed": [],
+        "notes": [],
+        "blockers": [],
+        "enumeration_unchanged_from_s4": true
+      }
+    },
+    {
+      "name": "S6-foreign-survived-second-apply",
+      "ok": true,
+      "details": {
+        "enumeration": {
+          "provider": {
+            "description": "OtherVendor:diag",
+            "flags": 1,
+            "service": "RuleProxyControl"
+          },
+          "sublayer": {
+            "description": "OtherVendor:diag",
+            "flags": 1,
+            "weight": 65534,
+            "provider": "aa661ace-eb45-552e-b325-267c7d99f8a8"
+          },
+          "filters": {
+            "4/loopback": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/core-system": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/block": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/tun-outbound": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/tun-reauthorize": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/loopback": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/core-system": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/block": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/tun-outbound": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/tun-reauthorize": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "4/dhcp4": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-0": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-1": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/dhcp6-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-133-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-133-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-135-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-135-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-136-multicast": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            },
+            "6/ndp-136-linklocal": {
+              "description": "OtherVendor:diag",
+              "flags": 1
+            }
+          },
+          "filter_count": 20,
+          "provider_present": true,
+          "sublayer_present": true,
+          "provider_key": "aa661ace-eb45-552e-b325-267c7d99f8a8",
+          "sublayer_key": "03365bfe-010f-5675-8bc1-ebe0f070921f"
+        },
+        "equal_to_before": true,
+        "script_lines_mentioning_foreign_keys": []
+      }
+    },
+    {
+      "name": "S7-nrpt-create",
+      "ok": true,
+      "details": {
+        "namespace": "rp-diag-86e6d18f.invalid",
+        "control_namespace": "rp-ctl-9132f5d1.invalid",
+        "display_name": "RuleProxy global DNS 381872b914d91bd1",
+        "comment_prefix": "RuleProxyDNS-v1:",
+        "names": [
+          "{52B62757-8C75-4BA7-B267-3C39956BB14A}",
+          "{BA58716E-C2AA-48FC-B5C1-2961B26DE736}"
+        ],
+        "create_exit": 0,
+        "stderr_tail": ">Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"1\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">2</I64><PR N=\"Record\"><AV>Add-DnsClientNrptRule -Namespace 'rp-diag-86e6d18f.invalid' -NameServers @('198.18.0.2','fdfe:dcba:8879::2') -DisplayName 'RuleProxy global DNS 381872b914d91bd1' -Comment 'RuleProxyDNS-v1:381872b914d91bd1fc35de9bc70fa1bbb481bade218db97b7837c807f9d88551' | Out-Null</AV><AI>1461522336</AI><Nil /><PI>-1</PI><PC>100</PC><T>Completed</T><SR>0</SR><SD>1/1 completed</SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"2\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">3</I64><PR N=\"Record\"><AV>Add-DnsClientNrptRule -Namespace 'rp-ctl-9132f5d1.invalid' -NameServers @('192.0.2.53') -DisplayName 'diag control' | Out-Null</AV><AI>320325684</AI><Nil /><PI>-1</PI><PC>100</PC><T>Completed</T><SR>0</SR><SD>1/1 completed</SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"3\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">4</I64><PR N=\"Record\"><AV>Get-DnsClientNrptRule | Where-Object { (@($_.Namespace) -contains 'rp-diag-86e6d18f.invalid') -or (@($_.Namespace) -contains 'rp-ctl-9132f5d1.invalid') } | ForEach-Object { [string]$_.Name })</AV><AI>807900798</AI><Nil /><PI>-1</PI><PC>100</PC><T>Completed</T><SR>0</SR><SD>1/1 completed</SD></PR></MS></Obj><Obj S=\"progress\" RefId=\"4\"><TNRef RefId=\"0\" /><MS><I64 N=\"SourceId\">1</I64><PR N=\"Record\"><AV>Preparing modules for first use.</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>"
+      }
+    },
+    {
+      "name": "S7-nrpt-properties",
+      "ok": true,
+      "details": {
+        "rp_diag_rule_properties": {
+          "DA": "False",
+          "DADnsServers": "",
+          "DnsSec": "False",
+          "DirectAccessDnsServers": "",
+          "NameServers": "198.18.0.2 | fdfe:dcba:8879::2",
+          "Comment": "RuleProxyDNS-v1:381872b914d91bd1fc35de9bc70fa1bbb481bade218db97b7837c807f9d88551",
+          "DirectAccessEnabled": "False",
+          "DirectAccessProxyName": "",
+          "DirectAccessProxyType": "",
+          "DirectAccessQueryIPsecEncryption": "",
+          "DirectAccessQueryIPsecRequired": "",
+          "DisplayName": "RuleProxy global DNS 381872b914d91bd1",
+          "DnsSecEnabled": "False",
+          "DnsSecQueryIPsecEncryption": "",
+          "DnsSecQueryIPsecRequired": "",
+          "DnsSecValidationRequired": "",
+          "IPsecCARestriction": "",
+          "Name": "{52B62757-8C75-4BA7-B267-3C39956BB14A}",
+          "NameEncoding": "Disable",
+          "Namespace": "rp-diag-86e6d18f.invalid",
+          "Version": "2",
+          "PSComputerName": "",
+          "CimClass": "root/Microsoft/Windows/DNS:DnsClientNrptRule",
+          "CimInstanceProperties": "Comment = \"RuleProxyDNS-v1:381872b914d91bd1fc35de9... DirectAccessDnsServers DirectAccessEnabled = False DirectAccessProxyName DirectAccessProxyType DirectAccessQueryIPsecEncryption DirectAccessQueryIPsecRequired DisplayName = \"RuleProxy global DNS 381872b914d91bd1\" DnsSecEnabled = False DnsSecQueryIPsecEncryption DnsSecQueryIPsecRequired DnsSecValidationRequired IPsecCARestriction = \"\" Name = \"{52B62757-8C75-4BA7-B267-3C39956BB14A}\" NameEncoding = \"Disable\" NameServers = ... Namespace = ... Version = 2",
+          "CimSystemProperties": "Microsoft.Management.Infrastructure.CimSystemProperties"
+        },
+        "control_rule_properties": {
+          "DA": "False",
+          "DADnsServers": "",
+          "DnsSec": "False",
+          "DirectAccessDnsServers": "",
+          "NameServers": "192.0.2.53",
+          "Comment": "",
+          "DirectAccessEnabled": "False",
+          "DirectAccessProxyName": "",
+          "DirectAccessProxyType": "",
+          "DirectAccessQueryIPsecEncryption": "",
+          "DirectAccessQueryIPsecRequired": "",
+          "DisplayName": "diag control",
+          "DnsSecEnabled": "False",
+          "DnsSecQueryIPsecEncryption": "",
+          "DnsSecQueryIPsecRequired": "",
+          "DnsSecValidationRequired": "",
+          "IPsecCARestriction": "",
+          "Name": "{BA58716E-C2AA-48FC-B5C1-2961B26DE736}",
+          "NameEncoding": "Disable",
+          "Namespace": "rp-ctl-9132f5d1.invalid",
+          "Version": "2",
+          "PSComputerName": "",
+          "CimClass": "root/Microsoft/Windows/DNS:DnsClientNrptRule",
+          "CimInstanceProperties": "Comment = \"\" DirectAccessDnsServers DirectAccessEnabled = False DirectAccessProxyName DirectAccessProxyType DirectAccessQueryIPsecEncryption DirectAccessQueryIPsecRequired DisplayName = \"diag control\" DnsSecEnabled = False DnsSecQueryIPsecEncryption DnsSecQueryIPsecRequired DnsSecValidationRequired IPsecCARestriction = \"\" Name = \"{BA58716E-C2AA-48FC-B5C1-2961B26DE736}\" NameEncoding = \"Disable\" NameServers = ... Namespace = ... Version = 2",
+          "CimSystemProperties": "Microsoft.Management.Infrastructure.CimSystemProperties"
+        },
+        "format_list": "\r\n\r\nDA                               : False\r\nDADnsServers                     : \r\nDnsSec                           : False\r\nDirectAccessDnsServers           : \r\nNameServers                      : {198.18.0.2, fdfe:dcba:8879::2}\r\nComment                          : RuleProxyDNS-v1:381872b914d91bd1fc35de9bc70fa1bbb481bade218db97b7837c807f9d88551\r\nDirectAccessEnabled              : False\r\nDirectAccessProxyName            : \r\nDirectAccessProxyType            : \r\nDirectAccessQueryIPsecEncryption : \r\nDirectAccessQueryIPsecRequired   : \r\nDisplayName                      : RuleProxy global DNS 381872b914d91bd1\r\nDnsSecEnabled                    : False\r\nDnsSecQueryIPsecEncryption       : \r\nDnsSecQueryIPsecRequired         : \r\nDnsSecValidationRequired         : \r\nIPsecCARestriction               : \r\nName                             : {52B62757-8C75-4BA7-B267-3C39956BB14A}\r\nNameEncoding                     : Disable\r\nNamespace                        : {rp-diag-86e6d18f.invalid}\r\nVersion                          : 2\r\nPSComputerName                   : \r\nCimClass                         : root/Microsoft/Windows/DNS:DnsClientNrptRule\r\nCimInstanceProperties            : {Comment, DirectAccessDnsServers, DirectAccessEnabled, DirectAccessProxyName...}\r\nCimSystemProperties              : Microsoft.Management.Infrastructure.CimSystemProperties\r\n\r\nDA                               : False\r\nDADnsServers                     : \r\nDnsSec                           : False\r\nDirectAccessDnsServers           : \r\nNameServers                      : 192.0.2.53\r\nComment                          : \r\nDirectAccessEnabled              : False\r\nDirectAccessProxyName            : \r\nDirectAccessProxyType            : \r\nDirectAccessQueryIPsecEncryption : \r\nDirectAccessQueryIPsecRequired   : \r\nDisplayName                      : diag control\r\nDnsSecEnabled                    : False\r\nDnsSecQueryIPsecEncryption       : \r\nDnsSecQueryIPsecRequired         : \r\nDnsSecValidationRequired         : \r\nIPsecCARestriction               : \r\nName                             : {BA58716E-C2AA-48FC-B5C1-2961B26DE736}\r\nNameEncoding                     : Disable\r\nNamespace                        : {rp-ctl-9132f5d1.invalid}\r\nVersion                          : 2\r\nPSComputerName                   : \r\nCimClass                         : root/Microsoft/Windows/DNS:DnsClientNrptRule\r\nCimInstanceProperties            : {Comment, DirectAccessDnsServers, DirectAccessEnabled, DirectAccessProxyName...}\r\nCimSystemProperties              : Microsoft.Management.Infrastructure.CimSystemProperties\r\n\r\n\r\n\r\n"
+      }
+    },
+    {
+      "name": "S7-dry-run",
+      "ok": true,
+      "details": {
+        "exit_code": 1,
+        "blockers": [
+          "Owned/virtual/unresolved DNS policy remains"
+        ],
+        "note": "the script only treats the root namespace as a candidate; the rp-diag rule is reported as residue"
+      }
+    },
+    {
+      "name": "S7-apply",
+      "ok": true,
+      "details": {
+        "exit_code": 3,
+        "changed": [],
+        "blockers": [
+          "Owned/virtual/unresolved DNS policy remains"
+        ],
+        "error": "NRPT still effective; changes already made are recorded. Domain policy may require its administrator.",
+        "rp_diag_rule_still_present": true,
+        "control_still_present": true,
+        "expectation_mismatch": "dry-run lists the rp-diag rule as residue but -Apply does not remove it: the script removes only root-namespace candidates"
+      }
+    },
+    {
+      "name": "S7-remove-lab-nrpt",
+      "ok": true,
+      "details": {
+        "removed": [
+          "{52B62757-8C75-4BA7-B267-3C39956BB14A}",
+          "{BA58716E-C2AA-48FC-B5C1-2961B26DE736}"
+        ],
+        "left": 0
+      }
+    },
+    {
+      "name": "S8-dead-proxy-setup-and-dry-run",
+      "ok": true,
+      "details": {
+        "original_values": {
+          "ProxyEnable": [
+            0,
+            4
+          ],
+          "ProxyServer": null
+        },
+        "original_flags": 9,
+        "flags_after_setup": 3,
+        "exit_code": 1,
+        "blockers": [
+          "Dead loopback proxy/PAC remains; ownership unknown, explicit reset required"
+        ],
+        "registry_after_dry_run": {
+          "ProxyEnable": [
+            1,
+            4
+          ],
+          "ProxyServer": [
+            "127.0.0.1:1",
+            1
+          ]
+        }
+      }
+    },
+    {
+      "name": "S8-apply-reset-dead-proxy",
+      "ok": true,
+      "details": {
+        "exit_code": 0,
+        "changed": [
+          "Explicit opt-in: dead current-user manual loopback proxy disabled"
+        ],
+        "blockers": [],
+        "error": null,
+        "values_after": {
+          "ProxyEnable": [
+            0,
+            4
+          ],
+          "ProxyServer": [
+            "127.0.0.1:1",
+            1
+          ]
+        },
+        "flags_after": 1,
+        "proxy_enable_became_zero": true,
+        "proxy_server_untouched": true
+      }
+    }
+  ],
+  "runs": {
+    "S0": {
+      "label": "S0",
+      "mode": "dry-run",
+      "reset_dead_proxy": false,
+      "flags": "-Json",
+      "process": {
+        "program": "powershell.exe",
+        "timeout_s": 240.0,
+        "exit_code": 0,
+        "timed_out": false,
+        "seconds": 6.74
+      },
+      "exit_code": 0,
+      "json_parsed": true,
+      "doc": {
+        "schema": 2,
+        "mode": "dry-run",
+        "exit_code": 0,
+        "network_verified": false,
+        "changed": [],
+        "notes": [],
+        "blockers": [],
+        "log_directory": null,
+        "error": null
+      },
+      "stdout_tail": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"dry-run\",\r\n    \"exit_code\":  0,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n\r\n                 ],\r\n    \"log_directory\":  null,\r\n    \"error\":  null\r\n}\r\n",
+      "stderr_tail": "",
+      "json_exit_matches_process": true
+    },
+    "S3": {
+      "label": "S3",
+      "mode": "dry-run",
+      "reset_dead_proxy": false,
+      "flags": "-Json",
+      "process": {
+        "program": "powershell.exe",
+        "timeout_s": 240.0,
+        "exit_code": 1,
+        "timed_out": false,
+        "seconds": 2.76
+      },
+      "exit_code": 1,
+      "json_parsed": true,
+      "doc": {
+        "schema": 2,
+        "mode": "dry-run",
+        "exit_code": 1,
+        "network_verified": false,
+        "changed": [],
+        "notes": [],
+        "blockers": [
+          "Owned WFP filters: 20"
+        ],
+        "log_directory": null,
+        "error": null
+      },
+      "stdout_tail": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"dry-run\",\r\n    \"exit_code\":  1,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n                     \"Owned WFP filters: 20\"\r\n                 ],\r\n    \"log_directory\":  null,\r\n    \"error\":  null\r\n}\r\n",
+      "stderr_tail": "",
+      "json_exit_matches_process": true
+    },
+    "S4": {
+      "label": "S4",
+      "mode": "apply",
+      "reset_dead_proxy": false,
+      "flags": "-Apply -Json",
+      "process": {
+        "program": "powershell.exe",
+        "timeout_s": 240.0,
+        "exit_code": 0,
+        "timed_out": false,
+        "seconds": 3.74
+      },
+      "exit_code": 0,
+      "json_parsed": true,
+      "doc": {
+        "schema": 2,
+        "mode": "apply",
+        "exit_code": 0,
+        "network_verified": false,
+        "changed": [
+          "WFP filters: 20",
+          "sublayer: 808164b9-a299-51fc-8c46-af8d9115c228",
+          "provider: 314483ab-e342-5ff6-b0db-def4630a65e0"
+        ],
+        "notes": [],
+        "blockers": [],
+        "log_directory": "C:\\ProgramData\\RuleProxy-Network-Recovery\\20261020-011426-6db6c9ab47794507801e9cb3798364ee",
+        "error": null
+      },
+      "stdout_tail": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"apply\",\r\n    \"exit_code\":  0,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n                    \"WFP filters: 20\",\r\n                    \"sublayer: 808164b9-a299-51fc-8c46-af8d9115c228\",\r\n                    \"provider: 314483ab-e342-5ff6-b0db-def4630a65e0\"\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n\r\n                 ],\r\n    \"log_directory\":  \"C:\\\\ProgramData\\\\RuleProxy-Network-Recovery\\\\20261020-011426-6db6c9ab47794507801e9cb3798364ee\",\r\n    \"error\":  null\r\n}\r\n",
+      "stderr_tail": "",
+      "json_exit_matches_process": true
+    },
+    "S5": {
+      "label": "S5",
+      "mode": "apply",
+      "reset_dead_proxy": false,
+      "flags": "-Apply -Json",
+      "process": {
+        "program": "powershell.exe",
+        "timeout_s": 240.0,
+        "exit_code": 0,
+        "timed_out": false,
+        "seconds": 3.34
+      },
+      "exit_code": 0,
+      "json_parsed": true,
+      "doc": {
+        "schema": 2,
+        "mode": "apply",
+        "exit_code": 0,
+        "network_verified": false,
+        "changed": [],
+        "notes": [],
+        "blockers": [],
+        "log_directory": "C:\\ProgramData\\RuleProxy-Network-Recovery\\20261020-011430-4c0105c14c79440282099837cc7160cf",
+        "error": null
+      },
+      "stdout_tail": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"apply\",\r\n    \"exit_code\":  0,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n\r\n                 ],\r\n    \"log_directory\":  \"C:\\\\ProgramData\\\\RuleProxy-Network-Recovery\\\\20261020-011430-4c0105c14c79440282099837cc7160cf\",\r\n    \"error\":  null\r\n}\r\n",
+      "stderr_tail": "",
+      "json_exit_matches_process": true
+    },
+    "S7-dry": {
+      "label": "S7-dry",
+      "mode": "dry-run",
+      "reset_dead_proxy": false,
+      "flags": "-Json",
+      "process": {
+        "program": "powershell.exe",
+        "timeout_s": 240.0,
+        "exit_code": 1,
+        "timed_out": false,
+        "seconds": 2.73
+      },
+      "exit_code": 1,
+      "json_parsed": true,
+      "doc": {
+        "schema": 2,
+        "mode": "dry-run",
+        "exit_code": 1,
+        "network_verified": false,
+        "changed": [],
+        "notes": [],
+        "blockers": [
+          "Owned/virtual/unresolved DNS policy remains"
+        ],
+        "log_directory": null,
+        "error": null
+      },
+      "stdout_tail": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"dry-run\",\r\n    \"exit_code\":  1,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n                     \"Owned/virtual/unresolved DNS policy remains\"\r\n                 ],\r\n    \"log_directory\":  null,\r\n    \"error\":  null\r\n}\r\n",
+      "stderr_tail": "",
+      "json_exit_matches_process": true
+    },
+    "S7-apply": {
+      "label": "S7-apply",
+      "mode": "apply",
+      "reset_dead_proxy": false,
+      "flags": "-Apply -Json",
+      "process": {
+        "program": "powershell.exe",
+        "timeout_s": 240.0,
+        "exit_code": 3,
+        "timed_out": false,
+        "seconds": 7.05
+      },
+      "exit_code": 3,
+      "json_parsed": true,
+      "doc": {
+        "schema": 2,
+        "mode": "apply",
+        "exit_code": 3,
+        "network_verified": false,
+        "changed": [],
+        "notes": [],
+        "blockers": [
+          "Owned/virtual/unresolved DNS policy remains"
+        ],
+        "log_directory": "C:\\ProgramData\\RuleProxy-Network-Recovery\\20261020-011438-3ee50b14ea334b70820cd7712b7a9065",
+        "error": "NRPT still effective; changes already made are recorded. Domain policy may require its administrator."
+      },
+      "stdout_tail": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"apply\",\r\n    \"exit_code\":  3,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n                     \"Owned/virtual/unresolved DNS policy remains\"\r\n                 ],\r\n    \"log_directory\":  \"C:\\\\ProgramData\\\\RuleProxy-Network-Recovery\\\\20261020-011438-3ee50b14ea334b70820cd7712b7a9065\",\r\n    \"error\":  \"NRPT still effective; changes already made are recorded. Domain policy may require its administrator.\"\r\n}\r\n",
+      "stderr_tail": "",
+      "json_exit_matches_process": true
+    },
+    "S8-dry": {
+      "label": "S8-dry",
+      "mode": "dry-run",
+      "reset_dead_proxy": true,
+      "flags": "-ResetDeadLoopbackProxy -Json",
+      "process": {
+        "program": "powershell.exe",
+        "timeout_s": 240.0,
+        "exit_code": 1,
+        "timed_out": false,
+        "seconds": 2.74
+      },
+      "exit_code": 1,
+      "json_parsed": true,
+      "doc": {
+        "schema": 2,
+        "mode": "dry-run",
+        "exit_code": 1,
+        "network_verified": false,
+        "changed": [],
+        "notes": [],
+        "blockers": [
+          "Dead loopback proxy/PAC remains; ownership unknown, explicit reset required"
+        ],
+        "log_directory": null,
+        "error": null
+      },
+      "stdout_tail": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"dry-run\",\r\n    \"exit_code\":  1,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n                     \"Dead loopback proxy/PAC remains; ownership unknown, explicit reset required\"\r\n                 ],\r\n    \"log_directory\":  null,\r\n    \"error\":  null\r\n}\r\n",
+      "stderr_tail": "",
+      "json_exit_matches_process": true
+    },
+    "S8": {
+      "label": "S8",
+      "mode": "apply",
+      "reset_dead_proxy": true,
+      "flags": "-Apply -ResetDeadLoopbackProxy -Json",
+      "process": {
+        "program": "powershell.exe",
+        "timeout_s": 240.0,
+        "exit_code": 0,
+        "timed_out": false,
+        "seconds": 3.31
+      },
+      "exit_code": 0,
+      "json_parsed": true,
+      "doc": {
+        "schema": 2,
+        "mode": "apply",
+        "exit_code": 0,
+        "network_verified": false,
+        "changed": [
+          "Explicit opt-in: dead current-user manual loopback proxy disabled"
+        ],
+        "notes": [],
+        "blockers": [],
+        "log_directory": "C:\\ProgramData\\RuleProxy-Network-Recovery\\20261020-011450-cb5902ecce4f46d8ae5665a1e5344af9",
+        "error": null
+      },
+      "stdout_tail": "{\r\n    \"schema\":  2,\r\n    \"mode\":  \"apply\",\r\n    \"exit_code\":  0,\r\n    \"network_verified\":  false,\r\n    \"changed\":  [\r\n                    \"Explicit opt-in: dead current-user manual loopback proxy disabled\"\r\n                ],\r\n    \"notes\":  [\r\n\r\n              ],\r\n    \"blockers\":  [\r\n\r\n                 ],\r\n    \"log_directory\":  \"C:\\\\ProgramData\\\\RuleProxy-Network-Recovery\\\\20261020-011450-cb5902ecce4f46d8ae5665a1e5344af9\",\r\n    \"error\":  null\r\n}\r\n",
+      "stderr_tail": "",
+      "json_exit_matches_process": true
+    }
+  },
+  "facts": {
+    "owned_after_create": {
+      "filter_keys": [
+        "4/block",
+        "4/core-system",
+        "4/dhcp4",
+        "4/loopback",
+        "4/tun-outbound",
+        "4/tun-reauthorize",
+        "6/block",
+        "6/core-system",
+        "6/dhcp6-0",
+        "6/dhcp6-1",
+        "6/dhcp6-linklocal",
+        "6/loopback",
+        "6/ndp-133-linklocal",
+        "6/ndp-133-multicast",
+        "6/ndp-135-linklocal",
+        "6/ndp-135-multicast",
+        "6/ndp-136-linklocal",
+        "6/ndp-136-multicast",
+        "6/tun-outbound",
+        "6/tun-reauthorize"
+      ],
+      "filter_count": 20,
+      "provider_present": true,
+      "sublayer_present": true,
+      "provider_key": "314483ab-e342-5ff6-b0db-def4630a65e0",
+      "sublayer_key": "808164b9-a299-51fc-8c46-af8d9115c228"
+    },
+    "foreign_before": {
+      "provider": {
+        "description": "OtherVendor:diag",
+        "flags": 1,
+        "service": "RuleProxyControl"
+      },
+      "sublayer": {
+        "description": "OtherVendor:diag",
+        "flags": 1,
+        "weight": 65534,
+        "provider": "aa661ace-eb45-552e-b325-267c7d99f8a8"
+      },
+      "filters": {
+        "4/loopback": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/core-system": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/block": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/tun-outbound": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/tun-reauthorize": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/loopback": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/core-system": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/block": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/tun-outbound": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/tun-reauthorize": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/dhcp4": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-0": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-1": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-133-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-133-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-135-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-135-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-136-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-136-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        }
+      },
+      "filter_count": 20,
+      "provider_present": true,
+      "sublayer_present": true,
+      "provider_key": "aa661ace-eb45-552e-b325-267c7d99f8a8",
+      "sublayer_key": "03365bfe-010f-5675-8bc1-ebe0f070921f"
+    },
+    "rule_count": 20,
+    "owned_after_s4": {
+      "filter_keys": [],
+      "filter_count": 0,
+      "provider_present": false,
+      "sublayer_present": false,
+      "provider_key": "314483ab-e342-5ff6-b0db-def4630a65e0",
+      "sublayer_key": "808164b9-a299-51fc-8c46-af8d9115c228"
+    },
+    "foreign_after_s4": {
+      "provider": {
+        "description": "OtherVendor:diag",
+        "flags": 1,
+        "service": "RuleProxyControl"
+      },
+      "sublayer": {
+        "description": "OtherVendor:diag",
+        "flags": 1,
+        "weight": 65534,
+        "provider": "aa661ace-eb45-552e-b325-267c7d99f8a8"
+      },
+      "filters": {
+        "4/loopback": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/core-system": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/block": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/tun-outbound": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/tun-reauthorize": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/loopback": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/core-system": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/block": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/tun-outbound": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/tun-reauthorize": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/dhcp4": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-0": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-1": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-133-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-133-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-135-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-135-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-136-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-136-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        }
+      },
+      "filter_count": 20,
+      "provider_present": true,
+      "sublayer_present": true,
+      "provider_key": "aa661ace-eb45-552e-b325-267c7d99f8a8",
+      "sublayer_key": "03365bfe-010f-5675-8bc1-ebe0f070921f"
+    },
+    "s5_unchanged": true,
+    "foreign_after_s5": {
+      "provider": {
+        "description": "OtherVendor:diag",
+        "flags": 1,
+        "service": "RuleProxyControl"
+      },
+      "sublayer": {
+        "description": "OtherVendor:diag",
+        "flags": 1,
+        "weight": 65534,
+        "provider": "aa661ace-eb45-552e-b325-267c7d99f8a8"
+      },
+      "filters": {
+        "4/loopback": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/core-system": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/block": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/tun-outbound": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/tun-reauthorize": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/loopback": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/core-system": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/block": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/tun-outbound": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/tun-reauthorize": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "4/dhcp4": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-0": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-1": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/dhcp6-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-133-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-133-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-135-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-135-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-136-multicast": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        },
+        "6/ndp-136-linklocal": {
+          "description": "OtherVendor:diag",
+          "flags": 1
+        }
+      },
+      "filter_count": 20,
+      "provider_present": true,
+      "sublayer_present": true,
+      "provider_key": "aa661ace-eb45-552e-b325-267c7d99f8a8",
+      "sublayer_key": "03365bfe-010f-5675-8bc1-ebe0f070921f"
+    },
+    "foreign_mentions": [],
+    "nrpt_dns_residue_reported": true,
+    "nrpt_control_untouched": true,
+    "nrpt_rp_diag_removed": false,
+    "proxy_apply_exit": 0,
+    "proxy_enable_after": [
+      0,
+      4
+    ],
+    "proxy_server_after": [
+      "127.0.0.1:1",
+      1
+    ],
+    "proxy_flags_after": 1,
+    "proxy_ok_behaviour": true
+  },
+  "cleanup": {
+    "proxy": {
+      "values_exact": true,
+      "values_now": {
+        "ProxyEnable": [
+          0,
+          4
+        ],
+        "ProxyServer": null
+      },
+      "flags_original": 9,
+      "flags_now": 9,
+      "flags_error": null
+    },
+    "nrpt": {
+      "removed": [],
+      "left": 0
+    },
+    "foreign": {
+      "label": "foreign",
+      "method": "raw exact-key delete in one transaction",
+      "filters_deleted": 20,
+      "after": {
+        "provider": null,
+        "sublayer": null,
+        "filters": {},
+        "filter_count": 0,
+        "provider_present": false,
+        "sublayer_present": false,
+        "provider_key": "aa661ace-eb45-552e-b325-267c7d99f8a8",
+        "sublayer_key": "03365bfe-010f-5675-8bc1-ebe0f070921f"
+      }
+    },
+    "owned": {
+      "label": "owned",
+      "normal_stop": {
+        "supported": true,
+        "active": false,
+        "persistent": false,
+        "detail": "独立保护未启用；Windows 原生不泄漏验收尚未完成。",
+        "rule_count": 0,
+        "state": "idle",
+        "native_qualified": false
+      },
+      "filters_deleted_by_key": 0,
+      "sublayer_delete": "absent",
+      "provider_delete": "absent",
+      "after": {
+        "filter_keys": [],
+        "filter_count": 0,
+        "provider_present": false,
+        "sublayer_present": false,
+        "provider_key": "314483ab-e342-5ff6-b0db-def4630a65e0",
+        "sublayer_key": "808164b9-a299-51fc-8c46-af8d9115c228"
+      }
+    },
+    "lab_root_removed": true,
+    "errors": [],
+    "cleanup_ok": true
+  },
+  "verdict": {
+    "wfp_product_objects_removed": true,
+    "foreign_untouched": true,
+    "nrpt_ok": true,
+    "nrpt_positive_removal_tested": false,
+    "proxy_ok": true,
+    "idempotent": true,
+    "raw_exit_codes": {
+      "S0": 0,
+      "S3": 1,
+      "S4": 0,
+      "S5": 0,
+      "S7-dry": 1,
+      "S7-apply": 3,
+      "S8-dry": 1,
+      "S8": 0
+    },
+    "cleanup_ok": true,
+    "lab_completed": true
+  },
+  "lab_completed": true,
+  "harness_error": null,
+  "harness_traceback": null
+}
