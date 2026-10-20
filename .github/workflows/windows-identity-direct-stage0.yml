@@ -1,5 +1,5 @@
 name: Windows 26300.9457 direct Stage0 (exploratory below support floor)
-# Reviewed direct attempt 02: only the validated two-variable request fix.
+# Reviewed direct attempt 03: closed identity predicates; acceptance unchanged.
 on:
   push:
     branches: [dot/windows-isolation-proof]
