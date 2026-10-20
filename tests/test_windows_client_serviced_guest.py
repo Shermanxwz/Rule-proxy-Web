@@ -124,4 +124,13 @@ class ServicedGuestContractTests(unittest.TestCase):
         self.assertIn('[Text.Encoding]::ASCII.GetBytes($wireJson)', test)
         self.assertIn('if ($wireBytes.Length -eq 0)', test)
 
+    def test_wire_hresult_has_typed_boundary_and_rejection_cases(self):
+        test=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        self.assertIn('-HResult ([int]-2146233087)', test)
+        self.assertNotIn('-HResult -2146233087', test)
+        for marker in ('[int]::MinValue', '[int]::MaxValue', '[long]-2147483649',
+                       '[long]2147483648', "value='-2146233087'", '[double]-2146233087',
+                       'value=$true', 'value=$null', 'Wire HRESULT value or JSON numeric type changed'):
+            self.assertIn(marker, test)
+
 if __name__ == '__main__': unittest.main()

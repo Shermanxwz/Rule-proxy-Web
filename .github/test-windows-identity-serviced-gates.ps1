@@ -45,6 +45,32 @@ $record=$raw | ConvertFrom-Json
 if ($record.schema -ne 1 -or $null -ne $record.hresult -or $null -ne $record.gates.product_winnt) { throw 'Closed types failed' }; $passed++
 $expected=@('failure_category','gates','hresult','operation','phase','schema')
 if ((@($record.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($expected -join ',')) { throw 'Closed field set changed' }; $passed++
+# Production catches Exception.HResult as Int32. Exercise typed values and
+# reject noninteger/out-of-range values without coercing the closed emitter.
+$hresultCases=@(
+    @{value=([int]-2146233087); expected=([long]-2146233087)},
+    @{value=[int]::MinValue; expected=([long][int]::MinValue)},
+    @{value=[int]::MaxValue; expected=([long][int]::MaxValue)},
+    @{value=([int]0); expected=([long]0)},
+    @{value=([long]-2147483648); expected=([long]-2147483648)},
+    @{value=([long]2147483647); expected=([long]2147483647)},
+    @{value=([long]-2147483649); expected=$null},
+    @{value=([long]2147483648); expected=$null},
+    @{value='-2146233087'; expected=$null},
+    @{value=([double]-2146233087); expected=$null},
+    @{value=$true; expected=$null},
+    @{value=$null; expected=$null})
+$hresultCaseIndex=0
+foreach ($hresultCase in $hresultCases) {
+    $typedRaw=Get-ClosedEarlyDiagnostic -Phase 'identity' -Operation 'identity' -Category 'identity_gate' -HResult $hresultCase.value -Gates $gates
+    $typedRecord=$typedRaw | ConvertFrom-Json
+    if ($null -eq $hresultCase.expected) {
+        if ($null -ne $typedRecord.hresult) { throw ('Invalid HRESULT was coerced at fixture index ' + $hresultCaseIndex) }
+    } elseif (($typedRecord.hresult -isnot [int] -and $typedRecord.hresult -isnot [long]) -or $typedRecord.hresult -ne $hresultCase.expected) {
+        throw ('Typed HRESULT value or JSON numeric type changed at fixture index ' + $hresultCaseIndex)
+    }
+    $passed++; $hresultCaseIndex++
+}
 # Executable cross-language wire parity: feed actual PS-emitted JSON to the
 # actual host parser. This catches new enum/type/key drift before any VM job.
 $wireRecords=New-Object 'Collections.Generic.List[string]'
@@ -54,9 +80,10 @@ foreach ($case in @(@('configuration','configuration_read','operation_failed'),
     @('installed_boot_gate','product','operation_failed'),@('installed_boot_gate','gate','installed_boot_gate'),
     @('installed_setup_wait','setup','operation_failed'),@('installed_setup_wait','image','operation_failed'),
     @('installed_setup_wait','waiting_setup','installed_setup_deadline'),@('beacon','beacon','operation_failed'))) {
-    $item=Get-ClosedEarlyDiagnostic -Phase $case[0] -Operation $case[1] -Category $case[2] -HResult -2146233087 -Gates $gates
+    $item=Get-ClosedEarlyDiagnostic -Phase $case[0] -Operation $case[1] -Category $case[2] -HResult ([int]-2146233087) -Gates $gates
     $decoded=$item | ConvertFrom-Json
     if ($decoded.phase -cne $case[0] -or $decoded.operation -cne $case[1] -or $decoded.failure_category -cne $case[2]) { throw 'Emitter enum unexpectedly sanitized' }
+    if (($decoded.hresult -isnot [int] -and $decoded.hresult -isnot [long]) -or $decoded.hresult -ne ([int]-2146233087)) { throw 'Wire HRESULT value or JSON numeric type changed' }
     $wireRecords.Add('RPDIAG1 '+$item)
 }
 $parityCode=@'
