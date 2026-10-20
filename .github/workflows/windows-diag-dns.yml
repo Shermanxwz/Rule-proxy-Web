@@ -1,0 +1,90 @@
+name: Windows AppContainer DNS capture diagnostic
+
+on:
+  push:
+    branches:
+      - 'claude/windows-diag-*'
+    paths:
+      - '.github/windows_diag_dns.py'
+      - '.github/windows_appcontainer_lab.py'
+      - '.github/workflows/windows-diag-dns.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-diag-dns-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lab:
+    name: AppContainer DNS capture · disposable Server 2025
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - run: python -m pip install -r requirements.txt
+      - name: Run bounded DNS capture across five AppContainer modes
+        timeout-minutes: 22
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B .github/windows_diag_dns.py --work 'C:\RuleProxyDiagDns'
+          if ($LASTEXITCODE -ne 0) { throw 'DNS capture harness failed; inspect report artifact' }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-diag-dns
+          path: C:\RuleProxyDiagDns\dns-capture-report.json
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
+
+  publish:
+    name: Publish DNS capture report to the results branch
+    needs: [lab]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: windows-diag-dns
+          path: results
+        continue-on-error: true
+      - name: Commit the report to a dedicated results branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESULTS_BRANCH: claude/windows-diag-results
+        run: |
+          set -euo pipefail
+          if [ ! -d results ] || [ -z "$(ls -A results)" ]; then echo 'no results'; exit 0; fi
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          run_dir="runs/dns-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          for attempt in 1 2 3 4 5; do
+            rm -rf tree
+            if git ls-remote --exit-code --heads "$remote" "$RESULTS_BRANCH" >/dev/null 2>&1; then
+              git clone -q --depth 1 --branch "$RESULTS_BRANCH" "$remote" tree
+            else
+              git init -q -b "$RESULTS_BRANCH" tree
+              git -C tree remote add origin "$remote"
+            fi
+            mkdir -p "tree/$run_dir"
+            cp -r results/. "tree/$run_dir/"
+            printf '%s\n' "${GITHUB_SHA}" > "tree/$run_dir/source-commit.txt"
+            git -C tree add -A
+            git -C tree -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -qm "DNS capture report ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} for ${GITHUB_SHA}"
+            if git -C tree push -q origin "HEAD:refs/heads/$RESULTS_BRANCH"; then exit 0; fi
+            sleep $((attempt * 3))
+          done
+          exit 1
