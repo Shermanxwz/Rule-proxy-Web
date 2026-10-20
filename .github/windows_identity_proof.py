@@ -11,6 +11,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import ntpath
 from pathlib import Path
 import re
 import secrets
@@ -27,7 +28,96 @@ SID = re.compile(r"S-1-15-2(?:-[0-9]{1,10}){7}\Z")
 MAX_OUTPUT = 128 * 1024
 
 
-def policy(inputs, profile, actor, nonce, *, proxy=None):
+REQUIRED_ENVIRONMENT_NAMES = ('SYSTEMROOT', 'LOCALAPPDATA')
+
+
+def canonical_environment_directory(value):
+    """Strict DOS drive path, not an expandable/device/UNC/relative alias."""
+    if (not isinstance(value, str) or not 4 <= len(value) <= 260
+            or re.match(r'^[A-Za-z]:\\', value) is None
+            or any(ord(c) < 32 or ord(c) == 127 for c in value)
+            or any(c in value[2:] for c in '/:<>"|?*%=~')):
+        raise ValueError('invalid required environment directory')
+    try: value.encode('utf-16-le', 'strict')
+    except UnicodeError: raise ValueError('invalid required environment directory') from None
+    components = value[3:].split('\\')
+    if (any(not part or part in ('.', '..') or part.endswith((' ', '.')) for part in components)
+            or ntpath.normpath(value) != value):
+        raise ValueError('noncanonical required environment directory')
+    return value
+
+
+def validate_required_environment(environment, native_paths):
+    """Pure comparison for fixtures; native authorities are observed at runtime."""
+    if (not isinstance(environment, dict) or set(environment) != set(REQUIRED_ENVIRONMENT_NAMES)
+            or not isinstance(native_paths, dict) or set(native_paths) != set(REQUIRED_ENVIRONMENT_NAMES)):
+        raise ValueError('exact required environment pair missing')
+    result = []
+    for name in REQUIRED_ENVIRONMENT_NAMES:
+        value = canonical_environment_directory(environment[name])
+        native = canonical_environment_directory(native_paths[name])
+        if ntpath.normcase(value) != ntpath.normcase(native):
+            raise ValueError('required environment differs from current native context')
+        result.append(name + '=' + value)
+    return result
+
+
+def native_required_environment_paths():
+    """Current process Windows directory and current token's LocalAppData."""
+    if os.name != 'nt': raise PermissionError('native Windows environment required')
+    import ctypes
+    from ctypes import wintypes
+    import uuid
+    class GUID(ctypes.Structure):
+        _fields_ = [('Data1', wintypes.DWORD), ('Data2', wintypes.WORD),
+                    ('Data3', wintypes.WORD), ('Data4', ctypes.c_ubyte * 8)]
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.GetWindowsDirectoryW.argtypes = (wintypes.LPWSTR, wintypes.UINT)
+    kernel.GetWindowsDirectoryW.restype = wintypes.UINT
+    buffer = ctypes.create_unicode_buffer(32768)
+    count = kernel.GetWindowsDirectoryW(buffer, len(buffer))
+    if not 0 < count < len(buffer): raise OSError('native Windows directory lookup failed')
+    shell = ctypes.WinDLL('shell32', use_last_error=True)
+    shell.SHGetKnownFolderPath.argtypes = (ctypes.POINTER(GUID), wintypes.DWORD, wintypes.HANDLE, ctypes.POINTER(ctypes.c_void_p))
+    shell.SHGetKnownFolderPath.restype = ctypes.c_long
+    ole = ctypes.WinDLL('ole32', use_last_error=True)
+    ole.CoTaskMemFree.argtypes = (ctypes.c_void_p,); ole.CoTaskMemFree.restype = None
+    folder = GUID.from_buffer_copy(uuid.UUID('F1B32785-6FBA-4FCF-9D55-7B8E7F157091').bytes_le)
+    pointer = ctypes.c_void_p()
+    try:
+        code = shell.SHGetKnownFolderPath(ctypes.byref(folder), 0, None, ctypes.byref(pointer))
+        if code != 0 or not pointer.value: raise OSError('native local application directory lookup failed')
+        local = ctypes.wstring_at(pointer.value)
+        return {'SYSTEMROOT': canonical_environment_directory(buffer.value),
+                'LOCALAPPDATA': canonical_environment_directory(local)}
+    finally:
+        if pointer.value: ole.CoTaskMemFree(pointer)
+
+
+def observe_required_environment():
+    # Called only after controller's ordinary/non-AppContainer/default-compartment
+    # gate. Never copy the rest of the parent environment into the child policy.
+    native = native_required_environment_paths()
+    observed = {name: os.environ.get(name) for name in REQUIRED_ENVIRONMENT_NAMES}
+    result = validate_required_environment(observed, native)
+    for value in observed.values():
+        directory = Path(value)
+        if not directory.is_dir() or ntpath.normcase(str(directory.resolve(strict=True))) != ntpath.normcase(value):
+            raise ValueError('required environment directory not canonical and existing')
+    return result
+
+
+def required_environment_entries(value):
+    if not isinstance(value, list) or len(value) != 2:
+        raise ValueError('validated required environment pair missing')
+    for name, entry in zip(REQUIRED_ENVIRONMENT_NAMES, value):
+        if not isinstance(entry, str) or not entry.startswith(name + '='):
+            raise ValueError('required environment entry differs')
+        canonical_environment_directory(entry[len(name) + 1:])
+    return list(value)
+
+
+def policy(inputs, profile, actor, nonce, *, proxy=None, required_environment=None):
     if not isinstance(nonce, str) or not NONCE.fullmatch(nonce):
         raise ValueError("invalid case nonce")
     command = [str(actor), "actor", nonce, str(Path(profile) / "actor.json")]
@@ -37,7 +127,7 @@ def policy(inputs, profile, actor, nonce, *, proxy=None):
         "containerId": "ruleproxy-identity-proof-" + nonce,
         "fallback": {"allowDaclMutation": False},
         "process": {"commandLine": subprocess.list2cmdline(command), "cwd": str(profile),
-                    "inheritDefaultEnv": False, "env": [], "timeout": 15000},
+                    "inheritDefaultEnv": False, "env": required_environment_entries(required_environment), "timeout": 15000},
         "filesystem": {"readonlyPaths": [str(inputs)], "readwritePaths": [str(profile)]},
         "ui": {"disable": True, "clipboard": "none"},
         "network": {"egress": {"default": "deny"},
@@ -122,7 +212,7 @@ PROBE_OUTCOMES = ("not_attempted", "timed_out", "spawn_failed", "invocation_fail
     "invalid_json", "non_object", "reported_detector_error", "invalid_required_fact", "alternate_tier", "unknown_tier",
     "dacl_required", "api_not_observed", "selected", "unclassified")
 CONTROLLER_PHASES = ("not_started", "identity_observation", "executor_verification", "actor_verification", "work_validation",
-    "staging", "case", "report_write", "completed", "unclassified")
+    "staging", "case", "report_write", "completed", "required_environment", "unclassified")
 FAILURE_PHASES = ("policy_write", "probe_invocation", "executor_output_open", "executor_invocation", "executor_diagnostic_read", "actor_read", "unclassified", "absent")
 FAILURE_TYPES = ("PermissionError", "ValueError", "TypeError", "FileNotFoundError", "FileExistsError", "OSError",
     "RuntimeError", "TimeoutError", "TimeoutExpired", "JSONDecodeError", "UnicodeDecodeError", "AttributeError", "unclassified", "absent")
@@ -426,6 +516,8 @@ def controller(args):
     identity = smoke.identity_snapshot()
     if identity["elevated"] or identity["appcontainer"] or identity["cid"] != 1:
         raise PermissionError("run from an ordinary non-AppContainer user in the default compartment")
+    args.diagnostic_phase = "required_environment"
+    required_environment = observe_required_environment()
     args.diagnostic_phase = "executor_verification"
     provenance = smoke.verify_executor(args.executor, args.manifest)
     args.diagnostic_phase = "actor_verification"
@@ -459,7 +551,7 @@ def controller(args):
               "network_tested": False, "controller_identity": identity}
     args.diagnostic_phase = "case"
     try:
-        report.update(run_case(staged_executor, policy(inputs, profile, staged_actor, nonce), profile))
+        report.update(run_case(staged_executor, policy(inputs, profile, staged_actor, nonce, required_environment=required_environment), profile))
     except Exception as exc:
         report["error"] = smoke.failure(exc)
     report["checks"] = stage0_checks(report)

@@ -440,7 +440,9 @@ class StockTests(unittest.TestCase):
             return names,[functions[name] for name in names]
         proof_names,proof_nodes=reachable(trees['.github/windows_identity_proof.py'],{'controller', 'closed_diagnostics'})
         self.assertEqual(proof_names,{'controller','policy','run_case','stage0_checks','actual_tiers','probe_outcome','detector_error_class','cli_diagnostic','closed_diagnostics','diagnostic_summary',
-            '_dict','_enum','_integer','_boolean','_digest','_known_list','_codes','_fact','_closed_fact'})
+            '_dict','_enum','_integer','_boolean','_digest','_known_list','_codes','_fact','_closed_fact',
+            'canonical_environment_directory','validate_required_environment','native_required_environment_paths',
+            'observe_required_environment','required_environment_entries'})
         smoke_seeds={'read'}  # Also called directly by the stock guest wrapper.
         for root in proof_nodes:
             for node in ast.walk(root):

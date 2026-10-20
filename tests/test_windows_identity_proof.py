@@ -14,6 +14,7 @@ proof = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(proof)
 N = 'a' * 32
 SID = 'S-1-15-2-1-2-3-4-5-6-7'
+ENV = [r'SYSTEMROOT=C:\Windows', r'LOCALAPPDATA=C:\Users\Fixture\AppData\Local']
 
 def proxy():
     return dict(profile='RuleProxy.IdentityProof.' + N, derived_sid=SID, token_sid=SID, appcontainer=True, port=31001)
@@ -49,14 +50,14 @@ def checked_result(result):
 
 class PolicyTests(unittest.TestCase):
     def test_stage_zero_has_no_proxy_or_network_grants(self):
-        p = proof.policy('inputs', 'profile', 'actor.exe', N)
+        p = proof.policy('inputs', 'profile', 'actor.exe', N, required_environment=ENV)
         self.assertEqual(p['network'], {'egress': {'default': 'deny'}, 'ingress': {'default': 'deny', 'hostLoopback': 'deny'}})
         self.assertNotIn('runtimeConfig', p)
         self.assertNotIn('processContainer', p)
         self.assertEqual(p['fallback'], {'allowDaclMutation': False})
         self.assertIs(p['process']['inheritDefaultEnv'], False)
     def test_identity_policy_never_opens_general_host_loopback(self):
-        p = proof.policy('inputs', 'profile', 'actor.exe', N, proxy=proxy())
+        p = proof.policy('inputs', 'profile', 'actor.exe', N, proxy=proxy(), required_environment=ENV)
         self.assertEqual(p['network'], {'egress': {'default': 'deny'}, 'ingress': {'default': 'allow', 'hostLoopback': 'deny'}})
         self.assertEqual(p['processContainer']['network']['allowedProxyPeer'], proxy()['profile'])
         self.assertEqual(p['runtimeConfig']['networkProxy'], 'http://127.0.0.1:31001')
@@ -68,10 +69,10 @@ class PolicyTests(unittest.TestCase):
         for key, val in [('token_sid', 'S-1-15-2-9-2-3-4-5-6-7'), ('appcontainer', False), ('profile', 'MXC-Loopback'),
                          ('derived_sid', ''), ('port', 80), ('port', 65536), ('port', True), ('port', '31001')]:
             p=proxy(); p[key]=val
-            with self.subTest(key=key,val=val), self.assertRaises(ValueError): proof.policy('i','p','a',N,proxy=p)
+            with self.subTest(key=key,val=val), self.assertRaises(ValueError): proof.policy('i','p','a',N,proxy=p,required_environment=ENV)
     def test_missing_or_extra_identity_field_rejected(self):
         for p in ({}, {'profile':'foo'}, dict(proxy(), invented=True)):
-            with self.assertRaises(ValueError): proof.policy('i','p','a',N,proxy=p)
+            with self.assertRaises(ValueError): proof.policy('i','p','a',N,proxy=p,required_environment=ENV)
 
 class EvidenceTests(unittest.TestCase):
     def test_complete_evidence_passes(self): self.assertTrue(all(proof.stage0_checks(evidence()).values()))
@@ -318,7 +319,7 @@ class ClosedDiagnosticTests(unittest.TestCase):
     def test_diagnostic_fields_cannot_change_existing_acceptance_or_policy(self):
         original = evidence()
         baseline_checks = proof.stage0_checks(original)
-        baseline_policy = proof.policy('inputs', 'profile', 'actor.exe', N)
+        baseline_policy = proof.policy('inputs', 'profile', 'actor.exe', N, required_environment=ENV)
         for diagnostics in ({}, {'execution': {'actor_checks_passed': True}},
                             {'probe': {'outcome': 'selected'}}, self.SECRET):
             report = dict(original, diagnostics=diagnostics)
@@ -327,7 +328,7 @@ class ClosedDiagnosticTests(unittest.TestCase):
                 self.assertEqual(proof.stage0_checks(report), baseline_checks)
                 report['actual_tiers'] = ['appcontainer-bfs']
                 self.assertFalse(proof.stage0_checks(report)['actual_base_container'])
-        self.assertEqual(proof.policy('inputs', 'profile', 'actor.exe', N), baseline_policy)
+        self.assertEqual(proof.policy('inputs', 'profile', 'actor.exe', N, required_environment=ENV), baseline_policy)
 
     def test_optional_diagnostic_facts_are_not_added_to_acceptance_gate(self):
         for value in (None, False, 0, self.SECRET):
@@ -781,4 +782,88 @@ class RunnerTests(unittest.TestCase):
         class Args: disposable_ci=False; approved_security_test=False
         with self.assertRaises(PermissionError): proof.controller(Args())
 
-if __name__=='__main__': unittest.main()
+
+
+class RequiredEnvironmentTests(unittest.TestCase):
+    def native(self):
+        return {'SYSTEMROOT':r'C:\Windows','LOCALAPPDATA':r'C:\Users\Fixture\AppData\Local'}
+    def test_exact_pair_and_case_insensitive_native_agreement(self):
+        self.assertEqual(proof.validate_required_environment(self.native(),self.native()),ENV)
+        observed={k:v.lower() for k,v in self.native().items()}
+        self.assertEqual(proof.validate_required_environment(observed,self.native()),[k+'='+v for k,v in observed.items()])
+    def test_missing_extra_casechanged_keys_fail_closed(self):
+        for bad in ({}, {'SYSTEMROOT':r'C:\Windows'},dict(self.native(),PATH='SECRET'),
+                    {'SystemRoot':r'C:\Windows','LOCALAPPDATA':self.native()['LOCALAPPDATA']},None,[]):
+            with self.assertRaises(ValueError):proof.validate_required_environment(bad,self.native())
+            with self.assertRaises(ValueError):proof.validate_required_environment(self.native(),bad)
+    def test_path_alias_injection_or_unbounded_values_rejected(self):
+        bad_values=(None,True,1,'',r'Windows',r'C:Windows',r'\Windows',r'\\server\share',r'\\?\C:\Windows',
+            'C:/Windows',r'C:\Windows\..\Elsewhere',r'C:\Windows\.','C:\\Windows\\',r'C:\\Windows',
+            'C:\\Windows ', 'C:\\Windows.', 'C:\\Windows\nSECRET', 'C:\\Windows\x00SECRET',
+            r'C:\Windows:stream',r'C:\%SYSTEMROOT%',r'C:\PROGRA~1',r'C:\Windows=SECRET',
+            r'C:\Windows?','C:\\'+'a'*260,'C:\\\ud800')
+        for value in bad_values:
+            native=self.native();observed=self.native();observed['SYSTEMROOT']=value
+            with self.subTest(value=repr(value)),self.assertRaises(ValueError):proof.validate_required_environment(observed,native)
+    def test_other_user_or_windows_directory_rejected(self):
+        for key,value in (('SYSTEMROOT',r'D:\Windows'),('LOCALAPPDATA',r'C:\Users\Other\AppData\Local')):
+            observed=self.native();observed[key]=value
+            with self.assertRaises(ValueError):proof.validate_required_environment(observed,self.native())
+    def test_policy_requires_exact_two_explicit_entries(self):
+        for value in (None,[],ENV[:1],ENV+['PATH=SECRET'],list(reversed(ENV)),
+                      ['SystemRoot=C:\\Windows',ENV[1]],['SYSTEMROOT=',ENV[1]],dict(self.native())):
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                proof.policy('inputs','profile','actor.exe',N,required_environment=value)
+    def test_policy_only_environment_changed(self):
+        value=proof.policy('inputs','profile','actor.exe',N,required_environment=ENV)
+        self.assertEqual(value['process']['env'],ENV);self.assertIsNot(value['process']['env'],ENV)
+        self.assertIs(value['process']['inheritDefaultEnv'],False)
+        self.assertEqual(value['filesystem'],{'readonlyPaths':['inputs'],'readwritePaths':['profile']})
+        self.assertEqual(value['ui'],{'disable':True,'clipboard':'none'})
+        self.assertEqual(value['network'],{'egress':{'default':'deny'},'ingress':{'default':'deny','hostLoopback':'deny'}})
+        self.assertEqual(value['fallback'],{'allowDaclMutation':False})
+    def test_observation_selects_only_two_native_agreed_existing_directories(self):
+        native=self.native()
+        def path(value):
+            directory=Mock();directory.is_dir.return_value=True;directory.resolve.return_value=value;return directory
+        with patch.object(proof,'native_required_environment_paths',return_value=native),patch.dict(proof.os.environ,dict(native,SECRET='never copied'),clear=True),patch.object(proof,'Path',side_effect=path):
+            self.assertEqual(proof.observe_required_environment(),ENV)
+    def test_missing_or_nonexistent_or_resolved_alias_fails_closed(self):
+        native=self.native()
+        for exists,resolved in ((False,native['SYSTEMROOT']),(True,r'C:\Other')):
+            directory=Mock();directory.is_dir.return_value=exists;directory.resolve.return_value=resolved
+            with patch.object(proof,'native_required_environment_paths',return_value=native),patch.dict(proof.os.environ,native,clear=True),patch.object(proof,'Path',return_value=directory):
+                with self.assertRaises(ValueError):proof.observe_required_environment()
+        with patch.object(proof,'native_required_environment_paths',return_value=native),patch.dict(proof.os.environ,{},clear=True):
+            with self.assertRaises(ValueError):proof.observe_required_environment()
+    def test_controller_observes_after_ordinary_gate_before_executor(self):
+        args=Mock(disposable_ci=True,approved_security_test=True)
+        for identity in ({'elevated':True,'appcontainer':False,'cid':1}, {'elevated':False,'appcontainer':True,'cid':1}, {'elevated':False,'appcontainer':False,'cid':2}):
+            with patch.object(proof.os,'name','nt'),patch.object(proof.smoke,'identity_snapshot',return_value=identity),patch.object(proof,'observe_required_environment') as observe:
+                with self.assertRaises(PermissionError):proof.controller(args)
+                observe.assert_not_called()
+        with patch.object(proof.os,'name','nt'),patch.object(proof.smoke,'identity_snapshot',return_value={'elevated':False,'appcontainer':False,'cid':1}),patch.object(proof,'observe_required_environment',side_effect=ValueError('closed')) as observe,patch.object(proof.smoke,'verify_executor') as executor:
+            with self.assertRaises(ValueError):proof.controller(args)
+            observe.assert_called_once_with();executor.assert_not_called()
+            self.assertEqual(args.diagnostic_phase,'required_environment')
+    def test_empty_environment_controller_boundary_never_reaches_executor_or_actor(self):
+        args=Mock(disposable_ci=True,approved_security_test=True)
+        with patch.object(proof.os,'name','nt'),patch.object(proof.smoke,'identity_snapshot',return_value={'elevated':False,'appcontainer':False,'cid':1}),patch.object(proof,'native_required_environment_paths',return_value=self.native()),patch.dict(proof.os.environ,{},clear=True),patch.object(proof.smoke,'verify_executor') as verify,patch.object(proof,'run_case') as run_case,patch.object(proof.subprocess,'run') as subprocess_run:
+            with self.assertRaises(ValueError):proof.controller(args)
+            verify.assert_not_called();run_case.assert_not_called();subprocess_run.assert_not_called()
+            self.assertEqual(args.diagnostic_phase,'required_environment')
+    def test_empty_policy_environment_never_enters_case_runner(self):
+        with patch.object(proof,'run_case') as run_case,patch.object(proof.subprocess,'run') as subprocess_run:
+            with self.assertRaises(ValueError):
+                proof.run_case('executor',proof.policy('inputs','profile','actor.exe',N,required_environment=[]),'profile')
+            run_case.assert_not_called();subprocess_run.assert_not_called()
+    def test_environment_error_and_projection_never_publish_values(self):
+        observed=self.native();observed['LOCALAPPDATA']=r'C:\Users\PRIVATE_SENTINEL\AppData\Local'
+        with self.assertRaises(ValueError) as caught:proof.validate_required_environment(observed,self.native())
+        self.assertNotIn('PRIVATE_SENTINEL',str(caught.exception))
+        result=proof.closed_diagnostics({'required_environment':observed,'controller_phase':'required_environment'})
+        self.assertNotIn('PRIVATE_SENTINEL',json.dumps(result));self.assertEqual(result['controller_phase'],'required_environment')
+
+
+if __name__ == "__main__":
+    unittest.main()

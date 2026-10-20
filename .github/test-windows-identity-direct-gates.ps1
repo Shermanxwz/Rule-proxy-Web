@@ -97,7 +97,64 @@ for row in rows:
     value=m.parse_early_guest(row)
     assert value is not None, "PowerShell wire rejected by host"
     assert value["hresult"]==-2146233087
-print(json.dumps({"actual_powershell_host_wire_records_passed":len(rows),"runtime_acceptance":False}))
+# Execute the actual proof validator on Windows, without launching an actor.
+proof_spec=importlib.util.spec_from_file_location("direct_environment_regression",sys.argv[3])
+proof=importlib.util.module_from_spec(proof_spec);proof_spec.loader.exec_module(proof)
+from pathlib import Path
+native={"SYSTEMROOT":r"C:\Windows", "LOCALAPPDATA":r"C:\Users\FixtureUser\AppData\Local"}
+valid=dict(native)
+expected=["SYSTEMROOT="+valid["SYSTEMROOT"], "LOCALAPPDATA="+valid["LOCALAPPDATA"]]
+assert proof.validate_required_environment(valid,native)==expected
+case_variant={"SYSTEMROOT":r"c:\WINDOWS", "LOCALAPPDATA":r"c:\USERS\FixtureUser\APPDATA\LOCAL"}
+assert len(proof.validate_required_environment(case_variant,native))==2
+invalid=[]
+for key in ("SYSTEMROOT","LOCALAPPDATA"):
+    missing=dict(valid);missing.pop(key);invalid.append((missing,native))
+    for value in ("", "relative", r"C:relative", r"\\server\share", "C:\\bad\x00path"):
+        candidate=dict(valid);candidate[key]=value;invalid.append((candidate,native))
+    mismatch=dict(native);mismatch[key]=r"D:\WrongNative";invalid.append((valid,mismatch))
+extra=dict(valid);extra["PATH"]="PRIVATE_SENTINEL";invalid.append((extra,native))
+for environment,native_paths in invalid:
+    try:
+        proof.validate_required_environment(environment,native_paths)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("invalid synthetic environment accepted")
+required=proof.validate_required_environment(valid,native)
+config=proof.policy(Path("C:/Fixture/inputs"),Path("C:/Fixture/profile"),Path("C:/Fixture/inputs/actor.exe"),"a"*32,required_environment=required)
+assert config["process"]["env"]==expected
+assert config["process"]["inheritDefaultEnv"] is False
+assert config["network"]=={"egress":{"default":"deny"},"ingress":{"default":"deny","hostLoopback":"deny"}}
+assert config["filesystem"]=={"readonlyPaths":[str(Path("C:/Fixture/inputs"))],"readwritePaths":[str(Path("C:/Fixture/profile"))]}
+assert config["ui"]=={"disable":True,"clipboard":"none"}
+assert config["fallback"]=={"allowDaclMutation":False}
+assert "processContainer" not in config and "runtimeConfig" not in config
+for denied in (None, [], required+["PATH=PRIVATE_SENTINEL"]):
+    try:
+        proof.policy(Path("C:/Fixture/inputs"),Path("C:/Fixture/profile"),Path("C:/Fixture/inputs/actor.exe"),"a"*32,required_environment=denied)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("missing or expanded environment accepted")
+# Hosted Server identity/environment is only a read-only diagnostic, never proof
+# of an ordinary Windows client or BaseContainer acceptance. Never print paths.
+runner_environment="rejected"
+runner_environment_error_class="none"
+try:
+    observed=proof.observe_required_environment()
+    if len(observed)==2 and all(type(item) is str for item in observed):
+        runner_environment="validated"
+except Exception as exc:
+    kind=type(exc).__name__
+    runner_environment_error_class=kind if kind in ("PermissionError","ValueError","OSError") else "unclassified"
+print(json.dumps({"actual_powershell_host_wire_records_passed":len(rows),
+    "synthetic_environment_cases_passed":2+len(invalid),
+    "deny_only_policy_unchanged":True,"policy_environment_negatives_passed":3,
+    "runner_environment":runner_environment,"runner_environment_error_class":runner_environment_error_class,
+    "runtime_acceptance":False}))
+if runner_environment != "validated":
+    raise SystemExit(1)
 '@
 $parityPath=Join-Path ([IO.Path]::GetTempPath()) ('ruleproxy-wire-'+[Guid]::NewGuid().ToString('N')+'.py')
 $wirePath=Join-Path ([IO.Path]::GetTempPath()) ('ruleproxy-wire-'+[Guid]::NewGuid().ToString('N')+'.json')
@@ -118,7 +175,7 @@ try {
         if ($wireBytes.Length -eq 0) { throw 'Wire input must not be empty' }
         $wireFile.Write($wireBytes,0,$wireBytes.Length)
     } finally { $wireFile.Dispose() }
-    & python -B $parityPath (Join-Path $PSScriptRoot 'windows_identity_direct_stage0.py') $wirePath
+    & python -B $parityPath (Join-Path $PSScriptRoot 'windows_identity_direct_stage0.py') $wirePath (Join-Path $PSScriptRoot 'windows_identity_proof.py')
     if ($LASTEXITCODE -ne 0) { throw 'PowerShell to host wire parity failed' }
 } finally {
     # Only delete exact paths successfully created by this invocation.

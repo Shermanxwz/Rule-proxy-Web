@@ -3,6 +3,11 @@ from pathlib import Path
 import unittest
 import importlib.util
 import re
+import contextlib
+import io
+import json
+import sys
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 GITHUB = ROOT / '.github'
@@ -81,6 +86,42 @@ class DirectGuestTests(unittest.TestCase):
             self.assertTrue(values.issubset(set(getattr(host, target))))
         gates = re.search(r'\$gates=\[ordered\]@\{(.*?)\}', RUN, re.S).group(1)
         self.assertEqual(set(re.findall(r'(\w+)=\$null', gates)), set(host.EARLY_GATES))
+
+    def test_windows_environment_gate_targets_actual_proof_and_deny_policy(self):
+        for marker in ('proof.validate_required_environment(valid,native)',
+                       'proof.observe_required_environment()',
+                       'required_environment=required',
+                       'config["process"]["inheritDefaultEnv"] is False',
+                       '"hostLoopback":"deny"', '"allowDaclMutation":False',
+                       "'windows_identity_proof.py')"):
+            self.assertIn(marker, GATE)
+        self.assertNotIn('print(observed)', GATE)
+        self.assertNotIn('print(native)', GATE)
+        self.assertIn('if runner_environment != "validated":\n    raise SystemExit(1)', GATE)
+
+    def test_embedded_python_synthetic_environment_cases_execute(self):
+        # Executes real validator/policy with synthetic Windows strings here.
+        # Native Windows observation remains diagnostic, not a local CI claim.
+        embedded = GATE.split("$parityCode=@'", 1)[1].split("\n'@", 1)[0]
+        code = embedded[embedded.index('# Execute the actual proof validator'):]
+        output = io.StringIO()
+        argv = ['test', '', '', str(GITHUB / 'windows_identity_proof.py')]
+        exit_code = 0
+        with patch.object(sys, 'argv', argv), contextlib.redirect_stdout(output):
+            try:
+                exec(compile(code, '<direct-environment-regression>', 'exec'), {'rows':[None]*11, 'sys':sys, 'json':json, 'importlib':__import__('importlib')})
+            except SystemExit as exc:
+                exit_code = exc.code
+        result = json.loads(output.getvalue())
+        self.assertEqual(result['synthetic_environment_cases_passed'], 17)
+        self.assertTrue(result['deny_only_policy_unchanged'])
+        self.assertEqual(result['policy_environment_negatives_passed'], 3)
+        self.assertIn(result['runner_environment_error_class'], ('none', 'PermissionError', 'ValueError', 'OSError', 'unclassified'))
+        self.assertFalse(result['runtime_acceptance'])
+        self.assertIn(result['runner_environment'], ('validated', 'rejected'))
+        self.assertEqual(exit_code, 0 if result['runner_environment'] == 'validated' else 1)
+        self.assertNotIn('FixtureUser', output.getvalue())
+        self.assertNotIn('PRIVATE_SENTINEL', output.getvalue())
 
 
 if __name__ == '__main__': unittest.main()
