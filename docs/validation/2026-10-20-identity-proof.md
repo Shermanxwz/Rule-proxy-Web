@@ -641,3 +641,21 @@ cleanup within this stock trial, not future servicing peak or isolation success.
 Next code work must retain sufficient closed causal probe evidence and bounded
 phase breadcrumbs before another VM attempt. Phased servicing feasibility is
 read-only design work; no new runtime has been authorized by this result.
+
+The next diagnostic-only patch preserves policy, request selection and acceptance
+ASTs. It exports typed probe JSON/exit/API/tier facts and bounded canonical
+reported-error categories, rather than inferring OS capability from a false
+qualification boolean. Pinned upstream has no probe schemaVersion or numeric
+PSEC contract-version field; these are explicitly unavailable. Exit0 can carry
+a detector error, while configuration/load/containment failures can exit1 without
+JSON. These distinctions survive repeated guest-to-host projection.
+
+Launcher phase/HRESULT/Python exit, actor report state, and fixed host operations
+are retained without raw paths, identities or free-text errors. Six bounded
+phase samples record free space, qcow logical/allocated bytes and remaining work
+time. PowerShell JSON depth10 preserves nested types under the unchanged16KiB
+transport cap. Publication remains bounded to first error-envelope detail and
+first two warning summaries with total counts, not exhaustive raw diagnostics.
+All369 local pure tests pass; actual Windows PowerShell parsing/execution awaits
+the existing compile/runtime gates. No servicing, DVD detach, new policy, build,
+resource bound or acceptance relaxation is part of this diagnostic patch.

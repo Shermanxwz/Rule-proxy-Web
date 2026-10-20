@@ -330,19 +330,56 @@ def verify_guest_import_path():
         raise ValueError('isolated embedded Python entrypoint required')
 
 
+GUEST_PHASES = ('not_started', 'import_path', 'proof_import', 'configuration', 'controller', 'report_read', 'completed')
+LAUNCHER_PHASES = ('not_observed', 'configuration', 'identity', 'beacon', 'stock_build', 'claim', 'endpoint',
+    'payload_download', 'payload_hash', 'payload_extract', 'python_hash', 'python_extract',
+    'python_start', 'python_wait', 'report_read', 'report_parse', 'completed', 'transport')
+LAUNCHER_FAILURES = ('none', 'operation_failed', 'identity_gate', 'stock_build_gate', 'endpoint_timeout',
+    'payload_bound', 'payload_overrun', 'payload_incomplete', 'payload_hash', 'python_hash', 'python_not_started',
+    'process_handle_missing', 'python_deadline', 'report_absent', 'report_over_bound', 'report_nonobject', 'report_parse')
+HOST_OPERATIONS = ('preflight', 'iso_download', 'iso_verify', 'payload_build', 'result_server', 'seed_build',
+    'disk_create', 'launch_capacity', 'tpm_start', 'vm_work_budget', 'qemu_start', 'qmp_connect', 'kvm_verify',
+    'guest_wait', 'result_validation', 'cleanup')
+BREADCRUMBS = ('iso_verified', 'media_ready', 'qemu_started', 'guest_beacon', 'result_received', 'cleanup_done')
+
+
+def proof_helpers():
+    return load('identity_stage0_diagnostics', ROOT / '.github/windows_identity_proof.py')
+
+
+def closed_failure(exc):
+    proof = proof_helpers()
+    return {'type': proof._enum(type(exc).__name__, proof.FAILURE_TYPES),
+            'errno': proof._integer(getattr(exc, 'errno', None), -0x80000000),
+            'winerror': proof._integer(getattr(exc, 'winerror', None), -0x80000000)}
+
+
 def project_stage0(raw):
     """No recursive pass-through: a malicious path/nonce/error cannot escape."""
-    checks = raw.get('checks', {})
+    proof = proof_helpers()
+    raw = proof._dict(raw)
+    checks = proof._dict(raw.get('checks'))
     result = {'schema_version': 1, 'stage': 'win11-stock26200.6584-ordinary-deny-only-stage0',
               'network_tested': False, 'product_acceptance': False, 'privacy_qualified': False,
               'psec_cleanup_independently_verified': False,
               'checks': {key: checks.get(key) is True for key in CHECKS},
               'request_supported': checks.get('request_aware_base_container') is True,
-              'stage0_passed': raw.get('stage0_passed') is True and all(checks.get(k) is True for k in CHECKS)}
+              'stage0_passed': raw.get('stage0_passed') is True and all(checks.get(k) is True for k in CHECKS),
+              'diagnostics': proof.closed_diagnostics(raw)}
+    guest = proof._dict(raw.get('guest_diagnostic')); failure = proof._dict(guest.get('failure'))
+    result['guest_diagnostic'] = {'phase': proof._enum(guest.get('phase'), GUEST_PHASES, 'not_started'),
+        'failure': {'type': proof._enum(failure.get('type'), proof.FAILURE_TYPES, 'absent'),
+                    'errno': proof._integer(failure.get('errno'), -0x80000000),
+                    'winerror': proof._integer(failure.get('winerror'), -0x80000000)}}
+    launcher = proof._dict(raw.get('launcher_diagnostic'))
+    result['launcher_diagnostic'] = {'phase': proof._enum(launcher.get('phase'), LAUNCHER_PHASES, 'not_observed'),
+        'failure_category': proof._enum(launcher.get('failure_category'), LAUNCHER_FAILURES, 'none'),
+        'failed': launcher.get('failed') is True, 'hresult': proof._integer(launcher.get('hresult'), -0x80000000),
+        'python_exit_code': proof._integer(launcher.get('python_exit_code'), -0x80000000),
+        'transport_attempt': proof._integer(launcher.get('transport_attempt'), 0, 3)}
     for key in ('actor_sha256',):
         value = raw.get(key)
-        if isinstance(value, str) and DIGEST.fullmatch(value):
-            result[key] = value
+        if isinstance(value, str) and DIGEST.fullmatch(value): result[key] = value
     if type(raw.get('executor_exit_code')) is int and -0x80000000 <= raw['executor_exit_code'] <= 0xffffffff:
         result['executor_exit_code'] = raw['executor_exit_code']
     return result
@@ -365,16 +402,22 @@ def validate_guest(value, actor_digest):
 def guest(args):
     output = args.output
     result = project_stage0({})
+    phase = 'import_path'; options = None
     try:
         verify_guest_import_path()
+        phase = 'proof_import'
         proof = load('identity_stage0_guest', ROOT / '.github/windows_identity_proof.py')
+        phase = 'configuration'
         config = json.loads((ROOT / 'stage0-input.json').read_text())
         work = ROOT / 'private-stage0'
         options = SimpleNamespace(disposable_ci=True, approved_security_test=True,
             executor=ROOT / 'g/wxc-exec.exe', manifest=ROOT / 'g/build-manifest.json',
             actor=ROOT / 'actor.exe', actor_sha256=config['actor_sha256'], work=work, report=work / 'report.json')
+        phase = 'controller'
         code = proof.controller(options)
+        phase = 'report_read'
         raw = proof.smoke.read(options.report)
+        raw['controller_phase'] = options.diagnostic_phase
         result = project_stage0(raw)
         result['harness_completed'] = True
         # A successful controller validates its observed current ordinary token;
@@ -382,11 +425,46 @@ def guest(args):
         identity = raw.get('controller_identity', {})
         result['ordinary_account'] = (identity.get('elevated') is False and identity.get('appcontainer') is False
                                       and identity.get('cid') == 1)
-    except Exception:
+        phase = 'completed'
+    except Exception as exc:
         code = 1
+        prior = getattr(options, 'diagnostic_report', None)
+        if isinstance(prior, dict): result = project_stage0(prior)
+        result['stage0_passed'] = False
         result['harness_completed'] = False
+        result['guest_diagnostic']['failure'] = closed_failure(exc)
+        if options is not None:
+            result['diagnostics']['controller_phase'] = proof_helpers()._enum(
+                getattr(options, 'diagnostic_phase', None), proof_helpers().CONTROLLER_PHASES)
+    result['guest_diagnostic']['phase'] = phase
     output.write_text(json.dumps(result, sort_keys=True), encoding='ascii')
     return code
+
+
+def record_breadcrumb(public, name, work, disk, deadline):
+    """Six fixed samples, no paths; observation is not a quota or peak guarantee."""
+    if name not in BREADCRUMBS: raise ValueError('unknown breadcrumb')
+    rows = public.setdefault('phase_samples', [])
+    if any(row['phase'] == name for row in rows): return
+    row = {'phase': name, 'filesystem_free_bytes': None, 'qcow_size_bytes': None,
+           'qcow_allocated_bytes': None, 'remaining_work_seconds': max(0, int(deadline-time.monotonic())),
+           'filesystem_sample': 'unavailable', 'qcow_sample': 'absent'}
+    try:
+        # After owned work deletion, sample its still-existing filesystem parent.
+        row['filesystem_free_bytes'] = shutil.disk_usage(work if work.exists() else work.parent).free
+        row['filesystem_sample'] = 'observed'
+    except OSError: pass
+    if disk is not None:
+        try:
+            info = disk.lstat()
+            if stat.S_ISREG(info.st_mode):
+                row.update(qcow_size_bytes=info.st_size, qcow_allocated_bytes=info.st_blocks*512, qcow_sample='observed')
+            else: row['qcow_sample'] = 'not_regular'
+        except FileNotFoundError: pass
+        except (OSError, AttributeError): row['qcow_sample'] = 'unavailable'
+    rows.append(row)
+    try: print(json.dumps({'stage0_phase_sample': row}, sort_keys=True), flush=True)
+    except OSError: pass  # Diagnostic transport must not change runtime acceptance.
 
 
 def payload(python_archive, actor, actor_digest, bundle, destination):
@@ -446,13 +524,19 @@ class ClosedHandler(BaseHTTPRequestHandler):
             shutil.copyfileobj(source, self.wfile, 65536)
     def do_POST(self):
         try:
+            self.server.result_transport_state = 'endpoint_check'
             if self.path != '/' + self.server.capability + '/result': raise ValueError()
+            self.server.result_transport_state = 'length_check'
             length = int(self.headers.get('Content-Length', '0'))
             if not 0 < length <= MAX_REPORT: raise ValueError()
+            self.server.result_transport_state = 'body_read'
             raw = self.rfile.read(length)
             if len(raw) != length: raise ValueError()
+            self.server.result_transport_state = 'json_parse'
             value = json.loads(raw)
+            self.server.result_transport_state = 'object_check'
             if not isinstance(value, dict): raise ValueError()
+            self.server.result_transport_state = 'object_received'
             self.server.result = value
             self.server.received.set()
             self.send_response(200); self.end_headers()
@@ -609,7 +693,7 @@ def host(args):
     if re.fullmatch(r'[0-9a-f]{40}', source): public['source_commit'] = source
     public['iso_sha256'] = media.ISO_SHA256
     public['actor_sha256'] = args.actor_sha256
-    phase = 'preflight'
+    phase = 'preflight'; operation = 'preflight'; disk = None
     try:
         media.require_kvm()
         if shutil.disk_usage(work).free < PREMEDIA_FREE:
@@ -620,17 +704,23 @@ def host(args):
         public['premedia_free_bytes'] = shutil.disk_usage(work).free
         phase = 'verified_media_download'
         iso = work / 'official.iso'
+        operation = 'iso_download'
         run_bounded(limited_command(['curl', '--fail', '--location', '--retry', '3', '--proto', '=https',
             '--proto-redir', '=https', '--connect-timeout', '30', '--max-time', '1200',
             '--output', str(iso), media.ISO_URL], media.ISO_BYTES), deadline, 1220, check=True)
+        operation = 'iso_verify'
         if iso.stat().st_size != media.ISO_BYTES or media.digest(iso) != media.ISO_SHA256:
             raise ValueError('ISO provenance failed')
+        record_breadcrumb(public, 'iso_verified', work, disk, deadline)
+        operation = 'payload_build'
         raw = work / 'private-reports'; raw.mkdir()
         package = work / 'payload.zip'
         package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package)
         if package.stat().st_size > MAX_PAYLOAD: raise ValueError('payload size cap')
+        operation = 'result_server'
         server = ClosedServer(package)
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        operation = 'seed_build'
         tree = work / 'seed-tree'; tree.mkdir()
         config = {'host_url': f'http://10.0.2.2:{server.server_address[1]}/{server.capability}',
                   'payload_sha256': package_digest, 'python_sha256': PYTHON_ASSET['sha256'],
@@ -644,25 +734,34 @@ def host(args):
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if seed.stat().st_size > MAX_SEED: raise ValueError('seed cap')
         shutil.rmtree(tree)
+        operation = 'disk_create'
         disk = work / 'windows.qcow2'; nvram = work / 'OVMF_VARS.fd'
         firmware = Path('/usr/share/OVMF'); code = firmware / 'OVMF_CODE_4M.ms.fd'
         shutil.copyfile(firmware / 'OVMF_VARS_4M.ms.fd', nvram)
         run_bounded(limited_command(['qemu-img', 'create', '-f', 'qcow2', '-o', 'preallocation=off', str(disk), '80G'], DISK_FILE_CAP), deadline, 30, check=True, stdout=subprocess.DEVNULL)
+        record_breadcrumb(public, 'media_ready', work, disk, deadline)
         state = work / 'tpm-state'; state.mkdir()
         tpm_socket, qmp_socket, serial = work / 'tpm.sock', work / 'qmp.sock', work / 'serial.log'
         phase = 'stock_guest_installation'
+        operation = 'launch_capacity'
         public['launch_free_bytes'] = shutil.disk_usage(work).free
         public['disk_file_ceiling_bytes'] = DISK_FILE_CAP
         public['reserve_guard_hard_guarantee'] = False
         if public['launch_free_bytes'] < LAUNCH_FREE: raise RuntimeError('launch capacity gate')
         watch = CapacityWatch(work); watch.thread.start()
+        operation = 'tpm_start'
         tpm = subprocess.Popen(limited_command(['swtpm', 'socket', '--tpm2', '--tpmstate', f'dir={state}', '--ctrl', f'type=unixio,path={tpm_socket}'], 8 * 1024**2), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         watch.register(tpm)
         ready = time.monotonic() + 20
         while not tpm_socket.exists():
-            if tpm.poll() is not None or time.monotonic() > ready: raise RuntimeError('TPM failed')
+            stopped = tpm.poll() is not None
+            if stopped or time.monotonic() > ready:
+                public['host_wait_failure'] = 'tpm_exited' if stopped else 'tpm_ready_timeout'
+                raise RuntimeError('TPM failed')
             time.sleep(.1)
+        operation = 'vm_work_budget'
         public['vm_work_seconds_available'] = int(require_vm_work_budget(deadline))
+        operation = 'qemu_start'
         qemu = subprocess.Popen(limited_command(['qemu-system-x86_64', '-machine', 'q35,accel=kvm,smm=on', '-cpu',
             'host,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-time=on', '-m', '6144', '-smp', '4',
             '-global', 'driver=cfi.pflash01,property=secure,value=on',
@@ -675,40 +774,67 @@ def host(args):
             '-device', 'qemu-xhci', '-device', 'usb-tablet', '-vga', 'std', '-display', 'none', '-monitor', 'none',
             '-chardev', 'ringbuf,id=serialbuf,size=65536', '-serial', 'chardev:serialbuf', '-qmp', f'unix:{qmp_socket},server=on,wait=off'], DISK_FILE_CAP),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        record_breadcrumb(public, 'qemu_started', work, disk, deadline)
+        operation = 'qmp_connect'
         watch.register(qemu)
         ready = time.monotonic() + 20
         while qmp is None:
-            if qemu.poll() is not None or time.monotonic() > ready: raise RuntimeError('QEMU failed')
+            stopped = qemu.poll() is not None
+            if stopped or time.monotonic() > ready:
+                public['host_wait_failure'] = 'qemu_exited_before_qmp' if stopped else 'qmp_ready_timeout'
+                raise RuntimeError('QEMU failed')
             try: qmp = media.Qmp(qmp_socket)
             except OSError: time.sleep(.1)
+        operation = 'kvm_verify'
         if qmp.execute('query-kvm').get('enabled') is not True: raise RuntimeError('KVM required')
         qmp.execute('set_link', {'name': 'vmnet', 'up': False})
         if True:  # Original ISO may require its standard press-key prompt.
             for _ in range(8):
                 qmp.execute('send-key', {'keys': [{'type': 'qcode', 'data': 'ret'}], 'hold-time': 100}); time.sleep(2)
+        operation = 'guest_wait'
         plugged = False
         serial_tail = ""
         while not server.received.wait(.2):
             if watch.reason: raise RuntimeError(watch.reason)
             if disk.stat().st_size >= DISK_FILE_CAP - 64 * 1024**2:
                 public['capacity_abort'] = 'backing_file_ceiling_reached'; qemu.kill(); raise RuntimeError('file cap')
-            if qemu.poll() is not None or time.monotonic() > deadline: raise RuntimeError('guest deadline or exit')
+            stopped = qemu.poll() is not None
+            if stopped or time.monotonic() > deadline:
+                public['host_wait_failure'] = 'qemu_exited' if stopped else 'guest_deadline'
+                raise RuntimeError('guest deadline or exit')
             beacon = qmp.execute('ringbuf-read', {'device': 'serialbuf', 'size': 65536})
             serial_tail = (serial_tail + beacon)[-256:]
+            if 'RPBEACON identity-result-transport-failed' in serial_tail:
+                public['guest_result_transport_failed'] = True
             if not plugged and 'RPBEACON identity-ordinary-ready' in serial_tail:
+                record_breadcrumb(public, 'guest_beacon', work, disk, deadline)
                 qmp.execute('set_link', {'name': 'vmnet', 'up': True}); plugged = True
+        record_breadcrumb(public, 'result_received', work, disk, deadline)
+        operation = 'result_validation'
+        # Preserve only closed diagnostics even if provenance validation fails.
+        # These remain explicitly unverified, never acceptance evidence.
+        public['guest_result_provenance_verified'] = False
+        observed = project_stage0(server.result)
+        for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic'):
+            public[key] = observed[key]
         public.update(validate_guest(server.result, args.actor_sha256))
+        public['guest_result_provenance_verified'] = True
         public['status'] = 'passed' if public['stage0_passed'] else 'observed_failure'
         phase = 'stage0_completed'
-    except VMWorkBudgetInsufficient:
+    except VMWorkBudgetInsufficient as exc:
+        public['host_failure'] = dict(closed_failure(exc), operation=operation)
         public['status'] = 'time_budget_insufficient'
-    except (Exception, KeyboardInterrupt):
+    except (Exception, KeyboardInterrupt) as exc:
+        public['host_failure'] = dict(closed_failure(exc), operation=operation)
         public['status'] = 'blocked'
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         # A second cancellation must not interrupt owned-process cleanup.
         for sig in old_handlers: signal.signal(sig, signal.SIG_IGN)
+        if server is not None:
+            public['result_transport_state'] = getattr(server, 'result_transport_state', 'not_observed')
         finalize_owned(public, media, work, qemu, tpm, qmp, server, thread, watch)
+        if public['vm_destroyed']: record_breadcrumb(public, 'cleanup_done', work, disk, deadline)
         public['last_phase'] = phase
         (args.output / 'public-report.json').write_text(json.dumps(public, indent=2) + '\n', encoding='ascii')
         for sig, handler in old_handlers.items(): signal.signal(sig, handler)

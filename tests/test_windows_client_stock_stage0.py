@@ -35,7 +35,8 @@ class StockTests(unittest.TestCase):
         position=source.index("public['vm_work_seconds_available'] = int(require_vm_work_budget(deadline))")
         self.assertGreater(position,source.index('package_digest = payload('))
         self.assertLess(position,source.index("qemu = subprocess.Popen(limited_command(['qemu-system-x86_64'"))
-        self.assertIn("except VMWorkBudgetInsufficient:\n        public['status'] = 'time_budget_insufficient'",source)
+        self.assertIn("except VMWorkBudgetInsufficient as exc:", source)
+        self.assertIn("public['status'] = 'time_budget_insufficient'", source)
     def prep_fixture(self, path, *, baseline=None, phases=1, apt=False):
         baseline=stock.PREMEDIA_FREE+stock.PREP_ALLOWANCE if baseline is None else baseline
         value={'schema_version':1,'allowance_bytes':stock.PREP_ALLOWANCE,
@@ -437,14 +438,15 @@ class StockTests(unittest.TestCase):
                         if name in functions and name not in names:
                             names.add(name); pending.append(name)
             return names,[functions[name] for name in names]
-        proof_names,proof_nodes=reachable(trees['.github/windows_identity_proof.py'],{'controller'})
-        self.assertEqual(proof_names,{'controller','policy','run_case','stage0_checks','actual_tiers'})
+        proof_names,proof_nodes=reachable(trees['.github/windows_identity_proof.py'],{'controller', 'closed_diagnostics'})
+        self.assertEqual(proof_names,{'controller','policy','run_case','stage0_checks','actual_tiers','probe_outcome','detector_error_class','cli_diagnostic','closed_diagnostics','diagnostic_summary',
+            '_dict','_enum','_integer','_boolean','_digest','_known_list','_codes','_fact','_closed_fact'})
         smoke_seeds={'read'}  # Also called directly by the stock guest wrapper.
         for root in proof_nodes:
             for node in ast.walk(root):
                 if (isinstance(node,ast.Attribute) and isinstance(node.value,ast.Name)
                         and node.value.id=='smoke'):
-                    smoke_seeds.add(node.attr)
+                    if node.attr != 'MAX_JSON': smoke_seeds.add(node.attr)
         smoke_names,smoke_nodes=reachable(trees['.github/windows_psec_compartment_smoke.py'],smoke_seeds)
         self.assertEqual(smoke_names,{'read','save','failure','verify_executor','identity_snapshot',
             'base_container_selected','executor_diagnostic','executor_message_summary','executor_error_envelopes'})
@@ -542,6 +544,142 @@ assert not any(root.rglob('__pycache__'))
     def test_limit_applied_before_exec(self):
         c = stock.limited_command(['owned-binary'], 17)
         self.assertEqual(c, ['prlimit', '--fsize=17:17', '--core=0:0', '--', 'owned-binary'])
+    def test_diagnostic_projection_survives_guest_launcher_host_layers_under_cap(self):
+        proof = stock.proof_helpers()
+        summary = {'bytes_observed': 2**31-1, 'inspection_truncated': True,
+            'categories': list(proof.DIAGNOSTIC_CATEGORIES), 'operations': list(proof.DIAGNOSTIC_OPERATIONS),
+            'native_codes': list(range(4294967287, 4294967295)), 'inspected_sha256': 'a'*64,
+            'error_envelope_count': 4, 'error_envelopes': [{'code': 'policy_validation',
+                'message_class': 'psec_environment_attach', 'message_sha256': 'a'*64,
+                'has_extended_error': True, 'extended_error_sha256': 'b'*64,
+                'categories': list(proof.DIAGNOSTIC_CATEGORIES), 'operations': list(proof.DIAGNOSTIC_OPERATIONS),
+                'native_codes': list(range(4294967287, 4294967295))}]}
+        diag = proof.closed_diagnostics({})
+        diag['probe'].update(stdout=summary, stderr=summary, error_summary=summary, warning_summaries=[summary]*2,
+            cli={'classes': list(proof.CLI_CLASSES), 'policy_fields': list(proof.POLICY_FIELDS)},
+            warning_count=131072, warning_nonstring_count=131072, attempted=True, completed=True,
+            outcome='reported_detector_error', error_class='reported_host_loopback_contract_unavailable')
+        diag['execution'].update(stdout=summary, stderr=summary, actual_tiers=list(proof.TIERS),
+            actual_tier_count=8192, unknown_tier_count=8192, actor_reparse_point_observed=True)
+        diag['probe']['facts']={key: {'state':'value','value':False} for key in proof.PROBE_FACTS}
+        diag['probe']['ui_facts']={key: {'state':'value','value':True} for key in proof.UI_FACTS}
+        raw = {'diagnostics': diag, 'checks': {key: True for key in stock.CHECKS}, 'stage0_passed': True,
+               'actor_sha256': 'a'*64, 'executor_exit_code': 4294967295,
+               'launcher_diagnostic': {'phase': 'payload_download', 'failed': True, 'hresult': -2147483648,
+                                       'python_exit_code': 4294967295, 'transport_attempt': 3}}
+        guest = stock.project_stage0(raw)
+        guest.update(ordinary_account=True, stock_build_verified=True, harness_completed=True,
+                     os={'build':26200,'ubr':6584,'product_type':'WinNT','architecture':'AMD64'})
+        # PowerShell's JSON object/array nesting must remain within Depth 10.
+        def nesting(value):
+            if isinstance(value,dict): return 1+max((nesting(v) for v in value.values()),default=0)
+            if isinstance(value,list): return 1+max((nesting(v) for v in value),default=0)
+            return 0
+        self.assertLessEqual(nesting(guest),10)
+        wire = json.dumps(guest)
+        self.assertLessEqual(len(wire), stock.MAX_REPORT)
+        restored=stock.validate_guest(json.loads(wire),'a'*64)
+        self.assertEqual(restored['diagnostics'],guest['diagnostics'])
+        self.assertEqual(stock.project_stage0(restored)['diagnostics'],guest['diagnostics'])
+        self.assertEqual(restored['diagnostics']['probe']['ui_facts'][proof.UI_FACTS[0]], {'state':'value','value':True})
+        ps=(ROOT/'.github/windows-identity-stock-stage0-run.ps1').read_text()
+        self.assertIn('ConvertTo-Json -Depth 10 -Compress',ps)
+        self.assertIn('$body.Length -gt 16384',ps)
+
+    def test_projection_never_exports_malicious_nested_fields(self):
+        secret='SECRET_PATH_SID_PASSWORD'
+        report=stock.project_stage0({'checks':[secret], 'diagnostics': {'probe': {'tier':secret,
+            'cli': {'classes':[secret], 'policy_fields':[secret]}, 'stdout': {'native_codes':[secret],
+            'error_envelopes':[{'code':secret,'message_class':secret,'message_sha256':secret}]}},
+            'execution': {'actual_tiers':[secret]}, 'failure': {'type':secret,'errno':True}},
+            'guest_diagnostic': {'phase':secret,'failure':{'type':secret,'errno':secret}},
+            'launcher_diagnostic': {'phase':secret,'hresult':secret,'python_exit_code':True}})
+        self.assertNotIn(secret,json.dumps(report))
+        self.assertIsNone(report['launcher_diagnostic']['python_exit_code'])
+        self.assertFalse(report['stage0_passed'])
+
+    def test_guest_preserves_probe_facts_after_private_report_read_failure(self):
+        proof=stock.proof_helpers()
+        prior={'probe': {'error':'DACL fallback required but fallback.allowDaclMutation is false'},
+               'probe_attempted':True,'probe_completed':True,'probe_exit_code':0,
+               'probe_outcome':'reported_detector_error','probe_error_class':'reported_dacl_fallback_forbidden'}
+        def controller(options):
+            options.diagnostic_phase='completed'; options.diagnostic_report=prior
+            return 1
+        fake=SimpleNamespace(controller=controller,smoke=SimpleNamespace(read=Mock(side_effect=ValueError('SECRET'))))
+        real_load=stock.load
+        def load(name,path): return fake if name=='identity_stage0_guest' else real_load(name,path)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); (root/'stage0-input.json').write_text(json.dumps({'actor_sha256':'a'*64}))
+            # Only patch the configured input root during read. Pure helper imports
+            # still load from the real fixed source tree.
+            with patch.object(stock,'verify_guest_import_path'),patch.object(stock,'load',side_effect=load), \
+                    patch.object(stock,'proof_helpers',return_value=proof),patch.object(stock,'ROOT',root):
+                self.assertEqual(stock.guest(SimpleNamespace(output=root/'public.json')),1)
+            result=json.loads((root/'public.json').read_text())
+        self.assertEqual(result['guest_diagnostic']['phase'],'report_read')
+        self.assertEqual(result['guest_diagnostic']['failure']['type'],'ValueError')
+        self.assertEqual(result['diagnostics']['probe']['outcome'],'reported_detector_error')
+        self.assertFalse(result['harness_completed']); self.assertFalse(result['stage0_passed'])
+        self.assertNotIn('SECRET',json.dumps(result))
+
+    def test_breadcrumbs_are_fixed_bounded_storage_time_observations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work=Path(directory); disk=work/'private-name.qcow2'; disk.write_bytes(b'x'*1024)
+            public={}
+            observed=SimpleNamespace(st_mode=stat.S_IFREG|0o600,st_size=1024,st_blocks=8)
+            with patch.object(stock.time,'monotonic',return_value=100),patch('builtins.print') as output, \
+                    patch.object(Path,'lstat',return_value=observed):
+                for name in stock.BREADCRUMBS: stock.record_breadcrumb(public,name,work,disk,1900)
+                stock.record_breadcrumb(public,'qemu_started',work,disk,1900)
+                with self.assertRaises(ValueError): stock.record_breadcrumb(public,'SECRET',work,disk,1900)
+            self.assertEqual(len(public['phase_samples']),6); self.assertEqual(output.call_count,6)
+            for row in public['phase_samples']:
+                self.assertEqual(row['qcow_size_bytes'],1024)
+                self.assertEqual(row['qcow_allocated_bytes'],4096)
+                self.assertEqual(row['remaining_work_seconds'],1800)
+            self.assertNotIn(directory,json.dumps(public)); self.assertNotIn('private-name',json.dumps(public))
+
+    def test_breadcrumb_unavailable_measurements_do_not_fabricate_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work=Path(directory)
+            with patch.object(stock.shutil,'disk_usage',side_effect=OSError('SECRET')),patch('builtins.print'):
+                result={}; stock.record_breadcrumb(result,'cleanup_done',work,work/'missing',0)
+            row=result['phase_samples'][0]
+            self.assertIsNone(row['filesystem_free_bytes']); self.assertIsNone(row['qcow_size_bytes'])
+            self.assertEqual(row['filesystem_sample'],'unavailable'); self.assertEqual(row['qcow_sample'],'absent')
+            self.assertEqual(row['remaining_work_seconds'],0)
+
+    def test_host_failure_operations_and_launcher_phases_are_closed_and_covered(self):
+        source=(ROOT/'.github/windows_identity_stock_stage0.py').read_text()
+        tree=ast.parse(source)
+        host=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='host')
+        values={node.value.value for node in ast.walk(host) if isinstance(node,ast.Assign)
+                and any(isinstance(target,ast.Name) and target.id=='operation' for target in node.targets)
+                and isinstance(node.value,ast.Constant)}
+        self.assertEqual(values,set(stock.HOST_OPERATIONS)-{'cleanup'})
+        self.assertIn("for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic'):",source)
+        self.assertLess(source.index("public[key] = observed[key]"),source.index('public.update(validate_guest'))
+        ps=(ROOT/'.github/windows-identity-stock-stage0-run.ps1').read_text()
+        for phase in set(stock.LAUNCHER_PHASES)-{'not_observed','transport'}:
+            self.assertIn("$phase='"+phase+"'",ps)
+        self.assertIn('$hresult=[int]$_.Exception.HResult',ps)
+        for category in stock.LAUNCHER_FAILURES:
+            self.assertIn("$failureCategory='"+category+"'",ps)
+        self.assertIn('RPBEACON identity-result-transport-failed',ps)
+        self.assertIn('RPBEACON identity-result-transport-failed',source)
+
+    def test_result_receiver_retains_closed_failure_stage(self):
+        for body,expected in [(b'{','json_parse'),(b'[]','object_check'),(b'{}','object_received')]:
+            handler=object.__new__(stock.ClosedHandler)
+            handler.server=SimpleNamespace(capability='fixed',received=Mock(),result=None)
+            handler.path='/fixed/result'; handler.headers={'Content-Length':str(len(body))}
+            handler.rfile=io.BytesIO(body); handler.send_error=Mock();handler.send_response=Mock();handler.end_headers=Mock()
+            handler.do_POST()
+            self.assertEqual(handler.server.result_transport_state,expected)
+            if expected=='object_received': handler.server.received.set.assert_called_once()
+            else: handler.server.received.set.assert_not_called()
+
     def test_closed_projection(self):
         r = stock.project_stage0({'secret': '/private/identity', 'stage0_passed': True})
         self.assertNotIn('secret', r); self.assertFalse(r['stage0_passed'])

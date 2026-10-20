@@ -1,11 +1,12 @@
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('windows_identity_proof', ROOT / '.github/windows_identity_proof.py')
@@ -24,6 +25,27 @@ def evidence():
     return dict(nonce=N, probe=probe(), probe_exit_code=0, actual_tiers=['base-container'], executor_exit_code=0,
                 timed_out=False, actor=dict(schemaVersion=1, mode='actor', nonce=N, queriesSucceeded=True, errors=[],
                 tokenIsAppContainer=True, tokenAppContainerSid=SID, tokenElevated=False, isProcessInJob=True, tokenCapabilities=[], pid=123))
+
+def full_probe():
+    value = probe()
+    value['probes'].update({key: True for key in proof.PROBE_FACTS})
+    value['probes']['uiCapabilities'] = {key: True for key in proof.UI_FACTS}
+    value['warnings'] = []
+    return value
+
+
+def probe_process(value=None, *, stdout=None, stderr=b'', returncode=0):
+    if stdout is None:
+        stdout = json.dumps(full_probe() if value is None else value).encode()
+    return subprocess.CompletedProcess([], returncode, stdout, stderr)
+
+
+def checked_result(result):
+    """Supply only the controller's nonce and checks, never repair observations."""
+    result = dict(result, nonce=N)
+    result['checks'] = proof.stage0_checks(result)
+    return result
+
 
 class PolicyTests(unittest.TestCase):
     def test_stage_zero_has_no_proxy_or_network_grants(self):
@@ -72,6 +94,661 @@ class EvidenceTests(unittest.TestCase):
             r=evidence(); r['actor'][key]=val
             with self.subTest(key=key): self.assertFalse(all(proof.stage0_checks(r).values()))
     def test_empty_report_never_passes(self): self.assertFalse(all(proof.stage0_checks({}).values()))
+
+
+class ClosedDiagnosticTests(unittest.TestCase):
+    SECRET = 'PRIVATE_SENTINEL_do_not_publish'
+
+    def project(self, value):
+        return proof.closed_diagnostics(value)
+
+    def test_projection_roundtrip_is_idempotent_and_does_not_mutate_input(self):
+        raw = dict(evidence(), probe=full_probe(), probe_attempted=True, probe_completed=True,
+                   probe_outcome='selected', probe_stdout_state='object', started=True,
+                   executor_outcome='completed', actor_report_state='parsed', controller_phase='completed')
+        raw['checks'] = proof.stage0_checks(raw)
+        original = copy.deepcopy(raw)
+        first = self.project(raw)
+        self.assertEqual(self.project({'diagnostics': first}), first)
+        self.assertEqual(raw, original)
+        self.assertTrue(first['execution']['actor_checks_passed'])
+        self.assertEqual(first['probe']['outcome'], 'selected')
+        self.assertIs(first['numeric_psec_contract_version_available'], False)
+        self.assertIs(first['probe_schema_version_available'], False)
+        self.assertEqual(first['policy_schema_version'], '1.0.0')
+        self.assertEqual(first['required_tier'], 'base-container')
+
+    def test_all_fact_fields_distinguish_missing_false_and_wrong_type(self):
+        for field in proof.PROBE_FACTS:
+            for state, value in (('missing', None), ('wrong_type', 0), ('wrong_type', 1),
+                                 ('wrong_type', 'false'), ('wrong_type', {}), ('wrong_type', None),
+                                 ('value', False), ('value', True)):
+                wire = full_probe()
+                if state == 'missing':
+                    del wire['probes'][field]
+                else:
+                    wire['probes'][field] = value
+                with self.subTest(field=field, state=state, value=value):
+                    fact = self.project({'probe': wire})['probe']['facts'][field]
+                    self.assertEqual(fact, {'state': state, 'value': value if state == 'value' else None})
+
+    def test_all_ui_fact_fields_distinguish_missing_false_and_wrong_type(self):
+        for field in proof.UI_FACTS:
+            for state, value in (('missing', None), ('wrong_type', 0), ('wrong_type', 1),
+                                 ('wrong_type', 'true'), ('wrong_type', []), ('wrong_type', None),
+                                 ('value', False), ('value', True)):
+                wire = full_probe()
+                if state == 'missing':
+                    del wire['probes']['uiCapabilities'][field]
+                else:
+                    wire['probes']['uiCapabilities'][field] = value
+                with self.subTest(field=field, state=state, value=value):
+                    fact = self.project({'probe': wire})['probe']['ui_facts'][field]
+                    self.assertEqual(fact, {'state': state, 'value': value if state == 'value' else None})
+
+    def test_missing_or_wrong_type_containers_do_not_invent_false_facts(self):
+        for present, value, state in ((False, None, 'missing'), (True, None, 'wrong_type'),
+                                      (True, [], 'wrong_type'), (True, False, 'wrong_type'),
+                                      (True, {}, 'object')):
+            wire = full_probe()
+            if present:
+                wire['probes'] = value
+            else:
+                del wire['probes']
+            with self.subTest(container='probes', value=value, present=present):
+                actual = self.project({'probe': wire})['probe']
+                self.assertEqual(actual['probes_state'], state)
+                self.assertEqual(actual['ui_state'], 'missing')
+                self.assertTrue(all(fact == {'state': 'missing', 'value': None}
+                                    for fact in actual['facts'].values()))
+            wire = full_probe()
+            if present:
+                wire['probes']['uiCapabilities'] = value
+            else:
+                del wire['probes']['uiCapabilities']
+            with self.subTest(container='uiCapabilities', value=value, present=present):
+                actual = self.project({'probe': wire})['probe']
+                self.assertEqual(actual['ui_state'], state)
+                self.assertTrue(all(fact == {'state': 'missing', 'value': None}
+                                    for fact in actual['ui_facts'].values()))
+
+    def test_dacl_fact_and_tier_are_closed_observations(self):
+        for present, value, state in ((False, None, 'missing'), (True, None, 'wrong_type'),
+                                      (True, 0, 'wrong_type'), (True, False, 'value'),
+                                      (True, True, 'value')):
+            wire = full_probe()
+            if present:
+                wire['needsDaclAugmentation'] = value
+            else:
+                del wire['needsDaclAugmentation']
+            with self.subTest(value=value, present=present):
+                self.assertEqual(self.project({'probe': wire})['probe']['needs_dacl_augmentation'],
+                                 {'state': state, 'value': value if state == 'value' else None})
+        for present, value, state, tier in ((False, None, 'missing', 'not_observed'),
+                (True, None, 'wrong_type', 'not_observed'),
+                (True, [], 'wrong_type', 'not_observed'),
+                (True, self.SECRET, 'unknown', 'not_observed'),
+                (True, 'appcontainer-bfs', 'known', 'appcontainer-bfs')):
+            wire = full_probe()
+            if present:
+                wire['tier'] = value
+            else:
+                del wire['tier']
+            with self.subTest(tier=value, present=present):
+                actual = self.project({'probe': wire})['probe']
+                self.assertEqual((actual['tier_state'], actual['tier']), (state, tier))
+
+    def test_warning_shapes_counts_and_summaries_are_bounded(self):
+        for present, value, state, count, nonstrings in (
+                (False, None, 'missing', None, None), (True, None, 'wrong_type', None, None),
+                (True, self.SECRET, 'wrong_type', None, None), (True, [], 'array', 0, 0),
+                (True, [self.SECRET, None, False, 0, {}], 'array', 5, 4)):
+            wire = full_probe()
+            if present:
+                wire['warnings'] = value
+            else:
+                del wire['warnings']
+            summaries = [proof.smoke.executor_diagnostic(self.SECRET.encode())] * 12
+            with self.subTest(value=value, present=present):
+                actual = self.project({'probe': wire, 'probe_warning_diagnostics': summaries})['probe']
+                self.assertEqual((actual['warnings_state'], actual['warning_count'],
+                                  actual['warning_nonstring_count']), (state, count, nonstrings))
+                self.assertEqual(len(actual['warning_summaries']), 2)
+                self.assertNotIn(self.SECRET, json.dumps(actual))
+
+    def test_detector_errors_have_only_safe_classes(self):
+        cases = [(value, expected) for value, expected in proof.DETECTOR_ERRORS.items()]
+        cases += [('WRITE_DAC unavailable on path C:\\' + self.SECRET, 'reported_write_dac_unavailable'),
+                  ('Could not resolve Windows system directory: ' + self.SECRET, 'reported_system_directory_failure'),
+                  (self.SECRET, 'unclassified'), ('', 'unclassified'), (None, 'absent'),
+                  (False, 'wrong_type'), ({'message': self.SECRET}, 'wrong_type')]
+        for value, expected in cases:
+            with self.subTest(expected=expected, value=value):
+                self.assertEqual(proof.detector_error_class(value), expected)
+
+    def test_cli_keeps_static_fieldpaths_and_categories_not_user_values(self):
+        raw = ('Error: failed to load probe config ' + self.SECRET + '\n'
+               'Invalid JSON syntax: ' + self.SECRET + '\n'
+               'Invalid configuration at `filesystem.readonlyPaths[12]`: ' + self.SECRET + '\n'
+               'Invalid configuration at `process.env[3]`: ' + self.SECRET + '\n'
+               'Invalid configuration at `process.env[17]`: duplicate\n'
+               'Invalid configuration at `process.env[' + self.SECRET + ']`: not static\n'
+               'Invalid configuration at `' + self.SECRET + '`: private\n'
+               'Invalid configuration: ' + self.SECRET + '\n'
+               'Unable to read JSON configuration: ' + self.SECRET + '\n'
+               'Error: request-aware probe supports only ProcessContainer containment; got ' + self.SECRET + '\n'
+               'Error: probe serialization failed: ' + self.SECRET).encode()
+        actual = proof.cli_diagnostic(raw)
+        self.assertEqual(actual['classes'], list(proof.CLI_CLASSES))
+        self.assertEqual(actual['policy_fields'], ['filesystem.readonlyPaths[]', 'process.env[]'])
+        self.assertNotIn(self.SECRET, json.dumps(actual))
+        self.assertEqual(proof.cli_diagnostic(b'x' * 65536 + raw), {'classes': [], 'policy_fields': []})
+
+    def test_untrusted_nested_projection_cannot_export_raw_values_or_extra_fields(self):
+        bad_summary = {
+            'bytes_observed': self.SECRET, 'inspection_truncated': self.SECRET,
+            'categories': [self.SECRET, 'permission', 'permission'],
+            'operations': ['CreateProcessW', self.SECRET], 'native_codes': [True, '5', '0x80070005', self.SECRET],
+            'inspected_sha256': self.SECRET, 'error_envelope_count': 900,
+            'error_envelopes': [{'code': self.SECRET, 'message_class': self.SECRET,
+                'message_sha256': self.SECRET, 'message': self.SECRET, 'extended_error': self.SECRET,
+                'has_extended_error': self.SECRET, 'extended_error_sha256': self.SECRET,
+                'categories': [self.SECRET, 'psec'], 'operations': [self.SECRET, 'ResumeThread'],
+                'native_codes': [False, '-1', self.SECRET], 'path': self.SECRET}] * 10,
+            'raw': self.SECRET}
+        candidate = {'controller_phase': self.SECRET, 'failure_phase': self.SECRET,
+            'failure': {'type': self.SECRET, 'winerror': self.SECRET, 'errno': True, 'detail': self.SECRET},
+            'probe': {'attempted': self.SECRET, 'completed': 1, 'outcome': self.SECRET,
+                'exit_code': True, 'tier': self.SECRET, 'tier_state': self.SECRET,
+                'stdout_state': self.SECRET, 'probes_state': self.SECRET, 'ui_state': self.SECRET,
+                'needs_dacl_augmentation': {'state': 'value', 'value': self.SECRET},
+                'facts': {key: {'state': 'value', 'value': self.SECRET} for key in proof.PROBE_FACTS},
+                'ui_facts': {key: {'state': self.SECRET, 'value': self.SECRET} for key in proof.UI_FACTS},
+                'error_present': self.SECRET, 'error_class': self.SECRET, 'error_summary': bad_summary,
+                'warnings_state': self.SECRET, 'warning_count': True, 'warning_nonstring_count': -1,
+                'warning_summaries': [bad_summary] * 20, 'stdout': bad_summary, 'stderr': bad_summary,
+                'cli': {'classes': [self.SECRET, 'reported_configuration'],
+                        'policy_fields': [self.SECRET, 'process.commandLine']}, 'raw': self.SECRET},
+            'execution': {'launch_attempted': self.SECRET, 'outcome': self.SECRET, 'exit_code': False,
+                'timed_out': self.SECRET, 'actual_tier_count': True, 'actual_tiers': [self.SECRET, 'base-container'],
+                'unknown_tier_count': -1, 'actor_report_state': self.SECRET, 'actor_checks_passed': self.SECRET,
+                'stdout': bad_summary, 'stderr': bad_summary, 'actor': self.SECRET}, 'raw': self.SECRET}
+        raw = {'diagnostics': candidate, 'hostname': self.SECRET, 'sid': self.SECRET,
+               'nonce': self.SECRET, 'path': self.SECRET, 'actor': self.SECRET}
+        before = copy.deepcopy(raw)
+        actual = self.project(raw)
+        self.assertNotIn(self.SECRET, json.dumps(actual))
+        self.assertEqual(raw, before)
+        self.assertEqual(self.project({'diagnostics': actual}), actual)
+        summary = actual['probe']['error_summary']
+        self.assertEqual(summary['categories'], ['permission'])
+        self.assertEqual(summary['operations'], ['CreateProcessW'])
+        self.assertEqual(summary['native_codes'], [5, 0x80070005])
+        self.assertEqual(summary['error_envelope_count'], 4)
+        self.assertEqual(len(summary['error_envelopes']), 1)
+        self.assertEqual(len(actual['probe']['warning_summaries']), 2)
+        self.assertFalse(actual['probe']['attempted'])
+        self.assertFalse(actual['probe']['completed'])
+        self.assertIsNone(actual['probe']['exit_code'])
+        self.assertIsNone(actual['execution']['exit_code'])
+        self.assertIsNone(actual['execution']['timed_out'])
+
+    def test_diagnostic_summary_bounds_numeric_codes_and_digests(self):
+        actual = proof.diagnostic_summary({'bytes_observed': 0, 'inspected_sha256': 'a' * 64,
+            'native_codes': [-0x80000000, 0xffffffff, -0x80000001, 0x100000000, True, '0x80070005', '5', '-1', '6'],
+            'error_envelopes': []})
+        self.assertEqual(actual['native_codes'], [-0x80000000, -1, 5, 0x80070005, 0xffffffff])
+        self.assertEqual(actual['inspected_sha256'], 'a' * 64)
+        self.assertEqual(actual['bytes_observed'], 0)
+        for value in (True, -1, 2**31, '123', None):
+            with self.subTest(value=value):
+                self.assertIsNone(proof.diagnostic_summary({'bytes_observed': value})['bytes_observed'])
+        for value in ('A' * 64, 'a' * 63, 'a' * 65, 'a' * 64 + '\n', self.SECRET):
+            with self.subTest(digest=value):
+                self.assertIsNone(proof.diagnostic_summary({'inspected_sha256': value})['inspected_sha256'])
+
+    def test_duplicate_and_unknown_tiers_keep_counts_not_private_names(self):
+        actual = self.project({'actual_tiers': ['base-container', 'base-container', self.SECRET,
+                                               None, 'appcontainer-dacl']})['execution']
+        self.assertEqual(actual['actual_tier_count'], 5)
+        self.assertEqual(actual['unknown_tier_count'], 2)
+        self.assertEqual(actual['actual_tiers'], ['base-container', 'appcontainer-dacl'])
+        self.assertNotIn(self.SECRET, json.dumps(actual))
+
+    def test_diagnostic_fields_cannot_change_existing_acceptance_or_policy(self):
+        original = evidence()
+        baseline_checks = proof.stage0_checks(original)
+        baseline_policy = proof.policy('inputs', 'profile', 'actor.exe', N)
+        for diagnostics in ({}, {'execution': {'actor_checks_passed': True}},
+                            {'probe': {'outcome': 'selected'}}, self.SECRET):
+            report = dict(original, diagnostics=diagnostics)
+            self.project(report)
+            with self.subTest(diagnostics=diagnostics):
+                self.assertEqual(proof.stage0_checks(report), baseline_checks)
+                report['actual_tiers'] = ['appcontainer-bfs']
+                self.assertFalse(proof.stage0_checks(report)['actual_base_container'])
+        self.assertEqual(proof.policy('inputs', 'profile', 'actor.exe', N), baseline_policy)
+
+    def test_optional_diagnostic_facts_are_not_added_to_acceptance_gate(self):
+        for value in (None, False, 0, self.SECRET):
+            wire = full_probe()
+            for field in proof.PROBE_FACTS:
+                if field != 'baseContainerApiPresent':
+                    wire['probes'][field] = value
+            wire['probes']['uiCapabilities'] = {key: value for key in proof.UI_FACTS}
+            with self.subTest(value=value):
+                self.assertTrue(all(proof.stage0_checks(dict(evidence(), probe=wire)).values()))
+        self.assertTrue(all(proof.stage0_checks(evidence()).values()))
+
+    def test_reparse_observation_is_nullable_and_not_an_acceptance_claim(self):
+        for value in (True, False, None, 0, 1, self.SECRET):
+            with self.subTest(value=value):
+                actual = self.project({'actor_reparse_point_observed': value})['execution']
+                self.assertIs(actual['actor_reparse_point_observed'], value if type(value) is bool else None)
+                self.assertFalse(actual['actor_checks_passed'])
+                self.assertFalse(actual['launch_attempted'])
+                self.assertNotIn(self.SECRET, json.dumps(actual))
+
+    def test_wrong_type_nested_diagnostics_are_rebuilt_fail_closed(self):
+        for value in (None, [], False, 1, self.SECRET):
+            candidate = {'probe': value, 'execution': value, 'failure': value}
+            with self.subTest(value=value):
+                actual = self.project({'diagnostics': candidate})
+                self.assertEqual(self.project({'diagnostics': actual}), actual)
+                self.assertFalse(actual['probe']['attempted'])
+                self.assertFalse(actual['execution']['actor_checks_passed'])
+                self.assertNotIn(self.SECRET, json.dumps(actual))
+
+
+class ProbeDiagnosticRunnerTests(unittest.TestCase):
+    def run_probe(self, completed):
+        runner = Mock(return_value=completed)
+        with tempfile.TemporaryDirectory() as directory:
+            result = proof.run_case('executor.exe', {}, directory, runner=runner)
+        return result, runner
+
+    def assert_closed_probe(self, result, expected):
+        projected = proof.closed_diagnostics(result)['probe']
+        self.assertEqual(result['probe_outcome'], expected)
+        self.assertEqual(projected['outcome'], expected)
+        return projected
+
+    def test_probe_failure_outcomes_are_distinct_and_never_execute_actor(self):
+        cases = [('nonzero_exit', probe_process(returncode=7)),
+                 ('invalid_json', probe_process(stdout=b'not json')),
+                 ('invalid_json', probe_process(stdout=b'\xff')),
+                 ('non_object', probe_process(stdout=b'[]')),
+                 ('non_object', probe_process(stdout=b'null')),
+                 ('non_object', probe_process(stdout=b'false')),
+                 ('output_over_bound', probe_process(stdout=b' ' * (proof.MAX_OUTPUT + 1))),
+                 ('reported_detector_error', probe_process(dict(full_probe(), error='detector failed'))),
+                 ('reported_detector_error', probe_process(dict(full_probe(), error=''))),
+                 ('invalid_required_fact', probe_process(dict(full_probe(), error=0))),
+                 ('invalid_required_fact', probe_process(dict(full_probe(), error=False))),
+                 ('alternate_tier', probe_process(dict(full_probe(), tier='appcontainer-bfs'))),
+                 ('alternate_tier', probe_process(dict(full_probe(), tier='appcontainer-dacl'))),
+                 ('unknown_tier', probe_process(dict(full_probe(), tier='private-unrecognized-tier'))),
+                 ('dacl_required', probe_process(dict(full_probe(), needsDaclAugmentation=True)))]
+        api_false = full_probe()
+        api_false['probes']['baseContainerApiPresent'] = False
+        cases.append(('api_not_observed', probe_process(api_false)))
+        for expected, completed in cases:
+            with self.subTest(expected=expected, stdout=completed.stdout[:120]):
+                result, runner = self.run_probe(completed)
+                self.assert_closed_probe(result, expected)
+                self.assertFalse(result['started'])
+                self.assertEqual(runner.call_count, 1)
+                self.assertTrue(result['probe_attempted'])
+                self.assertTrue(result['probe_completed'])
+                self.assertEqual(result['probe_exit_code'], completed.returncode)
+                self.assertNotIn('executor_exit_code', result)
+                self.assertEqual(result['actor_report_state'], 'not_reached')
+                self.assertFalse(all(proof.stage0_checks(result).values()))
+
+    def test_invalid_required_probe_fields_remain_fail_closed(self):
+        cases = []
+        for field in ('tier', 'needsDaclAugmentation', 'probes'):
+            for value in (None, 0, [], 'wrong type'):
+                wire = full_probe()
+                wire[field] = value
+                cases.append((field, value, wire))
+            wire = full_probe()
+            del wire[field]
+            cases.append((field, 'missing', wire))
+        for value in (None, 0, 1, 'true', []):
+            wire = full_probe()
+            wire['probes']['baseContainerApiPresent'] = value
+            cases.append(('baseContainerApiPresent', value, wire))
+        wire = full_probe()
+        del wire['probes']['baseContainerApiPresent']
+        cases.append(('baseContainerApiPresent', 'missing', wire))
+        for field, value, wire in cases:
+            with self.subTest(field=field, value=value):
+                result, runner = self.run_probe(probe_process(wire))
+                expected = 'unknown_tier' if field == 'tier' and value == 'wrong type' else 'invalid_required_fact'
+                self.assert_closed_probe(result, expected)
+                self.assertFalse(result['started'])
+                self.assertEqual(runner.call_count, 1)
+
+    def test_probe_nonzero_exit_has_priority_but_retains_parsed_detector_facts(self):
+        wire = full_probe()
+        wire.update(tier='appcontainer-dacl', error='WRITE_DAC unavailable on path PRIVATE_SENTINEL')
+        result, runner = self.run_probe(probe_process(wire, returncode=9,
+            stderr=b'Invalid configuration at `process.env[2]`: PRIVATE_SENTINEL'))
+        projected = self.assert_closed_probe(result, 'nonzero_exit')
+        self.assertEqual(projected['tier'], 'appcontainer-dacl')
+        self.assertEqual(projected['error_class'], 'reported_write_dac_unavailable')
+        self.assertTrue(projected['error_present'])
+        self.assertEqual(projected['cli']['policy_fields'], ['process.env[]'])
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(proof.closed_diagnostics(result)))
+        self.assertEqual(runner.call_count, 1)
+
+    def test_probe_timeout_spawn_and_invocation_failure_are_distinct(self):
+        for error, expected in ((subprocess.TimeoutExpired(['executor.exe'], 30), 'timed_out'),
+                                (FileNotFoundError(2, 'PRIVATE_SENTINEL'), 'spawn_failed'),
+                                (PermissionError(13, 'PRIVATE_SENTINEL'), 'spawn_failed'),
+                                (RuntimeError('PRIVATE_SENTINEL'), 'invocation_failed')):
+            runner = Mock(side_effect=error)
+            with self.subTest(expected=expected, error=type(error).__name__), tempfile.TemporaryDirectory() as directory:
+                result = proof.run_case('executor.exe', {}, directory, runner=runner)
+                projected = self.assert_closed_probe(result, expected)
+                self.assertTrue(projected['attempted'])
+                self.assertFalse(projected['completed'])
+                self.assertEqual(result['failure_phase'], 'probe_invocation')
+                self.assertEqual(result['error']['type'], type(error).__name__)
+                self.assertFalse(result['started'])
+                self.assertEqual(runner.call_count, 1)
+                self.assertNotIn('PRIVATE_SENTINEL', json.dumps(proof.closed_diagnostics(result)))
+
+    def test_probe_timeout_preserves_bounded_partial_diagnostics_without_parsing_as_success(self):
+        stdout = json.dumps(full_probe()).encode() + b' ' * proof.MAX_OUTPUT
+        stderr = (b'Invalid configuration at `process.env[7]`: PRIVATE_SENTINEL '
+                  b'CreateProcessW WINERROR 5\n' + b'x' * proof.MAX_OUTPUT)
+        runner = Mock(side_effect=subprocess.TimeoutExpired(['executor.exe'], 30, output=stdout, stderr=stderr))
+        with tempfile.TemporaryDirectory() as directory:
+            result = proof.run_case('executor.exe', {}, directory, runner=runner)
+        actual = self.assert_closed_probe(result, 'timed_out')
+        self.assertTrue(actual['attempted'])
+        self.assertFalse(actual['completed'])
+        self.assertIsNone(actual['exit_code'])
+        self.assertEqual(actual['stdout_state'], 'not_observed')
+        self.assertEqual(actual['tier'], 'not_observed')
+        self.assertEqual(actual['stdout']['bytes_observed'], len(stdout))
+        self.assertEqual(actual['stderr']['bytes_observed'], len(stderr))
+        self.assertTrue(actual['stdout']['inspection_truncated'])
+        self.assertTrue(actual['stderr']['inspection_truncated'])
+        self.assertEqual(actual['stdout']['inspected_sha256'], hashlib.sha256(stdout[:65536]).hexdigest())
+        self.assertEqual(actual['stderr']['inspected_sha256'], hashlib.sha256(stderr[:65536]).hexdigest())
+        self.assertEqual(actual['stderr']['operations'], ['CreateProcessW'])
+        self.assertEqual(actual['stderr']['native_codes'], [5])
+        self.assertEqual(actual['cli']['policy_fields'], ['process.env[]'])
+        self.assertEqual(actual['cli']['classes'], ['reported_typed_configuration'])
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(proof.closed_diagnostics(result)))
+        self.assertFalse(result['started'])
+        self.assertNotIn('probe', result)
+        self.assertEqual(runner.call_count, 1)
+        self.assertFalse(all(proof.stage0_checks(result).values()))
+
+    def test_probe_timeout_ignores_unexpected_partial_stream_types(self):
+        for stdout, stderr in ((None, None), ('PRIVATE_SENTINEL', 'PRIVATE_SENTINEL'), ([], {})):
+            runner = Mock(side_effect=subprocess.TimeoutExpired(['executor.exe'], 30, output=stdout, stderr=stderr))
+            with self.subTest(stdout=stdout, stderr=stderr), tempfile.TemporaryDirectory() as directory:
+                result = proof.run_case('executor.exe', {}, directory, runner=runner)
+                actual = self.assert_closed_probe(result, 'timed_out')
+                self.assertIsNone(actual['stdout']['bytes_observed'])
+                self.assertIsNone(actual['stderr']['bytes_observed'])
+                self.assertEqual(actual['cli'], {'classes': [], 'policy_fields': []})
+                self.assertNotIn('PRIVATE_SENTINEL', json.dumps(proof.closed_diagnostics(result)))
+                self.assertFalse(result['started'])
+                self.assertEqual(runner.call_count, 1)
+
+    def test_policy_write_failure_never_attempts_probe(self):
+        runner = Mock()
+        with tempfile.TemporaryDirectory() as directory, patch.object(proof.smoke, 'save',
+                side_effect=PermissionError(13, 'PRIVATE_SENTINEL')):
+            result = proof.run_case('executor.exe', {}, directory, runner=runner)
+        self.assert_closed_probe(result, 'not_attempted')
+        self.assertFalse(result['probe_attempted'])
+        self.assertFalse(result['started'])
+        self.assertEqual(result['failure_phase'], 'policy_write')
+        self.assertEqual(proof.closed_diagnostics(result)['failure']['type'], 'PermissionError')
+        runner.assert_not_called()
+
+    def test_exact_probe_output_bound_is_parsed_but_overbound_is_not(self):
+        base = json.dumps(dict(full_probe(), tier='appcontainer-bfs')).encode()
+        for size in (proof.MAX_OUTPUT, proof.MAX_OUTPUT + 1):
+            completed = probe_process(stdout=base + b' ' * (size - len(base)))
+            with self.subTest(size=size):
+                result, runner = self.run_probe(completed)
+                projected = proof.closed_diagnostics(result)['probe']
+                self.assertEqual(result['probe_stdout_state'], 'object' if size == proof.MAX_OUTPUT else 'output_over_bound')
+                self.assertEqual(projected['stdout']['bytes_observed'], size)
+                self.assertTrue(projected['stdout']['inspection_truncated'])
+                self.assertEqual(projected['stdout']['inspected_sha256'],
+                                 hashlib.sha256(completed.stdout[:65536]).hexdigest())
+                self.assertEqual(runner.call_count, 1)
+
+
+class ExecutorDiagnosticRunnerTests(unittest.TestCase):
+    def run_execution(self, directory, *, actor=None, actor_bytes=None, error=None, exit_code=0,
+                      stdout=b'', stderr=b'selected isolation tier: base-container\n'):
+        def run(args, **kwargs):
+            if '--probe' in args:
+                return probe_process()
+            kwargs['stdout'].write(stdout)
+            kwargs['stderr'].write(stderr)
+            if actor is not None:
+                (Path(directory) / 'actor.json').write_text(json.dumps(actor))
+            elif actor_bytes is not None:
+                (Path(directory) / 'actor.json').write_bytes(actor_bytes)
+            if error is not None:
+                raise error
+            return subprocess.CompletedProcess(args, exit_code)
+        runner = Mock(side_effect=run)
+        result = proof.run_case('executor.exe', {}, directory, runner=runner)
+        self.assertEqual(runner.call_count, 2)
+        return checked_result(result)
+
+    def test_success_retains_complete_evidence_without_inventing_contract_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_execution(directory, actor=evidence()['actor'])
+        actual = proof.closed_diagnostics(result)
+        self.assertTrue(all(result['checks'].values()))
+        self.assertEqual(actual['execution']['outcome'], 'completed')
+        self.assertEqual(actual['execution']['actor_report_state'], 'parsed')
+        self.assertTrue(actual['execution']['actor_checks_passed'])
+        self.assertEqual(actual['execution']['actual_tiers'], ['base-container'])
+        self.assertFalse(actual['numeric_psec_contract_version_available'])
+        self.assertFalse(actual['probe_schema_version_available'])
+
+    def test_output_open_failure_retains_probe_without_claiming_launch(self):
+        for filename in ('executor.stdout', 'executor.stderr'):
+            runner = Mock(return_value=probe_process())
+            with self.subTest(filename=filename), tempfile.TemporaryDirectory() as directory:
+                (Path(directory) / filename).write_bytes(b'already owned')
+                result = proof.run_case('executor.exe', {}, directory, runner=runner)
+                actual = proof.closed_diagnostics(result)
+                self.assertEqual(result['failure_phase'], 'executor_output_open')
+                self.assertEqual(actual['failure']['type'], 'FileExistsError')
+                self.assertEqual(actual['probe']['outcome'], 'selected')
+                self.assertTrue(actual['probe']['completed'])
+                self.assertFalse(actual['execution']['launch_attempted'])
+                self.assertEqual(actual['execution']['outcome'], 'not_attempted')
+                self.assertEqual(actual['execution']['actor_report_state'], 'not_reached')
+                self.assertEqual(runner.call_count, 1)
+                self.assertEqual((Path(directory) / filename).read_bytes(), b'already owned')
+
+    def test_executor_exception_retains_outputs_tier_and_actor_observations(self):
+        payload = b'PRIVATE_SENTINEL CreateProcessW WINERROR 5\n'
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_execution(directory, actor=evidence()['actor'], stdout=payload,
+                                        error=PermissionError(13, 'PRIVATE_SENTINEL'))
+        actual = proof.closed_diagnostics(result)
+        self.assertEqual(result['failure_phase'], 'executor_invocation')
+        self.assertEqual(actual['probe']['outcome'], 'selected')
+        self.assertEqual(actual['execution']['outcome'], 'launch_failed')
+        self.assertTrue(actual['execution']['launch_attempted'])
+        self.assertEqual(actual['execution']['stdout']['bytes_observed'], len(payload))
+        self.assertEqual(actual['execution']['stdout']['native_codes'], [5])
+        self.assertEqual(actual['execution']['stdout']['operations'], ['CreateProcessW'])
+        self.assertEqual(actual['execution']['actual_tiers'], ['base-container'])
+        self.assertEqual(actual['execution']['actor_report_state'], 'parsed')
+        self.assertTrue(actual['execution']['actor_checks_passed'])
+        self.assertFalse(result['checks']['normal_exit'])
+        self.assertFalse(result['checks']['no_harness_error'])
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(actual))
+
+    def test_executor_timeout_retains_partial_outputs_and_actor_evidence(self):
+        payload = b'PRIVATE_SENTINEL ResumeThread ERROR 5\n'
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_execution(directory, actor=evidence()['actor'], stdout=payload,
+                                        error=subprocess.TimeoutExpired(['executor.exe'], 35))
+        actual = proof.closed_diagnostics(result)
+        self.assertEqual(actual['probe']['outcome'], 'selected')
+        self.assertEqual(actual['execution']['outcome'], 'timed_out')
+        self.assertTrue(actual['execution']['launch_attempted'])
+        self.assertTrue(actual['execution']['timed_out'])
+        self.assertIsNone(actual['execution']['exit_code'])
+        self.assertEqual(actual['execution']['stdout']['bytes_observed'], len(payload))
+        self.assertEqual(actual['execution']['actual_tiers'], ['base-container'])
+        self.assertEqual(actual['execution']['actor_report_state'], 'parsed')
+        self.assertTrue(actual['execution']['actor_checks_passed'])
+        self.assertFalse(result['checks']['normal_exit'])
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(actual))
+
+    def test_nonzero_executor_exit_keeps_valid_actor_but_never_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_execution(directory, actor=evidence()['actor'], exit_code=0xc0000005)
+        actual = proof.closed_diagnostics(result)
+        self.assertEqual(actual['execution']['exit_code'], 0xc0000005)
+        self.assertEqual(actual['execution']['outcome'], 'completed')
+        self.assertTrue(actual['execution']['actor_checks_passed'])
+        self.assertFalse(all(result['checks'].values()))
+
+    def test_actor_states_are_distinct_and_fail_closed(self):
+        cases = [('absent', None), ('over_bound', b' ' * (proof.smoke.MAX_JSON + 1)),
+                 ('malformed_json', b'{invalid'), ('malformed_json', b'\xff'),
+                 ('non_object', b'[]'), ('non_object', b'null'), ('non_object', b'false')]
+        for state, data in cases:
+            with self.subTest(state=state, data=data[:20] if data else data), tempfile.TemporaryDirectory() as directory:
+                result = self.run_execution(directory, actor_bytes=data)
+                actual = proof.closed_diagnostics(result)
+                self.assertEqual(result['actor_report_state'], state)
+                self.assertEqual(actual['execution']['actor_report_state'], state)
+                self.assertFalse(actual['execution']['actor_checks_passed'])
+                self.assertEqual(actual['probe']['outcome'], 'selected')
+                self.assertEqual(actual['execution']['actual_tiers'], ['base-container'])
+                self.assertNotIn('actor', result)
+                self.assertFalse(all(result['checks'].values()))
+                if state != 'absent':
+                    self.assertEqual(result['failure_phase'], 'actor_read')
+
+    def test_actor_link_is_not_opened_or_accepted(self):
+        original_open = Path.open
+        def guarded_open(path, *args, **kwargs):
+            if path.name == 'actor.json':
+                self.fail('A rejected actor link must never be opened')
+            return original_open(path, *args, **kwargs)
+        with tempfile.TemporaryDirectory() as directory, patch.object(Path, 'is_symlink', autospec=True,
+                side_effect=lambda path: path.name == 'actor.json'), patch.object(Path, 'open', guarded_open):
+            result = self.run_execution(directory)
+        actual = proof.closed_diagnostics(result)
+        self.assertEqual(actual['execution']['actor_report_state'], 'link_rejected')
+        self.assertFalse(actual['execution']['actor_checks_passed'])
+        self.assertNotIn('actor', result)
+        self.assertFalse(all(result['checks'].values()))
+
+    def test_actor_reparse_bit_is_reported_without_changing_existing_acceptance(self):
+        original_lstat = Path.lstat
+        for attributes, expected in ((0, False), (0x400, True), (0x420, True)):
+            def observed_lstat(path, *args, **kwargs):
+                actual = original_lstat(path, *args, **kwargs)
+                if path.name == 'actor.json':
+                    return Mock(st_file_attributes=attributes, st_mode=actual.st_mode)
+                return actual
+            with self.subTest(attributes=attributes), tempfile.TemporaryDirectory() as directory, \
+                    patch.object(Path, 'lstat', observed_lstat):
+                result = self.run_execution(directory, actor=evidence()['actor'])
+                actual = proof.closed_diagnostics(result)['execution']
+                self.assertIs(actual['actor_reparse_point_observed'], expected)
+                self.assertEqual(actual['actor_report_state'], 'parsed')
+                self.assertTrue(all(result['checks'].values()))
+
+    def test_unavailable_reparse_metadata_remains_unknown_not_false(self):
+        original_lstat = Path.lstat
+        calls = []
+        def unavailable_lstat(path, *args, **kwargs):
+            if path.name == 'actor.json' and not calls:
+                calls.append(path)
+                raise OSError('PRIVATE_SENTINEL')
+            return original_lstat(path, *args, **kwargs)
+        with tempfile.TemporaryDirectory() as directory, patch.object(Path, 'lstat', unavailable_lstat):
+            result = self.run_execution(directory, actor=evidence()['actor'])
+        actual = proof.closed_diagnostics(result)['execution']
+        self.assertIsNone(actual['actor_reparse_point_observed'])
+        self.assertEqual(actual['actor_report_state'], 'parsed')
+        self.assertTrue(all(result['checks'].values()))
+
+    def test_parsed_but_failed_actor_is_not_confused_with_parse_failure(self):
+        for field, value in (('queriesSucceeded', False), ('nonce', 'b' * 32), ('tokenIsAppContainer', False),
+                             ('tokenElevated', True), ('errors', ['PRIVATE_SENTINEL'])):
+            actor = dict(evidence()['actor'])
+            actor[field] = value
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                result = self.run_execution(directory, actor=actor)
+                actual = proof.closed_diagnostics(result)
+                self.assertEqual(actual['execution']['actor_report_state'], 'parsed')
+                self.assertFalse(actual['execution']['actor_checks_passed'])
+                self.assertFalse(all(result['checks'].values()))
+                self.assertNotIn('PRIVATE_SENTINEL', json.dumps(actual))
+
+    def test_actor_read_failure_retains_probe_and_executor_evidence(self):
+        original_open = Path.open
+        def failing_open(path, mode='r', *args, **kwargs):
+            if path.name == 'actor.json' and mode == 'rb':
+                raise PermissionError(13, 'PRIVATE_SENTINEL')
+            return original_open(path, mode, *args, **kwargs)
+        with tempfile.TemporaryDirectory() as directory, patch.object(Path, 'open', failing_open):
+            result = self.run_execution(directory, actor=evidence()['actor'])
+        actual = proof.closed_diagnostics(result)
+        self.assertEqual(result['failure_phase'], 'actor_read')
+        self.assertEqual(actual['execution']['actor_report_state'], 'read_failed')
+        self.assertEqual(actual['probe']['outcome'], 'selected')
+        self.assertEqual(actual['execution']['actual_tiers'], ['base-container'])
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(actual))
+        self.assertFalse(all(result['checks'].values()))
+
+    def test_executor_diagnostic_read_failure_still_inspects_actor(self):
+        original_open = Path.open
+        def failing_open(path, mode='r', *args, **kwargs):
+            if path.name == 'executor.stderr' and mode == 'rb':
+                raise PermissionError(13, 'PRIVATE_SENTINEL')
+            return original_open(path, mode, *args, **kwargs)
+        payload = b'CreateProcessW WINERROR 5 PRIVATE_SENTINEL\n'
+        with tempfile.TemporaryDirectory() as directory, patch.object(Path, 'open', failing_open):
+            result = self.run_execution(directory, actor=evidence()['actor'], stdout=payload)
+        actual = proof.closed_diagnostics(result)
+        self.assertEqual(result['failure_phase'], 'executor_diagnostic_read')
+        self.assertEqual(actual['execution']['stdout']['bytes_observed'], len(payload))
+        self.assertEqual(actual['execution']['actor_report_state'], 'parsed')
+        self.assertTrue(actual['execution']['actor_checks_passed'])
+        self.assertEqual(actual['probe']['outcome'], 'selected')
+        self.assertFalse(result['checks']['actual_base_container'])
+        self.assertFalse(result['checks']['no_harness_error'])
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(actual))
+
+    def test_executor_output_overbound_keeps_summary_without_accepting_tier(self):
+        payload = b'selected isolation tier: base-container\n' + b'x' * proof.MAX_OUTPUT
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_execution(directory, actor=evidence()['actor'], stdout=payload, stderr=b'')
+        actual = proof.closed_diagnostics(result)
+        self.assertEqual(actual['execution']['stdout']['bytes_observed'], proof.MAX_OUTPUT + 1)
+        self.assertTrue(actual['execution']['stdout']['inspection_truncated'])
+        self.assertEqual(actual['execution']['stdout']['inspected_sha256'],
+                         hashlib.sha256(payload[:65536]).hexdigest())
+        self.assertEqual(actual['execution']['actual_tiers'], [])
+        self.assertFalse(result['checks']['actual_base_container'])
+
 
 class RunnerTests(unittest.TestCase):
     def test_unsupported_never_executes_actor(self):
