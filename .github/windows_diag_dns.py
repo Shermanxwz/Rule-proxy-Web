@@ -238,12 +238,26 @@ def make_plan():
     return plan
 
 
-def safe_environment(work: Path):
-    keep = ('SYSTEMROOT', 'WINDIR', 'PATH', 'COMSPEC', 'PATHEXT', 'OS', 'NUMBER_OF_PROCESSORS',
-            'PROCESSOR_ARCHITECTURE')
-    env = {key: os.environ[key] for key in keep if key in os.environ}
-    env['TEMP'] = env['TMP'] = str(work / 'tmp')
-    return env
+# AppContainer creation extends the child's environment block; the first run of this lab proved that the
+# reduced block below starts uncontained processes but fails contained ones with ERROR_ENVVAR_NOT_FOUND (203).
+# The base rung mirrors windows_appcontainer_compat.safe_environment (known to launch contained browsers on
+# this runner image); the second rung only adds plain machine/user identity names, never tokens or secrets.
+BASE_ENV_KEYS = ('SYSTEMROOT', 'WINDIR', 'PATH', 'COMSPEC', 'PATHEXT', 'PROGRAMFILES', 'PROGRAMFILES(X86)',
+                 'PROGRAMW6432', 'COMMONPROGRAMFILES', 'COMMONPROGRAMFILES(X86)', 'COMMONPROGRAMW6432',
+                 'OS', 'NUMBER_OF_PROCESSORS', 'PROCESSOR_ARCHITECTURE', 'PROCESSOR_LEVEL', 'PROCESSOR_REVISION')
+EXTRA_ENV_KEYS = ('ALLUSERSPROFILE', 'PROGRAMDATA', 'PUBLIC', 'SYSTEMDRIVE', 'COMPUTERNAME', 'USERNAME',
+                  'USERDOMAIN', 'HOMEDRIVE', 'HOMEPATH', 'SESSIONNAME', 'PROCESSOR_IDENTIFIER')
+ERROR_ENVVAR_NOT_FOUND = 203
+
+
+def safe_environments(work: Path):
+    """Ordered (rung, environment) pairs; a contained launch that returns 203 is retried on the next rung."""
+    upper = {key.upper(): value for key, value in os.environ.items()}
+    base = {key: upper[key] for key in BASE_ENV_KEYS if key in upper}
+    base.update(TEMP=str(work / 'tmp'), TMP=str(work / 'tmp'), HOME=str(work / 'home'),
+                USERPROFILE=str(work / 'home'), LOCALAPPDATA=str(work / 'local'), APPDATA=str(work / 'roaming'))
+    extra = {key: upper[key] for key in EXTRA_ENV_KEYS if key in upper}
+    return [('compat_base', base), ('compat_base_plus_identity', {**base, **extra})]
 
 
 def pktmon(*args: str, timeout: int = 120) -> dict:
@@ -558,11 +572,11 @@ def run_launch(argv, *, sid, capabilities, cwd: Path, env, log: Path) -> dict:
         api.close_handle(job)  # KILL_ON_JOB_CLOSE ends any surviving descendants
 
 
-def run_mode(mode: Mode, sid, by_key, work: Path, env) -> dict:
+def run_mode(mode: Mode, sid, by_key, work: Path, rungs) -> dict:
     record = {'mode': mode.name, 'contained': mode.contained, 'capabilities': list(mode.capabilities),
               'package_filters': mode.filters, 'loopback_exemption': mode.exemption,
               'started_utc': utc_now(), 'ran': False, 'error': None, 'probe': None,
-              'probe_outcomes': {}, 'elapsed': None}
+              'probe_outcomes': {}, 'elapsed': None, 'env_rung': None, 'env_attempts': []}
     names = {api: by_key[(mode.name, api)]['name'] for api in APIS}
     result_path = work / 'results' / f'{mode.name}.json'
     config_path = work / f'{mode.name}.config.json'
@@ -576,9 +590,15 @@ def run_mode(mode: Mode, sid, by_key, work: Path, env) -> dict:
                 stack.callback(lab.exemption, sid, False)
             if mode.filters:
                 stack.enter_context(lab.PackageFilters(sid, DUMMY_PROXY_PORT))
-            record['probe'] = run_launch(argv, sid=sid if mode.contained else None,
-                                         capabilities=mode.capabilities, cwd=work, env=env,
-                                         log=work / f'{mode.name}.probe.log')
+            for rung, env in rungs:
+                record['probe'] = run_launch(argv, sid=sid if mode.contained else None,
+                                             capabilities=mode.capabilities, cwd=work, env=env,
+                                             log=work / f'{mode.name}.probe.log')
+                record['env_attempts'].append({'rung': rung, 'keys': sorted(env),
+                                               'error_code': record['probe'].get('error_code')})
+                record['env_rung'] = rung
+                if record['probe'].get('error_code') != ERROR_ENVVAR_NOT_FOUND:
+                    break
     except Exception as error:
         record['error'] = describe(error)
     body = read_json(result_path)
@@ -602,13 +622,13 @@ def run_harness(work: Path, report: dict, ctx: dict) -> None:
         grant = subprocess.run(['icacls', str(path), '/grant', f"*{report['package_sid']}:{right}", '/T', '/Q', '/C'],
                                capture_output=True, text=True, errors='replace', timeout=600)
         report['notes'].append(f'icacls {path}: exit {grant.returncode}')
-    env = safe_environment(work)
+    rungs = safe_environments(work)
     report['plan'] = make_plan()
     by_key = {(entry['mode'], entry['api']): entry for entry in report['plan']}
     capture_start(work, report)
     try:
         for mode in MODES:
-            report['runs'].append(run_mode(mode, sid, by_key, work, env))
+            report['runs'].append(run_mode(mode, sid, by_key, work, rungs))
     finally:
         capture_stop(report)
     ctx['analysis'] = analyse_capture(work, report['plan'], report)
@@ -720,8 +740,8 @@ def main() -> int:
     import windows_appcontainer_lab
     lab = windows_appcontainer_lab
     work.mkdir(parents=True)
-    (work / 'tmp').mkdir()
-    (work / 'results').mkdir()
+    for name in ('tmp', 'home', 'local', 'roaming', 'results'):
+        (work / name).mkdir()
     report = {'schema': 'windows-diag-dns/1', 'source_commit': os.environ.get('GITHUB_SHA'),
               'harness_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'windows': list(sys.getwindowsversion()[:4]), 'started_utc': utc_now(), 'finished_utc': None,

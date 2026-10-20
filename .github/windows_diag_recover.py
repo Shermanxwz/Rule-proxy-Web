@@ -319,6 +319,67 @@ def enumerate_guard(g, guard):
             'sublayer_key': str(guard.sublayer)}
 
 
+def raw_snapshot(g, guard):
+    """Identity-agnostic read by exact derived key: what is stored, without the product's ownership verdict.
+    The first CI run used the product's identity-checked lookup for the foreign control and it raised a
+    sublayer identity conflict; this reader never raises on identity and keeps the raw fields as evidence."""
+    out = {'provider': None, 'sublayer': None, 'filters': {}}
+    with g._Engine() as engine:
+        with engine.get('Provider', guard.provider, g._Provider) as value:
+            if value is not None:
+                out['provider'] = {'description': value.display.description, 'flags': int(value.flags),
+                                   'service': value.service}
+        with engine.get('SubLayer', guard.sublayer, g._Sublayer) as value:
+            if value is not None:
+                out['sublayer'] = {'description': value.display.description, 'flags': int(value.flags),
+                                   'weight': int(value.weight),
+                                   'provider': value.provider.contents.text() if value.provider else None}
+        for family, name in g._ALL_RULES:
+            with engine.get('Filter', guard._rule_key(family, name), g._Filter) as value:
+                if value is not None:
+                    out['filters'][f'{family}/{name}'] = {'description': value.display.description,
+                                                          'flags': int(value.flags)}
+    out['filter_count'] = len(out['filters'])
+    out['provider_present'] = out['provider'] is not None
+    out['sublayer_present'] = out['sublayer'] is not None
+    out['provider_key'], out['sublayer_key'] = str(guard.provider), str(guard.sublayer)
+    return out
+
+
+def remove_raw_objects(g, guard, label):
+    """Delete a guard's objects by exact derived key in ONE transaction, filters first, then sublayer, then
+    provider (a provider or sublayer that still has children is refused with FWP_E_IN_USE 0x8032000a).
+    Used for the foreign control, whose marker the product's own identity check rejects."""
+    out = {'label': label, 'method': 'raw exact-key delete in one transaction'}
+    try:
+        with g._Engine() as engine:
+            for kind in ('SubLayer', 'Provider'):
+                function = getattr(engine.api, 'Fwpm' + kind + 'DeleteByKey0')
+                function.argtypes, function.restype = [g._P, C.POINTER(g._GUID)], g._U32
+            deleted = 0
+            with engine.transaction():
+                for family, name in g._ALL_RULES:
+                    code = engine.api.FwpmFilterDeleteByKey0(engine.handle,
+                                                             C.byref(g._GUID.of(guard._rule_key(family, name))))
+                    if code == 0:
+                        deleted += 1
+                    elif code != g._NOT_FOUND['Filter']:
+                        raise RuntimeError(f'FwpmFilterDeleteByKey0 0x{code:08x}')
+                for kind, key in (('SubLayer', guard.sublayer), ('Provider', guard.provider)):
+                    code = getattr(engine.api, 'Fwpm' + kind + 'DeleteByKey0')(engine.handle,
+                                                                                C.byref(g._GUID.of(key)))
+                    if code not in (0, g._NOT_FOUND[kind]):
+                        raise RuntimeError(f'Fwpm{kind}DeleteByKey0 0x{code:08x}')
+            out['filters_deleted'] = deleted
+    except Exception as exc:
+        out['error'] = f'{type(exc).__name__}: {exc}'[:500]
+    try:
+        out['after'] = raw_snapshot(g, guard)
+    except Exception as exc:
+        out['after_error'] = f'{type(exc).__name__}: {exc}'[:500]
+    return out
+
+
 def is_absent(enum):
     return (isinstance(enum, dict) and enum.get('filter_count') == 0
             and enum.get('provider_present') is False and enum.get('sublayer_present') is False)
@@ -563,7 +624,7 @@ def run_steps(report, work, budget, ctx):
         foreign = new_guard(g, owner_sid, FOREIGN_ROOT, marker=FOREIGN_MARKER)
         ctx['foreign'] = foreign
         create_objects(g, foreign, rules)
-        enum = enumerate_guard(g, foreign)
+        enum = raw_snapshot(g, foreign)
         facts['foreign_before'] = enum
         facts['rule_count'] = len(rules)
         entry['details'] = {'marker': FOREIGN_MARKER, 'root': FOREIGN_ROOT, 'enumeration': enum}
@@ -601,7 +662,7 @@ def run_steps(report, work, budget, ctx):
 
     with step(report, 'S4-verify-foreign-intact') as entry:
         require(ctx.get('foreign') is not None, 'foreign guard missing; check skipped')
-        enum = enumerate_guard(g, ctx['foreign'])
+        enum = raw_snapshot(g, ctx['foreign'])
         facts['foreign_after_s4'] = enum
         entry['details'] = {'enumeration': enum, 'equal_to_before': enum == facts.get('foreign_before')}
         entry['ok'] = enum == facts.get('foreign_before') and foreign_present(enum, len(rules))
@@ -618,7 +679,7 @@ def run_steps(report, work, budget, ctx):
         entry['ok'] = run_parsed(run) and run['exit_code'] == 0 and unchanged
 
     with step(report, 'S6-foreign-survived-second-apply') as entry:
-        enum = enumerate_guard(g, ctx['foreign'])
+        enum = raw_snapshot(g, ctx['foreign'])
         facts['foreign_after_s5'] = enum
         needles = [str(ctx['foreign'].provider).lower(), str(ctx['foreign'].sublayer).lower()]
         mentions = []
@@ -755,7 +816,8 @@ def run_cleanup(report, ctx):
         if guard is None:
             continue
         try:
-            cleanup[label] = remove_guard_objects(g, guard, label)
+            cleanup[label] = (remove_raw_objects(g, guard, label) if label == 'foreign'
+                              else remove_guard_objects(g, guard, label))
         except Exception as exc:
             errors.append(label + ': ' + f'{type(exc).__name__}: {exc}'[:300])
     shutil.rmtree(LAB_ROOT, ignore_errors=True)
@@ -768,7 +830,8 @@ def run_cleanup(report, ctx):
         checks.append(cleanup.get('nrpt', {}).get('left') == 0)
     for label in ('foreign', 'owned'):
         if ctx.get(label) is not None:
-            checks.append(is_absent(cleanup.get(label, {}).get('after')))
+            checks.append(is_absent(cleanup.get(label, {}).get('after'))
+                          and not cleanup.get(label, {}).get('error'))
     cleanup['cleanup_ok'] = not errors and all(checks)
 
 

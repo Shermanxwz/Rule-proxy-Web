@@ -655,6 +655,16 @@ def _run_case(case, ctx):
     return entry
 
 
+def grant_package(work, package, report):
+    """Give the package SID full control of the (still empty) fixture tree, before any tool writes into it.
+    The first CI run failed with icacls exit 5 here because the grant ran after cdb had written logs: files
+    created later inherit the ACE, so the grant belongs first. /C keeps going past a single bad file."""
+    done = subprocess.run(['icacls', str(work), '/grant', f'*{package}:(OI)(CI)(F)', '/T', '/Q', '/C'],
+                          capture_output=True, text=True, errors='replace', timeout=120)
+    report['acl_grant'] = {'exit_code': done.returncode, 'tail': ((done.stdout or '') + (done.stderr or ''))[-400:]}
+    return done.returncode == 0
+
+
 def main() -> int:
     sys.stdout.reconfigure(encoding='utf-8', errors='backslashreplace')
     global lab
@@ -685,6 +695,10 @@ def main() -> int:
                         'ResumeThread previous count is recorded; 2 would mean a debugger freeze was pending'],
               'runs': {}, 'cleanup_errors': [], 'harness_errors': [], 'budget_seconds': BUDGET_S}
     errors = report['cleanup_errors']
+    sid = lab.container_sid()
+    package = lab.sid_text(sid)
+    report['package_sid'] = package
+    grant_ok = grant_package(work, package, report)
     env = compat.safe_environment(work)
     cdb_env = {**env, '_NT_SYMBOL_PATH': compat.SYMBOLS}
     present = {name: path for name, path in compat.PROGRAMS.items() if path.exists()}
@@ -706,14 +720,10 @@ def main() -> int:
         report['debugger']['symbol_warmup'] = warm_symbols(debugger, work, cdb_env)
     cases = plan(list(present))
     proxy = None
-    sid = None
     try:
+        if not grant_ok:
+            raise RuntimeError('package ACL grant failed: ' + report['acl_grant']['tail'][-200:])
         proxy = Fixture([case.label for case in cases])
-        sid = lab.container_sid()
-        package = lab.sid_text(sid)
-        report['package_sid'] = package
-        subprocess.run(['icacls', str(work), '/grant', f'*{package}:(OI)(CI)(F)', '/T', '/Q'],
-                       check=True, capture_output=True, timeout=60)
         api = _get_api()
         with local_dumps(work / 'dumps', IMAGES, errors):
             lab.exemption(sid, True)
