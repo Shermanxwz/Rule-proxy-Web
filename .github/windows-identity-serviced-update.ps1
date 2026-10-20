@@ -115,6 +115,11 @@ function Write-ServicedState($State) {
         [IO.File]::Replace($temporary,$path,[System.Management.Automation.Language.NullString]::Value)
     } else { [IO.File]::Move($temporary,$path) }
 }
+function Write-ServicedProgress($State, [bool]$Resuming) {
+    # A previously admitted reboot_pending receipt is the durable checkpoint.
+    # Resume progress is in memory only until final completed/failed publication.
+    if (-not $Resuming) { Write-ServicedState $State }
+}
 function Get-ServicedBoot {
     # Protected receipt uses an OS boot identity, not a user-writable marker.
     return (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime.ToUniversalTime().Ticks.ToString()
@@ -257,7 +262,7 @@ function Invoke-ServicedUpdate {
             if ([DateTime]::UtcNow -ge $setupDeadline) { throw 'setup_deadline' }
             Start-Sleep -Seconds 5
         } while ($true)
-        $state.phase='waiting_for_optical'; Write-ServicedState $state
+        $state.phase='waiting_for_optical'; Write-ServicedProgress $state ($null -ne $prior)
         $mediaDeadline=[DateTime]::UtcNow.AddMinutes(45)
         if ($mediaDeadline -gt $serviceDeadline) { $mediaDeadline=$serviceDeadline }
         do {
@@ -266,7 +271,7 @@ function Invoke-ServicedUpdate {
             if ([DateTime]::UtcNow -ge $mediaDeadline) { throw 'optical_deadline' }
             Start-Sleep -Seconds 2
         } while ($true)
-        $state.phase='verifying_optical'; Write-ServicedState $state
+        $state.phase='verifying_optical'; Write-ServicedProgress $state ($null -ne $prior)
         Assert-ServicedTime $serviceDeadline
         Assert-ServicedMedia $optical
         Assert-ServicedTime $serviceDeadline

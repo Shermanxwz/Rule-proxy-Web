@@ -310,6 +310,51 @@ try {
             Write-Output ((@{fixture='native_boot_state_roundtrip';replace=$replaceExpected;writer_owner_trusted=$writerOwnerTrusted;before_string=$bootBeforeString;before_shape=$bootBeforeShape;after_string=$bootAfterString;same_value=$bootSame;exit_integer=$exitInteger;package_boolean=$packageBoolean;predicate_mask=$roundtripFacts.b;guard_passed=$guardPassed;reboot_tested=$false})|ConvertTo-Json -Compress)
             if (-not $bootSame -or -not $exitInteger -or -not $packageBoolean -or $roundtripFacts.b -ne 127 -or -not $guardPassed) { throw 'Native state serialization regression' }; $passed++
         }
+        # Simulate interruption/re-entry around BOTH actual progress-write sites.
+        # No process restart or reboot: each readback invokes the real prior guard.
+        foreach ($resumeExit in @(0,3010)) {
+            $checkpoint=@{schema_version=1;target_build=26200;target_ubr=9711;status='reboot_pending';phase='reboot_pending';failure='none';dism_exit_code=$resumeExit;before_boot=$nativeBoot;packages_verified=$true;prior_service=(Get-ClosedPriorService $null)}
+            Write-ServicedState $checkpoint
+            $checkpointBytes=[Convert]::ToBase64String([IO.File]::ReadAllBytes($priorPath))
+            $resumed=@{schema_version=1;target_build=26200;target_ubr=9711;status='installing';phase='initializing';failure='none';dism_exit_code=$resumeExit;before_boot=$nativeBoot;packages_verified=$false;prior_service=(Get-ClosedPriorService $null)}
+            foreach ($resumePhase in @('waiting_for_optical','verifying_optical')) {
+                foreach ($writeSide in @('before','after')) {
+                    if ($writeSide -ceq 'after') {
+                        $resumed.phase=$resumePhase
+                        Write-ServicedProgress $resumed $true
+                    }
+                    $freshPrior=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+                    Assert-ServicedPriorState $freshPrior
+                    $durableFacts=Get-PriorServiceFacts $freshPrior
+                    $bytesUnchanged=([Convert]::ToBase64String([IO.File]::ReadAllBytes($priorPath)) -ceq $checkpointBytes)
+                    if (-not $bytesUnchanged -or $durableFacts.b -ne 127 -or $resumed.packages_verified -ne $false -or $freshPrior.dism_exit_code -ne $resumeExit) { throw 'Resume checkpoint overwritten by progress' }
+                    Write-Output ((@{fixture='resume_checkpoint_interruption';interruption_simulated=$true;phase=$resumePhase;side=$writeSide;exit_code=$resumeExit;bytes_unchanged=$bytesUnchanged;predicate_mask=$durableFacts.b;fresh_verification_still_required=$true;reboot_tested=$false})|ConvertTo-Json -Compress)
+                    $passed++
+                }
+            }
+            # Original first-pass progress remains observable; it cannot masquerade
+            # as an admitted resume checkpoint (the attempt06 shape has mask55).
+            foreach ($initialPhase in @('waiting_for_optical','verifying_optical')) {
+                $resumed.phase=$initialPhase
+                Write-ServicedProgress $resumed $false
+                $initialRead=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+                $initialFacts=Get-PriorServiceFacts $initialRead
+                $initialRejected=$false
+                try { Assert-ServicedPriorState $initialRead } catch { $initialRejected=$true }
+                if ($initialRead.phase -cne $initialPhase -or $initialFacts.b -ne 55 -or -not $initialRejected) { throw 'Initial progress or prior rejection changed' };$passed++
+            }
+            foreach ($terminalStatus in @('completed','failed')) {
+                Write-ServicedState $checkpoint
+                $terminal=$resumed.Clone();$terminal.status=$terminalStatus
+                $terminal.phase=if ($terminalStatus -ceq 'completed') { 'completed' } else { 'verifying_optical' }
+                $terminal.failure=if ($terminalStatus -ceq 'completed') { 'none' } else { 'optical_package' }
+                Write-ServicedState $terminal
+                $terminalRead=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+                $terminalRejected=$false
+                try { Assert-ServicedPriorState $terminalRead } catch { $terminalRejected=$true }
+                if ($terminalRead.status -cne $terminalStatus -or $terminalRead.failure -cne $terminal.failure -or -not $terminalRejected -or (Test-Path -LiteralPath ([IO.Path]::Combine($fixtureRoot,'update-state.json.tmp')))) { throw 'Atomic terminal publication or rejection changed' };$passed++
+            }
+        }
         $tamperCases=@(
             @{field='schema_version';value=2;bit=1},@{field='target_build';value=0;bit=2},@{field='target_ubr';value=0;bit=4},
             @{field='status';value='installing';bit=8},@{field='status';value='failed';bit=8},@{field='status';value='completed';bit=8},

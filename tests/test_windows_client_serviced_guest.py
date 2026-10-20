@@ -133,6 +133,20 @@ class ServicedGuestContractTests(unittest.TestCase):
                        'value=$true', 'value=$null', 'Wire HRESULT value or JSON numeric type changed'):
             self.assertIn(marker, test)
 
+    def test_resumed_progress_preserves_admitted_checkpoint_only(self):
+        self.assertIn('function Write-ServicedProgress($State, [bool]$Resuming)',UPDATE)
+        self.assertIn('if (-not $Resuming) { Write-ServicedState $State }',UPDATE)
+        self.assertEqual(UPDATE.count('Write-ServicedProgress $state ($null -ne $prior)'),2)
+        for phase in ('waiting_for_optical','verifying_optical'):
+            self.assertIn("$state.phase='"+phase+"'; Write-ServicedProgress $state ($null -ne $prior)",UPDATE)
+        self.assertLess(UPDATE.index('try { Assert-ServicedPriorState $prior }'),UPDATE.index('Write-ServicedProgress $state'))
+        self.assertIn("$state.status='completed'; $state.phase='completed'; $state.completed=$true\n            Write-ServicedState $state",UPDATE)
+        self.assertIn('if ($trusted) { try { Write-ServicedState $state } catch {} }',UPDATE)
+        self.assertLess(UPDATE.index('Assert-ServicedMedia $optical'),UPDATE.index('$state.packages_verified=$true'))
+        test=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        for marker in ('foreach ($resumeExit in @(0,3010))',"@('before','after')",'Write-ServicedProgress $resumed $true','Write-ServicedProgress $resumed $false','Assert-ServicedPriorState $freshPrior','$initialFacts.b -ne 55','Atomic terminal publication or rejection changed','fresh_verification_still_required=$true'):
+            self.assertIn(marker,test)
+
     def test_prior_diagnostic_guard_and_native_roundtrip_are_scoped(self):
         self.assertIn('function Assert-ServicedPriorState($prior)',UPDATE)
         expected=("if ($prior.schema_version -ne 1 -or $prior.target_build -ne 26200 -or $prior.target_ubr -ne 9711 -or "
