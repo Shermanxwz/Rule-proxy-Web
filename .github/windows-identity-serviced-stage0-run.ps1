@@ -105,6 +105,23 @@ function Assert-ProtectedUpdatePath($Path, [switch]$Directory, [switch]$Protecte
 # Closed read diagnostics only; never grants trust or changes deadline acceptance.
 $script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
 $setupReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
+function Get-ClosedExtraReboot($Value) {
+    $facts=@{n=$null;b=$null}
+    if ($null -eq $Value) { return $facts }
+    $keys=if ($Value -is [System.Collections.IDictionary]) { @($Value.Keys) } else { @($Value.PSObject.Properties.Name) }
+    if ('extra_reboots' -in $keys -and ($Value.extra_reboots -is [int] -or $Value.extra_reboots -is [long]) -and $Value.extra_reboots -in @(0,1)) { $facts.n=[int]$Value.extra_reboots }
+    if ('latest_reboot_changed' -in $keys -and $Value.latest_reboot_changed -is [bool]) { $facts.b=$Value.latest_reboot_changed }
+    return $facts
+}
+function Get-ClosedPendingReboot($Value) {
+    $facts=@{c=$null;w=$null;r=$null}
+    if ($null -eq $Value) { return $facts }
+    $keys=if ($Value -is [System.Collections.IDictionary]) { @($Value.Keys) } else { @($Value.PSObject.Properties.Name) }
+    foreach ($key in @('c','w','r')) {
+        if ($key -in $keys -and $Value.$key -is [bool]) { $facts[$key]=$Value.$key }
+    }
+    return $facts
+}
 function Get-ClosedPriorService($Value) {
     $closed=@{s='absent';p='not_observed';f='unclassified';e=$null;b=$null}
     if ($null -eq $Value) { return $closed }
@@ -451,6 +468,12 @@ try {
     Set-ClosedResultField 'servicing_read_diagnostic' $script:ServicingReadDiagnostic
     $priorServiceFacts=Get-ClosedPriorService $null
     if ($null -ne (Get-Variable -Name service -ErrorAction SilentlyContinue) -and 'prior_service' -in @($service.PSObject.Properties.Name)) { $priorServiceFacts=Get-ClosedPriorService $service.prior_service }
+    $extraFacts=Get-ClosedExtraReboot $null
+    if ($null -ne (Get-Variable -Name service -ErrorAction SilentlyContinue)) { $extraFacts=Get-ClosedExtraReboot $service }
+    Set-ClosedResultField 'extra_reboot' $extraFacts
+    $pendingFacts=Get-ClosedPendingReboot $null
+    if ($null -ne (Get-Variable -Name service -ErrorAction SilentlyContinue) -and 'pending_reboot' -in @($service.PSObject.Properties.Name)) { $pendingFacts=Get-ClosedPendingReboot $service.pending_reboot }
+    Set-ClosedResultField 'pending_reboot' $pendingFacts
     Set-ClosedResultField 'prior_service' $priorServiceFacts
     Set-ClosedResultField 'servicing_diagnostic' $serviceFacts
     $launcher=@{phase=$phase; failure_category=$failureCategory; failed=$failed; hresult=$hresult; python_exit_code=$pythonExit; transport_attempt=0}

@@ -383,6 +383,53 @@ class WireReceiptTests(unittest.TestCase):
         self.assertFalse(public['stage0_passed'])
         self.assertEqual(public['prior_service'],raw['prior_service'])
 
+    def test_pending_reboot_closed_tristate_and_idempotent(self):
+        import itertools
+        for values in itertools.product((None,True,False),repeat=3):
+            raw=dict(zip(('c','w','r'),values));raw['private']='PRIVATE_SENTINEL'
+            result=host.closed_pending_reboot(raw)
+            self.assertEqual(result,dict(zip(('c','w','r'),values)))
+            self.assertEqual(host.closed_pending_reboot(result),result)
+            self.assertNotIn('PRIVATE_SENTINEL',json.dumps(result))
+        for value in (1,0,'true',[],{},0.0):
+            self.assertEqual(host.closed_pending_reboot(dict.fromkeys(('c','w','r'),value)),dict.fromkeys(('c','w','r')))
+        self.assertEqual(host.closed_pending_reboot(None),dict.fromkeys(('c','w','r')))
+
+    def test_pending_reboot_diagnostics_not_acceptance_and_retained_on_failure(self):
+        raw=self.receipt();raw['pending_reboot']={'c':True,'w':False,'r':None}
+        result=host.validate_guest(raw,'a'*64)
+        self.assertTrue(result['stage0_passed'])  # actual existing guest gate remains authoritative
+        self.assertEqual(result['pending_reboot'],raw['pending_reboot'])
+        raw['checks']['native_identity']=False
+        self.assertFalse(host.validate_guest(raw,'a'*64)['stage0_passed'])
+        raw['os']['ubr']=6584;public={}
+        with self.assertRaises(ValueError):host.merge_serviced_result(public,raw,'a'*64,False)
+        self.assertEqual(public['pending_reboot'],raw['pending_reboot'])
+        self.assertFalse(public['stage0_passed'])
+
+    def test_extra_reboot_closed_without_acceptance_dependency(self):
+        for count in (0,1,None):
+            for changed in (True,False,None):
+                raw={'n':count,'b':changed,'witness':'PRIVATE_SENTINEL'}
+                closed=host.closed_extra_reboot(raw)
+                self.assertEqual(closed,{'n':count,'b':changed})
+                self.assertEqual(host.closed_extra_reboot(closed),closed)
+                report=self.receipt();report['extra_reboot']=raw
+                result=host.validate_guest(report,'a'*64)
+                self.assertTrue(result['stage0_passed'])
+                self.assertEqual(result['extra_reboot'],closed)
+                self.assertNotIn('PRIVATE_SENTINEL',json.dumps(result))
+                report['checks']['native_identity']=False
+                self.assertFalse(host.validate_guest(report,'a'*64)['stage0_passed'])
+        for count in (True,False,-1,2,0.0,'1',{},[]):
+            self.assertIsNone(host.closed_extra_reboot({'n':count})['n'])
+        for changed in (0,1,'true',{},[]):
+            self.assertIsNone(host.closed_extra_reboot({'b':changed})['b'])
+        raw=self.receipt();raw['os']['ubr']=6584;raw['extra_reboot']={'n':1,'b':False};public={}
+        with self.assertRaises(ValueError):host.merge_serviced_result(public,raw,'a'*64,False)
+        self.assertEqual(public['extra_reboot'],raw['extra_reboot'])
+        self.assertFalse(public['stage0_passed'])
+
     def test_exact_guest_receipt_passes_gate(self):
         result=host.validate_guest(self.receipt(),'a'*64)
         self.assertTrue(result['stage0_passed'])

@@ -124,6 +124,18 @@ function Get-ServicedBoot {
     # Protected receipt uses an OS boot identity, not a user-writable marker.
     return (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime.ToUniversalTime().Ticks.ToString()
 }
+function Get-ServicedPendingFacts {
+    # Adjacent independent observations only; the unchanged predicate below is authoritative.
+    $facts=@{c=$null;w=$null;r=$null}
+    try { $facts.c=[bool](Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending' -ErrorAction Stop) } catch {}
+    try { $facts.w=[bool](Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired' -ErrorAction Stop) } catch {}
+    try {
+        $session=Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -ErrorAction Stop
+        $facts.r=('PendingFileRenameOperations' -in @($session.PSObject.Properties.Name) -and
+            @($session.PendingFileRenameOperations).Count -gt 0)
+    } catch {}
+    return $facts
+}
 function Test-ServicedPendingReboot {
     if (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { return $true }
     if (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { return $true }
@@ -219,8 +231,41 @@ function Assert-ServicedPriorState($prior) {
                 $prior.before_boot -isnot [string] -or $prior.before_boot -cnotmatch '^[0-9]{15,20}$' -or
                 $prior.packages_verified -ne $true) { throw 'prior_state' }
 }
+function Assert-ServicedRebootMetadata($Value) {
+    $keys=if ($Value -is [System.Collections.IDictionary]) { @($Value.Keys) } else { @($Value.PSObject.Properties.Name) }
+    foreach ($key in @('extra_reboots','latest_reboot_boot','before_boot')) { if ($key -notin $keys) { throw 'prior_state' } }
+    if (($Value.extra_reboots -isnot [int] -and $Value.extra_reboots -isnot [long]) -or $Value.extra_reboots -notin @(0,1) -or
+        $Value.latest_reboot_boot -isnot [string] -or $Value.latest_reboot_boot -cnotmatch '^[0-9]{15,20}$' -or
+        $Value.before_boot -isnot [string] -or $Value.before_boot -cnotmatch '^[0-9]{15,20}$') { throw 'prior_state' }
+    if (($Value.extra_reboots -eq 0 -and $Value.latest_reboot_boot -cne $Value.before_boot) -or
+        ($Value.extra_reboots -eq 1 -and $Value.latest_reboot_boot -ceq $Value.before_boot)) { throw 'prior_state' }
+}
+function Assert-ServicedLatestBoot($State) {
+    $State.latest_reboot_changed=($State.after_boot -cne $State.latest_reboot_boot)
+    if ($State.after_boot -ceq $State.before_boot -or -not $State.latest_reboot_changed) { throw 'reboot_not_observed' }
+}
+function Get-ServicedRestartUtcNow { return [DateTime]::UtcNow }
+function Assert-ServicedRestartReserve([DateTime]$Deadline) {
+    if (($Deadline-(Get-ServicedRestartUtcNow)).TotalSeconds -lt 3000) { throw 'service_deadline' }
+}
+function Request-ServicedExtraReboot($State,[DateTime]$Deadline) {
+    Assert-ServicedRebootMetadata $State
+    if ($State.extra_reboots -ne 0) { throw 'reboot_still_pending' }
+    if ($State.after_boot -isnot [string] -or $State.after_boot -cnotmatch '^[0-9]{15,20}$' -or
+        $State.after_boot -ceq $State.before_boot -or $State.after_boot -ceq $State.latest_reboot_boot) { throw 'reboot_not_observed' }
+    if ($State.packages_verified -ne $true -or $State.actual_build -ne 26200 -or $State.actual_ubr -ne 9711 -or
+        $State.dism_exit_code -notin @(0,3010) -or $State.dism_wait_timed_out -ne $false -or
+        $State.dism_exit_observed -ne $true -or $State.dism_exit_observation_available -ne $true) { throw 'prior_state' }
+    Assert-ServicedRestartReserve $Deadline
+    $State.extra_reboots=1; $State.latest_reboot_boot=$State.after_boot; $State.latest_reboot_changed=$null
+    $State.status='reboot_pending'; $State.phase='reboot_pending'; $State.reboot_required=$true
+    # Persist the consumed request before requesting restart. Never retry/reset on the same boot.
+    Write-ServicedState $State
+    Assert-ServicedRestartReserve $Deadline
+    Restart-Computer -Force -ErrorAction Stop
+}
 function Invoke-ServicedUpdate {
-    $state=@{ prior_service=(Get-ClosedPriorService $null); schema_version=1; status='installing'; phase='initializing'; completed=$false;
+    $state=@{ extra_reboots=$null; latest_reboot_boot=''; latest_reboot_changed=$null; pending_reboot=@{c=$null;w=$null;r=$null}; prior_service=(Get-ClosedPriorService $null); schema_version=1; status='installing'; phase='initializing'; completed=$false;
         target_build=26200; target_ubr=9711; actual_build=0; actual_ubr=0;
         packages_verified=$false; reboot_required=$false; reboot_observed=$false;
         task_unregistered=$false; dism_exit_code=$null; dism_wait_timed_out=$false;
@@ -245,6 +290,8 @@ function Invoke-ServicedUpdate {
                 $state.prior_service=Get-RetainedPriorService $prior $priorFacts
                 throw
             }
+            Assert-ServicedRebootMetadata $prior
+            $state.extra_reboots=[int]$prior.extra_reboots; $state.latest_reboot_boot=$prior.latest_reboot_boot
             $state.before_boot=$prior.before_boot
             $state.dism_exit_code=[int]$prior.dism_exit_code
             foreach ($name in @('dism_wait_timed_out','dism_exit_observed','dism_exit_observation_available')) { $state[$name]=($prior.$name -eq $true) }
@@ -281,9 +328,13 @@ function Invoke-ServicedUpdate {
         if ($null -ne $prior) {
             $state.phase='post_reboot_verify'
             $state.after_boot=Get-ServicedBoot
-            if ($state.after_boot -ceq $state.before_boot) { throw 'reboot_not_observed' }
+            Assert-ServicedLatestBoot $state
             if ($state.actual_build -ne 26200 -or $state.actual_ubr -ne 9711) { throw 'exact_serviced_build' }
-            if (Test-ServicedPendingReboot) { throw 'reboot_still_pending' }
+            $state.pending_reboot=Get-ServicedPendingFacts
+            if (Test-ServicedPendingReboot) {
+                Request-ServicedExtraReboot $state $serviceDeadline
+                return 0
+            }
             $state.reboot_observed=$true
             Assert-ServicedTime $serviceDeadline
             Unregister-ScheduledTask -TaskName $script:UpdateTaskName -Confirm:$false -ErrorAction Stop
@@ -313,6 +364,7 @@ function Invoke-ServicedUpdate {
         if ($state.dism_exit_code -notin @(0,3010)) { throw 'dism_failed' }
         # Even exit 0 requires a real subsequent boot before acceptance.
         Assert-ServicedTime $serviceDeadline
+        $state.extra_reboots=0; $state.latest_reboot_boot=$state.before_boot
         $state.status='reboot_pending'; $state.phase='reboot_pending'; $state.reboot_required=$true
         Write-ServicedState $state
         Restart-Computer -Force -ErrorAction Stop

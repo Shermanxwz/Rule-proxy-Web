@@ -417,6 +417,8 @@ def project_stage0(raw):
     result['servicing_read_diagnostic'] = closed_servicing_read(raw.get('servicing_read_diagnostic'))
     result['setup_read_diagnostic'] = closed_servicing_read(raw.get('setup_read_diagnostic'))
     result['prior_service'] = closed_prior_service(raw.get('prior_service'))
+    result['pending_reboot'] = closed_pending_reboot(raw.get('pending_reboot'))
+    result['extra_reboot'] = closed_extra_reboot(raw.get('extra_reboot'))
     guest = proof._dict(raw.get('guest_diagnostic')); failure = proof._dict(guest.get('failure'))
     result['guest_diagnostic'] = {'phase': proof._enum(guest.get('phase'), GUEST_PHASES, 'not_started'),
         'failure': {'type': proof._enum(failure.get('type'), proof.FAILURE_TYPES, 'absent'),
@@ -886,6 +888,18 @@ SERVICE_READ_REASONS = ('none', 'clock_contract', 'missing', 'acl', 'read', 'jso
 PRIOR_SERVICE_STATUSES = ('absent', 'unclassified', 'installing', 'reboot_pending', 'completed', 'failed')
 
 
+def closed_extra_reboot(value):
+    proof = proof_helpers(); value = proof._dict(value)
+    return {'n': proof._integer(value.get('n'), 0, 1),
+            'b': value.get('b') if type(value.get('b')) is bool else None}
+
+
+def closed_pending_reboot(value):
+    # Adjacent diagnostic reads, not an atomic snapshot or an acceptance gate.
+    proof = proof_helpers(); value = proof._dict(value)
+    return {key: value.get(key) if type(value.get(key)) is bool else None for key in ('c', 'w', 'r')}
+
+
 def closed_prior_service(value):
     # Bits: schema/build/UBR/status/exit/boot-shape/packages, respectively.
     # Null mask means unavailable; this diagnostic never authorizes a resume.
@@ -1147,7 +1161,7 @@ def merge_serviced_result(public, value, actor_digest, service_started):
     public['stage0_passed'] = False
     public['guest_result_provenance_verified'] = False
     observed = project_stage0(value)
-    for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic', 'servicing_read_diagnostic', 'setup_read_diagnostic', 'prior_service'):
+    for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic', 'servicing_read_diagnostic', 'setup_read_diagnostic', 'prior_service', 'pending_reboot', 'extra_reboot'):
         public[key] = observed[key]
     if public.get('early_guest_diagnostic') is not None:
         raise EarlyGuestFailure('closed guest failure contradicts result acceptance')

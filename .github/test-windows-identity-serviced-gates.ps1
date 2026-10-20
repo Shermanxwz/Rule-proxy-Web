@@ -7,7 +7,7 @@ $source=Join-Path $PSScriptRoot 'windows-identity-serviced-stage0-run.ps1'
 $tokens=$null; $errors=$null
 $ast=[System.Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
 if ($errors.Count -ne 0) { throw 'Guest parser failed' }
-$names=@('Test-InstalledDriveC','Test-InstalledWindowsDirectory','Get-InstalledBootGates','Get-ClosedEarlyDiagnostic')
+$names=@('Test-InstalledDriveC','Test-InstalledWindowsDirectory','Get-InstalledBootGates','Get-ClosedEarlyDiagnostic','Get-ClosedPendingReboot','Get-ClosedExtraReboot')
 foreach ($name in $names) {
     $definitions=@($ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq $name},$false))
     if ($definitions.Count -ne 1) { throw 'Unique pure function required' }
@@ -391,6 +391,104 @@ try {
         if ($preserved.f -cne 'dism_deadline' -or $preserved.Count -ne 5) { throw 'First closed prior snapshot shape changed' };$passed++
         $redacted=Get-ClosedPriorService ([PSCustomObject]@{s='PRIVATE';p='PRIVATE';f='PRIVATE';e='PRIVATE';b=128;raw=$nativeBoot})
         if (($redacted|ConvertTo-Json -Compress).Contains('PRIVATE') -or $null -ne $redacted.b -or $redacted.Count -ne 5) { throw 'Prior snapshot redaction failed' };$passed++
+        # One additional request only; real protected writer/readback, mocked restart/time.
+        # Synthetic subsequent boot values test transitions, never claim a reboot occurred.
+        $entryDefinitions=@($helperAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Invoke-ServicedUpdate'},$false))
+        if ($entryDefinitions.Count -ne 1) { throw 'Unique worker entrypoint required' }
+        $outerTries=@($entryDefinitions[0].Body.EndBlock.Statements | Where-Object { $_ -is [System.Management.Automation.Language.TryStatementAst] })
+        if ($outerTries.Count -ne 1 -or $outerTries[0].CatchClauses.Count -ne 1) { throw 'Unique worker terminal catch required' }
+        # Execute the actual production catch, not a rewritten approximation.
+        $terminalCatch=[ScriptBlock]::Create('try { throw $extraError } '+$outerTries[0].CatchClauses[0].Extent.Text)
+        $realStateWriter=${function:Write-ServicedState}
+        $realRestartClock=${function:Get-ServicedRestartUtcNow}
+        function Write-ServicedState($State) {
+            if ($script:ExtraWriteFails) { throw 'fixture_write' }
+            & $realStateWriter $State
+            $script:ExtraNow=$script:ExtraNow.AddSeconds($script:ExtraWriteElapsed)
+        }
+        function Restart-Computer { param([switch]$Force,$ErrorAction)
+            $script:ExtraRequests++
+            if ($script:ExtraRequestFails) { throw 'fixture_request' }
+        }
+        function Get-ServicedRestartUtcNow { return $script:ExtraNow }
+        try {
+            foreach ($extraExit in @(0,3010)) {
+                foreach ($scenario in @('success','deadline2999','deadline3000','write_failed','request_failed','elapsed_write','write_persistent','count_used','same_boot','pending_again')) {
+                    $script:ExtraNow=[DateTime]::SpecifyKind([DateTime]'2026-01-01T00:00:00',[DateTimeKind]::Utc)
+                    $script:ExtraRequests=0;$script:ExtraWriteFails=($scenario -in @('write_failed','write_persistent'));$script:ExtraRequestFails=($scenario -ceq 'request_failed');$script:ExtraWriteElapsed=0
+                    $extraState=@{schema_version=1;target_build=26200;target_ubr=9711;status='reboot_pending';phase='reboot_pending';failure='none';dism_exit_code=$extraExit;before_boot=$nativeBoot;packages_verified=$true;actual_build=26200;actual_ubr=9711;dism_wait_timed_out=$false;dism_exit_observed=$true;dism_exit_observation_available=$true;extra_reboots=0;latest_reboot_boot=$nativeBoot;latest_reboot_changed=$null;after_boot=([long]$nativeBoot+1).ToString();reboot_required=$true}
+                    & $realStateWriter $extraState
+                    $seconds=if ($scenario -ceq 'deadline2999') { 2999 } else { 3000 }
+                    $deadline=$script:ExtraNow.AddSeconds($seconds)
+                    if ($scenario -ceq 'elapsed_write') { $script:ExtraWriteElapsed=1 }
+                    if ($scenario -in @('count_used','pending_again')) { $extraState.extra_reboots=1;$extraState.latest_reboot_boot=([long]$nativeBoot+1).ToString();$extraState.after_boot=([long]$nativeBoot+2).ToString() }
+                    if ($scenario -ceq 'same_boot') { $extraState.after_boot=$nativeBoot }
+                    $failure=$null;$extraError=$null
+                    try { Request-ServicedExtraReboot $extraState $deadline } catch { $failure=$_.Exception.Message;$extraError=$_ }
+                    $expectedRequests=if ($scenario -in @('success','deadline3000','request_failed')) { 1 } else { 0 }
+                    if ($script:ExtraRequests -ne $expectedRequests) { throw 'Extra request count failed' }
+                    $expectedSuccess=$scenario -in @('success','deadline3000')
+                    if (($null -eq $failure) -ne $expectedSuccess) { throw 'Extra request failure boundary failed' }
+                    $saved=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+                    Assert-ServicedPriorState $saved;Assert-ServicedRebootMetadata $saved
+                    $savedOne=$scenario -in @('success','deadline3000','request_failed','elapsed_write')
+                    if (($saved.extra_reboots -eq 1) -ne $savedOne) { throw 'Extra durable request count failed' }
+                    if ($savedOne) {
+                        # Interruption after atomic save and before restart must not accept same boot.
+                        $saved | Add-Member NoteProperty after_boot $saved.latest_reboot_boot -Force
+                        $saved | Add-Member NoteProperty latest_reboot_changed $null -Force
+                        $rejected=$false;try { Assert-ServicedLatestBoot $saved } catch { $rejected=$true }
+                        if (-not $rejected -or $saved.latest_reboot_changed -ne $false) { throw 'Saved request same boot accepted' }
+                        $saved.after_boot=([long]$saved.latest_reboot_boot+1).ToString()
+                        Assert-ServicedLatestBoot $saved
+                        $rejected=$false;try { Request-ServicedExtraReboot $saved $deadline } catch { $rejected=$true }
+                        if (-not $rejected -or $script:ExtraRequests -ne $expectedRequests) { throw 'Second extra request accepted' }
+                    }
+                    if ($scenario -ceq 'write_persistent') {
+                        $beforeTerminal=[Convert]::ToBase64String([IO.File]::ReadAllBytes($priorPath))
+                        $state=$extraState;$trusted=$true
+                        $terminalCode=& $terminalCatch
+                        $afterTerminal=[Convert]::ToBase64String([IO.File]::ReadAllBytes($priorPath))
+                        if ($terminalCode -ne 1 -or $state.status -cne 'failed' -or $state.completed -ne $false -or $script:ExtraRequests -ne 0 -or $beforeTerminal -cne $afterTerminal) { throw 'Persistent terminal writer failure escaped bounds' }
+                        Write-Output ((@{fixture='extra_reboot_terminal_write_failure';failed_in_memory=$true;previous_checkpoint_retained=$true;requests=0;reboot_tested=$false})|ConvertTo-Json -Compress);$passed++
+                    }
+                    if ($scenario -in @('write_failed','request_failed','elapsed_write','deadline2999')) {
+                        # Initial write failure is one-shot; the real terminal receipt writer is available.
+                        $script:ExtraWriteFails=$false;$script:ExtraWriteElapsed=0
+                        $state=$extraState;$trusted=$true
+                        $terminalCode=& $terminalCatch
+                        $terminal=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json
+                        $expectedFailure=if ($scenario -in @('elapsed_write','deadline2999')) { 'service_deadline' } else { 'operation_failed' }
+                        if ($terminalCode -ne 1 -or $terminal.status -cne 'failed' -or $terminal.completed -ne $false -or $terminal.reboot_required -ne $false -or $terminal.failure -cne $expectedFailure -or $script:ExtraRequests -ne $expectedRequests) { throw 'Production terminal receipt fixture failed' }
+                        $rejected=$false;try { Assert-ServicedPriorState $terminal } catch { $rejected=$true }
+                        if (-not $rejected) { throw 'Terminal failed receipt accepted' }
+                        Write-Output ((@{fixture='extra_reboot_terminal';scenario=$scenario;failed_receipt=$true;completed=$false;requests=$script:ExtraRequests;reboot_tested=$false})|ConvertTo-Json -Compress);$passed++
+                    }
+                    Write-Output ((@{fixture='extra_reboot_transition';scenario=$scenario;exit_code=$extraExit;requests=$script:ExtraRequests;saved_one=$savedOne;reboot_tested=$false})|ConvertTo-Json -Compress);$passed++
+                }
+            }
+            foreach ($bad in @($null,$true,$false,'0','1',-1,2,0.5)) {
+                $metadata=@{extra_reboots=$bad;latest_reboot_boot=$nativeBoot;before_boot=$nativeBoot}
+                $rejected=$false;try { Assert-ServicedRebootMetadata $metadata } catch { $rejected=$true }
+                if (-not $rejected) { throw 'Invalid extra counter accepted' };$passed++
+            }
+            foreach ($kind in @('missing_count','missing_witness','bad_witness','zero_mismatch','one_same')) {
+                $metadata=@{extra_reboots=0;latest_reboot_boot=$nativeBoot;before_boot=$nativeBoot}
+                switch ($kind) {
+                    'missing_count' { $metadata.Remove('extra_reboots') }
+                    'missing_witness' { $metadata.Remove('latest_reboot_boot') }
+                    'bad_witness' { $metadata.latest_reboot_boot='private_fixture' }
+                    'zero_mismatch' { $metadata.latest_reboot_boot=([long]$nativeBoot+1).ToString() }
+                    'one_same' { $metadata.extra_reboots=1 }
+                }
+                $rejected=$false;try { Assert-ServicedRebootMetadata $metadata } catch { $rejected=$true }
+                if (-not $rejected) { throw 'Invalid extra metadata accepted' };$passed++
+            }
+        } finally {
+            Set-Item Function:\Write-ServicedState $realStateWriter
+            Set-Item Function:\Get-ServicedRestartUtcNow $realRestartClock
+            Remove-Item Function:\Restart-Computer -ErrorAction SilentlyContinue
+        }
         [IO.File]::WriteAllText($priorPath,'{',[Text.UTF8Encoding]::new($false))
         $rejected=$false
         try { $null=Get-Content -LiteralPath $priorPath -Raw | ConvertFrom-Json } catch { $rejected=$true }
@@ -412,6 +510,68 @@ try {
         Write-Output ((@{fixture='acl_cleanup';removed=$fixtureCleanup})|ConvertTo-Json -Compress)
         if (-not $fixtureCleanup) { throw 'Fixture cleanup failed' }
     }
+}
+
+# Registry mocks execute the actual collector and unchanged authoritative predicate.
+# No registry writes, values or paths are emitted. Observations are not atomic.
+function Test-Path { param($LiteralPath,$ErrorAction)
+    $kind=if ($LiteralPath.EndsWith('RebootPending')) { 'c' } elseif ($LiteralPath.EndsWith('RebootRequired')) { 'w' } else { throw 'fixture_path' }
+    if ($script:PendingReadError -ceq $kind) { throw 'fixture_read' }
+    return $script:PendingFixture[$kind]
+}
+function Get-ItemProperty { param($LiteralPath,$ErrorAction)
+    if (-not $LiteralPath.EndsWith('Session Manager')) { throw 'fixture_path' }
+    if ($script:PendingReadError -ceq 'r') { throw 'fixture_read' }
+    return $script:PendingSession
+}
+try {
+    foreach ($mask in 0..7) {
+        $script:PendingReadError='none'
+        $script:PendingFixture=@{c=[bool]($mask -band 1);w=[bool]($mask -band 2)}
+        $script:PendingSession=if ($mask -band 4) { [PSCustomObject]@{PendingFileRenameOperations=@('fixture_source','')} } else { [PSCustomObject]@{fixture_metadata=$true} }
+        $facts=Get-ServicedPendingFacts
+        if ($facts.c -ne [bool]($mask -band 1) -or $facts.w -ne [bool]($mask -band 2) -or $facts.r -ne [bool]($mask -band 4)) { throw 'Pending combination facts failed' }
+        if ((Test-ServicedPendingReboot) -ne ($mask -ne 0)) { throw 'Pending original predicate failed' };$passed++
+    }
+    $script:PendingFixture=@{c=$false;w=$false};$script:PendingReadError='none'
+    foreach ($case in @('absent','empty_array','null','empty_string','delete_pair')) {
+        $script:PendingSession=switch ($case) {
+            'absent' { [PSCustomObject]@{fixture_metadata=$true} }
+            'empty_array' { [PSCustomObject]@{PendingFileRenameOperations=@()} }
+            'null' { [PSCustomObject]@{PendingFileRenameOperations=$null} }
+            'empty_string' { [PSCustomObject]@{PendingFileRenameOperations=''} }
+            'delete_pair' { [PSCustomObject]@{PendingFileRenameOperations=@('fixture_source','')} }
+        }
+        $expected=$case -in @('null','empty_string','delete_pair') # Preserve @($null).Count == 1.
+        $facts=Get-ServicedPendingFacts
+        if ($facts.r -ne $expected -or (Test-ServicedPendingReboot) -ne $expected) { throw 'Pending rename semantics changed' };$passed++
+    }
+    foreach ($kind in @('c','w','r')) {
+        $script:PendingFixture=@{c=$false;w=$false};$script:PendingSession=[PSCustomObject]@{fixture_metadata=$true};$script:PendingReadError=$kind
+        $facts=Get-ServicedPendingFacts
+        if ($null -ne $facts[$kind]) { throw 'Pending read failure not unknown' }
+        foreach ($other in @('c','w','r')) { if ($other -cne $kind -and $facts[$other] -ne $false) { throw 'Independent pending read lost' } }
+        $rejected=$false;try { $null=Test-ServicedPendingReboot } catch { $rejected=$true }
+        if (-not $rejected) { throw 'Original pending read failure suppressed' };$passed++
+    }
+    # Original short circuit remains authoritative even if a later diagnostic read fails.
+    $script:PendingFixture=@{c=$true;w=$false};$script:PendingReadError='r'
+    $facts=Get-ServicedPendingFacts
+    if ($facts.c -ne $true -or $null -ne $facts.r -or -not (Test-ServicedPendingReboot)) { throw 'Pending short circuit changed' };$passed++
+} finally {
+    Remove-Item Function:\Test-Path -ErrorAction SilentlyContinue
+    Remove-Item Function:\Get-ItemProperty -ErrorAction SilentlyContinue
+}
+$pendingClosed=Get-ClosedPendingReboot ([PSCustomObject]@{c='private_fixture';w=1;r=$true;unknown='private_fixture'})
+if ($pendingClosed.Count -ne 3 -or $null -ne $pendingClosed.c -or $null -ne $pendingClosed.w -or $pendingClosed.r -ne $true -or ($pendingClosed|ConvertTo-Json -Compress).Contains('private_fixture')) { throw 'Pending redaction failed' };$passed++
+
+foreach ($badCount in @($true,'1',2)) {
+    $closedExtra=Get-ClosedExtraReboot ([PSCustomObject]@{extra_reboots=$badCount;latest_reboot_changed='private_fixture';latest_reboot_boot='private_fixture'})
+    if ($closedExtra.Count -ne 2 -or $null -ne $closedExtra.n -or $null -ne $closedExtra.b -or ($closedExtra|ConvertTo-Json -Compress).Contains('private_fixture')) { throw 'Extra metadata redaction failed' };$passed++
+}
+foreach ($goodCount in @(0,1)) {
+    $closedExtra=Get-ClosedExtraReboot ([PSCustomObject]@{extra_reboots=$goodCount;latest_reboot_changed=$false})
+    if ($closedExtra.n -ne $goodCount -or $closedExtra.b -ne $false) { throw 'Extra metadata projection failed' };$passed++
 }
 
 # Execute the actual wait helper with owned mock objects, never DISM/processes.

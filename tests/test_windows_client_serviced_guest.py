@@ -10,6 +10,44 @@ RUN = (GITHUB / 'windows-identity-serviced-stage0-run.ps1').read_text()
 UPDATE = (GITHUB / 'windows-identity-serviced-update.ps1').read_text()
 
 class ServicedGuestContractTests(unittest.TestCase):
+    def test_pending_diagnostic_never_replaces_authoritative_gate(self):
+        start=UPDATE.index('function Test-ServicedPendingReboot {')
+        end=UPDATE.index('function Get-ServicedOpticalRoot', start)
+        expected=r"""function Test-ServicedPendingReboot {
+    if (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { return $true }
+    if (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { return $true }
+    $session=Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
+    return ('PendingFileRenameOperations' -in @($session.PSObject.Properties.Name) -and
+        @($session.PendingFileRenameOperations).Count -gt 0)
+}
+"""
+        self.assertEqual(UPDATE[start:end], expected)
+        self.assertIn("$state.pending_reboot=Get-ServicedPendingFacts\n            if (Test-ServicedPendingReboot) {\n                Request-ServicedExtraReboot $state $serviceDeadline", UPDATE)
+        self.assertIn("Set-ClosedResultField 'pending_reboot' $pendingFacts", RUN)
+        self.assertIn('$Value.$key -is [bool]', RUN)
+        gate=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        for text in ('foreach ($mask in 0..7)', "'absent','empty_array','null','empty_string','delete_pair'", 'Original pending read failure suppressed', 'Pending short circuit changed', 'Pending redaction failed'):
+            self.assertIn(text, gate)
+
+    def test_one_extra_restart_is_durable_bounded_and_not_acceptance(self):
+        helper=UPDATE[UPDATE.index('function Request-ServicedExtraReboot'):UPDATE.index('function Invoke-ServicedUpdate')]
+        self.assertIn("if ($State.extra_reboots -ne 0) { throw 'reboot_still_pending' }", helper)
+        self.assertIn('$State.extra_reboots=1; $State.latest_reboot_boot=$State.after_boot', helper)
+        self.assertEqual(helper.count('Assert-ServicedRestartReserve $Deadline'), 2)
+        self.assertLess(helper.index('Write-ServicedState $State'), helper.rindex('Assert-ServicedRestartReserve $Deadline'))
+        self.assertLess(helper.rindex('Assert-ServicedRestartReserve $Deadline'), helper.index('Restart-Computer'))
+        self.assertIn('.TotalSeconds -lt 3000', UPDATE)
+        self.assertIn('$Value.extra_reboots -isnot [int] -and $Value.extra_reboots -isnot [long]', UPDATE)
+        self.assertIn('Assert-ServicedRebootMetadata $prior', UPDATE)
+        body=UPDATE[UPDATE.index('function Invoke-ServicedUpdate'):]
+        for first,last in [('Assert-ServicedPriorState $prior','Assert-ServicedRebootMetadata $prior'),('Assert-ServicedRebootMetadata $prior','Assert-ServicedMedia $optical'),('Assert-ServicedMedia $optical','Assert-ServicedLatestBoot $state'),('Assert-ServicedLatestBoot $state',"if ($state.actual_build -ne 26200 -or $state.actual_ubr -ne 9711)"),("if ($state.actual_build -ne 26200 -or $state.actual_ubr -ne 9711)",'if (Test-ServicedPendingReboot)'),('if (Test-ServicedPendingReboot)','$state.reboot_observed=$true'),('$state.reboot_observed=$true','Unregister-ScheduledTask')]:
+            self.assertLess(body.index(first),body.index(last))
+        self.assertIn('$state.extra_reboots=0; $state.latest_reboot_boot=$state.before_boot', UPDATE)
+        self.assertIn("Set-ClosedResultField 'extra_reboot' $extraFacts", RUN)
+        gate=(GITHUB / 'test-windows-identity-serviced-gates.ps1').read_text()
+        for marker in ('foreach ($extraExit in @(0,3010))', "'deadline2999','deadline3000'", "'write_failed','request_failed','elapsed_write'", 'Saved request same boot accepted', 'Second extra request accepted', 'Invalid extra counter accepted', '$outerTries[0].CatchClauses[0].Extent.Text', 'Production terminal receipt fixture failed', 'Terminal failed receipt accepted', 'Persistent terminal writer failure escaped bounds'):
+            self.assertIn(marker, gate)
+
     def test_worker_is_protected_and_not_user_workspace(self):
         self.assertIn("$protected='C:\\RuleProxyCIUpdates'", SETUP)
         self.assertIn('$acl.SetAccessRuleProtection($true,$false)', SETUP)
@@ -50,7 +88,8 @@ class ServicedGuestContractTests(unittest.TestCase):
         self.assertIn('$state.dism_exit_code -notin @(0,3010)', UPDATE)
         self.assertIn("$state.status='reboot_pending'", UPDATE)
         self.assertIn('Restart-Computer -Force', UPDATE)
-        self.assertIn('$state.after_boot -ceq $state.before_boot', UPDATE)
+        self.assertIn('$State.after_boot -ceq $State.before_boot', UPDATE)
+        self.assertIn('Assert-ServicedLatestBoot $state', UPDATE)
         self.assertIn('Get-CimInstance -ClassName Win32_OperatingSystem', UPDATE)
         self.assertIn('$state.actual_ubr -ne 9711', UPDATE)
         self.assertNotIn('$os.ubr -ge', UPDATE)

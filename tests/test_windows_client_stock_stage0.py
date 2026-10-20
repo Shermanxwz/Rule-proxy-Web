@@ -627,6 +627,8 @@ assert not any(root.rglob('__pycache__'))
             'e':-2147483648,'b':127}
         # JSON null is longer than every valid mask (including 127). Exercise
         # both observed/unavailable shapes, and null versus widest exit values.
+        serviced_guest['pending_reboot']={'c':False,'w':False,'r':False}
+        serviced_guest['extra_reboot']={'n':None,'b':False}
         prior_wire_sizes={}
         for mask in (None,127):
             for code in (None,-2147483648,4294967295):
@@ -641,6 +643,13 @@ assert not any(root.rglob('__pycache__'))
         serviced_guest['prior_service']['b']=None
         serviced_wire = json.dumps(serviced_guest)
         self.assertEqual(len(serviced_wire),max(prior_wire_sizes.values()))
+        for count in (None,0,1):
+            for changed in (None,True,False):
+                candidate=json.loads(serviced_wire)
+                candidate['extra_reboot']={'n':count,'b':changed}
+                optional_wire=json.dumps(candidate)
+                self.assertLessEqual(len(optional_wire),len(serviced_wire))
+                self.assertEqual(serviced.validate_guest(json.loads(optional_wire),'a'*64)['extra_reboot'],candidate['extra_reboot'])
         self.assertLessEqual(len(serviced_wire), serviced.MAX_REPORT)
         self.assertLessEqual(nesting(serviced_guest),10)
         serviced_restored=serviced.validate_guest(json.loads(serviced_wire),'a'*64)
