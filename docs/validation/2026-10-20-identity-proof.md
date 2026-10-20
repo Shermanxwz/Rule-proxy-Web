@@ -589,3 +589,16 @@ package installation or any VM. Its closed report unfortunately omitted the
 failure category and current plan measurements, so neither a changed estimate
 nor parser failure can yet be asserted. The next diagnostic must distinguish
 these before another full recovery attempt. This is not a PSEC isolation result.
+
+Isolated APT diagnostic `39387349303` (`41168f4a`) completed with the frozen stock
+gate unchanged. Before index refresh,23 new packages/zero upgrades required
+25,315,786 download bytes and115,948,544 positive installed-growth bytes; all
+original ceilings passed. After the same index refresh,23 new packages plus
+three upgrades required26,223,118 download bytes and115,951,616 growth bytes.
+All26 rows parsed and verified, totals were complete and no removal was planned.
+The exact first gate rejection was simulation_count; both byte ceilings also
+exceeded the old exact bounds. This reproduces post-refresh plan drift rather
+than a parser ambiguity. Only indexes were refreshed: no package installation,
+provider recovery or VM. Row-only evidence does not identify the three public
+package names, so a narrow follow-on must establish their dependency identities
+before the conditionally approved measured-ceiling correction is exercised.
