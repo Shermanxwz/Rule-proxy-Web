@@ -1,4 +1,4 @@
-# Supported control attempt 07: preserve admitted resume checkpoint; no provider deletion.
+# Supported control attempt 08: bounded extra reboot; no provider deletion.
 name: Windows serviced client Stage0 (bounded experiment)
 on:
   push:
