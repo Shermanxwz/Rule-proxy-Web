@@ -450,3 +450,17 @@ host/account names or device identifiers. It creates no VM, account, mount or
 permission change and downloads no lab artifacts/media. The 55GiB runtime gate
 remains unchanged; a reported alternate location is only a proposal. Fourteen
 client integration/preflight tests pass locally.
+
+
+Read-only resource run `39373913151` (commit `2268966c`) completed successfully.
+KVM exists, opens with existing runner authority, returns API 12 and closes. All
+four fixed candidate locations share one filesystem: total 76,887,154,688 bytes,
+free 14,078,107,648 bytes (about 13.11GiB), below the unchanged 55GiB requirement.
+No alternate filesystem, VM, account, artifact/media download or host change
+was observed. The closed public evidence and exact artifact digest are retained.
+
+This is a real resource blocker, not a PSEC rejection. The previously measured
+serviced guest allocated about 24.95GB alone; eliminating an approximately 7GB
+transient ISO duplicate cannot establish feasibility on this runner. Do not
+blindly lower the reserve or delete global tools. Continue only with a reviewed
+resource plan consistent with the no-new-paid/no-user-device constraints.
