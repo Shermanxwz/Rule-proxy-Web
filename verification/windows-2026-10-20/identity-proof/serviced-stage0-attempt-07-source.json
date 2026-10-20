@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "e9f568b0873c4ff15378df0b81327893647437d8",
+  "run_id": 39500059775,
+  "native_job_id": 118896016707,
+  "artifacts": [
+    {
+      "artifact_id": 12303409252,
+      "archive_sha256": "04f0f5b1bcb1ed156fdba39ee5a28ef4026b3db35f3849d06b54632a7ca0d1e6",
+      "public_file": "serviced-stage0-attempt-07-runtime-public.json"
+    },
+    {
+      "artifact_id": 12303719097,
+      "archive_sha256": "9c6cc365a7f8e948e2a5daad79dc929109351598c76a91e640be6ec07e06209b",
+      "public_file": "serviced-stage0-attempt-07-preparation-public.json"
+    },
+    {
+      "artifact_id": 12303234585,
+      "archive_sha256": "3eb3cf58b6b2180b89eba15bc2b040111b94b87b2a7089a3b0c2b54549a74380",
+      "public_file": "serviced-stage0-attempt-07-capacity-public.json"
+    }
+  ],
+  "observed_outcome": "post_reboot_verification_rejected_remaining_pending_reboot",
+  "stage0_passed": false,
+  "vm_destroyed": true,
+  "prior_attempt_cleanup_uncertainty_unchanged": true,
+  "provider_deletion_attempted": false,
+  "installed_stock_beacon_observed": true,
+  "update_media_host_verified_and_attached": true,
+  "isolation_not_tested": true,
+  "qemu_started_utc": "2026-10-20T21:36:25Z",
+  "installed_stock_beacon_utc": "2026-10-20T21:47:49Z",
+  "result_received_utc": "2026-10-20T22:29:28Z",
+  "cleanup_done_utc": "2026-10-20T22:29:39Z",
+  "setup_budget_accepted": true,
+  "setup_remaining_seconds": 8332,
+  "ordinary_remaining_seconds": 4200,
+  "observed_zone_pacific": true,
+  "observed_utc_offset_minutes": -420,
+  "reported_reboot_observed": false,
+  "reported_packages_verified": true,
+  "reported_dism_exit_code": 3010,
+  "reported_failure": "reboot_still_pending",
+  "source_order_inferences": {
+    "changed_boot_check_passed": true,
+    "exact_26200_9711_check_passed": true,
+    "fresh_optical_verification_passed": true
+  },
+  "pending_source_not_observed": true,
+  "task_unregistered": false
+}
