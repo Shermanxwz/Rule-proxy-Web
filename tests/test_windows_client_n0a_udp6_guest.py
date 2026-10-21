@@ -207,4 +207,21 @@ class InheritedDispatch(unittest.TestCase):
         actor.write_bytes(b'MZ'+b'y'*510)
         with self.assertRaises(ValueError):self.module.verify_production(config,actor,path)
 
+    def test_owned_record_without_handle_is_unknown_not_process_absence(self):
+        self.g.owned=[dict(role='ordinary',pattern='before',process=None,process_exit_observed=True)]
+        observation=self.module.execution_observations(self.g)['before']
+        self.assertTrue(observation['owned']);self.assertFalse(observation['handle']);self.assertIsNone(observation['exit'])
+        self.assertFalse(observation['envelope'])
+    def test_missing_report_differs_from_unrequested_or_bound_object(self):
+        process=Process();process.pid=42;process.returncode=0
+        owned=dict(process=process,out=io.BytesIO(),err=io.BytesIO(),role='ordinary',pattern='before',endpoint='runner-v6',
+            report=self.root/'missing.json',timed_out=False,cleanup=False)
+        self.g.owned.append(owned);self.g.wait(owned,1)
+        row=self.module.execution_observations(self.g)['before']
+        self.assertTrue(row['handle']);self.assertTrue(row['exit']);self.assertTrue(row['envelope'])
+        self.assertEqual(row['report_presence'],'missing');self.assertEqual(row['report_state'],'read')
+        self.assertNotIn('sample',self.module.execution_observations(self.g))
+        owned['report'].write_bytes(b'{}');self.g.wait(owned,1)
+        self.assertEqual(self.module.execution_observations(self.g)['before']['report_presence'],'object')
+
 if __name__=='__main__':unittest.main()

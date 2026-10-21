@@ -9,7 +9,7 @@ spec=importlib.util.spec_from_file_location('udp_test',ROOT/'.github/windows_n0a
 NONCE='a'*32
 
 def row(phase,index,start,accepted=True,denied=False):
-    return dict(index=index,attempted=True,socketCreated=True,bindSucceeded=True,localPort=45000+index,localIpv6='0'*32,localScopeId=0,v6OnlySet=True,v6OnlyVerified=True,v6OnlyGetReturn=0,v6OnlyGetError=None,v6OnlyGetLength=4,v6OnlyGetValue=1,v6OnlyGetStage='nonzero',
+    return dict(index=index,attempted=True,socketCreated=True,bindSucceeded=True,localPort=45000+index,echoPeerLengthMatched=None,echoPeerFamilyMatched=None,echoPeerPortMatched=None,echoPeerScopeZero=None,echoPeerNotV4Mapped=None,echoPeerAddressMatched=None,localIpv6='0'*32,localScopeId=0,v6OnlySet=True,v6OnlyVerified=True,v6OnlyGetReturn=0,v6OnlyGetError=None,v6OnlyGetLength=4,v6OnlyGetValue=1,v6OnlyGetStage='nonzero',
         sendStartQpc=start,sendEndQpc=start+1,sendAccepted=accepted,sendBytes=len(u.frame(NONCE,phase,index)) if accepted else -1,
         nonceMatched=accepted,exchangeEndQpc=start+2,win32Error=10013 if denied else 0,failure='sendto' if denied else 'none',closed=True,closeError=0,closeQpc=10000)
 def network(phase,starts,production=True,denied=False):

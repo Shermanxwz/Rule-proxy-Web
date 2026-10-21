@@ -65,7 +65,7 @@ class OwnedTests(unittest.TestCase):
         child.process._handle.Close.assert_called_once_with()
 
 class CompositionTests(unittest.TestCase):
-    def exercise(self,unknown_cleanup=False,bad_echo=False,bad_v6only_contract=False):
+    def exercise(self,unknown_cleanup=False,bad_echo=False,bad_v6only_contract=False,echo_contract=True):
         spec=importlib.util.spec_from_file_location('udp_synthetic',ROOT/'tests/test_windows_client_n0a_udp6.py');helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/'owned';root.mkdir();commands=[];endpoint_count=[]
@@ -88,7 +88,7 @@ class CompositionTests(unittest.TestCase):
                 def start_arguments(self,argv):
                     commands.append(tuple(argv))
                     if '--profile-only' in argv:
-                        self.path.write_text(json.dumps(dict(mode='actor-n0a-udp6-profile',nonce=argv[2],pid=123,queriesSucceeded=True,errors=[],tokenElevated=True,profile=dict(testOnly=True,ordinaryMatched=False,containedMatched=False,networkApiCalled=False,v6OnlyContractVerified=not bad_v6only_contract))))
+                        self.path.write_text(json.dumps(dict(mode='actor-n0a-udp6-profile',nonce=argv[2],pid=123,queriesSucceeded=True,errors=[],tokenElevated=True,profile=dict(testOnly=True,ordinaryMatched=False,containedMatched=False,networkApiCalled=False,v6OnlyContractVerified=not bad_v6only_contract,echoPeerContractVerified=echo_contract))))
                     else:self.process.returncode=2
                 def wait(self,deadline):return True
                 report=g.Owned.report
@@ -101,6 +101,7 @@ class CompositionTests(unittest.TestCase):
         self.assertTrue(value['hosted_mechanics_complete']);self.assertEqual(count,2);self.assertFalse(retained)
         self.assertTrue(value['wrong_echo_send_accepted']);self.assertTrue(value['wrong_echo_rejected'])
         self.assertTrue(value['actual_admin_profile_rejected']);self.assertTrue(value['production_invalid_cli_rejected'])
+        self.assertTrue(value['echo_peer_contract_verified'])
         self.assertEqual([row for row in commands if row[0]=='production'],[('production','--invalid-mechanics-control')])
         self.assertFalse(value['production_network_guard_executed']);self.assertFalse(value['ordinary_nonadmin_tested']);self.assertFalse(value['packet_egress_tested'])
     def test_cleanup_unknown_keeps_observations_but_retains_owned_work(self):
@@ -115,6 +116,17 @@ class CompositionTests(unittest.TestCase):
         value,_,_,_=self.exercise(bad_v6only_contract=True)
         self.assertTrue(value['actual_admin_profile_rejected'])
         self.assertFalse(value['v6only_contract_verified']);self.assertFalse(value['hosted_mechanics_complete'])
+
+    def test_echo_peer_synthetic_helper_false_blocks_only_qualification(self):
+        value,commands,count,_=self.exercise(echo_contract=False)
+        self.assertFalse(value['echo_peer_contract_verified']);self.assertFalse(value['hosted_mechanics_complete'])
+        self.assertTrue(value['actual_admin_profile_rejected']);self.assertTrue(value['fixture_echo_controls'])
+        self.assertTrue(value['wrong_echo_send_accepted']);self.assertEqual(count,2);self.assertEqual(len(commands),7)
+    def test_echo_peer_helper_requires_strict_boolean(self):
+        for invalid in (None,1,'PRIVATE_SENTINEL'):
+            value,_,_,_=self.exercise(echo_contract=invalid)
+            self.assertFalse(value['hosted_mechanics_complete']);self.assertFalse(value['echo_peer_contract_verified'])
+            self.assertNotIn('PRIVATE_SENTINEL',g.public_json(value))
 
 class DiagnosticTests(unittest.TestCase):
     def network(self,phase='contained',count=3):

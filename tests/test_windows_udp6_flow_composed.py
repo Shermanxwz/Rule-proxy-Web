@@ -147,6 +147,11 @@ class Composed(unittest.TestCase):
         b,cases,execution,config,capture=self.make()
         for code in (None,-2147483648,2147483647):
             result=g.engine.evaluate(cases,b)
+            d=result['diagnostic'];d.update(stage='before_admission',failed_stage='contained_invoke',failure='operation')
+            d['phases']=[[False,False,False,False,False,False,'unavailable','unavailable'] for _ in range(4)]
+            d['before']=dict(checks=[False]*13,validation='v6only_unattempted',network=[4294967295,False,40],
+                attempt=[False]*5+[-2147483648,4294967295,-2147483648,4294967295,'length_mismatch',False,128,False,4294967295,max(g.engine.FAILURES,key=len),False,4294967295]+[False]*6)
+            g.engine.validate_diagnostic(d)
             report=dict(schema_version=1,binding=dict(case_nonce=b.nonce,actor_sha256=b.actor_sha256,executor_sha256=b.executor_sha256,build=26300,ubr=9457),result=result,
                 execution=dict(phase='configuration',failed=True,cleanup_confirmed=False))
             launcher=dict(phase='configuration',failure='work_budget_exhausted',python_exit_code=code,process_exit_confirmed=None,timed_out=True,budget_exhausted=True)
@@ -155,6 +160,10 @@ class Composed(unittest.TestCase):
             self.assertLessEqual(len(f.encode(envelope)),4096)
         v=fixture.value([100+i*250 for i in range(40)])
         v['reports']['after']['udp6']=fixture.network('after',[11000])
+        for source in v['reports'].values():
+            source['bytes']=32768
+            for row in source['udp6']['attempts']:
+                for key in g.engine.PEER_DIAGNOSTIC_KEYS:row[key]=False
         self.assertLessEqual(len(f.encode(v)),65536)
         normalized=f.normalize(f.encode(v),fixture.expected(v,f.encode(v)))
         self.assertEqual(len(json.loads(normalized['manifest_bytes'])['ordinary']),42)

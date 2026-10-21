@@ -24,6 +24,7 @@
 #include "windows_identity_actor.cpp"
 #undef wmain
 #include <algorithm>
+#include <cstddef>
 #include <stdexcept>
 #pragma comment(lib, "ws2_32.lib")
 
@@ -133,6 +134,7 @@ struct Attempt {
     std::optional<int> v6OnlyGetReturn,v6OnlyGetLength;
     std::optional<DWORD> v6OnlyGetError,v6OnlyGetValue;
     const char* v6OnlyGetStage="not_attempted";
+    std::optional<bool> echoPeerLengthMatched,echoPeerFamilyMatched,echoPeerPortMatched,echoPeerScopeZero,echoPeerNotV4Mapped,echoPeerAddressMatched;
     LONGLONG sendStartQpc=0,sendEndQpc=0,exchangeEndQpc=0,closeQpc=0;
     int sendBytes=-1,win32Error=0,closeError=0;
     const char* failure="none";
@@ -154,6 +156,22 @@ bool ValidateV6Only(int returned,int apiError,int length,const std::array<unsign
     if (value==0) { result.v6OnlyGetStage="zero"; Error(result,"v6only_zero",0); return false; }
     result.v6OnlyGetStage="nonzero"; result.v6OnlyVerified=true; return true;
 }
+void ObserveEchoPeer(int count,int length,const sockaddr_in6& sender,const sockaddr_in6& remote,Attempt& result) {
+    if (count<0) return;
+    result.echoPeerLengthMatched=length==static_cast<int>(sizeof(sender));
+    if (length<0 || length>static_cast<int>(sizeof(sender))) return;
+    const std::size_t available=static_cast<std::size_t>(length);
+    if (available>=offsetof(sockaddr_in6,sin6_family)+sizeof(sender.sin6_family))
+        result.echoPeerFamilyMatched=sender.sin6_family==AF_INET6;
+    if (available>=offsetof(sockaddr_in6,sin6_port)+sizeof(sender.sin6_port))
+        result.echoPeerPortMatched=sender.sin6_port==remote.sin6_port;
+    if (available>=offsetof(sockaddr_in6,sin6_scope_id)+sizeof(sender.sin6_scope_id))
+        result.echoPeerScopeZero=sender.sin6_scope_id==0;
+    if (available>=offsetof(sockaddr_in6,sin6_addr)+sizeof(sender.sin6_addr)) {
+        result.echoPeerNotV4Mapped=!IN6_IS_ADDR_V4MAPPED(&sender.sin6_addr);
+        result.echoPeerAddressMatched=std::memcmp(&sender.sin6_addr,Destination.data(),Destination.size())==0;
+    }
+}
 bool Receive(SOCKET socket,const sockaddr_in6& remote,const std::string& frame,ULONGLONG deadline,Attempt& result) {
     const ULONGLONG now=GetTickCount64();
     if (now>=deadline) { Error(result,"recv_select",WSAETIMEDOUT); return false; }
@@ -167,6 +185,7 @@ bool Receive(SOCKET socket,const sockaddr_in6& remote,const std::string& frame,U
     sockaddr_in6 sender{}; int senderLength=sizeof(sender);
     const int count=recvfrom(socket,buffer.data(),static_cast<int>(buffer.size()),0,reinterpret_cast<sockaddr*>(&sender),&senderLength);
     if (count==SOCKET_ERROR) { Error(result,"recvfrom",WSAGetLastError()); return false; }
+    ObserveEchoPeer(count,senderLength,sender,remote,result);
     if (senderLength!=static_cast<int>(sizeof(sender)) || sender.sin6_family!=AF_INET6
         || sender.sin6_port!=remote.sin6_port || sender.sin6_scope_id!=0
         || IN6_IS_ADDR_V4MAPPED(&sender.sin6_addr)
@@ -218,6 +237,7 @@ Attempt Probe(unsigned int index,unsigned int port,const std::string& frame,ULON
     return result;
 }
 std::string Bool(bool value) { return value?"true":"false"; }
+std::string OptionalBool(const std::optional<bool>& value) { return value.has_value()?Bool(*value):"null"; }
 std::string AddressHex(const std::array<unsigned char,16>& value) {
     const char* digits="0123456789abcdef"; std::string result; result.reserve(32);
     for(unsigned char byte:value) { result+=digits[byte>>4]; result+=digits[byte&15]; } return result;
@@ -231,6 +251,12 @@ std::string Serialize(const Attempt& a) {
         ",\"bindSucceeded\":"+Bool(a.bindSucceeded)+",\"localPort\":"+std::to_string(a.localPort)+",\"localIpv6\":\""+AddressHex(a.localIpv6)+"\",\"localScopeId\":"+std::to_string(a.localScopeId)+
         ",\"sendStartQpc\":"+std::to_string(a.sendStartQpc)+",\"sendEndQpc\":"+std::to_string(a.sendEndQpc)+",\"sendBytes\":"+std::to_string(a.sendBytes)+
         ",\"sendAccepted\":"+Bool(a.sendAccepted)+",\"nonceMatched\":"+Bool(a.nonceMatched)+",\"exchangeEndQpc\":"+std::to_string(a.exchangeEndQpc)+
+        ",\"echoPeerLengthMatched\":"+OptionalBool(a.echoPeerLengthMatched)+
+        ",\"echoPeerFamilyMatched\":"+OptionalBool(a.echoPeerFamilyMatched)+
+        ",\"echoPeerPortMatched\":"+OptionalBool(a.echoPeerPortMatched)+
+        ",\"echoPeerScopeZero\":"+OptionalBool(a.echoPeerScopeZero)+
+        ",\"echoPeerNotV4Mapped\":"+OptionalBool(a.echoPeerNotV4Mapped)+
+        ",\"echoPeerAddressMatched\":"+OptionalBool(a.echoPeerAddressMatched)+
         ",\"win32Error\":"+std::to_string(a.win32Error)+",\"failure\":\""+a.failure+"\",\"closed\":"+Bool(a.closed)+
         ",\"closeError\":"+std::to_string(a.closeError)+",\"closeQpc\":"+std::to_string(a.closeQpc)+"}";
 }

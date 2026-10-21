@@ -329,6 +329,10 @@ UDP6_ACTIVATION_INVERSE = ((43, 51, 'bdc8592c9da38a16c0d8f682aec31891af0dae31c4b
  (627, 635, 'd3244c28c5e59271035066c89ec5dbe2a3e7a94a087e3a312d4e23ffae064dfc', ''))
 
 def undo_udp6_activation(text):
+    # Report-only peer diagnostics change the source pin, not runtime wiring.
+    current="c631b25743af8af8afa2410ac57cbbce86409c1660b4e45f540377b30e963c08"
+    if text.count(current)!=1:raise AssertionError("UDP6 diagnostic source pin")
+    text=text.replace(current,"2b06fa49217e0994abcf94a265ee7eff998c8766b0a37fe312754bbb1fb0e6f6")
     lines=text.splitlines(keepends=True)
     for start,end,digest,prior in reversed(UDP6_ACTIVATION_INVERSE):
         if hashlib.sha256("".join(lines[start:end]).encode()).hexdigest()!=digest:raise AssertionError("UDP6 activation delta changed")

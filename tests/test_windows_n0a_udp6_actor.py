@@ -65,7 +65,7 @@ class Udp6ActorSourceTests(unittest.TestCase):
         self.assertIn('ObserveNativeIdentity()', profile)
         self.assertIn('n0a_udp6::Profile(identity,false)', profile)
         self.assertIn('n0a_udp6::Profile(identity,true)', profile)
-        self.assertIn('return identity.errors.empty()&&v6Contract?0:4;', profile)
+        self.assertIn('return identity.errors.empty()&&v6Contract&&peerContract?0:4;', profile)
         for forbidden in ('WSAStartup(', 'socket(', 'Probe(', 'n0a_udp6::Run('):
             self.assertNotIn(forbidden, profile)
         self.assertNotIn('--profile-only', self.source)
@@ -149,6 +149,36 @@ class Udp6ActorSourceTests(unittest.TestCase):
         self.assertIn('v6OnlyContractVerified',fixture)
         self.assertIn('n0a_udp6::Bool(v6Contract)',fixture)
 
+    def test_peer_observation_does_not_change_receive_acceptance(self):
+        receive=function(self.source,'Receive')
+        line='    ObserveEchoPeer(count,senderLength,sender,remote,result);\n'
+        self.assertEqual(receive.count(line),1)
+        self.assertEqual(hashlib.sha256(receive.replace(line,'').encode()).hexdigest(),
+                         'e58278b055088b072cd84c188136a3f8ab79d6f0771d8d265cfadf17560ab1a6')
+        self.assertLess(receive.index('if (count==SOCKET_ERROR)'),receive.index('ObserveEchoPeer('))
+        self.assertLess(receive.index('ObserveEchoPeer('),receive.index('if (senderLength!='))
+    def test_peer_fields_are_nullable_and_returned_length_bounded(self):
+        helper=function(self.source,'ObserveEchoPeer')
+        self.assertIn('if (count<0) return;',helper)
+        self.assertIn('if (length<0 || length>static_cast<int>(sizeof(sender))) return;',helper)
+        for field in ('sin6_family','sin6_port','sin6_scope_id','sin6_addr'):
+            self.assertIn('offsetof(sockaddr_in6,'+field+')+sizeof(sender.'+field+')',helper)
+        self.assertLess(helper.index('if (length<0'),helper.index('const std::size_t available'))
+        for name in ('LengthMatched','FamilyMatched','PortMatched','ScopeZero','NotV4Mapped','AddressMatched'):
+            self.assertIn('OptionalBool(a.echoPeer'+name+')',function(self.source,'Serialize'))
+        self.assertIn('value.has_value()?Bool(*value):"null"',function(self.source,'OptionalBool'))
+        for forbidden in ('Error(', 'recvfrom(', 'sendto(', 'WSAGetLastError(', 'nonceMatched=', 'failure='):
+            self.assertNotIn(forbidden,helper)
+    def test_fixture_peer_contract_is_shared_pure_and_fixed(self):
+        fixture=(ROOT/'.github/native/windows_n0a_udp6_fixture.cpp').read_text()
+        contract=function(fixture,'EchoPeerContract')
+        for text in ('SOCKET_ERROR','2147483647','length=0','changed<5','AF_INET','sin6_scope_id=1','mapped=',
+                     'ObserveEchoPeer(', 'has_value()'):
+            self.assertIn(text,contract)
+        for forbidden in ('socket(', 'recvfrom(', 'sendto(', 'WSAStartup('):self.assertNotIn(forbidden,contract)
+        self.assertIn('const bool peerContract=EchoPeerContract();',fixture)
+        self.assertIn('echoPeerContractVerified',fixture)
+        self.assertIn('identity.errors.empty()&&v6Contract&&peerContract?0:4',fixture)
     def test_ipv6_wire_domain_is_separate(self):
         self.assertIn(r'\"udp6\":',self.source)
         self.assertNotIn(r'\"udp\":',self.source)

@@ -81,8 +81,16 @@ bounded caller waits do not promise arbitrary OS calls complete on time.
 
 ## Review boundary
 
-Runtime remains disabled. Required checks include exact canonical imports,
+No additional runtime is authorized by this diagnostic. Required checks include exact canonical imports,
 actual wait/envelope/bundle composition, first-control refusal, partial-report
 boundaries, sticky positives, package/map mismatch and replacement, cleanup
 uncertainty, exact 17-member ZIP and legacy parity. Neither hosted mechanism
 success nor a short integration gate authorizes a Windows runtime by itself.
+
+## Runtime diagnostic projection (code-only candidate)
+
+The first guest receipt establishes one ordinary nonce datagram received and echoed by the owned runner, not guest-side echo acceptance. False later-phase verification flags do not establish report absence or prove that no process was launched. The original private reports are unavailable; the failure stage remains unresolved.
+
+A fixed diagnostic ledger now distinguishes requested work, returned owned executor records/handles, observed executor exit, envelope return, last envelope/report-processing substep and separate report presence. A complete processing substep does not establish provenance or network validation. Executor ownership is not proof of selected native execution. A fixed before-admission predicate vector and allowlisted native scalar observations are diagnostic only; unknown and unevaluated fields remain null. The existing full workload, admission, timeouts and cleanup order are unchanged. The entire result envelope, including binding and launcher fields, remains capped at 4096 bytes.
+
+Six nullable peer comparisons describe only safely returned sockaddr bytes from the existing recvfrom call: length, family, port, zero scope, non-IPv4-mapped address, and address equality. They disclose no address or port and do not change the original peer acceptance predicate. Fixture helper checks are synthetic, not observed network behavior. These changes require short-gate validation and do not authorize another guest run or identify the original failure.

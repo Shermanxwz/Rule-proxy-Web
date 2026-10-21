@@ -123,8 +123,8 @@ jobs:
           if (-not $vs) { throw 'Installed MSVC unavailable' }
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          ./.github/build_windows_n0a_udp6_actor.ps1 -OutputDirectory "$PWD/udp6-production-build" -ExpectedActorSha256 2b06fa49217e0994abcf94a265ee7eff998c8766b0a37fe312754bbb1fb0e6f6 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
-          ./.github/build_windows_n0a_udp6_fixture.ps1 -OutputDirectory "$PWD/udp6-TEST-ONLY-build" -ExpectedActorSha256 2b06fa49217e0994abcf94a265ee7eff998c8766b0a37fe312754bbb1fb0e6f6 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553 -ExpectedFixtureSha256 49a970cd8b9c998328719154f39e5601a218e06c9e551718e1bc801cb2b58845
+          ./.github/build_windows_n0a_udp6_actor.ps1 -OutputDirectory "$PWD/udp6-production-build" -ExpectedActorSha256 c631b25743af8af8afa2410ac57cbbce86409c1660b4e45f540377b30e963c08 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          ./.github/build_windows_n0a_udp6_fixture.ps1 -OutputDirectory "$PWD/udp6-TEST-ONLY-build" -ExpectedActorSha256 c631b25743af8af8afa2410ac57cbbce86409c1660b4e45f540377b30e963c08 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553 -ExpectedFixtureSha256 c6feb0e0809ef2611c73404f6c416e2f3c92c0a87a674a9de4b167190e6d82f4
       - name: Required UDP6 and unchanged regression contracts
         shell: pwsh
         run: |

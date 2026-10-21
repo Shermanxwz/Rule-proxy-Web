@@ -93,7 +93,7 @@ class WindowsExecution(base.WindowsExecution):
         # A registered record without a held process cannot prove spawn never occurred.
         uncertain=owned.get('cleanup_uncertain',False) or process is None
         if process is not None and not exited:
-            try:exited=process.poll() is not None
+            try:exited=process.poll() is not None;owned['exit_observed']=exited
             except Exception:uncertain=True
             if not exited:
                 try:process.kill()
@@ -102,7 +102,7 @@ class WindowsExecution(base.WindowsExecution):
                 if remaining>0:
                     try:process.wait(timeout=min(2,remaining))
                     except Exception:uncertain=True
-                try:exited=process.poll() is not None
+                try:exited=process.poll() is not None;owned['exit_observed']=exited
                 except Exception:uncertain=True
         owned['process_exit_observed']=exited
         if process is not None and not owned.get('handle_close_attempted',False):
@@ -143,17 +143,24 @@ class WindowsExecution(base.WindowsExecution):
                 'exit_code':code,'timed_out':owned['timed_out'],'harness_error':not owned['cleanup'] or owned.get('wait_error',False),
                 'actor':None,'pid_verified':False,'pid_binding':'unavailable','child_exit_code':None,
                 'probe':case['probe'],'probe_exit_code':case['probe_exit'],'actual_tiers':[]}
+        owned['report_presence']='unavailable'
+        owned['report_state']='pin'
         try:
             self.pin()
+            owned['report_state']='read'
             if self.capture:
                 actor,snapshot=flow_helpers().read_snapshot(owned['report']);self.snapshots[id(actor)]=snapshot
             else:actor=base.engine.read_report(owned['report'])
+            owned['report_presence']='object'
+            owned['report_state']='parsed'
             result['actor']=actor
             if actor.get('nonce')!=self.binding.nonce or actor.get('mode')!='actor-n0a-udp6':raise ValueError('fresh actor required')
+            owned['report_state']='binding'
             if owned['role']=='ordinary':
                 result['pid_verified']=type(actor.get('pid')) is int and actor['pid']==owned['process'].pid
                 result['pid_binding']='ordinary_handle';result['child_exit_code']=code
             else:
+                owned['report_state']='audit'
                 audit=owned['audit'];state=audit.lstat()
                 if (audit.is_symlink() or getattr(state,'st_file_attributes',0)&0x400
                         or (state.st_dev,state.st_ino)!=owned['audit_identity']):raise ValueError('audit binding changed')
@@ -163,7 +170,11 @@ class WindowsExecution(base.WindowsExecution):
                     # Tier is an actual-runner field of the dedicated event
                     # emitted only after its owned native child handle wait.
                     result['actual_tiers']=['base-container']
-        except Exception:result['harness_error']=True
+            owned['report_state']='complete'
+        except Exception as exc:
+            result['harness_error']=True
+            if owned['report_state']=='read':owned['report_presence']='missing' if isinstance(exc,FileNotFoundError) else 'unreadable'
+        owned['envelope_returned']=True
         return result
 
     def invoke(self,role,phase,endpoint,port,timeout):
@@ -182,6 +193,18 @@ class WindowsExecution(base.WindowsExecution):
             owned=self.spawn(engine.command(self.actor,report,self.binding,phase),case['directory'],role,phase,endpoint,report=report)
         else:raise ValueError('fixed UDP invocation required')
         return self.wait(owned,timeout)
+
+
+def execution_observations(execution):
+    result={}
+    if execution is None:return result
+    for owned in execution.owned:
+        phase=owned.get('pattern')
+        if phase not in engine.PHASES or owned.get('role') not in ('ordinary','contained'):continue
+        result[phase]=dict(owned=True,handle=owned.get('process') is not None,
+            exit=owned.get('exit_observed') if owned.get('process') is not None and type(owned.get('exit_observed')) is bool else None,
+            envelope=owned.get('envelope_returned') is True,report_state=owned.get('report_state','unavailable'),report_presence=owned.get('report_presence','unavailable'))
+    return result
 
 
 def prepare_flow(config,capture,binding,cases,execution,deadline):
@@ -220,6 +243,7 @@ def run(configuration_path,deadline_qpc,frequency):
     if binding is None:return None
     cases['cleanup_confirmed']=cases.get('cleanup_confirmed') is True and cleanup
     cases['driver_error']=cases.get('driver_error') is not False or failed
+    cases['execution_observations']=execution_observations(execution)
     result=engine.evaluate(cases,binding)
     prepare_flow(config,capture,binding,cases,execution,deadline)
     return {'schema_version':1,'binding':{'case_nonce':binding.nonce,'actor_sha256':binding.actor_sha256,

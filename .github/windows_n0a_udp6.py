@@ -14,7 +14,9 @@ MAX_FRAME=128
 PHASES=('before','sample','contained','after')
 FAILURES=('none','v6only_set','v6only_get','v6only_length','v6only_zero','socket','exclusive','nonblocking','bind','getsockname','deadline','sendto','short_send','recv_select','recvfrom','echo_peer','echo_payload')
 NETWORK_KEYS={'version','endpoint','phase','port','profileMatched','startupError','qpcFrequency','windowStartQpc','windowEndQpc','attempts','testOnly','socketsCleanupConfirmed'}
+PEER_DIAGNOSTIC_KEYS=('echoPeerLengthMatched', 'echoPeerFamilyMatched', 'echoPeerPortMatched', 'echoPeerScopeZero', 'echoPeerNotV4Mapped', 'echoPeerAddressMatched')
 ATTEMPT_KEYS={'index','attempted','socketCreated','bindSucceeded','localPort','localIpv6','localScopeId','v6OnlySet','v6OnlyVerified','v6OnlyGetReturn','v6OnlyGetError','v6OnlyGetLength','v6OnlyGetValue','v6OnlyGetStage','sendStartQpc','sendEndQpc','sendAccepted','sendBytes','nonceMatched','exchangeEndQpc','win32Error','failure','closed','closeError','closeQpc'}
+ATTEMPT_KEYS=ATTEMPT_KEYS|set(PEER_DIAGNOSTIC_KEYS)
 
 
 def integer(value,lo=0,hi=(1<<63)-1):return type(value) is int and lo<=value<=hi
@@ -74,6 +76,7 @@ def validate_network(value,nonce,phase,port,endpoint='runner-v6',test_only=False
         if type(row) is not dict or set(row)!=ATTEMPT_KEYS or not integer(row['index'],0,39) or row['index']!=index:raise ValueError('attempt')
         if any(type(row[k]) is not bool for k in ('attempted','socketCreated','bindSucceeded','sendAccepted','nonceMatched','closed','v6OnlySet','v6OnlyVerified')):raise ValueError('type')
         if not integer(row['localPort'],0,65535) or type(row['localIpv6']) is not str or re.fullmatch('[0-9a-f]{32}',row['localIpv6']) is None or not integer(row['localScopeId'],0,2**32-1) or not integer(row['sendBytes'],-1,128) or any(not integer(row[k],0,2**32-1) for k in ('win32Error','closeError')) or row['failure'] not in FAILURES:raise ValueError('row')
+        if any(row[k] is not None and type(row[k]) is not bool for k in PEER_DIAGNOSTIC_KEYS):raise ValueError('peer_diagnostic_type')
         validate_v6only(row)
         if any(not integer(row[k]) for k in ('sendStartQpc','sendEndQpc','exchangeEndQpc','closeQpc')):raise ValueError('clock')
         if row['attempted']:
@@ -284,7 +287,7 @@ def evaluate(cases,binding):
     result=controls({},'0'*32,1025)
     result.update(schema_version=1,experiment='N0a-UDP6',profile_verified={p:False for p in PHASES},
                   provenance_verified={p:False for p in PHASES},stage0_passed=False,product_acceptance=False,
-                  privacy_qualified=False,psec_cleanup_independently_verified=False)
+                  privacy_qualified=False,psec_cleanup_independently_verified=False,diagnostic=diagnostic(cases,binding))
     networks={};valid=True
     if type(cases) is not dict:return result
     for phase in PHASES:
@@ -304,27 +307,111 @@ def evaluate(cases,binding):
         result['ordinary_controls_verified']=False;result['sockets_cleanup_confirmed']=False
     return result
 
+DIAGNOSTIC_STAGES=('not_started','probe','before_invoke','before_admission','sample_start','overlap_delay','contained_invoke','sample_wait','after_invoke','sampler_cleanup','completed')
+REPORT_STATES=('unavailable','pin','read','parsed','binding','audit','complete')
+VALIDATION_REASONS=('unavailable','none','other','context','network','binding','type','clock','attempts','attempt','row','attempt_clock','unattempted','send','echo','close','v6only_stage','v6only_verified','v6only_order','v6only_unattempted','v6only_type','v6only_api','v6only_return','v6only_length','v6only_value','v6only_zero','peer_diagnostic_type')
+ATTEMPT_DIAGNOSTIC_KEYS=('attempted','socketCreated','bindSucceeded','v6OnlySet','v6OnlyVerified','v6OnlyGetReturn','v6OnlyGetError','v6OnlyGetLength','v6OnlyGetValue','v6OnlyGetStage','sendAccepted','sendBytes','nonceMatched','win32Error','failure','closed','closeError')+PEER_DIAGNOSTIC_KEYS
+
+def diagnostic_scalar(index,value):
+    if value is None:return None
+    if index in (0,1,2,3,4,10,12,15) or 17<=index<=22:return value if type(value) is bool else None
+    if index==9:return value if type(value) is str and value in ('not_attempted','api_error','length_mismatch','zero','nonzero') else None
+    if index==14:return value if type(value) is str and value in FAILURES else None
+    lo,hi=(-1,128) if index==11 else (-2**31,2**31-1) if index in (5,7) else (0,2**32-1)
+    return value if integer(value,lo,hi) else None
+
+def diagnostic(cases,binding):
+    cases=cases if type(cases) is dict else {}
+    ledger=cases.get('driver_diagnostic',{})
+    stage=ledger.get('stage','not_started');failed=ledger.get('failed_stage')
+    result=dict(failure=ledger.get('failure','none') if ledger.get('failure','none') in ('none','admission','timeout','operation','cleanup') else 'operation',stage=stage if stage in DIAGNOSTIC_STAGES else 'not_started',failed_stage=failed if failed in DIAGNOSTIC_STAGES else None,
+        phases=[],before=dict(checks=[None]*13,validation='unavailable',network=[None]*3,attempt=None))
+    observations=cases.get('execution_observations',{})
+    for phase in PHASES:
+        observation=observations.get(phase,{})
+        result['phases'].append([phase in ledger.get('requested',[]),phase in ledger.get('returned',[]),
+            observation.get('owned') is True,observation.get('handle') is True,
+            observation.get('exit') if type(observation.get('exit')) is bool else None,
+            observation.get('envelope') is True,observation.get('report_state') if observation.get('report_state') in REPORT_STATES else 'unavailable',observation.get('report_presence') if observation.get('report_presence') in ('unavailable','missing','object','unreadable') else 'unavailable'])
+    value=cases.get('before');actor=bound_actor(value,binding);d=result['before'];checks=d['checks']
+    checks[0]=actor is not None
+    if actor is None:return result
+    checks[1]=native_identity(actor,binding.nonce,'before',binding.agentic_sid)
+    checks[2]=provenance_verified(value,binding,'before')
+    if not checks[1] or not checks[2]:return result
+    checks[6]=value.get('timed_out') is False;checks[7]=value.get('harness_error') is False
+    checks[8]=type(value.get('exit_code')) is int and value['exit_code']==0
+    checks[9]=type(value.get('child_exit_code')) is int and value['child_exit_code']==0
+    network=actor.get('udp6')
+    if type(network) is dict:
+        d['network']=[network.get('startupError') if integer(network.get('startupError'),0,2**32-1) else None,
+            network.get('socketsCleanupConfirmed') if type(network.get('socketsCleanupConfirmed')) is bool else None,
+            len(network['attempts']) if type(network.get('attempts')) is list and len(network['attempts'])<=40 else None]
+        if type(network.get('attempts')) is list and len(network['attempts'])==1 and type(network['attempts'][0]) is dict:
+            d['attempt']=[diagnostic_scalar(i,network['attempts'][0].get(k)) for i,k in enumerate(ATTEMPT_DIAGNOSTIC_KEYS)]
+    try:network=validate_network(network,binding.nonce,'before',binding.runner_port)
+    except (ValueError,TypeError) as exc:
+        reason=exc.args[0] if len(exc.args)==1 and type(exc.args[0]) is str else 'other'
+        d['validation']=reason if reason in VALIDATION_REASONS else 'other';checks[3]=False;return result
+    checks[3]=True;d['validation']='none'
+    checks[4]=network['profileMatched'];checks[5]=network['startupError']==0
+    checks[10]=network['socketsCleanupConfirmed'];checks[11]=len(network['attempts'])==1
+    checks[12]=echo_success(network['attempts'][0]) if checks[11] else None
+    return result
+
+def validate_diagnostic(value):
+    if type(value) is not dict or set(value)!={'stage','failed_stage','failure','phases','before'}:raise ValueError('diagnostic')
+    if value['failure'] not in ('none','admission','timeout','operation','cleanup'):raise ValueError('diagnostic failure')
+    if value['stage'] not in DIAGNOSTIC_STAGES or (value['failed_stage'] is not None and value['failed_stage'] not in DIAGNOSTIC_STAGES):raise ValueError('diagnostic stage')
+    if type(value['phases']) is not list or len(value['phases'])!=4:raise ValueError('diagnostic phases')
+    for row in value['phases']:
+        if type(row) is not list or len(row)!=8 or any(type(row[i]) is not bool for i in (0,1,2,3,5)) or (row[4] is not None and type(row[4]) is not bool) or row[6] not in REPORT_STATES or row[7] not in ('unavailable','missing','object','unreadable'):raise ValueError('diagnostic phase')
+    d=value['before']
+    if type(d) is not dict or set(d)!={'checks','validation','network','attempt'} or d['validation'] not in VALIDATION_REASONS:raise ValueError('diagnostic before')
+    if type(d['checks']) is not list or len(d['checks'])!=13 or any(x is not None and type(x) is not bool for x in d['checks']):raise ValueError('diagnostic checks')
+    n=d['network']
+    if type(n) is not list or len(n)!=3 or (n[0] is not None and not integer(n[0],0,2**32-1)) or (n[1] is not None and type(n[1]) is not bool) or (n[2] is not None and not integer(n[2],0,40)):raise ValueError('diagnostic network')
+    if d['attempt'] is not None:
+        if type(d['attempt']) is not list or len(d['attempt'])!=23 or any(x is not None and (diagnostic_scalar(i,x) is None or type(diagnostic_scalar(i,x)) is not type(x)) for i,x in enumerate(d['attempt'])):raise ValueError('diagnostic attempt')
+    return value
+
 def run_endpoint(execution,binding,deadline,*,approved=False,clock=time.monotonic,sleep=time.sleep):
     if not EXECUTION_ENABLED or not approved:raise PermissionError('UDP inactive')
     if not isinstance(binding,UDP6Binding) or not binding.valid():raise ValueError('binding')
     limit=lambda seconds:tcp_helpers().clipped_timeout(deadline,seconds,clock=clock)
-    result={'driver_error':False,'cleanup_confirmed':False};owned=None
+    ledger=dict(stage='not_started',failed_stage=None,failure='none',requested=[],returned=[])
+    result={'driver_error':False,'cleanup_confirmed':False,'driver_diagnostic':ledger};owned=None
     try:
+        ledger['stage']='probe'
         execution.probe('runner-v6',binding.runner_port,timeout=limit(30))
-        result['before']=execution.invoke('ordinary','before','runner-v6',binding.runner_port,timeout=limit(5))
+        ledger['stage']='before_invoke';ledger['requested'].append('before')
+        result['before']=execution.invoke('ordinary','before','runner-v6',binding.runner_port,timeout=limit(5));ledger['returned'].append('before')
+        ledger['stage']='before_admission'
         before=invocation_valid(result['before'],binding,'before')
         if before is None or before['socketsCleanupConfirmed'] is not True or len(before['attempts'])!=1 or not echo_success(before['attempts'][0]):
             raise ValueError('ordinary IPv6 admission failed')
+        ledger['stage']='sample_start';ledger['requested'].append('sample')
         owned=execution.start('ordinary','sample','runner-v6',binding.runner_port)
+        ledger['stage']='overlap_delay'
         sleep(limit(1.5))
-        result['contained']=execution.invoke('contained','contained','runner-v6',binding.runner_port,timeout=limit(15))
-        result['sample']=execution.wait(owned,timeout=limit(12))
-        result['after']=execution.invoke('ordinary','after','runner-v6',binding.runner_port,timeout=limit(5))
-    except Exception:result['driver_error']=True
+        ledger['stage']='contained_invoke';ledger['requested'].append('contained')
+        result['contained']=execution.invoke('contained','contained','runner-v6',binding.runner_port,timeout=limit(15));ledger['returned'].append('contained')
+        ledger['stage']='sample_wait'
+        result['sample']=execution.wait(owned,timeout=limit(12));ledger['returned'].append('sample')
+        ledger['stage']='after_invoke';ledger['requested'].append('after')
+        result['after']=execution.invoke('ordinary','after','runner-v6',binding.runner_port,timeout=limit(5));ledger['returned'].append('after')
+        ledger['stage']='completed'
+    except Exception as exc:
+        result['driver_error']=True;ledger['failed_stage']=ledger['stage']
+        ledger['failure']='admission' if ledger['stage']=='before_admission' else 'timeout' if isinstance(exc,TimeoutError) else 'operation'
     finally:
         if owned is not None:
-            try:result['cleanup_confirmed']=execution.close_owned(owned) is True
-            except Exception:pass
+            try:
+                result['cleanup_confirmed']=execution.close_owned(owned) is True
+                if not result['cleanup_confirmed'] and ledger['failed_stage'] is None:
+                    ledger['failed_stage']='sampler_cleanup';ledger['failure']='cleanup'
+            except Exception:
+                if ledger['failed_stage'] is None:ledger['failed_stage']='sampler_cleanup';ledger['failure']='cleanup'
     return result
 
 def closed_result(value):
@@ -332,7 +419,8 @@ def closed_result(value):
     if type(value) is not dict or set(value)!=set(template):raise ValueError('UDP result')
     for key,default in template.items():
         current=value[key]
-        if type(default) is bool:
+        if key=='diagnostic':validate_diagnostic(current)
+        elif type(default) is bool:
             if type(current) is not bool:raise ValueError('UDP flag')
             if key in ('runtime_acceptance','stage0_passed','product_acceptance','privacy_qualified','psec_cleanup_independently_verified') and current:raise ValueError('UDP acceptance')
         elif type(default) is dict:
