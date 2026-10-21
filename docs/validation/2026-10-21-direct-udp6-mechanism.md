@@ -56,3 +56,21 @@ been observed. Hosted `::1` mechanics do not establish either. Any later guest
 integration needs those admissions without changing QEMU arguments, routes,
 addresses, firewall, DNS or policy. No descendant, proxy, DNS/broker, universal
 egress, Linux-equivalence or product-acceptance claim follows from this slice.
+
+## First hosted result and diagnostic boundary
+
+Run 39661648491 compiled both binaries and passed all 527 required tests on each
+platform, but the hosted IPv6 mechanism failed: neither receiver observed a
+datagram and no selected send was accepted. All seven child owners, both
+receivers and owned work reported successful cleanup. All five network reports
+passed their binding/schema checks with process exit zero; this does not make
+their network operations successful. The first public projection omitted native
+startup and per-attempt failure fields, so the failed stage remains unknown.
+This is an inadmissible positive-control mechanism, not evidence of isolation.
+
+The diagnostic follow-up projects only fixed stage/error/setup/send/close fields
+from those same validated reports, with a 32 KiB total output bound. It changes
+no native parameter, profile guard, endpoint, attempt, deadline or acceptance
+condition. Private identities, nonces, addresses, ports, paths and QPC values
+remain excluded. A later diagnostic result cannot reconstruct the deleted first
+run's private reports or retroactively establish its precise cause.

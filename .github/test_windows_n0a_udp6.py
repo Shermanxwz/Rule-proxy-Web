@@ -16,6 +16,8 @@ ROOT=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('udp6_mechanics',ROOT/'windows_n0a_udp6.py')
 u=importlib.util.module_from_spec(spec);spec.loader.exec_module(u)
 BUDGET=60
+MAX_PUBLIC_REPORT=32768
+DIAGNOSTIC_CASES=('before','sample','contained','after','wrong_echo')
 # At most seven owned child processes and two endpoints in the one-shot harness.
 _UNCERTAIN_OWNERS=[]
 
@@ -38,6 +40,18 @@ def verify(actor,manifest,fixture):
     for key,path in pins.items():
         if type(value[key]) is not str or re.fullmatch('[0-9a-f]{64}',value[key]) is None or hashlib.sha256(read(path,16*1024*1024)).hexdigest()!=value[key]:raise ValueError('pin')
     return True
+
+def network_diagnostic(value,nonce,phase,port):
+    """Only closed facts from the actual validated TEST_ONLY network object."""
+    network=u.validate_network(value,nonce,phase,port,'fixture-loopback-v6',True)
+    names={'failure':'failure','win32_error':'win32Error','socket_created':'socketCreated',
+           'v6only_set':'v6OnlySet','v6only_verified':'v6OnlyVerified','bound':'bindSucceeded',
+           'send_invoked':'attempted','send_accepted':'sendAccepted','echo_verified':'nonceMatched',
+           'closed':'closed','close_error':'closeError'}
+    return dict(startup_error=network['startupError'],profile_matched=network['profileMatched'],
+                sockets_cleanup_confirmed=network['socketsCleanupConfirmed'],
+                attempt_count=len(network['attempts']),
+                attempts=[{public:row[private] for public,private in names.items()} for row in network['attempts']])
 
 class Owned:
     def __init__(self,path):self.path=path;self.process=None;self.spawn_attempted=False;self.close_attempted=False;self.close_uncertain=False
@@ -85,6 +99,7 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
                 wrong_echo_send_accepted=False,wrong_echo_rejected=False,actual_admin_profile_rejected=False,
                 production_invalid_cli_rejected=False,production_network_guard_executed=False,ordinary_nonadmin_tested=False,
                 cleanup_confirmed=False,work_removed=False,failure='none',runtime_acceptance=False,packet_egress_tested=False,dns_tested=False)
+    result['network_diagnostics']={key:None for key in DIAGNOSTIC_CASES}
     root=None;children=[];endpoints=[];cleanup=[];receivers=[]
     def endpoint(nonce,wrong=False):
         value=u.Udp6Endpoint.for_test_wrong_echo(nonce,deadline) if wrong else u.Udp6Endpoint(nonce,deadline)
@@ -97,6 +112,8 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
     def done(child,nonce,phase,port,fixture,limit):
         if not child.wait(min(deadline-10,time.monotonic()+limit)):raise ValueError('timeout')
         value=child.report(nonce,phase,port,fixture)
+        key='wrong_echo' if child.path.stem=='wrong-echo' else phase
+        result['network_diagnostics'][key]=network_diagnostic(value['udp6'],nonce,phase,port)
         if phase=='contained':
             result['fixture_send_accepted_count']=sum(row['sendAccepted'] for row in value['udp6']['attempts'])
             result['fixture_selected_echo_observed']=any(row['nonceMatched'] for row in value['udp6']['attempts'])
@@ -165,6 +182,11 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
         result['hosted_mechanics_complete']=result['fixture_echo_controls'] and result['wrong_echo_send_accepted'] and result['wrong_echo_rejected'] and result['actual_admin_profile_rejected'] and result['production_invalid_cli_rejected'] and receiver_ok and result['cleanup_confirmed'] and result['work_removed']
     return result
 
+def public_json(result):
+    data=json.dumps(result,sort_keys=True,separators=(',',':'))+'\n'
+    if len(data.encode('ascii'))>MAX_PUBLIC_REPORT:raise ValueError('public_bound')
+    return data
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--run-actual-windows',action='store_true')
     for name in ('production-actor','production-manifest','fixture-actor','fixture-manifest','output'):p.add_argument('--'+name,type=Path,required=True)
@@ -172,7 +194,7 @@ def main():
     if not args.run_actual_windows:p.error('explicit opt-in required')
     try:
         result=run(args.production_actor.resolve(),args.production_manifest.resolve(),args.fixture_actor.resolve(),args.fixture_manifest.resolve())
-        data=json.dumps(result,sort_keys=True,separators=(',',':'));args.output.write_text(data+'\n',encoding='ascii');print(data)
+        data=public_json(result);args.output.write_text(data,encoding='ascii');print(data,end='')
         return 0 if result['hosted_mechanics_complete'] else 1
     except Exception:
         print('{"schema":1,"failure":"output","runtime_acceptance":false}');return 1

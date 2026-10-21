@@ -111,4 +111,63 @@ class CompositionTests(unittest.TestCase):
         value,_,_,_=self.exercise(bad_echo=True)
         self.assertTrue(value['wrong_echo_send_accepted']);self.assertFalse(value['wrong_echo_rejected']);self.assertFalse(value['hosted_mechanics_complete'])
 
+class DiagnosticTests(unittest.TestCase):
+    def network(self,phase='contained',count=3):
+        spec=importlib.util.spec_from_file_location('udp6_diag_synthetic',ROOT/'tests/test_windows_client_n0a_udp6.py')
+        helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
+        return helper.network(phase,[100+i*100 for i in range(count)],False,False)
+    def test_closed_projection_preserves_setup_and_send_errors_without_private_fields(self):
+        for failure in ('socket','v6only_set','v6only_get','exclusive','bind','getsockname','deadline','sendto','recvfrom','echo_payload'):
+            network=self.network();row=network['attempts'][0]
+            row.update(failure=failure,win32Error=10013,sendAccepted=False,sendBytes=-1,nonceMatched=False)
+            if failure not in ('sendto','recvfrom','echo_payload'):
+                row.update(attempted=False,sendStartQpc=0,sendEndQpc=0)
+            value=g.network_diagnostic(network,'a'*32,'contained',40000)
+            self.assertEqual(value['attempts'][0]['failure'],failure)
+            self.assertEqual(value['attempts'][0]['win32_error'],10013)
+            self.assertEqual(value['attempts'][0]['send_invoked'],row['attempted'])
+            text=json.dumps(value)
+            for forbidden in ('localIpv6','localPort','localScopeId','Qpc','pid','nonce','40000','aaaaaaaa'):
+                self.assertNotIn(forbidden,text)
+        network=self.network();network.update(startupError=10093,attempts=[])
+        value=g.network_diagnostic(network,'a'*32,'contained',40000)
+        self.assertEqual(value['startup_error'],10093);self.assertEqual(value['attempt_count'],0)
+    def test_invalid_native_schema_cannot_enter_diagnostics(self):
+        value=self.network();value['attempts'][0]['failure']='PRIVATE/path'
+        with self.assertRaises(ValueError):g.network_diagnostic(value,'a'*32,'contained',40000)
+        value=self.network();value['attempts'][0]['win32Error']=True
+        with self.assertRaises(ValueError):g.network_diagnostic(value,'a'*32,'contained',40000)
+    def test_actual_composed_maximum_closed_output_and_missing_reports(self):
+        result,_,_,_=CompositionTests().exercise()
+        for key in g.DIAGNOSTIC_CASES:
+            phase='before' if key=='wrong_echo' else key
+            network=self.network(phase,40 if phase=='sample' else 3 if phase=='contained' else 1)
+            network['startupError']=2**32-1;network['socketsCleanupConfirmed']=False
+            for row in network['attempts']:
+                row.update(failure=max(g.u.FAILURES,key=len),win32Error=2**32-1,closeError=2**32-1,closed=False,
+                           sendAccepted=False,nonceMatched=False,sendBytes=-1,socketCreated=False,v6OnlySet=False,v6OnlyVerified=False,
+                           bindSucceeded=False,attempted=False,localPort=0,sendStartQpc=0,sendEndQpc=0)
+            result['network_diagnostics'][key]=g.network_diagnostic(network,'a'*32,phase,40000)
+        for receiver in result['receivers']:
+            receiver['counts']={k:128*129 if k=='observed_bytes' else 128 for k in ('datagrams','observed_bytes','verified','echoed','rejected','oversized','send_errors')}
+            receiver['verified_indices']={p:list(range(40 if p=='sample' else 3 if p=='contained' else 1)) for p in g.u.PHASES}
+        def longest_bools(value):
+            if type(value) is bool:return False
+            if type(value) is dict:return {key:longest_bools(item) for key,item in value.items()}
+            if type(value) is list:return [longest_bools(item) for item in value]
+            return value
+        result=longest_bools(result);result['failure']='endpoint_setup'
+        encoded=g.public_json(result).encode('ascii')
+        self.assertLessEqual(len(encoded),32768);self.assertGreater(len(encoded),10000)
+        with self.assertRaises(ValueError):g.public_json({'x':'x'*32768})
+        with patch.object(g,'os',Mock()) as fake:
+            fake.name='posix';missing=g.run(Path('p'),Path('pm'),Path('f'),Path('fm'))
+        self.assertEqual(missing['network_diagnostics'],dict.fromkeys(g.DIAGNOSTIC_CASES))
+    def test_cleanup_failure_keeps_all_validated_case_diagnostics(self):
+        result,_,_,_=CompositionTests().exercise(unknown_cleanup=True)
+        self.assertFalse(result['cleanup_confirmed'])
+        self.assertTrue(all(result['network_diagnostics'][key] is not None for key in g.DIAGNOSTIC_CASES))
+        self.assertEqual(result['network_diagnostics']['contained']['attempt_count'],3)
+        self.assertTrue(result['network_diagnostics']['wrong_echo']['attempts'][0]['send_accepted'])
+
 if __name__=='__main__':unittest.main()
