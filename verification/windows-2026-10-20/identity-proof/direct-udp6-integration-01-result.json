@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "run_id": 39670818820,
+  "head": "9c3b3da8046146c17923700b139006e2661912c4",
+  "freeze_sha256": "9e7619af61cbc4e5cca1bc55d8d0210f9313e3645291e845135b51e7141cfb81",
+  "overall_passed": false,
+  "linux": {
+    "required_tests": 646,
+    "skips": 0,
+    "required_passed": true,
+    "actual_paused_qemu": {
+      "cleanup_confirmed": true,
+      "control_closed": true,
+      "failure": false,
+      "forced_kill": false,
+      "guest_executed": false,
+      "packet_egress_tested": false,
+      "passed": true,
+      "paused_observed": true,
+      "process_exit_observed": true,
+      "provenance": {
+        "admitted": true,
+        "close_confirmed": true,
+        "failure": false,
+        "libslirp": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "libslirp0",
+          "sha256": "1f71a24af59f3aa76c1e0bcf7852de08c1c21c40524479b9d5df404d903b2280",
+          "version": "4.7.0-1ubuntu3.1"
+        },
+        "pre_stop_verified": true,
+        "qemu": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "qemu-system-x86",
+          "sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+          "version": "1:8.2.2+ds-0ubuntu1.18"
+        },
+        "resident_bytes_verified": false,
+        "schema_version": 1,
+        "source_equivalence_verified": false
+      },
+      "qemu_8_2_2": true,
+      "schema_version": 1,
+      "work_removed": true
+    }
+  },
+  "windows": {
+    "builds_passed": true,
+    "required_tests": 646,
+    "skips": 0,
+    "required_passed": false,
+    "errors": 2,
+    "failing_tests": [
+      "test_actual_backing_fds_admission_recheck_and_close",
+      "test_changed_library_path_blocks_recheck"
+    ],
+    "observed_failure": "fixture_admission_false_then_open_file_cleanup_error",
+    "actual_input_verifier_executed": false,
+    "powershell_transport_executed": false,
+    "payload_zip_executed": false,
+    "hosted_ipv6_mechanics_executed": false
+  },
+  "windows_vm_executed": false,
+  "guest_alias_verified": false
+}
