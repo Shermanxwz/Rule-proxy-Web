@@ -276,7 +276,8 @@ class CaptureHostTests(unittest.TestCase):
             self.assertNotIn('PRIVATE',json.dumps((facts,result)))
     def test_capture_cleanup_never_resignals_qemu_retains_unknown(self):
         qemu=Mock();qemu.poll.return_value=None;public={};work=Mock()
-        with patch.object(host,'finish_capture_server',return_value=True):
+        # This fixture models the Linux-only host signal contract, even on Windows CI.
+        with patch.object(host.signal,'SIGXFSZ',25,create=True), patch.object(host,'finish_capture_server',return_value=True):
             host.finalize_owned(public,Mock(),work,qemu=qemu,capture_facts={},cleanup_deadline=100)
         qemu.kill.assert_not_called();qemu.wait.assert_not_called();self.assertFalse(public['vm_destroyed'])
         self.assertTrue(public['teardown_diagnostic']['work_retained'])

@@ -148,6 +148,30 @@ class CompositionTests(unittest.TestCase):
                 return original(fd,n)
             with patch.object(m.os,'read',side_effect=grow),self.assertRaises(ValueError):m.read_capture(path)
             with patch.object(m,'MAX_CAPTURE',24),self.assertRaises(ValueError):m.read_capture(path)
+    def test_binary_capture_all_octets_and_platform_flag(self):
+        data=b'A\r\n'+bytes(range(256))*2
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'capture';path.write_bytes(data)
+            old_fd=m.os.open(path,m.os.O_RDONLY | getattr(m.os,'O_NOFOLLOW',0))
+            try:old_data=m.os.read(old_fd,len(data))
+            finally:m.os.close(old_fd)
+            if m.os.name == 'nt':
+                self.assertNotEqual(old_data,data,'legacy CRT flags unexpectedly preserved all octets')
+                self.assertEqual(old_data,b'A\n'+bytes(range(26)),'legacy text EOF/CRLF discriminator changed')
+            self.assertEqual(m.read_capture(path),data)
+            actual_open=m.os.open;binary=getattr(m.os,'O_BINARY',0x80000000);seen=[]
+            def check_open(path,flags):
+                seen.append(flags)
+                self.assertEqual(flags & binary,binary)
+                # Linux fixture exercises flagselection without passing a foreign
+                # CRT flag to Linux; Windows retains its actual binary flag.
+                native_flags=flags if hasattr_original else flags & ~binary
+                return actual_open(path,native_flags)
+            hasattr_original=hasattr(m.os,'O_BINARY')
+            with patch.object(m.os,'O_BINARY',binary,create=True),patch.object(m.os,'open',side_effect=check_open):
+                self.assertEqual(m.read_capture(path),data)
+            self.assertEqual(len(seen),1)
+
     def test_read_close_error_detaches_number_no_retry_and_blocks_cleanup(self):
         original=m.os.close;replacement=[];closed_numbers=[]
         with tempfile.TemporaryDirectory() as root:
@@ -180,7 +204,7 @@ class CompositionTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as root:
                 path=Path(root)/'capture.pcap';path.write_bytes(p.pcap(frames))
                 result=m.parse_before_cleanup(path,facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
-                self.assertEqual(result['status'],'no_selected_tuple_observed')
+                self.assertEqual(result['status'],'no_selected_tuple_observed',json.dumps(result,sort_keys=True))
                 self.assertTrue(result['packet']['ordinary_syn_controls'])
                 bad=dict(expected);bad['controller_result']={'receipt_verified':False}
                 result=m.parse_before_cleanup(path,facts(),raw,bad,header_before_link=True,terminal_before_shutdown=True)

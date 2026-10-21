@@ -111,7 +111,7 @@ def read_capture(path):
     before = path.lstat()
     if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or not 24 <= before.st_size <= MAX_CAPTURE:
         raise ValueError('capture file')
-    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0))
     try:
         current = os.fstat(fd)
         if (current.st_dev, current.st_ino, current.st_size) != (before.st_dev, before.st_ino, before.st_size):
