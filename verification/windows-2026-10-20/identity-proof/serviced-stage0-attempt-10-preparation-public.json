@@ -1,0 +1,77 @@
+{
+  "allowance_bytes": 536870912,
+  "apt_plan": {
+    "download_bytes": 26223118,
+    "package_count": 26,
+    "plan_sha256": "0bb42d90da035dd441ec5304ae11ac002f5d8a6c6b1cb411c56fbc073f787dea",
+    "positive_installed_growth_bytes": 115951616,
+    "verified": true
+  },
+  "baseline_free_bytes": 92108734464,
+  "installed_plan_verified": false,
+  "minimum_free_bytes": 68719476736,
+  "peak_measured": false,
+  "planning_ledger_bytes": {
+    "actor_input_assumption": 16777216,
+    "apt_download_plan_ceiling": 26223118,
+    "apt_indexes_assumption": 134217728,
+    "apt_positive_growth_plan_ceiling": 115951616,
+    "dpkg_transient_assumption": 115951616,
+    "g_wrapper_expansion_repack_assumption": 16777216,
+    "logs_metadata_assumption": 33554432,
+    "python_archive_assumption": 13631488,
+    "shallow_git_worktree_objects_assumption": 50331648
+  },
+  "planning_ledger_is_hard_quota": false,
+  "provider_background_writes_excluded": false,
+  "same_filesystem": true,
+  "samples": [
+    {
+      "free_bytes": 92108734464,
+      "net_decline_bytes": 0,
+      "phase": "before_checkout"
+    },
+    {
+      "free_bytes": 92076883968,
+      "net_decline_bytes": 31850496,
+      "phase": "post_checkout"
+    },
+    {
+      "free_bytes": 91950350336,
+      "net_decline_bytes": 158384128,
+      "phase": "post_apt_indexes"
+    },
+    {
+      "free_bytes": 91807031296,
+      "net_decline_bytes": 301703168,
+      "phase": "post_apt"
+    },
+    {
+      "free_bytes": 91806826496,
+      "net_decline_bytes": 301907968,
+      "phase": "post_actor"
+    },
+    {
+      "free_bytes": 91804700672,
+      "net_decline_bytes": 304033792,
+      "phase": "post_g_download"
+    },
+    {
+      "free_bytes": 91793272832,
+      "net_decline_bytes": 315461632,
+      "phase": "post_g_bundle"
+    },
+    {
+      "free_bytes": 91780620288,
+      "net_decline_bytes": 328114176,
+      "phase": "post_python"
+    },
+    {
+      "free_bytes": 91780579328,
+      "net_decline_bytes": 328155136,
+      "phase": "pre_vm"
+    }
+  ],
+  "schema_version": 1,
+  "status": "observed_within_allowance"
+}
