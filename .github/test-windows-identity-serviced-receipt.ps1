@@ -6,12 +6,12 @@ $runner=Join-Path $PSScriptRoot 'windows-identity-serviced-stage0-run.ps1'
 $worker=Join-Path $PSScriptRoot 'windows-identity-serviced-update.ps1'
 $ast=[System.Management.Automation.Language.Parser]::ParseFile($runner,[ref]$tokens,[ref]$errors)
 if($errors.Count -ne 0){throw 'Receipt parser failed'}
-foreach($name in @('Test-ServicedReceiptSharing','Read-ServicedReceiptSnapshot')) {
+foreach($name in @('Test-ServicedReceiptSharing','Initialize-ServicedReceiptNative','Assert-ServicedReceiptHandle','Read-ServicedReceiptSnapshot')) {
     $definitions=@($ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq $name},$false))
     if($definitions.Count -ne 1){throw 'Receipt helper missing'};Invoke-Expression $definitions[0].Extent.Text
 }
 . $worker
-$passed=0;$created=$false;$process=$null;$fixturePhase='setup';$fixtureStep='not_started';$childResult=$null
+$passed=0;$created=$false;$process=$null;$fixturePhase='setup';$fixtureStep='not_started';$childResult=$null;$ownedLinks=@()
 $root=Join-Path ([IO.Path]::GetTempPath()) ('ruleproxy-receipt-'+[Guid]::NewGuid().ToString('N'))
 $oldUpdateDirectory=$script:UpdateDirectory
 $script:ReceiptAssertOriginal=(Get-Command Assert-ProtectedUpdatePath).ScriptBlock
@@ -163,6 +163,80 @@ try {
     $fixtureStep='child_exit'
     if($process.ExitCode -ne 0 -or $reads -lt 1){throw 'Atomic writer stress failed'}
     $process.Dispose();$process=$null;$passed++
+    $fixturePhase='same_handle_replace'
+    Write-ServicedState @{schema_version=1;generation=201;payload='old'}
+    $script:ReceiptHandleOriginal=(Get-Command Assert-ServicedReceiptHandle).ScriptBlock
+    $script:ReplaceAfterHandle=$true
+    function Assert-ServicedReceiptHandle($Stream) {
+        & $script:ReceiptHandleOriginal $Stream
+        if($script:ReplaceAfterHandle) {
+            $script:ReplaceAfterHandle=$false
+            Write-ServicedState @{schema_version=1;generation=202;payload='new'}
+        }
+    }
+    try {
+        $old=Read-FixtureReceipt|ConvertFrom-Json
+        $new=Read-FixtureReceipt|ConvertFrom-Json
+        if($old.generation -ne 201 -or $old.payload -cne 'old' -or $new.generation -ne 202 -or $new.payload -cne 'new'){throw 'Same handle replacement binding failed'};$passed++
+    } finally {Set-Item Function:Assert-ServicedReceiptHandle -Value $script:ReceiptHandleOriginal}
+    $fixturePhase='acl_sharing_not_retried'
+    $script:AclFixtureCalls=0
+    function Assert-ServicedReceiptHandle($Stream) {
+        $script:AclFixtureCalls++
+        throw [IO.IOException]::new('fixture_acl_sharing',-2147024864)
+    }
+    try {
+        $rejected=$false;try{$null=Read-FixtureReceipt}catch{$rejected=Test-ServicedReceiptSharing $_.Exception}
+        if(-not $rejected -or $script:AclFixtureCalls -ne 1 -or $script:ServicingReadDiagnostic.reason -cne 'acl'){throw 'ACL sharing failure retried'};$passed++
+    }finally{Set-Item Function:Assert-ServicedReceiptHandle -Value $script:ReceiptHandleOriginal}
+    $fixturePhase='leaf_types'
+    $leafDirectory=Join-Path $root 'directory-leaf'
+    $null=New-Item -ItemType Directory -Path $leafDirectory
+    try {
+        $rejected=$false;try{$null=Read-ServicedReceiptSnapshot $leafDirectory ([DateTime]::UtcNow.AddSeconds(5))}catch{$rejected=$true}
+        if(-not $rejected){throw 'Directory leaf accepted'};$passed++
+        foreach($kind in @('SymbolicLink','Junction')) {
+            $link=Join-Path $root ('link-'+$kind)
+            $target=if($kind -ceq 'SymbolicLink'){$path}else{$leafDirectory}
+            $null=New-Item -ItemType $kind -Path $link -Target $target
+            $ownedLinks+=@{path=$link;directory=($kind -ceq 'Junction')}
+            $rejected=$false;try{$null=Read-ServicedReceiptSnapshot $link ([DateTime]::UtcNow.AddSeconds(5))}catch{$rejected=$true}
+            if(-not $rejected){throw 'Reparse leaf accepted'};$passed++
+        }
+    } finally {
+        foreach($owned in $ownedLinks){if($owned.directory){[IO.Directory]::Delete($owned.path)}else{[IO.File]::Delete($owned.path)}}
+        $ownedLinks=@();[IO.Directory]::Delete($leafDirectory)
+    }
+    $fixturePhase='handle_owner'
+    $restoreAcl=Get-Acl -LiteralPath $path
+    $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+    try{$currentSid=$identity.User}finally{$identity.Dispose()}
+    try {
+        $untrusted=Get-Acl -LiteralPath $path;$untrusted.SetOwner($currentSid);Set-Acl -LiteralPath $path -AclObject $untrusted
+        $rejected=$false;try{$null=Read-FixtureReceipt}catch{$rejected=($_.Exception.GetBaseException().Message -ceq 'update_untrusted_owner')}
+        if(-not $rejected){throw 'Untrusted handle owner accepted'};$passed++
+    }finally{Set-Acl -LiteralPath $path -AclObject $restoreAcl}
+    $fixturePhase='null_dacl'
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class ReceiptFixtureSecurity {
+    [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
+    private static extern uint SetNamedSecurityInfoW(string name,int type,uint security,IntPtr owner,IntPtr group,IntPtr dacl,IntPtr sacl);
+    public static void SetNullDacl(string path) {
+        uint result=SetNamedSecurityInfoW(path,1,0x80000004,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero);
+        if(result!=0) throw new System.ComponentModel.Win32Exception((int)result);
+    }
+}
+'@
+    try {
+        [ReceiptFixtureSecurity]::SetNullDacl($path)
+        $nullAcl=Get-Acl -LiteralPath $path
+        $nullDescriptor=New-Object Security.AccessControl.RawSecurityDescriptor($nullAcl.GetSecurityDescriptorBinaryForm(),0)
+        if($null -ne $nullDescriptor.DiscretionaryAcl -and ($nullDescriptor.ControlFlags -band [Security.AccessControl.ControlFlags]::DiscretionaryAclPresent) -ne 0){throw 'Null DACL fixture not established'}
+        $rejected=$false;try{$null=Read-FixtureReceipt}catch{$rejected=($_.Exception.GetBaseException().Message -ceq 'update_null_dacl')}
+        if(-not $rejected){throw 'Null handle DACL accepted'};$passed++
+    }finally{Set-Acl -LiteralPath $path -AclObject $restoreAcl}
     $fixturePhase='exact_bound'
     $validJson='{"schema_version":1}'
     [IO.File]::WriteAllText($path,$validJson.PadRight(4096,' '),[Text.UTF8Encoding]::new($false))
@@ -202,7 +276,7 @@ try {
 } catch {
     $failureHresult=[int]$_.Exception.HResult;$baseHresult=[int]$_.Exception.GetBaseException().HResult
     $guardFailure='other'
-    $fixedFailures=@('update_reparse_point','update_directory_required','update_file_required','update_untrusted_owner','update_directory_inherits_permissions','update_untrusted_write_permission')
+    $fixedFailures=@('update_reparse_point','update_directory_required','update_file_required','update_untrusted_owner','update_directory_inherits_permissions','update_untrusted_write_permission','update_null_dacl')
     foreach($fixed in $fixedFailures){if($_.Exception.Message -ceq $fixed -or $_.Exception.GetBaseException().Message -ceq $fixed){$guardFailure=$fixed;break}}
     $assertRole=$script:ReceiptAssertRole
     $directoryFacts=Get-FixturePathFacts $root $true;$leafFacts=Get-FixturePathFacts (Join-Path $root 'update-state.json') $false
@@ -233,6 +307,7 @@ try {
 } finally {
     $script:UpdateDirectory=$oldUpdateDirectory;$cleanup=$true
     if($null -ne $process){try{if(-not $process.HasExited){$process.Kill();if(-not $process.WaitForExit(1000)){$cleanup=$false}}}catch{$cleanup=$false}finally{try{$process.Dispose()}catch{$cleanup=$false}}}
+    if($cleanup){try{foreach($owned in $ownedLinks){if($owned.directory){[IO.Directory]::Delete($owned.path)}else{[IO.File]::Delete($owned.path)}};$ownedLinks=@()}catch{$cleanup=$false}}
     $rootRemovalSkipped=($created -and -not $cleanup)
     try{if($created -and $cleanup){foreach($item in @(Get-ChildItem -LiteralPath $root -Force)){if($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'cleanup'};Remove-Item -LiteralPath $item.FullName -Force};Remove-Item -LiteralPath $root -Force}}catch{$cleanup=$false}
     Write-Output ((@{fixture='receipt_snapshot_cleanup';confirmed=$cleanup;root_removal_skipped=$rootRemovalSkipped})|ConvertTo-Json -Compress)

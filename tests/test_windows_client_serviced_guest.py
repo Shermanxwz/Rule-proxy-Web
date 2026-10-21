@@ -109,7 +109,7 @@ class ServicedGuestContractTests(unittest.TestCase):
 
     def test_ordinary_acceptance_waits_protected_receipt_and_reboot(self):
         self.assertIn('Read-ServicedReceiptSnapshot $statePath $servicingDeadline', RUN)
-        self.assertIn('Assert-ProtectedUpdatePath $Path', RUN)
+        self.assertIn('Assert-ServicedReceiptHandle $stream', RUN)
         self.assertIn('$stream.Length -gt 4096', RUN)
         self.assertIn('$service.after_boot -cne $bootOS.LastBootUpTime', RUN)
         self.assertIn('$service.before_boot -ceq $service.after_boot', RUN)

@@ -124,20 +124,88 @@ function Test-ServicedReceiptSharing($Exception) {
     }
     return $false
 }
+function Initialize-ServicedReceiptNative {
+    if ('RuleProxy.ReceiptSnapshot' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+namespace RuleProxy {
+    public static class ReceiptSnapshot {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Info {
+            public uint Attributes;
+            public uint CreationLow, CreationHigh, AccessLow, AccessHigh, WriteLow, WriteHigh;
+            public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
+        }
+        [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+        private static extern SafeFileHandle CreateFileW(string name, uint access, uint share,
+            IntPtr security, uint disposition, uint flags, IntPtr template);
+        [DllImport("kernel32.dll", SetLastError=true)]
+        private static extern uint GetFileType(SafeFileHandle handle);
+        [DllImport("kernel32.dll", SetLastError=true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out Info info);
+        private static IOException NativeFailure() {
+            return new IOException("receipt_native", Marshal.GetHRForLastWin32Error());
+        }
+        public static FileStream Open(string path) {
+            // No traversal of the final reparse point; no backup/restore privileges.
+            SafeFileHandle handle=CreateFileW(path,0x80000000,7,IntPtr.Zero,3,0x00200000,IntPtr.Zero);
+            try {
+                if(handle.IsInvalid) throw NativeFailure();
+                if(GetFileType(handle)!=1) throw new IOException("receipt_not_disk");
+                Info info;
+                if(!GetFileInformationByHandle(handle,out info)) throw NativeFailure();
+                if((info.Attributes & 0x400)!=0) throw new IOException("update_reparse_point");
+                if((info.Attributes & 0x10)!=0) throw new IOException("update_file_required");
+                if(info.SizeHigh!=0 || info.SizeLow>4096) throw new IOException("receipt_over_bound");
+                FileStream stream=new FileStream(handle,FileAccess.Read,4096,false);
+                handle=null; // FileStream owns this exact SafeFileHandle from here.
+                return stream;
+            } finally { if(handle!=null) handle.Dispose(); }
+        }
+    }
+}
+'@
+}
+function Assert-ServicedReceiptHandle($Stream) {
+    $acl=$Stream.GetAccessControl()
+    $descriptor=New-Object Security.AccessControl.RawSecurityDescriptor($acl.GetSecurityDescriptorBinaryForm(),0)
+    if (($descriptor.ControlFlags -band [Security.AccessControl.ControlFlags]::DiscretionaryAclPresent) -eq 0 -or $null -eq $descriptor.DiscretionaryAcl) { throw 'update_null_dacl' }
+    $trusted=@('S-1-5-18','S-1-5-32-544')
+    $owner=$acl.GetOwner([Security.Principal.SecurityIdentifier])
+    if ($null -eq $owner -or $owner.Value -notin $trusted) { throw 'update_untrusted_owner' }
+    $writeMask=[Security.AccessControl.FileSystemRights]::Write -bor
+        [Security.AccessControl.FileSystemRights]::Delete -bor
+        [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor
+        [Security.AccessControl.FileSystemRights]::ChangePermissions -bor
+        [Security.AccessControl.FileSystemRights]::TakeOwnership
+    foreach ($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
+        if ($rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
+            ($rule.FileSystemRights -band $writeMask) -ne 0 -and $rule.IdentityReference.Value -notin $trusted) {
+            throw 'update_untrusted_write_permission'
+        }
+    }
+}
 function Read-ServicedReceiptSnapshot($Path,[DateTime]$Deadline) {
+    Initialize-ServicedReceiptNative
     for ($attempt=0;$attempt -lt 4;$attempt++) {
         if ([DateTime]::UtcNow -ge $Deadline) { $script:ServicingReadDiagnostic.reason='expired';throw 'Servicing deadline' }
         $script:ServicingReadDiagnostic.step='receipt_acl'
         try {
             Assert-ProtectedUpdatePath ([IO.Path]::GetDirectoryName($Path)) -Directory -ProtectedDacl
-            Assert-ProtectedUpdatePath $Path
         } catch { $script:ServicingReadDiagnostic.reason='acl';throw }
         $script:ServicingReadDiagnostic.step='receipt_read'
         $stream=$null
         try {
             # ShareDelete permits the trusted writer's atomic replacement; this handle
             # remains a bounded snapshot of one old/new file, never an in-place merge.
-            $stream=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+            $stream=[RuleProxy.ReceiptSnapshot]::Open($Path)
+            $script:ServicingReadDiagnostic.step='receipt_acl'
+            try { Assert-ServicedReceiptHandle $stream } catch { $script:ServicingReadDiagnostic.reason='acl';throw }
+            $script:ServicingReadDiagnostic.step='receipt_read'
             if ($stream.Length -gt 4096) { $script:ServicingReadDiagnostic.reason='over_bound';throw 'Closed servicing receipt rejected' }
             $bytes=New-Object byte[] 4097;$total=0
             do {
@@ -149,7 +217,9 @@ function Read-ServicedReceiptSnapshot($Path,[DateTime]$Deadline) {
             if ([DateTime]::UtcNow -ge $Deadline) { $script:ServicingReadDiagnostic.reason='expired';throw 'Servicing deadline' }
             return $raw
         } catch {
-            if ($script:ServicingReadDiagnostic.reason -notin @('over_bound','expired')) { $script:ServicingReadDiagnostic.reason='read' }
+            if ($_.Exception.GetBaseException().Message -ceq 'receipt_over_bound') { $script:ServicingReadDiagnostic.reason='over_bound' }
+            if ($script:ServicingReadDiagnostic.reason -notin @('over_bound','expired','acl')) { $script:ServicingReadDiagnostic.reason='read' }
+            if ($script:ServicingReadDiagnostic.reason -eq 'acl') { throw }
             if (-not (Test-ServicedReceiptSharing $_.Exception) -or $attempt -ge 3) { throw }
         } finally { if ($null -ne $stream) { $stream.Dispose() } }
         # Only sharing32 is retried; never rebase the caller's immutable deadline.
