@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "experiment": "direct UDP6 activation wiring short gates",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39676130829",
+  "head": "5c7230cbb6c4fa3c0b38b94fe5d311e351a7e053",
+  "freeze_sha256": "e192706f711eb91b865c0529a070886437a53ac6e8893ba89e252bf4ea175c8f",
+  "result_sha256": "7d8d4567ca62cd9eaf5d19bc9fd059478ce4b7f189da862a8285335b5b3481ae",
+  "status": "activation wiring short gates passed; no Windows runtime launched",
+  "observations": [
+    "Linux and Windows each passed 683 required tests, zero skips. These are scoped suites, not a full-repository test claim. Real YAML and all 64 runtime marker subsets were checked.",
+    "Each platform executed 56 inert owned Bash argv fixtures: six expected successful mode vectors and 50 expected refusals. Original five argv vectors and validated source-SHA handoff remain covered. Direct held-process exit/root removal facts do not independently observe descendant processes.",
+    "Actual Windows clean and poisoned-module isolated production-input verifiers passed without PE execution, with owned cleanup. The separate hosted harness executed production actor only with invalid CLI.",
+    "PowerShell checks 78/48/60/57 and six-mode ZIP 66 checks/12 equal-count forbidden substitutions passed; process/transport and artifact pin boundaries are mocked or inert, not guest upload or actual production payload fit.",
+    "Linux actual paused QEMU provenance admitted mapped backing-file identity/hash and separate local package integrity, with pre-stop verification, observed owned exit without forced kill and cleanup/work removal. No guest ran.",
+    "Hosted TEST_ONLY IPv6 mechanics passed 45 exact echoes plus one accepted-send/rejected wrong echo. Actual readbacks verified IPv6-only before sockets were bound/sent; all seven held processes and two receiver cleanups and work removal passed."
+  ],
+  "activation_contract": [
+    "One sixth-exclusive runtime marker selects UDP6 instead of other workloads. This short commit used only the pure gate marker; the direct runtime workflow was skipped.",
+    "Only production actor and manifest are eligible for runtime transport, with 512-byte through 8-MiB binary bound. Exact 17-member payload, P at most 24 MiB and 65-MiB capture reserve remain mandatory runtime admissions.",
+    "Original identity/policy/host/PowerShell/provenance and QEMU network configuration are unchanged. Guest 120-second work budget and existing at-most 10-second reporting allowance, host/cleanup/resource limits are unchanged.",
+    "Existing mapped provenance and first same-API ordinary guest IPv6 echo must admit before contained work. No IPv4 or default resolver fallback."
+  ],
+  "limits": [
+    "No actual Windows guest fec0::2 to runner::1 calibration, nonadmin ordinary IPv6 control, selected PSEC sends, packet capture or absence result. Hosted contained is a fixture phase only.",
+    "Mapped backing file and local package metadata are not resident-image or upstream-source equivalence. Local send acceptance is not delivery.",
+    "Earlier three integration fixture failures remain archived. The first suppressed admission predicate is not retrospectively recovered. No DNS/proxy/descendant IPv6/general product claim.",
+    "A Windows runtime requires a separate reviewed one-run decision; no automatic launch or retry follows from these gates."
+  ]
+}
