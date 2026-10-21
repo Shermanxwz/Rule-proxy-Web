@@ -76,11 +76,14 @@ class N0aDirectWorkflowTests(unittest.TestCase):
 
     def test_actual_native_condition_truth_table(self):
         self.assertTrue(self.native_allowed('[identity-direct-stage0-runtime]'))
+        self.assertTrue(self.native_allowed('[n0a-connect-runtime]'))
         for message in ('unrelated','[identity-direct-stage0-gates]','[n0a-connect-gates]',
-                        '[n0a-connect-runtime]', '[identity-direct-stage0-runtime] [n0a-connect-runtime]'):
+                        '[identity-direct-stage0-runtime] [n0a-connect-runtime]'):
             self.assertFalse(self.native_allowed(message),message)
         self.assertFalse(self.native_allowed('[identity-direct-stage0-runtime]', branch='refs/heads/main'))
         self.assertFalse(self.native_allowed('[identity-direct-stage0-runtime]', event='workflow_dispatch'))
+        self.assertFalse(self.native_allowed('[n0a-connect-runtime]', branch='refs/heads/main'))
+        self.assertFalse(self.native_allowed('[n0a-connect-runtime]', event='workflow_dispatch'))
 
     def test_optional_artifact_matches_actual_host_output(self):
         source = (ROOT / '.github/windows_identity_direct_stage0.py').read_text()
@@ -90,9 +93,9 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertEqual(names, {'n0a-connect-public.json'})
         self.assertIn('path: client-stage0-public/' + next(iter(names)), self.text)
 
-    def test_production_upload_disabled_and_fixture_excluded(self):
+    def test_production_upload_explicit_marker_and_fixture_excluded(self):
         step=self.text.split('name: n0a-connect-production-actor',1)[0].rsplit('- uses: actions/upload-artifact@v7',1)[1]
-        self.assertIn("false && contains(github.event.head_commit.message, '[n0a-connect-runtime]')",step)
+        self.assertIn("true && contains(github.event.head_commit.message, '[n0a-connect-runtime]')",step)
         self.assertIn('n0a-production-build/windows_n0a_actor.exe',self.text)
         self.assertIn('n0a-production-build/build-manifest.json',self.text)
         self.assertNotIn('TEST_ONLY',self.text)

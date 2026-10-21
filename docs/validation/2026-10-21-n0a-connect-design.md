@@ -96,7 +96,7 @@ manifest must be distinct and excluded from actor artifacts and guest payloads;
 it must not replace the production digest or build outputs. Those fixture
 positives are not genuine ordinary-token or PSEC enforcement evidence.
 
-## Opt-in adapter design (code-only, runtime disabled)
+## Opt-in adapter design and explicit runtime gate
 
 The original IdentityOnly executable, original Stage0 result and 16 KiB transport
 remain separate. In the opt-in path the launcher starts one 120-second monotonic
@@ -138,5 +138,7 @@ alone. Raw event/log/PID content remains private.
 
 Only the production N0a executable and its two-source build manifest are eligible
 for a future explicit opt-in artifact. The current short pure workflow uploads
-nothing and starts no VM. Future direct N0a runtime/upload branches remain
-explicitly disabled; mixed old-direct and N0a runtime markers are rejected.
+nothing and starts no VM. Direct N0a runtime/upload branches require the explicit N0a runtime marker;
+mixed old-direct and N0a runtime markers are rejected. Activation follows the
+reviewed short gates and separate authorization for one bounded experiment.
+An enabled opt-in path is not a recorded execution or acceptance result.

@@ -1,8 +1,8 @@
-"""Inactive N0a-connect experiment. No packet/no-egress or isolation acceptance.
+"""Explicit opt-in N0a-connect experiment. No packet/no-egress or isolation acceptance.
 
 Private native reports are evaluated independently of original Stage0. Ordinary
 controls make fresh connections; QPC proves window overlap, not syscall overlap.
-No existing proof policy, native identity gate, or direct harness is changed.
+Original proof policy and Stage0 native-identity acceptance remain unchanged.
 """
 from __future__ import annotations
 import hashlib
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXECUTION_ENABLED = False
+EXECUTION_ENABLED = True
 MAX_REPORT = 32768
 MAX_QPC = (1 << 63) - 1
 NONCE = re.compile(r'[0-9a-f]{32}\Z')
@@ -107,7 +107,7 @@ def verify_binding(actor, expected_actor_sha256, executor, manifest, nonce, port
     """Read-only current-guest/pinned-input binding, never a supplied profile.
 
     Kept separate from evaluation so unit fixtures cannot be mistaken for OS
-    observations. No CLI/integration currently calls this inactive experiment.
+    observations. The explicit guest adapter supplies pinned runtime inputs.
     """
     if os.name != 'nt': raise PermissionError('Windows guest observation required')
     import winreg
@@ -324,7 +324,7 @@ def clipped_timeout(deadline, limit, *, clock=time.monotonic, reserve=2):
 
 
 def run_endpoint(execution, binding, endpoint, port, deadline, *, approved=False, clock=time.monotonic, sleep=time.sleep):
-    """Inactive driver seam. Execution adapter owns OS handles/provenance/pins.
+    """Explicit opt-in driver. Execution adapter owns OS handles/provenance/pins.
 
     Integration must supply verified bounded invoke/probe/start/wait methods;
     this module neither enables VM execution nor silently uses original proof

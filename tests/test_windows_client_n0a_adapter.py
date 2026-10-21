@@ -145,7 +145,7 @@ class ManifestTests(unittest.TestCase):
                     with self.assertRaises(ValueError):adapter.verify_production(config,actor,path)
                 else:self.assertEqual(adapter.verify_production(config,actor,path),value)
     def test_inactive_runtime_returns_null_without_native_or_socket(self):
-        with patch.object(adapter,'qpc_budget') as qpc,patch.object(engine.NonceEndpoint,'start') as start:
+        with patch.object(engine,'EXECUTION_ENABLED',False),patch.object(adapter,'qpc_budget') as qpc,patch.object(engine.NonceEndpoint,'start') as start:
             self.assertIsNone(adapter.run('unused',123,1000))
         qpc.assert_not_called();start.assert_not_called()
 

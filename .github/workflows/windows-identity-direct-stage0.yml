@@ -84,8 +84,8 @@ jobs:
           python -B -m unittest discover -s tests -p 'test_windows*n0a*.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
-        # Disabled until a separate exact-tree N0a runtime decision.
-        if: ${{ false && contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        # Production-only upload requires the explicit N0a runtime marker.
+        if: ${{ true && contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
         with:
           name: n0a-connect-production-actor
           path: |
@@ -121,7 +121,7 @@ jobs:
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
   native:
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]')) || (false && contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]'))) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]')) || (true && contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]'))) }}
     needs: [compile, host-unit]
     runs-on: ubuntu-24.04
     timeout-minutes: 120

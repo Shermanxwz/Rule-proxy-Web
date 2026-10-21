@@ -192,8 +192,8 @@ class BindingTests(unittest.TestCase):
                     n.verify_binding(actor,digest,'executor.exe','manifest.json',B.nonce,B.ports)
 
 class DriverTests(unittest.TestCase):
-    def test_inactive_by_default_and_deadline_clipping(self):
-        with self.assertRaises(PermissionError):n.run_endpoint(Mock(),B,'guest',19001,100,approved=True)
+    def test_disabled_branch_and_deadline_clipping(self):
+        with patch.object(n,'EXECUTION_ENABLED',False),self.assertRaises(PermissionError):n.run_endpoint(Mock(),B,'guest',19001,100,approved=True)
         self.assertEqual(n.clipped_timeout(10,30,clock=lambda:5),3)
         with self.assertRaises(TimeoutError):n.clipped_timeout(7,30,clock=lambda:5)
     def test_owned_cleanup_failure_retains_connect_success(self):

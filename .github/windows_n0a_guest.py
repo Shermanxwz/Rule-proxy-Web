@@ -1,4 +1,4 @@
-"""Inactive opt-in N0a guest adapter; private reports never become Stage0 proof."""
+"""Explicit opt-in N0a guest adapter; private reports never become Stage0 proof."""
 from __future__ import annotations
 import argparse
 import ctypes
