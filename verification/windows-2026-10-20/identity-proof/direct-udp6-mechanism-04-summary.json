@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "scope": "Standalone TEST_ONLY hosted owned IPv6 loopback mechanics",
+  "run_id": 39666479611,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39666479611",
+  "head": "adfd2586f479c280ca39700786289d27b48f1a52",
+  "freeze_sha256": "aa22f99c1aa6a1496e632f3d270930a3374b8886cd37de2dfc35853e684ff64e",
+  "result_sha256": "8f8dcdd7c4251af79e3fec3ca021387ddd4dfa1ecbbd5c3b1c2fd33cde31c593",
+  "workflow_conclusion": "success",
+  "tests": {
+    "linux_required": 539,
+    "windows_required": 539,
+    "skips_each": 0,
+    "native_builds_passed": true,
+    "synthetic_readback_helper_contract": true
+  },
+  "observations": {
+    "actual_readbacks": 46,
+    "all_getsockopt_returns": 0,
+    "all_returned_lengths": 1,
+    "all_decoded_values": 1,
+    "all_v6only_verified": true,
+    "main_receiver_verified_and_echoed": 45,
+    "phase_counts": {
+      "before": 1,
+      "sample": 40,
+      "fixture_contained": 3,
+      "after": 1
+    },
+    "wrong_echo_receiver_verified": 1,
+    "wrong_echo_send_accepted": true,
+    "wrong_echo_rejected": true,
+    "all_seven_child_owners_cleanup": true,
+    "both_receivers_cleanup": true,
+    "work_removed": true
+  },
+  "interpretation": [
+    "This job actually exercised IPv6-only readback and fresh native UDP exchanges with the owned loopback responder. A successful local send remains distinct from its verified echo; the wrong-echo control demonstrates that distinction.",
+    "The contained name is a TEST_ONLY fixture phase, not PSEC/AppContainer execution. Hosted admin profile-only rejection is separate from network mechanics. Production was compiled and invoked only with invalid CLI; its valid network profile guard was not dynamically exercised.",
+    "The decoder is bounded to returned length1 or4 and reads only returned bytes; this job observed length1/value1. Synthetic helper negatives remain distinct from actual API results.",
+    "The third failed job separately proved length1 rejection under its full-DWORD rule. The successful fourth job does not reconstruct the deleted private state of either earlier ambiguous failure. All prior failed receipts remain preserved.",
+    "No VM, guest fec0::2 alias, actually linked libslirp provenance, nonadmin/PSEC identity, packet capture or isolation/absence result was tested. Pure packet tests authenticate no input provenance. No DNS, proxy, descendant IPv6, Linux-equivalence or product-acceptance claim.",
+    "All reported owned child/socket/thread/work cleanup succeeded. No private native reports, raw identifiers, addresses, ports, nonces, paths, QPC, PCAP or bundles are archived."
+  ],
+  "next_boundary": "Read-only planning for separately reviewed unchanged-policy guest integration, including actual linked libslirp provenance and same-API ordinary guest-to-runner calibration. No runtime activation follows from this hosted result."
+}
