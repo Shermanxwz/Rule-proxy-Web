@@ -1,4 +1,7 @@
 import importlib.util
+from contextlib import contextmanager
+import json
+import stat
 import os
 from pathlib import Path
 import tempfile
@@ -11,6 +14,33 @@ def load(name,file):
     value=importlib.util.module_from_spec(spec); spec.loader.exec_module(value); return value
 m=load('slirp_unit','windows_n0a_qemu_slirp.py')
 g=load('slirp_gate_unit','test_windows_n0a_qemu_slirp.py')
+
+@contextmanager
+def linux_fixture_stats(paths, *, enabled=None):
+    """Model Linux path/FD metadata only for these owned test files on Windows.
+
+    Windows CPython path stat may expose birthtime as ctime while fstat exposes
+    ChangeTime (upstream CPython #157671). Do not drop any production field.
+    Actual Linux tests and the separate Linux QEMU gate remain unmodified.
+    """
+    allowed={name for path in paths for name in (str(Path(path)),str(Path(path).resolve(strict=True)))}
+    real_stat=os.stat
+    def same_api_stat(path,*args,**kwargs):
+        info=real_stat(path,*args,**kwargs)
+        if str(path) not in allowed or not stat.S_ISREG(info.st_mode):return info
+        fd=os.open(path,os.O_RDONLY|getattr(os,'O_BINARY',0))
+        try:return os.fstat(fd)
+        finally:os.close(fd)
+    if enabled is True or (enabled is None and os.name=='nt'):
+        with mock.patch.object(m.os,'stat',side_effect=same_api_stat):yield
+    else:yield
+
+@contextmanager
+def owned_observer(*args,**kwargs):
+    observer=m.MappedQemu(*args,**kwargs)
+    try:yield observer
+    finally:observer.close()
+
 class Tests(unittest.TestCase):
     def setUp(self):
         # Emulate only unavailable Linux file primitives in the cross-platform
@@ -32,6 +62,44 @@ class Tests(unittest.TestCase):
             if not hasattr(os,name):
                 patch=mock.patch.object(m.os,name,value,create=True);patch.start();self.addCleanup(patch.stop)
 
+    def test_closed_native_stat_discriminator_and_scoped_model(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'owned';path.write_bytes(b'before');path.write_bytes(b'after')
+            fd=os.open(path,os.O_RDONLY|getattr(os,'O_BINARY',0))
+            try:
+                by_path=os.stat(path);by_fd=os.fstat(fd)
+                names=('device','inode','size','mtime','ctime','mode')
+                comparison=dict(zip(names,(a==b for a,b in zip(m.signature(by_path),m.signature(by_fd)))))
+                print(json.dumps({'fixture_only':True,'path_fd_fields_equal':comparison},sort_keys=True))
+                self.assertTrue(os.path.samestat(by_path,by_fd))
+                with linux_fixture_stats((path,)):
+                    self.assertEqual(m.signature(os.stat(path)),m.signature(os.fstat(fd)))
+            finally:os.close(fd)
+    def test_admission_mismatch_still_rejects_and_finally_closes(self):
+        with tempfile.TemporaryDirectory() as d:
+            exe=Path(d)/'qemu';lib=Path(d)/'libslirp.so.0';exe.write_bytes(b'QEMU');lib.write_bytes(b'SLIRP')
+            ei,li=exe.stat(),lib.stat();identity=(17,ei.st_dev,ei.st_ino,(str(lib),os.major(li.st_dev),os.minor(li.st_dev),li.st_ino))
+            held=[]
+            with self.assertRaisesRegex(AssertionError,'forced_fixture_assertion'):
+                with owned_observer(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2) as ob,linux_fixture_stats((exe,lib)):
+                    with mock.patch.object(ob,'_identity',return_value=identity),mock.patch.object(m,'package',return_value={}),mock.patch.object(ob,'_backing_bracket',side_effect=ValueError('fixture_signature_mismatch')):
+                        self.assertFalse(ob.admit());held=list(ob.fds.values())
+                        raise AssertionError('forced_fixture_assertion')
+            self.assertEqual(len(held),2)
+            self.assertTrue(ob.snapshot()['close_confirmed']);self.assertEqual(ob.fds,{})
+            for fd in held:
+                with self.assertRaises(OSError):os.fstat(fd)
+    def test_linux_model_exact_raw_and_resolved_alias_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);sub=root/'sub';sub.mkdir();path=root/'owned';path.write_bytes(b'owned')
+            outside=root/'outside';outside.write_bytes(b'outside');alias=sub/'..'/'owned';canonical=path.resolve()
+            real_open=os.open
+            with mock.patch.object(m.os,'open',wraps=real_open) as opened:
+                with linux_fixture_stats((alias,),enabled=True):
+                    self.assertEqual(os.stat(canonical).st_size,5)
+                    self.assertEqual(os.stat(outside).st_size,7)
+                self.assertEqual(opened.call_count,1)
+                self.assertEqual(Path(opened.call_args.args[0]),canonical)
     def test_maps_unique_inode_multiple_segments(self):
         row=b'1000-2000 r-xp 0000 08:02 42 /usr/lib/x86_64-linux-gnu/libslirp.so.0.4.0\n'
         self.assertEqual(m.mapped_slirp(row+row),('/usr/lib/x86_64-linux-gnu/libslirp.so.0.4.0',8,2,42))
@@ -85,30 +153,30 @@ class Tests(unittest.TestCase):
             exe=Path(d)/'qemu';lib=Path(d)/'libslirp.so.0';exe.write_bytes(b'QEMU');lib.write_bytes(b'SLIRP')
             ei,li=exe.stat(),lib.stat()
             identity=(17,ei.st_dev,ei.st_ino,(str(lib),os.major(li.st_dev),os.minor(li.st_dev),li.st_ino))
-            ob=m.MappedQemu(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2)
-            def package(path,name,md5,deadline,children,ledger):
-                return {'name':name,'architecture':'amd64','version':'1.0','local_integrity_verified':True}
-            with mock.patch.object(ob,'_identity',return_value=identity),mock.patch.object(m,'package',side_effect=package):
-                self.assertTrue(ob.admit());self.assertEqual(len(ob.fds),2)
-                self.assertTrue(ob.recheck_before_stop());self.assertTrue(ob.snapshot()['pre_stop_verified'])
-                self.assertTrue(ob.close());self.assertTrue(ob.close());self.assertEqual(ob.fds,{})
+            with owned_observer(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2) as ob, linux_fixture_stats((exe,lib)):
+                def package(path,name,md5,deadline,children,ledger):
+                    return {'name':name,'architecture':'amd64','version':'1.0','local_integrity_verified':True}
+                with mock.patch.object(ob,'_identity',return_value=identity),mock.patch.object(m,'package',side_effect=package):
+                    self.assertTrue(ob.admit());self.assertEqual(len(ob.fds),2)
+                    self.assertTrue(ob.recheck_before_stop());self.assertTrue(ob.snapshot()['pre_stop_verified'])
+                    self.assertTrue(ob.close());self.assertTrue(ob.close());self.assertEqual(ob.fds,{})
     def test_changed_library_path_blocks_recheck(self):
         with tempfile.TemporaryDirectory() as d:
             exe=Path(d)/'qemu';lib=Path(d)/'libslirp.so.0';exe.write_bytes(b'QEMU');lib.write_bytes(b'SLIRP')
             ei,li=exe.stat(),lib.stat();identity=(17,ei.st_dev,ei.st_ino,(str(lib),os.major(li.st_dev),os.minor(li.st_dev),li.st_ino))
-            ob=m.MappedQemu(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2)
-            with mock.patch.object(ob,'_identity',return_value=identity),mock.patch.object(m,'package',return_value={}):
-                self.assertTrue(ob.admit())
-                # Windows CRT descriptors may deny rename while open; simulate the
-                # changed pathname signature there rather than assuming Linux sharing.
-                if os.name=='nt':
-                    old_signature=m.signature
-                    with mock.patch.object(m,'signature',side_effect=lambda info: (0,)*6 if info.st_ino==li.st_ino else old_signature(info)):
+            with owned_observer(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2) as ob, linux_fixture_stats((exe,lib)):
+                with mock.patch.object(ob,'_identity',return_value=identity),mock.patch.object(m,'package',return_value={}):
+                    self.assertTrue(ob.admit())
+                    # Windows CRT descriptors may deny rename while open; simulate the
+                    # changed pathname signature there rather than assuming Linux sharing.
+                    if os.name=='nt':
+                        old_signature=m.signature
+                        with mock.patch.object(m,'signature',side_effect=lambda info: (0,)*6 if info.st_ino==li.st_ino else old_signature(info)):
+                            self.assertFalse(ob.recheck_before_stop())
+                    else:
+                        replacement=Path(d)/'new';replacement.write_bytes(b'EVIL');replacement.replace(lib)
                         self.assertFalse(ob.recheck_before_stop())
-                else:
-                    replacement=Path(d)/'new';replacement.write_bytes(b'EVIL');replacement.replace(lib)
-                    self.assertFalse(ob.recheck_before_stop())
-                self.assertTrue(ob.close())
+                    self.assertTrue(ob.close())
     def test_package_command_bounded_output_and_owned_reap(self):
         for data,valid in ((b'ok\n',True),(b'x'*5000,False)):
             with tempfile.TemporaryFile() as stream:
@@ -167,18 +235,18 @@ class Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             exe=Path(d)/'qemu';lib=Path(d)/'libslirp.so.0';exe.write_bytes(b'QEMU');lib.write_bytes(b'SLIRP')
             ei,li=exe.stat(),lib.stat();identity=(17,ei.st_dev,ei.st_ino,(str(lib),os.major(li.st_dev),os.minor(li.st_dev),li.st_ino))
-            ob=m.MappedQemu(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2)
-            def package(path,*args):
-                if path==str(lib):lib.write_bytes(b'CHANGED')
-                return {}
-            with mock.patch.object(ob,'_identity',return_value=identity),mock.patch.object(m,'package',side_effect=package):
-                self.assertFalse(ob.admit());self.assertFalse(ob.snapshot()['admitted']);self.assertTrue(ob.close())
+            with owned_observer(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2) as ob, linux_fixture_stats((exe,lib)):
+                def package(path,*args):
+                    if path==str(lib):lib.write_bytes(b'CHANGED')
+                    return {}
+                with mock.patch.object(ob,'_identity',return_value=identity),mock.patch.object(m,'package',side_effect=package):
+                    self.assertFalse(ob.admit());self.assertFalse(ob.snapshot()['admitted']);self.assertTrue(ob.close())
     def test_executable_inode_mismatch_blocks_before_package(self):
         with tempfile.TemporaryDirectory() as d:
             exe=Path(d)/'qemu';exe.write_bytes(b'QEMU');ei=exe.stat()
-            ob=m.MappedQemu(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2)
-            with mock.patch.object(ob,'_identity',return_value=(17,ei.st_dev,ei.st_ino+1,('/no/library',0,0,1))),mock.patch.object(m,'package') as package:
-                self.assertFalse(ob.admit());package.assert_not_called();self.assertTrue(ob.close())
+            with owned_observer(process=mock.Mock(pid=123),expected_executable=exe,deadline=time.monotonic()+2) as ob:
+                with mock.patch.object(ob,'_identity',return_value=(17,ei.st_dev,ei.st_ino+1,('/no/library',0,0,1))),mock.patch.object(m,'package') as package:
+                    self.assertFalse(ob.admit());package.assert_not_called();self.assertTrue(ob.close())
     def test_identity_live_owned_process_required(self):
         ob=self.observer();ob.process.poll.return_value=0
         self.assertFalse(ob.admit());self.assertFalse(ob.admit());self.assertFalse(ob.snapshot()['admitted'])
