@@ -1,0 +1,75 @@
+name: Direct UDP standalone mechanics and pure contracts
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths:
+      - '.github/native/windows_n0a_udp_actor.cpp'
+      - '.github/native/windows_n0a_udp_fixture.cpp'
+      - '.github/build_windows_n0a_udp_actor.ps1'
+      - '.github/build_windows_n0a_udp_fixture.ps1'
+      - '.github/windows_n0a_udp.py'
+      - '.github/windows_n0a_udp_packet.py'
+      - '.github/test_windows_n0a_udp.py'
+      - '.github/workflows/windows-n0a-udp-gates.yml'
+      - 'tests/test_windows_n0a_udp_actor.py'
+      - 'tests/test_windows_client_n0a_udp.py'
+      - 'tests/test_windows_n0a_udp_gate.py'
+      - 'tests/test_windows_client_n0a_udp_packet.py'
+      - 'tests/test_windows_n0a_udp_workflow.py'
+permissions:
+  contents: read
+concurrency:
+  group: n0a-udp-gates-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  pure:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-udp-gates]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Required UDP standalone contracts
+        run: |
+          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+  native-mechanism:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-udp-gates]') }}
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Parse separate production and TEST_ONLY build helpers
+        shell: powershell
+        run: |
+          foreach ($name in @('actor','fixture')) {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/build_windows_n0a_udp_$name.ps1"),[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw 'UDP helper syntax rejected' }
+          }
+      - name: Compile separately pinned production and TEST_ONLY outputs
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC unavailable' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_n0a_udp_actor.ps1 -OutputDirectory "$PWD/udp-production-build" -ExpectedActorSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          ./.github/build_windows_n0a_udp_fixture.ps1 -OutputDirectory "$PWD/udp-TEST-ONLY-build" -ExpectedFixtureSha256 9465f6fd4399b4e7edc357dcfaf7769905aa74392c423f05142fa9f49896bbae -ExpectedActorSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+      - name: Required UDP contracts before actual mechanics
+        shell: pwsh
+        run: |
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Owned loopback mechanics and no-socket profile observation
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          python -B .github/test_windows_n0a_udp.py --run-actual-windows --production-actor "$PWD/udp-production-build/windows_n0a_udp_actor.exe" --production-manifest "$PWD/udp-production-build/N0A-UDP-manifest.json" --fixture-actor "$PWD/udp-TEST-ONLY-build/windows_n0a_UDP_TEST_ONLY_fixture.exe" --fixture-manifest "$PWD/udp-TEST-ONLY-build/UDP-TEST-ONLY-manifest.json" --output "$PWD/udp-mechanics-public.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# No uploads, full Windows guest, account, policy, or production deployment.

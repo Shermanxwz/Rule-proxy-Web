@@ -1,0 +1,261 @@
+// Opt-in direct UDP actor. This is NOT DNS API, DNS isolation, or broker evidence.
+// The original identity actor is a separately pinned, unchanged dependency.
+// Private report contains identity/tuple observations: NEVER upload it verbatim.
+// CLI: n0a-udp nonce report port before|sample|contained|after
+#ifndef UNICODE
+#define UNICODE
+#endif
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0602
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#define RULEPROXY_IDENTITY_ONLY 1
+#define wmain UnusedIdentityEntry
+#include "windows_identity_actor.cpp"
+#undef wmain
+#include <algorithm>
+#include <stdexcept>
+#pragma comment(lib, "ws2_32.lib")
+
+namespace n0a_udp {
+constexpr std::size_t MaxReport = 32768;
+#ifdef N0A_UDP_TEST_ONLY
+static_assert(N0A_UDP_TEST_ONLY == 1, "Fixture marker must be exact");
+constexpr bool TestOnly = true;
+constexpr ULONG Destination = INADDR_LOOPBACK;
+#else
+constexpr bool TestOnly = false;
+constexpr ULONG Destination = 0x0a000202UL;
+#endif
+constexpr ULONGLONG ContainedBudget = 3000;
+constexpr ULONGLONG SampleBudget = 10000;
+constexpr std::size_t MaxSamples = 40;
+
+struct Socket final {
+    SOCKET value = INVALID_SOCKET;
+    ~Socket() { if (value != INVALID_SOCKET) closesocket(value); }
+    Socket() = default;
+    Socket(const Socket&) = delete;
+    Socket& operator=(const Socket&) = delete;
+    bool close() {
+        if (value == INVALID_SOCKET) return false;
+        const SOCKET owned = value;
+        value = INVALID_SOCKET; // One attempt only; uncertainty is sticky, never retry a bare handle.
+        return closesocket(owned) == 0;
+    }
+};
+struct Wsa final {
+    bool active = false;
+    ~Wsa() { if (active) WSACleanup(); }
+};
+struct SidArrays final {
+    PSID* groups = nullptr;
+    DWORD groupCount = 0;
+    PSID* capabilities = nullptr;
+    DWORD capabilityCount = 0;
+    ~SidArrays() {
+        if (groups) { for (DWORD i=0; i<groupCount; ++i) LocalFree(groups[i]); LocalFree(groups); }
+        if (capabilities) { for (DWORD i=0; i<capabilityCount; ++i) LocalFree(capabilities[i]); LocalFree(capabilities); }
+    }
+};
+LONGLONG Tick() {
+    LARGE_INTEGER value{};
+    if (!QueryPerformanceCounter(&value) || value.QuadPart <= 0) throw std::runtime_error("qpc");
+    return value.QuadPart;
+}
+LONGLONG Frequency() {
+    LARGE_INTEGER value{};
+    if (!QueryPerformanceFrequency(&value) || value.QuadPart <= 0) throw std::runtime_error("qpc");
+    return value.QuadPart;
+}
+bool Port(const wchar_t* text, unsigned int& port) {
+    const std::wstring value(text);
+    if (value.empty() || value.size()>5 || value[0]==L'0') return false;
+    unsigned int result=0;
+    for (wchar_t digit:value) { if (digit<L'0'||digit>L'9') return false; result=result*10+static_cast<unsigned int>(digit-L'0'); }
+    if (result<1025 || result>65535) return false;
+    port=result; return true;
+}
+bool PackageSid(const std::optional<std::string>& sid) {
+    if (!sid || sid->compare(0,8,"S-1-15-2")!=0) return false;
+    std::size_t position=8;
+    for (int part=0;part<7;++part) {
+        if (position>=sid->size() || (*sid)[position++]!='-') return false;
+        const std::size_t start=position;
+        while (position<sid->size() && (*sid)[position]>='0' && (*sid)[position]<='9') ++position;
+        if (position==start || position-start>10) return false;
+    }
+    return position==sid->size();
+}
+bool Agentic(const Capability& capability) {
+    if (capability.attributes != SE_GROUP_ENABLED) return false;
+    const HMODULE module=GetModuleHandleW(L"kernelbase.dll");
+    if (!module) return false;
+    using Derive=BOOL(WINAPI*)(LPCWSTR,PSID**,DWORD*,PSID**,DWORD*);
+    const FARPROC address=GetProcAddress(module,"DeriveCapabilitySidsFromName");
+    Derive derive=nullptr; static_assert(sizeof(derive)==sizeof(address),"function pointer size");
+    std::memcpy(&derive,&address,sizeof(derive));
+    if (!derive) return false;
+    SidArrays ids;
+    if (!derive(L"AgenticAppContainer",&ids.groups,&ids.groupCount,&ids.capabilities,&ids.capabilityCount)
+        || ids.capabilityCount!=1 || !ids.capabilities || !IsValidSid(ids.capabilities[0])) return false;
+    PSID actual=nullptr;
+    if (!ConvertStringSidToSidA(capability.sid.c_str(),&actual)) return false;
+    const bool equal=IsValidSid(actual) && EqualSid(actual,ids.capabilities[0]);
+    LocalFree(actual);
+    return equal;
+}
+bool Profile(const Observations& identity, bool contained) {
+    if (!identity.errors.empty() || identity.pid==0 || identity.tokenElevated!=false
+        || !identity.tokenIsAppContainer.has_value() || !identity.isProcessInJob.has_value()) return false;
+    if (!contained) return identity.tokenIsAppContainer==false && !identity.tokenAppContainerSid
+        && identity.tokenCapabilities.empty();
+    return identity.tokenIsAppContainer==true && identity.isProcessInJob==true
+        && PackageSid(identity.tokenAppContainerSid) && identity.tokenCapabilities.size()==1
+        && Agentic(identity.tokenCapabilities.front());
+}
+struct Attempt {
+    unsigned int index=0;
+    bool socketCreated=false,attempted=false,bindSucceeded=false,sendAccepted=false,nonceMatched=false,closed=false;
+    unsigned int localPort=0;
+    unsigned long localIpv4=0;
+    LONGLONG sendStartQpc=0,sendEndQpc=0,exchangeEndQpc=0,closeQpc=0;
+    int sendBytes=-1,win32Error=0,closeError=0;
+    const char* failure="none";
+};
+void Error(Attempt& result,const char* phase,int error) { result.failure=phase; result.win32Error=error; }
+bool Receive(SOCKET socket,const sockaddr_in& remote,const std::string& frame,ULONGLONG deadline,Attempt& result) {
+    const ULONGLONG now=GetTickCount64();
+    if (now>=deadline) { Error(result,"recv_select",WSAETIMEDOUT); return false; }
+    const ULONGLONG remaining=deadline-now;
+    timeval timeout{}; timeout.tv_sec=static_cast<long>(remaining/1000); timeout.tv_usec=static_cast<long>((remaining%1000)*1000);
+    fd_set ready{}; FD_ZERO(&ready); FD_SET(socket,&ready);
+    const int selected=select(0,&ready,nullptr,nullptr,&timeout);
+    if (selected==SOCKET_ERROR) { Error(result,"recv_select",WSAGetLastError()); return false; }
+    if (selected==0 || !FD_ISSET(socket,&ready)) { Error(result,"recv_select",WSAETIMEDOUT); return false; }
+    std::array<char,129> buffer{};
+    sockaddr_in sender{}; int senderLength=sizeof(sender);
+    const int count=recvfrom(socket,buffer.data(),static_cast<int>(buffer.size()),0,reinterpret_cast<sockaddr*>(&sender),&senderLength);
+    if (count==SOCKET_ERROR) { Error(result,"recvfrom",WSAGetLastError()); return false; }
+    if (senderLength!=static_cast<int>(sizeof(sender)) || sender.sin_family!=AF_INET
+        || sender.sin_port!=remote.sin_port || sender.sin_addr.s_addr!=remote.sin_addr.s_addr) {
+        Error(result,"echo_peer",WSAEINVAL); return false;
+    }
+    if (count!=static_cast<int>(frame.size()) || std::memcmp(buffer.data(),frame.data(),frame.size())!=0) {
+        Error(result,"echo_payload",WSAEINVAL); return false;
+    }
+    result.nonceMatched=true; return true;
+}
+Attempt Probe(unsigned int index,unsigned int port,const std::string& frame,ULONGLONG deadline,Socket& owned) {
+    Attempt result; result.index=index;
+    owned.value=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
+    if (owned.value==INVALID_SOCKET) { Error(result,"socket",WSAGetLastError()); result.exchangeEndQpc=Tick(); return result; }
+    result.socketCreated=true;
+    do {
+        const BOOL exclusive=TRUE;
+        if (setsockopt(owned.value,SOL_SOCKET,SO_EXCLUSIVEADDRUSE,reinterpret_cast<const char*>(&exclusive),sizeof(exclusive))!=0) { Error(result,"exclusive",WSAGetLastError()); break; }
+        u_long nonblocking=1;
+        if (ioctlsocket(owned.value,FIONBIO,&nonblocking)!=0) { Error(result,"nonblocking",WSAGetLastError()); break; }
+        sockaddr_in local{}; local.sin_family=AF_INET; local.sin_addr.s_addr=htonl(INADDR_ANY); local.sin_port=0;
+        if (bind(owned.value,reinterpret_cast<const sockaddr*>(&local),sizeof(local))!=0) { Error(result,"bind",WSAGetLastError()); break; }
+        result.bindSucceeded=true;
+        int length=sizeof(local);
+        if (getsockname(owned.value,reinterpret_cast<sockaddr*>(&local),&length)!=0) { Error(result,"getsockname",WSAGetLastError()); break; }
+        if (length!=static_cast<int>(sizeof(local)) || local.sin_family!=AF_INET || local.sin_port==0) { Error(result,"getsockname",WSAEINVAL); break; }
+        result.localPort=ntohs(local.sin_port); result.localIpv4=ntohl(local.sin_addr.s_addr); // Usually wildcard: never invent a source IP.
+        sockaddr_in remote{}; remote.sin_family=AF_INET; remote.sin_port=htons(static_cast<u_short>(port)); remote.sin_addr.s_addr=htonl(Destination);
+        if (frame.empty() || frame.size()>128 || GetTickCount64()>=deadline) { Error(result,"deadline",WSAETIMEDOUT); break; }
+        result.sendStartQpc=Tick(); result.attempted=true;
+        const int sent=sendto(owned.value,frame.data(),static_cast<int>(frame.size()),0,reinterpret_cast<const sockaddr*>(&remote),sizeof(remote));
+        const int sendError=sent==SOCKET_ERROR?WSAGetLastError():0;
+        result.sendEndQpc=Tick(); result.sendBytes=sent;
+        if (sent==SOCKET_ERROR) { Error(result,"sendto",sendError); break; }
+        if (sent!=static_cast<int>(frame.size())) { Error(result,"short_send",0); break; }
+        result.sendAccepted=true; // Local API acceptance only, NOT delivery.
+        Receive(owned.value,remote,frame,deadline,result);
+    } while (false);
+    result.exchangeEndQpc=Tick(); // Socket remains owned and bound through the probe window.
+    return result;
+}
+std::string Bool(bool value) { return value?"true":"false"; }
+std::string Serialize(const Attempt& a) {
+    return "{\"index\":"+std::to_string(a.index)+",\"socketCreated\":"+Bool(a.socketCreated)+",\"attempted\":"+Bool(a.attempted)+
+        ",\"bindSucceeded\":"+Bool(a.bindSucceeded)+",\"localPort\":"+std::to_string(a.localPort)+",\"localIpv4\":"+std::to_string(a.localIpv4)+
+        ",\"sendStartQpc\":"+std::to_string(a.sendStartQpc)+",\"sendEndQpc\":"+std::to_string(a.sendEndQpc)+",\"sendBytes\":"+std::to_string(a.sendBytes)+
+        ",\"sendAccepted\":"+Bool(a.sendAccepted)+",\"nonceMatched\":"+Bool(a.nonceMatched)+",\"exchangeEndQpc\":"+std::to_string(a.exchangeEndQpc)+
+        ",\"win32Error\":"+std::to_string(a.win32Error)+",\"failure\":\""+a.failure+"\",\"closed\":"+Bool(a.closed)+
+        ",\"closeError\":"+std::to_string(a.closeError)+",\"closeQpc\":"+std::to_string(a.closeQpc)+"}";
+}
+bool Report(HANDLE file,const std::string& report) {
+    if (report.empty() || report.size()>MaxReport) return false;
+    DWORD written=0;
+    return WriteFile(file,report.data(),static_cast<DWORD>(report.size()),&written,nullptr) && written==report.size() && FlushFileBuffers(file);
+}
+int Run(int argc,wchar_t* argv[]) {
+    if (argc!=6 || std::wstring(argv[1])!=L"n0a-udp") return 2;
+    std::string nonce; std::wstring path; unsigned int port=0;
+    const std::wstring phaseWide(argv[5]);
+    if (!ReadNonce(argv[2],nonce) || !ReadReportPath(argv[3],path) || !Port(argv[4],port)
+        || (phaseWide!=L"before" && phaseWide!=L"sample" && phaseWide!=L"contained" && phaseWide!=L"after")) return 2;
+    const bool contained=phaseWide==L"contained",sample=phaseWide==L"sample";
+    const std::string phase=contained?"contained":(sample?"sample":(phaseWide==L"before"?"before":"after"));
+    UniqueHandle report(CreateFileW(path.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr));
+    if (report.get()==INVALID_HANDLE_VALUE) return 3;
+    const Observations identity=ObserveNativeIdentity();
+    const bool profile=Profile(identity,contained);
+    const LONGLONG frequency=Frequency(),startQpc=Tick();
+    const ULONGLONG start=GetTickCount64(),deadline=start+(sample?SampleBudget:ContainedBudget);
+    std::vector<Attempt> attempts; attempts.reserve(MaxSamples);
+    Wsa wsa; int startupError=0;
+    std::array<Socket,MaxSamples> sockets;
+    if (profile || TestOnly) {
+        WSADATA data{}; startupError=WSAStartup(MAKEWORD(2,2),&data); wsa.active=startupError==0;
+        if (wsa.active) {
+            const std::size_t maximum=sample?MaxSamples:(contained?3:1);
+            for (std::size_t index=0;index<maximum;++index) {
+                const ULONGLONG scheduled=start+static_cast<ULONGLONG>(index)*(sample?250:500);
+                ULONGLONG now=GetTickCount64();
+                if (now<scheduled) Sleep(static_cast<DWORD>(std::min(scheduled,deadline)-now));
+                now=GetTickCount64(); if (now>=deadline) break;
+                const std::string frame="N0AU1 "+nonce+" "+phase+" "+std::to_string(index)+"\n";
+                attempts.push_back(Probe(static_cast<unsigned int>(index),port,frame,std::min(deadline,now+(sample?200:800)),sockets[index]));
+            }
+        }
+    }
+    const LONGLONG endQpc=attempts.empty()?Tick():attempts.back().exchangeEndQpc;
+    const LONGLONG windowStart=attempts.empty() || attempts.front().sendStartQpc==0?startQpc:attempts.front().sendStartQpc;
+    bool cleanup=true;
+    for (std::size_t index=0;index<attempts.size();++index) {
+        Attempt& attempt=attempts[index];
+        if (attempt.socketCreated) {
+            attempt.closed=sockets[index].close();
+            attempt.closeError=attempt.closed?0:WSAGetLastError();
+            attempt.closeQpc=Tick(); cleanup=cleanup&&attempt.closed;
+        }
+    }
+    std::string value=MakeReport("actor-n0a-udp",nonce,identity,std::nullopt,std::nullopt);
+    value.resize(value.size()-2);
+    value+=",\"udp\":{\"version\":1,\"testOnly\":"+Bool(TestOnly)+",\"endpoint\":\""+std::string(TestOnly?"fixture-loopback":"runner")+
+        "\",\"phase\":\""+phase+"\",\"port\":"+std::to_string(port)+",\"profileMatched\":"+Bool(profile)+
+        ",\"startupError\":"+std::to_string(startupError)+",\"qpcFrequency\":"+std::to_string(frequency)+
+        ",\"windowStartQpc\":"+std::to_string(windowStart)+",\"windowEndQpc\":"+std::to_string(endQpc)+
+        ",\"socketsCleanupConfirmed\":"+Bool(cleanup)+",\"attempts\":[";
+    for (std::size_t index=0;index<attempts.size();++index) { if (index) value+=','; value+=Serialize(attempts[index]); }
+    value+="]}}\n";
+    if (!Report(report.get(),value)) return 3;
+    return identity.errors.empty()?0:4;
+}
+}
+#ifndef N0A_UDP_FIXTURE_ENTRY
+int wmain(int argc,wchar_t* argv[]) { try { return n0a_udp::Run(argc,argv); } catch (...) { return 6; } }
+#endif
