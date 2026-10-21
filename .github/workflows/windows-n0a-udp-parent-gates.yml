@@ -31,6 +31,7 @@ on:
       - 'tests/test_windows_udp_parent_guest.py'
       - '.github/test-windows-n0a-guest-gates.ps1'
       - 'tests/test_windows_n0a_guest.py'
+      - 'tests/test_windows_n0a_workflow.py'
 permissions:
   contents: read
 concurrency:

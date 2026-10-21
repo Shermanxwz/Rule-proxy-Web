@@ -1,6 +1,9 @@
 """Publication boundaries for standalone N0a-connect gates, never a VM."""
 import ast
 import itertools
+import json
+import time
+from unittest.mock import Mock, patch
 import hashlib
 from pathlib import Path
 import re
@@ -14,6 +17,57 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / '.github/workflows/windows-n0a-connect-gates.yml'
+SHELL_OBSERVATIONS=0
+
+
+# Fixed fixture diagnostics only. No command, exception message, or raw output is
+# returned. The held process is the only cleanup target; its exit is not proof
+# that Git Bash descendants exited. A failed wait therefore preserves the root.
+def observe_fixture_shell(command, root, env, *, factory=None, clock=None):
+    factory = subprocess.Popen if factory is None else factory
+    clock = time.monotonic if clock is None else clock
+    facts = dict(outcome='spawn_failed', elapsed='unobserved', exit_confirmed=False,
+                 kill_attempted=False, kill_failed=False, descendants_observed=False, exit_zero=None)
+    process=None; code=None; start=clock()
+    try:
+        process=factory(command,cwd=root,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        try:
+            code=process.wait(timeout=5)
+            facts.update(outcome='exited' if code in (0,1) else 'unexpected_exit',exit_confirmed=True,exit_zero=(code==0))
+        except subprocess.TimeoutExpired:
+            facts['outcome']='work_timeout'
+        except Exception:
+            facts['outcome']='wait_failed'
+    except Exception:
+        facts['outcome']='spawn_failed'
+    elapsed=max(0,clock()-start)
+    facts['elapsed']='under_1s' if elapsed<1 else 'under_5s' if elapsed<5 else 'at_least_5s'
+    if process is not None and not facts['exit_confirmed']:
+        cleanup_end=clock()+1
+        try:facts['exit_confirmed']=process.poll() is not None
+        except Exception:pass
+        if not facts['exit_confirmed']:
+            facts['kill_attempted']=True
+            try:process.kill()
+            except Exception:facts['kill_failed']=True
+        remaining=max(0,cleanup_end-clock())
+        if not facts['exit_confirmed'] and remaining>0:
+            try:
+                process.wait(timeout=remaining)
+                facts['exit_confirmed']=True
+            except Exception:pass
+        # Independent final observation even if kill or wait raised. Native OS
+        # creation/kill calls have no claimed hard bound; wait budgets are5+1s.
+        try:facts['exit_confirmed']=process.poll() is not None or facts['exit_confirmed']
+        except Exception:pass
+    return code,facts
+
+
+def fixture_shell_stage(path):
+    try:
+        with path.open('rb') as stream:value=stream.read(33)
+        return value.decode('ascii') if value in (b'startup_unobserved',b'startup',b'guards',b'body',b'stub') else 'unobserved'
+    except Exception:return 'unobserved'
 
 
 class N0aWorkflowTests(unittest.TestCase):
@@ -162,24 +216,47 @@ class N0aDirectWorkflowTests(unittest.TestCase):
             candidate=Path(os.environ.get('ProgramFiles','C:/Program Files'))/'Git/bin/bash.exe'
             if candidate.is_file():bash=str(candidate)
         self.assertIsNotNone(bash,'Actual Bash fixture required; no skipped coverage')
-        with tempfile.TemporaryDirectory(prefix='n0a-shell-fixture-') as directory:
-            root=Path(directory);output=root/'argv.bin';cwd_output=root/'cwd.bin'
-            for name,body in [('date', '#!/bin/sh\nprintf 1000\n'), ('timeout', '#!/bin/sh\nprintf \'%s\\0\' "$@" > "$CAPTURE_ARGV"\n')]:
+        try:root=Path(tempfile.mkdtemp(prefix='n0a-shell-fixture-'))
+        except Exception:raise AssertionError('Closed shell fixture root_create_failed') from None
+        output=root/'argv.bin';cwd_output=root/'cwd.bin';stage=root/'stage.txt'
+        facts=None;cleanup=False;read_failed=False
+        try:
+            stage.write_bytes(b'startup_unobserved')
+            for name,body in [('date', '#!/bin/sh\nprintf 1000\n'), ('timeout', '#!/bin/sh\nprintf stub > "$CAPTURE_STAGE"\nprintf \'%s\\0\' "$@" > "$CAPTURE_ARGV"\n')]:
                 path=root/name;path.write_bytes(body.encode('ascii'));path.chmod(0o700)
             logical_root=('/'+root.drive[0].lower()+root.as_posix()[2:]) if os.name=='nt' else root.as_posix()
             env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,UDP_REQUESTED=udp,PARENT_UDP_REQUESTED=parent,
                      CAPTURE_SOURCE_COMMIT=commit,GITHUB_SHA=github_sha,
-                     CAPTURE_ARGV=output.as_posix(),CAPTURE_CWD=cwd_output.as_posix(),FIXTURE_BIN=logical_root)
-            source='export PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\ntest "$PWD" -ef "$FIXTURE_BIN"\nprintf \'%s\' "$PWD" > "$CAPTURE_CWD"\nactor='+('b'*64)+'\n'+script
-            result=subprocess.run([bash,'-euo','pipefail','-c',source],cwd=root,env=env,
-                                  stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=5)
+                     CAPTURE_ARGV=output.as_posix(),CAPTURE_CWD=cwd_output.as_posix(),CAPTURE_STAGE=stage.as_posix(),FIXTURE_BIN=logical_root)
+            source='printf startup > "$CAPTURE_STAGE"\nexport PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\ntest "$PWD" -ef "$FIXTURE_BIN"\nprintf guards > "$CAPTURE_STAGE"\nprintf \'%s\' "$PWD" > "$CAPTURE_CWD"\nactor='+('b'*64)+'\nprintf body > "$CAPTURE_STAGE"\n'+script
+            code,facts=observe_fixture_shell([bash,'-euo','pipefail','-c',source],root,env)
+            if facts['outcome']!='exited':
+                facts.update(stage=fixture_shell_stage(stage),root_removal_skipped=True)
+                raise AssertionError('Closed shell fixture '+json.dumps(facts,sort_keys=True)) from None
             # Do not expose actual private argv/paths on fixture failure.
             args=output.read_bytes().split(b'\0')[:-1] if output.exists() else None
             with cwd_output.open('rb') as stream:canonical=stream.read(4097)
             self.assertTrue(0<len(canonical)<=4096,'Owned shell cwd bound')
             canonical=canonical.decode('utf-8','strict')
             self.assertTrue(canonical.startswith('/') and '\x00' not in canonical,'Owned shell cwd shape')
-            return result.returncode,[a.decode() for a in args] if args is not None else None,canonical
+            return code,[a.decode() for a in args] if args is not None else None,canonical
+        except Exception:
+            if facts is None:facts=dict(outcome='fixture_prepare_failed',elapsed='unobserved',exit_confirmed=False,kill_attempted=False,kill_failed=False,descendants_observed=False)
+            read_failed=facts['outcome']=='exited'
+            raise AssertionError('Closed shell fixture '+json.dumps(dict(facts,stage=fixture_shell_stage(stage),read_failed=read_failed),sort_keys=True)) from None
+        finally:
+            # Timeout/creation/cleanup uncertainty retains the owned root; no
+            # descendant-tree or stub-exit claim follows from parent exit.
+            last_stage=fixture_shell_stage(stage)
+            if facts is not None and facts['outcome']=='exited' and facts['exit_confirmed']:
+                try:shutil.rmtree(root);cleanup=True
+                except Exception:pass
+            global SHELL_OBSERVATIONS
+            if SHELL_OBSERVATIONS<64:
+                SHELL_OBSERVATIONS+=1
+                print(json.dumps(dict(facts or {},fixture='owned_bash',stage=fixture_shell_stage(stage) if not cleanup else last_stage,root_removal_skipped=not(facts is not None and facts['outcome']=='exited' and facts['exit_confirmed']),root_cleanup_confirmed=cleanup,read_failed=read_failed),sort_keys=True))
+            if facts is not None and facts['outcome']=='exited' and not cleanup:
+                raise AssertionError('Closed shell fixture cleanup_failed') from None
 
     def test_actual_capture_shell_source_binding_and_old_argv(self):
         sha='a'*40
@@ -322,6 +399,71 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         for commit,observed in (('',sha),('A'*40,'A'*40),('a'*39,'a'*39),('a'*41,'a'*41),(sha,'c'*40),(sha,'')):
             code,args,_=self.capture_shell('false','false',commit,observed,parent='true')
             self.assertNotEqual(code,0);self.assertIsNone(args)
+
+class ShellDiagnosticTests(unittest.TestCase):
+    def test_success_and_no_raw_streams(self):
+        child=Mock();child.wait.return_value=0;factory=Mock(return_value=child)
+        code,facts=observe_fixture_shell(['private-command'],'private-root',{},factory=factory,clock=lambda:0)
+        self.assertEqual(code,0);self.assertEqual(facts['outcome'],'exited')
+        self.assertTrue(facts['exit_confirmed']);self.assertFalse(facts['descendants_observed'])
+        child.wait.assert_called_once_with(timeout=5);child.kill.assert_not_called()
+        self.assertEqual(factory.call_args.kwargs['stdout'],subprocess.DEVNULL)
+        self.assertEqual(factory.call_args.kwargs['stderr'],subprocess.DEVNULL)
+        self.assertNotIn('private',json.dumps(facts))
+
+    def test_timeout_same_wait_and_one_cleanup_budget(self):
+        child=Mock();child.wait.side_effect=[subprocess.TimeoutExpired('private-command',5),0]
+        child.poll.side_effect=[None,0];ticks=iter((0,5,5,5.25))
+        code,facts=observe_fixture_shell(['private-command'],'private-root',{},factory=lambda *a,**k:child,clock=lambda:next(ticks))
+        self.assertIsNone(code);self.assertEqual(facts['outcome'],'work_timeout')
+        self.assertEqual(facts['elapsed'],'at_least_5s');self.assertTrue(facts['exit_confirmed'])
+        self.assertEqual([call.kwargs['timeout'] for call in child.wait.call_args_list],[5,.75])
+        child.kill.assert_called_once();self.assertEqual(child.poll.call_count,2)
+        self.assertNotIn('private',json.dumps(facts))
+
+    def test_cleanup_failures_do_not_skip_final_poll_or_retry(self):
+        child=Mock();child.wait.side_effect=[subprocess.TimeoutExpired('private',5),OSError('private')]
+        child.kill.side_effect=OSError('private');child.poll.side_effect=[OSError('private'),None]
+        code,facts=observe_fixture_shell(['private'],'private',{},factory=lambda *a,**k:child,clock=lambda:0)
+        self.assertIsNone(code);self.assertFalse(facts['exit_confirmed']);self.assertTrue(facts['kill_failed'])
+        self.assertEqual(child.wait.call_count,2);self.assertEqual(child.poll.call_count,2)
+        child.kill.assert_called_once();self.assertNotIn('private',json.dumps(facts))
+        child.reset_mock();child.wait.side_effect=[subprocess.TimeoutExpired('private',5)];child.poll.side_effect=[None,None]
+        ticks=iter((0,5,5,6.1))
+        observe_fixture_shell([],'.',{},factory=lambda *a,**k:child,clock=lambda:next(ticks))
+        self.assertEqual(child.wait.call_count,1);self.assertEqual(child.poll.call_count,2)
+
+    def test_spawn_and_unexpected_exit_closed(self):
+        factory=Mock(side_effect=OSError('private-command'))
+        code,facts=observe_fixture_shell([],'.',{},factory=factory,clock=lambda:0)
+        self.assertIsNone(code);self.assertEqual(facts['outcome'],'spawn_failed');factory.assert_called_once()
+        self.assertNotIn('private',json.dumps(facts))
+        # Windows termination is a positive DWORD, not necessarily a POSIX signal.
+        for exit_code in (-9,2,0xC000013A):
+            child=Mock();child.wait.return_value=exit_code
+            _,facts=observe_fixture_shell([],'.',{},factory=lambda *a,**k:child,clock=lambda:0)
+            self.assertEqual(facts['outcome'],'unexpected_exit');self.assertTrue(facts['exit_confirmed'])
+        child.wait.return_value=1
+        _,facts=observe_fixture_shell([],'.',{},factory=lambda *a,**k:child,clock=lambda:0)
+        self.assertEqual(facts['outcome'],'exited');self.assertFalse(facts['exit_zero'])
+
+    def test_stage_allowlist_and_failed_wait_retains_root(self):
+        with tempfile.TemporaryDirectory(prefix='n0a-diagnostic-test-') as directory:
+            parent=Path(directory);stage=parent/'stage'
+            for value in (b'startup_unobserved',b'startup',b'guards',b'body',b'stub'):
+                stage.write_bytes(value);self.assertEqual(fixture_shell_stage(stage),value.decode())
+            for value in (b'',b'bo',b'private-path',b'body\n',b'x'*33):
+                stage.write_bytes(value);self.assertEqual(fixture_shell_stage(stage),'unobserved')
+            self.assertEqual(fixture_shell_stage(parent/'missing'),'unobserved')
+            root=parent/'owned';root.mkdir()
+            instance=N0aDirectWorkflowTests();instance.setUp()
+            facts=dict(outcome='work_timeout',elapsed='at_least_5s',exit_confirmed=True,kill_attempted=True,kill_failed=False,descendants_observed=False)
+            with patch.object(tempfile,'mkdtemp',return_value=str(root)),patch(__name__+'.observe_fixture_shell',return_value=(None,facts)),patch('builtins.print') as output:
+                with self.assertRaises(AssertionError) as caught:instance.capture_shell('false','false','a'*40,'a'*40)
+            self.assertNotIn(str(root),str(caught.exception));self.assertTrue(root.exists())
+            closed=json.loads(output.call_args.args[0]);self.assertTrue(closed['root_removal_skipped'])
+            self.assertFalse(closed['root_cleanup_confirmed']);self.assertFalse(closed['descendants_observed'])
+
 
 if __name__ == '__main__':
     unittest.main()
