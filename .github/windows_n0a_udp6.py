@@ -12,9 +12,9 @@ import time
 MAX_REPORT=32768
 MAX_FRAME=128
 PHASES=('before','sample','contained','after')
-FAILURES=('none','v6only_set','v6only_get','socket','exclusive','nonblocking','bind','getsockname','deadline','sendto','short_send','recv_select','recvfrom','echo_peer','echo_payload')
+FAILURES=('none','v6only_set','v6only_get','v6only_length','v6only_zero','socket','exclusive','nonblocking','bind','getsockname','deadline','sendto','short_send','recv_select','recvfrom','echo_peer','echo_payload')
 NETWORK_KEYS={'version','endpoint','phase','port','profileMatched','startupError','qpcFrequency','windowStartQpc','windowEndQpc','attempts','testOnly','socketsCleanupConfirmed'}
-ATTEMPT_KEYS={'index','attempted','socketCreated','bindSucceeded','localPort','localIpv6','localScopeId','v6OnlySet','v6OnlyVerified','sendStartQpc','sendEndQpc','sendAccepted','sendBytes','nonceMatched','exchangeEndQpc','win32Error','failure','closed','closeError','closeQpc'}
+ATTEMPT_KEYS={'index','attempted','socketCreated','bindSucceeded','localPort','localIpv6','localScopeId','v6OnlySet','v6OnlyVerified','v6OnlyGetReturn','v6OnlyGetError','v6OnlyGetLength','v6OnlyGetValue','v6OnlyGetStage','sendStartQpc','sendEndQpc','sendAccepted','sendBytes','nonceMatched','exchangeEndQpc','win32Error','failure','closed','closeError','closeQpc'}
 
 
 def integer(value,lo=0,hi=(1<<63)-1):return type(value) is int and lo<=value<=hi
@@ -38,6 +38,26 @@ def parse(raw):
         return value
     except (UnicodeError,RecursionError,json.JSONDecodeError):raise ValueError('report') from None
 
+def validate_v6only(row):
+    stage=row['v6OnlyGetStage'];returned=row['v6OnlyGetReturn'];error=row['v6OnlyGetError']
+    length=row['v6OnlyGetLength'];value=row['v6OnlyGetValue']
+    if stage not in ('not_attempted','api_error','length_mismatch','zero','nonzero'):raise ValueError('v6only_stage')
+    if row['v6OnlyVerified'] is not (stage=='nonzero'):raise ValueError('v6only_verified')
+    if stage!='nonzero' and (row['bindSucceeded'] or row['attempted']):raise ValueError('v6only_order')
+    if stage=='not_attempted':
+        if any(v is not None for v in (returned,error,length,value)) or row['v6OnlySet']:raise ValueError('v6only_unattempted')
+        return
+    if not row['socketCreated'] or not row['v6OnlySet'] or not integer(returned,-2**31,2**31-1) or not integer(length,-2**31,2**31-1):raise ValueError('v6only_type')
+    if stage=='api_error':
+        if returned!=-1 or not integer(error,0,2**32-1) or value is not None or row['failure']!='v6only_get' or row['win32Error']!=error:raise ValueError('v6only_api')
+    else:
+        if returned!=0 or error is not None:raise ValueError('v6only_return')
+        if stage=='length_mismatch':
+            if length==4 or value is not None or row['failure']!='v6only_length' or row['win32Error']!=0:raise ValueError('v6only_length')
+        elif length!=4 or not integer(value,0,2**32-1) or ((value==0)!=(stage=='zero')):raise ValueError('v6only_value')
+        elif stage=='zero' and (row['failure']!='v6only_zero' or row['win32Error']!=0):raise ValueError('v6only_zero')
+    if stage!='nonzero' and (row['bindSucceeded'] or row['attempted']):raise ValueError('v6only_order')
+
 def validate_network(value,nonce,phase,port,endpoint='runner-v6',test_only=False):
     if phase not in PHASES or endpoint not in ('runner-v6','fixture-loopback-v6') or type(test_only) is not bool or not integer(port,1025,65535):raise ValueError('context')
     frame(nonce,phase,0)
@@ -54,6 +74,7 @@ def validate_network(value,nonce,phase,port,endpoint='runner-v6',test_only=False
         if type(row) is not dict or set(row)!=ATTEMPT_KEYS or not integer(row['index'],0,39) or row['index']!=index:raise ValueError('attempt')
         if any(type(row[k]) is not bool for k in ('attempted','socketCreated','bindSucceeded','sendAccepted','nonceMatched','closed','v6OnlySet','v6OnlyVerified')):raise ValueError('type')
         if not integer(row['localPort'],0,65535) or type(row['localIpv6']) is not str or re.fullmatch('[0-9a-f]{32}',row['localIpv6']) is None or not integer(row['localScopeId'],0,2**32-1) or not integer(row['sendBytes'],-1,128) or any(not integer(row[k],0,2**32-1) for k in ('win32Error','closeError')) or row['failure'] not in FAILURES:raise ValueError('row')
+        validate_v6only(row)
         if any(not integer(row[k]) for k in ('sendStartQpc','sendEndQpc','exchangeEndQpc','closeQpc')):raise ValueError('clock')
         if row['attempted']:
             if not row['v6OnlySet'] or not row['v6OnlyVerified'] or row['localScopeId']!=0 or row['localIpv6'].startswith('00000000000000000000ffff') or not row['socketCreated'] or not row['bindSucceeded'] or not row['localPort'] or not start<=prior<=row['sendStartQpc']<=row['sendEndQpc']<=row['exchangeEndQpc']<=end:raise ValueError('attempt_clock')
@@ -123,7 +144,7 @@ class Udp6Endpoint:
         if self.socket is not None or time.monotonic()>=self.deadline:raise ValueError('endpoint_start')
         self.socket=socket.socket(socket.AF_INET6,socket.SOCK_DGRAM)
         self.socket.setsockopt(socket.IPPROTO_IPV6,socket.IPV6_V6ONLY,1)
-        if self.socket.getsockopt(socket.IPPROTO_IPV6,socket.IPV6_V6ONLY)!=1:raise ValueError('v6only')
+        if self.socket.getsockopt(socket.IPPROTO_IPV6,socket.IPV6_V6ONLY)==0:raise ValueError('v6only')
         if hasattr(socket,'SO_EXCLUSIVEADDRUSE'):self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
         self.socket.bind(('::1',0,0,0));self.socket.settimeout(.1)
         bound=self.socket.getsockname()

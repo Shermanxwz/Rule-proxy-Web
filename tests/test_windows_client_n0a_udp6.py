@@ -9,7 +9,7 @@ spec=importlib.util.spec_from_file_location('udp_test',ROOT/'.github/windows_n0a
 NONCE='a'*32
 
 def row(phase,index,start,accepted=True,denied=False):
-    return dict(index=index,attempted=True,socketCreated=True,bindSucceeded=True,localPort=45000+index,localIpv6='0'*32,localScopeId=0,v6OnlySet=True,v6OnlyVerified=True,
+    return dict(index=index,attempted=True,socketCreated=True,bindSucceeded=True,localPort=45000+index,localIpv6='0'*32,localScopeId=0,v6OnlySet=True,v6OnlyVerified=True,v6OnlyGetReturn=0,v6OnlyGetError=None,v6OnlyGetLength=4,v6OnlyGetValue=1,v6OnlyGetStage='nonzero',
         sendStartQpc=start,sendEndQpc=start+1,sendAccepted=accepted,sendBytes=len(u.frame(NONCE,phase,index)) if accepted else -1,
         nonceMatched=accepted,exchangeEndQpc=start+2,win32Error=10013 if denied else 0,failure='sendto' if denied else 'none',closed=True,closeError=0,closeQpc=10000)
 def network(phase,starts,production=True,denied=False):
@@ -138,6 +138,41 @@ class Ipv6BoundaryTests(unittest.TestCase):
         import threading
         e=u.Udp6Endpoint(NONCE,60);e.thread=threading.Thread(target=lambda:None)
         self.assertTrue(e.finish(60)['thread_stopped'])
+
+class V6OnlyReadbackTests(unittest.TestCase):
+    def test_actual_typed_readback_matrix(self):
+        for observed in (1,2,0xffffffff):
+            value=network('contained',[500,1000,1500]);value['attempts'][0]['v6OnlyGetValue']=observed
+            self.assertIs(u.validate_network(value,NONCE,'contained',40000),value)
+        for stage,returned,error,length,observed,failure,code in (
+            ('api_error',-1,10022,4,None,'v6only_get',10022),
+            ('length_mismatch',0,None,3,None,'v6only_length',0),
+            ('length_mismatch',0,None,8,None,'v6only_length',0),
+            ('zero',0,None,4,0,'v6only_zero',0)):
+            value=network('before',[500]);row=value['attempts'][0]
+            row.update(v6OnlyGetStage=stage,v6OnlyGetReturn=returned,v6OnlyGetError=error,v6OnlyGetLength=length,v6OnlyGetValue=observed,
+                       v6OnlyVerified=False,attempted=False,bindSucceeded=False,sendAccepted=False,nonceMatched=False,
+                       sendBytes=-1,sendStartQpc=0,sendEndQpc=0,localPort=0,failure=failure,win32Error=code)
+            self.assertIs(u.validate_network(value,NONCE,'before',40000),value)
+        value=network('before',[500]);row=value['attempts'][0]
+        row.update(v6OnlySet=False,v6OnlyVerified=False,v6OnlyGetStage='not_attempted',v6OnlyGetReturn=None,v6OnlyGetError=None,
+                   v6OnlyGetLength=None,v6OnlyGetValue=None,attempted=False,bindSucceeded=False,sendAccepted=False,
+                   nonceMatched=False,sendBytes=-1,sendStartQpc=0,sendEndQpc=0,localPort=0,failure='v6only_set',win32Error=10022)
+        self.assertIs(u.validate_network(value,NONCE,'before',40000),value)
+    def test_contradictory_null_bool_length_value_and_stage_fail(self):
+        for change in ({'v6OnlyGetReturn':True},{'v6OnlyGetError':0},{'v6OnlyGetLength':True},
+                       {'v6OnlyGetValue':True},{'v6OnlyGetValue':0},{'v6OnlyGetValue':None},
+                       {'v6OnlyGetStage':'PRIVATE'},{'v6OnlyGetLength':8},{'v6OnlyGetStage':'api_error'}):
+            value=network('before',[500]);value['attempts'][0].update(change)
+            with self.assertRaises(ValueError):u.validate_network(value,NONCE,'before',40000)
+    def test_receiver_nonzero_boolean_readback_including_signed_representation(self):
+        for value in (1,2,0xffffffff,-1):
+            endpoint=u.Udp6Endpoint(NONCE,60);sock=Mock();sock.getsockopt.return_value=value
+            sock.getsockname.return_value=('::1',45000,0,0);sock.fileno.return_value=-1
+            with patch.object(u.time,'monotonic',return_value=1),patch.object(u.socket,'socket',return_value=sock),patch.object(u.threading,'Thread') as thread:
+                thread.return_value.start.side_effect=endpoint.ready.set
+                self.assertEqual(endpoint.start(),45000)
+            sock.bind.assert_called_once_with(('::1',0,0,0))
 
 if __name__=='__main__':unittest.main()
 

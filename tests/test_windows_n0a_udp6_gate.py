@@ -65,7 +65,7 @@ class OwnedTests(unittest.TestCase):
         child.process._handle.Close.assert_called_once_with()
 
 class CompositionTests(unittest.TestCase):
-    def exercise(self,unknown_cleanup=False,bad_echo=False):
+    def exercise(self,unknown_cleanup=False,bad_echo=False,bad_v6only_contract=False):
         spec=importlib.util.spec_from_file_location('udp_synthetic',ROOT/'tests/test_windows_client_n0a_udp6.py');helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/'owned';root.mkdir();commands=[];endpoint_count=[]
@@ -88,7 +88,7 @@ class CompositionTests(unittest.TestCase):
                 def start_arguments(self,argv):
                     commands.append(tuple(argv))
                     if '--profile-only' in argv:
-                        self.path.write_text(json.dumps(dict(mode='actor-n0a-udp6-profile',nonce=argv[2],pid=123,queriesSucceeded=True,errors=[],tokenElevated=True,profile=dict(testOnly=True,ordinaryMatched=False,containedMatched=False,networkApiCalled=False))))
+                        self.path.write_text(json.dumps(dict(mode='actor-n0a-udp6-profile',nonce=argv[2],pid=123,queriesSucceeded=True,errors=[],tokenElevated=True,profile=dict(testOnly=True,ordinaryMatched=False,containedMatched=False,networkApiCalled=False,v6OnlyContractVerified=not bad_v6only_contract))))
                     else:self.process.returncode=2
                 def wait(self,deadline):return True
                 report=g.Owned.report
@@ -111,6 +111,11 @@ class CompositionTests(unittest.TestCase):
         value,_,_,_=self.exercise(bad_echo=True)
         self.assertTrue(value['wrong_echo_send_accepted']);self.assertFalse(value['wrong_echo_rejected']);self.assertFalse(value['hosted_mechanics_complete'])
 
+    def test_native_helper_contract_false_does_not_pass_mechanics(self):
+        value,_,_,_=self.exercise(bad_v6only_contract=True)
+        self.assertTrue(value['actual_admin_profile_rejected'])
+        self.assertFalse(value['v6only_contract_verified']);self.assertFalse(value['hosted_mechanics_complete'])
+
 class DiagnosticTests(unittest.TestCase):
     def network(self,phase='contained',count=3):
         spec=importlib.util.spec_from_file_location('udp6_diag_synthetic',ROOT/'tests/test_windows_client_n0a_udp6.py')
@@ -122,7 +127,10 @@ class DiagnosticTests(unittest.TestCase):
             row.update(failure=failure,win32Error=10013,sendAccepted=False,sendBytes=-1,nonceMatched=False)
             if failure not in ('sendto','recvfrom','echo_payload'):
                 row.update(attempted=False,sendStartQpc=0,sendEndQpc=0)
+            network['attempts'][0]['v6OnlyGetValue']=0xffffffff
             value=g.network_diagnostic(network,'a'*32,'contained',40000)
+            self.assertEqual(value['attempts'][0]['v6only_get_value'],0xffffffff)
+            self.assertIsNone(value['attempts'][0]['v6only_get_error'])
             self.assertEqual(value['attempts'][0]['failure'],failure)
             self.assertEqual(value['attempts'][0]['win32_error'],10013)
             self.assertEqual(value['attempts'][0]['send_invoked'],row['attempted'])
@@ -132,6 +140,22 @@ class DiagnosticTests(unittest.TestCase):
         network=self.network();network.update(startupError=10093,attempts=[])
         value=g.network_diagnostic(network,'a'*32,'contained',40000)
         self.assertEqual(value['startup_error'],10093);self.assertEqual(value['attempt_count'],0)
+    def test_full_40_row_private_native_report_remains_within_existing_cap(self):
+        value=self.network('sample',40);base=2**63-100000
+        value.update(windowStartQpc=base,windowEndQpc=base+3902,socketsCleanupConfirmed=False)
+        for index,row in enumerate(value['attempts']):
+            row.update(localPort=65535,localIpv6='f'*32,v6OnlyGetValue=0xffffffff,
+                       sendStartQpc=base+index*100,sendEndQpc=base+index*100+1,
+                       exchangeEndQpc=base+index*100+2,closeQpc=2**63-1,
+                       nonceMatched=False,failure='recv_select',win32Error=2**32-1,closed=False,closeError=2**32-1)
+        g.u.validate_network(value,'a'*32,'sample',40000,'fixture-loopback-v6',True)
+        report=dict(schemaVersion=1,mode='actor-n0a-udp6',nonce='a'*32,pid=2**32-1,
+                    tokenUserSid='S-1-5-'+('-'.join(['4294967295']*15)),tokenIsAppContainer=False,
+                    tokenAppContainerSid=None,tokenElevated=False,isProcessInJob=False,
+                    tokenCapabilities=[],queriesSucceeded=True,errors=[],udp6=value)
+        raw=(json.dumps(report,separators=(',',':'))+'\n').encode('ascii')
+        self.assertLessEqual(len(raw),g.u.MAX_REPORT);self.assertGreater(len(raw),24000)
+        self.assertEqual(g.u.parse(raw),report)
     def test_invalid_native_schema_cannot_enter_diagnostics(self):
         value=self.network();value['attempts'][0]['failure']='PRIVATE/path'
         with self.assertRaises(ValueError):g.network_diagnostic(value,'a'*32,'contained',40000)
@@ -144,9 +168,11 @@ class DiagnosticTests(unittest.TestCase):
             network=self.network(phase,40 if phase=='sample' else 3 if phase=='contained' else 1)
             network['startupError']=2**32-1;network['socketsCleanupConfirmed']=False
             for row in network['attempts']:
-                row.update(failure=max(g.u.FAILURES,key=len),win32Error=2**32-1,closeError=2**32-1,closed=False,
-                           sendAccepted=False,nonceMatched=False,sendBytes=-1,socketCreated=False,v6OnlySet=False,v6OnlyVerified=False,
-                           bindSucceeded=False,attempted=False,localPort=0,sendStartQpc=0,sendEndQpc=0)
+                row.update(win32Error=2**32-1,closeError=2**32-1,closed=False,
+                           sendAccepted=False,nonceMatched=False,sendBytes=-1,v6OnlyVerified=False,
+                           bindSucceeded=False,attempted=False,localPort=0,sendStartQpc=0,sendEndQpc=0,
+                           socketCreated=True,v6OnlySet=True,v6OnlyGetStage='api_error',v6OnlyGetReturn=-1,
+                           v6OnlyGetError=2**32-1,v6OnlyGetLength=-2**31,v6OnlyGetValue=None,failure='v6only_get')
             result['network_diagnostics'][key]=g.network_diagnostic(network,'a'*32,phase,40000)
         for receiver in result['receivers']:
             receiver['counts']={k:128*129 if k=='observed_bytes' else 128 for k in ('datagrams','observed_bytes','verified','echoed','rejected','oversized','send_errors')}

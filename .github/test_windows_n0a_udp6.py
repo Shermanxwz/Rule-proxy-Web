@@ -47,7 +47,9 @@ def network_diagnostic(value,nonce,phase,port):
     names={'failure':'failure','win32_error':'win32Error','socket_created':'socketCreated',
            'v6only_set':'v6OnlySet','v6only_verified':'v6OnlyVerified','bound':'bindSucceeded',
            'send_invoked':'attempted','send_accepted':'sendAccepted','echo_verified':'nonceMatched',
-           'closed':'closed','close_error':'closeError'}
+           'closed':'closed','close_error':'closeError',
+           'v6only_get_return':'v6OnlyGetReturn','v6only_get_error':'v6OnlyGetError',
+           'v6only_get_length':'v6OnlyGetLength','v6only_get_value':'v6OnlyGetValue','v6only_get_stage':'v6OnlyGetStage'}
     return dict(startup_error=network['startupError'],profile_matched=network['profileMatched'],
                 sockets_cleanup_confirmed=network['socketsCleanupConfirmed'],
                 attempt_count=len(network['attempts']),
@@ -96,7 +98,7 @@ class Owned:
 def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
     deadline=time.monotonic()+BUDGET
     result=dict(schema=1,protocol='udp6',hosted_mechanics_complete=False,fixture_echo_controls=False,fixture_send_accepted_count=0,fixture_selected_echo_observed=False,
-                wrong_echo_send_accepted=False,wrong_echo_rejected=False,actual_admin_profile_rejected=False,
+                wrong_echo_send_accepted=False,wrong_echo_rejected=False,actual_admin_profile_rejected=False,v6only_contract_verified=False,
                 production_invalid_cli_rejected=False,production_network_guard_executed=False,ordinary_nonadmin_tested=False,
                 cleanup_confirmed=False,work_removed=False,failure='none',runtime_acceptance=False,packet_egress_tested=False,dns_tested=False)
     result['network_diagnostics']={key:None for key in DIAGNOSTIC_CASES}
@@ -149,7 +151,8 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
         if not profile_child.wait(min(deadline-10,time.monotonic()+5)):raise ValueError('timeout')
         profile=u.parse(read(profile_child.path,u.MAX_REPORT))
         facts=profile.get('profile')
-        if not (profile.get('mode')=='actor-n0a-udp6-profile' and profile.get('nonce')==profile_nonce and type(profile.get('pid')) is int and profile['pid']==profile_child.process.pid and profile.get('queriesSucceeded') is True and profile.get('errors')==[] and type(facts) is dict and set(facts)=={'testOnly','ordinaryMatched','containedMatched','networkApiCalled'} and all(type(v) is bool for v in facts.values()) and facts['testOnly'] and not facts['networkApiCalled']):raise ValueError('profile_binding')
+        if not (profile.get('mode')=='actor-n0a-udp6-profile' and profile.get('nonce')==profile_nonce and type(profile.get('pid')) is int and profile['pid']==profile_child.process.pid and profile.get('queriesSucceeded') is True and profile.get('errors')==[] and type(facts) is dict and set(facts)=={'testOnly','ordinaryMatched','containedMatched','networkApiCalled','v6OnlyContractVerified'} and all(type(v) is bool for v in facts.values()) and facts['testOnly'] and not facts['networkApiCalled']):raise ValueError('profile_binding')
+        result['v6only_contract_verified']=profile_child.process.returncode==0 and facts['v6OnlyContractVerified'] is True
         result['actual_admin_profile_rejected']=profile_child.process.returncode==0 and profile.get('tokenElevated') is True and facts['ordinaryMatched'] is False and facts['containedMatched'] is False
         invalid=Owned(root/'invalid.json');children.append(invalid)
         if time.monotonic()>=deadline-10:raise ValueError('budget')
@@ -179,7 +182,7 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
         receiver_ok=len(receivers)==2 and all(not r['error'] and r['counts'] is not None and all(r['counts'][key]==0 for key in ('rejected','oversized','send_errors')) for r in receivers)
         if receiver_ok:
             receiver_ok=(receivers[0]['counts']['verified']>=8 and receivers[0]['verified_indices']['contained']==[0,1,2] and receivers[1]['counts']['verified']==1)
-        result['hosted_mechanics_complete']=result['fixture_echo_controls'] and result['wrong_echo_send_accepted'] and result['wrong_echo_rejected'] and result['actual_admin_profile_rejected'] and result['production_invalid_cli_rejected'] and receiver_ok and result['cleanup_confirmed'] and result['work_removed']
+        result['hosted_mechanics_complete']=result['fixture_echo_controls'] and result['wrong_echo_send_accepted'] and result['wrong_echo_rejected'] and result['actual_admin_profile_rejected'] and result['v6only_contract_verified'] and result['production_invalid_cli_rejected'] and receiver_ok and result['cleanup_confirmed'] and result['work_removed']
     return result
 
 def public_json(result):

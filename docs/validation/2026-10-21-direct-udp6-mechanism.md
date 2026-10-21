@@ -8,7 +8,7 @@ lifecycle, guest transport, or runtime workflows. It is not a VM experiment.
 
 The production actor has a fixed numeric `fec0::2` destination and high port.
 The compile-time TEST_ONLY fixture instead targets owned `::1` only. Both use
-`AF_INET6` datagrams, set and read back `IPV6_V6ONLY=1`, request exclusive binding,
+`AF_INET6` datagrams, set `IPV6_V6ONLY=1` and verify a nonzero Boolean readback, request exclusive binding,
 and use fresh nonblocking sockets. There is no IPv4, DNS, address-search, or
 default-route fallback. Production identity/profile checks precede Winsock and
 socket use. The unchanged identity source supplies those observations.
@@ -74,3 +74,24 @@ no native parameter, profile guard, endpoint, attempt, deadline or acceptance
 condition. Private identities, nonces, addresses, ports, paths and QPC values
 remain excluded. A later diagnostic result cannot reconstruct the deleted first
 run's private reports or retroactively establish its precise cause.
+
+Run 39663356528 passed both 531-test suites and native builds, then exposed the
+readback seam: all 46 attempt rows set IPV6_V6ONLY successfully but failed its
+readback check before bind or send. The old report combined a real getsockopt
+error with a synthetic returned-length/value rejection under v6only_get/10022;
+the diagnostic therefore does not distinguish those causes. Cleanup was
+confirmed, but ordinary IPv6 mechanics remained inadmissible.
+
+Microsoft documents IPV6_V6ONLY as a DWORD Boolean: any nonzero value means
+IPv6-only. The correction keeps setsockopt's argument 1, the same single
+getsockopt call, and an exact DWORD-sized successful read before admitting a
+nonzero result. Zero, API error and wrong length remain fail-closed before bind.
+Closed return/error/length/value observations distinguish API failure from
+validation failure; no IPv4 fallback is introduced. The existing TEST_ONLY
+profile-only process checks the shared pure helper against fixed synthetic
+cases without sockets. That helper check is not actual Windows API evidence.
+
+Primary contract: [IPPROTO_IPV6 socket options](https://learn.microsoft.com/en-us/windows/win32/winsock/ipproto-ipv6-socket-options)
+and [getsockopt](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-getsockopt).
+The documented semantic correction is not proof that a noncanonical nonzero
+value caused either previous failure; that requires actual closed readback data.

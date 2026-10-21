@@ -65,7 +65,7 @@ class Udp6ActorSourceTests(unittest.TestCase):
         self.assertIn('ObserveNativeIdentity()', profile)
         self.assertIn('n0a_udp6::Profile(identity,false)', profile)
         self.assertIn('n0a_udp6::Profile(identity,true)', profile)
-        self.assertIn('return identity.errors.empty()?0:4;', profile)
+        self.assertIn('return identity.errors.empty()&&v6Contract?0:4;', profile)
         for forbidden in ('WSAStartup(', 'socket(', 'Probe(', 'n0a_udp6::Run('):
             self.assertNotIn(forbidden, profile)
         self.assertNotIn('--profile-only', self.source)
@@ -106,13 +106,40 @@ class Udp6ActorSourceTests(unittest.TestCase):
         self.assertIn('const DWORD v6Only=1',probe)
         self.assertIn('setsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY',probe)
         self.assertIn('getsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY',probe)
-        self.assertIn('optionLength!=static_cast<int>(sizeof(observedV6Only)) || observedV6Only!=1',probe)
-        self.assertLess(probe.index('result.v6OnlyVerified=true'),probe.index('bind('))
+        self.assertIn('ValidateV6Only(optionReturn,optionError,optionLength,observedV6Only,result)',probe)
+        self.assertLess(probe.index('ValidateV6Only('),probe.index('bind('))
         self.assertLess(probe.index('result.v6OnlySet=true'),probe.index('getsockopt('))
         self.assertIn('Error(result,"v6only_set",WSAGetLastError())',probe)
-        self.assertIn('Error(result,"v6only_get",WSAGetLastError())',probe)
+        self.assertIn('const int optionError=optionReturn!=0?WSAGetLastError():0;',probe)
         self.assertIn('local.sin6_scope_id!=0',probe)
         self.assertIn('IN6_IS_ADDR_V4MAPPED(&local.sin6_addr)',probe)
+
+    def test_v6only_native_boolean_and_closed_observation(self):
+        helper=function(self.source,'ValidateV6Only')
+        self.assertIn('if (returned!=0)',helper)
+        self.assertIn('length!=static_cast<int>(sizeof(DWORD))',helper)
+        self.assertIn('if (value==0)',helper)
+        self.assertNotIn('value!=1',helper)
+        self.assertLess(helper.index('length!=static_cast'),helper.index('result.v6OnlyGetValue=value'))
+        self.assertLess(helper.index('returned!=0'),helper.index('result.v6OnlyGetValue=value'))
+        self.assertIn('Error(result,"v6only_length",0)',helper)
+        self.assertIn('Error(result,"v6only_zero",0)',helper)
+        self.assertNotIn('WSAEINVAL',helper)
+        for field in ('v6OnlyGetReturn','v6OnlyGetError','v6OnlyGetLength','v6OnlyGetValue','v6OnlyGetStage'):
+            self.assertIn(field,function(self.source,'Serialize'))
+        self.assertEqual(function(self.source,'Probe').count('getsockopt('),1)
+        self.assertIn('const DWORD v6Only=1',function(self.source,'Probe'))
+
+    def test_actual_fixture_calls_shared_helper_with_fixed_cases(self):
+        fixture=(ROOT/'.github/native/windows_n0a_udp6_fixture.cpp').read_text()
+        contract=function(fixture,'V6OnlyContract')
+        for value in ('DWORD{0}','DWORD{1}','DWORD{2}','DWORD{0xffffffff}','{0,1,3,5,8}','SOCKET_ERROR,WSAEINVAL'):
+            self.assertIn(value,contract)
+        for forbidden in ('socket(','getsockopt(','setsockopt(','WSAStartup(','Probe('):
+            self.assertNotIn(forbidden,contract)
+        self.assertIn('const bool v6Contract=V6OnlyContract();',fixture)
+        self.assertIn('v6OnlyContractVerified',fixture)
+        self.assertIn('n0a_udp6::Bool(v6Contract)',fixture)
 
     def test_ipv6_wire_domain_is_separate(self):
         self.assertIn(r'\"udp6\":',self.source)

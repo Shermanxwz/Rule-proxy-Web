@@ -130,11 +130,27 @@ struct Attempt {
     unsigned int localPort=0;
     std::array<unsigned char,16> localIpv6{};
     unsigned long localScopeId=0;
+    std::optional<int> v6OnlyGetReturn,v6OnlyGetLength;
+    std::optional<DWORD> v6OnlyGetError,v6OnlyGetValue;
+    const char* v6OnlyGetStage="not_attempted";
     LONGLONG sendStartQpc=0,sendEndQpc=0,exchangeEndQpc=0,closeQpc=0;
     int sendBytes=-1,win32Error=0,closeError=0;
     const char* failure="none";
 };
 void Error(Attempt& result,const char* phase,int error) { result.failure=phase; result.win32Error=error; }
+bool ValidateV6Only(int returned,int apiError,int length,DWORD value,Attempt& result) {
+    result.v6OnlyGetReturn=returned; result.v6OnlyGetLength=length;
+    if (returned!=0) {
+        result.v6OnlyGetError=static_cast<DWORD>(apiError); result.v6OnlyGetStage="api_error";
+        Error(result,"v6only_get",apiError); return false;
+    }
+    if (length!=static_cast<int>(sizeof(DWORD))) {
+        result.v6OnlyGetStage="length_mismatch"; Error(result,"v6only_length",0); return false;
+    }
+    result.v6OnlyGetValue=value;
+    if (value==0) { result.v6OnlyGetStage="zero"; Error(result,"v6only_zero",0); return false; }
+    result.v6OnlyGetStage="nonzero"; result.v6OnlyVerified=true; return true;
+}
 bool Receive(SOCKET socket,const sockaddr_in6& remote,const std::string& frame,ULONGLONG deadline,Attempt& result) {
     const ULONGLONG now=GetTickCount64();
     if (now>=deadline) { Error(result,"recv_select",WSAETIMEDOUT); return false; }
@@ -169,9 +185,9 @@ Attempt Probe(unsigned int index,unsigned int port,const std::string& frame,ULON
         if (setsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY,reinterpret_cast<const char*>(&v6Only),sizeof(v6Only))!=0) { Error(result,"v6only_set",WSAGetLastError()); break; }
         result.v6OnlySet=true;
         DWORD observedV6Only=0; int optionLength=sizeof(observedV6Only);
-        if (getsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY,reinterpret_cast<char*>(&observedV6Only),&optionLength)!=0) { Error(result,"v6only_get",WSAGetLastError()); break; }
-        if (optionLength!=static_cast<int>(sizeof(observedV6Only)) || observedV6Only!=1) { Error(result,"v6only_get",WSAEINVAL); break; }
-        result.v6OnlyVerified=true;
+        const int optionReturn=getsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY,reinterpret_cast<char*>(&observedV6Only),&optionLength);
+        const int optionError=optionReturn!=0?WSAGetLastError():0;
+        if (!ValidateV6Only(optionReturn,optionError,optionLength,observedV6Only,result)) break;
         const BOOL exclusive=TRUE;
         if (setsockopt(owned.value,SOL_SOCKET,SO_EXCLUSIVEADDRUSE,reinterpret_cast<const char*>(&exclusive),sizeof(exclusive))!=0) { Error(result,"exclusive",WSAGetLastError()); break; }
         u_long nonblocking=1;
@@ -203,9 +219,12 @@ std::string AddressHex(const std::array<unsigned char,16>& value) {
     const char* digits="0123456789abcdef"; std::string result; result.reserve(32);
     for(unsigned char byte:value) { result+=digits[byte>>4]; result+=digits[byte&15]; } return result;
 }
+template<class T> std::string OptionalNumber(const std::optional<T>& value) { return value?std::to_string(*value):"null"; }
 std::string Serialize(const Attempt& a) {
     return "{\"index\":"+std::to_string(a.index)+",\"socketCreated\":"+Bool(a.socketCreated)+
         ",\"v6OnlySet\":"+Bool(a.v6OnlySet)+",\"v6OnlyVerified\":"+Bool(a.v6OnlyVerified)+",\"attempted\":"+Bool(a.attempted)+
+        ",\"v6OnlyGetReturn\":"+OptionalNumber(a.v6OnlyGetReturn)+",\"v6OnlyGetError\":"+OptionalNumber(a.v6OnlyGetError)+
+        ",\"v6OnlyGetLength\":"+OptionalNumber(a.v6OnlyGetLength)+",\"v6OnlyGetValue\":"+OptionalNumber(a.v6OnlyGetValue)+",\"v6OnlyGetStage\":\""+a.v6OnlyGetStage+"\""+
         ",\"bindSucceeded\":"+Bool(a.bindSucceeded)+",\"localPort\":"+std::to_string(a.localPort)+",\"localIpv6\":\""+AddressHex(a.localIpv6)+"\",\"localScopeId\":"+std::to_string(a.localScopeId)+
         ",\"sendStartQpc\":"+std::to_string(a.sendStartQpc)+",\"sendEndQpc\":"+std::to_string(a.sendEndQpc)+",\"sendBytes\":"+std::to_string(a.sendBytes)+
         ",\"sendAccepted\":"+Bool(a.sendAccepted)+",\"nonceMatched\":"+Bool(a.nonceMatched)+",\"exchangeEndQpc\":"+std::to_string(a.exchangeEndQpc)+
