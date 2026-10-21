@@ -1,0 +1,69 @@
+{
+  "head_sha": "4313bfd6157014a69627ef6d25959b9af9a1e49b",
+  "limits": [
+    "No DNS/DnsQueryEx/broker/IPv6/proxy/general UDP or full packet-egress claim.",
+    "No classification of accepted-send/no-receipt as isolation enforcement.",
+    "Same official ISO, temporary GitHub guest/account, native actor/policy/three attempts and existing deadlines/capture limits.",
+    "One authorized runtime; no rerun was launched."
+  ],
+  "meaning": [
+    "Three sendto calls were locally accepted, not explicit API denials and not proof of delivery.",
+    "The owned responder observed42 ordinary nonce frames and no selected contained-phase frame during its bounded lifetime. This is receiver observation, not packet absence.",
+    "Fresh actor/profile/executor provenance and control facts are validated by the reviewed controller source contract; the sanitized receipts do not independently reproduce private native/audit/QPC inputs.",
+    "Packet reason flow is before flow normalization and PCAP reading: commitment/body admission was unavailable or invalid. The receipt does not export the precise preparation/transport subreason.",
+    "No raw private flow or PCAP survived the successful owned-work removal; no packet decoder reanalysis or no-egress conclusion is possible.",
+    "The existing strict Stage0 remains false on the known Agentic-only capability profile. UDP evidence does not rewrite it or establish product/Linux/privacy acceptance.",
+    "Published QEMU/TPM/QMP/server/watcher/receiver/work cleanup facts are all confirmed with zero teardown errors; independent PSEC cleanup remains false.",
+    "Capture admission true establishes the fixed payloadP<=24MiB and capacity-reserve predicates, not exact payload size or successful packet qualification."
+  ],
+  "native_job_id": 119264530380,
+  "observations": {
+    "all_four_profile_and_provenance_checks": true,
+    "all_selected_sendto_invoked": true,
+    "capture_payload_and_capacity_admitted": true,
+    "contained_receiver_observed": false,
+    "explicit_send_denial": false,
+    "host_prerequisites_verified": true,
+    "ordinary_controls_verified": true,
+    "ordinary_receiver_verified_and_echoed": 42,
+    "original_stage0_receipt_verified": true,
+    "packet_egress_tested": false,
+    "packet_reason": "flow",
+    "packet_status": "inconclusive",
+    "receipt_verified": true,
+    "selected_echo_observed": false,
+    "selected_payload_observed": null,
+    "selected_send_accepted_count": 3,
+    "stage0_native_identity_failure": "capabilities_empty",
+    "stage0_passed": false,
+    "teardown_error_count": 0,
+    "vm_destroyed": true,
+    "work_removed": true
+  },
+  "receipts": {
+    "stage0": {
+      "artifact_id": 12351054457,
+      "artifact_zip_sha256": "6d88233c3a5dc920ed637f29679c5ab7d716ad4e6a2ddfe32d0d8f18ef0f07ec",
+      "path": "direct-udp-01-stage0.json",
+      "sha256": "2d32fa461e5282ae3d6595edcd8f70734a54ab1b30046e4b348fc3fa68eac972"
+    },
+    "udp": {
+      "artifact_id": 12352262124,
+      "artifact_zip_sha256": "e11a1a142da9bb1ff34e3c239eeae65af133937d8b24188f6f689b779337d5f9",
+      "path": "direct-udp-01-result.json",
+      "sha256": "6f9821f11766e50b6363c8a1edc8ef7b8936285787cc727380588f11e84dd4ae"
+    }
+  },
+  "run_id": 39612273978,
+  "schema_version": 1,
+  "scope": "one runner-only direct IPv4 UDP observation, below documented support floor",
+  "separate_source_counterexample": {
+    "description": "Actual guest and flow loaders create distinct UDPBinding classes from the same source module. Strict flow isinstance rejects the genuine guest binding; prepare_flow catches the failure and omits the bundle. This deterministic source-level counterexample is consistent with the missing-flow receipt, but the lost runtime commitment/body state was not exported.",
+    "flow_bound_actor_accepted": false,
+    "guest_bound_actor_accepted": true,
+    "production_fix_applied": false,
+    "same_engine_module_object": false,
+    "same_udp_binding_class": false
+  },
+  "workflow_conclusion": "failure"
+}
