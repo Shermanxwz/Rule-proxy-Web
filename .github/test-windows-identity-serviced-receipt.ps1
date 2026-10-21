@@ -6,7 +6,7 @@ $runner=Join-Path $PSScriptRoot 'windows-identity-serviced-stage0-run.ps1'
 $worker=Join-Path $PSScriptRoot 'windows-identity-serviced-update.ps1'
 $ast=[System.Management.Automation.Language.Parser]::ParseFile($runner,[ref]$tokens,[ref]$errors)
 if($errors.Count -ne 0){throw 'Receipt parser failed'}
-foreach($name in @('Test-ServicedReceiptSharing','Initialize-ServicedReceiptNative','Assert-ServicedReceiptHandle','Read-ServicedReceiptSnapshot')) {
+foreach($name in @('Test-ServicedReceiptSharing','Initialize-ServicedReceiptNative','Assert-ServicedReceiptHandle','Open-ServicedReceiptHandle','Test-ServicedReceiptRetry','Read-ServicedReceiptSnapshot')) {
     $definitions=@($ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq $name},$false))
     if($definitions.Count -ne 1){throw 'Receipt helper missing'};Invoke-Expression $definitions[0].Extent.Text
 }
@@ -163,6 +163,34 @@ try {
     $fixtureStep='child_exit'
     if($process.ExitCode -ne 0 -or $reads -lt 1){throw 'Atomic writer stress failed'}
     $process.Dispose();$process=$null;$passed++
+    $fixturePhase='open_retry_boundary'
+    $script:ReceiptOpenOriginal=(Get-Command Open-ServicedReceiptHandle).ScriptBlock
+    $script:ReceiptOpenCalls=0;$script:ReceiptOpenCase='missing'
+    $script:ReceiptAdmissionOriginal=(Get-Command Assert-ServicedReceiptHandle).ScriptBlock
+    $script:ReceiptAdmissionCalls=0
+    function Assert-ServicedReceiptHandle($Stream) {
+        $script:ReceiptAdmissionCalls++
+        & $script:ReceiptAdmissionOriginal $Stream
+    }
+    $missing=Join-Path $root 'never-created.json'
+    function Open-ServicedReceiptHandle($Path) {
+        $script:ReceiptOpenCalls++
+        if($script:ReceiptOpenCase -ceq 'metadata_two'){throw [IO.IOException]::new('receipt_information',-2147024894)}
+        if($script:ReceiptOpenCase -ceq 'first_missing' -and $script:ReceiptOpenCalls -eq 1){return (& $script:ReceiptOpenOriginal $missing)}
+        return (& $script:ReceiptOpenOriginal $Path)
+    }
+    try {
+        $rejected=$false
+        try{$null=Read-ServicedReceiptSnapshot $missing ([DateTime]::UtcNow.AddSeconds(5))}catch{$rejected=Test-ServicedReceiptRetry $_.Exception}
+        if(-not $rejected -or $script:ReceiptOpenCalls -ne 4 -or $script:ReceiptAdmissionCalls -ne 0 -or [IO.File]::Exists($missing)){throw 'Persistent missing receipt retry boundary failed'};$passed++
+        $script:ReceiptOpenCalls=0;$script:ReceiptOpenCase='first_missing'
+        $value=Read-FixtureReceipt|ConvertFrom-Json
+        if($script:ReceiptOpenCalls -ne 2 -or $script:ReceiptAdmissionCalls -ne 1 -or $value.generation -ne 120 -or [IO.File]::Exists($missing)){throw 'Missing then valid receipt failed'};$passed++
+        $script:ReceiptOpenCalls=0;$script:ReceiptOpenCase='metadata_two'
+        $rejected=$false
+        try{$null=Read-FixtureReceipt}catch{$rejected=(-not (Test-ServicedReceiptRetry $_.Exception))}
+        if(-not $rejected -or $script:ReceiptOpenCalls -ne 1){throw 'Metadata missing error retried'};$passed++
+    }finally{Set-Item Function:Open-ServicedReceiptHandle -Value $script:ReceiptOpenOriginal;Set-Item Function:Assert-ServicedReceiptHandle -Value $script:ReceiptAdmissionOriginal}
     $fixturePhase='same_handle_replace'
     Write-ServicedState @{schema_version=1;generation=201;payload='old'}
     $script:ReceiptHandleOriginal=(Get-Command Assert-ServicedReceiptHandle).ScriptBlock
@@ -278,6 +306,8 @@ public static class ReceiptFixtureSecurity {
     $guardFailure='other'
     $fixedFailures=@('update_reparse_point','update_directory_required','update_file_required','update_untrusted_owner','update_directory_inherits_permissions','update_untrusted_write_permission','update_null_dacl')
     foreach($fixed in $fixedFailures){if($_.Exception.Message -ceq $fixed -or $_.Exception.GetBaseException().Message -ceq $fixed){$guardFailure=$fixed;break}}
+    $nativeOperation='other'
+    foreach($operation in @('receipt_open','receipt_information')){if($_.Exception.GetBaseException().Message -ceq $operation){$nativeOperation=$operation}}
     $assertRole=$script:ReceiptAssertRole
     $directoryFacts=Get-FixturePathFacts $root $true;$leafFacts=Get-FixturePathFacts (Join-Path $root 'update-state.json') $false
     $childExited=$null;$childExitCode=$null;$childStep=$null;$childHresult=$null
@@ -302,7 +332,7 @@ public static class ReceiptFixtureSecurity {
     $readStep=if($script:ServicingReadDiagnostic.step -cin @('not_started','receipt_acl','receipt_read')){$script:ServicingReadDiagnostic.step}else{$null}
     $readReason=if($script:ServicingReadDiagnostic.reason -cin @('none','acl','read','over_bound','expired')){$script:ServicingReadDiagnostic.reason}else{$null}
     # Existence observations are adjacent, non-atomic, and do not authorize retry.
-    Write-Output ((@{fixture='receipt_snapshot';phase=$fixturePhase;step=$fixtureStep;failed=$true;guard_failure=$guardFailure;assert_role=$assertRole;directory=$directoryFacts;leaf=$leafFacts;hresult=$failureHresult;base_hresult=$baseHresult;read_step=$readStep;read_reason=$readReason;child_exited=$childExited;child_exit_code=$childExitCode;child_step=$childStep;child_hresult=$childHresult;receipt_exists=[IO.File]::Exists((Join-Path $root 'update-state.json'));temporary_exists=[IO.File]::Exists((Join-Path $root 'update-state.json.tmp'))})|ConvertTo-Json -Depth 3 -Compress)
+    Write-Output ((@{fixture='receipt_snapshot';phase=$fixturePhase;step=$fixtureStep;failed=$true;guard_failure=$guardFailure;native_operation=$nativeOperation;assert_role=$assertRole;directory=$directoryFacts;leaf=$leafFacts;hresult=$failureHresult;base_hresult=$baseHresult;read_step=$readStep;read_reason=$readReason;child_exited=$childExited;child_exit_code=$childExitCode;child_step=$childStep;child_hresult=$childHresult;receipt_exists=[IO.File]::Exists((Join-Path $root 'update-state.json'));temporary_exists=[IO.File]::Exists((Join-Path $root 'update-state.json.tmp'))})|ConvertTo-Json -Depth 3 -Compress)
     throw 'Owned receipt fixture failed'
 } finally {
     $script:UpdateDirectory=$oldUpdateDirectory;$cleanup=$true

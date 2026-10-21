@@ -132,6 +132,9 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 namespace RuleProxy {
+    public sealed class ReceiptOpenFailure : IOException {
+        internal ReceiptOpenFailure(int hresult) : base("receipt_open",hresult) {}
+    }
     public static class ReceiptSnapshot {
         [StructLayout(LayoutKind.Sequential)]
         private struct Info {
@@ -148,13 +151,13 @@ namespace RuleProxy {
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out Info info);
         private static IOException NativeFailure() {
-            return new IOException("receipt_native", Marshal.GetHRForLastWin32Error());
+            return new IOException("receipt_information", Marshal.GetHRForLastWin32Error());
         }
         public static FileStream Open(string path) {
             // No traversal of the final reparse point; no backup/restore privileges.
             SafeFileHandle handle=CreateFileW(path,0x80000000,7,IntPtr.Zero,3,0x00200000,IntPtr.Zero);
             try {
-                if(handle.IsInvalid) throw NativeFailure();
+                if(handle.IsInvalid) throw new ReceiptOpenFailure(Marshal.GetHRForLastWin32Error());
                 if(GetFileType(handle)!=1) throw new IOException("receipt_not_disk");
                 Info info;
                 if(!GetFileInformationByHandle(handle,out info)) throw NativeFailure();
@@ -189,6 +192,18 @@ function Assert-ServicedReceiptHandle($Stream) {
         }
     }
 }
+function Open-ServicedReceiptHandle($Path) {
+    return [RuleProxy.ReceiptSnapshot]::Open($Path)
+}
+function Test-ServicedReceiptRetry($Exception) {
+    if (Test-ServicedReceiptSharing $Exception) { return $true }
+    $current=$Exception
+    for ($depth=0;$depth -lt 4 -and $null -ne $current;$depth++) {
+        if ($current -is [RuleProxy.ReceiptOpenFailure] -and $current.HResult -eq -2147024894) { return $true }
+        $current=$current.InnerException
+    }
+    return $false
+}
 function Read-ServicedReceiptSnapshot($Path,[DateTime]$Deadline) {
     Initialize-ServicedReceiptNative
     for ($attempt=0;$attempt -lt 4;$attempt++) {
@@ -202,7 +217,7 @@ function Read-ServicedReceiptSnapshot($Path,[DateTime]$Deadline) {
         try {
             # ShareDelete permits the trusted writer's atomic replacement; this handle
             # remains a bounded snapshot of one old/new file, never an in-place merge.
-            $stream=[RuleProxy.ReceiptSnapshot]::Open($Path)
+            $stream=Open-ServicedReceiptHandle $Path
             $script:ServicingReadDiagnostic.step='receipt_acl'
             try { Assert-ServicedReceiptHandle $stream } catch { $script:ServicingReadDiagnostic.reason='acl';throw }
             $script:ServicingReadDiagnostic.step='receipt_read'
@@ -220,9 +235,9 @@ function Read-ServicedReceiptSnapshot($Path,[DateTime]$Deadline) {
             if ($_.Exception.GetBaseException().Message -ceq 'receipt_over_bound') { $script:ServicingReadDiagnostic.reason='over_bound' }
             if ($script:ServicingReadDiagnostic.reason -notin @('over_bound','expired','acl')) { $script:ServicingReadDiagnostic.reason='read' }
             if ($script:ServicingReadDiagnostic.reason -eq 'acl') { throw }
-            if (-not (Test-ServicedReceiptSharing $_.Exception) -or $attempt -ge 3) { throw }
+            if (-not (Test-ServicedReceiptRetry $_.Exception) -or $attempt -ge 3) { throw }
         } finally { if ($null -ne $stream) { $stream.Dispose() } }
-        # Only sharing32 is retried; never rebase the caller's immutable deadline.
+        # Only sharing32 or API-tagged CreateFile missing2 is retried; never rebase the caller's immutable deadline.
         $remaining=($Deadline-[DateTime]::UtcNow).TotalMilliseconds
         if ($remaining -le 0) { $script:ServicingReadDiagnostic.reason='expired';throw 'Servicing deadline' }
         Start-Sleep -Milliseconds ([int][Math]::Min(100,[Math]::Floor($remaining)))

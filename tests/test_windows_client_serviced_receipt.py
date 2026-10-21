@@ -5,19 +5,26 @@ RUN=(G/'windows-identity-serviced-stage0-run.ps1').read_text()
 UPDATE=(G/'windows-identity-serviced-update.ps1').read_text()
 GATE=(G/'test-windows-identity-serviced-receipt.ps1').read_text()
 class ReceiptSnapshotTests(unittest.TestCase):
-    def test_only_exact_io_sharing_is_retried(self):
+    def test_only_exact_sharing_or_api_bound_open_missing_is_retried(self):
         self.assertIn('$current -is [IO.IOException] -and $current.HResult -eq -2147024864',RUN)
         self.assertIn('$depth -lt 4',RUN)
         self.assertIn('$attempt -lt 4',RUN)
-        self.assertIn('Test-ServicedReceiptSharing $_.Exception',RUN)
+        self.assertIn('Test-ServicedReceiptRetry $_.Exception',RUN)
+        self.assertIn('if (Test-ServicedReceiptSharing $Exception) { return $true }',RUN)
         self.assertIn('[Math]::Min(100,[Math]::Floor($remaining))',RUN)
         self.assertNotIn('-band 0xffff',RUN)
+        self.assertIn('public sealed class ReceiptOpenFailure : IOException',RUN)
+        self.assertIn('internal ReceiptOpenFailure(int hresult)',RUN)
+        self.assertIn('if(handle.IsInvalid) throw new ReceiptOpenFailure(Marshal.GetHRForLastWin32Error());',RUN)
+        self.assertIn('$current -is [RuleProxy.ReceiptOpenFailure] -and $current.HResult -eq -2147024894',RUN)
+        for text in ('Persistent missing receipt retry boundary failed', '$script:ReceiptOpenCalls -ne 4', 'Missing then valid receipt failed', '$script:ReceiptOpenCalls -ne 2', 'Metadata missing error retried', '$script:ReceiptOpenCalls -ne 1', 'native_operation=$nativeOperation', '$script:ReceiptAdmissionCalls -ne 1', '& $script:ReceiptAdmissionOriginal $Stream'):
+            self.assertIn(text,GATE)
         self.assertIn("if ($script:ServicingReadDiagnostic.reason -eq 'acl') { throw }",RUN)
         self.assertIn('ACL sharing failure retried',GATE)
         self.assertIn('$script:AclFixtureCalls -ne 1',GATE)
     def test_trusted_bounded_open_handle_snapshot(self):
         body=RUN[RUN.index('function Read-ServicedReceiptSnapshot'):RUN.index('function Get-ClosedSenderCounters')]
-        for text in ('Assert-ProtectedUpdatePath ([IO.Path]::GetDirectoryName($Path)) -Directory -ProtectedDacl','Assert-ServicedReceiptHandle $stream','[RuleProxy.ReceiptSnapshot]::Open($Path)','$stream.Length -gt 4096','New-Object byte[] 4097','$total -gt 4096','Text.UTF8Encoding($false,$true)','$stream.Dispose()'):
+        for text in ('Assert-ProtectedUpdatePath ([IO.Path]::GetDirectoryName($Path)) -Directory -ProtectedDacl','Assert-ServicedReceiptHandle $stream','Open-ServicedReceiptHandle $Path','$stream.Length -gt 4096','New-Object byte[] 4097','$total -gt 4096','Text.UTF8Encoding($false,$true)','$stream.Dispose()'):
             self.assertIn(text,body)
         self.assertGreaterEqual(body.count('[DateTime]::UtcNow -ge $Deadline'),2)
         self.assertNotIn('AddSeconds',body)
