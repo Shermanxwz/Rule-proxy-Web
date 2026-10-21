@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "scope": "Standalone TEST_ONLY hosted IPv6 loopback mechanism; no guest or isolation experiment",
+  "run_id": 39661648491,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39661648491",
+  "head": "05c635620a02e2aa7eeaf1c249a222ba81f3869c",
+  "freeze_sha256": "37d376673decc1b9c6a461a96746c4a1f46e0924cb481200d8054cdb6d8ea525",
+  "result_sha256": "53e3beabf427f1cc3e42e26f250b1970a57861e3e9920c1d6d1b9965e05bea58",
+  "workflow_conclusion": "failure",
+  "tests": {
+    "linux_required": 527,
+    "windows_required": 527,
+    "skips_each": 0,
+    "both_native_builds_passed": true
+  },
+  "observations": {
+    "hosted_mechanics_complete": false,
+    "accepted_selected_sends": 0,
+    "receiver_datagrams": [
+      0,
+      0
+    ],
+    "all_seven_owned_children_exited_and_handles_closed": true,
+    "both_receiver_cleanup_confirmed": true,
+    "work_removed": true,
+    "profile_only_admin_rejected": true,
+    "production_invalid_cli_rejected": true
+  },
+  "interpretation": [
+    "All five network reports passed native PID/nonce/mode/schema validation and their processes exited zero. The harness reported no exception, not successful network mechanics.",
+    "The closed result does not retain startupError or per-attempt stage/error fields. It cannot distinguish startup, socket, IPv6-only setup, bind, address observation, deadline or sendto failure. No exact cause is established.",
+    "Zero accepted sends and receiver datagrams are not an IPv6 isolation denial. The ordinary positive control failed, so this mechanism is inadmissible for any isolation inference.",
+    "Receiver startup succeeded, but that alone does not establish the native sender path or guest alias.",
+    "No valid production network CLI, VM, guest fec0::2 alias, linked-libslirp provenance, packet capture, ordinary nonadmin identity, DNS, proxy or descendant path was exercised.",
+    "All reported owned cleanup succeeded. Raw native reports and private endpoint/nonce/identity details were removed and are not archived."
+  ],
+  "next_step": "Read-only source diagnosis and a separately reviewed closed stage projection if needed; no automatic rerun or parameter sweep."
+}
