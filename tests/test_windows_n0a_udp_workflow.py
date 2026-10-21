@@ -1,4 +1,4 @@
-"""Standalone direct UDP publication boundary; no guest integration."""
+"""Short direct UDP adapter gates; no guest runtime or artifact publication."""
 import ast
 import hashlib
 from pathlib import Path
@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parents[1]
 PATH=ROOT/'.github/workflows/windows-n0a-udp-gates.yml'
 BRANCH='refs/heads/dot/windows-isolation-proof'
 MARKER='[n0a-udp-gates]'
-NAMES=('test_windows_n0a_udp_actor.py','test_windows_client_n0a_udp.py','test_windows_n0a_udp_gate.py','test_windows_client_n0a_udp_packet.py','test_windows_n0a_udp_workflow.py')
+NAMES=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py')
 
 
 def condition(expression,message,branch=BRANCH,event='push'):
@@ -59,6 +59,14 @@ class UdpWorkflowTests(unittest.TestCase):
         self.assertEqual(self.text.count('bool(result.skipped)'),2)
         self.assertLess(self.text.index('Required UDP contracts before actual mechanics'),self.text.index('Owned loopback mechanics'))
         self.assertNotIn('test_windows_dns_request3.py',self.text)
+
+    def test_adapter_gates_and_runtime_off(self):
+        for name in ('test-windows-n0a-guest-gates.ps1','test-windows-udp-guest-gates.ps1','test-windows-udp-payload-gates.ps1'):
+            self.assertIn('& ./.github/'+name,self.text)
+        module=ast.parse((ROOT/'.github/windows_n0a_udp.py').read_text())
+        flags=[n.value.value for n in module.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='EXECUTION_ENABLED' for t in n.targets) and isinstance(n.value,ast.Constant)]
+        self.assertEqual(flags,[False])
+        self.assertNotIn('--n0a-udp-runner',self.text)
 
     def test_exact_separate_build_pins(self):
         actor=hashlib.sha256((ROOT/'.github/native/windows_n0a_udp_actor.cpp').read_bytes()).hexdigest()

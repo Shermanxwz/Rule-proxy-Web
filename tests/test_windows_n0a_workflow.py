@@ -103,7 +103,9 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         names = {node.value for node in ast.walk(ast.parse(source))
                  if isinstance(node, ast.Constant) and isinstance(node.value, str)
                  and node.value.startswith('n0a-') and node.value.endswith('.json')}
-        self.assertEqual(names, {'n0a-connect-public.json', 'n0a-capture-public.json'})
+        self.assertEqual(names, {'n0a-connect-public.json', 'n0a-capture-public.json', 'n0a-udp-public.json'})
+        self.assertNotIn('n0a-udp-public.json', self.text)
+        self.assertNotIn('--n0a-udp-runner', self.text)
         self.assertIn('path: client-stage0-public/n0a-connect-public.json', self.text)
         capture=self.text.split('name: n0a-capture-exploratory-public',1)[0].rsplit('- uses: actions/upload-artifact@v7',1)[1]
         self.assertIn("always() && contains(github.event.head_commit.message, '[n0a-capture-runtime]')",capture)

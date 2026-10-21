@@ -497,6 +497,18 @@ def capture_helpers():
     return sys.modules[name]
 
 
+
+def udp_helpers():
+    return udp_capture_helpers().helper('control')
+
+
+def udp_capture_helpers():
+    name = 'identity_udp_capture_adapter'
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, ROOT / '.github/windows_n0a_udp_capture_adapter.py')
+        module = importlib.util.module_from_spec(spec); sys.modules[name] = module; spec.loader.exec_module(module)
+    return sys.modules[name]
+
 class CaptureTransportFailure(RuntimeError):
     pass
 
@@ -575,7 +587,7 @@ def fallback_capture_owner(owner, deadline):
 
 def finish_capture_before_cleanup(owner, server, capture_config, n0a_config, public,
                                   outer_deadline, header_before_link):
-    adapter = capture_helpers(); tentative = adapter.unavailable(); snapshot = True
+    adapter = udp_capture_helpers() if getattr(server, 'udp_enabled', False) else capture_helpers(); tentative = adapter.unavailable(); snapshot = True
     if server is not None:
         server.capture_accepting = False
         acquired = server.capture_lock.acquire(timeout=max(0, min(1, outer_deadline-time.monotonic())))
@@ -598,6 +610,7 @@ def finish_capture_before_cleanup(owner, server, capture_config, n0a_config, pub
             'endpoint': {'vm_mac': capture_config['vm_mac'], 'destination_ipv4': '10.0.2.2',
                          'destination_port': n0a_config['runner_port']},
             'flow_commitment': server.capture_commitment, 'controller_result': server.n0a_result}
+        if getattr(server, 'udp_enabled', False): expected['cleanup_verified'] = facts.get('cleanup_confirmed') is True  # Tentative; final host cleanup must qualify absence.
         if snapshot and time.monotonic() < outer_deadline-20:
             tentative = adapter.parse_before_cleanup(owner.output_path, facts, server.capture_private_body, expected,
                 header_before_link=header_before_link,
@@ -808,7 +821,18 @@ def compose_n0a_public(server, public, wait_state):
     return result
 
 
-def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None, capture=False):
+def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None, capture=False, udp=None):
+    if udp is not None:
+        if n0a is not None or capture: raise ValueError('UDP replaces TCP payload')
+        payload(python_archive, actor, actor_digest, bundle, destination)
+        with zipfile.ZipFile(destination, 'a', compression=zipfile.ZIP_DEFLATED) as archive:
+            for key, member, pin in (('actor','udp/actor.exe','actor_sha256'), ('manifest','udp/build-manifest.json','manifest_sha256')):
+                with udp[key].open('rb') as source: content = source.read(8*1024**2+1)
+                if len(content)>8*1024**2 or hashlib.sha256(content).hexdigest()!=udp['config'][pin]: raise ValueError('UDP packaged pin')
+                archive.writestr(member, content)
+            for name in ('windows_n0a_control.py','windows_n0a_guest.py','windows_n0a_udp.py','windows_n0a_udp_guest.py','windows_n0a_udp_flow.py'):
+                archive.write(ROOT / '.github' / name, '.github/' + name)
+        return hashlib.sha256(destination.read_bytes()).hexdigest()
     python_data = verify_python(python_archive)
     if actor.stat().st_size > 16 * 1024**2 or bundle.stat().st_size > 64 * 1024**2:
         raise ValueError('bounded payload inputs required')
@@ -953,6 +977,65 @@ class ClosedHandler(BaseHTTPRequestHandler):
                 value = json.loads(raw, object_pairs_hook=n0a_helpers().unique_object,
                                    parse_constant=reject_capture_constant)
                 result = capture_helpers().validate_capture_envelope(value, self.server.n0a_expected)
+            acquired = self.server.capture_lock.acquire(timeout=cleanup_remaining(deadline, 1))
+            if not acquired: raise ValueError('capture commit unavailable')
+            try:
+                if not self.server.capture_accepting or time.monotonic() >= deadline:
+                    raise ValueError('capture closed')
+                if body:
+                    self.server.capture_private_body = raw; self.server.capture_body_received.set()
+                else:
+                    self.server.n0a_result = result['legacy']
+                    self.server.capture_commitment = result['commitment']
+                    self.server.capture_commitment_error = result['commitment_error']
+                    self.server.capture_received_at = time.monotonic(); self.server.n0a_received.set()
+            finally: self.server.capture_lock.release()
+            self.send_response(200); self.end_headers()
+        except (ValueError, TypeError, OSError, RecursionError): self.send_error(400)
+
+
+
+class UDPClosedServer(ClosedServer):
+    def __init__(self, payload, expected, deadline):
+        super().__init__(payload, expected, True, deadline)
+        self.udp_enabled = True
+        self.RequestHandlerClass = UDPClosedHandler
+
+
+class UDPClosedHandler(ClosedHandler):
+    def do_POST(self):
+        if self.path == '/' + self.server.capability + '/udp-capture-result': return self.do_udp_POST(False)
+        if self.path == '/' + self.server.capability + '/udp-runner-flow': return self.do_udp_POST(True)
+        if self.path != '/' + self.server.capability + '/result':
+            self.send_error(404); return
+        return super().do_POST()
+
+    def do_udp_POST(self, body):
+        try:
+            if not self.server.capture_accepting or not self.server.received.is_set():
+                self.send_error(409); return
+            if body:
+                if (not self.server.n0a_received.is_set() or self.server.capture_body_attempted
+                        or self.server.capture_commitment is None):
+                    self.send_error(409); return
+                self.server.capture_body_attempted = True
+                limit = udp_capture_helpers().MAX_FLOW
+            else:
+                if self.server.n0a_received.is_set():
+                    self.send_error(409); return
+                limit = MAX_N0A_REPORT
+            deadline = capture_request_deadline(self.server, body)
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= limit: raise ValueError('capture bound')
+            raw = read_capture_request(self, length, deadline)
+            if body:
+                if not udp_capture_helpers().accept_private_body(raw, self.server.capture_commitment):
+                    raise ValueError('capture commitment')
+                result = None
+            else:
+                value = json.loads(raw, object_pairs_hook=n0a_helpers().unique_object,
+                                   parse_constant=reject_capture_constant)
+                result = udp_capture_helpers().validate_capture_envelope(value, self.server.n0a_expected)
             acquired = self.server.capture_lock.acquire(timeout=cleanup_remaining(deadline, 1))
             if not acquired: raise ValueError('capture commit unavailable')
             try:
@@ -1370,6 +1453,11 @@ def download_direct_iso(iso, deadline):
 def host(args):
     if not EXECUTION_ENABLED:
         raise PermissionError('direct exploratory execution is disabled pending frozen review')
+    udp_mode = getattr(args, 'n0a_udp_runner', False)
+    if udp_mode and (getattr(args, 'n0a', False) or getattr(args, 'n0a_capture_runner', False)):
+        raise ValueError('UDP replaces TCP experiment')
+    if udp_mode and udp_helpers().EXECUTION_ENABLED is not True:
+        raise PermissionError('UDP disabled pending separate activation')
     if getattr(args, 'n0a', False) and n0a_helpers().EXECUTION_ENABLED is not True:
         raise PermissionError('N0a execution disabled pending separate review')
     if getattr(args, 'n0a_capture_runner', False):
@@ -1403,6 +1491,7 @@ def host(args):
     try:
         if getattr(args, 'n0a', False):
             n0a = verify_n0a_inputs(args.n0a_actor, args.n0a_manifest)
+        if udp_mode: n0a = udp_capture_helpers().verify_inputs(args.udp_actor, args.udp_manifest)
         media.require_kvm()
         if shutil.disk_usage(work).free < PREMEDIA_FREE:
             raise RuntimeError('insufficient disposable storage; no host cleanup performed')
@@ -1423,20 +1512,22 @@ def host(args):
         raw = work / 'private-reports'; raw.mkdir()
         package = work / 'payload.zip'
         if n0a is not None:
-            n0a_endpoint = n0a_helpers().NonceEndpoint(n0a['config']['case_nonce'], 'runner', deadline)
+            n0a_endpoint = (udp_capture_helpers().receiver(n0a['config']['case_nonce'], outer_deadline) if udp_mode
+                             else n0a_helpers().NonceEndpoint(n0a['config']['case_nonce'], 'runner', deadline))
             n0a['config']['runner_port'] = n0a_endpoint.start()
-        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=n0a, capture=getattr(args, 'n0a_capture_runner', False))
+        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=None if udp_mode else n0a, capture=getattr(args, 'n0a_capture_runner', False), udp=n0a if udp_mode else None)
         if package.stat().st_size > MAX_PAYLOAD: raise ValueError('payload size cap')
         operation = 'result_server'
-        server = ClosedServer(package, n0a['config'] if n0a is not None else None, getattr(args, 'n0a_capture_runner', False), deadline)
+        server = (UDPClosedServer(package, n0a['config'], deadline) if udp_mode else
+                  ClosedServer(package, n0a['config'] if n0a is not None else None, getattr(args, 'n0a_capture_runner', False), deadline))
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         operation = 'seed_build'
         tree = work / 'seed-tree'; tree.mkdir()
         config = {'host_url': f'http://10.0.2.2:{server.server_address[1]}/{server.capability}',
                   'payload_sha256': package_digest, 'python_sha256': PYTHON_ASSET['sha256'],
                   'actor_sha256': args.actor_sha256}
-        if n0a is not None: config['n0a'] = dict(n0a['config'])
-        if getattr(args, 'n0a_capture_runner', False):
+        if n0a is not None: config['n0a_udp' if udp_mode else 'n0a'] = dict(n0a['config'])
+        if udp_mode or getattr(args, 'n0a_capture_runner', False):
             capture_config = capture_helpers().make_configuration(n0a['config'], source, media.VM_NIC_MAC)
             config['capture'] = capture_config
         media.prepare_seed(tree, secrets.token_hex(16) + 'Ci!9', config)
@@ -1579,18 +1670,26 @@ def host(args):
                 merge_direct_result(public, server.result, args.actor_sha256, installed_handoff)
                 original_merged = True
             except Exception: public['stage0_passed'] = False
-        if getattr(args, 'n0a_capture_runner', False):
+        if udp_mode or getattr(args, 'n0a_capture_runner', False):
             try:
                 capture_facts, capture_tentative = finish_capture_before_cleanup(capture_owner, server,
                     capture_config, n0a['config'] if n0a is not None else None, public, outer_deadline, header_before_link)
             except Exception: capture_facts = {'cleanup_confirmed': False}
             if capture_facts is None: capture_facts = {'cleanup_confirmed': capture_owner is None}
         finalize_owned(public, media, work, qemu, tpm, qmp, server, thread, watch, n0a_endpoint,
-                       capture_facts, outer_deadline if getattr(args, 'n0a_capture_runner', False) else None)
+                       capture_facts, outer_deadline if udp_mode or getattr(args, 'n0a_capture_runner', False) else None)
         if public['vm_destroyed']: record_breadcrumb(public, 'cleanup_done', work, disk, deadline)
         public['last_phase'] = phase
         (args.output / 'public-report.json').write_text(json.dumps(public, indent=2) + '\n', encoding='ascii')
-        if n0a is not None:
+        if udp_mode:
+            try:
+                udp_public = udp_capture_helpers().compose(server, public, n0a_wait_state)
+                udp_public['packet'] = udp_capture_helpers().qualify(capture_tentative, public, udp_public)
+                (args.output / 'n0a-udp-public.json').write_text(json.dumps(udp_public, indent=2)+'\n', encoding='ascii')
+            except Exception:
+                try: print(json.dumps({'udp_report_write_failed': True}), flush=True)
+                except OSError: pass
+        elif n0a is not None:
             try:
                 n0a_public = compose_n0a_public(server, public, n0a_wait_state)
                 (args.output / 'n0a-connect-public.json').write_text(json.dumps(n0a_public, indent=2)+'\n', encoding='ascii')
@@ -1615,12 +1714,17 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True)
     for name in ('python-archive', 'actor', 'bundle'): parser.add_argument('--' + name, type=Path)
     parser.add_argument('--actor-sha256')
+    parser.add_argument('--n0a-udp-runner', action='store_true')
+    parser.add_argument('--udp-actor', type=Path); parser.add_argument('--udp-manifest', type=Path)
     parser.add_argument('--n0a', action='store_true')
     parser.add_argument('--n0a-capture-runner', action='store_true')
     parser.add_argument('--n0a-actor', type=Path); parser.add_argument('--n0a-manifest', type=Path)
     parser.add_argument('--timeout-seconds', type=int, default=6600)
     parser.add_argument('--job-deadline-epoch', type=int)
     args = parser.parse_args(argv)
+    if args.n0a_udp_runner and (args.n0a or args.n0a_capture_runner or args.guest or args.download_python or args.check_preparation or args.check_apt_plan or not args.udp_actor or not args.udp_manifest):
+        parser.error('UDP requires separate explicit host inputs')
+    if not args.n0a_udp_runner and (args.udp_actor or args.udp_manifest): parser.error('UDP inputs require explicit opt-in')
     if args.n0a and (args.guest or args.download_python or args.check_preparation or args.check_apt_plan
                       or not args.n0a_actor or not args.n0a_manifest):
         parser.error('N0a requires explicit host inputs only')

@@ -16,6 +16,22 @@ on:
       - 'tests/test_windows_n0a_udp_gate.py'
       - 'tests/test_windows_client_n0a_udp_packet.py'
       - 'tests/test_windows_n0a_udp_workflow.py'
+      - '.github/windows_identity_direct_stage0.py'
+      - '.github/windows-identity-direct-stage0-run.ps1'
+      - '.github/windows_n0a_udp_guest.py'
+      - '.github/windows_n0a_udp_flow.py'
+      - '.github/windows_n0a_udp_capture_adapter.py'
+      - '.github/test-windows-udp-guest-gates.ps1'
+      - '.github/test-windows-n0a-guest-gates.ps1'
+      - '.github/test_windows_udp_payload.py'
+      - '.github/test-windows-udp-payload-gates.ps1'
+      - 'tests/test_windows_client_n0a_udp_guest.py'
+      - 'tests/test_windows_client_n0a_udp_flow.py'
+      - 'tests/test_windows_client_n0a_udp_host.py'
+      - 'tests/test_windows_client_n0a_udp_capture_adapter.py'
+      - 'tests/test_windows_udp_guest_transport.py'
+      - 'tests/test_windows_udp_payload.py'
+      - 'docs/validation/2026-10-21-direct-udp-adapter.md'
 permissions:
   contents: read
 concurrency:
@@ -33,7 +49,7 @@ jobs:
           fetch-depth: 1
       - name: Required UDP standalone contracts
         run: |
-          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
   native-mechanism:
     if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-udp-gates]') }}
     runs-on: windows-2025
@@ -64,7 +80,21 @@ jobs:
       - name: Required UDP contracts before actual mechanics
         shell: pwsh
         run: |
-          python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Actual legacy and UDP PowerShell transport semantics
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          & ./.github/test-windows-n0a-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Actual four-mode payload ZIP and PowerShell extraction parity
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          & ./.github/test-windows-udp-payload-gates.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Owned loopback mechanics and no-socket profile observation
         timeout-minutes: 2
@@ -72,4 +102,4 @@ jobs:
         run: |
           python -B .github/test_windows_n0a_udp.py --run-actual-windows --production-actor "$PWD/udp-production-build/windows_n0a_udp_actor.exe" --production-manifest "$PWD/udp-production-build/N0A-UDP-manifest.json" --fixture-actor "$PWD/udp-TEST-ONLY-build/windows_n0a_UDP_TEST_ONLY_fixture.exe" --fixture-manifest "$PWD/udp-TEST-ONLY-build/UDP-TEST-ONLY-manifest.json" --output "$PWD/udp-mechanics-public.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-# No uploads, full Windows guest, account, policy, or production deployment.
+# No uploads, full Windows guest, account, policy, or production deployment. UDP runtime remains OFF.

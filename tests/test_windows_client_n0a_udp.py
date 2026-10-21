@@ -94,3 +94,60 @@ class EndpointTests(unittest.TestCase):
         e=u.UdpEndpoint(NONCE,60);e.socket=Mock();e.socket.close.side_effect=OSError('private');e.socket.fileno.return_value=-1
         self.assertFalse(e.finish(60)['cleanup_confirmed']);e.socket.close.side_effect=None;self.assertFalse(e.finish(60)['cleanup_confirmed'])
 if __name__=='__main__':unittest.main()
+
+class IntegrationControlTests(unittest.TestCase):
+    def binding(self):return u.UDPBinding(NONCE,'a'*64,'b'*64,'S-1-15-3-1',40000,1,False,False)
+    def cases(self,accepted=False):
+        binding=self.binding();result=dict(driver_error=False,cleanup_confirmed=True)
+        for phase,net in reports(denied=not accepted).items():
+            actor=dict(schemaVersion=1,mode='actor-n0a-udp',nonce=NONCE,queriesSucceeded=True,errors=[],tokenElevated=False,pid=123,
+                tokenIsAppContainer=phase=='contained',isProcessInJob=True,tokenAppContainerSid='S-1-15-2-1-2-3-4-5-6-7' if phase=='contained' else None,
+                tokenCapabilities=[{'sid':binding.agentic_sid,'attributes':4}] if phase=='contained' else [],udp=net)
+            result[phase]=dict(nonce=NONCE,actor_sha256=binding.actor_sha256,executor_sha256=binding.executor_sha256,build=26300,ubr=9457,
+                actor=actor,pid_verified=True,pid_binding='executor_audit' if phase=='contained' else 'ordinary_handle',child_exit_code=0,
+                probe={},probe_exit_code=0,actual_tiers=['base-container'],exit_code=0,timed_out=False,harness_error=False)
+        return result
+    def test_frozen_runner_binding_exact_argv_and_mode(self):
+        b=self.binding();self.assertTrue(b.valid());self.assertEqual(u.command('actor','report',b,'contained'),['actor','n0a-udp',NONCE,'report','40000','contained'])
+        with self.assertRaises(Exception):b.runner_port=5
+        with self.assertRaises(ValueError):u.command('actor','report',b,'guest')
+        case=self.cases()['contained'];case['actor']['mode']='actor-n0a';self.assertIsNone(u.bound_actor(case,b))
+    def test_provenance_control_and_sticky_accepted_echo(self):
+        from types import SimpleNamespace
+        helpers=SimpleNamespace(proof_helpers=lambda:SimpleNamespace(smoke=SimpleNamespace(base_container_selected=lambda p,e:True)))
+        with patch.object(u,'tcp_helpers',return_value=helpers):
+            cases=self.cases();value=u.evaluate(cases,self.binding());self.assertTrue(value['explicit_send_denial']);self.assertTrue(value['ordinary_controls_verified'])
+            for key,bad in [('pid_verified',False),('pid_binding','ordinary_handle'),('actual_tiers',['app-container']),('child_exit_code',True)]:
+                changed=self.cases();changed['contained'][key]=bad;self.assertFalse(u.evaluate(changed,self.binding())['explicit_send_denial'])
+            cases=self.cases(True);cases['contained']['child_exit_code']=4;cases['contained']['harness_error']=True;cases['driver_error']=True
+            result=u.evaluate(cases,self.binding());self.assertEqual(result['selected_send_accepted_count'],3);self.assertTrue(result['selected_echo_observed']);self.assertFalse(result['ordinary_controls_verified'])
+            del cases['sample'];self.assertTrue(u.evaluate(cases,self.binding())['selected_echo_observed'])
+    def test_disabled_driver_and_exact_phase_dispatch(self):
+        with self.assertRaises(PermissionError):u.run_endpoint(Mock(),self.binding(),100,approved=True)
+        execution=Mock();execution.close_owned.return_value=True
+        with patch.object(u,'EXECUTION_ENABLED',True):
+            result=u.run_endpoint(execution,self.binding(),100,approved=True,clock=lambda:0,sleep=lambda _:None)
+        self.assertEqual([call.args[1] for call in execution.invoke.call_args_list],['before','contained','after'])
+        self.assertEqual(execution.start.call_args.args,('ordinary','sample','runner',40000));self.assertFalse(result['driver_error'])
+    def test_closed_result_rejects_extra_types_and_acceptance(self):
+        value=u.evaluate({},None);self.assertEqual(u.closed_result(value),value)
+        for key,bad in [('stage0_passed',True),('selected_send_accepted_count',True),('profile_verified',{'before':True})]:
+            changed=dict(value);changed[key]=bad
+            with self.assertRaises(ValueError):u.closed_result(changed)
+
+class IndependentDenialTests(unittest.TestCase):
+    binding=IntegrationControlTests.binding
+    cases=IntegrationControlTests.cases
+    def test_bound_three_sendto_denials_survive_unrelated_failure(self):
+        from types import SimpleNamespace
+        helpers=SimpleNamespace(proof_helpers=lambda:SimpleNamespace(smoke=SimpleNamespace(base_container_selected=lambda p,e:True)))
+        with patch.object(u,'tcp_helpers',return_value=helpers):
+            for failure in ('ordinary','driver','cleanup','selected_exit'):
+                cases=self.cases()
+                if failure=='ordinary':del cases['sample']
+                if failure=='driver':cases['driver_error']=True
+                if failure=='cleanup':cases['cleanup_confirmed']=False
+                if failure=='selected_exit':cases['contained']['child_exit_code']=4;cases['contained']['harness_error']=True
+                result=u.evaluate(cases,self.binding());self.assertTrue(result['explicit_send_denial']);self.assertFalse(result['ordinary_controls_verified']);self.assertFalse(result['runtime_acceptance'])
+            cases=self.cases();cases['contained']['actor']['udp']['attempts'][0]['attempted']=False
+            self.assertFalse(u.evaluate(cases,self.binding())['explicit_send_denial'])

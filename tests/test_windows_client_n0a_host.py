@@ -154,7 +154,13 @@ class LifecycleTests(unittest.TestCase):
         self.assertLess(body.index('merge_direct_result(public, server.result'),body.index('wait_for_n0a(server'))
         self.assertIn("if n0a is not None and not original_merged",body)
         self.assertIn("'n0a-connect-public.json'",body)
-        self.assertIn('n0a=n0a',body)
+        call=next(n for n in ast.walk(ast.parse(body)) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='payload')
+        keywords={k.arg:k.value for k in call.keywords}
+        marker=object()
+        for udp_mode in (False,True):
+            context={'udp_mode':udp_mode,'n0a':marker}
+            self.assertIs(eval(compile(ast.Expression(keywords['n0a']),'<fixture>','eval'),context),None if udp_mode else marker)
+            self.assertIs(eval(compile(ast.Expression(keywords['udp']),'<fixture>','eval'),context),marker if udp_mode else None)
         self.assertEqual(host.MAX_REPORT,16384);self.assertEqual(host.MAX_N0A_REPORT,4096)
         self.assertEqual((host.DISK_FILE_CAP,host.LAUNCH_FREE,host.STOP_FREE),(22*2**30,24*2**30,4*2**30))
         payload=functions['payload']

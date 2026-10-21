@@ -168,3 +168,171 @@ class UdpEndpoint:
         return dict(cleanup_confirmed=okay and stopped,thread_stopped=stopped,socket_closed=okay,
                     error=self.error,datagram_observed=self.observed.is_set(),contained_observed=self.contained_observed.is_set(),counts=dict(self.counts) if stopped else None,
                     verified_indices={p:sorted(i for phase,i in self.seen if phase==p) for p in PHASES} if stopped else None)
+
+# Optional integration remains independently disabled. No TCP globals are changed.
+EXECUTION_ENABLED=False
+
+def tcp_helpers():
+    import importlib.util
+    import sys
+    from pathlib import Path
+    name='udp_pinned_tcp_helpers'
+    if name not in sys.modules:
+        spec=importlib.util.spec_from_file_location(name,Path(__file__).with_name('windows_n0a_control.py'))
+        module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return sys.modules[name]
+
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class UDPBinding:
+    nonce: str
+    actor_sha256: str
+    executor_sha256: str
+    agentic_sid: str
+    runner_port: int
+    controller_compartment: int
+    controller_elevated: bool
+    controller_appcontainer: bool
+    build: int = 26300
+    ubr: int = 9457
+    def valid(self):
+        return (type(self.nonce) is str and re.fullmatch('[0-9a-f]{32}',self.nonce) is not None
+                and all(type(x) is str and re.fullmatch('[0-9a-f]{64}',x) for x in (self.actor_sha256,self.executor_sha256))
+                and type(self.agentic_sid) is str and re.fullmatch(r'S-1-15-3(?:-[0-9]{1,10}){1,12}',self.agentic_sid) is not None
+                and integer(self.runner_port,1025,65535) and type(self.controller_compartment) is int and self.controller_compartment==1
+                and self.controller_elevated is False and self.controller_appcontainer is False
+                and type(self.build) is int and self.build==26300 and type(self.ubr) is int and self.ubr==9457)
+
+def verify_binding(actor,expected_actor_sha256,executor,manifest,nonce,runner_port):
+    if not integer(runner_port,1025,65535):raise ValueError('port')
+    # Reuse only the read-only OS/source-token/pinned-G observation, not its
+    # two-endpoint model or TCP actor identity acceptance.
+    observed=tcp_helpers().verify_binding(actor,expected_actor_sha256,executor,manifest,nonce,(runner_port,runner_port))
+    return UDPBinding(observed.nonce,observed.actor_sha256,observed.executor_sha256,observed.agentic_sid,runner_port,
+                      observed.controller_compartment,observed.controller_elevated,observed.controller_appcontainer,observed.build,observed.ubr)
+
+def command(actor,report,binding,phase):
+    if not isinstance(binding,UDPBinding) or not binding.valid() or phase not in PHASES:raise ValueError('command')
+    return [str(actor),'n0a-udp',binding.nonce,str(report),str(binding.runner_port),phase]
+
+def contained_policy(inputs,profile,actor,binding,required_environment):
+    import subprocess
+    from pathlib import Path
+    value=tcp_helpers().proof_helpers().policy(inputs,profile,actor,binding.nonce,required_environment=required_environment)
+    value['process']['commandLine']=subprocess.list2cmdline(command(actor,Path(profile)/'actor.json',binding,'contained'))
+    return value
+
+def bound_actor(value,binding):
+    if not isinstance(binding,UDPBinding) or not binding.valid() or type(value) is not dict:return None
+    fixed={'nonce':binding.nonce,'actor_sha256':binding.actor_sha256,'executor_sha256':binding.executor_sha256,'build':binding.build,'ubr':binding.ubr}
+    if any(type(value.get(k)) is not type(v) or value.get(k)!=v for k,v in fixed.items()):return None
+    actor=value.get('actor')
+    return actor if type(actor) is dict and actor.get('nonce')==binding.nonce and actor.get('mode')=='actor-n0a-udp' else None
+
+def provenance_verified(value,binding,phase):
+    actor=bound_actor(value,binding)
+    if actor is None or value.get('pid_verified') is not True:return False
+    if phase=='contained':
+        return (value.get('pid_binding')=='executor_audit' and integer(value.get('child_exit_code'),-2**31,2**31-1)
+                and type(value.get('probe_exit_code')) is int and value['probe_exit_code']==0
+                and tcp_helpers().proof_helpers().smoke.base_container_selected(value.get('probe'),0)
+                and value.get('actual_tiers')==['base-container'])
+    return phase in PHASES and value.get('pid_binding')=='ordinary_handle' and integer(value.get('child_exit_code'),-2**31,2**31-1)
+
+def invocation_valid(value,binding,phase):
+    actor=bound_actor(value,binding)
+    if actor is None or not native_identity(actor,binding.nonce,phase,binding.agentic_sid) or not provenance_verified(value,binding,phase):return None
+    try:network=validate_network(actor.get('udp'),binding.nonce,phase,binding.runner_port)
+    except (ValueError,TypeError):return None
+    if (network['profileMatched'] is not True or network['startupError']!=0 or value.get('timed_out') is not False
+            or value.get('harness_error') is not False or type(value.get('exit_code')) is not int or value['exit_code']!=0
+            or value.get('child_exit_code')!=0):return None
+    return network
+
+def evaluate(cases,binding):
+    result=controls({},'0'*32,1025)
+    result.update(schema_version=1,experiment='N0a-UDP',profile_verified={p:False for p in PHASES},
+                  provenance_verified={p:False for p in PHASES},stage0_passed=False,product_acceptance=False,
+                  privacy_qualified=False,psec_cleanup_independently_verified=False)
+    networks={};valid=True
+    if type(cases) is not dict:return result
+    for phase in PHASES:
+        value=cases.get(phase);actor=bound_actor(value,binding)
+        if actor is None:valid=False;continue
+        result['profile_verified'][phase]=native_identity(actor,binding.nonce,phase,binding.agentic_sid)
+        result['provenance_verified'][phase]=provenance_verified(value,binding,phase)
+        try:network=validate_network(actor.get('udp'),binding.nonce,phase,binding.runner_port)
+        except (ValueError,TypeError):valid=False;continue
+        result['profile_verified'][phase]=result['profile_verified'][phase] and network['profileMatched']
+        if result['profile_verified'][phase] and result['provenance_verified'][phase]:networks[phase]=network
+        if invocation_valid(value,binding,phase) is None:valid=False
+    if isinstance(binding,UDPBinding):result.update(controls(networks,binding.nonce,binding.runner_port))
+    if not valid or cases.get('driver_error') is not False or cases.get('cleanup_confirmed') is not True:
+        # All-three sendto10013 is an independent bound API observation,
+        # not a control/cleanup or isolation outcome. Do not erase it here.
+        result['ordinary_controls_verified']=False;result['sockets_cleanup_confirmed']=False
+    return result
+
+def run_endpoint(execution,binding,deadline,*,approved=False,clock=time.monotonic,sleep=time.sleep):
+    if not EXECUTION_ENABLED or not approved:raise PermissionError('UDP inactive')
+    if not isinstance(binding,UDPBinding) or not binding.valid():raise ValueError('binding')
+    limit=lambda seconds:tcp_helpers().clipped_timeout(deadline,seconds,clock=clock)
+    result={'driver_error':False,'cleanup_confirmed':False};owned=None
+    try:
+        execution.probe('runner',binding.runner_port,timeout=limit(30))
+        result['before']=execution.invoke('ordinary','before','runner',binding.runner_port,timeout=limit(5))
+        owned=execution.start('ordinary','sample','runner',binding.runner_port)
+        sleep(limit(1.5))
+        result['contained']=execution.invoke('contained','contained','runner',binding.runner_port,timeout=limit(15))
+        result['sample']=execution.wait(owned,timeout=limit(12))
+        result['after']=execution.invoke('ordinary','after','runner',binding.runner_port,timeout=limit(5))
+    except Exception:result['driver_error']=True
+    finally:
+        if owned is not None:
+            try:result['cleanup_confirmed']=execution.close_owned(owned) is True
+            except Exception:pass
+    return result
+
+def closed_result(value):
+    template=evaluate({},None)
+    if type(value) is not dict or set(value)!=set(template):raise ValueError('UDP result')
+    for key,default in template.items():
+        current=value[key]
+        if type(default) is bool:
+            if type(current) is not bool:raise ValueError('UDP flag')
+            if key in ('runtime_acceptance','stage0_passed','product_acceptance','privacy_qualified','psec_cleanup_independently_verified') and current:raise ValueError('UDP acceptance')
+        elif type(default) is dict:
+            if type(current) is not dict or set(current)!=set(PHASES) or any(type(x) is not bool for x in current.values()):raise ValueError('UDP phases')
+        elif key=='selected_send_accepted_count':
+            if not integer(current,0,3):raise ValueError('UDP count')
+        elif type(current) is not type(default) or current!=default:raise ValueError('UDP fixed')
+    if value['explicit_send_denial'] and (not value['all_selected_sendto_invoked'] or value['selected_send_accepted_count'] or not value['profile_verified']['contained'] or not value['provenance_verified']['contained']):raise ValueError('UDP denial')
+    return json.loads(json.dumps(value))
+
+def default_host_udp(reason='report_absent'):
+    old=tcp_helpers().default_host_n0a(reason)
+    return dict(schema_version=1,experiment='N0a-UDP',receipt_verified=False,reason=old['reason'],result=evaluate({},None),execution=old['execution'],launcher=old['launcher'])
+
+def validate_host_udp_envelope(value,expected):
+    from ruleproxy.windows_runtime_pins import MXC_G_EXECUTOR_SHA256
+    if type(value) is not dict or set(value)!={'schema_version','case_nonce','actor_sha256','report','launcher'}:raise ValueError('UDP envelope')
+    if len(json.dumps(value,ensure_ascii=True).encode('ascii'))>4096:raise ValueError('UDP bound')
+    if type(value['schema_version']) is not int or value['schema_version']!=1 or value['case_nonce']!=expected['case_nonce'] or value['actor_sha256']!=expected['actor_sha256']:raise ValueError('UDP binding')
+    launcher=value['launcher'];old=tcp_helpers();template=default_host_udp()
+    if (type(launcher) is not dict or set(launcher)!=set(template['launcher']) or launcher['phase'] not in old.LAUNCHER_PHASES or launcher['failure'] not in old.LAUNCHER_FAILURES
+        or (launcher['python_exit_code'] is not None and not integer(launcher['python_exit_code'],-2**31,2**31-1))
+        or (launcher['process_exit_confirmed'] is not None and type(launcher['process_exit_confirmed']) is not bool)
+        or any(type(launcher[k]) is not bool for k in ('timed_out','budget_exhausted'))):raise ValueError('UDP launcher')
+    template['launcher']=dict(launcher);template['reason']=launcher['failure']
+    report=value['report']
+    if report is None:return template
+    binding=dict(case_nonce=expected['case_nonce'],actor_sha256=expected['actor_sha256'],executor_sha256=MXC_G_EXECUTOR_SHA256,build=26300,ubr=9457)
+    if type(report) is not dict or set(report)!={'schema_version','binding','result','execution'} or type(report['schema_version']) is not int or report['schema_version']!=1 or report['binding']!=binding:raise ValueError('UDP report')
+    execution=report['execution']
+    if type(execution) is not dict or set(execution)!={'phase','failed','cleanup_confirmed'} or execution['phase'] not in old.EXECUTION_PHASES or any(type(execution[k]) is not bool for k in ('failed','cleanup_confirmed')):raise ValueError('UDP execution')
+    template.update(receipt_verified=True,reason='none',result=closed_result(report['result']),execution=dict(execution))
+    complete=(not execution['failed'] and execution['cleanup_confirmed'] and launcher['failure']=='none' and launcher['python_exit_code']==0 and launcher['process_exit_confirmed'] is True and not launcher['timed_out'] and not launcher['budget_exhausted'])
+    if not complete:
+        template['result']['ordinary_controls_verified']=False;template['result']['sockets_cleanup_confirmed']=False
+    return template
