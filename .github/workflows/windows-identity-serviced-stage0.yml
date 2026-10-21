@@ -1,4 +1,4 @@
-# Supported control attempt 08: bounded extra reboot; no provider deletion.
+# Supported control attempt 09: isolated bounded COM2 advisory; no acceptance change.
 name: Windows serviced client Stage0 (bounded experiment)
 on:
   push:
