@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "run_id": 39672075160,
+  "head": "cb2082969e5bfd43e328c7925cdf3b4ae01da479",
+  "freeze_sha256": "0207b92bd3d1435d2a88c5b65f5f7337f0e9312609b1108080d7e1f853a80485",
+  "overall_passed": false,
+  "linux": {
+    "required_tests": 649,
+    "skips": 0,
+    "required_passed": true,
+    "closed_records": [
+      {
+        "fixture_only": true,
+        "path_fd_fields_equal": {
+          "ctime": true,
+          "device": true,
+          "inode": true,
+          "mode": true,
+          "mtime": true,
+          "size": true
+        }
+      },
+      {
+        "cleanup_confirmed": true,
+        "control_closed": true,
+        "failure": false,
+        "forced_kill": false,
+        "guest_executed": false,
+        "packet_egress_tested": false,
+        "passed": true,
+        "paused_observed": true,
+        "process_exit_observed": true,
+        "provenance": {
+          "admitted": true,
+          "close_confirmed": true,
+          "failure": false,
+          "libslirp": {
+            "architecture": "amd64",
+            "local_integrity_verified": true,
+            "name": "libslirp0",
+            "sha256": "1f71a24af59f3aa76c1e0bcf7852de08c1c21c40524479b9d5df404d903b2280",
+            "version": "4.7.0-1ubuntu3.1"
+          },
+          "pre_stop_verified": true,
+          "qemu": {
+            "architecture": "amd64",
+            "local_integrity_verified": true,
+            "name": "qemu-system-x86",
+            "sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+            "version": "1:8.2.2+ds-0ubuntu1.18"
+          },
+          "resident_bytes_verified": false,
+          "schema_version": 1,
+          "source_equivalence_verified": false
+        },
+        "qemu_8_2_2": true,
+        "schema_version": 1,
+        "work_removed": true
+      }
+    ]
+  },
+  "windows": {
+    "builds_passed": true,
+    "required_tests": 649,
+    "skips": 0,
+    "required_passed": false,
+    "failures": 3,
+    "errors": 2,
+    "closed_records": [
+      {
+        "fixture_only": true,
+        "path_fd_fields_equal": {
+          "ctime": false,
+          "device": true,
+          "inode": true,
+          "mode": true,
+          "mtime": true,
+          "size": true
+        }
+      }
+    ],
+    "observed_fixture_exception": "RecursionError",
+    "later_input_ps_zip_mechanics_stages_executed": false
+  },
+  "windows_vm_executed": false,
+  "guest_alias_verified": false
+}
