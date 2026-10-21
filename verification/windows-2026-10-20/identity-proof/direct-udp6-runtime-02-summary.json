@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "experiment": "instrumented direct UDP6 guest diagnostic 02",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39682239276",
+  "head": "10b3eeb60fb0faf487f90ef05a1ed19c2da605c3",
+  "source_head": "2094ed5db74d64ec39d47b98f5882933fa92b6c5",
+  "freeze_sha256": "d370508f06afad4097ba97f726b0fce15fb93e2e0c3edb826a3368cd20372f7d",
+  "receipt_sha256": {
+    "udp6": "dfdfdbf0ea240f86dfc8c863a4bed10d77e835c704a8e6c59fcdc4d780e4d4db",
+    "stage0": "02a6d03fbc1556d4b27c04b5aa56fe472b5c396abc8dd272395e41fc3347cb2a",
+    "preparation": "10fcce21688b471af3ac1ef6f0bcd4403ef53772c77ce33d99afa60d8d570344"
+  },
+  "status": "ordinary-control peer validation refused; selected work not requested by the observed driver",
+  "observations": [
+    "This run localizes the driver failure to before_admission. The before envelope returned an object report; binding, fresh identity, provenance, network schema, ordinary profile, startup, exits, timeout/harness, socket cleanup and single-attempt predicates passed. Exact echo-success did not.",
+    "The ordinary native sendto accepted 48 bytes. The owned runner received and verified one before nonce payload and accepted its echo send. Native recvfrom returned a sender sockaddr passing length, family, port, nonmapped and address checks, but the zero-scope check was false. The unchanged peer predicate rejected it as echo_peer with synthetic 10022, not a Winsock API error or isolation denial. Payload validation follows peer validation and was not reached, so the guest did not establish exact nonce echo acceptance.",
+    "The fixed driver ledger reports sample, contained and after were not requested. This is newly observed driver state, not an inference from their false verification flags. No selected native invocation or selected send/denial/absence result is established. Unavailable report fields are not a general claim about filesystem absence.",
+    "Binary admission and the configured P<=24MiB/65MiB reserve gate passed; the receipt does not expose exact ZIP size. Held-QEMU mapped backing-file and separate local package integrity admission/pre-stop/close passed; resident bytes and upstream-source equivalence remain unverified.",
+    "No complete four-report flow commitment was available. Packet status remains inconclusive, reason commitment_missing, with no admitted packet evaluation. No PCAP-empty or no-egress claim follows.",
+    "QEMU and TPM exits were observed as zero before/after cleanup; QMP/server/watcher/receiver/socket/thread/work cleanup is reported complete, zero teardown errors. Raw private reports/bundle/PCAP were not archived and cannot be independently reconstructed here.",
+    "Strict Stage0 remains false because capabilities_empty is false; the observed build 26300.9457 remains below support floor 26300.9550. Existing acceptance rules were not relaxed."
+  ],
+  "limits": [
+    "The nonzero sender-scope failure is observed in this instrumented job only. It is consistent with a possible prior failure but does not retrospectively identify the first run hidden cause.",
+    "Native scalar and driver facts are authenticated controller-attested projections tied to reviewed source, not independent raw token/socket/report reconstruction. An executor handle is not independently proof of selected actor execution.",
+    "No acceptance, peer-scope rule, endpoint, identity/policy, QEMU network configuration, attempt count or budget was changed for this run. No networking repair, IPv4 fallback or automatic subsequent run occurred.",
+    "This is failed ordinary calibration, not IPv6 isolation or API enforcement. No DNS/proxy/descendant IPv6/Linux/product acceptance claim. Any compatibility change requires separate source-backed review and authorization."
+  ]
+}
