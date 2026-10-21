@@ -158,4 +158,38 @@ class CompositionTests(unittest.TestCase):
         result,fixture,children=self.exercise(nrpt=b'NRPT_PRESENT')
         self.assertEqual(result['failure'],'nrpt');self.assertEqual(len(children),1);fixture.start.assert_not_called()
 
+def descriptor():
+    return dict(schema=1,test_only=True,mode='describe',api_called=False,runtime_acceptance=False,
+        layout={key:[0]*count for key,count in g.DESCRIBE_LAYOUT.items()},
+        initialized={key:False for key in g.DESCRIBE_INITIALIZED},module_existing=True,
+        system_path_verified=True,version_available=True,dnsapi_file_version=[10,0,26100,1])
+class DescribeTests(unittest.TestCase):
+    def test_exact_closed_observations_not_layout_acceptance(self):
+        value=descriptor();self.assertEqual(g.describe_report(raw(value)),value)
+        value.update(version_available=False,dnsapi_file_version=None,system_path_verified=False)
+        self.assertEqual(g.describe_report(raw(value)),value)
+    def test_reject_extra_raw_values_bool_numbers_and_shape(self):
+        for mutate in [lambda v:v.update(raw_path='PRIVATE'),lambda v:v.update(api_called=True),lambda v:v['layout']['sizes'].append(1),lambda v:v['layout']['sizes'].__setitem__(0,True),lambda v:v['initialized'].update(ipv4=1),lambda v:v.update(dnsapi_file_version=[1,2,3,65536]),lambda v:v.update(version_available=False)]:
+            value=descriptor();mutate(value)
+            with self.assertRaises(ValueError):g.describe_report(raw(value))
+    def test_only_describe_child_and_unknown_cleanup_retains_work(self):
+        for unknown in (False,True):
+            with tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp)/'owned';root.mkdir();calls=[]
+                class FakeChild:
+                    def __init__(self,root,name):self.path=root/'describe.out';self.process=Mock(returncode=0)
+                    def start(self,argv):calls.append(argv);self.path.write_bytes(raw(descriptor()))
+                    def wait(self,deadline):return True
+                    def finish(self,deadline):return dict(cleanup_confirmed=not unknown,exited=not unknown,handles_closed=not unknown,killed=False)
+                with patch.object(g,'os',Mock()) as fakeos,patch.object(g,'verify',return_value=True),patch.object(g,'Child',FakeChild),patch.object(g.tempfile,'mkdtemp',return_value=str(root)),patch.object(g,'run',side_effect=AssertionError('query dispatch')),patch.object(g.importlib.util,'module_from_spec',side_effect=AssertionError('fixture import')):
+                    fakeos.name='nt';result=g.run_describe(Path('actor'),Path('manifest'))
+                self.assertEqual(calls,[['actor','--describe']]);self.assertEqual(result['diagnostics_complete'],not unknown)
+                self.assertEqual(root.exists(),unknown);self.assertFalse(result['api_called'])
+    def test_cli_dispatch_is_explicit_mutually_exclusive(self):
+        import io
+        output=io.StringIO()
+        with patch('sys.argv',['gate','--run-no-query-diagnostics','--actor','actor','--manifest','manifest','--output','out']),patch.object(g,'run',side_effect=AssertionError('query')),patch.object(g,'run_describe',return_value=dict(diagnostics_complete=True)) as describe,patch.object(Path,'write_text'),patch('sys.stdout',output):
+            self.assertEqual(g.main(),0);describe.assert_called_once()
+        with patch('sys.argv',['gate','--run-no-query-diagnostics','--run-actual-windows','--actor','a','--manifest','m','--output','o']),patch('sys.stderr',io.StringIO()),self.assertRaises(SystemExit):g.main()
+
 if __name__=='__main__':unittest.main()

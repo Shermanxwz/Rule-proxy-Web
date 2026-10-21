@@ -63,7 +63,8 @@ class DnsWorkflowTests(unittest.TestCase):
         self.assertIn('build_windows_n0a_dns_fixture.ps1',self.text)
         self.assertIn('dns-TEST-ONLY-build/windows_n0a_DNS_TEST_ONLY_fixture.exe',self.text)
         self.assertIn('dns-TEST-ONLY-build/DNS-TEST-ONLY-manifest.json',self.text)
-        self.assertIn('--run-actual-windows',self.text)
+        self.assertIn('--run-no-query-diagnostics',self.text)
+        self.assertNotIn('--run-actual-windows',self.text)
         self.assertIn('--actor',self.text)
         self.assertIn('--output',self.text)
         self.assertIn('ParseFile',self.text)
@@ -99,7 +100,18 @@ class DnsWorkflowTests(unittest.TestCase):
         doc=(ROOT/'docs/validation/2026-10-21-dns-request3-mechanism.md').read_text()
         for fact in ('status 87','zero owned-responder queries','not DNS denial',
                      'non-null cancellation pointer versus a null cancellation pointer',
-                     'same existing 60-second overall budget','If both return 87'):
+                     'same existing 60-second overall budget','Both cases returned 87'):
+            self.assertIn(fact,doc)
+
+    def test_workflow_selects_only_no_query_diagnostics(self):
+        command=next(line.strip() for line in self.text.splitlines()
+                     if 'python -B .github/test_windows_dns_request3.py ' in line)
+        self.assertIn('--run-no-query-diagnostics',command)
+        for forbidden in ('--run-actual-windows','--query','--query-null-cancel','--test-pending'):
+            self.assertNotIn(forbidden,command)
+        doc=(ROOT/'docs/validation/2026-10-21-dns-request3-mechanism.md').read_text()
+        for fact in ('provenance-only','No resolver request','does not identify the cause',
+                     'Both cases returned 87','not work performed by this no-query workflow'):
             self.assertIn(fact,doc)
 
     def test_exact_native_source_pin_not_placeholder(self):

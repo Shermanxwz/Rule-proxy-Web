@@ -209,16 +209,78 @@ def run(actor, manifest):
     return result
 
 
+DESCRIBE_LAYOUT={'sizes':3,'alignments':3,'request_offsets':12,'result_offsets':5,'custom_offsets':4}
+DESCRIBE_INITIALIZED=('request_version','result_version','reserved_zero','result_zero','custom_singleton','legacy_null','callback_null','custom_udp','flags_zero','template_null','ipv4','loopback','port_roundtrip','query_name_bound','query_type_a','interface_zero','context_null','options_exact')
+
+
+def describe_report(raw):
+    value=decode(raw)
+    fixed=dict(schema=1,test_only=True,mode='describe',api_called=False,runtime_acceptance=False)
+    flags=('module_existing','system_path_verified','version_available')
+    if type(value) is not dict or set(value)!=set(fixed)|set(flags)|{'layout','initialized','dnsapi_file_version'}:raise ValueError('describe_schema')
+    for key,expected in fixed.items():
+        if type(value[key]) is not type(expected) or value[key]!=expected:raise ValueError('describe_fixed')
+    if any(type(value[key]) is not bool for key in flags):raise ValueError('describe_type')
+    layout=value['layout']
+    if type(layout) is not dict or set(layout)!=set(DESCRIBE_LAYOUT):raise ValueError('describe_layout')
+    for key,count in DESCRIBE_LAYOUT.items():
+        if type(layout[key]) is not list or len(layout[key])!=count or any(not integer(item,0,65536) for item in layout[key]):raise ValueError('describe_layout')
+    initialized=value['initialized']
+    if type(initialized) is not dict or set(initialized)!=set(DESCRIBE_INITIALIZED) or any(type(item) is not bool for item in initialized.values()):raise ValueError('describe_initialized')
+    version=value['dnsapi_file_version']
+    if version is not None and (type(version) is not list or len(version)!=4 or any(not integer(item,0,65535) for item in version)):raise ValueError('describe_version')
+    if value['version_available'] is not (version is not None):raise ValueError('describe_version')
+    if value['version_available'] and not (value['module_existing'] and value['system_path_verified']):raise ValueError('describe_version')
+    return value
+
+
+def run_describe(actor, manifest):
+    """No-query diagnostic lifecycle. No receiver, NRPT, or DNS query dispatch."""
+    deadline=time.monotonic()+BUDGET
+    result=dict(schema=1,mode='describe',diagnostics_complete=False,descriptor=None,
+                os_version=None,cleanup_confirmed=False,work_removed=False,
+                failure='none',api_called=False,runtime_acceptance=False)
+    root=None;child=None
+    try:
+        if os.name!='nt':raise ValueError('platform')
+        if hasattr(sys,'getwindowsversion'):
+            version=sys.getwindowsversion()
+            result['os_version']={key:int(getattr(version,key)) for key in ('major','minor','build')}
+        verify(actor,manifest)
+        root=Path(tempfile.mkdtemp(prefix='dns-describe-'))
+        child=Child(root,'describe')
+        child.start([str(actor),'--describe'])
+        ended=child.wait(min(deadline-10,time.monotonic()+10))
+        result['descriptor']=describe_report(read_bounded(child.path))
+        result['diagnostics_complete']=ended and child.process.returncode==0
+        if not ended:result['failure']='timeout'
+    except Exception as exc:
+        allowed={'platform','output_bound','artifact','manifest','pin','sdk','headers'}
+        result['failure']=str(exc) if type(exc) is ValueError and str(exc) in allowed else 'operation'
+    finally:
+        if child is not None:
+            try:result['child_cleanup']=child.finish(deadline)
+            except Exception:result['child_cleanup']=dict(exited=False,killed=False,handles_closed=False,cleanup_confirmed=False)
+            result['cleanup_confirmed']=result['child_cleanup']['cleanup_confirmed']
+        else:result['cleanup_confirmed']=True
+        if root is not None and result['cleanup_confirmed']:
+            try:shutil.rmtree(root);result['work_removed']=True
+            except Exception:result['cleanup_confirmed']=False
+        result['diagnostics_complete']=result['diagnostics_complete'] and result['cleanup_confirmed'] and result['work_removed']
+    return result
+
+
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--run-actual-windows',action='store_true')
+    parser=argparse.ArgumentParser();modes=parser.add_mutually_exclusive_group(required=True)
+    modes.add_argument('--run-actual-windows',action='store_true')
+    modes.add_argument('--run-no-query-diagnostics',action='store_true')
     parser.add_argument('--actor',type=Path,required=True);parser.add_argument('--manifest',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
-    if not args.run_actual_windows:parser.error('explicit opt-in required')
     try:
-        result=run(args.actor.resolve(),args.manifest.resolve())
+        result=(run_describe if args.run_no_query_diagnostics else run)(args.actor.resolve(),args.manifest.resolve())
         raw=json.dumps(result,sort_keys=True,separators=(',',':'))
         args.output.write_text(raw+'\n',encoding='ascii');print(raw)
-        return 0 if result['mechanism_positive'] else 1
+        return 0 if result['diagnostics_complete' if args.run_no_query_diagnostics else 'mechanism_positive'] else 1
     except Exception:
         print('{"schema":1,"failure":"output","mechanism_positive":false,"runtime_acceptance":false}')
         return 1
