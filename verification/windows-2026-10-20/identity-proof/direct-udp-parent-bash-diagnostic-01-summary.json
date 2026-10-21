@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "experiment": "Descendant prerequisite inert Bash diagnostic",
+  "run": {
+    "id": 39638424134,
+    "head": "f6e9ca6e400bbe1adfacb70b32edcfe40fc6d97a",
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39638424134",
+    "conclusion": "success"
+  },
+  "source_freeze_sha256": "582da811423c9bddfa5ddca8003f8846aa4f86dc17b97b1c5a751faf2b967ba8",
+  "result_sha256": "67142b5ac30d161abe616190f5b672f76618d503784f0fc4fc349d793cd9c010",
+  "required_tests": {
+    "windows": 440,
+    "linux": 440,
+    "skipped": 0
+  },
+  "observations": {
+    "bash_each_platform": 34,
+    "all_elapsed_under_one_second": true,
+    "successful_stub_cases_each": 5,
+    "expected_negative_body_cases_each": 29,
+    "direct_exits_confirmed": true,
+    "kills_attempted": false,
+    "owned_roots_removed": true,
+    "powershell_checks": [
+      75,
+      48,
+      60
+    ],
+    "payload_members": [
+      10,
+      14,
+      15,
+      17,
+      22
+    ],
+    "payload_checks": 48,
+    "payload_negative_cases": 8,
+    "hosted_main_echoes": 45,
+    "hosted_timeout_receiver_echoes": 4,
+    "hosted_parent_owners": 14,
+    "hosted_receivers": 5,
+    "hosted_cleanup_confirmed": true
+  },
+  "limits": [
+    "Original five-second fixture work timeout unchanged; separate cleanup observation budget at most one second, no internal retry.",
+    "Stage is last observed marker, not proof of the precise blocking call. Current normal completion does not establish the earlier timeout cause.",
+    "DEVNULL suppresses raw output; its causal effect on the earlier failure is unproven.",
+    "Direct Bash process exit is not independently observed descendant-tree cleanup. Timeout, unexpected exit or uncertain cleanup retains owned fixture work.",
+    "Hosted wrapper mechanics use TEST_ONLY loopback and ordinary non-AppContainer identities; null-SID matching is not AppContainer inheritance.",
+    "Timeout receiver frames are receiver evidence; no valid child report was observed. Injected resume refusal occurs before ResumeThread.",
+    "PowerShell transport/provenance and ZIP pin boundaries are mocked or inert; no guest runtime, actual production payload fit, packet absence or isolation result.",
+    "Prior runtime attempt39636131497 remains a pre-VM prerequisite failure with unresolved timeout cause. No runtime retry was launched."
+  ],
+  "scope": {
+    "vm_executed": false,
+    "production_changed": false,
+    "work_timeout_seconds": 5,
+    "cleanup_observation_seconds": 1,
+    "internal_retry": false,
+    "original_timeout_cause_established": false,
+    "devnull_proven_fix": false,
+    "descendant_tree_cleanup_observed": false
+  }
+}
