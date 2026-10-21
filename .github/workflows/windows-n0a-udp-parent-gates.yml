@@ -29,6 +29,8 @@ on:
       - 'tests/test_windows_udp_parent_composed.py'
       - 'docs/validation/2026-10-21-udp-descendant-integration.md'
       - 'tests/test_windows_udp_parent_guest.py'
+      - '.github/test-windows-n0a-guest-gates.ps1'
+      - 'tests/test_windows_n0a_guest.py'
 permissions:
   contents: read
 concurrency:

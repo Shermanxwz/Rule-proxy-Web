@@ -17,6 +17,8 @@ class ParentWorkflowTests(unittest.TestCase):
         text=PATH.read_text(encoding='utf-8');doc=yaml.load(text,Loader=yaml.BaseLoader)
         self.assertEqual(set(doc['on']),{'push'})
         self.assertEqual(doc['on']['push']['branches'],['dot/windows-isolation-proof'])
+        for dependency in ('.github/test-windows-n0a-guest-gates.ps1','tests/test_windows_n0a_guest.py'):
+            self.assertIn(dependency,doc['on']['push']['paths'])
         self.assertEqual(doc['permissions'],{'contents':'read'})
         self.assertEqual(set(doc['jobs']),{'pure','native-mechanism'})
         self.assertEqual(doc['jobs']['pure']['timeout-minutes'],'5')
