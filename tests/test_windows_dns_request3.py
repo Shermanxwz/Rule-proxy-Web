@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('dns_request3_gate',ROOT/'.github/test_windows_dns_request3.py')
 g=importlib.util.module_from_spec(spec);spec.loader.exec_module(g)
 def report(pending=False):
-    return dict(schema=1,test_only=True,request_version=3,custom_server_count=1,custom_udp=True,custom_flags_zero=True,legacy_server_list_null=True,callback_null=True,api_called=not pending,pending=pending,api_status=9506 if pending else 0,result_status=None if pending else 0,record_count=None if pending else 1,answer_match=not pending,records_freed=not pending,context_retained=pending,runtime_acceptance=False,cancellation_handle_null=False)
+    return dict(schema=1,test_only=True,request_version=3,custom_server_count=1,custom_udp=True,custom_flags_zero=True,legacy_server_list_null=True,callback_null=True,api_called=not pending,pending=pending,api_status=9506 if pending else 0,result_status=None if pending else 0,record_count=None if pending else 1,answer_match=not pending,records_freed=not pending,context_retained=pending,runtime_acceptance=False,cancellation_handle_null=False,custom_port53=False,endpoint_kind='none' if pending else 'high_port')
 def raw(value):return json.dumps(value).encode()
 class Contracts(unittest.TestCase):
     def test_native_completed_and_injected_pending_exact_shape(self):
@@ -191,5 +191,72 @@ class DescribeTests(unittest.TestCase):
         with patch('sys.argv',['gate','--run-no-query-diagnostics','--actor','actor','--manifest','manifest','--output','out']),patch.object(g,'run',side_effect=AssertionError('query')),patch.object(g,'run_describe',return_value=dict(diagnostics_complete=True)) as describe,patch.object(Path,'write_text'),patch('sys.stdout',output):
             self.assertEqual(g.main(),0);describe.assert_called_once()
         with patch('sys.argv',['gate','--run-no-query-diagnostics','--run-actual-windows','--actor','a','--manifest','m','--output','o']),patch('sys.stderr',io.StringIO()),self.assertRaises(SystemExit):g.main()
+
+class PortPairTests(unittest.TestCase):
+    def exercise(self,control_failure=None,unknown_cleanup=None,misroute=False,second_timeout=False,bind_error=False,statuses=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'owned';root.mkdir();children=[];fixtures={}
+            for name in ('high_port','standard_port'):
+                f=Mock();f.counts=dict(datagrams=0,bytes=0,matched_queries=0,answers_sent=0,rejected=0,oversized=0,send_failed=0)
+                f.snapshot.side_effect=lambda f=f,**kwargs:dict(f.counts)
+                f.start.return_value=45000 if name=='high_port' else 53
+                f.finish.return_value=dict(cleanup_confirmed=True,error='none',counts=f.counts)
+                f.query_observed.is_set.side_effect=lambda f=f:f.counts['matched_queries']>0
+                fixtures[name]=f
+            if bind_error:fixtures['standard_port'].start.side_effect=OSError('PRIVATE collision')
+            module=Mock();module.DnsFixture.return_value=fixtures['high_port'];module.DnsFixture.for_port53.return_value=fixtures['standard_port']
+            spec=Mock();spec.loader.exec_module=lambda value:None
+            class FakeChild:
+                def __init__(self,root,name):self.name=name;self.path=root/(name+'.out');self.process=Mock(returncode=0);children.append(self)
+                def start(self,argv):
+                    self.argv=argv
+                    if self.name in ('nrpt','preflight','ownership'):
+                        token={'nrpt':b'NRPT_EMPTY','preflight':b'UDP53_EMPTY','ownership':b'UDP53_OWNED'}[self.name]
+                        self.path.write_bytes(b'UNCONFIRMED' if control_failure==self.name else token)
+                    else:
+                        value=report();value['endpoint_kind']=self.name;value['custom_port53']=self.name=='standard_port'
+                        if statuses and statuses.get(self.name,0)!=0:value.update(api_status=statuses[self.name],result_status=statuses[self.name],record_count=0,answer_match=False,records_freed=False)
+                        self.path.write_bytes(raw(value))
+                        target='standard_port' if misroute and self.name=='high_port' else self.name
+                        if not statuses or statuses.get(self.name,0)==0:
+                            for key in ('datagrams','bytes','matched_queries','answers_sent'):fixtures[target].counts[key]+=1
+                def wait(self,deadline,**kwargs):return not(second_timeout and self.name=='standard_port')
+                def finish(self,deadline):return dict(exited=unknown_cleanup!=self.name,killed=False,handles_closed=unknown_cleanup!=self.name,cleanup_confirmed=unknown_cleanup!=self.name)
+            with patch.object(g,'os',Mock()) as fakeos,patch.object(g,'verify',return_value=True),patch.object(g,'Child',FakeChild),patch.object(g.tempfile,'mkdtemp',return_value=str(root)),patch.object(g.importlib.util,'spec_from_file_location',return_value=spec),patch.object(g.importlib.util,'module_from_spec',return_value=module):
+                fakeos.name='nt';fakeos.getpid.return_value=1234;result=g.run_port_pair(Path('actor'),Path('manifest'))
+            retained=root.exists()
+            return result,children,fixtures,retained
+    def test_both_owned_before_api_same_nonce_fixed53_and_crossendpoint_deltas(self):
+        result,children,fixtures,_=self.exercise()
+        self.assertTrue(result['pair_complete']);self.assertTrue(result['mechanism_positive'])
+        self.assertEqual([c.name for c in children],['nrpt','preflight','ownership','high_port','standard_port'])
+        self.assertEqual(children[3].argv[2],children[4].argv[2]);self.assertEqual(children[4].argv[1],'--query-port53');self.assertEqual(len(children[4].argv),3)
+        for case in result['cases'].values():self.assertEqual(set(case['receiver_delta']),{'high_port','standard_port'})
+    def test_busy_unknown_or_control_cleanup_failure_refuses_api(self):
+        for stage in ('nrpt','preflight','ownership'):
+            for kwargs in ({'control_failure':stage},{'unknown_cleanup':stage}):
+                result,children,_,_=self.exercise(**kwargs)
+                self.assertEqual(result['cases'],{});self.assertFalse(result['mechanism_positive'])
+                self.assertNotIn('high_port',[c.name for c in children])
+    def test_bind_collision_cleanup_and_misroute_not_expected_positive(self):
+        result,children,fixtures,_=self.exercise(bind_error=True)
+        self.assertEqual(result['cases'],{});fixtures['high_port'].finish.assert_called_once();fixtures['standard_port'].finish.assert_called_once()
+        result,_,_,_=self.exercise(misroute=True)
+        self.assertFalse(result['mechanism_positive'])
+        case=result['cases']['high_port'];self.assertTrue(case['other_endpoint_observed']);self.assertFalse(case['positive']);self.assertEqual(case['receiver_delta']['standard_port']['matched_queries'],1)
+    def test_partial_second_case_never_overall_success_preserves_first(self):
+        result,_,_,_=self.exercise(second_timeout=True)
+        self.assertTrue(result['cases']['high_port']['positive']);self.assertFalse(result['pair_complete']);self.assertFalse(result['mechanism_positive']);self.assertTrue(result['query_observed'])
+    def test_both87_zero_queries_stops_at_exact_pair(self):
+        result,children,_,_=self.exercise(statuses={'high_port':87,'standard_port':87})
+        self.assertTrue(result['pair_complete']);self.assertFalse(result['mechanism_positive']);self.assertFalse(result['query_observed'])
+        self.assertEqual(len(children),5)
+        for case in result['cases'].values():self.assertEqual(case['api_report']['api_status'],87)
+    def test_ownership_script_is_readonly_exact_pid_no_policy_output(self):
+        pre=g.ownership_script(False,1234);post=g.ownership_script(True,1234)
+        self.assertIn('Get-NetUDPEndpoint -ErrorAction Stop',pre);self.assertIn('$_.LocalPort -eq 53',pre)
+        self.assertIn("LocalAddress -ceq '127.0.0.1'",post);self.assertIn('OwningProcess -eq 1234',post)
+        for pid in (True,'1234',0,-1):
+            with self.assertRaises(ValueError):g.ownership_script(True,pid)
 
 if __name__=='__main__':unittest.main()

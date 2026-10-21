@@ -83,6 +83,14 @@ class LifecycleTests(unittest.TestCase):
     def test_windows_oversize_is_counted_not_parsed(self):
         error=OSError('PRIVATE');error.winerror=10040
         o=self.serve([error,query()]);self.assertEqual(o.counts['datagrams'],2);self.assertEqual(o.counts['oversized'],1)
+    def test_port53_exclusive_before_bind_no_reuse_and_collision_owned(self):
+        with patch.object(f.time,'monotonic',return_value=0):o=f.DnsFixture.for_port53(NONCE,deadline=60)
+        sock=Mock();sock.bind.side_effect=OSError('PRIVATE collision');sock.fileno.return_value=-1
+        with patch.object(f.socket,'socket',return_value=sock),patch.object(f.socket,'SO_EXCLUSIVEADDRUSE',123,create=True):
+            with self.assertRaises(OSError):o.start()
+        self.assertEqual(sock.mock_calls[:2],[unittest.mock.call.setsockopt(f.socket.SOL_SOCKET,123,1),unittest.mock.call.bind(('127.0.0.1',53))])
+        self.assertIs(o.socket,sock)
+        with patch.object(f.time,'monotonic',return_value=1):self.assertTrue(o.finish(deadline=60)['cleanup_confirmed'])
     def test_idle_receive_does_not_hold_observation_lock(self):
         o=self.fixture();observed=[]
         class IdleSocket:

@@ -77,13 +77,15 @@ void Emit(DNS_STATUS apiStatus, const Context* context, bool apiCalled, bool pen
           unsigned count, bool answerMatch, bool freed, bool cancelNull) {
     const std::string status = pending ? "null" : std::to_string(static_cast<DWORD>(context->result.QueryStatus));
     const std::string records = pending ? "null" : std::to_string(count);
+    const unsigned short observedPort = ntohs(context->server.ServerAddr.Ipv4.sin_port);
+    const char* endpointKind = observedPort == 53 ? "standard_port" : (observedPort >= 1025 ? "high_port" : "none");
     std::printf("{\"schema\":1,\"test_only\":true,\"request_version\":3,"
                 "\"custom_server_count\":1,\"custom_udp\":true,\"custom_flags_zero\":true,"
                 "\"legacy_server_list_null\":true,\"callback_null\":true,"
-                "\"cancellation_handle_null\":%s,\"api_called\":%s,\"pending\":%s,\"api_status\":%lu,\"result_status\":%s,"
+                "\"endpoint_kind\":\"%s\",\"custom_port53\":%s,\"cancellation_handle_null\":%s,\"api_called\":%s,\"pending\":%s,\"api_status\":%lu,\"result_status\":%s,"
                 "\"record_count\":%s,\"answer_match\":%s,\"records_freed\":%s,"
                 "\"context_retained\":%s,\"runtime_acceptance\":false}\n",
-                Bool(cancelNull), Bool(apiCalled), Bool(pending), static_cast<unsigned long>(static_cast<DWORD>(apiStatus)),
+                endpointKind, Bool(observedPort == 53), Bool(cancelNull), Bool(apiCalled), Bool(pending), static_cast<unsigned long>(static_cast<DWORD>(apiStatus)),
                 status.c_str(), records.c_str(), Bool(answerMatch), Bool(freed),
                 Bool(pending && retainedPendingContext != nullptr));
     std::fflush(stdout);
@@ -169,10 +171,13 @@ void Describe(const Context& context, unsigned short port) {
 }
 int Run(int argc, wchar_t** argv) {
     const bool describe = argc == 2 && wcscmp(argv[1], L"--describe") == 0;
+    const bool standardPort = argc == 3 && wcscmp(argv[1], L"--query-port53") == 0;
     const bool injectedPending = argc == 2 && wcscmp(argv[1], L"--test-pending") == 0;
     const bool cancelNull = argc == 4 && wcscmp(argv[1], L"--query-null-cancel") == 0;
     unsigned short port = 0;
-    if (!describe && !injectedPending && (argc != 4 || (wcscmp(argv[1], L"--query") != 0 && !cancelNull) || !Nonce(argv[2]) || !Port(argv[3], port))) return 2;
+    if (standardPort && !Nonce(argv[2])) return 2;
+    if (!describe && !injectedPending && !standardPort && (argc != 4 || (wcscmp(argv[1], L"--query") != 0 && !cancelNull) || !Nonce(argv[2]) || !Port(argv[3], port))) return 2;
+    if (standardPort) port = 53; // Explicit TEST_ONLY mode; never a fallback.
     if (describe) port = 40000; // Private fixed initialization probe, never used for I/O.
     auto context = std::make_unique<Context>();
     context->name = (injectedPending || describe) ? L"00000000000000000000000000000000.n0a.invalid." : std::wstring(argv[2]) + L".n0a.invalid.";

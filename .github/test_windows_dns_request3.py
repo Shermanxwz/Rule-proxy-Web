@@ -46,12 +46,13 @@ def native_report(raw):
     fixed = dict(schema=1, test_only=True, request_version=3, custom_server_count=1,
                  custom_udp=True, custom_flags_zero=True, legacy_server_list_null=True,
                  callback_null=True, runtime_acceptance=False)
-    booleans = ('api_called','pending','answer_match','records_freed','context_retained','cancellation_handle_null')
-    if type(value) is not dict or set(value) != set(fixed) | set(booleans) | {'api_status','result_status','record_count'}:
+    booleans = ('api_called','pending','answer_match','records_freed','context_retained','cancellation_handle_null','custom_port53')
+    if type(value) is not dict or set(value) != set(fixed) | set(booleans) | {'api_status','result_status','record_count','endpoint_kind'}:
         raise ValueError('schema')
     for key, expected in fixed.items():
         if type(value[key]) is not type(expected) or value[key] != expected: raise ValueError('fixed')
     if any(type(value[key]) is not bool for key in booleans): raise ValueError('type')
+    if type(value['endpoint_kind']) is not str or value['endpoint_kind'] not in ('high_port','standard_port','none') or value['custom_port53'] is not (value['endpoint_kind']=='standard_port'):raise ValueError('endpoint')
     if not integer(value['api_status'],0,2**32-1): raise ValueError('status')
     for key, maximum in [('result_status',2**32-1),('record_count',17)]:
         if value[key] is not None and not integer(value[key],0,maximum): raise ValueError('type')
@@ -209,6 +210,89 @@ def run(actor, manifest):
     return result
 
 
+def ownership_script(after_bind, pid):
+    if type(after_bind) is not bool or not integer(pid,1,2**32-1):raise ValueError('owner')
+    prefix="$ErrorActionPreference='Stop'; try { $p=@(Get-NetUDPEndpoint -ErrorAction Stop | Where-Object {$_.LocalPort -eq 53} | Select-Object -First 2); "
+    check=("$p.Count -eq 1 -and $p[0].LocalAddress -ceq '127.0.0.1' -and $p[0].OwningProcess -eq "+str(pid)) if after_bind else '$p.Count -eq 0'
+    token='UDP53_OWNED' if after_bind else 'UDP53_EMPTY'
+    return prefix+"if("+check+"){[Console]::Write('"+token+"')}else{[Console]::Write('UDP53_UNCONFIRMED')} } catch { exit 2 }"
+
+
+def run_port_pair(actor,manifest):
+    deadline=time.monotonic()+BUDGET
+    result=dict(schema=1,mode='port_pair',mechanism_positive=False,pair_complete=False,cases={},fixtures={},
+                nrpt_empty=False,port53_empty=False,port53_owned=False,query_observed=False,
+                cleanup_confirmed=False,work_removed=False,failure='none',runtime_acceptance=False,
+                broker_cancellation_proven=False,receiver_attribution='temporal_shared_nonce_cross_endpoint_observed')
+    root=None;children=[];fixtures={};cleanup=[];finished={}
+    def stop(child):
+        if id(child) in finished:return finished[id(child)]
+        try:fact=child.finish(deadline)
+        except Exception:fact=dict(exited=False,killed=False,handles_closed=False,cleanup_confirmed=False)
+        finished[id(child)]=fact;cleanup.append(fact);return fact
+    def control(name,script,expected):
+        if time.monotonic()>=deadline-10:raise ValueError('budget')
+        child=Child(root,name);children.append(child)
+        child.start(['powershell.exe','-NoProfile','-NonInteractive','-Command',script])
+        ended=child.wait(min(deadline-10,time.monotonic()+5))
+        valid=ended and child.process.returncode==0 and read_bounded(child.path)==expected
+        fact=stop(child)
+        if not valid or not fact['cleanup_confirmed']:raise ValueError(name)
+    try:
+        if os.name!='nt':raise ValueError('platform')
+        verify(actor,manifest);root=Path(tempfile.mkdtemp(prefix='dns-port-pair-'))
+        control('nrpt',NRPT_SCRIPT,b'NRPT_EMPTY');result['nrpt_empty']=True
+        pid=os.getpid()
+        control('preflight',ownership_script(False,pid),b'UDP53_EMPTY');result['port53_empty']=True
+        spec=importlib.util.spec_from_file_location('owned_dns_fixture',ROOT/'windows_dns_fixture.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        nonce=secrets.token_hex(16)
+        fixtures['high_port']=module.DnsFixture(nonce,deadline=deadline);highport=fixtures['high_port'].start()
+        fixtures['standard_port']=module.DnsFixture.for_port53(nonce,deadline=deadline);fixtures['standard_port'].start()
+        control('ownership',ownership_script(True,pid),b'UDP53_OWNED');result['port53_owned']=True
+        for endpoint in ('high_port','standard_port'):
+            if time.monotonic()>=deadline-10:raise ValueError('budget')
+            before={name:fixture.snapshot(deadline=deadline-10) for name,fixture in fixtures.items()}
+            case=dict(api_report=None,receiver_before=before,positive=False,failure='none');result['cases'][endpoint]=case
+            child=Child(root,endpoint);children.append(child);ended=False;completed=False
+            try:
+                argv=[str(actor),'--query',nonce,str(highport)] if endpoint=='high_port' else [str(actor),'--query-port53',nonce]
+                child.start(argv);ended=child.wait(min(deadline-10,time.monotonic()+15))
+                report=native_report(read_bounded(child.path));case['api_report']=report
+                if report['endpoint_kind']!=endpoint or report['custom_port53'] is not (endpoint=='standard_port') or report['cancellation_handle_null']:raise ValueError('case_binding')
+                completed=ended and child.process.returncode==0 and not report['pending']
+                case['positive']=completed and report['api_called'] and report['api_status']==0 and report['result_status']==0 and report['record_count']==1 and report['answer_match'] and report['records_freed']
+            except Exception:case['failure']='observation'
+            finally:case['child_cleanup']=stop(child)
+            case['completed']=completed
+            after={name:fixture.snapshot(deadline=deadline-10) for name,fixture in fixtures.items()}
+            delta={name:{key:after[name][key]-before[name][key] for key in before[name]} for name in fixtures}
+            case['receiver_after']=after;case['receiver_delta']=delta
+            other='standard_port' if endpoint=='high_port' else 'high_port'
+            case['other_endpoint_observed']=any(delta[other].values())
+            selected=delta[endpoint]
+            case['positive']=case['positive'] and selected['matched_queries']>0 and selected['answers_sent']>0 and all(selected[key]==0 for key in ('rejected','oversized','send_failed')) and not case['other_endpoint_observed'] and case['child_cleanup']['cleanup_confirmed']
+            if not completed or not case['child_cleanup']['cleanup_confirmed']:raise ValueError('pair_incomplete')
+    except Exception as exc:
+        allowed={'platform','budget','nrpt','preflight','ownership','pair_incomplete','artifact','manifest','pin','sdk','headers'}
+        result['failure']=str(exc) if type(exc) is ValueError and str(exc) in allowed else 'operation'
+    finally:
+        for child in reversed(children):stop(child)
+        result['children_cleanup']=cleanup
+        for name,fixture in fixtures.items():
+            try:result['fixtures'][name]=fixture.finish(deadline=deadline)
+            except Exception:result['fixtures'][name]=dict(cleanup_confirmed=False,error='operation',counts=None)
+        result['query_observed']=any(f.query_observed.is_set() for f in fixtures.values())
+        clean=all(item['cleanup_confirmed'] for item in cleanup) and all(item['cleanup_confirmed'] for item in result['fixtures'].values())
+        result['cleanup_confirmed']=clean
+        if root is not None and clean:
+            try:shutil.rmtree(root);result['work_removed']=True
+            except Exception:result['cleanup_confirmed']=False
+        result['pair_complete']=set(result['cases'])=={'high_port','standard_port'} and all(case.get('completed') and case['child_cleanup']['cleanup_confirmed'] for case in result['cases'].values())
+        result['mechanism_positive']=result['pair_complete'] and not any(case.get('other_endpoint_observed',True) for case in result['cases'].values()) and any(case['positive'] for case in result['cases'].values()) and result['cleanup_confirmed'] and result['work_removed'] and all(item['error']=='none' for item in result['fixtures'].values())
+    return result
+
+
 DESCRIBE_LAYOUT={'sizes':3,'alignments':3,'request_offsets':12,'result_offsets':5,'custom_offsets':4}
 DESCRIBE_INITIALIZED=('request_version','result_version','reserved_zero','result_zero','custom_singleton','legacy_null','callback_null','custom_udp','flags_zero','template_null','ipv4','loopback','port_roundtrip','query_name_bound','query_type_a','interface_zero','context_null','options_exact')
 
@@ -274,10 +358,11 @@ def main():
     parser=argparse.ArgumentParser();modes=parser.add_mutually_exclusive_group(required=True)
     modes.add_argument('--run-actual-windows',action='store_true')
     modes.add_argument('--run-no-query-diagnostics',action='store_true')
+    modes.add_argument('--run-port-pair',action='store_true')
     parser.add_argument('--actor',type=Path,required=True);parser.add_argument('--manifest',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     try:
-        result=(run_describe if args.run_no_query_diagnostics else run)(args.actor.resolve(),args.manifest.resolve())
+        result=(run_describe if args.run_no_query_diagnostics else run_port_pair if args.run_port_pair else run)(args.actor.resolve(),args.manifest.resolve())
         raw=json.dumps(result,sort_keys=True,separators=(',',':'))
         args.output.write_text(raw+'\n',encoding='ascii');print(raw)
         return 0 if result['diagnostics_complete' if args.run_no_query_diagnostics else 'mechanism_positive'] else 1

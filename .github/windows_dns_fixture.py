@@ -79,19 +79,26 @@ class DnsFixture:
         self.counts = dict(datagrams=0, bytes=0, matched_queries=0, answers_sent=0,
                            rejected=0, oversized=0, send_failed=0)
         self.error = 'none'; self.closed = False; self.close_uncertain = False
-        self.mode = 'answer'
+        self.mode = 'answer'; self.bind_port = 0
 
     @classmethod
     def for_test(cls, nonce, *, deadline, mode):
         if mode not in ('answer', 'wrong_address', 'rcode', 'drop'): raise ValueError('fixture mode')
         result = cls(nonce, deadline=deadline); result.mode = mode; return result
 
+    @classmethod
+    def for_port53(cls, nonce, *, deadline):
+        result=cls(nonce,deadline=deadline);result.bind_port=53;return result
+
     def start(self):
         if self.socket is not None or self.thread is not None: raise ValueError('fixture started')
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); self.socket = sock
-        sock.bind(('127.0.0.1', 0)); sock.settimeout(.1)
+        if self.bind_port==53:
+            if not hasattr(socket,'SO_EXCLUSIVEADDRUSE'):raise ValueError('exclusive unavailable')
+            sock.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
+        sock.bind(('127.0.0.1', self.bind_port)); sock.settimeout(.1)
         port = sock.getsockname()[1]
-        if type(port) is not int or not 1025 <= port <= 65535: raise ValueError('fixture port')
+        if type(port) is not int or not (port==53 if self.bind_port==53 else 1025<=port<=65535): raise ValueError('fixture port')
         self.thread = threading.Thread(target=self._serve, daemon=True)
         self.thread.start()
         if not self.ready.wait(max(0, min(1, self.deadline-time.monotonic()))):
