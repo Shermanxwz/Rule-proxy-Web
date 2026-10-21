@@ -24,6 +24,8 @@ class ReceiptSnapshotTests(unittest.TestCase):
     def test_actual_windows_two_process_and_negative_fixtures(self):
         for text in ("Start-ReceiptFixtureChild 'lock'","Start-ReceiptFixtureChild 'stress'",'Write-ServicedState @{','Get-Content -LiteralPath $path -Raw','[IO.FileShare]::None','Exclusive holder baseline not reproduced','Concurrent mixed receipt accepted','Sharing retry extended deadline',"'oversize','utf8','json','expired','acl'",'ordinary_token_tested=$false','receipt_snapshot_cleanup','Valid 4096-byte receipt rejected','Actual denied read classification failed','if($created -and $cleanup)','$timer.ElapsedMilliseconds -gt 2000','$boundedFailure='):
             self.assertIn(text,GATE)
+        for text in ("$fixtureStep='snapshot'", "$fixtureStep='json'", "$fixtureStep='validate'", "$childStep='writer_call'", 'New-Object byte[] 257', 'child_exit_code=$childExitCode', 'read_step=$readStep', 'temporary_exists=', 'adjacent, non-atomic'):
+            self.assertIn(text,GATE)
         self.assertIn('$info.RedirectStandardError=$true',GATE)
         self.assertNotIn('ReadToEnd()',GATE)
 if __name__=='__main__':unittest.main()

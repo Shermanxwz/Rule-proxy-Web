@@ -11,7 +11,7 @@ foreach($name in @('Test-ServicedReceiptSharing','Read-ServicedReceiptSnapshot')
     if($definitions.Count -ne 1){throw 'Receipt helper missing'};Invoke-Expression $definitions[0].Extent.Text
 }
 . $worker
-$passed=0;$created=$false;$process=$null;$fixturePhase='setup'
+$passed=0;$created=$false;$process=$null;$fixturePhase='setup';$fixtureStep='not_started';$childResult=$null
 $root=Join-Path ([IO.Path]::GetTempPath()) ('ruleproxy-receipt-'+[Guid]::NewGuid().ToString('N'))
 $oldUpdateDirectory=$script:UpdateDirectory
 function Start-ReceiptFixtureChild($Mode) {
@@ -50,7 +50,7 @@ try {
     if(-not $naturalTrusted){$fixturePhase='natural_owner';throw 'Concurrent writer natural owner not trusted'}
     $raw=Read-FixtureReceipt;$value=$raw|ConvertFrom-Json
     if($value.generation -ne 0){throw 'Initial Move receipt failed'};$passed++
-    $child=Join-Path $root 'fixture-child.ps1';$ready=Join-Path $root 'ready';$release=Join-Path $root 'release'
+    $child=Join-Path $root 'fixture-child.ps1';$childResult=Join-Path $root 'child-result.json';$ready=Join-Path $root 'ready';$release=Join-Path $root 'release'
     $childCode=@'
 param([string]$Mode,[string]$Root,[string]$Worker)
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
@@ -60,6 +60,7 @@ try {
     $script:UpdateDirectory=$Root
     $path=Join-Path $Root 'update-state.json'
     $ready=Join-Path $Root 'ready';$release=Join-Path $Root 'release'
+    $childResult=Join-Path $Root 'child-result.json';$childStep='started'
     if($Mode -ceq 'lock') {
         $handle=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
         [IO.File]::WriteAllText($ready,'1')
@@ -69,12 +70,21 @@ try {
     } elseif($Mode -ceq 'stress') {
         [IO.File]::WriteAllText($ready,'1')
         for($generation=1;$generation -le 120;$generation++) {
+            $childStep='writer_call'
             Write-ServicedState @{schema_version=1;generation=$generation;payload=([string]($generation%10)*100);target_build=26200;target_ubr=9711}
             Start-Sleep -Milliseconds 2
         }
     } else {exit 2}
+    $childStep='completed'
+    [IO.File]::WriteAllText($childResult,'{"step":"completed","hresult":null}',[Text.Encoding]::ASCII)
     exit 0
-} catch {exit 1} finally {if($null -ne $handle){$handle.Dispose()}}
+} catch {
+    try {
+        $closed=@{step=$childStep;hresult=[int]$_.Exception.GetBaseException().HResult}
+        [IO.File]::WriteAllText($childResult,($closed|ConvertTo-Json -Compress),[Text.Encoding]::ASCII)
+    } catch {}
+    exit 1
+} finally {if($null -ne $handle){$handle.Dispose()}}
 '@
     [IO.File]::WriteAllText($child,$childCode,[Text.Encoding]::ASCII)
     $fixturePhase='lock_baseline'
@@ -101,16 +111,21 @@ try {
     if(($raw|ConvertFrom-Json).generation -ne 0 -or -not $process.WaitForExit(5000) -or $process.ExitCode -ne 0){throw 'Released lock snapshot failed'}
     $process.Dispose();$process=$null;Remove-Item -LiteralPath $ready,$release -Force;$passed++
     $fixturePhase='stress'
-    $process=Start-ReceiptFixtureChild 'stress';Wait-ReceiptReady
+    Remove-Item -LiteralPath $childResult -Force
+    $fixtureStep='child_start';$process=Start-ReceiptFixtureChild 'stress'
+    $fixtureStep='wait_ready';Wait-ReceiptReady
     $reads=0;$deadline=[DateTime]::UtcNow.AddSeconds(30)
     do {
-        $raw=Read-FixtureReceipt;$snapshot=$raw|ConvertFrom-Json
+        $fixtureStep='snapshot';$raw=Read-FixtureReceipt
+        $fixtureStep='json';$snapshot=$raw|ConvertFrom-Json
+        $fixtureStep='validate'
         if($snapshot.schema_version -ne 1 -or $snapshot.target_build -ne 26200 -or $snapshot.target_ubr -ne 9711 -or $snapshot.generation -isnot [int] -or $snapshot.generation -lt 0 -or $snapshot.generation -gt 120){throw 'Concurrent snapshot schema failed'}
         $expected=if($snapshot.generation -eq 0){'a'*100}else{[string]($snapshot.generation%10)*100}
         if($snapshot.payload -cne $expected){throw 'Concurrent mixed receipt accepted'}
         $reads++
         if([DateTime]::UtcNow -ge $deadline){throw 'Concurrent fixture deadline'}
     } while(-not $process.HasExited)
+    $fixtureStep='child_exit'
     if($process.ExitCode -ne 0 -or $reads -lt 1){throw 'Atomic writer stress failed'}
     $process.Dispose();$process=$null;$passed++
     $fixturePhase='exact_bound'
@@ -150,7 +165,30 @@ try {
     if(Test-ServicedReceiptSharing ([UnauthorizedAccessException]::new('fixture'))){throw 'Nonsharing error retry allowed'};$passed++
     Write-Output ((@{fixture='receipt_snapshot';passed=$passed;baseline_sharing_reproduced=$true;concurrent_valid_snapshots=$true;natural_owner_trusted=$naturalTrusted;explicit_owner_fixture=$true;ordinary_token_tested=$false})|ConvertTo-Json -Compress)
 } catch {
-    Write-Output ((@{fixture='receipt_snapshot';phase=$fixturePhase;failed=$true;hresult=[int]$_.Exception.HResult})|ConvertTo-Json -Compress)
+    $failureHresult=[int]$_.Exception.HResult;$baseHresult=[int]$_.Exception.GetBaseException().HResult
+    $childExited=$null;$childExitCode=$null;$childStep=$null;$childHresult=$null
+    if($null -ne $process){try{$childExited=[bool]$process.HasExited;if($childExited){$childExitCode=[int]$process.ExitCode}}catch{}}
+    # Owned marker is diagnostic only; absence/partial write remains unavailable.
+    try {
+        if($null -ne $childResult -and [IO.File]::Exists($childResult)) {
+            $markerStream=$null
+            try {
+                $markerStream=[IO.File]::Open($childResult,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
+                $markerBytes=New-Object byte[] 257;$markerCount=0
+                do{$chunk=$markerStream.Read($markerBytes,$markerCount,257-$markerCount);$markerCount+=$chunk}while($chunk -gt 0 -and $markerCount -lt 257)
+            }finally{if($null -ne $markerStream){$markerStream.Dispose()}}
+            if($markerCount -le 256) {
+                $marker=[Text.Encoding]::ASCII.GetString($markerBytes,0,$markerCount)|ConvertFrom-Json
+                if(@($marker.PSObject.Properties.Name).Count -eq 2 -and 'step' -in @($marker.PSObject.Properties.Name) -and 'hresult' -in @($marker.PSObject.Properties.Name) -and $marker.step -cin @('started','writer_call','completed') -and ($null -eq $marker.hresult -or $marker.hresult -is [int])) {
+                    $childStep=$marker.step;$childHresult=$marker.hresult
+                }
+            }
+        }
+    }catch{}
+    $readStep=if($script:ServicingReadDiagnostic.step -cin @('not_started','receipt_acl','receipt_read')){$script:ServicingReadDiagnostic.step}else{$null}
+    $readReason=if($script:ServicingReadDiagnostic.reason -cin @('none','acl','read','over_bound','expired')){$script:ServicingReadDiagnostic.reason}else{$null}
+    # Existence observations are adjacent, non-atomic, and do not authorize retry.
+    Write-Output ((@{fixture='receipt_snapshot';phase=$fixturePhase;step=$fixtureStep;failed=$true;hresult=$failureHresult;base_hresult=$baseHresult;read_step=$readStep;read_reason=$readReason;child_exited=$childExited;child_exit_code=$childExitCode;child_step=$childStep;child_hresult=$childHresult;receipt_exists=[IO.File]::Exists((Join-Path $root 'update-state.json'));temporary_exists=[IO.File]::Exists((Join-Path $root 'update-state.json.tmp'))})|ConvertTo-Json -Compress)
     throw 'Owned receipt fixture failed'
 } finally {
     $script:UpdateDirectory=$oldUpdateDirectory;$cleanup=$true

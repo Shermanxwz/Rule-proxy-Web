@@ -39,6 +39,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+        id: compile_checkout
         with:
           persist-credentials: false
           fetch-depth: 1
@@ -58,6 +59,7 @@ jobs:
         shell: powershell
         run: ./.github/test-windows-identity-serviced-receipt.ps1
       - name: Execute bounded advisory sender fixtures, not VM acceptance
+        if: ${{ !cancelled() && steps.compile_checkout.outcome == 'success' }}
         timeout-minutes: 2
         shell: powershell
         run: ./.github/test-windows-identity-serviced-telemetry.ps1
