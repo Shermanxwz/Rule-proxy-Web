@@ -75,7 +75,7 @@ try {
     }
 } finally { Remove-Item Function:\New-Object -ErrorAction SilentlyContinue }
 foreach ($scenario in @('exited','timeout','wait_failed','kill_failed','dispose_failed','unknown_wait')) {
-    $process=[PSCustomObject]@{Scenario=$scenario;Waits=0;Kills=0;Disposed=$false;Bounds=@()}
+    $process=[PSCustomObject]@{Scenario=$scenario;Waits=0;Kills=0;Disposed=$false;Bounds=@();ExitCode=0}
     $process | Add-Member ScriptMethod WaitForExit { param($milliseconds) $this.Waits++;$this.Bounds+=@($milliseconds);if($this.Scenario -ceq 'wait_failed'){throw 'fixture'};if($this.Scenario -ceq 'unknown_wait'){return 'true'};if($this.Scenario -ceq 'kill_failed'){return $false};return ($this.Scenario -in @('exited','dispose_failed') -or $this.Waits -gt 1) }
     $process | Add-Member ScriptMethod Kill { $this.Kills++;if($this.Scenario -ceq 'kill_failed'){throw 'fixture'} }
     $process | Add-Member ScriptMethod Dispose { $this.Disposed=$true;if($this.Scenario -ceq 'dispose_failed'){throw 'fixture'} }
@@ -83,6 +83,8 @@ foreach ($scenario in @('exited','timeout','wait_failed','kill_failed','dispose_
     $shouldKill=$scenario -notin @('exited','dispose_failed')
     if (-not $process.Disposed -or $process.Kills -ne [int]$shouldKill -or $process.Bounds[0] -ne 3000 -or ($shouldKill -and $process.Bounds[1] -ne 1000)) { throw 'Telemetry process wait bounds failed' }
     if ($facts.exited -ne ($scenario -in @('exited','timeout','dispose_failed')) -or $facts.disposed -ne ($scenario -cne 'dispose_failed')) { throw 'Telemetry process observation failed' };$passed++
+    if($facts.timed_out -ne ($scenario -in @('timeout','kill_failed'))){throw 'Initial wait false counter failed'}
+    if($facts.exited -and $facts.exit_kind -cne 'zero'){throw 'Observed child exitcode lost'}
 }
 # Actual launcher suppresses further helpers if exact-child exit cannot be observed.
 $realTelemetryPath=${function:Assert-TelemetryPath};$realTelemetryStart=${function:Start-TelemetryChild}
@@ -92,7 +94,7 @@ function Reserve-TelemetrySlot { param($Role,$Root) return $script:TelemetryQuot
 function Assert-TelemetryPath { param($Path,[switch]$Directory,[switch]$Trusted) if (-not $Trusted -or -not $Path.StartsWith('C:\RuleProxyCIUpdates')) { throw 'fixture_trust' } }
 function Start-TelemetryChild { param($Info) $script:TelemetryStarts++;if($Info.Arguments.Contains('PRIVATE_FIXTURE') -or $Info.UseShellExecute){throw 'fixture_arguments'};return $script:UnexitedTelemetryProcess }
 try {
-    $script:TelemetryStarts=0;$script:TelemetryDisabled=$false;$script:TelemetryQuotaAvailable=$true
+    $script:TelemetryStarts=0;$script:TelemetryDisabled=$false;$script:TelemetryQuotaAvailable=$true;$script:TelemetryCounters=@(0,0,0,0)
     $script:UnexitedTelemetryProcess=[PSCustomObject]@{}
     $script:UnexitedTelemetryProcess | Add-Member ScriptMethod WaitForExit { param($milliseconds) return $false }
     $script:UnexitedTelemetryProcess | Add-Member ScriptMethod Kill { throw 'fixture' }
@@ -100,9 +102,21 @@ try {
     Invoke-ServicedTelemetry 'system' 'failed' @{failure='PRIVATE_FIXTURE'}
     Invoke-ServicedTelemetry 'system' 'failed' $null
     if($script:TelemetryStarts -ne 1 -or -not $script:TelemetryDisabled){throw 'Unobserved helper exit did not disable telemetry'};$passed++
+    if(($script:TelemetryCounters -join ',') -cne '1,0,0,1'){throw 'Unknown exit sender counters failed'}
     $script:TelemetryDisabled=$false;$script:TelemetryQuotaAvailable=$false
     Invoke-ServicedTelemetry 'system' 'failed' $null
     if($script:TelemetryStarts -ne 1){throw 'Exhausted quota spawned helper'};$passed++
+    foreach($exitValue in @(0,7)) {
+        $script:TelemetryDisabled=$false;$script:TelemetryQuotaAvailable=$true;$script:TelemetryCounters=@(0,0,0,0)
+        $script:UnexitedTelemetryProcess=[PSCustomObject]@{ExitCode=$exitValue}
+        $script:UnexitedTelemetryProcess | Add-Member ScriptMethod WaitForExit {param($milliseconds) return $true}
+        $script:UnexitedTelemetryProcess | Add-Member ScriptMethod Kill {throw 'unexpected_kill'}
+        $script:UnexitedTelemetryProcess | Add-Member ScriptMethod Dispose {}
+        Invoke-ServicedTelemetry 'system' 'failed' $null
+        $expected=if($exitValue -eq 0){'1,1,0,0'}else{'1,0,1,0'}
+        if(($script:TelemetryCounters -join ',') -cne $expected){throw 'Natural exit sender counters failed'};$passed++
+    }
+
 } finally {
     Set-Item Function:\Assert-TelemetryPath $realTelemetryPath
     Set-Item Function:\Start-TelemetryChild $realTelemetryStart
@@ -110,6 +124,17 @@ try {
     Set-Item Function:\Reserve-TelemetrySlot $realQuota
     $script:TelemetryDisabled=$false
 }
+# Closed report projection preserves role availability and counter consistency.
+$runnerSource=Join-Path $PSScriptRoot 'windows-identity-serviced-stage0-run.ps1'
+$runnerAst=[System.Management.Automation.Language.Parser]::ParseFile($runnerSource,[ref]$tokens,[ref]$errors)
+$counterFunctions=@($runnerAst.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-ClosedSenderCounters'},$false))
+if($counterFunctions.Count -ne 1){throw 'Sender counter projector missing'};Invoke-Expression $counterFunctions[0].Extent.Text
+foreach($invalid in @(@(1,1,1,0),@(0,0,0,1),@($true,0,0,0),@(33,0,0,0),@(1,0,0))) {
+    $closed=Get-ClosedSenderCounters $invalid
+    if($closed.Count -ne 4 -or @($closed | Where-Object {$null -ne $_}).Count -ne 0){throw 'Invalid sender counters accepted'};$passed++
+}
+$closed=Get-ClosedSenderCounters @(2,1,1,1)
+if(($closed -join ',') -cne '2,1,1,1'){throw 'Valid sender counters lost'};$passed++
 # Actual extra-reboot helpers: telemetry elapsed time is consumed, never rebased.
 $worker=Join-Path $PSScriptRoot 'windows-identity-serviced-update.ps1'
 $workerAst=[System.Management.Automation.Language.Parser]::ParseFile($worker,[ref]$tokens,[ref]$errors)
@@ -204,6 +229,74 @@ print('{"fixture":"telemetry_wire_parity","accepted":12}')
     try {$bytes=[Text.Encoding]::ASCII.GetBytes($paritySource);$parityStream.Write($bytes,0,$bytes.Length)}finally{$parityStream.Dispose()}
     & python -B $parity (Join-Path $PSScriptRoot 'windows_identity_serviced_stage0.py') $wire 2> $parityErr
     if($LASTEXITCODE -ne 0){throw 'Actual telemetry host parser parity failed'};$passed++
+    # Execute the actual -File param block, functions and entry body. Only the
+    # environment-specific guards and COM2 sink are substituted in this owned copy.
+    $entry=@($helperAst.EndBlock.Statements | Where-Object {$_ -is [System.Management.Automation.Language.IfStatementAst] -and $_.Extent.Text.StartsWith("if (`$MyInvocation.InvocationName")})
+    if($entry.Count -ne 1){throw 'Unique telemetry child entry required'}
+    $sourceText=[IO.File]::ReadAllText($helper)
+    $seam=@'
+function Assert-TelemetryRoleToken($Role) {
+    $null=Get-TelemetryStages $Role
+    $script:FixtureRoleGuard=$true
+}
+function Assert-TelemetryPath($Path,[switch]$Directory,[switch]$Trusted) {
+    if(-not $Trusted -or ($Path -cne 'C:\RuleProxyCIUpdates' -and $Path -cne $PSCommandPath)){throw 'fixture_guard'}
+    $script:FixturePathGuard=$true
+}
+function Write-TelemetryPort($Line) {
+    if(-not $script:FixtureRoleGuard -or -not $script:FixturePathGuard){throw 'fixture_entry_guards'}
+    $sink=$env:RULEPROXY_TELEMETRY_FIXTURE_SINK
+    $stream=[IO.File]::Open($sink,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$bytes=[Text.Encoding]::ASCII.GetBytes($Line);$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
+}
+'@
+    $entrySource=$sourceText.Insert($entry[0].Extent.StartOffset,$seam+"`r`n")
+    $entryFile=Join-Path $fixture 'entry-child.ps1'
+    [IO.File]::WriteAllText($entryFile,$entrySource,[Text.Encoding]::ASCII)
+    $childRecords=New-Object 'Collections.Generic.List[byte]';$childIndex=0
+    foreach($role in @('system','ordinary')) {
+        foreach($stage in @(Get-TelemetryStages $role)) {
+            $sink=Join-Path $fixture ('entry-'+$childIndex.ToString('D2')+'.bin')
+            $mask=if($stage -cin @('extra_reboot_before','extra_reboot_returned','completed','failed','report_attempt')){'5'}else{'null'}
+            $count=if($stage -cin @('entry','service_wait')){'null'}else{'1'}
+            $failure=if($stage -cin @('failed','report_attempt')){'reboot_still_pending'}else{'null'}
+            $info=New-Object Diagnostics.ProcessStartInfo
+            $info.FileName=Join-Path ([Environment]::GetFolderPath('Windows')) 'System32\WindowsPowerShell\v1.0\powershell.exe'
+            $info.Arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$entryFile+'" -Send -Role '+$role+' -Stage '+$stage+' -Mask '+$mask+' -Count '+$count+' -Failure '+$failure
+            $info.UseShellExecute=$false;$info.CreateNoWindow=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+            $info.EnvironmentVariables['RULEPROXY_TELEMETRY_FIXTURE_SINK']=$sink
+            $process=Start-TelemetryChild $info
+            $observer=[Diagnostics.Process]::GetProcessById($process.Id);$null=$observer.Handle
+            $facts=Wait-TelemetryChild $process
+            if(-not $facts.exited -or -not $facts.disposed -or $facts.timed_out -or $facts.exit_kind -cne 'zero' -or -not $observer.WaitForExit(1000)){throw 'Actual telemetry child entry failed'}
+            $observer.Dispose();$observer=$null;$process=$null
+            $bytes=[IO.File]::ReadAllBytes($sink)
+            if($bytes.Length -gt 256 -or $bytes.Length -lt 2 -or $bytes[$bytes.Length-2] -ne 13 -or $bytes[$bytes.Length-1] -ne 10){throw 'Actual telemetry child framing failed'}
+            $childRecords.AddRange($bytes);$childIndex++;$passed++
+        }
+    }
+    # Exact bytes, including CRLF, feed the real streaming parser without Trim.
+    [IO.File]::WriteAllBytes($wire,$childRecords.ToArray())
+    $streamParity=@'
+import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location('telemetry_host',sys.argv[1]);host=importlib.util.module_from_spec(spec);spec.loader.exec_module(host)
+data=pathlib.Path(sys.argv[2]).read_bytes();observer=host.ProgressSerial()
+for byte in data: observer.feed(bytes([byte]))
+facts=observer.snapshot()
+assert facts['accepted']==12 and facts['rejected']==0 and len(facts['records'])==12
+expected=[]
+for role, stages in [('system', ('entry','prior_valid','media_verified','initial_reboot_before','initial_reboot_returned','extra_reboot_before','extra_reboot_returned','completed','failed')), ('ordinary', ('entry','service_wait','report_attempt'))]:
+    for stage in stages:
+        expected.append({'v':1,'s':role,'p':stage,
+                         'm':5 if stage in ('extra_reboot_before','extra_reboot_returned','completed','failed','report_attempt') else None,
+                         'n':None if stage in ('entry','service_wait') else 1,
+                         'f':'reboot_still_pending' if stage in ('failed','report_attempt') else None})
+assert facts['records']==expected
+print('{"fixture":"telemetry_actual_child_entry","accepted":12,"guards_substituted":true,"serial_sink_substituted":true}')
+'@
+    [IO.File]::WriteAllText($parity,$streamParity,[Text.Encoding]::ASCII)
+    & python -B $parity (Join-Path $PSScriptRoot 'windows_identity_serviced_stage0.py') $wire 2> $parityErr
+    if($LASTEXITCODE -ne 0){throw 'Actual child telemetry stream parity failed'};$passed++
     $badAcl=Get-Acl -LiteralPath $fixture
     $badAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($users,'Write','None','None','Allow')))
     Set-Acl -LiteralPath $fixture -AclObject $badAcl
@@ -242,8 +335,9 @@ print('{"fixture":"telemetry_wire_parity","accepted":12}')
         try {if(-not $cleanupProcess.HasExited){$cleanupProcess.Kill();if(-not $cleanupProcess.WaitForExit(1000)){$cleanupOk=$false}}}catch{$cleanupOk=$false}
         finally {try{$cleanupProcess.Dispose()}catch{$cleanupOk=$false}}
     }
+    $rootRemovalSkipped=($created -and -not $cleanupOk)
     try {
-        if($created){
+        if($created -and $cleanupOk){
             foreach($item in @(Get-ChildItem -LiteralPath $fixture -Force)) {
                 if($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Telemetry fixture cleanup boundary'}
                 Remove-Item -LiteralPath $item.FullName -Force
@@ -252,7 +346,7 @@ print('{"fixture":"telemetry_wire_parity","accepted":12}')
             if(Test-Path -LiteralPath $fixture){throw 'Telemetry fixture cleanup failed'}
         }
     } catch {$cleanupOk=$false}
-    Write-Output ((@{fixture='telemetry_owned_cleanup';confirmed=$cleanupOk})|ConvertTo-Json -Compress)
+    Write-Output ((@{fixture='telemetry_owned_cleanup';confirmed=$cleanupOk;root_removal_skipped=$rootRemovalSkipped})|ConvertTo-Json -Compress)
     if(-not $cleanupOk){throw 'Owned telemetry cleanup not confirmed'}
 }
 

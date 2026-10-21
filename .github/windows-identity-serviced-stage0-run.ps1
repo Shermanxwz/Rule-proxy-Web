@@ -113,7 +113,58 @@ function Send-ServicedTelemetry($TelemetryRole,$TelemetryStage,$TelemetryState=$
         Assert-ProtectedUpdatePath $telemetryHelper
         . $telemetryHelper
         Invoke-ServicedTelemetry $TelemetryRole $TelemetryStage $TelemetryState
+        if ($TelemetryRole -ceq 'system' -and $TelemetryState -is [System.Collections.IDictionary]) { $TelemetryState.sender_stats=Get-TelemetryCounters }
     } catch { }
+}
+function Test-ServicedReceiptSharing($Exception) {
+    $current=$Exception
+    for ($depth=0;$depth -lt 4 -and $null -ne $current;$depth++) {
+        if ($current -is [IO.IOException] -and $current.HResult -eq -2147024864) { return $true }
+        $current=$current.InnerException
+    }
+    return $false
+}
+function Read-ServicedReceiptSnapshot($Path,[DateTime]$Deadline) {
+    for ($attempt=0;$attempt -lt 4;$attempt++) {
+        if ([DateTime]::UtcNow -ge $Deadline) { $script:ServicingReadDiagnostic.reason='expired';throw 'Servicing deadline' }
+        $script:ServicingReadDiagnostic.step='receipt_acl'
+        try {
+            Assert-ProtectedUpdatePath ([IO.Path]::GetDirectoryName($Path)) -Directory -ProtectedDacl
+            Assert-ProtectedUpdatePath $Path
+        } catch { $script:ServicingReadDiagnostic.reason='acl';throw }
+        $script:ServicingReadDiagnostic.step='receipt_read'
+        $stream=$null
+        try {
+            # ShareDelete permits the trusted writer's atomic replacement; this handle
+            # remains a bounded snapshot of one old/new file, never an in-place merge.
+            $stream=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+            if ($stream.Length -gt 4096) { $script:ServicingReadDiagnostic.reason='over_bound';throw 'Closed servicing receipt rejected' }
+            $bytes=New-Object byte[] 4097;$total=0
+            do {
+                $count=$stream.Read($bytes,$total,4097-$total);$total+=$count
+                if ($total -gt 4096) { $script:ServicingReadDiagnostic.reason='over_bound';throw 'Closed servicing receipt rejected' }
+            } while ($count -gt 0)
+            $encoding=New-Object Text.UTF8Encoding($false,$true)
+            $raw=$encoding.GetString($bytes,0,$total)
+            if ([DateTime]::UtcNow -ge $Deadline) { $script:ServicingReadDiagnostic.reason='expired';throw 'Servicing deadline' }
+            return $raw
+        } catch {
+            if ($script:ServicingReadDiagnostic.reason -notin @('over_bound','expired')) { $script:ServicingReadDiagnostic.reason='read' }
+            if (-not (Test-ServicedReceiptSharing $_.Exception) -or $attempt -ge 3) { throw }
+        } finally { if ($null -ne $stream) { $stream.Dispose() } }
+        # Only sharing32 is retried; never rebase the caller's immutable deadline.
+        $remaining=($Deadline-[DateTime]::UtcNow).TotalMilliseconds
+        if ($remaining -le 0) { $script:ServicingReadDiagnostic.reason='expired';throw 'Servicing deadline' }
+        Start-Sleep -Milliseconds ([int][Math]::Min(100,[Math]::Floor($remaining)))
+        $script:ServicingReadDiagnostic.reason='none'
+    }
+}
+function Get-ClosedSenderCounters($Value) {
+    $unknown=@($null,$null,$null,$null)
+    if ($Value -isnot [array] -or $Value.Count -ne 4) { return ,$unknown }
+    foreach ($item in $Value) { if ($item -isnot [int] -or $item -lt 0 -or $item -gt 32) { return ,$unknown } }
+    if ($Value[1]+$Value[2] -gt $Value[0] -or $Value[3] -gt $Value[0]) { return ,$unknown }
+    return ,@($Value)
 }
 function Get-ClosedExtraReboot($Value) {
     $facts=@{n=$null;b=$null}
@@ -324,12 +375,11 @@ try {
     $servicingDeadline=Get-ServicedDeadline
     do {
         if (Test-Path -LiteralPath $statePath) {
-            $script:ServicingReadDiagnostic.step='receipt_acl'
-            try { Assert-ProtectedUpdatePath $statePath } catch { $script:ServicingReadDiagnostic.reason='acl'; throw }
-            $script:ServicingReadDiagnostic.step='receipt_read'
-            $item=Get-Item -LiteralPath $statePath -Force
-            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.Length -gt 4096) { $script:ServicingReadDiagnostic.reason='over_bound'; $failureCategory='servicing_receipt'; throw 'Closed servicing receipt rejected' }
-            try { $rawService=Get-Content -LiteralPath $statePath -Raw } catch { $script:ServicingReadDiagnostic.reason='read'; throw }
+            try { $rawService=Read-ServicedReceiptSnapshot $statePath $servicingDeadline } catch {
+                if ($script:ServicingReadDiagnostic.reason -eq 'over_bound') { $failureCategory='servicing_receipt' }
+                if ($script:ServicingReadDiagnostic.reason -eq 'expired') { $failureCategory='servicing_deadline' }
+                throw
+            }
             $script:ServicingReadDiagnostic.step='receipt_json'
             try { $service=$rawService | ConvertFrom-Json } catch { $script:ServicingReadDiagnostic.reason='json'; throw }
             $script:ServicingReadDiagnostic.step='receipt_observed'
@@ -496,6 +546,11 @@ try {
             $telemetryService=$null
             if ($null -ne (Get-Variable -Name service -ErrorAction SilentlyContinue)) { $telemetryService=$service }
             Send-ServicedTelemetry 'ordinary' 'report_attempt' $telemetryService
+            $systemSenders=Get-ClosedSenderCounters $null
+            if ($null -ne $telemetryService -and 'sender_stats' -in @($telemetryService.PSObject.Properties.Name)) { $systemSenders=Get-ClosedSenderCounters $telemetryService.sender_stats }
+            $ordinarySenders=Get-ClosedSenderCounters $null
+            if ($null -ne (Get-Variable -Scope Script -Name TelemetryCounters -ErrorAction SilentlyContinue)) { $ordinarySenders=Get-ClosedSenderCounters $script:TelemetryCounters }
+            Set-ClosedResultField 'sender_stats' ($systemSenders+$ordinarySenders)
             $launcher.transport_attempt=$i+1
             # Deep closed facts must remain JSON objects, not PS string summaries.
             $body = [Text.Encoding]::ASCII.GetBytes(($result | ConvertTo-Json -Depth 10 -Compress))

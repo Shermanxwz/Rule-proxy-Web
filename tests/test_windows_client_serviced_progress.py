@@ -62,6 +62,37 @@ class ParserTests(unittest.TestCase):
         self.assertIn('diag-qmp.sock',funcs['host'])
         self.assertIn('windows-identity-serviced-telemetry.ps1',funcs['host'])
 
+class ClosedDiagnosticTests(unittest.TestCase):
+    def test_exclusive_reasons_fragmentation_and_redaction(self):
+        samples = {
+            'prefix': b'PRIVATE_SENTINEL', 'ascii': b'RPS2 \xff',
+            'bound': b'x'*257, 'json': b'RPS2 {PRIVATE_SENTINEL',
+            'schema': b'RPS2 {}',
+            'type': line(v=True).rstrip(), 'enum': line(s='PRIVATE_SENTINEL').rstrip(),
+            'irrelevant': line(m=1).rstrip()}
+        parser=host.ProgressSerial()
+        for reason,data in samples.items():
+            self.assertEqual(host.classify_progress(data)[1],reason)
+            for byte in data+b'\r\n': parser.feed(bytes([byte]))
+        parser.feed('PRIVATE_SENTINEL')
+        self.assertEqual(parser.rejected,9)
+        self.assertEqual(parser.snapshot()['reject_counts'],{key:1 for key in host.PROGRESS_REJECT_REASONS})
+        self.assertNotIn('PRIVATE_SENTINEL',json.dumps(parser.snapshot()))
+        parser.feed(line());self.assertEqual(parser.accepted,1)
+        parser.reject_counts['prefix']=65535;parser.feed(b'\n')
+        self.assertEqual(parser.reject_counts['prefix'],65535)
+
+    def test_sender_role_types_consistency_idempotence(self):
+        for row in ([None]*4,[0]*4,[32,16,16,32],[32,32,0,32]):
+            value=row+[None]*4
+            self.assertEqual(host.closed_sender_stats(value),value)
+            self.assertEqual(host.closed_sender_stats(host.closed_sender_stats(value)),value)
+        for row in ([True,0,0,0],[33,0,0,0],[1,1,1,0],[0,0,0,1],[-1,0,0,0],
+                    [None,0,0,0],['PRIVATE_SENTINEL',0,0,0]):
+            self.assertEqual(host.closed_sender_stats(row+[1,1,0,0]),[None]*4+[1,1,0,0])
+        for value in (None,{},[0]*7,[0]*9,'PRIVATE_SENTINEL'):
+            self.assertEqual(host.closed_sender_stats(value),[None]*8)
+
 class ScriptedSocket:
     def __init__(self,mode):self.mode=mode;self.data=b'';self.closed=False;self.sent=[]
     def settimeout(self,value):self.timeout=value

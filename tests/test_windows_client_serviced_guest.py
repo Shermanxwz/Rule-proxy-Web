@@ -108,8 +108,9 @@ class ServicedGuestContractTests(unittest.TestCase):
         self.assertLess(RUN.index('$service.task_unregistered -ne $true'), RUN.index('RPBEACON identity-ordinary-ready'))
 
     def test_ordinary_acceptance_waits_protected_receipt_and_reboot(self):
-        self.assertIn('Assert-ProtectedUpdatePath $statePath', RUN)
-        self.assertIn('$item.Length -gt 4096', RUN)
+        self.assertIn('Read-ServicedReceiptSnapshot $statePath $servicingDeadline', RUN)
+        self.assertIn('Assert-ProtectedUpdatePath $Path', RUN)
+        self.assertIn('$stream.Length -gt 4096', RUN)
         self.assertIn('$service.after_boot -cne $bootOS.LastBootUpTime', RUN)
         self.assertIn('$service.before_boot -ceq $service.after_boot', RUN)
         self.assertIn('$service.reboot_observed -ne $true', RUN)

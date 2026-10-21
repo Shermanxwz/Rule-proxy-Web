@@ -10,6 +10,8 @@ on:
       - '.github/windows-identity-serviced-update.ps1'
       - '.github/windows-identity-serviced-telemetry.ps1'
       - '.github/test-windows-identity-serviced-telemetry.ps1'
+      - '.github/test-windows-identity-serviced-receipt.ps1'
+      - 'tests/test_windows_client_serviced_receipt.py'
       - 'tests/test_windows_client_serviced_telemetry.py'
       - 'tests/test_windows_client_serviced_progress.py'
       - '.github/workflows/windows-identity-serviced-stage0.yml'
@@ -51,6 +53,10 @@ jobs:
       - name: Execute mocked guest boundary regressions, not VM acceptance
         shell: powershell
         run: ./.github/test-windows-identity-serviced-gates.ps1
+      - name: Execute bounded shared receipt snapshots, not VM acceptance
+        timeout-minutes: 2
+        shell: powershell
+        run: ./.github/test-windows-identity-serviced-receipt.ps1
       - name: Execute bounded advisory sender fixtures, not VM acceptance
         timeout-minutes: 2
         shell: powershell
@@ -81,7 +87,7 @@ jobs:
         run: |
           python -B -m unittest discover -s tests -p "test_windows_client_stock_stage0.py" -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($file in @('test_windows_client_serviced_stage0.py', 'test_windows_client_serviced_guest.py', 'test_windows_client_serviced_workflow.py', 'test_windows_client_serviced_diagnostics.py', 'test_windows_client_serviced_qmp.py', 'test_windows_client_serviced_telemetry.py', 'test_windows_client_serviced_progress.py', 'test_windows_client_serviced_progress_qmp.py')) {
+          foreach ($file in @('test_windows_client_serviced_stage0.py', 'test_windows_client_serviced_guest.py', 'test_windows_client_serviced_workflow.py', 'test_windows_client_serviced_diagnostics.py', 'test_windows_client_serviced_qmp.py', 'test_windows_client_serviced_telemetry.py', 'test_windows_client_serviced_progress.py', 'test_windows_client_serviced_progress_qmp.py', 'test_windows_client_serviced_receipt.py')) {
             if (-not (Test-Path -LiteralPath (Join-Path 'tests' $file) -PathType Leaf)) { throw 'Required serviced tests missing' }
           }
           python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
@@ -114,6 +120,7 @@ jobs:
           test -f tests/test_windows_client_serviced_telemetry.py
           test -f tests/test_windows_client_serviced_progress.py
           test -f tests/test_windows_client_serviced_progress_qmp.py
+          test -f tests/test_windows_client_serviced_receipt.py
           test -f tests/test_windows_identity_proof.py
           test -f tests/test_windows_client_direct_actor_projection.py
           python3 -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful() or bool(r.skipped))"

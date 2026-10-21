@@ -61,6 +61,19 @@ class ServicedTelemetryTests(unittest.TestCase):
         for stage in ('entry','service_wait','report_attempt'):
             self.assertIn("'ordinary' '"+stage+"'",RUN)
 
+    def test_sender_outcomes_and_actual_child_entry_seam(self):
+        self.assertIn('$exitCode=$Process.ExitCode',HELPER)
+        self.assertLess(HELPER.index('$exitCode=$Process.ExitCode'),HELPER.index('$Process.Dispose()'))
+        self.assertIn('$facts.timed_out=(-not $observed)',HELPER)
+        self.assertIn('$script:TelemetryCounters[0]',HELPER)
+        self.assertIn('Get-ClosedSenderCounters',RUN)
+        self.assertIn("Set-ClosedResultField 'sender_stats' ($systemSenders+$ordinarySenders)",RUN)
+        self.assertIn('$TelemetryState.sender_stats=Get-TelemetryCounters',UPDATE)
+        for text in ('Unique telemetry child entry required','Actual telemetry child entry failed','Actual child telemetry stream parity failed','guards_substituted','serial_sink_substituted','Natural exit sender counters failed','Invalid sender counters accepted'):
+            self.assertIn(text,GATE)
+        self.assertIn('if($created -and $cleanupOk)',GATE)
+        self.assertIn("assert facts['records']==expected",GATE)
+
     def test_real_windows_gate_has_negative_and_cleanup_controls(self):
         for text in ('foreach ($mask in 0..7)', 'Telemetry unknown leaked','Telemetry invalid frame accepted','Telemetry quota exceeded','Durable exhausted quota launched child','Spawn failure refunded durable quota','SYSTEM ordinary role touched quota path','host.parse_progress(line)','Telemetry untrusted write accepted',"@('exit','hang')",'$observer.WaitForExit(1000)','actual_child_timeout_kill=$true','serial_hardware_tested=$false','Telemetry fixture cleanup boundary'):
             self.assertIn(text,GATE)

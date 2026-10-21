@@ -629,6 +629,7 @@ assert not any(root.rglob('__pycache__'))
         # both observed/unavailable shapes, and null versus widest exit values.
         serviced_guest['pending_reboot']={'c':False,'w':False,'r':False}
         serviced_guest['extra_reboot']={'n':None,'b':False}
+        serviced_guest['sender_stats']=[None]*8
         prior_wire_sizes={}
         for mask in (None,127):
             for code in (None,-2147483648,4294967295):
@@ -650,10 +651,33 @@ assert not any(root.rglob('__pycache__'))
                 optional_wire=json.dumps(candidate)
                 self.assertLessEqual(len(optional_wire),len(serviced_wire))
                 self.assertEqual(serviced.validate_guest(json.loads(optional_wire),'a'*64)['extra_reboot'],candidate['extra_reboot'])
+        # All-null roles are the longest valid JSON form. Cross both role
+        # availability/count extremes with all previous prior/optional shapes.
+        for system in ([None]*4,[0]*4,[32,16,16,32],[32,32,0,32]):
+            for ordinary in ([None]*4,[0]*4,[32,16,16,32],[32,0,32,32]):
+                for mask in (None,127):
+                    for code in (None,-2147483648,4294967295):
+                        for count in (None,0,1):
+                            for changed in (None,True,False):
+                                candidate=json.loads(serviced_wire)
+                                candidate['sender_stats']=system+ordinary
+                                candidate['prior_service'].update(b=mask,e=code)
+                                candidate['extra_reboot']={'n':count,'b':changed}
+                                wire=json.dumps(candidate)
+                                self.assertLessEqual(len(wire),len(serviced_wire))
+                                self.assertLessEqual(len(wire),serviced.MAX_REPORT)
+                                self.assertEqual(serviced.closed_sender_stats(json.loads(wire)['sender_stats']),system+ordinary)
+        self.assertEqual(len(serviced_wire),16375)
         self.assertLessEqual(len(serviced_wire), serviced.MAX_REPORT)
         self.assertLessEqual(nesting(serviced_guest),10)
         serviced_restored=serviced.validate_guest(json.loads(serviced_wire),'a'*64)
         self.assertFalse(serviced_restored['stage0_passed'])
+        self.assertEqual(serviced_restored['sender_stats'],[None]*8)
+        observed_sender=json.loads(serviced_wire)
+        observed_sender['sender_stats']=[32,16,16,32,32,32,0,32]
+        restored_sender=serviced.validate_guest(observed_sender,'a'*64)
+        self.assertEqual(restored_sender['sender_stats'],observed_sender['sender_stats'])
+        self.assertFalse(restored_sender['stage0_passed'])
         self.assertEqual(serviced_restored['diagnostics'],serviced_guest['diagnostics'])
         self.assertEqual(serviced_restored['servicing_diagnostic'],serviced_guest['servicing_diagnostic'])
         serviced_ps=(ROOT/'.github/windows-identity-serviced-stage0-run.ps1').read_text()

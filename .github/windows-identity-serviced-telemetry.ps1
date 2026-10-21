@@ -74,18 +74,25 @@ function Write-TelemetryPort($Line) {
     try { $port.WriteTimeout=500;$port.Open();$port.Write($Line) } finally { $port.Dispose() }
 }
 function Wait-TelemetryChild($Process) {
-    $facts=@{exited=$false;kill_attempted=$false;disposed=$false}
+    $facts=@{exited=$false;kill_attempted=$false;disposed=$false;timed_out=$false;exit_kind='unknown'}
     try {
-        try { $observed=$Process.WaitForExit(3000);if ($observed -is [bool]) { $facts.exited=$observed } } catch { }
+        try { $observed=$Process.WaitForExit(3000);if ($observed -is [bool]) { $facts.exited=$observed;$facts.timed_out=(-not $observed) } } catch { }
         if (-not $facts.exited) {
             $facts.kill_attempted=$true
             try { $Process.Kill() } catch { }
             try { $observed=$Process.WaitForExit(1000);if ($observed -is [bool]) { $facts.exited=$observed } } catch { }
         }
+        if ($facts.exited) {
+            try { $exitCode=$Process.ExitCode;if ($exitCode -is [int]) { $facts.exit_kind=if ($exitCode -eq 0) { 'zero' } else { 'nonzero' } } } catch { }
+        }
     } finally {
         try { $Process.Dispose();$facts.disposed=$true } catch { }
     }
     return $facts
+}
+function Get-TelemetryCounters {
+    if ($null -eq (Get-Variable -Scope Script -Name TelemetryCounters -ErrorAction SilentlyContinue)) { return ,@(0,0,0,0) }
+    return ,@($script:TelemetryCounters)
 }
 function Start-TelemetryChild($Info) { return [Diagnostics.Process]::Start($Info) }
 function Test-TelemetrySystemToken {
@@ -115,9 +122,14 @@ function Invoke-ServicedTelemetry($Role,$Stage,$State) {
         $failure=if ($null -eq $record.f) { 'null' } else { [string]$record.f }
         $info.Arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$helper+'" -Send -Role '+$Role+' -Stage '+$Stage+' -Mask '+$mask+' -Count '+$count+' -Failure '+$failure
         $info.UseShellExecute=$false;$info.CreateNoWindow=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+        if ($null -eq (Get-Variable -Scope Script -Name TelemetryCounters -ErrorAction SilentlyContinue)) { $script:TelemetryCounters=@(0,0,0,0) }
+        $script:TelemetryCounters[0]= [int][Math]::Min(32,$script:TelemetryCounters[0]+1)
         $process=Start-TelemetryChild $info
         if ($null -eq $process) { $script:TelemetryDisabled=$true;return }
         $facts=Wait-TelemetryChild $process
+        if ($facts.exit_kind -ceq 'zero') { $script:TelemetryCounters[1]= [int][Math]::Min(32,$script:TelemetryCounters[1]+1) }
+        if ($facts.exit_kind -ceq 'nonzero') { $script:TelemetryCounters[2]= [int][Math]::Min(32,$script:TelemetryCounters[2]+1) }
+        if ($facts.timed_out) { $script:TelemetryCounters[3]= [int][Math]::Min(32,$script:TelemetryCounters[3]+1) }
         if (-not $facts.exited -or -not $facts.disposed) { $script:TelemetryDisabled=$true }
     } catch { }
 }

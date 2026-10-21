@@ -252,6 +252,7 @@ function Send-ServicedTelemetry($TelemetryRole,$TelemetryStage,$TelemetryState=$
         Assert-ProtectedUpdatePath $telemetryHelper
         . $telemetryHelper
         Invoke-ServicedTelemetry $TelemetryRole $TelemetryStage $TelemetryState
+        if ($TelemetryRole -ceq 'system' -and $TelemetryState -is [System.Collections.IDictionary]) { $TelemetryState.sender_stats=Get-TelemetryCounters }
     } catch { }
 }
 function Get-ServicedRestartUtcNow { return [DateTime]::UtcNow }
@@ -277,7 +278,7 @@ function Request-ServicedExtraReboot($State,[DateTime]$Deadline) {
     Send-ServicedTelemetry 'system' 'extra_reboot_returned' $State
 }
 function Invoke-ServicedUpdate {
-    $state=@{ extra_reboots=$null; latest_reboot_boot=''; latest_reboot_changed=$null; pending_reboot=@{c=$null;w=$null;r=$null}; prior_service=(Get-ClosedPriorService $null); schema_version=1; status='installing'; phase='initializing'; completed=$false;
+    $state=@{ sender_stats=$null; extra_reboots=$null; latest_reboot_boot=''; latest_reboot_changed=$null; pending_reboot=@{c=$null;w=$null;r=$null}; prior_service=(Get-ClosedPriorService $null); schema_version=1; status='installing'; phase='initializing'; completed=$false;
         target_build=26200; target_ubr=9711; actual_build=0; actual_ubr=0;
         packages_verified=$false; reboot_required=$false; reboot_observed=$false;
         task_unregistered=$false; dism_exit_code=$null; dism_wait_timed_out=$false;

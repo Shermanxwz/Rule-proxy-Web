@@ -25,7 +25,8 @@ class ServicedWorkflowTests(unittest.TestCase):
     def test_advisory_sender_gates_are_required_without_native_activation(self):
         self.assertIn("@('stage0-setup', 'stage0-run', 'update', 'telemetry')", self.serviced)
         self.assertIn('run: ./.github/test-windows-identity-serviced-telemetry.ps1', self.serviced)
-        for name in ('telemetry', 'progress', 'progress_qmp'):
+        self.assertIn('run: ./.github/test-windows-identity-serviced-receipt.ps1', self.serviced)
+        for name in ('telemetry', 'progress', 'progress_qmp', 'receipt'):
             self.assertIn(f"'test_windows_client_serviced_{name}.py'", self.serviced)
             self.assertIn(f'test -f tests/test_windows_client_serviced_{name}.py', self.serviced)
         self.assertIn('test_windows_serviced_progress_qmp.py --run-actual-qemu --output', self.serviced)

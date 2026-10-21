@@ -419,6 +419,7 @@ def project_stage0(raw):
     result['prior_service'] = closed_prior_service(raw.get('prior_service'))
     result['pending_reboot'] = closed_pending_reboot(raw.get('pending_reboot'))
     result['extra_reboot'] = closed_extra_reboot(raw.get('extra_reboot'))
+    result['sender_stats'] = closed_sender_stats(raw.get('sender_stats'))
     guest = proof._dict(raw.get('guest_diagnostic')); failure = proof._dict(guest.get('failure'))
     result['guest_diagnostic'] = {'phase': proof._enum(guest.get('phase'), GUEST_PHASES, 'not_started'),
         'failure': {'type': proof._enum(failure.get('type'), proof.FAILURE_TYPES, 'absent'),
@@ -897,6 +898,19 @@ SERVICE_READ_REASONS = ('none', 'clock_contract', 'missing', 'acl', 'read', 'jso
 PRIOR_SERVICE_STATUSES = ('absent', 'unclassified', 'installing', 'reboot_pending', 'completed', 'failed')
 
 
+def closed_sender_stats(value):
+    # Per-invocation observations only; unavailable role is all null. Neither
+    # these counters nor advisory serial records authenticate their producer.
+    result = [None] * 8
+    if type(value) is not list or len(value) != 8: return result
+    for start in (0, 4):
+        row = value[start:start+4]
+        if (all(type(v) is int and 0 <= v <= 32 for v in row) and
+                row[1] + row[2] <= row[0] and row[3] <= row[0]):
+            result[start:start+4] = row
+    return result
+
+
 def closed_extra_reboot(value):
     proof = proof_helpers(); value = proof._dict(value)
     return {'n': proof._integer(value.get('n'), 0, 1),
@@ -1170,7 +1184,7 @@ def merge_serviced_result(public, value, actor_digest, service_started):
     public['stage0_passed'] = False
     public['guest_result_provenance_verified'] = False
     observed = project_stage0(value)
-    for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic', 'servicing_read_diagnostic', 'setup_read_diagnostic', 'prior_service', 'pending_reboot', 'extra_reboot'):
+    for key in ('diagnostics', 'guest_diagnostic', 'launcher_diagnostic', 'servicing_diagnostic', 'servicing_read_diagnostic', 'setup_read_diagnostic', 'prior_service', 'pending_reboot', 'extra_reboot', 'sender_stats'):
         public[key] = observed[key]
     if public.get('early_guest_diagnostic') is not None:
         raise EarlyGuestFailure('closed guest failure contradicts result acceptance')
@@ -1296,39 +1310,61 @@ def progress_object(pairs):
     return value
 
 
+PROGRESS_REJECT_REASONS = ('chunk','bound','ascii','prefix','json','schema','type','enum','irrelevant')
+
+
+def classify_progress(line):
+    # The first failed check is exclusive; categories describe parser input,
+    # not an authenticated sender or a proved guest failure.
+    if type(line) is not bytes: return None, 'chunk'
+    if len(line) > PROGRESS_LINE: return None, 'bound'
+    try: text = line.decode('ascii')
+    except UnicodeError: return None, 'ascii'
+    if not text.startswith('RPS2 '): return None, 'prefix'
+    try: value = json.loads(text[5:], object_pairs_hook=progress_object)
+    except (ValueError, TypeError, RecursionError): return None, 'json'
+    if type(value) is not dict or set(value) != {'v','s','p','m','n','f'}: return None, 'schema'
+    if type(value['v']) is not int: return None, 'type'
+    if value['v'] != 1: return None, 'enum'
+    role, stage = value['s'], value['p']
+    if type(role) is not str or type(stage) is not str: return None, 'type'
+    if role not in PROGRESS_STAGES or stage not in PROGRESS_STAGES[role]: return None, 'enum'
+    for key, maximum in (('m',7),('n',1)):
+        if value[key] is not None:
+            if type(value[key]) is not int: return None, 'type'
+            if not 0 <= value[key] <= maximum: return None, 'enum'
+    if value['f'] is not None:
+        if type(value['f']) is not str: return None, 'type'
+        if value['f'] not in SERVICE_FAILURES or value['f'] == 'none': return None, 'enum'
+    if stage in ('entry','service_wait') and any(value[k] is not None for k in ('m','n','f')): return None, 'irrelevant'
+    if stage not in ('failed','report_attempt') and value['f'] is not None: return None, 'irrelevant'
+    if stage not in ('extra_reboot_before','extra_reboot_returned','completed','failed','report_attempt') and value['m'] is not None: return None, 'irrelevant'
+    return {key:value[key] for key in ('v','s','p','m','n','f')}, None
+
+
 def parse_progress(line):
-    if type(line) is not bytes or len(line) > PROGRESS_LINE or not line.startswith(b'RPS2 '): return None
-    try:
-        value = json.loads(line[5:].decode('ascii'), object_pairs_hook=progress_object)
-        if type(value) is not dict or set(value) != {'v','s','p','m','n','f'}: return None
-        if type(value['v']) is not int or value['v'] != 1: return None
-        role, stage = value['s'], value['p']
-        if type(role) is not str or role not in PROGRESS_STAGES or type(stage) is not str or stage not in PROGRESS_STAGES[role]: return None
-        for key, maximum in (('m',7),('n',1)):
-            if value[key] is not None and (type(value[key]) is not int or not 0 <= value[key] <= maximum): return None
-        if value['f'] is not None and (type(value['f']) is not str or value['f'] not in SERVICE_FAILURES or value['f'] == 'none'): return None
-        if stage in ('entry','service_wait'):
-            if any(value[k] is not None for k in ('m','n','f')): return None
-        if stage not in ('failed','report_attempt') and value['f'] is not None: return None
-        if stage not in ('extra_reboot_before','extra_reboot_returned','completed','failed','report_attempt') and value['m'] is not None: return None
-        return {key:value[key] for key in ('v','s','p','m','n','f')}
-    except (ValueError,UnicodeError,TypeError,RecursionError): return None
+    return classify_progress(line)[0]
 
 
 class ProgressSerial:
     def __init__(self):
         self.tail = bytearray(); self.discarding = False
         self.records = []; self.accepted = self.rejected = self.dropped = 0
+        self.reject_counts = {key:0 for key in PROGRESS_REJECT_REASONS}
+
+    def reject(self, reason):
+        self.rejected = min(PROGRESS_COUNT,self.rejected+1)
+        self.reject_counts[reason] = min(PROGRESS_COUNT,self.reject_counts[reason]+1)
 
     def feed(self, chunk):
         if type(chunk) is not bytes or len(chunk) > PROGRESS_CHUNK:
-            self.rejected = min(PROGRESS_COUNT,self.rejected+1); return
+            self.reject('chunk'); return
         for byte in chunk:
             if byte == 10:
                 if not self.discarding:
                     line = bytes(self.tail).removesuffix(b'\r')
-                    value = parse_progress(line)
-                    if value is None: self.rejected = min(PROGRESS_COUNT,self.rejected+1)
+                    value, reason = classify_progress(line)
+                    if value is None: self.reject(reason)
                     else:
                         self.accepted = min(PROGRESS_COUNT,self.accepted+1)
                         if len(self.records) < 32: self.records.append(value)
@@ -1336,13 +1372,14 @@ class ProgressSerial:
                 self.tail.clear(); self.discarding = False
             elif not self.discarding:
                 if byte > 127 or len(self.tail) >= PROGRESS_LINE:
-                    self.rejected = min(PROGRESS_COUNT,self.rejected+1)
+                    self.reject('ascii' if byte > 127 else 'bound')
                     self.tail.clear(); self.discarding = True
                 else: self.tail.append(byte)
 
     def snapshot(self):
         return {'unauthenticated':True,'complete':False,'records':[dict(v) for v in self.records],
-                'accepted':self.accepted,'rejected':self.rejected,'dropped':self.dropped}
+                'accepted':self.accepted,'rejected':self.rejected,'dropped':self.dropped,
+                'reject_counts':dict(self.reject_counts)}
 
 
 class ProgressQmp:
