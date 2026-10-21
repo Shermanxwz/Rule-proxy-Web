@@ -138,15 +138,18 @@ struct Attempt {
     const char* failure="none";
 };
 void Error(Attempt& result,const char* phase,int error) { result.failure=phase; result.win32Error=error; }
-bool ValidateV6Only(int returned,int apiError,int length,DWORD value,Attempt& result) {
+bool ValidateV6Only(int returned,int apiError,int length,const std::array<unsigned char,sizeof(DWORD)>& storage,Attempt& result) {
     result.v6OnlyGetReturn=returned; result.v6OnlyGetLength=length;
     if (returned!=0) {
         result.v6OnlyGetError=static_cast<DWORD>(apiError); result.v6OnlyGetStage="api_error";
         Error(result,"v6only_get",apiError); return false;
     }
-    if (length!=static_cast<int>(sizeof(DWORD))) {
+    if (length!=1 && length!=static_cast<int>(sizeof(DWORD))) {
         result.v6OnlyGetStage="length_mismatch"; Error(result,"v6only_length",0); return false;
     }
+    DWORD value=0;
+    if (length==1) value=storage[0];
+    else std::memcpy(&value,storage.data(),sizeof(value));
     result.v6OnlyGetValue=value;
     if (value==0) { result.v6OnlyGetStage="zero"; Error(result,"v6only_zero",0); return false; }
     result.v6OnlyGetStage="nonzero"; result.v6OnlyVerified=true; return true;
@@ -184,8 +187,8 @@ Attempt Probe(unsigned int index,unsigned int port,const std::string& frame,ULON
         const DWORD v6Only=1;
         if (setsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY,reinterpret_cast<const char*>(&v6Only),sizeof(v6Only))!=0) { Error(result,"v6only_set",WSAGetLastError()); break; }
         result.v6OnlySet=true;
-        DWORD observedV6Only=0; int optionLength=sizeof(observedV6Only);
-        const int optionReturn=getsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY,reinterpret_cast<char*>(&observedV6Only),&optionLength);
+        std::array<unsigned char,sizeof(DWORD)> observedV6Only{}; int optionLength=static_cast<int>(observedV6Only.size());
+        const int optionReturn=getsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY,reinterpret_cast<char*>(observedV6Only.data()),&optionLength);
         const int optionError=optionReturn!=0?WSAGetLastError():0;
         if (!ValidateV6Only(optionReturn,optionError,optionLength,observedV6Only,result)) break;
         const BOOL exclusive=TRUE;

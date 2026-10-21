@@ -53,8 +53,8 @@ def validate_v6only(row):
     else:
         if returned!=0 or error is not None:raise ValueError('v6only_return')
         if stage=='length_mismatch':
-            if length==4 or value is not None or row['failure']!='v6only_length' or row['win32Error']!=0:raise ValueError('v6only_length')
-        elif length!=4 or not integer(value,0,2**32-1) or ((value==0)!=(stage=='zero')):raise ValueError('v6only_value')
+            if length in (1,4) or value is not None or row['failure']!='v6only_length' or row['win32Error']!=0:raise ValueError('v6only_length')
+        elif length not in (1,4) or not integer(value,0,255 if length==1 else 2**32-1) or ((value==0)!=(stage=='zero')):raise ValueError('v6only_value')
         elif stage=='zero' and (row['failure']!='v6only_zero' or row['win32Error']!=0):raise ValueError('v6only_zero')
     if stage!='nonzero' and (row['bindSucceeded'] or row['attempted']):raise ValueError('v6only_order')
 

@@ -141,14 +141,15 @@ class Ipv6BoundaryTests(unittest.TestCase):
 
 class V6OnlyReadbackTests(unittest.TestCase):
     def test_actual_typed_readback_matrix(self):
-        for observed in (1,2,0xffffffff):
-            value=network('contained',[500,1000,1500]);value['attempts'][0]['v6OnlyGetValue']=observed
+        for length,observed in ((1,1),(1,2),(1,255),(4,1),(4,2),(4,0xffffffff)):
+            value=network('contained',[500,1000,1500]);value['attempts'][0].update(v6OnlyGetValue=observed,v6OnlyGetLength=length)
             self.assertIs(u.validate_network(value,NONCE,'contained',40000),value)
         for stage,returned,error,length,observed,failure,code in (
             ('api_error',-1,10022,4,None,'v6only_get',10022),
             ('length_mismatch',0,None,3,None,'v6only_length',0),
             ('length_mismatch',0,None,8,None,'v6only_length',0),
-            ('zero',0,None,4,0,'v6only_zero',0)):
+            ('zero',0,None,4,0,'v6only_zero',0),
+            ('zero',0,None,1,0,'v6only_zero',0)):
             value=network('before',[500]);row=value['attempts'][0]
             row.update(v6OnlyGetStage=stage,v6OnlyGetReturn=returned,v6OnlyGetError=error,v6OnlyGetLength=length,v6OnlyGetValue=observed,
                        v6OnlyVerified=False,attempted=False,bindSucceeded=False,sendAccepted=False,nonceMatched=False,
@@ -162,7 +163,9 @@ class V6OnlyReadbackTests(unittest.TestCase):
     def test_contradictory_null_bool_length_value_and_stage_fail(self):
         for change in ({'v6OnlyGetReturn':True},{'v6OnlyGetError':0},{'v6OnlyGetLength':True},
                        {'v6OnlyGetValue':True},{'v6OnlyGetValue':0},{'v6OnlyGetValue':None},
-                       {'v6OnlyGetStage':'PRIVATE'},{'v6OnlyGetLength':8},{'v6OnlyGetStage':'api_error'}):
+                       {'v6OnlyGetStage':'PRIVATE'},{'v6OnlyGetLength':8},{'v6OnlyGetStage':'api_error'},{'v6OnlyGetLength':1,'v6OnlyGetValue':256},
+                       {'v6OnlyGetLength':1,'v6OnlyGetValue':0xffffffff},
+                       {'v6OnlyGetLength':2},{'v6OnlyGetLength':0}):
             value=network('before',[500]);value['attempts'][0].update(change)
             with self.assertRaises(ValueError):u.validate_network(value,NONCE,'before',40000)
     def test_receiver_nonzero_boolean_readback_including_signed_representation(self):

@@ -83,7 +83,7 @@ the diagnostic therefore does not distinguish those causes. Cleanup was
 confirmed, but ordinary IPv6 mechanics remained inadmissible.
 
 Microsoft documents IPV6_V6ONLY as a DWORD Boolean: any nonzero value means
-IPv6-only. The correction keeps setsockopt's argument 1, the same single
+IPv6-only. The first correction kept setsockopt's argument 1, the same single
 getsockopt call, and an exact DWORD-sized successful read before admitting a
 nonzero result. Zero, API error and wrong length remain fail-closed before bind.
 Closed return/error/length/value observations distinguish API failure from
@@ -95,3 +95,25 @@ Primary contract: [IPPROTO_IPV6 socket options](https://learn.microsoft.com/en-u
 and [getsockopt](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-getsockopt).
 The documented semantic correction is not proof that a noncanonical nonzero
 value caused either previous failure; that requires actual closed readback data.
+
+Run 39665095939 passed both 538-test suites and native builds. All 46 actual
+getsockopt calls succeeded with returned length 1. The full-DWORD gate rejected
+that length before bind/send, so the returned Boolean value remained unobserved.
+All owned cleanup succeeded. This identifies that job's size-check mismatch,
+not either previous job's exact cause, and still supplies no isolation result.
+
+The bounded compatibility correction accepts only successful returned lengths
+1 and 4. The same four-byte zeroed storage and single call are retained. Length
+1 is decoded from only its returned unsigned byte; length 4 is decoded as a
+complete native DWORD via memcpy. All other lengths, API errors and zero values
+remain inadmissible. Poisoned unreturned-byte tests ensure length-1 zero cannot
+be promoted by upper storage bytes. No socket-option argument, fallback,
+additional probe or pre-verification bind/send is introduced.
+
+Microsoft's actual-returned-size and Boolean contracts are corroborated by
+[CPython 3.13 socketmodule.c](https://github.com/python/cpython/blob/v3.13.0/Modules/socketmodule.c)
+and [.NET 8 Windows SocketPal](https://github.com/dotnet/runtime/blob/v8.0.0/src/libraries/System.Net.Sockets/src/System/Net/Sockets/SocketPal.Windows.cs),
+which use zero-initialized integer storage without requiring returned length 4.
+Our explicit 1-or-4 rule is narrower than accepting arbitrary returned lengths.
+Successful ordinary echo and actual nonzero readback remain required empirical
+gates; source compatibility alone does not establish either.

@@ -5,25 +5,37 @@
 
 bool V6OnlyContract() {
     using n0a_udp6::Attempt;
-    for(DWORD value:{DWORD{1},DWORD{2},DWORD{0xffffffff}}) {
+    for(DWORD value:{DWORD{0},DWORD{1},DWORD{2},DWORD{0xffffffff}}) {
+        std::array<unsigned char,sizeof(DWORD)> storage{};
+        std::memcpy(storage.data(),&value,sizeof(value));
         Attempt result;
-        if(!n0a_udp6::ValidateV6Only(0,0,sizeof(DWORD),value,result)||!result.v6OnlyVerified
+        const bool accepted=n0a_udp6::ValidateV6Only(0,0,sizeof(DWORD),storage,result);
+        if(accepted!=(value!=0)||result.v6OnlyVerified!=accepted
             ||result.v6OnlyGetValue!=value||result.v6OnlyGetError.has_value()
-            ||std::string(result.v6OnlyGetStage)!="nonzero")return false;
+            ||std::string(result.v6OnlyGetStage)!=(accepted?"nonzero":"zero"))return false;
     }
-    for(int length:{0,1,3,5,8}) {
+    // Poison every unreturned byte: a one-byte zero must not become true.
+    for(unsigned char first:{static_cast<unsigned char>(0),static_cast<unsigned char>(1),static_cast<unsigned char>(255)}) {
+        const std::array<unsigned char,sizeof(DWORD)> storage={first,0xa5,0xff,0x7e};
         Attempt result;
-        if(n0a_udp6::ValidateV6Only(0,0,length,DWORD{1},result)||result.v6OnlyVerified
+        const bool accepted=n0a_udp6::ValidateV6Only(0,0,1,storage,result);
+        if(accepted!=(first!=0)||result.v6OnlyVerified!=accepted
+            ||result.v6OnlyGetValue!=static_cast<DWORD>(first)||result.v6OnlyGetError.has_value()
+            ||std::string(result.v6OnlyGetStage)!=(accepted?"nonzero":"zero"))return false;
+    }
+    const std::array<unsigned char,sizeof(DWORD)> poison={0xff,0xa5,0x7e,0xff};
+    for(int length:{-1,0,2,3,5,8,2147483647}) {
+        Attempt result;
+        if(n0a_udp6::ValidateV6Only(0,0,length,poison,result)||result.v6OnlyVerified
             ||result.v6OnlyGetValue.has_value()||result.v6OnlyGetError.has_value()
             ||result.win32Error!=0||std::string(result.failure)!="v6only_length")return false;
     }
-    Attempt zero,error;
-    if(n0a_udp6::ValidateV6Only(0,0,sizeof(DWORD),DWORD{0},zero)||zero.v6OnlyVerified
-        ||zero.v6OnlyGetValue!=DWORD{0}||zero.v6OnlyGetError.has_value()
-        ||zero.win32Error!=0||std::string(zero.failure)!="v6only_zero")return false;
-    if(n0a_udp6::ValidateV6Only(SOCKET_ERROR,WSAEINVAL,sizeof(DWORD),DWORD{1},error)||error.v6OnlyVerified
-        ||error.v6OnlyGetValue.has_value()||error.v6OnlyGetError!=DWORD{WSAEINVAL}
-        ||error.win32Error!=WSAEINVAL||std::string(error.v6OnlyGetStage)!="api_error")return false;
+    for(int length:{-1,0,1,4,5}) {
+        Attempt error;
+        if(n0a_udp6::ValidateV6Only(SOCKET_ERROR,WSAEINVAL,length,poison,error)||error.v6OnlyVerified
+            ||error.v6OnlyGetValue.has_value()||error.v6OnlyGetError!=DWORD{WSAEINVAL}
+            ||error.win32Error!=WSAEINVAL||std::string(error.v6OnlyGetStage)!="api_error")return false;
+    }
     return true;
 }
 

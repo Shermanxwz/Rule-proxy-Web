@@ -120,7 +120,12 @@ class Udp6ActorSourceTests(unittest.TestCase):
         self.assertIn('length!=static_cast<int>(sizeof(DWORD))',helper)
         self.assertIn('if (value==0)',helper)
         self.assertNotIn('value!=1',helper)
-        self.assertLess(helper.index('length!=static_cast'),helper.index('result.v6OnlyGetValue=value'))
+        self.assertIn('if (length==1) value=storage[0];',helper)
+        self.assertIn('else std::memcpy(&value,storage.data(),sizeof(value));',helper)
+        self.assertLess(helper.index('length!=1 &&'),helper.index('storage[0]'))
+        self.assertIn('std::array<unsigned char,sizeof(DWORD)> observedV6Only{};',self.source)
+        self.assertIn('optionLength=static_cast<int>(observedV6Only.size())',self.source)
+        self.assertLess(helper.index('length!=1 && length!=static_cast'),helper.index('result.v6OnlyGetValue=value'))
         self.assertLess(helper.index('returned!=0'),helper.index('result.v6OnlyGetValue=value'))
         self.assertIn('Error(result,"v6only_length",0)',helper)
         self.assertIn('Error(result,"v6only_zero",0)',helper)
@@ -133,10 +138,13 @@ class Udp6ActorSourceTests(unittest.TestCase):
     def test_actual_fixture_calls_shared_helper_with_fixed_cases(self):
         fixture=(ROOT/'.github/native/windows_n0a_udp6_fixture.cpp').read_text()
         contract=function(fixture,'V6OnlyContract')
-        for value in ('DWORD{0}','DWORD{1}','DWORD{2}','DWORD{0xffffffff}','{0,1,3,5,8}','SOCKET_ERROR,WSAEINVAL'):
+        for value in ('DWORD{0}','DWORD{1}','DWORD{2}','DWORD{0xffffffff}','{-1,0,2,3,5,8,2147483647}','SOCKET_ERROR,WSAEINVAL'):
             self.assertIn(value,contract)
         for forbidden in ('socket(','getsockopt(','setsockopt(','WSAStartup(','Probe('):
             self.assertNotIn(forbidden,contract)
+        self.assertIn('storage={first,0xa5,0xff,0x7e}',contract)
+        self.assertIn('static_cast<unsigned char>(255)',contract)
+        self.assertIn('{-1,0,1,4,5}',contract)
         self.assertIn('const bool v6Contract=V6OnlyContract();',fixture)
         self.assertIn('v6OnlyContractVerified',fixture)
         self.assertIn('n0a_udp6::Bool(v6Contract)',fixture)

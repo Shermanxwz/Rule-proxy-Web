@@ -156,6 +156,13 @@ class DiagnosticTests(unittest.TestCase):
         raw=(json.dumps(report,separators=(',',':'))+'\n').encode('ascii')
         self.assertLessEqual(len(raw),g.u.MAX_REPORT);self.assertGreater(len(raw),24000)
         self.assertEqual(g.u.parse(raw),report)
+    def test_bounded_byte_readback_projects_actual_length_and_value(self):
+        network=self.network();network['attempts'][0].update(v6OnlyGetLength=1,v6OnlyGetValue=255)
+        row=g.network_diagnostic(network,'a'*32,'contained',40000)['attempts'][0]
+        self.assertEqual(row['v6only_get_length'],1);self.assertEqual(row['v6only_get_value'],255)
+        self.assertEqual(row['v6only_get_stage'],'nonzero');self.assertTrue(row['v6only_verified'])
+        network['attempts'][0]['v6OnlyGetValue']=256
+        with self.assertRaises(ValueError):g.network_diagnostic(network,'a'*32,'contained',40000)
     def test_invalid_native_schema_cannot_enter_diagnostics(self):
         value=self.network();value['attempts'][0]['failure']='PRIVATE/path'
         with self.assertRaises(ValueError):g.network_diagnostic(value,'a'*32,'contained',40000)
