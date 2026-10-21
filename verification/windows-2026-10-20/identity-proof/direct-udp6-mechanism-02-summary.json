@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "scope": "Standalone hosted TEST_ONLY IPv6 diagnostic, not isolation",
+  "run_id": 39663356528,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39663356528",
+  "head": "33490638b7d803dbea044ea3dfe64e4140907a49",
+  "freeze_sha256": "cd24b5063ca2ad2265e1840635ccf80345a4704753aabbd9db36db767302e3c3",
+  "result_sha256": "d87cfc7689820f3c4454f232609f817113b5c754a55adeb6152d5fbb606ee750",
+  "workflow_conclusion": "failure",
+  "tests": {
+    "linux_required": 531,
+    "windows_required": 531,
+    "skips_each": 0,
+    "native_builds_passed": true
+  },
+  "observations": {
+    "attempt_rows": 46,
+    "startup_errors_zero": true,
+    "sockets_created_and_v6only_set": 46,
+    "v6only_verified": 0,
+    "failure_category": "v6only_get",
+    "error_code": 10022,
+    "bind_succeeded": 0,
+    "sendto_invoked": 0,
+    "receiver_datagrams": [
+      0,
+      0
+    ],
+    "all_attempt_sockets_closed": true,
+    "all_seven_child_owners_cleanup": true,
+    "both_receiver_cleanup": true,
+    "work_removed": true
+  },
+  "interpretation": [
+    "The diagnostic localizes this job to native IPv6-only readback, before bind/send. It does not establish a network isolation denial.",
+    "The reviewed source uses the same v6only_get label and 10022 for either an actual getsockopt error or its own returned-length/value rejection. The public evidence cannot distinguish those branches.",
+    "The setter succeeded; exact requested value was 1. The current source requires the returned DWORD equal 1 and the returned length equal sizeof(DWORD). No socket-option argument or acceptance condition was changed in this diagnostic.",
+    "Profile rejection in the hosted admin token is expected; TEST_ONLY proceeds independently. Receiver startup succeeded, but native ordinary IPv6 echo did not.",
+    "No VM, guest alias, linked-libslirp provenance, packet capture, production valid network CLI, nonadmin/PSEC, DNS, proxy or inheritance claim.",
+    "This separate job does not retroactively identify the hidden native failure in the first job. Both failed results remain preserved."
+  ],
+  "primary_reference": "https://learn.microsoft.com/en-us/windows/win32/winsock/ipproto-ipv6-socket-options",
+  "next_step": "Read-only exact readback/API contract assessment; no automatic replay or acceptance relaxation."
+}
