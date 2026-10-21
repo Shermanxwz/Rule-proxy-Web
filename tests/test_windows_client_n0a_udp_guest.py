@@ -4,6 +4,7 @@ import hashlib
 import io
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import time
@@ -147,7 +148,7 @@ class InheritedDispatch(unittest.TestCase):
         report=self.root/'report.json';report.write_text(json.dumps(actor))
         event={'event':'mxc.ProcessExited','backend':'processcontainer','identity':'redacted',
                'tier':'base-container','pid':42,'exit_code':0}
-        audit=self.root/'audit.private';audit.write_text('[123] '+json.dumps(event)+'\n')
+        audit=self.root/'audit.private';audit.write_bytes(('[123] '+json.dumps(event)+'\n').encode('utf-8'))
         st=audit.stat()
         owned={'process':p,'out':io.BytesIO(),'err':io.BytesIO(),'role':'contained','endpoint':'runner',
                'report':report,'audit':audit,'audit_identity':(st.st_dev,st.st_ino),'timed_out':False,'cleanup':False}
@@ -156,6 +157,21 @@ class InheritedDispatch(unittest.TestCase):
         self.assertTrue(result['harness_error']);self.assertTrue(result['pid_verified'])
         self.assertEqual(result['pid_binding'],'executor_audit');self.assertEqual(result['actual_tiers'],['base-container'])
         self.assertEqual(result['actor'],actor);self.assertFalse(self.g.finish());self.assertEqual(p._handle.calls,1)
+    def test_audit_fixture_exact_bytes_and_platform_newline_discriminator(self):
+        event={'event':'mxc.ProcessExited','backend':'processcontainer','identity':'redacted',
+               'tier':'base-container','pid':42,'exit_code':0}
+        line='[123] '+json.dumps(event)+'\n'
+        text=self.root/'text-default';text.write_text(line,encoding='utf-8')
+        exact=self.root/'exact-bytes';exact.write_bytes(line.encode('utf-8'))
+        observed=text.read_bytes()
+        expected=line.replace('\n',os.linesep).encode('utf-8')
+        self.assertEqual(observed,expected)
+        self.assertEqual(exact.read_bytes(),line.encode('utf-8'))
+        parser=self.module.base.engine.audit_exit
+        self.assertIsNotNone(parser(exact.read_bytes(),42,40))
+        self.assertEqual(parser(observed,42,40) is not None,os.linesep=='\n')
+        # Preserve the strict source-bound logger grammar on every platform.
+        self.assertIsNone(parser(line.replace('\n','\r\n').encode('utf-8'),42,40))
     def test_actual_inherited_probe_uses_udp_endpoint_policy(self):
         p=Process();p.pid=40;p.returncode=0
         output=self.root/'probe';output.write_text('{}')
