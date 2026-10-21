@@ -12,11 +12,11 @@ import time
 MAX_REPORT=32768
 MAX_FRAME=128
 PHASES=('before','sample','contained','after')
-FAILURES=('none','v6only_set','v6only_get','v6only_length','v6only_zero','socket','exclusive','nonblocking','bind','getsockname','deadline','sendto','short_send','recv_select','recvfrom','echo_peer','echo_payload')
+FAILURES=('pktinfo_set','recvmsg_extension','interface_pre','recvmsg','ancillary','arrival_interface','packet_destination','interface_post','peer_scope','none','v6only_set','v6only_get','v6only_length','v6only_zero','socket','exclusive','nonblocking','bind','getsockname','deadline','sendto','short_send','recv_select','recvfrom','echo_peer','echo_payload')
 NETWORK_KEYS={'version','endpoint','phase','port','profileMatched','startupError','qpcFrequency','windowStartQpc','windowEndQpc','attempts','testOnly','socketsCleanupConfirmed'}
 PEER_DIAGNOSTIC_KEYS=('echoPeerLengthMatched', 'echoPeerFamilyMatched', 'echoPeerPortMatched', 'echoPeerScopeZero', 'echoPeerNotV4Mapped', 'echoPeerAddressMatched')
 ATTEMPT_KEYS={'index','attempted','socketCreated','bindSucceeded','localPort','localIpv6','localScopeId','v6OnlySet','v6OnlyVerified','v6OnlyGetReturn','v6OnlyGetError','v6OnlyGetLength','v6OnlyGetValue','v6OnlyGetStage','sendStartQpc','sendEndQpc','sendAccepted','sendBytes','nonceMatched','exchangeEndQpc','win32Error','failure','closed','closeError','closeQpc'}
-ATTEMPT_KEYS=ATTEMPT_KEYS|set(PEER_DIAGNOSTIC_KEYS)
+ATTEMPT_KEYS=ATTEMPT_KEYS|set(PEER_DIAGNOSTIC_KEYS)|{'pc'}
 
 
 def integer(value,lo=0,hi=(1<<63)-1):return type(value) is int and lo<=value<=hi
@@ -60,11 +60,31 @@ def validate_v6only(row):
         elif stage=='zero' and (row['failure']!='v6only_zero' or row['win32Error']!=0):raise ValueError('v6only_zero')
     if stage!='nonzero' and (row['bindSucceeded'] or row['attempted']):raise ValueError('v6only_order')
 
+# Context v1 bits: PKTINFO enabled, recvmsg extension resolved, pre-interface
+# qualified, complete nontruncated receive, exact ancillary, arrival index matched,
+# packet destination valid, post-interface stable/qualified, peer scope matched,
+# combined context accepted. These are native attestations, not authentication.
+PEER_CONTEXT_MASK=1023
+PEER_REQUIRED_KEYS=tuple(k for k in PEER_DIAGNOSTIC_KEYS if k!='echoPeerScopeZero')
+
+def validate_peer_context(row):
+    pc=row.get('pc')
+    if (type(pc) is not list or len(pc)!=3 or type(pc[0]) is not int or pc[0]!=1
+            or any(not integer(x,0,PEER_CONTEXT_MASK) for x in pc[1:]) or pc[2]&~pc[1]):raise ValueError('peer_context_type')
+    if pc[2]&512 and pc[1:]!=[PEER_CONTEXT_MASK,PEER_CONTEXT_MASK]:raise ValueError('peer_context_combined')
+    return pc
+
+def peer_context_verified(row):
+    try:pc=validate_peer_context(row)
+    except (ValueError,TypeError,AttributeError):return False
+    return pc[1:]==[PEER_CONTEXT_MASK,PEER_CONTEXT_MASK] and all(row.get(k) is True for k in PEER_REQUIRED_KEYS)
+
+
 def validate_network(value,nonce,phase,port,endpoint='runner-v6',test_only=False):
     if phase not in PHASES or endpoint not in ('runner-v6','fixture-loopback-v6') or type(test_only) is not bool or not integer(port,1025,65535):raise ValueError('context')
     frame(nonce,phase,0)
     if type(value) is not dict or set(value)!=NETWORK_KEYS:raise ValueError('network')
-    fixed={'version':1,'endpoint':endpoint,'phase':phase,'port':port,'testOnly':test_only}
+    fixed={'version':2,'endpoint':endpoint,'phase':phase,'port':port,'testOnly':test_only}
     if any(type(value[k]) is not type(v) or value[k]!=v for k,v in fixed.items()):raise ValueError('binding')
     if any(type(value[k]) is not bool for k in ('profileMatched','socketsCleanupConfirmed')) or not integer(value['startupError'],0,2**32-1):raise ValueError('type')
     frequency=value['qpcFrequency'];start=value['windowStartQpc'];end=value['windowEndQpc']
@@ -77,6 +97,8 @@ def validate_network(value,nonce,phase,port,endpoint='runner-v6',test_only=False
         if any(type(row[k]) is not bool for k in ('attempted','socketCreated','bindSucceeded','sendAccepted','nonceMatched','closed','v6OnlySet','v6OnlyVerified')):raise ValueError('type')
         if not integer(row['localPort'],0,65535) or type(row['localIpv6']) is not str or re.fullmatch('[0-9a-f]{32}',row['localIpv6']) is None or not integer(row['localScopeId'],0,2**32-1) or not integer(row['sendBytes'],-1,128) or any(not integer(row[k],0,2**32-1) for k in ('win32Error','closeError')) or row['failure'] not in FAILURES:raise ValueError('row')
         if any(row[k] is not None and type(row[k]) is not bool for k in PEER_DIAGNOSTIC_KEYS):raise ValueError('peer_diagnostic_type')
+        validate_peer_context(row)
+        if row['nonceMatched'] and not (row['pc'][1]&8 and row['pc'][2]&8):raise ValueError('peer_payload_receive')
         validate_v6only(row)
         if any(not integer(row[k]) for k in ('sendStartQpc','sendEndQpc','exchangeEndQpc','closeQpc')):raise ValueError('clock')
         if row['attempted']:
@@ -96,18 +118,19 @@ def native_identity(actor,nonce,phase,agentic_sid):
     return phase in ('before','sample','after') and actor.get('tokenIsAppContainer') is False and actor.get('tokenAppContainerSid') is None and actor.get('tokenCapabilities')==[]
 
 def echo_success(row):
-    return row['attempted'] and row['socketCreated'] and row['bindSucceeded'] and row['sendAccepted'] and row['nonceMatched'] and row['closed'] and row['win32Error']==0 and row['failure']=='none' and row['closeError']==0
+    return row['attempted'] and row['socketCreated'] and row['bindSucceeded'] and row['sendAccepted'] and row['nonceMatched'] and peer_context_verified(row) and row['closed'] and row['win32Error']==0 and row['failure']=='none' and row['closeError']==0
 
 def controls(reports,nonce,port,*,production=True):
     result=dict(all_selected_sendto_invoked=False,ordinary_controls_verified=False,explicit_send_denial=False,
-                selected_send_accepted_count=0,selected_echo_observed=False,sockets_cleanup_confirmed=False,
+                selected_send_accepted_count=0,selected_echo_observed=False,selected_nonce_payload_observed=False,sockets_cleanup_confirmed=False,
                 profile_flags_verified=False,runtime_acceptance=False)
     try:
         if type(reports) is not dict or 'contained' not in reports:return result
         selected=validate_network(reports['contained'],nonce,'contained',port,'runner-v6' if production else 'fixture-loopback-v6',not production)
         rows=selected['attempts'];frequency=selected['qpcFrequency'];start=selected['windowStartQpc'];end=selected['windowEndQpc']
         result['selected_send_accepted_count']=sum(r['sendAccepted'] for r in rows)
-        result['selected_echo_observed']=any(r['nonceMatched'] for r in rows)
+        result['selected_nonce_payload_observed']=any(r['nonceMatched'] for r in rows)
+        result['selected_echo_observed']=any(r['nonceMatched'] and peer_context_verified(r) for r in rows)
         ready=selected['startupError']==0 and (not production or selected['profileMatched'])
         result['all_selected_sendto_invoked']=ready and len(rows)==3 and all(r['attempted'] and r['bindSucceeded'] and r['socketCreated'] and r['localPort']>0 for r in rows) and rows[0]['sendStartQpc']==start and rows[-1]['exchangeEndQpc']==end and end>start
         result['explicit_send_denial']=result['all_selected_sendto_invoked'] and all(not r['sendAccepted'] and r['sendBytes']==-1 and r['failure']=='sendto' and r['win32Error']==10013 for r in rows)
@@ -309,7 +332,7 @@ def evaluate(cases,binding):
 
 DIAGNOSTIC_STAGES=('not_started','probe','before_invoke','before_admission','sample_start','overlap_delay','contained_invoke','sample_wait','after_invoke','sampler_cleanup','completed')
 REPORT_STATES=('unavailable','pin','read','parsed','binding','audit','complete')
-VALIDATION_REASONS=('unavailable','none','other','context','network','binding','type','clock','attempts','attempt','row','attempt_clock','unattempted','send','echo','close','v6only_stage','v6only_verified','v6only_order','v6only_unattempted','v6only_type','v6only_api','v6only_return','v6only_length','v6only_value','v6only_zero','peer_diagnostic_type')
+VALIDATION_REASONS=('unavailable','none','other','context','network','binding','type','clock','attempts','attempt','row','attempt_clock','unattempted','send','echo','close','v6only_stage','v6only_verified','v6only_order','v6only_unattempted','v6only_type','v6only_api','v6only_return','v6only_length','v6only_value','v6only_zero','peer_diagnostic_type','peer_context_type','peer_context_combined','peer_payload_receive')
 ATTEMPT_DIAGNOSTIC_KEYS=('attempted','socketCreated','bindSucceeded','v6OnlySet','v6OnlyVerified','v6OnlyGetReturn','v6OnlyGetError','v6OnlyGetLength','v6OnlyGetValue','v6OnlyGetStage','sendAccepted','sendBytes','nonceMatched','win32Error','failure','closed','closeError')+PEER_DIAGNOSTIC_KEYS
 
 def diagnostic_scalar(index,value):
@@ -325,7 +348,7 @@ def diagnostic(cases,binding):
     ledger=cases.get('driver_diagnostic',{})
     stage=ledger.get('stage','not_started');failed=ledger.get('failed_stage')
     result=dict(failure=ledger.get('failure','none') if ledger.get('failure','none') in ('none','admission','timeout','operation','cleanup') else 'operation',stage=stage if stage in DIAGNOSTIC_STAGES else 'not_started',failed_stage=failed if failed in DIAGNOSTIC_STAGES else None,
-        phases=[],before=dict(checks=[None]*13,validation='unavailable',network=[None]*3,attempt=None))
+        phases=[],before=dict(checks=[None]*13,validation='unavailable',network=[None]*3,attempt=None,context=None))
     observations=cases.get('execution_observations',{})
     for phase in PHASES:
         observation=observations.get(phase,{})
@@ -348,6 +371,8 @@ def diagnostic(cases,binding):
             network.get('socketsCleanupConfirmed') if type(network.get('socketsCleanupConfirmed')) is bool else None,
             len(network['attempts']) if type(network.get('attempts')) is list and len(network['attempts'])<=40 else None]
         if type(network.get('attempts')) is list and len(network['attempts'])==1 and type(network['attempts'][0]) is dict:
+            try:d['context']=list(validate_peer_context(network['attempts'][0]))
+            except (ValueError,TypeError):pass
             d['attempt']=[diagnostic_scalar(i,network['attempts'][0].get(k)) for i,k in enumerate(ATTEMPT_DIAGNOSTIC_KEYS)]
     try:network=validate_network(network,binding.nonce,'before',binding.runner_port)
     except (ValueError,TypeError) as exc:
@@ -367,8 +392,9 @@ def validate_diagnostic(value):
     for row in value['phases']:
         if type(row) is not list or len(row)!=8 or any(type(row[i]) is not bool for i in (0,1,2,3,5)) or (row[4] is not None and type(row[4]) is not bool) or row[6] not in REPORT_STATES or row[7] not in ('unavailable','missing','object','unreadable'):raise ValueError('diagnostic phase')
     d=value['before']
-    if type(d) is not dict or set(d)!={'checks','validation','network','attempt'} or d['validation'] not in VALIDATION_REASONS:raise ValueError('diagnostic before')
+    if type(d) is not dict or set(d)!={'checks','validation','network','attempt','context'} or d['validation'] not in VALIDATION_REASONS:raise ValueError('diagnostic before')
     if type(d['checks']) is not list or len(d['checks'])!=13 or any(x is not None and type(x) is not bool for x in d['checks']):raise ValueError('diagnostic checks')
+    if d['context'] is not None:validate_peer_context({'pc':d['context']})
     n=d['network']
     if type(n) is not list or len(n)!=3 or (n[0] is not None and not integer(n[0],0,2**32-1)) or (n[1] is not None and type(n[1]) is not bool) or (n[2] is not None and not integer(n[2],0,40)):raise ValueError('diagnostic network')
     if d['attempt'] is not None:

@@ -46,14 +46,15 @@ def network_diagnostic(value,nonce,phase,port):
     network=u.validate_network(value,nonce,phase,port,'fixture-loopback-v6',True)
     names={'failure':'failure','win32_error':'win32Error','socket_created':'socketCreated',
            'v6only_set':'v6OnlySet','v6only_verified':'v6OnlyVerified','bound':'bindSucceeded',
-           'send_invoked':'attempted','send_accepted':'sendAccepted','echo_verified':'nonceMatched',
+           'send_invoked':'attempted','send_accepted':'sendAccepted','nonce_payload_observed':'nonceMatched',
            'closed':'closed','close_error':'closeError',
            'v6only_get_return':'v6OnlyGetReturn','v6only_get_error':'v6OnlyGetError',
-           'v6only_get_length':'v6OnlyGetLength','v6only_get_value':'v6OnlyGetValue','v6only_get_stage':'v6OnlyGetStage'}
+           'v6only_get_length':'v6OnlyGetLength','v6only_get_value':'v6OnlyGetValue','v6only_get_stage':'v6OnlyGetStage',
+           'peer_context':'pc'}
     return dict(startup_error=network['startupError'],profile_matched=network['profileMatched'],
                 sockets_cleanup_confirmed=network['socketsCleanupConfirmed'],
                 attempt_count=len(network['attempts']),
-                attempts=[{public:row[private] for public,private in names.items()} for row in network['attempts']])
+                attempts=[dict({public:row[private] for public,private in names.items()},echo_verified=row['nonceMatched'] and u.peer_context_verified(row)) for row in network['attempts']])
 
 class Owned:
     def __init__(self,path):self.path=path;self.process=None;self.spawn_attempted=False;self.close_attempted=False;self.close_uncertain=False
@@ -97,8 +98,9 @@ class Owned:
 
 def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
     deadline=time.monotonic()+BUDGET
-    result=dict(schema=1,protocol='udp6',hosted_mechanics_complete=False,fixture_echo_controls=False,fixture_send_accepted_count=0,fixture_selected_echo_observed=False,
-                wrong_echo_send_accepted=False,wrong_echo_rejected=False,actual_admin_profile_rejected=False,v6only_contract_verified=False,echo_peer_contract_verified=False,
+    result=dict(schema=1,protocol='udp6',hosted_mechanics_complete=False,fixture_echo_controls=False,fixture_send_accepted_count=0,fixture_selected_echo_observed=False,fixture_selected_nonce_payload_observed=False,
+                wrong_echo_send_accepted=False,wrong_echo_rejected=False,actual_admin_profile_rejected=False,v6only_contract_verified=False,echo_peer_contract_verified=False,peer_context_contract_verified=False,
+                fixture_peer_context_verified=False,wrong_echo_peer_context_verified=False,
                 production_invalid_cli_rejected=False,production_network_guard_executed=False,ordinary_nonadmin_tested=False,
                 cleanup_confirmed=False,work_removed=False,failure='none',runtime_acceptance=False,packet_egress_tested=False,dns_tested=False)
     result['network_diagnostics']={key:None for key in DIAGNOSTIC_CASES}
@@ -118,7 +120,9 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
         result['network_diagnostics'][key]=network_diagnostic(value['udp6'],nonce,phase,port)
         if phase=='contained':
             result['fixture_send_accepted_count']=sum(row['sendAccepted'] for row in value['udp6']['attempts'])
-            result['fixture_selected_echo_observed']=any(row['nonceMatched'] for row in value['udp6']['attempts'])
+            # Raw complete nonce payload is not peer identity or egress proof.
+            result['fixture_selected_nonce_payload_observed']=any(row['nonceMatched'] for row in value['udp6']['attempts'])
+            result['fixture_selected_echo_observed']=any(row['nonceMatched'] and u.peer_context_verified(row) for row in value['udp6']['attempts'])
         if child.process.returncode!=0:raise ValueError('native_exit')
         return value
     try:
@@ -133,15 +137,18 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
         time.sleep(1.5)
         child=start(fixture_actor,nonce,'contained',port,'contained');reports['contained']=done(child,nonce,'contained',port,True,5)['udp6']
         result['fixture_send_accepted_count']=sum(row['sendAccepted'] for row in reports['contained']['attempts'])
-        result['fixture_selected_echo_observed']=any(row['nonceMatched'] for row in reports['contained']['attempts'])
+        result['fixture_selected_echo_observed']=any(row['nonceMatched'] and u.peer_context_verified(row) for row in reports['contained']['attempts'])
         reports['sample']=done(sampler,nonce,'sample',port,True,12)['udp6']
         child=start(fixture_actor,nonce,'after',port,'after');reports['after']=done(child,nonce,'after',port,True,5)['udp6']
+        # Actual owned-loopback observations, separate from synthetic profile helpers.
+        result['fixture_peer_context_verified']=all(reports[phase]['attempts'] and all(u.peer_context_verified(row) for row in reports[phase]['attempts']) for phase in u.PHASES)
         observed=u.controls(reports,nonce,port,production=False)
         result['fixture_echo_controls']=observed['ordinary_controls_verified'] and observed['all_selected_sendto_invoked'] and all(u.echo_success(row) for row in reports['contained']['attempts']) and observed['sockets_cleanup_confirmed']
         result['fixture_send_accepted_count']=observed['selected_send_accepted_count']
         negative_nonce=secrets.token_hex(16);negative_port=endpoint(negative_nonce,True)
         child=start(fixture_actor,negative_nonce,'before',negative_port,'wrong-echo');negative=done(child,negative_nonce,'before',negative_port,True,3)['udp6']
         rows=negative['attempts']
+        result['wrong_echo_peer_context_verified']=len(rows)==1 and u.peer_context_verified(rows[0])
         result['wrong_echo_send_accepted']=len(rows)==1 and rows[0]['sendAccepted']
         result['wrong_echo_rejected']=len(rows)==1 and not rows[0]['nonceMatched'] and rows[0]['failure']=='echo_payload' and rows[0]['closed'] and negative['socketsCleanupConfirmed']
         profile_nonce=secrets.token_hex(16)
@@ -151,8 +158,9 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
         if not profile_child.wait(min(deadline-10,time.monotonic()+5)):raise ValueError('timeout')
         profile=u.parse(read(profile_child.path,u.MAX_REPORT))
         facts=profile.get('profile')
-        if not (profile.get('mode')=='actor-n0a-udp6-profile' and profile.get('nonce')==profile_nonce and type(profile.get('pid')) is int and profile['pid']==profile_child.process.pid and profile.get('queriesSucceeded') is True and profile.get('errors')==[] and type(facts) is dict and set(facts)=={'testOnly','ordinaryMatched','containedMatched','networkApiCalled','v6OnlyContractVerified','echoPeerContractVerified'} and all(type(v) is bool for v in facts.values()) and facts['testOnly'] and not facts['networkApiCalled']):raise ValueError('profile_binding')
+        if not (profile.get('mode')=='actor-n0a-udp6-profile' and profile.get('nonce')==profile_nonce and type(profile.get('pid')) is int and profile['pid']==profile_child.process.pid and profile.get('queriesSucceeded') is True and profile.get('errors')==[] and type(facts) is dict and set(facts)=={'testOnly','ordinaryMatched','containedMatched','networkApiCalled','v6OnlyContractVerified','echoPeerContractVerified','peerContextContractVerified'} and all(type(v) is bool for v in facts.values()) and facts['testOnly'] and not facts['networkApiCalled']):raise ValueError('profile_binding')
         # Synthetic shared-helper cases only, not a new socket/API observation.
+        result['peer_context_contract_verified']=profile_child.process.returncode==0 and facts['peerContextContractVerified'] is True
         result['echo_peer_contract_verified']=profile_child.process.returncode==0 and facts['echoPeerContractVerified'] is True
         result['v6only_contract_verified']=profile_child.process.returncode==0 and facts['v6OnlyContractVerified'] is True
         result['actual_admin_profile_rejected']=profile_child.process.returncode==0 and profile.get('tokenElevated') is True and facts['ordinaryMatched'] is False and facts['containedMatched'] is False
@@ -184,7 +192,7 @@ def run(production_actor,production_manifest,fixture_actor,fixture_manifest):
         receiver_ok=len(receivers)==2 and all(not r['error'] and r['counts'] is not None and all(r['counts'][key]==0 for key in ('rejected','oversized','send_errors')) for r in receivers)
         if receiver_ok:
             receiver_ok=(receivers[0]['counts']['verified']>=8 and receivers[0]['verified_indices']['contained']==[0,1,2] and receivers[1]['counts']['verified']==1)
-        result['hosted_mechanics_complete']=result['fixture_echo_controls'] and result['wrong_echo_send_accepted'] and result['wrong_echo_rejected'] and result['actual_admin_profile_rejected'] and result['v6only_contract_verified'] and result['echo_peer_contract_verified'] and result['production_invalid_cli_rejected'] and receiver_ok and result['cleanup_confirmed'] and result['work_removed']
+        result['hosted_mechanics_complete']=result['fixture_echo_controls'] and result['wrong_echo_send_accepted'] and result['wrong_echo_rejected'] and result['actual_admin_profile_rejected'] and result['v6only_contract_verified'] and result['echo_peer_contract_verified'] and result['peer_context_contract_verified'] and result['fixture_peer_context_verified'] and result['wrong_echo_peer_context_verified'] and result['production_invalid_cli_rejected'] and receiver_ok and result['cleanup_confirmed'] and result['work_removed']
     return result
 
 def public_json(result):

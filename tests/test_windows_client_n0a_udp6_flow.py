@@ -17,9 +17,9 @@ u=f.engine()
 def network(phase,starts):
     rows=[]
     for i,start in enumerate(starts):
-        rows.append(dict(index=i,attempted=True,socketCreated=True,bindSucceeded=True,localPort={'before':40000,'sample':41000,'contained':42000,'after':43000}[phase]+i,echoPeerLengthMatched=None,echoPeerFamilyMatched=None,echoPeerPortMatched=None,echoPeerScopeZero=None,echoPeerNotV4Mapped=None,echoPeerAddressMatched=None,localIpv6='0'*32,localScopeId=0,v6OnlySet=True,v6OnlyVerified=True,v6OnlyGetReturn=0,v6OnlyGetError=None,v6OnlyGetLength=1,v6OnlyGetValue=1,v6OnlyGetStage='nonzero',
+        rows.append(dict(index=i,attempted=True,socketCreated=True,bindSucceeded=True,localPort={'before':40000,'sample':41000,'contained':42000,'after':43000}[phase]+i,pc=[1,1023,1023],echoPeerLengthMatched=True,echoPeerFamilyMatched=True,echoPeerPortMatched=True,echoPeerScopeZero=False,echoPeerNotV4Mapped=True,echoPeerAddressMatched=True,localIpv6='0'*32,localScopeId=0,v6OnlySet=True,v6OnlyVerified=True,v6OnlyGetReturn=0,v6OnlyGetError=None,v6OnlyGetLength=1,v6OnlyGetValue=1,v6OnlyGetStage='nonzero',
           sendStartQpc=start,sendEndQpc=start+1,sendAccepted=True,sendBytes=len(u.frame('a'*32,phase,i)),nonceMatched=True,exchangeEndQpc=start+2,win32Error=0,failure='none',closed=True,closeError=0,closeQpc=20000))
-    return dict(version=1,endpoint='runner-v6',phase=phase,port=44000,profileMatched=True,startupError=0,qpcFrequency=1000,windowStartQpc=starts[0],windowEndQpc=starts[-1]+2,attempts=rows,testOnly=False,socketsCleanupConfirmed=True)
+    return dict(version=2,endpoint='runner-v6',phase=phase,port=44000,profileMatched=True,startupError=0,qpcFrequency=1000,windowStartQpc=starts[0],windowEndQpc=starts[-1]+2,attempts=rows,testOnly=False,socketsCleanupConfirmed=True)
 
 def value(samples=None):
     binding={k:'a'*(32 if k.endswith('nonce') else 40 if k=='source_commit' else 64) for k in f.BINDING_KEYS-{'build','ubr'}};binding.update(build=26300,ubr=9457)

@@ -19,6 +19,9 @@
 #endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <mswsock.h>
+#include <iphlpapi.h>
+#include <mstcpip.h>
 #define RULEPROXY_IDENTITY_ONLY 1
 #define wmain UnusedIdentityEntry
 #include "windows_identity_actor.cpp"
@@ -27,6 +30,7 @@
 #include <cstddef>
 #include <stdexcept>
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "iphlpapi.lib")
 
 namespace n0a_udp6 {
 constexpr std::size_t MaxReport = 32768;
@@ -127,6 +131,7 @@ bool Profile(const Observations& identity, bool contained) {
 }
 struct Attempt {
     unsigned int index=0;
+    unsigned int contextObserved=0,contextPassed=0;
     bool socketCreated=false,v6OnlySet=false,v6OnlyVerified=false,attempted=false,bindSucceeded=false,sendAccepted=false,nonceMatched=false,closed=false;
     unsigned int localPort=0;
     std::array<unsigned char,16> localIpv6{};
@@ -172,7 +177,89 @@ void ObserveEchoPeer(int count,int length,const sockaddr_in6& sender,const socka
         result.echoPeerAddressMatched=std::memcmp(&sender.sin6_addr,Destination.data(),Destination.size())==0;
     }
 }
-bool Receive(SOCKET socket,const sockaddr_in6& remote,const std::string& frame,ULONGLONG deadline,Attempt& result) {
+// v2 pc bits: option, extension, pre-interface, receive, ancillary, arrival,
+// local-destination sanity, stable post-interface, peer scope, combined context.
+bool ContextCheck(Attempt& result,unsigned int bit,bool passed) {
+    result.contextObserved|=1u<<bit;
+    if (passed) result.contextPassed|=1u<<bit;
+    return passed;
+}
+struct InterfaceContext {
+    NET_IFINDEX index=0;
+    NET_LUID luid{};
+    ULONG siteZone=0;
+};
+constexpr std::array<unsigned char,6> ExpectedMac={0x52,0x54,0x00,0x12,0x34,0x56};
+bool InterfaceRows(NET_IFINDEX index,const MIB_IPINTERFACE_ROW& ip,const MIB_IF_ROW2& nic,InterfaceContext& result,bool fixture) {
+    if (index==0 || ip.Family!=AF_INET6 || ip.InterfaceIndex!=index || nic.InterfaceIndex!=index
+        || ip.InterfaceLuid.Value==0 || ip.InterfaceLuid.Value!=nic.InterfaceLuid.Value
+        || !ip.Connected || nic.OperStatus!=IfOperStatusUp) return false;
+    if (fixture) {
+        if (nic.Type!=IF_TYPE_SOFTWARE_LOOPBACK) return false;
+    } else {
+        if (nic.Type==IF_TYPE_SOFTWARE_LOOPBACK || nic.PhysicalAddressLength!=ExpectedMac.size()
+            || std::memcmp(nic.PhysicalAddress,ExpectedMac.data(),ExpectedMac.size())!=0
+            || ip.ZoneIndices[ScopeLevelSite]==0 || ip.ZoneIndices[ScopeLevelSite]>0x0fffffffUL) return false;
+    }
+    result.index=index;result.luid=ip.InterfaceLuid;result.siteZone=ip.ZoneIndices[ScopeLevelSite];
+    return true;
+}
+bool ReadInterface(const sockaddr_in6& remote,ULONGLONG deadline,InterfaceContext& result,int& error) {
+    error=0;
+    if (GetTickCount64()>=deadline) return false;
+    DWORD index=0;
+    sockaddr_in6 destination=remote;
+    DWORD status=GetBestInterfaceEx(reinterpret_cast<sockaddr*>(&destination),&index);
+    if (status!=NO_ERROR) { error=static_cast<int>(status); return false; }
+    if (GetTickCount64()>=deadline) return false;
+    MIB_IPINTERFACE_ROW ip{};ip.Family=AF_INET6;ip.InterfaceIndex=index;
+    status=GetIpInterfaceEntry(&ip);
+    if (status!=NO_ERROR) { error=static_cast<int>(status); return false; }
+    if (GetTickCount64()>=deadline) return false;
+    MIB_IF_ROW2 nic{};nic.InterfaceIndex=index;
+    status=GetIfEntry2(&nic);
+    if (status!=NO_ERROR) { error=static_cast<int>(status); return false; }
+    return GetTickCount64()<deadline && InterfaceRows(index,ip,nic,result,TestOnly);
+}
+bool StableInterface(const InterfaceContext& before,const InterfaceContext& after) {
+    return before.index==after.index && before.luid.Value==after.luid.Value && before.siteZone==after.siteZone;
+}
+bool PeerScope(const IN6_ADDR& address,ULONG raw,ULONG expectedZone,bool fixture) {
+    if (fixture) return raw==0 && IN6_IS_ADDR_LOOPBACK(&address);
+    SCOPE_ID scope{};scope.Value=raw;
+    if (expectedZone==0 || expectedZone>0x0fffffffUL
+        || (scope.Level!=0 && scope.Level!=static_cast<ULONG>(ScopeLevelSite))) return false;
+    IN6_UNCANONICALIZE_SCOPE_ID(&address,&scope);
+    return scope.Value==expectedZone;
+}
+
+bool PacketDestination(const IN6_ADDR& address,bool fixture) {
+    if (fixture) return IN6_IS_ADDR_LOOPBACK(&address)!=0;
+    // Sanity only, NOT an independent local-address-table ownership check.
+    return !IN6_IS_ADDR_UNSPECIFIED(&address) && !IN6_IS_ADDR_V4MAPPED(&address)
+        && !IN6_IS_ADDR_MULTICAST(&address) && !IN6_IS_ADDR_LOOPBACK(&address);
+}
+constexpr std::size_t ControlSize=WSA_CMSG_SPACE(sizeof(IN6_PKTINFO));
+struct ControlStorage { alignas(WSACMSGHDR) std::array<unsigned char,ControlSize> bytes{}; };
+bool PacketInfo(const WSAMSG& message,const ControlStorage& storage,IN6_PKTINFO& packet) {
+    const std::size_t length=message.Control.len;
+    if (message.dwFlags!=0 || message.Control.buf!=reinterpret_cast<const char*>(storage.bytes.data())
+        || length<WSA_CMSG_LEN(sizeof(IN6_PKTINFO)) || length>storage.bytes.size()) return false;
+    WSACMSGHDR header{};std::memcpy(&header,storage.bytes.data(),sizeof(header));
+    if (header.cmsg_len!=WSA_CMSG_LEN(sizeof(IN6_PKTINFO))
+        || header.cmsg_level!=IPPROTO_IPV6 || header.cmsg_type!=IPV6_PKTINFO) return false;
+    // Only trailing alignment padding is permitted; a second record cannot fit.
+    constexpr std::size_t offset=WSA_CMSGDATA_ALIGN(sizeof(WSACMSGHDR));
+    static_assert(offset+sizeof(IN6_PKTINFO)==WSA_CMSG_LEN(sizeof(IN6_PKTINFO)),"SDK control layout");
+    std::memcpy(&packet,storage.bytes.data()+offset,sizeof(packet));
+    return true;
+}
+bool ObservePayload(int count,const char* bytes,const std::string& frame,DWORD flags,Attempt& result) {
+    const bool matched=flags==0 && count==static_cast<int>(frame.size()) && std::memcmp(bytes,frame.data(),frame.size())==0;
+    if (matched) result.nonceMatched=true;
+    return matched;
+}
+bool Receive(SOCKET socket,LPFN_WSARECVMSG receiveMessage,const InterfaceContext& before,const sockaddr_in6& remote,const std::string& frame,ULONGLONG deadline,Attempt& result) {
     const ULONGLONG now=GetTickCount64();
     if (now>=deadline) { Error(result,"recv_select",WSAETIMEDOUT); return false; }
     const ULONGLONG remaining=deadline-now;
@@ -182,20 +269,37 @@ bool Receive(SOCKET socket,const sockaddr_in6& remote,const std::string& frame,U
     if (selected==SOCKET_ERROR) { Error(result,"recv_select",WSAGetLastError()); return false; }
     if (selected==0 || !FD_ISSET(socket,&ready)) { Error(result,"recv_select",WSAETIMEDOUT); return false; }
     std::array<char,129> buffer{};
-    sockaddr_in6 sender{}; int senderLength=sizeof(sender);
-    const int count=recvfrom(socket,buffer.data(),static_cast<int>(buffer.size()),0,reinterpret_cast<sockaddr*>(&sender),&senderLength);
-    if (count==SOCKET_ERROR) { Error(result,"recvfrom",WSAGetLastError()); return false; }
+    sockaddr_in6 sender{};
+    WSABUF data{};data.buf=buffer.data();data.len=static_cast<ULONG>(buffer.size());
+    ControlStorage storage;
+    WSAMSG message{};message.name=reinterpret_cast<sockaddr*>(&sender);message.namelen=sizeof(sender);
+    message.lpBuffers=&data;message.dwBufferCount=1;message.Control.buf=reinterpret_cast<char*>(storage.bytes.data());
+    message.Control.len=static_cast<ULONG>(storage.bytes.size());
+    DWORD received=0;
+    const int returned=receiveMessage(socket,&message,&received,nullptr,nullptr);
+    const int receiveError=returned!=0?WSAGetLastError():0;
+    if (!ContextCheck(result,3,returned==0 && message.dwFlags==0 && received<=buffer.size())) { Error(result,"recvmsg",receiveError); return false; }
+    const int senderLength=message.namelen;
+    const int count=received<=buffer.size()?static_cast<int>(received):-1;
+    const bool payloadMatched=ObservePayload(count,buffer.data(),frame,message.dwFlags,result);
     ObserveEchoPeer(count,senderLength,sender,remote,result);
     if (senderLength!=static_cast<int>(sizeof(sender)) || sender.sin6_family!=AF_INET6
-        || sender.sin6_port!=remote.sin6_port || sender.sin6_scope_id!=0
-        || IN6_IS_ADDR_V4MAPPED(&sender.sin6_addr)
+        || sender.sin6_port!=remote.sin6_port || IN6_IS_ADDR_V4MAPPED(&sender.sin6_addr)
         || std::memcmp(&sender.sin6_addr,Destination.data(),Destination.size())!=0) {
-        Error(result,"echo_peer",WSAEINVAL); return false;
+        Error(result,"echo_peer",0); return false;
     }
-    if (count!=static_cast<int>(frame.size()) || std::memcmp(buffer.data(),frame.data(),frame.size())!=0) {
-        Error(result,"echo_payload",WSAEINVAL); return false;
-    }
-    result.nonceMatched=true; return true;
+    IN6_PKTINFO packet{};
+    if (!ContextCheck(result,4,PacketInfo(message,storage,packet))) { Error(result,"ancillary",0); return false; }
+    if (!ContextCheck(result,5,packet.ipi6_ifindex==before.index)) { Error(result,"arrival_interface",0); return false; }
+    if (!ContextCheck(result,6,PacketDestination(packet.ipi6_addr,TestOnly))) { Error(result,"packet_destination",0); return false; }
+    if (!ContextCheck(result,8,PeerScope(sender.sin6_addr,sender.sin6_scope_id,before.siteZone,TestOnly))) { Error(result,"peer_scope",0); return false; }
+    // Preserve observed payload even if subsequent context/interface checks fail.
+    InterfaceContext after;int interfaceError=0;
+    const bool post=ReadInterface(remote,deadline,after,interfaceError) && StableInterface(before,after);
+    if (!ContextCheck(result,7,post)) { Error(result,"interface_post",interfaceError); return false; }
+    const bool context=ContextCheck(result,9,result.contextObserved==511u && result.contextPassed==511u);
+    if (!payloadMatched) { Error(result,"echo_payload",0); return false; }
+    return context;
 }
 Attempt Probe(unsigned int index,unsigned int port,const std::string& frame,ULONGLONG deadline,Socket& owned) {
     Attempt result; result.index=index;
@@ -210,6 +314,17 @@ Attempt Probe(unsigned int index,unsigned int port,const std::string& frame,ULON
         const int optionReturn=getsockopt(owned.value,IPPROTO_IPV6,IPV6_V6ONLY,reinterpret_cast<char*>(observedV6Only.data()),&optionLength);
         const int optionError=optionReturn!=0?WSAGetLastError():0;
         if (!ValidateV6Only(optionReturn,optionError,optionLength,observedV6Only,result)) break;
+        const DWORD packetInfo=1;
+        const int packetReturn=setsockopt(owned.value,IPPROTO_IPV6,IPV6_PKTINFO,reinterpret_cast<const char*>(&packetInfo),sizeof(packetInfo));
+        const int packetError=packetReturn!=0?WSAGetLastError():0;
+        if (!ContextCheck(result,0,packetReturn==0)) { Error(result,"pktinfo_set",packetError); break; }
+        GUID receiveGuid=WSAID_WSARECVMSG;LPFN_WSARECVMSG receiveMessage=nullptr;DWORD extensionBytes=0;
+        const int extensionReturn=WSAIoctl(owned.value,SIO_GET_EXTENSION_FUNCTION_POINTER,&receiveGuid,sizeof(receiveGuid),
+            &receiveMessage,sizeof(receiveMessage),&extensionBytes,nullptr,nullptr);
+        const int extensionError=extensionReturn!=0?WSAGetLastError():0;
+        if (!ContextCheck(result,1,extensionReturn==0 && extensionBytes==sizeof(receiveMessage) && receiveMessage!=nullptr)) {
+            Error(result,"recvmsg_extension",extensionError); break;
+        }
         const BOOL exclusive=TRUE;
         if (setsockopt(owned.value,SOL_SOCKET,SO_EXCLUSIVEADDRUSE,reinterpret_cast<const char*>(&exclusive),sizeof(exclusive))!=0) { Error(result,"exclusive",WSAGetLastError()); break; }
         u_long nonblocking=1;
@@ -224,6 +339,9 @@ Attempt Probe(unsigned int index,unsigned int port,const std::string& frame,ULON
         sockaddr_in6 remote{}; remote.sin6_family=AF_INET6; remote.sin6_port=htons(static_cast<u_short>(port));
         std::memcpy(&remote.sin6_addr,Destination.data(),Destination.size()); // Fixed address, zero flowinfo/scope, no resolver.
         if (frame.empty() || frame.size()>128 || GetTickCount64()>=deadline) { Error(result,"deadline",WSAETIMEDOUT); break; }
+        InterfaceContext before;int interfaceError=0;
+        if (!ContextCheck(result,2,ReadInterface(remote,deadline,before,interfaceError))) { Error(result,"interface_pre",interfaceError); break; }
+        if (GetTickCount64()>=deadline) { Error(result,"deadline",WSAETIMEDOUT); break; }
         result.sendStartQpc=Tick(); result.attempted=true;
         const int sent=sendto(owned.value,frame.data(),static_cast<int>(frame.size()),0,reinterpret_cast<const sockaddr*>(&remote),sizeof(remote));
         const int sendError=sent==SOCKET_ERROR?WSAGetLastError():0;
@@ -231,7 +349,7 @@ Attempt Probe(unsigned int index,unsigned int port,const std::string& frame,ULON
         if (sent==SOCKET_ERROR) { Error(result,"sendto",sendError); break; }
         if (sent!=static_cast<int>(frame.size())) { Error(result,"short_send",0); break; }
         result.sendAccepted=true; // Local API acceptance only, NOT delivery.
-        Receive(owned.value,remote,frame,deadline,result);
+        Receive(owned.value,receiveMessage,before,remote,frame,deadline,result);
     } while (false);
     result.exchangeEndQpc=Tick(); // Socket remains owned and bound through the probe window.
     return result;
@@ -251,6 +369,7 @@ std::string Serialize(const Attempt& a) {
         ",\"bindSucceeded\":"+Bool(a.bindSucceeded)+",\"localPort\":"+std::to_string(a.localPort)+",\"localIpv6\":\""+AddressHex(a.localIpv6)+"\",\"localScopeId\":"+std::to_string(a.localScopeId)+
         ",\"sendStartQpc\":"+std::to_string(a.sendStartQpc)+",\"sendEndQpc\":"+std::to_string(a.sendEndQpc)+",\"sendBytes\":"+std::to_string(a.sendBytes)+
         ",\"sendAccepted\":"+Bool(a.sendAccepted)+",\"nonceMatched\":"+Bool(a.nonceMatched)+",\"exchangeEndQpc\":"+std::to_string(a.exchangeEndQpc)+
+        ",\"pc\":[1,"+std::to_string(a.contextObserved)+","+std::to_string(a.contextPassed)+"]"+
         ",\"echoPeerLengthMatched\":"+OptionalBool(a.echoPeerLengthMatched)+
         ",\"echoPeerFamilyMatched\":"+OptionalBool(a.echoPeerFamilyMatched)+
         ",\"echoPeerPortMatched\":"+OptionalBool(a.echoPeerPortMatched)+
@@ -309,7 +428,7 @@ int Run(int argc,wchar_t* argv[]) {
     }
     std::string value=MakeReport("actor-n0a-udp6",nonce,identity,std::nullopt,std::nullopt);
     value.resize(value.size()-2);
-    value+=",\"udp6\":{\"version\":1,\"testOnly\":"+Bool(TestOnly)+",\"endpoint\":\""+std::string(TestOnly?"fixture-loopback-v6":"runner-v6")+
+    value+=",\"udp6\":{\"version\":2,\"testOnly\":"+Bool(TestOnly)+",\"endpoint\":\""+std::string(TestOnly?"fixture-loopback-v6":"runner-v6")+
         "\",\"phase\":\""+phase+"\",\"port\":"+std::to_string(port)+",\"profileMatched\":"+Bool(profile)+
         ",\"startupError\":"+std::to_string(startupError)+",\"qpcFrequency\":"+std::to_string(frequency)+
         ",\"windowStartQpc\":"+std::to_string(windowStart)+",\"windowEndQpc\":"+std::to_string(endQpc)+

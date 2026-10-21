@@ -9,12 +9,12 @@ spec=importlib.util.spec_from_file_location('udp_test',ROOT/'.github/windows_n0a
 NONCE='a'*32
 
 def row(phase,index,start,accepted=True,denied=False):
-    return dict(index=index,attempted=True,socketCreated=True,bindSucceeded=True,localPort=45000+index,echoPeerLengthMatched=None,echoPeerFamilyMatched=None,echoPeerPortMatched=None,echoPeerScopeZero=None,echoPeerNotV4Mapped=None,echoPeerAddressMatched=None,localIpv6='0'*32,localScopeId=0,v6OnlySet=True,v6OnlyVerified=True,v6OnlyGetReturn=0,v6OnlyGetError=None,v6OnlyGetLength=4,v6OnlyGetValue=1,v6OnlyGetStage='nonzero',
+    return dict(index=index,attempted=True,socketCreated=True,bindSucceeded=True,localPort=45000+index,pc=[1,1023,1023],echoPeerLengthMatched=True,echoPeerFamilyMatched=True,echoPeerPortMatched=True,echoPeerScopeZero=False,echoPeerNotV4Mapped=True,echoPeerAddressMatched=True,localIpv6='0'*32,localScopeId=0,v6OnlySet=True,v6OnlyVerified=True,v6OnlyGetReturn=0,v6OnlyGetError=None,v6OnlyGetLength=4,v6OnlyGetValue=1,v6OnlyGetStage='nonzero',
         sendStartQpc=start,sendEndQpc=start+1,sendAccepted=accepted,sendBytes=len(u.frame(NONCE,phase,index)) if accepted else -1,
         nonceMatched=accepted,exchangeEndQpc=start+2,win32Error=10013 if denied else 0,failure='sendto' if denied else 'none',closed=True,closeError=0,closeQpc=10000)
 def network(phase,starts,production=True,denied=False):
     rows=[row(phase,i,start,not denied,denied) for i,start in enumerate(starts)]
-    return dict(version=1,endpoint='runner-v6' if production else 'fixture-loopback-v6',phase=phase,port=40000,profileMatched=production,startupError=0,qpcFrequency=1000,windowStartQpc=starts[0],windowEndQpc=starts[-1]+2,attempts=rows,testOnly=not production,socketsCleanupConfirmed=True)
+    return dict(version=2,endpoint='runner-v6' if production else 'fixture-loopback-v6',phase=phase,port=40000,profileMatched=production,startupError=0,qpcFrequency=1000,windowStartQpc=starts[0],windowEndQpc=starts[-1]+2,attempts=rows,testOnly=not production,socketsCleanupConfirmed=True)
 def reports(production=True,denied=True):
     return {phase:network(phase,starts,production,denied and phase=='contained') for phase,starts in [('before',[10]),('sample',[100,600,1800]),('contained',[500,1000,1500]),('after',[2000])]}
 

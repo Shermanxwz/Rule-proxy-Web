@@ -65,7 +65,7 @@ class OwnedTests(unittest.TestCase):
         child.process._handle.Close.assert_called_once_with()
 
 class CompositionTests(unittest.TestCase):
-    def exercise(self,unknown_cleanup=False,bad_echo=False,bad_v6only_contract=False,echo_contract=True):
+    def exercise(self,unknown_cleanup=False,bad_echo=False,bad_v6only_contract=False,echo_contract=True,context_contract=True,bad_context=False,bad_wrong_context=False,raw_nonce_on_bad_context=False):
         spec=importlib.util.spec_from_file_location('udp_synthetic',ROOT/'tests/test_windows_client_n0a_udp6.py');helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/'owned';root.mkdir();commands=[];endpoint_count=[]
@@ -83,12 +83,14 @@ class CompositionTests(unittest.TestCase):
                     starts={'before':[10],'sample':[100,600,1800],'contained':[500,1000,1500],'after':[2000]}[phase]
                     value=helper.network(phase,starts,False,False)
                     for row in value['attempts']:row['sendBytes']=len(g.u.frame(nonce,phase,row['index']))
+                    if (bad_context and phase=='contained') or (bad_wrong_context and self.path.stem=='wrong-echo'):
+                        for row in value['attempts']:row.update(pc=[1,511,255],nonceMatched=raw_nonce_on_bad_context,failure='peer_scope')
                     if self.path.stem=='wrong-echo':value['attempts'][0].update(nonceMatched=bad_echo,failure='none' if bad_echo else 'echo_payload')
                     self.path.write_text(json.dumps(dict(mode='actor-n0a-udp6',nonce=nonce,pid=123,queriesSucceeded=True,errors=[],udp6=value)))
                 def start_arguments(self,argv):
                     commands.append(tuple(argv))
                     if '--profile-only' in argv:
-                        self.path.write_text(json.dumps(dict(mode='actor-n0a-udp6-profile',nonce=argv[2],pid=123,queriesSucceeded=True,errors=[],tokenElevated=True,profile=dict(testOnly=True,ordinaryMatched=False,containedMatched=False,networkApiCalled=False,v6OnlyContractVerified=not bad_v6only_contract,echoPeerContractVerified=echo_contract))))
+                        self.path.write_text(json.dumps(dict(mode='actor-n0a-udp6-profile',nonce=argv[2],pid=123,queriesSucceeded=True,errors=[],tokenElevated=True,profile=dict(testOnly=True,ordinaryMatched=False,containedMatched=False,networkApiCalled=False,v6OnlyContractVerified=not bad_v6only_contract,echoPeerContractVerified=echo_contract,peerContextContractVerified=context_contract))))
                     else:self.process.returncode=2
                 def wait(self,deadline):return True
                 report=g.Owned.report
@@ -102,6 +104,7 @@ class CompositionTests(unittest.TestCase):
         self.assertTrue(value['wrong_echo_send_accepted']);self.assertTrue(value['wrong_echo_rejected'])
         self.assertTrue(value['actual_admin_profile_rejected']);self.assertTrue(value['production_invalid_cli_rejected'])
         self.assertTrue(value['echo_peer_contract_verified'])
+        self.assertTrue(value['peer_context_contract_verified']);self.assertTrue(value['fixture_peer_context_verified']);self.assertTrue(value['wrong_echo_peer_context_verified'])
         self.assertEqual([row for row in commands if row[0]=='production'],[('production','--invalid-mechanics-control')])
         self.assertFalse(value['production_network_guard_executed']);self.assertFalse(value['ordinary_nonadmin_tested']);self.assertFalse(value['packet_egress_tested'])
     def test_cleanup_unknown_keeps_observations_but_retains_owned_work(self):
@@ -128,6 +131,33 @@ class CompositionTests(unittest.TestCase):
             self.assertFalse(value['hosted_mechanics_complete']);self.assertFalse(value['echo_peer_contract_verified'])
             self.assertNotIn('PRIVATE_SENTINEL',g.public_json(value))
 
+    def test_synthetic_context_contract_not_actual_context(self):
+        value,commands,count,_=self.exercise(context_contract=False)
+        self.assertFalse(value['peer_context_contract_verified']);self.assertFalse(value['hosted_mechanics_complete'])
+        self.assertTrue(value['fixture_peer_context_verified']);self.assertTrue(value['wrong_echo_peer_context_verified'])
+        self.assertEqual(value['fixture_send_accepted_count'],3);self.assertEqual(len(commands),7);self.assertEqual(count,2)
+        for invalid in (None,1,'PRIVATE_SENTINEL'):
+            value,_,_,_=self.exercise(context_contract=invalid)
+            self.assertFalse(value['hosted_mechanics_complete']);self.assertNotIn('PRIVATE_SENTINEL',g.public_json(value))
+    def test_actual_context_failure_preserves_sends_and_synthetic_helper(self):
+        value,commands,count,_=self.exercise(bad_context=True)
+        self.assertTrue(value['peer_context_contract_verified']);self.assertFalse(value['fixture_peer_context_verified'])
+        self.assertFalse(value['hosted_mechanics_complete']);self.assertEqual(value['fixture_send_accepted_count'],3)
+        self.assertEqual(value['network_diagnostics']['contained']['attempts'][0]['peer_context'],[1,511,255])
+        self.assertEqual(len(commands),7);self.assertEqual(count,2)
+    def test_raw_complete_nonce_survives_context_and_cleanup_failure(self):
+        value,commands,count,_=self.exercise(bad_context=True,raw_nonce_on_bad_context=True,unknown_cleanup=True)
+        self.assertTrue(value['fixture_selected_nonce_payload_observed']);self.assertFalse(value['fixture_selected_echo_observed'])
+        self.assertFalse(value['fixture_peer_context_verified']);self.assertFalse(value['hosted_mechanics_complete'])
+        self.assertEqual(value['fixture_send_accepted_count'],3);self.assertEqual(len(commands),7);self.assertEqual(count,2)
+        row=value['network_diagnostics']['contained']['attempts'][0]
+        self.assertTrue(row['nonce_payload_observed']);self.assertFalse(row['echo_verified'])
+        self.assertTrue(value['receivers'][0]['counts']['verified']>0)
+    def test_wrong_payload_requires_independent_valid_peer_context(self):
+        value,_,_,_=self.exercise(bad_wrong_context=True)
+        self.assertFalse(value['wrong_echo_peer_context_verified']);self.assertTrue(value['wrong_echo_send_accepted'])
+        self.assertTrue(value['wrong_echo_rejected']);self.assertFalse(value['hosted_mechanics_complete'])
+
 class DiagnosticTests(unittest.TestCase):
     def network(self,phase='contained',count=3):
         spec=importlib.util.spec_from_file_location('udp6_diag_synthetic',ROOT/'tests/test_windows_client_n0a_udp6.py')
@@ -147,7 +177,7 @@ class DiagnosticTests(unittest.TestCase):
             self.assertEqual(value['attempts'][0]['win32_error'],10013)
             self.assertEqual(value['attempts'][0]['send_invoked'],row['attempted'])
             text=json.dumps(value)
-            for forbidden in ('localIpv6','localPort','localScopeId','Qpc','pid','nonce','40000','aaaaaaaa'):
+            for forbidden in ('localIpv6','localPort','localScopeId','Qpc','pid','"nonce":','40000','aaaaaaaa'):
                 self.assertNotIn(forbidden,text)
         network=self.network();network.update(startupError=10093,attempts=[])
         value=g.network_diagnostic(network,'a'*32,'contained',40000)
@@ -173,6 +203,9 @@ class DiagnosticTests(unittest.TestCase):
         row=g.network_diagnostic(network,'a'*32,'contained',40000)['attempts'][0]
         self.assertEqual(row['v6only_get_length'],1);self.assertEqual(row['v6only_get_value'],255)
         self.assertEqual(row['v6only_get_stage'],'nonzero');self.assertTrue(row['v6only_verified'])
+        self.assertEqual(row['peer_context'],[1,1023,1023])
+        for forbidden in ('localIpv6','localScopeId','interfaceIndex','zone','luid','mac','address'):
+            self.assertNotIn(forbidden,json.dumps(row))
         network['attempts'][0]['v6OnlyGetValue']=256
         with self.assertRaises(ValueError):g.network_diagnostic(network,'a'*32,'contained',40000)
     def test_invalid_native_schema_cannot_enter_diagnostics(self):
@@ -180,6 +213,13 @@ class DiagnosticTests(unittest.TestCase):
         with self.assertRaises(ValueError):g.network_diagnostic(value,'a'*32,'contained',40000)
         value=self.network();value['attempts'][0]['win32Error']=True
         with self.assertRaises(ValueError):g.network_diagnostic(value,'a'*32,'contained',40000)
+    def test_raw_nonce_without_complete_receive_bit_never_projected(self):
+        value=self.network();row=value['attempts'][0]
+        row.update(pc=[1,7,7],nonceMatched=True,failure='recvmsg')
+        with self.assertRaises(ValueError):g.network_diagnostic(value,'a'*32,'contained',40000)
+        row.update(pc=[1,15,15],failure='ancillary')
+        diagnostic=g.network_diagnostic(value,'a'*32,'contained',40000)['attempts'][0]
+        self.assertTrue(diagnostic['nonce_payload_observed']);self.assertFalse(diagnostic['echo_verified'])
     def test_actual_composed_maximum_closed_output_and_missing_reports(self):
         result,_,_,_=CompositionTests().exercise()
         for key in g.DIAGNOSTIC_CASES:

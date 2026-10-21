@@ -147,14 +147,17 @@ class Composed(unittest.TestCase):
         b,cases,execution,config,capture=self.make()
         for code in (None,-2147483648,2147483647):
             result=g.engine.evaluate(cases,b)
+            for key,value in result.items():
+                if type(value) is bool:result[key]=False
+            for key in ('profile_verified','provenance_verified'):result[key]={phase:False for phase in f.ROLES}
             d=result['diagnostic'];d.update(stage='before_admission',failed_stage='contained_invoke',failure='operation')
             d['phases']=[[False,False,False,False,False,False,'unavailable','unavailable'] for _ in range(4)]
-            d['before']=dict(checks=[False]*13,validation='v6only_unattempted',network=[4294967295,False,40],
+            d['before']=dict(context=[1,1023,1023],checks=[False]*13,validation=max(g.engine.VALIDATION_REASONS,key=len),network=[4294967295,False,40],
                 attempt=[False]*5+[-2147483648,4294967295,-2147483648,4294967295,'length_mismatch',False,128,False,4294967295,max(g.engine.FAILURES,key=len),False,4294967295]+[False]*6)
             g.engine.validate_diagnostic(d)
             report=dict(schema_version=1,binding=dict(case_nonce=b.nonce,actor_sha256=b.actor_sha256,executor_sha256=b.executor_sha256,build=26300,ubr=9457),result=result,
-                execution=dict(phase='configuration',failed=True,cleanup_confirmed=False))
-            launcher=dict(phase='configuration',failure='work_budget_exhausted',python_exit_code=code,process_exit_confirmed=None,timed_out=True,budget_exhausted=True)
+                execution=dict(phase='configuration',failed=False,cleanup_confirmed=False))
+            launcher=dict(phase='configuration',failure='work_budget_exhausted',python_exit_code=code,process_exit_confirmed=False,timed_out=False,budget_exhausted=False)
             raw=f.build_bundle({'capture':capture,'n0a_udp6':config},b,cases,execution.snapshots)
             envelope=dict(schema_version=5,udp6=dict(schema_version=1,case_nonce=b.nonce,actor_sha256=b.actor_sha256,report=report,launcher=launcher),flow_commitment=f.commitment(raw))
             self.assertLessEqual(len(f.encode(envelope)),4096)
@@ -162,10 +165,53 @@ class Composed(unittest.TestCase):
         v['reports']['after']['udp6']=fixture.network('after',[11000])
         for source in v['reports'].values():
             source['bytes']=32768
-            for row in source['udp6']['attempts']:
+            network=source['udp6'];network['qpcFrequency']=10**9
+            network['windowStartQpc']+=2**62;network['windowEndQpc']+=2**62
+            for row in network['attempts']:
                 for key in g.engine.PEER_DIAGNOSTIC_KEYS:row[key]=False
+                row['nonceMatched']=False;row['pc']=[1,1023,511]
+                for key in ('sendStartQpc','sendEndQpc','exchangeEndQpc'):row[key]+=2**62
+                row.update(closeQpc=2**63-1,closed=False,closeError=4294967295,win32Error=4294967295,
+                    failure=max(g.engine.FAILURES,key=len),v6OnlyGetLength=4,v6OnlyGetValue=4294967295)
         self.assertLessEqual(len(f.encode(v)),65536)
         normalized=f.normalize(f.encode(v),fixture.expected(v,f.encode(v)))
         self.assertEqual(len(json.loads(normalized['manifest_bytes'])['ordinary']),42)
+
+    def test_v2_full_native40_large_clock_and_context_bounds(self):
+        # Schema-valid independent-field serializer ceiling, NOT a jointly emittable trace.
+        # Real fixed-frame sends cannot return128 bytes; fullcontext and a context failure
+        # likewise do not coexist. Independent maxima conservatively cover both branches.
+        b,cases,execution,config,capture=self.make();actor=cases['sample']['actor'];origin=2**62
+        network=fixture.network('sample',[origin+i*250 for i in range(40)])
+        for row in network['attempts']:
+            row.update(closeQpc=origin+11000,localPort=65535,v6OnlyGetLength=4,v6OnlyGetValue=4294967295,
+                nonceMatched=False,pc=[1,1023,1023],failure=max(g.engine.FAILURES,key=len),
+                sendAccepted=False,sendBytes=128,win32Error=4294967295,closeError=4294967295,closed=False)
+            for key in g.engine.PEER_DIAGNOSTIC_KEYS:row[key]=False
+        network['socketsCleanupConfirmed']=False;network['qpcFrequency']=10**9;network['port']=65535
+        actor['udp6']=network;actor['pid']=4294967295
+        # Synthetic maximum textual SID (15 DWORD subauthorities), never an account observation.
+        actor['tokenUserSid']='S-1-281474976710655'+'-4294967295'*15
+        self.assertEqual(set(actor),{'schemaVersion','mode','nonce','pid','tokenUserSid','tokenIsAppContainer','tokenAppContainerSid','tokenElevated','isProcessInJob','tokenCapabilities','queriesSucceeded','errors','udp6'})
+        g.engine.validate_network(network,b.nonce,'sample',65535)
+        raw=f.encode(actor);self.assertLessEqual(len(raw),32768)
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'native.json';path.write_bytes(raw)
+            parsed,source=f.read_snapshot(path)
+            self.assertEqual(parsed,actor);self.assertEqual(source['bytes'],len(raw))
+    def test_v2_partial_context_raw_payload_survives_flow_normalization(self):
+        b,cases,execution,config,capture=self.make()
+        for row in cases['contained']['actor']['udp6']['attempts']:
+            row.update(nonceMatched=True,pc=[1,511,383],failure='interface_post',win32Error=5)
+        cases['cleanup_confirmed']=False
+        actor=cases['contained']['actor'];data=f.encode(actor)
+        execution.snapshots[id(actor)]={'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data)}
+        raw=f.build_bundle({'capture':capture,'n0a_udp6':config},b,cases,execution.snapshots)
+        v=f.bundle(raw);result=g.engine.evaluate(cases,b)
+        self.assertTrue(result['selected_nonce_payload_observed']);self.assertFalse(result['selected_echo_observed'])
+        normalized=f.normalize(raw,dict(binding=v['binding'],endpoint=v['endpoint'],flow_commitment=f.commitment(raw),
+            controller_result=dict(receipt_verified=True,result=result),cleanup_verified=False))
+        self.assertEqual(len(json.loads(normalized['manifest_bytes'])['selected']),3)
+        self.assertFalse(normalized['controls_verified']);self.assertFalse(normalized['expected']['cleanup_verified'])
 
 if __name__=='__main__':unittest.main()

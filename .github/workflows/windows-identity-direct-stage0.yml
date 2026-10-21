@@ -133,7 +133,7 @@ jobs:
           if (-not $vs) { throw 'Installed MSVC unavailable' }
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          ./.github/build_windows_n0a_udp6_actor.ps1 -OutputDirectory "$PWD/udp6-production-build" -ExpectedActorSha256 c631b25743af8af8afa2410ac57cbbce86409c1660b4e45f540377b30e963c08 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          ./.github/build_windows_n0a_udp6_actor.ps1 -OutputDirectory "$PWD/udp6-production-build" -ExpectedActorSha256 bba6b0049060deeb67ea00a7d28dc4186652f9bee5f3375cb7e089a85126d7fc -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
           foreach ($binary in @('udp6-production-build/windows_n0a_udp6_actor.exe')) {
             $size=(Get-Item -LiteralPath $binary).Length
             if ($size -lt 512 -or $size -gt 8388608) { throw 'Production UDP6 binary size rejected' }

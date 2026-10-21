@@ -1,4 +1,4 @@
-# Default-OFF direct UDP6 integration
+# Opt-in direct UDP6 integration
 
 This slice replaces the selected network workload; it does not append IPv6
 attempts to TCP, IPv4 UDP or descendant experiments. Original Stage0 and legacy
@@ -87,10 +87,24 @@ boundaries, sticky positives, package/map mismatch and replacement, cleanup
 uncertainty, exact 17-member ZIP and legacy parity. Neither hosted mechanism
 success nor a short integration gate authorizes a Windows runtime by itself.
 
-## Runtime diagnostic projection (code-only candidate)
+## Runtime diagnostic projection (validated prior slice)
 
 The first guest receipt establishes one ordinary nonce datagram received and echoed by the owned runner, not guest-side echo acceptance. False later-phase verification flags do not establish report absence or prove that no process was launched. The original private reports are unavailable; the failure stage remains unresolved.
 
 A fixed diagnostic ledger now distinguishes requested work, returned owned executor records/handles, observed executor exit, envelope return, last envelope/report-processing substep and separate report presence. A complete processing substep does not establish provenance or network validation. Executor ownership is not proof of selected native execution. A fixed before-admission predicate vector and allowlisted native scalar observations are diagnostic only; unknown and unevaluated fields remain null. The existing full workload, admission, timeouts and cleanup order are unchanged. The entire result envelope, including binding and launcher fields, remains capped at 4096 bytes.
 
-Six nullable peer comparisons describe only safely returned sockaddr bytes from the existing recvfrom call: length, family, port, zero scope, non-IPv4-mapped address, and address equality. They disclose no address or port and do not change the original peer acceptance predicate. Fixture helper checks are synthetic, not observed network behavior. These changes require short-gate validation and do not authorize another guest run or identify the original failure.
+The prior report-only slice added six nullable peer comparisons from safely returned sockaddr bytes of its recvfrom call: length, family, port, zero scope, non-IPv4-mapped address, and address equality. They disclose no address or port and do not change the original peer acceptance predicate. Fixture helper checks are synthetic, not observed network behavior. The short gate validated these changes. The separately authorized second guest run identified nonzero returned sender scope as the sole peer-predicate rejection in that job; payload comparison was not reached. This does not retrospectively identify the first run's hidden cause.
+
+## Version 2 receive context (code-only candidate)
+
+Site-local scope is not universally zero and a site Zone is not an interface index. The new versioned contract retains the fixed endpoint, wildcard bind, sendto arguments, attempt count and original deadlines. It enables the socket-local IPV6_PKTINFO option, obtains the provider's WSARecvMsg extension pointer, and replaces the receive call with one synchronous WSARecvMsg under the existing nonblocking/select deadline. No extra sends, routes, addresses, firewall rules, capabilities or QEMU networking settings are introduced.
+
+One aligned ancillary buffer must contain exactly one bounded IPV6_PKTINFO record with the expected header length/level/type and no truncation or other flags. Its ingress interface index is compared with independently queried pre/post route and interface context. Fixed-size GetBestInterfaceEx, GetIpInterfaceEntry and GetIfEntry2 observations must agree on stable index/LUID/site Zone and an operational, connected nonloopback interface whose six-byte MAC matches the existing fixed VM_NIC_MAC/e1000 configuration. The expected MAC is not derived from the observed interface. These synchronous kernel calls consume the existing budget; no hard OS-call completion guarantee is claimed.
+
+The installed SDK scope helper normalizes only accepted Level 0 or Site encodings, after which the full normalized value must equal the independently derived expected site Zone. Requiring a nonzero expected Zone is a conservative fixture admission, not a universal statement that zero is invalid under Windows. The packet-info address is the local destination, not the remote peer: its class is sanity-checked, not independently verified against an address-ownership table. Actual arrival evidence comes from packet-info interface index plus the independently bound NIC context. TEST_ONLY loopback code requires the real loopback interface and exact ::1 local destination; it cannot establish the production QEMU/site-zone contract.
+
+Each attempt carries a compact versioned context array with fixed observed/passed masks; unknown bits and passed-but-unobserved predicates are rejected. Missing or failed context cannot qualify an echo. The existing zero-scope Boolean remains an observation, not a required true predicate. Complete 40-row native, private-bundle and public-envelope representations must remain within 32,768, 65,536 and 4,096 bytes respectively.
+
+selected_nonce_payload_observed denotes only a fresh, strictly actor/report-bound native receive observation of the complete expected nonce bytes after successful nontruncated reception. It is not peer identity, delivery-source authentication, outbound egress or a qualified echo. It survives a wrong peer or later context/cleanup failure. selected_echo_observed requires the full peer context; ordinary admission remains strict. Host packet.selected_payload_observed is a separate capture fact. Public output excludes raw interface indices, LUIDs, MACs, zones, addresses and ports.
+
+Required regressions cover ancillary bounds/duplicates/truncation, SDK scope normalization, wrong level/zone/interface, scope-zero false with valid full context, payload positives despite later failure, and error/partial/stale/unbound negatives. Hosted owned-loopback mechanics and synthetic helper tests precede any separately authorized guest attempt. No runtime is authorized by this candidate.

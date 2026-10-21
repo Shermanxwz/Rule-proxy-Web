@@ -65,7 +65,7 @@ class Udp6ActorSourceTests(unittest.TestCase):
         self.assertIn('ObserveNativeIdentity()', profile)
         self.assertIn('n0a_udp6::Profile(identity,false)', profile)
         self.assertIn('n0a_udp6::Profile(identity,true)', profile)
-        self.assertIn('return identity.errors.empty()&&v6Contract&&peerContract?0:4;', profile)
+        self.assertIn('return identity.errors.empty()&&v6Contract&&peerContract&&contextContract?0:4;', profile)
         for forbidden in ('WSAStartup(', 'socket(', 'Probe(', 'n0a_udp6::Run('):
             self.assertNotIn(forbidden, profile)
         self.assertNotIn('--profile-only', self.source)
@@ -75,7 +75,9 @@ class Udp6ActorSourceTests(unittest.TestCase):
         probe = function(self.source, 'Probe')
         receive = function(self.source, 'Receive')
         self.assertEqual(probe.count('sendto('), 1)
-        self.assertEqual(receive.count('recvfrom('), 1)
+        self.assertEqual(receive.count('receiveMessage('), 1)
+        self.assertNotIn('recvfrom(',self.source)
+        self.assertIn('receiveMessage(socket,&message,&received,nullptr,nullptr)',receive)
         self.assertNotIn('while (', receive)
         self.assertNotIn('send(', self.source)
         self.assertNotIn('recv(', self.source)
@@ -86,12 +88,11 @@ class Udp6ActorSourceTests(unittest.TestCase):
     def test_exact_datagram_peer_payload(self):
         receive = function(self.source, 'Receive')
         for required in ('sender.sin6_family!=AF_INET6', 'sender.sin6_port!=remote.sin6_port',
-                         'sender.sin6_scope_id!=0', 'IN6_IS_ADDR_V4MAPPED(&sender.sin6_addr)',
-                         'std::memcmp(&sender.sin6_addr,Destination.data(),Destination.size())!=0', 'count!=static_cast<int>(frame.size())',
-                         'std::memcmp(buffer.data(),frame.data(),frame.size())!=0'):
+                         'PeerScope(sender.sin6_addr,sender.sin6_scope_id,before.siteZone,TestOnly)', 'IN6_IS_ADDR_V4MAPPED(&sender.sin6_addr)',
+                         'std::memcmp(&sender.sin6_addr,Destination.data(),Destination.size())!=0', 'ObservePayload(count,buffer.data(),frame,message.dwFlags,result)'):
             self.assertIn(required, receive)
-        self.assertLess(receive.index('echo_peer'), receive.index('nonceMatched=true'))
-        self.assertLess(receive.index('echo_payload'), receive.index('nonceMatched=true'))
+        self.assertLess(receive.index('ObservePayload('), receive.index('echo_peer'))
+        self.assertIn('std::memcmp(bytes,frame.data(),frame.size())==0',function(self.source,'ObservePayload'))
 
     def test_exclusive_bind_and_observed_port_before_send(self):
         probe = function(self.source, 'Probe')
@@ -149,14 +150,65 @@ class Udp6ActorSourceTests(unittest.TestCase):
         self.assertIn('v6OnlyContractVerified',fixture)
         self.assertIn('n0a_udp6::Bool(v6Contract)',fixture)
 
-    def test_peer_observation_does_not_change_receive_acceptance(self):
+    def test_v2_complete_receive_before_raw_payload_before_context(self):
         receive=function(self.source,'Receive')
-        line='    ObserveEchoPeer(count,senderLength,sender,remote,result);\n'
-        self.assertEqual(receive.count(line),1)
-        self.assertEqual(hashlib.sha256(receive.replace(line,'').encode()).hexdigest(),
-                         'e58278b055088b072cd84c188136a3f8ab79d6f0771d8d265cfadf17560ab1a6')
-        self.assertLess(receive.index('if (count==SOCKET_ERROR)'),receive.index('ObserveEchoPeer('))
-        self.assertLess(receive.index('ObserveEchoPeer('),receive.index('if (senderLength!='))
+        self.assertIn('returned==0 && message.dwFlags==0 && received<=buffer.size()',receive)
+        self.assertLess(receive.index('const int receiveError='),receive.index('ContextCheck(result,3'))
+        self.assertLess(receive.index('ContextCheck(result,3'),receive.index('ObservePayload('))
+        self.assertLess(receive.index('ObservePayload('),receive.index('echo_peer'))
+        self.assertLess(receive.index('ObservePayload('),receive.index('ReadInterface('))
+        self.assertNotIn('nonceMatched=false',receive)
+        self.assertIn('result.contextObserved==511u && result.contextPassed==511u',receive)
+        self.assertIn('if (matched) result.nonceMatched=true',function(self.source,'ObservePayload'))
+
+    def test_exact_ancillary_bounds_before_copies(self):
+        parser=function(self.source,'PacketInfo')
+        for text in ('message.dwFlags!=0','message.Control.buf!=',
+                     'length<WSA_CMSG_LEN(sizeof(IN6_PKTINFO))','length>storage.bytes.size()',
+                     'header.cmsg_len!=WSA_CMSG_LEN(sizeof(IN6_PKTINFO))',
+                     'header.cmsg_level!=IPPROTO_IPV6','header.cmsg_type!=IPV6_PKTINFO'):
+            self.assertIn(text,parser)
+        self.assertLess(parser.index('length>storage.bytes.size()'),parser.index('std::memcpy(&header'))
+        self.assertLess(parser.index('header.cmsg_type!='),parser.index('std::memcpy(&packet'))
+        self.assertIn('alignas(WSACMSGHDR)',self.source)
+        self.assertIn('ControlSize=WSA_CMSG_SPACE(sizeof(IN6_PKTINFO))',self.source)
+
+    def test_interface_scope_and_fixed_nic_before_send(self):
+        probe=function(self.source,'Probe')
+        self.assertLess(probe.index('IPV6_PKTINFO'),probe.index('bind('))
+        self.assertLess(probe.index('WSAID_WSARECVMSG'),probe.index('bind('))
+        self.assertLess(probe.index('ReadInterface('),probe.index('result.attempted=true'))
+        read=function(self.source,'ReadInterface')
+        self.assertLess(read.index('GetBestInterfaceEx('),read.index('GetIpInterfaceEntry('))
+        self.assertLess(read.index('GetIpInterfaceEntry('),read.index('GetIfEntry2('))
+        self.assertGreaterEqual(read.count('GetTickCount64()'),4)
+        self.assertIn('ExpectedMac={0x52,0x54,0x00,0x12,0x34,0x56}',self.source)
+        rows=function(self.source,'InterfaceRows')
+        for text in ('!ip.Connected','IfOperStatusUp','IF_TYPE_SOFTWARE_LOOPBACK','PhysicalAddressLength',
+                     'ip.InterfaceLuid.Value!=nic.InterfaceLuid.Value','ip.ZoneIndices[ScopeLevelSite]==0'):
+            self.assertIn(text,rows)
+        self.assertIn('scope.Level!=0 && scope.Level!=static_cast<ULONG>(ScopeLevelSite)',function(self.source,'PeerScope'))
+        self.assertIn('IN6_UNCANONICALIZE_SCOPE_ID(&address,&scope)',function(self.source,'PeerScope'))
+        self.assertIn('scope.Value==expectedZone',function(self.source,'PeerScope'))
+        self.assertIn('if (fixture) return raw==0',function(self.source,'PeerScope'))
+        self.assertIn('#pragma comment(lib, "iphlpapi.lib")',self.source)
+
+    def test_context_masks_and_fixture_negative_contract(self):
+        self.assertIn(r'\"version\":2',self.source)
+        serialize=function(self.source,'Serialize')
+        self.assertIn(r'\"pc\":[1,',serialize)
+        fixture=(ROOT/'.github/native/windows_n0a_udp6_fixture.cpp').read_text()
+        contract=function(fixture,'PeerContextContract')
+        for text in ('InterfaceRows(', 'StableInterface(', 'PeerScope(', 'PacketInfo(', 'PacketDestination(',
+                     'MSG_TRUNC','MSG_CTRUNC','0xffffffff','0x50000003UL','0x20000003UL',
+                     'storage.bytes.fill(0xa5)','bad.Control.buf=nullptr','ObservePayload(',
+                     'ContextCheck(raw,7,false)','raw.closed=false','missing<9'):
+            self.assertIn(text,contract)
+        for forbidden in ('socket(', 'WSAStartup(', 'WSAIoctl(', 'ReadInterface('):
+            self.assertNotIn(forbidden,contract)
+        self.assertIn('peerContextContractVerified',fixture)
+        self.assertIn('const bool contextContract=PeerContextContract();',fixture)
+
     def test_peer_fields_are_nullable_and_returned_length_bounded(self):
         helper=function(self.source,'ObserveEchoPeer')
         self.assertIn('if (count<0) return;',helper)
@@ -178,7 +230,7 @@ class Udp6ActorSourceTests(unittest.TestCase):
         for forbidden in ('socket(', 'recvfrom(', 'sendto(', 'WSAStartup('):self.assertNotIn(forbidden,contract)
         self.assertIn('const bool peerContract=EchoPeerContract();',fixture)
         self.assertIn('echoPeerContractVerified',fixture)
-        self.assertIn('identity.errors.empty()&&v6Contract&&peerContract?0:4',fixture)
+        self.assertIn('identity.errors.empty()&&v6Contract&&peerContract&&contextContract?0:4',fixture)
     def test_ipv6_wire_domain_is_separate(self):
         self.assertIn(r'\"udp6\":',self.source)
         self.assertNotIn(r'\"udp\":',self.source)
