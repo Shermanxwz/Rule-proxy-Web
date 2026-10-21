@@ -41,7 +41,8 @@ class CaptureWorkflowTests(unittest.TestCase):
 
     def test_actual_opt_in_and_required_no_skip_units(self):
         self.assertIn('python3 -B .github/test_windows_n0a_capture_qemu.py --run-actual-qemu', self.text)
-        for name in ('test_windows_client_n0a_capture.py', 'test_windows_n0a_capture_qemu.py', 'test_windows_n0a_capture_workflow.py'):
+        self.assertIn('python3 -B .github/test_windows_n0a_capture_child_qemu.py --run-actual-qemu', self.text)
+        for name in ('test_windows_client_n0a_capture.py', 'test_windows_n0a_capture_qemu.py', 'test_windows_n0a_capture_workflow.py', 'test_windows_client_n0a_capture_child.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_capture_child_qemu.py'):
             self.assertIn("'" + name + "'", self.text)
         self.assertIn('all(p.countTestCases()>0 for p in parts)', self.text)
         self.assertIn('bool(result.skipped)', self.text)

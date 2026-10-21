@@ -4,9 +4,15 @@ on:
     branches: [dot/windows-isolation-proof]
     paths:
       - '.github/windows_n0a_capture.py'
+      - '.github/windows_n0a_capture_child.py'
+      - '.github/windows_n0a_packet.py'
+      - '.github/test_windows_n0a_capture_child_qemu.py'
       - '.github/test_windows_n0a_capture_qemu.py'
       - '.github/workflows/windows-n0a-capture-gates.yml'
       - 'tests/test_windows_client_n0a_capture.py'
+      - 'tests/test_windows_client_n0a_capture_child.py'
+      - 'tests/test_windows_client_n0a_packet.py'
+      - 'tests/test_windows_n0a_capture_child_qemu.py'
       - 'tests/test_windows_n0a_capture_qemu.py'
       - 'tests/test_windows_n0a_capture_workflow.py'
 permissions:
@@ -27,7 +33,7 @@ jobs:
       - name: Required bounded sink and synthetic producer unit gates
         timeout-minutes: 2
         run: |
-          python3 -B -c "import pathlib,unittest; names=('test_windows_client_n0a_capture.py','test_windows_n0a_capture_qemu.py','test_windows_n0a_capture_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          python3 -B -c "import pathlib,unittest; names=('test_windows_client_n0a_capture.py','test_windows_n0a_capture_qemu.py','test_windows_n0a_capture_workflow.py','test_windows_client_n0a_capture_child.py','test_windows_client_n0a_packet.py','test_windows_n0a_capture_child_qemu.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
       - name: Install official packaged QEMU for the synthetic lifecycle gate
         timeout-minutes: 3
         run: |
@@ -36,4 +42,7 @@ jobs:
       - name: Actual QEMU 8.2.2 FIFO and owned exit lifecycle, not Windows isolation
         timeout-minutes: 2
         run: python3 -B .github/test_windows_n0a_capture_qemu.py --run-actual-qemu
+      - name: Actual isolated worker and QEMU dump fault lifecycle, not Windows isolation
+        timeout-minutes: 2
+        run: python3 -B .github/test_windows_n0a_capture_child_qemu.py --run-actual-qemu
 # No artifact upload: PCAP and raw diagnostics remain private and owned-cleaned.
