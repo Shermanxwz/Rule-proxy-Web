@@ -164,7 +164,8 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         names = {node.value for node in ast.walk(ast.parse(source))
                  if isinstance(node, ast.Constant) and isinstance(node.value, str)
                  and node.value.startswith('n0a-') and node.value.endswith('.json')}
-        self.assertEqual(names, {'n0a-connect-public.json', 'n0a-capture-public.json', 'n0a-udp-public.json', 'n0a-udp-parent-public.json'})
+        self.assertEqual(names, {'n0a-connect-public.json', 'n0a-capture-public.json', 'n0a-udp-public.json', 'n0a-udp-parent-public.json', 'n0a-udp6-public.json'})
+        self.assertNotIn('path: client-stage0-public/n0a-udp6-public.json',self.text)
         self.assertEqual(self.text.count('path: client-stage0-public/n0a-udp-parent-public.json'),1)
         self.assertIn('--n0a-udp-parent-runner',self.text)
         self.assertEqual(self.text.count('path: client-stage0-public/n0a-udp-public.json'),1)

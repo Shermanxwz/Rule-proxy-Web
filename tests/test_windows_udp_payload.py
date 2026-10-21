@@ -11,8 +11,8 @@ class PayloadTests(unittest.TestCase):
     def test_actual_all_four_writers_and_equal_count_negatives(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)/'owned';result=gate.generate(root)
-            self.assertEqual(result['members'],[10,14,15,17,22]);self.assertFalse(result['runtime_artifact'])
-            for name,count in zip(('baseline','n0a','capture','udp','parent_udp'),(10,14,15,17,22)):
+            self.assertEqual(result['members'],[10,14,15,17,22,17]);self.assertFalse(result['runtime_artifact'])
+            for name,count in zip(('baseline','n0a','capture','udp','parent_udp','udp6'),(10,14,15,17,22,17)):
                 with zipfile.ZipFile(root/(name+'.zip')) as archive:self.assertEqual(len(archive.namelist()),count)
             with zipfile.ZipFile(root/'udp.zip') as archive:
                 names=set(archive.namelist())
@@ -37,6 +37,22 @@ class PayloadTests(unittest.TestCase):
             for index,forbidden in enumerate(gate.PARENT_FORBIDDEN):
                 with zipfile.ZipFile(root/f'parent_udp-bad-{index}.zip') as archive:
                     self.assertEqual(len(archive.namelist()),22);self.assertIn(forbidden,archive.namelist());self.assertNotEqual(set(archive.namelist()),names)
+    def test_udp6_actual17_source_bytes_selector_and_equal_count_negatives(self):
+        import re
+        ps=(ROOT/'.github/windows-identity-direct-stage0-run.ps1').read_text()
+        body=ps.split('function Get-N0aUdp6PayloadNames {',1)[1].split('\n}',1)[0]
+        extras=set(re.findall("'([^']+)'",body));self.assertEqual(len(extras),7)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'owned';gate.generate(root)
+            with zipfile.ZipFile(root/'baseline.zip') as archive:base=set(archive.namelist())
+            with zipfile.ZipFile(root/'udp6.zip') as archive:
+                names=set(archive.namelist());self.assertEqual(names,base|extras);self.assertEqual(len(names),17)
+                self.assertFalse(any('TEST_ONLY' in name for name in names))
+                for name in names:
+                    if name.startswith(('.github/','ruleproxy/')):self.assertEqual(archive.read(name),(ROOT/name).read_bytes())
+            for index,forbidden in enumerate(gate.UDP6_FORBIDDEN):
+                with zipfile.ZipFile(root/f'udp6-bad-{index}.zip') as archive:
+                    self.assertEqual(len(archive.namelist()),17);self.assertIn(forbidden,archive.namelist());self.assertNotEqual(set(archive.namelist()),names)
     def test_existing_destination_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(FileExistsError):gate.generate(Path(directory))
@@ -44,7 +60,7 @@ class PayloadTests(unittest.TestCase):
         source=(ROOT/'.github/test-windows-udp-payload-gates.ps1').read_text()
         for fragment in ('FunctionDefinitionAst','AssignmentStatementAst','IfStatementAst',
                          'Get-N0aUdpPayloadNames','Expand-CheckedStage0Zip',"$branches[0].Extent.Text",
-                         "@('baseline','n0a','capture','udp','parent_udp')",'test_windows_udp_payload.py',
+                         "@('baseline','n0a','capture','udp','parent_udp','udp6')",'test_windows_udp_payload.py',
                          'Check (-not (Test-Path -LiteralPath $workspace))','ReparsePoint'):
             self.assertIn(fragment,source)
         for count in (10,14,15,17,22):self.assertIn('-MemberCount '+str(count),source)

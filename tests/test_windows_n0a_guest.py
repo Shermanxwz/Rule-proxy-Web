@@ -63,7 +63,7 @@ class N0aGuestContracts(unittest.TestCase):
         # The old three-name allowlist rejects the newly present parent helpers.
         commands=set(re.findall(r'\b(?:Get|Test)-N0a\w+',selector))
         old={'Get-N0aUdpPayloadNames','Test-N0aConfiguration','Test-N0aCaptureConfiguration'}
-        self.assertEqual(commands-old,{'Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration'})
+        self.assertEqual(commands-old,{'Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Get-N0aUdp6PayloadNames'})
         line=next(line for line in gate.splitlines() if 'foreach($command in $selectionCommands)' in line)
         allowed=set(re.findall(r"'([^']+)'",line))
         self.assertEqual(allowed,commands)
@@ -73,7 +73,7 @@ class N0aGuestContracts(unittest.TestCase):
         self.assertNotIn('Invoke-Expression',line)
         # Both empty-config counterexample and each real legacy mode start with
         # every selector flag initialized: shared extractor reads parent first.
-        self.assertEqual(gate.count('$parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false'),2)
+        self.assertEqual(gate.count('$udp6Enabled=$false;$parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false'),2)
         self.assertIn("foreach($mode in @('baseline','n0a','capture'))",gate)
         self.assertIn('foreach($index in 0..3)',gate)
 

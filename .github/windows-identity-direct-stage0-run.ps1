@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 $root = 'C:\RuleProxyCI'
 $result = @{schema_version=1; ordinary_account=$false; direct_build_verified=$false; exploratory_stage0=$true; product_acceptance=$false; documented_support_floor='26300.9550'; harness_completed=$false; stage0_passed=$false}
-$parentUdpEnabled=$false; $udpEnabled=$false; $n0aEnabled=$false; $n0aDeadline=0L; $n0aFrequency=0L; $n0aOriginalReady=$false
+$udp6Enabled=$false; $parentUdpEnabled=$false; $udpEnabled=$false; $n0aEnabled=$false; $n0aDeadline=0L; $n0aFrequency=0L; $n0aOriginalReady=$false
 $phase='configuration'; $failed=$false; $hresult=$null; $pythonExit=$null; $failureCategory='operation_failed'
 # Pure predicates: fixed Windows path identity is case-insensitive, not alias tolerant.
 function Test-InstalledDriveC($Value) {
@@ -310,6 +310,143 @@ function Invoke-N0aGuestDiagnostic($Configuration,[string]$Workspace,[string]$Py
     } catch {}
     return $envelope
 }
+
+# IPv6-only opt-in helpers. Existing IPv4/TCP functions remain unchanged.
+function Get-N0aUdp6PayloadNames {
+    return @('udp6/actor.exe','udp6/build-manifest.json','.github/windows_n0a_control.py',
+        '.github/windows_n0a_guest.py','.github/windows_n0a_udp6.py',
+        '.github/windows_n0a_udp6_guest.py','.github/windows_n0a_udp6_flow.py')
+}
+function Get-N0aUdp6FlowCommitment([byte[]]$Bytes) {
+    if ($Bytes.Length -le 0 -or $Bytes.Length -gt 65536) { throw 'flow_bound' }
+    foreach ($byte in $Bytes) { if ($byte -gt 127) { throw 'flow_encoding' } }
+    $value=[Text.Encoding]::ASCII.GetString($Bytes) | ConvertFrom-Json
+    if ($value.protocol -isnot [string] -or $value.protocol -cne 'udp6' -or $value.schema_version -isnot [int] -or $value.schema_version -ne 1) { throw 'udp_flow_protocol' }
+    $aggregate=[IO.MemoryStream]::new()
+    try {
+        $prefix=[Text.Encoding]::ASCII.GetBytes("N0AU6-ordinary-reports-v1`0")
+        $aggregate.Write($prefix,0,$prefix.Length)
+        foreach ($role in @('before','sample','after')) {
+            $row=$value.reports.$role
+            if ($row.sha256 -isnot [string] -or $row.sha256 -cnotmatch '\A[0-9a-f]{64}\z' -or ($row.bytes -isnot [int] -and $row.bytes -isnot [long]) -or $row.bytes -lt 1 -or $row.bytes -gt 32768) { throw 'flow_source' }
+            $label=[Text.Encoding]::ASCII.GetBytes($role+"`0"); $aggregate.Write($label,0,$label.Length)
+            $length=[BitConverter]::GetBytes([uint64]$row.bytes); if ([BitConverter]::IsLittleEndian) { [Array]::Reverse($length) }
+            $aggregate.Write($length,0,$length.Length)
+            for ($index=0; $index -lt 64; $index+=2) { $aggregate.WriteByte([Convert]::ToByte($row.sha256.Substring($index,2),16)) }
+        }
+        $contained=$value.reports.contained.sha256
+        if ($contained -isnot [string] -or $contained -cnotmatch '\A[0-9a-f]{64}\z') { throw 'flow_source' }
+        return [ordered]@{sha256=(Get-N0aSha256 $Bytes);bytes=$Bytes.Length;contained_report_sha256=$contained;ordinary_report_sha256=(Get-N0aSha256 $aggregate.ToArray())}
+    } finally { $aggregate.Dispose() }
+}
+function Read-N0aUdp6PrivateFlow([string]$Workspace) {
+    $parent=Join-Path $Workspace 'private-udp6'; $path=Join-Path $parent 'runner-flow.json'
+    $directory=Get-Item -LiteralPath $parent -Force
+    $leaf=Get-Item -LiteralPath $path -Force
+    if (-not $directory.PSIsContainer -or $leaf.PSIsContainer -or ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or ($leaf.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'flow_path' }
+    if ($leaf.Length -le 0 -or $leaf.Length -gt 65536) { throw 'flow_bound' }
+    $stream=$null
+    try {
+        $stream=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+        $buffer=New-Object byte[] 65537; $count=0
+        while ($count -lt $buffer.Length) { $read=$stream.Read($buffer,$count,$buffer.Length-$count); if ($read -eq 0) { break }; $count+=$read }
+        if ($count -le 0 -or $count -gt 65536) { throw 'flow_bound' }
+        $body=New-Object byte[] $count; [Array]::Copy($buffer,$body,$count)
+        return @{body=$body;commitment=(Get-N0aUdp6FlowCommitment $body)}
+    } finally { if ($null -ne $stream) { $stream.Dispose() } }
+}
+function Send-N0aUdp6Reports($Configuration,[string]$Workspace,$Envelope) {
+    $clock=New-N0aReportingClock
+    $private=$null
+    try { $private=Read-N0aUdp6PrivateFlow $Workspace } catch {}
+    $commitment=$null; if ($null -ne $private) { $commitment=$private.commitment }
+    $wrapper=[ordered]@{schema_version=5;udp6=$Envelope;flow_commitment=$commitment}
+    $body=[Text.Encoding]::ASCII.GetBytes(($wrapper | ConvertTo-Json -Depth 20 -Compress))
+    if ($body.Length -gt 4096) {
+        $wrapper.flow_commitment=$null; $private=$null
+        $body=[Text.Encoding]::ASCII.GetBytes(($wrapper | ConvertTo-Json -Depth 20 -Compress))
+    }
+    if ($body.Length -gt 4096) { return $false }
+    $delivered=Send-N0aCaptureRequest ($Configuration.host_url+'/udp6-capture-result') $body $clock
+    if ($delivered -and $null -ne $private -and $clock.ElapsedMilliseconds -lt 10000) {
+        [void](Send-N0aCaptureRequest ($Configuration.host_url+'/udp6-runner-flow') $private.body $clock)
+    }
+    return $delivered
+}
+function Invoke-N0aUdp6GuestDiagnostic($Configuration,[string]$Workspace,[string]$Python,[long]$Deadline,[long]$Frequency,[bool]$OriginalReady,[bool]$OriginalDelivered) {
+    $launcher=[ordered]@{phase='not_started';failure='none';python_exit_code=$null;process_exit_confirmed=$null;timed_out=$false;budget_exhausted=$false}
+    $envelope=[ordered]@{schema_version=1;case_nonce=$Configuration.n0a_udp6.case_nonce;actor_sha256=$Configuration.n0a_udp6.actor_sha256;report=$null;launcher=$launcher}
+    $process=$null; $started=$false; $waitCompleted=$false; $executionFailure=$null
+    try {
+        $launcher.phase='configuration'
+        if (-not (Test-N0aConfiguration $Configuration.n0a_udp6) -or -not (Test-N0aCaptureConfiguration $Configuration.capture)) { $launcher.failure='configuration'; throw 'Closed diagnostic failure' }
+        if (-not $OriginalReady) { $launcher.failure='original_unavailable'; throw 'Closed diagnostic failure' }
+        if (-not $OriginalDelivered) { $launcher.failure='original_transport'; throw 'Closed diagnostic failure' }
+        $launcher.phase='budget'
+        $workEnd=$Deadline-20*$Frequency
+        if ((Get-N0aRemainingMilliseconds $workEnd $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())) -le 0) {
+            $launcher.failure='work_budget_exhausted'; $launcher.budget_exhausted=$true; throw 'Closed diagnostic failure'
+        }
+        $output=Join-Path $Workspace 'public-n0a-udp6.json'
+        if (Test-Path -LiteralPath $output) { $launcher.failure='report_bound'; throw 'Closed diagnostic failure' }
+        $info=New-Object Diagnostics.ProcessStartInfo
+        $info.FileName=$Python
+        $info.Arguments='-I -S -B "'+(Join-Path $Workspace '.github\windows_n0a_udp6_guest.py')+'" --configuration "C:\RuleProxyCI\ruleproxy-vm-config.json" --output "'+$output+'" --deadline-qpc '+$workEnd.ToString([Globalization.CultureInfo]::InvariantCulture)+' --qpc-frequency '+$Frequency.ToString([Globalization.CultureInfo]::InvariantCulture)
+        $info.UseShellExecute=$false; $info.CreateNoWindow=$true
+        $process=New-Object Diagnostics.Process; $process.StartInfo=$info
+        $launcher.phase='python_start'; $launcher.failure='spawn'
+        if (-not $process.Start()) { throw 'Closed diagnostic failure' }
+        $started=$true
+        if ($process.Handle -eq [IntPtr]::Zero) { throw 'Closed diagnostic failure' }
+        $launcher.phase='python_wait'; $launcher.failure='process_exit'
+        $wait=Wait-N0aOwnedChild $process (Get-N0aRemainingMilliseconds $workEnd $Frequency ([Diagnostics.Stopwatch]::GetTimestamp()))
+        $waitCompleted=$true
+        foreach ($key in @('process_exit_confirmed','timed_out','python_exit_code')) { $launcher[$key]=$wait[$key] }
+        # Retain already-written bounded evidence even after timeout/uncertain exit.
+        # This is not cleanup or denial acceptance; host independently adjudicates.
+        if ($launcher.timed_out) { $executionFailure='timeout' }
+        elseif (-not $launcher.process_exit_confirmed -or $null -eq $launcher.python_exit_code) { $executionFailure='process_exit' }
+        $launcher.phase='report_read'; $launcher.failure='report_absent'
+        if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { throw 'Closed diagnostic failure' }
+        $launcher.failure='report_bound'
+        $item=Get-Item -LiteralPath $output -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.Length -gt 4096) { throw 'Closed diagnostic failure' }
+        $file=[IO.File]::Open($output,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+        try {
+            $buffer=[byte[]]::new(4097); $used=0
+            while ($used -lt $buffer.Length) { $count=$file.Read($buffer,$used,$buffer.Length-$used); if ($count -eq 0) { break }; $used+=$count }
+            if ($used -gt 4096 -or $used -eq 0) { throw 'Closed diagnostic failure' }
+            for ($i=0;$i -lt $used;$i++) { if ($buffer[$i] -gt 127) { throw 'Closed diagnostic failure' } }
+            $text=[Text.Encoding]::ASCII.GetString($buffer,0,$used)
+        } finally { $file.Dispose() }
+        $launcher.phase='report_parse'; $launcher.failure='report_parse'
+        $value=$text | ConvertFrom-Json
+        if ($null -ne $value -and $value -isnot [PSCustomObject]) { throw 'Closed diagnostic failure' }
+        $envelope.report=$value
+        $launcher.phase='completed'; $launcher.failure=if ($null -eq $value -or $launcher.python_exit_code -ne 0) { 'operation_failed' } else { 'none' }
+    } catch { if ($launcher.failure -eq 'none') { $launcher.failure='operation_failed' } }
+    finally {
+        if ($null -ne $process) {
+            if ($started -and -not $waitCompleted) {
+                try { $process.Kill() } catch {}
+                try { $launcher.process_exit_confirmed=($process.WaitForExit(5000) -eq $true) } catch { $launcher.process_exit_confirmed=$false }
+            }
+            try { $process.Dispose() } catch { $launcher.process_exit_confirmed=$false }
+        }
+    }
+    if ($null -ne $executionFailure) { $launcher.failure=$executionFailure }
+    # One reporting-only attempt can follow work expiry. It never renews work.
+    try {
+        $body=[Text.Encoding]::ASCII.GetBytes(($envelope | ConvertTo-Json -Depth 16 -Compress))
+        if ($body.Length -gt 4096) {
+            $envelope.report=$null; $launcher.failure='report_bound'; $launcher.phase='report_read'
+            $body=[Text.Encoding]::ASCII.GetBytes(($envelope | ConvertTo-Json -Depth 16 -Compress))
+        }
+        [void](Send-N0aUdp6Reports $Configuration $Workspace $envelope)
+    } catch {}
+    return $envelope
+}
+
 
 # UDP-only opt-in helpers. Existing TCP functions above remain unchanged.
 function Get-N0aUdpPayloadNames {
@@ -750,6 +887,16 @@ try {
         'g/wxc-exec.exe','g/build-manifest.json','g/MXC-LICENSE.md',
         '.github/windows_identity_direct_stage0.py','.github/windows_identity_proof.py',
         '.github/windows_psec_compartment_smoke.py','ruleproxy/windows_runtime_pins.py')
+    $udp6Present=('n0a_udp6' -cin @($configuration.PSObject.Properties.Name))
+    if ($udp6Present) {
+        if ('n0a' -cin @($configuration.PSObject.Properties.Name) -or 'n0a_udp' -cin @($configuration.PSObject.Properties.Name) -or
+            'n0a_udp_parent' -cin @($configuration.PSObject.Properties.Name) -or
+            'capture' -cnotin @($configuration.PSObject.Properties.Name) -or
+            -not (Test-N0aConfiguration $configuration.n0a_udp6) -or
+            -not (Test-N0aCaptureConfiguration $configuration.capture)) { throw 'Invalid IPv6 UDP diagnostic configuration' }
+        $udp6Enabled=$true
+        $payloadNames+=@(Get-N0aUdp6PayloadNames)
+    }
     $parentUdpPresent=('n0a_udp_parent' -cin @($configuration.PSObject.Properties.Name))
     if ($parentUdpPresent) {
         if ('n0a' -cin @($configuration.PSObject.Properties.Name) -or 'n0a_udp' -cin @($configuration.PSObject.Properties.Name) -or
@@ -780,7 +927,10 @@ try {
         $payloadNames+=@('.github/windows_n0a_flow.py')
     }
     $phase='payload_extract'
-    if ($parentUdpEnabled) {
+    if ($udp6Enabled) {
+        Expand-CheckedStage0Zip -ArchivePath $payload -Destination $workspace -RequiredNames $payloadNames `
+            -MemberCount 17 -ExactBytes 0 -MaximumBytes 134217728 -Flat $false -ExactNames $true
+    } elseif ($parentUdpEnabled) {
         Expand-CheckedStage0Zip -ArchivePath $payload -Destination $workspace -RequiredNames $payloadNames `
             -MemberCount 22 -ExactBytes 0 -MaximumBytes 134217728 -Flat $false -ExactNames $true
     } elseif ($udpEnabled) {
@@ -817,7 +967,7 @@ try {
     $child = New-Object Diagnostics.Process
     $child.StartInfo=$info
     try {
-        if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled) {
+        if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled) {
             $n0aFrequency=[Diagnostics.Stopwatch]::Frequency
             $now=[Diagnostics.Stopwatch]::GetTimestamp()
             if (-not [Diagnostics.Stopwatch]::IsHighResolution -or $n0aFrequency -le 0 -or $n0aFrequency -gt 1000000000 -or $now -lt 0 -or $now -gt ([long]::MaxValue-120*$n0aFrequency)) { throw 'Clock contract unavailable' }
@@ -828,7 +978,7 @@ try {
         $heldHandle=$child.Handle
         if ($heldHandle -eq [IntPtr]::Zero) { $failureCategory='process_handle_missing'; throw 'Owned process handle missing' }
         $phase='python_wait'
-        $originalExited=if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled) { $child.WaitForExit((Get-N0aRemainingMilliseconds $n0aDeadline $n0aFrequency ([Diagnostics.Stopwatch]::GetTimestamp()))) } else { $child.WaitForExit(120000) }
+        $originalExited=if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled) { $child.WaitForExit((Get-N0aRemainingMilliseconds $n0aDeadline $n0aFrequency ([Diagnostics.Stopwatch]::GetTimestamp()))) } else { $child.WaitForExit(120000) }
         if (-not $originalExited) { $child.Kill(); [void]$child.WaitForExit(5000); $failureCategory='python_deadline'; throw 'Stage0 deadline' }
         $pythonExit=[int]$child.ExitCode
         $phase='report_read'
@@ -885,7 +1035,9 @@ try {
 
 # Original Stage0 delivery above is independent and is never rewritten by N0a.
 # Work shares one 120s QPC deadline; reporting-only allowance is separate (once, at most 10s).
-if ($parentUdpEnabled) {
+if ($udp6Enabled) {
+    [void](Invoke-N0aUdp6GuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)
+} elseif ($parentUdpEnabled) {
     [void](Invoke-N0aUdpParentGuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)
 } elseif ($udpEnabled) {
     [void](Invoke-N0aUdpGuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)

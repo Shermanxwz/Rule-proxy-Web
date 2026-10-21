@@ -10,6 +10,7 @@ import zipfile
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 FORBIDDEN=('udp/TEST_ONLY.exe','capture.pcap','private-udp/runner-flow.json','.github/windows_n0a_udp_host.py')
+UDP6_FORBIDDEN=('udp6/TEST_ONLY.exe','capture.pcap','private-udp6/runner-flow.json','.github/windows_n0a_udp6_host.py')
 PARENT_FORBIDDEN=('parent/TEST_ONLY.exe','capture.pcap','private-parent-udp/runner-flow.json','.github/windows_n0a_udp_parent_host.py')
 def generate(root):
     root=Path(root)
@@ -66,7 +67,25 @@ def generate(root):
     for index,name in enumerate(PARENT_FORBIDDEN):
         with zipfile.ZipFile(root/f'parent_udp-bad-{index}.zip','w') as archive:
             for member,data in parent_entries.items():archive.writestr(name if member=='.github/windows_n0a_udp_parent_flow.py' else member,data)
-    return {'schema_version':1,'members':[10,14,15,17,22],'negative_cases':8,'inert_boundary_mocks':True,'runtime_artifact':False}
+    target=root/'udp6.zip'
+    # Explicit authenticated-boundary substitutions only. No trust-pin-valid artifact claim.
+    with patch.object(host,'verify_python',return_value=b'nonexecuted-python-fixture'),\
+         patch.object(install_runtime,'_g_bundle_bytes',return_value=bundle_data),\
+         patch.object(install_runtime,'_extract_g_bundle',side_effect=extract):
+        digest=host.payload(root/'unused-python.zip',actor,hashlib.sha256(actor.read_bytes()).hexdigest(),bundle,target,udp6=udp)
+    if digest!=hashlib.sha256(target.read_bytes()).hexdigest():raise ValueError('fixture digest')
+    with zipfile.ZipFile(root/'baseline.zip') as archive:base=set(archive.namelist())
+    extra={'udp6/actor.exe','udp6/build-manifest.json',*('.github/'+n for n in ('windows_n0a_control.py','windows_n0a_guest.py',
+           'windows_n0a_udp6.py','windows_n0a_udp6_guest.py','windows_n0a_udp6_flow.py'))}
+    with zipfile.ZipFile(target) as archive:
+        entries={n:archive.read(n) for n in archive.namelist()}
+        if len(archive.namelist())!=17 or set(entries)!=base|extra:raise ValueError('fixture membership')
+        for name in extra:
+            if name.startswith('.github/') and entries[name]!=(ROOT/name).read_bytes():raise ValueError('fixture source')
+    for index,name in enumerate(UDP6_FORBIDDEN):
+        with zipfile.ZipFile(root/f'udp6-bad-{index}.zip','w') as archive:
+            for member,data in entries.items():archive.writestr(name if member=='.github/windows_n0a_udp6_flow.py' else member,data)
+    return {'schema_version':1,'members':[10,14,15,17,22,17],'negative_cases':12,'inert_boundary_mocks':True,'runtime_artifact':False}
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,required=True);args=parser.parse_args()
     try:result=generate(args.root)

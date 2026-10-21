@@ -10,7 +10,7 @@ try {
     $tokens=$null;$errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
     Check ($errors.Count -eq 0)
-    foreach($name in @('Get-N0aUdpPayloadNames','Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Test-N0aConfiguration','Test-N0aCaptureConfiguration','Expand-CheckedStage0Zip')) {
+    foreach($name in @('Get-N0aUdp6PayloadNames','Get-N0aUdpPayloadNames','Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Test-N0aConfiguration','Test-N0aCaptureConfiguration','Expand-CheckedStage0Zip')) {
         $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true))
         Check ($nodes.Count -eq 1)
         . ([ScriptBlock]::Create($nodes[0].Extent.Text))
@@ -22,7 +22,7 @@ try {
     $t=$null;$e=$null;$selectionAst=[Management.Automation.Language.Parser]::ParseInput($selection,[ref]$t,[ref]$e)
     Check ($e.Count -eq 0)
     foreach($command in @($selectionAst.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst]},$true))) {
-        Check ($command.GetCommandName() -cin @('Get-N0aUdpPayloadNames','Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Test-N0aConfiguration','Test-N0aCaptureConfiguration'))
+        Check ($command.GetCommandName() -cin @('Get-N0aUdp6PayloadNames','Get-N0aUdpPayloadNames','Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Test-N0aConfiguration','Test-N0aCaptureConfiguration'))
     }
     $branches=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.Contains('-MemberCount 22') -and $n.Extent.Text.Contains('-MemberCount 17') -and $n.Extent.Text.Contains('-MemberCount 15') -and $n.Extent.Text.Contains('-MemberCount 14') -and $n.Extent.Text.Contains('-MemberCount 10')},$true))
     Check ($branches.Count -eq 1)
@@ -33,25 +33,26 @@ try {
     $config=[PSCustomObject]@{enabled=$true;case_nonce=('a'*32);runner_port=12345;actor_sha256=('b'*64);manifest_sha256=('c'*64);actor_source_sha256=('d'*64);identity_source_sha256=('e'*64)}
     $parentConfig=[PSCustomObject]@{enabled=$true;case_nonce=('a'*32);runner_port=12345;parent_sha256=('b'*64);parent_manifest_sha256=('c'*64);parent_source_sha256=('d'*64);child_sha256=('e'*64);child_manifest_sha256=('f'*64);child_source_sha256=('1'*64);identity_source_sha256=('2'*64);executor_sha256=('3'*64)}
     $savedNames=@{}
-    foreach($mode in @('baseline','n0a','capture','udp','parent_udp')) {
+    foreach($mode in @('baseline','n0a','capture','udp','parent_udp','udp6')) {
         $script:stage='extract_'+$mode
         $configuration=[PSCustomObject]@{host_url='http://127.0.0.1/fixture';payload_sha256=('a'*64);python_sha256=('b'*64);actor_sha256=('c'*64)}
         if($mode -in @('n0a','capture')) { $configuration | Add-Member NoteProperty n0a $config }
+        if($mode -eq 'udp6') { $configuration | Add-Member NoteProperty n0a_udp6 $config }
         if($mode -eq 'udp') { $configuration | Add-Member NoteProperty n0a_udp $config }
         if($mode -eq 'parent_udp') { $configuration | Add-Member NoteProperty n0a_udp_parent $parentConfig }
-        if($mode -in @('capture','udp','parent_udp')) { $configuration | Add-Member NoteProperty capture ([PSCustomObject]@{enabled=$true;run_nonce=('1'*32);source_commit=('2'*40);vm_mac='525400123456'}) }
-        $parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false
+        if($mode -in @('capture','udp','parent_udp','udp6')) { $configuration | Add-Member NoteProperty capture ([PSCustomObject]@{enabled=$true;run_nonce=('1'*32);source_commit=('2'*40);vm_mac='525400123456'}) }
+        $udp6Enabled=$false;$parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false
         . ([ScriptBlock]::Create($selection))
         $payload=Join-Path $owned ($mode+'.zip');$workspace=Join-Path $owned ($mode+'-expanded')
         . ([ScriptBlock]::Create($branches[0].Extent.Text))
-        $expected=@{baseline=10;n0a=14;capture=15;udp=17;parent_udp=22}[$mode]
+        $expected=@{baseline=10;n0a=14;capture=15;udp=17;parent_udp=22;udp6=17}[$mode]
         $savedNames[$mode]=@($payloadNames)
         Check ($payloadNames.Count -eq $expected)
         Check (@(Get-ChildItem -LiteralPath $workspace -Recurse -File).Count -eq $expected)
     }
     $script:stage='forbidden'
-    foreach($badMode in @('udp','parent_udp')) {
-        $payloadNames=$savedNames[$badMode];$parentUdpEnabled=($badMode -ceq 'parent_udp');$udpEnabled=($badMode -ceq 'udp');$captureEnabled=$false;$n0aEnabled=$false
+    foreach($badMode in @('udp','parent_udp','udp6')) {
+        $payloadNames=$savedNames[$badMode];$udp6Enabled=($badMode -ceq 'udp6');$parentUdpEnabled=($badMode -ceq 'parent_udp');$udpEnabled=($badMode -ceq 'udp');$captureEnabled=$false;$n0aEnabled=$false
         foreach($index in 0..3) {
             $payload=Join-Path $owned ($badMode+'-bad-'+$index+'.zip');$workspace=Join-Path $owned ($badMode+'-bad-'+$index+'-expanded')
             $rejected=$false
@@ -60,10 +61,16 @@ try {
         }
     }
     $script:stage='exclusive_configuration'
-    foreach($conflict in @('n0a','n0a_udp')) {
+    foreach($conflict in @('n0a','n0a_udp','n0a_udp6')) {
         $configuration=[PSCustomObject]@{n0a_udp_parent=$parentConfig;capture=[PSCustomObject]@{enabled=$true;run_nonce=('1'*32);source_commit=('2'*40);vm_mac='525400123456'}}
         $configuration|Add-Member NoteProperty $conflict $config
-        $parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false
+        $udp6Enabled=$false;$parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false
+        $rejected=$false;try{. ([ScriptBlock]::Create($selection))}catch{$rejected=$true};Check $rejected
+    }
+    foreach($conflict in @('n0a','n0a_udp','n0a_udp_parent')) {
+        $configuration=[PSCustomObject]@{n0a_udp6=$config;capture=[PSCustomObject]@{enabled=$true;run_nonce=('1'*32);source_commit=('2'*40);vm_mac='525400123456'}}
+        $configuration|Add-Member NoteProperty $conflict $config
+        $udp6Enabled=$false;$parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false
         $rejected=$false;try{. ([ScriptBlock]::Create($selection))}catch{$rejected=$true};Check $rejected
     }
     $passed=$true

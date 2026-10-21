@@ -158,12 +158,16 @@ class LifecycleTests(unittest.TestCase):
         keywords={k.arg:k.value for k in call.keywords}
         marker=object()
         for udp_mode in (False,True):
-            context={'udp_mode':udp_mode,'parent_udp_mode':False,'n0a':marker}
+            context={'udp_mode':udp_mode,'parent_udp_mode':False,'udp6_mode':False,'n0a':marker}
             self.assertIs(eval(compile(ast.Expression(keywords['n0a']),'<fixture>','eval'),context),None if udp_mode else marker)
             self.assertIs(eval(compile(ast.Expression(keywords['udp']),'<fixture>','eval'),context),marker if udp_mode else None)
-        context={'udp_mode':True,'parent_udp_mode':True,'n0a':marker}
+        context={'udp_mode':True,'parent_udp_mode':True,'udp6_mode':False,'n0a':marker}
         self.assertIs(eval(compile(ast.Expression(keywords['parent_udp']),'<fixture>','eval'),context),marker)
         self.assertIsNone(eval(compile(ast.Expression(keywords['udp']),'<fixture>','eval'),context))
+        context={'udp_mode':True,'parent_udp_mode':False,'udp6_mode':True,'n0a':marker}
+        self.assertIs(eval(compile(ast.Expression(keywords['udp6']),'<fixture>','eval'),context),marker)
+        for key in ('n0a','udp','parent_udp'):
+            self.assertIsNone(eval(compile(ast.Expression(keywords[key]),'<fixture>','eval'),context))
         self.assertEqual(host.MAX_REPORT,16384);self.assertEqual(host.MAX_N0A_REPORT,4096)
         self.assertEqual((host.DISK_FILE_CAP,host.LAUNCH_FREE,host.STOP_FREE),(22*2**30,24*2**30,4*2**30))
         payload=functions['payload']
