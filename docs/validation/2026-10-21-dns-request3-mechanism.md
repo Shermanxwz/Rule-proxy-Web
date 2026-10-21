@@ -43,7 +43,7 @@ Both receiver sockets must be owned before the pair starts. All query waits rema
 ## Isolation from production and external services
 
 - The new binary is compile-time TEST_ONLY, with a distinct name/build directory and non-deployable manifest. It is not a production actor or a guest payload member.
-- Retained original modes use the fixed loopback address `127.0.0.1`; the selected alternate pair uses only fixed `127.0.0.2`, with an owned ephemeral high port and conditionally admitted explicit port 53. All responder sockets bind an explicit loopback address, never a wildcard. They answer only bounded synthetic requests under test and do not forward or proxy queries.
+- Retained original modes use the fixed loopback address `127.0.0.1`; the selected alternate pair uses only fixed `127.0.0.2`, with an owned ephemeral high port and conditionally admitted explicit port 53. All responder sockets bind an explicit loopback address, never a wildcard. They answer only bounded synthetic requests under test and perform no forwarding or proxying.
 - No VM, extra account, global DNS setting, NRPT rule, firewall rule, hosts entry, public resolver, or user device is changed or used.
 - No fallback to an existing resolver implementation is allowed after unsupported SDK/API/transport behavior. Unsupported, unobserved, timed-out, malformed, or mismatched results are failed/inconclusive mechanism evidence, not isolation success.
 - The dedicated `[dns-request3-gates]` marker is limited to the exact experimental branch and push event. The Linux job is bounded to 5 minutes and Windows to 8 minutes. Neither uploads artifacts or starts a VM. A DNS-only marker must not admit any existing direct, capture, or serviced native job.
