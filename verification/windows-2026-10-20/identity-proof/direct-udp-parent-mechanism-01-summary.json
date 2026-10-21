@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "experiment": "Socket-free UDP parent standalone hosted mechanism",
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "branch": "dot/windows-isolation-proof",
+  "head": "3bd9c71ab42d3c50cbd876c81d713cc5c2040439",
+  "workflow_run_id": 39626377517,
+  "workflow_conclusion": "success",
+  "source_freeze_sha256": "e1e74ea4f508fea1210c5f53bffa99d980133708273de6057361fe99c649a84e",
+  "initial_freeze_sha256": "72393eaec27df1606a6669665c41133a2b86b8e267671f51a5894e9732632eb6",
+  "result_file": "direct-udp-parent-mechanism-01-result.json",
+  "result_sha256": "34b0978d8479c611f9ba881ad70d644c14a6b29a1d5a149f321e625c3efb9899",
+  "tests": {
+    "linux_required": 384,
+    "windows_required": 384,
+    "skipped": 0,
+    "full_repository_discovery_claimed": false
+  },
+  "actual_observations": {
+    "build": "Production socket-free parent and separate TEST_ONLY parent/unchanged UDP child compiled under retained warnings-as-errors.",
+    "normal": "Held-child creation, resume, wait and report binding passed for before/sample/contained-phase/after. The main receiver verified and echoed 45 frames, including all 40 sampler indices and 3 contained-phase indices.",
+    "profile": "TEST_ONLY profile-only path executed real hosted identity checks without child creation or sockets. Production was invoked only with invalid CLI.",
+    "injected_refusals": "Token-query failure, SID mismatch and pre-resume failure were fixture injections. Each created a suspended child but did not resume it; owned held-handle termination and wait completed, and each respective responder observed 0 datagrams. The resume injection is not an actual failed ResumeThread API call.",
+    "actual_timeout": "A sample child was resumed under an at-most 3000 ms parent cap. Its dedicated receiver verified and echoed 4 sample frames. The parent recorded timeout, exact-owned termination and a signaled child wait. No valid child report was observed, so 4 is receiver evidence, not a native accepted-send count. These receiver observations remain despite the expected timeout.",
+    "cleanup": "All 10 parent processes exited without parent kills and their handles closed; all 5 responder sockets and threads closed. Parent-attested descendant cleanup and work removal were confirmed."
+  },
+  "limits": {
+    "identity": "Hosted sid_matched denotes the non-AppContainer/null-SID pair,not observed AppContainer SID equality or PSEC inheritance.",
+    "provenance": "Child handle/PID/report binding is parent-attested. No controller-held child handle,PPID observation,job-identity or independent PSEC cleanup proof.",
+    "network": "Contained is a fixture phase label,not an actual contained process. All actual network targets were owned hosted loopback. No production valid-network-CLI/nonadmin positive,guest runner egress,packet capture,DNS or broker result.",
+    "runtime": "No adapter/full Windows guest/VM or artifact upload was enabled by this short workflow. Existing UDP child/identity/policy and runtime files remained unchanged.",
+    "acceptance": "No AppContainer inheritance,packet absence,isolation,privacy,product or Linux-equivalence acceptance follows. Earlier actual TCP/UDP observations remain separately scoped."
+  },
+  "prior_failure": {
+    "run_id": 39625534900,
+    "head": "e2bcbcbe986b6333e0508a765f7532d57827308b",
+    "linux_tests": 383,
+    "windows_build": "failed",
+    "windows_units_and_mechanics": "not_run",
+    "diagnosis": "Exact MSVC instantiation traces identified optional<DWORD> !=signed literal and wchar_t-to-char iterator assignment.",
+    "correction": "DWORD{1} and exact ASCII mapping of the same four phases; no warning suppression or accepted-input change."
+  }
+}
