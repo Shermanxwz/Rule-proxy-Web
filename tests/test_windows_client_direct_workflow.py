@@ -1,6 +1,14 @@
 """Direct 26300.9457 is exploratory only; source gates do not prove runtime."""
 from pathlib import Path
 import unittest
+import ast
+import importlib.util
+import json
+import os
+import tempfile
+import textwrap
+from types import SimpleNamespace
+from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 class DirectWorkflowTests(unittest.TestCase):
     def setUp(self):
@@ -14,12 +22,74 @@ class DirectWorkflowTests(unittest.TestCase):
         self.assertNotIn('[identity-direct-stage0-gates]',native)
         self.assertNotIn('always()',native)
         self.assertNotIn('[identity-serviced-stage0-runtime]',self.text)
-    def test_recovery_bytes_and_pins_unchanged(self):
-        old=(ROOT/'.github/workflows/windows-identity-stock-stage0.yml').read_text()
-        def body(t):return t.split("<<'REVIEWED_RECOVERY'",1)[1].split('\n          REVIEWED_RECOVERY',1)[0]
-        self.assertEqual(body(old),body(self.text))
+    def test_no_provider_deletion_and_pins_unchanged(self):
+        for forbidden in ('REVIEWED_RECOVERY','execute-reviewed-recovery','provider_cache_recovery',
+                          'reviewed.py','identity-stock-recovery','direct-provider-recovery-public'):
+            self.assertNotIn(forbidden,self.text)
         self.assertIn('artifact-ids: 11938733475',self.text)
         self.assertIn('530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553',self.text)
+        code=self.preflight()
+        calls={node.func.attr if isinstance(node.func,ast.Attribute) else node.func.id
+               for node in ast.walk(ast.parse(code)) if isinstance(node,ast.Call)
+               and isinstance(node.func,(ast.Attribute,ast.Name))}
+        self.assertEqual(calls,{'Path','mkdir','stat','disk_usage','write_text','dumps','SystemExit'})
+        self.assertIn('exist_ok=False',code)
+        self.assertIn('direct-capacity-preflight-public',self.text)
+        self.assertLess(self.text.index('Read-only provider capacity admission'),self.text.index('Observe preparation baseline'))
+        native=self.text.split('  native:\n',1)[1]
+        self.assertLess(native.index('Read-only provider capacity admission'),native.index('actions/checkout@v5'))
+
+    def preflight(self):
+        return textwrap.dedent(self.text.split("<<'READ_ONLY_CAPACITY'\n",1)[1].split('          READ_ONLY_CAPACITY',1)[0])
+
+    def baseline(self):
+        block=self.text.split('      - name: Observe preparation baseline',1)[1]
+        return textwrap.dedent(block.split("<<'PY'\n",1)[1].split('          PY',1)[0])
+
+    def test_actual_preflight_capacity_edges_and_filesystem(self):
+        required=32*1024**3+512*1024**2
+        for free,same in ((required-1,True),(required,True),(required+1,True),(required+1,False)):
+            with self.subTest(free=free,same=same), tempfile.TemporaryDirectory() as temporary:
+                root=Path(temporary);workspace=root/'workspace';workspace.mkdir()
+                actual_stat=Path.stat
+                def observed_stat(path,*args,**kwargs):
+                    value=actual_stat(path,*args,**kwargs)
+                    return SimpleNamespace(st_dev=value.st_dev+1) if not same and path==workspace else value
+                with patch.dict(os.environ,{'RUNNER_TEMP':str(root),'GITHUB_WORKSPACE':str(workspace)}), \
+                     patch('shutil.disk_usage',return_value=SimpleNamespace(free=free)), \
+                     patch.object(Path,'stat',observed_stat):
+                    if free>=required and same: exec(compile(self.preflight(),'<capacity>','exec'),{})
+                    else:
+                        with self.assertRaises(SystemExit): exec(compile(self.preflight(),'<capacity>','exec'),{})
+                report=json.loads((root/'identity-direct-capacity/public.json').read_text())
+                self.assertEqual(report['status'],'admitted' if free>=required and same else 'insufficient_capacity')
+                self.assertEqual(report['required_free_bytes'],required)
+                self.assertEqual(report['observed_free_bytes'],free)
+                self.assertEqual(report['same_filesystem'],same)
+                for field in ('provider_changes','provider_deletion_attempted','recovery_performed'):
+                    self.assertIs(report[field],False)
+                self.assertEqual(list(workspace.iterdir()),[])
+
+    def test_actual_baseline_consumed_by_unchanged_stock_and_direct_helpers(self):
+        required=32*1024**3+512*1024**2
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);workspace=root/'workspace';workspace.mkdir()
+            environment=root/'env';environment.write_text('')
+            with patch.dict(os.environ,{'RUNNER_TEMP':str(root),'GITHUB_WORKSPACE':str(workspace),'GITHUB_ENV':str(environment)}), \
+                 patch('shutil.disk_usage',return_value=SimpleNamespace(free=required)),patch('sys.version_info',(3,12,0)):
+                exec(compile(self.preflight(),'<capacity>','exec'),{})
+                exec(compile(self.baseline(),'<baseline>','exec'),{})
+            baseline=root/'identity-direct-capacity/preparation-public.json'
+            self.assertIn('STOCK_PREP_DEVICE_ID='+str(workspace.stat().st_dev),environment.read_text())
+            for route in ('stock','direct'):
+                spec=importlib.util.spec_from_file_location('baseline_'+route,ROOT/f'.github/windows_identity_{route}_stage0.py')
+                module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                result=module.preparation_record(baseline)
+                self.assertEqual(result['baseline_free_bytes'],required)
+                self.assertEqual(result['minimum_free_bytes'],32*1024**3)
+                self.assertEqual(result['allowance_bytes'],512*1024**2)
+                self.assertEqual(result['samples'],[{'phase':'before_checkout','free_bytes':required,'net_decline_bytes':0}])
+
     def test_same_fixed_budgets_and_dependencies(self):
         for value in ('timeout-minutes: 120',' + 6900 ','--timeout-seconds 6600','needs: [compile, host-unit]',
             'qemu-system-x86 qemu-utils ovmf swtpm xorriso curl 7zip','persist-credentials: false'):
