@@ -56,7 +56,22 @@ class ParentWorkflowTests(unittest.TestCase):
             self.assertIn(hashlib.sha256((ROOT/'.github/native'/name).read_bytes()).hexdigest(),text)
         for value in ('udp-parent-production-build/windows_n0a_udp_parent.exe','udp-parent-TEST-ONLY-build/windows_n0a_UDP_PARENT_TEST_ONLY_fixture.exe','udp-child-TEST-ONLY-build/windows_n0a_UDP_TEST_ONLY_fixture.exe','--run-actual-windows','--output udp-parent-mechanism-public.json'):
             self.assertIn(value,text)
-        self.assertNotIn('build_windows_n0a_udp_actor.ps1',text)
+        self.assertEqual(text.count('./.github/build_windows_n0a_udp_actor.ps1 -OutputDirectory'),1)
+        self.assertIn('udp-child-production-verify-build/windows_n0a_udp_actor.exe',text)
         self.assertNotIn('GITHUB_OUTPUT',text)
+
+    def test_actual_production_verifier_is_isolated_and_not_executed(self):
+        import yaml
+        doc=yaml.load(PATH.read_text(),Loader=yaml.BaseLoader)
+        steps=doc['jobs']['native-mechanism']['steps']
+        matches=[s for s in steps if s.get('name')=='Verify actual production inputs through isolated host imports']
+        self.assertEqual(len(matches),1)
+        run=matches[0]['run']
+        self.assertIn('python -I -B tests/test_windows_client_n0a_udp_parent_capture_adapter.py --verify-production-inputs',run)
+        for path in ('udp-parent-production-build/windows_n0a_udp_parent.exe','udp-parent-production-build/N0A-UDP-PARENT-manifest.json','udp-child-production-verify-build/windows_n0a_udp_actor.exe','udp-child-production-verify-build/N0A-UDP-manifest.json'):
+            self.assertIn(path,run)
+        self.assertNotIn('TEST-ONLY',run)
+        self.assertIn('if ($LASTEXITCODE -ne 0)',run)
+        self.assertNotIn('actions/upload-artifact',PATH.read_text())
 
 if __name__=='__main__':unittest.main()

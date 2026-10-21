@@ -77,8 +77,14 @@ jobs:
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
           ./.github/build_windows_n0a_udp_parent.ps1 -OutputDirectory "$PWD/udp-parent-production-build" -ExpectedParentSha256 d664329acbf642e5232031ea0aa7c1a12663a35ef4e7cb89925d932b94af3347 -ExpectedChildSourceSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          ./.github/build_windows_n0a_udp_actor.ps1 -OutputDirectory "$PWD/udp-child-production-verify-build" -ExpectedActorSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
           ./.github/build_windows_n0a_udp_parent_fixture.ps1 -OutputDirectory "$PWD/udp-parent-TEST-ONLY-build" -ExpectedParentSha256 d664329acbf642e5232031ea0aa7c1a12663a35ef4e7cb89925d932b94af3347 -ExpectedFixtureSha256 6712f8a4831924e619911f5952d1f3cd22786357db9337e0a8b2d8bd028c3301 -ExpectedChildSourceSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
           ./.github/build_windows_n0a_udp_fixture.ps1 -OutputDirectory "$PWD/udp-child-TEST-ONLY-build" -ExpectedFixtureSha256 9465f6fd4399b4e7edc357dcfaf7769905aa74392c423f05142fa9f49896bbae -ExpectedActorSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+      - name: Verify actual production inputs through isolated host imports
+        shell: pwsh
+        run: |
+          python -I -B tests/test_windows_client_n0a_udp_parent_capture_adapter.py --verify-production-inputs --parent udp-parent-production-build/windows_n0a_udp_parent.exe --parent-manifest udp-parent-production-build/N0A-UDP-PARENT-manifest.json --child udp-child-production-verify-build/windows_n0a_udp_actor.exe --child-manifest udp-child-production-verify-build/N0A-UDP-manifest.json
+          if ($LASTEXITCODE -ne 0) { throw 'Isolated production input verification failed' }
       - name: Required parent and unchanged UDP contracts
         shell: pwsh
         run: |

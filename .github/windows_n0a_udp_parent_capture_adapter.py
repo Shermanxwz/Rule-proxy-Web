@@ -24,6 +24,17 @@ def new_owner(root,outer_deadline):return helper('lifecycle').new_owner(root,out
 def valid_commitment(value):return helper('lifecycle').valid_commitment(value)
 def accept_private_body(raw,commitment):return helper('lifecycle').accept_private_body(raw,commitment)
 
+def runtime_executor_pin():
+    # Pre-media script entry has .github, not the repository package root, on
+    # sys.path. Load only this checkout's trusted pin source; no ambient package
+    # or sys.modules fallback and no mutation of import search paths.
+    spec=importlib.util.spec_from_file_location('parent_host_runtime_pins',ROOT/'ruleproxy/windows_runtime_pins.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    value=module.MXC_G_EXECUTOR_SHA256
+    if type(value) is not str or len(value)!=64 or any(c not in '0123456789abcdef' for c in value):raise ValueError('executor pin')
+    return value
+
+
 def verify_inputs(parent,parent_manifest,child,child_manifest):
     child_inputs=helper('udp').verify_inputs(child,child_manifest)
     parent=Path(parent);parent_manifest=Path(parent_manifest)
@@ -42,12 +53,12 @@ def verify_inputs(parent,parent_manifest,child,child_manifest):
               childActorSourceSha256=child_inputs['config']['actor_source_sha256'],executableSha256=hashlib.sha256(raw).hexdigest())
     fixed=dict(schemaVersion=1,testOnly=False,deployable=True,compileOnly=True)
     if type(value) is not dict or set(value)!=set(pins)|set(fixed) or any(type(value[k]) is not type(v) or value[k]!=v for k,v in {**pins,**fixed}.items()):raise ValueError('parent production pins')
-    from ruleproxy.windows_runtime_pins import MXC_G_EXECUTOR_SHA256
+    executor_pin=runtime_executor_pin()
     config=dict(enabled=True,case_nonce=secrets.token_hex(16),runner_port=None,
         parent_sha256=pins['executableSha256'],parent_manifest_sha256=hashlib.sha256(manifest_raw).hexdigest(),
         parent_source_sha256=pins['parentSourceSha256'],child_sha256=child_inputs['config']['actor_sha256'],
         child_manifest_sha256=child_inputs['config']['manifest_sha256'],child_source_sha256=pins['childActorSourceSha256'],
-        identity_source_sha256=pins['identitySourceSha256'],executor_sha256=MXC_G_EXECUTOR_SHA256)
+        identity_source_sha256=pins['identitySourceSha256'],executor_sha256=executor_pin)
     return dict(parent=parent,parent_manifest=parent_manifest,child=Path(child),child_manifest=Path(child_manifest),config=config)
 
 def flow_context(capture,config,server,cleanup_verified):
