@@ -1,0 +1,186 @@
+{
+  "broker_cancellation_proven": false,
+  "cases": {
+    "baseline": {
+      "api_report": {
+        "answer_match": false,
+        "api_called": true,
+        "api_status": 87,
+        "callback_null": true,
+        "cancellation_handle_null": false,
+        "context_retained": false,
+        "custom_flags_zero": true,
+        "custom_server_count": 1,
+        "custom_udp": true,
+        "legacy_server_list_null": true,
+        "pending": false,
+        "record_count": 0,
+        "records_freed": false,
+        "request_version": 3,
+        "result_status": 0,
+        "runtime_acceptance": false,
+        "schema": 1,
+        "test_only": true
+      },
+      "child_cleanup": [
+        {
+          "cleanup_confirmed": true,
+          "exited": true,
+          "handles_closed": true,
+          "killed": false
+        }
+      ],
+      "failure": "none",
+      "positive": false,
+      "query_observed": false,
+      "receiver_after": {
+        "answers_sent": 0,
+        "bytes": 0,
+        "datagrams": 0,
+        "matched_queries": 0,
+        "oversized": 0,
+        "rejected": 0,
+        "send_failed": 0
+      },
+      "receiver_before": {
+        "answers_sent": 0,
+        "bytes": 0,
+        "datagrams": 0,
+        "matched_queries": 0,
+        "oversized": 0,
+        "rejected": 0,
+        "send_failed": 0
+      },
+      "receiver_delta": {
+        "answers_sent": 0,
+        "bytes": 0,
+        "datagrams": 0,
+        "matched_queries": 0,
+        "oversized": 0,
+        "rejected": 0,
+        "send_failed": 0
+      }
+    },
+    "null_cancel": {
+      "api_report": {
+        "answer_match": false,
+        "api_called": true,
+        "api_status": 87,
+        "callback_null": true,
+        "cancellation_handle_null": true,
+        "context_retained": false,
+        "custom_flags_zero": true,
+        "custom_server_count": 1,
+        "custom_udp": true,
+        "legacy_server_list_null": true,
+        "pending": false,
+        "record_count": 0,
+        "records_freed": false,
+        "request_version": 3,
+        "result_status": 0,
+        "runtime_acceptance": false,
+        "schema": 1,
+        "test_only": true
+      },
+      "child_cleanup": [
+        {
+          "cleanup_confirmed": true,
+          "exited": true,
+          "handles_closed": true,
+          "killed": false
+        }
+      ],
+      "failure": "none",
+      "positive": false,
+      "query_observed": false,
+      "receiver_after": {
+        "answers_sent": 0,
+        "bytes": 0,
+        "datagrams": 0,
+        "matched_queries": 0,
+        "oversized": 0,
+        "rejected": 0,
+        "send_failed": 0
+      },
+      "receiver_before": {
+        "answers_sent": 0,
+        "bytes": 0,
+        "datagrams": 0,
+        "matched_queries": 0,
+        "oversized": 0,
+        "rejected": 0,
+        "send_failed": 0
+      },
+      "receiver_delta": {
+        "answers_sent": 0,
+        "bytes": 0,
+        "datagrams": 0,
+        "matched_queries": 0,
+        "oversized": 0,
+        "rejected": 0,
+        "send_failed": 0
+      }
+    }
+  },
+  "children_cleanup": [
+    {
+      "cleanup_confirmed": true,
+      "exited": true,
+      "handles_closed": true,
+      "killed": false
+    },
+    {
+      "cleanup_confirmed": true,
+      "exited": true,
+      "handles_closed": true,
+      "killed": false
+    },
+    {
+      "cleanup_confirmed": true,
+      "exited": true,
+      "handles_closed": true,
+      "killed": false
+    },
+    {
+      "cleanup_confirmed": true,
+      "exited": true,
+      "handles_closed": true,
+      "killed": true
+    }
+  ],
+  "cleanup_confirmed": true,
+  "failure": "none",
+  "fixture": {
+    "broker_cancellation_proven": false,
+    "byte_count_is_observed_lower_bound": true,
+    "cleanup_confirmed": true,
+    "counts": {
+      "answers_sent": 0,
+      "bytes": 0,
+      "datagrams": 0,
+      "matched_queries": 0,
+      "oversized": 0,
+      "rejected": 0,
+      "send_failed": 0
+    },
+    "error": "none",
+    "query_observed": false,
+    "ready": true,
+    "socket_closed": true,
+    "thread_stopped": true
+  },
+  "injected_pending_control": true,
+  "isolation_tested": false,
+  "mechanism_positive": false,
+  "nrpt_empty": true,
+  "os_version": {
+    "build": 26100,
+    "major": 10,
+    "minor": 0
+  },
+  "query_observed": false,
+  "receiver_attribution": "temporal_deltas_shared_nonce_not_broker_identity",
+  "runtime_acceptance": false,
+  "schema": 1,
+  "work_removed": true
+}
