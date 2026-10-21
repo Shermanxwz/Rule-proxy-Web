@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "source_commit": "d2ad7be391114d1ff7413af6c9d3f6a17a9e29b1",
+  "run_id": 39556001903,
+  "native_job_id": 119076004172,
+  "artifacts": [
+    {
+      "artifact_id": 12325874869,
+      "archive_sha256": "4751975b36788791d2bf799e65e88dbaa1bc50f8d66a9aa9dcd47ab3227d575e",
+      "public_file": "direct-stage0-attempt-04-runtime-public.json"
+    },
+    {
+      "artifact_id": 12326565586,
+      "archive_sha256": "43f6bb668b15fc6c7cb559f26badca3090988952ae75e0bfc5c5b36ef5730c37",
+      "public_file": "direct-stage0-attempt-04-capacity-public.json"
+    },
+    {
+      "artifact_id": 12326535717,
+      "archive_sha256": "b0a05c5c6da27a051cb20710a4c3cb8fb02b7bb253cf1f239537bddd507ef4d5",
+      "public_file": "direct-stage0-attempt-04-preparation-public.json"
+    }
+  ],
+  "stage0_passed": false,
+  "product_acceptance": false,
+  "exploratory_stage0": true,
+  "documented_support_floor": "26300.9550",
+  "observed_build": "26300.9457",
+  "ordinary_result_provenance_verified": true,
+  "fresh_actor_normal_exit": true,
+  "only_failed_native_predicate": "capabilities_empty",
+  "capability_catalog_complete": true,
+  "actor_capability_label": "AgenticAppContainer",
+  "actor_capability_count": 1,
+  "actor_capability_enabled": true,
+  "actor_capability_enabled_by_default": false,
+  "actor_capability_deny_only": false,
+  "actor_capability_other_attribute_bits": false,
+  "source_capability_count": 0,
+  "unknown_capability_count": 0,
+  "recognized_network_capability_count": 0,
+  "network_tested": false,
+  "vm_destroyed": true,
+  "provider_deletion_attempted": false,
+  "interpretation": "The fixed native catalog recognizes the one enabled actor capability; recognition does not establish benign authority or network enforcement. The ordinary source token has no capabilities. The unchanged strict empty-capability conjunction remains false. This below-current-support-floor exploratory result is not product, supported-build, network-isolation or Linux-equivalence acceptance. Prior cleanup uncertainty remains unchanged."
+}
