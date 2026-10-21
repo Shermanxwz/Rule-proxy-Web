@@ -67,11 +67,30 @@ def bounded_deadline(deadline,limit,reserve=10):
     if remaining<=0:raise ValueError('budget')
     return min(deadline-reserve,time.monotonic()+min(limit,remaining))
 
-PARENT_KEYS={'version','testOnly','phase','profileMatched','childHashVerified','childCreated','childPid','tokenQuerySucceeded',
+def qpc_clock():
+    import ctypes
+    kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+    counter=ctypes.c_longlong();frequency=ctypes.c_longlong()
+    for name,value in (('QueryPerformanceFrequency',frequency),('QueryPerformanceCounter',counter)):
+        method=getattr(kernel,name);method.argtypes=[ctypes.POINTER(ctypes.c_longlong)];method.restype=ctypes.c_int
+        if not method(ctypes.byref(value)):raise ValueError('qpc')
+    if not 1<=frequency.value<=10**9 or not 0<counter.value<2**63:raise ValueError('qpc')
+    return counter.value,frequency.value
+
+def absolute_qpc(deadline,maximum,clock=qpc_clock):
+    # Remaining time sampled after QPC is conservative: sampling delay is consumed.
+    counter,frequency=clock()
+    duration=min(maximum,deadline-time.monotonic())
+    if duration<=2:raise ValueError('budget')
+    target=counter+int(duration*frequency)
+    if not 0<target<2**63:raise ValueError('qpc')
+    return target,frequency
+
+PARENT_KEYS={'version','testOnly','phase','deadlineVerified','profileMatched','childHashVerified','childCreated','childPid','tokenQuerySucceeded',
              'parentAppContainer','childAppContainer','sidEqual','sidMatched','resumeAttempted','resumeCount','resumed','waitSignaled',
              'childExitCode','timedOut','terminateAttempted','terminationSucceeded','cleanupConfirmed','childReportObserved',
              'childReportBytes','childReportSha256','failure'}
-BOOL_KEYS={'testOnly','profileMatched','childHashVerified','childCreated','tokenQuerySucceeded','sidMatched','resumeAttempted',
+BOOL_KEYS={'deadlineVerified','testOnly','profileMatched','childHashVerified','childCreated','tokenQuerySucceeded','sidMatched','resumeAttempted',
            'resumed','waitSignaled','timedOut','terminateAttempted','terminationSucceeded','cleanupConfirmed','childReportObserved'}
 
 def parent_report(owned,nonce,phase,failures):
@@ -96,7 +115,7 @@ def parent_report(owned,nonce,phase,failures):
     return value,row
 
 def verified_child(path,nonce,phase,port,row):
-    if not(row['childHashVerified'] and row['childCreated'] and row['waitSignaled'] and row['childReportObserved'] and row['childReportBytes']>0 and row['childReportSha256'] is not None):raise ValueError('child_observation')
+    if not(row['deadlineVerified'] and row['childHashVerified'] and row['childCreated'] and row['waitSignaled'] and row['childReportObserved'] and row['childReportBytes']>0 and row['childReportSha256'] is not None):raise ValueError('child_observation')
     raw=mechanics.read(Path(path),u.MAX_REPORT)
     if len(raw)!=row['childReportBytes'] or hashlib.sha256(raw).hexdigest()!=row['childReportSha256']:raise ValueError('child_snapshot')
     value=u.parse(raw)
@@ -134,7 +153,7 @@ def verify_parent(actor,manifest,fixture):
     return data
 
 def complete_parent(row):
-    return (row['childHashVerified'] and row['childCreated'] and row['tokenQuerySucceeded'] and row['sidMatched']
+    return (row['deadlineVerified'] and row['childHashVerified'] and row['childCreated'] and row['tokenQuerySucceeded'] and row['sidMatched']
             and row['parentAppContainer'] is False and row['childAppContainer'] is False and row['sidEqual'] is None
             and row['resumeAttempted'] and row['resumeCount']==1 and row['resumed'] and row['waitSignaled']
             and row['childExitCode']==0 and not row['timedOut'] and not row['terminateAttempted']
@@ -151,14 +170,22 @@ def run(production_parent,production_manifest,fixture_parent,fixture_manifest,ch
     def endpoint(nonce):
         bounded_deadline(deadline,1)
         value=u.UdpEndpoint(nonce,deadline);endpoints.append(value);return value.start()
-    def launch(nonce,phase,port,name,mode='n0a-udp-parent',budget_limit=None):
+    def launch(nonce,phase,port,name,mode='n0a-udp-parent',budget_limit=None,qpc_override=None,prelaunch_delay=0):
         maximum=budget_limit if budget_limit is not None else (5000 if phase in ('before','after') else 15000)
-        latest=bounded_deadline(deadline,maximum/1000+1)
-        budget=min(maximum,int(max(0,latest-time.monotonic()-1)*1000))
-        if budget<2001:raise ValueError('budget')
+        latest=bounded_deadline(deadline,maximum/1000)
+        target,frequency=absolute_qpc(latest,maximum/1000) if qpc_override is None else qpc_override
         folder=work/name;folder.mkdir()
         child_report=folder/'child.json';parent=OwnedParent(folder/'parent.json');owned.append((name,parent))
-        argv=[str(staged_parent),mode,nonce,str(parent.report),str(staged_child),child_digest,str(child_report),str(port),phase,str(budget)]
+        argv=[str(staged_parent),mode,nonce,str(parent.report),str(staged_child),child_digest,str(child_report),str(port),phase,str(target),str(frequency)]
+        if prelaunch_delay:
+            before,observed_frequency=qpc_clock()
+            initial=observed_frequency==frequency and target-before>2*frequency
+            if not initial:raise ValueError('qpc')
+            time.sleep(min(prelaunch_delay,max(0,latest-time.monotonic())))
+            after,observed_frequency=qpc_clock()
+            exhausted=observed_frequency==frequency and 0<target-after<=2*frequency
+            parent.prelaunch_checks=(initial,exhausted)
+            if not exhausted:raise ValueError('qpc')
         parent.start(argv)
         return parent,child_report,latest
     def observe(name,entry,nonce,phase,port,positive):
@@ -166,6 +193,8 @@ def run(production_parent,production_manifest,fixture_parent,fixture_manifest,ch
         if not parent.wait(limit):raise ValueError('parent_timeout')
         private,row=parent_report(parent,nonce,phase,FAILURES);rows[name]=row
         result['cases'][name]=projected_parent(row)
+        if hasattr(parent,'prelaunch_checks'):
+            result['cases'][name].update(initial_reserve_admissible=parent.prelaunch_checks[0],delayed_reserve_exhausted=parent.prelaunch_checks[1])
         if positive:
             child=verified_child(child_report,nonce,phase,port,row)
             result['cases'][name]['send_accepted_count']=sum(r['sendAccepted'] is True for r in child['udp']['attempts'])
@@ -192,7 +221,7 @@ def run(production_parent,production_manifest,fixture_parent,fixture_manifest,ch
         private,row=parent_report(profile,profile_nonce,'profile',FAILURES);rows['profile']=row
         result['cases']['profile']=projected_parent(row)
         result['profile_only_verified']=(profile.process.returncode==0 and private.get('tokenElevated') is True and row['profileMatched'] is False
-            and row['failure']=='profile_only' and not row['childCreated'] and not row['tokenQuerySucceeded']
+            and row['failure']=='profile_only' and not row['deadlineVerified'] and not row['childHashVerified'] and not row['childCreated'] and not row['tokenQuerySucceeded']
             and not row['resumeAttempted'] and not row['resumed'] and not row['childReportObserved'] and row['cleanupConfirmed'])
         if not result['profile_only_verified']:raise ValueError('negative_control')
         nonce=secrets.token_hex(16);port=endpoint(nonce);networks={} 
@@ -225,6 +254,22 @@ def run(production_parent,production_manifest,fixture_parent,fixture_manifest,ch
             child=verified_child(timeout_entry[1],timeout_nonce,'sample',timeout_port,row)
             result['cases']['timeout']['send_accepted_count']=sum(r['sendAccepted'] is True for r in child['udp']['attempts'])
         if not result['cases']['timeout']['expected_refusal']:raise ValueError('negative_control')
+        for name in ('expired','wrong_frequency','prelaunch_delay'):
+            counter,frequency=qpc_clock();target=counter-1;supplied_frequency=frequency;delay=0
+            if name=='wrong_frequency':target=counter+5*frequency;supplied_frequency=frequency+1 if frequency<10**9 else frequency-1
+            if name=='prelaunch_delay':target=counter+2*frequency+max(1,frequency//5);delay=.3
+            case_nonce=secrets.token_hex(16)
+            entry=launch(case_nonce,'before',port,name,qpc_override=(target,supplied_frequency),prelaunch_delay=delay)
+            row=observe(name,entry,case_nonce,'before',port,False)
+            result['cases'][name]['expected_refusal']=(entry[0].process.returncode==5 and row['failure']=='deadline'
+                and not row['deadlineVerified'] and not row['childCreated'] and not row['childHashVerified']
+                and not row['resumed'] and not row['childReportObserved'] and row['cleanupConfirmed'])
+            if not result['cases'][name]['expected_refusal']:raise ValueError('negative_control')
+        overflow_nonce=secrets.token_hex(16)
+        overflow_entry=launch(overflow_nonce,'before',port,'overflow',qpc_override=(2**63,1))
+        overflow=overflow_entry[0]
+        result['cases']['overflow']=dict(expected_refusal=overflow.wait(overflow_entry[2]) and overflow.process.returncode==2 and not overflow.report.exists())
+        if not result['cases']['overflow']['expected_refusal']:raise ValueError('negative_control')
         bounded_deadline(deadline,1)
         invalid=OwnedParent(work/'invalid.json');owned.append(('invalid',invalid))
         invalid.start([str(production_parent),'--invalid-mechanics-control'])
@@ -238,7 +283,7 @@ def run(production_parent,production_manifest,fixture_parent,fixture_manifest,ch
             try:facts=parent.finish(deadline)
             except Exception:facts=dict(parent_exit_observed=False,parent_killed=False,parent_handles_closed=False,parent_cleanup_confirmed=False)
             cleanup.append(facts)
-            if name!='invalid':
+            if name not in ('invalid','overflow'):
                 row=rows.get(name)
                 known=(row is not None and row['cleanupConfirmed'] and (not row['childCreated'] or (row['waitSignaled'] and row['childExitCode'] is not None))
                        and facts['parent_exit_observed'] and not facts['parent_killed'])
@@ -258,7 +303,7 @@ def run(production_parent,production_manifest,fixture_parent,fixture_manifest,ch
                      and all(r['counts']['datagrams']==0 for r in receivers[1:4])
                      and all(r['counts'][key]==0 for r in receivers for key in ('rejected','oversized','send_errors')))
         result['mechanics_complete']=(result['fixture_echo_controls'] and result['profile_only_verified'] and result['production_invalid_cli_rejected']
-            and all(result['cases'].get(name,{}).get('expected_refusal') is True for name in ('token_failure','sid_mismatch','resume_failure','timeout'))
+            and all(result['cases'].get(name,{}).get('expected_refusal') is True for name in ('token_failure','sid_mismatch','resume_failure','timeout','expired','wrong_frequency','prelaunch_delay','overflow'))
             and receiver_ok and result['cleanup_confirmed'] and result['work_removed'] and result['failure']=='none')
     return result
 

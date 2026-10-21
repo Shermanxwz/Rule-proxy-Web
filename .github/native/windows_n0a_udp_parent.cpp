@@ -74,6 +74,13 @@ bool Profile(const Observations& identity, bool contained) {
         && Agentic(identity.tokenCapabilities.front());
 }
 
+bool Positive64(const wchar_t* text,LONGLONG maximum,LONGLONG& out) {
+ const std::wstring value(text); if(value.empty()||value.size()>19||value[0]==L'0')return false;
+ LONGLONG n=0;
+ for(wchar_t c:value){if(c<L'0'||c>L'9')return false;const LONGLONG digit=c-L'0';
+  if(n>(maximum-digit)/10)return false;n=n*10+digit;}
+ if(n<=0||n>maximum)return false;out=n;return true;
+}
 bool Number(const wchar_t* text,DWORD lo,DWORD hi,DWORD& out) {
  const std::wstring s(text); if(s.empty()||s.size()>5||s[0]==L'0') return false;
  DWORD n=0; for(wchar_t c:s) { if(c<L'0'||c>L'9')return false; n=n*10+static_cast<DWORD>(c-L'0'); }
@@ -136,12 +143,30 @@ struct TokenView {
  }
 };
 struct Facts {
- bool profile=false,hash=false,created=false,queries=false,matched=false,resumeAttempt=false,resumed=false,signaled=false;
+ bool deadlineVerified=false,profile=false,hash=false,created=false,queries=false,matched=false,resumeAttempt=false,resumed=false,signaled=false;
  bool timeout=false,terminate=false,terminated=false,cleanup=true,report=false;
  DWORD pid=0; std::optional<bool> parentAc,childAc,equal; std::optional<DWORD> resume,exit;
  std::size_t reportBytes=0; std::optional<std::string> reportHash; const char* failure="none";
 };
-DWORD Remaining(ULONGLONG deadline) {const auto now=GetTickCount64();return now>=deadline?0:static_cast<DWORD>(deadline-now);}
+bool QpcNow(LONGLONG& now) {LARGE_INTEGER value{};if(!QueryPerformanceCounter(&value)||value.QuadPart<=0)return false;now=value.QuadPart;return true;}
+DWORD Remaining(LONGLONG deadline,LONGLONG frequency) {
+ LONGLONG now=0;if(frequency<=0||!QpcNow(now)||now>=deadline)return 0;
+ const LONGLONG delta=deadline-now;
+ // Division before multiplication avoids overflow. Every admitted deadline is
+ // <=15 seconds ahead; reject any inconsistent clock/window instead of widening.
+ if(delta>15*frequency)return 0;
+ return static_cast<DWORD>((delta/frequency)*1000+((delta%frequency)*1000)/frequency);
+}
+bool AdmitDeadline(LONGLONG supplied,LONGLONG frequency,const std::string& phase,LONGLONG& deadline,LONGLONG& workDeadline) {
+ LARGE_INTEGER actual{};LONGLONG now=0;
+ if(!QueryPerformanceFrequency(&actual)||actual.QuadPart!=frequency||!QpcNow(now))return false;
+ const LONGLONG seconds=(phase=="before"||phase=="after")?5:15;
+ if(now>std::numeric_limits<LONGLONG>::max()-seconds*frequency)return false;
+ deadline=(std::min)(supplied,now+seconds*frequency);
+ const LONGLONG reserve=2*frequency;
+ if(deadline<=now||deadline-now<=reserve)return false;
+ workDeadline=deadline-reserve;return true;
+}
 void ObserveExit(HANDLE process,Facts& f) {
  const DWORD observed=WaitForSingleObject(process,0);
  if(observed==WAIT_FAILED)f.cleanup=false;
@@ -152,6 +177,7 @@ std::string Json(const Facts& f,const std::string& phase) {
  auto b=[](bool v){return v?"true":"false";};
  auto n=[](const std::optional<DWORD>& v){return v?std::to_string(*v):"null";};
  std::string s="{\"version\":1,\"testOnly\":"+std::string(b(TestOnly))+",\"phase\":\""+phase+"\"";
+ s+=",\"deadlineVerified\":"+std::string(b(f.deadlineVerified));
  s+=",\"profileMatched\":"+std::string(b(f.profile))+",\"childHashVerified\":"+b(f.hash)+",\"childCreated\":"+b(f.created)+",\"childPid\":"+std::to_string(f.pid);
  s+=",\"tokenQuerySucceeded\":"+std::string(b(f.queries))+",\"parentAppContainer\":"+JsonBoolean(f.parentAc)+",\"childAppContainer\":"+JsonBoolean(f.childAc)+",\"sidEqual\":"+JsonBoolean(f.equal)+",\"sidMatched\":"+b(f.matched);
  s+=",\"resumeAttempted\":"+std::string(b(f.resumeAttempt))+",\"resumeCount\":"+n(f.resume)+",\"resumed\":"+b(f.resumed)+",\"waitSignaled\":"+b(f.signaled)+",\"childExitCode\":"+n(f.exit);
@@ -162,19 +188,21 @@ int Run(int argc,wchar_t** argv) {
  bool profileOnly=false,mismatch=false,resumeFail=false,tokenFail=false;
 #ifdef N0A_UDP_PARENT_TEST_ONLY
  profileOnly=argc==4&&std::wstring(argv[1])==L"--profile-only";
- mismatch=argc==10&&std::wstring(argv[1])==L"--test-sid-mismatch";
- resumeFail=argc==10&&std::wstring(argv[1])==L"--test-resume-failure";
- tokenFail=argc==10&&std::wstring(argv[1])==L"--test-token-failure";
+ mismatch=argc==11&&std::wstring(argv[1])==L"--test-sid-mismatch";
+ resumeFail=argc==11&&std::wstring(argv[1])==L"--test-resume-failure";
+ tokenFail=argc==11&&std::wstring(argv[1])==L"--test-token-failure";
 #endif
- if(!profileOnly&&(argc!=10||(std::wstring(argv[1])!=L"n0a-udp-parent"&&!mismatch&&!resumeFail&&!tokenFail)))return 2;
+ if(!profileOnly&&(argc!=11||(std::wstring(argv[1])!=L"n0a-udp-parent"&&!mismatch&&!resumeFail&&!tokenFail)))return 2;
  std::string nonce;std::wstring reportPath;
  if(!ReadNonce(argv[2],nonce)||!ReadReportPath(argv[3],reportPath))return 2;
- std::wstring childPath,childReport;std::string expected;DWORD port=0,budget=0;std::string phase="profile";
+ std::wstring childPath,childReport;std::string expected;DWORD port=0;LONGLONG suppliedDeadline=0,frequency=0,deadline=0,workDeadline=0;std::string phase="profile";
  if(!profileOnly){
   if(!ReadReportPath(argv[4],childPath)||!HashText(argv[5],expected)||!ReadReportPath(argv[6],childReport)
-   ||!Number(argv[7],1025,65535,port)||!Number(argv[9],2001,15000,budget))return 2;
+   ||!Number(argv[7],1025,65535,port)
+   ||!Positive64(argv[9],std::numeric_limits<LONGLONG>::max(),suppliedDeadline)
+   ||!Positive64(argv[10],1000000000LL,frequency))return 2;
   const std::wstring p(argv[8]);if(p!=L"before"&&p!=L"sample"&&p!=L"contained"&&p!=L"after")return 2;
-  phase=p==L"before"?"before":p==L"sample"?"sample":p==L"contained"?"contained":"after";if((phase=="before"||phase=="after")&&budget>5000)return 2;
+  phase=p==L"before"?"before":p==L"sample"?"sample":p==L"contained"?"contained":"after";
   const auto slash=childPath.find_last_of(L"\\/");if(slash==std::wstring::npos||childPath.substr(slash+1)!=ChildName)return 2;
   std::array<wchar_t,4097> module{};
   const DWORD moduleLength=GetModuleFileNameW(nullptr,module.data(),static_cast<DWORD>(module.size()));
@@ -190,13 +218,14 @@ int Run(int argc,wchar_t** argv) {
     ||(directoryAttributes&FILE_ATTRIBUTE_REPARSE_POINT))return 2;
   if(reportPath==childReport||childPath==childReport||childPath==reportPath)return 2;
  }
- const ULONGLONG deadline=GetTickCount64()+budget,workDeadline=profileOnly?deadline:deadline-2000;
  Handle output;output.value=CreateFileW(reportPath.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
  if(output.value==INVALID_HANDLE_VALUE)return 3;
  const Observations identity=ObserveNativeIdentity();Facts f;f.profile=Profile(identity,phase=="contained");
+ f.deadlineVerified=!profileOnly&&AdmitDeadline(suppliedDeadline,frequency,phase,deadline,workDeadline);
  Handle process,thread,binary;TokenView parentToken,childToken;
  try {
   if(profileOnly){f.failure="profile_only";}
+  else if(!f.deadlineVerified){f.failure="deadline";}
   else if(!f.profile&&!TestOnly){f.failure="profile";}
   else {
    binary.value=CreateFileW(childPath.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
@@ -204,7 +233,7 @@ int Run(int argc,wchar_t** argv) {
    if(binary.value==INVALID_HANDLE_VALUE||!ReadOwnedFile(binary.value,64*1024*1024,bytes)||Sha(bytes)!=expected)throw std::runtime_error("child_hash");
    f.hash=true;
    if(GetFileAttributesW(childReport.c_str())!=INVALID_FILE_ATTRIBUTES||GetLastError()!=ERROR_FILE_NOT_FOUND)throw std::runtime_error("child_report_exists");
-   if(!Remaining(workDeadline))throw std::runtime_error("deadline");
+   if(!Remaining(workDeadline,frequency))throw std::runtime_error("deadline");
    std::wstring cmd=Quote(argv[4])+L" n0a-udp "+Quote(argv[2])+L" "+Quote(argv[6])+L" "+Quote(argv[7])+L" "+Quote(argv[8]);
    STARTUPINFOW si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};
    if(!CreateProcessW(childPath.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED,nullptr,nullptr,&si,&pi))throw std::runtime_error("create");
@@ -216,11 +245,11 @@ int Run(int argc,wchar_t** argv) {
    f.matched=phase=="contained"&&!TestOnly ? f.equal==true : (!parentToken.ac&&!childToken.ac&&!parentToken.sid&&!childToken.sid);
    if(mismatch)f.matched=false;
    if(!f.matched)throw std::runtime_error("sid");
-   if(!Remaining(workDeadline))throw std::runtime_error("deadline");
+   if(!Remaining(workDeadline,frequency))throw std::runtime_error("deadline");
    if(resumeFail)throw std::runtime_error("resume_fixture");
    f.resumeAttempt=true;f.resume=ResumeThread(thread.value);
    if(f.resume!=DWORD{1})throw std::runtime_error("resume");f.resumed=true;
-   const DWORD wait=WaitForSingleObject(process.value,Remaining(workDeadline));
+   const DWORD wait=WaitForSingleObject(process.value,Remaining(workDeadline,frequency));
    if(wait==WAIT_TIMEOUT){f.timeout=true;throw std::runtime_error("timeout");}
    if(wait!=WAIT_OBJECT_0){f.cleanup=false;throw std::runtime_error("wait");}
    ObserveExit(process.value,f);if(!f.exit)throw std::runtime_error("exit");
@@ -235,7 +264,7 @@ int Run(int argc,wchar_t** argv) {
   ObserveExit(process.value,f);
   if(!f.signaled){f.terminate=true;f.terminated=TerminateProcess(process.value,1)!=FALSE;
    if(!f.terminated)f.cleanup=false;
-   const DWORD wait=WaitForSingleObject(process.value,Remaining(deadline));
+   const DWORD wait=WaitForSingleObject(process.value,Remaining(deadline,frequency));
    if(wait!=WAIT_OBJECT_0)f.cleanup=false;
    ObserveExit(process.value,f);}
   if(!f.signaled)f.cleanup=false;

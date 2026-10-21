@@ -13,6 +13,22 @@ on:
       - 'tests/test_windows_n0a_udp_parent_gate.py'
       - 'tests/test_windows_n0a_udp_parent_workflow.py'
       - 'docs/validation/2026-10-21-udp-descendant-mechanism.md'
+      - '.github/windows_n0a_udp_parent_control.py'
+      - '.github/windows_n0a_udp_parent_guest.py'
+      - '.github/windows_n0a_udp_parent_flow.py'
+      - '.github/windows_n0a_udp_parent_capture_adapter.py'
+      - '.github/windows_identity_direct_stage0.py'
+      - '.github/windows-identity-direct-stage0-run.ps1'
+      - '.github/test-windows-udp-parent-guest-gates.ps1'
+      - '.github/test_windows_udp_payload.py'
+      - '.github/test-windows-udp-payload-gates.ps1'
+      - 'tests/test_windows_udp_payload.py'
+      - 'tests/test_windows_client_n0a_udp_parent_host.py'
+      - 'tests/test_windows_client_n0a_udp_parent_capture_adapter.py'
+      - 'tests/test_windows_udp_parent_guest_transport.py'
+      - 'tests/test_windows_udp_parent_composed.py'
+      - 'docs/validation/2026-10-21-udp-descendant-integration.md'
+      - 'tests/test_windows_udp_parent_guest.py'
 permissions:
   contents: read
 concurrency:
@@ -31,7 +47,7 @@ jobs:
       - name: Required parent and unchanged UDP contracts
         run: |
           python3 -m pip install --disable-pip-version-check "PyYAML==6.0.3"
-          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
   native-mechanism:
     if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-udp-parent-gates]') }}
     runs-on: windows-2025
@@ -57,16 +73,32 @@ jobs:
           if (-not $vs) { throw 'Installed MSVC unavailable' }
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          ./.github/build_windows_n0a_udp_parent.ps1 -OutputDirectory "$PWD/udp-parent-production-build" -ExpectedParentSha256 d58b0243a6a79635ace24df9125c5dd53b9175277625dd4b6a378a7611e3b56f -ExpectedChildSourceSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
-          ./.github/build_windows_n0a_udp_parent_fixture.ps1 -OutputDirectory "$PWD/udp-parent-TEST-ONLY-build" -ExpectedParentSha256 d58b0243a6a79635ace24df9125c5dd53b9175277625dd4b6a378a7611e3b56f -ExpectedFixtureSha256 6712f8a4831924e619911f5952d1f3cd22786357db9337e0a8b2d8bd028c3301 -ExpectedChildSourceSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          ./.github/build_windows_n0a_udp_parent.ps1 -OutputDirectory "$PWD/udp-parent-production-build" -ExpectedParentSha256 d664329acbf642e5232031ea0aa7c1a12663a35ef4e7cb89925d932b94af3347 -ExpectedChildSourceSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          ./.github/build_windows_n0a_udp_parent_fixture.ps1 -OutputDirectory "$PWD/udp-parent-TEST-ONLY-build" -ExpectedParentSha256 d664329acbf642e5232031ea0aa7c1a12663a35ef4e7cb89925d932b94af3347 -ExpectedFixtureSha256 6712f8a4831924e619911f5952d1f3cd22786357db9337e0a8b2d8bd028c3301 -ExpectedChildSourceSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
           ./.github/build_windows_n0a_udp_fixture.ps1 -OutputDirectory "$PWD/udp-child-TEST-ONLY-build" -ExpectedFixtureSha256 9465f6fd4399b4e7edc357dcfaf7769905aa74392c423f05142fa9f49896bbae -ExpectedActorSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
       - name: Required parent and unchanged UDP contracts
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check "PyYAML==6.0.3"
           if ($LASTEXITCODE -ne 0) { throw "yaml_test_dependency_install_failed" }
-          python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
           if ($LASTEXITCODE -ne 0) { throw 'Parent required tests failed' }
+      - name: Actual parent and legacy PowerShell transport semantics
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          & ./.github/test-windows-n0a-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp-parent-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Actual five-mode payload ZIP and PowerShell extraction parity
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          & ./.github/test-windows-udp-payload-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Owned loopback parent child mechanism and lifecycle negatives
         shell: pwsh
         run: |

@@ -9,7 +9,7 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 PATH=ROOT/'.github/workflows/windows-n0a-udp-parent-gates.yml'
 OLD=runpy.run_path(str(ROOT/'tests/test_windows_n0a_udp_workflow.py'))
-NAMES=OLD['NAMES']+('test_windows_n0a_udp_parent_actor.py','test_windows_n0a_udp_parent_gate.py','test_windows_n0a_udp_parent_workflow.py')
+NAMES=OLD['NAMES']+('test_windows_n0a_udp_parent_actor.py','test_windows_n0a_udp_parent_gate.py','test_windows_n0a_udp_parent_workflow.py')+('test_windows_client_n0a_udp_parent_host.py','test_windows_client_n0a_udp_parent_capture_adapter.py','test_windows_udp_parent_guest_transport.py','test_windows_udp_parent_composed.py','test_windows_udp_parent_guest.py')
 
 class ParentWorkflowTests(unittest.TestCase):
     def test_real_yaml_structure_and_exact_required_suites(self):
@@ -29,7 +29,7 @@ class ParentWorkflowTests(unittest.TestCase):
         for match in matches:self.assertEqual(ast.literal_eval(match),NAMES)
         self.assertEqual(text.count('pip install --disable-pip-version-check "PyYAML==6.0.3"'),2)
         self.assertIn('python -m pip install --disable-pip-version-check "PyYAML==6.0.3"\n          if ($LASTEXITCODE -ne 0)',text)
-        for forbidden in ('actions/upload-artifact','workflow_dispatch:','pull_request:','sudo ','continue-on-error','windows_identity_direct_stage0.py','--n0a-udp','qemu-system'):
+        for forbidden in ('actions/upload-artifact','workflow_dispatch:','pull_request:','sudo ','continue-on-error','--n0a-udp','qemu-system'):
             self.assertNotIn(forbidden,text)
 
     def test_exact_marker_branch_event_and_existing_runtime_negatives(self):

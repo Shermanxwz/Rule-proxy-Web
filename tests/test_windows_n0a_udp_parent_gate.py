@@ -43,7 +43,7 @@ class OwnedParentTests(unittest.TestCase):
             with self.assertRaises(ValueError):m.bounded_deadline(60,30)
 
 def parent_row():
-    return dict(version=1,testOnly=True,phase='before',profileMatched=False,childHashVerified=True,childCreated=True,childPid=222,
+    return dict(version=1,testOnly=True,deadlineVerified=True,phase='before',profileMatched=False,childHashVerified=True,childCreated=True,childPid=222,
         tokenQuerySucceeded=True,parentAppContainer=False,childAppContainer=False,sidEqual=None,sidMatched=True,resumeAttempted=True,
         resumeCount=1,resumed=True,waitSignaled=True,childExitCode=0,timedOut=False,terminateAttempted=False,terminationSucceeded=False,
         cleanupConfirmed=True,childReportObserved=True,childReportBytes=10,childReportSha256='a'*64,failure='none')
@@ -80,7 +80,7 @@ class SnapshotTests(unittest.TestCase):
             path=Path(root)/'child';value=dict(schemaVersion=1,mode='actor-n0a-udp',nonce=nf.NONCE,pid=222,queriesSucceeded=True,errors=[],udp=nf.network('before',[10],False))
             raw=json.dumps(value).encode();path.write_bytes(raw);row=parent_row();row.update(childReportBytes=len(raw),childReportSha256=hashlib.sha256(raw).hexdigest())
             self.assertEqual(m.verified_child(path,nf.NONCE,'before',40000,row),value)
-            for key,bad in [('childHashVerified',False),('childPid',333),('childReportBytes',len(raw)+1),('childReportSha256','b'*64),('waitSignaled',False)]:
+            for key,bad in [('deadlineVerified',False),('childHashVerified',False),('childPid',333),('childReportBytes',len(raw)+1),('childReportSha256','b'*64),('waitSignaled',False)]:
                 changed=dict(row);changed[key]=bad
                 with self.assertRaises(ValueError):m.verified_child(path,nf.NONCE,'before',40000,changed)
     def test_manifest_exact_source_child_and_fixture_pins(self):
@@ -97,18 +97,20 @@ class SnapshotTests(unittest.TestCase):
                 with self.assertRaises(ValueError):m.verify_parent(actor,manifest,True)
 
 class ComposedTests(unittest.TestCase):
-    def exercise(self,cleanup_failure=False,ordinary_failure=False,wrapper_timeout=False,finish_error=False):
+    def exercise(self,cleanup_failure=False,ordinary_failure=False,wrapper_timeout=False,finish_error=False,precheck_failure=False):
         parents=[];endpoints=[];rows={};commands=[]
         class Parent:
             def __init__(self,report):self.report=Path(report);self.process=SimpleNamespace(pid=100+len(parents),returncode=0);parents.append(self)
             def start(self,argv):
                 commands.append(argv);self.argv=argv
-                if argv[1]=='--invalid-mechanics-control':self.process.returncode=2;return
+                if argv[1]=='--invalid-mechanics-control' or self.report.parent.name=='overflow':self.process.returncode=2;return
                 name=self.report.parent.name if self.report.name!='profile.json' else 'profile';self.name=name
                 row=parent_row();row['phase']='profile' if name=='profile' else argv[8]
-                if name=='profile':row.update(childCreated=False,childPid=0,tokenQuerySucceeded=False,resumeAttempted=False,resumeCount=None,resumed=False,waitSignaled=False,childExitCode=None,childReportObserved=False,childReportBytes=0,childReportSha256=None,failure='profile_only')
+                if name=='profile':row.update(deadlineVerified=False,childHashVerified=False,childCreated=False,childPid=0,tokenQuerySucceeded=False,resumeAttempted=False,resumeCount=None,resumed=False,waitSignaled=False,childExitCode=None,childReportObserved=False,childReportBytes=0,childReportSha256=None,failure='profile_only')
                 if name in ('token_failure','sid_mismatch','resume_failure','timeout'):
                     row.update(failure={'token_failure':'token','sid_mismatch':'sid','resume_failure':'resume_fixture','timeout':'timeout'}[name],resumeAttempted=name=='timeout',resumed=name=='timeout',resumeCount=1 if name=='timeout' else None,terminateAttempted=True,terminationSucceeded=True,childExitCode=5,childReportObserved=False,childReportBytes=0,childReportSha256=None,timedOut=name=='timeout');self.process.returncode=5
+                if name in ('expired','wrong_frequency','prelaunch_delay'):
+                    row.update(deadlineVerified=False,failure='deadline',childCreated=False,childPid=0,childHashVerified=False,resumed=False,resumeAttempted=False,resumeCount=None,childReportObserved=False,childReportBytes=0,childReportSha256=None);self.process.returncode=5
                 if cleanup_failure and name=='contained':row['cleanupConfirmed']=False
                 rows[id(self)]=row
             def wait(self,deadline):return not(wrapper_timeout and getattr(self,'name','')=='contained')
@@ -127,15 +129,15 @@ class ComposedTests(unittest.TestCase):
         real_mkdtemp=m.tempfile.mkdtemp;roots=[]
         def mkdtemp(**kw):value=real_mkdtemp(**kw);roots.append(Path(value));return value
         # Patch only platform string, leaving pathlib's concrete platform choice intact.
-        with patch.object(m,'os',SimpleNamespace(name='nt')),patch.object(m,'OwnedParent',Parent),patch.object(m.u,'UdpEndpoint',Endpoint),patch.object(m,'verify_parent',return_value=b'MZ'+bytes(510)),patch.object(m.mechanics,'verify'),patch.object(m.mechanics,'read',return_value=b'MZ'+bytes(510)),patch.object(m,'parent_report',side_effect=report),patch.object(m,'verified_child',side_effect=child),patch.object(m.secrets,'token_hex',return_value=nf.NONCE),patch.object(m.time,'sleep'),patch.object(m.tempfile,'mkdtemp',side_effect=mkdtemp):
+        with patch.object(m,'os',SimpleNamespace(name='nt')),patch.object(m,'OwnedParent',Parent),patch.object(m.u,'UdpEndpoint',Endpoint),patch.object(m,'verify_parent',return_value=b'MZ'+bytes(510)),patch.object(m.mechanics,'verify'),patch.object(m.mechanics,'read',return_value=b'MZ'+bytes(510)),patch.object(m,'parent_report',side_effect=report),patch.object(m,'verified_child',side_effect=child),patch.object(m.secrets,'token_hex',return_value=nf.NONCE),patch.object(m.time,'sleep'),patch.object(m,'absolute_qpc',return_value=(123456789,1000000)),patch.object(m,'qpc_clock',side_effect=[(1000000,1000)]*3+[(1000300 if precheck_failure else 1000000,1000),(1000300,1000)]),patch.object(m.tempfile,'mkdtemp',side_effect=mkdtemp):
             result=m.run(Path('windows_n0a_udp_parent.exe'),Path('prod.json'),Path('windows_n0a_UDP_PARENT_TEST_ONLY_fixture.exe'),Path('fixture.json'),Path('windows_n0a_UDP_TEST_ONLY_fixture.exe'),Path('child.json'))
         for root in roots:
             if root.exists():m.shutil.rmtree(root)
         return result,commands
     def test_complete_sequence_and_no_valid_production_network_command(self):
         result,commands=self.exercise();self.assertTrue(result['mechanics_complete'],result)
-        self.assertEqual(len(commands),10);self.assertEqual(commands[-1],['windows_n0a_udp_parent.exe','--invalid-mechanics-control'])
-        self.assertTrue(result['profile_only_verified']);self.assertTrue(result['cases']['timeout']['expected_refusal'])
+        self.assertEqual(len(commands),14);self.assertEqual(commands[-1],['windows_n0a_udp_parent.exe','--invalid-mechanics-control'])
+        self.assertTrue(result['cases']['prelaunch_delay']['initial_reserve_admissible']);self.assertTrue(result['cases']['prelaunch_delay']['delayed_reserve_exhausted']);self.assertTrue(result['profile_only_verified']);self.assertTrue(result['cases']['timeout']['expected_refusal'])
         self.assertFalse(result['appcontainer_inheritance_tested']);self.assertEqual(result['fixture_send_accepted_count'],3)
     def test_sticky_bound_send_facts_after_unrelated_cleanup_or_control_failure(self):
         for kwargs in ({'cleanup_failure':True},{'ordinary_failure':True}):
@@ -146,6 +148,26 @@ class ComposedTests(unittest.TestCase):
 
     def test_one_parent_cleanup_exception_does_not_skip_others_or_receivers(self):
         result,_=self.exercise(finish_error=True)
-        self.assertEqual(len(result['parents_cleanup']),10);self.assertEqual(len(result['receivers']),5)
+        self.assertEqual(len(result['parents_cleanup']),14);self.assertEqual(len(result['receivers']),5)
         self.assertFalse(result['cleanup_confirmed']);self.assertFalse(result['work_removed'])
         self.assertEqual(result['fixture_send_accepted_count'],3)
+
+    def test_failed_initial_reserve_check_never_spawns_delayed_case(self):
+        result,commands=self.exercise(precheck_failure=True)
+        self.assertFalse(result['mechanics_complete'])
+        self.assertFalse(any(len(argv)>3 and 'prelaunch_delay' in argv[3] for argv in commands))
+
+class QpcTests(unittest.TestCase):
+    def test_absolute_budget_does_not_renew_sampling_delay(self):
+        with patch.object(m.time,'monotonic',return_value=10):
+            self.assertEqual(m.absolute_qpc(15,15,clock=lambda:(1000,100)),(1500,100))
+            with self.assertRaises(ValueError):m.absolute_qpc(12,15,clock=lambda:(1000,100))
+            with self.assertRaises(ValueError):m.absolute_qpc(15,15,clock=lambda:(2**63-1,100))
+
+    def test_prelaunch_delay_crosses_original_two_second_reserve(self):
+        import inspect
+        source=inspect.getsource(m.run)
+        self.assertIn("target=counter+2*frequency+max(1,frequency//5);delay=.3",source)
+        counter=1000000;frequency=1000000;target=counter+2*frequency+frequency//5
+        self.assertGreater((target-counter)/frequency,2)
+        self.assertLess((target-(counter+int(.3*frequency)))/frequency,2)
