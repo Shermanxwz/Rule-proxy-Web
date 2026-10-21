@@ -41,7 +41,7 @@ class UDP6WorkflowTests(unittest.TestCase):
             self.assertTrue(condition(expr,MARKER))
             self.assertFalse(condition(expr,MARKER,branch='refs/heads/main'))
             self.assertFalse(condition(expr,MARKER,event='workflow_dispatch'))
-            for runtime in ('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]'):
+            for runtime in ('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]'):
                 self.assertFalse(condition(expr,runtime))
                 self.assertFalse(condition(expr,MARKER+' '+runtime))
         import yaml

@@ -130,7 +130,215 @@ PARENT_ACTIVATION_INVERSE = ((32, 43, '4466fc0f0dc057417a939c627387d99440a9f98f8
   "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}\n"),
  (541, 549, '85cd0582f8bf9a1c9b418de278655e1ce6aa9cfa399d15eeac7ffca62ad884f6', ''))
 
+
+# Exact UDP6-only delta reversed before the prior parent activation inverse.
+UDP6_ACTIVATION_INVERSE = ((43, 51, 'bdc8592c9da38a16c0d8f682aec31891af0dae31c4b3e5cc30ad164a4101528a', ''),
+ (57,
+  58,
+  '7de3a682faa52943d721d427bd3dab7046ca7b26a1f1e5b5d8cefc90ca1161ec',
+  "    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' "
+  "&& (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || "
+  "contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || "
+  "contains(github.event.head_commit.message, '[n0a-connect-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-capture-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-udp-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) }}\n"),
+ (105,
+  106,
+  'abad65e75f366fa586af2c2ecaa5a765a185c2163914bbf43a6781e4316b6592',
+  "        if: ${{ (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (118,
+  119,
+  'facc6d2c9b9c06da5b7c7c6971cf8bf0713766db2a5fb16be49c77bd58f4f964',
+  "        if: ${{ true && (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (126, 162, 'b41ea54bdbf1c8d21eece98365306645b0a61129a645917cedf0d4ec2dc6ae4b', ''),
+ (163,
+  164,
+  'de10d68e7798856626d49b08e95a7f6becda2c132249a23439056d23df65797d',
+  "        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (182,
+  183,
+  'de10d68e7798856626d49b08e95a7f6becda2c132249a23439056d23df65797d',
+  "        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (191,
+  192,
+  'de10d68e7798856626d49b08e95a7f6becda2c132249a23439056d23df65797d',
+  "        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (200,
+  201,
+  '4eb035035eed9bed125de7f61b3f5bfef628d3ad190449811e0665701f8de43c',
+  "        if: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (214,
+  215,
+  '4eb035035eed9bed125de7f61b3f5bfef628d3ad190449811e0665701f8de43c',
+  "        if: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (225,
+  226,
+  '3e8aa34e6a4f6a9bb253e3f7a07026304b0b4ad413fe8397cd15c07b2c3231a6',
+  "        if: ${{ ((contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || "
+  "(!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]'))) }}\n"),
+ (243,
+  244,
+  '7de3a682faa52943d721d427bd3dab7046ca7b26a1f1e5b5d8cefc90ca1161ec',
+  "    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' "
+  "&& (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || "
+  "contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || "
+  "contains(github.event.head_commit.message, '[n0a-connect-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-capture-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-udp-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) }}\n"),
+ (261,
+  262,
+  '4eb035035eed9bed125de7f61b3f5bfef628d3ad190449811e0665701f8de43c',
+  "        if: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (266,
+  267,
+  'de10d68e7798856626d49b08e95a7f6becda2c132249a23439056d23df65797d',
+  "        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (270, 275, '2a31f7f14728f9bd957e7b2411ec6571b5a946d490feec3fb742f4030368ec49', ''),
+ (276,
+  277,
+  'f9427449d921c1854419bbcf029d2f07f857c637ede78748acb0608d526d71d4',
+  "    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' "
+  "&& ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || "
+  "(!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || "
+  "(!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || "
+  "(!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || "
+  "(!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]'))) }}\n"),
+ (399, 404, '5fa6591916f7cdc5942ebd44e58636ba6fbfc4a0fce0643472efac7f7411f982', ''),
+ (409,
+  410,
+  'de10d68e7798856626d49b08e95a7f6becda2c132249a23439056d23df65797d',
+  "        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (414,
+  415,
+  '3e8aa34e6a4f6a9bb253e3f7a07026304b0b4ad413fe8397cd15c07b2c3231a6',
+  "        if: ${{ ((contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || "
+  "(!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]'))) }}\n"),
+ (419,
+  420,
+  'abad65e75f366fa586af2c2ecaa5a765a185c2163914bbf43a6781e4316b6592',
+  "        if: ${{ (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (516, 517, '10dc364a0cf00c62207db167bc2d5efeb15314cc9498c3d3d2a79b011d5d2003', ''),
+ (541, 548, '4cda804e2b4af496b7268a5c61d920b51c7d0be46a4b9df1847f998aeb3350b5', ''),
+ (549,
+  550,
+  '4c78ecf0ea7c93f674cd449a8bb53791d3e8e7346d93af24f91695b975284d6d',
+  '          if [ "$CAPTURE_REQUESTED" = "true" ] || [ "$UDP_REQUESTED" = "true" ] || [ '
+  '"$PARENT_UDP_REQUESTED" = "true" ]; then\n'),
+ (582,
+  583,
+  '321f62dda11e871a0908a4ce6db9404cd788dca29fee8cd102ac978c5aca0ead',
+  "        if: ${{ always() && (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || "
+  "contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (590,
+  591,
+  'f4dae7dfa7b90090bdb2eafc2b7aa6fb8264df4134cec272ae05e6526cfbe57e',
+  "        if: ${{ always() && contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}\n"),
+ (598,
+  599,
+  '8e75c7c2d21c4dd28e7e344f17054ccca6a98b46f4f44f7434e9f8a51b7ca1b7',
+  "        if: ${{ always() && contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-connect-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (606,
+  607,
+  '3f3e59f42ead45d26fbd44572042f5808793477025c8a46dde6978f862bca190',
+  '        if: ${{ always() && !contains(github.event.head_commit.message, '
+  "'[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, "
+  "'[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && "
+  "!contains(github.event.head_commit.message, '[n0a-udp-runtime]') && "
+  "contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}\n"),
+ (627, 635, 'd3244c28c5e59271035066c89ec5dbe2a3e7a94a087e3a312d4e23ffae064dfc', ''))
+
+def undo_udp6_activation(text):
+    lines=text.splitlines(keepends=True)
+    for start,end,digest,prior in reversed(UDP6_ACTIVATION_INVERSE):
+        if hashlib.sha256("".join(lines[start:end]).encode()).hexdigest()!=digest:raise AssertionError("UDP6 activation delta changed")
+        lines[start:end]=prior.splitlines(keepends=True)
+    restored="".join(lines)
+    if hashlib.sha256(restored.encode()).hexdigest()!='657987cc2496cd8088bdebb35aaad427acc7dfeaf7d7d6755d40f505be694b5f':raise AssertionError("Unrelated pre-UDP6 workflow change")
+    return restored
+
 def undo_parent_activation(text):
+    text=undo_udp6_activation(text)
     lines=text.splitlines(keepends=True)
     for start,end,digest,prior in reversed(PARENT_ACTIVATION_INVERSE):
         if hashlib.sha256("".join(lines[start:end]).encode()).hexdigest()!=digest:
@@ -165,7 +373,7 @@ class UdpWorkflowTests(unittest.TestCase):
             self.assertEqual(doc['permissions'],{'contents':'read'})
             self.assertEqual(doc['on']['push']['branches'],['dot/windows-isolation-proof'])
             self.assertIn('tests/test_windows_udp_flow_composed.py',doc['on']['push']['paths'])
-            self.assertEqual(text.count('pip install --disable-pip-version-check "PyYAML==6.0.3"'),2 if text==texts[0] else 4)
+            self.assertEqual(text.count('pip install --disable-pip-version-check "PyYAML==6.0.3"'),2 if text==texts[0] else 6)
             self.assertIn('          python -m pip install --disable-pip-version-check "PyYAML==6.0.3"\n          if ($LASTEXITCODE -ne 0) { throw "yaml_test_dependency_install_failed" }\n',text)
             for job in doc['jobs'].values():
                 self.assertIsInstance(job['steps'],list)

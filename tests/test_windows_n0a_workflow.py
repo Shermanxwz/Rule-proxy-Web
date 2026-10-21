@@ -146,14 +146,14 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertFalse(self.native_allowed('[identity-direct-stage0-runtime]', event='workflow_dispatch'))
         self.assertFalse(self.native_allowed('[n0a-connect-runtime]', branch='refs/heads/main'))
         self.assertFalse(self.native_allowed('[n0a-connect-runtime]', event='workflow_dispatch'))
-        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]')
+        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]')
         for first in markers:
             self.assertFalse(self.native_allowed(first,branch='refs/heads/main'))
             self.assertFalse(self.native_allowed(first,event='workflow_dispatch'))
             for second in markers:
                 if first!=second:self.assertFalse(self.native_allowed(first+' '+second))
         self.assertFalse(self.native_allowed(' '.join(markers)))
-        for present in itertools.product((False,True),repeat=5):
+        for present in itertools.product((False,True),repeat=6):
             message=' '.join(m for m,selected in zip(markers,present) if selected)
             self.assertEqual(self.native_allowed(message),sum(present)==1,message)
         for message in ('[n0a-udp-gates]','[dns-request3-gates]','[n0a-capture-gates]'):
@@ -165,7 +165,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
                  if isinstance(node, ast.Constant) and isinstance(node.value, str)
                  and node.value.startswith('n0a-') and node.value.endswith('.json')}
         self.assertEqual(names, {'n0a-connect-public.json', 'n0a-capture-public.json', 'n0a-udp-public.json', 'n0a-udp-parent-public.json', 'n0a-udp6-public.json'})
-        self.assertNotIn('path: client-stage0-public/n0a-udp6-public.json',self.text)
+        self.assertEqual(self.text.count('path: client-stage0-public/n0a-udp6-public.json'),1)
         self.assertEqual(self.text.count('path: client-stage0-public/n0a-udp-parent-public.json'),1)
         self.assertIn('--n0a-udp-parent-runner',self.text)
         self.assertEqual(self.text.count('path: client-stage0-public/n0a-udp-public.json'),1)
@@ -205,7 +205,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertNotIn('test_windows_client_n0a_capture.py',actual)
         self.assertIn('bool(result.skipped)',compiled)
 
-    def capture_shell(self,capture,n0a,commit,github_sha,udp='false',parent='false'):
+    def capture_shell(self,capture,n0a,commit,github_sha,udp='false',parent='false',udp6='false'):
         # Execute the exact production argument block/command with inert timeout.
         # No sudo, Python harness, VM, or endpoint ever executes in this fixture.
         script=self.text.split('          n0a_args=()',1)[1].split('      - uses: actions/upload-artifact@v7',1)[0]
@@ -226,7 +226,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
             for name,body in [('date', '#!/bin/sh\nprintf 1000\n'), ('timeout', '#!/bin/sh\nprintf stub > "$CAPTURE_STAGE"\nprintf \'%s\\0\' "$@" > "$CAPTURE_ARGV"\n')]:
                 path=root/name;path.write_bytes(body.encode('ascii'));path.chmod(0o700)
             logical_root=('/'+root.drive[0].lower()+root.as_posix()[2:]) if os.name=='nt' else root.as_posix()
-            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,UDP_REQUESTED=udp,PARENT_UDP_REQUESTED=parent,
+            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,UDP_REQUESTED=udp,PARENT_UDP_REQUESTED=parent,UDP6_REQUESTED=udp6,
                      CAPTURE_SOURCE_COMMIT=commit,GITHUB_SHA=github_sha,
                      CAPTURE_ARGV=output.as_posix(),CAPTURE_CWD=cwd_output.as_posix(),CAPTURE_STAGE=stage.as_posix(),FIXTURE_BIN=logical_root)
             source='printf startup > "$CAPTURE_STAGE"\nexport PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\ntest "$PWD" -ef "$FIXTURE_BIN"\nprintf guards > "$CAPTURE_STAGE"\nprintf \'%s\' "$PWD" > "$CAPTURE_CWD"\nactor='+('b'*64)+'\nprintf body > "$CAPTURE_STAGE"\n'+script
@@ -365,8 +365,8 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertEqual(public['with']['path'],'client-stage0-public/n0a-udp-parent-public.json')
         self.assertLess(compile_steps.index(build),compile_steps.index(parent_upload))
         self.assertLess(compile_steps.index(build),compile_steps.index(child_upload))
-        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]')
-        for present in itertools.product((False,True),repeat=5):
+        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]')
+        for present in itertools.product((False,True),repeat=6):
             message=' '.join(m for m,on in zip(markers,present) if on)
             for step in (build,helpers,host,parent_upload,parent_download,public):
                 expression=step['if'][3:-2].replace('always()','true')
@@ -399,6 +399,74 @@ class N0aDirectWorkflowTests(unittest.TestCase):
             self.assertNotEqual(code,0);self.assertIsNone(args)
         for commit,observed in (('',sha),('A'*40,'A'*40),('a'*39,'a'*39),('a'*41,'a'*41),(sha,'c'*40),(sha,'')):
             code,args,_=self.capture_shell('false','false',commit,observed,parent='true')
+            self.assertNotEqual(code,0);self.assertIsNone(args)
+    def test_udp6_exact_production_artifacts_suites_and_exclusive_steps(self):
+        import yaml
+        doc=yaml.load(self.text,Loader=yaml.BaseLoader)
+        condition=runpy.run_path(str(ROOT/'tests/test_windows_n0a_udp_workflow.py'))['condition']
+        steps=doc['jobs']['compile']['steps']+doc['jobs']['host-unit']['steps']+doc['jobs']['native']['steps']
+        selected=[v for v in steps if v.get('name') in ('Build pinned production-only UDP6 actor and require adapter gates','Actual UDP6 and legacy payload helper gates','Required UDP6 Linux contracts') or v.get('with',{}).get('name') in ('n0a-udp6-production-actor','n0a-udp6-exploratory-public')]
+        self.assertEqual(len(selected),6)
+        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]')
+        for present in itertools.product((False,True),repeat=6):
+            msg=' '.join(m for m,on in zip(markers,present) if on)
+            for step in selected:self.assertEqual(condition(step['if'][3:-2].replace('always()','true'),msg),sum(present)==1 and present[5])
+        for jobname in ('compile','host-unit'):
+            expr=doc['jobs'][jobname]['if'][3:-2]
+            for present in itertools.product((False,True),repeat=6):
+                message=' '.join(m for m,on in zip(markers,present) if on)
+                self.assertEqual(condition(expr,message),any(present))
+            self.assertFalse(condition(expr,markers[5],branch='refs/heads/main'))
+            self.assertFalse(condition(expr,markers[5],event='workflow_dispatch'))
+        self.assertFalse(self.native_allowed('[n0a-udp6-gates]'))
+        run=next(x for x in steps if 'UDP6_REQUESTED' in x.get('env',{}))
+        self.assertEqual(run['env']['UDP6_REQUESTED'],"${{ contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}")
+        self.assertEqual(run['env']['CAPTURE_SOURCE_COMMIT'],'${{ github.sha }}')
+        build=selected[0];self.assertIn('build_windows_n0a_udp6_actor.ps1',build['run'])
+        for filename in ('windows_n0a_udp6_actor.cpp','windows_identity_actor.cpp'):
+            self.assertIn(hashlib.sha256((ROOT/'.github/native'/filename).read_bytes()).hexdigest(),build['run'])
+        self.assertIn("foreach ($binary in @('udp6-production-build/windows_n0a_udp6_actor.exe'))",build['run'])
+        self.assertIn('$size -lt 512 -or $size -gt 8388608',build['run'])
+        short=(ROOT/'.github/workflows/windows-n0a-udp6-gates.yml').read_text()
+        names=ast.literal_eval(re.search(r'names=(\([^;]+\));',short).group(1));self.assertEqual(len(names),46)
+        for step in selected:
+            if 'names=' in step.get('run',''):
+                self.assertEqual(ast.literal_eval(re.search(r'names=(\([^;]+\));',step['run']).group(1)),names)
+                self.assertIn('bool(result.skipped)',step['run']);self.assertIn('all(p.countTestCases()>0 for p in parts)',step['run'])
+        helper=selected[1]
+        for name in ('n0a','udp','udp-parent','udp6'):
+            self.assertIn('test-windows-'+name+'-guest-gates.ps1',helper['run'])
+        self.assertIn('test-windows-udp-payload-gates.ps1',helper['run'])
+        self.assertEqual(helper['shell'],'powershell')
+        upload=next(x for x in selected if x.get('uses')=='actions/upload-artifact@v7' and x['with']['name']=='n0a-udp6-production-actor')
+        download=next(x for x in selected if x.get('uses')=='actions/download-artifact@v8')
+        self.assertEqual(upload['with']['path'].split(),['udp6-production-build/windows_n0a_udp6_actor.exe','udp6-production-build/N0A-UDP6-manifest.json'])
+        self.assertEqual(download['with']['path'],'udp6-production-build')
+        public=next(x for x in selected if x.get('with',{}).get('name')=='n0a-udp6-exploratory-public')
+        self.assertEqual(public['with']['path'],'client-stage0-public/n0a-udp6-public.json')
+        self.assertLess(steps.index(build),steps.index(upload))
+        self.assertNotIn('build_windows_n0a_udp6_fixture',self.text)
+
+    def test_udp6_actual_shell_exact_exclusive_argv_and_sha(self):
+        sha='a'*40
+        code,args,root=self.capture_shell('false','false',sha,sha,udp6='true')
+        self.assertEqual(code,0);self.assertIsNotNone(args)
+        expected=['--signal=TERM','--kill-after=30s','1000s','sudo','/usr/bin/env','GITHUB_SHA='+sha,
+                  '/usr/bin/python3','-B','.github/windows_identity_direct_stage0.py','--approved-disposable-vm',
+                  '--python-archive',root+'/client-stage0-python/python-3.14.8-embed-amd64.zip',
+                  '--actor',root+'/client-stage0-actor/windows_identity_actor.exe','--actor-sha256','b'*64,
+                  '--bundle',root+'/g-bundle.zip','--output','client-stage0-public','--timeout-seconds','6600',
+                  '--job-deadline-epoch','2000','--n0a-udp6-runner','--udp6-actor',
+                  root+'/udp6-production-build/windows_n0a_udp6_actor.exe','--udp6-manifest',
+                  root+'/udp6-production-build/N0A-UDP6-manifest.json']
+        self.assertTrue(args==expected,'Closed UDP6 argv mismatch')
+        # Every mixed environment is rejected before the inert timeout is called.
+        for capture,n0a,udp,parent in itertools.product(('false','true'),repeat=4):
+            if (capture,n0a,udp,parent)==('false','false','false','false'):continue
+            code,args,_=self.capture_shell(capture,n0a,sha,sha,udp=udp,parent=parent,udp6='true')
+            self.assertNotEqual(code,0);self.assertIsNone(args)
+        for commit,observed in (('',sha),('A'*40,'A'*40),('a'*39,'a'*39),('a'*41,'a'*41),(sha,'c'*40),(sha,'')):
+            code,args,_=self.capture_shell('false','false',commit,observed,udp6='true')
             self.assertNotEqual(code,0);self.assertIsNone(args)
 
 class ShellDiagnosticTests(unittest.TestCase):

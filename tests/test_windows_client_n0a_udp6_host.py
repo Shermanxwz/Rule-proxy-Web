@@ -11,7 +11,7 @@ spec=importlib.util.spec_from_file_location('udp6_direct_host_test',ROOT/'.githu
 
 class HostTests(unittest.TestCase):
     def test_disabled_before_media_even_base_enabled(self):
-        with patch.object(h,'EXECUTION_ENABLED',True),patch.object(h,'load') as load:
+        with patch.object(h.udp6_capture_helpers().helper('control'),'EXECUTION_ENABLED',False),patch.object(h,'EXECUTION_ENABLED',True),patch.object(h,'load') as load:
             with self.assertRaises(PermissionError):h.host(SimpleNamespace(n0a_udp6_runner=True))
             load.assert_not_called()
     def test_mutually_exclusive_intents_before_any_load(self):

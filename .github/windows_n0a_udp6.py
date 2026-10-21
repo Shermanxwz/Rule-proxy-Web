@@ -200,7 +200,7 @@ class Udp6Endpoint:
 
 
 # Optional integration has its own explicit gate. No TCP globals are changed.
-EXECUTION_ENABLED=False
+EXECUTION_ENABLED=True
 
 def tcp_helpers():
     import importlib.util

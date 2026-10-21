@@ -18,8 +18,9 @@ class Control(unittest.TestCase):
             def close_owned(self,*a):calls.append('close');return True
         return binding,cases,Execution(),calls
     def test_default_off_and_explicit_approval(self):
-        b,c,e,calls=self.fixture();self.assertFalse(g.engine.EXECUTION_ENABLED)
-        with self.assertRaises(PermissionError):g.engine.run_endpoint(e,b,100,approved=True,clock=lambda:0)
+        b,c,e,calls=self.fixture();self.assertTrue(g.engine.EXECUTION_ENABLED)
+        with patch.object(g.engine,'EXECUTION_ENABLED',False):
+            with self.assertRaises(PermissionError):g.engine.run_endpoint(e,b,100,approved=True,clock=lambda:0)
         with patch.object(g.engine,'EXECUTION_ENABLED',True):
             with self.assertRaises(PermissionError):g.engine.run_endpoint(e,b,100,approved=False,clock=lambda:0)
         self.assertEqual(calls,[])
