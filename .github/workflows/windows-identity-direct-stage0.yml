@@ -484,3 +484,5 @@ jobs:
 # Explicit one-run N0a-connect marker after activation gates 39568692918.
 
 # Capture attempt 01: reviewed runner-only packet observation after gates 39589548855.
+
+# One reviewed runner-only UDP observation; original budgets and acceptance unchanged.
