@@ -42,3 +42,7 @@ Public gate output is closed status/count/cleanup data, not raw SIDs, PIDs, hand
 - [TerminateProcess](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess)
 
 These describe API mechanics, not empirical PSEC inheritance or network isolation on this build.
+
+## First hosted compile observation
+
+Run 39625534900 (head e2bcbcbe) passed 383 required Linux tests but failed the Windows build under the retained `/WX` setting. The compiler instantiation trace identified an `optional<DWORD>` comparison with a signed literal and an implicit `wchar_t`-to-`char` iterator assignment. Windows unit and mechanism stages did not run. The narrow follow-up uses `DWORD{1}` and maps the four already validated phase names to explicit ASCII literals; it does not suppress warnings, broaden input or establish any native mechanism result before the corrected gate executes.

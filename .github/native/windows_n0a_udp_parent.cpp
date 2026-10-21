@@ -174,7 +174,7 @@ int Run(int argc,wchar_t** argv) {
   if(!ReadReportPath(argv[4],childPath)||!HashText(argv[5],expected)||!ReadReportPath(argv[6],childReport)
    ||!Number(argv[7],1025,65535,port)||!Number(argv[9],2001,15000,budget))return 2;
   const std::wstring p(argv[8]);if(p!=L"before"&&p!=L"sample"&&p!=L"contained"&&p!=L"after")return 2;
-  phase.assign(p.begin(),p.end());if((phase=="before"||phase=="after")&&budget>5000)return 2;
+  phase=p==L"before"?"before":p==L"sample"?"sample":p==L"contained"?"contained":"after";if((phase=="before"||phase=="after")&&budget>5000)return 2;
   const auto slash=childPath.find_last_of(L"\\/");if(slash==std::wstring::npos||childPath.substr(slash+1)!=ChildName)return 2;
   std::array<wchar_t,4097> module{};
   const DWORD moduleLength=GetModuleFileNameW(nullptr,module.data(),static_cast<DWORD>(module.size()));
@@ -219,7 +219,7 @@ int Run(int argc,wchar_t** argv) {
    if(!Remaining(workDeadline))throw std::runtime_error("deadline");
    if(resumeFail)throw std::runtime_error("resume_fixture");
    f.resumeAttempt=true;f.resume=ResumeThread(thread.value);
-   if(f.resume!=1)throw std::runtime_error("resume");f.resumed=true;
+   if(f.resume!=DWORD{1})throw std::runtime_error("resume");f.resumed=true;
    const DWORD wait=WaitForSingleObject(process.value,Remaining(workDeadline));
    if(wait==WAIT_TIMEOUT){f.timeout=true;throw std::runtime_error("timeout");}
    if(wait!=WAIT_OBJECT_0){f.cleanup=false;throw std::runtime_error("wait");}

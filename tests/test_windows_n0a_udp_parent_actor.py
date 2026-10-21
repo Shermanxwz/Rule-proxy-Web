@@ -33,9 +33,14 @@ class ParentSource(unittest.TestCase):
             self.assertLess(read.index(text),read.index('IsValidSid(sid)'))
         self.assertIn('parentToken.ac&&childToken.ac&&parentToken.sid&&childToken.sid',SOURCE)
         self.assertIn('!parentToken.ac&&!childToken.ac&&!parentToken.sid&&!childToken.sid',SOURCE)
+    def test_phase_mapping_and_resume_types_are_explicit(self):
+        self.assertNotIn('phase.assign(p.begin()',SOURCE)
+        self.assertIn('phase=p==L"before"?"before":p==L"sample"?"sample":p==L"contained"?"contained":"after";',SOURCE)
+        self.assertIn('p!=L"before"&&p!=L"sample"&&p!=L"contained"&&p!=L"after"',SOURCE)
+        self.assertIn('f.resume!=DWORD{1}',SOURCE)
     def test_one_resume_and_signaled_exit(self):
         self.assertEqual(SOURCE.count('ResumeThread('),1)
-        self.assertIn('if(f.resume!=1)',SOURCE)
+        self.assertIn('if(f.resume!=DWORD{1})',SOURCE)
         fn=SOURCE[SOURCE.index('void ObserveExit'):SOURCE.index('std::string Json(')]
         self.assertLess(fn.index('WAIT_OBJECT_0'),fn.index('GetExitCodeProcess'))
         self.assertNotIn('STILL_ACTIVE',SOURCE)
