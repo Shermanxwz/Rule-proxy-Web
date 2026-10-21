@@ -79,10 +79,12 @@ class DnsWorkflowTests(unittest.TestCase):
         self.assertIn('/DN0A_DNS_TEST_ONLY=1',build)
         self.assertIn('testOnly=$true; deployable=$false; compileOnly=$true',build)
         self.assertLess(native.index('#include <ws2ipdef.h>'),native.index('#include <windns.h>'))
+        self.assertLess(native.index('#include <ws2tcpip.h>'),native.index('#include <windns.h>'))
         for value in ('WindowsSdkDir','WindowsSDKVersion','SDK include shadow rejected.',
-                      "@('windns.h','windnsdef.h','ws2ipdef.h')",'OrdinalIgnoreCase',
+                      "@('windns.h','windnsdef.h','ws2ipdef.h','ws2tcpip.h')",'OrdinalIgnoreCase',
                       'SDK header changed during compilation.'):
             self.assertIn(value,build)
+        self.assertIn("$section=if ($name -cin @('windns.h','ws2tcpip.h')) { 'um' } else { 'shared' }",build)
         self.assertNotIn('typedef struct _DNS_QUERY_REQUEST3',native)
         self.assertNotIn('GITHUB_OUTPUT',build)
 

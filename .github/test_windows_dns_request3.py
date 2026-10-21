@@ -71,8 +71,8 @@ def verify(actor, manifest):
         if type(value[key]) is not type(expected) or value[key] != expected: raise ValueError('manifest')
     if type(value['installedSdkVersion']) is not str or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+',value['installedSdkVersion']): raise ValueError('sdk')
     headers = value['sdkHeaders']
-    if type(headers) is not list or len(headers)!=3: raise ValueError('headers')
-    if {item.get('name') for item in headers if type(item) is dict} != {'windns.h','windnsdef.h','ws2ipdef.h'}: raise ValueError('headers')
+    if type(headers) is not list or len(headers)!=4: raise ValueError('headers')
+    if {item.get('name') for item in headers if type(item) is dict} != {'windns.h','windnsdef.h','ws2ipdef.h','ws2tcpip.h'}: raise ValueError('headers')
     for item in headers:
         if type(item) is not dict or set(item)!={'name','sha256'} or type(item['sha256']) is not str or not re.fullmatch('[0-9a-f]{64}',item['sha256']): raise ValueError('headers')
     for key,path in [('sourceSha256',ROOT/'native/windows_n0a_dns_fixture.cpp'),('executableSha256',actor)]:

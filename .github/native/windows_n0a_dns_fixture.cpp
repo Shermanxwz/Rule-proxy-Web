@@ -19,7 +19,8 @@
 #define _WIN32_WINNT 0x0A00
 #endif
 #include <winsock2.h>
-#include <ws2ipdef.h> // Official DNS_CUSTOM_SERVER::ServerAddr declaration.
+#include <ws2ipdef.h>
+#include <ws2tcpip.h> // Official header enables DNS_CUSTOM_SERVER::ServerAddr.
 #include <windows.h>
 #include <windns.h>
 #include <cstdint>

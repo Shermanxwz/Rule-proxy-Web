@@ -32,7 +32,7 @@ class Contracts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);actor=root/'windows_n0a_DNS_TEST_ONLY_fixture.exe';actor.write_bytes(b'fixture')
             manifest=root/'DNS-TEST-ONLY-manifest.json'
-            value=dict(schemaVersion=1,testOnly=True,deployable=False,compileOnly=True,requestVersion=3,customServerType='UDP',installedSdkVersion='10.0.26100.0',sourceSha256=hashlib.sha256((ROOT/'.github/native/windows_n0a_dns_fixture.cpp').read_bytes()).hexdigest(),sdkHeaders=[dict(name=name,sha256='a'*64) for name in ('windns.h','windnsdef.h','ws2ipdef.h')],executableSha256=hashlib.sha256(actor.read_bytes()).hexdigest())
+            value=dict(schemaVersion=1,testOnly=True,deployable=False,compileOnly=True,requestVersion=3,customServerType='UDP',installedSdkVersion='10.0.26100.0',sourceSha256=hashlib.sha256((ROOT/'.github/native/windows_n0a_dns_fixture.cpp').read_bytes()).hexdigest(),sdkHeaders=[dict(name=name,sha256='a'*64) for name in ('windns.h','windnsdef.h','ws2ipdef.h','ws2tcpip.h')],executableSha256=hashlib.sha256(actor.read_bytes()).hexdigest())
             manifest.write_bytes(raw(value));self.assertTrue(g.verify(actor,manifest))
             for key,bad in [('testOnly',False),('deployable',True),('sourceSha256','0'*64),('executableSha256','0'*64),('requestVersion',True)]:
                 changed=dict(value);changed[key]=bad;manifest.write_bytes(raw(changed))
@@ -55,6 +55,7 @@ class Contracts(unittest.TestCase):
         source=(ROOT/'.github/native/windows_n0a_dns_fixture.cpp').read_text()
         build=(ROOT/'.github/build_windows_n0a_dns_fixture.ps1').read_text()
         for text in ('DNS_QUERY_REQUEST3','DNS_CUSTOM_SERVER','DNS_QUERY_REQUEST_VERSION3','retainedPendingContext = context.release()','for (;;) Sleep(INFINITE)','N0A_DNS_TEST_ONLY'):self.assertIn(text,source)
+        self.assertLess(source.index('#include <ws2tcpip.h>'),source.index('#include <windns.h>'))
         self.assertNotIn('DNS_QUERY_ACCEPT_TRUNCATED_RESPONSE',source)
         self.assertIn('N0A_DNS_TEST_ONLY=1',build)
         self.assertIn('DNS-TEST-ONLY-manifest.json',build)

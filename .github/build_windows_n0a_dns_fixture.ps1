@@ -20,7 +20,7 @@ if ([string]::IsNullOrEmpty($env:WindowsSdkDir)) { throw 'Installed SDK root una
 $sdkInclude=[IO.Path]::GetFullPath((Join-Path (Join-Path $env:WindowsSdkDir 'Include') $sdkVersion))
 if ([string]::IsNullOrEmpty($env:INCLUDE)) { throw 'Compiler include path unavailable.' }
 $headerFiles=@(); $headers=@()
-foreach ($name in @('windns.h','windnsdef.h','ws2ipdef.h')) {
+foreach ($name in @('windns.h','windnsdef.h','ws2ipdef.h','ws2tcpip.h')) {
     $header=$null
     foreach ($include in $env:INCLUDE.Split(';')) {
         if ([string]::IsNullOrWhiteSpace($include)) { continue }
@@ -31,7 +31,7 @@ foreach ($name in @('windns.h','windnsdef.h','ws2ipdef.h')) {
         }
     }
     if ($null -eq $header -or (($header.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw 'Official SDK header unavailable.' }
-    $section=if ($name -ceq 'windns.h') { 'um' } else { 'shared' }
+    $section=if ($name -cin @('windns.h','ws2tcpip.h')) { 'um' } else { 'shared' }
     $expectedHeader=[IO.Path]::GetFullPath((Join-Path (Join-Path $sdkInclude $section) $name))
     if (-not [string]::Equals($header.FullName,$expectedHeader,[StringComparison]::OrdinalIgnoreCase)) { throw 'SDK include shadow rejected.' }
     $headerFiles+=,$header

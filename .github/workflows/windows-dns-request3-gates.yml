@@ -52,7 +52,7 @@ jobs:
           if (-not $vs) { throw 'Installed MSVC unavailable' }
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          ./.github/build_windows_n0a_dns_fixture.ps1 -OutputDirectory "$PWD/dns-TEST-ONLY-build" -ExpectedSourceSha256 ad23b30aa6d8498281ce52c8898628de61c18cfa453e316f9cbd96a43c45f776
+          ./.github/build_windows_n0a_dns_fixture.ps1 -OutputDirectory "$PWD/dns-TEST-ONLY-build" -ExpectedSourceSha256 098bcb487ed7344d4f811c2538e5c36aa6ae36500d14f6a66c90fdd2758e47cd
       - name: Actual same-API owned high-port mechanism, not isolation
         timeout-minutes: 2
         shell: pwsh
