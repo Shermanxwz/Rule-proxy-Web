@@ -394,3 +394,5 @@ jobs:
           path: ${{ runner.temp }}/identity-direct-capacity/preparation-public.json
           retention-days: 14
           if-no-files-found: warn
+
+# Explicit one-run N0a-connect marker after activation gates 39568692918.
