@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "kind": "standalone_capture_primitive_gates",
+  "repository_id": 1412843902,
+  "source_commit": "5facaf77ad421906f15f4c2b71895e81292a8f46",
+  "source_tree": "4143b47645c5d852a8d974192744c584eae0a321",
+  "run_id": 39576861643,
+  "job_id": 119144412008,
+  "run_conclusion": "success",
+  "execution_model": "owner_threads",
+  "ubuntu_packaged_qemu_version": "1:8.2.2+ds-0ubuntu1.18",
+  "required_unit_tests": 32,
+  "required_unit_skips": 0,
+  "local_full_tests": 744,
+  "reviewed_manifest_sha256": "9fc032a55c82f9ea64f2f756b53ce3b03d82b63c841179c8a09fe01514e5faea",
+  "reviewed_files": [
+    {
+      "path": ".github/windows_n0a_capture.py",
+      "sha256": "dc42bdeb50f23fb6deca95f5aca1921c3f8c79c9d7bb8522197c11277293da26",
+      "bytes": 16420
+    },
+    {
+      "path": "tests/test_windows_client_n0a_capture.py",
+      "sha256": "10df6008b6c4d90df590048f89eb6cdab7a77e1806825458180148d76053389a",
+      "bytes": 13218
+    },
+    {
+      "path": ".github/test_windows_n0a_capture_qemu.py",
+      "sha256": "cf3cbf003d5b2089e4e5a1ee3465ed79defbb28e329df04ffe6c1685d9721dcd",
+      "bytes": 11443
+    },
+    {
+      "path": "tests/test_windows_n0a_capture_qemu.py",
+      "sha256": "aa69c2794f182be1e50599cfbd83b8b74cdf2c78a8aafab09898ae8dc659a0b3",
+      "bytes": 5542
+    },
+    {
+      "path": ".github/workflows/windows-n0a-capture-gates.yml",
+      "sha256": "2e9cf484dffe4cfc04953b302d755798c90d5e6ea72c048654841678879b38cc",
+      "bytes": 2072
+    },
+    {
+      "path": "tests/test_windows_n0a_capture_workflow.py",
+      "sha256": "0bafcb19ebfc0c2a79301699e1ced8a50e9b2f168efc6234720f9a656381ee36",
+      "bytes": 3069
+    },
+    {
+      "path": "docs/validation/2026-10-21-n0a-capture-mechanism.md",
+      "sha256": "48bf9852e31f850cbd964a1a585f8ac6e88ee1fc8e9e56d9b36144ead7e9c547",
+      "bytes": 5097
+    }
+  ],
+  "actual_gate_result": {
+    "failure_kind": "none",
+    "forced": {
+      "failure_kind": "none",
+      "forced_case": true,
+      "header_observed": true,
+      "injected_ingress_frame_observed": true,
+      "network_sockets_closed": true,
+      "never_running": true,
+      "packet_egress_tested": false,
+      "passed": true,
+      "phase": "completed",
+      "qemu_8_2_2": true,
+      "qmp_closed": true,
+      "sink": {
+        "cleanup_confirmed": true,
+        "descriptors_closed": true,
+        "drain_complete": false,
+        "drained_bytes": 102,
+        "errors": [],
+        "execution_model": "owner_threads",
+        "fifo_eof": true,
+        "fixture": false,
+        "forced_kill": true,
+        "header_verified": true,
+        "output_flushed": true,
+        "overflow": false,
+        "packet_absence_proven": false,
+        "process_exit_code": -9,
+        "process_exit_observed": true,
+        "producer_live_at_shutdown": true,
+        "reader_ready": true,
+        "readers_stopped": true,
+        "records": 1,
+        "retained_bytes": 102,
+        "root_removal_attempted": false,
+        "schema_version": 1,
+        "stderr_bytes": 0,
+        "stderr_eof": true,
+        "structure_complete": true
+      },
+      "work_removed": true
+    },
+    "guest_execution": false,
+    "normal": {
+      "failure_kind": "none",
+      "forced_case": false,
+      "header_observed": true,
+      "injected_ingress_frame_observed": true,
+      "network_sockets_closed": true,
+      "never_running": true,
+      "packet_egress_tested": false,
+      "passed": true,
+      "phase": "completed",
+      "qemu_8_2_2": true,
+      "qmp_closed": true,
+      "sink": {
+        "cleanup_confirmed": true,
+        "descriptors_closed": true,
+        "drain_complete": true,
+        "drained_bytes": 102,
+        "errors": [],
+        "execution_model": "owner_threads",
+        "fifo_eof": true,
+        "fixture": false,
+        "forced_kill": false,
+        "header_verified": true,
+        "output_flushed": true,
+        "overflow": false,
+        "packet_absence_proven": false,
+        "process_exit_code": 0,
+        "process_exit_observed": true,
+        "producer_live_at_shutdown": true,
+        "reader_ready": true,
+        "readers_stopped": true,
+        "records": 1,
+        "retained_bytes": 102,
+        "root_removal_attempted": false,
+        "schema_version": 1,
+        "stderr_bytes": 69,
+        "stderr_eof": true,
+        "structure_complete": true
+      },
+      "work_removed": true
+    },
+    "packet_egress_tested": false,
+    "passed": true,
+    "root_removed": true,
+    "runtime_acceptance": false,
+    "schema": 1,
+    "test_kind": "paused_qemu_fifo_capture"
+  },
+  "limitations": [
+    "Standalone owner-thread primitive, not independently isolated sink child.",
+    "Synthetic host-injected ingress only; no Windows guest execution or egress-direction proof.",
+    "Overflow and I/O faults were exercised by fake-producer/unit fixtures, not this actual QEMU packet.",
+    "Production VM integration, private flow manifest and packet attribution remain unimplemented.",
+    "PCAP and raw stderr not uploaded.",
+    "No packet absence, Linux equivalence, privacy or product acceptance claim."
+  ]
+}
