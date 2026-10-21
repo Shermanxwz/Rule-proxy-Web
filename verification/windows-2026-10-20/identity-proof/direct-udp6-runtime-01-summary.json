@@ -15,15 +15,16 @@
     "The actual Windows guest booted and returned authenticated controller receipts. Production binary build/size gates passed; host payload/capture-capacity admission reported true, establishing configured P<=24MiB/reserve acceptance but not an exact package size.",
     "The held owned QEMU mapped backing-file/local package agreement admitted before the existing link-up path. Pre-stop verification and descriptor close were true. QEMU package1:8.2.2+ds-0ubuntu1.18 and libslirp4.7.0-1ubuntu3.1 are separately reported local metadata/integrity, not resident-image or upstream-source proof.",
     "The owned runner IPv6 receiver observed one exact nonce-bound ordinary-before datagram and returned one echo without send error. This supports that individual ordinary outgoing guest-to-owned-runner observation; it does not prove the native guest accepted the reply or full bidirectional calibration.",
-    "Before report profile/provenance flags were true, but no sample, contained or after report was returned. Their false/zero fields are unavailable defaults, not observed failed contained sends or isolation. The exact internal stop or attempted-launch boundary is not exported; outer completed/failed=false describes wrapper completion only.",
+    "Before report profile/provenance flags were true; later-phase flags were false. Those flags do not export per-phase envelope/report presence and can also reflect malformed or unbound data. No verified later-phase or selected invocation is established; false/zero fields are not observed failed contained sends or isolation. The exact internal stop or attempted-launch boundary is not exported; outer completed/failed=false describes wrapper completion only.",
     "No admitted full four-report private bundle was available: flow commitment missing, packet null/inconclusive. No PCAP decoding or bounded absence conclusion is reported.",
     "Published QEMU and TPM exits were0; receiver, server, watcher, QMP and work cleanup were confirmed, with teardown error_count0. Original Stage0 remains false solely at capabilities_empty, as in previous experiments."
   ],
   "limits": [
-    "The closed receipt does not export the exact internal driver stage, ordinary-admission predicate or native failure stage. A later phase could fail before report assignment. Private native report/bundle/PCAP were not retained, so no retrospective raw reconstruction is possible.",
+    "The closed receipt does not export per-phase envelope/report presence, exact internal driver stage, ordinary-admission predicate or native failure stage. A later phase could fail before report assignment, or a supplied report could fail validation. Private native report/bundle/PCAP were not retained, so no retrospective raw reconstruction is possible.",
     "Receiver echo sent is not native echo accepted; send success is not delivery. No selected PSEC IPv6 send/denial/absence or general IPv6 isolation result.",
     "The observed Windows build26300.9457 remains below documented26300.9550 floor; product/privacy/PSEC cleanup acceptance flags remain false.",
     "Preparation receipt is sampled net capacity, not peak/quota/installed-plan proof. Cleanup facts do not authenticate resident memory or all OS internals.",
     "One authorized first UDP6 guest run; no rerun or networking repair/fallback was launched. Earlier integration fixture failures remain archived. No DNS/proxy/descendant IPv6/Linux/product claim."
-  ]
+  ],
+  "interpretation_correction": "This wording corrects the earlier summary inference that false later-phase flags proved no reports were returned. Exact three receipt bytes and all measured observations are unchanged."
 }
