@@ -1,6 +1,7 @@
 """Scoped source contracts; actual PS execution is a separate Windows gate."""
 import hashlib
 import pathlib
+import re
 import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RUN = (ROOT/'.github/windows-identity-direct-stage0-run.ps1').read_text()
@@ -55,6 +56,27 @@ class N0aGuestContracts(unittest.TestCase):
         gate=(ROOT/'.github/test-windows-n0a-guest-gates.ps1').read_text()
         for fragment in ('ReferenceEquals','flow_commitment','connect_succeeded','dc9af386','resultOkay=$false','ElapsedMilliseconds=10000'):
             self.assertIn(fragment,gate)
+    def test_legacy_selector_allowlist_covers_parent_branch_without_broadening(self):
+        gate=(ROOT/'.github/test-windows-n0a-guest-gates.ps1').read_text()
+        selector=RUN[RUN.index('    $payloadNames = @('):RUN.index("    $phase='payload_extract'")]
+        # Source counterexample: AST visits commands even in branches not taken.
+        # The old three-name allowlist rejects the newly present parent helpers.
+        commands=set(re.findall(r'\b(?:Get|Test)-N0a\w+',selector))
+        old={'Get-N0aUdpPayloadNames','Test-N0aConfiguration','Test-N0aCaptureConfiguration'}
+        self.assertEqual(commands-old,{'Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration'})
+        line=next(line for line in gate.splitlines() if 'foreach($command in $selectionCommands)' in line)
+        allowed=set(re.findall(r"'([^']+)'",line))
+        self.assertEqual(allowed,commands)
+        self.assertIn('$command.GetCommandName() -cin',line)
+        imports=next(line for line in gate.splitlines() if line.startswith('$names=@('))
+        self.assertTrue(commands <= set(re.findall(r"'([^']+)'",imports)))
+        self.assertNotIn('Invoke-Expression',line)
+        # Both empty-config counterexample and each real legacy mode start with
+        # every selector flag initialized: shared extractor reads parent first.
+        self.assertEqual(gate.count('$parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false'),2)
+        self.assertIn("foreach($mode in @('baseline','n0a','capture'))",gate)
+        self.assertIn('foreach($index in 0..3)',gate)
+
     def test_gate_extracts_only_helpers(self):
         text=(ROOT/'.github/test-windows-n0a-guest-gates.ps1').read_text()
         self.assertIn('FunctionDefinitionAst', text)

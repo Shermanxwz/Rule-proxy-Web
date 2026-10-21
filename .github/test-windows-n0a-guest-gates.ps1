@@ -16,7 +16,7 @@ $source=Join-Path $PSScriptRoot 'windows-identity-direct-stage0-run.ps1'
 $tokens=$null; $errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
 if ($errors.Count) { throw 'n0a_parse' }
-$names=@('Get-N0aUdpPayloadNames','Test-N0aConfiguration','Get-N0aRemainingMilliseconds','Wait-N0aOwnedChild','Write-N0aBoundedBody','Invoke-N0aGuestDiagnostic','Test-N0aCaptureConfiguration','Get-N0aSha256','Get-N0aFlowCommitment','Read-N0aPrivateFlow','Send-N0aCaptureReports')
+$names=@('Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Get-N0aUdpPayloadNames','Test-N0aConfiguration','Get-N0aRemainingMilliseconds','Wait-N0aOwnedChild','Write-N0aBoundedBody','Invoke-N0aGuestDiagnostic','Test-N0aCaptureConfiguration','Get-N0aSha256','Get-N0aFlowCommitment','Read-N0aPrivateFlow','Send-N0aCaptureReports')
 foreach ($name in $names) {
     $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true))
     if ($nodes.Count -ne 1) { throw 'n0a_function' }
@@ -166,13 +166,13 @@ $selectionAst=[Management.Automation.Language.Parser]::ParseInput($selectionText
 Check ($selectionErrors.Count -eq 0)
 $script:fixtureStage='payload_selection_commands'
 $selectionCommands=@($selectionAst.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst]},$true))
-foreach($command in $selectionCommands) { Check ($command.GetCommandName() -cin @('Get-N0aUdpPayloadNames','Test-N0aConfiguration','Test-N0aCaptureConfiguration')) }
+foreach($command in $selectionCommands) { Check ($command.GetCommandName() -cin @('Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Get-N0aUdpPayloadNames','Test-N0aConfiguration','Test-N0aCaptureConfiguration')) }
 $script:fixtureStage='payload_branch_ast'
 $extracts=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.Contains('-MemberCount 15') -and $n.Extent.Text.Contains('-MemberCount 14') -and $n.Extent.Text.Contains('-MemberCount 10')},$true))
 Check ($extracts.Count -eq 1)
 # Controlled reproduction only: the real seed is never an empty object.
 $script:fixtureStage='empty_configuration_counterexample'
-$configuration=[PSCustomObject]@{};$udpEnabled=$false;$n0aEnabled=$false
+$configuration=[PSCustomObject]@{};$parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false
 $script:emptyConfigurationRejected=$false
 try { . ([ScriptBlock]::Create($selectionText)) } catch { $script:emptyConfigurationRejected=$true }
 $payloadRoot=Join-Path ([IO.Path]::GetTempPath()) ('n0a-payload-parity-'+[Guid]::NewGuid().ToString('N'))
@@ -188,7 +188,7 @@ try {
         $configuration=[PSCustomObject]@{host_url='http://127.0.0.1/fixture';payload_sha256=('a'*64);python_sha256=('b'*64);actor_sha256=('c'*64)}
         if($mode -ne 'baseline') { $configuration | Add-Member NoteProperty n0a $config }
         if($mode -eq 'capture') { $configuration | Add-Member NoteProperty capture ([PSCustomObject]@{enabled=$true;run_nonce=('1'*32);source_commit=('2'*40);vm_mac='525400123456'}) }
-        $udpEnabled=$false;$n0aEnabled=$false
+        $parentUdpEnabled=$false;$udpEnabled=$false;$n0aEnabled=$false
         $script:fixtureStage='payload_select'
         . ([ScriptBlock]::Create($selectionText))
         $payload=Join-Path $payloadRoot ($mode+'.zip');$workspace=Join-Path $payloadRoot ($mode+'-expanded')
