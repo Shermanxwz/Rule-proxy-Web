@@ -1,4 +1,4 @@
-# Supported control attempt 09: isolated bounded COM2 advisory; no acceptance change.
+# Supported control attempt 10: same-handle receipt and closed sender diagnostics.
 name: Windows serviced client Stage0 (bounded experiment)
 on:
   push:
