@@ -83,6 +83,27 @@ class LifecycleTests(unittest.TestCase):
     def test_windows_oversize_is_counted_not_parsed(self):
         error=OSError('PRIVATE');error.winerror=10040
         o=self.serve([error,query()]);self.assertEqual(o.counts['datagrams'],2);self.assertEqual(o.counts['oversized'],1)
+    def test_idle_receive_does_not_hold_observation_lock(self):
+        o=self.fixture();observed=[]
+        class IdleSocket:
+            def recvfrom(self,size):
+                # Actual Lock must be available even from inside idle recv.
+                observed.append(o.observation_lock.acquire(blocking=False))
+                if observed[-1]:o.observation_lock.release()
+                observed.append(o.snapshot(deadline=60)['datagrams'])
+                o.stop.set();raise socket.timeout()
+        o.socket=IdleSocket()
+        with patch.object(f.time,'monotonic',return_value=1):o._serve()
+        self.assertEqual(observed,[True,0]);self.assertEqual(o.error,'none')
+    def test_snapshot_excludes_inflight_counter_commit_with_absolute_bound(self):
+        o=self.fixture();o.observation_lock=Mock();o.observation_lock.acquire.return_value=True
+        o.counts['matched_queries']=1
+        with patch.object(f.time,'monotonic',return_value=59.9):value=o.snapshot(deadline=60)
+        self.assertEqual(value['matched_queries'],1)
+        self.assertAlmostEqual(o.observation_lock.acquire.call_args.kwargs['timeout'],.1)
+        o.observation_lock.release.assert_called_once_with()
+        o.observation_lock.acquire.return_value=False
+        with self.assertRaises(TimeoutError):o.snapshot(deadline=0)
     def test_finish_absolute_no_renewal_unknown_thread_counts_unavailable(self):
         o=self.fixture();o.socket=Mock();o.socket.fileno.return_value=-1;o.thread=Mock();o.thread.is_alive.return_value=True
         with patch.object(f.time,'monotonic',return_value=59):result=o.finish(deadline=100)

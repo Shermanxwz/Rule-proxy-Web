@@ -88,6 +88,20 @@ class DnsWorkflowTests(unittest.TestCase):
         self.assertNotIn('typedef struct _DNS_QUERY_REQUEST3',native)
         self.assertNotIn('GITHUB_OUTPUT',build)
 
+    def test_synchronous_cancel_differential_is_explicit_and_bounded(self):
+        native=(ROOT/'.github/native/windows_n0a_dns_fixture.cpp').read_text()
+        harness=(ROOT/'.github/test_windows_dns_request3.py').read_text()
+        self.assertIn('L"--query-null-cancel"',native)
+        self.assertIn('cancelNull ? nullptr : &context->cancel',native)
+        self.assertIn('cancellation_handle_null',native)
+        self.assertIn("[('baseline','--query',False),('null_cancel','--query-null-cancel',True)]",harness)
+        self.assertIn('BUDGET = 60',harness)
+        doc=(ROOT/'docs/validation/2026-10-21-dns-request3-mechanism.md').read_text()
+        for fact in ('status 87','zero owned-responder queries','not DNS denial',
+                     'non-null cancellation pointer versus a null cancellation pointer',
+                     'same existing 60-second overall budget','If both return 87'):
+            self.assertIn(fact,doc)
+
     def test_exact_native_source_pin_not_placeholder(self):
         source=ROOT/'.github/native/windows_n0a_dns_fixture.cpp'
         self.assertTrue(source.is_file(),'Reviewed DNS fixture source required')

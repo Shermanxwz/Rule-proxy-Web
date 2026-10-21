@@ -75,6 +75,7 @@ class DnsFixture:
         self.socket = None; self.thread = None
         self.stop = threading.Event(); self.ready = threading.Event()
         self.query_observed = threading.Event()
+        self.observation_lock = threading.Lock()
         self.counts = dict(datagrams=0, bytes=0, matched_queries=0, answers_sent=0,
                            rejected=0, oversized=0, send_failed=0)
         self.error = 'none'; self.closed = False; self.close_uncertain = False
@@ -108,38 +109,48 @@ class DnsFixture:
                 except OSError as exc:
                     if self.stop.is_set(): return
                     if getattr(exc, 'winerror', None) == 10040:
-                        self.counts['datagrams'] += 1; self.counts['oversized'] += 1
-                        self.counts['bytes'] = min(MAX_BYTES, self.counts['bytes']+MAX_DATAGRAM+1)
+                        with self.observation_lock:
+                            self.counts['datagrams'] += 1; self.counts['oversized'] += 1
+                            self.counts['bytes'] = min(MAX_BYTES, self.counts['bytes']+MAX_DATAGRAM+1)
                         continue
                     self.error = 'receive'; return
-                self.counts['datagrams'] += 1
-                self.counts['bytes'] = min(MAX_BYTES, self.counts['bytes']+len(raw))
-                if len(raw) > MAX_DATAGRAM:
-                    self.counts['oversized'] += 1; continue
-                if peer[0] != '127.0.0.1':
-                    self.counts['rejected'] += 1; continue
-                try: response = answer_query(raw, self.name)
-                except ValueError:
-                    self.counts['rejected'] += 1; continue
-                self.counts['matched_queries'] += 1
-                self.query_observed.set()
-                if self.mode == 'drop': continue
-                opt_size = 11 if struct.unpack('!H', response[10:12])[0] else 0
-                answer_end = len(response)-opt_size
-                if self.mode == 'wrong_address': response = response[:answer_end-4] + bytes((192, 0, 2, 124)) + response[answer_end:]
-                if self.mode == 'rcode':
-                    response = response[:2] + struct.pack('!H', struct.unpack('!H', response[2:4])[0] | 3) + response[4:6] + b'\0\0' + response[8:answer_end-16] + response[answer_end:]
-                if self.stop.is_set() or time.monotonic() >= self.deadline:
-                    self.error = 'deadline'; return
-                try:
-                    self.socket.settimeout(max(0, min(.1, self.deadline-time.monotonic())))
-                    if self.socket.sendto(response, peer) != len(response): raise OSError('short datagram')
-                    self.counts['answers_sent'] += 1
-                except OSError:
-                    self.counts['send_failed'] += 1; self.error = 'send'; return
+                with self.observation_lock:
+                    self.counts['datagrams'] += 1
+                    self.counts['bytes'] = min(MAX_BYTES, self.counts['bytes']+len(raw))
+                    if len(raw) > MAX_DATAGRAM:
+                        self.counts['oversized'] += 1; continue
+                    if peer[0] != '127.0.0.1':
+                        self.counts['rejected'] += 1; continue
+                    try: response = answer_query(raw, self.name)
+                    except ValueError:
+                        self.counts['rejected'] += 1; continue
+                    self.counts['matched_queries'] += 1
+                    self.query_observed.set()
+                    if self.mode == 'drop': continue
+                    opt_size = 11 if struct.unpack('!H', response[10:12])[0] else 0
+                    answer_end = len(response)-opt_size
+                    if self.mode == 'wrong_address': response = response[:answer_end-4] + bytes((192, 0, 2, 124)) + response[answer_end:]
+                    if self.mode == 'rcode':
+                        response = response[:2] + struct.pack('!H', struct.unpack('!H', response[2:4])[0] | 3) + response[4:6] + b'\0\0' + response[8:answer_end-16] + response[answer_end:]
+                    if self.stop.is_set() or time.monotonic() >= self.deadline:
+                        self.error = 'deadline'; return
+                    try:
+                        self.socket.settimeout(max(0, min(.1, self.deadline-time.monotonic())))
+                        if self.socket.sendto(response, peer) != len(response): raise OSError('short datagram')
+                        self.counts['answers_sent'] += 1
+                    except OSError:
+                        self.counts['send_failed'] += 1; self.error = 'send'; return
             if not self.stop.is_set(): self.error = 'deadline'
         except Exception:
             self.error = 'operation'
+
+    def snapshot(self, *, deadline):
+        # Excludes datagram processing/send and its counter commit, not idle receive. This is a
+        # temporal observation, not attribution of a late broker datagram.
+        if not self.observation_lock.acquire(timeout=max(0,min(.5,deadline-time.monotonic()))):
+            raise TimeoutError('fixture snapshot')
+        try:return dict(self.counts)
+        finally:self.observation_lock.release()
 
     def finish(self, *, deadline):
         deadline = min(deadline, self.deadline)

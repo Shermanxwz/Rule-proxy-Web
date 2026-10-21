@@ -13,6 +13,7 @@ import re
 import secrets
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -45,7 +46,7 @@ def native_report(raw):
     fixed = dict(schema=1, test_only=True, request_version=3, custom_server_count=1,
                  custom_udp=True, custom_flags_zero=True, legacy_server_list_null=True,
                  callback_null=True, runtime_acceptance=False)
-    booleans = ('api_called','pending','answer_match','records_freed','context_retained')
+    booleans = ('api_called','pending','answer_match','records_freed','context_retained','cancellation_handle_null')
     if type(value) is not dict or set(value) != set(fixed) | set(booleans) | {'api_status','result_status','record_count'}:
         raise ValueError('schema')
     for key, expected in fixed.items():
@@ -130,54 +131,80 @@ class Child:
 def run(actor, manifest):
     deadline=time.monotonic()+BUDGET
     result=dict(schema=1,mechanism_positive=False,injected_pending_control=False,
-                nrpt_empty=False,query_observed=False,api_report=None,fixture=None,
+                nrpt_empty=False,query_observed=False,cases={},os_version=None,
+                receiver_attribution='temporal_deltas_shared_nonce_not_broker_identity',
                 cleanup_confirmed=False,work_removed=False,failure='none',
                 runtime_acceptance=False,isolation_tested=False,broker_cancellation_proven=False)
-    root=None; fixture=None; children=[]; cleanup=[]
+    root=None; children=[]; fixtures=[]; cleanup=[]; finished=set(); fixture=None
+    def stop_child(child):
+        if id(child) in finished:return
+        finished.add(id(child))
+        try:cleanup.append(child.finish(deadline))
+        except Exception:cleanup.append(dict(exited=False,killed=False,handles_closed=False,cleanup_confirmed=False))
+    def stop_fixture(fixture):
+        try:return fixture.finish(deadline=deadline)
+        except Exception:return dict(cleanup_confirmed=False,counts=None,error='operation')
     try:
-        if os.name!='nt': raise ValueError('platform')
+        if os.name!='nt':raise ValueError('platform')
+        if hasattr(sys,'getwindowsversion'):
+            version=sys.getwindowsversion()
+            result['os_version']={key:int(getattr(version,key)) for key in ('major','minor','build')}
         verify(actor,manifest)
         root=Path(tempfile.mkdtemp(prefix='dns-request3-'))
         nrpt=Child(root,'nrpt');children.append(nrpt)
         nrpt.start(['powershell.exe','-NoProfile','-NonInteractive','-Command',NRPT_SCRIPT])
-        if not nrpt.wait(min(deadline-10,time.monotonic()+5)) or nrpt.process.returncode!=0 or read_bounded(nrpt.path)!=b'NRPT_EMPTY': raise ValueError('nrpt')
-        result['nrpt_empty']=True
+        if not nrpt.wait(min(deadline-10,time.monotonic()+5)) or nrpt.process.returncode!=0 or read_bounded(nrpt.path)!=b'NRPT_EMPTY':raise ValueError('nrpt')
+        result['nrpt_empty']=True;stop_child(nrpt)
         spec=importlib.util.spec_from_file_location('owned_dns_fixture',ROOT/'windows_dns_fixture.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         nonce=secrets.token_hex(16);fixture=module.DnsFixture(nonce,deadline=deadline)
-        port=fixture.start()
-        child=Child(root,'query');children.append(child)
-        child.start([str(actor),'--query',nonce,str(port)])
-        ended=child.wait(min(deadline-10,time.monotonic()+30))
-        report=native_report(read_bounded(child.path));result['api_report']=report
-        positive=ended and child.process.returncode==0 and report['api_called'] and not report['pending'] and report['api_status']==0 and report['result_status']==0 and report['record_count']==1 and report['answer_match'] and report['records_freed']
-        if not ended: raise ValueError('query_timeout')
+        fixtures.append(fixture);port=fixture.start()
+        for name,flag,is_null in [('baseline','--query',False),('null_cancel','--query-null-cancel',True)]:
+            case=dict(api_report=None,query_observed=False,positive=False,failure='none')
+            result['cases'][name]=case;child=None;cleanup_start=len(cleanup)
+            before=fixture.snapshot(deadline=deadline-10);case['receiver_before']=before;completed=False
+            try:
+                if time.monotonic()>=deadline-10:raise ValueError('query_timeout')
+                child=Child(root,name);children.append(child)
+                child.start([str(actor),flag,nonce,str(port)])
+                ended=child.wait(min(deadline-10,time.monotonic()+15))
+                report=native_report(read_bounded(child.path));case['api_report']=report
+                if report['cancellation_handle_null'] is not is_null:raise ValueError('case_binding')
+                case['positive']=ended and child.process.returncode==0 and report['api_called'] and not report['pending'] and report['api_status']==0 and report['result_status']==0 and report['record_count']==1 and report['answer_match'] and report['records_freed']
+                if not ended:raise ValueError('query_timeout')
+                completed=child.process.returncode==0 and not report['pending']
+            except Exception as exc:
+                case['failure']=str(exc) if type(exc) is ValueError and str(exc) in ('query_timeout','output_bound','case_binding') else 'operation'
+            finally:
+                if child is not None:stop_child(child)
+                after=fixture.snapshot(deadline=deadline-10);case['receiver_after']=after
+                counts={key:after[key]-before[key] for key in before}
+                case['receiver_delta']=counts;case['query_observed']=counts['matched_queries']>0
+                case['child_cleanup']=cleanup[cleanup_start:]
+                clean_counts=counts['matched_queries']>0 and counts['answers_sent']>0 and all(counts[key]==0 for key in ('rejected','oversized','send_failed')) and fixture.error=='none'
+                case['positive']=case['positive'] and clean_counts and all(item['cleanup_confirmed'] for item in case['child_cleanup'])
+            if not completed or not all(item['cleanup_confirmed'] for item in case['child_cleanup']):
+                raise ValueError('pair_incomplete')
+        if time.monotonic()>=deadline-10:raise ValueError('query_timeout')
         pending=Child(root,'pending');children.append(pending)
         pending.start([str(actor),'--test-pending'])
         pending.wait(min(deadline-10,time.monotonic()+3),pending=True)
         pending_report=native_report(read_bounded(pending.path))
-        result['injected_pending_control']=pending.process.poll() is None and pending_report['pending'] and not pending_report['api_called'] and pending_report['context_retained']
-        result['mechanism_positive']=positive
+        result['injected_pending_control']=pending.process.poll() is None and pending_report['pending'] and not pending_report['api_called'] and pending_report['context_retained'] and not pending_report['cancellation_handle_null']
     except Exception as exc:
-        allowed={'platform','nrpt','query_timeout','output_bound','artifact','manifest','pin','sdk','headers'}
+        allowed={'platform','nrpt','query_timeout','output_bound','artifact','manifest','pin','sdk','headers','pair_incomplete'}
         result['failure']=str(exc) if type(exc) is ValueError and str(exc) in allowed else 'operation'
     finally:
-        for child in reversed(children):
-            try: cleanup.append(child.finish(deadline))
-            except Exception: cleanup.append(dict(exited=False,killed=False,handles_closed=False,cleanup_confirmed=False))
+        for child in reversed(children):stop_child(child)
         result['children_cleanup']=cleanup
-        if fixture is not None:
-            try: result['fixture']=fixture.finish(deadline=deadline)
-            except Exception: result['fixture']=dict(cleanup_confirmed=False,counts=None,error='operation')
-            result['query_observed']=fixture.query_observed.is_set()
+        result['fixture']=stop_fixture(fixture) if fixture is not None else None
+        result['query_observed']=any(fixture.query_observed.is_set() for fixture in fixtures)
         clean=all(item['cleanup_confirmed'] for item in cleanup) and (fixture is None or result['fixture']['cleanup_confirmed'])
         result['cleanup_confirmed']=clean
         if root is not None and clean:
             try:shutil.rmtree(root);result['work_removed']=True
             except Exception:result['cleanup_confirmed']=False
-        counts=(result['fixture'] or {}).get('counts')
-        clean_fixture=counts is not None and counts['matched_queries']>0 and counts['answers_sent']>0 and all(counts[key]==0 for key in ('rejected','oversized','send_failed')) and result['fixture']['error']=='none'
-        result['mechanism_positive']=result['mechanism_positive'] and clean_fixture and result['injected_pending_control'] and result['cleanup_confirmed'] and result['work_removed']
+        result['mechanism_positive']=any(case['positive'] for case in result['cases'].values()) and (result['fixture'] or {}).get('error')=='none' and result['injected_pending_control'] and result['cleanup_confirmed'] and result['work_removed']
         result['injected_pending_control']=result['injected_pending_control'] and result['cleanup_confirmed']
     return result
 

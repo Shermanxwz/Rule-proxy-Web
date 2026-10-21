@@ -71,31 +71,32 @@ bool Port(const wchar_t* value, unsigned short& port) {
 }
 const char* Bool(bool value) { return value ? "true" : "false"; }
 void Emit(DNS_STATUS apiStatus, const Context* context, bool apiCalled, bool pending,
-          unsigned count, bool answerMatch, bool freed) {
+          unsigned count, bool answerMatch, bool freed, bool cancelNull) {
     const std::string status = pending ? "null" : std::to_string(static_cast<DWORD>(context->result.QueryStatus));
     const std::string records = pending ? "null" : std::to_string(count);
     std::printf("{\"schema\":1,\"test_only\":true,\"request_version\":3,"
                 "\"custom_server_count\":1,\"custom_udp\":true,\"custom_flags_zero\":true,"
                 "\"legacy_server_list_null\":true,\"callback_null\":true,"
-                "\"api_called\":%s,\"pending\":%s,\"api_status\":%lu,\"result_status\":%s,"
+                "\"cancellation_handle_null\":%s,\"api_called\":%s,\"pending\":%s,\"api_status\":%lu,\"result_status\":%s,"
                 "\"record_count\":%s,\"answer_match\":%s,\"records_freed\":%s,"
                 "\"context_retained\":%s,\"runtime_acceptance\":false}\n",
-                Bool(apiCalled), Bool(pending), static_cast<unsigned long>(static_cast<DWORD>(apiStatus)),
+                Bool(cancelNull), Bool(apiCalled), Bool(pending), static_cast<unsigned long>(static_cast<DWORD>(apiStatus)),
                 status.c_str(), records.c_str(), Bool(answerMatch), Bool(freed),
                 Bool(pending && retainedPendingContext != nullptr));
     std::fflush(stdout);
 }
-[[noreturn]] void RetainPending(std::unique_ptr<Context> context, bool apiCalled) {
+[[noreturn]] void RetainPending(std::unique_ptr<Context> context, bool apiCalled, bool cancelNull) {
     retainedPendingContext = context.release();
-    Emit(DNS_REQUEST_PENDING, retainedPendingContext, apiCalled, true, 0, false, false);
+    Emit(DNS_REQUEST_PENDING, retainedPendingContext, apiCalled, true, 0, false, false, cancelNull);
     // Parent's exact-owned process timeout is the bound. Do not unwind/free any
     // request/result/custom-server/name/cancel storage as if completion occurred.
     for (;;) Sleep(INFINITE);
 }
 int Run(int argc, wchar_t** argv) {
     const bool injectedPending = argc == 2 && wcscmp(argv[1], L"--test-pending") == 0;
+    const bool cancelNull = argc == 4 && wcscmp(argv[1], L"--query-null-cancel") == 0;
     unsigned short port = 0;
-    if (!injectedPending && (argc != 4 || wcscmp(argv[1], L"--query") != 0 || !Nonce(argv[2]) || !Port(argv[3], port))) return 2;
+    if (!injectedPending && (argc != 4 || (wcscmp(argv[1], L"--query") != 0 && !cancelNull) || !Nonce(argv[2]) || !Port(argv[3], port))) return 2;
     auto context = std::make_unique<Context>();
     context->name = injectedPending ? L"00000000000000000000000000000000.n0a.invalid." : std::wstring(argv[2]) + L".n0a.invalid.";
     context->server.dwServerType = DNS_CUSTOM_SERVER_TYPE_UDP;
@@ -118,9 +119,9 @@ int Run(int argc, wchar_t** argv) {
     context->request.cCustomServers = 1;
     context->request.pCustomServers = &context->server;
     context->result.Version = DNS_QUERY_RESULTS_VERSION1;
-    if (injectedPending) RetainPending(std::move(context), false);
-    const DNS_STATUS status = DnsQueryEx(reinterpret_cast<PDNS_QUERY_REQUEST>(&context->request), &context->result, &context->cancel);
-    if (status == DNS_REQUEST_PENDING) RetainPending(std::move(context), true);
+    if (injectedPending) RetainPending(std::move(context), false, false);
+    const DNS_STATUS status = DnsQueryEx(reinterpret_cast<PDNS_QUERY_REQUEST>(&context->request), &context->result, cancelNull ? nullptr : &context->cancel);
+    if (status == DNS_REQUEST_PENDING) RetainPending(std::move(context), true, cancelNull);
     unsigned count = 0;
     bool answer = false;
     for (PDNS_RECORD record = context->result.pQueryRecords; record != nullptr; record = record->pNext) {
@@ -139,7 +140,7 @@ int Run(int argc, wchar_t** argv) {
         DnsRecordListFree(context->result.pQueryRecords, DnsFreeRecordList);
         context->result.pQueryRecords = nullptr;
     }
-    Emit(status, context.get(), true, false, count, answer, freed);
+    Emit(status, context.get(), true, false, count, answer, freed, cancelNull);
     return 0; // Completed observation, never a network/isolation acceptance verdict.
 }
 }

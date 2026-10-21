@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('dns_request3_gate',ROOT/'.github/test_windows_dns_request3.py')
 g=importlib.util.module_from_spec(spec);spec.loader.exec_module(g)
 def report(pending=False):
-    return dict(schema=1,test_only=True,request_version=3,custom_server_count=1,custom_udp=True,custom_flags_zero=True,legacy_server_list_null=True,callback_null=True,api_called=not pending,pending=pending,api_status=9506 if pending else 0,result_status=None if pending else 0,record_count=None if pending else 1,answer_match=not pending,records_freed=not pending,context_retained=pending,runtime_acceptance=False)
+    return dict(schema=1,test_only=True,request_version=3,custom_server_count=1,custom_udp=True,custom_flags_zero=True,legacy_server_list_null=True,callback_null=True,api_called=not pending,pending=pending,api_status=9506 if pending else 0,result_status=None if pending else 0,record_count=None if pending else 1,answer_match=not pending,records_freed=not pending,context_retained=pending,runtime_acceptance=False,cancellation_handle_null=False)
 def raw(value):return json.dumps(value).encode()
 class Contracts(unittest.TestCase):
     def test_native_completed_and_injected_pending_exact_shape(self):
@@ -97,9 +97,11 @@ class ChildTests(unittest.TestCase):
             with self.assertRaises(ValueError):c.wait(g.time.monotonic()+1)
             with self.assertRaises(ValueError):g.read_bounded(c.path)
 class CompositionTests(unittest.TestCase):
-    def exercise(self, *, api_error=False, unknown=False, nrpt=b'NRPT_EMPTY'):
+    def exercise(self, *, api_error=False, unknown=False, nrpt=b'NRPT_EMPTY', baseline_pending=False, statuses=None):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
         fixture=Mock();fixture.start.return_value=45000;fixture.query_observed.is_set.return_value=True
+        fixture.snapshot.side_effect=lambda **kwargs:dict(fixture.counts)
+        fixture.counts=dict(datagrams=0,bytes=0,matched_queries=0,answers_sent=0,rejected=0,oversized=0,send_failed=0);fixture.error='none'
         fixture.finish.return_value=dict(cleanup_confirmed=not unknown,counts=dict(matched_queries=1,answers_sent=1,rejected=0,oversized=0,send_failed=0),error='none')
         module=Mock();module.DnsFixture.return_value=fixture
         spec=Mock();spec.loader.exec_module=lambda value:None
@@ -107,11 +109,15 @@ class CompositionTests(unittest.TestCase):
         class FakeChild:
             def __init__(self,root,name):self.name=name;self.path=root/(name+'.out');self.process=Mock();self.process.returncode=0;children.append(self)
             def start(self,argv):
-                value=report(self.name=='pending')
-                if api_error and self.name=='query':value.update(api_status=9003,result_status=9003,record_count=0,answer_match=False,records_freed=False)
+                self.argv=argv
+                value=report(self.name=='pending' or (baseline_pending and self.name=='baseline'));value['cancellation_handle_null']=self.name=='null_cancel'
+                if statuses and self.name in statuses and statuses[self.name]!=0:value.update(api_status=statuses[self.name],result_status=statuses[self.name],record_count=0,answer_match=False,records_freed=False)
+                if api_error and self.name in ('baseline','null_cancel'):value.update(api_status=9003,result_status=9003,record_count=0,answer_match=False,records_freed=False)
                 self.path.write_bytes(nrpt if self.name=='nrpt' else raw(value)+b'\n')
-                self.process.poll.return_value=None if self.name=='pending' else 0
-            def wait(self,deadline,**kwargs):return self.name!='pending'
+                if self.name in ('baseline','null_cancel') and not (statuses and statuses.get(self.name,0)!=0):
+                    fixture.counts['matched_queries']+=1;fixture.counts['answers_sent']+=1
+                self.process.poll.return_value=None if self.name=='pending' or (baseline_pending and self.name=='baseline') else 0
+            def wait(self,deadline,**kwargs):return self.name!='pending' and not (baseline_pending and self.name=='baseline')
             def finish(self,deadline):return dict(exited=not unknown,killed=self.name=='pending',handles_closed=not unknown,cleanup_confirmed=not unknown)
         # Patch the module's OS reference rather than global os.name (Path uses it).
         with patch.object(g,'os',Mock(name='nt')) as fake_os,patch.object(g,'verify',return_value=True),patch.object(g,'Child',FakeChild),patch.object(g.tempfile,'mkdtemp',return_value=str(Path(temp.name)/'owned')),patch.object(g.importlib.util,'spec_from_file_location',return_value=spec),patch.object(g.importlib.util,'module_from_spec',return_value=module):
@@ -121,13 +127,33 @@ class CompositionTests(unittest.TestCase):
     def test_actual_shaped_positive_and_injected_pending_are_separate(self):
         result,fixture,children=self.exercise()
         self.assertTrue(result['mechanism_positive']);self.assertTrue(result['injected_pending_control'])
-        self.assertEqual(len(children),3);self.assertTrue(result['work_removed'])
+        self.assertEqual(len(children),4);self.assertTrue(result['work_removed'])
         self.assertFalse(result['runtime_acceptance']);self.assertFalse(result['broker_cancellation_proven'])
     def test_api_error_and_cleanup_unknown_do_not_erase_query_observation(self):
         for kwargs in (dict(api_error=True),dict(unknown=True)):
             result,_,_=self.exercise(**kwargs)
             self.assertTrue(result['query_observed']);self.assertFalse(result['mechanism_positive'])
             if kwargs.get('unknown'):self.assertFalse(result['work_removed']);self.assertFalse(result['cleanup_confirmed'])
+    def test_controlled_87_then_success_and_both87_no_fallback(self):
+        for null_status in (0,87):
+            result,_,children=self.exercise(statuses={'baseline':87,'null_cancel':null_status})
+            baseline=result['cases']['baseline'];null=result['cases']['null_cancel']
+            self.assertEqual(baseline['api_report']['api_status'],87)
+            self.assertEqual(baseline['receiver_delta']['matched_queries'],0);self.assertFalse(baseline['positive'])
+            self.assertEqual(null['api_report']['api_status'],null_status)
+            self.assertEqual(null['receiver_delta']['matched_queries'],int(null_status==0))
+            self.assertEqual(result['mechanism_positive'],null_status==0)
+            self.assertEqual([c.name for c in children],['nrpt','baseline','null_cancel','pending'])
+    def test_pair_same_endpoint_nonce_fresh_children_and_no_second_after_pending(self):
+        result,fixture,children=self.exercise()
+        self.assertEqual(children[1].argv[2:],children[2].argv[2:])
+        self.assertEqual(children[1].argv[1],'--query');self.assertEqual(children[2].argv[1],'--query-null-cancel')
+        fixture.start.assert_called_once_with()
+        for case in result['cases'].values():self.assertEqual(case['receiver_delta']['matched_queries'],1)
+        result,_,children=self.exercise(baseline_pending=True)
+        self.assertEqual(len(children),2);self.assertNotIn('null_cancel',result['cases']);self.assertEqual(result['failure'],'pair_incomplete')
+        result,_,children=self.exercise(unknown=True)
+        self.assertEqual(len(children),2);self.assertNotIn('null_cancel',result['cases'])
     def test_nrpt_present_prevents_socket_or_api_start(self):
         result,fixture,children=self.exercise(nrpt=b'NRPT_PRESENT')
         self.assertEqual(result['failure'],'nrpt');self.assertEqual(len(children),1);fixture.start.assert_not_called()
