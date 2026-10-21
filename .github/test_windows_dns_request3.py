@@ -354,18 +354,72 @@ def run_describe(actor, manifest):
     return result
 
 
+PREFLIGHT_SCRIPT = "$ErrorActionPreference='Stop'; try { $p=@(Get-NetUDPEndpoint -ErrorAction Stop | Where-Object {$_.LocalPort -eq 53} | Select-Object -First 2); [Console]::Write('UDP53_COUNT_'+[string]$p.Count) } catch { $kind=$_.Exception.GetType().Name; if($kind -notin @('CimException','CimJobException','CommandNotFoundException','UnauthorizedAccessException')){$kind='other'}; [Console]::Write('UDP53_ENUMERATION_ERROR_'+$kind); exit 2 }"
+
+
+def preflight_token(raw):
+    if type(raw) is not bytes or len(raw)>MAX_REPORT:raise ValueError('bound')
+    counts={b'UDP53_COUNT_0':0,b'UDP53_COUNT_1':1,b'UDP53_COUNT_2':2}
+    if raw in counts:
+        count=counts[raw]
+        return dict(status='empty' if count==0 else 'present',matches_capped_at_two=count,enumeration_error_class=None)
+    errors={('UDP53_ENUMERATION_ERROR_'+name).encode('ascii'):name for name in ('CimException','CimJobException','CommandNotFoundException','UnauthorizedAccessException','other')}
+    if raw in errors:return dict(status='enumeration_error',matches_capped_at_two=None,enumeration_error_class=errors[raw])
+    raise ValueError('preflight_token')
+
+
+def run_preflight_only(actor,manifest):
+    deadline=time.monotonic()+BUDGET
+    result=dict(schema=1,mode='port_preflight_only',diagnostics_complete=False,
+                enumeration_success=False,status='unobserved',matches_capped_at_two=None,enumeration_error_class=None,
+                wait_completed=False,timed_out=False,child_exit_code=None,report_parse_valid=False,
+                cleanup_confirmed=False,work_removed=False,failure='none',api_called=False,
+                bind_attempted=False,runtime_acceptance=False)
+    root=None;child=None
+    try:
+        if os.name!='nt':raise ValueError('platform')
+        verify(actor,manifest)
+        root=Path(tempfile.mkdtemp(prefix='dns-preflight-'))
+        child=Child(root,'preflight')
+        child.start(['powershell.exe','-NoProfile','-NonInteractive','-Command',PREFLIGHT_SCRIPT])
+        ended=child.wait(min(deadline-10,time.monotonic()+5))
+        result['wait_completed']=ended;result['timed_out']=not ended
+        code=child.process.poll()
+        if integer(code,-2**31,2**31-1):result['child_exit_code']=code
+        try:
+            result.update(preflight_token(read_bounded(child.path)));result['report_parse_valid']=True
+        except ValueError:result['status']='parse_unknown'
+        result['enumeration_success']=ended and code==0 and result['report_parse_valid'] and result['status'] in ('empty','present')
+        result['diagnostics_complete']=ended and result['report_parse_valid']
+    except Exception as exc:
+        allowed={'platform','output_bound','artifact','manifest','pin','sdk','headers'}
+        result['failure']=str(exc) if type(exc) is ValueError and str(exc) in allowed else 'operation'
+    finally:
+        if child is not None:
+            try:result['child_cleanup']=child.finish(deadline)
+            except Exception:result['child_cleanup']=dict(exited=False,killed=False,handles_closed=False,cleanup_confirmed=False)
+            result['cleanup_confirmed']=result['child_cleanup']['cleanup_confirmed']
+        else:result['cleanup_confirmed']=True
+        if root is not None and result['cleanup_confirmed']:
+            try:shutil.rmtree(root);result['work_removed']=True
+            except Exception:result['cleanup_confirmed']=False
+        result['diagnostics_complete']=result['diagnostics_complete'] and result['cleanup_confirmed'] and result['work_removed']
+    return result
+
+
 def main():
     parser=argparse.ArgumentParser();modes=parser.add_mutually_exclusive_group(required=True)
     modes.add_argument('--run-actual-windows',action='store_true')
     modes.add_argument('--run-no-query-diagnostics',action='store_true')
     modes.add_argument('--run-port-pair',action='store_true')
+    modes.add_argument('--run-port-preflight-only',action='store_true')
     parser.add_argument('--actor',type=Path,required=True);parser.add_argument('--manifest',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     try:
-        result=(run_describe if args.run_no_query_diagnostics else run_port_pair if args.run_port_pair else run)(args.actor.resolve(),args.manifest.resolve())
+        result=(run_preflight_only if args.run_port_preflight_only else run_describe if args.run_no_query_diagnostics else run_port_pair if args.run_port_pair else run)(args.actor.resolve(),args.manifest.resolve())
         raw=json.dumps(result,sort_keys=True,separators=(',',':'))
         args.output.write_text(raw+'\n',encoding='ascii');print(raw)
-        return 0 if result['diagnostics_complete' if args.run_no_query_diagnostics else 'mechanism_positive'] else 1
+        return 0 if result['diagnostics_complete' if args.run_no_query_diagnostics or args.run_port_preflight_only else 'mechanism_positive'] else 1
     except Exception:
         print('{"schema":1,"failure":"output","mechanism_positive":false,"runtime_acceptance":false}')
         return 1

@@ -18,13 +18,19 @@ The separate `--run-no-query-diagnostics` mode does not run either API case. A n
 
 The mechanism sections below do not describe work performed by the no-query mode.
 
-## Current explicit-port differential candidate
+## Prior explicit-port differential candidate
 
-The workflow now selects only `--run-port-pair`: an owned ephemeral high port versus an explicitly supplied port 53. The same synthetic nonce, request options and non-null cancellation pointer are used, with fresh caller processes/contexts. This tests only the explicit-port hypothesis; it does not select a default resolver, alter DNS settings, or imply ordinary-user or isolation acceptance.
+The `--run-port-pair` candidate compares an owned ephemeral high port versus an explicitly supplied port 53. The same synthetic nonce, request options and non-null cancellation pointer are used, with fresh caller processes/contexts. This tests only the explicit-port hypothesis; it does not select a default resolver, alter DNS settings, or imply ordinary-user or isolation acceptance.
 
 Before either API call, the candidate must establish that all UDP port-53 endpoints are absent, exclusively bind its owned `127.0.0.1:53` responder, and privately verify that the only resulting port-53 endpoint is that exact address and owned process. Busy or unknown inventory, bind failure or ambiguous ownership means no API attempt. Raw endpoint/PID inventory is not published. Per-case waits remain at most 15 seconds inside the single existing 60-second deadline; baseline pending, timeout or uncertain completion/exit prevents the second call. Both receiver sockets are owned before either case starts, and both receivers are observed before and after each case. Unexpected activity at the other receiver prevents a positive mechanism result; `pair_complete` requires both cases to have observed completion and confirmed cleanup. Each receiver has a 32-datagram handling quota and bounded reads. Receiver observations do not prove independent DNS-broker identity.
 
 Both case results must be retained. If both return 87, the port differential has not resolved the failure and closes this hypothesis without fallback or another unreviewed query variant. This candidate requires its own reviewed actual gate result; pure tests do not establish API eligibility or successful DNS exchange. The exact marker, 5/8-minute job bounds and no-artifact/no-VM limits are unchanged.
+
+## Current read-only port-preflight diagnostic
+
+The attempted explicit-port pair stopped at preflight admission, before any DNS API call. The previous result does not distinguish occupied port 53 from an inventory error; neither cause is assumed. No API denial or port-hypothesis result was established.
+
+The workflow now selects only `--run-port-preflight-only`. It executes the existing unfiltered `Get-NetUDPEndpoint` enumeration, filters port 53 and caps observations at two. Only closed empty/present/enumeration-error/parse-unknown/unobserved status, a count class of 0/1/2-or-more or null, and bounded wait, parse, exit and owned-cleanup facts may be published. The single PowerShell child wait is at most 5 seconds inside the unchanged 60-second overall budget. Enumeration errors additionally expose only the fixed exception-family labels `CimException`, `CimJobException`, `CommandNotFoundException`, `UnauthorizedAccessException` or `other`; success uses null and unknown families use `other`. This family observation does not identify the underlying CIM cause; no category, raw message or fully qualified error identifier is emitted. It does not select a different filtering API based on an unproven cause. There is no native-actor execution, NRPT query, responder, bind, DNS request, setting change or automatic port-pair retry. The retained compile step is source/build validation only. Existing job budgets and the no-artifact boundary remain unchanged. A successful read-only diagnostic describes inventory visibility, not DNS eligibility or isolation.
 
 ## Isolation from production and external services
 

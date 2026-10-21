@@ -1,4 +1,4 @@
-name: DNS REQUEST3 standalone SDK explicit-port mechanism gates
+name: DNS REQUEST3 standalone read-only port inventory diagnostics
 on:
   push:
     branches: [dot/windows-isolation-proof]
@@ -53,11 +53,11 @@ jobs:
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
           ./.github/build_windows_n0a_dns_fixture.ps1 -OutputDirectory "$PWD/dns-TEST-ONLY-build" -ExpectedSourceSha256 0e58e0f77c7cdddf8a18a0289960d2eb3f238c490f89ba94d35fd4e08b37cb70
-      - name: Explicit owned high-port versus port-53 mechanism, not isolation
+      - name: Read-only port-53 inventory, no DNS query or bind
         timeout-minutes: 2
         shell: pwsh
         run: |
-          python -B .github/test_windows_dns_request3.py --run-port-pair --actor "$PWD/dns-TEST-ONLY-build/windows_n0a_DNS_TEST_ONLY_fixture.exe" --manifest "$PWD/dns-TEST-ONLY-build/DNS-TEST-ONLY-manifest.json" --output "$PWD/dns-mechanism-public.json"
+          python -B .github/test_windows_dns_request3.py --run-port-preflight-only --actor "$PWD/dns-TEST-ONLY-build/windows_n0a_DNS_TEST_ONLY_fixture.exe" --manifest "$PWD/dns-TEST-ONLY-build/DNS-TEST-ONLY-manifest.json" --output "$PWD/dns-mechanism-public.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Required cross-platform standalone tests
         shell: pwsh

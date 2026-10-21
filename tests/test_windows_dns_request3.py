@@ -259,4 +259,55 @@ class PortPairTests(unittest.TestCase):
         for pid in (True,'1234',0,-1):
             with self.assertRaises(ValueError):g.ownership_script(True,pid)
 
+class PreflightOnlyTests(unittest.TestCase):
+    def test_exact_pipeline_retained_and_tokens_closed(self):
+        pipeline='Get-NetUDPEndpoint -ErrorAction Stop | Where-Object {$_.LocalPort -eq 53} | Select-Object -First 2'
+        self.assertIn(pipeline,g.ownership_script(False,1234));self.assertIn(pipeline,g.PREFLIGHT_SCRIPT)
+        self.assertNotIn('SilentlyContinue',g.PREFLIGHT_SCRIPT)
+        for count in range(3):self.assertEqual(g.preflight_token(('UDP53_COUNT_'+str(count)).encode())['matches_capped_at_two'],count)
+        self.assertEqual(g.preflight_token(b'UDP53_ENUMERATION_ERROR_other')['status'],'enumeration_error')
+        for value in (b'',b'UDP53_ENUMERATION_ERROR_PRIVATE',b'UDP53_ENUMERATION_ERROR',b'UDP53_COUNT_3',b'UDP53_COUNT_0\n',b'PRIVATE',b'x'*4097):
+            with self.assertRaises(ValueError):g.preflight_token(value)
+    def test_error_class_allowlist_never_emits_raw_exception_name(self):
+        for name in ('CimException','CimJobException','CommandNotFoundException','UnauthorizedAccessException','other'):
+            result=g.preflight_token(('UDP53_ENUMERATION_ERROR_'+name).encode())
+            self.assertEqual(result['enumeration_error_class'],name)
+        self.assertIsNone(g.preflight_token(b'UDP53_COUNT_0')['enumeration_error_class'])
+        self.assertIn("$kind='other'",g.PREFLIGHT_SCRIPT)
+        self.assertNotIn('.Message',g.PREFLIGHT_SCRIPT);self.assertNotIn('FullyQualifiedErrorId',g.PREFLIGHT_SCRIPT)
+    def exercise(self,raw_output,exit_code,ended=True,clean=True):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'owned';root.mkdir();calls=[]
+            class FakeChild:
+                def __init__(self,root,name):self.path=root/'preflight.out';self.process=Mock();self.process.poll.return_value=exit_code
+                def start(self,argv):calls.append(argv);self.path.write_bytes(raw_output)
+                def wait(self,deadline):return ended
+                def finish(self,deadline):return dict(exited=clean,killed=not ended,handles_closed=clean,cleanup_confirmed=clean)
+            with patch.object(g,'os',Mock()) as fakeos,patch.object(g,'verify',return_value=True),patch.object(g,'Child',FakeChild),patch.object(g.tempfile,'mkdtemp',return_value=str(root)),patch.object(g.importlib.util,'module_from_spec',side_effect=AssertionError('fixture')):
+                fakeos.name='nt';result=g.run_preflight_only(Path('actor'),Path('manifest'))
+            self.assertEqual(len(calls),1);self.assertEqual(calls[0][0],'powershell.exe');self.assertEqual(calls[0][-1],g.PREFLIGHT_SCRIPT)
+            self.assertFalse(result['api_called']);self.assertFalse(result['bind_attempted']);self.assertNotIn('PRIVATE',json.dumps(result))
+            self.assertEqual(root.exists(),not clean)
+            return result
+    def test_successful_zero_nonzero_and_capped_counts_do_not_bind(self):
+        for count in range(3):
+            result=self.exercise(('UDP53_COUNT_'+str(count)).encode(),0)
+            self.assertTrue(result['enumeration_success']);self.assertTrue(result['diagnostics_complete'])
+            self.assertEqual(result['matches_capped_at_two'],count);self.assertEqual(result['status'],'empty' if count==0 else 'present')
+    def test_error_timeout_nonzero_parse_unknown_and_cleanup_distinct(self):
+        result=self.exercise(b'UDP53_ENUMERATION_ERROR_other',2)
+        self.assertEqual(result['status'],'enumeration_error');self.assertEqual(result['child_exit_code'],2);self.assertTrue(result['diagnostics_complete']);self.assertFalse(result['enumeration_success'])
+        result=self.exercise(b'UDP53_COUNT_0',7)
+        self.assertFalse(result['enumeration_success']);self.assertEqual(result['child_exit_code'],7)
+        result=self.exercise(b'PRIVATE',0)
+        self.assertEqual(result['status'],'parse_unknown');self.assertFalse(result['diagnostics_complete'])
+        result=self.exercise(b'',None,ended=False)
+        self.assertTrue(result['timed_out']);self.assertIsNone(result['child_exit_code']);self.assertFalse(result['enumeration_success'])
+        result=self.exercise(b'UDP53_COUNT_1',0,clean=False)
+        self.assertEqual(result['matches_capped_at_two'],1);self.assertFalse(result['diagnostics_complete']);self.assertFalse(result['cleanup_confirmed'])
+    def test_cli_preflight_only_does_not_dispatch_other_modes(self):
+        import io
+        with patch('sys.argv',['gate','--run-port-preflight-only','--actor','a','--manifest','m','--output','o']),patch.object(g,'run',side_effect=AssertionError()),patch.object(g,'run_describe',side_effect=AssertionError()),patch.object(g,'run_port_pair',side_effect=AssertionError()),patch.object(g,'run_preflight_only',return_value=dict(diagnostics_complete=True)) as run,patch.object(Path,'write_text'),patch('sys.stdout',io.StringIO()):
+            self.assertEqual(g.main(),0);run.assert_called_once()
+
 if __name__=='__main__':unittest.main()

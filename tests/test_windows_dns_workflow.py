@@ -63,7 +63,7 @@ class DnsWorkflowTests(unittest.TestCase):
         self.assertIn('build_windows_n0a_dns_fixture.ps1',self.text)
         self.assertIn('dns-TEST-ONLY-build/windows_n0a_DNS_TEST_ONLY_fixture.exe',self.text)
         self.assertIn('dns-TEST-ONLY-build/DNS-TEST-ONLY-manifest.json',self.text)
-        self.assertIn('--run-port-pair',self.text)
+        self.assertIn('--run-port-preflight-only',self.text)
         self.assertNotIn('--run-actual-windows',self.text)
         self.assertIn('--actor',self.text)
         self.assertIn('--output',self.text)
@@ -103,15 +103,17 @@ class DnsWorkflowTests(unittest.TestCase):
                      'same existing 60-second overall budget','Both cases returned 87'):
             self.assertIn(fact,doc)
 
-    def test_workflow_selects_only_explicit_port_pair(self):
+    def test_workflow_selects_only_read_only_port_inventory(self):
         command=next(line.strip() for line in self.text.splitlines()
                      if 'python -B .github/test_windows_dns_request3.py ' in line)
-        self.assertIn('--run-port-pair',command)
-        for forbidden in ('--run-actual-windows','--run-no-query-diagnostics','--query','--query-null-cancel','--test-pending'):
+        self.assertIn('--run-port-preflight-only',command)
+        for forbidden in ('--run-port-pair','--run-actual-windows','--run-no-query-diagnostics','--query','--query-null-cancel','--test-pending'):
             self.assertNotIn(forbidden,command)
         doc=(ROOT/'docs/validation/2026-10-21-dns-request3-mechanism.md').read_text()
         for fact in ('provenance-only','No resolver request','does not identify the cause',
-                     'Both cases returned 87','all UDP port-53 endpoints','both return 87'):
+                     'Both cases returned 87','all UDP port-53 endpoints','both return 87',
+                     'stopped at preflight admission','occupied port 53 from an inventory error',
+                     'no native-actor execution','automatic port-pair retry'):
             self.assertIn(fact,doc)
 
     def test_standard_port_mode_is_fixed_not_arbitrary_low_port(self):
