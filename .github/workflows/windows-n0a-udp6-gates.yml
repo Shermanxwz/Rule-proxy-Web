@@ -1,0 +1,110 @@
+name: Direct IPv6 UDP standalone mechanics and pure contracts
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths:
+      - '.github/native/windows_n0a_udp6_actor.cpp'
+      - '.github/native/windows_n0a_udp6_fixture.cpp'
+      - '.github/build_windows_n0a_udp6_actor.ps1'
+      - '.github/build_windows_n0a_udp6_fixture.ps1'
+      - '.github/windows_n0a_udp6.py'
+      - '.github/windows_n0a_udp6_packet.py'
+      - '.github/test_windows_n0a_udp6.py'
+      - '.github/workflows/windows-n0a-udp6-gates.yml'
+      - 'docs/validation/2026-10-21-direct-udp6-mechanism.md'
+      - 'tests/test_windows_n0a_udp_actor.py'
+      - 'tests/test_windows_client_n0a_udp.py'
+      - 'tests/test_windows_n0a_udp_gate.py'
+      - 'tests/test_windows_client_n0a_udp_packet.py'
+      - 'tests/test_windows_n0a_udp_workflow.py'
+      - 'tests/test_windows_client_n0a_udp_guest.py'
+      - 'tests/test_windows_client_n0a_udp_flow.py'
+      - 'tests/test_windows_client_n0a_udp_host.py'
+      - 'tests/test_windows_client_n0a_udp_capture_adapter.py'
+      - 'tests/test_windows_udp_guest_transport.py'
+      - 'tests/test_windows_udp_payload.py'
+      - 'tests/test_windows_udp_flow_composed.py'
+      - 'tests/test_windows_n0a_actor.py'
+      - 'tests/test_windows_client_n0a_control.py'
+      - 'tests/test_windows_n0a_workflow.py'
+      - 'tests/test_windows_client_n0a_adapter.py'
+      - 'tests/test_windows_client_n0a_host.py'
+      - 'tests/test_windows_client_n0a_flow.py'
+      - 'tests/test_windows_client_n0a_capture_adapter.py'
+      - 'tests/test_windows_client_n0a_packet.py'
+      - 'tests/test_windows_n0a_guest.py'
+      - 'tests/test_windows_client_direct_stage0.py'
+      - 'tests/test_windows_client_direct_guest.py'
+      - 'tests/test_windows_client_direct_actor_projection.py'
+      - 'tests/test_windows_client_direct_workflow.py'
+      - 'tests/test_windows_n0a_udp_parent_actor.py'
+      - 'tests/test_windows_n0a_udp_parent_gate.py'
+      - 'tests/test_windows_n0a_udp_parent_workflow.py'
+      - 'tests/test_windows_client_n0a_udp_parent_host.py'
+      - 'tests/test_windows_client_n0a_udp_parent_capture_adapter.py'
+      - 'tests/test_windows_udp_parent_guest_transport.py'
+      - 'tests/test_windows_udp_parent_composed.py'
+      - 'tests/test_windows_udp_parent_guest.py'
+      - 'tests/test_windows_n0a_udp6_actor.py'
+      - 'tests/test_windows_client_n0a_udp6.py'
+      - 'tests/test_windows_n0a_udp6_gate.py'
+      - 'tests/test_windows_client_n0a_udp6_packet.py'
+      - 'tests/test_windows_n0a_udp6_workflow.py'
+permissions:
+  contents: read
+concurrency:
+  group: n0a-udp6-gates-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  pure:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-udp6-gates]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Required UDP6 and unchanged regression contracts
+        run: |
+          python3 -m pip install --disable-pip-version-check "PyYAML==6.0.3"
+          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py', 'test_windows_n0a_udp6_actor.py', 'test_windows_client_n0a_udp6.py', 'test_windows_n0a_udp6_gate.py', 'test_windows_client_n0a_udp6_packet.py', 'test_windows_n0a_udp6_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+  native-mechanism:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-udp6-gates]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Parse separate UDP6 build helpers
+        shell: powershell
+        run: |
+          foreach ($name in @('actor','fixture')) {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/build_windows_n0a_udp6_$name.ps1"),[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw 'UDP6 build syntax rejected' }
+          }
+      - name: Compile pinned production and separate TEST_ONLY fixture
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC unavailable' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_n0a_udp6_actor.ps1 -OutputDirectory "$PWD/udp6-production-build" -ExpectedActorSha256 887bb6ae89061892dcae4d5e57056c82e2c72ede87ee307da63eedec2ad073c4 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          ./.github/build_windows_n0a_udp6_fixture.ps1 -OutputDirectory "$PWD/udp6-TEST-ONLY-build" -ExpectedActorSha256 887bb6ae89061892dcae4d5e57056c82e2c72ede87ee307da63eedec2ad073c4 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553 -ExpectedFixtureSha256 efe071937764cda5cc4c1387e53cf4a482ae942b168705cea7fd330a6cfce889
+      - name: Required UDP6 and unchanged regression contracts
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check "PyYAML==6.0.3"
+          if ($LASTEXITCODE -ne 0) { throw 'yaml_test_dependency_install_failed' }
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py', 'test_windows_n0a_udp6_actor.py', 'test_windows_client_n0a_udp6.py', 'test_windows_n0a_udp6_gate.py', 'test_windows_client_n0a_udp6_packet.py', 'test_windows_n0a_udp6_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          if ($LASTEXITCODE -ne 0) { throw 'UDP6 required tests failed' }
+      - name: Owned IPv6 loopback mechanics and cleanup
+        shell: pwsh
+        run: |
+          python -B .github/test_windows_n0a_udp6.py --run-actual-windows --production-actor udp6-production-build/windows_n0a_udp6_actor.exe --production-manifest udp6-production-build/N0A-UDP6-manifest.json --fixture-actor udp6-TEST-ONLY-build/windows_n0a_UDP6_TEST_ONLY_fixture.exe --fixture-manifest udp6-TEST-ONLY-build/UDP6-TEST-ONLY-manifest.json --output udp6-mechanism-public.json
+          if ($LASTEXITCODE -ne 0) { throw 'UDP6 owned mechanism failed' }

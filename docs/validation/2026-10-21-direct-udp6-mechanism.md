@@ -1,0 +1,58 @@
+# Standalone IPv6 UDP mechanism and pure packet contracts
+
+This first slice adds separate UDP6 files only. It does not modify the existing
+IPv4 TCP/UDP actors, identity observer, policy, descendant experiment, capture
+lifecycle, guest transport, or runtime workflows. It is not a VM experiment.
+
+## Native and hosted boundary
+
+The production actor has a fixed numeric `fec0::2` destination and high port.
+The compile-time TEST_ONLY fixture instead targets owned `::1` only. Both use
+`AF_INET6` datagrams, set and read back `IPV6_V6ONLY=1`, request exclusive binding,
+and use fresh nonblocking sockets. There is no IPv4, DNS, address-search, or
+default-route fallback. Production identity/profile checks precede Winsock and
+socket use. The unchanged identity source supplies those observations.
+
+The private frame is `N0AU6 <nonce> <phase> <index>\n`, at most 128 bytes. Three
+selected attempts use the bounded three-second window; ordinary before, sample,
+and after phases retain their separately bounded schedules. Send acceptance is
+only local API acceptance, not delivery. Exact echoed payload and receiver
+observations are separate. A successful API call does not establish isolation.
+
+Hosted Windows executes production only with an invalid CLI. A separate fixture
+profile-only entry observes the actual hosted token without networking. All
+actual network mechanics use the TEST_ONLY binary and an exclusively owned
+IPv6-only loopback responder. A fixture phase named contained is not PSEC.
+Unsupported IPv6 or a setup failure is a failed/inconclusive mechanism, not a
+reason to fall back. No raw identities, private endpoint data or packet files
+are uploaded. The new marker-only workflow uses standard five/eight-minute jobs.
+
+## Pure manifest and decoder
+
+The separate versioned UDP6 manifest binds the fixed runner IPv6 destination,
+high port, scope zero, VM MAC, source pins and nonce/payload indices. Pure functions
+cannot authenticate those caller-supplied facts. Uninvoked unavailable ports and
+typed failed ordinary observations must not erase another bound positive; they
+prevent qualifying absence.
+
+The parser checks Ethernet, IPv6 and UDP lengths, with at most eight extension
+headers and 256 extension bytes. It does not reassemble fragments. Relevant
+fragment, opaque, unsupported or malformed chains prevent an absence conclusion.
+It does not authenticate AH, validate checksums, or map guest QPC to PCAP time.
+Fully observed selected payloads remain separate from later control, capture or
+cleanup failures. Ambiguous/reused ports cannot establish actor attribution.
+
+Future bounded absence requires complete capture through owned QEMU exit,
+ordinary guest-to-runner UDP6 payload calibration including a terminal witness,
+fresh trusted binding, all selected invocations, and confirmed cleanup. The
+existing IPv4 decoder's absence result is never reused for IPv6.
+
+## Unproven guest alias and next boundary
+
+Pinned QEMU defaults and upstream libslirp source suggest the existing user-mode
+network may map guest `fec0::2` to runner `::1`; this is feasibility evidence only.
+The actually linked libslirp provenance and ordinary guest reachability have not
+been observed. Hosted `::1` mechanics do not establish either. Any later guest
+integration needs those admissions without changing QEMU arguments, routes,
+addresses, firewall, DNS or policy. No descendant, proxy, DNS/broker, universal
+egress, Linux-equivalence or product-acceptance claim follows from this slice.
