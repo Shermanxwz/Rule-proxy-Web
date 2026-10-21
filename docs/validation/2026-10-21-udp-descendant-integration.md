@@ -1,4 +1,4 @@
-# Descendant UDP adapter — code-only, runtime OFF
+# Descendant UDP adapter — explicit activation, runtime evidence pending
 
 ## Narrow question
 
@@ -36,4 +36,4 @@ Bounded descendant UDP payload absence would require the fresh chain, all three 
 
 ## Gate boundary
 
-Before any activation decision, require actual-import producer→commitment→host-normalizer tests; partial-chain and sticky-observation negatives; absolute-QPC expired/frequency/overflow/startup-delay cases; exact 22-member ZIP→PowerShell extraction alongside legacy modes; bounded result/body composition; and cleanup uncertainty tests. This code-only workflow does not enable production artifact upload or a full guest run.
+Before any activation decision, require actual-import producer→commitment→host-normalizer tests; partial-chain and sticky-observation negatives; absolute-QPC expired/frequency/overflow/startup-delay cases; exact 22-member ZIP→PowerShell extraction alongside legacy modes; bounded result/body composition; and cleanup uncertainty tests. The short parent workflow remains no-upload/no-guest. Separately reviewed runtime wiring uses only the exclusive parent marker, production parent and unchanged child manifests, and the exact 22-member payload. Both binaries must be 512 bytes through 8 MiB before upload; actual payload and capture-capacity admission still occur before QEMU. Enabling the opt-in code and wiring is not evidence of an executed descendant run.

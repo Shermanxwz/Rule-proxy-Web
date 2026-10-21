@@ -43,7 +43,7 @@ class ParentWorkflowTests(unittest.TestCase):
             self.assertTrue(OLD['condition'](expr,marker))
             self.assertFalse(OLD['condition'](expr,marker,branch='refs/heads/main'))
             self.assertFalse(OLD['condition'](expr,marker,event='workflow_dispatch'))
-            for message in ('unrelated','[n0a-udp-gates]','[n0a-udp-runtime]','[n0a-capture-runtime]','[identity-direct-stage0-runtime]'):
+            for message in ('unrelated','[n0a-udp-gates]','[n0a-udp-runtime]','[n0a-capture-runtime]','[identity-direct-stage0-runtime]','[n0a-udp-parent-runtime]'):
                 self.assertFalse(OLD['condition'](expr,message))
         for file in ('windows-identity-direct-stage0.yml','windows-n0a-udp-gates.yml','windows-n0a-connect-gates.yml'):
             legacy=yaml.load((PATH.parent/file).read_text(),Loader=yaml.BaseLoader)

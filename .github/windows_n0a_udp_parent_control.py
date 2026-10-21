@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-EXECUTION_ENABLED=False
+EXECUTION_ENABLED=True
 PHASES=('before','sample','contained','after')
 def udp():
     name='parent_udp_flow_dependency'

@@ -133,8 +133,8 @@ class ParentComposed(unittest.TestCase):
                     wrapper=dict(schema_version=4,parent_udp=envelope,flow_commitment=commit)
                     maximum=max(maximum,len(f.encode(wrapper)))
         self.assertLessEqual(maximum,4096)
-    def test_default_off_no_work(self):
-        self.assertFalse(c.EXECUTION_ENABLED)
-        with patch.object(g,'configuration',side_effect=AssertionError):self.assertIsNone(g.run('unused',1,1))
+    def test_explicit_activation_and_disabled_no_work(self):
+        self.assertTrue(c.EXECUTION_ENABLED)
+        with patch.object(c,'EXECUTION_ENABLED',False),patch.object(g,'configuration',side_effect=AssertionError):self.assertIsNone(g.run('unused',1,1))
 
 if __name__=='__main__':unittest.main()
