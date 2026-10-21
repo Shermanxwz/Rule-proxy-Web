@@ -151,26 +151,30 @@ class N0aDirectWorkflowTests(unittest.TestCase):
             if candidate.is_file():bash=str(candidate)
         self.assertIsNotNone(bash,'Actual Bash fixture required; no skipped coverage')
         with tempfile.TemporaryDirectory(prefix='n0a-shell-fixture-') as directory:
-            root=Path(directory);output=root/'argv.bin'
+            root=Path(directory);output=root/'argv.bin';cwd_output=root/'cwd.bin'
             for name,body in [('date', '#!/bin/sh\nprintf 1000\n'), ('timeout', '#!/bin/sh\nprintf \'%s\\0\' "$@" > "$CAPTURE_ARGV"\n')]:
                 path=root/name;path.write_bytes(body.encode('ascii'));path.chmod(0o700)
             logical_root=('/'+root.drive[0].lower()+root.as_posix()[2:]) if os.name=='nt' else root.as_posix()
             env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,
                      CAPTURE_SOURCE_COMMIT=commit,GITHUB_SHA=github_sha,
-                     CAPTURE_ARGV=output.as_posix(),FIXTURE_BIN=logical_root)
-            source='export PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\nactor='+('b'*64)+'\n'+script
+                     CAPTURE_ARGV=output.as_posix(),CAPTURE_CWD=cwd_output.as_posix(),FIXTURE_BIN=logical_root)
+            source='export PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\ntest "$PWD" -ef "$FIXTURE_BIN"\nprintf \'%s\' "$PWD" > "$CAPTURE_CWD"\nactor='+('b'*64)+'\n'+script
             result=subprocess.run([bash,'-euo','pipefail','-c',source],cwd=root,env=env,
                                   stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=5)
             # Do not expose actual private argv/paths on fixture failure.
             args=output.read_bytes().split(b'\0')[:-1] if output.exists() else None
-            return result.returncode,[a.decode() for a in args] if args is not None else None,logical_root
+            with cwd_output.open('rb') as stream:canonical=stream.read(4097)
+            self.assertTrue(0<len(canonical)<=4096,'Owned shell cwd bound')
+            canonical=canonical.decode('utf-8','strict')
+            self.assertTrue(canonical.startswith('/') and '\x00' not in canonical,'Owned shell cwd shape')
+            return result.returncode,[a.decode() for a in args] if args is not None else None,canonical
 
     def test_actual_capture_shell_source_binding_and_old_argv(self):
         sha='a'*40
         for capture,n0a in [('false','false'),('false','true'),('true','true')]:
             code,args,root=self.capture_shell(capture,n0a,sha,sha)
             self.assertEqual(code,0);self.assertIsNotNone(args)
-            self.assertEqual(args[:4],['--signal=TERM','--kill-after=30s','1000s','sudo'])
+            self.assertTrue(args[:4]==['--signal=TERM','--kill-after=30s','1000s','sudo'],'Closed timeout/sudo prefix mismatch')
             expected=['/usr/bin/python3','-B','.github/windows_identity_direct_stage0.py',
                       '--approved-disposable-vm','--python-archive',root+'/client-stage0-python/python-3.14.8-embed-amd64.zip',
                       '--actor',root+'/client-stage0-actor/windows_identity_actor.exe','--actor-sha256','b'*64,
@@ -178,7 +182,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
                       '--job-deadline-epoch','2000']
             if n0a=='true':expected+=['--n0a','--n0a-actor',root+'/n0a-production-build/windows_n0a_actor.exe','--n0a-manifest',root+'/n0a-production-build/build-manifest.json']
             if capture=='true':expected=['/usr/bin/env','GITHUB_SHA='+sha]+expected+['--n0a-capture-runner']
-            self.assertEqual(args[4:],expected)
+            self.assertTrue(args[4:]==expected,'Closed production argv mismatch')
         for commit,observed,n0a in [('',sha,'true'),('A'*40,'A'*40,'true'),('a'*39,'a'*39,'true'),('a'*41,'a'*41,'true'),(sha,'c'*40,'true'),(sha,'','true'),(sha,sha,'false')]:
             code,args,_=self.capture_shell('true',n0a,commit,observed)
             self.assertNotEqual(code,0);self.assertIsNone(args)
