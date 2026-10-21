@@ -95,3 +95,48 @@ is compile-time only, never a production command-line bypass. Its output and
 manifest must be distinct and excluded from actor artifacts and guest payloads;
 it must not replace the production digest or build outputs. Those fixture
 positives are not genuine ordinary-token or PSEC enforcement evidence.
+
+## Opt-in adapter design (code-only, runtime disabled)
+
+The original IdentityOnly executable, original Stage0 result and 16 KiB transport
+remain separate. In the opt-in path the launcher starts one 120-second monotonic
+work budget before the original child, delivers the original result first, then
+runs a separate N0a controller only with remaining work time minus a 20-second
+cleanup/transport reserve. It passes the absolute same-guest QPC deadline and
+frequency; startup cannot renew the budget. Non-opt-in behavior is unchanged.
+
+The existing original-result POST has its own prior bounded transport behavior.
+If work is exhausted, no N0a child or probe starts; one reporting-only POST may
+spend at most 10 seconds delivering `work_budget_exhausted`. This is not a new
+work budget. The total protocol is therefore not claimed to finish in 120 seconds.
+The host retains the original receipt immediately and waits for the independent
+N0a receipt only until the earlier of its unchanged outer work deadline or
+120 seconds after the original receipt. Missing optional evidence is inconclusive,
+not a reason to erase original diagnostics or wait the entire VM budget.
+
+The N0a public transport has a separate 4096-byte cap; private actor reports keep
+their 32 KiB cap. Host validation binds the expected fresh case nonce, exact
+production executable/manifest/source hashes and build; exported evidence removes
+nonce and private identities. The seed/config root is ordinary-user writable,
+not SYSTEM-protected. No new ACL or privilege claim is made.
+
+Contained PID correlation uses only the pinned executor's dedicated `--log-file`
+structured `mxc.ProcessExited` event. The verified one-shot path waits the actual
+child handle, queries its exit code, and writes that JSON event in one logger
+call. The exact backend/tier/identity are `processcontainer`, `base-container`,
+and `redacted`. Identity is not a per-run nonce. The fresh bounded log lives
+outside actor filesystem grants and is not among its explicit inherited stdio
+handles. Exactly one valid event must match the fresh native report PID and
+must differ from the G launcher PID. No console-parser fallback is permitted.
+
+This is `executor_handle_derived_correlation`, not an independently retained
+controller child handle or independent PSEC cleanup proof. Signed nonzero child
+exit can still correlate an already observed successful connection; exit zero
+is additionally required for `observed_connect_denial`. G's own exit is separate.
+Malformed, missing or duplicate correlation cannot be repaired using actor PID
+alone. Raw event/log/PID content remains private.
+
+Only the production N0a executable and its two-source build manifest are eligible
+for a future explicit opt-in artifact. The current short pure workflow uploads
+nothing and starts no VM. Future direct N0a runtime/upload branches remain
+explicitly disabled; mixed old-direct and N0a runtime markers are rejected.

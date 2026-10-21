@@ -75,13 +75,18 @@ class DirectStage0Tests(unittest.TestCase):
         direct=functions(ROOT/'.github/windows_identity_direct_stage0.py');original=functions(ROOT/'.github/windows_identity_serviced_stage0.py')
         for name in ('cleanup_owned','new_teardown_facts','teardown_error','exit_observation','observe_qmp_closed','EarlyGuestSerial','parse_early_guest','observe_guest_serial','VMWatchdog'):
             if name in original:self.assertEqual(direct[name],original[name],name)
-        # Serviced now additionally owns the advisory monitor reader. Direct
-        # keeps the reviewed pre-telemetry teardown, pinned instead of silently
-        # inheriting that route-specific cleanup extension.
+        # The opt-in N0a endpoint adds only an owned-cleanup branch. Strip
+        # that reviewed branch/optional parameter and retain the exact original
+        # pre-telemetry direct teardown source pin for all off-mode semantics.
         import hashlib
         source=(ROOT/'.github/windows_identity_direct_stage0.py').read_text()
         node=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and n.name=='finalize_owned')
-        self.assertEqual(hashlib.sha256(ast.get_source_segment(source,node).encode()).hexdigest(),
+        segment=ast.get_source_segment(source,node)
+        segment=segment.replace(', n0a_endpoint=None):', '):',1)
+        start=segment.index('    if n0a_endpoint is not None:')
+        end=segment.index('    for process in owned:',start)
+        segment=segment[:start]+segment[end:]
+        self.assertEqual(hashlib.sha256(segment.encode()).hexdigest(),
             '1e19ed83ba1fa7cbe73a4bcf82dd9efb2c2317abf22c72a555153c43e4e9c7a2')
     def diagnostic(self):
         return dict(schema=1,phase='installed_boot_gate',operation='gate',failure_category='installed_boot_gate',hresult=None,gates={k:None for k in host.EARLY_GATES})

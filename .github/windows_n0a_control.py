@@ -226,7 +226,9 @@ def contained_binding_verified(value, binding):
     actor = bound_actor(value,binding)
     if actor is None or not native_identity(actor,binding,'contained'): return False
     network = actor.get('n0a')
-    if type(network) is not dict or network.get('profileMatched') is not True: return False
+    if (type(network) is not dict or network.get('profileMatched') is not True
+            or value.get('pid_verified') is not True or value.get('pid_binding')!='executor_audit'
+            or not integer(value.get('child_exit_code'),-0x80000000,0x7fffffff)): return False
     proof = proof_helpers()
     return (type(value.get('probe_exit_code')) is int and value['probe_exit_code'] == 0
             and proof.smoke.base_container_selected(value.get('probe'),value['probe_exit_code'])
@@ -240,7 +242,8 @@ def invocation_valid(value, binding, endpoint, role, pattern):
             or value.get('timed_out') is not False or value.get('harness_error') is not False
             or not native_identity(value['actor'],binding,role) or not network['profileMatched'] or network['startupError'] != 0): return None
     if role == 'contained':
-        if not contained_binding_verified(value,binding): return None
+        if not contained_binding_verified(value,binding) or value['child_exit_code']!=0: return None
+    elif value.get('pid_verified') is not True or value.get('pid_binding')!='ordinary_handle': return None
     return network
 
 
@@ -424,3 +427,127 @@ class NonceEndpoint:
         stopped=self.thread is None or not self.thread.is_alive()
         return {'socket_cleanup_confirmed':okay,'endpoint_error':self.error,
                 'receiver_counts':dict(self.counts) if stopped else None}
+
+# Dedicated pinned-G audit stream, never merged actor stdout.
+MAX_AUDIT = 128*1024
+MAX_N0A_REPORT = 4096
+AUDIT_FIELDS = {'event','backend','identity','tier','pid','exit_code'}
+LAUNCHER_PHASES = ('not_started','configuration','budget','python_start','python_wait','report_read','report_parse','completed','transport')
+LAUNCHER_FAILURES = ('none','original_unavailable','original_transport','configuration','budget','spawn','timeout','process_exit','report_absent','report_bound','report_parse','operation_failed','work_budget_exhausted')
+EXECUTION_PHASES = ('not_started','disabled','configuration','binding','endpoint','guest','runner','cleanup','completed')
+
+
+def audit_exit(data, actor_pid, executor_pid):
+    if (type(data) is not bytes or len(data)>MAX_AUDIT or not integer(actor_pid,1,0xffffffff)
+            or not integer(executor_pid,1,0xffffffff) or actor_pid==executor_pid): return None
+    try: text=data.decode('utf-8','strict')
+    except UnicodeError: return None
+    candidates=[]
+    for line in text.split('\n'):
+        match=re.fullmatch(r'\[([0-9]{1,20})\] (\{.*\})',line)
+        if match is None:
+            if 'mxc.ProcessExited' in line:return None
+            continue
+        try: event=json.loads(match[2],object_pairs_hook=unique_object)
+        except (ValueError,TypeError,RecursionError):
+            if 'ProcessExited' in line:return None
+            continue
+        if type(event) is not dict or event.get('event')!='mxc.ProcessExited':continue
+        if (int(match[1])>0xffffffffffffffff or set(event)!=AUDIT_FIELDS
+                or event['backend']!='processcontainer' or event['identity']!='redacted' or event['tier']!='base-container'
+                or not integer(event['pid'],1,0xffffffff)
+                or not integer(event['exit_code'],-0x80000000,0x7fffffff)): return None
+        candidates.append(event)
+    if len(candidates)!=1 or candidates[0]['pid']!=actor_pid: return None
+    return {'pid_verified':True,'pid_binding':'executor_audit','child_exit_code':candidates[0]['exit_code']}
+
+
+def safe_argument(value):
+    value=str(value)
+    if any(character in value for character in '\r\n\0'): raise ValueError('unsafe diagnostic argument')
+    return value
+
+
+def closed_result(value):
+    template=evaluate({},None)
+    if type(value) is not dict or set(value)!=set(template): raise ValueError('N0a result shape')
+    for key,expected in template.items():
+        if key in ('status','endpoints'): continue
+        if type(value[key]) is not type(expected) or value[key]!=expected: raise ValueError('N0a scope differs')
+    if type(value['endpoints']) is not dict or set(value['endpoints'])!=set(ENDPOINTS): raise ValueError('N0a endpoints')
+    endpoints={}
+    for name in ENDPOINTS:
+        row=value['endpoints'][name]; base=template['endpoints'][name]
+        if type(row) is not dict or set(row)!=set(base): raise ValueError('N0a endpoint shape')
+        if row['status'] not in ('inconclusive','connect_succeeded','observed_connect_denial'): raise ValueError('N0a status')
+        if any(type(row[key]) is not bool for key in ('profile_verified','controls_verified','window_overlap_verified','connect_success_observed')):
+            raise ValueError('N0a endpoint flags')
+        if not integer(row['explicit_denials'],0,3): raise ValueError('N0a count')
+        if row['status']=='connect_succeeded' and not (row['profile_verified'] and row['connect_success_observed']): raise ValueError('N0a failure attribution')
+        if row['status']=='observed_connect_denial' and not (row['profile_verified'] and row['controls_verified'] and row['window_overlap_verified']
+                and row['explicit_denials']==3 and not row['connect_success_observed']): raise ValueError('N0a denial prerequisites')
+        endpoints[name]=dict(row)
+    statuses=[row['status'] for row in endpoints.values()]
+    status='connect_succeeded' if 'connect_succeeded' in statuses else ('observed_connect_denial' if statuses==['observed_connect_denial']*2 else 'inconclusive')
+    if value['status']!=status: raise ValueError('N0a aggregate differs')
+    template.update(status=status,endpoints=endpoints)
+    return template
+
+
+def closed_receiver(value):
+    if type(value) is not dict or set(value)!={'socket_cleanup_confirmed','endpoint_error','receiver_counts'}: raise ValueError('receiver shape')
+    if any(type(value[key]) is not bool for key in ('socket_cleanup_confirmed','endpoint_error')): raise ValueError('receiver flags')
+    counts=value['receiver_counts']; keys={'accepted','ordinary_verified_frames','contained_verified_frames','rejected','timed_out'}
+    if counts is not None:
+        if type(counts) is not dict or set(counts)!=keys or any(not integer(v,0,128) for v in counts.values()): raise ValueError('receiver counters')
+        if counts['ordinary_verified_frames']+counts['contained_verified_frames']>counts['accepted']: raise ValueError('receiver count consistency')
+        if counts['rejected']>counts['accepted'] or counts['timed_out']>counts['accepted']: raise ValueError('receiver count consistency')
+    return {'socket_cleanup_confirmed':value['socket_cleanup_confirmed'],'endpoint_error':value['endpoint_error'],
+            'receiver_counts':None if counts is None else dict(counts)}
+
+
+def default_host_n0a(reason='report_absent'):
+    return {'schema_version':1,'experiment':'N0a-connect','receipt_verified':False,
+            'reason':reason if reason in LAUNCHER_FAILURES else 'operation_failed',
+            'result':evaluate({},None),'execution':{'phase':'not_started','failed':True,'cleanup_confirmed':False},
+            'receiver':{'socket_cleanup_confirmed':False,'endpoint_error':False,'receiver_counts':None},
+            'launcher':{'phase':'not_started','failure':'report_absent','python_exit_code':None,
+                        'process_exit_confirmed':None,'timed_out':False,'budget_exhausted':False}}
+
+
+def validate_host_n0a_envelope(value, expected):
+    from ruleproxy.windows_runtime_pins import MXC_G_EXECUTOR_SHA256
+    if type(value) is not dict or set(value)!={'schema_version','case_nonce','actor_sha256','report','launcher'}: raise ValueError('N0a envelope')
+    if len(json.dumps(value,ensure_ascii=True).encode('ascii'))>MAX_N0A_REPORT: raise ValueError('N0a wire bound')
+    if (type(value['schema_version']) is not int or value['schema_version']!=1
+            or value['case_nonce']!=expected['case_nonce'] or value['actor_sha256']!=expected['actor_sha256']): raise ValueError('N0a outer provenance')
+    launcher=value['launcher']; keys=set(default_host_n0a()['launcher'])
+    if (type(launcher) is not dict or set(launcher)!=keys or launcher['phase'] not in LAUNCHER_PHASES
+            or launcher['failure'] not in LAUNCHER_FAILURES
+            or (launcher['python_exit_code'] is not None and not integer(launcher['python_exit_code'],-0x80000000,0x7fffffff))
+            or (launcher['process_exit_confirmed'] is not None and type(launcher['process_exit_confirmed']) is not bool)
+            or any(type(launcher[k]) is not bool for k in ('timed_out','budget_exhausted'))): raise ValueError('N0a launcher')
+    result=default_host_n0a(launcher['failure']);result['launcher']=dict(launcher)
+    report=value['report']
+    if report is None: return result
+    if type(report) is not dict or set(report)!={'schema_version','binding','result','execution','receiver'}: raise ValueError('N0a inner report')
+    binding={'case_nonce':expected['case_nonce'],'actor_sha256':expected['actor_sha256'],
+             'executor_sha256':MXC_G_EXECUTOR_SHA256,'build':26300,'ubr':9457}
+    if type(report['schema_version']) is not int or report['schema_version']!=1 or report['binding']!=binding: raise ValueError('N0a observed binding')
+    execution=report['execution']
+    if (type(execution) is not dict or set(execution)!={'phase','failed','cleanup_confirmed'}
+            or execution['phase'] not in EXECUTION_PHASES or type(execution['failed']) is not bool
+            or type(execution['cleanup_confirmed']) is not bool): raise ValueError('N0a execution')
+    result.update(receipt_verified=True,reason='none',result=closed_result(report['result']),
+                  execution=dict(execution),receiver=closed_receiver(report['receiver']))
+    if result['result']['status']!='connect_succeeded' and (execution['failed'] or not execution['cleanup_confirmed']
+            or not result['receiver']['socket_cleanup_confirmed'] or result['receiver']['endpoint_error']
+            or result['receiver']['receiver_counts'] is None
+            or result['receiver']['receiver_counts']['ordinary_verified_frames']<5
+            or result['receiver']['receiver_counts']['contained_verified_frames']!=0
+            or launcher['failure']!='none' or launcher['python_exit_code']!=0 or launcher['process_exit_confirmed'] is not True
+            or launcher['timed_out'] or launcher['budget_exhausted']):
+        result['result']['status']='inconclusive'
+        for row in result['result']['endpoints'].values():
+            if row['status']=='observed_connect_denial':row['status']='inconclusive'
+    return result

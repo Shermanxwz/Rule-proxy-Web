@@ -5,6 +5,10 @@ on:
     branches: [dot/windows-isolation-proof]
     paths:
       - '.github/windows_identity_direct_stage0.py'
+      - '.github/windows_n0a_control.py'
+      - '.github/windows_n0a_guest.py'
+      - '.github/native/windows_n0a_actor.cpp'
+      - '.github/build_windows_n0a_actor.ps1'
       - '.github/windows_identity_stock_stage0.py'
       - '.github/windows-identity-direct-stage0-*.ps1'
       - '.github/workflows/windows-identity-direct-stage0.yml'
@@ -20,7 +24,7 @@ permissions:
 jobs:
   compile:
     # Keep the exact experimental branch and explicit runtime intent checks.
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]')) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]')) }}
     runs-on: windows-2025
     timeout-minutes: 10
     steps:
@@ -67,6 +71,28 @@ jobs:
           }
           python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_direct*.py'); assert s.countTestCases() >= 7, 'Direct test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build production-only N0a actor for a future explicit opt-in
+        if: ${{ contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC unavailable' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_n0a_actor.ps1 -OutputDirectory "$PWD/n0a-production-build" -ExpectedSourceSha256 33a276721db4d46bd79f47fabd3bb5b8e126e1a8c259280e690b8dd2caaea465 -ExpectedIdentitySourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          python -B -m unittest discover -s tests -p 'test_windows*n0a*.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        # Disabled until a separate exact-tree N0a runtime decision.
+        if: ${{ false && contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        with:
+          name: n0a-connect-production-actor
+          path: |
+            n0a-production-build/windows_n0a_actor.exe
+            n0a-production-build/build-manifest.json
+          retention-days: 7
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7
         with:
           name: client-stage0-actor
@@ -77,7 +103,7 @@ jobs:
           if-no-files-found: error
   host-unit:
     # Pure Linux host tests are separate: native capacity is measured fresh.
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]')) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -95,7 +121,7 @@ jobs:
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
   native:
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]')) || (false && contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]'))) }}
     needs: [compile, host-unit]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -222,6 +248,11 @@ jobs:
         with:
           name: client-stage0-actor
           path: client-stage0-actor
+      - uses: actions/download-artifact@v8
+        if: ${{ contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        with:
+          name: n0a-connect-production-actor
+          path: n0a-production-build
       - name: Remaining absolute budget for step 5
         id: stock_budget_5
         timeout-minutes: 1
@@ -314,17 +345,23 @@ jobs:
           echo "deadline=$(( $(date +%s) + minutes * 60 - 30 ))" >> "$GITHUB_OUTPUT"
       - name: Run one exact exploratory direct ordinary-user Stage0 in the disposable client
         timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
+        env:
+          N0A_REQUESTED: ${{ contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
         run: |
           /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase pre_vm \
             --output "$RUNNER_TEMP/identity-direct-capacity/preparation-public.json"
           actor=$(cat client-stage0-actor/actor-sha256.txt)
+          n0a_args=()
+          if [ "$N0A_REQUESTED" = "true" ]; then
+            n0a_args=(--n0a --n0a-actor "$PWD/n0a-production-build/windows_n0a_actor.exe" --n0a-manifest "$PWD/n0a-production-build/build-manifest.json")
+          fi
           STOCK_HOST_DEADLINE=${{ steps.stock_budget_8.outputs.deadline }}
           remaining=$(( STOCK_HOST_DEADLINE - $(date +%s) ))
           test "$remaining" -ge 300
           exec timeout --signal=TERM --kill-after=30s "${remaining}s" sudo /usr/bin/python3 -B .github/windows_identity_direct_stage0.py \
             --approved-disposable-vm --python-archive "$PWD/client-stage0-python/python-3.14.8-embed-amd64.zip" \
             --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 "$actor" \
-            --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 6600 --job-deadline-epoch "$STOCK_HOST_DEADLINE"
+            --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 6600 --job-deadline-epoch "$STOCK_HOST_DEADLINE" "${n0a_args[@]}"
       - uses: actions/upload-artifact@v7
         if: always()
         timeout-minutes: 2
@@ -339,6 +376,14 @@ jobs:
         with:
           name: windows-11-direct-ordinary-stage0-public
           path: client-stage0-public/public-report.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        timeout-minutes: 2
+        with:
+          name: n0a-connect-exploratory-public
+          path: client-stage0-public/n0a-connect-public.json
           retention-days: 14
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7

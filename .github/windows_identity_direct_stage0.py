@@ -472,7 +472,105 @@ def record_breadcrumb(public, name, work, disk, deadline):
     except OSError: pass  # Diagnostic transport must not change runtime acceptance.
 
 
-def payload(python_archive, actor, actor_digest, bundle, destination):
+MAX_N0A_REPORT = 4096
+
+
+def n0a_helpers():
+    name = 'identity_n0a_control_host'
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, ROOT / '.github/windows_n0a_control.py')
+        module = importlib.util.module_from_spec(spec); sys.modules[name] = module
+        try: spec.loader.exec_module(module)
+        except Exception:
+            sys.modules.pop(name, None); raise
+    return sys.modules[name]
+
+
+def verify_n0a_inputs(actor, manifest):
+    def bounded(path, maximum):
+        path = Path(path)
+        info = path.lstat()
+        if path.is_symlink() or not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= maximum:
+            raise ValueError('bounded regular N0a input required')
+        data = path.read_bytes()
+        if len(data) != info.st_size: raise ValueError('N0a input changed')
+        return data
+    actor_data = bounded(actor, 8 * 1024**2)
+    if len(actor_data) < 512 or Path(actor).suffix.lower() != '.exe': raise ValueError('bounded native N0a executable required')
+    manifest_data = bounded(manifest, 8192)
+    value = json.loads(manifest_data, object_pairs_hook=n0a_helpers().unique_object)
+    fields = {'schemaVersion','sourceSha256','identitySourceSha256','executableSha256',
+              'targetArchitecture','staticCrt','httpCompiled','rawTcpCompiled','compileOnly',
+              'testOnly','actorRole','builtAtUtc'}
+    if type(value) is not dict or set(value) != fields: raise ValueError('N0a production manifest shape')
+    source_digest = hashlib.sha256(bounded(ROOT / '.github/native/windows_n0a_actor.cpp', 128*1024)).hexdigest()
+    identity_digest = hashlib.sha256(bounded(ROOT / '.github/native/windows_identity_actor.cpp', 128*1024)).hexdigest()
+    digest = hashlib.sha256(actor_data).hexdigest()
+    if (type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
+            or value['sourceSha256'] != source_digest or value['identitySourceSha256'] != identity_digest
+            or value['executableSha256'] != digest or value['targetArchitecture'] != 'x64'
+            or value['staticCrt'] is not True or value['httpCompiled'] is not False
+            or value['rawTcpCompiled'] is not True or value['compileOnly'] is not True
+            or value['testOnly'] is not False or value['actorRole'] != 'n0a-tcp'
+            or type(value['builtAtUtc']) is not str or not 1 <= len(value['builtAtUtc']) <= 64):
+        raise ValueError('N0a production provenance differs')
+    return {'actor': Path(actor), 'manifest': Path(manifest),
+            'config': {'enabled': True, 'case_nonce': secrets.token_hex(16), 'runner_port': None,
+                       'actor_sha256': digest, 'manifest_sha256': hashlib.sha256(manifest_data).hexdigest(),
+                       'actor_source_sha256': source_digest, 'identity_source_sha256': identity_digest}}
+
+
+def n0a_wait_deadline(server, outer_deadline):
+    observed = getattr(server, 'original_received_at', None)
+    return min(outer_deadline, observed + 120) if type(observed) in (int, float) else outer_deadline
+
+
+def wait_for_n0a(server, deadline, watch, disk, qemu, public):
+    # Only called after the independent original receipt was merged. The
+    # optional deadline can shorten, never replace/extend the native deadline.
+    while not server.n0a_received.wait(.2):
+        if watch.reason: raise RuntimeError(watch.reason)
+        if disk.stat().st_size >= DISK_FILE_CAP - 64 * 1024**2:
+            public['capacity_abort'] = 'backing_file_ceiling_reached'; qemu.kill(); raise RuntimeError('file cap')
+        if qemu.poll() is not None: return 'qemu_exited'
+        if time.monotonic() >= n0a_wait_deadline(server, deadline): return 'deadline'
+    return 'received'
+
+
+def collect_n0a_result(server):
+    if server is not None and getattr(server, 'n0a_result', None) is not None:
+        return server.n0a_result
+    return n0a_helpers().default_host_n0a('report_absent')
+
+
+def compose_n0a_public(server, public, wait_state):
+    # The optional receipt is independent, but a denial conclusion also needs
+    # original guest provenance and confirmed owned endpoint/VM cleanup.
+    # Never mutate the separately stored receipt or hide attributed success.
+    result = json.loads(json.dumps(collect_n0a_result(server)))
+    result['original_stage0_receipt_verified'] = public.get('guest_result_provenance_verified') is True
+    result['host_receiver'] = public.get('n0a_receiver_cleanup')
+    result['vm_destroyed'] = public.get('vm_destroyed') is True
+    result['host_wait_state'] = wait_state
+    receiver = result['host_receiver']
+    complete = (result['original_stage0_receipt_verified'] and result['vm_destroyed']
+                and isinstance(receiver, dict)
+                and receiver.get('socket_cleanup_confirmed') is True
+                and receiver.get('endpoint_error') is False
+                and isinstance(receiver.get('receiver_counts'), dict)
+                and set(receiver['receiver_counts']) == {'accepted', 'ordinary_verified_frames', 'contained_verified_frames', 'rejected', 'timed_out'}
+                and all(type(value) is int and 0 <= value <= 128 for value in receiver['receiver_counts'].values())
+                and receiver['receiver_counts']['ordinary_verified_frames'] >= 5
+                and receiver['receiver_counts']['contained_verified_frames'] == 0)
+    if not complete and result['result']['status'] != 'connect_succeeded':
+        result['result']['status'] = 'inconclusive'
+        for endpoint in result['result']['endpoints'].values():
+            if endpoint['status'] == 'observed_connect_denial':
+                endpoint['status'] = 'inconclusive'
+    return result
+
+
+def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None):
     python_data = verify_python(python_archive)
     if actor.stat().st_size > 16 * 1024**2 or bundle.stat().st_size > 64 * 1024**2:
         raise ValueError('bounded payload inputs required')
@@ -501,12 +599,25 @@ def payload(python_archive, actor, actor_digest, bundle, destination):
                 archive.write(Path(temporary) / name, 'g/' + name)
             for name in GUEST_SOURCES:
                 archive.write(ROOT / name, name)
+            if n0a is not None:
+                # Recheck the byte pins immediately before packaging.
+                for key, member, pin in (('actor','n0a/actor.exe','actor_sha256'),
+                                          ('manifest','n0a/build-manifest.json','manifest_sha256')):
+                    content = n0a[key].read_bytes()
+                    if hashlib.sha256(content).hexdigest() != n0a['config'][pin]: raise ValueError('N0a packaged input changed')
+                    archive.writestr(member, content)
+                for name in ('.github/windows_n0a_control.py', '.github/windows_n0a_guest.py'):
+                    archive.write(ROOT / name, name)
     return hashlib.sha256(destination.read_bytes()).hexdigest()
 
 
 class ClosedServer(HTTPServer):
     # One synchronous handler, bounded request body, no disk writes.
-    def __init__(self, payload):
+    def __init__(self, payload, n0a_expected=None):
+        self.n0a_expected = n0a_expected
+        self.n0a_received = threading.Event()
+        self.n0a_result = None
+        self.original_received_at = None
         self.payload = payload
         self.capability = secrets.token_hex(32)
         self.received = threading.Event()
@@ -528,6 +639,8 @@ class ClosedHandler(BaseHTTPRequestHandler):
         with self.server.payload.open('rb') as source:
             shutil.copyfileobj(source, self.wfile, 65536)
     def do_POST(self):
+        if self.server.n0a_expected is not None and self.path == '/' + self.server.capability + '/n0a-result':
+            return self.do_n0a_POST()
         try:
             self.server.result_transport_state = 'endpoint_check'
             if self.path != '/' + self.server.capability + '/result': raise ValueError()
@@ -542,10 +655,27 @@ class ClosedHandler(BaseHTTPRequestHandler):
             self.server.result_transport_state = 'object_check'
             if not isinstance(value, dict): raise ValueError()
             self.server.result_transport_state = 'object_received'
+            if self.server.n0a_expected is not None and self.server.received.is_set():
+                self.send_error(409); return  # Original receipt is immutable in dual-POST mode.
             self.server.result = value
+            if self.server.n0a_expected is not None: self.server.original_received_at = time.monotonic()
             self.server.received.set()
             self.send_response(200); self.end_headers()
         except (ValueError, OSError): self.send_error(400)
+
+    def do_n0a_POST(self):
+        try:
+            if not self.server.received.is_set() or self.server.n0a_received.is_set():
+                self.send_error(409); return
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= MAX_N0A_REPORT: raise ValueError('N0a result bound')
+            raw = self.rfile.read(length)
+            if len(raw) != length: raise ValueError('N0a result incomplete')
+            value = json.loads(raw, object_pairs_hook=n0a_helpers().unique_object)
+            self.server.n0a_result = n0a_helpers().validate_host_n0a_envelope(value, self.server.n0a_expected)
+            self.server.n0a_received.set()
+            self.send_response(200); self.end_headers()
+        except (ValueError, TypeError, OSError): self.send_error(400)
 
 
 def limited_command(command, ceiling):
@@ -740,7 +870,7 @@ def cleanup_owned(media, work, qemu=None, tpm=None, qmp=None, server=None, threa
     return cleanup_ok and not live and facts['work_removed'] is True
 
 
-def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, watch=None):
+def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, watch=None, n0a_endpoint=None):
     facts = new_teardown_facts(); public['teardown_diagnostic'] = facts
     facts['qemu_present'] = qemu is not None; facts['tpm_present'] = tpm is not None
     for name, process in (('qemu', qemu), ('tpm', tpm)): exit_observation(process, facts, name, 'before')
@@ -762,6 +892,12 @@ def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=No
         except (OSError, subprocess.TimeoutExpired) as exc:
             teardown_uncertain = True; teardown_error(facts, 'process_stop', exc)
     retain_work = teardown_uncertain
+    if n0a_endpoint is not None:
+        try: endpoint_facts = n0a_endpoint.finish()
+        except Exception: endpoint_facts = {'socket_cleanup_confirmed': False, 'endpoint_error': True, 'receiver_counts': None}
+        public['n0a_receiver_cleanup'] = endpoint_facts
+        if endpoint_facts.get('socket_cleanup_confirmed') is not True:
+            retain_work = True; teardown_uncertain = True
     for process in owned:
         confirmed = exit_observation(process, facts, 'qemu' if process is qemu else 'tpm' if process is tpm else 'helper', 'after')
         retain_work = retain_work or not confirmed
@@ -939,6 +1075,8 @@ def download_direct_iso(iso, deadline):
 def host(args):
     if not EXECUTION_ENABLED:
         raise PermissionError('direct exploratory execution is disabled pending frozen review')
+    if getattr(args, 'n0a', False) and n0a_helpers().EXECUTION_ENABLED is not True:
+        raise PermissionError('N0a execution disabled pending separate review')
     if sys.platform != 'linux' or not args.approved_disposable_vm:
         raise PermissionError('explicit disposable VM approval required')
     media = load('identity_win11_media', ROOT / '.github/windows_vm_test.py')
@@ -950,7 +1088,8 @@ def host(args):
               'privacy_qualified': False, 'network_tested': False, 'vm_destroyed': False}
     available = min(args.timeout_seconds, args.job_deadline_epoch - time.time())
     if available < 300: raise TimeoutError('native job cleanup reserve unavailable')
-    qemu = tpm = server = thread = qmp = watch = None
+    qemu = tpm = server = thread = qmp = watch = n0a_endpoint = None
+    n0a = None; original_merged = False; n0a_wait_state = 'not_started'
     work = Path(tempfile.mkdtemp(prefix='identity-win11-private-')); work.chmod(0o700)
     old_handlers = {sig: signal.signal(sig, interrupted) for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGALRM)}
     deadline = time.monotonic() + available - 120
@@ -962,6 +1101,8 @@ def host(args):
     public['actor_sha256'] = args.actor_sha256
     phase = 'preflight'; operation = 'preflight'; disk = None
     try:
+        if getattr(args, 'n0a', False):
+            n0a = verify_n0a_inputs(args.n0a_actor, args.n0a_manifest)
         media.require_kvm()
         if shutil.disk_usage(work).free < PREMEDIA_FREE:
             raise RuntimeError('insufficient disposable storage; no host cleanup performed')
@@ -981,16 +1122,20 @@ def host(args):
         operation = 'payload_build'
         raw = work / 'private-reports'; raw.mkdir()
         package = work / 'payload.zip'
-        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package)
+        if n0a is not None:
+            n0a_endpoint = n0a_helpers().NonceEndpoint(n0a['config']['case_nonce'], 'runner', deadline)
+            n0a['config']['runner_port'] = n0a_endpoint.start()
+        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=n0a)
         if package.stat().st_size > MAX_PAYLOAD: raise ValueError('payload size cap')
         operation = 'result_server'
-        server = ClosedServer(package)
+        server = ClosedServer(package, n0a['config'] if n0a is not None else None)
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         operation = 'seed_build'
         tree = work / 'seed-tree'; tree.mkdir()
         config = {'host_url': f'http://10.0.2.2:{server.server_address[1]}/{server.capability}',
                   'payload_sha256': package_digest, 'python_sha256': PYTHON_ASSET['sha256'],
                   'actor_sha256': args.actor_sha256}
+        if n0a is not None: config['n0a'] = dict(n0a['config'])
         media.prepare_seed(tree, secrets.token_hex(16) + 'Ci!9', config)
         for role in ('setup', 'run'):
             shutil.copyfile(ROOT / f'.github/windows-identity-direct-stage0-{role}.ps1', tree / f'ruleproxy-vm-{role}.ps1')
@@ -1086,6 +1231,13 @@ def host(args):
         merge_direct_result(public, server.result, args.actor_sha256, installed_handoff)
         public['status'] = 'passed' if public['stage0_passed'] else 'observed_failure'
         phase = 'stage0_completed'
+        original_merged = True
+        # Original receipt is already preserved/validated before optional wait.
+        if n0a is not None:
+            # Persist the original closed receipt before waiting on optional work.
+            # vm_destroyed remains false until the existing final cleanup.
+            (args.output / 'public-report.json').write_text(json.dumps(public, indent=2)+'\n', encoding='ascii')
+            n0a_wait_state = wait_for_n0a(server, deadline, watch, disk, qemu, public)
     except VMWorkBudgetInsufficient as exc:
         public['stage0_passed'] = False
         public['host_failure'] = dict(closed_failure(exc), operation=operation)
@@ -1100,10 +1252,23 @@ def host(args):
         for sig in old_handlers: signal.signal(sig, signal.SIG_IGN)
         if server is not None:
             public['result_transport_state'] = getattr(server, 'result_transport_state', 'not_observed')
-        finalize_owned(public, media, work, qemu, tpm, qmp, server, thread, watch)
+        if n0a is not None and not original_merged and server is not None and server.received.is_set():
+            try:
+                merge_direct_result(public, server.result, args.actor_sha256, installed_handoff)
+                original_merged = True
+            except Exception: public['stage0_passed'] = False
+        finalize_owned(public, media, work, qemu, tpm, qmp, server, thread, watch, n0a_endpoint)
         if public['vm_destroyed']: record_breadcrumb(public, 'cleanup_done', work, disk, deadline)
         public['last_phase'] = phase
         (args.output / 'public-report.json').write_text(json.dumps(public, indent=2) + '\n', encoding='ascii')
+        if n0a is not None:
+            try:
+                n0a_public = compose_n0a_public(server, public, n0a_wait_state)
+                (args.output / 'n0a-connect-public.json').write_text(json.dumps(n0a_public, indent=2)+'\n', encoding='ascii')
+            except Exception:
+                # Never let optional diagnostic/report failure erase Stage0.
+                try: print(json.dumps({'n0a_report_write_failed': True}), flush=True)
+                except OSError: pass
         for sig, handler in old_handlers.items(): signal.signal(sig, handler)
     return 0 if public['stage0_passed'] and public['vm_destroyed'] else 1
 
@@ -1118,9 +1283,15 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True)
     for name in ('python-archive', 'actor', 'bundle'): parser.add_argument('--' + name, type=Path)
     parser.add_argument('--actor-sha256')
+    parser.add_argument('--n0a', action='store_true')
+    parser.add_argument('--n0a-actor', type=Path); parser.add_argument('--n0a-manifest', type=Path)
     parser.add_argument('--timeout-seconds', type=int, default=6600)
     parser.add_argument('--job-deadline-epoch', type=int)
     args = parser.parse_args(argv)
+    if args.n0a and (args.guest or args.download_python or args.check_preparation or args.check_apt_plan
+                      or not args.n0a_actor or not args.n0a_manifest):
+        parser.error('N0a requires explicit host inputs only')
+    if not args.n0a and (args.n0a_actor or args.n0a_manifest): parser.error('N0a inputs require explicit opt-in')
     if args.check_preparation or args.check_apt_plan:
         if args.guest or args.approved_disposable_vm or args.download_python or (args.check_preparation and args.check_apt_plan):
             parser.error('preparation checks cannot execute a guest, VM or download')

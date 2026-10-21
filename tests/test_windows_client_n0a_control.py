@@ -27,7 +27,7 @@ def report(endpoint,role,pattern,starts):
                startupError=0,endpoint=endpoint,role=role,pattern=pattern,profileMatched=True,
                windowStartQpc=starts[0],windowEndQpc=starts[-1]+2,qpcFrequency=1000,attempts=rows))
     return dict(nonce=B.nonce,actor_sha256=B.actor_sha256,executor_sha256=B.executor_sha256,build=26300,ubr=9457,
-                actor=actor,exit_code=0,timed_out=False,harness_error=False,actual_tiers=['base-container'],
+                actor=actor,pid_verified=True,pid_binding='executor_audit' if contained else 'ordinary_handle',child_exit_code=0,exit_code=0,timed_out=False,harness_error=False,actual_tiers=['base-container'],
                 probe_exit_code=0,probe={'tier':'base-container','needsDaclAugmentation':False,
                 'probes':{'baseContainerApiPresent':True},'error':None})
 

@@ -7,9 +7,17 @@ on:
       - '.github/build_windows_n0a_*.ps1'
       - '.github/test_windows_n0a_actor.py'
       - '.github/windows_n0a_control.py'
+      - '.github/windows_n0a_guest.py'
+      - '.github/windows_identity_direct_stage0.py'
+      - '.github/windows-identity-direct-stage0-run.ps1'
+      - '.github/test-windows-n0a-guest-gates.ps1'
+      - '.github/workflows/windows-identity-direct-stage0.yml'
       - '.github/workflows/windows-n0a-connect-gates.yml'
       - 'tests/test_windows_n0a_actor.py'
       - 'tests/test_windows_client_n0a_control.py'
+      - 'tests/test_windows_client_n0a_adapter.py'
+      - 'tests/test_windows_client_n0a_host.py'
+      - 'tests/test_windows_n0a_guest.py'
       - 'tests/test_windows_n0a_workflow.py'
 permissions:
   contents: read
@@ -26,9 +34,9 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
-      - name: Required standalone source and control tests, no runtime adapter
+      - name: Required source and adapter unit tests, no VM execution
         run: |
-          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_actor.py','test_windows_client_n0a_control.py','test_windows_n0a_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); suite=unittest.TestSuite(unittest.defaultTestLoader.discover('tests',pattern=n) for n in names); assert suite.countTestCases()>=30; result=unittest.TextTestRunner(verbosity=2).run(suite); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_actor.py','test_windows_client_n0a_control.py','test_windows_n0a_workflow.py','test_windows_client_n0a_adapter.py','test_windows_client_n0a_host.py','test_windows_n0a_guest.py','test_windows_client_direct_stage0.py','test_windows_client_direct_guest.py','test_windows_client_direct_actor_projection.py','test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); suite=unittest.TestSuite(parts); assert suite.countTestCases()>=43; result=unittest.TextTestRunner(verbosity=2).run(suite); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
   native-fixture:
     if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[n0a-connect-gates]') }}
     runs-on: windows-2025
@@ -46,6 +54,14 @@ jobs:
             [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/build_windows_n0a_$name.ps1"),[ref]$tokens,[ref]$errors) | Out-Null
             if ($errors.Count) { throw 'N0a build-helper syntax rejected' }
           }
+      - name: Actual PowerShell opt-in lifecycle and deadline fixture, no guest
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD '.github/windows-identity-direct-stage0-run.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count) { throw 'Direct guest syntax rejected' }
+          ./.github/test-windows-n0a-guest-gates.ps1
       - name: Build separate production and nondeployable fixture binaries, never execute
         shell: pwsh
         run: |
@@ -72,6 +88,6 @@ jobs:
       - name: Standalone source and evaluator unit tests
         shell: pwsh
         run: |
-          python -B -c "import pathlib,unittest; names=('test_windows_n0a_actor.py','test_windows_client_n0a_control.py','test_windows_n0a_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); suite=unittest.TestSuite(unittest.defaultTestLoader.discover('tests',pattern=n) for n in names); assert suite.countTestCases()>=30; result=unittest.TextTestRunner(verbosity=2).run(suite); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_actor.py','test_windows_client_n0a_control.py','test_windows_n0a_workflow.py','test_windows_client_n0a_adapter.py','test_windows_client_n0a_host.py','test_windows_n0a_guest.py','test_windows_client_direct_stage0.py','test_windows_client_direct_guest.py','test_windows_client_direct_actor_projection.py','test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); suite=unittest.TestSuite(parts); assert suite.countTestCases()>=43; result=unittest.TextTestRunner(verbosity=2).run(suite); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-# Intentionally no artifact upload, VM job, runtime adapter, account, or guest payload.
+# Intentionally no artifact upload, VM job, account creation, or guest deployment.
