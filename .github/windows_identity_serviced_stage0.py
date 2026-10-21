@@ -811,11 +811,20 @@ def cleanup_owned(media, work, qemu=None, tpm=None, qmp=None, server=None, threa
     return cleanup_ok and not live and facts['work_removed'] is True
 
 
-def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, watch=None):
+def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, watch=None, progress=None):
     facts = new_teardown_facts(); public['teardown_diagnostic'] = facts
     facts['qemu_present'] = qemu is not None; facts['tpm_present'] = tpm is not None
     for name, process in (('qemu', qemu), ('tpm', tpm)): exit_observation(process, facts, name, 'before')
     teardown_uncertain = False
+    facts['progress_reader_stopped'] = None; facts['progress_socket_closed'] = None
+    if progress is not None:
+        try: public['progress_advisory'] = progress.finish()
+        except Exception:
+            public['progress_advisory'] = {'unauthenticated':True,'complete':False,'disabled':True}
+        diagnostic = public['progress_advisory']
+        facts['progress_reader_stopped'] = diagnostic.get('reader_stopped') is True
+        facts['progress_socket_closed'] = diagnostic.get('socket_closed') is True
+        teardown_uncertain = not (facts['progress_reader_stopped'] and facts['progress_socket_closed'])
     registered = tuple(watch.processes) if watch is not None else ()
     owned = []
     for process in (qemu, tpm, *registered):
@@ -1267,6 +1276,188 @@ def observe_bootstrap(public, observer, chunk, tail, *, started, handed_off, plu
     return tail, not handed_off and 'RPBEACON identity-stock-installed-ready' in tail
 
 
+# COM2 is unauthenticated advisory telemetry, never proof or a control input.
+PROGRESS_STAGES = {
+    'system': ('entry','prior_valid','media_verified','initial_reboot_before','initial_reboot_returned',
+               'extra_reboot_before','extra_reboot_returned','completed','failed'),
+    'ordinary': ('entry','service_wait','report_attempt'),
+}
+PROGRESS_LINE = 256
+PROGRESS_CHUNK = 65536
+PROGRESS_FRAME = 98304
+PROGRESS_COUNT = 65535
+
+
+def progress_object(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value: raise ValueError('duplicate diagnostic key')
+        value[key] = item
+    return value
+
+
+def parse_progress(line):
+    if type(line) is not bytes or len(line) > PROGRESS_LINE or not line.startswith(b'RPS2 '): return None
+    try:
+        value = json.loads(line[5:].decode('ascii'), object_pairs_hook=progress_object)
+        if type(value) is not dict or set(value) != {'v','s','p','m','n','f'}: return None
+        if type(value['v']) is not int or value['v'] != 1: return None
+        role, stage = value['s'], value['p']
+        if type(role) is not str or role not in PROGRESS_STAGES or type(stage) is not str or stage not in PROGRESS_STAGES[role]: return None
+        for key, maximum in (('m',7),('n',1)):
+            if value[key] is not None and (type(value[key]) is not int or not 0 <= value[key] <= maximum): return None
+        if value['f'] is not None and (type(value['f']) is not str or value['f'] not in SERVICE_FAILURES or value['f'] == 'none'): return None
+        if stage in ('entry','service_wait'):
+            if any(value[k] is not None for k in ('m','n','f')): return None
+        if stage not in ('failed','report_attempt') and value['f'] is not None: return None
+        if stage not in ('extra_reboot_before','extra_reboot_returned','completed','failed','report_attempt') and value['m'] is not None: return None
+        return {key:value[key] for key in ('v','s','p','m','n','f')}
+    except (ValueError,UnicodeError,TypeError,RecursionError): return None
+
+
+class ProgressSerial:
+    def __init__(self):
+        self.tail = bytearray(); self.discarding = False
+        self.records = []; self.accepted = self.rejected = self.dropped = 0
+
+    def feed(self, chunk):
+        if type(chunk) is not bytes or len(chunk) > PROGRESS_CHUNK:
+            self.rejected = min(PROGRESS_COUNT,self.rejected+1); return
+        for byte in chunk:
+            if byte == 10:
+                if not self.discarding:
+                    line = bytes(self.tail).removesuffix(b'\r')
+                    value = parse_progress(line)
+                    if value is None: self.rejected = min(PROGRESS_COUNT,self.rejected+1)
+                    else:
+                        self.accepted = min(PROGRESS_COUNT,self.accepted+1)
+                        if len(self.records) < 32: self.records.append(value)
+                        else: self.dropped = min(PROGRESS_COUNT,self.dropped+1)
+                self.tail.clear(); self.discarding = False
+            elif not self.discarding:
+                if byte > 127 or len(self.tail) >= PROGRESS_LINE:
+                    self.rejected = min(PROGRESS_COUNT,self.rejected+1)
+                    self.tail.clear(); self.discarding = True
+                else: self.tail.append(byte)
+
+    def snapshot(self):
+        return {'unauthenticated':True,'complete':False,'records':[dict(v) for v in self.records],
+                'accepted':self.accepted,'rejected':self.rejected,'dropped':self.dropped}
+
+
+class ProgressQmp:
+    """Separate Unix monitor; fixed commands only, bounded absolute transactions."""
+    def __init__(self, path, work):
+        import socket
+        self.socket = None; self.buffer = bytearray(); self.sequence = 0
+        self.closed = False
+        try:
+            parent = work.lstat(); entry = path.lstat()
+            if (path.parent != work or work.is_symlink() or path.is_symlink() or
+                not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid() or parent.st_mode & 0o077 or
+                not stat.S_ISSOCK(entry.st_mode) or entry.st_uid != os.getuid()):
+                raise ValueError('owned diagnostic socket required')
+            self.socket = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+            self.socket.settimeout(.25); self.socket.connect(str(path))
+            greeting = self.read_frame(time.monotonic()+.25)
+            if type(greeting) is not dict or 'QMP' not in greeting: raise ValueError('diagnostic greeting')
+            self.command('qmp_capabilities')
+        except Exception:
+            self.close(); raise
+
+    def read_frame(self, deadline):
+        while True:
+            if b'\n' in self.buffer:
+                line, _, rest = self.buffer.partition(b'\n'); self.buffer = bytearray(rest)
+                if len(line) > PROGRESS_FRAME: raise ValueError('diagnostic frame bound')
+                return json.loads(line.decode('ascii'),object_pairs_hook=progress_object)
+            if len(self.buffer) > PROGRESS_FRAME: raise ValueError('diagnostic frame bound')
+            remaining = deadline-time.monotonic()
+            if remaining <= 0: raise TimeoutError('diagnostic transaction deadline')
+            self.socket.settimeout(remaining)
+            chunk = self.socket.recv(min(4096,PROGRESS_FRAME+1-len(self.buffer)))
+            if not chunk: raise EOFError('diagnostic closed')
+            self.buffer.extend(chunk)
+
+    def command(self, command):
+        if command not in ('qmp_capabilities','ringbuf-read'): raise ValueError('diagnostic command forbidden')
+        try:
+            self.sequence += 1; identity = self.sequence
+            request = {'execute':command,'id':identity}
+            if command == 'ringbuf-read': request['arguments']={'device':'progressbuf','size':PROGRESS_CHUNK,'format':'base64'}
+            deadline = time.monotonic()+.25
+            self.socket.settimeout(.25)
+            self.socket.sendall(json.dumps(request).encode('ascii')+b'\n')
+            for _ in range(9):
+                value = self.read_frame(deadline)
+                if type(value) is not dict: raise ValueError('diagnostic response')
+                if 'event' in value: continue
+                if type(value.get('id')) is not int or value['id'] != identity or 'error' in value or 'return' not in value:
+                    raise ValueError('diagnostic response')
+                return value['return']
+            raise ValueError('diagnostic event bound')
+        except Exception:
+            self.close(); raise
+
+    def read(self):
+        import base64
+        try:
+            value = self.command('ringbuf-read')
+            if type(value) is not str or len(value) > 87384: raise ValueError('diagnostic encoding bound')
+            decoded = base64.b64decode(value,validate=True)
+            if len(decoded) > PROGRESS_CHUNK: raise ValueError('diagnostic chunk bound')
+            return decoded
+        except Exception:
+            self.close(); raise
+
+    def close(self):
+        import socket
+        sock = self.socket
+        if sock is not None:
+            try: sock.shutdown(socket.SHUT_RDWR)
+            except OSError: pass
+            finally: sock.close()
+        self.closed = True
+
+
+class ProgressReader:
+    def __init__(self,path,work,deadline):
+        self.path=path; self.work=work; self.deadline=deadline
+        self.parser=ProgressSerial(); self.connection=None; self.stop=threading.Event()
+        self.disabled=False; self.thread=threading.Thread(target=self.run,daemon=True)
+
+    def run(self):
+        try:
+            self.connection=ProgressQmp.__new__(ProgressQmp)
+            self.connection.__init__(self.path,self.work)
+            while not self.stop.is_set() and time.monotonic() < self.deadline:
+                self.parser.feed(self.connection.read())
+                self.stop.wait(1)
+        except Exception: self.disabled=True
+        finally:
+            if self.connection is not None:
+                try: self.connection.close()
+                except Exception: self.disabled=True
+
+    def finish(self):
+        self.stop.set()
+        if self.connection is not None:
+            try: self.connection.close()
+            except Exception: self.disabled=True
+        if self.thread.ident is not None: self.thread.join(timeout=1)
+        result=self.parser.snapshot()
+        result.update(disabled=self.disabled,reader_stopped=not self.thread.is_alive(),
+                      socket_closed=self.connection is None or self.connection.closed)
+        return result
+
+
+def start_progress(path,work,deadline):
+    reader=ProgressReader(path,work,deadline)
+    try: reader.thread.start()
+    except Exception: reader.disabled=True
+    return reader
+
+
 def host(args):
     if not EXECUTION_ENABLED:
         raise PermissionError('stock experiment execution is disabled pending frozen review')
@@ -1281,7 +1472,7 @@ def host(args):
               'status': 'blocked', 'stage0_passed': False, 'product_acceptance': False,
               'privacy_qualified': False, 'network_tested': False, 'vm_destroyed': False}
     available, deadline, work_deadline_epoch = admit_host_budget(args.timeout_seconds, args.job_deadline_epoch)
-    qemu = tpm = server = thread = qmp = watch = None
+    qemu = tpm = server = thread = qmp = watch = progress = None
     work = Path(tempfile.mkdtemp(prefix='identity-win11-private-')); work.chmod(0o700)
     old_handlers = {sig: signal.signal(sig, interrupted) for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGALRM)}
     # Also bound non-subprocess work (hashes/ZIPs/filesystem) and helper calls.
@@ -1332,6 +1523,7 @@ def host(args):
         for role in ('setup', 'run'):
             shutil.copyfile(ROOT / f'.github/windows-identity-serviced-stage0-{role}.ps1', tree / f'ruleproxy-vm-{role}.ps1')
         shutil.copyfile(ROOT / '.github/windows-identity-serviced-update.ps1', tree / 'windows-identity-serviced-update.ps1')
+        shutil.copyfile(ROOT / '.github/windows-identity-serviced-telemetry.ps1', tree / 'windows-identity-serviced-telemetry.ps1')
         seed = work / 'seed.iso'
         run_bounded(limited_command(['xorriso', '-as', 'mkisofs', '-J', '-R', '-V', 'RULEPROXY_SEED',
                      '-o', str(seed), str(tree)], MAX_SEED), deadline, 60, check=True,
@@ -1380,7 +1572,9 @@ def host(args):
             '-netdev', 'user,id=vmnet', '-device', f'e1000,netdev=vmnet,mac={media.VM_NIC_MAC}',
             '-chardev', f'socket,id=tpm,path={tpm_socket}', '-tpmdev', 'emulator,id=tpmdev,chardev=tpm', '-device', 'tpm-tis,tpmdev=tpmdev',
             '-device', 'qemu-xhci', '-device', 'usb-tablet', '-vga', 'std', '-display', 'none', '-monitor', 'none',
-            '-chardev', 'ringbuf,id=serialbuf,size=65536', '-serial', 'chardev:serialbuf', '-qmp', f'unix:{qmp_socket},server=on,wait=off'], DISK_FILE_CAP),
+            '-chardev', 'ringbuf,id=serialbuf,size=65536', '-serial', 'chardev:serialbuf',
+            '-chardev', 'ringbuf,id=progressbuf,size=65536', '-serial', 'chardev:progressbuf',
+            '-qmp', f'unix:{work / "diag-qmp.sock"},server=on,wait=off', '-qmp', f'unix:{qmp_socket},server=on,wait=off'], DISK_FILE_CAP),
             env=serviced_qemu_environment(),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         record_breadcrumb(public, 'qemu_started', work, disk, deadline)
@@ -1394,6 +1588,7 @@ def host(args):
                 raise RuntimeError('QEMU failed')
             try: qmp = scoped_qmp_class(media.Qmp, public)(qmp_socket)
             except OSError: time.sleep(.1)
+        progress = start_progress(work / 'diag-qmp.sock',work,deadline)
         operation = 'kvm_verify'
         if qmp.execute('query-kvm').get('enabled') is not True: raise RuntimeError('KVM required')
         qmp.execute('set_link', {'name': 'vmnet', 'up': False})
@@ -1446,7 +1641,7 @@ def host(args):
         for sig in old_handlers: signal.signal(sig, signal.SIG_IGN)
         if server is not None:
             public['result_transport_state'] = getattr(server, 'result_transport_state', 'not_observed')
-        finalize_owned(public, media, work, qemu, tpm, qmp, server, thread, watch)
+        finalize_owned(public, media, work, qemu, tpm, qmp, server, thread, watch, progress=progress)
         if public['vm_destroyed']: record_breadcrumb(public, 'cleanup_done', work, disk, deadline)
         public['last_phase'] = phase
         (args.output / 'public-report.json').write_text(json.dumps(public, indent=2) + '\n', encoding='ascii')

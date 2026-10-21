@@ -34,6 +34,9 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'windows-identity-serviced-updat
 . $worker
 Assert-ProtectedUpdatePath $protected -Directory -ProtectedDacl
 Assert-ProtectedUpdatePath $worker
+$telemetryHelper=Join-Path $protected 'windows-identity-serviced-telemetry.ps1'
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'windows-identity-serviced-telemetry.ps1') -Destination $telemetryHelper
+Assert-ProtectedUpdatePath $telemetryHelper
 function Write-SetupReadDiagnostic {
         Assert-ProtectedUpdatePath $protected -Directory -ProtectedDacl
         $setupDiagnosticPath=Join-Path $protected 'setup-read-diagnostic.json'

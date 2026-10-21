@@ -244,6 +244,16 @@ function Assert-ServicedLatestBoot($State) {
     $State.latest_reboot_changed=($State.after_boot -cne $State.latest_reboot_boot)
     if ($State.after_boot -ceq $State.before_boot -or -not $State.latest_reboot_changed) { throw 'reboot_not_observed' }
 }
+function Send-ServicedTelemetry($TelemetryRole,$TelemetryStage,$TelemetryState=$null) {
+    # Advisory only: no failure may replace or relax the real worker/launcher checks.
+    try {
+        $telemetryHelper='C:\RuleProxyCIUpdates\windows-identity-serviced-telemetry.ps1'
+        Assert-ProtectedUpdatePath 'C:\RuleProxyCIUpdates' -Directory -ProtectedDacl
+        Assert-ProtectedUpdatePath $telemetryHelper
+        . $telemetryHelper
+        Invoke-ServicedTelemetry $TelemetryRole $TelemetryStage $TelemetryState
+    } catch { }
+}
 function Get-ServicedRestartUtcNow { return [DateTime]::UtcNow }
 function Assert-ServicedRestartReserve([DateTime]$Deadline) {
     if (($Deadline-(Get-ServicedRestartUtcNow)).TotalSeconds -lt 3000) { throw 'service_deadline' }
@@ -261,8 +271,10 @@ function Request-ServicedExtraReboot($State,[DateTime]$Deadline) {
     $State.status='reboot_pending'; $State.phase='reboot_pending'; $State.reboot_required=$true
     # Persist the consumed request before requesting restart. Never retry/reset on the same boot.
     Write-ServicedState $State
+    Send-ServicedTelemetry 'system' 'extra_reboot_before' $State
     Assert-ServicedRestartReserve $Deadline
     Restart-Computer -Force -ErrorAction Stop
+    Send-ServicedTelemetry 'system' 'extra_reboot_returned' $State
 }
 function Invoke-ServicedUpdate {
     $state=@{ extra_reboots=$null; latest_reboot_boot=''; latest_reboot_changed=$null; pending_reboot=@{c=$null;w=$null;r=$null}; prior_service=(Get-ClosedPriorService $null); schema_version=1; status='installing'; phase='initializing'; completed=$false;
@@ -271,6 +283,7 @@ function Invoke-ServicedUpdate {
         task_unregistered=$false; dism_exit_code=$null; dism_wait_timed_out=$false;
         dism_exit_observed=$false; dism_exit_observation_available=$false; before_boot=''; after_boot=''; failure='none' }
     $trusted=$false
+    Send-ServicedTelemetry 'system' 'entry' $state
     try {
         if ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -cne 'S-1-5-18') { throw 'system_required' }
         Assert-ProtectedUpdatePath $script:UpdateDirectory -Directory -ProtectedDacl
@@ -295,6 +308,7 @@ function Invoke-ServicedUpdate {
             $state.before_boot=$prior.before_boot
             $state.dism_exit_code=[int]$prior.dism_exit_code
             foreach ($name in @('dism_wait_timed_out','dism_exit_observed','dism_exit_observation_available')) { $state[$name]=($prior.$name -eq $true) }
+            Send-ServicedTelemetry 'system' 'prior_valid' $state
         }
         # Do not race specialize or OOBE even if the startup task starts early.
         $setupDeadline=[DateTime]::UtcNow.AddMinutes(10)
@@ -323,6 +337,7 @@ function Invoke-ServicedUpdate {
         Assert-ServicedMedia $optical
         Assert-ServicedTime $serviceDeadline
         $state.packages_verified=$true
+        Send-ServicedTelemetry 'system' 'media_verified' $state
         $os=Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
         $state.actual_build=[int]$os.CurrentBuildNumber; $state.actual_ubr=[int]$os.UBR
         if ($null -ne $prior) {
@@ -342,6 +357,7 @@ function Invoke-ServicedUpdate {
             $state.task_unregistered=$true
             $state.status='completed'; $state.phase='completed'; $state.completed=$true
             Write-ServicedState $state
+            Send-ServicedTelemetry 'system' 'completed' $state
             return 0
         }
         if ($state.actual_build -ne 26200 -or $state.actual_ubr -ne 6584) { throw 'exact_stock_build' }
@@ -367,7 +383,10 @@ function Invoke-ServicedUpdate {
         $state.extra_reboots=0; $state.latest_reboot_boot=$state.before_boot
         $state.status='reboot_pending'; $state.phase='reboot_pending'; $state.reboot_required=$true
         Write-ServicedState $state
+        Send-ServicedTelemetry 'system' 'initial_reboot_before' $state
+        Assert-ServicedTime $serviceDeadline
         Restart-Computer -Force -ErrorAction Stop
+        Send-ServicedTelemetry 'system' 'initial_reboot_returned' $state
         return 0
     } catch {
         $state.status='failed'; $state.completed=$false; $state.reboot_required=$false
@@ -378,6 +397,7 @@ function Invoke-ServicedUpdate {
             'exact_stock_build','dism_log_exists','dism_handle','dism_deadline','dism_exit_absent','dism_failed')
         $state.failure=if ($message -cin $allowed) { $message } else { 'operation_failed' }
         if ($trusted) { try { Write-ServicedState $state } catch {} }
+        Send-ServicedTelemetry 'system' 'failed' $state
         return 1
     }
 }

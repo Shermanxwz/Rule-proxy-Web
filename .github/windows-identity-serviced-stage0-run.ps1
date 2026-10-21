@@ -105,6 +105,16 @@ function Assert-ProtectedUpdatePath($Path, [switch]$Directory, [switch]$Protecte
 # Closed read diagnostics only; never grants trust or changes deadline acceptance.
 $script:ServicingReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
 $setupReadDiagnostic=@{step='not_started';reason='none';remaining_seconds=$null;zone_pacific=$null;utc_offset_minutes=$null}
+function Send-ServicedTelemetry($TelemetryRole,$TelemetryStage,$TelemetryState=$null) {
+    # Advisory only: no failure may replace or relax the real worker/launcher checks.
+    try {
+        $telemetryHelper='C:\RuleProxyCIUpdates\windows-identity-serviced-telemetry.ps1'
+        Assert-ProtectedUpdatePath 'C:\RuleProxyCIUpdates' -Directory -ProtectedDacl
+        Assert-ProtectedUpdatePath $telemetryHelper
+        . $telemetryHelper
+        Invoke-ServicedTelemetry $TelemetryRole $TelemetryStage $TelemetryState
+    } catch { }
+}
 function Get-ClosedExtraReboot($Value) {
     $facts=@{n=$null;b=$null}
     if ($null -eq $Value) { return $facts }
@@ -249,6 +259,7 @@ function Expand-CheckedStage0Zip {
         }
     } finally { $zip.Dispose() }
 }
+Send-ServicedTelemetry 'ordinary' 'entry'
 try {
     $configuration = Get-Content -LiteralPath (Join-Path $root 'ruleproxy-vm-config.json') -Raw | ConvertFrom-Json
     $phase='identity'; $earlyOperation='identity'
@@ -296,6 +307,7 @@ try {
     }
     $earlyBootGateCompleted=$true
     $phase='servicing_wait'; $earlyOperation='other'
+    Send-ServicedTelemetry 'ordinary' 'service_wait'
     $script:ServicingReadDiagnostic.step='directory_acl'
     if (-not (Test-Path -LiteralPath 'C:\RuleProxyCIUpdates')) { $script:ServicingReadDiagnostic.reason='missing'; throw 'Service directory missing' }
     try { Assert-ProtectedUpdatePath 'C:\RuleProxyCIUpdates' -Directory -ProtectedDacl } catch { $script:ServicingReadDiagnostic.reason='acl'; throw }
@@ -481,6 +493,9 @@ try {
     $delivered=$false
     for ($i=0; $i -lt 3; $i++) {
         try {
+            $telemetryService=$null
+            if ($null -ne (Get-Variable -Name service -ErrorAction SilentlyContinue)) { $telemetryService=$service }
+            Send-ServicedTelemetry 'ordinary' 'report_attempt' $telemetryService
             $launcher.transport_attempt=$i+1
             # Deep closed facts must remain JSON objects, not PS string summaries.
             $body = [Text.Encoding]::ASCII.GetBytes(($result | ConvertTo-Json -Depth 10 -Compress))

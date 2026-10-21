@@ -22,6 +22,19 @@ class ServicedWorkflowTests(unittest.TestCase):
         self.assertIn('[identity-serviced-stage0-runtime]', self.serviced)
         self.assertNotIn('[identity-stock-stage0-runtime]', self.serviced)
 
+    def test_advisory_sender_gates_are_required_without_native_activation(self):
+        self.assertIn("@('stage0-setup', 'stage0-run', 'update', 'telemetry')", self.serviced)
+        self.assertIn('run: ./.github/test-windows-identity-serviced-telemetry.ps1', self.serviced)
+        for name in ('telemetry', 'progress', 'progress_qmp'):
+            self.assertIn(f"'test_windows_client_serviced_{name}.py'", self.serviced)
+            self.assertIn(f'test -f tests/test_windows_client_serviced_{name}.py', self.serviced)
+        self.assertIn('test_windows_serviced_progress_qmp.py --run-actual-qemu --output', self.serviced)
+        self.assertIn('briefly runs packaged firmware', self.serviced)
+        native=self.serviced.split('  native:', 1)[1]
+        condition=native.split('if:',1)[1].split('\n',1)[0]
+        self.assertIn('[identity-serviced-stage0-runtime]', condition)
+        self.assertNotIn('[identity-serviced-stage0-gates]', condition)
+
     def test_provider_cleanup_is_absent(self):
         self.assertNotIn('REVIEWED_RECOVERY', self.serviced)
         self.assertNotIn('--execute-reviewed-recovery', self.serviced)
@@ -108,7 +121,7 @@ class ServicedWorkflowTests(unittest.TestCase):
         self.assertNotIn('genisoimage', self.serviced)
 
     def test_parse_and_units_before_native(self):
-        self.assertIn("@('stage0-setup', 'stage0-run', 'update')", self.serviced)
+        self.assertIn("@('stage0-setup', 'stage0-run', 'update', 'telemetry')", self.serviced)
         self.assertIn('.github/windows-identity-serviced-$name.ps1', self.serviced)
         self.assertIn('test_windows_client_serviced*.py', self.serviced)
         self.assertIn('needs: [compile, host-unit, qmp-media-gate]', self.serviced)

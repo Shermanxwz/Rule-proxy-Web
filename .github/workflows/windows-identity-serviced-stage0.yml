@@ -8,12 +8,18 @@ on:
       - '.github/windows_identity_stock_stage0.py'
       - '.github/windows-identity-serviced-stage0-*.ps1'
       - '.github/windows-identity-serviced-update.ps1'
+      - '.github/windows-identity-serviced-telemetry.ps1'
+      - '.github/test-windows-identity-serviced-telemetry.ps1'
+      - 'tests/test_windows_client_serviced_telemetry.py'
+      - 'tests/test_windows_client_serviced_progress.py'
       - '.github/workflows/windows-identity-serviced-stage0.yml'
       - 'tests/test_windows_client_serviced_stage0.py'
       - 'tests/test_windows_client_serviced_guest.py'
       - 'tests/test_windows_client_serviced_diagnostics.py'
       - '.github/test-windows-identity-serviced-gates.ps1'
       - '.github/test_windows_serviced_qmp.py'
+      - '.github/test_windows_serviced_progress_qmp.py'
+      - 'tests/test_windows_client_serviced_progress_qmp.py'
       - 'tests/test_windows_client_serviced_qmp.py'
       - '.github/windows_identity_proof.py'
       - '.github/test_windows_identity_actor_projection.py'
@@ -37,7 +43,7 @@ jobs:
       - name: Parse only the new guest PowerShell entrypoints
         shell: powershell
         run: |
-          foreach ($name in @('stage0-setup', 'stage0-run', 'update')) {
+          foreach ($name in @('stage0-setup', 'stage0-run', 'update', 'telemetry')) {
             $tokens=$null; $errors=$null
             [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ".github/windows-identity-serviced-$name.ps1"),[ref]$tokens,[ref]$errors) | Out-Null
             if ($errors.Count) { throw 'Stage0 guest syntax gate failed' }
@@ -45,6 +51,10 @@ jobs:
       - name: Execute mocked guest boundary regressions, not VM acceptance
         shell: powershell
         run: ./.github/test-windows-identity-serviced-gates.ps1
+      - name: Execute bounded advisory sender fixtures, not VM acceptance
+        timeout-minutes: 2
+        shell: powershell
+        run: ./.github/test-windows-identity-serviced-telemetry.ps1
       - name: Execute read-only native environment/capability and direct boundary gates
         shell: powershell
         run: ./.github/test-windows-identity-direct-gates.ps1
@@ -71,7 +81,7 @@ jobs:
         run: |
           python -B -m unittest discover -s tests -p "test_windows_client_stock_stage0.py" -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($file in @('test_windows_client_serviced_stage0.py', 'test_windows_client_serviced_guest.py', 'test_windows_client_serviced_workflow.py', 'test_windows_client_serviced_diagnostics.py', 'test_windows_client_serviced_qmp.py')) {
+          foreach ($file in @('test_windows_client_serviced_stage0.py', 'test_windows_client_serviced_guest.py', 'test_windows_client_serviced_workflow.py', 'test_windows_client_serviced_diagnostics.py', 'test_windows_client_serviced_qmp.py', 'test_windows_client_serviced_telemetry.py', 'test_windows_client_serviced_progress.py', 'test_windows_client_serviced_progress_qmp.py')) {
             if (-not (Test-Path -LiteralPath (Join-Path 'tests' $file) -PathType Leaf)) { throw 'Required serviced tests missing' }
           }
           python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
@@ -101,6 +111,9 @@ jobs:
           test -f tests/test_windows_client_serviced_workflow.py
           test -f tests/test_windows_client_serviced_diagnostics.py
           test -f tests/test_windows_client_serviced_qmp.py
+          test -f tests/test_windows_client_serviced_telemetry.py
+          test -f tests/test_windows_client_serviced_progress.py
+          test -f tests/test_windows_client_serviced_progress_qmp.py
           test -f tests/test_windows_identity_proof.py
           test -f tests/test_windows_client_direct_actor_projection.py
           python3 -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_serviced*.py'); assert s.countTestCases() >= 7, 'Serviced test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful() or bool(r.skipped))"
@@ -108,7 +121,8 @@ jobs:
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
           python3 -B -m unittest discover -s tests -p test_windows_client_direct_actor_projection.py -q
   qmp-media-gate:
-    # Paused synthetic QEMU only: no Windows media, guest CPU, KVM or networking.
+    # Optical gate stays paused; separate dual-monitor gate briefly runs packaged firmware.
+    # Neither gate uses Windows, downloaded firmware, KVM or networking.
     if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-serviced-stage0-gates]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -125,6 +139,9 @@ jobs:
       - name: Actual QEMU 8.2 media API regression, never Windows acceptance
         timeout-minutes: 1
         run: python3 -B .github/test_windows_serviced_qmp.py --run-actual-qemu
+      - name: Actual dual-monitor isolation with brief synthetic firmware, not Windows acceptance
+        timeout-minutes: 1
+        run: python3 -B .github/test_windows_serviced_progress_qmp.py --run-actual-qemu --output "${{ runner.temp }}/serviced-progress-qmp-public.json"
   native:
     if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') }}
     needs: [compile, host-unit, qmp-media-gate]
