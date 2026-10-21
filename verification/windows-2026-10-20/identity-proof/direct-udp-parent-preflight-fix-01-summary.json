@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "experiment": "Descendant host preflight exact-path pin import correction",
+  "run": {
+    "id": 39654942765,
+    "head": "a72e4cf9743650a8e3ff08c05fee2b7c605481eb",
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39654942765",
+    "conclusion": "success"
+  },
+  "source_freeze_sha256": "121c98cf75bafdd49c0d3731d029db3a772b3231be84a2674fbcfcf6c6713c9e",
+  "result_sha256": "19db92eaf845ee68d099dd98df300f4304b1961f06365d4b865f2c3b02678675",
+  "required_tests": {
+    "windows": 451,
+    "linux": 451,
+    "skipped": 0
+  },
+  "observations": {
+    "actual_windows_production_pair_verified": true,
+    "clean_and_poisoned_module_cases_passed": true,
+    "repository_root_absent_from_search_path_before_after": true,
+    "pythonpath_absent": true,
+    "executor_pin_matches_exact_source": true,
+    "verifier_exits_readers_handles_cleanup_confirmed": true,
+    "verifier_kill_attempted": false,
+    "powershell_checks": [
+      75,
+      48,
+      60
+    ],
+    "payload_members": [
+      10,
+      14,
+      15,
+      17,
+      22
+    ],
+    "payload_checks": 48,
+    "hosted_mechanics_complete": true,
+    "hosted_parent_owners": 14,
+    "hosted_receivers": 5,
+    "hosted_cleanup_confirmed": true,
+    "production_input_verifier_executed_no_pe": true,
+    "production_parent_invalid_cli_only": true,
+    "production_child_verification_only": true
+  },
+  "limits": [
+    "Actual run39651926679 stopped at unclassified host preflight before QEMU/guest; its evidence is unchanged.",
+    "Isolated reproduction with actual downloaded artifacts found the premature package-import defect. The exact-path correction and this Windows gate validate that seam; they do not recover the prior hidden runtime exception.",
+    "No broad search-path change, manifest relaxation, policy, identity, actor, runtime-workflow or deadline change.",
+    "The isolated verifier reads production artifacts but never executes them, starts a VM, or performs network I/O. Its 2048-byte output check is post-capture admission, not a hostile-output hard memory quota.",
+    "Hosted TEST_ONLY mechanics and mocked transport/ZIP boundaries do not establish AppContainer inheritance, actual22-member production payload fit, packet absence or isolation.",
+    "All prior failed prerequisites remain immutable. No further runtime was launched by this short gate."
+  ]
+}
