@@ -15,6 +15,14 @@ def load(name,file):
 m=load('slirp_unit','windows_n0a_qemu_slirp.py')
 g=load('slirp_gate_unit','test_windows_n0a_qemu_slirp.py')
 
+def fixture_nofollow_open(real_open, real_lstat):
+    # Capture the low-level primitive before os.stat is modeled. Path.is_symlink
+    # calls path stat and would recurse through the modeled open operation.
+    def nofollow(path,flags,*args,**kwargs):
+        if stat.S_ISLNK(real_lstat(path).st_mode):raise OSError('fixture_nofollow')
+        return real_open(path,flags,*args,**kwargs)
+    return nofollow
+
 @contextmanager
 def linux_fixture_stats(paths, *, enabled=None):
     """Model Linux path/FD metadata only for these owned test files on Windows.
@@ -46,10 +54,7 @@ class Tests(unittest.TestCase):
         # Emulate only unavailable Linux file primitives in the cross-platform
         # source/unit suite. Actual O_NOFOLLOW/proc/package behavior is Linux-gated.
         if not hasattr(os,'O_NOFOLLOW'):
-            real_open=os.open
-            def nofollow(path,flags,*args,**kwargs):
-                if Path(path).is_symlink(): raise OSError('fixture_nofollow')
-                return real_open(path,flags,*args,**kwargs)
+            nofollow=fixture_nofollow_open(os.open,os.lstat)
             for name,value in (('O_NOFOLLOW',0),('O_CLOEXEC',0),('open',nofollow)):
                 patch=mock.patch.object(m.os,name,value,create=True);patch.start();self.addCleanup(patch.stop)
         if not hasattr(os,'pread'):
@@ -100,6 +105,39 @@ class Tests(unittest.TestCase):
                     self.assertEqual(os.stat(outside).st_size,7)
                 self.assertEqual(opened.call_count,1)
                 self.assertEqual(Path(opened.call_args.args[0]),canonical)
+    def test_combined_nofollow_and_stat_emulation_does_not_recurse(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'owned';path.write_bytes(b'owned')
+            lib=Path(d)/'libslirp.so.0';lib.write_bytes(b'library')
+            ei,li=path.stat(),lib.stat()
+            identity=(17,ei.st_dev,ei.st_ino,(str(lib),os.major(li.st_dev),os.minor(li.st_dev),li.st_ino))
+            real_open,real_lstat=os.open,os.lstat;opened=[]
+            def recorded_open(*args,**kwargs):
+                fd=real_open(*args,**kwargs);opened.append(fd);return fd
+            emulated=fixture_nofollow_open(recorded_open,real_lstat)
+            with mock.patch.object(m.os,'open',side_effect=emulated),linux_fixture_stats((path,lib),enabled=True):
+                self.assertEqual(os.stat(path).st_size,5)
+                fd=os.open(path,os.O_RDONLY|getattr(os,'O_BINARY',0))
+                try:self.assertEqual(os.fstat(fd).st_size,5)
+                finally:os.close(fd)
+                forbidden_open=mock.Mock()
+                reject=fixture_nofollow_open(forbidden_open,lambda unused:SimpleNamespace(st_mode=stat.S_IFLNK))
+                with self.assertRaisesRegex(OSError,'fixture_nofollow'):reject(path,os.O_RDONLY)
+                forbidden_open.assert_not_called()
+                for drift in (False,True):
+                    with owned_observer(process=mock.Mock(pid=123),expected_executable=path,deadline=time.monotonic()+2) as ob:
+                        with mock.patch.object(ob,'_identity',return_value=identity),mock.patch.object(m,'package',return_value={}):
+                            self.assertTrue(ob.admit())
+                            if drift:
+                                old_signature=m.signature
+                                with mock.patch.object(m,'signature',side_effect=lambda info:(0,)*6 if info.st_ino==li.st_ino else old_signature(info)):
+                                    self.assertFalse(ob.recheck_before_stop())
+                            else:self.assertTrue(ob.recheck_before_stop())
+                    self.assertTrue(ob.snapshot()['close_confirmed']);self.assertEqual(ob.fds,{})
+            self.assertGreaterEqual(len(opened),2)
+            for fd in opened:
+                with self.assertRaises(OSError):os.fstat(fd)
     def test_maps_unique_inode_multiple_segments(self):
         row=b'1000-2000 r-xp 0000 08:02 42 /usr/lib/x86_64-linux-gnu/libslirp.so.0.4.0\n'
         self.assertEqual(m.mapped_slirp(row+row),('/usr/lib/x86_64-linux-gnu/libslirp.so.0.4.0',8,2,42))
