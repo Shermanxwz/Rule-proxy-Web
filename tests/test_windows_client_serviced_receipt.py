@@ -26,6 +26,8 @@ class ReceiptSnapshotTests(unittest.TestCase):
             self.assertIn(text,GATE)
         for text in ("$fixtureStep='snapshot'", "$fixtureStep='json'", "$fixtureStep='validate'", "$childStep='writer_call'", 'New-Object byte[] 257', 'child_exit_code=$childExitCode', 'read_step=$readStep', 'temporary_exists=', 'adjacent, non-atomic'):
             self.assertIn(text,GATE)
+        for text in ("$fixtureStep='stable_snapshot'", "for($generation=2;$generation -le 120;$generation++)", 'receipt_stable_child_replace', '& $script:ReceiptAssertOriginal', 'guard_failure=$guardFailure', '$fixedFailures=', 'write_dacl_trusted'):
+            self.assertIn(text,GATE)
         self.assertIn('$info.RedirectStandardError=$true',GATE)
         self.assertNotIn('ReadToEnd()',GATE)
 if __name__=='__main__':unittest.main()

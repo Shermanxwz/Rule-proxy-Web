@@ -14,6 +14,31 @@ foreach($name in @('Test-ServicedReceiptSharing','Read-ServicedReceiptSnapshot')
 $passed=0;$created=$false;$process=$null;$fixturePhase='setup';$fixtureStep='not_started';$childResult=$null
 $root=Join-Path ([IO.Path]::GetTempPath()) ('ruleproxy-receipt-'+[Guid]::NewGuid().ToString('N'))
 $oldUpdateDirectory=$script:UpdateDirectory
+$script:ReceiptAssertOriginal=(Get-Command Assert-ProtectedUpdatePath).ScriptBlock
+$script:ReceiptAssertRole='not_observed'
+function Assert-ProtectedUpdatePath($Path,[switch]$Directory,[switch]$ProtectedDacl) {
+    $script:ReceiptAssertRole=if($Directory){'directory'}else{'leaf'}
+    & $script:ReceiptAssertOriginal $Path -Directory:$Directory -ProtectedDacl:$ProtectedDacl
+}
+function Get-FixturePathFacts($Path,[bool]$Directory) {
+    $facts=@{observed=$false;owner_trusted=$null;write_dacl_trusted=$null;reparse=$null;attributes_unavailable=$null;type_matches=$null;dacl_protected=$null}
+    try {
+        $item=Get-Item -LiteralPath $Path -Force;$acl=Get-Acl -LiteralPath $Path
+        $trusted=@('S-1-5-18','S-1-5-32-544')
+        $facts.owner_trusted=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -in $trusted
+        $attributes=$item.Attributes
+        $facts.attributes_unavailable=([int]$attributes -eq -1)
+        $facts.reparse=($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+        $facts.type_matches=([bool]$item.PSIsContainer -eq $Directory);$facts.dacl_protected=[bool]$acl.AreAccessRulesProtected
+        $mask=[Security.AccessControl.FileSystemRights]::Write -bor [Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership
+        $facts.write_dacl_trusted=$true
+        foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
+            if($rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and ($rule.FileSystemRights -band $mask) -ne 0 -and $rule.IdentityReference.Value -notin $trusted){$facts.write_dacl_trusted=$false}
+        }
+        $facts.observed=$true
+    }catch{}
+    return $facts
+}
 function Start-ReceiptFixtureChild($Mode) {
     $info=New-Object Diagnostics.ProcessStartInfo
     $info.FileName=Join-Path ([Environment]::GetFolderPath('Windows')) 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -68,8 +93,12 @@ try {
         while(-not [IO.File]::Exists($release)){if([DateTime]::UtcNow -ge $deadline){exit 2};Start-Sleep -Milliseconds 5}
         Start-Sleep -Milliseconds 30
     } elseif($Mode -ceq 'stress') {
+        $childStep='writer_call'
+        Write-ServicedState @{schema_version=1;generation=1;payload=('1'*100);target_build=26200;target_ubr=9711}
         [IO.File]::WriteAllText($ready,'1')
-        for($generation=1;$generation -le 120;$generation++) {
+        $deadline=[DateTime]::UtcNow.AddSeconds(10)
+        while(-not [IO.File]::Exists($release)){if([DateTime]::UtcNow -ge $deadline){exit 2};Start-Sleep -Milliseconds 5}
+        for($generation=2;$generation -le 120;$generation++) {
             $childStep='writer_call'
             Write-ServicedState @{schema_version=1;generation=$generation;payload=([string]($generation%10)*100);target_build=26200;target_ubr=9711}
             Start-Sleep -Milliseconds 2
@@ -114,6 +143,12 @@ try {
     Remove-Item -LiteralPath $childResult -Force
     $fixtureStep='child_start';$process=Start-ReceiptFixtureChild 'stress'
     $fixtureStep='wait_ready';Wait-ReceiptReady
+    $fixtureStep='stable_snapshot'
+    $stableDirectory=Get-FixturePathFacts $root $true;$stableLeaf=Get-FixturePathFacts $path $false
+    $stableSnapshot=Read-FixtureReceipt|ConvertFrom-Json
+    if($stableSnapshot.generation -ne 1 -or $stableSnapshot.payload -cne ('1'*100)){throw 'Stable replacement snapshot invalid'}
+    Write-Output ((@{fixture='receipt_stable_child_replace';directory=$stableDirectory;leaf=$stableLeaf;passed=$true})|ConvertTo-Json -Depth 3 -Compress)
+    [IO.File]::WriteAllText($release,'1')
     $reads=0;$deadline=[DateTime]::UtcNow.AddSeconds(30)
     do {
         $fixtureStep='snapshot';$raw=Read-FixtureReceipt
@@ -166,6 +201,11 @@ try {
     Write-Output ((@{fixture='receipt_snapshot';passed=$passed;baseline_sharing_reproduced=$true;concurrent_valid_snapshots=$true;natural_owner_trusted=$naturalTrusted;explicit_owner_fixture=$true;ordinary_token_tested=$false})|ConvertTo-Json -Compress)
 } catch {
     $failureHresult=[int]$_.Exception.HResult;$baseHresult=[int]$_.Exception.GetBaseException().HResult
+    $guardFailure='other'
+    $fixedFailures=@('update_reparse_point','update_directory_required','update_file_required','update_untrusted_owner','update_directory_inherits_permissions','update_untrusted_write_permission')
+    foreach($fixed in $fixedFailures){if($_.Exception.Message -ceq $fixed -or $_.Exception.GetBaseException().Message -ceq $fixed){$guardFailure=$fixed;break}}
+    $assertRole=$script:ReceiptAssertRole
+    $directoryFacts=Get-FixturePathFacts $root $true;$leafFacts=Get-FixturePathFacts (Join-Path $root 'update-state.json') $false
     $childExited=$null;$childExitCode=$null;$childStep=$null;$childHresult=$null
     if($null -ne $process){try{$childExited=[bool]$process.HasExited;if($childExited){$childExitCode=[int]$process.ExitCode}}catch{}}
     # Owned marker is diagnostic only; absence/partial write remains unavailable.
@@ -188,7 +228,7 @@ try {
     $readStep=if($script:ServicingReadDiagnostic.step -cin @('not_started','receipt_acl','receipt_read')){$script:ServicingReadDiagnostic.step}else{$null}
     $readReason=if($script:ServicingReadDiagnostic.reason -cin @('none','acl','read','over_bound','expired')){$script:ServicingReadDiagnostic.reason}else{$null}
     # Existence observations are adjacent, non-atomic, and do not authorize retry.
-    Write-Output ((@{fixture='receipt_snapshot';phase=$fixturePhase;step=$fixtureStep;failed=$true;hresult=$failureHresult;base_hresult=$baseHresult;read_step=$readStep;read_reason=$readReason;child_exited=$childExited;child_exit_code=$childExitCode;child_step=$childStep;child_hresult=$childHresult;receipt_exists=[IO.File]::Exists((Join-Path $root 'update-state.json'));temporary_exists=[IO.File]::Exists((Join-Path $root 'update-state.json.tmp'))})|ConvertTo-Json -Compress)
+    Write-Output ((@{fixture='receipt_snapshot';phase=$fixturePhase;step=$fixtureStep;failed=$true;guard_failure=$guardFailure;assert_role=$assertRole;directory=$directoryFacts;leaf=$leafFacts;hresult=$failureHresult;base_hresult=$baseHresult;read_step=$readStep;read_reason=$readReason;child_exited=$childExited;child_exit_code=$childExitCode;child_step=$childStep;child_hresult=$childHresult;receipt_exists=[IO.File]::Exists((Join-Path $root 'update-state.json'));temporary_exists=[IO.File]::Exists((Join-Path $root 'update-state.json.tmp'))})|ConvertTo-Json -Depth 3 -Compress)
     throw 'Owned receipt fixture failed'
 } finally {
     $script:UpdateDirectory=$oldUpdateDirectory;$cleanup=$true
