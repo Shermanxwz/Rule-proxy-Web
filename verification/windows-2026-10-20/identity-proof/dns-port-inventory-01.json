@@ -1,0 +1,25 @@
+{
+  "api_called": false,
+  "bind_attempted": false,
+  "child_cleanup": {
+    "cleanup_confirmed": true,
+    "exited": true,
+    "handles_closed": true,
+    "killed": false
+  },
+  "child_exit_code": 0,
+  "cleanup_confirmed": true,
+  "diagnostics_complete": true,
+  "enumeration_error_class": null,
+  "enumeration_success": true,
+  "failure": "none",
+  "matches_capped_at_two": 1,
+  "mode": "port_preflight_only",
+  "report_parse_valid": true,
+  "runtime_acceptance": false,
+  "schema": 1,
+  "status": "present",
+  "timed_out": false,
+  "wait_completed": true,
+  "work_removed": true
+}
