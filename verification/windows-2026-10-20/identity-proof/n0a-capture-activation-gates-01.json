@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "kind": "n0a_capture_activation_short_gates",
+  "head": "0ee10926d6021ccaaf3f258dbd8221bb2952b0e2",
+  "tree": "552dd3b4a359b8ad7c38652ca749c3f995683e1c",
+  "run_id": 39589548855,
+  "conclusion": "success",
+  "jobs": {
+    "windows": {
+      "id": 119186771041,
+      "tests": 216,
+      "skipped": 0
+    },
+    "linux": {
+      "id": 119186771159,
+      "tests": 216,
+      "skipped": 0
+    }
+  },
+  "observations": [
+    {
+      "schema_version": 1,
+      "checks": 69,
+      "empty_configuration_rejected": true,
+      "guest_entrypoint_executed": false,
+      "network_executed": false,
+      "native_acceptance": false
+    },
+    {
+      "checks": {
+        "actual_native_snapshot_parse_hash_parity": true,
+        "actual_report_composition_max40": true,
+        "good": true,
+        "invalid_role_rejected_without_output": true,
+        "native_profile_contract_12_synthetic_cases": true,
+        "production_contained_guard_rejects_source_token": true,
+        "production_ordinary_guard_rejects_observed_admin": true,
+        "timeout": true,
+        "wrong": true
+      },
+      "owned_cleanup_confirmed": true,
+      "runtime_acceptance": false,
+      "schema_version": 1,
+      "token_guard_exercised_by_socket_fixture": false,
+      "wire_binding_synthetic": true
+    }
+  ],
+  "freeze_sha256": "47c6e6c4cfdf87ce7ae764b8e114af8769656a08919aaffe9708d7ac4c1f9f03",
+  "remote_exact_pin_matches": 19,
+  "prior_runs": [
+    {
+      "id": 39588232481,
+      "conclusion": "failure",
+      "scope": "PowerShell payload fixture; substep not observed"
+    },
+    {
+      "id": 39588952824,
+      "conclusion": "failure",
+      "scope": "PowerShell69 and native fixtures passed; Bash fixture assumed wrong Windows working-directory alias"
+    }
+  ],
+  "interpretation": {
+    "windows_empty_configuration_counterexample_observed": true,
+    "original_failure_exact_substep_proven": false,
+    "actual_zip_writer_and_powershell_selection_extraction": true,
+    "synthetic_authenticated_inputs_not_binary_provenance": true,
+    "actual_bash_source_binding_and_legacy_argv": true,
+    "capture_runtime_launched": false,
+    "packet_absence_tested": false,
+    "windows_guest_private_upload_tested": false,
+    "original_stage0_acceptance_unchanged": true,
+    "private_bundle_or_pcap_published": false
+  },
+  "runtime_limits": {
+    "job_minutes": 120,
+    "host_work_seconds": 6600,
+    "cleanup_reserve_seconds": 120,
+    "backing_gib": 22,
+    "pre_media_gib": 32,
+    "launch_gib": 24,
+    "live_free_gib": 4,
+    "capture_reserve_mib": 65,
+    "capture_retained_mib": 64,
+    "payload_max_for_capture_mib": 24,
+    "actual_payload_fit_observed": false
+  },
+  "notes": [
+    "Capture activation is explicit-marker-only; this head used only the short-gate marker.",
+    "Full repository discovery is not claimed green; prior clean baseline had the same environment EPERM failures and platform skips.",
+    "Same actor, policy, three attempts per endpoint, temporary account, official ISO and standard free runner scope; no supported-build/product/Linux claim."
+  ]
+}
