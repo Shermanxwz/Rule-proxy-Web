@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "experiment": "UDP6 fixed runtime diagnostics short validation",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39681340479",
+  "head": "2094ed5db74d64ec39d47b98f5882933fa92b6c5",
+  "freeze_sha256": "d370508f06afad4097ba97f726b0fce15fb93e2e0c3edb826a3368cd20372f7d",
+  "result_sha256": "d40e9ebaa1a5c6e65848122d328afadbc19267c75941a95978d275dd55fba68b",
+  "status": "short gates passed; no new Windows guest run",
+  "observations": [
+    "Linux and Windows each passed 695 required tests with zero skips; not a full-repository claim. Driver phase failures, unknown executor ownership/report states, strict schemas, and complete 4096-byte envelope bounds are fixture-tested, not actual guest diagnostics.",
+    "The native peer-report helper passed fixed synthetic short/invalid/partial/full sockaddr tests. Actual hosted TEST_ONLY mechanics passed 45 echoes and one accepted-send/rejected wrong echo; the public hosted projection does not separately export all six peer booleans. Original peer acceptance and network calls are unchanged.",
+    "All seven held processes and two receiver cleanups and work removal passed. Profile-only tests observe the hosted non-AppContainer identity; contained is a fixture phase, not PSEC. Production actor runs only invalid CLI; isolated production-input validation executes no PE.",
+    "PowerShell checks 78/48/60/57 and six-mode ZIP 66 checks with 12 forbidden substitutions passed. Process/transport and artifact boundaries are mocked/inert, not actual guest upload or production payload fit.",
+    "Both platforms passed 56 inert Bash argv fixtures with six expected successes and 50 expected refusals. Held-process exit and root removal are not independent descendant-process observations.",
+    "Linux tiny paused QEMU provenance and owned cleanup passed; mapped backing-file/local-package agreement is not resident-image or upstream-source equivalence and no guest ran."
+  ],
+  "limits": [
+    "The first UDP6 guest result remains unchanged: one ordinary payload reached and was echoed by the receiver, but guest echo acceptance and any later selected invocation were not established. Report presence is unknown; false verification flags do not prove absence or non-launch. Its original failure cause remains unresolved.",
+    "Diagnostic ledger and native peer subchecks add observations only; full workload, admission, identity, endpoint, QEMU networking, attempts, deadlines and cleanup rules are unchanged. Complete report-processing substeps do not establish provenance or network validation.",
+    "No additional guest runtime is authorized by this short result. No IPv6 isolation, packet absence, DNS, proxy, descendant IPv6, Linux product or general acceptance claim follows. No raw reports, addresses, ports, nonces, PIDs, paths, credentials, PCAP or private bundle are included."
+  ]
+}
