@@ -118,7 +118,8 @@ class DirectWorkflowTests(unittest.TestCase):
         self.assertNotIn('upload-artifact',control)
     def test_direct_host_only_and_label(self):
         self.assertIn('exploratory below support floor',self.text)
-        self.assertIn('sudo /usr/bin/python3 -B .github/windows_identity_direct_stage0.py',self.text)
+        self.assertIn('sudo "${capture_source_args[@]}" /usr/bin/python3 -B .github/windows_identity_direct_stage0.py',self.text)
+        self.assertIn('capture_source_args=()',self.text)
         self.assertNotIn('sudo /usr/bin/python3 -B .github/windows_identity_serviced_stage0.py',self.text)
         self.assertIn('windows-11-direct-ordinary-stage0-public',self.text)
         self.assertNotIn('windows-identity-direct-update.ps1',self.text)

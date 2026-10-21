@@ -3,6 +3,11 @@ import ast
 import hashlib
 from pathlib import Path
 import re
+import os
+import shutil
+import subprocess
+import tempfile
+import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,6 +82,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
     def test_actual_native_condition_truth_table(self):
         self.assertTrue(self.native_allowed('[identity-direct-stage0-runtime]'))
         self.assertTrue(self.native_allowed('[n0a-connect-runtime]'))
+        self.assertTrue(self.native_allowed('[n0a-capture-runtime]'))
         for message in ('unrelated','[identity-direct-stage0-gates]','[n0a-connect-gates]',
                         '[identity-direct-stage0-runtime] [n0a-connect-runtime]'):
             self.assertFalse(self.native_allowed(message),message)
@@ -84,6 +90,13 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertFalse(self.native_allowed('[identity-direct-stage0-runtime]', event='workflow_dispatch'))
         self.assertFalse(self.native_allowed('[n0a-connect-runtime]', branch='refs/heads/main'))
         self.assertFalse(self.native_allowed('[n0a-connect-runtime]', event='workflow_dispatch'))
+        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]')
+        for first in markers:
+            self.assertFalse(self.native_allowed(first,branch='refs/heads/main'))
+            self.assertFalse(self.native_allowed(first,event='workflow_dispatch'))
+            for second in markers:
+                if first!=second:self.assertFalse(self.native_allowed(first+' '+second))
+        self.assertFalse(self.native_allowed(' '.join(markers)))
 
     def test_optional_artifact_matches_actual_host_output(self):
         source = (ROOT / '.github/windows_identity_direct_stage0.py').read_text()
@@ -92,12 +105,19 @@ class N0aDirectWorkflowTests(unittest.TestCase):
                  and node.value.startswith('n0a-') and node.value.endswith('.json')}
         self.assertEqual(names, {'n0a-connect-public.json', 'n0a-capture-public.json'})
         self.assertIn('path: client-stage0-public/n0a-connect-public.json', self.text)
-        self.assertNotIn('client-stage0-public/n0a-capture-public.json', self.text)
-        self.assertNotIn('--n0a-capture', self.text)
+        capture=self.text.split('name: n0a-capture-exploratory-public',1)[0].rsplit('- uses: actions/upload-artifact@v7',1)[1]
+        self.assertIn("always() && contains(github.event.head_commit.message, '[n0a-capture-runtime]')",capture)
+        self.assertNotIn('[n0a-connect-runtime]',capture)
+        self.assertEqual(self.text.count('path: client-stage0-public/n0a-capture-public.json'),1)
+        self.assertNotIn('path: client-stage0-public/*',self.text)
+        self.assertIn('--n0a-capture-runner',self.text)
 
     def test_production_upload_explicit_marker_and_fixture_excluded(self):
         step=self.text.split('name: n0a-connect-production-actor',1)[0].rsplit('- uses: actions/upload-artifact@v7',1)[1]
-        self.assertIn("true && contains(github.event.head_commit.message, '[n0a-connect-runtime]')",step)
+        self.assertIn("contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')",step)
+        download=next(block.split('      - ',1)[0] for block in self.text.split('- uses: actions/download-artifact@v8')[1:] if 'name: n0a-connect-production-actor' in block.split('      - ',1)[0])
+        self.assertIn("contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')",download)
+        self.assertIn('name: n0a-connect-production-actor',download)
         self.assertIn('n0a-production-build/windows_n0a_actor.exe',self.text)
         self.assertIn('n0a-production-build/build-manifest.json',self.text)
         self.assertNotIn('TEST_ONLY',self.text)
@@ -106,6 +126,62 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertIn('timeout-minutes: 120',self.text)
         self.assertIn('--timeout-seconds 6600',self.text)
         self.assertIn('Read-only provider capacity admission, never cache deletion',self.text)
+
+
+    def test_windows_suite_is_exact_short_gate_list(self):
+        short=WORKFLOW.read_text()
+        names=ast.literal_eval(re.search(r"names=(\([^;]+\));",short).group(1))
+        compiled=self.text.split('  compile:',1)[1].split('  host-unit:',1)[0]
+        actual=ast.literal_eval(re.search(r"names=(\([^;]+\));",compiled).group(1))
+        self.assertEqual(actual,names)
+        self.assertNotIn('test_windows_client_n0a*.py',compiled)
+        self.assertNotIn('test_windows_client_n0a_capture.py',actual)
+        self.assertIn('bool(result.skipped)',compiled)
+
+    def capture_shell(self,capture,n0a,commit,github_sha):
+        # Execute the exact production argument block/command with inert timeout.
+        # No sudo, Python harness, VM, or endpoint ever executes in this fixture.
+        script=self.text.split('          n0a_args=()',1)[1].split('      - uses: actions/upload-artifact@v7',1)[0]
+        script='n0a_args=()'+textwrap.dedent(script)
+        script=re.sub(r'\$\{\{ steps\.stock_budget_8\.outputs\.deadline \}\}', '2000',script)
+        self.assertNotIn('${{',script)
+        bash=shutil.which('bash')
+        if os.name=='nt':
+            candidate=Path(os.environ.get('ProgramFiles','C:/Program Files'))/'Git/bin/bash.exe'
+            if candidate.is_file():bash=str(candidate)
+        self.assertIsNotNone(bash,'Actual Bash fixture required; no skipped coverage')
+        with tempfile.TemporaryDirectory(prefix='n0a-shell-fixture-') as directory:
+            root=Path(directory);output=root/'argv.bin'
+            for name,body in [('date', '#!/bin/sh\nprintf 1000\n'), ('timeout', '#!/bin/sh\nprintf \'%s\\0\' "$@" > "$CAPTURE_ARGV"\n')]:
+                path=root/name;path.write_bytes(body.encode('ascii'));path.chmod(0o700)
+            logical_root=('/'+root.drive[0].lower()+root.as_posix()[2:]) if os.name=='nt' else root.as_posix()
+            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,
+                     CAPTURE_SOURCE_COMMIT=commit,GITHUB_SHA=github_sha,
+                     CAPTURE_ARGV=output.as_posix(),FIXTURE_BIN=logical_root)
+            source='export PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\nactor='+('b'*64)+'\n'+script
+            result=subprocess.run([bash,'-euo','pipefail','-c',source],cwd=root,env=env,
+                                  stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=5)
+            # Do not expose actual private argv/paths on fixture failure.
+            args=output.read_bytes().split(b'\0')[:-1] if output.exists() else None
+            return result.returncode,[a.decode() for a in args] if args is not None else None,logical_root
+
+    def test_actual_capture_shell_source_binding_and_old_argv(self):
+        sha='a'*40
+        for capture,n0a in [('false','false'),('false','true'),('true','true')]:
+            code,args,root=self.capture_shell(capture,n0a,sha,sha)
+            self.assertEqual(code,0);self.assertIsNotNone(args)
+            self.assertEqual(args[:4],['--signal=TERM','--kill-after=30s','1000s','sudo'])
+            expected=['/usr/bin/python3','-B','.github/windows_identity_direct_stage0.py',
+                      '--approved-disposable-vm','--python-archive',root+'/client-stage0-python/python-3.14.8-embed-amd64.zip',
+                      '--actor',root+'/client-stage0-actor/windows_identity_actor.exe','--actor-sha256','b'*64,
+                      '--bundle',root+'/g-bundle.zip','--output','client-stage0-public','--timeout-seconds','6600',
+                      '--job-deadline-epoch','2000']
+            if n0a=='true':expected+=['--n0a','--n0a-actor',root+'/n0a-production-build/windows_n0a_actor.exe','--n0a-manifest',root+'/n0a-production-build/build-manifest.json']
+            if capture=='true':expected=['/usr/bin/env','GITHUB_SHA='+sha]+expected+['--n0a-capture-runner']
+            self.assertEqual(args[4:],expected)
+        for commit,observed,n0a in [('',sha,'true'),('A'*40,'A'*40,'true'),('a'*39,'a'*39,'true'),('a'*41,'a'*41,'true'),(sha,'c'*40,'true'),(sha,'','true'),(sha,sha,'false')]:
+            code,args,_=self.capture_shell('true',n0a,commit,observed)
+            self.assertNotEqual(code,0);self.assertIsNone(args)
 
 
 if __name__ == '__main__':

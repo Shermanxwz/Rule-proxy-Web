@@ -26,9 +26,15 @@ def final_inputs():
         receiver_counts=dict(accepted=5,ordinary_verified_frames=5,contained_verified_frames=0,rejected=0,timed_out=0)))
     return original,n0a
 class AdmissionTests(unittest.TestCase):
-    def test_default_disabled_and_lazy_child(self):
-        self.assertIs(m.CAPTURE_EXECUTION_ENABLED,False)
+    def test_activation_flag_and_lazy_child_disabled_guard(self):
+        self.assertIs(type(m.CAPTURE_EXECUTION_ENABLED),bool)
         self.assertNotIn('import windows_n0a_capture_child',Path(m.__file__).read_text())
+        host=load('capture_disabled_host_fixture',ROOT/'.github/windows_identity_direct_stage0.py')
+        with patch.object(m,'CAPTURE_EXECUTION_ENABLED',False),patch.object(host,'EXECUTION_ENABLED',True),\
+             patch.object(host,'n0a_helpers',return_value=SimpleNamespace(EXECUTION_ENABLED=True)),\
+             patch.object(host,'capture_helpers',return_value=m),patch.object(host,'load') as loader:
+            with self.assertRaises(PermissionError):host.host(SimpleNamespace(n0a=True,n0a_capture_runner=True))
+            loader.assert_not_called()
     def test_actual_payload_boundary_extra_reserve(self):
         baseline=24*1024**3;free=baseline+m.EXTRA_RESERVE
         self.assertTrue(m.admit(24*1024**2,free,baseline)['planning_only'])

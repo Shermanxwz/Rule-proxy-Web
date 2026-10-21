@@ -7,6 +7,10 @@ on:
       - '.github/windows_identity_direct_stage0.py'
       - '.github/windows_n0a_control.py'
       - '.github/windows_n0a_guest.py'
+      - '.github/windows_n0a_flow.py'
+      - '.github/windows_n0a_capture_adapter.py'
+      - '.github/windows_n0a_capture_child.py'
+      - '.github/windows_n0a_packet.py'
       - '.github/native/windows_n0a_actor.cpp'
       - '.github/build_windows_n0a_actor.ps1'
       - '.github/windows_identity_stock_stage0.py'
@@ -24,7 +28,7 @@ permissions:
 jobs:
   compile:
     # Keep the exact experimental branch and explicit runtime intent checks.
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]')) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]'))) }}
     runs-on: windows-2025
     timeout-minutes: 10
     steps:
@@ -72,7 +76,7 @@ jobs:
           python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_direct*.py'); assert s.countTestCases() >= 7, 'Direct test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build production-only N0a actor for a future explicit opt-in
-        if: ${{ contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        if: ${{ (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) }}
         shell: pwsh
         run: |
           $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -81,11 +85,11 @@ jobs:
           Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
           Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
           ./.github/build_windows_n0a_actor.ps1 -OutputDirectory "$PWD/n0a-production-build" -ExpectedSourceSha256 33a276721db4d46bd79f47fabd3bb5b8e126e1a8c259280e690b8dd2caaea465 -ExpectedIdentitySourceSha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
-          python -B -m unittest discover -s tests -p 'test_windows*n0a*.py' -v
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_actor.py','test_windows_client_n0a_control.py','test_windows_n0a_workflow.py','test_windows_client_n0a_adapter.py','test_windows_client_n0a_host.py','test_windows_client_n0a_flow.py','test_windows_client_n0a_capture_adapter.py','test_windows_client_n0a_packet.py','test_windows_n0a_guest.py','test_windows_client_direct_stage0.py','test_windows_client_direct_guest.py','test_windows_client_direct_actor_projection.py','test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); suite=unittest.TestSuite(parts); assert suite.countTestCases()>=43; result=unittest.TextTestRunner(verbosity=2).run(suite); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
         # Production-only upload requires the explicit N0a runtime marker.
-        if: ${{ true && contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        if: ${{ true && (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) }}
         with:
           name: n0a-connect-production-actor
           path: |
@@ -103,7 +107,7 @@ jobs:
           if-no-files-found: error
   host-unit:
     # Pure Linux host tests are separate: native capacity is measured fresh.
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]')) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -121,7 +125,7 @@ jobs:
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
   native:
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]')) || (true && contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]'))) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]')) || (contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]')) || (contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]'))) }}
     needs: [compile, host-unit]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -249,7 +253,7 @@ jobs:
           name: client-stage0-actor
           path: client-stage0-actor
       - uses: actions/download-artifact@v8
-        if: ${{ contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        if: ${{ (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) }}
         with:
           name: n0a-connect-production-actor
           path: n0a-production-build
@@ -346,7 +350,9 @@ jobs:
       - name: Run one exact exploratory direct ordinary-user Stage0 in the disposable client
         timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
         env:
-          N0A_REQUESTED: ${{ contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+          CAPTURE_REQUESTED: ${{ contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
+          CAPTURE_SOURCE_COMMIT: ${{ github.sha }}
+          N0A_REQUESTED: ${{ (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) }}
         run: |
           /usr/bin/python3 -B .github/windows_identity_stock_stage0.py --check-preparation --preparation-phase pre_vm \
             --output "$RUNNER_TEMP/identity-direct-capacity/preparation-public.json"
@@ -355,10 +361,18 @@ jobs:
           if [ "$N0A_REQUESTED" = "true" ]; then
             n0a_args=(--n0a --n0a-actor "$PWD/n0a-production-build/windows_n0a_actor.exe" --n0a-manifest "$PWD/n0a-production-build/build-manifest.json")
           fi
+          capture_source_args=()
+          if [ "$CAPTURE_REQUESTED" = "true" ]; then
+            test "$N0A_REQUESTED" = "true"
+            [[ "$CAPTURE_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+            test "$CAPTURE_SOURCE_COMMIT" = "$GITHUB_SHA"
+            capture_source_args=(/usr/bin/env "GITHUB_SHA=$CAPTURE_SOURCE_COMMIT")
+            n0a_args+=(--n0a-capture-runner)
+          fi
           STOCK_HOST_DEADLINE=${{ steps.stock_budget_8.outputs.deadline }}
           remaining=$(( STOCK_HOST_DEADLINE - $(date +%s) ))
           test "$remaining" -ge 300
-          exec timeout --signal=TERM --kill-after=30s "${remaining}s" sudo /usr/bin/python3 -B .github/windows_identity_direct_stage0.py \
+          exec timeout --signal=TERM --kill-after=30s "${remaining}s" sudo "${capture_source_args[@]}" /usr/bin/python3 -B .github/windows_identity_direct_stage0.py \
             --approved-disposable-vm --python-archive "$PWD/client-stage0-python/python-3.14.8-embed-amd64.zip" \
             --actor "$PWD/client-stage0-actor/windows_identity_actor.exe" --actor-sha256 "$actor" \
             --bundle "$PWD/g-bundle.zip" --output client-stage0-public --timeout-seconds 6600 --job-deadline-epoch "$STOCK_HOST_DEADLINE" "${n0a_args[@]}"
@@ -379,11 +393,19 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7
-        if: ${{ always() && contains(github.event.head_commit.message, '[n0a-connect-runtime]') }}
+        if: ${{ always() && (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) }}
         timeout-minutes: 2
         with:
           name: n0a-connect-exploratory-public
           path: client-stage0-public/n0a-connect-public.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
+        timeout-minutes: 2
+        with:
+          name: n0a-capture-exploratory-public
+          path: client-stage0-public/n0a-capture-public.json
           retention-days: 14
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7

@@ -1,6 +1,6 @@
 # Runner-only capture integration candidate
 
-This code-only, default-disabled extension does not change the actor, policy,
+This explicitly selected experimental extension does not change the actor, policy,
 attempt count, ordinary control connections or original Stage0 acceptance. The
 legacy route and cleanup behavior remain unchanged when capture is not selected.
 No Windows packet result is established by the implementation or its short gates.
@@ -69,5 +69,16 @@ equivalence.
 
 The helper provides same-UID lifecycle/failure separation, not an OS privilege
 sandbox or anti-host-root boundary. PCAP and private bundles are not logged or
-uploaded. Runtime stays disabled pending exact review, short gates and a separate
-activation decision.
+uploaded. Activation is restricted to the dedicated `[n0a-capture-runtime]`
+marker on the experimental branch. Pure-gate markers do not launch the client.
+The three direct/connect/capture runtime markers are mutually exclusive; mixed
+runtime intent is rejected. A runtime still requires separate reviewed execution
+clearance; code activation and short-gate success are not packet evidence.
+
+Capture preserves the exact workflow source commit across sudo using only
+`/usr/bin/env GITHUB_SHA=<validated commit>` after checking forty lowercase hex
+characters and equality with the workflow SHA. No ambient environment preservation
+is added. Legacy direct and connect-only launch arguments are unchanged.
+The measured payload must satisfy admission before starting QEMU; fit is not
+assumed from historical package sizes. Only the closed capture-public JSON is
+added to runtime artifacts, never the private bundle or PCAP.

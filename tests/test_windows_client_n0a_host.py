@@ -383,4 +383,60 @@ class CaptureHostTests(unittest.TestCase):
         self.assertIn("'n0a-capture-public.json'",body)
         self.assertIn("if capture: archive.write(ROOT / '.github/windows_n0a_flow.py'",functions['payload'])
 
+def write_payload_fixtures(root):
+    """Actual ZIP writer; synthetic authenticated inputs, never runnable binaries."""
+    import io
+    import zipfile
+    import sys
+    root=Path(root)
+    root.mkdir(parents=True,exist_ok=False)
+    sys.path.insert(0,str(ROOT))
+    import install_runtime
+    actor=root/'identity-fixture.exe';actor.write_bytes(b'nonexecuted-identity-fixture')
+    native=root/'n0a-fixture.exe';native.write_bytes(b'nonexecuted-production-shaped-fixture'*16)
+    manifest=root/'manifest.json';manifest.write_text('{"testOnly":false}',encoding='ascii')
+    bundle=root/'bundle.zip'
+    with zipfile.ZipFile(bundle,'w') as archive:
+        archive.writestr('build-manifest.json','{"fixture":true}')
+        archive.writestr('wxc-exec.exe',b'nonexecuted-G-fixture')
+        archive.writestr('MXC-LICENSE.md',b'fixture')
+    bundle_data=bundle.read_bytes()
+    n0a={'actor':native,'manifest':manifest,'config':{
+        'actor_sha256':hashlib.sha256(native.read_bytes()).hexdigest(),
+        'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest()}}
+    def extract(data,destination):
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            for name in ('wxc-exec.exe','MXC-LICENSE.md'):
+                (destination/name).write_bytes(archive.read(name))
+    base={'python-embed.zip','actor.exe','stage0-input.json','g/build-manifest.json',
+          'g/wxc-exec.exe','g/MXC-LICENSE.md',*host.GUEST_SOURCES}
+    extra={'n0a/actor.exe','n0a/build-manifest.json','.github/windows_n0a_control.py','.github/windows_n0a_guest.py'}
+    for mode,optional,capture,expected in [('baseline',None,False,base),('n0a',n0a,False,base|extra),
+            ('capture',n0a,True,base|extra|{'.github/windows_n0a_flow.py'})]:
+        target=root/(mode+'.zip')
+        with patch.object(host,'verify_python',return_value=b'nonexecuted-python-fixture'),\
+             patch.object(install_runtime,'_g_bundle_bytes',return_value=bundle_data),\
+             patch.object(install_runtime,'_extract_g_bundle',side_effect=extract):
+            digest=host.payload(root/'unused-python.zip',actor,hashlib.sha256(actor.read_bytes()).hexdigest(),
+                                bundle,target,n0a=optional,capture=capture)
+        assert digest==hashlib.sha256(target.read_bytes()).hexdigest()
+        with zipfile.ZipFile(target) as archive:
+            names=archive.namelist()
+            assert len(names)==len(expected) and set(names)==expected
+            if capture:assert archive.read('.github/windows_n0a_flow.py')==(ROOT/'.github/windows_n0a_flow.py').read_bytes()
+    forbidden=['.github/windows_n0a_capture_adapter.py','capture.pcap','private-n0a/runner-flow.json','n0a/TEST_ONLY.exe']
+    with zipfile.ZipFile(root/'capture.zip') as archive:
+        entries={name:archive.read(name) for name in archive.namelist()}
+    for index,name in enumerate(forbidden):
+        with zipfile.ZipFile(root/('bad-%d.zip'%index),'w') as archive:
+            for member,data in entries.items():
+                archive.writestr(name if member=='.github/windows_n0a_flow.py' else member,data)
+    return {'baseline':10,'n0a':14,'capture':15,'negative_cases':len(forbidden)}
+
+class GeneratedPayloadTests(unittest.TestCase):
+    def test_actual_zip_writer_exact_three_modes_and_forbidden_replacements(self):
+        with tempfile.TemporaryDirectory() as root:
+            result=write_payload_fixtures(Path(root)/'owned')
+            self.assertEqual(result,{'baseline':10,'n0a':14,'capture':15,'negative_cases':4})
+
 if __name__=='__main__':unittest.main()

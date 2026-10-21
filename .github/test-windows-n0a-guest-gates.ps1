@@ -140,4 +140,50 @@ Check (Send-N0aCaptureReports $full 'unused' $envelope); Check ($calls.Count -eq
 $sent=[Text.Encoding]::ASCII.GetString($calls[0].body) | ConvertFrom-Json
 Check ($null -eq $sent.flow_commitment -and $sent.legacy.report.result.status -ceq 'connect_succeeded')
 
+# Import only actual bounded extraction function, never the guest entrypoint.
+$expandNodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Expand-CheckedStage0Zip'},$true))
+Check ($expandNodes.Count -eq 1)
+. ([ScriptBlock]::Create($expandNodes[0].Extent.Text))
+$starts=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -ceq '$payloadNames' -and $n.Operator -eq [Management.Automation.Language.TokenKind]::Equals},$true))
+$ends=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -ceq '$phase' -and $n.Right.Extent.Text -ceq "'payload_extract'"},$true))
+Check ($starts.Count -eq 1 -and $ends.Count -eq 1)
+$selectionText=$ast.Extent.Text.Substring($starts[0].Extent.StartOffset,$ends[0].Extent.StartOffset-$starts[0].Extent.StartOffset)
+$selectionTokens=$null;$selectionErrors=$null
+$selectionAst=[Management.Automation.Language.Parser]::ParseInput($selectionText,[ref]$selectionTokens,[ref]$selectionErrors)
+Check ($selectionErrors.Count -eq 0)
+$selectionCommands=@($selectionAst.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst]},$true))
+foreach($command in $selectionCommands) { Check ($command.GetCommandName() -cin @('Test-N0aConfiguration','Test-N0aCaptureConfiguration')) }
+$extracts=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.Contains('-MemberCount 15') -and $n.Extent.Text.Contains('-MemberCount 14') -and $n.Extent.Text.Contains('-MemberCount 10')},$true))
+Check ($extracts.Count -eq 1)
+$payloadRoot=Join-Path ([IO.Path]::GetTempPath()) ('n0a-payload-parity-'+[Guid]::NewGuid().ToString('N'))
+$payloadOwned=$false
+try {
+    $generator="import pathlib,sys;sys.path.insert(0,str(pathlib.Path.cwd()/'tests'));import test_windows_client_n0a_host as t;t.write_payload_fixtures(pathlib.Path(sys.argv[1]))"
+    & python -B -c $generator $payloadRoot
+    Check ($LASTEXITCODE -eq 0)
+    $payloadOwned=$true
+    foreach($mode in @('baseline','n0a','capture')) {
+        $configuration=[PSCustomObject]@{}
+        if($mode -ne 'baseline') { $configuration | Add-Member NoteProperty n0a $config }
+        if($mode -eq 'capture') { $configuration | Add-Member NoteProperty capture ([PSCustomObject]@{enabled=$true;run_nonce=('1'*32);source_commit=('2'*40);vm_mac='525400123456'}) }
+        $n0aEnabled=$false
+        . ([ScriptBlock]::Create($selectionText))
+        $payload=Join-Path $payloadRoot ($mode+'.zip');$workspace=Join-Path $payloadRoot ($mode+'-expanded')
+        . ([ScriptBlock]::Create($extracts[0].Extent.Text))
+        $expectedCount=@{baseline=10;n0a=14;capture=15}[$mode]
+        Check (@(Get-ChildItem -LiteralPath $workspace -File -Recurse).Count -eq $expectedCount)
+        Check ($payloadNames.Count -eq $expectedCount)
+    }
+    # Capture mode remains active; equal-count replacement must fail exact-name gate.
+    foreach($index in 0..3) {
+        $payload=Join-Path $payloadRoot ('bad-'+$index+'.zip');$workspace=Join-Path $payloadRoot ('bad-'+$index+'-expanded')
+        $rejected=$false
+        try { . ([ScriptBlock]::Create($extracts[0].Extent.Text)) } catch { $rejected=$true }
+        Check $rejected
+        Check (-not (Test-Path -LiteralPath $workspace))
+    }
+} finally {
+    if($payloadOwned -and (Test-Path -LiteralPath $payloadRoot)) { Remove-Item -LiteralPath $payloadRoot -Recurse -Force }
+}
+
 [ordered]@{schema_version=1;checks=$checks;guest_entrypoint_executed=$false;network_executed=$false;native_acceptance=$false} | ConvertTo-Json -Compress
