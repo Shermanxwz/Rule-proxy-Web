@@ -1,5 +1,5 @@
 name: Windows 26300.9457 direct Stage0 (exploratory below support floor)
-# Direct classifier diagnostic: read-only capacity admission; exploratory acceptance unchanged.
+# Direct attempt 04: closed capability classification; no deletion or acceptance change.
 on:
   push:
     branches: [dot/windows-isolation-proof]
