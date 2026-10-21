@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('dns_request3_gate',ROOT/'.github/test_windows_dns_request3.py')
 g=importlib.util.module_from_spec(spec);spec.loader.exec_module(g)
 def report(pending=False):
-    return dict(schema=1,test_only=True,request_version=3,custom_server_count=1,custom_udp=True,custom_flags_zero=True,legacy_server_list_null=True,callback_null=True,api_called=not pending,pending=pending,api_status=9506 if pending else 0,result_status=None if pending else 0,record_count=None if pending else 1,answer_match=not pending,records_freed=not pending,context_retained=pending,runtime_acceptance=False,cancellation_handle_null=False,custom_port53=False,endpoint_kind='none' if pending else 'high_port')
+    return dict(schema=1,test_only=True,request_version=3,custom_server_count=1,custom_udp=True,custom_flags_zero=True,legacy_server_list_null=True,callback_null=True,api_called=not pending,pending=pending,api_status=9506 if pending else 0,result_status=None if pending else 0,record_count=None if pending else 1,answer_match=not pending,records_freed=not pending,context_retained=pending,runtime_acceptance=False,cancellation_handle_null=False,custom_port53=False,endpoint_kind='none' if pending else 'high_port',endpoint_address_kind='loopback1')
 def raw(value):return json.dumps(value).encode()
 class Contracts(unittest.TestCase):
     def test_native_completed_and_injected_pending_exact_shape(self):
@@ -309,5 +309,88 @@ class PreflightOnlyTests(unittest.TestCase):
         import io
         with patch('sys.argv',['gate','--run-port-preflight-only','--actor','a','--manifest','m','--output','o']),patch.object(g,'run',side_effect=AssertionError()),patch.object(g,'run_describe',side_effect=AssertionError()),patch.object(g,'run_port_pair',side_effect=AssertionError()),patch.object(g,'run_preflight_only',return_value=dict(diagnostics_complete=True)) as run,patch.object(Path,'write_text'),patch('sys.stdout',io.StringIO()):
             self.assertEqual(g.main(),0);run.assert_called_once()
+
+def inventory(rows,status='complete'):
+    return raw(dict(schema=1,status=status,rows=rows))
+def endpoint(address='127.0.0.1',pid=100):return dict(a=address,p=pid,l=53)
+class Loopback2Tests(unittest.TestCase):
+    def test_inventory_complete_cap_multiset_and_all_unknown_refused(self):
+        row=endpoint();value=g.private_inventory(inventory([row,row]))
+        self.assertEqual(value[g.Counter({('127.0.0.1',4,53,100):1}).most_common()[0][0]],2)
+        self.assertEqual(sum(g.private_inventory(inventory([row]*64)).values()),64)
+        bad=[inventory([row]*65),inventory([],status='truncated'),inventory([],status='error'),b'X'*4097]
+        for address in ('0.0.0.0','::','::1','::ffff:127.0.0.1','PRIVATE','127.000.0.1'):bad.append(inventory([endpoint(address)]))
+        for key,value in [('p',True),('p',0),('l',54),('l',True),('private','secret')]:
+            changed=endpoint();changed[key]=value;bad.append(inventory([changed]))
+        for data in bad:
+            with self.assertRaises(ValueError):g.private_inventory(data)
+    def exercise(self,baseline=None,post=None,after=None,timeout_first=False,misroute=False,unknown_control=None,second_bind_error=False,fixture_cleanup_unknown=False):
+        base=[endpoint() ] if baseline is None else baseline
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'owned';root.mkdir();children=[];fixtures={}
+            for name in ('high_port','standard_port'):
+                f=Mock();f.counts=dict(datagrams=0,bytes=0,matched_queries=0,answers_sent=0,rejected=0,oversized=0,send_failed=0)
+                f.snapshot.side_effect=lambda f=f,**kwargs:dict(f.counts);f.start.return_value=45000 if name=='high_port' else 53
+                f.finish.return_value=dict(cleanup_confirmed=not fixture_cleanup_unknown,error='none',counts=f.counts)
+                f.query_observed.is_set.side_effect=lambda f=f:f.counts['matched_queries']>0;fixtures[name]=f
+            if second_bind_error:fixtures['standard_port'].start.side_effect=OSError('PRIVATE bind collision')
+            module=Mock();module.DnsFixture.for_loopback2.side_effect=lambda *a,**k:fixtures['standard_port' if k.get('standard_port') else 'high_port']
+            spec=Mock();spec.loader.exec_module=lambda value:None
+            class FakeChild:
+                def __init__(self,root,name):self.name=name;self.path=root/(name+'.out');self.process=Mock(returncode=0);children.append(self)
+                def start(self,argv):
+                    self.argv=argv
+                    if self.name=='nrpt':data=b'NRPT_EMPTY'
+                    elif self.name=='baseline':data=inventory(base)
+                    elif self.name=='postbind':data=inventory(base+[endpoint('127.0.0.2',1234)] if post is None else post)
+                    elif self.name=='afterclose':data=inventory(base if after is None else after)
+                    else:
+                        v=report();v.update(endpoint_kind=self.name,endpoint_address_kind='loopback2',custom_port53=self.name=='standard_port');data=raw(v)
+                        target='standard_port' if misroute and self.name=='high_port' else self.name
+                        for key in ('datagrams','bytes','matched_queries','answers_sent'):fixtures[target].counts[key]+=1
+                    self.path.write_bytes(data)
+                def wait(self,deadline,**kwargs):return not(timeout_first and self.name=='high_port')
+                def finish(self,deadline):return dict(cleanup_confirmed=self.name!=unknown_control,exited=self.name!=unknown_control,handles_closed=self.name!=unknown_control,killed=False)
+            with patch.object(g,'os',Mock()) as fakeos,patch.object(g,'verify',return_value=True),patch.object(g,'Child',FakeChild),patch.object(g.tempfile,'mkdtemp',return_value=str(root)),patch.object(g.importlib.util,'spec_from_file_location',return_value=spec),patch.object(g.importlib.util,'module_from_spec',return_value=module):
+                fakeos.name='nt';fakeos.getpid.return_value=1234;result=g.run_loopback2_pair(Path('actor'),Path('manifest'))
+            return result,children,fixtures
+    def test_fixed_pair_complete_private_baseline_preserved_and_closed(self):
+        result,children,fixtures=self.exercise()
+        self.assertTrue(result['mechanism_positive']);self.assertTrue(result['afterclose_preserved'])
+        self.assertEqual(result['baseline_count'],1)
+        self.assertEqual([c.name for c in children],['nrpt','baseline','postbind','high_port','standard_port','afterclose'])
+        self.assertEqual(children[3].argv[1],'--query-loopback2');self.assertEqual(children[4].argv[1],'--query-loopback2-port53')
+        self.assertEqual(children[3].argv[2],children[4].argv[2])
+        self.assertNotIn('127.0.0.1',json.dumps(result));self.assertNotIn('1234',json.dumps(result));self.assertFalse(result['continuous_service_liveness_proven'])
+        for f in fixtures.values():f.finish.assert_called_once()
+    def test_conflicting_pre_or_changed_post_refuses_api_no_takeover(self):
+        for base in ([endpoint('0.0.0.0')],[endpoint('::1')],[endpoint('127.0.0.2')]):
+            result,children,_=self.exercise(baseline=base)
+            self.assertEqual(result['cases'],{});self.assertFalse(result['mechanism_positive'])
+            self.assertNotIn('high_port',[c.name for c in children])
+        for post in ([],[endpoint(),endpoint('127.0.0.2',999)],[endpoint(),endpoint('127.0.0.2',1234),endpoint('192.0.2.1',5)]):
+            result,children,_=self.exercise(post=post)
+            self.assertEqual(result['cases'],{});self.assertFalse(result['owned_target_verified'])
+    def test_afterclose_failure_and_crossroute_keep_observation_not_success(self):
+        result,_,_=self.exercise(after=[])
+        self.assertFalse(result['afterclose_preserved']);self.assertTrue(result['query_observed']);self.assertFalse(result['mechanism_positive'])
+        result,_,_=self.exercise(misroute=True)
+        self.assertTrue(result['cases']['high_port']['other_endpoint_observed']);self.assertFalse(result['mechanism_positive'])
+    def test_new_path_unknown_controls_bind_and_fixture_cleanup_independent(self):
+        for name in ('baseline','postbind'):
+            result,children,_=self.exercise(unknown_control=name)
+            self.assertEqual(result['cases'],{});self.assertFalse(result['cleanup_confirmed']);self.assertFalse(result['work_removed'])
+            self.assertNotIn('high_port',[c.name for c in children])
+        result,children,fixtures=self.exercise(second_bind_error=True)
+        self.assertEqual(result['cases'],{});self.assertIn('afterclose',[c.name for c in children])
+        for fixture in fixtures.values():fixture.finish.assert_called_once()
+        self.assertTrue(result['afterclose_preserved'])
+        result,children,_=self.exercise(fixture_cleanup_unknown=True)
+        self.assertIn('afterclose',[c.name for c in children]);self.assertTrue(result['query_observed'])
+        self.assertFalse(result['mechanism_positive']);self.assertFalse(result['cleanup_confirmed']);self.assertFalse(result['work_removed'])
+    def test_first_timeout_prevents_second_but_still_closes_and_checks_baseline(self):
+        result,children,_=self.exercise(timeout_first=True)
+        self.assertNotIn('standard_port',[c.name for c in children]);self.assertFalse(result['pair_complete'])
+        self.assertTrue(result['afterclose_preserved']);self.assertTrue(result['cleanup_confirmed'])
 
 if __name__=='__main__':unittest.main()

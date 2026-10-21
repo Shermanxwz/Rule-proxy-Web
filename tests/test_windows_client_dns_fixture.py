@@ -91,6 +91,14 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(sock.mock_calls[:2],[unittest.mock.call.setsockopt(f.socket.SOL_SOCKET,123,1),unittest.mock.call.bind(('127.0.0.1',53))])
         self.assertIs(o.socket,sock)
         with patch.object(f.time,'monotonic',return_value=1):self.assertTrue(o.finish(deadline=60)['cleanup_confirmed'])
+    def test_alternate_fixture_fixed_address_exclusive_and_peer_allowlist_only(self):
+        with patch.object(f.time,'monotonic',return_value=0):o=f.DnsFixture.for_loopback2(NONCE,deadline=60)
+        self.assertEqual(o.allowed_peers,('127.0.0.1','127.0.0.2'));self.assertEqual(o.bind_address,'127.0.0.2')
+        sock=Mock();sock.bind.side_effect=OSError('collision');sock.fileno.return_value=-1
+        with patch.object(f.socket,'socket',return_value=sock),patch.object(f.socket,'SO_EXCLUSIVEADDRUSE',123,create=True):
+            with self.assertRaises(OSError):o.start()
+        self.assertEqual(sock.mock_calls[:2],[unittest.mock.call.setsockopt(f.socket.SOL_SOCKET,123,1),unittest.mock.call.bind(('127.0.0.2',0))])
+        self.assertEqual(self.fixture().allowed_peers,('127.0.0.1',))
     def test_idle_receive_does_not_hold_observation_lock(self):
         o=self.fixture();observed=[]
         class IdleSocket:

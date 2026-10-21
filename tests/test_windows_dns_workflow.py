@@ -63,7 +63,7 @@ class DnsWorkflowTests(unittest.TestCase):
         self.assertIn('build_windows_n0a_dns_fixture.ps1',self.text)
         self.assertIn('dns-TEST-ONLY-build/windows_n0a_DNS_TEST_ONLY_fixture.exe',self.text)
         self.assertIn('dns-TEST-ONLY-build/DNS-TEST-ONLY-manifest.json',self.text)
-        self.assertIn('--run-port-preflight-only',self.text)
+        self.assertIn('--run-loopback2-port-pair',self.text)
         self.assertNotIn('--run-actual-windows',self.text)
         self.assertIn('--actor',self.text)
         self.assertIn('--output',self.text)
@@ -103,11 +103,11 @@ class DnsWorkflowTests(unittest.TestCase):
                      'same existing 60-second overall budget','Both cases returned 87'):
             self.assertIn(fact,doc)
 
-    def test_workflow_selects_only_read_only_port_inventory(self):
+    def test_workflow_selects_only_fixed_loopback2_pair(self):
         command=next(line.strip() for line in self.text.splitlines()
                      if 'python -B .github/test_windows_dns_request3.py ' in line)
-        self.assertIn('--run-port-preflight-only',command)
-        for forbidden in ('--run-port-pair','--run-actual-windows','--run-no-query-diagnostics','--query','--query-null-cancel','--test-pending'):
+        self.assertIn('--run-loopback2-port-pair',command)
+        for forbidden in ('--run-port-preflight-only','--run-port-pair','--run-actual-windows','--run-no-query-diagnostics','--query','--query-null-cancel','--test-pending'):
             self.assertNotIn(forbidden,command)
         doc=(ROOT/'docs/validation/2026-10-21-dns-request3-mechanism.md').read_text()
         for fact in ('provenance-only','No resolver request','does not identify the cause',
@@ -123,6 +123,18 @@ class DnsWorkflowTests(unittest.TestCase):
         self.assertIn('if (standardPort) port = 53;',native)
         self.assertIn('custom_port53',native)
         self.assertIn('cancelNull ? nullptr : &context->cancel',native)
+
+    def test_alternate_loopback_is_fixed_and_not_address_search(self):
+        native=(ROOT/'.github/native/windows_n0a_dns_fixture.cpp').read_text()
+        harness=(ROOT/'.github/test_windows_dns_request3.py').read_text()
+        self.assertIn('argc == 4 && wcscmp(argv[1], L"--query-loopback2") == 0',native)
+        self.assertIn('argc == 3 && wcscmp(argv[1], L"--query-loopback2-port53") == 0',native)
+        self.assertIn('0x7f000002UL',native)
+        self.assertIn('loopback2_port_pair_v1',harness)
+        doc=(ROOT/'docs/validation/2026-10-21-dns-request3-mechanism.md').read_text()
+        for fact in ('127.0.0.2','never an address search','every IPv6 endpoint',
+                     'snapshots, not continuous service-liveness proof','truncation reject'):
+            self.assertIn(fact,doc)
 
     def test_exact_native_source_pin_not_placeholder(self):
         source=ROOT/'.github/native/windows_n0a_dns_fixture.cpp'

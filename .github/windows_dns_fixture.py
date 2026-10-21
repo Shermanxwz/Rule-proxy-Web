@@ -80,6 +80,7 @@ class DnsFixture:
                            rejected=0, oversized=0, send_failed=0)
         self.error = 'none'; self.closed = False; self.close_uncertain = False
         self.mode = 'answer'; self.bind_port = 0
+        self.bind_address='127.0.0.1';self.allowed_peers=('127.0.0.1',)
 
     @classmethod
     def for_test(cls, nonce, *, deadline, mode):
@@ -90,13 +91,21 @@ class DnsFixture:
     def for_port53(cls, nonce, *, deadline):
         result=cls(nonce,deadline=deadline);result.bind_port=53;return result
 
+    @classmethod
+    def for_loopback2(cls, nonce, *, deadline, standard_port=False):
+        if type(standard_port) is not bool:raise ValueError('fixture mode')
+        result=cls(nonce,deadline=deadline)
+        result.bind_address='127.0.0.2';result.allowed_peers=('127.0.0.1','127.0.0.2')
+        result.bind_port=53 if standard_port else 0
+        return result
+
     def start(self):
         if self.socket is not None or self.thread is not None: raise ValueError('fixture started')
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); self.socket = sock
-        if self.bind_port==53:
+        if self.bind_port==53 or self.bind_address=='127.0.0.2':
             if not hasattr(socket,'SO_EXCLUSIVEADDRUSE'):raise ValueError('exclusive unavailable')
             sock.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
-        sock.bind(('127.0.0.1', self.bind_port)); sock.settimeout(.1)
+        sock.bind((self.bind_address, self.bind_port)); sock.settimeout(.1)
         port = sock.getsockname()[1]
         if type(port) is not int or not (port==53 if self.bind_port==53 else 1025<=port<=65535): raise ValueError('fixture port')
         self.thread = threading.Thread(target=self._serve, daemon=True)
@@ -126,7 +135,7 @@ class DnsFixture:
                     self.counts['bytes'] = min(MAX_BYTES, self.counts['bytes']+len(raw))
                     if len(raw) > MAX_DATAGRAM:
                         self.counts['oversized'] += 1; continue
-                    if peer[0] != '127.0.0.1':
+                    if peer[0] not in self.allowed_peers:
                         self.counts['rejected'] += 1; continue
                     try: response = answer_query(raw, self.name)
                     except ValueError:
