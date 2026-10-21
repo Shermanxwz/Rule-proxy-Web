@@ -1,0 +1,49 @@
+{
+  "conclusion": "success",
+  "experiment": "direct-udp-standalone-mechanics",
+  "head": "2b14cb805bc29ecbed99452e90f21c873cd1770a",
+  "interpretation": "The standalone TEST_ONLY binary exercised actual Winsock UDP send/echo mechanics against owned loopback responders. The negative echo case retained local send acceptance while rejecting a nonmatching response. This establishes a usable mechanism and its distinction between API acceptance and validated echo, not any contained application network boundary.",
+  "limits": {
+    "DNS_API_or_broker_tested": false,
+    "UDP_isolation_tested": false,
+    "contained_label_is_TEST_ONLY_phase_not_PSEC_execution": true,
+    "full_guest_or_production_integration": false,
+    "ordinary_nonadmin_token_tested": false,
+    "packet_egress_tested": false,
+    "prior_REQUEST3_API87_resolved": false,
+    "production_network_guard_runtime_proven": false,
+    "production_valid_network_cli_executed": false,
+    "pure_decoder_inputs_authenticated_by_parser": false,
+    "runner_endpoint_egress_tested": false,
+    "runtime_acceptance": false
+  },
+  "next": "Integration and any full guest run require separate reviewed scope; no identical mechanism replay is needed.",
+  "observations": {
+    "actual_host_admin_profile_rejected_in_no_socket_fixture_entry": true,
+    "all_seven_owned_child_handles_and_exits_confirmed": true,
+    "both_owned_receivers_closed_and_threads_stopped": true,
+    "fixture_loopback_verified_echoes": 45,
+    "fixture_phase_counts": {
+      "after": 1,
+      "before": 1,
+      "contained_label_only": 3,
+      "sample": 40
+    },
+    "production_invalid_cli_rejected": true,
+    "work_removed": true,
+    "wrong_echo_rejected": true,
+    "wrong_echo_send_accepted": true,
+    "wrong_echo_sent_once": true
+  },
+  "privacy": "Closed counts/phase indices/status/cleanup and public CI/source metadata only. No private nonce, socket tuple, process identity, raw packet, credential or exception text.",
+  "result_sha256": "7c146eb3c46838cdcbe85df539173da1793ac79439e3277dfce497e141864c7f",
+  "reviewed_manifest_sha256": "f7c84438b0c8b2f6ca1022f1c7639ad3a3c05f0b9ca119231846981a65671cff",
+  "run_id": 39605085793,
+  "schema": 1,
+  "tests": {
+    "linux": 65,
+    "production_and_fixture_compiled": true,
+    "skipped": 0,
+    "windows": 65
+  }
+}
