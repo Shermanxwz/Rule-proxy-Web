@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "experiment": "default-OFF direct UDP6 integration short gate 04",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39674135817",
+  "head": "cb5435dc17498dbddf8c791cc7694394a3b04cfa",
+  "result_sha256": "1531299f2afaa35c186c00bbac1b4b350d27fe90742a1f975a00513f517a47aa",
+  "status": "short gates passed; Windows guest integration not activated",
+  "observations": [
+    "Linux and Windows each passed 681 required tests with zero skips; this is scoped evidence, not a full-repository test claim. The full provenance test class ran in normal and forced compatibility modes.",
+    "The actual tiny paused owned-QEMU gate admitted stable mapped backing files and separately reported local package/version/integrity agreement. Pre-stop verification, owned process exit observed without forced kill, control/descriptor cleanup and work removal passed. No guest ran.",
+    "Windows verified actual production actor and manifest through isolated clean and poisoned-module-cache paths, with repository-root and PYTHONPATH absent and owned verifier cleanup confirmed. This verifier executed no PE; the separate hosted harness ran production actor only with invalid CLI.",
+    "Actual PowerShell checks passed: original N0a 78, UDP 48, parent 60 and UDP6 57. Process/transport are mocked, not real guest upload. The six payload modes had member counts 10/14/15/17/22/17, 12 forbidden-substitution negatives and 66 checks with owned cleanup; artifact pin boundaries are inert fixtures.",
+    "Hosted TEST_ONLY IPv6 mechanics observed 45 correct echoes (before 1/sample 40/fixture-contained 3/after 1), plus one wrong-echo case where local send was accepted but invalid echo rejected. Actual readback verified IPv6-only before bind/send; seven held processes and two receivers cleaned up, with work removed.",
+    "Canonical import, actual inherited wait/envelope, same-buffer bundle and host-normalization composition were tested with synthetic provenance. They do not authenticate an unexecuted guest run."
+  ],
+  "history": [
+    "Gate01 Windows metadata-fixture admission failed and skipped unconditional close; exact suppressed admission predicate was not exported.",
+    "Gate02 directly observed a ctime difference for its owned file, then failed in a recursive stat/nofollow test shim.",
+    "Gate03 resolved recursion but exposed missing-path O_CREAT fixture behavior. All three failed receipts remain archived; production provenance checks were not weakened."
+  ],
+  "limits": [
+    "Runtime remains OFF. No Windows VM, guest fec0::2 to runner::1 calibration, ordinary nonadmin IPv6 positive, selected PSEC send, packet capture or bounded absence was observed.",
+    "Mapped backing-file identity/hash plus local installed-package agreement is not resident-memory verification, upstream-source equivalence or proof of IPv6 networking semantics.",
+    "Hosted contained is a fixture phase, not AppContainer identity. Local send acceptance is not delivery; no DNS, proxy, descendant IPv6 or general isolation/product claim follows.",
+    "Future actual binaries/payload/capacity and same-API ordinary guest IPv6 admission remain mandatory; fit and reachability are not preclaimed."
+  ]
+}
