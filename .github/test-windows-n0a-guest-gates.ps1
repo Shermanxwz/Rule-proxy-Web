@@ -1,6 +1,16 @@
 # Pure helper/owned-process mocks only; never invoke the guest entrypoint or network.
 $ErrorActionPreference='Stop'
-trap { Write-Output '{"schema_version":1,"passed":false,"failure":"guest_fixture"}'; exit 1 }
+$script:fixtureStage='initializing';$script:fixtureMode='none';$script:checks=0
+$script:emptyConfigurationRejected=$null
+trap {
+    $kind=$_.Exception.GetType().Name
+    if ($kind -cnotin @('RuntimeException','MethodInvocationException','PropertyNotFoundException','InvalidOperationException','ArgumentException')) { $kind='unclassified' }
+    $category=$_.FullyQualifiedErrorId
+    if ($category -cnotin @('PropertyNotFoundStrict','PropertyNotFoundException','MethodInvocationException','n0a_fixture')) { $category='unclassified' }
+    $closedChecks=if ($script:checks -is [int] -and $script:checks -ge 0 -and $script:checks -le 256) { $script:checks } else { 0 }
+    [ordered]@{schema_version=1;passed=$false;failure='guest_fixture';stage=$script:fixtureStage;mode=$script:fixtureMode;checks=$closedChecks;exception_class=$kind;error_category=$category;empty_configuration_rejected=$script:emptyConfigurationRejected} | ConvertTo-Json -Compress
+    exit 1
+}
 Set-StrictMode -Version Latest
 $source=Join-Path $PSScriptRoot 'windows-identity-direct-stage0-run.ps1'
 $tokens=$null; $errors=$null
@@ -141,40 +151,56 @@ $sent=[Text.Encoding]::ASCII.GetString($calls[0].body) | ConvertFrom-Json
 Check ($null -eq $sent.flow_commitment -and $sent.legacy.report.result.status -ceq 'connect_succeeded')
 
 # Import only actual bounded extraction function, never the guest entrypoint.
+$script:fixtureStage='payload_extract_import'
 $expandNodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Expand-CheckedStage0Zip'},$true))
 Check ($expandNodes.Count -eq 1)
 . ([ScriptBlock]::Create($expandNodes[0].Extent.Text))
+$script:fixtureStage='payload_selection_ast'
 $starts=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -ceq '$payloadNames' -and $n.Operator -eq [Management.Automation.Language.TokenKind]::Equals},$true))
 $ends=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -ceq '$phase' -and $n.Right.Extent.Text -ceq "'payload_extract'"},$true))
 Check ($starts.Count -eq 1 -and $ends.Count -eq 1)
 $selectionText=$ast.Extent.Text.Substring($starts[0].Extent.StartOffset,$ends[0].Extent.StartOffset-$starts[0].Extent.StartOffset)
+$script:fixtureStage='payload_selection_parse'
 $selectionTokens=$null;$selectionErrors=$null
 $selectionAst=[Management.Automation.Language.Parser]::ParseInput($selectionText,[ref]$selectionTokens,[ref]$selectionErrors)
 Check ($selectionErrors.Count -eq 0)
+$script:fixtureStage='payload_selection_commands'
 $selectionCommands=@($selectionAst.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst]},$true))
 foreach($command in $selectionCommands) { Check ($command.GetCommandName() -cin @('Test-N0aConfiguration','Test-N0aCaptureConfiguration')) }
+$script:fixtureStage='payload_branch_ast'
 $extracts=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.Contains('-MemberCount 15') -and $n.Extent.Text.Contains('-MemberCount 14') -and $n.Extent.Text.Contains('-MemberCount 10')},$true))
 Check ($extracts.Count -eq 1)
+# Controlled reproduction only: the real seed is never an empty object.
+$script:fixtureStage='empty_configuration_counterexample'
+$configuration=[PSCustomObject]@{};$n0aEnabled=$false
+$script:emptyConfigurationRejected=$false
+try { . ([ScriptBlock]::Create($selectionText)) } catch { $script:emptyConfigurationRejected=$true }
 $payloadRoot=Join-Path ([IO.Path]::GetTempPath()) ('n0a-payload-parity-'+[Guid]::NewGuid().ToString('N'))
 $payloadOwned=$false
 try {
+    $script:fixtureStage='payload_generate'
     $generator="import pathlib,sys;sys.path.insert(0,str(pathlib.Path.cwd()/'tests'));import test_windows_client_n0a_host as t;t.write_payload_fixtures(pathlib.Path(sys.argv[1]))"
     & python -B -c $generator $payloadRoot
     Check ($LASTEXITCODE -eq 0)
     $payloadOwned=$true
     foreach($mode in @('baseline','n0a','capture')) {
-        $configuration=[PSCustomObject]@{}
+        $script:fixtureMode=$mode;$script:fixtureStage='payload_config'
+        $configuration=[PSCustomObject]@{host_url='http://127.0.0.1/fixture';payload_sha256=('a'*64);python_sha256=('b'*64);actor_sha256=('c'*64)}
         if($mode -ne 'baseline') { $configuration | Add-Member NoteProperty n0a $config }
         if($mode -eq 'capture') { $configuration | Add-Member NoteProperty capture ([PSCustomObject]@{enabled=$true;run_nonce=('1'*32);source_commit=('2'*40);vm_mac='525400123456'}) }
         $n0aEnabled=$false
+        $script:fixtureStage='payload_select'
         . ([ScriptBlock]::Create($selectionText))
         $payload=Join-Path $payloadRoot ($mode+'.zip');$workspace=Join-Path $payloadRoot ($mode+'-expanded')
+        $script:fixtureStage='payload_extract'
         . ([ScriptBlock]::Create($extracts[0].Extent.Text))
+        $script:fixtureStage='payload_counts'
         $expectedCount=@{baseline=10;n0a=14;capture=15}[$mode]
         Check (@(Get-ChildItem -LiteralPath $workspace -File -Recurse).Count -eq $expectedCount)
         Check ($payloadNames.Count -eq $expectedCount)
     }
     # Capture mode remains active; equal-count replacement must fail exact-name gate.
+    $script:fixtureStage='payload_negative'
     foreach($index in 0..3) {
         $payload=Join-Path $payloadRoot ('bad-'+$index+'.zip');$workspace=Join-Path $payloadRoot ('bad-'+$index+'-expanded')
         $rejected=$false
@@ -183,7 +209,11 @@ try {
         Check (-not (Test-Path -LiteralPath $workspace))
     }
 } finally {
+    $priorFixtureStage=$script:fixtureStage
+    $script:fixtureStage='payload_cleanup'
     if($payloadOwned -and (Test-Path -LiteralPath $payloadRoot)) { Remove-Item -LiteralPath $payloadRoot -Recurse -Force }
+    $script:fixtureStage=$priorFixtureStage
 }
 
-[ordered]@{schema_version=1;checks=$checks;guest_entrypoint_executed=$false;network_executed=$false;native_acceptance=$false} | ConvertTo-Json -Compress
+$script:fixtureStage='completed'
+[ordered]@{schema_version=1;checks=$checks;empty_configuration_rejected=$script:emptyConfigurationRejected;guest_entrypoint_executed=$false;network_executed=$false;native_acceptance=$false} | ConvertTo-Json -Compress
