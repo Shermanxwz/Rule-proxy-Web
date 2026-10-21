@@ -14,12 +14,17 @@ def load(name,file):
     value=importlib.util.module_from_spec(spec); spec.loader.exec_module(value); return value
 m=load('slirp_unit','windows_n0a_qemu_slirp.py')
 g=load('slirp_gate_unit','test_windows_n0a_qemu_slirp.py')
+FORCE_WINDOWS_MODEL=False
 
 def fixture_nofollow_open(real_open, real_lstat):
     # Capture the low-level primitive before os.stat is modeled. Path.is_symlink
     # calls path stat and would recurse through the modeled open operation.
     def nofollow(path,flags,*args,**kwargs):
-        if stat.S_ISLNK(real_lstat(path).st_mode):raise OSError('fixture_nofollow')
+        try:info=real_lstat(path,**({'dir_fd':kwargs['dir_fd']} if 'dir_fd' in kwargs else {}))
+        except FileNotFoundError:
+            if not flags & os.O_CREAT:raise
+            info=None
+        if info is not None and stat.S_ISLNK(info.st_mode):raise OSError('fixture_nofollow')
         return real_open(path,flags,*args,**kwargs)
     return nofollow
 
@@ -39,7 +44,7 @@ def linux_fixture_stats(paths, *, enabled=None):
         fd=os.open(path,os.O_RDONLY|getattr(os,'O_BINARY',0))
         try:return os.fstat(fd)
         finally:os.close(fd)
-    if enabled is True or (enabled is None and os.name=='nt'):
+    if enabled is True or (enabled is None and (os.name=='nt' or FORCE_WINDOWS_MODEL)):
         with mock.patch.object(m.os,'stat',side_effect=same_api_stat):yield
     else:yield
 
@@ -50,21 +55,27 @@ def owned_observer(*args,**kwargs):
     finally:observer.close()
 
 class Tests(unittest.TestCase):
+    force_windows_emulation=False
+
     def setUp(self):
+        if self.force_windows_emulation:
+            patch=mock.patch.dict(globals(),{'FORCE_WINDOWS_MODEL':True});patch.start();self.addCleanup(patch.stop)
+            # Exercise mkstemp/O_CREAT rather than Linux anonymous O_TMPFILE.
+            patch=mock.patch.object(tempfile,'_O_TMPFILE_WORKS',False,create=True);patch.start();self.addCleanup(patch.stop)
         # Emulate only unavailable Linux file primitives in the cross-platform
         # source/unit suite. Actual O_NOFOLLOW/proc/package behavior is Linux-gated.
-        if not hasattr(os,'O_NOFOLLOW'):
+        if self.force_windows_emulation or not hasattr(os,'O_NOFOLLOW'):
             nofollow=fixture_nofollow_open(os.open,os.lstat)
             for name,value in (('O_NOFOLLOW',0),('O_CLOEXEC',0),('open',nofollow)):
                 patch=mock.patch.object(m.os,name,value,create=True);patch.start();self.addCleanup(patch.stop)
-        if not hasattr(os,'pread'):
+        if self.force_windows_emulation or not hasattr(os,'pread'):
             def pread(fd,count,offset):
                 prior=os.lseek(fd,0,os.SEEK_CUR)
                 try: os.lseek(fd,offset,os.SEEK_SET);return os.read(fd,count)
                 finally:os.lseek(fd,prior,os.SEEK_SET)
             patch=mock.patch.object(m.os,'pread',pread,create=True);patch.start();self.addCleanup(patch.stop)
         for name,value in (('major',lambda dev:0),('minor',lambda dev:dev)):
-            if not hasattr(os,name):
+            if self.force_windows_emulation or not hasattr(os,name):
                 patch=mock.patch.object(m.os,name,value,create=True);patch.start();self.addCleanup(patch.stop)
 
     def test_closed_native_stat_discriminator_and_scoped_model(self):
@@ -138,6 +149,25 @@ class Tests(unittest.TestCase):
             self.assertGreaterEqual(len(opened),2)
             for fd in opened:
                 with self.assertRaises(OSError):os.fstat(fd)
+    def test_nofollow_creation_and_exact_error_boundaries(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'new';nofollow=fixture_nofollow_open(os.open,os.lstat)
+            with self.assertRaises(FileNotFoundError):nofollow(path,os.O_RDONLY)
+            fd=nofollow(path,os.O_CREAT|os.O_EXCL|os.O_RDWR,0o600)
+            try:self.assertTrue(stat.S_ISREG(os.fstat(fd).st_mode))
+            finally:os.close(fd)
+            with self.assertRaises(FileExistsError):nofollow(path,os.O_CREAT|os.O_EXCL|os.O_RDWR,0o600)
+        for error in (PermissionError('denied'),NotADirectoryError('parent')):
+            opened=mock.Mock();metadata=mock.Mock(side_effect=error)
+            with self.assertRaises(type(error)):fixture_nofollow_open(opened,metadata)('fixed',os.O_CREAT|os.O_EXCL,0o600)
+            opened.assert_not_called()
+        opened=mock.Mock();metadata=mock.Mock(return_value=SimpleNamespace(st_mode=stat.S_IFLNK))
+        with self.assertRaisesRegex(OSError,'fixture_nofollow'):fixture_nofollow_open(opened,metadata)('fixed',os.O_CREAT|os.O_EXCL,0o600)
+        opened.assert_not_called()
+        metadata=mock.Mock(return_value=SimpleNamespace(st_mode=stat.S_IFREG));opened=mock.Mock(return_value=77)
+        self.assertEqual(fixture_nofollow_open(opened,metadata)('leaf',os.O_RDONLY,dir_fd=42),77)
+        metadata.assert_called_once_with('leaf',dir_fd=42);opened.assert_called_once_with('leaf',os.O_RDONLY,dir_fd=42)
     def test_maps_unique_inode_multiple_segments(self):
         row=b'1000-2000 r-xp 0000 08:02 42 /usr/lib/x86_64-linux-gnu/libslirp.so.0.4.0\n'
         self.assertEqual(m.mapped_slirp(row+row),('/usr/lib/x86_64-linux-gnu/libslirp.so.0.4.0',8,2,42))
@@ -316,4 +346,8 @@ class Tests(unittest.TestCase):
         source=(ROOT/'.github/windows_n0a_qemu_slirp.py').read_text()
         for bad in ('ctypes','map_files/','/proc/self/mem','CDLL(','ldd ',"'-V'","'sudo'"):
             self.assertNotIn(bad,source)
+class ForcedWindowsEmulationTests(Tests):
+    """Run every fixture with all Windows compatibility shims on any host."""
+    force_windows_emulation=True
+
 if __name__=='__main__':unittest.main()
