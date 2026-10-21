@@ -82,7 +82,8 @@ class DirectStage0Tests(unittest.TestCase):
         source=(ROOT/'.github/windows_identity_direct_stage0.py').read_text()
         node=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and n.name=='finalize_owned')
         segment=ast.get_source_segment(source,node)
-        segment=segment.replace(', n0a_endpoint=None):', '):',1)
+        segment=segment.replace(', n0a_endpoint=None, capture_facts=None, cleanup_deadline=None):', '):',1)
+        segment=segment.replace('    if capture_facts is not None:\n        return finalize_capture_owned(public, media, work, qemu, tpm, qmp, server, thread, watch,\n                                      n0a_endpoint, capture_facts, cleanup_deadline)\n','',1)
         start=segment.index('    if n0a_endpoint is not None:')
         end=segment.index('    for process in owned:',start)
         segment=segment[:start]+segment[end:]

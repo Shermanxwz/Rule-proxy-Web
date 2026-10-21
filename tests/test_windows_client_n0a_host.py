@@ -161,4 +161,225 @@ class LifecycleTests(unittest.TestCase):
         for name in ('n0a/actor.exe','n0a/build-manifest.json','.github/windows_n0a_control.py','.github/windows_n0a_guest.py'):
             self.assertIn(name,payload)
 
+class CaptureHostTests(unittest.TestCase):
+    def handler(self,value,body=False):
+        item=HandlerTests.handler(self,value,'/cap/n0a-runner-flow' if body else '/cap/n0a-capture-result')
+        item.connection=Mock();item.server.capture_enabled=True
+        item.server.capture_work_deadline=500;item.server.capture_accepting=True
+        item.server.capture_lock=threading.Lock();item.server.capture_received_at=None
+        item.server.capture_commitment=None;item.server.capture_commitment_error=False
+        item.server.capture_private_body=None;item.server.capture_body_attempted=False
+        item.server.capture_body_received=threading.Event();item.server.received.set()
+        item.server.original_received_at=40
+        return item
+    def test_disabled_before_media(self):
+        with patch.object(host,'n0a_helpers',return_value=SimpleNamespace(EXECUTION_ENABLED=True)),patch.object(host,'capture_helpers',return_value=SimpleNamespace(CAPTURE_EXECUTION_ENABLED=False)),patch.object(host,'load') as load:
+            with self.assertRaises(PermissionError):host.host(SimpleNamespace(n0a=True,n0a_capture_runner=True))
+            load.assert_not_called()
+    def test_actual_wrapper_then_private_body(self):
+        engine=host.n0a_helpers();expected={'case_nonce':'a'*32,'actor_sha256':'b'*64}
+        legacy={'schema_version':1,**expected,'report':None,'launcher':engine.default_host_n0a()['launcher']}
+        raw=b'private-flow-fixture';commit={'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),
+            'contained_report_sha256':'c'*64,'ordinary_report_sha256':'d'*64}
+        item=self.handler({'schema_version':2,'legacy':legacy,'flow_commitment':commit});item.server.n0a_expected=expected
+        with patch.object(host.time,'monotonic',return_value=42):item.do_POST()
+        self.assertTrue(item.server.n0a_received.is_set());self.assertEqual(item.server.capture_commitment,commit)
+        item.path='/cap/n0a-runner-flow';item.rfile=io.BytesIO(raw);item.headers={'Content-Length':str(len(raw))}
+        with patch.object(host.time,'monotonic',return_value=43):item.do_POST()
+        self.assertTrue(item.server.capture_body_received.is_set());self.assertEqual(item.server.capture_private_body,raw)
+        self.assertNotIn('case_nonce',json.dumps(item.server.n0a_result))
+    def test_bad_commit_cannot_erase_valid_legacy(self):
+        item=self.handler({});legacy={'result':{'status':'connect_succeeded'}}
+        adapter=SimpleNamespace(validate_capture_envelope=Mock(return_value={'legacy':legacy,'commitment':None,'commitment_error':True}))
+        with patch.object(host,'capture_helpers',return_value=adapter),patch.object(host.time,'monotonic',return_value=42):item.do_POST()
+        self.assertIs(item.server.n0a_result,legacy);self.assertTrue(item.server.capture_commitment_error)
+        item.rfile=io.BytesIO(b'{}');item.headers={'Content-Length':'2'}
+        item.do_POST();item.send_error.assert_called_with(409);self.assertIs(item.server.n0a_result,legacy)
+    def test_exact_private_body_once_and_late_rejection(self):
+        for accepted,now in ((True,45),(False,45),(True,52)):
+            item=self.handler({},True);item.server.n0a_received.set();item.server.capture_received_at=42;item.server.capture_commitment={}
+            adapter=SimpleNamespace(MAX_FLOW=65536,accept_private_body=Mock(return_value=accepted))
+            with patch.object(host,'capture_helpers',return_value=adapter),patch.object(host.time,'monotonic',return_value=now):item.do_POST()
+            self.assertEqual(item.server.capture_body_received.is_set(),accepted and now<52)
+            self.assertTrue(item.server.capture_body_attempted)
+            item.do_POST();item.send_error.assert_called_with(409)
+    def test_route_bounds_duplicate_constants_and_recursion_closed(self):
+        for raw in (b'{"x":1,"x":2}',b'{"x":NaN}',b'{"x":Infinity}',b'['*2000+b']'*2000):
+            item=self.handler({});item.rfile=io.BytesIO(raw);item.headers={'Content-Length':str(len(raw))}
+            with patch.object(host.time,'monotonic',return_value=42):item.do_POST()
+            item.send_error.assert_called_with(400);self.assertFalse(item.server.n0a_received.is_set())
+        item=self.handler({});item.headers={'Content-Length':'4097'}
+        with patch.object(host.time,'monotonic',return_value=42):item.do_POST()
+        item.send_error.assert_called_with(400)
+    def test_read_drip_clips_absolute_deadline(self):
+        item=SimpleNamespace(connection=Mock(),rfile=Mock());item.rfile.read1.return_value=b'x'
+        with patch.object(host.time,'monotonic',side_effect=[8,9,10]):
+            with self.assertRaises(ValueError):host.read_capture_request(item,3,10)
+        self.assertEqual(item.rfile.read1.call_count,2)
+        self.assertEqual([c.args[0] for c in item.connection.settimeout.call_args_list],[2,1])
+    def test_final_read_at_boundary_rejected(self):
+        item=SimpleNamespace(connection=Mock(),rfile=io.BytesIO(b'x'))
+        with patch.object(host.time,'monotonic',side_effect=[9,10]):
+            with self.assertRaises(ValueError):host.read_capture_request(item,1,10)
+    def test_request_bound_minimum(self):
+        server=SimpleNamespace(capture_work_deadline=500,original_received_at=40,capture_received_at=155)
+        self.assertEqual(host.capture_request_deadline(server,True),160)
+        server.capture_work_deadline=158;self.assertEqual(host.capture_request_deadline(server,True),158)
+        server.capture_received_at=100;self.assertEqual(host.capture_request_deadline(server,True),110)
+    def test_freeze_during_read_rejects_commit_and_no_lock_held(self):
+        item=self.handler({});adapter=SimpleNamespace(validate_capture_envelope=Mock(return_value={'legacy':{},'commitment':None,'commitment_error':False}))
+        def read(_):
+            self.assertTrue(item.server.capture_lock.acquire(False));item.server.capture_lock.release()
+            item.server.capture_accepting=False;return b'{}'
+        item.rfile=SimpleNamespace(read1=read)
+        with patch.object(host,'capture_helpers',return_value=adapter),patch.object(host.time,'monotonic',return_value=42):item.do_POST()
+        self.assertFalse(item.server.n0a_received.is_set());item.send_error.assert_called_with(400)
+    def test_legacy_route_rejected_capture_on(self):
+        item=self.handler({});item.path='/cap/n0a-result';item.do_POST()
+        item.send_error.assert_called_with(400)
+    def test_body_wait_deadline_not_renewed(self):
+        item=self.handler({});server=item.server;server.n0a_received.set();server.capture_received_at=100;server.capture_commitment={}
+        server.capture_body_received=Mock();server.capture_body_received.wait.return_value=False
+        qemu=Mock();qemu.poll.return_value=None;disk=Mock();disk.stat.return_value.st_size=1
+        with patch.object(host.time,'monotonic',return_value=110):
+            self.assertEqual(host.wait_for_n0a(server,500,SimpleNamespace(reason=None),disk,qemu,{}),'capture_body_deadline')
+    def test_finish_snapshot_original_deadline_and_private_parse(self):
+        item=self.handler({});server=item.server;server.n0a_received.set();server.capture_body_received.set()
+        server.capture_private_body=b'private';server.capture_commitment={};server.n0a_result={}
+        owner=Mock();owner.output_path=Path('owned/capture.pcap')
+        def finish(**kwargs):
+            self.assertFalse(server.capture_accepting);self.assertEqual(kwargs,{'cleanup_deadline':970});return {'cleanup_confirmed':True}
+        owner.finish.side_effect=finish
+        adapter=SimpleNamespace(unavailable=Mock(return_value={'status':'inconclusive'}),parse_before_cleanup=Mock(return_value={'tentative':True}))
+        config={'run_nonce':'a'*32,'source_commit':'b'*40,'vm_mac':'525400123456'}
+        n0a={'case_nonce':'c'*32,'actor_sha256':'d'*64,'actor_source_sha256':'e'*64,'identity_source_sha256':'f'*64,'runner_port':12345}
+        with patch.object(host,'capture_helpers',return_value=adapter),patch.object(host.time,'monotonic',return_value=900):
+            facts,result=host.finish_capture_before_cleanup(owner,server,config,n0a,{},1000,True)
+        self.assertEqual(result,{'tentative':True});self.assertTrue(facts['cleanup_confirmed'])
+        call=adapter.parse_before_cleanup.call_args;self.assertEqual(call.args[2],b'private')
+        self.assertEqual(call.args[3]['endpoint']['destination_port'],12345)
+        self.assertTrue(call.kwargs['terminal_before_shutdown']);self.assertTrue(call.kwargs['header_before_link'])
+        adapter.parse_before_cleanup.return_value={'capture_read_cleanup_confirmed':False}
+        with patch.object(host,'capture_helpers',return_value=adapter),patch.object(host.time,'monotonic',return_value=900):
+            facts,_=host.finish_capture_before_cleanup(owner,server,config,n0a,{},1000,True)
+        self.assertFalse(facts['cleanup_confirmed'])
+
+    def test_owner_failure_no_parse_and_lock_failure_still_finishes(self):
+        for throws in (True,False):
+            item=self.handler({});item.server.capture_lock=Mock();item.server.capture_lock.acquire.return_value=False
+            owner=Mock();owner.finish.side_effect=RuntimeError('PRIVATE') if throws else None
+            owner.finish.return_value={'cleanup_confirmed':True}
+            adapter=SimpleNamespace(unavailable=Mock(return_value={'status':'inconclusive'}),parse_before_cleanup=Mock())
+            with patch.object(host,'capture_helpers',return_value=adapter),patch.object(host.time,'monotonic',return_value=900):
+                facts,result=host.finish_capture_before_cleanup(owner,item.server,None,None,{},1000,False)
+            owner.finish.assert_called_once();adapter.parse_before_cleanup.assert_not_called()
+            self.assertNotIn('PRIVATE',json.dumps((facts,result)))
+    def test_capture_cleanup_never_resignals_qemu_retains_unknown(self):
+        qemu=Mock();qemu.poll.return_value=None;public={};work=Mock()
+        with patch.object(host,'finish_capture_server',return_value=True):
+            host.finalize_owned(public,Mock(),work,qemu=qemu,capture_facts={},cleanup_deadline=100)
+        qemu.kill.assert_not_called();qemu.wait.assert_not_called();self.assertFalse(public['vm_destroyed'])
+        self.assertTrue(public['teardown_diagnostic']['work_retained'])
+    def test_capture_tpm_poll_and_kill_errors_do_not_skip_owned_wait(self):
+        for error in ('poll','kill'):
+            tpm=Mock();tpm.poll.return_value=None;getattr(tpm,error).side_effect=OSError('PRIVATE')
+            public={}
+            with patch.object(host,'finish_capture_server',return_value=True),patch.object(host.time,'monotonic',return_value=99):
+                host.finalize_owned(public,Mock(),Mock(),tpm=tpm,capture_facts={'cleanup_confirmed':True},cleanup_deadline=100)
+            tpm.kill.assert_called_once();tpm.wait.assert_called_once_with(timeout=1)
+            self.assertFalse(public['vm_destroyed']);self.assertTrue(public['teardown_diagnostic']['work_retained'])
+            self.assertNotIn('PRIVATE',json.dumps(public))
+    def test_shutdown_registered_before_start_and_clipped(self):
+        server=Mock();server.capture_shutdown_thread=None;server.socket.fileno.return_value=-1
+        serve=Mock();serve.ident=1;serve.is_alive.return_value=False;shutdown=Mock();shutdown.is_alive.return_value=False
+        def start():
+            self.assertIs(server.capture_shutdown_thread,shutdown);server.capture_shutdown_ok=True
+        shutdown.start.side_effect=start
+        with patch.object(host.threading,'Thread',return_value=shutdown),patch.object(host.time,'monotonic',return_value=99):
+            self.assertTrue(host.finish_capture_server(server,serve,100,{}))
+        shutdown.join.assert_called_once_with(timeout=1);serve.join.assert_called_once_with(timeout=1)
+    def test_shutdown_uncertain_or_budget_exhausted_not_restarted(self):
+        for alive in (True,False):
+            server=Mock();server.capture_shutdown_thread=None;server.socket.fileno.return_value=-1
+            serve=Mock();serve.ident=1;serve.is_alive.return_value=alive
+            with patch.object(host.threading,'Thread') as constructor,patch.object(host.time,'monotonic',return_value=100):
+                self.assertFalse(host.finish_capture_server(server,serve,100,{}));constructor.assert_not_called()
+        server.capture_shutdown_thread=Mock();server.capture_shutdown_thread.is_alive.return_value=True
+        with patch.object(host.threading,'Thread') as constructor,patch.object(host.time,'monotonic',return_value=99):
+            self.assertFalse(host.finish_capture_server(server,serve,100,{}));constructor.assert_not_called()
+    def test_exceptional_owner_finish_exact_fallback_never_qualifies(self):
+        server=self.handler({}).server;owner=Mock();owner.finish.side_effect=RuntimeError('PRIVATE')
+        owner.process.poll.return_value=0;owner.child.poll.side_effect=[None,0]
+        owner.close_ledger=SimpleNamespace(uncertain=False)
+        names=('root_fd','stderr_read','stderr_write','dummy_fd','child_channel','channel')
+        for name in names:setattr(owner,name,None)
+        owner._close.side_effect=lambda name:setattr(owner,name,None)
+        adapter=SimpleNamespace(unavailable=Mock(return_value={'status':'inconclusive'}),parse_before_cleanup=Mock())
+        public={}
+        with patch.object(host,'capture_helpers',return_value=adapter),patch.object(host.time,'monotonic',return_value=969):
+            facts,result=host.finish_capture_before_cleanup(owner,server,None,None,public,1000,False)
+        owner.process.kill.assert_not_called();owner.child.kill.assert_called_once();owner.child.wait.assert_called_once_with(timeout=1)
+        self.assertFalse(facts['cleanup_confirmed']);self.assertTrue(public['capture_owner_fallback']['process_exit_confirmed'])
+        self.assertTrue(public['capture_owner_fallback']['descriptors_closed']);adapter.parse_before_cleanup.assert_not_called()
+    def test_exceptional_fallback_poll_kill_wait_close_failures_closed(self):
+        for failure in ('poll','kill','wait','close'):
+            owner=Mock();owner.process=None;owner.child.poll.return_value=None;owner.close_ledger=SimpleNamespace(uncertain=False)
+            names=('root_fd','stderr_read','stderr_write','dummy_fd','child_channel','channel')
+            for name in names:setattr(owner,name,None)
+            owner._close.side_effect=lambda name:setattr(owner,name,None)
+            if failure=='close':owner._close.side_effect=OSError('PRIVATE')
+            else:getattr(owner.child,failure).side_effect=OSError('PRIVATE')
+            with patch.object(host.time,'monotonic',return_value=100):result=host.fallback_capture_owner(owner,100)
+            self.assertTrue(result['attempted']);self.assertFalse(result['process_exit_confirmed'])
+            if failure=='poll':
+                owner.child.kill.assert_called_once();owner.child.wait.assert_called_once_with(timeout=0)
+            if failure=='kill':owner.child.wait.assert_called_once_with(timeout=0)
+            if failure=='wait':owner.child.wait.assert_called_once_with(timeout=0)
+            if failure=='close':self.assertFalse(result['descriptors_closed'])
+            self.assertEqual(owner._close.call_count,6);self.assertNotIn('PRIVATE',json.dumps(result))
+    def test_capture_live_failures_abort_wait_and_reach_owned_finish(self):
+        for change in ('overflow','qemu_dump_write_error','ipc','child_exit','capture_error','premature_final'):
+            owner=Mock();owner.errors=set();owner.ipc_eof=False
+            owner.child.poll.return_value=None
+            status={'phase':'active','overflow':False,'qemu_dump_write_error':False,'errors':[]}
+            if change in ('overflow','qemu_dump_write_error'):status[change]=True
+            elif change=='ipc':owner.errors={'ipc'}
+            elif change=='child_exit':owner.child.poll.return_value=3
+            elif change=='capture_error':status['errors']=['write']
+            else:status['phase']='final'
+            owner.poll_status.return_value=status
+            server=self.handler({}).server;server.n0a_received=Mock();server.n0a_received.wait.return_value=False
+            adapter=SimpleNamespace(unavailable=Mock(return_value={'status':'inconclusive'}),parse_before_cleanup=Mock())
+            public={}
+            with patch.object(host,'capture_helpers',return_value=adapter):
+                with self.assertRaises(host.CaptureTransportFailure):
+                    try:host.wait_for_n0a(server,500,SimpleNamespace(reason=None),Mock(),Mock(),public,owner)
+                    finally:host.finish_capture_before_cleanup(owner,server,None,None,public,1000,True)
+            self.assertIn('capture_abort',public);owner.fail.assert_called_once();owner.finish.assert_called_once()
+    def test_capture_body_wait_polls_even_after_receipt(self):
+        owner=Mock();owner.errors=set();owner.ipc_eof=False;owner.child.poll.return_value=None
+        healthy={'phase':'active','overflow':False,'qemu_dump_write_error':False,'errors':[]}
+        owner.poll_status.side_effect=[healthy,{**healthy,'overflow':True}]
+        server=self.handler({}).server;server.n0a_received.set();server.capture_commitment={};server.capture_received_at=100
+        server.capture_body_received=Mock();server.capture_body_received.wait.return_value=False
+        with self.assertRaises(host.CaptureTransportFailure):
+            host.wait_for_n0a(server,500,SimpleNamespace(reason=None),Mock(),Mock(),{},owner)
+        self.assertEqual(owner.poll_status.call_count,2)
+    def test_startup_and_two_phase_finalization_source(self):
+        source=(ROOT/'.github/windows_identity_direct_stage0.py').read_text()
+        functions={n.name:ast.get_source_segment(source,n) for n in ast.parse(source).body if isinstance(n,ast.FunctionDef)}
+        body=functions['host'];self.assertIn('outer_deadline = deadline + 120',body)
+        self.assertIn('new_owner(capture_root, outer_deadline)',body)
+        self.assertLess(body.index('capture_owner = capture_helpers().new_owner'),body.index('capture_owner.start()'))
+        self.assertIn('admit(package.stat().st_size,',body)
+        self.assertIn('filter-dump,id=n0a-capture,netdev=vmnet,file={capture_owner.fifo_path},queue=all,status=on,maxlen=262144',body)
+        self.assertIn('capture_owner.spawn(limited_command(qemu_command, DISK_FILE_CAP))',body)
+        self.assertLess(body.index("qmp.execute('set_link', {'name': 'vmnet', 'up': False})"),body.index('capture_owner.wait_header'))
+        self.assertLess(body.index('capture_owner.wait_header'),body.index("qmp.execute('set_link', {'name': 'vmnet', 'up': True})"))
+        self.assertNotIn('watch.register(capture_owner',body)
+        self.assertLess(body.index('finish_capture_before_cleanup(capture_owner'),body.index('finalize_owned(public'))
+        self.assertLess(body.index('finalize_owned(public'),body.index('capture_helpers().qualify('))
+        self.assertIn("'n0a-capture-public.json'",body)
+        self.assertIn("if capture: archive.write(ROOT / '.github/windows_n0a_flow.py'",functions['payload'])
+
 if __name__=='__main__':unittest.main()

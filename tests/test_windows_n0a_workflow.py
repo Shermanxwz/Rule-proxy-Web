@@ -47,7 +47,7 @@ class N0aWorkflowTests(unittest.TestCase):
             self.assertIn(digest, self.text)
 
     def test_required_tests_cannot_pass_zero_or_skips(self):
-        for name in ('test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py'):
+        for name in ('test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py'):
             self.assertEqual(self.text.count("'" + name + "'"), 2)
             self.assertTrue((ROOT / 'tests' / name).is_file())
         self.assertEqual(self.text.count('suite.countTestCases()>=43'), 2)
@@ -90,8 +90,10 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         names = {node.value for node in ast.walk(ast.parse(source))
                  if isinstance(node, ast.Constant) and isinstance(node.value, str)
                  and node.value.startswith('n0a-') and node.value.endswith('.json')}
-        self.assertEqual(names, {'n0a-connect-public.json'})
-        self.assertIn('path: client-stage0-public/' + next(iter(names)), self.text)
+        self.assertEqual(names, {'n0a-connect-public.json', 'n0a-capture-public.json'})
+        self.assertIn('path: client-stage0-public/n0a-connect-public.json', self.text)
+        self.assertNotIn('client-stage0-public/n0a-capture-public.json', self.text)
+        self.assertNotIn('--n0a-capture', self.text)
 
     def test_production_upload_explicit_marker_and_fixture_excluded(self):
         step=self.text.split('name: n0a-connect-production-actor',1)[0].rsplit('- uses: actions/upload-artifact@v7',1)[1]

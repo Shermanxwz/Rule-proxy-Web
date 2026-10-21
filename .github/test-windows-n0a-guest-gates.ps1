@@ -6,7 +6,7 @@ $source=Join-Path $PSScriptRoot 'windows-identity-direct-stage0-run.ps1'
 $tokens=$null; $errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
 if ($errors.Count) { throw 'n0a_parse' }
-$names=@('Test-N0aConfiguration','Get-N0aRemainingMilliseconds','Wait-N0aOwnedChild','Write-N0aBoundedBody','Invoke-N0aGuestDiagnostic')
+$names=@('Test-N0aConfiguration','Get-N0aRemainingMilliseconds','Wait-N0aOwnedChild','Write-N0aBoundedBody','Invoke-N0aGuestDiagnostic','Test-N0aCaptureConfiguration','Get-N0aSha256','Get-N0aFlowCommitment','Read-N0aPrivateFlow','Send-N0aCaptureReports')
 foreach ($name in $names) {
     $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true))
     if ($nodes.Count -ne 1) { throw 'n0a_function' }
@@ -92,4 +92,52 @@ try {
     if (Test-Path -LiteralPath $owned) { [IO.File]::Delete($owned) }
     [IO.Directory]::Delete($fixtureRoot,$false)
 }
+# Capture preparation and dual transport are mocked; no sockets or guest entrypoint.
+$capture=[PSCustomObject]@{enabled=$true;run_nonce=('1'*32);source_commit=('2'*40);vm_mac='525400123456'}
+Check (Test-N0aCaptureConfiguration $capture)
+$capture.enabled=1; Check (-not (Test-N0aCaptureConfiguration $capture)); $capture.enabled=$true
+$capture.vm_mac='535400123456'; Check (-not (Test-N0aCaptureConfiguration $capture)); $capture.vm_mac='525400123456'
+$raw=[Text.Encoding]::ASCII.GetBytes('{"reports":{"before":{"sha256":"'+('1'*64)+'","bytes":100},"sample":{"sha256":"'+('2'*64)+'","bytes":200},"after":{"sha256":"'+('3'*64)+'","bytes":300},"contained":{"sha256":"'+('4'*64)+'","bytes":400}}}')
+$invalidRejected=$false
+try { [void](Get-N0aFlowCommitment ([Text.Encoding]::ASCII.GetBytes('{}'))) } catch { $invalidRejected=$true }
+Check $invalidRejected
+$commitment=Get-N0aFlowCommitment $raw
+Check ($commitment.ordinary_report_sha256 -ceq 'dc9af386dc5d72f1ba97ddb2876fa8cb8255bccbca11a886f3ab62352993b62a')
+Check ($commitment.sha256 -ceq (Get-N0aSha256 $raw) -and $commitment.bytes -eq $raw.Length)
+$root=Join-Path ([IO.Path]::GetTempPath()) ('n0a-flow-gate-'+[Guid]::NewGuid().ToString('N'))
+[void][IO.Directory]::CreateDirectory((Join-Path $root 'private-n0a'))
+$path=Join-Path $root 'private-n0a/runner-flow.json'
+try {
+    [IO.File]::WriteAllBytes($path,$raw)
+    $actual=Read-N0aPrivateFlow $root
+    Check ([Convert]::ToBase64String($actual.body) -ceq [Convert]::ToBase64String($raw))
+    Check ($actual.commitment.sha256 -ceq $commitment.sha256)
+} finally { [IO.File]::Delete($path); [IO.Directory]::Delete((Join-Path $root 'private-n0a')); [IO.Directory]::Delete($root) }
+$script:flowBody=$raw; $script:flowCommitment=$commitment; $script:prepareThrows=$false
+function Read-N0aPrivateFlow([string]$Workspace) {
+    if ($script:prepareThrows) { throw 'fixture' }
+    return @{body=$script:flowBody;commitment=$script:flowCommitment}
+}
+$script:calls=@(); $script:clocks=@(); $script:resultOkay=$true; $script:consume=$false; $script:clockCount=0
+function New-N0aReportingClock { $script:clockCount++; return [PSCustomObject]@{ElapsedMilliseconds=0} }
+function Send-N0aCaptureRequest([string]$Url,[byte[]]$Body,$Clock) {
+    $script:calls+=@(@{url=$Url;body=$Body}); $script:clocks+=@($Clock)
+    if ($script:consume) { $Clock.ElapsedMilliseconds=10000 }
+    if ($Url.EndsWith('/n0a-capture-result')) { return $script:resultOkay }
+    return $false
+}
+$envelope=@{schema_version=1;report=@{result=@{status='connect_succeeded'}}}
+Check (Send-N0aCaptureReports $full 'unused' $envelope)
+Check ($calls.Count -eq 2 -and $calls[0].url.EndsWith('/n0a-capture-result') -and $calls[1].url.EndsWith('/n0a-runner-flow'))
+Check ([object]::ReferenceEquals($clocks[0],$clocks[1]) -and $clockCount -eq 1)
+Check ([Convert]::ToBase64String($calls[1].body) -ceq [Convert]::ToBase64String($raw))
+$script:calls=@();$script:clocks=@();$script:resultOkay=$false
+Check (-not (Send-N0aCaptureReports $full 'unused' $envelope)); Check ($calls.Count -eq 1)
+$script:calls=@();$script:resultOkay=$true;$script:consume=$true
+Check (Send-N0aCaptureReports $full 'unused' $envelope); Check ($calls.Count -eq 1)
+$script:calls=@();$script:consume=$false;$script:prepareThrows=$true
+Check (Send-N0aCaptureReports $full 'unused' $envelope); Check ($calls.Count -eq 1)
+$sent=[Text.Encoding]::ASCII.GetString($calls[0].body) | ConvertFrom-Json
+Check ($null -eq $sent.flow_commitment -and $sent.legacy.report.result.status -ceq 'connect_succeeded')
+
 [ordered]@{schema_version=1;checks=$checks;guest_entrypoint_executed=$false;network_executed=$false;native_acceptance=$false} | ConvertTo-Json -Compress

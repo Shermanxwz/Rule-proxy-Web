@@ -486,6 +486,232 @@ def n0a_helpers():
     return sys.modules[name]
 
 
+def capture_helpers():
+    name = 'identity_n0a_capture_adapter_host'
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, ROOT / '.github/windows_n0a_capture_adapter.py')
+        module = importlib.util.module_from_spec(spec); sys.modules[name] = module
+        try: spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(name, None); raise
+    return sys.modules[name]
+
+
+class CaptureTransportFailure(RuntimeError):
+    pass
+
+
+def observe_capture(owner, public):
+    if owner is None: return
+    reason = None
+    try:
+        status = owner.poll_status()  # Zero-wait poll; primitive caps total frames.
+        if owner.errors or owner.ipc_eof: reason = 'ipc_or_capture_error'
+        elif owner.child is None or owner.child.poll() is not None: reason = 'child_exit'
+        elif not isinstance(status, dict): reason = 'status_unavailable'
+        elif status.get('overflow') is True: reason = 'overflow'
+        elif status.get('qemu_dump_write_error') is True: reason = 'dump_write'
+        elif status.get('errors'): reason = 'capture_error'
+        elif status.get('phase') == 'final': reason = 'premature_final'
+    except Exception: reason = 'observation_error'
+    if reason is not None:
+        public['capture_abort'] = reason
+        owner.fail('child_exit' if reason == 'child_exit' else 'read')
+        raise CaptureTransportFailure('capture transport unavailable')
+
+
+def capture_request_deadline(server, body):
+    deadline = n0a_wait_deadline(server, server.capture_work_deadline)
+    return min(deadline, server.capture_received_at + 10) if body else min(deadline, time.monotonic() + 5)
+
+
+def read_capture_request(handler, length, deadline):
+    # read1 prevents buffered read(length) from silently renewing socket waits.
+    chunks = []; remaining = length
+    while remaining:
+        budget = deadline - time.monotonic()
+        if budget <= 0: raise ValueError('capture body deadline')
+        handler.connection.settimeout(min(5, budget))
+        chunk = handler.rfile.read1(min(remaining, 65536))
+        if not chunk: raise ValueError('capture body incomplete')
+        chunks.append(chunk); remaining -= len(chunk)
+    if time.monotonic() >= deadline: raise ValueError('capture body late')
+    return b''.join(chunks)
+
+
+def reject_capture_constant(_):
+    raise ValueError('capture JSON constant')
+
+
+def fallback_capture_owner(owner, deadline):
+    # Exceptional path only. Exact held Popen objects and the primitive's
+    # close-once ledger; never detached numeric PIDs or a renewed deadline.
+    exited = True
+    for process in (owner.process, owner.child):
+        if process is None: continue
+        observed = False
+        try: observed = type(process.poll()) is int
+        except Exception: exited = False
+        if not observed:
+            # A failed observation cannot suppress the owned stop attempt.
+            try: process.kill()
+            except Exception: exited = False
+            try: process.wait(timeout=cleanup_remaining(deadline, 5))
+            except Exception: exited = False
+            try: observed = type(process.poll()) is int
+            except Exception: exited = False
+        exited = exited and observed
+    closed = True
+    for name in ('root_fd','stderr_read','stderr_write','dummy_fd','child_channel','channel'):
+        try: owner._close(name)
+        except Exception: closed = False
+    try:
+        closed = (closed and not owner.close_ledger.uncertain
+                  and all(getattr(owner, name) is None for name in
+                          ('root_fd','stderr_read','stderr_write','dummy_fd','child_channel','channel')))
+    except Exception: closed = False
+    return {'attempted': True, 'process_exit_confirmed': exited, 'descriptors_closed': closed}
+
+
+def finish_capture_before_cleanup(owner, server, capture_config, n0a_config, public,
+                                  outer_deadline, header_before_link):
+    adapter = capture_helpers(); tentative = adapter.unavailable(); snapshot = True
+    if server is not None:
+        server.capture_accepting = False
+        acquired = server.capture_lock.acquire(timeout=max(0, min(1, outer_deadline-time.monotonic())))
+        if acquired: server.capture_lock.release()
+        else: snapshot = False
+    if owner is None: return None, tentative
+    facts = {'cleanup_confirmed': False}
+    try: facts = owner.finish(cleanup_deadline=outer_deadline-30)
+    except Exception:
+        public['capture_owner_fallback'] = fallback_capture_owner(owner, outer_deadline-30)
+        return facts, tentative
+    try:
+        from ruleproxy.windows_runtime_pins import MXC_G_EXECUTOR_SHA256
+        expected = {'binding': {
+            'run_nonce': capture_config['run_nonce'], 'case_nonce': n0a_config['case_nonce'],
+            'actor_sha256': n0a_config['actor_sha256'], 'executor_sha256': MXC_G_EXECUTOR_SHA256,
+            'actor_source_sha256': n0a_config['actor_source_sha256'],
+            'identity_source_sha256': n0a_config['identity_source_sha256'],
+            'source_commit': capture_config['source_commit'], 'build': 26300, 'ubr': 9457},
+            'endpoint': {'vm_mac': capture_config['vm_mac'], 'destination_ipv4': '10.0.2.2',
+                         'destination_port': n0a_config['runner_port']},
+            'flow_commitment': server.capture_commitment, 'controller_result': server.n0a_result}
+        if snapshot and time.monotonic() < outer_deadline-20:
+            tentative = adapter.parse_before_cleanup(owner.output_path, facts, server.capture_private_body, expected,
+                header_before_link=header_before_link,
+                terminal_before_shutdown=server.n0a_received.is_set() and server.capture_body_received.is_set(),
+                capacity_abort=bool(public.get('capacity_abort') or public.get('capture_abort')))
+            if tentative.get('capture_read_cleanup_confirmed') is False:
+                facts['cleanup_confirmed'] = False
+    except Exception: pass  # Missing evidence never becomes packet absence.
+    return facts, tentative
+
+
+def cleanup_remaining(deadline, maximum):
+    return max(0, min(maximum, deadline-time.monotonic()))
+
+
+def finish_capture_server(server, thread, deadline, facts):
+    okay = True
+    if server is not None:
+        # Registered before start; never retry creation or imply thread killing.
+        shutdown = getattr(server, 'capture_shutdown_thread', None)
+        if shutdown is None and thread is not None and thread.ident is not None and cleanup_remaining(deadline, 1)>0:
+            server.capture_shutdown_ok = False
+            def shutdown_once():
+                try: server.shutdown(); server.capture_shutdown_ok = True
+                except Exception: pass
+            shutdown = threading.Thread(target=shutdown_once, daemon=True)
+            server.capture_shutdown_thread = shutdown
+            try: shutdown.start()
+            except Exception: okay = False
+        if shutdown is not None:
+            try: shutdown.join(timeout=cleanup_remaining(deadline, 5))
+            except Exception: okay = False
+            try: okay = okay and not shutdown.is_alive() and server.capture_shutdown_ok is True
+            except Exception: okay = False
+        elif thread is not None and thread.ident is not None: okay = False
+        facts['server_shutdown_succeeded'] = okay
+        try: server.server_close(); facts['server_close_succeeded'] = server.socket.fileno()<0
+        except Exception: facts['server_close_succeeded'] = False
+        okay = okay and facts['server_close_succeeded']
+    if thread is not None:
+        try: thread.join(timeout=cleanup_remaining(deadline, 5))
+        except Exception: okay = False
+        try: facts['server_thread_stopped'] = not thread.is_alive()
+        except Exception: facts['server_thread_stopped'] = False
+        okay = okay and facts['server_thread_stopped']
+    return okay
+
+
+def finalize_capture_owned(public, media, work, qemu, tpm, qmp, server, thread, watch,
+                           n0a_endpoint, capture_facts, deadline):
+    facts = new_teardown_facts(); public['teardown_diagnostic'] = facts
+    facts['qemu_present'] = qemu is not None; facts['tpm_present'] = tpm is not None
+    facts['qmp_present'] = qmp is not None; facts['server_present'] = server is not None
+    okay = capture_facts.get('cleanup_confirmed') is True
+    registered = tuple(watch.processes) if watch is not None else ()
+    owned = []
+    for process in (qemu, tpm, *registered):
+        if process is not None and all(process is not prior for prior in owned): owned.append(process)
+    helpers = [p for p in owned if p is not qemu and p is not tpm]; facts['helper_count'] = len(helpers)
+    for process in owned:
+        label = 'qemu' if process is qemu else 'tpm' if process is tpm else 'helper'
+        exit_observation(process, facts, label, 'before')
+        if process is qemu and facts.get('qemu_exit_before_cleanup') == -signal.SIGXFSZ:
+            public['capacity_abort'] = 'file_size_limit_signal'
+        # CaptureOwner is the sole cleanup signal owner for QEMU.
+        if process is not qemu:
+            observed = False
+            try: observed = type(process.poll()) is int
+            except Exception as exc: okay = False; teardown_error(facts, 'process_observation', exc)
+            if not observed:
+                try: process.kill()
+                except Exception as exc: okay = False; teardown_error(facts, 'process_stop', exc)
+                try: process.wait(timeout=cleanup_remaining(deadline, 5))
+                except Exception as exc: okay = False; teardown_error(facts, 'process_stop', exc)
+        confirmed = exit_observation(process, facts, label, 'after'); okay = okay and confirmed
+        if label == 'helper' and confirmed: facts['helper_exit_confirmed_count'] += 1
+    if n0a_endpoint is not None:
+        try: endpoint = n0a_endpoint.finish(deadline=deadline)
+        except Exception: endpoint = {'socket_cleanup_confirmed': False, 'endpoint_error': True, 'receiver_counts': None}
+        public['n0a_receiver_cleanup'] = endpoint
+        okay = okay and endpoint.get('socket_cleanup_confirmed') is True
+    if watch is not None:
+        facts['watcher_present'] = True
+        try: watch.stop.set(); watch.thread.join(timeout=cleanup_remaining(deadline, 2))
+        except Exception as exc: okay = False; teardown_error(facts, 'watcher_stop', exc)
+        try: facts['watcher_stopped'] = not watch.thread.is_alive()
+        except Exception: facts['watcher_stopped'] = False
+        okay = okay and facts['watcher_stopped']; public['minimum_free_bytes'] = watch.minimum_free
+    if qmp is not None:
+        try:
+            qmp.socket.settimeout(cleanup_remaining(deadline, 5))
+            qmp.close(); facts['qmp_close_succeeded'] = True
+        except Exception as exc:
+            okay = False; facts['qmp_close_succeeded'] = False; teardown_error(facts, 'qmp_close', exc)
+            try: qmp.socket.close()
+            except Exception: pass
+        observe_qmp_closed(qmp, facts)
+        okay = okay and facts['qmp_file_closed'] is True and facts['qmp_socket_closed'] is True
+    server_okay = finish_capture_server(server, thread, deadline, facts); okay = okay and server_okay
+    if okay:
+        facts['work_remove_attempted'] = True
+        try: shutil.rmtree(work)
+        except OSError as exc: okay = False; teardown_error(facts, 'work_remove', exc)
+    else: facts['work_retained'] = True
+    try: work.lstat(); facts['work_removed'] = False
+    except FileNotFoundError: facts['work_removed'] = True
+    except OSError: facts['work_removed'] = None
+    public['vm_destroyed'] = okay and facts['work_removed'] is True
+    reconcile_capacity(public, watch.reason if watch else None)
+    if not public['vm_destroyed']:
+        public['status'] = 'cleanup_unconfirmed'; public['stage0_passed'] = False
+    return public
+
+
 def verify_n0a_inputs(actor, manifest):
     def bounded(path, maximum):
         path = Path(path)
@@ -525,15 +751,27 @@ def n0a_wait_deadline(server, outer_deadline):
     return min(outer_deadline, observed + 120) if type(observed) in (int, float) else outer_deadline
 
 
-def wait_for_n0a(server, deadline, watch, disk, qemu, public):
+def wait_for_n0a(server, deadline, watch, disk, qemu, public, capture_owner=None):
     # Only called after the independent original receipt was merged. The
     # optional deadline can shorten, never replace/extend the native deadline.
+    observe_capture(capture_owner, public)
     while not server.n0a_received.wait(.2):
+        observe_capture(capture_owner, public)
         if watch.reason: raise RuntimeError(watch.reason)
         if disk.stat().st_size >= DISK_FILE_CAP - 64 * 1024**2:
             public['capacity_abort'] = 'backing_file_ceiling_reached'; qemu.kill(); raise RuntimeError('file cap')
         if qemu.poll() is not None: return 'qemu_exited'
         if time.monotonic() >= n0a_wait_deadline(server, deadline): return 'deadline'
+    if getattr(server, 'capture_enabled', False) and server.capture_commitment is not None:
+        body_deadline = min(n0a_wait_deadline(server, deadline), server.capture_received_at+10)
+        while not server.capture_body_received.wait(.2):
+            observe_capture(capture_owner, public)
+            if watch.reason: raise RuntimeError(watch.reason)
+            if disk.stat().st_size >= DISK_FILE_CAP-64*1024**2:
+                public['capacity_abort'] = 'backing_file_ceiling_reached'; qemu.kill(); raise RuntimeError('file cap')
+            if time.monotonic() >= body_deadline: return 'capture_body_deadline'
+            if qemu.poll() is not None: return 'qemu_exited'
+    observe_capture(capture_owner, public)
     return 'received'
 
 
@@ -570,7 +808,7 @@ def compose_n0a_public(server, public, wait_state):
     return result
 
 
-def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None):
+def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None, capture=False):
     python_data = verify_python(python_archive)
     if actor.stat().st_size > 16 * 1024**2 or bundle.stat().st_size > 64 * 1024**2:
         raise ValueError('bounded payload inputs required')
@@ -608,12 +846,20 @@ def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=Non
                     archive.writestr(member, content)
                 for name in ('.github/windows_n0a_control.py', '.github/windows_n0a_guest.py'):
                     archive.write(ROOT / name, name)
+                if capture: archive.write(ROOT / '.github/windows_n0a_flow.py', '.github/windows_n0a_flow.py')
     return hashlib.sha256(destination.read_bytes()).hexdigest()
 
 
 class ClosedServer(HTTPServer):
     # One synchronous handler, bounded request body, no disk writes.
-    def __init__(self, payload, n0a_expected=None):
+    def __init__(self, payload, n0a_expected=None, capture=False, capture_work_deadline=None):
+        self.capture_enabled = capture
+        self.capture_work_deadline = capture_work_deadline
+        self.capture_accepting = True; self.capture_lock = threading.Lock()
+        self.capture_received_at = None; self.capture_commitment = None
+        self.capture_commitment_error = False; self.capture_private_body = None
+        self.capture_body_attempted = False; self.capture_body_received = threading.Event()
+        self.capture_shutdown_thread = None
         self.n0a_expected = n0a_expected
         self.n0a_received = threading.Event()
         self.n0a_result = None
@@ -639,7 +885,11 @@ class ClosedHandler(BaseHTTPRequestHandler):
         with self.server.payload.open('rb') as source:
             shutil.copyfileobj(source, self.wfile, 65536)
     def do_POST(self):
-        if self.server.n0a_expected is not None and self.path == '/' + self.server.capability + '/n0a-result':
+        if getattr(self.server, 'capture_enabled', False):
+            if self.path == '/' + self.server.capability + '/n0a-capture-result': return self.do_capture_POST(False)
+            if self.path == '/' + self.server.capability + '/n0a-runner-flow': return self.do_capture_POST(True)
+        if (not getattr(self.server, 'capture_enabled', False) and self.server.n0a_expected is not None
+                and self.path == '/' + self.server.capability + '/n0a-result'):
             return self.do_n0a_POST()
         try:
             self.server.result_transport_state = 'endpoint_check'
@@ -676,6 +926,48 @@ class ClosedHandler(BaseHTTPRequestHandler):
             self.server.n0a_received.set()
             self.send_response(200); self.end_headers()
         except (ValueError, TypeError, OSError): self.send_error(400)
+
+    def do_capture_POST(self, body):
+        try:
+            if not self.server.capture_accepting or not self.server.received.is_set():
+                self.send_error(409); return
+            if body:
+                if (not self.server.n0a_received.is_set() or self.server.capture_body_attempted
+                        or self.server.capture_commitment is None):
+                    self.send_error(409); return
+                self.server.capture_body_attempted = True
+                limit = capture_helpers().MAX_FLOW
+            else:
+                if self.server.n0a_received.is_set():
+                    self.send_error(409); return
+                limit = MAX_N0A_REPORT
+            deadline = capture_request_deadline(self.server, body)
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= limit: raise ValueError('capture bound')
+            raw = read_capture_request(self, length, deadline)
+            if body:
+                if not capture_helpers().accept_private_body(raw, self.server.capture_commitment):
+                    raise ValueError('capture commitment')
+                result = None
+            else:
+                value = json.loads(raw, object_pairs_hook=n0a_helpers().unique_object,
+                                   parse_constant=reject_capture_constant)
+                result = capture_helpers().validate_capture_envelope(value, self.server.n0a_expected)
+            acquired = self.server.capture_lock.acquire(timeout=cleanup_remaining(deadline, 1))
+            if not acquired: raise ValueError('capture commit unavailable')
+            try:
+                if not self.server.capture_accepting or time.monotonic() >= deadline:
+                    raise ValueError('capture closed')
+                if body:
+                    self.server.capture_private_body = raw; self.server.capture_body_received.set()
+                else:
+                    self.server.n0a_result = result['legacy']
+                    self.server.capture_commitment = result['commitment']
+                    self.server.capture_commitment_error = result['commitment_error']
+                    self.server.capture_received_at = time.monotonic(); self.server.n0a_received.set()
+            finally: self.server.capture_lock.release()
+            self.send_response(200); self.end_headers()
+        except (ValueError, TypeError, OSError, RecursionError): self.send_error(400)
 
 
 def limited_command(command, ceiling):
@@ -870,7 +1162,10 @@ def cleanup_owned(media, work, qemu=None, tpm=None, qmp=None, server=None, threa
     return cleanup_ok and not live and facts['work_removed'] is True
 
 
-def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, watch=None, n0a_endpoint=None):
+def finalize_owned(public, media, work, qemu=None, tpm=None, qmp=None, server=None, thread=None, watch=None, n0a_endpoint=None, capture_facts=None, cleanup_deadline=None):
+    if capture_facts is not None:
+        return finalize_capture_owned(public, media, work, qemu, tpm, qmp, server, thread, watch,
+                                      n0a_endpoint, capture_facts, cleanup_deadline)
     facts = new_teardown_facts(); public['teardown_diagnostic'] = facts
     facts['qemu_present'] = qemu is not None; facts['tpm_present'] = tpm is not None
     for name, process in (('qemu', qemu), ('tpm', tpm)): exit_observation(process, facts, name, 'before')
@@ -1077,6 +1372,9 @@ def host(args):
         raise PermissionError('direct exploratory execution is disabled pending frozen review')
     if getattr(args, 'n0a', False) and n0a_helpers().EXECUTION_ENABLED is not True:
         raise PermissionError('N0a execution disabled pending separate review')
+    if getattr(args, 'n0a_capture_runner', False):
+        if not getattr(args, 'n0a', False) or capture_helpers().CAPTURE_EXECUTION_ENABLED is not True:
+            raise PermissionError('capture execution disabled pending separate review')
     if sys.platform != 'linux' or not args.approved_disposable_vm:
         raise PermissionError('explicit disposable VM approval required')
     media = load('identity_win11_media', ROOT / '.github/windows_vm_test.py')
@@ -1090,9 +1388,11 @@ def host(args):
     if available < 300: raise TimeoutError('native job cleanup reserve unavailable')
     qemu = tpm = server = thread = qmp = watch = n0a_endpoint = None
     n0a = None; original_merged = False; n0a_wait_state = 'not_started'
+    capture_owner = capture_config = capture_facts = capture_tentative = None; header_before_link = False
     work = Path(tempfile.mkdtemp(prefix='identity-win11-private-')); work.chmod(0o700)
     old_handlers = {sig: signal.signal(sig, interrupted) for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGALRM)}
     deadline = time.monotonic() + available - 120
+    outer_deadline = deadline + 120
     # Also bound non-subprocess work (hashes/ZIPs/filesystem) and helper calls.
     signal.setitimer(signal.ITIMER_REAL, available - 120)
     source = os.environ.get('GITHUB_SHA', '')
@@ -1125,10 +1425,10 @@ def host(args):
         if n0a is not None:
             n0a_endpoint = n0a_helpers().NonceEndpoint(n0a['config']['case_nonce'], 'runner', deadline)
             n0a['config']['runner_port'] = n0a_endpoint.start()
-        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=n0a)
+        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=n0a, capture=getattr(args, 'n0a_capture_runner', False))
         if package.stat().st_size > MAX_PAYLOAD: raise ValueError('payload size cap')
         operation = 'result_server'
-        server = ClosedServer(package, n0a['config'] if n0a is not None else None)
+        server = ClosedServer(package, n0a['config'] if n0a is not None else None, getattr(args, 'n0a_capture_runner', False), deadline)
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         operation = 'seed_build'
         tree = work / 'seed-tree'; tree.mkdir()
@@ -1136,6 +1436,9 @@ def host(args):
                   'payload_sha256': package_digest, 'python_sha256': PYTHON_ASSET['sha256'],
                   'actor_sha256': args.actor_sha256}
         if n0a is not None: config['n0a'] = dict(n0a['config'])
+        if getattr(args, 'n0a_capture_runner', False):
+            capture_config = capture_helpers().make_configuration(n0a['config'], source, media.VM_NIC_MAC)
+            config['capture'] = capture_config
         media.prepare_seed(tree, secrets.token_hex(16) + 'Ci!9', config)
         for role in ('setup', 'run'):
             shutil.copyfile(ROOT / f'.github/windows-identity-direct-stage0-{role}.ps1', tree / f'ruleproxy-vm-{role}.ps1')
@@ -1159,12 +1462,18 @@ def host(args):
         public['disk_file_ceiling_bytes'] = DISK_FILE_CAP
         public['reserve_guard_hard_guarantee'] = False
         if public['launch_free_bytes'] < LAUNCH_FREE: raise RuntimeError('launch capacity gate')
+        if capture_config is not None:
+            public['capture_admission'] = capture_helpers().admit(package.stat().st_size, public['launch_free_bytes'], LAUNCH_FREE)
+            capture_root = work / 'capture'; capture_root.mkdir(mode=0o700)
+            capture_owner = capture_helpers().new_owner(capture_root, outer_deadline)
+            capture_owner.start()
         watch = CapacityWatch(work); watch.thread.start()
         operation = 'tpm_start'
         tpm = subprocess.Popen(limited_command(['swtpm', 'socket', '--tpm2', '--tpmstate', f'dir={state}', '--ctrl', f'type=unixio,path={tpm_socket}'], 8 * 1024**2), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         watch.register(tpm)
         ready = time.monotonic() + 20
         while not tpm_socket.exists():
+            observe_capture(capture_owner, public)
             stopped = tpm.poll() is not None
             if stopped or time.monotonic() > ready:
                 public['host_wait_failure'] = 'tpm_exited' if stopped else 'tpm_ready_timeout'
@@ -1174,7 +1483,7 @@ def host(args):
         public['vm_work_seconds_available'] = int(require_vm_work_budget(deadline))
         operation = 'qemu_start'
         bootstrap_started = time.monotonic()
-        qemu = subprocess.Popen(limited_command(['qemu-system-x86_64', '-machine', 'q35,accel=kvm,smm=on', '-cpu',
+        qemu_command = ['qemu-system-x86_64', '-machine', 'q35,accel=kvm,smm=on', '-cpu',
             'host,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-time=on', '-m', '6144', '-smp', '4',
             '-global', 'driver=cfi.pflash01,property=secure,value=on',
             '-drive', f'if=pflash,format=raw,readonly=on,file={code}', '-drive', f'if=pflash,format=raw,file={nvram}',
@@ -1184,13 +1493,19 @@ def host(args):
             '-netdev', 'user,id=vmnet', '-device', f'e1000,netdev=vmnet,mac={media.VM_NIC_MAC}',
             '-chardev', f'socket,id=tpm,path={tpm_socket}', '-tpmdev', 'emulator,id=tpmdev,chardev=tpm', '-device', 'tpm-tis,tpmdev=tpmdev',
             '-device', 'qemu-xhci', '-device', 'usb-tablet', '-vga', 'std', '-display', 'none', '-monitor', 'none',
-            '-chardev', 'ringbuf,id=serialbuf,size=65536', '-serial', 'chardev:serialbuf', '-qmp', f'unix:{qmp_socket},server=on,wait=off'], DISK_FILE_CAP),
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            '-chardev', 'ringbuf,id=serialbuf,size=65536', '-serial', 'chardev:serialbuf', '-qmp', f'unix:{qmp_socket},server=on,wait=off']
+        if capture_owner is not None:
+            qemu_command += ['-object', f'filter-dump,id=n0a-capture,netdev=vmnet,file={capture_owner.fifo_path},queue=all,status=on,maxlen=262144']
+            qemu = capture_owner.spawn(limited_command(qemu_command, DISK_FILE_CAP))
+        else:
+            qemu = subprocess.Popen(limited_command(qemu_command, DISK_FILE_CAP),
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         record_breadcrumb(public, 'qemu_started', work, disk, deadline)
         operation = 'qmp_connect'
         watch.register(qemu)
         ready = time.monotonic() + 20
         while qmp is None:
+            observe_capture(capture_owner, public)
             stopped = qemu.poll() is not None
             if stopped or time.monotonic() > ready:
                 public['host_wait_failure'] = 'qemu_exited_before_qmp' if stopped else 'qmp_ready_timeout'
@@ -1200,14 +1515,20 @@ def host(args):
         operation = 'kvm_verify'
         if qmp.execute('query-kvm').get('enabled') is not True: raise RuntimeError('KVM required')
         qmp.execute('set_link', {'name': 'vmnet', 'up': False})
+        if capture_owner is not None:
+            if not capture_owner.wait_header(min(deadline, time.monotonic()+10)):
+                raise RuntimeError('capture header unavailable')
+            header_before_link = True
         if True:  # Original ISO may require its standard press-key prompt.
             for _ in range(8):
+                observe_capture(capture_owner, public)
                 qmp.execute('send-key', {'keys': [{'type': 'qcode', 'data': 'ret'}], 'hold-time': 100}); time.sleep(2)
         operation = 'guest_wait'
         plugged = False; installed_handoff = False
         serial_tail = ""
         early_serial = EarlyGuestSerial()
         while not server.received.wait(.2):
+            observe_capture(capture_owner, public)
             if watch.reason: raise RuntimeError(watch.reason)
             if disk.stat().st_size >= DISK_FILE_CAP - 64 * 1024**2:
                 public['capacity_abort'] = 'backing_file_ceiling_reached'; qemu.kill(); raise RuntimeError('file cap')
@@ -1224,6 +1545,7 @@ def host(args):
                 record_breadcrumb(public, 'guest_beacon', work, disk, deadline)
                 installed_handoff = True
                 qmp.execute('set_link', {'name': 'vmnet', 'up': True}); plugged = True
+        observe_capture(capture_owner, public)
         record_breadcrumb(public, 'result_received', work, disk, deadline)
         operation = 'result_validation'
         # Preserve only closed diagnostics even if provenance validation fails.
@@ -1237,7 +1559,7 @@ def host(args):
             # Persist the original closed receipt before waiting on optional work.
             # vm_destroyed remains false until the existing final cleanup.
             (args.output / 'public-report.json').write_text(json.dumps(public, indent=2)+'\n', encoding='ascii')
-            n0a_wait_state = wait_for_n0a(server, deadline, watch, disk, qemu, public)
+            n0a_wait_state = wait_for_n0a(server, deadline, watch, disk, qemu, public, capture_owner)
     except VMWorkBudgetInsufficient as exc:
         public['stage0_passed'] = False
         public['host_failure'] = dict(closed_failure(exc), operation=operation)
@@ -1257,7 +1579,14 @@ def host(args):
                 merge_direct_result(public, server.result, args.actor_sha256, installed_handoff)
                 original_merged = True
             except Exception: public['stage0_passed'] = False
-        finalize_owned(public, media, work, qemu, tpm, qmp, server, thread, watch, n0a_endpoint)
+        if getattr(args, 'n0a_capture_runner', False):
+            try:
+                capture_facts, capture_tentative = finish_capture_before_cleanup(capture_owner, server,
+                    capture_config, n0a['config'] if n0a is not None else None, public, outer_deadline, header_before_link)
+            except Exception: capture_facts = {'cleanup_confirmed': False}
+            if capture_facts is None: capture_facts = {'cleanup_confirmed': capture_owner is None}
+        finalize_owned(public, media, work, qemu, tpm, qmp, server, thread, watch, n0a_endpoint,
+                       capture_facts, outer_deadline if getattr(args, 'n0a_capture_runner', False) else None)
         if public['vm_destroyed']: record_breadcrumb(public, 'cleanup_done', work, disk, deadline)
         public['last_phase'] = phase
         (args.output / 'public-report.json').write_text(json.dumps(public, indent=2) + '\n', encoding='ascii')
@@ -1265,6 +1594,9 @@ def host(args):
             try:
                 n0a_public = compose_n0a_public(server, public, n0a_wait_state)
                 (args.output / 'n0a-connect-public.json').write_text(json.dumps(n0a_public, indent=2)+'\n', encoding='ascii')
+                if getattr(args, 'n0a_capture_runner', False):
+                    capture_public = capture_helpers().qualify(capture_tentative, public, n0a_public)
+                    (args.output / 'n0a-capture-public.json').write_text(json.dumps(capture_public, indent=2)+'\n', encoding='ascii')
             except Exception:
                 # Never let optional diagnostic/report failure erase Stage0.
                 try: print(json.dumps({'n0a_report_write_failed': True}), flush=True)
@@ -1284,6 +1616,7 @@ def main(argv=None):
     for name in ('python-archive', 'actor', 'bundle'): parser.add_argument('--' + name, type=Path)
     parser.add_argument('--actor-sha256')
     parser.add_argument('--n0a', action='store_true')
+    parser.add_argument('--n0a-capture-runner', action='store_true')
     parser.add_argument('--n0a-actor', type=Path); parser.add_argument('--n0a-manifest', type=Path)
     parser.add_argument('--timeout-seconds', type=int, default=6600)
     parser.add_argument('--job-deadline-epoch', type=int)
@@ -1291,6 +1624,7 @@ def main(argv=None):
     if args.n0a and (args.guest or args.download_python or args.check_preparation or args.check_apt_plan
                       or not args.n0a_actor or not args.n0a_manifest):
         parser.error('N0a requires explicit host inputs only')
+    if args.n0a_capture_runner and not args.n0a: parser.error('capture requires N0a opt-in')
     if not args.n0a and (args.n0a_actor or args.n0a_manifest): parser.error('N0a inputs require explicit opt-in')
     if args.check_preparation or args.check_apt_plan:
         if args.guest or args.approved_disposable_vm or args.download_python or (args.check_preparation and args.check_apt_plan):

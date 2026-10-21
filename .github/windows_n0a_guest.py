@@ -41,6 +41,36 @@ def configuration(path):
     return value
 
 
+def flow_helpers():
+    name='n0a_guest_flow'
+    if name not in sys.modules:
+        spec=importlib.util.spec_from_file_location(name,ROOT/'.github/windows_n0a_flow.py')
+        module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def capture_configuration(path):
+    value=json.loads(bounded_bytes(path,16384).decode('utf-8'),object_pairs_hook=engine.unique_object)
+    if type(value) is not dict or 'capture' not in value:return None
+    value=value['capture']
+    if type(value) is not dict or set(value)!={'enabled','run_nonce','source_commit','vm_mac'} or value['enabled'] is not True:raise ValueError('capture configuration')
+    for key,size in (('run_nonce',32),('source_commit',40),('vm_mac',12)):
+        if not flow_helpers().hex_value(value[key],size):raise ValueError('capture binding')
+    if int(value['vm_mac'][:2],16)&1 or value['vm_mac']=='0'*12:raise ValueError('capture MAC')
+    return value
+
+
+def prepare_flow(config,capture,binding,cases,execution,deadline):
+    # Capture-only preparation cannot replace the already computed connect result.
+    if capture is None or execution is None or time.monotonic()>=deadline:return False
+    try:
+        raw=flow_helpers().build_bundle({'capture':capture,'n0a':config},binding,cases['runner'],execution.snapshots)
+        if time.monotonic()>=deadline:return False
+        with (ROOT/'private-n0a/runner-flow.json').open('xb') as stream:stream.write(raw)
+        return True
+    except Exception:return False
+
+
 def verify_production(config, actor, manifest):
     raw=bounded_bytes(manifest,8192)
     if hashlib.sha256(raw).hexdigest()!=config['manifest_sha256']:raise ValueError('manifest pin')
@@ -72,11 +102,12 @@ def qpc_budget(deadline_qpc, frequency):
 
 
 class WindowsExecution:
-    def __init__(self,binding,actor,executor,required_environment,work,deadline,*,approved=False):
+    def __init__(self,binding,actor,executor,required_environment,work,deadline,*,approved=False,capture=False):
         if os.name!='nt' or not engine.EXECUTION_ENABLED or not approved:raise PermissionError('N0a execution inactive')
         self.binding=binding;self.actor=Path(actor);self.executor=Path(executor)
         self.environment=list(required_environment);self.work=Path(work);self.deadline=deadline
         self.inputs=self.actor.parent;self.owned=[];self.cases={};self.sequence=0
+        self.capture=capture;self.snapshots={}
         for value in [self.actor,self.executor,self.work,*self.environment]:engine.safe_argument(value)
         if not self.work.is_dir() or not binding.valid():raise ValueError('fresh owned case root required')
 
@@ -170,7 +201,11 @@ class WindowsExecution:
                 'actor':None,'pid_verified':False,'pid_binding':'unavailable','child_exit_code':None,
                 'probe':case['probe'],'probe_exit_code':case['probe_exit'],'actual_tiers':[]}
         try:
-            self.pin();actor=engine.read_report(owned['report']);result['actor']=actor
+            self.pin()
+            if self.capture:
+                actor,snapshot=flow_helpers().read_snapshot(owned['report']);self.snapshots[id(actor)]=snapshot
+            else:actor=engine.read_report(owned['report'])
+            result['actor']=actor
             if actor.get('nonce')!=self.binding.nonce or actor.get('mode')!='actor-n0a':raise ValueError('fresh actor required')
             if owned['role']=='ordinary':
                 result['pid_verified']=type(actor.get('pid')) is int and actor['pid']==owned['process'].pid
@@ -216,6 +251,8 @@ def run(configuration_path,deadline_qpc,frequency):
     if not engine.EXECUTION_ENABLED: return None
     deadline=qpc_budget(deadline_qpc,frequency)
     config=configuration(configuration_path)
+    try:capture=capture_configuration(configuration_path)
+    except Exception:capture=None
     actor=ROOT/'n0a/actor.exe';manifest=ROOT/'n0a/build-manifest.json'
     verify_production(config,actor,manifest)
     endpoint=None;execution=None;binding=None;cases={};phase='binding';failed=False;cleanup=False
@@ -232,7 +269,7 @@ def run(configuration_path,deadline_qpc,frequency):
         work=ROOT/'private-n0a';work.mkdir(exist_ok=False);inputs=work/'inputs';inputs.mkdir()
         staged_actor=inputs/'actor.exe';staged_executor=inputs/'wxc-exec.exe'
         shutil.copyfile(actor,staged_actor);shutil.copyfile(ROOT/'g/wxc-exec.exe',staged_executor)
-        execution=WindowsExecution(binding,staged_actor,staged_executor,environment,work,deadline,approved=True)
+        execution=WindowsExecution(binding,staged_actor,staged_executor,environment,work,deadline,approved=True,capture=capture is not None)
         for name,port in zip(engine.ENDPOINTS,binding.ports):
             phase=name
             cases[name]=engine.run_endpoint(execution,binding,name,port,deadline,approved=True)
@@ -244,6 +281,7 @@ def run(configuration_path,deadline_qpc,frequency):
         cleanup=cleanup and receiver['socket_cleanup_confirmed']
     if binding is None:return None
     result=engine.evaluate(cases,binding)
+    prepare_flow(config,capture,binding,cases,execution,deadline)
     if result['status']!='connect_succeeded' and (failed or not cleanup or receiver['endpoint_error']):
         result['status']='inconclusive'
         for row in result['endpoints'].values():

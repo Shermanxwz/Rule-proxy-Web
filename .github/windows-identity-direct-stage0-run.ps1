@@ -138,6 +138,103 @@ function Send-N0aClosedReport([string]$Url,[byte[]]$Body) {
     }
 }
 
+function Test-N0aCaptureConfiguration($Value) {
+    if ($null -eq $Value -or @($Value.PSObject.Properties.Name).Count -ne 4) { return $false }
+    foreach ($key in @('enabled','run_nonce','source_commit','vm_mac')) { if ($key -cnotin @($Value.PSObject.Properties.Name)) { return $false } }
+    if ($Value.enabled -isnot [bool] -or -not $Value.enabled) { return $false }
+    foreach ($pair in @(@('run_nonce',32),@('source_commit',40),@('vm_mac',12))) {
+        if ($Value.($pair[0]) -isnot [string] -or $Value.($pair[0]) -cnotmatch ('\A[0-9a-f]{'+$pair[1]+'}\z')) { return $false }
+    }
+    return ($Value.vm_mac -cne '000000000000' -and ([Convert]::ToInt32($Value.vm_mac.Substring(0,2),16) -band 1) -eq 0)
+}
+function Get-N0aSha256([byte[]]$Bytes) {
+    $hash=[Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($hash.ComputeHash($Bytes))).Replace('-','').ToLowerInvariant() }
+    finally { $hash.Dispose() }
+}
+function Get-N0aFlowCommitment([byte[]]$Bytes) {
+    if ($Bytes.Length -le 0 -or $Bytes.Length -gt 65536) { throw 'flow_bound' }
+    foreach ($byte in $Bytes) { if ($byte -gt 127) { throw 'flow_encoding' } }
+    $value=[Text.Encoding]::ASCII.GetString($Bytes) | ConvertFrom-Json
+    $aggregate=[IO.MemoryStream]::new()
+    try {
+        $prefix=[Text.Encoding]::ASCII.GetBytes("N0A-ordinary-reports-v1`0")
+        $aggregate.Write($prefix,0,$prefix.Length)
+        foreach ($role in @('before','sample','after')) {
+            $row=$value.reports.$role
+            if ($row.sha256 -isnot [string] -or $row.sha256 -cnotmatch '\A[0-9a-f]{64}\z' -or ($row.bytes -isnot [int] -and $row.bytes -isnot [long]) -or $row.bytes -lt 1 -or $row.bytes -gt 32768) { throw 'flow_source' }
+            $label=[Text.Encoding]::ASCII.GetBytes($role+"`0"); $aggregate.Write($label,0,$label.Length)
+            $length=[BitConverter]::GetBytes([uint64]$row.bytes); if ([BitConverter]::IsLittleEndian) { [Array]::Reverse($length) }
+            $aggregate.Write($length,0,$length.Length)
+            for ($index=0; $index -lt 64; $index+=2) { $aggregate.WriteByte([Convert]::ToByte($row.sha256.Substring($index,2),16)) }
+        }
+        $contained=$value.reports.contained.sha256
+        if ($contained -isnot [string] -or $contained -cnotmatch '\A[0-9a-f]{64}\z') { throw 'flow_source' }
+        return [ordered]@{sha256=(Get-N0aSha256 $Bytes);bytes=$Bytes.Length;contained_report_sha256=$contained;ordinary_report_sha256=(Get-N0aSha256 $aggregate.ToArray())}
+    } finally { $aggregate.Dispose() }
+}
+function Read-N0aPrivateFlow([string]$Workspace) {
+    $parent=Join-Path $Workspace 'private-n0a'; $path=Join-Path $parent 'runner-flow.json'
+    $directory=Get-Item -LiteralPath $parent -Force
+    $leaf=Get-Item -LiteralPath $path -Force
+    if (-not $directory.PSIsContainer -or $leaf.PSIsContainer -or ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or ($leaf.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'flow_path' }
+    if ($leaf.Length -le 0 -or $leaf.Length -gt 65536) { throw 'flow_bound' }
+    $stream=$null
+    try {
+        $stream=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+        $buffer=New-Object byte[] 65537; $count=0
+        while ($count -lt $buffer.Length) { $read=$stream.Read($buffer,$count,$buffer.Length-$count); if ($read -eq 0) { break }; $count+=$read }
+        if ($count -le 0 -or $count -gt 65536) { throw 'flow_bound' }
+        $body=New-Object byte[] $count; [Array]::Copy($buffer,$body,$count)
+        return @{body=$body;commitment=(Get-N0aFlowCommitment $body)}
+    } finally { if ($null -ne $stream) { $stream.Dispose() } }
+}
+function New-N0aReportingClock { return [Diagnostics.Stopwatch]::StartNew() }
+function Send-N0aCaptureReports($Configuration,[string]$Workspace,$Envelope) {
+    $clock=New-N0aReportingClock
+    $private=$null
+    try { $private=Read-N0aPrivateFlow $Workspace } catch {}
+    $commitment=$null; if ($null -ne $private) { $commitment=$private.commitment }
+    $wrapper=[ordered]@{schema_version=2;legacy=$Envelope;flow_commitment=$commitment}
+    $body=[Text.Encoding]::ASCII.GetBytes(($wrapper | ConvertTo-Json -Depth 20 -Compress))
+    if ($body.Length -gt 4096) {
+        $wrapper.flow_commitment=$null; $private=$null
+        $body=[Text.Encoding]::ASCII.GetBytes(($wrapper | ConvertTo-Json -Depth 20 -Compress))
+    }
+    if ($body.Length -gt 4096) { return $false }
+    $delivered=Send-N0aCaptureRequest ($Configuration.host_url+'/n0a-capture-result') $body $clock
+    if ($delivered -and $null -ne $private -and $clock.ElapsedMilliseconds -lt 10000) {
+        [void](Send-N0aCaptureRequest ($Configuration.host_url+'/n0a-runner-flow') $private.body $clock)
+    }
+    return $delivered
+}
+function Send-N0aCaptureRequest([string]$Url,[byte[]]$Body,$clock) {
+    if ($Body.Length -gt 65536 -or $clock.ElapsedMilliseconds -ge 10000) { return $false }
+    $request=$null; $stream=$null; $response=$null
+    try {
+        $request=[Net.HttpWebRequest]::Create($Url); $request.Method='POST'; $request.Proxy=$null
+        $request.Timeout=10000; $request.ReadWriteTimeout=10000; $request.AllowAutoRedirect=$false
+        $request.ContentType='application/json'; $request.ContentLength=$Body.Length
+        $pending=$request.BeginGetRequestStream($null,$null)
+        try { if (-not $pending.AsyncWaitHandle.WaitOne([Math]::Max(0,10000-[int]$clock.ElapsedMilliseconds))) { return $false } }
+        finally { $pending.AsyncWaitHandle.Close() }
+        $stream=$request.EndGetRequestStream($pending)
+        $left=10000-[int]$clock.ElapsedMilliseconds; if ($left -le 0) { return $false }
+        if (-not (Write-N0aBoundedBody $stream $Body $left)) { return $false }
+        $stream.Dispose(); $stream=$null
+        $pending=$request.BeginGetResponse($null,$null)
+        try { if (-not $pending.AsyncWaitHandle.WaitOne([Math]::Max(0,10000-[int]$clock.ElapsedMilliseconds))) { return $false } }
+        finally { $pending.AsyncWaitHandle.Close() }
+        $response=$request.EndGetResponse($pending)
+        return ($clock.ElapsedMilliseconds -le 10000 -and [int]$response.StatusCode -eq 200)
+    } catch { return $false }
+    finally {
+        if ($null -ne $stream) { try { $stream.Dispose() } catch {} }
+        if ($null -ne $response) { try { $response.Dispose() } catch {} }
+        if ($null -ne $request) { try { $request.Abort() } catch {} }
+    }
+}
+
 function Invoke-N0aGuestDiagnostic($Configuration,[string]$Workspace,[string]$Python,[long]$Deadline,[long]$Frequency,[bool]$OriginalReady,[bool]$OriginalDelivered) {
     $launcher=[ordered]@{phase='not_started';failure='none';python_exit_code=$null;process_exit_confirmed=$null;timed_out=$false;budget_exhausted=$false}
     $envelope=[ordered]@{schema_version=1;case_nonce=$Configuration.n0a.case_nonce;actor_sha256=$Configuration.n0a.actor_sha256;report=$null;launcher=$launcher}
@@ -207,7 +304,9 @@ function Invoke-N0aGuestDiagnostic($Configuration,[string]$Workspace,[string]$Py
             $envelope.report=$null; $launcher.failure='report_bound'; $launcher.phase='report_read'
             $body=[Text.Encoding]::ASCII.GetBytes(($envelope | ConvertTo-Json -Depth 16 -Compress))
         }
-        [void](Send-N0aClosedReport ($Configuration.host_url+'/n0a-result') $body)
+        if ('capture' -cin @($Configuration.PSObject.Properties.Name) -and (Test-N0aCaptureConfiguration $Configuration.capture)) {
+            [void](Send-N0aCaptureReports $Configuration $Workspace $envelope)
+        } else { [void](Send-N0aClosedReport ($Configuration.host_url+'/n0a-result') $body) }
     } catch {}
     return $envelope
 }
@@ -369,8 +468,16 @@ try {
         $n0aEnabled=$true
         $payloadNames+=@('n0a/actor.exe','n0a/build-manifest.json','.github/windows_n0a_control.py','.github/windows_n0a_guest.py')
     }
+    $captureEnabled=$n0aEnabled -and 'capture' -cin @($configuration.PSObject.Properties.Name)
+    if ($captureEnabled) {
+        if (-not (Test-N0aCaptureConfiguration $configuration.capture)) { throw 'Invalid capture configuration' }
+        $payloadNames+=@('.github/windows_n0a_flow.py')
+    }
     $phase='payload_extract'
-    if ($n0aEnabled) {
+    if ($captureEnabled) {
+        Expand-CheckedStage0Zip -ArchivePath $payload -Destination $workspace -RequiredNames $payloadNames `
+            -MemberCount 15 -ExactBytes 0 -MaximumBytes 134217728 -Flat $false -ExactNames $true
+    } elseif ($n0aEnabled) {
         Expand-CheckedStage0Zip -ArchivePath $payload -Destination $workspace -RequiredNames $payloadNames `
             -MemberCount 14 -ExactBytes 0 -MaximumBytes 134217728 -Flat $false -ExactNames $true
     } else {

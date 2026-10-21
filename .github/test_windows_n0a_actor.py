@@ -6,6 +6,7 @@ its token guard. Production actor invocation separately tests fail-closed argume
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -163,7 +164,12 @@ def production_guard(executable, role):
         confirmed = child.poll() is not None
         assert child.returncode == 0 and not output and not error
         assert not report.is_symlink() and report.stat().st_size <= 32768
-        value = json.loads(report.read_bytes())
+        raw_report = report.read_bytes()
+        value = json.loads(raw_report)
+        flow_spec = importlib.util.spec_from_file_location('native_snapshot_flow', Path(__file__).with_name('windows_n0a_flow.py'))
+        flow = importlib.util.module_from_spec(flow_spec); flow_spec.loader.exec_module(flow)
+        snapshot_value, snapshot = flow.read_snapshot(report)
+        assert snapshot_value == value and snapshot == {'sha256': hashlib.sha256(raw_report).hexdigest(), 'bytes': len(raw_report)}
         assert value['nonce'] == nonce and value['pid'] == child.pid
         assert value['mode'] == 'actor-n0a' and value['queriesSucceeded'] is True
         assert value['tokenIsAppContainer'] is False and value['errors'] == []
@@ -208,6 +214,7 @@ def main():
     facts['production_contained_guard_rejects_source_token'] = production_guard(args.actor_exe, 'contained')
     GATE_STAGE = 'ordinary_admin_guard'
     facts['production_ordinary_guard_rejects_observed_admin'] = production_guard(args.actor_exe, 'ordinary')
+    facts['actual_native_snapshot_parse_hash_parity'] = True
     GATE_STAGE = 'profile_contract'
     profile = subprocess.run([str(args.fixture_exe), '--profile-contract'], capture_output=True, timeout=5)
     assert profile.returncode == 0 and not profile.stderr and len(profile.stdout) <= 256

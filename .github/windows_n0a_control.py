@@ -413,14 +413,14 @@ class NonceEndpoint:
         except OSError:
             if not self.stop.is_set(): self.error=True
 
-    def finish(self):
+    def finish(self, *, deadline=None):
         self.stop.set(); okay=True
         for value in (self.connection,self.listener):
             if value is not None:
                 try: value.close()
                 except OSError: okay=False
         if self.thread is not None:
-            try: self.thread.join(1)
+            try: self.thread.join(1 if deadline is None else min(1, max(0, deadline-time.monotonic())))
             except RuntimeError: okay=False
             okay = okay and not self.thread.is_alive()
         self.closed=okay
