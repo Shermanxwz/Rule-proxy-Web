@@ -1,7 +1,7 @@
 """Standalone IPv4 UDP observations. No DNS, broker, or isolation acceptance.
 
 Pure validation cannot authenticate a caller's identity/provenance context.
-Production integration is intentionally absent; TEST_ONLY is never production.
+Production integration requires a separate explicit opt-in; TEST_ONLY is never production.
 """
 import json
 import re
@@ -169,8 +169,8 @@ class UdpEndpoint:
                     error=self.error,datagram_observed=self.observed.is_set(),contained_observed=self.contained_observed.is_set(),counts=dict(self.counts) if stopped else None,
                     verified_indices={p:sorted(i for phase,i in self.seen if phase==p) for p in PHASES} if stopped else None)
 
-# Optional integration remains independently disabled. No TCP globals are changed.
-EXECUTION_ENABLED=False
+# Optional integration has its own explicit gate. No TCP globals are changed.
+EXECUTION_ENABLED=True
 
 def tcp_helpers():
     import importlib.util

@@ -60,12 +60,12 @@ class UdpWorkflowTests(unittest.TestCase):
         self.assertLess(self.text.index('Required UDP contracts before actual mechanics'),self.text.index('Owned loopback mechanics'))
         self.assertNotIn('test_windows_dns_request3.py',self.text)
 
-    def test_adapter_gates_and_runtime_off(self):
+    def test_adapter_gates_and_separate_runtime_entrypoint(self):
         for name in ('test-windows-n0a-guest-gates.ps1','test-windows-udp-guest-gates.ps1','test-windows-udp-payload-gates.ps1'):
             self.assertIn('& ./.github/'+name,self.text)
         module=ast.parse((ROOT/'.github/windows_n0a_udp.py').read_text())
         flags=[n.value.value for n in module.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='EXECUTION_ENABLED' for t in n.targets) and isinstance(n.value,ast.Constant)]
-        self.assertEqual(flags,[False])
+        self.assertEqual(flags,[True])
         self.assertNotIn('--n0a-udp-runner',self.text)
 
     def test_exact_separate_build_pins(self):

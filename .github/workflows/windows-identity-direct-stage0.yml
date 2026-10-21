@@ -6,6 +6,13 @@ on:
     paths:
       - '.github/windows_identity_direct_stage0.py'
       - '.github/windows_n0a_control.py'
+      - '.github/windows_n0a_udp.py'
+      - '.github/windows_n0a_udp_guest.py'
+      - '.github/windows_n0a_udp_flow.py'
+      - '.github/windows_n0a_udp_capture_adapter.py'
+      - '.github/windows_n0a_udp_packet.py'
+      - '.github/native/windows_n0a_udp_actor.cpp'
+      - '.github/build_windows_n0a_udp_actor.ps1'
       - '.github/windows_n0a_guest.py'
       - '.github/windows_n0a_flow.py'
       - '.github/windows_n0a_capture_adapter.py'
@@ -28,7 +35,7 @@ permissions:
 jobs:
   compile:
     # Keep the exact experimental branch and explicit runtime intent checks.
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]'))) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-runtime]')) }}
     runs-on: windows-2025
     timeout-minutes: 10
     steps:
@@ -97,6 +104,38 @@ jobs:
             n0a-production-build/build-manifest.json
           retention-days: 7
           if-no-files-found: error
+      - name: Build pinned production-only UDP actor and require adapter gates
+        if: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
+        shell: pwsh
+        run: |
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC unavailable' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./.github/build_windows_n0a_udp_actor.ps1 -OutputDirectory "$PWD/n0a-udp-production-build" -ExpectedActorSha256 dea64f0f25d60930be13c4f9e24b41f7535d1021476e6180d6bfe3361b40d0f2 -ExpectedIdentitySha256 530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Actual UDP guest and payload helper gates
+        if: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
+        shell: powershell
+        timeout-minutes: 2
+        run: |
+          & ./.github/test-windows-n0a-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp-payload-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        if: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
+        with:
+          name: n0a-udp-production-actor
+          path: |
+            n0a-udp-production-build/windows_n0a_udp_actor.exe
+            n0a-udp-production-build/N0A-UDP-manifest.json
+          retention-days: 7
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7
         with:
           name: client-stage0-actor
@@ -107,7 +146,7 @@ jobs:
           if-no-files-found: error
   host-unit:
     # Pure Linux host tests are separate: native capacity is measured fresh.
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]'))) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-runtime]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -124,8 +163,12 @@ jobs:
           python3 -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_direct*.py'); assert s.countTestCases() >= 7, 'Direct test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful() or bool(r.skipped))"
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
+      - name: Required UDP Linux adapter contracts
+        if: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
+        run: |
+          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
   native:
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]')) || (contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]')) || (contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]'))) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-runtime]'))) }}
     needs: [compile, host-unit]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -253,6 +296,11 @@ jobs:
           name: client-stage0-actor
           path: client-stage0-actor
       - uses: actions/download-artifact@v8
+        if: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
+        with:
+          name: n0a-udp-production-actor
+          path: n0a-udp-production-build
+      - uses: actions/download-artifact@v8
         if: ${{ (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) }}
         with:
           name: n0a-connect-production-actor
@@ -350,6 +398,7 @@ jobs:
       - name: Run one exact exploratory direct ordinary-user Stage0 in the disposable client
         timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
         env:
+          UDP_REQUESTED: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') }}
           CAPTURE_REQUESTED: ${{ contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
           CAPTURE_SOURCE_COMMIT: ${{ github.sha }}
           N0A_REQUESTED: ${{ (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) }}
@@ -361,12 +410,19 @@ jobs:
           if [ "$N0A_REQUESTED" = "true" ]; then
             n0a_args=(--n0a --n0a-actor "$PWD/n0a-production-build/windows_n0a_actor.exe" --n0a-manifest "$PWD/n0a-production-build/build-manifest.json")
           fi
+          if [ "$UDP_REQUESTED" = "true" ]; then
+            test "$N0A_REQUESTED" = "false"
+            test "$CAPTURE_REQUESTED" = "false"
+            n0a_args=(--n0a-udp-runner --udp-actor "$PWD/n0a-udp-production-build/windows_n0a_udp_actor.exe" --udp-manifest "$PWD/n0a-udp-production-build/N0A-UDP-manifest.json")
+          fi
           capture_source_args=()
-          if [ "$CAPTURE_REQUESTED" = "true" ]; then
-            test "$N0A_REQUESTED" = "true"
+          if [ "$CAPTURE_REQUESTED" = "true" ] || [ "$UDP_REQUESTED" = "true" ]; then
             [[ "$CAPTURE_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
             test "$CAPTURE_SOURCE_COMMIT" = "$GITHUB_SHA"
             capture_source_args=(/usr/bin/env "GITHUB_SHA=$CAPTURE_SOURCE_COMMIT")
+          fi
+          if [ "$CAPTURE_REQUESTED" = "true" ]; then
+            test "$N0A_REQUESTED" = "true"
             n0a_args+=(--n0a-capture-runner)
           fi
           STOCK_HOST_DEADLINE=${{ steps.stock_budget_8.outputs.deadline }}
@@ -406,6 +462,14 @@ jobs:
         with:
           name: n0a-capture-exploratory-public
           path: client-stage0-public/n0a-capture-public.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') }}
+        timeout-minutes: 2
+        with:
+          name: n0a-udp-exploratory-public
+          path: client-stage0-public/n0a-udp-public.json
           retention-days: 14
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7

@@ -123,7 +123,8 @@ class IntegrationControlTests(unittest.TestCase):
             result=u.evaluate(cases,self.binding());self.assertEqual(result['selected_send_accepted_count'],3);self.assertTrue(result['selected_echo_observed']);self.assertFalse(result['ordinary_controls_verified'])
             del cases['sample'];self.assertTrue(u.evaluate(cases,self.binding())['selected_echo_observed'])
     def test_disabled_driver_and_exact_phase_dispatch(self):
-        with self.assertRaises(PermissionError):u.run_endpoint(Mock(),self.binding(),100,approved=True)
+        with patch.object(u,'EXECUTION_ENABLED',False):
+            with self.assertRaises(PermissionError):u.run_endpoint(Mock(),self.binding(),100,approved=True)
         execution=Mock();execution.close_owned.return_value=True
         with patch.object(u,'EXECUTION_ENABLED',True):
             result=u.run_endpoint(execution,self.binding(),100,approved=True,clock=lambda:0,sleep=lambda _:None)

@@ -1,5 +1,6 @@
 """Publication boundaries for standalone N0a-connect gates, never a VM."""
 import ast
+import itertools
 import hashlib
 from pathlib import Path
 import re
@@ -90,13 +91,18 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertFalse(self.native_allowed('[identity-direct-stage0-runtime]', event='workflow_dispatch'))
         self.assertFalse(self.native_allowed('[n0a-connect-runtime]', branch='refs/heads/main'))
         self.assertFalse(self.native_allowed('[n0a-connect-runtime]', event='workflow_dispatch'))
-        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]')
+        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]')
         for first in markers:
             self.assertFalse(self.native_allowed(first,branch='refs/heads/main'))
             self.assertFalse(self.native_allowed(first,event='workflow_dispatch'))
             for second in markers:
                 if first!=second:self.assertFalse(self.native_allowed(first+' '+second))
         self.assertFalse(self.native_allowed(' '.join(markers)))
+        for present in itertools.product((False,True),repeat=4):
+            message=' '.join(m for m,selected in zip(markers,present) if selected)
+            self.assertEqual(self.native_allowed(message),sum(present)==1,message)
+        for message in ('[n0a-udp-gates]','[dns-request3-gates]','[n0a-capture-gates]'):
+            self.assertFalse(self.native_allowed(message))
 
     def test_optional_artifact_matches_actual_host_output(self):
         source = (ROOT / '.github/windows_identity_direct_stage0.py').read_text()
@@ -104,8 +110,9 @@ class N0aDirectWorkflowTests(unittest.TestCase):
                  if isinstance(node, ast.Constant) and isinstance(node.value, str)
                  and node.value.startswith('n0a-') and node.value.endswith('.json')}
         self.assertEqual(names, {'n0a-connect-public.json', 'n0a-capture-public.json', 'n0a-udp-public.json'})
-        self.assertNotIn('n0a-udp-public.json', self.text)
-        self.assertNotIn('--n0a-udp-runner', self.text)
+        self.assertEqual(self.text.count('path: client-stage0-public/n0a-udp-public.json'),1)
+        self.assertIn('--n0a-udp-runner',self.text)
+        self.assertIn('path: client-stage0-public/public-report.json',self.text)
         self.assertIn('path: client-stage0-public/n0a-connect-public.json', self.text)
         capture=self.text.split('name: n0a-capture-exploratory-public',1)[0].rsplit('- uses: actions/upload-artifact@v7',1)[1]
         self.assertIn("always() && contains(github.event.head_commit.message, '[n0a-capture-runtime]')",capture)
@@ -140,7 +147,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertNotIn('test_windows_client_n0a_capture.py',actual)
         self.assertIn('bool(result.skipped)',compiled)
 
-    def capture_shell(self,capture,n0a,commit,github_sha):
+    def capture_shell(self,capture,n0a,commit,github_sha,udp='false'):
         # Execute the exact production argument block/command with inert timeout.
         # No sudo, Python harness, VM, or endpoint ever executes in this fixture.
         script=self.text.split('          n0a_args=()',1)[1].split('      - uses: actions/upload-artifact@v7',1)[0]
@@ -157,7 +164,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
             for name,body in [('date', '#!/bin/sh\nprintf 1000\n'), ('timeout', '#!/bin/sh\nprintf \'%s\\0\' "$@" > "$CAPTURE_ARGV"\n')]:
                 path=root/name;path.write_bytes(body.encode('ascii'));path.chmod(0o700)
             logical_root=('/'+root.drive[0].lower()+root.as_posix()[2:]) if os.name=='nt' else root.as_posix()
-            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,
+            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,UDP_REQUESTED=udp,
                      CAPTURE_SOURCE_COMMIT=commit,GITHUB_SHA=github_sha,
                      CAPTURE_ARGV=output.as_posix(),CAPTURE_CWD=cwd_output.as_posix(),FIXTURE_BIN=logical_root)
             source='export PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\ntest "$PWD" -ef "$FIXTURE_BIN"\nprintf \'%s\' "$PWD" > "$CAPTURE_CWD"\nactor='+('b'*64)+'\n'+script
@@ -187,6 +194,45 @@ class N0aDirectWorkflowTests(unittest.TestCase):
             self.assertTrue(args[4:]==expected,'Closed production argv mismatch')
         for commit,observed,n0a in [('',sha,'true'),('A'*40,'A'*40,'true'),('a'*39,'a'*39,'true'),('a'*41,'a'*41,'true'),(sha,'c'*40,'true'),(sha,'','true'),(sha,sha,'false')]:
             code,args,_=self.capture_shell('true',n0a,commit,observed)
+            self.assertNotEqual(code,0);self.assertIsNone(args)
+
+    def test_udp_production_artifact_and_exact_required_suites(self):
+        short=(ROOT/'.github/workflows/windows-n0a-udp-gates.yml').read_text()
+        names=ast.literal_eval(re.search(r"names=(\([^;]+\));",short).group(1))
+        self.assertEqual(len(names),24)
+        block=self.text.split('name: Build pinned production-only UDP actor',1)[1].split('      - uses: actions/upload-artifact@v7',1)[0]
+        actual=ast.literal_eval(re.search(r"names=(\([^;]+\));",block).group(1))
+        self.assertEqual(actual,names)
+        for gate in ('test-windows-n0a-guest-gates.ps1','test-windows-udp-guest-gates.ps1','test-windows-udp-payload-gates.ps1'):
+            self.assertIn(gate,block)
+        for name,arg in (('windows_n0a_udp_actor.cpp','-ExpectedActorSha256 '),('windows_identity_actor.cpp','-ExpectedIdentitySha256 ')):
+            self.assertIn(arg+hashlib.sha256((ROOT/'.github/native'/name).read_bytes()).hexdigest(),block)
+        upload=next(b.split('      - ',1)[0] for b in self.text.split('- uses: actions/upload-artifact@v7')[1:] if 'name: n0a-udp-production-actor' in b.split('      - ',1)[0])
+        paths=upload.split('path: |',1)[1].split('retention-days:',1)[0].split()
+        self.assertEqual(paths,['n0a-udp-production-build/windows_n0a_udp_actor.exe','n0a-udp-production-build/N0A-UDP-manifest.json'])
+        self.assertIn("'[n0a-udp-runtime]'",upload)
+        self.assertIn('name: n0a-udp-production-actor',self.text.split('actions/download-artifact@v8',1)[1])
+        self.assertNotIn('build_windows_n0a_udp_fixture',self.text)
+        self.assertNotIn('sudo -E',self.text)
+
+    def test_udp_actual_shell_exact_exclusive_argv_and_sha(self):
+        sha='a'*40
+        code,args,root=self.capture_shell('false','false',sha,sha,udp='true')
+        self.assertEqual(code,0);self.assertIsNotNone(args)
+        expected=['--signal=TERM','--kill-after=30s','1000s','sudo','/usr/bin/env','GITHUB_SHA='+sha,
+                  '/usr/bin/python3','-B','.github/windows_identity_direct_stage0.py','--approved-disposable-vm',
+                  '--python-archive',root+'/client-stage0-python/python-3.14.8-embed-amd64.zip',
+                  '--actor',root+'/client-stage0-actor/windows_identity_actor.exe','--actor-sha256','b'*64,
+                  '--bundle',root+'/g-bundle.zip','--output','client-stage0-public','--timeout-seconds','6600',
+                  '--job-deadline-epoch','2000','--n0a-udp-runner','--udp-actor',
+                  root+'/n0a-udp-production-build/windows_n0a_udp_actor.exe','--udp-manifest',
+                  root+'/n0a-udp-production-build/N0A-UDP-manifest.json']
+        self.assertTrue(args==expected,'Closed UDP argv mismatch')
+        for capture,n0a in (('false','true'),('true','true'),('true','false')):
+            code,args,_=self.capture_shell(capture,n0a,sha,sha,udp='true')
+            self.assertNotEqual(code,0);self.assertIsNone(args)
+        for commit,observed in (('',sha),('A'*40,'A'*40),('a'*39,'a'*39),('a'*41,'a'*41),(sha,'c'*40),(sha,'')):
+            code,args,_=self.capture_shell('false','false',commit,observed,udp='true')
             self.assertNotEqual(code,0);self.assertIsNone(args)
 
 
