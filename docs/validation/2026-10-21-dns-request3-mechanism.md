@@ -1,0 +1,36 @@
+# DNS REQUEST3: hosted mechanism gate, not isolation proof
+
+## Scope and current evidence
+
+This is a separate **TEST_ONLY** mechanism experiment. It asks whether the installed official Windows SDK and hosted Windows DNS API can submit a bounded request through `DNS_QUERY_REQUEST3` to an owned IPv4 loopback responder on an ephemeral high port, and whether the caller and responder agree on a fresh synthetic query and answer.
+
+The candidate has not yet established a Windows mechanism result. Source review and pure parser tests are not a substitute for the actual Windows call. A later successful gate establishes only the tested hosted API/responder mechanism. It does **not** establish ordinary non-administrator execution, BaseContainer/AppContainer enforcement, guest access to `10.0.2.2`, DNS blocking, packet egress suppression, or Linux-equivalent isolation.
+
+Existing production IdentityOnly and N0a actors, policies, VM payloads, proof predicates, reports, and runtime workflows remain unchanged. No result from this gate changes the prior strict Stage0 failure or any existing acceptance result.
+
+## Isolation from production and external services
+
+- The new binary is compile-time TEST_ONLY, with a distinct name/build directory and non-deployable manifest. It is not a production actor or a guest payload member.
+- The responder binds only `127.0.0.1` and obtains an owned ephemeral high port. It answers only the bounded synthetic request under test; it is not a forwarding resolver or a proxy.
+- No VM, extra account, global DNS setting, NRPT rule, firewall rule, hosts entry, public resolver, or user device is changed or used.
+- No fallback to an existing resolver implementation is allowed after unsupported SDK/API/transport behavior. Unsupported, unobserved, timed-out, malformed, or mismatched results are failed/inconclusive mechanism evidence, not isolation success.
+- The dedicated `[dns-request3-gates]` marker is limited to the exact experimental branch and push event. The Linux job is bounded to 5 minutes and Windows to 8 minutes. Neither uploads artifacts or starts a VM. A DNS-only marker must not admit any existing direct, capture, or serviced native job.
+- Mechanism controller/native result output is restricted to closed result fields. Compiler diagnostics and build-source paths are separate build evidence, not private query observations. Raw queries, nonces, socket tuples, native report bytes, and exception text are private fixture inputs, not published evidence.
+
+## API contract and limits
+
+Microsoft documents `DNS_QUERY_REQUEST3` as a version-3 request accepted by `DnsQueryEx`, with an explicit custom-server array. The custom-server list and the older DNS-address list must not both be populated. The custom-server route bypasses system-configured DNS servers, **except that a matching NRPT rule takes precedence**. Therefore an exact owned-responder observation is required; merely populating the structure does not prove which resolver handled a request. The fixture does not edit NRPT; its preflight is a read-only check that the effective rule set is empty, refusing the mechanism attempt if that cannot be established. [DNS_QUERY_REQUEST3](https://learn.microsoft.com/en-us/windows/win32/api/windns/ns-windns-dns_query_request3)
+
+The custom-server structure exposes a socket-address representation and distinguishes ordinary DNS from DNS-over-HTTPS. The implementation must use official SDK definitions, not a guessed ABI or a handwritten replacement layout. Documentation requires the socket-address header before the DNS header when using `ServerAddr`. These are mechanism prerequisites, not proof that a particular high-port request succeeds on the tested system. [DNS_CUSTOM_SERVER](https://learn.microsoft.com/en-us/windows/win32/api/windnsdef/ns-windnsdef-dns_custom_server)
+
+`DnsQueryEx` supports synchronous and asynchronous operation. This fixture selects the synchronous form with a null completion callback. It validates a completed status and exact answer before releasing returned records. If the API unexpectedly reports pending, the fixture retains the request, result, query name, custom server and cancellation storage without unwinding, and waits for the parent to terminate the exact owned child. The separate injected-pending case tests that lifetime/teardown path without making a DNS call. [DnsQueryEx](https://learn.microsoft.com/en-us/windows/win32/api/windns/nf-windns-dnsqueryex)
+
+Cancellation is not a completion barrier. The current synchronous fixture does **not** call `DnsCancelQuery`; the documentation matters as a constraint against substituting cancellation for confirmed completion in a future design. Its unexpected-pending path instead retains storage until exact owned-process teardown. That teardown does not prove independent completion of any DNS broker operation. [DnsCancelQuery](https://learn.microsoft.com/en-us/windows/win32/api/windns/nf-windns-dnscancelquery)
+
+The request uses wire-only, cache-bypass, no-hosts, no-NetBT, no-multicast and fully-qualified-name options. It does not request acceptance of a truncated response. Neither the custom UDP server type nor these options are presented as proof that TCP fallback is impossible; the tested responder returns a complete, non-truncated answer. The mechanism gate does not claim a complete packet trace. [DNS query options](https://learn.microsoft.com/en-us/windows/win32/dns/dns-constants#dns-query-options)
+
+## Required gate evidence
+
+The mechanism controller uses one 60-second absolute deadline for caller waits across preflight, cases and owned cleanup; a later case cannot renew it. Per-child waits are clipped to that remaining budget. This is not a claim that every process-start/API/cleanup call is hard nonblocking, or that a DNS broker operation is cancelled; the outer CI step/job bounds remain separate. The Windows result must identify the exact compiled SDK/API mechanism and distinguish native-call success from owned-responder observation. A valid mechanism exchange requires the fresh expected question, response identity and answer to match, together with finite responder handling and observed owned-process/thread/socket cleanup. Negative parser fixtures must reject malformed, unrelated and truncated messages rather than counting silence as denial.
+
+The publication gate also tests exact marker truth tables, TEST_ONLY exclusion from production payload/artifact paths, and zero-test/skip refusal. Any later guest or contained DNS experiment needs its own reviewed integration, same-process identity/provenance, ordinary positive controls, transport evidence and failure classification. This document grants no such runtime clearance.
