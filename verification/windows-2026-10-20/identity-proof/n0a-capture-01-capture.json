@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "status": "no_selected_tuple_observed",
+  "packet_egress_tested": true,
+  "scope": "runner_ipv4_tcp_tuple",
+  "source_report_binding": "ordinary_controller_attested",
+  "actor_attribution_established": false,
+  "tuple_packet_observed": false,
+  "packet": {
+    "schema_version": 1,
+    "status": "no_selected_tuple_observed",
+    "manifest_valid": true,
+    "binding_contract_matched": true,
+    "ports_unique": true,
+    "connect_controls_contract": true,
+    "capture_complete_contract": true,
+    "decoder_complete": true,
+    "ordinary_syn_controls": true,
+    "tuple_packet_observed": false,
+    "selected_ports_observed": 0,
+    "unknown_flow_packets": 0,
+    "records": 17694,
+    "reasons": [],
+    "actor_attribution_established": false,
+    "isolation_acceptance": false,
+    "checksums_validated": false,
+    "qpc_timestamp_mapping_used": false
+  },
+  "reason": "none",
+  "host_prerequisites_verified": true,
+  "capture_read_cleanup_confirmed": true,
+  "isolation_acceptance": false
+}
