@@ -52,14 +52,30 @@ def validate_capture_envelope(value,expected):
     commitment=value['flow_commitment'];valid=valid_commitment(commitment)
     return dict(legacy=receipt,commitment=dict(commitment) if valid else None,commitment_error=commitment is not None and not valid)
 
+def flow_body_state(raw,commitment):
+    """Closed admission state only, not source authenticity or normalization.
+
+    Missing data does not distinguish producer failure from transport failure.
+    No raw body, digest, path, or exception content is projected.
+    """
+    if commitment is None:return 'commitment_missing'
+    if not valid_commitment(commitment):return 'commitment_invalid'
+    if raw is None:return 'body_missing'
+    if type(raw) is not bytes:return 'body_type'
+    if len(raw)!=commitment['bytes']:return 'body_size'
+    if hashlib.sha256(raw).hexdigest()!=commitment['sha256']:return 'body_digest'
+    return 'body_verified'
+
 def unavailable(reason='unavailable'):
-    if reason not in ('unavailable','flow','normalization','capture_file','parse'):reason='unavailable'
+    if reason not in ('unavailable','flow_context','commitment_missing','commitment_invalid','body_missing','body_type','body_size','body_digest','normalization','capture_file','parse'):reason='unavailable'
     return dict(schema_version=1,scope='runner_ipv4_udp_payload',status='inconclusive',packet_egress_tested=False,
                 packet=None,reason=reason,capture_read_cleanup_confirmed=True,selected_payload_observed=None,
                 actor_attribution_established=False,isolation_acceptance=False)
 
 def parse_before_cleanup(path,capture_facts,raw_flow,flow_expected,*,header_before_link,terminal_before_shutdown,capacity_abort=False):
-    if type(flow_expected) is not dict or not accept_private_body(raw_flow,flow_expected.get('flow_commitment')):return unavailable('flow')
+    if type(flow_expected) is not dict:return unavailable('flow_context')
+    state=flow_body_state(raw_flow,flow_expected.get('flow_commitment'))
+    if state!='body_verified':return unavailable(state)
     try:normalized=helper('flow').normalize(raw_flow,flow_expected)
     except Exception:return unavailable('normalization')
     if type(capture_facts) is not dict or capture_facts.get('qemu_exit_observed') is not True or capture_facts.get('child_exit_observed') is not True:return unavailable('capture_file')
@@ -88,6 +104,13 @@ def receiver(nonce,deadline):
 def compose(server,public,wait_state):
     source=getattr(server,'n0a_result',None) if server is not None else None
     value=json.loads(json.dumps(source if source is not None else helper('control').default_host_udp()))
+    # The handler retains invalid-vs-missing commitment even though it drops
+    # invalid metadata from the trusted commitment slot. Report only that fact.
+    transport='not_observed'
+    if source is not None:
+        transport=('commitment_invalid' if getattr(server,'capture_commitment_error',False) is True else
+                   flow_body_state(getattr(server,'capture_private_body',None),getattr(server,'capture_commitment',None)))
+    value['flow_transport_state']=transport
     value.update(original_stage0_receipt_verified=public.get('guest_result_provenance_verified') is True,
                  host_receiver=public.get('n0a_receiver_cleanup'),vm_destroyed=public.get('vm_destroyed') is True,host_wait_state=wait_state)
     return value

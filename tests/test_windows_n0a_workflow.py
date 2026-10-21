@@ -199,7 +199,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
     def test_udp_production_artifact_and_exact_required_suites(self):
         short=(ROOT/'.github/workflows/windows-n0a-udp-gates.yml').read_text()
         names=ast.literal_eval(re.search(r"names=(\([^;]+\));",short).group(1))
-        self.assertEqual(len(names),24)
+        self.assertEqual(len(names),25)
         block=self.text.split('name: Build pinned production-only UDP actor',1)[1].split('      - uses: actions/upload-artifact@v7',1)[0]
         actual=ast.literal_eval(re.search(r"names=(\([^;]+\));",block).group(1))
         self.assertEqual(actual,names)

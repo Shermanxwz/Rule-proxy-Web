@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parents[1]
 PATH=ROOT/'.github/workflows/windows-n0a-udp-gates.yml'
 BRANCH='refs/heads/dot/windows-isolation-proof'
 MARKER='[n0a-udp-gates]'
-NAMES=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py')
+NAMES=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py')
 
 
 def condition(expression,message,branch=BRANCH,event='push'):
@@ -24,6 +24,42 @@ def condition(expression,message,branch=BRANCH,event='push'):
 
 
 class UdpWorkflowTests(unittest.TestCase):
+    def test_real_yaml_structure_and_runtime_baseline_delta(self):
+        import yaml
+        # BaseLoader deliberately preserves the YAML key "on" as a string,
+        # rather than SafeLoader's YAML 1.1 boolean resolver.
+        direct=ROOT/'.github/workflows/windows-identity-direct-stage0.yml'
+        texts=[PATH.read_text(encoding='utf-8'),direct.read_text(encoding='utf-8')]
+        for text in texts:
+            doc=yaml.load(text,Loader=yaml.BaseLoader)
+            self.assertEqual(doc['permissions'],{'contents':'read'})
+            self.assertEqual(doc['on']['push']['branches'],['dot/windows-isolation-proof'])
+            self.assertIn('tests/test_windows_udp_flow_composed.py',doc['on']['push']['paths'])
+            self.assertEqual(text.count('pip install --disable-pip-version-check "PyYAML==6.0.3"'),2)
+            self.assertIn('          python -m pip install --disable-pip-version-check "PyYAML==6.0.3"\n          if ($LASTEXITCODE -ne 0) { throw "yaml_test_dependency_install_failed" }\n',text)
+            for job in doc['jobs'].values():
+                self.assertIsInstance(job['steps'],list)
+                self.assertIsInstance(job['if'],str)
+        short=yaml.load(texts[0],Loader=yaml.BaseLoader)
+        self.assertEqual(set(short['on']),{'push'})
+        self.assertEqual(set(short['jobs']),{'pure','native-mechanism'})
+        self.assertEqual(short['jobs']['pure']['timeout-minutes'],'5')
+        self.assertEqual(short['jobs']['native-mechanism']['timeout-minutes'],'8')
+        runtime=yaml.load(texts[1],Loader=yaml.BaseLoader)
+        self.assertEqual(set(runtime['on']),{'push','workflow_dispatch'})
+        self.assertEqual(runtime['on']['workflow_dispatch'],'')
+        self.assertEqual(set(runtime['jobs']),{'compile','host-unit','native'})
+        self.assertEqual(runtime['jobs']['native']['timeout-minutes'],'120')
+        self.assertEqual(runtime['jobs']['native']['permissions'],{'contents':'read','actions':'read'})
+        self.assertEqual(runtime['jobs']['native']['needs'],['compile','host-unit'])
+        # Reversing only intended path/suite/test-dependency edits must recover
+        # exact published 9a22193e bytes, including every native job setting.
+        old=texts[1].replace("      - 'tests/test_windows_udp_flow_composed.py'\n",'')
+        old=old.replace("'test_windows_udp_flow_composed.py', ",'')
+        old=old.replace('          python -m pip install --disable-pip-version-check "PyYAML==6.0.3"\n          if ($LASTEXITCODE -ne 0) { throw "yaml_test_dependency_install_failed" }\n','')
+        old=old.replace('          python3 -m pip install --disable-pip-version-check "PyYAML==6.0.3"\n','')
+        self.assertEqual(hashlib.sha256(old.encode()).hexdigest(),'6b55e831d68c8617761703aef9c7a359b5f8a82aac6443a4e670af4f2ba68ec6')
+
     def setUp(self):self.text=PATH.read_text()
 
     def test_exact_marker_branch_event(self):

@@ -16,11 +16,27 @@ ENDPOINT_KEYS={'vm_mac','destination_ipv4','destination_port'}
 COMMIT_KEYS={'sha256','bytes','contained_report_sha256','ordinary_report_sha256'}
 
 def engine():
+    # Same-process loader consistency, not an authentication boundary.
     name='udp_private_flow_engine'
-    if name not in sys.modules:
-        spec=importlib.util.spec_from_file_location(name,Path(__file__).with_name('windows_n0a_udp.py'))
-        module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
-    return sys.modules[name]
+    path=Path(__file__).with_name('windows_n0a_udp.py').resolve()
+    raw=path.read_bytes();digest=hashlib.sha256(raw).hexdigest()
+    if name in sys.modules:
+        module=sys.modules[name]
+        spec=getattr(module,'__spec__',None)
+        if (getattr(module,'__file__',None)!=str(path) or getattr(spec,'origin',None)!=str(path)
+                or getattr(spec,'name',None)!=name or getattr(module,'_udp_source_sha256',None)!=digest
+                or getattr(getattr(module,'UDPBinding',None),'__module__',None)!=name):
+            raise ValueError('UDP engine cache mismatch')
+        return module
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module
+    try:
+        exec(compile(raw,str(path),'exec'),module.__dict__)
+        module._udp_source_sha256=digest
+    except BaseException:
+        sys.modules.pop(name,None)
+        raise
+    return module
 
 def exact(value,keys):return type(value) is dict and set(value)==keys
 

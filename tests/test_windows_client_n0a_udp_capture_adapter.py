@@ -53,9 +53,9 @@ class AdapterTests(unittest.TestCase):
             self.assertFalse(m.parse_before_cleanup(Path('missing'),c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)['capture_read_cleanup_confirmed'])
     def test_commitment_missing_duplicate_and_wrong_digest(self):
         raw,expected,data=pipeline()
-        for change in (None,dict(expected['flow_commitment'],sha256='0'*64)):
+        for change,reason in ((None,'commitment_missing'),(dict(expected['flow_commitment'],sha256='0'*64),'body_digest')):
             expected['flow_commitment']=change
-            self.assertEqual(m.parse_before_cleanup(Path('missing'),c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)['reason'],'flow')
+            self.assertEqual(m.parse_before_cleanup(Path('missing'),c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)['reason'],reason)
         with self.assertRaises(ValueError):m.validate_capture_envelope(dict(schema_version=2,legacy={},flow_commitment=None),{})
     def test_admission_unchanged_actual_payload_and_reserve(self):
         self.assertTrue(m.admit(24*1024**2,1024**3,0)['planning_only'])
@@ -120,3 +120,40 @@ class DenialReceiptTests(unittest.TestCase):
         report=dict(schema_version=1,binding=dict(expected,executor_sha256=MXC_G_EXECUTOR_SHA256,build=26300,ubr=9457),result=result,execution=dict(phase='cleanup',failed=True,cleanup_confirmed=False))
         value=u.validate_host_udp_envelope(dict(schema_version=1,**expected,report=report,launcher=launcher),expected)
         self.assertTrue(value['result']['explicit_send_denial']);self.assertFalse(value['result']['ordinary_controls_verified']);self.assertFalse(value['result']['sockets_cleanup_confirmed'])
+
+class FlowDiagnosticTests(unittest.TestCase):
+    def test_fixed_admission_states_and_normalization_are_distinct(self):
+        raw,expected,data=pipeline();commitment=expected['flow_commitment']
+        cases=[(raw,None,'commitment_missing'),(raw,{},'commitment_invalid'),(None,commitment,'body_missing'),
+               ('PRIVATE_PATH_SECRET',commitment,'body_type'),(b'',commitment,'body_size'),
+               (b'X'*len(raw),commitment,'body_digest'),(raw,commitment,'body_verified')]
+        for body,meta,state in cases:
+            self.assertEqual(m.flow_body_state(body,meta),state)
+            if state!='body_verified':
+                context=dict(expected,flow_commitment=meta)
+                result=m.parse_before_cleanup(Path('PRIVATE_PATH_SECRET'),c.facts(),body,context,header_before_link=True,terminal_before_shutdown=True)
+                self.assertEqual(result['reason'],state);self.assertIsNone(result['selected_payload_observed']);self.assertNotIn('PRIVATE_PATH_SECRET',json.dumps(result))
+        self.assertEqual(m.parse_before_cleanup(Path('missing'),c.facts(),raw,None,header_before_link=True,terminal_before_shutdown=True)['reason'],'flow_context')
+        with patch.object(m.helper('flow'),'normalize',side_effect=ValueError('PRIVATE_PATH_SECRET')):
+            result=m.parse_before_cleanup(Path('missing'),c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
+        self.assertEqual(result['reason'],'normalization');self.assertNotIn('PRIVATE_PATH_SECRET',json.dumps(result))
+    def test_transport_preserves_handler_invalid_commitment_discriminator(self):
+        u=m.helper('control');source=u.default_host_udp();source['receipt_verified']=True
+        source['result']['selected_send_accepted_count']=3;source['result']['selected_echo_observed']=True
+        raw,expected,data=pipeline()
+        server=SimpleNamespace(n0a_result=source,capture_commitment=None,capture_commitment_error=True,capture_private_body=None)
+        result=m.compose(server,{},'received');self.assertEqual(result['flow_transport_state'],'commitment_invalid')
+        self.assertEqual(result['result']['selected_send_accepted_count'],3);self.assertTrue(result['result']['selected_echo_observed'])
+        server.capture_commitment_error=False
+        self.assertEqual(m.compose(server,{},'received')['flow_transport_state'],'commitment_missing')
+        server.capture_commitment=expected['flow_commitment']
+        self.assertEqual(m.compose(server,{},'received')['flow_transport_state'],'body_missing')
+        server.capture_private_body=raw
+        self.assertEqual(m.compose(server,{},'received')['flow_transport_state'],'body_verified')
+        self.assertEqual(m.compose(None,{},'not_started')['flow_transport_state'],'not_observed')
+        self.assertNotIn('flow_transport_state',source)
+    def test_unknown_reason_and_invalid_metadata_never_export_sentinel(self):
+        value=m.unavailable('PRIVATE_PATH_SECRET');self.assertEqual(value['reason'],'unavailable')
+        self.assertNotIn('PRIVATE_PATH_SECRET',json.dumps(value))
+        for meta in ({'sha256':'PRIVATE_PATH_SECRET'},[],True,{'bytes':True}):
+            self.assertEqual(m.flow_body_state(b'PRIVATE_PATH_SECRET',meta),'commitment_invalid')
