@@ -7,6 +7,18 @@ import unittest
 from types import SimpleNamespace as NS
 from unittest.mock import patch
 
+class _LastErrorFakeTests(unittest.TestCase):
+    """A per-test fake error slot; no host Win32 ctypes helper is required."""
+    def setUp(self):
+        super().setUp()
+        state=[0]
+        def set_error(value):
+            old=state[0];state[0]=value;return old
+        for name,function in (("get_last_error",lambda:state[0]),("set_last_error",set_error)):
+            patcher=patch.object(C,name,function,create=True)
+            patcher.start();self.addCleanup(patcher.stop)
+
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('lpac_accesscheck_candidate', ROOT / '.github/windows_identity_lpac_accesscheck.py')
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
@@ -185,7 +197,7 @@ class AccessCheckCoreTests(unittest.TestCase):
             self.assertTrue(m.SDDLS[k].startswith('O:SYG:SYD:'))
 
 
-class AdapterPureTests(unittest.TestCase):
+class AdapterPureTests(_LastErrorFakeTests):
     def test_scalar_uses_one_direct_dword_call_without_a_size_probe(self):
         api = m.NativeAPI.__new__(m.NativeAPI); calls = []
         def information(token, kind, value, size, returned):

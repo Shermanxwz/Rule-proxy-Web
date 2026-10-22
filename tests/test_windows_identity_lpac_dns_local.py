@@ -10,6 +10,18 @@ from types import SimpleNamespace as NS
 import unittest
 from unittest.mock import patch
 
+class _LastErrorFakeTests(unittest.TestCase):
+    """A per-test fake error slot; no host Win32 ctypes helper is required."""
+    def setUp(self):
+        super().setUp()
+        state=[0]
+        def set_error(value):
+            old=state[0];state[0]=value;return old
+        for name,function in (("get_last_error",lambda:state[0]),("set_last_error",set_error)):
+            patcher=patch.object(C,name,function,create=True)
+            patcher.start();self.addCleanup(patcher.stop)
+
+
 ROOT=Path(__file__).resolve().parents[1]
 s=importlib.util.spec_from_file_location('standalone_lpac',ROOT/'.github/windows_identity_lpac_dns_local.py')
 m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
@@ -207,7 +219,7 @@ class API:
         return not any(not r['exited'] and r['job']==job for r in self.rows.values())
     def sleep_ms(self,n):self.now+=n
 
-class LPACOwnerTests(unittest.TestCase):
+class LPACOwnerTests(_LastErrorFakeTests):
     def owner(self,fault=None,status=5):
         td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve()
         for n in ('inputs','lpac-report','lpac-control','health','health-control','tools'):(root/n).mkdir()
@@ -460,7 +472,7 @@ class LPACOwnerTests(unittest.TestCase):
             raw=m.encode(value);report.update(text=raw.decode('ascii'),sha256=m.sha(raw))
             with self.subTest(label=label),self.assertRaises(ValueError):m.validate_result(v,owner.c)
 
-class ConstructorTests(unittest.TestCase):
+class ConstructorTests(_LastErrorFakeTests):
     def make_create_boundary(self,create):
         class Func:
             def __init__(self,fn):self.fn=fn

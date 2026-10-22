@@ -8,6 +8,18 @@ import time
 import unittest
 from unittest.mock import patch
 
+class _LastErrorFakeTests(unittest.TestCase):
+    """A per-test fake error slot; no host Win32 ctypes helper is required."""
+    def setUp(self):
+        super().setUp()
+        state=[0]
+        def set_error(value):
+            old=state[0];state[0]=value;return old
+        for name,function in (("get_last_error",lambda:state[0]),("set_last_error",set_error)):
+            patcher=patch.object(C,name,function,create=True)
+            patcher.start();self.addCleanup(patcher.stop)
+
+
 ROOT=Path(__file__).resolve().parents[1]
 def load(name,path):
     s=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
@@ -71,7 +83,7 @@ class API(old.API):
         return C.create_string_buffer(C.string_at(C.byref(s),C.sizeof(s))),C.sizeof(s)
     def access_api(self):return Probe(self)
 
-class SemanticDNSTests(unittest.TestCase):
+class SemanticDNSTests(_LastErrorFakeTests):
     def run_owner(self,fault=None,status=5):
         td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve()
         for name in ('inputs','lpac-report','lpac-control','health','health-control','tools'):(root/name).mkdir()
