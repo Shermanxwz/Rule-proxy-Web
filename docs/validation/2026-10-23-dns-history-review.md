@@ -8,6 +8,14 @@
 
 本次只读复核的脱敏来源和摘要见[机器索引](../../verification/windows-2026-10-22/dns-history-review-index.json)。没有重新调用 DNS、启动实验、重跑 CI 或修改网络设置。
 
+**后续增量：旧工作树压缩归档的实际内容读取。**
+
+初次历史快照仅核对了14个 archive part 的完整性；这不等于读过压缩包内容。随后独立[增量复核](../../verification/windows-2026-10-22/dns-history-archive-content-increment.json)已按原清单流式读取：574个 member 全列举，354个 regular 文件共11,376,015字节全部读取并核 SHA；300份 UTF-8 文本共10,832,867字节全文词法扫描。54份 binary/NUL Git index/status 仅全读核哈希，没有解释其语义。人工语义分析限定为16个版本的声明上下文与另外9个定向上下文，未宣称逐行审阅所有127个相关独特版本。没有解包到磁盘或执行归档中的代码。
+
+其中旧 Sandboxie 候选使用 `ClosedIpcPath=\RPC Control\DNSResolver`，但同一源码仍明确 `dns_network_denial_proven=false`。这提供了后端特定的 IPC 边界线索，不能直接当作当前 PSEC 的修复。旧 G2 的 DNS API 错误伴随查询外发、较晚旧策略的有限默认 DNS 零查询，以及配置代理 DoH 的合作路径，均与原复核一致，没有推翻当前显式 DNS01 的泄漏，也没有把 rawDNS02 超时改成拒绝。没有找到已验证的当前 PSEC DNS 补救。
+
+以下原审计计数、报告 SHA 和“当时未读 archive member”保持其原快照含义；本增量单独记录，不回填或重写旧报告。当前受测结果另见 [API DNS01](2026-10-23-selected-dns-standard53.md)及[原始 UDP01/02](2026-10-23-selected-dns-raw-udp.md)。
+
 **范围与数据完整性。** 本地来源是非浅克隆中当前 refs 可达的 562 个提交，审计快照为 `f4a0df3be0d0fa2d84d5bc974573c5dbd4dfd4d0`；机器解析了 942 份 JSON，建立 590 条 DNS 相关文件承诺，并确认 226 个 DNS 命名历史路径仍在树中。旧 compartment manifest 的 569 个条目逐字节数、SHA256 和 Git blob 核对通过；这是完整性核验，不表示逐项语义审阅了 archive 的全部 DNS 内容。另校验了历史工作树归档分片，工作区源码快照不作为实际执行证据。
 
 GitHub 侧未按分支过滤，读取了当前可访问的 842 次运行元数据、56 份相关完整 job 日志和 6 份实际 artifact ZIP。56 份日志包括 7 份 REQUEST3、46 份其他历史日志及 3 份近期纯测试日志。这个范围不等于所有远端实验分支、全部 842 份 job 日志或曾经存在的所有原始数据；已删除或未导出的 PCAP、过期附件和当时机器状态没有重建。日志摘要绑定连接器返回的完整 UTF-8 文本，不能称为原始压缩日志 ZIP 的摘要。

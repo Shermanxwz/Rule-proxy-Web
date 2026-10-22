@@ -629,9 +629,9 @@
   },
   "date": "2026-10-23",
   "document": {
-    "bytes": 13047,
+    "bytes": 14586,
     "path": "docs/validation/2026-10-23-dns-history-review.md",
-    "sha256": "19069cfe31aa1ee9b1db98a0b03c6eb5b6a32dbecd61231319f0f8ba00425b98"
+    "sha256": "c37fbb1728d60ad139f868b26964dd6952e91649662f55e800636b3af445e594"
   },
   "downloaded_artifact_zip_commitments": [
     {
@@ -895,6 +895,11 @@
     "六份ZIP已取回检查；其他artifact仅有元数据或历史承诺，不宣称全部payload已读。",
     "完整审计与旧raw字段保留work，不整包公开；新文件不复制身份、请求标记、机器路径、设备配置或历史对话。"
   ],
+  "post_snapshot_archive_content_review": {
+    "bytes": 6588,
+    "path": "verification/windows-2026-10-22/dns-history-archive-content-increment.json",
+    "sha256": "5e6b89361e423aae942e060f3090089068967c4971c3396d7479d59ec210a040"
+  },
   "post_snapshot_ci_repair": {
     "decoded_log_commitment": {
       "bytes": 160926,

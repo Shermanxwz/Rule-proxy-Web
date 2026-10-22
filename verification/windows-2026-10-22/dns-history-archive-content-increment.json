@@ -1,0 +1,139 @@
+{
+  "actions": {
+    "actor_or_network_executed": false,
+    "archive_code_executed": false,
+    "archive_code_imported": false,
+    "extracted_to_disk": false,
+    "repository_written": false,
+    "security_or_network_state_changed": false,
+    "stream_join_only": true
+  },
+  "archive": {
+    "compressed_bytes": 2602047,
+    "compressed_sha256": "0ab67d216e76094a2974709e8cd767c9e27781ae5169b64bdcdd39340b373b2a",
+    "index_path": "verification/windows-2026-10-19/historical-worktrees/archive-index.json",
+    "parts": 14
+  },
+  "conclusion": {
+    "broker_pid_attributed": false,
+    "contradicts_current_api6_leak": false,
+    "new_current_psec_dns_remedy_proven": false,
+    "next_evidence_lead": "Historical per-sandbox DNSResolver RPC endpoint exclusion, plus old default-DNS policy variants, need backend-specific runtime evidence before any proposed remedy.",
+    "old_dns_success_or_failure_is_uniform": false,
+    "product_acceptance": false,
+    "raw02_timeout_promoted_to_denial": false,
+    "unconnected_sendto_or_all_udp_qualified": false
+  },
+  "coverage": {
+    "all_members_listed": 574,
+    "binary_members_not_semantically_decoded": 54,
+    "directories": 220,
+    "empty_members": 33,
+    "nonempty_utf8_text_members": 267,
+    "regular_bytes_full_read": 11376015,
+    "regular_hashes_verified": 354,
+    "regular_members_full_bytes_read": 354,
+    "relevant_member_counts": {
+      "dns": 151,
+      "lpac": 0,
+      "redirect_policy": 34,
+      "restricted_token": 0,
+      "rpc": 2
+    },
+    "unique_relevant_content_versions": 127,
+    "utf8_text_bytes_scanned": 10832867,
+    "utf8_text_members_full_scanned": 300
+  },
+  "date": "2026-10-23",
+  "findings": [
+    {
+      "evidence_sha256": [
+        "fc2aa7ee62644e97a961242f53b42924d0d183259949302c485790cf4f0e1bcd",
+        "3b341a60758e11701bf29638dd794845cdeaf82f76b5a840924b11aab0bcca1c"
+      ],
+      "id": "historical-sandboxie-dnsresolver-ipc-candidate",
+      "kind": "source_candidate_not_current_runtime_remedy",
+      "limits": "It cannot be transplanted as an AppContainer ACL/firewall change from source alone; no archive code was executed and no current PSEC DNS fix is proven.",
+      "observed": "The Sandboxie candidate keeps the same default-deny network rules and adds ClosedIpcPath=\\RPC Control\\DNSResolver to a separate box."
+    },
+    {
+      "evidence_sha256": [
+        "31913db9a0894800d06ea2ebc17e291627d57dd474b077da6fe479f8675a4bec"
+      ],
+      "id": "g2-default-system-dns-wire-bypass",
+      "kind": "historical_observation",
+      "limits": "Default test VM resolver configuration; packet records are not process attribution. kernel_denial_proven=false and acceptance_passed=false.",
+      "observed": "An old G2 private-network control reports complete capture and eight contained DNS query records across parent and child; getaddrinfo=11001 and DnsQueryA/AAAA=9501."
+    },
+    {
+      "evidence_sha256": [
+        "748492c5996dd6d3e418a10dec665f242f1d25ab167796520989646e32dbd797",
+        "e558f53876b219da3be9275b6eaed4dfbd8a7d154c98932e4e18dd04588852e2"
+      ],
+      "id": "preferred-policy-bounded-default-dns-absence",
+      "kind": "historical_observation",
+      "limits": "Selected three default-resolver API groups on the test VM NIC; controls return DNS9501 and are not successful address resolution. kernel_denial_proven and full/product acceptance remain false.",
+      "observed": "Later preferred model1_internal_ingress_deny observations report getaddrinfo=11001, DnsQueryA/AAAA=5 in both actors, complete selected groups/ordered controls and zero contained nonce questions."
+    },
+    {
+      "evidence_sha256": [
+        "83303aa37064a484cb4ebe3a01fff4aec9b89dbdc394cb62284cf7f7d6fb333e",
+        "d4cac1e705f5c90380c7e951f3f52510cd52b5f3ce7d6b95c533efa7abbd1548",
+        "f2657fa0d38362360bedd28c258fc606fc6c759e05c94590f47e196a78811776",
+        "705c614007a07cd1263a596d6a481292aea8ab039ea0c73792e0e0343eb14fb9"
+      ],
+      "id": "proxybridge-source-separates-delivery-and-acceptance",
+      "kind": "source_contract",
+      "limits": "Source or bounded historical observation, not current backend qualification.",
+      "observed": "The bounded ProxyBridge prototype records default-resolver calls with nonce/role and before/after controls; local UDP send acceptance is kept separate from delivery, and helper diagnostic status is kept separate from acceptance."
+    },
+    {
+      "evidence_sha256": [
+        "9f6b260e08e8c393a43ee46fb1e9b0ff355614e386f1e1fdab517fb0eb04cd2d",
+        "c02b7f7d38f89e37a67c3d97a651ce5673df0b2297308ecb9b352886039f06aa"
+      ],
+      "id": "proxied-doh-is-a-cooperative-application-path",
+      "kind": "documentation_scope",
+      "limits": "Source or bounded historical observation, not current backend qualification.",
+      "observed": "Historical README describes destination resolution via proxied DoH and system DNS only for a proxy-node hostname bootstrap, with global DNS unchanged."
+    },
+    {
+      "evidence_sha256": [],
+      "id": "no-explicit-lpac-or-restricted-token-implementation-in-this-archive-text",
+      "kind": "bounded_negative_lexical_search",
+      "limits": "This is a lexical result for this dated archive only, not proof that such mechanisms never existed in other Git commits/artifacts or under different terminology.",
+      "observed": "The declared LPAC and restricted-token API/SID/name patterns had zero matches in all UTF8 text payloads."
+    }
+  ],
+  "original_audit_counts_and_commitments_unchanged": true,
+  "private_work_reports": [
+    {
+      "bytes": 20948,
+      "full_report_published": false,
+      "path": "dns_history_archive_semantic_increment.json",
+      "sha256": "d1186ef4691d27cb0647db4159a72639397943442227b72e630c97f2aa7e3e74"
+    },
+    {
+      "bytes": 555620,
+      "full_report_published": false,
+      "path": "dns_history_archive_incremental_read.json",
+      "sha256": "938cc8de7b39cd312f6b5db5d20de7e5f1b58bf822b26fea47192bb6beadb426"
+    },
+    {
+      "bytes": 111479,
+      "full_report_published": false,
+      "path": "dns_history_archive_targeted_contexts.json",
+      "sha256": "6a4e7b7f55ffc097dd3e20beae01a5c58207ed190086090c93064eff58979f17"
+    }
+  ],
+  "read_only": true,
+  "schema_version": 1,
+  "semantic_review": {
+    "additional_targeted_context_versions": 9,
+    "binary_indices_and_nul_status_semantically_decoded": false,
+    "bounded_context_versions": 16,
+    "every_unique_file_manually_read_line_by_line": false,
+    "full_utf8_lexical_scan": true
+  },
+  "stage": "dns-history-archive-content-review-increment"
+}
