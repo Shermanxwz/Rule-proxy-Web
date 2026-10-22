@@ -105,7 +105,7 @@ class LocalTests(unittest.TestCase):
             source_sha256=source,device_bound=True,actor_sha256='3'*64,manifest_sha256='4'*64,
             recovery_plan_sha256=m.sha(m.encode(recovery)))
         with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory); actor=root/'windows_identity_proxy_pipe_actor.exe'; actor.write_bytes(b'MZ'+b'x'*510)
+            root=Path(directory).resolve(); actor=root/'windows_identity_proxy_pipe_actor.exe'; actor.write_bytes(b'MZ'+b'x'*510)
             manifest=root/'identity-proxy-pipe-manifest.json'; manifest.write_bytes(b'{}\n')
             recovery_path=root/'plan.json'; recovery_path.write_bytes(m.encode(recovery))
             def admit(*args,**kwargs):
@@ -207,7 +207,7 @@ class LocalTests(unittest.TestCase):
         _,hashes,source=m.source_snapshot()
         self.assertEqual(set(hashes),set(m.SOURCES));self.assertEqual(source,m.sha(m.encode(hashes)))
         with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory)
+            root=Path(directory).resolve()
             for name in (*m.SOURCES,*m.NATIVE_SOURCES.values()):
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'fixed')
             actor=root/'windows_identity_proxy_pipe_actor.exe';actor.write_bytes(b'MZ'+b'x'*510)

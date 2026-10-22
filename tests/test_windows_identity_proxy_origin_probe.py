@@ -84,7 +84,7 @@ class FakeOriginAPI(legacy.FakeACAPI):
 
 def exercise(fault=None):
     with tempfile.TemporaryDirectory() as directory:
-        root=Path(directory);bridge=root/'bridge';bridge.mkdir();actor=bridge/m.ACTOR;actor.write_bytes(b'MZ'+b'x'*510)
+        root=Path(directory).resolve();bridge=root/'bridge';bridge.mkdir();actor=bridge/m.ACTOR;actor.write_bytes(b'MZ'+b'x'*510)
         digest=hashlib.sha256(actor.read_bytes()).hexdigest();api=FakeOriginAPI(fault)
         config=dict(pair=dict(enabled=True,run_nonce='a'*32,case_nonce='c'*32,actor_sha256=digest,manifest_sha256='b'*64),
             deadline_qpc=121000,qpc_frequency=1000)
@@ -270,7 +270,7 @@ class GuardTests(unittest.TestCase):
         ready=m.blank('preflight');ready.update(status='ready',checks={k:True for k in ready['checks']},source_sha256=source,
             actor_sha256=actor_hash,manifest_sha256='b'*64,recovery_plan_sha256=m.sha(m.encode(plan)),device_bound=True)
         with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory);actor=root/m.ACTOR;actor.write_bytes(b'MZ'+b'x'*510)
+            root=Path(directory).resolve();actor=root/m.ACTOR;actor.write_bytes(b'MZ'+b'x'*510)
             manifest=root/m.MANIFEST;manifest.write_bytes(b'{}\n');recovery=root/'plan.json';recovery.write_bytes(m.encode(plan))
             def launch(unused_api,command,work,parent,again,**kwargs):
                 calls.update(command=command,kwargs=kwargs);api.atomic_job_requested=True

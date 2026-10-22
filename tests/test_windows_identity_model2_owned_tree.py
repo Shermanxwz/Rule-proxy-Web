@@ -15,7 +15,7 @@ spec.loader.exec_module(m)
 class TreeTests(unittest.TestCase):
     def test_realistic_95_node_closure_exceeds_legacy_but_is_admitted_by_c(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             for index in range(94):
                 (root / ('source-%03d' % index)).write_bytes(b'fixed source')
             with self.assertRaises(RuntimeError):
@@ -24,7 +24,7 @@ class TreeTests(unittest.TestCase):
 
     def test_capacity_counts_pending_nodes_and_accepts_exactly_512(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             for index in range(511):
                 (root / ('item-%03d' % index)).touch()
             self.assertEqual(len(m.owned_tree(root)), 512)
@@ -34,7 +34,7 @@ class TreeTests(unittest.TestCase):
 
     def test_depth_and_total_file_bytes_are_independent_closed_bounds(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             leaf = root
             for _ in range(16):
                 leaf = leaf / 'level'
@@ -44,7 +44,7 @@ class TreeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'owned_tree_depth'):
                 m.owned_tree(root)
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             (root / 'a').write_bytes(b'1234567')
             (root / 'b').write_bytes(b'12345')
             self.assertEqual(len(m.owned_tree(root, max_bytes=12)), 3)
@@ -54,7 +54,7 @@ class TreeTests(unittest.TestCase):
     def test_reparse_and_symlink_are_rejected_before_any_acl_intent_or_tool(self):
         for mode in ('reparse', 'symlink'):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
+                root = Path(directory).resolve()
                 child = root / 'alias'
                 child.touch()
                 original = Path.lstat
@@ -76,7 +76,7 @@ class TreeTests(unittest.TestCase):
 
     def test_grant_readback_uses_c_boundary_and_never_legacy_helper(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             inputs, front = root / 'inputs', root / 'front'
             inputs.mkdir()
             front.mkdir()
@@ -103,7 +103,7 @@ class TreeTests(unittest.TestCase):
             for patch in ({'max_nodes': 513}, {'max_nodes': True}, {'max_depth': 17},
                           {'max_bytes': m.live.local.MAX_STAGE + 1}):
                 with self.subTest(patch=patch), self.assertRaises(ValueError):
-                    m.owned_tree(Path(directory), **patch)
+                    m.owned_tree(Path(directory).resolve(), **patch)
 
 
 if __name__ == '__main__':

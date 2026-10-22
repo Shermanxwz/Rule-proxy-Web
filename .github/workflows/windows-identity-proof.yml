@@ -49,7 +49,17 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Dependency metadata gate failed; all sanitized parser observations retained. No runtime is permitted.' }
           }
       - name: Pure Python identity proof unit tests only
-        run: python -B -m unittest discover -s tests -p "test_windows_identity*.py" -v
+        shell: pwsh
+        run: |
+          # Developer-shell environment changes are step-local. The compiled
+          # fake API tests require the installed compiler in this step too.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Installed MSVC toolchain not found for pure compiled-fake tests' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          if (-not (Get-Command cl.exe -CommandType Application -ErrorAction Stop)) { throw 'Installed x64 compiler was not loaded' }
+          python -B -m unittest discover -s tests -p "test_windows_identity*.py" -v
       - name: Read-only current and existing linked token ABI preflight
         if: contains(github.event.head_commit.message, '[identity-pipe-runtime]')
         timeout-minutes: 1

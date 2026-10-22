@@ -35,7 +35,8 @@ class API(f.GateAPI):
 
 class HelperTests(unittest.TestCase):
     def attempt(self,fault=None,explicit=True):
-        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);path=Path(temporary.name)
+        # Match production checked_path canonicalization, including Windows TEMP 8.3 aliases.
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);path=Path(temporary.name).resolve()
         (path/'conhost.exe').write_bytes(b'fixed-conhost');(path/'actor.exe').write_bytes(b'fixed-actor')
         api=API(path,fault);owners=l.helpers.OneShotHandles(api.close);registered=[];scopes=[]
         admission=l.system_conhost_record(api) if explicit else None

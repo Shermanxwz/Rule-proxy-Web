@@ -55,7 +55,7 @@ class ProbeTests(unittest.TestCase):
         manifest={'schema_version':1,'executor_sha256':m.sha(image)}
         for variant in ('valid','outer_digest','extracted_member','extra_member','inner_digest','symlink'):
             with self.subTest(variant=variant),tempfile.TemporaryDirectory() as temp:
-                root=Path(temp);runtime=root/'runtime';runtime.mkdir();bundle=root/'bundle.zip'
+                root=Path(temp).resolve();runtime=root/'runtime';runtime.mkdir();bundle=root/'bundle.zip'
                 files={'build-manifest.json':m.encode(manifest),'wxc-exec.exe':image,'MXC-LICENSE.md':license_bytes}
                 if variant=='inner_digest':files['wxc-exec.exe']=image+b'changed'
                 memory=io.BytesIO()
@@ -141,7 +141,7 @@ class ProbeTests(unittest.TestCase):
     def test_stale_reaper_state_blocks_create_before_native_api(self):
         api = m.ProbeAPI.__new__(m.ProbeAPI); api.worker_sid = ordinary()['sid']
         with tempfile.TemporaryDirectory() as temp:
-            work = Path(temp); state=work/'dacl-state';state.mkdir(); (state/'foreign.json').write_text('{}')
+            work = Path(temp).resolve(); state=work/'dacl-state';state.mkdir(); (state/'foreign.json').write_text('{}')
             api.reaper_state = state; api.verify_private_directory = mock.Mock()
             with mock.patch.object(m.local.LocalNativeAPI, 'create_suspended') as create:
                 with self.assertRaises(ValueError):api.create_suspended(None, None, work, None, None)
@@ -149,7 +149,7 @@ class ProbeTests(unittest.TestCase):
 
     def test_work_parent_restricted_to_existing_repo_private_or_descendant(self):
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp); base=root/'private';base.mkdir();child=base/'child';child.mkdir()
+            root=Path(temp).resolve(); base=root/'private';base.mkdir();child=base/'child';child.mkdir()
             self.assertEqual(m.admit_work_parent(None,root=root),base)
             self.assertEqual(m.admit_work_parent(child,root=root),child)
             with self.assertRaises(m.launcher.GateFailure):m.admit_work_parent(root,root=root)
@@ -180,7 +180,7 @@ class ProbeTests(unittest.TestCase):
                  unknown_exit=False, exit_code=0, stderr=b'', candidate_error=None):
         api=ClockAPI(); calls={}; image=b'statically admitted fixture'
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);work_parent=root/'private';work_parent.mkdir();runtime=root/'runtime';runtime.mkdir()
+            root=Path(temp).resolve();work_parent=root/'private';work_parent.mkdir();runtime=root/'runtime';runtime.mkdir()
             executable=runtime/'wxc-exec.exe';executable.write_bytes(image)
             request=work_parent/'request.json';request.write_bytes(m.encode(m.request_document('a'*32)))
             def verify(*args):api.now+=setup_ms;return executable
@@ -253,7 +253,7 @@ class ProbeTests(unittest.TestCase):
             path.mkdir();raise ValueError('readback_failed')
         api.private_directory=failed_create
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);private=root/'private';private.mkdir();request=root/'request.json'
+            root=Path(temp).resolve();private=root/'private';private.mkdir();request=root/'request.json'
             request.write_bytes(m.encode(m.request_document('a'*32)))
             with mock.patch.object(m,'os',types.SimpleNamespace(name='nt')), \
                  mock.patch.object(m,'verify_artifacts',return_value=root/'executor'), \
