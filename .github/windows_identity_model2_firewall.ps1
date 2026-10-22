@@ -9,7 +9,8 @@ $ErrorActionPreference='Stop'
 $WarningPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 $result=[ordered]@{schema_version=1;stage='model2-firewall-operation';operation=$null;
-    attempted=$false;success=$false;record=$null;failure='input'}
+    attempted=$false;success=$false;record=$null;failure='input';execution_mode='strict';
+    profiles_off_verified=$false;effective_full_verified=$false;profiles_qpc=$null}
 
 function Require-ExactKeys($Value, [string[]]$Keys) {
     if ($null -eq $Value -or @($Value.PSObject.Properties).Count -ne $Keys.Count) { throw 'schema' }
@@ -32,6 +33,18 @@ function Read-ExactRule([string]$Name,[string]$Store) {
     }
     if ($rows.Count -ne 1 -or $rows[0].Name -cne $Name) { throw 'rule_count' }
     return $rows[0]
+}
+function Read-ProfilesOff($Plan) {
+    Require-Time $Plan
+    $rows=@(NetSecurity\Get-NetFirewallProfile -PolicyStore ActiveStore -ErrorAction Stop)
+    if ($rows.Count -ne 3) { throw 'profiles_count' }
+    foreach ($name in @('Domain','Private','Public')) {
+        $matches=@($rows | Where-Object { [string]$_.Name -ceq $name })
+        if ($matches.Count -ne 1 -or [string]$matches[0].Enabled -cne 'False') { throw 'profiles_enabled' }
+    }
+    Require-Time $Plan
+    $result.profiles_qpc=[Diagnostics.Stopwatch]::GetTimestamp()
+    $result.profiles_off_verified=$true
 }
 function Check-Rule($Row,$Expected,[string]$Store,[bool]$RequireEffective=$false) {
     if ($null -eq $Row) { throw 'missing_rule' }
@@ -69,9 +82,16 @@ try {
     # The owner writes canonical JSON with no duplicate/non-finite values and pins
     # these bytes before this suspended child is admitted and resumed.
     $plan=([IO.File]::ReadAllText($file.FullName,[Text.Encoding]::UTF8) | ConvertFrom-Json -ErrorAction Stop)
-    Require-ExactKeys $plan @('schema_version','stage','run','operation','frequency','deadline_qpc','rule')
+    $planKeys=@('schema_version','stage','run','operation','frequency','deadline_qpc','rule')
+    if ($null -ne $plan.PSObject.Properties['execution_mode']) {
+        if ($plan.execution_mode -cne 'profiles-off-diagnostic') { throw 'mode' }
+        $planKeys+=@('execution_mode')
+        $result.execution_mode='profiles-off-diagnostic'
+    }
+    Require-ExactKeys $plan $planKeys
     if ($plan.schema_version -cne 1 -or $plan.stage -cne 'model2-firewall-input' -or
-        $plan.run -cnotmatch '^[0-9a-f]{32}$' -or @('read-persistent','read-active','create','remove') -cnotcontains $plan.operation) { throw 'plan' }
+        $plan.run -cnotmatch '^[0-9a-f]{32}$' -or @('read-persistent','read-active','profiles-status','create','remove') -cnotcontains $plan.operation -or
+        ($plan.operation -ceq 'profiles-status' -and $result.execution_mode -cne 'profiles-off-diagnostic')) { throw 'plan' }
     $rule=$plan.rule
     Require-ExactKeys $rule @('name','package_sid','program','direction','action','protocol','local_address',
         'remote_address','local_port','remote_port','profile','enabled','edge_traversal','override_block_rules','policy_store')
@@ -98,13 +118,16 @@ try {
     Require-Time $plan
     $result.operation=$plan.operation
     $result.failure='firewall_operation'
-    if ($plan.operation -ceq 'read-persistent' -or $plan.operation -ceq 'read-active') {
+    if ($plan.operation -ceq 'profiles-status') {
+        Read-ProfilesOff $plan
+    } elseif ($plan.operation -ceq 'read-persistent' -or $plan.operation -ceq 'read-active') {
         $store=if ($plan.operation -ceq 'read-active') {'ActiveStore'} else {'PersistentStore'}
         $row=Read-ExactRule $rule.name $store
         if ($null -ne $row) { $result.record=Check-Rule $row $rule $store }
     } elseif ($plan.operation -ceq 'create') {
         if ($null -ne (Read-ExactRule $rule.name 'PersistentStore') -or $null -ne (Read-ExactRule $rule.name 'ActiveStore')) { throw 'not_fresh' }
         Require-Time $plan
+        if ($result.execution_mode -ceq 'profiles-off-diagnostic') { Read-ProfilesOff $plan }
         $result.attempted=$true
         $null=NetSecurity\New-NetFirewallRule -PolicyStore PersistentStore -Name $rule.name -DisplayName $rule.name `
             -Direction Inbound -Action Allow -Enabled True -Profile Any -Package $rule.package_sid `
@@ -112,7 +135,9 @@ try {
             -LocalAddress 127.0.0.1 -RemoteAddress 127.0.0.1 -EdgeTraversalPolicy Block `
             -OverrideBlockRules $false -ErrorAction Stop
         $null=Check-Rule (Read-ExactRule $rule.name 'PersistentStore') $rule 'PersistentStore'
-        $result.record=Check-Rule (Read-ExactRule $rule.name 'ActiveStore') $rule 'ActiveStore' $true
+        $active=Read-ExactRule $rule.name 'ActiveStore'
+        $result.record=Check-Rule $active $rule 'ActiveStore' ($result.execution_mode -ceq 'strict')
+        $result.effective_full_verified=([string]$active.EnforcementStatus -ceq 'Full')
     } else {
         $stored=Read-ExactRule $rule.name 'PersistentStore'
         $active=Read-ExactRule $rule.name 'ActiveStore'

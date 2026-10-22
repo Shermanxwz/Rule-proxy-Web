@@ -159,6 +159,43 @@ class LocalModel2Tests(unittest.TestCase):
             self.assertEqual(m.main([]),1)
         pre.assert_called_once();run.assert_not_called()
 
+    def test_diagnostic_cli_is_explicit_and_never_implies_runtime(self):
+        value=m.blank('preflight','profiles-off-diagnostic');value['failure']='inputs'
+        with mock.patch.object(m,'preflight',return_value=value) as pre, \
+             mock.patch.object(m,'run_local') as run,mock.patch.object(m.sys,'stdout'):
+            self.assertEqual(m.main(['--profiles-off-diagnostic']),1)
+        self.assertEqual(pre.call_args.kwargs,{'execution_mode':'profiles-off-diagnostic'})
+        run.assert_not_called()
+
+    def test_diagnostic_plan_config_and_controller_mode_cannot_cross_bind(self):
+        config=config_fixture();_,_,closure=source_fixture();p=recovery_plan(closure)
+        kw=dict(device='1'*64,source=closure,actor='3'*64,manifest='4'*64)
+        with self.assertRaises(ValueError):m.plan(p,**kw,execution_mode='profiles-off-diagnostic')
+        p.update(scope=m.DIAGNOSTIC_SCOPE,execution_mode='profiles-off-diagnostic')
+        self.assertIs(m.plan(p,**kw,execution_mode='profiles-off-diagnostic'),p)
+        with self.assertRaises(ValueError):m.plan(p,**kw)
+        config['execution_mode']='profiles-off-diagnostic'
+        self.assertIs(m.validate_config(config),config)
+        changed=copy.deepcopy(config);changed['execution_mode']='strict'
+        with self.assertRaises(ValueError):m.validate_config(changed)
+        report=controller_report(config,{'child_pid':123})
+        with self.assertRaises(ValueError):m.bind_controller(report,config,{'child_pid':123})
+
+    def test_diagnostic_preflight_retains_requested_mode_without_runtime_claims(self):
+        api=ClockAPI();_,_,closure=source_fixture();p=recovery_plan(closure)
+        p.update(scope=m.DIAGNOSTIC_SCOPE,execution_mode='profiles-off-diagnostic')
+        with mock.patch.object(m,'os',types.SimpleNamespace(name='nt')), \
+             mock.patch.object(m,'inputs',return_value=({}, {},closure,None,None,None,None,None)), \
+             mock.patch.object(m.local,'bounded',return_value=m.live.encode(p)), \
+             mock.patch.object(m.launcher,'launch_owned') as launch:
+            value=m.preflight(*([None,None,'3'*64,'4'*64]+[None]*4),api=api,execution_mode='profiles-off-diagnostic')
+        self.assertEqual(value['status'],'ready');launch.assert_not_called()
+        self.assertEqual(value['result']['execution_mode'],'profiles-off-diagnostic')
+        self.assertTrue(value['result']['diagnostic']['requested'])
+        self.assertFalse(value['result']['diagnostic_completed'])
+        self.assertFalse(value['result']['checks']['firewall_exact'])
+        self.assertFalse(value['result']['first_chain_verified'])
+
     def test_opt_in_missing_never_constructs_native_api(self):
         with mock.patch.object(m.local,'LocalNativeAPI') as native:
             value=m.run_local(*([None]*8))

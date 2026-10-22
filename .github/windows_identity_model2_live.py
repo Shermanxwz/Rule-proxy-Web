@@ -600,31 +600,58 @@ class CleanupView:
         return self.budget.remaining_ms(min(cutoff, self.deadline), cap_ms)
 
 
+MODES = ('strict', 'profiles-off-diagnostic')
+
+
+def execution_mode(value):
+    mode = value.get('execution_mode', 'strict') if type(value) is dict else None
+    require(mode in MODES and ('execution_mode' not in value or mode == 'profiles-off-diagnostic'), 'execution_mode')
+    return mode
+
+
+def diagnostic_ready(value, *, require_guard=True):
+    required = ('sources', 'artifacts', 'ordinary', 'live_probe', 'selected_held', 'declared_caps',
+        'positive', 'origin_healthy', 'same_selected', 'cleanup')
+    d = value['diagnostic']
+    return (value['execution_mode'] == 'profiles-off-diagnostic' and all(value['checks'][key] for key in required)
+        and (not require_guard or value['checks']['guard_held']) and value['failure'] is None
+        and all(d[key] for key in ('requested', 'profiles_off_verified', 'exact_rule_scope_verified',
+            'positive_verified', 'direct_attempted', 'observation_complete')))
+
+
 def first_ready(value, *, require_guard=True):
     required = ('sources', 'artifacts', 'ordinary', 'live_probe', 'selected_held', 'declared_caps',
         'firewall_exact', 'positive', 'origin_healthy', 'direct_deny', 'same_selected', 'cleanup')
-    return (all(value['checks'][key] for key in required) and (not require_guard or value['checks']['guard_held'])
+    return (value['execution_mode'] == 'strict' and all(value['checks'][key] for key in required) and (not require_guard or value['checks']['guard_held'])
         and not any(value['violations'].values()) and value['failure'] is None)
 
 
 def finalize_public(value):
-    value['direct_deny_verified'] = (value['checks']['direct_deny'] and value['checks']['origin_healthy']
+    value['direct_deny_verified'] = (value['execution_mode'] == 'strict' and value['checks']['direct_deny'] and value['checks']['origin_healthy']
         and not value['violations']['direct_connected'] and not value['violations']['forbidden_receiver_accepted'])
     value['first_chain_verified'] = first_ready(value)
-    value['local_c_qualified'] = all(value['checks'].values()) and not any(value['violations'].values()) and value['failure'] is None
-    if value['local_c_qualified']:
+    value['local_c_qualified'] = value['execution_mode'] == 'strict' and all(value['checks'].values()) and not any(value['violations'].values()) and value['failure'] is None
+    value['diagnostic_completed'] = diagnostic_ready(value)
+    if value['diagnostic_completed']:
+        value['status'] = 'diagnostic-observed'
+    elif value['local_c_qualified']:
         value['status'] = 'passed'
     elif value['first_chain_verified']:
         value['status'] = 'observed'
     elif any(value['violations'].values()):
         value['status'] = 'failed'
-    elif value['status'] in ('observed', 'passed'):
+    elif value['status'] in ('observed', 'passed', 'diagnostic-observed'):
         value['status'] = 'inconclusive'
     return validate_public(value)
 
 
-def blank():
+def blank(execution_mode='strict'):
+    require(execution_mode in MODES, 'execution_mode')
     return dict(schema_version=1, stage='local-model2-live', profile='pncs-peer-port-held-barrier-v1',
+        execution_mode=execution_mode, diagnostic={key: key == 'requested' and execution_mode == 'profiles-off-diagnostic'
+            for key in ('requested', 'profiles_off_verified', 'exact_rule_scope_verified', 'effective_full_verified',
+                'positive_verified', 'direct_attempted', 'direct_connected', 'direct_denied_by_access',
+                'forbidden_nonce_received', 'observation_complete')}, diagnostic_completed=False,
         status='inconclusive', failure=None, source_sha256=None, actor_sha256=None, manifest_sha256=None,
         run_sha256=None, checks={k: False for k in ('sources', 'artifacts', 'ordinary', 'guard_held',
             'live_probe', 'selected_held', 'declared_caps', 'firewall_exact', 'positive', 'origin_healthy', 'direct_deny', 'wrong_port',
@@ -643,26 +670,40 @@ def validate_public(value):
     for key in ('schema_version', 'stage', 'profile', 'original_stage0', 'system_dns_tested',
                 'service_brokers_tested', 'winhttp_tested', 'application_adapter_tested', 'product_acceptance'):
         require(type(value[key]) is type(template[key]) and value[key] == template[key], 'public_scope')
-    for key in ('checks', 'violations', 'observations'):
+    require(value['execution_mode'] in MODES, 'public_mode')
+    for key in ('checks', 'violations', 'observations', 'diagnostic'):
         require(type(value[key]) is dict and set(value[key]) == set(template[key])
             and all(type(x) is bool for x in value[key].values()), 'public_types')
     for key in ('source_sha256', 'actor_sha256', 'manifest_sha256', 'run_sha256'):
         require(value[key] is None or ac.digest(value[key]), 'public_digest')
-    require(value['status'] in ('ready', 'inconclusive', 'failed', 'observed', 'passed')
+    require(value['status'] in ('ready', 'inconclusive', 'failed', 'observed', 'passed', 'diagnostic-observed')
         and value['failure'] in (None, 'platform', 'identity', 'inputs', 'deadline', 'staging', 'worker',
             'probe', 'selected', 'firewall', 'health', 'positive', 'wrong-port', 'wrong-peer', 'death', 'cleanup', 'report'), 'public_state')
     require(type(value['local_c_qualified']) is bool, 'public_types')
     require(type(value['first_chain_verified']) is bool and value['first_chain_verified'] == first_ready(value), 'public_first_cell')
     require(type(value['direct_deny_verified']) is bool
-        and value['direct_deny_verified'] == (value['checks']['direct_deny'] and value['checks']['origin_healthy']
+        and value['direct_deny_verified'] == (value['execution_mode'] == 'strict' and value['checks']['direct_deny'] and value['checks']['origin_healthy']
             and not value['violations']['direct_connected'] and not value['violations']['forbidden_receiver_accepted']), 'public_direct')
-    passed = all(value['checks'].values()) and not any(value['violations'].values()) and value['failure'] is None
+    passed = value['execution_mode'] == 'strict' and all(value['checks'].values()) and not any(value['violations'].values()) and value['failure'] is None
     require(value['local_c_qualified'] == passed and (value['status'] == 'passed') == passed, 'public_qualification')
     require((value['status'] == 'observed') == (value['first_chain_verified'] and not passed), 'public_first_cell')
+    require(type(value['diagnostic_completed']) is bool and value['diagnostic_completed'] == diagnostic_ready(value)
+        and (value['status'] == 'diagnostic-observed') == value['diagnostic_completed'], 'public_diagnostic')
+    if value['execution_mode'] == 'strict':
+        require(not any(value['diagnostic'].values()), 'public_diagnostic_scope')
+    else:
+        require(value['diagnostic']['requested'] and not value['checks']['firewall_exact'], 'public_diagnostic_scope')
+        d = value['diagnostic']
+        require(not d['positive_verified'] or value['checks']['positive'], 'diagnostic_positive')
+        require(d['direct_connected'] == value['violations']['direct_connected']
+            and d['forbidden_nonce_received'] == value['violations']['forbidden_receiver_accepted'], 'diagnostic_binding')
+        require(not d['direct_denied_by_access'] or value['checks']['direct_deny'] and not d['direct_connected']
+            and not d['forbidden_nonce_received'], 'diagnostic_deny')
     if value['status'] == 'ready':
         require(value['checks']['sources'] and value['checks']['artifacts']
             and not any(v for k, v in value['checks'].items() if k not in ('sources', 'artifacts'))
             and not any(value['observations'].values()) and not any(value['violations'].values())
+            and not any(v for k,v in value['diagnostic'].items() if k != 'requested')
             and value['run_sha256'] is None and value['failure'] is None, 'public_readiness')
     require(not value['checks']['positive'] or all(value['observations'].values()), 'public_positive')
     require(len(encode(value)) <= MAX_PUBLIC, 'public_bound')

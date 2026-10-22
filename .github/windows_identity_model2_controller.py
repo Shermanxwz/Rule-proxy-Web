@@ -64,6 +64,8 @@ def validate_config(value):
         'admission_nonce', 'maintenance_nonce', 'capability_profile', 'start_qpc', 'frequency', 'deadline_qpc',
         'root_deadline_qpc', 'source_hashes', 'source_sha256', 'actor_sha256', 'manifest_sha256',
         'guard_job_name', 'device_sha256', 'recovery_plan_sha256'}
+    mode = live.execution_mode(value)
+    if mode != 'strict': keys.add('execution_mode')
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
         and value['stage'] == 'model2-first-owned-input', 'config')
     live.clock_record(value['start_qpc'], value['frequency'], value['root_deadline_qpc'])
@@ -391,7 +393,8 @@ class FirstController:
         self.acl_attempted = False
         self.acl_removed = False
         self.cleanup_ok = False
-        self.value = live.blank()
+        self.mode = live.execution_mode(config)
+        self.value = live.blank(self.mode)
         self.parent = None
         self.catalog = None
         self.phase = 'inputs'
@@ -555,6 +558,9 @@ class FirstController:
 
     def native_phase(self, task, *, role, boot, admission, sequence, case, opcode, control, reports, fixed_ports, end):
         self.alive(task)
+        if self.mode != 'strict' and role == 'selected-client':
+            maintenance.validate_profiles_observation(self.maintenance.last_observation, 'profiles-status', self.mode,
+                self.config['start_qpc'], self.config['frequency'], self.config['deadline_qpc'], self.budget.read())
         digest = live.publish_go(control, budget=self.budget, run=self.config['run'], case=case, sequence=sequence,
             opcode=opcode, frequency=self.config['frequency'], deadline=self.config['deadline_qpc'],
             fixed_ports=fixed_ports, admission=admission, phase_deadline=end)
@@ -650,6 +656,7 @@ class FirstController:
             source_hashes=c['source_hashes'], source_sha256=c['source_sha256'], parent_sid=self.parent['sid'],
             parent_session=self.parent['session_id'], start_qpc=c['start_qpc'], frequency=c['frequency'],
             deadline_qpc=c['deadline_qpc'], rules=[rule], actor_sha256=c['actor_sha256'])
+        if self.mode != 'strict': plan['execution_mode'] = self.mode
         launcher.write_private_bytes(root / 'maintenance-plan.json', live.encode(plan))
         self.maintenance = maintenance.MaintenanceOwner(api, budget, root, plan, self.maintenance_job, self.maintenance_owners)
         self.maintenance.start()
@@ -662,7 +669,12 @@ class FirstController:
         def journal(row):
             launcher.write_private_bytes(root / ('rule-' + row['state'] + '.json'), live.encode(row))
         self.rule_owner.create(self.rules, budget, journal)
-        v['checks']['firewall_exact'] = True
+        if self.mode == 'strict':
+            v['checks']['firewall_exact'] = True
+        else:
+            observed = self.maintenance.last_observation
+            v['diagnostic'].update(profiles_off_verified=observed['profiles_off_verified'],
+                exact_rule_scope_verified=True, effective_full_verified=observed['effective_full_verified'])
 
         # A single fixed pair window bounds native front/relay handshake and flow.
         self.phase = 'positive'
@@ -732,6 +744,7 @@ class FirstController:
         v['checks'].update(selected_held=True, declared_caps=True)
         self.alive(origin_task)
         self.phase = 'positive'
+        self.refresh_profiles()
         positive = self.native_phase(selected, role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'],
             sequence=1, case=c['positive_case'], opcode=1, control=root / 'selected-control', reports=root / 'selected',
             fixed_ports=fixed, end=pair_end)
@@ -752,6 +765,7 @@ class FirstController:
             and origin_positive['peer_port'] == relay_report['origin']['local_port'], 'relay_origin_tuple')
         v['observations']['origin_nonce_received'] = True
         v['checks']['positive'] = True
+        if self.mode != 'strict': v['diagnostic']['positive_verified'] = True
 
         self.phase = 'health'
         self.alive(g)
@@ -762,6 +776,7 @@ class FirstController:
             fixed_ports=fixed, end=min(budget.read() + 3 * c['frequency'], budget.cutoff(35)))
         live.require(phase_passed(during, c['health_cases'][1]), 'origin_during_health')
         self.phase = 'selected'
+        self.refresh_profiles()
         self.direct_deadline = min(budget.read() + 3 * c['frequency'], budget.cutoff(35))
         direct = self.native_phase(selected, role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'],
             sequence=2, case=c['direct_case'], opcode=2, control=root / 'selected-control', reports=root / 'selected',
@@ -772,6 +787,12 @@ class FirstController:
             and not direct['network']['connect_completed'] and direct['network']['failure'] == 'connect'
             and direct['network']['wsa_error'] == 10013 and direct['network']['socket_close'] == 'confirmed'
             and direct['network']['wsa_cleanup'] is True)
+        if self.mode != 'strict':
+            v['diagnostic'].update(direct_attempted=direct['network']['connect_attempted'],
+                direct_connected=direct['network']['connect_completed'], direct_denied_by_access=v['checks']['direct_deny'])
+            live.require(direct['failure'] is None and direct['phase_qpc'][2] < direct['phase_qpc'][1]
+                and all(direct['network'][key] for key in ('wsa_startup','inheritance_cleared','socket_created','connect_attempted','wsa_cleanup'))
+                and direct['network']['socket_close'] == 'confirmed', 'direct_observation')
         self.alive(g)
         self.alive(selected)
         v['checks']['same_selected'] = True
@@ -802,15 +823,31 @@ class FirstController:
             item = receipt(live.decode(live.local.bounded(path, live.MAX_NATIVE)), origin_task, c, boot=origin_boot, port=origin_port, index=index)
             if item['case_id'] == c['direct_case']:
                 v['violations']['forbidden_receiver_accepted'] = True
-            live.require(receipt_passed(item), 'origin_receipt')
+            if self.mode == 'strict' or item['case_id'] != c['direct_case']:
+                live.require(receipt_passed(item), 'origin_receipt')
             observed_cases.append(item['case_id'])
         expected_cases = [c['health_cases'][0], c['positive_case'], c['health_cases'][1], c['health_cases'][2]]
+        if self.mode != 'strict' and c['direct_case'] in observed_cases:
+            expected_cases.insert(3, c['direct_case'])
         live.require(observed_cases == expected_cases, 'origin_case_binding')
         listener_final(live.decode(live.local.bounded(root / 'origin/final.json', live.MAX_NATIVE)), origin_task, c,
-            boot=origin_boot, port=origin_port, receipt_count=4)
+            boot=origin_boot, port=origin_port, receipt_count=len(expected_cases))
         v['observations']['origin_nonce_received'] = c['positive_case'] in observed_cases
         v['checks']['origin_healthy'] = True
-        live.require(v['checks']['direct_deny'] and not any(v['violations'].values()), 'direct_deny')
+        if self.mode == 'strict':
+            live.require(v['checks']['direct_deny'] and not any(v['violations'].values()), 'direct_deny')
+        else:
+            v['diagnostic'].update(forbidden_nonce_received=v['violations']['forbidden_receiver_accepted'],
+                direct_denied_by_access=v['checks']['direct_deny'] and not v['violations']['forbidden_receiver_accepted'],
+                observation_complete=True)
+
+    def refresh_profiles(self):
+        if self.mode == 'strict': return
+        self.maintenance.operation('profiles-status', self.rule_owner.rule['name'])
+        observed = self.maintenance.last_observation
+        maintenance.validate_profiles_observation(observed, 'profiles-status', self.mode, self.config['start_qpc'],
+            self.config['frequency'], self.config['deadline_qpc'], self.budget.read())
+        live.require(observed['profiles_off_verified'], 'profiles_off_before_go')
 
     def harvest(self):
         """Independent receiver/client positives survive later parser/exit failures."""
@@ -842,6 +879,11 @@ class FirstController:
                     v['violations']['direct_connected'] |= row['network']['connect_completed']
                 except BaseException:
                     pass
+        if self.mode != 'strict':
+            v['diagnostic']['direct_connected'] = v['violations']['direct_connected']
+            v['diagnostic']['forbidden_nonce_received'] = v['violations']['forbidden_receiver_accepted']
+            if v['violations']['direct_connected'] or v['violations']['forbidden_receiver_accepted']:
+                v['diagnostic']['direct_denied_by_access'] = False
 
     def cleanup(self):
         api, budget, root = self.api, self.budget, self.root
@@ -1111,7 +1153,8 @@ def validate_ownership_journal(value, config, *, controller_pid):
         live.require(all(value['cleanup'][k] for k in cleanup_keys - {'cleanup', 'sid_released'})
             and (rule is None or rule['absent_verified'] and not rule['uncertain'])
             and (not m['attempted'] or m['exited'] and not m['spawn_unknown']), 'journal_profile_delete')
-    if live.first_ready(public, require_guard=False):
+    live.require(public['execution_mode'] == live.execution_mode(config), 'journal_execution_mode')
+    if live.first_ready(public, require_guard=False) or live.diagnostic_ready(public, require_guard=False):
         live.require(set(tasks) == roles and len(value['go']) == len(expected_go)
             and all(row['resumed'] and row['exited'] and row['exit_code'] == 0 for row in tasks.values())
             and all(value['cleanup'].values()) and rule is not None and rule['present_verified'] and rule['absent_verified']
@@ -1181,6 +1224,7 @@ def validate_private(value, config, *, controller_pid):
     for key in ('run', 'frequency', 'start_qpc', 'deadline_qpc', 'source_sha256', 'actor_sha256', 'manifest_sha256'):
         live.require(type(value[key]) is type(config[key]) and value[key] == config[key], 'private_binding')
     result = live.validate_public(value['public'])
+    live.require(result['execution_mode'] == live.execution_mode(config), 'private_execution_mode')
     live.require(ac.digest(value['ownership_journal_sha256']) and live.integer(value['ownership_journal_bytes'], 1, live.MAX_PRIVATE), 'private_journal')
     live.require(result['checks']['guard_held'] is False and result['local_c_qualified'] is False
         and result['first_chain_verified'] is False and not any(result['checks'][k] for k in ('wrong_port', 'wrong_peer', 'proxy_death')),

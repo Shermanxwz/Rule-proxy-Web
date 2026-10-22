@@ -38,6 +38,8 @@ def maintenance_identity(identity, parent):
 def validate_plan(value):
     keys = {'schema_version', 'stage', 'run', 'maintenance_nonce', 'source_hashes', 'source_sha256',
         'parent_sid', 'parent_session', 'start_qpc', 'frequency', 'deadline_qpc', 'rules', 'actor_sha256'}
+    mode = live.execution_mode(value)
+    if mode != 'strict': keys.add('execution_mode')
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
         and value['stage'] == 'model2-maintenance-plan' and ac.nonce(value['run'])
         and ac.nonce(value['maintenance_nonce']) and value['maintenance_nonce'] != value['run'], 'maintenance_plan')
@@ -62,7 +64,7 @@ def validate_plan(value):
 
 def command(run, plan_hash, sequence, operation, rule_name=None):
     live.require(ac.nonce(run) and ac.digest(plan_hash) and live.integer(sequence, 1, MAX_COMMANDS)
-        and operation in ('admit', 'read-persistent', 'read-active', 'create', 'remove', 'finish'), 'maintenance_command')
+        and operation in ('admit', 'read-persistent', 'read-active', 'profiles-status', 'create', 'remove', 'finish'), 'maintenance_command')
     if operation in ('admit', 'finish'):
         live.require(rule_name is None, 'maintenance_command')
     else:
@@ -117,6 +119,27 @@ def operation_command(image, script, input_file, output_file):
         '-File', str(script), '-InputPlan', str(input_file), '-OutputReport', str(output_file)]
 
 
+def validate_profiles_observation(value, operation, mode, start, frequency, deadline, now):
+    keys = {'schema_version', 'stage', 'operation', 'attempted', 'success', 'record', 'failure',
+        'execution_mode', 'profiles_off_verified', 'effective_full_verified', 'profiles_qpc'}
+    live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
+        and value['stage'] == 'model2-firewall-operation' and value['operation'] == operation
+        and value['execution_mode'] == mode and mode in live.MODES
+        and all(type(value[k]) is bool for k in ('attempted', 'success', 'profiles_off_verified', 'effective_full_verified'))
+        and value['failure'] in (None, 'input', 'firewall_operation'), 'operation_report')
+    if mode == 'profiles-off-diagnostic' and operation in ('create', 'profiles-status') and value['success']:
+        live.require(value['profiles_off_verified'] and live.integer(value['profiles_qpc'], start, deadline - 1)
+            and value['profiles_qpc'] <= now and now - value['profiles_qpc'] <= 5 * frequency, 'profiles_freshness')
+        if operation == 'profiles-status':
+            live.require(value['record'] is None and not value['attempted'] and not value['effective_full_verified'], 'profiles_status')
+    else:
+        live.require(not value['profiles_off_verified'] and value['profiles_qpc'] is None, 'profiles_scope')
+    if mode == 'strict':
+        live.require(operation != 'profiles-status' and (not value['success'] or operation != 'create'
+            or value['effective_full_verified']), 'effective_policy')
+    return value
+
+
 def run_operation(api, budget, *, plan, request, directory, parent, root=ROOT):
     """One exact operation child, with a distinct nested Job and held identity."""
     operation = request['operation']
@@ -131,6 +154,8 @@ def run_operation(api, budget, *, plan, request, directory, parent, root=ROOT):
     output_file = directory / 'report.json'
     payload = dict(schema_version=1, stage='model2-firewall-input', run=plan['run'], operation=operation,
         frequency=budget.frequency, deadline_qpc=budget.cutoff(5), rule=row)
+    mode = live.execution_mode(plan)
+    if mode != 'strict': payload['execution_mode'] = mode
     raw = live.encode(payload)
     launcher.write_private_bytes(input_file, raw)
     owners = helpers.OneShotHandles(api.close)
@@ -192,12 +217,8 @@ def run_operation(api, budget, *, plan, request, directory, parent, root=ROOT):
             budget.require_ms(budget.cutoff(3))
             raw_result = live.local.bounded(output_file, 8192)
             observed = live.decode(raw_result)
-            keys = {'schema_version', 'stage', 'operation', 'attempted', 'success', 'record', 'failure'}
-            live.require(type(observed) is dict and set(observed) == keys
-                and live.integer(observed['schema_version'], 1, 1)
-                and observed['stage'] == 'model2-firewall-operation' and observed['operation'] == operation
-                and type(observed['attempted']) is bool and type(observed['success']) is bool
-                and observed['failure'] in (None, 'input', 'firewall_operation'), 'operation_report')
+            validate_profiles_observation(observed, operation, mode, plan['start_qpc'], plan['frequency'],
+                plan['deadline_qpc'], budget.read())
             if observed['record'] is not None:
                 live.validate_rule(observed['record'], row)
             live.require(not observed['success'] or observed['failure'] is None and child['exit_code'] == 0,
@@ -380,14 +401,14 @@ class MaintenanceOwner:
                 and result['child_exit_code'] == 0 and type(result['child_exit_code']) is int
                 and result['failure'] is None, 'maintenance_operation_report')
             observed = result['operation_result']
-            live.require(type(observed) is dict and set(observed) == {'schema_version', 'stage', 'operation',
-                'attempted', 'success', 'record', 'failure'} and live.integer(observed['schema_version'], 1, 1)
-                and observed['stage'] == 'model2-firewall-operation' and observed['operation'] == operation
-                and observed['success'] is True and type(observed['attempted']) is bool and observed['failure'] is None,
+            validate_profiles_observation(observed, operation, live.execution_mode(self.plan), self.plan['start_qpc'],
+                self.plan['frequency'], self.plan['deadline_qpc'], self.budget.read())
+            live.require(observed['success'] is True and observed['failure'] is None,
                 'maintenance_rule_report')
             row = next(x for x in self.plan['rules'] if x['name'] == rule_name)
             if observed['record'] is not None:
                 live.validate_rule(observed['record'], row)
+            self.last_observation = observed
             return observed['record']
         return result
 
