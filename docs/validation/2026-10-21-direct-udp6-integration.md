@@ -303,3 +303,42 @@ second full-capture copy. Existing capture-reader transient copies remain; the
 Native/guest/private-body bounds, capture cap, deadlines, process lifecycle,
 network calls, policy and runtime activation are unchanged. No VM run or
 publication is authorized by this code-only candidate.
+
+## NA address-relation presence (diagnostic version 4, code-only candidate)
+
+The inner packet schema remains 2 and all strict ND admission predicates,
+including the fixture-address failure bit (bit 6, value 64), opaque reasons and
+bounded direct-UDP absence formula are unchanged. Diagnostic version 4 merely
+extends `ndp` from ten to twelve slots; no earlier field is removed or redefined.
+Historical archives are not reinterpreted by the new detail.
+
+For an already reached type-136 NA candidate, an address relation is known only
+when at least the fixed 24-byte body is available and the complete ordinary
+witness is ready. Any calibration failure—including missing rows or flags,
+terminal ordering, checksum, unsupported layout, binding collision, framing,
+unusable source or source conflict—makes this relation unknown. A unique-looking
+source state alone is not enough. Unknown candidates increment `ndp[11]`, an
+unknown-NA event count, without inventing an address result.
+
+For known relations, define S as outer source equals observed ordinary source G,
+T as NA target equals G, E as outer source equals NA target, and D as outer
+destination equals the fixed fixture. D is already true on the unchanged parser
+path. Joint values `S | (T<<1) | (E<<2) | (D<<3)` of 8, 9, 10, 12 and 15 map,
+in that order, to the five bits of `ndp[10]` (range 0–31). This is a set of joint
+patterns actually seen, not per-pattern frequencies or independent marginal
+Booleans that may be combined across packets. Known address-byte relationships
+are retained even if that NA later fails checksum, code or flags. They do not
+establish authenticity, OS address ownership or a cause for the observed traffic.
+The new slots never influence ND admission or any stronger egress claim.
+Producer-side projection checks use a private bounded NA-event count, including
+short bodies, to reject impossible unknown counts or pattern cardinalities. This
+count is not exported and cannot be reconstructed from truncated type/code
+detail; repeated occurrences of one known pattern still set only one bit.
+
+The real conservative independent-field composition, retaining every previous
+maximum field, measures **4,092 bytes** for the host-nested packet projection with
+indentation and newline, within the unchanged 4,096-byte limit. Its full-host
+serialization measures **9,402 bytes**, not a runtime writer cap. These maxima
+need not coexist in a valid trace; separately validated projector fixtures check
+self-consistent known, mixed and unknown observations. No capture, guest, native,
+policy, lifecycle, frequency, network or runtime change is introduced here.

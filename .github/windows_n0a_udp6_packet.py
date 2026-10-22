@@ -132,10 +132,10 @@ def payload(nonce, phase, index):
 
 
 def _diagnostic_new():
-    return dict(v=3, opaque_next_header_counts=[0]*256, truncated_counts=[0,0,0],
+    return dict(v=4, opaque_next_header_counts=[0]*256, truncated_counts=[0,0,0],
                 icmp_type_code_counts={}, icmp_omitted_event_count=0,
                 checksum_counts=[0]*3, quote_counts=[0]*4,
-                quote_detail_counts=[0]*14, raw_selected_nonce_match=set(),ndp=[0,0,0,0,0,0,0,0,0,False])
+                quote_detail_counts=[0]*14, raw_selected_nonce_match=set(),ndp=[0,0,0,0,0,0,0,0,0,False,0,0],na_events=0)
 
 
 def _diagnostic_checksum(source, destination, body, protocol):
@@ -274,12 +274,31 @@ def _nd_witness(data,manifest):
     return state
 
 
+def _nd_relation(diagnostic,ip,position,witness):
+    """Joint-pattern presence only; byte comparisons never authenticate an NA."""
+    body=ip[position:]
+    if len(body)<1 or body[0]!=136:return
+    diagnostic['na_events']+=1
+    if len(body)<24 or witness['ready'] is not True:
+        diagnostic['ndp'][11]+=1
+        return
+    source=bytes(ip[8:24]);target=bytes(body[8:24]);guest=witness['source']
+    pattern=(int(source==guest)|int(target==guest)<<1|int(source==target)<<2
+             |int(ip[24:40]==DESTINATION)<<3)
+    # The unchanged destination filter and equality transitivity allow only these.
+    if pattern not in (8,9,10,12,15):
+        diagnostic['ndp'][11]+=1
+        return
+    diagnostic['ndp'][10]|=1<<(8,9,10,12,15).index(pattern)
+
+
 def _nd_profile(diagnostic,frame,ip,position,manifest,witness):
     """Strict fixture ND exception, not general RFC validity or OS ownership."""
     body=ip[position:];ndp=diagnostic['ndp']
     shared=manifest['binding']['case_nonce'].encode('ascii') in bytes(frame)
     if len(body)<1 or body[0] not in (135,136):return False
     if shared:ndp[9]=True
+    _nd_relation(diagnostic,ip,position,witness)
     bits=witness['bits'];rejected=False;kind=int(body[0])
     if position!=40:bits|=1<<0
     if len(body)<24:bits|=1<<1;rejected=True
@@ -436,8 +455,8 @@ def decode_pcap(data, manifest):
 
 
 def project_decoder_diagnostic(value, records):
-    """Closed v2 diagnostic only; all verdicts ignore these counters."""
-    if not _object(value,set(_diagnostic_new())) or type(value['v']) is not int or value['v']!=3 or not _integer(records,0,MAX_RECORDS):return None
+    """Closed versioned diagnostics; all verdicts ignore these counters."""
+    if not _object(value,set(_diagnostic_new())) or type(value['v']) is not int or value['v']!=4 or not _integer(records,0,MAX_RECORDS):return None
     counts=value['opaque_next_header_counts'];truncated=value['truncated_counts']
     if type(counts)is not list or len(counts)!=256 or any(not _integer(n,0,MAX_RECORDS) for n in counts) or sum(counts)>records:return None
     if type(truncated)is not list or len(truncated)!=3 or not _integer(truncated[0],0,1) or not _integer(truncated[2],0,1) or not _integer(truncated[1],0,min(MAX_RECORDS,records+1)):return None
@@ -457,13 +476,19 @@ def project_decoder_diagnostic(value, records):
     raw=value['raw_selected_nonce_match']
     if type(raw)is not set or any(not _integer(n,0,2) for n in raw) or (raw and not events):return None
     ndp=value['ndp']
-    if (type(ndp)is not list or len(ndp)!=10 or any(not _integer(n,0,events) for n in ndp[:4])
+    if (type(ndp)is not list or len(ndp)!=12 or any(not _integer(n,0,events) for n in ndp[:4])
             or sum(ndp[:4])>events or not _integer(ndp[4],0,0x7ffff)
             or any(not _integer(n,0,records) for n in ndp[5:8]) or ndp[6]+ndp[7]!=ndp[5]
             or not _integer(ndp[8],0,2) or type(ndp[9])is not bool):return None
+    na_events=value['na_events']
+    if (not _integer(na_events,0,sum(ndp[:4])-ndp[0]) or not _integer(ndp[10],0,31)
+            or not _integer(ndp[11],0,na_events)
+            or ndp[10].bit_count()>na_events-ndp[11]
+            or (ndp[10]==0)!=(na_events==ndp[11])):return None
+    if ndp[1] and (na_events-ndp[11]<ndp[1] or not ndp[10]&16):return None
     if sum(ndp[:2]) and (ndp[4]&0x7e001 or ndp[7]!=0 or ndp[6]==0 or ndp[8]!=1):return None
     nonzero=[[n,c] for n,c in enumerate(counts) if c];omitted_nh=nonzero[2:]
-    return dict(v=3,opaque_next_header_counts=nonzero[:2],omitted_category_count=len(omitted_nh),
+    return dict(v=4,opaque_next_header_counts=nonzero[:2],omitted_category_count=len(omitted_nh),
                 omitted_event_count=sum(r[1] for r in omitted_nh),detail_complete=not omitted_nh,
                 truncated_counts=list(truncated),icmp_type_code_counts=[[a,b,c] for (a,b),c in sorted(pairs.items())],
                 icmp_omitted_event_count=omitted,icmp_detail_complete=not omitted,

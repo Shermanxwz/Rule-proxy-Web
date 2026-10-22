@@ -241,7 +241,7 @@ class Udp6PacketTests(unittest.TestCase):
                                          'omitted_category_count','omitted_event_count','detail_complete','icmp_type_code_counts',
                                          'icmp_omitted_event_count','icmp_detail_complete','checksum_counts','quote_counts',
                                          'quote_detail_counts','raw_selected_nonce_match','ndp'})
-        self.assertIs(type(diagnostic['v']),int);self.assertEqual(diagnostic['v'],3)
+        self.assertIs(type(diagnostic['v']),int);self.assertEqual(diagnostic['v'],4)
         opaque=diagnostic['opaque_next_header_counts'];truncated=diagnostic['truncated_counts']
         self.assertIs(type(opaque),list);self.assertLessEqual(len(opaque),2)
         self.assertTrue(all(type(row)is list and len(row)==2 and type(row[0])is int
@@ -365,7 +365,7 @@ class Udp6PacketTests(unittest.TestCase):
 
     def test_malformed_diagnostic_projection_cannot_affect_original_verdict(self):
         good=p._diagnostic_new()
-        cases=[None,{},dict(good,extra=0),dict(good,v=True),dict(good,v=2),dict(good,opaque_next_header_counts=[])]
+        cases=[None,{},dict(good,extra=0),dict(good,v=True),dict(good,v=3),dict(good,opaque_next_header_counts=[])]
         for count in (-1,True,p.MAX_RECORDS+1):
             bad=copy.deepcopy(good);bad['opaque_next_header_counts'][6]=count;cases.append(bad)
         for trunc in ([2,0,0],[0,0,2],[0,-1,0],[0,False,0],[0,2,0],[0,0],(0,0,0)):
@@ -435,11 +435,11 @@ class Udp6PacketTests(unittest.TestCase):
         result.update(status='bounded_no_selected_udp_datagram',selected_payload_count=3,
                       unknown_flow_packets=p.MAX_RECORDS,records=p.MAX_RECORDS,reasons=sorted(reasons))
         # Deliberately stronger than the possible sum<=records bound: every slot max.
-        result['decoder_diagnostic']=dict(v=3,opaque_next_header_counts=[[254,p.MAX_RECORDS],[255,p.MAX_RECORDS]],
+        result['decoder_diagnostic']=dict(v=4,opaque_next_header_counts=[[254,p.MAX_RECORDS],[255,p.MAX_RECORDS]],
             omitted_category_count=254,omitted_event_count=p.MAX_RECORDS,detail_complete=False,truncated_counts=[1,p.MAX_RECORDS,1],
             icmp_type_code_counts=[[255,n,p.MAX_RECORDS] for n in range(254,256)],icmp_omitted_event_count=p.MAX_RECORDS,
             icmp_detail_complete=False,checksum_counts=[p.MAX_RECORDS]*3,quote_counts=[p.MAX_RECORDS]*4,
-            quote_detail_counts=[p.MAX_RECORDS]*14,raw_selected_nonce_match=[False,3],ndp=[p.MAX_RECORDS]*4+[0x7ffff]+[p.MAX_RECORDS]*3+[2,False])
+            quote_detail_counts=[p.MAX_RECORDS]*14,raw_selected_nonce_match=[False,3],ndp=[p.MAX_RECORDS]*4+[0x7ffff]+[p.MAX_RECORDS]*3+[2,False,31,p.MAX_RECORDS])
         for options in ({'separators':(',',':')},{},{'indent':2}):
             self.assertLessEqual(len((json.dumps(result,ensure_ascii=True,**options)+'\n').encode('ascii')),4096)
         text=json.dumps(result)
@@ -628,7 +628,7 @@ class StrictNdProfileTests(unittest.TestCase):
     def denied(self,r,bit=None):
         self.assertFalse(r['bounded_no_selected_udp_datagram']);self.assertIn('opaque_protocol',r['reasons'])
         self.assertEqual(r['schema_version'],2)
-        d=r['decoder_diagnostic'];self.assertEqual(d['v'],3)
+        d=r['decoder_diagnostic'];self.assertEqual(d['v'],4)
         if bit is not None:self.assertTrue(d['ndp'][4]&(1<<bit))
         return d['ndp']
 
@@ -641,7 +641,7 @@ class StrictNdProfileTests(unittest.TestCase):
                     self.assertEqual(r['schema_version'],2);self.assertFalse(r['checksums_validated'])
                     self.assertEqual(r['records'],5)
                     nd=r['decoder_diagnostic']['ndp'];self.assertEqual(nd[:4],[int(kind==135),int(kind==136),0,0])
-                    self.assertEqual(nd[4:],[0,4,4,0,1,False])
+                    self.assertEqual(nd[4:],[0,4,4,0,1,False,16 if kind==136 else 0,0])
                     self.assertEqual(r['decoder_diagnostic']['opaque_next_header_counts'],[[58,1]])
 
     def test_duplicate_good_source_allowed_not_counted_twice_by_passes(self):
@@ -806,6 +806,109 @@ class StrictNdProfileTests(unittest.TestCase):
         m=manifest(40);state=p._nd_witness(pcap(calibration_frames(m)),m)
         self.assertTrue(state['ready']);self.assertEqual(state['exact'],42)
         self.assertEqual(set(state),{'bits','exact','valid','invalid','source','source_state','ready'})
+
+
+class NaRelationV4Tests(unittest.TestCase):
+    def result(self,fs,m=None,controls=None):
+        m=manifest() if m is None else m
+        return run(m,fs=fs+(calibration_frames(m) if controls is None else controls))
+
+    def test_zero_events_and_ns_do_not_invent_na_relations(self):
+        for fs in ([],[nd_frame(kind=135)]):
+            r=self.result(fs);d=r['decoder_diagnostic']
+            self.assertEqual(d['v'],4);self.assertEqual(d['ndp'][10:],[0,0])
+            self.assertNotIn('na_events',d);self.assertEqual(r['schema_version'],2)
+
+    def test_all_five_joint_patterns_presence_not_marginal_or_frequency(self):
+        a=SRC[:-1]+b'\x10';b=SRC[:-1]+b'\x11'
+        pairs=[(a,b),(SRC,a),(a,SRC),(a,a),(SRC,SRC)]
+        frames_by_pattern=[nd_frame(kind=136,source=s,target=t) for s,t in pairs]
+        for index,frame_bytes in enumerate(frames_by_pattern):
+            r=self.result([frame_bytes]);self.assertEqual(r['decoder_diagnostic']['ndp'][10:],[1<<index,0])
+        r=self.result(frames_by_pattern+frames_by_pattern)
+        self.assertEqual(r['decoder_diagnostic']['ndp'][10:],[31,0])
+        self.assertEqual(r['decoder_diagnostic']['ndp'][1],2)
+        self.assertEqual(r['decoder_diagnostic']['ndp'][3],8)
+        # source==G on one event plus target==G on another never manufactures all-equal.
+        r=self.result(frames_by_pattern[1:3]);self.assertEqual(r['decoder_diagnostic']['ndp'][10],6)
+        self.assertFalse(r['bounded_no_selected_udp_datagram'])
+        self.assertIn('opaque_protocol',r['reasons']);self.assertTrue(r['decoder_diagnostic']['ndp'][4]&(1<<6))
+
+    def test_relation_survives_checksum_code_and_flag_rejection(self):
+        fs=[]
+        f=bytearray(nd_frame(kind=136));f[56]^=1;fs.append(bytes(f))
+        fs += [nd_frame(kind=136,code=1),nd_frame(kind=136,flags=0),nd_frame(kind=136,hop=1)]
+        for f in fs:
+            r=self.result([f]);self.assertEqual(r['decoder_diagnostic']['ndp'][10:],[16,0])
+            self.assertFalse(r['bounded_no_selected_udp_datagram'])
+
+    def test_all_witness_taints_mean_unknown_not_false_comparisons(self):
+        m=manifest();good=calibration_frames(m)
+        bad=bytearray(good[0]);bad[60:62]=b'\0\0'
+        cases=[good[:-1],good+[bytes(bad)],good+[calibration_frames(m,SRC[:-1]+b'\x10')[0]]]
+        for controls in cases:
+            r=self.result([nd_frame(kind=136)],m,controls)
+            self.assertEqual(r['decoder_diagnostic']['ndp'][10:],[0,1])
+        for field in ('send_invoked','nonce_verified'):
+            mm=copy.deepcopy(m);mm['ordinary'][0][field]=False
+            r=self.result([nd_frame(kind=136)],mm,good);self.assertEqual(r['decoder_diagnostic']['ndp'][10:],[0,1])
+        data=pcap([nd_frame(kind=136)]+good)+b'\0'
+        r=run(m,data=data);self.assertEqual(r['decoder_diagnostic']['ndp'][10:],[0,1])
+
+    def test_short_target_and_mixed_known_unknown_na(self):
+        for length in (1,2,8,23):
+            full=nd_frame(kind=136);f=full[:18]+struct.pack('!H',length)+full[20:54]+full[54:54+length]
+            r=self.result([f]);self.assertEqual(r['decoder_diagnostic']['ndp'][10:],[0,1])
+        full=nd_frame(kind=136);short=full[:18]+struct.pack('!H',1)+full[20:55]
+        r=self.result([full,short,nd_frame(kind=135)])
+        self.assertEqual(r['decoder_diagnostic']['ndp'][10:],[16,1])
+        self.assertFalse(r['bounded_no_selected_udp_datagram'])
+
+    def test_unknown_maximum_and_fixed_internal_counter(self):
+        d=p._diagnostic_new();d['opaque_next_header_counts'][58]=p.MAX_RECORDS
+        d['checksum_counts'][2]=p.MAX_RECORDS;d['quote_counts'][3]=p.MAX_RECORDS
+        d['ndp'][2]=p.MAX_RECORDS;d['ndp'][11]=p.MAX_RECORDS;d['na_events']=p.MAX_RECORDS
+        out=p.project_decoder_diagnostic(d,p.MAX_RECORDS)
+        self.assertIsNotNone(out);self.assertEqual(out['ndp'][10:],[0,p.MAX_RECORDS])
+        self.assertNotIn('na_events',out)
+
+    def test_invalid_masks_counts_and_joint_invariants_fail_closed(self):
+        m=manifest();data=pcap([nd_frame(kind=136)]+calibration_frames(m))
+        d=p.decode_pcap(data,m)['decoder_diagnostic'];self.assertIsNotNone(p.project_decoder_diagnostic(d,5))
+        for field,value in ((10,True),(10,-1),(10,32),(11,True),(11,-1),(11,2),(10,3),(10,0),(11,1)):
+            bad=copy.deepcopy(d);bad['ndp'][field]=value
+            self.assertIsNone(p.project_decoder_diagnostic(bad,5))
+        for value in (True,-1,0,2,p.MAX_RECORDS+1):
+            bad=copy.deepcopy(d);bad['na_events']=value;self.assertIsNone(p.project_decoder_diagnostic(bad,5))
+        # Admitted NA must itself contribute a known all-equality pattern.
+        bad=copy.deepcopy(d);bad['ndp'][10]=1;self.assertIsNone(p.project_decoder_diagnostic(bad,5))
+        bad=copy.deepcopy(d);bad['ndp'][10]=0;bad['ndp'][11]=1
+        self.assertIsNone(p.project_decoder_diagnostic(bad,5))
+        bad=copy.deepcopy(d);bad['na_events']=0;bad['ndp'][10]=0
+        self.assertIsNone(p.project_decoder_diagnostic(bad,5))
+
+    def test_projection_unavailable_does_not_change_strict_verdict(self):
+        m=manifest();data=pcap([nd_frame(kind=136),selected(m)]+calibration_frames(m))
+        normal=run(m,data=data)
+        with patch.object(p,'project_decoder_diagnostic',return_value=None):missing=run(m,data=data)
+        normal.pop('decoder_diagnostic');self.assertIsNone(missing.pop('decoder_diagnostic'))
+        self.assertEqual(normal,missing);self.assertTrue(missing['selected_bound_payload_observed'])
+        self.assertEqual(missing['schema_version'],2)
+
+    def test_core_v3_exact_ast_reverse_only_added_diagnostic_call(self):
+        import ast
+        class ReverseRelation(ast.NodeTransformer):
+            def visit_Expr(self,node):
+                if isinstance(node.value,ast.Call) and isinstance(node.value.func,ast.Name) and node.value.func.id=='_nd_relation':return None
+                return self.generic_visit(node)
+        expected={'_nd_witness':'8d0a9a13aadbe94db96d9824a517d879a231526f34338d3eec8c50b83959fb59',
+                  '_nd_profile':'4b5bc83eba57419fbed8153707637500e7079f103af946a0ddddd0426cb30685',
+                  'decode_pcap':'f35054c1031eec0d74a3748e33cd394193883ee078bb8d4b3404054df2da52e0',
+                  'evaluate':'e6cc1f18f08764d80d81840624e8f5cacb8e35bc40805efb4e55b89c91aca19b'}
+        for node in ast.parse(PATH.read_text()).body:
+            if isinstance(node,ast.FunctionDef) and node.name in expected:
+                restored=ReverseRelation().visit(node)
+                self.assertEqual(hashlib.sha256(ast.dump(restored,include_attributes=False).encode()).hexdigest(),expected[node.name])
 
 
 if __name__=='__main__':unittest.main()
