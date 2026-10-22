@@ -11,6 +11,7 @@ ROOT=Path(__file__).resolve().parents[1]
 NATIVE=ROOT/'.github/native'
 HARNESS=r'''
 #include "windows_identity_proxy_c_contract.hpp"
+#include "windows_identity_proxy_bridge_core.hpp"
 #include <cstdio>
 using Bytes=std::array<std::uint8_t,128>;
 void put(Bytes& b,unsigned offset,std::uint64_t n,unsigned count){for(unsigned i=0;i<count;++i)b[offset+i]=static_cast<std::uint8_t>(n>>(8*i));}
@@ -46,6 +47,60 @@ int main(){bool good=true;const auto b=binding();const auto valid=command(b);
     good=require(decoded(finish,fixture,1,1000,true)&&!decoded(finish,fixture),"fixture-finish-separate-authority")&&good;
     for(unsigned i=0;i<128;++i){auto bad=finish;bad[i]^=1;good=require(!decoded(bad,fixture,1,1000,true),"fixture-finish-all-fields-fixed")&&good;}
     rpc::Command absent;good=require(!rpc::decode(nullptr,128,b,1,1000,absent),"null")&&good;
+    auto release=finish;release[5]=254;
+    rpc::Command released;
+    good=require(rpc::decode_release(release.data(),128,fixture,1000,released)&&released.operation==254
+        &&released.sequence==1&&released.item==fixture.admission&&released.phase_deadline==fixture.deadline,
+        "release-exact-separate-authority")&&good;
+    good=require(!decoded(release,fixture,1,1000,true)&&!decoded(release,fixture)&&!rpc::decode_release(finish.data(),128,fixture,1000,released),
+        "release-never-finish-or-network-go")&&good;
+    for(unsigned offset=0;offset<128;++offset)for(unsigned bit=0;bit<8;++bit){auto bad=release;bad[offset]^=static_cast<std::uint8_t>(1u<<bit);
+        good=require(!rpc::decode_release(bad.data(),128,fixture,1000,released),"release-all-bits-bound")&&good;}
+    for(unsigned size=0;size<=129;++size)good=require(rpc::decode_release(release.data(),size,fixture,1000,released)==(size==128),"release-exact-size")&&good;
+    good=require(!rpc::decode_release(nullptr,128,fixture,1000,released)
+        &&!rpc::decode_release(release.data(),128,fixture,fixture.deadline,released)
+        &&!rpc::decode_release(release.data(),128,b,1000,released),"release-null-late-or-network-binding")&&good;
+    for(unsigned invalid=0;invalid<5;++invalid){rpc::WithholdGate gate;auto item=fixture.admission;
+        if(invalid==0)item[0]^=1;
+        good=require(!gate.begin(fixture,item,invalid!=1,invalid!=2,invalid==3?1u:0u,invalid==4?fixture.deadline:1000)
+            &&!gate.held&&!gate.released&&!gate.closed,"withhold-needs-exact-declared-eof-zero-response-in-time")&&good;}
+    rpc::WithholdGate gate;
+    good=require(!gate.release(fixture,released,1000)&&!gate.consume_close(true),"no-release-or-close-before-held")&&good;
+    good=require(gate.begin(fixture,fixture.admission,true,true,0,1000)&&gate.held&&!gate.released&&!gate.closed
+        &&!gate.begin(fixture,fixture.admission,true,true,0,1000),"withhold-once-before-ack")&&good;
+    good=require(rpc::decode_release(release.data(),128,fixture,1001,released),"release-decode-before-transition")&&good;
+    for(unsigned invalid=0;invalid<5;++invalid){auto bad=released;
+        if(invalid==0)bad.operation=255;if(invalid==1)bad.sequence=2;if(invalid==2)bad.item[0]^=1;if(invalid==3)--bad.phase_deadline;
+        good=require(!gate.release(fixture,bad,invalid==4?fixture.deadline:1001)&&gate.held&&!gate.released,
+            "withhold-rejects-other-authority-and-expiry")&&good;}
+    good=require(gate.release(fixture,released,1001)&&gate.held&&gate.released&&!gate.closed
+        &&!gate.release(fixture,released,1002),"release-once-keeps-socket-held-until-close")&&good;
+    good=require(gate.consume_close(true)&&!gate.held&&gate.released&&gate.closed&&!gate.consume_close(true),"close-consumed-once")&&good;
+    rpc::WithholdGate uncertain;
+    good=require(uncertain.begin(fixture,fixture.admission,true,true,0,1000)&&uncertain.release(fixture,released,1001)
+        &&!uncertain.consume_close(false)&&uncertain.closed&&!uncertain.held&&!uncertain.consume_close(true),"uncertain-close-never-retried")&&good;
+    // Exact reducer state at relay death after origin accepted canonical GET+EOF.
+    // Native ReadFile error 109 does not inject a core EOF or success event.
+    const rpb::Config c{b.run,fixture.admission,49152,50103,0,10000,rpb::OriginAuthority::LocalLoopback};
+    rpb::Frontend front(c);rpb::Relay relay(c);const auto hello=relay.pending_output(0);
+    good=require(hello.size==48,"death-relay-hello")&&good;
+    front.apply({0,1,0,1,hello,0});relay.apply({0,4,0,1,{nullptr,0},48});
+    const auto ready=front.pending_output(0);good=require(ready.size==48,"death-front-ready")&&good;
+    relay.apply({0,1,0,2,ready,0});front.apply({0,4,0,2,{nullptr,0},48});
+    rpb::Buffer<256> request;rpb::append_literal(request,"GET http://ruleproxy-identity-proof.invalid/");rpb::append_hex(request,c.case_id);
+    rpb::append_literal(request," HTTP/1.1\r\nHost: ruleproxy-identity-proof.invalid\r\n\r\n");
+    good=require(request.size==129&&rpb::parse_request(c,request.view())==rpb::Failure::None,"death-real-client-request-129")&&good;
+    front.apply({0,2,0,3,request.view(),0});front.apply({0,3,0,3,{nullptr,0},0});
+    const auto request_frame=front.pending_output(0);good=require(request_frame.size==48,"death-request-frame")&&good;
+    relay.apply({0,1,0,4,request_frame,0});front.apply({0,4,0,4,{nullptr,0},48});
+    const auto canonical=rpb::relay_request(c);const auto upstream=relay.pending_output(1);
+    good=require(canonical.size==95&&rpb::equal(upstream,canonical.view()),"death-relay-canonical-request-95")&&good;
+    relay.apply({0,4,1,5,{nullptr,0},static_cast<std::uint32_t>(upstream.size)});
+    const auto fs=front.snapshot();const auto rs=relay.snapshot();
+    good=require(fs.failure==rpb::Failure::None&&fs.observations==1&&!fs.requested&&!fs.confirmed&&!fs.uncertain
+        &&!front.pending_output(0).size&&!front.pending_output(1).size,"death-front-core-golden-0-1-0-0-0")&&good;
+    good=require(rs.failure==rpb::Failure::None&&rs.observations==6&&!rs.requested&&!rs.confirmed&&!rs.uncertain
+        &&!relay.pending_output(0).size&&!relay.pending_output(1).size,"death-relay-no-response-or-done-before-owner-stop")&&good;
     std::printf("C_FAKE_SCENARIOS %u\n",scenarios);return good?0:1;
 }
 '''
@@ -65,7 +120,7 @@ class NativeCContractTests(unittest.TestCase):
             self.assertEqual(built.returncode,0,built.stdout+built.stderr)
             ran=subprocess.run([str(exe)],cwd=work,capture_output=True,text=True,timeout=15)
             self.assertEqual(ran.returncode,0,ran.stdout+ran.stderr)
-            self.assertIn('C_FAKE_SCENARIOS 1358',ran.stdout)
+            self.assertIn('C_FAKE_SCENARIOS 2538',ran.stdout)
 
     def test_frozen_b_sources_are_reused_without_behavior_or_hash_rewrite(self):
         expected={'windows_identity_proxy_origin_actor.cpp':'3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010',
@@ -107,6 +162,19 @@ class NativeCContractTests(unittest.TestCase):
             self.assertIn(flag,source)
         self.assertIn('compileOnly=$true;runtimeAcceptance=$false',source)
         self.assertNotIn('& $exe',source)
+
+    def test_declared_withhold_keeps_default_origin_schema_and_never_reads_finish_while_held(self):
+        source=(NATIVE/'windows_identity_proxy_c_actor.cpp').read_text(encoding='utf-8')
+        held=source[source.index('bool withhold_origin('):source.index('int health_listener(')]
+        for expected in ('death-held.json','death-release.json','release.bin','gate.begin(', 'gate.release(', 'gate.consume_close('):
+            self.assertIn(expected,held)
+        for forbidden in ('finish.bin','send_response(', 'receive_request(', 'accept_one(', 'send_bytes(', 'receive_bytes('):
+            self.assertNotIn(forbidden,held)
+        listener=source[source.index('int health_listener('):source.index('int dispatch(')]
+        self.assertIn('argc!=(withholding?15:14)',listener)
+        self.assertIn('withholding&&item==death',listener)
+        self.assertIn('death==run||death==boot',listener)
+        self.assertIn('role=withholding||std::wstring(argv[1])==L"health-origin"?"health-origin":"health-listener"',listener)
 
 
 if __name__=='__main__':unittest.main()

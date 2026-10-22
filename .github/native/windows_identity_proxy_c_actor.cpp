@@ -93,7 +93,7 @@ std::string qualification_json(const std::string& profile,const Qualification& q
 }
 enum class FileState {Missing,Valid,Invalid};
 FileState command_file(const std::wstring& path,const rpc::Binding& binding,std::uint32_t sequence,Clock& clock,
-                       rpc::Command& command,bool& close_verified,bool fixture=false){
+                       rpc::Command& command,bool& close_verified,bool fixture=false,bool release=false){
     if(!clock.sample())return FileState::Invalid;
     bridge_pipe::Slot input;input.value=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
     const DWORD open_error=input.value==INVALID_HANDLE_VALUE?GetLastError():0;
@@ -108,7 +108,8 @@ FileState command_file(const std::wstring& path,const rpc::Binding& binding,std:
     }
     DWORD error=0;const bool closed=input.close(error);close_verified=close_verified&&closed;
     const bool in_time=clock.sample();
-    return read_ok&&closed&&in_time&&rpc::decode(bytes.data(),total,binding,sequence,clock.last,command,fixture)?FileState::Valid:FileState::Invalid;
+    return read_ok&&closed&&in_time&&(release?rpc::decode_release(bytes.data(),total,binding,clock.last,command)
+        :rpc::decode(bytes.data(),total,binding,sequence,clock.last,command,fixture))?FileState::Valid:FileState::Invalid;
 }
 struct Observer {
     Clock& clock;bool sample(){return clock.sample();}std::uint32_t remaining_ms()const{return clock.remaining_ms();}
@@ -335,10 +336,57 @@ int front(int argc,wchar_t** argv){
         +",\"proxy_tested\":false,\"product_acceptance\":false}";
     if(!publish(report,out))return 3;return facts.failure?5:0;
 }
+bool withhold_origin(Clock& clock,SocketSlot& connection,ListenerFacts& facts,const TransferFacts& transfer,
+                     const Observations& identity,const std::string& run,const std::string& boot,const std::string& item,
+                     const std::wstring& report_directory,const std::wstring& control,std::uint64_t accepted_tick,bool& commands_closed){
+    const rpc::Binding binding{bridge_pipe::id_bytes(run),bridge_pipe::id_bytes(item),clock.frequency,clock.deadline,0,0,0};
+    rpc::WithholdGate gate;
+    if(!clock.sample()||connection.value==bridge_origin::Invalid||connection.receipt!=Close::NotAttempted
+       ||transfer.response_complete||transfer.shutdown||!gate.begin(binding,bridge_pipe::id_bytes(item),
+           transfer.request_exact,transfer.eof,transfer.sent,clock.last)){facts.fail(clock.failure?clock.failure:"configuration");return false;}
+    const auto held_tick=clock.last;
+    const auto root_qpc="["+std::to_string(clock.frequency)+","+std::to_string(clock.start)+","+std::to_string(clock.deadline)+"]";
+    const auto common=",\"case_id\":\""+item+"\",\"root_qpc\":"+root_qpc+",\"port\":"+std::to_string(facts.port)
+        +",\"peer_port\":"+std::to_string(facts.peer_port)+",\"request_bytes\":"+std::to_string(transfer.received)
+        +",\"request_exact\":"+boolean(transfer.request_exact)+",\"request_eof\":"+boolean(transfer.eof)
+        +",\"response_bytes\":"+std::to_string(transfer.sent)+",\"response_withheld\":true";
+    const auto held=prefix("proxy-c-origin-withheld","health-origin-withhold",run,boot,identity)+common
+        +",\"flow_qpc\":["+std::to_string(accepted_tick)+","+std::to_string(held_tick)+"],\"socket_held\":true"
+        +",\"command_close_verified\":"+boolean(commands_closed)+",\"failure\":null,\"proxy_tested\":false,\"product_acceptance\":false}";
+    if(!publish(report_directory+L"\\death-held.json",held)){facts.fail("report");return false;}
+    rpc::Command command;std::uint64_t release_tick=0;
+    while(!facts.failure){
+        // Finish never substitutes for release. No response/send/recv/accept is
+        // performed while this owned socket is held; only the original clock
+        // and the single predeclared release file are observed.
+        const auto state=command_file(control+L"\\release.bin",binding,1,clock,command,commands_closed,false,true);
+        if(state==FileState::Invalid){facts.fail(clock.failure?clock.failure:"command");break;}
+        if(state==FileState::Valid){
+            release_tick=clock.last;
+            if(!gate.release(binding,command,clock.last))facts.fail("command");
+            break;
+        }
+        if(!clock.sample()){facts.fail("deadline");break;}
+        Sleep(clock.remaining_ms());
+    }
+    const bool closed=close_socket(connection,facts);
+    if(gate.released&&!gate.consume_close(closed))facts.fail("close");
+    if(!clock.sample())facts.fail("deadline");
+    const auto released=prefix("proxy-c-origin-released","health-origin-withhold",run,boot,identity)+common
+        +",\"flow_qpc\":["+std::to_string(accepted_tick)+","+std::to_string(held_tick)+","+std::to_string(release_tick)+","+std::to_string(clock.last)+"]"
+        +",\"socket_held\":"+boolean(connection.value!=bridge_origin::Invalid)+",\"release_sequence\":"+std::to_string(gate.released?command.sequence:0)
+        +",\"release_verified\":"+boolean(gate.released)+",\"release_command_close_verified\":"+boolean(commands_closed)
+        +",\"connection_close\":\""+rp_origin::close_name(connection.receipt)+"\",\"failure\":"+quoted(facts.failure)
+        +",\"proxy_tested\":false,\"product_acceptance\":false}";
+    if(!publish(report_directory+L"\\death-release.json",released))facts.fail("report");
+    return !facts.failure&&gate.released&&gate.closed;
+}
 int health_listener(int argc,wchar_t** argv){
-    if(argc!=14)return 2;const std::string role=std::wstring(argv[1])==L"health-origin"?"health-origin":"health-listener";
+    const bool withholding=std::wstring(argv[1])==L"health-origin-withhold";
+    if(argc!=(withholding?15:14))return 2;
+    const std::string role=withholding||std::wstring(argv[1])==L"health-origin"?"health-origin":"health-listener";
     const std::string profile=role=="health-origin"?"ordinary":"pncs";
-    std::string run,boot,user,ac;std::wstring report,ready,control;Clock clock;std::uint64_t port=0,maximum=0;
+    std::string run,boot,user,ac,death;std::wstring report,ready,control;Clock clock;std::uint64_t port=0,maximum=0;
     if(!ReadNonce(argv[2],run)||!ReadNonce(argv[3],boot)||!ReadReportPath(argv[4],report)||!ReadReportPath(argv[5],ready)
        ||!ReadReportPath(argv[6],control)||!bridge_pipe::decimal(argv[7],1000000000ULL,clock.frequency)
        ||!bridge_pipe::decimal(argv[8],bridge_pipe::MaxSigned,clock.start)||!bridge_pipe::decimal(argv[9],bridge_pipe::MaxSigned,clock.deadline)
@@ -346,6 +394,7 @@ int health_listener(int argc,wchar_t** argv){
        ||!bridge_pipe::sid_text(argv[11],user)||!bridge_pipe::decimal(argv[13],8,maximum))return 2;
     if(std::wstring(argv[12])==L"none")ac="none";else if(!bridge_pipe::sid_text(argv[12],ac))return 2;
     if((profile=="ordinary")!=(ac=="none"))return 2;
+    if(withholding&&(!ReadNonce(argv[14],death)||death==run||death==boot))return 2;
     Observations identity;Qualification q;Session session;SocketSlot listener;ListenerFacts facts;
     bool finished=false,commands_closed=true;unsigned accepted=0,receipts=0;std::vector<std::string> seen;
     const rpc::Binding finish_binding{bridge_pipe::id_bytes(run),bridge_pipe::id_bytes(boot),clock.frequency,clock.deadline,0,0,0};
@@ -373,8 +422,11 @@ int health_listener(int argc,wchar_t** argv){
                         const auto c=config(run,item,facts.port);const auto expected=profile=="ordinary"?rpb::relay_request(c):proxy_request(item);
                         t.request_exact=rpb::equal({bytes.data(),bytes.size()},expected.view());
                         for(const auto& previous:seen)if(previous==item)t.request_exact=false;
-                        if(t.request_exact){seen.push_back(item);const auto response=rpb::expected_response(c);
-                            (void)send_response(clock,connection,item_facts,t,response.view(),[](std::uint32_t){return true;});}
+                        if(t.request_exact){seen.push_back(item);
+                            if(withholding&&item==death){
+                                (void)withhold_origin(clock,connection,item_facts,t,identity,run,boot,item,parent(report),control,accept_tick,commands_closed);
+                            }else{const auto response=rpb::expected_response(c);
+                                (void)send_response(clock,connection,item_facts,t,response.view(),[](std::uint32_t){return true;});}}
                     }
                 }
                 if(!t.request_exact)item_facts.fail("request");
@@ -406,7 +458,7 @@ int dispatch(int argc,wchar_t** argv){
     if(argc<2)return 2;const std::wstring role(argv[1]);
     if(role==L"selected-client"||role==L"health-client")return client(argc,argv);
     if(role==L"pipe-live-front")return front(argc,argv);
-    if(role==L"health-origin"||role==L"health-listener")return health_listener(argc,argv);
+    if(role==L"health-origin"||role==L"health-listener"||role==L"health-origin-withhold")return health_listener(argc,argv);
     if(role==L"pipe-relay")return bridge_origin::pair(argc,argv);
     if(role==L"origin-fixture")return bridge_origin::fixture(argc,argv);
     return 2;

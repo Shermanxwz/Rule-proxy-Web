@@ -28,6 +28,33 @@ inline bool decode(const std::uint8_t* bytes,std::size_t count,const Binding& bi
     for(std::size_t i=0;i<16;++i)command.item[i]=bytes[32+i];
     return !fixture||(command.item==binding.admission&&end==binding.deadline&&next==1);
 }
+// Separate immutable release authority. Neither normal GO nor fixture Finish
+// accepts this opcode; every byte retains the existing closed 128-byte layout.
+inline bool decode_release(const std::uint8_t* bytes,std::size_t count,const Binding& binding,
+                           std::uint64_t now,Command& command){
+    if(!bytes||count!=128||bytes[5]!=254)return false;
+    std::array<std::uint8_t,128> normalized{};
+    for(std::size_t i=0;i<normalized.size();++i)normalized[i]=bytes[i];
+    normalized[5]=255;
+    if(!decode(normalized.data(),normalized.size(),binding,1,now,command,true))return false;
+    command.operation=254;return true;
+}
+struct WithholdGate {
+    bool held=false,released=false,closed=false;
+    bool begin(const Binding& binding,const Id& item,bool exact,bool eof,std::uint32_t response_bytes,std::uint64_t now){
+        if(held||released||closed||!valid_binding(binding,true)||item!=binding.admission||!exact||!eof||response_bytes||now>=binding.deadline)return false;
+        held=true;return true;
+    }
+    bool release(const Binding& binding,const Command& command,std::uint64_t now){
+        if(!held||released||closed||command.operation!=254||command.sequence!=1||command.item!=binding.admission
+           ||command.phase_deadline!=binding.deadline||now>=binding.deadline)return false;
+        released=true;return true;
+    }
+    bool consume_close(bool confirmed){
+        if(!held||!released||closed)return false;
+        held=false;closed=true;return confirmed;
+    }
+};
 inline const char* operation_name(std::uint8_t op){switch(op){case 1:return "proxy-get";case 2:return "direct-tcp";
     case 3:return "wrong-port";case 4:return "wrong-peer";case 5:return "proxy-after-death";case 255:return "finish";default:return "invalid";}}
 inline std::uint16_t target(const Binding& b,std::uint8_t op){return op==2?b.o:op==3?b.q:b.p;}
