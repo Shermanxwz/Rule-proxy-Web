@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "stage": "model2-diagnostic-06-09-public-evidence-index",
+  "date": "2026-10-23",
+  "evidence": [
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-public.json",
+      "bytes": 2457,
+      "sha256": "6b4556887c55abb22924c7ac57d23e387b7bc114fbd44d60c9eaf5f3e532dae7"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-preflight.json",
+      "bytes": 2384,
+      "sha256": "cbc81e167d6fb7148f141047041f79304464bb082d522b0b9c64f7d866eae573"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-runner.py",
+      "bytes": 325,
+      "sha256": "fdde2d72b8210cbd5b57c78b05becfbe3fda32047f7db34ff267a203995e9bb4"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-held-projection.json",
+      "bytes": 2754,
+      "sha256": "bacb41e19c191f404772fdb14f656120c6cdd883d42df7d36db0b686029b7403"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-summary.json",
+      "bytes": 3109,
+      "sha256": "d1794732b996496c9c37e43d9d0b54be60a4a0d04ada337a53544817731961a8"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-evidence-index.json",
+      "bytes": 1536,
+      "sha256": "878a06f756ef9a736e4c24c54eae87d1cc490d5d840f046abd9f5053f47c6da3"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-07-preflight.json",
+      "bytes": 2156,
+      "sha256": "6c03dc4025566ae5b4cf31f2f06f232d75a9b2bfedd070fba8a17d69c837e959"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-07-runner.py",
+      "bytes": 1075,
+      "sha256": "92d46989994e7ea9617fbaa5d8c76925cf3a52cf177127ffbe2d91357b85775e"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-07-summary.json",
+      "bytes": 1307,
+      "sha256": "ca2718f0e9efca963b8c7393f7f5d47500f1771511a677cee35fff222f1fc1f0"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-08-preflight.json",
+      "bytes": 2384,
+      "sha256": "19f493d24b19eeff19d67e6305d4a98a1985b4a0f4245eb0417704ad785c04dc"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-08-public.json",
+      "bytes": 2446,
+      "sha256": "71488cad7ba671091c27cdd264ba7f90ff7169f3b8642f3a70b25ff88fa67278"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-08-runner.py",
+      "bytes": 797,
+      "sha256": "e45d25f5449039d9520850dd19d94ac724924684f40b70e55b108509749aa71e"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-08-summary.json",
+      "bytes": 2955,
+      "sha256": "5c361033cf096d218a66683cb0c486e040b996058a393ca1529473dd90de1c09"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-08-component-projection.json",
+      "bytes": 10445,
+      "sha256": "2b3f7d804c274d0837d8a260e8501970442cadd43356389ce70f0e9bc87925cd"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-06-08-evidence-index.json",
+      "bytes": 3497,
+      "sha256": "e42f0853a16dcae8dfff286fb2e957432aa4411e9b110bbdb42021503660e9b5"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-09-preflight.json",
+      "bytes": 2384,
+      "sha256": "5e3c1da97bfc3a817b8c48a0099432de552019a89d3d5ca1337c0ab6879735e4"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-09-public.json",
+      "bytes": 2447,
+      "sha256": "173646e89bb291f81be3613d8aeab0b40cb44b74fab873e38b17f5a89794d162"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-09-runner.py",
+      "bytes": 325,
+      "sha256": "f9cf49f8a26323e0ec4cf3a8d8bef6122b88797389bf9a30ffedda6f3320b386"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-09-summary.json",
+      "bytes": 3207,
+      "sha256": "21367687bdfc633c1be90d4b0e3d5d0d4d05646f3bc54cec483e2ce6f3a01bda"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-09-component-projection.json",
+      "bytes": 11622,
+      "sha256": "60012f89ed2a660ef6d939cd1b69e19d3b591afdc26195dfb107d102050a65f4"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-after09-capture.ps1",
+      "bytes": 985,
+      "sha256": "b528713ae3dbee1809667cfa1b158318f02d88a8c699d8532bbe30cff59f7842"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-after09-expanded.ps1",
+      "bytes": 1992,
+      "sha256": "708957bd99657867b62b9a33a61f8c7ddbcb9508f58f8252020b6a0cc49e9ab5"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-after09-global-projection.json",
+      "bytes": 1501,
+      "sha256": "90f3f0e5bc49496d0df5346d1d53a1c1f1a54ac9ec5308b7bfa78c93d7802bbb"
+    }
+  ],
+  "retained_runner_dependencies": [
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-01-runner.py",
+      "bytes": 2742,
+      "sha256": "a41b9f88be5f2e124d080217a384f66e3156069b17d1b518741c40804691b925"
+    },
+    {
+      "path": "verification/windows-2026-10-22/model2-diagnostic-04-runner.py",
+      "bytes": 552,
+      "sha256": "8be6d920f29137fe380068be97db9e110c23d6845331e15a38ac86a907ca120f"
+    }
+  ],
+  "original_public_and_preflight_files_modified": false,
+  "private_identifiers_published": false,
+  "diagnostic_06_admission_correction_only": true,
+  "diagnostic_07_preflight_only": true,
+  "diagnostic_08_partial_http_and_direct_observations_only": true,
+  "diagnostic_09_profiles_off_network_observation_completed": true,
+  "global_comparison": {
+    "whole_json_objects_equal": true,
+    "raw_bytes_identical": false
+  },
+  "strict_network_isolation_qualified": false,
+  "product_acceptance": false
+}
