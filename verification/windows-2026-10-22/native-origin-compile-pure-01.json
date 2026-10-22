@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "stage": "native-fixed-loopback-origin-compile-and-pure",
+  "date": "2026-10-22",
+  "source_state": "new-B-files-and-shared-seams-bound-by-sha256",
+  "sources": [
+    {
+      "path": ".github/native/windows_identity_proxy_origin_actor.cpp",
+      "bytes": 25762,
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+    },
+    {
+      "path": ".github/native/windows_identity_actor.cpp",
+      "bytes": 31002,
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "bytes": 16902,
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "bytes": 16095,
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_origin_transport.hpp",
+      "bytes": 6338,
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+    },
+    {
+      "path": ".github/build_windows_identity_proxy_origin_actor.ps1",
+      "bytes": 3677,
+      "sha256": "74c059dd251d6cb423e7979ba0bc7b22828e3c91b7037304df9b05ba424a2171"
+    },
+    {
+      "path": "tests/test_windows_identity_proxy_origin_native.py",
+      "bytes": 13559,
+      "sha256": "b2800ceb756c20cd784ebe6d59c80f50cc69a7438400528ab2de6c4eb612383d"
+    }
+  ],
+  "compile": {
+    "compiler": "MSVC 19.44.35229.0",
+    "windows_sdk": "10.0.26100.0",
+    "warnings_as_errors": true,
+    "compile_only": true,
+    "artifact_sha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161",
+    "artifact_bytes": 217088,
+    "manifest_sha256": "5b3660539e70bc53d004b2ee3b7b13bfa7fe6418042e57bbd0263b03cef4a456",
+    "manifest": {
+      "schemaVersion": 1,
+      "compileOnly": true,
+      "runtimeAcceptance": false,
+      "actorSourceSha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+      "identitySourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "coreSha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+      "pipeHelperSha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+      "originTransportSha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+      "executableSha256": "042562a096a9f488b7a52ee8eb894af0b26dc679a05dc8948a9ae159b71cf161"
+    },
+    "native_actor_executed": false
+  },
+  "pure": {
+    "tests_run": 4,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "successful": true,
+    "compiled_fake_scenarios": 390,
+    "elapsed_seconds": 0.968,
+    "source_unchanged_during_run": true,
+    "win32_or_winsock_calls_in_fake_executable": false
+  },
+  "history": [
+    {
+      "attempt": "compile-01",
+      "outcome": "failed",
+      "reason": "NOMINMAX-defined-after-winsock-included-Windows-headers"
+    },
+    {
+      "attempt": "compile-02",
+      "outcome": "compile-only-passed",
+      "artifact_sha256": "1413a8374ac65204fdd43dae340f06b46f6620fe9f9c58653909140914d327e2",
+      "superseded_by_sticky-observation-and-native-diagnostic-fixes": true
+    },
+    {
+      "attempt": "compile-03",
+      "outcome": "compile-only-passed",
+      "current": true
+    }
+  ],
+  "scope": {
+    "generated_frontend_request_and_sink": true,
+    "real_actor_network_executed": false,
+    "network_tested": false,
+    "proxy_tested": false,
+    "runtime_qualification": false,
+    "product_acceptance": false
+  }
+}

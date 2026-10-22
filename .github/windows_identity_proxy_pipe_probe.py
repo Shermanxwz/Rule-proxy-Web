@@ -895,6 +895,7 @@ def run_ac_pair(api,actor,manifest,actor_hash,manifest_hash,work,run_nonce,case_
                 if api.wait(child['info'].hProcess,budget.remaining_ms(end,100)):
                     child['exited']=True;child['exit_code']=api.exit_code(child['info'].hProcess);break
             if budget.read()>=end or not child['exited']:raise ValueError('deadline')
+        if extension is not None:extension.await_completion(api,budget,end)
     except BaseException as exc:fail(exc)
     finally:
         private['profile_created']=profile['created']
