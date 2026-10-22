@@ -117,6 +117,16 @@ class API:
     def groups(self,token,*args):return [(CATALOG[k],4) for k in ('AgenticAppContainer','privateNetworkClientServer')] if self.rows[token-2]['lpac'] else []
     def lpac_flag(self,token):
         selected=self.rows[token-2]['lpac'];self.events.append(('lpac-query',selected))
+        if self.fault in ('ordinary46-87','selected46-87'):
+            native=m.launcher.NativeAPI.__new__(m.launcher.NativeAPI)
+            def information(held_token,kind,value,size,returned):
+                assert held_token==token and kind==46 and size==4
+                if (not selected and self.fault=='ordinary46-87') or (selected and self.fault=='selected46-87'):
+                    C.set_last_error(87);return 0
+                C.cast(value,C.POINTER(C.c_uint32))[0]=1;C.cast(returned,C.POINTER(C.c_uint32))[0]=4;return 1
+            native.a=NS(GetTokenInformation=information)
+            adapter=m.LPACAPI.__new__(m.LPACAPI);adapter.native=native
+            return adapter.lpac_flag(token)
         if selected and self.fault in ('lpac0','lpacgo'):
             if self.fault=='lpac0' or any(isinstance(x,tuple) and x[0]=='go' for x in self.events):return 0
         return int(selected)
@@ -194,6 +204,25 @@ class LPACOwnerTests(unittest.TestCase):
         owner,api,j=self.owner('lpacgo');self.assertTrue(j['selected_lpac_held'])
         self.assertEqual([x['label'] for x in j['go']],['before']);self.assertFalse(j['selected_access_denial'])
         m.validate_result(j,owner.c)
+
+    def test_ordinary_class46_api87_is_never_called_after_exact_nonac_identity(self):
+        owner,api,j=self.owner('ordinary46-87');m.validate_result(j,owner.c)
+        self.assertIsNone(j['failure']);self.assertTrue(j['natural_exits']);self.assertTrue(j['profile_deleted'])
+        self.assertNotIn(('lpac-query',False),api.events)
+        self.assertTrue(all(r['lpac'] is None for r in j['tasks']+j['cleanup_tasks'] if r['name']!='selected'))
+        self.assertTrue(next(r for r in j['tasks'] if r['name']=='selected')['lpac']==1)
+
+    def test_selected_class46_api87_still_prevents_resume_and_every_go(self):
+        owner,api,j=self.owner('selected46-87');m.validate_result(j,owner.c)
+        self.assertFalse(j['selected_lpac_held']);self.assertEqual(j['go'],[])
+        self.assertNotIn(('resume',True),api.events);self.assertIn(('lpac-query',True),api.events)
+        self.assertTrue(j['profile_deleted'])
+
+    def test_ordinary_report_cannot_fabricate_a_class46_zero_readback(self):
+        owner,api,j=self.owner();m.validate_result(j,owner.c)
+        for field,index in (('tasks',0),('tasks',5),('cleanup_tasks',0)):
+            value=copy.deepcopy(j);value[field][index]['lpac']=0
+            with self.subTest(field=field,index=index),self.assertRaises(ValueError):m.validate_result(value,owner.c)
 
     def test_unknown_create_preserves_profile_and_does_not_fake_cleanup(self):
         owner,api,j=self.owner('unknowncreate');self.assertFalse(j['workload_cleanup']);self.assertFalse(j['profile_deleted'])

@@ -1,0 +1,167 @@
+{
+  "archive_members": {
+    "rejected-01-abi.json": {
+      "bytes": 3627,
+      "sha256": "089bc1b1b74882b304168f6014820400391ef62ff841c4caa18c85b79aec5abc"
+    },
+    "rejected-01-freeze.json": {
+      "bytes": 5975,
+      "sha256": "712c67e4e4b6875cb1313184cf85a420739da139e09dbd3ea9a30df8c7fc8ab0"
+    },
+    "rejected-01-independent-gates.json": {
+      "bytes": 287,
+      "sha256": "344422b1ab07c3956402322313ef3f344d02db3ddb09438f83d90567d2555797"
+    },
+    "rejected-01-pure.log": {
+      "bytes": 3819,
+      "sha256": "45678f041279535d6327a7bf873909b3d8a6c145351eef828d3b51708dd151e7"
+    },
+    "rejected-01.patch": {
+      "bytes": 79354,
+      "sha256": "0ea20211fec5171b1f7398d7653755fa0618648af368c70f39bb6e4ac15c7ecf"
+    },
+    "repair-02-abi.json": {
+      "bytes": 4206,
+      "sha256": "d0c8741cf64774a81ed6246f528ef48f26b8c6124ed7771ef41e01c6ddf082da"
+    },
+    "repair-02-freeze.json": {
+      "bytes": 6279,
+      "sha256": "9b197476cdd4046d6982ebc046b2c91e10c3c6fd03d81eda59941fc5dca907a0"
+    },
+    "repair-02-independent-gates.json": {
+      "bytes": 331,
+      "sha256": "3c45ee5987f0d2d7c68f48a37e25f463872955be1ecf658a637cf778b190d1e5"
+    },
+    "repair-02-pure.log": {
+      "bytes": 4398,
+      "sha256": "132c78ecf09d9043d9d6c08a137fde91dd2f3b4f9ff2acce215aa36d36b0d986"
+    },
+    "repair-02.patch": {
+      "bytes": 19447,
+      "sha256": "1adbb9b5050e00c0aab3728fdcec178f18270a5050d55a8189edf970d178be06"
+    }
+  },
+  "artifact": {
+    "actor_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+    "manifest_key_count": 13,
+    "manifest_sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+    "native_actor_executed": false,
+    "native_modified": false,
+    "native_source_pin_count": 9
+  },
+  "evidence_kind": "source/pure-test/review history; no runtime-isolation evidence",
+  "history": "Revision01 was temporarily applied in a test worktree, then superseded by revision02; it was never installed or accepted as a runtime isolation mechanism. Historical patch/ABI/freeze/pure/probes are preserved verbatim.",
+  "limitations": {
+    "broker_cancellation_proven": false,
+    "broker_pid_attributed": false,
+    "causal_lpac_vs_psec_comparison": false,
+    "dns_isolation_qualified": false,
+    "g_psec_tested": false,
+    "product_acceptance": false,
+    "proxy_tested": false
+  },
+  "rejected_revision": {
+    "accepted_for_runtime": false,
+    "files": {
+      ".github/windows_identity_lpac_dns_local.py": {
+        "bytes": 54394,
+        "sha256": "f0978d111d1d5bcc59c2f738bf5682e7ef30ab8edbe2fbb4870e74bd0f330c3b"
+      },
+      "tests/test_windows_identity_lpac_dns_local.py": {
+        "bytes": 23537,
+        "sha256": "3088f680b8a11198c86f9f1f8053b7489d0a49132ba317fe7492a699ddb19ecb"
+      }
+    },
+    "full_pure": {
+      "bytes": 132840,
+      "errors": 0,
+      "failed": 0,
+      "raw_log_copied": false,
+      "seconds": "28.135",
+      "sha256": "7274ed4520a8f5d569a3bf16cc3943afbbb554cb155e7fbce92c92ef12501300",
+      "skip_scope": "existing unprivileged symlink cases",
+      "skipped": 2,
+      "tests": 737
+    },
+    "limitation": "737 pure tests passed, but omitted four closed-validator mutation regressions; the original candidate was rejected before any LPAC runtime.",
+    "patch_sha256": "0ea20211fec5171b1f7398d7653755fa0618648af368c70f39bb6e4ac15c7ecf",
+    "retained_as_historical_patch": true,
+    "review_gate_results": {
+      "complete_result_selfconsistent_disabled_wrong_capabilities": "ACCEPTED",
+      "complete_result_with_profile_never_created_and_no_acl_attempt": "ACCEPTED",
+      "phase_begin_before_actual_go_is_not_rejected": "ACCEPTED",
+      "public_observed_with_no_api_no_digests_no_network": "ACCEPTED"
+    },
+    "revision": 1,
+    "source_sha256": "94661e5bc4520fa7e7779ad9acecfecf7e8a890b5df0232ad7a70f047053ade3"
+  },
+  "repaired_revision": {
+    "files": {
+      ".github/windows_identity_lpac_dns_local.py": {
+        "bytes": 57045,
+        "sha256": "e3a524310509de7cc3a8d6cac72b7c33707801356a518ec42acd654e136c4b5e"
+      },
+      "tests/test_windows_identity_lpac_dns_local.py": {
+        "bytes": 26789,
+        "sha256": "218407951f714bb34598ee31c4e12d23d969b3cc2d9a97249f3abdca0a633c37"
+      }
+    },
+    "focused_pure": {
+      "errors": 0,
+      "failed": 0,
+      "log": {
+        "bytes": 4398,
+        "sha256": "132c78ecf09d9043d9d6c08a137fde91dd2f3b4f9ff2acce215aa36d36b0d986"
+      },
+      "skipped": 0,
+      "tests": 21
+    },
+    "full_pure": {
+      "bytes": 133678,
+      "errors": 0,
+      "failed": 0,
+      "raw_log_copied": false,
+      "seconds": "29.787",
+      "sha256": "eb371ccf92f9aa03370b68f63d0d4abb022298cb3ca0d705a2828126bb4ce3a2",
+      "skip_scope": "existing unprivileged symlink cases",
+      "skipped": 2,
+      "tests": 741
+    },
+    "gate_repairs": [
+      "closed public commitments and typed timely API5/no-answer access observation",
+      "fresh owned profile and ACL intent on claimed admitted/full path",
+      "outer trusted fixed-name catalog bound through config and independently compared by worker; exact two SIDs/attributes4",
+      "each native phase begins at or after the matching issued GO tick; original epoch and deadlines retained"
+    ],
+    "patch_sha256": "1adbb9b5050e00c0aab3728fdcec178f18270a5050d55a8189edf970d178be06",
+    "review_gate_results": {
+      "complete_result_selfconsistent_disabled_wrong_capabilities": "rejected:ValueError",
+      "complete_result_with_profile_never_created_and_no_acl_attempt": "rejected:ValueError",
+      "phase_begin_before_actual_go_is_not_rejected": "rejected:ValueError",
+      "public_observed_with_no_api_no_digests_no_network": "rejected:ValueError"
+    },
+    "revision": 2,
+    "source_sha256": "a1b924f5edee5b0e279fa14f35319ad9ee835c243696526e13e72a80b62bc792"
+  },
+  "runtime": {
+    "appcontainer_profile_created": false,
+    "dns_api_called": false,
+    "dns_fixture_bound": false,
+    "global_dns_nrpt_route_or_firewall_changed": false,
+    "lpac_actor_run": false,
+    "network_experiment_run": false,
+    "observation_scope": "candidate-review snapshot before any LPAC runtime; later experiments are separate evidence",
+    "owned_sid_acl_changed": false
+  },
+  "schema_version": 1,
+  "scope": "standalone-lpac-standard53-dns-mechanism-v1",
+  "source_binding": {
+    "commit_scope": "source commit after the preactual review; original revision01 freeze baseline is unchanged",
+    "native_pins_match_current_git_blobs": true,
+    "reviewed_change_commit": "de69fa49b5766d8a7a5bb61567e52410759df089",
+    "reviewed_owner_and_test_match_installed_worktree_bytes": true,
+    "source_file_count": 31,
+    "unchanged_shared_source_count": 30
+  },
+  "stage": "standalone-lpac-dns-preactual-candidate-review"
+}

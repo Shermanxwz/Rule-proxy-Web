@@ -1,0 +1,106 @@
+{
+  "actor_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+  "actual_network_run": false,
+  "actual_process_experiment_run": false,
+  "base_files": {
+    ".github/windows_identity_lpac_dns_local.py": {
+      "bytes": 54394,
+      "sha256": "f0978d111d1d5bcc59c2f738bf5682e7ef30ab8edbe2fbb4870e74bd0f330c3b"
+    },
+    "tests/test_windows_identity_lpac_dns_local.py": {
+      "bytes": 23537,
+      "sha256": "3088f680b8a11198c86f9f1f8053b7489d0a49132ba317fe7492a699ddb19ecb"
+    }
+  },
+  "baseline_head": "58a6c61ae29cbce4d0232954b62cb4226927bf3b",
+  "dependency_regression_reference": {
+    "file": "lpac-dns-candidate-pure.log",
+    "repeated": false,
+    "sha256": "45678f041279535d6327a7bf873909b3d8a6c145351eef828d3b51708dd151e7",
+    "shared_sources_unchanged": true,
+    "skipped": 0,
+    "tests": 153
+  },
+  "files": {
+    ".github/windows_identity_lpac_dns_local.py": {
+      "bytes": 57045,
+      "sha256": "e3a524310509de7cc3a8d6cac72b7c33707801356a518ec42acd654e136c4b5e"
+    },
+    "tests/test_windows_identity_lpac_dns_local.py": {
+      "bytes": 26789,
+      "sha256": "218407951f714bb34598ee31c4e12d23d969b3cc2d9a97249f3abdca0a633c37"
+    }
+  },
+  "git_apply_check": true,
+  "manifest_key_count": 13,
+  "manifest_sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+  "native_source_pin_count": 9,
+  "patch_bytes": 19447,
+  "patch_kind": "incremental-against-review01-uncommitted-files",
+  "patch_sha256": "1adbb9b5050e00c0aab3728fdcec178f18270a5050d55a8189edf970d178be06",
+  "paths": [
+    ".github/windows_identity_lpac_dns_local.py",
+    "tests/test_windows_identity_lpac_dns_local.py"
+  ],
+  "previous_freeze_sha256": "712c67e4e4b6875cb1313184cf85a420739da139e09dbd3ea9a30df8c7fc8ab0",
+  "previous_patch_sha256": "0ea20211fec5171b1f7398d7653755fa0618648af368c70f39bb6e4ac15c7ecf",
+  "pure_arguments": [
+    "-I",
+    "-S",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_windows_identity_lpac_dns_local.py",
+    "-v"
+  ],
+  "pure_exit_code": 0,
+  "pure_log_bytes": 4398,
+  "pure_log_sha256": "132c78ecf09d9043d9d6c08a137fde91dd2f3b4f9ff2acce215aa36d36b0d986",
+  "pure_seconds": 3.219,
+  "pure_skipped": 0,
+  "pure_tests": 21,
+  "repository_source_modified": false,
+  "revision": 2,
+  "schema_version": 1,
+  "source_count": 31,
+  "source_hashes": {
+    ".github/native/windows_identity_actor.cpp": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+    ".github/native/windows_identity_dns_raw_udp.hpp": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+    ".github/native/windows_identity_dns_standard_probe.hpp": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+    ".github/native/windows_identity_proxy_bridge_core.hpp": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+    ".github/native/windows_identity_proxy_c_actor.cpp": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+    ".github/native/windows_identity_proxy_c_contract.hpp": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+    ".github/native/windows_identity_proxy_origin_actor.cpp": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+    ".github/native/windows_identity_proxy_origin_transport.hpp": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+    ".github/native/windows_identity_proxy_pipe_actor.cpp": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+    ".github/windows_dns_fixture.py": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a",
+    ".github/windows_identity_dns_cases_fixture.py": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91",
+    ".github/windows_identity_dns_standard_inventory.ps1": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1",
+    ".github/windows_identity_lpac_dns_local.py": "e3a524310509de7cc3a8d6cac72b7c33707801356a518ec42acd654e136c4b5e",
+    ".github/windows_identity_model2_controller.py": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1",
+    ".github/windows_identity_model2_dns.py": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847",
+    ".github/windows_identity_model2_dns_raw.py": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0",
+    ".github/windows_identity_model2_firewall.ps1": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb",
+    ".github/windows_identity_model2_live.py": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd",
+    ".github/windows_identity_model2_local.py": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45",
+    ".github/windows_identity_model2_local_probe.py": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf",
+    ".github/windows_identity_model2_maintenance.py": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788",
+    ".github/windows_identity_ordinary_launcher.py": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",
+    ".github/windows_identity_pipe_probe.py": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",
+    ".github/windows_identity_proof.py": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",
+    ".github/windows_identity_proxy_origin_probe.py": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095",
+    ".github/windows_identity_proxy_pipe_ac_guest.py": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1",
+    ".github/windows_identity_proxy_pipe_ac_local.py": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b",
+    ".github/windows_identity_proxy_pipe_probe.py": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b",
+    ".github/windows_psec_compartment_smoke.py": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019",
+    "ruleproxy/windows_app_process.py": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33",
+    "ruleproxy/windows_runtime_pins.py": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+  },
+  "source_sha256": "a1b924f5edee5b0e279fa14f35319ad9ee835c243696526e13e72a80b62bc792",
+  "stage": "standalone-lpac-dns-candidate-freeze",
+  "unchanged_shared_source_count": 30
+}

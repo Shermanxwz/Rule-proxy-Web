@@ -204,12 +204,16 @@ class LPACAPI(live.LiveNativeAPI):
 
 def held_identity(api,row,parent,catalog,sid,lpac):
     identity=api.identity(row['token']);caps=[{'sid':s,'attributes':a} for s,a in api.groups(row['token'],30,'TokenCapabilities')]
-    flag=api.lpac_flag(row['token'])
     if lpac:
         live.selected_identity(identity,caps,parent,PROFILE,catalog)
+        flag=api.lpac_flag(row['token'])
         require(identity['appcontainer_sid']==sid and identity['integrity_rid']==4096 and flag==1,'held_lpac')
     else:
-        require(launcher.token_is_ordinary(identity) and launcher.same_identity(identity,parent) and caps==[] and flag==0,'held_ordinary')
+        # Non-AppContainer identity already excludes LPAC. Class46 is not a
+        # supported ordinary-token prerequisite on this host (actual ERROR87).
+        # Keep null to mean NOT QUERIED; never invent a successful zero readback.
+        require(launcher.token_is_ordinary(identity) and launcher.same_identity(identity,parent) and caps==[],'held_ordinary')
+        flag=None
     if row.get('identity') is not None:require(identity==row['identity'] and caps==row['capabilities'],'held_token_changed')
     return identity,caps,flag
 
@@ -521,13 +525,15 @@ def validate_result(j,c):
             for k in ('attempted','assigned','exited','lpac_expected','resumed','admitted','process_returned'):require(type(row[k]) is bool,'task_bool')
             require(row['lpac_expected']==(row['name']=='selected') and ac.digest(row['image_sha256']),'task_image')
             require(row['lpac'] is None or type(row['lpac']) is int and row['lpac'] in (0,1),'task_lpac')
+            require(row['lpac_expected'] or row['lpac'] is None,'ordinary_lpac_not_queried')
             for k in ('pid','created','admission_qpc','resume_qpc'):
                 require(row[k] is None or live.integer(row[k],1,live.MAX_SIGNED),'task_integer')
             require(row['exit_code'] is None or live.integer(row['exit_code']),'task_exit')
             require(type(row['go_qpc']) is list and len(row['go_qpc'])<=2 and all(live.integer(x,c['start_qpc'],c['deadline_qpc']-1) for x in row['go_qpc']),'task_go')
             require(not row['resumed'] or row['admitted'] and row['assigned'] and row['admission_qpc']<=row['resume_qpc']<c['deadline_qpc'],'task_resume_gate')
             require(not row['admitted'] or row['attempted'] and row['pid'] is not None and row['created'] is not None
-                and row['identity'] is not None and row['capabilities'] is not None and row['lpac']==int(row['name']=='selected'),'task_admission')
+                and row['identity'] is not None and row['capabilities'] is not None
+                and (row['lpac']==1 if row['name']=='selected' else row['lpac'] is None),'task_admission')
             if row['admitted'] and row['name'] in ('selected','health'):
                 require(row['image_sha256']==c['actor_sha256'],'actor_task')
                 if row['name']=='selected':
