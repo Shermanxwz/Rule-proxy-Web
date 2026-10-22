@@ -33,6 +33,8 @@ def native(label,now,state=0):
     return v
 
 class Probe(fixture.Probe):
+    def verify_process(self,process,pid,creation):
+        return not self.parent.wait(process,0) and pid==self.parent.process_id(process) and creation==self.parent.creation_time(process)
     def identity(self,token):
         row=next(row for row in self.parent.owner.rows if row['name']==self.parent.rows[self.process]['role'])
         result=copy.deepcopy(row['expected_primary'])
@@ -41,7 +43,9 @@ class Probe(fixture.Probe):
 
 class FakeBridge:
     def __init__(self,api):self.api=api;self.state=0
-    def invoke(self,label,c,*,raw=None,inputs=None,child=None,pi=None):
+    def invoke(self,*args,**kwargs):
+        value=self._invoke(*args,**kwargs);return value['wrapper_status'],value
+    def _invoke(self,label,c,*,raw=None,inputs=None,child=None,pi=None):
         a=self.api;a.now+=1;a.events.append(label);v=native(label,a.now,self.state)
         if label=='bind':return v
         if label=='create':
@@ -59,8 +63,9 @@ class FakeBridge:
                 if a.fault=='arm-exception':raise OSError('unknown suspended create')
                 if a.fault=='arm-partial':pi.thread=9009
                 v.update(wrapper_status=6,win32_error=0 if a.fault=='arm-false-zero' else 5);return v
-            a.next+=10;h=a.next;pi.process=h;pi.thread=h+1;pi.process_id=h;pi.thread_id=h+100
-            a.rows[h]=dict(argv=[child['image']],job=child['job'],lpac=True,role=label,exited=False)
+            a.next+=10;pid=a.next;h=pid+(0x100000000 if a.fault=='filetime-real' else 0)
+            pi.process=h;pi.thread=h+1;pi.process_id=pid;pi.thread_id=pid+100
+            a.rows[h]=dict(argv=[child['image']],job=child['job'],pid=pid,lpac=True,role=label,exited=False)
             return v
         if label=='close':
             # Real adapter queries the *same still-open* Job handle. This fake
@@ -85,6 +90,8 @@ class API(fixture.API):
     def bridge(self,path):self.loaded.append(path);return FakeBridge(self)
     def processmodel_path(self):return self.root/'processmodel.dll'
     def access_api(self):return Probe(self)
+    def creation_time(self,h):return 133900000000000000+h if self.fault=='filetime-real' else super().creation_time(h)
+    def process_id(self,h):return self.rows[h].get('pid',h)
     def close(self,h):self.events.append(('close',h));return super().close(h)
     def resume(self,*a):raise AssertionError('CPSE identity actors must never resume')
 
@@ -94,13 +101,14 @@ class BridgeTests(unittest.TestCase):
         # fixture's path-syntax seam is replaced on POSIX; production remains
         # Windows-only and SpecTests always exercise real Windows syntax.
         if os.name!='nt':self.enterContext(patch.object(m.spec,'path',side_effect=lambda value:value))
-    def run_cell(self,fault=None,probe_fault=None):
+    def run_cell(self,fault=None,probe_fault=None,*,validate=True):
         td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve();(root/'inputs').mkdir()
         (root/'inputs'/m.live.ACTOR).write_bytes(b'x'*512);(root/'processmodel.dll').write_bytes(b'fake model')
         c=config(root);(root/'spec.bin').write_bytes(m.spec.build(str(root/'inputs')))
         api=API(root,fault,probe_fault);budget=m.launcher.QpcBudget(api,D,F);cell=m.Cell(root,c,b.PARENT,api,budget);api.owner=cell
         with patch.object(m.base,'fixed_catalog',return_value=b.CATALOG):j=cell.execute()
-        m.validate_result(j,c,parent=b.PARENT);return cell,api,j,m.project(j,c,parent=b.PARENT)
+        if validate:m.validate_result(j,c,parent=b.PARENT)
+        return cell,api,j,m.project(j,c,parent=b.PARENT) if validate else None
     def test_full_owner_one_environment_exact_matched_inputs_and_ordered_cleanup(self):
         cell,api,j,p=self.run_cell();self.assertIsNone(j['failure']);self.assertTrue(p['inner_complete'])
         self.assertEqual([p['ac_granted_access'],p['lpac_granted_access']],[[3,0,1,2],[2,0,0,2]])
@@ -201,9 +209,59 @@ class BridgeTests(unittest.TestCase):
             bridge=m.Bridge(Path(r'C:\fixed\bridge.dll'))
             loader.assert_called_once_with(r'C:\fixed\bridge.dll',use_last_error=True,winmode=0x900)
             for label in ('bind','create'):
-                value=bridge.invoke(label,c,**({'raw':raw,'inputs':inputs} if label=='create' else {}));m.validate_native(value,label,c);self.assertTrue(m.native_ok(value))
-            pi=m.PI();v=bridge.invoke('ac',c,child=dict(job=50,image=inputs+'\\'+m.live.ACTOR,inputs_directory=inputs,
+                status,value=bridge.invoke(label,c,**({'raw':raw,'inputs':inputs} if label=='create' else {}));self.assertEqual(status,value['wrapper_status']);m.validate_native(value,label,c);self.assertTrue(m.native_ok(value))
+            pi=m.PI();status,v=bridge.invoke('ac',c,child=dict(job=50,image=inputs+'\\'+m.live.ACTOR,inputs_directory=inputs,
                 system_root=r'C:\Windows',local_appdata=r'C:\Users\fixture\AppData\Local'),pi=pi)
             self.assertEqual((pi.process,pi.thread,pi.process_id,pi.thread_id),(101,102,201,202));self.assertTrue(m.native_ok(v))
             self.assertEqual(events,['bind','verify','create','ac'])
+    def test_realistic_filetime_and_u64_handles_remain_distinct_from_dword_ids(self):
+        cell,_,j,p=self.run_cell('filetime-real');self.assertTrue(p['inner_complete'])
+        self.assertTrue(all(row['created']>0xffffffff and row['pi']['process']>0xffffffff and row['pi']['thread']>0xffffffff
+            and row['pid']<=0xffffffff and row['pi']['thread_id']<=0xffffffff for row in j['tasks']))
+        for field,value in (('created',True),('created',0),('created',1<<64),('pid',1<<32)):
+            bad=copy.deepcopy(j);bad['tasks'][0][field]=value
+            with self.subTest(field=field,value=value),self.assertRaisesRegex(ValueError,'cpse_task_number'):
+                m.validate_result(bad,cell.c,parent=b.PARENT)
+    def test_returned_receipts_bind_original_intent_status_raw_pi_before_validation(self):
+        cell,_,j,p=self.run_cell('filetime-real');self.assertTrue(p['inner_complete'])
+        for operation in j['operations']:
+            receipt=operation['receipt'];self.assertIsNotNone(receipt)
+            raw=(cell.root/'receipts'/receipt['name']).read_bytes();self.assertEqual(raw,receipt['text'].encode('ascii'))
+            self.assertEqual(m.sha(raw),receipt['sha256']);value=m.decode(raw)
+            self.assertEqual(value['native'],operation['native']);self.assertEqual(value['return_status'],operation['return_status'])
+            self.assertEqual(value['config_sha256'],m.sha(m.encode(cell.c)))
+            intent=next(row for row in j['intents'] if row['action']==operation['label']);self.assertEqual(value['intent_sha256'],intent['sha256'])
+        bad=copy.deepcopy(j);bad['operations'][0]['receipt']['sha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'cpse_returned_receipt'):m.validate_result(bad,cell.c,parent=b.PARENT)
+    def test_invalid_function_status_does_not_lose_returned_original_tuple(self):
+        original=FakeBridge.invoke
+        def wrong_status(instance,label,*args,**kwargs):
+            status,value=original(instance,label,*args,**kwargs)
+            return (9 if label=='ac' else status),value
+        with patch.object(FakeBridge,'invoke',wrong_status):cell,_,j,p=self.run_cell()
+        self.assertFalse(p['inner_complete']);self.assertEqual(j['failure'],'construct')
+        record=next(row for row in j['operations'] if row['label']=='ac');raw=m.decode(record['receipt']['text'].encode('ascii'))
+        self.assertEqual(raw['return_status'],9);self.assertEqual(raw['native']['wrapper_status'],0);self.assertTrue(all(raw['pi'].values()))
+        self.assertTrue(j['workload_cleanup'])
+    def test_receipt_write_error_does_not_erase_known_owned_environment_close_authority(self):
+        writer=m.base.durable_private
+        def write(path,raw):
+            if path.name=='01-create-returned.json':raise OSError('fake returned-receipt disk write failure')
+            return writer(path,raw)
+        with patch.object(m.base,'durable_private',side_effect=write):_,api,j,p=self.run_cell()
+        self.assertEqual(j['failure'],'environment');self.assertFalse(p['inner_complete']);self.assertFalse(j['opaque_outcome_unknown'])
+        self.assertTrue(j['api_obligations_closed']);self.assertTrue(j['module_unbound']);self.assertEqual(api.events.count('close'),1)
+        create=next(row for row in j['operations'] if row['label']=='create');self.assertIsNone(create['receipt']);self.assertIsNotNone(create['exception'])
+        self.assertEqual(create['native']['hresult'],0);self.assertEqual(create['native']['environment_state'],2)
+    def test_malformed_native_snapshot_is_saved_with_pi_before_semantic_validator_rejects(self):
+        original=FakeBridge.invoke
+        def malformed(instance,label,*args,**kwargs):
+            status,value=original(instance,label,*args,**kwargs)
+            if label=='ac':value['size']=95
+            return status,value
+        with patch.object(FakeBridge,'invoke',malformed):cell,_,j,_=self.run_cell(validate=False)
+        row=next(row for row in j['operations'] if row['label']=='ac');raw=(cell.root/'receipts'/row['receipt']['name']).read_bytes()
+        value=m.decode(raw);self.assertEqual(value['native']['size'],95);self.assertTrue(all(value['pi'].values()))
+        self.assertIsNotNone(row['exception']);self.assertEqual(j['failure'],'construct')
+        with self.assertRaises(ValueError):m.validate_result(j,cell.c,parent=b.PARENT)
 if __name__=='__main__':unittest.main()

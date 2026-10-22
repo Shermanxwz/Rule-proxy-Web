@@ -164,7 +164,8 @@ class GuardTests(unittest.TestCase):
                 patch.object(m.local,'verify_guard_job',side_effect=guard),patch.object(m.live,'verify_actor',side_effect=lambda *a,**kw:events.append('actor')),\
                 patch.object(m.core,'verify_manifest',side_effect=lambda *a,**kw:events.append('dll')),\
                 patch.object(m.base,'fixed_catalog',side_effect=lambda:events.append('catalog') or f.b.CATALOG),\
-                patch.object(m.core,'execute',side_effect=execute),patch.object(m.core,'validate_result',side_effect=lambda *a,**kw:events.append('validate-result')),\
+                patch.object(m.core,'execute',side_effect=execute),patch.object(m.core,'validate_result',side_effect=lambda *a,**kw:
+                    (_ for _ in ()).throw(ValueError('fake final validator failure')) if fault=='validator' else events.append('validate-result')),\
                 patch.object(m,'os',NS(getpid=lambda:77)):
             try:self.assertEqual(m.worker(stage/'worker-config.json'),0)
             except ValueError as e:error=e
@@ -180,4 +181,8 @@ class GuardTests(unittest.TestCase):
                 stage,_,events,error=self.staged_worker(fault);self.assertIsNotNone(error);self.assertNotIn('execute',events)
                 self.assertFalse((stage/'worker-report.json').exists())
                 if fault=='source':self.assertNotIn('backend',events)
+    def test_final_validator_failure_preserves_unvalidated_forensic_without_report(self):
+        stage,_,events,error=self.staged_worker('validator');self.assertIsNotNone(error);self.assertIn('execute',events)
+        self.assertEqual(m.decode((stage/'worker-result-forensic.json').read_bytes()),{'pure':True})
+        self.assertFalse((stage/'worker-report.json').exists())
 if __name__=='__main__':unittest.main()

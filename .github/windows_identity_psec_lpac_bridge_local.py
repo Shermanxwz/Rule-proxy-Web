@@ -141,7 +141,12 @@ def worker(config_path):
     core.verify_manifest(ROOT/'inputs'/core.DLL,ROOT/'inputs'/core.DLL_MANIFEST,c['dll_sha256'],c['dll_manifest_sha256'],root=ROOT)
     spec_raw=local.bounded(ROOT/'spec.bin',core.spec.MAX_BYTES);core.spec.verify(spec_raw,str(ROOT/'inputs'))
     require(sha(spec_raw)==c['spec_sha256'] and base.fixed_catalog()==c['capability_catalog'],'guard_worker_spec_catalog')
-    result=core.execute(ROOT,c,parent,api,budget);core.validate_result(result,c,parent=parent)
+    result=core.execute(ROOT,c,parent,api,budget)
+    # This file is explicitly unvalidated forensic material. It is never an
+    # alternate worker report or an acceptance source. Preserve the original
+    # inner failure and every raw returned observation before final validation.
+    base.durable_private(ROOT/'worker-result-forensic.json',encode(result))
+    core.validate_result(result,c,parent=parent)
     report=dict(schema_version=1,stage='cpse-matched-identity-worker',config=c,worker_pid=os.getpid(),worker_identity=parent,result=result)
     budget.require_ms(budget.cutoff(1));base.durable_private(ROOT/'worker-report.json',encode(report));return 0
 

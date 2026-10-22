@@ -221,8 +221,9 @@ class Bridge:
             for key,(value,units) in records.items():setattr(record,key,value);setattr(record,key+'_units',units)
             status=self.dll.pb_create_arm(self.context,C.byref(record),C.byref(pi),C.byref(result))
         else:status=getattr(self.dll,'pb_'+('close_environment' if label=='close' else 'unbind'))(self.context,C.byref(result))
-        output={name:int(getattr(result,name)) for name in RESULT_FIELDS}
-        require(type(status) is int and status==output['wrapper_status'],'bridge_status_binding');return output
+        # Return the untouched ABI result and function status together. The
+        # owner durably records both (and PI) before any semantic validation.
+        return int(status),{name:int(getattr(result,name)) for name in RESULT_FIELDS}
 
 class NativeAPI(base.LPACAPI):
     def bridge(self,path):return Bridge(path)
@@ -242,8 +243,26 @@ def native_ok(v):
     if operation==4:return v['hresult_valid']==0 and v['environment_state']==3 and v['close_invoked_once']==v['close_returned_normally']==1
     if operation==5:return v['hresult_valid']==0 and v['module_close_attempted']==v['module_close_confirmed']==1
     return False
+
+def opaque_return_known(label,status,value,c):
+    """Only ownership knowledge; lateness cannot turn this into qualification."""
+    try:
+        v=validate_native(value,label,c)
+        if type(status) is not int or status!=v['wrapper_status'] or v['opaque_outcome_unknown']:return False
+        if label=='create':
+            return bool(v['api_returned']==v['hresult_valid']==1 and (v['hresult']==0 and v['environment_state']==2
+                or v['hresult']<0 and v['environment_state']==1)
+                or v['api_entered']==v['api_returned']==v['hresult_valid']==0 and v['environment_state']==0)
+        if label=='close':
+            return bool(v['api_entered']==v['api_returned']==1 and v['hresult_valid']==0 and v['environment_state']==3
+                and v['close_invoked_once']==v['close_returned_normally']==1
+                or v['api_entered']==v['api_returned']==0 and v['environment_state']==2
+                    and v['close_invoked_once']==v['close_returned_normally']==0)
+    except BaseException:pass
+    return False
 def known_no_child(row,c):
     v=row.get('native');return bool(v is not None and v['api_entered']==v['api_returned']==1 and v['wrapper_status']==6
+        and row.get('return_status')==v['wrapper_status']
         and v['win32_error']>0 and v['within_deadline']==1 and row['pi']==dict.fromkeys(('process','thread','process_id','thread_id'),0)
         and not any(row[k] for k in ('assigned','exited','admitted','resumed')) and row['pid'] is None and row['created'] is None)
 
@@ -266,12 +285,26 @@ class Cell:
         name='%02d-%s.json'%(len(self.j['intents']),label);base.durable_private(directory/name,raw)
         self.j['intents'].append(dict(action=label,name=name,text=raw.decode('ascii'),sha256=sha(raw)))
     def call(self,label,**kwargs):
-        self.intent(label);record=dict(label=label,native=None,exception=None);self.operations.append(record)
+        self.intent(label);record=dict(label=label,return_status=None,native=None,receipt=None,exception=None);self.operations.append(record)
         try:
-            value=self.bridge.invoke(label,self.c,**kwargs);record['native']=value;validate_native(value,label,self.c);return value
+            status,value=self.bridge.invoke(label,self.c,**kwargs);record.update(return_status=status,native=value)
+            # This is explicitly a returned raw observation, not qualification.
+            # Keep the original status, every native scalar and every PI field
+            # even when the following validator rejects their interpretation.
+            intent=self.j['intents'][-1];pi=kwargs.get('pi')
+            raw=encode(dict(schema_version=1,scope=SCOPE,run=self.c['run'],config_sha256=sha(encode(self.c)),action=label,
+                intent_sha256=intent['sha256'],frequency=self.c['frequency'],deadline_qpc=self.c['deadline_qpc'],
+                return_status=status,native=value,pi=None if pi is None else {name:int(getattr(pi,name)) for name in ('process','thread','process_id','thread_id')}))
+            directory=self.root/'receipts';directory.mkdir(exist_ok=True);name=intent['name'][:-5]+'-returned.json'
+            base.durable_private(directory/name,raw);record['receipt']=dict(name=name,text=raw.decode('ascii'),sha256=sha(raw))
+            validate_native(value,label,self.c);require(type(status) is int and status==value['wrapper_status'],'bridge_status_binding')
+            if value['opaque_outcome_unknown'] or label in ('create','close') and not opaque_return_known(label,status,value,self.c):
+                self.j['opaque_outcome_unknown']=True
+            return value
         except BaseException as error:
             record['exception']=base.private_failure_detail(error,label)
-            if label in ('create','close'):self.j['opaque_outcome_unknown']=True
+            if label in ('create','close'):
+                if not opaque_return_known(label,record['return_status'],record['native'],self.c):self.j['opaque_outcome_unknown']=True
             raise
     def held(self,row):
         self.budget.require_ms(work_cutoff(self.c));process=row['info'].hProcess
@@ -286,11 +319,12 @@ class Cell:
         self.phase='construct';self.budget.require_ms(work_cutoff(self.c));pi=PI();info=self.api.process_info()
         for prior in self.rows:self.held(prior)
         row=dict(name=role,info=info,token=None,attempted=True,assigned=False,exited=False,exit_code=None,pid=None,created=None,
-            admitted=False,resumed=False,expected_primary=None,held_checks=[],pi=dict.fromkeys(('process','thread','process_id','thread_id'),0),native=None)
+            admitted=False,resumed=False,expected_primary=None,held_checks=[],pi=dict.fromkeys(('process','thread','process_id','thread_id'),0),return_status=None,native=None)
         self.rows.append(row)
         try:row['native']=self.call(role,child=self.child,pi=pi)
         finally:
             row['native']=next((op['native'] for op in reversed(self.operations) if op['label']==role),None)
+            row['return_status']=next((op['return_status'] for op in reversed(self.operations) if op['label']==role),None)
             row['pi']={name:int(getattr(pi,name)) for name in ('process','thread','process_id','thread_id')}
             info.hProcess=pi.process;info.hThread=pi.thread;info.dwProcessId=pi.process_id;info.dwThreadId=pi.thread_id
             # Consume every known returned kernel handle before any validation.
@@ -323,7 +357,7 @@ class Cell:
             self.bridge=self.api.bridge(self.root/'inputs'/DLL)
             self.phase='bind';v=self.call('bind');require(native_ok(v),'cpse_bind')
             self.phase='environment';v=self.call('create',raw=raw,inputs=str(self.root/'inputs'))
-            self.j['opaque_outcome_unknown']=bool(v['opaque_outcome_unknown'])
+            self.j['opaque_outcome_unknown']=self.j['opaque_outcome_unknown'] or bool(v['opaque_outcome_unknown'])
             require(native_ok(v) and v['api_returned']==v['hresult_valid']==1 and v['hresult']==0 and v['environment_state']==2,'cpse_create')
             arms=[self.arm(role) for role in ('ac','lpac')]
             require(arms[0]['expected_primary']['authentication_id']==arms[1]['expected_primary']['authentication_id']
@@ -388,7 +422,7 @@ RESULT_BOOLS=('common_inputs_verified','observer_resources_cleanup_verified','ch
     'broker_cancellation_proven','network_tested','dns_tested','proxy_tested','product_acceptance')
 RESULT_KEYS={'schema_version','stage','scope','config_sha256','failure','failure_detail','child_environment','common','intents','operations','tasks','proofs',
     'first_appcontainer_sid',*RESULT_BOOLS}
-TASK_KEYS={'name','attempted','assigned','exited','exit_code','pid','created','admitted','resumed','expected_primary','held_checks','pi','native'}
+TASK_KEYS={'name','attempted','assigned','exited','exit_code','pid','created','admitted','resumed','expected_primary','held_checks','pi','return_status','native'}
 
 def validate_result(j,c,*,parent):
     config_validate(c);require(launcher.token_is_ordinary(parent),'cpse_result_parent')
@@ -413,17 +447,35 @@ def validate_result(j,c,*,parent):
                 deadline_qpc=c['deadline_qpc'],qpc=value['qpc']) and live.integer(value['qpc'],last,live.MAX_SIGNED),'cpse_intent_binding')
         last=value['qpc'];actions.append(row['action']);ticks[row['action']]=last
     operations=j['operations'];require(type(operations) is list and len(operations)<=6,'cpse_operations')
-    labels=[];native={}
+    labels=[];native={};statuses={}
     for row in operations:
-        require(type(row) is dict and set(row)=={'label','native','exception'} and row['label'] in OPS
+        require(type(row) is dict and set(row)=={'label','return_status','native','receipt','exception'} and row['label'] in OPS
             and row['label'] in actions and row['label'] not in labels,'cpse_operation')
         labels.append(row['label']);base.validate_failure_detail(row['exception'])
         if row['native'] is not None:
             value=validate_native(row['native'],row['label'],c);native[row['label']]=value
+            require(type(row['return_status']) is int and 0<=row['return_status']<=9,'cpse_function_status')
+            statuses[row['label']]=row['return_status']
+            require(row['exception'] is not None or row['return_status']==value['wrapper_status'],'cpse_function_status_binding')
             require(not value['within_deadline'] or value['before_qpc']>=ticks[row['label']],'cpse_call_after_intent')
-        else:require(row['exception'] is not None,'cpse_missing_call_receipt')
-    opaque_sticky=any(row['label'] in ('create','close') and (row['exception'] is not None or row['native'] is None
-        or row['native']['opaque_outcome_unknown']) for row in operations)
+        else:require(row['exception'] is not None and row['return_status'] is None,'cpse_missing_call_receipt')
+        receipt=row['receipt']
+        if receipt is not None:
+            require(type(receipt) is dict and set(receipt)=={'name','text','sha256'} and type(receipt['text']) is str
+                and len(receipt['text'])<=32768 and sha(receipt['text'].encode('ascii'))==receipt['sha256'],'cpse_returned_receipt')
+            intent=next(intent for intent in intents if intent['action']==row['label']);raw=decode(receipt['text'].encode('ascii'))
+            require(receipt['name']==intent['name'][:-5]+'-returned.json' and type(raw) is dict and set(raw)=={'schema_version','scope','run','config_sha256',
+                'action','intent_sha256','frequency','deadline_qpc','return_status','native','pi'} and type(raw['schema_version']) is int and raw['schema_version']==1
+                and raw['scope']==SCOPE and raw['run']==c['run'] and raw['config_sha256']==sha(encode(c)) and raw['action']==row['label']
+                and raw['intent_sha256']==intent['sha256'] and raw['frequency']==c['frequency'] and raw['deadline_qpc']==c['deadline_qpc']
+                and raw['return_status']==row['return_status'] and raw['native']==row['native'],'cpse_returned_receipt_binding')
+            require(raw['pi'] is None if row['label'] not in ('ac','lpac') else type(raw['pi']) is dict,'cpse_returned_pi_kind')
+        else:require(row['exception'] is not None,'cpse_missing_durable_return')
+    # A validation/write exception after a structurally valid returned tuple
+    # does not erase known S_OK-owned or normal VOID-return observations.
+    opaque_sticky=any(row['native'] is not None and row['native']['opaque_outcome_unknown']
+        or row['label'] in ('create','close') and not opaque_return_known(row['label'],row['return_status'],row['native'],c)
+        for row in operations)
     require(not opaque_sticky or j['opaque_outcome_unknown'],'cpse_opaque_unknown_sticky')
     require(labels==[label for label in ('bind','create','ac','lpac','close','unbind') if label in labels],'cpse_operation_order')
     require('create' not in labels or 'bind' in native and native_ok(native['bind']),'cpse_create_bound')
@@ -435,10 +487,13 @@ def validate_result(j,c,*,parent):
     for row in tasks:
         require(type(row) is dict and set(row)==TASK_KEYS and all(type(row[k]) is bool for k in ('attempted','assigned','exited','admitted','resumed'))
             and row['attempted'] and row['resumed'] is False and row['name'] in labels,'cpse_task_schema')
-        role=row['name'];require(row['native']==native.get(role),'cpse_task_receipt')
+        role=row['name'];require(row['native']==native.get(role) and row['return_status']==statuses.get(role),'cpse_task_receipt')
         require(type(row['pi']) is dict and set(row['pi'])=={'process','thread','process_id','thread_id'}
-            and all(live.integer(v) for v in row['pi'].values()),'cpse_task_pi')
-        for key in ('pid','created','exit_code'):require(row[key] is None or live.integer(row[key],0 if key=='exit_code' else 1),'cpse_task_number')
+            and all(live.integer(row['pi'][key],0,0xffffffffffffffff if key in ('process','thread') else 0xffffffff) for key in row['pi']),'cpse_task_pi')
+        for key in ('pid','created','exit_code'):
+            require(row[key] is None or live.integer(row[key],0 if key=='exit_code' else 1,0xffffffffffffffff if key=='created' else 0xffffffff),'cpse_task_number')
+        op=next(op for op in operations if op['label']==role)
+        if op['receipt'] is not None:require(decode(op['receipt']['text'].encode('ascii'))['pi']==row['pi'],'cpse_task_raw_pi_binding')
         require(row['pid']==(row['pi']['process_id'] or None),'cpse_task_pid')
         require(not row['exited'] or row['pi']['process'] and row['exit_code'] is not None,'cpse_exit_receipt')
         require(type(row['held_checks']) is list and len(row['held_checks'])<=16 and row['held_checks']==sorted(row['held_checks'])
@@ -459,7 +514,7 @@ def validate_result(j,c,*,parent):
             and base.ac.digest(common['environment_sha256']) and common['parent']==parent and common['catalog']==c['capability_catalog']
             and common['outer_job']==c['guard_job_name'] and launcher.child_environment_admitted(j['child_environment']),'cpse_common')
         child=common['child'];require(type(child) is dict and set(child)=={'job','image','inputs_directory','system_root','local_appdata'}
-            and live.integer(child['job'],1) and all(type(child[k]) is str for k in ('image','inputs_directory','system_root','local_appdata'))
+            and live.integer(child['job'],1,0xffffffffffffffff) and all(type(child[k]) is str for k in ('image','inputs_directory','system_root','local_appdata'))
             and Path(child['image']).name==live.ACTOR and Path(child['image']).parent==Path(child['inputs_directory']),'cpse_common_child')
     if j['common_inputs_verified']:
         require(common is not None and len(tasks)==2 and all(r['admitted'] for r in tasks) and tasks[0]['pid']!=tasks[1]['pid']
@@ -481,7 +536,8 @@ def validate_result(j,c,*,parent):
             and native['create']['environment_state']==2,'cpse_close_order')
         require(not any(row['pi']['process'] and not row['exited'] for row in tasks),'cpse_close_live_child')
     if j['api_obligations_closed']:
-        require(not j['opaque_outcome_unknown'] and ('close' in native and native['close']['close_invoked_once']==native['close']['close_returned_normally']==1
+        require(not j['opaque_outcome_unknown'] and ('close' in native and opaque_return_known('close',statuses['close'],native['close'],c)
+            and native['close']['close_invoked_once']==native['close']['close_returned_normally']==1
             or 'close' not in labels and ('create' not in labels or 'create' in native and native['create']['api_returned']==native['create']['hresult_valid']==1
                 and native['create']['hresult']<0 and native['create']['environment_state']==1 and not native['create']['opaque_outcome_unknown'])),'cpse_obligation_receipt')
     require(not j['module_unbound'] or j['api_obligations_closed'] and ('bind' not in labels or 'unbind' in native
@@ -490,6 +546,7 @@ def validate_result(j,c,*,parent):
         require(j['common_inputs_verified'] and len(proofs)==2 and all(p['qualified'] for p in proofs)
             and all(j[k] for k in ('observer_resources_cleanup_verified','workload_cleanup','workload_job_empty','api_obligations_closed','module_unbound'))
             and not j['opaque_outcome_unknown'] and all(native_ok(v) for v in native.values()) and len(labels)==6,'cpse_complete')
+        require(all(row['exception'] is None and row['receipt'] is not None for row in operations),'cpse_complete_returned_receipts')
     require(len(encode(j))<=MAX_REPORT,'cpse_result_bound');return j
 
 def project(j,c,*,parent):
