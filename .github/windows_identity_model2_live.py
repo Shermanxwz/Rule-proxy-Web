@@ -799,7 +799,10 @@ def diagnostic_ready(value, *, require_guard=True):
             'positive_verified', 'direct_attempted', 'observation_complete'))
         and all(name not in value or all(value[name][key]
             for key in ('requested', 'healthy_before', 'healthy_after', 'attempted', 'observation_complete'))
-            for name in ('wrong_port_extension', 'wrong_peer_extension')))
+            for name in ('wrong_port_extension', 'wrong_peer_extension'))
+        and ('wrong_peer_extension' not in value or not value['wrong_peer_extension']['timed_out']
+            and (value['wrong_peer_extension']['denied_by_access'] or value['wrong_peer_extension']['connected']
+                or value['wrong_peer_extension']['forbidden_nonce_received'])))
 
 
 def first_ready(value, *, require_guard=True):
@@ -852,7 +855,7 @@ def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extens
         winhttp_tested=False, application_adapter_tested=False, product_acceptance=False,
         first_chain_verified=False, direct_deny_verified=False, local_c_qualified=False)
     if wrong_port_extension: value['wrong_port_extension'] = blank_wrong_port()
-    if wrong_peer_extension: value['wrong_peer_extension'] = blank_wrong_port()
+    if wrong_peer_extension: value['wrong_peer_extension'] = blank_wrong_peer()
     return value
 
 
@@ -862,7 +865,7 @@ def validate_public(value):
         template['wrong_port_extension'] = blank_wrong_port()
     if type(value) is dict and 'wrong_peer_extension' in value:
         require('wrong_port_extension' not in value, 'exclusive_extension')
-        template['wrong_peer_extension'] = blank_wrong_port()
+        template['wrong_peer_extension'] = blank_wrong_peer()
     require(type(value) is dict and set(value) == set(template), 'public_schema')
     for key in ('schema_version', 'stage', 'profile', 'original_stage0', 'system_dns_tested',
                 'service_brokers_tested', 'winhttp_tested', 'application_adapter_tested', 'product_acceptance'):
@@ -899,12 +902,15 @@ def validate_public(value):
     for name, violation in (('wrong_port_extension', 'wrong_port_connected'), ('wrong_peer_extension', 'wrong_peer_connected')):
         if name not in value: continue
         x = value[name]
-        require(value['execution_mode'] == 'profiles-off-diagnostic' and type(x) is dict and set(x) == set(blank_wrong_port())
+        require(value['execution_mode'] == 'profiles-off-diagnostic' and type(x) is dict
+            and set(x) == set(blank_wrong_peer() if name == 'wrong_peer_extension' else blank_wrong_port())
             and all(type(item) is bool for item in x.values()) and x['requested']
             and x['connected'] == value['violations'][violation]
             and x['completed'] == value['diagnostic_completed'], 'wrong_port_public')
         require(not x['denied_by_access'] or x['attempted'] and not x['connected'] and not x['forbidden_nonce_received']
             and x['healthy_before'] and x['healthy_after'], 'wrong_port_deny')
+        if name == 'wrong_peer_extension':
+            require(not x['timed_out'] or x['attempted'] and not x['denied_by_access'], 'wrong_peer_timeout')
     if value['status'] == 'ready':
         require(value['checks']['sources'] and value['checks']['artifacts']
             and not any(v for k, v in value['checks'].items() if k not in ('sources', 'artifacts'))
@@ -923,6 +929,10 @@ def validate_public(value):
 def blank_wrong_port():
     return {key: key == 'requested' for key in ('requested', 'healthy_before', 'healthy_after', 'attempted',
         'connected', 'denied_by_access', 'forbidden_nonce_received', 'observation_complete', 'completed')}
+
+
+def blank_wrong_peer():
+    return dict(blank_wrong_port(), timed_out=False)
 
 
 def main(argv=None):

@@ -69,6 +69,36 @@ class WrongPortTests(unittest.TestCase):
         self.assertTrue(owner.value['wrong_peer_extension']['observation_complete'])
         self.assertFalse(owner.value['checks']['wrong_peer'])
 
+    def test_typed_peer_timeout_collects_after_controls_but_never_becomes_denial_or_completed(self):
+        owner,calls=self.exercise(psec=True,peer=True,peer_timeout=True)
+        self.assertEqual([row['opcode'] for row in calls],[1,4,1])
+        peer=owner.value['wrong_peer_extension']
+        self.assertTrue(peer['timed_out']);self.assertTrue(peer['healthy_after']);self.assertTrue(peer['observation_complete'])
+        self.assertFalse(peer['denied_by_access'])
+        value=d.completed();value['wrong_peer_extension']=copy.deepcopy(peer)
+        m.finish_peer_observation(value);value=l.finalize_public(value)
+        self.assertEqual(value['failure'],'wrong-peer');self.assertEqual(value['status'],'inconclusive')
+        self.assertFalse(value['diagnostic_completed']);self.assertFalse(value['wrong_peer_extension']['completed'])
+        self.assertFalse(value['first_chain_verified']);self.assertFalse(value['local_c_qualified'])
+        value['wrong_peer_extension'].update(connected=True,forbidden_nonce_received=True)
+        value['violations']['wrong_peer_connected']=True
+        value=l.finalize_public(value)
+        self.assertEqual(value['status'],'failed');self.assertTrue(value['wrong_peer_extension']['timed_out'])
+
+    def test_peer_timeout_predicate_rejects_unbounded_or_setup_or_error_substitutes(self):
+        row=f.phase(operation='wrong-peer',port=f.P)
+        row['phase_qpc']=[21000,24000,24001]
+        row['network'].update(connect_completed=False,peer_loopback=False,request_complete=False,send_shutdown=False,
+            response_exact=False,response_eof=False,local_port=None,peer_port=None,request_bytes=0,response_bytes=0,
+            failure='deadline',wsa_error=None)
+        self.assertTrue(m.bounded_connect_timeout(row,f.F,f.D))
+        for mutate in (lambda x:x['phase_qpc'].__setitem__(2,25000),lambda x:x['phase_qpc'].__setitem__(2,23999),
+                       lambda x:x['network'].update(wsa_error=10013),lambda x:x['network'].update(socket_created=False),
+                       lambda x:x['network'].update(connect_completed=True),lambda x:x['network'].update(socket_close='uncertain'),
+                       lambda x:x.update(failure='deadline')):
+            changed=copy.deepcopy(row);mutate(changed)
+            self.assertFalse(m.bounded_connect_timeout(changed,f.F,f.D))
+
     def test_main_actual_tier_cannot_substitute_for_missing_q_actual_tier(self):
         owner,calls=self.exercise(psec=True,bad_q_tier=True)
         self.assertEqual(len(calls),3)
@@ -99,7 +129,7 @@ class WrongPortTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'journal_go_digest'):
                 m.validate_ownership_journal(journal,c,controller_pid=journal['controller_pid'])
 
-    def exercise(self,unhealthy=False,psec=False,bad_q_tier=False,peer=False):
+    def exercise(self,unhealthy=False,psec=False,bad_q_tier=False,peer=False,peer_timeout=False):
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);root=Path(temporary.name)
         prefix='b' if peer else 'q';key='wrong_peer_extension' if peer else 'wrong_port_extension'
         listener_dir=root/('b-front' if peer else 'front');listener_dir.mkdir()
@@ -132,6 +162,9 @@ class WrongPortTests(unittest.TestCase):
                 row['network'].update(connect_completed=False,peer_loopback=False,request_complete=False,send_shutdown=False,
                     response_exact=False,response_eof=False,local_port=None,peer_port=None,request_bytes=0,response_bytes=0,
                     failure='connect',wsa_error=10013)
+                if peer_timeout and task is not control:
+                    row['network'].update(failure='deadline',wsa_error=None)
+                    row['phase_qpc'][2]=kw['end']+1
             return row
         owner.native_phase=phase
         def receipt(index,case):

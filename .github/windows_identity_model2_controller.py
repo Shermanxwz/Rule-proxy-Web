@@ -217,6 +217,23 @@ def connect_denied(value):
         and n['socket_close'] == 'confirmed' and n['wsa_cleanup'] is True)
 
 
+def bounded_connect_timeout(value, frequency, root_deadline):
+    """A typed late failure permits observation/finish only; it is not a deny."""
+    n, p = value['network'], value['phase_qpc']
+    return (value['failure'] is None and p[0] <= p[1] <= p[2] < min(root_deadline, p[1] + frequency)
+        and all(n[key] is True for key in ('wsa_startup', 'inheritance_cleared', 'socket_created', 'connect_attempted', 'wsa_cleanup'))
+        and all(n[key] is False for key in ('connect_completed', 'peer_loopback', 'request_complete', 'send_shutdown', 'response_exact', 'response_eof'))
+        and n['local_port'] is None and n['peer_port'] is None and n['request_bytes'] == 0 and n['response_bytes'] == 0
+        and n['failure'] == 'deadline' and n['wsa_error'] is None and n['socket_close'] == 'confirmed')
+
+
+def finish_peer_observation(value):
+    if 'wrong_peer_extension' not in value: return
+    peer = value['wrong_peer_extension']
+    if peer['observation_complete'] and (peer['timed_out'] or not peer['denied_by_access'] and not peer['connected'] and not peer['forbidden_nonce_received']):
+        value['failure'] = 'wrong-peer'
+
+
 def client_final(value, task, config, *, role, boot, profile, count):
     keys = {'schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'identity', 'capability_profile',
         'capability_profile_verified', 'catalog_cleanup_verified', 'qpc', 'phase_count', 'finished',
@@ -784,7 +801,9 @@ class FirstController:
         public.update(attempted=wrong['network']['connect_attempted'], connected=wrong['network']['connect_completed'])
         self.value['violations'][violation] |= wrong['network']['connect_completed']
         self.wrong_port_denied = connect_denied(wrong)
-        live.require(wrong['failure'] is None and wrong['phase_qpc'][2] < wrong['phase_qpc'][1]
+        peer_timeout = peer and bounded_connect_timeout(wrong, c['frequency'], c['deadline_qpc'])
+        if peer: public['timed_out'] = bool(peer_timeout)
+        live.require(peer_timeout or wrong['failure'] is None and wrong['phase_qpc'][2] < wrong['phase_qpc'][1]
             and all(wrong['network'][key] for key in ('wsa_startup','inheritance_cleared','socket_created','connect_attempted','wsa_cleanup'))
             and wrong['network']['socket_close'] == 'confirmed', 'wrong_port_observation')
         self.phase = 'health'
@@ -1127,6 +1146,7 @@ class FirstController:
             v['diagnostic'].update(forbidden_nonce_received=v['violations']['forbidden_receiver_accepted'],
                 direct_denied_by_access=v['checks']['direct_deny'] and not v['violations']['forbidden_receiver_accepted'],
                 observation_complete=True)
+        finish_peer_observation(v)
 
     def refresh_profiles(self):
         if self.mode == 'strict': return
@@ -1199,9 +1219,11 @@ class FirstController:
                             phase_deadline=end)
                         public['attempted'] |= row['network']['connect_attempted']
                         v['violations'][violation] |= row['network']['connect_completed']
+                        if key == 'wrong_peer_extension':
+                            public['timed_out'] |= bounded_connect_timeout(row, c['frequency'], c['deadline_qpc'])
                     except BaseException: pass
             public['connected'] = v['violations'][violation]
-            if public['connected'] or public['forbidden_nonce_received']: public['denied_by_access'] = False
+            if public['connected'] or public['forbidden_nonce_received'] or public.get('timed_out', False): public['denied_by_access'] = False
 
     def cleanup(self):
         api, budget, root = self.api, self.budget, self.root
