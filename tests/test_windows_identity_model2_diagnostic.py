@@ -31,6 +31,22 @@ def completed(connected=False):
 
 
 class DiagnosticTests(unittest.TestCase):
+    def test_selected_request_requires_only_three_explicit_native_environment_values(self):
+        ports=dict(proxy=49183,wrong_port=49184,origin=49185)
+        command=l.selected_command(Path('fixed.exe'),'selected-client','a'*32,'b'*32,
+            Path('reports/ready.json'),Path('reports'),Path('control'),1000,1000,11000,
+            ports,'S-1-5-21-1-2-3-1001','agentic-pncs','c'*32)
+        peer=dict(profile='RuleProxy.Model2.A.'+'a'*32,derived_sid='S-1-15-2-1-2-3-4-5-6-7',
+            held_sid='S-1-15-2-1-2-3-4-5-6-7',held=True,listener_port=49183)
+        args=dict(run='a'*32,command=command,cwd=Path('reports'),inputs=Path('inputs'),control=Path('control'),
+            reports=Path('reports'),peer=peer,fixed_ports=ports,timeout_ms=10000)
+        env=['SystemRoot=C:\\Windows','WINDIR=C:\\Windows','LOCALAPPDATA=C:\\KnownFolder\\Local']
+        request=l.request_document(**args,native_environment=env)
+        self.assertEqual(request['process']['env'],env)
+        self.assertFalse(request['process']['inheritDefaultEnv'])
+        for bad in (env[:2],env+['SECRET=ambient'],env[:2]+['LOCALAPPDATA='],env[:2]+[env[0]]):
+            with self.subTest(env=bad),self.assertRaises(ValueError):l.request_document(**args,native_environment=bad)
+
     def test_leak_observation_can_complete_but_never_qualifies(self):
         for connected in (False, True):
             with self.subTest(connected=connected):

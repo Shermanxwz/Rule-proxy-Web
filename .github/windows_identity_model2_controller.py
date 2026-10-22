@@ -707,7 +707,8 @@ class FirstController:
         request = live.request_document(run=c['run'], command=argv, cwd=root / 'selected', inputs=root / 'inputs',
             control=root / 'selected-control', reports=root / 'selected', native_environment=
             ['SystemRoot=' + dict(x.split('=', 1) for x in api.native.environment(root).rstrip('\0').split('\0'))['SystemRoot'],
-             'WINDIR=' + dict(x.split('=', 1) for x in api.native.environment(root).rstrip('\0').split('\0'))['WINDIR']],
+             'WINDIR=' + dict(x.split('=', 1) for x in api.native.environment(root).rstrip('\0').split('\0'))['WINDIR'],
+             'LOCALAPPDATA=' + str(folder)],
             peer=peer, fixed_ports=fixed, timeout_ms=min(120000, (c['deadline_qpc'] - c['start_qpc']) * 1000 // c['frequency']))
         request_path = root / 'live-request.json'
         request_raw = live.encode(request)

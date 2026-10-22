@@ -249,10 +249,11 @@ def request_document(*, run, command, cwd, inputs, control, reports, native_envi
         and peer['held'] is True and peer['held_sid'] == peer['derived_sid']
         and ac.ac_profile_sid(peer['derived_sid']) and peer['listener_port'] == p['proxy']
         and type(peer['profile']) is str and re.fullmatch(r'RuleProxy\.Model2\.[AB]\.[0-9a-f]{32}', peer['profile']), 'live_peer')
-    require(type(native_environment) is list and len(native_environment) == 2
+    require(type(native_environment) is list and len(native_environment) == 3
         and all(type(x) is str and '\0' not in x for x in native_environment), 'request_environment')
     env = dict(x.split('=', 1) for x in native_environment)
-    require(set(env) == {'SystemRoot', 'WINDIR'} and env['SystemRoot'] == env['WINDIR'] and bool(env['SystemRoot']), 'request_environment')
+    require(set(env) == {'SystemRoot', 'WINDIR', 'LOCALAPPDATA'} and env['SystemRoot'] == env['WINDIR']
+        and bool(env['SystemRoot']) and bool(env['LOCALAPPDATA']), 'request_environment')
     require(integer(timeout_ms, 1000, 120000), 'request_timeout')
     return {'$schema': 'https://github.com/microsoft/mxc/schemas/stable/mxc-config.schema.1.0.0.json',
         'version': '1.0.0', 'containment': 'processcontainer', 'containerId': 'ruleproxy-model2-live-' + run,
