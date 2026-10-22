@@ -1,0 +1,140 @@
+name: Identity proxy bridge core pure conformance
+# Pure fixed-corpus executable only; no guest, network, security API, or runtime acceptance.
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths:
+      - '.github/native/windows_identity_proxy_bridge_core.hpp'
+      - '.github/native/windows_identity_proxy_bridge_conformance.cpp'
+      - '.github/build_windows_identity_proxy_bridge_core.ps1'
+      - 'tests/test_windows_identity_proxy_bridge_native.py'
+      - '.github/windows_identity_proxy_bridge_codec.py'
+      - '.github/windows_identity_proxy_bridge_model.py'
+      - 'tests/test_windows_identity_proxy_bridge_codec.py'
+      - 'tests/test_windows_identity_proxy_bridge_model.py'
+      - '.github/workflows/windows-identity-proxy-core-gates.yml'
+permissions:
+  contents: read
+env:
+  SOURCE_PINS: >-
+    {".github/native/windows_identity_proxy_bridge_core.hpp":"cc3d6a72e54b92ad8d854e9bd50b4237cc7e295d6b0df72a3732d2a9f62e0309",".github/native/windows_identity_proxy_bridge_conformance.cpp":"a133674578c821c47c4bf990a7bd13781d926ca50dd816a7d7b324dff6d6d484",".github/build_windows_identity_proxy_bridge_core.ps1":"752732d8ec63b41c89ec957fa055529c23f07125f14565f757eb9c0e4d48a79e","tests/test_windows_identity_proxy_bridge_native.py":"4a2593d0ffd13741f58e3d85e7b9585e773d695cb9c57777b9218168519bc75f",".github/windows_identity_proxy_bridge_codec.py":"5edaa6c4b1a2aacc8aec741838ec0d4de9121da81b4124856e1c865e40e1f835",".github/windows_identity_proxy_bridge_model.py":"7ec2d977ee72fd779d43d6d00b36ed64d0aaa795f7f85df74bf49ba2235b4f4c","tests/test_windows_identity_proxy_bridge_codec.py":"d893dce883924099a64c6e48af131f72c20175fe6ee86b739449f9201fc33373","tests/test_windows_identity_proxy_bridge_model.py":"1afceba2a7841fced09970ff4686d129fa6f7100c2b25f3a8d7da30669470a22"}
+jobs:
+  linux:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-proxy-core-gates]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-pipe-runtime]') && !contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]') && !contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') && !contains(github.event.head_commit.message, '[identity-startup-paired-runtime]') && !contains(github.event.head_commit.message, '[identity-stock-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-win11-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Admit exactly one pure-gate marker
+        shell: bash
+        env:
+          GATE_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          python3 -I -S -B -c "import os; m=os.environ['GATE_MESSAGE']; assert m.count('[identity-proxy-core-gates]')==1, 'marker_admission'"
+      - name: Verify pinned sources and all required pure suites
+        shell: bash
+        run: |
+          python3 -I -S -B - <<'PY'
+          import hashlib,json,os,pathlib,unittest
+          pins=json.loads(os.environ['SOURCE_PINS'])
+          for name,digest in pins.items():
+           p=pathlib.Path(name)
+           assert p.is_file() and not p.is_symlink() and hashlib.sha256(p.read_bytes()).hexdigest()==digest,'source_pin'
+          names=('test_windows_identity_proxy_bridge_codec.py','test_windows_identity_proxy_bridge_model.py','test_windows_identity_proxy_bridge_native.py')
+          suites=[unittest.defaultTestLoader.discover('tests',pattern=name) for name in names]
+          counts=[suite.countTestCases() for suite in suites]
+          assert all(counts) and sum(counts[:2])==44,'required_tests'
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(suites))
+          print('REQUIRED',sum(counts),'SKIPS',len(result.skipped),'OK',result.wasSuccessful())
+          raise SystemExit(0 if result.wasSuccessful() and not result.skipped else 1)
+          PY
+      - name: Compile fixed pure corpus without execution
+        shell: bash
+        run: |
+          mkdir proxy-core-build
+          python3 -I -S -B tests/test_windows_identity_proxy_bridge_native.py --export-corpus proxy-core-build/windows_identity_proxy_bridge_cases.h
+          header_sha=$(python3 -I -S -B -c "import hashlib,pathlib; print(hashlib.sha256(pathlib.Path('proxy-core-build/windows_identity_proxy_bridge_cases.h').read_bytes()).hexdigest())")
+          g++ -std=c++17 -Wall -Wextra -Werror -pedantic -Iproxy-core-build .github/native/windows_identity_proxy_bridge_conformance.cpp -o proxy-core-build/windows_identity_proxy_bridge_conformance.exe
+          GENERATED_HEADER_SHA256="$header_sha" python3 -I -S -B - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path('proxy-core-build');pins=json.loads(os.environ['SOURCE_PINS'])
+          for name,digest in pins.items():
+           assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==digest,'source_changed'
+          keys=('coreSha256','conformanceSha256','fixtureSha256','codecSha256','modelSha256')
+          paths=('.github/native/windows_identity_proxy_bridge_core.hpp','.github/native/windows_identity_proxy_bridge_conformance.cpp','tests/test_windows_identity_proxy_bridge_native.py','.github/windows_identity_proxy_bridge_codec.py','.github/windows_identity_proxy_bridge_model.py')
+          value=dict(schemaVersion=1,modelOnly=True,runtimeAcceptance=False,compileOnly=True,executed=False)
+          value.update({key:pins[path] for key,path in zip(keys,paths)})
+          value['generatedHeaderSha256']=hashlib.sha256((root/'windows_identity_proxy_bridge_cases.h').read_bytes()).hexdigest()
+          assert value['generatedHeaderSha256']==os.environ['GENERATED_HEADER_SHA256'],'generated_header_changed'
+          value['executableSha256']=hashlib.sha256((root/'windows_identity_proxy_bridge_conformance.exe').read_bytes()).hexdigest()
+          with (root/'BRIDGE-CORE-model-manifest.json').open('x',encoding='ascii') as target:target.write(json.dumps(value,sort_keys=True)+'\n')
+          PY
+      - name: Explicit hash-bound pure conformance once
+        shell: bash
+        run: |
+          manifest_sha=$(python3 -I -S -B -c "import hashlib,pathlib; print(hashlib.sha256(pathlib.Path('proxy-core-build/BRIDGE-CORE-model-manifest.json').read_bytes()).hexdigest())")
+          python3 -I -S -B tests/test_windows_identity_proxy_bridge_native.py --run-conformance --executable "$PWD/proxy-core-build/windows_identity_proxy_bridge_conformance.exe" --manifest "$PWD/proxy-core-build/BRIDGE-CORE-model-manifest.json" --expected-manifest-sha256 "$manifest_sha"
+  windows:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-proxy-core-gates]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-pipe-runtime]') && !contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]') && !contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') && !contains(github.event.head_commit.message, '[identity-startup-paired-runtime]') && !contains(github.event.head_commit.message, '[identity-stock-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-win11-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Admit exactly one pure-gate marker
+        shell: pwsh
+        env:
+          GATE_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          python -I -S -B -c "import os; m=os.environ['GATE_MESSAGE']; assert m.count('[identity-proxy-core-gates]')==1, 'marker_admission'"
+          if ($LASTEXITCODE -ne 0) { throw 'marker_admission' }
+      - name: Verify pinned sources and all required pure suites
+        shell: pwsh
+        run: |
+          $program=@'
+          import hashlib,json,os,pathlib,unittest
+          pins=json.loads(os.environ['SOURCE_PINS'])
+          for name,digest in pins.items():
+           p=pathlib.Path(name)
+           assert p.is_file() and not p.is_symlink() and hashlib.sha256(p.read_bytes()).hexdigest()==digest,'source_pin'
+          names=('test_windows_identity_proxy_bridge_codec.py','test_windows_identity_proxy_bridge_model.py','test_windows_identity_proxy_bridge_native.py')
+          suites=[unittest.defaultTestLoader.discover('tests',pattern=name) for name in names]
+          counts=[suite.countTestCases() for suite in suites]
+          assert all(counts) and sum(counts[:2])==44,'required_tests'
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(suites))
+          print('REQUIRED',sum(counts),'SKIPS',len(result.skipped),'OK',result.wasSuccessful())
+          raise SystemExit(0 if result.wasSuccessful() and not result.skipped else 1)
+          '@
+          python -I -S -B -c $program
+          if ($LASTEXITCODE -ne 0) { throw 'required_pure_tests' }
+      - name: Parse and compile fixed pure corpus without execution
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD '.github/build_windows_identity_proxy_bridge_core.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count) { throw 'build_syntax' }
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $vs) { throw 'installed_msvc_unavailable' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          $pins=$env:SOURCE_PINS|ConvertFrom-Json
+          $python=(Get-Command python -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
+          & ./.github/build_windows_identity_proxy_bridge_core.ps1 -OutputDirectory "$PWD/proxy-core-build" -PythonExecutable $python -ExpectedCoreSha256 $pins.'.github/native/windows_identity_proxy_bridge_core.hpp' -ExpectedConformanceSha256 $pins.'.github/native/windows_identity_proxy_bridge_conformance.cpp' -ExpectedFixtureSha256 $pins.'tests/test_windows_identity_proxy_bridge_native.py' -ExpectedCodecSha256 $pins.'.github/windows_identity_proxy_bridge_codec.py' -ExpectedModelSha256 $pins.'.github/windows_identity_proxy_bridge_model.py'
+          if ($LASTEXITCODE -ne 0) { throw 'pure_compile' }
+      - name: Explicit hash-bound pure conformance once
+        shell: pwsh
+        run: |
+          $manifestSha=(Get-FileHash -LiteralPath 'proxy-core-build/BRIDGE-CORE-model-manifest.json' -Algorithm SHA256).Hash.ToLowerInvariant()
+          $executable=(Resolve-Path -LiteralPath 'proxy-core-build/windows_identity_proxy_bridge_conformance.exe').Path
+          $manifest=(Resolve-Path -LiteralPath 'proxy-core-build/BRIDGE-CORE-model-manifest.json').Path
+          python -I -S -B tests/test_windows_identity_proxy_bridge_native.py --run-conformance --executable $executable --manifest $manifest --expected-manifest-sha256 $manifestSha
+          if ($LASTEXITCODE -ne 0) { throw 'pure_conformance' }
