@@ -110,6 +110,13 @@ def system_powershell(api):
     return path
 
 
+def operation_command(image, script, input_file, output_file):
+    # Process-only policy for this pinned, held operation child. It does not set
+    # any persistent scope and does not override Group Policy precedence.
+    return [str(image), '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', str(script), '-InputPlan', str(input_file), '-OutputReport', str(output_file)]
+
+
 def run_operation(api, budget, *, plan, request, directory, parent, root=ROOT):
     """One exact operation child, with a distinct nested Job and held identity."""
     operation = request['operation']
@@ -145,8 +152,7 @@ def run_operation(api, budget, *, plan, request, directory, parent, root=ROOT):
             stdio.append(handle)
         image = system_powershell(api)
         image_hash = live.sha(live.local.bounded(image, 8 * 1024 * 1024))
-        argv = [str(image), '-NoLogo', '-NoProfile', '-NonInteractive', '-File', str(script),
-            '-InputPlan', str(input_file), '-OutputReport', str(output_file)]
+        argv = operation_command(image, script, input_file, output_file)
         child['attempted'] = True
         try:
             api.native.create_suspended(info, argv, directory, stdio, None)

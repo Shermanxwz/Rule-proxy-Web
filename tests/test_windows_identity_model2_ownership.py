@@ -312,6 +312,14 @@ class OwnershipTests(unittest.TestCase):
         self.assertNotIn('Import-Module NetSecurity', script)
         self.assertIn("$RequireEffective -and $Store -ceq 'ActiveStore'", script)
 
+    def test_execution_policy_is_only_the_bound_operation_child_argv(self):
+        image, script, input_file, output_file = map(Path, ('system-powershell.exe', 'bound-script.ps1', 'plan.json', 'report.json'))
+        argv = m.maintenance.operation_command(image, script, input_file, output_file)
+        self.assertEqual(argv, [str(image), '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', str(script), '-InputPlan', str(input_file), '-OutputReport', str(output_file)])
+        self.assertNotIn('Set-ExecutionPolicy', argv)
+        self.assertNotIn('-Scope', argv)
+
     def test_original_budget_cannot_be_renewed_by_barrier(self):
         api = Clock(119000)
         budget = l.launcher.QpcBudget(api, 121000, 1000)
