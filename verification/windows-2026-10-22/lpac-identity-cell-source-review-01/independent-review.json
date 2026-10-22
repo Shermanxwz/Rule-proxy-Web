@@ -1,0 +1,123 @@
+{
+  "all_findings_fixed": true,
+  "author_final_freeze": {
+    "bytes": 6935,
+    "sha256": "378cf8b6492f055500a2125f020598c82a6184ea38ec03ca454a6b9569878745"
+  },
+  "author_pure_evidence": {
+    "errors_reported": 0,
+    "failures_reported": 0,
+    "log_bytes": 9864,
+    "log_commitment_verified": true,
+    "log_sha256": "c32dce7e019b6e3c5c6ef5b7a6103605b0adfc0ad9e720a8790f7f94fd42b3ef",
+    "skipped_reported": 0,
+    "tests_reported": 47,
+    "tests_rerun_by_this_reviewer": false
+  },
+  "candidate_files": {
+    ".github/windows_identity_lpac_accesscheck.py": {
+      "bytes": 34465,
+      "equals_author_final_freeze": true,
+      "lf_only": true,
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+    },
+    ".github/windows_identity_lpac_identity_cell.py": {
+      "bytes": 46637,
+      "equals_author_final_freeze": true,
+      "lf_only": true,
+      "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105"
+    },
+    ".github/windows_identity_lpac_identity_local.py": {
+      "bytes": 17560,
+      "equals_author_final_freeze": true,
+      "lf_only": true,
+      "sha256": "c92f7dea225ea038b88840434dc35c5059a1adb1786e58bb07e2ad2c8635e98e"
+    },
+    "tests/test_windows_identity_lpac_accesscheck.py": {
+      "bytes": 17854,
+      "equals_author_final_freeze": true,
+      "lf_only": true,
+      "sha256": "e19eea5329501b535a2b8317a6829350cc95a87c3b9ecce67642a6d2427f358a"
+    },
+    "tests/test_windows_identity_lpac_identity_cell.py": {
+      "bytes": 19419,
+      "equals_author_final_freeze": true,
+      "lf_only": true,
+      "sha256": "322e4969e0ed06edbc0d8c75aa00f963e73bfc17b6200f9fe630dbdd4434d491"
+    },
+    "tests/test_windows_identity_lpac_identity_local.py": {
+      "bytes": 17072,
+      "equals_author_final_freeze": true,
+      "lf_only": true,
+      "sha256": "741497a39e0d649fe1e4d1102400ccface02c4e6a1c35ee5c87410b70e1956b1"
+    }
+  },
+  "claims": {
+    "actual_ready_or_runtime_qualification_asserted": false,
+    "dns_isolation_qualified": false,
+    "g_psec_lpac_composition_proven": false,
+    "product_acceptance": false,
+    "real_ac_lpac_matrices_observed": false,
+    "real_lpac_token_proven": false,
+    "static_review_only": true
+  },
+  "durations_or_review_counts_invented": false,
+  "execution_limits": {
+    "AccessCheck_executed": false,
+    "actor_resumed": false,
+    "actual_runtime_executed": false,
+    "main_repository_modified": false,
+    "native_api_instantiated": false,
+    "native_token_api_called": false,
+    "network_executed": false,
+    "old_accesscheck_archives_modified": false,
+    "process_or_actor_created": false,
+    "pure_tests_rerun": false
+  },
+  "findings": [
+    {
+      "after": "tree_retained is set conservatively before the native directory creation boundary; partial creation retains recovery_required.",
+      "before": "tree_retained was set only after private_directory returned; mkdir success followed by descriptor/readback/free failure could leave a possible tree while the public flag was false.",
+      "file": ".github/windows_identity_lpac_identity_local.py",
+      "id": "private-stage-partial-create-retention",
+      "regression_reviewed_not_rerun": true,
+      "regression_source": "tests/test_windows_identity_lpac_identity_local.py: test_private_directory_mkdir_then_raise_retains_possible_tree_and_recovery_without_worker",
+      "status": "fixed-and-rechecked"
+    },
+    {
+      "after": "observer_attempted equals the nonzero observe-intent count; returned proof count cannot exceed intent count; clean observer resources additionally require equal counts and every returned proof clean.",
+      "before": "Runtime already set observer cleanup false before each observation, but the independent validator could accept a damaged true flag backed only by the first closed proof after a second observe intent with no returned proof.",
+      "file": ".github/windows_identity_lpac_identity_cell.py",
+      "id": "second-observer-missing-return-cleanup-binding",
+      "regression_reviewed_not_rerun": true,
+      "regression_source": "tests/test_windows_identity_lpac_identity_cell.py: test_second_observer_unknown_return_cannot_borrow_first_closed_proof_cleanup",
+      "status": "fixed-and-rechecked"
+    }
+  ],
+  "findings_count": 2,
+  "independent_static_review_conclusion": "no remaining safety or executability blocker found in the reviewed final bytes",
+  "patch": {
+    "bytes": 156429,
+    "sha256": "7b6d51eda540496b3342014fc41bf5b2824fb37045402a9d2b4c82db11b9cb33"
+  },
+  "remaining_blockers_found": [],
+  "review_log_fabricated": false,
+  "review_method": "Read-only source and fake-test review, followed by file-only byte/hash comparison. No candidate code was executed or imported for this receipt.",
+  "review_scope": [
+    "Native constructor SDK call shapes: atomic JOB_LIST, explicit exact two capabilities and policy DWORD0 versus1, same actor/cwd/environment/profile, noninherit handles and CREATE_SUSPENDED.",
+    "External owner captures primary identity and TokenStatistics before the observer; AccessCheck02 separately opens QUERY|DUPLICATE and checks primary/identification duplicate identities and fixed descriptor results.",
+    "Both arm rows remain suspended for their entire lifetimes: no actor resume, GO, DNS/socket fixture, PSEC or proxy experiment; only exact ordinary icacls helper commands may resume.",
+    "Original T0/F/rootD and worker reserve remain fixed. Each arm is held by generation/image and exact inner/outer Job checks; source34/artifact/plan/worker binding and private stage gate remain closed.",
+    "Partial/unknown create, observer resource creation, alias or close failure retains recovery obligations and blocks profile deletion. Cleanup order covers actors, Jobs, exact SID ACL removal, cleanup tool Job, profile deletion and SID release.",
+    "Public projection excludes private identities and cannot promote preflight, mismatched worker, partial observation or unknown cleanup to observed. Supported semantic matrices are proposed controls, not measured LPAC or DNS facts.",
+    "Final fixed ordinary tool task delta retains exact icacls argv, per-tool existing TEMP/TMP, four-key environment, atomic Job construction, ordinary held token/image/dual-Job admission and scoped once stdio cleanup."
+  ],
+  "schema_version": 1,
+  "scope": "one-local-matched-ac-lpac-semantic-identity-no-network-v1",
+  "source_closure": {
+    "all_current_candidate_bytes_match_author_freeze": true,
+    "files": 34,
+    "sha256": "c4b7bd94a98cb81a71b2f45a1660f216a2d0025037628238cc81edd07aa276f8"
+  },
+  "stage": "work-only-matched-identity-cell-independent-static-review-01"
+}

@@ -1,0 +1,109 @@
+{
+  "actor_code_executed": false,
+  "automatic_cleanup_confirmed": true,
+  "class46_queried": false,
+  "dns_isolation_qualified": false,
+  "dns_tested": false,
+  "document": {
+    "bytes": 4698,
+    "path": "docs/validation/2026-10-23-lpac-identity-matrix.md",
+    "sha256": "af8c4cdc358a28db8dc5835c8bc6ba6688d88fc27e652a735b59f06e5f1794e5"
+  },
+  "evidence_index": {
+    "bytes": 2515,
+    "path": "verification/windows-2026-10-22/lpac-identity-local-01-evidence-index.json",
+    "sha256": "9d5bf23eb14ec8d4adfb772726764bdf2b890fd030a6b05ba920750cfd8b00e5"
+  },
+  "g_psec_tested": false,
+  "global_configuration_byte_equal": true,
+  "identity_observation": {
+    "ac_accesscheck_verified": true,
+    "ac_granted_access": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "ac_held_verified": true,
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "common_inputs_verified": true,
+    "failure": null,
+    "inner_complete": true,
+    "lpac_accesscheck_verified": true,
+    "lpac_granted_access": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "lpac_held_verified": true,
+    "never_resumed": true,
+    "observer_resources_cleanup_verified": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "nrpt_in_snapshot": false,
+  "observation_complete": true,
+  "original_public": {
+    "bytes": 1571,
+    "sha256": "86bf9b51fa2160c9ab54f7370fcb135b5f65b1d3772c580c47cd2643e394a7f8"
+  },
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "recovery_required": false,
+  "schema_version": 1,
+  "source_automatic_ci": {
+    "base_identity_actor_compiled_only": true,
+    "conclusion": "success",
+    "decoded_log": {
+      "bytes": 190853,
+      "kept_in_work": true,
+      "raw_github_log_zip": false,
+      "sha256": "18c92183c973e5363bd8f3d5cc6527efa84a30bfdc415ee3c398a813aa08409f"
+    },
+    "dns_executed": false,
+    "errors": 0,
+    "event": "push",
+    "failures": 0,
+    "gated_runtime_step_numbers_skipped": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "job_id": 120120193763,
+    "local_identity_actual_is_separate_evidence": true,
+    "native_actor_executed": false,
+    "proxy_c07_actor_compiled": false,
+    "run_attempt": 1,
+    "run_id": 39863618110,
+    "schema_version": 1,
+    "seconds": 39.418,
+    "skips": 0,
+    "source_commit": "ff08ccab07d0b07a5d7ef77e0e2c834858f73793",
+    "source_sha256": "c4b7bd94a98cb81a71b2f45a1660f216a2d0025037628238cc81edd07aa276f8",
+    "stage": "automatic-source-identity-pure-ci-readonly-review",
+    "status": "completed",
+    "tests_run": 804,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39863618110",
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "source_commit": "ff08ccab07d0b07a5d7ef77e0e2c834858f73793",
+  "source_review_index": {
+    "bytes": 1271,
+    "path": "verification/windows-2026-10-22/lpac-identity-cell-source-review-01/index.json",
+    "sha256": "97a539f10c37541bc108924f6e207415c953b468fe1e53ef13518329815e4420"
+  },
+  "source_sha256": "c4b7bd94a98cb81a71b2f45a1660f216a2d0025037628238cc81edd07aa276f8",
+  "stage": "matched-identity01-checkpoint",
+  "summary": {
+    "bytes": 2501,
+    "path": "verification/windows-2026-10-22/lpac-identity-local-01-summary.json",
+    "sha256": "8fc196d1d16bb03c6d8358a208ef233b1219b1ce88a3de9a302ef9c906a7722e"
+  }
+}

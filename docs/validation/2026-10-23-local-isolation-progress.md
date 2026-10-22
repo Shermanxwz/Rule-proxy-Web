@@ -1,6 +1,8 @@
 # Windows 本机应用级代理隔离：2026-10-23 检查点
 
-**LPAC03/04 后续：** [创建203与token查询87](2026-10-23-lpac-token-inspection.md)已分别保留。04接回既有KnownFolder环境后成功创建held进程，但class46查询87，身份仍unknown，未恢复actor或调用DNS；两轮均自动清理完成、全局快照字节与初始baseline相同。独立AC/LPAC身份对照尚未实际运行。
+**独立身份对照，2026-10-23：** [AC/LPAC 四矩阵实测](2026-10-23-lpac-identity-matrix.md)已通过；两臂全程暂停，全部自动清理和原 baseline 字节比较通过。原 class46/87 保留；DNS、PSEC 代理组合与 Linux 等效仍未验收。
+
+**LPAC03/04 后续：** [创建203与token查询87](2026-10-23-lpac-token-inspection.md)已分别保留。04接回既有KnownFolder环境后成功创建held进程，但class46查询87，身份仍unknown，未恢复actor或调用DNS；两轮均自动清理完成、全局快照字节与初始baseline相同。该检查点时独立AC/LPAC身份对照尚未运行；后续实测见上方链接。
 
 **LPAC 后续入口：** [两次创建阶段停止与独立恢复](2026-10-23-lpac-dns-mechanism.md)均发生在DNS查询前；原失败结果不改，专用profile/ACE已独立恢复，全局快照字节与初始baseline相同。尚无LPAC DNS阻断结果，不能替代上述泄漏反例。
 

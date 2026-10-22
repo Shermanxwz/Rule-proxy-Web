@@ -1,0 +1,1002 @@
+{
+  "actor_resumed": false,
+  "dns_tested": false,
+  "environment_metadata": {
+    "com": [
+      true,
+      0,
+      true,
+      true
+    ],
+    "deadline_verified": true,
+    "environment_version": 1,
+    "exact_child_keyset": true,
+    "hresult": 0,
+    "lookup_state": "ready",
+    "release_attempted": true,
+    "release_returned": true,
+    "variant": "systemroot_localappdata_v1"
+  },
+  "environment_values_or_paths_published": false,
+  "failure_detail": {
+    "canonical_private_sha256": null,
+    "present": false,
+    "raw_type_operation_message_published": false
+  },
+  "g_psec_tested": false,
+  "identity_observation": {
+    "ac_accesscheck_verified": true,
+    "ac_granted_access": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "ac_held_verified": true,
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "common_inputs_verified": true,
+    "failure": null,
+    "inner_complete": true,
+    "lpac_accesscheck_verified": true,
+    "lpac_granted_access": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "lpac_held_verified": true,
+    "never_resumed": true,
+    "observer_resources_cleanup_verified": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "independent_outer_launch_ledger_available": false,
+  "intents": [
+    {
+      "action": "profile-create",
+      "bytes": 307,
+      "sha256": "4f481cb6e313bddbe9eaac6d27be16fc7052a9bde8635f36df7320b37cfd8b32"
+    },
+    {
+      "action": "acl-grant",
+      "bytes": 302,
+      "sha256": "6cf3f10c8fe6fa11aee0dff6a2a951ee70fd07a797db014e1dff51adbbebfe9d"
+    },
+    {
+      "action": "spawn-grant-root",
+      "bytes": 309,
+      "sha256": "87c90fcec3f5ebe514de0e895d38d138bbae132b1f13b5c9f5ba0175cec1d6e1"
+    },
+    {
+      "action": "spawn-grant-inputs",
+      "bytes": 311,
+      "sha256": "c2d867c02ba63d29ff5a961ed20c47eb82263e301159d4bb509c1add4854b895"
+    },
+    {
+      "action": "spawn-ac",
+      "bytes": 301,
+      "sha256": "c53b820fc7ab0999cd4c917a851485e20d07dc8e10bdb4f59b38d706ff7a8145"
+    },
+    {
+      "action": "spawn-lpac",
+      "bytes": 303,
+      "sha256": "aa1a06ba05cfe96683fc6e18eef78df47c585aff026e629980ab14cdec9017e7"
+    },
+    {
+      "action": "observe-ac",
+      "bytes": 303,
+      "sha256": "6a5d96cb0da4010191c656183985696c59510b45c8903c3170e5179b279b0aaf"
+    },
+    {
+      "action": "observe-lpac",
+      "bytes": 305,
+      "sha256": "b70746d569c9d4ce8ad71c3d458174023cebb8cb47706272ee448376c061b99d"
+    },
+    {
+      "action": "workload-stop",
+      "bytes": 306,
+      "sha256": "6e1b34e956124a426661efcfb746d2a280a18ff06d98185e635107d2f887efa5"
+    },
+    {
+      "action": "acl-remove",
+      "bytes": 303,
+      "sha256": "e4d339cda0798da475449fd3229b61da1d51652f359bc8f11beeea4689ce741e"
+    },
+    {
+      "action": "spawn-remove",
+      "bytes": 305,
+      "sha256": "bf376b859fe5e882ab3eaf933b2821fcd17a22f166d2b931d0570a4403bbec0e"
+    },
+    {
+      "action": "profile-delete",
+      "bytes": 307,
+      "sha256": "ca3a896335796be5366e9a73e537756d7bebfb80663a233974212fe16f531904"
+    }
+  ],
+  "manifest_key_count": 13,
+  "native_source_pin_count": 9,
+  "network_tested": false,
+  "original_cleanup_confirmed": true,
+  "original_outer_held_checks_preserved": true,
+  "original_root_seconds": 120,
+  "outer_binding_limit": "Outer held image/token/Job/exit claims are source-bound original public checks. No synthetic launch ledger is created to replay them.",
+  "private_config": {
+    "bytes": 4930,
+    "sha256": "e9f39648d02a78344aacfd205ccd60cdd46a5dc0f2816acdd8463183caef7dc6"
+  },
+  "private_recovery_plan": {
+    "bytes": 1062,
+    "sha256": "a4d3ec5143bbc742b64f089e4104a135790915086ba3cb8201105daf953b7d30"
+  },
+  "private_worker_report": {
+    "bytes": 31025,
+    "sha256": "22c5e0a3451267c76dc804177fb85e0caa02917771c0c9a27a78d864d61826dd"
+  },
+  "product_acceptance": false,
+  "profile_state": {
+    "attempted": true,
+    "created": true,
+    "returned": true,
+    "sid_pointer_returned": true
+  },
+  "proofs": [
+    {
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 3,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              }
+            ],
+            "bytes": 72,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+          },
+          "descriptor_verified": true,
+          "granted_access": 1,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "canonical_private_proof_sha256": "d18159e21fde46542b4e5a68b4257a7533bf45a8a504d4b3d8d86df1f9881979",
+      "classification": "ac-semantic-match",
+      "dns_tested": false,
+      "duplicate_identification_bound": true,
+      "error_present": false,
+      "failure": null,
+      "generation_after": true,
+      "generation_before": true,
+      "network_tested": false,
+      "observation_complete": true,
+      "process_or_thread_impersonation_applied": false,
+      "product_acceptance": false,
+      "qualified": true,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-world",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-aap",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-arap",
+          "returned": true
+        }
+      ],
+      "role": "ac",
+      "source_primary_bound": true,
+      "token_class46_queried": false,
+      "win32_error": null
+    },
+    {
+      "calls": [
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 120,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "ee3c86d1f6cfc1dc651629670b2789f4da64b1b138ad964ad7ac5844c94c8129"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "combined",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              }
+            ],
+            "bytes": 72,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "9be942e409861151bb93da9abaf0d8033c2e3a7df4577f8d6d3b929bd44e0bea"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "world",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": false,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 1,
+                "principal": "AllApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "39e5fce56dc10aa4c1e55cbb35d1207042d6617608db16da8ac308a9861c2314"
+          },
+          "descriptor_verified": true,
+          "granted_access": 0,
+          "label": "aap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        },
+        {
+          "access_status": true,
+          "api_success": true,
+          "attempted": true,
+          "descriptor": {
+            "aces": [
+              {
+                "flags": 0,
+                "mask": 3,
+                "principal": "World",
+                "type": 0
+              },
+              {
+                "flags": 0,
+                "mask": 2,
+                "principal": "AllRestrictedApplicationPackages",
+                "type": 0
+              }
+            ],
+            "bytes": 96,
+            "group": "LocalSystem",
+            "owner": "LocalSystem",
+            "sha256": "15166e6015903b018e6c5d49ee7f2527f3d1f3768309fd473be49d1e3814e21a"
+          },
+          "descriptor_verified": true,
+          "granted_access": 2,
+          "label": "arap",
+          "privilege_count": 0,
+          "win32_error": null,
+          "within_deadline": true
+        }
+      ],
+      "canonical_private_proof_sha256": "28a4b51bcdc7c4cebdcb181ebf802f8f04e1ed30a8e25856df26516c76341b09",
+      "classification": "lpac-semantic-match",
+      "dns_tested": false,
+      "duplicate_identification_bound": true,
+      "error_present": false,
+      "failure": null,
+      "generation_after": true,
+      "generation_before": true,
+      "network_tested": false,
+      "observation_complete": true,
+      "process_or_thread_impersonation_applied": false,
+      "product_acceptance": false,
+      "qualified": true,
+      "resource_cleanup_verified": true,
+      "resources": [
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "source-primary",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "token",
+          "name": "duplicate-identification",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-combined",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-world",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-aap",
+          "returned": true
+        },
+        {
+          "alias": false,
+          "attempted": true,
+          "close_attempted": true,
+          "close_confirmed": true,
+          "close_uncertain": false,
+          "creation_returned": true,
+          "kind": "descriptor",
+          "name": "descriptor-arap",
+          "returned": true
+        }
+      ],
+      "role": "lpac",
+      "source_primary_bound": true,
+      "token_class46_queried": false,
+      "win32_error": null
+    }
+  ],
+  "proxy_tested": false,
+  "public_cleanup_and_completion_recomputed": true,
+  "public_identity_projection_independently_recomputed": true,
+  "raw_proofs_worker_logs_or_private_identity_published": false,
+  "raw_source_bytes_equal_git": true,
+  "schema_version": 1,
+  "scope": "one-local-matched-ac-lpac-semantic-identity-no-network-v1",
+  "source_commit": "ff08ccab07d0b07a5d7ef77e0e2c834858f73793",
+  "source_files": [
+    {
+      "bytes": 31002,
+      "git_blob": "189a70ee773534147387fc80beaf8de8e42d64e0",
+      "path": ".github/native/windows_identity_actor.cpp",
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553"
+    },
+    {
+      "bytes": 8847,
+      "git_blob": "92e1a015ad2e6773f9922911de21fbce84187c76",
+      "path": ".github/native/windows_identity_dns_raw_udp.hpp",
+      "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78"
+    },
+    {
+      "bytes": 6678,
+      "git_blob": "253e380beb1a801a2a23de2d51efed00c5a4f5cd",
+      "path": ".github/native/windows_identity_dns_standard_probe.hpp",
+      "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c"
+    },
+    {
+      "bytes": 16902,
+      "git_blob": "18e366eedbd598fa3624768197182e9bd7bb12f9",
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356"
+    },
+    {
+      "bytes": 49690,
+      "git_blob": "cdd21a2ae0fe11ae4bee5fe240470c8e31a9774d",
+      "path": ".github/native/windows_identity_proxy_c_actor.cpp",
+      "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3"
+    },
+    {
+      "bytes": 4313,
+      "git_blob": "77cb067a1fd2fcab60f82165da7bed2a5ae10a77",
+      "path": ".github/native/windows_identity_proxy_c_contract.hpp",
+      "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c"
+    },
+    {
+      "bytes": 25762,
+      "git_blob": "258a2d251441c612f1515923e9f85389519d5b37",
+      "path": ".github/native/windows_identity_proxy_origin_actor.cpp",
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010"
+    },
+    {
+      "bytes": 6338,
+      "git_blob": "df1c4a7ccc4d25fa0a4409a944433c6ec2c8a948",
+      "path": ".github/native/windows_identity_proxy_origin_transport.hpp",
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4"
+    },
+    {
+      "bytes": 16095,
+      "git_blob": "21a7422a803be5dd11411585d46c04aea5ec395d",
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0"
+    },
+    {
+      "bytes": 9913,
+      "git_blob": "b99c4101d99f4a7c9a2ebaae7a17153982e2bb72",
+      "path": ".github/windows_dns_fixture.py",
+      "sha256": "5a330ae54ec887742ed14c0d2fd1135e486790b686fbc850c3681f04e674273a"
+    },
+    {
+      "bytes": 11174,
+      "git_blob": "4e7c96043c4ed9f6e8fe68b8709080a2acafd5ae",
+      "path": ".github/windows_identity_dns_cases_fixture.py",
+      "sha256": "28b3035e570ef57fbb3a12f9b8034c71be3d9280712a811fdb636fdb388c9d91"
+    },
+    {
+      "bytes": 3083,
+      "git_blob": "2e8e6e79578b090fc9d0960c6dd50be167c53dec",
+      "path": ".github/windows_identity_dns_standard_inventory.ps1",
+      "sha256": "87d98b0463e031376b6c6d29f1a0db375f74639904d34023ee8bcffa8893dbf1"
+    },
+    {
+      "bytes": 34465,
+      "git_blob": "bc81581cd6d325df00a4f23f5cbbab3aec4cacae",
+      "path": ".github/windows_identity_lpac_accesscheck.py",
+      "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+    },
+    {
+      "bytes": 64394,
+      "git_blob": "3f8b65e6038fddf087837deee5e4a42fee729df4",
+      "path": ".github/windows_identity_lpac_dns_local.py",
+      "sha256": "aff8bd5d2a6b1dd688934f9f98fe66146d74a5365caf2ca2c53f6b934f10fd53"
+    },
+    {
+      "bytes": 46637,
+      "git_blob": "47e405c9b42343cbc60737301875fb479a47224e",
+      "path": ".github/windows_identity_lpac_identity_cell.py",
+      "sha256": "b7ffce514f00fbd44ce2e4bc77cd93dfe8285e90c608f5f1a82f30b025798105"
+    },
+    {
+      "bytes": 17560,
+      "git_blob": "75a930f6f5aa9c81e079c66a6a9e835bd0587da5",
+      "path": ".github/windows_identity_lpac_identity_local.py",
+      "sha256": "c92f7dea225ea038b88840434dc35c5059a1adb1786e58bb07e2ad2c8635e98e"
+    },
+    {
+      "bytes": 183555,
+      "git_blob": "9db1237dd31c442912ca67fd313601933223298c",
+      "path": ".github/windows_identity_model2_controller.py",
+      "sha256": "9ecc846082f03fcbb206e5610e86d9f2af06250f2f1b165187229ea5582cc2c1"
+    },
+    {
+      "bytes": 15307,
+      "git_blob": "e060260538b192537037acaf106197db26984984",
+      "path": ".github/windows_identity_model2_dns.py",
+      "sha256": "748b2e7e4adc7008e83d17e184659e7d428fa41a06958f738190b75133b02847"
+    },
+    {
+      "bytes": 6974,
+      "git_blob": "3120788d9999fc905304bd2a9e821e58aabb0b93",
+      "path": ".github/windows_identity_model2_dns_raw.py",
+      "sha256": "e0d06ceed384433597a47dfa839043ff4572774a8425b842f38f5fa69fc405c0"
+    },
+    {
+      "bytes": 10870,
+      "git_blob": "e7ec1a165e2ca8a8cb430bbcdf3c68759130adb3",
+      "path": ".github/windows_identity_model2_firewall.ps1",
+      "sha256": "0c78f295fe0a5a6ec2d7a04d58dcfb888767a9231928121493853519f1613cdb"
+    },
+    {
+      "bytes": 63254,
+      "git_blob": "251593c841842089436e337671eb2bb4d5c057f7",
+      "path": ".github/windows_identity_model2_live.py",
+      "sha256": "c27260065808dd9f180918b49ba907897a963ff360da9ca72dd9a735c36029fd"
+    },
+    {
+      "bytes": 33250,
+      "git_blob": "3e85e8d85e5cc8a9df36a181554a1cd5381d5ca8",
+      "path": ".github/windows_identity_model2_local.py",
+      "sha256": "e8aa1c1072469bfbf48cafc29ee1d8f09de228aa37ca0734187c9b1af98c6d45"
+    },
+    {
+      "bytes": 21567,
+      "git_blob": "e98efaa676a3faa4515f3fecc6a1e437a39545e6",
+      "path": ".github/windows_identity_model2_local_probe.py",
+      "sha256": "ec14c0d1b185da1deed651bb27726fdc114b4641181cfc29d998f2eac14e56bf"
+    },
+    {
+      "bytes": 25117,
+      "git_blob": "2eec1f2df867d1050cb6df2729d0241932b448ab",
+      "path": ".github/windows_identity_model2_maintenance.py",
+      "sha256": "68b6ce894d0dd544a61e19faf4d52f8388af9973a4f86f4dad35868842e38788"
+    },
+    {
+      "bytes": 67809,
+      "git_blob": "d7ab598e4b3b23163c2e137ae3d6e073e814b683",
+      "path": ".github/windows_identity_ordinary_launcher.py",
+      "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+    },
+    {
+      "bytes": 40122,
+      "git_blob": "04f26706084f2e5efe0b9fbbbede1c875274237f",
+      "path": ".github/windows_identity_pipe_probe.py",
+      "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+    },
+    {
+      "bytes": 52976,
+      "git_blob": "3b46c0a3e9b112287b8c50dd0f202181f52d398e",
+      "path": ".github/windows_identity_proof.py",
+      "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+    },
+    {
+      "bytes": 42871,
+      "git_blob": "34cd3d398909501117d55739161ec64835e0fd68",
+      "path": ".github/windows_identity_proxy_origin_probe.py",
+      "sha256": "33cfddf58caa8877bbe3f6b97132dfa45e9803c88df7c34f17a8501b1b560095"
+    },
+    {
+      "bytes": 14243,
+      "git_blob": "d0025381a60e693a87286b23affbbf9bf4585cc8",
+      "path": ".github/windows_identity_proxy_pipe_ac_guest.py",
+      "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+    },
+    {
+      "bytes": 35656,
+      "git_blob": "c6a637fb87d92225482db26e7f657d1163fe109f",
+      "path": ".github/windows_identity_proxy_pipe_ac_local.py",
+      "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+    },
+    {
+      "bytes": 75569,
+      "git_blob": "132ba52cfb7f16906f1affbaeb0fc5944439a640",
+      "path": ".github/windows_identity_proxy_pipe_probe.py",
+      "sha256": "e6bb37aa6f2c5a98dde44d63d097f7921775fd0d7858b95053f33565602df15b"
+    },
+    {
+      "bytes": 46167,
+      "git_blob": "1437f643e51eb22d4e43a9005f75d459d2b07aad",
+      "path": ".github/windows_psec_compartment_smoke.py",
+      "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+    },
+    {
+      "bytes": 20927,
+      "git_blob": "b07eb4b8591b7f85ba471a5f5c7311af9dd85fbd",
+      "path": "ruleproxy/windows_app_process.py",
+      "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+    },
+    {
+      "bytes": 2080,
+      "git_blob": "80ef91e8008d0c5cb7233922dc357cbd10225784",
+      "path": "ruleproxy/windows_runtime_pins.py",
+      "sha256": "2854702df1f2f7bfefce2b772920394033aaefaadf7b45de7b7d4a3fd1d73e65"
+    }
+  ],
+  "source_files_verified": 34,
+  "source_sha256": "c4b7bd94a98cb81a71b2f45a1660f216a2d0025037628238cc81edd07aa276f8",
+  "stage": "matched-ac-lpac-identity-private-safe-projection",
+  "stdio_files": [
+    {
+      "bytes": 0,
+      "component": "guard",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stdin"
+    },
+    {
+      "bytes": 0,
+      "component": "guard",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "guard",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "controller.stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-root",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 42,
+      "component": "tools/grant-root",
+      "observed": true,
+      "sha256": "faba33705af92f96bd8f26740daab37c0f8d91dc41af89ec4879ebe57b4ae695",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-root",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-inputs",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 42,
+      "component": "tools/grant-inputs",
+      "observed": true,
+      "sha256": "faba33705af92f96bd8f26740daab37c0f8d91dc41af89ec4879ebe57b4ae695",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/grant-inputs",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/remove",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stdin"
+    },
+    {
+      "bytes": 43,
+      "component": "tools/remove",
+      "observed": true,
+      "sha256": "41da62d6f3a222b8cad52b1c0f232aaf369ad1bda3e1a6c6b421075ca7921062",
+      "stream": "stdout"
+    },
+    {
+      "bytes": 0,
+      "component": "tools/remove",
+      "observed": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stream": "stderr"
+    }
+  ],
+  "task_observations": [
+    {
+      "assigned": true,
+      "capability_count": 0,
+      "class46_queried": false,
+      "cleanup_stop_exit": false,
+      "constructor_attempted": true,
+      "create_return": "returned_true",
+      "create_return_timely": true,
+      "create_win32_error": null,
+      "exit_code": 0,
+      "exited": true,
+      "generation_available": true,
+      "held_admitted": true,
+      "held_generation_checks": 0,
+      "image_sha256": "cb9e55d4c02f4e55100724d2da9a1267f49e196bd39fcdf36cec6ea6314fad2a",
+      "known_no_child": false,
+      "lpac_readback": null,
+      "natural_exit": true,
+      "policy": null,
+      "process_information": "nonzero",
+      "process_returned": true,
+      "resumed": true,
+      "role": "grant-root"
+    },
+    {
+      "assigned": true,
+      "capability_count": 0,
+      "class46_queried": false,
+      "cleanup_stop_exit": false,
+      "constructor_attempted": true,
+      "create_return": "returned_true",
+      "create_return_timely": true,
+      "create_win32_error": null,
+      "exit_code": 0,
+      "exited": true,
+      "generation_available": true,
+      "held_admitted": true,
+      "held_generation_checks": 0,
+      "image_sha256": "cb9e55d4c02f4e55100724d2da9a1267f49e196bd39fcdf36cec6ea6314fad2a",
+      "known_no_child": false,
+      "lpac_readback": null,
+      "natural_exit": true,
+      "policy": null,
+      "process_information": "nonzero",
+      "process_returned": true,
+      "resumed": true,
+      "role": "grant-inputs"
+    },
+    {
+      "assigned": true,
+      "capability_count": 2,
+      "class46_queried": false,
+      "cleanup_stop_exit": true,
+      "constructor_attempted": true,
+      "create_return": "returned_true",
+      "create_return_timely": true,
+      "create_win32_error": null,
+      "exit_code": 1,
+      "exited": true,
+      "generation_available": true,
+      "held_admitted": true,
+      "held_generation_checks": 6,
+      "image_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+      "known_no_child": false,
+      "lpac_readback": null,
+      "natural_exit": false,
+      "policy": 0,
+      "process_information": "nonzero",
+      "process_returned": true,
+      "resumed": false,
+      "role": "ac"
+    },
+    {
+      "assigned": true,
+      "capability_count": 2,
+      "class46_queried": false,
+      "cleanup_stop_exit": true,
+      "constructor_attempted": true,
+      "create_return": "returned_true",
+      "create_return_timely": true,
+      "create_win32_error": null,
+      "exit_code": 1,
+      "exited": true,
+      "generation_available": true,
+      "held_admitted": true,
+      "held_generation_checks": 6,
+      "image_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+      "known_no_child": false,
+      "lpac_readback": null,
+      "natural_exit": false,
+      "policy": 1,
+      "process_information": "nonzero",
+      "process_returned": true,
+      "resumed": false,
+      "role": "lpac"
+    },
+    {
+      "assigned": true,
+      "capability_count": 0,
+      "class46_queried": false,
+      "cleanup_stop_exit": false,
+      "constructor_attempted": true,
+      "create_return": "returned_true",
+      "create_return_timely": true,
+      "create_win32_error": null,
+      "exit_code": 0,
+      "exited": true,
+      "generation_available": true,
+      "held_admitted": true,
+      "held_generation_checks": 0,
+      "image_sha256": "cb9e55d4c02f4e55100724d2da9a1267f49e196bd39fcdf36cec6ea6314fad2a",
+      "known_no_child": false,
+      "lpac_readback": null,
+      "natural_exit": true,
+      "policy": null,
+      "process_information": "nonzero",
+      "process_returned": true,
+      "resumed": true,
+      "role": "remove"
+    }
+  ],
+  "token_class46_queried": false,
+  "worker_seconds": 115
+}

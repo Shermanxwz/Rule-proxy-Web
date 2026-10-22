@@ -1,0 +1,41 @@
+{
+  "candidate_receipts_preserve_preactual_state": true,
+  "files": [
+    {
+      "bytes": 156429,
+      "path": "complete.patch",
+      "sha256": "7b6d51eda540496b3342014fc41bf5b2824fb37045402a9d2b4c82db11b9cb33"
+    },
+    {
+      "bytes": 6935,
+      "path": "freeze.json",
+      "sha256": "378cf8b6492f055500a2125f020598c82a6184ea38ec03ca454a6b9569878745"
+    },
+    {
+      "bytes": 2631,
+      "path": "abi.json",
+      "sha256": "ba6500982b9a0c42934a93861951b1603f599506577a590c956cc3a5a5597d8b"
+    },
+    {
+      "bytes": 9864,
+      "path": "candidate-pure.log",
+      "sha256": "c32dce7e019b6e3c5c6ef5b7a6103605b0adfc0ad9e720a8790f7f94fd42b3ef"
+    },
+    {
+      "bytes": 6669,
+      "path": "independent-review.json",
+      "sha256": "811618128c5ebb20b095ef1dfbfdcafb25695228aa56b59d96a660835eeb57a8"
+    },
+    {
+      "bytes": 1952,
+      "path": "pure-tests.json",
+      "sha256": "47ba5556348c597430406515d7dfea713cf8d5613c3d125352c2fac013fb964d"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "schema_version": 1,
+  "source_code_installed_at_commit": true,
+  "source_commit": "ff08ccab07d0b07a5d7ef77e0e2c834858f73793",
+  "source_sha256": "c4b7bd94a98cb81a71b2f45a1660f216a2d0025037628238cc81edd07aa276f8",
+  "stage": "source-identity-review-index"
+}

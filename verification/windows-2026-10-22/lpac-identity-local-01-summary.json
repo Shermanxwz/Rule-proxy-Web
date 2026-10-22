@@ -1,0 +1,79 @@
+{
+  "actor_code_executed": false,
+  "actor_resumed": false,
+  "actor_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+  "attempt": 1,
+  "automatic_cleanup_confirmed": true,
+  "both_actor_roles_observed": true,
+  "broker_cancellation_proven": false,
+  "broker_pid_attributed": false,
+  "dns_isolation_qualified": false,
+  "dns_tested": false,
+  "g_psec_tested": false,
+  "global_after_capture_available": true,
+  "global_configuration_byte_equal": true,
+  "held_pair_proof_count": 2,
+  "identity_observation": {
+    "ac_accesscheck_verified": true,
+    "ac_granted_access": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "ac_held_verified": true,
+    "acl_removed": true,
+    "cleanup_tools": true,
+    "common_inputs_verified": true,
+    "failure": null,
+    "inner_complete": true,
+    "lpac_accesscheck_verified": true,
+    "lpac_granted_access": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "lpac_held_verified": true,
+    "never_resumed": true,
+    "observer_resources_cleanup_verified": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup": true,
+    "workload_job_empty": true
+  },
+  "manifest_key_count": 13,
+  "manifest_sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+  "native_source_pin_count": 9,
+  "network_tested": false,
+  "no_earlier_attempt_reinterpretation": true,
+  "no_network_or_psec_repair_or_causal_dns_claim": true,
+  "observation_complete": true,
+  "ordinary_tools_natural_exit_zero": 3,
+  "original_failure": null,
+  "original_public": {
+    "bytes": 1571,
+    "sha256": "86bf9b51fa2160c9ab54f7370fcb135b5f65b1d3772c580c47cd2643e394a7f8"
+  },
+  "original_recovery_required": false,
+  "original_status": "observed",
+  "private_config": {
+    "bytes": 4930,
+    "sha256": "e9f39648d02a78344aacfd205ccd60cdd46a5dc0f2816acdd8463183caef7dc6"
+  },
+  "private_worker_report": {
+    "bytes": 31025,
+    "sha256": "22c5e0a3451267c76dc804177fb85e0caa02917771c0c9a27a78d864d61826dd"
+  },
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "schema_version": 1,
+  "scope": "one-local-matched-ac-lpac-semantic-identity-no-network-v1",
+  "separate_recovery_not_inferred": true,
+  "source_commit": "ff08ccab07d0b07a5d7ef77e0e2c834858f73793",
+  "source_files_verified": 34,
+  "source_git_blob_bytes_verified": true,
+  "source_sha256": "c4b7bd94a98cb81a71b2f45a1660f216a2d0025037628238cc81edd07aa276f8",
+  "stage": "matched-ac-lpac-identity-actual01-summary",
+  "token_class46_queried": false
+}

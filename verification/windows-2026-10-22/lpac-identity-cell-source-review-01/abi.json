@@ -1,0 +1,107 @@
+{
+  "accesscheck_revision": 2,
+  "actor_command": "image-only fixed identical command",
+  "actor_environment_keys": [
+    "SystemRoot",
+    "LOCALAPPDATA"
+  ],
+  "actor_go_count": 0,
+  "actor_image": "windows_identity_proxy_c_actor.exe",
+  "actor_inherit_handles": false,
+  "actor_resume_authorized": false,
+  "actor_stdio_inherited": false,
+  "actor_token_information_class46_queried": false,
+  "actual_ready": false,
+  "api_version": 1,
+  "arms": [
+    "ac",
+    "lpac"
+  ],
+  "base_owner_revision": 6,
+  "capability_attributes": 4,
+  "cleanup_order": [
+    "durable intent",
+    "held actors exit plus inner Job empty",
+    "one-shot workload handles",
+    "exact SID ACE remove and all-tree absence readback",
+    "cleanup helper Job and handles closed",
+    "delete exact fresh profile",
+    "release SID once"
+  ],
+  "cleanup_tools_reserve_seconds": 3,
+  "config_keys": [
+    "ac_nonce",
+    "actor_sha256",
+    "capability_catalog",
+    "deadline_qpc",
+    "device_sha256",
+    "frequency",
+    "guard_job_name",
+    "lpac_nonce",
+    "manifest_sha256",
+    "recovery_plan_sha256",
+    "root_deadline_qpc",
+    "run",
+    "schema_version",
+    "scope",
+    "source_hashes",
+    "source_sha256",
+    "start_qpc"
+  ],
+  "default_preflight_read_only": true,
+  "entry": ".github/windows_identity_lpac_identity_local.py",
+  "exact_capabilities": [
+    "AgenticAppContainer",
+    "privateNetworkClientServer"
+  ],
+  "excluded_claims": [
+    "Microsoft IsLPAC API guarantee",
+    "G/PSEC compatibility",
+    "proxy isolation",
+    "DNS isolation",
+    "network behavior",
+    "product acceptance"
+  ],
+  "expected_matrices": {
+    "ac": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "lpac": [
+      2,
+      0,
+      0,
+      2
+    ]
+  },
+  "explicit_flag": "--run-local-lpac-identity",
+  "inner_module": ".github/windows_identity_lpac_identity_cell.py",
+  "inner_work_reserve_seconds": 25,
+  "native_manifest_keys": 13,
+  "native_pins": 9,
+  "nonces": [
+    "run",
+    "ac_nonce",
+    "lpac_nonce"
+  ],
+  "ordinary_helpers": [
+    "fixed System32/icacls.exe grant-root RX",
+    "fixed System32/icacls.exe grant-inputs inheritable RX",
+    "fixed System32/icacls.exe remove exact owned SID recursively"
+  ],
+  "policy_values": [
+    0,
+    1
+  ],
+  "report_reserve_seconds": 1,
+  "root_seconds": 120,
+  "same_profile": true,
+  "schema_version": 1,
+  "scope": "one-local-matched-ac-lpac-semantic-identity-no-network-v1",
+  "source_count": 34,
+  "unknown_recovery": "Retain private stage and source/config/profile/intent receipts; no implicit retry or takeover.",
+  "worker_seconds": 115,
+  "workload_cleanup_reserve_seconds": 8
+}

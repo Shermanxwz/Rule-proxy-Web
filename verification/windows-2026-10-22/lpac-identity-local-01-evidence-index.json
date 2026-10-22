@@ -1,0 +1,61 @@
+{
+  "archive_process_experiment_run": false,
+  "files": [
+    {
+      "bytes": 1571,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-public.json",
+      "sha256": "86bf9b51fa2160c9ab54f7370fcb135b5f65b1d3772c580c47cd2643e394a7f8"
+    },
+    {
+      "bytes": 1140,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-preflight.json",
+      "sha256": "4a329fffb15a236f3c220337192a9bc265cf208647416d88a189b2fe37508971"
+    },
+    {
+      "bytes": 3129,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-runner.py",
+      "sha256": "f1b917167c19b767d02cfbbebf52f6fc31ef23646f42fab46e64f15922a4d7f9"
+    },
+    {
+      "bytes": 1011,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-after-global-capture.ps1",
+      "sha256": "95650fcb0daef391b71538768af11d3cb9a8e011418f4255f82e414409ae4bd0"
+    },
+    {
+      "bytes": 1999,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-after-global-expanded.ps1",
+      "sha256": "cd369d4038f3839d36baf28a7e5fcea361190d532196b2f198f0c5f45c48118a"
+    },
+    {
+      "bytes": 26801,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-archive.py",
+      "sha256": "b9354442d6044865a217b7761375c411e2009fab8683344c2291bc8e11a36ef0"
+    },
+    {
+      "bytes": 31593,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-component-projection.json",
+      "sha256": "e35f5157f903c410e931e525684f431cd04eb76d624c8df53b31f49745ae0b39"
+    },
+    {
+      "bytes": 494,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-global-projection.json",
+      "sha256": "a3bbfe1ff4bc136abbef76e85d42c937001ad25fb2798ec3e0e7b9b7c05c45dd"
+    },
+    {
+      "bytes": 2501,
+      "path": "verification/windows-2026-10-22/lpac-identity-local-01-summary.json",
+      "sha256": "8fc196d1d16bb03c6d8358a208ef233b1219b1ce88a3de9a302ef9c906a7722e"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "native_api_instantiated": false,
+  "network_operation_run": false,
+  "original_public_sha256": "86bf9b51fa2160c9ab54f7370fcb135b5f65b1d3772c580c47cd2643e394a7f8",
+  "policy_or_recovery_run": false,
+  "private_stage_or_logs_published": false,
+  "schema_version": 1,
+  "scope": "one-local-matched-ac-lpac-semantic-identity-no-network-v1",
+  "source_commit": "ff08ccab07d0b07a5d7ef77e0e2c834858f73793",
+  "source_sha256": "c4b7bd94a98cb81a71b2f45a1660f216a2d0025037628238cc81edd07aa276f8",
+  "stage": "matched-ac-lpac-identity-actual01-evidence-index"
+}

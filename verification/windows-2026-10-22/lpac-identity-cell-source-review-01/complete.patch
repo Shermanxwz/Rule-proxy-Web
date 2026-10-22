@@ -1,0 +1,2141 @@
+diff --git a/.github/windows_identity_lpac_accesscheck.py b/.github/windows_identity_lpac_accesscheck.py
+new file mode 100644
+--- /dev/null
++++ b/.github/windows_identity_lpac_accesscheck.py
+@@ -0,0 +1,533 @@
++"""Work-only held-token LPAC semantics. No process launch or impersonation.
++
++This module has no runtime CLI. NativeAPI is constructed only explicitly. An
++external owner must hold the process/primary token, bind its image and Job,
++enforce the original absolute deadline, and retain partial/unknown resources.
++No TokenInformationClass46 query, network operation, or OS policy edit exists.
++"""
++from __future__ import annotations
++import ctypes as C
++import hashlib
++import json
++import os
++
++PROFILE = 'chromium-four-descriptor-lpac-v1'
++PIN = dict(repository='chromium/chromium', commit='fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e',
++    path='sandbox/win/src/app_container_test.cc', git_blob='d899e19da24b8f69ab1ffc1edcfb1e7b75ec9eb3',
++    sha256='16968f8bb72d1fbc74c053dcb2f19de3c594a17b763cb56b47faab1cd496bda0')
++WORLD, AAP, ARAP, SYSTEM = 'S-1-1-0', 'S-1-15-2-1', 'S-1-15-2-2', 'S-1-5-18'
++LABELS = ('combined', 'world', 'aap', 'arap')
++AC_ACES = ((WORLD, 3), (AAP, 1), (ARAP, 2))
++ACES = dict(combined=AC_ACES, world=((WORLD, 3),), aap=((WORLD, 3), (AAP, 1)), arap=((WORLD, 3), (ARAP, 2)))
++SDDLS = {k: 'O:SYG:SYD:' + ''.join('(A;;0x%x;;;%s)' % (mask, sid) for sid, mask in v) for k, v in ACES.items()}
++EXPECTED = dict(ac=(3, 0, 1, 2), lpac=(2, 0, 0, 2))
++IDENTITY_KEYS = {'sid', 'session_id', 'token_type', 'impersonation_level', 'appcontainer', 'appcontainer_sid',
++    'integrity_rid', 'elevated', 'ui_access', 'capabilities', 'token_id', 'authentication_id'}
++RESOURCE_KEYS = {'name', 'kind', 'attempted', 'creation_returned', 'returned', 'close_attempted', 'close_confirmed', 'close_uncertain', 'alias'}
++CALL_KEYS = {'label', 'descriptor', 'descriptor_verified', 'attempted', 'api_success', 'win32_error', 'access_status',
++    'granted_access', 'privilege_count', 'start_qpc', 'end_qpc', 'within_deadline'}
++FAILURES = {'input', 'clock', 'process', 'open_token', 'source_identity', 'duplicate_token', 'duplicate_identity',
++    'descriptor', 'access_check', 'mask', 'close', 'unexpected'}
++MAXIMUM_ALLOWED = 0x02000000
++TOKEN_QUERY, TOKEN_DUPLICATE = 8, 2
++sha = lambda b: hashlib.sha256(b).hexdigest()
++encode = lambda v: (json.dumps(v, sort_keys=True, separators=(',', ':'), ensure_ascii=True) + '\n').encode('ascii')
++
++
++def require(ok, code):
++    if not ok:
++        raise ValueError(code)
++
++
++def integer(v, lo=0, hi=0xffffffff):
++    return type(v) is int and lo <= v <= hi
++
++
++def digest(v):
++    return type(v) is str and len(v) == 64 and all(c in '0123456789abcdef' for c in v)
++
++
++def descriptor_expected(label):
++    require(label in LABELS, 'descriptor')
++    return dict(revision=1, control=0x8004, owner=SYSTEM, group=SYSTEM,
++        owner_defaulted=False, group_defaulted=False, dacl_present=True, dacl_defaulted=False,
++        aces=[dict(type=0, flags=0, mask=mask, sid=sid) for sid, mask in ACES[label]])
++
++
++def identity(value, *, primary):
++    identity_shape(value)
++    require(type(value['sid']) is str and value['sid'].startswith('S-1-') and integer(value['session_id'])
++        and type(value['appcontainer']) is bool and type(value['elevated']) is bool and type(value['ui_access']) is bool
++        and integer(value['integrity_rid']) and integer(value['token_id'], 0, 0xffffffffffffffff)
++        and integer(value['authentication_id'], 0, 0xffffffffffffffff), 'identity')
++    require(value['appcontainer'] is True and type(value['appcontainer_sid']) is str
++        and value['appcontainer_sid'].startswith('S-1-15-2-') and value['elevated'] is False
++        and value['ui_access'] is False and value['integrity_rid'] == 4096, 'container_identity')
++    require(value['token_type'] == (1 if primary else 2) and value['impersonation_level'] == (None if primary else 1), 'token_kind')
++    caps = value['capabilities']
++    require(type(caps) is list and len(caps) == 2 and all(type(e) is dict and set(e) == {'sid', 'attributes'}
++        and type(e['sid']) is str and e['sid'].startswith('S-1-15-3-') and type(e['attributes']) is int
++        and e['attributes'] == 4 for e in caps) and len({e['sid'] for e in caps}) == 2, 'capabilities')
++    require(caps == sorted(caps, key=lambda e: e['sid']), 'capability_order')
++    return value
++
++
++def identity_shape(value):
++    """Retain typed mismatches without treating them as a qualified identity."""
++    require(type(value) is dict and set(value) == IDENTITY_KEYS, 'identity')
++    require(type(value['sid']) is str and integer(value['session_id']) and integer(value['token_type'], 1, 2)
++        and (value['impersonation_level'] is None or integer(value['impersonation_level'], 0, 3))
++        and all(type(value[k]) is bool for k in ('appcontainer', 'elevated', 'ui_access'))
++        and (value['appcontainer_sid'] is None or type(value['appcontainer_sid']) is str)
++        and integer(value['integrity_rid']) and integer(value['token_id'], 0, 0xffffffffffffffff)
++        and integer(value['authentication_id'], 0, 0xffffffffffffffff), 'identity_shape')
++    require(type(value['capabilities']) is list and len(value['capabilities']) <= 64
++        and all(type(e) is dict and set(e) == {'sid', 'attributes'} and type(e['sid']) is str
++            and integer(e['attributes']) for e in value['capabilities']), 'identity_shape')
++    return value
++
++
++def duplicate_matches(source, duplicate):
++    identity(source, primary=True)
++    identity(duplicate, primary=False)
++    return all(source[k] == duplicate[k] for k in IDENTITY_KEYS - {'token_type', 'impersonation_level', 'token_id'})
++
++
++class ApiError(Exception):
++    def __init__(self, operation, code):
++        self.operation, self.code = operation, int(code)
++        super().__init__(operation)
++
++
++class _Owned:
++    def __init__(self, api, name, kind, rows, live):
++        self.api, self.value, self.live = api, None, live
++        self.row = dict(name=name, kind=kind, attempted=False, creation_returned=False, returned=False,
++            close_attempted=False, close_confirmed=False, close_uncertain=False, alias=False)
++        rows.append(self.row)
++
++    def begin(self):
++        self.row['attempted'] = True
++
++    def returned(self, value):
++        self.row['creation_returned'] = True
++        if value:
++            self.value = int(value)
++            self.row['returned'] = True
++            key = (self.row['kind'], self.value)
++            if key in self.live:
++                self.row['alias'] = self.row['close_uncertain'] = True
++            else:
++                self.live.add(key)
++
++    def close(self):
++        if not self.row['creation_returned'] and self.row['attempted']:
++            self.row['close_uncertain'] = True
++        if self.value and not self.row['close_attempted'] and not self.row['alias']:
++            self.row['close_attempted'] = True
++            value, self.value = self.value, None  # consume before the API; never retry uncertain close
++            try:
++                ok = self.api.close_token(value) if self.row['kind'] == 'token' else self.api.free_descriptor(value)
++                self.row['close_confirmed'] = ok is True
++            except BaseException:
++                self.row['close_confirmed'] = False
++            self.row['close_uncertain'] |= not self.row['close_confirmed']
++            self.live.discard((self.row['kind'], value))
++
++
++def resources_clean(rows):
++    return all(not r['close_uncertain'] and not r['alias'] and (not r['attempted'] or r['creation_returned'])
++        and (not r['returned'] or r['close_attempted'] and r['close_confirmed']) for r in rows)
++
++
++def observe_held(api, process, expected_primary_identity, *, expected_pid, expected_creation,
++                 expected_role, frequency, deadline):
++    """Read and duplicate ONLY an independently held process's primary token.
++
++    expected_primary_identity is the owner's prior primary-token snapshot,
++    including TokenStatistics.TokenId/AuthenticationId. It is not adapted to
++    observed results. No token is assigned to a process/thread by this module.
++    """
++    r = dict(schema_version=1, stage='held-appcontainer-accesscheck', profile=PROFILE, source_pin=PIN.copy(),
++        expected_role=expected_role, expected_primary_identity_sha256=sha(encode(expected_primary_identity)),
++        process_id=expected_pid, process_creation=expected_creation, frequency=frequency, deadline_qpc=deadline,
++        start_qpc=None, end_qpc=None, generation_before=False, generation_after=False,
++        source_primary=None, duplicate=None, source_identity_bound=False, duplicate_identity_bound=False,
++        calls=[], resources=[], resource_cleanup_verified=False, observation_complete=False,
++        qualified=False, classification='unknown', failure=None, error=None,
++        token_class46_queried=False, process_or_thread_impersonation_applied=False, network_tested=False,
++        dns_tested=False, product_acceptance=False)
++    live = set()
++    source = _Owned(api, 'source-primary', 'token', r['resources'], live)
++    duplicate = _Owned(api, 'duplicate-identification', 'token', r['resources'], live)
++    phase = 'input'
++
++    def tick():
++        v = api.qpc()
++        require(integer(v, 1, 0x7fffffffffffffff) and v < deadline, 'clock')
++        return v
++
++    try:
++        identity(expected_primary_identity, primary=True)
++        require(expected_role in EXPECTED and integer(process, 1, 0xffffffffffffffff)
++            and integer(expected_pid, 1) and integer(expected_creation, 1, 0x7fffffffffffffff)
++            and integer(frequency, 1, 1000000000) and integer(deadline, 1, 0x7fffffffffffffff), 'input')
++        phase = 'clock'
++        require(api.frequency() == frequency, 'clock')
++        r['start_qpc'] = tick()
++        require(deadline - r['start_qpc'] <= 120 * frequency, 'clock')
++        phase = 'process'
++        require(api.verify_process(process, expected_pid, expected_creation) is True, 'process')
++        r['generation_before'] = True
++        phase = 'open_token'; tick(); source.begin()
++        ok, handle, error = api.open_token(process, TOKEN_QUERY | TOKEN_DUPLICATE)
++        source.returned(handle)
++        if not ok or not handle:
++            raise ApiError('OpenProcessToken', error)
++        phase = 'source_identity'; tick()
++        r['source_primary'] = api.identity(handle)
++        identity(r['source_primary'], primary=True)
++        require(r['source_primary'] == expected_primary_identity, 'source_identity')
++        r['source_identity_bound'] = True
++        phase = 'duplicate_token'; tick(); duplicate.begin()
++        ok, handle, error = api.duplicate_token(source.value, TOKEN_QUERY, 1, 2)
++        duplicate.returned(handle)
++        if not ok or not handle:
++            raise ApiError('DuplicateTokenEx', error)
++        require(not duplicate.row['alias'], 'duplicate_token')
++        phase = 'duplicate_identity'; tick()
++        r['duplicate'] = api.identity(handle)
++        require(duplicate_matches(r['source_primary'], r['duplicate']), 'duplicate_identity')
++        r['duplicate_identity_bound'] = True
++        for label, expected in zip(LABELS, EXPECTED[expected_role]):
++            phase = 'descriptor'
++            call = dict(label=label, descriptor=None, descriptor_verified=False, attempted=False,
++                api_success=None, win32_error=None, access_status=None, granted_access=None, privilege_count=None,
++                start_qpc=None, end_qpc=None, within_deadline=False)
++            r['calls'].append(call)
++            sd = _Owned(api, 'descriptor-' + label, 'descriptor', r['resources'], live)
++            try:
++                tick(); sd.begin()
++                ok, pointer, error = api.create_descriptor(SDDLS[label])
++                sd.returned(pointer)
++                if not ok or not pointer:
++                    raise ApiError('ConvertStringSecurityDescriptorToSecurityDescriptorW', error)
++                require(not sd.row['alias'], 'descriptor')
++                call['descriptor'] = api.describe_descriptor(pointer)
++                observed = {k: v for k, v in call['descriptor'].items() if k not in ('bytes', 'sha256')}
++                require(observed == descriptor_expected(label) and integer(call['descriptor']['bytes'], 20, 4096)
++                    and digest(call['descriptor']['sha256']), 'descriptor')
++                call['descriptor_verified'] = True
++                phase = 'access_check'; call['start_qpc'] = tick(); call['attempted'] = True
++                ok, status, granted, privileges, error = api.access_check(pointer, duplicate.value, MAXIMUM_ALLOWED, (0, 0, 0, 0))
++                require(type(ok) is bool, 'access_check')
++                call['api_success'] = ok
++                if ok:
++                    require(type(status) is bool and integer(granted) and integer(privileges, 0, 64), 'access_check')
++                    call.update(access_status=status, granted_access=granted, privilege_count=privileges)
++                else:
++                    require(integer(error), 'access_check')
++                    call['win32_error'] = error  # other output bytes are INVALID on API failure
++                call['end_qpc'] = api.qpc()
++                call['within_deadline'] = (integer(call['end_qpc'], 1, 0x7fffffffffffffff)
++                    and call['start_qpc'] <= call['end_qpc'] < deadline)
++                if not ok:
++                    raise ApiError('AccessCheck', error)
++                require(call['within_deadline'], 'clock')
++                require(privileges == 0 and granted == expected and status is bool(expected), 'mask')
++            finally:
++                sd.close()
++            require(not sd.row['close_uncertain'], 'close')
++        phase = 'process'; tick()
++        require(api.verify_process(process, expected_pid, expected_creation) is True, 'process')
++        r['generation_after'] = True
++        phase = 'source_identity'; tick()
++        require(api.identity(source.value) == expected_primary_identity, 'source_identity')
++    except BaseException as exc:
++        code = str(exc) if type(exc) is ValueError else phase
++        r['failure'] = code if code in FAILURES else phase if phase in FAILURES else 'unexpected'
++        if isinstance(exc, ApiError):
++            r['error'] = dict(operation=exc.operation, win32_error=exc.code)
++    finally:
++        duplicate.close(); source.close()
++        r['resource_cleanup_verified'] = resources_clean(r['resources'])
++        if not r['resource_cleanup_verified']:
++            r['failure'] = r['failure'] or 'close'
++        try:
++            r['end_qpc'] = api.qpc()
++        except BaseException:
++            r['end_qpc'] = None
++        if r['start_qpc'] is None or not integer(r['end_qpc'], r['start_qpc'] or 1, deadline - 1):
++            r['failure'] = r['failure'] or 'clock'
++    r['observation_complete'] = (len(r['calls']) == 4 and all(c['descriptor_verified'] and c['api_success'] is True
++        and c['within_deadline'] for c in r['calls']) and r['generation_before'] and r['generation_after']
++        and r['source_identity_bound'] and r['duplicate_identity_bound'] and r['resource_cleanup_verified'])
++    r['qualified'] = r['observation_complete'] and r['failure'] is None
++    if r['qualified']:
++        r['classification'] = expected_role + '-semantic-match'
++    validate_proof(r, expected_primary_identity=expected_primary_identity, expected_role=expected_role,
++        expected_pid=expected_pid, expected_creation=expected_creation, frequency=frequency, deadline=deadline)
++    return r
++
++
++def validate_proof(r, *, expected_primary_identity, expected_role, expected_pid, expected_creation, frequency, deadline):
++    keys = {'schema_version', 'stage', 'profile', 'source_pin', 'expected_role', 'expected_primary_identity_sha256',
++        'process_id', 'process_creation', 'frequency', 'deadline_qpc', 'start_qpc', 'end_qpc', 'generation_before', 'generation_after',
++        'source_primary', 'duplicate', 'source_identity_bound', 'duplicate_identity_bound', 'calls', 'resources',
++        'resource_cleanup_verified', 'observation_complete', 'qualified', 'classification', 'failure', 'error',
++        'token_class46_queried', 'process_or_thread_impersonation_applied', 'network_tested', 'dns_tested', 'product_acceptance'}
++    require(type(r) is dict and set(r) == keys and type(r['schema_version']) is int and r['schema_version'] == 1
++        and r['stage'] == 'held-appcontainer-accesscheck' and r['profile'] == PROFILE and r['source_pin'] == PIN, 'proof_schema')
++    require(r['expected_role'] == expected_role and r['expected_primary_identity_sha256'] == sha(encode(expected_primary_identity))
++        and r['process_id'] == expected_pid and r['process_creation'] == expected_creation and r['frequency'] == frequency
++        and r['deadline_qpc'] == deadline, 'proof_binding')
++    for k in ('generation_before', 'generation_after', 'source_identity_bound', 'duplicate_identity_bound', 'resource_cleanup_verified',
++              'observation_complete', 'qualified', 'token_class46_queried', 'process_or_thread_impersonation_applied', 'network_tested', 'dns_tested', 'product_acceptance'):
++        require(type(r[k]) is bool, 'proof_boolean')
++    require(not any(r[k] for k in ('token_class46_queried', 'process_or_thread_impersonation_applied', 'network_tested', 'dns_tested', 'product_acceptance')), 'proof_scope')
++    require(r['failure'] is None or r['failure'] in FAILURES, 'proof_failure')
++    require(r['classification'] in ('unknown', 'ac-semantic-match', 'lpac-semantic-match'), 'classification')
++    if r['source_primary'] is not None:
++        identity_shape(r['source_primary'])
++    require(not r['source_identity_bound'] or r['source_primary'] == expected_primary_identity and r['generation_before'], 'source_binding')
++    if r['duplicate'] is not None:
++        # Invalid duplicate observations remain failure evidence; they cannot qualify.
++        identity_shape(r['duplicate'])
++    require(not r['duplicate_identity_bound'] or r['source_identity_bound'] and duplicate_matches(r['source_primary'], r['duplicate']), 'duplicate_binding')
++    resources = r['resources']
++    require(type(resources) is list and 2 <= len(resources) <= 6 and [x['name'] for x in resources[:2]] == ['source-primary', 'duplicate-identification'], 'resources')
++    require([x['name'] for x in resources[2:]] == ['descriptor-' + k for k in LABELS[:len(resources) - 2]], 'resource_order')
++    for i, x in enumerate(resources):
++        require(type(x) is dict and set(x) == RESOURCE_KEYS and x['kind'] == ('token' if i < 2 else 'descriptor')
++            and all(type(x[k]) is bool for k in RESOURCE_KEYS - {'name', 'kind'}), 'resource_schema')
++        require(not x['returned'] or x['attempted'] and x['creation_returned'], 'resource_returned')
++        require(not x['close_confirmed'] or x['returned'] and x['close_attempted'] and not x['close_uncertain'] and not x['alias'], 'resource_closed')
++        require(not x['close_attempted'] or x['returned'] and not x['alias'], 'resource_close')
++    require(r['resource_cleanup_verified'] == resources_clean(resources), 'resource_cleanup')
++    calls = r['calls']; require(type(calls) is list and len(calls) <= 4 and [c['label'] for c in calls] == list(LABELS[:len(calls)]), 'call_order')
++    require(len(resources) == 2 + len(calls), 'call_resource_count')
++    require(not r['source_identity_bound'] or all(resources[0][k] for k in ('attempted', 'creation_returned', 'returned')), 'source_resource')
++    require(not r['duplicate_identity_bound'] or all(resources[1][k] for k in ('attempted', 'creation_returned', 'returned')), 'duplicate_resource')
++    for i, c in enumerate(calls):
++        require(type(c) is dict and set(c) == CALL_KEYS and all(type(c[k]) is bool for k in ('descriptor_verified', 'attempted', 'within_deadline')), 'call_schema')
++        require(c['api_success'] is None or type(c['api_success']) is bool, 'call_api')
++        if c['descriptor_verified']:
++            d = c['descriptor']; require(type(d) is dict and set(d) == {*descriptor_expected(c['label']), 'bytes', 'sha256'}
++                and {k: v for k, v in d.items() if k not in ('bytes', 'sha256')} == descriptor_expected(c['label'])
++                and integer(d['bytes'], 20, 4096) and digest(d['sha256']), 'descriptor_proof')
++            require(all(resources[i + 2][k] for k in ('attempted', 'creation_returned', 'returned')), 'descriptor_resource')
++        require(not c['attempted'] or c['descriptor_verified'] and r['duplicate_identity_bound'], 'access_check_admission')
++        if c['api_success'] is True:
++            require(c['attempted'] and c['descriptor_verified'] and c['win32_error'] is None
++                and type(c['access_status']) is bool and integer(c['granted_access']) and integer(c['privilege_count'], 0, 64)
++                and (c['access_status'] or c['granted_access'] == 0), 'valid_api_outputs')
++        else:
++            require(c['access_status'] is c['granted_access'] is c['privilege_count'] is None, 'invalid_api_outputs')
++        if c['api_success'] is False:
++            require(c['attempted'] and integer(c['win32_error']), 'failed_api_error')
++        if c['within_deadline']:
++            require(integer(c['start_qpc'], r['start_qpc'], deadline - 1)
++                and integer(c['end_qpc'], c['start_qpc'], deadline - 1), 'call_clock')
++    complete = (len(calls) == 4 and all(c['descriptor_verified'] and c['api_success'] is True and c['within_deadline'] for c in calls)
++        and r['generation_before'] and r['generation_after'] and r['source_identity_bound'] and r['duplicate_identity_bound'] and r['resource_cleanup_verified'])
++    require(r['observation_complete'] == complete, 'complete')
++    qualified = (complete and r['failure'] is None and integer(r['start_qpc'], 1, deadline - 1)
++        and integer(r['end_qpc'], r['start_qpc'], deadline - 1) and expected_role in EXPECTED
++        and all(c['granted_access'] == mask and c['access_status'] is bool(mask) and c['privilege_count'] == 0
++            for c, mask in zip(calls, EXPECTED.get(expected_role, ()))))
++    require(r['qualified'] == qualified and r['classification'] == (expected_role + '-semantic-match' if qualified else 'unknown'), 'qualification')
++    if r['error'] is not None:
++        require(type(r['error']) is dict and set(r['error']) == {'operation', 'win32_error'} and type(r['error']['operation']) is str
++            and len(r['error']['operation']) <= 96 and integer(r['error']['win32_error']) and r['failure'] is not None, 'api_error')
++    return r
++
++
++class LUID(C.Structure):
++    _fields_ = [('LowPart', C.c_uint32), ('HighPart', C.c_int32)]
++
++
++class TOKEN_STATISTICS(C.Structure):
++    _fields_ = [('TokenId', LUID), ('AuthenticationId', LUID), ('ExpirationTime', C.c_int64),
++        ('TokenType', C.c_uint32), ('ImpersonationLevel', C.c_uint32), ('DynamicCharged', C.c_uint32),
++        ('DynamicAvailable', C.c_uint32), ('GroupCount', C.c_uint32), ('PrivilegeCount', C.c_uint32), ('ModifiedId', LUID)]
++
++
++class SID_AND_ATTRIBUTES(C.Structure):
++    _fields_ = [('Sid', C.c_void_p), ('Attributes', C.c_uint32)]
++
++
++class TOKEN_GROUPS(C.Structure):
++    _fields_ = [('GroupCount', C.c_uint32), ('Groups', SID_AND_ATTRIBUTES * 1)]
++
++
++class GENERIC_MAPPING(C.Structure):
++    _fields_ = [('GenericRead', C.c_uint32), ('GenericWrite', C.c_uint32), ('GenericExecute', C.c_uint32), ('GenericAll', C.c_uint32)]
++
++
++class NativeAPI:
++    """SDK adapter; never instantiated on import and never installs identity.
++
++    This adapter is NOT an execution supervisor. A caller must provide a held
++    process and prior full primary-token snapshot, with an outer Job deadline.
++    """
++    def __init__(self):
++        require(os.name == 'nt' and C.sizeof(C.c_void_p) == 8, 'platform')
++        self.k = C.WinDLL('kernel32.dll', use_last_error=True, winmode=0x800)
++        self.k.GetSystemDirectoryW.argtypes = [C.c_wchar_p, C.c_uint32]; self.k.GetSystemDirectoryW.restype = C.c_uint32
++        buf = C.create_unicode_buffer(32768); n = self.k.GetSystemDirectoryW(buf, len(buf))
++        require(0 < n < len(buf), 'system_directory')
++        self.a = C.WinDLL(buf.value + '\\advapi32.dll', use_last_error=True, winmode=0x800)
++        H, U, P = C.c_void_p, C.c_uint32, C.c_void_p
++        def bind(dll, name, args, result):
++            f = getattr(dll, name); f.argtypes = args; f.restype = result
++        for name, args, result in (
++            ('OpenProcessToken', [H, U, C.POINTER(H)], C.c_int),
++            ('DuplicateTokenEx', [H, U, P, U, U, C.POINTER(H)], C.c_int),
++            ('GetTokenInformation', [H, U, P, U, C.POINTER(U)], C.c_int),
++            ('IsValidSid', [P], C.c_int), ('GetLengthSid', [P], U),
++            ('ConvertStringSecurityDescriptorToSecurityDescriptorW', [C.c_wchar_p, U, C.POINTER(P), C.POINTER(U)], C.c_int),
++            ('IsValidSecurityDescriptor', [P], C.c_int), ('GetSecurityDescriptorLength', [P], U),
++            ('GetSecurityDescriptorControl', [P, C.POINTER(C.c_uint16), C.POINTER(U)], C.c_int),
++            ('GetSecurityDescriptorOwner', [P, C.POINTER(P), C.POINTER(C.c_int)], C.c_int),
++            ('GetSecurityDescriptorGroup', [P, C.POINTER(P), C.POINTER(C.c_int)], C.c_int),
++            ('GetSecurityDescriptorDacl', [P, C.POINTER(C.c_int), C.POINTER(P), C.POINTER(C.c_int)], C.c_int),
++            ('GetAce', [P, U, C.POINTER(P)], C.c_int),
++            ('AccessCheck', [P, H, U, C.POINTER(GENERIC_MAPPING), P, C.POINTER(U), C.POINTER(U), C.POINTER(C.c_int)], C.c_int)):
++            bind(self.a, name, args, result)
++        for name, args, result in (
++            ('CloseHandle', [H], C.c_int), ('LocalFree', [P], P),
++            ('GetProcessId', [H], U), ('GetProcessTimes', [H, P, P, P, P], C.c_int),
++            ('WaitForSingleObject', [H, U], U), ('QueryPerformanceCounter', [C.POINTER(C.c_int64)], C.c_int),
++            ('QueryPerformanceFrequency', [C.POINTER(C.c_int64)], C.c_int)):
++            bind(self.k, name, args, result)
++
++    @staticmethod
++    def _check(ok, operation):
++        if not ok:
++            raise ApiError(operation, C.get_last_error())
++
++    def qpc(self):
++        x = C.c_int64(); self._check(self.k.QueryPerformanceCounter(C.byref(x)), 'QueryPerformanceCounter'); return x.value
++
++    def frequency(self):
++        x = C.c_int64(); self._check(self.k.QueryPerformanceFrequency(C.byref(x)), 'QueryPerformanceFrequency'); return x.value
++
++    def verify_process(self, process, pid, creation):
++        values = [C.c_uint64() for _ in range(4)]
++        self._check(self.k.GetProcessTimes(process, *(C.byref(x) for x in values)), 'GetProcessTimes')
++        return self.k.GetProcessId(process) == pid and values[0].value == creation and self.k.WaitForSingleObject(process, 0) == 258
++
++    def open_token(self, process, rights):
++        value = C.c_void_p(); ok = bool(self.a.OpenProcessToken(process, rights, C.byref(value)))
++        return ok, value.value, None if ok else C.get_last_error()
++
++    def duplicate_token(self, token, rights, level, kind):
++        value = C.c_void_p(); ok = bool(self.a.DuplicateTokenEx(token, rights, None, level, kind, C.byref(value)))
++        return ok, value.value, None if ok else C.get_last_error()
++
++    def close_token(self, value):
++        return bool(self.k.CloseHandle(value))
++
++    def free_descriptor(self, value):
++        return self.k.LocalFree(value) is None
++
++    def _information(self, token, kind):
++        n = C.c_uint32(); ok = self.a.GetTokenInformation(token, kind, None, 0, C.byref(n)); error = C.get_last_error()
++        require(not ok and error == 122 and 0 < n.value <= 262144, 'token_information_size')
++        buf = C.create_string_buffer(n.value); actual = C.c_uint32()
++        self._check(self.a.GetTokenInformation(token, kind, buf, len(buf), C.byref(actual)), 'GetTokenInformation')
++        require(0 < actual.value <= len(buf), 'token_information_length')
++        return buf, actual.value
++
++    def _scalar(self, token, kind):
++        # Fixed-width token classes are queried directly, as in the existing
++        # held owner. Some Windows builds reject a zero-length scalar probe
++        # with ERROR_BAD_LENGTH. That is never permission for a fallback or
++        # reading output from a failed call.
++        value, returned = C.c_uint32(), C.c_uint32()
++        self._check(self.a.GetTokenInformation(token, kind, C.byref(value),
++            C.sizeof(value), C.byref(returned)), 'GetTokenInformation')
++        require(returned.value == C.sizeof(value), 'token_scalar_length')
++        return value.value
++
++    def _sid(self, pointer, base, size):
++        require(pointer and base <= pointer <= base + size - 8, 'sid_bounds')
++        head = C.string_at(pointer, 8); count = head[1]
++        require(head[0] == 1 and count <= 15 and pointer + 8 + count * 4 <= base + size, 'sid_bounds')
++        self._check(self.a.IsValidSid(pointer), 'IsValidSid')
++        require(self.a.GetLengthSid(pointer) == 8 + count * 4, 'sid_length')
++        raw = C.string_at(pointer, 8 + count * 4)
++        return 'S-1-' + str(int.from_bytes(raw[2:8], 'big')) + ''.join('-' + str(int.from_bytes(raw[8+i*4:12+i*4], 'little')) for i in range(count))
++
++    def identity(self, token):
++        def token_sid(kind):
++            buf, n = self._information(token, kind)
++            require(n >= C.sizeof(C.c_void_p), 'token_sid_length')
++            p = C.cast(buf, C.POINTER(C.c_void_p))[0]
++            return self._sid(p, C.addressof(buf), n) if p else None
++        buf, n = self._information(token, 30)
++        require(n >= C.sizeof(C.c_uint32), 'capability_header_length')
++        count = C.cast(buf, C.POINTER(C.c_uint32))[0]
++        require(count <= 64 and TOKEN_GROUPS.Groups.offset + count * C.sizeof(SID_AND_ATTRIBUTES) <= n, 'capability_buffer')
++        entries = C.cast(C.addressof(buf) + TOKEN_GROUPS.Groups.offset, C.POINTER(SID_AND_ATTRIBUTES))
++        caps = [dict(sid=self._sid(entries[i].Sid, C.addressof(buf), n), attributes=entries[i].Attributes) for i in range(count)]
++        stats, n = self._information(token, 10); require(n == C.sizeof(TOKEN_STATISTICS), 'token_statistics_length')
++        st = C.cast(stats, C.POINTER(TOKEN_STATISTICS))[0]
++        luid = lambda x: x.LowPart | ((x.HighPart & 0xffffffff) << 32)
++        kind = self._scalar(token, 8)
++        require(kind == st.TokenType and kind in (1, 2), 'token_statistics_kind')
++        level = self._scalar(token, 9) if kind == 2 else None
++        require(level is None or level == st.ImpersonationLevel, 'token_statistics_level')
++        integrity = token_sid(25)
++        is_ac, elevation, ui = (self._scalar(token, k) for k in (29, 20, 26))
++        require(all(x in (0, 1) for x in (is_ac, elevation, ui)) and integrity is not None, 'token_boolean')
++        return dict(sid=token_sid(1), session_id=self._scalar(token, 12), token_type=kind, impersonation_level=level,
++            appcontainer=bool(is_ac), appcontainer_sid=token_sid(31), integrity_rid=int(integrity.rsplit('-', 1)[1]),
++            elevated=bool(elevation), ui_access=bool(ui), capabilities=sorted(caps, key=lambda e: e['sid']),
++            token_id=luid(st.TokenId), authentication_id=luid(st.AuthenticationId))
++
++    def create_descriptor(self, sddl):
++        require(sddl in SDDLS.values(), 'descriptor_input')
++        p, n = C.c_void_p(), C.c_uint32()
++        ok = bool(self.a.ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, 1, C.byref(p), C.byref(n)))
++        return ok, p.value, None if ok else C.get_last_error()
++
++    def describe_descriptor(self, pointer):
++        self._check(self.a.IsValidSecurityDescriptor(pointer), 'IsValidSecurityDescriptor')
++        size = self.a.GetSecurityDescriptorLength(pointer); require(20 <= size <= 4096, 'descriptor_length')
++        require(C.string_at(pointer, 2) == b'\x01\x00', 'descriptor_header')
++        revision, control = C.c_uint32(), C.c_uint16()
++        self._check(self.a.GetSecurityDescriptorControl(pointer, C.byref(control), C.byref(revision)), 'GetSecurityDescriptorControl')
++        owner, group, acl = C.c_void_p(), C.c_void_p(), C.c_void_p()
++        od, gd, present, dd = C.c_int(), C.c_int(), C.c_int(), C.c_int()
++        self._check(self.a.GetSecurityDescriptorOwner(pointer, C.byref(owner), C.byref(od)), 'GetSecurityDescriptorOwner')
++        self._check(self.a.GetSecurityDescriptorGroup(pointer, C.byref(group), C.byref(gd)), 'GetSecurityDescriptorGroup')
++        self._check(self.a.GetSecurityDescriptorDacl(pointer, C.byref(present), C.byref(acl), C.byref(dd)), 'GetSecurityDescriptorDacl')
++        require(present.value == 1 and acl.value and pointer <= acl.value <= pointer + size - 8, 'dacl_bounds')
++        header = C.string_at(acl.value, 8); acl_size, count = int.from_bytes(header[2:4], 'little'), int.from_bytes(header[4:6], 'little')
++        require(header[0] == 2 and header[1] == 0 and header[6:8] == b'\0\0'
++            and 8 <= acl_size <= size and acl.value + acl_size <= pointer + size and count <= 3, 'dacl_bounds')
++        aces = []
++        for i in range(count):
++            p = C.c_void_p(); self._check(self.a.GetAce(acl, i, C.byref(p)), 'GetAce')
++            require(p.value and acl.value + 8 <= p.value <= acl.value + acl_size - 8, 'ace_bounds')
++            raw = C.string_at(p.value, 8); n = int.from_bytes(raw[2:4], 'little')
++            require(16 <= n and p.value + n <= acl.value + acl_size, 'ace_bounds')
++            sid = self._sid(p.value + 8, p.value, n)
++            require(self.a.GetLengthSid(p.value + 8) + 8 == n, 'ace_sid_length')
++            aces.append(dict(type=raw[0], flags=raw[1], mask=int.from_bytes(raw[4:8], 'little'), sid=sid))
++        return dict(revision=revision.value, control=control.value, owner=self._sid(owner.value, pointer, size), group=self._sid(group.value, pointer, size),
++            owner_defaulted=bool(od.value), group_defaulted=bool(gd.value), dacl_present=bool(present.value), dacl_defaulted=bool(dd.value),
++            aces=aces, bytes=size, sha256=sha(C.string_at(pointer, size)))
++
++    def access_check(self, descriptor, token, desired, mapping):
++        require(desired == MAXIMUM_ALLOWED and mapping == (0, 0, 0, 0), 'access_check_input')
++        generic = GENERIC_MAPPING(*mapping); privileges = C.create_string_buffer(65536); n = C.c_uint32(len(privileges))
++        granted, status = C.c_uint32(0xa5a5a5a5), C.c_int(-1)
++        ok = bool(self.a.AccessCheck(descriptor, token, desired, C.byref(generic), privileges, C.byref(n), C.byref(granted), C.byref(status)))
++        if not ok:
++            return False, None, None, None, C.get_last_error()
++        require(status.value in (0, 1) and 8 <= n.value <= len(privileges), 'access_check_output')
++        count = C.cast(privileges, C.POINTER(C.c_uint32))[0]
++        require(count <= 64 and 8 + count * 12 <= n.value, 'privilege_buffer')
++        return True, bool(status.value), granted.value, count, None
+diff --git a/tests/test_windows_identity_lpac_accesscheck.py b/tests/test_windows_identity_lpac_accesscheck.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_windows_identity_lpac_accesscheck.py
+@@ -0,0 +1,311 @@
++"""Pure only: injected API, memory buffers, and clocks; no native DLL load."""
++import copy
++import ctypes as C
++import importlib.util
++from pathlib import Path
++import unittest
++from types import SimpleNamespace as NS
++from unittest.mock import patch
++
++ROOT = Path(__file__).resolve().parents[1]
++spec = importlib.util.spec_from_file_location('lpac_accesscheck_candidate', ROOT / '.github/windows_identity_lpac_accesscheck.py')
++m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
++
++
++def primary():
++    return dict(sid='S-1-5-21-1-2-3-1001', session_id=1, token_type=1, impersonation_level=None,
++        appcontainer=True, appcontainer_sid='S-1-15-2-11-12-13-14-15-16-17', integrity_rid=4096,
++        elevated=False, ui_access=False,
++        capabilities=[dict(sid='S-1-15-3-1024-1-2-3-4-5-6-7-8', attributes=4), dict(sid='S-1-15-3-3', attributes=4)],
++        token_id=10, authentication_id=20)
++
++
++class FakeAPI:
++    def __init__(self, role='lpac', fault=None):
++        self.role, self.fault, self.now = role, fault, 100
++        self.closed, self.freed, self.opened, self.dups, self.checks, self.created = [], [], [], [], [], []
++        self.descriptors = {}; self.identities = 0; self.generation_checks = 0
++
++    def qpc(self):
++        self.now += 1
++        return self.now
++
++    def frequency(self): return 10
++
++    def verify_process(self, process, pid, creation):
++        assert (process, pid, creation) == (55, 66, 77)
++        self.generation_checks += 1
++        return not (self.fault == 'generation-after' and self.generation_checks == 2)
++
++    def open_token(self, process, rights):
++        self.opened.append((process, rights))
++        if self.fault == 'open-unknown': raise OSError('unknown return')
++        if self.fault == 'open-error': return False, None, 5
++        return True, 11, None
++
++    def duplicate_token(self, token, rights, level, kind):
++        self.dups.append((token, rights, level, kind))
++        if self.fault == 'duplicate-error-returned': return False, 12, 5
++        return True, 11 if self.fault == 'duplicate-alias' else 12, None
++
++    def identity(self, token):
++        self.identities += 1
++        result = primary()
++        if token == 12:
++            result.update(token_type=2, impersonation_level=1, token_id=11)
++            if self.fault == 'duplicate-privilege': result['elevated'] = True
++            if self.fault == 'duplicate-level': result['impersonation_level'] = 2
++            if self.fault == 'duplicate-auth': result['authentication_id'] += 1
++            if self.fault == 'duplicate-cap': result['capabilities'][1]['attributes'] = 0
++        elif self.fault == 'primary-mismatch': result['integrity_rid'] = 8192
++        elif self.fault == 'primary-changed-after' and self.identities >= 3: result['token_id'] += 1
++        return result
++
++    def create_descriptor(self, text):
++        label = next(k for k, v in m.SDDLS.items() if v == text)
++        self.created.append(label)
++        # Legal numeric address reuse after prior LocalFree; each allocation has its own once ledger.
++        self.descriptors[30] = label
++        return True, 30, None
++
++    def describe_descriptor(self, pointer):
++        label = self.descriptors[pointer]
++        d = m.descriptor_expected(label) | dict(bytes=96, sha256='a' * 64)
++        if self.fault == 'descriptor-owner': d['owner'] = m.WORLD
++        if self.fault == 'descriptor-extra-ace': d['aces'].append(dict(type=0, flags=0, mask=0xffffffff, sid=m.WORLD))
++        return d
++
++    def access_check(self, descriptor, token, desired, mapping):
++        label = self.descriptors[descriptor]
++        assert token == 12 and desired == m.MAXIMUM_ALLOWED and mapping == (0, 0, 0, 0)
++        self.checks.append(label)
++        value = m.EXPECTED[self.role][m.LABELS.index(label)]
++        if self.fault in ('api-5', 'api-87'): return False, True, 2, 0, int(self.fault[4:])
++        if self.fault == 'wrong-mask': value ^= 1
++        if self.fault == 'late': self.now = 1001
++        return True, bool(value), value, int(self.fault == 'privilege-used'), None
++
++    def close_token(self, value):
++        self.closed.append(value)
++        if self.fault == 'close-raise' and value == 12: raise OSError('unknown close')
++        return not (self.fault == 'close-false' and value == 12)
++
++    def free_descriptor(self, value):
++        self.freed.append(value)
++        return self.fault != 'free-false'
++
++
++def observe(api):
++    return m.observe_held(api, 55, primary(), expected_pid=66, expected_creation=77,
++        expected_role=api.role, frequency=10, deadline=1000)
++
++
++def validate(proof, role='lpac'):
++    return m.validate_proof(proof, expected_primary_identity=primary(), expected_role=role,
++        expected_pid=66, expected_creation=77, frequency=10, deadline=1000)
++
++
++class AccessCheckCoreTests(unittest.TestCase):
++    def test_exact_matched_matrix_both_roles_and_no_api_error_for_denied_controls(self):
++        for role in ('ac', 'lpac'):
++            with self.subTest(role=role):
++                api = FakeAPI(role); p = observe(api); validate(p, role)
++                self.assertTrue(p['qualified']); self.assertTrue(p['observation_complete'])
++                self.assertEqual([c['granted_access'] for c in p['calls']], list(m.EXPECTED[role]))
++                self.assertTrue(all(c['api_success'] for c in p['calls']))
++                self.assertFalse(p['calls'][1]['access_status']); self.assertEqual(p['calls'][1]['granted_access'], 0)
++                self.assertEqual(api.opened, [(55, 10)]); self.assertEqual(api.dups, [(11, 8, 1, 2)])
++                self.assertEqual(api.closed, [12, 11]); self.assertEqual(api.freed, [30] * 4)
++                self.assertFalse(p['network_tested']); self.assertFalse(p['token_class46_queried'])
++
++    def test_api_failure_drops_stale_output_bytes_and_cannot_be_lpac(self):
++        for error in (5, 87):
++            p = observe(FakeAPI(fault='api-' + str(error))); validate(p)
++            c = p['calls'][0]
++            self.assertFalse(c['api_success']); self.assertEqual(c['win32_error'], error)
++            self.assertIsNone(c['granted_access']); self.assertIsNone(c['access_status']); self.assertIsNone(c['privilege_count'])
++            self.assertFalse(p['qualified']); self.assertEqual(p['classification'], 'unknown')
++            self.assertTrue(p['resource_cleanup_verified'])
++            bad = copy.deepcopy(p); bad['calls'][0]['granted_access'] = 2
++            with self.assertRaises(ValueError): validate(bad)
++
++    def test_exact_identity_level_auth_caps_and_privileges_no_observed_adaptation(self):
++        for fault in ('primary-mismatch', 'duplicate-privilege', 'duplicate-level', 'duplicate-auth', 'duplicate-cap', 'primary-changed-after'):
++            with self.subTest(fault=fault):
++                api = FakeAPI(fault=fault); p = observe(api); validate(p)
++                self.assertFalse(p['qualified']); self.assertTrue(p['resource_cleanup_verified'])
++                self.assertEqual(api.closed.count(11), 1)
++
++    def test_descriptor_readback_owner_and_extra_ace_refused_before_access(self):
++        for fault in ('descriptor-owner', 'descriptor-extra-ace'):
++            api = FakeAPI(fault=fault); p = observe(api); validate(p)
++            self.assertFalse(p['qualified']); self.assertEqual(api.checks, []); self.assertEqual(api.freed, [30])
++
++    def test_unknown_create_alias_and_uncertain_close_do_not_wash_clean(self):
++        for fault in ('open-unknown', 'duplicate-alias', 'close-raise', 'close-false', 'free-false'):
++            with self.subTest(fault=fault):
++                api = FakeAPI(fault=fault); p = observe(api); validate(p)
++                self.assertFalse(p['qualified']); self.assertFalse(p['resource_cleanup_verified'])
++                self.assertLessEqual(api.closed.count(11), 1); self.assertLessEqual(api.closed.count(12), 1)
++                if fault.startswith('close-'): self.assertEqual(api.closed, [12, 11])
++
++    def test_partial_failed_api_returned_token_is_still_consumed_once(self):
++        api = FakeAPI(fault='duplicate-error-returned'); p = observe(api); validate(p)
++        self.assertFalse(p['qualified']); self.assertEqual(api.closed, [12, 11]); self.assertTrue(p['resource_cleanup_verified'])
++
++    def test_wrong_masks_privilege_use_deadline_and_held_generation_never_qualify(self):
++        for fault in ('wrong-mask', 'privilege-used', 'late', 'generation-after'):
++            with self.subTest(fault=fault):
++                api = FakeAPI(fault=fault); p = observe(api); validate(p)
++                self.assertFalse(p['qualified']); self.assertEqual(p['classification'], 'unknown')
++                self.assertTrue(p['resource_cleanup_verified'])
++
++    def test_validator_recomputes_masks_scope_source_binding_and_cleanup(self):
++        p = observe(FakeAPI())
++        for change in ({'classification':'ac-semantic-match'}, {'profile':'fallback'}, {'network_tested':True},
++                       {'source_identity_bound':False}, {'resource_cleanup_verified':False}, {'extra':True}):
++            with self.subTest(change=change), self.assertRaises(ValueError): validate(copy.deepcopy(p) | change)
++        bad = copy.deepcopy(p); bad['calls'][0].update(granted_access=3, access_status=True)
++        with self.assertRaises(ValueError): validate(bad)
++        bad = copy.deepcopy(p); bad['calls'][1].update(granted_access=2, access_status=False)
++        with self.assertRaises(ValueError): validate(bad)
++        bad = copy.deepcopy(p); bad['resources'] = bad['resources'][:2]
++        with self.assertRaises(ValueError): validate(bad)
++        bad = copy.deepcopy(p)
++        for key in m.RESOURCE_KEYS - {'name', 'kind'}: bad['resources'][2][key] = False
++        with self.assertRaises(ValueError): validate(bad)
++        with self.assertRaises(ValueError): m.validate_proof(p, expected_primary_identity=primary(), expected_role='lpac',
++            expected_pid=67, expected_creation=77, frequency=10, deadline=1000)
++
++    def test_descriptor_contract_exact_builtin_only_no_object_acl_edit(self):
++        self.assertEqual([len(m.descriptor_expected(k)['aces']) for k in m.LABELS], [3, 1, 2, 2])
++        for k in m.LABELS:
++            d = m.descriptor_expected(k)
++            self.assertEqual((d['owner'], d['group'], d['control']), (m.SYSTEM, m.SYSTEM, 0x8004))
++            self.assertTrue(m.SDDLS[k].startswith('O:SYG:SYD:'))
++
++
++class AdapterPureTests(unittest.TestCase):
++    def test_scalar_uses_one_direct_dword_call_without_a_size_probe(self):
++        api = m.NativeAPI.__new__(m.NativeAPI); calls = []
++        def information(token, kind, value, size, returned):
++            calls.append((token, kind, value is not None, size))
++            if value is None or size == 0:
++                raise AssertionError('zero-length scalar probe is forbidden')
++            C.cast(value, C.POINTER(C.c_uint32))[0] = 2
++            C.cast(returned, C.POINTER(C.c_uint32))[0] = 4
++            return 1
++        api.a = NS(GetTokenInformation=information)
++        self.assertEqual(api._scalar(11, 8), 2)
++        self.assertEqual(calls, [(11, 8, True, 4)])
++
++    def test_scalar_failure_never_reads_stale_output_or_retries(self):
++        api = m.NativeAPI.__new__(m.NativeAPI); calls = []
++        def failed(token, kind, value, size, returned):
++            calls.append((token, kind, size))
++            C.cast(value, C.POINTER(C.c_uint32))[0] = 1
++            C.cast(returned, C.POINTER(C.c_uint32))[0] = 4
++            C.set_last_error(87)
++            return 0
++        api.a = NS(GetTokenInformation=failed)
++        with self.assertRaises(m.ApiError) as error:
++            api._scalar(11, 29)
++        self.assertEqual((error.exception.operation, error.exception.code), ('GetTokenInformation', 87))
++        self.assertEqual(calls, [(11, 29, 4)])
++
++    def test_scalar_requires_exact_returned_dword_width(self):
++        for reported in (0, 1, 3, 5, 8):
++            api = m.NativeAPI.__new__(m.NativeAPI); calls = []
++            def information(token, kind, value, size, returned):
++                calls.append(size)
++                C.cast(value, C.POINTER(C.c_uint32))[0] = 1
++                C.cast(returned, C.POINTER(C.c_uint32))[0] = reported
++                return 1
++            api.a = NS(GetTokenInformation=information)
++            with self.subTest(reported=reported), self.assertRaisesRegex(ValueError, 'token_scalar_length'):
++                api._scalar(11, 29)
++            self.assertEqual(calls, [4])
++
++    def test_capability_header_is_bounded_before_first_dereference(self):
++        for reported in range(4):
++            api = m.NativeAPI.__new__(m.NativeAPI)
++            buf = C.create_string_buffer(max(1, reported))
++            api._information = lambda token, kind: (buf, reported)
++            with self.subTest(reported=reported), patch.object(m.C, 'cast', side_effect=AssertionError('unbounded first read')):
++                with self.assertRaisesRegex(ValueError, 'capability_header_length'):
++                    api.identity(11)
++
++    def test_capability_count_and_full_entry_bounds_still_precede_sid_reads(self):
++        for count, size in ((65, 8), (2, 8), (2, 24)):
++            api = m.NativeAPI.__new__(m.NativeAPI); buf = C.create_string_buffer(size)
++            C.cast(buf, C.POINTER(C.c_uint32))[0] = count
++            api._information = lambda token, kind: (buf, size)
++            api._sid = lambda *args: (_ for _ in ()).throw(AssertionError('SID read before entry bounds'))
++            with self.subTest(count=count, size=size), self.assertRaisesRegex(ValueError, 'capability_buffer'):
++                api.identity(11)
++
++    def descriptor_api(self, label, bad_pointer=False):
++        def sid(text):
++            parts = [int(x) for x in text.split('-')[1:]]
++            return bytes((parts[0], len(parts) - 2)) + parts[1].to_bytes(6, 'big') + b''.join(x.to_bytes(4, 'little') for x in parts[2:])
++        owner = sid(m.SYSTEM); aces = []; offsets = []
++        for principal, mask in m.ACES[label]:
++            value = sid(principal); n = 8 + len(value)
++            offsets.append(sum(map(len, aces))); aces.append(bytes((0, 0)) + n.to_bytes(2, 'little') + mask.to_bytes(4, 'little') + value)
++        acl = bytes((2, 0)) + (8 + sum(map(len, aces))).to_bytes(2, 'little') + len(aces).to_bytes(2, 'little') + b'\0\0' + b''.join(aces)
++        owner_at, group_at = 20, 20 + len(owner); acl_at = group_at + len(owner)
++        raw = b'\1\0\4\x80' + b''.join(x.to_bytes(4, 'little') for x in (owner_at, group_at, 0, acl_at)) + owner + owner + acl
++        buf = C.create_string_buffer(raw, len(raw)); base = C.addressof(buf)
++        def output(pointer, kind, value): C.cast(pointer, C.POINTER(kind))[0] = value
++        def control(p, c, rev): output(c, C.c_uint16, 0x8004); output(rev, C.c_uint32, 1); return 1
++        def principal(offset):
++            def get(p, out, default): output(out, C.c_void_p, base + offset); output(default, C.c_int, 0); return 1
++            return get
++        def dacl(p, present, out, default):
++            output(present, C.c_int, 1); output(out, C.c_void_p, base + acl_at); output(default, C.c_int, 0); return 1
++        def ace(p, index, out): output(out, C.c_void_p, base if bad_pointer else base + acl_at + 8 + offsets[index]); return 1
++        api = m.NativeAPI.__new__(m.NativeAPI)
++        api.a = NS(IsValidSecurityDescriptor=lambda p:1, GetSecurityDescriptorLength=lambda p:len(raw),
++            GetSecurityDescriptorControl=control, GetSecurityDescriptorOwner=principal(owner_at), GetSecurityDescriptorGroup=principal(group_at),
++            GetSecurityDescriptorDacl=dacl, GetAce=ace, IsValidSid=lambda p:1,
++            GetLengthSid=lambda p:8 + C.string_at(p, 2)[1] * 4)
++        return api, buf
++
++    def test_native_descriptor_reader_four_fixed_byte_layouts_with_fake_sdk(self):
++        for label in m.LABELS:
++            with self.subTest(label=label):
++                api, buf = self.descriptor_api(label)
++                observed = api.describe_descriptor(C.addressof(buf))
++                self.assertEqual({k:v for k,v in observed.items() if k not in ('bytes','sha256')}, m.descriptor_expected(label))
++                self.assertEqual(observed['bytes'], len(buf)); self.assertEqual(observed['sha256'], m.sha(buf.raw))
++
++    def test_native_descriptor_reader_rejects_out_of_acl_ace_before_dereference(self):
++        api, buf = self.descriptor_api('combined', bad_pointer=True)
++        with self.assertRaisesRegex(ValueError, 'ace_bounds'): api.describe_descriptor(C.addressof(buf))
++
++    def test_native_access_failure_outputs_are_null_even_if_api_wrote_stale_success(self):
++        api = m.NativeAPI.__new__(m.NativeAPI)
++        def failed(sd, token, desired, generic, privileges, n, granted, status):
++            C.cast(granted, C.POINTER(C.c_uint32))[0] = 2
++            C.cast(status, C.POINTER(C.c_int))[0] = 1
++            C.set_last_error(87); return 0
++        api.a = NS(AccessCheck=failed)
++        self.assertEqual(api.access_check(10, 20, m.MAXIMUM_ALLOWED, (0, 0, 0, 0)), (False, None, None, None, 87))
++
++    def test_native_negative_is_api_success_not_win32_failure(self):
++        api = m.NativeAPI.__new__(m.NativeAPI)
++        def denied(sd, token, desired, generic, privileges, n, granted, status):
++            C.cast(granted, C.POINTER(C.c_uint32))[0] = 0
++            C.cast(status, C.POINTER(C.c_int))[0] = 0
++            C.cast(n, C.POINTER(C.c_uint32))[0] = 8
++            C.cast(privileges, C.POINTER(C.c_uint32))[0] = 0
++            C.set_last_error(5); return 1
++        api.a = NS(AccessCheck=denied)
++        self.assertEqual(api.access_check(10, 20, m.MAXIMUM_ALLOWED, (0, 0, 0, 0)), (True, False, 0, 0, None))
++
++    def test_native_api_has_no_launch_impersonate_class46_or_network_entry(self):
++        self.assertFalse(hasattr(m.NativeAPI, 'spawn')); self.assertFalse(hasattr(m.NativeAPI, 'impersonate'))
++        self.assertFalse(hasattr(m.NativeAPI, 'lpac_flag')); self.assertFalse(hasattr(m, 'main'))
++
++
++if __name__ == '__main__': unittest.main()
+diff --git a/.github/windows_identity_lpac_identity_cell.py b/.github/windows_identity_lpac_identity_cell.py
+new file mode 100644
+--- /dev/null
++++ b/.github/windows_identity_lpac_identity_cell.py
+@@ -0,0 +1,568 @@
++"""Matched AC/LPAC held identity cell, supervised by the separate local guard.
++
++Both actor processes remain suspended for their entire lifetime. Only fixed
++ordinary ACL tools resume. AccessCheck matrices qualify this identity-only
++observation after ownership cleanup; they prove no network or proxy property.
++Importing this module does not load a native DLL or run an experiment.
++"""
++from __future__ import annotations
++import ctypes as C
++import importlib.util
++from pathlib import Path
++import subprocess
++
++ROOT=Path(__file__).resolve().parents[1]
++def load(name,file):
++    spec=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file))
++    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
++owner=load('identity_cell_owner06','windows_identity_lpac_dns_local.py')
++access=load('identity_cell_access02','windows_identity_lpac_accesscheck.py')
++launcher,helpers,live=owner.launcher,owner.helpers,owner.live
++require,sha,encode=owner.require,owner.sha,owner.encode
++SCOPE='one-local-matched-ac-lpac-semantic-identity-no-network-v1'
++NETWORK_AUTHORIZED=False
++POLICIES={'ac':0,'lpac':1}
++NONCES=('run','ac_nonce','lpac_nonce')
++LOCAL_MODULE='.github/windows_identity_lpac_identity_local.py'
++
++def api_version():return 1
++MODULE='.github/windows_identity_lpac_identity_cell.py'
++SOURCES=tuple(dict.fromkeys((*owner.SOURCES,'.github/windows_identity_lpac_accesscheck.py',MODULE)))
++
++def validate_plan(value,*,device,source,actor,manifest):
++    keys={'schema_version','scope','device_sha256','source_sha256','actor_sha256','manifest_sha256',
++        'fresh_profile_owned_acl_acknowledged','never_resume_acknowledged','semantics_only_acknowledged','recovery_reference'}
++    require(type(value) is dict and set(value)==keys and type(value['schema_version']) is int and value['schema_version']==1
++        and value['scope']==SCOPE,'identity_plan')
++    for key,expected in (('device_sha256',device),('source_sha256',source),('actor_sha256',actor),('manifest_sha256',manifest)):
++        require(owner.ac.digest(expected) and value[key]==expected,'identity_plan_binding')
++    require(all(value[key] is True for key in ('fresh_profile_owned_acl_acknowledged','never_resume_acknowledged','semantics_only_acknowledged'))
++        and type(value['recovery_reference']) is str and 1<=len(value['recovery_reference'])<=512,'identity_plan_acknowledgement')
++    return value
++
++class NativeCellAPI(owner.LPACAPI):
++    """Narrow actor constructor; ordinary tools retain the existing resume API.
++
++    CellOwner is the only arm caller and never resumes either arm. The separate
++    ordinary helper path uses the existing held token/image/Job admission.
++    """
++    def access_api(self):return access.NativeAPI()
++
++    def create_matched_suspended(self,info,actor,cwd,environment,job,owners,state,*,profile_pointer,catalog,policy,budget,cutoff):
++        require(type(policy) is int and policy in (0,1) and profile_pointer and job,'matched_constructor')
++        require(type(environment) is str and environment.endswith('\0\0'),'matched_environment')
++        pairs=environment.rstrip('\0').split('\0')
++        require(len(pairs)==2 and {value.split('=',1)[0] for value in pairs}=={'SystemRoot','LOCALAPPDATA'},'matched_environment_keys')
++        owner.capability_catalog({name:catalog[name] for name in ('AgenticAppContainer','privateNetworkClientServer')})
++        require(Path(actor).name==live.ACTOR,'matched_actor')
++        budget.require_ms(cutoff)
++        state.update(create_status='not_entered',create_winerror=None,create_information='not_observed',create_exception_detail=None,returned_qpc=None)
++        size=C.c_size_t();self.k.InitializeProcThreadAttributeList(None,3,0,C.byref(size))
++        require(1<=size.value<=65536,'matched_attributes');attrs=C.create_string_buffer(size.value)
++        self.native.check(self.k.InitializeProcThreadAttributeList(attrs,3,0,C.byref(size)),'InitializeProcThreadAttributeList')
++        sid_pointers=[]
++        try:
++            jobs=(C.c_void_p*1)(job)
++            self.native.check(self.k.UpdateProcThreadAttribute(attrs,0,owner.JOB_LIST,jobs,C.sizeof(jobs),None,None),'UpdateProcThreadAttribute(JobList)')
++            self.a.ConvertStringSidToSidW.argtypes=[C.c_wchar_p,C.POINTER(C.c_void_p)]
++            self.a.ConvertStringSidToSidW.restype=C.c_int
++            for name in ('AgenticAppContainer','privateNetworkClientServer'):
++                pointer=C.c_void_p()
++                try:self.native.check(self.a.ConvertStringSidToSidW(catalog[name],C.byref(pointer)),'ConvertStringSidToSidW(capability)')
++                finally:
++                    if pointer.value:
++                        if any(p.value==pointer.value for p in sid_pointers):
++                            self.controls_uncertain=True
++                            raise ValueError('matched_capability_alias')
++                        sid_pointers.append(pointer)
++                require(pointer.value,'matched_capability_pointer')
++            entries=(launcher.SIDAndAttributes*2)(*(launcher.SIDAndAttributes(pointer,4) for pointer in sid_pointers))
++            capabilities=self.proc._SecurityCapabilities(profile_pointer,C.cast(entries,C.c_void_p),2,0)
++            value=C.c_uint32(policy)
++            for attribute,record in ((owner.SECURITY_CAPABILITIES,capabilities),(owner.ALL_APPLICATION_PACKAGES_POLICY,value)):
++                self.native.check(self.k.UpdateProcThreadAttribute(attrs,0,attribute,C.byref(record),C.sizeof(record),None,None),'UpdateProcThreadAttribute(matched)')
++            startup=self.proc._StartupInfoEx();startup.StartupInfo.cb=C.sizeof(startup);startup.lpAttributeList=C.cast(attrs,C.c_void_p)
++            # Identical one-argument command lines. An accidental resume would
++            # fail native07 argument validation, but resume remains prohibited.
++            command=C.create_unicode_buffer(subprocess.list2cmdline([str(actor)]));env=C.create_unicode_buffer(environment)
++            def create():
++                try:
++                    ok=self.k.CreateProcessW(str(actor),command,None,None,False,
++                        self.proc._CREATE_SUSPENDED|self.proc._CREATE_UNICODE_ENVIRONMENT|self.proc._EXTENDED_STARTUPINFO_PRESENT|0x08000000,
++                        env,str(cwd),C.byref(startup),C.byref(info))
++                except BaseException as error:
++                    state.update(create_status='exception',create_exception_detail=owner.private_failure_detail(error,'CreateProcessW(matched-identity)'));raise
++                error=C.get_last_error() if not ok else 0
++                state.update(create_status='returned_true' if ok else 'returned_false',create_winerror=None if ok else error,
++                    create_information='all_zero' if not any((info.hProcess,info.hThread,info.dwProcessId,info.dwThreadId)) else 'nonzero')
++                return ok,error
++            def checked(result):
++                if not result[0]:raise launcher.NativeFailure('CreateProcessW(matched-identity)',result[1])
++            budget.require_ms(cutoff);helpers.create_suspended_owned(create,checked,info,owners,state)
++        finally:
++            uncertain=False
++            try:self.k.DeleteProcThreadAttributeList(attrs)
++            except BaseException:uncertain=True
++            for pointer in sid_pointers:
++                try:
++                    if self.k.LocalFree(pointer):uncertain=True
++                except BaseException:uncertain=True
++            if state['create_status'] in ('returned_true','returned_false'):
++                try:state['returned_qpc']=budget.read()
++                except BaseException:state['returned_qpc']=None
++            if uncertain:self.controls_uncertain=True;raise ValueError('matched_capability_close')
++
++def capture_primary(api,token,parent,catalog,profile_sid,budget,cutoff):
++    """OWNER-side snapshot from an already held QUERY token, before observer.
++
++    This uses the original owner's independent token readers, not the
++    AccessCheck library's observed identity or its expected-mask result.
++    """
++    budget.require_ms(cutoff);identity=api.identity(token)
++    caps=sorted((dict(sid=sid,attributes=attributes) for sid,attributes in api.groups(token,30,'TokenCapabilities')),key=lambda row:row['sid'])
++    live.selected_identity(identity,caps,parent,'agentic-pncs',catalog)
++    require(identity['appcontainer_sid']==profile_sid and identity['integrity_rid']==4096,'matched_primary_identity')
++    raw,size=api.native.query(token,10,'TokenStatistics');require(size==C.sizeof(access.TOKEN_STATISTICS),'matched_statistics_width')
++    statistics=C.cast(raw,C.POINTER(access.TOKEN_STATISTICS))[0]
++    require(statistics.TokenType==identity['token_type']==1,'matched_primary_type')
++    luid=lambda value:value.LowPart|((value.HighPart&0xffffffff)<<32)
++    snapshot=dict(sid=identity['sid'],session_id=identity['session_id'],token_type=1,impersonation_level=None,
++        appcontainer=identity['appcontainer'],appcontainer_sid=identity['appcontainer_sid'],integrity_rid=identity['integrity_rid'],
++        elevated=identity['elevated'],ui_access=identity['ui_access'],capabilities=caps,
++        token_id=luid(statistics.TokenId),authentication_id=luid(statistics.AuthenticationId))
++    access.identity(snapshot,primary=True);budget.require_ms(cutoff);return snapshot
++
++def verify_held_arm(api,row,common,budget,cutoff):
++    require(set(row)=={'role','policy','process','thread','token','pid','creation','expected_primary','common_sha256'},'matched_arm_schema')
++    require(row['role'] in POLICIES and type(row['policy']) is int and row['policy']==POLICIES[row['role']],'matched_arm_policy')
++    require(all(access.integer(row[key],1,0xffffffffffffffff) for key in ('process','thread','token','pid','creation')),'matched_arm_handles')
++    require(row['common_sha256']==sha(encode(common)),'matched_common_binding');budget.require_ms(cutoff)
++    require(not api.wait(row['process'],0) and api.process_id(row['process'])==row['pid'] and api.creation_time(row['process'])==row['creation'],'matched_held_generation')
++    api.verify_job(common['inner_job'],row['process']);api.verify_outer(common['outer_job'],row['process'])
++    api.verify_image(row['process'],common['actor_path'])
++    require(sha(owner.local.bounded(Path(common['actor_path']),8*1024*1024))==common['actor_sha256'],'matched_held_image_hash')
++    expected=capture_primary(api,row['token'],common['parent'],common['catalog'],common['profile_sid'],budget,cutoff)
++    require(expected==row['expected_primary'],'matched_primary_changed');return expected
++
++
++IdentityAPI=NativeCellAPI
++
++def config_validate(c,*,source_names=None):
++    keys={'schema_version','scope',*NONCES,'start_qpc','frequency','root_deadline_qpc','deadline_qpc','guard_job_name',
++        'source_hashes','source_sha256','device_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256','capability_catalog'}
++    require(type(c) is dict and set(c)==keys and type(c['schema_version']) is int and c['schema_version']==1 and c['scope']==SCOPE,'identity_config')
++    require(all(owner.ac.nonce(c[n]) for n in NONCES) and len({c[n] for n in NONCES})==3,'identity_nonces')
++    live.clock_record(c['start_qpc'],c['frequency'],c['root_deadline_qpc'])
++    require(c['root_deadline_qpc']==c['start_qpc']+120*c['frequency']
++        and c['deadline_qpc']==c['root_deadline_qpc']-5*c['frequency']
++        and c['guard_job_name']=='Local\\RuleProxy.LocalGuard.'+c['run'],'identity_clock')
++    names=tuple(dict.fromkeys((*SOURCES,LOCAL_MODULE))) if source_names is None else tuple(source_names)
++    require(type(c['source_hashes']) is dict and set(c['source_hashes'])==set(names)
++        and all(owner.ac.digest(v) for v in c['source_hashes'].values())
++        and sha(encode(c['source_hashes']))==c['source_sha256'],'identity_sources')
++    require(all(owner.ac.digest(c[k]) for k in ('source_sha256','device_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256')),'identity_digests')
++    owner.capability_catalog(c['capability_catalog']);return c
++
++def expected_acl(root,path):
++    if path==root:return [(0,0x1200a9)]
++    directory=root/'inputs'
++    if path==directory:return [(3,0x1200a9)]
++    if directory in path.parents:return [(19 if path.is_dir() else 16,0x1200a9)]
++    return []
++
++EXTRA_KEYS={'role','policy','arm_nonce','expected_primary','common_sha256','held_checks'}
++TASK_KEYS={'name','attempted','assigned','exited','exit_code','pid','created','identity','capabilities','lpac','lpac_expected',
++    'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned','create_observation'}
++BOOL_KEYS=('profile_created','acl_attempted','common_inputs_verified','observer_attempted','observer_resources_cleanup_verified',
++    'workload_cleanup','workload_job_empty','workload_stop','acl_removed','cleanup_tools','profile_deleted','sid_released')
++COMMON_KEYS={'actor_path','actor_sha256','cwd','environment_sha256','profile_sid','parent','catalog','inner_job','outer_job',
++    'frequency','start_qpc','root_deadline_qpc','deadline_qpc'}
++
++def projection(row):
++    value=owner.task_projection(row)
++    value.update({k:row.get(k,[] if k=='held_checks' else None) for k in EXTRA_KEYS})
++    return value
++
++class CellOwner(owner.Owner):
++    """Own both suspended actors and reuse only fixed ordinary helper seams."""
++    def __init__(self,root,c,parent,api,budget):
++        self.root,self.c,self.parent,self.api,self.budget=root,c,parent,api,budget
++        self.owners=helpers.OneShotHandles(api.close);self.job=None;self.children=[];self.tasks={}
++        self.profile=dict(attempted=False,returned=False,created=False,pointer=None,sid=None)
++        self.catalog=None;self.selected_environment=None;self.common=None;self.phase='setup'
++        self.j=dict(schema_version=1,stage='matched-ac-lpac-identity-result',scope=SCOPE,config_sha256=sha(encode(c)),
++            failure=None,failure_detail=None,profile_name='ruleproxy-identity-'+c['run'],profile_sid=None,
++            profile_state=dict(attempted=False,returned=False,created=False,sid_pointer_returned=False),
++            child_environment=launcher.default_child_environment(),common=None,intents=[],proofs=[],tasks=[],cleanup_tasks=[],
++            token_class46_queried=False,actor_resumed=False,network_tested=False,dns_tested=False,g_psec_tested=False,
++            proxy_tested=False,product_acceptance=False,**dict.fromkeys(BOOL_KEYS,False))
++        # With no observer call, there are no observer resources to close.
++        self.j['observer_resources_cleanup_verified']=True
++
++    def journal(self,label):
++        allowed={'profile-create','acl-grant','spawn-grant-root','spawn-grant-inputs','spawn-ac','spawn-lpac',
++            'observe-ac','observe-lpac','workload-stop','acl-remove','spawn-remove','profile-delete'}
++        require(label in allowed and len(self.j['intents'])<16,'identity_intent')
++        directory=self.root/'journal';directory.mkdir(exist_ok=True)
++        raw=encode(dict(schema_version=1,scope=SCOPE,run=self.c['run'],config_sha256=sha(encode(self.c)),
++            frequency=self.c['frequency'],deadline_qpc=self.c['deadline_qpc'],qpc=self.budget.read(),action=label))
++        name='%02d-%s.json'%(len(self.j['intents']),label)
++        owner.durable_private(directory/name,raw)
++        self.j['intents'].append(dict(name=name,text=raw.decode('ascii'),sha256=sha(raw)))
++
++    def scope_acl(self,removed=False):
++        for path in owner.owned_tree(self.root):
++            self.budget.require_ms(self.budget.cutoff(3 if removed else 25))
++            require(self.api.acl_read(path,self.profile['sid'])==([] if removed else expected_acl(self.root,path)),'identity_acl_scope')
++
++    def task(self,name,argv,work,*,lpac=False,stdio=False,owners=None,children=None,job=None,cleanup=False):
++        """Fixed ordinary icacls tools, with an existing per-tool TEMP/TMP.
++
++        This narrow seam avoids the DNS owner's unrelated health directory.
++        Atomic Job construction and held ordinary admission stay unchanged.
++        """
++        require(name in ('grant-root','grant-inputs','remove') and not lpac and stdio
++            and cleanup==(name=='remove'),'identity_ordinary_tool')
++        sid='*'+self.profile['sid'];executable=str(self.fixed_tool('icacls.exe'))
++        expected=([executable,str(self.root),'/remove:g',sid,'/T','/Q'] if cleanup else
++            [executable,str(self.root/('inputs' if name=='grant-inputs' else '')),'/grant',
++                sid+(':(OI)(CI)(RX)' if name=='grant-inputs' else ':RX'),'/Q'])
++        require(argv==expected and work==self.root/'tools'/name and (work/'temp').is_dir(),'identity_fixed_tool_command')
++        cutoff=self.budget.cutoff(3 if cleanup else 25);self.budget.require_ms(cutoff)
++        owners=self.owners if owners is None else owners;children=self.children if children is None else children
++        job=self.job if job is None else job;image=launcher.checked_path(argv[0]);image_hash=sha(owner.local.bounded(image,8*1024*1024))
++        info=self.api.process_info();row=dict(info=info,name=name,attempted=False,assigned=False,exited=False,exit_code=None,
++            pid=None,created=None,process_returned=False,create_observation=dict(status='not_entered',winerror=None,
++            process_information='not_observed',returned_qpc=None,work_cutoff=cutoff,exception_detail=None),token=None,
++            identity=None,capabilities=None,lpac=None,lpac_expected=False,resumed=False,admitted=False,image_sha256=image_hash,
++            admission_qpc=None,resume_qpc=None,go_qpc=[])
++        children.append(row)
++        if not cleanup:self.tasks[name]=row
++        state=dict(creation_attempted=False);stdio_owners=helpers.OneShotHandles(self.api.close);handles=[];self.journal('spawn-'+name)
++        try:
++            for label in ('stdin','stdout','stderr'):
++                handle=self.api.open_stdio_file(work/label,read=label=='stdin');stdio_owners.add(handle);handles.append(handle)
++            environment=self.api.native.environment(work)
++            pairs=dict(value.split('=',1) for value in environment.rstrip('\0').split('\0'))
++            require(environment.endswith('\0\0') and set(pairs)=={'SystemRoot','WINDIR','TEMP','TMP'}
++                and pairs['SystemRoot']==pairs['WINDIR'] and pairs['TEMP']==pairs['TMP']==str(work/'temp'),'identity_tool_environment')
++            try:self.api.atomic_spawn(info,argv,work,job,owners,state,environment=environment,stdio=handles,profile_pointer=None,catalog=self.catalog)
++            finally:
++                row.update(attempted=state['creation_attempted'],process_returned=bool(info.hProcess))
++                if info.dwProcessId:row['pid']=int(info.dwProcessId)
++                row['create_observation']=dict(status=state.get('create_status','not_entered'),winerror=state.get('create_winerror'),
++                    process_information=state.get('create_information','not_observed'),returned_qpc=None,work_cutoff=cutoff,
++                    exception_detail=state.get('create_exception_detail'))
++                if row['create_observation']['status'] in ('returned_false','returned_true'):
++                    try:row['create_observation']['returned_qpc']=self.budget.read()
++                    except BaseException:pass
++        finally:
++            uncertain=False
++            for handle in tuple(stdio_owners.pending):
++                try:stdio_owners.close(handle)
++                except BaseException:uncertain=True
++            if uncertain or not stdio_owners.confirmed_closed:
++                self.api.controls_uncertain=True;launcher._RETAINED_SCOPED_OWNERS.append((self.api,stdio_owners));raise ValueError('identity_stdio_close')
++        self.budget.require_ms(cutoff);require(info.hProcess and info.hThread and info.dwProcessId,'identity_partial_tool')
++        row['created']=self.api.creation_time(info.hProcess);self.api.verify_job(job,info.hProcess);row['assigned']=True
++        self.api.verify_outer(self.c['guard_job_name'],info.hProcess);self.api.verify_image(info.hProcess,image)
++        require(sha(owner.local.bounded(image,8*1024*1024))==image_hash,'identity_tool_image_changed')
++        row['token']=self.api.token_for_process(info.hProcess);owners.add(row['token'])
++        row['identity'],row['capabilities'],row['lpac']=owner.held_identity(self.api,row,self.parent,self.catalog,self.profile['sid'],False)
++        row['admission_qpc']=self.budget.read();self.budget.require_ms(cutoff);row['admitted']=True
++        return row
++
++    def setup(self):
++        owner.owned_tree(self.root);self.budget.require_ms(self.budget.cutoff(30))
++        verified=self.api.local_appdata(self.budget,self.j['child_environment'])
++        self.selected_environment=self.api.front_environment(verified,self.j['child_environment'])
++        require(launcher.child_environment_admitted(self.j['child_environment']),'identity_environment')
++        self.job=self.api.owned_job(self.owners);catalog=self.api.catalog()
++        self.catalog=owner.capability_catalog({name:catalog[name] for name in ('AgenticAppContainer','privateNetworkClientServer')})
++        require(self.catalog==self.c['capability_catalog'],'identity_catalog')
++        self.journal('profile-create')
++        try:self.api.create_profile(self.j['profile_name'],self.profile)
++        finally:
++            self.j['profile_state']={k:self.profile[k] for k in ('attempted','returned','created')}
++            self.j['profile_state']['sid_pointer_returned']=bool(self.profile['pointer'])
++            # Keep a successfully converted SID even if later readback fails.
++            self.j['profile_sid']=self.profile['sid']
++        require(self.profile['created'] and self.api.derive_profile_sid(self.j['profile_name'])==self.profile['sid'],'identity_fresh_profile')
++        self.j.update(profile_created=True,profile_sid=self.profile['sid'])
++        for path in owner.owned_tree(self.root):require(self.api.acl_read(path,self.profile['sid'])==[],'identity_fresh_acl')
++        self.j['acl_attempted']=True;self.journal('acl-grant');tool=str(self.fixed_tool('icacls.exe'))
++        for name,right in (('','RX'),('inputs','(OI)(CI)(RX)')):
++            self.tool([tool,str(self.root/name),'/grant','*'+self.profile['sid']+':'+right,'/Q'],'grant-'+(name or 'root'))
++        self.scope_acl()
++        self.common=dict(actor_path=str(self.root/'inputs'/live.ACTOR),actor_sha256=self.c['actor_sha256'],cwd=str(self.root/'inputs'),
++            environment_sha256=sha(self.selected_environment.encode('utf-16-le')),profile_sid=self.profile['sid'],parent=self.parent,
++            catalog=self.catalog,inner_job=self.job,outer_job=self.c['guard_job_name'],frequency=self.c['frequency'],
++            start_qpc=self.c['start_qpc'],root_deadline_qpc=self.c['root_deadline_qpc'],deadline_qpc=self.c['deadline_qpc'])
++        self.j['common']=self.common
++
++    def resume(self,row):
++        require(row['name'] in ('grant-root','grant-inputs') and not row.get('role'),'identity_actor_resume_forbidden')
++        return super().resume(row)
++
++    def arm(self,role):
++        self.phase='construct';cutoff=self.budget.cutoff(25);self.budget.require_ms(cutoff)
++        actor=launcher.checked_path(self.root/'inputs'/live.ACTOR,inside=self.root)
++        require(sha(owner.local.bounded(actor,8*1024*1024))==self.c['actor_sha256'],'identity_actor_hash')
++        info=self.api.process_info();row=dict(info=info,name=role,attempted=False,assigned=False,exited=False,exit_code=None,pid=None,
++            created=None,process_returned=False,create_observation=dict(status='not_entered',winerror=None,process_information='not_observed',
++            returned_qpc=None,work_cutoff=cutoff,exception_detail=None),token=None,identity=None,capabilities=None,lpac=None,
++            lpac_expected=False,resumed=False,admitted=False,image_sha256=self.c['actor_sha256'],admission_qpc=None,resume_qpc=None,go_qpc=[],
++            role=role,policy=POLICIES[role],arm_nonce=self.c[role+'_nonce'],expected_primary=None,common_sha256=sha(encode(self.common)),held_checks=[])
++        self.children.append(row);self.tasks[role]=row;state=dict(creation_attempted=False);self.journal('spawn-'+role)
++        try:self.api.create_matched_suspended(info,actor,self.root/'inputs',self.selected_environment,self.job,self.owners,state,
++            profile_pointer=self.profile['pointer'],catalog=self.catalog,policy=POLICIES[role],budget=self.budget,cutoff=cutoff)
++        finally:
++            row.update(attempted=state['creation_attempted'],process_returned=bool(info.hProcess))
++            if info.dwProcessId:row['pid']=int(info.dwProcessId)
++            row['create_observation']=dict(status=state.get('create_status','not_entered'),winerror=state.get('create_winerror'),
++                process_information=state.get('create_information','not_observed'),returned_qpc=state.get('returned_qpc'),
++                work_cutoff=cutoff,exception_detail=state.get('create_exception_detail'))
++        self.phase='admission';self.budget.require_ms(cutoff)
++        require(bool(info.hProcess) and bool(info.hThread) and info.dwProcessId,'identity_partial_create')
++        row['created']=self.api.creation_time(info.hProcess)
++        self.api.verify_job(self.job,info.hProcess);row['assigned']=True
++        self.api.verify_outer(self.c['guard_job_name'],info.hProcess);self.api.verify_image(info.hProcess,actor)
++        require(sha(owner.local.bounded(actor,8*1024*1024))==self.c['actor_sha256'],'identity_image_changed')
++        row['token']=self.api.token_for_process(info.hProcess);self.owners.add(row['token'])
++        row['expected_primary']=capture_primary(self.api,row['token'],self.parent,self.catalog,self.profile['sid'],self.budget,cutoff)
++        row['identity']=self.api.identity(row['token']);row['capabilities']=row['expected_primary']['capabilities']
++        self.check_arm(row)
++        row['admission_qpc']=self.budget.read();self.budget.require_ms(cutoff);row['admitted']=True
++        return row
++
++    def check_arm(self,row):
++        require(row['role'] in POLICIES and not row['resumed'] and row['resume_qpc'] is None and row['go_qpc']==[],'identity_never_resumed')
++        held=dict(role=row['role'],policy=row['policy'],process=row['info'].hProcess,thread=row['info'].hThread,token=row['token'],
++            pid=row['pid'],creation=row['created'],expected_primary=row['expected_primary'],common_sha256=row['common_sha256'])
++        verify_held_arm(self.api,held,self.common,self.budget,self.budget.cutoff(25))
++        row['held_checks'].append(self.budget.read())
++
++    def execute(self):
++        try:
++            self.setup();arms=[self.arm(role) for role in ('ac','lpac')]
++            require(arms[0]['expected_primary']['authentication_id']==arms[1]['expected_primary']['authentication_id'],'identity_authentication')
++            for row in arms:self.check_arm(row)
++            self.j['common_inputs_verified']=True;self.phase='accesscheck'
++            probe=self.api.access_api()
++            for row in arms:
++                for held in arms:self.check_arm(held)
++                self.journal('observe-'+row['role']);self.j['observer_attempted']=True
++                self.j['observer_resources_cleanup_verified']=False
++                proof=access.observe_held(probe,row['info'].hProcess,row['expected_primary'],expected_pid=row['pid'],
++                    expected_creation=row['created'],expected_role=row['role'],frequency=self.c['frequency'],deadline=self.budget.cutoff(25))
++                self.j['proofs'].append(proof)
++                self.j['observer_resources_cleanup_verified']=all(p['resource_cleanup_verified'] for p in self.j['proofs'])
++                if not self.j['observer_resources_cleanup_verified']:self.api.controls_uncertain=True
++                for held in arms:self.check_arm(held)
++                require(proof['qualified'],'identity_matrix')
++        except BaseException as error:
++            self.j['failure']=self.phase
++            last=self.tasks.get(next(reversed(self.tasks),None));detail=None if last is None else last['create_observation']['exception_detail']
++            self.j['failure_detail']=detail or owner.private_failure_detail(error)
++            if self.j['observer_attempted'] and not self.j['observer_resources_cleanup_verified']:self.api.controls_uncertain=True
++        finally:self.cleanup()
++        self.j['tasks']=[projection(row) for row in self.children];return self.j
++
++    def cleanup(self):
++        clean=False
++        try:
++            # Durable intent precedes the sole held workload Job stop. It is
++            # expected that suspended actors exit by this stop, never exit0.
++            if any(r['info'].hProcess and not r['exited'] for r in self.children):self.journal('workload-stop')
++            rows=[row for row in self.children if not owner.known_no_child(row,start=self.c['start_qpc'])]
++            clean,empty,stop=owner.ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(8)),self.job,rows,self.owners)
++            self.j.update(workload_cleanup=clean,workload_job_empty=empty,workload_stop=stop)
++        except BaseException:pass
++        if clean and self.j['observer_resources_cleanup_verified'] and not self.api.controls_uncertain:
++            if self.profile['created']:
++                toolowners=helpers.OneShotHandles(self.api.close);children=[];job=None
++                try:
++                    job=self.api.owned_job(toolowners);self.journal('acl-remove')
++                    self.tool([str(self.fixed_tool('icacls.exe')),str(self.root),'/remove:g','*'+self.profile['sid'],'/T','/Q'],
++                        'remove',cleanup=True,owners=toolowners,children=children,job=job)
++                    self.scope_acl(removed=True);self.j['acl_removed']=True
++                except BaseException:pass
++                finally:
++                    try:self.j['cleanup_tools']=owner.ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(3)),job,
++                        [row for row in children if not owner.known_no_child(row,start=self.c['start_qpc'])],toolowners)[0]
++                    except BaseException:pass
++                    self.j['cleanup_tasks']=[projection(row) for row in children]
++                if self.j['acl_removed'] and self.j['cleanup_tools'] and not self.api.controls_uncertain:
++                    try:self.journal('profile-delete');self.api.delete_profile(self.j['profile_name']);self.j['profile_deleted']=True
++                    except BaseException:pass
++            elif not self.profile['attempted']:
++                self.j.update(acl_removed=True,cleanup_tools=True,profile_deleted=True)
++        try:self.api.release_profile_sid(self.profile);self.j['sid_released']=True
++        except BaseException:pass
++        if not all(self.j[k] for k in ('workload_cleanup','workload_job_empty','observer_resources_cleanup_verified',
++                'acl_removed','cleanup_tools','profile_deleted','sid_released')):self.j['failure']=self.j['failure'] or 'cleanup'
++
++def execute(root,c,parent,api,budget):
++    config_validate(c);require(launcher.token_is_ordinary(parent),'identity_parent')
++    require(budget.frequency==c['frequency'] and budget.deadline==c['deadline_qpc'],'identity_budget')
++    return CellOwner(root,c,parent,api,budget).execute()
++
++def validate_result(j,c,*,parent):
++    config_validate(c);require(launcher.token_is_ordinary(parent),'identity_external_parent')
++    keys={'schema_version','stage','scope','config_sha256','failure','failure_detail','profile_name','profile_sid','profile_state','child_environment',
++        'common','intents','proofs','tasks','cleanup_tasks','token_class46_queried','actor_resumed','network_tested','dns_tested',
++        'g_psec_tested','proxy_tested','product_acceptance',*BOOL_KEYS}
++    require(type(j) is dict and set(j)==keys and type(j['schema_version']) is int and j['schema_version']==1
++        and j['stage']=='matched-ac-lpac-identity-result' and j['scope']==SCOPE and j['config_sha256']==sha(encode(c))
++        and j['failure'] in (None,'setup','construct','admission','accesscheck','cleanup')
++        and j['profile_name']=='ruleproxy-identity-'+c['run'],'identity_result')
++    require(all(type(j[k]) is bool for k in BOOL_KEYS),'identity_result_boolean')
++    for key in ('token_class46_queried','actor_resumed','network_tested','dns_tested','g_psec_tested','proxy_tested','product_acceptance'):
++        require(j[key] is False,'identity_result_scope')
++    owner.validate_failure_detail(j['failure_detail']);require(j['failure'] is not None or j['failure_detail'] is None,'identity_failure_detail')
++    launcher.validate_child_environment(j['child_environment'])
++    require(j['profile_sid'] is None or owner.ac.ac_profile_sid(j['profile_sid']),'identity_profile_sid')
++    require(not j['profile_created'] or owner.ac.ac_profile_sid(j['profile_sid']),'identity_created_profile')
++    state=j['profile_state']
++    require(type(state) is dict and set(state)=={'attempted','returned','created','sid_pointer_returned'}
++        and all(type(v) is bool for v in state.values()) and (not state['returned'] or state['attempted'])
++        and (not state['created'] or state['returned']) and (not j['profile_created'] or state['created']),'identity_profile_state')
++    intents=j['intents'];require(type(intents) is list and len(intents)<=16,'identity_intents')
++    actions=[];last=c['start_qpc']
++    allowed={'profile-create','acl-grant','spawn-grant-root','spawn-grant-inputs','spawn-ac','spawn-lpac','observe-ac','observe-lpac',
++        'workload-stop','acl-remove','spawn-remove','profile-delete'}
++    for index,row in enumerate(intents):
++        require(type(row) is dict and set(row)=={'name','text','sha256'} and type(row['text']) is str,'identity_intent_schema')
++        raw=row['text'].encode('ascii');require(1<=len(raw)<=4096 and sha(raw)==row['sha256'],'identity_intent_hash')
++        r=owner.decode(raw)
++        require(type(r) is dict and set(r)=={'schema_version','scope','run','config_sha256','frequency','deadline_qpc','qpc','action'}
++            and type(r['schema_version']) is int and r['schema_version']==1 and r['scope']==SCOPE and r['run']==c['run']
++            and r['config_sha256']==sha(encode(c)) and r['frequency']==c['frequency'] and r['deadline_qpc']==c['deadline_qpc']
++            and r['action'] in allowed and row['name']=='%02d-%s.json'%(index,r['action'])
++            and live.integer(r['qpc'],last,c['deadline_qpc']-1) and r['action'] not in actions,'identity_intent_binding')
++        last=r['qpc'];actions.append(r['action'])
++    require(not j['profile_created'] or 'profile-create' in actions,'identity_profile_intent')
++    require(not state['attempted'] or 'profile-create' in actions,'identity_profile_attempt_intent')
++    require(not j['acl_attempted'] or j['profile_created'] and 'acl-grant' in actions,'identity_acl_intent')
++    common=j['common']
++    if common is not None:
++        require(type(common) is dict and set(common)==COMMON_KEYS and common['actor_sha256']==c['actor_sha256']
++            and type(common['actor_path']) is str and Path(common['actor_path']).name==live.ACTOR
++            and type(common['cwd']) is str and Path(common['actor_path']).parent==Path(common['cwd'])
++            and Path(common['cwd']).name=='inputs' and owner.ac.digest(common['environment_sha256'])
++            and common['profile_sid']==j['profile_sid'] and common['parent']==parent
++            and common['catalog']==c['capability_catalog'] and access.integer(common['inner_job'],1,0xffffffffffffffff)
++            and common['outer_job']==c['guard_job_name'] and all(common[k]==c[k] for k in
++                ('frequency','start_qpc','root_deadline_qpc','deadline_qpc')),'identity_common_binding')
++        require(j['profile_created'] and j['acl_attempted'] and launcher.child_environment_admitted(j['child_environment']),'identity_common_setup')
++    tasks={}
++    for field,names in (('tasks',('grant-root','grant-inputs','ac','lpac')),('cleanup_tasks',('remove',))):
++        rows=j[field];require(type(rows) is list and len(rows)<=len(names) and [row.get('name') for row in rows]==list(names[:len(rows)]),'identity_task_order')
++        for row in rows:
++            require(type(row) is dict and set(row)==TASK_KEYS|EXTRA_KEYS,'identity_task_schema')
++            for key in ('attempted','assigned','exited','lpac_expected','resumed','admitted','process_returned'):
++                require(type(row[key]) is bool,'identity_task_boolean')
++            require(row['lpac_expected'] is False and row['lpac'] is None and owner.ac.digest(row['image_sha256']),'identity_class46_not_queried')
++            for key in ('pid','created','admission_qpc','resume_qpc'):
++                require(row[key] is None or live.integer(row[key],1,live.MAX_SIGNED),'identity_task_integer')
++            require(row['exit_code'] is None or live.integer(row['exit_code']),'identity_task_exit')
++            require(row['go_qpc']==[],'identity_no_go')
++            observation=row['create_observation']
++            require(type(observation) is dict and set(observation)=={'status','winerror','process_information','returned_qpc','work_cutoff','exception_detail'}
++                and observation['status'] in ('not_entered','exception','returned_false','returned_true')
++                and observation['process_information'] in ('not_observed','all_zero','nonzero')
++                and observation['work_cutoff']==c['deadline_qpc']-(3 if field=='cleanup_tasks' else 25)*c['frequency'],'identity_create_schema')
++            require(observation['winerror'] is None or live.integer(observation['winerror']),'identity_create_error')
++            require(observation['status']=='returned_false' or observation['winerror'] is None,'identity_create_error_kind')
++            require(observation['status']!='returned_false' or live.integer(observation['winerror']),'identity_false_error')
++            require(observation['returned_qpc'] is None or live.integer(observation['returned_qpc'],c['start_qpc'],live.MAX_SIGNED),'identity_create_clock')
++            owner.validate_failure_detail(observation['exception_detail'])
++            require((observation['exception_detail'] is not None)==(observation['status']=='exception'),'identity_create_exception')
++            if observation['status'] in ('not_entered','exception'):
++                require(observation['process_information']=='not_observed' and observation['returned_qpc'] is None,'identity_unreturned_create')
++            else:require(row['attempted'] and observation['process_information']!='not_observed','identity_returned_create')
++            require(not row['process_returned'] or row['attempted'] and observation['process_information']=='nonzero','identity_process_returned')
++            require(not row['assigned'] or row['process_returned'] and row['pid'] is not None and row['created'] is not None,'identity_assigned')
++            require(not row['exited'] or row['process_returned'] and row['exit_code'] is not None,'identity_exited')
++            if row['admitted']:
++                require(row['assigned'] and observation['status']=='returned_true' and observation['process_information']=='nonzero'
++                    and live.integer(observation['returned_qpc'],c['start_qpc'],observation['work_cutoff']-1)
++                    and live.integer(row['admission_qpc'],observation['returned_qpc'],observation['work_cutoff']-1)
++                    and row['identity'] is not None and type(row['capabilities']) is list,'identity_task_admitted')
++            require(not row['resumed'] or row['admitted'] and live.integer(row['resume_qpc'],row['admission_qpc'],observation['work_cutoff']-1),'identity_resume_gate')
++            arm=row['name'] in POLICIES
++            if arm:
++                role=row['name']
++                require(row['role']==role and type(row['policy']) is int and row['policy']==POLICIES[role]
++                    and row['arm_nonce']==c[role+'_nonce'] and not row['resumed'] and row['resume_qpc'] is None
++                    and row['image_sha256']==c['actor_sha256'] and common is not None
++                    and row['common_sha256']==sha(encode(common)),'identity_arm_binding')
++                require(type(row['held_checks']) is list and len(row['held_checks'])<=16
++                    and all(live.integer(t,c['start_qpc'],c['deadline_qpc']-25*c['frequency']-1) for t in row['held_checks'])
++                    and row['held_checks']==sorted(row['held_checks']),'identity_held_checks')
++                if row['expected_primary'] is not None:
++                    prior=access.identity(row['expected_primary'],primary=True)
++                    require(prior['sid']==parent['sid'] and prior['session_id']==parent['session_id'] and prior['appcontainer_sid']==j['profile_sid'],'identity_prior_parent')
++                    live.capability_set(prior['capabilities'],'agentic-pncs',c['capability_catalog'])
++                require(not row['admitted'] or j['profile_created'] and j['acl_attempted'] and row['expected_primary'] is not None
++                    and row['identity']['appcontainer_sid']==j['profile_sid'] and row['identity']['integrity_rid']==4096
++                    and row['capabilities']==row['expected_primary']['capabilities'] and len(row['held_checks'])>=1,'identity_arm_admitted')
++                if row['identity'] is not None:
++                    live.selected_identity(row['identity'],row['capabilities'],parent,'agentic-pncs',c['capability_catalog'])
++                    prior=row['expected_primary'];require(prior is not None and all(row['identity'][k]==prior[k] for k in
++                        ('sid','session_id','token_type','appcontainer','appcontainer_sid','integrity_rid','elevated','ui_access')),'identity_prior_snapshot')
++            else:
++                require(all(row[key] is None for key in EXTRA_KEYS-{'held_checks'}) and row['held_checks']==[],'identity_ordinary_metadata')
++                if row['identity'] is not None:require(launcher.token_is_ordinary(row['identity']) and launcher.same_identity(row['identity'],parent)
++                    and row['capabilities']==[],'identity_ordinary')
++            require(not row['attempted'] or 'spawn-'+row['name'] in actions,'identity_spawn_intent')
++            if field=='tasks':tasks[row['name']]=row
++        if j['workload_cleanup'] and field=='tasks' or j['cleanup_tools'] and field=='cleanup_tasks':
++            require(all(not row['attempted'] or owner.known_no_child(row,start=c['start_qpc'])
++                or row['process_returned'] and row['exited'] and row['exit_code'] is not None for row in rows),'identity_cleanup_exits')
++    arms=[tasks[role] for role in ('ac','lpac') if role in tasks]
++    if j['common_inputs_verified']:
++        require(len(arms)==2 and all(row['admitted'] for row in arms) and arms[0]['pid']!=arms[1]['pid']
++            and arms[0]['expected_primary']['token_id']!=arms[1]['expected_primary']['token_id']
++            and arms[0]['expected_primary']['authentication_id']==arms[1]['expected_primary']['authentication_id']
++            and all(name in tasks and tasks[name]['admitted'] and tasks[name]['resumed'] and tasks[name]['exited']
++                and tasks[name]['exit_code']==0 for name in ('grant-root','grant-inputs')),'identity_matched_inputs')
++    require(type(j['proofs']) is list and len(j['proofs'])<=2,'identity_proofs')
++    for proof,role in zip(j['proofs'],('ac','lpac')):
++        require(role in tasks and tasks[role]['admitted'] and j['common_inputs_verified'] and 'observe-'+role in actions,'identity_proof_admission')
++        row=tasks[role];access.validate_proof(proof,expected_primary_identity=row['expected_primary'],expected_role=role,
++            expected_pid=row['pid'],expected_creation=row['created'],frequency=c['frequency'],deadline=c['deadline_qpc']-25*c['frequency'])
++        if proof['qualified']:
++            require(len(row['held_checks'])>=3 and any(t<=proof['start_qpc'] for t in row['held_checks'])
++                and any(t>=proof['end_qpc'] for t in row['held_checks']),'identity_proof_held_bracket')
++    observer_count=sum(action.startswith('observe-') for action in actions)
++    require(j['observer_attempted']==bool(observer_count) and len(j['proofs'])<=observer_count,'identity_observer_attempt')
++    require(not j['observer_resources_cleanup_verified'] or len(j['proofs'])==observer_count
++        and all(p['resource_cleanup_verified'] for p in j['proofs']),'identity_observer_cleanup')
++    require(not j['workload_cleanup'] or j['workload_job_empty'],'identity_job_empty')
++    if state['created'] and j['acl_removed']:
++        require(j['workload_cleanup'] and j['observer_resources_cleanup_verified'] and 'acl-remove' in actions
++            and len(j['cleanup_tasks'])==1 and all(j['cleanup_tasks'][0][key] for key in ('admitted','resumed','exited'))
++            and j['cleanup_tasks'][0]['exit_code']==0,'identity_remove_order')
++    if state['created'] and j['profile_deleted']:
++        require(j['acl_removed'] and j['cleanup_tools'] and 'profile-delete' in actions,'identity_delete_order')
++    if j['failure'] is None:
++        require(j['profile_created'] and j['acl_attempted'] and j['common_inputs_verified'] and len(j['proofs'])==2
++            and all(p['qualified'] for p in j['proofs']) and all(j[k] for k in ('observer_resources_cleanup_verified','workload_cleanup',
++                'workload_job_empty','acl_removed','cleanup_tools','profile_deleted','sid_released')),'identity_complete_result')
++    require(len(encode(j))<=owner.MAX_REPORT,'identity_result_bound');return j
++
++def project(j,c,*,parent):
++    validate_result(j,c,parent=parent);tasks={row['name']:row for row in j['tasks']};proofs={p['expected_role']:p for p in j['proofs']}
++    value=dict(failure=j['failure'],common_inputs_verified=j['common_inputs_verified'],never_resumed=True,
++        **{key:j[key] for key in ('observer_resources_cleanup_verified','workload_cleanup','workload_job_empty','acl_removed',
++            'cleanup_tools','profile_deleted','sid_released')})
++    for role in ('ac','lpac'):
++        row=tasks.get(role);proof=proofs.get(role)
++        value[role+'_held_verified']=bool(row and row['admitted'] and row['held_checks'])
++        value[role+'_accesscheck_verified']=bool(proof and proof['qualified'])
++        value[role+'_granted_access']=None if proof is None or len(proof['calls'])!=4 or any(x['api_success'] is not True for x in proof['calls']) else [x['granted_access'] for x in proof['calls']]
++    value['inner_complete']=j['failure'] is None and all(value[key] for key in ('ac_held_verified','lpac_held_verified','common_inputs_verified',
++        'ac_accesscheck_verified','lpac_accesscheck_verified','observer_resources_cleanup_verified','never_resumed','workload_cleanup',
++        'workload_job_empty','acl_removed','cleanup_tools','profile_deleted','sid_released'))
++    return value
+diff --git a/tests/test_windows_identity_lpac_identity_cell.py b/tests/test_windows_identity_lpac_identity_cell.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_windows_identity_lpac_identity_cell.py
+@@ -0,0 +1,279 @@
++"""Pure matched-cell lifecycle; injected APIs never load DLLs or create actors."""
++import copy
++import ctypes as C
++import importlib.util
++from pathlib import Path
++import tempfile
++from types import SimpleNamespace as NS
++import unittest
++from unittest.mock import patch
++
++ROOT=Path(__file__).resolve().parents[1]
++def load(name,path):
++    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
++m=load('matched_cell_pure',ROOT/'.github/windows_identity_lpac_identity_cell.py')
++base=load('matched_cell_base_fixture',Path(__file__).with_name('test_windows_identity_lpac_dns_local.py'))
++af=load('matched_cell_access_fixture',Path(__file__).with_name('test_windows_identity_lpac_accesscheck.py'))
++F,T,D=base.F,base.T,base.D
++
++def config():
++    c={k:v for k,v in base.config().items() if k not in base.m.NONCES}
++    c.update(scope=m.SCOPE,**{n:'%032x'%(i+1) for i,n in enumerate(m.NONCES)})
++    c['source_hashes']=dict.fromkeys((*m.SOURCES,m.LOCAL_MODULE),base.H)
++    c['source_sha256']=m.sha(m.encode(c['source_hashes']));return c
++
++class Probe(af.FakeAPI):
++    def __init__(self,parent):super().__init__();self.parent=parent;self.process=None
++    def qpc(self):self.parent.now+=1;return self.parent.now
++    def frequency(self):return F
++    def verify_process(self,process,pid,creation):
++        return not self.parent.wait(process,0) and pid==process and creation==self.parent.creation_time(process)
++    def open_token(self,process,rights):
++        self.process=process;self.role=self.parent.rows[process]['role'];self.fault=self.parent.probe_fault
++        return super().open_token(process,rights)
++    def identity(self,token):
++        role=self.parent.rows[self.process]['role'];result=copy.deepcopy(self.parent.owner.tasks[role]['expected_primary'])
++        if token==12:result.update(token_type=2,impersonation_level=1,token_id=result['token_id']+1)
++        if self.fault=='primary-mismatch' and token==11:result['token_id']+=1
++        return result
++    def access_check(self,*args):
++        value=super().access_check(*args)
++        if self.fault=='late':self.parent.now=D-25*F
++        return value
++
++class API(base.API):
++    def __init__(self,root,fault=None,probe_fault=None):
++        super().__init__(root,fault);self.probe_fault=probe_fault;self.constructs=[];self.native.query=self.statistics
++        original=self.native.environment;self.tool_environments=[]
++        def environment(work):
++            value=original(work)
++            if work.parent==self.root/'tools':
++                self.assert_existing_temp(work);self.tool_environments.append((work,value))
++            return value
++        self.native.environment=environment
++    def assert_existing_temp(self,work):
++        assert work.is_dir() and (work/'temp').is_dir(), 'ordinary tool environment must exist'
++    def process_id(self,h):return h
++    def statistics(self,token,kind,label):
++        assert kind==10
++        statistics=m.access.TOKEN_STATISTICS();statistics.TokenType=1;statistics.TokenId.LowPart=10000+token
++        statistics.AuthenticationId.LowPart=20
++        raw=C.create_string_buffer(C.string_at(C.byref(statistics),C.sizeof(statistics)))
++        return raw,C.sizeof(statistics)
++    def acl_read(self,path,sid):return m.expected_acl(self.root,path) if self.granted and not self.removed else []
++    def create_matched_suspended(self,info,actor,cwd,environment,job,owners,state,*,profile_pointer,catalog,policy,budget,cutoff):
++        self.constructs.append(dict(actor=str(actor),cwd=str(cwd),environment=environment,job=job,profile=profile_pointer,
++            catalog=copy.deepcopy(catalog),policy=policy))
++        try:self.atomic_spawn(info,[str(actor)],cwd,job,owners,state,environment=environment,stdio=(),profile_pointer=profile_pointer,catalog=catalog)
++        finally:
++            if info.hProcess:self.rows[info.hProcess]['role']='ac' if policy==0 else 'lpac'
++            state['returned_qpc']=self.now if state['create_status'] in ('returned_false','returned_true') else None
++    def resume(self,thread):
++        assert 'role' not in self.rows[thread-1], 'actor must never resume'
++        return super().resume(thread)
++    def wait(self,h,ms):return self.rows[h]['exited']
++    def exit_code(self,h):return 1 if 'role' in self.rows[h] and self.rows[h]['exited'] else 0
++    def access_api(self):return Probe(self)
++    def lpac_flag(self,token):raise AssertionError('no class46 query in matched cell')
++
++class CellTests(unittest.TestCase):
++    def run_cell(self,fault=None,probe_fault=None):
++        td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve()
++        for name in ('inputs','tools','guard'):(root/name).mkdir()
++        (root/'inputs'/m.live.ACTOR).write_bytes(b'x'*512)
++        p=root/'win/System32/icacls.exe';p.parent.mkdir(parents=True);p.write_bytes(b'tool')
++        c=config();api=API(root,fault,probe_fault);budget=m.launcher.QpcBudget(api,D,F)
++        instance=m.CellOwner(root,c,base.PARENT,api,budget);api.owner=instance;j=instance.execute()
++        m.validate_result(j,c,parent=base.PARENT)
++        return instance,api,j,m.project(j,c,parent=base.PARENT)
++
++    def test_full_real_owner_shape_matched_only_policy_difference_and_never_resume(self):
++        instance,api,j,projection=self.run_cell()
++        self.assertIsNone(j['failure']);self.assertTrue(projection['inner_complete'])
++        self.assertEqual(projection['ac_granted_access'],[3,0,1,2]);self.assertEqual(projection['lpac_granted_access'],[2,0,0,2])
++        left,right=copy.deepcopy(api.constructs);self.assertEqual(left.pop('policy'),0);self.assertEqual(right.pop('policy'),1)
++        self.assertEqual(left,right);self.assertEqual(len([e for e in api.events if e==('resume',False)]),3)
++        arms=[r for r in j['tasks'] if r['role']]
++        self.assertTrue(all(not r['resumed'] and r['exit_code']==1 and r['go_qpc']==[] for r in arms))
++        self.assertTrue(all(j[k] for k in m.BOOL_KEYS if k!='workload_stop') and j['workload_stop'])
++        self.assertLess(api.events.index('remove-acl'),api.events.index('delete-profile'))
++        self.assertFalse(any(j[k] for k in ('network_tested','dns_tested','actor_resumed','token_class46_queried')))
++        self.assertEqual(instance.budget.deadline,D)
++
++    def test_known_folder_failure_creates_no_profile_or_actor_and_no_observer_resource_debt(self):
++        _,api,j,p=self.run_cell('env-query')
++        self.assertEqual(j['failure'],'setup');self.assertEqual(api.constructs,[]);self.assertNotIn('create-profile',api.events)
++        self.assertFalse(p['inner_complete']);self.assertTrue(p['observer_resources_cleanup_verified'])
++        self.assertTrue(all(j[k] for k in ('workload_cleanup','workload_job_empty','acl_removed','cleanup_tools','profile_deleted','sid_released')))
++
++    def test_unknown_create_and_partial_create_remain_recovery_obligations(self):
++        for fault in ('unknowncreate','create-false-thread','create-false-pid','create-false-clock','create-false-error0'):
++            with self.subTest(fault=fault):
++                _,api,j,p=self.run_cell(fault)
++                self.assertFalse(p['inner_complete']);self.assertFalse(j['workload_cleanup']);self.assertFalse(api.deleted)
++                self.assertEqual(j['proofs'],[]);self.assertEqual(j['tasks'][-1]['name'],'ac')
++
++    def test_typed_timely_false_zero_information_cleans_without_inventing_exit(self):
++        _,api,j,p=self.run_cell('create-false')
++        row=j['tasks'][-1]
++        self.assertTrue(row['attempted']);self.assertFalse(row['exited']);self.assertIsNone(row['exit_code'])
++        self.assertTrue(m.owner.known_no_child(row,start=T));self.assertTrue(j['workload_cleanup']);self.assertTrue(api.deleted)
++        self.assertFalse(p['inner_complete']);self.assertTrue(p['observer_resources_cleanup_verified'])
++
++    def test_external_identity_caps_generation_job_fail_before_accesscheck(self):
++        for fault in ('sid','medium','outerjob'):
++            with self.subTest(fault=fault):
++                _,_,j,p=self.run_cell(fault)
++                self.assertIsNotNone(j['failure']);self.assertFalse(p['inner_complete']);self.assertEqual(j['proofs'],[])
++
++    def test_matrix_mismatch_is_clean_failed_observation_not_profile_leak(self):
++        _,api,j,p=self.run_cell(probe_fault='wrong-mask')
++        self.assertEqual(j['failure'],'accesscheck');self.assertFalse(p['inner_complete'])
++        self.assertTrue(j['observer_resources_cleanup_verified']);self.assertTrue(api.deleted)
++        self.assertFalse(p['ac_accesscheck_verified'])
++
++    def test_observer_unknown_create_alias_or_close_blocks_profile_deletion(self):
++        for fault in ('open-unknown','duplicate-alias','close-false','free-false'):
++            with self.subTest(fault=fault):
++                _,api,j,p=self.run_cell(probe_fault=fault)
++                self.assertFalse(p['inner_complete']);self.assertFalse(j['observer_resources_cleanup_verified']);self.assertFalse(api.deleted)
++
++    def test_original_clock_late_observation_never_qualifies_and_does_not_renew(self):
++        instance,_,j,p=self.run_cell(probe_fault='late')
++        self.assertFalse(p['inner_complete']);self.assertEqual(instance.budget.deadline,D)
++        self.assertEqual(j['failure'],'accesscheck')
++
++    def test_closed_result_rejects_resume_scope_missing_cleanup_and_wrong_primary_binding(self):
++        instance,_,j,_=self.run_cell()
++        def check(mut):
++            value=copy.deepcopy(j);mut(value)
++            with self.assertRaises((ValueError,m.launcher.GateFailure)):m.validate_result(value,instance.c,parent=base.PARENT)
++        for key in ('actor_resumed','network_tested','token_class46_queried'):
++            check(lambda v,key=key:v.update({key:True}))
++        for key in ('profile_created','acl_attempted','workload_cleanup','observer_resources_cleanup_verified','profile_deleted'):
++            check(lambda v,key=key:v.update({key:False}))
++        check(lambda v:v['tasks'][2].update(resumed=True,resume_qpc=T+500))
++        check(lambda v:v['tasks'][2]['expected_primary'].update(token_id=999))
++        check(lambda v:v['tasks'][2]['expected_primary']['capabilities'][0].update(attributes=0))
++        check(lambda v:v['common'].update(parent=base.PARENT|{'sid':'S-1-5-21-9'}))
++        check(lambda v:v['proofs'][0]['calls'][0].update(granted_access=2))
++        check(lambda v:v['intents'][0].update(sha256='0'*64))
++        check(lambda v:v['cleanup_tasks'][0].update(exit_code=1))
++
++    def test_config_nonce_clock_catalog_source_and_plan_are_closed(self):
++        c=config();m.config_validate(c)
++        for update in ({'lpac_nonce':c['ac_nonce']},{'deadline_qpc':D+1},{'scope':'old-dns'},{'extra':True}):
++            with self.subTest(update=update),self.assertRaises((ValueError,m.launcher.GateFailure)):m.config_validate(c|update)
++        value=dict(schema_version=1,scope=m.SCOPE,device_sha256=base.H,source_sha256=base.H,actor_sha256=base.H,manifest_sha256=base.H,
++            fresh_profile_owned_acl_acknowledged=True,never_resume_acknowledged=True,semantics_only_acknowledged=True,recovery_reference='existing restore record')
++        m.validate_plan(value,device=base.H,source=base.H,actor=base.H,manifest=base.H)
++        with self.assertRaises((ValueError,m.launcher.GateFailure)):
++            m.validate_plan(value|{'never_resume_acknowledged':False},device=base.H,source=base.H,actor=base.H,manifest=base.H)
++
++    def test_api_import_only_and_safe_projection_no_private_identity(self):
++        self.assertEqual(m.api_version(),1);self.assertFalse(m.NETWORK_AUTHORIZED)
++        _,_,_,p=self.run_cell();raw=m.encode(p)
++        for private in (base.SID,base.ACSID,'TokenId','actor_path','environment_sha256','failure_detail'):
++            self.assertNotIn(private.encode(),raw)
++        self.assertEqual(set(p),{'failure','ac_held_verified','lpac_held_verified','common_inputs_verified','ac_accesscheck_verified',
++            'lpac_accesscheck_verified','ac_granted_access','lpac_granted_access','observer_resources_cleanup_verified','never_resumed',
++            'workload_cleanup','workload_job_empty','acl_removed','cleanup_tools','profile_deleted','sid_released','inner_complete'})
++
++    def test_all_ordinary_tool_environments_use_existing_own_temp_not_health(self):
++        _,api,j,_=self.run_cell()
++        self.assertIsNone(j['failure'])
++        self.assertEqual([path.name for path,_ in api.tool_environments],['grant-root','grant-inputs','remove'])
++        for path,block in api.tool_environments:
++            values=dict(value.split('=',1) for value in block.rstrip('\0').split('\0'))
++            self.assertEqual(values['TEMP'],str(path/'temp'));self.assertEqual(values['TMP'],str(path/'temp'))
++            self.assertNotIn('health',str(path))
++
++    def test_second_observer_unknown_return_cannot_borrow_first_closed_proof_cleanup(self):
++        original=m.access.observe_held
++        def observe(*args,**kwargs):
++            if kwargs['expected_role']=='lpac':raise OSError('unknown observer return')
++            return original(*args,**kwargs)
++        with patch.object(m.access,'observe_held',side_effect=observe):instance,api,j,p=self.run_cell()
++        self.assertEqual(len(j['proofs']),1);self.assertFalse(j['observer_resources_cleanup_verified']);self.assertFalse(api.deleted)
++        self.assertFalse(p['inner_complete'])
++        altered=copy.deepcopy(j);altered['observer_resources_cleanup_verified']=True
++        with self.assertRaises((ValueError,m.launcher.GateFailure)):m.validate_result(altered,instance.c,parent=base.PARENT)
++
++    def native_constructor(self,*,fail_attribute=None,free_unknown=False,alias=False):
++        # Instantiate only the Python adapter object. All SDK calls below are
++        # Python functions inspecting ctypes buffers; no native DLL is loaded.
++        api=m.NativeCellAPI.__new__(m.NativeCellAPI);api.controls_uncertain=False;api.proc=base.proc
++        events=[];attrs=[];created=[];freed=[];allocated=[]
++        def initialize(buffer,count,flags,size):
++            self.assertEqual(count,3);size._obj.value=256;return int(buffer is not None)
++        def update(buffer,flags,kind,value,size,previous,returned):
++            attrs.append(kind)
++            if kind==m.owner.JOB_LIST:self.assertEqual(C.cast(value,C.POINTER(C.c_void_p))[0],99)
++            elif kind==m.owner.ALL_APPLICATION_PACKAGES_POLICY:events.append(('policy',C.cast(value,C.POINTER(C.c_uint32))[0]))
++            else:
++                caps=value._obj;self.assertEqual((caps.CapabilityCount,caps.Reserved),(2,0))
++                entries=C.cast(caps.Capabilities,C.POINTER(m.launcher.SIDAndAttributes))
++                self.assertEqual([entries[i].Attributes for i in range(2)],[4,4])
++            return int(kind!=fail_attribute)
++        def sid(text,pointer):
++            pointer._obj.value=100 if alias else 100+len(allocated)
++            allocated.append(pointer._obj.value);return 1
++        def create(actor,command,sa,ta,inherit,flags,environment,cwd,startup,info):
++            self.assertFalse(inherit);self.assertTrue(flags&api.proc._CREATE_SUSPENDED)
++            self.assertEqual(startup._obj.StartupInfo.dwFlags,0)
++            created.append((actor,command.value,flags,cwd));info._obj.hProcess=201;info._obj.hThread=202
++            info._obj.dwProcessId=203;info._obj.dwThreadId=204;return 1
++        def free(pointer):freed.append(pointer.value);return 1 if free_unknown else 0
++        api.k=NS(InitializeProcThreadAttributeList=initialize,UpdateProcThreadAttribute=update,
++            DeleteProcThreadAttributeList=lambda value:events.append('attributes-deleted'),CreateProcessW=create,LocalFree=free)
++        api.a=NS(ConvertStringSidToSidW=sid)
++        def check(value,operation):
++            if not value:raise ValueError(operation)
++            return value
++        api.native=NS(check=check,resume=lambda thread:events.append(('native-resume',thread)))
++        return api,events,attrs,created,freed
++
++    def test_real_adapter_shape_atomic_job_caps_policy_and_no_inheritance_with_ordinary_resume(self):
++        for policy in (0,1):
++            with self.subTest(policy=policy):
++                api,events,attrs,created,freed=self.native_constructor()
++                # Underlying ordinary ResumeThread remains available. Actor
++                # authorization is denied by the owner before this method.
++                api.resume(777);self.assertIn(('native-resume',777),events)
++                info=base.proc._ProcessInfo();owners=m.helpers.OneShotHandles(lambda value:None);state={'creation_attempted':False}
++                clock=NS(qpc=lambda:T+100,qpc_frequency=lambda:F);budget=m.launcher.QpcBudget(clock,D,F)
++                api.create_matched_suspended(info,Path(m.live.ACTOR),Path('inputs'),'SystemRoot=C:\\Windows\0LOCALAPPDATA=x\0\0',99,owners,state,
++                    profile_pointer=77,catalog=base.CATALOG,policy=policy,budget=budget,cutoff=D-25*F)
++                self.assertEqual(attrs,[m.owner.JOB_LIST,m.owner.SECURITY_CAPABILITIES,m.owner.ALL_APPLICATION_PACKAGES_POLICY])
++                self.assertIn(('policy',policy),events);self.assertEqual(len(created),1);self.assertEqual(len(freed),2)
++                self.assertTrue(state['creation_attempted']);self.assertEqual(state['create_status'],'returned_true')
++                self.assertEqual(set(owners.pending),{201,202})
++        instance,api,_,_=self.run_cell()
++        for role in ('ac','lpac'):
++            with self.assertRaises(ValueError):instance.resume(instance.tasks[role])
++
++    def test_constructor_attribute_failure_never_calls_create_and_unknown_cap_free_stays_uncertain(self):
++        for failed,uncertain in ((m.owner.JOB_LIST,False),(None,True)):
++            with self.subTest(failed=failed,uncertain=uncertain):
++                api,_,_,created,_=self.native_constructor(fail_attribute=failed,free_unknown=uncertain)
++                owners=m.helpers.OneShotHandles(lambda value:None);state={'creation_attempted':False}
++                clock=NS(qpc=lambda:T+100,qpc_frequency=lambda:F);budget=m.launcher.QpcBudget(clock,D,F)
++                with self.assertRaises(ValueError):
++                    api.create_matched_suspended(base.proc._ProcessInfo(),Path(m.live.ACTOR),Path('inputs'),
++                        'SystemRoot=C:\\Windows\0LOCALAPPDATA=x\0\0',99,owners,state,
++                        profile_pointer=77,catalog=base.CATALOG,policy=1,budget=budget,cutoff=D-25*F)
++                self.assertEqual(bool(created),uncertain);self.assertEqual(state['creation_attempted'],uncertain)
++                self.assertEqual(api.controls_uncertain,uncertain)
++
++    def test_constructor_alias_pointer_is_consumed_once_without_create(self):
++        api,_,_,created,freed=self.native_constructor(alias=True)
++        owners=m.helpers.OneShotHandles(lambda value:None);state={'creation_attempted':False}
++        budget=m.launcher.QpcBudget(NS(qpc=lambda:T+100,qpc_frequency=lambda:F),D,F)
++        with self.assertRaisesRegex(ValueError,'matched_capability_alias'):
++            api.create_matched_suspended(base.proc._ProcessInfo(),Path(m.live.ACTOR),Path('inputs'),
++                'SystemRoot=C:\\Windows\0LOCALAPPDATA=x\0\0',99,owners,state,
++                profile_pointer=77,catalog=base.CATALOG,policy=1,budget=budget,cutoff=D-25*F)
++        self.assertEqual(freed,[100]);self.assertFalse(created);self.assertFalse(state['creation_attempted'])
++        self.assertTrue(api.controls_uncertain)
++
++if __name__=='__main__':unittest.main()
+diff --git a/.github/windows_identity_lpac_identity_local.py b/.github/windows_identity_lpac_identity_local.py
+new file mode 100644
+--- /dev/null
++++ b/.github/windows_identity_lpac_identity_local.py
+@@ -0,0 +1,210 @@
++"""Opt-in local matched AC/LPAC identity semantics, with both actors suspended.
++
++Default is read-only. Runtime requires a fresh source/device/artifact-bound
++plan and an explicit flag. Only the ordinary worker and fixed cleanup tools
++may resume. No DNS query, socket fixture, actor GO, PSEC or proxy experiment is
++implemented. AccessCheck observations qualify only this matched identity cell.
++"""
++from __future__ import annotations
++import argparse
++import importlib.util
++import os
++from pathlib import Path
++import secrets
++import sys
++
++ROOT=Path(__file__).resolve().parents[1]
++def load(name,file):
++    spec=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file))
++    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
++core=load('matched_identity_cell','windows_identity_lpac_identity_cell.py')
++base=core.owner
++local,launcher,live,ac=base.local,base.launcher,base.live,base.ac
++require,sha,encode,decode=base.require,base.sha,base.encode,base.decode
++MODULE='.github/windows_identity_lpac_identity_local.py'
++SOURCES=tuple(dict.fromkeys((*core.SOURCES,MODULE)))
++SCOPE=core.SCOPE
++NONCES=core.NONCES
++MAX_REPORT=512*1024
++CHECKS=('ordinary','sources','artifact','plan','guard','worker_exit','outer_cleanup','worker_bound','inner_complete')
++OBSERVATION_BOOLS=('ac_held_verified','lpac_held_verified','common_inputs_verified','ac_accesscheck_verified','lpac_accesscheck_verified',
++    'observer_resources_cleanup_verified','never_resumed','workload_cleanup','workload_job_empty','acl_removed','cleanup_tools',
++    'profile_deleted','sid_released','inner_complete')
++OBSERVATION_KEYS={'failure','ac_granted_access','lpac_granted_access',*OBSERVATION_BOOLS}
++FAILURES=('inputs','identity','plan','staging','worker','report','deadline','setup','construct','admission','accesscheck','cleanup')
++
++def snapshot(root=ROOT):
++    files={name:local.bounded(launcher.checked_path(root/name,inside=root),256*1024) for name in SOURCES}
++    hashes={name:sha(raw) for name,raw in files.items()}
++    return files,hashes,sha(encode(hashes))
++
++def validate_observation(value):
++    require(type(value) is dict and set(value)==OBSERVATION_KEYS,'public_observation_schema')
++    require(value['failure'] is None or value['failure'] in ('setup','construct','admission','accesscheck','cleanup'),'public_observation_failure')
++    require(all(type(value[key]) is bool for key in OBSERVATION_BOOLS),'public_observation_boolean')
++    for key in ('ac_granted_access','lpac_granted_access'):
++        masks=value[key]
++        require(masks is None or type(masks) is list and len(masks)==4 and all(live.integer(mask) for mask in masks),'public_observation_masks')
++    for role,expected in (('ac',[3,0,1,2]),('lpac',[2,0,0,2])):
++        require(not value[role+'_accesscheck_verified'] or value[role+'_held_verified'] and value[role+'_granted_access']==expected,'public_accesscheck_gate')
++    require(not value['inner_complete'] or value['failure'] is None and all(value[key] for key in OBSERVATION_BOOLS),'public_inner_complete')
++    return value
++
++def blank(mode):
++    return dict(schema_version=1,stage='local-matched-ac-lpac-identity',scope=SCOPE,mode=mode,status='inconclusive',failure=None,
++        source_sha256=None,actor_sha256=None,manifest_sha256=None,recovery_plan_sha256=None,
++        checks=dict.fromkeys(CHECKS,False),identity_observation=None,observation_complete=False,tree_retained=False,recovery_required=False,
++        comparison='matched-identity-only-not-g-psec-or-dns-causal-comparison',actor_resume_authorized=False,
++        dns_api_called=False,dns_fixture_bound=False,network_tested=False,g_psec_tested=False,proxy_tested=False,
++        product_acceptance=False,dns_isolation_qualified=False,broker_pid_attributed=False,broker_cancellation_proven=False)
++
++def validate_public(value):
++    template=blank(value.get('mode') if type(value) is dict else None)
++    require(type(value) is dict and set(value)==set(template) and value['mode'] in ('preflight','runtime'),'public_schema')
++    for key in ('schema_version','stage','scope','comparison','actor_resume_authorized','dns_api_called','dns_fixture_bound','network_tested',
++            'g_psec_tested','proxy_tested','product_acceptance','dns_isolation_qualified','broker_pid_attributed','broker_cancellation_proven'):
++        require(type(value[key]) is type(template[key]) and value[key]==template[key],'public_scope')
++    require(value['status'] in ('ready','observed','inconclusive') and (value['failure'] is None or value['failure'] in FAILURES),'public_state')
++    require(type(value['checks']) is dict and set(value['checks'])==set(CHECKS) and all(type(x) is bool for x in value['checks'].values()),'public_checks')
++    for key in ('source_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256'):
++        require(value[key] is None or ac.digest(value[key]),'public_digest')
++    for key in ('observation_complete','tree_retained','recovery_required'):require(type(value[key]) is bool,'public_boolean')
++    for check,key in (('sources','source_sha256'),('artifact','actor_sha256'),('artifact','manifest_sha256'),('plan','recovery_plan_sha256')):
++        require(not value['checks'][check] or ac.digest(value[key]),'public_commitment')
++    observation=value['identity_observation']
++    if observation is not None:validate_observation(observation)
++    require(value['checks']['inner_complete']==bool(observation is not None and observation['inner_complete']),'public_inner_binding')
++    require(not value['observation_complete'] or value['mode']=='runtime' and value['failure'] is None and all(value['checks'].values())
++        and value['tree_retained'] and not value['recovery_required'] and observation is not None and observation['inner_complete'],'public_complete')
++    require((value['status']=='observed')==value['observation_complete'],'public_observed')
++    if value['mode']=='preflight':
++        require(observation is None and not any(value[key] for key in ('observation_complete','tree_retained','recovery_required'))
++            and not any(value['checks'][key] for key in CHECKS if key not in ('ordinary','sources','artifact','plan')),'preflight_no_runtime')
++        require(value['status']!='ready' or value['failure'] is None and all(value['checks'][key] for key in ('ordinary','sources','artifact','plan')),'preflight_ready')
++    else:require(value['status']!='ready','runtime_not_preflight')
++    require(len(encode(value))<=8192,'public_bound');return value
++
++def preflight(actor,manifest,actor_hash,manifest_hash,parent_path,plan_path,*,api=None,root=ROOT):
++    result=blank('preflight');phase='inputs'
++    try:
++        require(os.name=='nt' and core.api_version()==1,'platform_or_interface')
++        api=api or local.LocalNativeAPI();require(api.windows_x64(),'platform')
++        phase='identity';local.ordinary(api);result['checks']['ordinary']=True
++        phase='inputs';_,_,source=snapshot(root);result['source_sha256']=source;result['checks']['sources']=True
++        live.verify_actor(actor,manifest,actor_hash,manifest_hash,root=root)
++        result.update(actor_sha256=actor_hash,manifest_sha256=manifest_hash);result['checks']['artifact']=True
++        launcher.checked_path(parent_path,inside=root/'private',is_file=False)
++        phase='plan';raw=local.bounded(plan_path,8192)
++        core.validate_plan(decode(raw),device=api.device_sha256(),source=source,actor=actor_hash,manifest=manifest_hash)
++        result['recovery_plan_sha256']=sha(raw);result['checks']['plan']=True;result['status']='ready'
++    except BaseException:result['failure']=phase
++    return validate_public(result)
++
++def bind_report(report,config,parent,launch,result):
++    require(launch.get('started') is True and launch.get('resumed') is True
++        and launch.get('native_identity_verified_before_resume') is True
++        and launch.get('cleanup',{}).get('process_exit_confirmed') is True
++        and type(launch.get('child_pid')) is int and launch['child_pid']>0,'worker_not_held')
++    require(type(report) is dict and set(report)=={'schema_version','stage','config','worker_pid','worker_identity','result'}
++        and type(report['schema_version']) is int and report['schema_version']==1 and report['stage']=='matched-ac-lpac-identity-worker'
++        and report['config']==config and type(report['worker_pid']) is int and report['worker_pid']==launch['child_pid']
++        and report['worker_identity']==parent,'worker_binding')
++    core.validate_result(report['result'],config,parent=parent)
++    observation=core.project(report['result'],config,parent=parent);validate_observation(observation)
++    result['checks']['worker_bound']=True;result['identity_observation']=observation
++    result['checks']['inner_complete']=observation['inner_complete'];result['failure']=observation['failure']
++    result['recovery_required']=not (all(result['checks'][key] for key in ('guard','worker_exit','outer_cleanup','worker_bound'))
++        and all(observation[key] for key in ('observer_resources_cleanup_verified','workload_cleanup','workload_job_empty',
++            'acl_removed','cleanup_tools','profile_deleted','sid_released')))
++    return result
++
++def worker(config_path):
++    require(launcher.checked_path(config_path,inside=ROOT)==ROOT/'worker-config.json','worker_path')
++    config=core.config_validate(decode(local.bounded(config_path,MAX_REPORT)),source_names=SOURCES)
++    require(ROOT.name=='local-lpac-identity-'+config['run'],'worker_stage')
++    files,hashes,source=snapshot();require(hashes==config['source_hashes'] and source==config['source_sha256'],'worker_sources')
++    require(core.api_version()==1,'worker_interface');api=core.IdentityAPI();parent=local.ordinary(api)
++    require(api.qpc_frequency()==config['frequency'],'worker_frequency')
++    budget=launcher.QpcBudget(api,config['deadline_qpc'],config['frequency']);budget.require_ms(budget.cutoff(45))
++    require(local.LocalNativeAPI.device_sha256(api.native)==config['device_sha256'],'worker_device')
++    raw=local.bounded(ROOT/'recovery-plan.json',8192);require(sha(raw)==config['recovery_plan_sha256'],'worker_plan')
++    core.validate_plan(decode(raw),device=config['device_sha256'],source=source,actor=config['actor_sha256'],manifest=config['manifest_sha256'])
++    local.LocalNativeAPI.verify_private_directory(api.native,ROOT,'D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;'+parent['sid']+')')
++    local.verify_guard_job(api.native,config['guard_job_name'])
++    live.verify_actor(ROOT/'inputs'/live.ACTOR,ROOT/'inputs'/live.MANIFEST,config['actor_sha256'],config['manifest_sha256'],root=ROOT)
++    private=core.execute(ROOT,config,parent,api,budget)
++    core.validate_result(private,config,parent=parent)
++    report=dict(schema_version=1,stage='matched-ac-lpac-identity-worker',config=config,worker_pid=os.getpid(),worker_identity=parent,result=private)
++    budget.require_ms(budget.cutoff(1));base.durable_private(ROOT/'worker-report.json',encode(report));return 0
++
++def run_local(actor,manifest,actor_hash,manifest_hash,parent_path,plan_path,*,approved=False,root=ROOT):
++    result=blank('runtime');phase='inputs';launched=False;stage=None
++    try:
++        require(approved and os.name=='nt','explicit_opt_in');api=local.LocalNativeAPI();require(api.windows_x64(),'platform')
++        frequency=api.qpc_frequency();start=api.qpc();deadline=start+120*frequency
++        budget=launcher.QpcBudget(api,deadline,frequency)
++        check=preflight(actor,manifest,actor_hash,manifest_hash,parent_path,plan_path,api=api,root=root)
++        for key in ('source_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256'):result[key]=check[key]
++        result['checks'].update(check['checks']);require(check['status']=='ready','preflight')
++        parent=local.ordinary(api);files,hashes,source=snapshot(root);require(source==result['source_sha256'],'source_changed')
++        config=dict(schema_version=1,scope=SCOPE,**{name:secrets.token_hex(16) for name in NONCES},start_qpc=start,frequency=frequency,
++            root_deadline_qpc=deadline,deadline_qpc=deadline-5*frequency,source_hashes=hashes,source_sha256=source,
++            device_sha256=api.device_sha256(),actor_sha256=actor_hash,manifest_sha256=manifest_hash,recovery_plan_sha256=result['recovery_plan_sha256'],
++            capability_catalog=base.fixed_catalog())
++        config['guard_job_name']='Local\\RuleProxy.LocalGuard.'+config['run'];core.config_validate(config,source_names=SOURCES)
++        phase='staging';budget.require_ms(budget.cutoff(45));parent_path=launcher.checked_path(parent_path,inside=root/'private',is_file=False)
++        stage=parent_path/('local-lpac-identity-'+config['run']);require(not stage.exists() and not stage.is_symlink(),'fresh_stage')
++        # The directory may exist even when descriptor/readback/free fails.
++        # Preserve possible residue before entering the native mkdir boundary.
++        result['tree_retained']=True;api.private_directory(stage,parent['sid'])
++        for name,raw in files.items():
++            path=stage/name;path.parent.mkdir(parents=True,exist_ok=True);launcher.write_private_bytes(path,raw)
++            require(sha(local.bounded(path,256*1024))==hashes[name],'staged_source')
++        for name in ('inputs','tools','guard'):(stage/name).mkdir()
++        (stage/'guard'/'temp').mkdir()
++        for source_path in (Path(actor),Path(manifest)):
++            launcher.write_private_bytes(stage/'inputs'/source_path.name,local.bounded(source_path,8*1024*1024))
++        live.verify_actor(stage/'inputs'/live.ACTOR,stage/'inputs'/live.MANIFEST,actor_hash,manifest_hash,root=stage)
++        base.durable_private(stage/'worker-config.json',encode(config))
++        raw=local.bounded(plan_path,8192);require(sha(raw)==config['recovery_plan_sha256'],'plan_changed');base.durable_private(stage/'recovery-plan.json',raw)
++        api.worker_job_name=config['guard_job_name'];api.worker_sid=parent['sid']
++        python=launcher.checked_path(sys.executable,inside=launcher.checked_path(sys.base_prefix,is_file=False))
++        require(python.name.casefold()=='python.exe','python')
++        command=[str(python),'-I','-S','-B',str(stage/MODULE),'--worker',str(stage/'worker-config.json')]
++        phase='worker';launched=True
++        launch=launcher.launch_owned(api,command,stage/'guard',parent,parent,qpc_budget=budget,work_cutoff=budget.cutoff(3),cleanup_cutoff=deadline)
++        result['checks']['guard']=api.atomic_job_requested and launch.get('native_identity_verified_before_resume') is True
++        result['checks']['worker_exit']=launch.get('cleanup',{}).get('process_exit_confirmed') is True
++        result['checks']['outer_cleanup']=local.guest.cleanup_verified(launch)
++        phase='report';require(result['checks']['worker_exit'] and launch.get('started') is True,'unknown_worker')
++        report=decode(local.bounded(stage/'worker-report.json',MAX_REPORT));bind_report(report,config,parent,launch,result)
++        require(launch.get('resumed') is True and launch.get('timed_out') is not True and launch.get('exit_code')==0 and 'error' not in launch,'worker_launch')
++        phase='deadline';budget.require_ms(deadline)
++        result['observation_complete']=all(result['checks'].values()) and result['failure'] is None and not result['recovery_required']
++        if result['observation_complete']:result['status']='observed'
++    except BaseException:
++        result['failure']=phase;result['observation_complete']=False;result['status']='inconclusive'
++        observation=result['identity_observation']
++        clean=(all(result['checks'][key] for key in ('guard','worker_exit','outer_cleanup','worker_bound')) and observation is not None
++            and all(observation[key] for key in ('observer_resources_cleanup_verified','workload_cleanup','workload_job_empty','acl_removed','cleanup_tools','profile_deleted','sid_released')))
++        if launched and not clean or stage is not None and not launched:result['recovery_required']=True
++    return validate_public(result)
++
++def main(argv=None):
++    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--worker',help=argparse.SUPPRESS)
++    parser.add_argument('--run-local-lpac-identity',action='store_true');parser.add_argument('--actor',type=Path);parser.add_argument('--manifest',type=Path)
++    parser.add_argument('--actor-sha256');parser.add_argument('--manifest-sha256');parser.add_argument('--work-parent',type=Path,default=ROOT/'private')
++    parser.add_argument('--recovery-plan',type=Path);parser.add_argument('--output',type=Path);args=parser.parse_args(argv)
++    if args.worker:
++        require(not args.run_local_lpac_identity and not any((args.actor,args.manifest,args.actor_sha256,args.manifest_sha256,args.recovery_plan,args.output))
++            and args.work_parent==ROOT/'private','worker_arguments')
++        return worker(Path(args.worker))
++    if any(value is None for value in (args.actor,args.manifest,args.actor_sha256,args.manifest_sha256,args.recovery_plan)):
++        result=blank('runtime' if args.run_local_lpac_identity else 'preflight');result['failure']='inputs'
++    else:
++        function=run_local if args.run_local_lpac_identity else preflight
++        result=function(args.actor,args.manifest,args.actor_sha256,args.manifest_sha256,args.work_parent,args.recovery_plan,**({'approved':True} if args.run_local_lpac_identity else {}))
++    raw=encode(validate_public(result))
++    if args.output:base.durable_private(args.output,raw)
++    sys.stdout.buffer.write(raw);sys.stdout.buffer.flush();return 0 if result['status'] in ('ready','observed') else 1
++if __name__=='__main__':raise SystemExit(main())
+diff --git a/tests/test_windows_identity_lpac_identity_local.py b/tests/test_windows_identity_lpac_identity_local.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_windows_identity_lpac_identity_local.py
+@@ -0,0 +1,210 @@
++"""Pure guard/worker binding tests; no native API, child, actor or network."""
++import copy
++import importlib.util
++import io
++import json
++from pathlib import Path
++import sys
++import tempfile
++from types import SimpleNamespace as NS
++import unittest
++from unittest.mock import patch
++
++ROOT=Path(__file__).resolve().parents[1]
++spec=importlib.util.spec_from_file_location('identity_local_tests',ROOT/'.github/windows_identity_lpac_identity_local.py')
++m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
++H='1'*64;F=1000;T=10000;D=T+120*F
++PARENT=dict(sid='S-1-5-21-1-2-3-1000',session_id=1,token_type=1,elevation_type=3,elevated=False,appcontainer=False,
++    appcontainer_sid=None,integrity_rid=8192,ui_access=False,capability_count=0,admin_attributes=16)
++CATALOG={'AgenticAppContainer':'S-1-15-3-1024-1-2-3-4-5-6-7-8','privateNetworkClientServer':m.live.PNCS}
++
++def observation(*,complete=True):
++    value=dict.fromkeys(m.OBSERVATION_BOOLS,True)
++    value.update(failure=None,ac_granted_access=[3,0,1,2],lpac_granted_access=[2,0,0,2],inner_complete=complete)
++    return value
++
++def public_runtime():
++    value=m.blank('runtime');value.update(source_sha256=H,actor_sha256=H,manifest_sha256=H,recovery_plan_sha256=H,tree_retained=True)
++    value['checks']=dict.fromkeys(m.CHECKS,True);value['identity_observation']=observation()
++    value.update(observation_complete=True,status='observed');return value
++
++def worker_config():
++    hashes=dict.fromkeys(m.SOURCES,H)
++    return dict(schema_version=1,scope=m.SCOPE,**{name:'%032x'%(index+1) for index,name in enumerate(m.NONCES)},
++        start_qpc=T,frequency=F,root_deadline_qpc=D,deadline_qpc=D-5*F,guard_job_name='Local\\RuleProxy.LocalGuard.'+'%032x'%1,
++        source_hashes=hashes,source_sha256=m.sha(m.encode(hashes)),device_sha256=H,actor_sha256=H,manifest_sha256=H,recovery_plan_sha256=H,
++        capability_catalog=copy.deepcopy(CATALOG))
++
++class GuardAPI:
++    def __init__(self):self.now=T;self.atomic_job_requested=True;self.private_calls=[];self.mkdir_then_raise=False
++    def windows_x64(self):return True
++    def qpc_frequency(self):return F
++    def qpc(self):return self.now
++    def device_sha256(self):return H
++    def private_directory(self,path,sid):
++        self.private_calls.append((path,sid));path.mkdir() # pure fake; never change a real ACL
++        if self.mkdir_then_raise:raise OSError('pure descriptor readback failure after mkdir')
++
++class IdentityLocalTests(unittest.TestCase):
++    def test_default_and_opt_in_with_missing_inputs_never_construct_backend_or_spawn(self):
++        for args in ([],['--run-local-lpac-identity']):
++            output=NS(buffer=io.BytesIO())
++            with patch.object(m.local,'LocalNativeAPI',side_effect=AssertionError('backend forbidden')),patch.object(m.launcher,'launch_owned',side_effect=AssertionError('spawn forbidden')),patch.object(m.sys,'stdout',output):
++                self.assertEqual(m.main(args),1)
++            value=json.loads(output.buffer.getvalue());m.validate_public(value)
++            self.assertEqual(value['failure'],'inputs');self.assertFalse(value['network_tested']);self.assertFalse(value['actor_resume_authorized'])
++
++    def test_runtime_requires_explicit_opt_in_before_any_backend(self):
++        with patch.object(m.local,'LocalNativeAPI',side_effect=AssertionError('backend forbidden')):
++            value=m.run_local(None,None,None,None,None,None,approved=False)
++        self.assertEqual(value['status'],'inconclusive');self.assertFalse(value['recovery_required'])
++
++    def test_worker_role_refuses_public_runtime_arguments_before_worker_backend(self):
++        with patch.object(m,'worker',side_effect=AssertionError('worker forbidden')):
++            for args in (['--worker','config','--run-local-lpac-identity'],['--worker','config','--actor','image.exe'],['--worker','config','--output','public.json']):
++                with self.assertRaises(ValueError):m.main(args)
++
++    def test_source_closure_is_exact34_and_retains_old_native9_and_owner06(self):
++        self.assertEqual(len(m.SOURCES),34);self.assertEqual(len(set(m.SOURCES)),34)
++        self.assertIn('.github/windows_identity_lpac_dns_local.py',m.SOURCES)
++        self.assertIn('.github/windows_identity_lpac_accesscheck.py',m.SOURCES)
++        self.assertIn('.github/windows_identity_lpac_identity_cell.py',m.SOURCES)
++        self.assertIn(m.MODULE,m.SOURCES);self.assertEqual(len(m.live.NATIVE_SOURCES),9)
++        files,hashes,closure=m.snapshot(ROOT);self.assertEqual(set(files),set(m.SOURCES));self.assertEqual(closure,m.sha(m.encode(hashes)))
++
++    def test_public_preflight_cannot_carry_runtime_or_network_or_false_observed_claim(self):
++        ready=m.blank('preflight');ready.update(status='ready',source_sha256=H,actor_sha256=H,manifest_sha256=H,recovery_plan_sha256=H)
++        ready['checks'].update(dict.fromkeys(('ordinary','sources','artifact','plan'),True));m.validate_public(ready)
++        for change in ({'identity_observation':observation()},{'network_tested':True},{'actor_resume_authorized':True},{'status':'observed'}):
++            with self.subTest(change=change),self.assertRaises(ValueError):m.validate_public(ready|change)
++        valid=public_runtime();m.validate_public(valid)
++        for change in ({'identity_observation':None},{'source_sha256':None},{'tree_retained':False},{'recovery_required':True}):
++            with self.subTest(change=change),self.assertRaises(ValueError):m.validate_public(valid|change)
++        for field in ('ac_granted_access','lpac_granted_access'):
++            damaged=copy.deepcopy(valid);damaged['identity_observation'][field]=[0,0,0,0]
++            with self.assertRaises(ValueError):m.validate_public(damaged)
++
++    def test_full_preflight_validates_new_semantics_plan_read_only_and_rejects_dns_plan(self):
++        with tempfile.TemporaryDirectory() as directory:
++            root=Path(directory).resolve();(root/'private').mkdir();api=GuardAPI()
++            value=dict(schema_version=1,scope=m.SCOPE,device_sha256=H,source_sha256=H,actor_sha256=H,manifest_sha256=H,
++                fresh_profile_owned_acl_acknowledged=True,never_resume_acknowledged=True,semantics_only_acknowledged=True,recovery_reference='pure recovery')
++            plan=root/'plan.json';plan.write_bytes(m.encode(value))
++            with patch.object(m,'os',NS(name='nt')),patch.object(m.local,'ordinary',return_value=PARENT),\
++                    patch.object(m,'snapshot',return_value=({}, {},H)),patch.object(m.live,'verify_actor'),\
++                    patch.object(m.launcher,'launch_owned',side_effect=AssertionError('read-only preflight must not spawn')):
++                result=m.preflight(None,None,H,H,root/'private',plan,api=api,root=root)
++                self.assertEqual(result['status'],'ready');self.assertEqual(api.private_calls,[])
++                plan.write_bytes(m.encode(value|{'scope':m.base.SCOPE}))
++                result=m.preflight(None,None,H,H,root/'private',plan,api=api,root=root)
++                self.assertEqual(result['failure'],'plan');self.assertFalse(result['checks']['plan']);self.assertEqual(api.private_calls,[])
++
++    def guard(self,fault=None):
++        td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);root=Path(td.name).resolve();(root/'private').mkdir()
++        actor=root/m.live.ACTOR;manifest=root/m.live.MANIFEST;actor.write_bytes(b'x'*512);manifest.write_bytes(b'{}')
++        files={name:b'# fixed source\n' for name in m.SOURCES};hashes={name:m.sha(raw) for name,raw in files.items()};source=m.sha(m.encode(hashes))
++        plan=dict(schema_version=1,scope=m.SCOPE,device_sha256=H,source_sha256=source,actor_sha256=m.sha(actor.read_bytes()),manifest_sha256=m.sha(manifest.read_bytes()),
++            fresh_profile_owned_acl_acknowledged=True,never_resume_acknowledged=True,semantics_only_acknowledged=True,recovery_reference='pure owner recovery')
++        plan_path=root/'plan.json';plan_path.write_bytes(m.encode(plan));api=GuardAPI();calls=[]
++        api.mkdir_then_raise=fault=='private-directory'
++        ready=m.blank('preflight');ready.update(source_sha256=source,actor_sha256=plan['actor_sha256'],manifest_sha256=plan['manifest_sha256'],recovery_plan_sha256=m.sha(plan_path.read_bytes()),status='ready')
++        ready['checks'].update(dict.fromkeys(('ordinary','sources','artifact','plan'),True))
++        def launch(native,argv,cwd,parent,child,**kw):
++            calls.append((argv,kw));self.assertIs(native,api)
++            self.assertEqual(argv[1:4],['-I','-S','-B']);self.assertEqual(argv[-2],'--worker')
++            stage=cwd.parent;config=m.decode((stage/'worker-config.json').read_bytes())
++            self.assertEqual(config['start_qpc'],T);self.assertEqual(config['root_deadline_qpc'],D);self.assertEqual(config['deadline_qpc'],D-5*F)
++            self.assertEqual(kw['work_cutoff'],D-3*F);self.assertEqual(kw['cleanup_cutoff'],D)
++            self.assertEqual(set(config['source_hashes']),set(m.SOURCES));self.assertTrue(stage.name.startswith('local-lpac-identity-'))
++            self.assertFalse(any((stage/name).exists() for name in ('health','lpac-control','health-control')))
++            if fault=='unknown':raise OSError('pure unknown create')
++            report=dict(schema_version=1,stage='matched-ac-lpac-identity-worker',config=config,worker_pid=77,worker_identity=copy.deepcopy(PARENT),result={'pure':True})
++            if fault=='wrong-pid':report['worker_pid']=78
++            if fault=='wrong-config':report['config']=config|{'deadline_qpc':D}
++            if fault=='wrong-identity':report['worker_identity']['session_id']=2
++            (stage/'worker-report.json').write_bytes(m.encode(report))
++            if fault=='late':api.now=D
++            return dict(started=True,resumed=True,child_pid=77,native_identity_verified_before_resume=True,timed_out=fault=='timeout',exit_code=1 if fault=='timeout' else 0,
++                cleanup=dict(process_exit_confirmed=True,job_closed=True,job_empty=True,handles_closed=True,close_uncertain=False,errors=[]))
++        projected=observation()
++        if fault=='inner-failure':projected.update(failure='accesscheck',inner_complete=False,ac_accesscheck_verified=False,ac_granted_access=[0,0,0,0])
++        with patch.object(m,'os',NS(name='nt')),patch.object(m.local,'LocalNativeAPI',return_value=api),patch.object(m,'preflight',return_value=ready),\
++                patch.object(m.local,'ordinary',return_value=copy.deepcopy(PARENT)),patch.object(m,'snapshot',return_value=(files,hashes,source)),\
++                patch.object(m.base,'fixed_catalog',return_value=copy.deepcopy(CATALOG)),patch.object(m.live,'verify_actor'),\
++                patch.object(m.launcher,'launch_owned',side_effect=launch),patch.object(m.core,'validate_result',side_effect=lambda private,config,**kw:self.assertEqual(private,{'pure':True})),\
++                patch.object(m.core,'project',return_value=projected):
++            value=m.run_local(actor,manifest,plan['actor_sha256'],plan['manifest_sha256'],root/'private',plan_path,approved=True,root=root)
++        return value,api,calls
++
++    def test_real_guard_staging_fixed_worker_command_original120_115_and_closed_report_projection(self):
++        value,api,calls=self.guard();m.validate_public(value)
++        self.assertEqual(value['status'],'observed');self.assertTrue(value['observation_complete']);self.assertFalse(value['recovery_required'])
++        self.assertEqual(len(calls),1);self.assertEqual(len(api.private_calls),1)
++        self.assertFalse(value['network_tested']);self.assertFalse(value['dns_api_called']);self.assertFalse(value['g_psec_tested']);self.assertFalse(value['product_acceptance'])
++        self.assertNotIn(PARENT['sid'],m.encode(value).decode('ascii'))
++
++    def test_unknown_worker_or_mismatched_report_retains_recovery_and_never_observed(self):
++        for fault in ('unknown','wrong-pid','wrong-config','wrong-identity'):
++            with self.subTest(fault=fault):
++                value,api,calls=self.guard(fault);self.assertEqual(value['status'],'inconclusive')
++                self.assertTrue(value['recovery_required']);self.assertFalse(value['observation_complete']);self.assertTrue(value['tree_retained'])
++
++    def test_private_directory_mkdir_then_raise_retains_possible_tree_and_recovery_without_worker(self):
++        value,api,calls=self.guard('private-directory')
++        self.assertEqual(value['status'],'inconclusive');self.assertEqual(value['failure'],'staging')
++        self.assertTrue(value['tree_retained']);self.assertTrue(value['recovery_required']);self.assertEqual(calls,[])
++        self.assertEqual(len(api.private_calls),1);self.assertTrue(api.private_calls[0][0].is_dir())
++        self.assertFalse(value['checks']['guard']);self.assertFalse(value['checks']['worker_bound'])
++
++    def test_outer_timeout_late_root_and_clean_inner_semantic_failure_do_not_promote(self):
++        for fault in ('timeout','late','inner-failure'):
++            with self.subTest(fault=fault):
++                value,api,calls=self.guard(fault);self.assertEqual(value['status'],'inconclusive');self.assertFalse(value['observation_complete'])
++                self.assertFalse(value['recovery_required']);self.assertTrue(value['checks']['outer_cleanup'])
++
++    def staged_worker(self,fault=None):
++        td=tempfile.TemporaryDirectory();self.addCleanup(td.cleanup);parent=Path(td.name).resolve();config=worker_config()
++        stage=parent/('local-lpac-identity-'+config['run']);stage.mkdir();events=[];api=GuardAPI();api.native=NS()
++        plan=dict(schema_version=1,scope=m.SCOPE,device_sha256=H,source_sha256=config['source_sha256'],actor_sha256=H,manifest_sha256=H,
++            fresh_profile_owned_acl_acknowledged=True,never_resume_acknowledged=True,semantics_only_acknowledged=True,recovery_reference='pure worker recovery')
++        raw=m.encode(plan);config['recovery_plan_sha256']=m.sha(raw);(stage/'recovery-plan.json').write_bytes(raw)
++        (stage/'worker-config.json').write_bytes(m.encode(config))
++        hashes=config['source_hashes'] if fault!='source' else {**config['source_hashes'],m.MODULE:'2'*64}
++        def sources():events.append('sources');return {},hashes,m.sha(m.encode(hashes))
++        def backend():events.append('backend');return api
++        def guard(native,name):
++            events.append('exact-guard')
++            self.assertIs(native,api.native);self.assertEqual(name,config['guard_job_name'])
++            if fault=='guard':raise ValueError('exact guard not admitted')
++        def dacl(native,path,sddl):
++            events.append('private-dacl');self.assertEqual(path,stage)
++            self.assertEqual(sddl,'D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;'+PARENT['sid']+')')
++        def execute(root,c,parent,api,budget):
++            events.append('execute');self.assertEqual(root,stage);self.assertEqual(c,config);self.assertEqual(parent,PARENT)
++            self.assertEqual(budget.deadline,D-5*F);self.assertEqual(budget.frequency,F);return {'pure':True}
++        caught=None
++        with patch.object(m,'ROOT',stage),patch.object(m,'snapshot',side_effect=sources),patch.object(m.core,'IdentityAPI',side_effect=backend),\
++                patch.object(m.local,'ordinary',return_value=PARENT),patch.object(m.local.LocalNativeAPI,'device_sha256',return_value=H),\
++                patch.object(m.local.LocalNativeAPI,'verify_private_directory',side_effect=dacl),patch.object(m.local,'verify_guard_job',side_effect=guard),\
++                patch.object(m.live,'verify_actor',side_effect=lambda *a,**kw:events.append('artifact')),patch.object(m.core,'execute',side_effect=execute),\
++                patch.object(m.core,'validate_result',side_effect=lambda *a,**kw:events.append('validate-result')),patch.object(m,'os',NS(getpid=lambda:77)),\
++                patch.object(m.launcher,'launch_owned',side_effect=AssertionError('worker must not relaunch guard')):
++            try:self.assertEqual(m.worker(stage/'worker-config.json'),0)
++            except ValueError as error:caught=error
++        return stage,config,events,caught
++
++    def test_worker_source_private_dacl_exact_guard_and_artifact_precede_core_and_report(self):
++        stage,config,events,error=self.staged_worker();self.assertIsNone(error)
++        self.assertEqual(events,['sources','backend','private-dacl','exact-guard','artifact','execute','validate-result'])
++        report=m.decode((stage/'worker-report.json').read_bytes())
++        self.assertEqual(set(report),{'schema_version','stage','config','worker_pid','worker_identity','result'})
++        self.assertEqual(report['config'],config);self.assertEqual(report['worker_pid'],77);self.assertEqual(report['worker_identity'],PARENT)
++
++    def test_worker_unknown_source_or_exact_guard_failure_cannot_enter_core_or_write_report(self):
++        for fault in ('source','guard'):
++            with self.subTest(fault=fault):
++                stage,config,events,error=self.staged_worker(fault);self.assertIsNotNone(error)
++                self.assertNotIn('execute',events);self.assertFalse((stage/'worker-report.json').exists())
++                if fault=='source':self.assertNotIn('backend',events)
++
++if __name__=='__main__':unittest.main()
