@@ -1,0 +1,130 @@
+{
+  "conclusion": "success",
+  "exact_result_sha256": "0bc641e85812d81bb18af01eab67476b47ff847a2c05998b3c4910761ff436ad",
+  "existing_hosted_udp6_mechanics": {
+    "main_echoes": 45,
+    "owned_processes_cleanup": 7,
+    "owned_receivers_cleanup": 2,
+    "test_only_loopback_not_stage0b": true,
+    "work_removed": true,
+    "wrong_echo_receiver_frames": 1,
+    "wrong_echo_rejected": true
+  },
+  "experiment": "default-OFF Stage0b inherited-pipe prerequisite integration short gates",
+  "freeze_sha256": "10ac7723a769921f89434345b8cd5b94f84142eed4c2f450502a8aaead7b6b81",
+  "head": "e0ee4e2aee1ebc4b54de7ec30af6030582d1ab51",
+  "interpretation": [
+    "The reused five/eight-minute short gate exercised the actual PowerShell AST and real ZIP selection/extraction with inert process/transport boundaries. Stage0b has 14 payload members and remains default OFF. Mocked child handles, token reports, pipe bytes and cleanup are not genuine Windows AppContainer pipe evidence.",
+    "Both required suites passed 906 tests with no skips. The separate existing identity compile/pure workflow passed 329 overlapping tests and compiled its unchanged actor; all token, Stage0b, restricted and paired runtime steps were skipped. Its downloaded executable digest matched the public manifest without execution.",
+    "Stage0b IPC qualification is independent of the original PSEC Stage0 result: tests allow baseline false and independently qualified IPC true, while retaining product acceptance false. No actual IPC qualification result was produced by this short run.",
+    "The implementation binds the original guest absolute QPC deadline, one-shot ownership, copied-image/SID checks, strict 32-byte nonce/EOF and separate cleanup facts. These are source and mocked composition results, not proof of actual native API behavior or cancellation of blocking calls.",
+    "The planning capacity ledger includes measured compressed and expanded payload, Python expansion, two actor copies and a 1 MiB report/journal allowance inside the existing 128 MiB staging bound. This is not a hard write quota or a measured guest-runtime fit; actual admission remains mandatory before any separately approved VM run.",
+    "The actual Linux process was tiny, paused, owned QEMU without a guest. Its mapped backing-file and local package agreement does not attest resident bytes or upstream source equivalence. Actual owned-loopback UDP6 mechanics are separate TEST_ONLY evidence, not Stage0b or guest/proxy enforcement.",
+    "No new security identity, ACL, peer rule, proxy lifecycle, Windows VM or bridge runtime was exercised. Genuine target-Windows inherited anonymous pipes remain the next prerequisite; earlier Server failures and named-pipe self/child results are not substituted."
+  ],
+  "linux_paused_qemu": {
+    "cleanup_confirmed": true,
+    "control_closed": true,
+    "failure": false,
+    "forced_kill": false,
+    "guest_executed": false,
+    "packet_egress_tested": false,
+    "passed": true,
+    "paused_observed": true,
+    "process_exit_observed": true,
+    "provenance": {
+      "admitted": true,
+      "close_confirmed": true,
+      "failure": false,
+      "libslirp": {
+        "architecture": "amd64",
+        "local_integrity_verified": true,
+        "name": "libslirp0",
+        "sha256": "1f71a24af59f3aa76c1e0bcf7852de08c1c21c40524479b9d5df404d903b2280",
+        "version": "4.7.0-1ubuntu3.1"
+      },
+      "pre_stop_verified": true,
+      "qemu": {
+        "architecture": "amd64",
+        "local_integrity_verified": true,
+        "name": "qemu-system-x86",
+        "sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+        "version": "1:8.2.2+ds-0ubuntu1.18"
+      },
+      "resident_bytes_verified": false,
+      "schema_version": 1,
+      "source_equivalence_verified": false
+    },
+    "qemu_8_2_2": true,
+    "schema_version": 1,
+    "work_removed": true
+  },
+  "privacy": {
+    "closed_counts_booleans_public_ci_and_build_digests_only": true,
+    "raw_logs_sids_pids_nonces_paths_credentials_excluded": true
+  },
+  "run_id": 39735130842,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39735130842",
+  "schema_version": 1,
+  "scope": {
+    "actual_stage0b_pipe_executed": false,
+    "app_process_dependency_unchanged_and_remote_pinned": true,
+    "changed_or_new_files": 20,
+    "identity_actor_unchanged": true,
+    "proxy_executed": false,
+    "runtime_workflow_unchanged": true,
+    "stage0b_execution_enabled": false,
+    "unchanged_source_pins": 402,
+    "windows_guest_executed": false
+  },
+  "sidecar": {
+    "conclusion": "success",
+    "exact_two_artifact_members_verified": true,
+    "executable_digest_verified_without_execution": true,
+    "native_identity_actor_compile_only": true,
+    "public_build": {
+      "byte_exact": false,
+      "compileOnly": true,
+      "executableSha256": "f919b1ee0204f9bdec395be3904a3b3bd049ee7f5857428608c28d2e12895c6f",
+      "httpCompiled": true,
+      "sanitized": true,
+      "schema_version": 1,
+      "sourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "source_report_sha256": "8a5f7d229913cbceceef4dd22d66c38dcd09761565ac87e26604d33f6e07491f",
+      "stage": "native-build-public-metadata",
+      "staticCrt": true,
+      "targetArchitecture": "x64"
+    },
+    "pure_tests": 329,
+    "run_id": 39735130660,
+    "token_stage0b_restricted_paired_execution_skipped": true
+  },
+  "tests": {
+    "counts_overlap_not_additive": true,
+    "linux_required": 906,
+    "sidecar_identity_pure": 329,
+    "sidecar_run_id": 39735130660,
+    "skips": 0,
+    "windows_required": 906
+  },
+  "windows_closed_checks": {
+    "legacy_ps": 80,
+    "stage0b_mock_cleanup_confirmed": true,
+    "stage0b_transport_mock": 52,
+    "udp6_transport_mock": 57,
+    "udp_parent_transport_mock": 60,
+    "udp_transport_mock": 48,
+    "zip_fixture_cleanup_confirmed": true,
+    "zip_members": [
+      10,
+      14,
+      15,
+      17,
+      22,
+      17,
+      14
+    ],
+    "zip_negative_cases": 16,
+    "zip_ps_checks": 82
+  }
+}
