@@ -1,6 +1,9 @@
-# Stage0b minimum integration — inactive code-only candidate
+# Stage0b minimum integration — activation candidate, runtime unobserved
 
-This optional branch is default **OFF**. It replaces, rather than appends to,
+The implementation flags are enabled in this activation candidate, but the
+optional branch requires the exclusive `[identity-stage0b-runtime]` marker and
+all runtime prerequisites. No genuine Stage0b guest run is established here.
+It replaces, rather than appends to,
 other optional network experiments. The original PSEC Stage0 result, its default
 runtime path, and product acceptance are unchanged. A false PSEC Stage0 result
 and independently qualified Stage0b pipe evidence may coexist; neither is
@@ -132,3 +135,25 @@ pre-resume faults, partial creation, close-once failures, unknown exit, late
 wait/Job observations, copied-image mismatch, stale nested bindings, duplicate
 native JSON, strict public privacy/size, and cleanup downgrade with retained echo.
 No VM or Windows runtime result is asserted by this code-only document.
+
+## Activation boundary
+
+The seventh runtime marker is mutually exclusive with all six existing modes;
+128 marker subsets and unchanged legacy argument vectors are checked. The
+reviewed short marker exercises tests only and cannot select the Stage0b guest
+job. Runtime wiring reuses the existing IdentityOnly executable and its digest
+artifact, with `httpCompiled=false`, static CRT, and measured 512-byte–8-MiB
+admission; it does not introduce a second actor artifact. The 14-member payload,
+validated source-SHA handoff, original baseline result and exact closed
+`stage0b-public.json` publication remain separate. No private report is uploaded.
+
+The existing five/eight-minute short gate is reused for 51 required suites,
+PowerShell AST/mock semantics and seven-mode ZIP extraction. Its results are
+not a genuine pipe exchange or target-Windows identity result. The future
+runtime prerequisite workflow also retains its existing source-token native
+projection control, so that workflow is not described as entirely compile-only.
+Actual measured capacity, current ordinary identity, suspended-image/Job/SID,
+absolute-deadline, exact echo/EOF and cleanup admission must all succeed in a
+separately authorized bounded guest run; an enabled flag does not establish
+those observations. Original Stage0 failure is never converted into overall
+or product success by independent IPC evidence.

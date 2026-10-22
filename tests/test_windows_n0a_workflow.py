@@ -205,7 +205,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertNotIn('test_windows_client_n0a_capture.py',actual)
         self.assertIn('bool(result.skipped)',compiled)
 
-    def capture_shell(self,capture,n0a,commit,github_sha,udp='false',parent='false',udp6='false'):
+    def capture_shell(self,capture,n0a,commit,github_sha,udp='false',parent='false',udp6='false',stage0b='false',actor_size=512):
         # Execute the exact production argument block/command with inert timeout.
         # No sudo, Python harness, VM, or endpoint ever executes in this fixture.
         script=self.text.split('          n0a_args=()',1)[1].split('      - uses: actions/upload-artifact@v7',1)[0]
@@ -223,10 +223,13 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         facts=None;cleanup=False;read_failed=False
         try:
             stage.write_bytes(b'startup_unobserved')
+            if stage0b=='true':
+                actor_root=root/'client-stage0-actor';actor_root.mkdir()
+                with (actor_root/'windows_identity_actor.exe').open('xb') as actor_file:actor_file.truncate(actor_size)
             for name,body in [('date', '#!/bin/sh\nprintf 1000\n'), ('timeout', '#!/bin/sh\nprintf stub > "$CAPTURE_STAGE"\nprintf \'%s\\0\' "$@" > "$CAPTURE_ARGV"\n')]:
                 path=root/name;path.write_bytes(body.encode('ascii'));path.chmod(0o700)
             logical_root=('/'+root.drive[0].lower()+root.as_posix()[2:]) if os.name=='nt' else root.as_posix()
-            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,UDP_REQUESTED=udp,PARENT_UDP_REQUESTED=parent,UDP6_REQUESTED=udp6,
+            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,UDP_REQUESTED=udp,PARENT_UDP_REQUESTED=parent,UDP6_REQUESTED=udp6,STAGE0B_REQUESTED=stage0b,
                      CAPTURE_SOURCE_COMMIT=commit,GITHUB_SHA=github_sha,
                      CAPTURE_ARGV=output.as_posix(),CAPTURE_CWD=cwd_output.as_posix(),CAPTURE_STAGE=stage.as_posix(),FIXTURE_BIN=logical_root)
             source='printf startup > "$CAPTURE_STAGE"\nexport PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\ntest "$PWD" -ef "$FIXTURE_BIN"\nprintf guards > "$CAPTURE_STAGE"\nprintf \'%s\' "$PWD" > "$CAPTURE_CWD"\nactor='+('b'*64)+'\nprintf body > "$CAPTURE_STAGE"\n'+script
@@ -449,6 +452,74 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertLess(steps.index(build),steps.index(upload))
         self.assertNotIn('build_windows_n0a_udp6_fixture',self.text)
 
+    def test_stage0b_actual_all_128_conditions_and_existing_artifact_reuse(self):
+        import yaml
+        doc=yaml.load(self.text,Loader=yaml.BaseLoader)
+        condition=runpy.run_path(str(ROOT/'tests/test_windows_n0a_udp_workflow.py'))['condition']
+        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]','[identity-stage0b-runtime]')
+        steps=doc['jobs']['compile']['steps']+doc['jobs']['host-unit']['steps']+doc['jobs']['native']['steps']
+        newsteps=[x for x in steps if x.get('name','').startswith(('Stage0b ','Required Stage0b ')) or x.get('with',{}).get('name')=='stage0b-ipc-public']
+        self.assertEqual(len(newsteps),4)
+        oldsteps=[x for x in steps if 'if' in x and any(m in x['if'] for m in markers[:6]) and x not in newsteps]
+        self.assertTrue(oldsteps)
+        for present in itertools.product((False,True),repeat=7):
+            message=' '.join(m for m,on in zip(markers,present) if on)
+            self.assertEqual(self.native_allowed(message),sum(present)==1)
+            for step in newsteps:self.assertEqual(condition(step['if'][3:-2].replace('always()','true'),message),sum(present)==1 and present[6])
+            if present[6]:
+                for step in oldsteps:self.assertFalse(condition(step['if'][3:-2].replace('always()','true'),message))
+            for job in ('compile','host-unit'):self.assertEqual(condition(doc['jobs'][job]['if'][3:-2],message),any(present))
+        for job in doc['jobs'].values():
+            expr=job['if'][3:-2]
+            self.assertFalse(condition(expr,markers[6],branch='refs/heads/main'))
+            self.assertFalse(condition(expr,markers[6],event='workflow_dispatch'))
+        self.assertFalse(self.native_allowed('[n0a-udp6-gates]'))
+        self.assertEqual(self.text.count('build_windows_identity_actor.ps1 -IdentityOnly'),1)
+        artifacts=[x for x in doc['jobs']['compile']['steps'] if x.get('uses')=='actions/upload-artifact@v7' and x['with']['name']=='client-stage0-actor']
+        self.assertEqual(len(artifacts),1)
+        self.assertEqual(artifacts[0]['with']['path'].splitlines(),['client-stage0-actor/windows_identity_actor.exe','client-stage0-actor/actor-sha256.txt'])
+        self.assertIn('$manifest.httpCompiled -or -not $manifest.staticCrt',self.text)
+        admission=newsteps[0];self.assertIn('$binary.Length -lt 512 -or $binary.Length -gt 8388608',admission['run'])
+        self.assertLess(doc['jobs']['compile']['steps'].index(admission),doc['jobs']['compile']['steps'].index(artifacts[0]))
+        short=(ROOT/'.github/workflows/windows-n0a-udp6-gates.yml').read_text()
+        expected=ast.literal_eval(re.search(r'names=(\([^;]+\));',short).group(1));self.assertEqual(len(expected),51)
+        for step in newsteps:
+            if 'names=' in step.get('run',''):
+                self.assertEqual(ast.literal_eval(re.search(r'names=(\([^;]+\));',step['run']).group(1)),expected)
+                self.assertIn('pip install --disable-pip-version-check "PyYAML==6.0.3"',step['run'])
+                if step.get('shell')=='powershell':self.assertIn('PyYAML==6.0.3"\nif ($LASTEXITCODE -ne 0)',step['run'])
+                self.assertIn('bool(result.skipped)',step['run']);self.assertIn('all(p.countTestCases()>0 for p in parts)',step['run'])
+        helpers=newsteps[1]['run']
+        for mode in ('n0a','udp','udp-parent','udp6','stage0b'):self.assertIn('test-windows-'+mode+'-guest-gates.ps1',helpers)
+        self.assertIn('test-windows-udp-payload-gates.ps1',helpers);self.assertEqual(helpers.count('if ($LASTEXITCODE -ne 0)'),6)
+        self.assertEqual(newsteps[-1]['with']['path'],'client-stage0-public/stage0b-public.json')
+        self.assertNotIn('path: client-stage0-public/*',self.text)
+        self.assertIn('path: client-stage0-public/public-report.json',self.text)
+
+    def test_stage0b_actual_shell_exact_sha_size_and_legacy_paths(self):
+        sha='a'*40
+        code,args,root=self.capture_shell('false','false',sha,sha,stage0b='true')
+        expected=['--signal=TERM','--kill-after=30s','1000s','sudo','/usr/bin/env','GITHUB_SHA='+sha,
+                  '/usr/bin/python3','-B','.github/windows_identity_direct_stage0.py','--approved-disposable-vm',
+                  '--python-archive',root+'/client-stage0-python/python-3.14.8-embed-amd64.zip',
+                  '--actor',root+'/client-stage0-actor/windows_identity_actor.exe','--actor-sha256','b'*64,
+                  '--bundle',root+'/g-bundle.zip','--output','client-stage0-public','--timeout-seconds','6600',
+                  '--job-deadline-epoch','2000','--stage0b']
+        self.assertEqual(code,0);self.assertTrue(args==expected,'Closed Stage0b argv mismatch')
+        for size in (511,8388609):
+            code,args,_=self.capture_shell('false','false',sha,sha,stage0b='true',actor_size=size)
+            self.assertNotEqual(code,0);self.assertIsNone(args)
+        code,args,_=self.capture_shell('false','false',sha,sha,stage0b='true',actor_size=8388608)
+        self.assertEqual(code,0);self.assertIsNotNone(args)
+        for flags in itertools.product(('false','true'),repeat=5):
+            if flags==('false',)*5:continue
+            capture,n0a,udp,parent,udp6=flags
+            code,args,_=self.capture_shell(capture,n0a,sha,sha,udp=udp,parent=parent,udp6=udp6,stage0b='true')
+            self.assertNotEqual(code,0);self.assertIsNone(args)
+        for commit,observed in (('',sha),('A'*40,'A'*40),('a'*39,'a'*39),('a'*41,'a'*41),(sha,'c'*40),(sha,'')):
+            code,args,_=self.capture_shell('false','false',commit,observed,stage0b='true')
+            self.assertNotEqual(code,0);self.assertIsNone(args)
+
     def test_udp6_actual_shell_exact_exclusive_argv_and_sha(self):
         sha='a'*40
         code,args,root=self.capture_shell('false','false',sha,sha,udp6='true')
@@ -529,7 +600,7 @@ class ShellDiagnosticTests(unittest.TestCase):
             root=parent/'owned';root.mkdir()
             instance=N0aDirectWorkflowTests();instance.setUp()
             facts=dict(outcome='work_timeout',elapsed='at_least_5s',exit_confirmed=True,kill_attempted=True,kill_failed=False,descendants_observed=False)
-            with patch.object(tempfile,'mkdtemp',return_value=str(root)),patch(__name__+'.observe_fixture_shell',return_value=(None,facts)),patch('builtins.print') as output:
+            with patch(__name__+'.SHELL_OBSERVATIONS',0),patch.object(tempfile,'mkdtemp',return_value=str(root)),patch(__name__+'.observe_fixture_shell',return_value=(None,facts)),patch('builtins.print') as output:
                 with self.assertRaises(AssertionError) as caught:instance.capture_shell('false','false','a'*40,'a'*40)
             self.assertNotIn(str(root),str(caught.exception));self.assertTrue(root.exists())
             closed=json.loads(output.call_args.args[0]);self.assertTrue(closed['root_removal_skipped'])

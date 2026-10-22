@@ -49,13 +49,23 @@ on:
       - '.github/build_windows_n0a_udp6_actor.ps1'
       - 'tests/test_windows_n0a_udp6_workflow.py'
       - 'tests/test_windows_n0a_udp6_integration_control.py'
+      - '.github/windows_identity_pipe_probe.py'
+      - '.github/windows_identity_ordinary_launcher.py'
+      - 'ruleproxy/windows_app_process.py'
+      - '.github/windows_identity_stage0b_guest.py'
+      - '.github/test-windows-stage0b-guest-gates.ps1'
+      - 'tests/test_windows_identity_pipe_probe.py'
+      - 'tests/test_windows_identity_ordinary_launcher.py'
+      - 'tests/test_windows_identity_stage0b_guest.py'
+      - 'tests/test_windows_stage0b_host.py'
+      - 'tests/test_windows_stage0b_guest_transport.py'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   compile:
     # Keep the exact experimental branch and explicit runtime intent checks.
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') || contains(github.event.head_commit.message, '[n0a-udp6-runtime]')) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') || contains(github.event.head_commit.message, '[n0a-udp6-runtime]') || contains(github.event.head_commit.message, '[identity-stage0b-runtime]')) }}
     runs-on: windows-2025
     timeout-minutes: 10
     steps:
@@ -103,7 +113,7 @@ jobs:
           python -B -c "import unittest; s=unittest.defaultTestLoader.discover('tests', pattern='test_windows_client_direct*.py'); assert s.countTestCases() >= 7, 'Direct test discovery incomplete'; r=unittest.TextTestRunner(verbosity=2).run(s); raise SystemExit(not r.wasSuccessful())"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build production-only N0a actor for a future explicit opt-in
-        if: ${{ ((contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ ((contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         shell: pwsh
         run: |
           $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -116,7 +126,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
         # Production-only upload requires the explicit N0a runtime marker.
-        if: ${{ (true && (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (true && (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         with:
           name: n0a-connect-production-actor
           path: |
@@ -125,7 +135,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
       - name: Build pinned production-only UDP6 actor and require adapter gates
-        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         shell: pwsh
         run: |
           $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -143,7 +153,7 @@ jobs:
           python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py', 'test_windows_n0a_udp6_actor.py', 'test_windows_client_n0a_udp6.py', 'test_windows_n0a_udp6_gate.py', 'test_windows_client_n0a_udp6_packet.py', 'test_windows_n0a_udp6_workflow.py', 'test_windows_client_n0a_udp6_flow.py', 'test_windows_client_n0a_udp6_guest.py', 'test_windows_udp6_flow_composed.py', 'test_windows_n0a_udp6_integration_control.py', 'test_windows_client_n0a_udp6_capture_adapter.py', 'test_windows_client_n0a_udp6_host.py', 'test_windows_udp6_guest_transport.py', 'test_windows_n0a_qemu_slirp.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Actual UDP6 and legacy payload helper gates
-        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         shell: powershell
         timeout-minutes: 2
         run: |
@@ -152,7 +162,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
       - uses: actions/upload-artifact@v7
-        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         with:
           name: n0a-udp6-production-actor
           path: |
@@ -161,7 +171,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
       - name: Build pinned production descendant parent and child
-        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         shell: pwsh
         run: |
           $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -180,7 +190,7 @@ jobs:
           python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Actual descendant parent and legacy payload helper gates
-        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         shell: powershell
         timeout-minutes: 2
         run: |
@@ -189,7 +199,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
       - uses: actions/upload-artifact@v7
-        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         with:
           name: n0a-udp-parent-production-actor
           path: |
@@ -198,7 +208,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
       - name: Build pinned production-only UDP actor and require adapter gates
-        if: ${{ (contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         shell: pwsh
         run: |
           $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -212,7 +222,7 @@ jobs:
           python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Actual UDP guest and payload helper gates
-        if: ${{ (contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         shell: powershell
         timeout-minutes: 2
         run: |
@@ -223,7 +233,7 @@ jobs:
           & ./.github/test-windows-udp-payload-gates.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
-        if: ${{ (((contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')))) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (((contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')))) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         with:
           name: n0a-udp-production-actor
           path: |
@@ -231,6 +241,32 @@ jobs:
             n0a-udp-production-build/N0A-UDP-manifest.json
           retention-days: 7
           if-no-files-found: error
+      - name: Stage0b existing IdentityOnly artifact admission and required contracts
+        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
+        shell: powershell
+        run: |
+          python -m pip install --disable-pip-version-check "PyYAML==6.0.3"
+          if ($LASTEXITCODE -ne 0) { throw 'Stage0b pinned test dependency failed' }
+          $binary=Get-Item -LiteralPath 'client-stage0-actor/windows_identity_actor.exe'
+          if ($binary.Length -lt 512 -or $binary.Length -gt 8388608) { throw 'Stage0b IdentityOnly actor bound' }
+          python -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py', 'test_windows_n0a_udp6_actor.py', 'test_windows_client_n0a_udp6.py', 'test_windows_n0a_udp6_gate.py', 'test_windows_client_n0a_udp6_packet.py', 'test_windows_n0a_udp6_workflow.py', 'test_windows_client_n0a_udp6_flow.py', 'test_windows_client_n0a_udp6_guest.py', 'test_windows_udp6_flow_composed.py', 'test_windows_n0a_udp6_integration_control.py', 'test_windows_client_n0a_udp6_capture_adapter.py', 'test_windows_client_n0a_udp6_host.py', 'test_windows_udp6_guest_transport.py', 'test_windows_n0a_qemu_slirp.py', 'test_windows_identity_pipe_probe.py', 'test_windows_identity_ordinary_launcher.py', 'test_windows_identity_stage0b_guest.py', 'test_windows_stage0b_host.py', 'test_windows_stage0b_guest_transport.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+          if ($LASTEXITCODE -ne 0) { throw 'Stage0b required tests failed' }
+      - name: Stage0b and legacy actual PowerShell and exact payload prerequisites
+        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
+        shell: powershell
+        run: |
+          & ./.github/test-windows-n0a-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp-parent-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp6-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-stage0b-guest-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./.github/test-windows-udp-payload-gates.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7
         with:
           name: client-stage0-actor
@@ -241,7 +277,7 @@ jobs:
           if-no-files-found: error
   host-unit:
     # Pure Linux host tests are separate: native capacity is measured fresh.
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') || contains(github.event.head_commit.message, '[n0a-udp6-runtime]')) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && (contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') || contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') || contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-runtime]') || contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') || contains(github.event.head_commit.message, '[n0a-udp6-runtime]') || contains(github.event.head_commit.message, '[identity-stage0b-runtime]')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -259,22 +295,27 @@ jobs:
           python3 -B -m unittest discover -s tests -p test_windows_client_stock_stage0.py -q
           python3 -B -m unittest discover -s tests -p test_windows_identity_proof.py -q
       - name: Required UDP Linux adapter contracts
-        if: ${{ (contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         run: |
           python3 -m pip install --disable-pip-version-check "PyYAML==6.0.3"
           python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
       - name: Required descendant UDP Linux contracts
-        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         run: |
           python3 -m pip install --disable-pip-version-check "PyYAML==6.0.3"
           python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
       - name: Required UDP6 Linux contracts
-        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         run: |
           python3 -m pip install --disable-pip-version-check "PyYAML==6.0.3"
           python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py', 'test_windows_n0a_udp6_actor.py', 'test_windows_client_n0a_udp6.py', 'test_windows_n0a_udp6_gate.py', 'test_windows_client_n0a_udp6_packet.py', 'test_windows_n0a_udp6_workflow.py', 'test_windows_client_n0a_udp6_flow.py', 'test_windows_client_n0a_udp6_guest.py', 'test_windows_udp6_flow_composed.py', 'test_windows_n0a_udp6_integration_control.py', 'test_windows_client_n0a_udp6_capture_adapter.py', 'test_windows_client_n0a_udp6_host.py', 'test_windows_udp6_guest_transport.py', 'test_windows_n0a_qemu_slirp.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
+      - name: Required Stage0b Linux contracts
+        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
+        run: |
+          python3 -m pip install --disable-pip-version-check "PyYAML==6.0.3"
+          python3 -B -c "import pathlib,unittest; names=('test_windows_n0a_udp_actor.py', 'test_windows_client_n0a_udp.py', 'test_windows_n0a_udp_gate.py', 'test_windows_client_n0a_udp_packet.py', 'test_windows_n0a_udp_workflow.py', 'test_windows_client_n0a_udp_guest.py', 'test_windows_client_n0a_udp_flow.py', 'test_windows_client_n0a_udp_host.py', 'test_windows_client_n0a_udp_capture_adapter.py', 'test_windows_udp_guest_transport.py', 'test_windows_udp_payload.py', 'test_windows_udp_flow_composed.py', 'test_windows_n0a_actor.py', 'test_windows_client_n0a_control.py', 'test_windows_n0a_workflow.py', 'test_windows_client_n0a_adapter.py', 'test_windows_client_n0a_host.py', 'test_windows_client_n0a_flow.py', 'test_windows_client_n0a_capture_adapter.py', 'test_windows_client_n0a_packet.py', 'test_windows_n0a_guest.py', 'test_windows_client_direct_stage0.py', 'test_windows_client_direct_guest.py', 'test_windows_client_direct_actor_projection.py', 'test_windows_client_direct_workflow.py', 'test_windows_n0a_udp_parent_actor.py', 'test_windows_n0a_udp_parent_gate.py', 'test_windows_n0a_udp_parent_workflow.py', 'test_windows_client_n0a_udp_parent_host.py', 'test_windows_client_n0a_udp_parent_capture_adapter.py', 'test_windows_udp_parent_guest_transport.py', 'test_windows_udp_parent_composed.py', 'test_windows_udp_parent_guest.py', 'test_windows_n0a_udp6_actor.py', 'test_windows_client_n0a_udp6.py', 'test_windows_n0a_udp6_gate.py', 'test_windows_client_n0a_udp6_packet.py', 'test_windows_n0a_udp6_workflow.py', 'test_windows_client_n0a_udp6_flow.py', 'test_windows_client_n0a_udp6_guest.py', 'test_windows_udp6_flow_composed.py', 'test_windows_n0a_udp6_integration_control.py', 'test_windows_client_n0a_udp6_capture_adapter.py', 'test_windows_client_n0a_udp6_host.py', 'test_windows_udp6_guest_transport.py', 'test_windows_n0a_qemu_slirp.py', 'test_windows_identity_pipe_probe.py', 'test_windows_identity_ordinary_launcher.py', 'test_windows_identity_stage0b_guest.py', 'test_windows_stage0b_host.py', 'test_windows_stage0b_guest_transport.py'); assert all((pathlib.Path('tests')/n).is_file() for n in names); parts=[unittest.defaultTestLoader.discover('tests',pattern=n) for n in names]; assert all(p.countTestCases()>0 for p in parts); result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(parts)); raise SystemExit(not result.wasSuccessful() or bool(result.skipped))"
   native:
-    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]'))) }}
+    if: ${{ true && github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && ((contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && contains(github.event.head_commit.message, '[identity-stage0b-runtime]'))) }}
     needs: [compile, host-unit]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -397,7 +438,7 @@ jobs:
           if [ "$minutes" -gt 8 ]; then minutes=8; fi
           echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v8
-        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         with:
           name: n0a-udp6-production-actor
           path: udp6-production-build
@@ -407,17 +448,17 @@ jobs:
           name: client-stage0-actor
           path: client-stage0-actor
       - uses: actions/download-artifact@v8
-        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         with:
           name: n0a-udp-parent-production-actor
           path: udp-parent-production-build
       - uses: actions/download-artifact@v8
-        if: ${{ (((contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')))) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (((contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) || (!contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')))) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         with:
           name: n0a-udp-production-actor
           path: n0a-udp-production-build
       - uses: actions/download-artifact@v8
-        if: ${{ ((contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ ((contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         with:
           name: n0a-connect-production-actor
           path: n0a-production-build
@@ -514,6 +555,7 @@ jobs:
       - name: Run one exact exploratory direct ordinary-user Stage0 in the disposable client
         timeout-minutes: ${{ fromJSON(steps.stock_budget_8.outputs.minutes) }}
         env:
+          STAGE0B_REQUESTED: ${{ contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
           UDP6_REQUESTED: ${{ contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
           PARENT_UDP_REQUESTED: ${{ contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') }}
           UDP_REQUESTED: ${{ contains(github.event.head_commit.message, '[n0a-udp-runtime]') }}
@@ -546,8 +588,19 @@ jobs:
             test "$PARENT_UDP_REQUESTED" = "false"
             n0a_args=(--n0a-udp6-runner --udp6-actor "$PWD/udp6-production-build/windows_n0a_udp6_actor.exe" --udp6-manifest "$PWD/udp6-production-build/N0A-UDP6-manifest.json")
           fi
+          if [ "$STAGE0B_REQUESTED" = "true" ]; then
+            test "$N0A_REQUESTED" = "false"
+            test "$CAPTURE_REQUESTED" = "false"
+            test "$UDP_REQUESTED" = "false"
+            test "$PARENT_UDP_REQUESTED" = "false"
+            test "$UDP6_REQUESTED" = "false"
+            size=$(stat -c %s client-stage0-actor/windows_identity_actor.exe)
+            test "$size" -ge 512
+            test "$size" -le 8388608
+            n0a_args=(--stage0b)
+          fi
           capture_source_args=()
-          if [ "$CAPTURE_REQUESTED" = "true" ] || [ "$UDP_REQUESTED" = "true" ] || [ "$PARENT_UDP_REQUESTED" = "true" ] || [ "$UDP6_REQUESTED" = "true" ]; then
+          if [ "$CAPTURE_REQUESTED" = "true" ] || [ "$UDP_REQUESTED" = "true" ] || [ "$PARENT_UDP_REQUESTED" = "true" ] || [ "$UDP6_REQUESTED" = "true" ] || [ "$STAGE0B_REQUESTED" = "true" ]; then
             [[ "$CAPTURE_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
             test "$CAPTURE_SOURCE_COMMIT" = "$GITHUB_SHA"
             capture_source_args=(/usr/bin/env "GITHUB_SHA=$CAPTURE_SOURCE_COMMIT")
@@ -580,7 +633,7 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7
-        if: ${{ (always() && (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (always() && (contains(github.event.head_commit.message, '[n0a-connect-runtime]') || contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         timeout-minutes: 2
         with:
           name: n0a-connect-exploratory-public
@@ -588,7 +641,7 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7
-        if: ${{ (always() && contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (always() && contains(github.event.head_commit.message, '[n0a-capture-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         timeout-minutes: 2
         with:
           name: n0a-capture-exploratory-public
@@ -596,7 +649,7 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7
-        if: ${{ (always() && contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (always() && contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         timeout-minutes: 2
         with:
           name: n0a-udp-exploratory-public
@@ -604,7 +657,7 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7
-        if: ${{ (always() && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ (always() && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]')) && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         timeout-minutes: 2
         with:
           name: n0a-udp-parent-exploratory-public
@@ -626,10 +679,18 @@ jobs:
 
 # One reviewed runner-only UDP observation; original budgets and acceptance unchanged.
       - uses: actions/upload-artifact@v7
-        if: ${{ always() && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+        if: ${{ always() && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
         timeout-minutes: 2
         with:
           name: n0a-udp6-exploratory-public
           path: client-stage0-public/n0a-udp6-public.json
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') && contains(github.event.head_commit.message, '[identity-stage0b-runtime]') }}
+        timeout-minutes: 2
+        with:
+          name: stage0b-ipc-public
+          path: client-stage0-public/stage0b-public.json
           retention-days: 14
           if-no-files-found: warn

@@ -298,7 +298,7 @@ class CapacityAndIOTests(unittest.TestCase):
                 with self.assertRaises(l.GateFailure):l.read_private(path,8192)
 
     def test_default_off_constructs_no_native_api(self):
-        with patch.object(g,'launcher_module',side_effect=AssertionError('native')):
+        with patch.object(g,'EXECUTION_ENABLED',False),patch.object(g,'launcher_module',side_effect=AssertionError('native')):
             value=g.execute(dict(enabled=True,case_nonce='a'*32,actor_sha256='a'*64),D,F)
         self.assertEqual(value['failure'],'disabled');self.assertFalse(value['launcher_creation_observed'])
 

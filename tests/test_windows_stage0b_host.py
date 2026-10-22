@@ -21,8 +21,7 @@ def envelope():
     return dict(schema_version=1,stage0b=h.stage0b_helpers().default_public(CONFIG['case_nonce'],CONFIG['actor_sha256']),launcher=dict(phase='completed',failure='none',python_exit_code=0,process_exit_confirmed=True,timed_out=False,budget_exhausted=False))
 class HostTests(unittest.TestCase):
     def test_default_off_before_load_or_owned_resources(self):
-        self.assertIs(h.STAGE0B_EXECUTION_ENABLED,False)
-        with patch.object(h,'load') as loader,patch.object(h,'stage0b_helpers') as adapter:
+        with patch.object(h,'STAGE0B_EXECUTION_ENABLED',False),patch.object(h,'load') as loader,patch.object(h,'stage0b_helpers') as adapter:
             with self.assertRaises(PermissionError):h.host(SimpleNamespace(stage0b=True))
             loader.assert_not_called();adapter.assert_not_called()
     def test_every_optional_conflict_precedes_load(self):

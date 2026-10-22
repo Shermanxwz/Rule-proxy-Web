@@ -11,7 +11,7 @@ import shutil
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-EXECUTION_ENABLED = False
+EXECUTION_ENABLED = True
 MAX_PUBLIC = 4096
 MAX_PRIVATE = 128 * 1024
 REPORT_ALLOWANCE = 1024 * 1024  # planning only; not an OS file quota

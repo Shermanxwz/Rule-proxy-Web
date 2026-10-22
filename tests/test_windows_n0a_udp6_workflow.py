@@ -43,7 +43,7 @@ class UDP6WorkflowTests(unittest.TestCase):
             self.assertTrue(condition(expr,MARKER))
             self.assertFalse(condition(expr,MARKER,branch='refs/heads/main'))
             self.assertFalse(condition(expr,MARKER,event='workflow_dispatch'))
-            for runtime in ('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]'):
+            for runtime in ('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]','[identity-stage0b-runtime]'):
                 self.assertFalse(condition(expr,runtime))
                 self.assertFalse(condition(expr,MARKER+' '+runtime))
         import yaml
@@ -85,6 +85,8 @@ class UDP6WorkflowTests(unittest.TestCase):
     def test_stage0b_additions_invert_to_exact_prior_short_workflow(self):
         text=PATH.read_text()
         for path in STAGE0B_PATHS:self.assertIn(path,self.document()['on']['push']['paths'])
+        suffix=" && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]')"
+        self.assertEqual(text.count(suffix),2);text=text.replace(suffix,'')
         block=''.join("      - '"+n+"'\n" for n in STAGE0B_PATHS)
         self.assertEqual(text.count(block),1);text=text.replace(block,'',1)
         suffix="'test_windows_n0a_qemu_slirp.py', "+', '.join(repr(n) for n in STAGE0B_NAMES)+'); assert all'

@@ -831,7 +831,7 @@ def verify_n0a_inputs(actor, manifest):
 
 
 # Stage0b is independently gated; it never changes baseline Stage0 acceptance.
-STAGE0B_EXECUTION_ENABLED = False
+STAGE0B_EXECUTION_ENABLED = True
 STAGE0B_FILES = ('.github/windows_identity_pipe_probe.py',
     '.github/windows_identity_ordinary_launcher.py','ruleproxy/windows_app_process.py',
     '.github/windows_identity_stage0b_guest.py')
