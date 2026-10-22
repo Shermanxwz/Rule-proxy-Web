@@ -1,0 +1,22 @@
+{
+  "after_recovery": {
+    "bytes": 7378,
+    "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+  },
+  "baseline": {
+    "bytes": 7378,
+    "sha256": "f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3"
+  },
+  "baseline_runner_dependency": "verification/windows-2026-10-22/model2-first-02-04-runners/c_local_baseline.ps1",
+  "comparison_scope": "point-in-time four configuration objects; not NRPT inventory or isolation qualification",
+  "dns_unchanged": true,
+  "firewall_profiles_unchanged": true,
+  "raw_bytes_identical": true,
+  "raw_snapshots_published": false,
+  "routes_unchanged": true,
+  "schema_version": 1,
+  "source_commit": "524638057f1b60a3292964162fe70305fbea8e3e",
+  "stage": "standalone-lpac02-after-exact-recovery-global-safe-projection",
+  "user_proxy_unchanged": true,
+  "whole_json_objects_equal": true
+}

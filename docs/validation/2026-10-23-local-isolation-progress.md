@@ -1,5 +1,7 @@
 # Windows 本机应用级代理隔离：2026-10-23 检查点
 
+**LPAC 后续入口：** [两次创建阶段停止与独立恢复](2026-10-23-lpac-dns-mechanism.md)均发生在DNS查询前；原失败结果不改，专用profile/ACE已独立恢复，全局快照字节与初始baseline相同。尚无LPAC DNS阻断结果，不能替代上述泄漏反例。
+
 本页记录已经运行的本机证据与尚未验收的范围。当前已完成首次真实网络的 **profiles-off diagnostic**、同身份错端口诊断，以及真实在途请求被精确 relay 死亡中断、同 held selected 事后 fresh direct 返回 `10013` 的 death01 诊断；错误 peer 的第二次尝试虽完成前后健康控制和清理，但 selected 连接超时，结论仍为 **inconclusive**。严格隔离和产品验收仍为 **false**。系统三个防火墙 profiles 原本关闭，本实验没有为得到成功而启用它们，也没有改全局代理、DNS 或路由。`effective_full_verified=false` 不能由精确规则存在、HTTP 正向成功或清理成功替代。
 
 **最新 DNS01 为 failed：** 同 held selected 通过 `DnsQueryEx` 获得匹配答案，独立 owned UDP53 receiver 收到对应新 case。ordinary 前后控制、原代理/TCP direct 观察和全部清理完成，反例仍成立。完整事实与限制见[标准53 selected 结果](2026-10-23-selected-dns-standard53.md)；当前受测 Model2 不具备完整 DNS 防泄漏，不能验收为 Linux 等效。

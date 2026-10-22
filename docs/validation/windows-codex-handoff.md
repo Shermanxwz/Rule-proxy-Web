@@ -1,5 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
+> **LPAC 入口检查点，2026-10-23：** [LPAC01/02](2026-10-23-lpac-dns-mechanism.md)均在selected准入/恢复线程、库存、receiver和DNS查询前停止；原inconclusive/recovery_required保留，独立受监督恢复已清理专用profile/ACE，全局配置与最初baseline字节相同。尚无LPAC DNS结果，现有G/PSEC DNS API泄漏仍成立，不能算Linux等效。
+
 > **原始 UDP 差分，2026-10-23：** [rawDNS01/02](2026-10-23-selected-dns-raw-udp.md)均保持 `inconclusive`；第二轮完成普通前后正控、四个库存门、完整观察与清理，selected UDP connect/send 本地接受但 receiver 无命中，超时且无明确拒绝。两次全局配置均与初始 baseline 相同；没有抵消下述 DNS API 泄漏，也没有定位 broker PID。
 
 > **DNS 泄漏阻碍验收，2026-10-23：** [同 held selected 标准53实测 DNS01](2026-10-23-selected-dns-standard53.md)发现明确绕代理反例：selected API/query 0/0、一个精确答案，独立 receiver 收到 selected 新 case 并答复；ordinary 前后同 API 正控成功，全部清理完成、全局配置未变，整体 **failed**。原 TCP direct `10013` 仍成立，但不能推出 DNS 被阻断。当前受测 Model2 不能验收为 Linux 等效；默认 resolver、发包进程/broker 归因及补救仍未完成。以下“selected 尚未运行”均为此前快照，不能当作最新状态。

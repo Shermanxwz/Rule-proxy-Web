@@ -1,0 +1,55 @@
+{
+  "actor_executed_by_test_suite": false,
+  "actual_attempts_archived_separately": true,
+  "dns_executed_by_test_suite": false,
+  "dns_isolation_qualified": false,
+  "full": {
+    "command": "python -S -B -m unittest discover -s tests -p test_windows_identity*.py -v",
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 134256,
+      "sha256": "823deab083ef9244af7cf5350cec86dbc97ef31daf1d48167b79429ee1aa2a62"
+    },
+    "seconds": 32.428,
+    "skipped": 2,
+    "skips": "existing two local symlink tests",
+    "tests": 744
+  },
+  "members": {
+    "lpac-dns-ordinary-token-readonly.json": {
+      "bytes": 201,
+      "sha256": "859de180c90bfffed059bd31cbd2830147752bcefad509a22728004545697eca"
+    },
+    "lpac-dns-owner-ordinary-fix-03-abi.json": {
+      "bytes": 4991,
+      "sha256": "9f696e5cddebb1bf70fbbfd61a8178c30f59882d3c1f16eea947b24f6e3692aa"
+    },
+    "lpac-dns-owner-ordinary-fix-03-freeze.json": {
+      "bytes": 6596,
+      "sha256": "5cccf82f2574b7ae0dbd575ee3c161b1770aadf8491f085f97e0d79824709290"
+    },
+    "lpac-dns-owner-ordinary-fix-03.patch": {
+      "bytes": 6350,
+      "sha256": "a4f3318c87cb1c3e8ba29f878a46cd15b5af347a950baefc570108072706d601"
+    }
+  },
+  "ordinary_lpac_value": null,
+  "ordinary_value_means": "not queried; no fabricated zero",
+  "product_acceptance": false,
+  "schema_version": 1,
+  "scope": "source-and-pure-test-receipts-not-actual-acceptance",
+  "selected_class46_gate_retained": true,
+  "source_commit": "524638057f1b60a3292964162fe70305fbea8e3e",
+  "source_sha256": "96e1b3c439c7b33c7b01820f65c411558b1e5685b994cc09c2cf174b14e483d1",
+  "stage": "lpac-owner-ordinary-query-source-pure-review",
+  "targeted": {
+    "exit_code": 0,
+    "log": {
+      "bytes": 4976,
+      "sha256": "fc2d4ad0bec8259a99d2f44f11367b592a9662cede29dd139c33b98bbbe6ec1a"
+    },
+    "skipped": 0,
+    "tests": 24
+  }
+}
