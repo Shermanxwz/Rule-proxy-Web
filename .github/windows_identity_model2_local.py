@@ -23,6 +23,7 @@ SCOPE='one-local-model2-pncs-first-chain-exact-rule-v1'
 DIAGNOSTIC_SCOPE='one-local-model2-pncs-profiles-off-diagnostic-v1'
 HELPER_DIAGNOSTIC_SCOPE='one-local-model2-pncs-profiles-off-held-conhost-diagnostic-v1'
 WRONG_PORT_SCOPE='one-local-model2-pncs-profiles-off-wrong-port-diagnostic-v1'
+WRONG_PORT_PSEC_SCOPE='one-local-model2-pncs-profiles-off-wrong-port-psec-control-diagnostic-v1'
 CONFIG_KEYS={'schema_version','stage','run','boot_case','positive_case','direct_case','health_cases','admission_nonce',
     'maintenance_nonce','capability_profile','start_qpc','frequency','deadline_qpc','root_deadline_qpc',
     'source_hashes','source_sha256','actor_sha256','manifest_sha256','guard_job_name','device_sha256','recovery_plan_sha256'}
@@ -70,7 +71,9 @@ def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_a
         require(execution_mode=='profiles-off-diagnostic' and selected_admission is not None,'wrong_port_diagnostic_only')
         keys.add('wrong_port_extension');scope=WRONG_PORT_SCOPE
     require(type(value) is dict and set(value)==keys and live.execution_mode(value)==execution_mode,'plan_schema')
-    if wrong_port_extension:live.validate_wrong_port_extension(value['wrong_port_extension'])
+    if wrong_port_extension:
+        extension=live.validate_wrong_port_extension(value['wrong_port_extension'])
+        if extension['profile']=='same-peer-wrong-port-psec-control-v1':scope=WRONG_PORT_PSEC_SCOPE
     if selected_admission is not None:require(value['selected_admission']==selected_admission,'helper_plan_binding')
     require(type(value['schema_version']) is int and value['schema_version']==1
         and value['scope']==scope

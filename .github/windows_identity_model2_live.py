@@ -414,7 +414,8 @@ def validate_selected_admission(value):
 
 def validate_wrong_port_extension(value):
     keys = {'profile', 'listener_boot', 'control_boot', 'control_admission', 'before_case', 'wrong_case', 'after_case'}
-    require(type(value) is dict and set(value) == keys and value['profile'] == 'same-peer-wrong-port-v1'
+    require(type(value) is dict and set(value) == keys and value['profile'] in
+        ('same-peer-wrong-port-v1', 'same-peer-wrong-port-psec-control-v1')
         and all(ac.nonce(value[key]) for key in keys - {'profile'})
         and len({value[key] for key in keys - {'profile'}}) == 6, 'wrong_port_extension')
     return value
@@ -444,7 +445,7 @@ def system_conhost_record(api):
 
 def admit_selected(api, owners, budget, *, g_process, g_created, job, image, image_hash,
                    parent, capability_profile, catalog, diagnostic_guard_name=None, diagnostic_scoped_owners=None,
-                   selected_admission=None, auxiliary_register=None):
+                   selected_admission=None, auxiliary_register=None, actor_register=None):
     """Discovery does not authorize. Hold generation+image+Job+token before GO."""
     require(capability_profile in ('agentic-only', 'agentic-pncs'), 'selected_profile')
     require(integer(g_created, 1, 0xffffffffffffffff) and ac.digest(image_hash), 'selected_parent')
@@ -506,6 +507,9 @@ def admit_selected(api, owners, budget, *, g_process, g_created, job, image, ima
         if helper:
             auxiliary_register(dict(handle=handle, pid=pid, created=created, image_path=str(expected_helper),
                 image_sha256=selected_admission['conhost_sha256']))
+        elif actor_register is not None:
+            require(callable(actor_register), 'selected_actor_register')
+            actor_register(dict(handle=handle, pid=pid, created=created, image_path=str(image), image_sha256=image_hash))
         api.verify_job(job, handle)
         expected_image = expected_helper if helper else image
         expected_hash = selected_admission['conhost_sha256'] if helper else image_hash

@@ -254,6 +254,18 @@ class LocalModel2Tests(unittest.TestCase):
         self.assertTrue(value['result']['wrong_port_extension']['requested'])
         self.assertFalse(value['result']['diagnostic_completed'])
 
+    def test_psec_wrong_port_control_requires_its_own_explicit_plan_scope(self):
+        _,_,closure=source_fixture();admission=dict(profile='actor-plus-system-conhost-v1',conhost_sha256='7'*64)
+        extension=wrong_port_fixture();extension['profile']='same-peer-wrong-port-psec-control-v1'
+        p=recovery_plan(closure)
+        p.update(scope=m.WRONG_PORT_PSEC_SCOPE,execution_mode='profiles-off-diagnostic',selected_admission=admission,wrong_port_extension=extension)
+        kw=dict(device='1'*64,source=closure,actor='3'*64,manifest='4'*64,execution_mode='profiles-off-diagnostic',selected_admission=admission,wrong_port_extension=True)
+        self.assertIs(m.plan(p,**kw),p)
+        changed=copy.deepcopy(p);changed['scope']=m.WRONG_PORT_SCOPE
+        with self.assertRaises(ValueError):m.plan(changed,**kw)
+        changed=copy.deepcopy(p);changed['wrong_port_extension']['profile']='same-peer-wrong-port-v1'
+        with self.assertRaises(ValueError):m.plan(changed,**kw)
+
     def test_opt_in_missing_never_constructs_native_api(self):
         with mock.patch.object(m.local,'LocalNativeAPI') as native:
             value=m.run_local(*([None]*8))

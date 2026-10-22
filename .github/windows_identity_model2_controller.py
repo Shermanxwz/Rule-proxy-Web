@@ -423,6 +423,7 @@ class FirstController:
         self.wrong_port_denied = False
         self.go_records = []
         self.selected_discovery = None
+        self.q_selected_discovery = None
         self.profile_deleted = False
         self.cleanup_ledger = {key: False for key in ('workload_cleanup_confirmed', 'workload_job_empty',
             'all_workloads_exited', 'maintenance_cleanup_confirmed', 'maintenance_handles_closed',
@@ -578,20 +579,22 @@ class FirstController:
         self.resume(row)
         return row
 
-    def register_auxiliary(self, held):
-        live.require('system-conhost' not in self.tasks and 'selected_admission' in self.config, 'helper_register')
+    def register_auxiliary(self, held, *, role='system-conhost'):
+        live.require(role in ('system-conhost', 'q-system-conhost') and role not in self.tasks
+            and 'selected_admission' in self.config, 'helper_register')
         row = dict(info=SimpleNamespace(hProcess=held['handle'], hThread=None), attempted=True, assigned=False,
             exited=False, exit_code=None, pid=held['pid'], created=held['created'], identity=None, capabilities=None,
-            image_verified=False, resumed=False, work=self.root / 'selected', command=None,
+            image_verified=False, resumed=False, work=self.root / ('q-health' if role.startswith('q-') else 'selected'), command=None,
             image_path=held['image_path'], image_sha256=held['image_sha256'], admission_qpc=None, resume_qpc=None,
             cleanup_role=False, externally_held_before_first_resume=False, externally_held_before_network_go=True,
             natural_exit_observed=False, stop_requested=False, finish_order_verified=False)
-        self.tasks['system-conhost'] = row
+        self.tasks[role] = row
         self.children.append(row)
 
-    def selected_family_alive(self):
+    def selected_family_alive(self, family='main'):
         if 'selected_admission' not in self.config: return
-        for role in ('g-live', 'selected', 'system-conhost'):
+        live.require(family in ('main', 'q'), 'selected_family')
+        for role in (('g-live', 'selected', 'system-conhost') if family == 'main' else ('q-g-live', 'q-health', 'q-system-conhost')):
             row = self.tasks[role]
             self.alive(row)
             live.require(self.api.creation_time(row['info'].hProcess) == row['created']
@@ -601,6 +604,76 @@ class FirstController:
             self.scoped_owners.append(scope)
             live.verify_exact_guard_member(self.api, row['info'].hProcess, self.config['guard_job_name'], owners=scope)
             live.require(scope.confirmed_closed, 'selected_family_outer_close')
+
+    def finish_auxiliary(self, role):
+        if role not in self.tasks: return
+        auxiliary = self.tasks[role]
+        auxiliary['finish_order_verified'] = True
+        end = min(self.budget.read() + self.config['frequency'], self.budget.cutoff(30))
+        auxiliary['exited'] = self.api.wait(auxiliary['info'].hProcess, self.budget.require_ms(end)) is True
+        if auxiliary['exited']:
+            auxiliary['exit_code'] = self.api.exit_code(auxiliary['info'].hProcess)
+            auxiliary['natural_exit_observed'] = True
+
+    def verify_actual_tier(self, task, prefix=''):
+        live.require(task['exited'] and task['exit_code'] == 0 and not list((task['work'] / 'dacl-state').iterdir()),
+            prefix + 'actual_reaper_changed')
+        actual = live.local.bounded(task['work'] / 'stdout', live.MAX_PRIVATE) + b'\n' + live.local.bounded(task['work'] / 'stderr', live.MAX_PRIVATE)
+        live.require(live.proof.actual_tiers(actual) == ['base-container'], prefix + 'actual_tier')
+
+    def q_psec_control(self, exe, fixed):
+        c, root, x, budget = self.config, self.root, self.config['wrong_port_extension'], self.budget
+        listener = self.tasks['q-listener']
+        q_ports = live.ports(dict(proxy=fixed['wrong_port'], wrong_port=fixed['proxy'], origin=fixed['origin']))
+        argv = live.selected_command(exe, 'health-client', c['run'], x['control_boot'], root / 'q-health/ready.json',
+            root / 'q-health', root / 'q-health-control', c['start_qpc'], c['frequency'], c['deadline_qpc'], q_ports,
+            self.parent['sid'], 'agentic-pncs', x['control_admission'])
+        base = dict(entry.split('=', 1) for entry in self.api.native.environment(root).rstrip('\0').split('\0'))
+        request = live.request_document(run=c['run'], command=argv, cwd=root / 'q-health', inputs=root / 'inputs',
+            control=root / 'q-health-control', reports=root / 'q-health', native_environment=
+            ['SystemRoot=' + base['SystemRoot'], 'WINDIR=' + base['WINDIR'], 'LOCALAPPDATA=' + str(self.local_folder)],
+            peer=dict(profile='RuleProxy.Model2.A.' + c['run'], derived_sid=self.profile['sid'],
+                held_sid=listener['identity']['appcontainer_sid'], held=True, listener_port=q_ports['proxy']),
+            fixed_ports=q_ports, timeout_ms=min(120000, (c['deadline_qpc'] - c['start_qpc']) * 1000 // c['frequency']))
+        request['containerId'] = 'ruleproxy-model2-q-control-' + c['run']
+        path = root / 'q-live-request.json'; raw = live.encode(request)
+        launcher.write_private_bytes(path, raw)
+        probe = self.g_task('q-g-probe', path)
+        self.wait(probe, budget.cutoff(35))
+        live.require(not live.local.bounded(probe['work'] / 'stderr', live.MAX_NATIVE), 'q_probe_stderr')
+        diagnostic = live.probe.projection(live.local.bounded(probe['work'] / 'stdout', live.probe.MAX_OUTPUT))
+        live.require(diagnostic == dict(tier='base-container', needs_dacl_augmentation=False, warning_count=0,
+            detector_error_present=False, base_container_api_present=True, bfs_compiled_in=False), 'q_live_probe')
+        live.require(not list((probe['work'] / 'dacl-state').iterdir()) and live.local.bounded(path, live.MAX_PRIVATE) == raw,
+            'q_probe_reaper_or_request')
+        self.alive(listener)
+        g = self.g_task('q-g-live', path, actual=True)
+        observed, _ = read_when_closed(self.api, budget, root / 'q-health/ready.json', g['info'].hProcess, budget.cutoff(35))
+        def register_actor(row):
+            live.require('q-health' not in self.tasks, 'q_actor_register')
+            control = dict(info=SimpleNamespace(hProcess=row['handle'], hThread=None), attempted=True, assigned=False,
+                exited=False, exit_code=None, pid=row['pid'], created=row['created'], identity=None, capabilities=None,
+                image_verified=False, resumed=False, work=root / 'q-health', command=list(argv), image_path=str(exe),
+                image_sha256=c['actor_sha256'], admission_qpc=None, resume_qpc=None, cleanup_role=False,
+                externally_held_before_first_resume=False, externally_held_before_network_go=True)
+            self.children.append(control); self.tasks['q-health'] = control
+        held = live.admit_selected(self.api, self.owners, budget, g_process=g['info'].hProcess, g_created=g['created'],
+            job=self.job, image=exe, image_hash=c['actor_sha256'], parent=self.parent, capability_profile='agentic-pncs', catalog=self.catalog,
+            diagnostic_guard_name=c['guard_job_name'], diagnostic_scoped_owners=self.scoped_owners,
+            selected_admission=c['selected_admission'], auxiliary_register=lambda row:self.register_auxiliary(row, role='q-system-conhost'),
+            actor_register=register_actor)
+        auxiliary = held['auxiliary']
+        self.tasks['q-system-conhost'].update(assigned=True, identity=auxiliary['identity'], capabilities=auxiliary['capabilities'],
+            image_verified=True, resumed=True, admission_qpc=budget.read())
+        scope = helpers.OneShotHandles(self.api.close); self.scoped_owners.append(scope)
+        live.verify_exact_guard_member(self.api, held['handle'], c['guard_job_name'], owners=scope)
+        live.require(scope.confirmed_closed, 'q_control_outer_close')
+        held['discovery'].update(workload_job_verified=True, outer_job_verified=True, outer_query_handle_closed=True)
+        self.q_selected_discovery = held['discovery']
+        control = self.tasks['q-health']
+        control.update(assigned=True, identity=held['identity'], capabilities=held['capabilities'], image_verified=True,
+            resumed=True, admission_qpc=budget.read())
+        ready_client(observed, control, c, role='health-client', boot=x['control_boot'], admission=x['control_admission'], profile='agentic-pncs')
 
     def wrong_port_setup(self, exe, fixed, environment):
         if 'wrong_port_extension' not in self.config: return
@@ -614,6 +687,9 @@ class FirstController:
         row, _ = read_when_closed(self.api, self.budget, root / 'front/q-ready.json', listener['info'].hProcess, self.budget.cutoff(35))
         ready_listener(row, listener, c, role='health-listener', boot=x['listener_boot'], profile='pncs')
         live.require(row['port'] == fixed['wrong_port'], 'wrong_port_listener')
+        if x['profile'] == 'same-peer-wrong-port-psec-control-v1':
+            self.q_psec_control(exe, fixed)
+            return
         command = live.selected_command(exe, 'health-client', c['run'], x['control_boot'], root / 'q-health/ready.json',
             root / 'q-health', root / 'q-health-control', c['start_qpc'], c['frequency'], c['deadline_qpc'], fixed,
             self.parent['sid'], 'ordinary', x['control_admission'])
@@ -627,11 +703,14 @@ class FirstController:
         c, root, budget, x = self.config, self.root, self.budget, self.config['wrong_port_extension']
         listener, control = self.tasks['q-listener'], self.tasks['q-health']
         public = self.value['wrong_port_extension']
+        psec = x['profile'] == 'same-peer-wrong-port-psec-control-v1'
+        control_ports = live.ports(dict(proxy=fixed['wrong_port'], wrong_port=fixed['proxy'], origin=fixed['origin'])) if psec else fixed
+        control_opcode = 1 if psec else 3
         self.phase = 'health'
         self.selected_family_alive(); self.alive(listener)
         before = self.native_phase(control, role='health-client', journal_role='q-health', boot=x['control_boot'], admission=x['control_admission'],
-            sequence=1, case=x['before_case'], opcode=3, control=root / 'q-health-control', reports=root / 'q-health',
-            fixed_ports=fixed, end=min(budget.read() + 3 * c['frequency'], budget.cutoff(30)))
+            sequence=1, case=x['before_case'], opcode=control_opcode, control=root / 'q-health-control', reports=root / 'q-health',
+            fixed_ports=control_ports, end=min(budget.read() + 3 * c['frequency'], budget.cutoff(30)))
         live.require(phase_passed(before, x['before_case']), 'wrong_port_before_health')
         row, _ = read_when_closed(self.api, budget, root / 'front/receipt-0001.json', listener['info'].hProcess, budget.cutoff(30))
         row = receipt(row, listener, c, boot=x['listener_boot'], port=fixed['wrong_port'], index=1, role='health-listener')
@@ -653,11 +732,14 @@ class FirstController:
         self.phase = 'health'
         self.selected_family_alive(); self.alive(listener)
         after = self.native_phase(control, role='health-client', journal_role='q-health', boot=x['control_boot'], admission=x['control_admission'],
-            sequence=2, case=x['after_case'], opcode=3, control=root / 'q-health-control', reports=root / 'q-health',
-            fixed_ports=fixed, end=min(budget.read() + 3 * c['frequency'], budget.cutoff(30)))
+            sequence=2, case=x['after_case'], opcode=control_opcode, control=root / 'q-health-control', reports=root / 'q-health',
+            fixed_ports=control_ports, end=min(budget.read() + 3 * c['frequency'], budget.cutoff(30)))
         live.require(phase_passed(after, x['after_case']), 'wrong_port_after_health')
         self.finish_client(control, role='health-client', journal_role='q-health', boot=x['control_boot'], admission=x['control_admission'], sequence=3,
-            profile='ordinary', control=root / 'q-health-control', reports=root / 'q-health', fixed_ports=fixed, count=2)
+            profile='agentic-pncs' if psec else 'ordinary', control=root / 'q-health-control', reports=root / 'q-health', fixed_ports=control_ports, count=2)
+        if psec:
+            g = self.tasks['q-g-live']; self.wait(g, budget.cutoff(30)); self.finish_auxiliary('q-system-conhost')
+            self.verify_actual_tier(g, 'q_')
         digest = live.publish_fixture_finish(root / 'front', budget=budget, run=c['run'], boot_case=x['listener_boot'])
         self.go_records.append(dict(role='q-listener', sequence=1, opcode=255, case=x['listener_boot'],
             phase_deadline=c['deadline_qpc'], path='front/finish.bin', sha256=digest))
@@ -687,7 +769,10 @@ class FirstController:
     def native_phase(self, task, *, role, boot, admission, sequence, case, opcode, control, reports, fixed_ports, end, journal_role=None):
         self.alive(task)
         if role == 'selected-client': self.selected_family_alive()
-        if self.mode != 'strict' and role == 'selected-client':
+        if journal_role == 'q-health' and self.config['wrong_port_extension']['profile'] == 'same-peer-wrong-port-psec-control-v1':
+            self.refresh_profiles(); self.selected_family_alive('q')
+        if self.mode != 'strict' and (role == 'selected-client' or journal_role == 'q-health' and
+                self.config['wrong_port_extension']['profile'] == 'same-peer-wrong-port-psec-control-v1'):
             maintenance.validate_profiles_observation(self.maintenance.last_observation, 'profiles-status', self.mode,
                 self.config['start_qpc'], self.config['frequency'], self.config['deadline_qpc'], self.budget.read())
         digest = live.publish_go(control, budget=self.budget, run=self.config['run'], case=case, sequence=sequence,
@@ -737,6 +822,7 @@ class FirstController:
         live.require(self.profile['created'] and sid == api.derive_profile_sid(profile_name), 'profile_binding')
         metadata = launcher.default_child_environment()
         folder = api.local_appdata(budget, metadata)
+        self.local_folder = folder
         front_environment = api.front_environment(folder, metadata)
         live.require(launcher.child_environment_admitted(metadata), 'front_environment')
 
@@ -939,17 +1025,8 @@ class FirstController:
             sequence=4 if 'wrong_port_extension' in c else 3, profile='agentic-pncs', control=root / 'selected-control',
             reports=root / 'selected', fixed_ports=fixed, count=3 if 'wrong_port_extension' in c else 2)
         self.wait(g, budget.cutoff(30))
-        if 'system-conhost' in self.tasks:
-            auxiliary = self.tasks['system-conhost']
-            auxiliary['finish_order_verified'] = True
-            end = min(budget.read() + c['frequency'], budget.cutoff(30))
-            auxiliary['exited'] = api.wait(auxiliary['info'].hProcess, budget.require_ms(end)) is True
-            if auxiliary['exited']:
-                auxiliary['exit_code'] = api.exit_code(auxiliary['info'].hProcess)
-                auxiliary['natural_exit_observed'] = True
-        live.require(not list((g['work'] / 'dacl-state').iterdir()), 'actual_reaper_changed')
-        actual = live.local.bounded(g['work'] / 'stdout', live.MAX_PRIVATE) + b'\n' + live.local.bounded(g['work'] / 'stderr', live.MAX_PRIVATE)
-        live.require(live.proof.actual_tiers(actual) == ['base-container'], 'actual_tier')
+        self.finish_auxiliary('system-conhost')
+        self.verify_actual_tier(g)
 
         self.phase = 'health'
         self.alive(origin_task)
@@ -1065,8 +1142,9 @@ class FirstController:
         self.phase = 'cleanup'
         clean = False
         empty = False
-        auxiliary = self.tasks.get('system-conhost')
-        if auxiliary is not None and not auxiliary['exited']:
+        for role in ('system-conhost', 'q-system-conhost'):
+            auxiliary = self.tasks.get(role)
+            if auxiliary is None or auxiliary['exited']: continue
             try:
                 auxiliary['exited'] = api.wait(auxiliary['info'].hProcess, 0) is True
                 if auxiliary['exited']:
@@ -1074,7 +1152,7 @@ class FirstController:
                     auxiliary['natural_exit_observed'] = True
                 else:
                     auxiliary['stop_requested'] = True
-                    launcher.write_private_bytes(root / 'auxiliary-stop-intent.json', live.encode(dict(schema_version=1,
+                    launcher.write_private_bytes(root / ('auxiliary-stop-intent.json' if role == 'system-conhost' else 'q-auxiliary-stop-intent.json'), live.encode(dict(schema_version=1,
                         stage='system-conhost-stop-intent', run=self.config['run'], pid=auxiliary['pid'],
                         created=auxiliary['created'], deadline_qpc=self.config['deadline_qpc'])))
             except BaseException:
@@ -1182,7 +1260,7 @@ class FirstController:
             'image_verified', 'resumed', 'command', 'image_path', 'image_sha256', 'admission_qpc', 'resume_qpc',
             'cleanup_role', 'externally_held_before_first_resume', 'externally_held_before_network_go')
         tasks = [dict(role=name, **{k: row[k] for k in keys}, **({k: row[k] for k in
-            ('natural_exit_observed', 'stop_requested', 'finish_order_verified')} if name == 'system-conhost' else {}))
+            ('natural_exit_observed', 'stop_requested', 'finish_order_verified')} if name in ('system-conhost', 'q-system-conhost') else {}))
             for name, row in self.tasks.items()]
         native_paths = ['front/ready.json', 'front/final.json', 'relay/final.json', 'origin/ready.json', 'origin/final.json',
             'health/ready.json', 'health/final.json', 'selected/ready.json', 'selected/final.json',
@@ -1194,6 +1272,8 @@ class FirstController:
             native_paths += ['front/q-ready.json', 'front/q-final.json', 'q-health/ready.json', 'q-health/final.json',
                 'q-health/phase-0001.json', 'q-health/phase-0002.json', 'selected/phase-0003.json']
             native_paths += ['front/receipt-%04d.json' % i for i in range(1, 9)]
+            if c['wrong_port_extension']['profile'] == 'same-peer-wrong-port-psec-control-v1':
+                native_paths += ['q-g-probe/stdout', 'q-g-probe/stderr', 'q-g-live/stdout', 'q-g-live/stderr', 'q-live-request.json']
         reports = []
         for name in native_paths:
             path = self.root / name
@@ -1212,18 +1292,56 @@ class FirstController:
         rule_record = None if self.rule_owner is None else dict(rule=self.rule_owner.rule, intent=self.rule_owner.intent,
             attempted=self.rule_owner.attempted, present_verified=self.rule_owner.present_verified,
             absent_verified=self.rule_owner.absent_verified, uncertain=self.rule_owner.uncertain)
-        return dict(schema_version=1, stage='model2-first-ownership', run=c['run'], controller_pid=os.getpid(),
+        value = dict(schema_version=1, stage='model2-first-ownership', run=c['run'], controller_pid=os.getpid(),
             frequency=c['frequency'], start_qpc=c['start_qpc'], deadline_qpc=c['deadline_qpc'],
             source_sha256=c['source_sha256'], actor_sha256=c['actor_sha256'], manifest_sha256=c['manifest_sha256'],
             public_sha256=live.sha(live.encode(self.value)), tasks=tasks, selected_discovery=self.selected_discovery,
             public=self.value, fixed_ports=self.fixed_ports, go=self.go_records, native_reports=reports,
             maintenance=maintenance_record, rules=rule_record, cleanup=self.cleanup_ledger)
+        if c.get('wrong_port_extension', {}).get('profile') == 'same-peer-wrong-port-psec-control-v1':
+            value['q_selected_discovery'] = self.q_selected_discovery
+        return value
+
+
+def validate_family_discovery(discovery, tasks, helper_contract):
+    if discovery is not None:
+        dk = {'parent_pid', 'parent_created', 'first_children', 'second_children', 'query_created', 'held_created',
+            'workload_job_verified', 'outer_job_verified', 'outer_query_handle_closed'}
+        if helper_contract is not None: dk.add('auxiliary')
+        live.require(type(discovery) is dict and set(discovery) == dk and 'selected' in tasks and 'g-live' in tasks, 'journal_discovery')
+        selected, parent = tasks['selected'], tasks['g-live']
+        live.require(discovery['parent_pid'] == parent['pid'] and type(discovery['parent_pid']) is int
+            and discovery['parent_created'] == parent['created'] and type(discovery['parent_created']) is int
+            and type(discovery['first_children']) is list and type(discovery['second_children']) is list
+            and discovery['first_children'] == discovery['second_children'] == sorted([selected['pid']] +
+                ([tasks['system-conhost']['pid']] if helper_contract is not None and 'system-conhost' in tasks else []))
+            and all(type(x) is int for x in discovery['first_children'] + discovery['second_children'])
+            and type(discovery['query_created']) is int and type(discovery['held_created']) is int
+            and discovery['query_created'] == discovery['held_created'] == selected['created'] >= parent['created']
+            and all(discovery[k] is True for k in ('workload_job_verified', 'outer_job_verified', 'outer_query_handle_closed')), 'journal_generation')
+        if helper_contract is not None:
+            auxiliary = discovery['auxiliary']
+            live.require('system-conhost' in tasks and type(auxiliary) is dict and set(auxiliary) ==
+                {'pid', 'created', 'query_created', 'held_created', 'workload_job_verified', 'outer_job_verified', 'outer_query_handle_closed'},
+                'journal_helper_discovery')
+            helper = tasks['system-conhost']
+            live.require(type(auxiliary['pid']) is int and auxiliary['pid'] == helper['pid'] and helper['pid'] != selected['pid']
+                and auxiliary['created'] == auxiliary['query_created'] == auxiliary['held_created'] == helper['created'] >= parent['created']
+                and all(type(auxiliary[k]) is int for k in ('created', 'query_created', 'held_created'))
+                and all(auxiliary[k] is True for k in ('workload_job_verified', 'outer_job_verified', 'outer_query_handle_closed')),
+                'journal_helper_generation')
+            live.require(live.launcher.token_is_ordinary(helper['identity']) and helper['identity']['integrity_rid'] == 8192
+                and helper['capabilities'] == [] and helper['identity']['capability_count'] == 0
+                and helper['identity']['sid'] == selected['identity']['sid']
+                and helper['identity']['session_id'] == selected['identity']['session_id'], 'journal_helper_identity')
 
 
 def validate_ownership_journal(value, config, *, controller_pid):
     keys = {'schema_version', 'stage', 'run', 'controller_pid', 'frequency', 'start_qpc', 'deadline_qpc',
         'source_sha256', 'actor_sha256', 'manifest_sha256', 'public_sha256', 'public', 'fixed_ports',
         'tasks', 'selected_discovery', 'go', 'native_reports', 'maintenance', 'rules', 'cleanup'}
+    q_psec = config.get('wrong_port_extension', {}).get('profile') == 'same-peer-wrong-port-psec-control-v1'
+    if q_psec: keys.add('q_selected_discovery')
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
         and value['stage'] == 'model2-first-ownership' and type(value['controller_pid']) is int
         and value['controller_pid'] == controller_pid, 'journal_schema')
@@ -1245,11 +1363,12 @@ def validate_ownership_journal(value, config, *, controller_pid):
         roles.add('system-conhost')
     wrong_extension = config.get('wrong_port_extension')
     if wrong_extension is not None: roles.update(('q-listener', 'q-health'))
+    if q_psec: roles.update(('q-g-probe', 'q-g-live', 'q-system-conhost'))
     live.require(('wrong_port_extension' in public) == (wrong_extension is not None), 'journal_wrong_port_binding')
     live.require(type(value['tasks']) is list and len(value['tasks']) <= len(roles), 'journal_tasks')
     tasks = {}
     for row in value['tasks']:
-        auxiliary = type(row) is dict and row.get('role') == 'system-conhost'
+        auxiliary = type(row) is dict and row.get('role') in ('system-conhost', 'q-system-conhost')
         expected_keys = task_keys | ({'natural_exit_observed', 'stop_requested', 'finish_order_verified'} if auxiliary else set())
         live.require(type(row) is dict and set(row) == expected_keys and row['role'] in roles and row['role'] not in tasks, 'journal_task')
         tasks[row['role']] = row
@@ -1283,46 +1402,22 @@ def validate_ownership_journal(value, config, *, controller_pid):
             live.require(row['assigned'] and row['image_verified'] and row['created'] is not None
                 and row['identity'] is not None and row['admission_qpc'] is not None
                 and row['externally_held_before_network_go'] is True, 'journal_admission')
-            if row['role'] in ('selected', 'system-conhost'):
+            if row['role'] in ('selected', 'system-conhost', 'q-system-conhost') or q_psec and row['role'] == 'q-health':
                 live.require(row['externally_held_before_first_resume'] is False and row['resume_qpc'] is None, 'journal_selected_resume')
             else:
                 live.require(row['externally_held_before_first_resume'] is True and row['resume_qpc'] is not None
                     and row['resume_qpc'] >= row['admission_qpc'], 'journal_resume_order')
         if row['role'] in ('origin', 'health', 'front', 'relay', 'selected', 'q-listener', 'q-health'):
             live.require(row['image_sha256'] == config['actor_sha256'], 'journal_actor_hash')
-        if row['role'] in ('g-probe', 'g-live'):
+        if row['role'] in ('g-probe', 'g-live', 'q-g-probe', 'q-g-live'):
             live.require(row['image_sha256'] == live.probe.pins.MXC_G_EXECUTOR_SHA256, 'journal_g_hash')
     discovery = value['selected_discovery']
-    if discovery is not None:
-        dk = {'parent_pid', 'parent_created', 'first_children', 'second_children', 'query_created', 'held_created',
-            'workload_job_verified', 'outer_job_verified', 'outer_query_handle_closed'}
-        if helper_contract is not None: dk.add('auxiliary')
-        live.require(type(discovery) is dict and set(discovery) == dk and 'selected' in tasks and 'g-live' in tasks, 'journal_discovery')
-        selected, parent = tasks['selected'], tasks['g-live']
-        live.require(discovery['parent_pid'] == parent['pid'] and type(discovery['parent_pid']) is int
-            and discovery['parent_created'] == parent['created'] and type(discovery['parent_created']) is int
-            and type(discovery['first_children']) is list and type(discovery['second_children']) is list
-            and discovery['first_children'] == discovery['second_children'] == sorted([selected['pid']] +
-                ([tasks['system-conhost']['pid']] if helper_contract is not None and 'system-conhost' in tasks else []))
-            and all(type(x) is int for x in discovery['first_children'] + discovery['second_children'])
-            and type(discovery['query_created']) is int and type(discovery['held_created']) is int
-            and discovery['query_created'] == discovery['held_created'] == selected['created'] >= parent['created']
-            and all(discovery[k] is True for k in ('workload_job_verified', 'outer_job_verified', 'outer_query_handle_closed')), 'journal_generation')
-        if helper_contract is not None:
-            auxiliary = discovery['auxiliary']
-            live.require('system-conhost' in tasks and type(auxiliary) is dict and set(auxiliary) ==
-                {'pid', 'created', 'query_created', 'held_created', 'workload_job_verified', 'outer_job_verified', 'outer_query_handle_closed'},
-                'journal_helper_discovery')
-            helper = tasks['system-conhost']
-            live.require(type(auxiliary['pid']) is int and auxiliary['pid'] == helper['pid'] and helper['pid'] != selected['pid']
-                and auxiliary['created'] == auxiliary['query_created'] == auxiliary['held_created'] == helper['created'] >= parent['created']
-                and all(type(auxiliary[k]) is int for k in ('created', 'query_created', 'held_created'))
-                and all(auxiliary[k] is True for k in ('workload_job_verified', 'outer_job_verified', 'outer_query_handle_closed')),
-                'journal_helper_generation')
-            live.require(live.launcher.token_is_ordinary(helper['identity']) and helper['identity']['integrity_rid'] == 8192
-                and helper['capabilities'] == [] and helper['identity']['capability_count'] == 0
-                and helper['identity']['sid'] == selected['identity']['sid']
-                and helper['identity']['session_id'] == selected['identity']['session_id'], 'journal_helper_identity')
+    validate_family_discovery(discovery, tasks, helper_contract)
+    if q_psec:
+        q_discovery = value['q_selected_discovery']
+        validate_family_discovery(q_discovery, {name: tasks[role] for name, role in
+            (('selected', 'q-health'), ('g-live', 'q-g-live'), ('system-conhost', 'q-system-conhost')) if role in tasks}, helper_contract)
+        live.require(not public['wrong_port_extension']['healthy_before'] or q_discovery is not None, 'journal_missing_q_selected')
     live.require(not public['checks']['selected_held'] or discovery is not None, 'journal_missing_selected')
     expected_go = [('health-client', 1, 2, config['health_cases'][0]), ('selected-client', 1, 1, config['positive_case']),
         ('health-client', 2, 2, config['health_cases'][1]), ('selected-client', 2, 2, config['direct_case']),
@@ -1331,8 +1426,8 @@ def validate_ownership_journal(value, config, *, controller_pid):
     if wrong_extension is not None:
         x = wrong_extension
         expected_go[4] = ('selected-client', 4, 255, config['boot_case'])
-        expected_go[4:4] = [('q-health', 1, 3, x['before_case']), ('selected-client', 3, 3, x['wrong_case']),
-            ('q-health', 2, 3, x['after_case']), ('q-health', 3, 255, x['control_boot']), ('q-listener', 1, 255, x['listener_boot'])]
+        expected_go[4:4] = [('q-health', 1, 1 if q_psec else 3, x['before_case']), ('selected-client', 3, 3, x['wrong_case']),
+            ('q-health', 2, 1 if q_psec else 3, x['after_case']), ('q-health', 3, 255, x['control_boot']), ('q-listener', 1, 255, x['listener_boot'])]
     live.require(type(value['go']) is list and len(value['go']) <= len(expected_go), 'journal_go')
     for row, (role, sequence, opcode, case) in zip(value['go'], expected_go):
         live.require(type(row) is dict and set(row) == {'role', 'sequence', 'opcode', 'case', 'phase_deadline', 'path', 'sha256'}
@@ -1346,17 +1441,21 @@ def validate_ownership_journal(value, config, *, controller_pid):
         else:
             live.require(value['fixed_ports'] is not None, 'journal_go_ports')
             admission = config['admission_nonce'] if role == 'selected-client' else wrong_extension['control_admission'] if role == 'q-health' else config['maintenance_nonce']
+            go_ports = value['fixed_ports']
+            if q_psec and role == 'q-health':
+                go_ports = dict(proxy=go_ports['wrong_port'], wrong_port=go_ports['proxy'], origin=go_ports['origin'])
             expected = live.go_record(run=config['run'], case=case, sequence=sequence, opcode=opcode,
-                frequency=config['frequency'], deadline=config['deadline_qpc'], fixed_ports=value['fixed_ports'],
+                frequency=config['frequency'], deadline=config['deadline_qpc'], fixed_ports=go_ports,
                 admission=admission, phase_deadline=row['phase_deadline'])
             expected_path = ('selected-control' if role == 'selected-client' else 'q-health-control' if role == 'q-health' else 'health-control') + '/phase-%04d.bin' % sequence
         live.require(row['path'] == expected_path and row['sha256'] == live.sha(expected), 'journal_go_digest')
     paths = set()
-    live.require(type(value['native_reports']) is list and len(value['native_reports']) <= (41 if wrong_extension is not None else 26), 'journal_reports')
+    live.require(type(value['native_reports']) is list and len(value['native_reports']) <= (46 if q_psec else 41 if wrong_extension is not None else 26), 'journal_reports')
     for row in value['native_reports']:
         live.require(type(row) is dict and set(row) == {'path', 'state', 'bytes', 'sha256'}
             and type(row['path']) is str and row['path'] not in paths
-            and re_report_path(row['path'], wrong_port=wrong_extension is not None) and row['state'] in ('read', 'unreadable'), 'journal_report')
+            and re_report_path(row['path'], wrong_port=wrong_extension is not None, q_psec=q_psec)
+            and row['state'] in ('read', 'unreadable'), 'journal_report')
         paths.add(row['path'])
         live.require(row['state'] != 'read' or live.integer(row['bytes'], 0, live.MAX_PRIVATE) and ac.digest(row['sha256']), 'journal_report_digest')
         live.require(row['state'] != 'unreadable' or row['bytes'] is None and row['sha256'] is None, 'journal_report_unreadable')
@@ -1389,24 +1488,26 @@ def validate_ownership_journal(value, config, *, controller_pid):
     live.require(public['execution_mode'] == live.execution_mode(config), 'journal_execution_mode')
     if live.first_ready(public, require_guard=False) or live.diagnostic_ready(public, require_guard=False):
         live.require(set(tasks) == roles and len(value['go']) == len(expected_go)
-            and all(row['resumed'] and row['exited'] and (live.integer(row['exit_code']) if role == 'system-conhost' else row['exit_code'] == 0)
+            and all(row['resumed'] and row['exited'] and (live.integer(row['exit_code']) if role in ('system-conhost', 'q-system-conhost') else row['exit_code'] == 0)
                 for role, row in tasks.items())
             and all(value['cleanup'].values()) and rule is not None and rule['present_verified'] and rule['absent_verified']
             and m['admitted'] and m['exited'] and m['exit_code'] == 0
             and all(row['state'] == 'read' for row in value['native_reports']), 'journal_first_cell')
         if helper_contract is not None:
-            helper = tasks['system-conhost']
-            live.require(helper['finish_order_verified'] and (helper['natural_exit_observed'] or helper['stop_requested']),
-                'journal_helper_finish')
+            for role in ('system-conhost', 'q-system-conhost') if q_psec else ('system-conhost',):
+                helper = tasks[role]
+                live.require(helper['finish_order_verified'] and (helper['natural_exit_observed'] or helper['stop_requested']),
+                    'journal_helper_finish')
     return value
 
 
-def re_report_path(path, wrong_port=False):
+def re_report_path(path, wrong_port=False, q_psec=False):
     import re
     base = bool(re.fullmatch(r'(?:front/(?:ready|final)\.json|relay/final\.json|origin/(?:ready|final|receipt-000[1-8])\.json|'
         r'health/(?:ready|final|phase-000[1-3])\.json|selected/(?:ready|final|phase-000[12])\.json|g-(?:probe|live)/(?:stdout|stderr))', path))
-    return base or wrong_port and bool(re.fullmatch(r'(?:front/(?:q-ready|q-final|receipt-000[1-8])\.json|'
+    return (base or wrong_port and bool(re.fullmatch(r'(?:front/(?:q-ready|q-final|receipt-000[1-8])\.json|'
         r'q-health/(?:ready|final|phase-000[12])\.json|selected/phase-0003\.json)', path))
+        or q_psec and bool(re.fullmatch(r'q-g-(?:probe|live)/(?:stdout|stderr)|q-live-request\.json', path)))
 
 
 def run_controller(config, root=ROOT, *, api=None):
