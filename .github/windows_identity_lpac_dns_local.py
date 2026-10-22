@@ -53,6 +53,24 @@ def durable_private(path,raw):
         require(stream.write(raw)==len(raw),'durable_write');stream.flush();os.fsync(stream.fileno())
     require(sha(local.bounded(path,MAX_REPORT))==sha(raw),'durable_readback')
 
+def validate_failure_detail(value):
+    if value is None:return None
+    require(type(value) is dict and set(value)=={'type','message','operation'}
+        and type(value['type']) is str and 1<=len(value['type'])<=64
+        and type(value['message']) is str and len(value['message'])<=512
+        and (value['operation'] is None or type(value['operation']) is str and 1<=len(value['operation'])<=128)
+        and len(encode(value))<=8192,'private_failure_detail')
+    return value
+
+def private_failure_detail(exc,operation=None):
+    # Private diagnostic data only. Never copy this object into public output.
+    try:message=str(exc)
+    except BaseException:message='<exception message unavailable>'
+    try:operation=operation or getattr(exc,'operation',None)
+    except BaseException:operation=None
+    return validate_failure_detail(dict(type=type(exc).__name__[:64],message=message[:512],
+        operation=operation[:128] if type(operation) is str and operation else None))
+
 def plan(value,*,device,source,actor,manifest):
     keys={'schema_version','scope','device_sha256','source_sha256','actor_sha256','manifest_sha256',
         'standard53_impact_acknowledged','fresh_lpac_acl_profile_acknowledged','residue_review_acknowledged','recovery_reference'}
@@ -140,6 +158,8 @@ class LPACAPI(live.LiveNativeAPI):
         require(type(value) is int and value in (0,1),'lpac_scalar');return value
 
     def atomic_spawn(self,info,argv,cwd,job,owners,state,*,environment,stdio=(),profile_pointer=None,catalog=None):
+        # Observation only: attempted/ownership/cleanup policy is unchanged.
+        state.update(create_status='not_entered',create_winerror=None,create_information='not_observed',create_exception_detail=None)
         require(type(environment) is str and environment.endswith('\0\0') and len(stdio) in (0,3),'constructor')
         lpac=profile_pointer is not None
         if lpac:
@@ -173,11 +193,19 @@ class LPACAPI(live.LiveNativeAPI):
                 self.native.check(self.k.UpdateProcThreadAttribute(attrs,0,0x20002,handles,C.sizeof(handles),None,None),'UpdateProcThreadAttribute(stdio)')
                 startup.StartupInfo.dwFlags=0x100
                 startup.StartupInfo.hStdInput,startup.StartupInfo.hStdOutput,startup.StartupInfo.hStdError=stdio
+            commandline=C.create_unicode_buffer(subprocess.list2cmdline(argv));env=C.create_unicode_buffer(environment)
             def create():
-                ok=self.k.CreateProcessW(argv[0],C.create_unicode_buffer(subprocess.list2cmdline(argv)),None,None,bool(stdio),
-                    self.proc._CREATE_SUSPENDED|self.proc._CREATE_UNICODE_ENVIRONMENT|self.proc._EXTENDED_STARTUPINFO_PRESENT|0x08000000,
-                    C.create_unicode_buffer(environment),str(cwd),C.byref(startup),C.byref(info))
-                return ok,C.get_last_error() if not ok else 0
+                try:
+                    ok=self.k.CreateProcessW(argv[0],commandline,None,None,bool(stdio),
+                        self.proc._CREATE_SUSPENDED|self.proc._CREATE_UNICODE_ENVIRONMENT|self.proc._EXTENDED_STARTUPINFO_PRESENT|0x08000000,
+                        env,str(cwd),C.byref(startup),C.byref(info))
+                except BaseException as exc:
+                    state.update(create_status='exception',create_exception_detail=private_failure_detail(exc,'CreateProcessW(atomic-LPAC)'));raise
+                code=C.get_last_error() if not ok else 0
+                information='all_zero' if not any((info.hProcess,info.hThread,info.dwProcessId,info.dwThreadId)) else 'nonzero'
+                state.update(create_status='returned_true' if ok else 'returned_false',create_winerror=None if ok else code,
+                    create_information=information)
+                return ok,code
             def check(result):
                 if not result[0]:raise launcher.NativeFailure('CreateProcessW(atomic-LPAC)',result[1])
             helpers.create_suspended_owned(create,check,info,owners,state)
@@ -241,6 +269,16 @@ def owned_tree(root):
     # uses C's already bounded larger traversal, retaining its no-reparse gate.
     return contracts.owned_tree(root,max_nodes=256,max_depth=12,max_bytes=16*1024*1024)
 
+def known_no_child(row,*,start):
+    """A failed API call receipt, never a process-exit or cancellation receipt."""
+    observation=row['create_observation']
+    return (row['attempted'] and observation['status']=='returned_false' and live.integer(observation['winerror'],1)
+        and observation['process_information']=='all_zero'
+        and live.integer(observation['returned_qpc'],start,observation['work_cutoff']-1)
+        and not any(row[k] for k in ('process_returned','assigned','admitted','resumed','exited'))
+        and all(row[k] is None for k in ('pid','created','identity','capabilities','lpac','exit_code','admission_qpc','resume_qpc'))
+        and row['go_qpc']==[])
+
 class Owner:
     def __init__(self,root,c,parent,api,budget,*,fixture_factory=None):
         self.root,self.c,self.parent,self.api,self.budget=root,c,parent,api,budget
@@ -248,7 +286,7 @@ class Owner:
         self.owners=helpers.OneShotHandles(api.close);self.job=None;self.children=[];self.tasks={};self.fixture=None
         self.profile=dict(attempted=False,returned=False,created=False,pointer=None,sid=None)
         self.catalog=None;self.inventory=None;self.selected_wire=False
-        self.j=dict(schema_version=1,stage='standalone-lpac-dns-worker-result',failure=None,selected_wire_query_observed=False,
+        self.j=dict(schema_version=1,stage='standalone-lpac-dns-worker-result',failure=None,failure_detail=None,selected_wire_query_observed=False,
             profile_name='ruleproxy-lpac-'+c['run'],profile_sid=None,profile_created=False,acl_attempted=False,
             selected_lpac_held=False,inventory=None,inventory_gates=[],go=[],native=[],fixture_final=None,
             ordinary_before=False,ordinary_after=False,natural_exits=False,selected_access_denial=False,
@@ -263,12 +301,13 @@ class Owner:
             deadline=self.c['deadline_qpc'],source_sha256=self.c['source_sha256'],qpc=self.budget.read(),action=label)))
 
     def task(self,name,argv,work,*,lpac=False,stdio=False,owners=None,children=None,job=None,cleanup=False):
-        self.budget.require_ms(self.budget.cutoff(3 if cleanup else 25))
+        work_cutoff=self.budget.cutoff(3 if cleanup else 25);self.budget.require_ms(work_cutoff)
         owners=self.owners if owners is None else owners;children=self.children if children is None else children;job=self.job if job is None else job
         image=launcher.checked_path(argv[0]);image_hash=sha(local.bounded(image,8*1024*1024))
         if name in ('selected','health'):require(image_hash==self.c['actor_sha256'],'actor_changed')
         info=self.api.process_info();row=dict(info=info,attempted=False,assigned=False,exited=False,exit_code=None,pid=None,created=None,
             process_returned=False,
+            create_observation=dict(status='not_entered',winerror=None,process_information='not_observed',returned_qpc=None,work_cutoff=work_cutoff,exception_detail=None),
             token=None,identity=None,capabilities=None,lpac=None,lpac_expected=lpac,resumed=False,admitted=False,
             image_sha256=image_hash,admission_qpc=None,resume_qpc=None,go_qpc=[],name=name)
         children.append(row)
@@ -284,6 +323,12 @@ class Owner:
             finally:
                 row['attempted']=state['creation_attempted'];row['process_returned']=bool(info.hProcess)
                 if info.dwProcessId:row['pid']=int(info.dwProcessId)
+                row['create_observation']=dict(status=state.get('create_status','not_entered'),winerror=state.get('create_winerror'),
+                    process_information=state.get('create_information','not_observed'),returned_qpc=None,work_cutoff=work_cutoff,
+                    exception_detail=state.get('create_exception_detail'))
+                if row['create_observation']['status'] in ('returned_false','returned_true'):
+                    try:row['create_observation']['returned_qpc']=self.budget.read()
+                    except BaseException:pass # No trustworthy return clock => cannot become known-no-child.
         finally:
             uncertain=False
             for h in tuple(stdio_owners.pending):
@@ -442,6 +487,9 @@ class Owner:
             self.finish(selected,'selected',2,1);self.finish(health,'health',3,2);self.j['natural_exits']=True
         except BaseException as exc:
             self.j['failure']='inventory' if type(exc) is ValueError and str(exc).startswith('dns_inventory') else 'protocol' if self.j['selected_lpac_held'] else 'setup'
+            last=self.tasks.get(next(reversed(self.tasks),None))
+            captured=None if last is None else last['create_observation']['exception_detail']
+            self.j['failure_detail']=captured if captured is not None else private_failure_detail(exc)
         finally:self.cleanup()
         self.j['tasks']=[task_projection(r) for r in self.children]
         return self.j
@@ -458,7 +506,8 @@ class Owner:
                 try:self.sticky()
                 except BaseException:self.j['fixture_cleanup']=False
         try:
-            clean,empty,stop=ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(8)),self.job,self.children,self.owners)
+            cleanup_children=[row for row in self.children if not known_no_child(row,start=self.c['start_qpc'])]
+            clean,empty,stop=ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(8)),self.job,cleanup_children,self.owners)
             self.j.update(workload_cleanup=clean,workload_job_empty=empty,workload_stop=stop)
         except BaseException:clean=False
         if clean and self.j['fixture_cleanup'] and not self.api.controls_uncertain:
@@ -471,7 +520,8 @@ class Owner:
                     self.scope_acl(removed=True);self.j['acl_removed']=True
                 except BaseException:pass
                 finally:
-                    try:self.j['cleanup_tools']=ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(3)),job,children,toolowners)[0]
+                    try:self.j['cleanup_tools']=ac._cleanup(self.api,live.CleanupView(self.budget,self.budget.cutoff(3)),job,
+                        [row for row in children if not known_no_child(row,start=self.c['start_qpc'])],toolowners)[0]
                     except BaseException:self.j['cleanup_tools']=False
                     self.j['cleanup_tasks']=[task_projection(r) for r in children]
                 if self.j['acl_removed'] and self.j['cleanup_tools'] and not self.api.controls_uncertain:
@@ -487,7 +537,7 @@ class Owner:
 
 def task_projection(r):
     return {k:r[k] for k in ('name','attempted','assigned','exited','exit_code','pid','created','identity','capabilities','lpac','lpac_expected',
-        'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned')}
+        'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned','create_observation')}
 
 def config_validate(c):
     keys={'schema_version','scope',*NONCES,'start_qpc','frequency','root_deadline_qpc','deadline_qpc','guard_job_name','source_hashes',
@@ -504,18 +554,19 @@ def config_validate(c):
     return c
 
 def validate_result(j,c):
-    keys={'schema_version','stage','failure','selected_wire_query_observed','profile_name','profile_sid','profile_created','acl_attempted',
+    keys={'schema_version','stage','failure','failure_detail','selected_wire_query_observed','profile_name','profile_sid','profile_created','acl_attempted',
         'selected_lpac_held','inventory','inventory_gates','go','native','fixture_final','ordinary_before','ordinary_after','natural_exits',
         'selected_access_denial','workload_cleanup','workload_job_empty','workload_stop','acl_removed','cleanup_tools','profile_deleted',
         'sid_released','fixture_cleanup','tasks','cleanup_tasks'}
     require(type(j) is dict and set(j)==keys and type(j['schema_version']) is int and j['schema_version']==1
         and j['stage']=='standalone-lpac-dns-worker-result' and j['failure'] in (None,'setup','protocol','inventory','cleanup')
         and j['profile_name']=='ruleproxy-lpac-'+c['run'],'result_schema')
-    booleans=keys-{'schema_version','stage','failure','profile_name','profile_sid','inventory','inventory_gates','go','native','fixture_final','tasks','cleanup_tasks'}
+    validate_failure_detail(j['failure_detail']);require(j['failure'] is not None or j['failure_detail'] is None,'success_failure_detail')
+    booleans=keys-{'schema_version','stage','failure','failure_detail','profile_name','profile_sid','inventory','inventory_gates','go','native','fixture_final','tasks','cleanup_tasks'}
     require(all(type(j[k]) is bool for k in booleans) and (j['profile_sid'] is None or ac.ac_profile_sid(j['profile_sid']))
         and (not j['profile_created'] or ac.ac_profile_sid(j['profile_sid'])),'result_facts')
     rowkeys={'name','attempted','assigned','exited','exit_code','pid','created','identity','capabilities','lpac','lpac_expected',
-        'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned'}
+        'resumed','admitted','image_sha256','admission_qpc','resume_qpc','go_qpc','process_returned','create_observation'}
     tasks={}
     for field,allowed in (('tasks',{'grant-root','grant-inputs','grant-lpac-report','grant-lpac-control','selected','health','inventory'}),('cleanup_tasks',{'remove'})):
         rows=j[field];require(type(rows) is list and len(rows)<=len(allowed),'task_bound')
@@ -523,6 +574,18 @@ def validate_result(j,c):
         for row in rows:
             require(type(row) is dict and set(row)==rowkeys and row['name'] in allowed and row['name'] not in names,'task_schema');names.add(row['name'])
             for k in ('attempted','assigned','exited','lpac_expected','resumed','admitted','process_returned'):require(type(row[k]) is bool,'task_bool')
+            observation=row['create_observation']
+            require(type(observation) is dict and set(observation)=={'status','winerror','process_information','returned_qpc','work_cutoff','exception_detail'}
+                and observation['status'] in ('not_entered','exception','returned_false','returned_true'),'create_observation')
+            require((observation['status']=='not_entered')==(not row['attempted']),'create_attempt_observation')
+            require(live.integer(observation['winerror']) if observation['status']=='returned_false' else observation['winerror'] is None,'create_error_observation')
+            require(observation['process_information'] in ('not_observed','all_zero','nonzero')
+                and ((observation['process_information']=='not_observed')==(observation['status'] in ('not_entered','exception'))),'create_information_observation')
+            require(type(observation['work_cutoff']) is int and observation['work_cutoff']==c['deadline_qpc']-(3 if field=='cleanup_tasks' else 25)*c['frequency']
+                and (observation['returned_qpc'] is None or live.integer(observation['returned_qpc'],c['start_qpc'],live.MAX_SIGNED)),'create_clock_observation')
+            require(observation['status'] not in ('not_entered','exception') or observation['returned_qpc'] is None,'create_unreturned_clock')
+            validate_failure_detail(observation['exception_detail'])
+            require((observation['exception_detail'] is not None)==(observation['status']=='exception'),'create_exception_detail')
             require(row['lpac_expected']==(row['name']=='selected') and ac.digest(row['image_sha256']),'task_image')
             require(row['lpac'] is None or type(row['lpac']) is int and row['lpac'] in (0,1),'task_lpac')
             require(row['lpac_expected'] or row['lpac'] is None,'ordinary_lpac_not_queried')
@@ -533,6 +596,7 @@ def validate_result(j,c):
             require(not row['resumed'] or row['admitted'] and row['assigned'] and row['admission_qpc']<=row['resume_qpc']<c['deadline_qpc'],'task_resume_gate')
             require(not row['admitted'] or row['attempted'] and row['pid'] is not None and row['created'] is not None
                 and row['identity'] is not None and row['capabilities'] is not None
+                and observation['status']=='returned_true' and observation['process_information']=='nonzero'
                 and (row['lpac']==1 if row['name']=='selected' else row['lpac'] is None),'task_admission')
             if row['admitted'] and row['name'] in ('selected','health'):
                 require(row['image_sha256']==c['actor_sha256'],'actor_task')
@@ -545,7 +609,8 @@ def validate_result(j,c):
                 else:require(launcher.token_is_ordinary(row['identity']) and row['capabilities']==[],'task_ordinary')
             if field=='tasks':tasks[row['name']]=row
         if j['workload_cleanup'] and field=='tasks' or j['cleanup_tools'] and field=='cleanup_tasks':
-            require(all(not r['attempted'] or r['process_returned'] and r['exited'] and r['exit_code'] is not None for r in rows),'cleanup_task_exit')
+            require(all(not r['attempted'] or known_no_child(r,start=c['start_qpc'])
+                or r['process_returned'] and r['exited'] and r['exit_code'] is not None for r in rows),'cleanup_task_exit')
     require(not j['selected_lpac_held'] or 'selected' in tasks and tasks['selected']['admitted'] and tasks['selected']['lpac']==1,'selected_held')
     require(not j['workload_cleanup'] or j['workload_job_empty'],'cleanup_job')
     if j['natural_exits']:

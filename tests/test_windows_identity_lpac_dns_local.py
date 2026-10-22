@@ -78,14 +78,18 @@ class API:
         self.root=root;self.fault=fault;self.now=T+100;self.next=100;self.rows={};self.closed=[];self.events=[];self.controls_uncertain=False
         self.profile_sid=ACSID;self.granted=False;self.removed=False;self.deleted=False
         self.native=NS(environment=lambda work:'SystemRoot='+str(root/'win')+'\0TEMP='+str(work/'temp')+'\0TMP='+str(work/'temp')+'\0\0')
-    def qpc(self):return self.now
+    def qpc(self):
+        if getattr(self,'qpc_fail_once',False):self.qpc_fail_once=False;raise OSError('pure clock unavailable')
+        return self.now
     def qpc_frequency(self):return F
-    def process_info(self):return NS(hProcess=None,hThread=None,dwProcessId=0)
+    def process_info(self):return NS(hProcess=None,hThread=None,dwProcessId=0,dwThreadId=0)
     def close(self,h):
         if h in self.closed:raise AssertionError('duplicate close')
         self.closed.append(h)
         if self.fault=='stdio-close' and h>10000 and not hasattr(self,'stdio_failed'):
             self.stdio_failed=True;raise OSError('one close unknown')
+        if self.fault=='create-false-close' and getattr(self,'create_false_seen',False) and not hasattr(self,'close_failed'):
+            self.close_failed=True;raise OSError('one owned handle close unknown')
     def owned_job(self,owners):self.next+=10;owners.add(self.next);return self.next
     def catalog(self):return CATALOG
     def create_profile(self,name,state):state.update(attempted=True,returned=True,created=True,pointer=77,sid=ACSID);return ACSID
@@ -94,9 +98,28 @@ class API:
     def release_profile_sid(self,state):state['pointer']=None
     def acl_read(self,path,sid):return m.expected_acl(self.root,path) if self.granted and not self.removed else []
     def atomic_spawn(self,info,argv,cwd,job,owners,state,**kw):
-        state['creation_attempted']=True
+        state.update(creation_attempted=True,create_status='returned_true',create_winerror=None,create_information='nonzero',create_exception_detail=None)
         if self.fault=='unknowncreate' and kw['profile_pointer']:
-            self.events.append('unknowncreate');raise OSError('unknown create')
+            exc=OSError('unknown create')
+            state.update(create_status='exception',create_information='not_observed',create_exception_detail=m.private_failure_detail(exc,'CreateProcessW(atomic-LPAC)'))
+            self.events.append('unknowncreate');raise exc
+        if self.fault=='argument-masked' and kw['profile_pointer']:
+            exc=C.ArgumentError('PRIVATE-ARGUMENT-DETAIL: unsupported call shape')
+            state.update(create_status='exception',create_information='not_observed',
+                create_exception_detail=m.private_failure_detail(exc,'CreateProcessW(atomic-LPAC)'))
+            self.controls_uncertain=True;raise ValueError('secondary capability_close')
+        if (self.fault is not None and self.fault.startswith('create-false') and kw['profile_pointer']
+                or self.fault=='remove-create-false' and '/remove:g' in argv):
+            state.update(create_status='returned_false',create_winerror=5,create_information='all_zero')
+            self.create_false_seen=True
+            if self.fault=='create-false-error0':state['create_winerror']=0
+            if self.fault=='create-false-thread':
+                info.hThread=9999;owners.add(info.hThread);state['create_information']='nonzero'
+            if self.fault=='create-false-pid':info.dwProcessId=9999;state['create_information']='nonzero'
+            if self.fault=='create-false-threadid':info.dwThreadId=9999;state['create_information']='nonzero'
+            if self.fault=='create-false-late':self.now=D-25*F
+            if self.fault=='create-false-clock':self.qpc_fail_once=True
+            raise m.launcher.NativeFailure('CreateProcessW(atomic-LPAC)',state['create_winerror'])
         self.next+=10;info.hProcess=self.next;info.hThread=self.next+1;info.dwProcessId=self.next
         owners.add(info.hProcess);owners.add(info.hThread)
         self.rows[info.hProcess]=dict(argv=argv,job=job,lpac=kw['profile_pointer'] is not None,exited=False,kwargs=kw)
@@ -153,7 +176,9 @@ class API:
         for r in self.rows.values():
             if r['job']==job:r['exited']=True
     def terminate_process(self,h):self.rows[h]['exited']=True
-    def job_empty(self,job):return not any(not r['exited'] and r['job']==job for r in self.rows.values())
+    def job_empty(self,job):
+        if self.fault=='create-false-job':return False
+        return not any(not r['exited'] and r['job']==job for r in self.rows.values())
     def sleep_ms(self,n):self.now+=n
 
 class LPACOwnerTests(unittest.TestCase):
@@ -228,10 +253,74 @@ class LPACOwnerTests(unittest.TestCase):
         owner,api,j=self.owner('unknowncreate');self.assertFalse(j['workload_cleanup']);self.assertFalse(j['profile_deleted'])
         self.assertFalse(api.deleted);self.assertEqual(j['go'],[]);m.validate_result(j,owner.c)
 
+    def test_precise_failed_create_cleans_without_fabricating_a_process_exit(self):
+        owner,api,j=self.owner('create-false');m.validate_result(j,owner.c)
+        selected=next(row for row in j['tasks'] if row['name']=='selected')
+        self.assertEqual(selected['create_observation'],dict(status='returned_false',winerror=5,process_information='all_zero',returned_qpc=api.now,work_cutoff=D-25*F,exception_detail=None))
+        self.assertTrue(selected['attempted']);self.assertFalse(selected['process_returned'])
+        self.assertTrue(j['workload_cleanup']);self.assertTrue(j['profile_deleted']);self.assertEqual(j['go'],[])
+        self.assertFalse(selected['exited']);self.assertIsNone(selected['exit_code']);self.assertTrue(m.known_no_child(selected,start=T))
+        self.assertEqual(j['native'],[]);self.assertIsNone(j['inventory']);self.assertIsNone(j['fixture_final'])
+
+    def test_error0_partial_information_late_unknown_clock_and_exception_are_not_excluded(self):
+        for fault in ('create-false-error0','create-false-thread','create-false-pid','create-false-threadid',
+            'create-false-late','create-false-clock','unknowncreate'):
+            with self.subTest(fault=fault):
+                owner,api,j=self.owner(fault);m.validate_result(j,owner.c)
+                selected=next(row for row in j['tasks'] if row['name']=='selected')
+                self.assertFalse(m.known_no_child(selected,start=T));self.assertTrue(selected['attempted'])
+                self.assertFalse(j['workload_cleanup']);self.assertFalse(j['profile_deleted']);self.assertEqual(j['go'],[])
+
+    def test_known_no_child_does_not_bypass_job_empty_handle_close_or_acl_remove(self):
+        for fault in ('create-false-job','create-false-close','remove-create-false'):
+            with self.subTest(fault=fault):
+                owner,api,j=self.owner(fault);m.validate_result(j,owner.c)
+                self.assertFalse(j['profile_deleted'])
+                if fault=='remove-create-false':
+                    self.assertFalse(j['acl_removed']);self.assertTrue(j['cleanup_tools'])
+                    row=j['cleanup_tasks'][0];self.assertTrue(m.known_no_child(row,start=T))
+                    self.assertFalse(row['exited']);self.assertIsNone(row['exit_code'])
+                else:self.assertFalse(j['workload_cleanup'])
+
+    def test_create_observation_is_closed_and_cannot_replace_a_full_create_success(self):
+        owner,api,j=self.owner();m.validate_result(j,owner.c)
+        for observation in (dict(status='returned_false',winerror=5),dict(status='returned_true',winerror=0),
+            dict(status='not_entered',winerror=None),dict(status='returned_true',winerror=None,raw='forbidden')):
+            value=copy.deepcopy(j);next(row for row in value['tasks'] if row['name']=='selected')['create_observation']=observation
+            with self.subTest(observation=observation),self.assertRaises(ValueError):m.validate_result(value,owner.c)
+        value=copy.deepcopy(j);next(row for row in value['tasks'] if row['name']=='selected')['create_observation']['process_information']='all_zero'
+        with self.assertRaises(ValueError):m.validate_result(value,owner.c)
+
     def test_independent_wire_survives_malformed_native_and_outer_projection(self):
         owner,api,j=self.owner('malformed');self.assertTrue(j['selected_wire_query_observed']);m.validate_result(j,owner.c)
         v=public_base()
         v=m.public_result(j,owner.c,v);self.assertEqual(v['status'],'failed');self.assertTrue(v['selected_wire_query_observed']);m.validate_public(v)
+
+    def test_private_failure_detail_is_bounded_closed_and_success_must_have_none(self):
+        detail=m.private_failure_detail(C.ArgumentError('private '*1000),'x'*1000)
+        self.assertEqual(detail['type'],'ArgumentError');self.assertEqual(len(detail['message']),512);self.assertEqual(len(detail['operation']),128)
+        for change in ({'message':'x'*513},{'type':'x'*65},{'operation':'x'*129},{'extra':'not allowed'}):
+            with self.subTest(change=list(change)),self.assertRaises(ValueError):m.validate_failure_detail(detail|change)
+        owner,api,j=self.owner();self.assertIsNone(j['failure_detail']);m.validate_result(j,owner.c)
+        j['failure_detail']=detail
+        with self.assertRaises(ValueError):m.validate_result(j,owner.c)
+
+    def test_owner_preserves_original_create_argument_error_when_finally_masks_it(self):
+        owner,api,j=self.owner('argument-masked');m.validate_result(j,owner.c)
+        self.assertEqual(j['failure_detail']['type'],'ArgumentError')
+        self.assertIn('PRIVATE-ARGUMENT-DETAIL',j['failure_detail']['message'])
+        self.assertEqual(j['failure_detail']['operation'],'CreateProcessW(atomic-LPAC)')
+        self.assertNotIn('secondary',j['failure_detail']['message']);self.assertFalse(j['profile_deleted']);self.assertEqual(j['go'],[])
+        v=m.public_result(j,owner.c,public_base());m.validate_public(v)
+        self.assertNotIn(b'PRIVATE-ARGUMENT-DETAIL',m.encode(v));self.assertNotIn('failure_detail',v)
+
+    def test_private_error_never_reaches_public_or_erases_receiver_positive(self):
+        owner,api,j=self.owner('malformed');m.validate_result(j,owner.c)
+        self.assertEqual(j['failure_detail']['message'],'malformed native')
+        v=m.public_result(j,owner.c,public_base());m.validate_public(v)
+        self.assertEqual(v['status'],'failed');self.assertTrue(v['selected_wire_query_observed'])
+        self.assertNotIn(b'malformed native',m.encode(v));self.assertNotIn('failure_detail',v)
+        with self.assertRaises(ValueError):m.validate_public(v|{'failure_detail':j['failure_detail']})
 
     def test_successful_lpac_wire_is_leak_not_product_or_psec_success(self):
         owner,api,j=self.owner(status=0);m.validate_result(j,owner.c)
@@ -322,6 +411,58 @@ class LPACOwnerTests(unittest.TestCase):
             with self.subTest(label=label),self.assertRaises(ValueError):m.validate_result(v,owner.c)
 
 class ConstructorTests(unittest.TestCase):
+    def make_create_boundary(self,create):
+        class Func:
+            def __init__(self,fn):self.fn=fn
+            def __call__(self,*args):return self.fn(*args)
+        counter=[1000]
+        def init(attrs,count,flags,size):C.cast(size,C.POINTER(C.c_size_t))[0]=256;return int(attrs is not None)
+        def convert(text,out):counter[0]+=1000;C.cast(out,C.POINTER(C.c_void_p))[0]=counter[0];return 1
+        api=m.LPACAPI.__new__(m.LPACAPI);api.proc=proc;api.controls_uncertain=False;api.native=NS(check=m.launcher.NativeAPI.check)
+        api.k=NS(InitializeProcThreadAttributeList=init,UpdateProcThreadAttribute=lambda *args:1,
+            DeleteProcThreadAttributeList=lambda *args:C.set_last_error(4321),CreateProcessW=create,LocalFree=lambda p:None)
+        api.a=NS(ConvertStringSidToSidW=Func(convert));return api
+
+    def test_actual_create_false_records_immediate_error_before_cleanup_can_clobber_it(self):
+        for code in (0,5,87):
+            def create(*args):C.set_last_error(code);return 0
+            api=self.make_create_boundary(create);state={};owners=m.helpers.OneShotHandles(lambda h:None)
+            with self.subTest(code=code),self.assertRaises(m.launcher.NativeFailure) as error:
+                api.atomic_spawn(proc._ProcessInfo(),['fixed.exe'],'owned',77,owners,state,
+                    environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
+            self.assertEqual(error.exception.winerror,code)
+            self.assertEqual((state['create_status'],state['create_winerror']),('returned_false',code))
+            self.assertEqual(state['create_information'],'all_zero')
+            self.assertTrue(state['creation_attempted']);self.assertEqual(owners.pending,set())
+
+    def test_actual_create_exception_records_unknown_without_a_guessed_stale_error(self):
+        def create(*args):C.set_last_error(123);raise OSError('pure callback exception')
+        api=self.make_create_boundary(create);state={};owners=m.helpers.OneShotHandles(lambda h:None)
+        with self.assertRaises(OSError):api.atomic_spawn(proc._ProcessInfo(),['fixed.exe'],'owned',77,owners,state,
+            environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
+        self.assertEqual((state['create_status'],state['create_winerror']),('exception',None))
+        self.assertEqual(state['create_information'],'not_observed')
+        self.assertEqual(state['create_exception_detail'],dict(type='OSError',message='pure callback exception',operation='CreateProcessW(atomic-LPAC)'))
+        self.assertTrue(state['creation_attempted']);self.assertEqual(owners.pending,set())
+        api=self.make_create_boundary(lambda *args:(_ for _ in ()).throw(C.ArgumentError('private bad signature')))
+        api.k.LocalFree=lambda pointer:pointer.value;state={}
+        with self.assertRaisesRegex(ValueError,'capability_close'):api.atomic_spawn(proc._ProcessInfo(),['fixed.exe'],'owned',77,
+            m.helpers.OneShotHandles(lambda h:None),state,environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
+        self.assertEqual(state['create_exception_detail']['type'],'ArgumentError')
+        self.assertEqual(state['create_exception_detail']['message'],'private bad signature')
+
+    def test_actual_false_api_reads_all_four_process_information_fields(self):
+        for field in ('hProcess','hThread','dwProcessId','dwThreadId'):
+            def create(*args):
+                value=C.cast(args[-1],C.POINTER(proc._ProcessInfo)).contents;setattr(value,field,1234)
+                C.set_last_error(5);return 0
+            api=self.make_create_boundary(create);state={};owners=m.helpers.OneShotHandles(lambda h:None)
+            with self.subTest(field=field),self.assertRaises(m.launcher.NativeFailure):
+                api.atomic_spawn(proc._ProcessInfo(),['fixed.exe'],'owned',77,owners,state,
+                    environment='SystemRoot=C:\\Windows\0\0',profile_pointer=55,catalog=CATALOG)
+            self.assertEqual(state['create_information'],'nonzero')
+            self.assertEqual(set(owners.pending),{1234} if field in ('hProcess','hThread') else set())
+
     def test_actual_constructor_sets_exact_optout_two_caps_atomic_job_and_no_inherited_handles(self):
         seen={};freed=[];sidmem=[]
         class Func:
