@@ -353,6 +353,7 @@ def admit_selected(api, owners, budget, *, g_process, g_created, job, image, ima
     require(not api.wait(g_process, 0) and api.creation_time(g_process) == g_created, 'g_generation')
     g_pid = api.process_id(g_process)
     first = api.parent_snapshot()
+    first_images = dict(getattr(api, 'last_snapshot_images', {}))
     candidates = []
     # Every query HANDLE is kept in the ledger, including rejected candidates.
     for pid, ppid in first.items():
@@ -373,6 +374,8 @@ def admit_selected(api, owners, budget, *, g_process, g_created, job, image, ima
         error.discovery = dict(parent_pid=g_pid, parent_created=g_created,
             first_child_count=len(first_children), second_child_count=len(second_children),
             first_children=sorted(first_children)[:16], second_children=sorted(second_children)[:16],
+            first_images={str(pid):first_images.get(pid) for pid in sorted(first_children)[:16]},
+            second_images={str(pid):getattr(api,'last_snapshot_images',{}).get(pid) for pid in sorted(second_children)[:16]},
             candidates=[dict(pid=pid,created=created) for pid,created,_ in candidates[:16]])
         raise error
     require(not api.wait(g_process, 0) and api.creation_time(g_process) == g_created, 'g_generation')
@@ -473,11 +476,14 @@ class LiveNativeAPI(origin.OriginAPI):
             entry.size = C.sizeof(entry)
             ok = self.k.Process32FirstW(snapshot, C.byref(entry))
             result = {}
+            images = {}
             while ok:
                 require(entry.pid not in result and len(result) < 32768, 'snapshot_bound')
                 result[int(entry.pid)] = int(entry.ppid)
+                images[int(entry.pid)] = str(entry.image)
                 ok = self.k.Process32NextW(snapshot, C.byref(entry))
             require(C.get_last_error() == 18, 'snapshot_end')
+            self.last_snapshot_images = images
             return result
         finally:
             self.close(snapshot)
