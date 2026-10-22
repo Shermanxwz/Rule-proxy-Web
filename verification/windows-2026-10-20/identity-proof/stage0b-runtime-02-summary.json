@@ -1,0 +1,173 @@
+{
+  "capacity": {
+    "combined_stage0b_staging_exact_bytes_exported": false,
+    "installed_plan_verified": false,
+    "peak_measured": false,
+    "preflight": {
+      "kind": "read_only_capacity_preflight",
+      "observed_free_bytes": 92108582912,
+      "provider_changes": false,
+      "provider_deletion_attempted": false,
+      "recovery_performed": false,
+      "required_free_bytes": 34896609280,
+      "same_filesystem": true,
+      "schema_version": 1,
+      "status": "admitted"
+    },
+    "preparation_allowance_bytes": 536870912,
+    "preparation_status": "observed_within_allowance",
+    "sampled_max_net_decline_bytes": 333533184
+  },
+  "cleanup": {
+    "error_count": 0,
+    "errors": [],
+    "first_failed_stage": null,
+    "helper_count": 0,
+    "helper_exit_confirmed_count": 0,
+    "qemu_exit_after_cleanup": -9,
+    "qemu_exit_before_cleanup": null,
+    "qemu_exit_confirmed": true,
+    "qemu_present": true,
+    "qmp_close_succeeded": true,
+    "qmp_file_closed": true,
+    "qmp_present": true,
+    "qmp_socket_closed": true,
+    "schema_version": 1,
+    "server_close_succeeded": true,
+    "server_present": true,
+    "server_shutdown_succeeded": true,
+    "server_thread_stopped": true,
+    "tpm_exit_after_cleanup": -9,
+    "tpm_exit_before_cleanup": null,
+    "tpm_exit_confirmed": true,
+    "tpm_present": true,
+    "watcher_present": true,
+    "watcher_stopped": true,
+    "work_remove_attempted": true,
+    "work_removed": true,
+    "work_retained": false
+  },
+  "conclusion": "failure",
+  "exact_receipts": {
+    "capacity": "4fe046d572a5791b53d085257e467e5470e5d9a9550b405da77c219eb8097101",
+    "preparation": "453ff3a5154dbee4c32fff4ac0ca5734601b08893cfae1dc6b595de5422785f5",
+    "stage0": "c370c32af7886b342541296a20c43dbb6dac923a3dc29e38648b3610c8be8e9f",
+    "stage0b": "b0af82b1a99169232891a5281fae47929fb3acdf0a4d243cafae6c82ed78f3e9"
+  },
+  "experiment": "Instrumented genuine Windows Stage0b inherited-pipe prerequisite",
+  "fixture_freeze_sha256": "612afd390208637921205d95d6e3b94e713ed61c18bc9518d4a9308123bd3bf0",
+  "head": "0f558cbb1cab5b7a87bab59722d4e163ec2c2882",
+  "interpretation": [
+    "This was the one authorized instrumented Stage0b run. Baseline PSEC Stage0 and the independent zero-network, zero-capability pipe prerequisite remained separate; neither passed. No proxy or network assay ran, and no automatic next run follows.",
+    "The diagnostic receipt now retains two parsed private reports and verified launcher/probe bindings. The native actor report was missing at the attempted bounded read. Both owned stdout records were parsed as invocation-bound execution metadata, not independent actor-token evidence. Missing native report and unverified actor fields do not prove that no transient child ever existed.",
+    "The held launcher was created, resumed and observed exited with code 1, with its owner cleanup confirmed. The outer adapter also exited 1 and completed without timeout/budget exhaustion. launcher_exit_verified=false means no verified successful zero exit, not absence of an observed exit.",
+    "The probe execution breadcrumb reports first failure at create, category native, operation process_create, numeric Win32 code 203. Source traces that stage to CreateProcessW with suspended/Unicode/extended-startup flags, zero capabilities and the explicit two-pipe handle list. Only pure ownership bookkeeping occurs before the existing check reads ctypes last error; attribute-list deletion follows the captured exception. This identifies the create/check failure path, not the underlying operating-system cause or a required environment-variable change.",
+    "The launcher subsequently reports a report-stage I/O failure; the adapter reports report-stage inconclusive. No native identity, fresh actor, nonce echo, broken-pipe EOF or actor-zero-exit fact is established. Nested exact ACL/profile cleanup is not fully verified merely because supervisory teardown and VM destruction succeeded.",
+    "QEMU and TPM were force-stopped by owned cleanup, with return codes -9 confirmed\u2014not natural zero exits. QMP file/socket, server shutdown/close/thread, watcher and owned work removal all completed with zero published teardown errors. This does not substitute for unobserved nested cleanup details.",
+    "The capacity preflight admitted. Preparation is a sampled net-free-space ledger within its allowance, not peak usage, an installed-plan verification or a hard quota. Existing 14-member payload and stricter Stage0b staging checks were not bypassed, but the exact combined P/E/Python/two-copy/report planning total was not exported and is not reconstructed here.",
+    "Original Stage0 remains false on its unchanged native identity acceptance; the genuine Win11 build is 26300.9457, below the stated 26300.9550 support floor. Stage0b IPC diagnostics cannot promote baseline or product acceptance. Prior runtime01 and the failed diagnostic short gate remain immutable. Private guest reports/logs were deleted with the VM; no retrospective raw reconstruction is claimed."
+  ],
+  "observations": {
+    "diagnostic": {
+      "bindings": [
+        "verified",
+        "verified",
+        "unavailable"
+      ],
+      "execution": [
+        [
+          "cleanup",
+          null,
+          "none",
+          "none",
+          null
+        ],
+        [
+          "complete",
+          "report",
+          "io",
+          "other",
+          null
+        ],
+        [
+          "completed",
+          "create",
+          "native",
+          "process_create",
+          203
+        ]
+      ],
+      "execution_sources": [
+        "owner",
+        "owned_stdout",
+        "owned_stdout"
+      ],
+      "held": {
+        "cleanup_confirmed": true,
+        "created": true,
+        "exit_code": 1,
+        "exit_observed": true,
+        "resumed": true
+      },
+      "reads": [
+        "parsed",
+        "parsed",
+        "missing"
+      ],
+      "stdout_reads": [
+        "parsed",
+        "parsed"
+      ],
+      "v": 1
+    },
+    "guest_result_provenance_verified": true,
+    "network_tested": false,
+    "ordinary_account": true,
+    "original_stage0_passed": false,
+    "os": {
+      "architecture": "AMD64",
+      "build": 26300,
+      "product_type": "WinNT",
+      "ubr": 9457
+    },
+    "outer_adapter_lifecycle": {
+      "budget_exhausted": false,
+      "failure": "operation_failed",
+      "phase": "completed",
+      "process_exit_confirmed": true,
+      "python_exit_code": 1,
+      "timed_out": false
+    },
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "report_validation": "valid",
+    "stage0b_failure": "report",
+    "stage0b_ipc_qualified": false,
+    "stage0b_status": "inconclusive",
+    "verified_facts": {
+      "actor_creation_observed": false,
+      "actor_exit_verified": false,
+      "actor_identity_verified": false,
+      "adapter_cleanup_verified": true,
+      "current_ordinary_verified": true,
+      "fresh_actor_verified": false,
+      "launcher_creation_observed": true,
+      "launcher_exit_verified": false,
+      "launcher_identity_verified": true,
+      "nested_cleanup_verified": false,
+      "pipe_echo_verified": false,
+      "pipe_eof_verified": false,
+      "probe_creation_observed": true,
+      "probe_identity_verified": true
+    }
+  },
+  "privacy": {
+    "closed_counts_booleans_public_ci_build_and_commitment_digests_only": true,
+    "raw_logs_machine_paths_account_values_sids_pids_nonce_values_credentials_excluded": true
+  },
+  "run_id": 39745498662,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39745498662",
+  "schema_version": 1,
+  "source": "21e5be2ca954fb8b41f25b2d033787104f5728f8",
+  "source_freeze_sha256": "13cc85c9d6b376314575fe62e3b4f028266d09998c7898b90baf26b5e807a27b"
+}
