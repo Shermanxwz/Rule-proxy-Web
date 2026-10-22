@@ -1,0 +1,132 @@
+{
+  "cleanup": {
+    "hosted_udp6_cleanup": true,
+    "hosted_udp6_process_owners": 7,
+    "hosted_udp6_receiver_owners": 2,
+    "linux_paused_qemu": {
+      "cleanup_confirmed": true,
+      "control_closed": true,
+      "failure": false,
+      "forced_kill": false,
+      "guest_executed": false,
+      "packet_egress_tested": false,
+      "passed": true,
+      "paused_observed": true,
+      "process_exit_observed": true,
+      "provenance": {
+        "admitted": true,
+        "close_confirmed": true,
+        "failure": false,
+        "libslirp": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "libslirp0",
+          "sha256": "1f71a24af59f3aa76c1e0bcf7852de08c1c21c40524479b9d5df404d903b2280",
+          "version": "4.7.0-1ubuntu3.1"
+        },
+        "pre_stop_verified": true,
+        "qemu": {
+          "architecture": "amd64",
+          "local_integrity_verified": true,
+          "name": "qemu-system-x86",
+          "sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+          "version": "1:8.2.2+ds-0ubuntu1.18"
+        },
+        "resident_bytes_verified": false,
+        "schema_version": 1,
+        "source_equivalence_verified": false
+      },
+      "qemu_8_2_2": true,
+      "schema_version": 1,
+      "work_removed": true
+    },
+    "stage0b_ps_mock_cleanup": true,
+    "zip_fixture_cleanup": true
+  },
+  "conclusion": "success",
+  "diagnostic_bounds": {
+    "existing_public_cap_bytes": 4096,
+    "host_independent_ceiling_bytes": 2740,
+    "public_independent_ceiling_bytes": 1922,
+    "stdout_cap_bytes": 1024,
+    "stdout_independent_ceiling_bytes": 437,
+    "wire_independent_ceiling_bytes": 2335
+  },
+  "exact_result_sha256": "80c4a4f14ebddcb593f11a6265b2e2a72ffb445aa6778923d0465d917bb8d302",
+  "experiment": "Stage0b comprehensive closed diagnostic validation",
+  "fixture_freeze_sha256": "612afd390208637921205d95d6e3b94e713ed61c18bc9518d4a9308123bd3bf0",
+  "head": "21e5be2ca954fb8b41f25b2d033787104f5728f8",
+  "interpretation": [
+    "The actual Windows gate now passes the canonical-path/component-suffix parser tests and the -I -S -B isolated real import/composition subprocess. Its binary success marker has exact LF bytes. These correct fixture portability and do not establish the hidden exception from the previous real guest run or the first Windows parser-state failure. The failed short gate is preserved at archive 526cc717254e367b88dded76065b57ae12f3c413.",
+    "The actual extracted PowerShell validator consumed 91 Python-produced schema cases within 149 Stage0b mock checks. Seven real ZIP selection/extraction modes include the 14-member Stage0b payload. Owned process/token/pipe/HTTP boundaries in these checks are mocked; no actual AppContainer anonymous-pipe qualification follows.",
+    "Schema-2 diagnostics separately retain held-launcher facts, three private-report read and binding states, two owned-stdout read states, and execution source/stage. Parsed reports and invocation-bound stdout breadcrumbs do not prove identity, native execution or pipe success. Early unbound/missing records remain unknown. All old pass/cleanup conjunctions and deadlines remain unchanged.",
+    "Private stdout is one strict bounded JSON record on the existing owned redirected file, not raw stderr. Best-effort emission preserves original return/exception semantics and cannot cover interpreter/import failure before entry or forced termination; absence cannot prove no process existed. Diagnostic file-close uncertainty denies cleanup without erasing independently established echo facts.",
+    "The sizing ceilings use conservative independent field maxima, not a jointly feasible trace. Native/private/public limits remain unchanged. Actual Stage0b runtime remains a separately authorized future evidence-collection run, not an automatic retry or a proven fix.",
+    "Linux tiny paused owned QEMU and hosted TEST_ONLY IPv6 loopback are unchanged auxiliary mechanisms, not Windows guest or Stage0b results. Hosted main receiver echoed 45 frames, wrong-echo control returned one and was rejected, with all seven held processes and two receivers cleaned. Production valid network CLI was not executed; the existing harness retains invalid-CLI/profile-only controls.",
+    "The original real Stage0b result remains failure with unknown nested private-report facts. Original PSEC Stage0 remains independent and unchanged; IPC diagnostics cannot make overall/product acceptance true. No proxy capability, identity rule or network configuration was changed."
+  ],
+  "privacy": {
+    "closed_counts_booleans_public_ci_build_digests_only": true,
+    "raw_logs_paths_nonces_sids_pids_credentials_excluded": true
+  },
+  "run_id": 39744141009,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39744141009",
+  "schema_version": 1,
+  "scope": {
+    "actual_stage0b_pipe_executed": false,
+    "all_source_pins": 422,
+    "diagnostic_source_files": 11,
+    "followup_test_files": 1,
+    "proxy_executed": false,
+    "windows_vm_executed": false,
+    "workflow_native_actor_app_process_and_host_production_unchanged": true
+  },
+  "sidecar": {
+    "conclusion": "success",
+    "exact_two_artifact_members_verified": true,
+    "executable_digest_verified_without_execution": true,
+    "public_build": {
+      "byte_exact": false,
+      "compileOnly": true,
+      "executableSha256": "f5c5504e8966177378dab93ac8b5c1918e2d19eecd8b9654896dbe8af64a926a",
+      "httpCompiled": true,
+      "sanitized": true,
+      "schema_version": 1,
+      "sourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "source_report_sha256": "8f7a6fd73209c6884a0765b81dcec401f4dc6260116961fe9bdde772a2f0bac1",
+      "stage": "native-build-public-metadata",
+      "staticCrt": true,
+      "targetArchitecture": "x64"
+    },
+    "pure_tests": 345,
+    "run_id": 39744140989,
+    "token_pipe_restricted_paired_steps_skipped": true
+  },
+  "source_freeze_sha256": "13cc85c9d6b376314575fe62e3b4f028266d09998c7898b90baf26b5e807a27b",
+  "tests": {
+    "actual_python_to_powershell_cases": 91,
+    "counts_overlap_not_additive": true,
+    "linux_required": 927,
+    "other_ps_checks": [
+      80,
+      48,
+      60,
+      57
+    ],
+    "sidecar_pure": 345,
+    "skips": 0,
+    "stage0b_ps_checks": 149,
+    "windows_required": 927,
+    "zip_checks": 82,
+    "zip_members": [
+      10,
+      14,
+      15,
+      17,
+      22,
+      17,
+      14
+    ],
+    "zip_negatives": 16
+  }
+}
