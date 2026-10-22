@@ -192,6 +192,23 @@ def fixture_finish(*, run, boot_case, frequency, deadline):
     return bytes(raw)
 
 
+def fixture_release(*, run, death_case, frequency, deadline):
+    raw = bytearray(fixture_finish(run=run, boot_case=death_case, frequency=frequency, deadline=deadline))
+    raw[5] = 254
+    return bytes(raw)
+
+
+def publish_fixture_release(directory, *, budget, run, death_case):
+    directory = launcher.checked_path(directory, is_file=False)
+    budget.require_ms(budget.cutoff(25))
+    path, temporary = directory / 'release.bin', directory / '.release.tmp'
+    require(not path.exists() and not temporary.exists(), 'release_exists')
+    raw = fixture_release(run=run, death_case=death_case, frequency=budget.frequency, deadline=budget.deadline)
+    launcher.write_private_bytes(temporary, raw); temporary.rename(path)
+    budget.require_ms(budget.cutoff(25))
+    return sha(raw)
+
+
 def publish_fixture_finish(directory, *, budget, run, boot_case):
     directory = launcher.checked_path(directory, is_file=False)
     budget.require_ms(budget.cutoff(20))
@@ -429,6 +446,14 @@ def validate_wrong_peer_extension(value):
     return value
 
 
+def validate_death_extension(value):
+    require(type(value) is dict and set(value) == {'profile', 'death_case', 'after_direct_case'}
+        and value['profile'] == 'same-selected-live-proxy-death-v1'
+        and all(ac.nonce(value[k]) for k in ('death_case', 'after_direct_case'))
+        and value['death_case'] != value['after_direct_case'], 'death_extension')
+    return value
+
+
 def g_command(executable, request, *, actual=False):
     require(type(actual) is bool, 'g_command_mode')
     # Pinned CLI main.rs selects Console logging only with --debug; successful
@@ -573,6 +598,26 @@ def verify_exact_guard_member(api, process, name, *, owners=None):
         api.close(job) if owners is None else owners.close(job)
 
 
+def exact_halfclosed_tcp_flow(raw, pid, local_port, remote_port):
+    require(type(raw) is bytes and 4 <= len(raw) <= 1048576 and integer(pid, 1, 0xffffffff)
+        and integer(local_port, 1, 65535) and integer(remote_port, 49153, 65535), 'death_tcp_input')
+    count, = struct.unpack_from('<I', raw)
+    require(count <= 43690 and 4 + 24*count <= len(raw), 'death_tcp_rows')
+    matches = []
+    for index in range(count):
+        state, local_address, local_raw, remote_address, remote_raw, owner = struct.unpack_from('<6I', raw, 4 + 24*index)
+        # IPv4 network bytes are held in the in_addr DWORD on this x64 profile.
+        lp = int.from_bytes(local_raw.to_bytes(4, 'little')[:2], 'big')
+        rp = int.from_bytes(remote_raw.to_bytes(4, 'little')[:2], 'big')
+        if owner == pid and lp == local_port and rp == remote_port:
+            require(local_address.to_bytes(4, 'little') == remote_address.to_bytes(4, 'little') == b'\x7f\0\0\1'
+                and local_raw <= 65535 and remote_raw <= 65535 and state in (6, 7), 'death_tcp_halfclose')
+            matches.append(dict(pid=pid, state=state, local_address='127.0.0.1', remote_address='127.0.0.1',
+                local_port=lp, remote_port=rp))
+    require(len(matches) == 1, 'death_tcp_unique')
+    return matches[0]
+
+
 class LiveNativeAPI(origin.OriginAPI):
     """Only instantiated in the owned runtime. No network or policy at import."""
     def __init__(self):
@@ -586,6 +631,28 @@ class LiveNativeAPI(origin.OriginAPI):
         self.k.OpenProcess.restype = H
         self.k.CreateToolhelp32Snapshot.argtypes = [D, D]
         self.k.CreateToolhelp32Snapshot.restype = H
+
+    def owned_halfclosed_tcp_flow(self, pid, local_port, remote_port, budget, cutoff):
+        """Read only: exact held relay's SD_SEND flow, never PID-based control.
+
+        MS GetExtendedTcpTable(AF_INET, TCP_TABLE_OWNER_PID_ALL=5), six DWORD
+        MIB_TCPROW_OWNER_PID; address bytes are in_addr, ports network order.
+        https://learn.microsoft.com/windows/win32/api/iphlpapi/nf-iphlpapi-getextendedtcptable
+        https://learn.microsoft.com/windows/win32/api/tcpmib/ns-tcpmib-mib_tcprow_owner_pid
+        Complete request EOF entails FIN_WAIT1/2, not ESTABLISHED. One bounded
+        allocation/fill, no resize retry. Caller brackets this with held identity.
+        """
+        budget.require_ms(cutoff)
+        library = C.WinDLL('iphlpapi.dll', use_last_error=True, winmode=0x800)
+        query = library.GetExtendedTcpTable
+        query.argtypes = [C.c_void_p, C.POINTER(C.c_uint32), C.c_int, C.c_uint32, C.c_int, C.c_uint32]
+        query.restype = C.c_uint32
+        size = C.c_uint32()
+        require(query(None, C.byref(size), False, 2, 5, 0) == 122 and 4 <= size.value <= 1048576, 'death_tcp_size')
+        budget.require_ms(cutoff); capacity = size.value; raw = C.create_string_buffer(capacity)
+        require(query(raw, C.byref(size), False, 2, 5, 0) == 0 and 4 <= size.value <= capacity, 'death_tcp_table')
+        budget.require_ms(cutoff)
+        return exact_halfclosed_tcp_flow(raw.raw[:size.value], pid, local_port, remote_port)
 
     private_descriptor = local.LocalNativeAPI.private_descriptor
     private_directory = local.LocalNativeAPI.private_directory
@@ -802,7 +869,9 @@ def diagnostic_ready(value, *, require_guard=True):
             for name in ('wrong_port_extension', 'wrong_peer_extension'))
         and ('wrong_peer_extension' not in value or not value['wrong_peer_extension']['timed_out']
             and (value['wrong_peer_extension']['denied_by_access'] or value['wrong_peer_extension']['connected']
-                or value['wrong_peer_extension']['forbidden_nonce_received'])))
+                or value['wrong_peer_extension']['forbidden_nonce_received']))
+        and ('death_extension' not in value or all(value['death_extension'][key] for key in DEATH_REQUIRED)
+            and not value['death_extension']['after_direct_connected'] and not value['death_extension']['after_forbidden_nonce_received']))
 
 
 def first_ready(value, *, require_guard=True):
@@ -822,6 +891,8 @@ def finalize_public(value):
         value['wrong_port_extension']['completed'] = value['diagnostic_completed']
     if 'wrong_peer_extension' in value:
         value['wrong_peer_extension']['completed'] = value['diagnostic_completed']
+    if 'death_extension' in value:
+        value['death_extension']['completed'] = value['diagnostic_completed']
     if value['diagnostic_completed']:
         value['status'] = 'diagnostic-observed'
     elif value['local_c_qualified']:
@@ -835,10 +906,11 @@ def finalize_public(value):
     return validate_public(value)
 
 
-def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extension=False):
+def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extension=False, death_extension=False):
     require(execution_mode in MODES and type(wrong_port_extension) is bool
-        and type(wrong_peer_extension) is bool and not(wrong_port_extension and wrong_peer_extension)
-        and (not(wrong_port_extension or wrong_peer_extension) or execution_mode == 'profiles-off-diagnostic'), 'execution_mode')
+        and type(wrong_peer_extension) is bool and type(death_extension) is bool
+        and sum((wrong_port_extension, wrong_peer_extension, death_extension)) <= 1
+        and (not(wrong_port_extension or wrong_peer_extension or death_extension) or execution_mode == 'profiles-off-diagnostic'), 'execution_mode')
     value = dict(schema_version=1, stage='local-model2-live', profile='pncs-peer-port-held-barrier-v1',
         execution_mode=execution_mode, diagnostic={key: key == 'requested' and execution_mode == 'profiles-off-diagnostic'
             for key in ('requested', 'profiles_off_verified', 'exact_rule_scope_verified', 'effective_full_verified',
@@ -856,6 +928,7 @@ def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extens
         first_chain_verified=False, direct_deny_verified=False, local_c_qualified=False)
     if wrong_port_extension: value['wrong_port_extension'] = blank_wrong_port()
     if wrong_peer_extension: value['wrong_peer_extension'] = blank_wrong_peer()
+    if death_extension: value['death_extension'] = blank_death()
     return value
 
 
@@ -866,6 +939,9 @@ def validate_public(value):
     if type(value) is dict and 'wrong_peer_extension' in value:
         require('wrong_port_extension' not in value, 'exclusive_extension')
         template['wrong_peer_extension'] = blank_wrong_peer()
+    if type(value) is dict and 'death_extension' in value:
+        require(not any(k in value for k in ('wrong_port_extension', 'wrong_peer_extension')), 'exclusive_extension')
+        template['death_extension'] = blank_death()
     require(type(value) is dict and set(value) == set(template), 'public_schema')
     for key in ('schema_version', 'stage', 'profile', 'original_stage0', 'system_dns_tested',
                 'service_brokers_tested', 'winhttp_tested', 'application_adapter_tested', 'product_acceptance'):
@@ -911,6 +987,16 @@ def validate_public(value):
             and x['healthy_before'] and x['healthy_after'], 'wrong_port_deny')
         if name == 'wrong_peer_extension':
             require(not x['timed_out'] or x['attempted'] and not x['denied_by_access'], 'wrong_peer_timeout')
+    if 'death_extension' in value:
+        x = value['death_extension']
+        require(value['execution_mode'] == 'profiles-off-diagnostic' and type(x) is dict and set(x) == set(blank_death())
+            and all(type(item) is bool for item in x.values()) and x['requested'] and not value['checks']['proxy_death']
+            and x['completed'] == value['diagnostic_completed'], 'death_public')
+        require(not x['relay_stop_confirmed'] or x['stop_intent_persisted'] and x['origin_held_ack'] and x['relay_alive_verified'], 'death_stop_order')
+        require(not x['origin_release_ack'] or x['relay_stop_confirmed'], 'death_release_order')
+        require(not x['after_direct_denied_by_access'] or x['after_direct_attempted'] and not x['after_direct_connected']
+            and not x['after_forbidden_nonce_received'] and x['origin_healthy_after_release'], 'death_after_deny')
+        require(value['violations']['fallback_after_death'] == (x['after_direct_connected'] or x['after_forbidden_nonce_received']), 'death_violation_binding')
     if value['status'] == 'ready':
         require(value['checks']['sources'] and value['checks']['artifacts']
             and not any(v for k, v in value['checks'].items() if k not in ('sources', 'artifacts'))
@@ -921,6 +1007,8 @@ def validate_public(value):
             require(not any(v for k, v in value['wrong_port_extension'].items() if k != 'requested'), 'wrong_port_readiness')
         if 'wrong_peer_extension' in value:
             require(not any(v for k, v in value['wrong_peer_extension'].items() if k != 'requested'), 'wrong_peer_readiness')
+        if 'death_extension' in value:
+            require(not any(v for k, v in value['death_extension'].items() if k != 'requested'), 'death_readiness')
     require(not value['checks']['positive'] or all(value['observations'].values()), 'public_positive')
     require(len(encode(value)) <= MAX_PUBLIC, 'public_bound')
     return value
@@ -933,6 +1021,15 @@ def blank_wrong_port():
 
 def blank_wrong_peer():
     return dict(blank_wrong_port(), timed_out=False)
+
+
+DEATH_REQUIRED = ('requested', 'pair_held', 'request_published', 'origin_held_ack', 'relay_alive_verified',
+    'stop_intent_persisted', 'relay_stop_confirmed', 'front_failed_closed', 'client_failed_closed', 'origin_release_ack',
+    'origin_healthy_after_release', 'after_direct_attempted', 'after_direct_denied_by_access', 'same_selected', 'observation_complete')
+
+
+def blank_death():
+    return {key: key == 'requested' for key in (*DEATH_REQUIRED, 'after_direct_connected', 'after_forbidden_nonce_received', 'completed')}
 
 
 def main(argv=None):

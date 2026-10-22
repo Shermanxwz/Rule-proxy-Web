@@ -78,6 +78,10 @@ def validate_config(value):
         live.require(mode == 'profiles-off-diagnostic' and 'selected_admission' in value
             and 'wrong_port_extension' not in value, 'wrong_peer_diagnostic_only')
         live.validate_wrong_peer_extension(value['wrong_peer_extension']); keys.add('wrong_peer_extension')
+    if type(value) is dict and 'death_extension' in value:
+        live.require(mode == 'profiles-off-diagnostic' and 'selected_admission' in value
+            and not any(k in value for k in ('wrong_port_extension', 'wrong_peer_extension')), 'death_diagnostic_only')
+        live.validate_death_extension(value['death_extension']); keys.add('death_extension')
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
         and value['stage'] == 'model2-first-owned-input', 'config')
     live.clock_record(value['start_qpc'], value['frequency'], value['root_deadline_qpc'])
@@ -91,6 +95,8 @@ def validate_config(value):
         nonces += [v for k, v in value['wrong_port_extension'].items() if k != 'profile']
     if 'wrong_peer_extension' in value:
         nonces += [v for k, v in value['wrong_peer_extension'].items() if k != 'profile']
+    if 'death_extension' in value:
+        nonces += [v for k, v in value['death_extension'].items() if k != 'profile']
     live.require(len(nonces) == len(set(nonces)) and value['capability_profile'] == 'agentic-pncs', 'config_profile')
     live.require(value['guard_job_name'] == 'Local\\RuleProxy.LocalGuard.' + value['run'], 'config_job')
     for key in ('source_sha256', 'actor_sha256', 'manifest_sha256', 'device_sha256', 'recovery_plan_sha256'):
@@ -416,6 +422,29 @@ class MaintenanceRules:
         self.readback.update({(rule['name'], store): None for store in ('PersistentStore', 'ActiveStore')})
 
 
+def blank_death_ledger(config):
+    return dict(schema_version=1, stage='model2-live-relay-death-ownership', run=config['run'],
+        death_case=config['death_extension']['death_case'], after_direct_case=config['death_extension']['after_direct_case'],
+        pair_start=None, pair_deadline=None, ticket=None, held_ack=None, relay_binding=None, stop_intent=None,
+        stop_persisted_qpc=None, terminate_requested=False, terminate_returned=False, exit_code=None, exit_qpc=None,
+        front_report=None, client_report=None, release_go=None, release_ack=None, after_direct_report=None, origin_receipts=[])
+
+
+def read_death_record(root, relative):
+    raw = live.local.bounded(root/relative, live.MAX_NATIVE)
+    return dict(path=relative, bytes=len(raw), sha256=live.sha(raw), text=raw.decode('ascii', 'strict'))
+
+
+def write_death_stop_intent(path, raw):
+    live.require(type(raw) is bytes and len(raw) <= live.MAX_NATIVE and not path.exists(), 'death_stop_fresh')
+    stream = path.open('xb')
+    try:
+        live.require(stream.write(raw) == len(raw), 'death_stop_short_write')
+        stream.flush(); os.fsync(stream.fileno())
+    finally:
+        launcher.close_private_once(stream)
+
+
 class FirstController:
     def __init__(self, config, root, api):
         self.config, self.root, self.api = validate_config(config), root, api
@@ -440,7 +469,7 @@ class FirstController:
         self.cleanup_ok = False
         self.mode = live.execution_mode(config)
         self.value = live.blank(self.mode, wrong_port_extension='wrong_port_extension' in config,
-            wrong_peer_extension='wrong_peer_extension' in config)
+            wrong_peer_extension='wrong_peer_extension' in config, death_extension='death_extension' in config)
         self.parent = None
         self.catalog = None
         self.phase = 'inputs'
@@ -450,6 +479,9 @@ class FirstController:
         self.wrong_port_deadline = None
         self.wrong_port_denied = False
         self.wrong_peer_deadline = None
+        self.death_after_deadline = None
+        self.death_after_denied = False
+        self.death_ledger = blank_death_ledger(config) if 'death_extension' in config else None
         self.go_records = []
         self.selected_discovery = None
         self.q_selected_discovery = None
@@ -843,7 +875,7 @@ class FirstController:
         public.update(healthy_after=True, connected=self.value['violations'][violation], observation_complete=True,
             denied_by_access=self.wrong_port_denied and not self.value['violations'][violation])
 
-    def native_phase(self, task, *, role, boot, admission, sequence, case, opcode, control, reports, fixed_ports, end, journal_role=None):
+    def publish_phase(self, task, *, role, boot, admission, sequence, case, opcode, control, reports, fixed_ports, end, journal_role=None):
         self.alive(task)
         if role == 'selected-client': self.selected_family_alive()
         control_psec = (journal_role == 'q-health' and self.config['wrong_port_extension']['profile'] == 'same-peer-wrong-port-psec-control-v1'
@@ -853,17 +885,124 @@ class FirstController:
         if self.mode != 'strict' and (role == 'selected-client' or control_psec):
             maintenance.validate_profiles_observation(self.maintenance.last_observation, 'profiles-status', self.mode,
                 self.config['start_qpc'], self.config['frequency'], self.config['deadline_qpc'], self.budget.read())
+        issued_qpc = self.budget.read()
         digest = live.publish_go(control, budget=self.budget, run=self.config['run'], case=case, sequence=sequence,
             opcode=opcode, frequency=self.config['frequency'], deadline=self.config['deadline_qpc'],
             fixed_ports=fixed_ports, admission=admission, phase_deadline=end)
-        self.go_records.append(dict(role=role if journal_role is None else journal_role, sequence=sequence, opcode=opcode, case=case,
-            phase_deadline=end, path=(control / ('phase-%04d.bin' % sequence)).relative_to(self.root).as_posix(), sha256=digest))
+        record = dict(role=role if journal_role is None else journal_role, sequence=sequence, opcode=opcode, case=case,
+            phase_deadline=end, path=(control / ('phase-%04d.bin' % sequence)).relative_to(self.root).as_posix(), sha256=digest)
+        self.go_records.append(record)
+        return dict(task=task, role=role, boot=boot, admission=admission, sequence=sequence, case=case, opcode=opcode,
+            reports=reports, fixed_ports=dict(fixed_ports), end=end, record=record, issued_qpc=issued_qpc)
+
+    def collect_phase(self, ticket):
+        task, end, sequence = ticket['task'], ticket['end'], ticket['sequence']
         # Collect a bounded late failure record without extending network work.
         collect_end = min(end + self.config['frequency'], self.budget.cutoff(20))
-        value, _ = read_when_closed(self.api, self.budget, reports / ('phase-%04d.json' % sequence), task['info'].hProcess, collect_end)
-        target = fixed_ports['origin' if opcode == 2 else 'wrong_port' if opcode == 3 else 'proxy']
-        return client_phase(value, task, self.config, role=role, boot=boot, admission=admission,
-            sequence=sequence, case=case, operation=live.OPS[opcode], target_port=target, phase_deadline=end)
+        value, _ = read_when_closed(self.api, self.budget, ticket['reports'] / ('phase-%04d.json' % sequence), task['info'].hProcess, collect_end)
+        target = ticket['fixed_ports']['origin' if ticket['opcode'] == 2 else 'wrong_port' if ticket['opcode'] == 3 else 'proxy']
+        return client_phase(value, task, self.config, role=ticket['role'], boot=ticket['boot'], admission=ticket['admission'],
+            sequence=sequence, case=ticket['case'], operation=live.OPS[ticket['opcode']], target_port=target, phase_deadline=end)
+
+    def native_phase(self, task, **fields):
+        return self.collect_phase(self.publish_phase(task, **fields))
+
+    def death_run(self, selected, fixed, exe, environment):
+        if 'death_extension' not in self.config: return
+        c, root, api, budget = self.config, self.root, self.api, self.budget
+        x, public, ledger = c['death_extension'], self.value['death_extension'], self.death_ledger
+        self.phase = 'death'
+        live.require(self.value['checks']['positive'] and self.value['checks']['direct_deny'] and self.value['checks']['same_selected']
+            and all(self.tasks[k]['exited'] and self.tasks[k]['exit_code'] == 0 for k in ('front', 'relay')), 'death_positive_first')
+        self.selected_family_alive(); self.alive(self.tasks['origin'])
+        start = budget.read(); end = start + 10*c['frequency']
+        live.require(end < budget.cutoff(35), 'death_pair_capacity')
+        ledger.update(pair_start=start, pair_deadline=end)
+        pipes = helpers.OneShotHandles(api.close); self.scoped_owners.append(pipes)
+        front_read, relay_write = api.owned_pipe(pipes); relay_read, front_write = api.owned_pipe(pipes)
+        front_dir = self.directory('front/death'); relay_dir = self.directory('death-relay')
+        front_argv = [str(exe), 'pipe-live-front', c['run'], x['death_case'], str(front_dir/'final.json'),
+            str(front_read), str(front_write), str(start), str(c['frequency']), str(end), self.parent['sid'], self.profile['sid'],
+            '0', str(fixed['origin']), str(fixed['proxy']), str(front_dir/'ready.json'), str(root/'selected-control')]
+        relay_argv = [str(exe), 'pipe-relay', c['run'], x['death_case'], str(relay_dir/'final.json'),
+            str(relay_read), str(relay_write), str(start), str(c['frequency']), str(end), self.parent['sid'], 'none', '0', str(fixed['origin'])]
+        front = self.task('death-front', front_argv, front_dir, profile=self.profile['sid'], handles=[front_read, front_write], environment=environment)
+        budget.require_ms(end)
+        relay = self.task('death-relay', relay_argv, relay_dir, handles=[relay_read, relay_write])
+        budget.require_ms(end)
+        for handle in (front_read, relay_write, relay_read, front_write): pipes.close(handle)
+        budget.require_ms(end); self.resume(front); budget.require_ms(end); self.resume(relay); budget.require_ms(end)
+        ready, _ = read_when_closed(api, budget, front_dir/'ready.json', front['info'].hProcess, end)
+        ready_listener(ready, front, c, role='pipe-live-front', boot=x['death_case'], profile='pncs', start=start, deadline=end)
+        live.require(ready['port'] == fixed['proxy'] and front['identity']['appcontainer_sid'] == self.tasks['front']['identity']['appcontainer_sid'], 'death_same_peer_port')
+        public['pair_held'] = True
+        self.refresh_profiles()
+        ticket = self.publish_phase(selected, role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'], sequence=3,
+            case=x['death_case'], opcode=5, control=root/'selected-control', reports=root/'selected', fixed_ports=fixed, end=end)
+        ledger['ticket'] = dict(record=ticket['record'], issued_qpc=ticket['issued_qpc']); public['request_published'] = True
+        held, _ = read_when_closed(api, budget, root/'origin/death-held.json', self.tasks['origin']['info'].hProcess, end)
+        origin_death_ack(held, self.tasks['origin'], c, lower=ticket['issued_qpc'], upper=budget.read())
+        live.require(held['port'] == fixed['origin'], 'death_origin_port')
+        ledger['held_ack'] = read_death_record(root, 'origin/death-held.json'); public['origin_held_ack'] = True
+        origin = self.tasks['origin']; self.alive(origin); self.alive(relay)
+        before = budget.read(); budget.require_ms(end)
+        def held_binding():
+            for row in (origin, relay):
+                budget.require_ms(end); self.alive(row)
+                live.require(api.process_id(row['info'].hProcess) == row['pid'], 'death_exact_pid')
+                api.verify_job(self.job, row['info'].hProcess)
+                # Each temporary open has its own generation ledger. Windows
+                # may reuse the numeric handle after a confirmed close.
+                scope = helpers.OneShotHandles(api.close); self.scoped_owners.append(scope)
+                live.verify_exact_guard_member(api, row['info'].hProcess, c['guard_job_name'], owners=scope)
+                live.require(scope.confirmed_closed, 'death_guard_query_close')
+        held_binding()
+        flow = api.owned_halfclosed_tcp_flow(relay['pid'], held['peer_port'], fixed['origin'], budget, end)
+        held_binding(); budget.require_ms(end)
+        ledger['relay_binding'] = dict(pid=relay['pid'], created=relay['created'], before_qpc=before, after_qpc=budget.read(), flow=flow,
+            origin_alive=True, relay_alive=True, exact_workload_job=True, exact_outer_job=True, query_handles_closed=True)
+        public['relay_alive_verified'] = True
+        intent = dict(schema_version=1, stage='model2-death-stop-intent', run=c['run'], case=x['death_case'],
+            pid=relay['pid'], created=relay['created'], actor_sha256=c['actor_sha256'], frequency=c['frequency'],
+            deadline_qpc=c['deadline_qpc'], issued_qpc=budget.read(), held_ack_sha256=ledger['held_ack']['sha256'],
+            go_sha256=ticket['record']['sha256'], relay_flow_sha256=live.sha(live.encode(flow)))
+        write_death_stop_intent(root/'death-stop-intent.json', live.encode(intent))
+        ledger['stop_intent'] = read_death_record(root, 'death-stop-intent.json'); ledger['stop_persisted_qpc'] = budget.read()
+        live.require(live.decode(ledger['stop_intent']['text'].encode('ascii')) == intent, 'death_stop_readback')
+        public['stop_intent_persisted'] = True
+        self.alive(relay); self.alive(origin); budget.require_ms(end)
+        ledger['terminate_requested'] = True
+        api.terminate_process(relay['info'].hProcess)
+        ledger['terminate_returned'] = True
+        self.wait(relay, end, code=1); ledger.update(exit_code=relay['exit_code'], exit_qpc=budget.read())
+        public['relay_stop_confirmed'] = True
+        self.wait(front, end, code=5)
+        front_value = live.decode(live.local.bounded(front_dir/'final.json', live.MAX_NATIVE))
+        validate_death_front(front_value, front, c, fixed['proxy'], fixed['origin'], start, end)
+        ledger['front_report'] = read_death_record(root, 'front/death/final.json'); public['front_failed_closed'] = True
+        client = self.collect_phase(ticket)
+        live.require(death_client_failed_closed(client) and front_value['listener']['peer_port'] == client['network']['local_port'], 'death_client_failure')
+        ledger['client_report'] = read_death_record(root, 'selected/phase-0003.json'); public['client_failed_closed'] = True
+        self.selected_family_alive(); self.alive(origin)
+        release_qpc = budget.read(); digest = live.publish_fixture_release(root/'origin-control', budget=budget, run=c['run'], death_case=x['death_case'])
+        release = dict(role='health-origin-release', sequence=1, opcode=254, case=x['death_case'], phase_deadline=c['deadline_qpc'],
+            path='origin-control/release.bin', sha256=digest)
+        self.go_records.append(release); ledger['release_go'] = dict(record=release, issued_qpc=release_qpc)
+        released, _ = read_when_closed(api, budget, root/'origin/death-release.json', origin['info'].hProcess, budget.cutoff(30))
+        origin_death_ack(released, origin, c, released=True, held=held, lower=release_qpc, upper=budget.read())
+        ledger['release_ack'] = read_death_record(root, 'origin/death-release.json'); public['origin_release_ack'] = True
+        self.alive(origin); self.selected_family_alive(); self.refresh_profiles()
+        self.death_after_deadline = min(budget.read()+3*c['frequency'], budget.cutoff(30))
+        after = self.native_phase(selected, role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'], sequence=4,
+            case=x['after_direct_case'], opcode=2, control=root/'selected-control', reports=root/'selected', fixed_ports=fixed, end=self.death_after_deadline)
+        ledger['after_direct_report'] = read_death_record(root, 'selected/phase-0004.json')
+        public['after_direct_attempted'] = after['network']['connect_attempted']; public['after_direct_connected'] |= after['network']['connect_completed']
+        self.value['violations']['fallback_after_death'] |= after['network']['connect_completed']
+        self.death_after_denied = connect_denied(after)
+        live.require(after['failure'] is None and after['phase_qpc'][2] < after['phase_qpc'][1]
+            and all(after['network'][k] for k in ('wsa_startup', 'wsa_cleanup', 'socket_created', 'inheritance_cleared', 'connect_attempted'))
+            and after['network']['socket_close'] == 'confirmed', 'death_after_observation')
+        self.selected_family_alive(); self.alive(origin); public['same_selected'] = True
 
     def finish_client(self, task, *, role, boot, admission, sequence, profile, control, reports, fixed_ports, count, journal_role=None):
         self.alive(task)
@@ -911,6 +1050,8 @@ class FirstController:
         origin_argv = [str(exe), 'health-origin', c['run'], origin_boot, str(root / 'origin/final.json'),
             str(root / 'origin/ready.json'), str(root / 'origin-control'), str(c['frequency']), str(c['start_qpc']),
             str(c['deadline_qpc']), '0', self.parent['sid'], 'none', '8']
+        if 'death_extension' in c:
+            origin_argv[1] = 'health-origin-withhold'; origin_argv.append(c['death_extension']['death_case'])
         origin_task = self.task('origin', origin_argv, root / 'origin')
         self.resume(origin_task)
         observed, _ = read_when_closed(api, budget, root / 'origin/ready.json', origin_task['info'].hProcess, budget.cutoff(40))
@@ -1102,9 +1243,11 @@ class FirstController:
         self.phase = 'health'
         self.wrong_peer_setup(exe, fixed, front_environment)
         self.wrong_port_run(selected, fixed, peer=True)
+        self.death_run(selected, fixed, exe, front_environment)
         self.finish_client(selected, role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'],
-            sequence=4 if 'wrong_port_extension' in c or 'wrong_peer_extension' in c else 3, profile='agentic-pncs', control=root / 'selected-control',
-            reports=root / 'selected', fixed_ports=fixed, count=3 if 'wrong_port_extension' in c or 'wrong_peer_extension' in c else 2)
+            sequence=5 if 'death_extension' in c else 4 if 'wrong_port_extension' in c or 'wrong_peer_extension' in c else 3,
+            profile='agentic-pncs', control=root / 'selected-control', reports=root / 'selected', fixed_ports=fixed,
+            count=4 if 'death_extension' in c else 3 if 'wrong_port_extension' in c or 'wrong_peer_extension' in c else 2)
         self.wait(g, budget.cutoff(30))
         self.finish_auxiliary('system-conhost')
         self.verify_actual_tier(g)
@@ -1129,17 +1272,33 @@ class FirstController:
             item = receipt(live.decode(live.local.bounded(path, live.MAX_NATIVE)), origin_task, c, boot=origin_boot, port=origin_port, index=index)
             if item['case_id'] == c['direct_case']:
                 v['violations']['forbidden_receiver_accepted'] = True
-            if self.mode == 'strict' or item['case_id'] != c['direct_case']:
+            death_case = c.get('death_extension', {}).get('death_case')
+            after_case = c.get('death_extension', {}).get('after_direct_case')
+            if after_case is not None and item['case_id'] == after_case:
+                v['violations']['fallback_after_death'] = True; v['death_extension']['after_forbidden_nonce_received'] = True
+            if death_case is not None and item['case_id'] == death_case:
+                live.require(death_receipt_passed(item), 'death_origin_receipt')
+            elif self.mode == 'strict' or item['case_id'] != c['direct_case'] and (after_case is None or item['case_id'] != after_case):
                 live.require(receipt_passed(item), 'origin_receipt')
             observed_cases.append(item['case_id'])
-        expected_cases = [c['health_cases'][0], c['positive_case'], c['health_cases'][1], c['health_cases'][2]]
+            if self.death_ledger is not None:
+                self.death_ledger['origin_receipts'].append(read_death_record(root, ('origin/receipt-%04d.json' % index)))
+        expected_cases = [c['health_cases'][0], c['positive_case'], c['health_cases'][1]]
         if self.mode != 'strict' and c['direct_case'] in observed_cases:
-            expected_cases.insert(3, c['direct_case'])
+            expected_cases.append(c['direct_case'])
+        if 'death_extension' in c:
+            expected_cases.append(c['death_extension']['death_case'])
+            if c['death_extension']['after_direct_case'] in observed_cases: expected_cases.append(c['death_extension']['after_direct_case'])
+        expected_cases.append(c['health_cases'][2])
         live.require(observed_cases == expected_cases, 'origin_case_binding')
         listener_final(live.decode(live.local.bounded(root / 'origin/final.json', live.MAX_NATIVE)), origin_task, c,
             boot=origin_boot, port=origin_port, receipt_count=len(expected_cases))
         v['observations']['origin_nonce_received'] = c['positive_case'] in observed_cases
         v['checks']['origin_healthy'] = True
+        if 'death_extension' in c:
+            d = v['death_extension']; d['origin_healthy_after_release'] = True
+            d['after_direct_denied_by_access'] = self.death_after_denied and not d['after_direct_connected'] and not d['after_forbidden_nonce_received']
+            d['observation_complete'] = True
         if self.mode == 'strict':
             live.require(v['checks']['direct_deny'] and not any(v['violations'].values()), 'direct_deny')
         else:
@@ -1161,6 +1320,7 @@ class FirstController:
         c, root, v = self.config, self.root, self.value
         origin_task = self.tasks.get('origin')
         if origin_task is not None and origin_task['exited'] and self.fixed_ports is not None:
+            if self.death_ledger is not None: self.death_ledger['origin_receipts'] = []
             for index in range(1, 9):
                 path = root / ('origin/receipt-%04d.json' % index)
                 if not path.exists():
@@ -1170,6 +1330,10 @@ class FirstController:
                         boot=self.origin_boot, port=self.fixed_ports['origin'], index=index)
                     if row['case_id'] == c['direct_case']:
                         v['violations']['forbidden_receiver_accepted'] = True
+                    if 'death_extension' in c and row['case_id'] == c['death_extension']['after_direct_case']:
+                        v['violations']['fallback_after_death'] = True; v['death_extension']['after_forbidden_nonce_received'] = True
+                    if self.death_ledger is not None and index == len(self.death_ledger['origin_receipts'])+1:
+                        self.death_ledger['origin_receipts'].append(read_death_record(root, 'origin/receipt-%04d.json' % index))
                     if row['case_id'] == c['positive_case'] and row['request_exact']:
                         v['observations']['origin_nonce_received'] = True
                 except BaseException:
@@ -1191,6 +1355,18 @@ class FirstController:
             v['diagnostic']['forbidden_nonce_received'] = v['violations']['forbidden_receiver_accepted']
             if v['violations']['direct_connected'] or v['violations']['forbidden_receiver_accepted']:
                 v['diagnostic']['direct_denied_by_access'] = False
+        if 'death_extension' in c and selected is not None and selected['exited'] and self.death_after_deadline is not None:
+            path = root/'selected/phase-0004.json'
+            if path.exists():
+                try:
+                    row = client_phase(live.decode(live.local.bounded(path, live.MAX_NATIVE)), selected, c,
+                        role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'], sequence=4,
+                        case=c['death_extension']['after_direct_case'], operation='direct-tcp', target_port=self.fixed_ports['origin'],
+                        phase_deadline=self.death_after_deadline)
+                    v['death_extension']['after_direct_connected'] |= row['network']['connect_completed']
+                    v['violations']['fallback_after_death'] |= row['network']['connect_completed']
+                except BaseException: pass
+            if v['violations']['fallback_after_death']: v['death_extension']['after_direct_denied_by_access'] = False
         for key, prefix, target_key, operation, violation, end in (
             ('wrong_port_extension', 'q', 'wrong_port', 'wrong-port', 'wrong_port_connected', self.wrong_port_deadline),
             ('wrong_peer_extension', 'b', 'proxy', 'wrong-peer', 'wrong_peer_connected', self.wrong_peer_deadline)):
@@ -1390,6 +1566,9 @@ class FirstController:
                 'b-health/phase-0001.json', 'b-health/phase-0002.json', 'selected/phase-0003.json',
                 'b-g-probe/stdout', 'b-g-probe/stderr', 'b-g-live/stdout', 'b-g-live/stderr', 'b-live-request.json']
             native_paths += ['b-front/receipt-%04d.json' % i for i in range(1, 9)]
+        if 'death_extension' in c:
+            native_paths += ['front/death/ready.json', 'front/death/final.json', 'origin/death-held.json', 'origin/death-release.json',
+                'selected/phase-0003.json', 'selected/phase-0004.json', 'death-stop-intent.json']
         reports = []
         for name in native_paths:
             path = self.root / name
@@ -1419,6 +1598,7 @@ class FirstController:
         if 'wrong_peer_extension' in c:
             value['b_selected_discovery'] = self.b_selected_discovery
             value['b_profile'] = dict(self.b_profile_ledger)
+        if 'death_extension' in c: value['death'] = self.death_ledger
         return value
 
 
@@ -1455,6 +1635,154 @@ def validate_family_discovery(discovery, tasks, helper_contract):
                 and helper['identity']['session_id'] == selected['identity']['session_id'], 'journal_helper_identity')
 
 
+def validate_death_ledger(value, c, tasks, go, reports, fixed, public):
+    template = blank_death_ledger(c)
+    live.require(type(value) is dict and set(value) == set(template), 'death_journal_schema')
+    for key in ('schema_version', 'stage', 'run', 'death_case', 'after_direct_case'):
+        live.require(type(value[key]) is type(template[key]) and value[key] == template[key], 'death_journal_binding')
+    for key in ('terminate_requested', 'terminate_returned'): live.require(type(value[key]) is bool, 'death_journal_bool')
+    live.require(not value['terminate_returned'] or value['terminate_requested'], 'death_terminate_order')
+    descriptors = {row['path']: row for row in reports}
+    def record(row, path):
+        live.require(type(row) is dict and set(row) == {'path', 'bytes', 'sha256', 'text'} and row['path'] == path
+            and type(row['text']) is str, 'death_record_schema')
+        raw = row['text'].encode('ascii', 'strict')
+        live.require(live.integer(row['bytes'], 1, live.MAX_NATIVE) and len(raw) == row['bytes'] and live.sha(raw) == row['sha256']
+            and descriptors.get(path) == dict(path=path, state='read', bytes=row['bytes'], sha256=row['sha256']), 'death_record_digest')
+        return live.decode(raw)
+    def required_task(role):
+        live.require(role in tasks and tasks[role]['resumed'] and tasks[role]['image_verified'], 'death_held_task')
+        return tasks[role]
+    def ticket(row, role, sequence, opcode, case, path):
+        live.require(type(row) is dict and set(row) == {'record', 'issued_qpc'}
+            and live.integer(row['issued_qpc'], c['start_qpc'], c['deadline_qpc']-1), 'death_ticket')
+        matches = [item for item in go if item['role'] == role and item['sequence'] == sequence]
+        live.require(len(matches) == 1 and row['record'] == matches[0] and matches[0]['opcode'] == opcode
+            and matches[0]['case'] == case and matches[0]['path'] == path, 'death_ticket_go')
+        return row['record']
+    start, end = value['pair_start'], value['pair_deadline']
+    if start is not None:
+        live.require(live.integer(start, c['start_qpc'], c['deadline_qpc']-1) and type(end) is int
+            and end == start+10*c['frequency'] and end < c['deadline_qpc']-35*c['frequency'], 'death_pair_clock')
+    else: live.require(end is None, 'death_pair_clock')
+    public_death = public['death_extension']; death_case = c['death_extension']['death_case']
+    if ('death-front' in tasks and 'front' in tasks
+            and tasks['death-front']['identity'] is not None and tasks['front']['identity'] is not None):
+        live.require(tasks['death-front']['identity']['appcontainer_sid'] == tasks['front']['identity']['appcontainer_sid'], 'death_same_profile')
+    if 'death-relay' in tasks and tasks['death-relay']['identity'] is not None:
+        relay_task = tasks['death-relay']
+        live.require(launcher.token_is_ordinary(relay_task['identity']) and relay_task['capabilities'] == []
+            and ('origin' not in tasks or launcher.same_identity(relay_task['identity'], tasks['origin']['identity'])), 'death_ordinary_relay')
+    if public_death['pair_held']:
+        live.require(start is not None and all(role in tasks and tasks[role]['resumed'] and tasks[role]['image_verified']
+            and live.integer(tasks[role]['admission_qpc'], start, end-1) and live.integer(tasks[role]['resume_qpc'], tasks[role]['admission_qpc'], end-1)
+            for role in ('death-front', 'death-relay')), 'death_pair_held')
+    if value['ticket'] is not None:
+        row = ticket(value['ticket'], 'selected-client', 3, 5, death_case, 'selected-control/phase-0003.bin')
+        live.require(start is not None and start <= value['ticket']['issued_qpc'] < end and row['phase_deadline'] == end, 'death_ticket_clock')
+    held = None
+    if value['held_ack'] is not None:
+        live.require(value['ticket'] is not None and fixed is not None, 'death_ack_order')
+        held = origin_death_ack(record(value['held_ack'], 'origin/death-held.json'), required_task('origin'), c,
+            lower=value['ticket']['issued_qpc'], upper=end-1)
+        live.require(held['port'] == fixed['origin'], 'death_ack_port')
+    binding = value['relay_binding']
+    if binding is not None:
+        relay = required_task('death-relay')
+        bk = {'pid', 'created', 'before_qpc', 'after_qpc', 'flow', 'origin_alive', 'relay_alive', 'exact_workload_job', 'exact_outer_job', 'query_handles_closed'}
+        live.require(held is not None and type(binding) is dict and set(binding) == bk
+            and type(binding['pid']) is int and binding['pid'] == relay['pid'] and type(binding['created']) is int and binding['created'] == relay['created']
+            and live.integer(binding['before_qpc'], held['flow_qpc'][-1], end-1)
+            and live.integer(binding['after_qpc'], binding['before_qpc'], end-1)
+            and all(binding[k] is True for k in ('origin_alive', 'relay_alive', 'exact_workload_job', 'exact_outer_job', 'query_handles_closed')), 'death_relay_binding')
+        flow = binding['flow']
+        live.require(type(flow) is dict and set(flow) == {'pid', 'state', 'local_address', 'remote_address', 'local_port', 'remote_port'}
+            and type(flow['pid']) is int and flow['pid'] == relay['pid'] and type(flow['state']) is int and flow['state'] in (6, 7)
+            and flow['local_address'] == flow['remote_address'] == '127.0.0.1'
+            and type(flow['local_port']) is int and flow['local_port'] == held['peer_port']
+            and type(flow['remote_port']) is int and flow['remote_port'] == fixed['origin'], 'death_tcp_binding')
+    intent = None
+    if value['stop_intent'] is not None:
+        live.require(binding is not None, 'death_intent_order')
+        intent = record(value['stop_intent'], 'death-stop-intent.json')
+        ik = {'schema_version', 'stage', 'run', 'case', 'pid', 'created', 'actor_sha256', 'frequency', 'deadline_qpc',
+            'issued_qpc', 'held_ack_sha256', 'go_sha256', 'relay_flow_sha256'}
+        live.require(type(intent) is dict and set(intent) == ik and live.integer(intent['schema_version'], 1, 1)
+            and intent['stage'] == 'model2-death-stop-intent' and intent['run'] == c['run'] and intent['case'] == death_case
+            and type(intent['pid']) is int and intent['pid'] == binding['pid'] and type(intent['created']) is int and intent['created'] == binding['created']
+            and intent['actor_sha256'] == c['actor_sha256'] and type(intent['frequency']) is int and intent['frequency'] == c['frequency']
+            and type(intent['deadline_qpc']) is int and intent['deadline_qpc'] == c['deadline_qpc']
+            and live.integer(intent['issued_qpc'], binding['after_qpc'], end-1)
+            and intent['held_ack_sha256'] == value['held_ack']['sha256'] and intent['go_sha256'] == value['ticket']['record']['sha256']
+            and intent['relay_flow_sha256'] == live.sha(live.encode(binding['flow']))
+            and live.integer(value['stop_persisted_qpc'], intent['issued_qpc'], end-1), 'death_intent_binding')
+    else: live.require(value['stop_persisted_qpc'] is None, 'death_intent_time')
+    live.require(not value['terminate_requested'] or intent is not None, 'death_stop_authority')
+    if value['exit_code'] is not None:
+        relay = required_task('death-relay')
+        live.require(value['terminate_requested'] and value['terminate_returned'] and type(value['exit_code']) is int and value['exit_code'] == 1
+            and relay['exited'] and relay['exit_code'] == 1 and live.integer(value['exit_qpc'], value['stop_persisted_qpc'], end-1), 'death_held_exit')
+    else: live.require(value['exit_qpc'] is None, 'death_exit_time')
+    front = None
+    if value['front_report'] is not None:
+        live.require(value['exit_code'] == 1, 'death_front_order'); task = required_task('death-front')
+        live.require(task['exited'] and task['exit_code'] == 5, 'death_front_exit')
+        front = validate_death_front(record(value['front_report'], 'front/death/final.json'), task, c, fixed['proxy'], fixed['origin'], start, end)
+    if value['client_report'] is not None:
+        live.require(front is not None, 'death_client_order')
+        client = client_phase(record(value['client_report'], 'selected/phase-0003.json'), required_task('selected'), c,
+            role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'], sequence=3, case=death_case,
+            operation='proxy-after-death', target_port=fixed['proxy'], phase_deadline=end)
+        live.require(death_client_failed_closed(client) and client['network']['local_port'] == front['listener']['peer_port'], 'death_client_closed')
+    released = None
+    if value['release_go'] is not None:
+        row = ticket(value['release_go'], 'health-origin-release', 1, 254, death_case, 'origin-control/release.bin')
+        live.require(value['client_report'] is not None and value['exit_code'] == 1
+            and value['release_go']['issued_qpc'] >= value['exit_qpc'] and row['phase_deadline'] == c['deadline_qpc'], 'death_release_order')
+    if value['release_ack'] is not None:
+        live.require(value['release_go'] is not None, 'death_release_ack_order')
+        released = origin_death_ack(record(value['release_ack'], 'origin/death-release.json'), required_task('origin'), c,
+            released=True, held=held, lower=value['release_go']['issued_qpc'], upper=c['deadline_qpc']-1)
+    after = None
+    if value['after_direct_report'] is not None:
+        live.require(released is not None, 'death_after_order')
+        entries = [row for row in go if row['role'] == 'selected-client' and row['sequence'] == 4]
+        live.require(len(entries) == 1, 'death_after_go')
+        after = client_phase(record(value['after_direct_report'], 'selected/phase-0004.json'), required_task('selected'), c,
+            role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'], sequence=4, case=c['death_extension']['after_direct_case'],
+            operation='direct-tcp', target_port=fixed['origin'], phase_deadline=entries[0]['phase_deadline'])
+        live.require(after['phase_qpc'][0] >= released['flow_qpc'][-1], 'death_after_clock')
+        live.require(public_death['after_direct_attempted'] == after['network']['connect_attempted']
+            and public_death['after_direct_connected'] == after['network']['connect_completed'], 'death_after_sticky')
+    live.require(type(value['origin_receipts']) is list and len(value['origin_receipts']) <= 8, 'death_receipts')
+    cases = []
+    for index, row in enumerate(value['origin_receipts'], 1):
+        item = receipt(record(row, 'origin/receipt-%04d.json' % index), required_task('origin'), c,
+            boot=c['health_cases'][0], port=fixed['origin'], index=index)
+        if public_death['origin_healthy_after_release']:
+            if item['case_id'] == death_case:
+                live.require(death_receipt_passed(item) and held is not None and released is not None
+                    and item['peer_port'] == held['peer_port'] and item['qpc'][1] == held['flow_qpc'][0]
+                    and item['qpc'][3] >= released['flow_qpc'][-1], 'death_receipt')
+            elif item['case_id'] not in (c['direct_case'], c['death_extension']['after_direct_case']):
+                live.require(receipt_passed(item), 'death_health_receipt')
+            if item['case_id'] == c['health_cases'][2]:
+                live.require(after is not None and item['qpc'][1] >= after['phase_qpc'][2], 'death_after_health_order')
+        cases.append(item['case_id'])
+    live.require(not public_death['after_forbidden_nonce_received'] or c['death_extension']['after_direct_case'] in cases, 'death_receiver_sticky')
+    for key, item in (('request_published', value['ticket']), ('origin_held_ack', held), ('relay_alive_verified', binding),
+        ('stop_intent_persisted', intent), ('relay_stop_confirmed', value['exit_code']), ('front_failed_closed', front),
+        ('client_failed_closed', value['client_report']), ('origin_release_ack', released), ('after_direct_attempted', after)):
+        live.require(not public_death[key] or item is not None, 'death_public_evidence')
+    if public_death['after_direct_denied_by_access']:
+        live.require(after is not None and connect_denied(after) and c['health_cases'][2] in cases
+            and c['death_extension']['after_direct_case'] not in cases, 'death_deny_evidence')
+    if live.diagnostic_ready(public, require_guard=False):
+        live.require(after is not None and connect_denied(after) and not any(public['violations'].values())
+            and cases == [c['health_cases'][0], c['positive_case'], c['health_cases'][1], death_case, c['health_cases'][2]], 'death_complete')
+    return value
+
+
 def validate_ownership_journal(value, config, *, controller_pid):
     keys = {'schema_version', 'stage', 'run', 'controller_pid', 'frequency', 'start_qpc', 'deadline_qpc',
         'source_sha256', 'actor_sha256', 'manifest_sha256', 'public_sha256', 'public', 'fixed_ports',
@@ -1463,6 +1791,8 @@ def validate_ownership_journal(value, config, *, controller_pid):
     if q_psec: keys.add('q_selected_discovery')
     peer = 'wrong_peer_extension' in config
     if peer: keys.update(('b_selected_discovery', 'b_profile'))
+    death = 'death_extension' in config
+    if death: keys.add('death')
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
         and value['stage'] == 'model2-first-ownership' and type(value['controller_pid']) is int
         and value['controller_pid'] == controller_pid, 'journal_schema')
@@ -1487,8 +1817,9 @@ def validate_ownership_journal(value, config, *, controller_pid):
     if q_psec: roles.update(('q-g-probe', 'q-g-live', 'q-system-conhost'))
     if peer: roles.update(('b-listener', 'b-health', 'b-g-probe', 'b-g-live', 'b-system-conhost',
         'b-acl-root', 'b-acl-inputs', 'b-acl-front', 'b-acl-remove'))
+    if death: roles.update(('death-front', 'death-relay'))
     live.require(('wrong_port_extension' in public) == ('wrong_port_extension' in config)
-        and ('wrong_peer_extension' in public) == peer, 'journal_extension_binding')
+        and ('wrong_peer_extension' in public) == peer and ('death_extension' in public) == death, 'journal_extension_binding')
     live.require(type(value['tasks']) is list and len(value['tasks']) <= len(roles), 'journal_tasks')
     tasks = {}
     for row in value['tasks']:
@@ -1531,7 +1862,7 @@ def validate_ownership_journal(value, config, *, controller_pid):
             else:
                 live.require(row['externally_held_before_first_resume'] is True and row['resume_qpc'] is not None
                     and row['resume_qpc'] >= row['admission_qpc'], 'journal_resume_order')
-        if row['role'] in ('origin', 'health', 'front', 'relay', 'selected', 'q-listener', 'q-health', 'b-listener', 'b-health'):
+        if row['role'] in ('origin', 'health', 'front', 'relay', 'selected', 'q-listener', 'q-health', 'b-listener', 'b-health', 'death-front', 'death-relay'):
             live.require(row['image_sha256'] == config['actor_sha256'], 'journal_actor_hash')
         if row['role'] in ('g-probe', 'g-live', 'q-g-probe', 'q-g-live', 'b-g-probe', 'b-g-live'):
             live.require(row['image_sha256'] == live.probe.pins.MXC_G_EXECUTOR_SHA256, 'journal_g_hash')
@@ -1574,13 +1905,21 @@ def validate_ownership_journal(value, config, *, controller_pid):
         expected_go[4] = ('selected-client', 4, 255, config['boot_case'])
         expected_go[4:4] = [(prefix + '-health', 1, 1 if q_psec or peer else 3, x['before_case']), ('selected-client', 3, 4 if peer else 3, x['wrong_case']),
             (prefix + '-health', 2, 1 if q_psec or peer else 3, x['after_case']), (prefix + '-health', 3, 255, x['control_boot']), (prefix + '-listener', 1, 255, x['listener_boot'])]
+    if death:
+        x = config['death_extension']; expected_go[4] = ('selected-client', 5, 255, config['boot_case'])
+        expected_go[4:4] = [('selected-client', 3, 5, x['death_case']), ('health-origin-release', 1, 254, x['death_case']),
+            ('selected-client', 4, 2, x['after_direct_case'])]
     live.require(type(value['go']) is list and len(value['go']) <= len(expected_go), 'journal_go')
     for row, (role, sequence, opcode, case) in zip(value['go'], expected_go):
         live.require(type(row) is dict and set(row) == {'role', 'sequence', 'opcode', 'case', 'phase_deadline', 'path', 'sha256'}
             and row['role'] == role and type(row['sequence']) is int and row['sequence'] == sequence
             and type(row['opcode']) is int and row['opcode'] == opcode and row['case'] == case
             and live.integer(row['phase_deadline'], 1, config['deadline_qpc']) and ac.digest(row['sha256']), 'journal_go_binding')
-        if role in ('health-origin', 'q-listener', 'b-listener'):
+        if role == 'health-origin-release':
+            live.require(death and row['phase_deadline'] == config['deadline_qpc'], 'journal_release_scope')
+            expected = live.fixture_release(run=config['run'], death_case=config['death_extension']['death_case'],
+                frequency=config['frequency'], deadline=config['deadline_qpc']); expected_path = 'origin-control/release.bin'
+        elif role in ('health-origin', 'q-listener', 'b-listener'):
             expected = live.fixture_finish(run=config['run'], boot_case=config['health_cases'][0] if role == 'health-origin' else wrong_extension['listener_boot'],
                 frequency=config['frequency'], deadline=config['deadline_qpc'])
             expected_path = 'origin-control/finish.bin' if role == 'health-origin' else 'b-front/finish.bin' if role == 'b-listener' else 'front/finish.bin'
@@ -1596,11 +1935,11 @@ def validate_ownership_journal(value, config, *, controller_pid):
             expected_path = ('selected-control' if role == 'selected-client' else 'q-health-control' if role == 'q-health' else 'b-health-control' if role == 'b-health' else 'health-control') + '/phase-%04d.bin' % sequence
         live.require(row['path'] == expected_path and row['sha256'] == live.sha(expected), 'journal_go_digest')
     paths = set()
-    live.require(type(value['native_reports']) is list and len(value['native_reports']) <= (46 if q_psec or peer else 41 if wrong_extension is not None else 26), 'journal_reports')
+    live.require(type(value['native_reports']) is list and len(value['native_reports']) <= (34 if death else 46 if q_psec or peer else 41 if wrong_extension is not None else 26), 'journal_reports')
     for row in value['native_reports']:
         live.require(type(row) is dict and set(row) == {'path', 'state', 'bytes', 'sha256'}
             and type(row['path']) is str and row['path'] not in paths
-            and re_report_path(row['path'], wrong_port='wrong_port_extension' in config, q_psec=q_psec, peer=peer)
+            and re_report_path(row['path'], wrong_port='wrong_port_extension' in config, q_psec=q_psec, peer=peer, death=death)
             and row['state'] in ('read', 'unreadable'), 'journal_report')
         paths.add(row['path'])
         live.require(row['state'] != 'read' or live.integer(row['bytes'], 0, live.MAX_PRIVATE) and ac.digest(row['sha256']), 'journal_report_digest')
@@ -1632,9 +1971,12 @@ def validate_ownership_journal(value, config, *, controller_pid):
             and (rule is None or rule['absent_verified'] and not rule['uncertain'])
             and (not m['attempted'] or m['exited'] and not m['spawn_unknown']), 'journal_profile_delete')
     live.require(public['execution_mode'] == live.execution_mode(config), 'journal_execution_mode')
+    if death:
+        validate_death_ledger(value['death'], config, tasks, value['go'], value['native_reports'], value['fixed_ports'], public)
     if live.first_ready(public, require_guard=False) or live.diagnostic_ready(public, require_guard=False):
         live.require(set(tasks) == roles and len(value['go']) == len(expected_go)
-            and all(row['resumed'] and row['exited'] and (live.integer(row['exit_code']) if role in ('system-conhost', 'q-system-conhost', 'b-system-conhost') else row['exit_code'] == 0)
+            and all(row['resumed'] and row['exited'] and (live.integer(row['exit_code']) if role in ('system-conhost', 'q-system-conhost', 'b-system-conhost')
+                else row['exit_code'] == 1 if death and role == 'death-relay' else row['exit_code'] == 5 if death and role == 'death-front' else row['exit_code'] == 0)
                 for role, row in tasks.items())
             and all(value['cleanup'].values()) and rule is not None and rule['present_verified'] and rule['absent_verified']
             and m['admitted'] and m['exited'] and m['exit_code'] == 0
@@ -1649,7 +1991,97 @@ def validate_ownership_journal(value, config, *, controller_pid):
     return value
 
 
-def re_report_path(path, wrong_port=False, q_psec=False, peer=False):
+def origin_death_ack(value, task, config, *, released=False, held=None, lower, upper):
+    common = {'schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'identity', 'case_id', 'root_qpc',
+        'flow_qpc', 'port', 'peer_port', 'request_bytes', 'request_exact', 'request_eof', 'response_bytes',
+        'response_withheld', 'socket_held', 'failure', 'proxy_tested', 'product_acceptance'}
+    keys = common | ({'release_sequence', 'release_verified', 'release_command_close_verified', 'connection_close'}
+        if released else {'command_close_verified'})
+    live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
+        and value['stage'] == ('proxy-c-origin-released' if released else 'proxy-c-origin-withheld')
+        and value['role'] == 'health-origin-withhold' and value['run_id'] == config['run']
+        and value['boot_case_id'] == config['health_cases'][0] and value['pid'] == task['pid'] and type(value['pid']) is int
+        and value['case_id'] == config['death_extension']['death_case'] and value['failure'] is None
+        and value['proxy_tested'] is False and value['product_acceptance'] is False, 'death_origin_ack')
+    native_identity(value['identity'], task, config['run'])
+    live.require(value['root_qpc'] == [config['frequency'], config['start_qpc'], config['deadline_qpc']]
+        and all(type(x) is int for x in value['root_qpc']), 'death_origin_clock')
+    flow = value['flow_qpc']
+    live.require(type(flow) is list and len(flow) == (4 if released else 2)
+        and all(live.integer(x, config['start_qpc'], config['deadline_qpc']-1) for x in flow)
+        and flow == sorted(flow) and flow[-1] <= upper < config['deadline_qpc'], 'death_flow_clock')
+    live.require(live.integer(value['port'], 49153, 65535) and live.integer(value['peer_port'], 1, 65535)
+        and type(value['request_bytes']) is int and value['request_bytes'] == len(live.origin.payloads(value['case_id'], value['port'])[0])
+        and value['request_exact'] is True and value['request_eof'] is True and type(value['response_bytes']) is int
+        and value['response_bytes'] == 0 and value['response_withheld'] is True and value['socket_held'] is (not released), 'death_origin_flow')
+    if released:
+        live.require(held is not None and flow[:2] == held['flow_qpc'] and flow[2] >= lower
+            and value['port'] == held['port'] and value['peer_port'] == held['peer_port']
+            and type(value['release_sequence']) is int and value['release_sequence'] == 1 and value['release_verified'] is True
+            and value['release_command_close_verified'] is True and value['connection_close'] == 'confirmed', 'death_release_ack')
+    else: live.require(flow[0] >= lower and value['command_close_verified'] is True, 'death_held_ack')
+    return value
+
+
+def death_receipt_passed(row):
+    return (row['request_exact'] is True and row['request_eof'] is True and row['request_bytes'] == len(live.origin.payloads(row['case_id'], row['port'])[0])
+        and row['response_bytes'] == 0 and row['response_complete'] is False and row['send_shutdown'] is False
+        and row['connection_close'] == 'confirmed' and row['failure'] is None and row['wsa_error'] is None
+        and row['qpc'][3] < row['qpc'][2])
+
+
+def death_client_failed_closed(value):
+    n = value['network']
+    return (value['failure'] is None and value['phase_qpc'][2] < value['phase_qpc'][1]
+        and all(n[k] is True for k in ('wsa_startup', 'wsa_cleanup', 'inheritance_cleared', 'socket_created', 'connect_attempted',
+            'connect_completed', 'peer_loopback', 'request_complete', 'send_shutdown', 'response_eof'))
+        and n['request_bytes'] == 129 and n['response_bytes'] == 0 and n['response_exact'] is False
+        and n['socket_close'] == 'confirmed' and n['failure'] == 'response' and n['wsa_error'] is None)
+
+
+def validate_death_front(value, task, config, proxy_port, origin_port, start, end):
+    keys = {'schema_version', 'stage', 'role', 'run_id', 'case_id', 'pid', 'identity', 'capability_profile',
+        'capability_profile_verified', 'catalog_cleanup_verified', 'ipc_mechanics', 'listener', 'client',
+        'wsa_startup', 'wsa_cleanup', 'failure', 'wsa_error', 'http_boundary', 'network_tested', 'proxy_tested', 'product_acceptance'}
+    live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
+        and value['stage'] == 'proxy-c-live-front' and value['role'] == 'pipe-live-front' and value['run_id'] == config['run']
+        and value['case_id'] == config['death_extension']['death_case'] and type(value['pid']) is int and value['pid'] == task['pid']
+        and value['capability_profile'] == 'pncs' and value['capability_profile_verified'] is True and value['catalog_cleanup_verified'] is True
+        and value['wsa_startup'] is True and value['wsa_cleanup'] is True and value['failure'] == 'pipe_read' and value['wsa_error'] is None
+        and value['http_boundary'] == 'real-client-request-and-response-socket' and value['network_tested'] is True
+        and value['proxy_tested'] is False and value['product_acceptance'] is False, 'death_front')
+    native_identity(value['identity'], task, config['run'])
+    listener = value['listener']; lk = {'port', 'listener_created', 'inheritance_cleared', 'exclusive', 'bind_loopback',
+        'accepted', 'peer_loopback', 'peer_port', 'listener_close'}
+    live.require(type(listener) is dict and set(listener) == lk and type(listener['port']) is int and listener['port'] == proxy_port
+        and live.integer(listener['peer_port'], 1, 65535) and listener['listener_close'] == 'confirmed'
+        and all(listener[k] is True for k in lk - {'port', 'peer_port', 'listener_close'}), 'death_front_listener')
+    live.require(value['client'] == dict(request_bytes=129, request_exact=True, request_eof=True, response_bytes=0,
+        response_complete=False, send_shutdown=False, connection_close='confirmed')
+        and all(type(value['client'][k]) is type(v) for k, v in dict(request_bytes=129, request_exact=True, request_eof=True,
+            response_bytes=0, response_complete=False, send_shutdown=False, connection_close='confirmed').items()), 'death_front_client')
+    m = value['ipc_mechanics']
+    mk = {'schema_version', 'stage', 'role', 'run_id', 'case_id', 'pid', 'identity', 'qpc', 'pipe', 'core',
+        'synthetic_http', 'failure', 'win32_error', 'network_tested', 'proxy_tested', 'product_acceptance'}
+    live.require(type(m) is dict and set(m) == mk and live.integer(m['schema_version'], 1, 1)
+        and m['stage'] == 'bridge-pipe-test' and m['role'] == 'pipe-front' and m['run_id'] == config['run']
+        and m['case_id'] == config['death_extension']['death_case'] and type(m['pid']) is int and m['pid'] == task['pid']
+        and m['failure'] == 'pipe_read' and type(m['win32_error']) is int and m['win32_error'] == 109
+        and all(m[k] is False for k in ('network_tested', 'proxy_tested', 'product_acceptance')), 'death_front_ipc')
+    native_identity(m['identity'], task, config['run']); qpc(m['qpc'], config['frequency'], start, end)
+    expected_pipe = dict(read_bytes=48, write_bytes=96, read_frames=1, write_frames=2, inheritance_cleared=True,
+        eof_observed=False, reader_close='confirmed', writer_close='confirmed', requires_controller_timeout=True)
+    expected_core = dict(failure=0, observations=1, requested=0, confirmed=0, uncertain=0)
+    live.require(type(m['pipe']) is dict and set(m['pipe']) == set(expected_pipe)
+        and all(type(m['pipe'][k]) is type(v) and m['pipe'][k] == v for k, v in expected_pipe.items())
+        and type(m['core']) is dict and set(m['core']) == set(expected_core)
+        and all(type(m['core'][k]) is int and m['core'][k] == v for k, v in expected_core.items())
+        and m['synthetic_http'] == dict(request_checked=True, response_checked=False, client_sink_checked=False)
+        and all(type(v) is bool for v in m['synthetic_http'].values()), 'death_front_golden')
+    return value
+
+
+def re_report_path(path, wrong_port=False, q_psec=False, peer=False, death=False):
     import re
     base = bool(re.fullmatch(r'(?:front/(?:ready|final)\.json|relay/final\.json|origin/(?:ready|final|receipt-000[1-8])\.json|'
         r'health/(?:ready|final|phase-000[1-3])\.json|selected/(?:ready|final|phase-000[12])\.json|g-(?:probe|live)/(?:stdout|stderr))', path))
@@ -1657,7 +2089,9 @@ def re_report_path(path, wrong_port=False, q_psec=False, peer=False):
         r'q-health/(?:ready|final|phase-000[12])\.json|selected/phase-0003\.json)', path))
         or q_psec and bool(re.fullmatch(r'q-g-(?:probe|live)/(?:stdout|stderr)|q-live-request\.json', path))
         or peer and bool(re.fullmatch(r'b-(?:front/(?:ready|final|receipt-000[1-8])\.json|'
-            r'health/(?:ready|final|phase-000[12])\.json|g-(?:probe|live)/(?:stdout|stderr)|live-request\.json)|selected/phase-0003\.json', path)))
+            r'health/(?:ready|final|phase-000[12])\.json|g-(?:probe|live)/(?:stdout|stderr)|live-request\.json)|selected/phase-0003\.json', path))
+        or death and bool(re.fullmatch(r'front/death/(?:ready|final)\.json|origin/death-(?:held|release)\.json|'
+            r'selected/phase-000[34]\.json|death-stop-intent\.json', path)))
 
 
 def run_controller(config, root=ROOT, *, api=None):
@@ -1672,7 +2106,7 @@ def run_controller(config, root=ROOT, *, api=None):
     except BaseException as exc:
         phase = controller.phase
         value['failure'] = phase if phase in ('inputs', 'identity', 'deadline', 'staging', 'probe', 'selected', 'firewall',
-            'health', 'positive', 'wrong-port', 'wrong-peer', 'cleanup', 'report') else 'worker'
+            'health', 'positive', 'wrong-port', 'wrong-peer', 'death', 'cleanup', 'report') else 'worker'
         value['status'] = 'failed' if any(value['violations'].values()) else 'inconclusive'
         # Private only: retain native Win32/HRESULT and closed invariant details
         # for one evidence-driven repair, without exposing paths or raw stderr.
