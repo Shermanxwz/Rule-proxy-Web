@@ -1,0 +1,245 @@
+{
+  "abi": {
+    "bytes": 10224,
+    "sha256": "2b06f2815d36d5a3488903612985103771dc7e668efc250e0ebe91d79d22e70e"
+  },
+  "actions": {
+    "file_hashes_and_log_reads": true,
+    "main_source_modified": false,
+    "native_actor_executed": false,
+    "native_compiler_or_flatc_executed": false,
+    "native_dll_loaded": false,
+    "processmodel_called": false,
+    "pure_definition_import_and_file_snapshot": true,
+    "security_or_network_changed": false,
+    "tests_rerun": false,
+    "wrapper_or_preflight_run": false
+  },
+  "actual_wrapper": {
+    "bytes": 5236,
+    "executed_by_reviewer": false,
+    "reviewed": true,
+    "sha256": "398d2d2d14cc66e2cc4b273d65912822fb732b053a1a93973e428bdc6f46a116"
+  },
+  "author_test_evidence": {
+    "integrated": {
+      "log": {
+        "bytes": 158334,
+        "sha256": "df5e4e16dc6c490b42f5c568bf993f34c9ec7fdda7ad93e5eaa9d968c066a209"
+      },
+      "reported_errors": 0,
+      "reported_existing_windows_symlink_skips": 2,
+      "reported_failures": 0,
+      "reported_tests": 857
+    },
+    "native": {
+      "log": {
+        "bytes": 1144,
+        "sha256": "11b48626ab80b883979799b4ea85a30be741566fe61a3c895d4a2d87197f98f5"
+      },
+      "reported_cross_language_checks": 4,
+      "reported_errors": 0,
+      "reported_failures": 0,
+      "reported_portable_assertions": 327,
+      "reported_skips": 0,
+      "reported_tests": 3
+    },
+    "python": {
+      "log": {
+        "bytes": 5515,
+        "sha256": "d784d56014073a3da4b5279256345ce7dc46a48f6ef041ceffbd7173ccc24dff"
+      },
+      "reported_errors": 0,
+      "reported_failures": 0,
+      "reported_skips": 0,
+      "reported_tests": 27
+    },
+    "reviewer_reran_tests": false
+  },
+  "checks": {
+    "actual_wrapper_exact_head_git_bytes_and_no_retry": true,
+    "both_arms_suspended_and_no_resume_or_network_path": true,
+    "create_or_close_unknown_sticky": true,
+    "exact_schema_generated_header_dependency_manifest_equal": true,
+    "exactly_one_environment_same_inputs_job_two_aap_values": true,
+    "explicit_opt_in_exact_source_device_artifact_spec_plan_required": true,
+    "fixed_accesscheck_matrices_and_resource_counts_closed": true,
+    "held_primary_generation_image_double_jobs_caps_and_first_sid_match": true,
+    "independent_canonical_spec_and_plan_sha_preserved": true,
+    "known_nochild_distinct_from_observed_exit": true,
+    "native03_only_test_rename_and_cross_language_coverage": true,
+    "no_blind_close_of_unspecified_failure_opaque_value": true,
+    "no_preflight_dll_or_cpse_load_path": true,
+    "no_security_capabilities_second_identity_source": true,
+    "original_qpc_deadlines_reserves_and_late_disqualification_preserved": true,
+    "partial_private_tree_failure_retained_before_directory_creation": true,
+    "private_report_and_public_safe_projection_bound": true,
+    "returned_partial_pi_retained_before_validation": true,
+    "six_native_sources_unchanged_from_immutable_compile02": true,
+    "six_python_file_bytes_match_author_freeze_and_integrated_main": true,
+    "source36_exact_snapshot_equal": true,
+    "unknown_child_observer_close_or_missing_worker_prevents_green_cleanup": true,
+    "void_close_consume_before_once_and_no_hresult_claim": true,
+    "worker_private_dacl_named_outer_job_and_source_gates_precede_core": true
+  },
+  "conclusion": "No remaining code or evidence-binding blocker found within the reviewed no-network matched identity scope. Parent owns commit and any source-bound actual run.",
+  "dependency_primary_review": {
+    "bytes": 8844,
+    "sha256": "2e5284b4e440830dfaa65a537729eb68681798f5f2d7feb53e2c2acdbc82c07a"
+  },
+  "dll": {
+    "bytes": 214016,
+    "sha256": "9574f93eb562a858b207412f9f538b15bfbf329b1df284b3266496b4c2cf2ba5"
+  },
+  "dll_manifest": {
+    "bytes": 5671,
+    "sha256": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209"
+  },
+  "native_dependency_count": 31,
+  "native_files": [
+    {
+      "bytes": 3097,
+      "path": ".github/native/windows_psec_lpac_bridge.hpp",
+      "sha256": "9417a1a377464eb5f96aeb899f6defaee5d4089809888e2209c99f8ad32b2076"
+    },
+    {
+      "bytes": 4158,
+      "path": ".github/native/windows_psec_lpac_bridge_core.hpp",
+      "sha256": "7d68fb7c6553137cbd01a4003199d96fa926ba106d605b1935a79aac1f6f5e66"
+    },
+    {
+      "bytes": 14080,
+      "path": ".github/native/windows_psec_lpac_bridge.cpp",
+      "sha256": "06969090ece3d5a74b7400f9808ebd60ee9234a7eed7a852c09abaf9942cf8ab"
+    },
+    {
+      "bytes": 2955,
+      "path": "vendor/windows-sdk/ProcessSecurityEnvironment.fbs",
+      "sha256": "736cacef37a6c97a0cb97c7132da462a3b51811fca8f1e4076cac51085dfa516"
+    },
+    {
+      "bytes": 4150,
+      "path": ".github/native/windows_psec_lpac_bridge_spec.hpp",
+      "sha256": "44eff1d580c79f1bffa081b2a35e9b29cdbd1e077339508a91fa33e9353b1991"
+    },
+    {
+      "bytes": 36700,
+      "path": "generated/ProcessSecurityEnvironment_generated.h",
+      "sha256": "8bc22a17bf176be93817d8bda13058d7077386b72775643150a8f1a3e233eaae"
+    },
+    {
+      "bytes": 11384,
+      "path": "tests/test_windows_identity_psec_lpac_bridge_native.py",
+      "sha256": "00484528e346f6bcd325ced6d1776f3bcd8fb88be2f3613fe12c0926978fb388"
+    }
+  ],
+  "native_freeze": {
+    "bytes": 2362,
+    "sha256": "8e2e5e3d97137bd9de9d6950e225d0bed11fe3aeb4e232bb2edabfed457974e1"
+  },
+  "native_source_count": 6,
+  "observation_limits": [
+    "This reviews an independent deny-all identity-only PSEC spec, not Model2 proxy/peer service, DNS isolation, or Linux equivalence.",
+    "A normal VOID close return closes the caller API obligation; environment absence and broker cancellation remain permanently unproven.",
+    "Unreturned create/close, malformed unknown output, worker crash or missing final report retain unknown/recovery. Job cleanup cannot replace these receipts.",
+    "Known returned late ownership may be cleaned, but never promoted to timely observation completion.",
+    "Compile and fake tests are not runtime API/OS-combination evidence. The reviewer did not execute the wrapper, preflight, native DLL or actors.",
+    "The ordinary shell prior test run lacked cl.exe; that original failed log is preserved. The final Python and developer-shell native runs are separately pinned.",
+    "Two integrated Windows symlink skips are reported as skips, not passed negative cases."
+  ],
+  "prior_native_review": {
+    "bytes": 6328,
+    "sha256": "7a1939a2742f9af7737ab8bef80d199a1d3a1e220200d05b7f91bddb3a3ee02b"
+  },
+  "python_files": [
+    {
+      "bytes": 5680,
+      "path": ".github/windows_identity_psec_spec.py",
+      "sha256": "c35dcb755a3e01faafd6888d4de846fbf8c4fea108e0a2fc30b6a837ecfdf7c5"
+    },
+    {
+      "bytes": 42705,
+      "path": ".github/windows_identity_psec_lpac_bridge.py",
+      "sha256": "f5a46e33b54a3bae1b496e6d04ad0f9dc1917ad8743648581ed469fd0501e318"
+    },
+    {
+      "bytes": 19197,
+      "path": ".github/windows_identity_psec_lpac_bridge_local.py",
+      "sha256": "efeb06139d434c7bb7a699c8d8cbfd5e92a376e761b380a2625ac81f231637c0"
+    },
+    {
+      "bytes": 2255,
+      "path": "tests/test_windows_identity_psec_spec.py",
+      "sha256": "8b64387b59301e4f8a8ed61190175aa83f1bfd3ad74d660982df4c6298b12df6"
+    },
+    {
+      "bytes": 15862,
+      "path": "tests/test_windows_identity_psec_lpac_bridge.py",
+      "sha256": "39c3a10b720ddd0e305d6aac90e6977dcb9eaf095d4e161c89e5db9edddb48a5"
+    },
+    {
+      "bytes": 16393,
+      "path": "tests/test_windows_identity_psec_lpac_bridge_local.py",
+      "sha256": "c8f5502cb125d9305f5327dc7b8e870f6fbf395705401a2c651ba92fab7369ba"
+    }
+  ],
+  "python_freeze": {
+    "bytes": 2722,
+    "sha256": "03d8de46610ef1e699b69f260a465caff6197a8b8f341a1193c73da754540047"
+  },
+  "remaining_blockers": [],
+  "resolved_findings": [
+    {
+      "fact": "Native scalar flags and private journal booleans have distinct global names; the same imported production validators are covered together.",
+      "id": "separate_native_result_boolean_names",
+      "status": "fixed"
+    },
+    {
+      "fact": "Success requires entered/returned, exact typed status, operation-specific environment state and HRESULT validity; bind also requires actual support/version fields.",
+      "id": "native_success_tuple_closed",
+      "status": "fixed"
+    },
+    {
+      "fact": "A create/close missing receipt, exception or native opaque-unknown result cannot be projected with a false private unknown flag.",
+      "id": "opaque_unknown_sticky",
+      "status": "fixed"
+    },
+    {
+      "fact": "The exact inner Job stays live through child/token/proof closure, native empty readback, opaque VOID close and processmodel unbind; only then is its handle consumed.",
+      "id": "borrowed_job_lifetime",
+      "status": "fixed-and-covered"
+    },
+    {
+      "fact": "A returned known opaque value may close once even when late, but original deadline failure remains disqualified. Late close/unbind normal return may settle known resources while forcing cleanup failure, never observation completion.",
+      "id": "known_late_cleanup_vs_admission",
+      "status": "clarified-and-covered"
+    },
+    {
+      "fact": "The plan-bound canonical Python bytes pass the compiled official generated C++ verifier without rebuilding the passed buffer; CPSE receives that original buffer.",
+      "id": "raw_spec_cross_language_gate",
+      "status": "covered"
+    },
+    {
+      "fact": "All three plan/config nonces match before entering the inner CPSE owner.",
+      "id": "worker_plan_nonce_binding",
+      "status": "fixed-and-covered"
+    },
+    {
+      "fact": "The actual outer launch report is durably saved privately and its SHA is required by the public worker-bound predicate.",
+      "id": "private_outer_launch_evidence",
+      "status": "added"
+    }
+  ],
+  "review_complete": true,
+  "runnable_backend_present": true,
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "scope": "one-local-cpse-deny-all-matched-aap-identity-v1",
+  "source": {
+    "all_candidate_and_integrated_main_bytes_equal": true,
+    "count": 36,
+    "sha256": "7dd12aaf5c8727c325e184f69393072e13e0b1772aa1be03318adf7e1d77951a"
+  },
+  "stage": "cpse-lpac-final-independent-read-only-review",
+  "variant": "identity-only-deny-all-v1"
+}

@@ -1,0 +1,142 @@
+{
+  "abi": {
+    "bytes": 10224,
+    "sha256": "2b06f2815d36d5a3488903612985103771dc7e668efc250e0ebe91d79d22e70e"
+  },
+  "actions": {
+    "file_hashes_and_static_pe_read": true,
+    "main_source_modified": false,
+    "native_actor_executed": false,
+    "native_compiler_or_flatc_executed_by_reviewer": false,
+    "native_dll_loaded": false,
+    "processmodel_called": false,
+    "security_or_network_changed": false,
+    "tests_rerun": false
+  },
+  "actual_ready": false,
+  "author_pure_test_evidence": {
+    "log": {
+      "bytes": 801,
+      "sha256": "6684bf19eb3683842a00363058d4d6c7f130986c3e0943139454f2af326a4b1f"
+    },
+    "reported_portable_assertions": 327,
+    "reported_skips": 0,
+    "reported_tests": 2,
+    "rerun_by_reviewer": false
+  },
+  "checks": {
+    "abi_layout96_equal": true,
+    "all_frozen_source_bytes_equal": true,
+    "bind_verified_requires_support_version_original_clock": true,
+    "close_consumed_before_void_call_and_no_retry": true,
+    "compile_snapshot_37_equal": true,
+    "cpse_flags_zero": true,
+    "exact_borrowed_job_empty_check_before_close": true,
+    "exact_spec_bytes_forwarded_to_cpse_without_rebuild": true,
+    "failure_nonnull_and_success_null_unknown": true,
+    "generated_cpp_header_matches_frozen_hash": true,
+    "header_schema_version_pins_equal": true,
+    "no_external_absence_or_broker_cancellation_claim": true,
+    "no_object_api_schema_mutation": true,
+    "no_second_identity_source": true,
+    "only_security_environment_job_list_aap_attributes": true,
+    "opaque_value_not_kernel_closed": true,
+    "partial_pi_transferred_before_postcall_checks": true,
+    "semantic_verifier_rejects_proxy_peer_extra_policy": true,
+    "suspended_no_handle_inheritance_no_resume": true,
+    "windows_except_macro_scoped_undef_restore": true
+  },
+  "compile_artifact": {
+    "clr_directory_absent": true,
+    "delay_import_directory_absent": true,
+    "dll": {
+      "bytes": 214016,
+      "sha256": "9574f93eb562a858b207412f9f538b15bfbf329b1df284b3266496b4c2cf2ba5"
+    },
+    "immutable_source_dependency_count": 37,
+    "manifest": {
+      "bytes": 5671,
+      "sha256": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209"
+    },
+    "static_exports": [
+      "pb_abi_version",
+      "pb_bind",
+      "pb_build_spec",
+      "pb_close_environment",
+      "pb_create_arm",
+      "pb_create_environment",
+      "pb_unbind",
+      "pb_verify_spec"
+    ],
+    "static_imports": [
+      "KERNEL32.dll"
+    ]
+  },
+  "dependency_review": {
+    "bytes": 8844,
+    "sha256": "2e5284b4e440830dfaa65a537729eb68681798f5f2d7feb53e2c2acdbc82c07a"
+  },
+  "freeze": {
+    "bytes": 1801,
+    "sha256": "96994294e82dc10369a68170b112e17af75e8e3f9fd8a24f2ddaacecd3a7e79b"
+  },
+  "interpretation": [
+    "The fixed policy is independent identity-only deny-all; this is not the prior Model2 proxy/peer policy.",
+    "Native semantic validation accepts equivalent valid FlatBuffer layout, but Create receives the exact caller plan-bound byte buffer and byte count. Python must keep the plan SHA and independent canonical decoder gate.",
+    "A returned exact S_OK with non-null output establishes known close authority. A later deadline failure must remain disqualified, while still allowing one cleanup close of that known resource.",
+    "Failed HRESULT with non-null output, unexpected nonnegative HRESULT, unreturned create, malformed opaque result, or unreturned VOID close cannot be washed into absence or cancellation.",
+    "The borrowed inner Job handle must stay live through native close; kernel child/token/proof resources must be closed by the owner before opaque close. Job empty or worker death alone does not prove broker cancellation.",
+    "The scoped Windows except macro workaround surrounds the generated schema/spec include and restores the macro. The pinned schema is unchanged; regenerated C++ lacks object API.",
+    "Portable core/spec tests do not exercise Windows.h adapter API calls. Actual DLL loading, support/version, CPSE composition, and token observations remain untested here."
+  ],
+  "native_sources": [
+    {
+      "bytes": 3097,
+      "path": ".github/native/windows_psec_lpac_bridge.hpp",
+      "sha256": "9417a1a377464eb5f96aeb899f6defaee5d4089809888e2209c99f8ad32b2076"
+    },
+    {
+      "bytes": 4158,
+      "path": ".github/native/windows_psec_lpac_bridge_core.hpp",
+      "sha256": "7d68fb7c6553137cbd01a4003199d96fa926ba106d605b1935a79aac1f6f5e66"
+    },
+    {
+      "bytes": 14080,
+      "path": ".github/native/windows_psec_lpac_bridge.cpp",
+      "sha256": "06969090ece3d5a74b7400f9808ebd60ee9234a7eed7a852c09abaf9942cf8ab"
+    },
+    {
+      "bytes": 2955,
+      "path": "vendor/windows-sdk/ProcessSecurityEnvironment.fbs",
+      "sha256": "736cacef37a6c97a0cb97c7132da462a3b51811fca8f1e4076cac51085dfa516"
+    },
+    {
+      "bytes": 4150,
+      "path": ".github/native/windows_psec_lpac_bridge_spec.hpp",
+      "sha256": "44eff1d580c79f1bffa081b2a35e9b29cdbd1e077339508a91fa33e9353b1991"
+    },
+    {
+      "bytes": 36700,
+      "path": "generated/ProcessSecurityEnvironment_generated.h",
+      "sha256": "8bc22a17bf176be93817d8bda13058d7077386b72775643150a8f1a3e233eaae"
+    },
+    {
+      "bytes": 9907,
+      "path": "tests/test_windows_psec_lpac_bridge_native.py",
+      "sha256": "9652a8513dc2a2a422d9affbdf8e6a4398176fd154173f14c9073dd8bf4f755a"
+    }
+  ],
+  "primary_sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/processmodel/nf-processmodel-createprocesssecurityenvironment",
+    "https://learn.microsoft.com/en-us/windows/win32/api/processmodel/nf-processmodel-closeprocesssecurityenvironment",
+    "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/secenv.rs",
+    "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/external/windows-sdk/ProcessSecurityEnvironment.fbs"
+  ],
+  "remaining_review": [
+    "Python owner/guard final lifecycle and closed report validation is pending author freeze."
+  ],
+  "review_conclusion": "No remaining native-source blocker found in this bounded review. This is not runtime approval; Python owner/guard final review is pending.",
+  "schema_version": 1,
+  "scope": "identity-only-deny-all-v1",
+  "stage": "cpse-lpac-native-independent-file-only-review"
+}

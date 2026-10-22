@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "stage": "psec-lpac-python-candidate-frozen",
+  "actual_executed": false,
+  "network_executed": false,
+  "processmodel_loaded": false,
+  "scope": "one-local-cpse-deny-all-matched-aap-identity-v1",
+  "variant": "identity-only-deny-all-v1",
+  "runnable_backend_present": true,
+  "source_count": 36,
+  "source_sha256": "7dd12aaf5c8727c325e184f69393072e13e0b1772aa1be03318adf7e1d77951a",
+  "files": {
+    ".github/windows_identity_psec_spec.py": {
+      "bytes": 5680,
+      "sha256": "c35dcb755a3e01faafd6888d4de846fbf8c4fea108e0a2fc30b6a837ecfdf7c5"
+    },
+    ".github/windows_identity_psec_lpac_bridge.py": {
+      "bytes": 42705,
+      "sha256": "f5a46e33b54a3bae1b496e6d04ad0f9dc1917ad8743648581ed469fd0501e318"
+    },
+    ".github/windows_identity_psec_lpac_bridge_local.py": {
+      "bytes": 19197,
+      "sha256": "efeb06139d434c7bb7a699c8d8cbfd5e92a376e761b380a2625ac81f231637c0"
+    },
+    "tests/test_windows_identity_psec_spec.py": {
+      "bytes": 2255,
+      "sha256": "8b64387b59301e4f8a8ed61190175aa83f1bfd3ad74d660982df4c6298b12df6"
+    },
+    "tests/test_windows_identity_psec_lpac_bridge.py": {
+      "bytes": 15862,
+      "sha256": "39c3a10b720ddd0e305d6aac90e6977dcb9eaf095d4e161c89e5db9edddb48a5"
+    },
+    "tests/test_windows_identity_psec_lpac_bridge_local.py": {
+      "bytes": 16393,
+      "sha256": "c8f5502cb125d9305f5327dc7b8e870f6fbf395705401a2c651ba92fab7369ba"
+    }
+  },
+  "patch": {
+    "name": "psec-lpac-python-candidate-01.patch",
+    "bytes": 104608,
+    "sha256": "98a0883d76eb65b240e8063391665d8888b05bc8746a93b144fc0f06fc259d1b",
+    "git_apply_check": true
+  },
+  "pure": {
+    "command": [
+      "python",
+      "-I",
+      "-S",
+      "-B",
+      "work/run_psec_python_pure_02.py"
+    ],
+    "tests": 27,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "wall_seconds": 6.078,
+    "log": "psec-lpac-python-pure-02.log",
+    "log_bytes": 5515,
+    "log_sha256": "d784d56014073a3da4b5279256345ce7dc46a48f6ef041ceffbd7173ccc24dff"
+  },
+  "prior_environment_failure": {
+    "log": "psec-lpac-python-pure-01.log",
+    "tests": 30,
+    "failures": 2,
+    "cause": "native compiler unavailable in ordinary shell; no actor or API call",
+    "preserved": true
+  },
+  "native_pure_separate": "Native author VS developer-shell pure03: 3 tests, 327 state/spec assertions and Python-raw generated-C++ verifier; source-bound separate receipt",
+  "limitations": [
+    "No Linux run here; test-only path syntax and python.exe fixture seams preserve production Windows gates",
+    "Normal VOID close return is not external environment absence or broker cancellation",
+    "Deny-all identity spec is not Model2 proxy policy comparison"
+  ]
+}

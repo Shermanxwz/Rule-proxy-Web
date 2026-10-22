@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "stage": "cpse-lpac-identity-bridge-abi-design",
+  "actual_ready": false,
+  "scope": "one-local-cpse-deny-all-matched-aap-identity-v1",
+  "candidate_directory": "work/psec-lpac-identity-bridge-candidate",
+  "files": {
+    "dll": "windows_psec_lpac_bridge.dll",
+    "header": ".github/native/windows_psec_lpac_bridge.hpp",
+    "core": ".github/native/windows_psec_lpac_bridge_core.hpp",
+    "adapter": ".github/native/windows_psec_lpac_bridge.cpp",
+    "schema": "vendor/windows-sdk/ProcessSecurityEnvironment.fbs",
+    "spec_helper": ".github/native/windows_psec_lpac_bridge_spec.hpp"
+  },
+  "authoring": {
+    "spec_variant": "identity-only-deny-all-v1",
+    "schema": [
+      1,
+      1
+    ],
+    "capabilities": "privateNetworkClientServer",
+    "disallow_win32k_system_calls": true,
+    "ui_restrictions": 1023,
+    "fs_read_only": [
+      "exact inputs directory supplied by checked owner"
+    ],
+    "fs_read_write": null,
+    "fs_deny": null,
+    "fs_enumerate": null,
+    "network": {
+      "proxy": null,
+      "allowed_appcontainer_peer": null,
+      "egress": {
+        "default_action": "deny",
+        "allow": null,
+        "deny": null
+      },
+      "ingress": {
+        "default_action": "deny",
+        "host_loopback": "deny"
+      }
+    },
+    "comparison": "This is an independent deny-all identity-only spec, not the Model2 proxy spec."
+  },
+  "constants": {
+    "abi_version": 1,
+    "context_bytes": 512,
+    "context_alignment": 16,
+    "spec_max_bytes": 65536,
+    "path_max_utf16_units": 1024,
+    "security_environment_attribute": 131107,
+    "job_list_attribute": 131085,
+    "aap_policy_attribute": 131087,
+    "cpse_creation_flags": 0,
+    "arm_policies": [
+      0,
+      1
+    ]
+  },
+  "functions": [
+    "uint32_t WINAPI pb_abi_version(void)",
+    "uint32_t WINAPI pb_build_spec(const uint16_t* inputs_directory, uint32_t path_units, uint8_t* output, uint32_t capacity, uint32_t* used)",
+    "uint32_t WINAPI pb_verify_spec(const uint8_t* input, uint32_t bytes, const uint16_t* expected_inputs_directory, uint32_t path_units)",
+    "uint32_t WINAPI pb_bind(PB_CONTEXT_V1* context, const PB_PLAN_V1* plan, PB_RESULT_V1* output)",
+    "uint32_t WINAPI pb_create_environment(PB_CONTEXT_V1* context, const uint8_t* spec, uint32_t bytes, const uint16_t* inputs_directory, uint32_t path_units, PB_RESULT_V1* output)",
+    "uint32_t WINAPI pb_create_arm(PB_CONTEXT_V1* context, const PB_CHILD_V1* child, PB_PI_V1* process_information, PB_RESULT_V1* output)",
+    "uint32_t WINAPI pb_close_environment(PB_CONTEXT_V1* context, PB_RESULT_V1* output)",
+    "uint32_t WINAPI pb_unbind(PB_CONTEXT_V1* context, PB_RESULT_V1* output)"
+  ],
+  "abi_rules": [
+    "x64 Windows only; all exported structs use fixed-width fields with natural 8-byte packing; static_assert offsets/sizes in header",
+    "PB_CONTEXT_V1 is caller-owned 512 bytes aligned16, initially zero. Never persisted or populated from JSON. No DLL heap pointer exported.",
+    "No arbitrary command line: child image, inputs directory, SystemRoot and LOCALAPPDATA are fixed checked absolute UTF-16 paths; image-only quoted argv; cwd equals inputs.",
+    "Caller owns output spec bytes and PI storage. Returned process/thread handles transfer to Python owner once, including partial failure. DLL closes only attribute-list temporaries.",
+    "CPSE opaque environment stays private in context; it is never a kernel HANDLE, never CloseHandle/DuplicateHandle/reopened.",
+    "One environment create attempt; exactly two arm create attempts policy0 then1 using exact same image/cwd/env/job/spec. Any failed/unknown create blocks following arm.",
+    "No ResumeThread, network, GO, SECURITY_CAPABILITIES, token replacement, parent-process override, HANDLE_LIST, or fallback exports.",
+    "Only exact HRESULT S_OK=0 plus nonnull yields owned environment. Other nonnegative statuses and failed HRESULT with nonnull are unknown; no launch or blind close."
+  ],
+  "plan_fields": [
+    "size:u32",
+    "version:u32",
+    "frequency:u64",
+    "start_qpc:u64",
+    "root_deadline_qpc:u64",
+    "worker_deadline_qpc:u64",
+    "work_cutoff_qpc:u64"
+  ],
+  "plan_rules": [
+    "rootD-T0<=120F; workerD=rootD-5F; workCut=rootD-35F; actual QPC frequency must equal F",
+    "Bind/create/arm require current QPC within original T0/workCut both before and after; no relative epoch renewal",
+    "Close/unbind consume known ownership before call even if late; late cleanup never qualifies a timely result"
+  ],
+  "child_fields": [
+    "size:u32",
+    "version:u32",
+    "policy:u32",
+    "reserved:u32=0",
+    "job:u64",
+    "image:ptr(u16)",
+    "image_units:u32",
+    "inputs_directory:ptr(u16)",
+    "inputs_units:u32",
+    "system_root:ptr(u16)",
+    "system_root_units:u32",
+    "local_appdata:ptr(u16)",
+    "local_appdata_units:u32"
+  ],
+  "result_fields": [
+    "size:u32",
+    "version:u32",
+    "operation:u32",
+    "wrapper_status:u32",
+    "api_entered:u32bool",
+    "api_returned:u32bool",
+    "hresult_valid:u32bool",
+    "hresult:i32 (valid only when hresult_valid)",
+    "win32_error:u32",
+    "within_deadline:u32bool",
+    "before_qpc:u64",
+    "after_qpc:u64",
+    "environment_state:u32",
+    "opaque_outcome_unknown:u32bool",
+    "close_invoked_once:u32bool",
+    "close_returned_normally:u32bool",
+    "module_close_attempted:u32bool",
+    "module_close_confirmed:u32bool",
+    "support_flags:u64",
+    "schema_major_available:u32bool",
+    "schema_minor:u32"
+  ],
+  "pi_fields": [
+    "process:u64",
+    "thread:u64",
+    "process_id:u32",
+    "thread_id:u32"
+  ],
+  "wrapper_status": {
+    "ok": 0,
+    "bad_argument": 1,
+    "bad_state": 2,
+    "unsupported": 3,
+    "clock": 4,
+    "deadline": 5,
+    "api_failed": 6,
+    "readback_failed": 7,
+    "cleanup_unknown": 8,
+    "exception": 9
+  },
+  "environment_state": {
+    "none": 0,
+    "create_attempt_consumed": 1,
+    "owned_known": 2,
+    "close_consumed": 3
+  },
+  "binding": {
+    "dll": "Owner checks absolute no-reparse path, PE x64/source manifest and SHA before ctypes.WinDLL; existing guarded worker is ordinary held identity.",
+    "processmodel": "LoadLibraryExW(L'processmodel.dll',NULL,LOAD_LIBRARY_SEARCH_SYSTEM32), exact four original names; GetModuleFileNameW readback equals expected System32 path. No alternate name/ordinal/private API fallback.",
+    "exports": [
+      "CreateProcessSecurityEnvironment",
+      "CloseProcessSecurityEnvironment",
+      "QueryProcessSecurityEnvironmentSupport",
+      "IsProcessSecurityEnvironmentVersionSupported"
+    ],
+    "imports_expected": [
+      "KERNEL32.dll",
+      "MSVC CRT imports as compiled; no processmodel static import, no WS2_32/WinHTTP/WinINet/URLMon"
+    ]
+  },
+  "lifecycle": {
+    "start": "Durable external intent before bind/environment/each arm. Native one-shot state consumed before API. Context environment pointer private.",
+    "arm": "One KILL_ON_JOB_CLOSE non-breakaway noninheritable inner Job; exactly SE_ENV+JOB_LIST+AAP policy; CREATE_SUSPENDED/EXTENDED/UNICODE/NO_WINDOW; bInheritHandles FALSE. First held ACSID is external baseline, second exactsame; fixed OS catalog exact2 caps+attrs4 and held image/generation/inner+outer Job independently verified.",
+    "close": "External journal consumes close authority before pb_close_environment; native consumes pointer before VOID call. Only close_invoked_once/close_returned_normally are observations. No HRESULT/absence/cancellation invented.",
+    "unknown": "Unknown create/nonreturned close/worker crash retain recovery_required and broker_outcome_unknown. Kernel Job empty or worker exit does not prove opaque environment absence or broker cancellation.",
+    "recovery": "New exact audit/reconciliation entry may confirm kernel process/Job resources and known local file cleanup, but no supported opaque environment reopen/enumerate/retry-close. No service stop/restart, numeric handle replay, auto retry, global network changes."
+  },
+  "independent_decoder": {
+    "required": true,
+    "method": "Python stdlib bounds-checked FlatBuffer decoder independently checks PSEC identifier, schema1.1 and every permitted field/table/vector, exact path and fixed policy; reject unknown slots/invalid offsets/extra roots. Compare built byte SHA before Create; native pb_verify_spec independently repeats generated verifier+strict field readback.",
+    "root_vtable_slots": [
+      "version",
+      "capabilities",
+      "disallow_win32k_system_calls",
+      "ui_restrictions",
+      "fs_read_write",
+      "fs_read_only",
+      "fs_deny",
+      "network_policy",
+      "fs_enumerate"
+    ],
+    "network_slots": [
+      "proxy",
+      "egress",
+      "allowed_appcontainer_peer",
+      "ingress"
+    ],
+    "egress_slots": [
+      "default_action",
+      "allow",
+      "deny"
+    ],
+    "ingress_slots": [
+      "default_action",
+      "host_loopback"
+    ]
+  },
+  "dependency_pins": {
+    "mxc_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+    "schema_sha256": "736cacef37a6c97a0cb97c7132da462a3b51811fca8f1e4076cac51085dfa516",
+    "flatc_version": "25.12.19",
+    "flatc_url": "https://github.com/google/flatbuffers/releases/download/v25.12.19/Windows.flatc.binary.zip",
+    "flatc_zip_sha256": "fff9445c9db907227bc64b54cc98743084c4949282aa4e576cff6a955724ddc8",
+    "flatbuffers_headers_commit": "7e163021e59cca4f8e1e35a7c828b5c6b7915953",
+    "headers_path": "include/flatbuffers",
+    "generated_command": [
+      "flatc.exe",
+      "--cpp",
+      "-o",
+      "generated",
+      "vendor/windows-sdk/ProcessSecurityEnvironment.fbs"
+    ]
+  },
+  "validation": "Only pure fake core tests/compile-only authorized here. No mechanism/combination claim until parent-reviewed source-bound single actual.",
+  "struct_sizes": {
+    "PB_CONTEXT_V1": 512,
+    "PB_PLAN_V1": 48,
+    "PB_CHILD_V1": 88,
+    "PB_PI_V1": 24,
+    "PB_RESULT_V1": 96
+  },
+  "struct_offsets": {
+    "PB_CHILD_V1": {
+      "job": 16,
+      "image": 24,
+      "inputs_directory": 40,
+      "system_root": 56,
+      "local_appdata": 72,
+      "local_appdata_units": 80
+    },
+    "PB_RESULT_V1": {
+      "before_qpc": 40,
+      "after_qpc": 48,
+      "support_flags": 80,
+      "schema_major_available": 88,
+      "schema_minor": 92
+    }
+  }
+}

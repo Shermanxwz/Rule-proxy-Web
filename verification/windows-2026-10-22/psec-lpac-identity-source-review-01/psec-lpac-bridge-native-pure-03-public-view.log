@@ -1,0 +1,14 @@
+**********************************************************************
+** Visual Studio 2022 Developer PowerShell v17.14.42
+** Copyright (c) 2025 Microsoft Corporation
+**********************************************************************
+test_compiled_production_core_and_spec_without_windows_or_processmodel (test_windows_identity_psec_lpac_bridge_native.BridgeNativeTests.test_compiled_production_core_and_spec_without_windows_or_processmodel) ... ok
+test_pinned_schema_and_no_active_execution_network_or_second_identity_source (test_windows_identity_psec_lpac_bridge_native.BridgeNativeTests.test_pinned_schema_and_no_active_execution_network_or_second_identity_source) ... ok
+test_python_original_spec_bytes_pass_generated_cpp_verifier_and_exact_policy (test_windows_identity_psec_lpac_bridge_native.BridgeNativeTests.test_python_original_spec_bytes_pass_generated_cpp_verifier_and_exact_policy) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 2.180s
+
+OK
+PSEC_BRIDGE_FAKE_CHECKS 327
+PYTHON_SPEC_ORIGINAL_BYTES 176 e045bdf6c5982de81f5ac34aea49a33ca64e81abb3fa01752aca078caa385992

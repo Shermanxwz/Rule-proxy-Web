@@ -1,0 +1,39 @@
+{
+  "actual01_result_is_separate_and_failed": true,
+  "conclusion": "success",
+  "cpse_experiment_executed": false,
+  "decoded_original": {
+    "bytes": 203905,
+    "kept_in_work": true,
+    "sha256": "787bd9011f2b4894c14950ba8d29f03bf9955fda2e926dfe9d8e88bd91877735"
+  },
+  "errors": 0,
+  "event": "push",
+  "failures": 0,
+  "gated_runtime_steps_skipped": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "job_id": 120149423016,
+  "native_actor_executed": false,
+  "published_view": {
+    "bytes": 202831,
+    "path": "verification/windows-2026-10-22/psec-lpac-identity-source-review-01/ci-39872306319-decoded-public-view.log",
+    "sha256": "cebd65bbfc71027a6dded4dda8f33f51c000b81f07e3867d6d7836123954f5e6"
+  },
+  "pure_or_ci_success_is_not_runtime_acceptance": true,
+  "run_id": 39872306319,
+  "schema_version": 1,
+  "seconds": 59.713,
+  "skips": 0,
+  "source_commit": "1c83029245e889b2c950ca5dbaa0da675a287c09",
+  "stage": "read-only-psec-identity-source-auto-ci-summary",
+  "status": "completed",
+  "tests_run": 857,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39872306319",
+  "workflow_dispatched": false,
+  "workflow_rerun": false
+}

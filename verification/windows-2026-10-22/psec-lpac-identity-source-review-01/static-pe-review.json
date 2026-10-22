@@ -1,0 +1,67 @@
+{
+  "actor_executed": false,
+  "compile_log_sha256": "21c615d1fe4efd88bd6609a5b0384992f59db862eae40e1b577aa954526336d2",
+  "compile_only": true,
+  "compiler_script_sha256": "a0270b76044fe41052e72770ad7aafa3973ea91cd9af60a7e79e19e0b27cac5d",
+  "cpse_called": false,
+  "dependency_input_count": 31,
+  "dll_bytes": 214016,
+  "dll_loaded": false,
+  "dll_sha256": "9574f93eb562a858b207412f9f538b15bfbf329b1df284b3266496b4c2cf2ba5",
+  "export_details": [
+    {
+      "name": "pb_abi_version",
+      "ordinal": 1,
+      "rva": 25184
+    },
+    {
+      "name": "pb_bind",
+      "ordinal": 2,
+      "rva": 25200
+    },
+    {
+      "name": "pb_build_spec",
+      "ordinal": 3,
+      "rva": 27216
+    },
+    {
+      "name": "pb_close_environment",
+      "ordinal": 4,
+      "rva": 27808
+    },
+    {
+      "name": "pb_create_arm",
+      "ordinal": 5,
+      "rva": 28272
+    },
+    {
+      "name": "pb_create_environment",
+      "ordinal": 6,
+      "rva": 33136
+    },
+    {
+      "name": "pb_unbind",
+      "ordinal": 7,
+      "rva": 34288
+    },
+    {
+      "name": "pb_verify_spec",
+      "ordinal": 8,
+      "rva": 34816
+    }
+  ],
+  "immutable_snapshot_verified": true,
+  "imports": [
+    "KERNEL32.dll"
+  ],
+  "input_snapshot_sha256": "08fcfc4c1bf651983dea3080924f0ab1e7694df2ed171e4dfae11c84baa2cde1",
+  "limits": "Static PE/compile evidence only. No environment, process, token, Job or network acceptance.",
+  "manifest_sha256": "9b9ab93826c99bbde32c18cca3a32389d75086c3b1f7abbc453a2dda98d09209",
+  "native_source_input_count": 6,
+  "processmodel_loaded": false,
+  "reader_sha256": "3da23ed058e42de8ca67f6715fb14e8d6684662c0f510a2d7c4ec5d119f6230f",
+  "runtime_acceptance": false,
+  "schema_version": 1,
+  "stage": "psec-lpac-bridge-compile02-static-audit",
+  "toolchain_record_sha256": "796cd755464544645ce142c58d8dbfc113ff301034803dd4705d17894f47bb07"
+}
