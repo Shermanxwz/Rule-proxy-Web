@@ -1,0 +1,84 @@
+{
+  "actual_experiment_performed": false,
+  "api_version": 1,
+  "capabilities": [
+    "AgenticAppContainer",
+    "privateNetworkClientServer"
+  ],
+  "capability_attributes": 4,
+  "cleanup": "Original held workload/fixture cleanup plus observer close proof before exact SID ACE and fresh profile cleanup.",
+  "closed_fixture_sticky_before_strict_journal": true,
+  "config_extra_key": {
+    "identity_basis": "held-accesscheck-matrix-v1"
+  },
+  "constructor_atomic_inner_and_outer_jobs": true,
+  "constructor_opt_out": 1,
+  "core": ".github/windows_identity_lpac_semantic_dns.py",
+  "default_preflight_read_only": true,
+  "dependency_count": 33,
+  "dns_before_selected_after_same_api": true,
+  "dns_server": "127.0.0.1:53 UDP",
+  "entry": ".github/windows_identity_lpac_semantic_dns_local.py",
+  "excluded_claims": [
+    "class46 readback",
+    "Microsoft IsLPAC guarantee",
+    "G/PSEC compatibility",
+    "causal PSEC comparison",
+    "default DNS resolver",
+    "broker PID attribution",
+    "broker cancellation",
+    "proxy isolation",
+    "DNS isolation qualification",
+    "product acceptance"
+  ],
+  "expected_semantic_matrix": [
+    2,
+    0,
+    0,
+    2
+  ],
+  "explicit_flag": "--run-local-lpac-semantic-dns",
+  "go_operations": [
+    6,
+    255
+  ],
+  "identity_basis": "held-accesscheck-matrix-v1",
+  "inventory_freshness_seconds": 5,
+  "inventory_once": true,
+  "native_actor": "unchanged native07",
+  "native_manifest_keys": 13,
+  "native_pins": 9,
+  "nonces": [
+    "run",
+    "selected_boot",
+    "selected_admission",
+    "health_boot",
+    "health_admission",
+    "before_case",
+    "selected_case",
+    "after_case",
+    "inventory_run"
+  ],
+  "observer_resources_closed_before_authorization": true,
+  "observer_unknown_blocks_profile_deletion": true,
+  "plan_extra_acknowledgement": "semantic_identity_acknowledged=true",
+  "prior_token_statistics": [
+    "TokenId",
+    "AuthenticationId"
+  ],
+  "receiver_sticky_independent_of_native_parsing": true,
+  "root_seconds": 120,
+  "schema_version": 1,
+  "scope": "standalone-lpac-accesscheck-standard53-dns-mechanism-v1",
+  "selected_identity": "owner-held external primary plus four AccessCheck controls",
+  "semantic_rechecks": [
+    "selected admission",
+    "selected resume",
+    "every DNS GO including ordinary controls",
+    "selected finish GO"
+  ],
+  "source_count": 35,
+  "token_class46_queried": false,
+  "token_class46_value": null,
+  "worker_seconds": 115
+}

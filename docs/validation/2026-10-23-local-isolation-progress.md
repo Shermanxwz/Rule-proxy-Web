@@ -1,5 +1,7 @@
 # Windows 本机应用级代理隔离：2026-10-23 检查点
 
+**Semantic-LPAC DNS01，2026-10-23：** [本机原始观察](2026-10-23-lpac-semantic-dns-01.md)为 inconclusive：普通 before API/query0且receiver1/1，随后snapshot缺deadline参数停止；selected尚未查询。全部自动清理和原baseline字节比较通过，原失败保留，正修接口合同。
+
 **独立身份对照，2026-10-23：** [AC/LPAC 四矩阵实测](2026-10-23-lpac-identity-matrix.md)已通过；两臂全程暂停，全部自动清理和原 baseline 字节比较通过。原 class46/87 保留；DNS、PSEC 代理组合与 Linux 等效仍未验收。
 
 **LPAC03/04 后续：** [创建203与token查询87](2026-10-23-lpac-token-inspection.md)已分别保留。04接回既有KnownFolder环境后成功创建held进程，但class46查询87，身份仍unknown，未恢复actor或调用DNS；两轮均自动清理完成、全局快照字节与初始baseline相同。该检查点时独立AC/LPAC身份对照尚未运行；后续实测见上方链接。

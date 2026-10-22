@@ -1,0 +1,41 @@
+{
+  "files": [
+    {
+      "bytes": 87741,
+      "path": "complete.patch",
+      "sha256": "b0191e975abb4d29203c66f88ddd8ac3746527ef72ee1d944a7c730493be48bc"
+    },
+    {
+      "bytes": 6568,
+      "path": "freeze.json",
+      "sha256": "6595fee39dae9770207761cfbc42fc03fb1ceccaf9776c10b7ae09f63800ea2b"
+    },
+    {
+      "bytes": 2438,
+      "path": "abi.json",
+      "sha256": "773b8cbdf8d22f7284eeff5a0f8a2af44146cd6f40ab274365026dc6ddbc792c"
+    },
+    {
+      "bytes": 4927,
+      "path": "candidate-pure.log",
+      "sha256": "3d7f798b0df4e1a0a58fddfd80cca464c8c3d84d2f0e0ee3a11d5d08d6824c7e"
+    },
+    {
+      "bytes": 5158,
+      "path": "independent-review.json",
+      "sha256": "76cf116fa40be9deaab7b31d5d2b008643187c3c48e7dbf40c564ef33ee5c3c1"
+    },
+    {
+      "bytes": 1770,
+      "path": "pure-tests.json",
+      "sha256": "71121d8bf1a6c48f8edb5b2d2a61ef1a755e7ca0e4e7ce6a20b064e129c811e4"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "preactual_state_of_original_receipts_preserved": true,
+  "schema_version": 1,
+  "source_commit": "ba0954a6496a6ced2c5197d57ebc14155b998753",
+  "source_installed_at_commit": true,
+  "source_sha256": "3f5e3fc55043103ab0bcf8144085a936e4374e69d54f3bf83e0c8f5aa7a1987e",
+  "stage": "semantic-dns-source-review-index"
+}

@@ -1,0 +1,61 @@
+{
+  "archive_process_experiment_run": false,
+  "files": [
+    {
+      "bytes": 1573,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-public.json",
+      "sha256": "0909bb6ffd4024883f5c2fa2c8ad36e83867be598d6970c6e511aada4e8ef414"
+    },
+    {
+      "bytes": 1571,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-preflight.json",
+      "sha256": "45068d8592c10e8fe54bf3d92cc69a293ac76e08f9169a94a3641e619435b0f6"
+    },
+    {
+      "bytes": 3139,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-runner.py",
+      "sha256": "3b9e9a3fe8ab2ceaf792bef6b5fe8fbf59bf244578c24c36b6e3d1aabaa8732e"
+    },
+    {
+      "bytes": 1023,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-after-global-capture.ps1",
+      "sha256": "94ece1e889025a0286a10c6a93db0305fab488dd9e6003e33300ffc94deee6ae"
+    },
+    {
+      "bytes": 2003,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-after-global-expanded.ps1",
+      "sha256": "bde941beadd32470207b6b0dd09a4afacf296689a5509bab64a1bbe959b1ef5a"
+    },
+    {
+      "bytes": 40515,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-archive.py",
+      "sha256": "6d0088f9c1d5228e3408843bf9f96c83f750498c0e05eb7027d4122e3c231d09"
+    },
+    {
+      "bytes": 54830,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-component-projection.json",
+      "sha256": "b8c51a6843764cfabd937edcc8b3ce35f393977624cf1f1b214b4da081a568ec"
+    },
+    {
+      "bytes": 474,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-global-projection.json",
+      "sha256": "991861a63d712838e6a83c8c42b6c5e2ee4c28db1790988b129183ed3b9aaf3f"
+    },
+    {
+      "bytes": 3842,
+      "path": "verification/windows-2026-10-22/lpac-semantic-dns-local-01-summary.json",
+      "sha256": "e1182cb1490175001647e51e6d1ce0f78ba99c9caea71a4ca78c3aa95c9c4bf7"
+    }
+  ],
+  "index_self_hash_excluded": true,
+  "native_api_instantiated": false,
+  "network_operation_run": false,
+  "original_public_sha256": "0909bb6ffd4024883f5c2fa2c8ad36e83867be598d6970c6e511aada4e8ef414",
+  "policy_or_recovery_run": false,
+  "private_stage_or_logs_published": false,
+  "schema_version": 1,
+  "scope": "standalone-lpac-accesscheck-standard53-dns-mechanism-v1",
+  "source_commit": "ba0954a6496a6ced2c5197d57ebc14155b998753",
+  "source_sha256": "3f5e3fc55043103ab0bcf8144085a936e4374e69d54f3bf83e0c8f5aa7a1987e",
+  "stage": "standalone-semantic-lpac-dns-actual01-evidence-index"
+}

@@ -1,5 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
+**Semantic-LPAC DNS01，2026-10-23：** [本机原始观察](2026-10-23-lpac-semantic-dns-01.md)为 inconclusive：普通 before API/query0且receiver1/1，随后snapshot缺deadline参数停止；selected尚未查询。全部自动清理和原baseline字节比较通过，原失败保留，正修接口合同。
+
 **独立身份对照，2026-10-23：** [AC/LPAC 四矩阵实测](2026-10-23-lpac-identity-matrix.md)已通过；两臂全程暂停，全部自动清理和原 baseline 字节比较通过。原 class46/87 保留；DNS、PSEC 代理组合与 Linux 等效仍未验收。
 
 > **LPAC03/04 检查点，2026-10-23：** [原始创建/身份查询观察](2026-10-23-lpac-token-inspection.md)记录03 Create FALSE/203与04 Create TRUE后class46/87；04身份仍unknown，selected未准入/恢复线程，均未调用DNS。两轮自动清理及原baseline字节比较通过，无独立恢复。原class46门未绕过，该检查点时另一个无网络AC/LPAC授权矩阵对照尚无实际结果；后续见上方链接。
