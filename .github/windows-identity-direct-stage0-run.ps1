@@ -338,16 +338,60 @@ function Assert-Stage0bStagingBound([string]$Path) {
         if($actors -ne 1 -or -not (Test-Stage0bStagingBound ([long](Get-Item -LiteralPath $Path).Length) $expanded $actorBytes)){throw 'stage0b_staging'}
     } finally {$zip.Dispose()}
 }
+function Test-Stage0bDiagnostic($Value) {
+    $keys=@('v','held','reads','bindings','stdout_reads','execution_sources','execution')
+    if($Value -isnot [PSCustomObject] -or @($Value.PSObject.Properties).Count -ne $keys.Count){return $false}
+    foreach($key in $keys){if($key -cnotin @($Value.PSObject.Properties.Name)){return $false}}
+    if($Value.v -isnot [int] -or $Value.v -ne 1){return $false}
+    $held=$Value.held;$heldKeys=@('created','resumed','exit_observed','exit_code','cleanup_confirmed')
+    if($held -isnot [PSCustomObject] -or @($held.PSObject.Properties).Count -ne $heldKeys.Count){return $false}
+    foreach($key in $heldKeys){if($key -cnotin @($held.PSObject.Properties.Name)){return $false}}
+    foreach($key in @('created','resumed','exit_observed','cleanup_confirmed')){if($held.$key -isnot [bool]){return $false}}
+    $code=$held.exit_code
+    if($null -ne $code -and (($code -isnot [int] -and $code -isnot [long]) -or $code -lt 0 -or $code -gt 4294967295)){return $false}
+    if(($held.exit_observed -and -not $held.created) -or ($held.resumed -and -not $held.created) -or ($null -ne $code -and -not($held.created -and $held.exit_observed)) -or ($held.cleanup_confirmed -and $held.created -and -not $held.exit_observed)){return $false}
+    $readStates=@('not_attempted','missing','read_error','overbound','utf8','json','duplicate','nonfinite','not_object','close_uncertain','parsed')
+    $bindingStates=@('not_attempted','unavailable','schema','nonce','hash','deadline','identity','image','pipe','eof','exit','cleanup','verified')
+    $sources=@('none','owner','report','owned_stdout')
+    $stages=@('not_started','arguments','inputs','qpc','identity','job','stdio','create','assign','image','token','resume','wait','copy','profile','acl','pipes','echo','native_report','eof','cleanup','report','complete','initial_token','input_validation','input_copy','profile_create','acl_grant','sid','echo_write','echo_read','exit','native_parse','completed')
+    $categories=@('none','configuration','deadline','identity','hash','io','parser','schema','native','invariant','cleanup','other')
+    $operations=@('none','qpc','token','image','job_create','job_assign','job_query','job_terminate','process_create','process_wait','process_exit','process_terminate','resume','stdio','attribute','pipe','profile','acl','close','other')
+    foreach($spec in @(@('reads',3,$readStates),@('bindings',3,$bindingStates),@('stdout_reads',2,$readStates),@('execution_sources',3,$sources))) {
+        $items=$Value.($spec[0])
+        if($items -isnot [array] -or $items.Count -ne $spec[1]){return $false}
+        foreach($item in $items){if($item -isnot [string] -or $item -cnotin $spec[2]){return $false}}
+    }
+    if($Value.execution -isnot [array] -or $Value.execution.Count -ne 3){return $false}
+    for($i=0;$i -lt 3;$i++) {
+        $source=$Value.execution_sources[$i];$record=$Value.execution[$i]
+        if(($source -ceq 'none') -ne ($null -eq $record)){return $false}
+        if(($i -eq 0 -and $source -cnotin @('none','owner')) -or ($i -gt 0 -and $source -ceq 'owner')){return $false}
+        if($source -ceq 'report' -and ($Value.reads[$i-1] -cne 'parsed' -or $Value.bindings[$i-1] -cne 'verified')){return $false}
+        if($source -ceq 'owned_stdout' -and ($Value.stdout_reads[$i-1] -cne 'parsed' -or ($i -eq 1 -and -not($held.created -and $held.exit_observed)) -or ($i -eq 2 -and $Value.bindings[0] -cne 'verified'))){return $false}
+        if($null -eq $record){continue}
+        if($record -isnot [array] -or $record.Count -ne 5){return $false}
+        if($record[0] -isnot [string] -or $record[0] -cnotin $stages){return $false}
+        if($null -ne $record[1] -and ($record[1] -isnot [string] -or $record[1] -cnotin $stages)){return $false}
+        if($record[2] -isnot [string] -or $record[2] -cnotin $categories -or $record[3] -isnot [string] -or $record[3] -cnotin $operations){return $false}
+        $native=$record[4]
+        if($null -ne $native -and (($native -isnot [int] -and $native -isnot [long]) -or $native -lt 0 -or $native -gt 4294967295)){return $false}
+        if(($record[2] -ceq 'none') -ne ($null -eq $record[1])){return $false}
+        if($record[2] -ceq 'none' -and ($record[3] -cne 'none' -or $null -ne $native)){return $false}
+        if($null -ne $native -and ($record[2] -cne 'native' -or $record[3] -cin @('none','other','profile'))){return $false}
+    }
+    return $true
+}
 function Test-Stage0bPublic($Value,$Configuration) {
     $booleans=@('current_ordinary_verified','launcher_creation_observed','probe_creation_observed','actor_creation_observed','launcher_identity_verified','probe_identity_verified','actor_identity_verified','fresh_actor_verified','pipe_echo_verified','pipe_eof_verified','actor_exit_verified','nested_cleanup_verified','launcher_exit_verified','adapter_cleanup_verified','stage0b_passed','network_tested','proxy_tested','product_acceptance')
-    $keys=@('schema_version','stage','case_nonce_sha256','actor_sha256','status','failure')+$booleans
+    $keys=@('schema_version','stage','case_nonce_sha256','actor_sha256','status','failure','diagnostic')+$booleans
     if($Value -isnot [PSCustomObject] -or @($Value.PSObject.Properties).Count -ne $keys.Count){return $false}
     foreach($key in $keys){if($key -cnotin @($Value.PSObject.Properties.Name)){return $false}}
     foreach($key in @('stage','actor_sha256','case_nonce_sha256','status')){if($Value.$key -isnot [string]){return $false}}
-    if($Value.schema_version -isnot [int] -or $Value.schema_version -ne 1 -or $Value.stage -cne 'stage0b-minimum' -or $Value.actor_sha256 -cne $Configuration.actor_sha256 -or $Value.case_nonce_sha256 -cne (Get-N0aSha256 ([Text.Encoding]::ASCII.GetBytes($Configuration.case_nonce)))){return $false}
+    if($Value.schema_version -isnot [int] -or $Value.schema_version -ne 2 -or $Value.stage -cne 'stage0b-minimum' -or $Value.actor_sha256 -cne $Configuration.actor_sha256 -or $Value.case_nonce_sha256 -cne (Get-N0aSha256 ([Text.Encoding]::ASCII.GetBytes($Configuration.case_nonce)))){return $false}
     foreach($key in $booleans){if($Value.$key -isnot [bool]){return $false}}
     foreach($key in @('network_tested','proxy_tested','product_acceptance')){if($Value.$key -ne $false){return $false}}
     if($null -ne $Value.failure -and ($Value.failure -isnot [string] -or $Value.failure -cnotin @('capacity','cleanup','configuration','deadline','disabled','identity','internal','launcher','report'))){return $false}
+    if(-not(Test-Stage0bDiagnostic $Value.diagnostic)){return $false}
     $dependencies=@{
         launcher_identity_verified=@('current_ordinary_verified','launcher_creation_observed')
         probe_identity_verified=@('launcher_identity_verified','probe_creation_observed')
@@ -363,9 +407,10 @@ function Test-Stage0bPublic($Value,$Configuration) {
     return ($Value.stage0b_passed -eq $passed -and $Value.status -ceq $status)
 }
 function ConvertFrom-Stage0bPublic([string]$Text,$Configuration) {
-    # Fixed flat schema has no legitimate escaped keys/values. Reject duplicates before JSON collapses them.
+    # Closed schema2 uses globally distinct object keys and fixed labels; no legitimate escaped keys/values.
+    # Reject duplicate tokens before JSON collapses them, including nested held fields.
     if($Text.Contains('\')){throw 'stage0b_json'}
-    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach($match in [regex]::Matches($Text,'"([^"\\]*)"\s*:')) {
         if(-not $seen.Add($match.Groups[1].Value)){throw 'stage0b_duplicate'}
     }

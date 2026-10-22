@@ -105,25 +105,31 @@ def wait_bounded(api, process, phases, cleanup=False):
     return result,late
 
 
-def stop_owned_child(api, process, job, assigned, wait_ms, wait_job_empty, errors, attempted=False, observed_wait=None):
+def stop_owned_child(api, process, job, assigned, wait_ms, wait_job_empty, errors, attempted=False, observed_wait=None, diagnostic_error=None):
     """Best-effort termination, but only observed waits establish quiescence."""
     process_stopped, job_empty = not bool(process) and not attempted, not bool(job)
     if process:
         try:
             if assigned: api.terminate_job(job)
             else: api.terminate_process(process)
-        except Exception as exc: errors.append(proof.smoke.failure(exc))
+        except Exception as exc:
+            if diagnostic_error: diagnostic_error(exc,'job_terminate' if assigned else 'process_terminate')
+            errors.append(proof.smoke.failure(exc))
         try:
             outcome,late=observed_wait(process) if observed_wait else (api.wait_process(process,wait_ms()),False)
             if outcome != 0: raise TimeoutError('cleanup process wait')
             process_stopped=True
             if late: errors.append({'operation':'observed_process_deadline'})
-        except Exception as exc: errors.append(proof.smoke.failure(exc))
+        except Exception as exc:
+            if diagnostic_error: diagnostic_error(exc,'process_wait')
+            errors.append(proof.smoke.failure(exc))
     if job:
         try:
             job_empty=wait_job_empty(job)
             if not job_empty: raise TimeoutError('cleanup Job drain')
-        except Exception as exc: errors.append(proof.smoke.failure(exc))
+        except Exception as exc:
+            if diagnostic_error: diagnostic_error(exc,'job_query')
+            errors.append(proof.smoke.failure(exc))
     return process_stopped, job_empty
 
 
@@ -191,10 +197,13 @@ def read_actor_report(path):
     return value
 
 
-def verify_suspended_child(token_api, process, job, exe, expected_sid, read_sid):
+def verify_suspended_child(token_api, process, job, exe, expected_sid, read_sid, stage=None):
     """Read only the held process before the caller's single ResumeThread."""
+    if stage: stage('image')
     token_api.verify_image(process, exe)
+    if stage: stage('job')
     token_api.verify_job(job, process)
+    if stage: stage('sid')
     observed_sid = read_sid(process)
     if observed_sid != expected_sid:
         raise RuntimeError('child identity mismatch before resume')
@@ -203,19 +212,22 @@ def verify_suspended_child(token_api, process, job, exe, expected_sid, read_sid)
 
 
 def admit_suspended(api, token_api, info, job, exe, digest, expected_sid,
-                    read_sid, owners, child_handles, require_time, state, report):
+                    read_sid, owners, child_handles, require_time, state, report, stage=None):
     """Single held-process admission; state survives every failure for cleanup."""
     require_time(5)
+    if stage: stage('assign')
     api.assign_job(job, info.hProcess)
     state['assigned_to_job'] = True
     report['observed_child_sid'] = verify_suspended_child(
-        token_api, info.hProcess, job, exe, expected_sid, read_sid)
+        token_api, info.hProcess, job, exe, expected_sid, read_sid, stage)
     report['image_verified_before_resume'] = True
+    if stage: stage('input_copy')
     report['copied_actor_sha256'] = verify_copied_actor(exe, digest)
     for handle in child_handles:
         owners.close(handle)
     require_time(5)
     # api.resume_thread checks the actual prior suspend count equals exactly 1.
+    if stage: stage('resume')
     api.resume_thread(info.hThread)
     owners.close(info.hThread)
 
@@ -328,15 +340,37 @@ def checked_sid_pointer(buffer, returned):
     return pointer
 
 
-def run(args):
+def run(args, diagnostic=None):
+    # A record is supplied only by the new scoped main path; legacy callers do
+    # not load diagnostics or gain an alternate execution/error path.
+    helper=None
+    if diagnostic is not None:
+        helper=diagnostic_helpers()
+    def stage(value):
+        if helper: helper.diagnostic_stage(diagnostic,value)
+    def failed(exc,operation=None):
+        if helper:
+            if operation is None:
+                operation={'qpc':'qpc','initial_token':'token','identity':'token','sid':'token',
+                           'create':'process_create','assign':'job_assign','image':'image',
+                           'resume':'resume','pipes':'pipe','echo_write':'pipe','echo_read':'pipe',
+                           'eof':'pipe','exit':'process_wait','profile_create':'profile',
+                           'acl_grant':'acl'}.get(diagnostic[0],'other')
+            helper.diagnostic_error(diagnostic,exc,operation)
+    stage('arguments')
     if os.name != 'nt' or not args.disposable_ci or not args.approved_security_test:
         raise PermissionError('requires an approved disposable Windows security test')
     # Reuse the audited token readers, not the historical smoke helper's
     # looser SID/scalar decoding. This observes only the current controller.
-    token_spec=importlib.util.spec_from_file_location('identity_pipe_token_reader',
-        Path(__file__).with_name('windows_identity_ordinary_launcher.py'))
-    token_reader=importlib.util.module_from_spec(token_spec);token_spec.loader.exec_module(token_reader)
+    if helper:
+        token_reader=helper
+    else:
+        token_spec=importlib.util.spec_from_file_location('identity_pipe_token_reader',
+            Path(__file__).with_name('windows_identity_ordinary_launcher.py'))
+        token_reader=importlib.util.module_from_spec(token_spec);token_spec.loader.exec_module(token_reader)
+    stage('initial_token')
     token_api=token_reader.NativeAPI()
+    stage('qpc')
     supplied=(getattr(args,'deadline_qpc',None),getattr(args,'qpc_frequency',None))
     if (supplied[0] is None) != (supplied[1] is None):
         raise ValueError('paired QPC deadline required')
@@ -349,9 +383,11 @@ def run(args):
     phases=ProbePhases(budget,token_api,supplied[1])
     require_time,phase_limit,phase_remaining=phases.require,phases.limit,phases.remaining
     require_time(15)
+    stage('initial_token')
     current=token_api.current_token()
     current_owner=OneShotHandles(token_api.close); current_owner.add(current)
     try:
+        stage('identity')
         observed=token_api.identity(current)
         identity={'sid':observed['sid'],'pid':os.getpid(),'cid':token_api.compartment(),
                   'elevated':observed['elevated'],'appcontainer':observed['appcontainer']}
@@ -411,6 +447,7 @@ def run(args):
             api._check(a.GetTokenInformation(token,31,buf,len(buf),C.byref(size)))
             return sid_text(checked_sid_pointer(buf,size.value))
         finally: owners.close(token.value)
+    stage('input_validation')
     actor=args.actor.resolve(strict=True)
     if actor.suffix.lower()!='.exe' or not 512 <= actor.stat().st_size <= 8*1024*1024:
         raise ValueError('expected bounded native actor')
@@ -434,19 +471,23 @@ def run(args):
     work_state={'created':False}
     journal={'schema_version':1,'profile':name,'nonce':nonce,'profile_created':False,'derived_sid':None}
     try:
+        stage('input_copy')
         report['copied_actor_sha256']=prepare_owned_files(
             work,inputs,output,actor,exe,digest,journal,work_state,
             proof.smoke.save,shutil.copyfile,require_time)
+        stage('profile_create')
         code=ue.CreateAppContainerProfile(name,name,'Disposable identity pipe proof',None,0,C.byref(sid)) & 0xffffffff
         if code: raise OSError(code,'CreateAppContainerProfile (never reuse existing profile)')
         created=True; report['derived_sid']=sid_text(sid)
         journal.update(profile_created=True,derived_sid=report['derived_sid'])
         proof.smoke.save(work/'ownership.json',journal)
         # Grants on this fresh owned tree only. No ALL APPLICATION PACKAGES ACE.
+        stage('acl_grant')
         for path,right in ((work,'RX'),(inputs,'(OI)(CI)(RX)'),(output,'(OI)(CI)(M)')):
             subprocess.run([str(Path(os.environ['SystemRoot'])/'System32/icacls.exe'),str(path),'/grant',
                             '*'+report['derived_sid']+':'+right,'/Q'],stdin=subprocess.DEVNULL,
                            capture_output=True,timeout=require_time(15),check=True)
+        stage('pipes')
         class SA(C.Structure):
             _fields_=[('length',D),('security',H),('inherit',C.c_int)]
         sa=SA(C.sizeof(SA),None,True)
@@ -456,6 +497,7 @@ def run(args):
             owners.add(read.value); owners.add(write.value)
         for handle in (parent_write,parent_read): api._check(k.SetHandleInformation(handle,1,0))
         require_time(5)
+        stage('job')
         job=api.create_job(); job_owner.add(job)
         api.configure_job(job,proc._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
         size=C.c_size_t(); k.InitializeProcThreadAttributeList(None,2,0,C.byref(size))
@@ -471,6 +513,7 @@ def run(args):
             cmd=[str(exe),'actor-pipe',nonce,str(output/'actor.json'),str(child_read.value),str(child_write.value)]
             environment=C.create_unicode_buffer(proc._environment_block({'SystemRoot':os.environ['SystemRoot']}))
             require_time(5)
+            stage('create')
             create_suspended_owned(lambda:k.CreateProcessW(str(exe),C.create_unicode_buffer(subprocess.list2cmdline(cmd)),None,None,True,
                        proc._CREATE_SUSPENDED|proc._CREATE_UNICODE_ENVIRONMENT|proc._EXTENDED_STARTUPINFO_PRESENT,
                        environment,str(output),C.byref(startup),C.byref(info)),api._check,info,owners,state)
@@ -478,12 +521,14 @@ def run(args):
         report['child_pid']=int(info.dwProcessId)
         admit_suspended(api,token_api,info,job,exe,digest,report['derived_sid'],
                         process_sid,owners,(child_read.value,child_write.value),
-                        require_time,state,report)
+                        require_time,state,report,stage)
         require_time(5)
+        stage('echo_write')
         written=D(); payload=nonce.encode('ascii')
         api._check(k.WriteFile(parent_write,payload,len(payload),C.byref(written),None))
         if written.value!=len(payload): raise RuntimeError('partial pipe frame write')
         close(parent_write.value)
+        stage('echo_read')
         deadline=phase_limit(5); available=D()
         while phase_remaining(deadline)>0:
             api._check(k.PeekNamedPipe(parent_read,None,0,None,C.byref(available),None))
@@ -493,39 +538,50 @@ def run(args):
         buf=C.create_string_buffer(33); count=D()
         api._check(k.ReadFile(parent_read,buf,33,C.byref(count),None))
         report['echo_matched']=count.value==32 and buf.raw[:32]==payload
+        stage('exit')
         wait_result,wait_late=wait_bounded(api,info.hProcess,phases)
         if wait_result!=0: raise TimeoutError('actor exit deadline')
         report['exit_code']=api.exit_code(info.hProcess)
         if wait_late: raise TimeoutError('observed actor exit after phase deadline')
         require_time(5)
         C.set_last_error(0)
+        stage('eof')
         ok=k.ReadFile(parent_read,buf,1,C.byref(count),None)
         report['pipe_eof_observed']=not ok and C.get_last_error()==109
         require_time(5)
+        stage('native_parse')
         report['actor']=read_actor_report(output/'actor.json')
         require_time(5)
     except Exception as exc:
+        failed(exc)
         report['error']=proof.smoke.failure(exc)
         if isinstance(exc,FileCloseUncertain): report['reader_close_uncertain']=True
     finally:
+        stage('cleanup')
         process_stopped,job_empty=stop_owned_child(
             api,info.hProcess,job,state['assigned_to_job'],
             lambda:int(require_time(5,True)*1000),wait_job_empty,report['cleanup']['errors'],
             attempted=state['creation_attempted'],
-            observed_wait=lambda process:wait_bounded(api,process,phases,True))
+            observed_wait=lambda process:wait_bounded(api,process,phases,True),diagnostic_error=failed)
         report['cleanup']['job_empty']=job_empty
         for h in list(handles):
             try: close(h)
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+            except Exception as exc:
+                failed(exc,'close')
+                report['cleanup']['errors'].append(proof.smoke.failure(exc))
         report['cleanup']['handles_closed']=owners.confirmed_closed
         report['cleanup']['process_exit_confirmed']=process_stopped
         if job:
             try: job_owner.close(job); report['cleanup']['job_closed']=job_owner.confirmed_closed
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+            except Exception as exc:
+                failed(exc,'close')
+                report['cleanup']['errors'].append(proof.smoke.failure(exc))
         if sid:
             try:
                 if a.FreeSid(sid): raise RuntimeError('FreeSid failed')
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+            except Exception as exc:
+                failed(exc,'close')
+                report['cleanup']['errors'].append(proof.smoke.failure(exc))
         if created and process_stopped and job_empty:
             try:
                 owned_paths(work)
@@ -533,14 +589,18 @@ def run(args):
                                 '/remove:g','*'+report['derived_sid'],'/T','/Q'],
                                stdin=subprocess.DEVNULL,capture_output=True,timeout=require_time(15,True),check=True)
                 report['cleanup']['owned_aces_removed']=verify_no_owned_ace(work,report['derived_sid'])
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+            except Exception as exc:
+                failed(exc,'acl')
+                report['cleanup']['errors'].append(proof.smoke.failure(exc))
             if report['cleanup'].get('owned_aces_removed') is True:
                 try:
                     require_time(5,True)
                     code=ue.DeleteAppContainerProfile(name)&0xffffffff
                     report['cleanup']['profile_deleted']=code==0
                     if code: report['cleanup']['errors'].append({'operation':'DeleteAppContainerProfile','code':code})
-                except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+                except Exception as exc:
+                    failed(exc,'profile')
+                    report['cleanup']['errors'].append(proof.smoke.failure(exc))
             else:
                 report['cleanup']['profile_retained_due_to_uncertain_acl_cleanup']=True
         elif created:
@@ -549,12 +609,32 @@ def run(args):
                                               or report.get('reader_close_uncertain') is True)
         if budget:
             try: require_time(1,True)
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+            except Exception as exc:
+                failed(exc,'qpc')
+                report['cleanup']['errors'].append(proof.smoke.failure(exc))
+    if report['cleanup']['errors'] and helper:
+        helper.diagnostic_error(diagnostic,RuntimeError('cleanup observation failed'),'other')
+    if diagnostic is not None: report['diagnostic_execution']=list(diagnostic)
+    stage('report')
     journal['cleanup']=report['cleanup']
     if work_state['created']: proof.smoke.save(work/'ownership.json',journal)
     report['checks']=checks(report); report['stage0b_passed']=all(report['checks'].values())
     if work_state['created']: proof.smoke.save(args.report,report)
+    stage('completed')
     return 0 if report['stage0b_passed'] else 1
+
+
+_DIAGNOSTIC_HELPERS=None
+
+
+def diagnostic_helpers():
+    global _DIAGNOSTIC_HELPERS
+    if _DIAGNOSTIC_HELPERS is not None: return _DIAGNOSTIC_HELPERS
+    spec=importlib.util.spec_from_file_location('identity_pipe_diagnostic_helpers',
+        Path(__file__).with_name('windows_identity_ordinary_launcher.py'))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    _DIAGNOSTIC_HELPERS=module
+    return module
 
 
 def main(argv=None):
@@ -566,6 +646,16 @@ def main(argv=None):
     parser.add_argument('--deadline-qpc',type=int)
     parser.add_argument('--qpc-frequency',type=int)
     parser.add_argument('--case-nonce')
-    return run(parser.parse_args(argv))
+    args=parser.parse_args(argv)
+    scoped=any(getattr(args,key,None) is not None for key in ('deadline_qpc','qpc_frequency','case_nonce'))
+    if not scoped: return run(args)
+    helper=diagnostic_helpers();diagnostic=helper.diagnostic_new()
+    try:
+        return run(args,diagnostic)
+    except BaseException as exc:
+        helper.diagnostic_error(diagnostic,exc)
+        raise
+    finally:
+        helper.emit_scoped_diagnostic(args,diagnostic)
 
 if __name__=='__main__': raise SystemExit(main())

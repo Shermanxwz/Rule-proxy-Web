@@ -157,3 +157,69 @@ absolute-deadline, exact echo/EOF and cleanup admission must all succeed in a
 separately authorized bounded guest run; an enabled flag does not establish
 those observations. Original Stage0 failure is never converted into overall
 or product success by independent IPC evidence.
+
+## Schema 2 closed failure diagnostics (code-only follow-up)
+
+The first runtime's schema-1 `failure="report"` did not distinguish missing,
+invalid or unbound launcher/probe/native reports. Because the adapter previously
+read all three before projecting any, a missing later file could also leave
+an earlier identity unverified. This does **not** establish that no child was
+created, or identify that runtime's underlying failure. Its archived schema-1
+result is unchanged; new public schema **2** is not a relabeling of old evidence.
+
+Schema 2 retains every prior core fact and the same full qualification
+conjunction. The extra `diagnostic.v=1` contains:
+
+- `held`: actual launcher creation, resume, exit observation, nullable DWORD
+  exit code, and the launch owner's cleanup observation. False means not
+  positively observed, not proof that an operation never happened. This cleanup
+  observation excludes later adapter report/token closure; the existing
+  `adapter_cleanup_verified` includes those later uncertainties.
+- `reads[3]` and `bindings[3]`, in launcher/probe/native order. Read states are
+  not-attempted, missing, read-error, overbound, invalid UTF-8/JSON, duplicate,
+  nonfinite, non-object, close-uncertain, or parsed (the wire uses fixed underscore
+  labels). Parsed is not identity verification. Binding records the first failed
+  verification stage, unavailable/not-attempted, or verified. Launcher/probe
+  verified means their fresh invocation identity binding; native verified also
+  covers the existing exact pipe, EOF, exit and nested-cleanup checks. These
+  labels do not replace any core acceptance predicate.
+- `stdout_reads[2]`, in launcher/probe order, and three `execution` entries for
+  the adapter-owned launch, launcher, and probe. Each is null or the fixed tuple
+  `[last_stage, first_failed_stage_or_null, category, operation, win32_or_null]`.
+  The first error remains sticky through cleanup. `execution_sources` explicitly
+  identifies `none`, `owner`, `report`, or `owned_stdout`. A source stage is an
+  observation, not proof of actor execution. Only actual captured Win32 errors
+  with an allowlisted operation have a numeric code; synthetic, unknown, and
+  profile HRESULT errors do not acquire invented Win32 codes.
+
+Launcher and probe scoped entries emit one best-effort diagnostic object to
+already-owned redirected `controller.stdout`, at most **1,024 bytes**. There is
+no new path, process, network action, permission, deadline, or retry. Original
+return/raise behavior survives diagnostic-write failure. No output is emitted
+for an invalid nonce/hash/deadline binding. The consumer reads only after the
+held child exited and its image/current identity were verified before resume;
+then it requires strict UTF-8, one duplicate-free finite JSON object, no surplus
+non-whitespace, and the expected actor hash, nonce commitment and original D/F.
+This is an **owned-stdio invocation observation**, not successful private-report
+identity or successful nonce execution. Interpreter/import failures before the
+wrapper, forced termination, or failed emission can still leave it unavailable.
+Raw stderr is never parsed. Legacy non-scoped execution does not emit or consume
+these records.
+
+Reports are now read independently, so missing or invalid later evidence does
+not erase an earlier independently bound identity or exact pipe observation.
+A missing/invalid native report still cannot establish native identity or echo.
+Every uncertain file close retains its exact one-shot owner and forbids cleanup
+qualification; no bare handle/stream retry is introduced. Diagnostic absence or
+malformation cannot manufacture success. The same original QPC cutoffs and
+post-operation deadline checks remain in force.
+
+The conservative independent-field size composition (longest enums, false
+booleans, maximal numeric widths, including the longer signed outer exit code)
+measures **1,922 bytes** public, **2,335 bytes** transport envelope, and **2,740
+bytes** full host wrapper, each `indent=2` plus newline. This is a serialization
+ceiling composition, not a jointly attainable execution. A valid all-fields
+composition is separately tested. The diagnostic stdout upper composition is
+437 bytes. All remain below their unchanged 4,096/1,024-byte limits; the existing
+1 MiB staging planning allowance is not a filesystem or stdout quota. No valid
+positive is dropped merely to fit the envelope.

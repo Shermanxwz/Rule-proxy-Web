@@ -29,7 +29,98 @@ REQUIRED_FACTS = BOOL_FIELDS[:14]
 FAILURES = frozenset(('disabled', 'configuration', 'capacity', 'identity', 'launcher',
                       'report', 'cleanup', 'deadline', 'internal'))
 PUBLIC_KEYS = frozenset(('schema_version', 'stage', 'case_nonce_sha256', 'actor_sha256',
-                         'status', 'failure', *BOOL_FIELDS))
+                         'status', 'failure', 'diagnostic', *BOOL_FIELDS))
+
+
+READ_STATES = ('not_attempted','missing','read_error','overbound','utf8','json','duplicate','nonfinite','not_object','close_uncertain','parsed')
+BINDING_STATES = ('not_attempted','unavailable','schema','nonce','hash','deadline','identity','image','pipe','eof','exit','cleanup','verified')
+EXECUTION_SOURCES = ('none','owner','report','owned_stdout')
+
+
+def default_diagnostic():
+    return dict(v=1, held=dict(created=False,resumed=False,exit_observed=False,
+                              exit_code=None,cleanup_confirmed=False),
+                reads=['not_attempted']*3, bindings=['not_attempted']*3,
+                stdout_reads=['not_attempted']*2, execution_sources=['none']*3,
+                execution=[None]*3)
+
+
+def validate_diagnostic(value):
+    if type(value) is not dict or set(value) != set(default_diagnostic()) or type(value['v']) is not int or value['v'] != 1:
+        raise ValueError('diagnostic')
+    held = value['held']
+    if type(held) is not dict or set(held) != set(default_diagnostic()['held']):
+        raise ValueError('diagnostic')
+    if any(type(held[k]) is not bool for k in ('created','resumed','exit_observed','cleanup_confirmed')):
+        raise ValueError('diagnostic')
+    code = held['exit_code']
+    if code is not None and (type(code) is not int or not 0 <= code <= 0xffffffff):
+        raise ValueError('diagnostic')
+    if (held['resumed'] and not held['created'] or held['exit_observed'] and not held['created'] or code is not None and not (held['created'] and held['exit_observed'])
+            or held['cleanup_confirmed'] and held['created'] and not held['exit_observed']):
+        raise ValueError('diagnostic')
+    for key, count, labels in (('reads',3,READ_STATES),('bindings',3,BINDING_STATES),
+                               ('stdout_reads',2,READ_STATES),('execution_sources',3,EXECUTION_SOURCES)):
+        if type(value[key]) is not list or len(value[key]) != count or any(type(x) is not str or x not in labels for x in value[key]):
+            raise ValueError('diagnostic')
+    if type(value['execution']) is not list or len(value['execution']) != 3:
+        raise ValueError('diagnostic')
+    for index, (source, execution) in enumerate(zip(value['execution_sources'],value['execution'])):
+        if ((source == 'none') != (execution is None) or index == 0 and source not in ('none','owner')
+                or index > 0 and source == 'owner'):
+            raise ValueError('diagnostic')
+        if source == 'report' and (value['reads'][index-1] != 'parsed' or value['bindings'][index-1] != 'verified'):
+            raise ValueError('diagnostic')
+        if source == 'owned_stdout' and (value['stdout_reads'][index-1] != 'parsed'
+                or index == 1 and not (held['created'] and held['exit_observed'])
+                or index == 2 and value['bindings'][0] != 'verified'):
+            raise ValueError('diagnostic')
+        if execution is not None:
+            launcher_module().validate_execution(execution)
+    return value
+
+
+def read_diagnostic_file(launcher, path, limit):
+    try:
+        return launcher.read_private(path,limit), 'parsed'
+    except FileNotFoundError:
+        return None, 'missing'
+    except launcher.GateFailure as exc:
+        states = {'private_report_bound':'overbound','private_report_utf8':'utf8',
+                  'private_report_json':'json','private_report_duplicate':'duplicate',
+                  'private_report_nonfinite':'nonfinite','private_report_object':'not_object',
+                  'private_report_close_uncertain':'close_uncertain'}
+        return None, states.get(str(exc),'read_error')
+    except Exception:
+        return None, 'read_error'
+
+
+def owned_stdout_execution(value, launch, config, deadline, frequency, launcher):
+    """Owned stdio is an invocation observation, not report-bound identity."""
+    if (type(launch) is not dict or launch.get('native_identity_verified_before_resume') is not True
+            or launch.get('cleanup',{}).get('process_exit_confirmed') is not True
+            or type(launch.get('child_pid')) is not int or launch['child_pid'] <= 0):
+        return None
+    if (type(value) is not dict or set(value) != {'schema_version','stage','actor_sha256','case_nonce_sha256','deadline_qpc','qpc_frequency','execution'}
+            or type(value['schema_version']) is not int or value['schema_version'] != 1
+            or value['stage'] != 'stage0b-diagnostic'
+            or value['actor_sha256'] != config['actor_sha256']
+            or value['case_nonce_sha256'] != hashlib.sha256(config['case_nonce'].encode('ascii')).hexdigest()
+            or type(value['deadline_qpc']) is not int or value['deadline_qpc'] != deadline
+            or type(value['qpc_frequency']) is not int or value['qpc_frequency'] != frequency):
+        return None
+    try:
+        return launcher.validate_execution(value['execution'])
+    except Exception:
+        return None
+
+
+def set_execution(diagnostic, index, value, source, launcher):
+    try:
+        diagnostic['execution'][index] = launcher.validate_execution(value)
+        diagnostic['execution_sources'][index] = source
+    except Exception:
+        pass  # Invalid optional diagnostics never create or erase core facts.
 
 
 def unique_object(pairs):
@@ -55,9 +146,9 @@ def default_public(case_nonce, actor_sha256):
         raise ValueError('nonce')
     if type(actor_sha256) is not str or not HASH.fullmatch(actor_sha256):
         raise ValueError('pin')
-    return dict(schema_version=1, stage='stage0b-minimum',
+    return dict(schema_version=2, stage='stage0b-minimum',
                 case_nonce_sha256=hashlib.sha256(case_nonce.encode('ascii')).hexdigest(),
-                actor_sha256=actor_sha256, status='inconclusive', failure=None,
+                actor_sha256=actor_sha256, status='inconclusive', failure=None, diagnostic=default_diagnostic(),
                 **{key: False for key in BOOL_FIELDS})
 
 
@@ -74,6 +165,7 @@ def validate_public(value, case_nonce, actor_sha256):
         raise ValueError('scope')
     if value['failure'] is not None and (type(value['failure']) is not str or value['failure'] not in FAILURES):
         raise ValueError('failure')
+    validate_diagnostic(value['diagnostic'])
     dependencies = {
         'launcher_identity_verified': ('current_ordinary_verified', 'launcher_creation_observed'),
         'probe_identity_verified': ('launcher_identity_verified', 'probe_creation_observed'),
@@ -174,12 +266,52 @@ def cleanup_verified(launch):
             and cleanup.get('close_uncertain') is False and cleanup.get('errors') == [])
 
 
+def launcher_binding_stage(report,launch,config,sid,deadline,frequency):
+    checks = (
+        ('schema',type(report.get('schema_version')) is int and report['schema_version']==2 and report.get('stage')=='current-ordinary-stage0b-launcher' and report.get('current_ordinary_only') is True),
+        ('nonce',report.get('case_nonce')==config['case_nonce']),
+        ('hash',report.get('actor_sha256')==config['actor_sha256']),
+        ('deadline',type(report.get('deadline_qpc')) is int and report['deadline_qpc']==deadline and type(report.get('qpc_frequency')) is int and report['qpc_frequency']==frequency),
+        ('identity',type(report.get('controller_pid')) is int and report['controller_pid']==launch.get('child_pid') and report.get('controller_sid')==sid and report.get('current_ordinary_verified') is True),
+        ('image',launch.get('native_identity_verified_before_resume') is True))
+    return next((label for label,ok in checks if not ok),'verified')
+
+
+def probe_binding_stage(probe,config,pid,sid,deadline,frequency):
+    if type(probe) is not dict:return 'unavailable'
+    identity=probe.get('controller_identity')
+    checks=(('schema',type(probe.get('schema_version')) is int and probe['schema_version']==1 and probe.get('stage')=='0b' and type(identity) is dict),
+            ('nonce',probe.get('nonce')==config['case_nonce']),
+            ('hash',probe.get('actor_sha256')==config['actor_sha256']),
+            ('deadline',type(probe.get('deadline_qpc')) is int and probe['deadline_qpc']==deadline and type(probe.get('qpc_frequency')) is int and probe['qpc_frequency']==frequency))
+    for label,ok in checks:
+        if not ok:return label
+    if not (type(identity.get('pid')) is int and identity['pid']==pid and identity.get('sid')==sid and identity.get('elevated') is False and identity.get('appcontainer') is False and type(identity.get('cid')) is int and identity['cid']==1):return 'identity'
+    return 'verified'
+
+
+def native_binding_stage(probe,native,facts):
+    if type(native) is not dict or type(probe) is not dict:return 'unavailable'
+    if not facts['probe_identity_verified']:return 'identity'
+    if json.dumps(native,sort_keys=True,allow_nan=False)!=json.dumps(probe.get('actor'),sort_keys=True,allow_nan=False):return 'hash'
+    if type(native.get('schemaVersion')) is not int or native['schemaVersion']!=1:return 'schema'
+    if probe.get('copied_actor_sha256') != probe.get('actor_sha256'):return 'hash'
+    if probe.get('image_verified_before_resume') is not True:return 'image'
+    if not facts['actor_identity_verified']:return 'identity'
+    if not facts['fresh_actor_verified']:return 'nonce'
+    for field,label in (('pipe_echo_verified','pipe'),('pipe_eof_verified','eof'),('actor_exit_verified','exit'),('nested_cleanup_verified','cleanup')):
+        if not facts[field]:return label
+    return 'verified'
+
+
 def project_private(public, launcher, launch, report, probe, config, parent_sid, deadline, frequency, *, native=None):
     """No trusted Boolean from the report replaces the held outer chain."""
     public['launcher_creation_observed'] = launch.get('started') is True
     public['launcher_exit_verified'] = (launch.get('cleanup', {}).get('process_exit_confirmed') is True
                                        and type(launch.get('exit_code')) is int and launch['exit_code'] == 0)
     public['adapter_cleanup_verified'] = cleanup_verified(launch)
+    diagnostic = public['diagnostic']
+    diagnostic['bindings'][0] = 'unavailable'
     if type(report) is not dict:
         return
     bound = (type(report.get('schema_version')) is int and report['schema_version'] == 2
@@ -195,8 +327,12 @@ def project_private(public, launcher, launch, report, probe, config, parent_sid,
              and report.get('current_ordinary_verified') is True
              and launch.get('native_identity_verified_before_resume') is True)
     if not bound:
+        diagnostic['bindings'][0] = launcher_binding_stage(report,launch,config,parent_sid,deadline,frequency)
         return
+    diagnostic['bindings'][0] = 'verified'
     public['launcher_identity_verified'] = True
+    set_execution(diagnostic,1,report.get('diagnostic_execution'),'report',launcher)
+    diagnostic['bindings'][1] = 'unavailable'
     inner = report.get('launch')
     if type(inner) is not dict:
         return
@@ -208,6 +344,10 @@ def project_private(public, launcher, launch, report, probe, config, parent_sid,
     facts = launcher.probe_facts(probe, config['case_nonce'], config['actor_sha256'],
                                  inner['child_pid'], parent_sid, deadline, frequency, native=native)
     public.update(facts)
+    diagnostic['bindings'][1] = probe_binding_stage(probe,config,inner['child_pid'],parent_sid,deadline,frequency)
+    if facts['probe_identity_verified']:
+        set_execution(diagnostic,2,probe.get('diagnostic_execution'),'report',launcher)
+    diagnostic['bindings'][2] = native_binding_stage(probe,native,facts)
     public['nested_cleanup_verified'] = (facts['nested_cleanup_verified'] and cleanup_verified(inner)
                                          and report.get('cleanup', {}).get('token_handles_closed') is True
                                          and report.get('cleanup', {}).get('errors') == []
@@ -267,6 +407,8 @@ def execute(config, deadline, frequency, *, root=ROOT, api=None):
                                           config, deadline, frequency)
         launch = launcher.launch_owned(api, command, work, parent, parent, qpc_budget=budget,
                                         work_cutoff=budget.cutoff(5), cleanup_cutoff=budget.deadline)
+        public['diagnostic']['held'] = dict(created=launch.get('started') is True,resumed=launch.get('resumed') is True,exit_observed=launch.get('started') is True and launch.get('cleanup',{}).get('process_exit_confirmed') is True,exit_code=launch.get('exit_code'),cleanup_confirmed=cleanup_verified(launch))
+        set_execution(public['diagnostic'],0,launch.get('diagnostic_execution'),'owner',launcher)
         public['launcher_creation_observed'] = launch.get('started') is True
         public['adapter_cleanup_verified'] = cleanup_verified(launch)
         public['launcher_exit_verified'] = (launch.get('cleanup', {}).get('process_exit_confirmed') is True
@@ -274,10 +416,28 @@ def execute(config, deadline, frequency, *, root=ROOT, api=None):
         # Exited nonzero/cleanup-failed chains may still carry bound pipe positives.
         if launch.get('cleanup', {}).get('process_exit_confirmed') is True and launch.get('started') is True:
             phase = 'report'
-            report = launcher.read_private(child_work / 'report.json')
-            probe = launcher.read_private(child_work / 'probe/report.json')
-            native = launcher.read_private(child_work / 'probe/output/actor.json', 8192)
+            diagnostic = public['diagnostic']
+            loaded = []
+            for index,(path,limit) in enumerate(((child_work/'report.json',MAX_PRIVATE),(child_work/'probe/report.json',MAX_PRIVATE),(child_work/'probe/output/actor.json',8192))):
+                value,state = read_diagnostic_file(launcher,path,limit)
+                diagnostic['reads'][index] = state
+                if state == 'close_uncertain': public['adapter_cleanup_verified'] = False
+                loaded.append(value)
+            report,probe,native = loaded
+            read_close_uncertain = not public['adapter_cleanup_verified']
             project_private(public, launcher, launch, report, probe, config, parent['sid'], deadline, frequency, native=native)
+            if read_close_uncertain: public['adapter_cleanup_verified'] = False
+            # These are the already-owned redirected files, never caller paths.
+            inner = report.get('launch') if public['launcher_identity_verified'] else None
+            for index,(path,owner) in enumerate(((work/'controller.stdout',launch),(child_work/'controller.stdout',inner))):
+                if type(owner) is not dict or owner.get('native_identity_verified_before_resume') is not True or owner.get('cleanup',{}).get('process_exit_confirmed') is not True:
+                    continue
+                value,state = read_diagnostic_file(launcher,path,1024)
+                diagnostic['stdout_reads'][index] = state
+                if state == 'close_uncertain': public['adapter_cleanup_verified'] = False
+                execution = owned_stdout_execution(value,owner,config,deadline,frequency,launcher)
+                if execution is not None:
+                    set_execution(diagnostic,index+1,execution,'owned_stdout',launcher)
         if 'error' in launch or launch.get('resumed') is not True:
             public['failure'] = 'launcher'
         if not all(public[key] for key in REQUIRED_FACTS):

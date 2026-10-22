@@ -189,7 +189,7 @@ class ScopedLifecycleTests(unittest.TestCase):
         with patch.object(l,'run',return_value=7) as run:
             self.assertEqual(l.main(['--actor','x','--actor-sha256','a'*64,'--work','w','--report','r']),7)
             self.assertFalse(run.call_args.args[0].current_ordinary_only)
-        with patch.object(l,'run',return_value=8) as run:
+        with patch.object(l,'run_scoped',return_value=8) as run, patch.object(l,'emit_scoped_diagnostic'):
             self.assertEqual(l.main(['--actor','x','--actor-sha256','a'*64,'--work','w','--report','r',
                 '--current-ordinary-only','--case-nonce','a'*32,'--deadline-qpc',str(D),'--qpc-frequency',str(F)]),8)
             self.assertTrue(run.call_args.args[0].current_ordinary_only)
@@ -334,8 +334,11 @@ class ActualModuleCompositionTests(unittest.TestCase):
                     if handle==100:inner.now=D-5*F+1
                 inner.close=close
             def launcher_run():
-                with patch.object(l,'NativeAPI',return_value=inner):
+                import io,contextlib
+                stdout=io.StringIO()
+                with patch.object(l,'NativeAPI',return_value=inner),contextlib.redirect_stdout(stdout):
                     self.launcher_code=l.main(outer.command[5:])
+                (outer.work/'controller.stdout').write_text(stdout.getvalue())
             outer.after_resume=launcher_run
             original_stage=g.stage_actor
             def stage(*args):
@@ -378,6 +381,188 @@ class ActualModuleCompositionTests(unittest.TestCase):
         self.assertFalse(result['stage0b_passed'])
         self.assertFalse(any(e[0]=='create_suspended' for e in outer.events))
 
+
+
+class ClosedDiagnosticTests(unittest.TestCase):
+    def test_all_private_read_states_are_distinct_and_strict(self):
+        fixtures=[(b'{}','parsed'),(b'{"a":1,"a":2}','duplicate'),(b'{"a":NaN}','nonfinite'),
+                  (b'[]','not_object'),(b'{}{}','json'),(b'{}trailing','json'),
+                  ('{}'.encode('utf-16'),'utf8'),(b'\xff','utf8'),(b'x'*33,'overbound')]
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'report'
+            for raw,expected in fixtures:
+                path.write_bytes(raw)
+                value,state=g.read_diagnostic_file(l,path,32)
+                self.assertEqual(state,expected)
+                self.assertEqual(value is not None,state=='parsed')
+            path.unlink()
+            self.assertEqual(g.read_diagnostic_file(l,path,32),(None,'missing'))
+        with patch.object(l,'read_private',side_effect=PermissionError('PRIVATE')):
+            self.assertEqual(g.read_diagnostic_file(l,Path('unused'),32),(None,'read_error'))
+        with patch.object(l,'read_private',side_effect=l.GateFailure('private_report_close_uncertain')):
+            self.assertEqual(g.read_diagnostic_file(l,Path('unused'),32),(None,'close_uncertain'))
+
+    def test_missing_later_file_does_not_erase_earlier_bound_identity(self):
+        original=l.read_private
+        for role in ('probe','native'):
+            def read(path,limit=l.MAX_REPORT):
+                if (role=='probe' and str(path).endswith('/probe/report.json') or role=='native' and str(path).endswith('/output/actor.json')):
+                    raise FileNotFoundError('private')
+                return original(path,limit)
+            with patch.object(l,'read_private',side_effect=read):
+                value,_,_=ActualModuleCompositionTests().compose()
+            self.assertTrue(value['launcher_identity_verified'])
+            self.assertTrue(value['probe_creation_observed'])
+            self.assertEqual(value['probe_identity_verified'],role=='native')
+            self.assertFalse(value['stage0b_passed']);self.assertFalse(value['pipe_echo_verified'])
+            self.assertEqual(value['diagnostic']['reads'][1 if role=='probe' else 2],'missing')
+
+    def test_missing_launcher_report_retains_only_owned_stdout_observation(self):
+        original=l.read_private
+        def read(path,limit=l.MAX_REPORT):
+            if str(path).endswith('/launcher/report.json'):
+                raise FileNotFoundError('private')
+            return original(path,limit)
+        with patch.object(l,'read_private',side_effect=read):
+            value,_,_=ActualModuleCompositionTests().compose()
+        self.assertFalse(value['launcher_identity_verified'])
+        self.assertFalse(value['probe_identity_verified'])
+        self.assertEqual(value['diagnostic']['reads'][0],'missing')
+        self.assertEqual(value['diagnostic']['execution_sources'][1],'owned_stdout')
+        self.assertEqual(value['diagnostic']['execution_sources'][2],'none')
+        self.assertFalse(value['stage0b_passed'])
+
+    def test_report_close_uncertainty_is_not_hidden_by_projection(self):
+        original=l.read_private
+        def read(path,limit=l.MAX_REPORT):
+            if str(path).endswith('/output/actor.json'):
+                raise l.GateFailure('private_report_close_uncertain')
+            return original(path,limit)
+        with patch.object(l,'read_private',side_effect=read):
+            value,_,_=ActualModuleCompositionTests().compose()
+        self.assertTrue(value['launcher_identity_verified'])
+        self.assertFalse(value['adapter_cleanup_verified'])
+        self.assertFalse(value['stage0b_passed'])
+        self.assertEqual(value['diagnostic']['reads'][2],'close_uncertain')
+
+    def test_stdout_close_failure_retains_echo_but_forbids_cleanup(self):
+        original=l.read_private
+        def read(path,limit=l.MAX_REPORT):
+            if str(path).endswith('/controller.stdout'):
+                raise l.GateFailure('private_report_close_uncertain')
+            return original(path,limit)
+        with patch.object(l,'read_private',side_effect=read):
+            value,_,_=ActualModuleCompositionTests().compose()
+        self.assertTrue(value['pipe_echo_verified'])
+        self.assertFalse(value['adapter_cleanup_verified'])
+        self.assertFalse(value['stage0b_passed'])
+        self.assertEqual(value['diagnostic']['stdout_reads'],['close_uncertain']*2)
+
+    def test_owned_stdout_binding_is_not_private_report_identity(self):
+        import io,contextlib
+        args=SimpleNamespace(case_nonce='a'*32,actor_sha256='b'*64,deadline_qpc=D,qpc_frequency=F)
+        stream=io.StringIO();record=l.diagnostic_new();l.diagnostic_stage(record,'initial_token')
+        l.diagnostic_error(record,l.NativeFailure('OpenProcessToken',5))
+        with contextlib.redirect_stdout(stream):l.emit_scoped_diagnostic(args,record)
+        raw=stream.getvalue().encode();self.assertLessEqual(len(raw),1024)
+        value=json.loads(raw);launch=inner_launch()
+        config=dict(case_nonce=args.case_nonce,actor_sha256=args.actor_sha256)
+        self.assertEqual(g.owned_stdout_execution(value,launch,config,D,F,l),record)
+        self.assertNotIn(args.case_nonce,stream.getvalue())
+        for key,bad in [('case_nonce_sha256','0'*64),('actor_sha256','0'*64),('deadline_qpc',D-1),('qpc_frequency',F+1),('schema_version',True)]:
+            altered=copy.deepcopy(value);altered[key]=bad
+            self.assertIsNone(g.owned_stdout_execution(altered,launch,config,D,F,l))
+        for key in ('native_identity_verified_before_resume',):
+            altered=copy.deepcopy(launch);altered[key]=False
+            self.assertIsNone(g.owned_stdout_execution(value,altered,config,D,F,l))
+        launch['cleanup']['process_exit_confirmed']=False
+        self.assertIsNone(g.owned_stdout_execution(value,launch,config,D,F,l))
+
+    def test_emission_preserves_original_exception_exit_and_invalid_nonce_unknown(self):
+        import io,contextlib
+        args=['--actor','x','--actor-sha256','b'*64,'--work','w','--report','r','--current-ordinary-only','--case-nonce','a'*32,'--deadline-qpc',str(D),'--qpc-frequency',str(F)]
+        class Broken:
+            def write(self,*a):raise OSError('PRIVATE')
+        with patch.object(l,'run_scoped',return_value=9),patch.object(l.sys,'stdout',Broken()):
+            self.assertEqual(l.main(args),9)
+        original=ValueError('PRIVATE')
+        with patch.object(l,'run_scoped',side_effect=original),patch.object(l.sys,'stdout',Broken()):
+            with self.assertRaises(ValueError) as raised:l.main(args)
+            self.assertIs(raised.exception,original)
+        stream=io.StringIO()
+        invalid=SimpleNamespace(case_nonce='private-unvalidated',actor_sha256='b'*64,deadline_qpc=D,qpc_frequency=F)
+        with contextlib.redirect_stdout(stream):l.emit_scoped_diagnostic(invalid,l.diagnostic_new())
+        self.assertEqual(stream.getvalue(),'')
+
+    def test_diagnostic_enums_types_and_native_error_domain(self):
+        d=g.default_diagnostic();g.validate_diagnostic(d)
+        changes=[lambda d:d.update(v=True),lambda d:d['held'].update(exit_code=True),
+                 lambda d:d['held'].update(resumed=True),lambda d:d['held'].update(exit_observed=True),lambda d:d['reads'].__setitem__(0,'PRIVATE'),
+                 lambda d:d['bindings'].__setitem__(0,'PRIVATE'),lambda d:d['stdout_reads'].append('parsed'),
+                 lambda d:d['execution_sources'].__setitem__(0,'owned_stdout')]
+        for change in changes:
+            value=copy.deepcopy(d);change(value)
+            with self.assertRaises((ValueError,l.GateFailure)):g.validate_diagnostic(value)
+        for exc,operation in [(ValueError('PRIVATE'),None),(l.GateFailure('qpc_expired'),None),(OSError('PRIVATE'),'profile')]:
+            record=l.diagnostic_new();l.diagnostic_error(record,exc,operation)
+            self.assertIsNone(record[4]);self.assertNotIn('PRIVATE',json.dumps(record));l.validate_execution(record)
+        record=l.diagnostic_new();l.diagnostic_stage(record,'token');l.diagnostic_error(record,l.NativeFailure('OpenProcessToken',5))
+        l.diagnostic_stage(record,'cleanup');l.diagnostic_error(record,l.NativeFailure('CloseHandle',6))
+        self.assertEqual(record,['cleanup','token','native','token',5])
+
+    def test_binding_stages_and_optional_bad_diagnostic_do_not_change_core_pass(self):
+        config=dict(case_nonce='a'*32,actor_sha256='a'*64);launch=inner_launch(32)
+        for field,value,stage in [('schema_version',True,'schema'),('case_nonce','b'*32,'nonce'),('actor_sha256','b'*64,'hash'),('deadline_qpc',D-1,'deadline'),('controller_pid',99,'identity')]:
+            r=report(config);r[field]=value
+            self.assertEqual(g.launcher_binding_stage(r,launch,config,t.ordinary()['sid'],D,F),stage)
+        def mutation(probe,native):probe['diagnostic_execution']=['PRIVATE']
+        value,_,_=ActualModuleCompositionTests().compose(mutation)
+        self.assertTrue(value['stage0b_passed'])
+        self.assertNotIn('PRIVATE',json.dumps(value))
+
+    def test_full_wrapper_worst_bound_preserves_all_old_fields(self):
+        v=g.default_public('a'*32,'f'*64);v['failure']='configuration'
+        longest=lambda seq:max(seq,key=len)
+        d=v['diagnostic'];d['held'].update(created=True,resumed=False,exit_observed=True,exit_code=0xffffffff)
+        d['reads']=['parsed']*3;d['stdout_reads']=['parsed']*2
+        d['bindings']=['verified']*3
+        d['execution_sources']=['owner','owned_stdout','owned_stdout']
+        d['execution']=[[longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_STAGES),'native',longest(l.DIAGNOSTIC_OPERATIONS),0xffffffff] for _ in range(3)]
+        g.validate_public(v,'a'*32,'f'*64)
+        envelope=dict(schema_version=1,stage0b=v,launcher=dict(phase='configuration',failure='work_budget_exhausted',python_exit_code=-2147483648,process_exit_confirmed=False,timed_out=False,budget_exhausted=False))
+        host=dict(schema_version=1,stage='stage0b-host',report=envelope,report_validation='unavailable',original_stage0_passed=False,vm_destroyed=False,product_acceptance=False,stage0b_ipc_qualified=False)
+        for obj in (v,envelope,host):self.assertLessEqual(len((json.dumps(obj,ensure_ascii=True,indent=2)+'\n').encode()),4096)
+        self.assertTrue(set(g.BOOL_FIELDS).issubset(v))
+        self.assertNotIn('a'*32,json.dumps(host))
+        # Independent maxima ceiling, intentionally not a jointly valid report.
+        d['held'].update(created=False,exit_observed=False,exit_code=-2147483648)
+        d['reads']=[longest(g.READ_STATES)]*3;d['stdout_reads']=[longest(g.READ_STATES)]*2
+        d['bindings']=[longest(g.BINDING_STATES)]*3
+        d['execution_sources']=[longest(g.EXECUTION_SOURCES)]*3
+        d['execution']=[[longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_CATEGORIES),longest(l.DIAGNOSTIC_OPERATIONS),0xffffffff] for _ in range(3)]
+        self.assertEqual([len((json.dumps(obj,ensure_ascii=True,indent=2)+'\n').encode()) for obj in (v,envelope,host)],[1922,2335,2740])
+
+    def test_actual_isolated_production_import_and_projection_composition(self):
+        import subprocess,sys
+        script="""import importlib.util,sys,json
+from pathlib import Path
+r=Path(ROOT_LITERAL)
+def load(n,p):
+ s=importlib.util.spec_from_file_location(n,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+support=load('windows_identity_test_support',r/'tests/windows_identity_test_support.py');sys.modules['windows_identity_test_support']=support
+fixture=load('isolated_stage0b_fixture',r/'tests/test_windows_identity_stage0b_guest.py')
+v,_,_=fixture.ActualModuleCompositionTests().compose()
+assert v['stage0b_passed'] and v['diagnostic']['reads']==['parsed']*3
+assert v['diagnostic']['execution_sources'][1]=='owned_stdout'
+assert str(r) not in sys.path
+print('isolated_composition_ok')
+""".replace('ROOT_LITERAL',repr(str(ROOT)))
+        try:
+            result=subprocess.run([sys.executable,'-I','-S','-B','-c',script],capture_output=True,timeout=10,check=False)
+        except (OSError,subprocess.TimeoutExpired):
+            self.fail('isolated composition unavailable')
+        self.assertEqual(result.returncode,0,'isolated composition failed')
+        self.assertEqual(result.stdout,b'isolated_composition_ok\n')
 
 
 if __name__=='__main__':unittest.main()

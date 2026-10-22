@@ -7,7 +7,7 @@ try {
     $tokens=$null;$errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'windows-identity-direct-stage0-run.ps1'),[ref]$tokens,[ref]$errors)
     Check ($errors.Count -eq 0)
-    foreach($name in @('Test-Stage0bConfiguration','Get-Stage0bPayloadNames','Test-Stage0bStagingBound','Test-Stage0bPublic','Get-N0aSha256','Get-N0aRemainingMilliseconds','Wait-Stage0bOwnedChild','ConvertFrom-Stage0bPublic','Invoke-Stage0bGuestDiagnostic')) {
+    foreach($name in @('Test-Stage0bConfiguration','Get-Stage0bPayloadNames','Test-Stage0bStagingBound','Test-Stage0bPublic','Test-Stage0bDiagnostic','Get-N0aSha256','Get-N0aRemainingMilliseconds','Wait-Stage0bOwnedChild','ConvertFrom-Stage0bPublic','Invoke-Stage0bGuestDiagnostic')) {
         $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true))
         Check ($nodes.Count -eq 1);. ([ScriptBlock]::Create($nodes[0].Extent.Text))
     }
@@ -26,18 +26,29 @@ try {
     $root=Join-Path ([IO.Path]::GetTempPath()) ('stage0b-gate-'+[Guid]::NewGuid().ToString('N'))
     Check (-not(Test-Path -LiteralPath $root));[void][IO.Directory]::CreateDirectory($root)
     $fixture=Join-Path $root 'fixture.json'
+    $casesPath=Join-Path $root 'diagnostic-cases.json'
     $program=@'
 import importlib.util,json,pathlib,sys
 try:
- p=pathlib.Path(sys.argv[1])/'.github/windows_identity_stage0b_guest.py'
- s=importlib.util.spec_from_file_location('stage0b_ps_parity',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
- v=m.default_public('a'*32,'b'*64);m.validate_public(v,'a'*32,'b'*64)
- with open(sys.argv[2],'xb') as f:f.write(json.dumps(v,separators=(',',':')).encode('ascii'))
+ p=pathlib.Path(sys.argv[1])/'tests/test_windows_stage0b_guest_transport.py'
+ spec=importlib.util.spec_from_file_location('stage0b_ps_parity',p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+ g,cases=m.diagnostic_fixture_cases()
+ for case in cases:
+  try:g.validate_public(case['value'],'a'*32,'b'*64);accepted=True
+  except Exception:accepted=False
+  if accepted is not case['valid']:raise ValueError('fixture')
+ with open(sys.argv[2],'xb') as f:f.write(json.dumps(g.default_public('a'*32,'b'*64),separators=(',',':')).encode('ascii'))
+ with open(sys.argv[3],'xb') as f:f.write(json.dumps(cases,separators=(',',':')).encode('ascii'))
 except Exception:
  print('stage0b_parity_failed');raise SystemExit(1)
 '@
-    & python -B -c $program (Split-Path $PSScriptRoot -Parent) $fixture
+    & python -B -c $program (Split-Path $PSScriptRoot -Parent) $fixture $casesPath
     Check ($LASTEXITCODE -eq 0)
+    $phase='diagnostic_parity'
+    Check ((Get-Item -LiteralPath $casesPath).Length -le 131072)
+    $cases=[IO.File]::ReadAllText($casesPath,[Text.Encoding]::ASCII)|ConvertFrom-Json
+    Check ($cases.Count -ge 70 -and $cases.Count -le 100)
+    foreach($case in $cases){Check ((Test-Stage0bPublic $case.value $config) -eq $case.valid)}
     $script:reportText=[IO.File]::ReadAllText($fixture,[Text.Encoding]::ASCII)
     $value=$script:reportText|ConvertFrom-Json
     Check (Test-Stage0bPublic $value $config)
@@ -45,9 +56,14 @@ except Exception:
     $value=$script:reportText|ConvertFrom-Json;$value.case_nonce_sha256='0'*64;Check (-not(Test-Stage0bPublic $value $config))
     $value=$script:reportText|ConvertFrom-Json;$value.pipe_echo_verified=$true;Check (-not(Test-Stage0bPublic $value $config))
     Check ($null -ne (ConvertFrom-Stage0bPublic $script:reportText $config))
-    $duplicate=$script:reportText.Replace('"schema_version":1','"schema_version":1,"schema_version":1')
+    $duplicate=$script:reportText.Replace('"schema_version":2','"schema_version":2,"schema_version":2')
     Check ($duplicate -cne $script:reportText)
     $rejected=$false;try{[void](ConvertFrom-Stage0bPublic $duplicate $config)}catch{$rejected=$true};Check $rejected
+    $duplicateHeld=$script:reportText.Replace('"created":false','"created":false,"created":false')
+    Check ($duplicateHeld -cne $script:reportText)
+    $rejected=$false;try{[void](ConvertFrom-Stage0bPublic $duplicateHeld $config)}catch{$rejected=$true};Check $rejected
+    $duplicateCase=$script:reportText.Replace('"created":false','"created":false,"Created":true')
+    $rejected=$false;try{[void](ConvertFrom-Stage0bPublic $duplicateCase $config)}catch{$rejected=$true};Check $rejected
     $phase='orchestrator' 
     $script:posted=@()
     function Send-N0aClosedReport([string]$Url,[byte[]]$Body){Check ($Body.Length -le 4096);Check ($Url.EndsWith('/stage0b-result'));$script:posted+=@([Text.Encoding]::ASCII.GetString($Body)|ConvertFrom-Json);return $true}
@@ -96,7 +112,7 @@ except Exception:
     if(Test-Path Function:\New-Object){Remove-Item Function:\New-Object}
     try {
         if($null -ne $root){
-            foreach($name in @('fixture.json','public-stage0b.json')){$path=Join-Path $root $name;if(Test-Path -LiteralPath $path){[IO.File]::Delete($path)}}
+            foreach($name in @('fixture.json','diagnostic-cases.json','public-stage0b.json')){$path=Join-Path $root $name;if(Test-Path -LiteralPath $path){[IO.File]::Delete($path)}}
             [IO.Directory]::Delete($root,$false)
         }
         $cleanup=$true

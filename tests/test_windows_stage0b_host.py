@@ -82,6 +82,26 @@ class HostTests(unittest.TestCase):
             row=copy.deepcopy(value);row['launcher'].update(changes)
             self.assertFalse(h.stage0b_ipc_qualified(row,True));self.assertTrue(row['stage0b']['stage0b_passed'])
         self.assertFalse(h.stage0b_ipc_qualified(value,False))
+    def test_schema2_old_history_rejected_and_known_positive_retained(self):
+        value=envelope();self.assertEqual(value['stage0b']['schema_version'],2)
+        value['stage0b']['launcher_creation_observed']=True
+        value['stage0b']['diagnostic']['reads']=['missing']*3
+        observed=h.validate_stage0b_envelope(value,CONFIG)
+        self.assertTrue(observed['stage0b']['launcher_creation_observed'])
+        self.assertFalse(observed['stage0b']['stage0b_passed'])
+        self.assertEqual(observed['stage0b']['diagnostic']['reads'],['missing']*3)
+        old=copy.deepcopy(value);old['stage0b']['schema_version']=1;del old['stage0b']['diagnostic']
+        with self.assertRaises(ValueError):h.validate_stage0b_envelope(old,CONFIG)
+        self.assertEqual(old['stage0b']['schema_version'],1)
+    def test_schema2_independent_maxima_public_wrapper_below4096(self):
+        g=h.stage0b_helpers();l=g.launcher_module();longest=lambda labels:max(labels,key=len)
+        value=envelope();public=value['stage0b'];public['failure']=longest(g.FAILURES)
+        public['diagnostic']=dict(v=1,held=dict(created=False,resumed=False,exit_observed=False,exit_code=4294967295,cleanup_confirmed=False),reads=[longest(g.READ_STATES)]*3,bindings=[longest(g.BINDING_STATES)]*3,stdout_reads=[longest(g.READ_STATES)]*2,execution_sources=['owned_stdout']*3,execution=[[longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_CATEGORIES),longest(l.DIAGNOSTIC_OPERATIONS),4294967295]]*3)
+        value['launcher'].update(phase='configuration',failure='work_budget_exhausted',python_exit_code=-2147483648,process_exit_confirmed=False)
+        full=dict(schema_version=1,stage='stage0b-host',report=value,report_validation='unavailable',original_stage0_passed=False,vm_destroyed=False,product_acceptance=False,stage0b_ipc_qualified=False)
+        # Independent longest fields deliberately include impossible combinations:
+        # this is a conservative byte upper bound, not an accepted report fixture.
+        for row in (public,value,full):self.assertLessEqual(len((json.dumps(row,ensure_ascii=True,indent=2)+'\n').encode('ascii')),4096)
     def test_transport_result_first_bound_duplicate_and_route(self):
         def request(value,path='stage0b-result',ready=True):
             server=SimpleNamespace(capability='fixed',received=threading.Event(),n0a_received=threading.Event(),n0a_expected=CONFIG,stage0b_validation='unavailable')

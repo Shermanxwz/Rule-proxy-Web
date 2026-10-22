@@ -65,6 +65,92 @@ def failure(exc):
     return {"operation": "launcher", "type": type(exc).__name__}
 
 
+# Closed observations only; never an additional acceptance predicate.
+DIAGNOSTIC_STAGES = ('not_started','arguments','inputs','qpc','identity','job','stdio','create','assign','image','token','resume','wait','copy','profile','acl','pipes','echo','native_report','eof','cleanup','report','complete','initial_token','input_validation','input_copy','profile_create','acl_grant','sid','echo_write','echo_read','exit','native_parse','completed')
+DIAGNOSTIC_CATEGORIES = ('none','configuration','deadline','identity','hash','io','parser','schema','native','invariant','cleanup','other')
+DIAGNOSTIC_OPERATIONS = ('none','qpc','token','image','job_create','job_assign','job_query','job_terminate','process_create','process_wait','process_exit','process_terminate','resume','stdio','attribute','pipe','profile','acl','close','other')
+_DIAGNOSTIC_NATIVE_OPERATIONS = {
+    'QueryPerformanceCounter':'qpc', 'QueryPerformanceFrequency':'qpc',
+    'OpenProcessToken':'token', 'QueryFullProcessImageNameW':'image',
+    'CreateJobObjectW':'job_create', 'SetInformationJobObject':'job_create',
+    'AssignProcessToJobObject':'job_assign', 'IsProcessInJob':'job_query',
+    'QueryInformationJobObject':'job_query', 'TerminateJobObject':'job_terminate',
+    'CreateProcessW':'process_create', 'WaitForSingleObject':'process_wait',
+    'GetExitCodeProcess':'process_exit', 'TerminateProcess':'process_terminate',
+    'ResumeThread':'resume', 'CreateFileW(owned_stdio)':'stdio',
+    'InitializeProcThreadAttributeList':'attribute',
+    'UpdateProcThreadAttribute(handle_list)':'attribute', 'CloseHandle':'close',
+}
+
+
+def diagnostic_new():
+    return ['not_started', None, 'none', 'none', None]
+
+
+def validate_execution(value):
+    if (type(value) is not list or len(value) != 5
+            or type(value[0]) is not str or value[0] not in DIAGNOSTIC_STAGES
+            or value[1] is not None and (type(value[1]) is not str or value[1] not in DIAGNOSTIC_STAGES)
+            or type(value[2]) is not str or value[2] not in DIAGNOSTIC_CATEGORIES
+            or type(value[3]) is not str or value[3] not in DIAGNOSTIC_OPERATIONS
+            or value[4] is not None and (type(value[4]) is not int or not 0 <= value[4] <= 0xffffffff)):
+        raise GateFailure('diagnostic_shape')
+    if ((value[2] == 'none') != (value[1] is None)
+            or value[2] == 'none' and (value[3] != 'none' or value[4] is not None)
+            or value[4] is not None and (value[2] != 'native' or value[3] in ('none','other','profile'))):
+        raise GateFailure('diagnostic_consistency')
+    return list(value)
+
+
+def diagnostic_stage(record, stage):
+    if record is not None and stage in DIAGNOSTIC_STAGES:
+        record[0] = stage
+
+
+def diagnostic_error(record, exc, operation=None):
+    if record is None or record[1] is not None:
+        return
+    category, op, code = 'other', 'other', None
+    if isinstance(exc, NativeFailure):
+        op = _DIAGNOSTIC_NATIVE_OPERATIONS.get(exc.operation, 'other')
+        if op != 'other' and type(exc.winerror) is int and 0 <= exc.winerror <= 0xffffffff:
+            category, code = 'native', exc.winerror
+    elif isinstance(exc, OSError):
+        category = 'io'
+        if operation in DIAGNOSTIC_OPERATIONS and operation not in ('none','other','profile'):
+            candidate = getattr(exc, 'winerror', None)
+            if type(candidate) is int and 0 <= candidate <= 0xffffffff:
+                category, op, code = 'native', operation, candidate
+    elif isinstance(exc, GateFailure):
+        reason = str(exc)
+        category = ('deadline' if reason.startswith('qpc_') or reason == 'bounded_probe_deadline'
+                    else 'hash' if 'digest' in reason else 'identity' if 'token' in reason or 'identity' in reason
+                    else 'parser' if reason.startswith('private_report_') else 'invariant')
+        op = 'none'
+    record[1:] = [record[0], category, op, code]
+
+
+def emit_scoped_diagnostic(args, record):
+    """Best effort on existing owned stdout; never changes return/raise."""
+    try:
+        nonce, digest = args.case_nonce, args.actor_sha256
+        deadline, frequency = args.deadline_qpc, args.qpc_frequency
+        if (type(nonce) is not str or re.fullmatch('[0-9a-f]{32}',nonce) is None
+                or type(digest) is not str or DIGEST_PATTERN.fullmatch(digest) is None
+                or type(deadline) is not int or not 0 < deadline < 2**63
+                or type(frequency) is not int or not 0 < frequency <= 10**9):
+            return
+        value = dict(schema_version=1, stage='stage0b-diagnostic', actor_sha256=digest,
+                     case_nonce_sha256=hashlib.sha256(nonce.encode('ascii')).hexdigest(),
+                     deadline_qpc=deadline, qpc_frequency=frequency,
+                     execution=validate_execution(record))
+        raw = json.dumps(value,ensure_ascii=True,separators=(',',':'))+'\n'
+        if len(raw.encode('ascii')) <= 1024:
+            sys.stdout.write(raw); sys.stdout.flush()
+    except BaseException:
+        pass
+
+
 def token_is_ordinary(identity, *, require_limited=False):
     """Pure fail-closed gate over observations made by native token queries."""
     required = {"sid", "session_id", "token_type", "elevation_type", "elevated",
@@ -683,11 +769,14 @@ def _launch_owned_qpc(api, command, work, expected, parent, budget, work_cutoff,
               "cleanup": {"errors": [], "job_closed": False, "handles_closed": False,
                           "job_empty": False, "process_exit_confirmed": False,
                           "close_uncertain": False}}
+    diagnostic = diagnostic_new()
+    result["diagnostic_execution"] = diagnostic
     cleanup = result["cleanup"]
     def attempt(fn):
         try:
             return True, fn()
         except Exception as exc:
+            diagnostic_error(diagnostic, exc)
             cleanup["errors"].append(failure(exc))
             return False, None
     def close_once(handle):
@@ -701,17 +790,23 @@ def _launch_owned_qpc(api, command, work, expected, parent, budget, work_cutoff,
         if not work_cutoff < cleanup_cutoff <= budget.deadline:
             raise GateFailure("qpc_cutoff_order")
         budget.require_ms(work_cutoff)
+        diagnostic_stage(diagnostic, "job")
         job = api.create_job()
         for filename in ("controller.stdin", "controller.stdout", "controller.stderr"):
             budget.require_ms(work_cutoff)
+            diagnostic_stage(diagnostic, "stdio")
             stdio.append(api.open_stdio_file(work / filename, read=filename.endswith("stdin")))
         budget.require_ms(work_cutoff)
         attempted = True
+        diagnostic_stage(diagnostic, "create")
         api.create_suspended(info, command, work, stdio, None)
         result.update(started=True, child_pid=int(info.dwProcessId))
+        diagnostic_stage(diagnostic, "assign")
         api.assign_job(job, info.hProcess); assigned = True
         api.verify_job(job, info.hProcess)
+        diagnostic_stage(diagnostic, "image")
         api.verify_image(info.hProcess, command[0])
+        diagnostic_stage(diagnostic, "token")
         child = api.child_identity(info.hProcess)
         if not token_is_ordinary(child) or not same_identity(child, expected):
             raise GateFailure("child_token_mismatch_before_resume")
@@ -719,7 +814,9 @@ def _launch_owned_qpc(api, command, work, expected, parent, budget, work_cutoff,
         result["native_identity_verified_before_resume"] = True
         budget.require_ms(work_cutoff)
         result["nested_resource_cleanup_incomplete"] = True
+        diagnostic_stage(diagnostic, "resume")
         api.resume(info.hThread); result["resumed"] = True
+        diagnostic_stage(diagnostic, "wait")
         if not api.wait(info.hProcess, budget.require_ms(work_cutoff, RUN_MILLISECONDS)):
             result["timed_out"] = True
             raise GateFailure("bounded_probe_deadline")
@@ -727,8 +824,10 @@ def _launch_owned_qpc(api, command, work, expected, parent, budget, work_cutoff,
         result["exit_code"] = api.exit_code(info.hProcess)
         budget.require_ms(work_cutoff)
     except Exception as exc:
+        diagnostic_error(diagnostic, exc)
         result["error"] = failure(exc)
     finally:
+        diagnostic_stage(diagnostic, "cleanup")
         if attempted and not info.hProcess:
             cleanup["errors"].append({"operation": "invariant", "reason": "spawn_exit_unknown"})
         if info.hProcess:
@@ -944,9 +1043,13 @@ def read_private(path, limit=MAX_REPORT):
             value[key] = item
         return value
     try:
-        value = json.loads(raw.decode("utf-8", "strict"), object_pairs_hook=unique,
-                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
-    except (ValueError, UnicodeError, RecursionError):
+        text = raw.decode("utf-8", "strict")
+    except UnicodeError:
+        raise GateFailure("private_report_utf8") from None
+    try:
+        value = json.loads(text, object_pairs_hook=unique,
+                           parse_constant=lambda _: (_ for _ in ()).throw(GateFailure("private_report_nonfinite")))
+    except (ValueError, RecursionError):
         raise GateFailure("private_report_json") from None
     if type(value) is not dict:
         raise GateFailure("private_report_object")
@@ -965,10 +1068,7 @@ def probe_facts(value, nonce, digest, controller_pid, controller_sid, deadline, 
     probe = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
     identity = value.get("controller_identity")
     actor = value.get("actor")
-    if type(identity) is not dict or type(actor) is not dict or type(native) is not dict:
-        return facts
-    # Canonical encoding distinguishes bool/int and binds every actual native key.
-    if json.dumps(native, sort_keys=True, allow_nan=False) != json.dumps(actor, sort_keys=True, allow_nan=False):
+    if type(identity) is not dict:
         return facts
     bound = (type(value.get("schema_version")) is int and value["schema_version"] == 1
              and value.get("stage") == "0b" and value.get("nonce") == nonce
@@ -983,6 +1083,11 @@ def probe_facts(value, nonce, digest, controller_pid, controller_sid, deadline, 
         return facts
     facts["probe_identity_verified"] = True
     facts["actor_creation_observed"] = type(value.get("child_pid")) is int and value["child_pid"] > 0
+    if type(actor) is not dict or type(native) is not dict:
+        return facts
+    # Full native identity/echo still requires the independently parsed snapshot.
+    if json.dumps(native, sort_keys=True, allow_nan=False) != json.dumps(actor, sort_keys=True, allow_nan=False):
+        return facts
     checks = probe.checks(value)
     identity_ok = (checks["profile_identity"] is True and checks["child_identity"] is True
                    and checks["no_network_capabilities"] is True
@@ -1008,7 +1113,7 @@ def probe_facts(value, nonce, digest, controller_pid, controller_sid, deadline, 
     return facts
 
 
-def run_scoped(args):
+def run_scoped(args, diagnostic=None):
     """Integration entry refuses elevated current token before any fallback logic."""
     if (os.name != "nt" or not args.disposable_ci or not args.approved_security_test
             or not getattr(args, "current_ordinary_only", False)):
@@ -1016,8 +1121,11 @@ def run_scoped(args):
     nonce = getattr(args, "case_nonce", None)
     if type(nonce) is not str or re.fullmatch(r"[0-9a-f]{32}", nonce) is None:
         raise GateFailure("case_nonce")
+    diagnostic_stage(diagnostic, "inputs")
     python, script, actor, work = validate_inputs(args)
+    diagnostic_stage(diagnostic, "initial_token")
     api = NativeAPI()
+    diagnostic_stage(diagnostic, "qpc")
     budget = QpcBudget(api, args.deadline_qpc, args.qpc_frequency)
     budget.require_ms(budget.cutoff(30))
     work.mkdir(); (work / "temp").mkdir()
@@ -1029,6 +1137,7 @@ def run_scoped(args):
               "cleanup": {"token_handles_closed": False, "errors": []}}
     token = None
     try:
+        diagnostic_stage(diagnostic, "identity")
         token = api.current_token()
         parent = api.identity(token)
         # Deliberately before choose_mode, and no linked-token call in this branch.
@@ -1039,11 +1148,16 @@ def run_scoped(args):
         command = fixed_command(python, script, actor, args.actor_sha256, work)
         command += ["--case-nonce", nonce, "--deadline-qpc", str(args.deadline_qpc),
                     "--qpc-frequency", str(args.qpc_frequency)]
+        diagnostic_stage(diagnostic, "create")
         report["launch"] = launch_owned(api, command, work, parent, parent,
                                          qpc_budget=budget, work_cutoff=budget.cutoff(10),
                                          cleanup_cutoff=budget.cutoff(5))
         launch = report["launch"]
+        child_diagnostic = launch.get("diagnostic_execution")
+        if diagnostic is not None and diagnostic[1] is None and type(child_diagnostic) is list and child_diagnostic[1] is not None:
+            diagnostic[1:] = validate_execution(child_diagnostic)[1:]
         if launch["cleanup"]["process_exit_confirmed"] and launch.get("started") is True:
+            diagnostic_stage(diagnostic, "report")
             value = read_private(work / "probe/report.json")
             native = read_private(work / "probe/output/actor.json", 8192)
             report["probe_facts"] = probe_facts(value, nonce, args.actor_sha256,
@@ -1054,28 +1168,36 @@ def run_scoped(args):
                 and launch["cleanup"]["job_closed"] and launch["cleanup"]["job_empty"]
                 and launch["cleanup"]["handles_closed"] and not launch["cleanup"]["errors"])
     except Exception as exc:
+        diagnostic_error(diagnostic, exc)
         report["error"] = failure(exc)
         if isinstance(exc, GateFailure) and str(exc) == "private_report_close_uncertain":
             report["cleanup"]["errors"].append({"operation": "invariant", "reason": "private_report_close_uncertain"})
     finally:
+        diagnostic_stage(diagnostic, "cleanup")
         if token:
             owned, token = token, None
             try:
                 api.close(owned)
             except Exception as exc:
+                diagnostic_error(diagnostic, exc, "close")
                 report["cleanup"]["errors"].append(failure(exc))
         report["cleanup"]["token_handles_closed"] = not report["cleanup"]["errors"]
     try:
         budget.require_ms(budget.cutoff(5))
     except Exception as exc:
+        diagnostic_error(diagnostic, exc)
         report["cleanup"]["errors"].append(failure(exc))
         report["stage0b_passed"] = False
     report["stage0b_passed"] = (report["stage0b_passed"] and "error" not in report
                                 and report["cleanup"]["token_handles_closed"])
+    diagnostic_stage(diagnostic, "report")
+    if diagnostic is not None:
+        report["diagnostic_execution"] = validate_execution(diagnostic)
     data = (json.dumps(report, ensure_ascii=True, indent=2) + "\n").encode("ascii")
     if len(data) > MAX_REPORT:
         raise GateFailure("launcher_report_too_large")
     write_private_bytes(work / "report.json", data)
+    diagnostic_stage(diagnostic, "complete")
     return 0 if report["stage0b_passed"] else 1
 
 
@@ -1177,6 +1299,16 @@ def main(argv=None):
         return run_preflight(args)
     if args.actor is None or args.work is None or args.actor_sha256 is None:
         parser.error("runtime requires --actor, --actor-sha256, and --work")
+    if args.current_ordinary_only:
+        diagnostic = diagnostic_new()
+        diagnostic_stage(diagnostic, 'arguments')
+        try:
+            return run_scoped(args, diagnostic)
+        except BaseException as exc:
+            diagnostic_error(diagnostic, exc)
+            raise
+        finally:
+            emit_scoped_diagnostic(args, diagnostic)
     return run(args)
 
 

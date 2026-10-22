@@ -346,7 +346,7 @@ class CreateBoundaryTests(unittest.TestCase):
 
 class ComposedRunTests(unittest.TestCase):
     """Actual run orchestration with fake Win32 APIs; NOT a Windows execution."""
-    def exercise(self, fault=None):
+    def exercise(self, fault=None, diagnostic=False):
         import ctypes as C
         import hashlib
         import json
@@ -368,7 +368,9 @@ class ComposedRunTests(unittest.TestCase):
             def put(self,name,call):self.functions[name]=Fn(call)
         k,a,ue=DLL(),DLL(),DLL()
         def profile(name,title,description,caps,count,out):
-            events.append('profile_create');out._obj.value=777;return 0
+            events.append('profile_create')
+            if fault=='profile_create':return 0x80070005
+            out._obj.value=777;return 0
         ue.put('CreateAppContainerProfile',profile)
         ue.put('DeleteAppContainerProfile',lambda name:events.append('profile_delete') or 0)
         a.put('FreeSid',lambda sid:0)
@@ -405,9 +407,12 @@ class ComposedRunTests(unittest.TestCase):
             info._obj.active=0;returned._obj.value=size;return 1
         k.put('QueryInformationJobObject',job_info)
         def write(handle,payload,length,out,overlapped):
-            events.append(('write',length));out._obj.value=length;return 1
+            events.append(('write',length));out._obj.value=length
+            return 0 if fault=='echo_write' else 1
         k.put('WriteFile',write)
-        def peek(handle,buf,length,read,available,left):available._obj.value=32;return 1
+        def peek(handle,buf,length,read,available,left):
+            available._obj.value=32
+            return 0 if fault=='echo_read' else 1
         k.put('PeekNamedPipe',peek)
         def read(handle,buf,length,out,overlapped):
             read_count[0]+=1
@@ -428,13 +433,13 @@ class ComposedRunTests(unittest.TestCase):
             def resume_thread(self,thread):
                 events.append('resume')
                 report=good()['actor']
-                (work/'output/actor.json').write_bytes(json.dumps(report).encode('utf-8'))
+                (work/'output/actor.json').write_bytes(b'{' if fault=='native_parse' else json.dumps(report).encode('utf-8'))
             def terminate_job(self,job):events.append('terminate_job')
             def terminate_process(self,process):events.append('terminate_process')
             def wait_process(self,process,millis):
                 events.append(('wait',process,millis))
                 if fault=='late_wait':tick[0]+=5001
-                return 0
+                return 258 if fault=='exit' else 0
             def exit_code(self,process):return 0
         class TokenAPI:
             def qpc_frequency(self):return 1000
@@ -462,6 +467,11 @@ class ComposedRunTests(unittest.TestCase):
         def acl_readback(*args):
             if fault=='acl_readback_raise':raise OSError('fake_acl_readback')
             return fault!='acl_readback_false'
+        record=launcher.diagnostic_new() if diagnostic else None
+        def icacls(*args,**kwargs):
+            events.append('icacls')
+            if fault=='acl_grant':
+                exc=OSError('private fixture message');exc.winerror=5;raise exc
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);actor=root/'source.exe';actor.write_bytes(b'x'*512);work=root/'owned'
             digest=hashlib.sha256(actor.read_bytes()).hexdigest()
@@ -476,11 +486,14 @@ class ComposedRunTests(unittest.TestCase):
                  mock.patch.object(C,'get_last_error',lambda:last_error[0],create=True), \
                  mock.patch.object(C,'set_last_error',lambda value:last_error.__setitem__(0,value),create=True), \
                  mock.patch.object(pipe.importlib.util,'spec_from_file_location',token_spec), \
-                 mock.patch.object(pipe.subprocess,'run',lambda *args,**kwargs:events.append('icacls')), \
-                 mock.patch.object(pipe,'verify_no_owned_ace',acl_readback):
-                try:code=pipe.run(args)
+                 mock.patch.object(pipe.subprocess,'run',icacls), \
+                 mock.patch.object(pipe,'verify_no_owned_ace',acl_readback), \
+                 mock.patch.object(pipe,'diagnostic_helpers',lambda:launcher), \
+                 mock.patch.object(launcher,'NativeAPI',TokenAPI):
+                try:code=pipe.run(args,record)
                 finally:sys.path[:]=before_path
             result=json.loads((work/'report.json').read_bytes())
+            if diagnostic:result['_fixture_final_execution']=list(record)
         return code,result,events
 
     def test_actual_run_success_and_exact_pipe_ownership_order(self):
@@ -526,5 +539,73 @@ class ComposedRunTests(unittest.TestCase):
         self.assertNotIn('profile_delete',events)
         self.assertFalse(result['cleanup']['process_exit_confirmed'])
         self.assertTrue(result['cleanup']['profile_retained_due_to_uncertain_process_exit'])
+
+
+
+class ProbeDiagnosticTests(unittest.TestCase):
+    exercise=ComposedRunTests.exercise
+    def test_diagnostic_observation_does_not_change_actual_run_outcome_or_api_sequence(self):
+        for fault in (None,'image','create_empty','echo_write','native_parse'):
+            code,plain,events=self.exercise(fault)
+            diag_code,annotated,diag_events=self.exercise(fault,True)
+            execution=annotated.pop('_fixture_final_execution')
+            private=annotated.pop('diagnostic_execution')
+            self.assertEqual((code,plain,events),(diag_code,annotated,diag_events))
+            self.assertEqual(execution[0],'completed')
+            self.assertEqual(private[0],'cleanup')
+
+    def test_actual_caught_phase_is_sticky_through_cleanup_and_report(self):
+        for fault,stage in (('image','image'),('create_empty','create'),('profile_create','profile_create'),
+                            ('acl_grant','acl_grant'),('echo_write','echo_write'),('echo_read','echo_read'),
+                            ('exit','exit'),('native_parse','native_parse')):
+            with self.subTest(fault=fault):
+                code,result,events=self.exercise(fault,True)
+                execution=result['_fixture_final_execution']
+                self.assertEqual(code,1);self.assertEqual(execution[0],'completed')
+                self.assertEqual(execution[1],stage)
+                self.assertNotIn('private fixture message',str(execution))
+                if fault=='profile_create':self.assertIsNone(execution[4])  # HRESULT is not Win32.
+                if fault=='acl_grant':self.assertEqual(execution[3:],['acl',5])
+
+    def test_scoped_main_preserves_return_raise_and_emits_one_closed_record(self):
+        import contextlib
+        import io
+        import json
+        from unittest import mock
+        helper=pipe.diagnostic_helpers()
+        argv=['--actor','fixture.exe','--work','fixture','--report','fixture/report.json',
+              '--actor-sha256','b'*64,'--deadline-qpc','220000','--qpc-frequency','1000','--case-nonce',N]
+        for failing in (False,True):
+            output=io.StringIO()
+            def run(args,record=None):
+                helper.diagnostic_stage(record,'initial_token')
+                if failing:raise RuntimeError('never publish this raw private text')
+                return 1
+            with mock.patch.object(pipe,'run',run),contextlib.redirect_stdout(output):
+                if failing:
+                    with self.assertRaises(RuntimeError):pipe.main(argv)
+                else:self.assertEqual(pipe.main(argv),1)
+            raw=output.getvalue().encode('ascii');self.assertLessEqual(len(raw),1024)
+            value=json.loads(raw)
+            self.assertEqual(value['execution'][0],'initial_token')
+            self.assertNotIn(N,raw.decode());self.assertNotIn('raw private',raw.decode())
+            self.assertEqual(len(raw.splitlines()),1)
+        output=io.StringIO()
+        with mock.patch.object(pipe,'run',return_value=1) as run,contextlib.redirect_stdout(output):
+            self.assertEqual(pipe.main(argv[:8]),1)
+        self.assertEqual(output.getvalue(),'')
+        self.assertEqual(len(run.call_args.args),1)
+
+
+
+class DiagnosticNoninterferenceTests(unittest.TestCase):
+    def test_acceptance_budget_ownership_and_readers_ast_unchanged(self):
+        import ast
+        import hashlib
+        expected={'ProbePhases': 'c58393b607fd91ea06bdd542ec37cc35c028d628181bd74bc576e59704aa1edd', 'OneShotHandles': '0f150e80cad3240f199a64b2c7c372e13aedeceeed5ec1fa97900eaed9707097', 'prepare_owned_files': '48d053cc5b2dbb0a9fa8104e904a388bb6dddb8eb54fe4078da610d720681ff9', 'wait_bounded': 'e40e936c5db0a635b316f4b50f1abfb2fcb412f7f49602d2f60179c0745731bd', 'read_bounded_file': 'b4bd0e9f048498c8e054ae46d0cb3a41c2756866ec1b0a598fc3227b0dd4f647', 'create_suspended_owned': 'fb617c15b5807beb5ed2f673f258d2c86c7c9530e1fd1386f961dcc11b0f13be', 'verify_copied_actor': 'da7c008372926b7eeada7c8367e972ea6f7e535d8cd25af9a75c4f015cd9febf', 'read_actor_report': '22e65a3746bfe451bf2e820b2db80e34debe921bc9c8558b29fcc7808152ca88', 'pipe_result_valid': '610afd7477b1aa287670e47e619464bdc21aaee5f494ad4db865deb6dce38820', 'checks': '1274b125c288b8a00dace5019f2859a6d80c599d8acc5d4d2b6aa7bd7c35567c'}
+        tree=ast.parse(PATH.read_text())
+        actual={node.name:hashlib.sha256(ast.dump(node,include_attributes=False).encode()).hexdigest()
+                for node in tree.body if isinstance(node,(ast.FunctionDef,ast.ClassDef)) and node.name in expected}
+        self.assertEqual(actual,expected)
 
 if __name__=='__main__':unittest.main()
