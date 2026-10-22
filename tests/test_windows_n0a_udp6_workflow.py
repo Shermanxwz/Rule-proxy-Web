@@ -12,6 +12,24 @@ OLD=runpy.run_path(str(ROOT/'tests/test_windows_n0a_udp_parent_workflow.py'))
 NAMES=OLD['NAMES']+('test_windows_n0a_udp6_actor.py','test_windows_client_n0a_udp6.py','test_windows_n0a_udp6_gate.py','test_windows_client_n0a_udp6_packet.py','test_windows_n0a_udp6_workflow.py','test_windows_client_n0a_udp6_flow.py','test_windows_client_n0a_udp6_guest.py','test_windows_udp6_flow_composed.py','test_windows_n0a_udp6_integration_control.py','test_windows_client_n0a_udp6_capture_adapter.py','test_windows_client_n0a_udp6_host.py','test_windows_udp6_guest_transport.py','test_windows_n0a_qemu_slirp.py')
 STAGE0B_NAMES=('test_windows_identity_pipe_probe.py', 'test_windows_identity_ordinary_launcher.py', 'test_windows_identity_stage0b_guest.py', 'test_windows_stage0b_host.py', 'test_windows_stage0b_guest_transport.py')
 STAGE0B_PATHS=('.github/windows_identity_pipe_probe.py', '.github/windows_identity_ordinary_launcher.py', 'ruleproxy/windows_app_process.py', '.github/windows_identity_stage0b_guest.py', '.github/test-windows-stage0b-guest-gates.ps1', 'tests/test_windows_identity_pipe_probe.py', 'tests/test_windows_identity_ordinary_launcher.py', 'tests/test_windows_identity_stage0b_guest.py', 'tests/test_windows_stage0b_host.py', 'tests/test_windows_stage0b_guest_transport.py')
+AC_NAMES=('test_windows_identity_proxy_pipe_probe.py','test_windows_identity_proxy_pipe_ac_guest.py','test_windows_proxy_pipe_ac_transport.py')
+AC_PATHS=('.github/windows_identity_proxy_pipe_probe.py','.github/windows_identity_proxy_pipe_ac_guest.py','.github/native/windows_identity_proxy_pipe_actor.cpp','.github/native/windows_identity_proxy_bridge_core.hpp','.github/native/windows_identity_actor.cpp','.github/test-windows-proxy-pipe-ac-guest-gates.ps1','docs/validation/2026-10-22-proxy-pipe-ac-prerequisite.md')+tuple('tests/'+n for n in AC_NAMES)+('.github/windows_identity_proof.py','.github/windows_psec_compartment_smoke.py','ruleproxy/windows_runtime_pins.py')
+AC_PIN_PATHS=('.github/windows_identity_proxy_pipe_probe.py','.github/windows_identity_proxy_pipe_ac_guest.py','.github/windows_identity_direct_stage0.py','.github/windows-identity-direct-stage0-run.ps1','.github/windows_identity_ordinary_launcher.py','.github/windows_identity_pipe_probe.py','ruleproxy/windows_app_process.py','.github/windows_identity_proof.py','.github/windows_psec_compartment_smoke.py','ruleproxy/windows_runtime_pins.py','.github/native/windows_identity_proxy_pipe_actor.cpp','.github/native/windows_identity_proxy_bridge_core.hpp','.github/native/windows_identity_actor.cpp')
+
+def without_ac(text):
+    block=''.join("      - '"+n+"'\n" for n in AC_PATHS)
+    assert text.count(block)==1
+    text=text.replace(block,'',1)
+    suffix="'test_windows_stage0b_guest_transport.py', "+', '.join(repr(n) for n in AC_NAMES)+'); assert all'
+    assert text.count(suffix)==2
+    text=text.replace(suffix,"'test_windows_stage0b_guest_transport.py'); assert all")
+    step='          powershell -NoProfile -File ./.github/test-windows-proxy-pipe-ac-guest-gates.ps1\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n'
+    assert text.count(step)==1
+    text=text.replace(step,'',1)
+    text,count=re.subn(r'      - name: Verify default-OFF AC prerequisite sources without execution\n(?:(?!      - name:).*(?:\n|$))*','',text)
+    assert count==2
+    return text.replace('Actual eight-mode payload ZIP','Actual seven-mode payload ZIP')
+
 MARKER='[n0a-udp6-gates]'
 
 class UDP6WorkflowTests(unittest.TestCase):
@@ -31,7 +49,7 @@ class UDP6WorkflowTests(unittest.TestCase):
             self.assertEqual(doc['jobs'][name]['timeout-minutes'],minutes)
         matches=re.findall(r'names=(\([^\n]+?\)); assert all',text)
         self.assertEqual(len(matches),2)
-        for match in matches:self.assertEqual(ast.literal_eval(match),NAMES+STAGE0B_NAMES)
+        for match in matches:self.assertEqual(ast.literal_eval(match),NAMES+STAGE0B_NAMES+AC_NAMES)
         self.assertIn('python -m pip install --disable-pip-version-check "PyYAML==6.0.3"\n          if ($LASTEXITCODE -ne 0)',text)
         for forbidden in ('actions/upload-artifact','workflow_dispatch:','pull_request:','continue-on-error','--n0a-udp-parent-runner'):
             self.assertNotIn(forbidden,text)
@@ -76,14 +94,14 @@ class UDP6WorkflowTests(unittest.TestCase):
         ps=windows['Actual UDP6 and legacy PowerShell transport semantics']['run']
         for name in ('n0a','udp','udp-parent','udp6','stage0b'):
             self.assertIn(f'& ./.github/test-windows-{name}-guest-gates.ps1',ps)
-        self.assertEqual(ps.count('if ($LASTEXITCODE -ne 0)'),5)
-        self.assertIn('test-windows-udp-payload-gates.ps1',windows['Actual seven-mode payload ZIP and PowerShell extraction parity']['run'])
+        self.assertEqual(ps.count('if ($LASTEXITCODE -ne 0)'),6)
+        self.assertIn('test-windows-udp-payload-gates.ps1',windows['Actual eight-mode payload ZIP and PowerShell extraction parity']['run'])
         for path in ('.github/windows_n0a_udp6_guest.py','.github/windows_n0a_udp6_flow.py','.github/windows_n0a_udp6_capture_adapter.py','.github/windows_n0a_qemu_slirp.py','.github/test_windows_n0a_qemu_slirp.py','.github/windows-identity-direct-stage0-run.ps1','.github/test-windows-udp6-guest-gates.ps1','.github/test-windows-n0a-guest-gates.ps1','.github/test_windows_udp_payload.py'):
             self.assertIn(path,doc['on']['push']['paths'])
         self.assertNotIn('--n0a-udp6-runner',text)
 
     def test_stage0b_additions_invert_to_exact_prior_short_workflow(self):
-        text=PATH.read_text()
+        text=without_ac(PATH.read_text())
         for path in STAGE0B_PATHS:self.assertIn(path,self.document()['on']['push']['paths'])
         suffix=" && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]')"
         self.assertEqual(text.count(suffix),2);text=text.replace(suffix,'')
@@ -99,5 +117,38 @@ class UDP6WorkflowTests(unittest.TestCase):
         # Required modules are explicit and remain fail-closed for missing/empty/skipped suites.
         self.assertEqual(len(set(NAMES+STAGE0B_NAMES)),51)
         self.assertEqual(PATH.read_text().count('not result.wasSuccessful() or bool(result.skipped)'),2)
+
+    def test_ac_additions_invert_to_exact_51_suite_baseline(self):
+        text=PATH.read_text()
+        self.assertEqual(hashlib.sha256(without_ac(text).encode()).hexdigest(),'a3b9c5cad9c67361050b208f9ccbf071e8bb1ad8f17399bf7c2b617472e39be7')
+        self.assertEqual(len(set(NAMES+STAGE0B_NAMES+AC_NAMES)),54)
+        for path in AC_PATHS:self.assertIn(path,self.document()['on']['push']['paths'])
+        steps=self.document()['jobs']['native-mechanism']['steps']
+        ps=next(s['run'] for s in steps if s.get('name')=='Actual UDP6 and legacy PowerShell transport semantics')
+        self.assertLess(ps.index('test-windows-stage0b-guest-gates.ps1'),ps.index('test-windows-proxy-pipe-ac-guest-gates.ps1'))
+        self.assertIn('powershell -NoProfile -File ./.github/test-windows-proxy-pipe-ac-guest-gates.ps1',ps)
+        for forbidden in ('--run-ac-pair','--run-native-pipe','--proxy-pipe-ac-runner','build_windows_identity_proxy_pipe_actor.ps1','windows_identity_proxy_pipe_actor.exe'):
+            self.assertNotIn(forbidden,text)
+
+    def test_ac_readonly_pins_and_default_off_before_required_tests(self):
+        doc=self.document()
+        for job in doc['jobs'].values():
+            steps=job['steps']; index=next(i for i,s in enumerate(steps) if s.get('name')=='Verify default-OFF AC prerequisite sources without execution')
+            required=next(i for i,s in enumerate(steps) if s.get('name')=='Required UDP6 and unchanged regression contracts')
+            self.assertLess(index,required)
+            code=steps[index]['run'];match=re.search(r'pins=(\{[^\n]+?\}); assert all',code)
+            self.assertIsNotNone(match);pins=ast.literal_eval(match.group(1))
+            self.assertEqual(tuple(pins),AC_PIN_PATHS)
+            self.assertEqual(len(pins),13)
+            for path,digest in pins.items():self.assertEqual(digest,hashlib.sha256((ROOT/path).read_bytes()).hexdigest())
+            self.assertIn("t.id=='AC_EXECUTION_ENABLED'",code)
+            self.assertIn('assert len(flags)==1 and flags[0] is False',code)
+            # Execute only the literal hash/default-OFF verification, never import a controller.
+            command=next(line for line in code.splitlines() if ' -B -c ' in line)
+            literal=command.split(' -B -c ',1)[1]
+            program=ast.literal_eval(literal)
+            import subprocess,sys
+            result=subprocess.run([sys.executable,'-B','-c',program],cwd=ROOT,capture_output=True,timeout=10)
+            self.assertEqual(result.returncode,0)
 
 if __name__=='__main__':unittest.main()

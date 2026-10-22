@@ -8,10 +8,21 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('udp_payload_fixture',ROOT/'.github/test_windows_udp_payload.py')
 gate=importlib.util.module_from_spec(spec);spec.loader.exec_module(gate)
 class PayloadTests(unittest.TestCase):
+    def test_ac_actual17_source_bytes_equal_count_negatives(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'owned';gate.generate(root)
+            with zipfile.ZipFile(root/'proxy_pipe_ac.zip') as archive:
+                names=set(archive.namelist());self.assertEqual(len(archive.namelist()),17)
+                for name in names:
+                    if name.startswith(('.github/','ruleproxy/')):self.assertEqual(archive.read(name),(ROOT/name).read_bytes())
+            self.assertIn('bridge/windows_identity_proxy_pipe_actor.exe',names)
+            for i,bad in enumerate(gate.AC_FORBIDDEN):
+                with zipfile.ZipFile(root/f'proxy_pipe_ac-bad-{i}.zip') as archive:
+                    self.assertEqual(len(archive.namelist()),17);self.assertIn(bad,archive.namelist());self.assertNotEqual(set(archive.namelist()),names)
     def test_actual_all_four_writers_and_equal_count_negatives(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)/'owned';result=gate.generate(root)
-            self.assertEqual(result['members'],[10,14,15,17,22,17,14]);self.assertFalse(result['runtime_artifact'])
+            self.assertEqual(result['members'],[10,14,15,17,22,17,14,17]);self.assertFalse(result['runtime_artifact'])
             for name,count in zip(('baseline','n0a','capture','udp','parent_udp','udp6','stage0b'),(10,14,15,17,22,17,14)):
                 with zipfile.ZipFile(root/(name+'.zip')) as archive:self.assertEqual(len(archive.namelist()),count)
             with zipfile.ZipFile(root/'udp.zip') as archive:
@@ -60,7 +71,7 @@ class PayloadTests(unittest.TestCase):
         source=(ROOT/'.github/test-windows-udp-payload-gates.ps1').read_text()
         for fragment in ('FunctionDefinitionAst','AssignmentStatementAst','IfStatementAst',
                          'Get-N0aUdpPayloadNames','Expand-CheckedStage0Zip',"$branches[0].Extent.Text",
-                         "@('baseline','n0a','capture','udp','parent_udp','udp6','stage0b')",'test_windows_udp_payload.py',
+                         "@('baseline','n0a','capture','udp','parent_udp','udp6','stage0b','proxy_pipe_ac')",'test_windows_udp_payload.py',
                          'Check (-not (Test-Path -LiteralPath $workspace))','ReparsePoint'):
             self.assertIn(fragment,source)
         for count in (10,14,15,17,22):self.assertIn('-MemberCount '+str(count),source)

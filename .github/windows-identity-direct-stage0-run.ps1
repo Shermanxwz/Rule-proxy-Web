@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 $root = 'C:\RuleProxyCI'
 $result = @{schema_version=1; ordinary_account=$false; direct_build_verified=$false; exploratory_stage0=$true; product_acceptance=$false; documented_support_floor='26300.9550'; harness_completed=$false; stage0_passed=$false}
-$stage0bEnabled=$false; $udp6Enabled=$false; $parentUdpEnabled=$false; $udpEnabled=$false; $n0aEnabled=$false; $n0aDeadline=0L; $n0aFrequency=0L; $n0aOriginalReady=$false
+$proxyPipeAcEnabled=$false; $stage0bEnabled=$false; $udp6Enabled=$false; $parentUdpEnabled=$false; $udpEnabled=$false; $n0aEnabled=$false; $n0aDeadline=0L; $n0aFrequency=0L; $n0aOriginalReady=$false
 $phase='configuration'; $failed=$false; $hresult=$null; $pythonExit=$null; $failureCategory='operation_failed'
 # Pure predicates: fixed Windows path identity is case-insensitive, not alias tolerant.
 function Test-InstalledDriveC($Value) {
@@ -539,6 +539,187 @@ function Invoke-Stage0bGuestDiagnostic($Configuration,[string]$Workspace,[string
     return $envelope
 }
 
+
+# Optional zero-capability AC-front/ordinary-relay IPC diagnostic; no network acceptance.
+function Test-ProxyPipeACConfiguration($Value) {
+    $keys=@('enabled','run_nonce','case_nonce','actor_sha256','manifest_sha256')
+    if($Value -isnot [PSCustomObject] -or @($Value.PSObject.Properties).Count -ne 5){return $false}
+    foreach($key in $keys){if($key -cnotin @($Value.PSObject.Properties.Name)){return $false}}
+    if($Value.enabled -isnot [bool] -or -not $Value.enabled){return $false}
+    foreach($key in @('run_nonce','case_nonce')){if($Value.$key -isnot [string] -or $Value.$key -cnotmatch '^[0-9a-f]{32}\z'){return $false}}
+    foreach($key in @('actor_sha256','manifest_sha256')){if($Value.$key -isnot [string] -or $Value.$key -cnotmatch '^[0-9a-f]{64}\z'){return $false}}
+    return $true
+}
+function Get-ProxyPipeACPayloadNames {
+    return @('.github/windows_identity_pipe_probe.py','.github/windows_identity_ordinary_launcher.py',
+        'ruleproxy/windows_app_process.py','.github/windows_identity_proxy_pipe_probe.py',
+        '.github/windows_identity_proxy_pipe_ac_guest.py','bridge/windows_identity_proxy_pipe_actor.exe',
+        'bridge/identity-proxy-pipe-manifest.json')
+}
+function Test-ProxyPipeACStagingBound($Compressed,$Expanded,$BaselineActor,$Executor,$Bridge) {
+    foreach($value in @($Compressed,$Expanded,$BaselineActor,$Executor,$Bridge)){if(($value -isnot [int] -and $value -isnot [long]) -or $value -le 0 -or $value -gt 134217728){return $false}}
+    if($BaselineActor -lt 512 -or $BaselineActor -gt 8388608 -or $Bridge -lt 512 -or $Bridge -gt 8388608 -or $Executor -gt 67108864){return $false}
+    return ([long]$Compressed+$Expanded+24405990+$BaselineActor+$Executor+$Bridge+1048576 -le 134217728)
+}
+function Assert-ProxyPipeACStagingBound([string]$Path) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip=[IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        $expanded=0L;$sizes=@{}
+        foreach($entry in $zip.Entries){
+            if($sizes.ContainsKey($entry.FullName)){throw 'proxy_pipe_ac_staging'}
+            $sizes[$entry.FullName]=[long]$entry.Length;$expanded+=$entry.Length
+            if($expanded -gt 134217728){throw 'proxy_pipe_ac_staging'}
+        }
+        foreach($name in @('actor.exe','g/wxc-exec.exe','bridge/windows_identity_proxy_pipe_actor.exe')){if(-not $sizes.ContainsKey($name)){throw 'proxy_pipe_ac_staging'}}
+        $compressed=[long](Get-Item -LiteralPath $Path).Length
+        if($zip.Entries.Count -ne 17 -or -not(Test-ProxyPipeACStagingBound $compressed $expanded $sizes['actor.exe'] $sizes['g/wxc-exec.exe'] $sizes['bridge/windows_identity_proxy_pipe_actor.exe'])){throw 'proxy_pipe_ac_staging'}
+        $remaining=$expanded+24405990+$sizes['actor.exe']+$sizes['g/wxc-exec.exe']+$sizes['bridge/windows_identity_proxy_pipe_actor.exe']+1048576
+        if(([IO.DriveInfo]::new('C')).AvailableFreeSpace -lt $remaining){throw 'proxy_pipe_ac_free_space'}
+    } finally {$zip.Dispose()}
+}
+function Test-ProxyPipeACKeys($Value,[string[]]$Keys) {
+    if($Value -isnot [PSCustomObject] -or @($Value.PSObject.Properties).Count -ne $Keys.Count){return $false}
+    foreach($key in $Keys){if($key -cnotin @($Value.PSObject.Properties.Name)){return $false}}
+    return $true
+}
+function Test-ProxyPipeACPair($Value) {
+    $keys=@('case','admitted','created','resumed','exit_observed','identity_verified','parent_data_closed','reports_bound','observations','core_failure','pipe_eof','native_close','cleanup_confirmed','job_empty','watchdog_stop','expected_outcome','failure')
+    if(-not(Test-ProxyPipeACKeys $Value $keys)){return $false}
+    if($Value.case -isnot [int] -or $Value.case -ne 0){return $false}
+    foreach($key in @('admitted','parent_data_closed','cleanup_confirmed','job_empty','watchdog_stop','expected_outcome')){if($Value.$key -isnot [bool]){return $false}}
+    if($Value.watchdog_stop){return $false}
+    foreach($key in @('created','resumed','exit_observed','identity_verified','reports_bound')){if($Value.$key -isnot [int] -or $Value.$key -lt 0 -or $Value.$key -gt 3){return $false}}
+    foreach($key in @('resumed','exit_observed','identity_verified')){if(($Value.$key -band (-bnot $Value.created)) -ne 0){return $false}}
+    if(($Value.reports_bound -band (-bnot ($Value.exit_observed -band $Value.identity_verified))) -ne 0){return $false}
+    foreach($key in @('observations','core_failure','pipe_eof','native_close')){if($Value.$key -isnot [array] -or $Value.$key.Count -ne 2){return $false}}
+    for($i=0;$i -lt 2;$i++) {
+        $observation=$Value.observations[$i];$code=$Value.core_failure[$i];$mask=@(177,78)[$i]
+        if($observation -isnot [int] -or $observation -lt 0 -or $observation -gt 255 -or ($observation -band (-bnot $mask)) -ne 0){return $false}
+        if($null -ne $code -and ($code -isnot [int] -or $code -lt 0 -or $code -gt 11)){return $false}
+        foreach($key in @('pipe_eof','native_close')){if($Value.$key[$i] -isnot [bool]){return $false}}
+        if(($Value.reports_bound -band (1 -shl $i)) -eq 0 -and ($observation -ne 0 -or $null -ne $code -or $Value.pipe_eof[$i] -or $Value.native_close[$i])){return $false}
+    }
+    $failures=@('configuration','capacity','identity','setup','create','assign','image','close','resume','deadline','report','cleanup','internal')
+    if($null -ne $Value.failure -and ($Value.failure -isnot [string] -or $Value.failure -cnotin $failures)){return $false}
+    if($Value.expected_outcome -and -not(Test-ProxyPipeACPairPassed $Value)){return $false}
+    return $true
+}
+function Test-ProxyPipeACPairPassed($Value) {
+    if($null -eq $Value -or $Value.case -ne 0 -or $null -ne $Value.failure -or $Value.watchdog_stop){return $false}
+    foreach($key in @('admitted','parent_data_closed','cleanup_confirmed','job_empty','expected_outcome')){if($Value.$key -ne $true){return $false}}
+    foreach($key in @('created','resumed','exit_observed','identity_verified','reports_bound')){if($Value.$key -ne 3){return $false}}
+    return ($Value.observations[0] -eq 177 -and $Value.observations[1] -eq 78 -and $null -ne $Value.core_failure[0] -and $null -ne $Value.core_failure[1] -and $Value.core_failure[0] -eq 0 -and $Value.core_failure[1] -eq 0 -and $Value.pipe_eof[0] -and $Value.pipe_eof[1] -and $Value.native_close[0] -and $Value.native_close[1])
+}
+function Test-ProxyPipeACPublic($Value,$Configuration) {
+    $keys=@('schema_version','stage','profile','run_nonce_sha256','case_nonce_sha256','actor_sha256','manifest_sha256','status','ac_failure','diagnostic','facts','pair','ac_pipe_passed','synthetic_http_only','network_tested','proxy_tested','product_acceptance')
+    if(-not(Test-ProxyPipeACKeys $Value $keys)){return $false}
+    if($Value.schema_version -isnot [int] -or $Value.schema_version -ne 1){return $false}
+    foreach($key in @('stage','profile','run_nonce_sha256','case_nonce_sha256','actor_sha256','manifest_sha256','status')){if($Value.$key -isnot [string]){return $false}}
+    if($Value.stage -cne 'proxy-pipe-ac' -or $Value.profile -cne 'ordinary-win11-zero-cap-front-pipe-v1' -or $Value.status -cnotin @('not_requested','inconclusive','passed')){return $false}
+    if($Value.actor_sha256 -cne $Configuration.actor_sha256 -or $Value.manifest_sha256 -cne $Configuration.manifest_sha256){return $false}
+    foreach($key in @('run_nonce','case_nonce')){if($Value.($key+'_sha256') -cne (Get-N0aSha256 ([Text.Encoding]::ASCII.GetBytes($Configuration.$key)))){return $false}}
+    foreach($key in @('ac_pipe_passed','synthetic_http_only','network_tested','proxy_tested','product_acceptance')){if($Value.$key -isnot [bool]){return $false}}
+    if(-not $Value.synthetic_http_only -or $Value.network_tested -or $Value.proxy_tested -or $Value.product_acceptance){return $false}
+    $failures=@('disabled','configuration','capacity','identity','environment','profile','acl','create','assign','image','close','resume','deadline','report','cleanup','internal')
+    if($null -ne $Value.ac_failure -and ($Value.ac_failure -isnot [string] -or $Value.ac_failure -cnotin $failures)){return $false}
+    $factKeys=@('current_ordinary_verified','controller_identity_verified','frontend_held_identity_verified','relay_held_identity_verified','fresh_frontend_profile_verified','images_verified','child_environment_verified','owned_acl_scope_verified','acl_removed_verified','profile_deleted_verified','controller_exit_verified','outer_cleanup_verified')
+    if(-not(Test-ProxyPipeACKeys $Value.facts $factKeys)){return $false}
+    $allFacts=$true;$anyFacts=$false
+    foreach($key in $factKeys){if($Value.facts.$key -isnot [bool]){return $false};$allFacts=$allFacts -and $Value.facts.$key;$anyFacts=$anyFacts -or $Value.facts.$key}
+    $d=$Value.diagnostic
+    if(-not(Test-ProxyPipeACKeys $d @('phase','error_domain','error_code','controller_report'))){return $false}
+    $phases=@('configuration','ordinary','manifest','known_folder','profile','acl','create','assign','image','frontend_identity','relay_identity','close','resume','protocol','report','cleanup','complete')
+    $domains=@('none','win32','hresult','internal')
+    $reports=@('not_attempted','missing','read_error','overbound','utf8','json','duplicate','nonfinite','not_object','close_uncertain','parsed','bound')
+    if($d.phase -isnot [string] -or $d.phase -cnotin $phases -or $d.error_domain -isnot [string] -or $d.error_domain -cnotin $domains -or $d.controller_report -isnot [string] -or $d.controller_report -cnotin $reports){return $false}
+    $code=$d.error_code
+    if($null -ne $code -and (($code -isnot [int] -and $code -isnot [long]) -or $code -lt 0 -or $code -gt 4294967295 -or $d.error_domain -cin @('none','internal'))){return $false}
+    if($null -ne $Value.pair -and -not(Test-ProxyPipeACPair $Value.pair)){return $false}
+    $passed=$allFacts -and (Test-ProxyPipeACPairPassed $Value.pair) -and $null -eq $Value.ac_failure -and $d.controller_report -ceq 'bound' -and $d.error_domain -ceq 'none' -and $null -eq $d.error_code
+    if($Value.ac_pipe_passed -ne $passed -or (($Value.status -ceq 'passed') -ne $passed)){return $false}
+    if($Value.status -ceq 'not_requested' -and ($anyFacts -or $null -ne $Value.pair)){return $false}
+    return $true
+}
+function ConvertFrom-ProxyPipeACPublic([string]$Text,$Configuration) {
+    # All keys in this closed guest schema are globally distinct, including ac_failure.
+    if($Text.Contains('\')){throw 'proxy_pipe_ac_json'}
+    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach($match in [regex]::Matches($Text,'"([^"\\]*)"\s*:')){if(-not $seen.Add($match.Groups[1].Value)){throw 'proxy_pipe_ac_duplicate'}}
+    $value=$Text|ConvertFrom-Json
+    if(-not(Test-ProxyPipeACPublic $value $Configuration)){throw 'proxy_pipe_ac_schema'}
+    return $value
+}
+function Invoke-ProxyPipeACGuestDiagnostic($Configuration,[string]$Workspace,[string]$Python,[long]$Deadline,[long]$Frequency,[bool]$OriginalReady,[bool]$OriginalDelivered) {
+    $launcher=[ordered]@{phase='not_started';failure='none';python_exit_code=$null;process_exit_confirmed=$null;timed_out=$false;budget_exhausted=$false}
+    $envelope=[ordered]@{schema_version=1;proxy_pipe_ac=$null;launcher=$launcher}
+    $process=$null; $started=$false; $waitCompleted=$false; $executionFailure=$null
+    try {
+        $launcher.phase='configuration'
+        if (-not (Test-ProxyPipeACConfiguration $Configuration.proxy_pipe_ac)) { $launcher.failure='configuration'; throw 'Closed diagnostic failure' }
+        if (-not $OriginalReady) { $launcher.failure='original_unavailable'; throw 'Closed diagnostic failure' }
+        if (-not $OriginalDelivered) { $launcher.failure='original_transport'; throw 'Closed diagnostic failure' }
+        $launcher.phase='budget'
+        $workEnd=$Deadline
+        if ((Get-N0aRemainingMilliseconds $workEnd $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())) -le 0) {
+            $launcher.failure='work_budget_exhausted'; $launcher.budget_exhausted=$true; throw 'Closed diagnostic failure'
+        }
+        $output=Join-Path $Workspace 'public-proxy-pipe-ac.json'
+        if (Test-Path -LiteralPath $output) { $launcher.failure='report_bound'; throw 'Closed diagnostic failure' }
+        $info=New-Object Diagnostics.ProcessStartInfo
+        $info.FileName=$Python
+        $info.Arguments='-I -S -B "'+(Join-Path $Workspace '.github\windows_identity_proxy_pipe_ac_guest.py')+'" --config "C:\RuleProxyCI\ruleproxy-vm-config.json" --deadline-qpc '+$workEnd.ToString([Globalization.CultureInfo]::InvariantCulture)+' --qpc-frequency '+$Frequency.ToString([Globalization.CultureInfo]::InvariantCulture)
+        $info.UseShellExecute=$false; $info.CreateNoWindow=$true
+        $process=New-Object Diagnostics.Process; $process.StartInfo=$info
+        $launcher.phase='python_start'; $launcher.failure='spawn'
+        if (-not $process.Start()) { throw 'Closed diagnostic failure' }
+        $started=$true
+        if ($process.Handle -eq [IntPtr]::Zero) { throw 'Closed diagnostic failure' }
+        $launcher.phase='python_wait'; $launcher.failure='process_exit'
+        $wait=Wait-Stage0bOwnedChild $process $workEnd $Frequency
+        $waitCompleted=$true
+        foreach ($key in @('process_exit_confirmed','timed_out','python_exit_code','budget_exhausted')) { $launcher[$key]=$wait[$key] }
+        # Retain already-written bounded evidence even after timeout/uncertain exit.
+        # This is not cleanup or denial acceptance; host independently adjudicates.
+        if ($launcher.budget_exhausted) { $executionFailure='work_budget_exhausted' }
+        elseif ($launcher.timed_out) { $executionFailure='timeout' }
+        elseif (-not $launcher.process_exit_confirmed -or $null -eq $launcher.python_exit_code) { $executionFailure='process_exit' }
+        $launcher.phase='report_read'; $launcher.failure='report_absent'
+        if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { throw 'Closed diagnostic failure' }
+        $launcher.failure='report_bound'
+        $item=Get-Item -LiteralPath $output -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.Length -gt 4096) { throw 'Closed diagnostic failure' }
+        $file=[IO.File]::Open($output,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+        try {
+            $buffer=[byte[]]::new(4097); $used=0
+            while ($used -lt $buffer.Length) { $count=$file.Read($buffer,$used,$buffer.Length-$used); if ($count -eq 0) { break }; $used+=$count }
+            if ($used -gt 4096 -or $used -eq 0) { throw 'Closed diagnostic failure' }
+            for ($i=0;$i -lt $used;$i++) { if ($buffer[$i] -gt 127) { throw 'Closed diagnostic failure' } }
+            $text=[Text.Encoding]::ASCII.GetString($buffer,0,$used)
+        } finally { $file.Dispose() }
+        $launcher.phase='report_parse'; $launcher.failure='report_parse'
+        $value=ConvertFrom-ProxyPipeACPublic $text $Configuration.proxy_pipe_ac
+        $envelope.proxy_pipe_ac=$value
+        $launcher.phase='completed'; $launcher.failure=if ($null -eq $value -or $launcher.python_exit_code -ne 0) { 'operation_failed' } else { 'none' }
+    } catch { if ($launcher.failure -eq 'none') { $launcher.failure='operation_failed' } }
+    finally {
+        if ($null -ne $process) {
+            if ($started -and -not $waitCompleted) {
+                try { $process.Kill() } catch {}
+                try { $launcher.process_exit_confirmed=($process.WaitForExit([Math]::Min(5000,(Get-N0aRemainingMilliseconds $Deadline $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())))) -eq $true) } catch { $launcher.process_exit_confirmed=$false }
+            }
+            try { $process.Dispose() } catch { $executionFailure='handle_dispose' }
+        }
+    }
+    if ($null -ne $executionFailure) { $launcher.failure=$executionFailure }
+    # One reporting-only attempt can follow work expiry. It never renews work.
+    try {
+        $body=[Text.Encoding]::ASCII.GetBytes(($envelope | ConvertTo-Json -Depth 16 -Compress))
+        if ($body.Length -gt 4096) { throw 'proxy_pipe_ac_wire_bound' }
+        [void](Send-N0aClosedReport ($Configuration.host_url+'/proxy-pipe-ac-result') $body)
+    } catch {}
+    return $envelope
+}
 
 # IPv6-only opt-in helpers. Existing IPv4/TCP functions remain unchanged.
 function Get-N0aUdp6PayloadNames {
@@ -1116,6 +1297,12 @@ try {
         'g/wxc-exec.exe','g/build-manifest.json','g/MXC-LICENSE.md',
         '.github/windows_identity_direct_stage0.py','.github/windows_identity_proof.py',
         '.github/windows_psec_compartment_smoke.py','ruleproxy/windows_runtime_pins.py')
+    $proxyPipeAcPresent=('proxy_pipe_ac' -cin @($configuration.PSObject.Properties.Name))
+    if($proxyPipeAcPresent) {
+        foreach($other in @('stage0b','n0a','capture','n0a_udp','n0a_udp_parent','n0a_udp6')){if($other -cin @($configuration.PSObject.Properties.Name)){throw 'proxy_pipe_ac_exclusive'}}
+        if(-not(Test-ProxyPipeACConfiguration $configuration.proxy_pipe_ac)){throw 'proxy_pipe_ac_configuration'}
+        $proxyPipeAcEnabled=$true;$payloadNames+=@(Get-ProxyPipeACPayloadNames)
+    }
     $stage0bPresent=('stage0b' -cin @($configuration.PSObject.Properties.Name))
     if($stage0bPresent) {
         foreach($other in @('n0a','capture','n0a_udp','n0a_udp_parent','n0a_udp6')) {if($other -cin @($configuration.PSObject.Properties.Name)){throw 'stage0b_exclusive'}}
@@ -1162,7 +1349,11 @@ try {
         $payloadNames+=@('.github/windows_n0a_flow.py')
     }
     $phase='payload_extract'
-    if ($stage0bEnabled) {
+    if ($proxyPipeAcEnabled) {
+        Assert-ProxyPipeACStagingBound $payload
+        Expand-CheckedStage0Zip -ArchivePath $payload -Destination $workspace -RequiredNames $payloadNames `
+            -MemberCount 17 -ExactBytes 0 -MaximumBytes 134217728 -Flat $false -ExactNames $true
+    } elseif ($stage0bEnabled) {
         Assert-Stage0bStagingBound $payload
         Expand-CheckedStage0Zip -ArchivePath $payload -Destination $workspace -RequiredNames $payloadNames `
             -MemberCount 14 -ExactBytes 0 -MaximumBytes 134217728 -Flat $false -ExactNames $true
@@ -1206,7 +1397,7 @@ try {
     $child = New-Object Diagnostics.Process
     $child.StartInfo=$info
     try {
-        if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled -or $stage0bEnabled) {
+        if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled -or $stage0bEnabled -or $proxyPipeAcEnabled) {
             $n0aFrequency=[Diagnostics.Stopwatch]::Frequency
             $now=[Diagnostics.Stopwatch]::GetTimestamp()
             if (-not [Diagnostics.Stopwatch]::IsHighResolution -or $n0aFrequency -le 0 -or $n0aFrequency -gt 1000000000 -or $now -lt 0 -or $now -gt ([long]::MaxValue-120*$n0aFrequency)) { throw 'Clock contract unavailable' }
@@ -1217,7 +1408,7 @@ try {
         $heldHandle=$child.Handle
         if ($heldHandle -eq [IntPtr]::Zero) { $failureCategory='process_handle_missing'; throw 'Owned process handle missing' }
         $phase='python_wait'
-        $originalExited=if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled -or $stage0bEnabled) { $child.WaitForExit((Get-N0aRemainingMilliseconds $n0aDeadline $n0aFrequency ([Diagnostics.Stopwatch]::GetTimestamp()))) } else { $child.WaitForExit(120000) }
+        $originalExited=if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled -or $stage0bEnabled -or $proxyPipeAcEnabled) { $child.WaitForExit((Get-N0aRemainingMilliseconds $n0aDeadline $n0aFrequency ([Diagnostics.Stopwatch]::GetTimestamp()))) } else { $child.WaitForExit(120000) }
         if (-not $originalExited) { $child.Kill(); [void]$child.WaitForExit(5000); $failureCategory='python_deadline'; throw 'Stage0 deadline' }
         $pythonExit=[int]$child.ExitCode
         $phase='report_read'
@@ -1274,7 +1465,9 @@ try {
 
 # Original Stage0 delivery above is independent and is never rewritten by N0a.
 # Work shares one 120s QPC deadline; reporting-only allowance is separate (once, at most 10s).
-if ($stage0bEnabled) {
+if ($proxyPipeAcEnabled) {
+    [void](Invoke-ProxyPipeACGuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)
+} elseif ($stage0bEnabled) {
     [void](Invoke-Stage0bGuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)
 } elseif ($udp6Enabled) {
     [void](Invoke-N0aUdp6GuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)

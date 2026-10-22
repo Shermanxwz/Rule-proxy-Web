@@ -669,6 +669,218 @@ class PipeWorkflowTests(unittest.TestCase):
             self.assertNotIn(forbidden,text)
         self.assertLess(text.index('Verify pins and required pure bridge and pipe suites'),text.index('Explicit bounded hosted pipe suite once'))
 
+def ordinary_identity():
+    return dict(identity(),elevated=False,elevation_type=1,integrity_rid=8192,admin_attributes=None,ui_access=False)
+
+
+class FakeACAPI(FakeAPI):
+    SID='S-1-15-2-1-2-3-4-5-6-7'
+    def __init__(self,fault=None):super().__init__(fault);self.controls_uncertain=False
+    def identity_owned(self,owners,process=None):
+        token=self.handle();owners.add(token);value=ordinary_identity()
+        if process is not None and self.processes[process]['command'][1]=='pipe-front':
+            value.update(appcontainer=True,appcontainer_sid=self.SID)
+            if self.fault=='frontend_sid':value['appcontainer_sid']='S-1-15-2-9'
+            if self.fault=='frontend_caps':value['capability_count']=1
+        if self.fault=='ordinary':value['elevated']=True
+        self.log.append(('identity',process))
+        return value
+    def local_appdata(self,budget,metadata):
+        self.log.append(('known_folder',))
+        metadata.update(lookup_state='ready',hresult=0,release_attempted=True,release_returned=True,
+            com=[True,0,True,True],deadline_verified=True)
+        if self.fault=='environment':raise ValueError('environment')
+        return 'C:\\Users\\ordinary\\AppData\\Local'
+    def front_environment(self,path,metadata):metadata['exact_child_keyset']=True;return 'SystemRoot=C:\\Windows\0LOCALAPPDATA='+path+'\0\0'
+    def create_profile(self,name,state):
+        self.log.append(('profile_create',name));state.update(attempted=True,returned=True)
+        if self.fault=='profile_exists':raise p.ACNativeFailure('hresult',0x800700b7)
+        state.update(created=True,pointer=777,sid=self.SID);return self.SID
+    def release_profile_sid(self,state):
+        self.log.append(('sid_release',state['pointer']));state['pointer']=None
+        if self.fault=='sid_release':raise ValueError('close')
+    def grant_acl(self,work,inputs,output,sid,budget):
+        self.log.append(('grant',work,inputs,output))
+        if self.fault=='grant_readback':raise ValueError('acl')
+    def remove_acl(self,work,sid,budget):
+        self.log.append(('remove_acl',))
+        if self.fault=='remove_acl':return False
+        if self.fault=='late_cleanup':self.now=51000
+        return True
+    def delete_profile(self,name):
+        self.log.append(('profile_delete',))
+        if self.fault=='profile_delete':raise p.ACNativeFailure('hresult',0x80004005)
+    def owned_create_front(self,info,command,work,handles,owners,state,sid_pointer,environment):
+        self.log.append(('front_security',sid_pointer,environment))
+        return super().owned_create(info,command,work,handles,owners,state)
+    def resume(self,thread):
+        super().resume(thread)
+        for row in self.processes.values():
+            path=Path(row['command'][4])
+            if path.exists():
+                value=json.loads(path.read_text())
+                if row['command'][1]=='pipe-front':value['identity'].update(tokenIsAppContainer=True,tokenAppContainerSid=self.SID)
+                path.write_text(json.dumps(value),encoding='utf-8')
+
+
+def ac_fixture(fault=None):
+    with tempfile.TemporaryDirectory() as tmp:
+        root=Path(tmp).resolve();actor=root/'windows_identity_proxy_pipe_actor.exe';actor.write_bytes(b'MZ'+b'x'*510)
+        digest=hashlib.sha256(actor.read_bytes()).hexdigest();api=FakeACAPI(fault)
+        value=p.run_ac_pair(api,actor,root/'identity-proxy-pipe-manifest.json',digest,'b'*64,root/'case','a'*32,'c'*32,61000,1000,
+            artifact_verifier=lambda *args:(actor,digest))
+        expected={'run_nonce':'a'*32,'case_nonce':'c'*32,'actor_sha256':digest,'manifest_sha256':'b'*64,
+            'deadline_qpc':61000,'qpc_frequency':1000,'controller_pid':os.getpid(),'controller_sid':ordinary_identity()['sid'],'controller_session':1}
+        return value,expected,api
+
+
+class ACPairTests(unittest.TestCase):
+    def test_actual_orchestration_and_private_validator_composed(self):
+        value,expected,api=ac_fixture();result=p.validate_private_report(value,expected)
+        self.assertTrue(value['pair']['expected_outcome']);self.assertIsNone(result['ac_failure'])
+        self.assertTrue(all(v for k,v in result['facts'].items() if k not in ('controller_exit_verified','outer_cleanup_verified')))
+        self.assertFalse(result['facts']['controller_exit_verified']);self.assertFalse(result['facts']['outer_cleanup_verified'])
+        first=next(i for i,x in enumerate(api.log) if x[0]=='resume')
+        self.assertEqual(sum(x[0]=='create' for x in api.log[:first]),2)
+        self.assertEqual(sum(x[0]=='identity' and x[1] is not None for x in api.log[:first]),2)
+        self.assertEqual(sum(x[0]=='close' and x[1] in api.data for x in api.log[:first]),4)
+        self.assertTrue(all(n==1 for n in api.closes.values()))
+        self.assertEqual(value['pair_qpc'],[1000,11000]);self.assertEqual(value['deadline_qpc'],61000)
+    def test_all_partial_failure_and_cleanup_paths(self):
+        for fault in ('ordinary','environment','profile_exists','grant_readback','create_partial','create_no_handle',
+                      'assign','image','frontend_sid','frontend_caps','parent_close','resume','process_close',
+                      'remove_acl','profile_delete','sid_release','late_cleanup','report_missing'):
+            with self.subTest(fault=fault):
+                value,expected,api=ac_fixture(fault)
+                self.assertFalse(value['pair']['expected_outcome'] and all(value['cleanup'].values()))
+                self.assertTrue(all(n==1 for n in api.closes.values()))
+                if fault in ('ordinary','environment','profile_exists','grant_readback','frontend_sid','frontend_caps','parent_close'):
+                    self.assertFalse(any(x[0]=='resume' for x in api.log))
+                if fault in ('create_no_handle','remove_acl','late_cleanup','parent_close','process_close'):
+                    self.assertFalse(any(x[0]=='profile_delete' for x in api.log))
+                if fault in ('parent_close','process_close'):
+                    self.assertFalse(any(x[0]=='remove_acl' for x in api.log));self.assertFalse(value['pair']['cleanup_confirmed'])
+                if fault=='ordinary':self.assertFalse(any(x[0]=='profile_create' for x in api.log))
+    def test_bound_observations_survive_profile_or_close_failure(self):
+        for fault in ('profile_delete','sid_release','remove_acl','process_close'):
+            value,expected,api=ac_fixture(fault);result=p.validate_private_report(value,expected)
+            self.assertEqual(result['pair']['observations'],[177,78])
+            self.assertFalse(result['pair']['expected_outcome'] and result['ac_failure'] is None)
+    def test_role_and_held_private_binding_refusals(self):
+        value,expected,_=ac_fixture()
+        for key,bad in (('controller_pid',999),('case_nonce','d'*32),('qpc_frequency',1001),('actor_sha256','0'*64)):
+            changed=copy.deepcopy(value);changed[key]=bad
+            with self.assertRaises(ValueError):p.validate_private_report(changed,expected)
+        for role in (0,1):
+            changed=copy.deepcopy(value);changed['children'][role]['identity']['session_id']=2
+            with self.assertRaises(ValueError):p.validate_private_report(changed,expected)
+        forged=copy.deepcopy(value);forged['derived_sid']=expected['controller_sid']
+        forged['children'][0]['identity']['appcontainer_sid']=expected['controller_sid']
+        forged['children'][0]['native']['identity']['tokenAppContainerSid']=expected['controller_sid']
+        with self.assertRaises(ValueError):p.validate_private_report(forged,expected)
+        self.assertFalse(p.ac_profile_sid('S-1-15-2-4294967296-2-3-4-5-6-7'))
+        self.assertTrue(p.ac_profile_sid('S-1-15-2-4294967295-2-3-4-5-6-7'))
+        row=value['children'][0]
+        with self.assertRaises(ValueError):p.validate_ac_native(row['native'],role='pipe-front',run_id=value['run_nonce'],case_id=value['case_nonce'],pid=row['pid'],identity=row['identity'],frequency=1000,start=1000,end=11000,expected_ac_sid=None)
+    def test_off_entry_before_native_and_hosted_inverse(self):
+        with mock.patch.object(p,'ACWindowsAPI',side_effect=AssertionError('native')):
+            self.assertEqual(p.main(['--run-ac-pair']),2)
+        import ast
+        current=ast.parse((ROOT/'.github/windows_identity_proxy_pipe_probe.py').read_text())
+        pins={'validate_native': 'a3881d6a387c55ffd58e8e0e34d1321e9958ff0c811d5ef7d2297ec0d451053c', 'successful_native': 'fc09bbc876b97811af0f49bd6e85574cc640916b3c7ec8b1faf019fb00a81069', 'WindowsAPI': '5228391fb00010d54e54666ccf294d789ea0abf329d73ebb0bd9c723734161f5', '_cleanup': '1d9b57ed78d81bd924982f90f1f1d5de88cf7f9a385130c7eff6da1c50e8b84a', 'run_case': 'fc6b6c6faa302f944515c2a80b52bc2fc931ade190664a5cd8733eb2424f6af3', 'verify_artifact': '937c379298c052f5bcee3b751d263725511332952dd0150a12f11e5b058088e7', 'run_suite': '542324050b8c8fbbbdc14f4e4b6f840c0cdf1d4478011cbd71f350d68108ae7d'}
+        actual={n.name:hashlib.sha256(ast.dump(n,include_attributes=False).encode()).hexdigest() for n in current.body if isinstance(n,(ast.FunctionDef,ast.ClassDef))}
+        for name,digest in pins.items():self.assertEqual(actual[name],digest)
+        self.assertFalse(p.AC_EXECUTION_ENABLED)
+    def test_packaged_artifact_binding_does_not_claim_source_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();actor=root/'windows_identity_proxy_pipe_actor.exe';actor.write_bytes(b'MZ'+b'x'*510)
+            actor_hash=hashlib.sha256(actor.read_bytes()).hexdigest();manifest=root/'identity-proxy-pipe-manifest.json'
+            value={'schemaVersion':1,'compileOnly':True,'runtimeAcceptance':False,'actorSourceSha256':'a'*64,
+                'identitySourceSha256':'b'*64,'coreSha256':'c'*64,'executableSha256':actor_hash}
+            raw=json.dumps(value).encode();manifest.write_bytes(raw);manifest_hash=hashlib.sha256(raw).hexdigest()
+            with mock.patch.object(p,'ROOT',root/'absent-repository'):
+                self.assertEqual(p.verify_ac_artifact(actor,manifest,manifest_hash,actor_hash),(actor,actor_hash))
+            for mh,ah in (('0'*64,actor_hash),(manifest_hash,'0'*64)):
+                with self.assertRaises(ValueError):p.verify_ac_artifact(actor,manifest,mh,ah)
+            actor.write_bytes(b'MZ'+b'y'*510)
+            with self.assertRaises(RuntimeError):p.verify_ac_artifact(actor,manifest,manifest_hash,actor_hash)
+
+    def test_actual_front_attribute_construction_and_partial_handle_registration(self):
+        import ctypes as C
+        spec=importlib.util.spec_from_file_location('ac_fixed_proc',ROOT/'ruleproxy/windows_app_process.py')
+        proc=importlib.util.module_from_spec(spec);spec.loader.exec_module(proc)
+        calls=[]
+        class Kernel:
+            def InitializeProcThreadAttributeList(self,attrs,count,flags,size):
+                calls.append(('attrs',count))
+                if attrs is None:C.cast(size,C.POINTER(C.c_size_t))[0]=128;return 0
+                return 1
+            def UpdateProcThreadAttribute(self,attrs,flags,kind,value,size,previous,returned):
+                if kind==0x20002:
+                    handles=C.cast(value,C.POINTER(C.c_void_p*2)).contents
+                    calls.append(('handles',list(handles)))
+                else:
+                    cap=C.cast(value,C.POINTER(proc._SecurityCapabilities)).contents
+                    calls.append(('caps',cap.AppContainerSid,cap.CapabilityCount,cap.Capabilities))
+                return 1
+            def CreateProcessW(self,exe,command,pa,ta,inherit,flags,environment,cwd,startup,info):
+                st=C.cast(startup,C.POINTER(proc._StartupInfoEx)).contents
+                calls.append(('create',inherit,flags,st.StartupInfo.dwFlags,environment.value))
+                out=C.cast(info,C.POINTER(proc._ProcessInfo)).contents
+                out.hProcess=101;out.hThread=102;out.dwProcessId=103
+                return 0
+            def DeleteProcThreadAttributeList(self,attrs):calls.append(('delete_attrs',))
+        api=p.ACWindowsAPI.__new__(p.ACWindowsAPI);api.k=Kernel();api.proc=proc
+        api.native=SimpleNamespace(check=lambda ok,op:None if ok else (_ for _ in ()).throw(ValueError(op)))
+        owners=p.pipe_helpers.OneShotHandles(lambda h:None);state={'creation_attempted':False};info=proc._ProcessInfo()
+        with mock.patch.object(C,'get_last_error',return_value=5,create=True):
+            with self.assertRaises(p.launcher.NativeFailure):
+                api.owned_create_front(info,['fixed.exe','pipe-front'],Path('.'),(11,12),owners,state,777,'SystemRoot=X\0LOCALAPPDATA=Y\0\0')
+        self.assertTrue(state['creation_attempted']);self.assertEqual(owners.pending,{101,102})
+        self.assertIn(('handles',[11,12]),calls);self.assertIn(('caps',777,0,None),calls)
+        row=next(x for x in calls if x[0]=='create')
+        self.assertTrue(row[1]);self.assertEqual(row[3],0)
+        self.assertEqual(row[2],proc._CREATE_SUSPENDED|proc._CREATE_UNICODE_ENVIRONMENT|proc._EXTENDED_STARTUPINFO_PRESENT)
+        self.assertEqual(calls[-1],('delete_attrs',))
+
+    def test_actual_acl_scope_and_removal_readback_cutoffs(self):
+        api=p.ACWindowsAPI.__new__(p.ACWindowsAPI);api.controls_uncertain=False;calls=[]
+        api.acl_command=lambda args,budget,cleanup=False:calls.append((args,cleanup))
+        clock=FakeACAPI();budget=p.launcher.QpcBudget(clock,61000,1000)
+        root=Path('/owned');inputs=root/'inputs';output=root/'frontend-output'
+        paths=[root,inputs,inputs/'windows_identity_proxy_pipe_actor.exe',output,root/'relay-output',root/'ownership.json']
+        api.acl_read=lambda path,sid:p.ac_scope_expected(root,inputs,output,path)
+        with mock.patch.object(p.pipe_helpers,'owned_paths',return_value=paths),mock.patch.dict(os.environ,{'SystemRoot':r'C:\Windows'}):
+            api.grant_acl(root,inputs,output,FakeACAPI.SID,budget)
+            self.assertEqual([x[0][1] for x in calls],[str(root),str(inputs),str(output)])
+            api.acl_read=lambda path,sid:[(0,1)] if path.name=='relay-output' else p.ac_scope_expected(root,inputs,output,path)
+            self.assertFalse(api.verify_acl_scope(root,inputs,output,FakeACAPI.SID,budget))
+            api.acl_read=lambda path,sid:[]
+            self.assertTrue(api.remove_acl(root,FakeACAPI.SID,budget))
+            api.acl_read=lambda path,sid:[(0,0x1200a9)]
+            self.assertFalse(api.remove_acl(root,FakeACAPI.SID,budget))
+            def late(path,sid):clock.now=51000;return []
+            api.acl_read=late
+            with self.assertRaises(p.launcher.GateFailure):api.remove_acl(root,FakeACAPI.SID,budget)
+
+    def test_acl_binary_projection_and_scope_are_exact(self):
+        import struct
+        sid=p.ac_sid_bytes(FakeACAPI.SID);ace=struct.pack('<BBHI',0,3,8+len(sid),0x1200a9)+sid
+        acl=struct.pack('<BBHHH',2,0,8+len(ace),1,0)+ace
+        descriptor=struct.pack('<BBHIIII',1,0,0x8004,0,0,0,20)+acl
+        self.assertEqual(p.ac_sid_aces(descriptor,FakeACAPI.SID),[(3,0x1200a9)])
+        for position,value in ((20,3),(21,1),(26,1),(27,1)):
+            altered=bytearray(descriptor);altered[position]=value
+            with self.assertRaises(ValueError):p.ac_sid_aces(bytes(altered),FakeACAPI.SID)
+        revision4=bytearray(descriptor);revision4[20]=4
+        self.assertEqual(p.ac_sid_aces(bytes(revision4),FakeACAPI.SID),[(3,0x1200a9)])
+        spare=bytearray(descriptor+b'\0'*4);struct.pack_into('<H',spare,22,len(acl)+4)
+        self.assertEqual(p.ac_sid_aces(bytes(spare),FakeACAPI.SID),[(3,0x1200a9)])
+        for damaged in (descriptor[:19],descriptor[:25],descriptor[:20]+b'\0'*8,descriptor[:28]+bytes([1])+descriptor[29:]):
+            with self.assertRaises(ValueError):p.ac_sid_aces(damaged,FakeACAPI.SID)
+        root=Path('/owned');self.assertEqual(p.ac_scope_expected(root,root/'inputs',root/'frontend-output',root/'relay-output'),[])
+        self.assertEqual(p.ac_scope_expected(root,root/'inputs',root/'frontend-output',root/'ownership.json'),[])
+
 
 class SourceTests(unittest.TestCase):
     def test_exact_two_handle_path_and_frozen_ordinary_gate(self):
@@ -676,7 +888,8 @@ class SourceTests(unittest.TestCase):
         self.assertIn('(H*2)(*data_handles)',source)
         self.assertIn('pipe_helpers.create_suspended_owned',source)
         self.assertNotIn('launch_owned(',source);self.assertNotIn('CreateProcessAsUser',source)
-        self.assertNotIn('CreateAppContainerProfile',source);self.assertNotIn('icacls',source)
+        hosted=source.split('# Separate, inactive AC integration.',1)[0]
+        self.assertNotIn('CreateAppContainerProfile',hosted);self.assertNotIn('icacls',hosted)
         self.assertIn('owners.add(job)',source);self.assertIn('owners.close(handle)',source)
         self.assertIn('initial+60*frequency',source);self.assertIn('end>budget.cutoff(30)',source)
     def test_native_source_guard_and_fixed_role_wire(self):

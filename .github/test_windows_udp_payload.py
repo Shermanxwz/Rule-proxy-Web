@@ -12,6 +12,7 @@ ROOT=Path(__file__).resolve().parents[1]
 FORBIDDEN=('udp/TEST_ONLY.exe','capture.pcap','private-udp/runner-flow.json','.github/windows_n0a_udp_host.py')
 UDP6_FORBIDDEN=('udp6/TEST_ONLY.exe','capture.pcap','private-udp6/runner-flow.json','.github/windows_n0a_udp6_host.py')
 STAGE0B_FORBIDDEN=('duplicate-actor.exe','capture.pcap','private-stage0b/report.json','.github/windows_n0a_udp6_guest.py')
+AC_FORBIDDEN=('bridge/TEST_ONLY.exe','capture.pcap','private-proxy-pipe-ac/private-ac.json','.github/windows_identity_stage0b_guest.py')
 PARENT_FORBIDDEN=('parent/TEST_ONLY.exe','capture.pcap','private-parent-udp/runner-flow.json','.github/windows_n0a_udp_parent_host.py')
 def generate(root):
     root=Path(root)
@@ -101,7 +102,22 @@ def generate(root):
     for index,name in enumerate(STAGE0B_FORBIDDEN):
         with zipfile.ZipFile(root/f'stage0b-bad-{index}.zip','w') as archive:
             for member,data in entries.items():archive.writestr(name if member=='.github/windows_identity_stage0b_guest.py' else member,data)
-    return {'schema_version':1,'members':[10,14,15,17,22,17,14],'negative_cases':16,'inert_boundary_mocks':True,'runtime_artifact':False}
+    target=root/'proxy_pipe_ac.zip'
+    bridge=root/'bridge-inert.exe';bridge.write_bytes(b'not-an-executable-bridge-fixture'*32)
+    bridge_manifest=root/'bridge-fixture.json';bridge_manifest.write_bytes(b'{"fixture":true}')
+    ac={'actor':bridge,'manifest':bridge_manifest,'config':{'actor_sha256':hashlib.sha256(bridge.read_bytes()).hexdigest(),'manifest_sha256':hashlib.sha256(bridge_manifest.read_bytes()).hexdigest()}}
+    with patch.object(host,'verify_python',return_value=b'nonexecuted-python-fixture'),patch.object(install_runtime,'_g_bundle_bytes',return_value=bundle_data),patch.object(install_runtime,'_extract_g_bundle',side_effect=extract):
+        digest=host.payload(root/'unused-python.zip',stage_actor,hashlib.sha256(stage_actor.read_bytes()).hexdigest(),bundle,target,proxy_pipe_ac=ac)
+    if digest!=hashlib.sha256(target.read_bytes()).hexdigest():raise ValueError('fixture digest')
+    with zipfile.ZipFile(target) as archive:
+        entries={n:archive.read(n) for n in archive.namelist()}
+        if len(archive.namelist())!=17 or set(entries)!=base|set(host.PROXY_PIPE_AC_FILES)|{host.PROXY_PIPE_AC_BRIDGE,host.PROXY_PIPE_AC_MANIFEST}:raise ValueError('ac membership')
+        for name in host.PROXY_PIPE_AC_FILES:
+            if entries[name]!=(ROOT/name).read_bytes():raise ValueError('ac source')
+    for index,name in enumerate(AC_FORBIDDEN):
+        with zipfile.ZipFile(root/f'proxy_pipe_ac-bad-{index}.zip','w') as archive:
+            for member,data in entries.items():archive.writestr(name if member==host.PROXY_PIPE_AC_BRIDGE else member,data)
+    return {'schema_version':1,'members':[10,14,15,17,22,17,14,17],'negative_cases':20,'inert_boundary_mocks':True,'runtime_artifact':False}
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,required=True);args=parser.parse_args()
     try:result=generate(args.root)

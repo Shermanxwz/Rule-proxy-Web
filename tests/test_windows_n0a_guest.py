@@ -61,9 +61,9 @@ class N0aGuestContracts(unittest.TestCase):
         selector=RUN[RUN.index('    $payloadNames = @('):RUN.index("    $phase='payload_extract'")]
         # Source counterexample: AST visits commands even in branches not taken.
         # The old three-name allowlist rejects the newly present parent helpers.
-        commands=set(re.findall(r'\b(?:Get|Test)-(?:N0a|Stage0b)\w+',selector))
+        commands=set(re.findall(r'\b(?:Get|Test)-(?:N0a|Stage0b|ProxyPipeAC)\w+',selector))
         old={'Get-N0aUdpPayloadNames','Test-N0aConfiguration','Test-N0aCaptureConfiguration'}
-        self.assertEqual(commands-old,{'Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Get-N0aUdp6PayloadNames','Test-Stage0bConfiguration','Get-Stage0bPayloadNames'})
+        self.assertEqual(commands-old,{'Get-N0aUdpParentPayloadNames','Test-N0aUdpParentConfiguration','Get-N0aUdp6PayloadNames','Test-Stage0bConfiguration','Get-Stage0bPayloadNames','Test-ProxyPipeACConfiguration','Get-ProxyPipeACPayloadNames'})
         line=next(line for line in gate.splitlines() if 'foreach($command in $selectionCommands)' in line)
         allowed=set(re.findall(r"'([^']+)'",line))
         self.assertEqual(allowed,commands)

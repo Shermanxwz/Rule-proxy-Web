@@ -895,6 +895,76 @@ def stage0b_ipc_qualified(envelope, vm_destroyed):
         and launcher.get('budget_exhausted') is False)
 
 
+# Separate default-off zero-network IPC experiment; baseline acceptance is unchanged.
+PROXY_PIPE_AC_FILES = ('.github/windows_identity_pipe_probe.py',
+    '.github/windows_identity_ordinary_launcher.py','ruleproxy/windows_app_process.py',
+    '.github/windows_identity_proxy_pipe_probe.py','.github/windows_identity_proxy_pipe_ac_guest.py')
+PROXY_PIPE_AC_BRIDGE = 'bridge/windows_identity_proxy_pipe_actor.exe'
+PROXY_PIPE_AC_MANIFEST = 'bridge/identity-proxy-pipe-manifest.json'
+
+def proxy_pipe_ac_controller():
+    return proxy_pipe_ac_helpers().controller_module()
+
+def proxy_pipe_ac_helpers():
+    name='identity_proxy_pipe_ac_guest_adapter';path=(ROOT/'.github/windows_identity_proxy_pipe_ac_guest.py').resolve()
+    if name not in sys.modules:sys.modules[name]=load(name,path)
+    module=sys.modules[name]
+    if getattr(module,'__file__',None)!=str(path) or getattr(getattr(module,'__spec__',None),'origin',None)!=str(path):raise ValueError('proxy pipe adapter module')
+    return module
+
+
+def verify_proxy_pipe_ac_inputs(actor,manifest):
+    helper=proxy_pipe_ac_controller()
+    manifest=Path(manifest);raw=helper.pipe_helpers.read_bounded_file(manifest,8192)
+    manifest_digest=hashlib.sha256(raw).hexdigest()
+    actor,actor_digest=helper.verify_artifact(Path(actor),manifest,manifest_digest)
+    return dict(actor=actor,manifest=manifest,config=dict(enabled=True,run_nonce=secrets.token_hex(16),
+        case_nonce=secrets.token_hex(16),actor_sha256=actor_digest,manifest_sha256=manifest_digest))
+
+def proxy_pipe_ac_staging_capacity(package):
+    base={'python-embed.zip','actor.exe','stage0-input.json','g/wxc-exec.exe','g/build-manifest.json','g/MXC-LICENSE.md',*GUEST_SOURCES}
+    names=base|set(PROXY_PIPE_AC_FILES)|{PROXY_PIPE_AC_BRIDGE,PROXY_PIPE_AC_MANIFEST}
+    with zipfile.ZipFile(package) as archive:
+        entries=archive.infolist()
+        if len(entries)!=17 or {e.filename for e in entries}!=names:raise ValueError('proxy pipe payload shape')
+        sizes={e.filename:e.file_size for e in entries};expanded=sum(sizes.values())
+        a0=sizes['actor.exe'];executor=sizes['g/wxc-exec.exe'];bridge=sizes[PROXY_PIPE_AC_BRIDGE]
+    compressed=Path(package).stat().st_size
+    if not 512<=a0<=8388608 or not 512<=bridge<=8388608 or not 0<executor<=67108864:raise ValueError('proxy pipe binary bound')
+    total=compressed+expanded+PYTHON_EXPANDED+a0+executor+bridge+1048576
+    if min(compressed,expanded)<=0 or total>134217728:raise ValueError('proxy pipe staging bound')
+    return dict(compressed=compressed,expanded=expanded,baseline_actor_bytes=a0,executor_bytes=executor,bridge_bytes=bridge,total=total)
+
+def validate_proxy_pipe_ac_envelope(value, expected):
+    if type(value) is not dict or set(value)!={'schema_version','proxy_pipe_ac','launcher'} or type(value['schema_version']) is not int or value['schema_version']!=1:
+        raise ValueError('proxy pipe envelope')
+    launcher=value['launcher']
+    keys={'phase','failure','python_exit_code','process_exit_confirmed','timed_out','budget_exhausted'}
+    if type(launcher) is not dict or set(launcher)!=keys:raise ValueError('proxy pipe launcher')
+    phases=('not_started','configuration','budget','python_start','python_wait','report_read','report_parse','completed','transport')
+    failures=('none','original_unavailable','original_transport','configuration','budget','spawn','timeout','process_exit','report_absent','report_bound','report_parse','operation_failed','work_budget_exhausted','handle_dispose')
+    if launcher['phase'] not in phases or launcher['failure'] not in failures:raise ValueError('proxy pipe launcher enum')
+    code=launcher['python_exit_code']
+    if code is not None and (type(code) is not int or not -2147483648<=code<=2147483647):raise ValueError('proxy pipe exit')
+    if launcher['process_exit_confirmed'] is not None and type(launcher['process_exit_confirmed']) is not bool:raise ValueError('proxy pipe exit observed')
+    if any(type(launcher[k]) is not bool for k in ('timed_out','budget_exhausted')):raise ValueError('proxy pipe launcher flags')
+    report=value['proxy_pipe_ac']
+    if report is not None:report=proxy_pipe_ac_helpers().validate_public(report,expected)
+    result=dict(schema_version=1,proxy_pipe_ac=report,launcher=dict(launcher))
+    if len(json.dumps(result,separators=(',',':')).encode('ascii'))>4096:raise ValueError('proxy pipe bound')
+    return result
+
+
+def proxy_pipe_ac_ipc_qualified(envelope, vm_destroyed):
+    if type(envelope) is not dict or vm_destroyed is not True:return False
+    report=envelope.get('proxy_pipe_ac');launcher=envelope.get('launcher')
+    return (type(report) is dict and report.get('ac_pipe_passed') is True and type(launcher) is dict
+        and launcher.get('phase')=='completed' and launcher.get('failure')=='none'
+        and type(launcher.get('python_exit_code')) is int and launcher['python_exit_code']==0
+        and launcher.get('process_exit_confirmed') is True and launcher.get('timed_out') is False
+        and launcher.get('budget_exhausted') is False)
+
+
 def n0a_wait_deadline(server, outer_deadline):
     observed = getattr(server, 'original_received_at', None)
     return min(outer_deadline, observed + 120) if type(observed) in (int, float) else outer_deadline
@@ -957,7 +1027,18 @@ def compose_n0a_public(server, public, wait_state):
     return result
 
 
-def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None, capture=False, udp=None, parent_udp=None, udp6=None, stage0b=None):
+def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None, capture=False, udp=None, parent_udp=None, udp6=None, stage0b=None, proxy_pipe_ac=None):
+    if proxy_pipe_ac is not None:
+        if any(x is not None for x in (n0a,udp,parent_udp,udp6,stage0b)) or capture:raise ValueError('proxy pipe replaces optional modes')
+        payload(python_archive,actor,actor_digest,bundle,destination)
+        with zipfile.ZipFile(destination,'a',compression=zipfile.ZIP_DEFLATED) as archive:
+            for key,member,pin in (('actor',PROXY_PIPE_AC_BRIDGE,'actor_sha256'),('manifest',PROXY_PIPE_AC_MANIFEST,'manifest_sha256')):
+                with Path(proxy_pipe_ac[key]).open('rb') as source:raw=source.read(8388609 if key=='actor' else 8193)
+                if len(raw)>(8388608 if key=='actor' else 8192) or hashlib.sha256(raw).hexdigest()!=proxy_pipe_ac['config'][pin]:raise ValueError('proxy pipe packaged pin')
+                archive.writestr(member,raw)
+            for name in PROXY_PIPE_AC_FILES:archive.write(ROOT/name,name)
+        proxy_pipe_ac_staging_capacity(destination)
+        return hashlib.sha256(Path(destination).read_bytes()).hexdigest()
     if stage0b is not None:
         if n0a is not None or capture or udp is not None or parent_udp is not None or udp6 is not None:raise ValueError('stage0b replaces optional modes')
         payload(python_archive,actor,actor_digest,bundle,destination)
@@ -1186,6 +1267,31 @@ class Stage0bClosedHandler(ClosedHandler):
             self.send_response(200);self.end_headers()
         except (ValueError,TypeError,OSError,UnicodeError,RecursionError):
             self.server.stage0b_validation='invalid';self.send_error(400)
+
+class ProxyPipeACClosedServer(ClosedServer):
+    def __init__(self,payload,expected):
+        super().__init__(payload,expected)
+        self.RequestHandlerClass=ProxyPipeACClosedHandler
+        self.proxy_pipe_ac_validation='unavailable'
+
+class ProxyPipeACClosedHandler(ClosedHandler):
+    def do_POST(self):
+        if self.path!='/'+self.server.capability+'/proxy-pipe-ac-result':
+            # Do not expose legacy optional endpoints in this mode.
+            if self.path!='/'+self.server.capability+'/result':self.send_error(404);return
+            return super().do_POST()
+        if not self.server.received.is_set() or self.server.n0a_received.is_set():self.send_error(409);return
+        try:
+            size=int(self.headers.get('Content-Length','0'))
+            if not 0<size<=4096:raise ValueError('proxy pipe size')
+            raw=self.rfile.read(size)
+            if len(raw)!=size:raise ValueError('proxy pipe incomplete')
+            value=json.loads(raw.decode('ascii'),object_pairs_hook=stage0b_unique)
+            self.server.n0a_result=validate_proxy_pipe_ac_envelope(value,self.server.n0a_expected)
+            self.server.proxy_pipe_ac_validation='valid';self.server.n0a_received.set()
+            self.send_response(200);self.end_headers()
+        except (ValueError,TypeError,OSError,UnicodeError,RecursionError):
+            self.server.proxy_pipe_ac_validation='invalid';self.send_error(400)
 
 
 class UDPClosedServer(ClosedServer):
@@ -1763,6 +1869,10 @@ def download_direct_iso(iso, deadline):
 
 
 def host(args):
+    proxy_pipe_ac_mode=getattr(args,'proxy_pipe_ac',False)
+    if proxy_pipe_ac_mode:
+        if any(getattr(args,k,False) for k in ('stage0b','n0a','n0a_capture_runner','n0a_udp_runner','n0a_udp_parent_runner','n0a_udp6_runner')):raise ValueError('proxy pipe replaces optional modes')
+        if proxy_pipe_ac_controller().AC_EXECUTION_ENABLED is not True:raise PermissionError('proxy pipe disabled pending activation')
     stage0b_mode=getattr(args,'stage0b',False)
     if stage0b_mode:
         if any(getattr(args,k,False) for k in ('n0a','n0a_capture_runner','n0a_udp_runner','n0a_udp_parent_runner','n0a_udp6_runner')):raise ValueError('stage0b replaces optional modes')
@@ -1798,7 +1908,7 @@ def host(args):
     available = min(args.timeout_seconds, args.job_deadline_epoch - time.time())
     if available < 300: raise TimeoutError('native job cleanup reserve unavailable')
     qemu = tpm = server = thread = qmp = watch = n0a_endpoint = None
-    stage0b_config=None
+    stage0b_config=None;proxy_pipe_ac=None
     n0a = None; original_merged = False; n0a_wait_state = 'not_started'
     capture_owner = capture_config = capture_facts = capture_tentative = None; header_before_link = False
     mapped_observer = None; mapped_facts = None
@@ -1814,6 +1924,7 @@ def host(args):
     public['actor_sha256'] = args.actor_sha256
     phase = 'preflight'; operation = 'preflight'; disk = None
     try:
+        if proxy_pipe_ac_mode:proxy_pipe_ac=verify_proxy_pipe_ac_inputs(args.proxy_pipe_ac_actor,args.proxy_pipe_ac_manifest)
         if stage0b_mode:stage0b_config=dict(enabled=True,actor_sha256=args.actor_sha256,case_nonce=secrets.token_hex(16))
         if getattr(args, 'n0a', False):
             n0a = verify_n0a_inputs(args.n0a_actor, args.n0a_manifest)
@@ -1843,10 +1954,10 @@ def host(args):
             n0a_endpoint = ((optional_udp if parent_udp_mode or udp6_mode else udp_capture_helpers()).receiver(n0a['config']['case_nonce'], outer_deadline) if udp_mode
                              else n0a_helpers().NonceEndpoint(n0a['config']['case_nonce'], 'runner', deadline))
             n0a['config']['runner_port'] = n0a_endpoint.start()
-        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=None if udp_mode else n0a, capture=getattr(args, 'n0a_capture_runner', False), udp=n0a if udp_mode and not parent_udp_mode and not udp6_mode else None, parent_udp=n0a if parent_udp_mode else None, udp6=n0a if udp6_mode else None, stage0b=stage0b_config)
+        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=None if udp_mode else n0a, capture=getattr(args, 'n0a_capture_runner', False), udp=n0a if udp_mode and not parent_udp_mode and not udp6_mode else None, parent_udp=n0a if parent_udp_mode else None, udp6=n0a if udp6_mode else None, stage0b=stage0b_config,proxy_pipe_ac=proxy_pipe_ac)
         if package.stat().st_size > MAX_PAYLOAD: raise ValueError('payload size cap')
         operation = 'result_server'
-        server = (Stage0bClosedServer(package,stage0b_config) if stage0b_mode else UDP6ClosedServer(package,n0a['config'],deadline) if udp6_mode else ParentUDPClosedServer(package,n0a['config'],deadline) if parent_udp_mode else UDPClosedServer(package, n0a['config'], deadline) if udp_mode else
+        server = (ProxyPipeACClosedServer(package,proxy_pipe_ac['config']) if proxy_pipe_ac_mode else Stage0bClosedServer(package,stage0b_config) if stage0b_mode else UDP6ClosedServer(package,n0a['config'],deadline) if udp6_mode else ParentUDPClosedServer(package,n0a['config'],deadline) if parent_udp_mode else UDPClosedServer(package, n0a['config'], deadline) if udp_mode else
                   ClosedServer(package, n0a['config'] if n0a is not None else None, getattr(args, 'n0a_capture_runner', False), deadline))
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         operation = 'seed_build'
@@ -1855,6 +1966,7 @@ def host(args):
                   'payload_sha256': package_digest, 'python_sha256': PYTHON_ASSET['sha256'],
                   'actor_sha256': args.actor_sha256}
         if stage0b_config is not None:config['stage0b']=dict(stage0b_config)
+        if proxy_pipe_ac is not None:config['proxy_pipe_ac']=dict(proxy_pipe_ac['config'])
         if n0a is not None: config['n0a_udp6' if udp6_mode else 'n0a_udp_parent' if parent_udp_mode else 'n0a_udp' if udp_mode else 'n0a'] = dict(n0a['config'])
         if udp_mode or getattr(args, 'n0a_capture_runner', False):
             capture_config = capture_helpers().make_configuration(n0a['config'], source, media.VM_NIC_MAC)
@@ -1981,7 +2093,7 @@ def host(args):
         phase = 'stage0_completed'
         original_merged = True
         # Original receipt is already preserved/validated before optional wait.
-        if n0a is not None or stage0b_mode:
+        if n0a is not None or stage0b_mode or proxy_pipe_ac_mode:
             # Persist the original closed receipt before waiting on optional work.
             # vm_destroyed remains false until the existing final cleanup.
             (args.output / 'public-report.json').write_text(json.dumps(public, indent=2)+'\n', encoding='ascii')
@@ -2050,6 +2162,19 @@ def host(args):
             except Exception:
                 try:print(json.dumps({'stage0b_report_write_failed':True}),flush=True)
                 except OSError:pass
+        if proxy_pipe_ac_mode:
+            try:
+                observed=getattr(server,'n0a_result',None) if server is not None else None
+                proxy_pipe_ac_public=dict(schema_version=1,stage='proxy-pipe-ac-host',report=observed,
+                    report_validation=getattr(server,'proxy_pipe_ac_validation','unavailable') if server is not None else 'unavailable',
+                    vm_destroyed=public['vm_destroyed'],product_acceptance=False,
+                    proxy_pipe_ac_ipc_qualified=proxy_pipe_ac_ipc_qualified(observed,public['vm_destroyed']))
+                raw=json.dumps(proxy_pipe_ac_public,separators=(',',':')).encode('ascii')
+                if len(raw)+1>4096:raise ValueError('stage0b public bound')
+                (args.output/'proxy-pipe-ac-public.json').write_bytes(raw+b'\n')
+            except Exception:
+                try:print(json.dumps({'proxy_pipe_ac_report_write_failed':True}),flush=True)
+                except OSError:pass
         if udp6_mode:
             try:
                 udp6_public=optional_udp.compose(server,public,n0a_wait_state)
@@ -2100,6 +2225,8 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True)
     for name in ('python-archive', 'actor', 'bundle'): parser.add_argument('--' + name, type=Path)
     parser.add_argument('--actor-sha256')
+    parser.add_argument('--proxy-pipe-ac',action='store_true')
+    parser.add_argument('--proxy-pipe-ac-actor',type=Path);parser.add_argument('--proxy-pipe-ac-manifest',type=Path)
     parser.add_argument('--stage0b',action='store_true')
     parser.add_argument('--n0a-udp6-runner',action='store_true')
     parser.add_argument('--udp6-actor',type=Path);parser.add_argument('--udp6-manifest',type=Path)
@@ -2113,6 +2240,8 @@ def main(argv=None):
     parser.add_argument('--timeout-seconds', type=int, default=6600)
     parser.add_argument('--job-deadline-epoch', type=int)
     args = parser.parse_args(argv)
+    if args.proxy_pipe_ac and (args.stage0b or args.n0a or args.n0a_capture_runner or args.n0a_udp_runner or args.n0a_udp_parent_runner or args.n0a_udp6_runner or args.guest or args.download_python or args.check_preparation or args.check_apt_plan or not args.proxy_pipe_ac_actor or not args.proxy_pipe_ac_manifest):parser.error('proxy pipe requires exclusive host inputs')
+    if not args.proxy_pipe_ac and (args.proxy_pipe_ac_actor or args.proxy_pipe_ac_manifest):parser.error('proxy pipe inputs require opt-in')
     if args.stage0b and (args.n0a or args.n0a_capture_runner or args.n0a_udp_runner or args.n0a_udp_parent_runner or args.n0a_udp6_runner or args.guest or args.download_python or args.check_preparation or args.check_apt_plan):parser.error('stage0b requires exclusive host intent')
     if args.n0a_udp6_runner and (args.n0a_udp_parent_runner or args.n0a_udp_runner or args.n0a or args.n0a_capture_runner or args.guest or args.download_python or args.check_preparation or args.check_apt_plan or not args.udp6_actor or not args.udp6_manifest):
         parser.error('UDP6 requires exclusive production inputs')
