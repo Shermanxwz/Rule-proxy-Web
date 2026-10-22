@@ -26,7 +26,8 @@ function Require-Time($Plan) {
 function Read-ExactRule([string]$Name,[string]$Store) {
     try { $rows=@(NetSecurity\Get-NetFirewallRule -PolicyStore $Store -Name $Name -ErrorAction Stop) }
     catch {
-        if ($_.FullyQualifiedErrorId -like 'CmdletizationQuery_NotFound_Name*') { return $null }
+        if (@('CmdletizationQuery_NotFound_Name,Get-NetFirewallRule',
+              'CmdletizationQuery_NotFound_InstanceID,Get-NetFirewallRule') -ccontains $_.FullyQualifiedErrorId) { return $null }
         throw
     }
     if ($rows.Count -ne 1 -or $rows[0].Name -cne $Name) { throw 'rule_count' }
