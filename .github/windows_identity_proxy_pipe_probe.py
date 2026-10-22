@@ -781,7 +781,7 @@ def _ac_child(role):
 
 
 def run_ac_pair(api,actor,manifest,actor_hash,manifest_hash,work,run_nonce,case_nonce,deadline_qpc,qpc_frequency,
-                *,artifact_verifier=verify_ac_artifact):
+                *,artifact_verifier=verify_ac_artifact,extension=None):
     """Internal test seam; public entry checks the authoritative OFF flag first."""
     budget=launcher.QpcBudget(api,deadline_qpc,qpc_frequency)
     private={'schema_version':1,'stage':'proxy-pipe-ac-controller','run_nonce':run_nonce,'case_nonce':case_nonce,
@@ -793,6 +793,10 @@ def run_ac_pair(api,actor,manifest,actor_hash,manifest_hash,work,run_nonce,case_
         'owned_acl_scope_verified':False,'diagnostic':{'phase':'configuration','error_domain':'none','error_code':None,'controller_report':'not_attempted'},'ac_failure':None}
     pair=private['pair'];owners=pipe_helpers.OneShotHandles(api.close)
     children=[{'info':api.process_info(),'attempted':False,'assigned':False,'exited':False,'exit_code':None} for _ in range(2)]
+    # Named opt-in controller extensions keep their own ledgers, while sharing
+    # this lifecycle's held-exit/Job/close gate. The original A path uses none.
+    extra_children=[] if extension is None else extension.children
+    extra_owners=() if extension is None else extension.ledgers
     profile={'attempted':False,'returned':False,'created':False,'pointer':None,'sid':None}
     job=None;data=[];work=Path(work);work_created=False;acl_attempted=False;phase='configuration';environment=None
     retained_before=(len(pipe_helpers._RETAINED_FILES),len(launcher._RETAINED_PRIVATE_STREAMS))
@@ -833,11 +837,11 @@ def run_ac_pair(api,actor,manifest,actor_hash,manifest_hash,work,run_nonce,case_
         _require(budget,budget.cutoff(30));work.mkdir();work_created=True
         inputs=work/'inputs';frontout=work/'frontend-output';relayout=work/'relay-output'
         for path in (inputs,frontout,relayout,relayout/'temp'):path.mkdir()
-        exe=inputs/'windows_identity_proxy_pipe_actor.exe'
+        exe=inputs/('windows_identity_proxy_pipe_actor.exe' if extension is None else extension.actor_name)
         raw=pipe_helpers.read_bounded_file(actor,MAX_ACTOR)
         if hashlib.sha256(raw).hexdigest()!=actor_hash:raise ValueError('image')
         launcher.write_private_bytes(exe,raw);pipe_helpers.verify_copied_actor(exe,actor_hash)
-        name='RuleProxy.ProxyPipe.'+case_nonce
+        name=('RuleProxy.ProxyPipe.' if extension is None else extension.profile_prefix)+case_nonce
         launcher.write_private_bytes(work/'ownership.json',(json.dumps({'profile':name,'run_nonce':run_nonce,'case_nonce':case_nonce},separators=(',',':'))+'\n').encode())
         stage('profile');_require(budget,budget.cutoff(30))
         private['derived_sid']=api.create_profile(name,profile);private['profile_created']=profile['created']
@@ -847,6 +851,8 @@ def run_ac_pair(api,actor,manifest,actor_hash,manifest_hash,work,run_nonce,case_
         stage('acl');acl_attempted=True
         api.grant_acl(work,inputs,frontout,private['derived_sid'],budget);private['owned_acl_scope_verified']=True
         _require(budget,budget.cutoff(30));job=api.owned_job(owners)
+        if extension is not None:
+            extension.setup(api,budget,work,exe,job,parent,run_nonce,case_nonce,actor_hash)
         front_read,relay_write=api.owned_pipe(owners);relay_read,front_write=api.owned_pipe(owners)
         data=[front_read,relay_write,relay_read,front_write]
         start=budget.read();end=start+10*budget.frequency
@@ -858,6 +864,7 @@ def run_ac_pair(api,actor,manifest,actor_hash,manifest_hash,work,run_nonce,case_
             output=frontout if role==0 else relayout
             command=[str(exe),row['role'],run_nonce,case_nonce,str(output/'actor.json'),str(handles[0]),str(handles[1]),
                      str(start),str(budget.frequency),str(end),parent['sid'],private['derived_sid'] if role==0 else 'none','0']
+            if extension is not None:command.extend(extension.arguments())
             state={'creation_attempted':False}
             try:
                 if role==0:api.owned_create_front(child['info'],command,output,handles,owners,state,profile['pointer'],environment)
@@ -892,13 +899,13 @@ def run_ac_pair(api,actor,manifest,actor_hash,manifest_hash,work,run_nonce,case_
     finally:
         private['profile_created']=profile['created']
         stage('cleanup')
-        try:pair['cleanup_confirmed'],pair['job_empty'],_= _cleanup(api,_CleanupCutoff(budget),job,children,owners)
-        except BaseException as exc:RETAINED.append((api,owners,children,job));fail(exc,'cleanup')
+        try:pair['cleanup_confirmed'],pair['job_empty'],_= _cleanup(api,_CleanupCutoff(budget),job,children+extra_children,owners if extension is None else extension.cleanup_ledger(owners))
+        except BaseException as exc:RETAINED.append((api,owners,children,job,extra_owners));fail(exc,'cleanup')
         pair['exit_observed']=sum(1<<i for i,c in enumerate(children) if c['exited'])
         for index,child in enumerate(children):
             row=private['children'][index];row['exit_observed']=child['exited'];row['exit_code']=child['exit_code']
-        private['cleanup'].update(handles_closed=owners.confirmed_closed,job_empty=pair['job_empty'],
-            processes_exited=all(not c['attempted'] or c['info'].hProcess and c['exited'] for c in children))
+        private['cleanup'].update(handles_closed=owners.confirmed_closed and all(x.confirmed_closed for x in extra_owners),job_empty=pair['job_empty'],
+            processes_exited=all(not c['attempted'] or c['info'].hProcess and c['exited'] for c in children+extra_children))
         if not pair['cleanup_confirmed']:fail(ValueError('cleanup'))
         # Read only exact fresh files after held exit, retaining earlier observations.
         if private['pair_qpc'][0] is not None:
@@ -908,13 +915,17 @@ def run_ac_pair(api,actor,manifest,actor_hash,manifest_hash,work,run_nonce,case_
                 try:
                     _require(budget,budget.cutoff(10));pipe_helpers.verify_copied_actor(exe,actor_hash)
                     value,raw=bounded_json((frontout if role==0 else relayout)/'actor.json',MAX_NATIVE,inside=work)
+                    if extension is not None:
+                        value,raw=extension.project_native(value,raw,role=row['role'],run_id=run_nonce,case_id=case_nonce,
+                            pid=row['pid'],identity=row['identity'],frequency=budget.frequency,start=start,end=end,
+                            expected_ac_sid=private['derived_sid'] if role==0 else None)
                     value=validate_ac_native(value,role=row['role'],run_id=run_nonce,case_id=case_nonce,pid=row['pid'],identity=row['identity'],
                         frequency=budget.frequency,start=start,end=end,expected_ac_sid=private['derived_sid'] if role==0 else None)
                     row.update(native=value,native_sha256=hashlib.sha256(raw).hexdigest(),native_bytes=len(raw))
                     pair['reports_bound']|=1<<role;pair['observations'][role]=value['core']['observations'];pair['core_failure'][role]=value['core']['failure']
                     pair['pipe_eof'][role]=value['pipe']['eof_observed'];pair['native_close'][role]=all(value['pipe'][k]=='confirmed' for k in ('reader_close','writer_close'))
                 except BaseException as exc:fail(exc,'report')
-        if profile['created'] and pair['cleanup_confirmed'] and owners.confirmed_closed and private['cleanup']['processes_exited'] and pair['job_empty'] and not getattr(api,'controls_uncertain',False):
+        if profile['created'] and pair['cleanup_confirmed'] and private['cleanup']['handles_closed'] and private['cleanup']['processes_exited'] and pair['job_empty'] and not getattr(api,'controls_uncertain',False):
             try:
                 _require(budget,budget.cutoff(10))
                 private['cleanup']['acl_removed']=not acl_attempted or api.remove_acl(work,profile['sid'],budget)

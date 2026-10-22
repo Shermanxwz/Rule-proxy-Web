@@ -57,8 +57,9 @@ class Probe {
 public:
     Slot reader,writer;Facts facts;
     Probe(bool front,const std::string& run,const std::string& item,HANDLE read,HANDLE write,
-          std::uint64_t start,std::uint64_t frequency,std::uint64_t end)
-      :front_(front),config_{id_bytes(run),id_bytes(item),49152,49153,0,10000},core_(config_,front) {
+          std::uint64_t start,std::uint64_t frequency,std::uint64_t end,std::uint16_t relay_port=49153,
+          rpb::OriginAuthority authority=rpb::OriginAuthority::GuestFixture)
+      :front_(front),config_{id_bytes(run),id_bytes(item),49152,relay_port,0,10000,authority},core_(config_,front) {
         reader.value=read;writer.value=write;facts.start=start;facts.frequency=frequency;facts.end=end;
     }
     void fail(const char* label,std::optional<DWORD> error=std::nullopt) {
@@ -202,6 +203,7 @@ public:
         }
     }
     rpb::Snapshot snapshot()const{return core_.snapshot();}
+    rpb::ByteView pending_http()const{return core_.pending_output(1);}
 };
 const char* boolean(bool value){return value?"true":"false";}
 std::string report(Probe& probe,const Observations& identity,bool front,const std::string& run,const std::string& item) {
@@ -248,4 +250,6 @@ int run(int argc,wchar_t** argv) {
     return probe.facts.failure?5:0;
 }
 } // namespace bridge_pipe
+#ifndef RULEPROXY_PROXY_PIPE_LIBRARY
 int wmain(int argc,wchar_t* argv[]) {try{return bridge_pipe::run(argc,argv);}catch(...){return 6;}}
+#endif

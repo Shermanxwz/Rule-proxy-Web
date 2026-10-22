@@ -9,10 +9,12 @@
 
 namespace rpb {
 struct ByteView { const std::uint8_t* data; std::size_t size; };
+enum class OriginAuthority : std::uint8_t { GuestFixture=0, LocalLoopback=1 };
 struct Config {
     std::array<std::uint8_t,16> run_id,case_id;
     std::uint16_t frontend_port,relay_port;
     std::uint64_t start_tick,deadline_tick;
+    OriginAuthority origin_authority=OriginAuthority::GuestFixture;
 };
 struct Event {
     std::uint8_t target,kind,selector;
@@ -27,6 +29,7 @@ constexpr std::uint64_t Budget=10000;
 constexpr char Authority[]="ruleproxy-identity-proof.invalid";
 inline bool valid_config(const Config& c) {
     return c.frontend_port>=49152 && c.relay_port>=49152 && c.frontend_port!=c.relay_port
+        && (c.origin_authority==OriginAuthority::GuestFixture || c.origin_authority==OriginAuthority::LocalLoopback)
         && c.start_tick<=std::numeric_limits<std::uint64_t>::max()-Budget
         && c.deadline_tick==c.start_tick+Budget;
 }
@@ -87,7 +90,9 @@ inline bool decode_frame(const Config& c,ByteView bytes,std::uint8_t& kind,std::
 inline Buffer<MaxResponse> relay_request(const Config& c) {
     Buffer<MaxResponse> out;
     append_literal(out,"GET /p1/");append_hex(out,c.case_id);
-    append_literal(out," HTTP/1.1\r\nHost: 10.0.2.2:");append_decimal(out,c.relay_port);
+    if(c.origin_authority==OriginAuthority::LocalLoopback)append_literal(out," HTTP/1.1\r\nHost: 127.0.0.1:");
+    else append_literal(out," HTTP/1.1\r\nHost: 10.0.2.2:");
+    append_decimal(out,c.relay_port);
     append_literal(out,"\r\nConnection: close\r\n\r\n");return out;
 }
 inline Buffer<MaxResponse> expected_response(const Config& c) {
