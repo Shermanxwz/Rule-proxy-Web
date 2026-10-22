@@ -1,6 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
 > **交接日期：2026-10-22。产品尚未完成，不是“Windows 隔离已通过”。**
+> **最后短 CI 已验证，但真实 AC pair 未运行。** 受测源为 `7c7a839a8acef8a92fbc0bbd0505c0342065bda5`，[run 39777404738](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39777404738) 双端各 54 required suites、1,016 tests、零 skips；这不是代理网络验收。
 > 本文是仓库内的接手入口；可用代码、公开脱敏证据和下一步边界均指向 GitHub 文件，不依赖前一会话、临时目录或内部笔记。用户准备让自己设备上的 Windows Codex 继续开发；这不授权前一执行方连接设备，也不授权重装 Linux。
 >
 > **没有现成且已验证的 Windows 本机一键 AC 入口。** CI guest 的固定 `C:\RuleProxyCI` 配置路径和原 QPC deadline 不能盲跑；Linux QEMU host 脚本也不是本机入口。接手首项是[第 6 节的最小 local owned adapter](#6-本机第一项开发任务最小受监督-ac-ipc-入口)：复用全部 supervision/identity/cleanup，绝不能绕开 outer Job。
@@ -9,7 +10,7 @@
 
 1. 工作分支是 **`dot/windows-isolation-proof`**，不是主线。先核对 `git rev-parse HEAD`、工作树差异和[公开证据索引](windows-isolation-evidence-index.md)及其[机器可读版本](windows-isolation-evidence-index.json)。测试源 commit、证据归档 commit 和当前交接 commit 是三种不同身份，不能互换。
 2. 真正 Windows 11 上的旧 Stage0b **32 字节 inherited-pipe** 已有一次完整成功证据；新的 native **48 字节双管道协议**只在 hosted、非 AppContainer 环境完成真实管道机制测试。
-3. 新的“零 capability AppContainer frontend + ordinary relay”集成已有纯测试、源码/传输测试；当前激活改动是**代码候选，不是该 AC pair 的运行证据**。它仍是内存 HTTP，不开 socket，不是可用代理。
+3. 新的“零 capability AppContainer frontend + ordinary relay”激活接线已通过最后短 CI 的纯测试、源码/传输和既有机制检查；**真实 AC pair 仍未运行**。新 runtime bridge build 分支仅经结构测试，未在该短 CI 执行。它仍是内存 HTTP，不开 socket，不是可用代理。
 4. 原始 PSEC Stage0 的 `tokenCapabilities == []` 门槛仍失败，`Stage0=false`、`product_acceptance=false` 没有改成通过。单独命名的 Agentic-only 观察 profile 不是原始零 capability profile，也不是网络授权。
 5. 已有 TCP/UDP/UDP6 和后代实验只支持各自固定端点、精确 payload、有限观察窗口的结论。特别是 UDP `sendto` 成功不等于包离开；固定端点包缺失不等于 DNS、broker、任意 IPv6 或代理失败关闭已证明。
 6. 下一步应收敛到 **真实 AC 48 字节 IPC → 身份绑定代理正向 → 独立 raw-direct/错误 peer/代理死亡负向**。不要继续堆相似 direct UDP 变体，也不要把已停下的 REQUEST3 87 问题串行猜参数重跑。
@@ -45,13 +46,15 @@
 | [native core 39761410816](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39761410816) | Linux/MSVC 各 63 pure tests + 428 hash-bound compiled cases | 实际管道、身份、网络 |
 | [hosted dual-pipe 39766674740](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39766674740) | 实际 48-byte pipe/EOF；成功、错误 case、watchdog 三例清理；hosted elevated/non-AC | ordinary Win11 AC frontend；真实 HTTP origin/proxy |
 | [AC prerequisite 39772363906](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39772363906) | 54 suites/1,013 tests/零 skips、PowerShell/schema/17-member ZIP gates；Windows attempt1，Linux attempt2 | 新 AC pair 运行；attempt1 Linux 被取消不得隐藏 |
+| [最终交接 short gate 39777404738](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39777404738) | 同一受测源上 Linux/Windows 各 54 required suites、1,016 tests、零 skips；PS/八模式 ZIP/既有机制及清理通过，433 项 sidecar 核对 | 新 runtime bridge build 分支的实际执行、AC pair、代理网络或产品完成 |
 
 ### 可复核的版本锚点
 
 - 默认关闭 AC 集成的受测源：[`d9ad11ee2492f51d6d54224197ea442d2c5eecfd`](https://github.com/Shermanxwz/Rule-proxy-Web/tree/d9ad11ee2492f51d6d54224197ea442d2c5eecfd)，438 source pins；freeze SHA256 `87c8f7c42834e1bd6a212a4ab529027895f636e16e91415353d352883baba2a7`。归档 `0336310f` 不代表运行了激活后的代码。
 - 真 Stage0b03 源：[`258c44547f5c40121db4a2465a6186169b5957bc`](https://github.com/Shermanxwz/Rule-proxy-Web/tree/258c44547f5c40121db4a2465a6186169b5957bc)；运行 head `024a84d5`；归档 `88f1b4e`。
 - hosted dual-pipe 源：[`7b6e31a90d69e40b51a4c6bb4d19141adbd3aad8`](https://github.com/Shermanxwz/Rule-proxy-Web/tree/7b6e31a90d69e40b51a4c6bb4d19141adbd3aad8)；归档 `ac4903c67b20cb72002e3e94f8935c897a08e559`。
-- 当前激活候选只把权威 controller flag 置 True 并增加互斥 workflow 接线/测试；运行前必须以本次发布的实际 HEAD 重新核对源 pin，不能拿上述旧 freeze 宣称新代码受测。
+- 最后短 CI 受测源：[`7c7a839a8acef8a92fbc0bbd0505c0342065bda5`](https://github.com/Shermanxwz/Rule-proxy-Web/tree/7c7a839a8acef8a92fbc0bbd0505c0342065bda5)，运行 [`39777404738`](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39777404738)。结果已独立审计，归档 commit `d73e0152fb7ba90afb797cbc23b051520cbfaa9c`：[永久 summary](https://github.com/Shermanxwz/Rule-proxy-Web/blob/d73e0152fb7ba90afb797cbc23b051520cbfaa9c/verification/windows-2026-10-20/identity-proof/windows-codex-handoff-short-01-summary.json)、[永久 result](https://github.com/Shermanxwz/Rule-proxy-Web/blob/d73e0152fb7ba90afb797cbc23b051520cbfaa9c/verification/windows-2026-10-20/identity-proof/windows-codex-handoff-short-01-result.json)。该源包含 flag 激活和互斥接线；短 CI 通过不等于真实 AC pair 或新 runtime build 路径执行。
+- 最终交付文档可在后续 docs-only commit 补充上述结果；它不是另一个受测源码 commit。运行前核对实际 HEAD 与 source manifest 的源绑定，不用旧 freeze 或未来文档 hash 冒充 runtime 证据。
 
 历史设计文件中的“runtime unobserved/default-OFF”描述代表当时阶段；后续事实以**不可变原始结果 + 本索引**补充，不改写失败为成功。
 
@@ -275,7 +278,7 @@ private native report ≤8 KiB，aggregate ≤128 KiB，public/完整 transport 
 
 ## 8. GitHub 现有运行入口：仅供核对，不在交接时触发
 
-当前 activation 候选在 [direct workflow](../../.github/workflows/windows-identity-direct-stage0.yml) 增加第八互斥 marker **`[identity-proxy-pipe-ac-runtime]`**。只有工作分支 push、8 个 runtime marker 恰好一个、compile/host-unit prerequisites 通过才可能进入 native job。提交交接/文档时不要无意带这个 marker。
+已通过最后短 CI 的 activation 接线在 [direct workflow](../../.github/workflows/windows-identity-direct-stage0.yml) 增加第八互斥 marker **`[identity-proxy-pipe-ac-runtime]`**；该 runtime 分支仍未实际执行。只有工作分支 push、8 个 runtime marker 恰好一个、compile/host-unit prerequisites 通过才可能进入 native job。提交交接/文档时不要无意带这个 marker。
 
 专用编译 artifact `identity-proxy-pipe-production-actor` 必须 same-run 下载，和 `client-stage0-actor` 分离。现有 Linux host 新增的实际参数仅为：
 
@@ -337,7 +340,10 @@ Native local reducers 只能看到自身收写/EOF/close；Python全局 model �
 
 ```text
 仓库 https://github.com/Shermanxwz/Rule-proxy-Web ，分支 dot/windows-isolation-proof。
-当前源 pin 由 windows-isolation-source-manifest.json 首次加入的 commit 解析，按正文完整历史步骤核验。
+最后短 CI 受测源 7c7a839a8acef8a92fbc0bbd0505c0342065bda5，run 39777404738，
+结果归档 d73e0152fb7ba90afb797cbc23b051520cbfaa9c。双端各1,016测试零skip，但真实AC pair未运行。
+源 pin 同时按 windows-isolation-source-manifest.json 首次加入的 commit 和完整历史步骤核验；
+最终交付文档可能位于后续docs-only commit，不要把文档commit当另一份受测源码或自填未来hash。
 请先完整阅读 docs/validation/windows-codex-handoff.md 和 windows-isolation-evidence-index.md/json，
 核对本次 Git commit、已归档源和当前未验证改动。不要依赖前一聊天或 /tmp。
 

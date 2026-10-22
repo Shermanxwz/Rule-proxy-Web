@@ -3,7 +3,7 @@
   "purpose": "Sanitized Windows isolation handoff evidence index; observations are scoped, not overall product acceptance.",
   "repository_url": "https://github.com/Shermanxwz/Rule-proxy-Web",
   "archive_url": "https://github.com/Shermanxwz/Rule-proxy-Web/tree/0336310f",
-  "current_activation_state": "Code-only activation candidate enables explicit AC-pair opt-in; unpublished at index preparation. No genuine AC-pair runtime result. Recheck reviewed publication SHA before use.",
+  "current_activation_state": "Explicit AC-pair activation wiring at source 7c7a839a8acef8a92fbc0bbd0505c0342065bda5 passed the final short gate. No genuine AC-pair runtime was executed; no proxy or product acceptance follows.",
   "overall_status": {
     "strict_stage0_passed": false,
     "observed_windows_build": "26300.9457",
@@ -168,5 +168,14 @@
   "selection_scope": "Selected decision-relevant milestones and known failures, not an exhaustive list of all published experiments.",
   "complete_public_evidence_catalogue_url": "https://github.com/Shermanxwz/Rule-proxy-Web/tree/0336310f/verification/windows-2026-10-20/identity-proof",
   "complete_public_archive_inventory": "windows-isolation-public-archive-inventory.json",
-  "inventory_scope": "Complete published JSON file inventory at the pinned archive, not a claim that every run was independently reparsed for this selected index."
+  "inventory_scope": "Complete published JSON file inventory at the pinned archive, not a claim that every run was independently reparsed for this selected index.",
+  "final_handoff_short_validation": {
+    "source_commit": "7c7a839a8acef8a92fbc0bbd0505c0342065bda5",
+    "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39777404738",
+    "summary_url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/d73e0152fb7ba90afb797cbc23b051520cbfaa9c/verification/windows-2026-10-20/identity-proof/windows-codex-handoff-short-01-summary.json",
+    "summary_sha256": "a04fc574f2700a3ae30ac0947287c334dab007c04126afd79da4a6020c3929a4",
+    "tests_each_platform": 1016,
+    "skips": 0,
+    "ac_pair_executed": false
+  }
 }

@@ -32,7 +32,7 @@ This is a selected-milestone evidence map, not an exhaustive experiment inventor
 
 ## Current handoff boundary
 
-The archived AC-pair prerequisite used the disabled flag and pure/mocked AC integration. The pending activation candidate enables only explicit selection; it is not an actual AC-pair result. Confirm the reviewed publication SHA before testing. The user is handing the repository to Windows Codex; this index does not authorize further GitHub VM runs or installation of a local Windows environment.
+The archived AC-pair prerequisite used the disabled flag and pure/mocked AC integration. Activation source `7c7a839a8acef8a92fbc0bbd0505c0342065bda5` now passed the [final short gate](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39777404738), with 1,016 tests per platform and zero skips. The [immutable final summary](https://github.com/Shermanxwz/Rule-proxy-Web/blob/d73e0152fb7ba90afb797cbc23b051520cbfaa9c/verification/windows-2026-10-20/identity-proof/windows-codex-handoff-short-01-summary.json) records that the genuine AC pair was NOT executed. Explicit activation wiring is not an AC-pair, proxy or product result. The user is handing the repository to Windows Codex; this index does not authorize further GitHub VM runs or installation of a local Windows environment.
 
 Still missing: a genuine zero-capability AC frontend/ordinary relay pair result; real owned-origin proxy-positive and proxy-down fail-closed evidence; DNS/broker coverage; broader protocol/descendant/application coverage; and an agreed supported-build full-isolation acceptance contract. Synthetic HTTP, actual pipes, packet non-observation and actual proxy networking must remain separate.
 
