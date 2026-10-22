@@ -51,6 +51,10 @@
 
 [证据索引](../../verification/windows-2026-10-22/model2-wrong-peer-02-evidence-index.json)绑定原 preflight、2687 字节原 public（SHA256 `c0ead40c489c36cf4d5f83f5d6d9d450a7a4e9ee0bc4d592d0ed5952d375266d`）、逐字节 runner、摘要与脱敏投影。独立只读归档核对23份 staged 源码与受测 git blob、15个唯一 nonce、13条 GO、36份实际报告描述符的 bytes/SHA、native/G artifacts 与历史闭合 validators；另读取50份 stdout/stderr 共6700字节，仅公开整体 SHA 承诺。私有树继续保留，归档没有再次执行任何 actor 或网络测试。
 
+## ordinary DNS 同 API 机制已运行
+
+`dns-standard-local-02` 已在普通身份下完成真实 `DnsQueryEx` VERSION1 调用、专用 loopback UDP53 接收端的一次查询和答案匹配，API/query status 均为 0，记录内存、socket、线程和 held Job 清理均确认。运行前的受监督只读 DNS/有效 NRPT/53 端口占用门及两次新鲜度门均通过；运行后全局配置与原 baseline 完全相等。该结果只解决 ordinary 同 API 正控，selected DNS、默认 resolver 和系统 broker 隔离仍未验证。首次 staging 时钟范围失败历史及完整证据见[独立 DNS 检查点](2026-10-23-dns-standard-mechanism.md)。
+
 ## 后续必须完成的范围
 
 | 范围 | 本页检查点状态 |
@@ -61,6 +65,7 @@
 | 同身份错端口 | wrong-port01 正控失败保留；wrong-port02 独立 PSEC 前后正控及同 held selected `10013` 已完成诊断，严格资格仍为 false |
 | 错误 peer | wrong-peer01 首次超时保留；wrong-peer02 前后健康与完整 finish/清理均完成，但主连接仍超时，隔离与泄漏均未定论 |
 | 代理进程死亡后的 fail-closed | 尚未完成实测与验收 |
-| DNS、UDP/IPv6、系统代办、真实浏览器、WinHTTP 与应用适配 | 本检查点未验证，不能由上述 HTTP 和 direct TCP 外推 |
+| DNS | ordinary standard53 同 API 机制已通过；selected、默认 resolver 与 broker 隔离仍未验证 |
+| UDP/IPv6、系统代办、真实浏览器、WinHTTP 与应用适配 | 本检查点未验证，不能由上述 HTTP、direct TCP 或 ordinary DNS 外推 |
 
 继续实现应保留身份、原 QPC deadline、held Job、健康控制与清理门。不能用 listener READY、单次 connect timeout、组件 positive 或已有纯测试把未运行项改为通过。证据公开投影只保留布尔、字节数、错误与 SHA；私有用户/SID/PID、端口、路径、设备标识、creation 和 nonce 值继续留在私有树。

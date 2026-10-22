@@ -1,5 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
+> **追加检查点，2026-10-23：** wrong-peer02 已完成 B 前后健康正控、原 origin 前中后正控、两族 actual tier、完整 finish 与清理；主 selected 对错误 peer 仍超时，明确保持 `inconclusive`，不计拒绝或泄漏通过。另 [ordinary DNS 同 API 机制](2026-10-23-dns-standard-mechanism.md)已实际跑通 VERSION1、标准 UDP53 专用查询与匹配答案，清理及全局配置核对通过；selected DNS 隔离仍为 false。完整边界见[进展文档](2026-10-23-local-isolation-progress.md)，旧段落按其各自受测时间保留。
+
 > **当前本机检查点，2026-10-23：** [最新运行进展与边界](2026-10-23-local-isolation-progress.md)记录 diagnostic09 首次完整 profiles-off 真实网络诊断：HTTP 129→95 字节请求/90 字节响应、同 held selected direct `10013`、前中后 origin 健康、实际 `base-container` tier 与清理均通过。wrong-port02 又完成独立 Q PSEC 前后 exact HTTP/nonce/tuple/EOF 健康控制，同一主 selected 对同身份不同端口返回 `10013`，receiver 无 forbidden nonce；两族 actual tier 和全部清理均通过。wrong-port01 的 ordinary 正控超时历史保留。`strict Full`、`checks.wrong_port`、`first_chain_verified`、`local_c_qualified`、`product_acceptance` 仍为 false；错误 peer、proxy death、DNS/浏览器/WinHTTP 等尚未验收。以下旧交接及 A/B 记录按各自受测版本保留，当前状态以此链接的独立证据为准。
 
 > **本机 B 新增证据，2026-10-22：** 源提交 `8a42ced7fcfcf5c506d8fd7c3a2122ba7841e3e3` 的[受监督固定 origin 入口](2026-10-22-local-origin-runtime.md)首次真实运行成功：zero-cap AC frontend → pipe → ordinary relay → owned loopback origin 的精确 HTTP、双向 EOF、held identity/tuple 和清理均通过。[公开结果](../../verification/windows-2026-10-22/local-origin-01-public.json)与[版本摘要](../../verification/windows-2026-10-22/local-origin-01-summary.json)明确 frontend 请求和 sink 仍为内部生成；`network_tested=true`，`proxy_tested=false`、`product_acceptance=false`。真实 selected 应用的身份代理与隔离尚未验收。
