@@ -1,0 +1,146 @@
+{
+  "API_failure_semantics": "API FALSE gives no valid AccessStatus/GrantedAccess/PrivilegeCount. API TRUE plus access FALSE is a successful negative observation. Error87 is never LPAC=false or a successful LPAC proof.",
+  "actual_network_executed": false,
+  "actual_ready": false,
+  "actual_token_api_executed": false,
+  "baseline_commit": "9a7e89c5a686c3b41834ed5ee1031cc1cc650a17",
+  "candidate_01": {
+    "abi": {
+      "bytes": 6529,
+      "sha256": "05f65a4dbf18827087146f8d94fc1582dcda1c2077891654d049328ed6c84daa"
+    },
+    "fake_tests": 14,
+    "freeze": {
+      "bytes": 1253,
+      "sha256": "2607219847bbc24695680aa3ded2f8f074d74a7e9e189bb758331adb1706a186"
+    },
+    "full_two_new_file_patch": {
+      "bytes": 49828,
+      "sha256": "46f26cee496e11fcb0074723e18f9d86a701c4be86a26a084df7540e9b3ea8dc"
+    },
+    "known_adapter_defects": 2,
+    "pure_log": {
+      "bytes": 2946,
+      "sha256": "33ed826185ef88ad6510ba7cad42e560211db7b2c7c69c901acd89f7db519a00"
+    },
+    "skipped": 0,
+    "source_files": {
+      ".github/windows_identity_lpac_accesscheck.py": {
+        "bytes": 33959,
+        "sha256": "807bdf66b1a2043051142f7f10b18e4f998e53fd335a8f35482b3dcc3fdf416e"
+      },
+      "tests/test_windows_identity_lpac_accesscheck.py": {
+        "bytes": 14665,
+        "sha256": "6e5d18a24cf7d91fbb6a16bcbc2de483773e2a26427c3dbf2eead41799e9627b"
+      }
+    },
+    "superseded_by_candidate_02": true
+  },
+  "candidate_02": {
+    "abi": {
+      "bytes": 7320,
+      "sha256": "5163c2d621de251678e08ecce962059eea385330fa191feb4a5b3797f84a0b20"
+    },
+    "fake_tests": 19,
+    "freeze": {
+      "bytes": 2493,
+      "sha256": "2c6d75a0c1212c0ea81cb30aa4e203466c5f3c646cebe8556da86489e6652469"
+    },
+    "incremental_applies_to": "candidate01 work-only files; not a standalone patch against main",
+    "incremental_patch": {
+      "bytes": 5654,
+      "sha256": "02bbf4cc5c1b5685a5db35da3e9923a66064d909f9465e6a122a971c126f887f"
+    },
+    "new_adapter_regressions": 5,
+    "pure_log": {
+      "bytes": 3858,
+      "sha256": "6668b609fe494cee381312be1f6dca50abc35a8c4e9d9c38c9231684e0ed959d"
+    },
+    "runtime_ready": false,
+    "skipped": 0,
+    "source_files": {
+      ".github/windows_identity_lpac_accesscheck.py": {
+        "bytes": 34465,
+        "sha256": "19c0d626e653147276cab9a97c5a0071f1c37b2eeb097c55fbacb39f262ade15"
+      },
+      "tests/test_windows_identity_lpac_accesscheck.py": {
+        "bytes": 17854,
+        "sha256": "e19eea5329501b535a2b8317a6829350cc95a87c3b9ecce67642a6d2427f358a"
+      }
+    }
+  },
+  "constraints_receipt": {
+    "byte_identical_copy": true,
+    "native_optional_capabilities_not_connectivity_proof": true,
+    "no_pncs_actor08_implemented": false,
+    "original": {
+      "bytes": 11257,
+      "sha256": "b103fcaee4cf11ba9a1751428c13345a56925d6f58e113b90fe152603d793936"
+    },
+    "pinned_g_forces_pncs_on_normal_model2_proxy_path": true,
+    "profile_creation_empty_caps_does_not_prove_current_constructor_fault": true,
+    "scope": "Historical read-only policy/source constraints, not a runtime observation. Local gate/desktop/constructor statements refer to that receipt snapshot; later LPAC03/04 observations are separate and do not rewrite it."
+  },
+  "date": "2026-10-23",
+  "defects": [
+    {
+      "id": "fixed-dword-zero-size-probe",
+      "limitation": "No AccessCheck candidate real API call was performed; the candidate repair is source/fake-test evidence.",
+      "observation": "01 queried fixed DWORD token information via a zero-size sizing probe; this host had already shown BAD_LENGTH on that pattern.",
+      "present_in_candidate_01": true,
+      "repair": "One direct four-byte output call, API success and exact ReturnedLength4 required. No retry or fallback; failed/stale output never read.",
+      "repaired_in_candidate_02": true
+    },
+    {
+      "id": "capability-header-before-dereference",
+      "limitation": "Bounded fake buffers test the failure edge; this is not a real token observation.",
+      "observation": "01 read the capabilities count before checking returned length at least four.",
+      "present_in_candidate_01": true,
+      "repair": "Require returned buffer length >=4 before its first DWORD cast; retain full entry/count/SID pointer bounds.",
+      "repaired_in_candidate_02": true
+    }
+  ],
+  "dns_isolation_qualified": false,
+  "findings": [
+    "01完整保留：两个新源码文件、完整patch、freeze、ABI和14项fake日志均为原字节；原缺口没有被改写抹去。",
+    "02是对01的增量，只修fixed DWORD读取和capability首DWORD边界，并增加5项fake回归；19项fake通过不代表真实AccessCheck机制成功。",
+    "两份patch已在内存中独立重构为各自源码，freeze/ABI/日志与01→02哈希链全部核对。",
+    "本历史包不创建进程、查询或复制真实token、不运行AccessCheck、不恢复actor、也不运行DNS；实际identity cell和后续集成另有source-bound证据。",
+    "附录约束记录来自固定G/Chromium/Microsoft primary source；其代码约束与历史有限观察不能替换当前PSEC+LPAC兼容性实测。"
+  ],
+  "fixed_and_synthetic_sids_in_source": "Four Windows well-known SIDs plus visibly synthetic fake-test identities are preserved. No runtime user/AppContainer identity, run nonce, machine path, or network address is included.",
+  "g_psec_lpac_composition_proven": false,
+  "historical_candidates_uninstalled": true,
+  "historical_main_repository_source_modified": false,
+  "installed_current_state_claimed": false,
+  "linux_equivalence_claimed": false,
+  "matched_constructor_identity_cell_executed": false,
+  "original_abi_and_freeze_retained_byte_exact": true,
+  "primary_source_links": [
+    "https://github.com/chromium/chromium/blob/fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e/sandbox/win/src/app_container_test.cc#L109-L134",
+    "https://github.com/chromium/chromium/blob/fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e/base/win/access_token.cc#L429-L449",
+    "https://github.com/chromium/chromium/blob/fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e/base/win/security_descriptor.cc#L437-L457",
+    "https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-accesscheck",
+    "https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-duplicatetokenex",
+    "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ne-winnt-token_information_class"
+  ],
+  "product_acceptance": false,
+  "proxy_tested": false,
+  "real_lpac_token_proven": false,
+  "resource_scope": "Supported identification-level duplicate and fixed memory descriptors only; no token installation/impersonation, process launch, CLI, OS-object ACL edit, DNS or ETW.",
+  "schema_version": 1,
+  "source_pin": {
+    "bytes": 19162,
+    "commit": "fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e",
+    "git_blob": "d899e19da24b8f69ab1ffc1edcfb1e7b75ec9eb3",
+    "independently_verified_blob_from_commit": true,
+    "lines": "109-134",
+    "path": "sandbox/win/src/app_container_test.cc",
+    "repository": "chromium/chromium",
+    "sha256": "16968f8bb72d1fbc74c053dcb2f19de3c594a17b763cb56b47faab1cd496bda0"
+  },
+  "source_scope": "Chromium original helper supplies the combined-descriptor LPAC mask2 contract. Other three descriptors and the matched AC/LPAC four-result matrices are this candidate predeclared controls; none were locally measured.",
+  "stage": "lpac-accesscheck-candidates-01-02-historical-summary",
+  "status": "work-only-library-and-fake-tests",
+  "tests_rerun_by_archive_builder": false
+}

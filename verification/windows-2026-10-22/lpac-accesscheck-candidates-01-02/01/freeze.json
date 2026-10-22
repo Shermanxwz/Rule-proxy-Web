@@ -1,0 +1,42 @@
+{
+  "abi_bytes": 6529,
+  "abi_sha256": "05f65a4dbf18827087146f8d94fc1582dcda1c2077891654d049328ed6c84daa",
+  "actual_network_executed": false,
+  "actual_ready": false,
+  "actual_token_api_executed": false,
+  "baseline_head": "9a7e89c5a686c3b41834ed5ee1031cc1cc650a17",
+  "files": {
+    ".github/windows_identity_lpac_accesscheck.py": {
+      "bytes": 33959,
+      "sha256": "807bdf66b1a2043051142f7f10b18e4f998e53fd335a8f35482b3dcc3fdf416e"
+    },
+    "tests/test_windows_identity_lpac_accesscheck.py": {
+      "bytes": 14665,
+      "sha256": "6e5d18a24cf7d91fbb6a16bcbc2de483773e2a26427c3dbf2eead41799e9627b"
+    }
+  },
+  "git_apply_check": true,
+  "patch_bytes": 49828,
+  "patch_sha256": "46f26cee496e11fcb0074723e18f9d86a701c4be86a26a084df7540e9b3ea8dc",
+  "pure_arguments": [
+    "-I",
+    "-S",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_windows_identity_lpac_accesscheck.py",
+    "-v"
+  ],
+  "pure_exit_code": 0,
+  "pure_log_bytes": 2946,
+  "pure_log_sha256": "33ed826185ef88ad6510ba7cad42e560211db7b2c7c69c901acd89f7db519a00",
+  "pure_skipped": 0,
+  "pure_tests": 14,
+  "repository_source_modified": false,
+  "schema_version": 1,
+  "stage": "held-lpac-accesscheck-work-only-candidate-freeze"
+}

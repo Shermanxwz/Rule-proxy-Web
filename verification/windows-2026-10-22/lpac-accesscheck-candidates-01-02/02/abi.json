@@ -1,0 +1,168 @@
+{
+  "actual_network_executed": false,
+  "actual_ready": false,
+  "actual_token_api_executed": false,
+  "adapter_repairs": {
+    "capability_header": "returned size >=4 checked before first DWORD dereference; existing count/entry/SID-pointer bounds retained",
+    "fixed_width_token_scalar": "one direct DWORD4 call; exact ReturnLength4; false outputs never read; no retry/fallback"
+  },
+  "descriptors": {
+    "aces": {
+      "aap": [
+        "World:3",
+        "AAP:1"
+      ],
+      "arap": [
+        "World:3",
+        "ARAP:2"
+      ],
+      "combined": [
+        "World:3",
+        "AAP:1",
+        "ARAP:2"
+      ],
+      "world": [
+        "World:3"
+      ]
+    },
+    "control": 32772,
+    "descriptor_readback": "exact owner/group/defaults/control/ACE count/type/flags/mask/SID/length; binary hash retained",
+    "desired_access": 33554432,
+    "expected_matrix_predeclared_not_runtime_observation": true,
+    "generic_mapping": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "group": "LocalSystem",
+    "labels": [
+      "combined",
+      "world",
+      "aap",
+      "arap"
+    ],
+    "location": "memory only; no securable OS object is edited",
+    "matched_ac_expected": [
+      3,
+      0,
+      1,
+      2
+    ],
+    "matched_lpac_expected": [
+      2,
+      0,
+      0,
+      2
+    ],
+    "owner": "LocalSystem",
+    "privileges_used_must_equal_zero": true
+  },
+  "independent_review_scope": "ctypes layouts, memory bounds, external held expected identity, API-failure validity and once resource ledgers reviewed; no API mechanism run",
+  "interface": {
+    "expected_role": [
+      "ac",
+      "lpac"
+    ],
+    "function": "observe_held",
+    "independent_expected_identity_includes": [
+      "token_id",
+      "authentication_id",
+      "user",
+      "session",
+      "type",
+      "integrity",
+      "AC SID",
+      "capability SID/attributes",
+      "elevation",
+      "UIAccess"
+    ],
+    "keywords": [
+      "expected_pid",
+      "expected_creation",
+      "expected_role",
+      "frequency",
+      "deadline"
+    ],
+    "native_adapter_instantiated_on_import": false,
+    "positional": [
+      "injected-api",
+      "already-held-process-handle",
+      "independently-fixed-full-primary-token-identity"
+    ],
+    "private_proof_only": true,
+    "process_launch_or_runtime_cli": false,
+    "public_projection_implemented": false
+  },
+  "no_network_identity_cell_design": [
+    "Independent reviewed owner with original 120-second QPC outer and workload Jobs, source/artifact/device/config commitments.",
+    "Fresh owned AppContainer profile shared by two matched suspended actors; same image/cwd/environment/capability catalog/SID and exact RX ACLs only.",
+    "Both constructors explicitly carry SECURITY_CAPABILITIES plus ALL_APPLICATION_PACKAGES_POLICY; policy DWORD0 versus1 is the sole intended difference; atomic JOB_LIST and no resume.",
+    "Capture independently held primary identity/token statistics and then run all four AccessChecks on an identification-level duplicate; no token installation.",
+    "Require AC matrix3/0/1/2 and LPAC matrix2/0/0/2 as predeclared; failure or other result is unknown, never adapted to pass.",
+    "Terminate only owned held suspended children, confirm exits/Jobempty/once handles; remove exact owned SID ACEs, close cleanup tools, then delete owned profile and release SID.",
+    "No child resume, GO, DNS, proxy, ETW, broker call, or global setting change; this does not establish PSEC compatibility or DNS isolation."
+  ],
+  "previous_abi_sha256": "05f65a4dbf18827087146f8d94fc1582dcda1c2077891654d049328ed6c84daa",
+  "profile": "chromium-four-descriptor-lpac-v1",
+  "references": [
+    "https://github.com/chromium/chromium/blob/fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e/sandbox/win/src/app_container_test.cc#L109-L134",
+    "https://github.com/chromium/chromium/blob/fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e/base/win/access_token.cc#L429-L449",
+    "https://github.com/chromium/chromium/blob/fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e/base/win/security_descriptor.cc#L437-L457",
+    "https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-accesscheck",
+    "https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-duplicatetokenex",
+    "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ne-winnt-token_information_class"
+  ],
+  "remaining_runtime_blockers": [
+    "No reviewed matched-constructor identity-cell owner is implemented by these two files.",
+    "No real API call, token duplication, descriptor allocation or AccessCheck has been run.",
+    "Owner must supply an independent preexisting full primary snapshot including TokenId/AuthId; observing then trusting this module's own result is insufficient.",
+    "Existing supported API adapter and real OS result semantics still require independent review and an explicitly supervised identity-only cell.",
+    "Current LPAC constructor failure is outside this module and is not repaired or bypassed.",
+    "No G/PSEC+LPAC combination or proxy/DNS qualification is claimed."
+  ],
+  "repository_source_modified": false,
+  "resource_ledger": {
+    "close_consumed_before_call": true,
+    "descriptor_allocations_maximum": 4,
+    "descriptor_close_uncertainty_stops_further_checks": true,
+    "partial_returned_resources_still_closed": true,
+    "per_lifetime_once": true,
+    "tokens": 2,
+    "uncertain_close_not_retried": true,
+    "unknown_return_or_alias_blocks_clean": true
+  },
+  "revision": 2,
+  "schema_version": 1,
+  "source_pin": {
+    "bytes": 19162,
+    "commit": "fedbb89ecd801ed0ad1d34eb5784c3bb03a8534e",
+    "git_blob": "d899e19da24b8f69ab1ffc1edcfb1e7b75ec9eb3",
+    "independently_verified_blob_from_commit": true,
+    "lines": "109-134",
+    "path": "sandbox/win/src/app_container_test.cc",
+    "repository": "chromium/chromium",
+    "sha256": "16968f8bb72d1fbc74c053dcb2f19de3c594a17b763cb56b47faab1cd496bda0"
+  },
+  "source_scope": "Pinned Chromium helper specifies the combined descriptor LPAC2 test. World/AAP/ARAP and matched AC matrices are this candidate's predeclared extensions, not Chromium-run or locally observed results.",
+  "stage": "held-lpac-accesscheck-work-only-candidate-abi",
+  "status_semantics": {
+    "api_false": "AccessStatus/GrantedAccess/PrivilegeCount are invalid and represented by null; raw Win32 code retained",
+    "api_true_access_false": "successful negative access observation with granted mask zero, not a Win32 call failure",
+    "classification": "ac-semantic-match or lpac-semantic-match only when qualified; otherwise unknown",
+    "qualified": "all four typed calls, exact predeclared matrix, held generation and identity, original deadline, once resource cleanup",
+    "unsupported_error": "no class46 or AccessCheck error can be converted to ordinary=false or LPAC=true"
+  },
+  "token": {
+    "authentication_id_and_all_other_security_identity_fields_preserved": true,
+    "class46_queried": false,
+    "duplicate_impersonation_level": 1,
+    "duplicate_rights": 8,
+    "duplicate_token_id_not_assumed_equal": true,
+    "duplicate_token_type": 2,
+    "open_rights": 10,
+    "outer_constructor_fixed_catalog_image_job_binding_required": true,
+    "primary_token_id_must_match_prior_owner_snapshot": true,
+    "process_or_thread_token_assignment": false
+  }
+}

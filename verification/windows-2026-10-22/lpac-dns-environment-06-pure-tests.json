@@ -1,0 +1,46 @@
+{
+  "actor_executed_by_test_suite": false,
+  "actual_attempt04_separate": true,
+  "dns_executed_by_test_suite": false,
+  "dns_isolation_qualified": false,
+  "full": {
+    "errors": 0,
+    "failures": 0,
+    "log": {
+      "bytes": 137112,
+      "sha256": "0752ca52e52533d9e11e0447cdf11f2c375a70ba407bcfd586a2d065cb228265"
+    },
+    "seconds": 33.785,
+    "skipped": 2,
+    "skips": "existing local symlink tests",
+    "tests": 757
+  },
+  "members": {
+    "lpac-dns-environment-06-abi.json": {
+      "bytes": 8976,
+      "sha256": "cf6a6662716dd7468ecd691b9c5f819eeaea0bf4b56b4eb79295f678357e3d47"
+    },
+    "lpac-dns-environment-06-freeze.json": {
+      "bytes": 6247,
+      "sha256": "e80dcaed5c43a570b2c9da11a5f6dd22fdfd097259b27df9d6032b75bc054ed0"
+    },
+    "lpac-dns-environment-06.patch": {
+      "bytes": 13531,
+      "sha256": "92ba0381f5046a974606ae9dc671fcb6c4cc3030dd724869d723b51006555e04"
+    }
+  },
+  "product_acceptance": false,
+  "schema_version": 1,
+  "source_commit": "61fb136c320e94299d716f0a66da603e2776bcb2",
+  "source_sha256": "b56c2f2da311585b8fbc6098168f4a83109bfe750eaf2b779a68e4e23445778c",
+  "stage": "lpac-known-folder-source-pure-review",
+  "targeted": {
+    "log": {
+      "bytes": 7832,
+      "sha256": "02590b057fc4a3099e1c54e28bd0b485ac13f1e1d69a0b487c3f1d5eca6b3ba1"
+    },
+    "skipped": 0,
+    "tests": 37,
+    "unittest_seconds": 5.521
+  }
+}

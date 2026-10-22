@@ -1,0 +1,160 @@
+diff --git a/.github/windows_identity_lpac_dns_local.py b/.github/windows_identity_lpac_dns_local.py
+--- a/.github/windows_identity_lpac_dns_local.py
++++ b/.github/windows_identity_lpac_dns_local.py
+@@ -285,10 +285,10 @@
+         self.factory=fixture_factory or live.dns.fixture.DnsCasesFixture
+         self.owners=helpers.OneShotHandles(api.close);self.job=None;self.children=[];self.tasks={};self.fixture=None
+         self.profile=dict(attempted=False,returned=False,created=False,pointer=None,sid=None)
+-        self.catalog=None;self.inventory=None;self.selected_wire=False
++        self.catalog=None;self.inventory=None;self.selected_wire=False;self.selected_environment=None
+         self.j=dict(schema_version=1,stage='standalone-lpac-dns-worker-result',failure=None,failure_detail=None,selected_wire_query_observed=False,
+             profile_name='ruleproxy-lpac-'+c['run'],profile_sid=None,profile_created=False,acl_attempted=False,
+-            selected_lpac_held=False,inventory=None,inventory_gates=[],go=[],native=[],fixture_final=None,
++            selected_lpac_held=False,child_environment=launcher.default_child_environment(),inventory=None,inventory_gates=[],go=[],native=[],fixture_final=None,
+             ordinary_before=False,ordinary_after=False,natural_exits=False,selected_access_denial=False,
+             workload_cleanup=False,workload_job_empty=False,workload_stop=False,acl_removed=False,cleanup_tools=False,
+             profile_deleted=False,sid_released=False,fixture_cleanup=True,tasks=[],cleanup_tasks=[])
+@@ -318,7 +318,11 @@
+             if stdio:
+                 for label in ('stdin','stdout','stderr'):
+                     handle=self.api.open_stdio_file(work/label,read=label=='stdin');stdio_owners.add(handle);handles.append(handle)
+-            try:self.api.atomic_spawn(info,argv,work,job,owners,state,environment=self.api.native.environment(self.root/('lpac-report' if lpac else 'health')),
++            if lpac:
++                require(launcher.child_environment_admitted(self.j['child_environment']) and self.selected_environment is not None,'lpac_environment')
++                environment=self.selected_environment
++            else:environment=self.api.native.environment(self.root/'health')
++            try:self.api.atomic_spawn(info,argv,work,job,owners,state,environment=environment,
+                 stdio=handles,profile_pointer=self.profile['pointer'] if lpac else None,catalog=self.catalog)
+             finally:
+                 row['attempted']=state['creation_attempted'];row['process_returned']=bool(info.hProcess)
+@@ -386,6 +390,13 @@
+ 
+     def setup(self):
+         owned_tree(self.root)
++        # Reuse the existing known-folder/COM/path/exact-two-key contract. This
++        # is resolved once under the original budget, before profile/ACL setup;
++        # no caller environment inheritance or guessed profile path is used.
++        self.budget.require_ms(self.budget.cutoff(30))
++        verified_local=self.api.local_appdata(self.budget,self.j['child_environment'])
++        self.selected_environment=self.api.front_environment(verified_local,self.j['child_environment'])
++        require(launcher.child_environment_admitted(self.j['child_environment']),'lpac_environment')
+         self.job=self.api.owned_job(self.owners);self.catalog=self.api.catalog()
+         require({name:self.catalog[name] for name in ('AgenticAppContainer','privateNetworkClientServer')}==self.c['capability_catalog'],'worker_capability_catalog')
+         self.journal('profile-create');self.api.create_profile(self.j['profile_name'],self.profile)
+@@ -555,14 +566,15 @@
+ 
+ def validate_result(j,c):
+     keys={'schema_version','stage','failure','failure_detail','selected_wire_query_observed','profile_name','profile_sid','profile_created','acl_attempted',
+-        'selected_lpac_held','inventory','inventory_gates','go','native','fixture_final','ordinary_before','ordinary_after','natural_exits',
++        'selected_lpac_held','child_environment','inventory','inventory_gates','go','native','fixture_final','ordinary_before','ordinary_after','natural_exits',
+         'selected_access_denial','workload_cleanup','workload_job_empty','workload_stop','acl_removed','cleanup_tools','profile_deleted',
+         'sid_released','fixture_cleanup','tasks','cleanup_tasks'}
+     require(type(j) is dict and set(j)==keys and type(j['schema_version']) is int and j['schema_version']==1
+         and j['stage']=='standalone-lpac-dns-worker-result' and j['failure'] in (None,'setup','protocol','inventory','cleanup')
+         and j['profile_name']=='ruleproxy-lpac-'+c['run'],'result_schema')
+     validate_failure_detail(j['failure_detail']);require(j['failure'] is not None or j['failure_detail'] is None,'success_failure_detail')
+-    booleans=keys-{'schema_version','stage','failure','failure_detail','profile_name','profile_sid','inventory','inventory_gates','go','native','fixture_final','tasks','cleanup_tasks'}
++    launcher.validate_child_environment(j['child_environment'])
++    booleans=keys-{'schema_version','stage','failure','failure_detail','profile_name','profile_sid','child_environment','inventory','inventory_gates','go','native','fixture_final','tasks','cleanup_tasks'}
+     require(all(type(j[k]) is bool for k in booleans) and (j['profile_sid'] is None or ac.ac_profile_sid(j['profile_sid']))
+         and (not j['profile_created'] or ac.ac_profile_sid(j['profile_sid'])),'result_facts')
+     rowkeys={'name','attempted','assigned','exited','exit_code','pid','created','identity','capabilities','lpac','lpac_expected',
+@@ -587,6 +599,7 @@
+             validate_failure_detail(observation['exception_detail'])
+             require((observation['exception_detail'] is not None)==(observation['status']=='exception'),'create_exception_detail')
+             require(row['lpac_expected']==(row['name']=='selected') and ac.digest(row['image_sha256']),'task_image')
++            require(not row['lpac_expected'] or not row['attempted'] or launcher.child_environment_admitted(j['child_environment']),'task_environment')
+             require(row['lpac'] is None or type(row['lpac']) is int and row['lpac'] in (0,1),'task_lpac')
+             require(row['lpac_expected'] or row['lpac'] is None,'ordinary_lpac_not_queried')
+             for k in ('pid','created','admission_qpc','resume_qpc'):
+@@ -669,6 +682,7 @@
+     if j['failure'] is None:
+         require(len(j['go'])==5 and len(native)==7 and j['ordinary_before'] and j['ordinary_after'] and j['natural_exits'] and receiver is not None
+             and j['profile_created'] and j['acl_attempted']
++            and launcher.child_environment_admitted(j['child_environment'])
+             and all(j[k] for k in ('selected_lpac_held','workload_cleanup','fixture_cleanup','acl_removed','cleanup_tools','profile_deleted','sid_released')),'complete_result')
+     return j
+ 
+diff --git a/tests/test_windows_identity_lpac_dns_local.py b/tests/test_windows_identity_lpac_dns_local.py
+--- a/tests/test_windows_identity_lpac_dns_local.py
++++ b/tests/test_windows_identity_lpac_dns_local.py
+@@ -77,7 +77,10 @@
+     def __init__(self,root,fault=None):
+         self.root=root;self.fault=fault;self.now=T+100;self.next=100;self.rows={};self.closed=[];self.events=[];self.controls_uncertain=False
+         self.profile_sid=ACSID;self.granted=False;self.removed=False;self.deleted=False
+-        self.native=NS(environment=lambda work:'SystemRoot='+str(root/'win')+'\0TEMP='+str(work/'temp')+'\0TMP='+str(work/'temp')+'\0\0')
++        self.native=NS(environment=lambda work:'SystemRoot='+str(root/'win')+'\0WINDIR='+str(root/'win')+'\0TEMP='+str(work/'temp')+'\0TMP='+str(work/'temp')+'\0\0')
++        self.proc=proc
++        def windows_directory(buffer,size):buffer.value=r'C:\Windows';return len(buffer.value)
++        self.k=NS(GetWindowsDirectoryW=windows_directory)
+     def qpc(self):
+         if getattr(self,'qpc_fail_once',False):self.qpc_fail_once=False;raise OSError('pure clock unavailable')
+         return self.now
+@@ -92,12 +95,35 @@
+             self.close_failed=True;raise OSError('one owned handle close unknown')
+     def owned_job(self,owners):self.next+=10;owners.add(self.next);return self.next
+     def catalog(self):return CATALOG
+-    def create_profile(self,name,state):state.update(attempted=True,returned=True,created=True,pointer=77,sid=ACSID);return ACSID
++    def create_profile(self,name,state):self.events.append('create-profile');state.update(attempted=True,returned=True,created=True,pointer=77,sid=ACSID);return ACSID
+     def derive_profile_sid(self,name):return ACSID
+     def delete_profile(self,name):self.deleted=True;self.events.append('delete-profile')
+     def release_profile_sid(self,state):state['pointer']=None
+     def acl_read(self,path,sid):return m.expected_acl(self.root,path) if self.granted and not self.removed else []
++    def local_appdata(self,budget,metadata):
++        # The production resolver and its original QPC closure run against a
++        # pure fake KnownFolder API; neither COM nor shell32 is loaded here.
++        parent=self;storage=C.create_string_buffer(r'C:\Users\fixture\AppData\Local'.encode('utf-16-le')+b'\0\0')
++        class KnownFolder:
++            def initialize(self):parent.events.append('env-init');return 0x80004005 if parent.fault=='env-com' else 0
++            def query(self,out):
++                parent.events.append('env-query');out.value=C.addressof(storage)
++                if parent.fault=='env-deadline':parent.now=budget.cutoff(30)
++                return 0x80004005 if parent.fault=='env-query' else 0
++            def release(self,out):
++                parent.events.append('env-release')
++                if parent.fault=='env-release':raise OSError('pure release uncertain')
++            def uninitialize(self):parent.events.append('env-uninit')
++        with patch.object(m.ac.pipe_helpers,'KnownFolderAPI',return_value=KnownFolder()),patch.object(m.ac.pipe_helpers,'checked_local_appdata_path',side_effect=lambda value:value):
++            return m.ac.ACWindowsAPI.local_appdata(self,budget,metadata)
++    def front_environment(self,path,metadata):
++        if self.fault=='env-keyset':self.proc=NS(_environment_block=lambda values:'SystemRoot=C:\\Windows\0LOCALAPPDATA=x\0EXTRA=1\0\0')
++        return m.ac.ACWindowsAPI.front_environment(self,path,metadata)
+     def atomic_spawn(self,info,argv,cwd,job,owners,state,**kw):
++        env=dict(value.split('=',1) for value in kw['environment'].rstrip('\0').split('\0'))
++        if kw['profile_pointer']:
++            assert env=={'SystemRoot':r'C:\Windows','LOCALAPPDATA':r'C:\Users\fixture\AppData\Local'}
++        else:assert set(env)=={'SystemRoot','WINDIR','TEMP','TMP'}
+         state.update(creation_attempted=True,create_status='returned_true',create_winerror=None,create_information='nonzero',create_exception_detail=None)
+         if self.fault=='unknowncreate' and kw['profile_pointer']:
+             exc=OSError('unknown create')
+@@ -219,6 +245,30 @@
+         self.assertLess(api.events.index('remove-acl'),api.events.index('delete-profile'));self.assertTrue(api.deleted)
+         self.assertTrue(all(j[k] for k in ('workload_cleanup','fixture_cleanup','acl_removed','cleanup_tools','profile_deleted','sid_released')))
+ 
++    def test_existing_known_folder_contract_is_once_original_budget_before_profile_and_lpac_create(self):
++        owner,api,j=self.owner();m.validate_result(j,owner.c)
++        self.assertTrue(m.launcher.child_environment_admitted(j['child_environment']))
++        self.assertEqual([x for x in api.events if isinstance(x,str) and x.startswith('env-')],['env-init','env-query','env-release','env-uninit'])
++        self.assertLess(api.events.index('env-uninit'),api.events.index('create-profile'))
++        self.assertEqual(owner.budget.deadline,D);self.assertEqual(j['child_environment']['com'],[True,0,True,True])
++        self.assertNotIn('child_environment',m.public_result(j,owner.c,public_base()))
++
++    def test_known_folder_com_query_release_keyset_or_original_deadline_failure_never_creates_profile_or_child(self):
++        for fault in ('env-com','env-query','env-release','env-keyset','env-deadline'):
++            with self.subTest(fault=fault):
++                owner,api,j=self.owner(fault);m.validate_result(j,owner.c)
++                self.assertIsNotNone(j['failure']);self.assertFalse(j['profile_created']);self.assertFalse(j['acl_attempted'])
++                self.assertEqual(j['tasks'],[]);self.assertEqual(j['go'],[]);self.assertIsNone(owner.fixture)
++                self.assertNotIn('create-profile',api.events);self.assertFalse(m.launcher.child_environment_admitted(j['child_environment']))
++                self.assertEqual(owner.budget.deadline,D)
++
++    def test_result_environment_metadata_is_closed_and_required_for_selected_attempt_and_complete_claim(self):
++        owner,api,j=self.owner()
++        for replacement in (m.launcher.default_child_environment(),j['child_environment']|{'exact_child_keyset':False},
++                j['child_environment']|{'release_returned':False},j['child_environment']|{'extra':True}):
++            with self.subTest(replacement=replacement),self.assertRaises((ValueError,m.launcher.GateFailure)):
++                m.validate_result(j|{'child_environment':replacement},owner.c)
++
+     def test_wrong_lpac_flag_fresh_sid_low_il_or_outer_job_never_resume_selected_or_go(self):
+         for fault in ('lpac0','sid','medium','outerjob'):
+             with self.subTest(fault=fault):

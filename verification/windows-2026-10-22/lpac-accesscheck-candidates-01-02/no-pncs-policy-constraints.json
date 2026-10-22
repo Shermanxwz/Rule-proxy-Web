@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "stage": "read-only-no-pncs-proxy-and-lpac-profile-authoring-constraints",
+  "upstream_commit": "7bf210247986cb73b1b314df60c2f1109c479c0b",
+  "conclusion": "The pinned G public Model2 authoring path forces ingress.default=allow and then adds PNCS to the final PSEC capability list. Removing caller PNCS or relaxing only native07's agentic-only GO gate cannot produce the proposed no-PNCS PSEC proxy request. A separate native-spec adapter would be a new, currently unverified policy experiment, not a small supported G configuration change.",
+  "pinned_g_constraints": [
+    {
+      "path": "src/mxc-sdk/src/core/mxc_common/network_parser.rs",
+      "lines": "406-455",
+      "url": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/core/mxc_common/network_parser.rs#L406-L455",
+      "facts": [
+        "allowedProxyPeer without runtime networkProxy is rejected.",
+        "Runtime proxy requires an ingress policy whose default is allow.",
+        "Identity-scoped proxy requires hostLoopback=deny; reserved MXC-Loopback cannot be provided as caller peer."
+      ]
+    },
+    {
+      "path": "src/mxc-sdk/src/backends/process_container/common/network_policy_helpers.rs",
+      "lines": "35-70",
+      "url": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/network_policy_helpers.rs#L35-L70",
+      "facts": [
+        "Directional networking always uses capability gates; legacy enforcementMode does not disable them.",
+        "When directional policy exists, caller internetClient, internetClientServer, PNCS and networkLoopback entries are removed before policy mapping.",
+        "ingress.default=allow then ensures privateNetworkClientServer is present."
+      ]
+    },
+    {
+      "path": "src/mxc-sdk/src/backends/process_container/common/base_container_helpers.rs",
+      "lines": "30-84,91-135",
+      "url": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/base_container_helpers.rs#L30-L135",
+      "facts": [
+        "The PSEC builder calls effective_capabilities, which invokes add_default_network_capabilities.",
+        "The final capability names are serialized into the PSEC capabilities field.",
+        "Proxy policy and direct egress policy use mutually exclusive authoring branches.",
+        "A proxy policy omits the native ingress table and carries allowed_appcontainer_peer separately."
+      ]
+    },
+    {
+      "path": "external/windows-sdk/ProcessSecurityEnvironment.fbs",
+      "lines": "39-50,91-96",
+      "url": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/external/windows-sdk/ProcessSecurityEnvironment.fbs#L39-L96",
+      "facts": [
+        "The native schema has an optional capabilities string and network proxy/egress/allowed_appcontainer_peer/ingress fields.",
+        "The schema does not contain a DNS switch or an LPAC switch.",
+        "An optional native capabilities field is not evidence that proxy access without PNCS works."
+      ]
+    },
+    {
+      "path": "docs/backends/process-container/networking.md",
+      "lines": "69-81,112-118,174-185,280-288",
+      "url": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/docs/backends/process-container/networking.md#L69-L118",
+      "facts": [
+        "Model2 explicitly lists PNCS as the client capability selected through ingress.allow.",
+        "The private-network mapping describes capability as a prerequisite; peer identity adds binding rather than replacing capability.",
+        "The host-loopback discussion says a peer alone can create an environment while its client cannot reach the host proxy. This is upstream documentation, not a fresh measurement of the exact proposed Agentic-only identity-scoped tuple on this host."
+      ]
+    }
+  ],
+  "current_native_gate": {
+    "path": ".github/native/windows_identity_proxy_c_actor.cpp",
+    "lines": "214-242",
+    "observation": "native07 accepts agentic-only for identity READY and Finish but rejects every network GO before socket/DNS initialization.",
+    "this_is_a_repository_protocol_gate": true,
+    "this_is_an_os_network_counterexperiment": false,
+    "gate_was_relaxed": false,
+    "actor08_was_implemented_or_compiled": false
+  },
+  "historical_f48239a": {
+    "tested_commit": "f48239ae818fa81d3f0663833826b83f37136861",
+    "ci_run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889",
+    "source_projection": "verification/windows-2026-10-15/f48239a/psec11-network-native/source.json",
+    "observations_projection": "verification/windows-2026-10-15/f48239a/psec11-network-native/observations.json",
+    "policy_source": ".github/windows_network_experiment.py:351-368 at the tested commit",
+    "patch_source": ".github/build_mxc_capability_probe.py:34-65 at the tested commit",
+    "preferred_variant": "model1_internal_ingress_deny",
+    "policy_facts": [
+      "Preferred variant sets egress default deny with one exact loopback TCP allow, ingress default deny, hostLoopback deny.",
+      "It does not set runtime networkProxy or allowedProxyPeer.",
+      "The source-bound diagnostic patch requires empty caller capabilities and removes automatically added internetClient only for the exact matching non-proxy policy.",
+      "The archived source projection labels the resulting capabilities field null; this is not a published full held-token capability enumeration. No PNCS is requested by that preferred policy."
+    ],
+    "observation_facts": [
+      "The preferred DNS groups had complete positive controls/capture and reported no contained nonce queries.",
+      "The reported parent/child returns were getaddrinfo11001 and DNS A/AAAA5.",
+      "Proxy transport roundtrips remained zero and internal TCP probes reported10013.",
+      "The result was diagnostic-only and failed product acceptance; kernel PSEC contract version was not confirmed."
+    ],
+    "limitations": [
+      "This supports retaining the finite historical negative result under its own policy and source.",
+      "It does not establish current Model2 no-PNCS proxy connectivity, current DnsQueryEx standard53 behavior, or an exact Agentic-only held token on today's cell.",
+      "No historical absence or API5 is used as a repair or Linux-equivalence claim."
+    ]
+  },
+  "profile_capability_authoring_review": {
+    "local_inheritance": [
+      "LPACAPI derives from LiveNativeAPI.",
+      "LiveNativeAPI derives from OriginAPI.",
+      "OriginAPI derives from ACWindowsAPI."
+    ],
+    "local_profile_call": {
+      "path": ".github/windows_identity_proxy_pipe_probe.py",
+      "lines": "673-678",
+      "capabilities_pointer": null,
+      "capability_count": 0
+    },
+    "local_process_call": {
+      "path": ".github/windows_identity_lpac_dns_local.py",
+      "fields": "atomic_spawn SECURITY_CAPABILITIES plus OPT_OUT",
+      "capability_names": ["AgenticAppContainer", "privateNetworkClientServer"],
+      "capability_count": 2,
+      "attributes": [4, 4]
+    },
+    "learn_example": {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer",
+      "observation": "The example passes Capabilities/NumberOfCapabilities to CreateAppContainerProfile and reuses them in SECURITY_CAPABILITIES for launch."
+    },
+    "api_contracts": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-createappcontainerprofile",
+        "observation": "Capabilities are described as requested UWP capabilities if applicable; no requirement that all future process tokens exactly equal this profile-creation list is stated."
+      },
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-security_capabilities",
+        "observation": "The structure specifies the process AppContainer SID and capabilities; no profile-list equality requirement is stated."
+      }
+    ],
+    "pinned_g_counterexample_to_example_only_reasoning": {
+      "path": "src/mxc-sdk/src/backends/process_container/common/appcontainer_runner.rs",
+      "url": "https://github.com/microsoft/mxc/blob/7bf210247986cb73b1b314df60c2f1109c479c0b/src/mxc-sdk/src/backends/process_container/common/appcontainer_runner.rs#L734-L741",
+      "lines": "734-741,885-928",
+      "facts": [
+        "The pinned G AppContainer runner calls CreateAppContainerProfile with None, corresponding to an empty capability slice.",
+        "It separately supplies the resolved capability SID_AND_ATTRIBUTES at process construction and adds OPT_OUT for least-privilege mode.",
+        "Thus the same general empty-profile/nonempty-process pattern already exists in the pinned upstream implementation. This is source evidence, not proof of this host's failing invocation."
+      ]
+    },
+    "conclusion": "The Learn example's matching lists do not prove the current profile list is erroneous. Given the pinned G pattern, changing profile capabilities is not presently an evidence-backed root-cause repair.",
+    "matching_is_documented_as_required": false,
+    "profile_capability_mismatch_is_proven_createprocess_cause": false,
+    "profile_capabilities_changed": false
+  },
+  "desktop_single_variable_hypothesis": {
+    "pinned_g_path": "src/mxc-sdk/src/backends/process_container/common/appcontainer_runner.rs",
+    "pinned_g_lines": "1063-1069",
+    "pinned_g_desktop": "winsta0\\default",
+    "local_state": "LPAC atomic_spawn zero-initializes STARTUPINFOEX and does not assign lpDesktop, leaving null.",
+    "api_reference": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-startupinfow",
+    "conclusion": "A source difference suitable for a separately reviewed single-variable constructor hypothesis only. No typed failing Win32 code or actual test has established this as the cause.",
+    "implemented": false,
+    "causal_explanation_proven": false
+  },
+  "next_boundary": {
+    "normal_g_configuration_can_disable_only_client_pncs_for_model2": false,
+    "native07_gate_is_the_only_obstacle": false,
+    "direct_psec_plus_lpac_os_composition_supported": null,
+    "required_order": [
+      "Retain the actual constructor errors and exact source/config before proposing the next change.",
+      "An independently reviewed direct-PSEC plus OPT_OUT identity-only constructor can test native composition without silently switching SDK tiers; OS acceptance and policy preservation remain unknown.",
+      "Only after exact held identity, original Job/QPC/cleanup and supported APIs are admitted may a separately named real proxy/deny/DNS cell be considered."
+    ],
+    "no_pncs_actor08_or_owner_was_implemented": true,
+    "original_default_g_runtime_or_caps_were_changed": false,
+    "product_or_linux_equivalence_claimed": false
+  },
+  "actions": {
+    "source_reads_only": true,
+    "native_api_called": false,
+    "process_or_token_experiment_run": false,
+    "network_experiment_run": false,
+    "compiled": false,
+    "main_repository_source_modified": false,
+    "os_or_global_settings_modified": false,
+    "receipt_only_written_under_work": true
+  }
+}

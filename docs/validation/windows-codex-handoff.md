@@ -1,5 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
+> **LPAC03/04 检查点，2026-10-23：** [原始创建/身份查询观察](2026-10-23-lpac-token-inspection.md)记录03 Create FALSE/203与04 Create TRUE后class46/87；04身份仍unknown，selected未准入/恢复线程，均未调用DNS。两轮自动清理及原baseline字节比较通过，无独立恢复。原class46门未绕过，另无网络AC/LPAC授权矩阵对照尚无实际结果。
+
 > **LPAC 入口检查点，2026-10-23：** [LPAC01/02](2026-10-23-lpac-dns-mechanism.md)均在selected准入/恢复线程、库存、receiver和DNS查询前停止；原inconclusive/recovery_required保留，独立受监督恢复已清理专用profile/ACE，全局配置与最初baseline字节相同。尚无LPAC DNS结果，现有G/PSEC DNS API泄漏仍成立，不能算Linux等效。
 
 > **原始 UDP 差分，2026-10-23：** [rawDNS01/02](2026-10-23-selected-dns-raw-udp.md)均保持 `inconclusive`；第二轮完成普通前后正控、四个库存门、完整观察与清理，selected UDP connect/send 本地接受但 receiver 无命中，超时且无明确拒绝。两次全局配置均与初始 baseline 相同；没有抵消下述 DNS API 泄漏，也没有定位 broker PID。

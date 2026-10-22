@@ -1,0 +1,78 @@
+{
+  "runs": [
+    {
+      "compiled_base_identity_actor_only": true,
+      "compiled_proxy_c07_actor": false,
+      "conclusion": "success",
+      "decoded_log": {
+        "bytes": 178872,
+        "kept_in_work": true,
+        "raw_github_log_zip": false,
+        "sha256": "ce0d7e92c0cbc5f37a552417516bfaf87e8ece5ae004fd6a50d00979f4416434"
+      },
+      "dns_isolation_qualified": false,
+      "elapsed_seconds": 25.412,
+      "errors": 0,
+      "event": "push",
+      "failures": 0,
+      "gated_runtime_step_numbers_skipped": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "job_id": 120105352837,
+      "lpac_or_dns_runtime_attempted": false,
+      "native_actor_executed": false,
+      "product_acceptance": false,
+      "run_attempt": 1,
+      "run_id": 39859244375,
+      "skips": 0,
+      "source_commit": "88db09f422e069ecd8dae78a4b2676c592e08fb2",
+      "status": "completed",
+      "tests_run": 754,
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39859244375",
+      "workflow_dispatched": false,
+      "workflow_rerun": false
+    },
+    {
+      "compiled_base_identity_actor_only": true,
+      "compiled_proxy_c07_actor": false,
+      "conclusion": "success",
+      "decoded_log": {
+        "bytes": 179722,
+        "kept_in_work": true,
+        "raw_github_log_zip": false,
+        "sha256": "88a92ab52897af3cc4d30710e6d63dbf9e6d5abb9ea79397d23e13f85bd82e1f"
+      },
+      "dns_isolation_qualified": false,
+      "elapsed_seconds": 37.48,
+      "errors": 0,
+      "event": "push",
+      "failures": 0,
+      "gated_runtime_step_numbers_skipped": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "job_id": 120108799227,
+      "lpac_or_dns_runtime_attempted": false,
+      "native_actor_executed": false,
+      "product_acceptance": false,
+      "run_attempt": 1,
+      "run_id": 39860248347,
+      "skips": 0,
+      "source_commit": "61fb136c320e94299d716f0a66da603e2776bcb2",
+      "status": "completed",
+      "tests_run": 757,
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39860248347",
+      "workflow_dispatched": false,
+      "workflow_rerun": false
+    }
+  ],
+  "schema_version": 1,
+  "stage": "read-only-automatic-lpac-source-ci-reviews"
+}

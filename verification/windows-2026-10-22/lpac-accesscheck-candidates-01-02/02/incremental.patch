@@ -1,0 +1,105 @@
+diff --git a/.github/windows_identity_lpac_accesscheck.py b/.github/windows_identity_lpac_accesscheck.py
+--- a/.github/windows_identity_lpac_accesscheck.py
++++ b/.github/windows_identity_lpac_accesscheck.py
+@@ -440,8 +440,15 @@
+         return buf, actual.value
+ 
+     def _scalar(self, token, kind):
+-        buf, n = self._information(token, kind); require(n == 4, 'token_scalar_length')
+-        return C.cast(buf, C.POINTER(C.c_uint32))[0]
++        # Fixed-width token classes are queried directly, as in the existing
++        # held owner. Some Windows builds reject a zero-length scalar probe
++        # with ERROR_BAD_LENGTH. That is never permission for a fallback or
++        # reading output from a failed call.
++        value, returned = C.c_uint32(), C.c_uint32()
++        self._check(self.a.GetTokenInformation(token, kind, C.byref(value),
++            C.sizeof(value), C.byref(returned)), 'GetTokenInformation')
++        require(returned.value == C.sizeof(value), 'token_scalar_length')
++        return value.value
+ 
+     def _sid(self, pointer, base, size):
+         require(pointer and base <= pointer <= base + size - 8, 'sid_bounds')
+@@ -459,6 +466,7 @@
+             p = C.cast(buf, C.POINTER(C.c_void_p))[0]
+             return self._sid(p, C.addressof(buf), n) if p else None
+         buf, n = self._information(token, 30)
++        require(n >= C.sizeof(C.c_uint32), 'capability_header_length')
+         count = C.cast(buf, C.POINTER(C.c_uint32))[0]
+         require(count <= 64 and TOKEN_GROUPS.Groups.offset + count * C.sizeof(SID_AND_ATTRIBUTES) <= n, 'capability_buffer')
+         entries = C.cast(C.addressof(buf) + TOKEN_GROUPS.Groups.offset, C.POINTER(SID_AND_ATTRIBUTES))
+diff --git a/tests/test_windows_identity_lpac_accesscheck.py b/tests/test_windows_identity_lpac_accesscheck.py
+--- a/tests/test_windows_identity_lpac_accesscheck.py
++++ b/tests/test_windows_identity_lpac_accesscheck.py
+@@ -5,6 +5,7 @@
+ from pathlib import Path
+ import unittest
+ from types import SimpleNamespace as NS
++from unittest.mock import patch
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+ spec = importlib.util.spec_from_file_location('lpac_accesscheck_candidate', ROOT / '.github/windows_identity_lpac_accesscheck.py')
+@@ -185,6 +186,64 @@
+ 
+ 
+ class AdapterPureTests(unittest.TestCase):
++    def test_scalar_uses_one_direct_dword_call_without_a_size_probe(self):
++        api = m.NativeAPI.__new__(m.NativeAPI); calls = []
++        def information(token, kind, value, size, returned):
++            calls.append((token, kind, value is not None, size))
++            if value is None or size == 0:
++                raise AssertionError('zero-length scalar probe is forbidden')
++            C.cast(value, C.POINTER(C.c_uint32))[0] = 2
++            C.cast(returned, C.POINTER(C.c_uint32))[0] = 4
++            return 1
++        api.a = NS(GetTokenInformation=information)
++        self.assertEqual(api._scalar(11, 8), 2)
++        self.assertEqual(calls, [(11, 8, True, 4)])
++
++    def test_scalar_failure_never_reads_stale_output_or_retries(self):
++        api = m.NativeAPI.__new__(m.NativeAPI); calls = []
++        def failed(token, kind, value, size, returned):
++            calls.append((token, kind, size))
++            C.cast(value, C.POINTER(C.c_uint32))[0] = 1
++            C.cast(returned, C.POINTER(C.c_uint32))[0] = 4
++            C.set_last_error(87)
++            return 0
++        api.a = NS(GetTokenInformation=failed)
++        with self.assertRaises(m.ApiError) as error:
++            api._scalar(11, 29)
++        self.assertEqual((error.exception.operation, error.exception.code), ('GetTokenInformation', 87))
++        self.assertEqual(calls, [(11, 29, 4)])
++
++    def test_scalar_requires_exact_returned_dword_width(self):
++        for reported in (0, 1, 3, 5, 8):
++            api = m.NativeAPI.__new__(m.NativeAPI); calls = []
++            def information(token, kind, value, size, returned):
++                calls.append(size)
++                C.cast(value, C.POINTER(C.c_uint32))[0] = 1
++                C.cast(returned, C.POINTER(C.c_uint32))[0] = reported
++                return 1
++            api.a = NS(GetTokenInformation=information)
++            with self.subTest(reported=reported), self.assertRaisesRegex(ValueError, 'token_scalar_length'):
++                api._scalar(11, 29)
++            self.assertEqual(calls, [4])
++
++    def test_capability_header_is_bounded_before_first_dereference(self):
++        for reported in range(4):
++            api = m.NativeAPI.__new__(m.NativeAPI)
++            buf = C.create_string_buffer(max(1, reported))
++            api._information = lambda token, kind: (buf, reported)
++            with self.subTest(reported=reported), patch.object(m.C, 'cast', side_effect=AssertionError('unbounded first read')):
++                with self.assertRaisesRegex(ValueError, 'capability_header_length'):
++                    api.identity(11)
++
++    def test_capability_count_and_full_entry_bounds_still_precede_sid_reads(self):
++        for count, size in ((65, 8), (2, 8), (2, 24)):
++            api = m.NativeAPI.__new__(m.NativeAPI); buf = C.create_string_buffer(size)
++            C.cast(buf, C.POINTER(C.c_uint32))[0] = count
++            api._information = lambda token, kind: (buf, size)
++            api._sid = lambda *args: (_ for _ in ()).throw(AssertionError('SID read before entry bounds'))
++            with self.subTest(count=count, size=size), self.assertRaisesRegex(ValueError, 'capability_buffer'):
++                api.identity(11)
++
+     def descriptor_api(self, label, bad_pointer=False):
+         def sid(text):
+             parts = [int(x) for x in text.split('-')[1:]]

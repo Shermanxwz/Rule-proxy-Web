@@ -1,0 +1,55 @@
+{
+  "actor_network_recovery_rerun": false,
+  "dependencies": [
+    "verification/windows-2026-10-22/model2-first-02-04-runners/c_local_baseline.ps1"
+  ],
+  "files": [
+    {
+      "bytes": 1345,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-preflight.json",
+      "sha256": "278f94be820321208589a53ca938ead386ccca4fa468b637807b18f8957f390a"
+    },
+    {
+      "bytes": 1342,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-public.json",
+      "sha256": "84bc181c0711d70526b585591d5ab575b513542b0447476d8a57281971a285f1"
+    },
+    {
+      "bytes": 2756,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-runner.py",
+      "sha256": "4da0086198e57962e6662b15a69ed37cc86b61120ce0b896d47007fdc7ae1eb1"
+    },
+    {
+      "bytes": 996,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-after-global-capture.ps1",
+      "sha256": "c21a12fbd02acf476dee888c62db219e39ae30f7f116f3e4db8b18918707885d"
+    },
+    {
+      "bytes": 1994,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-after-global-expanded.ps1",
+      "sha256": "123e21a513194f47f05c8852331450193f4ec61889550b8ef9d15b826c4a4ccc"
+    },
+    {
+      "bytes": 870,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-after-global-projection.json",
+      "sha256": "6ccbd17a5623cc5ca764d737ffb9297beadd568f20eea94bffb619680e9ef5fd"
+    },
+    {
+      "bytes": 18984,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-component-projection.json",
+      "sha256": "edc49c79572fbf5ce8deb603db2862167e55af8a8c05e1e92fd4496721106b69"
+    },
+    {
+      "bytes": 5043,
+      "path": "verification/windows-2026-10-22/lpac-dns-local-04-summary.json",
+      "sha256": "123de57463214d914692c3ce37d1c394c29e2a427f822ca9cb33bfce250ed0b3"
+    }
+  ],
+  "index_self_not_hashed": true,
+  "original_evidence_preserved": true,
+  "private_raw_evidence_published": false,
+  "schema_version": 1,
+  "source_commit": "61fb136c320e94299d716f0a66da603e2776bcb2",
+  "source_sha256": "b56c2f2da311585b8fbc6098168f4a83109bfe750eaf2b779a68e4e23445778c",
+  "stage": "standalone-lpac04-public-evidence-index"
+}
