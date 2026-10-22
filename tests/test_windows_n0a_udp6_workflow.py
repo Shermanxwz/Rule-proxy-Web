@@ -17,6 +17,7 @@ AC_PATHS=('.github/windows_identity_proxy_pipe_probe.py','.github/windows_identi
 AC_PIN_PATHS=('.github/windows_identity_proxy_pipe_probe.py','.github/windows_identity_proxy_pipe_ac_guest.py','.github/windows_identity_direct_stage0.py','.github/windows-identity-direct-stage0-run.ps1','.github/windows_identity_ordinary_launcher.py','.github/windows_identity_pipe_probe.py','ruleproxy/windows_app_process.py','.github/windows_identity_proof.py','.github/windows_psec_compartment_smoke.py','ruleproxy/windows_runtime_pins.py','.github/native/windows_identity_proxy_pipe_actor.cpp','.github/native/windows_identity_proxy_bridge_core.hpp','.github/native/windows_identity_actor.cpp')
 
 def without_ac(text):
+    text=text.replace(" && !contains(github.event.head_commit.message, '[identity-proxy-pipe-ac-runtime]')",'')
     block=''.join("      - '"+n+"'\n" for n in AC_PATHS)
     assert text.count(block)==1
     text=text.replace(block,'',1)
@@ -26,7 +27,7 @@ def without_ac(text):
     step='          powershell -NoProfile -File ./.github/test-windows-proxy-pipe-ac-guest-gates.ps1\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n'
     assert text.count(step)==1
     text=text.replace(step,'',1)
-    text,count=re.subn(r'      - name: Verify default-OFF AC prerequisite sources without execution\n(?:(?!      - name:).*(?:\n|$))*','',text)
+    text,count=re.subn(r'      - name: Verify activated AC prerequisite sources without execution\n(?:(?!      - name:).*(?:\n|$))*','',text)
     assert count==2
     return text.replace('Actual eight-mode payload ZIP','Actual seven-mode payload ZIP')
 
@@ -61,7 +62,7 @@ class UDP6WorkflowTests(unittest.TestCase):
             self.assertTrue(condition(expr,MARKER))
             self.assertFalse(condition(expr,MARKER,branch='refs/heads/main'))
             self.assertFalse(condition(expr,MARKER,event='workflow_dispatch'))
-            for runtime in ('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]','[identity-stage0b-runtime]'):
+            for runtime in ('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]','[identity-stage0b-runtime]','[identity-proxy-pipe-ac-runtime]'):
                 self.assertFalse(condition(expr,runtime))
                 self.assertFalse(condition(expr,MARKER+' '+runtime))
         import yaml
@@ -130,10 +131,10 @@ class UDP6WorkflowTests(unittest.TestCase):
         for forbidden in ('--run-ac-pair','--run-native-pipe','--proxy-pipe-ac-runner','build_windows_identity_proxy_pipe_actor.ps1','windows_identity_proxy_pipe_actor.exe'):
             self.assertNotIn(forbidden,text)
 
-    def test_ac_readonly_pins_and_default_off_before_required_tests(self):
+    def test_ac_readonly_pins_and_authoritative_true_before_required_tests(self):
         doc=self.document()
         for job in doc['jobs'].values():
-            steps=job['steps']; index=next(i for i,s in enumerate(steps) if s.get('name')=='Verify default-OFF AC prerequisite sources without execution')
+            steps=job['steps']; index=next(i for i,s in enumerate(steps) if s.get('name')=='Verify activated AC prerequisite sources without execution')
             required=next(i for i,s in enumerate(steps) if s.get('name')=='Required UDP6 and unchanged regression contracts')
             self.assertLess(index,required)
             code=steps[index]['run'];match=re.search(r'pins=(\{[^\n]+?\}); assert all',code)
@@ -142,13 +143,24 @@ class UDP6WorkflowTests(unittest.TestCase):
             self.assertEqual(len(pins),13)
             for path,digest in pins.items():self.assertEqual(digest,hashlib.sha256((ROOT/path).read_bytes()).hexdigest())
             self.assertIn("t.id=='AC_EXECUTION_ENABLED'",code)
-            self.assertIn('assert len(flags)==1 and flags[0] is False',code)
-            # Execute only the literal hash/default-OFF verification, never import a controller.
+            self.assertIn('assert len(flags)==1 and flags[0] is True',code)
+            # Execute only the literal hash/flag verification, never import a controller.
             command=next(line for line in code.splitlines() if ' -B -c ' in line)
             literal=command.split(' -B -c ',1)[1]
             program=ast.literal_eval(literal)
             import subprocess,sys
             result=subprocess.run([sys.executable,'-B','-c',program],cwd=ROOT,capture_output=True,timeout=10)
             self.assertEqual(result.returncode,0)
+
+    def test_activation_delta_inverts_to_exact_prior_short_gate(self):
+        text=PATH.read_text()
+        marker=" && !contains(github.event.head_commit.message, '[identity-proxy-pipe-ac-runtime]')"
+        self.assertEqual(text.count(marker),2)
+        text=text.replace(marker,'')
+        text=text.replace('Verify activated AC prerequisite sources without execution','Verify default-OFF AC prerequisite sources without execution')
+        text=text.replace('assert len(flags)==1 and flags[0] is True','assert len(flags)==1 and flags[0] is False')
+        self.assertEqual(text.count('7412d86d31f0d152e600aa423910cbd632bb88ded413ace284d5255447c0fe9d'),2)
+        text=text.replace('7412d86d31f0d152e600aa423910cbd632bb88ded413ace284d5255447c0fe9d','4af0bceac888fd0a38d2ecc43f2455d72eb0a6fe11de70214b81132e0119be34')
+        self.assertEqual(hashlib.sha256(text.encode()).hexdigest(),'8ea317f3ddafbf0278139e82380fb30ee3ac9ebce0fd07244538e878ee38a565')
 
 if __name__=='__main__':unittest.main()

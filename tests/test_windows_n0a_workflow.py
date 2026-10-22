@@ -17,6 +17,32 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / '.github/workflows/windows-n0a-connect-gates.yml'
+AC_MARKER='[identity-proxy-pipe-ac-runtime]'
+AC_CONTAINS="contains(github.event.head_commit.message, '"+AC_MARKER+"')"
+AC_ADDED_PATHS="      - '.github/windows_identity_proxy_pipe_probe.py'\n      - '.github/windows_identity_proxy_pipe_ac_guest.py'\n      - '.github/native/windows_identity_proxy_pipe_actor.cpp'\n      - '.github/native/windows_identity_proxy_bridge_core.hpp'\n      - '.github/build_windows_identity_proxy_pipe_actor.ps1'\n      - '.github/test-windows-proxy-pipe-ac-guest-gates.ps1'\n      - 'tests/test_windows_identity_proxy_pipe_probe.py'\n      - 'tests/test_windows_identity_proxy_pipe_ac_guest.py'\n      - 'tests/test_windows_proxy_pipe_ac_transport.py'\n      - 'docs/validation/2026-10-22-proxy-pipe-ac-prerequisite.md'\n"
+AC_ARGUMENT_BRANCH='          if [ "$PROXY_PIPE_AC_REQUESTED" = "true" ]; then\n            test "$N0A_REQUESTED" = "false"\n            test "$CAPTURE_REQUESTED" = "false"\n            test "$UDP_REQUESTED" = "false"\n            test "$PARENT_UDP_REQUESTED" = "false"\n            test "$UDP6_REQUESTED" = "false"\n            test "$STAGE0B_REQUESTED" = "false"\n            for binary in client-stage0-actor/windows_identity_actor.exe proxy-pipe-production-build/windows_identity_proxy_pipe_actor.exe; do\n              size=$(stat -c %s "$binary")\n              test "$size" -ge 512\n              test "$size" -le 8388608\n            done\n            size=$(stat -c %s proxy-pipe-production-build/identity-proxy-pipe-manifest.json)\n            test "$size" -ge 1\n            test "$size" -le 8192\n            n0a_args=(--proxy-pipe-ac --proxy-pipe-ac-actor "$PWD/proxy-pipe-production-build/windows_identity_proxy_pipe_actor.exe" --proxy-pipe-ac-manifest "$PWD/proxy-pipe-production-build/identity-proxy-pipe-manifest.json")\n          fi\n'
+
+def before_ac_activation(text):
+    if hashlib.sha256(text.encode()).hexdigest()!='5587e86e57dd309b1a179c801c961727cc360a6de69e36140a4154ee3e0bd6c4':raise AssertionError('AC activation delta changed')
+    text=re.sub(r'^      # AC activation (compile|linux|download|public) begin\n.*?^      # AC activation \1 end\n','',text,flags=re.M|re.S)
+    if text.count(AC_ADDED_PATHS)!=1:raise AssertionError('AC path inverse')
+    text=text.replace(AC_ADDED_PATHS,'')
+    if text.count(AC_ARGUMENT_BRANCH)!=1:raise AssertionError('AC argv inverse')
+    text=text.replace(AC_ARGUMENT_BRANCH,'')
+    text=text.replace('          PROXY_PIPE_AC_REQUESTED: ${{ '+AC_CONTAINS+' }}\n','')
+    text=text.replace(' || [ "$PROXY_PIPE_AC_REQUESTED" = "true" ]; then','; then')
+    lines=[]
+    for line in text.splitlines(keepends=True):
+        if line.startswith('        if: ${{'):
+            line=line.replace(' && !'+AC_CONTAINS+' }}',' }}')
+        elif line.startswith('    if: ${{ ('):
+            prefix='    if: ${{ (';suffix=') && !'+AC_CONTAINS+' || ('
+            if suffix in line:line='    if: ${{ '+line[len(prefix):].split(suffix,1)[0]+' }}\n'
+        elif line.startswith('    if: ${{'):
+            line=line.replace(' || '+AC_CONTAINS+') }}',') }}')
+        lines.append(line)
+    return ''.join(lines)
+
 SHELL_OBSERVATIONS=0
 
 
@@ -205,7 +231,7 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertNotIn('test_windows_client_n0a_capture.py',actual)
         self.assertIn('bool(result.skipped)',compiled)
 
-    def capture_shell(self,capture,n0a,commit,github_sha,udp='false',parent='false',udp6='false',stage0b='false',actor_size=512):
+    def capture_shell(self,capture,n0a,commit,github_sha,udp='false',parent='false',udp6='false',stage0b='false',actor_size=512,proxy_ac='false',bridge_size=512,manifest_size=1):
         # Execute the exact production argument block/command with inert timeout.
         # No sudo, Python harness, VM, or endpoint ever executes in this fixture.
         script=self.text.split('          n0a_args=()',1)[1].split('      - uses: actions/upload-artifact@v7',1)[0]
@@ -223,13 +249,17 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         facts=None;cleanup=False;read_failed=False
         try:
             stage.write_bytes(b'startup_unobserved')
-            if stage0b=='true':
+            if stage0b=='true' or proxy_ac=='true':
                 actor_root=root/'client-stage0-actor';actor_root.mkdir()
                 with (actor_root/'windows_identity_actor.exe').open('xb') as actor_file:actor_file.truncate(actor_size)
+            if proxy_ac=='true':
+                bridge_root=root/'proxy-pipe-production-build';bridge_root.mkdir()
+                for filename,size in [('windows_identity_proxy_pipe_actor.exe',bridge_size),('identity-proxy-pipe-manifest.json',manifest_size)]:
+                    with (bridge_root/filename).open('xb') as stream:stream.truncate(size)
             for name,body in [('date', '#!/bin/sh\nprintf 1000\n'), ('timeout', '#!/bin/sh\nprintf stub > "$CAPTURE_STAGE"\nprintf \'%s\\0\' "$@" > "$CAPTURE_ARGV"\n')]:
                 path=root/name;path.write_bytes(body.encode('ascii'));path.chmod(0o700)
             logical_root=('/'+root.drive[0].lower()+root.as_posix()[2:]) if os.name=='nt' else root.as_posix()
-            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,UDP_REQUESTED=udp,PARENT_UDP_REQUESTED=parent,UDP6_REQUESTED=udp6,STAGE0B_REQUESTED=stage0b,
+            env=dict(os.environ,CAPTURE_REQUESTED=capture,N0A_REQUESTED=n0a,UDP_REQUESTED=udp,PARENT_UDP_REQUESTED=parent,UDP6_REQUESTED=udp6,STAGE0B_REQUESTED=stage0b,PROXY_PIPE_AC_REQUESTED=proxy_ac,
                      CAPTURE_SOURCE_COMMIT=commit,GITHUB_SHA=github_sha,
                      CAPTURE_ARGV=output.as_posix(),CAPTURE_CWD=cwd_output.as_posix(),CAPTURE_STAGE=stage.as_posix(),FIXTURE_BIN=logical_root)
             source='printf startup > "$CAPTURE_STAGE"\nexport PATH="$FIXTURE_BIN:$PATH"\ntest "$(command -v timeout)" = "$FIXTURE_BIN/timeout"\ntest "$(command -v date)" = "$FIXTURE_BIN/date"\ntest "$PWD" -ef "$FIXTURE_BIN"\nprintf guards > "$CAPTURE_STAGE"\nprintf \'%s\' "$PWD" > "$CAPTURE_CWD"\nactor='+('b'*64)+'\nprintf body > "$CAPTURE_STAGE"\n'+script
@@ -452,6 +482,63 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertEqual(public['with']['path'],'client-stage0-public/n0a-udp6-public.json')
         self.assertLess(steps.index(build),steps.index(upload))
         self.assertNotIn('build_windows_n0a_udp6_fixture',self.text)
+
+    def test_ac_activation_exact_inverse_all256_and_artifacts(self):
+        import yaml
+        old=before_ac_activation(self.text)
+        self.assertEqual(hashlib.sha256(old.encode()).hexdigest(),'1815889cdddb3573e3dbe786b24ac802d3420ac3886d7ef1b92a5404d7a0b059')
+        previous=yaml.load(old,Loader=yaml.BaseLoader);doc=yaml.load(self.text,Loader=yaml.BaseLoader)
+        condition=runpy.run_path(str(ROOT/'tests/test_windows_n0a_udp_workflow.py'))['condition']
+        markers=('[identity-direct-stage0-runtime]','[n0a-connect-runtime]','[n0a-capture-runtime]','[n0a-udp-runtime]','[n0a-udp-parent-runtime]','[n0a-udp6-runtime]','[identity-stage0b-runtime]',AC_MARKER)
+        steps=sum([j['steps'] for j in doc['jobs'].values()],[])
+        newsteps=[x for x in steps if x.get('name','').startswith(('AC pipe ','Required AC pipe ')) or x.get('with',{}).get('name') in ('identity-proxy-pipe-production-actor','identity-proxy-pipe-ac-ipc-public')]
+        self.assertEqual(len(newsteps),6)
+        oldsteps=[x for x in steps if 'if' in x and any(m in x['if'] for m in markers[:-1]) and x not in newsteps]
+        for present in itertools.product((False,True),repeat=8):
+            message=' '.join(m for m,on in zip(markers,present) if on)
+            self.assertEqual(self.native_allowed(message),sum(present)==1)
+            for step in newsteps:self.assertEqual(condition(step['if'][3:-2].replace('always()','true'),message),sum(present)==1 and present[7])
+            if present[7]:
+                for step in oldsteps:self.assertFalse(condition(step['if'][3:-2].replace('always()','true'),message))
+            for job in ('compile','host-unit'):self.assertEqual(condition(doc['jobs'][job]['if'][3:-2],message),any(present))
+        for key,job in doc['jobs'].items():
+            self.assertEqual(job['timeout-minutes'],previous['jobs'][key]['timeout-minutes'])
+            self.assertEqual(job['runs-on'],previous['jobs'][key]['runs-on'])
+            self.assertEqual(job.get('needs'),previous['jobs'][key].get('needs'))
+            for branch,event in [('refs/heads/main','push'),('refs/heads/dot/windows-isolation-proof','workflow_dispatch')]:self.assertFalse(condition(job['if'][3:-2],AC_MARKER,branch=branch,event=event))
+        self.assertFalse(self.native_allowed('[n0a-udp6-gates]'));self.assertFalse(self.native_allowed('[identity-direct-stage0-gates]'))
+        expected=ast.literal_eval(re.search(r'names=(\([^;]+\));',(ROOT/'.github/workflows/windows-n0a-udp6-gates.yml').read_text()).group(1));self.assertEqual(len(expected),54)
+        required=[x for x in newsteps if 'names=' in x.get('run','')];self.assertEqual(len(required),2)
+        for step in required:
+            self.assertEqual(ast.literal_eval(re.search(r'names=(\([^;]+\));',step['run']).group(1)),expected)
+            self.assertIn('bool(result.skipped)',step['run']);self.assertIn('all(p.countTestCases()>0 for p in parts)',step['run']);self.assertIn('PyYAML==6.0.3',step['run'])
+        build=newsteps[0];self.assertIn('build_windows_identity_proxy_pipe_actor.ps1',build['run'])
+        for fragment in ('vswhere.exe','Import-Module','Enter-VsDevShell',"-arch=x64 -host_arch=x64"):self.assertIn(fragment,build['run'])
+        self.assertLess(build['run'].index('Enter-VsDevShell'),build['run'].index('build_windows_identity_proxy_pipe_actor.ps1'))
+        self.assertIn('powershell -NoProfile -File ./.github/test-windows-proxy-pipe-ac-guest-gates.ps1',newsteps[1]['run'])
+        for source in ('windows_identity_proxy_pipe_actor.cpp','windows_identity_actor.cpp','windows_identity_proxy_bridge_core.hpp'):self.assertIn(hashlib.sha256((ROOT/'.github/native'/source).read_bytes()).hexdigest(),build['run'])
+        self.assertIn('$binary.Length -lt 512 -or $binary.Length -gt 8388608',build['run']);self.assertIn('$manifest.Length -lt 1 -or $manifest.Length -gt 8192',build['run'])
+        helpers=newsteps[1]['run'];self.assertEqual(helpers.count('if ($LASTEXITCODE -ne 0)'),7)
+        for name in ('n0a','udp','udp-parent','udp6','stage0b','proxy-pipe-ac'):self.assertIn('test-windows-'+name+'-guest-gates.ps1',helpers)
+        self.assertIn('test-windows-udp-payload-gates.ps1',helpers)
+        upload=next(x for x in newsteps if x.get('uses')=='actions/upload-artifact@v7' and x['with']['name']=='identity-proxy-pipe-production-actor')
+        self.assertEqual(upload['with']['path'].splitlines(),['proxy-pipe-production-build/windows_identity_proxy_pipe_actor.exe','proxy-pipe-production-build/identity-proxy-pipe-manifest.json'])
+        download=next(x for x in newsteps if x.get('uses')=='actions/download-artifact@v8');self.assertEqual(download['with']['path'],'proxy-pipe-production-build')
+        self.assertLess(self.text.index('name: identity-proxy-pipe-production-actor',self.text.index('  native:')),self.text.index('--preparation-phase post_actor'))
+        self.assertEqual(newsteps[-1]['with']['path'],'client-stage0-public/proxy-pipe-ac-public.json')
+        self.assertNotIn('TEST_ONLY',build['run']);self.assertNotIn('--run-ac-pair',self.text);self.assertEqual(self.text.count('build_windows_identity_actor.ps1 -IdentityOnly'),1)
+    def test_ac_actual_shell_source_sizes_and_old_default(self):
+        sha='a'*40;code,args,root=self.capture_shell('false','false',sha,sha,proxy_ac='true')
+        self.assertEqual(code,0);self.assertEqual(args[-5:],['--proxy-pipe-ac','--proxy-pipe-ac-actor',root+'/proxy-pipe-production-build/windows_identity_proxy_pipe_actor.exe','--proxy-pipe-ac-manifest',root+'/proxy-pipe-production-build/identity-proxy-pipe-manifest.json'])
+        self.assertIn('GITHUB_SHA='+sha,args);self.assertIn('--timeout-seconds',args);self.assertIn('6600',args)
+        for key in ('n0a','capture','udp','parent','udp6','stage0b'):
+            opts=dict(capture='false',n0a='false',udp='false',parent='false',udp6='false',stage0b='false');opts[key]='true'
+            code,args,_=self.capture_shell(commit=sha,github_sha=sha,proxy_ac='true',**opts);self.assertNotEqual(code,0);self.assertIsNone(args)
+        for commit,actual in [('a'*39,sha),('A'*40,sha),(sha,'b'*40)]:
+            code,args,_=self.capture_shell('false','false',commit,actual,proxy_ac='true');self.assertNotEqual(code,0);self.assertIsNone(args)
+        for kwargs in ({'actor_size':511},{'bridge_size':511},{'bridge_size':8388609},{'manifest_size':0},{'manifest_size':8193}):
+            code,args,_=self.capture_shell('false','false',sha,sha,proxy_ac='true',**kwargs);self.assertNotEqual(code,0);self.assertIsNone(args)
+        code,args,_=self.capture_shell('false','false',sha,sha,proxy_ac='true',bridge_size=8388608,manifest_size=8192);self.assertEqual(code,0)
 
     def test_stage0b_actual_all_128_conditions_and_existing_artifact_reuse(self):
         import yaml

@@ -1,10 +1,10 @@
 # Zero-capability AppContainer frontend / ordinary relay pipe prerequisite
 
-## Scope and default-off boundary
+## Scope and explicit activation boundary
 
-This candidate is an explicit, default-OFF IPC prerequisite, not a proxy or network test. It replaces neither the historical IdentityOnly Stage0 result nor its acceptance predicate. It runs one synthetic HTTP protocol pair: a fresh zero-capability AppContainer frontend and an ordinary relay, connected by owned anonymous pipes. There are no sockets, DNS queries, forwarding, proxy configuration, network rules, additional capabilities, or fallback identity paths. A successful result cannot establish Linux equivalence, network isolation, production acceptance, or a private pipe security boundary against arbitrary peers.
+This candidate is an explicit opt-in IPC prerequisite, not a proxy or network test. It replaces neither the historical IdentityOnly Stage0 result nor its acceptance predicate. It runs one synthetic HTTP protocol pair: a fresh zero-capability AppContainer frontend and an ordinary relay, connected by owned anonymous pipes. There are no sockets, DNS queries, forwarding, proxy configuration, network rules, additional capabilities, or fallback identity paths. A successful result cannot establish Linux equivalence, network isolation, production acceptance, or a private pipe security boundary against arbitrary peers.
 
-The authoritative Python switch is `AC_EXECUTION_ENABLED=False` in the existing controller. Host and adapter consult the same exact-path/source-bound module object before runtime resource setup. This is same-process loader consistency, not tamper-proof authentication. The PowerShell opt-in remains independently off. No runtime is authorized by this document.
+The authoritative Python switch is `AC_EXECUTION_ENABLED=True` in the existing controller. Host and adapter consult the same exact-path/source-bound module object before runtime resource setup. This is same-process loader consistency, not tamper-proof authentication. The activation candidate wires the explicit PowerShell/runtime opt-in to this same mode; absent that opt-in, legacy defaults remain unchanged. This is code-only activation wiring, not evidence of an AppContainer pair execution. No runtime is authorized by this document.
 
 ## Ownership and immutable deadline
 
@@ -26,12 +26,16 @@ Validated partial pair observations survive later controller-exit, cleanup or de
 
 ## Pure regression boundary
 
-The new tests exercise actual adapter dispatch, immutable argument forwarding, held-owner report binding, closed schema validation, missing/unknown report states, default-off behavior, one-shot token-close uncertainty, and preservation of bound partial observations. Injected Win32/launcher models are explicitly not actual Windows evidence. Controller-specific tests cover the profile/ACL/pair mechanisms separately. Maximum-width public compositions are independent field ceilings, not jointly emitted execution traces.
+The new tests exercise actual adapter dispatch, immutable argument forwarding, held-owner report binding, closed schema validation, missing/unknown report states, explicitly forced-off refusal behavior, one-shot token-close uncertainty, and preservation of bound partial observations. Injected Win32/launcher models are explicitly not actual Windows evidence. Controller-specific tests cover the profile/ACL/pair mechanisms separately. Maximum-width public compositions are independent field ceilings, not jointly emitted execution traces.
 
 No publication, VM execution or new network experiment follows automatically from passing these tests. Exact source review and a separately authorized runtime decision remain required.
 
-### Planned short-gate wiring
+### Archived prerequisite short gate
 
-The candidate short gate explicitly lists 54 required Python test modules (the prior 51 plus the controller, AC guest and AC transport suites). Its new extracted-production PowerShell validator fixture uses 28 Python-produced parity cases, raw duplicate-key refusal, and mocked dispatch/process/HTTP seams. The actual payload generator-to-PowerShell selector/extractor fixture covers eight modes, including the exact 17-member AC payload, and 20 equal-count forbidden substitutions.
+The prerequisite short gate explicitly lists 54 required Python test modules (the prior 51 plus the controller, AC guest and AC transport suites). Its new extracted-production PowerShell validator fixture uses 28 Python-produced parity cases, raw duplicate-key refusal, and mocked dispatch/process/HTTP seams. The actual payload generator-to-PowerShell selector/extractor fixture covers eight modes, including the exact 17-member AC payload, and 20 equal-count forbidden substitutions.
 
-These counts describe the reviewed gate candidate, not completed Windows results: the new PowerShell fixtures have not yet executed. No actual AppContainer pair runs in this short-gate slice. Existing hosted non-AppContainer/core prerequisites remain separate mechanism evidence, not AppContainer evidence.
+The [prerequisite run 39772363906](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39772363906) completed Windows attempt 1 with 1,013 tests and zero skips, the 28-case/135-check AC PowerShell fixture, and eight ZIP modes with 20 substitutions and 104 PowerShell checks. Linux attempt 1 was cancelled at the five-minute job limit during apt installation; the separately authorized Linux-only attempt 2 passed 1,013 tests and paused-QEMU provenance/cleanup checks. Windows was carried forward, not rerun. The combined result is archived at `0336310f` (summary `9f84f8f4`). These are prerequisite and hosted non-AppContainer/core mechanism results, not an actual AppContainer pair execution.
+
+### Activation candidate (code only)
+
+The authoritative controller flag is enabled, while the refusal regressions explicitly patch it false and still require rejection before native or host resource setup. The seven hosted-controller AST pins remain unchanged. The dedicated runtime marker/build/transport wiring requires its separately reviewed activation path; enabling the flag alone is not a runtime result. No actual AC frontend/ordinary relay pair, VM run, or network result is claimed by this update. Historical short-gate and Stage0 evidence is not relabelled.

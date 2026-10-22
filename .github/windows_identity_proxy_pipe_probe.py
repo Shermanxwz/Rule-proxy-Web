@@ -497,7 +497,7 @@ def accept_public(raw,exit_code,eof_observed):
     except (ValueError,UnicodeError,RecursionError,TypeError):return False
 
 # Separate, inactive AC integration. The hosted three-cell path above is unchanged.
-AC_EXECUTION_ENABLED=False
+AC_EXECUTION_ENABLED=True
 AC_PHASES=('configuration','ordinary','manifest','known_folder','profile','acl','create','assign','image','frontend_identity','relay_identity','close','resume','protocol','report','cleanup','complete')
 AC_FAILURES=('disabled','configuration','capacity','identity','environment','profile','acl','create','assign','image','close','resume','deadline','report','cleanup','internal')
 AC_ERROR_DOMAINS=('none','win32','hresult','internal')

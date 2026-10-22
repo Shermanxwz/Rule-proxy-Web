@@ -783,14 +783,14 @@ class ACPairTests(unittest.TestCase):
         row=value['children'][0]
         with self.assertRaises(ValueError):p.validate_ac_native(row['native'],role='pipe-front',run_id=value['run_nonce'],case_id=value['case_nonce'],pid=row['pid'],identity=row['identity'],frequency=1000,start=1000,end=11000,expected_ac_sid=None)
     def test_off_entry_before_native_and_hosted_inverse(self):
-        with mock.patch.object(p,'ACWindowsAPI',side_effect=AssertionError('native')):
+        with mock.patch.object(p,'AC_EXECUTION_ENABLED',False),mock.patch.object(p,'ACWindowsAPI',side_effect=AssertionError('native')):
             self.assertEqual(p.main(['--run-ac-pair']),2)
         import ast
         current=ast.parse((ROOT/'.github/windows_identity_proxy_pipe_probe.py').read_text())
         pins={'validate_native': 'a3881d6a387c55ffd58e8e0e34d1321e9958ff0c811d5ef7d2297ec0d451053c', 'successful_native': 'fc09bbc876b97811af0f49bd6e85574cc640916b3c7ec8b1faf019fb00a81069', 'WindowsAPI': '5228391fb00010d54e54666ccf294d789ea0abf329d73ebb0bd9c723734161f5', '_cleanup': '1d9b57ed78d81bd924982f90f1f1d5de88cf7f9a385130c7eff6da1c50e8b84a', 'run_case': 'fc6b6c6faa302f944515c2a80b52bc2fc931ade190664a5cd8733eb2424f6af3', 'verify_artifact': '937c379298c052f5bcee3b751d263725511332952dd0150a12f11e5b058088e7', 'run_suite': '542324050b8c8fbbbdc14f4e4b6f840c0cdf1d4478011cbd71f350d68108ae7d'}
         actual={n.name:hashlib.sha256(ast.dump(n,include_attributes=False).encode()).hexdigest() for n in current.body if isinstance(n,(ast.FunctionDef,ast.ClassDef))}
         for name,digest in pins.items():self.assertEqual(actual[name],digest)
-        self.assertFalse(p.AC_EXECUTION_ENABLED)
+        self.assertIs(p.AC_EXECUTION_ENABLED,True)
     def test_packaged_artifact_binding_does_not_claim_source_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp).resolve();actor=root/'windows_identity_proxy_pipe_actor.exe';actor.write_bytes(b'MZ'+b'x'*510)

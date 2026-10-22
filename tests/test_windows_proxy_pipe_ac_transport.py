@@ -74,9 +74,9 @@ class TransportTests(unittest.TestCase):
         originals=[(m[1],m[0]) for m in re.finditer('^function ([A-Za-z0-9-]+)(?:\\(|\\s).*?^}',S,re.M|re.S) if m[1] not in new_helpers]
         self.assertEqual(len(originals),45)
         self.assertEqual(hashlib.sha256(repr(originals).encode()).hexdigest(),'581877aacff8a67c1412acc1d1eda43267190d70bf1bb2cee5a8bb36574d36ea')
-    def test_single_default_off_before_media_or_owned_resources(self):
-        c=h.proxy_pipe_ac_controller();self.assertIs(c,h.proxy_pipe_ac_helpers().controller_module());self.assertIs(c.AC_EXECUTION_ENABLED,False)
-        with patch.object(h,'load') as loader,patch.object(h.tempfile,'mkdtemp') as create,patch.object(h,'verify_python') as verify:
+    def test_enabled_intent_and_forced_off_before_media_or_owned_resources(self):
+        c=h.proxy_pipe_ac_controller();self.assertIs(c,h.proxy_pipe_ac_helpers().controller_module());self.assertIs(c.AC_EXECUTION_ENABLED,True)
+        with patch.object(c,'AC_EXECUTION_ENABLED',False),patch.object(h,'load') as loader,patch.object(h.tempfile,'mkdtemp') as create,patch.object(h,'verify_python') as verify:
             with self.assertRaises(PermissionError):h.host(SimpleNamespace(proxy_pipe_ac=True))
             loader.assert_not_called();create.assert_not_called();verify.assert_not_called()
     def test_cached_wrong_module_rejected(self):

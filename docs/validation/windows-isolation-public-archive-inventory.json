@@ -1,0 +1,1529 @@
+{
+  "archive_commit": "0336310f388de4ed25c1e8757d8b5bf25a079e48",
+  "archive_tree": "6053c7eeb4a099c2ed16f8bbba023ab67c316580",
+  "count": 253,
+  "files": [
+    {
+      "bytes": 47252,
+      "git_blob": "83cd626ab4a97a009177d7dc649318d3fa28f0dc",
+      "path": "verification/windows-2026-10-20/identity-proof/apt-diagnostic-01-after_refresh.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/apt-diagnostic-01-after_refresh.json"
+    },
+    {
+      "bytes": 42009,
+      "git_blob": "9529c729c8b7755d7058e5805e5cb3c20537fb31",
+      "path": "verification/windows-2026-10-20/identity-proof/apt-diagnostic-01-before_refresh.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/apt-diagnostic-01-before_refresh.json"
+    },
+    {
+      "bytes": 560,
+      "git_blob": "2a84c280abdee096516d0b7b498af1d57f2a6a28",
+      "path": "verification/windows-2026-10-20/identity-proof/apt-diagnostic-01-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/apt-diagnostic-01-source.json"
+    },
+    {
+      "bytes": 1332,
+      "git_blob": "107ffd32242c382f89004782937af42ed13f5ee8",
+      "path": "verification/windows-2026-10-20/identity-proof/apt-diagnostic-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/apt-diagnostic-02-summary.json"
+    },
+    {
+      "bytes": 909,
+      "git_blob": "f38f76ba9772c68f2cb5d6e1621e9f3f3d6ee3db",
+      "path": "verification/windows-2026-10-20/identity-proof/attempt-01-unit-gate.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/attempt-01-unit-gate.json"
+    },
+    {
+      "bytes": 583,
+      "git_blob": "5905cc34183ff1280e99155a9c32b8197a412d33",
+      "path": "verification/windows-2026-10-20/identity-proof/attempt-02-launcher.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/attempt-02-launcher.json"
+    },
+    {
+      "bytes": 685,
+      "git_blob": "a6297620e03dfd924865a9d9ee4fa457e188fabc",
+      "path": "verification/windows-2026-10-20/identity-proof/attempt-02-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/attempt-02-source.json"
+    },
+    {
+      "bytes": 1433,
+      "git_blob": "b8e351d5f4389f1be40b7de59fbc331c39aaa709",
+      "path": "verification/windows-2026-10-20/identity-proof/attempt-03-preflight.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/attempt-03-preflight.json"
+    },
+    {
+      "bytes": 821,
+      "git_blob": "60e0b8db7eca9b11c0c31db73e086f63e86bb8df",
+      "path": "verification/windows-2026-10-20/identity-proof/attempt-03-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/attempt-03-source.json"
+    },
+    {
+      "bytes": 12348,
+      "git_blob": "e1dba97cccff12759b9f0e563bc18f93f72d2778",
+      "path": "verification/windows-2026-10-20/identity-proof/capture-finish-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/capture-finish-01-result.json"
+    },
+    {
+      "bytes": 3138,
+      "git_blob": "910edf45874d519b6c33f73691d63ba6074d6c7e",
+      "path": "verification/windows-2026-10-20/identity-proof/capture-finish-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/capture-finish-01-summary.json"
+    },
+    {
+      "bytes": 1028,
+      "git_blob": "f14fae2b9e8afee39e55963a158c17eac3d266bf",
+      "path": "verification/windows-2026-10-20/identity-proof/compile.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/compile.json"
+    },
+    {
+      "bytes": 1286,
+      "git_blob": "6f995443007cce33b4bf5368a1bb88b8d901dd14",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-01-assessment.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-01-assessment.json"
+    },
+    {
+      "bytes": 10053,
+      "git_blob": "55b1d5fbb643f59c126f1bf8c186a3d6869b930d",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-01-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-01-public.json"
+    },
+    {
+      "bytes": 1064,
+      "git_blob": "f34b2443cca96acade37470588758011f36931f9",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-02-assessment.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-02-assessment.json"
+    },
+    {
+      "bytes": 9575,
+      "git_blob": "ddb6a40bd8ec0b580e85574fc750f82b1adfce30",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-02-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-02-public.json"
+    },
+    {
+      "bytes": 1109,
+      "git_blob": "c955041daf062283dc527c2de24603e621fe0dc6",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-03-assessment.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-03-assessment.json"
+    },
+    {
+      "bytes": 11110,
+      "git_blob": "070d058127e3df867a07b313720bdca2da181272",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-03-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-03-public.json"
+    },
+    {
+      "bytes": 275,
+      "git_blob": "51dc69b32e4fdde28dce1496b53882964938df58",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-04-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-04-capacity-public.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "b5042ba12fa3a16e30f86ee76b490e56ae329537",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-04-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-04-preparation-public.json"
+    },
+    {
+      "bytes": 14407,
+      "git_blob": "f535f76f2970f948f8f1511cd1fd837182f020c2",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-04-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-04-runtime-public.json"
+    },
+    {
+      "bytes": 2125,
+      "git_blob": "23d08d4d977a242544baba6f7f13fb50aafa85e7",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-04-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-attempt-04-source.json"
+    },
+    {
+      "bytes": 736,
+      "git_blob": "d2d41500184fde324ebb72f9d49892e6fc0688cd",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-stage0-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-stage0-gates-01.json"
+    },
+    {
+      "bytes": 2754,
+      "git_blob": "2893c927e7077c90b606bd23a28a31993b07ebc6",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-01-result.json"
+    },
+    {
+      "bytes": 15656,
+      "git_blob": "abd089e464d066061124f8f291a49e0334ab68cf",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-01-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-01-stage0.json"
+    },
+    {
+      "bytes": 4012,
+      "git_blob": "19de35afaf52d891a81ff04f7c7569a4e39846d7",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-01-summary.json"
+    },
+    {
+      "bytes": 3660,
+      "git_blob": "1b63ce0ee992e42f53e2796e2542806a3be440ee",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-02-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-02-result.json"
+    },
+    {
+      "bytes": 15656,
+      "git_blob": "4bd49a60674e72d6ee9866ba4890a0f673d27b5c",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-02-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-02-stage0.json"
+    },
+    {
+      "bytes": 3982,
+      "git_blob": "a1bcc0827b795931353068e80c20170de72e2dc8",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-02-summary.json"
+    },
+    {
+      "bytes": 19580,
+      "git_blob": "ab36bfb7c97af71ed7ffddb73a5211781592bbe8",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-activation-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-activation-gates-01.json"
+    },
+    {
+      "bytes": 20848,
+      "git_blob": "30ca0e83acba4f91ff950f4086177a8220709b4a",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-adapter-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-adapter-gates-01.json"
+    },
+    {
+      "bytes": 7954,
+      "git_blob": "2ec54baeba47dd08bda023ab4a9213db4834a784",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-flow-fix-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-flow-fix-gates-01.json"
+    },
+    {
+      "bytes": 2309,
+      "git_blob": "c5f06d421e7dcfbde328524bc90809b57d515909",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-mechanics-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-mechanics-01-summary.json"
+    },
+    {
+      "bytes": 3170,
+      "git_blob": "1e74c8bb45cf70ec5f2d483fcb62e03c4102d099",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-mechanics-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-mechanics-01.json"
+    },
+    {
+      "bytes": 17850,
+      "git_blob": "5d1e0fb13e3ed237b205061f050a347679952dbd",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-activation-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-activation-gates-01.json"
+    },
+    {
+      "bytes": 40574,
+      "git_blob": "0208ca9e36899c04e2b5f3e085eb8b9acf24ddf6",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-bash-diagnostic-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-bash-diagnostic-01-result.json"
+    },
+    {
+      "bytes": 2658,
+      "git_blob": "7d467077dd92279142dcd06d576e37a8675926c3",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-bash-diagnostic-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-bash-diagnostic-01-summary.json"
+    },
+    {
+      "bytes": 11385,
+      "git_blob": "a0a3b6a23947b61d430cc47897868b09d6f8bbee",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-integration-gates-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-integration-gates-01-result.json"
+    },
+    {
+      "bytes": 4450,
+      "git_blob": "34f61255ff04f4f0a2b6348a8e9955ed0d680e47",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-integration-gates-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-integration-gates-01-summary.json"
+    },
+    {
+      "bytes": 9329,
+      "git_blob": "d3b9035a6ab15366bccc178f90f2d4c915c0d546",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-mechanism-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-mechanism-01-result.json"
+    },
+    {
+      "bytes": 3708,
+      "git_blob": "d9dc30da5c1e7bb62eea439a5bf0c5a16cc9ce70",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-mechanism-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-mechanism-01-summary.json"
+    },
+    {
+      "bytes": 41717,
+      "git_blob": "6db6956823e6c2815812502a43cc404e4938e779",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-preflight-fix-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-preflight-fix-01-result.json"
+    },
+    {
+      "bytes": 2378,
+      "git_blob": "0bb3e7e6f0047396dda23fe96f12494f7ff3a422",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-preflight-fix-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-preflight-fix-01-summary.json"
+    },
+    {
+      "bytes": 1889,
+      "git_blob": "a306dc1a7e1e41af534e646ea652a39dedcda37a",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-01-prerequisite.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-01-prerequisite.json"
+    },
+    {
+      "bytes": 1981,
+      "git_blob": "2fc0cf45ea2d4d254e8ace05da9027ed6518bda6",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-02-parent.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-02-parent.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "72fcaf613b91161673e0569f131eda9920513389",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-02-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-02-preparation.json"
+    },
+    {
+      "bytes": 1869,
+      "git_blob": "c4d44163b9cd0d79ebe5d9d8256a28ecd9e1cdff",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-02-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-02-stage0.json"
+    },
+    {
+      "bytes": 1560,
+      "git_blob": "13b705ed03cc74f93fcf166ba656d0d1b30394ee",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-02-summary.json"
+    },
+    {
+      "bytes": 3836,
+      "git_blob": "e4f1c7ab36590c2315038f3f4a3adab640b2fabe",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-parent.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-parent.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "ccc326bd7fb50011a324819972d79c8ee9ce305e",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-preparation.json"
+    },
+    {
+      "bytes": 15656,
+      "git_blob": "693432483ef1d361d44896145e358bf3127aa764",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-stage0.json"
+    },
+    {
+      "bytes": 3898,
+      "git_blob": "f491d4d6d9e134b5b6d579da760e2347618edab8",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp-parent-runtime-03-summary.json"
+    },
+    {
+      "bytes": 93857,
+      "git_blob": "98e5d3886bbe16a920124557be3b2ca64d91a189",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-ab-scope-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-ab-scope-01-result.json"
+    },
+    {
+      "bytes": 6620,
+      "git_blob": "be8573cae568489290ecef7a7dea722eff2e5da5",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-ab-scope-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-ab-scope-01-summary.json"
+    },
+    {
+      "bytes": 85933,
+      "git_blob": "256d289e67b5644e1e72f603b9214c84a653e653",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-activation-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-activation-01-result.json"
+    },
+    {
+      "bytes": 3404,
+      "git_blob": "fccdab9d930499306b5fc1caacbd4de733c959e3",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-activation-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-activation-01-summary.json"
+    },
+    {
+      "bytes": 93722,
+      "git_blob": "a8fc66beb98732abc516e9d893811923e7b7e052",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-icmp-diagnostic-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-icmp-diagnostic-01-result.json"
+    },
+    {
+      "bytes": 4109,
+      "git_blob": "4fba9ff572d96b2873277cde735003f371fccecc",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-icmp-diagnostic-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-icmp-diagnostic-01-summary.json"
+    },
+    {
+      "bytes": 2103,
+      "git_blob": "fcddf94c6f8661532e5b9ac758269f041648fda9",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-integration-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-integration-01-result.json"
+    },
+    {
+      "bytes": 1791,
+      "git_blob": "a822470aa6cd7fb176ccd7d10b6e1bce0b7c2370",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-integration-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-integration-01-summary.json"
+    },
+    {
+      "bytes": 2435,
+      "git_blob": "fce8d4ca0f29b5c05d633fb1b0f0885c33d557cb",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-integration-02-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-integration-02-result.json"
+    },
+    {
+      "bytes": 1677,
+      "git_blob": "2fc0eae66564767760468ad46eed3f916b529d8c",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-integration-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-integration-02-summary.json"
+    },
+    {
+      "bytes": 2574,
+      "git_blob": "4920a2716775e16ef646e63177c34a6bbb09c7d2",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-integration-03-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-integration-03-result.json"
+    },
+    {
+      "bytes": 1541,
+      "git_blob": "8094eae5d7c7a00ef916cdda2fe4eb29b7f5ffc4",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-integration-03-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-integration-03-summary.json"
+    },
+    {
+      "bytes": 68241,
+      "git_blob": "2b470d049fb7a061f207fe274c64c2e618be4220",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-integration-04-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-integration-04-result.json"
+    },
+    {
+      "bytes": 3234,
+      "git_blob": "56ad3f5b678f1d977a4e4c0ba2ee0fe0e5fa3270",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-integration-04-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-integration-04-summary.json"
+    },
+    {
+      "bytes": 2567,
+      "git_blob": "f6a146a2bdc84b6fe70ba9fde34185d0ed95b57a",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-01-result.json"
+    },
+    {
+      "bytes": 2198,
+      "git_blob": "0297ffd184e7b0d87ed777327657aa0e001c5568",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-01-summary.json"
+    },
+    {
+      "bytes": 20408,
+      "git_blob": "b059fa0c39871f27915e50dd74c56d745e72dccc",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-02-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-02-result.json"
+    },
+    {
+      "bytes": 2340,
+      "git_blob": "514d97f4fb89e47e911e7a94988c37da1d26a7dd",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-02-summary.json"
+    },
+    {
+      "bytes": 29092,
+      "git_blob": "f6a00219b2f2800145e574187eb086899598403d",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-03-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-03-result.json"
+    },
+    {
+      "bytes": 2213,
+      "git_blob": "302f3af5b926fea084096ce09ca5808f43cd54ac",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-03-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-03-summary.json"
+    },
+    {
+      "bytes": 28622,
+      "git_blob": "991b2722f8d3b1b20a170cfc6372cf0865939de9",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-04-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-04-result.json"
+    },
+    {
+      "bytes": 2890,
+      "git_blob": "d328855cf0f554e1d4e01087da825a1b2b141285",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-04-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-mechanism-04-summary.json"
+    },
+    {
+      "bytes": 93745,
+      "git_blob": "f9c3a6181d8ed1f70cb7eba5ea5e3462c8f993e0",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-nd-profile-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-nd-profile-01-result.json"
+    },
+    {
+      "bytes": 6294,
+      "git_blob": "39dae0f103de0ca846e9c89ee7a8fe52ab4e0938",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-nd-profile-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-nd-profile-01-summary.json"
+    },
+    {
+      "bytes": 93793,
+      "git_blob": "919251242ea3465ac81cac3cce5814daaf9c081f",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-nd-relation-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-nd-relation-01-result.json"
+    },
+    {
+      "bytes": 5576,
+      "git_blob": "959ea99ffdda3425264c1f301a46f4f3a77031f1",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-nd-relation-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-nd-relation-01-summary.json"
+    },
+    {
+      "bytes": 93723,
+      "git_blob": "2edb4f99a33dd9a9a0559e68d5bb3568b19c3f80",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-packet-diagnostic-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-packet-diagnostic-01-result.json"
+    },
+    {
+      "bytes": 4151,
+      "git_blob": "7f3a096044f44faf42a9342eed1a0d4fa52fb5e5",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-packet-diagnostic-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-packet-diagnostic-01-summary.json"
+    },
+    {
+      "bytes": 93927,
+      "git_blob": "2de79e2b9601dad8c38f5f121f7c1f8db21beb83",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-peer-context-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-peer-context-01-result.json"
+    },
+    {
+      "bytes": 3904,
+      "git_blob": "c043b95f4762f29f3d5d7c54a1104c934b22e2cd",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-peer-context-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-peer-context-01-summary.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "4121adb3fb3faacce3e1eb6755d34ed27ea9e598",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-01-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-01-preparation.json"
+    },
+    {
+      "bytes": 15158,
+      "git_blob": "fb1560c7bf7fecec04a4f386057bc20b43d98ab5",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-01-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-01-stage0.json"
+    },
+    {
+      "bytes": 3828,
+      "git_blob": "cbaf1a2fcf922e9d8146dac08ab8ea6a0deb1f53",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-01-summary.json"
+    },
+    {
+      "bytes": 3063,
+      "git_blob": "f4acad30032ab4e25e6d52bbf43956d05a2873d1",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-01-udp6.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-01-udp6.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "b6d7f4755be0329f6b25fca34a9a1996dc7f02e4",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-02-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-02-preparation.json"
+    },
+    {
+      "bytes": 15158,
+      "git_blob": "67f292e0447a4a38c81ff05303788a87d9ae0d5e",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-02-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-02-stage0.json"
+    },
+    {
+      "bytes": 3799,
+      "git_blob": "d63dc9f3c9766a10424619764e84e95b2bf27023",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-02-summary.json"
+    },
+    {
+      "bytes": 4661,
+      "git_blob": "e932ea84f49fb58aa83f566977486317a9e01488",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-02-udp6.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-02-udp6.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "ec87d30d0b0a27297664554f2690209212977f3c",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-03-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-03-preparation.json"
+    },
+    {
+      "bytes": 15806,
+      "git_blob": "e5f017ba868418bd79e9074b3a5b66d543c16974",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-03-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-03-stage0.json"
+    },
+    {
+      "bytes": 5652,
+      "git_blob": "d289fced45d79421be59b777d8ed01a0f64493bc",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-03-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-03-summary.json"
+    },
+    {
+      "bytes": 6155,
+      "git_blob": "8a4568a2fe38c62f85b736d0bc7db939b7e38722",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-03-udp6.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-03-udp6.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "09617fb8460cb3d9b33b4def92c8f8c08d060de8",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-04-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-04-preparation.json"
+    },
+    {
+      "bytes": 15656,
+      "git_blob": "f2bcf346c62ba9e670a85bd98113950f769ad492",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-04-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-04-stage0.json"
+    },
+    {
+      "bytes": 5272,
+      "git_blob": "baf422e956b9aa44f9c687add36191fba94bf049",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-04-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-04-summary.json"
+    },
+    {
+      "bytes": 6878,
+      "git_blob": "392978c1fbd59296123586ab1ddb199b3a5749e3",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-04-udp6.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-04-udp6.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "32e4bd911be50c8f366acc8753b10fe326f47bc7",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-05-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-05-preparation.json"
+    },
+    {
+      "bytes": 15656,
+      "git_blob": "92fd5892b2e599d030eb9eb328983eb69547801f",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-05-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-05-stage0.json"
+    },
+    {
+      "bytes": 6011,
+      "git_blob": "da7d4a047c514a9fe15597773baa17871a2af67d",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-05-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-05-summary.json"
+    },
+    {
+      "bytes": 7611,
+      "git_blob": "2b4e6232f593ea0200c04422827df3eb61323fa4",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-05-udp6.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-05-udp6.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "a9991a24aeacb3f8bd4231fab3c9af5bf7785d94",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-06-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-06-preparation.json"
+    },
+    {
+      "bytes": 15656,
+      "git_blob": "0a5aa11331cf2cf6a89881892c6dfd43e75f8263",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-06-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-06-stage0.json"
+    },
+    {
+      "bytes": 6418,
+      "git_blob": "2931ead49725cad0b7ccd14385fa00227e060b12",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-06-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-06-summary.json"
+    },
+    {
+      "bytes": 7775,
+      "git_blob": "56b847ceb2ed8dfa555adc7a52b6225125d62bb1",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-06-udp6.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-06-udp6.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "d308632a4a3720b542e62c6a88cc2c8ed1e9a8b0",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-07-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-07-preparation.json"
+    },
+    {
+      "bytes": 15656,
+      "git_blob": "374269a7b6e27c1361acf963ba91ab1ee71a0b1c",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-07-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-07-stage0.json"
+    },
+    {
+      "bytes": 6500,
+      "git_blob": "b6efa8989067ba47dc666e103157a4c11540521f",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-07-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-07-summary.json"
+    },
+    {
+      "bytes": 7801,
+      "git_blob": "b4262e6738d3901da7492128d4f14465974f70b1",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-07-udp6.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-07-udp6.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "433fcf50ca40887e92e742f7136fcb9112457a1c",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-preparation.json"
+    },
+    {
+      "bytes": 15656,
+      "git_blob": "5d05c36f7efd25611c3ca8a5010b5bad8d0b60db",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-stage0.json"
+    },
+    {
+      "bytes": 6857,
+      "git_blob": "02667f23e4510a2835d4f1659dc57cc9490b8a7e",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-summary.json"
+    },
+    {
+      "bytes": 7835,
+      "git_blob": "f7b80a7611129cce2b10386f74bc480de88499f8",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-udp6.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-08-udp6.json"
+    },
+    {
+      "bytes": 85948,
+      "git_blob": "43898907085d078003e166e8f72f5c0d4d51fbff",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-diagnostic-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-diagnostic-01-result.json"
+    },
+    {
+      "bytes": 2893,
+      "git_blob": "8bcd05c37f5ab30b3cad7912098be3a8ea3248a1",
+      "path": "verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-diagnostic-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/direct-udp6-runtime-diagnostic-01-summary.json"
+    },
+    {
+      "bytes": 1719,
+      "git_blob": "3946cdb057f5ac03f6e5657f79d398f55d186e4c",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-port-inventory-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-port-inventory-01-summary.json"
+    },
+    {
+      "bytes": 584,
+      "git_blob": "30f14e1cfe395e4560346634150948412e52d7d6",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-port-inventory-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-port-inventory-01.json"
+    },
+    {
+      "bytes": 2424,
+      "git_blob": "bf0fa15e8f2ac0ac48d18373294d31305271f03a",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-loopback2-pair-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-loopback2-pair-01-summary.json"
+    },
+    {
+      "bytes": 7142,
+      "git_blob": "7cfb203b0d907b6e0cb985b9c499387ba4ae124a",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-loopback2-pair-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-loopback2-pair-01.json"
+    },
+    {
+      "bytes": 3507,
+      "git_blob": "46e309c0b5d17ba7db58799a0f08d0754aeb366e",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-mechanism-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-mechanism-01-summary.json"
+    },
+    {
+      "bytes": 1610,
+      "git_blob": "569d2052837bb2486fa40daa926af0783c24ac9d",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-mechanism-02.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-mechanism-02.json"
+    },
+    {
+      "bytes": 4425,
+      "git_blob": "f453a9d209cb95f9c77946f46e5dfea09a89dbfc",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-mechanism-03.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-mechanism-03.json"
+    },
+    {
+      "bytes": 2184,
+      "git_blob": "f14588c9146b116fa39da4f9be7f1790248e3204",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-no-query-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-no-query-01-summary.json"
+    },
+    {
+      "bytes": 1745,
+      "git_blob": "e3e9f48048c913d53bd2cec743647f265c11955f",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-no-query-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-no-query-01.json"
+    },
+    {
+      "bytes": 1823,
+      "git_blob": "f6a104ad3ee52b5e9ea9b88bc6e0706559969fe7",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-port-pair-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-port-pair-01-summary.json"
+    },
+    {
+      "bytes": 722,
+      "git_blob": "315adcae73ded175e0b689449a36834b0f907c0f",
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-port-pair-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/dns-request3-port-pair-01.json"
+    },
+    {
+      "bytes": 4037,
+      "git_blob": "dd0c1d4262b2d48df5915e89fe89c442b6629695",
+      "path": "verification/windows-2026-10-20/identity-proof/identity-proxy-bridge-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/identity-proxy-bridge-01-summary.json"
+    },
+    {
+      "bytes": 1023,
+      "git_blob": "dd596f659aa43f7dfefaec026419b88accb71722",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-capture-01-capture.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-capture-01-capture.json"
+    },
+    {
+      "bytes": 1936,
+      "git_blob": "0dc3dd850ed36b2e1d59f02f6f93417fb923cd2e",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-capture-01-connect.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-capture-01-connect.json"
+    },
+    {
+      "bytes": 14850,
+      "git_blob": "a3b6b9e1b85486466a778f77c91c4206fb768db8",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-capture-01-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-capture-01-stage0.json"
+    },
+    {
+      "bytes": 3215,
+      "git_blob": "beb299ccc9a52c6c1468e6ec780c115ddc08e78c",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-capture-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-capture-01-summary.json"
+    },
+    {
+      "bytes": 3097,
+      "git_blob": "21dca11913a3e1a29f9390524acfd9291284e126",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-capture-activation-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-capture-activation-gates-01.json"
+    },
+    {
+      "bytes": 11045,
+      "git_blob": "681214871a7f2b2aa8ce01e88ddb2db10e1a35f7",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-capture-child-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-capture-child-gates-01.json"
+    },
+    {
+      "bytes": 4825,
+      "git_blob": "62a2b963cb1002861ec4165d892bb851fb46fea0",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-capture-integration-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-capture-integration-gates-01.json"
+    },
+    {
+      "bytes": 5084,
+      "git_blob": "17e734b69fefee5c2a6bda1a92cfd22863817e37",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-capture-primitive-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-capture-primitive-gates-01.json"
+    },
+    {
+      "bytes": 1834,
+      "git_blob": "7426d7b77b975068a6cf68fa2361f16abb579385",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-connect-activation-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-connect-activation-gates-01.json"
+    },
+    {
+      "bytes": 1835,
+      "git_blob": "fa1a709db5229ef9f7f53d90f057b370926d8d47",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-connect-adapter-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-connect-adapter-gates-01.json"
+    },
+    {
+      "bytes": 275,
+      "git_blob": "995736cda8d4f3b785eb1384cf73e9fdaf201809",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-capacity-public.json"
+    },
+    {
+      "bytes": 1936,
+      "git_blob": "0dc3dd850ed36b2e1d59f02f6f93417fb923cd2e",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-n0a-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-n0a-public.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "4aeda3e994883d1034d9ef2440663108d4ed23ac",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-preparation-public.json"
+    },
+    {
+      "bytes": 2740,
+      "git_blob": "7ee13d3a446d705f4bd82df629b3b01b2afce6f1",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-source.json"
+    },
+    {
+      "bytes": 14678,
+      "git_blob": "e6f48214403cd739db2b441c1d08c5a895b9ac98",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-stage0-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-connect-attempt-01-stage0-public.json"
+    },
+    {
+      "bytes": 1528,
+      "git_blob": "36371cf85358c2c05bfaccd12ef81405c8e247c9",
+      "path": "verification/windows-2026-10-20/identity-proof/n0a-connect-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/n0a-connect-gates-01.json"
+    },
+    {
+      "bytes": 1752,
+      "git_blob": "cce5aae2571609b5af0cecb0122b0201ef2c1713",
+      "path": "verification/windows-2026-10-20/identity-proof/native-predicate-gates-01.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/native-predicate-gates-01.json"
+    },
+    {
+      "bytes": 1317,
+      "git_blob": "2d7546115d1e71db4d1464a922d35d302d73321f",
+      "path": "verification/windows-2026-10-20/identity-proof/paired-attempt-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/paired-attempt-01-summary.json"
+    },
+    {
+      "bytes": 43764,
+      "git_blob": "f999623feb3a112b90716429a539168d1171038f",
+      "path": "verification/windows-2026-10-20/identity-proof/paired-attempt-02-parser-fixture.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/paired-attempt-02-parser-fixture.json"
+    },
+    {
+      "bytes": 769,
+      "git_blob": "1a1be54da432e2254679c6dcb92a3a6688871126",
+      "path": "verification/windows-2026-10-20/identity-proof/paired-attempt-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/paired-attempt-02-summary.json"
+    },
+    {
+      "bytes": 621,
+      "git_blob": "aeb488b0eb3ee51aac1d99e78937e7543fd0e6be",
+      "path": "verification/windows-2026-10-20/identity-proof/paired-attempt-03-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/paired-attempt-03-summary.json"
+    },
+    {
+      "bytes": 6816,
+      "git_blob": "9d1f503afb58e595cf78c981008e604f25cd30ca",
+      "path": "verification/windows-2026-10-20/identity-proof/paired-attempt-04-public-report.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/paired-attempt-04-public-report.json"
+    },
+    {
+      "bytes": 522,
+      "git_blob": "3ed30bfd671dff721592db2ebc0f56aea7ebc756",
+      "path": "verification/windows-2026-10-20/identity-proof/paired-attempt-04-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/paired-attempt-04-source.json"
+    },
+    {
+      "bytes": 7535,
+      "git_blob": "d265e5dff2ccb4b898d812756a1286f2ae843eaf",
+      "path": "verification/windows-2026-10-20/identity-proof/provider-mode-inventory-01-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/provider-mode-inventory-01-public.json"
+    },
+    {
+      "bytes": 414,
+      "git_blob": "a0b53e8b7c57b6f7e2c8f20fd59612b3d7a662cd",
+      "path": "verification/windows-2026-10-20/identity-proof/provider-mode-inventory-01-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/provider-mode-inventory-01-source.json"
+    },
+    {
+      "bytes": 2404,
+      "git_blob": "4e028792d3e79a03879b33d4fb7b7fdd9818da19",
+      "path": "verification/windows-2026-10-20/identity-proof/proxy-native-core-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/proxy-native-core-01-result.json"
+    },
+    {
+      "bytes": 5060,
+      "git_blob": "5b68a177b27c527653fba1523e15b9bd1cc378e6",
+      "path": "verification/windows-2026-10-20/identity-proof/proxy-native-core-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/proxy-native-core-01-summary.json"
+    },
+    {
+      "bytes": 100328,
+      "git_blob": "2dc4565fed14df4cbf51d35021286a638c0581fd",
+      "path": "verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-01-result.json"
+    },
+    {
+      "bytes": 3060,
+      "git_blob": "b4707c1ca9ed29769785a54c444202df138df966",
+      "path": "verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-01-summary.json"
+    },
+    {
+      "bytes": 28843,
+      "git_blob": "476cde212994550c6897f0431491e47656275536",
+      "path": "verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-02-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-02-result.json"
+    },
+    {
+      "bytes": 2973,
+      "git_blob": "147c8dd9dac93ff609a87d4fca22daf7b97645fb",
+      "path": "verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/proxy-pipe-ac-gates-02-summary.json"
+    },
+    {
+      "bytes": 4164,
+      "git_blob": "fe69608fcc0a152d6c30f0e8e749650058017f42",
+      "path": "verification/windows-2026-10-20/identity-proof/proxy-pipe-mechanism-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/proxy-pipe-mechanism-01-result.json"
+    },
+    {
+      "bytes": 3682,
+      "git_blob": "04910d7df2670c94fca5ffe8d01da4207605cdcf",
+      "path": "verification/windows-2026-10-20/identity-proof/proxy-pipe-mechanism-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/proxy-pipe-mechanism-01-summary.json"
+    },
+    {
+      "bytes": 850,
+      "git_blob": "b34f2f0c1526f61adf299b1756a100e26340da94",
+      "path": "verification/windows-2026-10-20/identity-proof/r0-attempt-01-report.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/r0-attempt-01-report.json"
+    },
+    {
+      "bytes": 821,
+      "git_blob": "1b1038d6f3b269feb3118c58382fa8aead57ef31",
+      "path": "verification/windows-2026-10-20/identity-proof/r0-attempt-01-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/r0-attempt-01-source.json"
+    },
+    {
+      "bytes": 1884,
+      "git_blob": "b66f298ec45d592a637bb9faa10b18a0994865a4",
+      "path": "verification/windows-2026-10-20/identity-proof/r0-attempt-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/r0-attempt-02-summary.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "2b9e0b3afa743a1774e756d3e387294d775275e5",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-01-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-01-preparation-public.json"
+    },
+    {
+      "bytes": 1634,
+      "git_blob": "b2efc08e033bb4a3d3354846ef23968cd6d39edb",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-01-recovery-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-01-recovery-public.json"
+    },
+    {
+      "bytes": 1739,
+      "git_blob": "b084a9af0b1aed4ad61d2045a0d33831db3e3ded",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-01-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-01-runtime-public.json"
+    },
+    {
+      "bytes": 1343,
+      "git_blob": "e835c6fba3357af0fc50fd04231d1a659900a14b",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-01-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-01-source.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "a8ac6e0eeeb2ba1aefdf348fbeee928a2cca1c64",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-02-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-02-preparation-public.json"
+    },
+    {
+      "bytes": 1634,
+      "git_blob": "8490f68401fbe71a9a0e04152c1bdc39020c024b",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-02-recovery-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-02-recovery-public.json"
+    },
+    {
+      "bytes": 3117,
+      "git_blob": "8559b20f0339ae2670b5eed4a0f2a7d53d43d682",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-02-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-02-runtime-public.json"
+    },
+    {
+      "bytes": 1371,
+      "git_blob": "176f7afa53d7df0d1efb900b7b489c22299ffffc",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-02-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-02-source.json"
+    },
+    {
+      "bytes": 295,
+      "git_blob": "ccdd45ea86674cd9f1381be0369b1301139ee53b",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-03-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-03-capacity-public.json"
+    },
+    {
+      "bytes": 2073,
+      "git_blob": "837fb3fe22c8b8ea1e7b3d59a9c251f15e8bfbff",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-03-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-03-preparation-public.json"
+    },
+    {
+      "bytes": 16540,
+      "git_blob": "d032aef3a04eebddced59d868eb871adfda51abe",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-03-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-03-runtime-public.json"
+    },
+    {
+      "bytes": 1682,
+      "git_blob": "26b15750dc1b8a07b046b8f080e12fa79c143ca6",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-03-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-03-source.json"
+    },
+    {
+      "bytes": 295,
+      "git_blob": "0ef1c146552c22a9431bd6a46b614c01bc16dd43",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-04-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-04-capacity-public.json"
+    },
+    {
+      "bytes": 2073,
+      "git_blob": "ce5de9045f0d007fdc851020dbb5c22d07427db9",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-04-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-04-preparation-public.json"
+    },
+    {
+      "bytes": 16778,
+      "git_blob": "9d8d0292ce3bd0b2dbe93c95f40645827f0fec4e",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-04-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-04-runtime-public.json"
+    },
+    {
+      "bytes": 1802,
+      "git_blob": "94e12b8a4e3068f7685573a0f838bc3d524ca3c0",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-04-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-04-source.json"
+    },
+    {
+      "bytes": 295,
+      "git_blob": "001506a65f25283d926fff4f09c4bde3d19a5b74",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-05-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-05-capacity-public.json"
+    },
+    {
+      "bytes": 2073,
+      "git_blob": "66fb7b5f572287b32ddfa8ed3de5661604e6d718",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-05-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-05-preparation-public.json"
+    },
+    {
+      "bytes": 16911,
+      "git_blob": "75a7467e18e2955f2cc32c672384bdbc1da84e34",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-05-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-05-runtime-public.json"
+    },
+    {
+      "bytes": 1782,
+      "git_blob": "6d28d74affc522a4c1ff56b6d9747517f37fdb48",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-05-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-05-source.json"
+    },
+    {
+      "bytes": 275,
+      "git_blob": "9630261acd21a1add2bceb14f5b5c7696f6bc3ba",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-06-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-06-capacity-public.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "b5f4f555b76ae0f41c656855a368721c1435a4b5",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-06-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-06-preparation-public.json"
+    },
+    {
+      "bytes": 17034,
+      "git_blob": "71f583433489a132cc5ae07cf27768cc38815ab7",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-06-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-06-runtime-public.json"
+    },
+    {
+      "bytes": 1946,
+      "git_blob": "6729007ddd31cdaf9412993a2f68298107c655ee",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-06-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-06-source.json"
+    },
+    {
+      "bytes": 275,
+      "git_blob": "fb13c87288ade7d498a307ace1a67ac3c7450b5b",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-07-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-07-capacity-public.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "6bd0e436b90ee518fdcbafd272b52e0a5876ff7e",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-07-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-07-preparation-public.json"
+    },
+    {
+      "bytes": 17047,
+      "git_blob": "3cc1ab1143c95e97b95d5384e1d8fe6de804ac36",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-07-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-07-runtime-public.json"
+    },
+    {
+      "bytes": 1995,
+      "git_blob": "9b67ebb584224160100e205d6cf1c360ca5d461f",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-07-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-07-source.json"
+    },
+    {
+      "bytes": 275,
+      "git_blob": "f8c13273e302402ed4f9fa792fefe831cd1dd267",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-08-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-08-capacity-public.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "29889905b097568a57d8ded5b93469f1e70d106e",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-08-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-08-preparation-public.json"
+    },
+    {
+      "bytes": 5734,
+      "git_blob": "b0acbd8a0def0ca897f3dba5ef68b9a668c180a7",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-08-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-08-runtime-public.json"
+    },
+    {
+      "bytes": 1669,
+      "git_blob": "65ce8e3523b383c07b69e2124f82f9aedbf10236",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-08-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-08-source.json"
+    },
+    {
+      "bytes": 295,
+      "git_blob": "27dcf0cac80f5a469bfc07015e652470c68800e4",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-09-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-09-capacity-public.json"
+    },
+    {
+      "bytes": 2073,
+      "git_blob": "354dd483658f40371ff24116cfc4c6120fc396b3",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-09-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-09-preparation-public.json"
+    },
+    {
+      "bytes": 17444,
+      "git_blob": "6323713cb89badc596e761f5ce701341b22e7c02",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-09-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-09-runtime-public.json"
+    },
+    {
+      "bytes": 1633,
+      "git_blob": "b07b536115758238e045fff4d64ea77630d50a37",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-09-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-09-source.json"
+    },
+    {
+      "bytes": 295,
+      "git_blob": "7a344078ee747fef46029ada130dd2d775c38f1b",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-10-capacity-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-10-capacity-public.json"
+    },
+    {
+      "bytes": 2073,
+      "git_blob": "b181154bfd961b66ec086c53793354a76c3c5a39",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-10-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-10-preparation-public.json"
+    },
+    {
+      "bytes": 7067,
+      "git_blob": "c4ff613930b4a95fe32fbcbde499fe83120d13bb",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-10-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-10-runtime-public.json"
+    },
+    {
+      "bytes": 1945,
+      "git_blob": "6d063c94d4d1ccb0050893ca0330885acdf8f252",
+      "path": "verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-10-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/serviced-stage0-attempt-10-source.json"
+    },
+    {
+      "bytes": 94536,
+      "git_blob": "1af63c86b21c1c0c67dc8db6b2818b00d92f566c",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-activation-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-activation-01-result.json"
+    },
+    {
+      "bytes": 6458,
+      "git_blob": "54d0c27d408081aa37435694fc2e2ef1c0a00ec4",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-activation-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-activation-01-summary.json"
+    },
+    {
+      "bytes": 55165,
+      "git_blob": "c65659fafc4cd31fb05f66a9da93a00c5989585e",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-diagnostic-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-diagnostic-01-result.json"
+    },
+    {
+      "bytes": 3803,
+      "git_blob": "5bba5ff23923177f199a9dbf51e722be57107845",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-diagnostic-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-diagnostic-01-summary.json"
+    },
+    {
+      "bytes": 94584,
+      "git_blob": "278374acda21cf54da5d8c01e950d6da7d8b9f21",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-diagnostic-02-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-diagnostic-02-result.json"
+    },
+    {
+      "bytes": 6507,
+      "git_blob": "b0905cb3ee0c921c2e94209ab5007e60a802a01d",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-diagnostic-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-diagnostic-02-summary.json"
+    },
+    {
+      "bytes": 57393,
+      "git_blob": "76297525a9e70536445061105a1daaced3ddf73b",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-environment-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-environment-01-result.json"
+    },
+    {
+      "bytes": 4464,
+      "git_blob": "3cffeffc242139094a6e7aa9c6b11db2e0381a8f",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-environment-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-environment-01-summary.json"
+    },
+    {
+      "bytes": 94003,
+      "git_blob": "3f766867a62bad99ae9e927fe5be313a727de78d",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-environment-02-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-environment-02-result.json"
+    },
+    {
+      "bytes": 5947,
+      "git_blob": "55a2cb5a64a5bce4973f5acbc0dc308d78114ebd",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-environment-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-environment-02-summary.json"
+    },
+    {
+      "bytes": 88505,
+      "git_blob": "587a391e7c579e57b22e77fb286541c45074deca",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-integration-01-result.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-integration-01-result.json"
+    },
+    {
+      "bytes": 6054,
+      "git_blob": "24951f02eee42c1ee2c174adbe43e81974b2bdd3",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-integration-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-integration-01-summary.json"
+    },
+    {
+      "bytes": 275,
+      "git_blob": "0b21bf5c0ab8423dfa9af82a86e4f56f50a468fc",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-capacity.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-capacity.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "da1dbc4ecd89b7439478b569e3fc230e896e1c15",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-preparation.json"
+    },
+    {
+      "bytes": 14470,
+      "git_blob": "252dbf5dd1b4f55bff8d8b2c0be0292481a9a1ed",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-stage0.json"
+    },
+    {
+      "bytes": 1164,
+      "git_blob": "a132ac575a013fa191cf5750b42d3b901837eb06",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-stage0b.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-stage0b.json"
+    },
+    {
+      "bytes": 5778,
+      "git_blob": "1a0008b8b586e52b9116b0816a982bfe1128193d",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-01-summary.json"
+    },
+    {
+      "bytes": 275,
+      "git_blob": "3c49b9b51225665b4836c502bd1995f1c8f41243",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-capacity.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-capacity.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "cf43b4b3ab2a8a97959b116eabac32dee8e446bb",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-preparation.json"
+    },
+    {
+      "bytes": 14470,
+      "git_blob": "20e8c539037922c478b7c889c7de8617c6c5829b",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-stage0.json"
+    },
+    {
+      "bytes": 1606,
+      "git_blob": "952064dec6edbd5efe30b9641521b629e2b3a7ac",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-stage0b.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-stage0b.json"
+    },
+    {
+      "bytes": 7755,
+      "git_blob": "f5f4f66ee6fa230e9f44730e6d3a5bda1e71dba2",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-02-summary.json"
+    },
+    {
+      "bytes": 275,
+      "git_blob": "9ec46f015340fbd55b76d952445b87ca52b19b8f",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-capacity.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-capacity.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "3ee8ae9ee806e4e18707096b81dae83c087d6f5d",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-preparation.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-preparation.json"
+    },
+    {
+      "bytes": 14470,
+      "git_blob": "0e5401b7f53498406a0a16b64cf9b5aa3284d284",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-stage0.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-stage0.json"
+    },
+    {
+      "bytes": 1839,
+      "git_blob": "47d8dfc2bb49fe7a2bb39b6f043bd105c39145ce",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-stage0b.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-stage0b.json"
+    },
+    {
+      "bytes": 8980,
+      "git_blob": "e56b2a5a030172132c34d58ab472ad764c1d6e73",
+      "path": "verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stage0b-runtime-03-summary.json"
+    },
+    {
+      "bytes": 804,
+      "git_blob": "e8867b147685b176d2b3f51c897cd75febf3d93c",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-01-summary.json"
+    },
+    {
+      "bytes": 964,
+      "git_blob": "5aa6a541906957e2f5e7bae03127dd53a454337f",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-02-recovery-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-02-recovery-public.json"
+    },
+    {
+      "bytes": 667,
+      "git_blob": "f1b96ce82c64f454de8d0684f73f05bca9e85bea",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-02-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-02-source.json"
+    },
+    {
+      "bytes": 1019,
+      "git_blob": "10fb733adff146098dcf644774c280954095fe9a",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-03-recovery-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-03-recovery-public.json"
+    },
+    {
+      "bytes": 517,
+      "git_blob": "20c6c8acee094927f1258c89d96de5e0066a7298",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-03-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-03-source.json"
+    },
+    {
+      "bytes": 661,
+      "git_blob": "42ba453b36f3aae23e0fb2e6584d7a190e62429f",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-04-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-04-summary.json"
+    },
+    {
+      "bytes": 1147,
+      "git_blob": "10f708bfaba0a94873f3565731ca02fb64981c52",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-05-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-05-preparation-public.json"
+    },
+    {
+      "bytes": 1970,
+      "git_blob": "cb5fcb9a32661d02b6ecf19462aef26eca22a7e2",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-05-recovery-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-05-recovery-public.json"
+    },
+    {
+      "bytes": 851,
+      "git_blob": "c6db1410b1546bba07e56699f0cc313063c81670",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-05-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-05-source.json"
+    },
+    {
+      "bytes": 2073,
+      "git_blob": "d93fd739f35e16490d1a481945f82c9287eac95f",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-06-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-06-preparation-public.json"
+    },
+    {
+      "bytes": 1970,
+      "git_blob": "6b181c497dbd068bf7d9bee0adc3dfbe7ad270ee",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-06-recovery-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-06-recovery-public.json"
+    },
+    {
+      "bytes": 1180,
+      "git_blob": "254550fdc3d31e6862d2eb834c59774ed7f65cf4",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-06-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-06-runtime-public.json"
+    },
+    {
+      "bytes": 976,
+      "git_blob": "546b389634c689d7004871c2165bb9afb34fe515",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-06-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-06-source.json"
+    },
+    {
+      "bytes": 1725,
+      "git_blob": "0b6a064f7c5d3f20636b7f3863797e1d7e77e255",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-07-preparation-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-07-preparation-public.json"
+    },
+    {
+      "bytes": 1633,
+      "git_blob": "d091577493a69d7011c350994a6390d96384ec4d",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-07-recovery-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-07-recovery-public.json"
+    },
+    {
+      "bytes": 8333,
+      "git_blob": "3112c3466ef97a3c674fe6ee633ddd13498983f1",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-07-runtime-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-07-runtime-public.json"
+    },
+    {
+      "bytes": 1443,
+      "git_blob": "118fd6c08b9407e0c660ae8ffc30f00e91ed8d75",
+      "path": "verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-07-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/stock-stage0-attempt-07-source.json"
+    },
+    {
+      "bytes": 3002,
+      "git_blob": "4ed6638d6c973ad1e9ee5a5140d1c9d1d18352d8",
+      "path": "verification/windows-2026-10-20/identity-proof/win11-inventory-01-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/win11-inventory-01-public.json"
+    },
+    {
+      "bytes": 536,
+      "git_blob": "acde7b1646c94191b2f9fe5059cb63ec60c751cf",
+      "path": "verification/windows-2026-10-20/identity-proof/win11-inventory-01-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/win11-inventory-01-source.json"
+    },
+    {
+      "bytes": 1798,
+      "git_blob": "8e2e0522a5152afdc8beb24845f1acd4051e7982",
+      "path": "verification/windows-2026-10-20/identity-proof/win11-preflight-01-public.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/win11-preflight-01-public.json"
+    },
+    {
+      "bytes": 450,
+      "git_blob": "4dfb92dbc4f4952344fbb1367b608d3bc3980430",
+      "path": "verification/windows-2026-10-20/identity-proof/win11-preflight-01-source.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/win11-preflight-01-source.json"
+    },
+    {
+      "bytes": 686,
+      "git_blob": "5f2255602b317df5fafe54a9605407af34687860",
+      "path": "verification/windows-2026-10-20/identity-proof/win11-stage0-attempt-01-summary.json",
+      "url": "https://github.com/Shermanxwz/Rule-proxy-Web/blob/0336310f388de4ed25c1e8757d8b5bf25a079e48/verification/windows-2026-10-20/identity-proof/win11-stage0-attempt-01-summary.json"
+    }
+  ],
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "repository_id": 1412843902,
+  "schema_version": 1,
+  "scope": "All published JSON files under verification/windows-2026-10-20/identity-proof at the exact archive commit; file inventory, not a claim that every file is a runtime result. Historical failures and synthetic fixtures remain distinct."
+}
