@@ -21,6 +21,7 @@ live=load('windows_identity_model2_live')
 local=live.local;launcher=live.launcher;probe=live.probe;require=live.require
 SCOPE='one-local-model2-pncs-first-chain-exact-rule-v1'
 DIAGNOSTIC_SCOPE='one-local-model2-pncs-profiles-off-diagnostic-v1'
+HELPER_DIAGNOSTIC_SCOPE='one-local-model2-pncs-profiles-off-held-conhost-diagnostic-v1'
 CONFIG_KEYS={'schema_version','stage','run','boot_case','positive_case','direct_case','health_cases','admission_nonce',
     'maintenance_nonce','capability_profile','start_qpc','frequency','deadline_qpc','root_deadline_qpc',
     'source_hashes','source_sha256','actor_sha256','manifest_sha256','guard_job_name','device_sha256','recovery_plan_sha256'}
@@ -54,14 +55,19 @@ def validate(value):
             and all(value['cleanup'][key] for key in CLEANUP if key!='recovery_required') and not value['cleanup']['recovery_required']
             and r['status']==value['status'],'outer_observation')
     require(len(live.encode(value))<=12288,'outer_bound');return value
-def plan(value,*,device,source,actor,manifest,execution_mode='strict'):
+def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_admission=None):
     require(execution_mode in live.MODES,'execution_mode')
     keys={'schema_version','scope','device_sha256','source_sha256','actor_sha256',
         'manifest_sha256','residue_review_acknowledged','recovery_reference'}
     if execution_mode=='profiles-off-diagnostic':keys.add('execution_mode')
+    scope=SCOPE if execution_mode=='strict' else DIAGNOSTIC_SCOPE
+    if selected_admission is not None:
+        require(execution_mode=='profiles-off-diagnostic','helper_diagnostic_only')
+        live.validate_selected_admission(selected_admission);keys.add('selected_admission');scope=HELPER_DIAGNOSTIC_SCOPE
     require(type(value) is dict and set(value)==keys and live.execution_mode(value)==execution_mode,'plan_schema')
+    if selected_admission is not None:require(value['selected_admission']==selected_admission,'helper_plan_binding')
     require(type(value['schema_version']) is int and value['schema_version']==1
-        and value['scope']==(SCOPE if execution_mode=='strict' else DIAGNOSTIC_SCOPE)
+        and value['scope']==scope
         and value['residue_review_acknowledged'] is True,'plan_scope')
     for key,expected in (('device_sha256',device),('source_sha256',source),('actor_sha256',actor),('manifest_sha256',manifest)):
         require(live.ac.digest(value[key]) and value[key]==expected,'plan_binding')
@@ -78,9 +84,10 @@ def inputs(actor,manifest,ah,mh,bundle,runtime,work_parent,root=ROOT):
     needed+=sum((runtime/name).stat().st_size for name in probe.MEMBERS)+16*live.MAX_PRIVATE+1048576
     require(needed<=local.MAX_STAGE and shutil.disk_usage(parent).free>=needed,'stage_capacity')
     return files,hashes,closure,actor,manifest,bundle,runtime,parent
-def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=None,root=ROOT,execution_mode='strict'):
+def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=None,root=ROOT,execution_mode='strict',allow_held_system_conhost=False):
     value=blank('preflight',execution_mode);phase='platform'
     try:
+        require(type(allow_held_system_conhost) is bool and (not allow_held_system_conhost or execution_mode=='profiles-off-diagnostic'),'helper_diagnostic_only')
         require(os.name=='nt','windows_required');api=local.LocalNativeAPI() if api is None else api
         require(api.windows_x64(),'windows_x64');value['checks']['windows_x64']=True
         phase='identity';local.ordinary(api);value['checks']['ordinary']=True
@@ -88,7 +95,8 @@ def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=No
         value.update(source_sha256=closure,actor_sha256=ah,manifest_sha256=mh)
         value['checks'].update(sources=True,artifacts=True,capacity=True)
         phase='plan';raw=local.bounded(plan_path,8192)
-        plan(live.decode(raw),device=api.device_sha256(),source=closure,actor=ah,manifest=mh,execution_mode=execution_mode)
+        admission=live.system_conhost_record(api) if allow_held_system_conhost else None
+        plan(live.decode(raw),device=api.device_sha256(),source=closure,actor=ah,manifest=mh,execution_mode=execution_mode,selected_admission=admission)
         value.update(recovery_plan_sha256=live.sha(raw),device_bound=True);value['checks']['recovery_attested']=True
         value['result'].update(source_sha256=closure,actor_sha256=ah,manifest_sha256=mh,status='ready')
         value['result']['checks'].update(sources=True,artifacts=True);value['status']='ready'
@@ -96,7 +104,11 @@ def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=No
     return validate(value)
 def validate_config(config):
     mode=live.execution_mode(config)
-    require(type(config) is dict and set(config)==(CONFIG_KEYS | ({'execution_mode'} if mode=='profiles-off-diagnostic' else set())) and type(config['schema_version']) is int and config['schema_version']==1
+    keys=CONFIG_KEYS | ({'execution_mode'} if mode=='profiles-off-diagnostic' else set())
+    if type(config) is dict and 'selected_admission' in config:
+        require(mode=='profiles-off-diagnostic','helper_diagnostic_only')
+        live.validate_selected_admission(config['selected_admission']);keys=keys | {'selected_admission'}
+    require(type(config) is dict and set(config)==keys and type(config['schema_version']) is int and config['schema_version']==1
         and config['stage']=='model2-first-owned-input' and config['capability_profile']=='agentic-pncs','worker_config')
     live.clock_record(config['start_qpc'],config['frequency'],config['root_deadline_qpc'])
     require(config['root_deadline_qpc']==config['start_qpc']+120*config['frequency']
@@ -139,7 +151,9 @@ def worker(config_path):
     _,hashes,closure=live.source_snapshot(root)
     require(hashes==config['source_hashes'] and closure==config['source_sha256'],'worker_copy')
     plan_raw=local.bounded(root/'recovery-plan.json',8192);require(live.sha(plan_raw)==config['recovery_plan_sha256'],'worker_plan')
-    plan(live.decode(plan_raw),device=config['device_sha256'],source=closure,actor=config['actor_sha256'],manifest=config['manifest_sha256'],execution_mode=live.execution_mode(config))
+    admission=config.get('selected_admission')
+    if admission is not None:require(live.system_conhost_record(api)==admission,'helper_image_changed')
+    plan(live.decode(plan_raw),device=config['device_sha256'],source=closure,actor=config['actor_sha256'],manifest=config['manifest_sha256'],execution_mode=live.execution_mode(config),selected_admission=admission)
     live.verify_actor(root/'inputs'/live.ACTOR,root/'inputs'/live.MANIFEST,config['actor_sha256'],config['manifest_sha256'],root=root)
     probe.verify_artifacts(root/'bundle.zip',root/'runtime')
     controller=load('windows_identity_model2_controller')
@@ -148,12 +162,12 @@ def worker(config_path):
     launcher.write_private_bytes(root/'model2-controller-report.json',live.encode(report))
     ready=live.first_ready if live.execution_mode(config)=='strict' else live.diagnostic_ready
     return 0 if ready(report['public'],require_guard=False) else 1
-def run_local(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,approved=False,api=None,root=ROOT,ids=secrets.token_hex,execution_mode='strict'):
+def run_local(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,approved=False,api=None,root=ROOT,ids=secrets.token_hex,execution_mode='strict',allow_held_system_conhost=False):
     value=blank('runtime',execution_mode);phase='platform';launched=False
     try:
         require(approved and os.name=='nt','explicit_opt_in_required');api=local.LocalNativeAPI() if api is None else api
         frequency,start=api.qpc_frequency(),api.qpc();budget=launcher.QpcBudget(api,start+120*frequency,frequency)
-        check=preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,api=api,root=root,execution_mode=execution_mode)
+        check=preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,api=api,root=root,execution_mode=execution_mode,allow_held_system_conhost=allow_held_system_conhost)
         for key in ('checks','source_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256','device_bound'):value[key]=check[key]
         if check['status']!='ready':phase=check['failure'];raise ValueError('preflight')
         phase='inputs';files,hashes,closure,actor,manifest,bundle,runtime,parentpath=inputs(actor,manifest,ah,mh,bundle,runtime,work_parent,root)
@@ -165,6 +179,7 @@ def run_local(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,approv
             actor_sha256=ah,manifest_sha256=mh,guard_job_name='Local\\RuleProxy.LocalGuard.'+config['run'],device_sha256=api.device_sha256(),
             recovery_plan_sha256=value['recovery_plan_sha256'])
         if execution_mode=='profiles-off-diagnostic':config['execution_mode']=execution_mode
+        if allow_held_system_conhost:config['selected_admission']=live.system_conhost_record(api)
         validate_config(config)
         phase='deadline';budget.require_ms(budget.cutoff(45))
         phase='staging';stage=parentpath/('local-model2-'+config['run']);value['cleanup']['tree_retained']=True
@@ -226,6 +241,7 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run-local-first-chain',action='store_true');parser.add_argument('--approved-local-security-test',action='store_true')
     parser.add_argument('--profiles-off-diagnostic',action='store_true',help='Explicit separate diagnostic; requires all effective firewall profiles disabled and never qualifies strict C.')
+    parser.add_argument('--allow-held-system-conhost',action='store_true',help='Explicit diagnostic-only admission for one pinned and fully held system console helper.')
     parser.add_argument('--owned-worker',action='store_true',help=argparse.SUPPRESS);parser.add_argument('--config',help=argparse.SUPPRESS)
     for name in ('actor','manifest','actor-sha256','manifest-sha256','bundle','runtime-directory','work-parent','recovery-plan'):parser.add_argument('--'+name)
     args=parser.parse_args(argv)
@@ -247,6 +263,8 @@ def main(argv=None):
     require(args.config is None,'private_mode')
     values=(args.actor,args.manifest,args.actor_sha256,args.manifest_sha256,args.bundle,args.runtime_directory,args.work_parent,args.recovery_plan)
     mode='profiles-off-diagnostic' if args.profiles_off_diagnostic else 'strict'
-    value=run_local(*values,approved=args.approved_local_security_test,execution_mode=mode) if args.run_local_first_chain else preflight(*values,execution_mode=mode)
+    options=dict(execution_mode=mode)
+    if args.allow_held_system_conhost:options['allow_held_system_conhost']=True
+    value=run_local(*values,approved=args.approved_local_security_test,**options) if args.run_local_first_chain else preflight(*values,**options)
     sys.stdout.write(live.encode(value).decode('ascii'));return 0 if value['status'] in ('ready','observed','passed','diagnostic-observed') else 1
 if __name__=='__main__':raise SystemExit(main())

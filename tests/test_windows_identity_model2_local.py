@@ -196,6 +196,36 @@ class LocalModel2Tests(unittest.TestCase):
         self.assertFalse(value['result']['checks']['firewall_exact'])
         self.assertFalse(value['result']['first_chain_verified'])
 
+    def test_helper_plan_config_need_separate_scope_explicit_mode_and_pinned_image(self):
+        _,_,closure=source_fixture()
+        admission=dict(profile='actor-plus-system-conhost-v1',conhost_sha256='7'*64)
+        p=recovery_plan(closure);p.update(scope=m.HELPER_DIAGNOSTIC_SCOPE,execution_mode='profiles-off-diagnostic',selected_admission=admission)
+        kw=dict(device='1'*64,source=closure,actor='3'*64,manifest='4'*64)
+        self.assertIs(m.plan(p,**kw,execution_mode='profiles-off-diagnostic',selected_admission=admission),p)
+        with self.assertRaises(ValueError):m.plan(p,**kw,execution_mode='profiles-off-diagnostic')
+        with self.assertRaises(ValueError):m.plan(p,**kw,selected_admission=admission)
+        with self.assertRaises(ValueError):m.plan(p,**kw,execution_mode='profiles-off-diagnostic',selected_admission=dict(admission,conhost_sha256='8'*64))
+        c=config_fixture();c.update(execution_mode='profiles-off-diagnostic',selected_admission=admission)
+        self.assertIs(m.validate_config(c),c)
+        for bad in (dict(admission,profile='observed'),dict(admission,conhost_sha256=None),dict(admission,extra=True)):
+            changed=copy.deepcopy(c);changed['selected_admission']=bad
+            with self.subTest(admission=bad),self.assertRaises(ValueError):m.validate_config(changed)
+
+    def test_helper_preflight_is_read_only_and_rechecks_system_image_against_plan(self):
+        api=ClockAPI();_,_,closure=source_fixture()
+        admission=dict(profile='actor-plus-system-conhost-v1',conhost_sha256='7'*64)
+        p=recovery_plan(closure);p.update(scope=m.HELPER_DIAGNOSTIC_SCOPE,execution_mode='profiles-off-diagnostic',selected_admission=admission)
+        with mock.patch.object(m,'os',types.SimpleNamespace(name='nt')), \
+             mock.patch.object(m,'inputs',return_value=({}, {},closure,None,None,None,None,None)), \
+             mock.patch.object(m.local,'bounded',return_value=m.live.encode(p)), \
+             mock.patch.object(m.live,'system_conhost_record',return_value=admission) as image, \
+             mock.patch.object(m.launcher,'launch_owned') as launch:
+            value=m.preflight(*([None,None,'3'*64,'4'*64]+[None]*4),api=api,execution_mode='profiles-off-diagnostic',allow_held_system_conhost=True)
+            self.assertEqual(value['status'],'ready');image.assert_called_once_with(api);launch.assert_not_called()
+            image.return_value=dict(admission,conhost_sha256='8'*64)
+            changed=m.preflight(*([None,None,'3'*64,'4'*64]+[None]*4),api=api,execution_mode='profiles-off-diagnostic',allow_held_system_conhost=True)
+            self.assertEqual(changed['failure'],'plan');self.assertEqual(api.created,[])
+
     def test_opt_in_missing_never_constructs_native_api(self):
         with mock.patch.object(m.local,'LocalNativeAPI') as native:
             value=m.run_local(*([None]*8))

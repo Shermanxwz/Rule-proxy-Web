@@ -406,11 +406,36 @@ def candidate_observations(api, owners, budget, candidates, *, first, second, fi
     return rows
 
 
+def validate_selected_admission(value):
+    require(type(value) is dict and set(value) == {'profile', 'conhost_sha256'}
+        and value['profile'] == 'actor-plus-system-conhost-v1' and ac.digest(value['conhost_sha256']), 'selected_admission')
+    return value
+
+
+def system_conhost_record(api):
+    if hasattr(api, 'system_conhost_path'):
+        path = launcher.checked_path(api.system_conhost_path())
+    else:
+        api.k.GetSystemDirectoryW.argtypes = [C.c_wchar_p, C.c_uint32]
+        api.k.GetSystemDirectoryW.restype = C.c_uint32
+        buffer = C.create_unicode_buffer(32768)
+        length = api.k.GetSystemDirectoryW(buffer, len(buffer))
+        require(0 < length < len(buffer), 'system_directory')
+        path = launcher.checked_path(Path(buffer.value) / 'conhost.exe')
+    require(path.name.casefold() == 'conhost.exe', 'system_conhost_image')
+    return dict(profile='actor-plus-system-conhost-v1', conhost_sha256=sha(local.bounded(path, 8 * 1024 * 1024)))
+
+
 def admit_selected(api, owners, budget, *, g_process, g_created, job, image, image_hash,
-                   parent, capability_profile, catalog, diagnostic_guard_name=None, diagnostic_scoped_owners=None):
+                   parent, capability_profile, catalog, diagnostic_guard_name=None, diagnostic_scoped_owners=None,
+                   selected_admission=None, auxiliary_register=None):
     """Discovery does not authorize. Hold generation+image+Job+token before GO."""
     require(capability_profile in ('agentic-only', 'agentic-pncs'), 'selected_profile')
     require(integer(g_created, 1, 0xffffffffffffffff) and ac.digest(image_hash), 'selected_parent')
+    if selected_admission is not None:
+        validate_selected_admission(selected_admission)
+        require(callable(auxiliary_register) and type(diagnostic_scoped_owners) is list
+            and system_conhost_record(api) == selected_admission, 'selected_helper_contract')
     budget.require_ms(budget.cutoff(25))
     require(not api.wait(g_process, 0) and api.creation_time(g_process) == g_created, 'g_generation')
     g_pid = api.process_id(g_process)
@@ -430,7 +455,7 @@ def admit_selected(api, owners, budget, *, g_process, g_created, job, image, ima
     second = api.parent_snapshot()
     first_children = {pid for pid, ppid in first.items() if ppid == g_pid and pid != g_pid}
     second_children = {pid for pid, ppid in second.items() if ppid == g_pid and pid != g_pid}
-    if not (first_children == second_children and len(first_children) == 1
+    if not (first_children == second_children and len(first_children) == (2 if selected_admission is not None else 1)
             and {pid for pid, _, _ in candidates} == first_children):
         error = ValueError('selected_child_set_changed')
         error.discovery = dict(parent_pid=g_pid, parent_created=g_created,
@@ -448,28 +473,58 @@ def admit_selected(api, owners, budget, *, g_process, g_created, job, image, ima
         raise error
     require(not api.wait(g_process, 0) and api.creation_time(g_process) == g_created, 'g_generation')
     valid = []
+    auxiliary = []
+    expected_helper = launcher.checked_path(api.system_conhost_path()) if selected_admission is not None else None
     for pid, created, old in candidates:
         budget.require_ms(budget.cutoff(25))
         require(second.get(pid) == g_pid and not api.wait(old, 0), 'selected_child_changed')
+        helper = False
+        if selected_admission is not None:
+            observed_image = launcher.checked_path(api.process_image(old))
+            helper = os.path.normcase(str(observed_image)) == os.path.normcase(str(expected_helper))
+            require(helper or os.path.normcase(str(observed_image)) == os.path.normcase(str(image)), 'selected_unexpected_image')
         handle = api.open_owned_process(pid)
         owners.add(handle)
         require(api.creation_time(handle) == created and api.creation_time(old) == created
             and api.process_id(handle) == pid, 'selected_pid_reuse')
+        if helper:
+            auxiliary_register(dict(handle=handle, pid=pid, created=created, image_path=str(expected_helper),
+                image_sha256=selected_admission['conhost_sha256']))
         api.verify_job(job, handle)
-        api.verify_image(handle, image)
-        helpers.verify_copied_actor(image, image_hash)
+        expected_image = expected_helper if helper else image
+        expected_hash = selected_admission['conhost_sha256'] if helper else image_hash
+        api.verify_image(handle, expected_image)
+        helpers.verify_copied_actor(expected_image, expected_hash)
         token = api.token_for_process(handle)
         owners.add(token)
         identity = api.identity(token)
         capabilities = [{'sid': sid, 'attributes': flags} for sid, flags in api.groups(token, 30, 'TokenCapabilities')]
-        selected_identity(identity, capabilities, parent, capability_profile, catalog)
+        if helper:
+            require(launcher.token_is_ordinary(identity) and launcher.same_identity(identity, parent)
+                and identity['token_type'] == 1 and identity['integrity_rid'] == 8192
+                and identity['appcontainer'] is False and identity['appcontainer_sid'] is None
+                and identity['capability_count'] == 0 and capabilities == [] and identity['ui_access'] is False,
+                'selected_helper_identity')
+            scope = helpers.OneShotHandles(api.close)
+            diagnostic_scoped_owners.append(scope)
+            verify_exact_guard_member(api, handle, diagnostic_guard_name, owners=scope)
+            require(scope.confirmed_closed, 'selected_helper_outer_close')
+            require(system_conhost_record(api) == selected_admission, 'selected_helper_hash_changed')
+        else:
+            selected_identity(identity, capabilities, parent, capability_profile, catalog)
         require(not api.wait(handle, 0), 'selected_exited')
-        valid.append(dict(handle=handle, pid=pid, created=created, identity=identity, capabilities=capabilities,
+        record = dict(handle=handle, pid=pid, created=created, identity=identity, capabilities=capabilities,
             image_verified=True, exact_job_verified=True, externally_held_before_first_resume=False,
             externally_held_before_network_go=True, discovery=dict(parent_pid=g_pid, parent_created=g_created,
                 first_children=sorted(first_children), second_children=sorted(second_children),
-                query_created=api.creation_time(old), held_created=api.creation_time(handle))))
-    require(len(valid) == 1, 'selected_not_unique')
+                query_created=api.creation_time(old), held_created=api.creation_time(handle)))
+        (auxiliary if helper else valid).append(record)
+    require(len(valid) == 1 and len(auxiliary) == (1 if selected_admission is not None else 0), 'selected_not_unique')
+    if auxiliary:
+        valid[0]['auxiliary'] = auxiliary[0]
+        valid[0]['discovery']['auxiliary'] = dict(pid=auxiliary[0]['pid'], created=auxiliary[0]['created'],
+            query_created=auxiliary[0]['discovery']['query_created'], held_created=auxiliary[0]['discovery']['held_created'],
+            workload_job_verified=True, outer_job_verified=True, outer_query_handle_closed=True)
     budget.require_ms(budget.cutoff(25))
     return valid[0]
 
