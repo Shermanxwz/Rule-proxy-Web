@@ -346,7 +346,7 @@ class CreateBoundaryTests(unittest.TestCase):
 
 class ComposedRunTests(unittest.TestCase):
     """Actual run orchestration with fake Win32 APIs; NOT a Windows execution."""
-    def exercise(self, fault=None, diagnostic=False):
+    def exercise(self, fault=None, diagnostic=False, legacy=False):
         import ctypes as C
         import hashlib
         import json
@@ -366,7 +366,18 @@ class ComposedRunTests(unittest.TestCase):
             def __getattr__(self,name):
                 return self.functions.setdefault(name,Fn())
             def put(self,name,call):self.functions[name]=Fn(call)
-        k,a,ue=DLL(),DLL(),DLL()
+        k,a,ue,shell,ole=DLL(),DLL(),DLL(),DLL(),DLL()
+        local_path=r'C:\Users\fixture\AppData\Local'
+        local_storage=C.create_string_buffer(local_path.encode('utf-16-le')+b'\0\0')
+        ole.put('CoInitializeEx',lambda reserved,flags:events.append(('com_init',reserved,flags)) or (-2147417850 if fault=='com' else 0))
+        ole.put('CoUninitialize',lambda:events.append('com_uninit'))
+        ole.put('CoTaskMemFree',lambda pointer:events.append('taskmem_free'))
+        def known_folder(guid,flags,token,out):
+            events.append(('known_folder',flags,token))
+            self.assertEqual(C.string_at(guid,16).hex(),'8527b3f1ba6fcf4f9d557b8e7f157091')
+            out._obj.value=C.addressof(local_storage)
+            return -2147467259 if fault=='known_folder' else 0
+        shell.put('SHGetKnownFolderPath',known_folder)
         def profile(name,title,description,caps,count,out):
             events.append('profile_create')
             if fault=='profile_create':return 0x80070005
@@ -400,6 +411,9 @@ class ComposedRunTests(unittest.TestCase):
         k.put('UpdateProcThreadAttribute',update)
         def create_process(exe,cmd,ps,ts,inherit,flags,env,cwd,startup,info):
             events.append(('create',bool(flags & proc._CREATE_SUSPENDED),inherit))
+            environment=dict(row.split('=',1) for row in env[:].rstrip('\0').split('\0'))
+            events.append(('child_keys',tuple(sorted(environment))))
+            self.assertEqual(environment.get('LOCALAPPDATA'),None if legacy else local_path)
             if fault=='create_empty':return 0
             info._obj.hProcess=301;info._obj.hThread=302;info._obj.dwProcessId=42;return 1
         k.put('CreateProcessW',create_process)
@@ -460,6 +474,7 @@ class ComposedRunTests(unittest.TestCase):
             def exec_module(self,module):
                 module.NativeAPI=TokenAPI;module.QpcBudget=launcher.QpcBudget
                 module.token_is_ordinary=launcher.token_is_ordinary
+                module.default_child_environment=launcher.default_child_environment
         original_spec=importlib.util.spec_from_file_location
         def token_spec(name,path):
             if name=='identity_pipe_token_reader':return importlib.util.spec_from_loader(name,Loader())
@@ -468,6 +483,7 @@ class ComposedRunTests(unittest.TestCase):
             if fault=='acl_readback_raise':raise OSError('fake_acl_readback')
             return fault!='acl_readback_false'
         record=launcher.diagnostic_new() if diagnostic else None
+        environment_meta=None if legacy else launcher.default_child_environment()
         def icacls(*args,**kwargs):
             events.append('icacls')
             if fault=='acl_grant':
@@ -477,28 +493,40 @@ class ComposedRunTests(unittest.TestCase):
             digest=hashlib.sha256(actor.read_bytes()).hexdigest()
             args=SimpleNamespace(disposable_ci=True,approved_security_test=True,actor=actor,
                                  work=work,report=work/'report.json',actor_sha256=digest,
-                                 deadline_qpc=220000,qpc_frequency=1000,case_nonce=N)
+                                 deadline_qpc=None if legacy else 220000,qpc_frequency=None if legacy else 1000,case_nonce=None if legacy else N)
             fake_os=SimpleNamespace(**os.__dict__);fake_os.name='nt'
             fake_os.environ={'SystemRoot':str(root/'Windows')}
             before_path=list(sys.path)
             with mock.patch.object(pipe,'os',fake_os),mock.patch.object(proc,'_KernelAPI',API), \
-                 mock.patch.object(C,'WinDLL',lambda name,**kw:ue if name=='userenv' else a if name=='advapi32' else k,create=True), \
+                 mock.patch.object(pipe.secrets,'token_hex',lambda count:N), \
+                 mock.patch.object(C,'WinDLL',lambda name,**kw:ue if name=='userenv' else a if name=='advapi32' else shell if name=='shell32' else ole if name=='ole32' else k,create=True), \
                  mock.patch.object(C,'get_last_error',lambda:last_error[0],create=True), \
                  mock.patch.object(C,'set_last_error',lambda value:last_error.__setitem__(0,value),create=True), \
                  mock.patch.object(pipe.importlib.util,'spec_from_file_location',token_spec), \
                  mock.patch.object(pipe.subprocess,'run',icacls), \
                  mock.patch.object(pipe,'verify_no_owned_ace',acl_readback), \
+                 mock.patch.object(pipe,'checked_local_appdata_path',lambda value:value), \
                  mock.patch.object(pipe,'diagnostic_helpers',lambda:launcher), \
                  mock.patch.object(launcher,'NativeAPI',TokenAPI):
-                try:code=pipe.run(args,record)
+                try:
+                    if fault in ('com','known_folder'):
+                        with self.assertRaises(pipe.KnownFolderFailure):pipe.run(args,record,environment_meta)
+                        code=1
+                    else:code=pipe.run(args,record,environment_meta)
                 finally:sys.path[:]=before_path
-            result=json.loads((work/'report.json').read_bytes())
+            result=(json.loads((work/'report.json').read_bytes()) if (work/'report.json').exists() else
+                    {'_fixture_no_work':not work.exists(),'_fixture_environment':environment_meta})
             if diagnostic:result['_fixture_final_execution']=list(record)
         return code,result,events
 
     def test_actual_run_success_and_exact_pipe_ownership_order(self):
         code,result,events=self.exercise()
         self.assertEqual(code,0);self.assertTrue(result['stage0b_passed'])
+        self.assertEqual(events.count(('known_folder',0,None)),1)
+        self.assertEqual(events.count(('com_init',None,2)),1)
+        self.assertLess(events.index('com_uninit'),events.index('profile_create'))
+        self.assertIn(('child_keys',('LOCALAPPDATA','SystemRoot')),events)
+        self.assertTrue(result['child_environment']['exact_child_keyset'])
         self.assertEqual(result['deadline_qpc'],220000);self.assertEqual(result['qpc_frequency'],1000)
         self.assertIn(('handle_list',(101,104)),events)
         self.assertIn(('inherit_clear',102,1,0),events);self.assertIn(('inherit_clear',103,1,0),events)
@@ -519,6 +547,25 @@ class ComposedRunTests(unittest.TestCase):
             self.assertTrue(result['cleanup']['profile_retained_due_to_uncertain_acl_cleanup'])
             self.assertTrue(result['cleanup']['process_exit_confirmed'])
             self.assertFalse(result['stage0b_passed'])
+
+    def test_legacy_run_keeps_systemroot_only_and_makes_no_known_folder_or_com_calls(self):
+        code,result,events=self.exercise(legacy=True)
+        self.assertEqual(code,0)
+        self.assertNotIn('child_environment',result)
+        self.assertIn(('child_keys',('SystemRoot',)),events)
+        self.assertFalse(any(isinstance(event,tuple) and event[0] in ('known_folder','com_init') for event in events))
+        self.assertNotIn('taskmem_free',events);self.assertNotIn('com_uninit',events)
+
+    def test_actual_helper_failure_stops_before_owned_work_profile_acl_or_process(self):
+        for fault in ('com','known_folder'):
+            code,result,events=self.exercise(fault)
+            self.assertEqual(code,1);self.assertTrue(result['_fixture_no_work'])
+            self.assertNotIn('profile_create',events);self.assertNotIn('icacls',events)
+            self.assertFalse(any(isinstance(event,tuple) and event[0]=='create' for event in events))
+            if fault=='com':
+                self.assertNotIn('com_uninit',events);self.assertNotIn(('known_folder',0,None),events)
+            else:
+                self.assertEqual(events.count('taskmem_free'),1);self.assertEqual(events.count('com_uninit'),1)
 
     def test_actual_run_pre_resume_image_failure(self):
         code,result,events=self.exercise('image')
@@ -577,7 +624,7 @@ class ProbeDiagnosticTests(unittest.TestCase):
               '--actor-sha256','b'*64,'--deadline-qpc','220000','--qpc-frequency','1000','--case-nonce',N]
         for failing in (False,True):
             output=io.StringIO()
-            def run(args,record=None):
+            def run(args,record=None,child_environment=None):
                 helper.diagnostic_stage(record,'initial_token')
                 if failing:raise RuntimeError('never publish this raw private text')
                 return 1
@@ -607,5 +654,197 @@ class DiagnosticNoninterferenceTests(unittest.TestCase):
         actual={node.name:hashlib.sha256(ast.dump(node,include_attributes=False).encode()).hexdigest()
                 for node in tree.body if isinstance(node,(ast.FunctionDef,ast.ClassDef)) and node.name in expected}
         self.assertEqual(actual,expected)
+
+
+
+
+class KnownFolderVariantTests(unittest.TestCase):
+    def metadata(self):
+        return pipe.diagnostic_helpers().default_child_environment()
+
+    def api(self, *, init=0, query=0, pointer=True, query_raise=False, free_raise=False,
+            uninit_raise=False, path=r'C:\Users\fixture\AppData\Local'):
+        import ctypes as C
+        events=[]
+        storage=C.create_string_buffer(path.encode('utf-16-le')+b'\0\0')
+        class API:
+            def initialize(self):events.append('init');return init
+            def query(self,out):
+                events.append('query')
+                if pointer:out.value=C.addressof(storage)
+                if query_raise:raise OSError('private query text')
+                return query
+            def release(self,out):
+                events.append('free')
+                if free_raise:raise OSError('private free text')
+            def uninitialize(self):
+                events.append('uninit')
+                if uninit_raise:raise OSError('private uninit text')
+        return API(),events,storage
+
+    def resolve(self, api, metadata, require=None, validate=None):
+        from unittest import mock
+        with mock.patch.object(pipe,'checked_local_appdata_path',validate or (lambda path:path)):
+            return pipe.resolve_local_appdata(api,require or (lambda seconds:5),metadata)
+
+    def test_exact_s_ok_s_false_one_query_and_balanced_cleanup(self):
+        for hr in (0,1):
+            api,events,storage=self.api(init=hr);meta=self.metadata()
+            self.assertEqual(self.resolve(api,meta),r'C:\Users\fixture\AppData\Local')
+            self.assertEqual(events,['init','query','free','uninit'])
+            self.assertEqual(meta['com'],[True,hr,True,True])
+            self.assertEqual(meta['lookup_state'],'ready');self.assertEqual(meta['hresult'],0)
+            self.assertTrue(meta['release_returned'] and meta['deadline_verified'])
+            self.assertIsNone(meta['exact_child_keyset'])
+            pipe.diagnostic_helpers().validate_child_environment(meta)
+
+    def test_failed_or_unknown_com_never_queries_or_uninitializes(self):
+        for hr in (-2147417850,-2147467259,2,True,2**31,None):
+            api,events,storage=self.api(init=hr);meta=self.metadata()
+            with self.assertRaises(pipe.KnownFolderFailure):self.resolve(api,meta)
+            self.assertEqual(events,['init']);self.assertEqual(meta['lookup_state'],'not_attempted')
+            self.assertFalse(meta['com'][2]);self.assertFalse(meta['release_attempted'])
+            pipe.diagnostic_helpers().validate_child_environment(meta)
+
+    def test_all_nonnull_failure_allocations_freed_exactly_once(self):
+        for options in ({'query':-2147467259},{'query':1},{'query_raise':True},{'query':True}):
+            api,events,storage=self.api(**options);meta=self.metadata()
+            with self.assertRaises((pipe.KnownFolderFailure,OSError)):self.resolve(api,meta)
+            self.assertEqual(events,['init','query','free','uninit'])
+            self.assertEqual(meta['lookup_state'],'api_failed')
+            self.assertTrue(meta['release_returned']);self.assertEqual(meta['com'][2:],[True,True])
+            pipe.diagnostic_helpers().validate_child_environment(meta)
+
+    def test_s_ok_null_or_bad_path_rejected_balanced(self):
+        api,events,storage=self.api(pointer=False);meta=self.metadata()
+        with self.assertRaises(pipe.KnownFolderFailure):self.resolve(api,meta)
+        self.assertEqual(events,['init','query','uninit'])
+        self.assertEqual(meta['lookup_state'],'path_rejected')
+        api,events,storage=self.api();meta=self.metadata()
+        def reject(path):raise ValueError('fixture path rejected')
+        with self.assertRaises(ValueError):self.resolve(api,meta,validate=reject)
+        self.assertEqual(events,['init','query','free','uninit'])
+        self.assertEqual(meta['lookup_state'],'path_rejected')
+
+    def test_release_failure_retains_ready_but_never_qualifies_and_still_uninitializes(self):
+        for opts in ({'free_raise':True},{'uninit_raise':True},{'free_raise':True,'uninit_raise':True}):
+            api,events,storage=self.api(**opts);meta=self.metadata()
+            with self.assertRaises(OSError):self.resolve(api,meta)
+            self.assertEqual(events,['init','query','free','uninit'])
+            self.assertEqual(meta['lookup_state'],'ready')
+            self.assertFalse(pipe.diagnostic_helpers().child_environment_admitted(meta))
+            self.assertEqual(meta['release_returned'],not opts.get('free_raise',False))
+            self.assertEqual(meta['com'][3],not opts.get('uninit_raise',False))
+
+    def test_primary_query_or_path_error_survives_all_cleanup_failures(self):
+        for at_query in (True,False):
+            api,events,storage=self.api(free_raise=True,uninit_raise=True)
+            meta=self.metadata();primary=ValueError('private primary');checks=[]
+            original_query=api.query
+            def query(out):
+                result=original_query(out)
+                if at_query:raise primary
+                return result
+            api.query=query
+            def validate(path):raise primary
+            def require(seconds):
+                checks.append(seconds)
+                if len(checks)==(3 if at_query else 4):
+                    raise TimeoutError('private late cleanup')
+                return 5
+            with self.assertRaises(ValueError) as caught:
+                self.resolve(api,meta,require,validate)
+            self.assertIs(caught.exception,primary)
+            self.assertEqual(events,['init','query','free','uninit'])
+            self.assertEqual(meta['lookup_state'],'api_failed' if at_query else 'path_rejected')
+            self.assertEqual(meta['hresult'],None if at_query else 0)
+            self.assertTrue(meta['release_attempted']);self.assertFalse(meta['release_returned'])
+            self.assertEqual(meta['com'],[True,0,True,False])
+            self.assertFalse(meta['deadline_verified'])
+            self.assertFalse(pipe.diagnostic_helpers().child_environment_admitted(meta))
+            pipe.diagnostic_helpers().validate_child_environment(meta)
+
+    def test_expiry_before_or_after_api_never_renews_and_always_balances(self):
+        for expire_call in (1,2,3,4):
+            api,events,storage=self.api();meta=self.metadata();calls=[]
+            def require(seconds):
+                calls.append(seconds)
+                if len(calls)>=expire_call:raise TimeoutError('immutable deadline')
+                return 5
+            with self.assertRaises(TimeoutError):self.resolve(api,meta,require)
+            self.assertFalse(meta['deadline_verified'])
+            expected=[] if expire_call==1 else ['init','uninit'] if expire_call==2 else ['init','query','free','uninit']
+            self.assertEqual(events,expected)
+            if expire_call==4:self.assertEqual(meta['lookup_state'],'ready')
+
+    def test_bounded_utf16_exact_limit_surrogates_and_missing_terminator(self):
+        import ctypes as C
+        for text in ('x', '\U0001f600', 'a'*32767):
+            raw=text.encode('utf-16-le')+b'\0\0';buf=C.create_string_buffer(raw)
+            self.assertEqual(pipe.bounded_utf16_path(C.addressof(buf)),text)
+        for raw in (b'\0\0',b'\x00\xd8\0\0',b'a\0'*32768):
+            buf=C.create_string_buffer(raw)
+            with self.assertRaises((pipe.KnownFolderFailure,UnicodeError)):
+                pipe.bounded_utf16_path(C.addressof(buf))
+        with self.assertRaises(pipe.KnownFolderFailure):pipe.bounded_utf16_path(None)
+
+    def test_existing_local_absolute_nonreparse_root_and_all_components(self):
+        import stat
+        from types import SimpleNamespace
+        seen=[]
+        def directory(path):seen.append(path);return SimpleNamespace(st_mode=stat.S_IFDIR,st_file_attributes=0)
+        value=r'C:\Users\fixture\AppData\Local'
+        self.assertEqual(pipe.checked_local_appdata_path(value,directory),value)
+        self.assertEqual(seen,['C:\\',r'C:\Users',r'C:\Users\fixture',r'C:\Users\fixture\AppData',value])
+        for bad in (r'\\server\share\Local',r'\\?\C:\Local',r'C:Local',r'C:/Local',r'C:\x\..\Local',
+                    r'C:\x.\Local','C:\\x\\',r'C:\%USERPROFILE%\Local','C:\\'+'\\'.join(['x']*33)):
+            with self.assertRaises(pipe.KnownFolderFailure):pipe.checked_local_appdata_path(bad,directory)
+        for mode,attrs in ((stat.S_IFREG,0),(stat.S_IFLNK,0),(stat.S_IFDIR,0x400)):
+            with self.assertRaises(pipe.KnownFolderFailure):
+                pipe.checked_local_appdata_path(value,lambda path:SimpleNamespace(st_mode=mode,st_file_attributes=attrs))
+        with self.assertRaises(FileNotFoundError):
+            pipe.checked_local_appdata_path(value,lambda path:(_ for _ in ()).throw(FileNotFoundError()))
+
+    def test_actual_block_exact_two_keys_no_caller_environment_mutation(self):
+        import os
+        from ruleproxy import windows_app_process as proc
+        before=dict(os.environ);meta=self.metadata()
+        block=pipe.child_environment_block(proc,r'C:\Windows',r'C:\Users\fixture\AppData\Local',meta)
+        self.assertEqual(block,'LOCALAPPDATA=C:\\Users\\fixture\\AppData\\Local\0SystemRoot=C:\\Windows\0\0')
+        self.assertTrue(meta['exact_child_keyset']);self.assertEqual(dict(os.environ),before)
+        class Wrong:
+            @staticmethod
+            def _environment_block(values):return 'SystemRoot=C:\\Windows\0LOCALAPPDATA=x\0EXTRA=1\0\0'
+        with self.assertRaises(pipe.KnownFolderFailure):pipe.child_environment_block(Wrong,r'C:\Windows','x',meta)
+        self.assertFalse(meta['exact_child_keyset'])
+
+
+
+
+class KnownFolderStdoutTests(unittest.TestCase):
+    def test_early_helper_failure_metadata_survives_without_native_report(self):
+        import contextlib
+        import io
+        import json
+        from unittest import mock
+        helper=pipe.diagnostic_helpers()
+        api,events,storage=KnownFolderVariantTests().api(query=-2147467259)
+        argv=['--actor','fixture.exe','--work','fixture','--report','fixture/report.json',
+              '--actor-sha256','b'*64,'--deadline-qpc','220000','--qpc-frequency','1000','--case-nonce',N]
+        def execute(args,record,metadata):
+            helper.diagnostic_stage(record,'known_folder')
+            return pipe.resolve_local_appdata(api,lambda seconds:5,metadata)
+        output=io.StringIO()
+        with mock.patch.object(pipe,'run',execute),contextlib.redirect_stdout(output):
+            with self.assertRaises(pipe.KnownFolderFailure):pipe.main(argv)
+        raw=output.getvalue().encode('ascii');self.assertLessEqual(len(raw),1024)
+        value=json.loads(raw)
+        self.assertEqual(value['schema_version'],2)
+        self.assertEqual(value['execution'][1],'known_folder')
+        self.assertEqual(value['child_environment']['lookup_state'],'api_failed')
+        self.assertEqual(value['child_environment']['hresult'],0x80004005)
+        self.assertTrue(value['child_environment']['release_returned'])
+        self.assertEqual(value['child_environment']['com'],[True,0,True,True])
+        self.assertNotIn('fixture.exe',output.getvalue());self.assertNotIn('C:\\Users',output.getvalue())
 
 if __name__=='__main__':unittest.main()

@@ -10,6 +10,7 @@ import ctypes as C
 import hashlib
 import importlib.util
 import json
+import ntpath
 import os
 from pathlib import Path
 import re
@@ -340,7 +341,150 @@ def checked_sid_pointer(buffer, returned):
     return pointer
 
 
-def run(args, diagnostic=None):
+
+class KnownFolderFailure(RuntimeError):
+    """Fixed label only; HRESULT is carried separately in closed metadata."""
+
+
+class _KnownFolderGuid(C.Structure):
+    _fields_=[('Data1',C.c_uint32),('Data2',C.c_uint16),('Data3',C.c_uint16),
+              ('Data4',C.c_ubyte*8)]
+
+
+LOCAL_APPDATA_GUID=_KnownFolderGuid(0xF1B32785,0x6FBA,0x4FCF,
+    (C.c_ubyte*8)(0x9D,0x55,0x7B,0x8E,0x7F,0x15,0x70,0x91))
+
+
+class KnownFolderAPI:
+    """Bind every cleanup ABI BEFORE obtaining COM state or an allocation."""
+    def __init__(self):
+        self.shell=C.WinDLL('shell32',use_last_error=True)
+        self.ole=C.WinDLL('ole32',use_last_error=True)
+        for owner,name,arguments,result in (
+            (self.ole,'CoInitializeEx',[C.c_void_p,C.c_uint32],C.c_int32),
+            (self.ole,'CoUninitialize',[],None),
+            (self.ole,'CoTaskMemFree',[C.c_void_p],None),
+            (self.shell,'SHGetKnownFolderPath',[C.POINTER(_KnownFolderGuid),C.c_uint32,
+                                               C.c_void_p,C.POINTER(C.c_void_p)],C.c_int32)):
+            function=getattr(owner,name);function.argtypes=arguments;function.restype=result
+
+    def initialize(self):
+        return self.ole.CoInitializeEx(None,2)  # Fixed STA; no retry/apartment fallback.
+
+    def query(self,out):
+        return self.shell.SHGetKnownFolderPath(C.byref(LOCAL_APPDATA_GUID),0,None,C.byref(out))
+
+    def release(self,pointer):
+        self.ole.CoTaskMemFree(pointer)
+
+    def uninitialize(self):
+        self.ole.CoUninitialize()
+
+
+def hresult_uint32(value):
+    if type(value) is not int or not -(2**31)<=value<2**31:
+        raise KnownFolderFailure('invalid native HRESULT')
+    return value & 0xffffffff
+
+
+def bounded_utf16_path(pointer):
+    if not pointer: raise KnownFolderFailure('known folder pointer missing')
+    units=bytearray()
+    for index in range(32768):
+        value=C.c_uint16.from_address(pointer+index*2).value
+        if value==0:
+            if not units: raise KnownFolderFailure('known folder path empty')
+            return bytes(units).decode('utf-16-le','strict')
+        if index==32767: raise KnownFolderFailure('known folder path overbound')
+        units.extend(value.to_bytes(2,'little'))
+    raise KnownFolderFailure('known folder path unterminated')
+
+
+def checked_local_appdata_path(value, lstat=None):
+    """Existing local DOS directory only; snapshots are not continuous locks."""
+    if (type(value) is not str or not value or len(value.encode('utf-16-le','strict'))//2>32767
+            or any(ord(char)<32 or char in '/:*?"<>|%' for char in value[2:])):
+        raise KnownFolderFailure('known folder path syntax')
+    drive,tail=ntpath.splitdrive(value)
+    if re.fullmatch('[A-Za-z]:',drive) is None or not tail.startswith('\\'):
+        raise KnownFolderFailure('known folder path not local absolute')
+    parts=tail[1:].split('\\')
+    if not 1<=len(parts)<=32 or any(not part or part in ('.','..') or part.endswith((' ','.')) for part in parts):
+        raise KnownFolderFailure('known folder path components')
+    read=lstat if lstat is not None else lambda path:Path(path).lstat()
+    current=drive+'\\'
+    for part in [None]+parts:
+        if part is not None:current=ntpath.join(current,part)
+        info=read(current)
+        if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode)
+                or getattr(info,'st_file_attributes',0)&0x400):
+            raise KnownFolderFailure('known folder directory not admitted')
+    return value
+
+
+def resolve_local_appdata(api, require_time, metadata):
+    """One query; retain the first error while independently attempting cleanup."""
+    pointer=C.c_void_p();initialized=False;path=None;primary=None
+    require_time(5)
+    try:
+        metadata['com'][0]=True
+        raw=api.initialize()
+        metadata['com'][1]=hresult_uint32(raw)
+        if metadata['com'][1] not in (0,1):
+            raise KnownFolderFailure('COM initialization not admitted')
+        initialized=True
+        require_time(5)
+        metadata['lookup_state']='api_failed'  # Entered call even if it raises.
+        raw=api.query(pointer)
+        metadata['hresult']=hresult_uint32(raw)
+        if metadata['hresult']!=0:raise KnownFolderFailure('known folder lookup not S_OK')
+        metadata['lookup_state']='path_rejected'
+        require_time(5)
+        path=checked_local_appdata_path(bounded_utf16_path(pointer.value))
+        metadata['lookup_state']='ready'
+    except BaseException as exc:
+        primary=exc
+    finally:
+        if pointer.value:
+            metadata['release_attempted']=True
+            try:
+                api.release(pointer)  # One attempt; void return is not readback.
+                metadata['release_returned']=True
+            except BaseException as exc:
+                if primary is None:primary=exc
+        if initialized:
+            metadata['com'][2]=True
+            try:
+                api.uninitialize()  # Balance S_OK and S_FALSE once, never failures.
+                metadata['com'][3]=True
+            except BaseException as exc:
+                if primary is None:primary=exc
+        try:
+            require_time(5)
+            metadata['deadline_verified']=True
+        except BaseException as exc:
+            if primary is None:primary=exc
+    if primary is not None:raise primary
+    return path
+
+
+def child_environment_block(proc, system_root, local_appdata, metadata):
+    values={'SystemRoot':system_root,'LOCALAPPDATA':local_appdata}
+    block=proc._environment_block(values)
+    rows=block.split('\0')
+    expected={key.upper():value for key,value in values.items()}
+    actual={}
+    valid=block.endswith('\0\0')
+    for row in rows[:-2]:
+        key,separator,value=row.partition('=')
+        if not separator or key.upper() in actual:valid=False
+        actual[key.upper()]=value
+    metadata['exact_child_keyset']=valid and actual==expected
+    if not metadata['exact_child_keyset']:
+        raise KnownFolderFailure('child environment keyset mismatch')
+    return block
+
+def run(args, diagnostic=None, child_environment=None):
     # A record is supplied only by the new scoped main path; legacy callers do
     # not load diagnostics or gain an alternate execution/error path.
     helper=None
@@ -396,6 +540,11 @@ def run(args, diagnostic=None):
     finally:current_owner.close(current)
     if identity['elevated'] or identity['appcontainer'] or identity['cid'] != 1:
         raise PermissionError('requires ordinary user outside AppContainer in default compartment')
+    local_appdata=None
+    if budget is not None:
+        if child_environment is None: child_environment=token_reader.default_child_environment()
+        stage('known_folder')
+        local_appdata=resolve_local_appdata(KnownFolderAPI(),require_time,child_environment)
     # Reuse existing typed structures and Job owner, never its network exemption APIs.
     import sys
     sys.path.insert(0, str(ROOT))
@@ -511,7 +660,9 @@ def run(args, diagnostic=None):
                 api._check(k.UpdateProcThreadAttribute(attrs,0,kind,C.byref(value),C.sizeof(value),None,None))
             startup=proc._StartupInfoEx(); startup.StartupInfo.cb=C.sizeof(startup); startup.lpAttributeList=C.cast(attrs,H)
             cmd=[str(exe),'actor-pipe',nonce,str(output/'actor.json'),str(child_read.value),str(child_write.value)]
-            environment=C.create_unicode_buffer(proc._environment_block({'SystemRoot':os.environ['SystemRoot']}))
+            block=(child_environment_block(proc,os.environ['SystemRoot'],local_appdata,child_environment)
+                   if budget is not None else proc._environment_block({'SystemRoot':os.environ['SystemRoot']}))
+            environment=C.create_unicode_buffer(block)
             require_time(5)
             stage('create')
             create_suspended_owned(lambda:k.CreateProcessW(str(exe),C.create_unicode_buffer(subprocess.list2cmdline(cmd)),None,None,True,
@@ -615,6 +766,7 @@ def run(args, diagnostic=None):
     if report['cleanup']['errors'] and helper:
         helper.diagnostic_error(diagnostic,RuntimeError('cleanup observation failed'),'other')
     if diagnostic is not None: report['diagnostic_execution']=list(diagnostic)
+    if child_environment is not None: report['child_environment']=dict(child_environment,com=list(child_environment['com']))
     stage('report')
     journal['cleanup']=report['cleanup']
     if work_state['created']: proof.smoke.save(work/'ownership.json',journal)
@@ -650,12 +802,13 @@ def main(argv=None):
     scoped=any(getattr(args,key,None) is not None for key in ('deadline_qpc','qpc_frequency','case_nonce'))
     if not scoped: return run(args)
     helper=diagnostic_helpers();diagnostic=helper.diagnostic_new()
+    child_environment=helper.default_child_environment()
     try:
-        return run(args,diagnostic)
+        return run(args,diagnostic,child_environment)
     except BaseException as exc:
         helper.diagnostic_error(diagnostic,exc)
         raise
     finally:
-        helper.emit_scoped_diagnostic(args,diagnostic)
+        helper.emit_scoped_diagnostic(args,diagnostic,child_environment=child_environment)
 
 if __name__=='__main__': raise SystemExit(main())

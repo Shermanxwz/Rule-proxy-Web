@@ -29,7 +29,7 @@ REQUIRED_FACTS = BOOL_FIELDS[:14]
 FAILURES = frozenset(('disabled', 'configuration', 'capacity', 'identity', 'launcher',
                       'report', 'cleanup', 'deadline', 'internal'))
 PUBLIC_KEYS = frozenset(('schema_version', 'stage', 'case_nonce_sha256', 'actor_sha256',
-                         'status', 'failure', 'diagnostic', *BOOL_FIELDS))
+                         'status', 'failure', 'diagnostic', 'child_environment', 'child_environment_source', *BOOL_FIELDS))
 
 
 READ_STATES = ('not_attempted','missing','read_error','overbound','utf8','json','duplicate','nonfinite','not_object','close_uncertain','parsed')
@@ -101,8 +101,8 @@ def owned_stdout_execution(value, launch, config, deadline, frequency, launcher)
             or launch.get('cleanup',{}).get('process_exit_confirmed') is not True
             or type(launch.get('child_pid')) is not int or launch['child_pid'] <= 0):
         return None
-    if (type(value) is not dict or set(value) != {'schema_version','stage','actor_sha256','case_nonce_sha256','deadline_qpc','qpc_frequency','execution'}
-            or type(value['schema_version']) is not int or value['schema_version'] != 1
+    if (type(value) is not dict or set(value) != {'schema_version','stage','actor_sha256','case_nonce_sha256','deadline_qpc','qpc_frequency','execution','child_environment'}
+            or type(value['schema_version']) is not int or value['schema_version'] != 2
             or value['stage'] != 'stage0b-diagnostic'
             or value['actor_sha256'] != config['actor_sha256']
             or value['case_nonce_sha256'] != hashlib.sha256(config['case_nonce'].encode('ascii')).hexdigest()
@@ -110,9 +110,26 @@ def owned_stdout_execution(value, launch, config, deadline, frequency, launcher)
             or type(value['qpc_frequency']) is not int or value['qpc_frequency'] != frequency):
         return None
     try:
+        if value['child_environment'] is not None:
+            launcher.validate_child_environment(value['child_environment'])
         return launcher.validate_execution(value['execution'])
     except Exception:
         return None
+
+
+def set_child_environment(public, value, source, launcher):
+    try:
+        value=launcher.validate_child_environment(value)
+    except Exception:
+        return
+    previous=public['child_environment']
+    if previous is not None and previous != value:
+        public['child_environment']=None
+        public['child_environment_source']='none'
+        public['failure']=public['failure'] or 'configuration'
+        return
+    public['child_environment']=value
+    public['child_environment_source']=source
 
 
 def set_execution(diagnostic, index, value, source, launcher):
@@ -146,9 +163,9 @@ def default_public(case_nonce, actor_sha256):
         raise ValueError('nonce')
     if type(actor_sha256) is not str or not HASH.fullmatch(actor_sha256):
         raise ValueError('pin')
-    return dict(schema_version=2, stage='stage0b-minimum',
+    return dict(schema_version=3, stage='stage0b-minimum',
                 case_nonce_sha256=hashlib.sha256(case_nonce.encode('ascii')).hexdigest(),
-                actor_sha256=actor_sha256, status='inconclusive', failure=None, diagnostic=default_diagnostic(),
+                actor_sha256=actor_sha256, status='inconclusive', failure=None, diagnostic=default_diagnostic(), child_environment=None,child_environment_source='none',
                 **{key: False for key in BOOL_FIELDS})
 
 
@@ -166,6 +183,15 @@ def validate_public(value, case_nonce, actor_sha256):
     if value['failure'] is not None and (type(value['failure']) is not str or value['failure'] not in FAILURES):
         raise ValueError('failure')
     validate_diagnostic(value['diagnostic'])
+    source=value['child_environment_source'];environment=value['child_environment']
+    if type(source) is not str or source not in ('none','report','owned_stdout') or (source=='none') != (environment is None):
+        raise ValueError('environment')
+    if environment is not None:
+        launcher_module().validate_child_environment(environment)
+        if source=='report' and (value['diagnostic']['reads'][1]!='parsed' or value['diagnostic']['bindings'][1]!='verified'):
+            raise ValueError('environment')
+        if source=='owned_stdout' and (value['diagnostic']['stdout_reads'][1]!='parsed' or value['diagnostic']['bindings'][0]!='verified'):
+            raise ValueError('environment')
     dependencies = {
         'launcher_identity_verified': ('current_ordinary_verified', 'launcher_creation_observed'),
         'probe_identity_verified': ('launcher_identity_verified', 'probe_creation_observed'),
@@ -179,6 +205,8 @@ def validate_public(value, case_nonce, actor_sha256):
     if any(value[key] and not all(value[dep] for dep in deps) for key, deps in dependencies.items()):
         raise ValueError('consistency')
     passed = all(value[key] for key in REQUIRED_FACTS) and value['failure'] is None
+    if passed and not launcher_module().child_environment_admitted(environment):
+        raise ValueError('environment')
     if value['stage0b_passed'] != passed or value['status'] != ('passed' if passed else 'inconclusive'):
         raise ValueError('qualification')
     if len((json.dumps(value, ensure_ascii=True, indent=2) + '\n').encode('ascii')) > MAX_PUBLIC:
@@ -346,6 +374,7 @@ def project_private(public, launcher, launch, report, probe, config, parent_sid,
     public.update(facts)
     diagnostic['bindings'][1] = probe_binding_stage(probe,config,inner['child_pid'],parent_sid,deadline,frequency)
     if facts['probe_identity_verified']:
+        set_child_environment(public,probe.get('child_environment'),'report',launcher)
         set_execution(diagnostic,2,probe.get('diagnostic_execution'),'report',launcher)
     diagnostic['bindings'][2] = native_binding_stage(probe,native,facts)
     public['nested_cleanup_verified'] = (facts['nested_cleanup_verified'] and cleanup_verified(inner)
@@ -438,6 +467,8 @@ def execute(config, deadline, frequency, *, root=ROOT, api=None):
                 execution = owned_stdout_execution(value,owner,config,deadline,frequency,launcher)
                 if execution is not None:
                     set_execution(diagnostic,index+1,execution,'owned_stdout',launcher)
+                    if index==1:
+                        set_child_environment(public,value.get('child_environment'),'owned_stdout',launcher)
         if 'error' in launch or launch.get('resumed') is not True:
             public['failure'] = 'launcher'
         if not all(public[key] for key in REQUIRED_FACTS):
@@ -461,6 +492,8 @@ def execute(config, deadline, frequency, *, root=ROOT, api=None):
             public['failure'] = public['failure'] or 'deadline'
     # Leave private roots to the original outer guest cleanup. Unknown ownership
     # is never converted into successful deletion by this adapter.
+    if not launcher.child_environment_admitted(public['child_environment']):
+        public['failure'] = public['failure'] or 'configuration'
     passed = all(public[key] for key in REQUIRED_FACTS) and public['failure'] is None
     public['stage0b_passed'] = passed
     public['status'] = 'passed' if passed else 'inconclusive'

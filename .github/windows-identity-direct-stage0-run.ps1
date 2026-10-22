@@ -353,7 +353,7 @@ function Test-Stage0bDiagnostic($Value) {
     $readStates=@('not_attempted','missing','read_error','overbound','utf8','json','duplicate','nonfinite','not_object','close_uncertain','parsed')
     $bindingStates=@('not_attempted','unavailable','schema','nonce','hash','deadline','identity','image','pipe','eof','exit','cleanup','verified')
     $sources=@('none','owner','report','owned_stdout')
-    $stages=@('not_started','arguments','inputs','qpc','identity','job','stdio','create','assign','image','token','resume','wait','copy','profile','acl','pipes','echo','native_report','eof','cleanup','report','complete','initial_token','input_validation','input_copy','profile_create','acl_grant','sid','echo_write','echo_read','exit','native_parse','completed')
+    $stages=@('not_started','arguments','inputs','qpc','identity','job','stdio','create','assign','image','token','resume','wait','copy','profile','acl','pipes','echo','native_report','eof','cleanup','report','complete','initial_token','input_validation','input_copy','profile_create','acl_grant','sid','echo_write','echo_read','exit','native_parse','completed','known_folder')
     $categories=@('none','configuration','deadline','identity','hash','io','parser','schema','native','invariant','cleanup','other')
     $operations=@('none','qpc','token','image','job_create','job_assign','job_query','job_terminate','process_create','process_wait','process_exit','process_terminate','resume','stdio','attribute','pipe','profile','acl','close','other')
     foreach($spec in @(@('reads',3,$readStates),@('bindings',3,$bindingStates),@('stdout_reads',2,$readStates),@('execution_sources',3,$sources))) {
@@ -381,17 +381,49 @@ function Test-Stage0bDiagnostic($Value) {
     }
     return $true
 }
+function Test-Stage0bChildEnvironment($Value) {
+    $keys=@('environment_version','variant','lookup_state','hresult','release_attempted','release_returned','exact_child_keyset','com','deadline_verified')
+    if($Value -isnot [PSCustomObject] -or @($Value.PSObject.Properties).Count -ne $keys.Count){return $false}
+    foreach($key in $keys){if($key -cnotin @($Value.PSObject.Properties.Name)){return $false}}
+    $states=@('not_attempted','api_failed','path_rejected','ready')
+    if($Value.environment_version -isnot [int] -or $Value.environment_version -ne 1 -or $Value.variant -isnot [string] -or $Value.variant -cne 'systemroot_localappdata_v1' -or $Value.lookup_state -isnot [string] -or $Value.lookup_state -cnotin $states){return $false}
+    foreach($key in @('release_attempted','release_returned','deadline_verified')){if($Value.$key -isnot [bool]){return $false}}
+    if($null -ne $Value.exact_child_keyset -and $Value.exact_child_keyset -isnot [bool]){return $false}
+    $hr=$Value.hresult;$com=$Value.com
+    if($null -ne $hr -and (($hr -isnot [int] -and $hr -isnot [long]) -or $hr -lt 0 -or $hr -gt 4294967295)){return $false}
+    if($com -isnot [array] -or $com.Count -ne 4){return $false}
+    foreach($i in @(0,2,3)){if($com[$i] -isnot [bool]){return $false}}
+    if($null -ne $com[1] -and (($com[1] -isnot [int] -and $com[1] -isnot [long]) -or $com[1] -lt 0 -or $com[1] -gt 4294967295)){return $false}
+    $comReady=($com[0] -and $null -ne $com[1] -and $com[1] -in @(0,1))
+    if(($null -ne $com[1] -and -not $com[0]) -or ($com[2] -and -not $comReady) -or ($com[3] -and -not $com[2]) -or ($Value.release_returned -and -not $Value.release_attempted)){return $false}
+    if($Value.lookup_state -ceq 'not_attempted') {
+        if($null -ne $hr -or $Value.release_attempted -or $Value.release_returned -or $null -ne $Value.exact_child_keyset){return $false}
+    } else {
+        if(-not $comReady){return $false}
+        if($Value.lookup_state -cin @('ready','path_rejected') -and ($null -eq $hr -or $hr -ne 0)){return $false}
+        if($Value.lookup_state -ceq 'api_failed' -and $null -ne $hr -and $hr -eq 0){return $false}
+    }
+    if($null -ne $Value.exact_child_keyset -and $Value.lookup_state -cne 'ready'){return $false}
+    return $true
+}
 function Test-Stage0bPublic($Value,$Configuration) {
     $booleans=@('current_ordinary_verified','launcher_creation_observed','probe_creation_observed','actor_creation_observed','launcher_identity_verified','probe_identity_verified','actor_identity_verified','fresh_actor_verified','pipe_echo_verified','pipe_eof_verified','actor_exit_verified','nested_cleanup_verified','launcher_exit_verified','adapter_cleanup_verified','stage0b_passed','network_tested','proxy_tested','product_acceptance')
-    $keys=@('schema_version','stage','case_nonce_sha256','actor_sha256','status','failure','diagnostic')+$booleans
+    $keys=@('schema_version','stage','case_nonce_sha256','actor_sha256','status','failure','diagnostic','child_environment','child_environment_source')+$booleans
     if($Value -isnot [PSCustomObject] -or @($Value.PSObject.Properties).Count -ne $keys.Count){return $false}
     foreach($key in $keys){if($key -cnotin @($Value.PSObject.Properties.Name)){return $false}}
     foreach($key in @('stage','actor_sha256','case_nonce_sha256','status')){if($Value.$key -isnot [string]){return $false}}
-    if($Value.schema_version -isnot [int] -or $Value.schema_version -ne 2 -or $Value.stage -cne 'stage0b-minimum' -or $Value.actor_sha256 -cne $Configuration.actor_sha256 -or $Value.case_nonce_sha256 -cne (Get-N0aSha256 ([Text.Encoding]::ASCII.GetBytes($Configuration.case_nonce)))){return $false}
+    if($Value.schema_version -isnot [int] -or $Value.schema_version -ne 3 -or $Value.stage -cne 'stage0b-minimum' -or $Value.actor_sha256 -cne $Configuration.actor_sha256 -or $Value.case_nonce_sha256 -cne (Get-N0aSha256 ([Text.Encoding]::ASCII.GetBytes($Configuration.case_nonce)))){return $false}
     foreach($key in $booleans){if($Value.$key -isnot [bool]){return $false}}
     foreach($key in @('network_tested','proxy_tested','product_acceptance')){if($Value.$key -ne $false){return $false}}
     if($null -ne $Value.failure -and ($Value.failure -isnot [string] -or $Value.failure -cnotin @('capacity','cleanup','configuration','deadline','disabled','identity','internal','launcher','report'))){return $false}
     if(-not(Test-Stage0bDiagnostic $Value.diagnostic)){return $false}
+    $environment=$Value.child_environment;$source=$Value.child_environment_source
+    if($source -isnot [string] -or $source -cnotin @('none','report','owned_stdout') -or (($source -ceq 'none') -ne ($null -eq $environment))){return $false}
+    if($null -ne $environment) {
+        if(-not(Test-Stage0bChildEnvironment $environment)){return $false}
+        if($source -ceq 'report' -and ($Value.diagnostic.reads[1] -cne 'parsed' -or $Value.diagnostic.bindings[1] -cne 'verified')){return $false}
+        if($source -ceq 'owned_stdout' -and ($Value.diagnostic.stdout_reads[1] -cne 'parsed' -or $Value.diagnostic.bindings[0] -cne 'verified')){return $false}
+    }
     $dependencies=@{
         launcher_identity_verified=@('current_ordinary_verified','launcher_creation_observed')
         probe_identity_verified=@('launcher_identity_verified','probe_creation_observed')
@@ -403,11 +435,12 @@ function Test-Stage0bPublic($Value,$Configuration) {
     foreach($key in $dependencies.Keys){if($Value.$key){foreach($dependency in $dependencies[$key]){if(-not $Value.$dependency){return $false}}}}
     $passed=($null -eq $Value.failure)
     foreach($key in @('current_ordinary_verified','launcher_creation_observed','probe_creation_observed','actor_creation_observed','launcher_identity_verified','probe_identity_verified','actor_identity_verified','fresh_actor_verified','pipe_echo_verified','pipe_eof_verified','actor_exit_verified','nested_cleanup_verified','launcher_exit_verified','adapter_cleanup_verified')){$passed=$passed -and $Value.$key}
+    if($passed -and ($null -eq $environment -or $environment.lookup_state -cne 'ready' -or $environment.hresult -ne 0 -or -not $environment.release_attempted -or -not $environment.release_returned -or $environment.exact_child_keyset -ne $true -or -not $environment.deadline_verified -or -not $environment.com[0] -or $environment.com[1] -notin @(0,1) -or -not $environment.com[2] -or -not $environment.com[3])){return $false}
     $status=if($passed){'passed'}else{'inconclusive'}
     return ($Value.stage0b_passed -eq $passed -and $Value.status -ceq $status)
 }
 function ConvertFrom-Stage0bPublic([string]$Text,$Configuration) {
-    # Closed schema2 uses globally distinct object keys and fixed labels; no legitimate escaped keys/values.
+    # Closed schema3 uses globally distinct object keys and fixed labels; no legitimate escaped keys/values.
     # Reject duplicate tokens before JSON collapses them, including nested held fields.
     if($Text.Contains('\')){throw 'stage0b_json'}
     $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)

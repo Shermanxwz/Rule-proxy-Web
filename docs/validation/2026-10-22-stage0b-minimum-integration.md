@@ -223,3 +223,70 @@ composition is separately tested. The diagnostic stdout upper composition is
 437 bytes. All remain below their unchanged 4,096/1,024-byte limits; the existing
 1 MiB staging planning allowance is not a filesystem or stdout quota. No valid
 positive is dropped merely to fit the envelope.
+
+## Single child-environment candidate (schema 3; code-only)
+
+This candidate changes only the scoped probe's actor environment block from
+`SystemRoot` alone to exactly **`SystemRoot` and `LOCALAPPDATA`**. It is not a
+paired experiment, retry, environment sweep, or an explanation of the previous
+CreateProcess error. The caller/launcher environment remains its existing four
+keys (`SystemRoot`, `WINDIR`, `TEMP`, `TMP`). No native actor, token, capability,
+attribute list, profile policy, deadline, or payload-member change is implied.
+
+Before creating its fresh profile or granting ACLs, the ordinary probe uses one
+fixed same-thread `CoInitializeEx(NULL, COINIT_APARTMENTTHREADED)` call. Observed
+S_OK or S_FALSE permits one `SHGetKnownFolderPath` query for LocalAppData with
+flags zero and NULL token; either success requires exactly one balancing
+`CoUninitialize` attempt. A failed or unknown COM initialization, including
+changed-mode, admits no query, fallback, or uninitialization. No COM security or
+global settings are changed. The returned path is private: a bounded UTF-16,
+existing local absolute non-reparse path is required; there is no environment
+variable fallback. Every non-NULL returned allocation receives one
+`CoTaskMemFree` attempt, including failed/unknown lookup or rejected path. Release
+attempted/returned records only those calls, **not verified deallocation**.
+Original QPC checks bound admission before and after these synchronous operations;
+they do not promise hard cancellation of a kernel call.
+
+Public schema **3** adds nullable `child_environment` and an explicit
+`child_environment_source` (`none`, `report`, or `owned_stdout`). Its metadata is
+exactly:
+
+- `environment_version: 1`, `variant: "systemroot_localappdata_v1"`;
+- `lookup_state`: `not_attempted`, `api_failed`, `path_rejected`, or `ready`;
+- nullable unsigned-32 `hresult`, distinct from the existing Win32 diagnostic;
+- Boolean `release_attempted` and `release_returned`;
+- nullable Boolean `exact_child_keyset`, observed from the actual constructed
+  child block, not inferred from the declared variant;
+- `com: [initialization_attempted, hresult_or_null,
+  uninitialize_attempted, uninitialize_returned]`;
+- Boolean `deadline_verified`, the helper's final original-cutoff observation.
+
+HRESULTs are the exact signed API result normalized to uint32. `api_failed`
+means non-S_OK or an entered lookup with no returned HRESULT; it does not assert
+Win32 semantics or necessarily a set HRESULT failure bit. `not_attempted` is
+not used for an entered call. `ready` means S_OK plus admitted private path and
+remains observable if later release, block construction, or deadline checks
+fail. Full admission additionally requires both observed release returns, the
+exact two-key block, and the final deadline observation. The old core
+qualification conjunction remains required; missing or failed new admission
+cannot produce a new-variant pass. Independently verified pipe evidence remains
+visible after a later environment/cleanup qualification failure.
+
+The same nested metadata appears in the private probe report (whose existing
+outer schema remains 1) and in version **2** of its owned-stdout diagnostic.
+Launcher stdout carries null child metadata. A private-report source requires
+fresh probe identity binding; an owned-stdout source requires the existing
+held-invocation and commitment checks, not successful private-report identity.
+Thus observed lookup failure can survive a missing native actor report without
+being invented from a requested option. Unavailable metadata is null, not a set
+of false observations. Conflicting bound metadata cannot qualify. Historical
+public schemas 1/2 and stdout schema 1 are not silently reinterpreted.
+
+The revised conservative independent-field ceiling, `indent=2` plus newline, is
+**2,340 bytes** public, **2,787 bytes** wire envelope, **3,226 bytes** host wrapper,
+and **809 bytes** owned-stdout record. These are not jointly attainable execution
+witnesses. Valid compositions and the conservative ceiling are both tested;
+4,096-byte public/wire, 1,024-byte stdout, and 128-KiB private-report limits are
+unchanged. The distinct `environment_version` key preserves the existing strict
+closed-schema duplicate-key guard. No workflow or runtime authorization is
+provided by this candidate.

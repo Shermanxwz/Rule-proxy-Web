@@ -66,7 +66,7 @@ def failure(exc):
 
 
 # Closed observations only; never an additional acceptance predicate.
-DIAGNOSTIC_STAGES = ('not_started','arguments','inputs','qpc','identity','job','stdio','create','assign','image','token','resume','wait','copy','profile','acl','pipes','echo','native_report','eof','cleanup','report','complete','initial_token','input_validation','input_copy','profile_create','acl_grant','sid','echo_write','echo_read','exit','native_parse','completed')
+DIAGNOSTIC_STAGES = ('not_started','arguments','inputs','qpc','identity','job','stdio','create','assign','image','token','resume','wait','copy','profile','acl','pipes','echo','native_report','eof','cleanup','report','complete','initial_token','input_validation','input_copy','profile_create','acl_grant','sid','echo_write','echo_read','exit','native_parse','completed','known_folder')
 DIAGNOSTIC_CATEGORIES = ('none','configuration','deadline','identity','hash','io','parser','schema','native','invariant','cleanup','other')
 DIAGNOSTIC_OPERATIONS = ('none','qpc','token','image','job_create','job_assign','job_query','job_terminate','process_create','process_wait','process_exit','process_terminate','resume','stdio','attribute','pipe','profile','acl','close','other')
 _DIAGNOSTIC_NATIVE_OPERATIONS = {
@@ -130,7 +130,64 @@ def diagnostic_error(record, exc, operation=None):
     record[1:] = [record[0], category, op, code]
 
 
-def emit_scoped_diagnostic(args, record):
+CHILD_ENVIRONMENT_VARIANT = 'systemroot_localappdata_v1'
+CHILD_ENVIRONMENT_STATES = ('not_attempted','api_failed','path_rejected','ready')
+
+
+def default_child_environment():
+    return dict(environment_version=1,variant=CHILD_ENVIRONMENT_VARIANT,
+                lookup_state='not_attempted',hresult=None,release_attempted=False,
+                release_returned=False,exact_child_keyset=None,
+                com=[False,None,False,False],deadline_verified=False)
+
+
+def validate_child_environment(value):
+    if type(value) is not dict or set(value) != set(default_child_environment()):
+        raise GateFailure('environment_shape')
+    if (type(value['environment_version']) is not int or value['environment_version'] != 1
+            or type(value['variant']) is not str or value['variant'] != CHILD_ENVIRONMENT_VARIANT
+            or type(value['lookup_state']) is not str or value['lookup_state'] not in CHILD_ENVIRONMENT_STATES):
+        raise GateFailure('environment_shape')
+    for key in ('release_attempted','release_returned','deadline_verified'):
+        if type(value[key]) is not bool:raise GateFailure('environment_shape')
+    if value['exact_child_keyset'] is not None and type(value['exact_child_keyset']) is not bool:
+        raise GateFailure('environment_shape')
+    hr=value['hresult'];com=value['com']
+    if hr is not None and (type(hr) is not int or not 0 <= hr <= 0xffffffff):
+        raise GateFailure('environment_shape')
+    if (type(com) is not list or len(com)!=4 or any(type(com[i]) is not bool for i in (0,2,3))
+            or com[1] is not None and (type(com[1]) is not int or not 0 <= com[1] <= 0xffffffff)):
+        raise GateFailure('environment_shape')
+    if (com[1] is not None and not com[0] or com[2] and not (com[0] and type(com[1]) is int and com[1] in (0,1))
+            or com[3] and not com[2] or value['release_returned'] and not value['release_attempted']):
+        raise GateFailure('environment_consistency')
+    state=value['lookup_state']
+    if state=='not_attempted':
+        if hr is not None or value['release_attempted'] or value['release_returned'] or value['exact_child_keyset'] is not None:
+            raise GateFailure('environment_consistency')
+    else:
+        if not (com[0] and type(com[1]) is int and com[1] in (0,1)):
+            raise GateFailure('environment_consistency')
+        if state in ('ready','path_rejected') and hr != 0:
+            raise GateFailure('environment_consistency')
+        if state=='api_failed' and hr == 0:
+            raise GateFailure('environment_consistency')
+    if value['exact_child_keyset'] is not None and state != 'ready':
+        raise GateFailure('environment_consistency')
+    return dict(value,com=list(com))
+
+
+def child_environment_admitted(value):
+    try:value=validate_child_environment(value)
+    except Exception:return False
+    return (value['lookup_state']=='ready' and value['hresult']==0
+            and value['release_attempted'] and value['release_returned']
+            and value['exact_child_keyset'] is True and value['deadline_verified']
+            and value['com'][0] and value['com'][1] in (0,1)
+            and value['com'][2] and value['com'][3])
+
+
+def emit_scoped_diagnostic(args, record, child_environment=None):
     """Best effort on existing owned stdout; never changes return/raise."""
     try:
         nonce, digest = args.case_nonce, args.actor_sha256
@@ -140,10 +197,11 @@ def emit_scoped_diagnostic(args, record):
                 or type(deadline) is not int or not 0 < deadline < 2**63
                 or type(frequency) is not int or not 0 < frequency <= 10**9):
             return
-        value = dict(schema_version=1, stage='stage0b-diagnostic', actor_sha256=digest,
+        value = dict(schema_version=2, stage='stage0b-diagnostic', actor_sha256=digest,
                      case_nonce_sha256=hashlib.sha256(nonce.encode('ascii')).hexdigest(),
                      deadline_qpc=deadline, qpc_frequency=frequency,
-                     execution=validate_execution(record))
+                     execution=validate_execution(record),
+                     child_environment=None if child_environment is None else validate_child_environment(child_environment))
         raw = json.dumps(value,ensure_ascii=True,separators=(',',':'))+'\n'
         if len(raw.encode('ascii')) <= 1024:
             sys.stdout.write(raw); sys.stdout.flush()
@@ -1164,6 +1222,7 @@ def run_scoped(args, diagnostic=None):
                                                launch["child_pid"], parent["sid"],
                                                args.deadline_qpc, args.qpc_frequency, native=native)
             report["stage0b_passed"] = (all(report["probe_facts"].values())
+                and child_environment_admitted(value.get("child_environment"))
                 and launch.get("exit_code") == 0 and "error" not in launch
                 and launch["cleanup"]["job_closed"] and launch["cleanup"]["job_empty"]
                 and launch["cleanup"]["handles_closed"] and not launch["cleanup"]["errors"])

@@ -74,6 +74,9 @@ class HostTests(unittest.TestCase):
         value=envelope()
         for key in h.stage0b_helpers().REQUIRED_FACTS:value['stage0b'][key]=True
         value['stage0b'].update(stage0b_passed=True,status='passed',failure=None)
+        value['stage0b']['child_environment']=dict(environment_version=1,variant='systemroot_localappdata_v1',lookup_state='ready',hresult=0,release_attempted=True,release_returned=True,exact_child_keyset=True,com=[True,0,True,True],deadline_verified=True)
+        value['stage0b']['child_environment_source']='report'
+        value['stage0b']['diagnostic']['reads'][1]='parsed';value['stage0b']['diagnostic']['bindings'][1]='verified'
         h.validate_stage0b_envelope(value,CONFIG)
         self.assertTrue(h.stage0b_ipc_qualified(value,True))
         combined=dict(original_stage0_passed=False,stage0b_ipc_qualified=h.stage0b_ipc_qualified(value,True),product_acceptance=False)
@@ -82,8 +85,8 @@ class HostTests(unittest.TestCase):
             row=copy.deepcopy(value);row['launcher'].update(changes)
             self.assertFalse(h.stage0b_ipc_qualified(row,True));self.assertTrue(row['stage0b']['stage0b_passed'])
         self.assertFalse(h.stage0b_ipc_qualified(value,False))
-    def test_schema2_old_history_rejected_and_known_positive_retained(self):
-        value=envelope();self.assertEqual(value['stage0b']['schema_version'],2)
+    def test_schema3_old_history_rejected_and_known_positive_retained(self):
+        value=envelope();self.assertEqual(value['stage0b']['schema_version'],3)
         value['stage0b']['launcher_creation_observed']=True
         value['stage0b']['diagnostic']['reads']=['missing']*3
         observed=h.validate_stage0b_envelope(value,CONFIG)
@@ -93,9 +96,10 @@ class HostTests(unittest.TestCase):
         old=copy.deepcopy(value);old['stage0b']['schema_version']=1;del old['stage0b']['diagnostic']
         with self.assertRaises(ValueError):h.validate_stage0b_envelope(old,CONFIG)
         self.assertEqual(old['stage0b']['schema_version'],1)
-    def test_schema2_independent_maxima_public_wrapper_below4096(self):
+    def test_schema3_independent_maxima_public_wrapper_below4096(self):
         g=h.stage0b_helpers();l=g.launcher_module();longest=lambda labels:max(labels,key=len)
         value=envelope();public=value['stage0b'];public['failure']=longest(g.FAILURES)
+        public.update(child_environment=dict(environment_version=1,variant=l.CHILD_ENVIRONMENT_VARIANT,lookup_state=max(l.CHILD_ENVIRONMENT_STATES,key=len),hresult=4294967295,release_attempted=False,release_returned=False,exact_child_keyset=False,com=[False,4294967295,False,False],deadline_verified=False),child_environment_source='owned_stdout')
         public['diagnostic']=dict(v=1,held=dict(created=False,resumed=False,exit_observed=False,exit_code=4294967295,cleanup_confirmed=False),reads=[longest(g.READ_STATES)]*3,bindings=[longest(g.BINDING_STATES)]*3,stdout_reads=[longest(g.READ_STATES)]*2,execution_sources=['owned_stdout']*3,execution=[[longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_CATEGORIES),longest(l.DIAGNOSTIC_OPERATIONS),4294967295]]*3)
         value['launcher'].update(phase='configuration',failure='work_budget_exhausted',python_exit_code=-2147483648,process_exit_confirmed=False)
         full=dict(schema_version=1,stage='stage0b-host',report=value,report_validation='unavailable',original_stage0_passed=False,vm_destroyed=False,product_acceptance=False,stage0b_ipc_qualified=False)

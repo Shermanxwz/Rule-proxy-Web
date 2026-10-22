@@ -58,8 +58,16 @@ def inner_launch(pid=33):
                         'process_exit_confirmed': True, 'close_uncertain': False, 'errors': []}}
 
 
+def good_environment():
+    value=l.default_child_environment()
+    value.update(lookup_state='ready',hresult=0,release_attempted=True,release_returned=True,
+                 exact_child_keyset=True,com=[True,0,True,True],deadline_verified=True)
+    return value
+
+
 def evidence(config, controller_pid=33):
     value = p.good()
+    value['child_environment']=good_environment()
     value.update(schema_version=1, stage='0b', nonce=config['case_nonce'],
                  actor_sha256=config['actor_sha256'], copied_actor_sha256=config['actor_sha256'],
                  deadline_qpc=D, qpc_frequency=F)
@@ -206,6 +214,7 @@ class ProjectionTests(unittest.TestCase):
     def projection(self, mutate=None):
         config=self.config();value=evidence(config);r=report(config);outer=inner_launch(32)
         public=g.default_public(config['case_nonce'],config['actor_sha256']);public['current_ordinary_verified']=True
+        public['diagnostic']['reads']=['parsed']*3
         if mutate:mutate(value,r,outer)
         g.project_private(public,l,outer,r,value,config,t.ordinary()['sid'],D,F,native=copy.deepcopy(value['actor']))
         return public
@@ -336,6 +345,11 @@ class ActualModuleCompositionTests(unittest.TestCase):
                 if mutation:mutation(value,native)
                 (work/'report.json').write_text(json.dumps(value))
                 (work/'output/actor.json').write_text(json.dumps(native))
+                import io,contextlib
+                stdout=io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    l.emit_scoped_diagnostic(SimpleNamespace(case_nonce=config['case_nonce'],actor_sha256=config['actor_sha256'],deadline_qpc=D,qpc_frequency=F),l.diagnostic_new(),value.get('child_environment'))
+                (inner.work/'controller.stdout').write_text(stdout.getvalue())
             inner.after_resume=probe_run
             if inner_close_late:
                 original_close=inner.close
@@ -569,7 +583,12 @@ class ClosedDiagnosticTests(unittest.TestCase):
         d['bindings']=[longest(g.BINDING_STATES)]*3
         d['execution_sources']=[longest(g.EXECUTION_SOURCES)]*3
         d['execution']=[[longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_CATEGORIES),longest(l.DIAGNOSTIC_OPERATIONS),0xffffffff] for _ in range(3)]
-        self.assertEqual([len((json.dumps(obj,ensure_ascii=True,indent=2)+'\n').encode()) for obj in (v,envelope,host)],[1922,2335,2740])
+        v['child_environment']={'environment_version':1,'variant':l.CHILD_ENVIRONMENT_VARIANT,
+            'lookup_state':'path_rejected','hresult':0xffffffff,'release_attempted':False,
+            'release_returned':False,'exact_child_keyset':False,'com':[False,0xffffffff,False,False],
+            'deadline_verified':False}
+        v['child_environment_source']='owned_stdout'
+        self.assertEqual([len((json.dumps(obj,ensure_ascii=True,indent=2)+'\n').encode()) for obj in (v,envelope,host)],[2340,2787,3226])
 
     def test_actual_isolated_production_import_and_projection_composition(self):
         import subprocess,sys
@@ -592,6 +611,94 @@ sys.stdout.buffer.write(b'isolated_composition_ok'+bytes([10]));sys.stdout.buffe
             self.fail('isolated composition unavailable')
         self.assertEqual(result.returncode,0,'isolated composition failed')
         self.assertEqual(result.stdout,b'isolated_composition_ok\n')
+
+
+class EnvironmentMetadataTests(unittest.TestCase):
+    def test_exact_typed_states_and_independent_cleanup(self):
+        self.assertFalse(l.child_environment_admitted(l.default_child_environment()))
+        for hr in (0,1):
+            value=good_environment();value['com'][1]=hr
+            self.assertTrue(l.child_environment_admitted(value))
+        value=good_environment();value['release_returned']=False
+        self.assertEqual(l.validate_child_environment(value)['lookup_state'],'ready')
+        self.assertFalse(l.child_environment_admitted(value))
+        value=good_environment();value['com'][3]=False
+        self.assertFalse(l.child_environment_admitted(l.validate_child_environment(value)))
+        value=good_environment();value['deadline_verified']=False
+        self.assertFalse(l.child_environment_admitted(l.validate_child_environment(value)))
+        value=l.default_child_environment();value['com']=[True,0,True,True]
+        value.update(lookup_state='api_failed',hresult=None,release_attempted=True,release_returned=True)
+        l.validate_child_environment(value)
+        for key,bad in [('environment_version',True),('hresult',True),('hresult',-1),('hresult',2**32),('lookup_state','raw-path'),('exact_child_keyset',1),('release_returned',1),('deadline_verified',1)]:
+            value=good_environment();value[key]=bad
+            with self.assertRaises(l.GateFailure):l.validate_child_environment(value)
+        cases=[dict(com=[False,0,False,False]),dict(com=[True,0x80010106,True,True]),dict(com=[True,None,False,True]),
+               dict(lookup_state='not_attempted'),dict(lookup_state='api_failed',hresult=0),dict(lookup_state='ready',hresult=None),
+               dict(release_attempted=False,release_returned=True),dict(lookup_state='path_rejected',exact_child_keyset=True)]
+        for change in cases:
+            value=good_environment();value.update(change)
+            with self.assertRaises(l.GateFailure):l.validate_child_environment(value)
+        for failed_hr in (1,0x80010106,0xffffffff,None):
+            value=l.default_child_environment();value['com']=[True,0,True,True]
+            value.update(lookup_state='api_failed',hresult=failed_hr)
+            l.validate_child_environment(value)
+
+    def test_missing_native_retains_observed_environment_through_owned_stdout(self):
+        original=l.read_private
+        def read(path,limit=l.MAX_REPORT):
+            if path_tail(path,'output','actor.json'):raise FileNotFoundError('private')
+            return original(path,limit)
+        with patch.object(l,'read_private',side_effect=read):
+            value,_,_=ActualModuleCompositionTests().compose()
+        self.assertEqual(value['child_environment'],good_environment())
+        self.assertEqual(value['child_environment_source'],'owned_stdout')
+        self.assertFalse(value['stage0b_passed']);self.assertFalse(value['actor_identity_verified'])
+
+    def test_unavailable_or_failed_environment_does_not_erase_echo_or_qualify(self):
+        for change in (lambda p:p.pop('child_environment'),lambda p:p['child_environment'].update(deadline_verified=False),
+                       lambda p:p['child_environment'].update(release_returned=False),
+                       lambda p:p['child_environment'].update(exact_child_keyset=False)):
+            composition=ActualModuleCompositionTests()
+            value,_,_=composition.compose(lambda p,n:change(p))
+            self.assertEqual(composition.launcher_code,1)
+            self.assertTrue(value['pipe_echo_verified'])
+            self.assertFalse(value['stage0b_passed'])
+            self.assertEqual(value['failure'],'configuration')
+        value,_,_=ActualModuleCompositionTests().compose()
+        self.assertTrue(value['stage0b_passed'])
+        for source,mutate in [('report',lambda d:d['bindings'].__setitem__(1,'identity')),
+                              ('owned_stdout',lambda d:d['stdout_reads'].__setitem__(1,'missing'))]:
+            bad=copy.deepcopy(value);bad['child_environment_source']=source;mutate(bad['diagnostic'])
+            with self.assertRaises((ValueError,l.GateFailure)):g.validate_public(bad,'a'*32,bad['actor_sha256'])
+
+    def test_versions_key_uniqueness_stdout_binding_and_bound(self):
+        import io,contextlib
+        value,_,_=ActualModuleCompositionTests().compose()
+        self.assertEqual(value['schema_version'],3)
+        keys=[]
+        def collect(item):
+            if type(item) is dict:
+                keys.extend(item)
+                for v in item.values():collect(v)
+            elif type(item) is list:
+                for v in item:collect(v)
+        collect(value)
+        self.assertEqual(len(keys),len(set(keys)))
+        args=SimpleNamespace(case_nonce='a'*32,actor_sha256='b'*64,deadline_qpc=D,qpc_frequency=F)
+        stdout=io.StringIO()
+        with contextlib.redirect_stdout(stdout):l.emit_scoped_diagnostic(args,l.diagnostic_new(),good_environment())
+        record=json.loads(stdout.getvalue());self.assertEqual(record['schema_version'],2)
+        self.assertEqual(record['child_environment'],good_environment())
+        self.assertLessEqual(len(stdout.getvalue().encode()),1024)
+        record['schema_version']=1
+        self.assertIsNone(g.owned_stdout_execution(record,inner_launch(),dict(case_nonce='a'*32,actor_sha256='b'*64),D,F,l))
+        self.assertNotIn('C:\\',stdout.getvalue());self.assertNotIn('a'*32,stdout.getvalue())
+        longest=lambda seq:max(seq,key=len)
+        record.update(schema_version=2,deadline_qpc=2**63-1,qpc_frequency=10**9,
+            execution=[longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_STAGES),longest(l.DIAGNOSTIC_CATEGORIES),longest(l.DIAGNOSTIC_OPERATIONS),0xffffffff])
+        record['child_environment'].update(lookup_state='path_rejected',hresult=0xffffffff,release_attempted=False,
+            release_returned=False,exact_child_keyset=False,com=[False,0xffffffff,False,False],deadline_verified=False)
+        self.assertEqual(len((json.dumps(record,indent=2)+'\n').encode()),809)
 
 
 if __name__=='__main__':unittest.main()
