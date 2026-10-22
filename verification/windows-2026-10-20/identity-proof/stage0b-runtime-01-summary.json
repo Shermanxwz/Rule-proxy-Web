@@ -1,0 +1,100 @@
+{
+  "conclusion": "failure",
+  "experiment": "first genuine Win11 Stage0b inherited-pipe prerequisite attempt",
+  "freeze_sha256": "02ca3b1be92c8370695bff9d712ab42da63fb48eaaa5498e9ad16e61023a9e62",
+  "head": "e23ab33df747250b18bc00f5978baad6b7957569",
+  "interpretation": [
+    "The genuine Win11 guest reached the Stage0b adapter. Its strict current ordinary-token predicate and held launcher creation were observed, but no bound nested pipe echo/EOF or qualified IPC result was established. False nested fields are lack of verified evidence, not proof that the probe/actor was never created or no pipe operation occurred.",
+    "The adapter reported failure category report. Source sets that category after its held launcher has exited and before three private report reads; it also remains the category when parsed evidence fails binding or qualification. The public receipt does not distinguish missing, malformed, oversized, mismatched or unqualified reports, and cannot identify a particular failing API.",
+    "The projection runs only after all three private report reads succeed. Therefore an unavailable later report can suppress otherwise available earlier launcher facts. This source observation identifies a diagnostic limitation, not the captured runtime cause. Private nested reports and logs were not published and were destroyed with the owned VM/work; no retrospective reconstruction is claimed.",
+    "The outer PowerShell python_exit_code=1 belongs to the adapter, not its child launcher. Adapter cleanup true source-requires its held launcher exit and supervisory Job/handle cleanup. launcher_exit_verified=false means no verified zero exit, not necessarily an unknown exit; the private launcher exit code is unavailable. Nested profile/ACL/pipe cleanup remains unverified separately.",
+    "QEMU and TPM were forcibly terminated by owned teardown and their exits were confirmed at -9, not natural zero exits. QMP, HTTP server/thread, watcher and work removal were confirmed with zero teardown errors. VM destruction does not convert unverified in-guest profile/ACL cleanup into separately observed success.",
+    "Original PSEC Stage0 remains false because the observed capability set is not empty, on build 26300.9457 below documented floor 26300.9550. That independent result is not changed by this attempt. No proxy, network capability, peer rule, DNS or product-enforcement result follows.",
+    "The capacity and preparation receipts are closed admission/sampled filesystem facts, not peak usage, installed-package-plan verification or a hard quota. Reaching this path is consistent with reviewed payload/copy admission, but exact guest staging totals were not separately exported. All original resource/time limits remained unchanged; no automatic retry was performed."
+  ],
+  "original_stage0": {
+    "build": 26300,
+    "documented_support_floor": "26300.9550",
+    "harness_completed": true,
+    "ordinary_account": true,
+    "passed": false,
+    "primitive_identity_failure": "capabilities_empty",
+    "product_acceptance": false,
+    "ubr": 9457
+  },
+  "privacy": {
+    "raw_sids_pids_nonces_paths_credentials_private_reports_excluded": true,
+    "sanitized_receipts_and_closed_observations_only": true
+  },
+  "receipt_sha256": {
+    "capacity": "e56963f90e500877edb32121a1b42338e0d04492b7033d44bf28f63a806cea52",
+    "preparation": "706b4f9d7801be38e7fc0efe33ffb27a9ee704546fa191f0b9610b6c1685906b",
+    "stage0": "41d937bc5d9c53a2a6155f82625827dfc0ca005884cd1ead709b7bf0fff9b402",
+    "stage0b": "6ac2b7447f1cfd3626397cd42b15a0dce2bcb8be82b86b0a9ad0c859947cc52b"
+  },
+  "resource_observations": {
+    "capture_started": false,
+    "cleanup_remaining_host_work_seconds": 5472,
+    "compiled_actor_sha256": "0226124d24fc2941efc03281e7a3ccfa7d629d7859093fca2d7d0058f48c9555",
+    "compiled_identity_only_actor_bytes": 157696,
+    "downloaded_two_member_digest_verified_without_local_execution": true,
+    "no_extra_capacity_or_network_fallback": true
+  },
+  "reviewed_source": "920c9d1696163cb98dcf72445b544435ec22724b",
+  "run_id": 39737955113,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39737955113",
+  "schema_version": 1,
+  "stage0b": {
+    "actor_creation_observed": false,
+    "adapter_cleanup_verified": true,
+    "current_ordinary_verified": true,
+    "failure": "report",
+    "launcher_creation_observed": true,
+    "launcher_exit_verified": false,
+    "launcher_identity_verified": false,
+    "nested_cleanup_verified": false,
+    "outer_adapter_lifecycle": {
+      "budget_exhausted": false,
+      "failure": "operation_failed",
+      "phase": "completed",
+      "process_exit_confirmed": true,
+      "python_exit_code": 1,
+      "timed_out": false
+    },
+    "pipe_echo_verified": false,
+    "pipe_eof_verified": false,
+    "probe_creation_observed": false,
+    "report_validation": "valid",
+    "stage0b_ipc_qualified": false,
+    "status": "inconclusive"
+  },
+  "teardown": {
+    "error_count": 0,
+    "errors": [],
+    "first_failed_stage": null,
+    "helper_count": 0,
+    "helper_exit_confirmed_count": 0,
+    "qemu_exit_after_cleanup": -9,
+    "qemu_exit_before_cleanup": null,
+    "qemu_exit_confirmed": true,
+    "qemu_present": true,
+    "qmp_close_succeeded": true,
+    "qmp_file_closed": true,
+    "qmp_present": true,
+    "qmp_socket_closed": true,
+    "schema_version": 1,
+    "server_close_succeeded": true,
+    "server_present": true,
+    "server_shutdown_succeeded": true,
+    "server_thread_stopped": true,
+    "tpm_exit_after_cleanup": -9,
+    "tpm_exit_before_cleanup": null,
+    "tpm_exit_confirmed": true,
+    "tpm_present": true,
+    "watcher_present": true,
+    "watcher_stopped": true,
+    "work_remove_attempted": true,
+    "work_removed": true,
+    "work_retained": false
+  }
+}
