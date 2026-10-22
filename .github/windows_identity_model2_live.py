@@ -412,6 +412,14 @@ def validate_selected_admission(value):
     return value
 
 
+def g_command(executable, request, *, actual=False):
+    require(type(actual) is bool, 'g_command_mode')
+    # Pinned CLI main.rs selects Console logging only with --debug; successful
+    # default one-shot runs discard the buffered selected-tier diagnostic.
+    # Keep the request-aware probe's JSON-only protocol unchanged.
+    return [str(executable), *(['--debug'] if actual else ['--probe']), '--config', str(request)]
+
+
 def system_conhost_record(api):
     if hasattr(api, 'system_conhost_path'):
         path = launcher.checked_path(api.system_conhost_path())

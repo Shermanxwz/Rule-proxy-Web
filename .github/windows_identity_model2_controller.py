@@ -556,7 +556,7 @@ class FirstController:
         live.require(not list((work / 'dacl-state').iterdir()), 'fresh_reaper')
         exe = self.root / 'runtime/wxc-exec.exe'
         live.probe.verify_artifacts(self.root / 'bundle.zip', self.root / 'runtime')
-        argv = [str(exe), '--config', str(request)] if actual else [str(exe), '--probe', '--config', str(request)]
+        argv = live.g_command(exe, request, actual=actual)
         row = self.task(name, argv, work, environment=self.api.proc._environment_block(env), image_hash=live.probe.pins.MXC_G_EXECUTOR_SHA256)
         live.require(not list((work / 'dacl-state').iterdir()), 'reaper_changed_before_resume')
         self.resume(row)
