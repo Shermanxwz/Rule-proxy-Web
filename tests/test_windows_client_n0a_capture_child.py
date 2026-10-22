@@ -94,6 +94,14 @@ class ChildTests(unittest.TestCase):
         self.assertNotEqual(self.owner.child.pid,os.getpid());self.assertTrue(self.owner.ready_observed)
         self.assertIsNone(self.owner.stderr_read);self.assertIsNone(self.owner.child_channel);self.assertIsNone(self.owner.root_fd)
         self.assertIsNotNone(self.owner.stderr_write);self.assertIsNotNone(self.owner.dummy_fd)
+    def test_host_read_error_still_finalizes_real_owned_drain_child(self):
+        self.start();self.owner.fail('read')
+        result=self.owner.finish(cleanup_deadline=time.monotonic()+5)
+        self.assertTrue(result['cleanup_confirmed']);self.assertTrue(result['final_status_observed'])
+        self.assertTrue(result['capture']['authorized']);self.assertFalse(result['shutdown_authorized'])
+        self.assertFalse(result['child_forced']);self.assertFalse(result['drain_complete'])
+        self.assertIn('read',result['errors']);self.assertIn('authorization',result['errors'])
+
     def test_overflow_retains_cap_keeps_drain_and_reports(self):
         self.owner=n.CaptureOwner.for_test(self.root,deadline=time.monotonic()+15,byte_limit=64)
         self.owner.start();self.owner.spawn(producer(self.owner.fifo_path,HEADER+packet(b'x'*1000)))
@@ -298,5 +306,117 @@ class CredentialTests(unittest.TestCase):
         finally:
             left.close();right.close();realclose(source)
             for fd in replacement:realclose(fd)
+
+
+class FailedFinishDeadlineTests(unittest.TestCase):
+    """Deterministic exact finish/command/wait/_stop; no spawned processes or I/O."""
+    def exercise(self,*,host_error=False,worker_error=False,overflow=False,
+                 authorize='acked',finalize=True,producer_stops=True,child_stops=True,
+                 drain_delay=0,new_error=False,child_poll_error=False,close_error=False,
+                 cutoff=220):
+        clock=SimpleNamespace(now=100.0);trace=[]
+        class Process:
+            def __init__(self,kind):self.kind=kind;self.code=None;self.ready_at=None
+            def poll(self):
+                if self.kind=='child' and child_poll_error:raise OSError('PRIVATE')
+                if self.ready_at is not None and clock.now>=self.ready_at:self.code=0
+                return self.code
+            def send_signal(self,sig):
+                trace.append((self.kind,'term',clock.now))
+                if producer_stops if self.kind=='producer' else child_stops:self.code=0
+            def wait(self,timeout):
+                if self.code is None:
+                    clock.now+=timeout
+                    raise subprocess.TimeoutExpired('PRIVATE',timeout)
+                return self.code
+            def kill(self):
+                trace.append((self.kind,'kill',clock.now))
+                if producer_stops if self.kind=='producer' else child_stops:self.code=-9
+        with patch.object(n.time,'monotonic',side_effect=lambda:clock.now):
+            owner=n.CaptureOwner(Path('unused-owned-double'),deadline=1000)
+            owner.process=Process('producer');owner.child=Process('child')
+            owner.ready_observed=owner.header_observed=True
+            owner.status=status(3,'active');owner.status.update(header=True,structure=True,overflow=overflow,errors=['write'] if worker_error else [])
+            if host_error:owner.fail('read')
+            worker_authorized=False
+            class Channel:
+                def send(self,raw):
+                    nonlocal worker_authorized
+                    op=n.decode(raw)['op'];trace.append(('command',op,clock.now))
+                    if op=='authorize':
+                        if authorize=='unsent':raise OSError('PRIVATE')
+                        worker_authorized=True
+                        if authorize=='acked':owner.status['authorized']=True
+                    elif op=='finalize':
+                        if not finalize:raise OSError('PRIVATE')
+                        if worker_authorized:owner.child.ready_at=clock.now+drain_delay
+                    return len(raw)
+            owner.channel=Channel()
+            def poll_status(deadline=None):
+                if deadline is not None:clock.now=max(clock.now,deadline)
+                if new_error and clock.now>=101:owner.fail('read')
+                if owner.child.ready_at is not None and clock.now>=owner.child.ready_at:
+                    owner.status.update(phase='final',flushed=True,closed=True,fifo_eof=True,stderr_eof=True)
+                    owner.ipc_eof=True
+                return owner.status
+            owner.poll_status=poll_status
+            def close(name):
+                setattr(owner,name,None)
+                if close_error:owner.close_ledger.uncertain=True;owner.fail('close')
+            owner._close=close
+            result=owner.finish(cleanup_deadline=cutoff)
+        return result,trace,clock.now-100
+    def test_original_general_wait_and_complete_predicate_byte_exact(self):
+        import ast,hashlib
+        source=Path(n.__file__).read_text();tree=ast.parse(source)
+        wait=next(x for x in ast.walk(tree) if isinstance(x,ast.FunctionDef) and x.name=='wait')
+        finish=next(x for x in ast.walk(tree) if isinstance(x,ast.FunctionDef) and x.name=='finish')
+        complete=next(x for x in ast.walk(finish) if isinstance(x,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='complete' for t in x.targets))
+        pins={'wait': '6f15a709c5fae81c22150b3bdfc27fd29da08b6662014a4ba1b61ccf68bb7877', 'complete': 'f647c509bf1a4d5ad0b04a4da6bb2fc442c769c950819f22b248bf3fe85e0d11'}
+        for name,node in [('wait',wait),('complete',complete)]:
+            self.assertEqual(hashlib.sha256(ast.get_source_segment(source,node).encode()).hexdigest(),pins[name])
+    def test_normal_drain_keeps_original_budget_and_acceptance(self):
+        result,trace,elapsed=self.exercise(drain_delay=10)
+        self.assertGreaterEqual(elapsed,10);self.assertLess(elapsed,10.1)
+        self.assertTrue(result['drain_complete']);self.assertFalse(result['child_forced'])
+        self.assertEqual([r[:2] for r in trace],[('command','authorize'),('producer','term'),('command','finalize')])
+    def test_preexisting_host_read_error_still_delivers_cleanup_not_acceptance(self):
+        result,trace,elapsed=self.exercise(host_error=True,overflow=True)
+        self.assertLess(elapsed,.1);self.assertFalse(result['shutdown_authorized'])
+        self.assertIn(('command','finalize'),[r[:2] for r in trace])
+        self.assertFalse(result['drain_complete']);self.assertTrue(result['cleanup_confirmed']);self.assertFalse(result['child_forced'])
+        self.assertIn('read',result['errors']);self.assertIn('authorization',result['errors'])
+    def test_unsent_vs_unacked_authorization_not_promoted(self):
+        for mode in ('unsent','unacked'):
+            result,trace,elapsed=self.exercise(authorize=mode)
+            self.assertFalse(result['shutdown_authorized']);self.assertFalse(result['drain_complete'])
+            self.assertLessEqual(elapsed,2.6)
+            self.assertEqual(('command','finalize') in [r[:2] for r in trace],mode=='unacked')
+            self.assertTrue(result['cleanup_confirmed'])
+    def test_unknown_producer_exit_never_finalizes(self):
+        result,trace,elapsed=self.exercise(producer_stops=False)
+        self.assertNotIn(('command','finalize'),[r[:2] for r in trace]);self.assertFalse(result['qemu_exit_observed'])
+        self.assertFalse(result['cleanup_confirmed']);self.assertFalse(result['drain_complete']);self.assertLessEqual(elapsed,18.1)
+    def test_worker_error_overflow_and_finalize_failure_get_short_grace(self):
+        for args in ({'worker_error':True},{'overflow':True},{'finalize':False}):
+            result,_,elapsed=self.exercise(drain_delay=200,**args)
+            self.assertLessEqual(elapsed,2.1);self.assertTrue(result['child_forced']);self.assertFalse(result['drain_complete'])
+            self.assertTrue(result['cleanup_confirmed'])
+    def test_new_failure_during_healthy_drain_starts_one_grace(self):
+        result,_,elapsed=self.exercise(drain_delay=200,new_error=True)
+        self.assertGreaterEqual(elapsed,3);self.assertLess(elapsed,3.2)
+        self.assertIn('read',result['errors']);self.assertFalse(result['drain_complete'])
+    def test_child_poll_exception_and_unconfirmed_stop_stay_unknown(self):
+        for args in ({'child_poll_error':True},{'child_stops':False,'host_error':True}):
+            result,trace,elapsed=self.exercise(drain_delay=200,**args)
+            self.assertFalse(result['cleanup_confirmed']);self.assertFalse(result['child_exit_observed']);self.assertFalse(result['drain_complete'])
+            self.assertIn(('child','kill'),[r[:2] for r in trace]);self.assertLess(elapsed,3.5)
+    def test_short_and_expired_cutoff_no_renewal(self):
+        for cutoff in (99,100,100.5,101.5):
+            result,_,elapsed=self.exercise(host_error=True,drain_delay=200,cutoff=cutoff)
+            self.assertLessEqual(elapsed,max(0,cutoff-100));self.assertFalse(result['drain_complete'])
+    def test_close_uncertainty_cannot_become_complete(self):
+        result,_,_=self.exercise(close_error=True)
+        self.assertFalse(result['descriptors_closed']);self.assertFalse(result['cleanup_confirmed']);self.assertFalse(result['drain_complete'])
 
 if __name__=='__main__':unittest.main()

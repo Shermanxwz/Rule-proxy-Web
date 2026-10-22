@@ -448,20 +448,33 @@ class CaptureOwner:
         deadline=min(cleanup_deadline,self.deadline)
         self.poll_status()
         self.live_at_shutdown=self.process is not None and self._poll(self.process) is None
+        authorize_sent=False
         if self.status is not None and self.live_at_shutdown:
             ack_deadline=min(deadline-3,time.monotonic()+.5)
-            self.authorization_confirmed=self.command('authorize',ack_deadline) and self.wait(lambda s:s is not None and s['authorized'],ack_deadline)
+            authorize_sent=self.command('authorize',ack_deadline)
+            self.authorization_confirmed=authorize_sent and self.wait(lambda s:s is not None and s['authorized'],ack_deadline)
             if not self.authorization_confirmed:self.fail('authorization')
         qemu_deadline=max(time.monotonic(),deadline-3)
         qemu_exit,qemu_code=self._stop(self.process,qemu_deadline,min(15,max(0,qemu_deadline-time.monotonic()-1)),'qemu')
         self._close('stderr_write')
         if qemu_exit:self._close('dummy_fd')
-        if self.authorization_confirmed:self.command('finalize',min(deadline-1,time.monotonic()+.25))
+        # Cleanup delivery is not acceptance: a capture error may reject the
+        # authorization wait even after the child received the ordered command.
+        # Never finalize while the exact producer's exit remains unobserved.
+        finalize_sent=False
+        if authorize_sent and qemu_exit:
+            finalize_sent=self.command('finalize',min(deadline-1,time.monotonic()+.25))
         # Drain final status without allowing it to substitute for observed child exit.
         drain_deadline=max(time.monotonic(),deadline-1)
+        if (self.errors or not self.authorization_confirmed or not qemu_exit or qemu_code!=0
+                or self.qemu_forced or not finalize_sent
+                or (self.status is not None and (self.status['errors'] or self.status['overflow']))):
+            drain_deadline=min(drain_deadline,time.monotonic()+2)
         while self.child is not None and time.monotonic()<drain_deadline:
             self.poll_status(min(drain_deadline,time.monotonic()+.05))
             if self._poll(self.child) is not None:break
+            if self.errors or (self.status is not None and (self.status['errors'] or self.status['overflow'])):
+                drain_deadline=min(drain_deadline,time.monotonic()+2)
         child_code=self._poll(self.child) if self.child is not None else None
         child_exit=self.child is None or child_code is not None
         if not child_exit:
