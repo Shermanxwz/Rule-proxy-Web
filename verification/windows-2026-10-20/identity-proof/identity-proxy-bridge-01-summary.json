@@ -1,0 +1,79 @@
+{
+  "build_metadata": {
+    "byte_exact": false,
+    "compileOnly": true,
+    "executableSha256": "1f8e645c526de061fb0a5517ffccdb21f09826ad585a2b5fbc389de0a8143016",
+    "httpCompiled": true,
+    "sanitized": true,
+    "schema_version": 1,
+    "sourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+    "source_report_sha256": "24f5c2f487715ef45f471c876cc1f40d2cdb8b2658b8983ecb1114a36e0cccb2",
+    "stage": "native-build-public-metadata",
+    "staticCrt": true,
+    "targetArchitecture": "x64"
+  },
+  "ci": {
+    "artifact_executable_sha256_verified": true,
+    "artifact_members": [
+      "windows_identity_actor.exe",
+      "public-manifest.json"
+    ],
+    "existing_windows_job_limit_minutes": 8,
+    "native_actor_executed": false,
+    "old_identity_actor_compiled": true,
+    "only_artifact": "identity-actor-build",
+    "paired_startup_skipped": true,
+    "restricted_token_skipped": true,
+    "stage0b_skipped": true,
+    "token_preflight_skipped": true
+  },
+  "conclusion": "success",
+  "contract": {
+    "canonical_response_limit": 256,
+    "cleanup_separate_from_protocol": true,
+    "explicit_directional_eof": true,
+    "frame_bytes": 48,
+    "http_header_count_limit": 32,
+    "http_line_limit": 1024,
+    "http_total_header_limit": 8192,
+    "no_destination_in_frames": true,
+    "no_retry_or_direct_fallback": true,
+    "one_request": true,
+    "pure_model_deadline_ms": 10000
+  },
+  "experiment": "inactive identity-proxy-bridge-v1 pure contract",
+  "freeze_sha256": "fd8a267e35128624ba3022c6bca0288567ba14ce34306f0c9efbbe6a0b057571",
+  "head": "aa58f5e88cacad1b225aa15b9d72e1f8474bf6d1",
+  "interpretation": [
+    "Actual Windows CI exercised all 44 new pure tests within the existing 275-test discovery. The separate 783-test regression was executed locally, not by this Windows workflow. Counts overlap and must not be summed as distinct coverage.",
+    "The new modules create no sockets, processes, Jobs, AppContainer profiles, ACLs or firewall rules. They model byte framing, fixed synthetic HTTP, absolute time supplied by a caller, ownership observations and failure behavior only.",
+    "Mock READY/DONE and modeled close events do not prove real identity, pipe transport, cleanup or OS enforcement. Successful response observations remain separate from later cleanup failure. The model cannot certify that a future adapter obeys its actions.",
+    "The old identity actor was compiled and its downloaded artifact digest matched public metadata. It was not executed; no native bridge binary exists in this slice. Token, Stage0b, restricted and paired runtime steps were skipped.",
+    "Genuine target-Windows external inherited-pipe Stage0b remains unproven. Earlier local named-pipe self/child IPC evidence is a different boundary and is not substituted.",
+    "The explicit WinHTTP proxy client is cooperative behavior, not proof arbitrary applications cannot bypass a proxy. No proxy-positive, wrong-peer, proxy-death, DNS/broker or product-acceptance runtime result follows.",
+    "This commit has no runtime marker and changes no existing source/workflow. Actual proxy identity/capability/peer-policy activation and lifecycle require separately reviewed implementation and a separately authorized bounded run. The pure 10-second model window does not alter existing VM budgets."
+  ],
+  "privacy": {
+    "only_closed_counts_booleans_public_ci_and_build_hashes": true,
+    "raw_logs_identifiers_addresses_nonces_paths_credentials_excluded": true
+  },
+  "run_id": 39730816170,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39730816170",
+  "schema_version": 1,
+  "source_scope": {
+    "inactive_pure_only": true,
+    "new_files": 5,
+    "runtime_workflow_changed": false,
+    "unchanged_pins": 410
+  },
+  "tests": {
+    "actual_windows_ci_discovery": 275,
+    "actual_windows_codec": 16,
+    "actual_windows_model": 28,
+    "local_ci_discovery": 275,
+    "local_codec": 16,
+    "local_existing_required": 783,
+    "local_model": 28,
+    "skips": 0
+  }
+}
