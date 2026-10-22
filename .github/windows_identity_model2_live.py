@@ -367,8 +367,14 @@ def admit_selected(api, owners, budget, *, g_process, g_created, job, image, ima
     second = api.parent_snapshot()
     first_children = {pid for pid, ppid in first.items() if ppid == g_pid and pid != g_pid}
     second_children = {pid for pid, ppid in second.items() if ppid == g_pid and pid != g_pid}
-    require(first_children == second_children and len(first_children) == 1
-        and {pid for pid, _, _ in candidates} == first_children, 'selected_child_set_changed')
+    if not (first_children == second_children and len(first_children) == 1
+            and {pid for pid, _, _ in candidates} == first_children):
+        error = ValueError('selected_child_set_changed')
+        error.discovery = dict(parent_pid=g_pid, parent_created=g_created,
+            first_child_count=len(first_children), second_child_count=len(second_children),
+            first_children=sorted(first_children)[:16], second_children=sorted(second_children)[:16],
+            candidates=[dict(pid=pid,created=created) for pid,created,_ in candidates[:16]])
+        raise error
     require(not api.wait(g_process, 0) and api.creation_time(g_process) == g_created, 'g_generation')
     valid = []
     for pid, created, old in candidates:

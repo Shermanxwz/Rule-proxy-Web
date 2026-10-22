@@ -1197,6 +1197,8 @@ def run_controller(config, root=ROOT, *, api=None):
             import re
             if re.fullmatch(r'[a-z0-9_:-]{1,128}', str(exc)):
                 error['invariant'] = str(exc)
+            if str(exc) == 'selected_child_set_changed' and type(getattr(exc, 'discovery', None)) is dict:
+                error['discovery'] = exc.discovery
         raw_error = live.encode(error)
         if len(raw_error) <= 4096:
             launcher.write_private_bytes(root / 'controller-error-private.json', raw_error)

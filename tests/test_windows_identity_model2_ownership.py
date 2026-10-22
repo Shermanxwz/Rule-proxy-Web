@@ -177,6 +177,20 @@ class OwnershipTests(unittest.TestCase):
                     l.admit_selected(api, owners, budget, g_process=1, g_created=100, job=7, image=Path('unused.exe'),
                         image_hash='a' * 64, parent=ordinary(), capability_profile='agentic-pncs', catalog=CATALOG)
 
+    def test_failed_child_set_keeps_bounded_private_discovery_without_admission(self):
+        for fault in ('new_child','two_children','child_disappeared'):
+            api=GateAPI(fault);owners=l.helpers.OneShotHandles(api.close)
+            budget=l.launcher.QpcBudget(api,121000,1000)
+            with mock.patch.object(l.helpers,'verify_copied_actor'),self.assertRaises(ValueError) as caught:
+                l.admit_selected(api,owners,budget,g_process=1,g_created=100,job=7,image=Path('unused.exe'),
+                    image_hash='a'*64,parent=ordinary(),capability_profile='agentic-pncs',catalog=CATALOG)
+            self.assertEqual(str(caught.exception),'selected_child_set_changed')
+            evidence=caught.exception.discovery
+            self.assertLessEqual(len(evidence['first_children']),16)
+            self.assertLessEqual(len(evidence['second_children']),16)
+            self.assertLessEqual(len(evidence['candidates']),16)
+            self.assertFalse(any(row[0]=='exact_job' for row in api.log))
+
     def test_selected_caps_profile_is_not_accept_observed_and_config_disallows_identity_profile(self):
         entries = [{'sid': AGENTIC, 'attributes': 4}, {'sid': l.PNCS, 'attributes': 4}]
         self.assertTrue(l.capability_set(entries, 'agentic-pncs', CATALOG))
