@@ -27,15 +27,16 @@ WRONG_PORT_PSEC_SCOPE='one-local-model2-pncs-profiles-off-wrong-port-psec-contro
 WRONG_PEER_SCOPE='one-local-model2-pncs-profiles-off-wrong-peer-diagnostic-v1'
 DEATH_SCOPE='one-local-model2-pncs-profiles-off-live-proxy-death-diagnostic-v1'
 DNS_SCOPE='one-local-model2-pncs-profiles-off-standard53-dns-diagnostic-v1'
+RAW_DNS_SCOPE='one-local-model2-pncs-profiles-off-raw-standard53-dns-diagnostic-v1'
 CONFIG_KEYS={'schema_version','stage','run','boot_case','positive_case','direct_case','health_cases','admission_nonce',
     'maintenance_nonce','capability_profile','start_qpc','frequency','deadline_qpc','root_deadline_qpc',
     'source_hashes','source_sha256','actor_sha256','manifest_sha256','guard_job_name','device_sha256','recovery_plan_sha256'}
 CHECKS=('windows_x64','ordinary','sources','artifacts','capacity','recovery_attested')
 CLEANUP=('guard_job_verified','controller_held_verified','controller_exit_verified','outer_cleanup_verified','tree_retained','recovery_required')
-def blank(mode,execution_mode='strict',wrong_port_extension=False,wrong_peer_extension=False,death_extension=False,dns_extension=False):
+def blank(mode,execution_mode='strict',wrong_port_extension=False,wrong_peer_extension=False,death_extension=False,dns_extension=False,dns_profile=live.dns.PROFILE):
     return dict(schema_version=1,stage='local-model2-first-owner',mode=mode,status='inconclusive',failure=None,
         source_sha256=None,actor_sha256=None,manifest_sha256=None,recovery_plan_sha256=None,device_bound=False,
-        checks={key:False for key in CHECKS},cleanup={key:False for key in CLEANUP},result=live.blank(execution_mode,wrong_port_extension=wrong_port_extension,wrong_peer_extension=wrong_peer_extension,death_extension=death_extension,dns_extension=dns_extension))
+        checks={key:False for key in CHECKS},cleanup={key:False for key in CLEANUP},result=live.blank(execution_mode,wrong_port_extension=wrong_port_extension,wrong_peer_extension=wrong_peer_extension,death_extension=death_extension,dns_extension=dns_extension,dns_profile=dns_profile))
 def validate(value):
     template=blank(value.get('mode') if type(value) is dict else None)
     require(type(value) is dict and set(value)==set(template),'outer_schema')
@@ -60,8 +61,9 @@ def validate(value):
             and all(value['cleanup'][key] for key in CLEANUP if key!='recovery_required') and not value['cleanup']['recovery_required']
             and r['status']==value['status'],'outer_observation')
     require(len(live.encode(value))<=12288,'outer_bound');return value
-def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_admission=None,wrong_port_extension=False,wrong_peer_extension=False,death_extension=False,dns_extension=False):
+def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_admission=None,wrong_port_extension=False,wrong_peer_extension=False,death_extension=False,dns_extension=False,dns_profile=live.dns.PROFILE):
     require(execution_mode in live.MODES,'execution_mode')
+    require(dns_profile in live.dns.PROFILES and (dns_extension or dns_profile==live.dns.PROFILE),'dns_profile')
     keys={'schema_version','scope','device_sha256','source_sha256','actor_sha256',
         'manifest_sha256','residue_review_acknowledged','recovery_reference'}
     if execution_mode=='profiles-off-diagnostic':keys.add('execution_mode')
@@ -83,7 +85,7 @@ def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_a
         keys.add('death_extension');scope=DEATH_SCOPE
     if dns_extension:
         require(execution_mode=='profiles-off-diagnostic' and selected_admission is not None,'dns_diagnostic_only')
-        keys.update(('dns_extension','standard53_impact_acknowledged'));scope=DNS_SCOPE
+        keys.update(('dns_extension','standard53_impact_acknowledged'));scope=RAW_DNS_SCOPE if dns_profile==live.dns.raw_udp.PROFILE else DNS_SCOPE
     require(type(value) is dict and set(value)==keys and live.execution_mode(value)==execution_mode,'plan_schema')
     if wrong_port_extension:
         extension=live.validate_wrong_port_extension(value['wrong_port_extension'])
@@ -91,7 +93,8 @@ def plan(value,*,device,source,actor,manifest,execution_mode='strict',selected_a
     if wrong_peer_extension:live.validate_wrong_peer_extension(value['wrong_peer_extension'])
     if death_extension:live.validate_death_extension(value['death_extension'])
     if dns_extension:
-        live.dns.extension(value['dns_extension']);require(value['standard53_impact_acknowledged'] is True,'dns_port53_impact')
+        live.dns.extension(value['dns_extension']);require(value['dns_extension']['profile']==dns_profile,'dns_profile_plan')
+        require(value['standard53_impact_acknowledged'] is True,'dns_port53_impact')
     if selected_admission is not None:require(value['selected_admission']==selected_admission,'helper_plan_binding')
     require(type(value['schema_version']) is int and value['schema_version']==1
         and value['scope']==scope
@@ -111,8 +114,8 @@ def inputs(actor,manifest,ah,mh,bundle,runtime,work_parent,root=ROOT):
     needed+=sum((runtime/name).stat().st_size for name in probe.MEMBERS)+16*live.MAX_PRIVATE+1048576
     require(needed<=local.MAX_STAGE and shutil.disk_usage(parent).free>=needed,'stage_capacity')
     return files,hashes,closure,actor,manifest,bundle,runtime,parent
-def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=None,root=ROOT,execution_mode='strict',allow_held_system_conhost=False,test_same_peer_wrong_port=False,test_wrong_peer=False,test_proxy_death=False,test_dns=False):
-    value=blank('preflight',execution_mode,test_same_peer_wrong_port,test_wrong_peer,test_proxy_death,test_dns);phase='platform'
+def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=None,root=ROOT,execution_mode='strict',allow_held_system_conhost=False,test_same_peer_wrong_port=False,test_wrong_peer=False,test_proxy_death=False,test_dns=False,dns_profile=live.dns.PROFILE):
+    value=blank('preflight',execution_mode,test_same_peer_wrong_port,test_wrong_peer,test_proxy_death,test_dns,dns_profile);phase='platform'
     try:
         require(type(allow_held_system_conhost) is bool and (not allow_held_system_conhost or execution_mode=='profiles-off-diagnostic'),'helper_diagnostic_only')
         require(type(test_same_peer_wrong_port) is bool and (not test_same_peer_wrong_port or execution_mode=='profiles-off-diagnostic' and allow_held_system_conhost),'wrong_port_diagnostic_only')
@@ -130,7 +133,7 @@ def preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,api=No
         value['checks'].update(sources=True,artifacts=True,capacity=True)
         phase='plan';raw=local.bounded(plan_path,8192)
         admission=live.system_conhost_record(api) if allow_held_system_conhost else None
-        plan(live.decode(raw),device=api.device_sha256(),source=closure,actor=ah,manifest=mh,execution_mode=execution_mode,selected_admission=admission,wrong_port_extension=test_same_peer_wrong_port,wrong_peer_extension=test_wrong_peer,death_extension=test_proxy_death,dns_extension=test_dns)
+        plan(live.decode(raw),device=api.device_sha256(),source=closure,actor=ah,manifest=mh,execution_mode=execution_mode,selected_admission=admission,wrong_port_extension=test_same_peer_wrong_port,wrong_peer_extension=test_wrong_peer,death_extension=test_proxy_death,dns_extension=test_dns,dns_profile=dns_profile)
         value.update(recovery_plan_sha256=live.sha(raw),device_bound=True);value['checks']['recovery_attested']=True
         value['result'].update(source_sha256=closure,actor_sha256=ah,manifest_sha256=mh,status='ready')
         value['result']['checks'].update(sources=True,artifacts=True);value['status']='ready'
@@ -189,6 +192,7 @@ def bind_controller(report,config,launch):
     require(('wrong_peer_extension' in r)==('wrong_peer_extension' in config),'controller_peer_extension_binding')
     require(('death_extension' in r)==('death_extension' in config),'controller_death_extension_binding')
     require(('dns_extension' in r)==('dns_extension' in config),'controller_dns_extension_binding')
+    if 'dns_extension' in config:require(live.dns.public_profile(r['dns_extension'])==config['dns_extension']['profile'],'controller_dns_profile_binding')
     for key,check in (('source_sha256','sources'),('actor_sha256','artifacts'),('manifest_sha256','artifacts')):
         require(r[key]==config[key] if r['checks'][check] else r[key] in (None,config[key]),'controller_result')
     run_hash=live.sha(config['run'].encode('ascii'))
@@ -209,7 +213,7 @@ def worker(config_path):
     plan_raw=local.bounded(root/'recovery-plan.json',8192);require(live.sha(plan_raw)==config['recovery_plan_sha256'],'worker_plan')
     admission=config.get('selected_admission')
     if admission is not None:require(live.system_conhost_record(api)==admission,'helper_image_changed')
-    plan_value=plan(live.decode(plan_raw),device=config['device_sha256'],source=closure,actor=config['actor_sha256'],manifest=config['manifest_sha256'],execution_mode=live.execution_mode(config),selected_admission=admission,wrong_port_extension='wrong_port_extension' in config,wrong_peer_extension='wrong_peer_extension' in config,death_extension='death_extension' in config,dns_extension='dns_extension' in config)
+    plan_value=plan(live.decode(plan_raw),device=config['device_sha256'],source=closure,actor=config['actor_sha256'],manifest=config['manifest_sha256'],execution_mode=live.execution_mode(config),selected_admission=admission,wrong_port_extension='wrong_port_extension' in config,wrong_peer_extension='wrong_peer_extension' in config,death_extension='death_extension' in config,dns_extension='dns_extension' in config,dns_profile=config.get('dns_extension',{}).get('profile',live.dns.PROFILE))
     if 'wrong_port_extension' in config:require(config['wrong_port_extension']==plan_value['wrong_port_extension'],'worker_extension_plan')
     if 'wrong_peer_extension' in config:require(config['wrong_peer_extension']==plan_value['wrong_peer_extension'],'worker_peer_extension_plan')
     if 'death_extension' in config:require(config['death_extension']==plan_value['death_extension'],'worker_death_extension_plan')
@@ -222,12 +226,12 @@ def worker(config_path):
     launcher.write_private_bytes(root/'model2-controller-report.json',live.encode(report))
     ready=live.first_ready if live.execution_mode(config)=='strict' else live.diagnostic_ready
     return 0 if ready(report['public'],require_guard=False) else 1
-def run_local(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,approved=False,api=None,root=ROOT,ids=secrets.token_hex,execution_mode='strict',allow_held_system_conhost=False,test_same_peer_wrong_port=False,test_wrong_peer=False,test_proxy_death=False,test_dns=False):
-    value=blank('runtime',execution_mode,test_same_peer_wrong_port,test_wrong_peer,test_proxy_death,test_dns);phase='platform';launched=False
+def run_local(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,*,approved=False,api=None,root=ROOT,ids=secrets.token_hex,execution_mode='strict',allow_held_system_conhost=False,test_same_peer_wrong_port=False,test_wrong_peer=False,test_proxy_death=False,test_dns=False,dns_profile=live.dns.PROFILE):
+    value=blank('runtime',execution_mode,test_same_peer_wrong_port,test_wrong_peer,test_proxy_death,test_dns,dns_profile);phase='platform';launched=False
     try:
         require(approved and os.name=='nt','explicit_opt_in_required');api=local.LocalNativeAPI() if api is None else api
         frequency,start=api.qpc_frequency(),api.qpc();budget=launcher.QpcBudget(api,start+120*frequency,frequency)
-        check=preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,api=api,root=root,execution_mode=execution_mode,allow_held_system_conhost=allow_held_system_conhost,test_same_peer_wrong_port=test_same_peer_wrong_port,test_wrong_peer=test_wrong_peer,test_proxy_death=test_proxy_death,test_dns=test_dns)
+        check=preflight(actor,manifest,ah,mh,bundle,runtime,work_parent,plan_path,api=api,root=root,execution_mode=execution_mode,allow_held_system_conhost=allow_held_system_conhost,test_same_peer_wrong_port=test_same_peer_wrong_port,test_wrong_peer=test_wrong_peer,test_proxy_death=test_proxy_death,test_dns=test_dns,dns_profile=dns_profile)
         for key in ('checks','source_sha256','actor_sha256','manifest_sha256','recovery_plan_sha256','device_bound'):value[key]=check[key]
         if check['status']!='ready':phase=check['failure'];raise ValueError('preflight')
         phase='inputs';files,hashes,closure,actor,manifest,bundle,runtime,parentpath=inputs(actor,manifest,ah,mh,bundle,runtime,work_parent,root)
@@ -312,6 +316,7 @@ def main(argv=None):
     negative.add_argument('--test-wrong-peer',action='store_true',help='Explicit diagnostic-only healthy wrong-peer extension, mutually exclusive with wrong-port.')
     negative.add_argument('--test-proxy-death',action='store_true',help='Explicit diagnostic-only held live relay death extension.')
     negative.add_argument('--test-dns',action='store_true',help='Explicit diagnostic-only same-selected standard53 DNS extension; binds one exclusive loopback UDP53 receiver.')
+    parser.add_argument('--dns-profile',choices=live.dns.PROFILES,default=live.dns.PROFILE,help='Typed DNS transport: original DnsQueryEx or connected UDP connect/send/recvfrom; nondefault requires --test-dns and its exact plan scope.')
     parser.add_argument('--owned-worker',action='store_true',help=argparse.SUPPRESS);parser.add_argument('--config',help=argparse.SUPPRESS)
     for name in ('actor','manifest','actor-sha256','manifest-sha256','bundle','runtime-directory','work-parent','recovery-plan'):parser.add_argument('--'+name)
     args=parser.parse_args(argv)
@@ -333,7 +338,9 @@ def main(argv=None):
     require(args.config is None,'private_mode')
     values=(args.actor,args.manifest,args.actor_sha256,args.manifest_sha256,args.bundle,args.runtime_directory,args.work_parent,args.recovery_plan)
     mode='profiles-off-diagnostic' if args.profiles_off_diagnostic else 'strict'
+    if not args.test_dns and args.dns_profile!=live.dns.PROFILE:parser.error('--dns-profile requires --test-dns')
     options=dict(execution_mode=mode)
+    if args.dns_profile!=live.dns.PROFILE:options['dns_profile']=args.dns_profile
     if args.allow_held_system_conhost:options['allow_held_system_conhost']=True
     if args.test_same_peer_wrong_port:options['test_same_peer_wrong_port']=True
     if args.test_wrong_peer:options['test_wrong_peer']=True

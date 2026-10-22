@@ -14,6 +14,9 @@ from pathlib import Path
 spec=importlib.util.spec_from_file_location('model2_dns_three_case_fixture',Path(__file__).with_name('windows_identity_dns_cases_fixture.py'))
 fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
 PROFILE='same-selected-standard53-dns-v1'
+_raw_spec=importlib.util.spec_from_file_location('model2_dns_raw_contract',Path(__file__).with_name('windows_identity_model2_dns_raw.py'))
+raw_udp=importlib.util.module_from_spec(_raw_spec);_raw_spec.loader.exec_module(raw_udp)
+PROFILES=(PROFILE,raw_udp.PROFILE)
 INVENTORY='.github/windows_identity_dns_standard_inventory.ps1'
 NATIVE='.github/native/windows_identity_dns_standard_probe.hpp'
 OPTIONS=0x000019e8  # WinSDK windns.h fixed BYPASS/NO_HOSTS/NO_LOCAL/NO_NETBT/WIRE/NO_MULTICAST/FQDN.
@@ -33,19 +36,52 @@ def sha(raw):return hashlib.sha256(raw).hexdigest()
 
 def extension(value):
     keys={'profile','before_case','selected_case','after_case','inventory_run'}
-    require(type(value) is dict and set(value)==keys and value['profile']==PROFILE
+    require(type(value) is dict and set(value)==keys and value['profile'] in PROFILES
         and all(nonce(value[k]) for k in keys-{'profile'}) and len({value[k] for k in keys-{'profile'}})==4,'dns_extension')
     return value
 
-def blank():
-    return dict.fromkeys((*REQUIRED,'selected_pending','selected_late','selected_wire_query_observed','completed',
+def blank(profile=PROFILE):
+    require(profile in PROFILES,'dns_profile')
+    value=dict.fromkeys((*REQUIRED,'selected_pending','selected_late','selected_wire_query_observed','completed',
         'broker_cancellation_proven','default_resolver_tested','dns_isolation_qualified'),False)|{'requested':True}
+    if profile==raw_udp.PROFILE:
+        for key in ('selected_attempted','selected_completed','selected_pending','selected_late','selected_access_denial_observed'):value.pop(key)
+        value.update(transport=raw_udp.TRANSPORT,method=raw_udp.METHOD,selected_raw_udp=None)
+    return value
+
+def public_profile(value):
+    require(type(value) is dict,'dns_public_profile')
+    if 'transport' in value:
+        require(value['transport']==raw_udp.TRANSPORT and value.get('method')==raw_udp.METHOD,'dns_public_transport');return raw_udp.PROFILE
+    return PROFILE
+
+def opcode(c):return 7 if c['dns_extension']['profile']==raw_udp.PROFILE else 6
+
+def public_access_denial(value):
+    return raw_udp.public_access(value) if public_profile(value)==raw_udp.PROFILE else value['selected_access_denial_observed']
+
+def selected_fields(value):
+    if 'raw_udp' in value:return dict(selected_raw_udp=raw_udp.project(value))
+    api=value['dns']['result'];return dict(selected_attempted=api['called'],selected_completed=api['completed'],selected_pending=api['pending'],
+        selected_late=not api['within_deadline'] or value['phase_qpc'][2]>=value['phase_qpc'][1],selected_access_denial_observed=access_denial(value))
+
+def selected_empty(value):
+    return value['selected_raw_udp'] is None if public_profile(value)==raw_udp.PROFILE else not any(value[k] for k in
+        ('selected_attempted','selected_completed','selected_pending','selected_late','selected_access_denial_observed'))
 
 def ready(value):
+    if public_profile(value)==raw_udp.PROFILE:
+        required=tuple(k for k in REQUIRED if k not in ('selected_attempted','selected_completed','selected_access_denial_observed'))
+        return all(value[k] for k in required) and not value['selected_wire_query_observed'] and raw_udp.public_access(value)
     return (all(value[k] for k in REQUIRED) and not any(value[k] for k in
         ('selected_pending','selected_late','selected_wire_query_observed')))
 
 def validate_public(value):
+    profile=public_profile(value)
+    if profile==raw_udp.PROFILE:
+        require(set(value)==set(blank(profile)) and all(type(v) is bool for k,v in value.items() if k not in ('transport','method','selected_raw_udp'))
+            and value['requested'] and not any(value[k] for k in ('broker_cancellation_proven','default_resolver_tested','dns_isolation_qualified')),'dns_raw_public_scope')
+        raw_udp.validate_public(value['selected_raw_udp']);return value
     require(type(value) is dict and set(value)==set(blank()) and all(type(v) is bool for v in value.values()) and value['requested'],'dns_public')
     require(not any(value[k] for k in ('broker_cancellation_proven','default_resolver_tested','dns_isolation_qualified')),'dns_scope')
     require(not value['selected_access_denial_observed'] or value['selected_attempted'] and value['selected_completed']
@@ -89,12 +125,14 @@ def api_result(value):
     return value
 
 def phase(value,task,c,*,role,boot,admission,sequence,case,phase_deadline,identity_check):
+    raw=c['dns_extension']['profile']==raw_udp.PROFILE
+    observation='raw_udp' if raw else 'dns'
     keys={'schema_version','stage','role','run_id','boot_case_id','case_id','pid','sequence','operation','target_port',
-        'admission_nonce','identity','root_qpc','phase_qpc','command_close_verified','dns','failure','proxy_tested','product_acceptance'}
+        'admission_nonce','identity','root_qpc','phase_qpc','command_close_verified',observation,'failure','proxy_tested','product_acceptance'}
     require(type(value) is dict and set(value)==keys and integer(value['schema_version'],1,1)
         and value['stage']=='proxy-c-client-phase' and value['role']==role and value['run_id']==c['run']
         and value['boot_case_id']==boot and value['case_id']==case and type(value['pid']) is int and value['pid']==task['pid']
-        and type(value['sequence']) is int and value['sequence']==sequence and value['operation']=='dns-query'
+        and type(value['sequence']) is int and value['sequence']==sequence and value['operation']==('dns-raw-udp' if raw else 'dns-query')
         and type(value['target_port']) is int and value['target_port']==53 and value['admission_nonce']==admission
         and value['command_close_verified'] is True and value['failure'] in (None,'dns-config','dns-pending','qpc','deadline','report')
         and value['proxy_tested'] is False and value['product_acceptance'] is False,'dns_phase')
@@ -106,6 +144,8 @@ def phase(value,task,c,*,role,boot,admission,sequence,case,phase_deadline,identi
     q=value['phase_qpc']
     require(type(q) is list and len(q)==3 and all(integer(v,0,0x7fffffffffffffff) for v in q)
         and c['start_qpc']<=q[0]<=q[2] and q[1]==phase_deadline<=c['deadline_qpc'],'dns_phase_clock')
+    if raw:
+        raw_udp.payload(value['raw_udp'],case);return value
     dns=value['dns'];expected=dict(server_constructor='official-v1-zero-port',server_address='127.0.0.1',server_port=53,
         query_name=case+'.n0a.invalid',query_type=1,query_options=OPTIONS)
     require(type(dns) is dict and set(dns)=={*expected,'result'} and all(type(dns[k]) is type(v) and dns[k]==v for k,v in expected.items()),'dns_phase_request')
@@ -117,12 +157,15 @@ def phase(value,task,c,*,role,boot,admission,sequence,case,phase_deadline,identi
     return value
 
 def timely(value):
+    if 'raw_udp' in value:return raw_udp.timely(value)
     r=value['dns']['result'];q=value['phase_qpc']
     return (value['failure'] is None and r['configured'] and r['called'] and r['completed'] and not r['pending']
         and r['records_released'] and not r['context_retained'] and r['within_deadline'] and r['end_qpc']<q[1] and q[2]<q[1])
 def positive(value):
+    if 'raw_udp' in value:return raw_udp.positive(value)
     r=value['dns']['result'];return timely(value) and r['answer_match'] and r['api_status']==r['query_status']==0 and r['record_count']==1
 def access_denial(value):
+    if 'raw_udp' in value:return raw_udp.access_denial(value)
     r=value['dns']['result'];return timely(value) and r['api_status']==5 and not r['answer_match'] and r['record_count']==0
 
 def receiver(value,*,final=False):
@@ -156,6 +199,6 @@ def case_positive(value,key):
         and value['cases'][key]['rejected']==value['cases'][key]['send_failed']==0)
 
 def blank_ledger(c):
-    return dict(schema_version=1,stage='model2-selected-standard53-dns-ownership',run=c['run'],profile=PROFILE,
+    return dict(schema_version=1,stage='model2-selected-standard53-dns-ownership',run=c['run'],profile=c['dns_extension']['profile'],
         inventory=None,inventory_gates=[],fixture_attempted=False,fixture_ready=False,fixture_deadline_qpc=None,fixture_snapshots=[],
         fixture_final=None,phases=[],selected_wire_query_observed=False)

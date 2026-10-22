@@ -43,19 +43,19 @@ MAX_PUBLIC = 8192
 MAX_SIGNED = 0x7fffffffffffffff
 PNCS = 'S-1-15-3-3'
 CAP_PROFILES = ('identity-only', 'agentic-only', 'agentic-pncs')
-OPS = {1: 'proxy-get', 2: 'direct-tcp', 3: 'wrong-port', 4: 'wrong-peer', 5: 'proxy-after-death', 6: 'dns-query', 255: 'finish'}
+OPS = {1: 'proxy-get', 2: 'direct-tcp', 3: 'wrong-port', 4: 'wrong-peer', 5: 'proxy-after-death', 6: 'dns-query', 7: 'dns-raw-udp', 255: 'finish'}
 ACTOR = 'windows_identity_proxy_c_actor.exe'
 MANIFEST = 'identity-proxy-c-manifest.json'
 SOURCES = tuple(dict.fromkeys((*origin.SOURCES, *probe.SOURCES,
     '.github/windows_identity_model2_live.py', '.github/windows_identity_model2_maintenance.py',
     '.github/windows_identity_model2_controller.py', '.github/windows_identity_model2_local.py',
-    '.github/windows_identity_model2_firewall.ps1', '.github/windows_identity_model2_dns.py',
+    '.github/windows_identity_model2_firewall.ps1', '.github/windows_identity_model2_dns.py', '.github/windows_identity_model2_dns_raw.py',
     '.github/windows_identity_dns_cases_fixture.py', '.github/windows_dns_fixture.py', dns.INVENTORY)))
 NATIVE_SOURCES = {**origin.NATIVE_SOURCES,
     'actorSourceSha256': '.github/native/windows_identity_proxy_c_actor.cpp',
     'originActorSha256': '.github/native/windows_identity_proxy_origin_actor.cpp',
     'liveContractSha256': '.github/native/windows_identity_proxy_c_contract.hpp',
-    'dnsStandardProbeSha256': dns.NATIVE}
+    'dnsStandardProbeSha256': dns.NATIVE, 'dnsRawUdpSha256': dns.raw_udp.NATIVE}
 SOURCES = tuple(dict.fromkeys((*SOURCES, *NATIVE_SOURCES.values())))
 
 
@@ -912,7 +912,8 @@ def finalize_public(value):
     return validate_public(value)
 
 
-def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extension=False, death_extension=False, dns_extension=False):
+def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extension=False, death_extension=False, dns_extension=False, dns_profile=dns.PROFILE):
+    require(dns_profile in dns.PROFILES and (dns_extension or dns_profile==dns.PROFILE),'dns_profile')
     require(execution_mode in MODES and type(wrong_port_extension) is bool
         and type(wrong_peer_extension) is bool and type(death_extension) is bool
         and type(dns_extension) is bool and sum((wrong_port_extension, wrong_peer_extension, death_extension, dns_extension)) <= 1
@@ -936,7 +937,7 @@ def blank(execution_mode='strict', wrong_port_extension=False, wrong_peer_extens
     if wrong_peer_extension: value['wrong_peer_extension'] = blank_wrong_peer()
     if death_extension: value['death_extension'] = blank_death()
     if dns_extension:
-        value['dns_extension'] = dns.blank()
+        value['dns_extension'] = dns.blank(dns_profile)
         value['violations']['selected_dns_query_observed'] = False
     return value
 
@@ -953,7 +954,7 @@ def validate_public(value):
         template['death_extension'] = blank_death()
     if type(value) is dict and 'dns_extension' in value:
         require(not any(k in value for k in ('wrong_port_extension','wrong_peer_extension','death_extension')), 'exclusive_extension')
-        template['dns_extension'] = dns.blank()
+        template['dns_extension'] = dns.blank(dns.public_profile(value['dns_extension']))
         template['violations']['selected_dns_query_observed'] = False
     require(type(value) is dict and set(value) == set(template), 'public_schema')
     for key in ('schema_version', 'stage', 'profile', 'original_stage0', 'system_dns_tested',
@@ -1027,7 +1028,7 @@ def validate_public(value):
         if 'death_extension' in value:
             require(not any(v for k, v in value['death_extension'].items() if k != 'requested'), 'death_readiness')
         if 'dns_extension' in value:
-            require(not any(v for k,v in value['dns_extension'].items() if k!='requested'), 'dns_readiness')
+            require(value['dns_extension']==dns.blank(dns.public_profile(value['dns_extension'])), 'dns_readiness')
     require(not value['checks']['positive'] or all(value['observations'].values()), 'public_positive')
     require(len(encode(value)) <= MAX_PUBLIC, 'public_bound')
     return value

@@ -48,10 +48,12 @@ class DnsTests(unittest.TestCase):
         return d.phase(value,task,c,role=value['role'],boot=value['boot_case_id'],admission=value['admission_nonce'],
             sequence=value['sequence'],case=value['case_id'],phase_deadline=value['phase_qpc'][1],identity_check=m.native_identity)
 
-    def runtime(self,fault=None,status=5):
+    def runtime(self,fault=None,status=5,*,profile=None,phase_builder=None):
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);root=Path(temporary.name).resolve()
         for name in ('tools','selected','health','selected-control','health-control'):(root/name).mkdir()
-        c=config();script=root/d.INVENTORY;script.parent.mkdir(parents=True);script.write_bytes(b'fixed readonly script')
+        c=config()
+        if profile is not None:c['dns_extension']['profile']=profile
+        script=root/d.INVENTORY;script.parent.mkdir(parents=True);script.write_bytes(b'fixed readonly script')
         c['source_hashes'][d.INVENTORY]=l.sha(script.read_bytes());c['source_sha256']=l.sha(l.encode(c['source_hashes']))
         powershell=root/'System32/WindowsPowerShell/v1.0/powershell.exe';powershell.parent.mkdir(parents=True);powershell.write_bytes(b'fixed system image')
         events=[]
@@ -113,13 +115,17 @@ class DnsTests(unittest.TestCase):
             events.append(('query',label));api.now+=100
             if fault=='stale' and label=='selected':api.now=46000
             ticket=real_publish(task,**fields)
-            value,_=phase(c,label,status if label=='selected' else 0)
-            value['phase_qpc']=[api.now,fields['end'],api.now+30];value['dns']['result'].update(start_qpc=api.now+10,end_qpc=api.now+20)
+            value,_=(phase_builder or phase)(c,label,status if label=='selected' else 0)
+            value['phase_qpc']=[api.now,fields['end'],api.now+30]
+            if 'dns' in value:value['dns']['result'].update(start_qpc=api.now+10,end_qpc=api.now+20)
             fixture.current=receiver(1,1 if fault=='wire' else 0,1 if label=='after' else 0)
             if fault=='wire' and label=='selected':fixture.query_observed.set()
             if fault=='pending' and label=='selected':
                 value.update(failure='dns-pending');value['dns']['result'].update(completed=False,pending=True,records_released=False,context_retained=True,answer_match=False)
-            if fault=='late' and label=='selected':value['phase_qpc'][2]=fields['end'];value['dns']['result'].update(end_qpc=fields['end'],within_deadline=False)
+            if fault=='late' and label=='selected':
+                value['phase_qpc'][2]=fields['end']
+                if 'dns' in value:value['dns']['result'].update(end_qpc=fields['end'],within_deadline=False)
+                else:value['raw_udp']['within_deadline']=False
             (fields['reports']/('phase-%04d.json'%fields['sequence'])).write_bytes(l.encode(value));return ticket
         owner.publish_phase=publish
         error=None
@@ -129,8 +135,8 @@ class DnsTests(unittest.TestCase):
             except (ValueError,OSError) as exc:error=exc
             try:owner.finish_dns_fixture()
             except (ValueError,OSError) as exc:error=error or exc
-        owner.value['failure']='dns' if error or status!=5 else None
-        if not owner.value['dns_extension']['selected_access_denial_observed']:owner.value['failure']='dns'
+        owner.value['failure']='dns' if error else None
+        if not d.public_access_denial(owner.value['dns_extension']):owner.value['failure']='dns'
         l.finalize_public(owner.value)
         return owner,events,error
 

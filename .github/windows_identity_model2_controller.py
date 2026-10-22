@@ -478,7 +478,7 @@ class FirstController:
         self.mode = live.execution_mode(config)
         self.value = live.blank(self.mode, wrong_port_extension='wrong_port_extension' in config,
             wrong_peer_extension='wrong_peer_extension' in config, death_extension='death_extension' in config,
-            dns_extension='dns_extension' in config)
+            dns_extension='dns_extension' in config,dns_profile=config.get('dns_extension',{}).get('profile',live.dns.PROFILE))
         self.parent = None
         self.catalog = None
         self.phase = 'inputs'
@@ -898,8 +898,9 @@ class FirstController:
             maintenance.validate_profiles_observation(self.maintenance.last_observation, 'profiles-status', self.mode,
                 self.config['start_qpc'], self.config['frequency'], self.config['deadline_qpc'], self.budget.read())
         issued_qpc = self.budget.read()
-        if opcode==6:
+        if opcode in (6,7):
             x=self.config['dns_extension']
+            live.require(opcode==live.dns.opcode(self.config),'dns_go_profile')
             label=next((key for key in ('before','selected','after') if case==x[key+'_case']),None)
             live.require(label is not None and ((label=='selected' and role=='selected-client' and task is self.tasks['selected'])
                 or label!='selected' and role=='health-client' and task is self.tasks['health']),'dns_go_role')
@@ -917,12 +918,12 @@ class FirstController:
         task, end, sequence = ticket['task'], ticket['end'], ticket['sequence']
         # Collect a bounded late failure record without extending network work.
         collect_end = min(end + self.config['frequency'], self.budget.cutoff(20))
-        if ticket['opcode']==6:self.observe_dns_event()
+        if ticket['opcode'] in (6,7):self.observe_dns_event()
         try:
             value, _ = read_when_closed(self.api, self.budget, ticket['reports'] / ('phase-%04d.json' % sequence), task['info'].hProcess, collect_end)
         finally:
-            if ticket['opcode']==6:self.observe_dns_event()
-        if ticket['opcode']==6:
+            if ticket['opcode'] in (6,7):self.observe_dns_event()
+        if ticket['opcode'] in (6,7):
             # The receiver event is sampled before parsing or trusting native output.
             self.observe_dns_fixture()
             return live.dns.phase(value,task,self.config,role=ticket['role'],boot=ticket['boot'],admission=ticket['admission'],
@@ -998,14 +999,13 @@ class FirstController:
             end=min(budget.read()+2*c['frequency'],cutoff);budget.require_ms(end)
             directory='selected' if role=='selected-client' else 'health'
             result=self.native_phase(task,role=role,boot=c['boot_case'] if directory=='selected' else c['admission_nonce'],
-                admission=c['admission_nonce'] if directory=='selected' else c['maintenance_nonce'],sequence=sequence,case=case,opcode=6,
+                admission=c['admission_nonce'] if directory=='selected' else c['maintenance_nonce'],sequence=sequence,case=case,opcode=live.dns.opcode(c),
                 control=root/(directory+'-control'),reports=root/directory,fixed_ports=fixed,end=end)
             self.dns_ledger['phases'].append(dict(label=label,record=read_dns_record(root,directory+'/phase-%04d.json'%sequence)))
             if label=='selected':
-                api=result['dns']['result'];public.update(selected_attempted=api['called'],selected_completed=api['completed'],
-                    selected_pending=api['pending'],selected_late=not api['within_deadline'] or result['phase_qpc'][2]>=end,
-                    selected_access_denial_observed=live.dns.access_denial(result))
-                live.require(live.dns.timely(result),'dns_selected_incomplete')
+                public.update(live.dns.selected_fields(result))
+                live.require(live.dns.timely(result) or x['profile']==live.dns.raw_udp.PROFILE
+                    and live.dns.raw_udp.collect_after_timeout(result),'dns_selected_incomplete')
             snapshot=self.observe_dns_fixture()
             if label!='selected':
                 live.require(live.dns.positive(result) and live.dns.case_positive(snapshot,label),'dns_ordinary_control')
@@ -1429,7 +1429,7 @@ class FirstController:
                 direct_denied_by_access=v['checks']['direct_deny'] and not v['violations']['forbidden_receiver_accepted'],
                 observation_complete=True)
         finish_peer_observation(v)
-        if 'dns_extension' in c and not v['dns_extension']['selected_access_denial_observed']:
+        if 'dns_extension' in c and not live.dns.public_access_denial(v['dns_extension']):
             v['failure']='dns'
 
     def refresh_profiles(self):
@@ -1754,6 +1754,7 @@ def validate_dns_ledger(value,c,tasks,go,reports,public):
             and descriptors.get(path)==dict(path=path,state='read',bytes=len(raw),sha256=live.sha(raw)),'dns_journal_digest')
         return live.decode(raw)
     p=public['dns_extension'];x=c['dns_extension'];inventory=None
+    live.require(live.dns.public_profile(p)==x['profile'],'dns_journal_profile')
     gates=value['inventory_gates'];live.require(type(gates) is list and len(gates)<=4,'dns_journal_gates')
     live.require(all(type(value[k]) is bool for k in ('fixture_attempted','fixture_ready','selected_wire_query_observed')),'dns_journal_bool')
     live.require(p['fixture_ready']==value['fixture_ready'],'dns_journal_ready')
@@ -1808,7 +1809,7 @@ def validate_dns_ledger(value,c,tasks,go,reports,public):
         live.require(type(row) is dict and set(row)=={'label','record'} and row['label']==label,'dns_phase_order')
         task=tasks['selected' if label=='selected' else 'health'];directory='selected' if label=='selected' else 'health'
         matches=[g for g in go if g['role']==role and g['sequence']==sequence]
-        live.require(len(matches)==1 and matches[0]['opcode']==6 and matches[0]['case']==x[label+'_case'],'dns_phase_go')
+        live.require(len(matches)==1 and matches[0]['opcode']==live.dns.opcode(c) and matches[0]['case']==x[label+'_case'],'dns_phase_go')
         live.require(len(gates)>=('before','selected','after').index(label)+2,'dns_phase_gate')
         phase=live.dns.phase(record(row['record'],directory+'/phase-%04d.json'%sequence),task,c,role=role,
             boot=c['boot_case'] if label=='selected' else c['admission_nonce'],admission=c['admission_nonce'] if label=='selected' else c['maintenance_nonce'],
@@ -1819,11 +1820,9 @@ def validate_dns_ledger(value,c,tasks,go,reports,public):
         if live.dns.timely(phase):
             live.require(phase['phase_qpc'][0]-inventory['end_qpc']<=5*c['frequency'],'dns_query_freshness')
     if 'selected' in parsed:
-        phase=parsed['selected'];r=phase['dns']['result']
-        live.require(p['selected_attempted']==r['called'] and p['selected_completed']==r['completed'] and p['selected_pending']==r['pending']
-            and p['selected_late']==(not r['within_deadline'] or phase['phase_qpc'][2]>=phase['phase_qpc'][1])
-            and p['selected_access_denial_observed']==live.dns.access_denial(phase),'dns_selected_public')
-    else:live.require(not any(p[k] for k in ('selected_attempted','selected_completed','selected_pending','selected_late','selected_access_denial_observed')),'dns_selected_missing')
+        expected=live.dns.selected_fields(parsed['selected'])
+        live.require(all(p[k]==v for k,v in expected.items()),'dns_selected_public')
+    else:live.require(live.dns.selected_empty(p),'dns_selected_missing')
     for label in ('before','after'):
         if p['ordinary_'+label+'_verified']:
             live.require(label in parsed and live.dns.positive(parsed[label]) and any(live.dns.case_positive(row['value'],label) for row in snapshots),'dns_control_public')
@@ -2150,9 +2149,9 @@ def validate_ownership_journal(value, config, *, controller_pid):
         expected_go[4:4] = [('selected-client', 3, 5, x['death_case']), ('health-origin-release', 1, 254, x['death_case']),
             ('selected-client', 4, 2, x['after_direct_case'])]
     if dns_cell:
-        x=config['dns_extension']
-        expected_go[4:]=[('health-client',3,6,x['before_case']),('selected-client',3,6,x['selected_case']),
-            ('health-client',4,6,x['after_case']),('selected-client',4,255,config['boot_case']),
+        x=config['dns_extension'];dns_opcode=live.dns.opcode(config)
+        expected_go[4:]=[('health-client',3,dns_opcode,x['before_case']),('selected-client',3,dns_opcode,x['selected_case']),
+            ('health-client',4,dns_opcode,x['after_case']),('selected-client',4,255,config['boot_case']),
             ('health-client',5,2,config['health_cases'][2]),('health-client',6,255,config['admission_nonce']),
             ('health-origin',1,255,config['health_cases'][0])]
     live.require(type(value['go']) is list and len(value['go']) <= len(expected_go), 'journal_go')
