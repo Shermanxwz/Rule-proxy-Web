@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "stage": "model2-wrong-port-safe-component-projection",
+  "attempt": 1,
+  "date": "2026-10-23",
+  "execution_mode": "profiles-off-diagnostic",
+  "source_commit": "9b6226b35d92a16a8dc66fd92afa00ad81a3fe1f",
+  "source_closure_sha256": "52e1d7b6ee6f9242bcd8bb33860ad9acec5aedf864c57bdddf7b45ef43da2208",
+  "actor_sha256": "ffa42e35f5107fd38dcae91e7e9b2c867136033f7a5832e613bf55d9a74584aa",
+  "manifest_sha256": "cb0d1cadd801abcc45e11ee1acebedc97c67528e79faa76f5b12b11dbaddd4ff",
+  "public_sha256": "0d98aa7eef4629cbda6ea1f3991590040cb91fa8042a3328e6cc1d2832556997",
+  "ownership_journal": {
+    "bytes": 29707,
+    "sha256": "7a889abeba206fb131d8a591b9dd3f9ba98233d0804f4afd59082e72b34825d9",
+    "closed_schema_verified": true,
+    "held_controller_source_artifact_clock_and_public_binding_verified": true,
+    "native_descriptor_count": 20,
+    "all_native_descriptor_bytes_and_digests_verified": true,
+    "go_count": 5,
+    "all_go_file_digests_verified": true
+  },
+  "main_proxy_positive": {
+    "native_report": {
+      "bytes": 1500,
+      "sha256": "dba06bda731b5b9f7f971130210139fde79c825ac391cf8e7496d391f04a7882"
+    },
+    "operation": "proxy-get",
+    "transport": {
+      "wsa_startup": true,
+      "wsa_cleanup": true,
+      "inheritance_cleared": true,
+      "socket_created": true,
+      "connect_attempted": true,
+      "connect_completed": true,
+      "peer_loopback": true,
+      "request_complete": true,
+      "send_shutdown": true,
+      "response_exact": true,
+      "response_eof": true,
+      "request_bytes": 129,
+      "response_bytes": 90,
+      "socket_close": "confirmed",
+      "failure": null,
+      "wsa_error": null
+    },
+    "same_held_selected_identity_and_original_clock_verified": true,
+    "real_front_and_relay_native_reports_verified": true,
+    "selected_front_and_relay_origin_tuples_bound": true,
+    "front_native_report": {
+      "bytes": 2439,
+      "sha256": "913e513fc0c3a077439f49525bfbd8f15e842871002180c8405e754cf76c5ce2"
+    },
+    "relay_native_report": {
+      "bytes": 1769,
+      "sha256": "455ad709fc4ec590e52c689c479eed830d3f1a22dbe5b29b4ae8d0ab855fd056"
+    },
+    "canonical_origin_request_bytes": 95,
+    "component_passed": true
+  },
+  "main_direct_observation": {
+    "native_report": {
+      "bytes": 1508,
+      "sha256": "e95a318909e2c7c1899eab08c6eb93ecd80dccc44dbf1b5bd1ba6d2f45d2d65c"
+    },
+    "operation": "direct-tcp",
+    "transport": {
+      "wsa_startup": true,
+      "wsa_cleanup": true,
+      "inheritance_cleared": true,
+      "socket_created": true,
+      "connect_attempted": true,
+      "connect_completed": false,
+      "peer_loopback": false,
+      "request_complete": false,
+      "send_shutdown": false,
+      "response_exact": false,
+      "response_eof": false,
+      "request_bytes": 0,
+      "response_bytes": 0,
+      "socket_close": "confirmed",
+      "failure": "connect",
+      "wsa_error": 10013
+    },
+    "same_held_selected_as_positive": true,
+    "access_denied_observed": true,
+    "ordinary_origin_before_and_during_controls_passed": true,
+    "after_origin_control_completed": false,
+    "complete_strict_direct_deny_qualification": false
+  },
+  "wrong_port_listener": {
+    "ready_native_report": {
+      "bytes": 841,
+      "sha256": "d97ed3e79f4c44605900dd7e3fc117b6c3655d0e4f5de867405ff100bc4e127b"
+    },
+    "ready": true,
+    "network_initialized": true,
+    "native_failure": null,
+    "same_appcontainer_profile_as_front_verified": true,
+    "exact_pncs_capability_profile_verified": true,
+    "fixed_wrong_port_binding_verified": true,
+    "final_report_exists": false,
+    "connection_receipt_exists": false
+  },
+  "wrong_port_before_health": {
+    "ready_native_report": {
+      "bytes": 767,
+      "sha256": "4e27bd4f2131027e079d9b1977df04ef39bcac791d9108b2e15980eaabd1125e"
+    },
+    "phase_native_report": {
+      "bytes": 1266,
+      "sha256": "d85b878729dc37dafd8694249e9ddcd3cc9697c944b3f9ecdeb4908b5440d3ec"
+    },
+    "ordinary_control_identity_verified": true,
+    "operation": "wrong-port",
+    "predeclared_control_case_and_fixed_target_bound": true,
+    "native_phase_failure": null,
+    "transport": {
+      "wsa_startup": true,
+      "wsa_cleanup": true,
+      "inheritance_cleared": true,
+      "socket_created": true,
+      "connect_attempted": true,
+      "connect_completed": false,
+      "peer_loopback": false,
+      "request_complete": false,
+      "send_shutdown": false,
+      "response_exact": false,
+      "response_eof": false,
+      "request_bytes": 0,
+      "response_bytes": 0,
+      "socket_close": "confirmed",
+      "failure": "deadline",
+      "wsa_error": null
+    },
+    "positive_control_passed": false,
+    "root_cause_proven": false
+  },
+  "selected_wrong_port": {
+    "go_published": false,
+    "phase_report_exists": false,
+    "attempted": false,
+    "denial_proven": false,
+    "leak_proven": false,
+    "observation_complete": false
+  },
+  "failure": {
+    "invariant": "wrong_port_before_health",
+    "phase": "health",
+    "controller_error": {
+      "bytes": 212,
+      "sha256": "e2046d408b348d9fa58c75f2c525ad95f7230c42e7138f6b5054834ed51c29a1"
+    },
+    "health_timeout_is_not_selected_deny_evidence": true
+  },
+  "exits": {
+    "front": 0,
+    "relay": 0,
+    "selected_cleanup_termination": 1,
+    "g_live_cleanup_termination": 1,
+    "system_conhost_cleanup_termination": 1,
+    "origin_cleanup_termination": 1,
+    "health_cleanup_termination": 1,
+    "q_listener_cleanup_termination": 1,
+    "q_health_cleanup_termination": 1
+  },
+  "cleanup": {
+    "acl_removed": true,
+    "all_workloads_exited": true,
+    "cleanup": true,
+    "maintenance_cleanup_confirmed": true,
+    "maintenance_handles_closed": true,
+    "profile_deleted": true,
+    "sid_released": true,
+    "workload_cleanup_confirmed": true,
+    "workload_job_empty": true
+  },
+  "outer_cleanup": {
+    "controller_exit_verified": true,
+    "controller_held_verified": true,
+    "guard_job_verified": true,
+    "outer_cleanup_verified": true,
+    "recovery_required": false,
+    "tree_retained": true
+  },
+  "checks": {
+    "artifacts": true,
+    "cleanup": true,
+    "declared_caps": true,
+    "direct_deny": true,
+    "firewall_exact": false,
+    "guard_held": true,
+    "live_probe": true,
+    "ordinary": true,
+    "origin_healthy": false,
+    "positive": true,
+    "proxy_death": false,
+    "same_selected": true,
+    "selected_held": true,
+    "sources": true,
+    "wrong_peer": false,
+    "wrong_port": false
+  },
+  "diagnostic": {
+    "direct_attempted": true,
+    "direct_connected": false,
+    "direct_denied_by_access": true,
+    "effective_full_verified": false,
+    "exact_rule_scope_verified": true,
+    "forbidden_nonce_received": false,
+    "observation_complete": false,
+    "positive_verified": true,
+    "profiles_off_verified": true,
+    "requested": true
+  },
+  "wrong_port_extension": {
+    "attempted": false,
+    "completed": false,
+    "connected": false,
+    "denied_by_access": false,
+    "forbidden_nonce_received": false,
+    "healthy_after": false,
+    "healthy_before": false,
+    "observation_complete": false,
+    "requested": true
+  },
+  "observations": {
+    "origin_nonce_received": true,
+    "real_http_accepted": true,
+    "selected_network_attempted": true
+  },
+  "violations": {
+    "direct_connected": false,
+    "fallback_after_death": false,
+    "forbidden_receiver_accepted": false,
+    "wrong_peer_connected": false,
+    "wrong_port_connected": false
+  },
+  "diagnostic_completed": false,
+  "status": "inconclusive",
+  "scope": {
+    "original_stage0": false,
+    "first_chain_verified": false,
+    "direct_deny_verified": false,
+    "local_c_qualified": false,
+    "product_acceptance": false,
+    "system_dns_tested": false,
+    "service_brokers_tested": false,
+    "winhttp_tested": false,
+    "application_adapter_tested": false
+  },
+  "strict_isolation_qualified": false,
+  "private_identifiers_paths_ports_qpc_and_nonce_values_published": false,
+  "archive_scope": "read-and-copy-only; failed ordinary control cannot prove selected wrong-port denial or leakage"
+}
