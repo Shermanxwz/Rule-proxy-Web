@@ -1,0 +1,138 @@
+name: Identity proxy anonymous-pipe hosted mechanics
+# Same-token hosted mechanics only: no AppContainer, proxy, network, or product acceptance.
+on:
+  push:
+    branches: [dot/windows-isolation-proof]
+    paths:
+      - '.github/native/windows_identity_proxy_pipe_actor.cpp'
+      - '.github/build_windows_identity_proxy_pipe_actor.ps1'
+      - '.github/windows_identity_proxy_pipe_probe.py'
+      - 'tests/test_windows_identity_proxy_pipe_probe.py'
+      - '.github/native/windows_identity_actor.cpp'
+      - '.github/native/windows_identity_proxy_bridge_core.hpp'
+      - '.github/windows_identity_proxy_bridge_codec.py'
+      - '.github/windows_identity_proxy_bridge_model.py'
+      - 'tests/test_windows_identity_proxy_bridge_codec.py'
+      - 'tests/test_windows_identity_proxy_bridge_model.py'
+      - 'tests/test_windows_identity_proxy_bridge_native.py'
+      - '.github/native/windows_identity_proxy_bridge_conformance.cpp'
+      - '.github/build_windows_identity_proxy_bridge_core.ps1'
+      - '.github/windows_identity_ordinary_launcher.py'
+      - '.github/windows_identity_pipe_probe.py'
+      - '.github/windows_identity_proof.py'
+      - '.github/windows_psec_compartment_smoke.py'
+      - 'ruleproxy/windows_app_process.py'
+      - 'docs/validation/2026-10-22-native-proxy-pipe-mechanics.md'
+      - '.github/workflows/windows-identity-proxy-pipe-gates.yml'
+permissions:
+  contents: read
+env:
+  SOURCE_PINS: >-
+    {".github/native/windows_identity_proxy_pipe_actor.cpp":"b26997e8110a7f57066b037a13b41ca34d67b665972ca780d3f52ff7e8f02c4d",".github/build_windows_identity_proxy_pipe_actor.ps1":"e857d616aa3867adf37b543fc438ae821a13194a86f7636cc23caf4872055b52",".github/windows_identity_proxy_pipe_probe.py":"21572ae72a5240168b11e67837794074a401305fa1b4d7f5755feb1115251780","tests/test_windows_identity_proxy_pipe_probe.py":"9185b5a9dadf8add28bd60b030f74210917f8d6ea6c66db6bd146f4fb4fcb2df",".github/native/windows_identity_actor.cpp":"530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",".github/native/windows_identity_proxy_bridge_core.hpp":"cc3d6a72e54b92ad8d854e9bd50b4237cc7e295d6b0df72a3732d2a9f62e0309",".github/windows_identity_proxy_bridge_codec.py":"5edaa6c4b1a2aacc8aec741838ec0d4de9121da81b4124856e1c865e40e1f835",".github/windows_identity_proxy_bridge_model.py":"7ec2d977ee72fd779d43d6d00b36ed64d0aaa795f7f85df74bf49ba2235b4f4c","tests/test_windows_identity_proxy_bridge_codec.py":"d893dce883924099a64c6e48af131f72c20175fe6ee86b739449f9201fc33373","tests/test_windows_identity_proxy_bridge_model.py":"1afceba2a7841fced09970ff4686d129fa6f7100c2b25f3a8d7da30669470a22","tests/test_windows_identity_proxy_bridge_native.py":"4a2593d0ffd13741f58e3d85e7b9585e773d695cb9c57777b9218168519bc75f",".github/native/windows_identity_proxy_bridge_conformance.cpp":"a133674578c821c47c4bf990a7bd13781d926ca50dd816a7d7b324dff6d6d484",".github/build_windows_identity_proxy_bridge_core.ps1":"752732d8ec63b41c89ec957fa055529c23f07125f14565f757eb9c0e4d48a79e",".github/windows_identity_ordinary_launcher.py":"a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0",".github/windows_identity_pipe_probe.py":"4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74",".github/windows_identity_proof.py":"aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386",".github/windows_psec_compartment_smoke.py":"6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019","ruleproxy/windows_app_process.py":"8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"}
+  EXCLUDED_MARKERS: >-
+    ["[identity-direct-evidence-01]","[identity-direct-stage0-gates]","[identity-direct-stage0-runtime]","[identity-pipe-runtime]","[identity-proxy-core-gates]","[identity-restricted-r0-runtime]","[identity-serviced-stage0-gates]","[identity-serviced-stage0-runtime]","[identity-stage0b-runtime]","[identity-startup-paired-runtime]","[identity-stock-stage0-runtime]","[identity-win11-apt-diagnostic-02]","[identity-win11-cache-inventory]","[identity-win11-mode-inventory]","[identity-win11-preflight]","[identity-win11-stage0-runtime]","[n0a-capture-gates]","[n0a-capture-runtime]","[n0a-connect-gates]","[n0a-connect-runtime]","[n0a-udp-gates]","[n0a-udp-parent-gates]","[n0a-udp-parent-runtime]","[n0a-udp-runtime]","[n0a-udp6-gates]","[n0a-udp6-runtime]"]
+jobs:
+  linux:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-proxy-pipe-gates]') && !contains(github.event.head_commit.message, '[identity-direct-evidence-01]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-pipe-runtime]') && !contains(github.event.head_commit.message, '[identity-proxy-core-gates]') && !contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]') && !contains(github.event.head_commit.message, '[identity-serviced-stage0-gates]') && !contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') && !contains(github.event.head_commit.message, '[identity-startup-paired-runtime]') && !contains(github.event.head_commit.message, '[identity-stock-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-win11-apt-diagnostic-02]') && !contains(github.event.head_commit.message, '[identity-win11-cache-inventory]') && !contains(github.event.head_commit.message, '[identity-win11-mode-inventory]') && !contains(github.event.head_commit.message, '[identity-win11-preflight]') && !contains(github.event.head_commit.message, '[identity-win11-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-gates]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-gates]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-gates]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-gates]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-gates]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Admit exactly one exclusive pipe-gate marker
+        shell: bash
+        env:
+          GATE_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          python3 -I -S -B -c "import os,json; m=os.environ['GATE_MESSAGE']; assert m.count('[identity-proxy-pipe-gates]')==1 and not any(x in m for x in json.loads(os.environ['EXCLUDED_MARKERS'])), 'marker_admission'"
+      - name: Verify pins and required pure bridge and pipe suites
+        shell: bash
+        run: |
+          python3 -I -S -B - <<'PY'
+          import hashlib,json,os,pathlib,unittest
+          pins=json.loads(os.environ['SOURCE_PINS'])
+          for name,digest in pins.items():
+           p=pathlib.Path(name)
+           assert p.is_file() and not p.is_symlink() and hashlib.sha256(p.read_bytes()).hexdigest()==digest,'source_pin'
+          names=('test_windows_identity_proxy_bridge_codec.py','test_windows_identity_proxy_bridge_model.py','test_windows_identity_proxy_bridge_native.py','test_windows_identity_proxy_pipe_probe.py')
+          suites=[unittest.defaultTestLoader.discover('tests',pattern=name) for name in names]
+          counts=[suite.countTestCases() for suite in suites]
+          assert all(counts) and sum(counts[:3])==63,'required_tests'
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(suites))
+          print('REQUIRED',sum(counts),'SKIPS',len(result.skipped),'OK',result.wasSuccessful())
+          raise SystemExit(0 if result.wasSuccessful() and not result.skipped else 1)
+          PY
+  windows:
+    if: ${{ github.ref == 'refs/heads/dot/windows-isolation-proof' && github.event_name == 'push' && contains(github.event.head_commit.message, '[identity-proxy-pipe-gates]') && !contains(github.event.head_commit.message, '[identity-direct-evidence-01]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-gates]') && !contains(github.event.head_commit.message, '[identity-direct-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-pipe-runtime]') && !contains(github.event.head_commit.message, '[identity-proxy-core-gates]') && !contains(github.event.head_commit.message, '[identity-restricted-r0-runtime]') && !contains(github.event.head_commit.message, '[identity-serviced-stage0-gates]') && !contains(github.event.head_commit.message, '[identity-serviced-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-stage0b-runtime]') && !contains(github.event.head_commit.message, '[identity-startup-paired-runtime]') && !contains(github.event.head_commit.message, '[identity-stock-stage0-runtime]') && !contains(github.event.head_commit.message, '[identity-win11-apt-diagnostic-02]') && !contains(github.event.head_commit.message, '[identity-win11-cache-inventory]') && !contains(github.event.head_commit.message, '[identity-win11-mode-inventory]') && !contains(github.event.head_commit.message, '[identity-win11-preflight]') && !contains(github.event.head_commit.message, '[identity-win11-stage0-runtime]') && !contains(github.event.head_commit.message, '[n0a-capture-gates]') && !contains(github.event.head_commit.message, '[n0a-capture-runtime]') && !contains(github.event.head_commit.message, '[n0a-connect-gates]') && !contains(github.event.head_commit.message, '[n0a-connect-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-gates]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-gates]') && !contains(github.event.head_commit.message, '[n0a-udp-parent-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp-runtime]') && !contains(github.event.head_commit.message, '[n0a-udp6-gates]') && !contains(github.event.head_commit.message, '[n0a-udp6-runtime]') }}
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Admit exactly one exclusive pipe-gate marker
+        shell: pwsh
+        env:
+          GATE_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          python -I -S -B -c "import os,json; m=os.environ['GATE_MESSAGE']; assert m.count('[identity-proxy-pipe-gates]')==1 and not any(x in m for x in json.loads(os.environ['EXCLUDED_MARKERS'])), 'marker_admission'"
+          if ($LASTEXITCODE -ne 0) { throw 'marker_admission' }
+      - name: Verify pins and required pure bridge and pipe suites
+        shell: pwsh
+        run: |
+          $program=@'
+          import hashlib,json,os,pathlib,unittest
+          pins=json.loads(os.environ['SOURCE_PINS'])
+          for name,digest in pins.items():
+           p=pathlib.Path(name)
+           assert p.is_file() and not p.is_symlink() and hashlib.sha256(p.read_bytes()).hexdigest()==digest,'source_pin'
+          names=('test_windows_identity_proxy_bridge_codec.py','test_windows_identity_proxy_bridge_model.py','test_windows_identity_proxy_bridge_native.py','test_windows_identity_proxy_pipe_probe.py')
+          suites=[unittest.defaultTestLoader.discover('tests',pattern=name) for name in names]
+          counts=[suite.countTestCases() for suite in suites]
+          assert all(counts) and sum(counts[:3])==63,'required_tests'
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(suites))
+          print('REQUIRED',sum(counts),'SKIPS',len(result.skipped),'OK',result.wasSuccessful())
+          raise SystemExit(0 if result.wasSuccessful() and not result.skipped else 1)
+          '@
+          python -I -S -B -c $program
+          if ($LASTEXITCODE -ne 0) { throw 'required_pure_tests' }
+      - name: Parse and compile pipe actor without execution
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD '.github/build_windows_identity_proxy_pipe_actor.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count) { throw 'build_syntax' }
+          $vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $vs) { throw 'installed_msvc_unavailable' }
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          $pins=$env:SOURCE_PINS|ConvertFrom-Json
+          & ./.github/build_windows_identity_proxy_pipe_actor.ps1 -OutputDirectory "$PWD/proxy-pipe-build" -ExpectedActorSha256 $pins.'.github/native/windows_identity_proxy_pipe_actor.cpp' -ExpectedIdentitySha256 $pins.'.github/native/windows_identity_actor.cpp' -ExpectedCoreSha256 $pins.'.github/native/windows_identity_proxy_bridge_core.hpp'
+          if ($LASTEXITCODE -ne 0) { throw 'pipe_compile' }
+      - name: Explicit bounded hosted pipe suite once
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $manifestSha=(Get-FileHash -LiteralPath 'proxy-pipe-build/identity-proxy-pipe-manifest.json' -Algorithm SHA256).Hash.ToLowerInvariant()
+          $actor=(Resolve-Path -LiteralPath 'proxy-pipe-build/windows_identity_proxy_pipe_actor.exe').Path
+          $manifest=(Resolve-Path -LiteralPath 'proxy-pipe-build/identity-proxy-pipe-manifest.json').Path
+          $tempProgram=@'
+          import os,pathlib
+          try:
+           root=pathlib.Path(os.environ['RUNNER_TEMP']).resolve(strict=True)
+           if not root.is_dir():raise ValueError('temp_parent')
+           print(str(root))
+          except BaseException:raise SystemExit('temp_parent') from None
+          '@
+          $tempParent=& python -I -S -B -c $tempProgram
+          if ($LASTEXITCODE -ne 0 -or $tempParent -isnot [string] -or [string]::IsNullOrWhiteSpace($tempParent)) { throw 'temp_parent' }
+          $work=Join-Path $tempParent ('identity-proxy-pipe-'+[Guid]::NewGuid().ToString('N'))
+          python -I -S -B tests/test_windows_identity_proxy_pipe_probe.py --run-hosted --actor $actor --manifest $manifest --expected-manifest-sha256 $manifestSha --work $work
+          if ($LASTEXITCODE -ne 0) { throw 'hosted_pipe_mechanics' }
