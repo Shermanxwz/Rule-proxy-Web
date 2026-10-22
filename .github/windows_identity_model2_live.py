@@ -344,8 +344,70 @@ class RuleOwnership:
         return True
 
 
+def candidate_observations(api, owners, budget, candidates, *, first, second, first_images,
+                           second_images, g_pid, g_created, job, guard_name, scoped_owners):
+    """Private read-only facts for a rejected set; never an admission policy."""
+    rows = []
+    for pid, created, handle in candidates[:16]:
+        row = dict(pid=pid, created=created, first_parent=first.get(pid), second_parent=second.get(pid),
+            first_image=first_images.get(pid), second_image=second_images.get(pid), query_sync_handle_held=True,
+            creation_stable=False, alive=False, image_path=None, image_sha256=None,
+            system_conhost_path=None, system_conhost_sha256=None, system_conhost_image_equal=False,
+            identity=None, capabilities=None, workload_job_verified=False, outer_job_verified=False,
+            outer_query_handle_closed=False, network_authorized=False, errors=[])
+        rows.append(row)
+        def read(step, action):
+            try:
+                budget.require_ms(budget.cutoff(25))
+                return action()
+            except BaseException as exc:
+                code = getattr(exc, 'winerror', None)
+                row['errors'].append(dict(step=step, category=type(exc).__name__[:64],
+                    winerror=code if integer(code) else None))
+                return None
+        def generation():
+            row['creation_stable'] = (api.creation_time(handle) == created and created >= g_created
+                and api.process_id(handle) == pid and first.get(pid) == g_pid and second.get(pid) == g_pid)
+            row['alive'] = not api.wait(handle, 0)
+        read('generation', generation)
+        def image_fact():
+            observed = api.process_image(handle)
+            require(type(observed) is str and 0 < len(observed) <= 4096, 'candidate_image')
+            row['image_path'] = observed
+            path = launcher.checked_path(observed)
+            row['image_sha256'] = sha(local.bounded(path, 8 * 1024 * 1024))
+            expected = api.system_conhost_path()
+            require(type(expected) is str and 0 < len(expected) <= 4096, 'system_conhost_image')
+            row['system_conhost_path'] = expected
+            row['system_conhost_sha256'] = sha(local.bounded(launcher.checked_path(expected), 8 * 1024 * 1024))
+            row['system_conhost_image_equal'] = (os.path.normcase(observed) == os.path.normcase(expected)
+                and row['image_sha256'] == row['system_conhost_sha256'])
+        read('image', image_fact)
+        def token_fact():
+            token = api.token_for_process(handle)
+            owners.add(token)
+            row['identity'] = api.identity(token)
+            entries = api.groups(token, 30, 'TokenCapabilities')
+            require(type(entries) is list and len(entries) <= 64, 'candidate_capability_bound')
+            row['capabilities'] = [{'sid': sid, 'attributes': flags} for sid, flags in entries]
+        read('token', token_fact)
+        def workload_fact():
+            api.verify_job(job, handle)
+            row['workload_job_verified'] = True
+        read('workload_job', workload_fact)
+        scope = helpers.OneShotHandles(api.close)
+        scoped_owners.append(scope)
+        def outer_fact():
+            verify_exact_guard_member(api, handle, guard_name, owners=scope)
+            row['outer_job_verified'] = True
+        read('outer_job', outer_fact)
+        row['outer_query_handle_closed'] = scope.confirmed_closed
+        read('generation_after_queries', generation)
+    return rows
+
+
 def admit_selected(api, owners, budget, *, g_process, g_created, job, image, image_hash,
-                   parent, capability_profile, catalog):
+                   parent, capability_profile, catalog, diagnostic_guard_name=None, diagnostic_scoped_owners=None):
     """Discovery does not authorize. Hold generation+image+Job+token before GO."""
     require(capability_profile in ('agentic-only', 'agentic-pncs'), 'selected_profile')
     require(integer(g_created, 1, 0xffffffffffffffff) and ac.digest(image_hash), 'selected_parent')
@@ -377,6 +439,12 @@ def admit_selected(api, owners, budget, *, g_process, g_created, job, image, ima
             first_images={str(pid):first_images.get(pid) for pid in sorted(first_children)[:16]},
             second_images={str(pid):getattr(api,'last_snapshot_images',{}).get(pid) for pid in sorted(second_children)[:16]},
             candidates=[dict(pid=pid,created=created) for pid,created,_ in candidates[:16]])
+        if diagnostic_guard_name is not None:
+            require(type(diagnostic_scoped_owners) is list, 'diagnostic_scoped_owners')
+            error.discovery['held_observations'] = candidate_observations(api, owners, budget, candidates,
+                first=first, second=second, first_images=first_images,
+                second_images=dict(getattr(api, 'last_snapshot_images', {})), g_pid=g_pid, g_created=g_created,
+                job=job, guard_name=diagnostic_guard_name, scoped_owners=diagnostic_scoped_owners)
         raise error
     require(not api.wait(g_process, 0) and api.creation_time(g_process) == g_created, 'g_generation')
     valid = []
@@ -406,19 +474,20 @@ def admit_selected(api, owners, budget, *, g_process, g_created, job, image, ima
     return valid[0]
 
 
-def verify_exact_guard_member(api, process, name):
+def verify_exact_guard_member(api, process, name, *, owners=None):
     require(type(name) is str and re.fullmatch(r'Local\\RuleProxy\.LocalGuard\.[0-9a-f]{32}', name), 'outer_job_name')
     api.k.OpenJobObjectW.argtypes = [C.c_uint32, C.c_int, C.c_wchar_p]
     api.k.OpenJobObjectW.restype = C.c_void_p
     job = api.k.OpenJobObjectW(4, False, name)
     api.native.check(job, 'OpenJobObjectW(selected_outer_query)')
+    if owners is not None: owners.add(job)
     try:
         api.verify_job(job, process)
         limits = api.proc._JobExtendedLimitInfo()
         api.native.check(api.k.QueryInformationJobObject(job, 9, C.byref(limits), C.sizeof(limits), None), 'QueryInformationJobObject(selected_outer)')
         require(limits.BasicLimitInformation.LimitFlags == launcher.KILL_ON_JOB_CLOSE, 'selected_outer_job_limits')
     finally:
-        api.close(job)
+        api.close(job) if owners is None else owners.close(job)
 
 
 class LiveNativeAPI(origin.OriginAPI):
@@ -450,6 +519,21 @@ class LiveNativeAPI(origin.OriginAPI):
         value = int(self.k.GetProcessId(process))
         self.native.check(value, 'GetProcessId')
         return value
+
+    def process_image(self, process):
+        size = C.c_uint32(32768)
+        buffer = C.create_unicode_buffer(size.value)
+        self.native.check(self.k.QueryFullProcessImageNameW(process, 0, buffer, C.byref(size)), 'QueryFullProcessImageNameW(candidate)')
+        require(0 < size.value < len(buffer), 'candidate_image')
+        return buffer.value
+
+    def system_conhost_path(self):
+        self.k.GetSystemDirectoryW.argtypes = [C.c_wchar_p, C.c_uint32]
+        self.k.GetSystemDirectoryW.restype = C.c_uint32
+        buffer = C.create_unicode_buffer(32768)
+        length = self.k.GetSystemDirectoryW(buffer, len(buffer))
+        self.native.check(0 < length < len(buffer), 'GetSystemDirectoryW(candidate)')
+        return str(launcher.checked_path(Path(buffer.value) / 'conhost.exe'))
 
     def open_query_process(self, pid):
         handle = self.k.OpenProcess(0x1000 | 0x100000, False, pid)

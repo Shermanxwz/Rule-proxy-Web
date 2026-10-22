@@ -729,7 +729,8 @@ class FirstController:
         g = self.g_task('g-live', request_path, actual=True)
         observed, _ = read_when_closed(api, budget, root / 'selected/ready.json', g['info'].hProcess, pair_end)
         held = live.admit_selected(api, self.owners, budget, g_process=g['info'].hProcess, g_created=g['created'],
-            job=self.job, image=exe, image_hash=c['actor_sha256'], parent=self.parent, capability_profile='agentic-pncs', catalog=self.catalog)
+            job=self.job, image=exe, image_hash=c['actor_sha256'], parent=self.parent, capability_profile='agentic-pncs', catalog=self.catalog,
+            diagnostic_guard_name=c['guard_job_name'], diagnostic_scoped_owners=self.scoped_owners)
         live.verify_exact_guard_member(api, held['handle'], c['guard_job_name'])
         held['discovery'].update(workload_job_verified=True, outer_job_verified=True, outer_query_handle_closed=True)
         selected = dict(info=SimpleNamespace(hProcess=held['handle'], hThread=None), attempted=True, assigned=True,
@@ -1198,7 +1199,14 @@ def run_controller(config, root=ROOT, *, api=None):
             if re.fullmatch(r'[a-z0-9_:-]{1,128}', str(exc)):
                 error['invariant'] = str(exc)
             if str(exc) == 'selected_child_set_changed' and type(getattr(exc, 'discovery', None)) is dict:
-                error['discovery'] = exc.discovery
+                discovery_raw = live.encode(dict(schema_version=1, stage='selected-rejected-held-discovery',
+                    run=config['run'], frequency=config['frequency'], start_qpc=config['start_qpc'],
+                    deadline_qpc=config['deadline_qpc'], source_sha256=config['source_sha256'],
+                    network_authorized=False, discovery=exc.discovery))
+                if len(discovery_raw) <= live.MAX_PRIVATE:
+                    launcher.write_private_bytes(root / 'selected-discovery-private.json', discovery_raw)
+                    error['discovery_sha256'] = live.sha(discovery_raw)
+                    error['discovery_bytes'] = len(discovery_raw)
         raw_error = live.encode(error)
         if len(raw_error) <= 4096:
             launcher.write_private_bytes(root / 'controller-error-private.json', raw_error)
