@@ -1,0 +1,39 @@
+{
+  "chain_short_gate_passed": true,
+  "freeze_sha256": "87c8f7c42834e1bd6a212a4ab529027895f636e16e91415353d352883baba2a7",
+  "interpretation": [
+    "Only the previously cancelled Linux job was rerun through the job-specific GitHub API. It used the same source, five-minute limit, official package installation and existing tiny paused-QEMU mechanism. No package source, network setting or timeout was changed.",
+    "The second Linux execution passed all 1,013 tests, completed package installation, and observed paused owned QEMU with stable mapped backing-file hashes and separate local package metadata/integrity agreement. It observed process exit, control closure and work removal without forced kill.",
+    "The mapped backing-file and local package agreement do not attest resident process bytes or equivalence to upstream source. No guest, packet egress or Windows AC pair ran in that mechanism.",
+    "GitHub carries the prior successful Windows job into attempt 2 with a new job-record ID, but retains its original 11:40:37\u201311:42:30 execution timestamps. Windows was not rerun. Its 28-case AC schema/mock-dispatch parity, eight-mode ZIP/PowerShell parity and existing IPv6 hosted cleanup remain the attempt-1 evidence archived separately.",
+    "The first Linux cancellation remains an immutable non-green result. Retry success does not establish the unique cause of its delayed package fetches or retroactively supply its missing cleanup/provenance evidence.",
+    "Together, the retained Windows execution and the new Linux execution satisfy this reviewed short gate. The new AC mode is still default-OFF; all new role/profile/ACL/identity/48-byte bridge integration remains pure or mocked evidence, not genuine AC-pair qualification.",
+    "No automatic further attempt is authorized by this result. Any activation wiring and real Win11 AC-pair run require separate review and root decision."
+  ],
+  "limits": {
+    "ac_pair_executed": false,
+    "new_ac_profile_created": false,
+    "new_bridge_native_executed": false,
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "windows_vm_executed": false
+  },
+  "observations": {
+    "ac_execution_enabled": false,
+    "ac_pair_executed": false,
+    "linux_attempt2_skips": 0,
+    "linux_attempt2_tests": 1013,
+    "linux_package_install_completed": true,
+    "paused_qemu_cleanup_confirmed": true,
+    "paused_qemu_provenance_admitted": true,
+    "windows_attempt1_skips": 0,
+    "windows_attempt1_tests": 1013,
+    "windows_rerun": false
+  },
+  "prior_archive_commit": "ca13f1003e24538b6503949c93cbfa66f053501b",
+  "result_sha256": "b7c751546f6a333ff4c96a5b8f249a394bd54aec2a3222ad42c436559c37aa04",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39772363906/attempts/2",
+  "schema_version": 1,
+  "source_commit": "d9ad11ee2492f51d6d54224197ea442d2c5eecfd",
+  "title": "Default-OFF AC pipe short gate: Linux-only retry completed; original Windows results retained"
+}
