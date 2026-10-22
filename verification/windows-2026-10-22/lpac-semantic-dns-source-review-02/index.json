@@ -1,0 +1,47 @@
+{
+  "actual_review_reads_existing_evidence_only": true,
+  "files": [
+    {
+      "bytes": 8518,
+      "path": "incremental.patch",
+      "sha256": "92cdf4a818a90333f1a2958221f88e35537fbe0a0a975fc80dbbf0ea8859ab1c"
+    },
+    {
+      "bytes": 6467,
+      "path": "freeze.json",
+      "sha256": "c6aeb2d2e014518ced6b3cb7514e238aecf6a8309c0c72686016a2c91fefc918"
+    },
+    {
+      "bytes": 1022,
+      "path": "abi.json",
+      "sha256": "3c28163a96ae3b08f1d2b85cb7977cb9f63398cd49c8a763cb21209f13276789"
+    },
+    {
+      "bytes": 5357,
+      "path": "candidate-pure.log",
+      "sha256": "abf1c067412fe47c3102c654e0f74944a116917cc01c17897abef495dc99c82e"
+    },
+    {
+      "bytes": 4830,
+      "path": "source-independent-review.json",
+      "sha256": "f51c0c748e184354118ee6933309951393f7edf79fcfafff53d09e2e8393bbc4"
+    },
+    {
+      "bytes": 28819,
+      "path": "actual-independent-review.json",
+      "sha256": "4faff5708aa7093b1c7ce9218650d623ace2c0cb37501cb211edc3f649877e9f"
+    },
+    {
+      "bytes": 1729,
+      "path": "pure-tests.json",
+      "sha256": "871eacc2afa0d4f12878be4737c8c462b7fe4a9220fe607713936b056f193d78"
+    }
+  ],
+  "incremental_patch_base_commit": "ba0954a6496a6ced2c5197d57ebc14155b998753",
+  "index_self_hash_excluded": true,
+  "schema_version": 1,
+  "source_and_pure_receipts_not_actual_runtime_evidence": true,
+  "source_commit": "9c5e56ace7e4f2a039d3e078bcb81082e44b60df",
+  "source_sha256": "a0859d431fe25f8cb93f7d4c4381785770670087f857604073c4b80c92641081",
+  "stage": "semantic-dns-snapshot-fix-source-and-actual-review-index"
+}

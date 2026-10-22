@@ -1,0 +1,94 @@
+{
+  "author_freeze": {
+    "bytes": 6467,
+    "sha256": "c6aeb2d2e014518ced6b3cb7514e238aecf6a8309c0c72686016a2c91fefc918"
+  },
+  "author_pure_evidence": {
+    "commitment_verified": true,
+    "independently_rerun": false,
+    "log_bytes": 5357,
+    "log_sha256": "abf1c067412fe47c3102c654e0f74944a116917cc01c17897abef495dc99c82e",
+    "reported_errors": 0,
+    "reported_failures": 0,
+    "reported_skipped": 0,
+    "reported_tests": 23
+  },
+  "baseline_commit": "ba0954a6496a6ced2c5197d57ebc14155b998753",
+  "equals_author_final_freeze": true,
+  "fabricated_review_log": false,
+  "final_delta_reviewed": [
+    "Owner.execute now explicitly sequences setup, both native actors, fixture, ordinary before, selected, ordinary after, finish and cleanup; it does not call the historical base.execute snapshot sites.",
+    "Both snapshot calls use fixture_snapshot with a keyword-only deadline. Original worker-budget cutoff20 is required before and after the snapshot; any crossing prevents the selected GO/qualification.",
+    "The caller deadline is a bounded monotonic projection of the remaining original QPC budget. The real fixture independently clamps remaining time to its own initial deadline, so this is not a renewal.",
+    "Independent selected query events are harvested before and in finally around snapshot, including exceptions and lateness.",
+    "StrictFixture constructor, snapshot and finish signatures exactly match the real DnsCasesFixture signatures by source-level inspect tests; missing snapshot deadline raises TypeError.",
+    "Other reused real shapes were rechecked: fixture construction/start, base cleanup.finish keyword deadline, ordinary health/temp environment, once inventory and freshness, read_when_closed, native ready/phase/final parsers, supported AccessCheck proof/held-token interfaces."
+  ],
+  "identity_basis": "held-accesscheck-matrix-v1",
+  "invented_duration": false,
+  "limitations": {
+    "actual_ready_or_runtime_outcome_not_asserted": true,
+    "dns_isolation_qualified": false,
+    "g_psec_tested": false,
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "static_review_only": true
+  },
+  "patch": {
+    "bytes": 8518,
+    "sha256": "92cdf4a818a90333f1a2958221f88e35537fbe0a0a975fc80dbbf0ea8859ab1c"
+  },
+  "prior_actual_gap": {
+    "attempt": "semanticDNS01",
+    "fake_interface_gap": "The prior composition fake accepted arbitrary keyword arguments and no required deadline.",
+    "independent_review01_did_not_detect_this_interface_gap": true,
+    "observed_interface_failure": "Inherited base.Owner.execute called the real fixture snapshot without its required keyword-only deadline.",
+    "prior_failed_actual_and_review_receipt_not_rewritten": true,
+    "prior_selected_dns_call_not_claimed": true
+  },
+  "regression_source_reviewed": [
+    "test_real_fixture_keyword_only_snapshot_and_finish_deadlines_bind_original_qpc",
+    "test_snapshot_crossing_original_work_cutoff_cannot_reach_selected_go"
+  ],
+  "remaining_blockers_found": [],
+  "reviewed_changed_files": {
+    ".github/windows_identity_lpac_semantic_dns.py": {
+      "bytes": 46876,
+      "lf_only": true,
+      "sha256": "f52c4848446aad15050b84c35cb98c05a57d067833840592e15e92697af4b644"
+    },
+    "tests/test_windows_identity_lpac_semantic_dns.py": {
+      "bytes": 15568,
+      "lf_only": true,
+      "sha256": "d81b4cfad882a7cb2434c673a8b588f8e331c23e58753963bc41495247eda86d"
+    }
+  },
+  "reviewer_actions": {
+    "actor_or_process_created": false,
+    "actual_runtime_executed": false,
+    "candidate_imported_or_executed": false,
+    "main_repository_modified": false,
+    "native_api_called": false,
+    "network_executed": false,
+    "pure_tests_rerun": false,
+    "source_reads_and_file_hashes": true
+  },
+  "schema_version": 1,
+  "scope": "standalone-lpac-accesscheck-standard53-dns-mechanism-v1",
+  "source_closure": {
+    "all_current_candidate_bytes_match_freeze": true,
+    "files": 35,
+    "sha256": "a0859d431fe25f8cb93f7d4c4381785770670087f857604073c4b80c92641081"
+  },
+  "stage": "work-only-semantic-lpac-dns-independent-static-review-02",
+  "static_review_conclusion": "No remaining blocker found in this narrow interface/clock increment and its unchanged safety gates.",
+  "unchanged_safety_gates": [
+    "New semantic identity scope and source/device/artifact/plan-bound guard",
+    "Original QPC epoch/root deadline and per-phase bounds",
+    "No class46 query or fabricated lpac1",
+    "Held primary and exact capabilities/image/dual Jobs/generation plus closed AccessCheck proof before selected resume/DNS GO/finish",
+    "Once inventory, same-method ordinary controls, typed API5 versus API87/late/pending",
+    "Independent sticky receiver positivity and strict damaged-report rejection",
+    "Unknown resource/cleanup retains recovery and prevents qualification"
+  ]
+}

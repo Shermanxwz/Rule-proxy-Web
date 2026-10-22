@@ -1,0 +1,24 @@
+{
+  "actual_experiment_performed": false,
+  "changed_contract": "Explicit new-owner lifecycle calls required keyword-only fixture.snapshot(deadline=...).",
+  "fixture_initial_deadline_clamps_caller_deadline": true,
+  "fixture_signatures": [
+    "__init__(cases,*,deadline,socket_factory=None,thread_factory=None,clock=None)",
+    "start()",
+    "snapshot(*,deadline)",
+    "finish(*,deadline)"
+  ],
+  "identity_basis": "held-accesscheck-matrix-v1",
+  "identity_go_cleanup_schemas_unchanged": true,
+  "inventory_once_freshness_seconds": 5,
+  "native07_unchanged": true,
+  "old_class46_owner_unchanged": true,
+  "ordinary_before_selected_after_all_explicit": true,
+  "original_root_seconds": 120,
+  "schema_version": 1,
+  "scope": "standalone-lpac-accesscheck-standard53-dns-mechanism-v1",
+  "snapshot_deadline": "time.monotonic() + remaining_ms(original worker QPC deadline minus 20F) / 1000",
+  "snapshot_qpc_checked_before_and_after": true,
+  "snapshot_sticky_harvest_before_and_finally": true,
+  "worker_seconds": 115
+}
