@@ -11,6 +11,7 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 FORBIDDEN=('udp/TEST_ONLY.exe','capture.pcap','private-udp/runner-flow.json','.github/windows_n0a_udp_host.py')
 UDP6_FORBIDDEN=('udp6/TEST_ONLY.exe','capture.pcap','private-udp6/runner-flow.json','.github/windows_n0a_udp6_host.py')
+STAGE0B_FORBIDDEN=('duplicate-actor.exe','capture.pcap','private-stage0b/report.json','.github/windows_n0a_udp6_guest.py')
 PARENT_FORBIDDEN=('parent/TEST_ONLY.exe','capture.pcap','private-parent-udp/runner-flow.json','.github/windows_n0a_udp_parent_host.py')
 def generate(root):
     root=Path(root)
@@ -85,7 +86,22 @@ def generate(root):
     for index,name in enumerate(UDP6_FORBIDDEN):
         with zipfile.ZipFile(root/f'udp6-bad-{index}.zip','w') as archive:
             for member,data in entries.items():archive.writestr(name if member=='.github/windows_n0a_udp6_flow.py' else member,data)
-    return {'schema_version':1,'members':[10,14,15,17,22,17],'negative_cases':12,'inert_boundary_mocks':True,'runtime_artifact':False}
+    target=root/'stage0b.zip'
+    stage_actor=root/'stage0b-inert.exe';stage_actor.write_bytes(b'not-an-executable-stage0b-fixture'*32)
+    with patch.object(host,'verify_python',return_value=b'nonexecuted-python-fixture'),\
+         patch.object(install_runtime,'_g_bundle_bytes',return_value=bundle_data),\
+         patch.object(install_runtime,'_extract_g_bundle',side_effect=extract):
+        digest=host.payload(root/'unused-python.zip',stage_actor,hashlib.sha256(stage_actor.read_bytes()).hexdigest(),bundle,target,stage0b={'enabled':True})
+    if digest!=hashlib.sha256(target.read_bytes()).hexdigest():raise ValueError('fixture digest')
+    with zipfile.ZipFile(target) as archive:
+        entries={n:archive.read(n) for n in archive.namelist()}
+        if len(archive.namelist())!=14 or set(entries)!=base|set(host.STAGE0B_FILES):raise ValueError('stage0b membership')
+        for name in host.STAGE0B_FILES:
+            if entries[name]!=(ROOT/name).read_bytes():raise ValueError('stage0b source')
+    for index,name in enumerate(STAGE0B_FORBIDDEN):
+        with zipfile.ZipFile(root/f'stage0b-bad-{index}.zip','w') as archive:
+            for member,data in entries.items():archive.writestr(name if member=='.github/windows_identity_stage0b_guest.py' else member,data)
+    return {'schema_version':1,'members':[10,14,15,17,22,17,14],'negative_cases':16,'inert_boundary_mocks':True,'runtime_artifact':False}
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,required=True);args=parser.parse_args()
     try:result=generate(args.root)

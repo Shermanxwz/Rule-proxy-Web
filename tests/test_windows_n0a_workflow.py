@@ -428,7 +428,9 @@ class N0aDirectWorkflowTests(unittest.TestCase):
         self.assertIn("foreach ($binary in @('udp6-production-build/windows_n0a_udp6_actor.exe'))",build['run'])
         self.assertIn('$size -lt 512 -or $size -gt 8388608',build['run'])
         short=(ROOT/'.github/workflows/windows-n0a-udp6-gates.yml').read_text()
-        names=ast.literal_eval(re.search(r'names=(\([^;]+\));',short).group(1));self.assertEqual(len(names),46)
+        names=ast.literal_eval(re.search(r'names=(\([^;]+\));',short).group(1));self.assertEqual(len(names),51)
+        self.assertEqual(names[46:],('test_windows_identity_pipe_probe.py','test_windows_identity_ordinary_launcher.py','test_windows_identity_stage0b_guest.py','test_windows_stage0b_host.py','test_windows_stage0b_guest_transport.py'))
+        names=names[:46]  # Runtime prerequisite list is unchanged; Stage0b remains short-gate-only.
         for step in selected:
             if 'names=' in step.get('run',''):
                 self.assertEqual(ast.literal_eval(re.search(r'names=(\([^;]+\));',step['run']).group(1)),names)

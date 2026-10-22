@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 $root = 'C:\RuleProxyCI'
 $result = @{schema_version=1; ordinary_account=$false; direct_build_verified=$false; exploratory_stage0=$true; product_acceptance=$false; documented_support_floor='26300.9550'; harness_completed=$false; stage0_passed=$false}
-$udp6Enabled=$false; $parentUdpEnabled=$false; $udpEnabled=$false; $n0aEnabled=$false; $n0aDeadline=0L; $n0aFrequency=0L; $n0aOriginalReady=$false
+$stage0bEnabled=$false; $udp6Enabled=$false; $parentUdpEnabled=$false; $udpEnabled=$false; $n0aEnabled=$false; $n0aDeadline=0L; $n0aFrequency=0L; $n0aOriginalReady=$false
 $phase='configuration'; $failed=$false; $hresult=$null; $pythonExit=$null; $failureCategory='operation_failed'
 # Pure predicates: fixed Windows path identity is case-insensitive, not alias tolerant.
 function Test-InstalledDriveC($Value) {
@@ -310,6 +310,157 @@ function Invoke-N0aGuestDiagnostic($Configuration,[string]$Workspace,[string]$Py
     } catch {}
     return $envelope
 }
+
+# Stage0b minimum pipe diagnostic, separate from original Stage0 acceptance.
+function Test-Stage0bConfiguration($Value) {
+    if ($Value -isnot [PSCustomObject] -or @($Value.PSObject.Properties).Count -ne 3) { return $false }
+    foreach($key in @('enabled','actor_sha256','case_nonce')) { if($key -cnotin @($Value.PSObject.Properties.Name)){return $false} }
+    return ($Value.enabled -is [bool] -and $Value.enabled -eq $true -and $Value.actor_sha256 -is [string] -and $Value.actor_sha256 -cmatch '\A[0-9a-f]{64}\z' -and $Value.case_nonce -is [string] -and $Value.case_nonce -cmatch '\A[0-9a-f]{32}\z')
+}
+function Get-Stage0bPayloadNames {
+    return @('.github/windows_identity_pipe_probe.py','.github/windows_identity_ordinary_launcher.py','ruleproxy/windows_app_process.py','.github/windows_identity_stage0b_guest.py')
+}
+function Test-Stage0bStagingBound($Compressed,$Expanded,$ActorBytes) {
+    foreach($value in @($Compressed,$Expanded,$ActorBytes)) { if(($value -isnot [int] -and $value -isnot [long]) -or $value -lt 1 -or $value -gt 134217728){return $false} }
+    return ($ActorBytes -ge 512 -and $ActorBytes -le 8388608 -and ([long]$Compressed+$Expanded+24405990+2*$ActorBytes+1048576) -le 134217728)
+}
+function Assert-Stage0bStagingBound([string]$Path) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip=[IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        if($zip.Entries.Count -ne 14){throw 'stage0b_members'}
+        $expanded=0L;$actorBytes=0L;$actors=0
+        foreach($entry in $zip.Entries) {
+            $expanded+=$entry.Length
+            if($expanded -gt 134217728){throw 'stage0b_staging'}
+            if($entry.FullName -ceq 'actor.exe'){$actorBytes=$entry.Length;$actors++}
+        }
+        if($actors -ne 1 -or -not (Test-Stage0bStagingBound ([long](Get-Item -LiteralPath $Path).Length) $expanded $actorBytes)){throw 'stage0b_staging'}
+    } finally {$zip.Dispose()}
+}
+function Test-Stage0bPublic($Value,$Configuration) {
+    $booleans=@('current_ordinary_verified','launcher_creation_observed','probe_creation_observed','actor_creation_observed','launcher_identity_verified','probe_identity_verified','actor_identity_verified','fresh_actor_verified','pipe_echo_verified','pipe_eof_verified','actor_exit_verified','nested_cleanup_verified','launcher_exit_verified','adapter_cleanup_verified','stage0b_passed','network_tested','proxy_tested','product_acceptance')
+    $keys=@('schema_version','stage','case_nonce_sha256','actor_sha256','status','failure')+$booleans
+    if($Value -isnot [PSCustomObject] -or @($Value.PSObject.Properties).Count -ne $keys.Count){return $false}
+    foreach($key in $keys){if($key -cnotin @($Value.PSObject.Properties.Name)){return $false}}
+    foreach($key in @('stage','actor_sha256','case_nonce_sha256','status')){if($Value.$key -isnot [string]){return $false}}
+    if($Value.schema_version -isnot [int] -or $Value.schema_version -ne 1 -or $Value.stage -cne 'stage0b-minimum' -or $Value.actor_sha256 -cne $Configuration.actor_sha256 -or $Value.case_nonce_sha256 -cne (Get-N0aSha256 ([Text.Encoding]::ASCII.GetBytes($Configuration.case_nonce)))){return $false}
+    foreach($key in $booleans){if($Value.$key -isnot [bool]){return $false}}
+    foreach($key in @('network_tested','proxy_tested','product_acceptance')){if($Value.$key -ne $false){return $false}}
+    if($null -ne $Value.failure -and ($Value.failure -isnot [string] -or $Value.failure -cnotin @('capacity','cleanup','configuration','deadline','disabled','identity','internal','launcher','report'))){return $false}
+    $dependencies=@{
+        launcher_identity_verified=@('current_ordinary_verified','launcher_creation_observed')
+        probe_identity_verified=@('launcher_identity_verified','probe_creation_observed')
+        actor_identity_verified=@('probe_identity_verified','actor_creation_observed')
+        fresh_actor_verified=@('actor_identity_verified')
+        pipe_echo_verified=@('fresh_actor_verified');pipe_eof_verified=@('fresh_actor_verified')
+        actor_exit_verified=@('fresh_actor_verified');nested_cleanup_verified=@('fresh_actor_verified')
+    }
+    foreach($key in $dependencies.Keys){if($Value.$key){foreach($dependency in $dependencies[$key]){if(-not $Value.$dependency){return $false}}}}
+    $passed=($null -eq $Value.failure)
+    foreach($key in @('current_ordinary_verified','launcher_creation_observed','probe_creation_observed','actor_creation_observed','launcher_identity_verified','probe_identity_verified','actor_identity_verified','fresh_actor_verified','pipe_echo_verified','pipe_eof_verified','actor_exit_verified','nested_cleanup_verified','launcher_exit_verified','adapter_cleanup_verified')){$passed=$passed -and $Value.$key}
+    $status=if($passed){'passed'}else{'inconclusive'}
+    return ($Value.stage0b_passed -eq $passed -and $Value.status -ceq $status)
+}
+function ConvertFrom-Stage0bPublic([string]$Text,$Configuration) {
+    # Fixed flat schema has no legitimate escaped keys/values. Reject duplicates before JSON collapses them.
+    if($Text.Contains('\')){throw 'stage0b_json'}
+    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($match in [regex]::Matches($Text,'"([^"\\]*)"\s*:')) {
+        if(-not $seen.Add($match.Groups[1].Value)){throw 'stage0b_duplicate'}
+    }
+    $value=$Text|ConvertFrom-Json
+    if(-not(Test-Stage0bPublic $value $Configuration)){throw 'stage0b_schema'}
+    return $value
+}
+function Wait-Stage0bOwnedChild($Child,[long]$Deadline,[long]$Frequency) {
+    $Milliseconds=Get-N0aRemainingMilliseconds $Deadline $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())
+    $facts=@{process_exit_confirmed=$false;timed_out=$false;python_exit_code=$null;budget_exhausted=$false}
+    try {
+        if ($Milliseconds -le 0 -or -not $Child.WaitForExit($Milliseconds)) {
+            $facts.timed_out=$true
+            try { $Child.Kill() } catch {}
+            try { $facts.process_exit_confirmed=($Child.WaitForExit([Math]::Min(5000,(Get-N0aRemainingMilliseconds $Deadline $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())))) -eq $true) } catch {}
+        } else { $facts.process_exit_confirmed=$true }
+        if ($facts.process_exit_confirmed) { try { $facts.python_exit_code=[int]$Child.ExitCode } catch {} }
+    } catch {
+        try { $Child.Kill() } catch {}
+        try { $facts.process_exit_confirmed=($Child.WaitForExit([Math]::Min(5000,(Get-N0aRemainingMilliseconds $Deadline $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())))) -eq $true) } catch {}
+    }
+    $facts.budget_exhausted=((Get-N0aRemainingMilliseconds $Deadline $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())) -le 0)
+    return $facts
+}
+function Invoke-Stage0bGuestDiagnostic($Configuration,[string]$Workspace,[string]$Python,[long]$Deadline,[long]$Frequency,[bool]$OriginalReady,[bool]$OriginalDelivered) {
+    $launcher=[ordered]@{phase='not_started';failure='none';python_exit_code=$null;process_exit_confirmed=$null;timed_out=$false;budget_exhausted=$false}
+    $envelope=[ordered]@{schema_version=1;stage0b=$null;launcher=$launcher}
+    $process=$null; $started=$false; $waitCompleted=$false; $executionFailure=$null
+    try {
+        $launcher.phase='configuration'
+        if (-not (Test-Stage0bConfiguration $Configuration.stage0b)) { $launcher.failure='configuration'; throw 'Closed diagnostic failure' }
+        if (-not $OriginalReady) { $launcher.failure='original_unavailable'; throw 'Closed diagnostic failure' }
+        if (-not $OriginalDelivered) { $launcher.failure='original_transport'; throw 'Closed diagnostic failure' }
+        $launcher.phase='budget'
+        $workEnd=$Deadline
+        if ((Get-N0aRemainingMilliseconds $workEnd $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())) -le 0) {
+            $launcher.failure='work_budget_exhausted'; $launcher.budget_exhausted=$true; throw 'Closed diagnostic failure'
+        }
+        $output=Join-Path $Workspace 'public-stage0b.json'
+        if (Test-Path -LiteralPath $output) { $launcher.failure='report_bound'; throw 'Closed diagnostic failure' }
+        $info=New-Object Diagnostics.ProcessStartInfo
+        $info.FileName=$Python
+        $info.Arguments='-I -S -B "'+(Join-Path $Workspace '.github\windows_identity_stage0b_guest.py')+'" --config "C:\RuleProxyCI\ruleproxy-vm-config.json" --deadline-qpc '+$workEnd.ToString([Globalization.CultureInfo]::InvariantCulture)+' --qpc-frequency '+$Frequency.ToString([Globalization.CultureInfo]::InvariantCulture)
+        $info.UseShellExecute=$false; $info.CreateNoWindow=$true
+        $process=New-Object Diagnostics.Process; $process.StartInfo=$info
+        $launcher.phase='python_start'; $launcher.failure='spawn'
+        if (-not $process.Start()) { throw 'Closed diagnostic failure' }
+        $started=$true
+        if ($process.Handle -eq [IntPtr]::Zero) { throw 'Closed diagnostic failure' }
+        $launcher.phase='python_wait'; $launcher.failure='process_exit'
+        $wait=Wait-Stage0bOwnedChild $process $workEnd $Frequency
+        $waitCompleted=$true
+        foreach ($key in @('process_exit_confirmed','timed_out','python_exit_code','budget_exhausted')) { $launcher[$key]=$wait[$key] }
+        # Retain already-written bounded evidence even after timeout/uncertain exit.
+        # This is not cleanup or denial acceptance; host independently adjudicates.
+        if ($launcher.budget_exhausted) { $executionFailure='work_budget_exhausted' }
+        elseif ($launcher.timed_out) { $executionFailure='timeout' }
+        elseif (-not $launcher.process_exit_confirmed -or $null -eq $launcher.python_exit_code) { $executionFailure='process_exit' }
+        $launcher.phase='report_read'; $launcher.failure='report_absent'
+        if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { throw 'Closed diagnostic failure' }
+        $launcher.failure='report_bound'
+        $item=Get-Item -LiteralPath $output -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.Length -gt 4096) { throw 'Closed diagnostic failure' }
+        $file=[IO.File]::Open($output,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+        try {
+            $buffer=[byte[]]::new(4097); $used=0
+            while ($used -lt $buffer.Length) { $count=$file.Read($buffer,$used,$buffer.Length-$used); if ($count -eq 0) { break }; $used+=$count }
+            if ($used -gt 4096 -or $used -eq 0) { throw 'Closed diagnostic failure' }
+            for ($i=0;$i -lt $used;$i++) { if ($buffer[$i] -gt 127) { throw 'Closed diagnostic failure' } }
+            $text=[Text.Encoding]::ASCII.GetString($buffer,0,$used)
+        } finally { $file.Dispose() }
+        $launcher.phase='report_parse'; $launcher.failure='report_parse'
+        $value=ConvertFrom-Stage0bPublic $text $Configuration.stage0b
+        $envelope.stage0b=$value
+        $launcher.phase='completed'; $launcher.failure=if ($null -eq $value -or $launcher.python_exit_code -ne 0) { 'operation_failed' } else { 'none' }
+    } catch { if ($launcher.failure -eq 'none') { $launcher.failure='operation_failed' } }
+    finally {
+        if ($null -ne $process) {
+            if ($started -and -not $waitCompleted) {
+                try { $process.Kill() } catch {}
+                try { $launcher.process_exit_confirmed=($process.WaitForExit([Math]::Min(5000,(Get-N0aRemainingMilliseconds $Deadline $Frequency ([Diagnostics.Stopwatch]::GetTimestamp())))) -eq $true) } catch { $launcher.process_exit_confirmed=$false }
+            }
+            try { $process.Dispose() } catch { $executionFailure='handle_dispose' }
+        }
+    }
+    if ($null -ne $executionFailure) { $launcher.failure=$executionFailure }
+    # One reporting-only attempt can follow work expiry. It never renews work.
+    try {
+        $body=[Text.Encoding]::ASCII.GetBytes(($envelope | ConvertTo-Json -Depth 16 -Compress))
+        if ($body.Length -gt 4096) { throw 'stage0b_wire_bound' }
+        [void](Send-N0aClosedReport ($Configuration.host_url+'/stage0b-result') $body)
+    } catch {}
+    return $envelope
+}
+
 
 # IPv6-only opt-in helpers. Existing IPv4/TCP functions remain unchanged.
 function Get-N0aUdp6PayloadNames {
@@ -887,6 +1038,12 @@ try {
         'g/wxc-exec.exe','g/build-manifest.json','g/MXC-LICENSE.md',
         '.github/windows_identity_direct_stage0.py','.github/windows_identity_proof.py',
         '.github/windows_psec_compartment_smoke.py','ruleproxy/windows_runtime_pins.py')
+    $stage0bPresent=('stage0b' -cin @($configuration.PSObject.Properties.Name))
+    if($stage0bPresent) {
+        foreach($other in @('n0a','capture','n0a_udp','n0a_udp_parent','n0a_udp6')) {if($other -cin @($configuration.PSObject.Properties.Name)){throw 'stage0b_exclusive'}}
+        if(-not (Test-Stage0bConfiguration $configuration.stage0b) -or $configuration.stage0b.actor_sha256 -cne $configuration.actor_sha256){throw 'stage0b_configuration'}
+        $stage0bEnabled=$true;$payloadNames+=@(Get-Stage0bPayloadNames)
+    }
     $udp6Present=('n0a_udp6' -cin @($configuration.PSObject.Properties.Name))
     if ($udp6Present) {
         if ('n0a' -cin @($configuration.PSObject.Properties.Name) -or 'n0a_udp' -cin @($configuration.PSObject.Properties.Name) -or
@@ -927,7 +1084,11 @@ try {
         $payloadNames+=@('.github/windows_n0a_flow.py')
     }
     $phase='payload_extract'
-    if ($udp6Enabled) {
+    if ($stage0bEnabled) {
+        Assert-Stage0bStagingBound $payload
+        Expand-CheckedStage0Zip -ArchivePath $payload -Destination $workspace -RequiredNames $payloadNames `
+            -MemberCount 14 -ExactBytes 0 -MaximumBytes 134217728 -Flat $false -ExactNames $true
+    } elseif ($udp6Enabled) {
         Expand-CheckedStage0Zip -ArchivePath $payload -Destination $workspace -RequiredNames $payloadNames `
             -MemberCount 17 -ExactBytes 0 -MaximumBytes 134217728 -Flat $false -ExactNames $true
     } elseif ($parentUdpEnabled) {
@@ -967,7 +1128,7 @@ try {
     $child = New-Object Diagnostics.Process
     $child.StartInfo=$info
     try {
-        if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled) {
+        if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled -or $stage0bEnabled) {
             $n0aFrequency=[Diagnostics.Stopwatch]::Frequency
             $now=[Diagnostics.Stopwatch]::GetTimestamp()
             if (-not [Diagnostics.Stopwatch]::IsHighResolution -or $n0aFrequency -le 0 -or $n0aFrequency -gt 1000000000 -or $now -lt 0 -or $now -gt ([long]::MaxValue-120*$n0aFrequency)) { throw 'Clock contract unavailable' }
@@ -978,7 +1139,7 @@ try {
         $heldHandle=$child.Handle
         if ($heldHandle -eq [IntPtr]::Zero) { $failureCategory='process_handle_missing'; throw 'Owned process handle missing' }
         $phase='python_wait'
-        $originalExited=if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled) { $child.WaitForExit((Get-N0aRemainingMilliseconds $n0aDeadline $n0aFrequency ([Diagnostics.Stopwatch]::GetTimestamp()))) } else { $child.WaitForExit(120000) }
+        $originalExited=if ($n0aEnabled -or $udpEnabled -or $parentUdpEnabled -or $udp6Enabled -or $stage0bEnabled) { $child.WaitForExit((Get-N0aRemainingMilliseconds $n0aDeadline $n0aFrequency ([Diagnostics.Stopwatch]::GetTimestamp()))) } else { $child.WaitForExit(120000) }
         if (-not $originalExited) { $child.Kill(); [void]$child.WaitForExit(5000); $failureCategory='python_deadline'; throw 'Stage0 deadline' }
         $pythonExit=[int]$child.ExitCode
         $phase='report_read'
@@ -1035,7 +1196,9 @@ try {
 
 # Original Stage0 delivery above is independent and is never rewritten by N0a.
 # Work shares one 120s QPC deadline; reporting-only allowance is separate (once, at most 10s).
-if ($udp6Enabled) {
+if ($stage0bEnabled) {
+    [void](Invoke-Stage0bGuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)
+} elseif ($udp6Enabled) {
     [void](Invoke-N0aUdp6GuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)
 } elseif ($parentUdpEnabled) {
     [void](Invoke-N0aUdpParentGuestDiagnostic $configuration $workspace $python $n0aDeadline $n0aFrequency $n0aOriginalReady $delivered)

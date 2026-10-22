@@ -10,6 +10,8 @@ ROOT=Path(__file__).resolve().parents[1]
 PATH=ROOT/'.github/workflows/windows-n0a-udp6-gates.yml'
 OLD=runpy.run_path(str(ROOT/'tests/test_windows_n0a_udp_parent_workflow.py'))
 NAMES=OLD['NAMES']+('test_windows_n0a_udp6_actor.py','test_windows_client_n0a_udp6.py','test_windows_n0a_udp6_gate.py','test_windows_client_n0a_udp6_packet.py','test_windows_n0a_udp6_workflow.py','test_windows_client_n0a_udp6_flow.py','test_windows_client_n0a_udp6_guest.py','test_windows_udp6_flow_composed.py','test_windows_n0a_udp6_integration_control.py','test_windows_client_n0a_udp6_capture_adapter.py','test_windows_client_n0a_udp6_host.py','test_windows_udp6_guest_transport.py','test_windows_n0a_qemu_slirp.py')
+STAGE0B_NAMES=('test_windows_identity_pipe_probe.py', 'test_windows_identity_ordinary_launcher.py', 'test_windows_identity_stage0b_guest.py', 'test_windows_stage0b_host.py', 'test_windows_stage0b_guest_transport.py')
+STAGE0B_PATHS=('.github/windows_identity_pipe_probe.py', '.github/windows_identity_ordinary_launcher.py', 'ruleproxy/windows_app_process.py', '.github/windows_identity_stage0b_guest.py', '.github/test-windows-stage0b-guest-gates.ps1', 'tests/test_windows_identity_pipe_probe.py', 'tests/test_windows_identity_ordinary_launcher.py', 'tests/test_windows_identity_stage0b_guest.py', 'tests/test_windows_stage0b_host.py', 'tests/test_windows_stage0b_guest_transport.py')
 MARKER='[n0a-udp6-gates]'
 
 class UDP6WorkflowTests(unittest.TestCase):
@@ -29,7 +31,7 @@ class UDP6WorkflowTests(unittest.TestCase):
             self.assertEqual(doc['jobs'][name]['timeout-minutes'],minutes)
         matches=re.findall(r'names=(\([^\n]+?\)); assert all',text)
         self.assertEqual(len(matches),2)
-        for match in matches:self.assertEqual(ast.literal_eval(match),NAMES)
+        for match in matches:self.assertEqual(ast.literal_eval(match),NAMES+STAGE0B_NAMES)
         self.assertIn('python -m pip install --disable-pip-version-check "PyYAML==6.0.3"\n          if ($LASTEXITCODE -ne 0)',text)
         for forbidden in ('actions/upload-artifact','workflow_dispatch:','pull_request:','continue-on-error','--n0a-udp-parent-runner'):
             self.assertNotIn(forbidden,text)
@@ -72,12 +74,28 @@ class UDP6WorkflowTests(unittest.TestCase):
         self.assertIn('--verify-production-inputs --actor udp6-production-build/windows_n0a_udp6_actor.exe --manifest udp6-production-build/N0A-UDP6-manifest.json',verify)
         self.assertIn("if ($LASTEXITCODE -ne 0)",verify)
         ps=windows['Actual UDP6 and legacy PowerShell transport semantics']['run']
-        for name in ('n0a','udp','udp-parent','udp6'):
+        for name in ('n0a','udp','udp-parent','udp6','stage0b'):
             self.assertIn(f'& ./.github/test-windows-{name}-guest-gates.ps1',ps)
-        self.assertEqual(ps.count('if ($LASTEXITCODE -ne 0)'),4)
-        self.assertIn('test-windows-udp-payload-gates.ps1',windows['Actual six-mode payload ZIP and PowerShell extraction parity']['run'])
+        self.assertEqual(ps.count('if ($LASTEXITCODE -ne 0)'),5)
+        self.assertIn('test-windows-udp-payload-gates.ps1',windows['Actual seven-mode payload ZIP and PowerShell extraction parity']['run'])
         for path in ('.github/windows_n0a_udp6_guest.py','.github/windows_n0a_udp6_flow.py','.github/windows_n0a_udp6_capture_adapter.py','.github/windows_n0a_qemu_slirp.py','.github/test_windows_n0a_qemu_slirp.py','.github/windows-identity-direct-stage0-run.ps1','.github/test-windows-udp6-guest-gates.ps1','.github/test-windows-n0a-guest-gates.ps1','.github/test_windows_udp_payload.py'):
             self.assertIn(path,doc['on']['push']['paths'])
         self.assertNotIn('--n0a-udp6-runner',text)
+
+    def test_stage0b_additions_invert_to_exact_prior_short_workflow(self):
+        text=PATH.read_text()
+        for path in STAGE0B_PATHS:self.assertIn(path,self.document()['on']['push']['paths'])
+        block=''.join("      - '"+n+"'\n" for n in STAGE0B_PATHS)
+        self.assertEqual(text.count(block),1);text=text.replace(block,'',1)
+        suffix="'test_windows_n0a_qemu_slirp.py', "+', '.join(repr(n) for n in STAGE0B_NAMES)+'); assert all'
+        self.assertEqual(text.count(suffix),2)
+        text=text.replace(suffix,"'test_windows_n0a_qemu_slirp.py'); assert all")
+        step="          & ./.github/test-windows-stage0b-guest-gates.ps1\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n"
+        self.assertEqual(text.count(step),1);text=text.replace(step,'',1)
+        text=text.replace('Actual seven-mode payload ZIP','Actual six-mode payload ZIP')
+        self.assertEqual(hashlib.sha256(text.encode()).hexdigest(),'7878d096dca036028ff82003fd43caeb5a41d13cd78c7da2120be56d7c4c6f7d')
+        # Required modules are explicit and remain fail-closed for missing/empty/skipped suites.
+        self.assertEqual(len(set(NAMES+STAGE0B_NAMES)),51)
+        self.assertEqual(PATH.read_text().count('not result.wasSuccessful() or bool(result.skipped)'),2)
 
 if __name__=='__main__':unittest.main()

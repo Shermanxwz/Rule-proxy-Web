@@ -342,6 +342,35 @@ class NativeAPI:
     def close(self, handle):
         self.check(self.k.CloseHandle(handle), "CloseHandle")
 
+    def qpc_frequency(self):
+        value = C.c_int64()
+        fn = self.k.QueryPerformanceFrequency
+        fn.argtypes, fn.restype = [C.POINTER(C.c_int64)], C.c_int
+        self.check(fn(C.byref(value)), "QueryPerformanceFrequency")
+        return value.value
+
+    def qpc(self):
+        value = C.c_int64()
+        fn = self.k.QueryPerformanceCounter
+        fn.argtypes, fn.restype = [C.POINTER(C.c_int64)], C.c_int
+        self.check(fn(C.byref(value)), "QueryPerformanceCounter")
+        return value.value
+
+    def sleep_ms(self, milliseconds):
+        self.k.Sleep.argtypes, self.k.Sleep.restype = [D], None
+        self.k.Sleep(milliseconds)
+
+    def job_empty(self, job):
+        class Accounting(C.Structure):
+            _fields_ = [("times", C.c_int64 * 4), ("faults", D),
+                        ("total", D), ("active", D), ("terminated", D)]
+        value, returned = Accounting(), D()
+        self.check(self.k.QueryInformationJobObject(job, 1, C.byref(value), C.sizeof(value),
+                                                   C.byref(returned)), "QueryInformationJobObject")
+        if returned.value != C.sizeof(value):
+            raise GateFailure("job_accounting_size")
+        return value.active == 0
+
     def token_for_process(self, process):
         token = H()
         self.check(self.a.OpenProcessToken(process, TOKEN_QUERY, C.byref(token)), "OpenProcessToken")
@@ -596,8 +625,170 @@ class NativeAPI:
         self.check(self.k.TerminateProcess(process, 1), "TerminateProcess")
 
 
-def launch_owned(api, command, work, expected, parent, *, token=None):
+class QpcBudget:
+    """Original guest QPC domain only; no renewed or converted deadline."""
+    def __init__(self, api, deadline_qpc, qpc_frequency):
+        if (type(deadline_qpc) is not int or not 1 <= deadline_qpc <= 0x7fffffffffffffff
+                or type(qpc_frequency) is not int or not 1 <= qpc_frequency <= 1000000000):
+            raise GateFailure("qpc_arguments")
+        observed_frequency = api.qpc_frequency()
+        if type(observed_frequency) is not int or observed_frequency != qpc_frequency:
+            raise GateFailure("qpc_frequency")
+        self.api, self.deadline, self.frequency = api, deadline_qpc, qpc_frequency
+        self.last = None
+        now = self.read()
+        if not 0 < deadline_qpc - now <= 120 * qpc_frequency:
+            raise GateFailure("qpc_admission")
+
+    def read(self):
+        now = self.api.qpc()
+        if (type(now) is not int or not 0 <= now <= 0x7fffffffffffffff
+                or self.last is not None and now < self.last):
+            raise GateFailure("qpc_clock")
+        self.last = now
+        return now
+
+    def cutoff(self, reserve_seconds):
+        if type(reserve_seconds) is not int or not 0 <= reserve_seconds <= 120:
+            raise GateFailure("qpc_reserve")
+        cutoff = self.deadline - reserve_seconds * self.frequency
+        if cutoff <= 0:
+            raise GateFailure("qpc_cutoff")
+        return cutoff
+
+    def remaining_ms(self, cutoff, cap_ms=None):
+        if type(cutoff) is not int or not 0 < cutoff <= self.deadline:
+            raise GateFailure("qpc_cutoff")
+        if cap_ms is not None and (type(cap_ms) is not int or not 0 <= cap_ms <= 120000):
+            raise GateFailure("qpc_cap")
+        value = max(0, (cutoff - self.read()) * 1000 // self.frequency)
+        return min(value, cap_ms) if cap_ms is not None else value
+
+    def require_ms(self, cutoff, cap_ms=None):
+        value = self.remaining_ms(cutoff, cap_ms)
+        if value <= 0:
+            raise GateFailure("qpc_expired")
+        return value
+
+
+_RETAINED_SCOPED_OWNERS = []
+
+
+def _launch_owned_qpc(api, command, work, expected, parent, budget, work_cutoff, cleanup_cutoff):
+    """Current-token-only branch; each numeric ownership is consumed once."""
+    info, job, stdio = api.process_info(), None, []
+    assigned = attempted = exited = False
+    result = {"started": False, "resumed": False, "timed_out": False,
+              "nested_resource_cleanup_incomplete": False,
+              "cleanup": {"errors": [], "job_closed": False, "handles_closed": False,
+                          "job_empty": False, "process_exit_confirmed": False,
+                          "close_uncertain": False}}
+    cleanup = result["cleanup"]
+    def attempt(fn):
+        try:
+            return True, fn()
+        except Exception as exc:
+            cleanup["errors"].append(failure(exc))
+            return False, None
+    def close_once(handle):
+        ok, _ = attempt(lambda: api.close(handle))
+        if not ok:
+            cleanup["close_uncertain"] = True
+        return ok
+    try:
+        if not token_is_ordinary(expected) or not same_identity(expected, parent):
+            raise GateFailure("current_ordinary_required")
+        if not work_cutoff < cleanup_cutoff <= budget.deadline:
+            raise GateFailure("qpc_cutoff_order")
+        budget.require_ms(work_cutoff)
+        job = api.create_job()
+        for filename in ("controller.stdin", "controller.stdout", "controller.stderr"):
+            budget.require_ms(work_cutoff)
+            stdio.append(api.open_stdio_file(work / filename, read=filename.endswith("stdin")))
+        budget.require_ms(work_cutoff)
+        attempted = True
+        api.create_suspended(info, command, work, stdio, None)
+        result.update(started=True, child_pid=int(info.dwProcessId))
+        api.assign_job(job, info.hProcess); assigned = True
+        api.verify_job(job, info.hProcess)
+        api.verify_image(info.hProcess, command[0])
+        child = api.child_identity(info.hProcess)
+        if not token_is_ordinary(child) or not same_identity(child, expected):
+            raise GateFailure("child_token_mismatch_before_resume")
+        result["child_identity"] = safe_identity(child, parent)
+        result["native_identity_verified_before_resume"] = True
+        budget.require_ms(work_cutoff)
+        result["nested_resource_cleanup_incomplete"] = True
+        api.resume(info.hThread); result["resumed"] = True
+        if not api.wait(info.hProcess, budget.require_ms(work_cutoff, RUN_MILLISECONDS)):
+            result["timed_out"] = True
+            raise GateFailure("bounded_probe_deadline")
+        exited = True
+        result["exit_code"] = api.exit_code(info.hProcess)
+        budget.require_ms(work_cutoff)
+    except Exception as exc:
+        result["error"] = failure(exc)
+    finally:
+        if attempted and not info.hProcess:
+            cleanup["errors"].append({"operation": "invariant", "reason": "spawn_exit_unknown"})
+        if info.hProcess:
+            ok, observed = attempt(lambda: api.wait(info.hProcess, 0))
+            exited = exited or ok and observed is True
+            if assigned:
+                attempt(lambda: api.terminate_job(job))
+            elif not exited:
+                attempt(lambda: api.terminate_process(info.hProcess))
+        if job:
+            if assigned:
+                def drain_job():
+                    while True:
+                        if api.job_empty(job):
+                            return True
+                        remaining = budget.require_ms(cleanup_cutoff, 20)
+                        api.sleep_ms(remaining)
+                ok, empty = attempt(drain_job)
+                cleanup["job_empty"] = ok and empty is True
+                attempt(lambda: budget.require_ms(cleanup_cutoff))
+            else:
+                cleanup["job_empty"] = True
+            owned, job = job, None
+            cleanup["job_closed"] = close_once(owned)
+        if info.hProcess and not exited:
+            def wait_exit():
+                return api.wait(info.hProcess, budget.remaining_ms(cleanup_cutoff, 5000))
+            ok, observed = attempt(wait_exit)
+            exited = ok and observed is True
+            # A failed wait or signal must not suppress the final observation.
+            ok, observed = attempt(lambda: api.wait(info.hProcess, 0))
+            exited = exited or ok and observed is True
+        cleanup["process_exit_confirmed"] = exited if attempted else True
+        closed = True
+        for attribute in ("hThread", "hProcess"):
+            handle = getattr(info, attribute)
+            if handle and (exited or not attempted):
+                setattr(info, attribute, None)
+                closed = close_once(handle) and closed
+            elif handle:
+                closed = False
+        while stdio:
+            closed = close_once(stdio.pop()) and closed
+        cleanup["handles_closed"] = closed and not cleanup["close_uncertain"]
+        attempt(lambda: budget.require_ms(cleanup_cutoff))
+        if not cleanup["process_exit_confirmed"] or not cleanup["handles_closed"]:
+            _RETAINED_SCOPED_OWNERS.append((api, info))
+    return result
+
+
+def launch_owned(api, command, work, expected, parent, *, token=None,
+                 qpc_budget=None, work_cutoff=None, cleanup_cutoff=None):
     """Single lifecycle with testable failure cleanup, including pre-assignment."""
+    if qpc_budget is not None:
+        if token is not None:
+            raise GateFailure("scoped_current_token_only")
+        return _launch_owned_qpc(api, command, work, expected, parent,
+                                 qpc_budget, work_cutoff, cleanup_cutoff)
+    if work_cutoff is not None or cleanup_cutoff is not None:
+        raise GateFailure("paired_qpc_budget_required")
     info, job, stdio, assigned = api.process_info(), None, [], False
     result = {"started": False, "resumed": False, "timed_out": False,
               "nested_resource_cleanup_incomplete": False,
@@ -703,7 +894,194 @@ def run_preflight(args):
     return 0 if report["observations_complete"] else 1
 
 
+_RETAINED_PRIVATE_STREAMS = []
+_PRIVATE_CLOSE_ATTEMPTS = []
+
+
+def close_private_once(stream):
+    """Never retry uncertain file closure or surrender its owner to destruction."""
+    if any(stream is previous for previous in _PRIVATE_CLOSE_ATTEMPTS):
+        raise GateFailure("private_report_close_already_attempted")
+    _PRIVATE_CLOSE_ATTEMPTS.append(stream)
+    try:
+        stream.close()
+    except Exception:
+        _RETAINED_PRIVATE_STREAMS.append(stream)
+        raise GateFailure("private_report_close_uncertain") from None
+
+
+def read_private_bytes(path, limit):
+    checked_path(path, inside=path.parent)
+    stream = path.open("rb")
+    try:
+        raw = stream.read(limit + 1)
+    finally:
+        close_private_once(stream)
+    if len(raw) > limit:
+        raise GateFailure("private_report_bound")
+    return raw
+
+
+def write_private_bytes(path, data):
+    stream = path.open("xb")
+    try:
+        if stream.write(data) != len(data):
+            raise GateFailure("private_report_short_write")
+        stream.flush()
+    finally:
+        close_private_once(stream)
+
+
+def read_private(path, limit=MAX_REPORT):
+    raw = read_private_bytes(path, limit)
+    if len(raw) > limit:
+        raise GateFailure("private_report_bound")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise GateFailure("private_report_duplicate")
+            value[key] = item
+        return value
+    try:
+        value = json.loads(raw.decode("utf-8", "strict"), object_pairs_hook=unique,
+                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+    except (ValueError, UnicodeError, RecursionError):
+        raise GateFailure("private_report_json") from None
+    if type(value) is not dict:
+        raise GateFailure("private_report_object")
+    return value
+
+
+def probe_facts(value, nonce, digest, controller_pid, controller_sid, deadline, frequency, *, native=None):
+    """Recompute independent bounded pipe facts; cleanup never erases echo."""
+    names = ("probe_identity_verified", "actor_creation_observed", "actor_identity_verified",
+             "fresh_actor_verified", "pipe_echo_verified", "pipe_eof_verified",
+             "actor_exit_verified", "nested_cleanup_verified")
+    facts = dict.fromkeys(names, False)
+    if type(value) is not dict:
+        return facts
+    spec = importlib.util.spec_from_file_location("scoped_stage0b_verifier", PROBE)
+    probe = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
+    identity = value.get("controller_identity")
+    actor = value.get("actor")
+    if type(identity) is not dict or type(actor) is not dict or type(native) is not dict:
+        return facts
+    # Canonical encoding distinguishes bool/int and binds every actual native key.
+    if json.dumps(native, sort_keys=True, allow_nan=False) != json.dumps(actor, sort_keys=True, allow_nan=False):
+        return facts
+    bound = (type(value.get("schema_version")) is int and value["schema_version"] == 1
+             and value.get("stage") == "0b" and value.get("nonce") == nonce
+             and value.get("actor_sha256") == digest
+             and type(value.get("deadline_qpc")) is int and value["deadline_qpc"] == deadline
+             and type(value.get("qpc_frequency")) is int and value["qpc_frequency"] == frequency
+             and type(identity.get("pid")) is int and identity["pid"] == controller_pid
+             and identity.get("sid") == controller_sid
+             and identity.get("elevated") is False and identity.get("appcontainer") is False
+             and type(identity.get("cid")) is int and identity["cid"] == 1)
+    if not bound:
+        return facts
+    facts["probe_identity_verified"] = True
+    facts["actor_creation_observed"] = type(value.get("child_pid")) is int and value["child_pid"] > 0
+    checks = probe.checks(value)
+    identity_ok = (checks["profile_identity"] is True and checks["child_identity"] is True
+                   and checks["no_network_capabilities"] is True
+                   and type(actor.get("schemaVersion")) is int and actor["schemaVersion"] == 1
+                   and type(actor.get("pid")) is int
+                   and value.get("copied_actor_sha256") == digest
+                   and value.get("image_verified_before_resume") is True)
+    facts["actor_identity_verified"] = identity_ok
+    facts["fresh_actor_verified"] = identity_ok and checks["fresh_actor"] is True
+    pipe = actor.get("pipe")
+    expected_pipe = {"attempted": True, "inheritanceCleared": True, "bytesRead": 32,
+                     "bytesWritten": 32, "nonceMatched": True, "requiresControllerTimeout": True,
+                     "win32Error": 0, "failure": None}
+    exact_pipe = (type(pipe) is dict and set(pipe) == set(expected_pipe)
+                  and all(type(pipe[key]) is type(item) and pipe[key] == item
+                          for key, item in expected_pipe.items()))
+    fresh = facts["fresh_actor_verified"]
+    facts["pipe_echo_verified"] = (fresh and exact_pipe and actor.get("pipeSucceeded") is True
+                                    and value.get("echo_matched") is True)
+    facts["pipe_eof_verified"] = fresh and value.get("pipe_eof_observed") is True
+    facts["actor_exit_verified"] = fresh and type(value.get("exit_code")) is int and value["exit_code"] == 0
+    facts["nested_cleanup_verified"] = fresh and checks["cleanup"] is True
+    return facts
+
+
+def run_scoped(args):
+    """Integration entry refuses elevated current token before any fallback logic."""
+    if (os.name != "nt" or not args.disposable_ci or not args.approved_security_test
+            or not getattr(args, "current_ordinary_only", False)):
+        raise GateFailure("current_ordinary_scope_required")
+    nonce = getattr(args, "case_nonce", None)
+    if type(nonce) is not str or re.fullmatch(r"[0-9a-f]{32}", nonce) is None:
+        raise GateFailure("case_nonce")
+    python, script, actor, work = validate_inputs(args)
+    api = NativeAPI()
+    budget = QpcBudget(api, args.deadline_qpc, args.qpc_frequency)
+    budget.require_ms(budget.cutoff(30))
+    work.mkdir(); (work / "temp").mkdir()
+    report = {"schema_version": 2, "stage": "current-ordinary-stage0b-launcher",
+              "case_nonce": nonce, "actor_sha256": args.actor_sha256,
+              "deadline_qpc": args.deadline_qpc, "qpc_frequency": args.qpc_frequency,
+              "current_ordinary_only": True, "controller_pid": os.getpid(),
+              "current_ordinary_verified": False, "stage0b_passed": False,
+              "cleanup": {"token_handles_closed": False, "errors": []}}
+    token = None
+    try:
+        token = api.current_token()
+        parent = api.identity(token)
+        # Deliberately before choose_mode, and no linked-token call in this branch.
+        compartment = api.compartment()
+        if not token_is_ordinary(parent) or type(compartment) is not int or compartment != 1:
+            raise GateFailure("current_ordinary_required")
+        report.update(current_ordinary_verified=True, controller_sid=parent["sid"])
+        command = fixed_command(python, script, actor, args.actor_sha256, work)
+        command += ["--case-nonce", nonce, "--deadline-qpc", str(args.deadline_qpc),
+                    "--qpc-frequency", str(args.qpc_frequency)]
+        report["launch"] = launch_owned(api, command, work, parent, parent,
+                                         qpc_budget=budget, work_cutoff=budget.cutoff(10),
+                                         cleanup_cutoff=budget.cutoff(5))
+        launch = report["launch"]
+        if launch["cleanup"]["process_exit_confirmed"] and launch.get("started") is True:
+            value = read_private(work / "probe/report.json")
+            native = read_private(work / "probe/output/actor.json", 8192)
+            report["probe_facts"] = probe_facts(value, nonce, args.actor_sha256,
+                                               launch["child_pid"], parent["sid"],
+                                               args.deadline_qpc, args.qpc_frequency, native=native)
+            report["stage0b_passed"] = (all(report["probe_facts"].values())
+                and launch.get("exit_code") == 0 and "error" not in launch
+                and launch["cleanup"]["job_closed"] and launch["cleanup"]["job_empty"]
+                and launch["cleanup"]["handles_closed"] and not launch["cleanup"]["errors"])
+    except Exception as exc:
+        report["error"] = failure(exc)
+        if isinstance(exc, GateFailure) and str(exc) == "private_report_close_uncertain":
+            report["cleanup"]["errors"].append({"operation": "invariant", "reason": "private_report_close_uncertain"})
+    finally:
+        if token:
+            owned, token = token, None
+            try:
+                api.close(owned)
+            except Exception as exc:
+                report["cleanup"]["errors"].append(failure(exc))
+        report["cleanup"]["token_handles_closed"] = not report["cleanup"]["errors"]
+    try:
+        budget.require_ms(budget.cutoff(5))
+    except Exception as exc:
+        report["cleanup"]["errors"].append(failure(exc))
+        report["stage0b_passed"] = False
+    report["stage0b_passed"] = (report["stage0b_passed"] and "error" not in report
+                                and report["cleanup"]["token_handles_closed"])
+    data = (json.dumps(report, ensure_ascii=True, indent=2) + "\n").encode("ascii")
+    if len(data) > MAX_REPORT:
+        raise GateFailure("launcher_report_too_large")
+    write_private_bytes(work / "report.json", data)
+    return 0 if report["stage0b_passed"] else 1
+
+
 def run(args):
+    if getattr(args, "current_ordinary_only", False):
+        return run_scoped(args)
     if os.name != "nt" or not args.disposable_ci or not args.approved_security_test:
         raise PermissionError("requires an explicitly approved disposable Windows security test")
     python, script, actor, work = validate_inputs(args)
@@ -784,7 +1162,15 @@ def main(argv=None):
     for name in ("actor", "work"):
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--actor-sha256")
+    parser.add_argument("--current-ordinary-only", action="store_true")
+    parser.add_argument("--case-nonce")
+    parser.add_argument("--deadline-qpc", type=int)
+    parser.add_argument("--qpc-frequency", type=int)
     args = parser.parse_args(argv)
+    scoped = (args.current_ordinary_only, args.case_nonce is not None,
+              args.deadline_qpc is not None, args.qpc_frequency is not None)
+    if any(scoped) and (not all(scoped) or args.token_preflight):
+        parser.error("current-ordinary-only requires nonce and paired QPC deadline")
     if args.token_preflight:
         if args.actor is not None or args.work is not None or args.actor_sha256 is not None:
             parser.error("--token-preflight accepts no actor, actor-sha256, or work")

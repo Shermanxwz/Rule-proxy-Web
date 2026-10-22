@@ -11,8 +11,8 @@ class PayloadTests(unittest.TestCase):
     def test_actual_all_four_writers_and_equal_count_negatives(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)/'owned';result=gate.generate(root)
-            self.assertEqual(result['members'],[10,14,15,17,22,17]);self.assertFalse(result['runtime_artifact'])
-            for name,count in zip(('baseline','n0a','capture','udp','parent_udp','udp6'),(10,14,15,17,22,17)):
+            self.assertEqual(result['members'],[10,14,15,17,22,17,14]);self.assertFalse(result['runtime_artifact'])
+            for name,count in zip(('baseline','n0a','capture','udp','parent_udp','udp6','stage0b'),(10,14,15,17,22,17,14)):
                 with zipfile.ZipFile(root/(name+'.zip')) as archive:self.assertEqual(len(archive.namelist()),count)
             with zipfile.ZipFile(root/'udp.zip') as archive:
                 names=set(archive.namelist())
@@ -60,7 +60,7 @@ class PayloadTests(unittest.TestCase):
         source=(ROOT/'.github/test-windows-udp-payload-gates.ps1').read_text()
         for fragment in ('FunctionDefinitionAst','AssignmentStatementAst','IfStatementAst',
                          'Get-N0aUdpPayloadNames','Expand-CheckedStage0Zip',"$branches[0].Extent.Text",
-                         "@('baseline','n0a','capture','udp','parent_udp','udp6')",'test_windows_udp_payload.py',
+                         "@('baseline','n0a','capture','udp','parent_udp','udp6','stage0b')",'test_windows_udp_payload.py',
                          'Check (-not (Test-Path -LiteralPath $workspace))','ReparsePoint'):
             self.assertIn(fragment,source)
         for count in (10,14,15,17,22):self.assertIn('-MemberCount '+str(count),source)

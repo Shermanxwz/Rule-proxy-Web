@@ -830,6 +830,71 @@ def verify_n0a_inputs(actor, manifest):
                        'actor_source_sha256': source_digest, 'identity_source_sha256': identity_digest}}
 
 
+# Stage0b is independently gated; it never changes baseline Stage0 acceptance.
+STAGE0B_EXECUTION_ENABLED = False
+STAGE0B_FILES = ('.github/windows_identity_pipe_probe.py',
+    '.github/windows_identity_ordinary_launcher.py','ruleproxy/windows_app_process.py',
+    '.github/windows_identity_stage0b_guest.py')
+STAGE0B_REPORT_ALLOWANCE = 1048576  # Planning allowance, not a stdio hard quota.
+
+def stage0b_helpers():
+    name='identity_stage0b_guest_adapter'
+    if name not in sys.modules:
+        module=load(name,ROOT/'.github/windows_identity_stage0b_guest.py')
+        sys.modules[name]=module
+    return sys.modules[name]
+
+def stage0b_staging_capacity(package, actor_bytes):
+    if type(actor_bytes) is not int or not 512 <= actor_bytes <= 8388608:
+        raise ValueError('stage0b actor bound')
+    with zipfile.ZipFile(package) as archive:
+        entries=archive.infolist()
+        expanded=sum(entry.file_size for entry in entries)
+        actors=[entry for entry in entries if entry.filename=='actor.exe']
+        if len(entries)!=14 or len(actors)!=1 or actors[0].file_size!=actor_bytes:
+            raise ValueError('stage0b payload shape')
+    compressed=Path(package).stat().st_size
+    total=compressed+expanded+PYTHON_EXPANDED+2*actor_bytes+STAGE0B_REPORT_ALLOWANCE
+    if min(compressed,expanded)<=0 or total>134217728:raise ValueError('stage0b staging bound')
+    return dict(compressed=compressed,expanded=expanded,actor_bytes=actor_bytes,total=total)
+
+def stage0b_unique(pairs):
+    result={}
+    for key,value in pairs:
+        if key in result:raise ValueError('stage0b duplicate')
+        result[key]=value
+    return result
+
+def validate_stage0b_envelope(value, expected):
+    if type(value) is not dict or set(value)!={'schema_version','stage0b','launcher'} or type(value['schema_version']) is not int or value['schema_version']!=1:
+        raise ValueError('stage0b envelope')
+    launcher=value['launcher']
+    keys={'phase','failure','python_exit_code','process_exit_confirmed','timed_out','budget_exhausted'}
+    if type(launcher) is not dict or set(launcher)!=keys:raise ValueError('stage0b launcher')
+    phases=('not_started','configuration','budget','python_start','python_wait','report_read','report_parse','completed','transport')
+    failures=('none','original_unavailable','original_transport','configuration','budget','spawn','timeout','process_exit','report_absent','report_bound','report_parse','operation_failed','work_budget_exhausted','handle_dispose')
+    if launcher['phase'] not in phases or launcher['failure'] not in failures:raise ValueError('stage0b launcher enum')
+    code=launcher['python_exit_code']
+    if code is not None and (type(code) is not int or not -2147483648<=code<=2147483647):raise ValueError('stage0b exit')
+    if launcher['process_exit_confirmed'] is not None and type(launcher['process_exit_confirmed']) is not bool:raise ValueError('stage0b exit observed')
+    if any(type(launcher[k]) is not bool for k in ('timed_out','budget_exhausted')):raise ValueError('stage0b launcher flags')
+    report=value['stage0b']
+    if report is not None:report=stage0b_helpers().validate_public(report,expected['case_nonce'],expected['actor_sha256'])
+    result=dict(schema_version=1,stage0b=report,launcher=dict(launcher))
+    if len(json.dumps(result,separators=(',',':')).encode('ascii'))>4096:raise ValueError('stage0b bound')
+    return result
+
+
+def stage0b_ipc_qualified(envelope, vm_destroyed):
+    if type(envelope) is not dict or vm_destroyed is not True:return False
+    report=envelope.get('stage0b');launcher=envelope.get('launcher')
+    return (type(report) is dict and report.get('stage0b_passed') is True and type(launcher) is dict
+        and launcher.get('phase')=='completed' and launcher.get('failure')=='none'
+        and type(launcher.get('python_exit_code')) is int and launcher['python_exit_code']==0
+        and launcher.get('process_exit_confirmed') is True and launcher.get('timed_out') is False
+        and launcher.get('budget_exhausted') is False)
+
+
 def n0a_wait_deadline(server, outer_deadline):
     observed = getattr(server, 'original_received_at', None)
     return min(outer_deadline, observed + 120) if type(observed) in (int, float) else outer_deadline
@@ -892,7 +957,14 @@ def compose_n0a_public(server, public, wait_state):
     return result
 
 
-def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None, capture=False, udp=None, parent_udp=None, udp6=None):
+def payload(python_archive, actor, actor_digest, bundle, destination, *, n0a=None, capture=False, udp=None, parent_udp=None, udp6=None, stage0b=None):
+    if stage0b is not None:
+        if n0a is not None or capture or udp is not None or parent_udp is not None or udp6 is not None:raise ValueError('stage0b replaces optional modes')
+        payload(python_archive,actor,actor_digest,bundle,destination)
+        with zipfile.ZipFile(destination,'a',compression=zipfile.ZIP_DEFLATED) as archive:
+            for name in STAGE0B_FILES:archive.write(ROOT/name,name)
+        stage0b_staging_capacity(destination,Path(actor).stat().st_size)
+        return hashlib.sha256(Path(destination).read_bytes()).hexdigest()
     if udp6 is not None:
         if n0a is not None or capture or udp is not None or parent_udp is not None: raise ValueError('UDP replaces TCP payload')
         payload(python_archive, actor, actor_digest, bundle, destination)
@@ -1088,6 +1160,32 @@ class ClosedHandler(BaseHTTPRequestHandler):
             self.send_response(200); self.end_headers()
         except (ValueError, TypeError, OSError, RecursionError): self.send_error(400)
 
+
+
+class Stage0bClosedServer(ClosedServer):
+    def __init__(self,payload,expected):
+        super().__init__(payload,expected)
+        self.RequestHandlerClass=Stage0bClosedHandler
+        self.stage0b_validation='unavailable'
+
+class Stage0bClosedHandler(ClosedHandler):
+    def do_POST(self):
+        if self.path!='/'+self.server.capability+'/stage0b-result':
+            # Do not expose legacy optional endpoints in this mode.
+            if self.path!='/'+self.server.capability+'/result':self.send_error(404);return
+            return super().do_POST()
+        if not self.server.received.is_set() or self.server.n0a_received.is_set():self.send_error(409);return
+        try:
+            size=int(self.headers.get('Content-Length','0'))
+            if not 0<size<=4096:raise ValueError('stage0b size')
+            raw=self.rfile.read(size)
+            if len(raw)!=size:raise ValueError('stage0b incomplete')
+            value=json.loads(raw.decode('ascii'),object_pairs_hook=stage0b_unique)
+            self.server.n0a_result=validate_stage0b_envelope(value,self.server.n0a_expected)
+            self.server.stage0b_validation='valid';self.server.n0a_received.set()
+            self.send_response(200);self.end_headers()
+        except (ValueError,TypeError,OSError,UnicodeError,RecursionError):
+            self.server.stage0b_validation='invalid';self.send_error(400)
 
 
 class UDPClosedServer(ClosedServer):
@@ -1665,6 +1763,11 @@ def download_direct_iso(iso, deadline):
 
 
 def host(args):
+    stage0b_mode=getattr(args,'stage0b',False)
+    if stage0b_mode:
+        if any(getattr(args,k,False) for k in ('n0a','n0a_capture_runner','n0a_udp_runner','n0a_udp_parent_runner','n0a_udp6_runner')):raise ValueError('stage0b replaces optional modes')
+        if not STAGE0B_EXECUTION_ENABLED:raise PermissionError('stage0b disabled pending activation')
+        if stage0b_helpers().EXECUTION_ENABLED is not True:raise PermissionError('stage0b adapter disabled')
     if not EXECUTION_ENABLED:
         raise PermissionError('direct exploratory execution is disabled pending frozen review')
     udp6_mode = getattr(args, 'n0a_udp6_runner', False)
@@ -1695,6 +1798,7 @@ def host(args):
     available = min(args.timeout_seconds, args.job_deadline_epoch - time.time())
     if available < 300: raise TimeoutError('native job cleanup reserve unavailable')
     qemu = tpm = server = thread = qmp = watch = n0a_endpoint = None
+    stage0b_config=None
     n0a = None; original_merged = False; n0a_wait_state = 'not_started'
     capture_owner = capture_config = capture_facts = capture_tentative = None; header_before_link = False
     mapped_observer = None; mapped_facts = None
@@ -1710,6 +1814,7 @@ def host(args):
     public['actor_sha256'] = args.actor_sha256
     phase = 'preflight'; operation = 'preflight'; disk = None
     try:
+        if stage0b_mode:stage0b_config=dict(enabled=True,actor_sha256=args.actor_sha256,case_nonce=secrets.token_hex(16))
         if getattr(args, 'n0a', False):
             n0a = verify_n0a_inputs(args.n0a_actor, args.n0a_manifest)
         if udp6_mode:n0a=optional_udp.verify_inputs(args.udp6_actor,args.udp6_manifest)
@@ -1738,10 +1843,10 @@ def host(args):
             n0a_endpoint = ((optional_udp if parent_udp_mode or udp6_mode else udp_capture_helpers()).receiver(n0a['config']['case_nonce'], outer_deadline) if udp_mode
                              else n0a_helpers().NonceEndpoint(n0a['config']['case_nonce'], 'runner', deadline))
             n0a['config']['runner_port'] = n0a_endpoint.start()
-        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=None if udp_mode else n0a, capture=getattr(args, 'n0a_capture_runner', False), udp=n0a if udp_mode and not parent_udp_mode and not udp6_mode else None, parent_udp=n0a if parent_udp_mode else None, udp6=n0a if udp6_mode else None)
+        package_digest = payload(args.python_archive, args.actor, args.actor_sha256, args.bundle, package, n0a=None if udp_mode else n0a, capture=getattr(args, 'n0a_capture_runner', False), udp=n0a if udp_mode and not parent_udp_mode and not udp6_mode else None, parent_udp=n0a if parent_udp_mode else None, udp6=n0a if udp6_mode else None, stage0b=stage0b_config)
         if package.stat().st_size > MAX_PAYLOAD: raise ValueError('payload size cap')
         operation = 'result_server'
-        server = (UDP6ClosedServer(package,n0a['config'],deadline) if udp6_mode else ParentUDPClosedServer(package,n0a['config'],deadline) if parent_udp_mode else UDPClosedServer(package, n0a['config'], deadline) if udp_mode else
+        server = (Stage0bClosedServer(package,stage0b_config) if stage0b_mode else UDP6ClosedServer(package,n0a['config'],deadline) if udp6_mode else ParentUDPClosedServer(package,n0a['config'],deadline) if parent_udp_mode else UDPClosedServer(package, n0a['config'], deadline) if udp_mode else
                   ClosedServer(package, n0a['config'] if n0a is not None else None, getattr(args, 'n0a_capture_runner', False), deadline))
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         operation = 'seed_build'
@@ -1749,6 +1854,7 @@ def host(args):
         config = {'host_url': f'http://10.0.2.2:{server.server_address[1]}/{server.capability}',
                   'payload_sha256': package_digest, 'python_sha256': PYTHON_ASSET['sha256'],
                   'actor_sha256': args.actor_sha256}
+        if stage0b_config is not None:config['stage0b']=dict(stage0b_config)
         if n0a is not None: config['n0a_udp6' if udp6_mode else 'n0a_udp_parent' if parent_udp_mode else 'n0a_udp' if udp_mode else 'n0a'] = dict(n0a['config'])
         if udp_mode or getattr(args, 'n0a_capture_runner', False):
             capture_config = capture_helpers().make_configuration(n0a['config'], source, media.VM_NIC_MAC)
@@ -1875,7 +1981,7 @@ def host(args):
         phase = 'stage0_completed'
         original_merged = True
         # Original receipt is already preserved/validated before optional wait.
-        if n0a is not None:
+        if n0a is not None or stage0b_mode:
             # Persist the original closed receipt before waiting on optional work.
             # vm_destroyed remains false until the existing final cleanup.
             (args.output / 'public-report.json').write_text(json.dumps(public, indent=2)+'\n', encoding='ascii')
@@ -1931,6 +2037,19 @@ def host(args):
         if public['vm_destroyed']: record_breadcrumb(public, 'cleanup_done', work, disk, deadline)
         public['last_phase'] = phase
         (args.output / 'public-report.json').write_text(json.dumps(public, indent=2) + '\n', encoding='ascii')
+        if stage0b_mode:
+            try:
+                observed=getattr(server,'n0a_result',None) if server is not None else None
+                stage0b_public=dict(schema_version=1,stage='stage0b-host',report=observed,
+                    report_validation=getattr(server,'stage0b_validation','unavailable') if server is not None else 'unavailable',
+                    original_stage0_passed=public['stage0_passed'],vm_destroyed=public['vm_destroyed'],product_acceptance=False,
+                    stage0b_ipc_qualified=stage0b_ipc_qualified(observed,public['vm_destroyed']))
+                raw=json.dumps(stage0b_public,separators=(',',':')).encode('ascii')
+                if len(raw)+1>4096:raise ValueError('stage0b public bound')
+                (args.output/'stage0b-public.json').write_bytes(raw+b'\n')
+            except Exception:
+                try:print(json.dumps({'stage0b_report_write_failed':True}),flush=True)
+                except OSError:pass
         if udp6_mode:
             try:
                 udp6_public=optional_udp.compose(server,public,n0a_wait_state)
@@ -1981,6 +2100,7 @@ def main(argv=None):
     parser.add_argument('--output', type=Path, required=True)
     for name in ('python-archive', 'actor', 'bundle'): parser.add_argument('--' + name, type=Path)
     parser.add_argument('--actor-sha256')
+    parser.add_argument('--stage0b',action='store_true')
     parser.add_argument('--n0a-udp6-runner',action='store_true')
     parser.add_argument('--udp6-actor',type=Path);parser.add_argument('--udp6-manifest',type=Path)
     parser.add_argument('--n0a-udp-parent-runner',action='store_true')
@@ -1993,6 +2113,7 @@ def main(argv=None):
     parser.add_argument('--timeout-seconds', type=int, default=6600)
     parser.add_argument('--job-deadline-epoch', type=int)
     args = parser.parse_args(argv)
+    if args.stage0b and (args.n0a or args.n0a_capture_runner or args.n0a_udp_runner or args.n0a_udp_parent_runner or args.n0a_udp6_runner or args.guest or args.download_python or args.check_preparation or args.check_apt_plan):parser.error('stage0b requires exclusive host intent')
     if args.n0a_udp6_runner and (args.n0a_udp_parent_runner or args.n0a_udp_runner or args.n0a or args.n0a_capture_runner or args.guest or args.download_python or args.check_preparation or args.check_apt_plan or not args.udp6_actor or not args.udp6_manifest):
         parser.error('UDP6 requires exclusive production inputs')
     if not args.n0a_udp6_runner and (args.udp6_actor or args.udp6_manifest):parser.error('UDP6 inputs require UDP6 opt-in')

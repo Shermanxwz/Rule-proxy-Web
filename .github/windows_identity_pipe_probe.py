@@ -9,6 +9,7 @@ import argparse
 import ctypes as C
 import hashlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -23,28 +24,249 @@ SPEC = importlib.util.spec_from_file_location('identity_proof_helpers', Path(__f
 proof = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(proof)
 
 
+
+class ProbePhases:
+    """Shrink old phase caps against original guest QPC, never renew its epoch."""
+    def __init__(self, budget, api, frequency, clock=time.monotonic):
+        self.budget, self.api, self.frequency, self.clock = budget, api, frequency, clock
+        self.active = budget.cutoff(30) if budget else None
+        self.cleanup = budget.cutoff(10) if budget else None
+
+    def require(self, seconds, cleanup=False):
+        if self.budget:
+            return self.budget.require_ms(self.cleanup if cleanup else self.active,
+                                          int(seconds*1000))/1000
+        return seconds
+
+    def limit(self, seconds, cleanup=False):
+        self.require(seconds, cleanup)
+        if self.budget:
+            return min(self.cleanup if cleanup else self.active,
+                       self.budget.read()+int(seconds*self.frequency))
+        return self.clock()+seconds
+
+    def remaining(self, limit):
+        if self.budget:
+            return self.budget.remaining_ms(limit)
+        return max(0,int((limit-self.clock())*1000))
+
+
+class OneShotHandles:
+    """Exact ownership; failed close is uncertain, consumed, and never retried."""
+    def __init__(self, close_api):
+        self.close_api = close_api
+        self.pending = set()
+        self.attempted = set()
+        self.uncertain = False
+
+    def add(self, handle):
+        if not handle or handle in self.pending or handle in self.attempted:
+            raise RuntimeError('invalid or reused owned handle')
+        self.pending.add(handle)
+        return handle
+
+    def close(self, handle):
+        if handle not in self.pending:
+            return
+        self.pending.remove(handle)
+        self.attempted.add(handle)  # Consume BEFORE calling an API that may fail.
+        try:
+            self.close_api(handle)
+        except BaseException:
+            self.uncertain = True
+            raise
+
+    @property
+    def confirmed_closed(self):
+        return not self.pending and not self.uncertain
+
+
+def prepare_owned_files(work, inputs, output, actor, exe, digest, journal, state,
+                        save, copy, require_time):
+    """Called inside run's finalizer before the first owned filesystem mutation."""
+    require_time(15)
+    work.mkdir()
+    state['created'] = True
+    save(work/'ownership.json', journal)
+    inputs.mkdir(); output.mkdir()
+    require_time(15)
+    copy(actor, exe)
+    copied = verify_copied_actor(exe, digest)
+    require_time(15)
+    return copied
+
+
+def wait_bounded(api, process, phases, cleanup=False):
+    limit=phases.limit(5,cleanup)
+    milliseconds=phases.remaining(limit)
+    if milliseconds<=0: raise TimeoutError('process phase expired before wait')
+    result=api.wait_process(process,milliseconds)
+    late=phases.budget is not None and phases.remaining(limit)<=0
+    return result,late
+
+
+def stop_owned_child(api, process, job, assigned, wait_ms, wait_job_empty, errors, attempted=False, observed_wait=None):
+    """Best-effort termination, but only observed waits establish quiescence."""
+    process_stopped, job_empty = not bool(process) and not attempted, not bool(job)
+    if process:
+        try:
+            if assigned: api.terminate_job(job)
+            else: api.terminate_process(process)
+        except Exception as exc: errors.append(proof.smoke.failure(exc))
+        try:
+            outcome,late=observed_wait(process) if observed_wait else (api.wait_process(process,wait_ms()),False)
+            if outcome != 0: raise TimeoutError('cleanup process wait')
+            process_stopped=True
+            if late: errors.append({'operation':'observed_process_deadline'})
+        except Exception as exc: errors.append(proof.smoke.failure(exc))
+    if job:
+        try:
+            job_empty=wait_job_empty(job)
+            if not job_empty: raise TimeoutError('cleanup Job drain')
+        except Exception as exc: errors.append(proof.smoke.failure(exc))
+    return process_stopped, job_empty
+
+
+_RETAINED_FILES = []
+
+
+class FileCloseUncertain(RuntimeError):
+    pass
+
+
+def read_bounded_file(path, maximum, expected_size=None):
+    """One bounded read; retain a failed-close object rather than retrying it."""
+    stream=path.open('rb')
+    try:
+        data=stream.read(maximum+1)
+    finally:
+        try:
+            stream.close()  # Exactly one explicit close attempt, including read failure.
+        except BaseException:
+            _RETAINED_FILES.append(stream)
+            raise FileCloseUncertain('bounded reader close uncertain') from None
+    if len(data)>maximum or expected_size is not None and len(data)!=expected_size:
+        raise RuntimeError('bounded file length changed')
+    return data
+
+
+def create_suspended_owned(create, check, info, owners, state):
+    state['creation_attempted']=True
+    try:
+        result=create()
+    finally:
+        # Preserve any returned ownership even if the API/check boundary raises.
+        if info.hProcess: owners.add(info.hProcess)
+        if info.hThread: owners.add(info.hThread)
+    check(result)
+
+
+def verify_copied_actor(exe, expected):
+    info = exe.lstat()
+    if (stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400
+            or not stat.S_ISREG(info.st_mode) or not 512 <= info.st_size <= 8*1024*1024):
+        raise RuntimeError('invalid copied actor')
+    digest = hashlib.sha256(read_bounded_file(exe,8*1024*1024,info.st_size)).hexdigest()
+    if digest != expected:
+        raise RuntimeError('copied actor digest mismatch')
+    return digest
+
+
+def read_actor_report(path):
+    info=path.lstat()
+    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or getattr(info,'st_file_attributes',0)&0x400 or not 1<=info.st_size<=8192):
+        raise RuntimeError('invalid native actor report')
+    def pairs(values):
+        out={}
+        for key,value in values:
+            if key in out: raise ValueError('duplicate native actor key')
+            out[key]=value
+        return out
+    def invalid_constant(value):
+        raise ValueError('invalid native actor constant')
+    data=read_bounded_file(path,8192,info.st_size)
+    value=json.loads(data.decode('utf-8'),object_pairs_hook=pairs,parse_constant=invalid_constant)
+    if type(value) is not dict: raise ValueError('native actor report object required')
+    return value
+
+
+def verify_suspended_child(token_api, process, job, exe, expected_sid, read_sid):
+    """Read only the held process before the caller's single ResumeThread."""
+    token_api.verify_image(process, exe)
+    token_api.verify_job(job, process)
+    observed_sid = read_sid(process)
+    if observed_sid != expected_sid:
+        raise RuntimeError('child identity mismatch before resume')
+    return observed_sid
+
+
+
+def admit_suspended(api, token_api, info, job, exe, digest, expected_sid,
+                    read_sid, owners, child_handles, require_time, state, report):
+    """Single held-process admission; state survives every failure for cleanup."""
+    require_time(5)
+    api.assign_job(job, info.hProcess)
+    state['assigned_to_job'] = True
+    report['observed_child_sid'] = verify_suspended_child(
+        token_api, info.hProcess, job, exe, expected_sid, read_sid)
+    report['image_verified_before_resume'] = True
+    report['copied_actor_sha256'] = verify_copied_actor(exe, digest)
+    for handle in child_handles:
+        owners.close(handle)
+    require_time(5)
+    # api.resume_thread checks the actual prior suspend count equals exactly 1.
+    api.resume_thread(info.hThread)
+    owners.close(info.hThread)
+
+
+def pipe_result_valid(value):
+    return (type(value) is dict
+            and value.get('attempted') is True
+            and value.get('inheritanceCleared') is True
+            and value.get('nonceMatched') is True
+            and value.get('requiresControllerTimeout') is True
+            and type(value.get('bytesRead')) is int and value['bytesRead'] == 32
+            and type(value.get('bytesWritten')) is int and value['bytesWritten'] == 32
+            and type(value.get('win32Error')) is int and value['win32Error'] == 0
+            and 'failure' in value and value['failure'] is None)
+
+
 def checks(report):
+    report = report if type(report) is dict else {}
     actor = report.get('actor', {})
+    actor = actor if type(actor) is dict else {}
     sid = report.get('derived_sid')
     cleanup = report.get('cleanup', {})
+    cleanup = cleanup if type(cleanup) is dict else {}
+    controller = report.get('controller_identity', {})
+    controller = controller if type(controller) is dict else {}
     return {
         'profile_identity': isinstance(sid, str) and proof.SID.fullmatch(sid) is not None
                             and report.get('observed_child_sid') == sid,
-        'child_identity': actor.get('schemaVersion') == 1 and actor.get('pid') == report.get('child_pid')
+        'child_identity': type(actor.get('schemaVersion')) is int and actor.get('schemaVersion') == 1
+                          and type(actor.get('pid')) is int and actor.get('pid') == report.get('child_pid')
                           and type(report.get('child_pid')) is int and report['child_pid'] > 0
-                          and actor.get('tokenUserSid') == report.get('controller_identity',{}).get('sid')
+                          and actor.get('tokenUserSid') == controller.get('sid')
                           and isinstance(actor.get('tokenUserSid'),str)
                           and actor.get('tokenAppContainerSid') == sid and actor.get('tokenIsAppContainer') is True
                           and actor.get('tokenElevated') is False and actor.get('isProcessInJob') is True
                           and actor.get('queriesSucceeded') is True and actor.get('errors') == [],
         'fresh_actor': isinstance(report.get('nonce'), str) and proof.NONCE.fullmatch(report['nonce']) is not None
                        and actor.get('nonce') == report['nonce'] and actor.get('mode') == 'actor-pipe',
-        'transport': report.get('echo_matched') is True and report.get('exit_code') == 0
-                     and report.get('pipe_eof_observed') is True and actor.get('pipeSucceeded') is True,
+        'staged_image': report.get('copied_actor_sha256') == report.get('actor_sha256')
+                        and isinstance(report.get('copied_actor_sha256'),str)
+                        and re.fullmatch('[0-9a-f]{64}',report['copied_actor_sha256']) is not None
+                        and report.get('image_verified_before_resume') is True,
+        'transport': report.get('echo_matched') is True and type(report.get('exit_code')) is int
+                     and report.get('exit_code') == 0
+                     and report.get('pipe_eof_observed') is True and actor.get('pipeSucceeded') is True
+                     and pipe_result_valid(actor.get('pipe')), 
         'no_network_capabilities': actor.get('tokenCapabilities') == [],
         'cleanup': cleanup.get('job_closed') is True and cleanup.get('profile_deleted') is True
                    and cleanup.get('handles_closed') is True and cleanup.get('owned_aces_removed') is True and cleanup.get('job_empty') is True
-                   and not cleanup.get('errors'),
+                   and cleanup.get('process_exit_confirmed') is True and cleanup.get('close_uncertain') is False
+                   and type(cleanup.get('errors')) is list and cleanup['errors'] == [],
         'no_error': 'error' not in report,
     }
 
@@ -114,14 +336,28 @@ def run(args):
     token_spec=importlib.util.spec_from_file_location('identity_pipe_token_reader',
         Path(__file__).with_name('windows_identity_ordinary_launcher.py'))
     token_reader=importlib.util.module_from_spec(token_spec);token_spec.loader.exec_module(token_reader)
-    token_api=token_reader.NativeAPI(); current=token_api.current_token()
+    token_api=token_reader.NativeAPI()
+    supplied=(getattr(args,'deadline_qpc',None),getattr(args,'qpc_frequency',None))
+    if (supplied[0] is None) != (supplied[1] is None):
+        raise ValueError('paired QPC deadline required')
+    budget=token_reader.QpcBudget(token_api,*supplied) if supplied[0] is not None else None
+    case_nonce=getattr(args,'case_nonce',None)
+    if case_nonce is not None and (type(case_nonce) is not str or re.fullmatch('[0-9a-f]{32}',case_nonce) is None):
+        raise ValueError('invalid case nonce')
+    if (budget is not None) != (case_nonce is not None):
+        raise ValueError('QPC integration requires all contract fields')
+    phases=ProbePhases(budget,token_api,supplied[1])
+    require_time,phase_limit,phase_remaining=phases.require,phases.limit,phases.remaining
+    require_time(15)
+    current=token_api.current_token()
+    current_owner=OneShotHandles(token_api.close); current_owner.add(current)
     try:
         observed=token_api.identity(current)
         identity={'sid':observed['sid'],'pid':os.getpid(),'cid':token_api.compartment(),
                   'elevated':observed['elevated'],'appcontainer':observed['appcontainer']}
         if not token_reader.token_is_ordinary(observed):
             raise PermissionError('controller token is not an observed ordinary user')
-    finally:token_api.close(current)
+    finally:current_owner.close(current)
     if identity['elevated'] or identity['appcontainer'] or identity['cid'] != 1:
         raise PermissionError('requires ordinary user outside AppContainer in default compartment')
     # Reuse existing typed structures and Job owner, never its network exemption APIs.
@@ -146,20 +382,24 @@ def run(args):
     def wait_job_empty(job):
         class Accounting(C.Structure):
             _fields_=[('times',C.c_int64*4),('page_faults',D),('total',D),('active',D),('terminated',D)]
-        deadline=time.monotonic()+5
+        deadline=phase_limit(5,True)
         while True:
             info=Accounting(); returned=D()
             api._check(k.QueryInformationJobObject(job,1,C.byref(info),C.sizeof(info),C.byref(returned)))
             if returned.value!=C.sizeof(info): raise RuntimeError('unexpected Job accounting size')
-            if info.active==0:return True
-            if time.monotonic()>=deadline:return False
-            time.sleep(.02)
+            if info.active==0:
+                if budget and phase_remaining(deadline)<=0:
+                    report['cleanup']['errors'].append({'operation':'observed_job_deadline'})
+                return True
+            if phase_remaining(deadline)<=0:return False
+            time.sleep(min(.02,phase_remaining(deadline)/1000))
     def sid_text(sid):
         out=P(); api._check(a.ConvertSidToStringSidW(sid,C.byref(out)))
         try: return out.value
         finally: k.LocalFree(C.cast(out,H))
     def process_sid(handle):
         token=H(); api._check(a.OpenProcessToken(handle,8,C.byref(token)))
+        owners.add(token.value)
         try:
             size=D(); C.set_last_error(0)
             success=a.GetTokenInformation(token,31,None,0,C.byref(size))
@@ -170,12 +410,11 @@ def run(args):
             buf=C.create_string_buffer(size.value)
             api._check(a.GetTokenInformation(token,31,buf,len(buf),C.byref(size)))
             return sid_text(checked_sid_pointer(buf,size.value))
-        finally: api.close_handle(token.value)
+        finally: owners.close(token.value)
     actor=args.actor.resolve(strict=True)
     if actor.suffix.lower()!='.exe' or not 512 <= actor.stat().st_size <= 8*1024*1024:
         raise ValueError('expected bounded native actor')
-    digest=hashlib.sha256(actor.read_bytes()).hexdigest()
-    if digest!=args.actor_sha256: raise ValueError('actor digest mismatch')
+    digest=verify_copied_actor(actor,args.actor_sha256)
     work=args.work.resolve()
     if work.exists(): raise ValueError('fresh work directory required')
     if args.report.resolve()!=work/'report.json': raise ValueError('report must be new WORK/report.json')
@@ -183,17 +422,21 @@ def run(args):
         if os.environ.get(name):
             protected=Path(os.environ[name]).resolve()
             if protected==work or protected in work.parents: raise ValueError('protected work directory')
-    work.mkdir(parents=True); inputs=work/'inputs'; output=work/'output'; inputs.mkdir(); output.mkdir()
-    exe=inputs/'actor.exe'; shutil.copyfile(actor,exe)
-    nonce=secrets.token_hex(16); name='RuleProxy.IdentityProof.'+nonce
+    inputs=work/'inputs'; output=work/'output'; exe=inputs/'actor.exe'
+    nonce=case_nonce if case_nonce is not None else secrets.token_hex(16)
+    name='RuleProxy.IdentityProof.'+nonce
     report={'schema_version':1,'stage':'0b','nonce':nonce,'actor_sha256':digest,'network_tested':False,
             'product_acceptance':False,'privacy_qualified':False,'controller_identity':identity,'cleanup':{'errors':[]}}
-    handles=set(); job=None; info=proc._ProcessInfo(); sid=H(); created=False; assigned_to_job=False
-    def close(h):
-        if h in handles: api.close_handle(h); handles.remove(h)
+    if budget: report.update(deadline_qpc=supplied[0],qpc_frequency=supplied[1])
+    owners=OneShotHandles(api.close_handle); job_owner=OneShotHandles(api.close_handle)
+    handles=owners.pending; close=owners.close
+    job=None; info=proc._ProcessInfo(); sid=H(); created=False; state={'assigned_to_job':False,'creation_attempted':False}
+    work_state={'created':False}
     journal={'schema_version':1,'profile':name,'nonce':nonce,'profile_created':False,'derived_sid':None}
-    proof.smoke.save(work/'ownership.json',journal)
     try:
+        report['copied_actor_sha256']=prepare_owned_files(
+            work,inputs,output,actor,exe,digest,journal,work_state,
+            proof.smoke.save,shutil.copyfile,require_time)
         code=ue.CreateAppContainerProfile(name,name,'Disposable identity pipe proof',None,0,C.byref(sid)) & 0xffffffff
         if code: raise OSError(code,'CreateAppContainerProfile (never reuse existing profile)')
         created=True; report['derived_sid']=sid_text(sid)
@@ -203,17 +446,20 @@ def run(args):
         for path,right in ((work,'RX'),(inputs,'(OI)(CI)(RX)'),(output,'(OI)(CI)(M)')):
             subprocess.run([str(Path(os.environ['SystemRoot'])/'System32/icacls.exe'),str(path),'/grant',
                             '*'+report['derived_sid']+':'+right,'/Q'],stdin=subprocess.DEVNULL,
-                           capture_output=True,timeout=15,check=True)
+                           capture_output=True,timeout=require_time(15),check=True)
         class SA(C.Structure):
             _fields_=[('length',D),('security',H),('inherit',C.c_int)]
         sa=SA(C.sizeof(SA),None,True)
         child_read,parent_write,parent_read,child_write=H(),H(),H(),H()
         for read,write in ((child_read,parent_write),(parent_read,child_write)):
             api._check(k.CreatePipe(C.byref(read),C.byref(write),C.byref(sa),4096))
-            handles.update((read.value,write.value))
+            owners.add(read.value); owners.add(write.value)
         for handle in (parent_write,parent_read): api._check(k.SetHandleInformation(handle,1,0))
-        job=api.create_job(); api.configure_job(job,proc._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
+        require_time(5)
+        job=api.create_job(); job_owner.add(job)
+        api.configure_job(job,proc._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
         size=C.c_size_t(); k.InitializeProcThreadAttributeList(None,2,0,C.byref(size))
+        if not 1 <= size.value <= 65536: raise RuntimeError('invalid attribute size')
         attrs=C.create_string_buffer(size.value)
         api._check(k.InitializeProcThreadAttributeList(attrs,2,0,C.byref(size)))
         try:
@@ -224,83 +470,90 @@ def run(args):
             startup=proc._StartupInfoEx(); startup.StartupInfo.cb=C.sizeof(startup); startup.lpAttributeList=C.cast(attrs,H)
             cmd=[str(exe),'actor-pipe',nonce,str(output/'actor.json'),str(child_read.value),str(child_write.value)]
             environment=C.create_unicode_buffer(proc._environment_block({'SystemRoot':os.environ['SystemRoot']}))
-            api._check(k.CreateProcessW(str(exe),C.create_unicode_buffer(subprocess.list2cmdline(cmd)),None,None,True,
+            require_time(5)
+            create_suspended_owned(lambda:k.CreateProcessW(str(exe),C.create_unicode_buffer(subprocess.list2cmdline(cmd)),None,None,True,
                        proc._CREATE_SUSPENDED|proc._CREATE_UNICODE_ENVIRONMENT|proc._EXTENDED_STARTUPINFO_PRESENT,
-                       environment,str(output),C.byref(startup),C.byref(info)))
+                       environment,str(output),C.byref(startup),C.byref(info)),api._check,info,owners,state)
         finally: k.DeleteProcThreadAttributeList(attrs)
         report['child_pid']=int(info.dwProcessId)
-        handles.update((info.hProcess,info.hThread))
-        api.assign_job(job,info.hProcess)
-        assigned_to_job=True
-        report['observed_child_sid']=process_sid(info.hProcess)
-        if report['observed_child_sid']!=report['derived_sid']: raise RuntimeError('child identity mismatch before resume')
-        close(child_read.value); close(child_write.value)
-        api.resume_thread(info.hThread); close(info.hThread)
+        admit_suspended(api,token_api,info,job,exe,digest,report['derived_sid'],
+                        process_sid,owners,(child_read.value,child_write.value),
+                        require_time,state,report)
+        require_time(5)
         written=D(); payload=nonce.encode('ascii')
         api._check(k.WriteFile(parent_write,payload,len(payload),C.byref(written),None))
         if written.value!=len(payload): raise RuntimeError('partial pipe frame write')
         close(parent_write.value)
-        deadline=time.monotonic()+5; available=D()
-        while time.monotonic()<deadline:
+        deadline=phase_limit(5); available=D()
+        while phase_remaining(deadline)>0:
             api._check(k.PeekNamedPipe(parent_read,None,0,None,C.byref(available),None))
             if available.value>=len(payload): break
-            time.sleep(.02)
+            time.sleep(min(.02,phase_remaining(deadline)/1000))
         else: raise TimeoutError('bounded pipe echo deadline')
         buf=C.create_string_buffer(33); count=D()
         api._check(k.ReadFile(parent_read,buf,33,C.byref(count),None))
         report['echo_matched']=count.value==32 and buf.raw[:32]==payload
-        if api.wait_process(info.hProcess,5000)!=0: raise TimeoutError('actor exit deadline')
+        wait_result,wait_late=wait_bounded(api,info.hProcess,phases)
+        if wait_result!=0: raise TimeoutError('actor exit deadline')
         report['exit_code']=api.exit_code(info.hProcess)
+        if wait_late: raise TimeoutError('observed actor exit after phase deadline')
+        require_time(5)
         C.set_last_error(0)
         ok=k.ReadFile(parent_read,buf,1,C.byref(count),None)
         report['pipe_eof_observed']=not ok and C.get_last_error()==109
-        report['actor']=proof.smoke.read(output/'actor.json')
-    except Exception as exc: report['error']=proof.smoke.failure(exc)
+        require_time(5)
+        report['actor']=read_actor_report(output/'actor.json')
+        require_time(5)
+    except Exception as exc:
+        report['error']=proof.smoke.failure(exc)
+        if isinstance(exc,FileCloseUncertain): report['reader_close_uncertain']=True
     finally:
-        process_stopped=not bool(info.hProcess)
-        job_empty=not bool(job)
-        if info.hProcess and assigned_to_job:
-            try: api.terminate_job(job)
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
-        elif info.hProcess:
-            try: api.terminate_process(info.hProcess)
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
-        if info.hProcess:
-            try:
-                if api.wait_process(info.hProcess,5000)!=0: raise TimeoutError('cleanup process wait')
-                process_stopped=True
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
-        if job:
-            try:
-                job_empty=wait_job_empty(job)
-                report['cleanup']['job_empty']=job_empty
-                if not job_empty: raise TimeoutError('cleanup Job drain')
-            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+        process_stopped,job_empty=stop_owned_child(
+            api,info.hProcess,job,state['assigned_to_job'],
+            lambda:int(require_time(5,True)*1000),wait_job_empty,report['cleanup']['errors'],
+            attempted=state['creation_attempted'],
+            observed_wait=lambda process:wait_bounded(api,process,phases,True))
+        report['cleanup']['job_empty']=job_empty
         for h in list(handles):
             try: close(h)
             except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
-        report['cleanup']['handles_closed']=not handles
+        report['cleanup']['handles_closed']=owners.confirmed_closed
+        report['cleanup']['process_exit_confirmed']=process_stopped
         if job:
-            try: api.close_handle(job); report['cleanup']['job_closed']=True
+            try: job_owner.close(job); report['cleanup']['job_closed']=job_owner.confirmed_closed
             except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
-        if sid: a.FreeSid(sid)
+        if sid:
+            try:
+                if a.FreeSid(sid): raise RuntimeError('FreeSid failed')
+            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
         if created and process_stopped and job_empty:
             try:
                 owned_paths(work)
                 subprocess.run([str(Path(os.environ['SystemRoot'])/'System32/icacls.exe'),str(work),
                                 '/remove:g','*'+report['derived_sid'],'/T','/Q'],
-                               stdin=subprocess.DEVNULL,capture_output=True,timeout=15,check=True)
+                               stdin=subprocess.DEVNULL,capture_output=True,timeout=require_time(15,True),check=True)
                 report['cleanup']['owned_aces_removed']=verify_no_owned_ace(work,report['derived_sid'])
             except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
-            code=ue.DeleteAppContainerProfile(name)&0xffffffff
-            report['cleanup']['profile_deleted']=code==0
-            if code: report['cleanup']['errors'].append({'operation':'DeleteAppContainerProfile','code':code})
+            if report['cleanup'].get('owned_aces_removed') is True:
+                try:
+                    require_time(5,True)
+                    code=ue.DeleteAppContainerProfile(name)&0xffffffff
+                    report['cleanup']['profile_deleted']=code==0
+                    if code: report['cleanup']['errors'].append({'operation':'DeleteAppContainerProfile','code':code})
+                except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
+            else:
+                report['cleanup']['profile_retained_due_to_uncertain_acl_cleanup']=True
         elif created:
             report['cleanup']['profile_retained_due_to_uncertain_process_exit']=True
+        report['cleanup']['close_uncertain']=(owners.uncertain or job_owner.uncertain
+                                              or report.get('reader_close_uncertain') is True)
+        if budget:
+            try: require_time(1,True)
+            except Exception as exc: report['cleanup']['errors'].append(proof.smoke.failure(exc))
     journal['cleanup']=report['cleanup']
-    proof.smoke.save(work/'ownership.json',journal)
+    if work_state['created']: proof.smoke.save(work/'ownership.json',journal)
     report['checks']=checks(report); report['stage0b_passed']=all(report['checks'].values())
-    proof.smoke.save(args.report,report)
+    if work_state['created']: proof.smoke.save(args.report,report)
     return 0 if report['stage0b_passed'] else 1
 
 
@@ -310,6 +563,9 @@ def main(argv=None):
     parser.add_argument('--approved-security-test',action='store_true')
     for name in ('actor','work','report'): parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--actor-sha256',required=True)
+    parser.add_argument('--deadline-qpc',type=int)
+    parser.add_argument('--qpc-frequency',type=int)
+    parser.add_argument('--case-nonce')
     return run(parser.parse_args(argv))
 
 if __name__=='__main__': raise SystemExit(main())
