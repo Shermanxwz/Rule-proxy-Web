@@ -121,12 +121,12 @@ class Composed(unittest.TestCase):
         frames=[pf.frame(r['source_port'],pf.p.payload(b.nonce,r['phase'],r['index']),dport=b.runner_port) for r in m['ordinary']]
         data=pf.pcap(frames)
         outcome=pf.p.evaluate(data,normalized['manifest_bytes'],normalized['expected'],pf.capture(data))
-        self.assertTrue(outcome['bounded_no_selected_udp_datagram'])
+        self.assertTrue(outcome['bounded_no_selected_outer_udp_payload'])
         # Positive bytes survive a later cleanup failure, but never authenticate actor origin.
         data=pf.pcap(frames+[pf.frame(m['selected'][0]['source_port'],pf.p.payload(b.nonce,'contained',0),dport=b.runner_port)])
         normalized['expected']['cleanup_verified']=False
         outcome=pf.p.evaluate(data,normalized['manifest_bytes'],normalized['expected'],pf.capture(data))
-        self.assertTrue(outcome['selected_payload_observed']);self.assertFalse(outcome['bounded_no_selected_udp_datagram'])
+        self.assertTrue(outcome['selected_payload_observed']);self.assertFalse(outcome['bounded_no_selected_outer_udp_payload'])
     def test_wrong_actual_audit_or_missing_report_no_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
             b,cases,execution,config,capture=self.collected(Path(directory),wrong_pid=True)

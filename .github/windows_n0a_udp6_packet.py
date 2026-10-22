@@ -7,8 +7,9 @@ authentication are NOT validated. No QPC/PCAP clock mapping or reassembly.
 RFC8200 base/Hop/Destination/Routing framing and RFC4302 AH length framing only.
 Hop-by-Hop must be first; Routing requires Segments Left zero. Fragment including
 atomic, ESP, unknown/opaque/non-UDP headers at the fixed destination refuse
-absence unless the strict trace-calibrated ND profile applies.
-IPv4 and unrelated IPv6/NDP are out of scope. No jumbo/zero-length IPv6.
+absence unless the complete outer chain identifies terminal ICMPv6 (NH58).
+IPv4 and unrelated IPv6/NDP are outside outer-UDP adjudication, not the
+independent guest-MAC record-byte marker scan. No jumbo/zero-length IPv6.
 MAX_FRAME is a conservative support cap, not the maximum legal Ethernet frame.
 https://www.rfc-editor.org/rfc/rfc8200 https://www.rfc-editor.org/rfc/rfc4302
 """
@@ -132,7 +133,7 @@ def payload(nonce, phase, index):
 
 
 def _diagnostic_new():
-    return dict(v=4, opaque_next_header_counts=[0]*256, truncated_counts=[0,0,0],
+    return dict(v=5, opaque_next_header_counts=[0]*256, truncated_counts=[0,0,0],
                 icmp_type_code_counts={}, icmp_omitted_event_count=0,
                 checksum_counts=[0]*3, quote_counts=[0]*4,
                 quote_detail_counts=[0]*14, raw_selected_nonce_match=set(),ndp=[0,0,0,0,0,0,0,0,0,False,0,0],na_events=0)
@@ -162,7 +163,7 @@ def _diagnostic_icmp(diagnostic, ip, position, manifest):
     if len(body)>=2:
         pair=(body[0],body[1])
         if pair in pairs: pairs[pair]+=1
-        elif len(pairs)<2: pairs[pair]=1
+        elif len(pairs)<1: pairs[pair]=1
         else: diagnostic['icmp_omitted_event_count']+=1
     outer=2 if position!=40 or len(body)<4 else (0 if _diagnostic_checksum(ip[8:24],ip[24:40],body,58) else 1)
     diagnostic['checksum_counts'][outer]+=1
@@ -216,9 +217,20 @@ def _nd_usable(address):
             and address[0]!=255 and address[:12]!=b'\0'*10+b'\xff\xff')
 
 
+def _marker_record(record,manifest,marker):
+    """Bounded observed record/prefix bytes, not a valid packet or attribution."""
+    if len(record)<12:marker[0]=False;return
+    if record[6:12]!=bytes.fromhex(manifest['endpoint']['vm_mac']):return
+    bounded=bytes(record) # At most MAX_FRAME; never a capture-sized copy.
+    nonce=manifest['binding']['case_nonce']
+    for i in range(3):
+        if payload(nonce,'contained',i) in bounded:marker[1]|=1<<i
+    if nonce.encode('ascii') in bounded:marker[2]=True
+
+
 def _nd_witness(data,manifest):
     """First sequential pass; fixed row map, no frame retention or capture copy."""
-    state=dict(bits=0,exact=0,valid=0,invalid=0,source=None,source_state=0,ready=False)
+    state=dict(bits=0,exact=0,valid=0,invalid=0,source=None,source_state=0,ready=False,marker=[False,0,False])
     rows={payload(manifest['binding']['case_nonce'],r['phase'],r['index']):r for r in manifest['ordinary']}
     seen={};mac=bytes.fromhex(manifest['endpoint']['vm_mac']);port=manifest['endpoint']['destination_port']
     ports=[r['source_port'] for r in manifest['ordinary']+manifest['selected']]
@@ -233,14 +245,19 @@ def _nd_witness(data,manifest):
     major,minor,_,_,snaplen,link=struct.unpack_from(endian+'HHIIII',data,4)
     if (major,minor)!=(2,4) or not 1<=snaplen<=MAX_SNAPLEN or link!=1:
         state['bits']|=1<<18;return state
-    view=memoryview(data);offset=24;records=0
+    view=memoryview(data);offset=24;records=0;state['marker'][0]=True
     while offset<len(view):
-        if records>=MAX_RECORDS or len(view)-offset<16:state['bits']|=1<<18;break
+        if records>=MAX_RECORDS or len(view)-offset<16:
+            state['marker'][0]=False;state['bits']|=1<<18;break
         _,fraction,captured,original=struct.unpack_from(endian+'IIII',view,offset);offset+=16
-        if fraction>=scale or captured>snaplen or captured>original or captured>MAX_FRAME or len(view)-offset<captured:
-            state['bits']|=1<<18;break
-        if captured!=original:state['bits']|=1<<18
-        frame=view[offset:offset+captured];offset+=captured;records+=1
+        if fraction>=scale or captured>snaplen or captured>original or captured>MAX_FRAME:
+            state['marker'][0]=False;state['bits']|=1<<18;break
+        available=min(captured,len(view)-offset)
+        frame=view[offset:offset+available]
+        _marker_record(frame,manifest,state['marker'])
+        if captured!=original:state['marker'][0]=False;state['bits']|=1<<18
+        if available!=captured:state['marker'][0]=False;state['bits']|=1<<18;break
+        offset+=captured;records+=1
         if len(frame)<14:state['bits']|=1<<18;continue
         if frame[6:12]!=mac:continue
         ether=int.from_bytes(frame[12:14],'big')
@@ -270,6 +287,7 @@ def _nd_witness(data,manifest):
     if not all(type(i)is int for i in indices) or (all(type(i)is int for i in indices) and indices[-1]<=max(indices[:-1])):
         state['bits']|=1<<13
     if state['source_state']!=1:state['bits']|=1<<13
+    state['marker'][0]=state['marker'][0] and records>0
     state['ready']=not state['bits']
     return state
 
@@ -348,9 +366,10 @@ def decode_pcap(data, manifest):
                   decoder_diagnostic=_diagnostic_new())
     # Diagnostic only: exact public Next Header enum counts; truncation order is
     # header_tail, captured_ne_original, body_tail. Counters do not admit frames;
-    # only the explicit strict ND profile return can exempt its own opaque event.
+    # ND profile results are diagnostic only; terminal NH58 is not outer UDP.
     diagnostic = result['decoder_diagnostic']
     witness = _nd_witness(data,manifest)
+    result['marker_scan']=witness['marker']
     diagnostic['ndp'][4:9]=[witness['bits'],witness['exact'],witness['valid'],witness['invalid'],witness['source_state']]
     def bad(reason): result['reasons'].add(reason)
     if type(data) is not bytes or len(data) > MAX_PCAP:
@@ -415,7 +434,8 @@ def decode_pcap(data, manifest):
                 diagnostic['opaque_next_header_counts'][next_header] += 1
                 if next_header==58:
                     _diagnostic_icmp(diagnostic, ip, position, manifest)
-                    if _nd_profile(diagnostic,frame,ip,position,manifest,witness):unsupported=True;break
+                    _nd_profile(diagnostic,frame,ip,position,manifest,witness)
+                    unsupported=True;break
                 bad('opaque_protocol');unsupported=True;break
             if extension_count>=MAX_EXTENSIONS:
                 bad('extension_bound');unsupported=True;break
@@ -456,14 +476,14 @@ def decode_pcap(data, manifest):
 
 def project_decoder_diagnostic(value, records):
     """Closed versioned diagnostics; all verdicts ignore these counters."""
-    if not _object(value,set(_diagnostic_new())) or type(value['v']) is not int or value['v']!=4 or not _integer(records,0,MAX_RECORDS):return None
+    if not _object(value,set(_diagnostic_new())) or type(value['v']) is not int or value['v']!=5 or not _integer(records,0,MAX_RECORDS):return None
     counts=value['opaque_next_header_counts'];truncated=value['truncated_counts']
     if type(counts)is not list or len(counts)!=256 or any(not _integer(n,0,MAX_RECORDS) for n in counts) or sum(counts)>records:return None
     if type(truncated)is not list or len(truncated)!=3 or not _integer(truncated[0],0,1) or not _integer(truncated[2],0,1) or not _integer(truncated[1],0,min(MAX_RECORDS,records+1)):return None
     pairs=value['icmp_type_code_counts'];omitted=value['icmp_omitted_event_count'];events=counts[58]
-    if type(pairs)is not dict or len(pairs)>2 or not _integer(omitted,0,events):return None
+    if type(pairs)is not dict or len(pairs)>1 or not _integer(omitted,0,events):return None
     if any(type(k)is not tuple or len(k)!=2 or any(not _integer(n,0,255) for n in k) or not _integer(v,1,events) for k,v in pairs.items()):return None
-    if sum(pairs.values())+omitted>events or (omitted and len(pairs)!=2):return None
+    if sum(pairs.values())+omitted>events or (omitted and len(pairs)!=1):return None
     arrays=[]
     for key,size in (('checksum_counts',3),('quote_counts',4),('quote_detail_counts',14)):
         row=value[key]
@@ -487,8 +507,8 @@ def project_decoder_diagnostic(value, records):
             or (ndp[10]==0)!=(na_events==ndp[11])):return None
     if ndp[1] and (na_events-ndp[11]<ndp[1] or not ndp[10]&16):return None
     if sum(ndp[:2]) and (ndp[4]&0x7e001 or ndp[7]!=0 or ndp[6]==0 or ndp[8]!=1):return None
-    nonzero=[[n,c] for n,c in enumerate(counts) if c];omitted_nh=nonzero[2:]
-    return dict(v=4,opaque_next_header_counts=nonzero[:2],omitted_category_count=len(omitted_nh),
+    nonzero=[[n,c] for n,c in enumerate(counts) if c];omitted_nh=nonzero[1:]
+    return dict(v=5,opaque_next_header_counts=nonzero[:1],omitted_category_count=len(omitted_nh),
                 omitted_event_count=sum(r[1] for r in omitted_nh),detail_complete=not omitted_nh,
                 truncated_counts=list(truncated),icmp_type_code_counts=[[a,b,c] for (a,b),c in sorted(pairs.items())],
                 icmp_omitted_event_count=omitted,icmp_detail_complete=not omitted,
@@ -498,15 +518,15 @@ def project_decoder_diagnostic(value, records):
 
 def evaluate(data, manifest_bytes, expected, capture):
     """Pure future-controller contract. No caller authentication is created here."""
-    public=dict(schema_version=2,protocol='udp6',scope='runner_ipv6_udp_payload',status='inconclusive',manifest_valid=False,
+    public=dict(schema_version=3,protocol='udp6',scope='runner_ipv6_outer_udp_endpoint',status='inconclusive',manifest_valid=False,
                 binding_contract_matched=False,ports_unique=False,
                 controls_contract=False,cleanup_contract=False,all_selected_sends_invoked=False,
                 ports_complete=False,
                 capture_complete_contract=False,decoder_complete=False,ordinary_payload_controls=False,
                 selected_payload_observed=None,selected_bound_payload_observed=None,
                 selected_payload_count=0,unknown_flow_packets=0,records=0,reasons=[],
-                decoder_diagnostic=None,
-                bounded_no_selected_udp_datagram=False,actor_attribution_established=False,
+                decoder_diagnostic=None,marker_scan=None,
+                bounded_no_selected_outer_udp_payload=False,actor_attribution_established=False,
                 isolation_acceptance=False,checksums_validated=False,qpc_timestamp_mapping_used=False)
     try: manifest,collision=validate_manifest(manifest_bytes,expected)
     except ValueError as error:
@@ -518,6 +538,7 @@ def evaluate(data, manifest_bytes, expected, capture):
     public['cleanup_contract']=expected['cleanup_verified']
     public['all_selected_sends_invoked']=all(r['send_invoked'] for r in manifest['selected'])
     decoded=decode_pcap(data,manifest); reasons=decoded['reasons']
+    public['marker_scan']=decoded['marker_scan']
     public['decoder_diagnostic']=project_decoder_diagnostic(decoded['decoder_diagnostic'], decoded['records'])
     public['decoder_complete']=not reasons
     public['selected_payload_observed']=bool(decoded['selected_seen'])
@@ -546,7 +567,8 @@ def evaluate(data, manifest_bytes, expected, capture):
     if not reasons:
         if public['selected_payload_observed']: public['status']='selected_payload_observed'
         else:
-            public['status']='bounded_no_selected_udp_datagram'
-            public['bounded_no_selected_udp_datagram']=True
+            public['status']='bounded_no_selected_outer_udp_payload'
+            public['bounded_no_selected_outer_udp_payload']=True
+    if public['marker_scan'][1]:public['status']='selected_record_bytes_observed'
     public['reasons']=sorted(reasons)
     return public

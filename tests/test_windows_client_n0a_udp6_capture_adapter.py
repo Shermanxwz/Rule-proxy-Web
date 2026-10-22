@@ -35,10 +35,10 @@ class AdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             path=Path(root)/'pcap';path.write_bytes(data)
             value=m.parse_before_cleanup(path,c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
-        self.assertEqual(value['status'],'bounded_no_selected_udp_datagram')
-        original,receipt=final(expected);self.assertTrue(m.qualify(value,original,receipt)['packet']['bounded_no_selected_udp_datagram'])
+        self.assertEqual(value['status'],'bounded_no_selected_outer_udp_payload')
+        original,receipt=final(expected);self.assertTrue(m.qualify(value,original,receipt)['packet']['bounded_no_selected_outer_udp_payload'])
         receipt['host_receiver']['cleanup_confirmed']=False
-        self.assertFalse(m.qualify(value,original,receipt)['packet']['bounded_no_selected_udp_datagram'])
+        self.assertFalse(m.qualify(value,original,receipt)['packet']['bounded_no_selected_outer_udp_payload'])
     def test_positive_survives_capture_and_host_failure(self):
         raw,expected,data=pipeline(True);facts=c.facts();facts['qemu_forced']=True
         with tempfile.TemporaryDirectory() as root:
@@ -169,10 +169,10 @@ class ProvenanceTests(unittest.TestCase):
         original,receipt=final(expected)
         for key in ('admitted','pre_stop_verified','close_confirmed'):
             changed=copy.deepcopy(receipt);changed['mapped_provenance'][key]=False
-            self.assertFalse(m.qualify(tentative,original,changed)['packet']['bounded_no_selected_udp_datagram'])
+            self.assertFalse(m.qualify(tentative,original,changed)['packet']['bounded_no_selected_outer_udp_payload'])
         for change in ({'failure':True},{'failure':None},{'schema_version':True},{'schema_version':2}):
             changed=copy.deepcopy(receipt);changed['mapped_provenance'].update(change)
-            self.assertFalse(m.qualify(tentative,original,changed)['packet']['bounded_no_selected_udp_datagram'])
+            self.assertFalse(m.qualify(tentative,original,changed)['packet']['bounded_no_selected_outer_udp_payload'])
         positive=copy.deepcopy(tentative);positive['selected_payload_observed']=True
         receipt['mapped_provenance']=None
         self.assertTrue(m.qualify(positive,original,receipt)['selected_payload_observed'])
@@ -235,10 +235,10 @@ class FullBoundaryTests(unittest.TestCase):
             path=root/'capture';path.write_bytes(p.pcap(frames))
             tentative=m.parse_before_cleanup(path,c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
             original,receipt=final(expected)
-            self.assertTrue(m.qualify(tentative,original,receipt)['packet']['bounded_no_selected_udp_datagram'])
+            self.assertTrue(m.qualify(tentative,original,receipt)['packet']['bounded_no_selected_outer_udp_payload'])
             self.assertEqual(receipt['result']['selected_send_accepted_count'],3)
             receipt['mapped_provenance']['pre_stop_verified']=False
-            self.assertFalse(m.qualify(tentative,original,receipt)['packet']['bounded_no_selected_udp_datagram'])
+            self.assertFalse(m.qualify(tentative,original,receipt)['packet']['bounded_no_selected_outer_udp_payload'])
             self.assertEqual(receipt['result']['selected_send_accepted_count'],3)
             self.assertEqual(m.parse_before_cleanup(path,c.facts(),None,expected,header_before_link=True,terminal_before_shutdown=True)['reason'],'body_missing')
 
@@ -309,7 +309,7 @@ class HostProjectionSizeTests(unittest.TestCase):
             result=m.parse_before_cleanup(path,CaptureDiagnosticTests.facts(),raw,expected,header_before_link=False,terminal_before_shutdown=False)
         original,receipt=final(expected);result=m.qualify(result,original,receipt)
         packet=result['packet']
-        result['status']='bounded_no_selected_udp_datagram'
+        result['status']='bounded_no_selected_outer_udp_payload'
         for key,value in result['capture_diagnostic'].items():
             if type(value) is bool:result['capture_diagnostic'][key]=False
         # Conservative serialization upper composition: these maxima need not
@@ -317,12 +317,13 @@ class HostProjectionSizeTests(unittest.TestCase):
         for obj in (result,packet):
             for key,value in obj.items():
                 if type(value) is bool:obj[key]=False
-        packet.update(schema_version=2,status='bounded_no_selected_udp_datagram',selected_payload_count=3,
+        packet.update(schema_version=3,status='bounded_no_selected_outer_udp_payload',selected_payload_count=3,
                       unknown_flow_packets=262144,records=262144)
         packet['reasons']=sorted({'binding','manifest','capture_bound','header','record_bound','truncated','record','frame_bound','ethernet','encapsulation','ipv6','jumbo_unsupported','fragment','opaque_protocol','extension_bound','hop_order','extension','routing_unsupported','udp','payload_port_mismatch','payload_mismatch','unknown_flow','empty','port_collision','port_unavailable','controls','cleanup','send_unattempted','capture_lifecycle','ordinary_payload','host_prerequisites'})
-        packet['decoder_diagnostic']=dict(v=4,opaque_next_header_counts=[[254,262144],[255,262144]],
-            omitted_category_count=254,omitted_event_count=262144,detail_complete=False,truncated_counts=[1,262144,1],
-            icmp_type_code_counts=[[255,i,262144] for i in range(254,256)],
+        packet['marker_scan']=[False,7,False]
+        packet['decoder_diagnostic']=dict(v=5,opaque_next_header_counts=[[255,262144]],
+            omitted_category_count=255,omitted_event_count=262144,detail_complete=False,truncated_counts=[1,262144,1],
+            icmp_type_code_counts=[[255,i,262144] for i in range(255,256)],
             icmp_omitted_event_count=262144,icmp_detail_complete=False,
             checksum_counts=[262144]*3,quote_counts=[262144]*4,quote_detail_counts=[262144]*14,
             raw_selected_nonce_match=[False,3],
@@ -339,31 +340,34 @@ class HostProjectionSizeTests(unittest.TestCase):
         self.assertLessEqual(len(compact),4096)
         self.assertLessEqual(len(pretty),4096)
         self.assertLessEqual(len(nested),4096)
-        self.assertEqual(len(value['packet']['decoder_diagnostic']['opaque_next_header_counts']),2)
-        self.assertEqual(len(value['packet']['decoder_diagnostic']['icmp_type_code_counts']),2)
-        self.assertEqual(value['packet']['schema_version'],2)
+        positive=copy.deepcopy(value)
+        positive['status']=positive['packet']['status']='selected_record_bytes_observed'
+        self.assertLessEqual(len((json.dumps({'packet':positive},indent=2)+'\n').encode('ascii')),4096)
+        self.assertEqual(len(value['packet']['decoder_diagnostic']['opaque_next_header_counts']),1)
+        self.assertEqual(len(value['packet']['decoder_diagnostic']['icmp_type_code_counts']),1)
+        self.assertEqual(value['packet']['schema_version'],3)
         self.assertEqual(len(value['packet']['decoder_diagnostic']['ndp']),12)
         self.assertEqual(value['packet']['decoder_diagnostic']['ndp'][4],0x7ffff)
         self.assertEqual(value['packet']['decoder_diagnostic']['ndp'][10:], [31,262144])
 
-    def test_actual_v4_projector_consistent_witness_and_invalid_null(self):
+    def test_actual_v5_projector_consistent_witness_and_invalid_null(self):
         packet=m.helper('packet');internal=packet._diagnostic_new()
         internal['opaque_next_header_counts'][58]=250000
         internal['opaque_next_header_counts'][59]=10000
         internal['opaque_next_header_counts'][60]=1000
-        internal.update(truncated_counts=[1,262144,1],icmp_type_code_counts={(1,0):100000,(1,1):100000},
-            icmp_omitted_event_count=50000,checksum_counts=[100000,100000,50000],
+        internal.update(truncated_counts=[1,262144,1],icmp_type_code_counts={(1,0):100000},
+            icmp_omitted_event_count=150000,checksum_counts=[100000,100000,50000],
             quote_counts=[100000,100000,25000,25000],
             quote_detail_counts=[40000,40000,20000,40000,40000,20000,25000,25000,25000,25000,50000,50000,10000,10000],
             raw_selected_nonce_match={0,1,2})
         projected=packet.project_decoder_diagnostic(internal,262144)
         self.assertIsNotNone(projected)
-        self.assertEqual(projected['v'],4)
+        self.assertEqual(projected['v'],5)
         self.assertEqual(projected['raw_selected_nonce_match'],[True,3])
-        self.assertEqual(projected['opaque_next_header_counts'],[[58,250000],[59,10000]])
-        self.assertEqual(projected['omitted_category_count'],1)
-        self.assertEqual(projected['omitted_event_count'],1000)
-        self.assertEqual(projected['icmp_omitted_event_count'],50000)
+        self.assertEqual(projected['opaque_next_header_counts'],[[58,250000]])
+        self.assertEqual(projected['omitted_category_count'],2)
+        self.assertEqual(projected['omitted_event_count'],11000)
+        self.assertEqual(projected['icmp_omitted_event_count'],150000)
         self.assertFalse(projected['detail_complete']);self.assertFalse(projected['icmp_detail_complete'])
         upper=self.upper_projection()
         self.assertEqual(set(projected),set(upper['packet']['decoder_diagnostic']))
@@ -392,14 +396,14 @@ class HostProjectionSizeTests(unittest.TestCase):
             with patch.object(m.helper('packet'),'project_decoder_diagnostic',return_value=None):
                 missing=m.parse_before_cleanup(path,CaptureDiagnosticTests.facts(),raw,expected,header_before_link=False,terminal_before_shutdown=False)
         self.assertIsNone(missing['packet']['decoder_diagnostic'])
-        self.assertEqual(missing['packet']['schema_version'],2)
+        self.assertEqual(missing['packet']['schema_version'],3)
         normal['packet']['decoder_diagnostic']=None
         self.assertEqual(normal,missing)
         self.assertEqual(set(missing['packet']),{'schema_version','protocol','scope','status','manifest_valid',
             'binding_contract_matched','ports_unique','controls_contract','cleanup_contract','all_selected_sends_invoked',
             'ports_complete','capture_complete_contract','decoder_complete','ordinary_payload_controls',
             'selected_payload_observed','selected_bound_payload_observed','selected_payload_count',
-            'unknown_flow_packets','records','reasons','decoder_diagnostic','bounded_no_selected_udp_datagram',
+            'unknown_flow_packets','records','reasons','decoder_diagnostic','bounded_no_selected_outer_udp_payload','marker_scan',
             'actor_attribution_established','isolation_acceptance','checksums_validated','qpc_timestamp_mapping_used'})
         original,receipt=final(expected);receipt['vm_destroyed']=False
         qualified=m.qualify(missing,original,receipt)
@@ -439,7 +443,7 @@ class HostProjectionSizeTests(unittest.TestCase):
         self.assertGreater(len(raw),4096)
         self.assertIn('capture_diagnostic',value['packet'])
 
-class StrictNdHostCompositionTests(unittest.TestCase):
+class OuterEndpointHostCompositionTests(unittest.TestCase):
     @staticmethod
     def fixture(extra=None,selected=False):
         value=f.value();raw=f.f.encode(value);expected=f.expected(value,raw)
@@ -466,31 +470,31 @@ class StrictNdHostCompositionTests(unittest.TestCase):
                     result=m.parse_before_cleanup(path,c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
         return result,expected
 
-    def test_strict_nd_admission_explicit_even_with_diagnostic_null(self):
+    def test_outer_udp_scope_explicit_even_with_diagnostic_null(self):
         result,expected=self.parse();packet=result['packet']
-        self.assertEqual(packet['schema_version'],2)
-        self.assertTrue(packet['bounded_no_selected_udp_datagram'])
+        self.assertEqual(packet['schema_version'],3)
+        self.assertTrue(packet['bounded_no_selected_outer_udp_payload'])
         self.assertFalse(packet['checksums_validated']);self.assertFalse(packet['actor_attribution_established'])
-        self.assertEqual(packet['decoder_diagnostic']['v'],4)
+        self.assertEqual(packet['decoder_diagnostic']['v'],5)
         self.assertEqual(packet['decoder_diagnostic']['ndp'][:4],[1,1,0,0])
         self.assertEqual(packet['decoder_diagnostic']['ndp'][10:],[16,0])
         original,receipt=final(expected)
-        self.assertTrue(m.qualify(result,original,receipt)['packet']['bounded_no_selected_udp_datagram'])
+        self.assertTrue(m.qualify(result,original,receipt)['packet']['bounded_no_selected_outer_udp_payload'])
         unavailable,_=self.parse(diagnostic=False)
-        self.assertEqual(unavailable['packet']['schema_version'],2)
+        self.assertEqual(unavailable['packet']['schema_version'],3)
         self.assertIsNone(unavailable['packet']['decoder_diagnostic'])
         packet['decoder_diagnostic']=None
         self.assertEqual(unavailable,result)
 
-    def test_other_opaque_failed_controls_and_case_nonce_prevent_absence(self):
+    def test_non_udp_and_markers_independent_of_endpoint_absence(self):
         unknown,_=self.parse(p.nd_frame(kind=1))
-        self.assertFalse(unknown['packet']['bounded_no_selected_udp_datagram'])
-        self.assertIn('opaque_protocol',unknown['packet']['reasons'])
+        self.assertTrue(unknown['packet']['bounded_no_selected_outer_udp_payload'])
+        self.assertNotIn('opaque_protocol',unknown['packet']['reasons'])
         result,expected=self.parse();original,receipt=final(expected)
         receipt['result']['ordinary_controls_verified']=False
-        self.assertFalse(m.qualify(result,original,receipt)['packet']['bounded_no_selected_udp_datagram'])
+        self.assertFalse(m.qualify(result,original,receipt)['packet']['bounded_no_selected_outer_udp_payload'])
         raw,_=self.parse(p.nd_frame(options=b'a'*32))
-        self.assertFalse(raw['packet']['bounded_no_selected_udp_datagram'])
+        self.assertTrue(raw['packet']['bounded_no_selected_outer_udp_payload'])
         self.assertTrue(raw['packet']['decoder_diagnostic']['ndp'][9])
         self.assertFalse(raw['selected_payload_observed'])
 
@@ -498,7 +502,7 @@ class StrictNdHostCompositionTests(unittest.TestCase):
         other_source=p.SRC[:-1]+b'\x10';other_target=p.SRC[:-1]+b'\x11'
         mixed,expected=self.parse(p.nd_frame(136,source=other_source,target=other_target),selected=True)
         self.assertEqual(mixed['packet']['decoder_diagnostic']['ndp'][10:],[17,0])
-        self.assertIn('opaque_protocol',mixed['packet']['reasons'])
+        self.assertNotIn('opaque_protocol',mixed['packet']['reasons'])
         self.assertTrue(mixed['selected_payload_observed'])
         original,receipt=final(expected);receipt['vm_destroyed']=False
         later=m.qualify(mixed,original,receipt)
@@ -512,20 +516,86 @@ class StrictNdHostCompositionTests(unittest.TestCase):
         duplicate=p.frame(before['source_port'],p.p.payload('a'*32,'before',0),dport=44000)
         unknown,_=self.parse(duplicate)
         self.assertEqual(unknown['packet']['decoder_diagnostic']['ndp'][10:],[0,1])
-        self.assertFalse(unknown['packet']['bounded_no_selected_udp_datagram'])
+        self.assertTrue(unknown['packet']['bounded_no_selected_outer_udp_payload'])
 
     def test_raw_selected_and_direct_positive_remain_distinct_after_cleanup_failure(self):
         extra=p.nd_frame(options=p.p.payload('a'*32,'contained',0))
         result,expected=self.parse(extra)
         self.assertEqual(result['packet']['decoder_diagnostic']['raw_selected_nonce_match'],[True,1])
         self.assertFalse(result['selected_payload_observed'])
-        self.assertFalse(result['packet']['bounded_no_selected_udp_datagram'])
+        self.assertTrue(result['packet']['bounded_no_selected_outer_udp_payload'])
         direct,expected=self.parse(extra,selected=True)
         original,receipt=final(expected);original['vm_destroyed']=False
         qualified=m.qualify(direct,original,receipt)
         self.assertTrue(qualified['selected_payload_observed'])
         self.assertEqual(qualified['packet']['decoder_diagnostic']['raw_selected_nonce_match'],[True,1])
         self.assertFalse(qualified['isolation_acceptance'])
+
+class EndpointAbsenceAndMarkerContractTests(unittest.TestCase):
+    def test_late_host_failure_revokes_only_a_and_preserves_b_priority(self):
+        fixture=OuterEndpointHostCompositionTests()
+        extra=p.nd_frame(options=p.p.payload('a'*32,'contained',0))
+        tentative,expected=fixture.parse(extra)
+        self.assertEqual(tentative['schema_version'],2)
+        self.assertEqual(tentative['scope'],'runner_ipv6_outer_udp_endpoint')
+        self.assertEqual(tentative['packet']['schema_version'],3)
+        self.assertTrue(tentative['packet']['bounded_no_selected_outer_udp_payload'])
+        self.assertFalse(tentative['selected_payload_observed'])
+        self.assertEqual(tentative['packet']['marker_scan'],[True,1,True])
+        self.assertEqual(tentative['status'],'selected_record_bytes_observed')
+        original,receipt=final(expected)
+        for change in ('cleanup','controls','provenance'):
+            broken=copy.deepcopy(receipt)
+            if change=='cleanup':broken['vm_destroyed']=False
+            elif change=='controls':broken['result']['ordinary_controls_verified']=False
+            else:broken['mapped_provenance']['failure']=True
+            qualified=m.qualify(tentative,original,broken)
+            self.assertFalse(qualified['packet']['bounded_no_selected_outer_udp_payload'])
+            self.assertEqual(qualified['packet']['marker_scan'],[True,1,True])
+            self.assertEqual(qualified['packet']['status'],'selected_record_bytes_observed')
+            self.assertEqual(qualified['status'],'selected_record_bytes_observed')
+            self.assertFalse(qualified['isolation_acceptance'])
+        # Optional diagnostic rejection cannot remove the durable core scan.
+        raw,expected,data=fixture.fixture(extra)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'pcap';path.write_bytes(data)
+            with patch.object(m.helper('packet'),'project_decoder_diagnostic',return_value=None):
+                value=m.parse_before_cleanup(path,c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
+        self.assertIsNone(value['packet']['decoder_diagnostic'])
+        self.assertEqual(value['packet']['marker_scan'],[True,1,True])
+        self.assertEqual(value['status'],'selected_record_bytes_observed')
+
+    def test_partial_record_prefix_markers_survive_without_complete_scan_or_a(self):
+        raw,expected,_=pipeline()
+        frame=p.nd_frame(options=p.p.payload('a'*32,'contained',2)+b'Z'*100)
+        data=p.pcap([frame])[:-20]
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'pcap';path.write_bytes(data)
+            result=m.parse_before_cleanup(path,c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=False)
+        self.assertEqual(result['packet']['marker_scan'],[False,4,True])
+        self.assertFalse(result['packet']['bounded_no_selected_outer_udp_payload'])
+        self.assertFalse(result['selected_payload_observed'])
+        self.assertEqual(result['status'],'selected_record_bytes_observed')
+        original,receipt=final(expected);original['vm_destroyed']=False
+        self.assertEqual(m.qualify(result,original,receipt)['packet']['marker_scan'],[False,4,True])
+
+    def test_old_outer_or_inner_contract_is_not_relabelled(self):
+        tentative,expected=OuterEndpointHostCompositionTests().parse()
+        original,receipt=final(expected)
+        for level,key,value in [('outer','schema_version',1),('outer','schema_version',True),
+                                ('outer','scope','runner_ipv6_udp_payload'),
+                                ('inner','schema_version',2),('inner','schema_version',True),
+                                ('inner','scope','runner_ipv6_udp_payload')]:
+            changed=copy.deepcopy(tentative)
+            (changed if level=='outer' else changed['packet'])[key]=value
+            result=m.qualify(changed,original,receipt)
+            self.assertIsNone(result['packet'])
+            self.assertEqual(result['schema_version'],2)
+            self.assertEqual(result['status'],'inconclusive')
+        raw,expected,_=pipeline()
+        with patch.object(m.helper('lifecycle'),'read_capture',return_value=b'fixture'),patch.object(m.helper('lifecycle'),'capture_contract',return_value={}),patch.object(m.helper('packet'),'evaluate',return_value=dict(schema_version=2,scope='runner_ipv6_udp_payload')):
+            result=m.parse_before_cleanup(Path('unused'),c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
+        self.assertEqual(result['reason'],'parse');self.assertIsNone(result['packet'])
 
 if __name__=='__main__':
     import argparse

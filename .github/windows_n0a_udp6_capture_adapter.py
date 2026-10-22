@@ -72,7 +72,7 @@ def flow_body_state(raw,commitment):
 
 def unavailable(reason='unavailable'):
     if reason not in ('unavailable','flow_context','commitment_missing','commitment_invalid','body_missing','body_type','body_size','body_digest','normalization','capture_file','parse'):reason='unavailable'
-    return dict(schema_version=1,scope='runner_ipv6_udp_payload',status='inconclusive',packet_egress_tested=False,
+    return dict(schema_version=2,scope='runner_ipv6_outer_udp_endpoint',status='inconclusive',packet_egress_tested=False,
                 packet=None,reason=reason,capture_read_cleanup_confirmed=True,selected_payload_observed=None,capture_diagnostic=None,
                 actor_attribution_established=False,isolation_acceptance=False)
 
@@ -120,6 +120,9 @@ def parse_before_cleanup(path,capture_facts,raw_flow,flow_expected,*,header_befo
     try:
         contract=lifecycle.capture_contract(data,capture_facts,header_before_link=header_before_link,terminal_before_shutdown=terminal_before_shutdown,capacity_abort=capacity_abort)
         packet=helper('packet').evaluate(data,normalized['manifest_bytes'],normalized['expected'],contract)
+        if (type(packet) is not dict or type(packet.get('schema_version')) is not int
+                or packet['schema_version']!=3 or packet.get('scope')!='runner_ipv6_outer_udp_endpoint'):
+            raise ValueError('packet schema')
     except Exception:return projected(unavailable('parse'))
     result=unavailable();result.update(status=packet['status'],packet=packet,reason='none',packet_egress_tested=True,selected_payload_observed=packet['selected_payload_observed'])
     return projected(result)
@@ -164,7 +167,13 @@ def receiver_complete(receiver):
             and seen['before']==[0] and seen['after']==[0] and len(seen['sample'])>=3 and seen['contained']==[])
 
 def qualify(tentative,original_public,udp_public):
-    if type(tentative) is not dict or tentative.get('scope')!='runner_ipv6_udp_payload':tentative=unavailable()
+    if (type(tentative) is not dict or type(tentative.get('schema_version')) is not int
+            or tentative['schema_version']!=2 or tentative.get('scope')!='runner_ipv6_outer_udp_endpoint'):
+        tentative=unavailable()
+    packet=tentative.get('packet')
+    if packet is not None and (type(packet) is not dict or type(packet.get('schema_version')) is not int
+            or packet['schema_version']!=3 or packet.get('scope')!='runner_ipv6_outer_udp_endpoint'):
+        tentative=unavailable()
     result=json.loads(json.dumps(tentative))
     receiver=udp_public.get('host_receiver') or {};receiver_ok=receiver_complete(receiver)
     observations=udp_public.get('result',{})
@@ -177,10 +186,13 @@ def qualify(tentative,original_public,udp_public):
            and all(observations.get(k,{}).get(p) is True for k in ('profile_verified','provenance_verified') for p in helper('control').PHASES))
     result['host_prerequisites_verified']=ready
     result['receiver_selected_observed']=receiver.get('contained_observed') if type(receiver.get('contained_observed')) is bool else None
-    if type(result.get('packet')) is dict and result['packet'].get('bounded_no_selected_udp_datagram') and not ready:
-        result['packet']['bounded_no_selected_udp_datagram']=False;result['packet']['status']='inconclusive'
+    if type(result.get('packet')) is dict and result['packet'].get('bounded_no_selected_outer_udp_payload') and not ready:
+        result['packet']['bounded_no_selected_outer_udp_payload']=False
         result['packet']['reasons']=sorted(set(result['packet']['reasons'])|{'host_prerequisites'})
-        result['status']='inconclusive'
+        # Revoking endpoint-payload absence must not erase independent byte
+        # observations, including a marker inside a non-UDP record or prefix.
+        if result['packet']['status'] not in ('selected_record_bytes_observed','selected_payload_observed'):
+            result['packet']['status']='inconclusive';result['status']='inconclusive'
     result['isolation_acceptance']=False
     return result
 

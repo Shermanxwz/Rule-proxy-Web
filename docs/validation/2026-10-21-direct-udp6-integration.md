@@ -342,3 +342,59 @@ serialization measures **9,402 bytes**, not a runtime writer cap. These maxima
 need not coexist in a valid trace; separately validated projector fixtures check
 self-consistent known, mixed and unknown observations. No capture, guest, native,
 policy, lifecycle, frequency, network or runtime change is introduced here.
+
+## Independent endpoint-payload absence and captured markers (code-only candidate)
+
+This is a new contract, not a reinterpretation of any historical archive. The
+outer host packet projection is schema 2 and its inner packet result is schema
+3, both scoped `runner_ipv6_outer_udp_endpoint`. The former
+`bounded_no_selected_udp_datagram` field and corresponding status are replaced by
+`bounded_no_selected_outer_udp_payload`. Older scope/schema pairs are rejected
+rather than relabelled. Native, guest and private-flow wire formats are unchanged.
+
+**A — exact outer UDP payloads at the fixed endpoint.** The Boolean refers only
+to the three complete expected contained payloads in outer IPv6 UDP datagrams
+with the guest source MAC, fixed `fec0::2` destination and fixed destination port.
+It is not absence of every UDP datagram, selected bytes in other protocols,
+selected activity, or IPv6 egress. Complete supported IPv6 framing that ends in
+Next Header 58 is definitely non-UDP for A, regardless of ICMP semantics, ND
+profile or inferred address G. Malformed IPv6 chains, fragments, ESP and capture
+truncation remain inconclusive; the ordinary controls, binding and capture/cleanup
+requirements are not removed. ND/G measurements continue as diagnostics only and
+cannot admit an otherwise ambiguous UDP path.
+
+**B — durable bounded record-byte observations.** A separate core `marker_scan`
+is `null` when unattempted or when trusted patterns cannot be derived from a valid
+manifest. Otherwise it is `[scan_complete, selected_frame_mask, shared_case_seen]`.
+The three mask bits correspond to the three full expected selected patterns;
+the shared ASCII case nonce is also used by ordinary traffic and is not selected
+actor attribution. The scan examines bounded records with the exact guest source
+MAC before EtherType, destination, protocol and port filtering. Matches are
+contiguous within one record, with no cross-record reassembly. A safely delimited
+partial body may retain positive observations from its available prefix if the
+MAC is extractable, while the scan remains incomplete; an invalid record header
+cannot supply an invented frame boundary. These markers are core evidence and
+remain present if optional diagnostic projection fails.
+
+A may be true while B observes selected bytes in ICMP or another record. In that
+case the positive status `selected_record_bytes_observed` takes precedence, while
+the independent A Boolean remains visible. Late host prerequisite or cleanup
+failure revokes A but does not erase markers, direct selected-payload observations
+or their positive status. `scan_complete` concerns exhaustive record-byte coverage
+of the supplied bounded PCAP, not experimental-window or lifecycle completeness.
+It may remain true for a fully scanned retained file whose capture lifecycle is
+incomplete; a negative experimental claim would require both kinds of coverage.
+No overall isolation pass, authenticated sender claim
+or absence of IPv6 egress follows from either result.
+
+Diagnostic version 5 reduces displayed next-header and ICMP type/code detail to
+one row each; internal counters and exact omitted-event/category accounting are
+retained. All earlier diagnostic vectors remain, including the ICMP-local raw
+marker detail, distinct from B's broader scan. The conservative full-field upper
+composition measures **4,054 bytes** for the actual host-nested packet projection
+with indentation and newline and **9,364 bytes** for the full host artifact. The
+latter remains a measurement, not a new writer cap; the positive-status variant measures 4,040 bytes and is
+also checked against the unchanged 4,096-byte packet limit. Same-byte bounded
+scans add no full-capture copy, and existing transient-reader allocations remain.
+No network, policy, capability, native/guest operation, process lifecycle, resource
+limit or runtime activation is changed by this candidate.
