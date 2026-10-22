@@ -4,6 +4,8 @@
 
 **最新 DNS01 为 failed：** 同 held selected 通过 `DnsQueryEx` 获得匹配答案，独立 owned UDP53 receiver 收到对应新 case。ordinary 前后控制、原代理/TCP direct 观察和全部清理完成，反例仍成立。完整事实与限制见[标准53 selected 结果](2026-10-23-selected-dns-standard53.md)；当前受测 Model2 不具备完整 DNS 防泄漏，不能验收为 Linux 等效。
 
+**后续原始 UDP 差分：** [rawDNS01/02](2026-10-23-selected-dns-raw-udp.md)保留两轮实际结果。raw02 已补齐普通前后正控及全部观察；selected 的 send 被本地接受、receiver 无对应查询、超时且无明确拒绝错误，仍为 `inconclusive`。该有限负观察不能抵消 API DNS01 的明确泄漏。全部清理完成，全局配置未变。
+
 ## 首次完整诊断：diagnostic09
 
 受测源码为 `bee54d78b7ab3c823f5ddecbbffcca04f99abf2e`，源码闭包 SHA256 为 `f318b600bd00115afd3e7fdd5cbc67af08be96f671c0d55b07ae1eb8aaf1754d`。[公开结果](../../verification/windows-2026-10-22/model2-diagnostic-09-public.json)、[版本摘要](../../verification/windows-2026-10-22/model2-diagnostic-09-summary.json)与[安全组件投影](../../verification/windows-2026-10-22/model2-diagnostic-09-component-projection.json)记录：
