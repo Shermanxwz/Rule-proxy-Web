@@ -1,5 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
+> **本机接手后的新增证据，2026-10-22：** 提交 `c12dd0bf70fed256af00da56c4d246afdb9dca63` 的独立[本机受监督入口](2026-10-22-local-ac-ipc-owner.md)已在 ordinary Windows 11 `26200.9711`、Python `3.12.10` 上首次运行成功。[闭合结果](../../verification/windows-2026-10-22/local-ac-pair-01-public.json)及[版本绑定摘要](../../verification/windows-2026-10-22/local-ac-pair-01-summary.json)记录 zero-cap AC frontend / ordinary relay 的 48-byte IPC、EOF、held identity、Job 清空、ACL 移除和 profile 删除。本机 profile 与原 CI pinned Python/VM qualification 分开；这是第 9 节 A 的局部运行证据，`network_tested=false`、`proxy_tested=false`、`product_acceptance=false`。以下原交接记录及历史运行结论仍按各自受测版本解释；后续 B/C 尚未验收。
+
 > **交接日期：2026-10-22。产品尚未完成，不是“Windows 隔离已通过”。**
 > **最后短 CI 已验证，但真实 AC pair 未运行。** 受测源为 `7c7a839a8acef8a92fbc0bbd0505c0342065bda5`，[run 39777404738](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39777404738) 双端各 54 required suites、1,016 tests、零 skips；这不是代理网络验收。
 > 本文是仓库内的接手入口；可用代码、公开脱敏证据和下一步边界均指向 GitHub 文件，不依赖前一会话、临时目录或内部笔记。用户准备让自己设备上的 Windows Codex 继续开发；这不授权前一执行方连接设备，也不授权重装 Linux。
