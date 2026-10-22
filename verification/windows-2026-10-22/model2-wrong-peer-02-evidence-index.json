@@ -1,0 +1,32 @@
+{
+  "files": [
+    {
+      "bytes": 2630,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-02-preflight.json",
+      "sha256": "ce2b4558b38fe742a5c32552235f99bee463bbc95acd033ac3433527cfc2677f"
+    },
+    {
+      "bytes": 2687,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-02-public.json",
+      "sha256": "c0ead40c489c36cf4d5f83f5d6d9d450a7a4e9ee0bc4d592d0ed5952d375266d"
+    },
+    {
+      "bytes": 1201,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-02-runner.py",
+      "sha256": "16fb57f8985948be7d806079f144f44cf5250f3f0fb8b9e5a3c8db3906d2bce9"
+    },
+    {
+      "bytes": 2719,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-02-component-projection.json",
+      "sha256": "9c7fd3a5a21dd0bbfc85c8270fccf60c8a18e08dcfc975c8622ee0041222e68d"
+    },
+    {
+      "bytes": 3097,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-02-summary.json",
+      "sha256": "f6eae021d9babcb7efa4caa30e1a411829a9bf4a48dc53983fabc00466cc7ff7"
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "b0e88e456965174cee3227c5c82c5fd228ce35e3",
+  "stage": "wrong-peer-evidence-index"
+}
