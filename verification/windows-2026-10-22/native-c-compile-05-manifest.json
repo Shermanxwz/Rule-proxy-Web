@@ -1,0 +1,13 @@
+{
+    "schemaVersion":  1,
+    "compileOnly":  true,
+    "runtimeAcceptance":  false,
+    "actorSourceSha256":  "c758ad42cfafad3ac174507935745b3a6bc479724f86cf451770aa6723cf858b",
+    "originActorSha256":  "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+    "identitySourceSha256":  "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+    "coreSha256":  "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+    "pipeHelperSha256":  "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+    "originTransportSha256":  "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+    "liveContractSha256":  "1d960ca5fe4bdbb51f307c6ce771aba1b7a36fd2e32684f52cee3a003fd43956",
+    "executableSha256":  "e50a8186378437638ea13efc20ab6b4f6331594f4d47a4199e04ba4f624a6cf7"
+}
