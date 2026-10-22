@@ -1,0 +1,55 @@
+{
+  "complete_dns_before_selected_after_controls": false,
+  "files": [
+    {
+      "bytes": 2973,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-01-preflight.json",
+      "sha256": "f6fa0aa2374f0d522e4544e8cd088b0328f837422b8fd9f33c398099a4ad58e0"
+    },
+    {
+      "bytes": 3504,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-01-public.json",
+      "sha256": "2680cf87b8fafbcaef0084c3fa5376f34ea0b65717fcbbe362658786cc594b17"
+    },
+    {
+      "bytes": 3240,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-01-runner.py",
+      "sha256": "01496b4c5768ceccf7a04a918c92c12722234fee4d179e1a7f51d7c3d9ab9691"
+    },
+    {
+      "bytes": 5961,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-01-component-projection.json",
+      "sha256": "d77ca02a6f10d50067224ab977231fa3436a9f258e58910cd9ffd45d9782e963"
+    },
+    {
+      "bytes": 5427,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-01-summary.json",
+      "sha256": "273978c2f3e91561d79b6ad2826ce5742250ac1ce0e274e4c1fa793e3191cdcf"
+    },
+    {
+      "bytes": 1014,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after01-capture.ps1",
+      "sha256": "9597aa08b389202f151c00f5eb623f908ebac62c9d64ad211e536de61d867d35"
+    },
+    {
+      "bytes": 2000,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after01-expanded.ps1",
+      "sha256": "149f2d4f6c3b96a62fe430f309b352e505b59771a9eeeecd3938286bba515f66"
+    },
+    {
+      "bytes": 857,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after01-global-projection.json",
+      "sha256": "1f07521fea9d70d032676768abc79022638ed1c4f77c24e6f801b1cf89e97165"
+    },
+    {
+      "bytes": 894,
+      "path": "verification/windows-2026-10-22/model2-raw-dns-after01-global-evidence-index.json",
+      "sha256": "fa55174496f0cfc14f680e8a437840f6ef475cae464126b940e42b3a41fc3f9d"
+    }
+  ],
+  "schema_version": 1,
+  "selected_raw_access_denial_observed": false,
+  "source_commit": "0b9df64beb111ac8cb02ad6a4db41bbbeffbd9dd",
+  "stage": "model2-selected-raw-dns-inconclusive-evidence-index",
+  "status": "inconclusive"
+}
