@@ -254,11 +254,43 @@ class Owner(base.Owner):
         self.record_native('selected/final.json',raw)
 
     def execute(self):
-        j=super().execute();j['stage']='standalone-semantic-lpac-dns-worker-result'
+        # The DNS fixture's public snapshot API requires a deadline. Do not
+        # reuse the historical class46 owner's no-argument snapshot calls.
+        # Every projection remains bounded by this original QPC budget.
+        try:
+            self.setup()
+            selected=self.native('selected-client','selected',self.c['selected_boot'],self.c['selected_admission'],PROFILE)
+            health=self.native('health-client','health',self.c['health_boot'],self.c['health_admission'],'ordinary')
+            self.start_fixture()
+            before=self.phase(health,'before',1);snapshot=self.fixture_snapshot()
+            require(live.dns.positive(before) and live.dns.case_positive(snapshot,'before'),'ordinary_before');self.j['ordinary_before']=True
+            selected_phase=self.phase(selected,'selected',1)
+            after=self.phase(health,'after',2);snapshot=self.fixture_snapshot()
+            require(live.dns.positive(after) and live.dns.case_positive(snapshot,'after'),'ordinary_after');self.j['ordinary_after']=True
+            self.j['selected_access_denial']=live.dns.access_denial(selected_phase)
+            self.finish(selected,'selected',2,1);self.finish(health,'health',3,2);self.j['natural_exits']=True
+        except BaseException as error:
+            self.j['failure']=('inventory' if type(error) is ValueError and str(error).startswith('dns_inventory')
+                else 'protocol' if self.j['selected_lpac_held'] else 'setup')
+            last=self.tasks.get(next(reversed(self.tasks),None))
+            captured=None if last is None else last['create_observation']['exception_detail']
+            self.j['failure_detail']=captured if captured is not None else base.private_failure_detail(error)
+        finally:self.cleanup()
+        self.j['tasks']=[base.task_projection(row) for row in self.children]
+        j=self.j;j['stage']='standalone-semantic-lpac-dns-worker-result'
         j['selected_semantic_held']=j.pop('selected_lpac_held')
         expected=[('resume','selected'),('dns-go','before'),('dns-go','selected'),('dns-go','after'),('finish','selected')]
         j['semantic_resume_go_verified']=(j['failure'] is None and [(r['kind'],r['label']) for r in j['semantic_authorizations']]==expected)
         return j
+
+    def fixture_snapshot(self):
+        cutoff=self.budget.cutoff(20);self.budget.require_ms(cutoff);self.sticky()
+        try:
+            remaining=self.budget.remaining_ms(cutoff)
+            value=self.fixture.snapshot(deadline=time.monotonic()+remaining/1000)
+            self.budget.require_ms(cutoff)
+            return live.dns.receiver(value)
+        finally:self.sticky()
 
 def execute(root,c,parent,api,budget):
     config_validate(c);require(launcher.token_is_ordinary(parent) and budget.frequency==c['frequency']

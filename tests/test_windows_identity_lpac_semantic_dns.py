@@ -4,6 +4,7 @@ import ctypes as C
 import importlib.util
 from pathlib import Path
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -23,6 +24,23 @@ def config():
 def public_base():
     v=m.blank('runtime');v.update(source_sha256=old.H,actor_sha256=old.H,manifest_sha256=old.H,recovery_plan_sha256=old.H,tree_retained=True)
     v['checks'].update(dict.fromkeys(('ordinary','sources','artifact','plan','guard','worker_exit','outer_cleanup','worker_bound'),True));return v
+
+class StrictFixture(old.FakeFixture):
+    """Match the real fixture's keyword-only deadline, including finish."""
+    def __init__(self,cases,*,deadline,socket_factory=None,thread_factory=None,clock=None):
+        assert socket_factory is thread_factory is clock is None
+        assert type(deadline) is float and time.monotonic()<deadline<=time.monotonic()+120
+        super().__init__(cases,deadline=deadline);self.snapshot_deadlines=[];self.finish_deadlines=[]
+    def snapshot(self,*,deadline):
+        assert type(deadline) is float and deadline>time.monotonic()
+        self.snapshot_deadlines.append(deadline)
+        if getattr(self,'snapshot_late',False):self.owner.api.now=self.owner.budget.cutoff(20)
+        return old.FakeFixture.snapshot(self,deadline=deadline)
+    def finish(self,*,deadline):
+        self.finish_deadlines.append(deadline)
+        if self.cleanup_error:self.query_observed.set();raise OSError('fake unknown cleanup')
+        return old.FakeFixture.snapshot(self,deadline=deadline)|dict(socket_close_attempted=True,socket_close_uncertain=False,
+            socket_closed=True,thread_stopped=True,cleanup_confirmed=True)
 
 class Probe(af.FakeAPI):
     def __init__(self,api):super().__init__();self.api=api;self.role='lpac'
@@ -63,7 +81,7 @@ class SemanticDNSTests(unittest.TestCase):
             path=root/'win/System32'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'tool')
         script=root/m.live.dns.INVENTORY;script.parent.mkdir(parents=True);script.write_bytes(b'fixed readonly inventory')
         c=config();c['source_hashes'][m.live.dns.INVENTORY]=m.sha(script.read_bytes());c['source_sha256']=m.sha(m.encode(c['source_hashes']))
-        api=API(root,fault);owner=m.Owner(root,c,old.PARENT,api,m.launcher.QpcBudget(api,D,F),fixture_factory=old.FakeFixture);api.owner=owner
+        api=API(root,fault);owner=m.Owner(root,c,old.PARENT,api,m.launcher.QpcBudget(api,D,F),fixture_factory=StrictFixture);api.owner=owner
         def read(api,budget,path,process,cutoff):
             name='selected' if path.parent.name=='lpac-report' else 'health';task=owner.tasks[name]
             if path.name=='ready.json':value=old.ready(task,c,name)
@@ -75,6 +93,7 @@ class SemanticDNSTests(unittest.TestCase):
                 if label!='selected' or status==0:owner.fixture.seen[label]+=1
                 if label=='selected' and status==0:owner.fixture.query_observed.set()
                 if fault=='fixture-cleanup':owner.fixture.cleanup_error=True
+                if fault=='snapshot-late':owner.fixture.snapshot_late=True;owner.fixture.owner=owner
                 if fault=='inventory-stale' and label=='before':api.now+=6*F
                 if fault=='selected-late' and label=='selected':
                     value['dns']['result'].update(within_deadline=False,end_qpc=fields['phase_deadline'])
@@ -103,6 +122,24 @@ class SemanticDNSTests(unittest.TestCase):
         self.assertTrue(v['access_denial_observed']);self.assertEqual(v['status'],'observed');self.assertFalse(v['recovery_required'])
         self.assertEqual(v['selected_semantic_matrix'],[2,0,0,2]);self.assertFalse(v['dns_isolation_qualified'])
         self.assertEqual(owner.budget.deadline,D);self.assertTrue(api.deleted)
+
+    def test_real_fixture_keyword_only_snapshot_and_finish_deadlines_bind_original_qpc(self):
+        import inspect
+        expected=m.live.dns.fixture.DnsCasesFixture
+        self.assertEqual(inspect.signature(StrictFixture.__init__),inspect.signature(expected.__init__))
+        self.assertEqual(inspect.signature(StrictFixture.snapshot),inspect.signature(expected.snapshot))
+        self.assertEqual(inspect.signature(StrictFixture.finish),inspect.signature(expected.finish))
+        owner,_,j,v=self.run_owner()
+        self.assertEqual(len(owner.fixture.snapshot_deadlines),2);self.assertEqual(len(owner.fixture.finish_deadlines),1)
+        self.assertTrue(j['ordinary_before'] and j['ordinary_after'] and j['natural_exits']);self.assertTrue(v['access_denial_observed'])
+        for projected in owner.fixture.snapshot_deadlines:
+            self.assertLessEqual(projected-time.monotonic(),(D-20*F-T)/F)
+        with self.assertRaises(TypeError):owner.fixture.snapshot()
+
+    def test_snapshot_crossing_original_work_cutoff_cannot_reach_selected_go(self):
+        owner,_,j,v=self.run_owner('snapshot-late')
+        self.assertEqual([row['label'] for row in j['go']],['before']);self.assertEqual(owner.budget.deadline,D)
+        self.assertIsNotNone(j['failure']);self.assertFalse(v['observation_complete']);self.assertFalse(v['access_denial_observed'])
 
     def test_mismatched_admission_or_resume_matrix_never_resumes_selected_or_queries(self):
         for fault in ('matrix-admission','matrix-resume'):
