@@ -1,0 +1,690 @@
+{
+  "schema_version": 1,
+  "stage": "win11-direct26300.9457-exploratory-ordinary-deny-only-stage0",
+  "status": "observed_failure",
+  "stage0_passed": false,
+  "product_acceptance": false,
+  "exploratory_stage0": true,
+  "documented_support_floor": "26300.9550",
+  "privacy_qualified": false,
+  "network_tested": false,
+  "vm_destroyed": true,
+  "source_commit": "9cc0caefd9b2d618ead3954f6ab14c7a406a40ba",
+  "iso_sha256": "bc3f24086ebadc94489066b5ad78089e2cf5c3491e90e790bb81a2b199c10e38",
+  "actor_sha256": "d7868aaf4ca499c25ba250c11187313e6c2774bbf66b9829e034326f694f1530",
+  "premedia_free_bytes": 91776413696,
+  "phase_samples": [
+    {
+      "phase": "iso_verified",
+      "filesystem_free_bytes": 83550740480,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 6061,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    },
+    {
+      "phase": "media_ready",
+      "filesystem_free_bytes": 83534708736,
+      "qcow_size_bytes": 197888,
+      "qcow_allocated_bytes": 200704,
+      "remaining_work_seconds": 6060,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "qemu_started",
+      "filesystem_free_bytes": 83534700544,
+      "qcow_size_bytes": 197888,
+      "qcow_allocated_bytes": 200704,
+      "remaining_work_seconds": 6060,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "guest_beacon",
+      "filesystem_free_bytes": 68698386432,
+      "qcow_size_bytes": 14881849344,
+      "qcow_allocated_bytes": 14838059008,
+      "remaining_work_seconds": 5436,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "result_received",
+      "filesystem_free_bytes": 68327477248,
+      "qcow_size_bytes": 15220342784,
+      "qcow_allocated_bytes": 15191248896,
+      "remaining_work_seconds": 5427,
+      "filesystem_sample": "observed",
+      "qcow_sample": "observed"
+    },
+    {
+      "phase": "cleanup_done",
+      "filesystem_free_bytes": 91777617920,
+      "qcow_size_bytes": null,
+      "qcow_allocated_bytes": null,
+      "remaining_work_seconds": 5400,
+      "filesystem_sample": "observed",
+      "qcow_sample": "absent"
+    }
+  ],
+  "launch_free_bytes": 83534704640,
+  "disk_file_ceiling_bytes": 23622320128,
+  "reserve_guard_hard_guarantee": false,
+  "capture_admission": {
+    "payload_admitted": true,
+    "capacity_admitted": true,
+    "planning_only": true
+  },
+  "vm_work_seconds_available": 6060,
+  "qmp_diagnostic": {
+    "command": "ringbuf-read",
+    "error_class": "none",
+    "completed": true
+  },
+  "guest_result_provenance_verified": true,
+  "diagnostics": {
+    "policy_schema_version": "1.0.0",
+    "required_tier": "base-container",
+    "probe_schema_version_available": false,
+    "numeric_psec_contract_version_available": false,
+    "controller_phase": "completed",
+    "failure_phase": "absent",
+    "failure": {
+      "type": "absent",
+      "winerror": null,
+      "errno": null
+    },
+    "probe": {
+      "attempted": true,
+      "completed": true,
+      "outcome": "selected",
+      "exit_code": 0,
+      "stdout_state": "object",
+      "tier": "base-container",
+      "tier_state": "known",
+      "needs_dacl_augmentation": {
+        "state": "value",
+        "value": false
+      },
+      "probes_state": "object",
+      "facts": {
+        "baseContainerApiPresent": {
+          "state": "value",
+          "value": true
+        },
+        "nativeCaptureAvailable": {
+          "state": "value",
+          "value": true
+        },
+        "guardedCaptureAvailable": {
+          "state": "value",
+          "value": false
+        },
+        "bfscfgPresent": {
+          "state": "value",
+          "value": false
+        },
+        "bfsCompiledIn": {
+          "state": "value",
+          "value": false
+        },
+        "baseContainerSupportsDenyPaths": {
+          "state": "value",
+          "value": true
+        },
+        "baseContainerSupportsEnumeratePaths": {
+          "state": "value",
+          "value": false
+        },
+        "baseContainerSupportsIngressHostLoopbackAllow": {
+          "state": "value",
+          "value": false
+        },
+        "isolationSessionAvailable": {
+          "state": "value",
+          "value": false
+        },
+        "hyperlightAvailable": {
+          "state": "value",
+          "value": false
+        }
+      },
+      "ui_state": "object",
+      "ui_facts": {
+        "canBlockClipboardRead": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockClipboardWrite": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockInputInjection": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockInputMethodChanges": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockExternalUiObjects": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockGlobalUiNamespace": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockDesktopSwitching": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockLogoffOrShutdown": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockSystemParameterChanges": {
+          "state": "value",
+          "value": true
+        },
+        "canBlockDisplaySettingsChanges": {
+          "state": "value",
+          "value": true
+        }
+      },
+      "error_present": false,
+      "error_class": "absent",
+      "error_summary": {
+        "bytes_observed": null,
+        "inspection_truncated": false,
+        "categories": [],
+        "operations": [],
+        "operation_label_count": 0,
+        "operations_truncated": false,
+        "native_codes": [],
+        "inspected_sha256": null,
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      },
+      "warnings_state": "array",
+      "warning_count": 0,
+      "warning_nonstring_count": 0,
+      "warning_summaries": [],
+      "stdout": {
+        "bytes_observed": 935,
+        "inspection_truncated": false,
+        "categories": [
+          "psec",
+          "proxy"
+        ],
+        "operations": [],
+        "operation_label_count": 0,
+        "operations_truncated": false,
+        "native_codes": [],
+        "inspected_sha256": "2ce65e21126bbe9a442dd23b4527d045633e490e721f9a034f252c7739f455e0",
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      },
+      "stderr": {
+        "bytes_observed": 0,
+        "inspection_truncated": false,
+        "categories": [],
+        "operations": [],
+        "operation_label_count": 0,
+        "operations_truncated": false,
+        "native_codes": [],
+        "inspected_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      },
+      "cli": {
+        "classes": [],
+        "policy_fields": []
+      }
+    },
+    "execution": {
+      "launch_attempted": true,
+      "outcome": "completed",
+      "exit_code": 0,
+      "timed_out": false,
+      "actual_tier_count": 1,
+      "actual_tiers": [
+        "base-container"
+      ],
+      "unknown_tier_count": 0,
+      "actor_report_state": "parsed",
+      "actor_reparse_point_observed": false,
+      "actor_checks_passed": false,
+      "native_identity": {
+        "schema_v1": true,
+        "mode_actor": true,
+        "queries_succeeded": true,
+        "errors_empty": true,
+        "token_is_appcontainer": true,
+        "sid_string": true,
+        "sid_shape_valid": true,
+        "not_elevated": true,
+        "in_job": true,
+        "capabilities_empty": false,
+        "pid_positive_integer": true,
+        "available": true,
+        "recorded_check_passed": false,
+        "recorded_check_observed": true,
+        "schema_present": true,
+        "schema_typed": true,
+        "mode_present": true,
+        "mode_typed": true,
+        "queries_present": true,
+        "queries_typed": true,
+        "errors_present": true,
+        "errors_typed": true,
+        "appcontainer_present": true,
+        "appcontainer_typed": true,
+        "sid_present": true,
+        "sid_typed": true,
+        "elevated_present": true,
+        "elevated_typed": true,
+        "job_present": true,
+        "job_typed": true,
+        "capabilities_present": true,
+        "capabilities_typed": true,
+        "pid_present": true,
+        "pid_typed": true,
+        "predicate_conjunction": false
+      },
+      "capabilities": {
+        "v": 1,
+        "observed": true,
+        "source_observed": true,
+        "catalog_complete": true,
+        "known": [
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "unknown": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "invalid": [
+          0,
+          0
+        ],
+        "duplicates": [
+          0,
+          0
+        ],
+        "same_sid_set": false,
+        "same_attributes": false
+      },
+      "stdout": {
+        "bytes_observed": 1041,
+        "inspection_truncated": false,
+        "categories": [
+          "configuration",
+          "process_creation",
+          "psec",
+          "proxy"
+        ],
+        "operations": [],
+        "operation_label_count": 0,
+        "operations_truncated": false,
+        "native_codes": [
+          0
+        ],
+        "inspected_sha256": "e829a620a02b2c087b874fff3620fcf940d6b42669eb816826b623d30cf30c2c",
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      },
+      "stderr": {
+        "bytes_observed": 0,
+        "inspection_truncated": false,
+        "categories": [],
+        "operations": [],
+        "operation_label_count": 0,
+        "operations_truncated": false,
+        "native_codes": [],
+        "inspected_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "error_envelope_count": 0,
+        "error_envelopes": []
+      }
+    }
+  },
+  "guest_diagnostic": {
+    "phase": "completed",
+    "failure": {
+      "type": "absent",
+      "errno": null,
+      "winerror": null
+    }
+  },
+  "launcher_diagnostic": {
+    "phase": "completed",
+    "failure_category": "none",
+    "failed": false,
+    "hresult": null,
+    "python_exit_code": 1,
+    "transport_attempt": 1
+  },
+  "psec_cleanup_independently_verified": false,
+  "checks": {
+    "request_aware_base_container": true,
+    "actual_base_container": true,
+    "fresh_actor": true,
+    "native_identity": false,
+    "normal_exit": true,
+    "no_harness_error": true
+  },
+  "request_supported": true,
+  "executor_exit_code": 0,
+  "ordinary_account": true,
+  "direct_build_verified": true,
+  "harness_completed": true,
+  "os": {
+    "build": 26300,
+    "ubr": 9457,
+    "product_type": "WinNT",
+    "architecture": "AMD64"
+  },
+  "result_transport_state": "object_received",
+  "teardown_diagnostic": {
+    "schema_version": 1,
+    "qemu_present": true,
+    "tpm_present": true,
+    "qemu_exit_before_cleanup": 0,
+    "tpm_exit_before_cleanup": 0,
+    "qemu_exit_after_cleanup": 0,
+    "tpm_exit_after_cleanup": 0,
+    "qemu_exit_confirmed": true,
+    "tpm_exit_confirmed": true,
+    "helper_count": 0,
+    "helper_exit_confirmed_count": 0,
+    "qmp_present": true,
+    "qmp_close_succeeded": true,
+    "qmp_file_closed": true,
+    "qmp_socket_closed": true,
+    "server_present": true,
+    "server_shutdown_succeeded": true,
+    "server_close_succeeded": true,
+    "server_thread_stopped": true,
+    "watcher_present": true,
+    "watcher_stopped": true,
+    "work_remove_attempted": true,
+    "work_removed": true,
+    "work_retained": false,
+    "first_failed_stage": null,
+    "error_count": 0,
+    "errors": []
+  },
+  "n0a_receiver_cleanup": {
+    "cleanup_confirmed": true,
+    "thread_stopped": true,
+    "socket_closed": true,
+    "error": false,
+    "datagram_observed": true,
+    "contained_observed": false,
+    "counts": {
+      "datagrams": 42,
+      "observed_bytes": 2045,
+      "verified": 42,
+      "echoed": 42,
+      "rejected": 0,
+      "oversized": 0,
+      "send_errors": 0
+    },
+    "verified_indices": {
+      "before": [
+        0
+      ],
+      "sample": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "contained": [],
+      "after": [
+        0
+      ]
+    },
+    "socket_cleanup_confirmed": true,
+    "endpoint_error": false
+  },
+  "minimum_free_bytes": 67814363136,
+  "last_phase": "stage0_completed"
+}
