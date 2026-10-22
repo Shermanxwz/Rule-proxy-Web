@@ -620,7 +620,8 @@
     "current_model2_broker_isolation_tested": false,
     "current_model2_default_resolver_isolation_tested": false,
     "current_model2_dns_isolation_qualified": false,
-    "current_model2_selected_dns_actual_tested": false,
+    "current_model2_selected_dns_actual_tested": true,
+    "current_model2_selected_dns_wire_leak_observed": true,
     "current_ordinary_standard53_mechanism_passed": true,
     "product_acceptance": false,
     "request3_fixed": false,
@@ -628,9 +629,9 @@
   },
   "date": "2026-10-23",
   "document": {
-    "bytes": 12629,
+    "bytes": 13047,
     "path": "docs/validation/2026-10-23-dns-history-review.md",
-    "sha256": "cddea5c81d6ed772e34638790db2a12517e7ae6340bca5f7f43b9d079919fb60"
+    "sha256": "19069cfe31aa1ee9b1db98a0b03c6eb5b6a32dbecd61231319f0f8ba00425b98"
   },
   "downloaded_artifact_zip_commitments": [
     {
@@ -864,8 +865,8 @@
       "statement": "新ordinary官方标准53机制API/query0、精确记录1、receiver query1/answer1、观察62字节，全部监督/清理及全局快照比较通过。"
     },
     {
-      "id": "current_selected_unrun",
-      "statement": "当前Model2 selected DNS、默认resolver和系统broker隔离尚未运行；ordinary成功不能提升其资格。"
+      "id": "historical_snapshot_selected_unrun",
+      "statement": "截至 f4a0df3 历史审计快照，当前 Model2 selected DNS、默认 resolver 和系统 broker 隔离尚未运行；审计后 DNS01 已实际运行并确认显式 DNS 路径泄漏，见 post_snapshot_dns_runtime。"
     },
     {
       "id": "causality_unresolved",
@@ -913,6 +914,42 @@
     "tests": 680,
     "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39834757571",
     "vm_runtime_executed": false
+  },
+  "post_snapshot_dns_runtime": {
+    "all_cleanup_confirmed": true,
+    "broker_sender_pid_proven": false,
+    "default_resolver_tested": false,
+    "dns_isolation_qualified": false,
+    "each_case_answers_sent": 1,
+    "each_case_matched_queries": 1,
+    "included_in_historical_audit_counts": false,
+    "observed_dns_datagrams": 3,
+    "observed_dns_query_bytes_lower_bound": 186,
+    "ordinary_same_api_before_and_after_verified": true,
+    "product_acceptance": false,
+    "public_bytes": 3060,
+    "public_path": "verification/windows-2026-10-22/model2-dns-01-public.json",
+    "public_sha256": "51d8c38a9acd79c8dee629782b1e091a56bb7ccd6d2209cf28852396401b08b5",
+    "recovery_required": false,
+    "selected_answer_match": true,
+    "selected_api_status": 0,
+    "selected_dns_wire_leak_positive": true,
+    "selected_query_status": 0,
+    "selected_record_count": 1,
+    "source_commit": "6e87e6a3dc30def12d1ec76a8e8b077a101ebee0",
+    "source_sha256": "da01640fd39da54d6f0e5da7425fdb4591902c65033aa6726a49ff22bd43d912",
+    "status": "failed",
+    "summary_path": "verification/windows-2026-10-22/model2-dns-01-summary.json"
+  },
+  "qualification_at_historical_snapshot": {
+    "current_model2_broker_isolation_tested": false,
+    "current_model2_default_resolver_isolation_tested": false,
+    "current_model2_dns_isolation_qualified": false,
+    "current_model2_selected_dns_actual_tested": false,
+    "current_ordinary_standard53_mechanism_passed": true,
+    "product_acceptance": false,
+    "request3_fixed": false,
+    "unique_api87_cause_proven": false
   },
   "repository": "Shermanxwz/Rule-proxy-Web",
   "request3_runs": [

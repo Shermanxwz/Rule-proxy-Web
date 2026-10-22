@@ -1,6 +1,23 @@
 # 同 held selected 的标准53 DNS 诊断
 
-本入口将已成功的 [ordinary 同 API 机制](2026-10-23-dns-standard-mechanism.md)接入当前 Model2 生命周期。独立 profile 为 `same-selected-standard53-dns-v1`，仅允许显式 `profiles-off-diagnostic`；本文建立时尚未运行该 selected 实验。它不更改原 Stage0、严格 Full、默认 resolver、系统 broker 或产品的验收结论。[历史复核](2026-10-23-dns-history-review.md)中的旧失败和有限负结果继续保留。
+本入口将已成功的 [ordinary 同 API 机制](2026-10-23-dns-standard-mechanism.md)接入当前 Model2 生命周期。独立 profile 为 `same-selected-standard53-dns-v1`，仅允许显式 `profiles-off-diagnostic`。首次实测 DNS01 已发现明确 DNS 绕代理反例，整体为 **failed**；当前受测后端不能满足全部 DNS 不绕代理的要求。原 Stage0、严格 Full、默认 resolver、系统 broker 或产品的验收结论均未改为通过。[历史复核](2026-10-23-dns-history-review.md)中的旧失败和有限负结果继续保留。
+
+## DNS01 实际结果：查询与答案成功，隔离失败
+
+受测提交 `6e87e6a3dc30def12d1ec76a8e8b077a101ebee0`，28文件源码闭包 SHA256 `da01640fd39da54d6f0e5da7425fdb4591902c65033aa6726a49ff22bd43d912`。[原公开结果](../../verification/windows-2026-10-22/model2-dns-01-public.json)、[版本摘要](../../verification/windows-2026-10-22/model2-dns-01-summary.json)、[组件投影](../../verification/windows-2026-10-22/model2-dns-01-component-projection.json)及[证据索引](../../verification/windows-2026-10-22/model2-dns-01-evidence-index.json)确认：
+
+- 主代理 HTTP 129→95字节请求、90字节响应、同 held selected 的固定 origin direct `10013`、origin 前中后健康控制和实际 `base-container` tier 仍成立。旧 main direct 发生在 front/relay 退出后，未验证活代理期间直连。
+- 在同一 selected、G/PSEC、身份、Jobs 和原 QPC 预算中，selected 的 `DnsQueryEx` VERSION1 实际返回 API/query status **0/0**，一个精确匹配的 A 答案，非 pending、准时、记录已释放。它不是 API87、超时、缺报告或初始化零值。
+- 独立 receiver 记录 selected case **一次匹配查询、一次答案**；ordinary before/after 各自也完成同 API 0/0、精确答案及一问一答。总共3个 datagram、186个查询字节、零拒收和发送失败。每 case 的62字节由闭合 parser 的最小合法问题长度和总量推出，未保留逐包 raw capture，不冒充逐包取证。
+- 13个内部持有任务和维护进程全部自然退出0；外层 worker 按失败结果退出，退出与清理均被确认，不称 worker 为0。所有 finish、ACL/profile/rule/Job/handle/receiver 清理通过，无需恢复。[运行后的全局只读比较](../../verification/windows-2026-10-22/model2-dns-after01-global-projection.json)与首次 baseline 的7378字节原件完全相等。
+
+`selected_dns_query_observed=true` 是保留到外层结果的 sticky violation，`selected_access_denial_observed=false`、`diagnostic_completed=false`。原 public 为3060字节，SHA256 `51d8c38a9acd79c8dee629782b1e091a56bb7ccd6d2209cf28852396401b08b5`。归档只读核对28份 staged 源与受测 Git blob、8个 native pin、12字段 manifest、G artifacts、13个唯一 nonce、11条 GO、28份实际报告描述符（上限32）及40份 stdout/stderr 的整体承诺；没有重跑测试。
+
+这否定的是本机 profiles-off、Agentic+PNCS、pinned G/PSEC 与这一具体策略下“DNS 全部不绕代理”的命题，不证明所有 Windows/AppContainer/其他配置均不可能隔离。当前反例是显式 server 到 owned loopback53；没有测试默认 resolver，也没有证明实际发包 PID 是 Dnscache 或其他 broker。下一步需分清 raw UDP 路径和 DNS API 路径，再做有身份绑定的归因与约束；不能据此全局封锁 DNS 服务，或用应用内 hook 宣称任意应用都被隔离。
+
+第一次 wrapper 调用在任何 plan/QPC epoch/actor 前，被 Git blob 字节门拦下：两个 Python 工作文件是 CRLF，提交为 LF。仅将这两文件写回已提交原始字节，重新逐字节核对全部源码后才进入上述首次实际运行。[独立 pre-plan 记录](../../verification/windows-2026-10-22/model2-dns-01-preplan-byte-gate.json)保留该次拦截，没有绕过门或续期原运行时钟。
+
+本机完整纯测试696项无失败（2项原有符号链接权限跳过）；同受测提交的[自动 CI 39838348066](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39838348066)为696项、零跳过，actor 仅编译、受控 runtime 全跳过。绿色 CI 不是上述实际泄漏测试的通过结果。
 
 ## 顺序与身份
 

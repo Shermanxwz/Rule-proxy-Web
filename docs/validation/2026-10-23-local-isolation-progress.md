@@ -2,6 +2,8 @@
 
 本页记录已经运行的本机证据与尚未验收的范围。当前已完成首次真实网络的 **profiles-off diagnostic**、同身份错端口诊断，以及真实在途请求被精确 relay 死亡中断、同 held selected 事后 fresh direct 返回 `10013` 的 death01 诊断；错误 peer 的第二次尝试虽完成前后健康控制和清理，但 selected 连接超时，结论仍为 **inconclusive**。严格隔离和产品验收仍为 **false**。系统三个防火墙 profiles 原本关闭，本实验没有为得到成功而启用它们，也没有改全局代理、DNS 或路由。`effective_full_verified=false` 不能由精确规则存在、HTTP 正向成功或清理成功替代。
 
+**最新 DNS01 为 failed：** 同 held selected 通过 `DnsQueryEx` 获得匹配答案，独立 owned UDP53 receiver 收到对应新 case。ordinary 前后控制、原代理/TCP direct 观察和全部清理完成，反例仍成立。完整事实与限制见[标准53 selected 结果](2026-10-23-selected-dns-standard53.md)；当前受测 Model2 不具备完整 DNS 防泄漏，不能验收为 Linux 等效。
+
 ## 首次完整诊断：diagnostic09
 
 受测源码为 `bee54d78b7ab3c823f5ddecbbffcca04f99abf2e`，源码闭包 SHA256 为 `f318b600bd00115afd3e7fdd5cbc67af08be96f671c0d55b07ae1eb8aaf1754d`。[公开结果](../../verification/windows-2026-10-22/model2-diagnostic-09-public.json)、[版本摘要](../../verification/windows-2026-10-22/model2-diagnostic-09-summary.json)与[安全组件投影](../../verification/windows-2026-10-22/model2-diagnostic-09-component-projection.json)记录：
@@ -67,7 +69,7 @@ death01 完成后的[全局只读比较](../../verification/windows-2026-10-22/m
 
 ## ordinary DNS 同 API 机制已运行
 
-`dns-standard-local-02` 已在普通身份下完成真实 `DnsQueryEx` VERSION1 调用、专用 loopback UDP53 接收端的一次查询和答案匹配，API/query status 均为 0，记录内存、socket、线程和 held Job 清理均确认。运行前的受监督只读 DNS/有效 NRPT/53 端口占用门及两次新鲜度门均通过；运行后全局配置与原 baseline 完全相等。该结果只解决 ordinary 同 API 正控，selected DNS、默认 resolver 和系统 broker 隔离仍未验证。首次 staging 时钟范围失败历史及完整证据见[独立 DNS 检查点](2026-10-23-dns-standard-mechanism.md)。
+`dns-standard-local-02` 已在普通身份下完成真实 `DnsQueryEx` VERSION1 调用、专用 loopback UDP53 接收端的一次查询和答案匹配，API/query status 均为 0，记录内存、socket、线程和 held Job 清理均确认。运行前的受监督只读 DNS/有效 NRPT/53 端口占用门及两次新鲜度门均通过；运行后全局配置与原 baseline 完全相等。该结果仅建立 ordinary 同 API 正控；随后[同 selected 的 DNS01](2026-10-23-selected-dns-standard53.md)确认该路径绕代理成功，整体隔离失败。默认 resolver 和系统 broker 隔离仍未验证。首次 staging 时钟范围失败历史及完整证据见[独立 DNS 检查点](2026-10-23-dns-standard-mechanism.md)。
 
 ## 后续必须完成的范围
 
@@ -79,7 +81,7 @@ death01 完成后的[全局只读比较](../../verification/windows-2026-10-22/m
 | 同身份错端口 | wrong-port01 正控失败保留；wrong-port02 独立 PSEC 前后正控及同 held selected `10013` 已完成诊断，严格资格仍为 false |
 | 错误 peer | wrong-peer01 首次超时保留；wrong-peer02 前后健康与完整 finish/清理均完成，但主连接仍超时，隔离与泄漏均未定论 |
 | 在途 relay 死亡与事后 fresh direct | death01 独立诊断已完成：精确 held relay 停止、前端/客户端空响应失败、同 O 释放恢复后 fresh direct `10013`；严格资格仍为 false |
-| DNS | ordinary standard53 同 API 机制已通过；selected、默认 resolver 与 broker 隔离仍未验证 |
+| DNS | ordinary 同 API 前后正控成功；selected DNS01 获得精确答案且 receiver 命中，当前隔离明确失败；默认 resolver 与 broker 归因/隔离未完成 |
 | UDP/IPv6、系统代办、真实浏览器、WinHTTP 与应用适配 | 本检查点未验证，不能由上述 HTTP、direct TCP 或 ordinary DNS 外推 |
 
 继续实现应保留身份、原 QPC deadline、held Job、健康控制与清理门。不能用 listener READY、单次 connect timeout、组件 positive 或已有纯测试把未运行项改为通过。证据公开投影只保留布尔、字节数、错误与 SHA；私有用户/SID/PID、端口、路径、设备标识、creation 和 nonce 值继续留在私有树。

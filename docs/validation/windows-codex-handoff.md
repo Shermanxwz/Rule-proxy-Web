@@ -1,6 +1,8 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
-> **最新追加检查点，2026-10-23：** death01 已完成真实在途 relay 死亡诊断：原 origin 已收到请求、保持连接且未发送响应时，仅终止受持有 relay；前端和同 held selected 观察到空响应失败，随后 fresh direct 对同一健康 origin 返回 `10013`，清理完成。[当前进展](2026-10-23-local-isolation-progress.md)保留源码、原始结果和精确边界；本次严格隔离与产品资格仍为 false。[DNS 历史复核](2026-10-23-dns-history-review.md)将旧后端泄漏、全局 DNS 成功、REQUEST3 失败和新 ordinary 标准53正控分别列出，selected DNS 仍未运行。以下旧段落中的“尚未运行”按原时间解释，不抹除历史结果。
+> **DNS 阻断，2026-10-23：** [同 held selected 标准53实测 DNS01](2026-10-23-selected-dns-standard53.md)发现明确绕代理反例：selected API/query 0/0、一个精确答案，独立 receiver 收到 selected 新 case 并答复；ordinary 前后同 API 正控成功，全部清理完成、全局配置未变，整体 **failed**。原 TCP direct `10013` 仍成立，但不能推出 DNS 被阻断。当前受测 Model2 不能验收为 Linux 等效；默认 resolver、发包进程/broker 归因及补救仍未完成。以下“selected 尚未运行”均为此前快照，不能当作最新状态。
+
+> **此前 death01 检查点，2026-10-23：** death01 已完成真实在途 relay 死亡诊断：原 origin 已收到请求、保持连接且未发送响应时，仅终止受持有 relay；前端和同 held selected 观察到空响应失败，随后 fresh direct 对同一健康 origin 返回 `10013`，清理完成。[当前进展](2026-10-23-local-isolation-progress.md)保留源码、原始结果和精确边界；本次严格隔离与产品资格仍为 false。[DNS 历史复核](2026-10-23-dns-history-review.md)将旧后端泄漏、全局 DNS 成功、REQUEST3 失败和新 ordinary 标准53正控分别列出，截至该检查点 selected DNS 尚未运行。以下旧段落中的“尚未运行”按原时间解释，不抹除历史结果。
 
 > **追加检查点，2026-10-23：** wrong-peer02 已完成 B 前后健康正控、原 origin 前中后正控、两族 actual tier、完整 finish 与清理；主 selected 对错误 peer 仍超时，明确保持 `inconclusive`，不计拒绝或泄漏通过。另 [ordinary DNS 同 API 机制](2026-10-23-dns-standard-mechanism.md)已实际跑通 VERSION1、标准 UDP53 专用查询与匹配答案，清理及全局配置核对通过；selected DNS 隔离仍为 false。完整边界见[进展文档](2026-10-23-local-isolation-progress.md)，旧段落按其各自受测时间保留。
 

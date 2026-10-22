@@ -1,5 +1,7 @@
 # DNS 历史复核：2026-10-23
 
+> **审计后新增实测：** [DNS01](2026-10-23-selected-dns-standard53.md)已在同 held selected 中得到 API/query 0/0、一个精确答案，独立 receiver 看到该 case 并答复，前后普通正控成功、清理完成。整体隔离为 **failed**。下文“selected 尚未运行”是原 `f4a0df3` 历史审计快照的状态；新反例另列来源，不回写原审计 JSON 或842/56/6覆盖计数。
+
 最近的失败记录仍然成立：REQUEST3 没有跑通自有接收端交换，本机高端口 VERSION1 也返回了 87。新 `dns-standard-local-02` 则已跑通 **ordinary VERSION1、标准 UDP53、自有接收端**的一次精确查询和答案核对。它支持继续建立 selected 测试的健康正控；当前 Model2 selected DNS、默认 resolver、系统 broker 隔离及产品验收仍未运行或未通过。
 
 “这个项目以前的 DNS 从未成功”不符合保留记录。历史上既有成功解析，也有不该出站的 DNS 被观察到，还有不同策略下有限范围的零查询观察。必须同时看 API、包或接收端证据、调用者身份、策略和清理，不能用 CI 颜色概括。

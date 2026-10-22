@@ -1,0 +1,31 @@
+{
+  "files": [
+    {
+      "after_bytes": 183513,
+      "after_sha256": "40538f3d647c2af780d390516ec88debf93238240c51c8c86480f3564b7ba68d",
+      "before_bytes": 185931,
+      "before_sha256": "f2154f52b9bcfe9cf217ad7e762d3795358667feaad0a64073757d5406821ecc",
+      "only_crlf_normalization": true,
+      "path": ".github/windows_identity_model2_controller.py"
+    },
+    {
+      "after_bytes": 32035,
+      "after_sha256": "f4e746170a58279eff7a484a295a3a20cde8494553a24964b1a26e818e196ec9",
+      "before_bytes": 32379,
+      "before_sha256": "1602c41a17d51940ef60556a257128ae1951158672c298a338233a894410e066",
+      "only_crlf_normalization": true,
+      "path": ".github/windows_identity_model2_local.py"
+    }
+  ],
+  "first_invocation_stopped_before_plan": true,
+  "fixture_bound": false,
+  "git_blob_bytes_restored": true,
+  "native_actor_executed": false,
+  "original_qpc_runtime_epoch_started": false,
+  "plan_created": false,
+  "preflight_called": false,
+  "production_semantics_changed": false,
+  "schema_version": 1,
+  "source_commit": "6e87e6a3dc30def12d1ec76a8e8b077a101ebee0",
+  "stage": "model2-dns-preplan-source-byte-gate"
+}

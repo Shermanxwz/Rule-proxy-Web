@@ -1,0 +1,36 @@
+{
+  "actor_executed": false,
+  "actual_dns_public": "verification/windows-2026-10-22/model2-dns-01-public.json",
+  "actual_dns_runtime_is_separate_failed_evidence": true,
+  "decoded_complete_job_text": {
+    "bytes": 164390,
+    "raw_kept_private": true,
+    "sha256": "7546165950dffc1b65d26bc427ccd449c3f98dec673bc5f368996b5069dca2a7"
+  },
+  "dns_executed": false,
+  "elapsed_seconds": 23.479,
+  "errors": 0,
+  "failures": 0,
+  "gated_runtime_steps_skipped": true,
+  "isolation_qualified": false,
+  "job_id": 120032478483,
+  "local_test_result": {
+    "elapsed_seconds": 21.766,
+    "errors": 0,
+    "failures": 0,
+    "skip_scope": "existing nonprivileged symlink environment",
+    "skips": 2,
+    "tests": 696
+  },
+  "native_actor_build_compile_only": true,
+  "product_acceptance": false,
+  "run_dispatched_or_rerun_by_this_audit": false,
+  "run_id": 39838348066,
+  "schema_version": 1,
+  "skips": 0,
+  "source_commit": "6e87e6a3dc30def12d1ec76a8e8b077a101ebee0",
+  "stage": "model2-dns-source-automatic-pure-ci",
+  "tests": 696,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39838348066",
+  "vm_executed": false
+}
