@@ -3,7 +3,7 @@ import copy
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
 import tempfile
 import unittest
@@ -20,6 +20,12 @@ l = g.launcher_module()
 t = load('ordinary_test_fixture', ROOT / 'tests/test_windows_identity_ordinary_launcher.py')
 p = load('pipe_test_fixture', ROOT / 'tests/test_windows_identity_pipe_probe.py')
 D, F = 1120000, 1000
+
+
+def path_tail(path, *components):
+    """Match owned fixture roles independent of platform separator spelling."""
+    return path.parts[-len(components):] == components
+
 
 
 class API(t.FakeAPI):
@@ -246,7 +252,7 @@ class ProjectionTests(unittest.TestCase):
 class CapacityAndIOTests(unittest.TestCase):
     def test_copy_is_create_new_rehashed_and_capacity_is_two_actual_copies(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);source=root/'actor.exe';data=b'MZ'+b'x'*510;source.write_bytes(data)
+            root=Path(tmp).resolve(strict=True);source=root/'actor.exe';data=b'MZ'+b'x'*510;source.write_bytes(data)
             digest=hashlib.sha256(data).hexdigest();target=root/'windows_identity_actor.exe'
             self.assertEqual(g.stage_actor(source,target,digest,l),512)
             self.assertEqual(g.capacity_requirement(512,100),1024+100+1048576)
@@ -256,10 +262,12 @@ class CapacityAndIOTests(unittest.TestCase):
                 with self.assertRaises(ValueError):g.ensure_space(root,2)
     def test_private_duplicate_nonfinite_recursion_and_bounds(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path=Path(tmp)/'report.json'
-            for raw in (b'{"x":1,"x":2}',b'{"x":NaN}',b'['*1100+b']'*1100,b'x'*131073,'{} '.encode('utf-16'),'{} '.encode('utf-32')):
+            path=Path(tmp).resolve(strict=True)/'report.json'
+            for raw,reason in ((b'{"x":1,"x":2}','duplicate'),(b'{"x":NaN}','nonfinite'),
+                    (b'['*20000+b']'*20000,'json'),(b'x'*131073,'bound'),
+                    ('{} '.encode('utf-16'),'utf8'),('{} '.encode('utf-32'),'utf8')):
                 path.write_bytes(raw)
-                with self.assertRaises(l.GateFailure):l.read_private(path)
+                with self.assertRaisesRegex(l.GateFailure,'^private_report_'+reason+'$'):l.read_private(path)
     def test_private_close_error_is_closed_and_attempted_once(self):
         stream=SimpleNamespace(read=lambda n:b'{}',close=lambda:None)
         calls=[]
@@ -292,10 +300,12 @@ class CapacityAndIOTests(unittest.TestCase):
                     with self.assertRaises(ValueError):g.configuration(r'C:\RuleProxyCI\ruleproxy-vm-config.json')
     def test_native_report_duplicate_and_oversize_never_normalized(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path=Path(tmp)/'actor.json'
-            for data in (b'{"pid":42,"pid":42}',b'{"pipeSucceeded":true,"pipeSucceeded":true}',b' '*8193,'{"pid":42}'.encode('utf-16')):
+            path=Path(tmp).resolve(strict=True)/'actor.json'
+            for data,reason in ((b'{"pid":42,"pid":42}','duplicate'),
+                    (b'{"pipeSucceeded":true,"pipeSucceeded":true}','duplicate'),
+                    (b' '*8193,'bound'),('{"pid":42}'.encode('utf-16'),'utf8')):
                 path.write_bytes(data)
-                with self.assertRaises(l.GateFailure):l.read_private(path,8192)
+                with self.assertRaisesRegex(l.GateFailure,'^private_report_'+reason+'$'):l.read_private(path,8192)
 
     def test_default_off_constructs_no_native_api(self):
         with patch.object(g,'EXECUTION_ENABLED',False),patch.object(g,'launcher_module',side_effect=AssertionError('native')):
@@ -384,12 +394,31 @@ class ActualModuleCompositionTests(unittest.TestCase):
 
 
 class ClosedDiagnosticTests(unittest.TestCase):
+    def test_windows_component_dispatch_and_canonical_parent_boundary(self):
+        import io,stat
+        for components in (('probe','report.json'),('launcher','report.json'),('output','actor.json'),('controller.stdout',)):
+            windows=PureWindowsPath('C:/owned').joinpath(*components)
+            self.assertFalse(str(windows).endswith('/'+'/'.join(components)))
+            self.assertTrue(path_tail(windows,*components))
+            self.assertFalse(path_tail(windows,*components[:-1],'different'))
+        class AliasPath(PureWindowsPath):
+            def lstat(self):return SimpleNamespace(st_mode=stat.S_IFREG,st_file_attributes=0)
+            def resolve(self,strict=False):return AliasPath(str(self).replace('RUNNER~1','runneradmin'))
+            def is_file(self):return True
+            def open(self,mode):return io.BytesIO(b'{}')
+        raw=AliasPath('C:/Users/RUNNER~1/AppData/Local/Temp/owned/report')
+        with patch.object(l,'Path',AliasPath),patch.object(l.os.path,'abspath',side_effect=lambda p:p):
+            with self.assertRaisesRegex(l.GateFailure,'^path_outside_owned_root$'):
+                l.read_private(raw,32)
+            self.assertEqual(g.read_diagnostic_file(l,raw,32),(None,'read_error'))
+            self.assertEqual(g.read_diagnostic_file(l,raw.resolve(strict=True),32),({},'parsed'))
+
     def test_all_private_read_states_are_distinct_and_strict(self):
         fixtures=[(b'{}','parsed'),(b'{"a":1,"a":2}','duplicate'),(b'{"a":NaN}','nonfinite'),
                   (b'[]','not_object'),(b'{}{}','json'),(b'{}trailing','json'),
                   ('{}'.encode('utf-16'),'utf8'),(b'\xff','utf8'),(b'x'*33,'overbound')]
         with tempfile.TemporaryDirectory() as tmp:
-            path=Path(tmp)/'report'
+            path=Path(tmp).resolve(strict=True)/'report'
             for raw,expected in fixtures:
                 path.write_bytes(raw)
                 value,state=g.read_diagnostic_file(l,path,32)
@@ -406,7 +435,7 @@ class ClosedDiagnosticTests(unittest.TestCase):
         original=l.read_private
         for role in ('probe','native'):
             def read(path,limit=l.MAX_REPORT):
-                if (role=='probe' and str(path).endswith('/probe/report.json') or role=='native' and str(path).endswith('/output/actor.json')):
+                if (role=='probe' and path_tail(path,'probe','report.json') or role=='native' and path_tail(path,'output','actor.json')):
                     raise FileNotFoundError('private')
                 return original(path,limit)
             with patch.object(l,'read_private',side_effect=read):
@@ -420,7 +449,7 @@ class ClosedDiagnosticTests(unittest.TestCase):
     def test_missing_launcher_report_retains_only_owned_stdout_observation(self):
         original=l.read_private
         def read(path,limit=l.MAX_REPORT):
-            if str(path).endswith('/launcher/report.json'):
+            if path_tail(path,'launcher','report.json'):
                 raise FileNotFoundError('private')
             return original(path,limit)
         with patch.object(l,'read_private',side_effect=read):
@@ -435,7 +464,7 @@ class ClosedDiagnosticTests(unittest.TestCase):
     def test_report_close_uncertainty_is_not_hidden_by_projection(self):
         original=l.read_private
         def read(path,limit=l.MAX_REPORT):
-            if str(path).endswith('/output/actor.json'):
+            if path_tail(path,'output','actor.json'):
                 raise l.GateFailure('private_report_close_uncertain')
             return original(path,limit)
         with patch.object(l,'read_private',side_effect=read):
@@ -448,7 +477,7 @@ class ClosedDiagnosticTests(unittest.TestCase):
     def test_stdout_close_failure_retains_echo_but_forbids_cleanup(self):
         original=l.read_private
         def read(path,limit=l.MAX_REPORT):
-            if str(path).endswith('/controller.stdout'):
+            if path_tail(path,'controller.stdout'):
                 raise l.GateFailure('private_report_close_uncertain')
             return original(path,limit)
         with patch.object(l,'read_private',side_effect=read):
@@ -545,7 +574,7 @@ class ClosedDiagnosticTests(unittest.TestCase):
     def test_actual_isolated_production_import_and_projection_composition(self):
         import subprocess,sys
         script="""import importlib.util,sys,json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 r=Path(ROOT_LITERAL)
 def load(n,p):
  s=importlib.util.spec_from_file_location(n,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
@@ -555,7 +584,7 @@ v,_,_=fixture.ActualModuleCompositionTests().compose()
 assert v['stage0b_passed'] and v['diagnostic']['reads']==['parsed']*3
 assert v['diagnostic']['execution_sources'][1]=='owned_stdout'
 assert str(r) not in sys.path
-print('isolated_composition_ok')
+sys.stdout.buffer.write(b'isolated_composition_ok'+bytes([10]));sys.stdout.buffer.flush()
 """.replace('ROOT_LITERAL',repr(str(ROOT)))
         try:
             result=subprocess.run([sys.executable,'-I','-S','-B','-c',script],capture_output=True,timeout=10,check=False)
