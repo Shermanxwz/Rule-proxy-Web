@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "stage": "native-c-compile-and-direct-import-summary",
+  "attempt": 7,
+  "date": "2026-10-23",
+  "source_commit": "e1057ed768243f68cfc8219e4e11f76b1f391b2d",
+  "source_git_blob_pins_verified": 9,
+  "source_pins": [
+    {
+      "path": ".github/native/windows_identity_proxy_c_actor.cpp",
+      "sha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+      "bytes": 49690,
+      "git_blob_bytes_verified": true
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_origin_actor.cpp",
+      "sha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+      "bytes": 25762,
+      "git_blob_bytes_verified": true
+    },
+    {
+      "path": ".github/native/windows_identity_actor.cpp",
+      "sha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+      "bytes": 31002,
+      "git_blob_bytes_verified": true
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_bridge_core.hpp",
+      "sha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+      "bytes": 16902,
+      "git_blob_bytes_verified": true
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_pipe_actor.cpp",
+      "sha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+      "bytes": 16095,
+      "git_blob_bytes_verified": true
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_origin_transport.hpp",
+      "sha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+      "bytes": 6338,
+      "git_blob_bytes_verified": true
+    },
+    {
+      "path": ".github/native/windows_identity_proxy_c_contract.hpp",
+      "sha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+      "bytes": 4313,
+      "git_blob_bytes_verified": true
+    },
+    {
+      "path": ".github/native/windows_identity_dns_standard_probe.hpp",
+      "sha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+      "bytes": 6678,
+      "git_blob_bytes_verified": true
+    },
+    {
+      "path": ".github/native/windows_identity_dns_raw_udp.hpp",
+      "sha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+      "bytes": 8847,
+      "git_blob_bytes_verified": true
+    }
+  ],
+  "compile_only": true,
+  "runtime_acceptance": false,
+  "native_actor_executed_by_compile_runner": false,
+  "compile_runner_byte_identical": true,
+  "compile_runner_bytes": 2191,
+  "compile_runner_sha256": "2d0c07696f2b5698b60d2d704d8e35c9f9413fb4c2dc770b54165e43290749bc",
+  "build_helper": {
+    "path": ".github/build_windows_identity_proxy_c_actor.ps1",
+    "sha256": "de5328ff86f21d1d8021031bda0c19658d79c4f2836055b4458066c5b78d8c0c",
+    "git_blob_bytes_verified": true
+  },
+  "artifact_bytes": 354304,
+  "artifact_sha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a",
+  "manifest_byte_identical": true,
+  "manifest_bytes": 1005,
+  "manifest_sha256": "657c88ef59f8ba9d4c24f5e407696b27615f50c63d58adc5d8dd64f942104e92",
+  "manifest": {
+    "schemaVersion": 1,
+    "compileOnly": true,
+    "runtimeAcceptance": false,
+    "actorSourceSha256": "17f8a816028f71667513586b2efd57fc1c46b369e1d7171e74a2cef6e9c543a3",
+    "originActorSha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+    "identitySourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+    "coreSha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+    "pipeHelperSha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+    "originTransportSha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+    "liveContractSha256": "150efbbccdbcb9064eb6d43ddd25608a4a3655c5a408402779dae6216269ff1c",
+    "dnsStandardProbeSha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+    "dnsRawUdpSha256": "43b8cc7afce3acd91cdd4f23ae7d7075a996f98860447c3e9791e298d33a8a78",
+    "executableSha256": "0a9e867cce846b366693e8662034db8c0c4646bd312a6143c367da2c36fb557a"
+  },
+  "compile_log": {
+    "bytes": 3848,
+    "sha256": "7d48b2e63a6cd51a2d915df635d9fca1d6a341bad665a2542f9be037f66c75dc",
+    "raw_kept_private": true
+  },
+  "direct_imports": {
+    "inspection": "existing dumpbin /imports output read during archival",
+    "libraries": [
+      "ADVAPI32.dll",
+      "DNSAPI.dll",
+      "KERNEL32.dll",
+      "WS2_32.dll"
+    ],
+    "library_count": 4,
+    "raw_output_bytes": 6426,
+    "raw_output_sha256": "50c22ed3f587de361cd0870f2f120e6f35061737f61189dedf1568d0eff47b24",
+    "raw_output_kept_private": true,
+    "shell32_direct_import_present": false,
+    "transitive_imports_or_runtime_dll_initialization_proven": false
+  },
+  "pure_tests": {
+    "total_tests_run": 14,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "actual_actor_or_network_executed": false,
+    "c_contract": {
+      "tests_run": 5,
+      "compiled_fake_scenarios": 2540,
+      "elapsed_seconds": 1.126
+    },
+    "dns_constructor_and_phase": {
+      "tests_run": 4,
+      "official_constructor_fake_scenarios": 59,
+      "elapsed_seconds": 2.464
+    },
+    "connected_raw_udp": {
+      "tests_run": 5,
+      "elapsed_seconds": 2.088,
+      "response_bit_negative_cases": 624,
+      "covers": [
+        "fixed query and exact full response against existing fixture parser",
+        "socket/connect/send errors remain separate",
+        "late send and receive facts remain sticky",
+        "zero datagram is data and cannot pass",
+        "single send and receive",
+        "single consumed socket close and WSA cleanup",
+        "setup or timeout cannot become access denial"
+      ]
+    },
+    "test_git_blob_pins": [
+      {
+        "path": "tests/test_windows_identity_proxy_c_native.py",
+        "sha256": "edcd7a41bbe9d21b2c4ecfea4a9b2e3d1afdccc338f320d2c012a62712c8a8b0",
+        "git_blob_bytes_verified": true
+      },
+      {
+        "path": "tests/test_windows_identity_proxy_c_dns_candidate.py",
+        "sha256": "c2fa853417b6ff75d8d03f05b2e90b840e72a123ff11490390456d3fb75335c0",
+        "git_blob_bytes_verified": true
+      },
+      {
+        "path": "tests/test_windows_identity_proxy_c_raw_udp_candidate.py",
+        "sha256": "0356432155a0d0240f86808f9b401c66cf6227c83d3d01f03ce3ddbd7b261571",
+        "git_blob_bytes_verified": true
+      }
+    ],
+    "result_basis": "completed existing compile-runner log; not rerun while archiving"
+  },
+  "preserved_dependencies": {
+    "compared_to_source_commit": "88c6b45aef3b385ba4f6a816bcffab2049c02d86",
+    "frozen_source_files_byte_identical": [
+      "windows_identity_proxy_origin_actor.cpp",
+      "windows_identity_actor.cpp",
+      "windows_identity_proxy_bridge_core.hpp",
+      "windows_identity_proxy_pipe_actor.cpp",
+      "windows_identity_proxy_origin_transport.hpp"
+    ],
+    "dns06_probe_header_byte_identical": true,
+    "dns06_phase_serializer_byte_identical": true,
+    "nonclient_lifecycle_suffix_byte_identical": true,
+    "op1_to_6_and_death_authority_preserved": true
+  },
+  "scope": {
+    "method": "connected UDP connect -> send -> recvfrom",
+    "target": "127.0.0.1:53",
+    "single_query_bytes": 62,
+    "single_expected_response_bytes": 78,
+    "query_kind": "fresh-case.n0a.invalid A/IN RD=1 no EDNS",
+    "response": "exact whole canonical packet and source 127.0.0.1:53",
+    "original_phase_and_root_qpc_deadlines_required": true,
+    "shutdown_retry_fallback_or_broadcast": false,
+    "connect_success_proves_wire": false,
+    "send_success_proves_delivery": false,
+    "access_denial_candidates_require_original_error_stage": [
+      "connect",
+      "send"
+    ],
+    "socket_or_setup_10013_proves_send_denial": false,
+    "unconnected_sendto_or_all_udp_tested": false,
+    "runtime_compatibility_proven": false,
+    "selected_application_tested_by_compile": false,
+    "dns_api_called": false,
+    "raw_udp_socket_executed": false,
+    "dns_query_observed": false,
+    "dns_denial_proven": false,
+    "same_process_api6_api7_paired_comparison": false,
+    "broker_process_attributed": false,
+    "network_isolation_qualified": false,
+    "product_acceptance": false
+  },
+  "archive_scope": "read-and-copy-only; prior DNS01 API leak and later raw UDP runtime are separate evidence; candidate work build is not substituted for this repository recompile"
+}

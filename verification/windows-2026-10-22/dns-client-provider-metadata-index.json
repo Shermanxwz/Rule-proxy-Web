@@ -1,0 +1,91 @@
+{
+  "acquisition_reader_commitments": [
+    {
+      "byte_identical_repository_copy_claimed": false,
+      "bytes": 3923,
+      "original_basename": "read_dns_client_provider_metadata.py",
+      "original_source_modified_for_this_archive": false,
+      "retained_work_only": true,
+      "sha256": "cc5506763ad32052da0c43e8c485b32d2e60b798157b0a627885a24ed96d9035",
+      "source_published": false
+    },
+    {
+      "byte_identical_repository_copy_claimed": false,
+      "bytes": 12519,
+      "original_basename": "read_dns_client_provider_tdh.py",
+      "original_source_modified_for_this_archive": false,
+      "retained_work_only": true,
+      "sha256": "f125e14bc1fb29902409c141a65675c145b6aebb9133920e965832c3905cf7da",
+      "source_published": false
+    }
+  ],
+  "archive_actions": {
+    "dns_queried": false,
+    "event_instances_read": false,
+    "existing_archive_modified": false,
+    "new_provider_metadata_query": false,
+    "read_existing_work_metadata": true,
+    "trace_started": false
+  },
+  "date": "2026-10-23",
+  "limitations": [
+    "This acquisition read installed manifest metadata only. It neither repeated nor changed the separately archived DNS01 network result.",
+    "The existence and type of ClientPID do not establish any runtime value, event-emitter identity, packet sender, or broker attribution.",
+    "The provider does not expose an independent provider-version value in this gp metadata; dnsapi.dll file_version is a binary version only.",
+    "No trace session, provider enablement, channel change, DNS request, packet capture, or runtime isolation proof is supplied by this metadata archive."
+  ],
+  "primary_sources": [
+    {
+      "supports": "Enumerates the provider manifest event descriptors",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/tdh/nf-tdh-tdhenumeratemanifestproviderevents"
+    },
+    {
+      "supports": "Retrieves metadata for the listed event ID/version descriptors",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/tdh/nf-tdh-tdhgetmanifesteventinformation"
+    }
+  ],
+  "private_source_commitments": [
+    {
+      "bytes": 93452,
+      "label": "wevtutil-gp-unicode-xml",
+      "published": false,
+      "sha256": "b00d5535072cfaf4c58a777631efffa70b7df05c26f68aca033065ed8f0815e7"
+    },
+    {
+      "bytes": 405053,
+      "label": "full-installed-metadata-analysis",
+      "published": false,
+      "sha256": "7a07780a049b35948e5ecabd4a2d49dcb88dd586d47ea6ab29aca29c7d553f3c"
+    }
+  ],
+  "publication_scope": {
+    "all_147_template_payloads_published": false,
+    "full_405053_byte_analysis_published": false,
+    "machine_paths_published": false,
+    "observed_client_pid_values_published": false,
+    "observed_dns_names_published": false,
+    "raw_resource_strings_published": false,
+    "reader_sources_omitted": "Minimal public projection; original acquisition readers are retained with their exact hashes in work, without a source-copy claim.",
+    "selected_templates_only": [
+      [
+        3010,
+        1
+      ],
+      [
+        3011,
+        1
+      ],
+      [
+        3011,
+        2
+      ]
+    ]
+  },
+  "schema_version": 1,
+  "stage": "dns-client-provider-metadata-evidence-index",
+  "summary": {
+    "bytes": 7894,
+    "path": "verification/windows-2026-10-22/dns-client-provider-metadata-summary.json",
+    "sha256": "703ff26168bbcf8125ae474655b7f4d4ffd978b5458e6f17d53c8ccddb5ab8cb"
+  }
+}
