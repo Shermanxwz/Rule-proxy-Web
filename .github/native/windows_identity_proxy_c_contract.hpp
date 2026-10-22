@@ -19,7 +19,7 @@ inline bool decode(const std::uint8_t* bytes,std::size_t count,const Binding& bi
                    std::uint64_t now,Command& command,bool fixture=false){
     if(!bytes||count!=128||!valid_binding(binding,fixture)||!next||next>16||now>=binding.deadline)return false;
     if(bytes[0]!='R'||bytes[1]!='P'||bytes[2]!='C'||bytes[3]!='1'||bytes[4]!=1)return false;
-    const auto op=bytes[5];if((fixture?op!=255:!(op>=1&&op<=6)&&op!=255)||le(bytes+8,4)!=next)return false;
+    const auto op=bytes[5];if((fixture?op!=255:!(op>=1&&op<=7)&&op!=255)||le(bytes+8,4)!=next)return false;
     for(std::size_t i=0;i<128;++i)if((i==6||i==7||(i>=12&&i<16)||(i>=70&&i<72)||i>=96)&&bytes[i])return false;
     if(!same(bytes+16,binding.run)||le(bytes+48,8)!=binding.frequency||le(bytes+56,8)!=binding.deadline
        ||le(bytes+64,2)!=binding.p||le(bytes+66,2)!=binding.q||le(bytes+68,2)!=binding.o||!same(bytes+72,binding.admission))return false;
@@ -56,8 +56,8 @@ struct WithholdGate {
     }
 };
 inline const char* operation_name(std::uint8_t op){switch(op){case 1:return "proxy-get";case 2:return "direct-tcp";
-    case 3:return "wrong-port";case 4:return "wrong-peer";case 5:return "proxy-after-death";case 6:return "dns-query";case 255:return "finish";default:return "invalid";}}
-inline std::uint16_t target(const Binding& b,std::uint8_t op){return op==6?53:op==2?b.o:op==3?b.q:b.p;}
+    case 3:return "wrong-port";case 4:return "wrong-peer";case 5:return "proxy-after-death";case 6:return "dns-query";case 7:return "dns-raw-udp";case 255:return "finish";default:return "invalid";}}
+inline std::uint16_t target(const Binding& b,std::uint8_t op){return (op==6||op==7)?53:op==2?b.o:op==3?b.q:b.p;}
 inline std::string hex(const Id& id){static const char digits[]="0123456789abcdef";std::string out;
     for(auto b:id){out.push_back(digits[b>>4]);out.push_back(digits[b&15]);}return out;}
 } // namespace rpc

@@ -1,10 +1,11 @@
 // C: real raw TCP proxy request/sink and identity-first selected client.
 // GUI subsystem supplies a separate entry point without editing frozen B sources.
 // No window, UIAccess, WinHTTP, firewall, exemption or security mutation.
-// The separate op6 performs one explicit-server DNS observation only after GO.
+// Separate op6 DNS API and op7 raw UDP observations occur only after their exact GO.
 #include "windows_identity_proxy_origin_actor.cpp"
 #include "windows_identity_proxy_c_contract.hpp"
 #include "windows_identity_dns_standard_probe.hpp"
+#include "windows_identity_dns_raw_udp.hpp"
 #include <cstdlib>
 namespace bridge_c {
 using bridge_origin::SocketSlot;using bridge_origin::SocketAPI;using bridge_origin::Session;
@@ -139,6 +140,72 @@ std::string dns_report(const std::string& item,const ruleproxy_dns_standard::Res
         +",\"end_qpc\":"+std::to_string(result.end_qpc)+"}}";
 }
 // DNS_PHASE_REPORT_END
+
+// RAW_UDP_PHASE_BEGIN: fixed endpoint adapter and closed pure serialization.
+struct RawUdpAPI {
+    Session session;SocketSlot socket;bool allocated=false;
+    std::uint16_t local_port=0,peer_port=0;
+    bool started()const{return session.started;}bool created()const{return allocated;}
+    Io start(){return session.start()?bridge_origin::ok():Io{Code::Error,0,session.error};}
+    Io cleanup(){return session.cleanup()?bridge_origin::ok():Io{Code::Error,0,static_cast<std::uint32_t>(WSAGetLastError())};}
+    Io open(){socket.value=WSASocketW(AF_INET,SOCK_DGRAM,IPPROTO_UDP,nullptr,0,WSA_FLAG_NO_HANDLE_INHERIT);
+        allocated=socket.value!=bridge_origin::Invalid;return allocated?bridge_origin::ok():bridge_origin::socket_error();}
+    Io clear_inheritance(){const auto handle=reinterpret_cast<HANDLE>(socket.value);DWORD flags=0;
+        if(!SetHandleInformation(handle,HANDLE_FLAG_INHERIT,0)||!GetHandleInformation(handle,&flags))
+            return {Code::Error,0,static_cast<std::uint32_t>(GetLastError())};
+        return !(flags&HANDLE_FLAG_INHERIT)?bridge_origin::ok():Io{Code::Error,0,0};}
+    Io set_nonblocking(){return bridge_origin::nonblocking(socket.value);}
+    Io connect(){sockaddr_in target{};target.sin_family=AF_INET;
+        target.sin_addr.s_addr=htonl(INADDR_LOOPBACK);target.sin_port=htons(53);
+        return ::connect(socket.value,reinterpret_cast<const sockaddr*>(&target),sizeof(target))==0
+            ?bridge_origin::ok():bridge_origin::socket_error();}
+    Io connect_result(){int error=0;int length=sizeof(error);
+        if(getsockopt(socket.value,SOL_SOCKET,SO_ERROR,reinterpret_cast<char*>(&error),&length)==SOCKET_ERROR)return bridge_origin::socket_error();
+        if(length!=sizeof(error))return {Code::Error,0,0};
+        return error?Io{Code::Error,0,static_cast<std::uint32_t>(error)}:bridge_origin::ok();}
+    Io peer_check(){sockaddr_in peer{},local{};int ps=sizeof(peer),ls=sizeof(local);
+        if(getpeername(socket.value,reinterpret_cast<sockaddr*>(&peer),&ps)==SOCKET_ERROR
+           ||getsockname(socket.value,reinterpret_cast<sockaddr*>(&local),&ls)==SOCKET_ERROR)return bridge_origin::socket_error();
+        if(ps!=sizeof(peer)||ls!=sizeof(local)||peer.sin_family!=AF_INET||local.sin_family!=AF_INET)return {Code::Error,0,0};
+        local_port=ntohs(local.sin_port);peer_port=ntohs(peer.sin_port);
+        return peer.sin_addr.s_addr==htonl(INADDR_LOOPBACK)&&local.sin_addr.s_addr==htonl(INADDR_LOOPBACK)
+            &&peer_port==53&&local_port?bridge_origin::ok():Io{Code::Error,0,0};}
+    Io wait_write(std::uint32_t ms){return bridge_origin::poll(socket.value,true,ms);}
+    Io wait_read(std::uint32_t ms){return bridge_origin::poll(socket.value,false,ms);}
+    Io send(rpb::ByteView bytes){if(!bytes.data||bytes.size!=rp_dns_udp::QuerySize)return {Code::Error,0,0};
+        const int count=::send(socket.value,reinterpret_cast<const char*>(bytes.data),static_cast<int>(bytes.size),0);
+        return count==SOCKET_ERROR?bridge_origin::socket_error():bridge_origin::ok(static_cast<std::uint32_t>(count));}
+    rp_dns_udp::Datagram receive(std::uint8_t* bytes,std::size_t capacity){
+        if(!bytes||capacity!=rp_dns_udp::ReceiveCapacity)return {};
+        sockaddr_in sender{};int length=sizeof(sender);
+        const int count=recvfrom(socket.value,reinterpret_cast<char*>(bytes),static_cast<int>(capacity),0,reinterpret_cast<sockaddr*>(&sender),&length);
+        if(count==SOCKET_ERROR)return {bridge_origin::socket_error(),false,0};
+        const bool ipv4=length==sizeof(sender)&&sender.sin_family==AF_INET;
+        return {bridge_origin::ok(static_cast<std::uint32_t>(count)),ipv4&&sender.sin_addr.s_addr==htonl(INADDR_LOOPBACK),
+            ipv4?ntohs(sender.sin_port):static_cast<std::uint16_t>(0)};}
+    Io close(){return socket.close();}
+};
+struct RawUdpObserver {
+    Clock& clock;bool sample(){return clock.sample();}
+    std::uint32_t remaining_ms()const{return clock.remaining_ms();}
+    bool qpc_failed()const{return clock.failure&&std::strcmp(clock.failure,"qpc")==0;}
+};
+std::string raw_udp_report(const std::string& item,const rp_dns_udp::Facts& f){
+    rp_dns_udp::Packet bytes;(void)rp_dns_udp::packet(item,bytes);
+    return "{\"server_address\":\"127.0.0.1\",\"server_port\":53,\"query_name\":\""+item+".n0a.invalid\",\"query_type\":1"
+        +",\"transaction_id\":"+std::to_string(bytes.transaction_id)+",\"query_bytes\":"+std::to_string(rp_dns_udp::QuerySize)
+        +",\"within_deadline\":"+boolean(f.within_deadline)+",\"wsa_startup\":"+boolean(f.wsa_startup)+",\"wsa_cleanup\":"+boolean(f.wsa_cleanup)
+        +",\"socket_created\":"+boolean(f.socket_created)+",\"inheritance_cleared\":"+boolean(f.inheritance_cleared)+",\"nonblocking\":"+boolean(f.nonblocking)
+        +",\"connect_attempted\":"+boolean(f.connect_attempted)+",\"connect_completed\":"+boolean(f.connect_completed)+",\"peer_loopback\":"+boolean(f.peer_loopback)
+        +",\"local_port\":"+(f.local_port?std::to_string(f.local_port):"null")+",\"peer_port\":"+(f.peer_port?std::to_string(f.peer_port):"null")
+        +",\"send_attempted\":"+boolean(f.send_attempted)+",\"send_bytes\":"+std::to_string(f.send_bytes)+",\"send_complete\":"+boolean(f.send_complete)
+        +",\"receive_attempted\":"+boolean(f.receive_attempted)+",\"datagram_received\":"+boolean(f.datagram_received)+",\"response_bytes\":"+std::to_string(f.response_bytes)
+        +",\"source_loopback\":"+boolean(f.source_loopback)+",\"source_port\":"+(f.source_port?std::to_string(f.source_port):"null")
+        +",\"response_exact\":"+boolean(f.response_exact)+",\"socket_close\":\""+rp_origin::close_name(f.socket_close)+"\",\"failure\":"+quoted(rp_dns_udp::failure_name(f.failure))
+        +",\"wsa_error\":"+(f.wsa_error?std::to_string(f.wsa_error):"null")+",\"win32_error\":"+(f.win32_error?std::to_string(f.win32_error):"null")+"}";
+}
+// RAW_UDP_PHASE_END
+
 int client(int argc,wchar_t** argv){
     if(argc!=16)return 2;std::string run,boot,user,admission;std::wstring ready,results,control;
     Clock clock;std::uint64_t p=0,q=0,o=0;
@@ -184,6 +251,10 @@ int client(int argc,wchar_t** argv){
                 network=network||dns.called;
                 if(dns.pending)failure="dns-pending";else if(!dns.called)failure="dns-config";
                 (void)phase.sample();observation=",\"dns\":"+dns_report(item,dns);
+            }else if(command.operation==7){
+                RawUdpAPI api;RawUdpObserver observer{phase};rp_dns_udp::Facts facts;
+                (void)rp_dns_udp::exchange(api,observer,item,facts);network=network||facts.wsa_startup;
+                observation=",\"raw_udp\":"+raw_udp_report(item,facts);
             }else{
                 Session session;SocketAPI api(0);rp_origin::Facts facts;
                 if(!session.start())api.startup_error=session.error;network=network||session.started;
