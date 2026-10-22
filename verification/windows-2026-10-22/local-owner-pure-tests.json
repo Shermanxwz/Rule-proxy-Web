@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "stage": "local-proxy-pipe-ac-owner-pure-tests",
+  "date": "2026-10-22",
+  "base_commit": "c47daa646b0200104eef03588c03899a3ebba270",
+  "source_state": "uncommitted-new-local-owner-files-bound-by-sha256",
+  "platform": "windows-amd64",
+  "python_version": "3.12.10",
+  "command": [
+    "python",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_windows_identity_proxy_pipe_ac_local.py",
+    "-v"
+  ],
+  "invocation": "stdlib-unittest-discovery-and-TextTestRunner-equivalent-to-command",
+  "final_run": {
+    "tests_run": 25,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "successful": true,
+    "elapsed_seconds": 134.187,
+    "source_unchanged_during_run": true,
+    "source_files": [
+      {
+        "path": ".github/windows_identity_proxy_pipe_ac_local.py",
+        "bytes": 35656,
+        "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+      },
+      {
+        "path": "tests/test_windows_identity_proxy_pipe_ac_local.py",
+        "bytes": 25982,
+        "sha256": "63443066912ef8620bf6a08b1bb0fba291235943bf80b4a6ad156d052ea3e2bd"
+      }
+    ],
+    "fixed_python_closure_sha256": "2e79c44cd4ddc1fa921308e048ccd664e803ccc1433a44e3361908ab1a86b3bd",
+    "fixed_python_closure": [
+      {
+        "path": ".github/windows_identity_ordinary_launcher.py",
+        "sha256": "a890f4740bc2869586278158edad65dd8c649e09afed8c7aab355d842301d4a0"
+      },
+      {
+        "path": ".github/windows_identity_pipe_probe.py",
+        "sha256": "4dc8567d8a64e544d7a4baa873ff08900720320e26c8d6a6fd43ae3e5744dc74"
+      },
+      {
+        "path": ".github/windows_identity_proof.py",
+        "sha256": "aada68c3a0c309dffe422cd6271cf80a728e05a3c4a52a6a81293b47b74d2386"
+      },
+      {
+        "path": ".github/windows_identity_proxy_pipe_ac_guest.py",
+        "sha256": "78777d3a6b210a9e27494fc35f9dc53782adda0594b4f4705dee2c008d8d02e1"
+      },
+      {
+        "path": ".github/windows_identity_proxy_pipe_ac_local.py",
+        "sha256": "f5ce0fbc20a727f1c78a513bdac816dc49ae43fb1b24e4f8d7eefcd0b252163b"
+      },
+      {
+        "path": ".github/windows_identity_proxy_pipe_probe.py",
+        "sha256": "7412d86d31f0d152e600aa423910cbd632bb88ded413ace284d5255447c0fe9d"
+      },
+      {
+        "path": ".github/windows_psec_compartment_smoke.py",
+        "sha256": "6602471c0cf08f977879caef5c34bab20db9b84208f5cdae0a00b7a1f802d019"
+      },
+      {
+        "path": "ruleproxy/windows_app_process.py",
+        "sha256": "8e62820f98d9dbe352d988501d211565aceecce84657200c2793b69404cbee33"
+      }
+    ]
+  },
+  "earlier_validation": [
+    {
+      "kind": "full-suite-before-public-device-and-job-descriptor-refinements",
+      "tests_run": 25,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "elapsed_seconds": 78.311,
+      "final_source_identity": false
+    },
+    {
+      "kind": "targeted-after-device-bound-public-projection-change",
+      "tests_run": 3,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "final_full_suite_claim": false
+    },
+    {
+      "kind": "targeted-after-job-generic-all-descriptor-change",
+      "tests_run": 7,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "final_full_suite_claim": false
+    }
+  ],
+  "scope": {
+    "fake_win32_calls": true,
+    "fake_qpc": true,
+    "temporary_fixture_file_io": true,
+    "real_native_actor_executed": false,
+    "real_appcontainer_profile_created": false,
+    "real_appcontainer_acl_changed": false,
+    "network_tested": false,
+    "proxy_tested": false,
+    "runtime_qualification": false,
+    "product_acceptance": false
+  }
+}
