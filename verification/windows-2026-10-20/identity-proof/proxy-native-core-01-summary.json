@@ -1,0 +1,59 @@
+{
+  "bounds": {
+    "cleanup_seconds": 1,
+    "corpus_cases": 1024,
+    "events_per_case": 256,
+    "frame_bytes": 48,
+    "headers": 32,
+    "line_bytes": 1024,
+    "output_bytes": 65536,
+    "request_bytes": 8192,
+    "response_bytes": 256,
+    "total_corpus_bytes": 2097152,
+    "total_events": 32768,
+    "work_seconds": 10
+  },
+  "conclusion": "success",
+  "counts": {
+    "compiled_cases_each_platform": 428,
+    "corpus_events": 8653,
+    "corpus_input_and_expected_output_bytes": 313821,
+    "counts_overlap_not_additive": true,
+    "local_required_tests": 1008,
+    "pure_tests_each_platform": 63,
+    "sidecar_tests": 381
+  },
+  "exact_result_sha256": "1b6ef35b2509b836f67c0ab0750cbc6ab6c357359eb79ef75a67bbb2a9f40740",
+  "experiment": "Transport-free native identity proxy bridge core conformance",
+  "freeze_sha256": "b70554505abe5996f82fd99cef70f1317c66fbff9dbd1c809d4b195883183a93",
+  "head": "a298faa3417e41c79c4a34ebb8e05aefe1e1ad25",
+  "interpretation": [
+    "Both actual short-gate platforms compiled and executed the fixed synthetic conformance binary once: installed x64 MSVC on Windows and g++ on Linux. Each passed 63 pure/mock tests and strict validation of all 428 case result rows. Held-process exit, bounded-reader termination, handles closed and cleanup are confirmed in both closed receipts. The verifier requires exit zero, one bounded LF or CRLF JSON line and exact rows; the receipt does not export raw output or individual syscall logs.",
+    "The native core is transport-free C++17 with separate frontend and relay local reducers, explicit 48-byte little-endian RPB1 frames, bounded HTTP matching/canonical construction and caller-supplied synthetic monotonic time. The test executable accepts no arguments or input corpus and invokes no sockets, processes, profiles, security, real clock, environment or file-input APIs. Its only explicit I/O is bounded stdout; ordinary CRT startup behavior is not claimed absent.",
+    "The driver compares every valid native pending-write prefix with compiled expected bytes before acknowledging progress. This prevents a same-length encoder or HTTP constructor error from passing merely because final state snapshots agree. The fixed corpus includes split points, allowed exact-limit HTTP variants, malformed/smuggling and over-limit negatives, replay, EOF, deadline, close uncertainty and local-causality counterexamples.",
+    "The unchanged Python model is a joint-trace oracle only at transport-realizable FIFO barriers, not an omniscient condition imposed on a real endpoint. Independent goldens exercise local acceptance without hidden remote-send or remote-close knowledge. READY and DONE are protocol assertions, not identity, origin delivery or OS cleanup proof. Confirmed mock closes and durable model observations remain distinct.",
+    "The new explicit execution helper binds the manifest, generated header, source hashes and executable before and after execution. It uses a 10-second work deadline, at most 65537 captured bytes to detect the 65536-byte bound, and one separate at-most-one-second cleanup allowance. Uncertain spawn, reader, exit or close facts deny conformance; no retries are performed. Synchronous file/process APIs are not individually hard-cancellable.",
+    "Windows path and file-descriptor metadata are checked for stability within their respective semantics, retaining ctime in each bracket; dev/inode/size/mtime bind the path to the opened file. A forced Windows-style ctime mismatch fixture exercises the real bounded reader and manifest verifier. This changes only the new pure-runner helper, not any existing production provenance code.",
+    "The preexisting identity sidecar compiled its actor and passed 381 overlapping pure tests. All token, pipe, restricted and paired runtime steps were skipped; its existing public build artifact path is separate from this dedicated gate, which uploads no artifacts. The local full required regression passed 1008 tests; this is scoped evidence, not an assertion about the entire repository.",
+    "The genuine Stage0b 32-byte anonymous-pipe prerequisite remains independently archived at 88f1b4e26171c25c255ba97be6eb55c0b30dcfb2. This new model result does not establish a native 48-byte pipe wrapper, identity-bound proxy-positive route, proxy-death fail-closed behavior, or product isolation. No automatic VM or network experiment follows."
+  ],
+  "privacy": {
+    "closed_counts_booleans_public_source_ci_digests_only": true,
+    "raw_paths_ids_nonces_credentials_environment_values_excluded": true
+  },
+  "run_id": 39761410816,
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39761410816",
+  "schema_version": 1,
+  "scope": {
+    "actual_pipe_transport_tested": false,
+    "actual_proxy_listener_tested": false,
+    "existing_workflows_unchanged": true,
+    "model_only": true,
+    "network_tested": false,
+    "new_files": 5,
+    "profile_or_security_rules_changed": false,
+    "runtime_acceptance": false,
+    "unchanged_files": 422,
+    "windows_vm_executed": false
+  }
+}
