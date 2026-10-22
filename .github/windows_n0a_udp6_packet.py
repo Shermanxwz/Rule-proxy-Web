@@ -2,7 +2,7 @@
 
 Expected binding/control/cleanup/capture facts are future caller attestations;
 this module does not authenticate them. Exact payloads are byte observations,
-not actor attribution or valid delivery. Checksums, option TLV semantics and AH
+not actor attribution or valid delivery. Direct-UDP checksums, option TLV semantics and AH
 authentication are NOT validated. No QPC/PCAP clock mapping or reassembly.
 RFC8200 base/Hop/Destination/Routing framing and RFC4302 AH length framing only.
 Hop-by-Hop must be first; Routing requires Segments Left zero. Fragment including
@@ -130,6 +130,86 @@ def payload(nonce, phase, index):
     return ('N0AU6 %s %s %d\n' % (nonce, phase, index)).encode('ascii')
 
 
+def _diagnostic_new():
+    return dict(v=2, opaque_next_header_counts=[0]*256, truncated_counts=[0,0,0],
+                icmp_type_code_counts={}, icmp_omitted_event_count=0,
+                checksum_counts=[0]*3, quote_counts=[0]*4,
+                quote_detail_counts=[0]*14, raw_selected_nonce_match=set())
+
+
+def _diagnostic_checksum(source, destination, body, protocol):
+    pseudo = bytes(source)+bytes(destination)+struct.pack('!I3xB',len(body),protocol)
+    data=pseudo+bytes(body)
+    if len(data)%2: data+=b'\0'
+    total=sum(struct.unpack('!%dH'%(len(data)//2),data))
+    while total>>16: total=(total&65535)+(total>>16)
+    return total==65535
+
+
+def _diagnostic_icmp(diagnostic, ip, position, manifest):
+    """Reached-NH58 bytes only; neither authenticity nor original delivery proof.
+
+    Raw substring scan precedes NEW quote/checksum checks, not existing outer
+    framing admission. Error Types1..4 use framing only, with no Code semantics.
+    Only complete classic quotes qualify for checksum/tuple correlation.
+    """
+    body=bytes(ip[position:]);nonce=manifest['binding']['case_nonce']
+    for row in manifest['selected']:
+        if payload(nonce,'contained',row['index']) in body:
+            diagnostic['raw_selected_nonce_match'].add(row['index'])
+    pairs=diagnostic['icmp_type_code_counts']
+    if len(body)>=2:
+        pair=(body[0],body[1])
+        if pair in pairs: pairs[pair]+=1
+        elif len(pairs)<4: pairs[pair]=1
+        else: diagnostic['icmp_omitted_event_count']+=1
+    outer=2 if position!=40 or len(body)<4 else (0 if _diagnostic_checksum(ip[8:24],ip[24:40],body,58) else 1)
+    diagnostic['checksum_counts'][outer]+=1
+    quote_class=3;quote=body[8:]
+    if position==40 and len(body)>=8 and body[0] in (1,2,3,4) and not (body[0] in (1,3) and body[4]!=0):
+        if quote and quote[0]>>4!=6: quote_class=2
+        elif len(quote)<40: quote_class=1
+        else:
+            length=int.from_bytes(quote[4:6],'big');total=40+length
+            if length==0 or quote[6]!=17 or len(quote)>total: quote_class=3
+            elif length<8: quote_class=2
+            elif len(quote)<48: quote_class=1
+            else:
+                udp_length=int.from_bytes(quote[44:46],'big')
+                if udp_length<8 or udp_length!=length: quote_class=2
+                elif len(quote)<total: quote_class=1
+                else: quote_class=0
+    diagnostic['quote_counts'][quote_class]+=1
+    if quote_class!=0:return
+    detail=diagnostic['quote_detail_counts'];udp=quote[40:]
+    inner=0 if int.from_bytes(udp[6:8],'big')!=0 and _diagnostic_checksum(quote[8:24],quote[24:40],udp,17) else 1
+    detail[inner]+=1
+    matches=[]
+    for selected,rows in ((True,manifest['selected']),(False,manifest['ordinary'])):
+        for row in rows:
+            phase='contained' if selected else row['phase']
+            if bytes(udp[8:])==payload(nonce,phase,row['index']):matches.append((selected,row))
+    kind=3 if matches and matches[0][0] else 4 if matches else 5
+    detail[kind]+=1
+    source,destination=struct.unpack_from('!HH',udp);port=manifest['endpoint']['destination_port']
+    ports=[r['source_port'] for r in manifest['selected']+manifest['ordinary'] if r['source_port'] is not None]
+    tuple_kind=8
+    if matches:
+        row=matches[0][1];local=row['source_port']
+        # Conservative fixture correlation, not universal UDP address/port validity.
+        guest=bytes(ip[8:24])
+        ambiguous_source=(guest in (b'\0'*16,b'\0'*15+b'\1') or guest[0]==255
+                          or guest[:12]==b'\0'*10+b'\xff\xff' or guest==DESTINATION)
+        if len(matches)!=1 or local is None or local==port or ambiguous_source or len(set(ports))!=len(ports):tuple_kind=9
+        elif quote[8:24]==ip[8:24] and quote[24:40]==DESTINATION and source==local and destination==port:tuple_kind=6
+        elif quote[24:40]==ip[8:24] and quote[8:24]==DESTINATION and destination==local and source==port:tuple_kind=7
+    detail[tuple_kind]+=1
+    relation=ip[24:40]==quote[8:24]
+    detail[10 if relation else 11]+=1
+    if outer==0 and inner==0 and kind in (3,4) and tuple_kind in (6,7) and relation:
+        detail[12 if kind==3 else 13]+=1
+
+
 def decode_pcap(data, manifest):
     """Bounded byte observation, not delivery or authenticated actor attribution.
 
@@ -139,8 +219,7 @@ def decode_pcap(data, manifest):
     """
     result = dict(selected_seen=set(), selected_bound=set(), ordinary_first={},
                   unknown_packets=0, records=0, reasons=set(),
-                  decoder_diagnostic=dict(v=1, opaque_next_header_counts=[0]*256,
-                                          truncated_counts=[0, 0, 0]))
+                  decoder_diagnostic=_diagnostic_new())
     # Diagnostic only: exact public Next Header enum counts; truncation order is
     # header_tail, captured_ne_original, body_tail. Never consulted for admission.
     diagnostic = result['decoder_diagnostic']
@@ -205,6 +284,7 @@ def decode_pcap(data, manifest):
                 bad('fragment');unsupported=True;break
             if next_header not in (0,43,60,51):
                 diagnostic['opaque_next_header_counts'][next_header] += 1
+                if next_header==58: _diagnostic_icmp(diagnostic, ip, position, manifest)
                 bad('opaque_protocol');unsupported=True;break
             if extension_count>=MAX_EXTENSIONS:
                 bad('extension_bound');unsupported=True;break
@@ -244,25 +324,33 @@ def decode_pcap(data, manifest):
 
 
 def project_decoder_diagnostic(value, records):
-    """Closed bounded detail only; failure/omission cannot change decoder verdicts."""
-    if (not _object(value, {'v', 'opaque_next_header_counts', 'truncated_counts'})
-            or type(value['v']) is not int or value['v'] != 1
-            or not _integer(records, 0, MAX_RECORDS)):
-        return None
-    counts, truncated = value['opaque_next_header_counts'], value['truncated_counts']
-    if (type(counts) is not list or len(counts) != 256
-            or any(not _integer(n, 0, MAX_RECORDS) for n in counts)
-            or sum(counts) > records
-            or type(truncated) is not list or len(truncated) != 3
-            or not _integer(truncated[0], 0, 1) or not _integer(truncated[2], 0, 1)
-            or not _integer(truncated[1], 0, min(MAX_RECORDS, records + 1))):
-        return None
-    nonzero = [[number, count] for number, count in enumerate(counts) if count]
-    omitted = nonzero[16:]
-    return dict(v=1, opaque_next_header_counts=nonzero[:16],
-                omitted_category_count=len(omitted),
-                omitted_event_count=sum(row[1] for row in omitted),
-                detail_complete=not omitted, truncated_counts=list(truncated))
+    """Closed v2 diagnostic only; all verdicts ignore these counters."""
+    if not _object(value,set(_diagnostic_new())) or type(value['v']) is not int or value['v']!=2 or not _integer(records,0,MAX_RECORDS):return None
+    counts=value['opaque_next_header_counts'];truncated=value['truncated_counts']
+    if type(counts)is not list or len(counts)!=256 or any(not _integer(n,0,MAX_RECORDS) for n in counts) or sum(counts)>records:return None
+    if type(truncated)is not list or len(truncated)!=3 or not _integer(truncated[0],0,1) or not _integer(truncated[2],0,1) or not _integer(truncated[1],0,min(MAX_RECORDS,records+1)):return None
+    pairs=value['icmp_type_code_counts'];omitted=value['icmp_omitted_event_count'];events=counts[58]
+    if type(pairs)is not dict or len(pairs)>4 or not _integer(omitted,0,events):return None
+    if any(type(k)is not tuple or len(k)!=2 or any(not _integer(n,0,255) for n in k) or not _integer(v,1,events) for k,v in pairs.items()):return None
+    if sum(pairs.values())+omitted>events or (omitted and len(pairs)!=4):return None
+    arrays=[]
+    for key,size in (('checksum_counts',3),('quote_counts',4),('quote_detail_counts',14)):
+        row=value[key]
+        if type(row)is not list or len(row)!=size or any(not _integer(n,0,events) for n in row):return None
+        arrays.append(row)
+    checksum,quote,detail=arrays
+    if sum(checksum)!=events or sum(quote)!=events:return None
+    if any(sum(detail[a:b])!=quote[0] for a,b in ((0,3),(3,6),(6,10),(10,12))):return None
+    if sum(detail[12:])>min(quote[0],checksum[0],detail[0],detail[6]+detail[7],detail[10]) or detail[12]>detail[3] or detail[13]>detail[4]:return None
+    raw=value['raw_selected_nonce_match']
+    if type(raw)is not set or any(not _integer(n,0,2) for n in raw) or (raw and not events):return None
+    nonzero=[[n,c] for n,c in enumerate(counts) if c];omitted_nh=nonzero[2:]
+    return dict(v=2,opaque_next_header_counts=nonzero[:2],omitted_category_count=len(omitted_nh),
+                omitted_event_count=sum(r[1] for r in omitted_nh),detail_complete=not omitted_nh,
+                truncated_counts=list(truncated),icmp_type_code_counts=[[a,b,c] for (a,b),c in sorted(pairs.items())],
+                icmp_omitted_event_count=omitted,icmp_detail_complete=not omitted,
+                checksum_counts=list(checksum),quote_counts=list(quote),quote_detail_counts=list(detail),
+                raw_selected_nonce_match=[bool(raw),len(raw)])
 
 
 def evaluate(data, manifest_bytes, expected, capture):

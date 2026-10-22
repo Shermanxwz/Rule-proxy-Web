@@ -319,8 +319,12 @@ class HostProjectionSizeTests(unittest.TestCase):
         packet.update(status='bounded_no_selected_udp_datagram',selected_payload_count=3,
                       unknown_flow_packets=262144,records=262144)
         packet['reasons']=sorted({'binding','manifest','capture_bound','header','record_bound','truncated','record','frame_bound','ethernet','encapsulation','ipv6','jumbo_unsupported','fragment','opaque_protocol','extension_bound','hop_order','extension','routing_unsupported','udp','payload_port_mismatch','payload_mismatch','unknown_flow','empty','port_collision','port_unavailable','controls','cleanup','send_unattempted','capture_lifecycle','ordinary_payload','host_prerequisites'})
-        packet['decoder_diagnostic']=dict(v=1,opaque_next_header_counts=[[i,262144] for i in range(240,256)],
-            omitted_category_count=240,omitted_event_count=262144,detail_complete=False,truncated_counts=[1,262144,1])
+        packet['decoder_diagnostic']=dict(v=2,opaque_next_header_counts=[[254,262144],[255,262144]],
+            omitted_category_count=254,omitted_event_count=262144,detail_complete=False,truncated_counts=[1,262144,1],
+            icmp_type_code_counts=[[255,i,262144] for i in range(252,256)],
+            icmp_omitted_event_count=262144,icmp_detail_complete=False,
+            checksum_counts=[262144]*3,quote_counts=[262144]*4,quote_detail_counts=[262144]*14,
+            raw_selected_nonce_match=[False,3])
         return result
 
     def test_packet_projection_compact_pretty_and_host_nested_bound(self):
@@ -333,7 +337,58 @@ class HostProjectionSizeTests(unittest.TestCase):
         self.assertLessEqual(len(compact),4096)
         self.assertLessEqual(len(pretty),4096)
         self.assertLessEqual(len(nested),4096)
-        self.assertEqual(len(value['packet']['decoder_diagnostic']['opaque_next_header_counts']),16)
+        self.assertEqual(len(value['packet']['decoder_diagnostic']['opaque_next_header_counts']),2)
+        self.assertEqual(len(value['packet']['decoder_diagnostic']['icmp_type_code_counts']),4)
+
+    def test_actual_v2_projector_consistent_witness_and_invalid_null(self):
+        packet=m.helper('packet');internal=packet._diagnostic_new()
+        internal['opaque_next_header_counts'][58]=250000
+        internal['opaque_next_header_counts'][59]=10000
+        internal['opaque_next_header_counts'][60]=1000
+        internal.update(truncated_counts=[1,262144,1],icmp_type_code_counts={(1,0):100000,(1,1):100000,(3,0):20000,(4,0):20000},
+            icmp_omitted_event_count=10000,checksum_counts=[100000,100000,50000],
+            quote_counts=[100000,100000,25000,25000],
+            quote_detail_counts=[40000,40000,20000,40000,40000,20000,25000,25000,25000,25000,50000,50000,10000,10000],
+            raw_selected_nonce_match={0,1,2})
+        projected=packet.project_decoder_diagnostic(internal,262144)
+        self.assertIsNotNone(projected)
+        self.assertEqual(projected['v'],2)
+        self.assertEqual(projected['raw_selected_nonce_match'],[True,3])
+        self.assertEqual(projected['opaque_next_header_counts'],[[58,250000],[59,10000]])
+        self.assertEqual(projected['omitted_category_count'],1)
+        self.assertEqual(projected['omitted_event_count'],1000)
+        self.assertEqual(projected['icmp_omitted_event_count'],10000)
+        self.assertFalse(projected['detail_complete']);self.assertFalse(projected['icmp_detail_complete'])
+        upper=self.upper_projection()
+        self.assertEqual(set(projected),set(upper['packet']['decoder_diagnostic']))
+        upper['packet']['decoder_diagnostic']=projected
+        self.assertLessEqual(len((json.dumps({'packet':upper},indent=2)+'\n').encode('ascii')),4096)
+        for key,value in [('v',True),('checksum_counts',[0,0,0]),
+                          ('quote_detail_counts',[0]*14),('raw_selected_nonce_match',{True}),
+                          ('icmp_omitted_event_count',True)]:
+            bad=copy.deepcopy(internal);bad[key]=value
+            self.assertIsNone(packet.project_decoder_diagnostic(bad,262144))
+
+    def test_diagnostic_unavailable_preserves_all_core_packet_fields(self):
+        raw,expected,data=pipeline(True)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'pcap';path.write_bytes(data)
+            normal=m.parse_before_cleanup(path,CaptureDiagnosticTests.facts(),raw,expected,header_before_link=False,terminal_before_shutdown=False)
+            with patch.object(m.helper('packet'),'project_decoder_diagnostic',return_value=None):
+                missing=m.parse_before_cleanup(path,CaptureDiagnosticTests.facts(),raw,expected,header_before_link=False,terminal_before_shutdown=False)
+        self.assertIsNone(missing['packet']['decoder_diagnostic'])
+        normal['packet']['decoder_diagnostic']=None
+        self.assertEqual(normal,missing)
+        self.assertEqual(set(missing['packet']),{'schema_version','protocol','scope','status','manifest_valid',
+            'binding_contract_matched','ports_unique','controls_contract','cleanup_contract','all_selected_sends_invoked',
+            'ports_complete','capture_complete_contract','decoder_complete','ordinary_payload_controls',
+            'selected_payload_observed','selected_bound_payload_observed','selected_payload_count',
+            'unknown_flow_packets','records','reasons','decoder_diagnostic','bounded_no_selected_udp_datagram',
+            'actor_attribution_established','isolation_acceptance','checksums_validated','qpc_timestamp_mapping_used'})
+        original,receipt=final(expected);receipt['vm_destroyed']=False
+        qualified=m.qualify(missing,original,receipt)
+        self.assertTrue(qualified['selected_payload_observed'])
+        self.assertFalse(qualified['host_prerequisites_verified'])
 
     @staticmethod
     def full_host_upper():

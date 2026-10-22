@@ -124,7 +124,7 @@ inside the original absolute cutoff. Normal drain allowance is unchanged. Its
 Linux owned-process and paused-QEMU short gate passed; this repairs a reproducible
 failure-finalization delay, not overflow or packet-decoder acceptance.
 
-The next diagnostic-only projection internally counts the existing opaque next-header
+The prior version 1 diagnostic-only projection internally counts the existing opaque next-header
 branch by fixed 0..255 protocol enum. Public detail lists at most 16 positive
 [protocol, count] pairs in enum order, with explicit omitted-category and
 omitted-event totals and a detail-completeness flag. Listed plus omitted totals
@@ -158,3 +158,72 @@ jointly in a valid report; the latter is a measurement, not a newly invented
 runtime writer cap. Dense public 256-entry counts failed the pretty-print bound
 and were replaced by the explicitly incomplete sparse detail above, not by an
 increase to any existing limit.
+
+
+## ICMPv6 diagnostic version 2 (code-only candidate)
+
+Runtime04 remains immutable and inconclusive. Its two opaque Next Header 58
+observations were on the existing guest-source-MAC / destination-fec0::2 path.
+They do not identify benign traffic or an error cause. Deleted private capture
+cannot be reconstructed by this change. No rerun is authorized here.
+
+Version 2 changes only diagnostic detail. The internal 256-entry next-header
+counts remain complete; public detail now retains the first two nonzero protocol
+numbers in sorted enum order, with exact omitted-category and omitted-event
+totals. ICMP type/code detail keeps the first four distinct pairs encountered,
+then sorts those tracked pairs for serialization. Later events for tracked pairs
+still increment them; untracked events increment an explicit omitted-event count.
+No omitted distinct-pair count is invented. Each detail-complete flag concerns
+only its diagnostic listing, not capture completeness or absence.
+
+The fixed arrays are:
+
+- `checksum_counts[3]`: outer ICMPv6 checksum valid, invalid, uncheckable.
+- `quote_counts[4]`: complete classic IPv6-plus-UDP quote, partial quote,
+  malformed quote, unsupported/not-error.
+- `quote_detail_counts[14]`: inner UDP checksum valid/invalid/uncheckable (3),
+  exact selected/ordinary/other payload (3), request-bound/reply-bound/unbound/
+  ambiguous tuple (4), outer-error address relation match/mismatch (2), and
+  joint checksum-consistent bound selected/ordinary quote observations (2).
+- `raw_selected_nonce_match[2]`: Boolean and distinct selected-case count 0–3;
+  the Boolean equals whether the count is nonzero.
+
+The first four quote-detail groups independently partition complete quotes. The
+last two are per-event conjunctions, not an inference formed by combining
+marginal counters from different packets. Binding requires exact known payload,
+fixture and ephemeral ports, the quoted guest address equal to the outer guest
+source, and no source-port collision. An unspecified, multicast, loopback, IPv4-mapped or
+fixture-equal outer source, or an ephemeral port equal to the fixture port, is
+conservatively tuple-ambiguous for this diagnostic—not universally invalid UDP.
+Raw and exact-payload observations remain available. The error-address relationship separately
+compares outer destination with quoted source. These are syntax/consistency
+observations, never authentication of the quoted sender, original delivery,
+actor attribution, or proof of no selected IPv6 egress.
+
+Raw selected-frame bytes are searched first within bounded captured ICMP bytes,
+independently of checksum, quote syntax, direction or later cleanup. This new raw
+observation is not the existing direct-UDP selected-payload flag. Forged bytes in
+junk may establish only raw observation; even a fully checksum-consistent forged
+quote remains unauthenticated. Failure or omitted diagnostic detail cannot erase
+existing direct-UDP, receiver or native-send observations.
+
+Only the existing reached-NH58 path is examined. Outer extension headers or an
+unavailable fixed eight-byte error header make quote interpretation unsupported;
+an outer message shorter than four bytes or with extensions has an uncheckable
+checksum. Types 1–4, with any code, are framing-only candidates, not assertions
+about registered code meaning. A legitimate short invoking-packet prefix is
+partial, not malformed and not a negative match. Visible impossible version or
+length is malformed. Nonzero RFC4884 length in type 1/3 byte 4, jumbo lengths,
+quoted non-UDP next headers, and surplus quotation tails remain unsupported.
+There is no recursion, extension traversal in quotations, reassembly or protocol
+fallback. Outer and inner checksum observations remain separate; the existing
+core `checksums_validated=false` and every absence predicate remain unchanged.
+
+The conservative independent-field serialization composition retains every old
+core field and measures **4,015 bytes** for the actual host-nested packet with
+indentation and newline, below 4,096. The corresponding full host artifact is
+**9,325 bytes**, a measurement without a new whole-artifact cap. A separate
+self-consistent counter witness measures 3,971 nested bytes; it is not claimed
+maximal or an observed packet trace. Native, guest-envelope, private-body,
+capture-size, process and time limits are unchanged. No network, actor, guest,
+policy, lifecycle or runtime activation change accompanies this candidate.

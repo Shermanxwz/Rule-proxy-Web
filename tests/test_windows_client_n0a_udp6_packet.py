@@ -238,10 +238,12 @@ class Udp6PacketTests(unittest.TestCase):
     def diagnostic(self,result):
         diagnostic=result['decoder_diagnostic']
         self.assertEqual(set(diagnostic),{'v','opaque_next_header_counts','truncated_counts',
-                                         'omitted_category_count','omitted_event_count','detail_complete'})
-        self.assertIs(type(diagnostic['v']),int);self.assertEqual(diagnostic['v'],1)
+                                         'omitted_category_count','omitted_event_count','detail_complete','icmp_type_code_counts',
+                                         'icmp_omitted_event_count','icmp_detail_complete','checksum_counts','quote_counts',
+                                         'quote_detail_counts','raw_selected_nonce_match'})
+        self.assertIs(type(diagnostic['v']),int);self.assertEqual(diagnostic['v'],2)
         opaque=diagnostic['opaque_next_header_counts'];truncated=diagnostic['truncated_counts']
-        self.assertIs(type(opaque),list);self.assertLessEqual(len(opaque),16)
+        self.assertIs(type(opaque),list);self.assertLessEqual(len(opaque),2)
         self.assertTrue(all(type(row)is list and len(row)==2 and type(row[0])is int
                             and 0<=row[0]<=255 and type(row[1])is int and 1<=row[1]<=p.MAX_RECORDS for row in opaque))
         self.assertEqual([row[0] for row in opaque],sorted({row[0] for row in opaque}))
@@ -274,9 +276,9 @@ class Udp6PacketTests(unittest.TestCase):
             raw=bytearray(frame(59999,b'unrelated'));raw[20]=value;fs.append(bytes(raw))
         result=run(m,fs=fs);d=self.diagnostic(result)
         expected=[[value,1+int(value in (6,50,58,59,253))] for value in sorted(unsupported)]
-        self.assertEqual(d['opaque_next_header_counts'],expected[:16])
-        self.assertEqual(d['omitted_category_count'],len(expected)-16)
-        self.assertEqual(d['omitted_event_count'],sum(row[1] for row in expected[16:]))
+        self.assertEqual(d['opaque_next_header_counts'],expected[:2])
+        self.assertEqual(d['omitted_category_count'],len(expected)-2)
+        self.assertEqual(d['omitted_event_count'],sum(row[1] for row in expected[2:]))
         self.assertFalse(d['detail_complete'])
         self.assertTrue(result['selected_bound_payload_observed'])
         self.assertEqual(result['unknown_flow_packets'],0)
@@ -294,8 +296,8 @@ class Udp6PacketTests(unittest.TestCase):
         for value in (6,50,58,59,253,253):
             raw=bytearray(frame(59999,b'unrelated'));raw[20]=value;fs.append(bytes(raw))
         result=run(m,fs=fs);d=self.diagnostic(result)
-        self.assertEqual(d['opaque_next_header_counts'],[[6,1],[50,1],[58,1],[59,1],[253,2]])
-        self.assertTrue(d['detail_complete']);self.assertEqual(d['omitted_event_count'],0)
+        self.assertEqual(d['opaque_next_header_counts'],[[6,1],[50,1]])
+        self.assertFalse(d['detail_complete']);self.assertEqual(d['omitted_event_count'],4)
         self.assertTrue(result['selected_bound_payload_observed'])
         self.assertIn('opaque_protocol',result['reasons'])
         self.assertFalse(result['bounded_no_selected_udp_datagram'])
@@ -347,22 +349,23 @@ class Udp6PacketTests(unittest.TestCase):
     def test_sparse_projection_zero_one_sixteen_seventeen_all_categories(self):
         for size in (0,1,16,17,256):
             counts=[1 if i<size else 0 for i in range(256)]
-            value={'v':1,'opaque_next_header_counts':counts,'truncated_counts':[0,0,0]}
+            value=p._diagnostic_new();value.update(opaque_next_header_counts=counts)
+            value['checksum_counts'][2]=counts[58];value['quote_counts'][3]=counts[58]
             projected=p.project_decoder_diagnostic(value,size)
-            self.assertEqual(projected['opaque_next_header_counts'],[[i,1] for i in range(min(size,16))])
-            self.assertEqual(projected['omitted_category_count'],max(0,size-16))
-            self.assertEqual(projected['omitted_event_count'],max(0,size-16))
-            self.assertEqual(projected['detail_complete'],size<=16)
+            self.assertEqual(projected['opaque_next_header_counts'],[[i,1] for i in range(min(size,2))])
+            self.assertEqual(projected['omitted_category_count'],max(0,size-2))
+            self.assertEqual(projected['omitted_event_count'],max(0,size-2))
+            self.assertEqual(projected['detail_complete'],size<=2)
             self.assertEqual(sum(row[1] for row in projected['opaque_next_header_counts'])+projected['omitted_event_count'],size)
         counts=[0]*256;counts[253]=p.MAX_RECORDS
-        value={'v':1,'opaque_next_header_counts':counts,'truncated_counts':[1,p.MAX_RECORDS,1]}
+        value=p._diagnostic_new();value.update(opaque_next_header_counts=counts,truncated_counts=[1,p.MAX_RECORDS,1])
         projected=p.project_decoder_diagnostic(value,p.MAX_RECORDS)
         self.assertEqual(projected['opaque_next_header_counts'],[[253,p.MAX_RECORDS]])
         self.assertEqual(projected['omitted_event_count'],0)
 
     def test_malformed_diagnostic_projection_cannot_affect_original_verdict(self):
-        good={'v':1,'opaque_next_header_counts':[0]*256,'truncated_counts':[0,0,0]}
-        cases=[None,{},dict(good,extra=0),dict(good,v=True),dict(good,v=2),dict(good,opaque_next_header_counts=[])]
+        good=p._diagnostic_new()
+        cases=[None,{},dict(good,extra=0),dict(good,v=True),dict(good,v=1),dict(good,opaque_next_header_counts=[])]
         for count in (-1,True,p.MAX_RECORDS+1):
             bad=copy.deepcopy(good);bad['opaque_next_header_counts'][6]=count;cases.append(bad)
         for trunc in ([2,0,0],[0,0,2],[0,-1,0],[0,False,0],[0,2,0],[0,0],(0,0,0)):
@@ -381,8 +384,11 @@ class Udp6PacketTests(unittest.TestCase):
         # Exact old module AST after removing ONLY the additive diagnostic nodes.
         import ast
         class WithoutDiagnostic(ast.NodeTransformer):
+            def visit_Module(self,node):
+                node.body[0].value.value=node.body[0].value.value.replace("Direct-UDP checksums", "Checksums")
+                return self.generic_visit(node)
             def visit_FunctionDef(self,node):
-                if node.name=='project_decoder_diagnostic':return None
+                if node.name=='project_decoder_diagnostic' or node.name.startswith('_diagnostic_'):return None
                 return self.generic_visit(node)
             def visit_Call(self,node):
                 node=self.generic_visit(node)
@@ -396,6 +402,9 @@ class Udp6PacketTests(unittest.TestCase):
                     if (isinstance(target,ast.Subscript) and isinstance(target.value,ast.Name)
                         and target.value.id=='public' and isinstance(target.slice,ast.Constant)
                         and target.slice.value=='decoder_diagnostic'):return None
+                return self.generic_visit(node)
+            def visit_If(self,node):
+                if isinstance(node.test,ast.Compare) and ast.unparse(node.test)=='next_header == 58':return None
                 return self.generic_visit(node)
             def visit_AugAssign(self,node):
                 target=node.target
@@ -421,13 +430,168 @@ class Udp6PacketTests(unittest.TestCase):
         result.update(status='bounded_no_selected_udp_datagram',selected_payload_count=3,
                       unknown_flow_packets=p.MAX_RECORDS,records=p.MAX_RECORDS,reasons=sorted(reasons))
         # Deliberately stronger than the possible sum<=records bound: every slot max.
-        result['decoder_diagnostic']={'v':1,'opaque_next_header_counts':[[n,p.MAX_RECORDS] for n in range(240,256)],
-                                      'omitted_category_count':240,'omitted_event_count':p.MAX_RECORDS,
-                                      'detail_complete':False,'truncated_counts':[1,p.MAX_RECORDS,1]}
+        result['decoder_diagnostic']=dict(v=2,opaque_next_header_counts=[[254,p.MAX_RECORDS],[255,p.MAX_RECORDS]],
+            omitted_category_count=254,omitted_event_count=p.MAX_RECORDS,detail_complete=False,truncated_counts=[1,p.MAX_RECORDS,1],
+            icmp_type_code_counts=[[255,n,p.MAX_RECORDS] for n in range(252,256)],icmp_omitted_event_count=p.MAX_RECORDS,
+            icmp_detail_complete=False,checksum_counts=[p.MAX_RECORDS]*3,quote_counts=[p.MAX_RECORDS]*4,
+            quote_detail_counts=[p.MAX_RECORDS]*14,raw_selected_nonce_match=[False,3])
         for options in ({'separators':(',',':')},{},{'indent':2}):
             self.assertLessEqual(len((json.dumps(result,ensure_ascii=True,**options)+'\n').encode('ascii')),4096)
         text=json.dumps(result)
         for private in ('a'*32,MAC.hex(),'fec0::2','source_port','N0AU6'):
             self.assertNotIn(private,text)
+
+def checksum_bytes(source,destination,body,protocol):
+    data=source+destination+struct.pack('!I3xB',len(body),protocol)+body
+    if len(data)%2:data+=b'\0'
+    total=sum(struct.unpack('!%dH'%(len(data)//2),data))
+    while total>>16:total=(total&65535)+(total>>16)
+    return (~total)&65535
+
+
+def quote_packet(m,selected=True,reverse=True,body=None,port=None):
+    row=m['selected'][0] if selected else m['ordinary'][0]
+    phase='contained' if selected else row['phase']
+    body=p.payload(m['binding']['case_nonce'],phase,row['index']) if body is None else body
+    local=row['source_port'] if port is None else port
+    src,dst=(DST,SRC) if reverse else (SRC,DST)
+    sport,dport=(4444,local) if reverse else (local,4444)
+    udp=struct.pack('!HHHH',sport,dport,8+len(body),0)+body
+    check=checksum_bytes(src,dst,udp,17) or 65535
+    udp=udp[:6]+struct.pack('!H',check)+udp[8:]
+    return struct.pack('!IHBB16s16s',6<<28,len(udp),17,64,src,dst)+udp
+
+
+def icmp_frame(quote=b'',kind=1,code=0,word=b'\0'*4,extension=False):
+    body=bytes([kind,code,0,0])+word+quote
+    check=checksum_bytes(SRC,DST,body,58)
+    body=body[:2]+struct.pack('!H',check)+body[4:]
+    tail=(bytes([58,0])+b'\0'*6 if extension else b'')+body
+    return b'\x52\x54\0\xaa\xbb\xcc'+MAC+b'\x86\xdd'+struct.pack('!IHBB16s16s',6<<28,len(tail),60 if extension else 58,64,SRC,DST)+tail
+
+
+class IcmpDiagnosticV2Tests(unittest.TestCase):
+    def diagnostic(self,fs,m=None):
+        m=manifest() if m is None else m
+        result=run(m,fs=frames(m)+fs)
+        self.assertIn('opaque_protocol',result['reasons'])
+        self.assertFalse(result['bounded_no_selected_udp_datagram'])
+        self.assertFalse(result['selected_payload_observed'])
+        self.assertFalse(result['selected_bound_payload_observed'])
+        self.assertFalse(result['actor_attribution_established'])
+        d=result['decoder_diagnostic'];self.assertIsNotNone(d)
+        return d
+
+    def test_forged_checksum_consistent_selected_and_ordinary_not_authenticity(self):
+        m=manifest()
+        d=self.diagnostic([icmp_frame(quote_packet(m)),icmp_frame(quote_packet(m,selected=False))])
+        self.assertEqual(d['checksum_counts'],[2,0,0]);self.assertEqual(d['quote_counts'],[2,0,0,0])
+        self.assertEqual(d['quote_detail_counts'],[2,0,0,1,1,0,0,2,0,0,2,0,1,1])
+        self.assertEqual(d['raw_selected_nonce_match'],[True,1])
+
+    def test_forward_quote_bound_but_address_relation_mismatch(self):
+        d=self.diagnostic([icmp_frame(quote_packet(manifest(),reverse=False))])
+        self.assertEqual(d['quote_detail_counts'][6],1)
+        self.assertEqual(d['quote_detail_counts'][11],1)
+        self.assertEqual(d['quote_detail_counts'][12:], [0,0])
+
+    def test_outer_inner_checksums_independent_zero_inner_invalid(self):
+        m=manifest();q=bytearray(quote_packet(m));q[46:48]=b'\0\0'
+        f=bytearray(icmp_frame(quote_packet(m)));f[56]^=1
+        d=self.diagnostic([bytes(f),icmp_frame(bytes(q))])
+        self.assertEqual(d['checksum_counts'],[1,1,0]);self.assertEqual(d['quote_detail_counts'][:3],[1,1,0])
+        self.assertEqual(d['quote_detail_counts'][12:],[0,0]);self.assertEqual(d['raw_selected_nonce_match'],[True,1])
+
+    def test_partial_malformed_unsupported_precedence(self):
+        q=quote_packet(manifest())
+        partial=[b'',q[:1],q[:39],q[:40],q[:47],q[:-1]]
+        malformed=[b'\x40',q[:4]+b'\0\x07'+q[6:40],q[:44]+b'\0\x07'+q[46:]]
+        unsupported=[q+b'\0',q[:4]+b'\0\0'+q[6:],q[:6]+b'\x2c'+q[7:],q[:6]+b'\x32'+q[7:]]
+        for quotes,index in ((partial,1),(malformed,2),(unsupported,3)):
+            for value in quotes:
+                with self.subTest(category=index,length=len(value)):
+                    d=self.diagnostic([icmp_frame(value)])
+                    self.assertEqual(d['quote_counts'][index],1)
+                    self.assertEqual(sum(d['quote_detail_counts']),0)
+
+    def test_rfc4884_only_types_one_three_and_unknown_codes_framing_only(self):
+        q=quote_packet(manifest())
+        for kind in (1,3):
+            d=self.diagnostic([icmp_frame(q,kind,255,b'\1\0\0\0')]);self.assertEqual(d['quote_counts'][3],1)
+        for kind in (2,4):
+            d=self.diagnostic([icmp_frame(q,kind,255,b'\1\0\0\0')]);self.assertEqual(d['quote_counts'][0],1)
+        d=self.diagnostic([icmp_frame(q,128)]);self.assertEqual(d['quote_counts'][3],1)
+
+    def test_extensions_raw_before_unknown_and_no_partial_record_expansion(self):
+        q=quote_packet(manifest());d=self.diagnostic([icmp_frame(q,extension=True)])
+        self.assertEqual(d['checksum_counts'],[0,0,1]);self.assertEqual(d['quote_counts'],[0,0,0,1])
+        self.assertEqual(d['raw_selected_nonce_match'],[True,1])
+        data=pcap([icmp_frame(q)])+b'\0'
+        r=run(data=data);self.assertEqual(r['decoder_diagnostic']['raw_selected_nonce_match'],[True,1])
+        self.assertIn('truncated',r['reasons'])
+        r=run(data=pcap([icmp_frame(q)])[:-1]);self.assertEqual(r['decoder_diagnostic']['raw_selected_nonce_match'],[False,0])
+
+    def test_raw_scan_not_exact_payload_tuple_or_checksum_claim(self):
+        m=manifest();body=b'prefix'+p.payload(m['binding']['case_nonce'],'contained',2)+b'suffix'
+        d=self.diagnostic([icmp_frame(quote_packet(m,body=body))])
+        self.assertEqual(d['raw_selected_nonce_match'],[True,1]);self.assertEqual(d['quote_detail_counts'][5],1)
+        self.assertEqual(d['quote_detail_counts'][12:],[0,0])
+        bad=bytearray(icmp_frame(quote_packet(m)));bad[6:12]=b'\x02'*6
+        r=run(m,fs=[bytes(bad)]);self.assertEqual(r['decoder_diagnostic']['raw_selected_nonce_match'],[False,0])
+
+    def test_wrong_missing_collision_ports_never_joint(self):
+        m=manifest();d=self.diagnostic([icmp_frame(quote_packet(m,port=60000))]);self.assertEqual(d['quote_detail_counts'][8],1)
+        for missing in (True,False):
+            m=manifest();q=quote_packet(m)
+            if missing:m['selected'][0].update(source_port=None,send_invoked=False)
+            else:m['ordinary'][0]['source_port']=m['selected'][0]['source_port']
+            d=self.diagnostic([icmp_frame(q)],m);self.assertEqual(d['quote_detail_counts'][9],1)
+            self.assertEqual(d['quote_detail_counts'][12:],[0,0]);self.assertEqual(d['raw_selected_nonce_match'],[True,1])
+
+    def test_first_four_pairs_track_retained_after_omission_sorted_only_output(self):
+        pairs=[(4,9),(3,8),(2,7),(1,6),(5,5),(4,9),(5,5),(6,4)]
+        d=self.diagnostic([icmp_frame(kind=a,code=b) for a,b in pairs])
+        self.assertEqual(d['icmp_type_code_counts'],[[1,6,1],[2,7,1],[3,8,1],[4,9,2]])
+        self.assertEqual(d['icmp_omitted_event_count'],3);self.assertFalse(d['icmp_detail_complete'])
+        self.assertNotIn('icmp_omitted_category_count',d)
+
+    def test_short_icmp_no_invented_pair_checksum_or_quote(self):
+        for n in range(8):
+            raw=bytearray(frame(1,b''));body=b'\1'*n
+            raw=bytes(raw[:14])+struct.pack('!IHBB16s16s',6<<28,len(body),58,64,SRC,DST)+body
+            if n==0:continue # Existing zero IPv6 payload refuses before observer.
+            d=self.diagnostic([raw]);self.assertEqual(d['quote_counts'][3],1)
+            self.assertEqual(len(d['icmp_type_code_counts']),int(n>=2))
+            self.assertEqual(d['checksum_counts'][2],int(n<4))
+
+    def test_unusable_or_degenerate_outer_source_is_diagnostic_ambiguous(self):
+        m=manifest()
+        for guest in (b'\0'*16,b'\0'*15+b'\1',b'\xff'+b'\0'*15,b'\0'*10+b'\xff\xff'+b'\x7f\0\0\1',DST):
+            q=bytearray(quote_packet(m));q[24:40]=guest
+            udp=bytearray(q[40:]);udp[6:8]=b'\0\0'
+            udp[6:8]=struct.pack('!H',checksum_bytes(DST,guest,bytes(udp),17) or 65535);q[40:]=udp
+            f=bytearray(icmp_frame(bytes(q)));f[22:38]=guest
+            body=bytearray(f[54:]);body[2:4]=b'\0\0'
+            body[2:4]=struct.pack('!H',checksum_bytes(guest,DST,bytes(body),58));f[54:]=body
+            d=self.diagnostic([bytes(f)])
+            self.assertEqual(d['quote_detail_counts'][9],1)
+            self.assertEqual(d['quote_detail_counts'][12:],[0,0])
+            self.assertEqual(d['raw_selected_nonce_match'],[True,1])
+        m['selected'][0]['source_port']=4444
+        d=self.diagnostic([icmp_frame(quote_packet(m))],m)
+        self.assertEqual(d['quote_detail_counts'][9],1)
+        self.assertEqual(d['quote_detail_counts'][12:],[0,0])
+
+    def test_joint_invariants_reject_marginal_inference_and_type_forgery(self):
+        d=p.decode_pcap(pcap([icmp_frame(quote_packet(manifest()))]),manifest())['decoder_diagnostic']
+        self.assertIsNotNone(p.project_decoder_diagnostic(d,1))
+        for key,index in (('checksum_counts',0),('quote_detail_counts',0),('quote_detail_counts',3),('quote_detail_counts',7),('quote_detail_counts',10)):
+            bad=copy.deepcopy(d);bad[key][index]=0
+            self.assertIsNone(p.project_decoder_diagnostic(bad,1))
+        for key in ('checksum_counts','quote_counts','quote_detail_counts'):
+            bad=copy.deepcopy(d);bad[key][0]=True;self.assertIsNone(p.project_decoder_diagnostic(bad,1))
+        bad=copy.deepcopy(d);bad['raw_selected_nonce_match']={True};self.assertIsNone(p.project_decoder_diagnostic(bad,1))
+        bad=copy.deepcopy(d);bad['icmp_omitted_event_count']=1;self.assertIsNone(p.project_decoder_diagnostic(bad,1))
+
 
 if __name__=='__main__':unittest.main()
