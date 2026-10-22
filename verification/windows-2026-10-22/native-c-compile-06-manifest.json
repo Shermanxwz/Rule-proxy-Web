@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "compileOnly": true,
+  "runtimeAcceptance": false,
+  "actorSourceSha256": "d57546f5bc90672c4b15d66bce2f600f69f5796698dd533b46194016f544c668",
+  "originActorSha256": "3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010",
+  "identitySourceSha256": "530482aae4c94707ae4da25c1c3e84d8da929a021fc23b09e59fec17fe28d553",
+  "coreSha256": "f03e45166265f02a65abc12930efd73634a332596d22aa78cadc1267a80b6356",
+  "pipeHelperSha256": "26636a6b9979e91452cf6e7d2049d6fbbfa43639a35708ee18d4a71e67fb8dd0",
+  "originTransportSha256": "bed113e5e20064722cbb2c6d3e71b4d3ca6c4769ebd694c86997abec0af661c4",
+  "liveContractSha256": "b784bd48b9f583a6e7de84cbcf9bf17a1caef43021e1ae798af05e28a687c117",
+  "dnsStandardProbeSha256": "bce69ff57a173525a9cff2731f4d05fe34b5144daeaa465b0d8bb5181432d28c",
+  "executableSha256": "2550491031b5041361d2c6448688e7e04a98fbd54ca8cdb2c1d2301db06fce10"
+}

@@ -1,0 +1,1001 @@
+{
+  "audit_actions": {
+    "ci_dispatch": false,
+    "dns_query_executed": false,
+    "read_only": true,
+    "security_or_network_settings_changed": false,
+    "vm_started": false,
+    "workflow_rerun": false
+  },
+  "ci_log_commitments": [
+    {
+      "classification": "compile_failure_before_query",
+      "decoded_utf8_bytes": 14613,
+      "decoded_utf8_sha256": "3700366712ab330ae8c84a791e93a6c9de3d03f1b71435d52203b79465abb413",
+      "job_id": 119206727112,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39595518393/job/119206727112",
+      "run_id": 39595518393,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39595518393",
+      "tested_commit": "726c0c44e7cd00068725c96b2a59fea7181349d7"
+    },
+    {
+      "classification": "api87_no_fixture_query",
+      "decoded_utf8_bytes": 15401,
+      "decoded_utf8_sha256": "b4ed2957593d05f5232fe2ffaf99f262f102dfe0b986ef072cfd0b94ecf9aec0",
+      "job_id": 119208556757,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39596064259/job/119208556757",
+      "run_id": 39596064259,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39596064259",
+      "tested_commit": "5a55159fe62382b38c6d7474ac852bb352b302d9"
+    },
+    {
+      "classification": "api87_cancel_pointer_pair",
+      "decoded_utf8_bytes": 17108,
+      "decoded_utf8_sha256": "f2298f6556a13f00eb28fc75152d61f2ddeeac1f3df98fb90d582b18431422da",
+      "job_id": 119212236704,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39597168358/job/119212236704",
+      "run_id": 39597168358,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39597168358",
+      "tested_commit": "3f74e5bad85dc352ad46eca289998a2668626f5d"
+    },
+    {
+      "classification": "successful_no_query_diagnostic",
+      "decoded_utf8_bytes": 25947,
+      "decoded_utf8_sha256": "24828d322d53a813b3f5953b508d3a534493010082e5b888c67ac6dc05c1e5e1",
+      "job_id": 119215336271,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39598090604/job/119215336271",
+      "run_id": 39598090604,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39598090604",
+      "tested_commit": "b770b658826de5e8b2adce24107b5e4548c406dd"
+    },
+    {
+      "classification": "preflight_inadmission_before_query",
+      "decoded_utf8_bytes": 14757,
+      "decoded_utf8_sha256": "961db1f855726f1323a1f54638e1c2da03467ce8acbb8b037dc14bab6144d61d",
+      "job_id": 119220291767,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39599559399/job/119220291767",
+      "run_id": 39599559399,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39599559399",
+      "tested_commit": "1549f039c0d01607d508d253cb1009b40742761f"
+    },
+    {
+      "classification": "successful_read_only_inventory",
+      "decoded_utf8_bytes": 27944,
+      "decoded_utf8_sha256": "a4c75c7bbcd65c486cf8e95122a5449757527ee0e9fa4fce234738bec46dc3eb",
+      "job_id": 119223325345,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39600454533/job/119223325345",
+      "run_id": 39600454533,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39600454533",
+      "tested_commit": "3150c6780b7a6d7b0e5e02b35c7c212dfcdcbd5d"
+    },
+    {
+      "classification": "api87_loopback2_high_and_standard",
+      "decoded_utf8_bytes": 18723,
+      "decoded_utf8_sha256": "03c6566a42ea3a5b08d6bc6956715b483470311d7a50f8e2516a3a7246bc8bff",
+      "job_id": 119229124750,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39602167378/job/119229124750",
+      "run_id": 39602167378,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39602167378",
+      "tested_commit": "35acc290acd6384a205eb6d918a3fd549deb7399"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 23803,
+      "decoded_utf8_sha256": "80ee5ddfa4bfab851cc838a9a92452908c105bdc83950527572a9d91b24cb75d",
+      "job_id": 118393073095,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39350432490/job/118393073095",
+      "run_id": 39350432490,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39350432490",
+      "tested_commit": "5d4cafed0ba9c14e0ea8b2c2cb605d3b4840b443"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 24192,
+      "decoded_utf8_sha256": "d8b196a267ffef48599c5ea2d342db5de7021d836caeb903d530b124167f8dc6",
+      "job_id": 118398912858,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39352260335/job/118398912858",
+      "run_id": 39352260335,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39352260335",
+      "tested_commit": "1b1384bb0917c56ddce968d26a07bb6434d085b3"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 17777,
+      "decoded_utf8_sha256": "30f8fb2734be56e3db2c8f1a8631e4d479fd39df607de1b03b010d6aabcae8b7",
+      "job_id": 116178659178,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38659577443/job/116178659178",
+      "run_id": 38659577443,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38659577443",
+      "tested_commit": "18844d3c13e8370b78612622bdda2b99d6d86ee5"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 17843,
+      "decoded_utf8_sha256": "44fc644a25789111d4a2d21444031d327f03b38377174c24f5f2f5850aefcc21",
+      "job_id": 116610323493,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38789494925/job/116610323493",
+      "run_id": 38789494925,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38789494925",
+      "tested_commit": "970fb350191e13786dfb62cbef2ed8cd1031c887"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 18945,
+      "decoded_utf8_sha256": "e95db8f7de6307a968a242c96b073723ab494a87833144fdb2d5221cff8a76a1",
+      "job_id": 116544022478,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38770295256/job/116544022478",
+      "run_id": 38770295256,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38770295256",
+      "tested_commit": "45de7c4bae506ff263414d992ef86ff6388334f2"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 16864,
+      "decoded_utf8_sha256": "1ad2fb0e3377dfff71e53d521406381b93d9e3bdd2043c3f38ad03fab2680439",
+      "job_id": 116544022519,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38770295256/job/116544022519",
+      "run_id": 38770295256,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38770295256",
+      "tested_commit": "45de7c4bae506ff263414d992ef86ff6388334f2"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 14210,
+      "decoded_utf8_sha256": "785d5bef6b175facfbf12d3eeb642feb1039439dff5fd05ff41df2ad8774d80b",
+      "job_id": 117898045955,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39202429179/job/117898045955",
+      "run_id": 39202429179,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39202429179",
+      "tested_commit": "b2748f310d523662f638e2dc2297b8c1670a7b18"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 21050,
+      "decoded_utf8_sha256": "8804a6c0a3916ab8300b28a86b78b7e23bf2a726f006282528ddbaef35cf47b1",
+      "job_id": 117898162301,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39202429179/job/117898162301",
+      "run_id": 39202429179,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39202429179",
+      "tested_commit": "b2748f310d523662f638e2dc2297b8c1670a7b18"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 13700,
+      "decoded_utf8_sha256": "62c1a382ab48ccde3799a1ddd09d0eae8fc74a7eea60bdec273c2f08b34755f4",
+      "job_id": 117901231683,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39203489932/job/117901231683",
+      "run_id": 39203489932,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39203489932",
+      "tested_commit": "ac0eeac4dfb17cbd3d0dab0304f4c09f4ae6e864"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 21051,
+      "decoded_utf8_sha256": "ccbca6e9fcf1f413b167d30cb9e6290f64cec630d911e76b6eada24aa07e5496",
+      "job_id": 117901348060,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39203489932/job/117901348060",
+      "run_id": 39203489932,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39203489932",
+      "tested_commit": "ac0eeac4dfb17cbd3d0dab0304f4c09f4ae6e864"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 13700,
+      "decoded_utf8_sha256": "88b186304a8293a1e437b143871a74e77493e979004b037c52ddb05a274e6fae",
+      "job_id": 117903538967,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39204258001/job/117903538967",
+      "run_id": 39204258001,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39204258001",
+      "tested_commit": "9ca4f2787eed9d495f459e128ebeb7281ef9aa6b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 21049,
+      "decoded_utf8_sha256": "482ecb85a08abd22a43dd92fb17fadaf021775d7d01d88625bd2068767ceb138",
+      "job_id": 117903691281,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39204258001/job/117903691281",
+      "run_id": 39204258001,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39204258001",
+      "tested_commit": "9ca4f2787eed9d495f459e128ebeb7281ef9aa6b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 104345,
+      "decoded_utf8_sha256": "9e4c6953c90b25a4b91b0e050adc62854980b05ecfe96aace115bcd6b31bc6f6",
+      "job_id": 117904164892,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39204413023/job/117904164892",
+      "run_id": 39204413023,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39204413023",
+      "tested_commit": "9ca4f2787eed9d495f459e128ebeb7281ef9aa6b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 135875,
+      "decoded_utf8_sha256": "0c8aec6ef405776c22e2a1e85627ec72b44a4b88ab1dd8f6292be769bfabe5b8",
+      "job_id": 117904016271,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39204412987/job/117904016271",
+      "run_id": 39204412987,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39204412987",
+      "tested_commit": "9ca4f2787eed9d495f459e128ebeb7281ef9aa6b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 95265,
+      "decoded_utf8_sha256": "df0ea36a0b10ed4d7b2b4f8b42a737c6ac02c9fd16c9695285e4af39a67f01d3",
+      "job_id": 116154940468,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38652535672/job/116154940468",
+      "run_id": 38652535672,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38652535672",
+      "tested_commit": "12acab89b4a22e8b4a54368d858a62e1c2a397eb"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 114982,
+      "decoded_utf8_sha256": "9fba1f4bfd4b8d48c8d7406a61ddfc21331a9dfcddab2d79e305f76b13fd9820",
+      "job_id": 116154940550,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38652535672/job/116154940550",
+      "run_id": 38652535672,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38652535672",
+      "tested_commit": "12acab89b4a22e8b4a54368d858a62e1c2a397eb"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 104667,
+      "decoded_utf8_sha256": "160d3a0768660341624422f086eba87a0ba2e78a8fc02ea434e3aa451b463a6e",
+      "job_id": 116154940589,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38652535672/job/116154940589",
+      "run_id": 38652535672,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38652535672",
+      "tested_commit": "12acab89b4a22e8b4a54368d858a62e1c2a397eb"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 163138,
+      "decoded_utf8_sha256": "78c105ac601a189e60b07af02f24e37249730879b5a3735a7fde81593bfcef62",
+      "job_id": 116233878408,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716/job/116233878408",
+      "run_id": 38677202716,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716",
+      "tested_commit": "7235c032342ac7f39d32ca88b0483f7c5b30b829"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 167413,
+      "decoded_utf8_sha256": "99e5dd3141cc7638b01c280b9cb57bc93c4cc00f7062c193b93d5237e6427195",
+      "job_id": 116233878453,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716/job/116233878453",
+      "run_id": 38677202716,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716",
+      "tested_commit": "7235c032342ac7f39d32ca88b0483f7c5b30b829"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 107324,
+      "decoded_utf8_sha256": "a0ff2ca11d9a5443c3174d26ba2698d837459ee2c7e03cb06ba81c3f8a72e8ca",
+      "job_id": 116233878505,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716/job/116233878505",
+      "run_id": 38677202716,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716",
+      "tested_commit": "7235c032342ac7f39d32ca88b0483f7c5b30b829"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 185508,
+      "decoded_utf8_sha256": "92bc587bee8cebaddf41c3b703b500feebd67c2c65b6ea91a5ff9368c3d6c6d2",
+      "job_id": 116274996370,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38690301945/job/116274996370",
+      "run_id": 38690301945,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38690301945",
+      "tested_commit": "b4b6c38559927d7aa97b62d269380fb6e6c3c7d7"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 18729,
+      "decoded_utf8_sha256": "67f5fc42de5ab2bba9b33eb9eddca8cecd374cfbe1cab2e3771fb8755dbbd1b7",
+      "job_id": 116274996426,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38690301945/job/116274996426",
+      "run_id": 38690301945,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38690301945",
+      "tested_commit": "b4b6c38559927d7aa97b62d269380fb6e6c3c7d7"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 109308,
+      "decoded_utf8_sha256": "827af13efc29351bac7a1b94dd9c2ebd8cf1056bd193d5a4a8b95ac594b3cf6e",
+      "job_id": 116274996491,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38690301945/job/116274996491",
+      "run_id": 38690301945,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38690301945",
+      "tested_commit": "b4b6c38559927d7aa97b62d269380fb6e6c3c7d7"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 200929,
+      "decoded_utf8_sha256": "1f1ea08ee48cb3d01e54bc277690d8df973d9402b22ca96a49d094cd0c4fa8ee",
+      "job_id": 116289849784,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889/job/116289849784",
+      "run_id": 38694937889,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889",
+      "tested_commit": "f48239ae818fa81d3f0663833826b83f37136861"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 18875,
+      "decoded_utf8_sha256": "8a7b2945ec8a8a288fb03f63238ce4d7b0925d4c1693e3a208e8fdbd4c688ccd",
+      "job_id": 116289849833,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889/job/116289849833",
+      "run_id": 38694937889,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889",
+      "tested_commit": "f48239ae818fa81d3f0663833826b83f37136861"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 159469,
+      "decoded_utf8_sha256": "98cc955995c83c57d2260deda05b1a3999658adafcadf4da301368b6ffcedc12",
+      "job_id": 116289849876,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889/job/116289849876",
+      "run_id": 38694937889,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889",
+      "tested_commit": "f48239ae818fa81d3f0663833826b83f37136861"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 112865,
+      "decoded_utf8_sha256": "1640f518aaa31b1e2e1def16ba00af49e49abc909af9eb912bfb3d4b4d64c20c",
+      "job_id": 116322430072,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38704850050/job/116322430072",
+      "run_id": 38704850050,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38704850050",
+      "tested_commit": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 194694,
+      "decoded_utf8_sha256": "72705bcd181d82e9b3702952147c1d4394906fc489ea63b8dcfe74aa0f882dc9",
+      "job_id": 116322430214,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38704850050/job/116322430214",
+      "run_id": 38704850050,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38704850050",
+      "tested_commit": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 163264,
+      "decoded_utf8_sha256": "31c89277e55a6f4ef01bedf76f20d99d06883349748b112cf1b3d57a1d18ec7c",
+      "job_id": 116322430290,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38704850050/job/116322430290",
+      "run_id": 38704850050,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38704850050",
+      "tested_commit": "ebb3c1c338af63eb88fb8d6282cb5ffb2bb72f85"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 213017,
+      "decoded_utf8_sha256": "745eac12b2cbab36cfc73fa189a4ec4f4b7fe39cbb45b84628f51a7f81130b71",
+      "job_id": 116381184366,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722534377/job/116381184366",
+      "run_id": 38722534377,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722534377",
+      "tested_commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 109967,
+      "decoded_utf8_sha256": "7ab70ac7292eb644ab29a34c66852348804ce0d4ef689c69404c76b4a4461322",
+      "job_id": 116381184433,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722534377/job/116381184433",
+      "run_id": 38722534377,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722534377",
+      "tested_commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 168132,
+      "decoded_utf8_sha256": "709b98b292dc177322fe455d3d65438cfcb2ac6e291cdc9d0f924c03d812b6d7",
+      "job_id": 116381184454,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722534377/job/116381184454",
+      "run_id": 38722534377,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722534377",
+      "tested_commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 169952,
+      "decoded_utf8_sha256": "2f10ddaf4912e43bba4d1b91fc8698c19121e4bd9070bfa95fe705e5937dc60f",
+      "job_id": 116381250958,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722545675/job/116381250958",
+      "run_id": 38722545675,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722545675",
+      "tested_commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 213010,
+      "decoded_utf8_sha256": "08ff8081dd61beed5d379ccb1b0b1cf6ea91c82563183a0e28f3d72d9d8acd84",
+      "job_id": 116381250988,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722545675/job/116381250988",
+      "run_id": 38722545675,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722545675",
+      "tested_commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 154795,
+      "decoded_utf8_sha256": "823eb3ac7c4e98fef14cccea445f8f909a51a0a74b3c62ae2e239f36608283af",
+      "job_id": 116381250991,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722545675/job/116381250991",
+      "run_id": 38722545675,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38722545675",
+      "tested_commit": "b326cfa1c7e69ae7e7c671ca37463cd8eb4f4f7b"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 22992,
+      "decoded_utf8_sha256": "ff8a9bbea906b4cc91e240ddbadd766e5217ce4dcc09d619488f6757e4215f53",
+      "job_id": 117133023968,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38948255233/job/117133023968",
+      "run_id": 38948255233,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38948255233",
+      "tested_commit": "24c000eb5f9e337e1c12348975b356ab491e0961"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 17591,
+      "decoded_utf8_sha256": "c9e06227339ffc2ca3b5bbd2e9140e4fc3ba0ca10a0b1856fb1e9232162bc68c",
+      "job_id": 117145519114,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38951969738/job/117145519114",
+      "run_id": 38951969738,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38951969738",
+      "tested_commit": "c31de518aa58d7f24a5f947af9ed1584d9a37c80"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 23116,
+      "decoded_utf8_sha256": "7756f530154fa5b0dc46c46dd8f923cd5a69123cbb3482b2669a39b935405706",
+      "job_id": 117145519190,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38951969738/job/117145519190",
+      "run_id": 38951969738,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38951969738",
+      "tested_commit": "c31de518aa58d7f24a5f947af9ed1584d9a37c80"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 23687,
+      "decoded_utf8_sha256": "050a737c76e851d3c7c7da72d7207ce3884cfa278c05f7dab98f9e23cfb8bc7e",
+      "job_id": 117129364911,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38947189564/job/117129364911",
+      "run_id": 38947189564,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38947189564",
+      "tested_commit": "1381d706e2c9d2de26b4b0a3070acfbed2b2c8b5"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 26226,
+      "decoded_utf8_sha256": "a6492e24bf1ea9eb3ee8b247de7d020533314bafe0ebf2de071669fe329abb51",
+      "job_id": 117018254195,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38914464955/job/117018254195",
+      "run_id": 38914464955,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38914464955",
+      "tested_commit": "9c6329d7d7ae3730ea1b2f4d8167e1b114d818f7"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 13697,
+      "decoded_utf8_sha256": "21942aff6cf6120f54d6fc6d708c11e99cc1428ef1766033dd82522b1d5f48de",
+      "job_id": 117911663096,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39206919590/job/117911663096",
+      "run_id": 39206919590,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39206919590",
+      "tested_commit": "f3d99eb1e608cbb80e60d74d870dd8664f094961"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 20354,
+      "decoded_utf8_sha256": "9a9c21917344126bee7e77215f115eada0bf2422265682cc3d1146bf2bab1623",
+      "job_id": 117911791291,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39206919590/job/117911791291",
+      "run_id": 39206919590,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39206919590",
+      "tested_commit": "f3d99eb1e608cbb80e60d74d870dd8664f094961"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 159791,
+      "decoded_utf8_sha256": "c2d48bcac1838360e18b041ed4c14a78241e755f1544b0c5dea21e26436c3c48",
+      "job_id": 117911906917,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39206964969/job/117911906917",
+      "run_id": 39206964969,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39206964969",
+      "tested_commit": "f3d99eb1e608cbb80e60d74d870dd8664f094961"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 110140,
+      "decoded_utf8_sha256": "d28d00d9a07ffd1196d33a82514fdafb696f12c896cd3082e23dc3b43598b202",
+      "job_id": 116308149380,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38700536713/job/116308149380",
+      "run_id": 38700536713,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38700536713",
+      "tested_commit": "a963b7ac8b998aedc4cab5351caf1e24e7574b57"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 168713,
+      "decoded_utf8_sha256": "e998892f95efc23fc6dfd7d073e29332768d128452df75de841a054ab3018fb7",
+      "job_id": 116308149410,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38700536713/job/116308149410",
+      "run_id": 38700536713,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38700536713",
+      "tested_commit": "a963b7ac8b998aedc4cab5351caf1e24e7574b57"
+    },
+    {
+      "classification": "legacy_source_linked_dns_history",
+      "decoded_utf8_bytes": 190877,
+      "decoded_utf8_sha256": "c48e212c242da779d65ad449864a28fa0156dc828876ec05d1f5793a54a13685",
+      "job_id": 116308149411,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38700536713/job/116308149411",
+      "run_id": 38700536713,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38700536713",
+      "tested_commit": "a963b7ac8b998aedc4cab5351caf1e24e7574b57"
+    },
+    {
+      "classification": "pure_test_failure_before_gated_runtime",
+      "decoded_utf8_bytes": 155199,
+      "decoded_utf8_sha256": "82e5ac5863d195ccb1cb943879c3e018dc636d07cae42b97b31c4194d92dee7b",
+      "job_id": 119901844568,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39801145227/job/119901844568",
+      "run_id": 39801145227,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39801145227",
+      "tested_commit": "cee07246b6d73d2da5934f0891d017a8617b510a"
+    },
+    {
+      "classification": "pure_test_failure_before_gated_runtime",
+      "decoded_utf8_bytes": 211783,
+      "decoded_utf8_sha256": "8635cf9c047acee10c19a6763068e08252c3c88824dad6c3d7941f28e8bdf36f",
+      "job_id": 119980412784,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39823448696/job/119980412784",
+      "run_id": 39823448696,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39823448696",
+      "tested_commit": "acf80c080cf5d2f2d7238ad2e26be18ba8eb36ad"
+    },
+    {
+      "classification": "pure_test_failure_before_gated_runtime",
+      "decoded_utf8_bytes": 218205,
+      "decoded_utf8_sha256": "b19a0ff90135bb73b5c2bec163135361e75845de8832a9b5a50c44aa59eb1c5b",
+      "job_id": 119993150091,
+      "job_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39827099007/job/119993150091",
+      "run_id": 39827099007,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39827099007",
+      "tested_commit": "21cbfe2ee466ea4ec0f6237ae29a8509ef13f618"
+    }
+  ],
+  "cited_ci_urls": [
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38677202716",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38694937889",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38914464955",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38948255233",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38951969738",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39206919590",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39352260335",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39595518393",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39596064259",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39597168358",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39598090604",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39599559399",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39600454533",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39602167378",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39801145227",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39823448696",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39827099007",
+    "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38947189564"
+  ],
+  "coverage": {
+    "accessible_repository_run_metadata": 842,
+    "all_842_job_logs_read": false,
+    "all_historical_raw_data_available": false,
+    "all_remote_branches_complete": false,
+    "artifact_zips_downloaded_and_read": 6,
+    "ci_branch_filter": null,
+    "deleted_raw_pcaps_reconstructed": false,
+    "dns_related_file_commitments": 590,
+    "full_relevant_job_logs_read": 56,
+    "historical_dns_named_paths_present": 226,
+    "json_documents_machine_parsed": 942,
+    "local_git_shallow": false,
+    "local_reachable_commits": 562,
+    "local_refs_scope": "current local branch, tags and other locally reachable refs; not a complete remote lab-branch inventory",
+    "local_snapshot_head": "f4a0df3be0d0fa2d84d5bc974573c5dbd4dfd4d0",
+    "manifest_checks": [
+      "bytes",
+      "sha256",
+      "git_blob"
+    ],
+    "manifest_integrity_is_all_dns_content_semantic_review": false,
+    "original_compartment_manifest_entries_integrity_verified": 569,
+    "other_historical_full_job_logs": 46,
+    "recent_pure_full_job_logs": 3,
+    "request3_full_job_logs": 7
+  },
+  "current_qualification": {
+    "current_model2_broker_isolation_tested": false,
+    "current_model2_default_resolver_isolation_tested": false,
+    "current_model2_dns_isolation_qualified": false,
+    "current_model2_selected_dns_actual_tested": false,
+    "current_ordinary_standard53_mechanism_passed": true,
+    "product_acceptance": false,
+    "request3_fixed": false,
+    "unique_api87_cause_proven": false
+  },
+  "date": "2026-10-23",
+  "document": {
+    "bytes": 12629,
+    "path": "docs/validation/2026-10-23-dns-history-review.md",
+    "sha256": "cddea5c81d6ed772e34638790db2a12517e7ae6340bca5f7f43b9d079919fb60"
+  },
+  "downloaded_artifact_zip_commitments": [
+    {
+      "all_external_package_checksums_verified": false,
+      "artifact_id": 12051322946,
+      "payload_downloaded_and_read": true,
+      "run_id": 38914464955,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38914464955",
+      "zip_bytes": 1482,
+      "zip_sha256": "d28838fcd87f9b0494c7ba9b79d495d336909dadfedab8d41b4bb0e727245ffb"
+    },
+    {
+      "all_external_package_checksums_verified": false,
+      "artifact_id": 12067372991,
+      "payload_downloaded_and_read": true,
+      "run_id": 38948255233,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38948255233",
+      "zip_bytes": 3513,
+      "zip_sha256": "d91397998d7c5598e9c9529c9fe154534ce7337da632b054571eff9c4853cf29"
+    },
+    {
+      "all_external_package_checksums_verified": false,
+      "artifact_id": 12067711139,
+      "payload_downloaded_and_read": true,
+      "run_id": 38947189564,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38947189564",
+      "zip_bytes": 3400,
+      "zip_sha256": "d3b0a9c7e85ea186a34fb65365d59fbf77a3f1135d1e883b82f963bcc67aa6bf"
+    },
+    {
+      "all_external_package_checksums_verified": false,
+      "artifact_id": 12068468810,
+      "payload_downloaded_and_read": true,
+      "run_id": 38951969738,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/38951969738",
+      "zip_bytes": 3611,
+      "zip_sha256": "106cd91c8579e5b453120b86c95307b3fc76c35532ea193fe49acba38a03899e"
+    },
+    {
+      "all_external_package_checksums_verified": false,
+      "artifact_id": 12232727141,
+      "payload_downloaded_and_read": true,
+      "run_id": 39350432490,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39350432490",
+      "zip_bytes": 4281,
+      "zip_sha256": "c9cc5ce520bc7e257effb6a0fd2614faed66c5d14446aeac9be5104beb546d7e"
+    },
+    {
+      "all_external_package_checksums_verified": false,
+      "artifact_id": 12233822041,
+      "payload_downloaded_and_read": true,
+      "run_id": 39352260335,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39352260335",
+      "zip_bytes": 4794,
+      "zip_sha256": "bbea3d00d69ae41405a9989cd603234cbfe37121265b9321d8cf6ca32c7c5774"
+    }
+  ],
+  "existing_repository_evidence": [
+    {
+      "bytes": 1934,
+      "path": "verification/windows-2026-10-15/12acab8/native/source.json",
+      "sha256": "48b5cafef0d82273d9a343e1e4aaeda9ea2f415096e80972dfe61b367d18f8dd"
+    },
+    {
+      "bytes": 2572,
+      "path": "verification/windows-2026-10-15/7235c03/official-native/observations.json",
+      "sha256": "603fe5044a08df334a3d01e16eb87417dbdaf5353d1c75437074105223aa45e1"
+    },
+    {
+      "bytes": 10388,
+      "path": "verification/windows-2026-10-15/f48239a/psec11-network-native/observations.json",
+      "sha256": "e558f53876b219da3be9275b6eaed4dfbd8a7d154c98932e4e18dd04588852e2"
+    },
+    {
+      "bytes": 8024,
+      "path": "verification/windows-2026-10-16/proxy-compare/comparison-summary.json",
+      "sha256": "ee78d851f788f854f2dc04b9da0bf1cff0b0b0f21f3a83eb7a79078727854a8a"
+    },
+    {
+      "bytes": 3295,
+      "path": "verification/linux-global-2026-10-16/native-qualification.json",
+      "sha256": "adedf6b9e93a8e1e34a511e1c47f02cfcce3193f4fba7ce1b0da62ff8f9eec0e"
+    },
+    {
+      "bytes": 42233,
+      "path": "verification/windows-global-2026-10-17/native-qualification.json",
+      "sha256": "f08aa664451a6ae8e01481a5a54f64cc12f92d32e361d6b858e7251873b6781f"
+    },
+    {
+      "bytes": 9360,
+      "path": "verification/windows-2026-10-19/compartment/native-first/windows11-dns-api-wire-join.json",
+      "sha256": "111f921a8fac17f646906caf25bb1daa00f8da22f21ac6018d2c4c24ab075969"
+    },
+    {
+      "bytes": 6844,
+      "path": "verification/windows-2026-10-19/compartment/primary-token-server/assessment.json",
+      "sha256": "fd517cc1f513cd73b7c32c7ae587f1819647b4dea4909bbce1df5f4a53dc2b2c"
+    },
+    {
+      "bytes": 8714,
+      "path": "verification/windows-2026-10-19/compartment/primary-abi-fixed/assessment.json",
+      "sha256": "e03ee838effc1335b00c2755f92284a4d997c3f897ab5b4c50fb724a7fc10b01"
+    },
+    {
+      "bytes": 34724,
+      "path": "verification/windows-2026-10-20/diagnostics/runs/dns-39350432490-1/dns-capture-report.json",
+      "sha256": "b0499a10106e468308e2d02e35fffcd594ed5771da3d9f7acc216e4bd26b4c89"
+    },
+    {
+      "bytes": 40596,
+      "path": "verification/windows-2026-10-20/diagnostics/runs/dns-39352260335-1/dns-capture-report.json",
+      "sha256": "5da3099e9cb7f96a39702c1a9b573a0724ab45f209a3afe739812179259ff974"
+    },
+    {
+      "bytes": 15311,
+      "path": "docs/validation/2026-10-21-dns-request3-mechanism.md",
+      "sha256": "657a8a55221da8ae35c5ea24dd42b4ba5ea9889bdaf92e219ef543afb4e68a76"
+    },
+    {
+      "bytes": 1400,
+      "path": "verification/windows-2026-10-22/dns-v1-local-01-public.json",
+      "sha256": "9097bbf0eabfe18ef5c0ad5a1bcfbb26182421253a7ef2195f9d8c0203b25149"
+    },
+    {
+      "bytes": 1209,
+      "path": "verification/windows-2026-10-22/dns-v1-local-01-summary.json",
+      "sha256": "ac25ba6a6db424d2ee6451686bac3ee3a95069d8b1bc270774ee318cdcf1ac0d"
+    },
+    {
+      "bytes": 3477,
+      "path": "docs/validation/2026-10-23-dns-standard-mechanism.md",
+      "sha256": "757692edea19ce27250046e24a5d8d5c2afa626fe80ac829c1855d4b133d61c1"
+    },
+    {
+      "bytes": 1864,
+      "path": "verification/windows-2026-10-22/dns-standard-local-02-public.json",
+      "sha256": "9a72bc097f1842a0656051f59b092600b640b3ed1e5ad60483a4ae301db5d11e"
+    },
+    {
+      "bytes": 2729,
+      "path": "verification/windows-2026-10-22/dns-standard-local-01-02-evidence-index.json",
+      "sha256": "a14d1acfa11d0fa2ae52ed6e3de962d72f7f52366c3890af521477acd4135636"
+    },
+    {
+      "bytes": 3507,
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-mechanism-01-summary.json",
+      "sha256": "3f0370f26e4ecf011e101fa31519e1ab68b07c19781ed48fb4c06d8ac030f26e"
+    },
+    {
+      "bytes": 1823,
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-port-pair-01-summary.json",
+      "sha256": "144ec944f858fa219b68cd4f4d6462ba079d75feef33ac0176d7b404b8c4392c"
+    },
+    {
+      "bytes": 1719,
+      "path": "verification/windows-2026-10-20/identity-proof/dns-port-inventory-01-summary.json",
+      "sha256": "52502a797b028310c3d56fa2c68bb8382c57e25d1e54bd49419d501c2acecaf5"
+    },
+    {
+      "bytes": 2424,
+      "path": "verification/windows-2026-10-20/identity-proof/dns-request3-loopback2-pair-01-summary.json",
+      "sha256": "1b205240ac34e525d23a66605a18beb532eda7eb72b50b5be2f05df13c36c716"
+    }
+  ],
+  "findings": [
+    {
+      "id": "historical_dns_success",
+      "runs": [
+        38948255233,
+        38951969738
+      ],
+      "statement": "历史上存在成功解析；“项目DNS从未成功”不准确。Windows global烟测已验证系统默认与UDP/TCP IPv4/IPv6答案，但其DNS/strict/应用隔离资格保持false。"
+    },
+    {
+      "id": "historical_dns_bypass",
+      "runs": [
+        38652535672,
+        38677202716,
+        38700536713,
+        39203489932,
+        39206919590
+      ],
+      "statement": "旧PSEC策略和旧compartment有contained DNS出站或inside API0；ordinary API失败也可能伴随broker式出站。NIC记录可能重复，不能当作精确进程归属。"
+    },
+    {
+      "id": "historical_bounded_negative",
+      "runs": [
+        38690301945,
+        38694937889,
+        38704850050
+      ],
+      "statement": "另一些历史策略有完整正控的有限selected DNS零查询观察。保留这些结果，同时限制在原策略/身份/系统resolver/窗口内；不能替代当前Model2。"
+    },
+    {
+      "id": "raw_udp_and_linux_scope",
+      "runs": [
+        38914464955
+      ],
+      "statement": "Clew/ProxiFyre raw UDP DNS正控与Linux经fixture的DoH观察，分别不等于系统broker验证或成功上游解析。"
+    },
+    {
+      "id": "green_ci_is_not_dns_success",
+      "runs": [
+        39350432490,
+        39598090604,
+        39600454533
+      ],
+      "statement": "旧capture首轮启动203仍CI绿，实际invalid_experiment；REQUEST3两轮绿灯是无查询诊断/只读inventory。"
+    },
+    {
+      "id": "request3_retained_failures",
+      "runs": [
+        39595518393,
+        39596064259,
+        39597168358,
+        39598090604,
+        39599559399,
+        39600454533,
+        39602167378
+      ],
+      "statement": "七轮REQUEST3未找到成功自有receiver交换；实际调用包含API87，端口准入失败及编译失败须分别保留。"
+    },
+    {
+      "id": "current_high_port_v1_failure",
+      "source_commit": "cee07246b6d73d2da5934f0891d017a8617b510a",
+      "statement": "本机ordinary VERSION1高端口API/query87、query0/answer0，监督与清理通过；不构成DNS拒绝或隔离证据。"
+    },
+    {
+      "id": "current_standard53_ordinary_success",
+      "source_commit": "21cbfe2ee466ea4ec0f6237ae29a8509ef13f618",
+      "statement": "新ordinary官方标准53机制API/query0、精确记录1、receiver query1/answer1、观察62字节，全部监督/清理及全局快照比较通过。"
+    },
+    {
+      "id": "current_selected_unrun",
+      "statement": "当前Model2 selected DNS、默认resolver和系统broker隔离尚未运行；ordinary成功不能提升其资格。"
+    },
+    {
+      "id": "causality_unresolved",
+      "statement": "Family、port、构造/初始化、actor与owner/inventory路径同时变化；REQUEST3另有版本和环境差异。没有单变量对照证明API87唯一根因，也没有证明REQUEST3修复。"
+    },
+    {
+      "id": "revocation_scope",
+      "source_commit": "0904d2d14eb10d28b16d5be82bbc7e2309485b6c",
+      "statement": "0904d2d仅对console trust污染时撤销actor attestation并保留计数，不能回溯抹掉后续来源独立的有限负结果。"
+    },
+    {
+      "id": "red_pure_ci_scope",
+      "runs": [
+        39801145227,
+        39823448696,
+        39827099007
+      ],
+      "statement": "近期红CI在gated runtime前的纯测试阶段失败，不能计成新DNS API失败。"
+    }
+  ],
+  "limitations": [
+    "本地Git可达历史与当前可访问GitHub元数据不证明全部远端实验分支或已删数据完整。",
+    "569条manifest完整性核验不等于对archive全部DNS内容的语义复查。",
+    "摘要中的原artifact承诺在payload缺失时仍只是承诺，不补造原始实验或机器状态。",
+    "完整日志摘要绑定连接器返回的UTF-8文本，不是原始压缩日志ZIP。",
+    "六份ZIP已取回检查；其他artifact仅有元数据或历史承诺，不宣称全部payload已读。",
+    "完整审计与旧raw字段保留work，不整包公开；新文件不复制身份、请求标记、机器路径、设备配置或历史对话。"
+  ],
+  "post_snapshot_ci_repair": {
+    "decoded_log_commitment": {
+      "bytes": 160926,
+      "sha256": "3aef4f8922f3c49620419ddedb741ba33daab90a2cffa490b51ffe5f38a9d9fb"
+    },
+    "dns_runtime_executed": false,
+    "gated_runtime_steps_skipped": true,
+    "included_in_historical_audit_counts": false,
+    "job_id": 120020022446,
+    "native_actor_executed": false,
+    "native_build_compile_only": true,
+    "pure_tests_passed": true,
+    "run_id": 39834757571,
+    "seconds": 20.712,
+    "skipped_tests": 0,
+    "source_commit": "6aa32557dc92fa548c1215820f05f0cefe11517f",
+    "tests": 680,
+    "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39834757571",
+    "vm_runtime_executed": false
+  },
+  "repository": "Shermanxwz/Rule-proxy-Web",
+  "request3_runs": [
+    {
+      "ci_conclusion": "failure",
+      "classification": "compile_failure_before_query",
+      "isolation_or_product_acceptance": false,
+      "run_id": 39595518393,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39595518393",
+      "successful_owned_dns_exchange": false,
+      "tested_commit": "726c0c44e7cd00068725c96b2a59fea7181349d7"
+    },
+    {
+      "ci_conclusion": "failure",
+      "classification": "api87_no_fixture_query",
+      "isolation_or_product_acceptance": false,
+      "run_id": 39596064259,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39596064259",
+      "successful_owned_dns_exchange": false,
+      "tested_commit": "5a55159fe62382b38c6d7474ac852bb352b302d9"
+    },
+    {
+      "ci_conclusion": "failure",
+      "classification": "api87_cancel_pointer_pair",
+      "isolation_or_product_acceptance": false,
+      "run_id": 39597168358,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39597168358",
+      "successful_owned_dns_exchange": false,
+      "tested_commit": "3f74e5bad85dc352ad46eca289998a2668626f5d"
+    },
+    {
+      "ci_conclusion": "success",
+      "classification": "successful_no_query_diagnostic",
+      "isolation_or_product_acceptance": false,
+      "run_id": 39598090604,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39598090604",
+      "successful_owned_dns_exchange": false,
+      "tested_commit": "b770b658826de5e8b2adce24107b5e4548c406dd"
+    },
+    {
+      "ci_conclusion": "failure",
+      "classification": "preflight_inadmission_before_query",
+      "isolation_or_product_acceptance": false,
+      "run_id": 39599559399,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39599559399",
+      "successful_owned_dns_exchange": false,
+      "tested_commit": "1549f039c0d01607d508d253cb1009b40742761f"
+    },
+    {
+      "ci_conclusion": "success",
+      "classification": "successful_read_only_inventory",
+      "isolation_or_product_acceptance": false,
+      "run_id": 39600454533,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39600454533",
+      "successful_owned_dns_exchange": false,
+      "tested_commit": "3150c6780b7a6d7b0e5e02b35c7c212dfcdcbd5d"
+    },
+    {
+      "ci_conclusion": "failure",
+      "classification": "api87_loopback2_high_and_standard",
+      "isolation_or_product_acceptance": false,
+      "run_id": 39602167378,
+      "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39602167378",
+      "successful_owned_dns_exchange": false,
+      "tested_commit": "35acc290acd6384a205eb6d918a3fd549deb7399"
+    }
+  ],
+  "schema_version": 1,
+  "source_audits": [
+    {
+      "bytes": 263912,
+      "full_report_published": false,
+      "path": "dns_history_local_audit.json",
+      "sha256": "aaf0fc78b1c5c35a1754c50aacbc76a6bd7ecfedf4c2d0e37b0cf780e763bcd6",
+      "source_scope": "local reachable Git and tracked archive/document snapshot"
+    },
+    {
+      "bytes": 715155,
+      "full_report_published": false,
+      "path": "dns_history_ci_audit.json",
+      "sha256": "ce62e89d9b2b6535d01564f999692c6bf0a35092b019666b806241db8fe3f689",
+      "source_scope": "currently accessible repository CI metadata plus selected full logs and six ZIPs"
+    }
+  ],
+  "stage": "sanitized-dns-history-review-index"
+}

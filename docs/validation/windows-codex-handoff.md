@@ -1,5 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
+> **最新追加检查点，2026-10-23：** death01 已完成真实在途 relay 死亡诊断：原 origin 已收到请求、保持连接且未发送响应时，仅终止受持有 relay；前端和同 held selected 观察到空响应失败，随后 fresh direct 对同一健康 origin 返回 `10013`，清理完成。[当前进展](2026-10-23-local-isolation-progress.md)保留源码、原始结果和精确边界；本次严格隔离与产品资格仍为 false。[DNS 历史复核](2026-10-23-dns-history-review.md)将旧后端泄漏、全局 DNS 成功、REQUEST3 失败和新 ordinary 标准53正控分别列出，selected DNS 仍未运行。以下旧段落中的“尚未运行”按原时间解释，不抹除历史结果。
+
 > **追加检查点，2026-10-23：** wrong-peer02 已完成 B 前后健康正控、原 origin 前中后正控、两族 actual tier、完整 finish 与清理；主 selected 对错误 peer 仍超时，明确保持 `inconclusive`，不计拒绝或泄漏通过。另 [ordinary DNS 同 API 机制](2026-10-23-dns-standard-mechanism.md)已实际跑通 VERSION1、标准 UDP53 专用查询与匹配答案，清理及全局配置核对通过；selected DNS 隔离仍为 false。完整边界见[进展文档](2026-10-23-local-isolation-progress.md)，旧段落按其各自受测时间保留。
 
 > **当前本机检查点，2026-10-23：** [最新运行进展与边界](2026-10-23-local-isolation-progress.md)记录 diagnostic09 首次完整 profiles-off 真实网络诊断：HTTP 129→95 字节请求/90 字节响应、同 held selected direct `10013`、前中后 origin 健康、实际 `base-container` tier 与清理均通过。wrong-port02 又完成独立 Q PSEC 前后 exact HTTP/nonce/tuple/EOF 健康控制，同一主 selected 对同身份不同端口返回 `10013`，receiver 无 forbidden nonce；两族 actual tier 和全部清理均通过。wrong-port01 的 ordinary 正控超时历史保留。`strict Full`、`checks.wrong_port`、`first_chain_verified`、`local_c_qualified`、`product_acceptance` 仍为 false；错误 peer、proxy death、DNS/浏览器/WinHTTP 等尚未验收。以下旧交接及 A/B 记录按各自受测版本保留，当前状态以此链接的独立证据为准。

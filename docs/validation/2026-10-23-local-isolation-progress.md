@@ -65,6 +65,8 @@
 
 ## ordinary DNS 同 API 机制已运行
 
+death01 完成后的[全局只读比较](../../verification/windows-2026-10-22/model2-death-after01-global-projection.json)与[取证脚本索引](../../verification/windows-2026-10-22/model2-death-after01-global-evidence-index.json)确认，防火墙 profiles、DNS、路由及用户代理的完整 JSON 与首次 baseline 相等，原始字节也相等（均7378字节，SHA256 `f05d91ee76ee8a97ae5ab3bfa092167a8ee560c083255f142e6c453f2edf7ab3`）。该比较是两个时间点的配置观察，不代替运行期间隔离证明；原始配置未公开。
+
 `dns-standard-local-02` 已在普通身份下完成真实 `DnsQueryEx` VERSION1 调用、专用 loopback UDP53 接收端的一次查询和答案匹配，API/query status 均为 0，记录内存、socket、线程和 held Job 清理均确认。运行前的受监督只读 DNS/有效 NRPT/53 端口占用门及两次新鲜度门均通过；运行后全局配置与原 baseline 完全相等。该结果只解决 ordinary 同 API 正控，selected DNS、默认 resolver 和系统 broker 隔离仍未验证。首次 staging 时钟范围失败历史及完整证据见[独立 DNS 检查点](2026-10-23-dns-standard-mechanism.md)。
 
 ## 后续必须完成的范围
