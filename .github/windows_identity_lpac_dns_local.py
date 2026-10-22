@@ -285,10 +285,10 @@ class Owner:
         self.factory=fixture_factory or live.dns.fixture.DnsCasesFixture
         self.owners=helpers.OneShotHandles(api.close);self.job=None;self.children=[];self.tasks={};self.fixture=None
         self.profile=dict(attempted=False,returned=False,created=False,pointer=None,sid=None)
-        self.catalog=None;self.inventory=None;self.selected_wire=False
+        self.catalog=None;self.inventory=None;self.selected_wire=False;self.selected_environment=None
         self.j=dict(schema_version=1,stage='standalone-lpac-dns-worker-result',failure=None,failure_detail=None,selected_wire_query_observed=False,
             profile_name='ruleproxy-lpac-'+c['run'],profile_sid=None,profile_created=False,acl_attempted=False,
-            selected_lpac_held=False,inventory=None,inventory_gates=[],go=[],native=[],fixture_final=None,
+            selected_lpac_held=False,child_environment=launcher.default_child_environment(),inventory=None,inventory_gates=[],go=[],native=[],fixture_final=None,
             ordinary_before=False,ordinary_after=False,natural_exits=False,selected_access_denial=False,
             workload_cleanup=False,workload_job_empty=False,workload_stop=False,acl_removed=False,cleanup_tools=False,
             profile_deleted=False,sid_released=False,fixture_cleanup=True,tasks=[],cleanup_tasks=[])
@@ -318,7 +318,11 @@ class Owner:
             if stdio:
                 for label in ('stdin','stdout','stderr'):
                     handle=self.api.open_stdio_file(work/label,read=label=='stdin');stdio_owners.add(handle);handles.append(handle)
-            try:self.api.atomic_spawn(info,argv,work,job,owners,state,environment=self.api.native.environment(self.root/('lpac-report' if lpac else 'health')),
+            if lpac:
+                require(launcher.child_environment_admitted(self.j['child_environment']) and self.selected_environment is not None,'lpac_environment')
+                environment=self.selected_environment
+            else:environment=self.api.native.environment(self.root/'health')
+            try:self.api.atomic_spawn(info,argv,work,job,owners,state,environment=environment,
                 stdio=handles,profile_pointer=self.profile['pointer'] if lpac else None,catalog=self.catalog)
             finally:
                 row['attempted']=state['creation_attempted'];row['process_returned']=bool(info.hProcess)
@@ -386,6 +390,13 @@ class Owner:
 
     def setup(self):
         owned_tree(self.root)
+        # Reuse the existing known-folder/COM/path/exact-two-key contract. This
+        # is resolved once under the original budget, before profile/ACL setup;
+        # no caller environment inheritance or guessed profile path is used.
+        self.budget.require_ms(self.budget.cutoff(30))
+        verified_local=self.api.local_appdata(self.budget,self.j['child_environment'])
+        self.selected_environment=self.api.front_environment(verified_local,self.j['child_environment'])
+        require(launcher.child_environment_admitted(self.j['child_environment']),'lpac_environment')
         self.job=self.api.owned_job(self.owners);self.catalog=self.api.catalog()
         require({name:self.catalog[name] for name in ('AgenticAppContainer','privateNetworkClientServer')}==self.c['capability_catalog'],'worker_capability_catalog')
         self.journal('profile-create');self.api.create_profile(self.j['profile_name'],self.profile)
@@ -555,14 +566,15 @@ def config_validate(c):
 
 def validate_result(j,c):
     keys={'schema_version','stage','failure','failure_detail','selected_wire_query_observed','profile_name','profile_sid','profile_created','acl_attempted',
-        'selected_lpac_held','inventory','inventory_gates','go','native','fixture_final','ordinary_before','ordinary_after','natural_exits',
+        'selected_lpac_held','child_environment','inventory','inventory_gates','go','native','fixture_final','ordinary_before','ordinary_after','natural_exits',
         'selected_access_denial','workload_cleanup','workload_job_empty','workload_stop','acl_removed','cleanup_tools','profile_deleted',
         'sid_released','fixture_cleanup','tasks','cleanup_tasks'}
     require(type(j) is dict and set(j)==keys and type(j['schema_version']) is int and j['schema_version']==1
         and j['stage']=='standalone-lpac-dns-worker-result' and j['failure'] in (None,'setup','protocol','inventory','cleanup')
         and j['profile_name']=='ruleproxy-lpac-'+c['run'],'result_schema')
     validate_failure_detail(j['failure_detail']);require(j['failure'] is not None or j['failure_detail'] is None,'success_failure_detail')
-    booleans=keys-{'schema_version','stage','failure','failure_detail','profile_name','profile_sid','inventory','inventory_gates','go','native','fixture_final','tasks','cleanup_tasks'}
+    launcher.validate_child_environment(j['child_environment'])
+    booleans=keys-{'schema_version','stage','failure','failure_detail','profile_name','profile_sid','child_environment','inventory','inventory_gates','go','native','fixture_final','tasks','cleanup_tasks'}
     require(all(type(j[k]) is bool for k in booleans) and (j['profile_sid'] is None or ac.ac_profile_sid(j['profile_sid']))
         and (not j['profile_created'] or ac.ac_profile_sid(j['profile_sid'])),'result_facts')
     rowkeys={'name','attempted','assigned','exited','exit_code','pid','created','identity','capabilities','lpac','lpac_expected',
@@ -587,6 +599,7 @@ def validate_result(j,c):
             validate_failure_detail(observation['exception_detail'])
             require((observation['exception_detail'] is not None)==(observation['status']=='exception'),'create_exception_detail')
             require(row['lpac_expected']==(row['name']=='selected') and ac.digest(row['image_sha256']),'task_image')
+            require(not row['lpac_expected'] or not row['attempted'] or launcher.child_environment_admitted(j['child_environment']),'task_environment')
             require(row['lpac'] is None or type(row['lpac']) is int and row['lpac'] in (0,1),'task_lpac')
             require(row['lpac_expected'] or row['lpac'] is None,'ordinary_lpac_not_queried')
             for k in ('pid','created','admission_qpc','resume_qpc'):
@@ -669,6 +682,7 @@ def validate_result(j,c):
     if j['failure'] is None:
         require(len(j['go'])==5 and len(native)==7 and j['ordinary_before'] and j['ordinary_after'] and j['natural_exits'] and receiver is not None
             and j['profile_created'] and j['acl_attempted']
+            and launcher.child_environment_admitted(j['child_environment'])
             and all(j[k] for k in ('selected_lpac_held','workload_cleanup','fixture_cleanup','acl_removed','cleanup_tools','profile_deleted','sid_released')),'complete_result')
     return j
 

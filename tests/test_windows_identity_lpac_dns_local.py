@@ -77,7 +77,10 @@ class API:
     def __init__(self,root,fault=None):
         self.root=root;self.fault=fault;self.now=T+100;self.next=100;self.rows={};self.closed=[];self.events=[];self.controls_uncertain=False
         self.profile_sid=ACSID;self.granted=False;self.removed=False;self.deleted=False
-        self.native=NS(environment=lambda work:'SystemRoot='+str(root/'win')+'\0TEMP='+str(work/'temp')+'\0TMP='+str(work/'temp')+'\0\0')
+        self.native=NS(environment=lambda work:'SystemRoot='+str(root/'win')+'\0WINDIR='+str(root/'win')+'\0TEMP='+str(work/'temp')+'\0TMP='+str(work/'temp')+'\0\0')
+        self.proc=proc
+        def windows_directory(buffer,size):buffer.value=r'C:\Windows';return len(buffer.value)
+        self.k=NS(GetWindowsDirectoryW=windows_directory)
     def qpc(self):
         if getattr(self,'qpc_fail_once',False):self.qpc_fail_once=False;raise OSError('pure clock unavailable')
         return self.now
@@ -92,12 +95,35 @@ class API:
             self.close_failed=True;raise OSError('one owned handle close unknown')
     def owned_job(self,owners):self.next+=10;owners.add(self.next);return self.next
     def catalog(self):return CATALOG
-    def create_profile(self,name,state):state.update(attempted=True,returned=True,created=True,pointer=77,sid=ACSID);return ACSID
+    def create_profile(self,name,state):self.events.append('create-profile');state.update(attempted=True,returned=True,created=True,pointer=77,sid=ACSID);return ACSID
     def derive_profile_sid(self,name):return ACSID
     def delete_profile(self,name):self.deleted=True;self.events.append('delete-profile')
     def release_profile_sid(self,state):state['pointer']=None
     def acl_read(self,path,sid):return m.expected_acl(self.root,path) if self.granted and not self.removed else []
+    def local_appdata(self,budget,metadata):
+        # The production resolver and its original QPC closure run against a
+        # pure fake KnownFolder API; neither COM nor shell32 is loaded here.
+        parent=self;storage=C.create_string_buffer(r'C:\Users\fixture\AppData\Local'.encode('utf-16-le')+b'\0\0')
+        class KnownFolder:
+            def initialize(self):parent.events.append('env-init');return 0x80004005 if parent.fault=='env-com' else 0
+            def query(self,out):
+                parent.events.append('env-query');out.value=C.addressof(storage)
+                if parent.fault=='env-deadline':parent.now=budget.cutoff(30)
+                return 0x80004005 if parent.fault=='env-query' else 0
+            def release(self,out):
+                parent.events.append('env-release')
+                if parent.fault=='env-release':raise OSError('pure release uncertain')
+            def uninitialize(self):parent.events.append('env-uninit')
+        with patch.object(m.ac.pipe_helpers,'KnownFolderAPI',return_value=KnownFolder()),patch.object(m.ac.pipe_helpers,'checked_local_appdata_path',side_effect=lambda value:value):
+            return m.ac.ACWindowsAPI.local_appdata(self,budget,metadata)
+    def front_environment(self,path,metadata):
+        if self.fault=='env-keyset':self.proc=NS(_environment_block=lambda values:'SystemRoot=C:\\Windows\0LOCALAPPDATA=x\0EXTRA=1\0\0')
+        return m.ac.ACWindowsAPI.front_environment(self,path,metadata)
     def atomic_spawn(self,info,argv,cwd,job,owners,state,**kw):
+        env=dict(value.split('=',1) for value in kw['environment'].rstrip('\0').split('\0'))
+        if kw['profile_pointer']:
+            assert env=={'SystemRoot':r'C:\Windows','LOCALAPPDATA':r'C:\Users\fixture\AppData\Local'}
+        else:assert set(env)=={'SystemRoot','WINDIR','TEMP','TMP'}
         state.update(creation_attempted=True,create_status='returned_true',create_winerror=None,create_information='nonzero',create_exception_detail=None)
         if self.fault=='unknowncreate' and kw['profile_pointer']:
             exc=OSError('unknown create')
@@ -218,6 +244,30 @@ class LPACOwnerTests(unittest.TestCase):
         self.assertEqual([x['label'] for x in j['inventory_gates']],['bind','before','selected','after'])
         self.assertLess(api.events.index('remove-acl'),api.events.index('delete-profile'));self.assertTrue(api.deleted)
         self.assertTrue(all(j[k] for k in ('workload_cleanup','fixture_cleanup','acl_removed','cleanup_tools','profile_deleted','sid_released')))
+
+    def test_existing_known_folder_contract_is_once_original_budget_before_profile_and_lpac_create(self):
+        owner,api,j=self.owner();m.validate_result(j,owner.c)
+        self.assertTrue(m.launcher.child_environment_admitted(j['child_environment']))
+        self.assertEqual([x for x in api.events if isinstance(x,str) and x.startswith('env-')],['env-init','env-query','env-release','env-uninit'])
+        self.assertLess(api.events.index('env-uninit'),api.events.index('create-profile'))
+        self.assertEqual(owner.budget.deadline,D);self.assertEqual(j['child_environment']['com'],[True,0,True,True])
+        self.assertNotIn('child_environment',m.public_result(j,owner.c,public_base()))
+
+    def test_known_folder_com_query_release_keyset_or_original_deadline_failure_never_creates_profile_or_child(self):
+        for fault in ('env-com','env-query','env-release','env-keyset','env-deadline'):
+            with self.subTest(fault=fault):
+                owner,api,j=self.owner(fault);m.validate_result(j,owner.c)
+                self.assertIsNotNone(j['failure']);self.assertFalse(j['profile_created']);self.assertFalse(j['acl_attempted'])
+                self.assertEqual(j['tasks'],[]);self.assertEqual(j['go'],[]);self.assertIsNone(owner.fixture)
+                self.assertNotIn('create-profile',api.events);self.assertFalse(m.launcher.child_environment_admitted(j['child_environment']))
+                self.assertEqual(owner.budget.deadline,D)
+
+    def test_result_environment_metadata_is_closed_and_required_for_selected_attempt_and_complete_claim(self):
+        owner,api,j=self.owner()
+        for replacement in (m.launcher.default_child_environment(),j['child_environment']|{'exact_child_keyset':False},
+                j['child_environment']|{'release_returned':False},j['child_environment']|{'extra':True}):
+            with self.subTest(replacement=replacement),self.assertRaises((ValueError,m.launcher.GateFailure)):
+                m.validate_result(j|{'child_environment':replacement},owner.c)
 
     def test_wrong_lpac_flag_fresh_sid_low_il_or_outer_job_never_resume_selected_or_go(self):
         for fault in ('lpac0','sid','medium','outerjob'):
