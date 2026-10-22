@@ -1,0 +1,83 @@
+{
+  "actor_executed": false,
+  "actual_ready": false,
+  "all_cases_ordinary": true,
+  "all_tests_use_fake_api": true,
+  "binary_abis": {
+    "RDE1": 128,
+    "RDJ1": 256,
+    "RDP1": 512
+  },
+  "cases": [
+    "before",
+    "probe",
+    "after"
+  ],
+  "command": "python -I -S -B -m unittest discover -s tests -p test_windows_identity_dns_etw_owner.py -v",
+  "controller_or_old_profiles_modified": false,
+  "errors": 0,
+  "failures": 0,
+  "files": [
+    {
+      "bytes": 14712,
+      "lf_only": true,
+      "path": ".github/windows_identity_dns_etw_contract.py",
+      "sha256": "215a3209c8408413fce4e22fcb17eaac6778f5a5fb30f9e52e91d8bd7e43451b"
+    },
+    {
+      "bytes": 14131,
+      "lf_only": true,
+      "path": ".github/windows_identity_dns_etw_local.py",
+      "sha256": "0d4cf977567cd0b65155f7bd44e25e3c057f85210a46b3d974a2faf574556aa8"
+    },
+    {
+      "bytes": 5399,
+      "lf_only": true,
+      "path": ".github/windows_identity_dns_etw_recovery.py",
+      "sha256": "93be3c16f7240bd561d569df69fccd216694a065fd19bb7fccf97a5878853852"
+    },
+    {
+      "bytes": 15156,
+      "lf_only": true,
+      "path": "tests/test_windows_identity_dns_etw_owner.py",
+      "sha256": "d23382eda95657a4b5de1aadf21f20524e73095e395e42f0fdf6a66b2aa823b5"
+    }
+  ],
+  "helper_baseline_commit": "f07126c4517c53bf6810a62c114c0567e2b438a4",
+  "implemented_candidate_parts": [
+    "closed JSON/RDP1/RDE1/RDJ1 validators",
+    "maintenance high-IL held-identity reuse",
+    "durable private external journal with binary mode/fsync/readback",
+    "typed injected-backend supervision and sticky validated event facts",
+    "exact session recovery adapter with old owner/call generation exit and separate fresh recovery budget"
+  ],
+  "log_bytes": 2477,
+  "log_sha256": "4a35501f2dbd7c942a59207d046971a92bcb6d1e09a3674f455c23cdcf9520f7",
+  "native_component_owned_by": "evidence_audit",
+  "network_query_issued": false,
+  "no_claims": [
+    "selected DNS isolation",
+    "packet sender PID",
+    "broker attribution",
+    "ETW actual observability",
+    "Job kill stops ETW session"
+  ],
+  "profile": "ordinary-standard53-dns-client-etw-mechanism-v1",
+  "real_mechanism_positive_observed": false,
+  "repository_modified": false,
+  "runtime_blockers": [
+    "native standalone CLI does not exist; library/SDK compilation is not an executable owner",
+    "real source-bound RunAs/self-job/ordinary outer-guard/backend transport is not implemented",
+    "native RDJ1 validator exists but real report/RDJ/command/public joins are not wired into supervisor",
+    "real native07 ordinary READY/op6/finish driver, held generation and inventory/owned53 fixture join are not connected",
+    "runtime must rebind trusted private plan/device/source/artifact/config before the future real backend is admitted",
+    "no complete production CLI/preflight/recovery launcher or final public acceptance schema yet"
+  ],
+  "schema_version": 1,
+  "seconds": 0.624,
+  "skipped": 0,
+  "stage": "ordinary-dns-etw-python-adapter-candidate-pure-tests",
+  "tests": 13,
+  "trace_session_started": false,
+  "work_only": true
+}

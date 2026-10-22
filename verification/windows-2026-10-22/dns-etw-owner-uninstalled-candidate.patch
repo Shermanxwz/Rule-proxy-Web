@@ -1,0 +1,1655 @@
+diff --git a/.github/native/windows_dns_etw_attribution_core.hpp b/.github/native/windows_dns_etw_attribution_core.hpp
+new file mode 100644
+--- /dev/null
++++ b/.github/native/windows_dns_etw_attribution_core.hpp
+@@ -0,0 +1,285 @@
++// Portable ETW resource/ownership core. No Windows, trace, process or network calls.
++#pragma once
++#include <array>
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++#include <limits>
++#include <string>
++namespace rp_etw {
++using Id=std::array<std::uint8_t,16>;
++using Sha=std::array<std::uint8_t,32>;
++constexpr const char* Profile="ordinary-standard53-dns-client-etw-mechanism-v1";
++constexpr const wchar_t* SessionName=L"RuleProxy.Web.DnsClientAttribution";
++constexpr std::uint32_t Success=0,MoreData=234,AlreadyExists=183,NotFound=4201,
++    ActiveConnections=2402,ClosePending=7007,InvalidData=13,DeadlineError=1460;
++constexpr std::uint32_t RealtimeMode=0x100,NoProcessorBuffering=0x10000000,
++    ExpectedMode=RealtimeMode|NoProcessorBuffering;
++constexpr std::uint32_t BufferKiB=16,MinBuffers=4,MaxBuffers=16,MaxMemory=1048576;
++inline bool nonzero(const Id& a){for(auto v:a)if(v)return true;return false;}
++inline bool nonzero(const Sha& a){for(auto v:a)if(v)return true;return false;}
++constexpr std::array<Id,3> ForbiddenSessionGuids{{
++    {{0x6e,0x12,0x95,0x1c,0xea,0x7e,0xa9,0x49,0xa3,0xfe,0xa3,0x78,0xb0,0x3d,0xdb,0x4d}},
++    {{0xad,0x4a,0x81,0x9e,0x04,0x32,0xd2,0x11,0x9a,0x82,0x00,0x60,0x08,0xa8,0x69,0x39}},
++    {{0xbc,0x8a,0x90,0xe8,0x84,0xaa,0xd2,0x11,0x9a,0x93,0x00,0x80,0x5f,0x85,0xd7,0xc6}}
++}};
++inline bool valid_session_guid(const Id& a){if(!nonzero(a)||(a[7]>>4)!=4||(a[8]&0xc0)!=0x80)return false;
++    for(const auto& b:ForbiddenSessionGuids)if(a==b)return false;return true;}
++constexpr unsigned hex_value(char c){return c>='0'&&c<='9'?unsigned(c-'0'):unsigned(c-'a'+10);}
++constexpr Sha literal_sha(const char* s){Sha a{};for(unsigned i=0;i<32;++i)a[i]=std::uint8_t((hex_value(s[i*2])<<4)|hex_value(s[i*2+1]));return a;}
++constexpr Sha MetadataSha=literal_sha("7a07780a049b35948e5ecabd4a2d49dcb88dd586d47ea6ab29aca29c7d553f3c");
++constexpr Sha DnsApiSha=literal_sha("c7e1006f7bcbdff6d3668d10b9756a9734c53ccc47783f8908f68b60d0341bbb");
++inline std::uint64_t le(const std::uint8_t* b,unsigned n){
++    std::uint64_t v=0;for(unsigned i=0;i<n;++i)v|=std::uint64_t(b[i])<<(i*8);return v;
++}
++inline void put(std::uint8_t* b,std::uint64_t v,unsigned n){for(unsigned i=0;i<n;++i)b[i]=std::uint8_t(v>>(i*8));}
++struct Plan{
++    std::uint64_t frequency=0,start=0,deadline=0,capture_cutoff=0,stop_cutoff=0,drain_cutoff=0,final_cutoff=0;
++    Id session{},run{},boot{};Sha config{},source{},artifact{},metadata{},dnsapi{};
++    std::array<Id,3> cases{};
++    std::uint32_t ordinary_pid=0,ordinary_session=0;std::uint64_t ordinary_creation=0;
++    std::uint32_t controller_pid=0,controller_session=0;std::uint64_t controller_creation=0;Sha controller_image{};
++};
++inline bool valid(const Plan& p){
++    if(!p.frequency||p.frequency>1000000000ULL||!p.start||p.deadline>0x7fffffffffffffffULL||p.start>=p.capture_cutoff||
++        p.capture_cutoff>=p.stop_cutoff||p.stop_cutoff>=p.drain_cutoff||
++        p.drain_cutoff>=p.final_cutoff||p.final_cutoff>=p.deadline)return false;
++    if(p.deadline-p.start>120*p.frequency||p.deadline-p.capture_cutoff<20*p.frequency||
++        p.deadline-p.stop_cutoff!=12*p.frequency||p.deadline-p.drain_cutoff!=7*p.frequency||
++        p.deadline-p.final_cutoff!=5*p.frequency)return false;
++    if(!valid_session_guid(p.session)||!nonzero(p.run)||!nonzero(p.boot)||p.run==p.boot||
++        !nonzero(p.config)||!nonzero(p.source)||!nonzero(p.artifact)||p.metadata!=MetadataSha||p.dnsapi!=DnsApiSha||
++        !p.ordinary_pid||!p.ordinary_creation||!p.controller_pid||!p.controller_creation||
++        p.controller_pid==p.ordinary_pid||p.controller_session!=p.ordinary_session||!nonzero(p.controller_image))return false;
++    for(unsigned i=0;i<3;++i){if(!nonzero(p.cases[i])||p.cases[i]==p.run||p.cases[i]==p.boot)return false;
++        for(unsigned j=0;j<i;++j)if(p.cases[i]==p.cases[j])return false;}
++    return true;
++}
++inline bool decode_plan(const std::uint8_t* b,std::size_t n,Plan& p){
++    if(!b||n!=512||std::memcmp(b,"RDP1",4)||b[4]!=1||b[5]!=1||b[6]!=3||b[7])return false;
++    for(unsigned i=384;i<512;++i)if(b[i])return false;
++    p=Plan{};p.frequency=le(b+8,8);p.start=le(b+16,8);p.deadline=le(b+24,8);
++    p.capture_cutoff=le(b+32,8);p.stop_cutoff=le(b+40,8);p.drain_cutoff=le(b+48,8);p.final_cutoff=le(b+56,8);
++    std::memcpy(p.session.data(),b+64,16);std::memcpy(p.run.data(),b+80,16);std::memcpy(p.boot.data(),b+96,16);
++    std::memcpy(p.config.data(),b+112,32);std::memcpy(p.source.data(),b+144,32);
++    std::memcpy(p.artifact.data(),b+176,32);std::memcpy(p.metadata.data(),b+208,32);
++    for(unsigned i=0;i<3;++i)std::memcpy(p.cases[i].data(),b+240+16*i,16);
++    p.ordinary_pid=std::uint32_t(le(b+288,4));p.ordinary_session=std::uint32_t(le(b+292,4));
++    p.ordinary_creation=le(b+296,8);std::memcpy(p.dnsapi.data(),b+304,32);
++    p.controller_pid=std::uint32_t(le(b+336,4));p.controller_session=std::uint32_t(le(b+340,4));
++    p.controller_creation=le(b+344,8);std::memcpy(p.controller_image.data(),b+352,32);
++    return valid(p);
++}
++inline std::wstring query_name(const Id& item,bool terminal_dot=false){
++    constexpr wchar_t h[]=L"0123456789abcdef";std::wstring s;s.reserve(45);
++    for(auto b:item){s.push_back(h[b>>4]);s.push_back(h[b&15]);}
++    s+=L".n0a.invalid";if(terminal_dot)s.push_back(L'.');return s;
++}
++inline int match_query(const Plan& p,const std::wstring& name){
++    if(name.size()!=44&&name.size()!=45)return -1;
++    std::wstring normalized;normalized.reserve(name.size());
++    for(wchar_t c:name){if(c>127||c==0)return -1;normalized.push_back(c>=L'A'&&c<=L'Z'?wchar_t(c+32):c);}
++    if(normalized.size()==45){if(normalized.back()!=L'.')return -1;normalized.pop_back();}
++    for(unsigned i=0;i<3;++i)if(normalized==query_name(p.cases[i]))return static_cast<int>(i);return -1;
++}
++struct Command{std::uint8_t operation=0;std::uint32_t sequence=0;std::uint64_t cutoff=0;};
++inline bool decode_command(const std::uint8_t* b,std::size_t n,const Plan& p,std::uint32_t next,std::uint64_t now,Command& out){
++    if(!valid(p)||!b||n!=128||std::memcmp(b,"RDE1",4)||b[4]!=1||b[6]||b[7]||
++        next<1||next>8||le(b+8,4)!=next||le(b+12,4)||le(b+120,8))return false;
++    const auto op=b[5];if(op!=1&&op!=2&&op!=255)return false;
++    const auto cutoff=op==255?p.stop_cutoff:p.capture_cutoff;
++    if(now<p.start||now>=cutoff||le(b+48,8)!=p.frequency||le(b+56,8)!=p.deadline||le(b+112,8)!=cutoff||
++        std::memcmp(b+16,p.run.data(),16)||std::memcmp(b+32,p.boot.data(),16)||
++        std::memcmp(b+64,p.session.data(),16)||std::memcmp(b+80,p.config.data(),32))return false;
++    out={op,next,cutoff};return true;
++}
++struct Descriptor{std::uint16_t id;std::uint8_t version;};
++constexpr std::array<Descriptor,5> Descriptors{{{3010,0},{3010,1},{3011,0},{3011,1},{3011,2}}};
++struct Snapshot{
++    Id guid{};std::uint64_t control=0;
++    std::wstring name;
++    std::uint32_t mode=0,clock=0,buffer_kib=0,minimum=0,maximum=0,enable_flags=0;
++    bool has_log_file=false;
++    std::uint32_t events_lost=0,realtime_lost=0,log_lost=0;
++};
++inline bool same_session(const Plan& p,const Snapshot& s){
++    return s.guid==p.session&&s.name==SessionName&&s.control;
++}
++inline bool exact(const Plan& p,const Snapshot& s){
++    return same_session(p,s)&&s.mode==ExpectedMode&&s.clock==1&&
++        s.buffer_kib&&s.buffer_kib<=64&&s.minimum>=2&&s.maximum>=s.minimum&&
++        std::uint64_t(s.buffer_kib)*s.maximum*1024<=MaxMemory&&!s.enable_flags&&!s.has_log_file;
++}
++enum class Transition:std::uint8_t{Prepared=1,StartIntent,StartReturned,Readback,ConsumerIntent,ConsumerReturned,
++    EnableIntent,EnableReturned,DisableIntent,DisableReturned,StopIntent,StopReturned,Absence,
++    ConsumerCloseIntent,ConsumerCloseReturned,Drained,Freed,RecoveryAdmitted};
++enum class Failure:std::uint8_t{None,Configuration,Clock,Deadline,Journal,Collision,Filters,Start,Readback,
++    Consumer,Enable,Disable,Stop,Absence,Close,Drain,Free,Recovery};
++struct Facts{
++    Failure failure=Failure::None;std::uint32_t status=0;
++    bool prepared=false,filters_built=false,start_intent=false,start_attempted=false,start_returned=false;
++    bool session_owned=false,session_identity_verified=false,consumer_attempted=false,consumer_opened=false;
++    bool enable_intent=false,enable_attempted=false,enable_returned=false,provider_enabled=false,ready=false;
++    bool disable_attempted=false,disable_returned=false,stop_attempted=false,stop_returned=false;
++    bool control_consumed=false,absence_verified=false,consumer_close_attempted=false,consumer_close_confirmed=false;
++    bool drained=false,filters_freed=false,journal_ok=true,historical_uncertain=false,cleanup_verified=false,recovery_required=false,cleanup_attempted=false;
++    std::uint64_t control=0,last_qpc=0;
++    std::uint32_t start_status=0,enable_status=0,disable_status=0,stop_status=0,close_status=0;
++};
++inline void fail(Facts& f,Failure why,std::uint32_t status=InvalidData){
++    if(f.failure==Failure::None){f.failure=why;f.status=status;}f.ready=false;
++}
++template<class API>bool time(API& api,const Plan& p,Facts& f,std::uint64_t cutoff){
++    std::uint64_t now=0;
++    if(!api.now(now)||now<f.last_qpc||now<p.start){fail(f,Failure::Clock);return false;}
++    f.last_qpc=now;if(now>=cutoff){fail(f,Failure::Deadline,DeadlineError);return false;}return true;
++}
++template<class API>bool note(API& api,const Plan& p,Facts& f,Transition t,std::uint32_t status=0){
++    if(!api.journal(p,f,t,status)){f.journal_ok=false;fail(f,Failure::Journal);return false;}return true;
++}
++template<class API>bool start(API& api,const Plan& p,Facts& f){
++    if(f.start_attempted||f.prepared||!valid(p)){fail(f,Failure::Configuration);return false;}
++    if(!time(api,p,f,p.capture_cutoff))return false;
++    Snapshot existing;const auto queried=api.query(p,0,existing);
++    if(queried!=NotFound){fail(f,queried==Success?Failure::Collision:Failure::Readback,queried);return false;}
++    f.prepared=true;
++    if(!api.build_filters(p)){fail(f,Failure::Filters);return false;}
++    f.filters_built=true;
++    if(!note(api,p,f,Transition::Prepared)||!time(api,p,f,p.capture_cutoff)||
++        !note(api,p,f,Transition::StartIntent))return false;
++    f.start_intent=true;f.start_attempted=true;std::uint64_t id=0;
++    f.start_status=api.start_session(p,id);f.start_returned=true;
++    // Preserve side-effect/ownership facts before any subsequent clock or journal check.
++    f.control=id;f.session_owned=f.start_status==Success&&id!=0;
++    if(f.start_status!=Success||!id){f.historical_uncertain=f.start_status!=AlreadyExists;
++        fail(f,f.start_status==AlreadyExists?Failure::Collision:Failure::Start,f.start_status);}
++    (void)note(api,p,f,Transition::StartReturned,f.start_status);
++    if(!f.session_owned||!f.journal_ok||!time(api,p,f,p.capture_cutoff))return false;
++    Snapshot s;const auto read=api.query(p,id,s);
++    f.session_identity_verified=read==Success&&exact(p,s)&&s.control==id;
++    if(!f.session_identity_verified){fail(f,Failure::Readback,read);return false;}
++    if(!note(api,p,f,Transition::Readback)||!time(api,p,f,p.capture_cutoff)||
++        !note(api,p,f,Transition::ConsumerIntent))return false;
++    f.consumer_attempted=true;const auto opened=api.open_consumer(p);f.consumer_opened=api.consumer_opened();
++    if(opened!=Success||!f.consumer_opened||!api.consumer_running()||!api.consumer_clock_verified(p)){
++        fail(f,Failure::Consumer,opened);}
++    (void)note(api,p,f,Transition::ConsumerReturned,opened);
++    if(f.failure!=Failure::None||!time(api,p,f,p.capture_cutoff)||
++        !note(api,p,f,Transition::EnableIntent))return false;
++    f.enable_intent=true;f.enable_attempted=true;
++    f.enable_status=api.enable(p,id);f.enable_returned=true;f.provider_enabled=f.enable_status==Success;
++    if(!f.provider_enabled){f.historical_uncertain=true;fail(f,Failure::Enable,f.enable_status);}
++    (void)note(api,p,f,Transition::EnableReturned,f.enable_status);
++    if(!time(api,p,f,p.capture_cutoff)||!f.provider_enabled||!f.journal_ok||!api.consumer_running())return false;
++    f.ready=true;return true;
++}
++template<class API>bool cleanup(API& api,const Plan& p,Facts& f){
++    if(f.cleanup_attempted)return f.cleanup_verified;f.cleanup_attempted=true;
++    f.ready=false;
++    // Query exact name + GUID immediately before touching a previously owned session.
++    // A control ID is not an OS HANDLE and is never CloseHandle/CloseTrace'd.
++    if(f.session_owned&&!f.control_consumed){
++        if(time(api,p,f,p.final_cutoff)){
++            Snapshot s;const auto q=api.query(p,f.control,s);
++            if(q==NotFound)f.absence_verified=true;
++            else if(q==Success&&same_session(p,s)&&s.control==f.control){
++                if(f.enable_attempted){
++                    (void)note(api,p,f,Transition::DisableIntent);f.disable_attempted=true;
++                    f.disable_status=api.disable(p,f.control);f.disable_returned=true;
++                    if(f.disable_status!=Success){f.historical_uncertain=true;fail(f,Failure::Disable,f.disable_status);}
++                    (void)note(api,p,f,Transition::DisableReturned,f.disable_status);
++                }
++                if(time(api,p,f,p.final_cutoff)){
++                    (void)note(api,p,f,Transition::StopIntent);f.stop_attempted=true;
++                    const auto owned=f.control;f.control=0;f.control_consumed=true;
++                    f.stop_status=api.stop(p,owned);f.stop_returned=true;
++                    if(f.stop_status!=Success&&f.stop_status!=MoreData&&f.stop_status!=NotFound&&f.stop_status!=ActiveConnections){
++                        f.historical_uncertain=true;fail(f,Failure::Stop,f.stop_status);}
++                    (void)note(api,p,f,Transition::StopReturned,f.stop_status);
++                }
++            }else {f.historical_uncertain=true;fail(f,Failure::Readback,q);}
++        }
++    }
++    if(f.start_attempted){
++        // Never retry Stop through a consumed ID. Polling is read-only and bounded.
++        while(time(api,p,f,p.drain_cutoff)){
++            Snapshot s;const auto q=api.query(p,0,s);
++            if(q==NotFound){f.absence_verified=true;(void)note(api,p,f,Transition::Absence);break;}
++            if(q!=Success||!same_session(p,s)){f.historical_uncertain=true;fail(f,Failure::Absence,q);break;}
++            if(!f.stop_attempted)break;
++            api.pause(10);
++        }
++        if(!f.absence_verified){fail(f,Failure::Absence);f.recovery_required=true;}
++    } // No mutation is distinct from querying an unrelated same-name session absent.
++    if(f.consumer_attempted){
++        if(!f.consumer_opened)f.consumer_close_confirmed=true;
++        f.drained=api.drain(p,p.drain_cutoff);
++        if(f.consumer_opened&&!f.consumer_close_attempted){
++            (void)note(api,p,f,Transition::ConsumerCloseIntent);f.consumer_close_attempted=true;
++            f.close_status=api.close_consumer();
++            f.consumer_close_confirmed=f.close_status==Success||f.close_status==ClosePending;
++            if(!f.consumer_close_confirmed){f.historical_uncertain=true;fail(f,Failure::Close,f.close_status);}
++            (void)note(api,p,f,Transition::ConsumerCloseReturned,f.close_status);
++        }
++        if(!f.drained)f.drained=api.drain(p,p.final_cutoff);
++        if(!f.drained){fail(f,Failure::Drain);f.recovery_required=true;}
++        else (void)note(api,p,f,Transition::Drained);
++    }else{f.drained=true;f.consumer_close_confirmed=true;}
++    f.filters_freed=api.release_filters_and_thread();
++    if(!f.filters_freed){fail(f,Failure::Free);f.recovery_required=true;}
++    else (void)note(api,p,f,Transition::Freed);
++    f.cleanup_verified=(!f.start_attempted||f.absence_verified)&&f.consumer_close_confirmed&&f.drained&&f.filters_freed&&
++        f.journal_ok&&!f.historical_uncertain;
++    f.recovery_required=f.recovery_required||!f.cleanup_verified;
++    return f.cleanup_verified;
++}
++struct RecoveryEvidence{
++    bool journal_chain_verified=false,source_config_artifact_verified=false,component_lock_owned=false;
++    bool original_owner_held_exit_confirmed=false,original_call_worker_held_exit_confirmed=false;
++    bool durable_start_intent=false,original_spawn_unknown=false,unknown_late_call=false;
++    Id session{};Sha config{},source{};
++};
++struct RecoveryBudget{std::uint64_t frequency=0,start=0,deadline=0;};
++inline bool valid(const RecoveryBudget& b){return b.frequency&&b.frequency<=1000000000ULL&&b.start<b.deadline&&
++    b.deadline-b.start<=120*b.frequency;}
++inline bool recovery_admissible(const Plan& p,const RecoveryEvidence& e,const RecoveryBudget& b){
++    return valid(p)&&valid(b)&&e.journal_chain_verified&&e.source_config_artifact_verified&&e.component_lock_owned&&
++        e.original_owner_held_exit_confirmed&&e.original_call_worker_held_exit_confirmed&&e.durable_start_intent&&
++        !e.original_spawn_unknown&&!e.unknown_late_call&&e.session==p.session&&e.config==p.config&&e.source==p.source;
++}
++struct RecoveryFacts{
++    bool admitted=false,absent_before=false,exact_present=false,disable_attempted=false,stop_attempted=false;
++    bool control_consumed=false,absence_verified=false,completed=false,historical_original_uncertainty_preserved=true,journal_ok=true;
++    std::uint32_t query_status=0,disable_status=0,stop_status=0;std::uint64_t last_qpc=0;
++};
++template<class API>bool recover(API& api,const Plan& original,const RecoveryEvidence& e,const RecoveryBudget& b,RecoveryFacts& f){
++    if(f.admitted||!recovery_admissible(original,e,b))return false;
++    auto within=[&](){std::uint64_t now=0;if(!api.now(now)||now<f.last_qpc||now<b.start||now>=b.deadline)return false;
++        f.last_qpc=now;return true;};
++    if(!within())return false;f.admitted=true;
++    Snapshot s;f.query_status=api.query(original,0,s);
++    if(f.query_status==NotFound){f.absent_before=true;f.absence_verified=true;f.completed=true;return true;}
++    if(f.query_status!=Success||!exact(original,s))return false;
++    f.exact_present=true;
++    // Re-query by the freshly observed control ID, not a historical numeric ID.
++    Snapshot checked;if(!within()||api.query(original,s.control,checked)!=Success||
++        !exact(original,checked)||checked.control!=s.control)return false;
++    auto log=[&](Transition t,std::uint32_t status=Success){const bool ok=api.recovery_journal(original,e,b,t,status);f.journal_ok=f.journal_ok&&ok;return ok;};
++    if(!log(Transition::RecoveryAdmitted)||!log(Transition::DisableIntent)||!within())return false;
++    f.disable_attempted=true;f.disable_status=api.disable_recovery(original,s.control,b);
++    (void)log(Transition::DisableReturned,f.disable_status);
++    // Already-owned resource cleanup is still attempted if a later journal write fails.
++    (void)log(Transition::StopIntent);if(!within())return false;
++    f.stop_attempted=true;f.control_consumed=true;f.stop_status=api.stop(original,s.control);
++    (void)log(Transition::StopReturned,f.stop_status);
++    if(f.stop_status!=Success&&f.stop_status!=MoreData&&f.stop_status!=NotFound&&f.stop_status!=ActiveConnections)return false;
++    while(within()){
++        Snapshot after;const auto q=api.query(original,0,after);
++        if(q==NotFound){f.absence_verified=true;break;}
++        if(q!=Success||!exact(original,after))return false;api.pause(10);
++    }
++    (void)log(Transition::Absence);
++    f.completed=f.absence_verified&&f.disable_status==Success&&f.journal_ok;
++    return f.completed;
++}
++} // namespace rp_etw
+diff --git a/.github/native/windows_dns_etw_attribution_windows.hpp b/.github/native/windows_dns_etw_attribution_windows.hpp
+new file mode 100644
+--- /dev/null
++++ b/.github/native/windows_dns_etw_attribution_windows.hpp
+@@ -0,0 +1,52 @@
++// Windows SDK implementation; no executable runtime entry point.
++#pragma once
++#include "windows_dns_etw_attribution_core.hpp"
++#include <memory>
++#include <string>
++namespace rp_etw {
++struct EventCounters{
++    std::array<std::uint32_t,3> query_events{},response_events{},client_matches{},legacy_events{};
++    std::array<bool,3> query_observed{},response_observed{},late_observed{};
++    std::uint32_t accepted=0,rejected=0,parse_failures=0,unknown_versions=0;
++    bool overflow=false,callback_failed=false;
++};
++struct SessionStatistics{bool known=false;std::uint32_t events_lost=0,realtime_lost=0,log_lost=0;};
++// This context must come only from the source-bound Python/launcher verifier.
++// It is NOT a set of self-reportable CLI booleans. No runtime CLI exists in v1.
++struct VerifiedContext{
++    bool private_directory_verified=false,source_and_artifact_verified=false,component_lock_owned=false;
++    bool external_owner_held_admission_verified=false;
++    std::wstring journal_directory;
++};
++class WindowsBackend{
++public:
++    WindowsBackend(const Plan&,const VerifiedContext&);
++    ~WindowsBackend();
++    WindowsBackend(const WindowsBackend&)=delete;
++    WindowsBackend& operator=(const WindowsBackend&)=delete;
++    bool now(std::uint64_t&)noexcept;
++    void pause(std::uint32_t)noexcept;
++    bool journal(const Plan&,const Facts&,Transition,std::uint32_t)noexcept;
++    bool recovery_journal(const Plan&,const RecoveryEvidence&,const RecoveryBudget&,Transition,std::uint32_t)noexcept;
++    bool build_filters(const Plan&)noexcept;
++    std::uint32_t query(const Plan&,std::uint64_t,Snapshot&)noexcept;
++    std::uint32_t start_session(const Plan&,std::uint64_t&)noexcept;
++    std::uint32_t open_consumer(const Plan&)noexcept;
++    bool consumer_opened()const noexcept;
++    bool consumer_running()const noexcept;
++    bool consumer_clock_verified(const Plan&)const noexcept;
++    std::uint32_t enable(const Plan&,std::uint64_t)noexcept;
++    std::uint32_t disable(const Plan&,std::uint64_t)noexcept;
++    std::uint32_t disable_recovery(const Plan&,std::uint64_t,const RecoveryBudget&)noexcept;
++    std::uint32_t stop(const Plan&,std::uint64_t)noexcept;
++    std::uint32_t close_consumer()noexcept;
++    bool drain(const Plan&,std::uint64_t)noexcept;
++    bool release_filters_and_thread()noexcept;
++    EventCounters counters()const noexcept;
++    SessionStatistics statistics()const noexcept;
++    std::uint32_t consumer_result()const noexcept;
++    bool context_retained()const noexcept;
++private:
++    struct Impl;std::unique_ptr<Impl> impl_;
++};
++} // namespace rp_etw
+diff --git a/.github/native/windows_dns_etw_attribution_windows.cpp b/.github/native/windows_dns_etw_attribution_windows.cpp
+new file mode 100644
+--- /dev/null
++++ b/.github/native/windows_dns_etw_attribution_windows.cpp
+@@ -0,0 +1,386 @@
++// Real SDK adapter, compiled/linked only by candidate builder. No runtime CLI.
++#define WIN32_LEAN_AND_MEAN
++#define NOMINMAX
++#include <windows.h>
++#include <evntrace.h>
++#include <evntcons.h>
++#include <evntprov.h>
++#include <tdh.h>
++#include <bcrypt.h>
++#include <process.h>
++#include "windows_dns_etw_attribution_windows.hpp"
++#include <algorithm>
++#include <atomic>
++#include <climits>
++#include <cstdio>
++#include <mutex>
++#include <vector>
++namespace rp_etw { namespace {
++const GUID Provider={0x1c95126e,0x7eea,0x49a9,{0xa3,0xfe,0xa3,0x78,0xb0,0x3d,0xdb,0x4d}};
++constexpr std::array<const char*,5> MetadataHashes{{
++ "be3b69ceab43838846d0fd69d8b16488f5299ffe5b14fc2624909a8bb5c6973c",
++ "a6d5042ae4b2f91391c523559520d047a724fd0db7ff968012931c52c09343be",
++ "2f8be78b066f422d346f6e85072d8077caf940d77ed01e679e7de08c2578d0d8",
++ "ba31a2cfc52fb2200bf0f91d90470f16d8e753d0e9e27152269ee69c24351311",
++ "b7429d526eda0c3215f72b8050631962b044f615fd992ba39934ee2712fc3de3"}};
++struct OnceHandle{
++ HANDLE value=nullptr;bool attempted=false,confirmed=false;
++ bool take(HANDLE h){if(value||attempted||!h||h==INVALID_HANDLE_VALUE)return false;value=h;return true;}
++ bool close()noexcept{if(!value)return !attempted||confirmed;const auto h=value;value=nullptr;attempted=true;
++  confirmed=CloseHandle(h)!=FALSE;return confirmed;}
++ ~OnceHandle(){if(value)(void)close();}
++};
++bool qpc(std::uint64_t& out)noexcept{LARGE_INTEGER v{};if(!QueryPerformanceCounter(&v)||v.QuadPart<0)return false;
++ out=static_cast<std::uint64_t>(v.QuadPart);return true;}
++bool hash_bytes(const void* p,std::size_t n,Sha& out)noexcept{
++ if(!p||n>ULONG_MAX)return false;
++ return BCryptHash(BCRYPT_SHA256_ALG_HANDLE,nullptr,0,
++  reinterpret_cast<PUCHAR>(const_cast<void*>(p)),static_cast<ULONG>(n),out.data(),static_cast<ULONG>(out.size()))>=0;
++}
++Sha hash_literal(const char* text)noexcept{
++ Sha out{};for(unsigned i=0;i<32;++i){auto digit=[](char c)->unsigned{return c>='0'&&c<='9'?unsigned(c-'0'):unsigned(c-'a'+10);};
++ out[i]=static_cast<std::uint8_t>((digit(text[2*i])<<4)|digit(text[2*i+1]));}return out;
++}
++bool hash_file(const std::wstring& name,Sha& out)noexcept{
++ OnceHandle h;if(!h.take(CreateFileW(name.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,
++   FILE_FLAG_OPEN_REPARSE_POINT|FILE_FLAG_SEQUENTIAL_SCAN,nullptr)))return false;
++ BY_HANDLE_FILE_INFORMATION info{};LARGE_INTEGER size{};bool ok=GetFileInformationByHandle(h.value,&info)&&
++  !(info.dwFileAttributes&(FILE_ATTRIBUTE_REPARSE_POINT|FILE_ATTRIBUTE_DIRECTORY))&&GetFileSizeEx(h.value,&size)&&
++  size.QuadPart>0&&size.QuadPart<=8388608;
++ if(ok){try{std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size.QuadPart));DWORD read=0;
++  ok=ReadFile(h.value,bytes.data(),static_cast<DWORD>(bytes.size()),&read,nullptr)&&read==bytes.size()&&
++   hash_bytes(bytes.data(),bytes.size(),out);}catch(...){ok=false;}}
++ return h.close()&&ok;
++}
++bool generation(HANDLE h,DWORD expected_pid,std::uint64_t expected_creation,DWORD expected_session)noexcept{
++ if(!h||GetProcessId(h)!=expected_pid||WaitForSingleObject(h,0)!=WAIT_TIMEOUT)return false;
++ FILETIME c{},e{},k{},u{};DWORD session=0;
++ if(!GetProcessTimes(h,&c,&e,&k,&u)||!ProcessIdToSessionId(expected_pid,&session))return false;
++ const auto created=(std::uint64_t(c.dwHighDateTime)<<32)|c.dwLowDateTime;
++ return created==expected_creation&&session==expected_session&&WaitForSingleObject(h,0)==WAIT_TIMEOUT;
++}
++bool duplicate_query(HANDLE source,OnceHandle& target)noexcept{
++ HANDLE h=nullptr;
++ if(!DuplicateHandle(GetCurrentProcess(),source,GetCurrentProcess(),&h,0,FALSE,DUPLICATE_SAME_ACCESS))return false;
++ if(!target.take(h)){CloseHandle(h);return false;}return true;
++}
++struct PropertyStorage{
++ EVENT_TRACE_PROPERTIES props{};wchar_t logger[1024]{};wchar_t logfile[1024]{};
++};
++PropertyStorage properties(const Plan& p){
++ PropertyStorage s{};s.props.Wnode.BufferSize=sizeof(s);s.props.Wnode.Flags=WNODE_FLAG_TRACED_GUID;
++ std::memcpy(&s.props.Wnode.Guid,p.session.data(),16);s.props.Wnode.ClientContext=1;
++ s.props.LoggerNameOffset=offsetof(PropertyStorage,logger);
++ s.props.LogFileNameOffset=0;s.props.BufferSize=BufferKiB;s.props.MinimumBuffers=MinBuffers;
++ s.props.MaximumBuffers=MaxBuffers;s.props.LogFileMode=ExpectedMode;s.props.FlushTimer=1;
++ return s;
++}
++bool bounded_string(const PropertyStorage& store,ULONG offset,std::wstring& value){
++ if(!offset){value.clear();return true;}
++ if(offset%sizeof(wchar_t)||offset>=sizeof(store))return false;
++ const auto begin=reinterpret_cast<const wchar_t*>(reinterpret_cast<const unsigned char*>(&store)+offset);
++ const auto limit=(sizeof(store)-offset)/sizeof(wchar_t);
++ for(std::size_t i=0;i<limit;++i)if(!begin[i]){value.assign(begin,i);return true;}return false;
++}
++bool metadata(unsigned index)noexcept{
++ const auto d=Descriptors[index];GUID provider=Provider;EVENT_DESCRIPTOR descriptor{};
++ descriptor.Id=d.id;descriptor.Version=d.version;descriptor.Channel=16;descriptor.Level=4;descriptor.Keyword=0x8000000000000000ULL;
++ ULONG bytes=0;auto status=TdhGetManifestEventInformation(&provider,&descriptor,nullptr,&bytes);
++ if(status!=ERROR_INSUFFICIENT_BUFFER||!bytes||bytes>65536)return false;
++ try{std::vector<unsigned char> storage(bytes);auto info=reinterpret_cast<PTRACE_EVENT_INFO>(storage.data());
++  status=TdhGetManifestEventInformation(&provider,&descriptor,info,&bytes);
++  if(status!=ERROR_SUCCESS||bytes>storage.size())return false;
++  Sha digest{};return hash_bytes(storage.data(),bytes,digest)&&digest==hash_literal(MetadataHashes[index]);
++ }catch(...){return false;}
++}
++bool context_directory(const std::wstring& directory)noexcept{
++ if(directory.size()<4||directory.size()>240||directory[1]!=L':'||
++  (directory[2]!=L'\\'&&directory[2]!=L'/')||directory.find(L"..")!=std::wstring::npos)return false;
++ for(std::size_t i=3;i<=directory.size();++i)if(i==directory.size()||directory[i]==L'\\'||directory[i]==L'/'){
++  const auto prefix=directory.substr(0,i);const DWORD attr=GetFileAttributesW(prefix.c_str());
++  if(attr==INVALID_FILE_ATTRIBUTES||!(attr&FILE_ATTRIBUTE_DIRECTORY)||(attr&FILE_ATTRIBUTE_REPARSE_POINT))return false;}
++ return true;
++}
++std::uint32_t timeout_ms(std::uint64_t frequency,std::uint64_t deadline)noexcept{
++ std::uint64_t now=0;if(!qpc(now)||now>=deadline)return 0;
++ const auto ticks=deadline-now;const auto ms=std::min<std::uint64_t>(1000,ticks*1000/frequency);
++ return static_cast<std::uint32_t>(ms);
++}
++struct Context{
++ Plan plan;OnceHandle controller,ordinary;
++ PROCESSTRACE_HANDLE trace=INVALID_PROCESSTRACE_HANDLE;bool trace_owned=false,trace_consumed=false;
++ std::atomic<bool> entered{false},done{false};std::atomic<ULONG> process_status{ERROR_IO_PENDING};
++ std::atomic<bool> binding_failed{false};
++ mutable std::mutex lock;EventCounters facts;EVENT_TRACE_LOGFILEW logfile{};
++ explicit Context(const Plan& p):plan(p){}
++ bool alive()const noexcept{return generation(controller.value,plan.controller_pid,plan.controller_creation,plan.controller_session)&&
++  generation(ordinary.value,plan.ordinary_pid,plan.ordinary_creation,plan.ordinary_session);}
++};
++bool property(EVENT_RECORD* record,const wchar_t* name,void* output,ULONG expected,ULONG maximum)noexcept{
++ PROPERTY_DATA_DESCRIPTOR descriptor{};descriptor.PropertyName=reinterpret_cast<ULONGLONG>(name);descriptor.ArrayIndex=ULONG_MAX;
++ ULONG size=0;if(TdhGetPropertySize(record,0,nullptr,1,&descriptor,&size)!=ERROR_SUCCESS||
++  size>maximum||size<expected)return false;
++ return TdhGetProperty(record,0,nullptr,1,&descriptor,size,reinterpret_cast<PBYTE>(output))==ERROR_SUCCESS;
++}
++bool name_property(EVENT_RECORD* record,std::wstring& name){
++ std::array<wchar_t,46> storage{};PROPERTY_DATA_DESCRIPTOR d{};d.PropertyName=reinterpret_cast<ULONGLONG>(L"QueryName");
++ d.ArrayIndex=ULONG_MAX;ULONG size=0;
++ if(TdhGetPropertySize(record,0,nullptr,1,&d,&size)!=ERROR_SUCCESS||!size||size>92||size%2)return false;
++ if(TdhGetProperty(record,0,nullptr,1,&d,size,reinterpret_cast<PBYTE>(storage.data()))!=ERROR_SUCCESS)return false;
++ const auto count=size/2;std::size_t n=0;while(n<count&&storage[n])++n;
++ if(n+1!=count)return false;name.assign(storage.data(),n);return true;
++}
++void WINAPI on_event(EVENT_RECORD* record)noexcept{
++ auto* c=static_cast<Context*>(record->UserContext);if(!c)return;
++ try{
++  if(!IsEqualGUID(record->EventHeader.ProviderId,Provider))return;
++  const auto& d=record->EventHeader.EventDescriptor;unsigned descriptor=5;
++  for(unsigned i=0;i<5;++i)if(Descriptors[i].id==d.Id&&Descriptors[i].version==d.Version){descriptor=i;break;}
++  if(descriptor==5){std::lock_guard<std::mutex> g(c->lock);++c->facts.unknown_versions;return;}
++  if(d.Channel!=16||d.Level!=4||d.Opcode||d.Task||d.Keyword!=0x8000000000000000ULL||record->UserDataLength>4096){
++   std::lock_guard<std::mutex> g(c->lock);++c->facts.parse_failures;return;}
++  std::wstring name;if(!name_property(record,name)){std::lock_guard<std::mutex> g(c->lock);++c->facts.parse_failures;return;}
++  const auto matched=match_query(c->plan,name);
++  if(matched<0){std::lock_guard<std::mutex> g(c->lock);++c->facts.rejected;return;}
++  const auto item=static_cast<unsigned>(matched);
++  ULONG query_type=0;if(!property(record,L"QueryType",&query_type,4,4)||query_type!=1){
++   std::lock_guard<std::mutex> g(c->lock);++c->facts.parse_failures;return;}
++  bool client_match=false;if(d.Version){ULONG client=0;if(!property(record,L"ClientPID",&client,4,4)){
++    std::lock_guard<std::mutex> g(c->lock);++c->facts.parse_failures;return;}
++   client_match=client==c->plan.ordinary_pid&&generation(c->ordinary.value,c->plan.ordinary_pid,c->plan.ordinary_creation,c->plan.ordinary_session);}
++  std::uint64_t now=0;const bool got=qpc(now);
++  const auto event_time=record->EventHeader.TimeStamp.QuadPart;
++  std::lock_guard<std::mutex> g(c->lock);
++  // Positive matching event facts survive late clocks and bounded-store overflow.
++  if(d.Id==3010)c->facts.query_observed[item]=true;else c->facts.response_observed[item]=true;
++  if(!got||event_time<0||std::uint64_t(event_time)<c->plan.start||
++    std::uint64_t(event_time)>=c->plan.capture_cutoff||now>=c->plan.capture_cutoff)c->facts.late_observed[item]=true;
++  if(!got||now<c->plan.start)c->facts.callback_failed=true;
++  if(c->facts.accepted>=256){c->facts.overflow=true;return;}++c->facts.accepted;
++  if(d.Id==3010)++c->facts.query_events[item];else ++c->facts.response_events[item];
++  if(d.Version==0)++c->facts.legacy_events[item];else if(client_match)++c->facts.client_matches[item];
++  // Header.ProcessId, unrecognized ClientPID/server, and v2 pointer fields are not retained.
++ }catch(...){try{std::lock_guard<std::mutex> g(c->lock);c->facts.callback_failed=true;}catch(...){}}
++}
++ULONG WINAPI on_buffer(EVENT_TRACE_LOGFILEW* logfile)noexcept{
++ auto* c=static_cast<Context*>(logfile->Context);if(!c)return FALSE;
++ try{std::lock_guard<std::mutex> g(c->lock);if(c->facts.overflow||c->facts.callback_failed)return FALSE;}
++ catch(...){return FALSE;}
++ std::uint64_t now=0;if(!qpc(now)||now>=c->plan.final_cutoff||!c->alive()){
++  c->binding_failed.store(true);return FALSE;}return TRUE;
++}
++unsigned __stdcall consume(void* raw)noexcept{
++ auto* c=static_cast<Context*>(raw);c->entered.store(true);
++ auto id=c->trace;const auto result=ProcessTrace(&id,1,nullptr,nullptr);
++ c->process_status.store(result);c->done.store(true);return 0;
++}
++} // namespace
++struct WindowsBackend::Impl{
++ Plan plan;VerifiedContext verified;std::array<PVOID,5> filters{};
++ EVENT_FILTER_DESCRIPTOR aggregate{};bool aggregate_owned=false,aggregate_consumed=false,filters_built=false;
++ std::array<bool,5> filter_consumed{};bool opaque_clean=true;
++ std::vector<std::uint8_t> id_storage;
++ std::array<EVENT_FILTER_DESCRIPTOR,2> descriptors{};
++ OnceHandle controller,ordinary,thread;
++ std::unique_ptr<Context> consumer;bool retained=false,thread_exited=false,thread_close_confirmed=false;
++ std::uint32_t journal_sequence=0;Sha previous{};bool journal_clean=true;
++ SessionStatistics statistics{};
++ Impl(const Plan& p,const VerifiedContext& v):plan(p),verified(v){}
++ bool trusted()const noexcept{return verified.private_directory_verified&&verified.source_and_artifact_verified&&
++  verified.component_lock_owned&&verified.external_owner_held_admission_verified;}
++ bool bindings(){
++  if(controller.value&&ordinary.value)return generation(controller.value,plan.controller_pid,plan.controller_creation,plan.controller_session)&&
++    generation(ordinary.value,plan.ordinary_pid,plan.ordinary_creation,plan.ordinary_session);
++  if(controller.attempted||ordinary.attempted||plan.controller_pid==GetCurrentProcessId())return false;
++  if(!controller.take(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,plan.controller_pid)))return false;
++  if(!ordinary.take(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,plan.ordinary_pid)))return false;
++  if(!generation(controller.value,plan.controller_pid,plan.controller_creation,plan.controller_session)||
++    !generation(ordinary.value,plan.ordinary_pid,plan.ordinary_creation,plan.ordinary_session))return false;
++  std::array<wchar_t,32768> image{};DWORD length=static_cast<DWORD>(image.size());
++  if(!QueryFullProcessImageNameW(controller.value,0,image.data(),&length))return false;
++  Sha hash{};return hash_file(std::wstring(image.data(),length),hash)&&hash==plan.controller_image;
++ }
++ bool write_journal(Transition transition,ULONG status,std::uint64_t bits,std::uint64_t recovery_deadline)noexcept{
++  try{
++   if(!trusted()||!context_directory(verified.journal_directory)||journal_sequence>=64){journal_clean=false;return false;}
++   std::uint64_t now=0;if(!qpc(now)){journal_clean=false;return false;}
++   std::array<std::uint8_t,256> record{};std::memcpy(record.data(),"RDJ1",4);record[4]=1;
++   record[5]=static_cast<std::uint8_t>(transition);const auto seq=++journal_sequence;
++   put(record.data()+8,seq,4);put(record.data()+12,status,4);put(record.data()+16,now,8);put(record.data()+24,bits,8);
++   std::memcpy(record.data()+32,plan.session.data(),16);std::memcpy(record.data()+48,plan.run.data(),16);
++   std::memcpy(record.data()+64,plan.boot.data(),16);std::memcpy(record.data()+80,plan.config.data(),32);
++   std::memcpy(record.data()+112,plan.source.data(),32);std::memcpy(record.data()+144,previous.data(),32);
++   put(record.data()+176,plan.frequency,8);put(record.data()+184,plan.start,8);put(record.data()+192,plan.deadline,8);
++   put(record.data()+200,recovery_deadline,8);Sha digest{};
++   if(!hash_bytes(record.data(),224,digest)){journal_clean=false;return false;}
++   std::memcpy(record.data()+224,digest.data(),32);
++   wchar_t name[32]{};if(swprintf_s(name,L"j-%04u.bin",seq)<0){journal_clean=false;return false;}
++   const auto file=verified.journal_directory+L"\\"+name;OnceHandle owned;
++   if(!owned.take(CreateFileW(file.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,
++     FILE_ATTRIBUTE_NORMAL|FILE_FLAG_WRITE_THROUGH|FILE_FLAG_OPEN_REPARSE_POINT,nullptr))){journal_clean=false;return false;}
++   DWORD written=0;const bool bytes=WriteFile(owned.value,record.data(),static_cast<DWORD>(record.size()),&written,nullptr)&&written==record.size();
++   const bool flushed=bytes&&FlushFileBuffers(owned.value)!=FALSE;const bool closed=owned.close();
++   if(!bytes||!flushed||!closed){journal_clean=false;return false;}previous=digest;return true;
++  }catch(...){journal_clean=false;return false;}
++ }
++ ~Impl(){
++  // A live ProcessTrace may still reference Context. Retain the entire context and
++  // its independent query handles; never free callback memory on an uncertain join.
++  if(consumer&&!thread_exited){consumer.release();retained=true;}
++ }
++};
++WindowsBackend::WindowsBackend(const Plan& p,const VerifiedContext& v):impl_(std::make_unique<Impl>(p,v)){}
++WindowsBackend::~WindowsBackend()=default;
++bool WindowsBackend::now(std::uint64_t& value)noexcept{return qpc(value);}
++void WindowsBackend::pause(std::uint32_t milliseconds)noexcept{Sleep(std::min<std::uint32_t>(milliseconds,100));}
++bool WindowsBackend::journal(const Plan& p,const Facts& f,Transition t,std::uint32_t status)noexcept{
++ if(p.config!=impl_->plan.config||p.session!=impl_->plan.session)return false;
++ std::uint64_t bits=0;bits|=std::uint64_t(f.start_attempted)<<0;bits|=std::uint64_t(f.start_returned)<<1;
++ bits|=std::uint64_t(f.session_owned)<<2;bits|=std::uint64_t(f.session_identity_verified)<<3;
++ bits|=std::uint64_t(f.consumer_opened)<<4;bits|=std::uint64_t(f.enable_attempted)<<5;
++ bits|=std::uint64_t(f.provider_enabled)<<6;bits|=std::uint64_t(f.stop_attempted)<<7;
++ bits|=std::uint64_t(f.absence_verified)<<8;bits|=std::uint64_t(f.consumer_close_confirmed)<<9;
++ bits|=std::uint64_t(f.drained)<<10;bits|=std::uint64_t(f.historical_uncertain)<<11;
++ return impl_->write_journal(t,status,bits,0);
++}
++bool WindowsBackend::recovery_journal(const Plan& p,const RecoveryEvidence& evidence,const RecoveryBudget& budget,Transition t,std::uint32_t status)noexcept{
++ if(p.config!=impl_->plan.config||!recovery_admissible(p,evidence,budget))return false;
++ return impl_->write_journal(t,status,0,budget.deadline);
++}
++bool WindowsBackend::build_filters(const Plan& p)noexcept{
++ try{
++  if(!impl_->trusted()||!valid(p)||p.config!=impl_->plan.config||impl_->filters_built||!impl_->bindings())return false;
++  LARGE_INTEGER frequency{};if(!QueryPerformanceFrequency(&frequency)||frequency.QuadPart<=0||
++    std::uint64_t(frequency.QuadPart)!=p.frequency)return false;
++  std::array<wchar_t,32768> system{};const auto size=GetSystemDirectoryW(system.data(),static_cast<UINT>(system.size()));
++  if(!size||size>=system.size())return false;Sha installed{};
++  if(!hash_file(std::wstring(system.data(),size)+L"\\dnsapi.dll",installed)||installed!=p.dnsapi)return false;
++  std::array<std::wstring,6> names;for(unsigned i=0;i<3;++i){names[i*2]=query_name(p.cases[i]);names[i*2+1]=query_name(p.cases[i],true);}
++  for(unsigned i=0;i<5;++i){
++   if(!metadata(i))return false;EVENT_DESCRIPTOR descriptor{};descriptor.Id=Descriptors[i].id;
++   descriptor.Version=Descriptors[i].version;descriptor.Channel=16;descriptor.Level=4;descriptor.Keyword=0x8000000000000000ULL;
++   std::array<PAYLOAD_FILTER_PREDICATE,6> predicates{};
++   for(unsigned j=0;j<6;++j){predicates[j].FieldName=const_cast<PWSTR>(L"QueryName");
++    predicates[j].CompareOp=PAYLOADFIELD_IS;predicates[j].Value=const_cast<PWSTR>(names[j].c_str());}
++   const auto status=TdhCreatePayloadFilter(&Provider,&descriptor,TRUE,6,predicates.data(),&impl_->filters[i]);
++   if(status!=ERROR_SUCCESS||!impl_->filters[i])return false;
++  }
++  std::array<BOOLEAN,5> flags{};
++  const auto aggregated=TdhAggregatePayloadFilters(5,impl_->filters.data(),flags.data(),&impl_->aggregate);
++  impl_->aggregate_owned=impl_->aggregate.Ptr!=0;
++  if(aggregated!=ERROR_SUCCESS||!impl_->aggregate_owned||impl_->aggregate.Type!=EVENT_FILTER_TYPE_PAYLOAD||
++    !impl_->aggregate.Size||impl_->aggregate.Size>MAX_EVENT_FILTER_PAYLOAD_SIZE)return false;
++  impl_->id_storage.assign(sizeof(EVENT_FILTER_EVENT_ID)+sizeof(USHORT),0);
++  auto ids=reinterpret_cast<EVENT_FILTER_EVENT_ID*>(impl_->id_storage.data());ids->FilterIn=TRUE;ids->Count=2;
++  ids->Events[0]=3010;ids->Events[1]=3011;
++  impl_->descriptors[0]={reinterpret_cast<ULONGLONG>(ids),static_cast<ULONG>(impl_->id_storage.size()),EVENT_FILTER_TYPE_EVENT_ID};
++  impl_->descriptors[1]=impl_->aggregate;impl_->filters_built=true;return true;
++ }catch(...){return false;}
++}
++std::uint32_t WindowsBackend::query(const Plan& p,std::uint64_t id,Snapshot& out)noexcept{
++ try{auto storage=properties(p);const auto status=ControlTraceW(id,SessionName,&storage.props,EVENT_TRACE_CONTROL_QUERY);
++  if(status!=ERROR_SUCCESS)return status;out=Snapshot{};
++  std::memcpy(out.guid.data(),&storage.props.Wnode.Guid,16);out.control=storage.props.Wnode.HistoricalContext;
++  if(!bounded_string(storage,storage.props.LoggerNameOffset,out.name))return ERROR_INVALID_DATA;
++  std::wstring logfile;if(!bounded_string(storage,storage.props.LogFileNameOffset,logfile))return ERROR_INVALID_DATA;
++  out.has_log_file=!logfile.empty();out.mode=storage.props.LogFileMode;out.clock=storage.props.Wnode.ClientContext;
++  out.buffer_kib=storage.props.BufferSize;out.minimum=storage.props.MinimumBuffers;out.maximum=storage.props.MaximumBuffers;
++  out.enable_flags=storage.props.EnableFlags;out.events_lost=storage.props.EventsLost;
++  out.realtime_lost=storage.props.RealTimeBuffersLost;out.log_lost=storage.props.LogBuffersLost;return Success;
++ }catch(...){return ERROR_NOT_ENOUGH_MEMORY;}
++}
++std::uint32_t WindowsBackend::start_session(const Plan& p,std::uint64_t& id)noexcept{
++ id=0;try{if(!impl_->trusted()||!impl_->filters_built||!impl_->bindings()||!timeout_ms(p.frequency,p.capture_cutoff))return ERROR_INVALID_STATE;
++  auto storage=properties(p);CONTROLTRACE_ID trace{};const auto status=StartTraceW(&trace,SessionName,&storage.props);
++  id=trace;return status;
++ }catch(...){return ERROR_NOT_ENOUGH_MEMORY;}
++}
++std::uint32_t WindowsBackend::open_consumer(const Plan& p)noexcept{
++ try{
++  if(impl_->consumer||!impl_->bindings())return ERROR_INVALID_STATE;
++  impl_->consumer=std::make_unique<Context>(p);auto& c=*impl_->consumer;
++  if(!duplicate_query(impl_->controller.value,c.controller)||!duplicate_query(impl_->ordinary.value,c.ordinary))return ERROR_ACCESS_DENIED;
++  c.logfile.LoggerName=const_cast<PWSTR>(SessionName);c.logfile.ProcessTraceMode=
++    PROCESS_TRACE_MODE_EVENT_RECORD|PROCESS_TRACE_MODE_REAL_TIME|PROCESS_TRACE_MODE_RAW_TIMESTAMP;
++  c.logfile.Context=&c;c.logfile.EventRecordCallback=on_event;c.logfile.BufferCallback=on_buffer;
++  c.trace=OpenTraceW(&c.logfile);if(c.trace==INVALID_PROCESSTRACE_HANDLE)return GetLastError();
++  c.trace_owned=true;unsigned tid=0;
++  const auto handle=_beginthreadex(nullptr,0,consume,&c,0,&tid);
++  if(!handle)return GetLastError()?GetLastError():ERROR_NOT_ENOUGH_MEMORY;
++  if(!impl_->thread.take(reinterpret_cast<HANDLE>(handle)))return ERROR_INVALID_HANDLE;
++  if(!SetHandleInformation(impl_->thread.value,HANDLE_FLAG_INHERIT,0))return GetLastError();
++  while(!c.entered.load()&&!c.done.load()&&timeout_ms(p.frequency,p.capture_cutoff))Sleep(1);
++  return c.entered.load()&&!c.done.load()?Success:ERROR_OPERATION_ABORTED;
++ }catch(...){return ERROR_NOT_ENOUGH_MEMORY;}
++}
++bool WindowsBackend::consumer_opened()const noexcept{return impl_->consumer&&impl_->consumer->trace_owned;}
++bool WindowsBackend::consumer_running()const noexcept{return impl_->consumer&&impl_->thread.value&&impl_->consumer->entered.load()&&
++ !impl_->consumer->done.load()&&!impl_->consumer->binding_failed.load()&&WaitForSingleObject(impl_->thread.value,0)==WAIT_TIMEOUT;}
++bool WindowsBackend::consumer_clock_verified(const Plan& p)const noexcept{return impl_->consumer&&
++ impl_->consumer->logfile.LogfileHeader.ReservedFlags==1&&
++ impl_->consumer->logfile.LogfileHeader.PerfFreq.QuadPart>0&&std::uint64_t(impl_->consumer->logfile.LogfileHeader.PerfFreq.QuadPart)==p.frequency;}
++std::uint32_t WindowsBackend::enable(const Plan& p,std::uint64_t id)noexcept{
++ if(!impl_->filters_built||!impl_->bindings()||!consumer_running())return ERROR_INVALID_STATE;
++ ENABLE_TRACE_PARAMETERS params{};params.Version=ENABLE_TRACE_PARAMETERS_VERSION_2;
++ params.EnableProperty=EVENT_ENABLE_PROPERTY_IGNORE_KEYWORD_0;std::memcpy(&params.SourceId,p.session.data(),16);
++ params.EnableFilterDesc=impl_->descriptors.data();params.FilterDescCount=2;
++ const auto timeout=timeout_ms(p.frequency,p.capture_cutoff);if(!timeout)return ERROR_TIMEOUT;
++ return EnableTraceEx2(id,&Provider,EVENT_CONTROL_CODE_ENABLE_PROVIDER,4,0x8000000000000000ULL,0,timeout,&params);
++}
++std::uint32_t WindowsBackend::disable(const Plan& p,std::uint64_t id)noexcept{
++ const auto timeout=timeout_ms(p.frequency,p.final_cutoff);if(!timeout)return ERROR_TIMEOUT;
++ return EnableTraceEx2(id,&Provider,EVENT_CONTROL_CODE_DISABLE_PROVIDER,0,0,0,timeout,nullptr);
++}
++std::uint32_t WindowsBackend::disable_recovery(const Plan&,std::uint64_t id,const RecoveryBudget& budget)noexcept{
++ const auto timeout=timeout_ms(budget.frequency,budget.deadline);if(!timeout)return ERROR_TIMEOUT;
++ return EnableTraceEx2(id,&Provider,EVENT_CONTROL_CODE_DISABLE_PROVIDER,0,0,0,timeout,nullptr);
++}
++std::uint32_t WindowsBackend::stop(const Plan& p,std::uint64_t id)noexcept{
++ auto storage=properties(p);const auto status=ControlTraceW(id,SessionName,&storage.props,EVENT_TRACE_CONTROL_STOP);
++ impl_->statistics.known=status==ERROR_SUCCESS;
++ if(impl_->statistics.known){impl_->statistics.events_lost=storage.props.EventsLost;
++  impl_->statistics.realtime_lost=storage.props.RealTimeBuffersLost;impl_->statistics.log_lost=storage.props.LogBuffersLost;}
++ return status;
++}
++std::uint32_t WindowsBackend::close_consumer()noexcept{
++ if(!impl_->consumer||!impl_->consumer->trace_owned||impl_->consumer->trace_consumed)return ERROR_INVALID_HANDLE;
++ auto& c=*impl_->consumer;const auto owned=c.trace;c.trace_owned=false;c.trace_consumed=true;c.trace=INVALID_PROCESSTRACE_HANDLE;
++ return CloseTrace(owned);
++}
++bool WindowsBackend::drain(const Plan& p,std::uint64_t deadline)noexcept{
++ if(!impl_->consumer)return true;if(!impl_->thread.value){impl_->thread_exited=!impl_->consumer->entered.load();return impl_->thread_exited;}
++ for(;;){
++  const auto status=WaitForSingleObject(impl_->thread.value,0);
++  if(status==WAIT_OBJECT_0){impl_->thread_exited=true;return impl_->consumer->done.load();}
++  if(status!=WAIT_TIMEOUT)return false;const auto left=timeout_ms(p.frequency,deadline);if(!left)return false;
++  Sleep(std::min<std::uint32_t>(left,10));
++ }
++}
++bool WindowsBackend::release_filters_and_thread()noexcept{
++ bool ok=true;
++ if(impl_->aggregate_owned&&!impl_->aggregate_consumed){impl_->aggregate_consumed=true;impl_->aggregate_owned=false;
++  EVENT_FILTER_DESCRIPTOR owned=impl_->aggregate;impl_->aggregate={};
++  if(TdhCleanupPayloadEventFilterDescriptor(&owned)!=ERROR_SUCCESS)ok=false;}
++ for(unsigned i=0;i<5;++i)if(impl_->filters[i]&&!impl_->filter_consumed[i]){
++  auto owned=impl_->filters[i];impl_->filters[i]=nullptr;impl_->filter_consumed[i]=true;
++  if(TdhDeletePayloadFilter(&owned)!=ERROR_SUCCESS)ok=false;}
++ if(impl_->consumer){
++  if(!impl_->thread_exited&&impl_->thread.value){impl_->retained=true;ok=false;}
++  else{
++   ok=impl_->consumer->controller.close()&&ok;ok=impl_->consumer->ordinary.close()&&ok;
++  }
++ }
++ if(impl_->thread.value){if(impl_->thread_exited){impl_->thread_close_confirmed=impl_->thread.close();ok=impl_->thread_close_confirmed&&ok;}
++  else ok=false;}
++ ok=impl_->controller.close()&&ok;ok=impl_->ordinary.close()&&ok;
++ impl_->opaque_clean=impl_->opaque_clean&&ok;return impl_->opaque_clean;
++}
++EventCounters WindowsBackend::counters()const noexcept{
++ if(!impl_->consumer)return EventCounters{};try{std::lock_guard<std::mutex> g(impl_->consumer->lock);return impl_->consumer->facts;}
++ catch(...){EventCounters failed;failed.callback_failed=true;return failed;}
++}
++SessionStatistics WindowsBackend::statistics()const noexcept{return impl_->statistics;}
++std::uint32_t WindowsBackend::consumer_result()const noexcept{return impl_->consumer&&impl_->consumer->done.load()?
++ impl_->consumer->process_status.load():ERROR_IO_PENDING;}
++bool WindowsBackend::context_retained()const noexcept{return impl_->retained;}
++} // namespace rp_etw
+diff --git a/.github/native/windows_dns_etw_inert_link.cpp b/.github/native/windows_dns_etw_inert_link.cpp
+new file mode 100644
+--- /dev/null
++++ b/.github/native/windows_dns_etw_inert_link.cpp
+@@ -0,0 +1,2 @@
++// Compile/link smoke only. This entry cannot start a trace or parse an owner plan.
++int wmain(){return 125;}
+diff --git a/.github/build_windows_dns_etw_attribution_library.ps1 b/.github/build_windows_dns_etw_attribution_library.ps1
+new file mode 100644
+--- /dev/null
++++ b/.github/build_windows_dns_etw_attribution_library.ps1
+@@ -0,0 +1,58 @@
++#requires -Version 5.1
++<# Compile/link only. Linked smoke entry returns 125 and never calls ETW.
++   Does not run library, smoke executable, DNS actor, or network actions. #>
++[CmdletBinding()]
++param(
++ [Parameter(Mandatory=$true)][string]$OutputDirectory,
++ [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedCoreSha256,
++ [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedWindowsHeaderSha256,
++ [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedWindowsSourceSha256,
++ [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedInertSourceSha256
++)
++Set-StrictMode -Version Latest
++$ErrorActionPreference='Stop'
++if($env:OS -ne 'Windows_NT' -or $env:VSCMD_ARG_TGT_ARCH -cne 'x64'){throw 'Explicit Windows x64 developer shell required.'}
++$names=@('windows_dns_etw_attribution_core.hpp','windows_dns_etw_attribution_windows.hpp',
++ 'windows_dns_etw_attribution_windows.cpp','windows_dns_etw_inert_link.cpp')
++$expected=@($ExpectedCoreSha256,$ExpectedWindowsHeaderSha256,$ExpectedWindowsSourceSha256,$ExpectedInertSourceSha256)
++$files=@();$hashes=@()
++for($i=0;$i -lt $names.Count;$i++){
++ $file=Get-Item -LiteralPath (Join-Path $PSScriptRoot ('native\'+$names[$i])) -ErrorAction Stop
++ if($file.PSIsContainer -or (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)){throw 'Source rejected.'}
++ $hash=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
++ if($hash -cne $expected[$i].ToLowerInvariant()){throw 'Source pin mismatch.'}
++ $files+=,$file;$hashes+=,$hash
++}
++$path=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
++if(Test-Path -LiteralPath $path){throw 'Output must be new.'}
++$directory=New-Item -Path $path -ItemType Directory -ErrorAction Stop
++$obj=Join-Path $directory.FullName 'dns-etw-windows.obj'
++$library=Join-Path $directory.FullName 'dns-etw-windows.lib'
++$smokeObj=Join-Path $directory.FullName 'dns-etw-inert.obj'
++$smoke=Join-Path $directory.FullName 'dns-etw-inert-link.exe'
++$compiler=Get-Command cl.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1
++$librarian=Get-Command lib.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1
++& $compiler.Source '/nologo' '/c' '/W4' '/WX' '/std:c++17' '/EHsc' '/MT' '/O2' '/utf-8' '/guard:cf' "/Fo$obj" $files[2].FullName
++if($LASTEXITCODE -ne 0){throw 'SDK adapter compile failed.'}
++& $librarian.Source '/nologo' "/OUT:$library" $obj
++if($LASTEXITCODE -ne 0){throw 'Library failed.'}
++$linkArgs=@('/nologo','/W4','/WX','/std:c++17','/EHsc','/MT','/O2','/utf-8','/guard:cf',"/Fo$smokeObj","/Fe$smoke",$files[3].FullName,
++ '/link',"/WHOLEARCHIVE:$library",'Advapi32.lib','Tdh.lib','Bcrypt.lib','/INCREMENTAL:NO','/DYNAMICBASE','/NXCOMPAT','/GUARD:CF')
++& $compiler.Source @linkArgs
++if($LASTEXITCODE -ne 0){throw 'Inert SDK link failed.'}
++for($i=0;$i -lt $names.Count;$i++){
++ if((Get-FileHash -LiteralPath $files[$i].FullName -Algorithm SHA256).Hash.ToLowerInvariant() -cne $hashes[$i]){throw 'Source changed.'}
++}
++$sources=@()
++for($i=0;$i -lt $names.Count;$i++){$sources+=,[ordered]@{basename=$names[$i];bytes=$files[$i].Length;sha256=$hashes[$i]}}
++$manifest=[ordered]@{
++ schemaVersion=1;compileOnly=$true;runtimeAcceptance=$false;actualReady=$false
++ profile='ordinary-standard53-dns-client-etw-mechanism-v1';sources=$sources
++ adapterObjectSha256=(Get-FileHash -LiteralPath $obj -Algorithm SHA256).Hash.ToLowerInvariant()
++ librarySha256=(Get-FileHash -LiteralPath $library -Algorithm SHA256).Hash.ToLowerInvariant()
++ inertLinkSha256=(Get-FileHash -LiteralPath $smoke -Algorithm SHA256).Hash.ToLowerInvariant()
++ runtimeOwnerCli=$false;runtimeRecoveryCli=$false;inertEntrypointReturns=125;executed=$false
++}
++[IO.File]::WriteAllText((Join-Path $directory.FullName 'dns-etw-library-manifest.json'),
++ (($manifest|ConvertTo-Json -Depth 5)+[Environment]::NewLine),(New-Object Text.UTF8Encoding($false)))
++[pscustomobject]@{CompileOnly=$true;ActualReady=$false;Executed=$false;LibrarySha256=$manifest.librarySha256;InertLinkSha256=$manifest.inertLinkSha256}
+diff --git a/tests/native/windows_dns_etw_core_fake.cpp b/tests/native/windows_dns_etw_core_fake.cpp
+new file mode 100644
+--- /dev/null
++++ b/tests/native/windows_dns_etw_core_fake.cpp
+@@ -0,0 +1,163 @@
++// Injected fake only. Never links or calls the Windows ETW adapter.
++#include "windows_dns_etw_attribution_core.hpp"
++#include <cstdio>
++#include <vector>
++using namespace rp_etw;
++Plan plan(){
++ Plan p;p.frequency=1000;p.start=1000;p.deadline=121000;p.capture_cutoff=101000;
++ p.stop_cutoff=109000;p.drain_cutoff=114000;p.final_cutoff=116000;
++ p.session.fill(0x10);p.session[7]=0x40;p.session[8]=0x80;p.run.fill(0x20);p.boot.fill(0x30);p.config.fill(1);p.source.fill(2);
++ p.artifact.fill(3);p.metadata=MetadataSha;p.dnsapi=DnsApiSha;p.controller_image.fill(6);
++ for(unsigned i=0;i<3;++i)p.cases[i].fill(static_cast<std::uint8_t>(0x40+i));
++ p.ordinary_pid=100;p.ordinary_session=1;p.ordinary_creation=500;
++ p.controller_pid=101;p.controller_session=1;p.controller_creation=400;return p;
++}
++std::array<std::uint8_t,512> encode(const Plan& p){
++ std::array<std::uint8_t,512> b{};std::memcpy(b.data(),"RDP1",4);b[4]=1;b[5]=1;b[6]=3;
++ const std::array<std::uint64_t,7> q{p.frequency,p.start,p.deadline,p.capture_cutoff,p.stop_cutoff,p.drain_cutoff,p.final_cutoff};
++ for(unsigned i=0;i<7;++i)put(b.data()+8+8*i,q[i],8);
++ std::memcpy(b.data()+64,p.session.data(),16);std::memcpy(b.data()+80,p.run.data(),16);std::memcpy(b.data()+96,p.boot.data(),16);
++ std::memcpy(b.data()+112,p.config.data(),32);std::memcpy(b.data()+144,p.source.data(),32);
++ std::memcpy(b.data()+176,p.artifact.data(),32);std::memcpy(b.data()+208,p.metadata.data(),32);
++ for(unsigned i=0;i<3;++i)std::memcpy(b.data()+240+16*i,p.cases[i].data(),16);
++ put(b.data()+288,p.ordinary_pid,4);put(b.data()+292,p.ordinary_session,4);put(b.data()+296,p.ordinary_creation,8);
++ std::memcpy(b.data()+304,p.dnsapi.data(),32);put(b.data()+336,p.controller_pid,4);put(b.data()+340,p.controller_session,4);
++ put(b.data()+344,p.controller_creation,8);std::memcpy(b.data()+352,p.controller_image.data(),32);return b;
++}
++std::array<std::uint8_t,128> command(const Plan& p,unsigned op=1,unsigned seq=1){
++ std::array<std::uint8_t,128>b{};std::memcpy(b.data(),"RDE1",4);b[4]=1;b[5]=std::uint8_t(op);put(b.data()+8,seq,4);
++ std::memcpy(b.data()+16,p.run.data(),16);std::memcpy(b.data()+32,p.boot.data(),16);put(b.data()+48,p.frequency,8);
++ put(b.data()+56,p.deadline,8);std::memcpy(b.data()+64,p.session.data(),16);std::memcpy(b.data()+80,p.config.data(),32);
++ put(b.data()+112,op==255?p.stop_cutoff:p.capture_cutoff,8);return b;
++}
++struct Fake{
++ std::uint64_t tick=1010,jump_after_start=0;
++ unsigned starts=0,enables=0,disables=0,stops=0,opens=0,closes=0,releases=0,queries=0,drains=0;
++ std::uint32_t start_status=0,enable_status=0,disable_status=0,stop_status=0,close_status=0,open_status=0;
++ bool present=false,filters=false,consumer=false,running=false,built_ok=true,release_ok=true,drain_ok=true,clock_ok=true;
++ bool wrong_guid=false,bad_mode=false,bad_limits=false,query_error=false,stop_keeps_present=false,opened_without_thread=false;
++ Transition fail_journal=Transition(0);bool journal_failed_once=false;
++ std::vector<Transition> records;std::uint64_t last_stop=0;
++ bool now(std::uint64_t& n){n=tick++;return clock_ok;}
++ void pause(std::uint32_t n){tick+=n;}
++ bool journal(const Plan&,const Facts&,Transition t,std::uint32_t){records.push_back(t);
++  if(t==fail_journal&&!journal_failed_once){journal_failed_once=true;return false;}return true;}
++ bool recovery_journal(const Plan&,const RecoveryEvidence&,const RecoveryBudget&,Transition t,std::uint32_t s){
++  Facts f;return journal(Plan{},f,t,s);}
++ bool build_filters(const Plan&){filters=true;return built_ok;}
++ std::uint32_t query(const Plan& p,std::uint64_t,Snapshot& s){
++  ++queries;if(query_error)return 5;if(!present)return NotFound;
++  s.guid=p.session;if(wrong_guid)s.guid[0]^=1;s.name=SessionName;s.control=77;s.mode=bad_mode?0:ExpectedMode;
++  s.clock=1;s.buffer_kib=16;s.minimum=4;s.maximum=bad_limits?1024:16;return Success;
++ }
++ std::uint32_t start_session(const Plan&,std::uint64_t& id){++starts;
++  if(!start_status){id=77;present=true;}if(jump_after_start)tick=jump_after_start;return start_status;}
++ std::uint32_t open_consumer(const Plan&){++opens;consumer=open_status==0||opened_without_thread;running=consumer&&!opened_without_thread;return open_status;}
++ bool consumer_opened()const{return consumer;}
++ bool consumer_running()const{return running;}
++ bool consumer_clock_verified(const Plan&)const{return true;}
++ std::uint32_t enable(const Plan&,std::uint64_t){++enables;return enable_status;}
++ std::uint32_t disable(const Plan&,std::uint64_t){++disables;return disable_status;}
++ std::uint32_t disable_recovery(const Plan& p,std::uint64_t id,const RecoveryBudget&){return disable(p,id);}
++ std::uint32_t stop(const Plan&,std::uint64_t id){++stops;last_stop=id;
++  if(!stop_keeps_present&&(stop_status==Success||stop_status==MoreData||stop_status==NotFound||stop_status==ActiveConnections))present=false;
++  return stop_status;}
++ std::uint32_t close_consumer(){++closes;consumer=false;if(close_status!=ClosePending)running=false;return close_status;}
++ bool drain(const Plan&,std::uint64_t){++drains;if(close_status==ClosePending&&closes==0)return false;
++  if(drain_ok)running=false;return drain_ok;}
++ bool release_filters_and_thread(){++releases;filters=false;return release_ok&&!running;}
++};
++unsigned scenarios=0;bool require(bool x,const char* name){++scenarios;if(!x)std::printf("FAIL %s\n",name);return x;}
++RecoveryEvidence evidence(const Plan& p){RecoveryEvidence e;e.journal_chain_verified=true;e.source_config_artifact_verified=true;
++ e.component_lock_owned=true;e.original_owner_held_exit_confirmed=true;e.original_call_worker_held_exit_confirmed=true;
++ e.durable_start_intent=true;e.session=p.session;e.config=p.config;e.source=p.source;return e;}
++int main(){bool good=true;const auto p=plan();const auto bytes=encode(p);Plan out;
++ good=require(valid(p)&&decode_plan(bytes.data(),512,out)&&out.controller_pid==p.controller_pid&&out.controller_image==p.controller_image,
++  "binary-plan-all-ordinary-parent-binding")&&good;
++ for(const auto& id:ForbiddenSessionGuids){auto bad=p;bad.session=id;good=require(!valid(bad),"provider-kernel-global-guid-forbidden")&&good;}
++ for(unsigned n=0;n<=513;++n)good=require(decode_plan(bytes.data(),n,out)==(n==512),"exact-plan-size")&&good;
++ for(unsigned i=384;i<512;++i)for(unsigned bit=0;bit<8;++bit){auto b=bytes;b[i]^=std::uint8_t(1u<<bit);
++  good=require(!decode_plan(b.data(),512,out),"plan-reserved-closed")&&good;}
++ for(unsigned i=0;i<8;++i)for(unsigned bit=0;bit<8;++bit){auto b=bytes;b[i]^=std::uint8_t(1u<<bit);
++  good=require(!decode_plan(b.data(),512,out),"plan-magic-profile-count-closed")&&good;}
++ for(unsigned which=0;which<20;++which){auto bad=p;
++  if(which==0)bad.frequency=0;if(which==1)bad.frequency=1000000001;if(which==2)bad.deadline=bad.start+121*bad.frequency;
++  if(which==3)bad.capture_cutoff=bad.start;if(which==4)bad.stop_cutoff=bad.capture_cutoff;if(which==5)bad.drain_cutoff=bad.stop_cutoff;
++  if(which==6)bad.final_cutoff=bad.deadline-4999;if(which==7)bad.cases[1]=bad.cases[0];if(which==8)bad.cases[0]=bad.run;
++  if(which==9)bad.controller_pid=bad.ordinary_pid;if(which==10)bad.controller_session=2;if(which==11)bad.controller_image.fill(0);
++  if(which==12)bad.config.fill(0);if(which==13)bad.controller_creation=0;if(which==14)bad.session.fill(0);
++  if(which==15)--bad.stop_cutoff;if(which==16)bad.capture_cutoff=bad.deadline-19000;
++  if(which==17)bad.metadata[0]^=1;if(which==18)bad.dnsapi[0]^=1;if(which==19)bad.session[8]=0;
++  good=require(!valid(bad),"closed-plan-boundaries")&&good;}
++ for(unsigned i=0;i<3;++i){auto name=query_name(p.cases[i]);good=require(name.size()==44&&match_query(p,name)==int(i)&&
++  match_query(p,name+L".")==int(i),"three-exact-name-mapping")&&good;
++  auto uppercase=name;for(auto& c:uppercase)if(c>=L'a'&&c<=L'z')c=wchar_t(c-32);
++  good=require(match_query(p,uppercase)==int(i),"documented-case-insensitive-IS")&&good;
++  for(unsigned n=0;n<name.size();++n){auto bad=name;bad[n]=L'x';if(bad!=name)good=require(match_query(p,bad)<0,"no-substring-wildcard-or-other-case")&&good;}
++  good=require(match_query(p,name+L"..")<0&&match_query(p,L"x"+name)<0,"one-optional-terminal-dot-only")&&good;
++ }
++ for(unsigned op=0;op<256;++op){const auto b=command(p,op);Command c;
++  good=require(decode_command(b.data(),128,p,1,1010,c)==(op==1||op==2||op==255),"closed-command-operations")&&good;}
++ const auto start_command=command(p);
++ for(unsigned n=0;n<=129;++n){Command c;good=require(decode_command(start_command.data(),n,p,1,1010,c)==(n==128),"exact-command-size")&&good;}
++ for(unsigned i=0;i<128;++i){if(i==5)continue;for(unsigned bit=0;bit<8;++bit){auto b=start_command;b[i]^=std::uint8_t(1u<<bit);Command c;
++  good=require(!decode_command(b.data(),128,p,1,1010,c),"command-every-bound-bit-and-reserved")&&good;}}
++ for(unsigned seq=0;seq<10;++seq){const auto b=command(p,1,seq);Command c;
++  good=require(decode_command(b.data(),128,p,seq,1010,c)==(seq>=1&&seq<=8),"monotonic-bounded-sequence")&&good;}
++ for(auto now:std::array<std::uint64_t,4>{0,p.start-1,p.capture_cutoff,p.deadline}){Command c;
++  good=require(!decode_command(start_command.data(),128,p,1,now,c),"command-original-deadline")&&good;}
++ {Fake a;Facts f;good=require(start(a,p,f)&&f.ready&&a.starts==1&&a.enables==1,"fake-positive-start")&&good;
++  good=require(cleanup(a,p,f)&&f.cleanup_verified&&f.control_consumed&&f.absence_verified&&a.stops==1&&a.closes==1&&a.releases==1,
++   "fake-exact-stop-drain-close")&&good;
++  const auto calls=a.queries;good=require(cleanup(a,p,f)&&a.stops==1&&a.queries==calls,"cleanup-consumed-once")&&good;}
++ {Fake a;a.present=true;a.wrong_guid=true;Facts f;good=require(!start(a,p,f)&&a.starts==0&&a.enables==0&&
++  cleanup(a,p,f)&&!f.absence_verified&&a.stops==0,"unknown-session-collision-never-adopted-or-stopped")&&good;}
++ {Fake a;a.built_ok=false;Facts f;good=require(!start(a,p,f)&&a.starts==0&&a.enables==0&&cleanup(a,p,f)&&a.releases==1,
++  "partial-filter-failure-no-unfiltered-fallback")&&good;}
++ for(auto t:{Transition::Prepared,Transition::StartIntent}){Fake a;a.fail_journal=t;Facts f;
++  good=require(!start(a,p,f)&&a.starts==0&&!cleanup(a,p,f)&&!f.journal_ok,"durable-intent-before-start")&&good;}
++ {Fake a;a.fail_journal=Transition::StartReturned;Facts f;
++  good=require(!start(a,p,f)&&f.session_owned&&!cleanup(a,p,f)&&a.stops==1&&f.absence_verified,
++   "journal-failure-preserves-owned-effect-and-still-stops")&&good;}
++ {Fake a;a.jump_after_start=p.capture_cutoff;Facts f;good=require(!start(a,p,f)&&f.session_owned&&
++  cleanup(a,p,f)&&a.stops==1,"late-start-effect-retained-before-clock-gate")&&good;}
++ for(unsigned i=0;i<2;++i){Fake a;if(i==0)a.bad_mode=true;else a.bad_limits=true;Facts f;
++  good=require(!start(a,p,f)&&a.enables==0&&cleanup(a,p,f)&&a.stops==1,
++   "bad-readback-cannot-enable-but-own-session-can-be-cleaned")&&good;}
++ {Fake a;a.enable_status=DeadlineError;Facts f;good=require(!start(a,p,f)&&f.enable_attempted&&
++  !cleanup(a,p,f)&&f.absence_verified&&a.stops==1&&f.historical_uncertain,
++   "enable-timeout-not-noeffect-and-never-qualified")&&good;}
++ {Fake a;a.open_status=5;Facts f;good=require(!start(a,p,f)&&cleanup(a,p,f)&&a.stops==1&&a.closes==0,
++  "consumer-open-failure-no-handle-to-close")&&good;}
++ {Fake a;a.open_status=5;a.opened_without_thread=true;Facts f;good=require(!start(a,p,f)&&cleanup(a,p,f)&&a.stops==1&&a.closes==1,
++  "open-handle-before-thread-failure-is-owned")&&good;}
++ for(auto status:{MoreData,ActiveConnections,NotFound}){Fake a;a.stop_status=status;Facts f;(void)start(a,p,f);
++  good=require(cleanup(a,p,f)&&f.control_consumed&&a.stops==1,"stop-status-effect-separated-from-return-code")&&good;}
++ {Fake a;a.stop_status=5;Facts f;(void)start(a,p,f);good=require(!cleanup(a,p,f)&&a.stops==1&&f.control_consumed&&
++  f.recovery_required&&!f.absence_verified,"failed-stop-never-retry-consumed-control-id")&&good;}
++ {Fake a;a.close_status=ClosePending;Facts f;(void)start(a,p,f);good=require(cleanup(a,p,f)&&a.drains==2&&a.closes==1,
++  "close-pending-requires-later-drain-not-instant-cleanup")&&good;}
++ {Fake a;a.drain_ok=false;Facts f;(void)start(a,p,f);good=require(!cleanup(a,p,f)&&f.recovery_required,
++  "unknown-consumer-thread-never-green")&&good;}
++ {Fake a;Facts f;(void)start(a,p,f);a.clock_ok=false;good=require(!cleanup(a,p,f)&&a.stops==0&&f.recovery_required,
++  "unknown-original-clock-does-not-renew-or-mutate")&&good;}
++ const RecoveryBudget budget{p.frequency,500000,620000};const auto e=evidence(p);
++ for(unsigned i=0;i<11;++i){auto bad=e;
++  if(i==0)bad.journal_chain_verified=false;if(i==1)bad.source_config_artifact_verified=false;if(i==2)bad.component_lock_owned=false;
++  if(i==3)bad.original_owner_held_exit_confirmed=false;if(i==4)bad.original_call_worker_held_exit_confirmed=false;
++  if(i==5)bad.durable_start_intent=false;if(i==6)bad.original_spawn_unknown=true;if(i==7)bad.unknown_late_call=true;
++  if(i==8)bad.session[0]^=1;if(i==9)bad.config[0]^=1;if(i==10)bad.source[0]^=1;
++  Fake a;a.tick=500001;a.present=true;RecoveryFacts f;good=require(!recover(a,p,bad,budget,f)&&a.stops==0&&a.disables==0,
++   "exact-recovery-external-proof-required")&&good;}
++ {Fake a;a.tick=500001;a.present=true;RecoveryFacts f;
++  good=require(recover(a,p,e,budget,f)&&f.completed&&a.last_stop==77&&f.historical_original_uncertainty_preserved,
++   "new-recovery-budget-no-network-start-original-history-preserved")&&good;}
++ {Fake a;a.tick=500001;RecoveryFacts f;good=require(recover(a,p,e,budget,f)&&f.absent_before&&a.stops==0,
++  "read-only-absence-recovery")&&good;}
++ for(unsigned i=0;i<3;++i){Fake a;a.tick=500001;a.present=true;if(i==0)a.wrong_guid=true;if(i==1)a.bad_mode=true;if(i==2)a.bad_limits=true;
++  RecoveryFacts f;good=require(!recover(a,p,e,budget,f)&&a.stops==0&&a.disables==0,"recovery-strict-guid-mode-limit-mismatch-never-stops")&&good;}
++ {Fake a;a.tick=500001;a.present=true;a.fail_journal=Transition::DisableReturned;RecoveryFacts f;
++  good=require(!recover(a,p,e,budget,f)&&a.stops==1&&f.absence_verified&&!f.journal_ok,
++   "recovery-late-journal-failure-stops-owned-resource-without-green")&&good;}
++ std::printf("ETW_FAKE_SCENARIOS %u\n",scenarios);return good?0:1;
++}
+diff --git a/tests/test_windows_dns_etw_native.py b/tests/test_windows_dns_etw_native.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_windows_dns_etw_native.py
+@@ -0,0 +1,33 @@
++"""Compiles/runs portable fake only; never imports/calls ETW backend."""
++import os
++from pathlib import Path
++import shutil
++import subprocess
++import tempfile
++import unittest
++
++ROOT = Path(__file__).resolve().parents[1]
++class NativeEtwCoreTests(unittest.TestCase):
++    def test_portable_resource_filter_ownership_recovery_failures(self):
++        compiler = shutil.which("cl.exe") if os.name == "nt" else shutil.which("c++")
++        self.assertIsNotNone(compiler, "use the installed x64 developer compiler shell")
++        with tempfile.TemporaryDirectory() as directory:
++            out = Path(directory)
++            exe = out / ("etw-core-fake.exe" if os.name == "nt" else "etw-core-fake")
++            source = ROOT / "tests/native/windows_dns_etw_core_fake.cpp"
++            include = ROOT / ".github/native"
++            if os.name == "nt":
++                argv = [compiler, "/nologo", "/W4", "/WX", "/std:c++17", "/EHsc", "/MT", "/O2",
++                        "/I" + str(include), "/Fo" + str(out / "fake.obj"), "/Fe" + str(exe), str(source)]
++            else:
++                argv = [compiler, "-std=c++17", "-Wall", "-Wextra", "-Werror", "-O2",
++                        "-I", str(include), str(source), "-o", str(exe)]
++            built = subprocess.run(argv, cwd=out, capture_output=True, text=True, timeout=60)
++            self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
++            run = subprocess.run([str(exe)], cwd=out, capture_output=True, text=True, timeout=30)
++            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
++            self.assertRegex(run.stdout, r"ETW_FAKE_SCENARIOS [1-9][0-9]{3,}")
++            self.assertNotIn("FAIL ", run.stdout)
++            print(run.stdout.strip())
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/.github/windows_identity_dns_etw_contract.py b/.github/windows_identity_dns_etw_contract.py
+new file mode 100644
+--- /dev/null
++++ b/.github/windows_identity_dns_etw_contract.py
+@@ -0,0 +1,183 @@
++"""Closed ordinary ETW mechanism contracts. Importing never calls Windows APIs.
++
++This first profile has three ordinary controls, not a selected-application cell.
++The JSON remains a private commitment; RDP1 contains fixed native fields only.
++"""
++from __future__ import annotations
++import hashlib
++import json
++from pathlib import PurePosixPath
++import struct
++import uuid
++
++PROFILE='ordinary-standard53-dns-client-etw-mechanism-v1'
++SCOPE='one-ordinary-standard53-dns-client-etw-mechanism-v1'
++RECOVERY_SCOPE='one-exact-owned-dns-client-etw-recovery-v1'
++SESSION='RuleProxy.Web.DnsClientAttribution'
++PROVIDER='1c95126e-7eea-49a9-a3fe-a378b03ddb4d'
++METADATA='7a07780a049b35948e5ecabd4a2d49dcb88dd586d47ea6ab29aca29c7d553f3c'
++DNSAPI='c7e1006f7bcbdff6d3668d10b9756a9734c53ccc47783f8908f68b60d0341bbb'
++CASES=('before','probe','after')
++LIMITS=dict(buffer_kib=16,minimum_buffers=4,maximum_buffers=16,maximum_memory_bytes=1048576,
++    maximum_records=256,maximum_user_data_bytes=4096,maximum_store_bytes=262144,flush_seconds=1)
++PRIVACY=dict(event_ids=[3010,3011],versions=[[3010,0],[3010,1],[3011,0],[3011,1],[3011,2]],
++    terminal_dot=True,raw_payload=False,raw_pids=False,stack=False,unfiltered_fallback=False)
++PATHS=dict(control='etw-control',reports='etw-reports',journal='etw-journal')
++QPC_KEYS={'frequency','start','root_deadline','capture_cutoff','stop_cutoff','drain_cutoff','final_cutoff'}
++MAX_CONFIG=16384
++MAX_JOURNAL=65536
++MAX_RECORDS=64
++MAX_SIGNED=0x7fffffffffffffff
++KINDS=('initial','launch-intent','launch-returned','owner-admitted','start-intent','start-returned',
++    'snapshot-returned','stop-intent','stop-returned','owner-exit','owner-close','final',
++    'recovery-verified','recovery-stop-intent','recovery-stop-returned','recovery-final')
++DATA_KEYS={
++    'initial':{'binary_sha256'},'launch-intent':{'spawn_unknown'},'launch-returned':{'pid','creation_time'},
++    'owner-admitted':{'pid','creation_time','identity_sha256'},'start-intent':{'command_sha256'},
++    'start-returned':{'reply_sha256','ready'},'snapshot-returned':{'reply_sha256','case_role'},
++    'stop-intent':{'command_sha256'},'stop-returned':{'reply_sha256','cleanup_verified','historical_uncertain'},
++    'owner-exit':{'exited','exit_code'},'owner-close':{'closed'},
++    'final':{'cleanup_verified','recovery_required'},
++    'recovery-verified':{'old_journal_sha256','original_owner_exited','original_call_worker_exited'},
++    'recovery-stop-intent':{'fresh_control_verified'},'recovery-stop-returned':{'stop_status','absence_verified'},
++    'recovery-final':{'cleanup_verified','historical_original_uncertainty_preserved'}}
++
++def require(ok,reason='etw_contract'):
++    if not ok:raise ValueError(reason)
++def integer(value,low=0,high=0xffffffff):return type(value) is int and low<=value<=high
++def digest(value):return type(value) is str and len(value)==64 and all(c in '0123456789abcdef' for c in value)
++def nonce(value):return type(value) is str and len(value)==32 and all(c in '0123456789abcdef' for c in value)
++def encode(value):return (json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=True)+'\n').encode('ascii')
++def sha(raw):return hashlib.sha256(raw).hexdigest()
++def decode(raw,limit=MAX_CONFIG):
++    require(type(raw) is bytes and 0<len(raw)<=limit,'etw_json_bound')
++    def pairs(items):
++        out={}
++        for key,value in items:require(key not in out,'etw_duplicate_key');out[key]=value
++        return out
++    return json.loads(raw.decode('utf-8','strict'),object_pairs_hook=pairs)
++def guid(value):
++    require(type(value) is str,'etw_guid')
++    parsed=uuid.UUID(value)
++    require(str(parsed)==value and parsed.version==4 and parsed.variant==uuid.RFC_4122 and value!=PROVIDER,'etw_guid')
++    return parsed
++def job_name(boot):require(nonce(boot),'etw_boot');return 'Local\\RuleProxy.DnsEtwOwner.'+boot
++def clock(value):
++    require(type(value) is dict and set(value)==QPC_KEYS and all(integer(v,1,MAX_SIGNED) for v in value.values()),'etw_clock')
++    f,t,d=value['frequency'],value['start'],value['root_deadline']
++    require(f<=1000000000 and t<d<=t+120*f,'etw_clock_domain')
++    require(t<value['capture_cutoff']<=d-20*f and value['stop_cutoff']==d-12*f
++        and value['drain_cutoff']==d-7*f and value['final_cutoff']==d-5*f,'etw_reserves')
++    return value
++def process(value,controller=False):
++    keys={'pid','session_id','creation_time','image_sha256'} | ({'user_sid','maintenance_job'} if controller else set())
++    require(type(value) is dict and set(value)==keys and integer(value['pid'],1) and integer(value['session_id'])
++        and integer(value['creation_time'],1,MAX_SIGNED) and digest(value['image_sha256']),'etw_process_binding')
++    if controller:require(type(value['user_sid']) is str and value['user_sid'].startswith('S-1-5-') and len(value['user_sid'])<=184,'etw_user')
++    return value
++def config(value,source_names):
++    keys={'schema_version','profile','run_id','boot_case_id','session','qpc','source','controller','clients','cases','limits','paths','privacy'}
++    require(type(value) is dict and set(value)==keys and integer(value['schema_version'],1,1) and value['profile']==PROFILE
++        and nonce(value['run_id']) and nonce(value['boot_case_id']),'etw_config')
++    session=value['session'];require(type(session) is dict and set(session)=={'name','guid'} and session['name']==SESSION,'etw_session')
++    guid(session['guid']);clock(value['qpc']);process(value['controller'],True)
++    require(value['controller']['maintenance_job']==job_name(value['boot_case_id']),'etw_maintenance_job')
++    clients=value['clients'];require(type(clients) is dict and set(clients)=={'ordinary'},'etw_ordinary_only')
++    ordinary=process(clients['ordinary']);controller=value['controller']
++    require(ordinary['pid']!=controller['pid'] and ordinary['session_id']==controller['session_id'],'etw_process_roles')
++    source=value['source'];require(type(source) is dict and set(source)=={'commit','source_hashes','closure_sha256','owner_image_sha256','metadata_sha256','dnsapi_sha256'},'etw_source')
++    require(type(source['commit']) is str and len(source['commit'])==40 and all(c in '0123456789abcdef' for c in source['commit']),'etw_source_commit')
++    hashes=source['source_hashes'];require(type(hashes) is dict and set(hashes)==set(source_names) and 1<=len(hashes)<=64,'etw_source_names')
++    for name,checksum in hashes.items():
++        path=PurePosixPath(name);require(not path.is_absolute() and '..' not in path.parts and str(path)==name and digest(checksum),'etw_source_path')
++    require(digest(source['owner_image_sha256']) and sha(encode(hashes))==source['closure_sha256']
++        and source['metadata_sha256']==METADATA and source['dnsapi_sha256']==DNSAPI,'etw_source_pin')
++    rows=value['cases'];require(type(rows) is dict and set(rows)==set(CASES),'etw_cases')
++    nonces=[value['run_id'],value['boot_case_id']]
++    for role in CASES:
++        row=rows[role];require(type(row) is dict and set(row)=={'case_id','client_role','phase_deadline'} and nonce(row['case_id'])
++            and row['client_role']=='ordinary' and integer(row['phase_deadline'],value['qpc']['start']+1,value['qpc']['capture_cutoff']),'etw_case')
++        nonces.append(row['case_id'])
++    require(len(set(nonces))==5,'etw_nonce_pack')
++    require(value['limits']==LIMITS and all(type(value['limits'][k]) is int for k in LIMITS),'etw_limits')
++    require(encode(value['paths'])==encode(PATHS) and encode(value['privacy'])==encode(PRIVACY),'etw_privacy')
++    require(len(encode(value))<=MAX_CONFIG,'etw_config_bound');return value
++def plan(value,c,*,device_sha256,config_sha256):
++    keys={'schema_version','scope','device_sha256','source_sha256','owner_image_sha256','config_sha256','session_guid',
++        'etw_session_impact_acknowledged','standard53_impact_acknowledged','recovery_reference'}
++    require(type(value) is dict and set(value)==keys and integer(value['schema_version'],1,1) and value['scope']==SCOPE,'etw_plan')
++    for key,expected in (('device_sha256',device_sha256),('source_sha256',c['source']['closure_sha256']),
++            ('owner_image_sha256',c['source']['owner_image_sha256']),('config_sha256',config_sha256)):
++        require(digest(value[key]) and value[key]==expected,'etw_plan_binding')
++    require(value['session_guid']==c['session']['guid'] and value['etw_session_impact_acknowledged'] is True
++        and value['standard53_impact_acknowledged'] is True and type(value['recovery_reference']) is str
++        and 1<=len(value['recovery_reference'])<=512,'etw_plan_admission');return value
++
++def binary_plan(c,config_sha256):
++    require(digest(config_sha256),'etw_binary_config_sha');raw=bytearray(512);raw[:8]=b'RDP1\x01\x01\x03\x00'
++    q=c['qpc'];struct.pack_into('<7Q',raw,8,*(q[k] for k in ('frequency','start','root_deadline','capture_cutoff','stop_cutoff','drain_cutoff','final_cutoff')))
++    raw[64:80]=guid(c['session']['guid']).bytes_le;raw[80:96]=bytes.fromhex(c['run_id']);raw[96:112]=bytes.fromhex(c['boot_case_id'])
++    for offset,value in ((112,config_sha256),(144,c['source']['closure_sha256']),(176,c['source']['owner_image_sha256']),
++            (208,METADATA),(304,DNSAPI),(352,c['controller']['image_sha256'])):raw[offset:offset+32]=bytes.fromhex(value)
++    for offset,role in zip((240,256,272),CASES):raw[offset:offset+16]=bytes.fromhex(c['cases'][role]['case_id'])
++    p=c['clients']['ordinary'];struct.pack_into('<IIQ',raw,288,p['pid'],p['session_id'],p['creation_time'])
++    p=c['controller'];struct.pack_into('<IIQ',raw,336,p['pid'],p['session_id'],p['creation_time'])
++    return bytes(raw)
++def validate_binary(raw,c,config_sha256):
++    require(type(raw) is bytes and len(raw)==512 and raw==binary_plan(c,config_sha256),'etw_binary_binding');return raw
++def command(c,config_sha256,sequence,opcode):
++    require(digest(config_sha256) and integer(sequence,1,8) and type(opcode) is int and opcode in (1,2,255)
++        and (sequence==1)==(opcode==1),'etw_command')
++    raw=bytearray(128);raw[:6]=b'RDE1\x01'+bytes([opcode]);struct.pack_into('<I',raw,8,sequence)
++    raw[16:32]=bytes.fromhex(c['run_id']);raw[32:48]=bytes.fromhex(c['boot_case_id'])
++    struct.pack_into('<QQ',raw,48,c['qpc']['frequency'],c['qpc']['root_deadline']);raw[64:80]=guid(c['session']['guid']).bytes_le
++    raw[80:112]=bytes.fromhex(config_sha256);struct.pack_into('<Q',raw,112,c['qpc']['stop_cutoff' if opcode==255 else 'capture_cutoff'])
++    return bytes(raw)
++def validate_command(raw,c,config_sha256,sequence,opcode):
++    require(type(raw) is bytes and raw==command(c,config_sha256,sequence,opcode),'etw_command_binding');return raw
++
++def ready(value,c,config_sha256,held):
++    keys={'schema_version','stage','run_id','boot_case_id','config_sha256','owner_pid','identity','qpc','metadata_verified','session_started','provider_enabled','ready','failure'}
++    require(type(value) is dict and set(value)==keys and integer(value['schema_version'],1,1) and value['stage']=='dns-etw-owner-ready'
++        and value['run_id']==c['run_id'] and value['boot_case_id']==c['boot_case_id'] and value['config_sha256']==config_sha256
++        and type(value['owner_pid']) is int and value['owner_pid']==held['pid'] and value['identity']==held['identity'],'etw_ready_binding')
++    q=value['qpc'];require(type(q) is list and len(q)==4 and all(integer(v,1,MAX_SIGNED) for v in q)
++        and q[:3]==[c['qpc']['frequency'],c['qpc']['start'],c['qpc']['root_deadline']] and q[1]<=q[3]<c['qpc']['capture_cutoff'],'etw_ready_clock')
++    require(value['metadata_verified'] is True and value['ready'] is True and value['failure'] is None
++        and value['session_started'] is False and value['provider_enabled'] is False,'etw_ready_no_trace');return value
++
++def journal_record(sequence,kind,c,config_sha256,previous_sha256,data):
++    require(integer(sequence,1,MAX_RECORDS) and kind in KINDS and digest(config_sha256) and
++        (previous_sha256 is None if sequence==1 else digest(previous_sha256)),'etw_journal_record')
++    require(type(data) is dict and set(data)==DATA_KEYS[kind] and len(encode(data))<=4096,'etw_journal_data_bound')
++    for key,item in data.items():
++        if key.endswith('sha256'):require(digest(item),'etw_journal_digest')
++        elif key=='case_role':require(item in CASES,'etw_journal_case')
++        elif key in ('pid','creation_time'):require(integer(item,1,MAX_SIGNED),'etw_journal_integer')
++        elif key in ('exit_code','stop_status'):require(item is None or integer(item),'etw_journal_status')
++        else:require(type(item) is bool,'etw_journal_bool')
++    return dict(schema_version=1,stage='dns-etw-owner-journal',sequence=sequence,kind=kind,
++        run_id=c['run_id'],session_guid=c['session']['guid'],config_sha256=config_sha256,
++        source_sha256=c['source']['closure_sha256'],owner_image_sha256=c['source']['owner_image_sha256'],
++        frequency=c['qpc']['frequency'],start_qpc=c['qpc']['start'],root_deadline_qpc=c['qpc']['root_deadline'],previous_sha256=previous_sha256,data=data)
++def journal(records,c,config_sha256):
++    require(type(records) is list and 1<=len(records)<=MAX_RECORDS and sum(len(encode(v)) for v in records)<=MAX_JOURNAL,'etw_journal_bound')
++    previous=None
++    for sequence,row in enumerate(records,1):
++        expected=journal_record(sequence,row.get('kind') if type(row) is dict else None,c,config_sha256,previous,row.get('data') if type(row) is dict else None)
++        require(row==expected,'etw_journal_chain');previous=sha(encode(row))
++    return records
++
++def native_journal(records,c,config_sha256,*,recovery_deadline=0):
++    """RDJ1 is evidence, never authority obtained from caller-supplied booleans."""
++    require(type(records) is list and 1<=len(records)<=64 and all(type(v) is bytes and len(v)==256 for v in records),'etw_rdj_bound')
++    previous=bytes(32);last=c['qpc']['start'];transitions=[]
++    for sequence,raw in enumerate(records,1):
++        require(raw[:5]==b'RDJ1\x01' and 1<=raw[5]<=18 and raw[6:8]==bytes(2) and struct.unpack_from('<I',raw,8)[0]==sequence,'etw_rdj_header')
++        tick=struct.unpack_from('<Q',raw,16)[0];require(tick>=last,'etw_rdj_clock');last=tick
++        require(raw[32:48]==guid(c['session']['guid']).bytes_le and raw[48:64]==bytes.fromhex(c['run_id']) and raw[64:80]==bytes.fromhex(c['boot_case_id'])
++            and raw[80:112]==bytes.fromhex(config_sha256) and raw[112:144]==bytes.fromhex(c['source']['closure_sha256']) and raw[144:176]==previous,'etw_rdj_binding')
++        require(struct.unpack_from('<QQQQ',raw,176)==(c['qpc']['frequency'],c['qpc']['start'],c['qpc']['root_deadline'],recovery_deadline)
++            and raw[208:224]==bytes(16) and raw[224:256]==hashlib.sha256(raw[:224]).digest(),'etw_rdj_hash')
++        previous=raw[224:256];transitions.append(raw[5])
++    return transitions
+diff --git a/.github/windows_identity_dns_etw_local.py b/.github/windows_identity_dns_etw_local.py
+new file mode 100644
+--- /dev/null
++++ b/.github/windows_identity_dns_etw_local.py
+@@ -0,0 +1,184 @@
++"""Work-only ETW supervisor adapter; production native transport is absent.
++
++No trace starts on import/default preflight. Native library compilation is not
++a runnable trace owner. Tests inject an explicit pure backend; there is no
++generic subprocess/trace command escape hatch and no old C profile is changed.
++"""
++from __future__ import annotations
++import importlib.util
++import os
++from pathlib import Path
++
++def load(name,file):
++    spec=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file))
++    value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
++contract=load('ordinary_etw_contract','windows_identity_dns_etw_contract.py')
++maintenance=load('ordinary_etw_maintenance_identity','windows_identity_model2_maintenance.py')
++live=maintenance.live;launcher=live.launcher
++OWN_SOURCES=('.github/windows_identity_dns_etw_contract.py','.github/windows_identity_dns_etw_local.py',
++    '.github/windows_identity_dns_etw_recovery.py','.github/native/windows_dns_etw_attribution_core.hpp',
++    '.github/native/windows_dns_etw_attribution_windows.hpp','.github/native/windows_dns_etw_attribution_windows.cpp')
++SOURCES=tuple(dict.fromkeys((*live.SOURCES,*OWN_SOURCES)))
++ACTOR='windows_dns_etw_attribution_owner.exe'
++REPLY_CASE_KEYS={'query_event','response_event','client_generation_matches','server_matches_fixture','late','parse_unknown'}
++class RuntimeUnavailable(RuntimeError):pass
++class UnavailableBackend:
++    runtime_transport_implemented=False
++    def __getattr__(self,name):raise RuntimeUnavailable('native_transport_not_implemented')
++
++def source_snapshot(root):
++    files={name:live.local.bounded(launcher.checked_path(root/name,inside=root),256*1024) for name in SOURCES}
++    hashes={name:contract.sha(raw) for name,raw in files.items()};return files,hashes,contract.sha(contract.encode(hashes))
++def verify_bindings(root,c,config_raw,owner_image,metadata_raw):
++    contract.config(c,SOURCES);contract.require(contract.decode(config_raw)==c,'etw_config_bytes')
++    _,hashes,closure=source_snapshot(root)
++    contract.require(hashes==c['source']['source_hashes'] and closure==c['source']['closure_sha256'],'etw_source_bytes')
++    image=launcher.checked_path(owner_image,inside=root);contract.require(image.name==ACTOR,'etw_owner_image')
++    contract.require(contract.sha(live.local.bounded(image,16*1024*1024))==c['source']['owner_image_sha256']
++        and contract.sha(metadata_raw)==contract.METADATA,'etw_artifact_metadata')
++    return image
++
++class Journal:
++    """External private journal. Native RDJ1 remains a separate commitment."""
++    def __init__(self,root,c,config_sha256):
++        self.root,self.c,self.config_sha256=root,c,config_sha256;self.rows=[];self.previous=None;self.bytes=0
++        contract.require(root.is_dir() and not any(root.iterdir()),'etw_fresh_journal')
++    def append(self,kind,data):
++        row=contract.journal_record(len(self.rows)+1,kind,self.c,self.config_sha256,self.previous,data);raw=contract.encode(row)
++        contract.require(self.bytes+len(raw)<=contract.MAX_JOURNAL,'etw_journal_total')
++        path=self.root/('owner-%04d.json'%(len(self.rows)+1));descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_BINARY',0),0o600)
++        try:
++            written=0
++            while written<len(raw):
++                count=os.write(descriptor,raw[written:]);contract.require(count>0,'etw_journal_write');written+=count
++            os.fsync(descriptor)
++        finally:
++            closing=descriptor;descriptor=None;os.close(closing)
++        contract.require(path.read_bytes()==raw,'etw_journal_readback')
++        self.rows.append(row);self.previous=contract.sha(raw);self.bytes+=len(raw);return row
++
++def blank():
++    return dict(schema_version=1,stage='ordinary-dns-etw-owner-candidate',actual_ready=False,status='inconclusive',failure=None,
++        source_bound=False,artifact_bound=False,owner_held=False,start_ready=False,
++        cases={key:dict(api_receiver_positive=False,provider_query=False,provider_response=False,client_match=False,late=False) for key in contract.CASES},
++        observation_complete=False,observation_incomplete=False,mechanism_passed=False,cleanup_verified=False,recovery_required=False,
++        historical_uncertain=False,selected_application_tested=False,packet_sender_pid_proven=False,
++        dns_isolation_qualified=False,product_acceptance=False)
++def preflight(root,config_raw,owner_image,metadata_raw,plan_raw,device_sha256,*,backend=None):
++    value=blank()
++    try:
++        c=contract.config(contract.decode(config_raw),SOURCES)
++        verify_bindings(root,c,config_raw,owner_image,metadata_raw);value.update(source_bound=True,artifact_bound=True)
++        contract.plan(contract.decode(plan_raw),c,device_sha256=device_sha256,config_sha256=contract.sha(config_raw))
++        # Library/decoder completion cannot turn into permission to start ETW.
++        contract.require(backend is not None and backend.runtime_transport_implemented is True,'native_transport_not_implemented')
++        value['status']='ready'
++    except (ValueError,OSError,RuntimeUnavailable):value['failure']='preflight'
++    return value
++
++def held_admission(api,handle,c,image):
++    row=api.held_process(handle)
++    contract.require(type(row) is dict and set(row)=={'pid','creation_time','image_sha256','identity','alive','job_verified','temporary_job_handle_closed'},'etw_held_schema')
++    contract.require(contract.integer(row['pid'],1) and contract.integer(row['creation_time'],1,contract.MAX_SIGNED)
++        and row['image_sha256']==c['source']['owner_image_sha256'] and row['alive'] is True
++        and row['job_verified'] is True and row['temporary_job_handle_closed'] is True,'etw_held_owner')
++    maintenance.maintenance_identity(row['identity'],dict(sid=c['controller']['user_sid'],session_id=c['controller']['session_id']))
++    api.verify_image(handle,image);api.verify_job(handle,c['controller']['maintenance_job']);return row
++def reply(value,c,config_sha256,command_raw,sequence):
++    keys={'schema_version','stage','run_id','config_sha256','command_sha256','sequence','ready','cases','cleanup_verified','historical_uncertain','loss_known','loss_count'}
++    contract.require(type(value) is dict and set(value)==keys and contract.integer(value['schema_version'],1,1)
++        and value['stage']=='dns-etw-typed-adapter-reply' and value['run_id']==c['run_id']
++        and value['config_sha256']==config_sha256 and value['command_sha256']==contract.sha(command_raw)
++        and type(value['sequence']) is int and value['sequence']==sequence,'etw_reply_binding')
++    for key in ('ready','cleanup_verified','historical_uncertain','loss_known'):contract.require(type(value[key]) is bool,'etw_reply_bool')
++    contract.require(value['loss_count'] is None if not value['loss_known'] else contract.integer(value['loss_count']),'etw_loss')
++    contract.require(type(value['cases']) is dict and set(value['cases'])==set(contract.CASES),'etw_reply_cases')
++    for row in value['cases'].values():
++        contract.require(type(row) is dict and set(row)==REPLY_CASE_KEYS and all(type(v) is bool for v in row.values()),'etw_reply_case')
++    return value
++def harvest(result,observed):
++    for key,row in observed['cases'].items():
++        public=result['cases'][key];public['provider_query'] |= row['query_event'];public['provider_response'] |= row['response_event']
++        public['client_match'] |= row['client_generation_matches'] and row['server_matches_fixture'];public['late'] |= row['late']
++    result['historical_uncertain'] |= observed['historical_uncertain']
++    result['observation_incomplete'] |= not observed['loss_known'] or observed['loss_count']!=0 or any(r['parse_unknown'] for r in observed['cases'].values())
++
++def supervise(api,c,root,config_raw,image,*,approved=False,ordinary_driver=None):
++    """Pure adapter seam until the native CLI/RDJ/ordinary driver is connected.
++
++    The real default backend is unavailable. A future CLI must bind the native
++    RDJ records and exact session properties before setting implemented=True.
++    """
++    result=blank();handle=lock=journal=None;sequence=0;started=False;start_returned=False;owner=None
++    contract.require(approved is True,'etw_explicit_optin')
++    contract.require(api.runtime_transport_implemented is True and callable(ordinary_driver),'native_transport_not_implemented')
++    contract.config(c,SOURCES);config_sha=contract.sha(config_raw);contract.require(contract.decode(config_raw)==c,'etw_config_bytes')
++    budget=launcher.QpcBudget(api,c['qpc']['root_deadline'],c['qpc']['frequency'])
++    try:
++        budget.require_ms(c['qpc']['capture_cutoff'])
++        lock=api.acquire_component_lock(contract.SESSION)
++        journal=Journal(root/contract.PATHS['journal'],c,config_sha)
++        journal.append('initial',dict(binary_sha256=contract.sha(contract.binary_plan(c,config_sha))))
++        # Actual source/artifact verification belongs to preflight AND runtime.
++        api.verify_source_config_artifact(c,config_raw,image)
++        result.update(source_bound=True,artifact_bound=True)
++        journal.append('launch-intent',dict(spawn_unknown=True));result['recovery_required']=True
++        handle=api.launch_elevated(image,contract.binary_plan(c,config_sha),c['controller']['maintenance_job'])
++        owner=held_admission(api,handle,c,image)
++        journal.append('launch-returned',dict(pid=owner['pid'],creation_time=owner['creation_time']))
++        budget.require_ms(c['qpc']['capture_cutoff'])
++        contract.ready(api.read_ready(handle),c,config_sha,owner)
++        journal.append('owner-admitted',dict(pid=owner['pid'],creation_time=owner['creation_time'],identity_sha256=contract.sha(contract.encode(owner['identity']))))
++        result['owner_held']=True
++        sequence=1;command=contract.command(c,config_sha,sequence,1);journal.append('start-intent',dict(command_sha256=contract.sha(command)));started=True
++        observed=reply(api.exchange(handle,command),c,config_sha,command,sequence)
++        start_returned=True;harvest(result,observed)
++        journal.append('start-returned',dict(reply_sha256=contract.sha(contract.encode(observed)),ready=observed['ready']))
++        contract.require(observed['ready'] and not observed['historical_uncertain'],'etw_start_not_ready');result['start_ready']=True
++        for role in contract.CASES:
++            budget.require_ms(c['qpc']['capture_cutoff']);api.verify_ordinary(c['clients']['ordinary'])
++            current=held_admission(api,handle,c,image);contract.require(current['pid']==owner['pid'] and current['creation_time']==owner['creation_time'],'etw_owner_generation')
++            facts=ordinary_driver(role,c['cases'][role],c['qpc'])
++            contract.require(type(facts) is dict and set(facts)=={'api_positive','receiver_positive'} and all(type(v) is bool for v in facts.values()),'etw_ordinary_driver')
++            result['cases'][role]['api_receiver_positive']=all(facts.values())
++            sequence+=1;command=contract.command(c,config_sha,sequence,2);observed=reply(api.exchange(handle,command),c,config_sha,command,sequence)
++            journal.append('snapshot-returned',dict(reply_sha256=contract.sha(contract.encode(observed)),case_role=role))
++            harvest(result,observed)
++        result['observation_complete']=True
++    except BaseException:result['failure']='owner'
++    finally:
++        if started and not start_returned:result['historical_uncertain']=True
++        if handle is not None and result['owner_held']:
++            try:
++                budget.require_ms(c['qpc']['stop_cutoff']);sequence+=1;command=contract.command(c,config_sha,sequence,255)
++                journal.append('stop-intent',dict(command_sha256=contract.sha(command)))
++                observed=reply(api.exchange(handle,command),c,config_sha,command,sequence)
++                harvest(result,observed)
++                journal.append('stop-returned',dict(reply_sha256=contract.sha(contract.encode(observed)),cleanup_verified=observed['cleanup_verified'],historical_uncertain=observed['historical_uncertain']))
++                result['cleanup_verified']=observed['cleanup_verified'] and not result['historical_uncertain']
++            except BaseException:result['cleanup_verified']=False
++        if handle is not None:
++            try:
++                exited=api.wait_owner(handle,c['qpc']['final_cutoff']);code=api.exit_code(handle) if exited else None
++                journal.append('owner-exit',dict(exited=exited,exit_code=code));result['cleanup_verified'] &= exited and code==0
++            except BaseException:result['cleanup_verified']=False
++            if not result['cleanup_verified']:
++                try:api.stop_owned_job_and_wait(handle,c['qpc']['root_deadline'])
++                except BaseException:pass
++            try:
++                closing=handle;handle=None;api.close_process(closing);journal.append('owner-close',dict(closed=True))
++            except BaseException:result['cleanup_verified']=False
++        try:
++            result['cleanup_verified'] &= api.close_owned_job_once_and_verify_empty(c['controller']['maintenance_job']) is True
++        except BaseException:result['cleanup_verified']=False
++        if lock is not None:
++            try:closing=lock;lock=None;api.release_component_lock(closing)
++            except BaseException:result['cleanup_verified']=False
++        result['recovery_required']=not result['cleanup_verified']
++        if journal is not None:
++            try:journal.append('final',dict(cleanup_verified=result['cleanup_verified'],recovery_required=result['recovery_required']))
++            except BaseException:result.update(cleanup_verified=False,recovery_required=True)
++    result['mechanism_passed']=result['failure'] is None and result['observation_complete'] and not result['observation_incomplete'] and result['cleanup_verified'] and not result['historical_uncertain'] and all(
++        all(row[k] for k in ('api_receiver_positive','provider_query','provider_response','client_match')) and not row['late'] for row in result['cases'].values())
++    if result['mechanism_passed']:result['status']='mechanism-observed'
++    return result
+diff --git a/.github/windows_identity_dns_etw_recovery.py b/.github/windows_identity_dns_etw_recovery.py
+new file mode 100644
+--- /dev/null
++++ b/.github/windows_identity_dns_etw_recovery.py
+@@ -0,0 +1,70 @@
++"""Exact-session recovery adapter; no trace APIs run without a future backend.
++
++All verification is read-only before exact disable/stop. A caller cannot pass
++boolean RecoveryEvidence: journal, source pins and old held generations are
++recomputed. Original uncertainty is never rewritten by current absence.
++"""
++from __future__ import annotations
++import importlib.util
++from pathlib import Path
++spec=importlib.util.spec_from_file_location('etw_recovery_local',Path(__file__).with_name('windows_identity_dns_etw_local.py'))
++local=importlib.util.module_from_spec(spec);spec.loader.exec_module(local)
++c=local.contract
++MODE=0x10000100
++def exact(value,config):
++    keys={'status','session_name','session_guid','control','mode','clock','has_logfile','buffer_kib','minimum_buffers','maximum_buffers'}
++    c.require(type(value) is dict and set(value)==keys and value['status']=='present'
++        and value['session_name']==c.SESSION and value['session_guid']==config['session']['guid']
++        and c.integer(value['control'],1,c.MAX_SIGNED) and value['mode']==MODE and value['clock']==1 and value['has_logfile'] is False
++        and c.integer(value['buffer_kib'],1,64) and c.integer(value['minimum_buffers'],2,1024)
++        and c.integer(value['maximum_buffers'],value['minimum_buffers'],1024)
++        and value['buffer_kib']*value['maximum_buffers']*1024<=c.LIMITS['maximum_memory_bytes'],'etw_recovery_exact')
++    return value
++def budget(value,api):
++    c.require(type(value) is dict and set(value)=={'frequency','start','deadline'} and all(c.integer(v,1,c.MAX_SIGNED) for v in value.values())
++        and value['frequency']==api.qpc_frequency() and value['start']<value['deadline']<=value['start']+30*value['frequency'],'etw_recovery_budget')
++    now=api.qpc();c.require(value['start']<=now<value['deadline'],'etw_recovery_deadline');return now
++def recover(api,config,config_raw,old_records,native_records,recovery_budget,journal_root,*,approved=False):
++    out=dict(schema_version=1,stage='dns-etw-exact-recovery-candidate',completed=False,current_absence_verified=False,
++        historical_original_uncertainty_preserved=True,original_qualification_changed=False,recovery_required=True,failure=None)
++    lock=None;journal=None
++    try:
++        c.require(approved is True and api.runtime_transport_implemented is True,'etw_recovery_optin')
++        c.config(config,local.SOURCES);sha=c.sha(config_raw);c.require(c.decode(config_raw)==config,'etw_recovery_config')
++        c.journal(old_records,config,sha);transitions=c.native_journal(native_records,config,sha)
++        c.require(2 in transitions and any(r['kind']=='start-intent' for r in old_records),'etw_recovery_start_intent')
++        launched=[r for r in old_records if r['kind']=='launch-returned'];c.require(len(launched)==1,'etw_recovery_unknown_spawn')
++        budget(recovery_budget,api);api.verify_source_config_artifact(config,config_raw,None)
++        old=launched[0]['data']
++        c.require(api.original_owner_generation_exited(old['pid'],old['creation_time']) is True
++            and api.original_call_worker_generation_exited(old['pid'],old['creation_time']) is True,'etw_recovery_live_old_call')
++        lock=api.acquire_component_lock(c.SESSION)
++        journal=local.Journal(journal_root,config,sha)
++        journal.append('recovery-verified',dict(old_journal_sha256=c.sha(c.encode(old_records)),original_owner_exited=True,original_call_worker_exited=True))
++        budget(recovery_budget,api);seen=api.query_session(c.SESSION)
++        if type(seen) is dict and seen=={'status':'absent'}:out['current_absence_verified']=True
++        else:
++            first=exact(seen,config);budget(recovery_budget,api);second=exact(api.query_control(first['control']),config)
++            c.require(first==second,'etw_recovery_replaced_session')
++            journal.append('recovery-stop-intent',dict(fresh_control_verified=True));budget(recovery_budget,api)
++            # No Start/Enable operation exists in this adapter.
++            disable=api.disable_exact(config,second['control'],recovery_budget)
++            budget(recovery_budget,api);control=second['control'];second=None
++            stopped=api.stop_exact(config,control,recovery_budget)
++            c.require(stopped in (0,234,4201,2402),'etw_recovery_stop_status')
++            while True:
++                budget(recovery_budget,api);seen=api.query_session(c.SESSION)
++                if seen=={'status':'absent'}:out['current_absence_verified']=True;break
++                exact(seen,config);api.pause(10)
++            journal.append('recovery-stop-returned',dict(stop_status=stopped,absence_verified=out['current_absence_verified']))
++            c.require(disable==0,'etw_recovery_disable_unknown')
++        out['completed']=out['current_absence_verified'];out['recovery_required']=not out['completed']
++    except (ValueError,OSError,local.RuntimeUnavailable):out['failure']='recovery'
++    finally:
++        if lock is not None:
++            try:closing=lock;lock=None;api.release_component_lock(closing)
++            except (ValueError,OSError,local.RuntimeUnavailable):out.update(completed=False,recovery_required=True)
++        if journal is not None:
++            try:journal.append('recovery-final',dict(cleanup_verified=out['completed'],historical_original_uncertainty_preserved=True))
++            except (ValueError,OSError):out.update(completed=False,recovery_required=True)
++    return out
+diff --git a/tests/test_windows_identity_dns_etw_owner.py b/tests/test_windows_identity_dns_etw_owner.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_windows_identity_dns_etw_owner.py
+@@ -0,0 +1,184 @@
++"""Pure ETW contract/supervisor/recovery seams; no API, process or trace calls."""
++import copy
++import importlib.util
++from pathlib import Path
++import struct
++import tempfile
++import unittest
++import uuid
++
++ROOT=Path(__file__).resolve().parents[1]
++spec=importlib.util.spec_from_file_location('ordinary_etw_candidate',ROOT/'.github/windows_identity_dns_etw_local.py')
++local=importlib.util.module_from_spec(spec);spec.loader.exec_module(local);c=local.contract
++spec=importlib.util.spec_from_file_location('ordinary_etw_recovery_candidate',ROOT/'.github/windows_identity_dns_etw_recovery.py')
++recovery=importlib.util.module_from_spec(spec);spec.loader.exec_module(recovery)
++H='1'*64
++def config():
++    hashes=dict.fromkeys(local.SOURCES,H)
++    return dict(schema_version=1,profile=c.PROFILE,run_id='a'*32,boot_case_id='b'*32,
++        session=dict(name=c.SESSION,guid='00112233-4455-4677-8899-aabbccddeeff'),
++        qpc=dict(frequency=1000,start=1000,root_deadline=121000,capture_cutoff=101000,stop_cutoff=109000,drain_cutoff=114000,final_cutoff=116000),
++        source=dict(commit='2'*40,source_hashes=hashes,closure_sha256=c.sha(c.encode(hashes)),owner_image_sha256=H,metadata_sha256=c.METADATA,dnsapi_sha256=c.DNSAPI),
++        controller=dict(pid=111,session_id=1,creation_time=101,image_sha256=H,user_sid='S-1-5-21-1-2-3-1001',maintenance_job=c.job_name('b'*32)),
++        clients=dict(ordinary=dict(pid=222,session_id=1,creation_time=202,image_sha256=H)),
++        cases={role:dict(case_id=character*32,client_role='ordinary',phase_deadline=20000+index*10000) for index,(role,character) in enumerate(zip(c.CASES,'cde'))},
++        limits=copy.deepcopy(c.LIMITS),paths=copy.deepcopy(c.PATHS),privacy=copy.deepcopy(c.PRIVACY))
++def high_identity():
++    return dict(sid='S-1-5-21-1-2-3-1001',session_id=1,token_type=1,elevation_type=2,elevated=True,integrity_rid=12288,
++        admin_attributes=4,appcontainer=False,appcontainer_sid=None,capability_count=0,ui_access=False)
++class Fake:
++    runtime_transport_implemented=True
++    def __init__(self,config,fault=None):
++        self.c=config;self.raw=c.encode(config);self.checksum=c.sha(self.raw);self.now=2000;self.fault=fault
++        self.events=[];self.observed=set();self.session=False;self.high=high_identity();self.closed=0;self.stop_count=0
++    def qpc(self):return self.now
++    def qpc_frequency(self):return 1000
++    def acquire_component_lock(self,name):self.events.append('lock');return 1
++    def release_component_lock(self,lock):self.events.append('unlock')
++    def verify_source_config_artifact(self,*args):self.events.append('source')
++    def launch_elevated(self,*args):
++        self.events.append('launch')
++        if self.fault=='spawn-unknown':raise OSError('fake_spawn_unknown')
++        return 2
++    def held_process(self,handle):
++        return dict(pid=333,creation_time=303,image_sha256=H,identity=self.high,alive=True,job_verified=True,temporary_job_handle_closed=True)
++    def verify_image(self,*args):self.events.append('image')
++    def verify_job(self,*args):self.events.append('job')
++    def read_ready(self,handle):
++        if self.fault=='late-uac':self.now=self.c['qpc']['capture_cutoff']
++        return dict(schema_version=1,stage='dns-etw-owner-ready',run_id=self.c['run_id'],boot_case_id=self.c['boot_case_id'],config_sha256=self.checksum,
++            owner_pid=333,identity=self.high,qpc=[1000,1000,121000,self.now],metadata_verified=True,session_started=False,provider_enabled=False,ready=True,failure=None)
++    def verify_ordinary(self,row):self.events.append('ordinary-held')
++    def driver(self,role,*args):self.events.append('query-'+role);self.observed.add(role);return dict(api_positive=True,receiver_positive=True)
++    def exchange(self,handle,command):
++        opcode=command[5];sequence=struct.unpack_from('<I',command,8)[0];self.events.append(('command',opcode))
++        if opcode==1:
++            self.session=True
++            if self.fault=='start-unknown':raise KeyboardInterrupt()
++        if opcode==255:
++            self.stop_count+=1
++            if self.fault=='stop-unknown':raise OSError('fake_stop_unknown')
++            self.session=False
++        rows={role:dict(query_event=role in self.observed,response_event=role in self.observed,client_generation_matches=role in self.observed,
++            server_matches_fixture=role in self.observed,late=False,parse_unknown=False) for role in c.CASES}
++        result=dict(schema_version=1,stage='dns-etw-typed-adapter-reply',run_id=self.c['run_id'],config_sha256=self.checksum,
++            command_sha256=c.sha(command),sequence=sequence,ready=opcode!=255,cases=rows,cleanup_verified=opcode==255,
++            historical_uncertain=False,loss_known=True,loss_count=0)
++        if self.fault=='parse' and opcode==2 and sequence==3:result['unexpected']=True
++        if self.fault=='loss' and opcode==2:result.update(loss_known=False,loss_count=None)
++        if self.fault=='late-event' and opcode==255:result['cases']['probe']['late']=True
++        return result
++    def wait_owner(self,*args):return True
++    def exit_code(self,*args):return 0
++    def stop_owned_job_and_wait(self,*args):self.events.append('job-stop') # Deliberately leaves ETW session unchanged.
++    def close_owned_job_once_and_verify_empty(self,*args):self.events.append('job-close');return True
++    def close_process(self,*args):
++        self.closed+=1
++        if self.fault=='close':raise OSError('fake_close_unknown')
++    def original_owner_generation_exited(self,*args):return self.fault!='old-alive'
++    def original_call_worker_generation_exited(self,*args):return self.fault!='old-call-alive'
++    def query_session(self,name):
++        if not self.session:return {'status':'absent'}
++        return dict(status='present',session_name=c.SESSION,session_guid=self.c['session']['guid'] if self.fault!='collision' else str(uuid.uuid4()),
++            control=900,mode=recovery.MODE if self.fault!='wrong-mode' else 0,clock=1,has_logfile=False,buffer_kib=16,minimum_buffers=4,maximum_buffers=16)
++    def query_control(self,control):return self.query_session(c.SESSION)
++    def disable_exact(self,*args):self.events.append('disable');return 0
++    def stop_exact(self,*args):self.events.append('stop');self.session=False;return 234
++    def pause(self,ms):self.now+=ms
++
++def native_rows(config,config_sha,transitions=(1,2)):
++    records=[];previous=bytes(32)
++    for sequence,transition in enumerate(transitions,1):
++        raw=bytearray(256);raw[:6]=b'RDJ1\x01'+bytes([transition]);struct.pack_into('<IIQQ',raw,8,sequence,0,2000+sequence,0)
++        raw[32:48]=uuid.UUID(config['session']['guid']).bytes_le;raw[48:64]=bytes.fromhex(config['run_id']);raw[64:80]=bytes.fromhex(config['boot_case_id'])
++        raw[80:112]=bytes.fromhex(config_sha);raw[112:144]=bytes.fromhex(config['source']['closure_sha256']);raw[144:176]=previous
++        struct.pack_into('<QQQQ',raw,176,1000,1000,121000,0);raw[224:256]=bytes.fromhex(c.sha(raw[:224]));previous=raw[224:256];records.append(bytes(raw))
++    return records
++
++class OwnerTests(unittest.TestCase):
++    def make_root(self):
++        t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup);root=Path(t.name).resolve();(root/'etw-journal').mkdir();return root
++    def run_owner(self,fault=None):
++        config_value=config();root=self.make_root();api=Fake(config_value,fault)
++        result=local.supervise(api,config_value,root,c.encode(config_value),root/local.ACTOR,approved=True,ordinary_driver=api.driver)
++        rows=[c.decode(p.read_bytes(),8192) for p in sorted((root/'etw-journal').glob('owner-*.json'))]
++        c.journal(rows,config_value,c.sha(c.encode(config_value)));return result,api,rows
++    def test_config_closed_ordinary_only_no_broad_trace_or_profile(self):
++        value=config();c.config(value,local.SOURCES)
++        for mutation in (lambda v:v.update(profile='same-selected-standard53-dns-client-etw-attribution-v1'),
++                lambda v:v['clients'].update(selected=v['clients']['ordinary']),lambda v:v['session'].update(name='arbitrary'),
++                lambda v:v['privacy'].update(raw_payload=True),lambda v:v['privacy'].update(terminal_dot=1),lambda v:v['limits'].update(maximum_records=257),
++                lambda v:v['qpc'].update(stop_cutoff=120000),lambda v:v['cases']['probe'].update(case_id=v['run_id'])):
++            changed=copy.deepcopy(value);mutation(changed)
++            with self.assertRaises(ValueError):c.config(changed,local.SOURCES)
++        with self.assertRaises(ValueError):c.decode(b'{"x":1,"x":2}')
++    def test_rdp1_exact512_and_windows_guid_byte_order_and_parent_binding(self):
++        value=config();digest=c.sha(c.encode(value));raw=c.binary_plan(value,digest);self.assertEqual(len(raw),512)
++        self.assertEqual(raw[64:80],bytes.fromhex('33221100554477468899aabbccddeeff'))
++        self.assertEqual(struct.unpack_from('<IIQ',raw,336),(111,1,101));self.assertEqual(raw[384:],bytes(128))
++        c.validate_binary(raw,value,digest)
++        for offset in (7,64,112,288,336,352,511):
++            bad=bytearray(raw);bad[offset]^=1
++            with self.assertRaises(ValueError):c.validate_binary(bytes(bad),value,digest)
++    def test_rde1_exact128_bound_clock_config_sequence_and_reserved(self):
++        value=config();digest=c.sha(c.encode(value));raw=c.command(value,digest,1,1);self.assertEqual(len(raw),128)
++        self.assertEqual(raw[64:80],uuid.UUID(value['session']['guid']).bytes_le)
++        for offset in (6,12,48,56,80,120):
++            bad=bytearray(raw);bad[offset]^=1
++            with self.assertRaises(ValueError):c.validate_command(bytes(bad),value,digest,1,1)
++        with self.assertRaises(ValueError):c.command(value,digest,2,1)
++    def test_optin_default_and_missing_runtime_backend_never_launch(self):
++        value=config();api=Fake(value);root=self.make_root()
++        with self.assertRaises(ValueError):local.supervise(api,value,root,c.encode(value),root/local.ACTOR,ordinary_driver=api.driver)
++        self.assertEqual(api.events,[])
++        with self.assertRaises(ValueError):local.supervise(local.UnavailableBackend(),value,root,c.encode(value),root/local.ACTOR,approved=True,ordinary_driver=api.driver)
++    def test_three_ordinary_case_positive_requires_ready_go_finish_and_cleanup(self):
++        result,api,rows=self.run_owner();self.assertTrue(result['mechanism_passed']);self.assertFalse(result['recovery_required'])
++        self.assertEqual([event for event in api.events if isinstance(event,tuple)],[('command',1),('command',2),('command',2),('command',2),('command',255)])
++        self.assertEqual([event for event in api.events if isinstance(event,str) and event.startswith('query-')],['query-before','query-probe','query-after'])
++        self.assertEqual(api.closed,1);self.assertFalse(result['selected_application_tested']);self.assertFalse(result['packet_sender_pid_proven'])
++        self.assertFalse(result['dns_isolation_qualified']);self.assertFalse(result['product_acceptance']);self.assertEqual(rows[-1]['kind'],'final')
++        self.assertFalse(result['actual_ready'])
++    def test_late_uac_and_wrong_identity_never_authorize_trace_start(self):
++        result,api,_=self.run_owner('late-uac');self.assertFalse(result['mechanism_passed']);self.assertNotIn(('command',1),api.events)
++        value=config();api=Fake(value);api.high['capability_count']=1;root=self.make_root()
++        result=local.supervise(api,value,root,c.encode(value),root/local.ACTOR,approved=True,ordinary_driver=api.driver)
++        self.assertNotIn(('command',1),api.events);self.assertTrue(result['recovery_required'])
++    def test_unknown_start_not_washed_by_stop_absence_and_job_empty(self):
++        result,api,rows=self.run_owner('start-unknown')
++        self.assertFalse(api.session);self.assertTrue(result['historical_uncertain']);self.assertFalse(result['cleanup_verified']);self.assertTrue(result['recovery_required'])
++        self.assertNotIn('start-returned',[row['kind'] for row in rows]);self.assertEqual(api.stop_count,1)
++    def test_job_kill_is_not_session_cleanup_and_close_is_once(self):
++        result,api,_=self.run_owner('stop-unknown');self.assertTrue(api.session);self.assertTrue(result['recovery_required']);self.assertIn('job-stop',api.events)
++        result,api,_=self.run_owner('close');self.assertEqual(api.closed,1);self.assertFalse(result['cleanup_verified'])
++    def test_prior_positive_survives_parse_loss_late_callback_and_cleanup_failure(self):
++        for fault in ('parse','loss','late-event','close'):
++            result,api,_=self.run_owner(fault);self.assertTrue(result['cases']['before']['provider_query']);self.assertFalse(result['mechanism_passed'])
++            if fault=='loss':self.assertTrue(result['cleanup_verified']);self.assertTrue(result['observation_incomplete'])
++            if fault=='late-event':self.assertTrue(result['cases']['probe']['late'])
++    def test_journal_unknown_data_tamper_and_replay_refused(self):
++        result,api,rows=self.run_owner();changed=copy.deepcopy(rows);changed[0]['data']['extra']=True
++        with self.assertRaises(ValueError):c.journal(changed,api.c,api.checksum)
++        changed=copy.deepcopy(rows);changed[2]['previous_sha256']='0'*64
++        with self.assertRaises(ValueError):c.journal(changed,api.c,api.checksum)
++        root=self.make_root();journal=local.Journal(root/'etw-journal',api.c,api.checksum);journal.append('initial',dict(binary_sha256=H))
++        with self.assertRaises(ValueError):local.Journal(root/'etw-journal',api.c,api.checksum)
++    def test_native_rdj_chain_and_bound_source_guid_config(self):
++        value=config();digest=c.sha(c.encode(value));rows=native_rows(value,digest);self.assertEqual(c.native_journal(rows,value,digest),[1,2])
++        for offset in (5,16,32,80,112,144,176,208,224):
++            bad=[bytearray(row) for row in rows];bad[1][offset]^=1
++            with self.assertRaises(ValueError):c.native_journal([bytes(row) for row in bad],value,digest)
++    def recover(self,fault=None,present=True):
++        _,old,rows=self.run_owner();api=Fake(old.c,fault);api.now=130000;api.session=present;root=self.make_root()
++        value=recovery.recover(api,api.c,api.raw,rows,native_rows(api.c,api.checksum),dict(frequency=1000,start=130000,deadline=150000),root/'etw-journal',approved=True)
++        return value,api
++    def test_exact_orphan_recovery_only_disable_stop_and_preserves_old_uncertainty(self):
++        value,api=self.recover();self.assertTrue(value['completed']);self.assertTrue(value['historical_original_uncertainty_preserved'])
++        self.assertIn('disable',api.events);self.assertIn('stop',api.events);self.assertFalse(value['original_qualification_changed'])
++        self.assertNotIn(('command',1),api.events)
++        value,api=self.recover(present=False);self.assertTrue(value['current_absence_verified']);self.assertNotIn('stop',api.events)
++    def test_unknown_collision_changed_mode_or_live_old_calls_are_never_stopped(self):
++        for fault in ('collision','wrong-mode','old-alive','old-call-alive'):
++            value,api=self.recover(fault);self.assertFalse(value['completed']);self.assertTrue(value['recovery_required']);self.assertNotIn('stop',api.events)
++
++if __name__=='__main__':unittest.main()
