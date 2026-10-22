@@ -19,7 +19,7 @@
 
 raw01 原件未修改。随后仅删除 raw profile 普通 before/after 阶段中重复的 `refresh_profiles()`：普通控制进程不受 selected package 的精确规则约束。selected 仍先刷新，原 `publish_phase` 的防火墙新鲜度门保持；每轮 family/task liveness、每个 DNS GO 的同一库存≤5秒门、原绝对 root/phase deadline 全保留。API6 仍进行三次刷新，没有改变原有行为或权限。
 
-[纯测试记录](../../verification/windows-2026-10-22/model2-raw-dns-timing-fix-pure-tests.json)包含先复现失败再修复的耗时回归、API6 三刷新及过期库存拒 GO 反例。31项 focused 测试零跳过；完整本机720项无失败，2项原有符号链接权限跳过。[受测 raw01 源的自动 CI](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39844113677)为717项零跳过、仅编译和纯测试，runtime 全跳过；它不代表任何 DNS 隔离通过。
+[纯测试记录](../../verification/windows-2026-10-22/model2-raw-dns-timing-fix-pure-tests.json)包含先复现失败再修复的耗时回归、API6 三刷新及过期库存拒 GO 反例。31项 focused 测试零跳过；完整本机720项无失败，2项原有符号链接权限跳过。[受测 raw01 源的自动 CI](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39844113677)为717项零跳过、仅编译和纯测试，runtime 全跳过；它不代表任何 DNS 隔离通过。 raw02 同受测源 `962231b` 的[后续自动 CI 39845952394](https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39845952394)为720项、17.258秒、零 skip，仍仅编译与纯测试、runtime 全跳过；[日志承诺](../../verification/windows-2026-10-22/model2-raw-dns-source-pure-ci-02.json)单独归档。
 
 ## 方法和边界
 

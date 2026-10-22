@@ -1,0 +1,44 @@
+{
+  "compiled_base_identity_actor_only": true,
+  "compiled_proxy_c07_actor": false,
+  "conclusion": "success",
+  "decoded_log": {
+    "bytes": 170924,
+    "kept_in_work": true,
+    "raw_github_log_zip": false,
+    "sha256": "39898d01aef2e1d665c7a672a0e80fed977333d47cb6d7990313ca4213cf5956"
+  },
+  "elapsed_seconds": 17.258,
+  "errors": 0,
+  "event": "push",
+  "failures": 0,
+  "gated_runtime_step_numbers_skipped": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "interpretation": {
+    "actual_raw_dns02_is_separate_evidence": true,
+    "dns_isolation_qualified": false,
+    "selected_dns_or_udp_attempted": false
+  },
+  "job_id": 120059142418,
+  "native_actor_executed": false,
+  "review_actions": {
+    "actor_executed": false,
+    "security_or_network_state_changed": false,
+    "workflow_dispatched": false,
+    "workflow_rerun": false
+  },
+  "run_attempt": 1,
+  "run_id": 39845952394,
+  "schema_version": 1,
+  "skips": 0,
+  "source_commit": "962231bf9b07f2fb109d5e6343e3b7c5cea2397c",
+  "stage": "read-only-automatic-raw-dns-timing-source-ci-review",
+  "status": "completed",
+  "tests_run": 720,
+  "url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39845952394"
+}
