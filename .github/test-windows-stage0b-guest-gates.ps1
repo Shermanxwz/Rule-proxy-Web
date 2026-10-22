@@ -3,6 +3,23 @@ $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $script:checks=0;$passed=$false;$cleanup=$false;$root=$null;$phase='parse'
 function Check([bool]$Value){if(-not $Value){throw 'stage0b_fixture'};$script:checks++}
+$script:batchStage='not_started';$script:batchIndex=$null;$script:batchCount=$null;$script:caseIndex=$null;$legacyRootArrayNested=$null
+function Add-Stage0bFixtureBatch($Batch,[int]$Expected,$Destination,$Names) {
+    $script:batchStage='shape'
+    if($Batch -isnot [array]){throw 'stage0b_fixture_batch'}
+    $script:batchCount=if($Batch.Count -le 160){[int]$Batch.Count}else{$null}
+    $script:batchStage='count'
+    if($Batch.Count -ne $Expected){throw 'stage0b_fixture_batch'}
+    $script:batchStage='entries'
+    foreach($entry in $Batch) {
+        if($entry -isnot [PSCustomObject]){throw 'stage0b_fixture_batch'}
+        $keys=@($entry.PSObject.Properties.Name)
+        if($keys.Count -ne 3 -or 'name' -cnotin $keys -or 'valid' -cnotin $keys -or 'value' -cnotin $keys){throw 'stage0b_fixture_batch'}
+        if($entry.name -isnot [string] -or $entry.name -cnotmatch '^[a-z0-9_]{1,80}$' -or $entry.valid -isnot [bool] -or $entry.value -isnot [PSCustomObject]){throw 'stage0b_fixture_batch'}
+        if(-not $Names.Add($entry.name)){throw 'stage0b_fixture_batch'}
+        [void]$Destination.Add($entry)
+    }
+}
 try {
     $tokens=$null;$errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'windows-identity-direct-stage0-run.ps1'),[ref]$tokens,[ref]$errors)
@@ -49,13 +66,34 @@ except Exception:
     & python -B -c $program (Split-Path $PSScriptRoot -Parent) $fixture $casesPath $casesPath2
     Check ($LASTEXITCODE -eq 0)
     $phase='diagnostic_parity'
-    $cases=@()
-    foreach($batchPath in @($casesPath,$casesPath2)){
-        Check ((Get-Item -LiteralPath $batchPath).Length -le 131072)
-        $cases+=@([IO.File]::ReadAllText($batchPath,[Text.Encoding]::ASCII)|ConvertFrom-Json)
+    $phase='batch_fixture'
+    $synthetic='[{"name":"one","valid":true,"value":{}},{"name":"two","valid":false,"value":{}}]'
+    $legacy=@($synthetic|ConvertFrom-Json)
+    $legacyRootArrayNested=($legacy.Count -eq 1 -and $legacy[0] -is [array])
+    $parsed=$synthetic|ConvertFrom-Json
+    $destination=[Collections.Generic.List[object]]::new();$names=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    Add-Stage0bFixtureBatch $parsed 2 $destination $names
+    Check ($destination.Count -eq 2 -and $destination[0].name -ceq 'one' -and $destination[1].name -ceq 'two')
+    $badBatches=@((,$parsed),$null,'not-an-array',@($parsed[0],$parsed[0]),@($parsed[0],$null),@($parsed[0],'not-an-object'))
+    foreach($badBatch in $badBatches) {
+        $destination=[Collections.Generic.List[object]]::new();$names=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        $rejected=$false;try{Add-Stage0bFixtureBatch $badBatch 2 $destination $names}catch{$rejected=$true}
+        Check $rejected
     }
-    Check ($cases.Count -ge 130 -and $cases.Count -le 160)
-    foreach($case in $cases){Check ((Test-Stage0bPublic $case.value $config) -eq $case.valid)}
+    $phase='diagnostic_parity'
+    $cases=[Collections.Generic.List[object]]::new();$names=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $batchPaths=@($casesPath,$casesPath2);$expectedCounts=@(70,74)
+    for($i=0;$i -lt 2;$i++) {
+        $script:batchIndex=$i;$script:batchCount=$null;$script:batchStage='read'
+        Check ((Get-Item -LiteralPath $batchPaths[$i]).Length -le 131072)
+        $batch=[IO.File]::ReadAllText($batchPaths[$i],[Text.Encoding]::ASCII)|ConvertFrom-Json
+        Add-Stage0bFixtureBatch $batch $expectedCounts[$i] $cases $names
+    }
+    $script:batchStage='total'
+    Check ($cases.Count -eq 144)
+    $script:batchStage='validate'
+    for($i=0;$i -lt $cases.Count;$i++){$script:caseIndex=$i;Check ((Test-Stage0bPublic $cases[$i].value $config) -eq $cases[$i].valid)}
+    $script:batchStage='complete'
     $script:reportText=[IO.File]::ReadAllText($fixture,[Text.Encoding]::ASCII)
     $value=$script:reportText|ConvertFrom-Json
     Check (Test-Stage0bPublic $value $config)
@@ -133,5 +171,5 @@ except Exception:
         $cleanup=$true
     }catch{$cleanup=$false}
 }
-[ordered]@{schema_version=1;passed=($passed -and $cleanup);phase=$phase;checks=$script:checks;cleanup_confirmed=$cleanup;process_and_transport_mocked=$true;native_actor_executed=$false}|ConvertTo-Json -Compress
+[ordered]@{schema_version=1;passed=($passed -and $cleanup);phase=$phase;checks=$script:checks;batch_stage=$script:batchStage;batch_index=$script:batchIndex;batch_count=$script:batchCount;case_index=$script:caseIndex;legacy_root_array_nested=$legacyRootArrayNested;cleanup_confirmed=$cleanup;process_and_transport_mocked=$true;native_actor_executed=$false}|ConvertTo-Json -Compress
 if(-not($passed -and $cleanup)){exit 1}

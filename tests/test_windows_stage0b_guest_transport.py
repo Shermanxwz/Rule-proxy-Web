@@ -37,7 +37,7 @@ def diagnostic_fixture_cases():
         add(key+'_short',('diagnostic',key),base['diagnostic'][key][:-1])
         add(key+'_scalar',('diagnostic',key),'not_attempted')
         add(key+'_unknown',('diagnostic',key),['private-fixture']*count)
-    add('execution_short',('diagnostic','execution'),[None,None])
+    add('execution_slots_short',('diagnostic','execution'),[None,None])
     add('source_without_record',('diagnostic','execution_sources'),['owner','none','none'])
     add('record_without_source',('diagnostic','execution',0),['complete',None,'none','none',None])
     add('slot0_stdout',('diagnostic','execution_sources',0),'owned_stdout',template=full)
@@ -156,6 +156,17 @@ class TransportTests(unittest.TestCase):
         self.assertNotIn('$envelope.stage0b=$null',inv)
         self.assertIn("'/stage0b-result'",inv);self.assertIn('Send-N0aClosedReport',inv)
         self.assertIn('4097',inv);self.assertIn('$body.Length -gt 4096',inv)
+    def test_windows_batch_fixture_explicit_enumeration_and_closed_observations(self):
+        gate=(ROOT/'.github/test-windows-stage0b-guest-gates.ps1').read_text()
+        self.assertNotIn('$cases+=@(',gate)
+        for token in ('$batch=[IO.File]::ReadAllText', 'foreach($entry in $Batch)', '[void]$Destination.Add($entry)', '$expectedCounts=@(70,74)', '$cases.Count -eq 144', '$Batch -isnot [array]', '$entry -isnot [PSCustomObject]', '$entry.valid -isnot [bool]', '$entry.value -isnot [PSCustomObject]', '$Names.Add($entry.name)', '$legacyRootArrayNested=', "'not-an-array'", "'not-an-object'", '@($parsed[0],$parsed[0])', '@($parsed[0],$null)', 'batch_stage=$script:batchStage', 'case_index=$script:caseIndex'):
+            self.assertIn(token,gate)
+        _,cases=diagnostic_fixture_cases()
+        self.assertEqual([len(cases[:70]),len(cases[70:])],[70,74])
+        self.assertEqual(len({case['name'] for case in cases}),144)
+        import json
+        for batch in (cases[:70],cases[70:]):self.assertLessEqual(len(json.dumps(batch,separators=(',',':')).encode('ascii')),131072)
+
     def test_actual_windows_gate_uses_production_ast_and_mocks(self):
         gate=(ROOT/'.github/test-windows-stage0b-guest-gates.ps1').read_text()
         for text in ('FunctionDefinitionAst','g.default_public','g.validate_public','Test-Stage0bPublic','Invoke-Stage0bGuestDiagnostic','Wait-Stage0bOwnedChild','process_and_transport_mocked=$true','original_transport','work_budget_exhausted','case_nonce_sha256','--deadline-qpc '):self.assertIn(text,gate)
