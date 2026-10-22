@@ -61,6 +61,14 @@ class WrongPortTests(unittest.TestCase):
         self.assertEqual(calls[1]['fixed_ports'],dict(proxy=f.P,wrong_port=f.Q,origin=f.O))
         self.assertTrue(owner.value['wrong_port_extension']['observation_complete'])
 
+    def test_wrong_peer_changes_receiver_identity_at_same_port_and_uses_op4(self):
+        owner,calls=self.exercise(psec=True,peer=True)
+        self.assertEqual([row['opcode'] for row in calls],[1,4,1])
+        self.assertTrue(all(row['fixed_ports']==dict(proxy=f.P,wrong_port=f.Q,origin=f.O) for row in calls))
+        self.assertTrue(owner.value['wrong_peer_extension']['denied_by_access'])
+        self.assertTrue(owner.value['wrong_peer_extension']['observation_complete'])
+        self.assertFalse(owner.value['checks']['wrong_peer'])
+
     def test_main_actual_tier_cannot_substitute_for_missing_q_actual_tier(self):
         owner,calls=self.exercise(psec=True,bad_q_tier=True)
         self.assertEqual(len(calls),3)
@@ -91,21 +99,25 @@ class WrongPortTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'journal_go_digest'):
                 m.validate_ownership_journal(journal,c,controller_pid=journal['controller_pid'])
 
-    def exercise(self,unhealthy=False,psec=False,bad_q_tier=False):
+    def exercise(self,unhealthy=False,psec=False,bad_q_tier=False,peer=False):
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);root=Path(temporary.name)
-        (root/'front').mkdir();x=extension();c=dict(f.CONFIG,wrong_port_extension=x,admission_nonce=f.ADMISSION)
-        if psec:x['profile']='same-peer-wrong-port-psec-control-v1'
+        prefix='b' if peer else 'q';key='wrong_peer_extension' if peer else 'wrong_port_extension'
+        listener_dir=root/('b-front' if peer else 'front');listener_dir.mkdir()
+        x=extension();c=dict(f.CONFIG,admission_nonce=f.ADMISSION);c[key]=x
+        if psec:x['profile']='wrong-peer-psec-control-v1' if peer else 'same-peer-wrong-port-psec-control-v1'
+        target=f.P if peer else f.Q
         c['direct_case']='e'*32
         listener=dict(f.task('pncs',105),info=SimpleNamespace(hProcess=105),exited=False)
         control=dict(f.task('ordinary',106),info=SimpleNamespace(hProcess=106),exited=False)
         owner=object.__new__(m.FirstController);owner.config=c;owner.root=root;owner.go_records=[]
-        owner.value=l.blank('profiles-off-diagnostic',True);owner.tasks={'q-listener':listener,'q-health':control}
+        owner.value=l.blank('profiles-off-diagnostic',wrong_port_extension=not peer,wrong_peer_extension=peer)
+        owner.tasks={prefix+'-listener':listener,prefix+'-health':control}
         if psec:
-            (root/'q-g-live/dacl-state').mkdir(parents=True)
-            (root/'q-g-live/stdout').write_bytes(b'' if bad_q_tier else b'selected isolation tier: base-container\n')
-            (root/'q-g-live/stderr').write_bytes(b'')
+            work=root/(prefix+'-g-live');(work/'dacl-state').mkdir(parents=True)
+            (work/'stdout').write_bytes(b'' if bad_q_tier else b'selected isolation tier: base-container\n')
+            (work/'stderr').write_bytes(b'')
             (root/'main-tier-control').write_bytes(b'selected isolation tier: base-container\n')
-            owner.tasks['q-g-live']=dict(work=root/'q-g-live',exited=False,exit_code=None)
+            owner.tasks[prefix+'-g-live']=dict(work=work,exited=False,exit_code=None)
         owner.finish_auxiliary=lambda role:None
         owner.phase='health';owner.wrong_port_deadline=None;owner.wrong_port_denied=False
         owner.budget=SimpleNamespace(read=lambda:21000,cutoff=lambda n:90000,require_ms=lambda end:100)
@@ -114,7 +126,7 @@ class WrongPortTests(unittest.TestCase):
         owner.wait=lambda task,end:task.update(exited=True,exit_code=0)
         calls=[]
         def phase(task,**kw):
-            calls.append(kw);row=f.phase(operation='wrong-port',port=f.Q);row['case_id']=kw['case']
+            calls.append(kw);row=f.phase(operation='wrong-peer' if peer else 'wrong-port',port=target);row['case_id']=kw['case']
             row['phase_qpc']=[21000,kw['end'],22000]
             if task is not control or unhealthy:
                 row['network'].update(connect_completed=False,peer_loopback=False,request_complete=False,send_shutdown=False,
@@ -123,23 +135,23 @@ class WrongPortTests(unittest.TestCase):
             return row
         owner.native_phase=phase
         def receipt(index,case):
-            row=f.receipt(listener);row.update(role='health-listener',boot_case_id=x['listener_boot'],port=f.Q,
-                index=index,case_id=case,peer_port=55000,request_bytes=len(m.transport_payload(case,f.Q,'wrong-port')[0]))
+            row=f.receipt(listener);row.update(role='health-listener',boot_case_id=x['listener_boot'],port=target,
+                index=index,case_id=case,peer_port=55000,request_bytes=len(m.transport_payload(case,target,'wrong-port')[0]))
             return row
         before=receipt(1,x['before_case']);after=receipt(2,x['after_case'])
         for index,row in enumerate((before,after),1):
-            (root/('front/receipt-%04d.json'%index)).write_bytes(l.encode(row))
+            (listener_dir/('receipt-%04d.json'%index)).write_bytes(l.encode(row))
         final=f.listener_final(listener);final.update(role='health-listener',boot_case_id=x['listener_boot'],
-            capability_profile='pncs',port=f.Q,accepted_count=2,receipt_count=2)
-        (root/'front/q-final.json').write_bytes(l.encode(final))
+            capability_profile='pncs',port=target,accepted_count=2,receipt_count=2)
+        (listener_dir/('final.json' if peer else 'q-final.json')).write_bytes(l.encode(final))
         with mock.patch.object(m,'read_when_closed',return_value=(before,b'')),mock.patch.object(l,'publish_fixture_finish',return_value='a'*64):
             if unhealthy:
                 with self.assertRaisesRegex(ValueError,'wrong_port_before_health'):
-                    owner.wrong_port_run({'selected':True},dict(proxy=f.P,wrong_port=f.Q,origin=f.O))
+                    owner.wrong_port_run({'selected':True},dict(proxy=f.P,wrong_port=f.Q,origin=f.O),peer=peer)
             elif bad_q_tier:
                 with self.assertRaisesRegex(ValueError,'q_actual_tier'):
-                    owner.wrong_port_run({'selected':True},dict(proxy=f.P,wrong_port=f.Q,origin=f.O))
-            else:owner.wrong_port_run({'selected':True},dict(proxy=f.P,wrong_port=f.Q,origin=f.O))
+                    owner.wrong_port_run({'selected':True},dict(proxy=f.P,wrong_port=f.Q,origin=f.O),peer=peer)
+            else:owner.wrong_port_run({'selected':True},dict(proxy=f.P,wrong_port=f.Q,origin=f.O),peer=peer)
         return owner,calls
 
 

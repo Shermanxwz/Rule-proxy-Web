@@ -266,6 +266,28 @@ class LocalModel2Tests(unittest.TestCase):
         changed=copy.deepcopy(p);changed['wrong_port_extension']['profile']='same-peer-wrong-port-v1'
         with self.assertRaises(ValueError):m.plan(changed,**kw)
 
+    def test_wrong_peer_scope_config_binding_and_unique_nonces(self):
+        _,_,closure=source_fixture();admission=dict(profile='actor-plus-system-conhost-v1',conhost_sha256='7'*64)
+        extension=wrong_port_fixture();extension['profile']='wrong-peer-psec-control-v1'
+        p=recovery_plan(closure)
+        p.update(scope=m.WRONG_PEER_SCOPE,execution_mode='profiles-off-diagnostic',selected_admission=admission,wrong_peer_extension=extension)
+        kw=dict(device='1'*64,source=closure,actor='3'*64,manifest='4'*64,execution_mode='profiles-off-diagnostic',selected_admission=admission,wrong_peer_extension=True)
+        self.assertIs(m.plan(p,**kw),p)
+        changed=copy.deepcopy(p);changed['scope']=m.WRONG_PORT_PSEC_SCOPE
+        with self.assertRaises(ValueError):m.plan(changed,**kw)
+        c=config_fixture();c.update(execution_mode='profiles-off-diagnostic',selected_admission=admission,wrong_peer_extension=extension)
+        self.assertIs(m.validate_config(c),c)
+        c['wrong_peer_extension']['before_case']=c['health_cases'][0]
+        with self.assertRaises(ValueError):m.validate_config(c)
+        c['wrong_peer_extension']=dict(extension,before_case=format(13,'032x'))
+        c['wrong_port_extension']=wrong_port_fixture()
+        with self.assertRaises(ValueError):m.validate_config(c)
+
+    def test_negative_cli_extensions_are_mutually_exclusive_before_preflight(self):
+        with mock.patch.object(m,'preflight') as pre,mock.patch.object(m.sys,'stderr'),self.assertRaises(SystemExit) as caught:
+            m.main(['--test-wrong-peer','--test-same-peer-wrong-port'])
+        self.assertEqual(caught.exception.code,2);pre.assert_not_called()
+
     def test_opt_in_missing_never_constructs_native_api(self):
         with mock.patch.object(m.local,'LocalNativeAPI') as native:
             value=m.run_local(*([None]*8))
