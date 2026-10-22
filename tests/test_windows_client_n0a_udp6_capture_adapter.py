@@ -241,6 +241,133 @@ class FullBoundaryTests(unittest.TestCase):
             self.assertEqual(receipt['result']['selected_send_accepted_count'],3)
             self.assertEqual(m.parse_before_cleanup(path,c.facts(),None,expected,header_before_link=True,terminal_before_shutdown=True)['reason'],'body_missing')
 
+class CaptureDiagnosticTests(unittest.TestCase):
+    @staticmethod
+    def facts():
+        value=c.facts();value.update(schema_version=1,fixture=False,execution_model='owned_child')
+        value['capture'].update(retained=67108864,drained=2**64-1,overflow=True)
+        value['drain_complete']=False
+        return value
+
+    def test_snapshot_available_without_flow_and_unknown_is_null(self):
+        facts=self.facts()
+        value=m.parse_before_cleanup(Path('unused'),facts,None,None,header_before_link=False,terminal_before_shutdown=False)
+        self.assertEqual(value['reason'],'flow_context')
+        self.assertEqual(value['capture_diagnostic']['drained'],2**64-1)
+        self.assertEqual(value['capture_diagnostic']['limit_bytes'],67108864)
+        self.assertIsNone(value['packet'])
+        facts['final_status_observed']=False
+        self.assertFalse(m.capture_diagnostic(facts)['final_status_observed'])
+        for bad in (None,{},dict(facts,capture=None)):
+            self.assertIsNone(m.capture_diagnostic(bad))
+
+    def test_exact_types_bounds_and_contradictions(self):
+        facts=self.facts();self.assertIsNotNone(m.capture_diagnostic(facts))
+        changes=[('fixture',True),('fixture',0),('execution_model','owner_threads'),('schema_version',True),('schema_version',2),('descriptors_closed',False),
+                 ('drain_complete',True),('status_eof',1)]
+        for key,value in changes:
+            bad=copy.deepcopy(facts);bad[key]=value
+            self.assertIsNone(m.capture_diagnostic(bad),(key,value))
+        for key,value in [('retained',True),('retained',-1),('retained',67108865),
+                          ('drained',0),('drained',2**64),('overflow',1)]:
+            bad=copy.deepcopy(facts);bad['capture'][key]=value
+            self.assertIsNone(m.capture_diagnostic(bad),(key,value))
+        bad=copy.deepcopy(facts);bad['capture']['drained']=67108864
+        self.assertIsNone(m.capture_diagnostic(bad))
+        # A write failure can make drained exceed capacity without filling the
+        # retained file; no invented overflow equivalence.
+        bad['capture'].update(retained=0,overflow=False)
+        self.assertIsNotNone(m.capture_diagnostic(bad))
+
+    def test_diagnostic_survives_read_and_normalization_errors(self):
+        raw,expected,_=pipeline();facts=self.facts()
+        for error in (OSError('PRIVATE'),m.helper('lifecycle').CaptureReadCloseError()):
+            with patch.object(m.helper('lifecycle'),'read_capture',side_effect=error):
+                result=m.parse_before_cleanup(Path('SECRET'),facts,raw,expected,header_before_link=False,terminal_before_shutdown=False)
+            self.assertEqual(result['capture_diagnostic'],m.capture_diagnostic(facts))
+            self.assertNotIn('PRIVATE',json.dumps(result));self.assertNotIn('SECRET',json.dumps(result))
+        with patch.object(m.helper('flow'),'normalize',side_effect=ValueError('SECRET')):
+            result=m.parse_before_cleanup(Path('unused'),facts,raw,expected,header_before_link=False,terminal_before_shutdown=False)
+        self.assertEqual(result['reason'],'normalization');self.assertIsNotNone(result['capture_diagnostic'])
+
+    def test_malformed_diagnostic_cannot_erase_selected_positive(self):
+        raw,expected,data=pipeline(True);facts=self.facts();facts['capture']['retained']=True
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'pcap';path.write_bytes(data)
+            result=m.parse_before_cleanup(path,facts,raw,expected,header_before_link=False,terminal_before_shutdown=False)
+        self.assertIsNone(result['capture_diagnostic']);self.assertTrue(result['selected_payload_observed'])
+        original,receipt=final(expected);receipt['vm_destroyed']=False
+        self.assertTrue(m.qualify(result,original,receipt)['selected_payload_observed'])
+
+class HostProjectionSizeTests(unittest.TestCase):
+    @staticmethod
+    def upper_projection():
+        raw,expected,data=pipeline(True)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'pcap';path.write_bytes(data)
+            result=m.parse_before_cleanup(path,CaptureDiagnosticTests.facts(),raw,expected,header_before_link=False,terminal_before_shutdown=False)
+        original,receipt=final(expected);result=m.qualify(result,original,receipt)
+        packet=result['packet']
+        result['status']='bounded_no_selected_udp_datagram'
+        for key,value in result['capture_diagnostic'].items():
+            if type(value) is bool:result['capture_diagnostic'][key]=False
+        # Conservative serialization upper composition: these maxima need not
+        # coexist in one capture. This is not a fabricated valid packet trace.
+        for obj in (result,packet):
+            for key,value in obj.items():
+                if type(value) is bool:obj[key]=False
+        packet.update(status='bounded_no_selected_udp_datagram',selected_payload_count=3,
+                      unknown_flow_packets=262144,records=262144)
+        packet['reasons']=sorted({'binding','manifest','capture_bound','header','record_bound','truncated','record','frame_bound','ethernet','encapsulation','ipv6','jumbo_unsupported','fragment','opaque_protocol','extension_bound','hop_order','extension','routing_unsupported','udp','payload_port_mismatch','payload_mismatch','unknown_flow','empty','port_collision','port_unavailable','controls','cleanup','send_unattempted','capture_lifecycle','ordinary_payload','host_prerequisites'})
+        packet['decoder_diagnostic']=dict(v=1,opaque_next_header_counts=[[i,262144] for i in range(240,256)],
+            omitted_category_count=240,omitted_event_count=262144,detail_complete=False,truncated_counts=[1,262144,1])
+        return result
+
+    def test_packet_projection_compact_pretty_and_host_nested_bound(self):
+        value=self.upper_projection()
+        compact=json.dumps(value,separators=(',',':')).encode('ascii')
+        pretty=(json.dumps(value,indent=2)+'\n').encode('ascii')
+        # Actual host writer nests this under packet; account for its extra
+        # indentation too, not only a convenient compact representation.
+        nested=(json.dumps({'packet':value},indent=2)+'\n').encode('ascii')
+        self.assertLessEqual(len(compact),4096)
+        self.assertLessEqual(len(pretty),4096)
+        self.assertLessEqual(len(nested),4096)
+        self.assertEqual(len(value['packet']['decoder_diagnostic']['opaque_next_header_counts']),16)
+
+    @staticmethod
+    def full_host_upper():
+        # Independent field maxima, not a jointly valid semantic report.
+        u=m.helper('control');value=u.default_host_udp6()
+        value['packet']=HostProjectionSizeTests.upper_projection()
+        value['result']['selected_send_accepted_count']=3
+        d=value['result']['diagnostic']
+        d.update(stage=max(u.DIAGNOSTIC_STAGES,key=len),failed_stage=max(u.DIAGNOSTIC_STAGES,key=len),failure='operation')
+        d['phases']=[[False]*6+['unavailable','unavailable'] for _ in range(4)]
+        d['before']=dict(context=[1,1023,1023],checks=[False]*13,validation=max(u.VALIDATION_REASONS,key=len),network=[4294967295,False,40],
+            attempt=[False]*5+[-2147483648,4294967295,-2147483648,4294967295,'length_mismatch',False,128,False,4294967295,max(u.FAILURES,key=len),False,4294967295]+[False]*6)
+        u.validate_diagnostic(d)
+        old=u.tcp_helpers()
+        value['reason']=max(old.LAUNCHER_FAILURES,key=len)
+        value['execution']=dict(phase=max(old.EXECUTION_PHASES,key=len),failed=False,cleanup_confirmed=False)
+        value['launcher']=dict(phase=max(old.LAUNCHER_PHASES,key=len),failure=max(old.LAUNCHER_FAILURES,key=len),python_exit_code=-2147483648,process_exit_confirmed=False,timed_out=False,budget_exhausted=False)
+        value.update(flow_transport_state='commitment_invalid',original_stage0_receipt_verified=False,vm_destroyed=False,host_wait_state='capture_body_deadline')
+        value['host_receiver']=dict(thread_stopped=False,socket_closed=False,datagram_observed=False,cleanup_confirmed=False,socket_cleanup_confirmed=False,error=True,endpoint_error=True,contained_observed=True,
+            counts=dict(datagrams=128,observed_bytes=16512,verified=128,echoed=128,rejected=128,oversized=128,send_errors=128),
+            verified_indices=dict(before=[0],sample=list(range(40)),contained=[0,1,2],after=[0]))
+        metadata=lambda name:dict(sha256='f'*64,name=name,architecture='amd64',version='9'*128,local_integrity_verified=False)
+        value['mapped_provenance']=dict(schema_version=1,admitted=False,pre_stop_verified=False,close_confirmed=False,
+            qemu=metadata('qemu-system-x86'),libslirp=metadata('libslirp0'),failure=True,resident_bytes_verified=False,source_equivalence_verified=False)
+        return value
+
+    def test_full_host_actual_serialization_is_measured_not_guest_wire_capped(self):
+        value=self.full_host_upper();raw=(json.dumps(value,indent=2)+'\n').encode('ascii')
+        self.assertEqual(json.loads(raw),value)
+        # The full host artifact is not the 4096-byte guest envelope or packet
+        # projection. No production writer cap is introduced or claimed here.
+        self.assertGreater(len(raw),4096)
+        self.assertIn('capture_diagnostic',value['packet'])
+
 if __name__=='__main__':
     import argparse
     parser=argparse.ArgumentParser(description='Isolated UDP6 production artifact verification; no PE execution')

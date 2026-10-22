@@ -235,4 +235,199 @@ class Udp6PacketTests(unittest.TestCase):
         for forbidden in ('a'*32,MAC.hex(),'fec0::2','51000','source_port','N0AU6'):self.assertNotIn(forbidden,text)
         self.assertFalse(r['checksums_validated']);self.assertFalse(r['qpc_timestamp_mapping_used'])
 
+    def diagnostic(self,result):
+        diagnostic=result['decoder_diagnostic']
+        self.assertEqual(set(diagnostic),{'v','opaque_next_header_counts','truncated_counts',
+                                         'omitted_category_count','omitted_event_count','detail_complete'})
+        self.assertIs(type(diagnostic['v']),int);self.assertEqual(diagnostic['v'],1)
+        opaque=diagnostic['opaque_next_header_counts'];truncated=diagnostic['truncated_counts']
+        self.assertIs(type(opaque),list);self.assertLessEqual(len(opaque),16)
+        self.assertTrue(all(type(row)is list and len(row)==2 and type(row[0])is int
+                            and 0<=row[0]<=255 and type(row[1])is int and 1<=row[1]<=p.MAX_RECORDS for row in opaque))
+        self.assertEqual([row[0] for row in opaque],sorted({row[0] for row in opaque}))
+        self.assertLessEqual(sum(row[1] for row in opaque)+diagnostic['omitted_event_count'],result['records'])
+        self.assertIs(type(diagnostic['detail_complete']),bool)
+        self.assertEqual(diagnostic['detail_complete'],diagnostic['omitted_category_count']==0)
+        self.assertIs(type(truncated),list);self.assertEqual(len(truncated),3)
+        self.assertTrue(all(type(n)is int for n in truncated))
+        self.assertIn(truncated[0],(0,1));self.assertIn(truncated[2],(0,1))
+        self.assertTrue(0<=truncated[1]<=p.MAX_RECORDS)
+        self.assertLessEqual(truncated[1],result['records']+1)
+        return diagnostic
+
+    def test_diagnostic_null_only_before_decode_attempt(self):
+        m=manifest();raw,expected=bound(m);data=pcap(frames(m));c=capture(data)
+        for bad in (b'bad',raw+b' '):
+            result=p.evaluate(data,bad,expected,c)
+            self.assertIsNone(result['decoder_diagnostic'])
+        for data in (b'',b'invalid header',pcap([])):
+            result=run(data=data);d=self.diagnostic(result)
+            self.assertEqual(d['opaque_next_header_counts'],[])
+            self.assertEqual(d['truncated_counts'],[0,0,0])
+
+    def test_exact_all_opaque_header_enums_and_only_targeted_branch(self):
+        m=manifest();fs=frames(m)+[selected(m)]
+        unsupported=set(range(256))-{0,43,60,51,44,17}
+        for value in sorted(unsupported):
+            raw=bytearray(frame(59999,b'unrelated'));raw[20]=value;fs.append(bytes(raw))
+        for value in (6,50,58,59,253):
+            raw=bytearray(frame(59999,b'unrelated'));raw[20]=value;fs.append(bytes(raw))
+        result=run(m,fs=fs);d=self.diagnostic(result)
+        expected=[[value,1+int(value in (6,50,58,59,253))] for value in sorted(unsupported)]
+        self.assertEqual(d['opaque_next_header_counts'],expected[:16])
+        self.assertEqual(d['omitted_category_count'],len(expected)-16)
+        self.assertEqual(d['omitted_event_count'],sum(row[1] for row in expected[16:]))
+        self.assertFalse(d['detail_complete'])
+        self.assertTrue(result['selected_bound_payload_observed'])
+        self.assertEqual(result['unknown_flow_packets'],0)
+        self.assertFalse(result['bounded_no_selected_udp_datagram'])
+        # Other source MAC/destination never reaches the opaque branch.
+        ignored=[]
+        for raw in (bytearray(frame(59999,b'x',mac=b'\x02'*6)),
+                    bytearray(frame(59999,b'x',dst=b'\xff\x02'+b'\0'*14))):
+            raw[20]=58;ignored.append(bytes(raw))
+        clean=run(m,fs=frames(m)+ignored)
+        self.assertEqual(self.diagnostic(clean)['opaque_next_header_counts'],[])
+
+    def test_common_opaque_categories_are_individually_exact(self):
+        m=manifest();fs=frames(m)+[selected(m)]
+        for value in (6,50,58,59,253,253):
+            raw=bytearray(frame(59999,b'unrelated'));raw[20]=value;fs.append(bytes(raw))
+        result=run(m,fs=fs);d=self.diagnostic(result)
+        self.assertEqual(d['opaque_next_header_counts'],[[6,1],[50,1],[58,1],[59,1],[253,2]])
+        self.assertTrue(d['detail_complete']);self.assertEqual(d['omitted_event_count'],0)
+        self.assertTrue(result['selected_bound_payload_observed'])
+        self.assertIn('opaque_protocol',result['reasons'])
+        self.assertFalse(result['bounded_no_selected_udp_datagram'])
+
+    def test_opaque_after_supported_extension_counts_final_enum(self):
+        m=manifest();raw=bytearray(frame(59999,b'x',extensions=((60,8),)))
+        raw[54]=58
+        result=run(m,fs=frames(m)+[bytes(raw)])
+        d=self.diagnostic(result)
+        self.assertEqual(d['opaque_next_header_counts'],[[58,1]])
+
+    def test_three_truncation_branches_and_unconsumed_record(self):
+        m=manifest();base=pcap(frames(m)+[selected(m)])
+        header=run(m,data=base+b'\0')
+        self.assertEqual(self.diagnostic(header)['truncated_counts'],[1,0,0])
+        body=run(m,data=pcap(frames(m)+[selected(m),frame(59999,b'x'*100)])[:-1])
+        self.assertEqual(self.diagnostic(body)['truncated_counts'],[0,0,1])
+        raw=bytearray(pcap([selected(m)]));captured=struct.unpack_from('<I',raw,32)[0]
+        struct.pack_into('<I',raw,36,captured+1)
+        mismatch=run(m,data=bytes(raw))
+        self.assertEqual(self.diagnostic(mismatch)['truncated_counts'],[0,1,0])
+        self.assertTrue(mismatch['selected_bound_payload_observed'])
+        both=run(m,data=bytes(raw[:-1]))
+        self.assertEqual(both['records'],0)
+        self.assertEqual(self.diagnostic(both)['truncated_counts'],[0,1,1])
+        for result in (header,body,mismatch,both):
+            self.assertIn('truncated',result['reasons'])
+            self.assertFalse(result['bounded_no_selected_udp_datagram'])
+        self.assertTrue(header['selected_bound_payload_observed'])
+        self.assertTrue(body['selected_bound_payload_observed'])
+
+    def test_capped_prefix_is_not_record_aligned_and_counters_are_bounded(self):
+        m=manifest();full=pcap([frame(59999,b'x'*1000)])
+        result=run(m,data=full[:64])
+        self.assertEqual(self.diagnostic(result)['truncated_counts'],[0,0,1])
+        self.assertFalse(result['bounded_no_selected_udp_datagram'])
+        raw=bytearray(frame(59999,b'x'));raw[20]=6
+        with patch.object(p,'MAX_RECORDS',2):
+            result=run(m,fs=[bytes(raw)]*3)
+            self.assertEqual(self.diagnostic(result)['opaque_next_header_counts'],[[6,2]])
+            self.assertIn('record_bound',result['reasons'])
+        with patch.object(p,'MAX_RECORDS',1):
+            raw=bytearray(pcap([frame(59999,b'x')]))
+            struct.pack_into('<I',raw,36,struct.unpack_from('<I',raw,32)[0]+1)
+            result=run(m,data=bytes(raw)+bytes(raw[24:]))
+            self.assertEqual(self.diagnostic(result)['truncated_counts'][1],1)
+            self.assertIn('record_bound',result['reasons'])
+
+    def test_sparse_projection_zero_one_sixteen_seventeen_all_categories(self):
+        for size in (0,1,16,17,256):
+            counts=[1 if i<size else 0 for i in range(256)]
+            value={'v':1,'opaque_next_header_counts':counts,'truncated_counts':[0,0,0]}
+            projected=p.project_decoder_diagnostic(value,size)
+            self.assertEqual(projected['opaque_next_header_counts'],[[i,1] for i in range(min(size,16))])
+            self.assertEqual(projected['omitted_category_count'],max(0,size-16))
+            self.assertEqual(projected['omitted_event_count'],max(0,size-16))
+            self.assertEqual(projected['detail_complete'],size<=16)
+            self.assertEqual(sum(row[1] for row in projected['opaque_next_header_counts'])+projected['omitted_event_count'],size)
+        counts=[0]*256;counts[253]=p.MAX_RECORDS
+        value={'v':1,'opaque_next_header_counts':counts,'truncated_counts':[1,p.MAX_RECORDS,1]}
+        projected=p.project_decoder_diagnostic(value,p.MAX_RECORDS)
+        self.assertEqual(projected['opaque_next_header_counts'],[[253,p.MAX_RECORDS]])
+        self.assertEqual(projected['omitted_event_count'],0)
+
+    def test_malformed_diagnostic_projection_cannot_affect_original_verdict(self):
+        good={'v':1,'opaque_next_header_counts':[0]*256,'truncated_counts':[0,0,0]}
+        cases=[None,{},dict(good,extra=0),dict(good,v=True),dict(good,v=2),dict(good,opaque_next_header_counts=[])]
+        for count in (-1,True,p.MAX_RECORDS+1):
+            bad=copy.deepcopy(good);bad['opaque_next_header_counts'][6]=count;cases.append(bad)
+        for trunc in ([2,0,0],[0,0,2],[0,-1,0],[0,False,0],[0,2,0],[0,0],(0,0,0)):
+            cases.append(dict(good,truncated_counts=trunc))
+        for value in cases:self.assertIsNone(p.project_decoder_diagnostic(value,0))
+        count=copy.deepcopy(good);count['opaque_next_header_counts'][6]=1
+        self.assertIsNone(p.project_decoder_diagnostic(count,0))
+        for records in (-1,True,p.MAX_RECORDS+1):self.assertIsNone(p.project_decoder_diagnostic(good,records))
+        m=manifest();data=pcap(frames(m)+[selected(m)])
+        original=run(m,data=data)
+        with patch.object(p,'project_decoder_diagnostic',return_value=None):missing=run(m,data=data)
+        self.assertIsNone(missing.pop('decoder_diagnostic'))
+        original.pop('decoder_diagnostic');self.assertEqual(missing,original)
+
+    def test_diagnostic_does_not_change_original_program_semantics(self):
+        # Exact old module AST after removing ONLY the additive diagnostic nodes.
+        import ast
+        class WithoutDiagnostic(ast.NodeTransformer):
+            def visit_FunctionDef(self,node):
+                if node.name=='project_decoder_diagnostic':return None
+                return self.generic_visit(node)
+            def visit_Call(self,node):
+                node=self.generic_visit(node)
+                if isinstance(node.func,ast.Name) and node.func.id=='dict':
+                    node.keywords=[k for k in node.keywords if k.arg!='decoder_diagnostic']
+                return node
+            def visit_Assign(self,node):
+                if len(node.targets)==1:
+                    target=node.targets[0]
+                    if isinstance(target,ast.Name) and target.id=='diagnostic':return None
+                    if (isinstance(target,ast.Subscript) and isinstance(target.value,ast.Name)
+                        and target.value.id=='public' and isinstance(target.slice,ast.Constant)
+                        and target.slice.value=='decoder_diagnostic'):return None
+                return self.generic_visit(node)
+            def visit_AugAssign(self,node):
+                target=node.target
+                while isinstance(target,ast.Subscript):target=target.value
+                if isinstance(target,ast.Name) and target.id=='diagnostic':return None
+                return self.generic_visit(node)
+        cleaned=WithoutDiagnostic().visit(ast.parse(PATH.read_text()))
+        self.assertEqual(hashlib.sha256(ast.dump(cleaned,include_attributes=False).encode()).hexdigest(),
+                         'a17e6995ba430230b1d2f6f9cd4545c896f671b8d09c66ab941dfb9042117198')
+
+    def test_full_public_packet_conservative_maximum_under_4096(self):
+        import ast
+        result=run();tree=ast.parse(PATH.read_text())
+        reasons={'binding','manifest'}
+        for node in ast.walk(tree):
+            if (isinstance(node,ast.Call) and node.args and isinstance(node.args[0],ast.Constant)
+                and isinstance(node.args[0].value,str)
+                and ((isinstance(node.func,ast.Name) and node.func.id=='bad')
+                     or (isinstance(node.func,ast.Attribute) and node.func.attr=='add'))):
+                reasons.add(node.args[0].value)
+        for key,value in list(result.items()):
+            if type(value)is bool or value is None:result[key]=False # Longest bool/null spelling.
+        result.update(status='bounded_no_selected_udp_datagram',selected_payload_count=3,
+                      unknown_flow_packets=p.MAX_RECORDS,records=p.MAX_RECORDS,reasons=sorted(reasons))
+        # Deliberately stronger than the possible sum<=records bound: every slot max.
+        result['decoder_diagnostic']={'v':1,'opaque_next_header_counts':[[n,p.MAX_RECORDS] for n in range(240,256)],
+                                      'omitted_category_count':240,'omitted_event_count':p.MAX_RECORDS,
+                                      'detail_complete':False,'truncated_counts':[1,p.MAX_RECORDS,1]}
+        for options in ({'separators':(',',':')},{},{'indent':2}):
+            self.assertLessEqual(len((json.dumps(result,ensure_ascii=True,**options)+'\n').encode('ascii')),4096)
+        text=json.dumps(result)
+        for private in ('a'*32,MAC.hex(),'fec0::2','source_port','N0AU6'):
+            self.assertNotIn(private,text)
+
 if __name__=='__main__':unittest.main()

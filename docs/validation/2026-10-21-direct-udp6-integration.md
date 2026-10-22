@@ -108,3 +108,53 @@ Each attempt carries a compact versioned context array with fixed observed/passe
 selected_nonce_payload_observed denotes only a fresh, strictly actor/report-bound native receive observation of the complete expected nonce bytes after successful nontruncated reception. It is not peer identity, delivery-source authentication, outbound egress or a qualified echo. It survives a wrong peer or later context/cleanup failure. selected_echo_observed requires the full peer context; ordinary admission remains strict. Host packet.selected_payload_observed is a separate capture fact. Public output excludes raw interface indices, LUIDs, MACs, zones, addresses and ports.
 
 Required regressions cover ancillary bounds/duplicates/truncation, SDK scope normalization, wrong level/zone/interface, scope-zero false with valid full context, payload positives despite later failure, and error/partial/stale/unbound negatives. Hosted owned-loopback mechanics and synthetic helper tests precede any separately authorized guest attempt. No runtime is authorized by this candidate.
+
+## Capture failure diagnostics (code-only follow-up)
+
+The third guest run admitted the production ordinary receive-context contract and
+42 ordinary echoes; three selected sends were locally accepted, with no selected
+receiver observation. Its capture was **incomplete**, with overflow, opaque
+protocol and truncation reasons. Zero selected decoded matches therefore did not
+establish bounded packet absence. Deleted raw capture/body data cannot identify
+the original offending next-header or truncation branch retrospectively.
+
+A separately reviewed cleanup correction preserves every capture error and the
+complete-capture predicate while limiting failed-path drain grace to two seconds
+inside the original absolute cutoff. Normal drain allowance is unchanged. Its
+Linux owned-process and paused-QEMU short gate passed; this repairs a reproducible
+failure-finalization delay, not overflow or packet-decoder acceptance.
+
+The next diagnostic-only projection internally counts the existing opaque next-header
+branch by fixed 0..255 protocol enum. Public detail lists at most 16 positive
+[protocol, count] pairs in enum order, with explicit omitted-category and
+omitted-event totals and a detail-completeness flag. Listed plus omitted totals
+exactly account for the internal counts; truncated detail is never an absence
+claim. It also distinguishes partial record header, captured/original length
+mismatch, and partial record body. Counters can overlap:
+a length mismatch may precede a partial-body failure before that record is counted
+as consumed. Unknown/unattempted decoding remains unavailable, not observed zero.
+No unsupported protocol or truncated capture is newly admitted. Selected payload
+observations remain sticky under later failure; diagnostics never qualify absence.
+
+A separate fixed projection of already available capture facts reports the
+retention limit, retained/drained byte counts, overflow and finalization/exit/
+closure Booleans. It contains no packet bytes, nonce, identity, address, port,
+path or free-form exception. The 64 MiB retention cap is a byte-prefix bound, not
+a record-alignment guarantee or a disk-exhaustion assertion.
+
+Native reports remain capped at 32,768 bytes, private flow bodies at 65,536 bytes,
+and the **guest result envelope** at 4,096 bytes. These are not a claim that the
+entire host public artifact fits 4,096 bytes: that artifact also contains receiver,
+provenance and packet evidence. The added host packet projection has a separate
+4,096-byte worst-case serialization check; complete host-artifact serialization
+is measured without dropping existing result fields or inventing a previous
+whole-artifact byte cap. No guest/native protocol, network call, acceptance rule,
+capture resource bound, or runtime permission changes in this diagnostic slice.
+
+The settled conservative independent-field ceiling measures 3,855 bytes for the
+host-nested packet projection with indentation and newline, and 9,165 bytes for
+the full host artifact with indentation and newline. These maxima need not occur
+jointly in a valid report; the latter is a measurement, not a newly invented
+runtime writer cap. Dense public 256-entry counts failed the pretty-print bound
+and were replaced by the explicitly incomplete sparse detail above, not by an
+increase to any existing limit.

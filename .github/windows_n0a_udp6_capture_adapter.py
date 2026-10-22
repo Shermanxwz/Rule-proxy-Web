@@ -73,27 +73,56 @@ def flow_body_state(raw,commitment):
 def unavailable(reason='unavailable'):
     if reason not in ('unavailable','flow_context','commitment_missing','commitment_invalid','body_missing','body_type','body_size','body_digest','normalization','capture_file','parse'):reason='unavailable'
     return dict(schema_version=1,scope='runner_ipv6_udp_payload',status='inconclusive',packet_egress_tested=False,
-                packet=None,reason=reason,capture_read_cleanup_confirmed=True,selected_payload_observed=None,
+                packet=None,reason=reason,capture_read_cleanup_confirmed=True,selected_payload_observed=None,capture_diagnostic=None,
                 actor_attribution_established=False,isolation_acceptance=False)
 
+def capture_diagnostic(facts):
+    """Latest owned snapshot, not necessarily final; limit is configuration.
+
+    This projection is diagnostic only and never supplies acceptance facts.
+    Missing or inconsistent observations stay unknown, rather than zero.
+    """
+    flags=('final_status_observed','child_exit_observed','qemu_exit_observed',
+           'shutdown_authorized','status_eof','descriptors_closed',
+           'cleanup_confirmed','drain_complete')
+    if (type(facts) is not dict or type(facts.get('schema_version')) is not int
+            or facts['schema_version']!=1 or facts.get('fixture') is not False
+            or facts.get('execution_model')!='owned_child'):return None
+    snapshot=facts.get('capture')
+    if type(snapshot) is not dict:return None
+    retained=snapshot.get('retained');drained=snapshot.get('drained');overflow=snapshot.get('overflow')
+    if (type(retained) is not int or not 0<=retained<=67108864
+            or type(drained) is not int or not retained<=drained<=2**64-1
+            or type(overflow) is not bool
+            or any(type(facts.get(key)) is not bool for key in flags)):return None
+    if overflow and drained<=retained:return None
+    if facts['cleanup_confirmed'] and not facts['descriptors_closed']:return None
+    if facts['drain_complete'] and (overflow or not all(facts[key] for key in flags)):return None
+    return dict(schema_version=1,limit_bytes=67108864,retained=retained,drained=drained,
+                overflow=overflow,**{key:facts[key] for key in flags})
+
 def parse_before_cleanup(path,capture_facts,raw_flow,flow_expected,*,header_before_link,terminal_before_shutdown,capacity_abort=False):
-    if type(flow_expected) is not dict:return unavailable('flow_context')
+    diagnostic=capture_diagnostic(capture_facts)
+    def projected(result):
+        result['capture_diagnostic']=diagnostic
+        return result
+    if type(flow_expected) is not dict:return projected(unavailable('flow_context'))
     state=flow_body_state(raw_flow,flow_expected.get('flow_commitment'))
-    if state!='body_verified':return unavailable(state)
+    if state!='body_verified':return projected(unavailable(state))
     try:normalized=helper('flow').normalize(raw_flow,flow_expected)
-    except Exception:return unavailable('normalization')
-    if type(capture_facts) is not dict or capture_facts.get('qemu_exit_observed') is not True or capture_facts.get('child_exit_observed') is not True:return unavailable('capture_file')
+    except Exception:return projected(unavailable('normalization'))
+    if type(capture_facts) is not dict or capture_facts.get('qemu_exit_observed') is not True or capture_facts.get('child_exit_observed') is not True:return projected(unavailable('capture_file'))
     lifecycle=helper('lifecycle')
     try:data=lifecycle.read_capture(path)
     except lifecycle.CaptureReadCloseError:
-        result=unavailable('capture_file');result['capture_read_cleanup_confirmed']=False;return result
-    except Exception:return unavailable('capture_file')
+        result=unavailable('capture_file');result['capture_read_cleanup_confirmed']=False;return projected(result)
+    except Exception:return projected(unavailable('capture_file'))
     try:
         contract=lifecycle.capture_contract(data,capture_facts,header_before_link=header_before_link,terminal_before_shutdown=terminal_before_shutdown,capacity_abort=capacity_abort)
         packet=helper('packet').evaluate(data,normalized['manifest_bytes'],normalized['expected'],contract)
-    except Exception:return unavailable('parse')
+    except Exception:return projected(unavailable('parse'))
     result=unavailable();result.update(status=packet['status'],packet=packet,reason='none',packet_egress_tested=True,selected_payload_observed=packet['selected_payload_observed'])
-    return result
+    return projected(result)
 
 def receiver(nonce,deadline):
     # The generic finalizer requires only these two cleanup aliases. Counts

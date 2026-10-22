@@ -138,7 +138,12 @@ def decode_pcap(data, manifest):
     Exact selected payload on a wrong port survives as an unbound observation.
     """
     result = dict(selected_seen=set(), selected_bound=set(), ordinary_first={},
-                  unknown_packets=0, records=0, reasons=set())
+                  unknown_packets=0, records=0, reasons=set(),
+                  decoder_diagnostic=dict(v=1, opaque_next_header_counts=[0]*256,
+                                          truncated_counts=[0, 0, 0]))
+    # Diagnostic only: exact public Next Header enum counts; truncation order is
+    # header_tail, captured_ne_original, body_tail. Never consulted for admission.
+    diagnostic = result['decoder_diagnostic']
     def bad(reason): result['reasons'].add(reason)
     if type(data) is not bytes or len(data) > MAX_PCAP:
         bad('capture_bound'); return result
@@ -162,15 +167,19 @@ def decode_pcap(data, manifest):
         if result['records'] >= MAX_RECORDS:
             bad('record_bound'); break
         if len(data)-offset < 16:
+            diagnostic['truncated_counts'][0] += 1
             bad('truncated'); break
         _, fraction, captured, original = struct.unpack_from(endian+'IIII',data,offset)
         offset += 16
         if fraction >= scale or captured > snaplen or captured > original:
             bad('record'); break
-        if captured != original: bad('truncated')
+        if captured != original:
+            diagnostic['truncated_counts'][1] += 1
+            bad('truncated')
         if captured > MAX_FRAME:
             bad('frame_bound'); break
         if len(data)-offset < captured:
+            diagnostic['truncated_counts'][2] += 1
             bad('truncated'); break
         frame=view[offset:offset+captured]; offset+=captured; result['records']+=1
         if len(frame)<14:
@@ -195,6 +204,7 @@ def decode_pcap(data, manifest):
             if next_header==44:
                 bad('fragment');unsupported=True;break
             if next_header not in (0,43,60,51):
+                diagnostic['opaque_next_header_counts'][next_header] += 1
                 bad('opaque_protocol');unsupported=True;break
             if extension_count>=MAX_EXTENSIONS:
                 bad('extension_bound');unsupported=True;break
@@ -233,6 +243,28 @@ def decode_pcap(data, manifest):
     return result
 
 
+def project_decoder_diagnostic(value, records):
+    """Closed bounded detail only; failure/omission cannot change decoder verdicts."""
+    if (not _object(value, {'v', 'opaque_next_header_counts', 'truncated_counts'})
+            or type(value['v']) is not int or value['v'] != 1
+            or not _integer(records, 0, MAX_RECORDS)):
+        return None
+    counts, truncated = value['opaque_next_header_counts'], value['truncated_counts']
+    if (type(counts) is not list or len(counts) != 256
+            or any(not _integer(n, 0, MAX_RECORDS) for n in counts)
+            or sum(counts) > records
+            or type(truncated) is not list or len(truncated) != 3
+            or not _integer(truncated[0], 0, 1) or not _integer(truncated[2], 0, 1)
+            or not _integer(truncated[1], 0, min(MAX_RECORDS, records + 1))):
+        return None
+    nonzero = [[number, count] for number, count in enumerate(counts) if count]
+    omitted = nonzero[16:]
+    return dict(v=1, opaque_next_header_counts=nonzero[:16],
+                omitted_category_count=len(omitted),
+                omitted_event_count=sum(row[1] for row in omitted),
+                detail_complete=not omitted, truncated_counts=list(truncated))
+
+
 def evaluate(data, manifest_bytes, expected, capture):
     """Pure future-controller contract. No caller authentication is created here."""
     public=dict(schema_version=1,protocol='udp6',scope='runner_ipv6_udp_payload',status='inconclusive',manifest_valid=False,
@@ -242,6 +274,7 @@ def evaluate(data, manifest_bytes, expected, capture):
                 capture_complete_contract=False,decoder_complete=False,ordinary_payload_controls=False,
                 selected_payload_observed=None,selected_bound_payload_observed=None,
                 selected_payload_count=0,unknown_flow_packets=0,records=0,reasons=[],
+                decoder_diagnostic=None,
                 bounded_no_selected_udp_datagram=False,actor_attribution_established=False,
                 isolation_acceptance=False,checksums_validated=False,qpc_timestamp_mapping_used=False)
     try: manifest,collision=validate_manifest(manifest_bytes,expected)
@@ -254,6 +287,7 @@ def evaluate(data, manifest_bytes, expected, capture):
     public['cleanup_contract']=expected['cleanup_verified']
     public['all_selected_sends_invoked']=all(r['send_invoked'] for r in manifest['selected'])
     decoded=decode_pcap(data,manifest); reasons=decoded['reasons']
+    public['decoder_diagnostic']=project_decoder_diagnostic(decoded['decoder_diagnostic'], decoded['records'])
     public['decoder_complete']=not reasons
     public['selected_payload_observed']=bool(decoded['selected_seen'])
     public['selected_bound_payload_observed']=bool(decoded['selected_bound'])
