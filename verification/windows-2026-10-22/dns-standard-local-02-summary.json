@@ -1,0 +1,28 @@
+{
+  "archive_scope": "read-and-copy-only",
+  "attempt": 2,
+  "component_projection_sha256": "763c44182b2bf3d796bb339cfaea61dbd464c26e6a4bfbf871c4cbeaa39631ef",
+  "date": "2026-10-23",
+  "default_resolver_tested": false,
+  "dns_isolation_qualified": false,
+  "failure": null,
+  "mechanism_passed": true,
+  "network_tested": true,
+  "product_acceptance": false,
+  "public_bytes": 1864,
+  "public_sha256": "9a72bc097f1842a0656051f59b092600b640b3ed1e5ad60483a4ae301db5d11e",
+  "recovery_required": false,
+  "runner_byte_identical_to_workspace": true,
+  "runner_sha256": "ea5cb8d1ba4c06822ee499cc2f2a22b56b4a30e9b8497c1f32e8e8f9dc610eb0",
+  "schema_version": 1,
+  "selected_application_tested": false,
+  "source_commit": "21cbfe2ee466ea4ec0f6237ae29a8509ef13f618",
+  "source_files_verified": 15,
+  "source_sha256": "5206fd171b4fc7c44717d71a5dc654ca47a80c59d93df9e314c915b253532d9f",
+  "stage": "dns-standard-local-summary",
+  "status": "passed",
+  "worker_report_commitment": {
+    "bytes": 5055,
+    "sha256": "305abfce67fdbc577c90a682d9b541df7a347ffcfeaaf0323718148ced53280f"
+  }
+}

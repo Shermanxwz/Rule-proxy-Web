@@ -1,0 +1,71 @@
+{
+  "files": [
+    {
+      "bytes": 1318,
+      "path": "verification/windows-2026-10-22/dns-standard-local-01-preflight.json",
+      "sha256": "b5a32530f049470006ea8717fefda6e0f9de34b9d282f259f12c8b86c4bc189b"
+    },
+    {
+      "bytes": 1327,
+      "path": "verification/windows-2026-10-22/dns-standard-local-01-public.json",
+      "sha256": "91ac1f2be61fe3b4df1ca1ce4dab27a4f834b4e475e7d82367f5f374dd6ccfbc"
+    },
+    {
+      "bytes": 2588,
+      "path": "verification/windows-2026-10-22/dns-standard-local-01-runner.py",
+      "sha256": "c7ab5ac9e8ee1ee71ce849451fdb286919bc968c17ca28838ac6c82235c8ef44"
+    },
+    {
+      "bytes": 908,
+      "path": "verification/windows-2026-10-22/dns-standard-local-01-component-projection.json",
+      "sha256": "50bbc62f237f16a5cf83f5113cddddbcfff937bb3cc931938cc2dd1158b4c54d"
+    },
+    {
+      "bytes": 991,
+      "path": "verification/windows-2026-10-22/dns-standard-local-01-summary.json",
+      "sha256": "391f3a83a26e384a4d386c2054fd9dc17654c73d2cf95f8283cba85331dd431c"
+    },
+    {
+      "bytes": 1318,
+      "path": "verification/windows-2026-10-22/dns-standard-local-02-preflight.json",
+      "sha256": "db30005827cb1197412ba1ffcceb34bff3435cd05c4ba8e6d95fb27b1f756b56"
+    },
+    {
+      "bytes": 1864,
+      "path": "verification/windows-2026-10-22/dns-standard-local-02-public.json",
+      "sha256": "9a72bc097f1842a0656051f59b092600b640b3ed1e5ad60483a4ae301db5d11e"
+    },
+    {
+      "bytes": 2588,
+      "path": "verification/windows-2026-10-22/dns-standard-local-02-runner.py",
+      "sha256": "ea5cb8d1ba4c06822ee499cc2f2a22b56b4a30e9b8497c1f32e8e8f9dc610eb0"
+    },
+    {
+      "bytes": 1677,
+      "path": "verification/windows-2026-10-22/dns-standard-local-02-component-projection.json",
+      "sha256": "763c44182b2bf3d796bb339cfaea61dbd464c26e6a4bfbf871c4cbeaa39631ef"
+    },
+    {
+      "bytes": 1079,
+      "path": "verification/windows-2026-10-22/dns-standard-local-02-summary.json",
+      "sha256": "b1baa02240fbd67c891316a2f49b5f80cbd5a8c904774c2c785b9d985e78ce4c"
+    },
+    {
+      "bytes": 1008,
+      "path": "verification/windows-2026-10-22/dns-standard-after02-capture.ps1",
+      "sha256": "5b7b3b8f349e934b9f1ddd8f0aa4da036cbef82dfc268d2f2b8b56ca474c2dc7"
+    },
+    {
+      "bytes": 1998,
+      "path": "verification/windows-2026-10-22/dns-standard-after02-expanded.ps1",
+      "sha256": "70d42be953f90d0818cfbf4292af24fe1b2be66990d7909eb0ff549b478f2eb6"
+    },
+    {
+      "bytes": 671,
+      "path": "verification/windows-2026-10-22/dns-standard-after02-global-projection.json",
+      "sha256": "6baf871abf7f263e7aa82a68cb2701dc73171a9f3894e6578a3e3648fa585346"
+    }
+  ],
+  "schema_version": 1,
+  "stage": "dns-standard-local-evidence-index"
+}
