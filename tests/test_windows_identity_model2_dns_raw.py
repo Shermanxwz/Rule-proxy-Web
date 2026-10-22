@@ -70,7 +70,7 @@ def complete_owner(owner):
 
 class RawDnsTests(unittest.TestCase):
     def check_phase(self,value,task,c):return f.DnsTests.check_phase(self,value,task,c)
-    def runtime(self,fault=None,status=5,phase_builder=phase):return f.DnsTests.runtime(self,fault,status,profile=r.PROFILE,phase_builder=phase_builder)
+    def runtime(self,fault=None,status=5,phase_builder=phase,**clock):return f.DnsTests.runtime(self,fault,status,profile=r.PROFILE,phase_builder=phase_builder,**clock)
 
     def test_original_api6_public_shape_and_distinct_raw_method_without_api_facts(self):
         original=d.blank();raw=d.blank(r.PROFILE)
@@ -211,6 +211,46 @@ class RawDnsTests(unittest.TestCase):
             if expected:self.assertIsNone(error)
             else:self.assertIsNotNone(error)
             journal=owner.ownership_journal();m.validate_ownership_journal(journal,owner.config,controller_pid=journal['controller_pid'])
+
+    def test_raw_timeout_keeps_all_dns_gates_and_only_selected_fw_refresh_with_real_cost(self):
+        def timeout(c,label,status):
+            value,task=phase(c,label,0)
+            if label=='selected':value['raw_udp'].update(within_deadline=False,failure='deadline',receive_attempted=False,
+                datagram_received=False,response_bytes=0,source_loopback=False,source_port=None,response_exact=False)
+            return value,task
+        owner,events,error=self.runtime('late',phase_builder=timeout,refresh_ticks=1300,advance_phase_clock=True,real_profiles_gate=True)
+        self.assertIsNone(error)
+        self.assertEqual(events.count(('profiles',)),1)
+        self.assertEqual([e for e in events if e[0]=='query'],[('query','before'),('query','selected'),('query','after')])
+        self.assertEqual([g['label'] for g in owner.dns_ledger['inventory_gates']],['bind','before','selected','after'])
+        self.assertEqual([g['opcode'] for g in owner.go_records[4:]],[7,7,7])
+        fw=[e for e in events if e[0]=='fw-gate'];self.assertEqual(len(fw),1)
+        self.assertEqual(fw[0][1:6],('profiles-status','profiles-off-diagnostic',T0,F,D))
+        inventory=f.inventory(owner.config)
+        for gate in owner.dns_ledger['inventory_gates']:
+            self.assertLessEqual(gate['qpc']-inventory['end_qpc'],5*F)
+        self.assertEqual(owner.config['deadline_qpc'],D);self.assertEqual(owner.budget.deadline,D)
+        self.assertTrue(owner.value['dns_extension']['ordinary_after_verified'])
+        self.assertFalse(d.ready(owner.value['dns_extension']));self.assertFalse(owner.value['diagnostic_completed'])
+        self.assertFalse(d.public_access_denial(owner.value['dns_extension']))
+        journal=owner.ownership_journal();m.validate_ownership_journal(journal,owner.config,controller_pid=journal['controller_pid'])
+
+    def test_api6_preserves_three_fw_refreshes_and_selected_freshness_gate_with_cost(self):
+        owner,events,error=f.DnsTests.runtime(self,refresh_ticks=1300,advance_phase_clock=True,real_profiles_gate=True)
+        self.assertIsNone(error);self.assertEqual(events.count(('profiles',)),3)
+        self.assertEqual(len([e for e in events if e[0]=='fw-gate']),1)
+        self.assertEqual([g['opcode'] for g in owner.go_records[4:]],[6,6,6])
+        self.assertTrue(d.ready(owner.value['dns_extension']));self.assertEqual(owner.budget.deadline,D)
+        journal=owner.ownership_journal();m.validate_ownership_journal(journal,owner.config,controller_pid=journal['controller_pid'])
+
+    def test_raw_stale_inventory_still_refuses_selected_go_after_refresh_change(self):
+        owner,events,error=self.runtime('stale',refresh_ticks=1300,advance_phase_clock=True,real_profiles_gate=True)
+        self.assertIsInstance(error,ValueError);self.assertEqual(str(error),'dns_inventory_freshness')
+        self.assertEqual(events.count(('profiles',)),1);self.assertEqual(len([e for e in events if e[0]=='fw-gate']),1)
+        self.assertEqual([g['label'] for g in owner.dns_ledger['inventory_gates']],['bind','before'])
+        self.assertEqual([g for g in owner.go_records if g['role']=='selected-client' and g['opcode']==7],[])
+        self.assertFalse(owner.value['diagnostic_completed']);self.assertEqual(owner.budget.deadline,D)
+        journal=owner.ownership_journal();m.validate_ownership_journal(journal,owner.config,controller_pid=journal['controller_pid'])
 
     def test_receiver_hit_survives_raw_parse_and_cleanup_errors_through_outer(self):
         for fault,status in (('wire',0),('parse',5),('cleanup',5)):

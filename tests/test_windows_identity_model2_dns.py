@@ -48,7 +48,7 @@ class DnsTests(unittest.TestCase):
         return d.phase(value,task,c,role=value['role'],boot=value['boot_case_id'],admission=value['admission_nonce'],
             sequence=value['sequence'],case=value['case_id'],phase_deadline=value['phase_qpc'][1],identity_check=m.native_identity)
 
-    def runtime(self,fault=None,status=5,*,profile=None,phase_builder=None):
+    def runtime(self,fault=None,status=5,*,profile=None,phase_builder=None,refresh_ticks=0,advance_phase_clock=False,real_profiles_gate=False):
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup);root=Path(temporary.name).resolve()
         for name in ('tools','selected','health','selected-control','health-control'):(root/name).mkdir()
         c=config()
@@ -81,7 +81,12 @@ class DnsTests(unittest.TestCase):
             owner.go_records.append(dict(role=role,sequence=seq,opcode=op,case=case,phase_deadline=39000,
                 path=('selected-control' if role=='selected-client' else 'health-control')+'/phase-%04d.bin'%seq,sha256=l.sha(raw)))
         owner.alive=lambda r:events.append(('alive',r['pid']));owner.selected_family_alive=lambda *args:events.append(('same-selected',))
-        owner.refresh_profiles=lambda:events.append(('profiles',));owner.maintenance=SimpleNamespace(last_observation={},attempted=False,
+        def refresh():
+            events.append(('profiles',));api.now+=refresh_ticks
+            owner.maintenance.last_observation=dict(schema_version=1,stage='model2-firewall-operation',operation='profiles-status',
+                attempted=False,success=True,record=None,failure=None,execution_mode='profiles-off-diagnostic',
+                profiles_off_verified=True,effective_full_verified=False,profiles_qpc=api.now)
+        owner.refresh_profiles=refresh;owner.maintenance=SimpleNamespace(last_observation={},attempted=False,
             spawn_unknown=False,pid=None,created=None,identity=None,admitted=False,exited=False,exit_code=None,plan_hash=None)
         def task(name,command,work,**kw):
             r=row('ordinary',300);r.update(command=command,image_path=command[0],image_sha256=kw['image_hash']);owner.tasks[name]=r
@@ -126,11 +131,16 @@ class DnsTests(unittest.TestCase):
                 value['phase_qpc'][2]=fields['end']
                 if 'dns' in value:value['dns']['result'].update(end_qpc=fields['end'],within_deadline=False)
                 else:value['raw_udp']['within_deadline']=False
+            if advance_phase_clock:api.now=value['phase_qpc'][2]
             (fields['reports']/('phase-%04d.json'%fields['sequence'])).write_bytes(l.encode(value));return ticket
         owner.publish_phase=publish
         error=None
+        actual_profiles_gate=m.maintenance.validate_profiles_observation
+        def profiles_gate(*args):
+            events.append(('fw-gate',args[1],args[2],args[3],args[4],args[5],args[6]))
+            if real_profiles_gate:return actual_profiles_gate(*args)
         with patch.object(d.fixture,'DnsCasesFixture',return_value=fixture),patch.object(m,'read_when_closed',side_effect=read), \
-                patch.object(m.maintenance,'validate_profiles_observation'):
+                patch.object(m.maintenance,'validate_profiles_observation',side_effect=profiles_gate):
             try:owner.dns_run(selected,health,PORTS)
             except (ValueError,OSError) as exc:error=exc
             try:owner.finish_dns_fixture()

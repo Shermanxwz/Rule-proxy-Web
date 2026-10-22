@@ -995,7 +995,10 @@ class FirstController:
         self.observe_dns_fixture()
         for label,task,role,sequence,case in (('before',health,'health-client',3,x['before_case']),
                 ('selected',selected,'selected-client',3,x['selected_case']),('after',health,'health-client',4,x['after_case'])):
-            self.refresh_profiles();self.selected_family_alive();self.alive(task)
+            # Raw ordinary controls do not use the selected package's rule.
+            # Keep its selected GO firewall gate and every DNS inventory gate.
+            if x['profile']!=live.dns.raw_udp.PROFILE or label=='selected':self.refresh_profiles()
+            self.selected_family_alive();self.alive(task)
             end=min(budget.read()+2*c['frequency'],cutoff);budget.require_ms(end)
             directory='selected' if role=='selected-client' else 'health'
             result=self.native_phase(task,role=role,boot=c['boot_case'] if directory=='selected' else c['admission_nonce'],
