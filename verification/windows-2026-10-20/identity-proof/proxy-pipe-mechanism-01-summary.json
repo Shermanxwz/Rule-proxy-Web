@@ -1,0 +1,48 @@
+{
+  "freeze_sha256": "07a521af39ad03d8fd4913347a8e36f38f63f8915b9c02867bda47a918367a8a",
+  "interpretation": [
+    "The installed Windows compiler built the native actor with /W4 /WX. Both platforms passed 91 pure tests without skips.",
+    "One controller suite admitted three fresh cases under its original 60-second deadline: successful five-frame exchange, mismatched case-ID refusal, and withheld relay resume. Native per-case deadlines remained 10 seconds; the outer 65-second wait and separate 5-second cleanup did not renew them.",
+    "The successful case bound both native reports and required exact real wire counts: frontend read 96/write 144 bytes and relay read 144/write 96 bytes, exact frames, directional EOF, held identity/image/Job binding and native close receipts. These counts are source-defined strict qualification predicates, not separately exported byte counters.",
+    "The mismatch case retained frontend core failure 2 and relay core failure 0 with source-defined pipe-read refusal. Both native close receipts were confirmed. A zero relay core failure is not transport success.",
+    "The withheld-resume case observed both held child exits and Job empty after the owned Job watchdog stop. Neither native report was bound; native EOF and native close facts were not observed. Process/Job cleanup does not substitute for native close receipts.",
+    "The controller was elevated and both children were non-AppContainer. This is hosted token mechanics, not an ordinary-user or AppContainer result.",
+    "HTTP request, origin response and client sink were synthetic in-memory data. No socket, listener, DNS, proxy route, firewall rule, profile or ACL was exercised by the new mechanism.",
+    "The private report tree is retained by design. Cleanup fields cover owned process, Job and handle observations, not deletion of every file. No raw private reports are published.",
+    "The sidecar separately compiled the existing identity actor and passed 409 pure tests. Its token, pipe, restricted and paired runtime steps were skipped; its existing public build artifact step completed. This is not another pipe mechanics run."
+  ],
+  "limits": {
+    "appcontainer_tested": false,
+    "native_private_report_cap_bytes": 8192,
+    "network_tested": false,
+    "ordinary_user_tested": false,
+    "outer_overflow_detection_bytes": 4097,
+    "private_aggregate_cap_bytes": 131072,
+    "product_acceptance": false,
+    "proxy_tested": false,
+    "public_receipt_cap_bytes": 4096,
+    "windows_vm_tested": false
+  },
+  "next_step": "Separate source review and authorization are required before any genuine AppContainer pipe wrapper or proxy-network integration. No automatic replay.",
+  "observations": {
+    "all_case_jobs_empty": true,
+    "all_case_process_job_handle_cleanup_confirmed": true,
+    "controller_elevated": true,
+    "held_child_exits_observed": 6,
+    "native_children_created": 6,
+    "native_children_resumed": 5,
+    "outer_controller_forced_stop": false,
+    "outer_reader_handles_cleanup_confirmed": true,
+    "pure_test_skips": 0,
+    "pure_tests_each_platform": 91,
+    "successful_and_mismatch_native_close_confirmed": true,
+    "successful_case_real_directional_eof": true,
+    "withheld_relay_case_native_reports_bound": 0,
+    "withheld_relay_job_watchdog_stopped": true
+  },
+  "result_sha256": "5704569ad8d88207766499573e88ea8f4e2192cff6f730ac9a2aa6ba5fe4501e",
+  "run_url": "https://github.com/Shermanxwz/Rule-proxy-Web/actions/runs/39766674740",
+  "schema_version": 1,
+  "source_commit": "7b6e31a90d69e40b51a4c6bb4d19141adbd3aad8",
+  "title": "Hosted native anonymous-pipe bridge mechanics; no network or AppContainer acceptance"
+}
