@@ -9,6 +9,7 @@ import ctypes as C
 import importlib.util
 import os
 from pathlib import Path
+import stat
 from types import SimpleNamespace
 
 _spec = importlib.util.spec_from_file_location('first_c_live', Path(__file__).with_name('windows_identity_model2_live.py'))
@@ -22,6 +23,40 @@ ROOT = Path(__file__).resolve().parents[1]
 FAILURES = (None, 'identity', 'capability', 'qpc', 'report', 'command', 'close', 'configuration', 'deadline')
 IDENTITY_KEYS = {'schemaVersion', 'mode', 'nonce', 'pid', 'tokenUserSid', 'tokenIsAppContainer',
     'tokenAppContainerSid', 'tokenElevated', 'isProcessInJob', 'tokenCapabilities', 'queriesSucceeded', 'errors'}
+
+
+def owned_tree(work, *, max_nodes=512, max_depth=16, max_bytes=live.local.MAX_STAGE):
+    """C's larger staged closure, bounded before ACL mutation; no alias follow.
+
+    The root counts as one node at depth zero. Pending children count against
+    capacity before they are visited, and regular-file sizes share one bound.
+    A/B retain their original small-tree helper and acceptance unchanged.
+    """
+    live.require(live.integer(max_nodes, 1, 512) and live.integer(max_depth, 0, 16)
+        and live.integer(max_bytes, 0, live.local.MAX_STAGE), 'owned_tree_limits')
+    work = launcher.checked_path(work, is_file=False)
+    pending = [(work, 0)]
+    result = []
+    total = 0
+    while pending:
+        path, depth = pending.pop()
+        info = path.lstat()
+        live.require(depth <= max_depth and not stat.S_ISLNK(info.st_mode)
+            and not getattr(info, 'st_file_attributes', 0) & 0x400, 'owned_tree_reparse_or_depth')
+        live.require(stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode), 'owned_tree_type')
+        result.append(path)
+        live.require(len(result) <= max_nodes, 'owned_tree_nodes')
+        if stat.S_ISREG(info.st_mode):
+            live.require(type(info.st_size) is int and info.st_size >= 0, 'owned_tree_size')
+            total += info.st_size
+            live.require(total <= max_bytes, 'owned_tree_bytes')
+        else:
+            with os.scandir(path) as entries:
+                for entry in entries:
+                    live.require(depth < max_depth, 'owned_tree_depth')
+                    pending.append((Path(entry.path), depth + 1))
+                    live.require(len(result) + len(pending) <= max_nodes, 'owned_tree_nodes')
+    return result
 
 
 def validate_config(value):
@@ -486,12 +521,14 @@ class FirstController:
         return launcher.checked_path(Path(env['SystemRoot']) / 'System32/icacls.exe')
 
     def grant(self, sid):
+        owned_tree(self.root)
         self.acl_attempted = True
         image = str(self.fixed_icacls())
         for name, path, access in (('root', self.root, 'RX'), ('inputs', self.root / 'inputs', '(OI)(CI)(RX)'),
                                   ('front', self.root / 'front', '(OI)(CI)(M)')):
+            owned_tree(self.root)
             self.tool([image, str(path), '/grant', '*' + sid + ':' + access, '/Q'], 'acl-' + name)
-        for path in helpers.owned_paths(self.root):
+        for path in owned_tree(self.root):
             self.budget.require_ms(self.budget.cutoff(30))
             expected = ([(0, 0x1200a9)] if path == self.root else [(3, 0x1200a9)] if path == self.root / 'inputs'
                 else [(3, 0x1301bf)] if path == self.root / 'front'
@@ -867,9 +904,9 @@ class FirstController:
                 self.scoped_owners = []
                 self.job = api.owned_job(self.owners)
                 if self.acl_attempted:
-                    helpers.owned_paths(root)
+                    owned_tree(root)
                     self.tool([str(self.fixed_icacls()), str(root), '/remove:g', '*' + self.profile['sid'], '/T', '/Q'], 'acl-remove', cleanup=True)
-                    for path in helpers.owned_paths(root):
+                    for path in owned_tree(root):
                         budget.require_ms(budget.cutoff(3))
                         live.require(api.acl_read(path, self.profile['sid']) == [], 'acl_remove')
                 self.acl_removed = True
