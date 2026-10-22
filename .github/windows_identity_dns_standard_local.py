@@ -72,9 +72,9 @@ def inventory_projection(value, *, run, pid, frequency, start, deadline, now, ra
         and type(value['pid']) is int and value['pid'] == pid and value['read_only'] is True)
     require(all(type(value[key]) is int and value[key] == expected for key, expected in
         (('qpc_frequency', frequency), ('start_qpc', start), ('deadline_qpc', deadline))))
-    require(a.integer(start, 1) and a.integer(frequency, 1) and start < deadline <= start + 120*frequency
+    require(a.integer(start, 1, 0x7fffffffffffffff) and a.integer(frequency, 1, 0x7fffffffffffffff) and start < deadline <= start + 120*frequency
         and a.integer(value['begin_qpc'], start, deadline-1)
-        and a.integer(value['end_qpc'], value['begin_qpc'], deadline-1) and a.integer(now, value['end_qpc']))
+        and a.integer(value['end_qpc'], value['begin_qpc'], deadline-1) and a.integer(now, value['end_qpc'], 0x7fffffffffffffff))
     servers = value['dns_servers']; require(type(servers) is list and len(servers) <= 256)
     addresses = []
     for server in servers:
@@ -195,7 +195,7 @@ def config_valid(c):
         'source_sha256', 'source_hashes', 'actor_sha256', 'manifest_sha256', 'device_sha256', 'guard_job_name', 'recovery_plan_sha256'})
     require(type(c['schema_version']) is int and c['schema_version'] == 1 and all(a.nonce(c[key]) for key in ('run', 'actor_run', 'inventory_run'))
         and len({c[key] for key in ('run', 'actor_run', 'inventory_run')}) == 3)
-    require(all(a.integer(c[key], 1) for key in ('frequency', 'start', 'deadline', 'root_deadline'))
+    require(all(a.integer(c[key], 1, 0x7fffffffffffffff) for key in ('frequency', 'start', 'deadline', 'root_deadline'))
         and c['root_deadline'] == c['start']+120*c['frequency'] and c['deadline'] == c['root_deadline']-5*c['frequency'])
     require(c['guard_job_name'] == 'Local\\RuleProxy.LocalGuard.'+c['run'])
     for key in ('source_sha256', 'actor_sha256', 'manifest_sha256', 'device_sha256', 'recovery_plan_sha256'): require(a.digest(c[key]))

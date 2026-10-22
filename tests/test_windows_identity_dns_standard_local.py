@@ -88,6 +88,19 @@ class ActorAPI:
     def qpc_frequency(self): return 10
 
 class StandardDnsTests(unittest.TestCase):
+    def test_qpc_uses_signed_64_bit_ticks_after_long_host_uptime(self):
+        offset = 419398842782
+        c = config()
+        for key in ('start', 'deadline', 'root_deadline'): c[key] += offset
+        self.assertIs(m.config_valid(c), c)
+        raw = raw_inventory()
+        for key in ('start_qpc', 'deadline_qpc', 'begin_qpc', 'end_qpc'): raw[key] += offset
+        projection = m.inventory_projection(raw, run=INVENTORY_RUN, pid=502, frequency=10,
+            start=c['start'], deadline=c['deadline'], now=110+offset, raw_sha256=H)
+        self.assertTrue(m.inventory_safe(projection))
+        c['root_deadline'] = 0x8000000000000000
+        with self.assertRaises(ValueError): m.config_valid(c)
+
     def owner(self, mutated=None, outer=None, api=OwnerAPI):
         rep = report() if mutated is None else mutated
         pre = m.blank('preflight'); pre.update(status='ready', source_sha256=CLOSURE, actor_sha256=H,
