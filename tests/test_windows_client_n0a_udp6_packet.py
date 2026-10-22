@@ -240,8 +240,8 @@ class Udp6PacketTests(unittest.TestCase):
         self.assertEqual(set(diagnostic),{'v','opaque_next_header_counts','truncated_counts',
                                          'omitted_category_count','omitted_event_count','detail_complete','icmp_type_code_counts',
                                          'icmp_omitted_event_count','icmp_detail_complete','checksum_counts','quote_counts',
-                                         'quote_detail_counts','raw_selected_nonce_match'})
-        self.assertIs(type(diagnostic['v']),int);self.assertEqual(diagnostic['v'],2)
+                                         'quote_detail_counts','raw_selected_nonce_match','ndp'})
+        self.assertIs(type(diagnostic['v']),int);self.assertEqual(diagnostic['v'],3)
         opaque=diagnostic['opaque_next_header_counts'];truncated=diagnostic['truncated_counts']
         self.assertIs(type(opaque),list);self.assertLessEqual(len(opaque),2)
         self.assertTrue(all(type(row)is list and len(row)==2 and type(row[0])is int
@@ -365,7 +365,7 @@ class Udp6PacketTests(unittest.TestCase):
 
     def test_malformed_diagnostic_projection_cannot_affect_original_verdict(self):
         good=p._diagnostic_new()
-        cases=[None,{},dict(good,extra=0),dict(good,v=True),dict(good,v=1),dict(good,opaque_next_header_counts=[])]
+        cases=[None,{},dict(good,extra=0),dict(good,v=True),dict(good,v=2),dict(good,opaque_next_header_counts=[])]
         for count in (-1,True,p.MAX_RECORDS+1):
             bad=copy.deepcopy(good);bad['opaque_next_header_counts'][6]=count;cases.append(bad)
         for trunc in ([2,0,0],[0,0,2],[0,-1,0],[0,False,0],[0,2,0],[0,0],(0,0,0)):
@@ -385,20 +385,25 @@ class Udp6PacketTests(unittest.TestCase):
         import ast
         class WithoutDiagnostic(ast.NodeTransformer):
             def visit_Module(self,node):
-                node.body[0].value.value=node.body[0].value.value.replace("Direct-UDP checksums", "Checksums")
+                node.body[0].value.value=node.body[0].value.value.replace("Direct-UDP checksums", "Checksums").replace("absence unless the strict trace-calibrated ND profile applies.\nIPv4", "absence. IPv4")
                 return self.generic_visit(node)
             def visit_FunctionDef(self,node):
-                if node.name=='project_decoder_diagnostic' or node.name.startswith('_diagnostic_'):return None
+                if node.name=='project_decoder_diagnostic' or node.name.startswith(('_diagnostic_','_nd_')):return None
                 return self.generic_visit(node)
             def visit_Call(self,node):
                 node=self.generic_visit(node)
                 if isinstance(node.func,ast.Name) and node.func.id=='dict':
                     node.keywords=[k for k in node.keywords if k.arg!='decoder_diagnostic']
+                    for k in node.keywords:
+                        if k.arg=='schema_version' and isinstance(k.value,ast.Constant) and k.value.value==2:k.value.value=1
                 return node
             def visit_Assign(self,node):
                 if len(node.targets)==1:
                     target=node.targets[0]
-                    if isinstance(target,ast.Name) and target.id=='diagnostic':return None
+                    if isinstance(target,ast.Name) and target.id in ('diagnostic','witness'):return None
+                    base=target
+                    while isinstance(base,ast.Subscript):base=base.value
+                    if isinstance(base,ast.Name) and base.id=='diagnostic':return None
                     if (isinstance(target,ast.Subscript) and isinstance(target.value,ast.Name)
                         and target.value.id=='public' and isinstance(target.slice,ast.Constant)
                         and target.slice.value=='decoder_diagnostic'):return None
@@ -430,11 +435,11 @@ class Udp6PacketTests(unittest.TestCase):
         result.update(status='bounded_no_selected_udp_datagram',selected_payload_count=3,
                       unknown_flow_packets=p.MAX_RECORDS,records=p.MAX_RECORDS,reasons=sorted(reasons))
         # Deliberately stronger than the possible sum<=records bound: every slot max.
-        result['decoder_diagnostic']=dict(v=2,opaque_next_header_counts=[[254,p.MAX_RECORDS],[255,p.MAX_RECORDS]],
+        result['decoder_diagnostic']=dict(v=3,opaque_next_header_counts=[[254,p.MAX_RECORDS],[255,p.MAX_RECORDS]],
             omitted_category_count=254,omitted_event_count=p.MAX_RECORDS,detail_complete=False,truncated_counts=[1,p.MAX_RECORDS,1],
-            icmp_type_code_counts=[[255,n,p.MAX_RECORDS] for n in range(252,256)],icmp_omitted_event_count=p.MAX_RECORDS,
+            icmp_type_code_counts=[[255,n,p.MAX_RECORDS] for n in range(254,256)],icmp_omitted_event_count=p.MAX_RECORDS,
             icmp_detail_complete=False,checksum_counts=[p.MAX_RECORDS]*3,quote_counts=[p.MAX_RECORDS]*4,
-            quote_detail_counts=[p.MAX_RECORDS]*14,raw_selected_nonce_match=[False,3])
+            quote_detail_counts=[p.MAX_RECORDS]*14,raw_selected_nonce_match=[False,3],ndp=[p.MAX_RECORDS]*4+[0x7ffff]+[p.MAX_RECORDS]*3+[2,False])
         for options in ({'separators':(',',':')},{},{'indent':2}):
             self.assertLessEqual(len((json.dumps(result,ensure_ascii=True,**options)+'\n').encode('ascii')),4096)
         text=json.dumps(result)
@@ -551,8 +556,8 @@ class IcmpDiagnosticV2Tests(unittest.TestCase):
     def test_first_four_pairs_track_retained_after_omission_sorted_only_output(self):
         pairs=[(4,9),(3,8),(2,7),(1,6),(5,5),(4,9),(5,5),(6,4)]
         d=self.diagnostic([icmp_frame(kind=a,code=b) for a,b in pairs])
-        self.assertEqual(d['icmp_type_code_counts'],[[1,6,1],[2,7,1],[3,8,1],[4,9,2]])
-        self.assertEqual(d['icmp_omitted_event_count'],3);self.assertFalse(d['icmp_detail_complete'])
+        self.assertEqual(d['icmp_type_code_counts'],[[3,8,1],[4,9,2]])
+        self.assertEqual(d['icmp_omitted_event_count'],5);self.assertFalse(d['icmp_detail_complete'])
         self.assertNotIn('icmp_omitted_category_count',d)
 
     def test_short_icmp_no_invented_pair_checksum_or_quote(self):
@@ -592,6 +597,215 @@ class IcmpDiagnosticV2Tests(unittest.TestCase):
             bad=copy.deepcopy(d);bad[key][0]=True;self.assertIsNone(p.project_decoder_diagnostic(bad,1))
         bad=copy.deepcopy(d);bad['raw_selected_nonce_match']={True};self.assertIsNone(p.project_decoder_diagnostic(bad,1))
         bad=copy.deepcopy(d);bad['icmp_omitted_event_count']=1;self.assertIsNone(p.project_decoder_diagnostic(bad,1))
+
+
+def calibration_frames(m,src=SRC):
+    fs=[]
+    for r in m['ordinary']:
+        f=bytearray(frame(r['source_port'],p.payload(m['binding']['case_nonce'],r['phase'],r['index']),src=src))
+        udp=bytearray(f[54:]);udp[6:8]=struct.pack('!H',checksum_bytes(src,DST,bytes(udp),17) or 65535)
+        f[54:]=udp;fs.append(bytes(f))
+    return fs
+
+
+def nd_frame(kind=135,option=True,override=False,source=SRC,target=None,hop=255,code=0,
+             flags=None,options=None,extension=False):
+    target=(DST if kind==135 else source) if target is None else target
+    flags=(0 if kind==135 else 0x40000000|(0x20000000 if override else 0)) if flags is None else flags
+    body=bytes([kind,code,0,0])+struct.pack('!I',flags)+target
+    if options is None:options=bytes([1 if kind==135 else 2,1])+MAC if option else b''
+    body+=options
+    body=body[:2]+struct.pack('!H',checksum_bytes(source,DST,body,58))+body[4:]
+    tail=(bytes([58,0])+b'\0'*6 if extension else b'')+body
+    return b'\x52\x54\0\xaa\xbb\xcc'+MAC+b'\x86\xdd'+struct.pack('!IHBB16s16s',6<<28,len(tail),60 if extension else 58,hop,source,DST)+tail
+
+
+class StrictNdProfileTests(unittest.TestCase):
+    def result(self,nd,fs=None,m=None):
+        m=manifest() if m is None else m
+        return run(m,fs=list(nd)+(calibration_frames(m) if fs is None else fs))
+
+    def denied(self,r,bit=None):
+        self.assertFalse(r['bounded_no_selected_udp_datagram']);self.assertIn('opaque_protocol',r['reasons'])
+        self.assertEqual(r['schema_version'],2)
+        d=r['decoder_diagnostic'];self.assertEqual(d['v'],3)
+        if bit is not None:self.assertTrue(d['ndp'][4]&(1<<bit))
+        return d['ndp']
+
+    def test_all_strict_shapes_and_two_pass_before_controls(self):
+        for kind in (135,136):
+            for option in (False,True):
+                for override in (False,True):
+                    r=self.result([nd_frame(kind,option,override)])
+                    self.assertTrue(r['bounded_no_selected_udp_datagram'])
+                    self.assertEqual(r['schema_version'],2);self.assertFalse(r['checksums_validated'])
+                    self.assertEqual(r['records'],5)
+                    nd=r['decoder_diagnostic']['ndp'];self.assertEqual(nd[:4],[int(kind==135),int(kind==136),0,0])
+                    self.assertEqual(nd[4:],[0,4,4,0,1,False])
+                    self.assertEqual(r['decoder_diagnostic']['opaque_next_header_counts'],[[58,1]])
+
+    def test_duplicate_good_source_allowed_not_counted_twice_by_passes(self):
+        m=manifest();fs=calibration_frames(m);fs.insert(1,fs[0])
+        r=self.result([nd_frame()],fs,m);self.assertTrue(r['bounded_no_selected_udp_datagram'])
+        self.assertEqual(r['records'],6);self.assertEqual(r['decoder_diagnostic']['ndp'][5:8],[5,5,0])
+
+    def test_bad_checksum_duplicate_permanently_taints_both_orders(self):
+        m=manifest();good=calibration_frames(m)
+        for zero in (False,True):
+            bad=bytearray(good[0]);bad[60:62]=b'\0\0' if zero else bytes([bad[60]^1,bad[61]])
+            for reverse in (False,True):
+                fs=[bytes(bad)]+good if not reverse else good+[bytes(bad)]
+                nd=self.denied(self.result([nd_frame()],fs,m),14)
+                self.assertEqual(nd[5:8],[5,4,1])
+                self.assertEqual(nd[:4],[0,0,0,1])
+
+    def test_extension_duplicate_cannot_hide_checksum_or_source_taint(self):
+        m=manifest();row=m['ordinary'][0]
+        for kind in (0,43,60,51,44,50):
+            for conflict in (False,True):
+                source=SRC[:-1]+b'\x10' if conflict else SRC
+                bad=frame(row['source_port'],p.payload(m['binding']['case_nonce'],row['phase'],row['index']),
+                          src=source,extensions=((60,8),)) # zero UDP checksum
+                bad=bytearray(bad);bad[20]=kind
+                nd=self.denied(self.result([nd_frame()],calibration_frames(m)+[bytes(bad)],m),0)
+                self.assertEqual(nd[0:2],[0,0])
+        # Conservatively reject even a checksum-correct extended duplicate.
+        f=calibration_frames(m)[0];extended=f[:18]+struct.pack('!H',len(f)-54+8)+bytes([60])+f[21:54]+bytes([17,0])+b'\0'*6+f[54:]
+        self.denied(self.result([nd_frame()],calibration_frames(m)+[extended],m),0)
+
+    def test_source_conflict_sticky_and_unusable_source(self):
+        m=manifest();fs=calibration_frames(m)
+        conflict=calibration_frames(m,src=SRC[:-1]+b'\x10')[0]
+        nd=self.denied(self.result([nd_frame()],fs+[conflict],m),15);self.assertEqual(nd[8],2)
+        for source in (b'\0'*16,b'\0'*15+b'\1',b'\xff'+b'\0'*15,b'\0'*10+b'\xff\xff'+b'\1'*4,DST):
+            nd=self.denied(self.result([nd_frame()],calibration_frames(m,source),m),16)
+            self.assertEqual(nd[8],0)
+
+    def test_missing_failed_flags_order_and_port_collisions(self):
+        m=manifest();fs=calibration_frames(m)
+        for changed in (fs[:-1],fs[1:],fs[-1:]+fs[:-1]):self.denied(self.result([nd_frame()],changed,m),13)
+        for field in ('send_invoked','nonce_verified'):
+            mm=copy.deepcopy(m);mm['ordinary'][1][field]=False
+            self.denied(self.result([nd_frame()],fs,mm),13)
+        mm=copy.deepcopy(m);mm['selected'][0]['source_port']=mm['ordinary'][0]['source_port']
+        self.denied(self.result([nd_frame()],fs,mm),17)
+        mm=copy.deepcopy(m);mm['ordinary'][0].update(source_port=None,send_invoked=False)
+        self.denied(self.result([nd_frame()],fs,mm),17)
+
+    def test_checksums_do_not_redefine_direct_udp_adjudication(self):
+        m=manifest();r=run(m,fs=frames(m));self.assertTrue(r['bounded_no_selected_udp_datagram'])
+        self.assertFalse(r['checksums_validated'])
+        self.denied(self.result([nd_frame()],frames(m),m),14)
+
+    def test_wire_rejections(self):
+        for f,bit in ((nd_frame(hop=64),2),(nd_frame(code=1),3),
+                      (nd_frame(target=b'\xff'+b'\0'*15),5),(nd_frame(source=b'\0'*16),5),
+                      (nd_frame(options=b'\1\0'+b'\0'*6),8),
+                      (nd_frame(options=b'\1\2'+b'\0'*6),8)):
+            nd=self.denied(self.result([f]),bit);self.assertEqual(nd[2],1)
+        bad=bytearray(nd_frame());bad[56]^=1
+        self.assertEqual(self.denied(self.result([bytes(bad)]),4)[2],1)
+        for n in (1,2,4,23):
+            f=nd_frame(option=False);body=f[54:54+n]
+            f=f[:18]+struct.pack('!H',n)+f[20:54]+body
+            nd=self.denied(self.result([f]),1);self.assertEqual(nd[2],1)
+
+    def test_legal_but_unsupported_fixture_shapes(self):
+        cases=[(nd_frame(source=SRC[:-1]+b'\x10'),6),
+               (nd_frame(target=SRC),6),
+               (nd_frame(kind=136,target=DST),6),
+               (nd_frame(flags=1),7),(nd_frame(kind=136,flags=0xc0000000),7),
+               (nd_frame(kind=136,flags=0),7),(nd_frame(kind=136,flags=0x40000001),7),
+               (nd_frame(options=b'\2\1'+MAC),9),(nd_frame(options=b'\7\1'+MAC),9),
+               (nd_frame(options=(b'\1\1'+MAC)*2),9),
+               (nd_frame(options=b'\1\1'+b'\x02'*6),10)]
+        for f,bit in cases:
+            nd=self.denied(self.result([f]),bit);self.assertEqual(nd[3],1)
+
+    def test_extension_fragment_jumbo_unchanged_refusal(self):
+        nd=self.denied(self.result([nd_frame(extension=True)]),0);self.assertEqual(nd[3],1)
+        f=bytearray(nd_frame());f[20]=44
+        r=self.result([bytes(f)]);self.assertIn('fragment',r['reasons']);self.assertFalse(r['bounded_no_selected_udp_datagram'])
+        f=bytearray(nd_frame());f[18:20]=b'\0\0'
+        r=self.result([bytes(f)]);self.assertIn('jumbo_unsupported',r['reasons']);self.assertFalse(r['bounded_no_selected_udp_datagram'])
+
+    def test_raw_case_and_selected_bytes_prevent_exception_even_bad_checksum(self):
+        m=manifest();nonce=m['binding']['case_nonce'].encode()
+        for body in (nonce,p.payload(m['binding']['case_nonce'],'contained',0)):
+            for corrupt in (False,True):
+                f=bytearray(nd_frame(options=body))
+                if corrupt:f[56]^=1
+                r=self.result([bytes(f)],m=m);nd=self.denied(r,12)
+                self.assertTrue(nd[9]);self.assertFalse(r['selected_payload_observed'])
+                self.assertEqual(r['decoder_diagnostic']['raw_selected_nonce_match'],[body!=nonce,int(body!=nonce)])
+        # A candidate's fixed header/address bytes count too, not only its options.
+        # ASCII nonce cannot fit a single address; the whole-frame scan has no payload-only assumption.
+        r=run(m,fs=calibration_frames(m));self.assertFalse(r['decoder_diagnostic']['ndp'][9])
+
+    def test_mixed_profile_nd_and_opaque_never_global_reason_deletion(self):
+        m=manifest();other=bytearray(frame(59999,b'x'));other[20]=6
+        r=self.result([nd_frame(),bytes(other)],m=m)
+        self.assertIn('opaque_protocol',r['reasons']);self.assertEqual(r['decoder_diagnostic']['ndp'][0],1)
+        self.assertFalse(r['bounded_no_selected_udp_datagram'])
+        r=self.result([nd_frame(),selected(m)],m=m)
+        self.assertTrue(r['selected_bound_payload_observed']);self.assertEqual(r['status'],'selected_payload_observed')
+
+    def test_capture_structural_failure_taints_nd_even_after_valid_controls(self):
+        m=manifest();base=pcap([nd_frame()]+calibration_frames(m))
+        for data in (base+b'\0',base+struct.pack('<IIII',1,0,100,100)+b'\0',base+struct.pack('<IIII',1,0,2,2)+b'\0\0'):
+            r=run(m,data=data);self.denied(r,18)
+        bad=bytearray(base);struct.pack_into('<I',bad,36,struct.unpack_from('<I',bad,32)[0]+1)
+        self.denied(run(m,data=bytes(bad)),18)
+        with patch.object(p,'MAX_RECORDS',4):self.denied(run(m,data=base),18)
+        r=run(m,data=pcap([selected(m),nd_frame()]+calibration_frames(m))+b'\0')
+        self.assertTrue(r['selected_bound_payload_observed']);self.denied(r,18)
+
+    def test_diagnostic_strict_types_and_projection_loss_cannot_hide_schema(self):
+        m=manifest();d=p.decode_pcap(pcap([nd_frame()]+calibration_frames(m)),m)['decoder_diagnostic']
+        for i,value in ((0,True),(4,0x80000),(5,-1),(8,3),(9,1)):
+            bad=copy.deepcopy(d);bad['ndp'][i]=value;self.assertIsNone(p.project_decoder_diagnostic(bad,5))
+        bad=copy.deepcopy(d);bad['ndp'][6]+=1;self.assertIsNone(p.project_decoder_diagnostic(bad,5))
+        for index,value in ((4,1<<0),(4,1<<13),(4,1<<15),(6,0),(7,1),(8,2)):
+            bad=copy.deepcopy(d);bad['ndp'][index]=value
+            if index in (6,7):bad['ndp'][5]=bad['ndp'][6]+bad['ndp'][7]
+            self.assertIsNone(p.project_decoder_diagnostic(bad,5))
+        with patch.object(p,'project_decoder_diagnostic',return_value=None):r=self.result([nd_frame()])
+        self.assertEqual(r['schema_version'],2);self.assertTrue(r['bounded_no_selected_udp_datagram'])
+        self.assertIsNone(r['decoder_diagnostic'])
+
+    def test_exact_v2_decoder_and_evaluator_reverse_only_authorized_nd_delta(self):
+        import ast
+        class ReverseNd(ast.NodeTransformer):
+            def visit_Assign(self,node):
+                target=node.targets[0] if len(node.targets)==1 else None
+                if isinstance(target,ast.Name) and target.id=='witness':return None
+                if isinstance(target,ast.Subscript) and ast.unparse(target)=="diagnostic['ndp'][4:9]":return None
+                return self.generic_visit(node)
+            def visit_If(self,node):
+                if isinstance(node.test,ast.Call) and isinstance(node.test.func,ast.Name) and node.test.func.id=='_nd_profile':return None
+                return self.generic_visit(node)
+            def visit_Call(self,node):
+                node=self.generic_visit(node)
+                if isinstance(node.func,ast.Name) and node.func.id=='dict':
+                    for key in node.keywords:
+                        if key.arg=='schema_version' and isinstance(key.value,ast.Constant) and key.value.value==2:key.value.value=1
+                return node
+        expected={'decode_pcap':'663641e611a2667f260107d752f6412441b2315dc3eab37661ad3235d0a96905',
+                  'evaluate':'af133a625d589e514a789ebd57f923c41639135d12435afe997921d1ecfc3a7c'}
+        for node in ast.parse(PATH.read_text()).body:
+            if isinstance(node,ast.FunctionDef) and node.name in expected:
+                restored=ReverseNd().visit(node)
+                self.assertEqual(hashlib.sha256(ast.dump(restored,include_attributes=False).encode()).hexdigest(),expected[node.name])
+
+    def test_two_pass_memory_and_fixed_state_source_contract(self):
+        import inspect
+        source=inspect.getsource(p._nd_witness)
+        self.assertIn('view=memoryview(data)',source)
+        for forbidden in ('bytes(data)','list(view)','list(data)','read_bytes','open(','append(frame','list(frame'):
+            self.assertNotIn(forbidden,source)
+        m=manifest(40);state=p._nd_witness(pcap(calibration_frames(m)),m)
+        self.assertTrue(state['ready']);self.assertEqual(state['exact'],42)
+        self.assertEqual(set(state),{'bits','exact','valid','invalid','source','source_state','ready'})
 
 
 if __name__=='__main__':unittest.main()

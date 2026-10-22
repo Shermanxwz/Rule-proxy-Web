@@ -227,3 +227,79 @@ self-consistent counter witness measures 3,971 nested bytes; it is not claimed
 maximal or an observed packet trace. Native, guest-envelope, private-body,
 capture-size, process and time limits are unchanged. No network, actor, guest,
 policy, lifecycle or runtime activation change accompanies this candidate.
+
+## Strict fixture-scoped ND admission (code-only candidate)
+
+The inner packet result is now **schema version 2**, independently of the optional
+version 3 diagnostic. Thus a missing or malformed diagnostic (`null`) cannot hide
+which parser admission contract ran. Historical archives and their inconclusive
+results are unchanged; this candidate does not reclassify deleted captures.
+
+Only a narrow, explicitly specified neighbor-discovery profile may stop adding
+an opaque-protocol reason for that individual packet. Other opaque packets still
+add their reasons, including in mixed captures. Ordinary controls, complete
+capture, fresh report bindings and cleanup remain necessary for the existing
+bounded **direct selected UDP datagram** absence claim. This does not establish
+absence of selected bytes elsewhere, absence of IPv6 egress, ND authenticity,
+address ownership, or a causal response to any particular send.
+
+The parser makes two sequential bounded passes over the same immutable PCAP
+bytes. The first retains at most 42 ordinary row keys and one usable observed
+communication source `G`. Exact ordinary nonce/phase/index/port/destination/MAC
+observations must have a nonzero, valid UDP checksum. Every required ordinary row
+must be represented with `send_invoked` and `nonce_verified`, preserving the
+existing final-after first-witness ordering. A bad-checksum duplicate, conflicting source, unusable source,
+port collision or incomplete capture taints the ND witness. Relevant fixed-destination
+guest frames with base next-header values 0, 43, 60, 51, 44 or 50 also taint
+that witness through the outer-layout bit: the bounded first pass cannot exclude
+an ordinary duplicate behind an unsupported layout. This is not a claim that
+the frame is malformed, and no extension parser is added. `G` correlates
+observed ordinary communication; it is not an operating-system address-ownership
+assertion. Existing direct-UDP parsing and its global `checksums_validated=false`
+field are not upgraded by this stricter ND-only checksum witness.
+
+The second pass admits only the existing guest-MAC-to-`fec0::2` path with direct
+Next Header 58, complete exact IPv6 framing, hop limit 255, code zero and a valid
+ICMPv6 checksum. There are no extension headers, fragments or jumbograms. NS must
+have source `G`, target `fec0::2` and zero reserved bits. NA must have source and
+target `G`, R=0, S=1, either O value and zero remaining reserved bits. The exact
+ICMP body is either 24 bytes without options or 32 bytes containing one eight-byte
+link-layer option: type 1 for NS or type 2 for NA, length 1, with the existing VM
+MAC. Other legal variants or unknown options are unsupported by this fixture
+profile, not universally invalid ND. A definite wire/RFC rejection takes priority;
+otherwise unsupported, unbound, raw-byte or witness failures prevent admission.
+
+Complete selected-frame patterns and the shared ASCII case nonce are observed
+across bounded candidate bytes before qualification. Those observations survive
+later failures and prevent the ND exception. The shared case nonce is used by
+ordinary traffic too: seeing it does not attribute a packet to the selected actor.
+Raw direct-UDP, receiver and native-send facts remain independent and sticky.
+
+Diagnostic v3 preserves all v2 fields, retains two next-header detail rows and
+reduces displayed ICMP type/code pairs from four to two, with unchanged explicit
+omitted-event accounting. Historical opaque-next-header counts include candidates
+that the new ND profile admits; diagnostic counts are not an opaque verdict.
+Its fixed `ndp[10]` vector records profile-NS, profile-NA, rejected, unsupported,
+failure-bit mask, exact ordinary witnesses, checksum-valid witnesses,
+checksum-invalid witnesses, source state and shared-case-nonce Boolean. The first
+four counts partition NS/NA candidates, and valid plus invalid equals exact
+ordinary witness count. Counts include duplicate records and are bounded by the
+record limit, rather than by the 42 retained row keys. Source state is 0 for no
+usable source, 1 for exactly one usable source, or 2 for two or more usable sources
+(sticky conflict); unusable addresses have a separate failure bit. Source
+observations include invalid-checksum duplicates, so state 1 alone does not
+qualify the witness. The 19-bit mask has only these fixed meanings, in order:
+outer layout, length, hop limit, code, checksum, RFC address constraint, fixture
+address constraint, flags/reserved bits, option framing, option shape, option MAC,
+complete selected bytes, ASCII case nonce, missing witness, bad-checksum witness,
+source conflict, unusable source, binding collision and capture framing.
+
+The unchanged conservative independent-field composition measures **4,060 bytes**
+for the nested packet result with indentation and newline, below 4,096; the full
+host artifact measures **9,370 bytes**, without a whole-artifact cap claim. No old
+core result field is dropped. The two-pass design adds fixed bounded state, not a
+second full-capture copy. Existing capture-reader transient copies remain; the
+65 MiB admission reserve is a **disk** planning allowance, not a RAM ceiling.
+Native/guest/private-body bounds, capture cap, deadlines, process lifecycle,
+network calls, policy and runtime activation are unchanged. No VM run or
+publication is authorized by this code-only candidate.

@@ -2,6 +2,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import struct
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -316,15 +317,16 @@ class HostProjectionSizeTests(unittest.TestCase):
         for obj in (result,packet):
             for key,value in obj.items():
                 if type(value) is bool:obj[key]=False
-        packet.update(status='bounded_no_selected_udp_datagram',selected_payload_count=3,
+        packet.update(schema_version=2,status='bounded_no_selected_udp_datagram',selected_payload_count=3,
                       unknown_flow_packets=262144,records=262144)
         packet['reasons']=sorted({'binding','manifest','capture_bound','header','record_bound','truncated','record','frame_bound','ethernet','encapsulation','ipv6','jumbo_unsupported','fragment','opaque_protocol','extension_bound','hop_order','extension','routing_unsupported','udp','payload_port_mismatch','payload_mismatch','unknown_flow','empty','port_collision','port_unavailable','controls','cleanup','send_unattempted','capture_lifecycle','ordinary_payload','host_prerequisites'})
-        packet['decoder_diagnostic']=dict(v=2,opaque_next_header_counts=[[254,262144],[255,262144]],
+        packet['decoder_diagnostic']=dict(v=3,opaque_next_header_counts=[[254,262144],[255,262144]],
             omitted_category_count=254,omitted_event_count=262144,detail_complete=False,truncated_counts=[1,262144,1],
-            icmp_type_code_counts=[[255,i,262144] for i in range(252,256)],
+            icmp_type_code_counts=[[255,i,262144] for i in range(254,256)],
             icmp_omitted_event_count=262144,icmp_detail_complete=False,
             checksum_counts=[262144]*3,quote_counts=[262144]*4,quote_detail_counts=[262144]*14,
-            raw_selected_nonce_match=[False,3])
+            raw_selected_nonce_match=[False,3],
+            ndp=[262144,262144,262144,262144,524287,262144,262144,262144,2,False])
         return result
 
     def test_packet_projection_compact_pretty_and_host_nested_bound(self):
@@ -338,26 +340,29 @@ class HostProjectionSizeTests(unittest.TestCase):
         self.assertLessEqual(len(pretty),4096)
         self.assertLessEqual(len(nested),4096)
         self.assertEqual(len(value['packet']['decoder_diagnostic']['opaque_next_header_counts']),2)
-        self.assertEqual(len(value['packet']['decoder_diagnostic']['icmp_type_code_counts']),4)
+        self.assertEqual(len(value['packet']['decoder_diagnostic']['icmp_type_code_counts']),2)
+        self.assertEqual(value['packet']['schema_version'],2)
+        self.assertEqual(len(value['packet']['decoder_diagnostic']['ndp']),10)
+        self.assertEqual(value['packet']['decoder_diagnostic']['ndp'][4],0x7ffff)
 
-    def test_actual_v2_projector_consistent_witness_and_invalid_null(self):
+    def test_actual_v3_projector_consistent_witness_and_invalid_null(self):
         packet=m.helper('packet');internal=packet._diagnostic_new()
         internal['opaque_next_header_counts'][58]=250000
         internal['opaque_next_header_counts'][59]=10000
         internal['opaque_next_header_counts'][60]=1000
-        internal.update(truncated_counts=[1,262144,1],icmp_type_code_counts={(1,0):100000,(1,1):100000,(3,0):20000,(4,0):20000},
-            icmp_omitted_event_count=10000,checksum_counts=[100000,100000,50000],
+        internal.update(truncated_counts=[1,262144,1],icmp_type_code_counts={(1,0):100000,(1,1):100000},
+            icmp_omitted_event_count=50000,checksum_counts=[100000,100000,50000],
             quote_counts=[100000,100000,25000,25000],
             quote_detail_counts=[40000,40000,20000,40000,40000,20000,25000,25000,25000,25000,50000,50000,10000,10000],
             raw_selected_nonce_match={0,1,2})
         projected=packet.project_decoder_diagnostic(internal,262144)
         self.assertIsNotNone(projected)
-        self.assertEqual(projected['v'],2)
+        self.assertEqual(projected['v'],3)
         self.assertEqual(projected['raw_selected_nonce_match'],[True,3])
         self.assertEqual(projected['opaque_next_header_counts'],[[58,250000],[59,10000]])
         self.assertEqual(projected['omitted_category_count'],1)
         self.assertEqual(projected['omitted_event_count'],1000)
-        self.assertEqual(projected['icmp_omitted_event_count'],10000)
+        self.assertEqual(projected['icmp_omitted_event_count'],50000)
         self.assertFalse(projected['detail_complete']);self.assertFalse(projected['icmp_detail_complete'])
         upper=self.upper_projection()
         self.assertEqual(set(projected),set(upper['packet']['decoder_diagnostic']))
@@ -368,6 +373,9 @@ class HostProjectionSizeTests(unittest.TestCase):
                           ('icmp_omitted_event_count',True)]:
             bad=copy.deepcopy(internal);bad[key]=value
             self.assertIsNone(packet.project_decoder_diagnostic(bad,262144))
+        for ndp in ([0]*9,[True]+[0]*8+[False],[0,0,0,0,0x80000,0,0,0,0,False]):
+            bad=copy.deepcopy(internal);bad['ndp']=ndp
+            self.assertIsNone(packet.project_decoder_diagnostic(bad,262144))
 
     def test_diagnostic_unavailable_preserves_all_core_packet_fields(self):
         raw,expected,data=pipeline(True)
@@ -377,6 +385,7 @@ class HostProjectionSizeTests(unittest.TestCase):
             with patch.object(m.helper('packet'),'project_decoder_diagnostic',return_value=None):
                 missing=m.parse_before_cleanup(path,CaptureDiagnosticTests.facts(),raw,expected,header_before_link=False,terminal_before_shutdown=False)
         self.assertIsNone(missing['packet']['decoder_diagnostic'])
+        self.assertEqual(missing['packet']['schema_version'],2)
         normal['packet']['decoder_diagnostic']=None
         self.assertEqual(normal,missing)
         self.assertEqual(set(missing['packet']),{'schema_version','protocol','scope','status','manifest_valid',
@@ -422,6 +431,73 @@ class HostProjectionSizeTests(unittest.TestCase):
         # projection. No production writer cap is introduced or claimed here.
         self.assertGreater(len(raw),4096)
         self.assertIn('capture_diagnostic',value['packet'])
+
+class StrictNdHostCompositionTests(unittest.TestCase):
+    @staticmethod
+    def fixture(extra=None,selected=False):
+        value=f.value();raw=f.f.encode(value);expected=f.expected(value,raw)
+        manifest=json.loads(f.f.normalize(raw,expected)['manifest_bytes'])
+        frames=[]
+        for row in manifest['ordinary']:
+            frame=bytearray(p.frame(row['source_port'],p.p.payload('a'*32,row['phase'],row['index']),dport=44000))
+            udp=bytearray(frame[54:]);udp[6:8]=b'\0\0'
+            udp[6:8]=struct.pack('!H',p.checksum_bytes(bytes(frame[22:38]),bytes(frame[38:54]),bytes(udp),17) or 65535)
+            frame[54:]=udp;frames.append(bytes(frame))
+        frames=[p.nd_frame(135),p.nd_frame(136)]+frames
+        if extra is not None:frames.insert(0,extra)
+        if selected:frames.insert(0,p.frame(42000,p.p.payload('a'*32,'contained',0),dport=44000))
+        return raw,expected,p.pcap(frames)
+
+    def parse(self,extra=None,selected=False,diagnostic=True):
+        raw,expected,data=self.fixture(extra,selected)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'pcap';path.write_bytes(data)
+            if diagnostic:
+                result=m.parse_before_cleanup(path,c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
+            else:
+                with patch.object(m.helper('packet'),'project_decoder_diagnostic',return_value=None):
+                    result=m.parse_before_cleanup(path,c.facts(),raw,expected,header_before_link=True,terminal_before_shutdown=True)
+        return result,expected
+
+    def test_strict_nd_admission_explicit_even_with_diagnostic_null(self):
+        result,expected=self.parse();packet=result['packet']
+        self.assertEqual(packet['schema_version'],2)
+        self.assertTrue(packet['bounded_no_selected_udp_datagram'])
+        self.assertFalse(packet['checksums_validated']);self.assertFalse(packet['actor_attribution_established'])
+        self.assertEqual(packet['decoder_diagnostic']['v'],3)
+        self.assertEqual(packet['decoder_diagnostic']['ndp'][:4],[1,1,0,0])
+        original,receipt=final(expected)
+        self.assertTrue(m.qualify(result,original,receipt)['packet']['bounded_no_selected_udp_datagram'])
+        unavailable,_=self.parse(diagnostic=False)
+        self.assertEqual(unavailable['packet']['schema_version'],2)
+        self.assertIsNone(unavailable['packet']['decoder_diagnostic'])
+        packet['decoder_diagnostic']=None
+        self.assertEqual(unavailable,result)
+
+    def test_other_opaque_failed_controls_and_case_nonce_prevent_absence(self):
+        unknown,_=self.parse(p.nd_frame(kind=1))
+        self.assertFalse(unknown['packet']['bounded_no_selected_udp_datagram'])
+        self.assertIn('opaque_protocol',unknown['packet']['reasons'])
+        result,expected=self.parse();original,receipt=final(expected)
+        receipt['result']['ordinary_controls_verified']=False
+        self.assertFalse(m.qualify(result,original,receipt)['packet']['bounded_no_selected_udp_datagram'])
+        raw,_=self.parse(p.nd_frame(options=b'a'*32))
+        self.assertFalse(raw['packet']['bounded_no_selected_udp_datagram'])
+        self.assertTrue(raw['packet']['decoder_diagnostic']['ndp'][9])
+        self.assertFalse(raw['selected_payload_observed'])
+
+    def test_raw_selected_and_direct_positive_remain_distinct_after_cleanup_failure(self):
+        extra=p.nd_frame(options=p.p.payload('a'*32,'contained',0))
+        result,expected=self.parse(extra)
+        self.assertEqual(result['packet']['decoder_diagnostic']['raw_selected_nonce_match'],[True,1])
+        self.assertFalse(result['selected_payload_observed'])
+        self.assertFalse(result['packet']['bounded_no_selected_udp_datagram'])
+        direct,expected=self.parse(extra,selected=True)
+        original,receipt=final(expected);original['vm_destroyed']=False
+        qualified=m.qualify(direct,original,receipt)
+        self.assertTrue(qualified['selected_payload_observed'])
+        self.assertEqual(qualified['packet']['decoder_diagnostic']['raw_selected_nonce_match'],[True,1])
+        self.assertFalse(qualified['isolation_acceptance'])
 
 if __name__=='__main__':
     import argparse
