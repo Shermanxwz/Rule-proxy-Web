@@ -1,0 +1,31 @@
+{
+  "files": [
+    {
+      "bytes": 2612,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-01-preflight.json",
+      "sha256": "969c1d83ee0eaaa73064dc166b89270d61869fc64ac3cde1dbbf4bd00b4398ab"
+    },
+    {
+      "bytes": 2674,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-01-public.json",
+      "sha256": "5ed20cc553304911d3578be04ebf475956b73a947dcdabeb46f105bbb31b2e54"
+    },
+    {
+      "bytes": 1201,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-01-runner.py",
+      "sha256": "919987a349a0394c13968d7ff703e56d6d6858f9b8e32bd835670d875ffbddcb"
+    },
+    {
+      "bytes": 2243,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-01-component-projection.json",
+      "sha256": "f3b82bf79827e193139b96b98138251565b17b4325586ee6c3787f2f98b40bee"
+    },
+    {
+      "bytes": 1638,
+      "path": "verification/windows-2026-10-22/model2-wrong-peer-01-summary.json",
+      "sha256": "3c9f7059e7fe5ed9a2cca4e63e1dc5ec4cd94a557518b980c0a26dfb1afa7a96"
+    }
+  ],
+  "schema_version": 1,
+  "stage": "wrong-peer-evidence-index"
+}
