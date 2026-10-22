@@ -1,5 +1,7 @@
 # DNS VERSION1：独立 ordinary 机制
 
+首次真实运行（源 `cee07246b6d73d2da5934f0891d017a8617b510a`）未通过机制：API/result 均返回 87，自有 responder 的 query/answer 计数均为零。14 项监督、held 身份、Job 和 fixture 清理检查全部通过；没有 retry 或 resolver 设置变更。[公开结果](../../verification/windows-2026-10-22/dns-v1-local-01-public.json)和[摘要](../../verification/windows-2026-10-22/dns-v1-local-01-summary.json)保留失败。错误原因未确定，不把它解释为 API denial、wire absence 或 DNS 隔离。
+
 新增[header](../../.github/native/windows_identity_dns_v1_probe.hpp)、[ordinary actor](../../.github/native/windows_identity_dns_v1_actor.cpp)、[compile-only helper](../../.github/build_windows_identity_dns_v1_actor.ps1)、[受监督入口](../../.github/windows_identity_dns_v1_local.py)和[纯测试](../../tests/test_windows_identity_dns_v1_local.py)。本页先描述实现；实际调用另行归档，编译和 fake 测试不能建立 API 或隔离通过。
 
 这是单独的 `DNS_QUERY_REQUEST_VERSION1` 契约，不重跑已停下的 REQUEST3 参数路线。请求使用官方 `DNS_ADDR_ARRAY`，只指定数字 `127.0.0.1` 的一个 owned 高端口和新鲜 `<nonce>.n0a.invalid` A/IN 问题；固定 bypass-cache、wire-only、no-hosts/no-local/no-NetBT/no-multicast、FQDN 选项，不配置 default resolver、不写 NRPT、不清全局缓存、不安装规则。端口是否被系统 API 实际采用，只能由独立 responder 收到精确问题来确定；不能从结构字段或 API 返回值推断。
