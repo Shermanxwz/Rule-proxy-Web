@@ -1,5 +1,7 @@
 # Windows Codex 交接：先验证身份绑定 IPC，再完成应用级代理隔离
 
+> **本机 B 新增证据，2026-10-22：** 源提交 `8a42ced7fcfcf5c506d8fd7c3a2122ba7841e3e3` 的[受监督固定 origin 入口](2026-10-22-local-origin-runtime.md)首次真实运行成功：zero-cap AC frontend → pipe → ordinary relay → owned loopback origin 的精确 HTTP、双向 EOF、held identity/tuple 和清理均通过。[公开结果](../../verification/windows-2026-10-22/local-origin-01-public.json)与[版本摘要](../../verification/windows-2026-10-22/local-origin-01-summary.json)明确 frontend 请求和 sink 仍为内部生成；`network_tested=true`，`proxy_tested=false`、`product_acceptance=false`。真实 selected 应用的身份代理与隔离尚未验收。
+
 > **本机接手后的新增证据，2026-10-22：** 提交 `c12dd0bf70fed256af00da56c4d246afdb9dca63` 的独立[本机受监督入口](2026-10-22-local-ac-ipc-owner.md)已在 ordinary Windows 11 `26200.9711`、Python `3.12.10` 上首次运行成功。[闭合结果](../../verification/windows-2026-10-22/local-ac-pair-01-public.json)及[版本绑定摘要](../../verification/windows-2026-10-22/local-ac-pair-01-summary.json)记录 zero-cap AC frontend / ordinary relay 的 48-byte IPC、EOF、held identity、Job 清空、ACL 移除和 profile 删除。本机 profile 与原 CI pinned Python/VM qualification 分开；这是第 9 节 A 的局部运行证据，`network_tested=false`、`proxy_tested=false`、`product_acceptance=false`。以下原交接记录及历史运行结论仍按各自受测版本解释；后续 B/C 尚未验收。
 
 > **交接日期：2026-10-22。产品尚未完成，不是“Windows 隔离已通过”。**
