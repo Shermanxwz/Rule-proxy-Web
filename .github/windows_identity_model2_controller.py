@@ -70,6 +70,10 @@ def validate_config(value):
         live.require(mode == 'profiles-off-diagnostic', 'helper_diagnostic_only')
         live.validate_selected_admission(value['selected_admission'])
         keys.add('selected_admission')
+    if type(value) is dict and 'wrong_port_extension' in value:
+        live.require(mode == 'profiles-off-diagnostic' and 'selected_admission' in value, 'wrong_port_diagnostic_only')
+        live.validate_wrong_port_extension(value['wrong_port_extension'])
+        keys.add('wrong_port_extension')
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
         and value['stage'] == 'model2-first-owned-input', 'config')
     live.clock_record(value['start_qpc'], value['frequency'], value['root_deadline_qpc'])
@@ -79,6 +83,8 @@ def validate_config(value):
     live.require(all(ac.nonce(value[k]) for k in names) and type(value['health_cases']) is list
         and len(value['health_cases']) == 3 and all(ac.nonce(x) for x in value['health_cases']), 'config_nonce')
     nonces = [value[k] for k in names] + value['health_cases']
+    if 'wrong_port_extension' in value:
+        nonces += [v for k, v in value['wrong_port_extension'].items() if k != 'profile']
     live.require(len(nonces) == len(set(nonces)) and value['capability_profile'] == 'agentic-pncs', 'config_profile')
     live.require(value['guard_job_name'] == 'Local\\RuleProxy.LocalGuard.' + value['run'], 'config_job')
     for key in ('source_sha256', 'actor_sha256', 'manifest_sha256', 'device_sha256', 'recovery_plan_sha256'):
@@ -197,6 +203,14 @@ def phase_passed(value, case):
         and transport_passed(value['network'], case, value['operation']))
 
 
+def connect_denied(value):
+    n = value['network']
+    return (value['failure'] is None and value['phase_qpc'][2] < value['phase_qpc'][1]
+        and all(n[key] for key in ('wsa_startup', 'inheritance_cleared', 'socket_created', 'connect_attempted'))
+        and not n['connect_completed'] and n['failure'] == 'connect' and n['wsa_error'] == 10013
+        and n['socket_close'] == 'confirmed' and n['wsa_cleanup'] is True)
+
+
 def client_final(value, task, config, *, role, boot, profile, count):
     keys = {'schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'identity', 'capability_profile',
         'capability_profile_verified', 'catalog_cleanup_verified', 'qpc', 'phase_count', 'finished',
@@ -214,12 +228,12 @@ def client_final(value, task, config, *, role, boot, profile, count):
     return value
 
 
-def receipt(value, task, config, *, boot, port, index):
+def receipt(value, task, config, *, boot, port, index, role='health-origin'):
     keys = {'schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'case_id', 'pid', 'index', 'port', 'peer_port',
         'qpc', 'request_bytes', 'request_exact', 'request_eof', 'response_bytes', 'response_complete', 'send_shutdown',
         'connection_close', 'failure', 'wsa_error'}
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
-        and value['stage'] == 'proxy-c-listener-receipt' and value['role'] == 'health-origin'
+        and value['stage'] == 'proxy-c-listener-receipt' and value['role'] == role
         and value['run_id'] == config['run'] and value['boot_case_id'] == boot
         and value['pid'] == task['pid'] and type(value['pid']) is int and value['index'] == index
         and type(value['index']) is int and value['port'] == port and type(value['port']) is int
@@ -237,10 +251,10 @@ def receipt(value, task, config, *, boot, port, index):
     return value
 
 
-def receipt_passed(row):
+def receipt_passed(row, operation='direct-tcp'):
     if row['case_id'] is None:
         return False
-    request, response = live.origin.payloads(row['case_id'], row['port'])
+    request, response = transport_payload(row['case_id'], row['port'], operation)
     return (all(row[k] for k in ('request_exact', 'request_eof', 'response_complete', 'send_shutdown'))
         and row['request_bytes'] == len(request) and row['response_bytes'] == len(response)
         and row['connection_close'] == 'confirmed' and row['failure'] is None and row['wsa_error'] is None
@@ -320,14 +334,14 @@ def validate_front(value, task, config, proxy_port, origin_port, start, end):
         and all(x is True for x in m['synthetic_http'].values()), 'front_ipc_http')
 
 
-def listener_final(value, task, config, *, boot, port, receipt_count):
+def listener_final(value, task, config, *, boot, port, receipt_count, role='health-origin', profile='ordinary'):
     keys = {'schema_version', 'stage', 'role', 'run_id', 'boot_case_id', 'pid', 'identity', 'capability_profile',
         'capability_profile_verified', 'catalog_cleanup_verified', 'qpc', 'port', 'accepted_count', 'receipt_count',
         'finished', 'listener_close', 'wsa_startup', 'wsa_cleanup', 'command_close_verified', 'failure', 'wsa_error'}
     live.require(type(value) is dict and set(value) == keys and live.integer(value['schema_version'], 1, 1)
-        and value['stage'] == 'proxy-c-listener-final' and value['role'] == 'health-origin'
+        and value['stage'] == 'proxy-c-listener-final' and value['role'] == role
         and value['run_id'] == config['run'] and value['boot_case_id'] == boot and value['pid'] == task['pid']
-        and type(value['pid']) is int and value['capability_profile'] == 'ordinary'
+        and type(value['pid']) is int and value['capability_profile'] == profile
         and value['capability_profile_verified'] is True and value['catalog_cleanup_verified'] is True
         and value['port'] == port and type(value['port']) is int
         and value['accepted_count'] == receipt_count and type(value['accepted_count']) is int
@@ -398,13 +412,15 @@ class FirstController:
         self.acl_removed = False
         self.cleanup_ok = False
         self.mode = live.execution_mode(config)
-        self.value = live.blank(self.mode)
+        self.value = live.blank(self.mode, wrong_port_extension='wrong_port_extension' in config)
         self.parent = None
         self.catalog = None
         self.phase = 'inputs'
         self.fixed_ports = None
         self.origin_boot = None
         self.direct_deadline = None
+        self.wrong_port_deadline = None
+        self.wrong_port_denied = False
         self.go_records = []
         self.selected_discovery = None
         self.profile_deleted = False
@@ -586,7 +602,89 @@ class FirstController:
             live.verify_exact_guard_member(self.api, row['info'].hProcess, self.config['guard_job_name'], owners=scope)
             live.require(scope.confirmed_closed, 'selected_family_outer_close')
 
-    def native_phase(self, task, *, role, boot, admission, sequence, case, opcode, control, reports, fixed_ports, end):
+    def wrong_port_setup(self, exe, fixed, environment):
+        if 'wrong_port_extension' not in self.config: return
+        c, root, x = self.config, self.root, self.config['wrong_port_extension']
+        self.directory('q-health'); self.directory('q-health-control')
+        argv = [str(exe), 'health-listener', c['run'], x['listener_boot'], str(root / 'front/q-final.json'),
+            str(root / 'front/q-ready.json'), str(root / 'front'), str(c['frequency']), str(c['start_qpc']),
+            str(c['deadline_qpc']), str(fixed['wrong_port']), self.parent['sid'], self.profile['sid'], '8']
+        listener = self.task('q-listener', argv, root / 'front', profile=self.profile['sid'], environment=environment)
+        self.resume(listener)
+        row, _ = read_when_closed(self.api, self.budget, root / 'front/q-ready.json', listener['info'].hProcess, self.budget.cutoff(35))
+        ready_listener(row, listener, c, role='health-listener', boot=x['listener_boot'], profile='pncs')
+        live.require(row['port'] == fixed['wrong_port'], 'wrong_port_listener')
+        command = live.selected_command(exe, 'health-client', c['run'], x['control_boot'], root / 'q-health/ready.json',
+            root / 'q-health', root / 'q-health-control', c['start_qpc'], c['frequency'], c['deadline_qpc'], fixed,
+            self.parent['sid'], 'ordinary', x['control_admission'])
+        control = self.task('q-health', command, root / 'q-health')
+        self.resume(control)
+        row, _ = read_when_closed(self.api, self.budget, root / 'q-health/ready.json', control['info'].hProcess, self.budget.cutoff(35))
+        ready_client(row, control, c, role='health-client', boot=x['control_boot'], admission=x['control_admission'], profile='ordinary')
+
+    def wrong_port_run(self, selected, fixed):
+        if 'wrong_port_extension' not in self.config: return
+        c, root, budget, x = self.config, self.root, self.budget, self.config['wrong_port_extension']
+        listener, control = self.tasks['q-listener'], self.tasks['q-health']
+        public = self.value['wrong_port_extension']
+        self.phase = 'health'
+        self.selected_family_alive(); self.alive(listener)
+        before = self.native_phase(control, role='health-client', journal_role='q-health', boot=x['control_boot'], admission=x['control_admission'],
+            sequence=1, case=x['before_case'], opcode=3, control=root / 'q-health-control', reports=root / 'q-health',
+            fixed_ports=fixed, end=min(budget.read() + 3 * c['frequency'], budget.cutoff(30)))
+        live.require(phase_passed(before, x['before_case']), 'wrong_port_before_health')
+        row, _ = read_when_closed(self.api, budget, root / 'front/receipt-0001.json', listener['info'].hProcess, budget.cutoff(30))
+        row = receipt(row, listener, c, boot=x['listener_boot'], port=fixed['wrong_port'], index=1, role='health-listener')
+        live.require(row['case_id'] == x['before_case'] and receipt_passed(row, 'wrong-port')
+            and row['peer_port'] == before['network']['local_port'], 'wrong_port_before_receipt')
+        public['healthy_before'] = True
+        self.phase = 'wrong-port'
+        self.refresh_profiles(); self.alive(listener)
+        self.wrong_port_deadline = min(budget.read() + 3 * c['frequency'], budget.cutoff(30))
+        wrong = self.native_phase(selected, role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'],
+            sequence=3, case=x['wrong_case'], opcode=3, control=root / 'selected-control', reports=root / 'selected',
+            fixed_ports=fixed, end=self.wrong_port_deadline)
+        public.update(attempted=wrong['network']['connect_attempted'], connected=wrong['network']['connect_completed'])
+        self.value['violations']['wrong_port_connected'] |= wrong['network']['connect_completed']
+        self.wrong_port_denied = connect_denied(wrong)
+        live.require(wrong['failure'] is None and wrong['phase_qpc'][2] < wrong['phase_qpc'][1]
+            and all(wrong['network'][key] for key in ('wsa_startup','inheritance_cleared','socket_created','connect_attempted','wsa_cleanup'))
+            and wrong['network']['socket_close'] == 'confirmed', 'wrong_port_observation')
+        self.phase = 'health'
+        self.selected_family_alive(); self.alive(listener)
+        after = self.native_phase(control, role='health-client', journal_role='q-health', boot=x['control_boot'], admission=x['control_admission'],
+            sequence=2, case=x['after_case'], opcode=3, control=root / 'q-health-control', reports=root / 'q-health',
+            fixed_ports=fixed, end=min(budget.read() + 3 * c['frequency'], budget.cutoff(30)))
+        live.require(phase_passed(after, x['after_case']), 'wrong_port_after_health')
+        self.finish_client(control, role='health-client', journal_role='q-health', boot=x['control_boot'], admission=x['control_admission'], sequence=3,
+            profile='ordinary', control=root / 'q-health-control', reports=root / 'q-health', fixed_ports=fixed, count=2)
+        digest = live.publish_fixture_finish(root / 'front', budget=budget, run=c['run'], boot_case=x['listener_boot'])
+        self.go_records.append(dict(role='q-listener', sequence=1, opcode=255, case=x['listener_boot'],
+            phase_deadline=c['deadline_qpc'], path='front/finish.bin', sha256=digest))
+        self.wait(listener, budget.cutoff(30))
+        seen = []
+        for index in range(1, 9):
+            path = root / ('front/receipt-%04d.json' % index)
+            if not path.exists(): break
+            row = receipt(live.decode(live.local.bounded(path, live.MAX_NATIVE)), listener, c, boot=x['listener_boot'],
+                port=fixed['wrong_port'], index=index, role='health-listener')
+            if row['case_id'] == x['wrong_case']:
+                public['forbidden_nonce_received'] = True
+                self.value['violations']['wrong_port_connected'] = True
+            else:
+                live.require(receipt_passed(row, 'wrong-port'), 'wrong_port_receipt')
+            if row['case_id'] == x['after_case']:
+                live.require(row['peer_port'] == after['network']['local_port'], 'wrong_port_after_tuple')
+            seen.append(row['case_id'])
+        expected = [x['before_case'], x['after_case']]
+        if x['wrong_case'] in seen: expected.insert(1, x['wrong_case'])
+        live.require(seen == expected, 'wrong_port_receipt_cases')
+        listener_final(live.decode(live.local.bounded(root / 'front/q-final.json', live.MAX_NATIVE)), listener, c,
+            boot=x['listener_boot'], port=fixed['wrong_port'], receipt_count=len(expected), role='health-listener', profile='pncs')
+        public.update(healthy_after=True, connected=self.value['violations']['wrong_port_connected'], observation_complete=True,
+            denied_by_access=self.wrong_port_denied and not self.value['violations']['wrong_port_connected'])
+
+    def native_phase(self, task, *, role, boot, admission, sequence, case, opcode, control, reports, fixed_ports, end, journal_role=None):
         self.alive(task)
         if role == 'selected-client': self.selected_family_alive()
         if self.mode != 'strict' and role == 'selected-client':
@@ -595,7 +693,7 @@ class FirstController:
         digest = live.publish_go(control, budget=self.budget, run=self.config['run'], case=case, sequence=sequence,
             opcode=opcode, frequency=self.config['frequency'], deadline=self.config['deadline_qpc'],
             fixed_ports=fixed_ports, admission=admission, phase_deadline=end)
-        self.go_records.append(dict(role=role, sequence=sequence, opcode=opcode, case=case,
+        self.go_records.append(dict(role=role if journal_role is None else journal_role, sequence=sequence, opcode=opcode, case=case,
             phase_deadline=end, path=(control / ('phase-%04d.bin' % sequence)).relative_to(self.root).as_posix(), sha256=digest))
         # Collect a bounded late failure record without extending network work.
         collect_end = min(end + self.config['frequency'], self.budget.cutoff(20))
@@ -604,13 +702,13 @@ class FirstController:
         return client_phase(value, task, self.config, role=role, boot=boot, admission=admission,
             sequence=sequence, case=case, operation=live.OPS[opcode], target_port=target, phase_deadline=end)
 
-    def finish_client(self, task, *, role, boot, admission, sequence, profile, control, reports, fixed_ports, count):
+    def finish_client(self, task, *, role, boot, admission, sequence, profile, control, reports, fixed_ports, count, journal_role=None):
         self.alive(task)
         end = self.budget.cutoff(30)
         digest = live.publish_go(control, budget=self.budget, run=self.config['run'], case=boot, sequence=sequence, opcode=255,
             frequency=self.config['frequency'], deadline=self.config['deadline_qpc'], fixed_ports=fixed_ports,
             admission=admission, phase_deadline=end)
-        self.go_records.append(dict(role=role, sequence=sequence, opcode=255, case=boot,
+        self.go_records.append(dict(role=role if journal_role is None else journal_role, sequence=sequence, opcode=255, case=boot,
             phase_deadline=end, path=(control / ('phase-%04d.bin' % sequence)).relative_to(self.root).as_posix(), sha256=digest))
         self.wait(task, end)
         observed = live.decode(live.local.bounded(reports / 'final.json', live.MAX_NATIVE))
@@ -706,6 +804,8 @@ class FirstController:
             observed = self.maintenance.last_observation
             v['diagnostic'].update(profiles_off_verified=observed['profiles_off_verified'],
                 exact_rule_scope_verified=True, effective_full_verified=observed['effective_full_verified'])
+        self.phase = 'health'
+        self.wrong_port_setup(exe, fixed, front_environment)
 
         # A single fixed pair window bounds native front/relay handshake and flow.
         self.phase = 'positive'
@@ -834,8 +934,10 @@ class FirstController:
         self.alive(g)
         self.alive(selected)
         v['checks']['same_selected'] = True
+        self.wrong_port_run(selected, fixed)
         self.finish_client(selected, role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'],
-            sequence=3, profile='agentic-pncs', control=root / 'selected-control', reports=root / 'selected', fixed_ports=fixed, count=2)
+            sequence=4 if 'wrong_port_extension' in c else 3, profile='agentic-pncs', control=root / 'selected-control',
+            reports=root / 'selected', fixed_ports=fixed, count=3 if 'wrong_port_extension' in c else 2)
         self.wait(g, budget.cutoff(30))
         if 'system-conhost' in self.tasks:
             auxiliary = self.tasks['system-conhost']
@@ -930,6 +1032,33 @@ class FirstController:
             v['diagnostic']['forbidden_nonce_received'] = v['violations']['forbidden_receiver_accepted']
             if v['violations']['direct_connected'] or v['violations']['forbidden_receiver_accepted']:
                 v['diagnostic']['direct_denied_by_access'] = False
+        if 'wrong_port_extension' in c:
+            x, public = c['wrong_port_extension'], v['wrong_port_extension']
+            listener = self.tasks.get('q-listener')
+            if listener is not None and listener['exited'] and self.fixed_ports is not None:
+                for index in range(1, 9):
+                    path = root / ('front/receipt-%04d.json' % index)
+                    if not path.exists(): continue
+                    try:
+                        row = receipt(live.decode(live.local.bounded(path, live.MAX_NATIVE)), listener, c,
+                            boot=x['listener_boot'], port=self.fixed_ports['wrong_port'], index=index, role='health-listener')
+                        if row['case_id'] == x['wrong_case']:
+                            public['forbidden_nonce_received'] = True
+                            v['violations']['wrong_port_connected'] = True
+                    except BaseException: pass
+            if selected is not None and selected['exited'] and self.wrong_port_deadline is not None:
+                path = root / 'selected/phase-0003.json'
+                if path.exists():
+                    try:
+                        row = client_phase(live.decode(live.local.bounded(path, live.MAX_NATIVE)), selected, c,
+                            role='selected-client', boot=c['boot_case'], admission=c['admission_nonce'], sequence=3,
+                            case=x['wrong_case'], operation='wrong-port', target_port=self.fixed_ports['wrong_port'],
+                            phase_deadline=self.wrong_port_deadline)
+                        public['attempted'] |= row['network']['connect_attempted']
+                        v['violations']['wrong_port_connected'] |= row['network']['connect_completed']
+                    except BaseException: pass
+            public['connected'] = v['violations']['wrong_port_connected']
+            if public['connected'] or public['forbidden_nonce_received']: public['denied_by_access'] = False
 
     def cleanup(self):
         api, budget, root = self.api, self.budget, self.root
@@ -1061,6 +1190,10 @@ class FirstController:
         native_paths += ['origin/receipt-%04d.json' % i for i in range(1, 9)]
         native_paths += ['health/phase-%04d.json' % i for i in range(1, 4)]
         native_paths += ['selected/phase-%04d.json' % i for i in range(1, 3)]
+        if 'wrong_port_extension' in c:
+            native_paths += ['front/q-ready.json', 'front/q-final.json', 'q-health/ready.json', 'q-health/final.json',
+                'q-health/phase-0001.json', 'q-health/phase-0002.json', 'selected/phase-0003.json']
+            native_paths += ['front/receipt-%04d.json' % i for i in range(1, 9)]
         reports = []
         for name in native_paths:
             path = self.root / name
@@ -1110,6 +1243,9 @@ def validate_ownership_journal(value, config, *, controller_pid):
     if helper_contract is not None:
         live.validate_selected_admission(helper_contract)
         roles.add('system-conhost')
+    wrong_extension = config.get('wrong_port_extension')
+    if wrong_extension is not None: roles.update(('q-listener', 'q-health'))
+    live.require(('wrong_port_extension' in public) == (wrong_extension is not None), 'journal_wrong_port_binding')
     live.require(type(value['tasks']) is list and len(value['tasks']) <= len(roles), 'journal_tasks')
     tasks = {}
     for row in value['tasks']:
@@ -1152,7 +1288,7 @@ def validate_ownership_journal(value, config, *, controller_pid):
             else:
                 live.require(row['externally_held_before_first_resume'] is True and row['resume_qpc'] is not None
                     and row['resume_qpc'] >= row['admission_qpc'], 'journal_resume_order')
-        if row['role'] in ('origin', 'health', 'front', 'relay', 'selected'):
+        if row['role'] in ('origin', 'health', 'front', 'relay', 'selected', 'q-listener', 'q-health'):
             live.require(row['image_sha256'] == config['actor_sha256'], 'journal_actor_hash')
         if row['role'] in ('g-probe', 'g-live'):
             live.require(row['image_sha256'] == live.probe.pins.MXC_G_EXECUTOR_SHA256, 'journal_g_hash')
@@ -1192,30 +1328,35 @@ def validate_ownership_journal(value, config, *, controller_pid):
         ('health-client', 2, 2, config['health_cases'][1]), ('selected-client', 2, 2, config['direct_case']),
         ('selected-client', 3, 255, config['boot_case']), ('health-client', 3, 2, config['health_cases'][2]),
         ('health-client', 4, 255, config['admission_nonce']), ('health-origin', 1, 255, config['health_cases'][0])]
+    if wrong_extension is not None:
+        x = wrong_extension
+        expected_go[4] = ('selected-client', 4, 255, config['boot_case'])
+        expected_go[4:4] = [('q-health', 1, 3, x['before_case']), ('selected-client', 3, 3, x['wrong_case']),
+            ('q-health', 2, 3, x['after_case']), ('q-health', 3, 255, x['control_boot']), ('q-listener', 1, 255, x['listener_boot'])]
     live.require(type(value['go']) is list and len(value['go']) <= len(expected_go), 'journal_go')
     for row, (role, sequence, opcode, case) in zip(value['go'], expected_go):
         live.require(type(row) is dict and set(row) == {'role', 'sequence', 'opcode', 'case', 'phase_deadline', 'path', 'sha256'}
             and row['role'] == role and type(row['sequence']) is int and row['sequence'] == sequence
             and type(row['opcode']) is int and row['opcode'] == opcode and row['case'] == case
             and live.integer(row['phase_deadline'], 1, config['deadline_qpc']) and ac.digest(row['sha256']), 'journal_go_binding')
-        if role == 'health-origin':
-            expected = live.fixture_finish(run=config['run'], boot_case=config['health_cases'][0],
+        if role in ('health-origin', 'q-listener'):
+            expected = live.fixture_finish(run=config['run'], boot_case=config['health_cases'][0] if role == 'health-origin' else wrong_extension['listener_boot'],
                 frequency=config['frequency'], deadline=config['deadline_qpc'])
-            expected_path = 'origin-control/finish.bin'
+            expected_path = 'origin-control/finish.bin' if role == 'health-origin' else 'front/finish.bin'
         else:
             live.require(value['fixed_ports'] is not None, 'journal_go_ports')
-            admission = config['admission_nonce'] if role == 'selected-client' else config['maintenance_nonce']
+            admission = config['admission_nonce'] if role == 'selected-client' else wrong_extension['control_admission'] if role == 'q-health' else config['maintenance_nonce']
             expected = live.go_record(run=config['run'], case=case, sequence=sequence, opcode=opcode,
                 frequency=config['frequency'], deadline=config['deadline_qpc'], fixed_ports=value['fixed_ports'],
                 admission=admission, phase_deadline=row['phase_deadline'])
-            expected_path = ('selected-control' if role == 'selected-client' else 'health-control') + '/phase-%04d.bin' % sequence
+            expected_path = ('selected-control' if role == 'selected-client' else 'q-health-control' if role == 'q-health' else 'health-control') + '/phase-%04d.bin' % sequence
         live.require(row['path'] == expected_path and row['sha256'] == live.sha(expected), 'journal_go_digest')
     paths = set()
-    live.require(type(value['native_reports']) is list and len(value['native_reports']) <= 26, 'journal_reports')
+    live.require(type(value['native_reports']) is list and len(value['native_reports']) <= (41 if wrong_extension is not None else 26), 'journal_reports')
     for row in value['native_reports']:
         live.require(type(row) is dict and set(row) == {'path', 'state', 'bytes', 'sha256'}
             and type(row['path']) is str and row['path'] not in paths
-            and re_report_path(row['path']) and row['state'] in ('read', 'unreadable'), 'journal_report')
+            and re_report_path(row['path'], wrong_port=wrong_extension is not None) and row['state'] in ('read', 'unreadable'), 'journal_report')
         paths.add(row['path'])
         live.require(row['state'] != 'read' or live.integer(row['bytes'], 0, live.MAX_PRIVATE) and ac.digest(row['sha256']), 'journal_report_digest')
         live.require(row['state'] != 'unreadable' or row['bytes'] is None and row['sha256'] is None, 'journal_report_unreadable')
@@ -1260,10 +1401,12 @@ def validate_ownership_journal(value, config, *, controller_pid):
     return value
 
 
-def re_report_path(path):
+def re_report_path(path, wrong_port=False):
     import re
-    return bool(re.fullmatch(r'(?:front/(?:ready|final)\.json|relay/final\.json|origin/(?:ready|final|receipt-000[1-8])\.json|'
+    base = bool(re.fullmatch(r'(?:front/(?:ready|final)\.json|relay/final\.json|origin/(?:ready|final|receipt-000[1-8])\.json|'
         r'health/(?:ready|final|phase-000[1-3])\.json|selected/(?:ready|final|phase-000[12])\.json|g-(?:probe|live)/(?:stdout|stderr))', path))
+    return base or wrong_port and bool(re.fullmatch(r'(?:front/(?:q-ready|q-final|receipt-000[1-8])\.json|'
+        r'q-health/(?:ready|final|phase-000[12])\.json|selected/phase-0003\.json)', path))
 
 
 def run_controller(config, root=ROOT, *, api=None):
@@ -1278,7 +1421,7 @@ def run_controller(config, root=ROOT, *, api=None):
     except BaseException as exc:
         phase = controller.phase
         value['failure'] = phase if phase in ('inputs', 'identity', 'deadline', 'staging', 'probe', 'selected', 'firewall',
-            'health', 'positive', 'cleanup', 'report') else 'worker'
+            'health', 'positive', 'wrong-port', 'cleanup', 'report') else 'worker'
         value['status'] = 'failed' if any(value['violations'].values()) else 'inconclusive'
         # Private only: retain native Win32/HRESULT and closed invariant details
         # for one evidence-driven repair, without exposing paths or raw stderr.

@@ -412,6 +412,14 @@ def validate_selected_admission(value):
     return value
 
 
+def validate_wrong_port_extension(value):
+    keys = {'profile', 'listener_boot', 'control_boot', 'control_admission', 'before_case', 'wrong_case', 'after_case'}
+    require(type(value) is dict and set(value) == keys and value['profile'] == 'same-peer-wrong-port-v1'
+        and all(ac.nonce(value[key]) for key in keys - {'profile'})
+        and len({value[key] for key in keys - {'profile'}}) == 6, 'wrong_port_extension')
+    return value
+
+
 def g_command(executable, request, *, actual=False):
     require(type(actual) is bool, 'g_command_mode')
     # Pinned CLI main.rs selects Console logging only with --debug; successful
@@ -776,7 +784,9 @@ def diagnostic_ready(value, *, require_guard=True):
     return (value['execution_mode'] == 'profiles-off-diagnostic' and all(value['checks'][key] for key in required)
         and (not require_guard or value['checks']['guard_held']) and value['failure'] is None
         and all(d[key] for key in ('requested', 'profiles_off_verified', 'exact_rule_scope_verified',
-            'positive_verified', 'direct_attempted', 'observation_complete')))
+            'positive_verified', 'direct_attempted', 'observation_complete'))
+        and ('wrong_port_extension' not in value or all(value['wrong_port_extension'][key]
+            for key in ('requested', 'healthy_before', 'healthy_after', 'attempted', 'observation_complete'))))
 
 
 def first_ready(value, *, require_guard=True):
@@ -792,6 +802,8 @@ def finalize_public(value):
     value['first_chain_verified'] = first_ready(value)
     value['local_c_qualified'] = value['execution_mode'] == 'strict' and all(value['checks'].values()) and not any(value['violations'].values()) and value['failure'] is None
     value['diagnostic_completed'] = diagnostic_ready(value)
+    if 'wrong_port_extension' in value:
+        value['wrong_port_extension']['completed'] = value['diagnostic_completed']
     if value['diagnostic_completed']:
         value['status'] = 'diagnostic-observed'
     elif value['local_c_qualified']:
@@ -805,9 +817,10 @@ def finalize_public(value):
     return validate_public(value)
 
 
-def blank(execution_mode='strict'):
-    require(execution_mode in MODES, 'execution_mode')
-    return dict(schema_version=1, stage='local-model2-live', profile='pncs-peer-port-held-barrier-v1',
+def blank(execution_mode='strict', wrong_port_extension=False):
+    require(execution_mode in MODES and type(wrong_port_extension) is bool
+        and (not wrong_port_extension or execution_mode == 'profiles-off-diagnostic'), 'execution_mode')
+    value = dict(schema_version=1, stage='local-model2-live', profile='pncs-peer-port-held-barrier-v1',
         execution_mode=execution_mode, diagnostic={key: key == 'requested' and execution_mode == 'profiles-off-diagnostic'
             for key in ('requested', 'profiles_off_verified', 'exact_rule_scope_verified', 'effective_full_verified',
                 'positive_verified', 'direct_attempted', 'direct_connected', 'direct_denied_by_access',
@@ -822,10 +835,14 @@ def blank(execution_mode='strict'):
         original_stage0=False, system_dns_tested=False, service_brokers_tested=False,
         winhttp_tested=False, application_adapter_tested=False, product_acceptance=False,
         first_chain_verified=False, direct_deny_verified=False, local_c_qualified=False)
+    if wrong_port_extension: value['wrong_port_extension'] = blank_wrong_port()
+    return value
 
 
 def validate_public(value):
     template = blank()
+    if type(value) is dict and 'wrong_port_extension' in value:
+        template['wrong_port_extension'] = blank_wrong_port()
     require(type(value) is dict and set(value) == set(template), 'public_schema')
     for key in ('schema_version', 'stage', 'profile', 'original_stage0', 'system_dns_tested',
                 'service_brokers_tested', 'winhttp_tested', 'application_adapter_tested', 'product_acceptance'):
@@ -859,15 +876,30 @@ def validate_public(value):
             and d['forbidden_nonce_received'] == value['violations']['forbidden_receiver_accepted'], 'diagnostic_binding')
         require(not d['direct_denied_by_access'] or value['checks']['direct_deny'] and not d['direct_connected']
             and not d['forbidden_nonce_received'], 'diagnostic_deny')
+    if 'wrong_port_extension' in value:
+        x = value['wrong_port_extension']
+        require(value['execution_mode'] == 'profiles-off-diagnostic' and type(x) is dict and set(x) == set(blank_wrong_port())
+            and all(type(item) is bool for item in x.values()) and x['requested']
+            and x['connected'] == value['violations']['wrong_port_connected']
+            and x['completed'] == value['diagnostic_completed'], 'wrong_port_public')
+        require(not x['denied_by_access'] or x['attempted'] and not x['connected'] and not x['forbidden_nonce_received']
+            and x['healthy_before'] and x['healthy_after'], 'wrong_port_deny')
     if value['status'] == 'ready':
         require(value['checks']['sources'] and value['checks']['artifacts']
             and not any(v for k, v in value['checks'].items() if k not in ('sources', 'artifacts'))
             and not any(value['observations'].values()) and not any(value['violations'].values())
             and not any(v for k,v in value['diagnostic'].items() if k != 'requested')
             and value['run_sha256'] is None and value['failure'] is None, 'public_readiness')
+        if 'wrong_port_extension' in value:
+            require(not any(v for k, v in value['wrong_port_extension'].items() if k != 'requested'), 'wrong_port_readiness')
     require(not value['checks']['positive'] or all(value['observations'].values()), 'public_positive')
     require(len(encode(value)) <= MAX_PUBLIC, 'public_bound')
     return value
+
+
+def blank_wrong_port():
+    return {key: key == 'requested' for key in ('requested', 'healthy_before', 'healthy_after', 'attempted',
+        'connected', 'denied_by_access', 'forbidden_nonce_received', 'observation_complete', 'completed')}
 
 
 def main(argv=None):

@@ -57,6 +57,11 @@ def recovery_plan(closure):
         recovery_reference='pure-test recovery attestation; no snapshot fact asserted')
 
 
+def wrong_port_fixture():
+    keys=('listener_boot','control_boot','control_admission','before_case','wrong_case','after_case')
+    return dict(profile='same-peer-wrong-port-v1',**{key:format(i,'032x') for i,key in enumerate(keys,10)})
+
+
 def controller_public(config,*,violation=False,inner_cleanup=True):
     value=m.live.blank()
     for key in ('source_sha256','actor_sha256','manifest_sha256'):value[key]=config[key]
@@ -225,6 +230,29 @@ class LocalModel2Tests(unittest.TestCase):
             image.return_value=dict(admission,conhost_sha256='8'*64)
             changed=m.preflight(*([None,None,'3'*64,'4'*64]+[None]*4),api=api,execution_mode='profiles-off-diagnostic',allow_held_system_conhost=True)
             self.assertEqual(changed['failure'],'plan');self.assertEqual(api.created,[])
+
+    def test_wrong_port_plan_requires_new_scope_and_config_has_fifteen_unique_nonces(self):
+        _,_,closure=source_fixture();admission=dict(profile='actor-plus-system-conhost-v1',conhost_sha256='7'*64)
+        extension=wrong_port_fixture();p=recovery_plan(closure)
+        p.update(scope=m.WRONG_PORT_SCOPE,execution_mode='profiles-off-diagnostic',selected_admission=admission,wrong_port_extension=extension)
+        kw=dict(device='1'*64,source=closure,actor='3'*64,manifest='4'*64,execution_mode='profiles-off-diagnostic',selected_admission=admission)
+        self.assertIs(m.plan(p,**kw,wrong_port_extension=True),p)
+        with self.assertRaises(ValueError):m.plan(p,**kw)
+        bad=copy.deepcopy(p);bad['scope']=m.HELPER_DIAGNOSTIC_SCOPE
+        with self.assertRaises(ValueError):m.plan(bad,**kw,wrong_port_extension=True)
+        c=config_fixture();c.update(execution_mode='profiles-off-diagnostic',selected_admission=admission,wrong_port_extension=extension)
+        self.assertIs(m.validate_config(c),c)
+        c['wrong_port_extension']['wrong_case']=c['run']
+        with self.assertRaises(ValueError):m.validate_config(c)
+        c['wrong_port_extension']=wrong_port_fixture();del c['selected_admission']
+        with self.assertRaises(ValueError):m.validate_config(c)
+
+    def test_wrong_port_flag_alone_never_constructs_native_api(self):
+        with mock.patch.object(m.local,'LocalNativeAPI') as native:
+            value=m.preflight(*([None]*8),execution_mode='profiles-off-diagnostic',test_same_peer_wrong_port=True)
+        native.assert_not_called();self.assertEqual(value['failure'],'platform')
+        self.assertTrue(value['result']['wrong_port_extension']['requested'])
+        self.assertFalse(value['result']['diagnostic_completed'])
 
     def test_opt_in_missing_never_constructs_native_api(self):
         with mock.patch.object(m.local,'LocalNativeAPI') as native:
