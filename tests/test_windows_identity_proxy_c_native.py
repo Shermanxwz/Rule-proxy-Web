@@ -26,7 +26,7 @@ bool require(bool good,const char* name){++scenarios;if(!good)std::printf("FAIL 
 bool decoded(const Bytes& bytes,const rpc::Binding& b,std::uint32_t sequence=1,std::uint64_t now=1000,bool fixture=false){
     rpc::Command c;return rpc::decode(bytes.data(),bytes.size(),b,sequence,now,c,fixture);}
 int main(){bool good=true;const auto b=binding();const auto valid=command(b);
-    for(unsigned op=0;op<256;++op){auto bytes=command(b,1,op);good=require(decoded(bytes,b)==((op>=1&&op<=5)||op==255),"closed-opcodes")&&good;}
+    for(unsigned op=0;op<256;++op){auto bytes=command(b,1,op);good=require(decoded(bytes,b)==((op>=1&&op<=6)||op==255),"closed-opcodes")&&good;}
     for(unsigned sequence=0;sequence<=17;++sequence){auto bytes=command(b,sequence);good=require(decoded(bytes,b,sequence)==(sequence>=1&&sequence<=16),"closed-sequences")&&good;
         if(sequence>=1&&sequence<=16)good=require(!decoded(bytes,b,sequence==16?1:sequence+1),"monotonic-next")&&good;}
     // Every bit outside the fresh phase case and phase deadline must be bound.
@@ -38,8 +38,8 @@ int main(){bool good=true;const auto b=binding();const auto valid=command(b);
     for(std::uint64_t end:std::array<std::uint64_t,7>{0,999,1000,1001,121000,121001,0xffffffffffffffffULL}){
         auto bytes=valid;put(bytes,88,end,8);good=require(decoded(bytes,b)==(end>1000&&end<=b.deadline),"absolute-phase-budget")&&good;}
     good=require(!decoded(valid,b,1,110000)&&!decoded(valid,b,1,121000),"no-deadline-renewal")&&good;
-    for(unsigned op=1;op<=5;++op){rpc::Command c;auto bytes=command(b,1,op);
-        good=require(rpc::decode(bytes.data(),128,b,1,1000,c)&&rpc::target(b,c.operation)==(op==2?b.o:op==3?b.q:b.p),"fixed-target-routing")&&good;}
+    for(unsigned op=1;op<=6;++op){rpc::Command c;auto bytes=command(b,1,op);
+        good=require(rpc::decode(bytes.data(),128,b,1,1000,c)&&rpc::target(b,c.operation)==(op==6?53:op==2?b.o:op==3?b.q:b.p),"fixed-target-routing")&&good;}
     for(unsigned which=0;which<3;++which){auto bad=b;if(which==0)bad.p=49152;if(which==1)bad.q=bad.p;if(which==2)bad.o=bad.q;
         good=require(!rpc::valid_binding(bad)&&!decoded(valid,bad),"high-distinct-fixed-ports")&&good;}
     auto fixture=b;fixture.p=fixture.q=fixture.o=0;auto finish=command(fixture,1,255);
@@ -120,7 +120,7 @@ class NativeCContractTests(unittest.TestCase):
             self.assertEqual(built.returncode,0,built.stdout+built.stderr)
             ran=subprocess.run([str(exe)],cwd=work,capture_output=True,text=True,timeout=15)
             self.assertEqual(ran.returncode,0,ran.stdout+ran.stderr)
-            self.assertIn('C_FAKE_SCENARIOS 2538',ran.stdout)
+            self.assertIn('C_FAKE_SCENARIOS 2539',ran.stdout)
 
     def test_frozen_b_sources_are_reused_without_behavior_or_hash_rewrite(self):
         expected={'windows_identity_proxy_origin_actor.cpp':'3d079e77e387ba77545c27f5b5c260f591657ef3a44384426cd2039fa8c04010',

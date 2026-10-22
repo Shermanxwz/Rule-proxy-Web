@@ -9,7 +9,8 @@ param(
     [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string] $ExpectedCoreSha256,
     [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string] $ExpectedPipeHelperSha256,
     [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string] $ExpectedOriginTransportSha256,
-    [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string] $ExpectedLiveContractSha256
+    [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string] $ExpectedLiveContractSha256,
+    [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{64}$')][string] $ExpectedDnsStandardProbeSha256
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
@@ -17,9 +18,9 @@ if ($env:OS -ne 'Windows_NT') { throw 'Windows compiler required.' }
 if ($env:VSCMD_ARG_TGT_ARCH -cne 'x64') { throw 'Explicit x64 compiler required.' }
 $names=@('windows_identity_proxy_c_actor.cpp','windows_identity_proxy_origin_actor.cpp','windows_identity_actor.cpp',
     'windows_identity_proxy_bridge_core.hpp','windows_identity_proxy_pipe_actor.cpp',
-    'windows_identity_proxy_origin_transport.hpp','windows_identity_proxy_c_contract.hpp')
+    'windows_identity_proxy_origin_transport.hpp','windows_identity_proxy_c_contract.hpp','windows_identity_dns_standard_probe.hpp')
 $expected=@($ExpectedActorSha256,$ExpectedOriginActorSha256,$ExpectedIdentitySha256,$ExpectedCoreSha256,
-    $ExpectedPipeHelperSha256,$ExpectedOriginTransportSha256,$ExpectedLiveContractSha256)
+    $ExpectedPipeHelperSha256,$ExpectedOriginTransportSha256,$ExpectedLiveContractSha256,$ExpectedDnsStandardProbeSha256)
 $files=@();$hashes=@()
 for ($i=0;$i -lt $names.Count;$i++) {
     $file=Get-Item -LiteralPath (Join-Path $PSScriptRoot ('native\'+$names[$i])) -ErrorAction Stop
@@ -44,7 +45,7 @@ for ($i=0;$i -lt $names.Count;$i++) {
 $manifest=[ordered]@{
     schemaVersion=1;compileOnly=$true;runtimeAcceptance=$false
     actorSourceSha256=$hashes[0];originActorSha256=$hashes[1];identitySourceSha256=$hashes[2];coreSha256=$hashes[3]
-    pipeHelperSha256=$hashes[4];originTransportSha256=$hashes[5];liveContractSha256=$hashes[6]
+    pipeHelperSha256=$hashes[4];originTransportSha256=$hashes[5];liveContractSha256=$hashes[6];dnsStandardProbeSha256=$hashes[7]
     executableSha256=(Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 [IO.File]::WriteAllText((Join-Path $directory.FullName 'identity-proxy-c-manifest.json'),

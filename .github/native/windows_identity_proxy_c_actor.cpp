@@ -1,8 +1,10 @@
 // C: real raw TCP proxy request/sink and identity-first selected client.
 // GUI subsystem supplies a separate entry point without editing frozen B sources.
-// No window, UIAccess, DNS, WinHTTP, firewall, exemption or security mutation.
+// No window, UIAccess, WinHTTP, firewall, exemption or security mutation.
+// The separate op6 performs one explicit-server DNS observation only after GO.
 #include "windows_identity_proxy_origin_actor.cpp"
 #include "windows_identity_proxy_c_contract.hpp"
+#include "windows_identity_dns_standard_probe.hpp"
 #include <cstdlib>
 namespace bridge_c {
 using bridge_origin::SocketSlot;using bridge_origin::SocketAPI;using bridge_origin::Session;
@@ -122,6 +124,21 @@ rpb::Buffer<256> proxy_request(const std::string& item){rpb::Buffer<256> out;
     rpb::append_literal(out,"GET http://ruleproxy-identity-proof.invalid/");rpb::append_hex(out,bridge_pipe::id_bytes(item));
     rpb::append_literal(out," HTTP/1.1\r\nHost: ruleproxy-identity-proof.invalid\r\n\r\n");return out;
 }
+// DNS_PHASE_REPORT_BEGIN: pure serialization, no DNS or networking initialization.
+std::string dns_report(const std::string& item,const ruleproxy_dns_standard::Result& result){
+    constexpr auto options=DNS_QUERY_BYPASS_CACHE|DNS_QUERY_NO_HOSTS_FILE|DNS_QUERY_NO_LOCAL_NAME|
+        DNS_QUERY_NO_NETBT|DNS_QUERY_WIRE_ONLY|DNS_QUERY_NO_MULTICAST|DNS_QUERY_TREAT_AS_FQDN;
+    return "{\"server_constructor\":\""+std::string(ruleproxy_dns_standard::ServerConstructor)
+        +"\",\"server_address\":\"127.0.0.1\",\"server_port\":53,\"query_name\":\""+item+".n0a.invalid\",\"query_type\":1,\"query_options\":"+std::to_string(options)
+        +",\"result\":{\"configured\":"+boolean(result.configured)+",\"called\":"+boolean(result.called)
+        +",\"completed\":"+boolean(result.completed)+",\"pending\":"+boolean(result.pending)
+        +",\"answer_match\":"+boolean(result.answer_match)+",\"records_released\":"+boolean(result.records_released)
+        +",\"context_retained\":"+boolean(result.context_retained)+",\"within_deadline\":"+boolean(result.within_deadline)
+        +",\"api_status\":"+std::to_string(result.api_status)+",\"query_status\":"+std::to_string(result.query_status)
+        +",\"record_count\":"+std::to_string(result.record_count)+",\"start_qpc\":"+std::to_string(result.start_qpc)
+        +",\"end_qpc\":"+std::to_string(result.end_qpc)+"}}";
+}
+// DNS_PHASE_REPORT_END
 int client(int argc,wchar_t** argv){
     if(argc!=16)return 2;std::string run,boot,user,admission;std::wstring ready,results,control;
     Clock clock;std::uint64_t p=0,q=0,o=0;
@@ -159,20 +176,31 @@ int client(int argc,wchar_t** argv){
             bool fresh=item!=boot;for(const auto& previous:phase_cases)if(previous==item)fresh=false;
             if(!fresh){failure="command";break;}phase_cases.push_back(item);
             Clock phase=clock;phase.deadline=command.phase_deadline;const auto observed_start=clock.last;
-            Session session;SocketAPI api(0);rp_origin::Facts facts;
-            if(!session.start())api.startup_error=session.error;network=network||session.started;
-            Observer observer{phase};const auto c=config(run,item,port);
-            const auto request=command.operation==2?rpb::relay_request(c):proxy_request(item);
-            const auto response=rpb::expected_response(c);
-            (void)rp_origin::roundtrip(api,observer,port,request.view(),response.view(),facts);
-            if(!session.cleanup())rp_origin::fail(facts,rp_origin::Failure::Close,session.error);
+            std::string observation;
+            if(command.operation==6){
+                // A synchronous API can outlive phaseD. Preserve its actual
+                // result; only the existing outer Job/rootD bounds a stuck call.
+                const auto dns=ruleproxy_dns_standard::query(item,clock.frequency,command.phase_deadline);
+                network=network||dns.called;
+                if(dns.pending)failure="dns-pending";else if(!dns.called)failure="dns-config";
+                (void)phase.sample();observation=",\"dns\":"+dns_report(item,dns);
+            }else{
+                Session session;SocketAPI api(0);rp_origin::Facts facts;
+                if(!session.start())api.startup_error=session.error;network=network||session.started;
+                Observer observer{phase};const auto c=config(run,item,port);
+                const auto request=command.operation==2?rpb::relay_request(c):proxy_request(item);
+                const auto response=rpb::expected_response(c);
+                (void)rp_origin::roundtrip(api,observer,port,request.view(),response.view(),facts);
+                if(!session.cleanup())rp_origin::fail(facts,rp_origin::Failure::Close,session.error);
+                observation=",\"network\":"+bridge_origin::transport_report(facts,api,session,port);
+            }
             clock.last=phase.last;if(!clock.sample()&&!failure)failure=clock.failure;
             const auto report=prefix("proxy-c-client-phase",role,run,boot,identity)+",\"case_id\":\""+item
                 +"\",\"sequence\":"+std::to_string(sequence)+",\"operation\":\""+rpc::operation_name(command.operation)
                 +"\",\"target_port\":"+std::to_string(port)+",\"admission_nonce\":\""+admission
                 +"\",\"root_qpc\":["+std::to_string(clock.frequency)+","+std::to_string(clock.start)+","+std::to_string(clock.deadline)
                 +"],\"phase_qpc\":["+std::to_string(observed_start)+","+std::to_string(command.phase_deadline)+","+std::to_string(phase.last)
-                +"],\"command_close_verified\":"+boolean(commands_closed)+",\"network\":"+bridge_origin::transport_report(facts,api,session,port)
+                +"],\"command_close_verified\":"+boolean(commands_closed)+observation
                 +",\"failure\":"+quoted(failure)+",\"proxy_tested\":false,\"product_acceptance\":false}";
             if(!publish(numbered(results,L"phase-",sequence,L".json"),report)){failure="report";break;}
             ++phases;++sequence;
