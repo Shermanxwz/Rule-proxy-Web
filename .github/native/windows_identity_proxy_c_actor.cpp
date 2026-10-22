@@ -3,8 +3,7 @@
 // No window, UIAccess, DNS, WinHTTP, firewall, exemption or security mutation.
 #include "windows_identity_proxy_origin_actor.cpp"
 #include "windows_identity_proxy_c_contract.hpp"
-#include <shellapi.h>
-#pragma comment(lib,"shell32.lib")
+#include <cstdlib>
 namespace bridge_c {
 using bridge_origin::SocketSlot;using bridge_origin::SocketAPI;using bridge_origin::Session;
 using bridge_origin::Code;using bridge_origin::Close;using bridge_origin::Io;
@@ -414,11 +413,12 @@ int dispatch(int argc,wchar_t** argv){
 }
 } // namespace bridge_c
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int){
-    int count=0;auto raw=CommandLineToArgvW(GetCommandLineW(),&count);if(!raw)return 2;
+    // The wide GUI CRT startup configures __wargv before calling wWinMain.
+    // Avoid Shell32 and its UI DLL initialization under the Win32k restriction.
+    const int count=__argc;auto raw=__wargv;if(!raw)return 2;
     std::vector<std::wstring> arguments;bool valid=count>=2&&count<=32;
     try{if(valid)for(int i=0;i<count;++i){const std::wstring text(raw[i]);if(text.size()>4096){valid=false;break;}arguments.push_back(text);}}
     catch(...){valid=false;}
-    const auto owned=raw;raw=nullptr;const bool closed=LocalFree(owned)==nullptr;
-    if(!valid||!closed)return 2;std::vector<wchar_t*> pointers;for(auto& argument:arguments)pointers.push_back(&argument[0]);
+    if(!valid)return 2;std::vector<wchar_t*> pointers;for(auto& argument:arguments)pointers.push_back(&argument[0]);
     try{return bridge_c::dispatch(count,pointers.data());}catch(...){return 6;}
 }
